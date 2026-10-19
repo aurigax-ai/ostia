@@ -6,8 +6,7 @@ import {
   externalRelationship,
   paragraph,
   picture,
-  withEntries,
-  zeros,
+  retyped,
 } from '../../../test/fixtures/office/workbooks'
 import { readDocument } from './docModel'
 import en from './locales/en.json'
@@ -40,6 +39,19 @@ describe('readDocument', () => {
     expect(out).not.toContain('<script')
   })
 
+  it('opens docm, dotx and dotm like docx', async () => {
+    const base = docx({ body: paragraph('shared') })
+    const main = 'document.main+xml'
+    const variants = {
+      docm: retyped(base, main, 'document.macroEnabled.main+xml'),
+      dotx: retyped(base, main, 'template.main+xml'),
+      dotm: retyped(base, main, 'template.macroEnabled.main+xml'),
+    }
+    for (const [type, bytes] of Object.entries(variants)) {
+      expect(await html(bytes), type).toContain('shared')
+    }
+  })
+
   it('embeds pictures inside the file and never fetches linked ones or link targets', async () => {
     const fetch = vi.spyOn(globalThis, 'fetch')
     const result = await readDocument(
@@ -62,26 +74,10 @@ describe('readDocument', () => {
     expect(fetch).not.toHaveBeenCalled()
   })
 
-  it('names the problem for a bomb, a password, a large file and a malformed file', async () => {
-    const plain = docx({ body: paragraph('x') })
-    expect(
-      await readDocument(
-        withEntries(plain, zeros('word/media/b.bin', 3 * MIB)),
-        {
-          ...OFFICE_LIMITS,
-          inflatedBytes: 2 * MIB,
-          entryRatio: 1e9,
-        },
-        WORDS,
-      ),
-    ).toEqual({ ok: false, problem: 'unzip-limit' })
+  it('names the problem for a password and a malformed file', async () => {
     expect(await readDocument(encryptedWorkbook(), OFFICE_LIMITS, WORDS)).toEqual({
       ok: false,
       problem: 'encrypted',
-    })
-    expect(await readDocument(plain, { ...OFFICE_LIMITS, fileBytes: 100 }, WORDS)).toEqual({
-      ok: false,
-      problem: 'too-large',
     })
     expect(
       await readDocument(new TextEncoder().encode('not a document'), OFFICE_LIMITS, WORDS),

@@ -1,6 +1,6 @@
 import { join } from 'node:path'
 import { readConfined } from '@aurigax-ai/ostia-extension-sdk/manifest/confinedRead'
-import { type BrowserWindow, ipcMain, session } from 'electron'
+import { type BrowserWindow, ipcMain, session, webContents } from 'electron'
 import { appProcessUse } from '../../artifacts/processUse'
 import { getByPaneId } from '../../control/idRegistry'
 import type { ExtensionHost } from '../../extensions/extensionHost'
@@ -12,6 +12,12 @@ import type { ViewerSession } from './viewerSessions'
 import { ViewerWatch } from './viewerWatch'
 
 const EXTENSION_FILE_MAX = 32 * 1024 * 1024
+
+function killGuestProcess(pid: number): void {
+  if (pid <= 0 || pid === process.pid) return
+  const sharing = webContents.getAllWebContents().filter((c) => c.getOSProcessId() === pid)
+  if (sharing.length === 1 && sharing[0].getType() === 'webview') process.kill(pid, 'SIGKILL')
+}
 
 interface ViewerWiringDeps {
   windows: Map<string, BrowserWindow>
@@ -33,7 +39,7 @@ export function createViewerHost({
     confine: (path) => sources.of(path).confine(path),
     ownsPane: (windowId, paneId) => getByPaneId(paneId)?.windowId === windowId,
     viewer: (extId, viewType, path) =>
-      extensions()?.panels.fileViewerSource(extId, viewType, path) ?? null,
+      extensions()?.panels.viewSource(extId, viewType, path) ?? null,
     readDocument: async (path): Promise<ViewerRead> => {
       const read = await sources.of(path).readBinary(path, FS_BINARY_MAX)
       if (read.ok) return { ok: true, body: Buffer.from(read.data) }
@@ -49,7 +55,7 @@ export function createViewerHost({
     },
     unwatch: (owner, path) => watches.unwatch(owner, path),
     locale: () => readLocale() ?? 'en',
-    guests: new ViewerWatch({ processes: appProcessUse }),
+    guests: new ViewerWatch({ processes: appProcessUse, kill: killGuestProcess }),
     stopped: (windowId, event) => windows.get(windowId)?.webContents.send('viewers:stopped', event),
   })
 }

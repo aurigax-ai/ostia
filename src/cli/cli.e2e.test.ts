@@ -413,7 +413,7 @@ describe('ostia CLI end-to-end (spawns the real out/cli/index.js against a live 
     )
 
     expect(res.code).not.toBe(0)
-    expect(res.stderr).toContain("unknown command 'pane.bogus'")
+    expect(res.stderr).toContain("ostia pane.bogus: unknown command 'pane.bogus'")
   })
 
   it('with OSTIA_SOCKET unset: fails fast with a "not inside an Ostia pane" message', async () => {
@@ -457,7 +457,7 @@ describe('ostia CLI end-to-end (spawns the real out/cli/index.js against a live 
       withEnv({ OSTIA_SOCKET: socketPath, OSTIA_TOKEN: identity.token }),
     )
     expect(res.code).toBe(1)
-    expect(res.stderr).toContain("unknown command 'pane.bogus'")
+    expect(res.stderr).toContain('ostia pane.bogus: unknown command (see: ostia commands)')
     expect(res.stderr).not.toContain('JSON')
   })
 
@@ -500,11 +500,15 @@ describe('ostia CLI end-to-end (spawns the real out/cli/index.js against a live 
 
     const unknown = await runOstia(['vault', 'list', '--globl'], env)
     expect(unknown.code).toBe(1)
-    expect(unknown.stderr.trim()).toBe('ostia: unknown flag --globl')
+    expect(unknown.stderr.trim()).toBe(
+      'ostia vault list: unknown flag --globl\nusage: ostia vault list [--global]\n  the secret names',
+    )
 
     const missing = await runOstia(['bus', 'wait', '--timeout'], env)
     expect(missing.code).toBe(1)
-    expect(missing.stderr.trim()).toBe('ostia: --timeout needs a value')
+    expect(missing.stderr.trim()).toMatch(
+      /^ostia bus wait: --timeout needs a value\nusage: ostia bus wait \[--timeout <s>\]\n/,
+    )
   })
 
   it('rejects a non-numeric numeric flag instead of silently defaulting', async () => {
@@ -661,7 +665,7 @@ describe('ostia CLI end-to-end (spawns the real out/cli/index.js against a live 
     it('refuses --pane with nothing after it instead of setting the caller pane', async () => {
       const res = await runOstia(['state', 'done', '--pane'], env())
       expect(res.code).toBe(1)
-      expect(res.stderr).toContain('ostia: --pane needs a value')
+      expect(res.stderr).toContain('ostia state: --pane needs a value')
       expect(execCalls).toHaveLength(0)
     })
 
@@ -950,7 +954,9 @@ describe('ostia CLI end-to-end (spawns the real out/cli/index.js against a live 
       expect(execCalls.at(-1)?.args).toEqual({ text: '' })
       const empty = await runOstia(['workspace', 'describe'], env())
       expect(empty.code).toBe(1)
-      expect(empty.stderr).toContain('missing <text|->')
+      expect(empty.stderr).toContain(
+        'ostia workspace describe: missing arguments\nusage: ostia workspace describe [--workspace <id>] <text|-> | --clear',
+      )
     })
   })
 
@@ -1060,7 +1066,9 @@ describe('ostia CLI end-to-end (spawns the real out/cli/index.js against a live 
       })
       const bad = await runOstia(['workspace', 'pin', 'extra'], env())
       expect(bad.code).toBe(1)
-      expect(bad.stderr).toContain('usage: workspace pin')
+      expect(bad.stderr).toContain(
+        'ostia workspace pin: unexpected arguments\nusage: ostia workspace pin',
+      )
     })
 
     it('lists workspaces with their groups as JSON and as text', async () => {

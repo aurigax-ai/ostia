@@ -1,4 +1,12 @@
-import { closeSync, lstatSync, openSync, readSync, readdirSync } from 'node:fs'
+import {
+  constants,
+  closeSync,
+  fstatSync,
+  lstatSync,
+  openSync,
+  readSync,
+  readdirSync,
+} from 'node:fs'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
 import { ipcMain } from 'electron'
@@ -11,6 +19,7 @@ import {
 
 export const TRANSCRIPT_TAIL_BYTES = 512 * 1024
 const HEAD_BYTES = 64 * 1024
+const READ_FLAGS = constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK
 
 function isPlainFile(path: string): boolean {
   try {
@@ -53,10 +62,12 @@ function codexTranscript(home: string, id: string): string | null {
   return null
 }
 
-function readRange(path: string, fromEnd: boolean, bytes: number): string[] {
-  const fd = openSync(path, 'r')
+export function readRange(path: string, fromEnd: boolean, bytes: number): string[] {
+  const fd = openSync(path, READ_FLAGS)
   try {
-    const size = lstatSync(path).size
+    const info = fstatSync(fd)
+    if (!info.isFile()) throw new Error('not a regular file')
+    const size = info.size
     const length = Math.min(bytes, size)
     const start = fromEnd ? size - length : 0
     const buffer = Buffer.alloc(length)

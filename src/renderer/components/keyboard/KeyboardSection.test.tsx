@@ -53,7 +53,7 @@ const keymapExtension: ExtensionInfo = {
     { id: 'mac', label: 'Mac only', platform: 'darwin' },
   ],
   languageServers: [],
-  fileViewers: [],
+  fileKinds: [],
   agentSkills: [],
   agentHooks: [],
 }
@@ -238,6 +238,12 @@ describe('KeyboardSection', () => {
     useExtensionsStore.setState(initialExtensions, true)
     useKeymapStore.setState(initialKeymap, true)
     useUIStore.setState({ paletteOpen: false })
+  })
+
+  it('has no modifier key remap off macOS', () => {
+    render(<KeyboardSection />)
+    expect(screen.queryByRole('button', { name: 'Reset to Defaults' })).toBeNull()
+    expect(screen.queryByRole('combobox', { name: 'Right Command' })).toBeNull()
   })
 
   it('filters the list to the commands bound to a pressed chord, conflicts included', async () => {

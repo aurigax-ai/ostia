@@ -42,6 +42,7 @@ import { type ChatToolSettings, DEFAULT_CHAT_TOOL_SETTINGS } from '@shared/assis
 import { DEFAULT_GIT_SETTINGS, type GitSettings } from '@shared/boards/git'
 import { DEFAULT_PORTS_SETTINGS, type PortsSettings } from '@shared/boards/ports'
 import type { ChordValue, KeybindingMap } from '@shared/keyboard/chordSpec'
+import type { ModifierRemap } from '@shared/keyboard/modifierRemap'
 import {
   type ApprovalMode,
   type ApprovalSettings,
@@ -242,6 +243,7 @@ export interface Persisted {
   terminalKeymap: string | null
   keybindings: KeybindingMap
   terminalKeys: TerminalKeyMap
+  modifierRemap: ModifierRemap
   keyboardElsewhere: KeyboardElsewhere
   agents: AgentSettings
   assistant: AssistantSettings
@@ -301,6 +303,7 @@ export const DEFAULTS: Persisted = {
   terminalKeymap: null,
   keybindings: {},
   terminalKeys: {},
+  modifierRemap: {},
   keyboardElsewhere: {},
   sidebar: {
     showPath: true,
@@ -383,12 +386,14 @@ export interface SettingsState extends Persisted {
   setTerminalKey: (keys: string, send: TerminalSend | null) => void
   resetTerminalKey: (keys: string) => void
   setTerminalKeys: (map: TerminalKeyMap) => void
+  setModifierRemap: (table: ModifierRemap) => void
   setExtensionSettings: (extId: string, values: ExtensionSettingValues) => void
 }
 
 export const HERE = keyboardPlatform(platform)
 
-export type PersistedFile = Omit<Persisted, KeyboardField | 'keyboardElsewhere'> & KeyboardFile
+export type PersistedFile = Omit<Persisted, KeyboardField | 'keyboardElsewhere' | 'modifierRemap'> &
+  KeyboardFile & { modifierRemap?: ModifierRemap }
 
 export interface SettingChange {
   path: string

@@ -16,7 +16,7 @@ import { RegionCropOverlay } from './RegionCropOverlay'
 import { useBrowserActions } from './useBrowserActions'
 import { useBrowserCapture } from './useBrowserCapture'
 import { useBrowserDevice } from './useBrowserDevice'
-import { useBrowserNavigation } from './useBrowserNavigation'
+import { BLANK_PAGE, useBrowserNavigation } from './useBrowserNavigation'
 import { useGrantedProfile } from './useGrantedProfile'
 import { useWebviewEvents } from './useWebviewEvents'
 
@@ -111,6 +111,8 @@ function BrowserStage({
 function useBrowserWebview(
   paneId: string,
   webviewRef: ReturnType<typeof useBrowserNavigation>['webviewRef'],
+  addressRef: ReturnType<typeof useBrowserNavigation>['addressRef'],
+  lastAppliedUrlRef: ReturnType<typeof useBrowserNavigation>['lastAppliedUrlRef'],
 ) {
   const [webview, setWebview] = useState<HTMLElement | null>(null)
   const readyWebview = useGuestReady(webview)
@@ -121,7 +123,9 @@ function useBrowserWebview(
     },
     [webviewRef],
   )
-  useSurfaceFocus(paneId, () => readyWebview)
+  useSurfaceFocus(paneId, () =>
+    lastAppliedUrlRef.current === BLANK_PAGE ? addressRef.current : readyWebview,
+  )
   return { readyWebview, attachWebview }
 }
 
@@ -167,7 +171,12 @@ export function BrowserView({
     navigate,
     onAddressKeyDown,
   } = useBrowserNavigation({ url })
-  const { readyWebview, attachWebview } = useBrowserWebview(paneId, webviewRef)
+  const { readyWebview, attachWebview } = useBrowserWebview(
+    paneId,
+    webviewRef,
+    addressRef,
+    lastAppliedUrlRef,
+  )
   const sendTouch = useCallback(
     (input: DeviceTouch) => window.ostia.browser.deviceTouch(paneId, input),
     [paneId],

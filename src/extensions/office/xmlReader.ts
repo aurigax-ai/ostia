@@ -189,7 +189,7 @@ export function readXml(text: string, maxDepth: number): XmlElement {
     } else {
       const top = stack.at(-1)
       if (!top && root) fail()
-      if (stack.length >= maxDepth) throw new GuardStop('depth-limit')
+      if (stack.length >= maxDepth) fail()
       const { frame, closed, next } = startTag(text, open, top ? top.scope : null)
       if (top) top.element.children.push(frame.element)
       else root = frame.element

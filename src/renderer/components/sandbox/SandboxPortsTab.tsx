@@ -1,3 +1,4 @@
+import { Notice } from '@/components/common/Notice'
 import { ControlRow } from '@/components/settingsKit/ControlRow'
 import { SettingsList } from '@/components/settingsKit/SettingsList'
 import { SettingsListRow } from '@/components/settingsKit/SettingsListRow'
@@ -117,11 +118,7 @@ export function SandboxPortsTab({ workspaceId }: { workspaceId: string }): JSX.E
           />
         ))}
       </SettingsList>
-      {error ? (
-        <p role="alert" className="mt-1 text-attn-fg text-ui-sm">
-          {error}
-        </p>
-      ) : null}
+      {error ? <Notice tone="error">{error}</Notice> : null}
     </fieldset>
   )
 }

@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer } from 'electron'
-import type { AppInfo, OstiaBridge, Platform } from '../shared/types'
+import type { OstiaBridge, Platform } from '../shared/types'
 import { agentsBridge } from './agentsBridge'
 import { artifactsBridge } from './artifactsBridge'
 import { assistBridge } from './assistBridge'
@@ -23,8 +23,8 @@ import { windowBridge } from './windowBridge'
 import { workspaceBridge } from './workspaceBridge'
 
 const bridge: OstiaBridge = {
-  ping: () => ipcRenderer.invoke('app:ping') as Promise<'pong'>,
-  info: () => ipcRenderer.invoke('app:info') as Promise<AppInfo>,
+  ping: () => ipcRenderer.invoke('app:ping'),
+  info: () => ipcRenderer.invoke('app:info'),
   platform: process.platform as Platform,
   ...windowBridge,
   ...controlBridge,

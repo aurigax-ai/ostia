@@ -116,7 +116,7 @@ export interface OstiaTerminal {
   dispose(): void
 }
 
-export type PauseTerminal = (paused: boolean, options?: { releaseRenderer?: boolean }) => void
+export type PauseTerminal = (paused: boolean) => void
 
 export function terminalScreen(host: ParentNode): HTMLElement | null {
   return host.querySelector<HTMLElement>('.xterm-screen, .ghostty-screen')

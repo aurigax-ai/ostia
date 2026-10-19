@@ -1,3 +1,4 @@
+import { execFileSync } from 'node:child_process'
 import { mkdirSync, mkdtempSync, symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -5,7 +6,7 @@ import { describe, expect, it, vi } from 'vitest'
 
 vi.mock('electron', () => ({ ipcMain: { handle: vi.fn() } }))
 
-const { readSessionInfo, TRANSCRIPT_TAIL_BYTES } = await import('./agentTranscript')
+const { readRange, readSessionInfo, TRANSCRIPT_TAIL_BYTES } = await import('./agentTranscript')
 
 function home(): string {
   return mkdtempSync(join(tmpdir(), 'ostia-transcript-'))
@@ -46,5 +47,17 @@ describe('readSessionInfo', () => {
     )
     const info = readSessionInfo({ agent: 'codex', id: '01a0f1f5' }, h)
     expect(info).toMatchObject({ branch: 'dev', cwd: '/w', model: 'gpt-5.4' })
+  })
+})
+
+describe('readRange', () => {
+  it('refuses a symlink and a FIFO without blocking', () => {
+    const h = home()
+    writeFileSync(join(h, 'real.jsonl'), 'a\n')
+    symlinkSync(join(h, 'real.jsonl'), join(h, 'link.jsonl'))
+    execFileSync('mkfifo', [join(h, 'pipe.jsonl')])
+    expect(() => readRange(join(h, 'link.jsonl'), true, 100)).toThrow()
+    expect(() => readRange(join(h, 'pipe.jsonl'), true, 100)).toThrow()
+    expect(readRange(join(h, 'real.jsonl'), true, 100)).toEqual(['a', ''])
   })
 })

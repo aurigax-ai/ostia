@@ -1002,7 +1002,8 @@ describe('shellIntegrationSpawnOptions', () => {
         }
         const context = readFileSync(contextFile, 'utf8')
         expect(context).toContain(`read its guide: ${join(dir, 'SKILL.md')}`)
-        expect(context).toContain('ELECTRON_RUN_AS_NODE=1 "$OSTIA_NODE" "$OSTIA_CLI"')
+        expect(context).toContain('The `ostia` CLI controls the pane')
+        expect(context).not.toContain('ELECTRON_RUN_AS_NODE')
       } finally {
         rmSync(dir, { recursive: true, force: true })
       }

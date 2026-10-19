@@ -4,10 +4,10 @@ import type {
   WorkspaceChip,
 } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import { PORTS_SOURCE } from '@aurigax-ai/ostia-extension-sdk/manifest/coreNames'
-import { type CoreItems, NO_CORE_ITEMS } from '../../shared/boards/git'
+import type { CoreItems } from '../../shared/boards/git'
 import type { PortsSettings } from '../../shared/boards/ports'
 import type { PaneEntry } from '../panes/paneList'
-import { WatchSets } from '../platform/watchSets'
+import { WatchedRefresher } from '../platform/watchedRefresher'
 import { paneChipValues, workspaceChipValues } from './chips'
 import type { ListeningPort } from './procfs'
 import { type TreeInfo, scanTrees } from './scan'
@@ -41,60 +41,37 @@ export interface WorkspacePorts {
   ssh: string[]
 }
 
-export class PortsService {
-  private watches = new WatchSets()
+type PortChip = PaneChip & { workspaceId: string }
+
+interface PortsData extends Omit<CoreItems, 'paneChips'> {
+  paneChips: PortChip[]
+}
+
+export class PortsService extends WatchedRefresher<PortsData> {
   private settings: PortsSettings
-  private timer: ReturnType<typeof setTimeout> | null = null
-  private poll: ReturnType<typeof setInterval> | null = null
-  private pollMs = 0
-  private focused = true
-  private running = false
-  private sent = new Map<string, string>()
 
   constructor(private readonly deps: PortsServiceDeps) {
+    super({
+      channel: PORTS_ITEMS_CHANNEL,
+      debounceMs: REFRESH_DEBOUNCE_MS,
+      events: REFRESH_EVENTS,
+      send: deps.send,
+      log: deps.log,
+    })
     this.settings = deps.settings()
   }
 
-  get active(): boolean {
-    return this.settings.enabled && !this.watches.empty
+  protected enabled(): boolean {
+    return this.settings.enabled
   }
 
-  get polling(): boolean {
-    return this.poll !== null
-  }
-
-  get pending(): boolean {
-    return this.timer !== null
-  }
-
-  watch(windowId: string, workspaceIds: unknown): void {
-    if (this.watches.set(windowId, workspaceIds)) this.apply()
-  }
-
-  windowGone(windowId: string): void {
-    this.sent.delete(windowId)
-    if (this.watches.drop(windowId)) this.apply()
+  protected pollMs(): number {
+    return this.settings.intervalSeconds * 1000
   }
 
   settingsChanged(): void {
     this.settings = this.deps.settings()
     this.apply()
-  }
-
-  setFocused(focused: boolean): void {
-    if (this.focused === focused) return
-    this.focused = focused
-    if (!this.active) return
-    this.armPoll()
-    if (focused) this.schedule(0)
-  }
-
-  activity(type: string): void {
-    if (this.active && REFRESH_EVENTS.has(type)) this.schedule()
-  }
-
-  stop(): void {
-    this.halt()
   }
 
   async list(): Promise<WorkspacePorts[]> {
@@ -114,73 +91,24 @@ export class PortsService {
     return { trees, groups: groupByWorkspace(panes, trees) }
   }
 
-  private apply(): void {
-    if (!this.active) {
-      this.halt()
-      this.clear()
-      return
-    }
-    this.armPoll()
-    this.schedule(0)
+  protected async read(watched: ReadonlySet<string>): Promise<PortsData> {
+    const panes = (await this.deps.listPanes()).filter((p) => watched.has(p.workspaceId))
+    const { trees, groups } = await this.scanned(panes)
+    return this.items(panes, trees, groups)
   }
 
-  private halt(): void {
-    if (this.timer) clearTimeout(this.timer)
-    this.timer = null
-    if (this.poll) clearInterval(this.poll)
-    this.poll = null
-  }
-
-  private clear(): void {
-    for (const windowId of this.sent.keys()) {
-      this.deps.send(windowId, PORTS_ITEMS_CHANNEL, NO_CORE_ITEMS)
-    }
-    this.sent.clear()
-  }
-
-  private armPoll(): void {
-    const ms = this.settings.intervalSeconds * 1000
-    if (this.poll && this.focused && this.pollMs === ms) return
-    if (this.poll) clearInterval(this.poll)
-    this.pollMs = ms
-    this.poll = this.focused ? setInterval(() => void this.refresh(), ms) : null
-  }
-
-  private schedule(delay = REFRESH_DEBOUNCE_MS): void {
-    if (this.timer) clearTimeout(this.timer)
-    this.timer = setTimeout(() => {
-      this.timer = null
-      void this.refresh()
-    }, delay)
-  }
-
-  async refresh(): Promise<void> {
-    if (!this.active || this.running) return
-    this.running = true
-    try {
-      const watched = this.watches.union()
-      const panes = (await this.deps.listPanes()).filter((p) => watched.has(p.workspaceId))
-      const { trees, groups } = await this.scanned(panes)
-      if (this.active) this.publish(panes, trees, groups)
-    } catch (err) {
-      this.deps.log?.(err instanceof Error ? err.message : String(err))
-    } finally {
-      this.running = false
-    }
-  }
-
-  private publish(
+  private items(
     panes: PaneEntry[],
     trees: Map<number, TreeInfo>,
     groups: Map<string, WorkspaceProcesses>,
-  ): void {
+  ): PortsData {
     const workspaceOf = new Map(panes.map((p) => [p.paneId, p.workspaceId]))
     const sidebar: ExtensionSidebarItem[] = sidebarEntries(groups).map((entry) => ({
       extId: PORTS_SOURCE,
       tone: 'neutral',
       ...entry,
     }))
-    const paneChips: (PaneChip & { workspaceId: string })[] = []
+    const paneChips: PortChip[] = []
     for (const chip of paneChipValues(panes, trees)) {
       const paneId = this.deps.rendererPaneId(chip.paneId)
       const workspaceId = workspaceOf.get(chip.paneId)
@@ -190,24 +118,16 @@ export class PortsService {
     const workspaceChips: WorkspaceChip[] = workspaceChipValues(groups, this.settings.portHost).map(
       (chip) => ({ extId: PORTS_SOURCE, tone: 'neutral', ...chip }),
     )
-    const watching = new Map(this.watches.windows())
-    for (const windowId of [...this.sent.keys()]) {
-      if (watching.has(windowId)) continue
-      this.sent.delete(windowId)
-      this.deps.send(windowId, PORTS_ITEMS_CHANNEL, NO_CORE_ITEMS)
-    }
-    for (const [windowId, ids] of watching) {
-      const items: CoreItems = {
-        sidebar: sidebar.filter((i) => i.workspaceId !== undefined && ids.has(i.workspaceId)),
-        paneChips: paneChips
-          .filter((c) => ids.has(c.workspaceId))
-          .map(({ workspaceId: _workspaceId, ...chip }) => chip),
-        workspaceChips: workspaceChips.filter((c) => ids.has(c.workspaceId)),
-      }
-      const text = JSON.stringify(items)
-      if (this.sent.get(windowId) === text) continue
-      this.sent.set(windowId, text)
-      this.deps.send(windowId, PORTS_ITEMS_CHANNEL, items)
+    return { sidebar, paneChips, workspaceChips }
+  }
+
+  protected itemsFor(ids: ReadonlySet<string>, all: PortsData): CoreItems {
+    return {
+      sidebar: all.sidebar.filter((i) => i.workspaceId !== undefined && ids.has(i.workspaceId)),
+      paneChips: all.paneChips
+        .filter((c) => ids.has(c.workspaceId))
+        .map(({ workspaceId: _workspaceId, ...chip }) => chip),
+      workspaceChips: all.workspaceChips.filter((c) => ids.has(c.workspaceId)),
     }
   }
 }

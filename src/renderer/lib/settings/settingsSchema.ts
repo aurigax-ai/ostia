@@ -3,6 +3,7 @@ import { isKeyboardPlatform, keyboardPlatform } from '@/lib/keyboard/keyboardPre
 import { platform } from '@/platform'
 import { PRODUCT_DISPLAY_NAME } from '@aurigax-ai/ostia-extension-sdk/contract/productDisplay'
 import { DEFAULT_CHORDS } from '@shared/keyboard/defaultChords'
+import { REMAP_DEFAULTS, REMAP_KEYS, REMAP_TARGETS } from '@shared/keyboard/modifierRemap'
 import {
   actionsSchema,
   agentsSchema,
@@ -162,6 +163,24 @@ export const SETTINGS_JSON_SCHEMA = {
         'can change this, in Settings → Keyboard; agents cannot.',
       TERMINAL_KEYS_VALUE,
     ),
+    modifierRemap: {
+      type: 'object',
+      additionalProperties: false,
+      description:
+        'macOS: what each physical modifier key does inside Ostia. A key not listed keeps its ' +
+        'own. Only you can change this, in Settings → Keyboard; agents cannot. Other platforms ' +
+        'ignore it.',
+      properties: Object.fromEntries(
+        REMAP_KEYS.map((key) => [
+          key,
+          {
+            type: 'string',
+            enum: [...REMAP_TARGETS],
+            description: `Default: ${REMAP_DEFAULTS[key]}.`,
+          },
+        ]),
+      ),
+    },
     workspaceGroups: workspaceGroupsSchema,
     git: gitSchema,
     ports: portsSchema,

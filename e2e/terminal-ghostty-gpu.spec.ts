@@ -23,7 +23,7 @@ test(
 )
 
 test(
-  'a Ghostty terminal whose WebGL context is lost keeps drawing on the canvas renderer',
+  'a Ghostty terminal whose WebGL context is lost gets a new one and keeps drawing',
   { tag: '@experimental' },
   async () => {
     const { app, win } = await launchOnGpu()
@@ -34,7 +34,15 @@ test(
         const gl = (canvas as HTMLCanvasElement).getContext('webgl2')
         gl?.getExtension('WEBGL_lose_context')?.loseContext()
       })
-      await expect(canvases).toHaveCount(1)
+      await expect(canvases).toHaveCount(2)
+      await expect
+        .poll(() =>
+          canvases.nth(1).evaluate((canvas) => {
+            const gl = (canvas as HTMLCanvasElement).getContext('webgl2')
+            return gl !== null && !gl.isContextLost()
+          }),
+        )
+        .toBe(true)
       await win.locator('.ghostty-screen').first().click()
       await typeLine(win, RED_BLOCKS)
       const host = win.locator('.ghostty-host').first()
@@ -46,7 +54,7 @@ test(
 )
 
 test(
-  'a Ghostty terminal hidden in a background tab gives up its WebGL renderer and shows what it printed when revealed',
+  'a Ghostty terminal hidden in a background tab keeps its WebGL renderer and shows what it printed when revealed',
   { tag: '@experimental' },
   async () => {
     test.setTimeout(60_000)
@@ -61,7 +69,8 @@ test(
       await expect(tabs).toHaveCount(2, { timeout: 15_000 })
       await expect(tabs.nth(1)).toHaveAttribute('aria-selected', 'true')
 
-      await expect(first.locator('canvas')).toHaveCount(1, { timeout: 20_000 })
+      await win.waitForTimeout(3_000)
+      await expect(first.locator('canvas')).toHaveCount(2)
 
       await tabs.nth(0).click()
       await expect(first.locator('canvas')).toHaveCount(2)

@@ -51,7 +51,7 @@ export function createMarketplaceIpc({
       return suggestionFor(file, {
         servers: () => services.extensionHost?.contributions.languageServers() ?? [],
         extensions: () => services.extensionHost?.list() ?? [],
-        listings: () => marketplace.languageListings(),
+        listings: () => marketplace.listings(),
         dismissed: () => dismissed.list(),
         official: officialMarketplaceId,
         languageOf: editorLanguageOf,

@@ -21,7 +21,7 @@ interface WindowControls {
 
 export type QuitAnswer = 'cancel' | 'quit' | 'keep-shells'
 
-export interface QuitQuestion {
+interface QuitQuestion {
   groups: RunningGroup[]
   keptShells: string[]
 }

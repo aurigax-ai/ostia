@@ -79,7 +79,7 @@ function iconThemeExtension(): ExtensionInfo {
     category: 'other',
     languages: [],
     languageServers: [],
-    fileViewers: [],
+    fileKinds: [],
     agentSkills: [],
     agentHooks: [],
     iconThemes: [{ id: 'fixture-icons', label: 'Fixture Icons' }],

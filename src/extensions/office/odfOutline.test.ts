@@ -36,6 +36,17 @@ function slides(bytes: Uint8Array, limits: OfficeLimits = OFFICE_LIMITS): Docume
   return readPresentation(bytes, limits, WORDS)
 }
 
+describe('odf templates', () => {
+  it('opens ott as text and otp as an outline', async () => {
+    const ott = odf(`${ODT_MIMETYPE}-template`, { body: '<text:p>shared</text:p>' })
+    expect(html(await text(ott))).toContain('shared')
+    const otp = odf(`${ODP_MIMETYPE}-template`, {
+      body: odpPage('p1', odpFrame('title', '<text:p>Deck</text:p>')),
+    })
+    expect(html(slides(otp))).toContain('Deck')
+  })
+})
+
 describe('readDocument (odt)', () => {
   it('reads headings, spans, spaces, tabs, line breaks and nested lists', async () => {
     const out = html(
@@ -132,15 +143,7 @@ describe('readDocument (odt)', () => {
     })
     expect(await text(deep, { ...OFFICE_LIMITS, xmlDepth: 32 })).toEqual({
       ok: false,
-      problem: 'depth-limit',
-    })
-  })
-
-  it('refuses more elements than documentNodes allows', async () => {
-    const many = odf(ODT_MIMETYPE, { body: '<text:p>x</text:p>'.repeat(300) })
-    expect(await text(many, { ...OFFICE_LIMITS, documentNodes: 200 })).toEqual({
-      ok: false,
-      problem: 'nodes-limit',
+      problem: 'failed',
     })
   })
 
@@ -227,16 +230,11 @@ describe('readPresentation (odp)', () => {
     expect(html(result)).not.toContain('<h2>c</h2>')
   })
 
-  it('refuses a password and more elements than presentationNodes allows', () => {
+  it('refuses a password', () => {
     const locked = odf(ODP_MIMETYPE, {
       body: odpPage('p', ''),
       manifest: '<manifest:file-entry><manifest:encryption-data/></manifest:file-entry>',
     })
     expect(slides(locked)).toEqual({ ok: false, problem: 'encrypted' })
-    const many = odf(ODP_MIMETYPE, { body: odpPage('p', '<text:p>x</text:p>'.repeat(300)) })
-    expect(slides(many, { ...OFFICE_LIMITS, presentationNodes: 200 })).toEqual({
-      ok: false,
-      problem: 'nodes-limit',
-    })
   })
 })

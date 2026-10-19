@@ -14,6 +14,7 @@ import { clampZoom } from '@shared/app/zoom'
 import { parseChatToolSettings } from '@shared/assist/chatTools'
 import { parseGitSettings } from '@shared/boards/git'
 import { parsePortsSettings } from '@shared/boards/ports'
+import { parseModifierRemap } from '@shared/keyboard/modifierRemap'
 import { parseRedactionSettings } from '@shared/privacy/redaction'
 import { parseTelemetrySettings } from '@shared/privacy/telemetry'
 import { parsePromptSettings } from '@shared/terminal/promptSettings'
@@ -211,6 +212,7 @@ export function createKeyboardActions(
   | 'setTerminalKey'
   | 'resetTerminalKey'
   | 'setTerminalKeys'
+  | 'setModifierRemap'
 > {
   return {
     setKeymap: (ref) => {
@@ -256,6 +258,11 @@ export function createKeyboardActions(
 
     setTerminalKeys: (terminalKeys) => {
       set({ terminalKeys })
+      scheduleSave(get)
+    },
+
+    setModifierRemap: (table) => {
+      set({ modifierRemap: parseModifierRemap(table) })
       scheduleSave(get)
     },
   }

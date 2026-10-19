@@ -1,6 +1,6 @@
 ---
 name: ostia-manager
-description: Runs Ostia's manager agent, the agent a human starts with `ostia <agent>` from a terminal outside Ostia. Lists every workspace and pane, reads a pane's screen, starts worker agents, messages them over the bus, and types into a pane when the human allowed it, within the limits the human set. Use when the agent is the Ostia manager, or when a task asks to start, watch or answer other agents in Ostia.
+description: Runs Ostia's manager agent, started with `ostia <agent>` from a terminal outside Ostia: lists workspaces and panes, reads screens, starts and messages worker agents, and types into panes the human allowed. Use when the agent is the Ostia manager, or when a task asks to start, watch or answer other agents in Ostia.
 ---
 
 # Ostia manager
@@ -21,7 +21,8 @@ across every workspace.
 
 ```sh
 ostia workspace list --json              # {workspaces:[{workspaceId, name, kind, workDir, state, groupId?}], groups}
-ostia pane list                          # every pane (JSON): paneId, workspaceId, kind, title, cwd, running,
+ostia pane list                          # a line per pane: paneId, workspaceId, kind, state, title
+ostia pane list --json                   # paneId, workspaceId, kind, title, cwd, running,
                                          # agent?, agentState?, agentMessage?, hibernated?
 ostia manager read <paneId> [--lines N]  # the pane's screen as text (default 200 lines, at most 2000)
 ostia whoami                             # your own paneId

@@ -47,7 +47,7 @@ const git: ExtensionInfo = {
   category: 'other',
   languages: [],
   languageServers: [],
-  fileViewers: [],
+  fileKinds: [],
   agentSkills: [],
   agentHooks: [],
   iconThemes: [],
@@ -279,20 +279,33 @@ describe('TopBar', () => {
     expect(within(button).getByText('Ctrl+Alt+K')).toBeInTheDocument()
   })
 
-  it('puts the dashboard button after Files, and the extension panel toggles at the right', () => {
+  it('puts the extension panel toggles right after Files on the left, and the Git chip stays on the right', () => {
     seedWorkspace()
-    useExtensionsStore.setState({ list: [git] })
+    const activity: ExtensionInfo = {
+      ...git,
+      id: 'activity',
+      name: 'Activity',
+      panel: { title: 'Activity', icon: 'chat' },
+    }
+    useExtensionsStore.setState({
+      list: [
+        { ...git, panel: null, workspaceChips: [{ id: 'branch', title: 'Git branch' }] },
+        activity,
+      ],
+      workspaceChips: [
+        { extId: 'vcs', id: 'branch', workspaceId: 's1', text: 'main', tone: 'neutral' },
+      ],
+    })
     const { container } = render(<TopBar />)
     const names = (selector: string) =>
       Array.from(container.querySelector(selector)?.querySelectorAll('button') ?? []).map((b) =>
         b.getAttribute('aria-label'),
       )
-    expect(names('.topbar-left').slice(-2)).toEqual(['Files', 'Dashboard'])
-    const right = names('.topbar-right')
-    expect(right.slice(right.indexOf('Changes'), right.indexOf('Changes') + 2)).toEqual([
-      'Changes',
-      'Settings',
-    ])
+    expect(names('.topbar-left').slice(-3)).toEqual(['Files', 'Activity', 'Dashboard'])
+    expect(names('.topbar-right')).not.toContain('Activity')
+    expect(container.querySelector('.topbar-right')).toContainElement(
+      screen.getByRole('list', { name: 'Workspace status' }),
+    )
   })
 
   it('opens and closes the dashboard from its button, pressed while open', async () => {

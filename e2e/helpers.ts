@@ -1,6 +1,13 @@
 import { escapeRegExp } from 'es-toolkit'
 import { textPainted } from './pixels'
-import { type ElectronApplication, type Locator, type Page, expect, waitForExit } from './test'
+import {
+  type ElectronApplication,
+  type Locator,
+  type Page,
+  expect,
+  stopTrace,
+  waitForExit,
+} from './test'
 
 export const PROMPT = /[❯$%#]/
 
@@ -173,6 +180,7 @@ export async function waitForPaletteSelection(win: Page, title: string): Promise
 }
 
 export async function askToQuit(app: ElectronApplication): Promise<void> {
+  await stopTrace(app)
   await app
     .evaluate(({ app: electronApp }) => {
       setTimeout(() => electronApp.quit(), 0)
@@ -189,6 +197,7 @@ export async function restartApp(app: ElectronApplication, win: Page): Promise<v
   await app.evaluate(({ app: electronApp }) => {
     electronApp.relaunch = () => undefined
   })
+  await stopTrace(app)
   const exited = waitForExit(app)
   await win.evaluate(() => {
     void window.ostia.update.restart()
@@ -206,6 +215,7 @@ async function dialogShown(win: Page): Promise<'asked' | null> {
 }
 
 export async function pressQuit(app: ElectronApplication, win: Page): Promise<'quit' | 'asked'> {
+  await stopTrace(app)
   const exited = waitForExit(app).then(() => 'quit' as const)
   if (process.platform === 'darwin') {
     await askToQuit(app)

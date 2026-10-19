@@ -22,6 +22,18 @@ describe('PtySession', () => {
     expect(b).toEqual(['boot\n', 'live'])
   })
 
+  it('replays a new pty whole and dropped to a cursor from an earlier one, even below its end', () => {
+    const earlier = new PtySession()
+    earlier.push('x'.repeat(3000))
+    const stale = earlier.cursor - 1000
+    const next = new PtySession()
+    next.push('y'.repeat(5000))
+    expect(stale).toBeLessThan(next.cursor)
+    const seen: string[] = []
+    expect(next.addSubscriber(sub('phone', 'observer', seen), stale).dropped).toBe(true)
+    expect(seen).toEqual(['y'.repeat(5000)])
+  })
+
   it('only owners may write; observers may not', () => {
     const s = new PtySession()
     s.addSubscriber(sub('o', 'owner', []))

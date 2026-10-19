@@ -1,21 +1,11 @@
 import { ipcRenderer } from 'electron'
-import type { ArtifactListing } from '../shared/artifacts/artifacts'
-import type {
-  ArtifactRestore,
-  ArtifactVersion,
-  ArtifactVersionContent,
-} from '../shared/artifacts/artifacts'
-import type { PreviewOpened } from '../shared/artifacts/htmlPreview'
-import type { PortableResult } from '../shared/artifacts/portable'
 import type { OstiaBridge } from '../shared/types'
 import { listen } from './listen'
 
 export const artifactsBridge: Pick<OstiaBridge, 'artifacts' | 'preview'> = {
   artifacts: {
-    list: (workspaceId) =>
-      ipcRenderer.invoke('artifacts:list', workspaceId) as Promise<ArtifactListing | null>,
-    pad: (workspaceId) =>
-      ipcRenderer.invoke('artifacts:pad', workspaceId) as Promise<string | null>,
+    list: (workspaceId) => ipcRenderer.invoke('artifacts:list', workspaceId),
+    pad: (workspaceId) => ipcRenderer.invoke('artifacts:pad', workspaceId),
     reveal: (workspaceId) => ipcRenderer.send('artifacts:reveal', workspaceId),
     portable: (action, request) => {
       const channel =
@@ -24,46 +14,23 @@ export const artifactsBridge: Pick<OstiaBridge, 'artifacts' | 'preview'> = {
           : action === 'save'
             ? 'artifacts:portable-save'
             : 'artifacts:portable-copy'
-      return ipcRenderer.invoke(channel, request) as Promise<PortableResult>
+      return ipcRenderer.invoke(channel, request)
     },
-    versions: (workspaceId, path) =>
-      ipcRenderer.invoke('artifacts:versions', workspaceId, path) as Promise<
-        ArtifactVersion[] | null
-      >,
+    versions: (workspaceId, path) => ipcRenderer.invoke('artifacts:versions', workspaceId, path),
     version: (workspaceId, path, id) =>
-      ipcRenderer.invoke(
-        'artifacts:version',
-        workspaceId,
-        path,
-        id,
-      ) as Promise<ArtifactVersionContent | null>,
+      ipcRenderer.invoke('artifacts:version', workspaceId, path, id),
     restore: (workspaceId, path, id) =>
-      ipcRenderer.invoke(
-        'artifacts:restore',
-        workspaceId,
-        path,
-        id,
-      ) as Promise<ArtifactRestore | null>,
-    producers: (workspaceId) =>
-      ipcRenderer.invoke('artifacts:producers', workspaceId) as Promise<Record<
-        string,
-        string
-      > | null>,
+      ipcRenderer.invoke('artifacts:restore', workspaceId, path, id),
+    producers: (workspaceId) => ipcRenderer.invoke('artifacts:producers', workspaceId),
     onChanged: (cb) => listen('artifacts:changed', cb),
   },
   preview: {
-    open: (paneId, path, theme) =>
-      ipcRenderer.invoke('preview:open', paneId, path, theme) as Promise<PreviewOpened | null>,
+    open: (paneId, path, theme) => ipcRenderer.invoke('preview:open', paneId, path, theme),
     shown: (id, visible) => ipcRenderer.send('preview:shown', id, visible),
     stop: (id) => ipcRenderer.send('preview:stop', id),
     close: (id) => ipcRenderer.send('preview:close', id),
-    capture: (id, rect) =>
-      ipcRenderer.invoke('preview:capture', id, rect) as Promise<{
-        image: Uint8Array
-        region: { x: number; y: number; width: number; height: number }
-      } | null>,
-    copyRegion: (id, rect) =>
-      ipcRenderer.invoke('preview:copy-region', id, rect) as Promise<boolean>,
+    capture: (id, rect) => ipcRenderer.invoke('preview:capture', id, rect),
+    copyRegion: (id, rect) => ipcRenderer.invoke('preview:copy-region', id, rect),
     onEvent: (cb) => listen('preview:event', cb),
   },
 }

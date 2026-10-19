@@ -5,14 +5,10 @@ import type { ReachListing } from '../approvals/reach'
 import type { Reach } from '../approvals/reach'
 import { setUserPresenceCheck } from '../approvals/scriptTokenConfirm'
 import { registerScriptTokenIpc } from '../approvals/scriptTokenIpc'
-import { retireLegacyScriptTokens } from '../approvals/scriptTokenRetired'
 import type { ScriptTokenUsageLog } from '../approvals/scriptTokenUsage'
 import { checkScriptToken, registerScriptTokenMethods } from '../approvals/scriptTokens'
 import { electronPresenceDeps, verifyUserPresence } from '../approvals/userPresence'
-import { postNotification } from '../attention/notify'
-import type { NotifyWiring } from '../attention/notifyWiring'
 import { listPanes } from '../panes/paneList'
-import { storePath } from '../platform/jsonStore'
 import type { WorkspaceSandboxes } from '../sandbox/workspaceSandboxes'
 import type { KeptShellsWiring } from '../tmux/keptShellsWiring'
 import type { WindowSend } from '../windows/windowSend'
@@ -22,9 +18,7 @@ import { controlInfoPath, writeControlInfo } from './controlDiscovery'
 import { controlSocketPath, registerControlServer } from './controlServer'
 
 interface ControlStartDeps {
-  retiredScriptTokensPath: () => string
   mainStrings: () => Dict
-  notifyDeps: NotifyWiring['notifyDeps']
   scriptTokensPath: () => string
   workspaceListing: () => Promise<ReachListing>
   broadcast: WindowSend['broadcast']
@@ -45,9 +39,7 @@ interface ControlStartDeps {
 }
 
 export function startControlServer({
-  retiredScriptTokensPath,
   mainStrings,
-  notifyDeps,
   scriptTokensPath,
   workspaceListing,
   broadcast,
@@ -66,21 +58,8 @@ export function startControlServer({
   keptPlumbing,
   keepShellsOn,
 }: ControlStartDeps) {
-  const retiredTokens = retireLegacyScriptTokens(
-    storePath('script-tokens', 'global'),
-    retiredScriptTokensPath(),
-  )
-  if (retiredTokens.length > 0) {
-    const text = mainStrings().native.scriptTokensRetired
-    postNotification(notifyDeps, {
-      title: fmt(text.title, { count: retiredTokens.length }),
-      body: fmt(text.body, { names: retiredTokens.join(', ') }),
-      from: 'script-tokens',
-    })
-  }
   const scriptTokenDeps = {
     path: scriptTokensPath,
-    retiredPath: retiredScriptTokensPath,
     listing: workspaceListing,
     changed: () => broadcast('scriptTokens:changed', null),
     appWindows: () => windows.values(),
@@ -89,9 +68,7 @@ export function startControlServer({
   }
   registerScriptTokenMethods(scriptTokenDeps)
   registerScriptTokenIpc(scriptTokenDeps)
-  setScriptTokenCheck((token) =>
-    checkScriptToken({ path: scriptTokensPath(), retiredPath: retiredScriptTokensPath() }, token),
-  )
+  setScriptTokenCheck((token) => checkScriptToken({ path: scriptTokensPath() }, token))
   const presenceDeps = electronPresenceDeps(
     () => windows.values(),
     () => mainStrings().native.userPresence,

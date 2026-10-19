@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { en } from '../../../shared/app/dict'
 
 vi.mock('electron', () => ({
   app: {
@@ -27,6 +28,7 @@ function planner(keepShells: boolean, found: boolean) {
     keepShellsOn: () => keepShells,
     keptShellsProgram: () => (found ? program : null),
     telemetry: () => null,
+    bannerText: () => en.native.paneBanner,
   })
 }
 
@@ -60,6 +62,7 @@ async function attach(keepShells: boolean, spawnKept: () => Promise<unknown>) {
     startTracked: startTracked as never,
     historySettled: async () => undefined,
     telemetry: () => null,
+    bannerText: () => en.native.paneBanner,
   })
   await attachPty({ sender: { id: 1 } } as never, 'p1', { cwd: '/', workspaceId: 'w1' } as never)
   const [, , , plan, keptSpawn] = startTracked.mock.calls[0] as unknown as [

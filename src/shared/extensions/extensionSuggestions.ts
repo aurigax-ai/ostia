@@ -56,9 +56,15 @@ export function suggestedExtension(
   return null
 }
 
-export type ExtensionSuggestion =
-  | { kind: 'install'; extId: string; name: string; files: string; others: number }
-  | { kind: 'enable'; extId: string; name: string; files: string; pending: boolean; others: number }
+type SuggestionFeature = 'language' | 'view'
+
+export type ExtensionSuggestion = {
+  feature: SuggestionFeature
+  extId: string
+  name: string
+  files: string
+  others: number
+} & ({ kind: 'install' } | { kind: 'enable'; pending: boolean })
 
 export interface SuggestionsApi {
   forFile: (paneId: string, path: string) => Promise<ExtensionSuggestion | null>

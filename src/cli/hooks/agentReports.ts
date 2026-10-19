@@ -15,14 +15,14 @@ import {
   claudeAttention,
   isClaudeAttentionEvent,
 } from '../../shared/agents/claudeAttention'
+import { fail } from '../common/failure'
 import { readAllStdin } from '../common/stdinText'
 
 export async function runClaudeHookVerb(conn: MessageConnection): Promise<void> {
   const event = process.argv[3]
   if (!isClaudeAttentionEvent(event) && !isClaudeWorkEvent(event)) {
     const events = [...new Set([...CLAUDE_ATTENTION_EVENTS, ...CLAUDE_WORK_EVENTS])]
-    console.error(`ostia claude-hook: usage: claude-hook <${events.join('|')}>`)
-    process.exitCode = 1
+    fail(`ostia claude-hook: usage: claude-hook <${events.join('|')}>`)
     return
   }
   const input = await readAllStdin()
@@ -36,22 +36,19 @@ export async function runClaudeHookVerb(conn: MessageConnection): Promise<void> 
     message: attention.message || undefined,
   })
   if (!res.ok) {
-    console.error(`ostia claude-hook: ${res.error ?? 'failed'}`)
-    process.exitCode = 1
+    fail(`ostia claude-hook: ${res.error ?? 'failed'}`)
   }
 }
 
 export async function runResumeTokenVerb(conn: MessageConnection): Promise<void> {
   const [agent, raw] = process.argv.slice(3)
   if (!isResumableAgent(agent) || !raw) {
-    console.error(`ostia resume-token: usage: resume-token <${RESUMABLE_AGENTS.join('|')}> <id|->`)
-    process.exitCode = 1
+    fail(`ostia resume-token: usage: resume-token <${RESUMABLE_AGENTS.join('|')}> <id|->`)
     return
   }
   const id = resumeFromHookPayload(raw === '-' ? await readAllStdin() : raw)
   if (!id) {
-    console.error('ostia resume-token: no agent session id found')
-    process.exitCode = 1
+    fail('ostia resume-token: no agent session id found')
     return
   }
   const args = capturedArgs(agent, process.env)
@@ -63,7 +60,6 @@ export async function runResumeTokenVerb(conn: MessageConnection): Promise<void>
   if (res.ok) {
     console.log('ok')
   } else {
-    console.error(`ostia resume-token: ${res.error ?? 'failed'}`)
-    process.exitCode = 1
+    fail(`ostia resume-token: ${res.error ?? 'failed'}`)
   }
 }

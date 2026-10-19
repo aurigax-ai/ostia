@@ -78,6 +78,8 @@ describe('ext.mcpCall and ext.mcpServers', () => {
       callTimeoutMs: 1500,
     })
     host = new ExtensionHost({
+      sandboxDomains: () => null,
+      isSandboxed: () => false,
       roots: [{ dir: fixtures, builtin: true }],
       store: new ExtensionStore(join(dir, 'extensions.json')),
       socketPath: () => socketPath,

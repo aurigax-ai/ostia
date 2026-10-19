@@ -1,9 +1,12 @@
 import { describe, expect, it } from 'vitest'
+import { en } from '../../shared/app/dict'
 import { hiddenHomeNotice, missingPackages, sandboxFailureBanner } from './spawnBanner'
+
+const t = en.native.paneBanner
 
 describe('hiddenHomeNotice', () => {
   it('tells a Linux shell that writes to the hidden home folder are discarded, and how to keep them', () => {
-    const notice = hiddenHomeNotice('linux')
+    const notice = hiddenHomeNotice(t, 'linux')
     expect(notice).toContain('your home folder is hidden here')
     expect(notice).toContain('are discarded when this shell exits')
     expect(notice).toContain('Add a writable folder')
@@ -11,7 +14,7 @@ describe('hiddenHomeNotice', () => {
   })
 
   it('fits an 80-column pane without wrapping', () => {
-    const lines = hiddenHomeNotice('linux')
+    const lines = hiddenHomeNotice(t, 'linux')
       .replaceAll('\x1b[2m', '')
       .replaceAll('\x1b[0m', '')
       .split('\r\n')
@@ -19,7 +22,7 @@ describe('hiddenHomeNotice', () => {
   })
 
   it('says nothing on macOS, where a write to the hidden home fails with an error', () => {
-    expect(hiddenHomeNotice('darwin')).toBe('')
+    expect(hiddenHomeNotice(t, 'darwin')).toBe('')
   })
 })
 
@@ -29,7 +32,7 @@ describe('sandboxFailureBanner', () => {
       'bubblewrap',
       'socat',
     ])
-    const banner = sandboxFailureBanner('cannot start', ['bwrap not found'])
+    const banner = sandboxFailureBanner(t, 'cannot start', ['bwrap not found'])
     expect(banner).toContain('Sandbox unavailable: cannot start')
     expect(banner).toContain('ostia system install bubblewrap')
     expect(banner).toContain('No shell was started')

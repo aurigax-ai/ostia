@@ -1,7 +1,9 @@
 import type { MessageConnection } from 'vscode-jsonrpc/node'
-import { FlagError, parseArgs } from '../common/args'
+import { parseArgs } from '../common/args'
 import { resolveWorkspaceRef } from '../common/crossWorkspace'
-import { usageOf } from '../common/usageTable'
+import { commandLabel } from '../common/failure'
+import { tsvLine } from '../common/lineField'
+import { usageOf, verbUsageOf } from '../common/usageTable'
 
 interface PaneInputParams {
   pane: string
@@ -19,7 +21,7 @@ export type PaneCall =
   | { method: 'pane.wake'; params: PaneWakeParams; json: boolean }
   | { method: 'pane.hibernate'; params: { panes: string[] }; json: boolean }
   | { method: 'pane.close'; params: { panes?: string[] }; json: boolean }
-  | { method: 'pane.list'; params: Record<string, never>; json: true }
+  | { method: 'pane.list'; params: Record<string, never>; json: boolean }
   | { method: 'pane.moveTo'; params: PaneMoveParams; json: boolean }
 
 interface PaneMoveParams {
@@ -59,15 +61,6 @@ export type PaneWaitResult =
 const PANE_WAIT_EXIT = { reached: 0, timedOut: 3, closed: 4 } as const
 
 const USAGE = usageOf('pane')
-
-function readFlags(argv: string[]) {
-  try {
-    return parseArgs(argv, { values: { lines: '--lines' }, booleans: { json: '--json' } })
-  } catch (err) {
-    if (err instanceof FlagError && err.problem === 'unknown') throw new Error(USAGE)
-    throw err
-  }
-}
 
 function timeoutFlag(raw: string | undefined): number | undefined {
   if (raw === undefined) return undefined
@@ -180,7 +173,7 @@ export function waitOutcome(result: PaneWaitResult, json: boolean): { line: stri
     const { paneId, state, message } = result
     const line = json
       ? JSON.stringify({ paneId, state, message: message ?? null })
-      : [paneId, state, ...(message ? [message] : [])].join('\t')
+      : tsvLine([paneId, state, ...(message ? [message] : [])])
     return { line, code: PANE_WAIT_EXIT.reached }
   }
   if ('closed' in result) {
@@ -195,11 +188,32 @@ export function waitOutcome(result: PaneWaitResult, json: boolean): { line: stri
   }
 }
 
+interface ListedPane {
+  paneId: string
+  workspaceId: string
+  kind: string
+  title: string
+  running: boolean
+  agentState?: string
+  hibernated?: true
+  waking?: true
+}
+
+export function paneLine(pane: ListedPane): string {
+  const state = pane.hibernated
+    ? 'hibernated'
+    : pane.waking
+      ? 'waking'
+      : (pane.agentState ?? (pane.running ? 'running' : 'idle'))
+  return tsvLine([pane.paneId, pane.workspaceId, pane.kind, state, pane.title])
+}
+
 export function parsePaneArgs(argv: string[]): PaneCall {
   const [sub, pane, ...rest] = argv
   if (sub === 'list') {
-    if (pane !== undefined) throw new Error(USAGE)
-    return { method: 'pane.list', params: {}, json: true }
+    const { positional, booleans } = parseArgs(argv.slice(1), { booleans: { json: '--json' } })
+    if (positional.length > 0) throw new Error(USAGE)
+    return { method: 'pane.list', params: {}, json: booleans.json }
   }
   if (sub === 'close') return parseClose(argv.slice(1))
   if (!sub || !pane) throw new Error(USAGE)
@@ -236,7 +250,10 @@ export function parsePaneArgs(argv: string[]): PaneCall {
     return { method: 'pane.input', params: { pane, keys: rest } }
   }
   if (sub === 'read') {
-    const { positional, values, booleans } = readFlags(rest)
+    const { positional, values, booleans } = parseArgs(rest, {
+      values: { lines: '--lines' },
+      booleans: { json: '--json' },
+    })
     if (positional.length > 0) throw new Error(USAGE)
     if (values.lines === undefined) {
       return { method: 'pane.read', params: { pane }, json: booleans.json }
@@ -268,11 +285,9 @@ export async function runPaneVerb(
   try {
     call = parsePaneArgs(argv)
   } catch (err) {
-    console.error(
-      err instanceof Error && err.message === USAGE
-        ? USAGE
-        : `ostia pane: ${err instanceof Error ? err.message : String(err)}`,
-    )
+    const message = err instanceof Error ? err.message : String(err)
+    const usage = verbUsageOf('pane', argv[0])
+    console.error(message === USAGE ? usage : `${commandLabel()}: ${message}\n${usage}`)
     return 1
   }
   if (call.method === 'pane.input' && call.stdin) {
@@ -293,7 +308,8 @@ export async function runPaneVerb(
     return 0
   }
   if (call.method === 'pane.list') {
-    console.log(JSON.stringify(await conn.sendRequest('pane.list'), null, 2))
+    const panes = await conn.sendRequest<ListedPane[]>('pane.list')
+    console.log(call.json ? JSON.stringify(panes) : panes.map(paneLine).join('\n'))
     return 0
   }
   if (call.method === 'pane.wait') {
@@ -307,7 +323,7 @@ export async function runPaneVerb(
   if (call.method === 'pane.read' && !call.json) {
     console.log((result as { text: string }).text)
   } else if (call.method === 'pane.read') {
-    console.log(JSON.stringify(result, null, 2))
+    console.log(JSON.stringify(result))
   } else if (call.method === 'pane.wake') {
     const { line, code } = wakeOutcome(result as PaneWakeResult, call.json)
     if (code === PANE_WAIT_EXIT.reached || call.json) console.log(line)

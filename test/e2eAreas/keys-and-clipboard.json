@@ -4,6 +4,7 @@
     "packages/extension-sdk/src/contract/keymap",
     "src/extensions/keymap-macos/",
     "src/main/browser/guestChords.ts",
+    "src/main/browser/guestRemap.ts",
     "src/main/extensions/keymaps.ts",
     "src/main/windows/clipboardEdits.ts",
     "src/main/windows/primarySelection.ts",
@@ -25,6 +26,7 @@
     "src/renderer/lib/keyboard/keyPresets.",
     "src/renderer/lib/keyboard/keySources.",
     "src/renderer/lib/keyboard/keyboardPresets.ts",
+    "src/renderer/lib/keyboard/modifierRemap",
     "src/renderer/lib/keyboard/pasteGate.ts",
     "src/renderer/lib/keyboard/terminalKeys.ts",
     "src/renderer/lib/settings/key",
@@ -35,12 +37,14 @@
     "src/shared/keyboard/clipboardChords.ts",
     "src/shared/keyboard/desktopChords.ts",
     "src/shared/keyboard/guestChords.ts",
-    "src/shared/keyboard/keymapFile."
+    "src/shared/keyboard/keymapFile.",
+    "src/shared/keyboard/modifierRemap."
   ],
   "specs": [
     "e2e/browser-keys.spec.ts",
     "e2e/clipboard-surfaces.spec.ts",
     "e2e/keybindings.spec.ts",
+    "e2e/modifier-remap.spec.ts",
     "e2e/palette.spec.ts"
   ]
 }

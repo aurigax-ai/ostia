@@ -11,6 +11,7 @@ import {
 } from '@aurigax-ai/ghostty-web'
 import wasmDataUrl from '@aurigax-ai/ghostty-web/ghostty-vt.wasm?inline'
 import type { ILinkProvider } from '@xterm/xterm'
+import { type GpuSlot, gpuBudget } from './gpuBudget'
 import type {
   OstiaTerminal,
   PauseTerminal,
@@ -129,6 +130,26 @@ function oneBasedRange(range: GhosttyRange) {
 function fontWeightOf(weight: TerminalOptions['fontWeight']): 'normal' | 'bold' | number {
   if (weight === undefined || weight === 'normal' || weight === 'bold') return weight ?? 'normal'
   return Number(weight)
+}
+
+interface GhosttyRendererInternals {
+  rendererReleased?: boolean
+}
+
+function ghosttyGpuSlot(t: GhosttyTerm): GpuSlot {
+  return gpuBudget.join({
+    acquire: () => {
+      t.setPaused(true)
+      t.options.renderer = 'webgl'
+      ;(t as unknown as GhosttyRendererInternals).rendererReleased = true
+      t.setPaused(false)
+      return t.rendererType === 'webgl'
+    },
+    revoke: () => {
+      t.options.renderer = 'canvas'
+      t.setPaused(true, { releaseRenderer: true })
+    },
+  })
 }
 
 function forceSelectionOnOptionDrag(canvas: HTMLCanvasElement): void {
@@ -255,7 +276,7 @@ export function createGhosttyTerminal(
   if (!engine) throw new Error('Ghostty engine is not loaded')
   const t = new GhosttyTerm({
     ghostty: engine,
-    renderer: gpu ? 'webgl' : 'canvas',
+    renderer: 'canvas',
     fontWeight: fontWeightOf(options.fontWeight),
     lineHeight: options.lineHeight,
     scrollSensitivity: options.scrollSensitivity,
@@ -275,6 +296,7 @@ export function createGhosttyTerminal(
     scrollback: options.scrollback,
     scrollbar: options.nativeScrollbar,
   })
+  const slot = gpu ? ghosttyGpuSlot(t) : null
   const fit = new FitAddon()
   t.loadAddon(fit)
   const search = new SearchAddon()
@@ -316,6 +338,7 @@ export function createGhosttyTerminal(
     onRender: t.onRender,
     open: (parent) => {
       t.open(parent)
+      if (slot) parent.addEventListener('webglcontextlost', () => queueMicrotask(slot.lost), true)
       const canvas = parent.querySelector('canvas')
       canvas?.classList.add('ghostty-screen')
       if (canvas && options.macOptionClickForcesSelection) forceSelectionOnOptionDrag(canvas)
@@ -353,6 +376,7 @@ export function createGhosttyTerminal(
     dispose: () => {
       for (const sub of subscriptions) sub.dispose()
       t.clipboardWriteHandler = null
+      slot?.dispose()
       t.dispose()
     },
   }
@@ -366,7 +390,15 @@ export function createGhosttyTerminal(
       clearDecorations: () => search.clearDecorations(),
       onDidChangeResults: search.onDidChangeResults,
     },
-    setPaused: (paused, pauseOptions) => t.setPaused(paused, pauseOptions),
+    setPaused: (paused) => {
+      if (paused) {
+        t.setPaused(true)
+        slot?.hide()
+        return
+      }
+      slot?.show()
+      t.setPaused(false)
+    },
     silenceQueryReplies: () => {
       t.answerQueries = false
       return {

@@ -48,10 +48,10 @@ function saveVault(path: string, data: VaultData): void {
 }
 
 export interface VaultDeps {
-  isSandboxed?: (workspaceId: string) => boolean
+  isSandboxed: (workspaceId: string) => boolean
 }
 
-export function registerVaultMethods(deps: VaultDeps = {}): void {
+export function registerVaultMethods(deps: VaultDeps): void {
   registerControlMethod('vault.set', {
     cap: 'vault-write',
     handler: async (params, ctx) => {
@@ -77,7 +77,7 @@ export function registerVaultMethods(deps: VaultDeps = {}): void {
   registerControlMethod('vault.get', {
     cap: 'vault-read',
     handler: (params, ctx) => {
-      if (deps.isSandboxed?.(ctx.identity.workspaceId)) {
+      if (deps.isSandboxed(ctx.identity.workspaceId)) {
         return {
           ok: false,
           error: 'sandboxed',
