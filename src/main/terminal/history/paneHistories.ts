@@ -128,6 +128,10 @@ export class PaneHistories {
     this.panes.delete(paneId)
   }
 
+  async flushAll(): Promise<void> {
+    await Promise.all([...this.panes.values()].map((history) => history.flush()))
+  }
+
   removeAll(): void {
     for (const history of this.panes.values()) history.dispose()
     this.panes.clear()
