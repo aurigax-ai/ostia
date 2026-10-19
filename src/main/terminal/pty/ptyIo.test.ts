@@ -3,7 +3,7 @@ import { PtySession } from '../ptySession'
 import { createPtyIo } from './ptyIo'
 import type { PtyEntry } from './ptyRegistry'
 
-function fakeEntry(cols = 120, rows = 40) {
+function fakeEntry(cols = 120, rows = 40, session = new PtySession()) {
   const window = { isDestroyed: () => false, send: vi.fn() }
   const pty = {
     cols,
@@ -15,7 +15,6 @@ function fakeEntry(cols = 120, rows = 40) {
     }),
   }
   const mirror = { resize: vi.fn() }
-  const session = new PtySession()
   const entry = { pty, mirror, session, subs: new Map([['1', window]]) } as unknown as PtyEntry
   return { entry, window, pty, mirror, session }
 }
@@ -38,15 +37,18 @@ describe('phone pty io', () => {
   })
 
   it('replays the whole ring as dropped to a phone holding a cursor from an earlier pty', () => {
-    const { entry, session } = fakeEntry()
-    session.push('after restart\r\n')
+    const earlier = new PtySession()
+    earlier.push('x'.repeat(3000))
+    const phoneCursor = earlier.cursor - 1000
+    const { entry, session } = fakeEntry(120, 40, new PtySession())
+    session.push('y'.repeat(5000))
     const io = createPtyIo({ ptys: new Map([['pane-1', entry]]) })
     const sent: string[] = []
     const attached = io.attachPhoneObserver('pane-1', {
-      sinceCursor: 9000,
+      sinceCursor: phoneCursor,
       sendData: (data) => sent.push(data),
     })
-    expect(attached).toMatchObject({ dropped: true, cursor: 'after restart\r\n'.length })
-    expect(sent).toEqual(['after restart\r\n'])
+    expect(attached).toMatchObject({ dropped: true, cursor: session.cursor })
+    expect(sent).toEqual(['y'.repeat(5000)])
   })
 })

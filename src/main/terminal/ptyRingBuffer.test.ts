@@ -29,6 +29,14 @@ describe('PtyRingBuffer', () => {
     expect(rb.since(500)).toEqual({ data: 'fresh', cursor: 5, dropped: true, startsBefore: 0 })
   })
 
+  it('replays everything as dropped for a cursor below its base, and from 0 as before', () => {
+    const rb = new PtyRingBuffer(1000, 5000)
+    rb.push('fresh')
+    expect(rb.since(2000)).toEqual({ data: 'fresh', cursor: 5005, dropped: true, startsBefore: 0 })
+    expect(rb.since(0)).toEqual({ data: 'fresh', cursor: 5005, dropped: false, startsBefore: 0 })
+    expect(rb.since(5003)).toEqual({ data: 'sh', cursor: 5005, dropped: false, startsBefore: 0 })
+  })
+
   it('trims at a newline boundary when over cap, marking dropped for stale cursors', () => {
     const rb = new PtyRingBuffer(8)
     rb.push('aaaa\nbbbb\ncccc')
