@@ -51,8 +51,8 @@ export class PtyRingBuffer {
   }
 
   since(cursor: number): RingSlice {
-    const dropped = cursor < this.start
-    const from = Math.max(0, cursor - this.start)
+    const dropped = cursor < this.start || cursor > this.end
+    const from = dropped ? 0 : cursor - this.start
     return {
       data: this.buf.slice(from),
       cursor: this.end,

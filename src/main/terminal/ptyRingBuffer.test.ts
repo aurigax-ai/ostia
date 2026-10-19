@@ -23,6 +23,12 @@ describe('PtyRingBuffer', () => {
     expect(rb.since(a.cursor)).toEqual({ data: 'def', cursor: 6, dropped: false, startsBefore: 0 })
   })
 
+  it('replays everything as dropped for a cursor past the end, from an earlier pty', () => {
+    const rb = new PtyRingBuffer(1000)
+    rb.push('fresh')
+    expect(rb.since(500)).toEqual({ data: 'fresh', cursor: 5, dropped: true, startsBefore: 0 })
+  })
+
   it('trims at a newline boundary when over cap, marking dropped for stale cursors', () => {
     const rb = new PtyRingBuffer(8)
     rb.push('aaaa\nbbbb\ncccc')
