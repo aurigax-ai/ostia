@@ -124,7 +124,11 @@ export function deflated(name: string, data: Uint8Array, size = data.length): Zi
   return { name, method: 8, data: deflateSync(data), size }
 }
 
-function patched(zip: Uint8Array, name: string, change: (text: string) => string): ZipEntry[] {
+export function patched(
+  zip: Uint8Array,
+  name: string,
+  change: (text: string) => string,
+): ZipEntry[] {
   return entriesOf(zip).map((entry) => {
     if (entry.name !== name) return entry
     const text = new TextDecoder().decode(unzipSync(zip)[name])
@@ -134,6 +138,10 @@ function patched(zip: Uint8Array, name: string, change: (text: string) => string
 
 function entriesOf(zip: Uint8Array): ZipEntry[] {
   return Object.entries(unzipSync(zip)).map(([name, data]) => deflated(name, data))
+}
+
+export function retyped(zip: Uint8Array, from: string, to: string): Uint8Array {
+  return rawZip(patched(zip, '[Content_Types].xml', (text) => text.replace(from, to)))
 }
 
 export function macroWorkbook(): Uint8Array {

@@ -36,6 +36,17 @@ function slides(bytes: Uint8Array, limits: OfficeLimits = OFFICE_LIMITS): Docume
   return readPresentation(bytes, limits, WORDS)
 }
 
+describe('odf templates', () => {
+  it('opens ott as text and otp as an outline', async () => {
+    const ott = odf(`${ODT_MIMETYPE}-template`, { body: '<text:p>shared</text:p>' })
+    expect(html(await text(ott))).toContain('shared')
+    const otp = odf(`${ODP_MIMETYPE}-template`, {
+      body: odpPage('p1', odpFrame('title', '<text:p>Deck</text:p>')),
+    })
+    expect(html(slides(otp))).toContain('Deck')
+  })
+})
+
 describe('readDocument (odt)', () => {
   it('reads headings, spans, spaces, tabs, line breaks and nested lists', async () => {
     const out = html(
