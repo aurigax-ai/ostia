@@ -15,6 +15,14 @@ export function resizePty(entry: PtyEntry | undefined, cols: number, rows: numbe
   entry.mirror.resize(c, r)
 }
 
+function resizeForAll(paneId: string, entry: PtyEntry, cols: number, rows: number): void {
+  if (entry.pty.cols === cols && entry.pty.rows === rows) return
+  resizePty(entry, cols, rows)
+  for (const wc of entry.subs.values()) {
+    if (!wc.isDestroyed()) wc.send(`pty:size:${paneId}`, cols, rows)
+  }
+}
+
 interface PtyIoDeps {
   ptys: Map<string, PtyEntry>
 }
@@ -67,12 +75,7 @@ export function createPtyIo({ ptys }: PtyIoDeps) {
         if (ptys.get(paneId) === entry) entry.pty.write(data)
       },
       resize: (cols, rows) => {
-        if (ptys.get(paneId) !== entry) return
-        if (entry.pty.cols === cols && entry.pty.rows === rows) return
-        resizePty(entry, cols, rows)
-        for (const wc of entry.subs.values()) {
-          if (!wc.isDestroyed()) wc.send(`pty:size:${paneId}`, cols, rows)
-        }
+        if (ptys.get(paneId) === entry) resizeForAll(paneId, entry, cols, rows)
       },
       detach: () => {
         entry.exitListeners.delete(onExit)
@@ -82,7 +85,8 @@ export function createPtyIo({ ptys }: PtyIoDeps) {
   }
 
   function ptyResize(rendererPaneId: string, cols: number, rows: number): void {
-    resizePty(ptys.get(rendererPaneId), cols, rows)
+    const entry = ptys.get(rendererPaneId)
+    if (entry) resizeForAll(rendererPaneId, entry, cols, rows)
   }
 
   function ptyWrite(rendererPaneId: string, data: string): void {

@@ -62,7 +62,7 @@ interface PtyIo {
 }
 
 export function attachPtySession(deps: PtySessionDeps): () => void {
-  const { host, term, paneId, workspaceIdRef, syncSizeRef, session, holdInput } = deps
+  const { host, term, paneId, workspaceIdRef, lastSizeRef, syncSizeRef, session, holdInput } = deps
   const flow: PtyFlow = { attached: false, replayed: false, unparsed: 0, querySilencer: null }
   const pending: string[] = []
   const emit: Write = (data, done) => {
@@ -117,7 +117,20 @@ export function attachPtySession(deps: PtySessionDeps): () => void {
   const attachAtCurrentSize = createPtyAttach(deps, io)
   const sizing = createPtySizing(deps, io, attachAtCurrentSize)
 
+  let sizedElsewhere = false
+  const offSize = window.ostia.pty.onSize(paneId, (cols, rows) => {
+    if (session.disposed) return
+    neighbour.drain()
+    term.resize(cols, rows)
+    lastSizeRef.current = { cols, rows }
+    sizedElsewhere = true
+  })
+
   const input = term.onData((d) => {
+    if (sizedElsewhere && !FOCUS_REPORTS.has(d)) {
+      sizedElsewhere = false
+      sizing.syncSize()
+    }
     if (!holdInput(d)) window.ostia.pty.write(paneId, d)
     if (!FOCUS_REPORTS.has(d)) markPaneActivity(paneId)
     if (!FOCUS_REPORTS.has(d) && useBlocksStore.getState().selected[paneId]) {
@@ -182,6 +195,7 @@ export function attachPtySession(deps: PtySessionDeps): () => void {
     sizing.dispose()
     ro.disconnect()
     input.dispose()
+    offSize()
     offData()
     offExit()
     neighbour.dispose()
