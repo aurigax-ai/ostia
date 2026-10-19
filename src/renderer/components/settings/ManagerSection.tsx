@@ -1,5 +1,6 @@
 import { IconButton } from '@/components/common/IconButton'
 import { Notice } from '@/components/common/Notice'
+import { CommitInput } from '@/components/settingsKit/CommitInput'
 import { NumberRow, ToggleRow } from '@/components/settingsKit/ControlRow'
 import { SettingsGroup } from '@/components/settingsKit/SettingsGroup'
 import { SettingsList } from '@/components/settingsKit/SettingsList'
@@ -22,7 +23,7 @@ import {
 } from '@shared/agents/managerSettings'
 import { splitArgs } from '@shared/terminal/argv'
 import { quoteArgv } from '@shared/terminal/shellQuote'
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { RequirementsNote } from './RequirementsNote'
 
 function parseCommand(line: string): string[] | null {
@@ -42,31 +43,25 @@ function PresetRow({
   const d = useDict()
   const agents = useSettingsStore((s) => s.manager.agents)
   const setManager = useSettingsStore((s) => s.setManager)
-  const [draft, setDraft] = useState(quoteArgv(argv))
   const [invalid, setInvalid] = useState(false)
-  useEffect(() => setDraft(quoteArgv(argv)), [argv])
-  const commit = (): void => {
-    const next = parseCommand(draft)
+  const commit = (text: string): boolean => {
+    const next = parseCommand(text)
     setInvalid(next === null)
-    if (next && quoteArgv(next) !== quoteArgv(argv)) {
-      setManager({ agents: { ...agents, [name]: next } })
-    }
+    if (next) setManager({ agents: { ...agents, [name]: next } })
+    return next !== null
   }
   const { [name]: _removed, ...rest } = agents
   return (
     <li className="py-1.5">
       <div className="flex items-center gap-3">
         <span className="w-28 shrink-0 truncate font-mono text-fg text-ui-base">{name}</span>
-        <Input
-          value={draft}
+        <CommitInput
+          value={quoteArgv(argv)}
           spellCheck={false}
           aria-label={fmt(d.manager.commandFor, { name })}
           aria-invalid={invalid}
-          onChange={(e) => setDraft(e.target.value)}
-          onBlur={commit}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') commit()
-          }}
+          onCommit={commit}
+          onCancel={() => setInvalid(false)}
           className="h-7 flex-1 font-mono"
         />
         {builtin ? (

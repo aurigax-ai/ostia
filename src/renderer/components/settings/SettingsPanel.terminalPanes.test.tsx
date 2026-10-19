@@ -1,6 +1,7 @@
 import '@testing-library/jest-dom/vitest'
 import { commands } from '@/commands/registry'
 import { createPane } from '@/lib/layout/tree'
+import { SCROLLBACK_MIN } from '@/lib/settings/terminalPaneSettings'
 import { HOVER_FOCUS_DELAY_MS } from '@/lib/terminal/hoverFocus'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useUIStore } from '@/stores/app/uiStore'
@@ -52,23 +53,24 @@ describe('SettingsPanel terminal and pane rows', () => {
     expect(screen.getByRole('switch', { name: 'Confirm multi-line paste' })).toBeChecked()
   })
 
-  it('stores in-range numbers and ignores out-of-range ones', async () => {
+  it('stores numbers on blur and clamps out-of-range ones', async () => {
     await openSection('Terminal')
     const lines = screen.getByRole('spinbutton', { name: 'Scrollback lines' })
     fireEvent.change(lines, { target: { value: '25000' } })
+    expect(useSettingsStore.getState().terminal.scrollbackLines).not.toBe(25000)
+    fireEvent.blur(lines)
     expect(useSettingsStore.getState().terminal.scrollbackLines).toBe(25000)
     fireEvent.change(lines, { target: { value: '5' } })
-    expect(useSettingsStore.getState().terminal.scrollbackLines).toBe(25000)
     fireEvent.blur(lines)
-    expect(lines).toHaveValue(25000)
+    expect(useSettingsStore.getState().terminal.scrollbackLines).toBe(SCROLLBACK_MIN)
 
-    fireEvent.change(screen.getByRole('spinbutton', { name: 'Scroll speed' }), {
-      target: { value: '2.5' },
-    })
+    const speed = screen.getByRole('spinbutton', { name: 'Scroll speed' })
+    fireEvent.change(speed, { target: { value: '2.5' } })
+    fireEvent.keyDown(speed, { key: 'Enter' })
     expect(useSettingsStore.getState().terminal.scrollSpeed).toBe(2.5)
-    fireEvent.change(screen.getByRole('spinbutton', { name: 'Minimum contrast ratio' }), {
-      target: { value: '4.5' },
-    })
+    const contrast = screen.getByRole('spinbutton', { name: 'Minimum contrast ratio' })
+    fireEvent.change(contrast, { target: { value: '4.5' } })
+    fireEvent.blur(contrast)
     expect(useSettingsStore.getState().terminal.minimumContrast).toBe(4.5)
   })
 
