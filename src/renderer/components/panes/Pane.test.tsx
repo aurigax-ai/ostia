@@ -10,7 +10,12 @@ import { useUIStore } from '@/stores/app/uiStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { usePaneDnd } from '@/stores/workspaces/paneDndStore'
 import { startPaneRenameSync, usePaneRenameStore } from '@/stores/workspaces/paneRenameStore'
-import { releaseSurfaces, surfaceHost } from '@/stores/workspaces/surfaceSlotsStore'
+import {
+  focusSurfaceWhenReady,
+  releaseSurfaces,
+  setFocusTarget,
+  surfaceHost,
+} from '@/stores/workspaces/surfaceSlotsStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import type { WorkspaceSandbox } from '@shared/sandbox/sandbox'
 import {
@@ -42,6 +47,7 @@ beforeAll(() => {
 
 afterEach(() => {
   cleanup()
+  focusSurfaceWhenReady('', () => false)
   useLayoutStore.setState(layoutInit, true)
   useWorkspacesStore.setState(workspacesInit, true)
   usePaneDnd.getState().reset()
@@ -240,6 +246,29 @@ describe('Pane', () => {
 
       await user.click(screen.getAllByRole('button', { name: 'Close tab' })[0])
       expect(exec).toHaveBeenCalledWith('pane.close', { paneId: 'pa' })
+    })
+
+    it('moves the keyboard into a clicked tab once its surface is ready', async () => {
+      vi.spyOn(commands, 'exec').mockImplementation(async () => {
+        useLayoutStore.setState({
+          byWorkspace: {
+            w: { root: tabsOf('pb', a, b), activePaneId: 'pb', zoomedPaneId: null },
+          },
+        })
+        return { ok: true, result: undefined }
+      })
+      useLayoutStore.setState({
+        byWorkspace: { w: { root: tabsOf('pa', a, b), activePaneId: 'pa', zoomedPaneId: null } },
+      })
+      useWorkspacesStore.setState({ activeWorkspaceId: 'w' })
+      render(<Pane tabs={[a, b]} shownId="pa" activePaneId="pa" workspaceId="w" />)
+      await userEvent.setup().click(screen.getByRole('tab', { name: /localhost/ }))
+      const guest = document.body.appendChild(document.createElement('div'))
+      guest.tabIndex = 0
+      act(() => {
+        setFocusTarget('pb', () => guest)
+      })
+      expect(document.activeElement).toBe(guest)
     })
 
     it('shows a locked tab with an unlock button in place of its close button', async () => {

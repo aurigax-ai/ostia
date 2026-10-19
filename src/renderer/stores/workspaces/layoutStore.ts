@@ -1,4 +1,3 @@
-import { keyboardPaneId } from '@/lib/layout/focusDirection'
 import { setDefaultPaneTitles, setPaneBrowser, setPaneCwd } from '@/lib/layout/paneFields'
 import { setSizes } from '@/lib/layout/panelSize'
 import { focusAfterClose, showAfterClose } from '@/lib/layout/tabFocus'
@@ -8,13 +7,13 @@ import {
   createPane,
   findPane,
   firstPaneId,
-  isPaneShown,
   paneIds,
   splitPane,
 } from '@/lib/layout/tree'
 import { layoutOf, patch, successorOf } from '@/lib/panes/layoutPatch'
 import { forgetTab, noteOpener, tabHistoryOf } from '@/lib/panes/tabHistory'
 import { create } from 'zustand'
+import { keepKeyboard } from './keepKeyboard'
 import { createLayoutFileActions } from './layoutFileActions'
 import { createLayoutOpenActions } from './layoutOpenActions'
 import { createLayoutPaneActions } from './layoutPaneActions'
@@ -23,18 +22,8 @@ import { neutralTerminalTitle, newTerminalPane } from './layoutSeed'
 import { createLayoutTabActions } from './layoutTabActions'
 import { createLayoutTransferActions } from './layoutTransferActions'
 import type { LayoutState } from './layoutTypes'
-import { focusSurfaceWhenReady, surfaceHoldsKeyboard } from './surfaceSlotsStore'
+import { surfaceHoldsKeyboard } from './surfaceSlotsStore'
 import { workDirOf } from './workspaceLookup'
-
-function keepKeyboard(get: () => LayoutState, workspaceId: string): void {
-  const layout = get().byWorkspace[workspaceId]
-  if (!layout) return
-  const target = keyboardPaneId(layout)
-  focusSurfaceWhenReady(target, () => {
-    const now = get().byWorkspace[workspaceId]
-    return now !== undefined && isPaneShown(now.root, target)
-  })
-}
 
 export const useLayoutStore = create<LayoutState>((set, get) => ({
   byWorkspace: {},
