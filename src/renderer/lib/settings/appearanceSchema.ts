@@ -116,7 +116,7 @@ export const behaviorSchema = {
       description: 'Terminal cursor shape.',
     },
     cursorBlink: { type: 'boolean', description: 'Blink the terminal cursor.' },
-    smoothScrolling: {
+    wheelSmoothScroll: {
       type: 'boolean',
       description:
         'Animate terminal scrollback for a physical mouse wheel, never for a trackpad and ' +

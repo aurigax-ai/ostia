@@ -57,8 +57,10 @@ describe('smoothScrollDuration', () => {
 
 describe('attachSmoothScroll', () => {
   let osReduced = false
+  let settingsInit: ReturnType<typeof useSettingsStore.getState>
 
   beforeEach(() => {
+    settingsInit = useSettingsStore.getState()
     osReduced = false
     vi.spyOn(window, 'matchMedia').mockImplementation(
       (query) =>
@@ -69,12 +71,13 @@ describe('attachSmoothScroll', () => {
           removeEventListener: () => {},
         }) as unknown as MediaQueryList,
     )
-    useSettingsStore.getState().setBehavior({ smoothScrolling: false })
+    useSettingsStore.getState().setBehavior({ wheelSmoothScroll: false })
     useSettingsStore.getState().setByPath('appearance.motion', 'full')
   })
 
   afterEach(() => {
     vi.restoreAllMocks()
+    useSettingsStore.setState(settingsInit, true)
     document.body.replaceChildren()
   })
 
@@ -115,7 +118,7 @@ describe('attachSmoothScroll', () => {
   })
 
   it('follows the recent history between a mouse wheel and a trackpad', () => {
-    useSettingsStore.getState().setBehavior({ smoothScrolling: true })
+    useSettingsStore.getState().setBehavior({ wheelSmoothScroll: true })
     const { host, term } = setup()
     scroll(host, notch)
     expect(term.options.smoothScrollDuration).toBe(SMOOTH_SCROLL_MS)
@@ -125,7 +128,7 @@ describe('attachSmoothScroll', () => {
   })
 
   it('leaves the duration alone for wheel events the scrollback does not scroll on', () => {
-    useSettingsStore.getState().setBehavior({ smoothScrolling: true, wheelZoom: true })
+    useSettingsStore.getState().setBehavior({ wheelSmoothScroll: true, wheelZoom: true })
     const { host, term, screen } = setup()
     scroll(host, notch)
     expect(term.options.smoothScrollDuration).toBe(SMOOTH_SCROLL_MS)
@@ -140,7 +143,7 @@ describe('attachSmoothScroll', () => {
   })
 
   it('never animates when reduced motion is set in the app or by the system', () => {
-    useSettingsStore.getState().setBehavior({ smoothScrolling: true })
+    useSettingsStore.getState().setBehavior({ wheelSmoothScroll: true })
     const { host, term } = setup()
     useSettingsStore.getState().setByPath('appearance.motion', 'reduced')
     scroll(host, notch)
@@ -155,7 +158,7 @@ describe('attachSmoothScroll', () => {
   })
 
   it('stops listening after detach', () => {
-    useSettingsStore.getState().setBehavior({ smoothScrolling: true })
+    useSettingsStore.getState().setBehavior({ wheelSmoothScroll: true })
     const { host, term, detach } = setup()
     detach()
     scroll(host, notch)

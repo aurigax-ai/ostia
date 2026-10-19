@@ -389,9 +389,6 @@ export const settingsZhHant: typeof settingsEn = {
     sidebarPathDesc: '在名稱下方顯示工作區資料夾。',
     sidebarSsh: 'SSH 主機',
     sidebarSshDesc: '顯示工作區中執行中的 ssh 所連線的主機。',
-    smoothScrolling: '平滑捲動',
-    smoothScrollingDesc:
-      '用滑鼠滾輪捲動歷史輸出時加上動畫。觸控板本來就平滑，減少動態效果開啟時一律不加動畫。',
     styleBar: '直線',
     styleBlock: '方塊',
     styleUnderline: '底線',
@@ -411,6 +408,9 @@ export const settingsZhHant: typeof settingsEn = {
     warnRiskyPaste: '確認多行貼上',
     warnRiskyPasteDesc:
       '貼上兩行以上的文字到終端機前先詢問：shell 可能會在每一行送達時立即執行。單行文字一律去掉結尾換行與控制字元後貼上。代理程式無法變更此設定。',
+    wheelSmoothScroll: '平滑捲動',
+    wheelSmoothScrollDesc:
+      '用滑鼠滾輪捲動歷史輸出時加上動畫。觸控板本來就平滑，減少動態效果開啟時一律不加動畫。',
     wheelZoom: 'Ctrl＋滾輪縮放字級',
     wheelZoomDesc: '按住這個鍵在終端機或編輯器上捲動時，會改變那裡的字級。用鍵盤縮放不受影響。',
     wheelZoomMac: 'Cmd＋滾輪縮放字級',

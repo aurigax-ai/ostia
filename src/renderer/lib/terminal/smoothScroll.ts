@@ -103,7 +103,7 @@ export function attachSmoothScroll(
     classifier.accept(e as WheelSample)
     if (e.deltaY === 0) return
     term.options.smoothScrollDuration = smoothScrollDuration({
-      enabled: settings.behavior.smoothScrolling,
+      enabled: settings.behavior.wheelSmoothScroll,
       reducedMotion: reducedMotionNow(),
       physicalWheel: classifier.isPhysicalWheel(),
     })

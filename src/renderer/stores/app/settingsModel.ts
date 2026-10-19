@@ -171,7 +171,7 @@ export const inputMode = (v: unknown): InputMode =>
 export interface Behavior {
   cursorStyle: CursorStyle
   cursorBlink: boolean
-  smoothScrolling: boolean
+  wheelSmoothScroll: boolean
   restoreWorkspace: boolean
   externalEditor: string
   gpuAcceleration: boolean
@@ -277,7 +277,7 @@ export const DEFAULTS: Persisted = {
   behavior: {
     cursorStyle: 'block',
     cursorBlink: true,
-    smoothScrolling: false,
+    wheelSmoothScroll: false,
     restoreWorkspace: true,
     externalEditor: 'auto',
     gpuAcceleration: true,
