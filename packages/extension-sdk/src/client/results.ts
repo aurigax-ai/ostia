@@ -7,7 +7,9 @@ export function ok(text?: string, data?: unknown): ExtensionResult {
   return result
 }
 
-export function failure(error: string, message?: string): ExtensionResult {
+export type Failure = { ok: false; error: string; message?: string }
+
+export function failure(error: string, message?: string): Failure {
   return message ? { ok: false, error, message } : { ok: false, error }
 }
 
