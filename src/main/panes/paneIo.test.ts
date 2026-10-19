@@ -461,6 +461,7 @@ describe('pane.input', () => {
       bytes: 12,
       pasted: false,
       responded: true,
+      turnStarted: false,
       running: true,
     })
     expect(written).toEqual([

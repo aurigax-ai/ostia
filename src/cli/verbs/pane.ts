@@ -15,7 +15,7 @@ interface PaneInputParams {
 }
 
 export type PaneCall =
-  | { method: 'pane.input'; params: PaneInputParams; stdin?: true }
+  | { method: 'pane.input'; params: PaneInputParams; stdin?: true; json: boolean }
   | { method: 'pane.read'; params: { pane: string; lines?: number }; json: boolean }
   | { method: 'pane.rename'; params: { pane: string; title: string } }
   | { method: 'pane.wait'; params: PaneWaitParams; json: boolean }
@@ -35,6 +35,21 @@ export type PaneCall =
   | { method: 'pane.close'; params: { panes?: string[] }; json: boolean }
   | { method: 'pane.list'; params: Record<string, never>; json: boolean }
   | { method: 'pane.moveTo'; params: PaneMoveParams; json: boolean }
+
+interface PaneInputResult {
+  paneId: string
+  responded: boolean
+  turnStarted: boolean
+  running: boolean
+}
+
+export function inputLine(result: PaneInputResult): string {
+  if (result.turnStarted) return `ok: ${result.paneId} started a turn`
+  const state = result.running ? 'a command is running' : 'no command is running'
+  return result.responded
+    ? `ok: ${result.paneId} showed new output; ${state}`
+    : `sent; ${result.paneId} showed nothing yet (${state}): read it with ostia pane read`
+}
 
 interface PaneMoveParams {
   panes: string[]
@@ -307,9 +322,10 @@ export function parsePaneArgs(argv: string[]): PaneCall {
         paste: '--paste',
         raw: '--raw',
         force: '--force',
+        json: '--json',
       },
     })
-    const { enter, paste, raw, force } = booleans
+    const { enter, paste, raw, force, json } = booleans
     if ((words.length === 0 && !enter) || (paste && raw)) throw new Error(USAGE)
     const stdin = words.length === 1 && words[0] === '-'
     return {
@@ -322,11 +338,13 @@ export function parsePaneArgs(argv: string[]): PaneCall {
         ...(force ? { force: true } : {}),
       },
       ...(stdin ? { stdin: true as const } : {}),
+      json,
     }
   }
   if (sub === 'key') {
-    if (rest.length === 0) throw new Error(USAGE)
-    return { method: 'pane.input', params: { pane, keys: rest } }
+    const { positional: keys, booleans } = parseArgs(rest, { booleans: { json: '--json' } })
+    if (keys.length === 0) throw new Error(USAGE)
+    return { method: 'pane.input', params: { pane, keys }, json: booleans.json }
   }
   if (sub === 'read') {
     const { positional, values, booleans } = parseArgs(rest, {
@@ -375,7 +393,7 @@ export async function runPaneVerb(
       console.error('ostia pane send: nothing on stdin')
       return 1
     }
-    call = { method: 'pane.input', params: { ...call.params, text } }
+    call = { method: 'pane.input', params: { ...call.params, text }, json: call.json }
   }
   if (call.method === 'pane.moveTo') {
     const { workspace } = call.params
@@ -447,11 +465,8 @@ export async function runPaneVerb(
   } else if (call.method === 'pane.close') {
     const { closed } = result as { closed: string[] }
     console.log(call.json ? JSON.stringify(result) : closed.join('\n'))
-  } else if (
-    call.method === 'pane.input' &&
-    (result as { responded?: boolean }).responded === false
-  ) {
-    console.log(`sent; ${call.params.pane} showed nothing yet: read it with ostia pane read`)
+  } else if (call.method === 'pane.input') {
+    console.log(call.json ? JSON.stringify(result) : inputLine(result as PaneInputResult))
   } else {
     console.log('ok')
   }
