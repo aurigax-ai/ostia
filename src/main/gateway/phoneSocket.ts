@@ -132,6 +132,30 @@ function handleScreenStart(
     .catch(() => ws.send(rpcError(msg.id, -32603, 'internal error')))
 }
 
+function handleScreenDecline(
+  ws: WebSocket,
+  device: Device,
+  msg: { id?: unknown; params?: unknown },
+  links: ScreenLinks | null,
+): void {
+  if (!device.caps.includes('notify')) {
+    ws.send(rpcError(msg.id, -32003, 'needs-elevation', { cap: 'notify' }))
+    return
+  }
+  const p = (msg.params ?? {}) as { requestId?: unknown; reason?: unknown }
+  const reason =
+    p.reason === 'off' || p.reason === 'unsupported' || p.reason === 'denied' ? p.reason : null
+  if (typeof p.requestId !== 'string' || !reason) {
+    ws.send(rpcError(msg.id, -32602, 'bad-params'))
+    return
+  }
+  if (!links?.decline(p.requestId, reason)) {
+    ws.send(rpcError(msg.id, -32602, 'unknown-request'))
+    return
+  }
+  ws.send(rpcResult(msg.id, {}))
+}
+
 function handleLinkMessage(
   ws: WebSocket,
   device: Device,
@@ -344,6 +368,10 @@ function handleConnection(ws: WebSocket, deps: PhoneSocketDeps): void {
     }
     if (msg.method === 'screen.start') {
       handleScreenStart(ws, state, device, msg, links)
+      return
+    }
+    if (msg.method === 'screen.decline') {
+      handleScreenDecline(ws, device, msg, links)
       return
     }
     if (msg.method === 'whoami') {

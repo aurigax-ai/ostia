@@ -1,8 +1,8 @@
 {
   "id": "screens",
   "name": "Screens",
-  "version": "0.1.1",
-  "api": "6.3",
+  "version": "0.1.2",
+  "api": "6.4",
   "description": "Alpha: gives agents their own screen, a desktop that never touches yours, through the screens service: ostia screen create, token, list and stop, the screen verbs from a sandboxed workspace, a card before an agent's first screen in a workspace, a panel with this workspace's screens, and a phone's screen while its human runs a session they started on the phone (needs the phone-screens permission). Screens stop when their workspace closes or this extension stops.",
   "category": "tools",
   "capabilities": ["read-board", "shell", "agent-plugin", "phone-screens"],
@@ -87,6 +87,13 @@
         "title": "Read a phone screen's accessibility tree",
         "usage": "tree [--screen ID]",
         "palette": false
+      },
+      {
+        "id": "ask-phone",
+        "title": "Ask the phone to share its screen",
+        "usage": "ask-phone --reason TEXT",
+        "palette": false,
+        "interactive": true
       }
     ],
     "agentSkills": [{ "name": "screen", "path": "skills/screen" }],

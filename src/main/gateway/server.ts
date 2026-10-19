@@ -18,6 +18,7 @@ import { createPairHttp } from './pairHttp'
 import { type SocketState, createPhoneSocket } from './phoneSocket'
 import { readProxyHeader } from './proxyProtocol'
 import type { ScreenLinks } from './screenLinks'
+import type { ScreenRequested } from './screenRequests'
 
 export interface GatewayStartOptions {
   host?: string
@@ -135,8 +136,8 @@ function broadcastEvent(type: PlatformEventType, payload: unknown): void {
   }
 }
 
-export function askPhonesForScreen(sessionId: string): void {
-  const frame = eventFrame('screen.requested', { sessionId, by: 'desktop' })
+export function askPhonesForScreen(request: ScreenRequested): void {
+  const frame = eventFrame('screen.requested', request)
   for (const [ws, state] of sockets) {
     if (!state.device?.caps.includes('notify') || screenLinks?.isLink(ws)) continue
     if (ws.readyState === ws.OPEN) ws.send(frame)

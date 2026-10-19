@@ -1,4 +1,5 @@
 import {
+  PHONE_SCREENS_ASK_FOR_METHOD,
   PHONE_SCREENS_ASK_METHOD,
   PHONE_SCREENS_LISTEN_METHOD,
   PHONE_SCREENS_REQUEST_METHOD,
@@ -55,6 +56,7 @@ function setup() {
     }),
     request: vi.fn().mockResolvedValue({ ok: true, data: { done: true } }),
     ask: vi.fn().mockResolvedValue({ ok: true, data: null }),
+    askFor: vi.fn().mockResolvedValue({ ok: true, data: { outcome: 'started' } }),
   }
   const runtimes = new Map<MessageConnection, Runtime>()
   let active = true
@@ -138,7 +140,12 @@ describe('ExtensionPhoneScreens', () => {
     registerExtensionMethods(() => null)
     const phoneMethods = [...registered.keys()].filter((name) => /phone/i.test(name))
     expect(phoneMethods.sort()).toEqual(
-      [PHONE_SCREENS_ASK_METHOD, PHONE_SCREENS_LISTEN_METHOD, PHONE_SCREENS_REQUEST_METHOD].sort(),
+      [
+        PHONE_SCREENS_ASK_FOR_METHOD,
+        PHONE_SCREENS_ASK_METHOD,
+        PHONE_SCREENS_LISTEN_METHOD,
+        PHONE_SCREENS_REQUEST_METHOD,
+      ].sort(),
     )
     for (const name of phoneMethods) {
       expect(registered.get(name)).toMatchObject({ callers: 'extensions', cap: 'phone-screens' })

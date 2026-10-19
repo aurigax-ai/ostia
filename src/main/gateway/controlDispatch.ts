@@ -19,6 +19,7 @@ export interface GatewayControlDeps {
   listCommandsFor: (windowId: string) => CommandDescriptor[]
   getTerminalState: (paneId: string) => TerminalStateSnapshot | undefined
   listPanes: () => Promise<PaneEntry[]>
+  paneSince: (externalPaneId: string) => number | undefined
   listWorkspaces: () => Promise<WorkspaceEntry[]>
   fileScope: (workspaceId: string) => PhoneFileScope
   artifactsDir: (workspaceId: string) => string | null
@@ -63,8 +64,11 @@ function toWireSession(
   }
 }
 
-function toWirePane({ workspaceId, ...rest }: PaneEntry): Record<string, unknown> {
-  return { sessionId: workspaceId, ...rest }
+function toWirePane(
+  { workspaceId, ...rest }: PaneEntry,
+  since: number | undefined,
+): Record<string, unknown> {
+  return { sessionId: workspaceId, ...rest, ...(since === undefined ? {} : { since }) }
 }
 
 function needsElevation(cap: string): RpcOutcome {
@@ -168,7 +172,10 @@ async function sessionList(call: GatewayCall): Promise<RpcOutcome> {
 
 async function paneList(call: GatewayCall): Promise<RpcOutcome> {
   const { deps } = call
-  return { ok: true, result: { panes: (await deps.listPanes()).map(toWirePane) } }
+  const panes = (await deps.listPanes()).map((pane) =>
+    toWirePane(pane, deps.paneSince(pane.paneId)),
+  )
+  return { ok: true, result: { panes } }
 }
 
 async function commandList(call: GatewayCall): Promise<RpcOutcome> {

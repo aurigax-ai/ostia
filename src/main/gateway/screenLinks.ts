@@ -1,11 +1,13 @@
 import { randomUUID } from 'node:crypto'
 import { isRecord } from '@aurigax-ai/ostia-extension-sdk/contract/isRecord'
 import {
+  PHONE_SCREEN_ASK_REASON_MAX,
   PHONE_SCREEN_INPUT_REQUESTS,
   PHONE_SCREEN_LIMITS_SEC,
   PHONE_SCREEN_REQUESTS,
   PHONE_SCREEN_REQUEST_MS,
   PHONE_SCREEN_ROTATIONS,
+  type PhoneScreenDeclineReason,
   type PhoneScreenEndReason,
   type PhoneScreenEvent,
   type PhoneScreenFrameHeader,
@@ -13,9 +15,12 @@ import {
   type PhoneScreenReply,
   type PhoneScreenRequest,
 } from '@aurigax-ai/ostia-extension-sdk/contract/phoneScreens'
+import { oneLine } from '../../shared/agents/questions'
+import { resolveExternal } from '../control/idRegistry'
 import type { WorkspaceEntry } from '../panes/paneList'
 import type { RpcOutcome } from './controlDispatch'
 import type { Device } from './devices'
+import { type ScreenRequested, ScreenRequests } from './screenRequests'
 
 const FRAME_PHONE_SCREEN = 0x10
 
@@ -54,10 +59,11 @@ export interface ScreenLinkTiming {
 
 export interface ScreenLinksDeps {
   listWorkspaces: () => Promise<WorkspaceEntry[]>
-  askPhones: (sessionId: string) => void
+  askPhones: (request: ScreenRequested) => void
   log: (event: string, fields: Record<string, string>) => void
   now?: () => number
   timing?: ScreenLinkTiming
+  askWaitMs?: number
 }
 
 interface Pending {
@@ -180,9 +186,11 @@ export class ScreenLinks {
   private readonly links = new Map<LinkSocket, Link>()
   private readonly ended = new WeakSet<LinkSocket>()
   private readonly timing: ScreenLinkTiming
+  private readonly requests: ScreenRequests
 
   constructor(private readonly deps: ScreenLinksDeps) {
     this.timing = deps.timing ?? DEFAULT_TIMING
+    this.requests = new ScreenRequests((request) => deps.askPhones(request), deps.askWaitMs)
   }
 
   private now(): number {
@@ -246,6 +254,8 @@ export class ScreenLinks {
     const left = link.info.endsAt + this.timing.graceMs - this.now()
     link.endTimer = setTimeout(() => this.end(link, 'time-limit', 4005), Math.max(0, left))
     this.deps.log('phone-screen-link', { linkId: link.info.linkId, state: 'started' })
+    const requestId = isRecord(params) ? params.requestId : undefined
+    if (typeof requestId === 'string') this.requests.started(requestId)
     return { ok: true, result: { screenId: link.info.linkId } }
   }
 
@@ -312,8 +322,44 @@ export class ScreenLinks {
     const workspaces = await this.deps.listWorkspaces().catch(() => [])
     const workspace = workspaces.find((w) => w.workspaceId === sessionId)
     if (!linkable(workspace)) return { ok: false, error: 'unknown-session' }
-    this.deps.askPhones(sessionId)
+    this.deps.askPhones({ sessionId, by: 'desktop' })
     return { ok: true, data: null }
+  }
+
+  async askFor(controller: ScreenLinkController, raw: unknown): Promise<PhoneScreenReply> {
+    if (controller !== this.controller) return { ok: false, error: 'not-listening' }
+    const params = isRecord(raw) ? raw : {}
+    const { sessionId, pane, reason, agent } = params
+    if (typeof sessionId !== 'string' || typeof pane !== 'string') {
+      return { ok: false, error: 'invalid-params' }
+    }
+    const text = typeof reason === 'string' ? oneLine(reason) : ''
+    if (!text || text.length > PHONE_SCREEN_ASK_REASON_MAX) {
+      return { ok: false, error: 'invalid-reason' }
+    }
+    if (agent !== undefined && agent !== 'claude' && agent !== 'codex') {
+      return { ok: false, error: 'invalid-params' }
+    }
+    const asker = resolveExternal(pane)
+    if (!asker || asker.kind !== 'pane' || asker.manager || asker.workspaceId !== sessionId) {
+      return { ok: false, error: 'unknown-pane' }
+    }
+    const workspaces = await this.deps.listWorkspaces().catch(() => [])
+    if (!linkable(workspaces.find((w) => w.workspaceId === sessionId))) {
+      return { ok: false, error: 'unknown-session' }
+    }
+    const answer = this.requests.askFromAgent({
+      sessionId,
+      reason: text,
+      pane: asker.externalId,
+      ...(agent ? { agent } : {}),
+    })
+    if (!answer) return { ok: false, error: 'busy' }
+    return { ok: true, data: await answer }
+  }
+
+  decline(requestId: string, reason: PhoneScreenDeclineReason): boolean {
+    return this.requests.decline(requestId, reason)
   }
 
   fromPhone(ws: LinkSocket, msg: Record<string, unknown>): boolean {

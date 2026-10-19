@@ -7,8 +7,10 @@ import type { AskHub } from '../approvals/asks'
 import type { Reach } from '../approvals/reach'
 import type { ArtifactFolders } from '../artifacts/artifactFolders'
 import type { CommandBridge } from '../control/commandBridge'
+import { resolveExternal } from '../control/idRegistry'
 import type { AppLog } from '../diagnostics/appLog'
 import type { PaneConfirms } from '../panes/paneConfirm'
+import type { PaneJournal } from '../panes/paneJournal'
 import {
   listPanes,
   listWorkspaceGroups,
@@ -64,6 +66,7 @@ interface GatewayStartDeps {
   agentRunning: AgentRunningPanes
   ptys: Map<string, PtyEntry>
   turnConfirms: PaneConfirms
+  paneJournal: Pick<PaneJournal, 'since'>
 }
 
 export function createScreenLinks({
@@ -103,6 +106,7 @@ export function startGateway({
   agentRunning,
   ptys,
   turnConfirms,
+  paneJournal,
 }: GatewayStartDeps) {
   registerPaneListMethods({
     execCommand,
@@ -170,5 +174,9 @@ export function startGateway({
     agentRunning: (paneId) => agentRunning.has(paneId) && ptys.has(paneId),
     watchesTurn: turnConfirms.watchesSubmit,
     turnStarted: async (pane) => (await turnConfirms.confirmSubmitted(pane)).ok,
+    paneSince: (externalPaneId) => {
+      const pane = resolveExternal(externalPaneId)
+      return pane ? paneJournal.since(pane.paneId) : undefined
+    },
   })
 }

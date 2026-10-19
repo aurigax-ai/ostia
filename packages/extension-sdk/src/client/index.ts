@@ -399,6 +399,8 @@ export type { BrowseEntry, BrowseLimits } from '../contract/fileBrowse'
 export type { PhoneScreenFrame, PhoneScreens, PhoneScreensController } from './phoneScreens'
 export {
   PHONE_SCREEN_REQUESTS,
+  type PhoneScreenAskFor,
+  type PhoneScreenAskOutcome,
   type PhoneScreenEndReason,
   type PhoneScreenEvent,
   type PhoneScreenFrameHeader,

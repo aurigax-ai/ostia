@@ -17,6 +17,7 @@
     "commands.windows.title": "列出螢幕的視窗",
     "commands.apps.title": "列出手機螢幕的應用程式",
     "commands.tree.title": "讀取手機螢幕的無障礙樹",
+    "commands.ask-phone.title": "請手機分享畫面",
     "panel.title": "螢幕"
   },
   "messages": {
@@ -94,6 +95,13 @@
     "panel.askHint": "請你的手機為這個工作區開始一個工作階段。",
     "panel.asked": "已詢問你的手機。在手機上開始之前，什麼都不會開始。",
     "panel.phoneFailed": "手機沒有回應。",
-    "sidebar.phone": "手機畫面"
+    "sidebar.phone": "手機畫面",
+    "verb.askUsage": "用法：ostia screen ask-phone --reason TEXT（一行，最多 300 個字元，會顯示在手機上）",
+    "verb.askPanesOnly": "只有工作區中代理程式的窗格能請手機開始",
+    "verb.askOff": "手機畫面已關閉：使用者尚未給「螢幕」擴充功能 phone-screens 權限",
+    "verb.askStarted": "手機上的人已開始工作階段；它的畫面在 ostia screen list 中",
+    "verb.askDeclined": "手機拒絕了：那支手機的手機操控已關閉",
+    "verb.askNoAnswer": "手機在 2 分鐘內沒有回應",
+    "verb.askDenied": "手機上的人拒絕了"
   }
 }

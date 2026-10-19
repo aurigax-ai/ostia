@@ -44,6 +44,7 @@ describe('ostia screen verbs', () => {
       installed: () => true,
       sandboxDomains: domains,
       workspaceName: async (id) => `name-${id}`,
+      agentOf: async () => undefined,
     })
   }
 
@@ -224,5 +225,77 @@ describe('ostia screen verbs', () => {
     expect((listed as { data: { screens: { id: string }[] } }).data.screens).toHaveLength(1)
     expect(await run('stop', argv(), agentIn('A'))).toMatchObject({ ok: true })
     expect(fake.screens().map((s) => s.label)).toEqual(['workspace:B'])
+  })
+})
+
+describe('ostia screen ask-phone', () => {
+  const askWith = (askPhone?: ReturnType<typeof vi.fn>) =>
+    verbHandlers({
+      service: new ScreensService(),
+      gate: new CreateGate({
+        confirm: async () => true,
+        card: () => ({ title: 't', message: 'm' }),
+      }),
+      translate,
+      installed: () => true,
+      sandboxDomains: async () => ({ ok: false as const, error: 'not-sandboxed' }),
+      workspaceName: async (id) => id,
+      agentOf: async (paneId) => (paneId === 'pane-A' ? 'codex' : undefined),
+      ...(askPhone ? { askPhone: askPhone as never } : {}),
+    })['ask-phone']
+  const caller: ExtensionCaller = {
+    kind: 'pane',
+    paneId: 'pane-A',
+    workspaceId: 'A',
+    capabilities: [],
+  }
+
+  it('PHA-C5 passes the agent’s reason and pane on and says what the phone answered', async () => {
+    const askPhone = vi.fn().mockResolvedValue({ ok: true, data: { outcome: 'started' } })
+    const ask = askWith(askPhone)
+    const started = (await ask(
+      { argv: ['--reason', 'check the login'] },
+      caller,
+    )) as ExtensionResult
+    expect(askPhone).toHaveBeenCalledWith({
+      sessionId: 'A',
+      pane: 'pane-A',
+      reason: 'check the login',
+      agent: 'codex',
+    })
+    expect(started).toMatchObject({ ok: true })
+    askPhone.mockResolvedValueOnce({ ok: true, data: { outcome: 'declined', reason: 'off' } })
+    expect(await ask({ argv: ['check', 'it'] }, caller)).toMatchObject({
+      ok: false,
+      error: 'declined',
+    })
+    expect(askPhone).toHaveBeenLastCalledWith(expect.objectContaining({ reason: 'check it' }))
+    askPhone.mockResolvedValueOnce({ ok: true, data: { outcome: 'declined', reason: 'denied' } })
+    expect(await ask({ argv: ['--reason', 'x y'] }, caller)).toEqual({
+      ok: false,
+      error: 'declined',
+      message: "The phone's human said no",
+    })
+    askPhone.mockResolvedValueOnce({ ok: true, data: { outcome: 'no-answer' } })
+    expect(await ask({ argv: ['--reason', 'x y'] }, caller)).toMatchObject({ error: 'no-answer' })
+    askPhone.mockResolvedValueOnce({ ok: false, error: 'busy' })
+    expect(await ask({ argv: ['--reason', 'x y'] }, caller)).toMatchObject({ error: 'busy' })
+  })
+
+  it('PHA-C6 is for an agent pane only, needs a reason and says when phone screens are off', async () => {
+    const askPhone = vi.fn()
+    const ask = askWith(askPhone)
+    expect(
+      await ask({ argv: ['--reason', 'x'] }, { kind: 'palette', capabilities: [] } as never),
+    ).toMatchObject({
+      ok: false,
+      error: 'refused',
+    })
+    expect(await ask({ argv: [] }, caller)).toMatchObject({ ok: false, error: 'usage' })
+    expect(askPhone).not.toHaveBeenCalled()
+    expect(await askWith()({ argv: ['--reason', 'x'] }, caller)).toMatchObject({
+      ok: false,
+      error: 'phone-off',
+    })
   })
 })

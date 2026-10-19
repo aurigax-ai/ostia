@@ -15,6 +15,7 @@ interface PaneRecord {
   ring: StampedEvent[]
   state?: string
   stateAt?: number
+  changedAt?: number
   running?: boolean
   explicit?: string
   stop?: string
@@ -71,6 +72,7 @@ export class PaneJournal {
       const from = record.state
       record.state = state
       record.stateAt = this.deps.now()
+      record.changedAt = record.stateAt
       if (state === 'working') {
         record.explicit = undefined
         record.stop = undefined
@@ -86,7 +88,16 @@ export class PaneJournal {
         ...(terminal.lastExitCode === undefined ? {} : { exitCode: terminal.lastExitCode }),
       })
     }
+    if (record.running !== terminal.running) record.changedAt = this.deps.now()
     record.running = terminal.running
+  }
+
+  lifecycle(paneId: string): void {
+    this.record(paneId).changedAt = this.deps.now()
+  }
+
+  since(paneId: string): number | undefined {
+    return this.panes.get(paneId)?.changedAt
   }
 
   report(paneId: string, state: string, message: string | undefined, stop: string | undefined) {

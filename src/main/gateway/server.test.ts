@@ -63,9 +63,10 @@ const links = new ScreenLinks({
     { workspaceId: 'pad', name: 'Scratch', kind: 'scratch', workDir: '/s', state: 'idle' },
     { workspaceId: 'mgr', name: 'Manager', kind: 'manager', workDir: '/m', state: 'idle' },
   ],
-  askPhones: (sessionId) => askPhonesForScreen(sessionId),
+  askPhones: (request) => askPhonesForScreen(request),
   log: (event, fields) => linkLog.push([event, fields]),
   timing: { offerMs: 200, requestMs: 300, graceMs: 100 },
+  askWaitMs: 400,
 })
 
 interface FakeController {
@@ -158,6 +159,7 @@ const deps = {
   agentRunning: vi.fn().mockReturnValue(false),
   watchesTurn: vi.fn().mockResolvedValue(false),
   turnStarted: vi.fn().mockResolvedValue(true),
+  paneSince: vi.fn().mockReturnValue(undefined),
 } satisfies GatewayControlDeps
 
 const clients: Client[] = []
@@ -653,6 +655,88 @@ describe('gateway server over a real WebSocket', () => {
       await phone.call('ask.list')
       expect(phone.json.some((m) => m.params?.type === 'screen.requested')).toBe(false)
       expect(fake.offers).toHaveLength(1)
+    })
+
+    describe('an agent asking the phone', () => {
+      const askerPane = registerPane({ windowId: 'w1', workspaceId: 's1', paneId: 'asker' })
+      const otherPane = registerPane({ windowId: 'w1', workspaceId: 'pad', paneId: 'elsewhere' })
+      const asking = (fake: FakeController, over: Record<string, unknown> = {}) =>
+        links.askFor(fake.controller, {
+          sessionId: 's1',
+          pane: askerPane.externalId,
+          reason: 'check the app login screen',
+          agent: 'claude',
+          ...over,
+        })
+
+      it('PHA-C1 sends the agent request with its reason and ends it when the phone starts a session for it', async () => {
+        const fake = listenForScreens()
+        const device = registerDevice({ name: 'Pixel', pubkey: 'pk' })
+        const phone = await connect(device.token)
+        const answer = asking(fake)
+        const requested = await phone.next((m) => m.params?.type === 'screen.requested')
+        const payload = requested.params?.payload as Record<string, string>
+        expect(payload).toEqual({
+          sessionId: 's1',
+          by: 'agent',
+          reason: 'check the app login screen',
+          agent: 'claude',
+          pane: askerPane.externalId,
+          requestId: expect.any(String),
+        })
+        const linkSocket = await connect(device.token)
+        await linkSocket.call('screen.start', screenParams({ requestId: payload.requestId }))
+        expect(await answer).toEqual({ ok: true, data: { outcome: 'started' } })
+      })
+
+      it('PHA-C2 tells the agent when the phone declines and refuses an unknown request', async () => {
+        const fake = listenForScreens()
+        const phone = await connect(registerDevice({ name: 'Pixel', pubkey: 'pk' }).token)
+        const answer = asking(fake)
+        const requested = await phone.next((m) => m.params?.type === 'screen.requested')
+        const { requestId } = requested.params?.payload as { requestId: string }
+        const unknown = await phone.call('screen.decline', { requestId: 'nope', reason: 'off' })
+        expect(unknown.error).toMatchObject({ code: -32602, message: 'unknown-request' })
+        const odd = await phone.call('screen.decline', { requestId, reason: 'later' })
+        expect(odd.error).toMatchObject({ code: -32602, message: 'bad-params' })
+        expect(
+          (await phone.call('screen.decline', { requestId, reason: 'denied' })).result,
+        ).toEqual({})
+        expect(await answer).toEqual({ ok: true, data: { outcome: 'declined', reason: 'denied' } })
+      })
+
+      it('PHA-C3 answers no-answer when nobody decides, and one request at a time per workspace', async () => {
+        const fake = listenForScreens()
+        const first = asking(fake)
+        expect(await asking(fake)).toEqual({ ok: false, error: 'busy' })
+        expect(await first).toEqual({ ok: true, data: { outcome: 'no-answer' } })
+      })
+
+      it('PHA-C4 refuses a pane of another workspace, a missing or long reason and a stranger', async () => {
+        const fake = listenForScreens()
+        const stranger: ScreenLinkController = {
+          offer: async () => true,
+          frame: () => {},
+          event: () => {},
+        }
+        expect(await asking(fake, { pane: otherPane.externalId })).toEqual({
+          ok: false,
+          error: 'unknown-pane',
+        })
+        expect(await asking(fake, { reason: '  ' })).toEqual({ ok: false, error: 'invalid-reason' })
+        expect(await asking(fake, { reason: 'x'.repeat(301) })).toEqual({
+          ok: false,
+          error: 'invalid-reason',
+        })
+        expect(await asking(fake, { sessionId: 'pad', pane: otherPane.externalId })).toEqual({
+          ok: false,
+          error: 'unknown-session',
+        })
+        expect(await links.askFor(stranger, { sessionId: 's1' })).toEqual({
+          ok: false,
+          error: 'not-listening',
+        })
+      })
     })
   })
 })
