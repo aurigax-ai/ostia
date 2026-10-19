@@ -6,12 +6,24 @@ import {
   mkdtempSync,
   realpathSync,
   rmSync,
+  symlinkSync,
   writeFileSync,
 } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, beforeEach, describe, expect, it } from 'vitest'
-import { blame, commit, discard, lineChanges, readStatus, unifiedPatch, worktreeKey } from './repo'
+import {
+  blame,
+  commit,
+  diffSides,
+  discard,
+  lineChanges,
+  readStatus,
+  stage,
+  unifiedPatch,
+  unstage,
+  worktreeKey,
+} from './repo'
 
 const root = realpathSync(mkdtempSync(join(tmpdir(), 'ostia-git-hardening-')))
 const repo = join(root, 'repo')
@@ -134,12 +146,72 @@ describe('git reads of a repository with a submodule whose own config names prog
   writeFileSync(join(subGit, 's.evil'), 'two\n')
   writeFileSync(join(subGit, 'p.proc'), 'two\n')
 
+  const noMarks = () => {
+    for (const name of ['subclean', 'subprocess', 'subfsmonitor']) {
+      expect(existsSync(join(marks, name))).toBe(false)
+    }
+  }
+
   it('runs no program of the submodule for a status, a line count or a patch', async () => {
     const status = await readStatus(outer)
     await lineChanges(outer, [])
     for (const change of status.changes) await unifiedPatch(outer, change)
-    for (const name of ['subclean', 'subprocess', 'subfsmonitor']) {
-      expect(existsSync(join(marks, name))).toBe(false)
-    }
+    noMarks()
+  })
+
+  it('lists what changed inside the submodule under its path', async () => {
+    const status = await readStatus(outer)
+    expect(status.changes.map((c) => `${c.area}:${c.path}`).sort()).toEqual([
+      'unstaged:sub/p.proc',
+      'unstaged:sub/s.evil',
+    ])
+    noMarks()
+  })
+
+  it('diffs, stages, unstages and discards a path inside the submodule in the submodule', async () => {
+    const [change] = (await readStatus(outer)).changes.filter((c) => c.path === 'sub/s.evil')
+    expect(await diffSides(outer, change)).toEqual({ original: 'one\n', modified: 'two\n' })
+    expect(await unifiedPatch(outer, change)).toContain('+two')
+    await stage(outer, ['sub/s.evil'])
+    expect(
+      execFileSync('git', ['-c', 'core.fsmonitor=false', 'diff', '--cached', '--name-only'], {
+        cwd: subGit,
+        encoding: 'utf8',
+      }),
+    ).toBe('s.evil\n')
+    await unstage(outer, ['sub/s.evil'], true)
+    expect(
+      execFileSync('git', ['-c', 'core.fsmonitor=false', 'diff', '--cached', '--name-only'], {
+        cwd: subGit,
+        encoding: 'utf8',
+      }),
+    ).toBe('')
+    await discard(outer, [change])
+    expect(
+      execFileSync('git', ['-c', 'core.fsmonitor=false', 'show', ':s.evil'], {
+        cwd: subGit,
+        encoding: 'utf8',
+      }),
+    ).toBe('one\n')
+    noMarks()
+  })
+
+  it('does not follow a submodule path that leads outside the repository', async () => {
+    const other = join(root, 'other')
+    mkdirSync(other)
+    gitIn(other, 'init', '-q', '-b', 'main')
+    writeFileSync(join(other, 'secret.txt'), 'x\n')
+    const outside = join(root, 'outside-link')
+    mkdirSync(outside)
+    gitIn(outside, 'init', '-q', '-b', 'main')
+    const sha = execFileSync('git', ['hash-object', '-t', 'blob', '--stdin'], {
+      cwd: outside,
+      input: 'x',
+      encoding: 'utf8',
+    }).trim()
+    gitIn(outside, 'update-index', '--add', '--cacheinfo', `160000,${sha},link`)
+    symlinkSync(other, join(outside, 'link'))
+    const status = await readStatus(outside)
+    expect(status.changes.some((c) => c.path.includes('secret.txt'))).toBe(false)
   })
 })
