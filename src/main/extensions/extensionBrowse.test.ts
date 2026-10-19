@@ -82,6 +82,10 @@ function limits(extra: Partial<BrowseLimits> = {}): BrowseLimits {
 
 const idle = new AbortController().signal
 
+async function until(condition: () => boolean): Promise<void> {
+  while (!condition()) await new Promise((resolve) => setImmediate(resolve))
+}
+
 function raw(
   list: (extConn: MessageConnection, ticket: string) => Promise<unknown>,
   read?: (extConn: MessageConnection, ticket: string) => Promise<unknown>,
@@ -373,8 +377,7 @@ describe('ExtensionBrowse deadlines, cancel and recycle', () => {
     const listing = await harness.browse.list(target, limits({ scanMs: 20 }), idle)
     close()
     expect(listing).toEqual({ ok: false, error: 'timeout' })
-    await new Promise((resolve) => setTimeout(resolve, 150))
-    expect(cancelled).toBe(true)
+    await until(() => cancelled && (harness?.recycled.length ?? 0) > 0)
     expect(harness.recycled).toEqual(['archives'])
   })
 
@@ -382,7 +385,7 @@ describe('ExtensionBrowse deadlines, cancel and recycle', () => {
     const { target, close } = await open(10)
     harness = browseHarness({
       candidates: [CANDIDATE],
-      timing: FAST,
+      timing: { ...FAST, killGraceMs: 400 },
       raw: (extConn) => {
         extConn.onRequest(BROWSE_LIST_METHOD, (_params: unknown, token) => {
           return new Promise((resolve) =>
@@ -393,7 +396,7 @@ describe('ExtensionBrowse deadlines, cancel and recycle', () => {
     })
     await harness.browse.list(target, limits({ scanMs: 20 }), idle)
     close()
-    await new Promise((resolve) => setTimeout(resolve, 150))
+    await new Promise((resolve) => setTimeout(resolve, 600))
     expect(harness.recycled).toEqual([])
   })
 
@@ -401,10 +404,12 @@ describe('ExtensionBrowse deadlines, cancel and recycle', () => {
     const { target, close } = await open(10)
     const abort = new AbortController()
     let cancelled = false
+    let started = false
     harness = browseHarness({
       candidates: [CANDIDATE],
       raw: (extConn) => {
         extConn.onRequest(BROWSE_LIST_METHOD, (_params: unknown, token) => {
+          started = true
           return new Promise((resolve) =>
             token.onCancellationRequested(() => {
               cancelled = true
@@ -415,7 +420,7 @@ describe('ExtensionBrowse deadlines, cancel and recycle', () => {
       },
     })
     const pending = harness.browse.list(target, limits(), abort.signal)
-    await new Promise((resolve) => setTimeout(resolve, 20))
+    await until(() => started)
     abort.abort()
     expect(await pending).toEqual({ ok: false, error: 'cancelled' })
     close()
@@ -438,16 +443,16 @@ describe('ExtensionBrowse deadlines, cancel and recycle', () => {
       }),
     })
     const all = Array.from({ length: 22 }, () => harness?.browse.list(target, limits(), idle))
-    await new Promise((resolve) => setTimeout(resolve, 50))
+    await until(() => running === 4)
     expect(peak).toBe(4)
     const busy = (await Promise.all(all.slice(20))) as Array<{ ok: boolean; error?: string }>
     expect(busy).toEqual([
       { ok: false, error: 'busy' },
       { ok: false, error: 'busy' },
     ])
-    while (release.length > 0 || running > 0) {
+    for (let finished = 0; finished < 20; finished++) {
+      await until(() => release.length > 0)
       release.shift()?.()
-      await new Promise((resolve) => setTimeout(resolve, 1))
     }
     await Promise.all(all)
     close()
