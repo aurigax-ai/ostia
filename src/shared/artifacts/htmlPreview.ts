@@ -49,21 +49,6 @@ export interface PreviewApi {
   copyRegion: (id: string, rect: Region) => Promise<boolean>
 }
 
-export const PREVIEW_PAGE_CSP = [
-  "default-src 'none'",
-  `script-src ${PREVIEW_SCHEME}: 'unsafe-inline'`,
-  `style-src ${PREVIEW_SCHEME}: 'unsafe-inline'`,
-  `img-src ${PREVIEW_SCHEME}: data: blob:`,
-  `font-src ${PREVIEW_SCHEME}: data:`,
-  `media-src ${PREVIEW_SCHEME}: data: blob:`,
-  `connect-src ${PREVIEW_SCHEME}:`,
-  "worker-src 'none'",
-  "frame-src 'none'",
-  "form-action 'none'",
-  "base-uri 'none'",
-  'sandbox allow-scripts',
-].join('; ')
-
 export function isComponentPath(path: string | undefined): boolean {
   return path !== undefined && /\.[jt]sx$/i.test(path)
 }
@@ -92,13 +77,6 @@ export function normalizePreviewTheme(value: unknown): PreviewTheme {
     }
   }
   return { dark: raw.dark === true, vars }
-}
-
-export function shellCsp(nonce: string): string {
-  return PREVIEW_PAGE_CSP.replace(
-    `script-src ${PREVIEW_SCHEME}: 'unsafe-inline'`,
-    `script-src ${PREVIEW_SCHEME}: 'nonce-${nonce}'`,
-  )
 }
 
 export function previewPartition(nonce: string): string {
