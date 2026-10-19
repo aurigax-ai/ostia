@@ -29,6 +29,7 @@ import { SANDBOXED_REFUSAL } from '../sandbox/sandboxedCaller'
 import { SCRIPT_COMMANDS, externalPaneMessage, internalPaneArgs } from './commandArgs'
 import { type AuthedConn, authenticate, connHasCap, scriptExpired } from './controlAuth'
 import { type PaneIdentity, resolveExternal } from './idRegistry'
+import { capIncomingMessages } from './messageCap'
 import { calledMethod, calledTarget, errorOutcome, resultOutcome } from './scriptCallUsage'
 
 export function controlSocketPath(): string {
@@ -431,10 +432,11 @@ function registerMethodCalls({ session, conn, onCall, requireIdentity }: Connect
 }
 
 function serveConnection(deps: ControlServerDeps, socket: Socket): void {
-  const conn = createMessageConnection(
-    new StreamMessageReader(socket),
-    new StreamMessageWriter(socket),
-  )
+  const capped = socket.pipe(capIncomingMessages(socket))
+  capped.on('error', () => {})
+  const reader = new StreamMessageReader(capped)
+  reader.onError(() => socket.destroy())
+  const conn = createMessageConnection(reader, new StreamMessageWriter(socket))
   const session: ConnectionSession = { authed: null, disconnect: null }
   const calls: ConnectionCalls = {
     conn,

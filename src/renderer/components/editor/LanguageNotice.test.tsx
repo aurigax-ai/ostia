@@ -159,6 +159,20 @@ describe('LanguageNotice', () => {
     expect(await screen.findByRole('status')).toHaveTextContent('It can show .xlsx files.')
   })
 
+  it('words an offer for a browse kind as opening what is inside the file', async () => {
+    suggest({ ...install, feature: 'browse', name: 'Zips', files: '.zip' })
+    const first = render(<LanguageNotice paneId="p1" filePath="/work/a.zip" />)
+    expect(await screen.findByRole('status')).toHaveTextContent(
+      'Zips can open what is inside .zip files.',
+    )
+    first.unmount()
+    suggest({ ...install, kind: 'enable', pending: false, feature: 'browse', files: '.zip' })
+    render(<LanguageNotice paneId="p1" filePath="/work/a.zip" />)
+    expect(await screen.findByRole('status')).toHaveTextContent(
+      'It can open what is inside .zip files.',
+    )
+  })
+
   it('shows one extension’s offer in one pane per window session', async () => {
     suggest(install)
     render(<LanguageNotice paneId="p1" filePath="/work/main.rs" />)

@@ -91,6 +91,7 @@ export type OpenPathResult = { ok: true } | { ok: false; error: 'not-found' | 'p
 
 interface FilesApi {
   pathForFile: (file: File) => string
+  onKindsChanged: (cb: () => void) => () => void
   admitDropped: (files: File[], workspaceId: string | null) => Promise<OpenFileVerdict[]>
 }
 

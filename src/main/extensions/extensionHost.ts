@@ -20,7 +20,12 @@ import {
   type ExtensionStatus,
   commandArgument,
 } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
-import type { FileKindInfo } from '@aurigax-ai/ostia-extension-sdk/contract/fileKinds'
+import {
+  type BrowseCandidate,
+  FILE_CONTENTS_CAPABILITY,
+  type KindRoles,
+  browseKindFor,
+} from '@aurigax-ai/ostia-extension-sdk/contract/fileKinds'
 import { isRecord } from '@aurigax-ai/ostia-extension-sdk/contract/isRecord'
 import { languageServerSummary } from '@aurigax-ai/ostia-extension-sdk/contract/languageServers'
 import {
@@ -38,11 +43,13 @@ import { hasCap } from '../approvals/capabilityStore'
 import type { PaneIdentity } from '../control/idRegistry'
 import { REMOTE_REQUEST_TIMEOUT_MS, RemoteFolders } from '../files/remoteFolders'
 import { ExtensionAssist } from './extensionAssist'
+import { ExtensionBrowse } from './extensionBrowse'
 import { ExtensionConfig } from './extensionConfig'
 import { ExtensionContributions } from './extensionContributions'
 import { ExtensionEvents } from './extensionEvents'
 import type { ExtensionHostDeps } from './extensionHostDeps'
 import { ExtensionPanels } from './extensionPanels'
+import { ExtensionPhoneScreens } from './extensionPhoneScreens'
 import { ExtensionProcesses } from './extensionProcesses'
 import { ExtensionRuns } from './extensionRuns'
 import {
@@ -58,6 +65,12 @@ import { ExtensionSlots } from './extensionSlots'
 import { effectiveRecord, grantedCaps, kindApproved, needsApproval } from './extensionStore'
 import { ExtensionWindowRequests } from './extensionWindowRequests'
 const INTERACTIVE_TIMEOUT_MS = 10 * 60_000
+
+function shadowedOf(
+  shadowed: { name: string; patterns: string[] }[],
+): { shadowed: { name: string; patterns: string[] }[] } | Record<string, never> {
+  return shadowed.length > 0 ? { shadowed } : {}
+}
 
 function capsOf(externalId: string): Capability[] {
   return ALL_CAPABILITIES.filter((cap) => hasCap(externalId, cap))
@@ -77,10 +90,18 @@ export class ExtensionHost {
   readonly processes: ExtensionProcesses
   readonly panels: ExtensionPanels
   readonly events: ExtensionEvents
+  readonly browse: ExtensionBrowse
+  readonly phoneScreens: ExtensionPhoneScreens
+  private browseSignature = ''
 
   constructor(private readonly deps: ExtensionHostDeps) {
     this.changes.setMaxListeners(0)
     for (const ext of this.discover()) this.runtimes.set(ext.manifest.id, newRuntime(ext))
+    this.phoneScreens = new ExtensionPhoneScreens({
+      links: deps.screenLinks,
+      runtimeOf: (identity, conn) => this.runtimeOf(identity, conn),
+      active: (rt) => this.active(rt),
+    })
     this.config = new ExtensionConfig({
       deps,
       runtimes: this.runtimes,
@@ -151,6 +172,19 @@ export class ExtensionHost {
       kindApproved: (rt, kind) => this.kindApproved(rt, kind),
       userCaller: (workspaceId, extra) => this.userCaller(workspaceId, extra),
     })
+    this.browse = new ExtensionBrowse({
+      candidates: () => this.browseCandidates(),
+      connected: (extId) => {
+        const rt = this.runtimes.get(extId)
+        if (!rt) return Promise.reject(new Error('unknown extension'))
+        return this.processes.connected(rt)
+      },
+      process: (extId) => this.runtimes.get(extId)?.proc ?? null,
+      recycle: (extId) => {
+        const rt = this.runtimes.get(extId)
+        if (rt) this.processes.recycle(rt)
+      },
+    })
     this.events = new ExtensionEvents({
       deps,
       runtimes: this.runtimes,
@@ -164,6 +198,7 @@ export class ExtensionHost {
       runtimeOf: (identity, conn) => this.runtimeOf(identity, conn),
       shownName: (rt) => this.shownName(rt),
     })
+    this.browseSignature = this.browse.kindsSignature()
   }
 
   private discover(): LoadedExtension[] {
@@ -193,10 +228,48 @@ export class ExtensionHost {
   }
 
   private record(rt: Runtime) {
-    return effectiveRecord(rt.ext.builtin, this.deps.store.get(rt.ext.manifest.id))
+    const browses = (rt.ext.manifest.contributes.fileKinds ?? []).some((kind) => kind.browse)
+    return effectiveRecord(
+      rt.ext.builtin,
+      this.deps.store.get(rt.ext.manifest.id),
+      browses ? [FILE_CONTENTS_CAPABILITY] : [],
+    )
   }
 
-  private kindApproved(rt: Runtime, kind: Pick<FileKindInfo, 'id' | 'selector' | 'view'>): boolean {
+  private browseCandidates(): BrowseCandidate[] {
+    const found: BrowseCandidate[] = []
+    for (const rt of this.runtimes.values()) {
+      if (!this.active(rt) || !this.granted(rt).includes(FILE_CONTENTS_CAPABILITY)) continue
+      for (const kind of rt.ext.manifest.contributes.fileKinds ?? []) {
+        if (!kind.browse || !this.kindApproved(rt, kind)) continue
+        found.push({
+          extId: rt.ext.manifest.id,
+          builtin: rt.ext.builtin,
+          kind: { id: kind.id, selector: kind.selector },
+        })
+      }
+    }
+    return found
+  }
+
+  private shadowedPatterns(rt: Runtime, kind: KindRoles): { name: string; patterns: string[] }[] {
+    if (!kind.browse) return []
+    const candidates = this.browseCandidates()
+    const extId = rt.ext.manifest.id
+    if (!candidates.some((c) => c.extId === extId && c.kind.id === kind.id)) return []
+    const lost = new Map<string, string[]>()
+    for (const { filenamePattern } of kind.selector) {
+      const sample = filenamePattern.startsWith('*.')
+        ? `x${filenamePattern.slice(1)}`
+        : filenamePattern
+      const winner = browseKindFor(sample, candidates)
+      if (!winner || winner.extId === extId) continue
+      lost.set(winner.extId, [...(lost.get(winner.extId) ?? []), filenamePattern])
+    }
+    return [...lost].map(([winner, patterns]) => ({ name: this.displayName(winner), patterns }))
+  }
+
+  private kindApproved(rt: Runtime, kind: KindRoles): boolean {
     return kindApproved(rt.ext.builtin, this.deps.store.get(rt.ext.manifest.id), kind)
   }
 
@@ -275,7 +348,9 @@ export class ExtensionHost {
         id: kind.id,
         displayName: kind.displayName,
         selector: kind.selector,
-        view: { priority: kind.view.priority },
+        ...(kind.view ? { view: { priority: kind.view.priority } } : {}),
+        ...(kind.browse ? { browse: true as const } : {}),
+        ...shadowedOf(this.shadowedPatterns(rt, kind)),
         approved: this.kindApproved(rt, kind),
       })),
       agentSkills: (m.contributes.agentSkills ?? []).map((skill) => agentSkillId(m.id, skill.name)),
@@ -319,9 +394,15 @@ export class ExtensionHost {
 
   private changed(rt?: Runtime): void {
     if (rt) this.changes.emit(rt.ext.manifest.id)
+    this.phoneScreens.recheck()
     this.deps.broadcast('extensions:changed', this.list())
     this.assistant.assistChanged()
     this.deps.onChanged?.()
+    const signature = this.browse.kindsSignature()
+    if (signature !== this.browseSignature) {
+      this.browseSignature = signature
+      this.deps.onBrowseKindsChanged?.()
+    }
   }
 
   async invoke(

@@ -3,7 +3,7 @@ import {
   BUILTIN_CAPABILITIES,
   type Capability,
 } from '@aurigax-ai/ostia-extension-sdk/contract/capabilities'
-import { type FileKindInfo, kindClaim } from '@aurigax-ai/ostia-extension-sdk/contract/fileKinds'
+import { type KindRoles, kindClaim } from '@aurigax-ai/ostia-extension-sdk/contract/fileKinds'
 import { isRecord } from '@aurigax-ai/ostia-extension-sdk/contract/isRecord'
 import { loadJson, saveJson } from '../platform/jsonStore'
 
@@ -31,7 +31,7 @@ export function grantedCaps(
 export function kindApproved(
   builtin: boolean,
   record: ExtensionRecord | undefined,
-  kind: Pick<FileKindInfo, 'id' | 'selector' | 'view'>,
+  kind: KindRoles,
 ): boolean {
   return builtin || (record?.approvedKinds ?? []).includes(kindClaim(kind))
 }
@@ -39,10 +39,16 @@ export function kindApproved(
 export function effectiveRecord(
   builtin: boolean,
   record: ExtensionRecord | undefined,
+  declared: readonly Capability[] = [],
 ): ExtensionRecord {
-  if (record) return record
+  if (record) {
+    const missing = builtin ? declared.filter((cap) => !record.approved?.includes(cap)) : []
+    return missing.length > 0
+      ? { ...record, approved: [...(record.approved ?? []), ...missing] }
+      : record
+  }
   return builtin
-    ? { enabled: true, approved: [...BUILTIN_CAPABILITIES] }
+    ? { enabled: true, approved: [...BUILTIN_CAPABILITIES, ...declared] }
     : { enabled: false, approved: null }
 }
 

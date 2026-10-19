@@ -9,7 +9,7 @@ import { viewerGuestText } from './viewerGuest'
 
 const MIB = 1024 * 1024
 
-test('a zip expands in the Files panel and its entries open read-only without extracting', async () => {
+test('a zip expands in the Files panel, its entries open read-only without extracting, and turning the archives extension off makes it a plain file', async () => {
   const dataHome = freshDataHome()
   const home = join(dataHome, 'home')
   mkdirSync(home, { recursive: true })
@@ -72,6 +72,21 @@ test('a zip expands in the Files panel and its entries open read-only without ex
       'This entry is a link inside the archive; it is never followed.',
     )
     expect(readdirSync(home).filter((name) => !name.startsWith('.'))).toEqual(['bundle.zip'])
+
+    await win.getByRole('button', { name: 'Settings', exact: true }).first().click()
+    await win.getByRole('button', { name: 'Extensions', exact: true }).first().click()
+    const toggle = win.getByRole('switch', { name: 'Enable Archives' })
+    await toggle.click()
+    await expect(toggle).not.toBeChecked()
+    await win.keyboard.press('Escape')
+    await expect(archive).not.toHaveAttribute('aria-expanded', /.+/, { timeout: 15_000 })
+
+    await win.getByRole('button', { name: 'Settings', exact: true }).first().click()
+    await win.getByRole('button', { name: 'Extensions', exact: true }).first().click()
+    await toggle.click()
+    await expect(toggle).toBeChecked()
+    await win.keyboard.press('Escape')
+    await expect(archive).toHaveAttribute('aria-expanded', /.+/, { timeout: 15_000 })
   } finally {
     await app.close()
   }

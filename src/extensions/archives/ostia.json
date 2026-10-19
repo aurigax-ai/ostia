@@ -1,0 +1,50 @@
+{
+  "id": "archives",
+  "name": "Archives",
+  "version": "1.0.0",
+  "api": "6.2",
+  "description": "Lists and opens what is inside zip, jar, tar, tar.gz and tar.zst files in the Files panel, read-only. It reads the archive you expand through Ostia in small blocks, never gets a path, never extracts anything to disk, never follows links and refuses encrypted entries and decompression bombs.",
+  "category": "tools",
+  "locales": ["zh-Hant"],
+  "capabilities": ["file-contents"],
+  "main": "main.js",
+  "contributes": {
+    "fileKinds": [
+      {
+        "id": "archives.zip",
+        "displayName": "Zip archive",
+        "selector": [
+          {
+            "filenamePattern": "*.zip"
+          },
+          {
+            "filenamePattern": "*.jar"
+          }
+        ],
+        "browse": {}
+      },
+      {
+        "id": "archives.tar",
+        "displayName": "Tar archive",
+        "selector": [
+          {
+            "filenamePattern": "*.tar"
+          },
+          {
+            "filenamePattern": "*.tgz"
+          },
+          {
+            "filenamePattern": "*.tar.gz"
+          },
+          {
+            "filenamePattern": "*.tzst"
+          },
+          {
+            "filenamePattern": "*.tar.zst"
+          }
+        ],
+        "browse": {}
+      }
+    ]
+  }
+}

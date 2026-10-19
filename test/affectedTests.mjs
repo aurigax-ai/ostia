@@ -47,11 +47,12 @@ const UNIT_ONLY_FILES = [
   'scripts/retry.sh',
 ]
 
-const EVERY_TEST = { node: null, dom: null, e2e: null }
+const EVERY_TEST = { node: null, dom: null, e2e: null, e2eChanged: [] }
 
 const E2E_SPECS_PER_SHARD = 20
 const E2E_MAX_SHARDS = 4
 const E2E_TESTS_PER_SPEC = 5
+export const E2E_CHANGED_REPEAT = 3
 
 export function specOf(entry) {
   return entry.replace(/:\d+$/, '')
@@ -184,6 +185,23 @@ export function planE2e(changed, map, imports, quarantined = []) {
     if (areas.length === 0 && importers.length === 0) for (const test of map.core) specs.add(test)
   }
   return [...specs].filter((entry) => entry === specOf(entry) || !specs.has(specOf(entry))).sort()
+}
+
+export function splitChangedSpecs(planned, changed) {
+  const specs = unique(changed.filter((file) => SPEC.test(file))).sort()
+  return {
+    e2e: planned === null ? null : planned.filter((entry) => !specs.includes(entry)),
+    e2eChanged: specs,
+  }
+}
+
+export function planOutput(tests) {
+  return {
+    ...tests,
+    e2eShards: tests.e2e === null ? null : e2eShards(e2eWeight(tests.e2e)),
+    e2eChangedRepeat: E2E_CHANGED_REPEAT,
+    e2eChangedShards: e2eShards(e2eWeight(tests.e2eChanged) * E2E_CHANGED_REPEAT),
+  }
 }
 
 const AREAS_DIR = 'test/e2eAreas'
@@ -345,9 +363,10 @@ export function planChanges(changed, base) {
     : []
   const map = { ...loadE2eMap(), core: coreTests() }
   const e2e = planE2e(changed, map, e2eImports(), quarantined)
+  const present = (entry) => existsSync(join(ROOT, specOf(entry)))
   return {
     ...planTests(changed, fileReaders(), quarantined),
-    e2e: e2e === null ? null : e2e.filter((entry) => existsSync(join(ROOT, specOf(entry)))),
+    ...splitChangedSpecs(e2e === null ? null : e2e.filter(present), changed.filter(present)),
   }
 }
 

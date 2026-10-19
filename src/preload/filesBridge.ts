@@ -49,6 +49,7 @@ export const filesBridge: Pick<
   },
   files: {
     pathForFile: (file) => webUtils.getPathForFile(file),
+    onKindsChanged: (cb) => listen('files:kinds-changed', cb),
     admitDropped: (files, workspaceId) =>
       ipcRenderer.invoke(
         'files:admit-dropped',
