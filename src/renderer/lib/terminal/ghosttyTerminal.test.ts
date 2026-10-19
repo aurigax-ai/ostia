@@ -2,6 +2,7 @@ import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest
 import {
   type GhosttyTerminal,
   createGhosttyTerminal,
+  lazyBuffers,
   loadGhosttyEngine,
   oneBasedLinks,
   osc52Data,
@@ -188,5 +189,40 @@ describe('Ghostty terminal adapter', () => {
     term.write('again\r\n')
     await frame()
     expect(fills).toContain('#fdf6e3')
+  })
+})
+
+describe('Ghostty lazy buffer rows', () => {
+  function fakeTerm() {
+    const getLine = vi.fn((y: number) => ({
+      length: 4,
+      isWrapped: false,
+      getCell: () => undefined,
+      translateToString: () => `row ${y}`,
+    }))
+    const rows = { type: 'normal', length: 8, getLine, getNullCell: () => null }
+    const wasm = {
+      getScrollbackLength: () => 5,
+      isScrollbackRowWrapped: (offset: number) => offset === 2,
+      isRowWrapped: (row: number) => row === 1,
+    }
+    const t = { cols: 4, wasmTerm: wasm, buffer: { active: rows, normal: rows } }
+    return { buffer: lazyBuffers(t as never), getLine }
+  }
+
+  it('reads isWrapped from the row flag and never builds the row cells', () => {
+    const { buffer, getLine } = fakeTerm()
+    const flags = Array.from({ length: 8 }, (_, y) => buffer.normal.getLine(y)?.isWrapped)
+    expect(flags).toEqual([false, false, true, false, false, false, true, false])
+    expect(getLine).not.toHaveBeenCalled()
+  })
+
+  it('builds the cells once when the text is read', () => {
+    const { buffer, getLine } = fakeTerm()
+    const line = buffer.active.getLine(3)
+    expect(line?.translateToString(true)).toBe('row 3')
+    expect(line?.translateToString(false)).toBe('row 3')
+    expect(getLine).toHaveBeenCalledTimes(1)
+    expect(buffer.normal.getLine(8)).toBeUndefined()
   })
 })
