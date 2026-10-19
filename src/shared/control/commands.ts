@@ -39,7 +39,7 @@ export interface CommandInvokeRequest {
   fromMain?: true
 }
 
-export interface CommandsApi {
+interface CommandsApi {
   publish: (descriptors: CommandDescriptor[]) => void
   onInvoke: (handler: (req: CommandInvokeRequest) => Promise<CommandResult>) => () => void
 }

@@ -177,11 +177,11 @@ function runningGroups(
 }
 
 async function paneActivities(panes: readonly PaneNode[]): Promise<PaneActivities> {
-  const activity = window.ostia?.pty?.activity
   const out: Record<string, PaneActivity> = {}
-  if (!activity) return out
   const live = panes.filter((p) => p.kind === 'terminal' && !p.hibernated)
-  const answers = await Promise.all(live.map((p) => activity(p.id).catch(() => null)))
+  const answers = await Promise.all(
+    live.map((p) => window.ostia.pty.activity(p.id).catch(() => null)),
+  )
   for (const [index, pane] of live.entries()) {
     const answer = answers[index]
     if (answer) out[pane.id] = answer

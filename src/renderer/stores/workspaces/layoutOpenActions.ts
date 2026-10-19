@@ -12,7 +12,7 @@ import { patch } from '@/lib/panes/layoutPatch'
 import { joinedTerminal, markNewSplitTab, splitTabAnchor } from '@/lib/panes/splitTabPlacement'
 import { forgetSplitTabSeeds, seedSplitTab } from '@/lib/panes/splitTabSeeds'
 import { noteOpener } from '@/lib/panes/tabHistory'
-import { newTerminalPane, seedLayout } from './layoutSeed'
+import { announcePaneCreated, newTerminalPane, seedLayout } from './layoutSeed'
 import type { LayoutGet, LayoutSet, LayoutState, OpenTerminalPlacement } from './layoutTypes'
 
 function describeTerminal(root: LayoutNode, paneId: string, opts: OpenTerminalPlacement) {
@@ -58,13 +58,7 @@ export function createLayoutOpenActions(set: LayoutSet, get: LayoutGet): LayoutO
         })
         return next ?? s
       })
-      if (createdPaneId) {
-        window.ostia?.lifecycle?.emit?.({
-          type: 'pane-created',
-          workspaceId,
-          paneId: createdPaneId,
-        })
-      }
+      announcePaneCreated(workspaceId, createdPaneId)
     },
 
     openBrowserTab: (workspaceId, url, profile, placement = {}) => {
@@ -88,13 +82,7 @@ export function createLayoutOpenActions(set: LayoutSet, get: LayoutGet): LayoutO
         return next ?? s
       })
       if (createdPaneId && openerId) noteOpener(workspaceId, createdPaneId, openerId)
-      if (createdPaneId) {
-        window.ostia?.lifecycle?.emit?.({
-          type: 'pane-created',
-          workspaceId,
-          paneId: createdPaneId,
-        })
-      }
+      announcePaneCreated(workspaceId, createdPaneId)
       return createdPaneId
     },
 
@@ -149,13 +137,7 @@ export function createLayoutOpenActions(set: LayoutSet, get: LayoutGet): LayoutO
         })
         return next ?? s
       })
-      if (createdPaneId) {
-        window.ostia?.lifecycle?.emit?.({
-          type: 'pane-created',
-          workspaceId,
-          paneId: createdPaneId,
-        })
-      }
+      announcePaneCreated(workspaceId, createdPaneId)
       return createdPaneId
     },
   }

@@ -125,7 +125,7 @@ export function useWebviewEvents({
       const stale = staleSrcRef.current
       staleSrcRef.current = null
       withGuest((wv) => wv.setZoomFactor(useSettingsStore.getState().browser.defaultZoom / 100))
-      withGuest((wv) => window.ostia?.browser?.register?.(paneId, wv.getWebContentsId()))
+      withGuest((wv) => window.ostia.browser.register(paneId, wv.getWebContentsId()))
       withGuest((wv) => {
         if (stale !== null && wv.getURL() === stale) pendingUrlRef.current ??= srcRef.current
       })
@@ -136,7 +136,7 @@ export function useWebviewEvents({
     if (guestReached(el)) onDomReady()
     return () => {
       el.removeEventListener('dom-ready', onDomReady)
-      window.ostia?.browser?.unregister?.(paneId)
+      window.ostia.browser.unregister(paneId)
     }
   }, [paneId, withGuest, load, partition, webviewRef, readyRef, staleSrcRef, pendingUrlRef, srcRef])
 

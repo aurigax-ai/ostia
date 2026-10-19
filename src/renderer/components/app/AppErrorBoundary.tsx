@@ -93,8 +93,8 @@ export function CrashTestHook(): null {
   useEffect(() => {
     let off: (() => void) | null = null
     let alive = true
-    void window.ostia?.diagnostics
-      ?.testHooks()
+    void window.ostia.diagnostics
+      .testHooks()
       .then((enabled) => {
         if (enabled && alive) off = window.ostia.diagnostics.onTestCrash(() => setCrash(true))
       })
