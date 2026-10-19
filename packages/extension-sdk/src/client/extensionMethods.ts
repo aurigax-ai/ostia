@@ -14,7 +14,7 @@ import {
 } from '../contract/extensions'
 import type { HostHandlers } from './hostHandlers'
 import type { OpenFolderResult, OpenTerminalResult, OstiaExtension } from './index'
-import { type Failure, errorMessage, failure } from './results'
+import { errorMessage, failure } from './results'
 import {
   type AskResult,
   type BusSendResult,
@@ -27,11 +27,13 @@ import {
   rpcFailure,
 } from './workApi'
 
-async function sent<T>(work: Promise<T>, error: string): Promise<T | Failure> {
+type Failed = { ok: false; error: string; message?: string }
+
+async function sent<T>(work: Promise<T>, error: string): Promise<T | Failed> {
   try {
     return await work
   } catch (err) {
-    return failure(error, errorMessage(err))
+    return failure(error, errorMessage(err)) as Failed
   }
 }
 
