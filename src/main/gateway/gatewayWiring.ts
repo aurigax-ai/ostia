@@ -68,6 +68,7 @@ interface GatewayStartDeps {
   turnConfirms: PaneConfirms
   paneTurns: PaneTurns
   redactor: Redactor
+  remoteCwdOfPane: (paneId: string) => unknown
 }
 
 export function createScreenLinks({
@@ -109,6 +110,7 @@ export function startGateway({
   turnConfirms,
   paneTurns,
   redactor,
+  remoteCwdOfPane,
 }: GatewayStartDeps) {
   registerPaneListMethods({
     execCommand,
@@ -178,5 +180,6 @@ export function startGateway({
     turnStarted: async (pane) => (await turnConfirms.confirmSubmitted(pane)).ok,
     paneTurns,
     redact: async (text) => (await redactor.redact(text)).text,
+    remote: (paneId) => remoteCwdOfPane(paneId) !== undefined,
   })
 }

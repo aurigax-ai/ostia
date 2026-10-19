@@ -72,6 +72,7 @@ function fakeDeps(overrides: Partial<GatewayControlDeps> = {}): GatewayControlDe
     turnStarted: vi.fn().mockResolvedValue(true),
     paneTurns: { list: vi.fn().mockReturnValue([]), output: vi.fn().mockReturnValue(null) },
     redact: vi.fn(async (text: string) => text),
+    remote: vi.fn().mockReturnValue(false),
     ...overrides,
   }
 }
@@ -1156,6 +1157,7 @@ describe('dispatchGatewayMethod — asks and agent replies', () => {
         turnStarted: vi.fn().mockResolvedValue(true),
         paneTurns: { list: vi.fn().mockReturnValue([]), output: vi.fn().mockReturnValue(null) },
         redact: vi.fn(async (text: string) => text),
+        remote: vi.fn().mockReturnValue(false),
       })
       expect(await prompt(deps, pane.externalId, 'go')).toEqual({ ok: true, result: { ok: true } })
       expect(deps.turnStarted).toHaveBeenCalledWith(

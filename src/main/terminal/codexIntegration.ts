@@ -22,6 +22,7 @@ import {
   IN_PANE,
   busHookCommand,
   hookCommand,
+  turnHookCommand,
   hooksFor,
   permissionHookCommand,
 } from './agentHookCommands'
@@ -127,12 +128,11 @@ export function codexHookCommands(
     UserPromptSubmit: [
       hookCommand('state working'),
       busHookCommand('UserPromptSubmit'),
-      hookCommand('turn-hook UserPromptSubmit'),
+      turnHookCommand('UserPromptSubmit'),
     ],
-    PreToolUse: [hookCommand('turn-hook PreToolUse')],
-    PostToolUse: [hookCommand('turn-hook PostToolUse')],
+    PostToolUse: [turnHookCommand('PostToolUse')],
     PermissionRequest: [hookCommand('state waiting -'), permissionHookCommand('codex')],
-    Stop: [hookCommand('state done --stop'), hookCommand('turn-hook Stop')],
+    Stop: [hookCommand('state done --stop'), turnHookCommand('Stop')],
   }
   const commands: Partial<Record<CodexHookEvent, string[]>> = {}
   for (const event of Object.keys(CODEX_HOOK_EVENTS) as CodexHookEvent[]) {

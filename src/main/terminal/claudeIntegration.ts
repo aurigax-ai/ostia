@@ -22,6 +22,7 @@ import {
   CLI_PATH,
   busHookCommand,
   hookCommand,
+  turnHookCommand,
   hooksFor,
   permissionHookCommand,
 } from './agentHookCommands'
@@ -43,12 +44,11 @@ export function claudeHookSettings(extensionHooks: readonly ExtensionAgentHook[]
     UserPromptSubmit: [
       hookCommand('state working'),
       busHookCommand('UserPromptSubmit'),
-      hookCommand('turn-hook UserPromptSubmit'),
+      turnHookCommand('UserPromptSubmit'),
     ],
-    PreToolUse: [hookCommand('turn-hook PreToolUse')],
-    PostToolUse: [hookCommand('turn-hook PostToolUse')],
+    PostToolUse: [turnHookCommand('PostToolUse')],
     Notification: [hookCommand('claude-hook Notification')],
-    Stop: [hookCommand('claude-hook Stop'), hookCommand('turn-hook Stop')],
+    Stop: [hookCommand('claude-hook Stop'), turnHookCommand('Stop')],
   }
   const hooks: Record<string, unknown[]> = {}
   for (const event of AGENT_HOOK_EVENTS) {
