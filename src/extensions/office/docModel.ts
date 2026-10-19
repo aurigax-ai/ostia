@@ -1,9 +1,10 @@
 import mammoth from 'mammoth'
 import { odtOutline } from './odfOutline'
-import { type OfficeLimits, type OfficeProblem, problemOf } from './officeLimits'
-import { officeParts, zipParts } from './officePackage'
+import { GuardStop, type OfficeLimits, type OfficeProblem, problemOf } from './officeLimits'
+import { isOdfPart, odfMimetype, requirePackage, unzipParts } from './officeZip'
 import { type OutlineWords, documentOutlineHtml } from './outlineHtml'
 
+const ODT_MIMETYPE = 'application/vnd.oasis.opendocument.text'
 const IMAGES_MAX_BYTES = 20 * 1024 * 1024
 const IMAGE_TYPES = new Set(['image/png', 'image/jpeg', 'image/gif', 'image/webp'])
 
@@ -17,8 +18,10 @@ export async function readDocument(
   words: OutlineWords,
 ): Promise<DocumentResult> {
   try {
-    const { format, parts } = officeParts(bytes, 'document', limits)
-    if (format === 'odt') {
+    requirePackage(bytes)
+    const parts = unzipParts(bytes, isOdfPart)
+    if (parts.has('mimetype')) {
+      if (odfMimetype(parts) !== ODT_MIMETYPE) throw new GuardStop('failed')
       const outline = documentOutlineHtml(odtOutline(parts, limits), words, limits.outlineChars)
       return {
         ok: true,
@@ -28,7 +31,6 @@ export async function readDocument(
         textCut: outline.textCut,
       }
     }
-    const packed = zipParts(parts)
     let imageBytes = 0
     let imagesDropped = 0
     const convertImage = mammoth.images.imgElement(async (image) => {
@@ -44,7 +46,7 @@ export async function readDocument(
       }
       return { src: `data:${image.contentType};base64,${data}` }
     })
-    const input = { arrayBuffer: packed.buffer, buffer: packed }
+    const input = { arrayBuffer: bytes.buffer, buffer: bytes }
     const result = await mammoth.convertToHtml(input as unknown as { arrayBuffer: ArrayBuffer }, {
       convertImage,
       externalFileAccess: false,

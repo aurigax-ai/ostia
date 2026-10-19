@@ -1,6 +1,6 @@
 import * as XLSX from 'xlsx'
-import { GuardStop, type OfficeLimits, type OfficeProblem } from './officeLimits'
-import { officePackage } from './officePackage'
+import { type OfficeLimits, type OfficeProblem, problemOf } from './officeLimits'
+import { requirePackage } from './officeZip'
 
 export type DateParts = 'date' | 'time' | 'both'
 
@@ -158,8 +158,9 @@ function readBook(bytes: Uint8Array, limits: OfficeLimits): Workbook {
 
 export function readWorkbook(bytes: Uint8Array, limits: OfficeLimits): WorkbookResult {
   try {
-    return { ok: true, book: readBook(officePackage(bytes, 'sheet', limits), limits) }
+    requirePackage(bytes)
+    return { ok: true, book: readBook(bytes, limits) }
   } catch (error) {
-    return { ok: false, problem: error instanceof GuardStop ? error.problem : 'failed' }
+    return { ok: false, problem: problemOf(error) }
   }
 }

@@ -414,11 +414,11 @@ function registerMethodCalls({ session, conn, onCall, requireIdentity }: Connect
 }
 
 function serveConnection(deps: ControlServerDeps, socket: Socket): void {
-  capIncomingMessages(socket)
-  const conn = createMessageConnection(
-    new StreamMessageReader(socket),
-    new StreamMessageWriter(socket),
-  )
+  const capped = socket.pipe(capIncomingMessages(socket))
+  capped.on('error', () => {})
+  const reader = new StreamMessageReader(capped)
+  reader.onError(() => socket.destroy())
+  const conn = createMessageConnection(reader, new StreamMessageWriter(socket))
   const session: ConnectionSession = { authed: null, disconnect: null }
   const calls: ConnectionCalls = {
     conn,
