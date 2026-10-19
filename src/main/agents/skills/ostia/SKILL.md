@@ -17,8 +17,9 @@ Inside an Ostia terminal pane these are set:
 | `OSTIA_ARTIFACTS`, `OSTIA_PAD` | the workspace's artifact folder and its scratch pad (unset in sandboxed workspaces) |
 | `OSTIA_NODE`, `OSTIA_CLI` | the app's runtime and the CLI script |
 
-`ostia` is a shell function in bash and zsh panes. Where it is missing (a tool's shell, fish),
-run `ELECTRON_RUN_AS_NODE=1 "$OSTIA_NODE" "$OSTIA_CLI" <noun> <verb> …`.
+`ostia` is a shell function in bash and zsh panes and a launcher on the pane's `PATH`, so a
+tool's own shell (Codex, fish) finds it too. Where `PATH` was reset, run
+`ELECTRON_RUN_AS_NODE=1 "$OSTIA_NODE" "$OSTIA_CLI" <noun> <verb> …`.
 
 Every command is `ostia <noun> <verb> [args]`. `ostia <noun> --help` prints a noun's verbs and
 arguments; `ostia --help` lists the nouns. `ostia docs` prints this skill and the commands of
