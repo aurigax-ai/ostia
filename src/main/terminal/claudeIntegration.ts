@@ -24,6 +24,7 @@ import {
   hookCommand,
   hooksFor,
   permissionHookCommand,
+  turnHookCommand,
 } from './agentHookCommands'
 import claudeModSource from './claudeMod/register.ts?raw'
 
@@ -40,9 +41,14 @@ export function claudeHookSettings(extensionHooks: readonly ExtensionAgentHook[]
 } {
   const own: Partial<Record<AgentHookEvent, string[]>> = {
     SessionStart: [hookCommand('resume-token claude -'), busHookCommand('SessionStart')],
-    UserPromptSubmit: [hookCommand('state working'), busHookCommand('UserPromptSubmit')],
+    UserPromptSubmit: [
+      hookCommand('state working'),
+      busHookCommand('UserPromptSubmit'),
+      turnHookCommand('UserPromptSubmit'),
+    ],
+    PostToolUse: [turnHookCommand('PostToolUse')],
     Notification: [hookCommand('claude-hook Notification')],
-    Stop: [hookCommand('claude-hook Stop')],
+    Stop: [hookCommand('claude-hook Stop'), turnHookCommand('Stop')],
   }
   const hooks: Record<string, unknown[]> = {}
   for (const event of AGENT_HOOK_EVENTS) {
