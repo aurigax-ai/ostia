@@ -68,6 +68,8 @@ function fakeDeps(overrides: Partial<GatewayControlDeps> = {}): GatewayControlDe
     listAsks: vi.fn().mockReturnValue([]),
     answerAsk: vi.fn().mockReturnValue('unknown-ask'),
     agentRunning: vi.fn().mockReturnValue(false),
+    watchesTurn: vi.fn().mockResolvedValue(false),
+    turnStarted: vi.fn().mockResolvedValue(true),
     ...overrides,
   }
 }
@@ -1114,33 +1116,70 @@ describe('dispatchGatewayMethod — asks and agent replies', () => {
       expect(deps.ptyWrite).not.toHaveBeenCalled()
     })
 
+    const prompt = async (deps: GatewayControlDeps, paneId: string, text: string) => {
+      const pending = dispatchGatewayMethod('agent.prompt', { paneId, text }, RESPOND, deps)
+      await vi.advanceTimersByTimeAsync(AGENT_ENTER_DELAY_MS)
+      return pending
+    }
+
     it('agent.prompt pastes the text and presses Enter while the agent still runs', async () => {
       const pane = registerPane({ windowId: '7', workspaceId: 'ws', paneId: 'p-agent' })
       const deps = fakeDeps({ agentRunning: vi.fn().mockReturnValue(true) })
-      const res = await dispatchGatewayMethod(
-        'agent.prompt',
-        { paneId: pane.externalId, text: 'fix the\ntests\u0007' },
-        RESPOND,
-        deps,
-      )
+      const res = await prompt(deps, pane.externalId, 'fix the\ntests\u0007')
       expect(res).toEqual({ ok: true, result: { ok: true } })
-      expect(deps.ptyWrite).toHaveBeenCalledWith('p-agent', '\x1b[200~fix the\ntests\x1b[201~')
-      vi.advanceTimersByTime(AGENT_ENTER_DELAY_MS)
-      expect(deps.ptyWrite).toHaveBeenLastCalledWith('p-agent', '\r')
+      expect(vi.mocked(deps.ptyWrite).mock.calls).toEqual([
+        ['p-agent', '\x1b[200~fix the\ntests\x1b[201~'],
+        ['p-agent', '\r'],
+      ])
     })
 
-    it('agent.prompt skips Enter when the agent stopped before it', async () => {
+    it('agent.prompt answers not-submitted and skips Enter when the agent stopped before it', async () => {
       const pane = registerPane({ windowId: '7', workspaceId: 'ws', paneId: 'p-agent-2' })
       const agentRunning = vi.fn().mockReturnValueOnce(true).mockReturnValue(false)
       const deps = fakeDeps({ agentRunning })
-      await dispatchGatewayMethod(
-        'agent.prompt',
-        { paneId: pane.externalId, text: 'go' },
-        RESPOND,
-        deps,
-      )
-      vi.advanceTimersByTime(AGENT_ENTER_DELAY_MS)
+      expect(await prompt(deps, pane.externalId, 'go')).toEqual({
+        ok: false,
+        code: -32602,
+        message: 'not-submitted',
+        data: { paneId: pane.externalId },
+      })
       expect(deps.ptyWrite).toHaveBeenCalledTimes(1)
+    })
+
+    it('agent.prompt reads back that a watched agent started its turn', async () => {
+      const pane = registerPane({ windowId: '7', workspaceId: 'ws', paneId: 'p-agent-4' })
+      const deps = fakeDeps({
+        agentRunning: vi.fn().mockReturnValue(true),
+        watchesTurn: vi.fn().mockResolvedValue(true),
+        turnStarted: vi.fn().mockResolvedValue(true),
+      })
+      expect(await prompt(deps, pane.externalId, 'go')).toEqual({ ok: true, result: { ok: true } })
+      expect(deps.turnStarted).toHaveBeenCalledWith(
+        expect.objectContaining({ paneId: 'p-agent-4' }),
+      )
+    })
+
+    it('agent.prompt answers not-submitted when a watched agent shows the text but starts no turn', async () => {
+      const pane = registerPane({ windowId: '7', workspaceId: 'ws', paneId: 'p-agent-5' })
+      const deps = fakeDeps({
+        agentRunning: vi.fn().mockReturnValue(true),
+        watchesTurn: vi.fn().mockResolvedValue(true),
+        turnStarted: vi.fn().mockResolvedValue(false),
+      })
+      expect(await prompt(deps, pane.externalId, 'go')).toEqual({
+        ok: false,
+        code: -32602,
+        message: 'not-submitted',
+        data: { paneId: pane.externalId },
+      })
+      expect(deps.ptyWrite).toHaveBeenLastCalledWith('p-agent-5', '\r')
+    })
+
+    it('agent.prompt does not wait for a turn from an agent it cannot watch', async () => {
+      const pane = registerPane({ windowId: '7', workspaceId: 'ws', paneId: 'p-agent-6' })
+      const deps = fakeDeps({ agentRunning: vi.fn().mockReturnValue(true) })
+      expect(await prompt(deps, pane.externalId, 'go')).toEqual({ ok: true, result: { ok: true } })
+      expect(deps.turnStarted).not.toHaveBeenCalled()
     })
 
     it('agent.interrupt sends Escape or Ctrl+C and nothing else', async () => {
