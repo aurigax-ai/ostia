@@ -1,6 +1,6 @@
 ---
 name: ostia-manager
-description: Runs Ostia's manager agent, the agent a human starts with `ostia <agent>` from a terminal outside Ostia. Lists every workspace and pane, reads a pane's screen, starts worker agents, messages them over the bus, and types into a pane when the human allowed it, within the limits the human set. Use when the agent is the Ostia manager, or when a task asks to start, watch or answer other agents in Ostia.
+description: Runs Ostia's manager agent, started with `ostia <agent>` from a terminal outside Ostia: lists workspaces and panes, reads screens, starts and messages worker agents, and types into panes the human allowed. Use when the agent is the Ostia manager, or when a task asks to start, watch or answer other agents in Ostia.
 ---
 
 # Ostia manager

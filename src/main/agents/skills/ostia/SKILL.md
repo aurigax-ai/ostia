@@ -76,7 +76,9 @@ in the Files panel; an open tab follows edits to its file. The folder is removed
 workspace. `$OSTIA_PAD` (`PAD.md` in it, 256 KiB at most) is the workspace's one shared note.
 
 **Previews.** An `.html` file, or a `.jsx`/`.tsx` file whose default export is a React
-component, opens as a live preview: see [reference/previews.md](reference/previews.md).
+component without required props, opens as a live preview. Read
+[reference/previews.md](reference/previews.md) before you import a library: only those it lists
+resolve.
 
 ## Attention and questions
 
