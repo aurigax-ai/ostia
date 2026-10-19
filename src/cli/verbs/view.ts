@@ -69,7 +69,7 @@ function validate(file: string | undefined): number {
 
 export function runOfflineViewVerb(argv: readonly string[]): number {
   if (argv[1] === 'schema') {
-    console.log(JSON.stringify(viewJsonSchema(), null, 2))
+    console.log(JSON.stringify(viewJsonSchema()))
     return 0
   }
   return validate(argv[2])
@@ -81,7 +81,7 @@ export async function runViewVerb(conn: MessageConnection, argv: readonly string
     const { json } = parseArgs(rest, { booleans: { json: '--json' } }).booleans
     const listing = await conn.sendRequest<{ dir: string; views: ViewSummary[] }>('view.list')
     if (json) {
-      console.log(JSON.stringify(listing, null, 2))
+      console.log(JSON.stringify(listing))
       return
     }
     console.log(`# ${listing.dir}`)

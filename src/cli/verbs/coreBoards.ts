@@ -85,11 +85,11 @@ async function runBoardVerb(
   const res = await conn.sendRequest<BoardReply>(request.method, request.params)
   if (!res.ok) {
     const detail = res.message ? `${res.error}: ${res.message}` : res.error
-    fail(`ostia: ${verb} ${argv[0]} failed (${detail})`)
+    fail(`ostia ${verb} ${argv[0]}: ${detail}`)
   } else if (res.text !== undefined) {
     if (res.text) console.log(res.text)
   } else {
-    console.log(JSON.stringify(res.data, null, 2))
+    console.log(JSON.stringify(res.data))
   }
 }
 

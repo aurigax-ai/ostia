@@ -21,7 +21,9 @@ Inside an Ostia terminal pane these are set:
 run `ELECTRON_RUN_AS_NODE=1 "$OSTIA_NODE" "$OSTIA_CLI" <noun> <verb> …`.
 
 Every command is `ostia <noun> <verb> [args]`. `ostia <noun> --help` prints a noun's verbs and
-arguments; `ostia --help` lists the nouns. `ostia docs` prints this skill and the commands of
+arguments, `ostia <noun> <verb> --help` one verb, and `ostia --help` the nouns. A refusal or
+error is one line on stderr, `ostia <noun> <verb>: <code>: <detail>`, with exit 1; a usage
+mistake adds the verb's usage line. JSON answers are one line. `ostia docs` prints this skill and the commands of
 the enabled extensions. `ostia whoami` prints JSON: `externalId` (the pane id other commands
 take), `paneId` and `workspaceId` (the app's internal ids), `cwd` and `running` (whether a command
 runs there). A script token gets `{externalId, kind: "script"}` and no pane.
@@ -130,7 +132,7 @@ the question. The answer arrives only as the command's output.
 
 ```sh
 ostia process run "npm run dev" --name web [--cwd DIR] [--workspace <id|name>] [--tab <name>]
-ostia process list                       # id, name, status, paneId, command
+ostia process list [--json]              # id, name, status, paneId, command
 ostia process logs web [--since N]       # that command's output only; (cursor=N) on stderr
 ostia process kill web                   # Ctrl+C, then ends the shell if it keeps running
 ostia process restart web                # Ctrl+C, then the same line in the same tab
@@ -161,7 +163,7 @@ plain tab when the human took that tab over. `ostia pane list` reports `splitTab
 ## Panes
 
 ```sh
-ostia pane list                          # every pane you can see (JSON)
+ostia pane list [--json]                 # a line per pane: paneId, workspaceId, kind, state, title
 ostia pane send <pane> "text" [--enter]  # types text; no Enter unless --enter
 ostia pane send <pane> --enter -- "-y"   # text starting with - goes after --
 ostia pane send <pane> --paste "text"    # --paste: as one bracketed paste; --raw: the bytes as typed
@@ -177,7 +179,8 @@ ostia pane rename <pane> <title…> | --clear
 ostia pane close [<pane>…] [--json]      # no pane: your own
 ```
 
-`<pane>` is a `paneId`, or a process id or name from `ostia process list`. `pane list` fields:
+`<pane>` is a `paneId`, or a process id or name from `ostia process list`. `state` is `hibernated`, `waking`, the agent's state, `running` or `idle`.
+`pane list --json` fields:
 
 | Field | Meaning |
 |---|---|

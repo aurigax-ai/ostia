@@ -85,7 +85,7 @@ export async function runCmuxImportVerb(
     console.error(`ostia cmux import: ${res.ok ? 'no result' : res.error?.message}`)
     return 1
   }
-  if (args.json) console.log(JSON.stringify(res.result, null, 2))
+  if (args.json) console.log(JSON.stringify(res.result))
   else for (const line of formatCmuxImport(res.result)) console.log(line)
   return 0
 }

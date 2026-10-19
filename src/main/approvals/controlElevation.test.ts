@@ -23,7 +23,7 @@ describe('ensureCaps refusals', () => {
     expect(err.message).toBe('denied: all-workspaces')
     expect(err.data.hint).toContain('all-workspaces')
     expect(err.data.hint).toContain('act on other panes and workspaces')
-    expect(err.data.hint).toContain('Only the human can grant it')
+    expect(err.data.hint).toContain('only the human grants it')
     expect(err.data.hint).toContain('do not retry')
   })
 

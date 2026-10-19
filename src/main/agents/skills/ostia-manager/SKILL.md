@@ -21,7 +21,8 @@ across every workspace.
 
 ```sh
 ostia workspace list --json              # {workspaces:[{workspaceId, name, kind, workDir, state, groupId?}], groups}
-ostia pane list                          # every pane (JSON): paneId, workspaceId, kind, title, cwd, running,
+ostia pane list                          # a line per pane: paneId, workspaceId, kind, state, title
+ostia pane list --json                   # paneId, workspaceId, kind, title, cwd, running,
                                          # agent?, agentState?, agentMessage?, hibernated?
 ostia manager read <paneId> [--lines N]  # the pane's screen as text (default 200 lines, at most 2000)
 ostia whoami                             # your own paneId

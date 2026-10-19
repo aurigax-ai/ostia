@@ -270,7 +270,7 @@ test('every restored terminal has a shell after a cold start, shown or not', asy
       'let s="";process.stdin.on("data",(d)=>{s+=d}).on("end",()=>{const t=JSON.parse(s).filter((p)=>p.kind==="terminal");console.log("withpid="+t.filter((p)=>p.pid).length+"/"+t.length)})'
     await runInShownTerminal(
       second.win,
-      `for i in 1 2 3 4 5; do ostia pane list | ELECTRON_RUN_AS_NODE=1 "$OSTIA_NODE" -e '${count}'; sleep 1; done`,
+      `for i in 1 2 3 4 5; do ostia pane list --json | ELECTRON_RUN_AS_NODE=1 "$OSTIA_NODE" -e '${count}'; sleep 1; done`,
     )
     await expect(shownRows(second.win).last()).toContainText('withpid=2/2', { timeout: 15_000 })
   } finally {

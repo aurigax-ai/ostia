@@ -12,11 +12,10 @@ export async function runWhoami(conn: MessageConnection): Promise<void> {
     ? await conn.sendRequest<{ cwd?: string; running?: boolean } | null>('pane.info')
     : null
   console.log(
-    JSON.stringify(
-      { ...who, ...(state ? { cwd: state.cwd ?? null, running: state.running === true } : {}) },
-      null,
-      2,
-    ),
+    JSON.stringify({
+      ...who,
+      ...(state ? { cwd: state.cwd ?? null, running: state.running === true } : {}),
+    }),
   )
 }
 

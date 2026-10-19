@@ -11,7 +11,7 @@ import {
 import { controlInfoPath, readControlSocket } from '../main/control/controlDiscovery'
 import { SCRIPT_TOKEN_PREFIX } from '../shared/permissions/scriptTokens'
 import { wantsHelp } from './common/commandHelp'
-import { describeFailure, fail } from './common/failure'
+import { commandLabel, describeFailure, fail } from './common/failure'
 import { paneToken } from './common/paneToken'
 import { readAllStdin } from './common/stdinText'
 import { type UsageAnswer, topUsage, usageGate } from './common/usageTable'
@@ -195,7 +195,7 @@ async function main(): Promise<void> {
     if (connectionLost) {
       console.error('ostia: connection to the app closed (did Ostia quit?)')
     } else {
-      console.error('ostia:', describeFailure(e))
+      console.error(`${commandLabel()}:`, describeFailure(e))
     }
     process.exitCode = 1
   } finally {

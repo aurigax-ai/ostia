@@ -98,7 +98,7 @@ test.beforeEach(() => {
 })
 
 test('KSH-C7 KSH-C13 KSH-C27 KSH-C32 KSH-C37 KSH-C72 a kept shell comes back after Restart with its running command, one copy of its saved scrollback, the same pane, a new token and a process tab that takes text and can be killed', async () => {
-  const who = `"$(ostia whoami | grep -o '"paneId": "[^"]*"' | cut -d'"' -f4)"`
+  const who = `"$(ostia whoami | grep -o '"paneId":"[^"]*"' | cut -d'"' -f4)"`
   const first = await launch(dataHome)
   await openWorkspace(first.win)
   await runInTerminal(first.win, `echo "shell=$$ who=${who};"`)
@@ -499,7 +499,7 @@ test('KSH-C36 KSH-C70 KSH-C103 an agent still mid-turn after a restart asks noth
   seedSettings(dataHome, KEEP_AND_ASK)
   const trigger = join(dataHome, 'start-turn')
   const bin = agentMidTurn(trigger)
-  const listAgents = `ostia pane list | tr -d ' \\n' | grep -o '"agent":"[a-z]*"' | sed 's/^/listed-/'`
+  const listAgents = `ostia pane list --json | tr -d ' \\n' | grep -o '"agent":"[a-z]*"' | sed 's/^/listed-/'`
   const first = await launch(dataHome, pathWith(bin))
   await openWorkspace(first.win)
   await runInTerminal(first.win, 'claude')

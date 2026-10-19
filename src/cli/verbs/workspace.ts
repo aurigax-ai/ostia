@@ -6,7 +6,7 @@ import {
   isWorkspaceGroupColor,
 } from '../../shared/workspaces/workspaceGroups'
 import { parseArgs } from '../common/args'
-import { fail, failUsage } from '../common/failure'
+import { fail, failUsage, failVerb } from '../common/failure'
 import { confirmWorkspace } from '../common/readBack'
 import { readAllStdin } from '../common/stdinText'
 import type { Opened } from './open'
@@ -92,7 +92,7 @@ async function runWorkspaceList(conn: MessageConnection, json: boolean): Promise
     conn.sendRequest<WorkspaceGroupListing[]>('workspace.groups'),
   ])
   if (json) {
-    console.log(JSON.stringify({ workspaces, groups }, null, 2))
+    console.log(JSON.stringify({ workspaces, groups }))
     return
   }
   const groupName = new Map(groups.map((g) => [g.groupId, g.name]))
@@ -200,7 +200,7 @@ export async function runWorkspaceVerb(conn: MessageConnection): Promise<void> {
   if (sub === 'close') {
     const { positional, values } = parseArgs(rest, { values: { workspace: '--workspace' } })
     if (positional.length > 0) {
-      fail('ostia workspace close: usage: workspace close [--workspace <id>]')
+      failVerb('unexpected arguments')
       return
     }
     await runWorkspaceCommand(conn, 'close', 'workspace.close', undefined, values.workspace)
@@ -236,7 +236,7 @@ export async function runWorkspaceVerb(conn: MessageConnection): Promise<void> {
   if (sub === 'pin' || sub === 'unpin') {
     const { positional, values } = parseArgs(rest, { values: { workspace: '--workspace' } })
     if (positional.length > 0) {
-      fail(`ostia workspace ${sub}: usage: workspace ${sub} [--workspace <id>]`)
+      failVerb('unexpected arguments')
       return
     }
     await runWorkspaceCommand(
@@ -287,7 +287,7 @@ export async function runWorkspaceVerb(conn: MessageConnection): Promise<void> {
   const raw = positional.join(' ')
   const text = clear ? '' : raw === '-' ? await readAllStdin() : raw
   if (!clear && !text.trim()) {
-    fail('ostia workspace describe: missing <text|-> (or --clear)')
+    failVerb('missing arguments')
     return
   }
   const res = await conn.sendRequest<CommandResult>('command.exec', {

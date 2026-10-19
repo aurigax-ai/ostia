@@ -26,7 +26,7 @@ export function toResponse(raw: unknown): BrowseResponse {
 function asText(value: unknown): string {
   if (typeof value === 'string') return value
   if (value === undefined) return ''
-  return JSON.stringify(value, null, 2)
+  return JSON.stringify(value)
 }
 
 interface ConsoleLine {

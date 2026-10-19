@@ -37,7 +37,7 @@ export async function runSnippetVerb(conn: MessageConnection): Promise<void> {
   const listing = await conn.sendRequest<SnippetListing>('snippet.list')
   if (sub === 'list') {
     if (json) {
-      console.log(JSON.stringify(listing, null, 2))
+      console.log(JSON.stringify(listing))
       return
     }
     for (const w of listing.snippets) {
@@ -53,5 +53,5 @@ export async function runSnippetVerb(conn: MessageConnection): Promise<void> {
     fail(`ostia snippet show: no snippet named '${name}'`)
     return
   }
-  console.log(json ? JSON.stringify(matches, null, 2) : matches.map(describeSnippet).join('\n\n'))
+  console.log(json ? JSON.stringify(matches) : matches.map(describeSnippet).join('\n\n'))
 }

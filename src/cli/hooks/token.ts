@@ -207,7 +207,7 @@ export async function runTokenVerb(conn: MessageConnection, argv: string[]): Pro
     )
     console.log(
       call.json
-        ? JSON.stringify({ ...shown.token, usage: shown.usage }, null, 2)
+        ? JSON.stringify({ ...shown.token, usage: shown.usage })
         : shownUsage(shown.token, shown.usage).join('\n'),
     )
     return 0
@@ -215,7 +215,7 @@ export async function runTokenVerb(conn: MessageConnection, argv: string[]): Pro
   if (call.method === 'token.list') {
     const tokens = await conn.sendRequest<ListedToken[]>(call.method, call.params)
     if (call.json) {
-      console.log(JSON.stringify(tokens, null, 2))
+      console.log(JSON.stringify(tokens))
       return 0
     }
     console.log(['ID', 'NAME', 'CAPS', 'SCOPE', 'EXPIRES', 'LAST USED'].join('  '))
