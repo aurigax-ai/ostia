@@ -183,6 +183,10 @@ function listFor(deps: SnippetDeps, workspaceId: string | null | undefined): Sni
   })
 }
 
+export function ownSnippets(deps: SnippetDeps, workspaceId: string | undefined): SnippetEntry[] {
+  return listFor({ ...deps, extensionSnippets: () => [] }, workspaceId).snippets
+}
+
 export function registerSnippetIpc(deps: SnippetDeps): void {
   ipcMain.handle('snippets:list', (_e, workspaceId: unknown) =>
     listFor(deps, typeof workspaceId === 'string' ? workspaceId : null),

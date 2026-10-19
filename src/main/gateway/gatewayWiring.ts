@@ -25,6 +25,7 @@ import type { PtyEntry } from '../terminal/pty/ptyRegistry'
 import type { WindowSend } from '../windows/windowSend'
 import { windowForWorkspace } from '../workspaces/workspaceRegistry'
 import { createBonjourPublisher } from './announce'
+import type { GatewayControlDeps } from './controlDispatch'
 import {
   configureAnnouncer,
   configureTailnet,
@@ -68,6 +69,7 @@ interface GatewayStartDeps {
   turnConfirms: PaneConfirms
   paneTurns: PaneTurns
   redactor: Redactor
+  ownSnippets: GatewayControlDeps['ownSnippets']
 }
 
 export function createScreenLinks({
@@ -109,6 +111,7 @@ export function startGateway({
   turnConfirms,
   paneTurns,
   redactor,
+  ownSnippets,
 }: GatewayStartDeps) {
   registerPaneListMethods({
     execCommand,
@@ -177,6 +180,7 @@ export function startGateway({
     watchesTurn: turnConfirms.watchesSubmit,
     turnStarted: async (pane) => (await turnConfirms.confirmSubmitted(pane)).ok,
     paneTurns,
+    ownSnippets,
     redact: async (text) => (await redactor.redact(text)).text,
   })
 }
