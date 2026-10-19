@@ -125,6 +125,8 @@ describe('the Activity extension records two fake agents and shows them in its p
 
   function newHost(): ExtensionHost {
     return new ExtensionHost({
+      sandboxDomains: () => null,
+      isSandboxed: () => false,
       roots: [{ dir: join(dir, 'builtin'), builtin: true }],
       store: new ExtensionStore(join(dir, 'extensions.json')),
       socketPath: () => socketPath,

@@ -148,10 +148,6 @@ export const appEn = {
       body: 'Install {packages} to start this sandboxed workspace’s terminals.',
       title: 'Sandbox needs software',
     },
-    scriptTokensRetired: {
-      body: '{names} can no longer connect. Generate new tokens and put them in your scripts.',
-      title: '{count} old script tokens stopped working after the {product} upgrade',
-    },
     signIn: {
       done: 'Signed in. You can close this tab and return to {product}.',
       failed: 'Sign-in did not finish. Return to {product} and try again.',

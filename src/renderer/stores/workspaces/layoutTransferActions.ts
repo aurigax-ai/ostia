@@ -28,7 +28,7 @@ export function createLayoutTransferActions(set: LayoutSet, get: LayoutGet): Lay
       })
       if (layout) {
         for (const paneId of paneIds(layout.root)) {
-          window.ostia?.lifecycle?.emit?.({ type: 'pane-closed', workspaceId, paneId })
+          window.ostia.lifecycle.emit({ type: 'pane-closed', workspaceId, paneId })
         }
       }
     },
@@ -80,7 +80,7 @@ export function createLayoutTransferActions(set: LayoutSet, get: LayoutGet): Lay
         )
       })
       for (const paneId of paneIds(incoming.root)) {
-        window.ostia?.lifecycle?.emit?.({ type: 'pane-created', workspaceId, paneId })
+        window.ostia.lifecycle.emit({ type: 'pane-created', workspaceId, paneId })
       }
     },
     merge: (sourceId, targetId) =>
@@ -138,7 +138,7 @@ export function createLayoutTransferActions(set: LayoutSet, get: LayoutGet): Lay
       set((s) => ({ byWorkspace: { ...s.byWorkspace, ...layouts } }))
       for (const [workspaceId, layout] of Object.entries(layouts)) {
         for (const paneId of paneIds(layout.root)) {
-          window.ostia?.lifecycle?.emit?.({ type: 'pane-created', workspaceId, paneId })
+          window.ostia.lifecycle.emit({ type: 'pane-created', workspaceId, paneId })
         }
       }
     },

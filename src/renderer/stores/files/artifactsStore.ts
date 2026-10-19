@@ -86,7 +86,7 @@ export const useArtifactsStore = create<ArtifactsState>((set, get) => ({
 }))
 
 export function wireArtifacts(): void {
-  window.ostia?.artifacts?.onChanged?.((workspaceId) => {
+  window.ostia.artifacts.onChanged((workspaceId) => {
     void useArtifactsStore.getState().refresh(workspaceId)
   })
   useWorkspacesStore.subscribe((s, prev) => {

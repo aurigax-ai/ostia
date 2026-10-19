@@ -123,6 +123,7 @@ describe('ostia browse open and close on an existing pane', () => {
     const execCommand = vi.fn(async () => ({ ok: true as const, value: undefined }))
     registerBrowseMethods({
       ...deps,
+      allowNavigation: async () => true,
       execCommand: execCommand as never,
       screenshotRoots: [],
       consoleBuffers: new Map(),
@@ -159,6 +160,7 @@ describe('ostia browse tab list', () => {
     browserPanes.set('agent-tab', 2)
     registerBrowseMethods({
       ...deps,
+      allowNavigation: async () => true,
       execCommand: vi.fn() as never,
       screenshotRoots: [],
       consoleBuffers: new Map(),

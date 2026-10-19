@@ -188,6 +188,8 @@ export async function graphsHarness(
     ? new ExtensionLaunches(join(dir, 'extension-launches.json'))
     : null
   const host = new ExtensionHost({
+    isSandboxed: () => false,
+    sandboxDomains: () => null,
     ...(connections ? { connections, secrets: secretStore } : {}),
     ...(launches ? { launches } : {}),
     roots: [{ dir: join(dir, 'builtin'), builtin: true }],

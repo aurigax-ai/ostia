@@ -1,6 +1,6 @@
 import { readFileSync, readdirSync, readlinkSync } from 'node:fs'
 import { type Server, type Socket, createServer } from 'node:net'
-import { parseProcStat } from '../../platform/procfs'
+import { type ProcEntry, childrenOf, parseProcStat, processTree } from '../../platform/procfs'
 import type { PortBridge } from './portBridge'
 
 export interface SandboxListener {
@@ -46,31 +46,15 @@ function netNamespace(pid: number | 'self'): string | null {
 }
 
 function childrenMap(): Map<number, number[]> {
-  const children = new Map<number, number[]>()
+  const procs: ProcEntry[] = []
   for (const entry of readdirSync('/proc')) {
     if (!/^\d+$/.test(entry)) continue
     try {
-      const stat = readFileSync(`/proc/${entry}/stat`, 'utf8')
-      const parsed = parseProcStat(stat)
-      if (parsed) {
-        const list = children.get(parsed.ppid) ?? []
-        list.push(parsed.pid)
-        children.set(parsed.ppid, list)
-      }
+      const parsed = parseProcStat(readFileSync(`/proc/${entry}/stat`, 'utf8'))
+      if (parsed) procs.push(parsed)
     } catch {}
   }
-  return children
-}
-
-function descendants(roots: number[], children: Map<number, number[]>): number[] {
-  const out: number[] = []
-  const queue = [...roots]
-  while (queue.length > 0) {
-    const pid = queue.shift() as number
-    out.push(pid)
-    queue.push(...(children.get(pid) ?? []))
-  }
-  return out
+  return childrenOf(procs)
 }
 
 function namespacePid(tree: number[]): number | null {
@@ -132,7 +116,7 @@ function listenersIn(tree: number[]): SandboxListener[] {
 
 function paneListeners(pids: number[]): SandboxListener[][] {
   const children = childrenMap()
-  return pids.map((pid) => listenersIn(descendants([pid], children)))
+  return pids.map((pid) => listenersIn(processTree(pid, children)))
 }
 
 interface Exposure {

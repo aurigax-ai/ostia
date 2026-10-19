@@ -56,8 +56,8 @@ export interface ExtensionHostDeps {
   secrets?: ExtensionSecretStore
   connections?: ExtensionConnections
   confirm?: (req: ExtensionConfirmRequest) => Promise<boolean>
-  isSandboxed?: (workspaceId: string) => boolean
-  sandboxDomains?: (workspaceId: string) => string[] | null
+  isSandboxed: (workspaceId: string) => boolean
+  sandboxDomains: (workspaceId: string) => string[] | null
   hostGrants?: {
     offer: (extId: string, command: string) => void
     claim: (extId: string, command: string) => string | null

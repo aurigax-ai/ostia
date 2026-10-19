@@ -20,8 +20,7 @@ export async function runStateVerb(conn: MessageConnection): Promise<void> {
   if (res.ok) {
     console.log('ok')
   } else {
-    console.error(`ostia state: ${res.error ?? 'failed'}${res.message ? ` (${res.message})` : ''}`)
-    process.exitCode = 1
+    fail(`ostia state: ${res.error ?? 'failed'}${res.message ? ` (${res.message})` : ''}`)
   }
 }
 

@@ -148,10 +148,6 @@ export const appZhHant: typeof appEn = {
       body: '請安裝 {packages}，才能啟動這個沙箱工作區的終端機。',
       title: '沙箱需要安裝軟體',
     },
-    scriptTokensRetired: {
-      body: '{names} 無法再連線。請產生新權杖並更新腳本裡的權杖。',
-      title: '升級 {product} 後，{count} 個舊版腳本權杖已失效',
-    },
     signIn: {
       done: '已登入。你可以關閉此分頁並回到 {product}。',
       failed: '登入未完成。請回到 {product} 再試一次。',

@@ -1,4 +1,4 @@
-import type { CommandInvokeRequest, CommandsApi } from '@shared/control/commands'
+import type { CommandInvokeRequest } from '@shared/control/commands'
 import { describe, expect, it, vi } from 'vitest'
 import { wireCommandBridge } from './bridge'
 import { registerPaneTabCommands } from './paneTabCommands'
@@ -122,10 +122,5 @@ describe('wireCommandBridge', () => {
       fromMain: true,
     })
     expect(fromMain.ok ? '' : fromMain.error.message).not.toContain('unknown command')
-  })
-
-  it('does not throw when window.ostia.commands is undefined', () => {
-    window.ostia.commands = undefined as unknown as CommandsApi
-    expect(() => wireCommandBridge()).not.toThrow()
   })
 })

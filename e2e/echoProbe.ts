@@ -99,6 +99,16 @@ export function installMainProbe({ app, ipcMain, BrowserWindow }: typeof import(
   }, 5)
 }
 
+export interface TerminalHandle {
+  attachCustomKeyEventHandler?: unknown
+  write: (data: string, cb?: () => void) => void
+  onData: (cb: () => void) => unknown
+  onRender: (cb: () => void) => unknown
+  onScroll: (cb: () => void) => unknown
+  scrollLines: (amount: number) => void
+  buffer: { active: { viewportY: number; baseY: number } }
+}
+
 export function hookTerminal({
   paneId,
   frameAfterWrite,
@@ -116,28 +126,25 @@ export function hookTerminal({
     frameEnds: [],
   }
   ;(window as unknown as { __echo: PageProbe }).__echo = probe
-  type Term = {
-    attachCustomKeyEventHandler?: unknown
-    write: (data: string, cb?: () => void) => void
-    onData: (cb: () => void) => unknown
-    onRender: (cb: () => void) => unknown
-  }
-  const surface = document.querySelector(`.pane[data-pane-id="${paneId}"] .terminal-surface`)
-  if (!surface) throw new Error(`no terminal surface for pane ${paneId}`)
-  const fiberKey = Object.keys(surface).find((k) => k.startsWith('__reactFiber$'))
-  type Fiber = { memoizedState: HookLike | null; return: Fiber | null }
-  type HookLike = { memoizedState: unknown; next: HookLike | null }
-  let fiber = fiberKey ? ((surface as unknown as Record<string, Fiber>)[fiberKey] ?? null) : null
-  let term: Term | null = null
-  while (fiber && !term) {
-    for (let hook = fiber.memoizedState; hook && !term; hook = hook.next) {
-      const ref = hook.memoizedState as { current?: Term } | null
-      const held = ref && typeof ref === 'object' ? ref.current : undefined
-      if (held && typeof held.attachCustomKeyEventHandler === 'function') term = held
+  const lookup = (): TerminalHandle => {
+    const surface = document.querySelector(`.pane[data-pane-id="${paneId}"] .terminal-surface`)
+    if (!surface) throw new Error(`no terminal surface for pane ${paneId}`)
+    const fiberKey = Object.keys(surface).find((k) => k.startsWith('__reactFiber$'))
+    type Fiber = { memoizedState: HookLike | null; return: Fiber | null }
+    type HookLike = { memoizedState: unknown; next: HookLike | null }
+    let fiber = fiberKey ? ((surface as unknown as Record<string, Fiber>)[fiberKey] ?? null) : null
+    while (fiber) {
+      for (let hook = fiber.memoizedState; hook; hook = hook.next) {
+        const ref = hook.memoizedState as { current?: TerminalHandle } | null
+        const held = ref && typeof ref === 'object' ? ref.current : undefined
+        if (held && typeof held.attachCustomKeyEventHandler === 'function') return held
+      }
+      fiber = fiber.return
     }
-    fiber = fiber.return
+    throw new Error(`no terminal handle for pane ${paneId}`)
   }
-  if (!term) throw new Error(`no terminal handle for pane ${paneId}`)
+  const term = lookup()
+  ;(window as unknown as { __term: TerminalHandle }).__term = term
   window.addEventListener('keydown', () => probe.keys.push({ t: now() }), true)
   term.onData(() => probe.inputs.push({ t: now() }))
   const write = term.write.bind(term)

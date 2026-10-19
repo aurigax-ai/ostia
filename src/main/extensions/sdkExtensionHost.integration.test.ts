@@ -41,6 +41,8 @@ describe('an extension made from the SDK template', () => {
     const notify = vi.fn()
     let language = 'en'
     const host = new ExtensionHost({
+      sandboxDomains: () => null,
+      isSandboxed: () => false,
       locale: () => language,
       roots: [{ dir: join(project, 'dist'), builtin: true }],
       store: new ExtensionStore(join(dir, 'extensions.json')),

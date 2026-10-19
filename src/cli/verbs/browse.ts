@@ -1,6 +1,6 @@
 import { text } from 'node:stream/consumers'
 import type { MessageConnection } from 'vscode-jsonrpc/node'
-import { failureHint } from '../common/failure'
+import { fail, failureHint } from '../common/failure'
 import { extractGlobals, parseBrowseCommand, splitCommandLine } from './browseArgs'
 import type { BrowseCall } from './browseFlags'
 
@@ -215,8 +215,7 @@ async function runBatch(
 export async function runBrowse(conn: MessageConnection, argv: string[]): Promise<void> {
   const globals = extractGlobals(argv)
   if (typeof globals === 'string') {
-    console.error(`ostia browse: ${globals}`)
-    process.exitCode = 1
+    fail(`ostia browse: ${globals}`)
     return
   }
   const { json, paneId } = globals

@@ -50,13 +50,11 @@ export async function runExtCommand(
   const backing = findNoun(extId)?.extension
   if (!ext && backing) return fail(`ostia ${extId}: the ${backing} extension is not enabled`)
   if (!ext) {
-    console.error(topUsage())
-    process.exitCode = 1
+    fail(topUsage())
     return
   }
   if (!command || (ext.verb && extId !== ext.verb)) {
-    console.error(extUsage(ext))
-    process.exitCode = 1
+    fail(extUsage(ext))
     return
   }
   const cmd = ext.commands.find((c) => c.id === command)
@@ -72,8 +70,7 @@ export async function runExtCommand(
   if (!res.ok) {
     const detail = res.message ? `${res.error}: ${res.message}` : res.error
     if (res.data !== undefined) console.log(JSON.stringify(res.data, null, 2))
-    console.error(`ostia: ${extId} ${command} failed (${detail})`)
-    process.exitCode = 1
+    fail(`ostia: ${extId} ${command} failed (${detail})`)
   } else if (res.text !== undefined) {
     if (res.text) console.log(res.text)
   } else if (res.data !== undefined) {

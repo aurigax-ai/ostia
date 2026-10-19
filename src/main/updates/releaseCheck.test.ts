@@ -12,14 +12,6 @@ const handlers = new Map<string, (...args: unknown[]) => unknown>()
 const sent: Array<[string, unknown]> = []
 
 vi.mock('electron', () => ({
-  BrowserWindow: {
-    getAllWindows: () => [
-      {
-        isDestroyed: () => false,
-        webContents: { send: (channel: string, payload: unknown) => sent.push([channel, payload]) },
-      },
-    ],
-  },
   app: { isPackaged: false, getVersion: () => '0.2.0' },
   ipcMain: {
     handle: (channel: string, handler: (...args: unknown[]) => unknown) =>
@@ -491,6 +483,7 @@ describe('registerReleaseCheck', () => {
       },
       replaceAvailability: async () => ({ ok: true }),
       replacer: { start: replaceStart, state: () => ({ status: 'idle' }) },
+      broadcast: (channel, payload) => sent.push([channel, payload]),
     })
   const APT_COMMAND = 'sudo apt update && sudo apt install --only-upgrade ostia'
   const state = (version: string | null) => ({

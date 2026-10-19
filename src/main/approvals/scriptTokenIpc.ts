@@ -16,7 +16,6 @@ import {
   regenerates,
   resolveScope,
 } from './scriptTokenRequests'
-import { retiredScriptTokens } from './scriptTokenRetired'
 import type { ScriptTokenUsageLog, UsageLookups } from './scriptTokenUsage'
 import {
   createScriptToken,
@@ -29,7 +28,6 @@ import {
 
 export interface ScriptTokenIpcDeps {
   path: () => string
-  retiredPath: () => string
   listing: () => Promise<ReachListing>
   changed: () => void
   appWindows: () => Iterable<BrowserWindow>
@@ -55,7 +53,6 @@ async function scriptTokensState(deps: ScriptTokenIpcDeps): Promise<ScriptTokens
   const listing = await deps.listing().catch((): ReachListing => ({ workspaces: [], groups: [] }))
   return {
     tokens: listScriptTokens(deps.path()),
-    retired: retiredScriptTokens(deps.retiredPath()),
     workspaces: listing.workspaces.map((w) => ({
       id: w.workspaceId,
       name: w.name,

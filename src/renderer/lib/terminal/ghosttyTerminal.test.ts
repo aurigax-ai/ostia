@@ -8,6 +8,11 @@ import {
   promptMarkData,
   unknownOsc,
 } from './ghosttyTerminal'
+import { logicalLinesFrom } from './historyPages'
+
+interface WasmCells {
+  getScrollbackLine(offset: number): unknown
+}
 
 const fills: string[] = []
 const realGetContext = HTMLCanvasElement.prototype.getContext
@@ -188,5 +193,22 @@ describe('Ghostty terminal adapter', () => {
     term.write('again\r\n')
     await frame()
     expect(fills).toContain('#fdf6e3')
+  })
+})
+
+describe('Ghostty buffer rows', () => {
+  it('counts the live buffer without reading the cells of any row', async () => {
+    const { term } = open()
+    await new Promise<void>((done) => {
+      term.write(Array.from({ length: 300 }, (_, i) => `line ${i}\r\n`).join(''), done)
+    })
+    const wasm = (term.buffer.normal as unknown as { terminal: { wasmTerm: WasmCells } }).terminal
+      .wasmTerm
+    const cells = vi.spyOn(wasm, 'getScrollbackLine')
+    expect(term.buffer.normal.baseY).toBeGreaterThan(200)
+    expect(logicalLinesFrom(term.buffer.normal, 0)).toBe(300)
+    expect(cells).not.toHaveBeenCalled()
+    expect(term.buffer.normal.getLine(10)?.translateToString(true)).toBe('line 10')
+    expect(cells).toHaveBeenCalledTimes(1)
   })
 })
