@@ -96,9 +96,7 @@ const result = {}
     waits += 1
     channels['bus.wait'] += size(res)
     channels.written += 'bus wait --timeout 20'.length
-    try {
-      events += JSON.parse(res.stdout).messages.length
-    } catch {}
+    events += res.stdout.split('<message ').length - 1
   }
   const status = ostia('pane', 'status', ...names('new'))
   channels['pane.status'] += size(status)

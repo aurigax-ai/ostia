@@ -171,8 +171,11 @@ describe('bus delivery through the real CLI and the agents’ own hooks', () => 
       expect(announce).toHaveBeenCalledWith(sender, agent, text)
       expect((await ostia(sender, 'bus', 'sent')).stdout).toContain('\tqueued:idle-no-wake\t')
 
-      const listed = JSON.parse((await ostia(agent, 'bus', 'inbox')).stdout)
+      const listed = JSON.parse((await ostia(agent, 'bus', 'inbox', '--json')).stdout)
       expect(listed).toMatchObject([{ from: sender.externalId, text, state: 'queued' }])
+      const inboxText = (await ostia(agent, 'bus', 'inbox')).stdout
+      expect(inboxText).toContain(`<message id="${listed[0].id}" from="${sender.externalId}"`)
+      expect(inboxText).toContain(`>\n${text}\n</message>`)
 
       const first = await fireHooks(kind, event, agent)
       expect(first.map((result) => result.code)).toEqual(first.map(() => 0))
@@ -186,7 +189,8 @@ describe('bus delivery through the real CLI and the agents’ own hooks', () => 
       expect(plain.join('')).toBe(kind === 'codex' && event === 'SessionStart' ? CODEX_CONTEXT : '')
 
       expect(addedContext(await fireHooks(kind, event, agent), event)).toEqual([])
-      expect(JSON.parse((await ostia(agent, 'bus', 'inbox')).stdout)).toEqual([])
+      expect(JSON.parse((await ostia(agent, 'bus', 'inbox', '--json')).stdout)).toEqual([])
+      expect((await ostia(agent, 'bus', 'inbox')).stdout).toBe('(no messages)\n')
 
       const listedSent = await ostia(sender, 'bus', 'sent')
       expect(listedSent.stdout).toContain(`\t${agent.externalId}\tdelivered:${via}\t`)
@@ -219,11 +223,11 @@ describe('bus delivery through the real CLI and the agents’ own hooks', () => 
       addedContext(await fireHooks('claude', 'UserPromptSubmit', agent), 'UserPromptSubmit'),
     ).toEqual([])
     expect(announce).not.toHaveBeenCalled()
-    expect(JSON.parse((await ostia(agent, 'bus', 'inbox')).stdout)).toHaveLength(1)
+    expect(JSON.parse((await ostia(agent, 'bus', 'inbox', '--json')).stdout)).toHaveLength(1)
   }, 30_000)
 
   it('delivers at once, with no hint, when the receiver is blocked in bus wait', async () => {
-    const waiting = ostia(agent, 'bus', 'wait', '--timeout', '20')
+    const waiting = ostia(agent, 'bus', 'wait', '--timeout', '20', '--json')
     await new Promise((resolve) => setTimeout(resolve, 3000))
     const res = await ostia(sender, 'bus', 'send', agent.externalId, 'are you there')
     expect(JSON.parse(res.stdout)).toMatchObject({ ok: true, state: 'delivered', via: 'read' })
@@ -244,7 +248,7 @@ describe('bus delivery through the real CLI and the agents’ own hooks', () => 
     const denied = await ostia(sender, 'bus', 'send', agent.externalId, 'hello')
     expect(denied.code).toBe(1)
     expect(denied.stderr).toContain('denied: send-other-pane')
-    expect(JSON.parse((await ostia(agent, 'bus', 'inbox')).stdout)).toEqual([])
+    expect(JSON.parse((await ostia(agent, 'bus', 'inbox', '--json')).stdout)).toEqual([])
     expect(announce).not.toHaveBeenCalled()
   }, 30_000)
 })
@@ -264,7 +268,7 @@ describe('the mod’s hook verbs through the real CLI', () => {
     const acked = await ostia(agent, 'bus', 'hook', 'ack', taken.lease)
     expect(JSON.parse(acked.stdout)).toEqual({ acked: 1 })
     expect((await ostia(sender, 'bus', 'sent')).stdout).toContain('\tdelivered:turn\t')
-    expect(JSON.parse((await ostia(agent, 'bus', 'inbox')).stdout)).toEqual([])
+    expect(JSON.parse((await ostia(agent, 'bus', 'inbox', '--json')).stdout)).toEqual([])
   }, 60_000)
 
   it('refuses another pane’s lease', async () => {
@@ -280,7 +284,7 @@ describe('bus send --wait through the real CLI', () => {
   it('returns delivered, exit 0, once the receiver takes its inbox', async () => {
     const waiting = ostia(sender, 'bus', 'send', '--wait', '30', agent.externalId, 'take this')
     await new Promise((resolve) => setTimeout(resolve, 2500))
-    const taken = JSON.parse((await ostia(agent, 'bus', 'inbox', '--take')).stdout)
+    const taken = JSON.parse((await ostia(agent, 'bus', 'inbox', '--take', '--json')).stdout)
     expect(taken.map((m: { text: string }) => m.text)).toEqual(['take this'])
     const res = await waiting
     expect(res.code).toBe(0)

@@ -4,7 +4,12 @@ import {
   agentHookOutput,
 } from '@aurigax-ai/ostia-extension-sdk/contract/agentPlugins'
 import type { MessageConnection } from 'vscode-jsonrpc/node'
-import { type MailPending, type MailReceipt, mailLabel } from '../../shared/agents/busMessages'
+import {
+  type MailPending,
+  type MailReceipt,
+  busInboxText,
+  mailLabel,
+} from '../../shared/agents/busMessages'
 import { parseArgs } from '../common/args'
 import { type ErrResult, describeErrResult, failUsage, failVerb, failWith } from '../common/failure'
 import { tsvLine } from '../common/lineField'
@@ -127,6 +132,10 @@ interface BusWaitResult {
   messages: BusMessage[]
   timedOut: boolean
 }
+export function busWaitText(res: BusWaitResult): string {
+  return res.timedOut ? 'timed-out: no message arrived' : busInboxText(res.messages)
+}
+
 interface BusHandoff {
   id: string
   from: string
@@ -179,10 +188,12 @@ export async function runBusVerb(conn: MessageConnection): Promise<void> {
       failWith(describeErrResult(res))
     }
   } else if (sub === 'inbox') {
-    const { take } = parseArgs(rawArgs, { booleans: { take: '--take' } }).booleans
+    const { take, json } = parseArgs(rawArgs, {
+      booleans: { take: '--take', json: '--json' },
+    }).booleans
     const res = await conn.sendRequest<BusInboxResult | ErrResult>('bus.inbox', { take })
     if ('messages' in res) {
-      console.log(JSON.stringify(res.messages))
+      console.log(json ? JSON.stringify(res.messages) : busInboxText(res.messages))
     } else {
       failWith(describeErrResult(res))
     }
@@ -205,11 +216,15 @@ export async function runBusVerb(conn: MessageConnection): Promise<void> {
       err: (line) => console.error(line),
     })
   } else if (sub === 'wait') {
-    const { values } = parseArgs(rawArgs, { values: { timeout: '--timeout' } })
+    const { values, booleans } = parseArgs(rawArgs, {
+      values: { timeout: '--timeout' },
+      booleans: { json: '--json' },
+    })
     const timeoutMs = busSeconds(values.timeout, '--timeout')
     const res = await conn.sendRequest<BusWaitResult | ErrResult>('bus.wait', { timeoutMs })
     if ('messages' in res) {
-      console.log(JSON.stringify(res))
+      console.log(booleans.json ? JSON.stringify(res) : busWaitText(res))
+      if (res.timedOut) process.exitCode = BUS_WAIT_EXIT_TIMEOUT
     } else {
       failWith(describeErrResult(res))
     }

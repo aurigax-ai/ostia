@@ -38,7 +38,7 @@ import { mailers } from './mailers'
 const MAX_HANDOFFS = 500
 
 const MIN_WAIT_MS = 1000
-const MAX_WAIT_MS = 120000
+const MAX_WAIT_MS = 590000
 const DEFAULT_WAIT_MS = 30000
 const SWEEP_MS = 5 * 60 * 1000
 
