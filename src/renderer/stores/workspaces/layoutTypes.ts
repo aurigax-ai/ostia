@@ -75,6 +75,8 @@ export interface LayoutState {
   openView: (workspaceId: string, viewName: string, title: string) => string | null
   openDiff: (workspaceId: string, content: ShownDiff) => string | null
   openChat: (workspaceId: string, title: string) => string | null
+  openAgent: (workspaceId: string, title: string, sessionId?: string) => string | null
+  setAgentSession: (workspaceId: string, paneId: string, sessionId: string, title: string) => void
   setChatSession: (workspaceId: string, paneId: string, sessionId: string, title: string) => void
   openTerminal: (workspaceId: string, opts: OpenTerminalPlacement) => string | null
   openManager: (workspaceId: string, opts: { cwd: string; title: string }) => string | null

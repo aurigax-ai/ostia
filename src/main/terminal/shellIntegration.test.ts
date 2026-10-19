@@ -5,17 +5,21 @@ import {
   mkdirSync,
   mkdtempSync,
   readFileSync,
+  readdirSync,
   realpathSync,
   rmSync,
   writeFileSync,
 } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import type { AgentPluginContent } from '@aurigax-ai/ostia-extension-sdk/manifest/agentSkills'
+import {
+  type AgentPluginContent,
+  NO_AGENT_PLUGINS,
+} from '@aurigax-ai/ostia-extension-sdk/manifest/agentSkills'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { CORE_SKILL_FILES } from '../agents/bundledSkills'
 import { busHookCommand, extensionHookCommand, permissionHookCommand } from './agentHookCommands'
-import { writeAgentPlugin } from './agentPlugin'
+import { agentPluginFiles, writeAgentPlugin } from './agentPlugin'
 import { CLAUDE_PLUGIN_MANIFEST, claudeHookSettings, claudeWrapper } from './claudeIntegration'
 import {
   type CodexHookEvent,
@@ -29,11 +33,20 @@ import {
 import { KubeContextReader, NodeVersionResolver, promptContext } from './promptContext'
 import { type ShellState, parseShellState } from './shellCommands'
 import {
+  setAgentPlugins,
   shellIntegrationDir,
   shellIntegrationFiles,
   shellIntegrationSpawnOptions,
   writeShellIntegration,
 } from './shellIntegration'
+
+function listFiles(dir: string, prefix = ''): string[] {
+  return readdirSync(dir, { withFileTypes: true }).flatMap((entry) =>
+    entry.isDirectory()
+      ? listFiles(join(dir, entry.name), join(prefix, entry.name))
+      : [join(prefix, entry.name)],
+  )
+}
 
 const INTEGRATION_DIR = shellIntegrationDir()
 const ZSH_INIT = join(INTEGRATION_DIR, 'init.zsh')
@@ -784,6 +797,78 @@ describe('shellIntegrationSpawnOptions', () => {
     })
   })
 
+  describe('files cleaned while running', () => {
+    const content: AgentPluginContent = {
+      skills: [
+        {
+          id: 'kit-review',
+          description: 'Use when reviewing.',
+          files: [{ name: 'SKILL.md', data: Buffer.from('---\nname: kit-review\n---\n') }],
+        },
+      ],
+      hooks: [{ extId: 'kit', event: 'SessionStart', command: 'on-hook' }],
+    }
+
+    afterAll(() => {
+      setAgentPlugins(NO_AGENT_PLUGINS)
+    })
+
+    it('rewrites the shell integration files before the next shell spawns', () => {
+      const dir = shellIntegrationDir()
+      rmSync(join(dir, '.zshrc'))
+      rmSync(join(dir, 'init.zsh'))
+      const zsh = shellIntegrationSpawnOptions('zsh', { HOME: '/home/u' })
+      expect(zsh.env.ZDOTDIR).toBe(dir)
+      expect(readFileSync(join(dir, '.zshrc'), 'utf8')).toBe(shellIntegrationFiles(dir)['.zshrc'])
+      expect(existsSync(join(dir, 'init.zsh'))).toBe(true)
+    })
+
+    it('rewrites the agent plugin with the content last set', () => {
+      const dir = setAgentPlugins(content)
+      const hooks = join(dir, 'claude-plugin', 'hooks', 'hooks.json')
+      const skill = join(dir, 'codex', 'skills', 'kit-review', 'SKILL.md')
+      const before = readFileSync(hooks, 'utf8')
+      rmSync(hooks)
+      rmSync(skill)
+      const spawned = shellIntegrationSpawnOptions('/bin/bash', {}).env.OSTIA_AGENT_DIR
+      expect(spawned).toBe(dir)
+      expect(readFileSync(hooks, 'utf8')).toBe(before)
+      expect(before).toContain('agent-hook kit on-hook claude SessionStart')
+      expect(existsSync(skill)).toBe(true)
+    })
+
+    it('lists every file the agent plugin writes', () => {
+      const dir = setAgentPlugins(content)
+      expect(listFiles(dir).sort()).toEqual([...agentPluginFiles(content)].sort())
+      const empty = setAgentPlugins(NO_AGENT_PLUGINS)
+      expect(listFiles(empty).sort()).toEqual([...agentPluginFiles(NO_AGENT_PLUGINS)].sort())
+    })
+
+    it('lists every file the shell integration writes', () => {
+      const dir = shellIntegrationDir()
+      expect(listFiles(dir).sort()).toEqual(Object.keys(shellIntegrationFiles(dir)).sort())
+    })
+
+    it('rewrites the plugin module and the codex hook args when only those are gone', () => {
+      const dir = setAgentPlugins(content)
+      const mod = join(dir, 'claude-plugin', 'hooks', 'register.ts')
+      const args = join(dir, 'codex', 'hook-args.json')
+      rmSync(mod)
+      rmSync(args)
+      expect(shellIntegrationSpawnOptions('/bin/bash', {}).env.OSTIA_AGENT_DIR).toBe(dir)
+      expect(existsSync(mod)).toBe(true)
+      expect(existsSync(args)).toBe(true)
+    })
+
+    it('rewrites the default agent plugin when no content was ever set', () => {
+      const dir = setAgentPlugins(NO_AGENT_PLUGINS)
+      const manifest = join(dir, 'claude-plugin', '.claude-plugin', 'plugin.json')
+      rmSync(manifest)
+      expect(shellIntegrationSpawnOptions('/bin/bash', {}).env.OSTIA_AGENT_DIR).toBe(dir)
+      expect(existsSync(manifest)).toBe(true)
+    })
+  })
+
   describe('claude hooks', () => {
     it('writes a Claude Code plugin with the ostia skill and its manifest', () => {
       shellIntegrationSpawnOptions('/bin/bash', {})
@@ -828,6 +913,7 @@ describe('shellIntegrationSpawnOptions', () => {
       expect(commands('UserPromptSubmit')).toEqual([
         expect.stringContaining('state working'),
         busHookCommand('UserPromptSubmit'),
+        expect.stringContaining('turn-hook UserPromptSubmit'),
       ])
       expect(busHookCommand('UserPromptSubmit')).toBe(
         '[ -n "${OSTIA_SOCKET}" ] && ELECTRON_RUN_AS_NODE=1 "${OSTIA_NODE}" "${OSTIA_CLI}" bus hook UserPromptSubmit 2>/dev/null || true',
@@ -1015,6 +1101,7 @@ describe('shellIntegrationSpawnOptions', () => {
         'SessionStart',
         'UserPromptSubmit',
         'PermissionRequest',
+        'PostToolUse',
         'Stop',
       ])
       expect(commands.SessionStart?.[0]).toContain('"${OSTIA_CLI}" resume-token codex -')
@@ -1027,6 +1114,7 @@ describe('shellIntegrationSpawnOptions', () => {
       expect(commands.UserPromptSubmit).toEqual([
         commands.UserPromptSubmit?.[0],
         busHookCommand('UserPromptSubmit'),
+        expect.stringContaining('turn-hook UserPromptSubmit'),
       ])
       expect(commands.PermissionRequest?.[0]).toContain('state waiting -')
       expect(commands.Stop?.[0]).toContain('state done')
@@ -1216,6 +1304,9 @@ describe('shellIntegrationSpawnOptions', () => {
       expect(codex.PreToolUse).toEqual([extensionHookCommand(toolHook, 'codex')])
       expect(JSON.stringify(codex)).not.toContain('Notification')
       expect(claudeHookSettings().hooks.PreToolUse).toHaveLength(1)
+      expect(JSON.stringify(claudeHookSettings().hooks.PostToolUse)).toContain(
+        '| ELECTRON_RUN_AS_NODE=1',
+      )
     })
 
     it('trusts each extension hook by its own Codex hash and handler index', () => {

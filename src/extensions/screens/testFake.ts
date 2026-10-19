@@ -22,6 +22,8 @@ export interface FakeScreens {
   calls: () => string[]
   screens: () => FakeScreen[]
   emit: (id: string, event: Record<string, unknown>) => void
+  phoneCall: (id: string, call: Record<string, unknown>) => void
+  phoneReplies: (id: string) => Record<string, unknown>[]
   restore: () => void
 }
 
@@ -52,6 +54,16 @@ export function fakeScreens(opts: { onPath?: boolean; version?: string } = {}): 
         : [],
     emit: (id, event) =>
       appendFileSync(join(dir, `events-${id}.jsonl`), `${JSON.stringify(event)}\n`),
+    phoneCall: (id, call) =>
+      appendFileSync(join(dir, `phone-calls-${id}.jsonl`), `${JSON.stringify(call)}\n`),
+    phoneReplies: (id) => {
+      const file = join(dir, `phone-replies-${id}.jsonl`)
+      if (!existsSync(file)) return []
+      return readFileSync(file, 'utf8')
+        .split('\n')
+        .filter(Boolean)
+        .map((line) => JSON.parse(line) as Record<string, unknown>)
+    },
     restore: () => {
       process.env.PATH = saved.path
       Reflect.deleteProperty(process.env, 'FAKE_SCREENS_DIR')

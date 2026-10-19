@@ -8,7 +8,7 @@ import { useBlocksStore } from '@/stores/terminal/blocksStore'
 import { useSnippetsStore } from '@/stores/terminal/snippetsStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
-import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { BlockMenu } from './BlockMenu'
@@ -153,12 +153,7 @@ describe('BlockMenu', () => {
     expect(await screen.findByLabelText('Name')).toHaveValue('make build')
   })
 
-  it('opens the chat pane with the block output attached, without sending it', async () => {
-    useAssistStore.setState({
-      availability: {
-        chat: { extId: 'assistant', name: 'Assistant', ref: { extId: 'assistant' } },
-      },
-    })
+  it('adds the block output to the Agent pane without sending it', async () => {
     const pane = createPane('terminal', 'zsh', '/w')
     useWorkspacesStore.setState({
       workspaces: [{ id: 'ws1', name: 'w', kind: 'terminal', workDir: '/w', state: 'idle' }],
@@ -170,136 +165,13 @@ describe('BlockMenu', () => {
     renderMenu()
     fireEvent.contextMenu(screen.getByRole('button', { name: 'gutter' }))
 
-    await userEvent.click(
-      await screen.findByRole('menuitem', { name: 'Ask assistant about this output' }),
-    )
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Add to Agent pane' }))
 
     const root = useLayoutStore.getState().byWorkspace.ws1?.root
-    expect(root && firstPaneOfKind(root, 'chat')).not.toBeNull()
-    expect(useChatStore.getState().attachments.ws1).toEqual([
+    expect(root && firstPaneOfKind(root, 'agent')).not.toBeNull()
+    expect(useChatStore.getState().attachments['agent:ws1']).toEqual([
       { kind: 'output', label: 'Output of make build', text: 'make build' },
     ])
-    expect(window.ostia.assist.request).not.toHaveBeenCalled()
-  })
-
-  it('does not offer asking about output while the chat feature is off', async () => {
-    useAssistStore.setState({
-      availability: {
-        chat: { extId: 'assistant', name: 'Assistant', ref: { extId: 'assistant' } },
-      },
-      overview: [
-        {
-          extId: 'assistant',
-          name: 'Assistant',
-          setup: null,
-          models: false,
-          providers: [],
-          kinds: [],
-          keysSet: [],
-          features: [{ id: 'chat', setting: 'chat', on: false, ready: true }],
-        },
-      ],
-    })
-    renderMenu()
-    fireEvent.contextMenu(screen.getByRole('button', { name: 'gutter' }))
-
-    expect(await screen.findByRole('menuitem', { name: 'Copy output' })).toBeInTheDocument()
-    expect(screen.queryByRole('menuitem', { name: 'Ask assistant about this output' })).toBeNull()
-    act(() => useAssistStore.setState({ overview: [] }))
-  })
-
-  describe('Explain error', () => {
-    const chat = { extId: 'assistant', name: 'Assistant', ref: { extId: 'assistant' } }
-
-    const failBlock = (): string => {
-      const s = useBlocksStore.getState()
-      s.commandStart(PANE, { line: 4 }, 'npm test')
-      s.commandEnd(PANE, { line: 6 }, 2)
-      s.promptStart(PANE, { line: 6 }, '/w')
-      return useBlocksStore.getState().byPane[PANE]?.[1]?.id ?? ''
-    }
-
-    const openMenu = (id: string) => {
-      render(
-        <BlockMenu
-          paneId={PANE}
-          blockId={id}
-          trigger={
-            <button type="button" aria-label="failed gutter">
-              bar
-            </button>
-          }
-        />,
-      )
-      fireEvent.contextMenu(screen.getByRole('button', { name: 'failed gutter' }))
-    }
-
-    it('is not offered for a block that succeeded', async () => {
-      useAssistStore.setState({ availability: { chat } })
-      renderMenu()
-      fireEvent.contextMenu(screen.getByRole('button', { name: 'gutter' }))
-
-      expect(await screen.findByRole('menuitem', { name: 'Copy output' })).toBeInTheDocument()
-      expect(screen.queryByRole('menuitem', { name: 'Explain error' })).toBeNull()
-    })
-
-    it('is not offered while the human switched Explain error off', async () => {
-      useAssistStore.setState({
-        availability: { chat },
-        overview: [
-          {
-            extId: 'assistant',
-            name: 'Assistant',
-            setup: null,
-            models: false,
-            providers: [],
-            kinds: [],
-            keysSet: [],
-            features: [{ id: 'explainError', setting: 'explainError', on: false, ready: true }],
-          },
-        ],
-      })
-      openMenu(failBlock())
-
-      expect(await screen.findByRole('menuitem', { name: 'Copy output' })).toBeInTheDocument()
-      expect(screen.queryByRole('menuitem', { name: 'Explain error' })).toBeNull()
-      act(() => useAssistStore.setState({ overview: [] }))
-    })
-
-    it('is not offered without an assistant that serves chat', async () => {
-      openMenu(failBlock())
-
-      expect(await screen.findByRole('menuitem', { name: 'Copy output' })).toBeInTheDocument()
-      expect(screen.queryByRole('menuitem', { name: 'Explain error' })).toBeNull()
-    })
-
-    it('opens the chat pane and asks about the failed command with it as context', async () => {
-      vi.mocked(window.ostia.assist.request).mockReturnValue(new Promise(() => {}))
-      useAssistStore.setState({ availability: { chat } })
-      const pane = createPane('terminal', 'zsh', '/w')
-      useWorkspacesStore.setState({
-        workspaces: [{ id: 'ws1', name: 'w', kind: 'terminal', workDir: '/w', state: 'idle' }],
-        activeWorkspaceId: 'ws1',
-      } as never)
-      useLayoutStore.setState({
-        byWorkspace: { ws1: { root: pane, activePaneId: pane.id, zoomedPaneId: null } },
-      })
-      openMenu(failBlock())
-
-      await userEvent.click(await screen.findByRole('menuitem', { name: 'Explain error' }))
-
-      const root = useLayoutStore.getState().byWorkspace.ws1?.root
-      expect(root && firstPaneOfKind(root, 'chat')).not.toBeNull()
-      await waitFor(() => expect(window.ostia.assist.request).toHaveBeenCalled())
-      const [point, , input] = vi.mocked(window.ostia.assist.request).mock.calls[0]
-      expect(point).toBe('chat')
-      expect(input).toMatchObject({
-        messages: [{ role: 'user', content: 'Explain why this command failed and how to fix it.' }],
-        context: [{ kind: 'error', label: 'Failed command' }],
-      })
-      const context = (input as { context: { text: string }[] }).context[0].text
-      expect(context).toContain('npm test')
-      expect(context).toContain('[exit 2]')
-    })
+    expect(window.ostia.agentSessions.prompt).not.toHaveBeenCalled()
   })
 })

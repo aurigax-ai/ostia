@@ -317,6 +317,7 @@ function newScreen(state, request) {
     width: Number(request.width ?? 1280),
     height: Number(request.height ?? 800),
     label: request.label ?? '',
+    backend: request.backend ?? 'xvnc',
     allow: request.allow ?? [],
     owner: 'agent',
     state: 'running',
@@ -355,7 +356,22 @@ function screenGone(id) {
   return !load().screens.some((s) => s.id === id)
 }
 
-function serveLease(conn, id) {
+function relayPhone(conn, id) {
+  const calls = path.join(dir, `phone-calls-${id}.jsonl`)
+  const replies = path.join(dir, `phone-replies-${id}.jsonl`)
+  let sent = 0
+  const pump = setInterval(() => {
+    if (!fs.existsSync(calls)) return
+    const text = fs.readFileSync(calls, 'utf8')
+    if (text.length > sent) conn.write(text.slice(sent))
+    sent = text.length
+  }, 20)
+  conn.on('data', (chunk) => fs.appendFileSync(replies, chunk))
+  conn.on('close', () => clearInterval(pump))
+}
+
+function serveLease(conn, id, phone) {
+  if (phone) relayPhone(conn, id)
   const watch = setInterval(() => {
     if (screenGone(id)) conn.end()
   }, 100)
@@ -376,6 +392,10 @@ function serveRequest(conn, request) {
     conn.end(`${JSON.stringify({ ok: false, code: 'usage', message: 'the fake daemon takes only create' })}\n`)
     return
   }
+  if (request.backend === 'phone' && !request.lease) {
+    conn.end(`${JSON.stringify({ ok: false, code: 'usage', message: 'a phone screen needs --lease' })}\n`)
+    return
+  }
   lock()
   const state = load()
   const screen = newScreen(state, request)
@@ -386,10 +406,10 @@ function serveRequest(conn, request) {
     `daemon create${request.lease ? ' --lease' : ''} ${screen.label}\n`,
   )
   const { id, agentToken, viewerToken, width, height } = screen
-  const reply = `${JSON.stringify({ ok: true, id, agentToken, viewerToken, width, height })}\n`
+  const reply = `${JSON.stringify({ ok: true, id, agentToken, viewerToken, width, height, backend: screen.backend })}\n`
   if (!request.lease) return conn.end(reply)
   conn.write(reply)
-  serveLease(conn, id)
+  serveLease(conn, id, screen.backend === 'phone')
 }
 
 function runDaemon() {
@@ -427,13 +447,14 @@ const daemonRun = verb === 'daemon' && argv[1] === 'run'
 if (!daemonRun) ensureDaemon()
 if (verb !== 'events' && !daemonRun) lock()
 if (verb === 'list') {
-  const screens = load().screens.map(({ id, width, height, label, owner, state }) => ({
+  const screens = load().screens.map(({ id, width, height, label, owner, state, backend }) => ({
     id,
     width,
     height,
     label,
     owner,
     state,
+    backend: backend ?? 'xvnc',
   }))
   answer(
     { screens },

@@ -432,6 +432,7 @@ export const USAGE_TABLE: readonly NounUsage[] = [
   },
   { noun: 'resume-token', audience: 'plumbing', needsArgs: true, about: 'agent hook' },
   { noun: 'claude-hook', audience: 'plumbing', needsArgs: true, about: 'agent hook' },
+  { noun: 'turn-hook', audience: 'plumbing', needsArgs: true, about: 'agent hook' },
   { noun: 'codex-server', audience: 'plumbing', needsArgs: true, about: 'codex launcher' },
   { noun: 'permission-hook', audience: 'plumbing', needsArgs: true, about: 'agent hook' },
   { noun: 'agent-hook', audience: 'plumbing', needsArgs: true, about: 'agent hook' },

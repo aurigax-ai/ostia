@@ -29,5 +29,7 @@ export const gatewayBridge: Pick<OstiaBridge, 'gateway'> = {
         approve,
       }),
     onPairRequestsChanged: (cb) => listen('gateway:pair-requests-changed', cb),
+    phoneWorkspace: () => ipcRenderer.invoke('gateway:phone-workspace'),
+    setPhoneWorkspace: (save) => ipcRenderer.invoke('gateway:set-phone-workspace', save),
   },
 }

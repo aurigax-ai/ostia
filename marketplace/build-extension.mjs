@@ -59,10 +59,42 @@ function dependencyClosure(dir, found = new Map()) {
   return found
 }
 
+function modulesOf(dir) {
+  const marker = `${sep}node_modules${sep}`
+  return dir.slice(0, dir.lastIndexOf(marker) + marker.length)
+}
+
+function installedOptionals(dir) {
+  const manifest = JSON.parse(readFileSync(join(dir, 'package.json'), 'utf8'))
+  return Object.keys(manifest.optionalDependencies ?? {})
+    .map((name) => [name, join(modulesOf(dir), name)])
+    .filter(([, from]) => existsSync(join(from, 'package.json')))
+}
+
+function modulesTarget(name, target) {
+  const folder = join(target)
+  const suffix = join('node_modules', name)
+  if (folder !== suffix && !folder.endsWith(`${sep}${suffix}`)) return null
+  return folder.slice(0, folder.length - name.length)
+}
+
+export function requiredPackages(src) {
+  const { packages } = vendoredPackages(src)
+  return Object.entries(packages)
+    .filter(([name, target]) => join(target) === join('node_modules', name))
+    .flatMap(([name]) => [name, `${name}/*`])
+}
+
 function copyVendoredPackages(src, out) {
   const { packages, closures } = vendoredPackages(src)
   for (const [name, target] of Object.entries(packages)) {
-    copyPackage(installedPackage(name), join(out, target))
+    const from = installedPackage(name)
+    copyPackage(from, join(out, target))
+    const modules = modulesTarget(name, target)
+    if (modules === null) continue
+    for (const [optional, dir] of installedOptionals(from)) {
+      copyPackage(realpathSync(dir), join(out, modules, optional))
+    }
   }
   for (const [name, target] of Object.entries(closures)) {
     for (const [dependency, from] of dependencyClosure(installedPackage(name))) {
@@ -105,6 +137,19 @@ function browserBundle(entry, outfile, alias = {}) {
   })
 }
 
+function nodeBundle(entry, outfile, src) {
+  return build({
+    entryPoints: [entry],
+    outfile,
+    bundle: true,
+    platform: 'node',
+    format: 'cjs',
+    target: 'node20',
+    external: requiredPackages(src),
+    logLevel: 'warning',
+  })
+}
+
 async function buildFileKinds(src, out, panelBaseCss) {
   const kinds = (readSourceManifest(src).contributes?.fileKinds ?? []).filter((kind) => kind.view)
   if (kinds.length === 0) return
@@ -124,6 +169,61 @@ async function buildFileKinds(src, out, panelBaseCss) {
   }
 }
 
+const wasmFiles = [
+  ['quickjs-wasi', 'quickjs.wasm'],
+  ['@silvia-odwyer/photon-node', 'photon_rs_bg.wasm'],
+]
+
+function siblingPackage(from, name) {
+  let dir = from
+  for (;;) {
+    const candidate = join(dir, 'node_modules', name)
+    if (existsSync(join(candidate, 'package.json'))) return realpathSync(candidate)
+    const parent = dirname(dir)
+    if (parent === dir) return null
+    dir = parent
+  }
+}
+
+function copyWasm(out) {
+  const owner = installedPackage('@earendil-works/pi-coding-agent')
+  for (const [name, file] of wasmFiles) {
+    const dir = siblingPackage(owner, name)
+    if (!dir || !existsSync(join(dir, file)))
+      throw new Error(`missing ${name}/${file} for ${owner}`)
+    copyFileSync(join(dir, file), join(out, file))
+  }
+}
+
+async function bundleModuleMain(src, out) {
+  await build({
+    entryPoints: [join(src, 'main.ts')],
+    outdir: out,
+    bundle: true,
+    splitting: true,
+    platform: 'node',
+    format: 'esm',
+    target: 'node24',
+    outExtension: { '.js': '.mjs' },
+    banner: {
+      js: "import { createRequire as __createRequire } from 'node:module'; const require = __createRequire(import.meta.url);",
+    },
+    logLevel: 'warning',
+  })
+  copyWasm(out)
+}
+
+async function bundleMain(src, out) {
+  if (readSourceManifest(src).main?.endsWith('.mjs')) {
+    await bundleModuleMain(src, out)
+    return
+  }
+  const threads = readdirSync(src).filter((file) => file.endsWith('.thread.ts'))
+  for (const entry of ['main.ts', ...threads]) {
+    await nodeBundle(join(src, entry), join(out, entry.replace(/\.ts$/, '.js')), src)
+  }
+}
+
 export async function buildExtension(src, out, panelBaseCss) {
   mkdirSync(out, { recursive: true })
   for (const file of assets) {
@@ -136,17 +236,7 @@ export async function buildExtension(src, out, panelBaseCss) {
   copyAgentSkills(src, out)
   await buildFileKinds(src, out, panelBaseCss)
   if (existsSync(join(src, 'panel.html'))) copyFileSync(panelBaseCss, join(out, 'base.css'))
-  if (existsSync(join(src, 'main.ts'))) {
-    await build({
-      entryPoints: [join(src, 'main.ts')],
-      outfile: join(out, 'main.js'),
-      bundle: true,
-      platform: 'node',
-      format: 'cjs',
-      target: 'node20',
-      logLevel: 'warning',
-    })
-  }
+  if (existsSync(join(src, 'main.ts'))) await bundleMain(src, out)
   if (existsSync(join(src, 'panel.ts'))) {
     await browserBundle(join(src, 'panel.ts'), join(out, 'panel.js'))
   }

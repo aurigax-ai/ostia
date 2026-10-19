@@ -11,6 +11,7 @@ import { type PaneIdentity, getByPaneId } from '../control/idRegistry'
 import { PaneAttentionEvents } from '../extensions/paneAttentionEvents'
 import { PaneLifecycleEvents } from '../extensions/paneLifecycleEvents'
 import { PaneJournal } from '../panes/paneJournal'
+import { PaneTurns } from '../panes/paneTurns'
 import { PaneWatch } from '../panes/paneWait'
 import { PaneWaking } from '../panes/paneWaking'
 import type { SavedAttention } from '../tmux/attentionFile'
@@ -27,6 +28,7 @@ export function createAgentServices(ctx: WorkspaceContext) {
     agentChanges.fire()
   })
   const agentWork = new ReportedAgentWork()
+  const paneTurns = new PaneTurns()
 
   const askHub = createAskHub({
     text: () => mainStrings().approvals,
@@ -68,6 +70,7 @@ export function createAgentServices(ctx: WorkspaceContext) {
     startedAgents,
     agentRunning,
     agentWork,
+    paneTurns,
     askHub,
     keptAttention,
     restoreKeptAttention,

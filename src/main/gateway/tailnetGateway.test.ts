@@ -47,6 +47,14 @@ const deps = {
   agentRunning: vi.fn().mockReturnValue(false),
   watchesTurn: vi.fn().mockResolvedValue(false),
   turnStarted: vi.fn().mockResolvedValue(true),
+  paneTurns: { list: vi.fn().mockReturnValue([]), output: vi.fn().mockReturnValue(null) },
+  redact: vi.fn(async (text: string) => text),
+  ownSnippets: vi.fn().mockReturnValue([]),
+  remote: vi.fn().mockReturnValue(false),
+  startAgent: vi.fn().mockResolvedValue(null),
+  phoneWorkspace: vi.fn().mockResolvedValue(null),
+  phoneDefaults: vi.fn().mockReturnValue({ set: false, agent: 'claude' }),
+  isPhoneWorkspace: vi.fn().mockReturnValue(false),
 } satisfies GatewayControlDeps
 
 let port = 0

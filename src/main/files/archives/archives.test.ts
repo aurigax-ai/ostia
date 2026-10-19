@@ -1,11 +1,17 @@
-import { mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { gzipSync } from 'node:zlib'
 import { BROWSE_LIMITS } from '@aurigax-ai/ostia-extension-sdk/contract/fileBrowse'
+import { XzCompressor } from '@napi-rs/lzma'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { type BrowseHarness, browseHarness } from '../../../../test/browseHarness'
 import { tarOf, zerosDeflated, zipOf } from '../../../../test/fixtures/archives/archives'
-import { tar } from '../../../extensions/archives/tar'
+import { DOCS_TAR } from '../../../../test/fixtures/archives/bzip2Data'
+import { bz2 } from '../../../../test/fixtures/archives/bzip2Fixture'
+import { archiveDecoders } from '../../../../test/fixtures/archives/decoders'
+import { sevenZip } from '../../../extensions/archives/sevenZip'
+import { tarProvider } from '../../../extensions/archives/tar'
 import { zip } from '../../../extensions/archives/zip'
 import { archiveRoot } from '../../../shared/archives/archivePaths'
 import { Archives } from './archives'
@@ -14,6 +20,7 @@ const MIB = 1024 * 1024
 let dir: string
 let archives: Archives
 let harness: BrowseHarness
+const tar = tarProvider(archiveDecoders)
 
 const ARCHIVE_KINDS = [
   {
@@ -22,6 +29,27 @@ const ARCHIVE_KINDS = [
     kind: {
       id: 'archives.zip',
       selector: [{ filenamePattern: '*.zip' }, { filenamePattern: '*.jar' }],
+    },
+  },
+  {
+    extId: 'archives',
+    builtin: true,
+    kind: { id: 'archives.sevenzip', selector: [{ filenamePattern: '*.7z' }] },
+  },
+  {
+    extId: 'archives',
+    builtin: true,
+    kind: {
+      id: 'archives.tar-xz',
+      selector: [{ filenamePattern: '*.tar.xz' }, { filenamePattern: '*.txz' }],
+    },
+  },
+  {
+    extId: 'archives',
+    builtin: true,
+    kind: {
+      id: 'archives.tar-bz2',
+      selector: ['*.tar.bz2', '*.tbz2', '*.tbz'].map((filenamePattern) => ({ filenamePattern })),
     },
   },
   {
@@ -55,7 +83,13 @@ async function text(path: string): Promise<string> {
 beforeEach(() => {
   dir = mkdtempSync(join(tmpdir(), 'archives-'))
   harness = browseHarness({
-    providers: { 'archives.zip': zip, 'archives.tar': tar },
+    providers: {
+      'archives.zip': zip,
+      'archives.tar': tar,
+      'archives.tar-xz': tar,
+      'archives.tar-bz2': tar,
+      'archives.sevenzip': sevenZip,
+    },
     candidates: ARCHIVE_KINDS,
   })
   archives = archivesOver()
@@ -66,7 +100,76 @@ afterEach(() => {
   rmSync(dir, { recursive: true, force: true })
 })
 
+async function xz(bytes: Uint8Array): Promise<Buffer> {
+  const compressor = new XzCompressor({ preset: 0 })
+  return Buffer.concat([compressor.update(bytes), await compressor.finish()])
+}
+
 describe('Archives', () => {
+  it('lists and opens a 7z through the browse protocol, refusing links, encrypted entries and what it cannot read', async () => {
+    const seven = (name: string): string =>
+      put(name, readFileSync(join(__dirname, '../../../../test/fixtures/archives/7z', name)))
+    const root = archiveRoot(seven('lzma2.7z'))
+    expect((await archives.list(`${root}/src`)).map((entry) => entry.name)).toEqual([
+      'emptydir',
+      'sub',
+      'empty.txt',
+      'a.txt',
+      'link',
+      'prog.exe',
+    ])
+    expect(await archives.list(`${root}/src`)).toContainEqual({
+      name: 'link',
+      dir: false,
+      link: 'a.txt',
+    })
+    expect(await text(`${root}/src/a.txt`)).toBe('hello 7z\n'.repeat(40))
+    expect(await text(`${root}/src/sub/b.txt`)).toBe('second file in a folder\n'.repeat(10))
+    expect(await archives.readText(`${root}/src/link`, MIB)).toMatchObject({
+      ok: false,
+      reason: 'link',
+    })
+    const locked = archiveRoot(seven('contentenc.7z'))
+    expect(await archives.readText(`${locked}/src/a.txt`, MIB)).toMatchObject({
+      ok: false,
+      reason: 'encrypted',
+    })
+    for (const name of ['headerenc.7z', 'bcj2.7z', 'ppmd.7z']) {
+      expect(await archives.list(archiveRoot(seven(name))), name).toEqual([])
+    }
+  })
+
+  it('lists and opens a tar.xz and a tar.bz2 like a tar.gz, and refuses compression inside them', async () => {
+    const plain = DOCS_TAR
+    const expected = [
+      { name: 'docs', dir: true },
+      { name: 'passwd', dir: false, link: '../../etc/passwd' },
+    ]
+    for (const [name, bytes] of [
+      ['a.tar.xz', await xz(plain)],
+      ['b.txz', await xz(plain)],
+      ['c.tar.bz2', bz2('docs-link.tar.bz2')],
+      ['d.tbz2', bz2('docs-link.tar.bz2')],
+    ] as const) {
+      const root = archiveRoot(put(name, bytes))
+      expect(await archives.list(root), name).toEqual(expected)
+      expect(await text(`${root}/docs/readme.txt`), name).toBe('hello')
+      expect(await archives.readText(`${root}/passwd`, MIB), name).toMatchObject({
+        ok: false,
+        reason: 'link',
+      })
+    }
+    for (const [name, nested] of [
+      ['gz-in-xz.tar.xz', await xz(gzipSync(plain))],
+      ['xz-in-gz.tar.gz', gzipSync(await xz(plain))],
+      ['bz2-in-gz.tar.gz', gzipSync(bz2('docs-link.tar.bz2'))],
+      ['gz-in-bz2.tar.bz2', bz2('gz-in-bz2.tar.bz2')],
+      ['xz-in-xz.tar.xz', await xz(await xz(plain))],
+    ] as const) {
+      expect(await archives.list(archiveRoot(put(name, nested))), name).toEqual([])
+    }
+  })
+
   it('lists a zip and a tar.gz as the same tree and opens entries without extracting', async () => {
     const files = [
       { name: 'docs/readme.txt', data: 'hello' },

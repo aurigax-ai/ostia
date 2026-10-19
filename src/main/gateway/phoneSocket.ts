@@ -59,6 +59,7 @@ function handleHello(
   state: SocketState,
   msg: { id?: unknown; params?: unknown },
   trackDeviceSocket: PhoneSocketDeps['trackDeviceSocket'],
+  controlDeps: GatewayControlDeps | null,
 ): void {
   const params = (msg.params ?? {}) as { deviceToken?: unknown }
   const device = typeof params.deviceToken === 'string' ? verifyToken(params.deviceToken) : null
@@ -69,11 +70,13 @@ function handleHello(
   }
   state.device = device
   trackDeviceSocket(device.deviceId, ws)
+  const phoneWorkspace = controlDeps?.phoneDefaults() ?? { set: false, agent: 'claude' }
   ws.send(
     rpcResult(msg.id, {
       deviceId: device.deviceId,
       caps: device.caps,
       desktop: { name: PRODUCT_NAME, version: app.getVersion() },
+      phoneWorkspace,
     }),
   )
 }
@@ -96,7 +99,7 @@ function handleControlMethod(
     ws.send(rpcError(msg.id, -32603, 'gateway control API not configured'))
     return
   }
-  dispatchGatewayMethod(String(msg.method), msg.params, device.caps, controlDeps)
+  dispatchGatewayMethod(String(msg.method), msg.params, device.caps, controlDeps, device.deviceId)
     .then((outcome) => {
       if (outcome.ok) ws.send(rpcResult(msg.id, outcome.result))
       else ws.send(rpcError(msg.id, outcome.code, outcome.message, outcome.data))
@@ -323,7 +326,7 @@ function handleConnection(ws: WebSocket, deps: PhoneSocketDeps): void {
       return
     }
     if (msg.method === 'hello') {
-      handleHello(ws, state, msg, trackDeviceSocket)
+      handleHello(ws, state, msg, trackDeviceSocket, deps.controlDeps())
       return
     }
     if (!state.device) {

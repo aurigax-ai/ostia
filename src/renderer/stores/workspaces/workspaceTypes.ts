@@ -39,6 +39,7 @@ export interface WorkspacesState {
     placement?: NewWorkspacePlacement,
     kind?: WorkspaceKind,
     groupId?: string,
+    ungrouped?: boolean,
   ) => void
   closeWorkspace: (id: string) => void
   setWorkDir: (id: string, workDir: string) => void

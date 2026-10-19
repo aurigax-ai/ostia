@@ -98,7 +98,6 @@ export const assistantEn = {
     context: {
       cwd: 'Folder',
       editor: 'Open file',
-      error: 'Failed command',
       output: 'Recent output',
       pane: 'Pane info',
       selection: 'Selection',
@@ -117,8 +116,6 @@ export const assistantEn = {
       'rate-limited': 'Too many requests. Wait a moment, then regenerate.',
       unavailable: 'No assistant is ready. Add a provider in Settings → Assistant.',
     } as Record<string, string>,
-    explain: 'Explain error',
-    explainPrompt: 'Explain why this command failed and how to fix it.',
     insert: 'Insert at prompt',
     insertRefused: 'Insert at prompt ({reason})',
     mode: 'Ask',
@@ -253,9 +250,6 @@ export const assistantEn = {
   },
   chatActions: {
     addContext: 'Attach context (@)',
-    askAboutFile: 'Ask assistant about this file',
-    askAboutOutput: 'Ask assistant about this output',
-    askAboutSelection: 'Ask assistant about selection',
     attached: 'Attached to the next question',
     browserPage: 'Browser: {title}',
     busy: 'Busy',

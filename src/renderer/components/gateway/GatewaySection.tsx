@@ -6,6 +6,7 @@ import { useDict } from '@/lib/app/useDict'
 import { DeviceList } from './GatewayDevices'
 import { PairRequests } from './GatewayPairing'
 import { PairCodePanel } from './GatewayPairing'
+import { GatewayPhoneWorkspace } from './GatewayPhoneWorkspace'
 import { GatewayRouteRows } from './GatewayRouteRows'
 import { useGatewayRoute } from './useGatewayRoute'
 import { useGatewayStatus } from './useGatewayStatus'
@@ -55,6 +56,8 @@ export function GatewaySection(): JSX.Element {
       <Separator className="my-3" />
 
       <DeviceList devices={devices} refresh={refresh} />
+
+      <GatewayPhoneWorkspace />
     </SettingsPage>
   )
 }

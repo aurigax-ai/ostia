@@ -2336,12 +2336,6 @@
   visibility: hidden;
 }
 
-.pane-slot-ghost {
-  display: grid;
-  place-items: center;
-  color: var(--fg-muted);
-}
-
 .pane-actions {
   display: flex;
   align-items: center;
@@ -2435,10 +2429,6 @@
   background: var(--surface-1);
   color: var(--fg-muted);
   text-align: center;
-}
-
-.pane-body .ghost {
-  font-size: var(--text-ui-sm);
 }
 
 .pane-body-term {

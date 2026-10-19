@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto'
+import { homedir } from 'node:os'
 import { basename, join } from 'node:path'
 import { appEnv } from '@aurigax-ai/ostia-extension-sdk/contract/appEnv'
 import { PRODUCT_NAME } from '@aurigax-ai/ostia-extension-sdk/contract/product'
@@ -6,6 +7,7 @@ import { app } from 'electron'
 import type { PtyAttachResult, PtySpawnOptions } from '../../../shared/terminal/ptyApi'
 import { shellArgv } from '../../../shared/terminal/terminalShell'
 import { codexSocketPath, registerCodexSocket } from '../../agents/codexSockets'
+import { workspaceFolder } from '../../agents/extensionAgents'
 import { registerMailFlag } from '../../agents/mailFlag'
 import type { ArtifactFolders } from '../../artifacts/artifactFolders'
 import { controlSocketPath } from '../../control/controlServer'
@@ -23,10 +25,11 @@ import { tmuxMissing } from '../../tmux/keepShellsBanner'
 import type { KeptProgram } from '../../tmux/keptShells'
 import { tmuxMissingReason } from '../../tmux/keptSpawn'
 import type { ScratchFolders } from '../../workspaces/scratchFolders'
+import { workDirForWorkspace } from '../../workspaces/workspaceRegistry'
 import { markNonceFileFor, writeMarkNonce } from '../markNonce'
 import type { PaneBannerText } from '../paneBanner'
 import { sendsMarkNonce, shellIntegrationSpawnOptions } from '../shellIntegration'
-import { spawnFolder } from '../spawnCwd'
+import { sandboxCwd, spawnFolder } from '../spawnCwd'
 import type { SpawnFolder } from '../spawnCwd'
 import { paneShellEnv } from '../terminalType'
 
@@ -87,6 +90,15 @@ export function createSpawnPlanner({
   telemetry,
   bannerText,
 }: SpawnPlannerDeps) {
+  function workspaceDir(workspaceId: string, sandboxed: boolean): string | null {
+    const dir = workspaceFolder(
+      sandboxed ? workspaceSandboxes.workDir(workspaceId) : workDirForWorkspace(workspaceId),
+      homedir(),
+    )
+    if (!dir) return null
+    return sandboxed ? sandboxCwd(dir, dir) : dir
+  }
+
   async function planSpawn(
     paneId: string,
     opts: PtySpawnOptions,
@@ -144,6 +156,7 @@ export function createSpawnPlanner({
       }),
       agentHooks: settings.agents?.hooks,
       artifactsDir: workspaceId ? artifactFolders.ensure(workspaceId) : null,
+      workspaceDir: workspaceDir(workspaceId, sandboxed),
       launcherDir: paneLauncherDir(),
     })
     const folder = spawnFolder(opts.cwd)

@@ -1,7 +1,7 @@
-import { mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
-import { type Socket, createServer } from 'node:net'
+import { existsSync, lstatSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
+import { Server, type Socket, createServer } from 'node:net'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { basename, dirname, join } from 'node:path'
 import { afterAll, describe, expect, it, vi } from 'vitest'
 import {
   HostChannelError,
@@ -133,6 +133,26 @@ describe('host channel', () => {
       ),
     ).rejects.toThrow(/protocol/)
     server.close()
+  })
+
+  it('shows the channel path only once it listens, private and no longer than the path', async () => {
+    const path = join(root, `ready${n++}.sock`)
+    const listen = vi.spyOn(Server.prototype, 'listen')
+    try {
+      const listening = await listenHostChannel(path, () => undefined)
+      const staged = listen.mock.calls[0]?.[0] as string
+      expect(dirname(staged)).toBe(dirname(path))
+      expect(basename(staged)).not.toBe(basename(path))
+      expect(Buffer.byteLength(staged)).toBe(Buffer.byteLength(path))
+      expect(existsSync(staged)).toBe(false)
+      expect(lstatSync(path).isSocket()).toBe(true)
+      expect(lstatSync(path).mode & 0o777).toBe(0o600)
+      const socket = await connectHostChannel(path)
+      socket.destroy()
+      listening.close()
+    } finally {
+      listen.mockRestore()
+    }
   })
 
   it('does not take a server that another process already listens on', async () => {

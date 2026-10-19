@@ -7,11 +7,10 @@ import {
   ContextMenuSub,
   ContextMenuTrigger,
 } from '@/components/ui/context-menu'
+import { addFileToAgentPane } from '@/lib/agent/agentPane'
 import type { PickTarget } from '@/lib/agents/pickTargets'
 import { insertPathReference } from '@/lib/agents/sendPick'
 import { currentDict, fmt, useDict } from '@/lib/app/useDict'
-import { askAboutFile } from '@/lib/assist/askContext'
-import { useChatAvailable } from '@/lib/assist/assistFeatures'
 import { parentOf, relativeToRoot } from '@/lib/files/fileTree'
 import {
   openFileBeside,
@@ -103,7 +102,6 @@ export function FileMenuItems({
   const d = useDict()
   const agents = useAgentTargets(workspaceId)
   const noAgents = useNoAgentsText(workspaceId)
-  const askOn = useChatAvailable()
   const workDir = useWorkspacesStore((s) => s.workspaces.find((w) => w.id === workspaceId)?.workDir)
   const relative = workDir ? relativeToRoot(path, workDir) : null
   const copy = (text: string): void => void navigator.clipboard.writeText(text)
@@ -173,12 +171,12 @@ export function FileMenuItems({
           )}
         </MenuSubContent>
       </ContextMenuSub>
-      {askOn && !dir ? (
+      {!dir ? (
         <MenuItem
           icon={ChatCircleTextIcon}
-          onClick={() => void askAboutFile(path, relative ?? path, workspaceId)}
+          onClick={() => void addFileToAgentPane(path, relative ?? path, workspaceId)}
         >
-          {d.chatActions.askAboutFile}
+          {d.agentPane.addToPane}
         </MenuItem>
       ) : null}
     </>

@@ -13,7 +13,8 @@ Inside an Ostia terminal pane these are set:
 |---|---|
 | `OSTIA_SOCKET` | the app's control socket; unset means the pane is not inside Ostia and every `ostia` command fails |
 | `OSTIA_PANE_ID` | this pane's id, the `paneId` other commands take |
-| `OSTIA_START_DIR` | the folder the workspace is anchored to |
+| `OSTIA_START_DIR` | the folder this pane was asked to start in |
+| `OSTIA_WORKSPACE_DIR` | the folder the workspace is anchored to, as an absolute path (the real path in a sandboxed workspace) |
 | `OSTIA_ARTIFACTS`, `OSTIA_PAD` | the workspace's artifact folder and its scratch pad (unset in sandboxed workspaces) |
 | `OSTIA_NODE`, `OSTIA_CLI` | the app's runtime and the CLI script |
 
@@ -51,6 +52,7 @@ runs there). A script token gets `{externalId, kind: "script"}` and no pane.
 | `vault`, `secret`, `sandbox` | stored secrets; asks from a sandboxed workspace | a credential, a blocked host or port: see [reference/sandbox.md](reference/sandbox.md) |
 | `graph` | graphs: procedures with waits that outlive a session | a long procedure that must survive restarts: see [reference/graphs.md](reference/graphs.md) |
 | `system` | the OS and its package managers | installing a package through the human: see [reference/system.md](reference/system.md) |
+| `serial` | serial consoles in a terminal pane | a switch or router console over a USB serial adapter: see [reference/serial.md](reference/serial.md) |
 | `ext`, `<extId>` | extension commands | `ostia ext list` names them |
 
 Capabilities, reach and phone pairing: see [reference/capabilities.md](reference/capabilities.md).

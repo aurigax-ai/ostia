@@ -54,6 +54,13 @@ interface RunResult {
   stderr: string
 }
 
+const gitEnv = () => ({
+  ...process.env,
+  GIT_OPTIONAL_LOCKS: '0',
+  GIT_TERMINAL_PROMPT: '0',
+  GIT_NO_LAZY_FETCH: '1',
+})
+
 const NO_PROGRAMS = [
   '-c',
   'core.fsmonitor=false',
@@ -61,6 +68,10 @@ const NO_PROGRAMS = [
   'log.showSignature=false',
   '-c',
   'safe.bareRepository=explicit',
+  '-c',
+  'diff.submodule=short',
+  '-c',
+  'submodule.recurse=false',
 ]
 const NO_HOOKS = ['-c', `core.hooksPath=${devNull}`]
 
@@ -71,7 +82,7 @@ function gitOutput(cwd: string, args: string[]): Promise<string> {
     execFile(
       'git',
       [...NO_PROGRAMS, ...args],
-      { cwd, encoding: 'utf8', maxBuffer: MAX_OUTPUT },
+      { cwd, encoding: 'utf8', maxBuffer: MAX_OUTPUT, env: gitEnv() },
       (err, stdout) => done(err ? '' : stdout),
     )
   })
@@ -103,7 +114,7 @@ async function run(cwd: string, args: string[], hooks = false): Promise<RunResul
         cwd,
         encoding: 'buffer',
         maxBuffer: MAX_OUTPUT,
-        env: { ...process.env, GIT_OPTIONAL_LOCKS: '0', GIT_TERMINAL_PROMPT: '0' },
+        env: gitEnv(),
       },
       (err, stdout, stderr) => {
         const code = err ? (typeof err.code === 'number' ? err.code : -1) : 0
@@ -139,16 +150,73 @@ export async function worktreeKey(cwd: string): Promise<string | undefined> {
   return top && gitDir ? `${top}\0${gitDir}` : undefined
 }
 
+const SUBMODULES_MAX = 10
+const GITLINK = /^160000 [0-9a-f]+ \d\t(.+)$/s
+
+interface Submodule {
+  path: string
+  dir: string
+}
+
+async function submodules(root: string): Promise<Submodule[]> {
+  const listed = await run(root, ['ls-files', '-s', '-z'])
+  if (listed.code !== 0) return []
+  const paths = listed.stdout
+    .toString('utf8')
+    .split('\0')
+    .flatMap((entry) => GITLINK.exec(entry)?.[1] ?? [])
+    .slice(0, SUBMODULES_MAX)
+  const realRoot = await realpath(root).catch(() => root)
+  const found: Submodule[] = []
+  for (const path of paths) {
+    const dir = await realpath(join(root, path)).catch(() => null)
+    if (!dir || dir === realRoot || !isInsidePath(realRoot, dir)) continue
+    if (!(await lstat(join(dir, '.git')).catch(() => null))) continue
+    const top = await run(dir, ['rev-parse', '--show-toplevel'])
+    const toplevel = await realpath(top.stdout.toString('utf8').trim()).catch(() => null)
+    if (top.code === 0 && toplevel === dir) found.push({ path, dir })
+  }
+  return found
+}
+
+async function inSubmodule(
+  root: string,
+  path: string,
+): Promise<{ dir: string; path: string } | null> {
+  for (const sub of await submodules(root)) {
+    if (path.startsWith(`${sub.path}/`))
+      return { dir: sub.dir, path: path.slice(sub.path.length + 1) }
+  }
+  return null
+}
+
+async function repoOf(root: string, path: string): Promise<{ dir: string; path: string }> {
+  return (await inSubmodule(root, path)) ?? { dir: root, path }
+}
+
+const STATUS = [
+  'status',
+  '--porcelain=v2',
+  '-z',
+  '--untracked-files=all',
+  '--ignore-submodules=dirty',
+]
+
 export async function readStatus(root: string): Promise<RepoStatus> {
-  const out = await runOk(root, [
-    'status',
-    '--porcelain=v2',
-    '--branch',
-    '-z',
-    '--untracked-files=all',
-    '--ignore-submodules=all',
-  ])
-  return parsePorcelainV2(out.toString('utf8'))
+  const out = await runOk(root, [...STATUS.slice(0, 2), '--branch', ...STATUS.slice(2)])
+  const status = parsePorcelainV2(out.toString('utf8'))
+  for (const sub of await submodules(root)) {
+    const inner = await run(sub.dir, STATUS)
+    if (inner.code !== 0) continue
+    for (const change of parsePorcelainV2(inner.stdout.toString('utf8')).changes) {
+      status.changes.push({
+        ...change,
+        path: `${sub.path}/${change.path}`,
+        ...(change.origPath ? { origPath: `${sub.path}/${change.origPath}` } : {}),
+      })
+    }
+  }
+  return status
 }
 
 function asText(buf: Buffer): string {
@@ -179,6 +247,15 @@ export interface DiffSides {
 }
 
 export async function diffSides(root: string, change: FileChange): Promise<DiffSides> {
+  const where = await repoOf(root, change.path)
+  if (where.dir !== root) {
+    const origin = change.origPath ? await repoOf(root, change.origPath) : null
+    return diffSides(where.dir, {
+      ...change,
+      path: where.path,
+      ...(origin ? { origPath: origin.path } : {}),
+    })
+  }
   const base = change.origPath ?? change.path
   if (change.area === 'staged') {
     return {
@@ -202,7 +279,16 @@ export async function diffSides(root: string, change: FileChange): Promise<DiffS
 }
 
 export async function unifiedPatch(root: string, change: FileChange): Promise<string> {
-  const common = ['--no-color', '--no-ext-diff', '--no-textconv', '--ignore-submodules=all']
+  const where = await repoOf(root, change.path)
+  if (where.dir !== root) {
+    const origin = change.origPath ? await repoOf(root, change.origPath) : null
+    return unifiedPatch(where.dir, {
+      ...change,
+      path: where.path,
+      ...(origin ? { origPath: origin.path } : {}),
+    })
+  }
+  const common = ['--no-color', '--no-ext-diff', '--no-textconv', '--ignore-submodules=dirty']
   if (change.area === 'untracked') {
     const res = await run(root, ['diff', ...common, '--no-index', '--', '/dev/null', change.path])
     if (res.code !== 0 && res.code !== 1) throw new RepoError('git-failed', res.stderr.trim())
@@ -257,22 +343,58 @@ export async function lineChanges(root: string, untracked: string[]): Promise<Li
 
 const LITERAL = '--literal-pathspecs'
 
+async function byRepo(root: string, paths: string[]): Promise<Map<string, string[]>> {
+  const groups = new Map<string, string[]>()
+  for (const path of paths) {
+    const where = await repoOf(root, path)
+    groups.set(where.dir, [...(groups.get(where.dir) ?? []), where.path])
+  }
+  return groups
+}
+
 export async function stage(root: string, paths: string[]): Promise<void> {
-  await runOk(root, [LITERAL, 'add', '-A', '--', ...(paths.length ? paths : ['.'])])
+  if (paths.length === 0) return void (await runOk(root, [LITERAL, 'add', '-A', '--', '.']))
+  for (const [dir, targets] of await byRepo(root, paths)) {
+    await runOk(dir, [LITERAL, 'add', '-A', '--', ...targets])
+  }
+}
+
+async function hasCommit(dir: string): Promise<boolean> {
+  return (await run(dir, ['rev-parse', '--verify', '-q', 'HEAD'])).code === 0
 }
 
 export async function unstage(root: string, paths: string[], hasHead: boolean): Promise<void> {
-  const targets = paths.length ? paths : ['.']
-  if (hasHead) await runOk(root, [LITERAL, 'reset', '-q', 'HEAD', '--', ...targets])
-  else
-    await runOk(root, [LITERAL, 'rm', '-q', '-r', '--cached', '--ignore-unmatch', '--', ...targets])
+  const groups = paths.length ? await byRepo(root, paths) : new Map([[root, ['.']]])
+  for (const [dir, targets] of groups) {
+    if (dir === root ? hasHead : await hasCommit(dir)) {
+      await runOk(dir, [LITERAL, 'reset', '-q', 'HEAD', '--', ...targets])
+    } else {
+      await runOk(dir, [
+        LITERAL,
+        'rm',
+        '-q',
+        '-r',
+        '--cached',
+        '--ignore-unmatch',
+        '--',
+        ...targets,
+      ])
+    }
+  }
 }
 
 export async function discard(root: string, changes: FileChange[]): Promise<void> {
-  const tracked = changes.filter((c) => c.area === 'unstaged').map((c) => c.path)
-  const untracked = changes.filter((c) => c.area === 'untracked').map((c) => c.path)
-  if (tracked.length) await runOk(root, [LITERAL, 'checkout', '-q', '--', ...tracked])
-  if (untracked.length) await runOk(root, [LITERAL, 'clean', '-q', '-f', '--', ...untracked])
+  const tracked = await byRepo(
+    root,
+    changes.filter((c) => c.area === 'unstaged').map((c) => c.path),
+  )
+  const untracked = await byRepo(
+    root,
+    changes.filter((c) => c.area === 'untracked').map((c) => c.path),
+  )
+  for (const [dir, paths] of tracked) await runOk(dir, [LITERAL, 'checkout', '-q', '--', ...paths])
+  for (const [dir, paths] of untracked)
+    await runOk(dir, [LITERAL, 'clean', '-q', '-f', '--', ...paths])
 }
 
 export async function commit(root: string, message: string): Promise<string> {

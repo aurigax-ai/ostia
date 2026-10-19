@@ -125,6 +125,12 @@
       "to": { "path": "node_modules/(xlsx|mammoth|dompurify|word-extractor)/" }
     },
     {
+      "name": "only-archives-imports-its-decoders",
+      "severity": "error",
+      "from": { "pathNot": "^src/extensions/archives/|^test/|^e2e/|\\.test\\.ts$" },
+      "to": { "path": "node_modules/@napi-rs/lzma/" }
+    },
+    {
       "name": "files-reads-no-archive-format",
       "severity": "error",
       "from": { "path": "^src/main/files/" },
@@ -137,6 +143,14 @@
         "pathNot": "^src/extensions/graphs/|^src/main/extensions/wireRuntime\\.ts$|^src/cli/cli\\.graph[A-Za-z]*\\.e2e\\.test\\.ts$"
       },
       "to": { "path": "node_modules/@aurigax-ai/wire/" }
+    },
+    {
+      "name": "only-agent-imports-pi",
+      "severity": "error",
+      "from": {
+        "pathNot": "^src/extensions/agent/"
+      },
+      "to": { "path": "node_modules/@earendil-works/" }
     },
     {
       "name": "sdk-imports-nothing-from-the-app",

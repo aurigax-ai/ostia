@@ -20,7 +20,13 @@ import { zip } from '../../extensions/archives/zip'
 import { closeFd, openRegular } from '../files/archives/archiveFile'
 import type { BrowseTarget } from '../files/archives/browseProviders'
 
-const reads = vi.hoisted(() => ({ delay: 0, inflight: 0, peak: 0, started: 0 }))
+const reads = vi.hoisted(() => ({
+  hold: false,
+  held: [] as Array<() => void>,
+  inflight: 0,
+  peak: 0,
+  started: 0,
+}))
 
 vi.mock('node:fs', async (importOriginal) => {
   const fs = await importOriginal<typeof import('node:fs')>()
@@ -31,12 +37,13 @@ vi.mock('node:fs', async (importOriginal) => {
       reads.started += 1
       reads.inflight += 1
       reads.peak = Math.max(reads.peak, reads.inflight)
-      setTimeout(() => {
-        ;(fs.read as (...rest: unknown[]) => void)(...args, (...result: unknown[]) => {
+      const run = () =>
+        (fs.read as (...rest: unknown[]) => void)(...args, (...result: unknown[]) => {
           reads.inflight -= 1
           done(...result)
         })
-      }, reads.delay)
+      if (reads.hold) reads.held.push(run)
+      else run()
     }) as unknown as typeof fs.read,
   }
 })
@@ -53,7 +60,7 @@ let dir: string
 let harness: BrowseHarness | null = null
 
 beforeEach(() => {
-  Object.assign(reads, { delay: 0, inflight: 0, peak: 0, started: 0 })
+  Object.assign(reads, { hold: false, held: [], inflight: 0, peak: 0, started: 0 })
   dir = mkdtempSync(join(tmpdir(), 'ext-browse-'))
 })
 
@@ -84,6 +91,10 @@ const idle = new AbortController().signal
 
 async function until(condition: () => boolean): Promise<void> {
   while (!condition()) await new Promise((resolve) => setImmediate(resolve))
+}
+
+function release(count: number): void {
+  for (const run of reads.held.splice(0, count)) run()
 }
 
 function raw(
@@ -196,7 +207,7 @@ describe('ExtensionBrowse tickets and readAt', () => {
 
 describe('ExtensionBrowse readAt pressure', () => {
   it('runs at most two reads of a ticket at once, however many the provider pipelines', async () => {
-    reads.delay = 15
+    reads.hold = true
     const { target, close } = await open(8 * MIB)
     let answers: Array<{ ok: boolean }> = []
     harness = browseHarness({
@@ -210,35 +221,59 @@ describe('ExtensionBrowse readAt pressure', () => {
         return { ok: true, complete: true }
       }),
     })
-    await harness.browse.list(target, limits(), idle)
+    const listed = harness.browse.list(target, limits(), idle)
+    for (let round = 1; round <= 4; round++) {
+      await until(() => reads.started === round * 2 && reads.held.length === 2)
+      expect(reads.inflight).toBe(2)
+      release(2)
+    }
+    await listed
     close()
+    expect(answers).toHaveLength(8)
     expect(answers.every((answer) => answer.ok)).toBe(true)
     expect(reads.started).toBe(8)
     expect(reads.peak).toBe(2)
   })
 
   it('does not hand the file back while a read of the ticket is running, and starts none after', async () => {
-    reads.delay = 25
+    reads.hold = true
     const { target, close } = await open(8 * MIB)
+    const answers: Array<{ ok: boolean; error?: string }> = []
     harness = browseHarness({
       candidates: [CANDIDATE],
       raw: raw(async (extConn, ticket) => {
         for (let i = 0; i < 6; i++) {
           void extConn
             .sendRequest(BROWSE_READ_AT_METHOD, { ticket, offset: i * MIB, length: MIB })
-            .catch(() => {})
+            .then(
+              (answer) => answers.push(answer as { ok: boolean; error?: string }),
+              () => {},
+            )
         }
-        await new Promise((resolve) => setTimeout(resolve, 5))
+        await until(() => reads.started === 2)
         return { ok: true, complete: true }
       }),
     })
-    await harness.browse.list(target, limits(), idle)
+    let handedBack = false
+    const listed = harness.browse.list(target, limits(), idle).then(() => {
+      handedBack = true
+    })
+    await until(() => answers.length === 4 || reads.started > 2)
+    expect(reads.started).toBe(2)
+    expect(answers.map((answer) => answer.error)).toEqual(Array(4).fill('unknown-ticket'))
+    expect(reads.inflight).toBe(2)
+    release(1)
+    await until(() => answers.length === 5)
+    expect(answers[4]?.ok).toBe(true)
+    expect(handedBack).toBe(false)
+    release(1)
+    await listed
     expect(reads.inflight).toBe(0)
-    const started = reads.started
     close()
-    await new Promise((resolve) => setTimeout(resolve, 150))
-    expect(reads.started).toBe(started)
-    expect(started).toBeLessThan(6)
+    await until(() => answers.length === 6)
+    expect(answers.filter((answer) => answer.ok)).toHaveLength(2)
+    expect(reads.started).toBe(2)
+    expect(reads.held).toEqual([])
   })
 })
 

@@ -6,7 +6,11 @@ import type { Ask, AskAnswerResult } from '../approvals/asks'
 import { internalPaneArgs } from '../control/commandArgs'
 import { type PaneIdentity, resolveExternal } from '../control/idRegistry'
 import type { PaneEntry, WorkspaceEntry, WorkspaceGroupEntry } from '../panes/paneList'
+import { type PhoneAgent, phoneAgentCommand } from '../panes/phoneAgent'
+import type { PhoneAgentStart } from '../panes/processManager'
 import { listArtifactFiles, locateArtifactFile, readArtifactFile } from './artifactFiles'
+import { type PhoneSnippetDeps, snippetList } from './phoneSnippets'
+import { type PhoneTurnDeps, turnList, turnOutput } from './phoneTurns'
 import {
   type PhoneFileScope,
   type WorkspaceFileOutcome,
@@ -14,7 +18,7 @@ import {
   readWorkspaceFile,
 } from './workspaceFiles'
 
-export interface GatewayControlDeps {
+export interface GatewayControlDeps extends PhoneTurnDeps, PhoneSnippetDeps {
   execCommand: (target: CommandTarget, id: string, args?: unknown) => Promise<CommandResult>
   listCommandsFor: (windowId: string) => CommandDescriptor[]
   getTerminalState: (paneId: string) => TerminalStateSnapshot | undefined
@@ -36,9 +40,29 @@ export interface GatewayControlDeps {
   agentRunning: (rendererPaneId: string) => boolean
   watchesTurn: (pane: PaneIdentity) => Promise<boolean>
   turnStarted: (pane: PaneIdentity) => Promise<boolean>
+  phoneWorkspace: () => Promise<string | null>
+  phoneDefaults: () => { set: boolean; agent: PhoneAgent }
+  isPhoneWorkspace: (workDir: string) => boolean
+  startAgent: (workspaceId: string, agent: PhoneAgent, prompt: string) => Promise<PhoneAgentStart>
 }
 
 const PHONE_PROMPT_MAX = 8000
+const AGENT_START_PROMPT_MAX = 4000
+const AGENT_STARTS_PER_MINUTE = 3
+const MINUTE_MS = 60_000
+const PHONE_WORKSPACE_KINDS: ReadonlySet<string> = new Set(['agent', 'terminal'])
+const agentStarts = new Map<string, number[]>()
+
+function startAllowed(deviceId: string): boolean {
+  const now = Date.now()
+  const recent = (agentStarts.get(deviceId) ?? []).filter((at) => now - at < MINUTE_MS)
+  if (recent.length >= AGENT_STARTS_PER_MINUTE) {
+    agentStarts.set(deviceId, recent)
+    return false
+  }
+  agentStarts.set(deviceId, [...recent, now])
+  return true
+}
 export const AGENT_ENTER_DELAY_MS = 60
 
 const INTERRUPT_KEYS: Record<string, string> = { esc: '\x1b', 'ctrl-c': '\x03' }
@@ -150,6 +174,7 @@ const wait = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(
 interface GatewayCall {
   p: Record<string, unknown>
   deviceCaps: string[]
+  deviceId: string
   deps: GatewayControlDeps
 }
 
@@ -160,10 +185,11 @@ async function sessionList(call: GatewayCall): Promise<RpcOutcome> {
     deps.listWorkspaceGroups(),
   ])
   const groupNames = new Map(groups.map((g) => [g.groupId, g.name]))
-  return {
-    ok: true,
-    result: { sessions: workspaces.map((w) => toWireSession(w, groupNames)) },
-  }
+  const sessions = workspaces.map((w) => ({
+    ...toWireSession(w, groupNames),
+    ...(deps.isPhoneWorkspace(w.workDir) ? { phone: true } : {}),
+  }))
+  return { ok: true, result: { sessions } }
 }
 
 async function paneList(call: GatewayCall): Promise<RpcOutcome> {
@@ -309,6 +335,37 @@ async function agentPrompt(call: GatewayCall): Promise<RpcOutcome> {
   return { ok: true, result: { ok: true } }
 }
 
+async function agentStart(call: GatewayCall): Promise<RpcOutcome> {
+  const { p, deps } = call
+  if (p.sessionId !== undefined && (typeof p.sessionId !== 'string' || !p.sessionId)) {
+    return invalidParams('unknown-session')
+  }
+  if (p.agent !== undefined && p.agent !== 'claude' && p.agent !== 'codex') {
+    return invalidParams('bad-params')
+  }
+  const agent: PhoneAgent = p.agent ?? deps.phoneDefaults().agent
+  const prompt = typeof p.prompt === 'string' ? plainBlock(p.prompt) : ''
+  if (prompt.length > AGENT_START_PROMPT_MAX || !phoneAgentCommand(agent, prompt)) {
+    return invalidParams('bad-params')
+  }
+  if (!startAllowed(call.deviceId)) return { ok: false, code: -32007, message: 'rate-limited' }
+  const sessionId = p.sessionId ?? (await deps.phoneWorkspace())
+  if (!sessionId) return invalidParams('phone-workspace-unavailable')
+  const workspace = (await deps.listWorkspaces()).find((w) => w.workspaceId === sessionId)
+  if (!workspace) return invalidParams('unknown-session')
+  if (!PHONE_WORKSPACE_KINDS.has(workspace.kind)) return invalidParams('refused')
+  const started = await deps.startAgent(workspace.workspaceId, agent, prompt)
+  if (!started?.started) {
+    return {
+      ok: false,
+      code: -32006,
+      message: 'not-started',
+      ...(started ? { data: { paneId: started.paneId } } : {}),
+    }
+  }
+  return { ok: true, result: { paneId: started.paneId, confirmed: started.confirmed } }
+}
+
 async function agentInterrupt(call: GatewayCall): Promise<RpcOutcome> {
   const { p, deps } = call
   const pane = agentPaneOf(p.paneId, deps)
@@ -336,7 +393,11 @@ const METHODS: Record<string, [cap: string, handler: (call: GatewayCall) => Prom
     'ask.list': ['read', askList],
     'ask.answer': ['respond', askAnswer],
     'agent.prompt': ['respond', agentPrompt],
+    'agent.start': ['respond', agentStart],
     'agent.interrupt': ['respond', agentInterrupt],
+    'turn.list': ['read', (call) => turnList(call.p, call.deps)],
+    'turn.output': ['read', (call) => turnOutput(call.p, call.deps)],
+    'snippet.list': ['read', (call) => snippetList(call.p, call.deps)],
   }
 
 export async function dispatchGatewayMethod(
@@ -344,10 +405,11 @@ export async function dispatchGatewayMethod(
   params: unknown,
   deviceCaps: string[],
   deps: GatewayControlDeps,
+  deviceId = '',
 ): Promise<RpcOutcome> {
   const entry = Object.hasOwn(METHODS, method) ? METHODS[method] : undefined
   if (!entry) return { ok: false, code: -32601, message: `method not found: ${method}` }
   const [cap, handler] = entry
   if (!deviceCaps.includes(cap)) return needsElevation(cap)
-  return handler({ p: (params ?? {}) as Record<string, unknown>, deviceCaps, deps })
+  return handler({ p: (params ?? {}) as Record<string, unknown>, deviceCaps, deviceId, deps })
 }

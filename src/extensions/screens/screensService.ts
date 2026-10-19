@@ -25,6 +25,7 @@ export interface ShownScreen {
   height: number
   owner: string
   state: string
+  backend: string
 }
 
 export interface ScreensServiceHooks {
@@ -54,11 +55,15 @@ export class ScreensService {
     })
     if (!res.ok) return res
     const screen: OwnedScreen = { ...res.value.screen, workspaceId: req.workspaceId }
-    this.registry.add(screen)
-    this.leases.set(screen.id, res.value.lease)
-    res.value.lease.on('close', () => void this.leaseClosed(screen.id))
-    this.hooks.created?.(screen)
+    this.adopt(screen, res.value.lease)
     return { ok: true, value: screen }
+  }
+
+  adopt(screen: OwnedScreen, lease: Socket): void {
+    this.registry.add(screen)
+    this.leases.set(screen.id, lease)
+    lease.on('close', () => void this.leaseClosed(screen.id))
+    this.hooks.created?.(screen)
   }
 
   async stop(id: string): Promise<ScreensResult<{ id: string }>> {
@@ -102,6 +107,7 @@ export class ScreensService {
         height: screen.height,
         owner: live?.owner ?? 'agent',
         state: live?.state ?? 'running',
+        backend: live?.backend ?? 'xvnc',
       })
     }
     return shown

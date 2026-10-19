@@ -1,6 +1,6 @@
+import { addToAgentPane } from '@/lib/agent/agentPane'
 import { fmt, useDict } from '@/lib/app/useDict'
-import { attachAndOpenChat } from '@/lib/assist/askContext'
-import { setAssistFeature, useAssistFeature, useChatAvailable } from '@/lib/assist/assistFeatures'
+import { setAssistFeature, useAssistFeature } from '@/lib/assist/assistFeatures'
 import { CHAT_CONTEXT_TEXT_MAX } from '@aurigax-ai/ostia-extension-sdk/contract/assist'
 import { type RefObject, useEffect } from 'react'
 import type { monaco } from './setup'
@@ -43,7 +43,7 @@ function askAboutEditorSelection(
     selection.endColumn === 1 && selection.endLineNumber > selection.startLineNumber
       ? selection.endLineNumber - 1
       : selection.endLineNumber
-  return attachAndOpenChat({
+  return addToAgentPane({
     kind: 'selection',
     label: fmt(label, { path: file, line: selection.startLineNumber }),
     text: text.slice(0, CHAT_CONTEXT_TEXT_MAX),
@@ -58,12 +58,11 @@ export function useAskSelectionAction(
   pathRef: RefObject<string | undefined>,
 ): void {
   const d = useDict()
-  const available = useChatAvailable()
-  const label = d.chatActions.askAboutSelection
+  const label = d.agentPane.addToPane
   const itemLabel = d.chatActions.selectionIn
   useEffect(() => {
     const editor = editorRef.current
-    if (!editor || !available) return
+    if (!editor) return
     const action = editor.addAction({
       id: ASK_SELECTION_ACTION_ID,
       label,
@@ -74,5 +73,5 @@ export function useAskSelectionAction(
       },
     })
     return () => action.dispose()
-  }, [editorRef, pathRef, available, label, itemLabel])
+  }, [editorRef, pathRef, label, itemLabel])
 }

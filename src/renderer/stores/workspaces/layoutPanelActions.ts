@@ -1,6 +1,7 @@
 import {
   findViewPane,
   firstPaneOfKind,
+  setPaneAgent,
   setPaneChat,
   setPaneDiff,
   setPaneGit,
@@ -60,7 +61,13 @@ function openSingleton(
 
 type LayoutPanelActions = Pick<
   LayoutState,
-  'openGit' | 'openView' | 'openChat' | 'setChatSession' | 'openDiff'
+  | 'openGit'
+  | 'openView'
+  | 'openChat'
+  | 'setChatSession'
+  | 'openAgent'
+  | 'setAgentSession'
+  | 'openDiff'
 >
 
 export function createLayoutPanelActions(set: LayoutSet, get: LayoutGet): LayoutPanelActions {
@@ -102,6 +109,29 @@ export function createLayoutPanelActions(set: LayoutSet, get: LayoutGet): Layout
           byWorkspace: {
             ...s.byWorkspace,
             [workspaceId]: { ...layout, root: setPaneChat(layout.root, paneId, title, sessionId) },
+          },
+        }
+      }),
+
+    openAgent: (workspaceId, title, sessionId) =>
+      openSingleton(
+        set,
+        get,
+        workspaceId,
+        (root) => firstPaneOfKind(root, 'agent'),
+        (root, paneId) => setPaneAgent(root, paneId, title, sessionId),
+      ),
+
+    setAgentSession: (workspaceId, paneId, sessionId, title) =>
+      set((s) => {
+        const layout = s.byWorkspace[workspaceId]
+        const pane = layout ? findPane(layout.root, paneId) : null
+        if (!layout || pane?.kind !== 'agent') return s
+        if (pane.agentSessionId === sessionId && pane.title === title) return s
+        return {
+          byWorkspace: {
+            ...s.byWorkspace,
+            [workspaceId]: { ...layout, root: setPaneAgent(layout.root, paneId, title, sessionId) },
           },
         }
       }),

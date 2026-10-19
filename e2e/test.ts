@@ -258,7 +258,7 @@ export const test = base.extend<{ appTraces: undefined }, { warmApp: undefined }
   warmApp: [
     // biome-ignore lint/correctness/noEmptyPattern: Playwright reads fixture dependencies from this pattern
     async ({}, use) => {
-      if (process.platform === 'darwin' && process.env.CI) await warmUp()
+      if (process.env.CI) await warmUp()
       await use(undefined)
     },
     { scope: 'worker', auto: true, timeout: 3 * WARM_UP_WAIT_MS },
