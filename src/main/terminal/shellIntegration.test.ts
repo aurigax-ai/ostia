@@ -11,7 +11,10 @@ import {
 } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import type { AgentPluginContent } from '@aurigax-ai/ostia-extension-sdk/manifest/agentSkills'
+import {
+  type AgentPluginContent,
+  NO_AGENT_PLUGINS,
+} from '@aurigax-ai/ostia-extension-sdk/manifest/agentSkills'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { CORE_SKILL_FILES } from '../agents/bundledSkills'
 import { busHookCommand, extensionHookCommand, permissionHookCommand } from './agentHookCommands'
@@ -29,6 +32,7 @@ import {
 import { KubeContextReader, NodeVersionResolver, promptContext } from './promptContext'
 import { type ShellState, parseShellState } from './shellCommands'
 import {
+  setAgentPlugins,
   shellIntegrationDir,
   shellIntegrationFiles,
   shellIntegrationSpawnOptions,
@@ -781,6 +785,55 @@ describe('shellIntegrationSpawnOptions', () => {
       const zsh1 = shellIntegrationSpawnOptions('zsh', { HOME: '/home/u' })
       const zsh2 = shellIntegrationSpawnOptions('zsh', { HOME: '/home/u' })
       expect(zsh2).toEqual(zsh1)
+    })
+  })
+
+  describe('files cleaned while running', () => {
+    const content: AgentPluginContent = {
+      skills: [
+        {
+          id: 'kit-review',
+          description: 'Use when reviewing.',
+          files: [{ name: 'SKILL.md', data: Buffer.from('---\nname: kit-review\n---\n') }],
+        },
+      ],
+      hooks: [{ extId: 'kit', event: 'SessionStart', command: 'on-hook' }],
+    }
+
+    afterAll(() => {
+      setAgentPlugins(NO_AGENT_PLUGINS)
+    })
+
+    it('rewrites the shell integration files before the next shell spawns', () => {
+      const dir = shellIntegrationDir()
+      rmSync(join(dir, '.zshrc'))
+      rmSync(join(dir, 'init.zsh'))
+      const zsh = shellIntegrationSpawnOptions('zsh', { HOME: '/home/u' })
+      expect(zsh.env.ZDOTDIR).toBe(dir)
+      expect(readFileSync(join(dir, '.zshrc'), 'utf8')).toBe(shellIntegrationFiles(dir)['.zshrc'])
+      expect(existsSync(join(dir, 'init.zsh'))).toBe(true)
+    })
+
+    it('rewrites the agent plugin with the content last set', () => {
+      const dir = setAgentPlugins(content)
+      const hooks = join(dir, 'claude-plugin', 'hooks', 'hooks.json')
+      const skill = join(dir, 'codex', 'skills', 'kit-review', 'SKILL.md')
+      const before = readFileSync(hooks, 'utf8')
+      rmSync(hooks)
+      rmSync(skill)
+      const spawned = shellIntegrationSpawnOptions('/bin/bash', {}).env.OSTIA_AGENT_DIR
+      expect(spawned).toBe(dir)
+      expect(readFileSync(hooks, 'utf8')).toBe(before)
+      expect(before).toContain('agent-hook kit on-hook claude SessionStart')
+      expect(existsSync(skill)).toBe(true)
+    })
+
+    it('rewrites the default agent plugin when no content was ever set', () => {
+      const dir = setAgentPlugins(NO_AGENT_PLUGINS)
+      const manifest = join(dir, 'claude-plugin', '.claude-plugin', 'plugin.json')
+      rmSync(manifest)
+      expect(shellIntegrationSpawnOptions('/bin/bash', {}).env.OSTIA_AGENT_DIR).toBe(dir)
+      expect(existsSync(manifest)).toBe(true)
     })
   })
 

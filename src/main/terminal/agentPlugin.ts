@@ -24,7 +24,7 @@ function agentPluginDigest(content: AgentPluginContent): string {
   return hash.digest('hex').slice(0, 32)
 }
 
-function agentPluginFiles(content: AgentPluginContent): string[] {
+export function agentPluginFiles(content: AgentPluginContent): string[] {
   return [
     join('claude-plugin', '.claude-plugin', 'plugin.json'),
     join('claude-plugin', 'hooks', 'hooks.json'),
