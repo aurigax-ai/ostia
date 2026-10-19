@@ -5,5 +5,7 @@
     "src/renderer/components/ui/",
     "src/renderer/lib/theme/hasSelectors."
   ],
-  "specs": ["e2e/has-free-styles.spec.ts"]
+  "specs": [
+    "e2e/has-free-styles.spec.ts"
+  ]
 }

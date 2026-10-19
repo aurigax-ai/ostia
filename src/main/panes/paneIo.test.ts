@@ -1306,6 +1306,17 @@ describe('pane.input for unattended agents', () => {
       expect(written.map((w) => w.data)).toEqual(['\x1b[200~line one\rline two\x1b[201~', '\r'])
     })
 
+    it('answers turnStarted once the watched agent turns working after the Enter', async () => {
+      claudeIn('sibling-pane', 0)
+      const conn = await granted()
+      expect(await conn.sendRequest('pane.input', task)).toMatchObject({
+        ok: true,
+        responded: true,
+        turnStarted: true,
+      })
+      expect(attentionOf.get('sibling-pane')).toEqual({ state: 'working' })
+    })
+
     it('answers ok when the turn starts, and never checks text without Enter, a turn in progress or an agent without hooks', async () => {
       claudeIn('sibling-pane', 0)
       const conn = await granted()

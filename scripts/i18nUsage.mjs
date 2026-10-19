@@ -8,16 +8,12 @@ const TEST_FILE = /\.(test|d)\.tsx?$/
 const isCatalogueFile = (path) => path === COMPOSER || path.startsWith(`${STRINGS_DIR}/`)
 
 function programFor(root, config) {
-  const parsed = ts.getParsedCommandLineOfConfigFile(
-    join(root, config),
-    {},
-    {
-      ...ts.sys,
-      onUnRecoverableConfigFileDiagnostic: (d) => {
-        throw new Error(ts.flattenDiagnosticMessageText(d.messageText, '\n'))
-      },
+  const parsed = ts.getParsedCommandLineOfConfigFile(join(root, config), {}, {
+    ...ts.sys,
+    onUnRecoverableConfigFileDiagnostic: (d) => {
+      throw new Error(ts.flattenDiagnosticMessageText(d.messageText, '\n'))
     },
-  )
+  })
   return ts.createProgram({ rootNames: parsed.fileNames, options: parsed.options })
 }
 
@@ -37,8 +33,7 @@ function collectCatalogue(program, root) {
       if (name === undefined) continue
       const at = path ? `${path}.${name}` : name
       nodes.set(declKey(fileName, property), at)
-      if (ts.isObjectLiteralExpression(property.initializer))
-        walk(fileName, property.initializer, at)
+      if (ts.isObjectLiteralExpression(property.initializer)) walk(fileName, property.initializer, at)
       else if (!fileName.endsWith(COMPOSER)) leaves.add(at)
     }
   }
@@ -50,8 +45,7 @@ function collectCatalogue(program, root) {
       if (!ts.isVariableStatement(statement)) continue
       for (const decl of statement.declarationList.declarations) {
         if (!decl.initializer || !ts.isObjectLiteralExpression(decl.initializer)) continue
-        if (area || (ts.isIdentifier(decl.name) && decl.name.text === 'en'))
-          walk(file.fileName, decl.initializer, '')
+        if (area || (ts.isIdentifier(decl.name) && decl.name.text === 'en')) walk(file.fileName, decl.initializer, '')
       }
     }
   }
@@ -60,25 +54,11 @@ function collectCatalogue(program, root) {
 
 function isOpaqueType(checker, type, isCatalogue, depth = 0) {
   if (!type || depth > 4) return false
-  if (
-    type.flags &
-    (ts.TypeFlags.Any |
-      ts.TypeFlags.Unknown |
-      ts.TypeFlags.NonPrimitive |
-      ts.TypeFlags.TypeParameter)
-  )
-    return true
-  if (type.isUnion() || type.isIntersection())
-    return type.types.some((t) => isOpaqueType(checker, t, isCatalogue, depth + 1))
+  if (type.flags & (ts.TypeFlags.Any | ts.TypeFlags.Unknown | ts.TypeFlags.NonPrimitive | ts.TypeFlags.TypeParameter)) return true
+  if (type.isUnion() || type.isIntersection()) return type.types.some((t) => isOpaqueType(checker, t, isCatalogue, depth + 1))
   if (checker.getIndexInfosOfType(type).length > 0) return true
   const signature = type.getCallSignatures()[0]
-  if (signature)
-    return isOpaqueType(
-      checker,
-      checker.getReturnTypeOfSignature(signature),
-      isCatalogue,
-      depth + 1,
-    )
+  if (signature) return isOpaqueType(checker, checker.getReturnTypeOfSignature(signature), isCatalogue, depth + 1)
   return checker.getPropertiesOfType(type).some((p) => !(p.declarations ?? []).some(isCatalogue))
 }
 
@@ -91,32 +71,19 @@ function continuesChain(node) {
 }
 
 const isWrapper = (node) =>
-  ts.isParenthesizedExpression(node) ||
-  ts.isNonNullExpression(node) ||
-  ts.isAsExpression(node) ||
-  ts.isSatisfiesExpression(node)
+  ts.isParenthesizedExpression(node) || ts.isNonNullExpression(node) || ts.isAsExpression(node) || ts.isSatisfiesExpression(node)
 
 function escapesOpaquely(checker, node, isCatalogue) {
   let at = node
   while (isWrapper(at.parent)) {
     at = at.parent
-    if (
-      (ts.isAsExpression(at) || ts.isSatisfiesExpression(at)) &&
-      isOpaqueType(checker, checker.getTypeAtLocation(at.type), isCatalogue)
-    )
-      return true
+    if ((ts.isAsExpression(at) || ts.isSatisfiesExpression(at)) && isOpaqueType(checker, checker.getTypeAtLocation(at.type), isCatalogue)) return true
   }
   if (continuesChain(at)) return false
   const parent = at.parent
-  if (
-    ts.isSpreadElement(parent) ||
-    ts.isSpreadAssignment(parent) ||
-    ts.isJsxSpreadAttribute(parent)
-  )
-    return true
+  if (ts.isSpreadElement(parent) || ts.isSpreadAssignment(parent) || ts.isJsxSpreadAttribute(parent)) return true
   if (ts.isForInStatement(parent) || ts.isForOfStatement(parent)) return parent.expression === at
-  if (ts.isBinaryExpression(parent) && parent.operatorToken.kind === ts.SyntaxKind.InKeyword)
-    return true
+  if (ts.isBinaryExpression(parent) && parent.operatorToken.kind === ts.SyntaxKind.InKeyword) return true
   return isOpaqueType(checker, checker.getContextualType(at), isCatalogue)
 }
 
@@ -132,11 +99,10 @@ function markReferences(program, root, catalogue, used, whole) {
   const checker = program.getTypeChecker()
   const pathsOf = (symbols) => {
     const out = []
-    for (const symbol of symbols)
-      for (const decl of symbol?.declarations ?? []) {
-        const path = catalogue.nodes.get(declKey(decl.getSourceFile().fileName, decl))
-        if (path !== undefined) out.push(path)
-      }
+    for (const symbol of symbols) for (const decl of symbol?.declarations ?? []) {
+      const path = catalogue.nodes.get(declKey(decl.getSourceFile().fileName, decl))
+      if (path !== undefined) out.push(path)
+    }
     return out
   }
   const isCatalogue = (decl) => catalogue.nodes.has(declKey(decl.getSourceFile().fileName, decl))
@@ -160,11 +126,7 @@ function markReferences(program, root, catalogue, used, whole) {
       const paths = pathsOf(members)
       reach(node, paths)
       if (!keys) for (const path of paths) whole.add(path)
-    } else if (
-      ts.isBindingElement(node) &&
-      ts.isObjectBindingPattern(node.parent) &&
-      !node.dotDotDotToken
-    ) {
+    } else if (ts.isBindingElement(node) && ts.isObjectBindingPattern(node.parent) && !node.dotDotDotToken) {
       const name = node.propertyName ?? node.name
       if (ts.isIdentifier(name) || ts.isStringLiteral(name)) {
         const type = checker.getTypeAtLocation(node.parent)

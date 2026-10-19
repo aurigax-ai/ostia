@@ -5,5 +5,8 @@
     "src/renderer/lib/terminal/tmuxQueries.ts",
     "src/shared/terminal/keepShells.ts"
   ],
-  "specs": ["e2e/keep-shells-sandbox.spec.ts", "e2e/keep-shells.spec.ts"]
+  "specs": [
+    "e2e/keep-shells-sandbox.spec.ts",
+    "e2e/keep-shells.spec.ts"
+  ]
 }

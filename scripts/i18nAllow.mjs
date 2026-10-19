@@ -18,10 +18,7 @@ function entries(groups, section) {
 export function loadAllow(root) {
   const raw = JSON.parse(readFileSync(join(root, ALLOW_FILE), 'utf8'))
   const same = Object.fromEntries(
-    Object.entries(raw.same ?? {}).map(([scope, groups]) => [
-      scope,
-      entries(groups, `same.${scope}`),
-    ]),
+    Object.entries(raw.same ?? {}).map(([scope, groups]) => [scope, entries(groups, `same.${scope}`)]),
   )
   const unused = entries(raw.unused, 'unused')
   const text = entries(raw.literals?.text, 'literals.text')

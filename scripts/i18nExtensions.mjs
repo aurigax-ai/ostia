@@ -1,8 +1,8 @@
 import { existsSync, readFileSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
 import ts from 'typescript'
-import { BASE_LANGUAGE, EXTENSIONS_DIR, flatten } from './i18nCatalog.mjs'
 import { compareCatalog } from './i18nCompare.mjs'
+import { BASE_LANGUAGE, EXTENSIONS_DIR, flatten } from './i18nCatalog.mjs'
 import { extensionIds } from './i18nPacks.mjs'
 
 const TRANSLATOR_NAMES = new Set(['t', 'tr'])
@@ -28,9 +28,7 @@ function templatePattern(node) {
 }
 
 function shownToHumans(raw) {
-  const agentOnly = new Set(
-    (raw.contributes?.commands ?? []).filter((c) => c.palette === false).map((c) => c.id),
-  )
+  const agentOnly = new Set((raw.contributes?.commands ?? []).filter((c) => c.palette === false).map((c) => c.id))
   return (key) => {
     const match = /^commands\.(.+)\.(title|category|argument)$/.exec(key)
     return !match || !agentOnly.has(match[1])
@@ -79,19 +77,12 @@ export function checkExtensions(root, sdk, allow) {
     const english = readJson(join(dir, 'locales', `${BASE_LANGUAGE}.json`))
     const messages = flatten(english?.messages ?? {})
     const source = new Map([
-      ...[...sdk.manifestSlots(manifest)]
-        .filter(([key]) => shownToHumans(raw)(key))
-        .map(([key, slot]) => [`manifest.${key}`, slot.text]),
+      ...[...sdk.manifestSlots(manifest)].filter(([key]) => shownToHumans(raw)(key)).map(([key, slot]) => [`manifest.${key}`, slot.text]),
       ...[...messages].map(([key, text]) => [`messages.${key}`, text]),
     ])
     const usage = sourceFiles(dir).map((file) => ({ file, ...scanUsage(file) }))
-    const translated = (manifest.locales ?? []).map((tag) => ({
-      tag,
-      catalog: readJson(join(dir, 'locales', `${tag}.json`)) ?? {},
-    }))
-    const hasMessages = translated.some(
-      ({ catalog }) => Object.keys(catalog.messages ?? {}).length > 0,
-    )
+    const translated = (manifest.locales ?? []).map((tag) => ({ tag, catalog: readJson(join(dir, 'locales', `${tag}.json`)) ?? {} }))
+    const hasMessages = translated.some(({ catalog }) => Object.keys(catalog.messages ?? {}).length > 0)
     const calls = usage.flatMap(({ file, calls }) => calls.map((call) => ({ ...call, file })))
     if (!english && (hasMessages || calls.length > 0)) {
       problems.push(
@@ -108,8 +99,7 @@ export function checkExtensions(root, sdk, allow) {
       }
       for (const key of messages.keys()) {
         const reached = usage.some(
-          ({ literals, patterns }) =>
-            literals.has(key) || patterns.some((pattern) => pattern.test(key)),
+          ({ literals, patterns }) => literals.has(key) || patterns.some((pattern) => pattern.test(key)),
         )
         if (!reached && !allow.unused(`${id}:${key}`)) {
           problems.push(
@@ -120,9 +110,7 @@ export function checkExtensions(root, sdk, allow) {
     }
     const results = translated.map(({ tag, catalog }) => {
       const target = new Map([
-        ...Object.entries(catalog.manifest ?? {})
-          .filter(([key]) => shownToHumans(raw)(key))
-          .map(([key, text]) => [`manifest.${key}`, text]),
+        ...Object.entries(catalog.manifest ?? {}).filter(([key]) => shownToHumans(raw)(key)).map(([key, text]) => [`manifest.${key}`, text]),
         ...[...flatten(catalog.messages ?? {})].map(([key, text]) => [`messages.${key}`, text]),
       ])
       const result = compareCatalog({

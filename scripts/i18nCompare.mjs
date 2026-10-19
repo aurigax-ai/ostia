@@ -43,10 +43,8 @@ export function compareCatalog({ source, target, scope, label, fileOf, allow, qu
     }
   }
   for (const [key, value] of target) {
-    if (!source.has(key))
-      problems.push(`extra: ${label} ${key}: not in en. Remove it from ${fileOf(key)}.`)
-    else if (typeof value !== 'string')
-      problems.push(`extra: ${label} ${key}: not a string. Write it as text in ${fileOf(key)}.`)
+    if (!source.has(key)) problems.push(`extra: ${label} ${key}: not in en. Remove it from ${fileOf(key)}.`)
+    else if (typeof value !== 'string') problems.push(`extra: ${label} ${key}: not a string. Write it as text in ${fileOf(key)}.`)
   }
   return { rows, problems }
 }

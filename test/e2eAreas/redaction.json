@@ -9,5 +9,7 @@
     "src/renderer/components/settings/PrivacySection.tsx",
     "src/shared/privacy/redaction."
   ],
-  "specs": ["e2e/secret-redaction.spec.ts"]
+  "specs": [
+    "e2e/secret-redaction.spec.ts"
+  ]
 }

@@ -8,5 +8,8 @@
     "src/renderer/components/panes/SurfaceErrorBoundary.tsx",
     "src/renderer/lib/app/errorReporting.ts"
   ],
-  "specs": ["e2e/crash-dumps.spec.ts", "e2e/crash-recovery.spec.ts"]
+  "specs": [
+    "e2e/crash-dumps.spec.ts",
+    "e2e/crash-recovery.spec.ts"
+  ]
 }

@@ -19,5 +19,8 @@
     "src/renderer/stores/files/gitViewStore.ts",
     "src/shared/boards/git.ts"
   ],
-  "specs": ["e2e/diff-hidden.spec.ts", "e2e/git.spec.ts"]
+  "specs": [
+    "e2e/diff-hidden.spec.ts",
+    "e2e/git.spec.ts"
+  ]
 }

@@ -1,8 +1,8 @@
-import { existsSync, readFileSync } from 'node:fs'
+import { readFileSync, existsSync } from 'node:fs'
 import { REPO_ROOT } from './i18nCatalog.mjs'
 import { runChecks } from './i18nCheck.mjs'
-import { baselineOf, coverageMarkdown, coverageRows, sameReasons } from './i18nCoverage.mjs'
 import { sortCatalogues } from './i18nOrder.mjs'
+import { baselineOf, coverageMarkdown, coverageRows, sameReasons } from './i18nCoverage.mjs'
 
 const USAGE = [
   'usage: node scripts/i18n.mjs check',
