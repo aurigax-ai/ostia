@@ -1,4 +1,4 @@
-import { PORTABLE_TABLE_ROWS_MAX } from '@aurigax-ai/ostia-extension-sdk/contract/fileViewers'
+import { PORTABLE_TABLE_ROWS_MAX } from '@aurigax-ai/ostia-extension-sdk/contract/fileKinds'
 import { grid } from '@aurigax-ai/ostia-extension-sdk/grid'
 import {
   loadViewerBytes,

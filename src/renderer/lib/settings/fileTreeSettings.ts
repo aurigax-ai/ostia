@@ -1,7 +1,7 @@
 import {
   FILENAME_PATTERN_PATTERN,
   isViewType,
-} from '@aurigax-ai/ostia-extension-sdk/contract/fileViewers'
+} from '@aurigax-ai/ostia-extension-sdk/contract/fileKinds'
 import {
   BUILTIN_ICON_THEME,
   ICON_THEME_ID_PATTERN,

@@ -680,7 +680,7 @@ describe('CommandPalette', () => {
       category: 'other',
       languages: [],
       languageServers: [],
-      fileViewers: [],
+      fileKinds: [],
       agentSkills: [],
       agentHooks: [],
       iconThemes: [],

@@ -51,7 +51,7 @@ function graphs(): ExtensionInfo {
     category: 'tools',
     languages: [],
     languageServers: [],
-    fileViewers: [],
+    fileKinds: [],
     agentSkills: [],
     agentHooks: [],
   }

@@ -20,6 +20,7 @@ import {
   type ExtensionStatus,
   commandArgument,
 } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
+import type { FileKindInfo } from '@aurigax-ai/ostia-extension-sdk/contract/fileKinds'
 import { isRecord } from '@aurigax-ai/ostia-extension-sdk/contract/isRecord'
 import { languageServerSummary } from '@aurigax-ai/ostia-extension-sdk/contract/languageServers'
 import {
@@ -54,7 +55,7 @@ import {
   withTimeout,
 } from './extensionRuntime'
 import { ExtensionSlots } from './extensionSlots'
-import { effectiveRecord, grantedCaps, needsApproval } from './extensionStore'
+import { effectiveRecord, grantedCaps, kindApproved, needsApproval } from './extensionStore'
 import { ExtensionWindowRequests } from './extensionWindowRequests'
 const INTERACTIVE_TIMEOUT_MS = 10 * 60_000
 
@@ -147,6 +148,7 @@ export class ExtensionHost {
       runtimes: this.runtimes,
       processes: this.processes,
       active: (rt) => this.active(rt),
+      kindApproved: (rt, kind) => this.kindApproved(rt, kind),
       userCaller: (workspaceId, extra) => this.userCaller(workspaceId, extra),
     })
     this.events = new ExtensionEvents({
@@ -192,6 +194,10 @@ export class ExtensionHost {
 
   private record(rt: Runtime) {
     return effectiveRecord(rt.ext.builtin, this.deps.store.get(rt.ext.manifest.id))
+  }
+
+  private kindApproved(rt: Runtime, kind: Pick<FileKindInfo, 'id' | 'selector' | 'view'>): boolean {
+    return kindApproved(rt.ext.builtin, this.deps.store.get(rt.ext.manifest.id), kind)
   }
 
   private pending(rt: Runtime): boolean {
@@ -265,7 +271,13 @@ export class ExtensionHost {
         ...(platform ? { platform } : {}),
       })),
       languageServers: (m.contributes.languageServers ?? []).map(languageServerSummary),
-      fileViewers: (m.contributes.fileViewers ?? []).map(({ entry: _entry, ...viewer }) => viewer),
+      fileKinds: (m.contributes.fileKinds ?? []).map((kind) => ({
+        id: kind.id,
+        displayName: kind.displayName,
+        selector: kind.selector,
+        view: { priority: kind.view.priority },
+        approved: this.kindApproved(rt, kind),
+      })),
       agentSkills: (m.contributes.agentSkills ?? []).map((skill) => agentSkillId(m.id, skill.name)),
       agentHooks: (m.contributes.agentHooks ?? []).map((hook) => ({
         ...hook,

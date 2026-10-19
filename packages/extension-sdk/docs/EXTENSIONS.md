@@ -163,7 +163,7 @@ The manifest is `ostia.json`; a marketplace's is `ostia-marketplace.json`.
 | `contributes.keymaps[]` | Up to 8 keymaps, each `{id, label, path, platform?}`: `id` lowercase letters, digits and dashes (unique in the extension), `label` (1–40 chars) the name shown in Settings → Keyboard, `path` a `.json` file inside the extension, `platform` optional `darwin` or `linux` to offer it on that platform only. Data only: no `main` and no capability needed. See [Keymaps](#keymaps). |
 | `contributes.languageServers[]` | Up to 8 language servers the editor talks to, as data: Ostia starts each one itself and speaks LSP to it. Needs the `language-server` capability; no `main` needed. See [Language servers](#language-servers). |
 | `contributes.editorLanguages[]` | Up to 16 languages the editor does not know yet, each with a Monarch grammar as JSON. Data only: no `main` and no capability needed. See [Editor languages](#editor-languages). |
-| `contributes.fileViewers[]` | API 4.6. Up to 16 read-only viewers for files the human opens, in the shape of VS Code's custom editors: `{viewType, displayName, selector: [{filenamePattern}], priority?, entry}`. No `main` and no capability needed. See [File viewers](#file-viewers). |
+| `contributes.fileKinds[]` | API 5.0. Up to 16 kinds of file, each matched by file name and given a `view` role that shows the file read-only: `{id, displayName, selector: [{filenamePattern}], view: {entry, priority?}}`. No `main` and no capability needed, but the human approves each claim. See [File kinds](#file-kinds). |
 | `contributes.agentSkills[]` | Up to 8 skills that Ostia gives claude and codex in your terminals: `{name, path, files?}`. Needs the `agent-plugin` capability. See [Agent skills and hooks](#agent-skills-and-hooks). |
 | `contributes.agentHooks[]` | Up to 16 `{event, command}`: when the agent reaches `event`, Ostia runs your own command `command` with the hook's JSON on stdin. Needs the `agent-plugin` capability and `main`. See [Agent skills and hooks](#agent-skills-and-hooks). |
 
@@ -1224,39 +1224,46 @@ const body = splitter({
   work for this: the panel partition isn't persistent and its origin's port changes every run.
 - Nothing animates the layout: only the divider's highlight fades in (opacity).
 
-## File viewers
+## File kinds
 
-API 4.6. A file viewer shows a file the human opened (from the Files tree, `ostia open`, a link or an archive) in its file view tab, read-only. The shape copies VS Code's custom editors (`contributes.customEditors` with a `CustomReadonlyEditorProvider`), with one difference: no code of yours ever runs outside the page, so a viewer needs no `main`, and nothing but the sandboxed page ever holds the file.
+API 5.0. A file kind says which files an extension takes care of, by name. Its `view` role shows a file the human opened (from the Files tree, `ostia open`, a link or an archive) in its file view tab, read-only. The shape of the view copies VS Code's custom editors (`contributes.customEditors` with a `CustomReadonlyEditorProvider`), with one difference: no code of yours ever runs outside the page, so a view needs no `main`, and nothing but the sandboxed page ever holds the file. `contributes.fileKinds` replaces `contributes.fileViewers`, which API 5.0 no longer reads.
 
 ```json
 "contributes": {
-  "fileViewers": [
+  "fileKinds": [
     {
-      "viewType": "office.spreadsheet",
+      "id": "office.spreadsheet",
       "displayName": "Spreadsheet",
       "selector": [{ "filenamePattern": "*.xlsx" }, { "filenamePattern": "*.ods" }],
-      "priority": "default",
-      "entry": "sheet.html"
+      "view": { "entry": "sheet.html", "priority": "default" }
     }
   ]
 }
 ```
 
-- `viewType` is `<your id>.<name>`, with a name of lowercase letters, digits and dashes.
-- `displayName` (at most 60 characters) names the viewer in Open With. Translate it in your catalog as `fileViewers.<viewType>.displayName`.
-- `selector[].filenamePattern` is `*.<extension>` (`*.tar.gz` works) or an exact file name, matched against the base name without case. Each viewer has 1-32 patterns.
-- `priority` is `default` (the default) or `option`.
-  - **`default`:** the viewer opens matching files.
-  - **`option`:** the viewer is offered only in Open With, and as a toggle while the file shows as source.
-- `entry` is an `.html` file in your extension. The build bundles `<name>.ts` next to it into `<name>.js` and every `*.worker.ts` into `*.worker.js`.
+- `id` is `<your id>.<name>`, with a name of lowercase letters, digits and dashes. For a kind with a `view`, the id is the view type: it is what a pane saves and what `files.viewerAssociations` names.
+- `displayName` (at most 60 characters) names the kind in Open With. Translate it in your catalog as `fileKinds.<id>.displayName`.
+- `selector[].filenamePattern` is `*.<extension>` (`*.tar.gz` works) or an exact file name, matched against the base name without case. Each kind has 1-32 patterns, and an extension has at most 64 in all. There is no matching by content.
+- `view.priority` is `default` (the default) or `option`.
+  - **`default`:** the view opens matching files.
+  - **`option`:** the view is offered only in Open With, and as a toggle while the file shows as source.
+- `view.entry` is an `.html` file in your extension. The build bundles `<name>.ts` next to it into `<name>.js` and every `*.worker.ts` into `*.worker.js`.
 
-**Which viewer opens a file.**
+### Approval
+
+A kind works only after the human approved it. The approval card lists each kind with its role and patterns, for example "Spreadsheet: shows *.xlsx, *.ods files". Ostia records the approved claims (the id, the role and the sorted patterns). An update that adds a kind or widens a selector leaves the new claim unapproved: it does nothing, and the extension's row in Settings → Extensions shows it as waiting until the human approves it with Review permissions. Built-in extensions are approved automatically.
+
+When the human opens a file that no enabled kind shows, the file view offers to install, enable or approve an extension that has a kind for it.
+
+### Viewing a file
+
+**Which view opens a file.**
 1. The human's choice in `files.viewerAssociations` (`{"*.xlsx": "office.spreadsheet"}`, or `"default"` for Ostia's own view), set from Open With → "Always use for …".
 2. Ostia's own views (images, PDF, Markdown) for their kinds.
-3. The `default` viewers of enabled extensions: built-in ones first, then by extension id.
+3. The `default` views of enabled, approved kinds: built-in ones first, then by extension id.
 4. The source.
 
-Open With (in the file view, the tab menu and the palette) lists every viewer that matches, plus the source. If your extension is disabled or your page fails, the file shows as source with a note.
+Open With (in the file view, the tab menu and the palette) lists every view that matches, plus the source. If your extension is disabled or your page fails, the file shows as source with a note.
 
 **Your page.** It is served from your extension folder at a per-document origin, `ostia-viewer://<token>/`. The guest is sandboxed harder than a panel:
 - it has its own partition `ostia-viewer-<id>`, no preload, no Node and no `window.ostia`;

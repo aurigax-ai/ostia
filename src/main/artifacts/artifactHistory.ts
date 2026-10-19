@@ -45,7 +45,7 @@ export interface ArtifactHistoryDeps {
   folderOf: (workspaceId: string) => string | null
   isScratch: (workspaceId: string) => boolean
   make: (workspaceId: string, file: string) => Promise<string | null>
-  viewerMatches: (name: string) => boolean
+  kindMatches: (name: string) => boolean
   now?: () => number
   quietMs?: number
 }
@@ -122,7 +122,7 @@ export class ArtifactHistory {
   private copies(name: string): boolean {
     const extension = extname(name).toLowerCase()
     if (!extension || portableType(name) !== null) return false
-    return COPIED.has(extension) || this.deps.viewerMatches(name)
+    return COPIED.has(extension) || this.deps.kindMatches(name)
   }
 
   private versionsDir(workspaceId: string, name: string): string {
