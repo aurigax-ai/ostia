@@ -3,8 +3,9 @@ import { existsSync, mkdirSync, mkdtempSync, renameSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
 import type { AgentPluginContent } from '@aurigax-ai/ostia-extension-sdk/manifest/agentSkills'
 import { version } from '../../../package.json'
+import { CODEX_HOOK_ARGS_JSON } from '../../shared/agents/agentLaunch'
 import { CORE_SKILL_FILES } from '../agents/bundledSkills'
-import { AGENT_SKILL_NAME, writeClaudePlugin } from './claudeIntegration'
+import { AGENT_SKILL_NAME, CLAUDE_MOD_FILE, writeClaudePlugin } from './claudeIntegration'
 import { CODEX_HOOK_ARGS_FILE, writeCodexIntegration } from './codexIntegration'
 
 function agentPluginDigest(content: AgentPluginContent): string {
@@ -28,12 +29,14 @@ export function agentPluginFiles(content: AgentPluginContent): string[] {
   return [
     join('claude-plugin', '.claude-plugin', 'plugin.json'),
     join('claude-plugin', 'hooks', 'hooks.json'),
+    join('claude-plugin', 'hooks', CLAUDE_MOD_FILE),
     ...CORE_SKILL_FILES.flatMap((file) => [
       join('claude-plugin', 'skills', AGENT_SKILL_NAME, file.path),
       join('codex', file.path),
     ]),
     join('codex', 'session-context.md'),
     join('codex', CODEX_HOOK_ARGS_FILE),
+    join('codex', CODEX_HOOK_ARGS_JSON),
     ...content.skills.flatMap((skill) =>
       skill.files.flatMap((file) => [
         join('claude-plugin', 'skills', skill.id, file.name),

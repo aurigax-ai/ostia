@@ -5,6 +5,7 @@ import {
   mkdirSync,
   mkdtempSync,
   readFileSync,
+  readdirSync,
   realpathSync,
   rmSync,
   writeFileSync,
@@ -18,7 +19,7 @@ import {
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { CORE_SKILL_FILES } from '../agents/bundledSkills'
 import { busHookCommand, extensionHookCommand, permissionHookCommand } from './agentHookCommands'
-import { writeAgentPlugin } from './agentPlugin'
+import { agentPluginFiles, writeAgentPlugin } from './agentPlugin'
 import { CLAUDE_PLUGIN_MANIFEST, claudeHookSettings, claudeWrapper } from './claudeIntegration'
 import {
   type CodexHookEvent,
@@ -38,6 +39,14 @@ import {
   shellIntegrationSpawnOptions,
   writeShellIntegration,
 } from './shellIntegration'
+
+function listFiles(dir: string, prefix = ''): string[] {
+  return readdirSync(dir, { withFileTypes: true }).flatMap((entry) =>
+    entry.isDirectory()
+      ? listFiles(join(dir, entry.name), join(prefix, entry.name))
+      : [join(prefix, entry.name)],
+  )
+}
 
 const INTEGRATION_DIR = shellIntegrationDir()
 const ZSH_INIT = join(INTEGRATION_DIR, 'init.zsh')
@@ -826,6 +835,29 @@ describe('shellIntegrationSpawnOptions', () => {
       expect(readFileSync(hooks, 'utf8')).toBe(before)
       expect(before).toContain('agent-hook kit on-hook claude SessionStart')
       expect(existsSync(skill)).toBe(true)
+    })
+
+    it('lists every file the agent plugin writes', () => {
+      const dir = setAgentPlugins(content)
+      expect(listFiles(dir).sort()).toEqual([...agentPluginFiles(content)].sort())
+      const empty = setAgentPlugins(NO_AGENT_PLUGINS)
+      expect(listFiles(empty).sort()).toEqual([...agentPluginFiles(NO_AGENT_PLUGINS)].sort())
+    })
+
+    it('lists every file the shell integration writes', () => {
+      const dir = shellIntegrationDir()
+      expect(listFiles(dir).sort()).toEqual(Object.keys(shellIntegrationFiles(dir)).sort())
+    })
+
+    it('rewrites the plugin module and the codex hook args when only those are gone', () => {
+      const dir = setAgentPlugins(content)
+      const mod = join(dir, 'claude-plugin', 'hooks', 'register.ts')
+      const args = join(dir, 'codex', 'hook-args.json')
+      rmSync(mod)
+      rmSync(args)
+      expect(shellIntegrationSpawnOptions('/bin/bash', {}).env.OSTIA_AGENT_DIR).toBe(dir)
+      expect(existsSync(mod)).toBe(true)
+      expect(existsSync(args)).toBe(true)
     })
 
     it('rewrites the default agent plugin when no content was ever set', () => {
