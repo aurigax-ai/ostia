@@ -17,24 +17,22 @@ const hooks = vi.hoisted(() => ({
   calls: new Map<string, number>(),
 }))
 
-vi.mock('node:fs', async (importOriginal) => {
-  const fs = await importOriginal<typeof import('node:fs')>()
+vi.mock('node:fs/promises', async (importOriginal) => {
+  const fs = await importOriginal<typeof import('node:fs/promises')>()
   return {
     ...fs,
-    rmSync: (...args: Parameters<typeof fs.rmSync>) => {
+    rm: async (...args: Parameters<typeof fs.rm>) => {
       const dir = String(args[0])
       const attempt = (hooks.calls.get(dir) ?? 0) + 1
       hooks.calls.set(dir, attempt)
       hooks.beforeRm?.(dir, attempt)
-      fs.rmSync(...args)
+      await fs.rm(...args)
     },
   }
 })
 
-function enotempty(dir: string): NodeJS.ErrnoException {
-  return Object.assign(new Error(`ENOTEMPTY: directory not empty, rmdir '${dir}'`), {
-    code: 'ENOTEMPTY',
-  })
+function failing(dir: string, code = 'ENOTEMPTY'): NodeJS.ErrnoException {
+  return Object.assign(new Error(`${code}: cannot remove '${dir}'`), { code })
 }
 
 let root: string
@@ -88,93 +86,150 @@ describe('ScratchFolders', () => {
     expect(folders.countFiles('w1')).toBe(3)
   })
 
-  it('deletes the folder when its workspace is removed and forgets it', () => {
+  it('deletes the folder when its workspace is removed and forgets it', async () => {
     const folders = new ScratchFolders(root, 4242)
     const dir = folders.create('1')
     folders.bind('w1', dir, '1')
     writeFileSync(join(dir, 'a.txt'), 'hi')
-    folders.remove('w1')
+    await folders.remove('w1')
     expect(existsSync(dir)).toBe(false)
     expect(folders.isScratch('w1')).toBe(false)
   })
 
-  it('never follows a symlink inside the folder when deleting it', () => {
+  it('never follows a symlink inside the folder when deleting it', async () => {
     const outside = mkdtempSync(join(tmpdir(), 'ostia-scratch-outside-'))
     writeFileSync(join(outside, 'keep.txt'), 'keep')
     const folders = new ScratchFolders(root, 4242)
     const dir = folders.create('1')
     folders.bind('w1', dir, '1')
     symlinkSync(outside, join(dir, 'outside'))
-    folders.remove('w1')
+    await folders.remove('w1')
     expect(existsSync(join(outside, 'keep.txt'))).toBe(true)
     rmSync(outside, { recursive: true, force: true })
   })
 
-  it('removes every folder it made, bound or not, on quit', () => {
+  it('removes every folder it made, bound or not, on quit', async () => {
     const folders = new ScratchFolders(root, 4242)
     const bound = folders.create('1')
     const unbound = folders.create('1')
     folders.bind('w1', bound, '1')
-    folders.removeAll()
+    await folders.removeAll()
     expect(existsSync(bound)).toBe(false)
     expect(existsSync(unbound)).toBe(false)
   })
 
-  it('retries when the shell writes its history while the folder is being removed', () => {
+  it('retries when the shell writes its history while the folder is being removed', async () => {
     const folders = new ScratchFolders(root, 4242)
     const dir = folders.create('1')
     folders.bind('w1', dir, '1')
     hooks.beforeRm = (target, attempt) => {
       if (attempt > 1) return
       writeFileSync(join(target, SCRATCH_HISTORY_FILE), 'exit\n')
-      throw enotempty(target)
+      throw failing(target)
     }
-    expect(folders.removeAll()).toEqual([])
+    expect(await folders.removeAll()).toEqual([])
     expect(hooks.calls.get(dir)).toBe(2)
     expect(existsSync(dir)).toBe(false)
   })
 
-  it('reports a folder that resists removal and still removes the others', () => {
+  it('reports a folder that resists removal and still removes the others', async () => {
     const folders = new ScratchFolders(root, 4242)
     const stuck = folders.create('1')
     const other = folders.create('1')
     hooks.beforeRm = (target) => {
-      if (target === stuck) throw enotempty(target)
+      if (target === stuck) throw failing(target)
     }
-    expect(folders.removeAll()).toEqual([{ dir: stuck, code: 'ENOTEMPTY' }])
+    expect(await folders.removeAll()).toEqual([{ dir: stuck, code: 'ENOTEMPTY' }])
     expect(existsSync(other)).toBe(false)
     expect(folders.dirs()).toEqual([])
   })
 
-  it('retries and contains a failed removal when a scratch workspace is closed', () => {
+  it('retries and contains a failed removal when a scratch workspace is closed', async () => {
     const folders = new ScratchFolders(root, 4242)
     const dir = folders.create('1')
     folders.bind('w1', dir, '1')
     hooks.beforeRm = (target, attempt) => {
       if (attempt > 1) return
       writeFileSync(join(target, SCRATCH_HISTORY_FILE), 'exit\n')
-      throw enotempty(target)
+      throw failing(target)
     }
-    expect(folders.remove('w1')).toBeNull()
+    expect(await folders.remove('w1')).toBeNull()
     expect(existsSync(dir)).toBe(false)
 
     const stuck = folders.create('1')
     folders.bind('w2', stuck, '1')
     hooks.beforeRm = (target) => {
-      throw enotempty(target)
+      throw failing(target)
     }
-    expect(folders.remove('w2')).toEqual({ dir: stuck, code: 'ENOTEMPTY' })
+    expect(await folders.remove('w2')).toEqual({ dir: stuck, code: 'ENOTEMPTY' })
     expect(folders.isScratch('w2')).toBe(false)
   })
 
-  it('sweeps leftover folders of exited processes and keeps live ones', () => {
+  it('returns before the retries finish when the folder is busy and still removes it', async () => {
+    vi.useFakeTimers()
+    try {
+      const folders = new ScratchFolders(root, 4242)
+      const dir = folders.create('1')
+      folders.bind('w1', dir, '1')
+      hooks.beforeRm = (target, attempt) => {
+        if (attempt <= 2) throw failing(target, 'EBUSY')
+      }
+      let settled = false
+      const removal = folders.remove('w1').then((failure) => {
+        settled = true
+        return failure
+      })
+      await vi.advanceTimersByTimeAsync(0)
+      expect(hooks.calls.get(dir)).toBe(1)
+      expect(settled).toBe(false)
+      expect(existsSync(dir)).toBe(true)
+      await vi.advanceTimersByTimeAsync(25)
+      expect(hooks.calls.get(dir)).toBe(2)
+      expect(settled).toBe(false)
+      await vi.advanceTimersByTimeAsync(50)
+      expect(await removal).toBeNull()
+      expect(hooks.calls.get(dir)).toBe(3)
+      expect(existsSync(dir)).toBe(false)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('waits for a removal already under way when everything is removed on quit', async () => {
+    vi.useFakeTimers()
+    try {
+      const folders = new ScratchFolders(root, 4242)
+      const dir = folders.create('1')
+      folders.bind('w1', dir, '1')
+      hooks.beforeRm = (target, attempt) => {
+        if (attempt === 1) throw failing(target, 'EBUSY')
+      }
+      void folders.remove('w1')
+      await vi.advanceTimersByTimeAsync(0)
+      let done = false
+      const all = folders.removeAll().then((failed) => {
+        done = true
+        return failed
+      })
+      await vi.advanceTimersByTimeAsync(0)
+      expect(done).toBe(false)
+      expect(existsSync(dir)).toBe(true)
+      await vi.advanceTimersByTimeAsync(25)
+      expect(await all).toEqual([])
+      expect(existsSync(dir)).toBe(false)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('sweeps leftover folders of exited processes and keeps live ones', async () => {
     const dead = join(root, '111-aaaaaaaaaaaa')
     const live = join(root, '222-bbbbbbbbbbbb')
     const unrelated = join(root, 'notes')
     for (const dir of [dead, live, unrelated]) mkdirSync(dir)
     writeFileSync(join(dead, 'a.txt'), 'hi')
     const folders = new ScratchFolders(root, 4242, (pid) => pid === 222)
-    expect(folders.sweep()).toEqual([dead])
+    expect(await folders.sweep()).toEqual([dead])
     expect(existsSync(dead)).toBe(false)
     expect(existsSync(live)).toBe(true)
     expect(existsSync(unrelated)).toBe(true)

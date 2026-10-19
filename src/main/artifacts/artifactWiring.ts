@@ -30,7 +30,7 @@ export function startArtifacts({
   portableExport,
   workspaceSandboxes,
 }: ArtifactStartDeps) {
-  scratchFolders.sweep()
+  void scratchFolders.sweep()
   artifactFolders.sweep()
   artifactHistory.sweep()
   portableExport.sweep()

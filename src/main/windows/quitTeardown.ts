@@ -97,7 +97,7 @@ export function createQuitTeardown({
   previews,
   updatePolicy,
 }: QuitTeardownDeps) {
-  function teardown(quitAnswer: QuitAnswer | null): void {
+  async function teardown(quitAnswer: QuitAnswer | null): Promise<void> {
     quitTrace.stage('teardown-windows')
     services.broker?.persist()
     services.managerService?.shutdown()
@@ -143,7 +143,7 @@ export function createQuitTeardown({
     artifactHistory.quit()
     artifactHistory.dispose()
     previews.dispose()
-    const stuckScratch = scratchFolders.removeAll()
+    const stuckScratch = await scratchFolders.removeAll()
     if (stuckScratch.length > 0) {
       services.appLog?.warn('scratch-remove-failed', {
         folders: stuckScratch.length,
