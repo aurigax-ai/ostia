@@ -52,6 +52,9 @@ const deps = {
   ownSnippets: vi.fn().mockReturnValue([]),
   remote: vi.fn().mockReturnValue(false),
   startAgent: vi.fn().mockResolvedValue(null),
+  phoneWorkspace: vi.fn().mockResolvedValue(null),
+  phoneDefaults: vi.fn().mockReturnValue({ set: false, agent: 'claude' }),
+  isPhoneWorkspace: vi.fn().mockReturnValue(false),
 } satisfies GatewayControlDeps
 
 let port = 0

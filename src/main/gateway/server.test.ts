@@ -163,6 +163,9 @@ const deps = {
   ownSnippets: vi.fn().mockReturnValue([]),
   remote: vi.fn().mockReturnValue(false),
   startAgent: vi.fn().mockResolvedValue(null),
+  phoneWorkspace: vi.fn().mockResolvedValue(null),
+  phoneDefaults: vi.fn().mockReturnValue({ set: false, agent: 'claude' }),
+  isPhoneWorkspace: vi.fn().mockReturnValue(false),
 } satisfies GatewayControlDeps
 
 const clients: Client[] = []
@@ -235,6 +238,14 @@ describe('gateway server over a real WebSocket', () => {
     if (prevXdg === undefined) Reflect.deleteProperty(process.env, 'XDG_DATA_HOME')
     else process.env.XDG_DATA_HOME = prevXdg
     if (xdg) rmSync(xdg, { recursive: true, force: true })
+  })
+
+  it('PHW-C8 hello says the Phone workspace is set only as the refusal-aware defaults do', async () => {
+    deps.phoneDefaults.mockReturnValueOnce({ set: false, agent: 'codex' })
+    const { token } = registerDevice({ name: 'Phone', pubkey: 'pk' })
+    const c = await connect(token)
+    expect(c.json[0]?.result).toMatchObject({ phoneWorkspace: { set: false, agent: 'codex' } })
+    expect(deps.phoneDefaults).toHaveBeenCalledTimes(1)
   })
 
   it('downgrades an owner attach to observer and drops input frames without the input cap', async () => {

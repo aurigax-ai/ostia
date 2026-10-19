@@ -534,6 +534,17 @@ describe('workspacesStore', () => {
       expect(order()).toEqual([home.id, `${a.id}:Work`, `${c.id}:Work`])
     })
 
+    it('PHW-C12 opens an ungrouped workspace outside folder rules and the asking group', () => {
+      useSettingsStore.setState({
+        workspaceGroups: { byCwd: [{ pattern: '/work/**', group: 'Work' }] },
+      })
+      const home = open('/home/me')
+      store().addWorkspace('/work/phone', 'end', 'terminal', undefined, true)
+      const phone = workspaces()[workspaces().length - 1]
+      expect(store().groups).toEqual([])
+      expect(order()).toEqual([home.id, phone.id])
+    })
+
     it('moves a workspace into a group by name, creating it when missing', () => {
       const a = open('/a')
       const b = open('/b')

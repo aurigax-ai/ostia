@@ -24,10 +24,19 @@ export function checkRoute(value: unknown): GatewayRoute | RouteProblem {
 interface GatewayConfig {
   route?: unknown
   discoverable?: unknown
+  phoneWorkspace?: unknown
 }
 
 function loadConfig(): GatewayConfig {
   return loadJson<GatewayConfig>(routePath(), {})
+}
+
+export function loadPhoneWorkspaceRecord(): unknown {
+  return loadConfig().phoneWorkspace
+}
+
+export function savePhoneWorkspaceRecord(phoneWorkspace: unknown): void {
+  saveJson(routePath(), { ...loadConfig(), phoneWorkspace })
 }
 
 export function loadRoute(): GatewayRoute {
