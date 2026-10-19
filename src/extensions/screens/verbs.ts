@@ -43,6 +43,8 @@ const RELAY_VERBS: Record<string, RelaySpec> = {
   key: { values: ['repeat'], bools: [] },
   launch: { values: [], bools: [], separator: true },
   windows: { values: [], bools: [] },
+  apps: { values: [], bools: [] },
+  tree: { values: [], bools: [] },
 }
 
 type Parsed =

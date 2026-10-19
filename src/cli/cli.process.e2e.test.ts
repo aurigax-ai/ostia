@@ -126,7 +126,7 @@ const reach = createReach({
   ask: (ask) => approvals()?.request(ask) ?? null,
   agentGroupsChanged: () => {},
 })
-const registry = registerProcessMethods({
+const { registry } = registerProcessMethods({
   isSandboxed: () => false,
   reach,
   openTab: async (req) => {

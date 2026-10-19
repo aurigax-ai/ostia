@@ -60,6 +60,20 @@
     "update.message": "Update @aurigax-ai/screens with pnpm to the latest version?",
     "update.confirm": "Update",
     "panel.outdated": "screens {min} or later is needed (this is {version}).",
-    "panel.update": "Update"
+    "panel.update": "Update",
+    "panel.phoneBadge": "phone",
+    "panel.level.view": "view only",
+    "panel.level.control": "control",
+    "panel.minutesLeft": "{minutes} min left",
+    "panel.paused": "paused",
+    "panel.pausedHint": "You touched the phone; resume it there",
+    "panel.watch": "Watch",
+    "panel.watching": "Watching",
+    "panel.watchOnly": "Watching only. The phone's human pauses and resumes it on the phone.",
+    "panel.ask": "Ask the phone",
+    "panel.askHint": "Ask your phone to start a session for this workspace.",
+    "panel.asked": "Asked your phone. Nothing starts until you start it there.",
+    "panel.phoneFailed": "The phone did not answer.",
+    "sidebar.phone": "Phone screen"
   }
 }

@@ -336,6 +336,7 @@ export const filesEn = {
     alwaysUse: 'Always use for {pattern} files',
     cancel: 'Cancel',
     clearRegion: 'Clear region',
+    crop: 'Crop',
     diagram: 'Diagram',
     diagramProblem: 'This diagram could not be drawn:',
     discard: 'Discard selection',
