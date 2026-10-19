@@ -4,5 +4,11 @@
     "name": "GRF-C71 an agent still working in its kept pane across a restart is reattached as running and its report ends the node",
     "issue": 1044,
     "until": "2026-10-30"
+  },
+  {
+    "file": "e2e/keybindings.spec.ts",
+    "name": "scrolling the Keyboard settings never gives the window a scrollbar of its own",
+    "issue": 1250,
+    "until": "2026-11-18"
   }
 ]
