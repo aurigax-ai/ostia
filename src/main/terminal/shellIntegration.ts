@@ -309,14 +309,6 @@ function currentAgentDir(): string {
   return agentDir ?? setAgentPlugins(NO_AGENT_PLUGINS)
 }
 
-interface IntegrationPaths {
-  dir: string
-  zshInit: string
-  bashInit: string
-  zshRc: string
-  bashRc: string
-}
-
 export type ShellIntegrationFiles = Record<string, string>
 
 const DIGEST_PLACEHOLDER = '\u0000dir\u0000'
@@ -393,23 +385,11 @@ export function writeShellIntegration(
 
 const SHELLS_DIR = join(INTEGRATION_DIR, 'shells')
 
-let cached: IntegrationPaths | null = null
-
-function ensureFiles(): IntegrationPaths {
-  if (cached) return cached
-  const dir = writeShellIntegration(SHELLS_DIR)
-  cached = {
-    dir,
-    zshInit: join(dir, 'init.zsh'),
-    bashInit: join(dir, 'init.bash'),
-    zshRc: join(dir, '.zshrc'),
-    bashRc: join(dir, 'bashrc'),
-  }
-  return cached
-}
+let cachedDir: string | null = null
 
 export function shellIntegrationDir(): string {
-  return ensureFiles().dir
+  cachedDir ??= writeShellIntegration(SHELLS_DIR)
+  return cachedDir
 }
 
 export interface OstiaPromptOption {
@@ -448,33 +428,20 @@ export function shellIntegrationSpawnOptions(
 ): { args: string[]; env: Record<string, string> } {
   const name = basename(shellPath).toLowerCase()
 
+  if (name !== 'zsh' && name !== 'bash') return { args: [], env: {} }
+
+  const dir = shellIntegrationDir()
+  const env = {
+    ...appEnv({ AGENT_DIR: currentAgentDir() }),
+    ...promptEnv(ostiaPrompt),
+    ...historyEnv(histFile),
+    ...markNonceEnv(markNonceFile),
+  }
   if (name === 'zsh') {
-    const { dir } = ensureFiles()
     return {
       args: [],
-      env: {
-        ZDOTDIR: dir,
-        OSTIA_ZDOTDIR_ORIG: baseEnv.ZDOTDIR || baseEnv.HOME || '',
-        ...appEnv({ AGENT_DIR: currentAgentDir() }),
-        ...promptEnv(ostiaPrompt),
-        ...historyEnv(histFile),
-        ...markNonceEnv(markNonceFile),
-      },
+      env: { ZDOTDIR: dir, OSTIA_ZDOTDIR_ORIG: baseEnv.ZDOTDIR || baseEnv.HOME || '', ...env },
     }
   }
-
-  if (name === 'bash') {
-    const { bashRc } = ensureFiles()
-    return {
-      args: ['--rcfile', bashRc],
-      env: {
-        ...appEnv({ AGENT_DIR: currentAgentDir() }),
-        ...promptEnv(ostiaPrompt),
-        ...historyEnv(histFile),
-        ...markNonceEnv(markNonceFile),
-      },
-    }
-  }
-
-  return { args: [], env: {} }
+  return { args: ['--rcfile', join(dir, 'bashrc')], env }
 }
