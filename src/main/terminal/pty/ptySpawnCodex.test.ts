@@ -21,7 +21,7 @@ function plan(sandboxed: boolean) {
     scratchFolders: { historyFile: () => null } as never,
     artifactFolders: { ensure: () => '' } as never,
     hostPaneGrants: { consume: () => false } as never,
-    workspaceSandboxes: { isEnabled: () => sandboxed } as never,
+    workspaceSandboxes: { isEnabled: () => sandboxed, workDir: () => undefined } as never,
     readSettingsFile: () => ({}),
     paneLauncherDir: () => '',
     keepShellsOn: () => false,

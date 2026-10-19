@@ -66,6 +66,17 @@ describe('paneShellEnv', () => {
     expect(env.OSTIA_PAD).toBeUndefined()
   })
 
+  it('tells the pane the folder its workspace is anchored to', () => {
+    const env = paneShellEnv({ ...parts, workspaceDir: '/home/u/project' })
+    expect(env.OSTIA_WORKSPACE_DIR).toBe('/home/u/project')
+  })
+
+  it('never passes on a workspace folder inherited from the parent environment', () => {
+    const parent = { ...parts.parent, OSTIA_WORKSPACE_DIR: '/other/project' }
+    const env = paneShellEnv({ ...parts, parent, workspaceDir: null })
+    expect(env.OSTIA_WORKSPACE_DIR).toBeUndefined()
+  })
+
   it('overrides a terminal identity inherited from the parent environment', () => {
     const parent = { ...parts.parent, TERM_PROGRAM: 'iTerm.app', TERM_PROGRAM_VERSION: '9' }
     const env = paneShellEnv({ ...parts, parent })
