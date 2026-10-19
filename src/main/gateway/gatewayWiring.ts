@@ -39,6 +39,7 @@ import {
   type PhoneWorkspacePaths,
   isPhoneFolder,
   loadPhoneWorkspace,
+  phoneWorkspaceDefaults,
   phoneWorkspaceId,
 } from './phoneWorkspace'
 import { registerPhoneWorkspaceIpc } from './phoneWorkspaceIpc'
@@ -211,16 +212,13 @@ export function startGateway({
           const res = await execCommand(
             { windowId, workspaceId: '', paneId: null },
             'workspace.new',
-            { dir, focus: false },
+            { dir, focus: false, ungrouped: true },
           )
           const id = res.ok ? (res.result as { workspaceId?: unknown }).workspaceId : null
           return typeof id === 'string' ? id : null
         },
       }),
-    phoneDefaults: () => {
-      const phone = loadPhoneWorkspace()
-      return { set: phone.folder !== null && phone.openNew, agent: phone.agent }
-    },
+    phoneDefaults: () => phoneWorkspaceDefaults(phonePaths()),
     isPhoneWorkspace: (workDir) =>
       isPhoneFolder(workDir, loadPhoneWorkspace().folder, phonePaths().home),
   })

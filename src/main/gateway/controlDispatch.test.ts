@@ -1640,6 +1640,23 @@ describe('dispatchGatewayMethod — the Phone workspace', () => {
     expect(startAgent).not.toHaveBeenCalled()
   })
 
+  it('PHW-C9 rate-limits before it opens the Phone workspace', async () => {
+    const phoneWorkspace = vi.fn().mockResolvedValue(null)
+    const deps = fakeDeps({ listWorkspaces: vi.fn().mockResolvedValue(workspaces), phoneWorkspace })
+    const job = { prompt: 'tidy the notes' }
+    for (let i = 0; i < 3; i++) {
+      expect(
+        await dispatchGatewayMethod('agent.start', job, ['respond'], deps, 'dev_open'),
+      ).toEqual({ ok: false, code: -32602, message: 'phone-workspace-unavailable' })
+    }
+    expect(await dispatchGatewayMethod('agent.start', job, ['respond'], deps, 'dev_open')).toEqual({
+      ok: false,
+      code: -32007,
+      message: 'rate-limited',
+    })
+    expect(phoneWorkspace).toHaveBeenCalledTimes(3)
+  })
+
   it('PHW-C6 marks the Phone workspace in session.list', async () => {
     const deps = fakeDeps({
       listWorkspaces: vi.fn().mockResolvedValue(workspaces),

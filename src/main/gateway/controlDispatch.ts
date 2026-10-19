@@ -347,12 +347,12 @@ async function agentStart(call: GatewayCall): Promise<RpcOutcome> {
   if (prompt.length > AGENT_START_PROMPT_MAX || !phoneAgentCommand(agent, prompt)) {
     return invalidParams('bad-params')
   }
+  if (!startAllowed(call.deviceId)) return { ok: false, code: -32007, message: 'rate-limited' }
   const sessionId = p.sessionId ?? (await deps.phoneWorkspace())
   if (!sessionId) return invalidParams('phone-workspace-unavailable')
   const workspace = (await deps.listWorkspaces()).find((w) => w.workspaceId === sessionId)
   if (!workspace) return invalidParams('unknown-session')
   if (!PHONE_WORKSPACE_KINDS.has(workspace.kind)) return invalidParams('refused')
-  if (!startAllowed(call.deviceId)) return { ok: false, code: -32007, message: 'rate-limited' }
   const started = await deps.startAgent(workspace.workspaceId, agent, prompt)
   if (!started?.started) {
     return {

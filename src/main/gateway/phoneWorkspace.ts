@@ -42,19 +42,19 @@ export function loadPhoneWorkspace(): PhoneWorkspace {
   }
 }
 
-export function folderRefusal(
+function checkFolder(
   folder: string,
   paths: PhoneWorkspacePaths,
-): PhoneWorkspaceProblem | null {
+): { real: string } | { problem: PhoneWorkspaceProblem } {
   let real: string
   try {
     real = realpathSync(folder)
-    if (!statSync(real).isDirectory()) return 'missing'
+    if (!statSync(real).isDirectory()) return { problem: 'missing' }
   } catch {
-    return 'missing'
+    return { problem: 'missing' }
   }
   const problem = folderProblem(real, paths)
-  if (problem) return problem
+  if (problem) return { problem }
   const closed = paths.closedRoots.some((root) => {
     try {
       const rootReal = realpathSync(root)
@@ -63,7 +63,23 @@ export function folderRefusal(
       return false
     }
   })
-  return closed ? 'scratch-or-artifacts' : null
+  return closed ? { problem: 'scratch-or-artifacts' } : { real }
+}
+
+export function folderRefusal(
+  folder: string,
+  paths: PhoneWorkspacePaths,
+): PhoneWorkspaceProblem | null {
+  const checked = checkFolder(folder, paths)
+  return 'problem' in checked ? checked.problem : null
+}
+
+export function phoneWorkspaceDefaults(paths: PhoneWorkspacePaths): {
+  set: boolean
+  agent: PhoneAgent
+} {
+  const { folder, openNew, agent } = loadPhoneWorkspace()
+  return { set: folder !== null && openNew && !folderRefusal(folder, paths), agent }
 }
 
 export type PhoneWorkspaceSet =
@@ -101,13 +117,26 @@ export function isPhoneFolder(workDir: string, folder: string | null, home: stri
   return folder !== null && isSameFolder(workDir, folder, home)
 }
 
+const opening = new Map<string, Promise<string | null>>()
+
+async function findOrOpen(real: string, deps: PhoneWorkspaceOpen, home: string) {
+  const open = (await deps.workspaces()).find(
+    (w) => w.kind !== 'scratch' && isPhoneFolder(w.workDir, real, home),
+  )
+  return open ? open.workspaceId : await deps.open(real)
+}
+
 export async function phoneWorkspaceId(deps: PhoneWorkspaceOpen): Promise<string | null> {
   const { folder, openNew } = loadPhoneWorkspace()
   if (!folder || !openNew) return null
   const paths = deps.paths()
-  if (folderRefusal(folder, paths)) return null
-  const open = (await deps.workspaces()).find(
-    (w) => w.kind !== 'scratch' && isPhoneFolder(w.workDir, folder, paths.home),
-  )
-  return open ? open.workspaceId : await deps.open(folder)
+  const checked = checkFolder(folder, paths)
+  if ('problem' in checked) return null
+  const pending = opening.get(checked.real)
+  if (pending) return pending
+  const next = findOrOpen(checked.real, deps, paths.home).finally(() => {
+    opening.delete(checked.real)
+  })
+  opening.set(checked.real, next)
+  return next
 }

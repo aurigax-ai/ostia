@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -6,6 +6,7 @@ import {
   type PhoneWorkspacePaths,
   folderRefusal,
   loadPhoneWorkspace,
+  phoneWorkspaceDefaults,
   phoneWorkspaceId,
   setPhoneWorkspace,
 } from './phoneWorkspace'
@@ -97,5 +98,36 @@ describe('the Phone workspace', () => {
     open.mockClear()
     expect(await phoneWorkspaceId(deps)).toBeNull()
     expect(open).not.toHaveBeenCalled()
+  })
+
+  it('PHW-C10 shares one open between concurrent calls and opens the folder it checked', async () => {
+    const jobs = join(root, 'home', 'jobs')
+    setPhoneWorkspace({ folder: jobs, openNew: true, agent: 'claude' }, paths)
+    let finish: (id: string) => void = () => {}
+    const open = vi.fn(
+      () =>
+        new Promise<string | null>((resolve) => {
+          finish = resolve
+        }),
+    )
+    const deps = { paths: () => paths, workspaces: vi.fn(async () => []), open }
+    const first = phoneWorkspaceId(deps)
+    const second = phoneWorkspaceId(deps)
+    await vi.waitFor(() => expect(open).toHaveBeenCalledTimes(1))
+    finish('opened')
+    expect(await Promise.all([first, second])).toEqual(['opened', 'opened'])
+    rmSync(jobs, { recursive: true })
+    symlinkSync(join(root, 'home', 'notes'), jobs)
+    open.mockImplementationOnce(async () => 'notes-ws')
+    expect(await phoneWorkspaceId(deps)).toBe('notes-ws')
+    expect(open).toHaveBeenLastCalledWith(join(root, 'home', 'notes'))
+  })
+
+  it('PHW-C11 the phone hears set only while the folder is usable', () => {
+    const jobs = join(root, 'home', 'jobs')
+    setPhoneWorkspace({ folder: jobs, openNew: true, agent: 'codex' }, paths)
+    expect(phoneWorkspaceDefaults(paths)).toEqual({ set: true, agent: 'codex' })
+    rmSync(jobs, { recursive: true })
+    expect(phoneWorkspaceDefaults(paths)).toEqual({ set: false, agent: 'codex' })
   })
 })

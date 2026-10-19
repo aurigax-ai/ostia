@@ -4,7 +4,6 @@ import type { WebSocket } from 'ws'
 import { resolveExternal } from '../control/idRegistry'
 import { type GatewayControlDeps, dispatchGatewayMethod } from './controlDispatch'
 import { type Device, get as getDevice, verifyToken } from './devices'
-import { loadPhoneWorkspace } from './phoneWorkspace'
 import type { ScreenLinks } from './screenLinks'
 
 const FRAME_PTY_OUTPUT = 0x01
@@ -60,6 +59,7 @@ function handleHello(
   state: SocketState,
   msg: { id?: unknown; params?: unknown },
   trackDeviceSocket: PhoneSocketDeps['trackDeviceSocket'],
+  controlDeps: GatewayControlDeps | null,
 ): void {
   const params = (msg.params ?? {}) as { deviceToken?: unknown }
   const device = typeof params.deviceToken === 'string' ? verifyToken(params.deviceToken) : null
@@ -70,13 +70,13 @@ function handleHello(
   }
   state.device = device
   trackDeviceSocket(device.deviceId, ws)
-  const phone = loadPhoneWorkspace()
+  const phoneWorkspace = controlDeps?.phoneDefaults() ?? { set: false, agent: 'claude' }
   ws.send(
     rpcResult(msg.id, {
       deviceId: device.deviceId,
       caps: device.caps,
       desktop: { name: PRODUCT_NAME, version: app.getVersion() },
-      phoneWorkspace: { set: phone.folder !== null && phone.openNew, agent: phone.agent },
+      phoneWorkspace,
     }),
   )
 }
@@ -326,7 +326,7 @@ function handleConnection(ws: WebSocket, deps: PhoneSocketDeps): void {
       return
     }
     if (msg.method === 'hello') {
-      handleHello(ws, state, msg, trackDeviceSocket)
+      handleHello(ws, state, msg, trackDeviceSocket, deps.controlDeps())
       return
     }
     if (!state.device) {
