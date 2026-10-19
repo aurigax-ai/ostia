@@ -11,7 +11,7 @@ import {
 } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest'
 import { en, zhHant } from '../../shared/app/dict'
 import type { CommandDescriptor, CommandResult } from '../../shared/control/commands'
 import { registerPane } from '../control/idRegistry'
@@ -70,6 +70,7 @@ function fakeDeps(overrides: Partial<GatewayControlDeps> = {}): GatewayControlDe
     agentRunning: vi.fn().mockReturnValue(false),
     watchesTurn: vi.fn().mockResolvedValue(false),
     turnStarted: vi.fn().mockResolvedValue(true),
+    startAgent: vi.fn().mockResolvedValue(null),
     ...overrides,
   }
 }
@@ -1152,6 +1153,7 @@ describe('dispatchGatewayMethod — asks and agent replies', () => {
         agentRunning: vi.fn().mockReturnValue(true),
         watchesTurn: vi.fn().mockResolvedValue(true),
         turnStarted: vi.fn().mockResolvedValue(true),
+        startAgent: vi.fn().mockResolvedValue(null),
       })
       expect(await prompt(deps, pane.externalId, 'go')).toEqual({ ok: true, result: { ok: true } })
       expect(deps.turnStarted).toHaveBeenCalledWith(
@@ -1463,5 +1465,124 @@ describe('isHiddenFromPhone', () => {
     expect(isHiddenFromPhone('.SSH/id_ed25519', 'linux')).toBe(false)
     expect(isHiddenFromPhone('.ssh/id_ed25519', 'linux')).toBe(true)
     expect(isHiddenFromPhone('notes/readme.md', 'darwin')).toBe(false)
+  })
+})
+
+describe('dispatchGatewayMethod — agent.start', () => {
+  const workspaces = [
+    { workspaceId: 's1', name: 'One', kind: 'agent', workDir: '/w', state: 'idle' },
+    { workspaceId: 't1', name: 'Shell', kind: 'terminal', workDir: '/t', state: 'idle' },
+    { workspaceId: 'pad', name: 'Scratch', kind: 'scratch', workDir: '/s', state: 'idle' },
+    { workspaceId: 'mgr', name: 'Manager', kind: 'manager', workDir: '/m', state: 'idle' },
+    { workspaceId: 'odd', name: 'Odd', kind: 'graph', workDir: '/o', state: 'idle' },
+  ]
+  let device = 0
+  const start = (
+    params: unknown,
+    deps: GatewayControlDeps,
+    caps = ['read', 'respond'],
+    deviceId = `dev_${++device}`,
+  ) => dispatchGatewayMethod('agent.start', params, caps, deps, deviceId)
+  const begun = { paneId: 'pane-ext', started: true, confirmed: true }
+
+  it('PHD-C21 starts the named agent with the phone text in an agent or terminal workspace', async () => {
+    const startAgent = vi.fn().mockResolvedValue(begun)
+    const deps = fakeDeps({ listWorkspaces: vi.fn().mockResolvedValue(workspaces), startAgent })
+    const res = await start(
+      { sessionId: 's1', agent: 'codex', prompt: '  fix\u0007 the build\r\n' },
+      deps,
+    )
+    expect(res).toEqual({ ok: true, result: { paneId: 'pane-ext', confirmed: true } })
+    expect(startAgent).toHaveBeenCalledWith('s1', 'codex', 'fix the build')
+    startAgent.mockResolvedValueOnce({ ...begun, confirmed: false })
+    expect(
+      await start({ sessionId: 't1', agent: 'claude', prompt: 'list the files' }, deps),
+    ).toEqual({
+      ok: true,
+      result: { paneId: 'pane-ext', confirmed: false },
+    })
+  })
+
+  it('PHD-C22 answers not-started when the agent never reported its start', async () => {
+    const startAgent = vi
+      .fn()
+      .mockResolvedValueOnce({ paneId: 'pane-ext', started: false, confirmed: true })
+      .mockResolvedValueOnce(null)
+    const deps = fakeDeps({ listWorkspaces: vi.fn().mockResolvedValue(workspaces), startAgent })
+    expect(await start({ sessionId: 's1', agent: 'claude', prompt: 'say hi' }, deps)).toEqual({
+      ok: false,
+      code: -32006,
+      message: 'not-started',
+      data: { paneId: 'pane-ext' },
+    })
+    expect(await start({ sessionId: 's1', agent: 'claude', prompt: 'say hi' }, deps)).toEqual({
+      ok: false,
+      code: -32006,
+      message: 'not-started',
+    })
+  })
+
+  it('PHD-C23 refuses other workspaces, other agents, flags, subcommands and empty or long text', async () => {
+    const startAgent = vi.fn()
+    const deps = fakeDeps({ listWorkspaces: vi.fn().mockResolvedValue(workspaces), startAgent })
+    const prompt = (text: string) => ({ sessionId: 's1', agent: 'claude', prompt: text })
+    const cases: Array<[Record<string, unknown>, string]> = [
+      [{ sessionId: 'pad', agent: 'claude', prompt: 'say hi' }, 'refused'],
+      [{ sessionId: 'mgr', agent: 'claude', prompt: 'say hi' }, 'refused'],
+      [{ sessionId: 'odd', agent: 'claude', prompt: 'say hi' }, 'refused'],
+      [{ sessionId: 'gone', agent: 'claude', prompt: 'say hi' }, 'unknown-session'],
+      [{ sessionId: 's1', agent: 'bash', prompt: 'say hi' }, 'bad-params'],
+      [
+        { sessionId: 's1', agent: 'claude --dangerously-skip-permissions', prompt: 'say hi' },
+        'bad-params',
+      ],
+      [prompt('--dangerously-skip-permissions'), 'bad-params'],
+      [prompt('-p x'), 'bad-params'],
+      [prompt(' --yolo'), 'bad-params'],
+      [prompt('+x and more'), 'bad-params'],
+      [prompt('apply'), 'bad-params'],
+      [prompt('update'), 'bad-params'],
+      [prompt('hello'), 'bad-params'],
+      [prompt('mcp list'), 'bad-params'],
+      [prompt('Exec rm -rf'), 'bad-params'],
+      [prompt(' \u0007 '), 'bad-params'],
+      [prompt('x '.repeat(2001)), 'bad-params'],
+      [prompt(`say ${"'".repeat(2100)}`), 'bad-params'],
+    ]
+    for (const [params, message] of cases) {
+      expect(await start(params, deps), String(params.prompt ?? params.sessionId)).toEqual({
+        ok: false,
+        code: -32602,
+        message,
+      })
+    }
+    expect(startAgent).not.toHaveBeenCalled()
+  })
+
+  it('PHD-C24 needs the respond cap and starts at most three agents a minute per phone', async () => {
+    vi.useFakeTimers()
+    onTestFinished(() => {
+      vi.useRealTimers()
+    })
+    const startAgent = vi.fn().mockResolvedValue(begun)
+    const deps = fakeDeps({ listWorkspaces: vi.fn().mockResolvedValue(workspaces), startAgent })
+    const job = { sessionId: 's1', agent: 'claude', prompt: 'say hi' }
+    expect(await start(job, deps, ['read'])).toEqual({
+      ok: false,
+      code: -32003,
+      message: 'needs-elevation',
+      data: { cap: 'respond' },
+    })
+    for (let i = 0; i < 3; i++)
+      expect(await start(job, deps, undefined, 'dev_rate')).toMatchObject({ ok: true })
+    expect(await start(job, deps, undefined, 'dev_rate')).toEqual({
+      ok: false,
+      code: -32007,
+      message: 'rate-limited',
+    })
+    expect(await start(job, deps, undefined, 'dev_other')).toMatchObject({ ok: true })
+    vi.advanceTimersByTime(60_000)
+    expect(await start(job, deps, undefined, 'dev_rate')).toMatchObject({ ok: true })
+    expect(startAgent).toHaveBeenCalledTimes(5)
   })
 })
