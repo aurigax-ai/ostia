@@ -83,10 +83,10 @@ export const USAGE_TABLE: readonly NounUsage[] = [
       },
       {
         verb: 'send',
-        args: `${PANE} [--enter] [--paste|--raw] [--force] [--] <text…|->`,
+        args: `${PANE} [--enter] [--paste|--raw] [--force] [--json] [--] <text…|->`,
         about: 'type text into a terminal pane (no Enter unless --enter) and confirm it showed',
       },
-      { verb: 'key', args: `${PANE} <key>…`, about: 'press keys in a terminal pane' },
+      { verb: 'key', args: `${PANE} <key>… [--json]`, about: 'press keys in a terminal pane' },
       { verb: 'read', args: `${PANE} [--lines N] [--json]`, about: 'its screen as plain text' },
       {
         verb: 'status',

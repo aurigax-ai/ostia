@@ -206,9 +206,11 @@ ostia pane close [<pane>…] [--json]      # no pane: your own
   stops all) or either pane closes, and holds at most 32 panes. It prints what you now watch.
 - **send** types the text as a bracketed paste when it holds a newline and the pane asked for
   bracketed paste, so a newline does not submit. `--paste` forces that for one line, `--raw`
-  forces the bytes as typed (the two exclude each other). **send** and **key** print `ok` once the pane shows something new, or
-  `sent; <pane> showed nothing yet` (exit 0, the bytes went in) for a pane that stays quiet,
+  forces the bytes as typed (the two exclude each other). **send** and **key** answer what the pane did: `ok: <pane> started a
+  turn`, `ok: <pane> showed new output; a command is running` (or `no command is running`), or
+  `sent; <pane> showed nothing yet (…)` (exit 0, the bytes went in) for a pane that stays quiet,
   such as Enter at an idle prompt or `read -s`: read it with `pane read`, never send again.
+  `--json` gives `responded`, `turnStarted` and `running`.
   With `--enter` into an agent that reports its turns (claude or codex with hooks on) and is
   not in a turn, `send` also waits for the turn to start and answers `not-submitted:` with
   exit 1 when it did not, for example after a slash command that opened a picker. Ostia never

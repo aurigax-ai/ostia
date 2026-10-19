@@ -653,9 +653,10 @@ describe('ostia pane (the real CLI against a live control server)', () => {
 
     const send = await ostia(['pane', 'send', 'echo', 'hello', 'world', '--enter'])
     expect(send.stderr).toBe('')
-    expect(send.stdout.trim()).toBe('ok')
-    const key = await ostia(['pane', 'key', 'echo', 'ctrl-d'])
+    expect(send.stdout.trim()).toMatch(/^ok: \S+ showed new output; a command is running$/)
+    const key = await ostia(['pane', 'key', 'echo', 'ctrl-d', '--json'])
     expect(key.code).toBe(0)
+    expect(JSON.parse(key.stdout)).toMatchObject({ ok: true, turnStarted: false, running: true })
 
     expect(written).toEqual([
       { paneId: tab, data: 'hello world' },
@@ -738,7 +739,7 @@ describe('ostia pane (the real CLI against a live control server)', () => {
     expect(done.stdout.trim()).toBe(fixer?.externalId)
 
     const sent = await ostia(['pane', 'send', 'fixer', 'hi', '--enter'])
-    expect(sent.stdout.trim()).toBe('ok')
+    expect(sent.stdout.trim()).toMatch(/^ok: \S+ showed new output/)
     expect(written).toEqual([
       { paneId: tab, data: 'hi' },
       { paneId: tab, data: '\r' },

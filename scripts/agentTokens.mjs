@@ -85,8 +85,11 @@ export function errorCode(text, codes) {
   return code && codes.has(code) ? code : 'other'
 }
 
-export function codexFailed(output) {
-  return CODEX_EXIT.test(output.split('\nOutput:')[0])
+export function codexResult(output) {
+  const json = parseJson(output)
+  const exit = json?.metadata?.exit_code
+  if (typeof exit === 'number') return { text: textOf(json.output), failed: exit !== 0 }
+  return { text: output, failed: CODEX_EXIT.test(output.split('\nOutput:')[0]) }
 }
 
 function textOf(content) {
@@ -164,8 +167,7 @@ function codexEvents(record) {
       return [{ kind: 'call', id: payload.call_id, at, command: codexCommand(payload) }]
     }
     if (payload.type === 'function_call_output' || payload.type === 'custom_tool_call_output') {
-      const text = textOf(payload.output)
-      return [{ kind: 'result', id: payload.call_id, at, text, failed: codexFailed(text) }]
+      return [{ kind: 'result', id: payload.call_id, at, ...codexResult(textOf(payload.output)) }]
     }
     if (payload.type === 'message' && payload.role === 'user') {
       return [{ kind: 'turn', at, text: textOf(payload.content) }]
