@@ -30,7 +30,7 @@ import { TELEMETRY_FILE, registerTelemetry } from '../diagnostics/telemetry'
 import { extensionHostParts, startExtensionHost } from '../extensions/extensionWiring'
 import { startMarketplace } from '../extensions/marketplace/marketplaceWiring'
 import { registerFsIpc } from '../files/fsIpc'
-import { startGateway } from '../gateway/gatewayWiring'
+import { createScreenLinks, startGateway } from '../gateway/gatewayWiring'
 import { startManager } from '../manager/managerWiring'
 import { registerPaneLifecycleIpc } from '../panes/paneLifecycleIpc'
 import { listPanes } from '../panes/paneList'
@@ -165,8 +165,10 @@ export function boot(wiring: Wiring): void {
   const { paneReachDeps, turnConfirms } = registerPaneMethodsWiring({ ...wiring, registry })
   registerToolbeltWiring({ ...wiring, paneReachDeps })
   const { extensionRemoteFolders, extensionExec, resumeOfPane } = extensionHostParts({ ...wiring })
+  const screenLinks = createScreenLinks({ ...wiring })
   const { extensionStore, extensionHost } = startExtensionHost({
     ...wiring,
+    screenLinks,
     extensionRemoteFolders,
     notifyDeps,
     extensionExec,

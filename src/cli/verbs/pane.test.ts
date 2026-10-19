@@ -1,20 +1,30 @@
 import { describe, expect, it } from 'vitest'
 import type { PaneStatus } from '../../shared/panes/paneStatus'
-import { hibernateOutcome, paneLine, parsePaneArgs, waitOutcome, wakeOutcome } from './pane'
+import {
+  hibernateOutcome,
+  inputLine,
+  paneLine,
+  parsePaneArgs,
+  waitOutcome,
+  wakeOutcome,
+} from './pane'
 
 describe('parsePaneArgs', () => {
   it('joins the words of send into one text and adds Enter only when asked', () => {
     expect(parsePaneArgs(['send', 'worker', 'hello', 'world'])).toEqual({
       method: 'pane.input',
       params: { pane: 'worker', text: 'hello world' },
+      json: false,
     })
     expect(parsePaneArgs(['send', 'worker', 'y', '--enter'])).toEqual({
       method: 'pane.input',
       params: { pane: 'worker', text: 'y', keys: ['enter'] },
+      json: false,
     })
     expect(parsePaneArgs(['send', 'worker', '--enter'])).toEqual({
       method: 'pane.input',
       params: { pane: 'worker', keys: ['enter'] },
+      json: false,
     })
   })
 
@@ -22,6 +32,7 @@ describe('parsePaneArgs', () => {
     expect(parsePaneArgs(['send', 'worker', '--', 'git', 'commit', '--enter'])).toEqual({
       method: 'pane.input',
       params: { pane: 'worker', text: 'git commit --enter' },
+      json: false,
     })
   })
 
@@ -34,6 +45,7 @@ describe('parsePaneArgs', () => {
     ).toEqual({
       method: 'pane.input',
       params: { pane: 'worker', text: 'git commit -m fix -1', keys: ['enter'] },
+      json: false,
     })
   })
 
@@ -47,15 +59,18 @@ describe('parsePaneArgs', () => {
         paste: true,
         force: true,
       },
+      json: false,
     })
     expect(parsePaneArgs(['send', 'w', '--raw', 'a'])).toEqual({
       method: 'pane.input',
       params: { pane: 'w', text: 'a', paste: false },
+      json: false,
     })
     expect(parsePaneArgs(['send', 'w', '--enter', '-'])).toEqual({
       method: 'pane.input',
       params: { pane: 'w', keys: ['enter'] },
       stdin: true,
+      json: false,
     })
     expect(() => parsePaneArgs(['send', 'w', '--paste', '--raw', 'a'])).toThrow('usage: ostia pane')
     expect(() => parsePaneArgs(['send', 'w', '--confirm', 'a'])).toThrow('unknown flag --confirm')
@@ -68,7 +83,19 @@ describe('parsePaneArgs', () => {
     expect(parsePaneArgs(['key', 'p1', 'ctrl-c', 'up', 'enter'])).toEqual({
       method: 'pane.input',
       params: { pane: 'p1', keys: ['ctrl-c', 'up', 'enter'] },
+      json: false,
     })
+    expect(parsePaneArgs(['key', 'p1', 'enter', '--json'])).toMatchObject({ json: true })
+    expect(parsePaneArgs(['send', 'p1', 'x', '--json'])).toMatchObject({ json: true })
+  })
+
+  it('answers send and key with what the pane did', () => {
+    const base = { paneId: 'p1', responded: true, turnStarted: false, running: true }
+    expect(inputLine({ ...base, turnStarted: true })).toBe('ok: p1 started a turn')
+    expect(inputLine(base)).toBe('ok: p1 showed new output; a command is running')
+    expect(inputLine({ ...base, responded: false, running: false })).toBe(
+      'sent; p1 showed nothing yet (no command is running): read it with ostia pane read',
+    )
   })
 
   it('reads with an optional line count and JSON output', () => {

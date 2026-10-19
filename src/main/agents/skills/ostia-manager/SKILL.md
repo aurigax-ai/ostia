@@ -48,8 +48,8 @@ one. It prints the worker's `paneId`. Workers are ordinary panes with the `ostia
 ```sh
 ostia bus send [--wait <s>] <paneId> "message"  # state: "queued" or "delivered"
 ostia bus sent [--json]                  # your messages and where each stands
-ostia bus inbox [--take]                 # messages waiting for you; --take delivers them
-ostia bus wait [--timeout <s>]           # blocks until a message arrives
+ostia bus inbox [--take] [--json]        # messages waiting for you; --take delivers them
+ostia bus wait [--timeout <s>] [--json]  # blocks until a message arrives; exit 2 timed out
 ```
 
 A queued message reaches a claude worker as a turn Ostia starts in it once it is idle, and a

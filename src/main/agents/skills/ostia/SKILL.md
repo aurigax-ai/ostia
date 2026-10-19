@@ -206,9 +206,11 @@ ostia pane close [<pane>…] [--json]      # no pane: your own
   stops all) or either pane closes, and holds at most 32 panes. It prints what you now watch.
 - **send** types the text as a bracketed paste when it holds a newline and the pane asked for
   bracketed paste, so a newline does not submit. `--paste` forces that for one line, `--raw`
-  forces the bytes as typed (the two exclude each other). **send** and **key** print `ok` once the pane shows something new, or
-  `sent; <pane> showed nothing yet` (exit 0, the bytes went in) for a pane that stays quiet,
+  forces the bytes as typed (the two exclude each other). **send** and **key** answer what the pane did: `ok: <pane> started a
+  turn`, `ok: <pane> showed new output; a command is running` (or `no command is running`), or
+  `sent; <pane> showed nothing yet (…)` (exit 0, the bytes went in) for a pane that stays quiet,
   such as Enter at an idle prompt or `read -s`: read it with `pane read`, never send again.
+  `--json` gives `responded`, `turnStarted` and `running`.
   With `--enter` into an agent that reports its turns (claude or codex with hooks on) and is
   not in a turn, `send` also waits for the turn to start and answers `not-submitted:` with
   exit 1 when it did not, for example after a slash command that opened a picker. Ostia never
@@ -240,24 +242,27 @@ ostia pane close [<pane>…] [--json]      # no pane: your own
 ## Bus
 
 ```sh
-ostia bus send [--wait <s>] <pane> "message"  # {"ok":true,"id":…,"state":"queued"|"delivered","pending":…}
+ostia bus send [--wait <s>] <pane> "message"  # {"ok":true,"id":…,"state":"queued"|"leased"|"delivered","pending":…}
 ostia bus send <pane> -- --help          # after --, even --help is the message
 ostia bus sent [--json]                  # what you sent and where each message stands
-ostia bus inbox [--take]                 # messages waiting for you (JSON); --take delivers them
-ostia bus wait [--timeout <s>]           # blocks until a message arrives (1–120 s, default 30)
+ostia bus inbox [--take] [--json]        # messages waiting for you; --take delivers them
+ostia bus wait [--timeout <s>] [--json]  # blocks until a message arrives (1–590 s, default 30)
 ostia bus handoff <pane> --task "…" --summary "…"
 ostia bus claim <id> | bus done <id> | bus handoffs [--all]
 ```
 
 Nothing is typed into the receiver. A message is `queued` until the receiver's agent takes it,
-then `delivered` (`via`: its next prompt, its start, a turn Ostia started, or `inbox --take` / `wait`), or `failed`
+`leased` while it is being handed over, then `delivered` (`via`: its next prompt, its start, a turn Ostia started, or `inbox --take` / `wait`), or `failed`
 (`reason`: `pane-closed`, or `expired:<pending>` after 24 hours). `pending` says why a queued
 message waits: `working` (read when its turn ends), `idle-will-wake` (Ostia starts a turn in the
 idle agent to read it), `draft` (the human has text in its prompt), `rate-limited` (too many mail
 turns lately), `idle-no-wake` (read at its next prompt), `hibernated` (Ostia wakes the agent, at
 most 3 times an hour, and it reads the message), `hooks-off` or `no-agent` (read only with
-`bus inbox`). `--wait <s>` blocks
-(1–120 s) until it is delivered or failed and exits 0 delivered, 1 failed, 2 still queued. `send`
+`bus inbox`). `inbox` and `wait` print the messages whole, framed as the hook frames them, or
+`(no messages)`; `wait` answers `timed-out:` with exit 2. A message turns delivered once your command printed it;
+if that command died first you see it again, so a repeated message id is a duplicate. Give the shell
+command a timeout longer than `--timeout`. `--wait <s>` blocks
+(1–590 s) until it is delivered or failed and exits 0 delivered, 1 failed, 2 still queued. `send`
 and `handoff` read the store back and answer `not-queued:` or `not-recorded:` when the message
 is missing; a receiver with 200 undelivered messages answers `inbox-full`. Sending to another
 pane needs `send-other-pane`, plus `all-workspaces` outside your reach; a sandboxed workspace

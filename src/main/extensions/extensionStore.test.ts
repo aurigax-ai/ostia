@@ -36,12 +36,28 @@ describe('needsApproval / effectiveRecord', () => {
   it('pre-approves and enables built-ins, and keeps user extensions off by default', () => {
     expect(effectiveRecord(true, undefined)).toEqual({
       enabled: true,
-      approved: ALL_CAPABILITIES.filter((c) => c !== 'mcp' && c !== 'read-bus'),
+      approved: ALL_CAPABILITIES.filter(
+        (c) => c !== 'mcp' && c !== 'read-bus' && c !== 'file-contents' && c !== 'phone-screens',
+      ),
     })
+    expect(effectiveRecord(true, undefined).approved).not.toContain('phone-screens')
     expect(effectiveRecord(false, undefined)).toEqual({ enabled: false, approved: null })
     expect(effectiveRecord(true, undefined).approved).not.toContain('mcp')
+    expect(effectiveRecord(true, undefined).approved).not.toContain('file-contents')
+    expect(effectiveRecord(true, undefined, ['file-contents']).approved).toContain('file-contents')
+    expect(effectiveRecord(false, undefined, ['file-contents'])).toEqual({
+      enabled: false,
+      approved: null,
+    })
     const saved = { enabled: false, approved: ['notify' as const] }
     expect(effectiveRecord(true, saved)).toBe(saved)
+    expect(effectiveRecord(true, saved, ['file-contents'])).toEqual({
+      enabled: false,
+      approved: ['notify', 'file-contents'],
+    })
+    expect(effectiveRecord(false, saved, ['file-contents'])).toBe(saved)
+    const granted = { enabled: true, approved: ['file-contents' as const] }
+    expect(effectiveRecord(true, granted, ['file-contents'])).toBe(granted)
   })
 })
 

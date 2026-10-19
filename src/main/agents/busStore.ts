@@ -102,7 +102,12 @@ let inflight: Promise<void> | undefined
 let dirty = false
 
 const settled = new Map<string, Set<() => void>>()
-const waiters = new Map<string, Set<(mail: Mail[]) => void>>()
+export interface HandedMail {
+  lease: string
+  messages: Mail[]
+}
+
+const waiters = new Map<string, Set<(handed: HandedMail) => void>>()
 
 function busPath(): string {
   return storePath('bus', 'global')
@@ -293,9 +298,8 @@ export function enqueue(draft: MailDraft): Mail {
   if (parked && first) {
     parked.delete(first)
     if (parked.size === 0) waiters.delete(draft.to)
-    const delivered = snapshot(mail)
-    deliverMail(mail, 'read', mail.ts)
-    first([delivered])
+    const handed = leaseMail(draft.to, 'read', (item) => item.id === mail.id)
+    if (handed) first(handed)
   }
   markBusDirty()
   announceQueued(mail)
@@ -490,7 +494,7 @@ export function leaseMail(
   to: string,
   via: MailVia,
   pick: (mail: Mail) => boolean,
-): { lease: string; messages: Mail[] } | undefined {
+): HandedMail | undefined {
   sweepBus()
   const lease = randomUUID()
   const until = Date.now() + LEASE_MS
@@ -580,7 +584,7 @@ export function whenSettled(
   })
 }
 
-export function addWaiter(to: string, resolve: (mail: Mail[]) => void): () => void {
+export function addWaiter(to: string, resolve: (handed: HandedMail) => void): () => void {
   const parked = waiters.get(to) ?? new Set()
   parked.add(resolve)
   waiters.set(to, parked)

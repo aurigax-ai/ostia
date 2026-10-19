@@ -51,8 +51,10 @@ import type {
   RemoteStatResult,
   RemoteWriteResult,
 } from '../contract/remoteFolders'
+import type { BrowseProvider } from './browse'
 import { agentMethods, serviceMethods, windowMethods } from './extensionMethods'
 import { createHostHandlers, listenToHost } from './hostHandlers'
+import { type PhoneScreens, phoneScreenMethods } from './phoneScreens'
 import type {
   AskOptions,
   AskResult,
@@ -335,7 +337,9 @@ export interface OstiaExtension {
   closeFolder: (folderId: string) => Promise<ExtensionResult>
   onFiles: (handler: FilesHandler) => void
   onFolderClosed: (handler: FolderClosedHandler) => void
+  onBrowse: (name: string, provider: BrowseProvider) => void
   sandboxDomains: (workspaceId: string) => Promise<SandboxDomainsResult>
+  phoneScreens: PhoneScreens
 }
 
 export interface AssistModelsHandler {
@@ -370,6 +374,7 @@ export async function connect(): Promise<OstiaExtension> {
     ...windowMethods(conn, handlers),
     ...agentMethods(conn),
     ...serviceMethods(conn, handlers),
+    phoneScreens: phoneScreenMethods(conn),
   }
 }
 
@@ -394,6 +399,25 @@ export function onShutdown(fn: () => void): void {
 export { nextBackoff, runTool, type ToolRun, type ToolRunOptions } from './tool'
 export { type MessagePageServer, startMessageServer } from './messagePage'
 
+export {
+  BrowseError,
+  type BrowseContext,
+  type BrowseFile,
+  type BrowseProvider,
+  type ChunkSink,
+  type EntrySink,
+} from './browse'
+export type { BrowseEntry, BrowseLimits } from '../contract/fileBrowse'
+export type { PhoneScreenFrame, PhoneScreens, PhoneScreensController } from './phoneScreens'
+export {
+  PHONE_SCREEN_REQUESTS,
+  type PhoneScreenEndReason,
+  type PhoneScreenEvent,
+  type PhoneScreenFrameHeader,
+  type PhoneScreenLink,
+  type PhoneScreenReply,
+  type PhoneScreenRequest,
+} from '../contract/phoneScreens'
 export { ok, failure, numberSetting, booleanSetting } from './results'
 export { AssistFailure } from './hostHandlers'
 export { type CliArgs, cliArgs, namedArgs, parseFlags, expandHome } from './cliArgs'

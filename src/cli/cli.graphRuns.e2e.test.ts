@@ -187,13 +187,13 @@ edges: []
     )
     await h.enable('tell')
     const opened = h.opened.length
-    const waiting = h.cli(h.human, ['bus', 'wait', '--timeout', '20000'])
+    const waiting = h.cli(h.human, ['bus', 'wait', '--timeout', '20000', '--json'])
     await new Promise((r) => setTimeout(r, 500))
     const run = await h.cli(h.human, ['graph', 'run', 'tell'])
     const got = JSON.parse((await waiting).stdout) as { messages: { text: string; from: string }[] }
     expect(got.messages.map((m) => [m.text, m.from])).toEqual([['every check passed', 'graphs']])
     await ended(run.stdout.trim(), 'tell')
-    expect(state(run.stdout.trim(), 'tell').delivered).toBe('waiting')
+    expect(state(run.stdout.trim(), 'tell').delivered).toBe('delivered')
     expect(h.opened.length).toBe(opened)
   })
 

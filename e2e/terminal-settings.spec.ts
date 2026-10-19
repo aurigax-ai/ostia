@@ -32,7 +32,9 @@ test(
     try {
       const before = await rowHeight(win)
       const settings = await openSettings(win, 'Appearance')
-      await settings.getByRole('spinbutton', { name: 'Terminal line height' }).fill('2')
+      const lineHeight = settings.getByRole('spinbutton', { name: 'Terminal line height' })
+      await lineHeight.fill('2')
+      await lineHeight.press('Enter')
       await win.keyboard.press('Escape')
       await expect.poll(() => rowHeight(win)).toBeGreaterThan(before * 1.5)
     } finally {

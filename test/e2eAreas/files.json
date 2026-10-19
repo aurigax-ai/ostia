@@ -1,6 +1,10 @@
 {
   "name": "files",
   "paths": [
+    "packages/extension-sdk/src/client/browse.ts",
+    "packages/extension-sdk/src/contract/fileBrowse.ts",
+    "src/extensions/archives/",
+    "src/main/extensions/extensionBrowse.ts",
     "src/main/files/archives/",
     "src/main/files/exclusiveTransfer.ts",
     "src/main/files/fileGuard.ts",
@@ -56,6 +60,7 @@
     "e2e/archive-browsing.spec.ts",
     "e2e/open-any-file.spec.ts",
     "e2e/os-file-drop.spec.ts",
+    "e2e/packaged-archives.spec.ts",
     "e2e/palette.spec.ts",
     "e2e/side-panel.spec.ts",
     "e2e/terminal-file-links.spec.ts",

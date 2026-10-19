@@ -20,6 +20,7 @@ import type { CommandBridge } from '../control/commandBridge'
 import { controlSocketPath } from '../control/controlServer'
 import { type PaneIdentity, getByPaneId } from '../control/idRegistry'
 import type { Telemetry } from '../diagnostics/telemetry'
+import type { FileServices } from '../files/filesWiring'
 import type { OpenFileGrants } from '../files/openFileGrants'
 import { openFileForExtension } from '../files/openFileMethods'
 import { confirmRemoteFolder, registerRemoteFolderConfirm } from '../files/remoteFolderConfirm'
@@ -46,6 +47,7 @@ import { ExtensionHost } from './extensionHost'
 import type { ExtensionHostDeps, ExtensionSecretStore } from './extensionHostDeps'
 import { ExtensionLaunches } from './extensionLaunches'
 import { registerExtensionMethods } from './extensionMethods'
+import type { PhoneScreenLinks } from './extensionPhoneScreens'
 import { ExtensionStore } from './extensionStore'
 import { WireRuntime, registerWireRuntime } from './wireRuntime'
 import { workspaceChipsForWindow } from './workspaceChips'
@@ -140,6 +142,7 @@ interface ExtensionHostStartDeps {
     extensionHost: ExtensionHost | null
     marketplaceInstallIds: () => string[]
     telemetry: Telemetry | null
+    files: Pick<FileServices, 'kindsChanged'> | null
   }
   refreshAgentPlugins: () => void
   hostPaneGrants: HostPaneGrants
@@ -175,6 +178,7 @@ interface ExtensionHostStartDeps {
   registerRemoteFilesIpc: (host: ExtensionHost) => void
   createLanguageServers: () => LanguageServers
   serverOverrides: ServerOverrides
+  screenLinks: PhoneScreenLinks
 }
 
 export function startExtensionHost({
@@ -210,6 +214,7 @@ export function startExtensionHost({
   registerRemoteFilesIpc,
   createLanguageServers,
   serverOverrides,
+  screenLinks,
 }: ExtensionHostStartDeps) {
   const extensionStore = new ExtensionStore(join(app.getPath('userData'), 'extensions.json'))
   services.extensionHost = new ExtensionHost({
@@ -217,6 +222,7 @@ export function startExtensionHost({
       services.languageServers?.refresh()
       refreshAgentPlugins()
     },
+    onBrowseKindsChanged: () => services.files?.kindsChanged(),
     onCrashed: (extId, builtin) =>
       services.telemetry?.error({
         source: 'extension-crashed',
@@ -271,6 +277,7 @@ export function startExtensionHost({
     focusPaneIn: focusPaneInWindow,
     exec: extensionExec,
     resumeOf: resumeOfPane,
+    screenLinks,
   })
   refreshAgentPlugins()
   registerExtensionMethods(() => services.extensionHost)

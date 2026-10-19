@@ -130,7 +130,11 @@ export function parseManifest(raw: unknown, dir: string): ManifestResult {
     isInsideDir(dir, path),
   )
   if (typeof editorLanguages === 'string') return { ok: false, error: editorLanguages }
-  const fileKinds = parseFileKinds(contributes.fileKinds, id, (path) => isInsideDir(dir, path))
+  const fileKinds = parseFileKinds(contributes.fileKinds, id, {
+    isInside: (path) => isInsideDir(dir, path),
+    main: Boolean(main),
+    capabilities: caps,
+  })
   if (typeof fileKinds === 'string') return { ok: false, error: fileKinds }
   const agentSkills = parseAgentSkills(contributes.agentSkills, dir)
   if (typeof agentSkills === 'string') return { ok: false, error: agentSkills }

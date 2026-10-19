@@ -12,6 +12,7 @@ interface TreeClipboard {
 
 interface FileTreeState {
   versions: Record<string, number>
+  epoch: number
   clipboard: TreeClipboard | null
   edit: TreeEdit | null
   trashing: string[] | null
@@ -20,6 +21,7 @@ interface FileTreeState {
   reveal: (root: string, path: string) => void
   show: (workspaceId: string, dir: string, from: string) => void
   reload: (dirs: string[]) => void
+  reloadAll: () => void
   setClipboard: (clipboard: TreeClipboard | null) => void
   setEdit: (edit: TreeEdit | null) => void
   askTrash: (paths: string[] | null) => void
@@ -27,6 +29,7 @@ interface FileTreeState {
 
 export const useFileTreeStore = create<FileTreeState>((set) => ({
   versions: {},
+  epoch: 0,
   clipboard: null,
   edit: null,
   trashing: null,
@@ -40,6 +43,7 @@ export const useFileTreeStore = create<FileTreeState>((set) => ({
       for (const dir of new Set(dirs)) versions[dir] = (versions[dir] ?? 0) + 1
       return { versions }
     }),
+  reloadAll: () => set((s) => ({ epoch: s.epoch + 1 })),
   setClipboard: (clipboard) => set({ clipboard }),
   setEdit: (edit) => set({ edit }),
   askTrash: (trashing) => set({ trashing }),

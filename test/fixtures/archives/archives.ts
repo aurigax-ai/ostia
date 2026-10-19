@@ -112,6 +112,9 @@ export interface TarItem {
   data?: string
   type?: '0' | '2' | '5'
   link?: string
+  size?: number
+  longName?: string
+  longLink?: string
 }
 
 function field(text: string, length: number): Uint8Array {
@@ -124,16 +127,37 @@ function octal(value: number, length: number): Uint8Array {
   return field(`${value.toString(8).padStart(length - 1, '0')}\0`, length)
 }
 
+function gnuLong(kind: 'L' | 'K', text: string): Uint8Array[] {
+  const data = strToU8(`${text}\0`)
+  const header = new Uint8Array(512)
+  header.set(field('././@LongLink', 100), 0)
+  header.set(octal(0o644, 8), 100)
+  header.set(octal(0, 8), 108)
+  header.set(octal(0, 8), 116)
+  header.set(octal(data.length, 12), 124)
+  header.set(octal(0, 12), 136)
+  header.set(strToU8('        '), 148)
+  header[156] = kind.charCodeAt(0)
+  header.set(strToU8('ustar \u0000'), 257)
+  const sum = header.reduce((total, byte) => total + byte, 0)
+  header.set(field(`${sum.toString(8).padStart(6, '0')}\0 `, 8), 148)
+  const padded = new Uint8Array(Math.ceil(data.length / 512) * 512)
+  padded.set(data)
+  return [header, padded]
+}
+
 export function tarOf(items: TarItem[], gzip = true): Uint8Array {
   const blocks: Uint8Array[] = []
   for (const item of items) {
+    if (item.longName) blocks.push(...gnuLong('L', item.longName))
+    if (item.longLink) blocks.push(...gnuLong('K', item.longLink))
     const data = strToU8(item.data ?? '')
     const header = new Uint8Array(512)
     header.set(field(item.name, 100), 0)
     header.set(octal(0o644, 8), 100)
     header.set(octal(0, 8), 108)
     header.set(octal(0, 8), 116)
-    header.set(octal(item.type === '0' || !item.type ? data.length : 0, 12), 124)
+    header.set(octal(item.size ?? (item.type === '0' || !item.type ? data.length : 0), 12), 124)
     header.set(octal(0, 12), 136)
     header.set(strToU8('        '), 148)
     header[156] = (item.type ?? '0').charCodeAt(0)

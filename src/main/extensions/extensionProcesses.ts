@@ -312,6 +312,12 @@ export class ExtensionProcesses {
     this.host.deps.exec?.stopFor(id)
   }
 
+  recycle(rt: Runtime): void {
+    const proc = rt.proc
+    this.stop(rt)
+    proc?.kill('SIGKILL')
+  }
+
   stopAll(): void {
     this.watching = false
     this.closeWatchers()

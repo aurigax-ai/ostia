@@ -476,12 +476,16 @@ describe('SettingsPanel', () => {
     const sizeInput = screen.getByRole('spinbutton', { name: 'Terminal font, Size' })
 
     fireEvent.change(sizeInput, { target: { value: '18' } })
+    expect(setSurfaceFont).not.toHaveBeenCalled()
+    fireEvent.blur(sizeInput)
     expect(setSurfaceFont).toHaveBeenLastCalledWith('terminal', { size: 18 })
 
     fireEvent.change(sizeInput, { target: { value: '99' } })
+    fireEvent.blur(sizeInput)
     expect(setSurfaceFont).toHaveBeenLastCalledWith('terminal', { size: 32 })
 
     fireEvent.change(sizeInput, { target: { value: '1' } })
+    fireEvent.keyDown(sizeInput, { key: 'Enter' })
     expect(setSurfaceFont).toHaveBeenLastCalledWith('terminal', { size: 8 })
   })
 
@@ -577,19 +581,23 @@ describe('SettingsPanel', () => {
   it('sets the accent from a preset or a valid hex, ignores an invalid one and resets it', async () => {
     await renderSettings()
     const user = userEvent.setup()
-    const hex = screen.getByRole('textbox', { name: 'Custom accent hex' })
+    const hex = (): HTMLElement => screen.getByRole('textbox', { name: 'Custom accent hex' })
 
     await user.click(screen.getByRole('button', { name: 'Accent #ee5396' }))
     expect(useSettingsStore.getState().appearance.accent).toBe('#ee5396')
-    expect(hex).toHaveValue('#ee5396')
+    expect(hex()).toHaveValue('#ee5396')
 
-    await user.clear(hex)
-    await user.type(hex, '#12')
-    expect(hex).toHaveAttribute('aria-invalid', 'true')
+    await user.clear(hex())
+    await user.type(hex(), '#12')
+    expect(useSettingsStore.getState().appearance.accent).toBe('#ee5396')
+    await user.tab()
+    expect(hex()).toHaveAttribute('aria-invalid', 'true')
     expect(useSettingsStore.getState().appearance.accent).toBe('#ee5396')
 
-    await user.type(hex, '3456')
-    expect(hex).toHaveAttribute('aria-invalid', 'false')
+    await user.type(hex(), '3456')
+    await user.keyboard('{Enter}')
+    expect(hex()).toHaveFocus()
+    expect(hex()).toHaveAttribute('aria-invalid', 'false')
     expect(useSettingsStore.getState().appearance.accent).toBe('#123456')
 
     await user.click(screen.getByRole('button', { name: 'Use theme color' }))

@@ -177,7 +177,7 @@ describe('pane events through the real CLI', () => {
     expect(watching.code).toBe(0)
     expect(watching.stdout).toContain(`${worker.externalId}\tuntil done`)
 
-    const waiting = run(boss, ['bus', 'wait', '--timeout', '30'])
+    const waiting = run(boss, ['bus', 'wait', '--timeout', '30', '--json'])
     await new Promise((resolve) => setTimeout(resolve, 1500))
     await run(worker, ['state', 'working'])
     await run(worker, ['state', 'done', 'PR #1104 open, unit green'])
@@ -195,7 +195,7 @@ describe('pane events through the real CLI', () => {
     await run(worker, ['state', 'working'])
     await run(worker, ['state', 'done', 'second report'])
     await new Promise((resolve) => setTimeout(resolve, 300))
-    const inbox = JSON.parse((await run(boss, ['bus', 'inbox'])).stdout)
+    const inbox = JSON.parse((await run(boss, ['bus', 'inbox', '--json'])).stdout)
     expect(inbox).toHaveLength(1)
     expect(inbox[0].kind).toBe('event')
 
@@ -205,7 +205,7 @@ describe('pane events through the real CLI', () => {
     await run(worker, ['state', 'working'])
     await run(worker, ['state', 'done'])
     await new Promise((resolve) => setTimeout(resolve, 300))
-    expect(JSON.parse((await run(boss, ['bus', 'inbox'])).stdout)).toEqual([])
+    expect(JSON.parse((await run(boss, ['bus', 'inbox', '--json'])).stdout)).toEqual([])
   }, 60_000)
 
   it('pane wait --until command prints the status line with the exit code', async () => {

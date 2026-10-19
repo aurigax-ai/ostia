@@ -3,6 +3,7 @@ import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { createVitest } from 'vitest/node'
 import {
+  E2E_CHANGED_REPEAT,
   E2E_HARNESS,
   ROOT,
   changedQuarantineFiles,
@@ -12,11 +13,14 @@ import {
   e2eShards,
   e2eSpecs,
   e2eWeight,
+  loadE2eMap,
   nodeFolderReaders,
   planAgainst,
   planChanges,
   planE2e,
+  planOutput,
   planTests,
+  splitChangedSpecs,
   unitTexts,
   vitestArgs,
 } from './affectedTests.mjs'
@@ -242,6 +246,56 @@ describe('planE2e', () => {
   })
 })
 
+describe('changed specs', () => {
+  it('runs a spec the pull request changed three times, and not again in the single run', () => {
+    expect(E2E_CHANGED_REPEAT).toBe(3)
+    expect(
+      planOutput(planChanges(['e2e/smoke.spec.ts', 'src/main/sandbox/ptyWrap.ts'], 'HEAD')),
+    ).toMatchObject({
+      e2e: ['e2e/keep-shells-sandbox.spec.ts', 'e2e/sandbox.spec.ts'],
+      e2eChanged: ['e2e/smoke.spec.ts'],
+      e2eChangedRepeat: 3,
+      e2eChangedShards: [1],
+    })
+  })
+
+  it('runs a spec chosen only for its imports or its area once', () => {
+    const changed = ['src/shared/extensions/marketplace.ts', 'src/main/sandbox/ptyWrap.ts']
+    expect(splitChangedSpecs(planE2e(changed, map, imports), changed)).toEqual({
+      e2e: ['e2e/marketplace.spec.ts', 'e2e/sandbox.spec.ts'],
+      e2eChanged: [],
+    })
+    const plan = planOutput(
+      planChanges(['packages/extension-sdk/src/manifest/marketplaceManifest.ts'], 'HEAD'),
+    )
+    expect(plan.e2e).toContain('e2e/marketplace.spec.ts')
+    expect(plan.e2eChanged).toEqual([])
+  })
+
+  it('keeps the plan of a pull request that changes no spec', () => {
+    const changed = ['src/main/sandbox/ptyWrap.ts', 'src/main/app.ts']
+    const plan = planOutput(planChanges(changed, 'HEAD'))
+    expect(plan.e2e).toEqual(planE2e(changed, { ...loadE2eMap(), core: coreTests() }, e2eImports()))
+    expect(plan.e2eShards).toEqual(e2eShards(e2eWeight(plan.e2e ?? [])))
+    expect(plan.e2eChanged).toEqual([])
+  })
+
+  it('repeats a changed spec next to a full run, and drops a deleted one', () => {
+    expect(splitChangedSpecs(null, ['e2e/test.ts', 'e2e/ssh.spec.ts'])).toEqual({
+      e2e: null,
+      e2eChanged: ['e2e/ssh.spec.ts'],
+    })
+    expect(planChanges(['e2e/no-such.spec.ts'], 'HEAD').e2eChanged).toEqual([])
+  })
+
+  it('gives the repeated runs their own shards, counting each run', () => {
+    const specs = Array.from({ length: 7 }, (_, index) => `e2e/s${index}.spec.ts`)
+    const tests = { node: [], dom: [], e2e: [], e2eChanged: specs }
+    expect(planOutput(tests).e2eChangedShards).toEqual([1, 2])
+    expect(planOutput({ ...tests, e2eChanged: [] }).e2eChangedShards).toEqual([1])
+  })
+})
+
 describe('changedQuarantineFiles', () => {
   it('names the files of entries that were added, removed or edited', () => {
     const kept = { file: 'a.test.ts', name: 'a', issue: 1, until: '2026-11-01' }
@@ -272,7 +326,8 @@ describe('planChanges', () => {
     expect(planChanges(['src/main/sandbox/ptyWrap.ts', 'e2e/smoke.spec.ts'], 'HEAD')).toEqual({
       node: null,
       dom: ['src/main/sandbox/ptyWrap.ts', ...domFileReaders()],
-      e2e: ['e2e/keep-shells-sandbox.spec.ts', 'e2e/sandbox.spec.ts', 'e2e/smoke.spec.ts'],
+      e2e: ['e2e/keep-shells-sandbox.spec.ts', 'e2e/sandbox.spec.ts'],
+      e2eChanged: ['e2e/smoke.spec.ts'],
     })
   })
 
@@ -339,14 +394,14 @@ describe('e2eShards', () => {
 describe('planAgainst', () => {
   it('plans every test, and names the problem, when the base cannot be found', () => {
     const { tests, problem } = planAgainst('origin/no-such-branch')
-    expect(tests).toEqual({ node: null, dom: null, e2e: null })
+    expect(tests).toEqual({ node: null, dom: null, e2e: null, e2eChanged: [] })
     expect(problem).toMatch(/no-such-branch/)
   })
 
   it('plans from the diff against the merge-base of a commit it can find', () => {
     const { tests, problem } = planAgainst('HEAD')
     expect(problem).toBeNull()
-    expect(tests).toEqual({ node: [], dom: [], e2e: [] })
+    expect(tests).toEqual({ node: [], dom: [], e2e: [], e2eChanged: [] })
   })
 })
 

@@ -27,7 +27,7 @@ type DirListing = { entries: FsEntry[] } | { error: RemoteFileError }
 
 function useListing(path: string, list: ListFiles): DirListing | null {
   const [listing, setListing] = useState<DirListing | null>(null)
-  const version = useFileTreeStore((s) => s.versions[path] ?? 0)
+  const version = useFileTreeStore((s) => (s.versions[path] ?? 0) + s.epoch)
   useEffect(() => {
     void version
     let alive = true
@@ -172,7 +172,7 @@ function useCompactChain(fullPath: string, open: boolean, tree: TreeContext): Ch
   const [chain, setChain] = useState<ChainState | null>(null)
   const compact = tree.settings.compactFolders
   const { visible, list } = tree
-  const version = useFileTreeStore((s) => s.versions[fullPath] ?? 0)
+  const version = useFileTreeStore((s) => (s.versions[fullPath] ?? 0) + s.epoch)
   const nestedVersion = useFileTreeStore((s) =>
     chain && !('error' in chain) && chain.path !== fullPath ? (s.versions[chain.path] ?? 0) : 0,
   )

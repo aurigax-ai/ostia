@@ -42,7 +42,7 @@ export function viewerOptions(
   for (const ext of ordered) {
     if (!ext.enabled) continue
     for (const kind of ext.fileKinds) {
-      if (!kind.approved || !kindMatches(path, kind)) continue
+      if (!kind.approved || !kind.view || !kindMatches(path, kind)) continue
       options.push({
         viewType: kind.id,
         displayName: kind.displayName,

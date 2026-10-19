@@ -50,7 +50,7 @@ test('a message to an idle agent shows as a mail count until the agent takes it'
     await typeLine(win, 'ostia agent run claude go --name worker; echo run-exit-$?')
     await expect(caller).toContainText('run-exit-0', { timeout: 30_000 })
 
-    await typeLine(win, "W=$(ostia process list | awk '$2==\"worker\"{print $4}'); echo worker-$W")
+    await typeLine(win, 'W=$(ostia process list | awk \'$2=="worker"{print $4}\'); echo worker-$W')
     await expect(caller).toContainText(/worker-[0-9a-f-]{36}/, { timeout: 15_000 })
     await typeLine(win, 'clear; ostia bus send $W "review-42-done" 2>&1; echo send-exit-$?')
     await expect(caller).toContainText('send-exit-0', { timeout: 30_000 })

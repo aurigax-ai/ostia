@@ -8,7 +8,7 @@ import type {
   ExtensionPanelContext,
   ExtensionPanelSource,
 } from '@aurigax-ai/ostia-extension-sdk/contract/extensionsBridge'
-import { type FileKindInfo, kindMatches } from '@aurigax-ai/ostia-extension-sdk/contract/fileKinds'
+import { type KindRoles, kindMatches } from '@aurigax-ai/ostia-extension-sdk/contract/fileKinds'
 import { isInsideDir } from '@aurigax-ai/ostia-extension-sdk/manifest/confinedRead'
 import type { ExtensionHostDeps } from './extensionHostDeps'
 import type { ExtensionProcesses } from './extensionProcesses'
@@ -31,7 +31,7 @@ export interface ExtensionPanelsHost {
   deps: Pick<ExtensionHostDeps, 'requestTimeoutMs'>
   runtimes: ReadonlyMap<string, Runtime>
   active(rt: Runtime): boolean
-  kindApproved(rt: Runtime, kind: Pick<FileKindInfo, 'id' | 'selector' | 'view'>): boolean
+  kindApproved(rt: Runtime, kind: KindRoles): boolean
   processes: Pick<ExtensionProcesses, 'connected' | 'start'>
   userCaller(workspaceId: string | null, extra?: Partial<ExtensionCaller>): ExtensionCaller
 }
@@ -105,7 +105,7 @@ export class ExtensionPanels {
     const rt = this.host.runtimes.get(extId)
     if (!rt || !this.host.active(rt)) return null
     const kind = rt.ext.manifest.contributes.fileKinds?.find((k) => k.id === kindId)
-    if (!kind || !kindMatches(path, kind) || !this.host.kindApproved(rt, kind)) return null
+    if (!kind?.view || !kindMatches(path, kind) || !this.host.kindApproved(rt, kind)) return null
     return { dir: rt.ext.dir, entry: kind.view.entry }
   }
 
@@ -114,7 +114,7 @@ export class ExtensionPanels {
       (rt) =>
         this.host.active(rt) &&
         (rt.ext.manifest.contributes.fileKinds ?? []).some(
-          (kind) => kindMatches(path, kind) && this.host.kindApproved(rt, kind),
+          (kind) => kind.view && kindMatches(path, kind) && this.host.kindApproved(rt, kind),
         ),
     )
   }

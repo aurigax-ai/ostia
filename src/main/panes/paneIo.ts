@@ -216,6 +216,7 @@ export function registerPaneIoMethods(deps: PaneIoDeps): void {
         bytes: first.length + rest.length,
         pasted,
         responded,
+        turnStarted: watched && responded,
         running: state?.running ?? false,
       }
     },

@@ -68,11 +68,8 @@ function attribute(value: string): string {
   return oneLine(value).replace(/[^A-Za-z0-9.:_-]/g, '')
 }
 
-function messageBlock(message: BusContextMessage): string {
-  const body = clip(
-    plainBlock(message.text).replace(WRAPPER_TAG, '&lt;$1$2'),
-    BUS_CONTEXT_MESSAGE_MAX,
-  )
+function messageBlock(message: BusContextMessage, max = BUS_CONTEXT_MESSAGE_MAX): string {
+  const body = clip(plainBlock(message.text).replace(WRAPPER_TAG, '&lt;$1$2'), max)
   return `<message id="${attribute(message.id)}" from="${attribute(message.from)}" at="${attribute(message.ts)}">\n${body}\n</message>`
 }
 
@@ -110,4 +107,10 @@ export function busContext(messages: readonly BusContextMessage[]): BusContext |
     shown.push(message.id)
   }
   return { text: assemble(messages.length, blocks), shown }
+}
+
+export function busInboxText(messages: readonly BusContextMessage[]): string {
+  if (messages.length === 0) return '(no messages)'
+  const blocks = messages.map((message) => messageBlock(message, Number.POSITIVE_INFINITY))
+  return assemble(messages.length, blocks)
 }

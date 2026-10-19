@@ -1,4 +1,5 @@
 import { Notice } from '@/components/common/Notice'
+import { NumberInput } from '@/components/settingsKit/CommitInput'
 import { ControlRow, ToggleRow } from '@/components/settingsKit/ControlRow'
 import { SelectField } from '@/components/settingsKit/SelectField'
 import { SettingsGroup } from '@/components/settingsKit/SettingsGroup'
@@ -22,30 +23,19 @@ import {
   isValidSearchTemplate,
 } from '@/lib/settings/browserEditorSettings'
 import { useSettingsStore } from '@/stores/app/settingsStore'
-import { useState } from 'react'
 
 function ZoomField(): JSX.Element {
   const d = useDict()
   const zoom = useSettingsStore((s) => s.browser.defaultZoom)
   const setBrowser = useSettingsStore((s) => s.setBrowser)
-  const [draft, setDraft] = useState<string | null>(null)
-  const commit = (): void => {
-    if (draft !== null && draft.trim() !== '') setBrowser({ defaultZoom: clampZoom(Number(draft)) })
-    setDraft(null)
-  }
   return (
-    <Input
-      type="number"
+    <NumberInput
       min={ZOOM_MIN}
       max={ZOOM_MAX}
       step={10}
-      value={draft ?? String(zoom)}
+      value={zoom}
       aria-label={d.browserSettings.defaultZoom}
-      onChange={(e) => setDraft(e.target.value)}
-      onBlur={commit}
-      onKeyDown={(e) => {
-        if (e.key === 'Enter') commit()
-      }}
+      onCommit={(n) => setBrowser({ defaultZoom: clampZoom(n) })}
       className="h-7 w-24"
     />
   )

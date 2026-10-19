@@ -13,6 +13,7 @@ import type {
 } from '../contract/extensions'
 import { ASSIST_PROVIDERS_CHANGED_EVENT, SETTINGS_CHANGED_EVENT } from '../contract/extensions'
 import { FOLDER_CLOSED_EVENT, type RemoteFilesRequest } from '../contract/remoteFolders'
+import { type BrowseProvider, listenForBrowse } from './browse'
 import type {
   AgentHandler,
   AssistHandler,
@@ -41,6 +42,7 @@ export interface HostHandlers {
   models: AssistModelsHandler | null
   files: FilesHandler | null
   folderClosed: FolderClosedHandler | null
+  browse: Map<string, BrowseProvider>
 }
 
 export function createHostHandlers(): HostHandlers {
@@ -57,6 +59,7 @@ export function createHostHandlers(): HostHandlers {
     models: null,
     files: null,
     folderClosed: null,
+    browse: new Map<string, BrowseProvider>(),
   }
 }
 
@@ -163,6 +166,7 @@ export function listenToHost(conn: MessageConnection, handlers: HostHandlers): v
       return { ok: false, error: 'failed' }
     }
   })
+  listenForBrowse(conn, handlers.browse)
   conn.onRequest('ext.panel', async (params: { caller: ExtensionCaller; path?: string }) => {
     if (!handlers.panel) throw new Error('no panel handler')
     return handlers.panel(params.caller, params.path)

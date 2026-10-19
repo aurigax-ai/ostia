@@ -122,7 +122,19 @@
       "name": "only-office-imports-its-parsers",
       "severity": "error",
       "from": { "pathNot": "^src/extensions/office/|^test/" },
-      "to": { "path": "node_modules/(xlsx|mammoth|dompurify)/" }
+      "to": { "path": "node_modules/(xlsx|mammoth|dompurify|word-extractor)/" }
+    },
+    {
+      "name": "only-archives-imports-its-decoders",
+      "severity": "error",
+      "from": { "pathNot": "^src/extensions/archives/|^test/|^e2e/|\\.test\\.ts$" },
+      "to": { "path": "node_modules/@napi-rs/lzma/" }
+    },
+    {
+      "name": "files-reads-no-archive-format",
+      "severity": "error",
+      "from": { "path": "^src/main/files/" },
+      "to": { "path": "node_modules/(yauzl|tar)/" }
     },
     {
       "name": "only-graphs-imports-wire",

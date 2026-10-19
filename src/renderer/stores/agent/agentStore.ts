@@ -34,15 +34,13 @@ interface Opened {
 const chats = new Map<string, Chat<OstiaChatMessage>>()
 const opened = new Map<string, Opened>()
 const workspaceOf = new Map<string, string>()
-let seq = 0
 
 export function agentAttachmentKey(workspaceId: string | null | undefined): string {
   return `agent:${workspaceId ?? ''}`
 }
 
 function newSessionId(): string {
-  seq += 1
-  return `a${Date.now().toString(36)}${seq.toString(36)}${Math.random().toString(36).slice(2, 8)}`
+  return `a${crypto.randomUUID().replaceAll('-', '')}`
 }
 
 function modelKey(model: AgentModelRef | undefined): string {

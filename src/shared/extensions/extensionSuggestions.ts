@@ -56,7 +56,7 @@ export function suggestedExtension(
   return null
 }
 
-type SuggestionFeature = 'language' | 'view'
+type SuggestionFeature = 'language' | 'view' | 'browse'
 
 export type ExtensionSuggestion = {
   feature: SuggestionFeature
