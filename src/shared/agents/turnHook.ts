@@ -1,6 +1,6 @@
 import { oneLine, plainBlock } from './questions'
 
-export const TURN_HOOK_EVENTS = ['UserPromptSubmit', 'PreToolUse', 'PostToolUse', 'Stop'] as const
+export const TURN_HOOK_EVENTS = ['UserPromptSubmit', 'PostToolUse', 'Stop'] as const
 
 export type TurnHookEvent = (typeof TURN_HOOK_EVENTS)[number]
 
@@ -16,8 +16,7 @@ const EXIT_CODE_MAX = 255
 
 export type TurnReport =
   | { kind: 'prompt'; text: string }
-  | { kind: 'step'; step: TurnStepKind; target?: string }
-  | { kind: 'result'; exitCode?: number; output?: string }
+  | { kind: 'step'; step: TurnStepKind; target?: string; exitCode?: number; output?: string }
   | { kind: 'stop'; message?: string }
 
 const STEP_TOOLS: Record<string, { step: TurnStepKind; fields: string[] }> = {
@@ -128,23 +127,21 @@ export function turnReportOf(event: TurnHookEvent, stdin: string): TurnReport | 
   const name = typeof payload.tool_name === 'string' ? payload.tool_name : ''
   if (!name) return null
   const known = STEP_TOOLS[name]
-  if (event === 'PostToolUse') {
-    if (known?.step !== 'command') return null
-    const response = payload.tool_response
-    const exitCode = exitCodeOf(record(response))
-    const output = cleanOutput(outputOf(response))
-    return {
-      kind: 'result',
-      ...(exitCode === undefined ? {} : { exitCode }),
-      ...(output ? { output } : {}),
-    }
+  const step: TurnStepKind = known?.step ?? 'other'
+  const target = known
+    ? stepTarget(payload.tool_input, known.fields)
+    : capped(oneLine(name), TURN_TARGET_MAX) || undefined
+  if (step !== 'command') return { kind: 'step', step, ...(target ? { target } : {}) }
+  const response = payload.tool_response
+  const exitCode = exitCodeOf(record(response))
+  const output = cleanOutput(outputOf(response))
+  return {
+    kind: 'step',
+    step,
+    ...(target ? { target } : {}),
+    ...(exitCode === undefined ? {} : { exitCode }),
+    ...(output ? { output } : {}),
   }
-  if (!known) {
-    const target = capped(oneLine(name), TURN_TARGET_MAX)
-    return target ? { kind: 'step', step: 'other', target } : { kind: 'step', step: 'other' }
-  }
-  const target = stepTarget(payload.tool_input, known.fields)
-  return target ? { kind: 'step', step: known.step, target } : { kind: 'step', step: known.step }
 }
 
 function boundedText(value: unknown, max: number): string | undefined {
@@ -165,20 +162,24 @@ export function normalizeTurnReport(raw: unknown): TurnReport | null {
   }
   if (src.kind === 'step') {
     if (!TURN_STEP_KINDS.includes(src.step as TurnStepKind)) return null
+    const step = src.step as TurnStepKind
     const target =
       typeof src.target === 'string' ? capped(oneLine(src.target), TURN_TARGET_MAX) : ''
-    const step = src.step as TurnStepKind
-    return target ? { kind: 'step', step, target } : { kind: 'step', step }
-  }
-  if (src.kind === 'result') {
     const code = src.exitCode
     const exitCode =
-      typeof code === 'number' && Number.isInteger(code) && code >= 0 && code <= EXIT_CODE_MAX
+      step === 'command' &&
+      typeof code === 'number' &&
+      Number.isInteger(code) &&
+      code >= 0 &&
+      code <= EXIT_CODE_MAX
         ? code
         : undefined
-    const output = typeof src.output === 'string' ? cleanOutput(src.output) : ''
+    const output =
+      step === 'command' && typeof src.output === 'string' ? cleanOutput(src.output) : ''
     return {
-      kind: 'result',
+      kind: 'step',
+      step,
+      ...(target ? { target } : {}),
       ...(exitCode === undefined ? {} : { exitCode }),
       ...(output ? { output } : {}),
     }

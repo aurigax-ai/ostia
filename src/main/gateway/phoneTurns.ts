@@ -11,6 +11,7 @@ export interface PhoneTurnDeps {
   listWorkspaces: () => Promise<WorkspaceEntry[]>
   paneTurns: Pick<PaneTurns, 'list' | 'output'>
   redact: (text: string) => Promise<string>
+  remote: (paneId: string) => boolean
 }
 
 type Params = Record<string, unknown>
@@ -28,6 +29,7 @@ async function turnPane(
   if (typeof p.paneId !== 'string' || !p.paneId) return refused('missing paneId')
   const pane = resolveExternal(p.paneId)
   if (!pane || pane.kind !== 'pane' || pane.manager) return refused('not-an-agent')
+  if (deps.remote(pane.paneId)) return refused('unknown-pane')
   const workspace = (await deps.listWorkspaces()).find((w) => w.workspaceId === pane.workspaceId)
   if (!workspace || workspace.kind === 'scratch' || workspace.sandboxed) {
     return refused('unknown-pane')

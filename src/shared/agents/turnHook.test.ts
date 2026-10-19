@@ -16,48 +16,46 @@ describe('turnReportOf', () => {
     expect(turnReportOf('UserPromptSubmit', 'not json')).toBeNull()
   })
 
-  it('PHT-C2 turns a tool call into its kind and first-line target, never its input body', () => {
+  it('PHT-C2 turns a finished tool call into its kind and first-line target, never its input body', () => {
     expect(
       turnReportOf(
-        'PreToolUse',
-        hook({ tool_name: 'Bash', tool_input: { command: '\npnpm test\nrm -rf /tmp/x' } }),
-      ),
-    ).toEqual({ kind: 'step', step: 'command', target: 'pnpm test' })
-    expect(
-      turnReportOf(
-        'PreToolUse',
+        'PostToolUse',
         hook({ tool_name: 'Write', tool_input: { file_path: '/w/src/a.ts', content: 'SECRET' } }),
       ),
     ).toEqual({ kind: 'step', step: 'edit', target: '/w/src/a.ts' })
     expect(
       turnReportOf(
-        'PreToolUse',
-        hook({ tool_name: 'shell', tool_input: { command: ['ls', '-la'] } }),
+        'PostToolUse',
+        hook({ tool_name: 'Read', tool_input: { file_path: '/w/a' }, tool_response: 'body' }),
       ),
-    ).toEqual({ kind: 'step', step: 'command', target: 'ls -la' })
+    ).toEqual({ kind: 'step', step: 'read', target: '/w/a' })
     expect(
-      turnReportOf('PreToolUse', hook({ tool_name: 'mcp__x__y', tool_input: { a: 1 } })),
+      turnReportOf('PostToolUse', hook({ tool_name: 'mcp__x__y', tool_input: { a: 1 } })),
     ).toEqual({ kind: 'step', step: 'other', target: 'mcp__x__y' })
-    expect(turnReportOf('PreToolUse', hook({ tool_input: {} }))).toBeNull()
+    expect(turnReportOf('PostToolUse', hook({ tool_input: {} }))).toBeNull()
   })
 
-  it('PHT-C3 keeps a command result as its exit code and the tail of its plain output only', () => {
+  it('PHT-C3 keeps a command as its first line, exit code and the tail of its plain output only', () => {
     const output = `${'a'.repeat(TURN_OUTPUT_MAX)}\u001b[31mFAIL\u001b[0m`
-    const result = turnReportOf(
+    const step = turnReportOf(
       'PostToolUse',
-      hook({ tool_name: 'Bash', tool_response: { stdout: output, stderr: 'oops', exit_code: 1 } }),
+      hook({
+        tool_name: 'Bash',
+        tool_input: { command: '\npnpm test\nrm -rf /tmp/x' },
+        tool_response: { stdout: output, stderr: 'oops', exit_code: 1 },
+      }),
     )
-    expect(result).toMatchObject({ kind: 'result', exitCode: 1 })
-    const text = (result as { output: string }).output
+    expect(step).toMatchObject({ kind: 'step', step: 'command', target: 'pnpm test', exitCode: 1 })
+    const text = (step as { output: string }).output
     expect(text.endsWith('FAIL\noops')).toBe(true)
     expect(text).not.toContain('\u001b')
     expect(new TextEncoder().encode(text).length).toBeLessThanOrEqual(TURN_OUTPUT_MAX)
     expect(
       turnReportOf(
         'PostToolUse',
-        hook({ tool_name: 'Read', tool_response: { content: 'file body' } }),
+        hook({ tool_name: 'shell', tool_input: { command: ['ls', '-la'] } }),
       ),
-    ).toBeNull()
+    ).toEqual({ kind: 'step', step: 'command', target: 'ls -la' })
   })
 
   it('PHT-C4 keeps the Stop message as the final message', () => {
@@ -72,12 +70,13 @@ describe('turnReportOf', () => {
 
   it('PHT-C5 normalizes what reaches main the same way and refuses anything else', () => {
     expect(normalizeTurnReport({ kind: 'step', step: 'shell-escape', target: 'x' })).toBeNull()
-    expect(normalizeTurnReport({ kind: 'tool', text: 'x' })).toBeNull()
-    expect(normalizeTurnReport({ kind: 'result', exitCode: 999, output: '\u001b[1mok' })).toEqual({
-      kind: 'result',
-      output: 'ok',
-    })
-    expect(normalizeTurnReport({ kind: 'step', step: 'edit', target: 'a\nb' })).toEqual({
+    expect(normalizeTurnReport({ kind: 'result', output: 'x' })).toBeNull()
+    expect(
+      normalizeTurnReport({ kind: 'step', step: 'command', exitCode: 999, output: '\u001b[1mok' }),
+    ).toEqual({ kind: 'step', step: 'command', output: 'ok' })
+    expect(
+      normalizeTurnReport({ kind: 'step', step: 'edit', target: 'a\nb', output: 'x' }),
+    ).toEqual({
       kind: 'step',
       step: 'edit',
       target: 'a b',

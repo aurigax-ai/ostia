@@ -12,9 +12,10 @@ const workspaces: WorkspaceEntry[] = [
 const agent = registerPane({ windowId: 'win', workspaceId: 'w1', paneId: 'pt-agent' })
 const scratch = registerPane({ windowId: 'win', workspaceId: 'pad', paneId: 'pt-pad' })
 const boxed = registerPane({ windowId: 'win', workspaceId: 'box', paneId: 'pt-box' })
+const remote = registerPane({ windowId: 'win', workspaceId: 'w1', paneId: 'pt-remote' })
 
 afterAll(() => {
-  for (const pane of ['pt-agent', 'pt-pad', 'pt-box']) removePane(pane)
+  for (const pane of ['pt-agent', 'pt-pad', 'pt-box', 'pt-remote']) removePane(pane)
 })
 
 function setup(
@@ -25,6 +26,7 @@ function setup(
     listWorkspaces: async () => workspaces,
     paneTurns,
     redact: vi.fn(redact),
+    remote: (paneId: string) => paneId === 'pt-remote',
   }
   return { paneTurns, deps }
 }
@@ -35,8 +37,13 @@ describe('turn.list and turn.output', () => {
     paneTurns.report('pt-agent', { kind: 'prompt', text: 'use token hunter2' })
     paneTurns.report('pt-agent', { kind: 'step', step: 'edit', target: '/work/one/src/a.ts' })
     paneTurns.report('pt-agent', { kind: 'step', step: 'read', target: '/home/me/.ssh/config' })
-    paneTurns.report('pt-agent', { kind: 'step', step: 'command', target: 'echo hunter2' })
-    paneTurns.report('pt-agent', { kind: 'result', exitCode: 0, output: 'hunter2 printed' })
+    paneTurns.report('pt-agent', {
+      kind: 'step',
+      step: 'command',
+      target: 'echo hunter2',
+      exitCode: 0,
+      output: 'hunter2 printed',
+    })
     paneTurns.report('pt-agent', { kind: 'stop', message: 'Done with hunter2.' })
 
     const res = await turnList({ paneId: agent.externalId }, deps)
@@ -72,11 +79,12 @@ describe('turn.list and turn.output', () => {
     })
   })
 
-  it('PHT-C10 refuses scratch, sandboxed, unknown and missing panes', async () => {
+  it('PHT-C10 refuses scratch, sandboxed, remote, unknown and missing panes', async () => {
     const { deps } = setup()
     for (const [paneId, message] of [
       [scratch.externalId, 'unknown-pane'],
       [boxed.externalId, 'unknown-pane'],
+      [remote.externalId, 'unknown-pane'],
       ['nope', 'not-an-agent'],
       [undefined, 'missing paneId'],
     ] as const) {
@@ -89,8 +97,7 @@ describe('turn.list and turn.output', () => {
       throw new Error('scanner down')
     })
     paneTurns.report('pt-agent', { kind: 'prompt', text: 'hello there' })
-    paneTurns.report('pt-agent', { kind: 'step', step: 'command', target: 'ls' })
-    paneTurns.report('pt-agent', { kind: 'result', output: 'files' })
+    paneTurns.report('pt-agent', { kind: 'step', step: 'command', target: 'ls', output: 'files' })
     expect(await turnList({ paneId: agent.externalId }, deps)).toEqual({
       ok: false,
       code: -32603,

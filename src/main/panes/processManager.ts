@@ -5,6 +5,7 @@ import type { Reach } from '../approvals/reach'
 import { registerControlMethod, registerTargetableMethod } from '../control/controlServer'
 import { getByPaneId } from '../control/idRegistry'
 import { record } from './paneReach'
+import { type PhoneAgent, phoneAgentCommand } from './phoneAgent'
 import { type ProcessControlDeps, createProcessControl } from './processControl'
 import {
   type ProcessLaunchDeps,
@@ -57,7 +58,16 @@ const CLOSED = {
   message: 'its tab was closed; start it again with ostia process run',
 }
 
-export function registerProcessMethods(deps: ProcessDeps): ProcessRegistry {
+export type PhoneAgentStart = { paneId: string; started: boolean; confirmed: boolean } | null
+
+export function registerProcessMethods(deps: ProcessDeps): {
+  registry: ProcessRegistry
+  startAgentForPhone: (
+    workspaceId: string,
+    agent: PhoneAgent,
+    prompt: string,
+  ) => Promise<PhoneAgentStart>
+} {
   const registryChanges = new ChangeSignal()
   const registry = new ProcessRegistry({
     ring: deps.ring,
@@ -70,7 +80,28 @@ export function registerProcessMethods(deps: ProcessDeps): ProcessRegistry {
   })
 
   const { scriptReach, find, interrupt, endShell } = createProcessControl({ ...deps, registry })
-  const { runInTab, workersTab } = createProcessLauncher({ ...deps, registry, registryChanges })
+  const { runInTab, workersTab, openAndConfirm } = createProcessLauncher({
+    ...deps,
+    registry,
+    registryChanges,
+  })
+
+  const startAgentForPhone = async (
+    workspaceId: string,
+    agent: PhoneAgent,
+    prompt: string,
+  ): Promise<PhoneAgentStart> => {
+    const command = phoneAgentCommand(agent, prompt)
+    if (!command) return null
+    const confirmed = deps.startsWithHook([agent])
+    const started = await openAndConfirm({ command, workspaceId, title: agent }, '', confirmed)
+    if (!started) return null
+    return {
+      paneId: started.entry.externalPaneId,
+      started: started.report.status === 'started',
+      confirmed,
+    }
+  }
 
   registerControlMethod('process.run', {
     cap: 'process',
@@ -202,5 +233,5 @@ export function registerProcessMethods(deps: ProcessDeps): ProcessRegistry {
     },
   })
 
-  return registry
+  return { registry, startAgentForPhone }
 }

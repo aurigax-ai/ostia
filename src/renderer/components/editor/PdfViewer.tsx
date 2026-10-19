@@ -141,6 +141,7 @@ function PdfToolbar({
   sendLabel,
   canSend,
   onSend,
+  onKeyDown,
 }: {
   filePath: string
   pageNumber: number
@@ -156,10 +157,11 @@ function PdfToolbar({
   sendLabel: string
   canSend: boolean
   onSend: () => void
+  onKeyDown: (e: KeyboardEvent<HTMLDivElement>) => void
 }): JSX.Element {
   const d = useDict()
   return (
-    <div className="viewer-toolbar">
+    <div className="viewer-toolbar" onKeyDown={onKeyDown}>
       <span className="viewer-title">{baseName(filePath)}</span>
       <span className="flex-1" />
       <IconButton
@@ -214,6 +216,7 @@ function PdfStage({
   drag,
   region,
   scale,
+  onRegionKeyDown,
 }: {
   stageRef: RefObject<HTMLDivElement>
   pageRef: RefObject<HTMLDivElement>
@@ -226,14 +229,9 @@ function PdfStage({
   drag: ReturnType<typeof useRegionDrag>
   region: ReturnType<typeof useRegionDrag>['region']
   scale: number
+  onRegionKeyDown: (e: KeyboardEvent<HTMLDivElement>) => void
 }): JSX.Element {
   const d = useDict()
-  const onRegionKeyDown = (e: KeyboardEvent<HTMLDivElement>): void => {
-    if (e.key === 'Escape' && drag.region) {
-      e.stopPropagation()
-      drag.clear()
-    }
-  }
 
   return (
     <div className="viewer-body">
@@ -331,6 +329,14 @@ export function PdfViewer({
     setRegionMode((on) => !on)
   }
 
+  const onRegionKeyDown = (e: KeyboardEvent<HTMLDivElement>): void => {
+    if (e.key === 'Escape' && regionMode) {
+      e.stopPropagation()
+      drag.clear()
+      setRegionMode(false)
+    }
+  }
+
   const sendRef = usePdfSend({
     paneId,
     filePath,
@@ -395,6 +401,7 @@ export function PdfViewer({
         sendLabel={sendLabel}
         canSend={page !== null}
         onSend={() => sendRef.current()}
+        onKeyDown={onRegionKeyDown}
       />
       <PdfStage
         stageRef={stageRef}
@@ -408,6 +415,7 @@ export function PdfViewer({
         drag={drag}
         region={region}
         scale={scale}
+        onRegionKeyDown={onRegionKeyDown}
       />
       {selectionSend.panel}
       {selectionSend.status}

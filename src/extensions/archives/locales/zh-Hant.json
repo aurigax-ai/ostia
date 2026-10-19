@@ -1,10 +1,11 @@
 {
   "manifest": {
     "name": "封存檔",
-    "description": "在「檔案」面板中以唯讀方式列出並開啟 zip、jar、tar、tar.gz、tar.zst、tar.xz 與 tar.bz2 檔案裡的內容。它透過 Ostia 以小區塊讀取你展開的封存檔，從不取得路徑、從不把任何東西解壓到磁碟、絕不跟隨連結，並拒絕加密項目與解壓縮炸彈。",
+    "description": "在「檔案」面板中以唯讀方式列出並開啟 zip、jar、tar、tar.gz、tar.zst、tar.xz、tar.bz2 與 7z 檔案裡的內容。它透過 Ostia 以小區塊讀取你展開的封存檔，從不取得路徑、從不把任何東西解壓到磁碟、絕不跟隨連結，並拒絕加密項目與解壓縮炸彈。",
     "fileKinds.archives.zip.displayName": "Zip 封存檔",
     "fileKinds.archives.tar.displayName": "Tar 封存檔",
     "fileKinds.archives.tar-xz.displayName": "Tar xz 封存檔",
-    "fileKinds.archives.tar-bz2.displayName": "Tar bzip2 封存檔"
+    "fileKinds.archives.tar-bz2.displayName": "Tar bzip2 封存檔",
+    "fileKinds.archives.sevenzip.displayName": "7z 封存檔"
   }
 }

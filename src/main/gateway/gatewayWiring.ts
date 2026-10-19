@@ -70,6 +70,8 @@ interface GatewayStartDeps {
   paneTurns: PaneTurns
   redactor: Redactor
   ownSnippets: GatewayControlDeps['ownSnippets']
+  remoteCwdOfPane: (paneId: string) => unknown
+  startAgentForPhone: GatewayControlDeps['startAgent']
 }
 
 export function createScreenLinks({
@@ -112,6 +114,8 @@ export function startGateway({
   paneTurns,
   redactor,
   ownSnippets,
+  remoteCwdOfPane,
+  startAgentForPhone,
 }: GatewayStartDeps) {
   registerPaneListMethods({
     execCommand,
@@ -182,5 +186,7 @@ export function startGateway({
     paneTurns,
     ownSnippets,
     redact: async (text) => (await redactor.redact(text)).text,
+    remote: (paneId) => remoteCwdOfPane(paneId) !== undefined,
+    startAgent: startAgentForPhone,
   })
 }
