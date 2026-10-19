@@ -23,10 +23,11 @@ const root = mkdtempSync(join(tmpdir(), 'ostia-ci-'))
 const bin = join(root, 'bin')
 afterAll(() => rmSync(root, { recursive: true, force: true }))
 
-function bash(script: string, env: Record<string, string>): string {
+function bash(script: string, env: Record<string, string>, cwd?: string): string {
   return execFileSync('bash', ['--noprofile', '--norc', '-eo', 'pipefail', '-c', script], {
     env: { ...process.env, ...env },
     encoding: 'utf8',
+    cwd,
   })
 }
 
@@ -206,10 +207,14 @@ function platformFor(event: string, input = ''): string {
 
 type Runners = { linux: string; linux_small: string; linux_heavy: string; macos: string }
 
-function stepOutputs(name: string, run: string, env: Record<string, string>) {
+function stepOutputs(name: string, run: string, env: Record<string, string>, cwd?: string) {
   const output = join(root, `${name}-output`)
   writeFileSync(output, '')
-  bash(run, { ...env, GITHUB_OUTPUT: output, GITHUB_STEP_SUMMARY: join(root, `${name}-summary`) })
+  bash(
+    run,
+    { ...env, GITHUB_OUTPUT: output, GITHUB_STEP_SUMMARY: join(root, `${name}-summary`) },
+    cwd,
+  )
   const lines = readFileSync(output, 'utf8').split('\n').filter(Boolean)
   return Object.fromEntries(
     lines.map((line) => [line.slice(0, line.indexOf('=')), line.slice(line.indexOf('=') + 1)]),
@@ -234,12 +239,46 @@ function runnersFor(ctx: {
   }) as Runners
 }
 
-function testsStepFor(plan: object) {
+const plannedBase = join(root, 'planned-base')
+
+function testsStepFor(plan: object, repo?: { cwd: string; base: string; head: string }) {
   mkdirSync(bin, { recursive: true })
-  writeFileSync(join(bin, 'node'), `#!/bin/sh\nprintf '%s' '${JSON.stringify(plan)}'\n`)
+  writeFileSync(
+    join(bin, 'node'),
+    `#!/bin/sh\nprintf '%s' "$3" > '${plannedBase}'\nprintf '%s' '${JSON.stringify(plan)}'\n`,
+  )
   chmodSync(join(bin, 'node'), 0o755)
   const run = workflow.jobs.changes.steps?.find((step) => step.id === 'tests')?.run ?? ''
-  return stepOutputs('tests', run, { PATH: `${bin}:${process.env.PATH}`, BASE_SHA: 'base' })
+  return stepOutputs(
+    'tests',
+    run,
+    {
+      PATH: `${bin}:${process.env.PATH}`,
+      BASE_SHA: repo?.base ?? 'base',
+      HEAD_SHA: repo?.head ?? 'head',
+    },
+    repo?.cwd,
+  )
+}
+
+function pullRequestMerge(): { cwd: string; stale: string; tip: string; head: string } {
+  const cwd = mkdtempSync(join(root, 'pr-'))
+  const git = (...args: string[]) =>
+    execFileSync('git', ['-c', 'user.name=ci', '-c', 'user.email=ci@example.com', ...args], {
+      cwd,
+      encoding: 'utf8',
+    }).trim()
+  git('init', '-q', '-b', 'main')
+  git('commit', '-q', '--allow-empty', '-m', 'stale base')
+  const stale = git('rev-parse', 'HEAD')
+  git('checkout', '-q', '-b', 'feature')
+  git('commit', '-q', '--allow-empty', '-m', 'pull request')
+  const head = git('rev-parse', 'HEAD')
+  git('checkout', '-q', 'main')
+  git('commit', '-q', '--allow-empty', '-m', 'landed on main later')
+  const tip = git('rev-parse', 'HEAD')
+  git('merge', '-q', '--no-ff', '-m', 'merge', 'feature')
+  return { cwd, stale, tip, head }
 }
 
 function changedArgs(env: { specs: string; repeat: string; selfHosted?: boolean }) {
@@ -370,6 +409,14 @@ describe('changed specs run three times on a pull request', () => {
     expect(workflow.jobs.changes.outputs).toMatchObject({
       changed_specs: '${{ steps.tests.outputs.changed_specs }}',
     })
+  })
+
+  it('plans against the main commit GitHub merged the pull request into, not a stale base sha', () => {
+    const { cwd, stale, tip, head } = pullRequestMerge()
+    testsStepFor(plan, { cwd, base: stale, head })
+    expect(readFileSync(plannedBase, 'utf8')).toBe(tip)
+    testsStepFor(plan, { cwd, base: stale, head: 'f'.repeat(40) })
+    expect(readFileSync(plannedBase, 'utf8')).toBe(stale)
   })
 
   it('plans no repeated job when the pull request changes no spec', () => {

@@ -171,8 +171,14 @@ jobs:
         id: tests
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
-          plan=$(node scripts/affectedTests.mjs plan "$BASE_SHA") || plan=
+          base=$BASE_SHA
+          if [ "$(git rev-parse -q --verify 'HEAD^2' || true)" = "$HEAD_SHA" ]; then
+            base=$(git rev-parse 'HEAD^1')
+          fi
+          echo "plan base: $base"
+          plan=$(node scripts/affectedTests.mjs plan "$base") || plan=
           echo "plan=$plan" >> "$GITHUB_OUTPUT"
           if [ -z "$plan" ] || [ "$(jq -c '.e2e' <<< "$plan")" = null ]; then
             echo "e2e_full=true" >> "$GITHUB_OUTPUT"
