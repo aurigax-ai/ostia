@@ -47,6 +47,7 @@ import { ExtensionHost } from './extensionHost'
 import type { ExtensionHostDeps, ExtensionSecretStore } from './extensionHostDeps'
 import { ExtensionLaunches } from './extensionLaunches'
 import { registerExtensionMethods } from './extensionMethods'
+import type { PhoneScreenLinks } from './extensionPhoneScreens'
 import { ExtensionStore } from './extensionStore'
 import { WireRuntime, registerWireRuntime } from './wireRuntime'
 import { workspaceChipsForWindow } from './workspaceChips'
@@ -177,6 +178,7 @@ interface ExtensionHostStartDeps {
   registerRemoteFilesIpc: (host: ExtensionHost) => void
   createLanguageServers: () => LanguageServers
   serverOverrides: ServerOverrides
+  screenLinks: PhoneScreenLinks
 }
 
 export function startExtensionHost({
@@ -212,6 +214,7 @@ export function startExtensionHost({
   registerRemoteFilesIpc,
   createLanguageServers,
   serverOverrides,
+  screenLinks,
 }: ExtensionHostStartDeps) {
   const extensionStore = new ExtensionStore(join(app.getPath('userData'), 'extensions.json'))
   services.extensionHost = new ExtensionHost({
@@ -274,6 +277,7 @@ export function startExtensionHost({
     focusPaneIn: focusPaneInWindow,
     exec: extensionExec,
     resumeOf: resumeOfPane,
+    screenLinks,
   })
   refreshAgentPlugins()
   registerExtensionMethods(() => services.extensionHost)

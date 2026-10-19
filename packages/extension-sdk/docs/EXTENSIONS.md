@@ -883,6 +883,7 @@ Connect to the unix socket and speak JSON-RPC 2.0 with LSP-style framing
 | `ext.exec` | `{workspaceId, command: string[], timeoutMs, maxOutputBytes?, dataDir?, env?}` | API 3.3. Needs `process`. Runs an argv with **no terminal**, in the workspace folder, with stdin closed and no `OSTIA_*` variable; inside the workspace's sandbox when it has one, and never unwrapped (`sandbox-unavailable`). `timeoutMs` is at most 600000; output is capped at `maxOutputBytes` (default 64 KiB, at most 1 MiB) per stream. `env`: up to 16 names matching `GRAPH_[A-Z0-9_]+` (nothing that changes how programs load or how a shell starts) of at most 4096 characters; the command gets the environment Ostia started with, without the discrete-GPU variables Ostia set for itself. `dataDir` is a folder inside your data folder (relative, no `..`, not a link) shown read-only to the command as `$OSTIA_EXEC_DIR`. `{ok, exitCode, signal?, timedOut, stdout, stderr, truncated, sandboxed}`; a killed command has `exitCode: -1`. Cancelling the request, the timeout and your process exiting end the whole process group (SIGTERM, SIGKILL 5 s later); Ostia quitting kills it at once. Refusals: `unknown-workspace`, `scratch`, `sandbox-unavailable`, `too-many` (8 at once), `spawn-failed`, `invalid-params`. `exec(opts, signal?)` in the SDK cancels with the signal. |
 | `ext.sandboxDomains` | `{workspaceId}` | API 4.2. Read-only. `{ok, domains}`: the domains a sandboxed workspace allows (the human's global list, the workspace's and those allowed until restart), for a workspace one of your commands or your panel was called from. Never paths, secrets, ports or switches; nothing changes the list. Refusals: `not-reached` (no caller of yours in that workspace), `not-sandboxed`, `invalid-params`. |
 | `ext.browse.readAt`, `ext.browse.entries`, `ext.browse.chunk` | `{ticket, offset, length}`, `{ticket, entries}`, `{ticket, data}` | API 6.1, need `file-contents`. The SDK's `BrowseFile` and sinks send these for you while a `browse` request is running; see [Browsing inside a file](#browsing-inside-a-file). A call with no live ticket answers `unknown-ticket`. |
+| `ext.phoneScreens.listen`, `ext.phoneScreens.request`, `ext.phoneScreens.ask` | `{}`, `{linkId, method, params?}`, `{sessionId}` | API 6.2, need `phone-screens`. Take phone screens, send a request to one, or ask phones to start a session; see [Phone screens](#phone-screens). |
 | `ext.busSend` | `{to, text}` | API 3.3. Needs `send-other-pane` and `all-workspaces`. Puts `text` (at most 16000 characters) into that pane's bus inbox as `ostia bus send` does, with your extension id as `from`: an agent blocked in `ostia bus wait` gets it at once (`state: 'delivered'`), otherwise it stays queued until the agent takes it (`state: 'queued'`, with `pending` saying why: `working`, `idle-no-wake`, `hibernated`, `hooks-off` or `no-agent`) and fails after 24 hours or when the pane closes. Nothing is typed. `{ok, id, state, pending?}`; the manager pane and an unknown pane are `unknown-pane`, and a receiver with 200 undelivered messages is `inbox-full`. |
 | `ext.wakePane` | `{paneId, waitMs?}` | API 3.3. Needs `type-other-pane` and `all-workspaces`. Wakes one hibernated agent pane exactly as `ostia pane wake` does: Ostia types only that pane's stored resume command; you pass a pane id and nothing else. `{ok, outcome}` with `woke`, or with `waitMs` (at most 120000) `started`, `timedOut`, `closed` or `resume-failed`; `not-hibernated`, `session-conflict`, `unknown-pane` (also for the manager pane). |
 | `ext.ask` | `{workspaceId, question, context?, choices?, mode?, timeoutS?}` | API 3.3. Needs `drive-self`. Puts a question on the same list as `ostia ask` in the window that holds the workspace, labelled with your extension's name: `question` one line (clipped to 500), `context` up to 4000, `choices` up to 12 labels, `mode` `text`, `single` or `multi`. Waits until the human answers, dismisses it, `timeoutS` passes, you cancel the request (`ask(opts, signal)` in the SDK) or your connection closes; the last two withdraw it. `{ok, outcome: 'answered', reply: {choices, text}}` or `{ok, outcome: 'dismissed' \| 'timeout' \| 'closed'}`; `too-many-questions` (3 open per workspace), `rate-limited` (6 a minute), `unknown-workspace`. Only the human answers it, or a paired phone with `respond`; no command answers it. |
@@ -941,6 +942,7 @@ no transcript is read; input that is not JSON or over 1 MiB gives `null`).
 | `ext.panel` | `{caller, path?}` | `{url}` for a `"url"` panel: must be `http://127.0.0.1:<port>/…` or `http://localhost:<port>/…`. `path` is present when the panel is opened or navigated to a path (`ext.openPanel {path}`, a notification with `openPanel: "/path"`); return the URL for it on the same origin. |
 | `ext.files` | `{op, folderId, root, path, content?, baseVersion?}` | One file operation in a folder you opened with `ext.openFolder` (`ext.onFiles` in the SDK). `root` is the folder and `path` an absolute path inside it; Ostia has already refused anything outside. See [Remote folders](#remote-folders). 30 s timeout. |
 | `ext.browse.list`, `ext.browse.read` | `{ticket, kind, size, limits}`, `{ticket, kind, size, index, max, limits}` | API 6.1. List the entries of a file or read one entry of it for a `browse` kind (`onBrowse` in the SDK). Ostia gives a ticket and the size, never a path. |
+| `ext.phoneScreen.offer` | a link: `{linkId, sessionId, width, height, density, rotation, level, limitSec, endsAt, overlayHeight, label, agent?, device: {id, name}}` | API 6.2, only to the extension that listens for phone screens. `{accept: true}` takes the link; anything else, or no answer in 5 s, refuses it. |
 
 And the notification `ext.event {type, payload}`:
 
@@ -961,6 +963,8 @@ And the notification `ext.event {type, payload}`:
 | `locale.changed` | `{locale}`: the human changed the language (`ext.onLocaleChanged` in the SDK). Sent without `ext.subscribe`. |
 | `assist.providers.changed` | `{providers}`: the same list `ext.assistProviders` returns, after the human added, changed, switched or removed one of your providers or its key (`ext.onAssistProvidersChanged` in the SDK). Sent without `ext.subscribe`, only to an extension granted `assist`. |
 | `folder.closed` | `{folderId}`: one of your remote folders went away because the human closed it in Files or its workspace closed (`ext.onFolderClosed` in the SDK). Sent without `ext.subscribe`. API 1.11. |
+
+The listener for phone screens also gets the notifications `ext.phoneScreen.frame {linkId, header, jpeg}` (`jpeg` base64) and `ext.phoneScreen.event {linkId, kind, payload}` (API 6.2, see [Phone screens](#phone-screens)).
 
 `paneId` is always the external id agents see (`ostia whoami`).
 
@@ -1028,6 +1032,34 @@ with a NUL byte is `binary`; anything malformed is `failed`. Check paths again y
 whatever really resolves them (symlinks). A remote file never becomes a local path: it has no
 language server, no external editor, no "open with default app", and its pane is not restored.
 A scratch or sandboxed workspace has no remote folders.
+
+### Phone screens
+
+API 6.2. A phone whose human started a screen session in the companion opens a link to Ostia; Ostia
+offers it to the one extension that listens for phone screens and relays between the two. Nothing
+here starts a session: only the phone's human does, on the phone, every time.
+
+- `phoneScreens.listen({offer, frame?, event?})` in the SDK makes you the listener. It needs
+  `phone-screens`, a capability no extension holds by default and the human grants (never the
+  manager's). One listener at a time: a second answers `busy`.
+- `offer(link)` returns whether you take the link. `link.level` is `view` or `control`; `endsAt`
+  is when the session ends, in ms since the epoch.
+- `phoneScreens.request(linkId, method, params?)` sends one of `phone.capture`, `phone.stream`,
+  `phone.tap`, `phone.swipe`, `phone.type`, `phone.key`, `phone.launch`, `phone.apps`,
+  `phone.tree`, `phone.stop` (the companion's network contract has their params and results).
+  `{ok: true, data}` is the phone's result; `{ok: false, error, data?}` carries the phone's error
+  code (`paused`, `blocked-app`, `declined`, …) or Ostia's: `unknown-link`, `unknown-method`,
+  `view-only` (an input request on a `view` link), `timeout` (no answer in 75 s), `link-ended`.
+- `frame({linkId, header, jpeg})` gets the screen while `phone.stream` runs, at most 5 a second;
+  `header` is `{seq, width, height, screenWidth, screenHeight, blocked}`.
+- `event({linkId, kind, payload})`: `kind` `state` (the phone's `screen.state`), `foreground`
+  (`screen.foreground`) or `ended` (`{reason}`: `closed`, `revoked`, `caps-changed`, `time-limit`,
+  `no-controller`). A link ends when the phone closes it, the device is revoked or loses a cap,
+  5 s after `endsAt`, or when you stop, are disabled or lose `phone-screens`.
+- `phoneScreens.ask(sessionId)` asks every phone allowed to notify to start a session for that
+  workspace (the phone shows a notification; its human decides). Call it only from the human's
+  click.
+- Ostia keeps no frame, request, result or event and logs none of them.
 
 ### Results
 
