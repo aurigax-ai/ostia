@@ -7,6 +7,7 @@ import type { MessageConnection } from 'vscode-jsonrpc/node'
 import type { BusDelivery } from '../../shared/agents/busMessages'
 import { parseArgs } from '../common/args'
 import { type ErrResult, describeErrResult, failUsage, failVerb, failWith } from '../common/failure'
+import { tsvLine } from '../common/lineField'
 
 export const BUS_HOOK_USAGE = `usage: ostia bus hook <${AGENT_HOOK_CONTEXT_EVENTS.join('|')}>`
 
@@ -68,7 +69,7 @@ export async function runBusHook(args: readonly string[], io: BusHookIo): Promis
 
 function sentLine(message: SentMessage): string {
   const state = message.seenAt ? `seen ${message.seenAt}` : 'unseen'
-  return [message.ts, message.to, state, message.preview].join('\t')
+  return tsvLine([message.ts, message.to, state, message.preview])
 }
 
 export function sentLines(messages: readonly SentMessage[]): string[] {
@@ -112,17 +113,23 @@ interface BusHandoffsResult {
   handoffs: BusHandoff[]
 }
 
+export function busSendArgs(argv: readonly string[]): { to: string; text: string } | null {
+  const end = argv.indexOf('--')
+  const [to, ...words] = end === -1 ? argv : [...argv.slice(0, end), ...argv.slice(end + 1)]
+  return to && words.length > 0 ? { to, text: words.join(' ') } : null
+}
+
 export async function runBusVerb(conn: MessageConnection): Promise<void> {
   const sub = process.argv[3]
   const rawArgs = process.argv.slice(4)
 
   if (sub === 'send') {
-    const [to, text] = rawArgs
-    if (!to || text === undefined) {
+    const args = busSendArgs(rawArgs)
+    if (!args) {
       failVerb('missing arguments')
       return
     }
-    const res = await conn.sendRequest<BusSendOk | ErrResult>('bus.send', { to, text })
+    const res = await conn.sendRequest<BusSendOk | ErrResult>('bus.send', args)
     if (res.ok) {
       console.log(JSON.stringify(res))
       if (res.asleep) console.error(BUS_ASLEEP_HINT)

@@ -1,6 +1,7 @@
 import { text } from 'node:stream/consumers'
 import type { MessageConnection } from 'vscode-jsonrpc/node'
 import { fail, failureHint } from '../common/failure'
+import { tsvLine } from '../common/lineField'
 import { extractGlobals, parseBrowseCommand, splitCommandLine } from './browseArgs'
 import type { BrowseCall } from './browseFlags'
 
@@ -45,8 +46,8 @@ interface TabLine {
 export const SHARED_TAB_TEXT = "[the human's browser profile: driving it asks them each time]"
 
 function tabText(t: TabLine): string {
-  const rest = t.profile === 'shared' ? SHARED_TAB_TEXT : `${t.title}\t${t.url}`
-  return `${t.active ? '*' : ' '} ${t.tabId}\t${rest}`
+  const rest = t.profile === 'shared' ? [SHARED_TAB_TEXT] : [t.title, t.url]
+  return `${t.active ? '*' : ' '} ${tsvLine([t.tabId, ...rest])}`
 }
 
 interface RequestLine {
@@ -107,9 +108,8 @@ export function formatText(verb: string, data: Record<string, unknown> | null): 
       const requests = data.requests as RequestLine[] | undefined
       if (requests) {
         return requests
-          .map(
-            (r) =>
-              `${r.requestId}\t${r.method}\t${r.status ?? r.error ?? 'pending'}\t${r.type}\t${r.url}`,
+          .map((r) =>
+            tsvLine([r.requestId, r.method, r.status ?? r.error ?? 'pending', r.type, r.url]),
           )
           .join('\n')
       }

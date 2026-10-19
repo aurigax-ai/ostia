@@ -7,6 +7,7 @@ import {
   failWith,
   isErrResult,
 } from '../common/failure'
+import { tsvLine } from '../common/lineField'
 
 interface GatewayOk {
   ok: true
@@ -63,7 +64,7 @@ export async function runGatewayVerb(conn: MessageConnection): Promise<void> {
       return
     }
     for (const d of res.devices) {
-      console.log(`${d.deviceId}\t${d.name}\t${d.caps.join(',')}\t${d.createdAt}`)
+      console.log(tsvLine([d.deviceId, d.name, d.caps.join(','), d.createdAt]))
     }
   } else if (sub === 'revoke') {
     const deviceId = process.argv[4]

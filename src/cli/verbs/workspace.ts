@@ -7,6 +7,7 @@ import {
 } from '../../shared/workspaces/workspaceGroups'
 import { parseArgs } from '../common/args'
 import { fail, failUsage, failVerb } from '../common/failure'
+import { tsvLine } from '../common/lineField'
 import { confirmWorkspace } from '../common/readBack'
 import { readAllStdin } from '../common/stdinText'
 import type { Opened } from './open'
@@ -98,7 +99,7 @@ async function runWorkspaceList(conn: MessageConnection, json: boolean): Promise
   const groupName = new Map(groups.map((g) => [g.groupId, g.name]))
   for (const w of workspaces) {
     const group = w.groupId ? (groupName.get(w.groupId) ?? '') : ''
-    console.log([w.workspaceId, group || '-', w.name, w.state, w.workDir].join('\t'))
+    console.log(tsvLine([w.workspaceId, group || '-', w.name, w.state, w.workDir]))
   }
 }
 
@@ -164,13 +165,13 @@ export async function workspaceFolderIn(
   const here = await conn.sendRequest<{ ok: boolean; same?: boolean }>('workspace.sameFolder', {
     dir: path,
   })
-  if (here.same) return { problems: [], shown: [`already open\t${path}`] }
+  if (here.same) return { problems: [], shown: [tsvLine(['already open', path])] }
   const made = await newWorkspace(conn, {
     dir: path,
     ...(background ? { focus: false as const } : {}),
   })
   return made.ok
-    ? { problems: [], shown: [`${made.workspaceId}\t${path}`] }
+    ? { problems: [], shown: [tsvLine([made.workspaceId, path])] }
     : { problems: [`ostia: ${path}: ${made.message}`], shown: [] }
 }
 

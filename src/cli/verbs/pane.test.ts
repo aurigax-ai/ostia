@@ -115,6 +115,13 @@ describe('paneLine', () => {
     expect(paneLine({ ...pane, agentState: 'working', waking: true })).toContain('\twaking\t')
     expect(paneLine({ ...pane, hibernated: true, waking: true })).toContain('\thibernated\t')
   })
+
+  it('keeps a title with tabs, newlines or control characters on one line of five fields', () => {
+    const pane = { paneId: 'p1', workspaceId: 'ws1', kind: 'terminal', running: true }
+    const line = paneLine({ ...pane, title: 'a\tb\nc\u001b[31m' })
+    expect(line).toBe('p1\tws1\tterminal\trunning\ta\\tb\\nc\\x1b[31m')
+    expect(line.split('\t')).toHaveLength(5)
+  })
 })
 
 describe('pane rename', () => {

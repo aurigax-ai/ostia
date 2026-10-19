@@ -500,11 +500,15 @@ describe('ostia CLI end-to-end (spawns the real out/cli/index.js against a live 
 
     const unknown = await runOstia(['vault', 'list', '--globl'], env)
     expect(unknown.code).toBe(1)
-    expect(unknown.stderr.trim()).toBe('ostia vault list: unknown flag --globl')
+    expect(unknown.stderr.trim()).toBe(
+      'ostia vault list: unknown flag --globl\nusage: ostia vault list [--global]\n  the secret names',
+    )
 
     const missing = await runOstia(['bus', 'wait', '--timeout'], env)
     expect(missing.code).toBe(1)
-    expect(missing.stderr.trim()).toBe('ostia bus wait: --timeout needs a value')
+    expect(missing.stderr.trim()).toMatch(
+      /^ostia bus wait: --timeout needs a value\nusage: ostia bus wait \[--timeout <s>\]\n/,
+    )
   })
 
   it('rejects a non-numeric numeric flag instead of silently defaulting', async () => {

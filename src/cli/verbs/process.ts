@@ -1,6 +1,6 @@
 import { resolve as resolvePath } from 'node:path'
 import type { MessageConnection } from 'vscode-jsonrpc/node'
-import { FlagError, parseArgs } from '../common/args'
+import { parseArgs } from '../common/args'
 import { resolveWorkspaceRef } from '../common/crossWorkspace'
 import {
   type ErrResult,
@@ -11,8 +11,8 @@ import {
   failWith,
   isErrResult,
 } from '../common/failure'
+import { tsvLine } from '../common/lineField'
 import { readAllStdin } from '../common/stdinText'
-import { usageOf } from '../common/usageTable'
 
 interface ProcInfo {
   id: string
@@ -64,14 +64,7 @@ function parseAgentArgs(argv: readonly string[]) {
 }
 
 export async function runAgentVerb(conn: MessageConnection): Promise<void> {
-  let parsed: ReturnType<typeof parseAgentArgs>
-  try {
-    parsed = parseAgentArgs(process.argv.slice(4))
-  } catch (err) {
-    if (err instanceof FlagError) throw new Error(`${err.message}\n${usageOf('agent')}`)
-    throw err
-  }
-  const { values: flags, positional } = parsed
+  const { values: flags, positional } = parseAgentArgs(process.argv.slice(4))
   const [agent, given] = positional
   if (process.argv[3] !== 'run' || !agent || given === undefined) return failUsage('agent')
   const prompt = given === '-' ? await readAllStdin() : given
@@ -135,7 +128,7 @@ export async function runProcessVerb(conn: MessageConnection): Promise<void> {
       return
     }
     for (const p of list) {
-      console.log(`${p.id}\t${p.name}\t${processStatus(p)}\t${p.paneId}\t${p.cmd}`)
+      console.log(tsvLine([p.id, p.name, processStatus(p), p.paneId, p.cmd]))
     }
   } else if (sub === 'logs') {
     const { values, positional } = parseArgs(rawArgs, { values: { since: '--since' } })

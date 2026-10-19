@@ -13,6 +13,7 @@ import {
 } from '../../shared/views/views'
 import { parseArgs } from '../common/args'
 import { fail } from '../common/failure'
+import { tsvLine } from '../common/lineField'
 import { usageOf } from '../common/usageTable'
 
 const VIEW_USAGE = usageOf('view')
@@ -87,7 +88,7 @@ export async function runViewVerb(conn: MessageConnection, argv: readonly string
     console.log(`# ${listing.dir}`)
     for (const v of listing.views) {
       const problems = v.problems.length > 0 ? `\t${v.problems.length} problem(s)` : ''
-      console.log([v.name, v.status, v.placement ?? '-', v.title].join('\t') + problems)
+      console.log(tsvLine([v.name, v.status, v.placement ?? '-', v.title]) + problems)
     }
     return
   }

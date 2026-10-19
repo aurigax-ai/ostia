@@ -5,6 +5,7 @@ import type {
 import type { MessageConnection } from 'vscode-jsonrpc/node'
 import { parseArgs } from '../common/args'
 import { fail, failUsage } from '../common/failure'
+import { tsvLine } from '../common/lineField'
 
 function describeSnippet(w: SnippetEntry): string {
   const lines = [`name: ${w.name}`, `source: ${w.source} (${w.origin})`]
@@ -41,7 +42,7 @@ export async function runSnippetVerb(conn: MessageConnection): Promise<void> {
       return
     }
     for (const w of listing.snippets) {
-      console.log([w.name, `${w.source}:${w.origin}`, w.command.replace(/\n/g, ' ')].join('\t'))
+      console.log(tsvLine([w.name, `${w.source}:${w.origin}`, w.command]))
     }
     for (const p of listing.problems) {
       console.error(`ostia snippet: couldn't read ${p.source}:${p.origin}: ${p.error}`)

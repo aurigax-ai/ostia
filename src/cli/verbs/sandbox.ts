@@ -1,13 +1,14 @@
 import type { MessageConnection } from 'vscode-jsonrpc/node'
 import { parseArgs } from '../common/args'
 import { failUsage, failVerb, failWith } from '../common/failure'
+import { tsvLine } from '../common/lineField'
 
 export async function runSecretVerb(conn: MessageConnection): Promise<void> {
   const sub = process.argv[3]
   if (sub === 'list') {
     const list =
       await conn.sendRequest<{ name: string; source: string; kind: string }[]>('secret.list')
-    for (const s of list) console.log(`${s.source}\t${s.kind}\t${s.name}`)
+    for (const s of list) console.log(tsvLine([s.source, s.kind, s.name]))
   } else if (sub === 'get') {
     const { positional, values } = parseArgs(process.argv.slice(4), {
       values: { reason: '--reason' },

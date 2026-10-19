@@ -2,6 +2,7 @@ import type { MessageConnection } from 'vscode-jsonrpc/node'
 import { parseArgs } from '../common/args'
 import { resolveWorkspaceRef } from '../common/crossWorkspace'
 import { commandLabel } from '../common/failure'
+import { tsvLine } from '../common/lineField'
 import { usageOf, verbUsageOf } from '../common/usageTable'
 
 interface PaneInputParams {
@@ -172,7 +173,7 @@ export function waitOutcome(result: PaneWaitResult, json: boolean): { line: stri
     const { paneId, state, message } = result
     const line = json
       ? JSON.stringify({ paneId, state, message: message ?? null })
-      : [paneId, state, ...(message ? [message] : [])].join('\t')
+      : tsvLine([paneId, state, ...(message ? [message] : [])])
     return { line, code: PANE_WAIT_EXIT.reached }
   }
   if ('closed' in result) {
@@ -204,7 +205,7 @@ export function paneLine(pane: ListedPane): string {
     : pane.waking
       ? 'waking'
       : (pane.agentState ?? (pane.running ? 'running' : 'idle'))
-  return [pane.paneId, pane.workspaceId, pane.kind, state, pane.title].join('\t')
+  return tsvLine([pane.paneId, pane.workspaceId, pane.kind, state, pane.title])
 }
 
 export function parsePaneArgs(argv: string[]): PaneCall {
