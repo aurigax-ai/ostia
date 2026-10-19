@@ -197,6 +197,48 @@ describe('TerminalView spawn size', () => {
     expect(window.ostia.pty.resize).toHaveBeenCalledWith(paneId, 90, 30)
   })
 
+  it('takes the grid a phone resized the pty to, and gives it back only on the human key', async () => {
+    useSettingsStore.setState({
+      terminal: { ...useSettingsStore.getState().terminal, renderer: 'xterm' },
+    })
+    const fitted = vi.spyOn(FitAddon.prototype, 'proposeDimensions').mockImplementation(() => ({
+      cols: Math.floor(box.width / 10),
+      rows: Math.floor(box.height / 20),
+    }))
+    onTestFinished(() => fitted.mockRestore())
+    useLayoutStore.getState().ensure('w1')
+    useWorkspacesStore.setState({ activeWorkspaceId: 'w1' })
+    const paneId = firstPaneId(useLayoutStore.getState().byWorkspace.w1.root)
+    box.width = 900
+    box.height = 600
+    const { container } = render(<TerminalView workspaceId="w1" paneId={paneId} />)
+    await act(async () => {
+      layOut(900, 600)
+      await nextFrame()
+    })
+    await waitFor(() => expect(window.ostia.pty.attach).toHaveBeenCalledTimes(1))
+    const phoneSized = vi
+      .mocked(window.ostia.pty.onSize)
+      .mock.calls.find(([id]) => id === paneId)?.[1]
+    expect(phoneSized).toBeDefined()
+
+    act(() => phoneSized?.(40, 20))
+    expect(terminalFor(paneId)?.cols).toBe(40)
+    expect(terminalFor(paneId)?.rows).toBe(20)
+    expect(window.ostia.pty.resize).not.toHaveBeenCalled()
+
+    act(() => terminalFor(paneId)?.input('\x1b[5;1R', false))
+    act(() => terminalFor(paneId)?.input('\x1b[<0;3;4M', false))
+    expect(window.ostia.pty.write).toHaveBeenCalledWith(paneId, '\x1b[5;1R')
+    expect(window.ostia.pty.resize).not.toHaveBeenCalled()
+
+    const keyTarget = container.querySelector('textarea') ?? container.querySelector('.xterm-host')
+    act(() => {
+      keyTarget?.dispatchEvent(new KeyboardEvent('keydown', { key: 'l', bubbles: true }))
+    })
+    expect(window.ostia.pty.resize).toHaveBeenCalledWith(paneId, 90, 30)
+  })
+
   it('starts a terminal an extension opened in a laid-out hidden tab while the window draws no frames', async () => {
     noteFittedGrid(129, 42)
     box.width = 520

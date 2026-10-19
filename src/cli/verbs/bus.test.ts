@@ -3,6 +3,7 @@ import {
   BUS_HOOK_USAGE,
   type BusHookIo,
   busSeconds,
+  busSendArgs,
   runBusHook,
   sendExitCode,
   sentLines,
@@ -171,5 +172,27 @@ describe('sendExitCode', () => {
 
   it('exits 0 for a queued message when the sender did not wait', () => {
     expect(sendExitCode({ state: 'queued' }, false)).toBe(0)
+  })
+})
+
+describe('busSendArgs', () => {
+  it('takes the pane and the message, with -- ending the flags and the words joined', () => {
+    expect(busSendArgs(['p1', 'hello'])).toEqual({ to: 'p1', text: 'hello' })
+    expect(busSendArgs(['p1', '--', '--help'])).toEqual({ to: 'p1', text: '--help' })
+    expect(busSendArgs(['p1', '--', '--'])).toEqual({ to: 'p1', text: '--' })
+    expect(busSendArgs(['p1', 'two', 'words'])).toEqual({ to: 'p1', text: 'two words' })
+    expect(busSendArgs(['p1'])).toBeNull()
+    expect(busSendArgs(['p1', '--'])).toBeNull()
+    expect(busSendArgs([])).toBeNull()
+  })
+
+  it('takes --wait before the pane only, and needs its seconds', () => {
+    expect(busSendArgs(['--wait', '30', 'p1', 'hi'])).toEqual({ to: 'p1', text: 'hi', wait: '30' })
+    expect(busSendArgs(['p1', 'done', '--wait', '30'])).toEqual({
+      to: 'p1',
+      text: 'done --wait 30',
+    })
+    expect(busSendArgs(['--wait'])).toBeNull()
+    expect(busSendArgs(['--wait', '30'])).toBeNull()
   })
 })

@@ -1,6 +1,7 @@
 export const browserEn = {
   browser: {
     address: 'Address',
+    addressPlaceholder: 'Search or enter address',
     back: 'Back',
     closeSend: 'Discard capture',
     copyImage: 'Copy image',

@@ -6,7 +6,8 @@ import {
 import type { MessageConnection } from 'vscode-jsonrpc/node'
 import { type MailPending, type MailReceipt, mailLabel } from '../../shared/agents/busMessages'
 import { parseArgs } from '../common/args'
-import { type ErrResult, describeErrResult, fail, failUsage } from '../common/failure'
+import { type ErrResult, describeErrResult, failUsage, failVerb, failWith } from '../common/failure'
+import { tsvLine } from '../common/lineField'
 
 export const BUS_HOOK_USAGE = `usage: ostia bus hook <${AGENT_HOOK_CONTEXT_EVENTS.join('|')}|mod-ready|take|ack>`
 
@@ -97,7 +98,7 @@ export async function runBusHook(args: readonly string[], io: BusHookIo): Promis
 }
 
 function sentLine(message: SentMessage): string {
-  return [message.ts, message.to, mailLabel(message), message.preview].join('\t')
+  return tsvLine([message.ts, message.to, mailLabel(message), message.preview])
 }
 
 export function sentLines(messages: readonly SentMessage[]): string[] {
@@ -141,28 +142,41 @@ interface BusHandoffsResult {
   handoffs: BusHandoff[]
 }
 
+export function busSendArgs(
+  argv: readonly string[],
+): { to: string; text: string; wait?: string } | null {
+  const waits = argv[0] === '--wait'
+  const wait = waits ? argv[1] : undefined
+  const args = waits ? argv.slice(2) : argv
+  const end = args.indexOf('--')
+  const [to, ...words] = end === -1 ? args : [...args.slice(0, end), ...args.slice(end + 1)]
+  return to && words.length > 0 && (!waits || wait !== undefined)
+    ? { to, text: words.join(' '), ...(wait === undefined ? {} : { wait }) }
+    : null
+}
+
 export async function runBusVerb(conn: MessageConnection): Promise<void> {
   const sub = process.argv[3]
   const rawArgs = process.argv.slice(4)
 
   if (sub === 'send') {
-    const { values, positional } = parseArgs(rawArgs, {
-      values: { wait: '--wait' },
-      unknown: 'keep',
-    })
-    const [to, text] = positional
-    if (!to || text === undefined) {
-      fail('ostia bus send: missing [--wait <s>] <toExternalId> "<msg>"')
+    const args = busSendArgs(rawArgs)
+    if (!args) {
+      failVerb('missing arguments')
       return
     }
-    const waitMs = busSeconds(values.wait, '--wait')
-    const res = await conn.sendRequest<BusSendOk | ErrResult>('bus.send', { to, text, waitMs })
+    const waitMs = busSeconds(args.wait, '--wait')
+    const res = await conn.sendRequest<BusSendOk | ErrResult>('bus.send', {
+      to: args.to,
+      text: args.text,
+      waitMs,
+    })
     if (res.ok) {
       console.log(JSON.stringify(res))
       if (res.state === 'queued' && res.pending) console.error(PENDING_HINTS[res.pending])
       process.exitCode = sendExitCode(res, waitMs !== undefined)
     } else {
-      fail(`ostia: bus send failed (${describeErrResult(res)})`)
+      failWith(describeErrResult(res))
     }
   } else if (sub === 'inbox') {
     const { take } = parseArgs(rawArgs, { booleans: { take: '--take' } }).booleans
@@ -170,7 +184,7 @@ export async function runBusVerb(conn: MessageConnection): Promise<void> {
     if ('messages' in res) {
       console.log(JSON.stringify(res.messages))
     } else {
-      fail(`ostia: bus inbox failed (${describeErrResult(res)})`)
+      failWith(describeErrResult(res))
     }
   } else if (sub === 'sent') {
     const res = await conn.sendRequest<BusSentResult | ErrResult>('bus.sent')
@@ -178,7 +192,7 @@ export async function runBusVerb(conn: MessageConnection): Promise<void> {
       if (rawArgs.includes('--json')) console.log(JSON.stringify(res.messages))
       else for (const line of sentLines(res.messages)) console.log(line)
     } else {
-      fail(`ostia: bus sent failed (${describeErrResult(res)})`)
+      failWith(describeErrResult(res))
     }
   } else if (sub === 'hook') {
     process.exitCode = await runBusHook(rawArgs, {
@@ -197,7 +211,7 @@ export async function runBusVerb(conn: MessageConnection): Promise<void> {
     if ('messages' in res) {
       console.log(JSON.stringify(res))
     } else {
-      fail(`ostia: bus wait failed (${describeErrResult(res)})`)
+      failWith(describeErrResult(res))
     }
   } else if (sub === 'handoff') {
     const { values: flags, positional } = parseArgs(rawArgs, {
@@ -205,7 +219,7 @@ export async function runBusVerb(conn: MessageConnection): Promise<void> {
     })
     const to = positional[0]
     if (!to || !flags.task || !flags.summary) {
-      fail('ostia bus handoff: missing <to> --task "..." --summary "..."')
+      failVerb('missing arguments')
       return
     }
     const res = await conn.sendRequest<BusSendOk | ErrResult>('bus.handoff', {
@@ -217,19 +231,19 @@ export async function runBusVerb(conn: MessageConnection): Promise<void> {
       console.log(JSON.stringify(res))
       if (res.state === 'queued' && res.pending) console.error(PENDING_HINTS[res.pending])
     } else {
-      fail(`ostia: bus handoff failed (${describeErrResult(res)})`)
+      failWith(describeErrResult(res))
     }
   } else if (sub === 'claim') {
     const id = rawArgs[0]
     if (!id) {
-      fail('ostia bus claim: missing <id>')
+      failVerb('missing arguments')
       return
     }
     const res = await conn.sendRequest<BusOk | ErrResult>('bus.claim', { id })
     if (res.ok) {
       console.log('ok')
     } else {
-      fail(`ostia: bus claim failed (${describeErrResult(res)})`)
+      failWith(describeErrResult(res))
     }
   } else if (sub === 'handoffs') {
     const { all } = parseArgs(rawArgs, { booleans: { all: '--all' } }).booleans
@@ -237,19 +251,19 @@ export async function runBusVerb(conn: MessageConnection): Promise<void> {
     if ('handoffs' in res) {
       console.log(JSON.stringify(res.handoffs))
     } else {
-      fail(`ostia: bus handoffs failed (${describeErrResult(res)})`)
+      failWith(describeErrResult(res))
     }
   } else if (sub === 'done') {
     const id = rawArgs[0]
     if (!id) {
-      fail('ostia bus done: missing <id>')
+      failVerb('missing arguments')
       return
     }
     const res = await conn.sendRequest<BusOk | ErrResult>('bus.update', { id, state: 'completed' })
     if (res.ok) {
       console.log('ok')
     } else {
-      fail(`ostia: bus done failed (${describeErrResult(res)})`)
+      failWith(describeErrResult(res))
     }
   } else {
     failUsage('bus')

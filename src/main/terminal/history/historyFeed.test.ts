@@ -33,7 +33,7 @@ const GIB = 1024 * 1024 * 1024
 const run = promisify(execFile)
 const electronBinary = createRequire(__filename)('electron') as unknown as string
 const mark = (kind: string) => `${ESC}]133;${kind}\x07`
-const owned: { dispose(): void }[] = []
+const owned: { dispose(): void | Promise<void> }[] = []
 const clients: SpillClient[] = []
 
 function makeHistory(onFailed = vi.fn()): PaneHistory {
@@ -97,9 +97,9 @@ async function plain(history: PaneHistory): Promise<string[]> {
   )
 }
 
-afterEach(() => {
+afterEach(async () => {
   vi.useRealTimers()
-  for (const item of owned.splice(0).reverse()) item.dispose()
+  for (const item of owned.splice(0).reverse()) await item.dispose()
   for (const client of clients.splice(0)) client.end('test-done')
   closeSpillChannels()
 })

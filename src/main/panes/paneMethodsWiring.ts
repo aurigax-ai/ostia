@@ -23,6 +23,7 @@ import type { WindowSend } from '../windows/windowSend'
 import type { ScratchFolders } from '../workspaces/scratchFolders'
 import { windowForWorkspace } from '../workspaces/workspaceRegistry'
 import { registerExtensionWake } from './extensionWake'
+import { createPaneConfirms } from './paneConfirm'
 import { PaneEvents } from './paneEvents'
 import { paneGit } from './paneGit'
 import { type PaneAttentionPeek, registerPaneIoMethods } from './paneIo'
@@ -115,24 +116,27 @@ export function registerPaneMethodsWiring({
     isSandboxed: (workspaceId) => workspaceSandboxes.isEnabled(workspaceId),
     isConfined: (paneId) => ptys.get(paneId)?.sandboxed === true,
   }
+  const confirmDeps = {
+    io: paneIo,
+    attention: peekAttention,
+    panes: () => listPanes({ execCommand, getTerminalState, ptyPid, windowIds, waking: isWaking }),
+    delay: (ms: number) => sleep(ms),
+    hooksOn: (agent: string) =>
+      isResumableAgent(agent) && parseAgentHooks(readSettingsFile().agents?.hooks)[agent],
+  }
   registerPaneIoMethods({
     ...paneReachDeps,
-    io: paneIo,
+    ...confirmDeps,
     state: getTerminalState,
     managerAllowsInput: () => managerSettings().allowInput,
-    attention: peekAttention,
     inputSent: (to) => void execCommand(targetOf(to), 'attention.typed'),
     hibernated: paneHibernated,
     wake: (to) => wakeHibernatedPane(execCommand, to),
     hibernate: (to) => execCommand(targetOf(to), 'pane.hibernate'),
-    panes: () => listPanes({ execCommand, getTerminalState, ptyPid, windowIds, waking: isWaking }),
     waking: paneWaking,
     close: (to) => execCommand(targetOf(to), 'pane.close'),
     resume: (to) => execCommand(targetOf(to), 'agent.resume'),
-    delay: (ms) => sleep(ms),
     journal: services.agentJournal ?? undefined,
-    hooksOn: (agent) =>
-      isResumableAgent(agent) && parseAgentHooks(readSettingsFile().agents?.hooks)[agent],
   })
   registerExtensionWake({
     openedBy: (caller, paneId) => services.extensionHost?.openedBy(caller, paneId) ?? false,
@@ -227,5 +231,5 @@ export function registerPaneMethodsWiring({
     },
   })
 
-  return { paneReachDeps }
+  return { paneReachDeps, turnConfirms: createPaneConfirms(confirmDeps) }
 }

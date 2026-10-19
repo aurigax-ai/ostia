@@ -1,6 +1,5 @@
 import type { AppLog } from '../diagnostics/appLog'
 import type { SpawnPlan } from '../terminal/pty/ptySpawnPlan'
-import { TMUX_MISSING } from './keepShellsBanner'
 import type { KeptPlumbing } from './keptLaunchers'
 import type { KeptMeta, KeptProgram } from './keptShells'
 import type { KeptShells } from './keptShells'
@@ -22,10 +21,11 @@ interface KeptSpawnerDeps {
 export async function tmuxMissingReason(
   program: () => KeptProgram | null,
   loginPathSettled: () => Promise<void>,
+  missing: string,
 ): Promise<string> {
   if (program()) return ''
   await loginPathSettled()
-  return program() ? '' : TMUX_MISSING
+  return program() ? '' : missing
 }
 
 export type KeptSpawner = ReturnType<typeof createKeptSpawner>

@@ -13,6 +13,7 @@ import {
 } from '../../shared/views/views'
 import { parseArgs } from '../common/args'
 import { fail } from '../common/failure'
+import { tsvLine } from '../common/lineField'
 import { usageOf } from '../common/usageTable'
 
 const VIEW_USAGE = usageOf('view')
@@ -69,7 +70,7 @@ function validate(file: string | undefined): number {
 
 export function runOfflineViewVerb(argv: readonly string[]): number {
   if (argv[1] === 'schema') {
-    console.log(JSON.stringify(viewJsonSchema(), null, 2))
+    console.log(JSON.stringify(viewJsonSchema()))
     return 0
   }
   return validate(argv[2])
@@ -81,13 +82,13 @@ export async function runViewVerb(conn: MessageConnection, argv: readonly string
     const { json } = parseArgs(rest, { booleans: { json: '--json' } }).booleans
     const listing = await conn.sendRequest<{ dir: string; views: ViewSummary[] }>('view.list')
     if (json) {
-      console.log(JSON.stringify(listing, null, 2))
+      console.log(JSON.stringify(listing))
       return
     }
     console.log(`# ${listing.dir}`)
     for (const v of listing.views) {
       const problems = v.problems.length > 0 ? `\t${v.problems.length} problem(s)` : ''
-      console.log([v.name, v.status, v.placement ?? '-', v.title].join('\t') + problems)
+      console.log(tsvLine([v.name, v.status, v.placement ?? '-', v.title]) + problems)
     }
     return
   }

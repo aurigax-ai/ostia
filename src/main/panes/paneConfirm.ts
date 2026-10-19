@@ -21,6 +21,8 @@ interface PaneConfirmDeps {
   hooksOn: (agent: string) => boolean
 }
 
+export type PaneConfirms = ReturnType<typeof createPaneConfirms>
+
 export function createPaneConfirms(deps: PaneConfirmDeps) {
   const ticks: Subscribe = (wake) => {
     let on = true

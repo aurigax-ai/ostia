@@ -24,6 +24,15 @@ addEventListener('drop', async (e) => {
 })
 </script>`
 
+function guestAttached(webview: Element): boolean {
+  try {
+    ;(webview as unknown as { getWebContentsId(): number }).getWebContentsId()
+    return true
+  } catch {
+    return false
+  }
+}
+
 function serve(): Promise<{ server: Server; url: string }> {
   const server = createServer((_req, res) => {
     res.setHeader('content-type', 'text/html')
@@ -66,6 +75,9 @@ test('a file dropped from the system onto a web page in a browser pane reaches t
     await win.getByRole('button', { name: 'New browser tab', exact: true }).first().click()
     const address = win.locator('.pane-slot:not([data-hidden]) .browser-address')
     await expect(address).toBeVisible({ timeout: 15_000 })
+    await expect
+      .poll(() => win.locator('webview:visible').evaluate(guestAttached), { timeout: 15_000 })
+      .toBe(true)
     await address.fill(url)
     await address.press('Enter')
     await expect
@@ -74,9 +86,10 @@ test('a file dropped from the system onto a web page in a browser pane reaches t
 
     const page = await centerOf(win.locator('webview:visible'))
     const drag = await dragFiles(win, [notes, photo])
-    await drag.send('dragEnter', page)
     await expect
       .poll(async () => {
+        await drag.send('dragCancel', page)
+        await drag.send('dragEnter', page)
         await drag.send('dragOver', page)
         return (await guestPage(app, url))[0]?.title
       })

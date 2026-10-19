@@ -1,5 +1,5 @@
-import { mkdirSync, rmSync } from 'node:fs'
-import { type FileHandle, open, unlink } from 'node:fs/promises'
+import { mkdirSync } from 'node:fs'
+import { type FileHandle, open, rm, unlink } from 'node:fs/promises'
 import { join } from 'node:path'
 import { openLines, sealLines } from './historyRecords'
 
@@ -208,11 +208,12 @@ export class PaneHistory {
     void closeAndRemove([segment])
   }
 
-  dispose(): void {
-    if (this.disposed) return
+  dispose(): Promise<void> {
+    if (this.disposed) return this.writes
     this.disposed = true
     this.wipe()
-    rmSync(this.deps.dir, { recursive: true, force: true })
+    this.writes = this.writes.then(() => rm(this.deps.dir, { recursive: true, force: true }))
+    return this.writes
   }
 
   private async write(chunk: OpenChunk, generation: number): Promise<void> {

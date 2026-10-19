@@ -10,8 +10,9 @@ import {
 } from 'vscode-jsonrpc/node'
 import { controlInfoPath, readControlSocket } from '../main/control/controlDiscovery'
 import { SCRIPT_TOKEN_PREFIX } from '../shared/permissions/scriptTokens'
+import { FlagError } from './common/args'
 import { wantsHelp } from './common/commandHelp'
-import { describeFailure, fail } from './common/failure'
+import { commandLabel, describeFailure, fail, failVerb } from './common/failure'
 import { paneToken } from './common/paneToken'
 import { readAllStdin } from './common/stdinText'
 import { type UsageAnswer, topUsage, usageGate } from './common/usageTable'
@@ -196,8 +197,10 @@ async function main(): Promise<void> {
   } catch (e) {
     if (connectionLost) {
       console.error('ostia: connection to the app closed (did Ostia quit?)')
+    } else if (e instanceof FlagError) {
+      failVerb(e.message)
     } else {
-      console.error('ostia:', describeFailure(e))
+      console.error(`${commandLabel()}:`, describeFailure(e))
     }
     process.exitCode = 1
   } finally {

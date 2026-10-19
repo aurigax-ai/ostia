@@ -1365,6 +1365,18 @@ describe('pane.read', () => {
     ).resolves.toMatchObject({ text: 'screen of sibling-pane (200)', running: false })
   })
 
+  it('answers hibernated, as send does, for an asleep pane without a terminal', async () => {
+    answer = 'once'
+    const conn = await client(agent)
+    await expect(conn.sendRequest('pane.read', { pane: noPty.externalId })).rejects.toThrow(
+      'no-terminal',
+    )
+    asleepPanes.add(noPty.paneId)
+    await expect(conn.sendRequest('pane.read', { pane: noPty.externalId })).rejects.toThrow(
+      `hibernated: ${noPty.externalId} is asleep; wake it with ostia pane wake`,
+    )
+  })
+
   it('keeps typing and reading as separate grants', async () => {
     const caller = freshPane('ws1')
     const conn = await client(caller)

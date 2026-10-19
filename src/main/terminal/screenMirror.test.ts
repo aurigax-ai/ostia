@@ -1,7 +1,10 @@
 import { Terminal } from '@xterm/headless'
 import { describe, expect, it, vi } from 'vitest'
-import { HIBERNATE_SEAM, HISTORY_LINES, RESTORE_SEAM, ScreenMirror } from './screenMirror'
+import { en } from '../../shared/app/dict'
+import { HISTORY_LINES, ScreenMirror, hibernateSeam, restoreSeam } from './screenMirror'
 
+const RESTORE_SEAM = restoreSeam(en.native.paneBanner)
+const HIBERNATE_SEAM = hibernateSeam(en.native.paneBanner)
 const WIDE = 127
 const NARROW = 90
 const ESC = '\x1b'

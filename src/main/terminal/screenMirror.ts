@@ -1,14 +1,16 @@
 import { type IBufferLine, type IMarker, Terminal } from '@xterm/headless'
 import { type CwdReport, parseOsc7 } from '../../shared/terminal/osc7'
 import type { HistoryFeed } from './history/historyFeed'
+import type { PaneBannerText } from './paneBanner'
 import { serializeLines } from './screenSerialize'
 
 const MIRROR_SCROLLBACK = 2000
 export const HISTORY_LINES = 1000
 const PROMPT_START = 'A'
 const COMMAND_START = 'C'
-export const RESTORE_SEAM = '\x1b]133;D\x07\r\n\x1b[2m── workspace restored ──\x1b[0m\r\n'
-export const HIBERNATE_SEAM = '\x1b]133;D\x07\r\n\x1b[2m── woke from hibernation ──\x1b[0m\r\n'
+const seam = (label: string): string => `\x1b]133;D\x07\r\n\x1b[2m── ${label} ──\x1b[0m\r\n`
+export const restoreSeam = (t: PaneBannerText): string => seam(t.restored)
+export const hibernateSeam = (t: PaneBannerText): string => seam(t.woke)
 
 function isBlank(line: IBufferLine | undefined): boolean {
   return !line || line.translateToString(true).trim() === ''

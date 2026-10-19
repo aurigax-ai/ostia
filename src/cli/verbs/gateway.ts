@@ -1,5 +1,13 @@
 import type { MessageConnection } from 'vscode-jsonrpc/node'
-import { type ErrResult, describeErrResult, fail, failUsage, isErrResult } from '../common/failure'
+import {
+  type ErrResult,
+  describeErrResult,
+  failUsage,
+  failVerb,
+  failWith,
+  isErrResult,
+} from '../common/failure'
+import { tsvLine } from '../common/lineField'
 
 interface GatewayOk {
   ok: true
@@ -36,16 +44,16 @@ export async function runGatewayVerb(conn: MessageConnection): Promise<void> {
   if (sub === 'pair') {
     const res = await conn.sendRequest<GatewayPairResult | ErrResult>('gateway.pair', {})
     if (isErrResult(res)) {
-      fail(`ostia: gateway pair failed (${describeErrResult(res)})`)
+      failWith(describeErrResult(res))
       return
     }
-    console.log(JSON.stringify(res, null, 2))
+    console.log(JSON.stringify(res))
     console.log(`\nostia-pair://${Buffer.from(JSON.stringify(res)).toString('base64url')}`)
     console.log('\n(scan the JSON above as a QR from the phone, or paste the ostia-pair:// URI)')
   } else if (sub === 'status') {
     const res = await conn.sendRequest<GatewayStatusResult | ErrResult>('gateway.status', {})
     if (isErrResult(res)) {
-      fail(`ostia: gateway status failed (${describeErrResult(res)})`)
+      failWith(describeErrResult(res))
       return
     }
     console.log(JSON.stringify(res))
@@ -56,19 +64,19 @@ export async function runGatewayVerb(conn: MessageConnection): Promise<void> {
       return
     }
     for (const d of res.devices) {
-      console.log(`${d.deviceId}\t${d.name}\t${d.caps.join(',')}\t${d.createdAt}`)
+      console.log(tsvLine([d.deviceId, d.name, d.caps.join(','), d.createdAt]))
     }
   } else if (sub === 'revoke') {
     const deviceId = process.argv[4]
     if (!deviceId) {
-      fail('ostia gateway revoke: missing <deviceId>')
+      failVerb('missing arguments')
       return
     }
     const res = await conn.sendRequest<GatewayOk | ErrResult>('gateway.revoke', { deviceId })
     if (res.ok) {
       console.log('ok')
     } else {
-      fail(`ostia: gateway revoke failed (${describeErrResult(res)})`)
+      failWith(describeErrResult(res))
     }
   } else {
     failUsage('gateway')

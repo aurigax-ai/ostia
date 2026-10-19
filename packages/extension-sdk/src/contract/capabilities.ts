@@ -110,10 +110,7 @@ export function capabilityRefusalHint(
   refusal: CapabilityRefusal,
   caps: readonly Capability[],
 ): string {
-  const needed = caps.map((cap) => `${cap} (lets you ${CAPABILITY_ALLOWS[cap]})`).join(', ')
-  const outcome =
-    refusal === 'denied' ? 'The human denied it.' : 'Nobody answered the approval card in time.'
-  const grant = `Only the human can grant it, by answering the approval card in ${PRODUCT_DISPLAY_NAME} or in Settings`
-  const advice = 'ask the human or do this another way, and do not retry in a loop.'
-  return `${outcome} Needed: ${needed}. ${grant}; ${advice}`
+  const needed = caps.map((cap) => `${cap} lets you ${CAPABILITY_ALLOWS[cap]}`).join('; ')
+  const outcome = refusal === 'denied' ? 'The human denied it' : 'Nobody answered in time'
+  return `${outcome}. ${needed}; only the human grants it, in ${PRODUCT_DISPLAY_NAME} or Settings. Ask them or work another way; do not retry.`
 }
