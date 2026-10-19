@@ -30,7 +30,7 @@ beforeEach(() => {
     localSource(
       () => [dir],
       confine,
-      (name) => harness.browse.kindFor(name) !== null,
+      () => harness.browse.browsable(),
     ),
     [new Archives(confine, harness.browse)],
   )

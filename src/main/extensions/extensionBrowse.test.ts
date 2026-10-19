@@ -12,13 +12,34 @@ import {
   browseCallBudget,
   browseReadBudget,
 } from '@aurigax-ai/ostia-extension-sdk/contract/fileBrowse'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { MessageConnection } from 'vscode-jsonrpc/node'
 import { type BrowseHarness, browseHarness } from '../../../test/browseHarness'
 import { zipOf } from '../../../test/fixtures/archives/archives'
 import { zip } from '../../extensions/archives/zip'
 import { closeFd, openRegular } from '../files/archives/archiveFile'
 import type { BrowseTarget } from '../files/archives/browseProviders'
+
+const reads = vi.hoisted(() => ({ delay: 0, inflight: 0, peak: 0, started: 0 }))
+
+vi.mock('node:fs', async (importOriginal) => {
+  const fs = await importOriginal<typeof import('node:fs')>()
+  return {
+    ...fs,
+    read: ((...args: unknown[]) => {
+      const done = args.pop() as (...rest: unknown[]) => void
+      reads.started += 1
+      reads.inflight += 1
+      reads.peak = Math.max(reads.peak, reads.inflight)
+      setTimeout(() => {
+        ;(fs.read as (...rest: unknown[]) => void)(...args, (...result: unknown[]) => {
+          reads.inflight -= 1
+          done(...result)
+        })
+      }, reads.delay)
+    }) as unknown as typeof fs.read,
+  }
+})
 
 const MIB = 1024 * 1024
 const CANDIDATE = {
@@ -32,6 +53,7 @@ let dir: string
 let harness: BrowseHarness | null = null
 
 beforeEach(() => {
+  Object.assign(reads, { delay: 0, inflight: 0, peak: 0, started: 0 })
   dir = mkdtempSync(join(tmpdir(), 'ext-browse-'))
 })
 
@@ -168,6 +190,54 @@ describe('ExtensionBrowse tickets and readAt', () => {
   })
 })
 
+describe('ExtensionBrowse readAt pressure', () => {
+  it('runs at most two reads of a ticket at once, however many the provider pipelines', async () => {
+    reads.delay = 15
+    const { target, close } = await open(8 * MIB)
+    let answers: Array<{ ok: boolean }> = []
+    harness = browseHarness({
+      candidates: [CANDIDATE],
+      raw: raw(async (extConn, ticket) => {
+        answers = (await Promise.all(
+          Array.from({ length: 8 }, (_unused, i) =>
+            extConn.sendRequest(BROWSE_READ_AT_METHOD, { ticket, offset: i * MIB, length: MIB }),
+          ),
+        )) as Array<{ ok: boolean }>
+        return { ok: true, complete: true }
+      }),
+    })
+    await harness.browse.list(target, limits(), idle)
+    close()
+    expect(answers.every((answer) => answer.ok)).toBe(true)
+    expect(reads.started).toBe(8)
+    expect(reads.peak).toBe(2)
+  })
+
+  it('does not hand the file back while a read of the ticket is running, and starts none after', async () => {
+    reads.delay = 25
+    const { target, close } = await open(8 * MIB)
+    harness = browseHarness({
+      candidates: [CANDIDATE],
+      raw: raw(async (extConn, ticket) => {
+        for (let i = 0; i < 6; i++) {
+          void extConn
+            .sendRequest(BROWSE_READ_AT_METHOD, { ticket, offset: i * MIB, length: MIB })
+            .catch(() => {})
+        }
+        await new Promise((resolve) => setTimeout(resolve, 5))
+        return { ok: true, complete: true }
+      }),
+    })
+    await harness.browse.list(target, limits(), idle)
+    expect(reads.inflight).toBe(0)
+    const started = reads.started
+    close()
+    await new Promise((resolve) => setTimeout(resolve, 150))
+    expect(reads.started).toBe(started)
+    expect(started).toBeLessThan(6)
+  })
+})
+
 describe('ExtensionBrowse pages', () => {
   async function listWith(pages: unknown[][], extra: Partial<BrowseLimits> = {}) {
     const { target, close } = await open(10)
@@ -194,6 +264,7 @@ describe('ExtensionBrowse pages', () => {
     const { listing } = await listWith([[entry('a'), entry('b')], [entry('c')]])
     expect(listing).toEqual({
       ok: true,
+      cut: false,
       entries: [
         { ...entry('a'), index: 0 },
         { ...entry('b'), index: 1 },
@@ -209,6 +280,7 @@ describe('ExtensionBrowse pages', () => {
     )
     expect(replies).toEqual([{ ok: true, more: false }])
     expect(listing.ok && listing.entries.map((e) => e.name)).toEqual(['a', 'b', 'c'])
+    expect(listing.ok && listing.cut).toBe(true)
   })
 
   it('stops at the total name bytes', async () => {
@@ -216,6 +288,7 @@ describe('ExtensionBrowse pages', () => {
     const page = Array.from({ length: 450 }, () => entry(long))
     const { listing } = await listWith([page, page, page, page, page, page])
     expect(listing.ok && listing.entries.length).toBeLessThan(2100)
+    expect(listing.ok && listing.cut).toBe(true)
   })
 
   it('fails the whole listing for one malformed entry, a long name or a long link', async () => {

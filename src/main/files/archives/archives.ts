@@ -77,7 +77,9 @@ export class Archives implements VirtualSource {
           settled: false,
           tree: this.providers
             .list(target, this.limits, abort.signal)
-            .then((listing) => (listing.ok ? buildTree(listing.entries, this.limits) : null)),
+            .then((listing) =>
+              listing.ok ? buildTree(listing.entries, this.limits, listing.cut) : null,
+            ),
         }
         entry.tree = entry.tree.finally(() => {
           entry.settled = true

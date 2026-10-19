@@ -36,10 +36,18 @@ describe('needsApproval / effectiveRecord', () => {
   it('pre-approves and enables built-ins, and keeps user extensions off by default', () => {
     expect(effectiveRecord(true, undefined)).toEqual({
       enabled: true,
-      approved: ALL_CAPABILITIES.filter((c) => c !== 'mcp' && c !== 'read-bus'),
+      approved: ALL_CAPABILITIES.filter(
+        (c) => c !== 'mcp' && c !== 'read-bus' && c !== 'file-contents',
+      ),
     })
     expect(effectiveRecord(false, undefined)).toEqual({ enabled: false, approved: null })
     expect(effectiveRecord(true, undefined).approved).not.toContain('mcp')
+    expect(effectiveRecord(true, undefined).approved).not.toContain('file-contents')
+    expect(effectiveRecord(true, undefined, ['file-contents']).approved).toContain('file-contents')
+    expect(effectiveRecord(false, undefined, ['file-contents'])).toEqual({
+      enabled: false,
+      approved: null,
+    })
     const saved = { enabled: false, approved: ['notify' as const] }
     expect(effectiveRecord(true, saved)).toBe(saved)
   })

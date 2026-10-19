@@ -43,14 +43,14 @@ function statOf(path: string | null): Promise<Stats | null> {
 export function localSource(
   roots: () => string[],
   confine: (path: string) => string | null,
-  browsable: (name: string) => boolean,
+  browsable: () => (name: string) => boolean,
 ): FileSource {
   return {
     watchable: true,
     confine,
     list: async (path) => {
       const safe = resolveSafe(path, roots())
-      return safe === null ? [] : listDir(safe, browsable)
+      return safe === null ? [] : listDir(safe, browsable())
     },
     kind: async (path) => {
       const found = await statOf(confine(path))

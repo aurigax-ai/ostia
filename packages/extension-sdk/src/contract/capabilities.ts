@@ -64,7 +64,11 @@ export const ALL_CAPABILITIES: Capability[] = [
   'file-contents',
 ]
 
-export const HUMAN_GRANTED_CAPABILITIES: readonly Capability[] = ['mcp', 'read-bus']
+export const HUMAN_GRANTED_CAPABILITIES: readonly Capability[] = [
+  'mcp',
+  'read-bus',
+  'file-contents',
+]
 
 export const BUILTIN_CAPABILITIES: Capability[] = ALL_CAPABILITIES.filter(
   (cap) => !HUMAN_GRANTED_CAPABILITIES.includes(cap),

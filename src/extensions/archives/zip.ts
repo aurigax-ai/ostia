@@ -12,6 +12,7 @@ import {
   fromRandomAccessReaderPromise,
   getFileNameLowLevel,
 } from 'yauzl'
+import { shownName } from './names'
 
 const FILE_TYPE = 0o170000
 const SYMLINK = 0o120000
@@ -113,11 +114,12 @@ async function listInto(
   const zip = await openZip(file)
   let complete = true
   await walk(zip, signal, async (entry) => {
-    const name = nameOf(entry)
+    const full = nameOf(entry)
+    const name = shownName(full)
     const link = isLink(entry) ? await linkTarget(zip, entry, linkLimit) : null
     const more = await sink.add({
       name,
-      dir: name.endsWith('/'),
+      dir: full.endsWith('/'),
       size: entry.uncompressedSize,
       encrypted: entry.isEncrypted(),
       link,

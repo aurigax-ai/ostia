@@ -48,4 +48,9 @@ describe('archiveTree', () => {
     expect(tree.dirs.get('')).toHaveLength(10)
     expect(tree.cut).toBe(true)
   })
+
+  it('marks a tree cut when the provider stopped early, not only past the entry cap', () => {
+    expect(buildTree([raw('a', 0)], BROWSE_LIMITS).cut).toBe(false)
+    expect(buildTree([raw('a', 0)], BROWSE_LIMITS, true).cut).toBe(true)
+  })
 })

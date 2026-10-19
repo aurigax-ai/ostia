@@ -576,7 +576,8 @@ describe('Marketplace', () => {
       name: 'Gleam',
       version: '1.0.0',
       api: '5.0',
-      capabilities: ['language-server'],
+      capabilities: ['language-server', 'file-contents'],
+      main: 'main.js',
       contributes: {
         languageServers: [
           { id: 'a', name: 'A', languages: ['gleam', 'toml'], run: { program: 'gleam' } },
@@ -588,6 +589,12 @@ describe('Marketplace', () => {
             displayName: 'Package',
             selector: [{ filenamePattern: '*.gleam' }],
             view: { entry: 'pkg.html' },
+          },
+          {
+            id: 'gleam.zip',
+            displayName: 'Bundle',
+            selector: [{ filenamePattern: '*.gleamz' }],
+            browse: {},
           },
         ],
       },
@@ -602,13 +609,21 @@ describe('Marketplace', () => {
     await h.marketplace.add(repo)
     const id = marketplaceId(repo)
     expect(h.marketplace.listings()).toEqual([
-      { marketplaceId: id, extId: 'weather', name: 'Weather', languages: [], patterns: [] },
+      {
+        marketplaceId: id,
+        extId: 'weather',
+        name: 'Weather',
+        languages: [],
+        patterns: [],
+        browsePatterns: [],
+      },
       {
         marketplaceId: id,
         extId: 'gleam',
         name: 'Gleam',
         languages: ['gleam', 'toml'],
         patterns: ['*.gleam'],
+        browsePatterns: ['*.gleamz'],
       },
     ])
     await h.marketplace.remove(id, false)

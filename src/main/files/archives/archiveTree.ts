@@ -44,7 +44,7 @@ function joined(parts: string[]): string {
   return parts.join('/')
 }
 
-export function buildTree(raw: RawEntry[], limits: BrowseLimits): ArchiveTree {
+export function buildTree(raw: RawEntry[], limits: BrowseLimits, cut = false): ArchiveTree {
   const dirs = new Map<string, FsEntry[]>([['', []]])
   const files = new Map<string, EntryRef>()
   const kept = raw.slice(0, limits.entries)
@@ -82,5 +82,5 @@ export function buildTree(raw: RawEntry[], limits: BrowseLimits): ArchiveTree {
       ...(entry.encrypted ? { encrypted: true as const } : {}),
     })
   }
-  return { dirs, files, cut: raw.length > limits.entries }
+  return { dirs, files, cut: cut || raw.length > limits.entries }
 }

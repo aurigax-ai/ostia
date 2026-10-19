@@ -9,10 +9,13 @@ export interface BrowseTarget {
   size: number
 }
 
-export type ProviderListing = { ok: true; entries: RawEntry[] } | { ok: false; error: string }
+export type ProviderListing =
+  | { ok: true; entries: RawEntry[]; cut: boolean }
+  | { ok: false; error: string }
 
 export interface BrowseProviders {
   kindFor(name: string): { extId: string; kind: string } | null
+  browsable(): (name: string) => boolean
   list(target: BrowseTarget, limits: BrowseLimits, signal: AbortSignal): Promise<ProviderListing>
   read(
     target: BrowseTarget,

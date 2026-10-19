@@ -1,14 +1,8 @@
 const ARCHIVE_SCHEME = 'archive:'
 
-const ARCHIVE_NAME = /\.(?:zip|jar|tar|tgz|tar\.gz|tzst|tar\.zst)$/i
-
 export interface ArchivePath {
   archive: string
   entry: string
-}
-
-export function isArchiveName(name: string): boolean {
-  return ARCHIVE_NAME.test(name)
 }
 
 export function isArchivePath(path: string | undefined): boolean {

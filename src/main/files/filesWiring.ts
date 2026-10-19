@@ -33,13 +33,14 @@ export function createFileServices({
   const noProvider = { ok: false as const, error: 'no-provider' }
   const providers: BrowseProviders = {
     kindFor: (name) => extensions()?.browse.kindFor(name) ?? null,
+    browsable: () => extensions()?.browse.browsable() ?? (() => false),
     list: async (...args) => extensions()?.browse.list(...args) ?? noProvider,
     read: async (...args) =>
       extensions()?.browse.read(...args) ?? { ok: false, problem: 'unreadable' },
   }
   const archives = new Archives(confine, providers)
   const sources = new FileSources(
-    localSource(fileRoots, confine, (name) => providers.kindFor(name) !== null),
+    localSource(fileRoots, confine, () => providers.browsable()),
     [archives],
   )
   const watches = new FileWatches({

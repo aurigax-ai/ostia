@@ -1,5 +1,5 @@
 import type { MessageConnection } from 'vscode-jsonrpc/node'
-import { CONTROL_MESSAGE_MAX } from '../../shared/control/messageLimit'
+import { CONTROL_MESSAGE_ENVELOPE, CONTROL_MESSAGE_MAX } from '../../shared/control/messageLimit'
 import { wantsHelp } from '../common/commandHelp'
 import { fail, failUsage } from '../common/failure'
 import { tsvLine } from '../common/lineField'
@@ -69,7 +69,7 @@ export async function runExtCommand(
   const args: { argv: string[]; stdin?: string } = { argv }
   if (cmd.stdin) {
     try {
-      args.stdin = await readStdinUpTo(CONTROL_MESSAGE_MAX)
+      args.stdin = await readStdinUpTo(CONTROL_MESSAGE_MAX - CONTROL_MESSAGE_ENVELOPE)
     } catch (err) {
       if (err instanceof StdinTooLarge) return fail(`ostia ${extId} ${command}: ${err.message}`)
       throw err

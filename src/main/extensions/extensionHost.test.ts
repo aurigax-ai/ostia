@@ -505,6 +505,18 @@ describe('ExtensionHost — browse kinds', () => {
     ])
   })
 
+  it('grants file-contents to a built-in only when it declares a browse kind', () => {
+    writeExt(join(base, 'builtin'), 'peeker', {
+      capabilities: ['file-contents'],
+      contributes: {},
+    })
+    const { host } = makeHost()
+    const byId = Object.fromEntries(host.list().map((e) => [e.id, e]))
+    expect(byId.zips.granted).toContain('file-contents')
+    expect(byId.board.granted).not.toContain('file-contents')
+    expect(byId.peeker).toMatchObject({ granted: [], unapproved: ['file-contents'] })
+  })
+
   it('serves nothing from a user extension until the human approved its claim', () => {
     const { host } = makeHost()
     expect(host.browse.kindFor('/w/a.rar')).toBeNull()

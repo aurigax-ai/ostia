@@ -41,6 +41,7 @@ const LIST_GRACE_MS = 5_000
 const READ_DEADLINE_MS = 30_000
 const MAX_IN_FLIGHT = 4
 const MAX_QUEUED = 16
+const READS_AT_ONCE = 2
 
 export interface ExtensionBrowseHost {
   candidates(): BrowseCandidate[]
@@ -60,6 +61,7 @@ interface Listing {
   bytes: number
   limits: BrowseLimits
   failed: boolean
+  cut: boolean
 }
 
 interface Chunks {
@@ -81,6 +83,10 @@ interface Ticket {
   callBudget: number
   cancel: CancellationTokenSource
   overBudget: boolean
+  dead: boolean
+  reading: number
+  waiting: Array<() => void>
+  drained: (() => void) | null
   listing?: Listing
   chunks?: Chunks
 }
@@ -127,6 +133,11 @@ export class ExtensionBrowse implements BrowseProviders {
     return found ? { extId: found.extId, kind: found.kind.id } : null
   }
 
+  browsable(): (name: string) => boolean {
+    const candidates = this.host.candidates()
+    return (name) => browseKindFor(name, candidates) !== null
+  }
+
   kindsSignature(): string {
     return this.host
       .candidates()
@@ -153,7 +164,7 @@ export class ExtensionBrowse implements BrowseProviders {
       limits.scanMs + this.timing.listGraceMs,
       signal,
       (ticket) => {
-        ticket.listing = { entries: [], bytes: 0, limits, failed: false }
+        ticket.listing = { entries: [], bytes: 0, limits, failed: false, cut: false }
       },
       (conn, ticket) =>
         conn.sendRequest(BROWSE_LIST_METHOD, params(ticket.id), ticket.cancel.token),
@@ -163,10 +174,11 @@ export class ExtensionBrowse implements BrowseProviders {
     const listing = ticket.listing
     if (!listing || listing.failed) return { ok: false, error: 'invalid' }
     if (!isRecord(result)) return { ok: false, error: 'failed' }
-    if (result.ok === true) return { ok: true, entries: listing.entries }
+    if (result.ok === true) return { ok: true, entries: listing.entries, cut: listing.cut }
     const error = typeof result.error === 'string' ? result.error : 'failed'
-    if (error === 'limit' && listing.entries.length > 0)
-      return { ok: true, entries: listing.entries }
+    if (error === 'limit' && listing.entries.length > 0) {
+      return { ok: true, entries: listing.entries, cut: true }
+    }
     return { ok: false, error }
   }
 
@@ -255,6 +267,10 @@ export class ExtensionBrowse implements BrowseProviders {
         callBudget: browseCallBudget(target.size),
         cancel: new CancellationTokenSource(),
         overBudget: false,
+        dead: false,
+        reading: 0,
+        waiting: [],
+        drained: null,
       }
       ticket = made
       prepare(made)
@@ -283,9 +299,46 @@ export class ExtensionBrowse implements BrowseProviders {
       return { ok: true, value: { result: raced, ticket: made } }
     } finally {
       clearTimeout(timer)
-      if (ticket) this.tickets.delete(ticket.id)
+      if (ticket) {
+        this.tickets.delete(ticket.id)
+        await this.drain(ticket)
+      }
       release()
     }
+  }
+
+  private async drain(ticket: Ticket): Promise<void> {
+    ticket.dead = true
+    for (const start of ticket.waiting.splice(0)) start()
+    if (ticket.reading === 0) return
+    await new Promise<void>((resolve) => {
+      ticket.drained = resolve
+    })
+  }
+
+  private pump(ticket: Ticket): void {
+    while (ticket.reading < READS_AT_ONCE && ticket.waiting.length > 0) ticket.waiting.shift()?.()
+  }
+
+  private readBlock(ticket: Ticket, offset: number, length: number): Promise<BrowseReadAtResult> {
+    return new Promise((resolve) => {
+      ticket.waiting.push(() => {
+        if (ticket.dead) {
+          resolve({ ok: false, error: 'unknown-ticket' })
+          return
+        }
+        ticket.reading += 1
+        const buffer = Buffer.alloc(length)
+        read(ticket.fd, buffer, 0, length, offset, (error, bytes) => {
+          ticket.reading -= 1
+          if (error || bytes !== length) resolve({ ok: false, error: 'out-of-range' })
+          else resolve({ ok: true, data: buffer.toString('base64') })
+          if (ticket.reading === 0 && ticket.drained) ticket.drained()
+          else this.pump(ticket)
+        })
+      })
+      this.pump(ticket)
+    })
   }
 
   private ticketOf(identity: PaneIdentity, conn: MessageConnection, id: unknown): Ticket | null {
@@ -325,13 +378,7 @@ export class ExtensionBrowse implements BrowseProviders {
       ticket.cancel.cancel()
       return Promise.resolve({ ok: false, error: 'over-budget' })
     }
-    return new Promise((resolve) => {
-      const buffer = Buffer.alloc(length)
-      read(ticket.fd, buffer, 0, length, offset, (error, bytes) => {
-        if (error || bytes !== length) resolve({ ok: false, error: 'out-of-range' })
-        else resolve({ ok: true, data: buffer.toString('base64') })
-      })
-    })
+    return this.readBlock(ticket, offset, length)
   }
 
   entries(identity: PaneIdentity, conn: MessageConnection, raw: unknown): BrowseFlowResult {
@@ -343,9 +390,15 @@ export class ExtensionBrowse implements BrowseProviders {
     if (!Array.isArray(page) || page.length > BROWSE_PAGE_ENTRIES) return this.fail(ticket)
     for (const entry of page) {
       if (!validEntry(entry, listing.limits)) return this.fail(ticket)
-      if (listing.entries.length > listing.limits.entries) return { ok: true, more: false }
+      if (listing.entries.length > listing.limits.entries) {
+        listing.cut = true
+        return { ok: true, more: false }
+      }
       listing.bytes += textBytes(entry.name) + (entry.link === null ? 0 : textBytes(entry.link))
-      if (listing.bytes > BROWSE_LISTING_BYTES) return { ok: true, more: false }
+      if (listing.bytes > BROWSE_LISTING_BYTES) {
+        listing.cut = true
+        return { ok: true, more: false }
+      }
       listing.entries.push({
         name: entry.name,
         index: listing.entries.length,
@@ -355,7 +408,9 @@ export class ExtensionBrowse implements BrowseProviders {
         link: entry.link,
       })
     }
-    return { ok: true, more: listing.entries.length <= listing.limits.entries }
+    const more = listing.entries.length <= listing.limits.entries
+    if (!more) listing.cut = true
+    return { ok: true, more }
   }
 
   chunk(identity: PaneIdentity, conn: MessageConnection, raw: unknown): BrowseFlowResult {

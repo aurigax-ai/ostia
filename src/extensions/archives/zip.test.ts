@@ -25,6 +25,23 @@ describe('zip provider', () => {
     ])
   })
 
+  it('shortens a name over the cap and keeps listing', async () => {
+    const long = `${'é'.repeat(3000)}.txt`
+    const { entries, result } = await listAll(
+      zip,
+      memoryFile(
+        zipOf([
+          { name: long, data: 'x' },
+          { name: 'after.txt', data: 'y' },
+        ]),
+      ),
+    )
+    expect(result).toEqual({ ok: true, complete: true })
+    expect(Buffer.byteLength(entries[0].name)).toBeLessThanOrEqual(4096)
+    expect(entries[0].name.endsWith('…')).toBe(true)
+    expect(entries[1].name).toBe('after.txt')
+  })
+
   it('reads one entry by its number, in chunks', async () => {
     const file = memoryFile(
       zipOf([

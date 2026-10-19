@@ -93,6 +93,16 @@ export interface ExtensionListing {
   name: string
   languages: string[]
   patterns: string[]
+  browsePatterns: string[]
+}
+
+function patternsOf(
+  manifest: ExtensionManifest,
+  pick: (kind: NonNullable<ExtensionManifest['contributes']['fileKinds']>[number]) => boolean,
+): string[] {
+  return (manifest.contributes.fileKinds ?? [])
+    .filter(pick)
+    .flatMap((kind) => kind.selector.map((item) => item.filenamePattern))
 }
 
 export class Marketplace {
@@ -132,9 +142,8 @@ export class Marketplace {
           extId: manifest.id,
           name: manifest.name,
           languages: [...new Set(languages)],
-          patterns: (manifest.contributes.fileKinds ?? [])
-            .filter((kind) => kind.view)
-            .flatMap((kind) => kind.selector.map((item) => item.filenamePattern)),
+          patterns: patternsOf(manifest, (kind) => Boolean(kind.view)),
+          browsePatterns: patternsOf(manifest, (kind) => !kind.view && Boolean(kind.browse)),
         })
       }
     }

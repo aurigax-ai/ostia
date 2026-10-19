@@ -3,7 +3,19 @@ import { CONTROL_MESSAGE_MAX } from '../../shared/control/messageLimit'
 
 const HEADER_MAX = 4096
 const HEADER_END = Buffer.from('\r\n\r\n')
-const LENGTH_HEADER = /^content-length:\s*(\d+)\s*$/im
+
+function declaredLength(block: string): number {
+  let found: string | null = null
+  let count = 0
+  for (const line of block.split('\r\n')) {
+    const colon = line.indexOf(':')
+    if (colon === -1) return Number.NaN
+    if (line.slice(0, colon).toLowerCase() !== 'content-length') continue
+    count += 1
+    found = line.slice(colon + 1).trim()
+  }
+  return count === 1 && found !== null ? Number.parseInt(found) : Number.NaN
+}
 
 export function capIncomingMessages(
   socket: Pick<Socket, 'on' | 'destroy'>,
@@ -26,9 +38,8 @@ export function capIncomingMessages(
         if (header.length > HEADER_MAX) socket.destroy()
         return
       }
-      const length = LENGTH_HEADER.exec(header.subarray(0, end).toString('latin1'))?.[1]
-      const bytes = length === undefined ? Number.NaN : Number(length)
-      if (!Number.isSafeInteger(bytes) || bytes > max) {
+      const bytes = declaredLength(header.subarray(0, end).toString('ascii'))
+      if (!Number.isSafeInteger(bytes) || bytes < 0 || bytes > max) {
         socket.destroy()
         return
       }

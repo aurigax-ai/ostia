@@ -39,10 +39,11 @@ export function kindApproved(
 export function effectiveRecord(
   builtin: boolean,
   record: ExtensionRecord | undefined,
+  declared: readonly Capability[] = [],
 ): ExtensionRecord {
   if (record) return record
   return builtin
-    ? { enabled: true, approved: [...BUILTIN_CAPABILITIES] }
+    ? { enabled: true, approved: [...BUILTIN_CAPABILITIES, ...declared] }
     : { enabled: false, approved: null }
 }
 

@@ -221,7 +221,12 @@ export class ExtensionHost {
   }
 
   private record(rt: Runtime) {
-    return effectiveRecord(rt.ext.builtin, this.deps.store.get(rt.ext.manifest.id))
+    const browses = (rt.ext.manifest.contributes.fileKinds ?? []).some((kind) => kind.browse)
+    return effectiveRecord(
+      rt.ext.builtin,
+      this.deps.store.get(rt.ext.manifest.id),
+      browses ? [FILE_CONTENTS_CAPABILITY] : [],
+    )
   }
 
   private browseCandidates(): BrowseCandidate[] {

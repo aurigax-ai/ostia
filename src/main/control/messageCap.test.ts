@@ -37,6 +37,42 @@ describe('capIncomingMessages', () => {
     expect(second.socket.destroy).toHaveBeenCalledTimes(1)
   })
 
+  it('closes on two Content-Length headers, whichever comes first, since the reader uses the last', () => {
+    for (const block of [
+      'Content-Length: 1\r\nContent-Length: 2000000000\r\n\r\n',
+      'Content-Length: 2000000000\r\nContent-Length: 1\r\n\r\n',
+      'content-length: 1\r\nCONTENT-LENGTH: 1\r\n\r\n',
+    ]) {
+      const { socket, send } = connect(10)
+      send(Buffer.from(block))
+      expect(socket.destroy, block).toHaveBeenCalledTimes(1)
+    }
+  })
+
+  it('reads the length the way the reader does: lower-cased key, parseInt value, no negatives', () => {
+    const ok = connect(100)
+    ok.send(Buffer.from('X-Other: y\r\nCONTENT-length:  7abc \r\n\r\n1234567'))
+    expect(ok.socket.destroy).not.toHaveBeenCalled()
+    for (const block of [
+      'Content-Length: -5\r\n\r\n',
+      'Content-Length: x\r\n\r\n',
+      'broken\r\n\r\n',
+    ]) {
+      const bad = connect(100)
+      bad.send(Buffer.from(block))
+      expect(bad.socket.destroy, block).toHaveBeenCalledTimes(1)
+    }
+  })
+
+  it('does not take header lines inside a body for headers, and keeps in step with the reader', () => {
+    const { socket, send } = connect(50)
+    const body = Buffer.from('Content-Length: 1\r\nContent-Length: 999999999\r\n\r\n')
+    send(frame(body.length, body))
+    expect(socket.destroy).not.toHaveBeenCalled()
+    send(frame(51))
+    expect(socket.destroy).toHaveBeenCalledTimes(1)
+  })
+
   it('counts the body of a big allowed message without keeping it', () => {
     const { socket, send } = connect(1024)
     send(frame(1000, Buffer.alloc(300)))

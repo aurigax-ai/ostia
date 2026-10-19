@@ -1,6 +1,7 @@
 import { BrowseError, type BrowseFile, type BrowseProvider } from '@aurigax-ai/ostia-extension-sdk'
 import { Parser, type ReadEntry } from 'tar'
 import { InflateLimit, SNIFF_BYTES, inflate, sniffCompression } from './inflate'
+import { shownLink, shownName } from './names'
 
 const LINK_TYPES = new Set(['SymbolicLink', 'Link'])
 const HEADER_BYTES = 512
@@ -91,11 +92,13 @@ export const tar: BrowseProvider = {
       visit: (entry) => {
         count += 1
         const added = {
-          name: entry.path,
+          name: shownName(entry.path),
           dir: entry.type === 'Directory',
           size: entry.size,
           encrypted: false,
-          link: LINK_TYPES.has(entry.type) ? (entry.linkpath ?? '') : null,
+          link: LINK_TYPES.has(entry.type)
+            ? shownLink(entry.linkpath ?? '', limits.linkTargetBytes)
+            : null,
         }
         chain = chain.then((more) => (more ? sink.add(added) : false))
         return count > limits.entries ? 'stop' : 'next'

@@ -47,6 +47,23 @@ describe('tar provider', () => {
     expect((await readEntry(tar, file, 0)).result).toEqual({ ok: false, error: 'link' })
   })
 
+  it('shortens a name over the cap and blanks a link over the cap instead of failing the listing', async () => {
+    const name = `${'d'.repeat(5000)}.txt`
+    const file = memoryFile(
+      tarOf([
+        { name: 'cut', longName: name, data: 'x' },
+        { name: 'far', type: '2', link: 'x', longLink: 'l'.repeat(2000) },
+        { name: 'ok.txt', data: 'y' },
+      ]),
+    )
+    const { entries, result } = await listAll(tar, file)
+    expect(result).toEqual({ ok: true, complete: true })
+    expect(entries.map((entry) => Buffer.byteLength(entry.name))).toEqual([4096, 3, 6])
+    expect(entries[0].name.endsWith('…')).toBe(true)
+    expect(entries[1]).toMatchObject({ name: 'far', link: '' })
+    expect((await readEntry(tar, file, 0)).data.toString()).toBe('x')
+  })
+
   it('reports a missing entry as gone and an entry over the cap as too large', async () => {
     const file = memoryFile(tarOf([{ name: 'big.txt', data: 'x'.repeat(5000) }], false))
     expect((await readEntry(tar, file, 3)).result).toEqual({ ok: false, error: 'gone' })

@@ -19,7 +19,10 @@ const EXTENSION_ID = /^[a-z][a-z0-9-]{1,39}$/
 
 export interface SuggestionSources {
   servers: () => LanguageServerSource[]
-  extensions: () => Pick<ExtensionInfo, 'id' | 'name' | 'enabled' | 'status' | 'fileKinds'>[]
+  extensions: () => Pick<
+    ExtensionInfo,
+    'id' | 'name' | 'enabled' | 'status' | 'fileKinds' | 'granted'
+  >[]
   listings: () => ExtensionListing[]
   dismissed: () => readonly string[]
   official: string
@@ -32,22 +35,27 @@ interface Candidate {
   feature: ExtensionSuggestion['feature']
 }
 
-function viewed(path: string, extensions: ReturnType<SuggestionSources['extensions']>): boolean {
-  return extensions.some(
-    (ext) =>
-      ext.enabled &&
-      ext.fileKinds.some((kind) => kind.view && kind.approved && kindMatches(path, kind)),
+type Installed = ReturnType<SuggestionSources['extensions']>[number]
+
+function served(ext: Installed, kind: Installed['fileKinds'][number]): boolean {
+  return ext.enabled && kind.approved && (!kind.browse || ext.granted.includes('file-contents'))
+}
+
+function matching(path: string, ext: Installed): Installed['fileKinds'] {
+  return ext.fileKinds.filter((kind) => kindMatches(path, kind))
+}
+
+function awaitsApproval(path: string, ext: Installed): boolean {
+  return (
+    ext.status === 'pending-approval' ||
+    matching(path, ext).some(
+      (kind) => !kind.approved || (kind.browse && !ext.granted.includes('file-contents')),
+    )
   )
 }
 
-function awaitsApproval(
-  path: string,
-  ext: ReturnType<SuggestionSources['extensions']>[number],
-): boolean {
-  return (
-    ext.status === 'pending-approval' ||
-    ext.fileKinds.some((kind) => kind.view && !kind.approved && kindMatches(path, kind))
-  )
+function featureOf(kinds: Installed['fileKinds']): Candidate['feature'] {
+  return kinds.some((kind) => kind.view) ? 'view' : 'browse'
 }
 
 export function suggestionFor(
@@ -84,15 +92,16 @@ export function suggestionFor(
   for (const listing of trusted) {
     if (listing.languages.includes(language)) add(listing.extId, files)
   }
-  if (!viewed(path, extensions)) {
+  if (!extensions.some((ext) => matching(path, ext).some((kind) => served(ext, kind)))) {
     for (const ext of extensions) {
-      if (ext.fileKinds.some((kind) => kind.view && kindMatches(path, kind))) {
-        add(ext.id, files, 'view')
-      }
+      const kinds = matching(path, ext)
+      if (kinds.length > 0) add(ext.id, files, featureOf(kinds))
     }
     for (const listing of trusted) {
       if (listing.patterns.some((pattern) => matchesFilenamePattern(path, pattern))) {
         add(listing.extId, files, 'view')
+      } else if (listing.browsePatterns.some((pattern) => matchesFilenamePattern(path, pattern))) {
+        add(listing.extId, files, 'browse')
       }
     }
   }
