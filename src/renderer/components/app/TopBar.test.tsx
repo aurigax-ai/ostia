@@ -279,7 +279,7 @@ describe('TopBar', () => {
     expect(within(button).getByText('Ctrl+Alt+K')).toBeInTheDocument()
   })
 
-  it('puts the dashboard button after Files, and the extension panel toggles at the right', () => {
+  it('puts the extension panel toggles right after Files on the left, then the dashboard button', () => {
     seedWorkspace()
     useExtensionsStore.setState({ list: [git] })
     const { container } = render(<TopBar />)
@@ -287,12 +287,8 @@ describe('TopBar', () => {
       Array.from(container.querySelector(selector)?.querySelectorAll('button') ?? []).map((b) =>
         b.getAttribute('aria-label'),
       )
-    expect(names('.topbar-left').slice(-2)).toEqual(['Files', 'Dashboard'])
-    const right = names('.topbar-right')
-    expect(right.slice(right.indexOf('Changes'), right.indexOf('Changes') + 2)).toEqual([
-      'Changes',
-      'Settings',
-    ])
+    expect(names('.topbar-left').slice(-3)).toEqual(['Files', 'Changes', 'Dashboard'])
+    expect(names('.topbar-right')).not.toContain('Changes')
   })
 
   it('opens and closes the dashboard from its button, pressed while open', async () => {
