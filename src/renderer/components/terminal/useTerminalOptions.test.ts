@@ -5,6 +5,10 @@ import { describe, expect, it, vi } from 'vitest'
 import { initialTerminalOptions, useTerminalOptions } from './useTerminalOptions'
 
 describe('useTerminalOptions', () => {
+  it('starts every engine with scrollback animation off', () => {
+    expect(initialTerminalOptions().smoothScrollDuration).toBe(0)
+  })
+
   it('paints an open terminal with the colors of a new scheme', () => {
     const term = { options: { ...initialTerminalOptions() } } as unknown as OstiaTerminal
     const font = {

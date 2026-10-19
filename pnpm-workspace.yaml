@@ -23,6 +23,7 @@ minimumReleaseAgeExclude:
   - '@anthropic-ai/sandbox-runtime@0.0.79'
   - '@aurigax-ai/ghostty-web@0.3.5'
 patchedDependencies:
+  '@aurigax-ai/ghostty-web': patches/@aurigax-ai__ghostty-web.patch
   '@xterm/xterm@6.1.0-beta.304': patches/@xterm__xterm@6.1.0-beta.304.patch
   monaco-editor@0.57.0: patches/monaco-editor@0.57.0.patch
   swr@2.5.1: patches/swr@2.5.1.patch

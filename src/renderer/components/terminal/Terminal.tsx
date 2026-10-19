@@ -26,6 +26,7 @@ import {
   terminalScreen,
 } from '@/lib/terminal/ostiaTerminal'
 import { TERMINAL_INPUT_SELECTOR } from '@/lib/terminal/ostiaTerminal'
+import { attachSmoothScroll } from '@/lib/terminal/smoothScroll'
 import { drawOnGpu } from '@/lib/terminal/softwareGl'
 import { registerHistoryScroll, registerTerminal } from '@/lib/terminal/terminalHandles'
 import { keepDrawing, usePauseWhenHidden } from '@/lib/terminal/usePauseWhenHidden'
@@ -341,6 +342,7 @@ function startTerminal(deps: StartTerminalDeps): () => void {
     history.interceptWheel,
   )
   const detachWheelZoom = attachWheelZoom(host, 'terminal', isMac)
+  const detachSmoothScroll = attachSmoothScroll(host, term, isMac)
   const screenElement = terminalScreen(host)
   const detachLinks = links.attach(term, screenElement)
   termRef.current = term
@@ -393,6 +395,7 @@ function startTerminal(deps: StartTerminalDeps): () => void {
     detachSignals()
     unregisterLinks()
     detachWheelZoom()
+    detachSmoothScroll()
     detachLinks()
     unregisterHistory()
     history.dispose()

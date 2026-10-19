@@ -200,6 +200,7 @@ function optionsProxy(t: GhosttyTerm): TerminalOptions {
     'scrollback',
     'nativeScrollbar',
     'scrollSensitivity',
+    'smoothScrollDuration',
     'minimumContrastRatio',
     'macOptionIsMeta',
   ])
@@ -279,6 +280,7 @@ export function createGhosttyTerminal(
     fontWeight: fontWeightOf(options.fontWeight),
     lineHeight: options.lineHeight,
     scrollSensitivity: options.scrollSensitivity,
+    smoothScrollDuration: options.smoothScrollDuration ?? 0,
     minimumContrastRatio: options.minimumContrastRatio,
     macOptionIsMeta: options.macOptionIsMeta,
     linkHandler: {
