@@ -1,9 +1,16 @@
+import { type ChildProcess, spawn } from 'node:child_process'
+import { EventEmitter } from 'node:events'
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { PassThrough } from 'node:stream'
+import { build } from 'esbuild'
 import type { IPty } from 'node-pty'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import {
   type BridgeEnv,
   type DeviceIo,
+  type DeviceStream,
   bridgeCommand,
   connectDevice,
   nodeDeviceIo,
@@ -23,22 +30,42 @@ function errno(code: string): Error {
   return Object.assign(new Error(code), { code })
 }
 
-class FakeDevice implements DeviceIo {
-  opened: { path: string; nonBlocking: boolean; fd: number }[] = []
-  closed: number[] = []
+class FakePort extends EventEmitter implements DeviceStream {
   written: Buffer[] = []
+  writeError: Error | null = null
+  destroyed = false
+
+  write(data: Uint8Array, done: (err?: Error | null) => void): boolean {
+    if (this.writeError) {
+      const err = this.writeError
+      queueMicrotask(() => done(err))
+      return false
+    }
+    this.written.push(Buffer.from(data))
+    queueMicrotask(() => done(null))
+    return true
+  }
+  destroy(): void {
+    if (this.destroyed) return
+    this.destroyed = true
+    queueMicrotask(() => this.emit('close'))
+  }
+}
+
+class FakeDevice implements DeviceIo {
+  opened: { path: string; fd: number }[] = []
+  closed: number[] = []
   configured: { fd: number; args: string[] }[] = []
+  streamed: number[] = []
   openError: Error | null = null
   configureError: string | null = null
-  writeError: Error | null = null
-  private reads: ((bytes: Buffer | null) => void)[] = []
-  private queued: (Buffer | null)[] = []
+  port = new FakePort()
   private next = 10
 
-  open = (path: string, nonBlocking: boolean): number => {
+  open = (path: string): number => {
     if (this.openError) throw this.openError
     const fd = this.next++
-    this.opened.push({ path, nonBlocking, fd })
+    this.opened.push({ path, fd })
     return fd
   }
   close = (fd: number): void => {
@@ -48,27 +75,16 @@ class FakeDevice implements DeviceIo {
     this.configured.push({ fd, args })
     return this.configureError
   }
-  write = async (_fd: number, data: Uint8Array): Promise<void> => {
-    if (this.writeError) throw this.writeError
-    this.written.push(Buffer.from(data))
-  }
-  read = (_fd: number, buffer: Buffer): Promise<number> => {
-    const deliver = (bytes: Buffer | null): number => {
-      if (!bytes) return 0
-      bytes.copy(buffer)
-      return bytes.length
-    }
-    const ready = this.queued.shift()
-    if (ready !== undefined) return Promise.resolve(deliver(ready))
-    return new Promise((resolve) => this.reads.push((bytes) => resolve(deliver(bytes))))
+  stream = (fd: number): DeviceStream => {
+    this.streamed.push(fd)
+    return this.port
   }
   emit(bytes: Buffer | null): void {
-    const take = this.reads.shift()
-    if (take) take(bytes)
-    else this.queued.push(bytes)
+    if (bytes) this.port.emit('data', bytes)
+    else this.port.emit('end')
   }
   sent(): string {
-    return Buffer.concat(this.written).toString()
+    return Buffer.concat(this.port.written).toString()
   }
 }
 
@@ -171,7 +187,7 @@ describe('serial bridge errors', () => {
     expect(term.text()).toContain('Could not set the line settings')
     expect(term.text()).toContain('unable to perform all requested operations')
     expect(device.closed).toEqual([device.opened[0].fd])
-    expect(device.opened).toHaveLength(1)
+    expect(device.streamed).toEqual([])
   })
 
   it('reports a device that goes away and gives the terminal back', async () => {
@@ -183,12 +199,12 @@ describe('serial bridge errors', () => {
     expect(await done).toBe(1)
     expect(term.text()).toContain('went away')
     expect(term.input.setRawMode).toHaveBeenLastCalledWith(false)
-    expect(device.closed).toContain(device.opened[1].fd)
+    expect(device.port.destroyed).toBe(true)
   })
 
   it('stops when a write to the device fails', async () => {
     const device = new FakeDevice()
-    device.writeError = errno('EIO')
+    device.port.writeError = errno('EIO')
     const { term, bridgeEnv } = env(device)
     const done = runBridge({ device: DEVICE }, bridgeEnv)
     await until(() => term.text().includes('Connected'))
@@ -199,17 +215,15 @@ describe('serial bridge errors', () => {
 })
 
 describe('serial bridge forwarding', () => {
-  it('configures the line on a non-blocking probe, then keeps a blocking descriptor', async () => {
+  it('configures the line on the open descriptor and streams it', async () => {
     const device = new FakeDevice()
     const { term, bridgeEnv } = env(device)
     const done = connectDevice(DEVICE, LINE, bridgeEnv, s)
     await until(() => term.text().includes('Connected'))
-    expect(device.opened.map((o) => [o.path, o.nonBlocking])).toEqual([
-      [DEVICE, true],
-      [DEVICE, false],
-    ])
+    expect(device.opened.map((o) => o.path)).toEqual([DEVICE])
     expect(device.configured).toEqual([{ fd: device.opened[0].fd, args: sttyArgs(LINE) }])
-    expect(device.closed).toEqual([device.opened[0].fd])
+    expect(device.streamed).toEqual([device.opened[0].fd])
+    expect(device.closed).toEqual([])
     expect(term.text()).toContain('\x1b]2;cu.usbserial-A10K2 115200 8N1\x07')
     expect(term.text()).toContain('Connected to /dev/cu.usbserial-A10K2 at 115200 8N1.')
     expect(term.text()).toContain('Ctrl-]')
@@ -226,8 +240,8 @@ describe('serial bridge forwarding', () => {
     expect(device.sent()).toBe('show version\ra')
     expect(term.text()).toContain('Disconnected from /dev/cu.usbserial-A10K2.')
     expect(term.input.setRawMode).toHaveBeenLastCalledWith(false)
+    expect(device.port.destroyed).toBe(true)
     device.emit(Buffer.from('late'))
-    await until(() => device.closed.includes(device.opened[1].fd))
     expect(term.text()).not.toContain('late')
   })
 })
@@ -296,7 +310,9 @@ function spawnsPty(): boolean {
   }
 }
 
-describe.skipIf(!spawnsPty())('serial bridge on a pseudo-terminal', () => {
+const ptyRequired = process.env.CI === 'true' && process.platform === 'linux'
+
+describe.skipIf(!ptyRequired && !spawnsPty())('serial bridge on a pseudo-terminal', () => {
   let pty: IPty | null = null
 
   afterEach(() => {
@@ -340,7 +356,7 @@ describe.skipIf(!spawnsPty())('serial bridge on a pseudo-terminal', () => {
     'applies the full stty arguments to a terminal device',
     async () => {
       const device = await slave()
-      const fd = nodeDeviceIo.open(device.path, true)
+      const fd = nodeDeviceIo.open(device.path)
       try {
         expect(
           await runStty(
@@ -356,11 +372,89 @@ describe.skipIf(!spawnsPty())('serial bridge on a pseudo-terminal', () => {
 
   it('reports stty errors', async () => {
     const device = await slave()
-    const fd = nodeDeviceIo.open(device.path, true)
+    const fd = nodeDeviceIo.open(device.path)
     try {
       expect(await runStty(fd, ['no-such-setting'])).toMatch(/no-such-setting/)
     } finally {
       nodeDeviceIo.close(fd)
     }
+  })
+
+  describe('as its own process', () => {
+    let dir = ''
+    let bundle = ''
+    let child: ChildProcess | null = null
+
+    beforeAll(async () => {
+      dir = mkdtempSync(join(tmpdir(), 'serial-bridge-'))
+      const entry = join(dir, 'entry.ts')
+      writeFileSync(
+        entry,
+        [
+          `import { connectDevice, nodeDeviceIo, runStty } from ${JSON.stringify(join(__dirname, 'bridge.ts'))}`,
+          `import { stringsFor } from ${JSON.stringify(join(__dirname, 'strings.ts'))}`,
+          'const line = { speed: 115200, frame: { dataBits: 8, parity: "none", stopBits: 1 } } as const',
+          'const io = { ...nodeDeviceIo, configure: (fd: number) => runStty(fd, ["raw", "-echo"]) }',
+          'const terminal = { input: process.stdin, output: process.stdout }',
+          'const env = { platform: process.platform, readdir: () => [], terminal, io }',
+          'connectDevice(process.argv[2], line, env, stringsFor("en")).then((code) => process.exit(code))',
+        ].join('\n'),
+      )
+      bundle = join(dir, 'bridge.cjs')
+      await build({
+        entryPoints: [entry],
+        outfile: bundle,
+        bundle: true,
+        platform: 'node',
+        format: 'cjs',
+        logLevel: 'warning',
+      })
+    })
+
+    afterEach(() => {
+      child?.kill('SIGKILL')
+      child = null
+    })
+
+    afterAll(() => {
+      rmSync(dir, { recursive: true, force: true })
+    })
+
+    it('exits at once on Ctrl-] while the device is quiet and lets the device be opened again', async () => {
+      const device = await slave()
+      const proc = spawn(process.execPath, [bundle, device.path], {
+        stdio: ['pipe', 'pipe', 'pipe'],
+      })
+      child = proc
+      let out = ''
+      proc.stdout?.on('data', (chunk: Buffer) => {
+        out += chunk.toString()
+      })
+      proc.stderr?.on('data', (chunk: Buffer) => {
+        out += chunk.toString()
+      })
+      const exited = new Promise<number | null>((resolve) =>
+        proc.on('exit', (code) => resolve(code)),
+      )
+      await until(() => out.includes('Connected'))
+
+      proc.stdin?.write('ping\r')
+      await until(() => device.seen().includes('ping'))
+      device.pty.write('pong\r')
+      await until(() => out.includes('pong'))
+
+      await new Promise((resolve) => setTimeout(resolve, 200))
+      proc.stdin?.write(Buffer.from([0x1d]))
+      const code = await Promise.race([
+        exited,
+        new Promise<'hung'>((resolve) => setTimeout(() => resolve('hung'), 3000)),
+      ])
+      expect(code).toBe(0)
+      expect(out).toContain('Disconnected from')
+      child = null
+
+      const fd = nodeDeviceIo.open(device.path)
+      nodeDeviceIo.close(fd)
+    })
   })
 })

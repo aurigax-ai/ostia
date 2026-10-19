@@ -1,6 +1,7 @@
 import { spawn } from 'node:child_process'
-import { constants, closeSync, openSync, read, write } from 'node:fs'
+import { constants, closeSync, openSync } from 'node:fs'
 import { createInterface } from 'node:readline'
+import { ReadStream } from 'node:tty'
 import { parseFlags } from '@aurigax-ai/ostia-extension-sdk'
 import {
   COMMON_SPEEDS,
@@ -19,9 +20,8 @@ import { QUIT_KEY, type Strings, stringsFor } from './strings'
 
 export const BRIDGE_MODE = 'bridge'
 const QUIT_BYTE = 0x1d
-const READ_SIZE = 4096
 const STTY_TIMEOUT_MS = 5000
-const OPEN_FLAGS = constants.O_RDWR | constants.O_NOCTTY
+const OPEN_FLAGS = constants.O_RDWR | constants.O_NOCTTY | constants.O_NONBLOCK
 
 export interface BridgeArgs {
   locale?: string
@@ -35,12 +35,19 @@ export interface BridgeTerminal {
   output: { write: (chunk: string | Uint8Array) => unknown }
 }
 
+export interface DeviceStream {
+  on(event: 'data', listener: (chunk: Buffer) => void): unknown
+  on(event: 'end' | 'close', listener: () => void): unknown
+  on(event: 'error', listener: (err: Error) => void): unknown
+  write(data: Uint8Array, done: (err?: Error | null) => void): unknown
+  destroy(): unknown
+}
+
 export interface DeviceIo {
-  open: (path: string, nonBlocking: boolean) => number
+  open: (path: string) => number
   close: (fd: number) => void
-  read: (fd: number, buffer: Buffer) => Promise<number>
-  write: (fd: number, data: Uint8Array) => Promise<void>
   configure: (fd: number, args: string[]) => Promise<string | null>
+  stream: (fd: number) => DeviceStream
 }
 
 export interface BridgeEnv {
@@ -74,18 +81,10 @@ export function runStty(fd: number, args: string[]): Promise<string | null> {
 }
 
 export const nodeDeviceIo: DeviceIo = {
-  open: (path, nonBlocking) =>
-    openSync(path, nonBlocking ? OPEN_FLAGS | constants.O_NONBLOCK : OPEN_FLAGS),
+  open: (path) => openSync(path, OPEN_FLAGS),
   close: (fd) => closeSync(fd),
-  read: (fd, buffer) =>
-    new Promise((resolve, reject) => {
-      read(fd, buffer, 0, buffer.length, null, (err, bytes) => (err ? reject(err) : resolve(bytes)))
-    }),
-  write: (fd, data) =>
-    new Promise((resolve, reject) => {
-      write(fd, data, (err) => (err ? reject(err) : resolve()))
-    }),
   configure: runStty,
+  stream: (fd) => new ReadStream(fd),
 }
 
 export function parseBridgeArgs(argv: string[]): BridgeArgs {
@@ -249,24 +248,16 @@ function openConfigured(
   s: Strings,
 ): Promise<{ fd: number } | { message: string }> {
   const { io } = env
-  let probe: number
+  let fd: number
   try {
-    probe = io.open(device, true)
+    fd = io.open(device)
   } catch (err) {
     return Promise.resolve({ message: openFailure(err, device, env.platform, s) })
   }
-  return io.configure(probe, sttyArgs(line)).then((failed) => {
-    if (failed !== null) {
-      io.close(probe)
-      return { message: s.sttyFailed(device, failed) }
-    }
-    try {
-      return { fd: io.open(device, false) }
-    } catch (err) {
-      return { message: openFailure(err, device, env.platform, s) }
-    } finally {
-      io.close(probe)
-    }
+  return io.configure(fd, sttyArgs(line)).then((failed) => {
+    if (failed === null) return { fd }
+    io.close(fd)
+    return { message: s.sttyFailed(device, failed) }
   })
 }
 
@@ -282,30 +273,36 @@ export async function connectDevice(
     say(terminal, opened.message)
     return 1
   }
-  const { fd } = opened
+  let port: DeviceStream
+  try {
+    port = io.stream(opened.fd)
+  } catch (err) {
+    io.close(opened.fd)
+    say(terminal, openFailure(err, device, env.platform, s))
+    return 1
+  }
   terminal.output.write(`\x1b]2;${paneTitle(device, line)}\x07`)
   say(terminal, s.connected(device, lineText(line)))
   say(terminal, s.quitHint(QUIT_KEY))
   return new Promise((resolve) => {
     let stopped = false
-    let reading = true
-    let pending: Promise<void> = Promise.resolve()
     const finish = (code: number, message: string): void => {
       if (stopped) return
       stopped = true
       terminal.input.removeListener('data', onInput)
       terminal.input.setRawMode?.(false)
       terminal.input.pause()
+      port.destroy()
       say(terminal, '')
       say(terminal, message)
-      if (!reading) io.close(fd)
       resolve(code)
     }
+    const gone = (): void => finish(1, s.gone(device))
     const send = (data: Uint8Array): void => {
-      if (data.length === 0) return
-      pending = pending.then(() =>
-        stopped ? undefined : io.write(fd, data).catch(() => finish(1, s.gone(device))),
-      )
+      if (data.length === 0 || stopped) return
+      port.write(data, (err) => {
+        if (err) gone()
+      })
     }
     const onInput = (chunk: Buffer | string): void => {
       const bytes = typeof chunk === 'string' ? Buffer.from(chunk) : chunk
@@ -315,32 +312,17 @@ export async function connectDevice(
         return
       }
       send(bytes.subarray(0, quit))
-      void pending.then(() => finish(0, s.closed(device)))
+      finish(0, s.closed(device))
     }
-    const pump = async (): Promise<void> => {
-      const buffer = Buffer.alloc(READ_SIZE)
-      for (;;) {
-        let bytes: number
-        try {
-          bytes = await io.read(fd, buffer)
-        } catch {
-          bytes = 0
-        }
-        if (stopped) break
-        if (bytes <= 0) {
-          reading = false
-          finish(1, s.gone(device))
-          return
-        }
-        terminal.output.write(Buffer.from(buffer.subarray(0, bytes)))
-      }
-      reading = false
-      io.close(fd)
-    }
+    port.on('data', (chunk) => {
+      if (!stopped) terminal.output.write(chunk)
+    })
+    port.on('error', gone)
+    port.on('end', gone)
+    port.on('close', gone)
     terminal.input.setRawMode?.(true)
     terminal.input.on('data', onInput)
     terminal.input.resume()
-    void pump()
   })
 }
 
