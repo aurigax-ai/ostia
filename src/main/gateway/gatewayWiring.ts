@@ -7,8 +7,10 @@ import type { AskHub } from '../approvals/asks'
 import type { Reach } from '../approvals/reach'
 import type { ArtifactFolders } from '../artifacts/artifactFolders'
 import type { CommandBridge } from '../control/commandBridge'
+import { resolveExternal } from '../control/idRegistry'
 import type { AppLog } from '../diagnostics/appLog'
 import type { PaneConfirms } from '../panes/paneConfirm'
+import type { PaneJournal } from '../panes/paneJournal'
 import {
   listPanes,
   listWorkspaceGroups,
@@ -44,7 +46,12 @@ import {
 } from './phoneWorkspace'
 import { registerPhoneWorkspaceIpc } from './phoneWorkspaceIpc'
 import { ScreenLinks } from './screenLinks'
-import { askPhonesForScreen, configureGatewayControl, configureScreenLinks } from './server'
+import {
+  askPhonesForScreen,
+  configureGatewayControl,
+  configureScreenLinks,
+  notifiedDeviceIds,
+} from './server'
 import { createTailnet, tailnetNodeName, tsnetHelperPath } from './tailnet'
 import type { PhoneFileScope } from './workspaceFiles'
 
@@ -76,6 +83,7 @@ interface GatewayStartDeps {
   agentRunning: AgentRunningPanes
   ptys: Map<string, PtyEntry>
   turnConfirms: PaneConfirms
+  paneJournal: Pick<PaneJournal, 'since'>
   paneTurns: PaneTurns
   redactor: Redactor
   ownSnippets: GatewayControlDeps['ownSnippets']
@@ -88,10 +96,13 @@ export function createScreenLinks({
   execCommand,
   windowIds,
   services,
-}: Pick<GatewayStartDeps, 'execCommand' | 'windowIds' | 'services'>): ScreenLinks {
+  agentRunning,
+}: Pick<GatewayStartDeps, 'execCommand' | 'windowIds' | 'services' | 'agentRunning'>): ScreenLinks {
   const links = new ScreenLinks({
     listWorkspaces: () => listWorkspaces({ execCommand, windowIds }),
     askPhones: askPhonesForScreen,
+    notifiedDevices: notifiedDeviceIds,
+    agentRunning: (paneId) => agentRunning.has(paneId),
     log: (event, fields) => services.appLog?.info(event, fields),
   })
   configureScreenLinks(links)
@@ -121,6 +132,7 @@ export function startGateway({
   agentRunning,
   ptys,
   turnConfirms,
+  paneJournal,
   paneTurns,
   redactor,
   ownSnippets,
@@ -200,6 +212,10 @@ export function startGateway({
     agentRunning: (paneId) => agentRunning.has(paneId) && ptys.has(paneId),
     watchesTurn: turnConfirms.watchesSubmit,
     turnStarted: async (pane) => (await turnConfirms.confirmSubmitted(pane)).ok,
+    paneSince: (externalPaneId) => {
+      const pane = resolveExternal(externalPaneId)
+      return pane ? paneJournal.since(pane.paneId) : undefined
+    },
     paneTurns,
     ownSnippets,
     redact: async (text) => (await redactor.redact(text)).text,

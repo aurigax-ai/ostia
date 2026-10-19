@@ -47,6 +47,7 @@ const deps = {
   agentRunning: vi.fn().mockReturnValue(false),
   watchesTurn: vi.fn().mockResolvedValue(false),
   turnStarted: vi.fn().mockResolvedValue(true),
+  paneSince: vi.fn().mockReturnValue(undefined),
   paneTurns: { list: vi.fn().mockReturnValue([]), output: vi.fn().mockReturnValue(null) },
   redact: vi.fn(async (text: string) => text),
   ownSnippets: vi.fn().mockReturnValue([]),

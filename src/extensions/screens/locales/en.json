@@ -74,6 +74,13 @@
     "panel.askHint": "Ask your phone to start a session for this workspace.",
     "panel.asked": "Asked your phone. Nothing starts until you start it there.",
     "panel.phoneFailed": "The phone did not answer.",
-    "sidebar.phone": "Phone screen"
+    "sidebar.phone": "Phone screen",
+    "verb.askUsage": "usage: ostia screen ask-phone --reason TEXT (one line, at most 300 characters, shown on the phone)",
+    "verb.askPanesOnly": "Only an agent's pane in a workspace asks the phone",
+    "verb.askOff": "Phone screens are off: the human has not given the Screens extension the phone-screens permission",
+    "verb.askStarted": "The phone's human started a session; its screen is in ostia screen list",
+    "verb.askDeclined": "The phone declined: phone control is off there",
+    "verb.askNoAnswer": "No answer from the phone in 2 minutes",
+    "verb.askDenied": "The phone's human said no"
   }
 }

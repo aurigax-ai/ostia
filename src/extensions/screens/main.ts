@@ -146,6 +146,11 @@ async function main(): Promise<void> {
       installed: () => isOnPath(SCREENS_BIN),
       sandboxDomains,
       workspaceName,
+      askPhone: listening.ok ? (request) => ext.phoneScreens.askFor(request) : undefined,
+      agentOf: async (paneId) => {
+        const pane = (await ext.listPanes().catch(() => [])).find((p) => p.paneId === paneId)
+        return pane?.agent === 'claude' || pane?.agent === 'codex' ? pane.agent : undefined
+      },
     }),
   })
 

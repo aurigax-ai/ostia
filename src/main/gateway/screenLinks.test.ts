@@ -49,6 +49,8 @@ function newLinks() {
       { workspaceId: 's1', name: 'One', kind: 'agent', workDir: '/w', state: 'idle' },
     ],
     askPhones: vi.fn(),
+    notifiedDevices: () => [],
+    agentRunning: () => true,
     log: vi.fn(),
     now: () => Date.now(),
   })

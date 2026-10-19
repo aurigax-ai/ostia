@@ -4,6 +4,7 @@ import {
   BROWSE_READ_AT_METHOD,
 } from '@aurigax-ai/ostia-extension-sdk/contract/fileBrowse'
 import {
+  PHONE_SCREENS_ASK_FOR_METHOD,
   PHONE_SCREENS_ASK_METHOD,
   PHONE_SCREENS_LISTEN_METHOD,
   PHONE_SCREENS_REQUEST_METHOD,
@@ -242,6 +243,10 @@ function registerPhoneScreenMethods(forExtension: ForExtension): void {
   })
   registerControlMethod(PHONE_SCREENS_ASK_METHOD, {
     ...forExtension((h, id, conn, p) => h.phoneScreens.ask(id, conn, p)),
+    cap: 'phone-screens',
+  })
+  registerControlMethod(PHONE_SCREENS_ASK_FOR_METHOD, {
+    ...forExtension((h, id, conn, p) => h.phoneScreens.askFor(id, conn, p)),
     cap: 'phone-screens',
   })
 }

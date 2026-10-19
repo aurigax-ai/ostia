@@ -142,3 +142,26 @@ describe('PaneJournal changes', () => {
     expect(j.changes('p-ext', 'q')).toEqual({ first: true })
   })
 })
+
+describe('PaneJournal since', () => {
+  it('PHA-C7 marks when the agent state, running or hibernation last changed', () => {
+    const { j, clock, terminal } = journal()
+    expect(j.since('p')).toBeUndefined()
+    j.onChange('p', attention('working'))
+    expect(j.since('p')).toBe(1000)
+    clock.now = 2000
+    j.onChange('p', attention('working'))
+    expect(j.since('p')).toBe(1000)
+    terminal.set('p', { running: true })
+    j.onChange('p', { kind: 'state' })
+    expect(j.since('p')).toBe(2000)
+    clock.now = 3000
+    j.onChange('p', { kind: 'state' })
+    expect(j.since('p')).toBe(2000)
+    clock.now = 4000
+    j.lifecycle('p')
+    expect(j.since('p')).toBe(4000)
+    j.onChange('p', { kind: 'closed' })
+    expect(j.since('p')).toBeUndefined()
+  })
+})
