@@ -17,6 +17,7 @@ type ScreensErrorCode =
   | 'not-found'
   | 'refused'
   | 'backend'
+  | 'unsupported'
   | 'not-installed'
   | 'timeout'
 
@@ -45,6 +46,7 @@ export interface ListedScreen {
   label: string
   owner: string
   state: string
+  backend?: string
 }
 
 const EXIT_CODES: Record<number, ScreensErrorCode> = {
@@ -52,6 +54,7 @@ const EXIT_CODES: Record<number, ScreensErrorCode> = {
   3: 'not-found',
   4: 'refused',
   5: 'backend',
+  6: 'unsupported',
 }
 
 function toolEnv(token?: string): NodeJS.ProcessEnv {
@@ -140,6 +143,7 @@ export function watchEvents(
 }
 
 export const MIN_SERVICE_VERSION = '0.1.1'
+export const PHONE_SERVICE_VERSION = '0.1.4'
 const VERSION = /^(\d+)\.(\d+)\.(\d+)/
 
 function versionParts(version: string): number[] | null {
@@ -147,9 +151,9 @@ function versionParts(version: string): number[] | null {
   return match ? match.slice(1, 4).map(Number) : null
 }
 
-export function isOutdated(version: string): boolean {
+export function isOutdated(version: string, minimum = MIN_SERVICE_VERSION): boolean {
   const have = versionParts(version)
-  const need = versionParts(MIN_SERVICE_VERSION) ?? []
+  const need = versionParts(minimum) ?? []
   if (!have) return true
   for (let i = 0; i < need.length; i++) {
     if (have[i] !== need[i]) return have[i] < need[i]
@@ -172,19 +176,22 @@ export function spawnViewer(id: string, viewerToken: string): ChildProcess {
   })
 }
 
-interface LeaseRequest {
-  width?: number
-  height?: number
-  allow: string[]
-  label: string
-}
+type LeaseRequest =
+  | { width?: number; height?: number; allow: string[]; label: string }
+  | { backend: 'phone'; width: number; height: number; label: string }
 
 interface LeasedScreen {
   screen: CreatedScreen
   lease: Socket
 }
 
-const REPLY_CODES = new Set<ScreensErrorCode>(['usage', 'not-found', 'refused', 'backend'])
+const REPLY_CODES = new Set<ScreensErrorCode>([
+  'usage',
+  'not-found',
+  'refused',
+  'backend',
+  'unsupported',
+])
 
 function daemonSocketPath(): string {
   const runtime = process.env.XDG_RUNTIME_DIR || `/run/user/${process.getuid?.() ?? 0}`
@@ -247,7 +254,7 @@ export async function createLeased(req: LeaseRequest): Promise<ScreensResult<Lea
     verb: 'create',
     ...(req.width === undefined ? {} : { width: req.width }),
     ...(req.height === undefined ? {} : { height: req.height }),
-    allow: req.allow,
+    ...('backend' in req ? { backend: req.backend } : { allow: req.allow }),
     label: req.label,
     lease: true,
   }

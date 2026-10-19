@@ -2,13 +2,21 @@ import type { ExtensionResult } from '@aurigax-ai/ostia-extension-sdk'
 import { emptyState, errorText, h, panelTranslator } from '@aurigax-ai/ostia-extension-sdk/panel'
 import en from './locales/en.json'
 import zhHant from './locales/zh-Hant.json'
-import type { PanelInstall, PanelScreen } from './panelApi'
+import type { PanelInstall, PanelPhones, PanelScreen } from './panelApi'
 import { ViewControl, type ViewTarget } from './viewControl'
 
 interface PanelState {
   install: PanelInstall
   screens: PanelScreen[]
   always: boolean
+  phones: PanelPhones
+}
+
+interface PhoneWatch {
+  id: string
+  img: HTMLImageElement
+  timer: ReturnType<typeof setInterval>
+  seq: number
 }
 
 interface RfbView extends ViewTarget {
@@ -27,6 +35,8 @@ interface LiveView {
 
 const VIEWER_MODULE = 'novnc/core/rfb.js'
 const STATE_POLL_MS = 2000
+const FRAME_POLL_MS = 500
+const MINUTE_MS = 60_000
 
 const t = panelTranslator({ en: en.messages, 'zh-Hant': zhHant.messages })
 const p = (key: string, vars?: Record<string, string | number>): string => t(`panel.${key}`, vars)
@@ -42,6 +52,7 @@ let state: PanelState | null = null
 let problem: string | null = null
 let busy = false
 let live: LiveView | null = null
+let watching: PhoneWatch | null = null
 
 async function call(command: string, args: unknown = {}): Promise<ExtensionResult> {
   try {
@@ -65,6 +76,7 @@ async function refresh(): Promise<void> {
   }
   const shown = live && state?.screens.find((s) => s.id === live?.id)
   if (live && !shown) closeView()
+  if (watching && !state?.screens.some((s) => s.id === watching?.id)) closeWatch()
   else if (live?.control.holding && shown?.owner === 'agent') live.control.released()
   render()
 }
@@ -82,8 +94,46 @@ function closeView(): void {
   viewHost.replaceChildren()
 }
 
+function closeWatch(): void {
+  if (!watching) return
+  clearInterval(watching.timer)
+  watching = null
+  viewHost.replaceChildren()
+}
+
+async function pollFrame(): Promise<void> {
+  const shown = watching
+  if (!shown) return
+  const res = await call('frame', { id: shown.id })
+  const frame = res.ok ? (res.data as { seq: number; jpeg: string } | null) : null
+  if (watching !== shown || !frame || frame.seq === shown.seq) return
+  shown.seq = frame.seq
+  shown.img.src = `data:image/jpeg;base64,${frame.jpeg}`
+}
+
+async function toggleWatch(id: string): Promise<void> {
+  const stopping = watching?.id === id
+  if (watching) {
+    const was = watching.id
+    closeWatch()
+    await call('watch', { id: was, on: false })
+  }
+  if (!stopping) {
+    closeView()
+    const res = await call('watch', { id, on: true })
+    problem = res.ok ? null : errorText(res)
+    if (res.ok) {
+      const img = h('img', { alt: '' }) as HTMLImageElement
+      viewHost.replaceChildren(img)
+      watching = { id, img, seq: -1, timer: setInterval(() => void pollFrame(), FRAME_POLL_MS) }
+    }
+  }
+  render()
+}
+
 async function openView(id: string): Promise<void> {
   closeView()
+  closeWatch()
   const module = (await import(new URL(VIEWER_MODULE, location.href).href)) as {
     default: RfbConstructor
   }
@@ -175,7 +225,43 @@ function installView(install: PanelInstall): HTMLElement[] {
   return parts
 }
 
+function phoneRow(screen: PanelScreen): HTMLElement | null {
+  const phone = screen.phone
+  if (!phone) return null
+  const minutes = Math.max(0, Math.ceil((phone.endsAt - Date.now()) / MINUTE_MS))
+  const shown = watching?.id === screen.id
+  return h(
+    'li',
+    { class: 'screen' },
+    h('span', {}, phone.device),
+    h('span', { class: 'badge' }, p('phoneBadge')),
+    h('span', { class: 'muted' }, p(`level.${phone.level}`)),
+    h('span', { class: 'muted' }, p('minutesLeft', { minutes })),
+    phone.state === 'paused'
+      ? h('span', { class: 'muted', title: p('pausedHint') }, p('paused'))
+      : phone.foreground
+        ? h('span', { class: 'muted' }, phone.foreground)
+        : null,
+    h('span', { class: 'spacer' }),
+    button(shown ? p('watching') : p('watch'), () => void toggleWatch(screen.id), shown),
+    button(p('stop'), () => void act('stop', { id: screen.id })),
+  )
+}
+
+function askRow(phones: PanelPhones): HTMLElement | null {
+  if (!phones.listening) return null
+  return h(
+    'div',
+    { class: 'row' },
+    h('span', { class: 'muted' }, phones.asked ? p('asked') : p('askHint')),
+    h('span', { class: 'spacer' }),
+    h('button', { disabled: busy || phones.asked, onclick: () => void act('ask') }, p('ask')),
+  )
+}
+
 function screenRow(screen: PanelScreen): HTMLElement {
+  const phone = phoneRow(screen)
+  if (phone) return phone
   const viewing = live?.id === screen.id
   return h(
     'li',
@@ -219,6 +305,7 @@ function render(): void {
       s.screens.length === 0
         ? emptyState(p('none'))
         : h('ul', { class: 'screens' }, ...s.screens.map(screenRow)),
+      askRow(s.phones),
       s.always
         ? h(
             'div',
@@ -230,6 +317,7 @@ function render(): void {
       live
         ? h('div', { class: 'muted' }, live.control.holding ? p('youHold') : p('viewOnly'))
         : null,
+      watching ? h('div', { class: 'muted' }, p('watchOnly')) : null,
       problem ? h('div', { class: 'error' }, problem) : null,
     ),
   )

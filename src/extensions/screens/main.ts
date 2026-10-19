@@ -12,7 +12,8 @@ import { DomainCards } from './domainCards'
 import { installState } from './install'
 import { type PanelScopeWithSandbox, panelHandlers } from './panelApi'
 import { startPanelServer } from './panelServer'
-import { SCREENS_BIN, isOnPath } from './screensCli'
+import { PhoneLinks } from './phoneLinks'
+import { SCREENS_BIN, createLeased, isOnPath, serviceVersion } from './screensCli'
 import { ScreensService } from './screensService'
 import { verbHandlers } from './verbs'
 import { Viewers, viewStream } from './viewers'
@@ -73,6 +74,29 @@ async function main(): Promise<void> {
   })
   const sandboxDomains = (workspaceId: string) => ext.sandboxDomains(workspaceId)
 
+  const showPhone = (workspaceId: string): void => {
+    void ext
+      .setSidebarItem({
+        key: 'phone',
+        workspaceId,
+        text: phoneLinks.hasLink(workspaceId) ? translate(locale)('sidebar.phone') : '',
+        badge: 'phone',
+      })
+      .catch(() => {})
+  }
+  const phoneLinks = new PhoneLinks({
+    phone: ext.phoneScreens,
+    service,
+    version: serviceVersion,
+    lease: createLeased,
+    changed: (workspaceId) => {
+      showPhone(workspaceId)
+      panelChanged()
+    },
+    now: () => Date.now(),
+  })
+  const listening = await ext.phoneScreens.listen(phoneLinks.controller())
+
   const panelOnly = panelHandlers({
     service,
     gate,
@@ -82,6 +106,7 @@ async function main(): Promise<void> {
     openTerminal: (opts) => ext.openTerminal(opts),
     sandboxDomains,
     viewers,
+    phones: () => (listening.ok ? phoneLinks : null),
     now: () => Date.now(),
   })
   const panel = await startPanelServer({
