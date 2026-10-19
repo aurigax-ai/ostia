@@ -144,6 +144,7 @@ export function RightPanel(): JSX.Element {
                   workspaceId={i.workspaceId}
                   focusKey={rightFocusKey(i.extId, i.workspaceId)}
                   route={routes[instanceKey(i)]}
+                  hidden={instance === null || !sameInstance(i, instance)}
                 />
               )}
             </PanelSlot>

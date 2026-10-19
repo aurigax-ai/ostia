@@ -103,6 +103,7 @@ describe('the live view in the Screens panel', () => {
     panel = panelHandlers({
       service,
       gate,
+      phones: () => null,
       translate,
       viewers,
       now: () => now,

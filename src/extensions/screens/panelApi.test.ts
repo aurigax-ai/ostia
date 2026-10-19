@@ -42,6 +42,7 @@ describe('the Screens panel', () => {
     panel = panelHandlers({
       service,
       gate,
+      phones: () => null,
       translate,
       installState: (reason) => installState(reason, (name) => onPath(name)),
       confirm,
