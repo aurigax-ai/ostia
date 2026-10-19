@@ -39,6 +39,7 @@ async function bridge(
   redact = async (t: string) => t as string | null,
   sandboxed = false,
 ) {
+  const state = { sandboxed }
   const rig = await startAgentRig(answer)
   rigs.push(rig)
   const sessions = new AgentSessions({
@@ -46,7 +47,7 @@ async function bridge(
     settings: () => ({
       providers: [{ id: 'fake', name: 'Fake', baseUrl: rig.provider.url, models: ['fake-model'] }],
     }),
-    sandboxed: () => sandboxed,
+    sandboxed: () => state.sandboxed,
     redact,
   })
   const win = renderer()
@@ -69,7 +70,7 @@ async function bridge(
       },
     ],
   }
-  return { rig, sessions, win, input }
+  return { rig, sessions, win, input, state }
 }
 
 describe('AgentSessions', () => {
@@ -90,6 +91,41 @@ describe('AgentSessions', () => {
     )
     expect(await sessions.open(win, input)).toEqual({ ok: false, error: 'sandboxed' })
     expect(rig.provider.requests).toEqual([])
+  })
+
+  it('refuses a prompt once the workspace has become sandboxed', async () => {
+    const { rig, sessions, win, input, state } = await bridge(() => 'ok')
+    expect((await sessions.open(win, input)).ok).toBe(true)
+    state.sandboxed = true
+    expect(await sessions.prompt(win, 's1', 'hi')).toEqual({ ok: false, error: 'sandboxed' })
+    expect(rig.provider.requests).toEqual([])
+  })
+
+  it('does not run a tool once the workspace has become sandboxed', async () => {
+    const ctx = await bridge((req) =>
+      req.toolResult === undefined
+        ? { toolCalls: [{ name: 'read_file', args: { path: 'a.txt' } }] }
+        : `model saw: ${req.toolResult}`,
+    )
+    await ctx.sessions.open(ctx.win, ctx.input)
+    const done = ctx.rig.settled()
+    await ctx.sessions.prompt(ctx.win, 's1', 'read it')
+    await expect
+      .poll(() => ctx.win.sent.filter((s) => s.channel === 'agent:tool-call').length)
+      .toBe(1)
+    const call = ctx.win.sent.find((s) => s.channel === 'agent:tool-call')?.payload as {
+      callId: string
+    }
+    ctx.state.sandboxed = true
+    const reply = await ctx.sessions.tool(
+      true,
+      { sessionId: 's1', toolCallId: 'c2', name: 'read_file', input: {} },
+      () => undefined,
+    )
+    expect(reply).toMatchObject({ ok: false })
+    expect(ctx.win.sent.filter((s) => s.channel === 'agent:tool-call')).toHaveLength(1)
+    ctx.sessions.answerTool(ctx.win, call.callId, { ok: true, output: 'x' })
+    await done
   })
 
   it('sends the redacted prompt to the model, never the original', async () => {

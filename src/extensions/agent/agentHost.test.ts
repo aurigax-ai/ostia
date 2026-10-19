@@ -1,12 +1,14 @@
 import { mkdirSync, readdirSync, statSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import type { AgentReply } from '@aurigax-ai/ostia-extension-sdk/contract/agent'
-import { afterEach, describe, expect, it } from 'vitest'
+import { AgentSession, type ResourceLoader } from '@earendil-works/pi-coding-agent'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { type AgentRig, startAgentRig } from '../../../test/agentHarness'
 
 const rigs: AgentRig[] = []
 
 afterEach(() => {
+  vi.restoreAllMocks()
   for (const rig of rigs.splice(0)) rig.close()
 })
 
@@ -33,16 +35,26 @@ function assistantText(rig: AgentRig): string {
 }
 
 describe('the agent host', () => {
-  it('sends a /skill: line unchanged and reads no skill file', async () => {
+  it('sends a /skill: line unchanged even when pi knows the skill', async () => {
     const rig = await start(() => 'ok')
     const body = 'SKILL-BODY-MARKER'
-    for (const base of [
-      join(rig.cwd, '.pi', 'skills', 'x'),
-      join(rig.dataDir, 'pi', 'skills', 'x'),
-    ]) {
-      mkdirSync(base, { recursive: true })
-      writeFileSync(join(base, 'SKILL.md'), `---\nname: x\ndescription: x\n---\n${body}\n`)
-    }
+    const baseDir = join(rig.cwd, 'skills', 'x')
+    const filePath = join(baseDir, 'SKILL.md')
+    mkdirSync(baseDir, { recursive: true })
+    writeFileSync(filePath, `---\nname: x\ndescription: x\n---\n${body}\n`)
+    const loader = Object.getOwnPropertyDescriptor(AgentSession.prototype, 'resourceLoader')?.get
+    vi.spyOn(AgentSession.prototype, 'resourceLoader', 'get').mockImplementation(function (
+      this: AgentSession,
+    ) {
+      const real = loader?.call(this) as ResourceLoader
+      return {
+        ...real,
+        getSkills: () => ({
+          skills: [{ name: 'x', description: 'x', filePath, baseDir, sourceInfo: {} }],
+          diagnostics: [],
+        }),
+      } as ResourceLoader
+    })
     await ask(rig, '/skill:x')
     expect(rig.provider.requests.map((r) => r.last)).toEqual(['/skill:x'])
     expect(JSON.stringify(rig.provider.requests)).not.toContain(body)

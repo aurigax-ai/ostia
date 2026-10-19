@@ -27,6 +27,7 @@ export interface AgentSessionsDeps {
 
 interface Owned {
   renderer: AgentRenderer
+  workspaceId: string
 }
 
 interface PendingTool {
@@ -36,6 +37,10 @@ interface PendingTool {
 
 const UNAVAILABLE: AgentReply = { ok: false, error: 'unavailable' }
 const DENIED_GONE: AgentToolReply = { ok: false, error: 'The window that owns this chat closed.' }
+const SANDBOXED: AgentToolReply = {
+  ok: false,
+  error: 'The Agent is not available in a sandboxed workspace.',
+}
 const UNREDACTED: AgentToolReply = {
   ok: false,
   error: 'The result could not be checked for secrets, so it was not sent.',
@@ -68,7 +73,7 @@ export class AgentSessions {
       providers,
       ...(input.model ? { model: input.model } : {}),
     })
-    if (reply.ok) this.owned.set(input.sessionId, { renderer })
+    if (reply.ok) this.owned.set(input.sessionId, { renderer, workspaceId: input.workspaceId })
     return reply
   }
 
@@ -76,6 +81,7 @@ export class AgentSessions {
     const id = this.ownedId(renderer, sessionId)
     const clean = promptOf(text)
     if (!id || clean === null) return { ok: false, error: 'invalid' }
+    if (this.sandboxedSession(id)) return { ok: false, error: 'sandboxed' }
     const redacted = await this.deps.redact(clean).catch(() => null)
     if (redacted === null) return { ok: false, error: 'redaction-failed' }
     return this.deps.request({ op: 'prompt', sessionId: id, text: redacted })
@@ -114,6 +120,7 @@ export class AgentSessions {
     if (!call) return { ok: false, error: 'invalid' }
     const owner = this.owned.get(call.sessionId)
     if (!owner || owner.renderer.isDestroyed()) return DENIED_GONE
+    if (this.deps.sandboxed(owner.workspaceId)) return SANDBOXED
     const callId = `t${++this.toolSeq}`
     const reply = await new Promise<AgentToolReply>((resolve) => {
       const subscription = cancelled(() => {
@@ -162,6 +169,11 @@ export class AgentSessions {
       owner.renderer.send('agent:tool-cancel', { callId })
       this.settle(callId, { ok: false, error: 'Cancelled.' })
     }
+  }
+
+  private sandboxedSession(sessionId: string): boolean {
+    const owner = this.owned.get(sessionId)
+    return owner !== undefined && this.deps.sandboxed(owner.workspaceId)
   }
 
   private ownedId(renderer: AgentRenderer, sessionId: unknown): string | null {

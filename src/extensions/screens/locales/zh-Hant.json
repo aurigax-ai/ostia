@@ -1,6 +1,6 @@
 {
   "manifest": {
-    "description": "Alpha: 透過 screens 服務給代理程式一個自己的螢幕，一個絕不碰到你桌面的桌面：ostia screen create、token、list 與 stop，在沙箱工作區中轉送螢幕指令，代理程式在工作區第一次要螢幕前先問你，以及顯示此工作區螢幕的面板。工作區關閉或此擴充功能停止時，螢幕也會停止。",
+    "description": "Alpha: 透過 screens 服務給代理程式一個自己的螢幕，一個絕不碰到你桌面的桌面：ostia screen create、token、list 與 stop，在沙箱工作區中轉送螢幕指令，代理程式在工作區第一次要螢幕前先問你，顯示此工作區螢幕的面板，以及手機上的人在手機上開始工作階段期間的手機畫面（需要 phone-screens 權限）。工作區關閉或此擴充功能停止時，螢幕也會停止。",
     "commands.open.title": "螢幕：開啟面板",
     "commands.create.title": "為此工作區建立螢幕",
     "commands.token.title": "印出此工作區螢幕的代理程式權杖",
@@ -15,6 +15,8 @@
     "commands.key.title": "按下按鍵",
     "commands.launch.title": "在螢幕中啟動程式",
     "commands.windows.title": "列出螢幕的視窗",
+    "commands.apps.title": "列出手機螢幕的應用程式",
+    "commands.tree.title": "讀取手機螢幕的無障礙樹",
     "panel.title": "螢幕"
   },
   "messages": {
@@ -78,6 +80,20 @@
     "update.message": "要用 pnpm 把 @aurigax-ai/screens 更新到最新版本嗎？",
     "update.confirm": "更新",
     "panel.outdated": "需要 screens {min} 或更新的版本（目前是 {version}）。",
-    "panel.update": "更新"
+    "panel.update": "更新",
+    "panel.phoneBadge": "手機",
+    "panel.level.view": "僅檢視",
+    "panel.level.control": "操控",
+    "panel.minutesLeft": "剩 {minutes} 分鐘",
+    "panel.paused": "已暫停",
+    "panel.pausedHint": "你碰了手機；請在手機上繼續",
+    "panel.watch": "觀看",
+    "panel.watching": "觀看中",
+    "panel.watchOnly": "僅觀看。只有手機上的人能暫停與繼續。",
+    "panel.ask": "請手機開始",
+    "panel.askHint": "請你的手機為這個工作區開始一個工作階段。",
+    "panel.asked": "已詢問你的手機。在手機上開始之前，什麼都不會開始。",
+    "panel.phoneFailed": "手機沒有回應。",
+    "sidebar.phone": "手機畫面"
   }
 }
