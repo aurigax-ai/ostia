@@ -61,6 +61,12 @@ export function createXtermRenderer(term: Terminal, gpu: boolean): XtermRenderer
     parent.insertBefore(screen, sibling?.parentNode === parent ? sibling : null)
   }
 
+  const focusTerm = term.focus
+  term.focus = () => {
+    unpark()
+    focusTerm.call(term)
+  }
+
   const release = (): void => {
     const held = addon
     if (!held) return
@@ -114,6 +120,7 @@ export function createXtermRenderer(term: Terminal, gpu: boolean): XtermRenderer
       slot?.dispose()
       release()
       unpark()
+      term.focus = focusTerm
     },
   }
 }

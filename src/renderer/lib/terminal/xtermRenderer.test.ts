@@ -89,6 +89,7 @@ function fakeTerm(): FakeTerm {
     element,
     rows: 24,
     refresh: (start: number, end: number) => refreshes.push([start, end]),
+    focus: () => {},
     loadAddon: (addon: FakeWebglAddon & { activate(t: unknown): void }) => {
       addon.activate(term)
       loaded.push(addon)
@@ -206,6 +207,21 @@ describe('createXtermRenderer', () => {
     input.blur()
     renderer.pause(true)
     expect(t.screen.isConnected).toBe(false)
+  })
+
+  it('puts a parked screen back when the terminal is asked for focus', () => {
+    const t = fakeTerm()
+    const focused: boolean[] = []
+    const focus = vi.fn(() => focused.push(t.screen.isConnected))
+    t.term.focus = focus
+    const renderer = create(t, false)
+    renderer.pause(true)
+    expect(t.screen.isConnected).toBe(false)
+    t.term.focus()
+    expect(focused).toEqual([true])
+    expect(t.screen.isConnected).toBe(true)
+    renderer.dispose()
+    expect(t.term.focus).toBe(focus)
   })
 
   it('takes a hidden screen off the page and puts it back in the same place', () => {
