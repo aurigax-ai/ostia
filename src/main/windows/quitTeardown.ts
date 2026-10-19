@@ -113,7 +113,7 @@ export function createQuitTeardown({
       }
     }
     quitTrace.stage('teardown-ptys')
-    services.histories?.removeAll()
+    await services.histories?.removeAll()
     for (const entry of ptys.values()) {
       entry.mirror.dispose()
       if (keepingShells && entry.kept) {

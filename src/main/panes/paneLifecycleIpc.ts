@@ -123,7 +123,7 @@ export function registerPaneLifecycleIpc({
       if (services.managerService?.isManagerPane(event.paneId)) killPty(event.paneId, 'closed')
       if (ptys.has(event.paneId)) closedPanes.add(event.paneId)
       dropRestoredScrollback(event.paneId)
-      services.histories?.drop(event.paneId)
+      void services.histories?.drop(event.paneId)
       hibernatedPanes.delete(event.paneId)
       browserProfiles.forget(event.paneId)
       removePane(event.paneId)

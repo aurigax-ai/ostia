@@ -22,8 +22,8 @@ function histories(setting: ScrollbackHistory = 'unlimited', free = () => FREE_S
 
 const deadPid = 2 ** 22 + 7
 
-afterEach(() => {
-  for (const store of made.splice(0)) store.removeAll()
+afterEach(async () => {
+  for (const store of made.splice(0)) await store.removeAll()
 })
 
 describe('PaneHistories', () => {
@@ -61,9 +61,9 @@ describe('PaneHistories', () => {
     put(two, ['b'])
     await Promise.all([one?.flush(), two?.flush()])
     const [run] = readdirSync(root)
-    store.drop('p1')
+    await store.drop('p1')
     expect(readdirSync(join(root, run))).toHaveLength(1)
-    store.removeAll()
+    await store.removeAll()
     expect(existsSync(join(root, run))).toBe(false)
   })
 

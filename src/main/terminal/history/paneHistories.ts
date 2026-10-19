@@ -1,6 +1,6 @@
 import { hash, randomBytes } from 'node:crypto'
 import { chmodSync, existsSync, mkdirSync, readdirSync, rmSync } from 'node:fs'
-import { statfs } from 'node:fs/promises'
+import { rm, statfs } from 'node:fs/promises'
 import { join } from 'node:path'
 import type { ScrollbackHistory } from '../../../shared/terminal/scrollbackHistory'
 import {
@@ -65,6 +65,7 @@ export class PaneHistories {
   private readonly runDir: string
   private readonly panes = new Map<string, PaneHistory>()
   private spill: SpillClient | null = null
+  private generation = 0
   private readonly closing = new Map<string, Promise<void>>()
 
   constructor(private readonly deps: PaneHistoriesDeps) {
@@ -80,12 +81,12 @@ export class PaneHistories {
     const existing = this.panes.get(paneId)
     if (existing?.live) return existing
     if (existing) {
-      existing.dispose()
+      void existing.dispose()
       this.panes.delete(paneId)
     }
     if (this.deps.setting() === 'off') return null
     const history = new PaneHistory({
-      dir: join(this.runDir, paneFolder(paneId)),
+      dir: join(this.runDir, `${paneFolder(paneId)}-${this.generation++}`),
       key: this.key,
       limitBytes: () => this.limitBytes(),
       ensureSpace: (asking) => this.ensureSpace(asking),
@@ -123,19 +124,17 @@ export class PaneHistories {
     return this.closing.get(paneId) ?? Promise.resolve()
   }
 
-  drop(paneId: string): void {
-    this.panes.get(paneId)?.dispose()
+  async drop(paneId: string): Promise<void> {
+    const history = this.panes.get(paneId)
     this.panes.delete(paneId)
+    await history?.dispose()
   }
 
-  async flushAll(): Promise<void> {
-    await Promise.all([...this.panes.values()].map((history) => history.flush()))
-  }
-
-  removeAll(): void {
-    for (const history of this.panes.values()) history.dispose()
+  async removeAll(): Promise<void> {
+    const disposed = [...this.panes.values()].map((history) => history.dispose())
     this.panes.clear()
-    rmSync(this.runDir, { recursive: true, force: true })
+    await Promise.all(disposed)
+    await rm(this.runDir, { recursive: true, force: true })
   }
 
   private limitBytes(): number | null {
