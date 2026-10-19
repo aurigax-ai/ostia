@@ -1,4 +1,5 @@
 import {
+  constants,
   chmodSync,
   existsSync,
   lstatSync,
@@ -286,6 +287,23 @@ describe('FileOps.importInto', () => {
     expect(readFileSync(join(root, 'notes (2).md'), 'utf8')).toBe('dropped')
   })
 
+  it('dropping the same file again keeps the first copy and numbers the second', async () => {
+    const { root, outside, ops } = setup()
+    const source = join(outside, 'report.txt')
+    writeFileSync(source, 'first')
+    expect(await ops.importInto([source], join(root, 'src'), false)).toEqual({
+      ok: true,
+      paths: [join(root, 'src', 'report.txt')],
+    })
+    writeFileSync(source, 'second')
+    expect(await ops.importInto([source], join(root, 'src'), false)).toEqual({
+      ok: true,
+      paths: [join(root, 'src', 'report (2).txt')],
+    })
+    expect(readFileSync(join(root, 'src', 'report.txt'), 'utf8')).toBe('first')
+    expect(readFileSync(join(root, 'src', 'report (2).txt'), 'utf8')).toBe('second')
+  })
+
   it('moves a dropped folder when asked, numbering a clash', async () => {
     const { root, outside, ops } = setup()
     const source = join(outside, 'src')
@@ -486,6 +504,32 @@ describe.each(modes)('exclusive transfers on $platform', ({ platform, base }) =>
       mkdir: wrap('mkdir', base.mkdir),
       rename: wrap('rename', base.rename),
     }
+  }
+
+  function heldFill(name: string) {
+    let release = (): void => {}
+    const gate = new Promise<void>((ok) => {
+      release = ok
+    })
+    let reached = (): void => {}
+    const holding = new Promise<void>((ok) => {
+      reached = ok
+    })
+    const fs: TransferFs = {
+      ...base,
+      open: async (path, flags, mode) => {
+        const file = await base.open(path, flags, mode)
+        if (basename(path) !== name || (flags & constants.O_CREAT) === 0) return file
+        const write = file.write.bind(file)
+        file.write = (async (...args: Parameters<typeof write>) => {
+          reached()
+          await gate
+          return write(...args)
+        }) as typeof file.write
+        return file
+      },
+    }
+    return { fs, holding, release }
   }
 
   function swapForLink(folder: string, to: string): () => void {
@@ -824,6 +868,26 @@ describe.each(modes)('exclusive transfers on $platform', ({ platform, base }) =>
       }
     },
   )
+
+  it('a second drop of the same file while the first still fills numbers its copy and writes no name it did not claim', async () => {
+    const held = heldFill('report (2).txt')
+    const c = swapCase(held.fs)
+    writeFileSync(join(c.drop, 'report.txt'), 'theirs')
+    const source = join(c.far, 'report.txt')
+    writeFileSync(source, 'dropped')
+    const first = c.ops.importInto([source], c.drop, false)
+    await held.holding
+    expect(await c.ops.importInto([source], c.drop, false)).toEqual({
+      ok: true,
+      paths: [join(c.drop, 'report (3).txt')],
+    })
+    held.release()
+    expect(await first).toEqual({ ok: true, paths: [join(c.drop, 'report (2).txt')] })
+    expect(readFileSync(join(c.drop, 'report.txt'), 'utf8')).toBe('theirs')
+    expect(readFileSync(join(c.drop, 'report (2).txt'), 'utf8')).toBe('dropped')
+    expect(readFileSync(join(c.drop, 'report (3).txt'), 'utf8')).toBe('dropped')
+    expect(readdirSync(c.drop).sort()).toEqual(['report (2).txt', 'report (3).txt', 'report.txt'])
+  })
 
   it('never takes a name that appeared after it was picked', async () => {
     const dir = tmp()

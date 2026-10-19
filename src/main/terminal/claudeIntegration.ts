@@ -33,7 +33,7 @@ const commandHook = (command: string) => ({ type: 'command', command })
 
 const CLAUDE_SUBAGENT_EVENTS = ['SubagentStart', 'SubagentStop'] as const
 
-const CLAUDE_MOD_FILE = 'register.ts'
+export const CLAUDE_MOD_FILE = 'register.ts'
 
 export function claudeHookSettings(extensionHooks: readonly ExtensionAgentHook[] = []): {
   hooks: Record<string, unknown[]>
