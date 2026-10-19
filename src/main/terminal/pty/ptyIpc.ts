@@ -149,9 +149,10 @@ function registerPtyControlIpc({
     const entry = ptys.get(paneId)
     if (entry?.session.canWrite(String(e.sender.id))) entry.pty.write(data)
   })
-  ipcMain.on('pty:resize', (_e, paneId: string, cols: number, rows: number) => {
+  ipcMain.on('pty:resize', (e, paneId: string, cols: number, rows: number) => {
     const entry = ptys.get(paneId)
-    if (!entry?.keepAlive) resizeFromDesktop(entry, cols, rows)
+    if (!entry?.subs.has(String(e.sender.id)) || entry.keepAlive) return
+    resizeFromDesktop(entry, cols, rows)
   })
 }
 

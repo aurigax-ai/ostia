@@ -7,7 +7,7 @@ interface Size {
 
 interface PaneSizes {
   desktop: Size | null
-  phoneActive: boolean
+  phoneHolder: string | null
 }
 
 const sizes = new WeakMap<PtyEntry, PaneSizes>()
@@ -15,7 +15,7 @@ const sizes = new WeakMap<PtyEntry, PaneSizes>()
 function sizesOf(entry: PtyEntry): PaneSizes {
   let found = sizes.get(entry)
   if (!found) {
-    found = { desktop: null, phoneActive: false }
+    found = { desktop: null, phoneHolder: null }
     sizes.set(entry, found)
   }
   return found
@@ -45,12 +45,18 @@ export function resizeFromDesktop(entry: PtyEntry | undefined, cols: number, row
   if (!entry) return
   const known = sizesOf(entry)
   if (cols > 0 && rows > 0) known.desktop = { cols, rows }
-  known.phoneActive = false
+  known.phoneHolder = null
   resizePty(entry, cols, rows)
 }
 
-export function resizeFromPhone(paneId: string, entry: PtyEntry, cols: number, rows: number): void {
-  sizesOf(entry).phoneActive = true
+export function resizeFromPhone(
+  paneId: string,
+  entry: PtyEntry,
+  holder: string,
+  cols: number,
+  rows: number,
+): void {
+  sizesOf(entry).phoneHolder = holder
   resizeForAll(paneId, entry, cols, rows)
 }
 
@@ -59,9 +65,9 @@ export function phoneOwnerAttached(entry: PtyEntry): void {
   known.desktop ??= { cols: entry.pty.cols, rows: entry.pty.rows }
 }
 
-export function phoneOwnerDetached(paneId: string, entry: PtyEntry): void {
+export function phoneOwnerDetached(paneId: string, entry: PtyEntry, holder: string): void {
   const known = sizesOf(entry)
-  if (!known.phoneActive) return
-  known.phoneActive = false
+  if (known.phoneHolder !== holder) return
+  known.phoneHolder = null
   if (known.desktop) resizeForAll(paneId, entry, known.desktop.cols, known.desktop.rows)
 }

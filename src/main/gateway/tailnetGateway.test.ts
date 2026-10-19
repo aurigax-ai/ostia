@@ -40,7 +40,6 @@ const deps = {
   listWorkspaceGroups: vi.fn().mockResolvedValue([]),
   primaryWindowId: vi.fn().mockReturnValue('w1'),
   attachPhoneObserver: vi.fn(),
-  ptyResize: vi.fn(),
   ptyWrite: vi.fn(),
   listAsks: vi.fn().mockReturnValue([]),
   answerAsk: vi.fn().mockReturnValue('unknown-ask'),

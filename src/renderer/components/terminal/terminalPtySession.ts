@@ -116,7 +116,7 @@ export function attachPtySession(deps: PtySessionDeps): () => void {
 
   const io: PtyIo = { flow, pending, writeOutput, writeLive, neighbour }
   const attachAtCurrentSize = createPtyAttach(deps, io)
-  const sizing = createPtySizing(deps, io, attachAtCurrentSize)
+  const sizing = createPtySizing(deps, io, attachAtCurrentSize, () => sizeTaken())
 
   const phoneSize = usePhoneSizeStore.getState()
   let sizedElsewhere = false
@@ -127,14 +127,15 @@ export function attachPtySession(deps: PtySessionDeps): () => void {
     lastSizeRef.current = { cols, rows }
     sizedElsewhere = true
     const desktop = deps.fit.proposeDimensions()
-    if (desktop && desktop.cols === cols && desktop.rows === rows) phoneSize.release(paneId)
+    if (desktop && desktop.cols === cols && desktop.rows === rows) sizeTaken()
     else phoneSize.hold(paneId, { cols, useDesktop: takeSizeBack })
   })
-  const takeSizeBack = (): void => {
-    if (!sizedElsewhere) return
+  const sizeTaken = (): void => {
     sizedElsewhere = false
     phoneSize.release(paneId)
-    sizing.syncSize()
+  }
+  const takeSizeBack = (): void => {
+    if (sizedElsewhere) sizing.syncSize()
   }
   const stack = host.closest('.terminal-stack') ?? host
   stack.addEventListener('keydown', takeSizeBack, true)
@@ -315,6 +316,7 @@ function createPtySizing(
   { host, term, fit, screenElement, paneId, lastSizeRef, session }: PtySessionDeps,
   { flow, writeOutput, writeLive, neighbour }: PtyIo,
   attachAtCurrentSize: (cols: number, rows: number) => void,
+  sizeSent: () => void,
 ): PtySizing {
   let holdForRedraw = false
   let held: string[] = []
@@ -350,6 +352,7 @@ function createPtySizing(
     } else if (action.type === 'resize') {
       lastSizeRef.current = { cols: action.cols, rows: action.rows }
       window.ostia.pty.resize(paneId, action.cols, action.rows)
+      sizeSent()
     }
   }
 
@@ -416,6 +419,7 @@ function createPtySizing(
           holdForRedraw = true
           lastSizeRef.current = { cols: dims.cols, rows: dims.rows }
           window.ostia.pty.resize(paneId, dims.cols, dims.rows)
+          sizeSent()
           holdCapTimer = setTimeout(flushHold, 150)
           return
         }

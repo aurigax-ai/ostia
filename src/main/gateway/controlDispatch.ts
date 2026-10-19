@@ -33,8 +33,14 @@ export interface GatewayControlDeps extends PhoneTurnDeps, PhoneSnippetDeps {
   attachPhoneObserver: (
     rendererPaneId: string,
     opts: { sinceCursor?: number; role?: 'observer' | 'owner'; sendData: (data: string) => void },
-  ) => { cursor: number; dropped: boolean; cols: number; rows: number; detach: () => void } | null
-  ptyResize: (rendererPaneId: string, cols: number, rows: number) => void
+  ) => {
+    cursor: number
+    dropped: boolean
+    cols: number
+    rows: number
+    resize: (cols: number, rows: number) => void
+    detach: () => void
+  } | null
   ptyWrite: (rendererPaneId: string, data: string) => void
   listAsks: () => Ask[]
   answerAsk: (askId: string, choiceId: unknown, text: unknown) => AskAnswerResult

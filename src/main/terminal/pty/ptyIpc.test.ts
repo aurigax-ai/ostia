@@ -1,12 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const handlers = new Map<string, (...args: unknown[]) => unknown>()
+const listeners = new Map<string, (...args: unknown[]) => unknown>()
 
 vi.mock('electron', () => ({
   app: { on: vi.fn(), getPath: () => '/tmp' },
   ipcMain: {
     handle: (channel: string, fn: (...args: unknown[]) => unknown) => handlers.set(channel, fn),
-    on: vi.fn(),
+    on: (channel: string, fn: (...args: unknown[]) => unknown) => listeners.set(channel, fn),
   },
   shell: {},
 }))
@@ -60,5 +61,44 @@ describe('pty:attach start errors', () => {
     ptys.set('p3', {})
     await attach('p3')
     expect(errors.size).toBe(0)
+  })
+})
+
+describe('pty:resize', () => {
+  const resize = vi.fn()
+  const mirror = { resize: vi.fn() }
+  const owner = (keepAlive = false) => ({
+    keepAlive,
+    pty: { cols: 80, rows: 24, resize },
+    mirror,
+    subs: new Map([['1', {}]]),
+  })
+  const ptys = new Map<string, unknown>()
+
+  beforeEach(() => {
+    listeners.clear()
+    ptys.clear()
+    resize.mockReset()
+    registerPtyIpc({ ptys, keptShells: {}, agentWork: {} } as unknown as Parameters<
+      typeof registerPtyIpc
+    >[0])
+  })
+
+  const send = (sender: number, paneId: string) =>
+    listeners.get('pty:resize')?.({ sender: { id: sender } }, paneId, 100, 30)
+
+  it('resizes the pty for a window attached to the pane', () => {
+    ptys.set('p1', owner())
+    send(1, 'p1')
+    expect(resize).toHaveBeenCalledWith(100, 30)
+  })
+
+  it('ignores a window that is not attached to the pane, a kept pane and an unknown pane', () => {
+    ptys.set('p1', owner())
+    ptys.set('p2', owner(true))
+    send(2, 'p1')
+    send(1, 'p2')
+    send(1, 'missing')
+    expect(resize).not.toHaveBeenCalled()
   })
 })
