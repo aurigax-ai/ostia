@@ -127,6 +127,9 @@ test('a file dropped from the system onto a Files folder is copied in, never ove
   mkdirSync(outside, { recursive: true })
   const report = join(outside, 'report.txt')
   writeFileSync(report, 'first\n')
+  mkdirSync(join(outside, 'later'))
+  const later = join(outside, 'later', 'report.txt')
+  writeFileSync(later, 'second\n')
   const app = await electron.launch(launch)
   try {
     const win = await app.firstWindow()
@@ -140,13 +143,12 @@ test('a file dropped from the system onto a Files folder is copied in, never ove
     await expect.poll(() => contentOf(join(folder, 'report.txt'))).toBe('first\n')
     expect(readFileSync(report, 'utf8')).toBe('first\n')
 
-    writeFileSync(report, 'second\n')
-    await dropFiles(win, [report], await centerOf(row))
+    await dropFiles(win, [later], await centerOf(row))
     await expect.poll(() => contentOf(join(folder, 'report (2).txt'))).toBe('second\n')
     expect(contentOf(join(folder, 'report.txt'))).toBe('first\n')
 
-    await dropFiles(win, [report], await centerOf(row), SHIFT)
-    await expect.poll(() => existsSync(report)).toBe(false)
+    await dropFiles(win, [later], await centerOf(row), SHIFT)
+    await expect.poll(() => existsSync(later)).toBe(false)
     await expect.poll(() => contentOf(join(folder, 'report (3).txt'))).toBe('second\n')
 
     await row.click()
