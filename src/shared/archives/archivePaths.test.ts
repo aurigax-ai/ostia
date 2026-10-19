@@ -1,11 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import {
-  archiveDisplayName,
-  archiveRoot,
-  isArchiveName,
-  isArchivePath,
-  parseArchivePath,
-} from './archivePaths'
+import { archiveDisplayName, archiveRoot, isArchivePath, parseArchivePath } from './archivePaths'
 
 describe('archivePaths', () => {
   it('round-trips an archive path, also when the real path holds ! and %', () => {
@@ -29,14 +23,5 @@ describe('archivePaths', () => {
     }
     expect(isArchivePath('/home/a.zip')).toBe(false)
     expect(isArchivePath(undefined)).toBe(false)
-  })
-
-  it('knows which file names are archives it browses', () => {
-    for (const name of ['a.zip', 'A.JAR', 'a.tar', 'a.tgz', 'a.tar.gz', 'a.tar.zst']) {
-      expect(isArchiveName(name), name).toBe(true)
-    }
-    for (const name of ['a.xlsx', 'a.docx', 'a.tar.xz', 'a.7z', 'a.rar', 'zip']) {
-      expect(isArchiveName(name), name).toBe(false)
-    }
   })
 })

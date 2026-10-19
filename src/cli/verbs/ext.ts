@@ -1,8 +1,9 @@
 import type { MessageConnection } from 'vscode-jsonrpc/node'
+import { CONTROL_MESSAGE_ENVELOPE, CONTROL_MESSAGE_MAX } from '../../shared/control/messageLimit'
 import { wantsHelp } from '../common/commandHelp'
 import { fail, failUsage } from '../common/failure'
 import { tsvLine } from '../common/lineField'
-import { readAllStdin } from '../common/stdinText'
+import { StdinTooLarge, readStdinUpTo } from '../common/stdinText'
 import { findNoun, topUsage } from '../common/usageTable'
 
 interface ExtCommandInfo {
@@ -66,7 +67,14 @@ export async function runExtCommand(
     return
   }
   const args: { argv: string[]; stdin?: string } = { argv }
-  if (cmd.stdin) args.stdin = await readAllStdin()
+  if (cmd.stdin) {
+    try {
+      args.stdin = await readStdinUpTo(CONTROL_MESSAGE_MAX - CONTROL_MESSAGE_ENVELOPE)
+    } catch (err) {
+      if (err instanceof StdinTooLarge) return fail(`ostia ${extId} ${command}: ${err.message}`)
+      throw err
+    }
+  }
   const res = await conn.sendRequest<ExtResult>('ext.invoke', { extId: ext.id, command, args })
   if (!res.ok) {
     const detail = res.message ? `${res.error}: ${res.message}` : res.error

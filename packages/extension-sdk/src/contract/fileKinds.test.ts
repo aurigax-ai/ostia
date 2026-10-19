@@ -1,9 +1,17 @@
 import { describe, expect, it } from 'vitest'
 import { parseManifest } from '../manifest/extensionManifest'
 import { extensionManifestSchema } from '../manifest/manifestSchema'
-import { kindClaim, kindMatches, matchesFilenamePattern, parseFileKinds } from './fileKinds'
+import {
+  browseKindFor,
+  kindClaim,
+  kindMatches,
+  matchesFilenamePattern,
+  parseFileKinds,
+} from './fileKinds'
 
-const inside = (path: string): boolean => !path.startsWith('..') && !path.startsWith('/')
+const isInside = (path: string): boolean => !path.startsWith('..') && !path.startsWith('/')
+const inside = { isInside, main: false, capabilities: [] as never[] }
+const browsing = { isInside, main: true, capabilities: ['file-contents' as const] }
 
 const SHEET = {
   id: 'office.spreadsheet',
@@ -26,7 +34,8 @@ describe('parseFileKinds', () => {
       [[{ ...SHEET, selector: [{ filenamePattern: '*' }] }], /filenamePattern/],
       [[{ ...SHEET, selector: [{ filenamePattern: 'a/b.xlsx' }] }], /filenamePattern/],
       [[{ ...SHEET, selector: [] }], /selector/],
-      [[{ ...SHEET, view: undefined }], /view must be an object/],
+      [[{ ...SHEET, view: undefined }], /needs a view or a browse role/],
+      [[{ ...SHEET, view: 'x' }], /view must be an object/],
       [[{ ...SHEET, view: { ...SHEET.view, priority: 'always' } }], /priority/],
       [[{ ...SHEET, view: { entry: '../x.html' } }], /view.entry/],
       [[{ ...SHEET, view: { entry: 'sheet.js' } }], /view.entry/],
@@ -84,6 +93,81 @@ describe('parseFileKinds', () => {
     const noView = { ...raw, contributes: { fileKinds: [{ ...SHEET, view: undefined }] } }
     expect(parseManifest(noView, '/ext/office').ok).toBe(false)
     expect(extensionManifestSchema.safeParse(noView).success).toBe(false)
+  })
+})
+
+describe('browse role', () => {
+  const ZIP = {
+    id: 'archives.zip',
+    displayName: 'Zip archive',
+    selector: [{ filenamePattern: '*.zip' }],
+    browse: {},
+  }
+
+  it('reads a browse-only kind and a kind with both roles', () => {
+    expect(parseFileKinds([ZIP], 'archives', browsing)).toEqual([ZIP])
+    const both = { ...ZIP, view: { entry: 'zip.html' } }
+    expect(parseFileKinds([both], 'archives', browsing)).toEqual([
+      { ...ZIP, view: { entry: 'zip.html', priority: 'default' } },
+    ])
+  })
+
+  it('needs a main process and the file-contents capability', () => {
+    const problem = /browse needs a main process and the 'file-contents' capability/
+    expect(parseFileKinds([ZIP], 'archives', inside)).toMatch(problem)
+    expect(parseFileKinds([ZIP], 'archives', { ...browsing, main: false })).toMatch(problem)
+    expect(parseFileKinds([ZIP], 'archives', { ...browsing, capabilities: [] })).toMatch(problem)
+  })
+
+  it('refuses a kind with neither role', () => {
+    expect(parseFileKinds([{ ...ZIP, browse: undefined }], 'archives', browsing)).toMatch(
+      /needs a view or a browse role/,
+    )
+  })
+
+  it('goes through the manifest parser and the schema', () => {
+    const raw = {
+      id: 'archives',
+      name: 'Archives',
+      version: '1.0.0',
+      api: '6.0',
+      main: 'main.js',
+      capabilities: ['file-contents'],
+      contributes: { fileKinds: [ZIP] },
+    }
+    const parsed = parseManifest(raw, '/ext/archives')
+    expect(parsed.ok && parsed.manifest.contributes.fileKinds).toEqual([ZIP])
+    expect(extensionManifestSchema.safeParse(raw).success).toBe(true)
+    expect(parseManifest({ ...raw, capabilities: [] }, '/ext/archives').ok).toBe(false)
+  })
+
+  it('claims the browse role apart from the view role', () => {
+    const base = { id: 'archives.zip', selector: [{ filenamePattern: '*.zip' }] }
+    expect(kindClaim({ ...base, browse: true })).toBe('archives.zip:browse:*.zip')
+    expect(kindClaim({ ...base, view: { priority: 'default' }, browse: true })).toBe(
+      'archives.zip:view:default+browse:*.zip',
+    )
+    expect(kindClaim({ ...base, view: { priority: 'default' } })).not.toBe(
+      kindClaim({ ...base, view: { priority: 'default' }, browse: true }),
+    )
+  })
+})
+
+describe('browseKindFor', () => {
+  const candidate = (extId: string, builtin: boolean, id: string, ...patterns: string[]) => ({
+    extId,
+    builtin,
+    kind: { id, selector: patterns.map((filenamePattern) => ({ filenamePattern })) },
+  })
+
+  it('serves a file from one kind: built-in, then the longest pattern, then the extension id', () => {
+    const gz = candidate('zz', false, 'zz.gz', '*.gz')
+    const tarGz = candidate('aa', false, 'aa.tar', '*.tar.gz')
+    const builtin = candidate('archives', true, 'archives.gz', '*.gz')
+    expect(browseKindFor('/w/a.tar.gz', [gz, tarGz])?.kind.id).toBe('aa.tar')
+    expect(browseKindFor('/w/a.tar.gz', [gz, tarGz, builtin])?.kind.id).toBe('archives.gz')
+    expect(browseKindFor('/w/a.gz', [candidate('b', false, 'b.x', '*.gz'), gz])?.extId).toBe('b')
+    expect(browseKindFor('/w/a.txt', [gz])).toBeNull()
   })
 })
 

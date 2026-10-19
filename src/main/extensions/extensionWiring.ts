@@ -20,6 +20,7 @@ import type { CommandBridge } from '../control/commandBridge'
 import { controlSocketPath } from '../control/controlServer'
 import { type PaneIdentity, getByPaneId } from '../control/idRegistry'
 import type { Telemetry } from '../diagnostics/telemetry'
+import type { FileServices } from '../files/filesWiring'
 import type { OpenFileGrants } from '../files/openFileGrants'
 import { openFileForExtension } from '../files/openFileMethods'
 import { confirmRemoteFolder, registerRemoteFolderConfirm } from '../files/remoteFolderConfirm'
@@ -140,6 +141,7 @@ interface ExtensionHostStartDeps {
     extensionHost: ExtensionHost | null
     marketplaceInstallIds: () => string[]
     telemetry: Telemetry | null
+    files: Pick<FileServices, 'kindsChanged'> | null
   }
   refreshAgentPlugins: () => void
   hostPaneGrants: HostPaneGrants
@@ -217,6 +219,7 @@ export function startExtensionHost({
       services.languageServers?.refresh()
       refreshAgentPlugins()
     },
+    onBrowseKindsChanged: () => services.files?.kindsChanged(),
     onCrashed: (extId, builtin) =>
       services.telemetry?.error({
         source: 'extension-crashed',

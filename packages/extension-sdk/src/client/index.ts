@@ -44,6 +44,7 @@ import type {
   RemoteStatResult,
   RemoteWriteResult,
 } from '../contract/remoteFolders'
+import type { BrowseProvider } from './browse'
 import { agentMethods, serviceMethods, windowMethods } from './extensionMethods'
 import { createHostHandlers, listenToHost } from './hostHandlers'
 import type {
@@ -323,6 +324,7 @@ export interface OstiaExtension {
   closeFolder: (folderId: string) => Promise<ExtensionResult>
   onFiles: (handler: FilesHandler) => void
   onFolderClosed: (handler: FolderClosedHandler) => void
+  onBrowse: (name: string, provider: BrowseProvider) => void
   sandboxDomains: (workspaceId: string) => Promise<SandboxDomainsResult>
 }
 
@@ -382,6 +384,15 @@ export function onShutdown(fn: () => void): void {
 export { nextBackoff, runTool, type ToolRun, type ToolRunOptions } from './tool'
 export { type MessagePageServer, startMessageServer } from './messagePage'
 
+export {
+  BrowseError,
+  type BrowseContext,
+  type BrowseFile,
+  type BrowseProvider,
+  type ChunkSink,
+  type EntrySink,
+} from './browse'
+export type { BrowseEntry, BrowseLimits } from '../contract/fileBrowse'
 export { ok, failure, numberSetting, booleanSetting } from './results'
 export { AssistFailure } from './hostHandlers'
 export { type CliArgs, cliArgs, namedArgs, parseFlags, expandHome } from './cliArgs'

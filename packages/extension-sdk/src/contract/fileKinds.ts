@@ -1,3 +1,4 @@
+import type { Capability } from './capabilities'
 import { isRecord } from './isRecord'
 
 export const FILE_KIND_VIEW_PRIORITIES = ['default', 'option'] as const
@@ -8,6 +9,7 @@ export const FILE_KIND_SELECTORS_MAX = 32
 export const FILE_KIND_PATTERNS_MAX = 64
 export const FILE_KIND_DISPLAY_NAME_MAX = 60
 export const FILE_KIND_NAME_PATTERN = /^[a-z][a-z0-9-]{0,39}$/
+export const FILE_CONTENTS_CAPABILITY: Capability = 'file-contents'
 export const FILENAME_PATTERN_PATTERN =
   /^(?:\*\.[A-Za-z0-9][A-Za-z0-9._-]{0,31}|[A-Za-z0-9._-][A-Za-z0-9._ -]{0,126}[A-Za-z0-9._-]?)$/
 
@@ -38,15 +40,24 @@ export interface FileKindContribution {
   id: string
   displayName: string
   selector: FileKindSelector[]
-  view: FileKindView
+  view?: FileKindView
+  browse?: Record<string, never>
 }
 
 export interface FileKindInfo {
   id: string
   displayName: string
   selector: FileKindSelector[]
-  view: { priority: FileKindViewPriority }
+  view?: { priority: FileKindViewPriority }
+  browse?: true
+  shadowed?: { name: string; patterns: string[] }[]
   approved: boolean
+}
+
+export interface FileKindParseContext {
+  isInside: (path: string) => boolean
+  main: boolean
+  capabilities: readonly Capability[]
 }
 
 export interface ViewerDocumentMeta {
@@ -111,7 +122,7 @@ function parseKind(
   raw: unknown,
   where: string,
   extId: string,
-  isInside: (path: string) => boolean,
+  context: FileKindParseContext,
 ): FileKindContribution | string {
   if (!isRecord(raw)) return `${where}: must be an object`
   const id = raw.id
@@ -129,15 +140,29 @@ function parseKind(
   }
   const selector = parseSelector(raw.selector, where)
   if (typeof selector === 'string') return selector
-  const view = parseView(raw.view, where, isInside)
-  if (typeof view === 'string') return view
-  return { id: id as string, displayName, selector, view }
+  if (raw.view === undefined && raw.browse === undefined) {
+    return `${where} needs a view or a browse role`
+  }
+  const kind: FileKindContribution = { id: id as string, displayName, selector }
+  if (raw.view !== undefined) {
+    const view = parseView(raw.view, where, context.isInside)
+    if (typeof view === 'string') return view
+    kind.view = view
+  }
+  if (raw.browse !== undefined) {
+    if (!isRecord(raw.browse)) return `${where}.browse must be an object`
+    if (!context.main || !context.capabilities.includes(FILE_CONTENTS_CAPABILITY)) {
+      return `${where}.browse needs a main process and the '${FILE_CONTENTS_CAPABILITY}' capability`
+    }
+    kind.browse = {}
+  }
+  return kind
 }
 
 export function parseFileKinds(
   raw: unknown,
   extId: string,
-  isInside: (path: string) => boolean,
+  context: FileKindParseContext,
 ): FileKindContribution[] | string {
   if (raw === undefined) return []
   if (!Array.isArray(raw) || raw.length > FILE_KINDS_MAX) {
@@ -146,7 +171,7 @@ export function parseFileKinds(
   const kinds: FileKindContribution[] = []
   let patterns = 0
   for (const [i, item] of raw.entries()) {
-    const parsed = parseKind(item, `contributes.fileKinds[${i}]`, extId, isInside)
+    const parsed = parseKind(item, `contributes.fileKinds[${i}]`, extId, context)
     if (typeof parsed === 'string') return parsed
     if (kinds.some((kind) => kind.id === parsed.id)) {
       return `contributes.fileKinds[${i}]: duplicate id '${parsed.id}'`
@@ -176,7 +201,51 @@ export function kindMatches(path: string, kind: Pick<FileKindInfo, 'selector'>):
   return kind.selector.some((item) => matchesFilenamePattern(path, item.filenamePattern))
 }
 
-export function kindClaim(kind: Pick<FileKindInfo, 'id' | 'selector' | 'view'>): string {
+export type KindRoles = Pick<FileKindInfo, 'id' | 'selector' | 'view'> & { browse?: unknown }
+
+export function kindClaim(kind: KindRoles): string {
   const patterns = kind.selector.map((item) => item.filenamePattern.toLowerCase()).sort()
-  return `${kind.id}:view:${kind.view.priority}:${[...new Set(patterns)].join(',')}`
+  const roles = [
+    ...(kind.view ? [`view:${kind.view.priority}`] : []),
+    ...(kind.browse ? ['browse'] : []),
+  ].join('+')
+  return `${kind.id}:${roles}:${[...new Set(patterns)].join(',')}`
+}
+
+export interface BrowseCandidate {
+  extId: string
+  builtin: boolean
+  kind: Pick<FileKindInfo, 'id' | 'selector'>
+}
+
+function longestMatch(path: string, kind: Pick<FileKindInfo, 'selector'>): number {
+  let longest = -1
+  for (const item of kind.selector) {
+    if (matchesFilenamePattern(path, item.filenamePattern)) {
+      longest = Math.max(longest, item.filenamePattern.length)
+    }
+  }
+  return longest
+}
+
+export function browseKindFor(
+  path: string,
+  candidates: readonly BrowseCandidate[],
+): BrowseCandidate | null {
+  let best: BrowseCandidate | null = null
+  let bestLength = -1
+  for (const candidate of candidates) {
+    const length = longestMatch(path, candidate.kind)
+    if (length < 0) continue
+    const better =
+      best === null ||
+      Number(candidate.builtin) > Number(best.builtin) ||
+      (candidate.builtin === best.builtin &&
+        (length > bestLength || (length === bestLength && candidate.extId < best.extId)))
+    if (better) {
+      best = candidate
+      bestLength = length
+    }
+  }
+  return best
 }

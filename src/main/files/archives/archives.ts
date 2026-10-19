@@ -1,25 +1,22 @@
-import { stat } from 'node:fs/promises'
+import {
+  BROWSE_LIMITS,
+  type BrowseLimits,
+} from '@aurigax-ai/ostia-extension-sdk/contract/fileBrowse'
 import { isArchivePath, parseArchivePath } from '../../../shared/archives/archivePaths'
 import type { FsBinaryResult, FsEntry, FsKind, FsTextResult } from '../../../shared/files/filesApi'
 import type { FileStat, VirtualSource } from '../fileSources'
-import type { EntryRead } from './archiveFile'
-import {
-  ARCHIVE_LIMITS,
-  type ArchiveLimits,
-  type ArchiveTree,
-  type EntryRef,
-  buildTree,
-} from './archiveTree'
-import { listTar, readTarEntry } from './tarArchive'
-import { listZip, readZipEntry } from './zipArchive'
+import { type EntryRead, closeFd, openRegular } from './archiveFile'
+import { type ArchiveTree, type EntryRef, buildTree } from './archiveTree'
+import type { BrowseProviders, BrowseTarget } from './browseProviders'
 
-const ZIP_NAME = /\.(?:zip|jar)$/i
 const CACHED_ARCHIVES = 16
 const TEXT_SNIFF_BYTES = 8192
 
 interface Cached {
   key: string
   modified: number
+  abort: AbortController
+  settled: boolean
   tree: Promise<ArchiveTree | null>
 }
 
@@ -28,6 +25,7 @@ interface Located {
   entry: string
   key: string
   modified: number
+  kind: { extId: string; kind: string }
   tree: ArchiveTree
 }
 
@@ -45,36 +43,65 @@ export class Archives implements VirtualSource {
 
   constructor(
     private readonly confineArchive: (path: string) => string | null,
-    private readonly limits: ArchiveLimits = ARCHIVE_LIMITS,
+    private readonly providers: BrowseProviders,
+    private readonly limits: BrowseLimits = BROWSE_LIMITS,
   ) {}
+
+  dropCache(): void {
+    for (const cached of this.cache.values()) {
+      if (!cached.settled) cached.abort.abort()
+    }
+    this.cache.clear()
+  }
 
   private async locate(path: string): Promise<Located | null> {
     const parsed = parseArchivePath(path)
     const archive = parsed ? this.confineArchive(parsed.archive) : null
     if (!parsed || !archive) return null
-    const info = await stat(archive).catch(() => null)
-    if (!info?.isFile()) return null
-    const key = `${info.size}:${info.mtimeMs}`
-    let cached = this.cache.get(archive)
-    if (!cached || cached.key !== key) {
-      const raw = ZIP_NAME.test(archive)
-        ? listZip(archive, this.limits)
-        : listTar(archive, this.limits)
-      cached = {
-        key,
-        modified: info.mtimeMs,
-        tree: raw.then((entries) => (entries ? buildTree(entries, this.limits) : null)),
+    const kind = this.providers.kindFor(archive)
+    if (!kind) return null
+    const opened = await openRegular(archive)
+    if (!opened) return null
+    const { fd, stat } = opened
+    try {
+      const key = `${stat.dev}:${stat.ino}:${stat.size}:${stat.mtimeMs}:${kind.extId}:${kind.kind}`
+      let cached = this.cache.get(archive)
+      if (!cached || cached.key !== key) {
+        cached?.abort.abort()
+        const abort = new AbortController()
+        const target: BrowseTarget = { ...kind, fd, size: stat.size }
+        const entry: Cached = {
+          key,
+          modified: stat.mtimeMs,
+          abort,
+          settled: false,
+          tree: this.providers
+            .list(target, this.limits, abort.signal)
+            .then((listing) =>
+              listing.ok ? buildTree(listing.entries, this.limits, listing.cut) : null,
+            ),
+        }
+        entry.tree = entry.tree.finally(() => {
+          entry.settled = true
+        })
+        cached = entry
+        this.cache.delete(archive)
+        this.cache.set(archive, cached)
+        while (this.cache.size > CACHED_ARCHIVES) {
+          const oldest = this.cache.keys().next().value
+          if (oldest === undefined) break
+          const dropped = this.cache.get(oldest)
+          if (dropped && !dropped.settled) dropped.abort.abort()
+          this.cache.delete(oldest)
+        }
       }
-      this.cache.delete(archive)
-      this.cache.set(archive, cached)
-      while (this.cache.size > CACHED_ARCHIVES) {
-        const oldest = this.cache.keys().next().value
-        if (oldest === undefined) break
-        this.cache.delete(oldest)
-      }
+      const tree = await cached.tree
+      return tree
+        ? { archive, entry: parsed.entry, key, modified: cached.modified, kind, tree }
+        : null
+    } finally {
+      closeFd(fd)
     }
-    const tree = await cached.tree
-    return tree ? { archive, entry: parsed.entry, key, modified: cached.modified, tree } : null
   }
 
   handles(path: string): boolean {
@@ -116,9 +143,24 @@ export class Archives implements VirtualSource {
     if (ref.encrypted) return { ok: false, problem: 'encrypted' }
     if (ref.link !== null) return { ok: false, problem: 'link' }
     if (ref.size > max) return { ok: false, problem: 'too-large', size: ref.size }
-    return ZIP_NAME.test(found.archive)
-      ? readZipEntry(found.archive, ref.index, max)
-      : readTarEntry(found.archive, ref.index, max, this.limits)
+    const opened = await openRegular(found.archive)
+    if (!opened) return { ok: false, problem: 'gone' }
+    try {
+      const { stat } = opened
+      const key = `${stat.dev}:${stat.ino}:${stat.size}:${stat.mtimeMs}:${found.kind.extId}:${found.kind.kind}`
+      if (key !== found.key) return { ok: false, problem: 'gone' }
+      const target: BrowseTarget = { ...found.kind, fd: opened.fd, size: stat.size }
+      const result = await this.providers.read(
+        target,
+        ref.index,
+        max,
+        this.limits,
+        new AbortController().signal,
+      )
+      return result.ok || result.problem !== 'too-large' ? result : { ...result, size: ref.size }
+    } finally {
+      closeFd(opened.fd)
+    }
   }
 
   async readBinary(path: string, max: number): Promise<FsBinaryResult> {

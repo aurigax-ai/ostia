@@ -9,6 +9,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { fmt, useDict, withProductName } from '@/lib/app/useDict'
+import { kindText } from '@/lib/extensions/kindText'
 import { pendingApproval, useExtensionsStore } from '@/stores/extensions/extensionsStore'
 import type { ExtensionInfo } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import { ExtensionAgentPlugin } from './ExtensionAgentPlugin'
@@ -114,13 +115,7 @@ function ExtensionFileKinds({ ext }: { ext: ExtensionInfo }): JSX.Element | null
     <ul aria-label={d.extensions.fileKinds} className="flex flex-col gap-1">
       {ext.fileKinds.map((kind) => (
         <li key={kind.id} className="text-fg-muted text-ui-sm">
-          {fmt(
-            kind.view.priority === 'option' ? d.extensions.kindViewOption : d.extensions.kindView,
-            {
-              name: kind.displayName,
-              patterns: kind.selector.map((item) => item.filenamePattern).join(', '),
-            },
-          )}
+          {kindText(d, kind)}
         </li>
       ))}
     </ul>

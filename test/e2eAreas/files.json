@@ -1,6 +1,10 @@
 {
   "name": "files",
   "paths": [
+    "packages/extension-sdk/src/client/browse.ts",
+    "packages/extension-sdk/src/contract/fileBrowse.ts",
+    "src/extensions/archives/",
+    "src/main/extensions/extensionBrowse.ts",
     "src/main/files/archives/",
     "src/main/files/exclusiveTransfer.ts",
     "src/main/files/fileGuard.ts",

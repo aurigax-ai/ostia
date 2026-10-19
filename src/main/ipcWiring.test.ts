@@ -44,6 +44,7 @@ const PUSHED = [
   'extensions:settings-stored',
   'extensions:sidebar',
   'extensions:workspace-chips',
+  'files:kinds-changed',
   'fs:changed',
   'gateway:pair-requests-changed',
   'gateway:tailnet-changed',

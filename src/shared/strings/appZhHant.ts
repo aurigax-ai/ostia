@@ -66,6 +66,7 @@ export const appZhHant: typeof appEn = {
   },
   languageNotice: {
     disabled: '{name} 已安裝但已關閉。它可為 {files} 檔案加入語言功能。',
+    disabledBrowse: '{name} 已安裝但已關閉。它可以開啟 {files} 檔案裡的內容。',
     disabledView: '{name} 已安裝但已關閉。它可以顯示 {files} 檔案。',
     downloading: '正在下載 {name}… {percent}%',
     fetchFailed: '無法取得 {name}。',
@@ -81,6 +82,7 @@ export const appZhHant: typeof appEn = {
     programMissing: '{name} 無法啟動：尚未安裝 {program}。',
     review: '檢視',
     suggest: '{name} 可為 {files} 檔案加入語言功能。',
+    suggestBrowse: '{name} 可以開啟 {files} 檔案裡的內容。',
     suggestView: '{name} 可以顯示 {files} 檔案。',
     toolchainMissing: '{name} 無法啟動：尚未安裝 Go。',
   },

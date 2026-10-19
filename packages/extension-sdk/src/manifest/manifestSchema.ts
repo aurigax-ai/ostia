@@ -332,18 +332,23 @@ const contributes = z.looseObject({
   editorLanguages: z.array(editorLanguage).max(MAX_EDITOR_LANGUAGES).optional(),
   fileKinds: z
     .array(
-      z.looseObject({
-        id: z.string().regex(FILE_KIND_ID_PATTERN),
-        displayName: z.string().min(1).max(FILE_KIND_DISPLAY_NAME_MAX),
-        selector: z
-          .array(z.looseObject({ filenamePattern: z.string().regex(FILENAME_PATTERN_PATTERN) }))
-          .min(1)
-          .max(FILE_KIND_SELECTORS_MAX),
-        view: z.looseObject({
-          entry: z.string().regex(/\.html$/),
-          priority: z.enum(FILE_KIND_VIEW_PRIORITIES).optional(),
-        }),
-      }),
+      z
+        .looseObject({
+          id: z.string().regex(FILE_KIND_ID_PATTERN),
+          displayName: z.string().min(1).max(FILE_KIND_DISPLAY_NAME_MAX),
+          selector: z
+            .array(z.looseObject({ filenamePattern: z.string().regex(FILENAME_PATTERN_PATTERN) }))
+            .min(1)
+            .max(FILE_KIND_SELECTORS_MAX),
+          view: z
+            .looseObject({
+              entry: z.string().regex(/\.html$/),
+              priority: z.enum(FILE_KIND_VIEW_PRIORITIES).optional(),
+            })
+            .optional(),
+          browse: z.looseObject({}).optional(),
+        })
+        .refine((kind) => kind.view !== undefined || kind.browse !== undefined),
     )
     .max(FILE_KINDS_MAX)
     .optional(),

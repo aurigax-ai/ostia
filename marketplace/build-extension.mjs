@@ -106,7 +106,7 @@ function browserBundle(entry, outfile, alias = {}) {
 }
 
 async function buildFileKinds(src, out, panelBaseCss) {
-  const kinds = readSourceManifest(src).contributes?.fileKinds ?? []
+  const kinds = (readSourceManifest(src).contributes?.fileKinds ?? []).filter((kind) => kind.view)
   if (kinds.length === 0) return
   const alias = bundleAliases(src)
   copyFileSync(panelBaseCss, join(out, 'base.css'))

@@ -33,6 +33,7 @@ export interface ExtensionHostDeps {
   locale?: () => string | undefined
   broadcast: (channel: string, payload: unknown) => void
   onChanged?: () => void
+  onBrowseKindsChanged?: () => void
   publishWorkspaceChips?: (chips: WorkspaceChip[]) => void
   openPanelIn: (req: ExtensionOpenPanelRequest) => void
   openDiffIn?: (req: ExtensionOpenDiffRequest) => void

@@ -13,6 +13,7 @@ import { useReducedMotion } from '@/lib/app/motion'
 import { fmt, useDict, withProductName } from '@/lib/app/useDict'
 import { firstSentence } from '@/lib/extensions/extensionBrowse'
 import { entryTitle } from '@/lib/extensions/extensionSettingText'
+import { kindText } from '@/lib/extensions/kindText'
 import { extensionAnchorId } from '@/lib/settings/settingsNav'
 import { cn } from '@/lib/utils'
 import { useUIStore } from '@/stores/app/uiStore'
@@ -187,17 +188,7 @@ function FileKindRows({ ext }: { ext: ExtensionInfo }): JSX.Element | null {
       <div className="mt-3" />
       <SettingsSubgroup title={d.extensions.fileKinds} />
       {ext.fileKinds.map((kind) => (
-        <ControlRow
-          key={kind.id}
-          label={kind.displayName}
-          desc={fmt(
-            kind.view.priority === 'option' ? d.extensions.kindViewOption : d.extensions.kindView,
-            {
-              name: kind.displayName,
-              patterns: kind.selector.map((item) => item.filenamePattern).join(', '),
-            },
-          )}
-        >
+        <ControlRow key={kind.id} label={kind.displayName} desc={kindText(d, kind)}>
           <Badge variant={kind.approved ? 'outline' : 'secondary'} className="text-ui-xs">
             {kind.approved ? d.extensions.approved : d.extensions.requested}
           </Badge>

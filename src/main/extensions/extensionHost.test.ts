@@ -456,3 +456,144 @@ describe('ExtensionHost agent plugins', () => {
     expect(onChanged).toHaveBeenCalledTimes(2)
   })
 })
+
+describe('ExtensionHost — browse kinds', () => {
+  const kind = (id: string, ...patterns: string[]) => ({
+    id,
+    displayName: id,
+    selector: patterns.map((filenamePattern) => ({ filenamePattern })),
+    browse: {},
+  })
+  const browser = (extra: Record<string, unknown> = {}) => ({
+    capabilities: ['file-contents'],
+    main: 'main.js',
+    ...extra,
+  })
+
+  beforeEach(() => {
+    writeExt(
+      join(base, 'builtin'),
+      'zips',
+      browser({ contributes: { fileKinds: [kind('zips.zip', '*.zip')] } }),
+    )
+    writeExt(
+      join(base, 'user'),
+      'rival',
+      browser({
+        contributes: {
+          fileKinds: [
+            kind('rival.zip', '*.zip'),
+            kind('rival.rar', '*.rar'),
+            kind('rival.gz', '*.tar.gz'),
+          ],
+        },
+      }),
+    )
+  })
+
+  it('serves a file from a built-in kind with no approval, and lists the role in the info', () => {
+    const { host } = makeHost()
+    expect(host.browse.kindFor('/w/a.zip')).toEqual({ extId: 'zips', kind: 'zips.zip' })
+    expect(host.list().find((e) => e.id === 'zips')?.fileKinds).toEqual([
+      {
+        id: 'zips.zip',
+        displayName: 'zips.zip',
+        selector: [{ filenamePattern: '*.zip' }],
+        browse: true,
+        approved: true,
+      },
+    ])
+  })
+
+  it('grants file-contents to a built-in only when it declares a browse kind', () => {
+    writeExt(join(base, 'builtin'), 'peeker', {
+      capabilities: ['file-contents'],
+      contributes: {},
+    })
+    const { host } = makeHost()
+    const byId = Object.fromEntries(host.list().map((e) => [e.id, e]))
+    expect(byId.zips.granted).toContain('file-contents')
+    expect(byId.board.granted).not.toContain('file-contents')
+    expect(byId.peeker).toMatchObject({ granted: [], unapproved: ['file-contents'] })
+  })
+
+  it('gives a built-in that already has a stored record the file-contents its manifest now declares', () => {
+    const { host, deps } = makeHost()
+    deps.store.set('zips', { enabled: true, approved: ['notify'] })
+    const zips = host.list().find((e) => e.id === 'zips')
+    expect(zips?.granted).toContain('file-contents')
+    expect(host.browse.kindFor('/w/a.zip')).toEqual({ extId: 'zips', kind: 'zips.zip' })
+    deps.store.set('rival', { enabled: true, approved: ['notify'] })
+    expect(host.list().find((e) => e.id === 'rival')?.granted).not.toContain('file-contents')
+  })
+
+  it('serves nothing from a user extension until the human approved its claim', () => {
+    const { host } = makeHost()
+    expect(host.browse.kindFor('/w/a.rar')).toBeNull()
+    host.processes.approve('rival')
+    expect(host.browse.kindFor('/w/a.rar')).toEqual({ extId: 'rival', kind: 'rival.rar' })
+  })
+
+  it('lets the built-in win a shared pattern and the longest pattern win otherwise', () => {
+    const { host } = makeHost()
+    host.processes.approve('rival')
+    expect(host.browse.kindFor('/w/a.zip')?.extId).toBe('zips')
+    writeExt(
+      join(base, 'builtin'),
+      'gzips',
+      browser({ contributes: { fileKinds: [kind('gzips.gz', '*.gz')] } }),
+    )
+    const again = makeHost().host
+    again.processes.approve('rival')
+    expect(again.browse.kindFor('/w/a.tar.gz')).toEqual({ extId: 'gzips', kind: 'gzips.gz' })
+  })
+
+  it('says on the loser which patterns it does not serve and who does', () => {
+    const { host } = makeHost()
+    host.processes.approve('rival')
+    const rival = host.list().find((e) => e.id === 'rival')
+    expect(rival?.fileKinds.find((k) => k.id === 'rival.zip')?.shadowed).toEqual([
+      { name: 'zips', patterns: ['*.zip'] },
+    ])
+    expect(rival?.fileKinds.find((k) => k.id === 'rival.rar')?.shadowed).toBeUndefined()
+    expect(host.list().find((e) => e.id === 'zips')?.fileKinds[0].shadowed).toBeUndefined()
+  })
+
+  it('skips a kind whose capability was not granted, whose claim widened, or that is disabled', () => {
+    const { host, deps } = makeHost()
+    host.processes.approve('rival')
+    const claims = deps.store.get('rival')?.approvedKinds ?? []
+    deps.store.set('rival', { enabled: true, approved: [], approvedKinds: claims })
+    host.processes.reloadRecords()
+    expect(host.browse.kindFor('/w/a.rar')).toBeNull()
+    deps.store.set('rival', {
+      enabled: true,
+      approved: ['file-contents'],
+      approvedKinds: claims.filter((claim) => !claim.startsWith('rival.rar')),
+    })
+    host.processes.reloadRecords()
+    expect(host.browse.kindFor('/w/a.rar')).toBeNull()
+    expect(host.browse.kindFor('/w/a.tar.gz')).toEqual({ extId: 'rival', kind: 'rival.gz' })
+    host.processes.setEnabled('rival', false)
+    expect(host.browse.kindFor('/w/a.tar.gz')).toBeNull()
+  })
+
+  it('tells the Files tree when a built-in is turned off before anything changed', () => {
+    const onBrowseKindsChanged = vi.fn()
+    const { host } = makeHost({ onBrowseKindsChanged })
+    host.processes.setEnabled('zips', false)
+    expect(onBrowseKindsChanged).toHaveBeenCalledTimes(1)
+    expect(host.browse.kindFor('/w/a.zip')).toBeNull()
+  })
+
+  it('tells the Files tree when the kinds that are served change', () => {
+    const onBrowseKindsChanged = vi.fn()
+    const { host } = makeHost({ onBrowseKindsChanged })
+    host.processes.approve('rival')
+    expect(onBrowseKindsChanged).toHaveBeenCalledTimes(1)
+    host.processes.setEnabled('rival', false)
+    expect(onBrowseKindsChanged).toHaveBeenCalledTimes(2)
+    host.processes.setEnabled('rival', false)
+    expect(onBrowseKindsChanged).toHaveBeenCalledTimes(2)
+  })
+})

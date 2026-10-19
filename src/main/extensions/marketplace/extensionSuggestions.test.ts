@@ -35,11 +35,13 @@ function sources(extra: Partial<Record<keyof SuggestionSources, unknown>> = {}):
     extensions: () =>
       ((extra.extensions as object[]) ?? []).map((ext) => ({
         fileKinds: [],
+        granted: [],
         ...ext,
       })) as unknown as ReturnType<SuggestionSources['extensions']>,
     listings: () =>
       ((extra.listings as object[]) ?? []).map((listing) => ({
         patterns: [],
+        browsePatterns: [],
         ...listing,
       })) as unknown as ReturnType<SuggestionSources['listings']>,
     dismissed: () => (extra.dismissed as string[]) ?? [],
@@ -244,6 +246,60 @@ describe('DismissedSuggestions', () => {
       expect(
         suggestionFor('/p/a.grid', sources({ extensions: [acme(true, true)], listings })),
       ).toBeNull()
+    })
+  })
+
+  describe('browse kinds', () => {
+    const browse = (approved = true) => ({
+      id: 'zips.zip',
+      displayName: 'Zip',
+      selector: [{ filenamePattern: '*.zip' }],
+      browse: true,
+      approved,
+    })
+    const zips = (enabled: boolean, extra: Record<string, unknown> = {}) => ({
+      id: 'zips',
+      name: 'Zips',
+      enabled,
+      status: 'idle',
+      fileKinds: [browse()],
+      granted: ['file-contents'],
+      ...extra,
+    })
+
+    it('offers to install an extension whose manifest has a browse kind for the file', () => {
+      const listings = [
+        {
+          marketplaceId: 'm1',
+          extId: 'zips',
+          name: 'Zips',
+          languages: [],
+          browsePatterns: ['*.zip'],
+        },
+      ]
+      expect(suggestionFor('/p/a.zip', sources({ listings }))).toEqual({
+        kind: 'install',
+        extId: 'zips',
+        name: 'Zips',
+        files: '.zip',
+        feature: 'browse',
+        others: 0,
+      })
+    })
+
+    it('offers to enable a turned-off extension with a browse kind, and asks for approval when the capability is missing', () => {
+      expect(suggestionFor('/p/a.zip', sources({ extensions: [zips(false)] }))).toMatchObject({
+        kind: 'enable',
+        pending: false,
+        feature: 'browse',
+      })
+      expect(
+        suggestionFor('/p/a.zip', sources({ extensions: [zips(true, { granted: [] })] })),
+      ).toMatchObject({ kind: 'enable', pending: true, feature: 'browse' })
+    })
+
+    it('stays quiet when an enabled, approved, granted browse kind serves the file', () => {
+      expect(suggestionFor('/p/a.zip', sources({ extensions: [zips(true)] }))).toBeNull()
     })
   })
 })

@@ -10,6 +10,7 @@
     "./panel": "./src/client/panel.ts",
     "./splitter": "./src/client/splitter.ts",
     "./viewer": "./src/client/viewer.ts",
+    "./browse": "./src/client/browse.ts",
     "./grid": "./src/client/grid.ts",
     "./atomicWrite": "./src/client/atomicWrite.ts",
     "./panel.css": "./src/client/panel.css",
