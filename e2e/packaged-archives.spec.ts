@@ -7,13 +7,15 @@ import { openWorkspace } from './helpers'
 import { _electron as electron, expect, test } from './test'
 
 const PACKAGED = process.env.OSTIA_E2E_PACKAGED ?? ''
-const BZIP2_FIXTURE = join(__dirname, '..', 'test', 'fixtures', 'archives', 'bz2-note.tar.bz2')
+const FIXTURES = join(__dirname, '..', 'test', 'fixtures', 'archives')
+const BZIP2_FIXTURE = join(FIXTURES, 'bz2-note.tar.bz2')
+const SEVEN_ZIP_FIXTURE = join(FIXTURES, '7z', 'note.7z')
 
 function archiveRoot(real: string): string {
   return `archive:${encodeURIComponent(real).replace(/!/g, '%21')}!`
 }
 
-test('the packaged app lists a tar.xz and a tar.bz2 through the archives extension and its vendored native decoder', async () => {
+test('the packaged app lists a tar.xz, a tar.bz2 and a 7z through the archives extension and its vendored native decoder', async () => {
   test.skip(PACKAGED === '', 'runs only against a packaged build: OSTIA_E2E_PACKAGED=<executable>')
   test.setTimeout(120_000)
   const dataHome = freshDataHome()
@@ -26,6 +28,7 @@ test('the packaged app lists a tar.xz and a tar.bz2 through the archives extensi
     Buffer.concat([compressor.update(tar), await compressor.finish()]),
   )
   copyFileSync(BZIP2_FIXTURE, join(home, 'bundle.tar.bz2'))
+  copyFileSync(SEVEN_ZIP_FIXTURE, join(home, 'bundle.7z'))
   const launch = isolatedLaunch(dataHome)
   const app = await electron.launch({
     executablePath: PACKAGED,
@@ -38,6 +41,7 @@ test('the packaged app lists a tar.xz and a tar.bz2 through the archives extensi
     for (const [name, entry] of [
       ['bundle.tar.xz', 'xz-note.txt'],
       ['bundle.tar.bz2', 'bz2-note.txt'],
+      ['bundle.7z', '7z-note.txt'],
     ]) {
       const root = archiveRoot(join(home, name))
       await expect

@@ -5,6 +5,7 @@ export const SIGNATURE_HEADER_BYTES = 32
 export const PACKED_HEADER_MAX = 16 * 1024 * 1024
 export const DECODED_HEADER_MAX = 64 * 1024 * 1024
 const FOLDERS_MAX = 20_000
+const LISTED_MAX = 80_004
 const CODERS_MAX = 4
 
 export type Refusal = 'unsupported' | 'corrupt' | 'encrypted' | 'limit'
@@ -134,25 +135,38 @@ class Bytes {
     return value
   }
 
-  bits(count: number): boolean[] {
-    const out: boolean[] = []
-    let byte = 0
-    let mask = 0
-    for (let i = 0; i < count; i++) {
-      if (mask === 0) {
-        byte = this.u8()
-        mask = 0x80
-      }
-      out.push((byte & mask) !== 0)
-      mask >>= 1
-    }
-    return out
+  vector(count: number): BitVector {
+    return { bytes: this.take(Math.ceil(count / 8)), count }
   }
 
-  definedBits(count: number): boolean[] {
-    return this.u8() === 0 ? this.bits(count) : new Array<boolean>(count).fill(true)
+  defined(count: number): BitVector {
+    return this.u8() === 0 ? this.vector(count) : { bytes: null, count }
   }
 }
+
+interface BitVector {
+  bytes: Uint8Array | null
+  count: number
+}
+
+function bitAt(vector: BitVector, index: number): boolean {
+  return vector.bytes === null ? true : (vector.bytes[index >> 3] & (0x80 >> (index & 7))) !== 0
+}
+
+function ones(vector: BitVector): number {
+  if (vector.bytes === null) return vector.count
+  let total = 0
+  const whole = vector.count >> 3
+  for (let i = 0; i < whole; i++) total += POPCOUNT[vector.bytes[i]]
+  for (let i = whole << 3; i < vector.count; i++) if (bitAt(vector, i)) total++
+  return total
+}
+
+const POPCOUNT = Uint8Array.from({ length: 256 }, (_unused, byte) => {
+  let bits = 0
+  for (let rest = byte; rest; rest >>= 1) bits += rest & 1
+  return bits
+})
 
 function safe(value: number): number {
   if (!Number.isSafeInteger(value)) refuse('corrupt', '7z: a number is over 2^53')
@@ -167,9 +181,14 @@ export function crcOf(bytes: Uint8Array): number {
   return crc32(bytes) >>> 0
 }
 
-function digests(bytes: Bytes, count: number): Array<number | null> {
-  const defined = bytes.definedBits(count)
-  return defined.map((has) => (has ? bytes.u32() : null))
+function digests(bytes: Bytes, count: number, keep: number): Array<number | null> {
+  const defined = bytes.defined(count)
+  const out: Array<number | null> = []
+  for (let i = 0; i < count; i++) {
+    const crc = bitAt(defined, i) ? bytes.u32() : null
+    if (out.length < keep) out.push(crc)
+  }
+  return out
 }
 
 function readCoder(bytes: Bytes): Coder {
@@ -225,11 +244,11 @@ function readStreams(bytes: Bytes, headerSize: number): StreamsInfo {
   for (let type = bytes.u8(); type !== K.end; type = bytes.u8()) {
     if (type === K.packInfo) {
       packPos = bytes.number()
-      const count = bytes.count(headerSize)
+      const count = bytes.count(FOLDERS_MAX)
       packSizes = []
       for (let id = bytes.u8(); id !== K.end; id = bytes.u8()) {
         if (id === K.size) for (let i = 0; i < count; i++) packSizes.push(bytes.number())
-        else if (id === K.crc) digests(bytes, count)
+        else if (id === K.crc) digests(bytes, count, count)
         else refuse('corrupt', '7z: unknown pack info property')
       }
       if (packSizes.length !== count) refuse('corrupt', '7z: pack sizes missing')
@@ -268,7 +287,7 @@ function readUnpackInfo(bytes: Bytes, headerSize: number): Folder[] {
   }))
   for (let id = bytes.u8(); id !== K.end; id = bytes.u8()) {
     if (id !== K.crc) refuse('corrupt', '7z: unknown unpack info property')
-    digests(bytes, count).forEach((crc, i) => {
+    digests(bytes, count, count).forEach((crc, i) => {
       folders[i].crc = crc
     })
   }
@@ -282,10 +301,13 @@ function readSubStreams(
   let counts = folders.map(() => 1)
   let type = bytes.u8()
   if (type === K.numUnpackStream) {
-    counts = folders.map(() => bytes.count(bytes.left * 8 + 1))
+    counts = folders.map(() => bytes.number())
     type = bytes.u8()
   }
   const sizes: number[] = []
+  const keep = (size: number): void => {
+    if (sizes.length < LISTED_MAX) sizes.push(size)
+  }
   const hasSizes = type === K.size
   folders.forEach((folder, i) => {
     const n = counts[i]
@@ -294,16 +316,15 @@ function readSubStreams(
     if (hasSizes) {
       for (let k = 0; k < n - 1; k++) {
         const size = bytes.number()
-        sizes.push(size)
+        keep(size)
         sum += size
       }
     } else if (n > 1) refuse('corrupt', '7z: substream sizes missing')
     const rest = unpackSize(folder) - sum
     if (rest < 0) refuse('corrupt', '7z: substream sizes over the folder size')
-    sizes.push(rest)
+    keep(rest)
   })
   if (hasSizes) type = bytes.u8()
-  const crcs: Array<number | null> = []
   const unknown = folders.reduce(
     (total, folder, i) => total + (counts[i] === 1 && folder.crc !== null ? 0 : counts[i]),
     0,
@@ -311,17 +332,18 @@ function readSubStreams(
   let read: Array<number | null> = []
   while (type !== K.end) {
     if (type !== K.crc) refuse('corrupt', '7z: unknown substreams property')
-    read = digests(bytes, unknown)
+    read = digests(bytes, unknown, LISTED_MAX)
     type = bytes.u8()
   }
+  const crcs: Array<number | null> = []
   let at = 0
-  folders.forEach((folder, i) => {
-    if (counts[i] === 1 && folder.crc !== null) {
-      crcs.push(folder.crc)
-      return
+  for (let i = 0; i < folders.length && crcs.length < LISTED_MAX; i++) {
+    if (counts[i] === 1 && folders[i].crc !== null) {
+      crcs.push(folders[i].crc)
+      continue
     }
-    for (let k = 0; k < counts[i]; k++) crcs.push(read[at++] ?? null)
-  })
+    for (let k = 0; k < counts[i] && crcs.length < LISTED_MAX; k++) crcs.push(read[at++] ?? null)
+  }
   return { counts, sizes, crcs }
 }
 
@@ -341,51 +363,51 @@ function readNames(bytes: Bytes, size: number, count: number): string[] {
   return names
 }
 
-function readFiles(bytes: Bytes, headerLeft: number): FileRecord[] {
+function readFiles(bytes: Bytes, headerLeft: number): { files: FileRecord[]; count: number } {
   const count = bytes.count(headerLeft)
-  const files: FileRecord[] = Array.from({ length: count }, () => ({
+  const kept = Math.min(count, LISTED_MAX)
+  const files: FileRecord[] = Array.from({ length: kept }, () => ({
     name: '',
     emptyStream: false,
     emptyFile: false,
     anti: false,
     attributes: null,
   }))
-  let empties: FileRecord[] = []
+  let emptyStream: BitVector | null = null
+  let emptyFile: BitVector | null = null
+  let anti: BitVector | null = null
   for (let type = bytes.u8(); type !== K.end; type = bytes.u8()) {
     const size = bytes.number()
     const end = bytes.at + size
     if (size > bytes.left) refuse('corrupt', '7z: a file property is longer than the header')
     if (type === K.emptyStream) {
-      bits(bytes, count).forEach((empty, i) => {
-        files[i].emptyStream = empty
-      })
-      empties = files.filter((file) => file.emptyStream)
+      emptyStream = bytes.vector(count)
     } else if (type === K.emptyFile) {
-      bits(bytes, empties.length).forEach((flag, i) => {
-        empties[i].emptyFile = flag
-      })
+      emptyFile = bytes.vector(emptyStream ? ones(emptyStream) : 0)
     } else if (type === K.anti) {
-      bits(bytes, empties.length).forEach((flag, i) => {
-        empties[i].anti = flag
-      })
+      anti = bytes.vector(emptyStream ? ones(emptyStream) : 0)
     } else if (type === K.name) {
-      readNames(bytes, size, count).forEach((name, i) => {
+      readNames(bytes, size, kept).forEach((name, i) => {
         files[i].name = name
       })
     } else if (type === K.winAttributes) {
-      const defined = bytes.definedBits(count)
+      const defined = bytes.defined(count)
       if (bytes.u8() !== 0) refuse('unsupported', '7z: external attributes')
-      defined.forEach((has, i) => {
-        if (has) files[i].attributes = bytes.u32()
-      })
+      for (let i = 0; i < kept; i++) {
+        if (bitAt(defined, i)) files[i].attributes = bytes.u32()
+      }
     }
     bytes.at = end
   }
-  return files
-}
-
-function bits(bytes: Bytes, count: number): boolean[] {
-  return bytes.bits(count)
+  let empties = 0
+  files.forEach((file, i) => {
+    if (!emptyStream || !bitAt(emptyStream, i)) return
+    file.emptyStream = true
+    file.emptyFile = emptyFile ? bitAt(emptyFile, empties) : false
+    file.anti = anti ? bitAt(anti, empties) : false
+    empties++
+  })
+  return { files, count }
 }
 
 export function parseHeader(block: Uint8Array, headerSize: number): ParsedHeader {
@@ -393,6 +415,7 @@ export function parseHeader(block: Uint8Array, headerSize: number): ParsedHeader
   if (bytes.u8() !== K.header) refuse('corrupt', '7z: header expected')
   let streams: StreamsInfo | null = null
   let files: FileRecord[] = []
+  let fileCount = 0
   for (let type = bytes.u8(); type !== K.end; type = bytes.u8()) {
     if (type === K.archiveProperties) {
       for (let id = bytes.u8(); id !== K.end; id = bytes.u8()) bytes.take(bytes.count(bytes.left))
@@ -401,10 +424,12 @@ export function parseHeader(block: Uint8Array, headerSize: number): ParsedHeader
     } else if (type === K.mainStreamsInfo) {
       streams = readStreams(bytes, headerSize)
     } else if (type === K.filesInfo) {
-      files = readFiles(bytes, bytes.left)
+      const read = readFiles(bytes, bytes.left)
+      files = read.files
+      fileCount = read.count
     } else refuse('corrupt', `7z: unknown header property ${type}`)
   }
-  return { streams, files, fileCount: files.length }
+  return { streams, files, fileCount }
 }
 
 export function parseEncodedHeader(block: Uint8Array): StreamsInfo {

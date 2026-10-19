@@ -2,9 +2,10 @@ import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { crc32 } from 'node:zlib'
 import { BROWSE_LIMITS } from '@aurigax-ai/ostia-extension-sdk/contract/fileBrowse'
+import { lzma2 } from '@napi-rs/lzma'
 import { describe, expect, it } from 'vitest'
 import { listAll, memoryFile, readEntry } from './memoryFile'
-import { sevenZip } from './sevenZip'
+import { sevenZip, sevenZipProvider } from './sevenZip'
 
 const MIB = 1024 * 1024
 const DIR = join(__dirname, '../../../test/fixtures/archives/7z')
@@ -67,6 +68,20 @@ function emptyFiles(count: number, declared = count): Buffer {
     Buffer.from([0x37, 0x7a, 0xbc, 0xaf, 0x27, 0x1c, 0x00, 0x04]),
     u32(crc32(start)),
     start,
+    header,
+  ])
+}
+
+function seven(header: Buffer, packed: Buffer = Buffer.alloc(0)): Buffer {
+  const start = Buffer.alloc(20)
+  start.writeBigUInt64LE(BigInt(packed.length), 0)
+  start.writeBigUInt64LE(BigInt(header.length), 8)
+  start.writeUInt32LE(crc32(header) >>> 0, 16)
+  return Buffer.concat([
+    Buffer.from([0x37, 0x7a, 0xbc, 0xaf, 0x27, 0x1c, 0x00, 0x04]),
+    u32(crc32(start)),
+    start,
+    packed,
     header,
   ])
 }
@@ -271,5 +286,104 @@ describe('7z limits and damage', () => {
       abort.signal,
     )
     expect(result).toEqual({ ok: false, error: 'cancelled' })
+  })
+
+  it('survives headers that declare millions of files or substreams, plain or packed small', async () => {
+    const started = Date.now()
+    const bits = (count: number): Buffer => Buffer.alloc(Math.ceil(count / 8), 0xff)
+    const block = (type: number, body: Buffer): Buffer =>
+      Buffer.concat([Buffer.from([type, ...numberBytes(body.length)]), body])
+
+    const files = 60_000_000
+    const inner = Buffer.concat([
+      Buffer.from([0x01, 0x05, ...numberBytes(files)]),
+      block(0x0e, bits(files)),
+      block(0x19, Buffer.alloc(files - Math.ceil(files / 8) + 64)),
+      Buffer.from([0x00, 0x00]),
+    ])
+    expect(inner.length).toBeLessThan(64 * 1024 * 1024)
+    const packedInner = Buffer.from(lzma2.compressSync(inner))
+    expect(packedInner.length).toBeLessThan(inner.length / 100)
+    const encoded = Buffer.from([
+      0x17,
+      0x06,
+      0x00,
+      0x01,
+      0x09,
+      ...numberBytes(packedInner.length),
+      0x00,
+      0x07,
+      0x0b,
+      0x01,
+      0x00,
+      0x01,
+      0x21,
+      0x21,
+      0x01,
+      0x16,
+      0x0c,
+      ...numberBytes(inner.length),
+      0x00,
+      0x00,
+    ])
+    const small = seven(encoded, packedInner)
+    expect(small.length).toBeLessThan(100_000)
+    const packedList = await listAll(sevenZip, memoryFile(small))
+    expect(packedList.result).toEqual({ ok: true, complete: false })
+    expect(packedList.entries).toHaveLength(BROWSE_LIMITS.entries + 1)
+    expect(packedList.entries[0]).toMatchObject({ name: '', dir: true })
+
+    const streams = 10_000_000
+    const sizes = Buffer.alloc(streams - 1)
+    const names = Buffer.concat([
+      Buffer.from([0]),
+      ...['a', 'b', 'c'].map((name) => Buffer.from(`${name}\0`, 'utf16le')),
+    ])
+    const manySubstreams = Buffer.concat([
+      Buffer.from([0x01, 0x04, 0x06, 0x00, 0x01, 0x09, 0x0a, 0x00]),
+      Buffer.from([0x07, 0x0b, 0x01, 0x00, 0x01, 0x01, 0x00, 0x0c, 0x0a, 0x00]),
+      Buffer.from([0x08, 0x0d, ...numberBytes(streams), 0x09]),
+      sizes,
+      Buffer.from([0x00, 0x00, 0x05, 0x03]),
+      block(0x11, names),
+      Buffer.from([0x00, 0x00]),
+    ])
+    const many = await listAll(sevenZip, memoryFile(seven(manySubstreams, Buffer.alloc(10))))
+    expect(many.result).toEqual({ ok: true, complete: true })
+    expect(many.entries.map((entry) => [entry.name, entry.size])).toEqual([
+      ['a', 0],
+      ['b', 0],
+      ['c', 0],
+    ])
+
+    const crcs = Buffer.concat([
+      Buffer.from([0x01, 0x04, 0x06, 0x00, 0x01, 0x09, 0x0a, 0x00]),
+      Buffer.from([0x07, 0x0b, 0x01, 0x00, 0x01, 0x01, 0x00, 0x0c, 0x0a, 0x00]),
+      Buffer.from([0x08, 0x0d, ...numberBytes(streams), 0x0a, 0x01, 1, 2, 3, 4]),
+    ])
+    expect((await listAll(sevenZip, memoryFile(seven(crcs, Buffer.alloc(10))))).result).toEqual({
+      ok: false,
+      error: 'corrupt',
+    })
+    expect(Date.now() - started).toBeLessThan(10_000)
+  })
+
+  it('reads Copy folders without the native module and fails an LZMA folder as failed when it is missing', async () => {
+    const calls = { n: 0 }
+    const missing = () => {
+      calls.n += 1
+      throw new Error('Cannot find module @napi-rs/lzma-linux-x64-gnu')
+    }
+    const provider = sevenZipProvider({ lzma: missing, lzma2: missing })
+    const plain = fixture('copyplain.7z')
+    const listed = await listAll(provider, memoryFile(plain))
+    expect(listed.result).toEqual({ ok: true, complete: true })
+    const read = await readEntry(provider, memoryFile(plain), 0)
+    expect(read.result).toEqual({ ok: true })
+    expect(read.data.toString()).toBe(A)
+    expect(calls.n).toBe(0)
+    const packed = await listAll(provider, memoryFile(fixture('lzma2.7z')))
+    expect(packed.result).toEqual({ ok: false, error: 'failed' })
+    expect(calls.n).toBe(1)
   })
 })

@@ -41,7 +41,7 @@ export function placeEntries(
 ): { entries: Placed[]; cut: boolean } {
   const streams: StreamsInfo | null = header.streams
   const placed: Placed[] = []
-  let cut = false
+  let cut = header.fileCount > header.files.length
   let folder = 0
   let inFolder = 0
   let offset = 0

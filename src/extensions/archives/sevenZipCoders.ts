@@ -1,7 +1,5 @@
 import { type Duplex, PassThrough, type Readable, pipeline } from 'node:stream'
 import type { BrowseFile } from '@aurigax-ai/ostia-extension-sdk'
-import { createDecompressStream as lzmaStream } from '@napi-rs/lzma/lzma'
-import { createDecompressStream as lzma2Stream } from '@napi-rs/lzma/lzma2'
 import { BcjX86Decoder } from './bcjX86'
 import { Counted, InflateLimit } from './inflate'
 import {
@@ -14,6 +12,16 @@ import {
   refuse,
 } from './sevenZipHeader'
 import { XZ_DICT_MAX, lzma2DictSize } from './xzGuard'
+
+export interface Native {
+  lzma: () => Duplex
+  lzma2: (dictSize: number) => Duplex
+}
+
+export const nativeLzma: Native = {
+  lzma: () => require('@napi-rs/lzma/lzma').createDecompressStream(),
+  lzma2: (dictSize) => require('@napi-rs/lzma/lzma2').createDecompressStream({ dictSize }),
+}
 
 const COPY = '00'
 const LZMA = '030101'
@@ -69,15 +77,15 @@ export function isEncrypted(folder: Folder): boolean {
   return folder.coders.some((coder) => coder.id === AES_ID)
 }
 
-function stageOf(coder: Coder, unpackSize: number): Duplex {
+function stageOf(coder: Coder, unpackSize: number, native: Native): Duplex {
   if (coder.id === COPY) return new PassThrough()
   if (coder.id === BCJ_X86) return new BcjX86Decoder()
-  if (coder.id === LZMA2) return lzma2Stream({ dictSize: lzma2Dict(coder.props) })
+  if (coder.id === LZMA2) return native.lzma2(lzma2Dict(coder.props))
   if (coder.id === LZMA) {
     const header = Buffer.alloc(13)
     header.set(coder.props, 0)
     header.writeBigUInt64LE(BigInt(unpackSize), 5)
-    const stage = lzmaStream()
+    const stage = native.lzma()
     stage.write(header)
     return stage
   }
@@ -99,6 +107,7 @@ export interface FolderRun {
   budget: number
   scanMs: number
   signal: AbortSignal
+  native: Native
 }
 
 export async function decodeFolder(
@@ -113,7 +122,9 @@ export async function decodeFolder(
   }
   if (signal.aborted) throw new SevenZipRefused('corrupt', 'cancelled')
   const packed: Readable = file.stream(start, end)
-  const stages = folder.chain.map((at) => stageOf(folder.coders[at], folder.unpackSizes[at]))
+  const stages = folder.chain.map((at) =>
+    stageOf(folder.coders[at], folder.unpackSizes[at], run.native),
+  )
   const output = new Counted(run.budget)
   const all = [packed, ...stages, output]
   const finish = (error?: Error): void => {

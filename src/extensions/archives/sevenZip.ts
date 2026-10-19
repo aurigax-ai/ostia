@@ -7,7 +7,15 @@ import {
 } from '@aurigax-ai/ostia-extension-sdk'
 import type { BrowseLimits } from '@aurigax-ai/ostia-extension-sdk/contract/fileBrowse'
 import { shownLink, shownName } from './names'
-import { type FolderRun, checkFolder, decodeFolder, isEncrypted, packRange } from './sevenZipCoders'
+import {
+  type FolderRun,
+  type Native,
+  checkFolder,
+  decodeFolder,
+  isEncrypted,
+  nativeLzma,
+  packRange,
+} from './sevenZipCoders'
 import { type Placed, placeEntries, requireSingleChain } from './sevenZipFiles'
 import {
   DECODED_HEADER_MAX,
@@ -30,6 +38,7 @@ async function decodedHeader(
   block: Uint8Array,
   limits: BrowseLimits,
   signal: AbortSignal,
+  native: Native,
 ): Promise<Uint8Array> {
   const streams = parseEncodedHeader(block)
   if (streams.folders.length !== 1)
@@ -48,6 +57,7 @@ async function decodedHeader(
     budget: DECODED_HEADER_MAX,
     scanMs: limits.scanMs,
     signal,
+    native,
   }
   await decodeFolder(run, (chunk) => {
     parts.push(Buffer.from(chunk))
@@ -63,6 +73,7 @@ async function readHeader(
   file: BrowseFile,
   limits: BrowseLimits,
   signal: AbortSignal,
+  native: Native,
 ): Promise<ParsedHeader> {
   if (file.size < SIGNATURE_HEADER_BYTES) refuse('unsupported', 'not a 7z file')
   const start = parseStartHeader(await file.readAt(0, SIGNATURE_HEADER_BYTES))
@@ -72,7 +83,9 @@ async function readHeader(
   if (at + start.nextSize > file.size) refuse('corrupt', '7z: the header is outside the file')
   const block = await file.readAt(at, start.nextSize)
   if (crcOf(block) !== start.nextCrc) refuse('corrupt', '7z: header CRC')
-  const plain = isEncodedHeader(block) ? await decodedHeader(file, block, limits, signal) : block
+  const plain = isEncodedHeader(block)
+    ? await decodedHeader(file, block, limits, signal, native)
+    : block
   const header = parseHeader(plain, plain.length)
   if (header.streams) {
     requireSingleChain(header.streams)
@@ -98,6 +111,7 @@ async function linkTargets(
   entries: Placed[],
   limits: BrowseLimits,
   signal: AbortSignal,
+  native: Native,
 ): Promise<Map<Placed, string>> {
   const targets = new Map<Placed, string>()
   const streams = header.streams
@@ -113,7 +127,7 @@ async function linkTargets(
     const pieces = new Map<Placed, Buffer[]>(links.map((link) => [link, []]))
     try {
       await decodeFolder(
-        { file, streams, folder, budget: left, scanMs: limits.scanMs, signal },
+        { file, streams, folder, budget: left, scanMs: limits.scanMs, signal, native },
         (chunk, at) => {
           left -= chunk.length
           for (const link of links) {
@@ -155,63 +169,68 @@ async function emit(
   return true
 }
 
-export const sevenZip: BrowseProvider = {
-  async list(file, sink, { signal, limits }) {
-    try {
-      const header = await readHeader(file, limits, signal)
-      const { entries, cut } = placeEntries(header, limits.entries + 1)
-      const targets = await linkTargets(file, header, entries, limits, signal)
-      const more = await emit(sink, entries, targets, limits)
-      return { ok: true, complete: more && !cut }
-    } catch (error) {
-      return fail(error, signal)
-    }
-  },
+export function sevenZipProvider(native: Native = nativeLzma): BrowseProvider {
+  return {
+    async list(file, sink, { signal, limits }) {
+      try {
+        const header = await readHeader(file, limits, signal, native)
+        const { entries, cut } = placeEntries(header, limits.entries + 1)
+        const targets = await linkTargets(file, header, entries, limits, signal, native)
+        const more = await emit(sink, entries, targets, limits)
+        return { ok: true, complete: more && !cut }
+      } catch (error) {
+        return fail(error, signal)
+      }
+    },
 
-  async read(file, index, sink, { signal, limits, max }) {
-    try {
-      const header = await readHeader(file, limits, signal)
-      const entry = placeEntries(header, index + 1).entries[index]
-      if (!entry || entry.dir) return { ok: false, error: 'gone' }
-      if (entry.link) return { ok: false, error: 'link' }
-      if (entry.encrypted) return { ok: false, error: 'encrypted' }
-      if (entry.size > max) return { ok: false, error: 'too-large', size: entry.size }
-      if (!entry.streamed || entry.size === 0) return { ok: true }
-      const streams = header.streams
-      if (!streams) return { ok: false, error: 'corrupt' }
-      let crc = 0
-      let seen = 0
-      let refused = false
-      await decodeFolder(
-        {
-          file,
-          streams,
-          folder: entry.folder,
-          budget: limits.scanBytes,
-          scanMs: limits.scanMs,
-          signal,
-        },
-        async (chunk, at) => {
-          const from = Math.max(entry.offset, at)
-          const to = Math.min(entry.offset + entry.size, at + chunk.length)
-          if (to > from) {
-            const piece = chunk.subarray(from - at, to - at)
-            crc = crc32(piece, crc)
-            seen += piece.length
-            if (!(await sink.write(piece))) {
-              refused = true
-              return false
+    async read(file, index, sink, { signal, limits, max }) {
+      try {
+        const header = await readHeader(file, limits, signal, native)
+        const entry = placeEntries(header, index + 1).entries[index]
+        if (!entry || entry.dir) return { ok: false, error: 'gone' }
+        if (entry.link) return { ok: false, error: 'link' }
+        if (entry.encrypted) return { ok: false, error: 'encrypted' }
+        if (entry.size > max) return { ok: false, error: 'too-large', size: entry.size }
+        if (!entry.streamed || entry.size === 0) return { ok: true }
+        const streams = header.streams
+        if (!streams) return { ok: false, error: 'corrupt' }
+        let crc = 0
+        let seen = 0
+        let refused = false
+        await decodeFolder(
+          {
+            file,
+            streams,
+            folder: entry.folder,
+            budget: limits.scanBytes,
+            scanMs: limits.scanMs,
+            signal,
+            native,
+          },
+          async (chunk, at) => {
+            const from = Math.max(entry.offset, at)
+            const to = Math.min(entry.offset + entry.size, at + chunk.length)
+            if (to > from) {
+              const piece = chunk.subarray(from - at, to - at)
+              crc = crc32(piece, crc)
+              seen += piece.length
+              if (!(await sink.write(piece))) {
+                refused = true
+                return false
+              }
             }
-          }
-          return at + chunk.length < entry.offset + entry.size
-        },
-      )
-      if (refused) return { ok: false, error: 'too-large' }
-      if (seen !== entry.size) return { ok: false, error: 'corrupt' }
-      if (entry.crc !== null && crc >>> 0 !== entry.crc) return { ok: false, error: 'corrupt' }
-      return { ok: true }
-    } catch (error) {
-      return fail(error, signal)
-    }
-  },
+            return at + chunk.length < entry.offset + entry.size
+          },
+        )
+        if (refused) return { ok: false, error: 'too-large' }
+        if (seen !== entry.size) return { ok: false, error: 'corrupt' }
+        if (entry.crc !== null && crc >>> 0 !== entry.crc) return { ok: false, error: 'corrupt' }
+        return { ok: true }
+      } catch (error) {
+        return fail(error, signal)
+      }
+    },
+  }
 }
+
+export const sevenZip = sevenZipProvider()
