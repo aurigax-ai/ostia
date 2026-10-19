@@ -10,12 +10,13 @@ import {
   writeFileSync,
 } from 'node:fs'
 import { type Server, createServer as createHttpServer } from 'node:http'
-import { type AddressInfo, createServer } from 'node:net'
+import { type AddressInfo, createConnection, createServer } from 'node:net'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { basename, dirname, join } from 'node:path'
 import { build } from 'esbuild'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { DEFAULT_CONTROLS, DEFAULT_SWITCHES } from '../../shared/sandbox/sandbox'
+import { codexSocketDir, codexSocketPath } from '../agents/codexSockets'
 import { SandboxHost } from './hostClient'
 import { buildSrtConfig } from './srtConfig'
 
@@ -131,6 +132,7 @@ beforeAll(async () => {
         runtimeDir,
         socketPath,
         runtimeReads: [],
+        codexDir: codexSocketDir(),
       },
     ),
   )
@@ -226,6 +228,26 @@ describe('sandbox runtime', () => {
     )
     expect(res.out).toContain('ostia-ok')
     expect(res.out).not.toContain('bus')
+  })
+
+  it('keeps the folder of the pane Codex app-server sockets unreadable and unreachable', async () => {
+    const codexSock = codexSocketPath()
+    const server = createServer((conn) => conn.end('CODEX-SERVER'))
+    await new Promise<void>((resolve) => server.listen(codexSock, resolve))
+    try {
+      const outside = await new Promise<string>((resolve) => {
+        createConnection(codexSock).on('data', (d) => resolve(String(d)))
+      })
+      expect(outside).toBe('CODEX-SERVER')
+      const res = await run(
+        `ls ${dirname(codexSock)}; node -e "require('net').connect('${codexSock}').on('data',()=>{console.log('codex-ok');process.exit(0)}).on('error',e=>{console.log('codex-err',e.code);process.exit(0)})"`,
+      )
+      expect(res.out).not.toContain('codex-ok')
+      expect(res.out).not.toContain(basename(codexSock))
+      expect(res.out).toContain('codex-err')
+    } finally {
+      server.close()
+    }
   })
 })
 

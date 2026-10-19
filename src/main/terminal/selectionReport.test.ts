@@ -6,9 +6,9 @@ import { FAKE } from '../../../test/fixtures/secrets/samples'
 import type { SelectionCapture, SelectionSendRequest } from '../../shared/browser/selection'
 
 vi.mock('electron', () => ({ ipcMain: { handle: vi.fn(), on: vi.fn() }, webContents: {} }))
-vi.mock('../agents/bus', () => ({ postBusMessage: vi.fn(() => 'msg-1') }))
+vi.mock('../agents/busStore', () => ({ postBusMessage: vi.fn(() => 'msg-1') }))
 
-const { postBusMessage } = await import('../agents/bus')
+const { postBusMessage } = await import('../agents/busStore')
 const { writeSelectionReport } = await import('./selectionReport')
 const { createRedactor } = await import('../privacy/redaction')
 const { testScan } = await import('../../../test/redactionScan')

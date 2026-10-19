@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import type { PaneStatus } from '../../shared/panes/paneStatus'
 import { hibernateOutcome, paneLine, parsePaneArgs, waitOutcome, wakeOutcome } from './pane'
 
 describe('parsePaneArgs', () => {
@@ -142,6 +143,79 @@ describe('pane rename', () => {
   })
 })
 
+describe('pane status', () => {
+  it('takes several panes and --json, and needs at least one pane', () => {
+    expect(parsePaneArgs(['status', 'w1', 'w2'])).toEqual({
+      method: 'pane.status',
+      params: { panes: ['w1', 'w2'] },
+      json: false,
+    })
+    expect(parsePaneArgs(['status', 'w1', '--json'])).toEqual({
+      method: 'pane.status',
+      params: { panes: ['w1'] },
+      json: true,
+    })
+    expect(() => parsePaneArgs(['status'])).toThrow('usage: ostia pane')
+    expect(() => parsePaneArgs(['status', 'w1', '--lines', '3'])).toThrow()
+  })
+})
+
+describe('pane transcript', () => {
+  it('takes one pane, --turns or --full, and --json', () => {
+    expect(parsePaneArgs(['transcript', 'w1'])).toEqual({
+      method: 'pane.transcript',
+      params: { pane: 'w1' },
+      json: false,
+    })
+    expect(parsePaneArgs(['transcript', 'w1', '--turns', '3', '--json'])).toEqual({
+      method: 'pane.transcript',
+      params: { pane: 'w1', turns: 3 },
+      json: true,
+    })
+    expect(parsePaneArgs(['transcript', 'w1', '--full'])).toEqual({
+      method: 'pane.transcript',
+      params: { pane: 'w1', full: true },
+      json: false,
+    })
+  })
+
+  it('refuses several panes, --turns with --full, and a turn count that is not a whole number', () => {
+    expect(() => parsePaneArgs(['transcript', 'w1', 'w2'])).toThrow('usage: ostia pane')
+    expect(() => parsePaneArgs(['transcript', 'w1', '--full', '--turns', '2'])).toThrow(
+      'usage: ostia pane',
+    )
+    expect(() => parsePaneArgs(['transcript', 'w1', '--turns', '0'])).toThrow('positive integer')
+    expect(() => parsePaneArgs(['transcript', 'w1', '--turns', 'x'])).toThrow('positive integer')
+  })
+})
+
+describe('pane watch', () => {
+  it('takes panes and repeated --until, or --off with or without panes', () => {
+    expect(parsePaneArgs(['watch', 'w1', 'w2', '--until', 'done', '--until', 'error'])).toEqual({
+      method: 'pane.watch',
+      params: { panes: ['w1', 'w2'], until: ['done', 'error'] },
+      json: false,
+    })
+    expect(parsePaneArgs(['watch', 'w1', '--off'])).toEqual({
+      method: 'pane.watch',
+      params: { panes: ['w1'], off: true },
+      json: false,
+    })
+    expect(parsePaneArgs(['watch', '--off', '--json'])).toEqual({
+      method: 'pane.watch',
+      params: { off: true },
+      json: true,
+    })
+  })
+
+  it('refuses a watch without a pane, and --off together with --until', () => {
+    expect(() => parsePaneArgs(['watch'])).toThrow('usage: ostia pane')
+    expect(() => parsePaneArgs(['watch', 'w1', '--off', '--until', 'done'])).toThrow(
+      'usage: ostia pane',
+    )
+  })
+})
+
 describe('pane wait', () => {
   it('takes several panes, repeated --until and seconds for --timeout', () => {
     expect(
@@ -177,6 +251,24 @@ describe('pane wait', () => {
     expect(waitOutcome(reached, true)).toEqual({
       line: JSON.stringify({ paneId: 'p1', state: 'waiting', message: 'Allow?' }),
       code: 0,
+    })
+    const status: PaneStatus = {
+      pane: 'p1',
+      title: 'w-1',
+      state: 'shell',
+      exitCode: 2,
+      mail: { queued: 0, failed: 0, sentQueued: 0, sentFailed: 0 },
+      stale: [],
+      conflict: [],
+      changes: { first: true, states: [], commands: 0, failed: 0, closing: false, mail: 0 },
+    }
+    const command = { reached: true as const, paneId: 'p1', state: 'command', exitCode: 2, status }
+    expect(waitOutcome(command, false).line).toBe('w-1  shell  exit 2  mail 0  (first look)')
+    expect(JSON.parse(waitOutcome(command, true).line)).toMatchObject({
+      paneId: 'p1',
+      state: 'command',
+      exitCode: 2,
+      status: { title: 'w-1' },
     })
     expect(waitOutcome({ timedOut: true }, false).code).toBe(3)
     expect(waitOutcome({ closed: true, paneId: 'p1' }, false)).toEqual({

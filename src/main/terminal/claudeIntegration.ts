@@ -25,12 +25,15 @@ import {
   hooksFor,
   permissionHookCommand,
 } from './agentHookCommands'
+import claudeModSource from './claudeMod/register.ts?raw'
 
 const CLAUDE_ARGS = envName(AGENT_ARGS_ENV.claude)
 
 const commandHook = (command: string) => ({ type: 'command', command })
 
 const CLAUDE_SUBAGENT_EVENTS = ['SubagentStart', 'SubagentStop'] as const
+
+const CLAUDE_MOD_FILE = 'register.ts'
 
 export function claudeHookSettings(extensionHooks: readonly ExtensionAgentHook[] = []): {
   hooks: Record<string, unknown[]>
@@ -88,9 +91,10 @@ export function writeClaudePlugin(
   )
   writeFileSync(
     join(dir, 'hooks', 'hooks.json'),
-    `${JSON.stringify(claudeHookSettings(content.hooks), null, 2)}\n`,
+    `${JSON.stringify({ ...claudeHookSettings(content.hooks), modules: [`./${CLAUDE_MOD_FILE}`] }, null, 2)}\n`,
     'utf8',
   )
+  writeFileSync(join(dir, 'hooks', CLAUDE_MOD_FILE), claudeModSource, 'utf8')
   writeBundledSkill(join(dir, 'skills', AGENT_SKILL_NAME), CORE_SKILL_FILES)
   for (const skill of content.skills) writeSkillFiles(join(dir, 'skills', skill.id), skill)
 }

@@ -2,7 +2,7 @@
   "id": "opener",
   "name": "Opener",
   "version": "0.1.0",
-  "api": "5.0",
+  "api": "6.0",
   "description": "Test fixture for ext.openTerminal and interactive commands",
   "capabilities": ["shell"],
   "main": "main.js",

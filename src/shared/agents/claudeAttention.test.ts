@@ -54,6 +54,15 @@ describe('claudeAttention', () => {
 
   it('ends a turn as done, and a failed turn as an error', () => {
     expect(claudeAttention('Stop', '{}')).toEqual({ state: 'done', message: '' })
+    const stop = JSON.stringify({
+      session_id: 's-1',
+      last_assistant_message: 'Merged the fix.\nLong report.',
+    })
+    expect(claudeAttention('Stop', stop)).toEqual({
+      state: 'done',
+      message: '',
+      closing: 'Merged the fix.',
+    })
     expect(claudeAttention('StopFailure', JSON.stringify({ error: 'rate_limit' }))).toEqual({
       state: 'error',
       message: 'rate_limit',

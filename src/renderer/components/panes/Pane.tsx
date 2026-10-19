@@ -19,13 +19,9 @@ import { usePaneDnd } from '@/stores/workspaces/paneDndStore'
 import { FileDropCover } from './FileDropCover'
 import { FoldedSplitTab } from './FoldedSplitTab'
 import { PaneActions } from './PaneActions'
+import { PaneAgentNotices } from './PaneAgentNotices'
 import { PaneTab } from './PaneTab'
-import {
-  FolderTrustNotice,
-  ResumeConflictNotice,
-  ResumeFailedNotice,
-  ResumeFolderNotice,
-} from './ResumeFolderNotice'
+import { FolderTrustNotice, ResumeFailedNotice, ResumeFolderNotice } from './ResumeFolderNotice'
 import { SplitTabPill } from './SplitTab'
 import { SplitTabBody } from './SplitTabBody'
 import { TabBody } from './TabBody'
@@ -175,9 +171,9 @@ export function Pane({
               resume={shown.resume}
               folder={shown.resumeFolderMissing}
             />
-          ) : shown.resume ? (
-            <ResumeConflictNotice pane={shown} />
-          ) : null}
+          ) : (
+            <PaneAgentNotices pane={shown} />
+          )}
         </NoticeSlot>
       </div>
 

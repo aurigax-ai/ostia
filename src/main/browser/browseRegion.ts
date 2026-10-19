@@ -21,7 +21,7 @@ import {
   regionPageRect,
   renderRegionReport,
 } from '../../shared/browser/regionCapture'
-import { postBusMessage } from '../agents/bus'
+import { postBusMessage } from '../agents/busStore'
 import type { OriginReach } from '../agents/originAgents'
 import { getByPaneId } from '../control/idRegistry'
 import { privateTmpDir } from '../platform/privateTmp'
