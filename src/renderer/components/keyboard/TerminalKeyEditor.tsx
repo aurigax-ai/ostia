@@ -157,11 +157,7 @@ export function TerminalKeyEditor({
           }}
         />
       ) : null}
-      {problem ? (
-        <p role="alert" className="text-attn-fg text-ui-sm">
-          {problem}
-        </p>
-      ) : null}
+      {problem ? <Notice tone="error">{problem}</Notice> : null}
       {replacing?.commands.map((id) => (
         <Notice key={id}>{fmt(d.keyboard.conflict, { keys, command: commandTitle(id, d) })}</Notice>
       ))}

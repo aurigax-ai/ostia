@@ -1,7 +1,6 @@
-import { ATTENTION_ALERT } from '@/components/agents/attentionStyles'
 import { IconButton } from '@/components/common/IconButton'
 import { DropdownMenu, MenuItem } from '@/components/common/Menu'
-import { Alert } from '@/components/ui/alert'
+import { NoticeBar } from '@/components/common/Notice'
 import { Button } from '@/components/ui/button'
 import { ButtonGroup, ButtonGroupSeparator } from '@/components/ui/button-group'
 import { fmt, useDict } from '@/lib/app/useDict'
@@ -9,7 +8,6 @@ import { openBrowserAs } from '@/lib/browser/browserProfile'
 import { useGuestReady } from '@/lib/panes/paneFocus'
 import { previewTheme } from '@/lib/theme/previewTheme'
 import { useEffectiveThemeId } from '@/lib/theme/theme'
-import { cn } from '@/lib/utils'
 import { retryPendingFocus } from '@/stores/workspaces/surfaceSlotsStore'
 import { CaretDownIcon, CaretRightIcon, WarningIcon, XIcon } from '@phosphor-icons/react'
 import {
@@ -141,39 +139,44 @@ function PreviewBars({
   const d = useDict()
   return (
     <>
-      {opened && !vitals.responding ? (
-        <Alert className={cn(ATTENTION_ALERT, 'preview-bar')} data-testid="preview-not-responding">
-          <span className="min-w-0 flex-1">{d.preview.notResponding}</span>
-          <Button variant="outline" size="xs" onClick={stop}>
-            {d.preview.stop}
-          </Button>
-        </Alert>
-      ) : null}
-      {opened && vitals.responding && vitals.busy ? (
-        <Alert className={cn(ATTENTION_ALERT, 'preview-bar')} data-testid="preview-busy">
-          <span className="min-w-0 flex-1">{d.preview.busy}</span>
-          <Button variant="outline" size="xs" onClick={stop}>
-            {d.preview.stop}
-          </Button>
-        </Alert>
+      {opened && (!vitals.responding || vitals.busy) ? (
+        <NoticeBar
+          className="preview-bar"
+          data-testid={vitals.responding ? 'preview-busy' : 'preview-not-responding'}
+          actions={
+            <Button variant="outline" size="xs" onClick={stop}>
+              {d.preview.stop}
+            </Button>
+          }
+        >
+          {vitals.responding ? d.preview.busy : d.preview.notResponding}
+        </NoticeBar>
       ) : null}
       {link ? (
-        <Alert className={cn(ATTENTION_ALERT, 'preview-bar')} data-testid="preview-link">
-          <span className="preview-link-url min-w-0 flex-1">{link}</span>
-          {isWebLink(link) ? (
-            <Button
-              variant="outline"
-              size="xs"
-              onClick={() => {
-                openBrowserAs(workspaceId, link, 'agent')
-                setLink(null)
-              }}
-            >
-              {d.preview.openInBrowser}
-            </Button>
-          ) : null}
-          <IconButton icon={XIcon} label={d.preview.dismiss} onClick={() => setLink(null)} />
-        </Alert>
+        <NoticeBar
+          tone="info"
+          className="preview-bar"
+          data-testid="preview-link"
+          actions={
+            <>
+              {isWebLink(link) ? (
+                <Button
+                  variant="outline"
+                  size="xs"
+                  onClick={() => {
+                    openBrowserAs(workspaceId, link, 'agent')
+                    setLink(null)
+                  }}
+                >
+                  {d.preview.openInBrowser}
+                </Button>
+              ) : null}
+              <IconButton icon={XIcon} label={d.preview.dismiss} onClick={() => setLink(null)} />
+            </>
+          }
+        >
+          <span className="preview-link-url">{link}</span>
+        </NoticeBar>
       ) : null}
     </>
   )
