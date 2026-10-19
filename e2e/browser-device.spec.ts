@@ -59,16 +59,17 @@ function report(app: ElectronApplication, url: string): Promise<Report | null> {
     .catch(() => null)
 }
 
-function capturedSize(
-  app: ElectronApplication,
-  url: string,
-): Promise<{ width: number; height: number } | null> {
-  return app.evaluate(async ({ webContents }, at) => {
-    const guest = webContents
-      .getAllWebContents()
-      .find((wc) => wc.getType() === 'webview' && wc.getURL() === at)
-    return guest ? (await guest.capturePage()).getSize() : null
-  }, url)
+function capturedRatio(app: ElectronApplication, url: string): Promise<number | null> {
+  return app
+    .evaluate(async ({ webContents }, at) => {
+      const guest = webContents
+        .getAllWebContents()
+        .find((wc) => wc.getType() === 'webview' && wc.getURL() === at)
+      if (!guest) return null
+      const { width, height } = (await guest.capturePage()).getSize()
+      return width / height
+    }, url)
+    .catch(() => null)
 }
 
 function runInPage(app: ElectronApplication, url: string, code: string): Promise<unknown> {
@@ -162,8 +163,9 @@ test('device mode shows a page as a phone, rotates, resizes, survives reload and
         ua: expect.stringContaining('iPhone'),
       })
     await expect.poll(() => agents.at(-1)).toContain('iPhone')
-    const shot = await capturedSize(first, url)
-    expect(shot && shot.width / shot.height).toBeCloseTo(393 / 852, 1)
+    await expect
+      .poll(() => capturedRatio(first, url), { timeout: 15_000 })
+      .toBeCloseTo(393 / 852, 1)
 
     await pane(win).locator('.browser-device-touch').click()
     await expect.poll(() => report(first, url)).toMatchObject({ touches: 1, clicks: 1, scroll: 0 })
