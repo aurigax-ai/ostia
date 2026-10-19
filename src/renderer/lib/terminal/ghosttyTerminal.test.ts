@@ -2,13 +2,17 @@ import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest
 import {
   type GhosttyTerminal,
   createGhosttyTerminal,
-  lazyBuffers,
   loadGhosttyEngine,
   oneBasedLinks,
   osc52Data,
   promptMarkData,
   unknownOsc,
 } from './ghosttyTerminal'
+import { logicalLinesFrom } from './historyPages'
+
+interface WasmCells {
+  getScrollbackLine(offset: number): unknown
+}
 
 const fills: string[] = []
 const realGetContext = HTMLCanvasElement.prototype.getContext
@@ -192,37 +196,19 @@ describe('Ghostty terminal adapter', () => {
   })
 })
 
-describe('Ghostty lazy buffer rows', () => {
-  function fakeTerm() {
-    const getLine = vi.fn((y: number) => ({
-      length: 4,
-      isWrapped: false,
-      getCell: () => undefined,
-      translateToString: () => `row ${y}`,
-    }))
-    const rows = { type: 'normal', length: 8, getLine, getNullCell: () => null }
-    const wasm = {
-      getScrollbackLength: () => 5,
-      isScrollbackRowWrapped: (offset: number) => offset === 2,
-      isRowWrapped: (row: number) => row === 1,
-    }
-    const t = { cols: 4, wasmTerm: wasm, buffer: { active: rows, normal: rows } }
-    return { buffer: lazyBuffers(t as never), getLine }
-  }
-
-  it('reads isWrapped from the row flag and never builds the row cells', () => {
-    const { buffer, getLine } = fakeTerm()
-    const flags = Array.from({ length: 8 }, (_, y) => buffer.normal.getLine(y)?.isWrapped)
-    expect(flags).toEqual([false, false, true, false, false, false, true, false])
-    expect(getLine).not.toHaveBeenCalled()
-  })
-
-  it('builds the cells once when the text is read', () => {
-    const { buffer, getLine } = fakeTerm()
-    const line = buffer.active.getLine(3)
-    expect(line?.translateToString(true)).toBe('row 3')
-    expect(line?.translateToString(false)).toBe('row 3')
-    expect(getLine).toHaveBeenCalledTimes(1)
-    expect(buffer.normal.getLine(8)).toBeUndefined()
+describe('Ghostty buffer rows', () => {
+  it('counts the live buffer without reading the cells of any row', async () => {
+    const { term } = open()
+    await new Promise<void>((done) => {
+      term.write(Array.from({ length: 300 }, (_, i) => `line ${i}\r\n`).join(''), done)
+    })
+    const wasm = (term.buffer.normal as unknown as { terminal: { wasmTerm: WasmCells } }).terminal
+      .wasmTerm
+    const cells = vi.spyOn(wasm, 'getScrollbackLine')
+    expect(term.buffer.normal.baseY).toBeGreaterThan(200)
+    expect(logicalLinesFrom(term.buffer.normal, 0)).toBe(300)
+    expect(cells).not.toHaveBeenCalled()
+    expect(term.buffer.normal.getLine(10)?.translateToString(true)).toBe('line 10')
+    expect(cells).toHaveBeenCalledTimes(1)
   })
 })
