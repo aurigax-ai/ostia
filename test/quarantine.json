@@ -4,11 +4,5 @@
     "name": "GRF-C71 an agent still working in its kept pane across a restart is reattached as running and its report ends the node",
     "issue": 1044,
     "until": "2026-10-30"
-  },
-  {
-    "file": "src/main/extensions/extensionBrowse.test.ts",
-    "name": "ExtensionBrowse readAt pressure > does not hand the file back while a read of the ticket is running, and starts none after",
-    "issue": 1225,
-    "until": "2026-11-18"
   }
 ]
