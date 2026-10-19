@@ -123,6 +123,7 @@ const EXTENSIONS_FOR_THE_HUMAN_NO_AGENT_SKILL_COVERS = new Set([
   'assistant',
   'keeper',
   'model-runtime',
+  'skills',
   'ssh',
   'trellis',
 ])
