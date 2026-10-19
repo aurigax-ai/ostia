@@ -28,6 +28,7 @@ export const commandsZhHant: typeof commandsEn = {
       'workspace.mergeInto': '要合併到的工作區',
     },
     categories: {
+      agent: '代理',
       app: '應用程式',
       assistant: '助理',
       browser: '瀏覽器',
@@ -44,6 +45,7 @@ export const commandsZhHant: typeof commandsEn = {
     },
     titles: {
       'agent.forkConversation': '分支代理程式對話',
+      'agent.open': '代理：開啟窗格',
       'agent.resume': '恢復代理程式',
       'app.browseExtensions': '瀏覽擴充功能',
       'app.checkForUpdates': '檢查更新',

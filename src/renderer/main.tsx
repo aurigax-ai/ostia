@@ -59,6 +59,7 @@ import { watchScrolling } from '@aurigax-ai/ostia-extension-sdk/contract/scrollb
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { App } from './App'
+import { registerAgentCommand } from './commands/agentCommand'
 import { startAskCommand } from './commands/askCommand'
 import { startAssistCompose } from './commands/assistCompose'
 import { startAssistToggleCommands } from './commands/assistToggles'
@@ -165,6 +166,7 @@ async function boot(): Promise<void> {
   startChatTools()
   startAskCommand()
   startChatCommand()
+  registerAgentCommand()
   startAssistUi()
   startAssistCompose()
   startAssistToggleCommands()

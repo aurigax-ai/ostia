@@ -1,6 +1,8 @@
 import { PRODUCT_PLACEHOLDER } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import type { LanguageCatalog } from '@aurigax-ai/ostia-extension-sdk/contract/languagePack'
 import { PRODUCT_DISPLAY_NAME } from '@aurigax-ai/ostia-extension-sdk/contract/productDisplay'
+import { agentEn } from '../strings/agentEn'
+import { agentZhHant } from '../strings/agentZhHant'
 import { appEn } from '../strings/appEn'
 import { appZhHant } from '../strings/appZhHant'
 import { assistantEn } from '../strings/assistantEn'
@@ -28,6 +30,7 @@ export type Locale = string
 
 export const en = {
   formats: appEn.formats,
+  agentPane: agentEn.agentPane,
   commands: commandsEn.commands,
   assistMenu: assistantEn.assistMenu,
   search: commandsEn.search,
@@ -110,6 +113,7 @@ export type Dict = typeof en
 
 export const zhHant: Dict = {
   formats: appZhHant.formats,
+  agentPane: agentZhHant.agentPane,
   commands: commandsZhHant.commands,
   assistMenu: assistantZhHant.assistMenu,
   search: commandsZhHant.search,

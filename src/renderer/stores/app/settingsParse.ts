@@ -9,6 +9,7 @@ import { normalizeHex } from '@/lib/theme/color'
 import { parseAssistModelSettings } from '@aurigax-ai/ostia-extension-sdk/contract/assistReports'
 import type { ExtensionSettingValues } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import { isDangerousSegment } from '@aurigax-ai/ostia-extension-sdk/contract/protoGuard'
+import { parseAgentSettings } from '@shared/agent/agentSettings'
 import { parseAgentHooks } from '@shared/agents/agentHooks'
 import { parseManagerSettings } from '@shared/agents/managerSettings'
 import { parseNotificationSettings } from '@shared/app/notificationSettings'
@@ -168,6 +169,7 @@ export function parsePersisted(p: Partial<Persisted>): Persisted {
       trustWorkspaceFolders: p.agents?.trustWorkspaceFolders === true,
       hooks: parseAgentHooks(p.agents?.hooks),
     },
+    agent: parseAgentSettings(p.agent),
     assistant: {
       chatHistory: p.assistant?.chatHistory !== false,
       ...parseChatToolSettings(p.assistant),

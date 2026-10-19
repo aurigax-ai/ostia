@@ -25,10 +25,13 @@ import type { SlashCard } from './useChatSlash'
 interface ChatConversationProps {
   variant: ChatVariant
   workspaceId: string | null
-  chat: Pick<UseChatHelpers<OstiaChatMessage>, 'messages' | 'clearError' | 'regenerate'>
-  actions: Pick<ChatMessageActions, 'quote' | 'startEdit' | 'deleteMessage'>
+  chat: Pick<UseChatHelpers<OstiaChatMessage>, 'messages' | 'clearError'> &
+    Partial<Pick<UseChatHelpers<OstiaChatMessage>, 'regenerate'>>
+  actions: Pick<ChatMessageActions, 'quote'> &
+    Partial<Pick<ChatMessageActions, 'startEdit' | 'deleteMessage'>>
   last: OstiaChatMessage | undefined
   provider: AssistProviderInfo | null
+  empty?: { title: string; description: string }
   options: AskContextOptions
   markdown: Components
   busy: boolean
@@ -51,6 +54,7 @@ export function ChatConversation({
   actions,
   last,
   provider,
+  empty,
   options,
   markdown,
   busy,
@@ -73,11 +77,14 @@ export function ChatConversation({
       <ConversationContent>
         {messages.length === 0 ? (
           <ConversationEmptyState
-            title={fmt(d.ask.emptyTitle, { name: provider?.name ?? d.chat.paneTitle })}
+            title={
+              empty?.title ?? fmt(d.ask.emptyTitle, { name: provider?.name ?? d.chat.paneTitle })
+            }
             description={
-              provider
+              empty?.description ??
+              (provider
                 ? fmt(d.ask.emptyBody, { model: provider.label ?? provider.name })
-                : d.chat.noProvider
+                : d.chat.noProvider)
             }
           >
             {options.output && provider ? (
@@ -108,7 +115,7 @@ export function ChatConversation({
               onDelete={deleteMessage}
               onRestore={checkpoints.has(message.id) ? () => setCheckpoint(message.id) : undefined}
               onRegenerate={
-                message === last && message.role === 'assistant' && !busy
+                regenerate && message === last && message.role === 'assistant' && !busy
                   ? () => {
                       clearError()
                       void regenerate()

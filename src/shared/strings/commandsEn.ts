@@ -26,6 +26,7 @@ export const commandsEn = {
       'workspace.mergeInto': 'Workspace to merge into',
     },
     categories: {
+      agent: 'Agent',
       app: 'App',
       assistant: 'Assistant',
       browser: 'Browser',
@@ -42,6 +43,7 @@ export const commandsEn = {
     },
     titles: {
       'agent.forkConversation': 'Fork Agent Conversation',
+      'agent.open': 'Agent: Open pane',
       'agent.resume': 'Resume Agent',
       'app.browseExtensions': 'Browse Extensions',
       'app.checkForUpdates': 'Check for Updates',

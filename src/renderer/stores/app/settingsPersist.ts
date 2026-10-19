@@ -50,6 +50,7 @@ export async function writeSettings(s: SettingsState): Promise<void> {
     ...keyboard,
     agents: s.agents,
     assistant: s.assistant,
+    agent: s.agent,
     workspaceGroups: s.workspaceGroups,
     extensionSettings: s.extensionSettings,
     capabilities,

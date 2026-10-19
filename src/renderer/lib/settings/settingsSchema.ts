@@ -5,6 +5,7 @@ import { PRODUCT_DISPLAY_NAME } from '@aurigax-ai/ostia-extension-sdk/contract/p
 import { DEFAULT_CHORDS } from '@shared/keyboard/defaultChords'
 import {
   actionsSchema,
+  agentHostSchema,
   agentsSchema,
   approvalsSchema,
   assistantSchema,
@@ -52,6 +53,7 @@ export const SETTINGS_JSON_SCHEMA = {
     notifications: notificationsSchema,
     sidebar: sidebarSchema,
     assistant: assistantSchema,
+    agent: agentHostSchema,
     agents: agentsSchema,
     workspaces: workspacesSchema,
     browser: {

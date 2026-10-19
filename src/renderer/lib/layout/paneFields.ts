@@ -264,6 +264,21 @@ export function setPaneChat(
   }))
 }
 
+export function setPaneAgent(
+  root: LayoutNode,
+  paneId: string,
+  title: string,
+  sessionId?: string,
+): LayoutNode {
+  return mapPane(root, paneId, (p) => ({
+    type: 'pane',
+    id: p.id,
+    kind: 'agent',
+    title,
+    ...(sessionId ? { agentSessionId: sessionId } : {}),
+  }))
+}
+
 export function setPaneGit(root: LayoutNode, paneId: string, title: string): LayoutNode {
   return mapPane(root, paneId, (p) => ({ type: 'pane', id: p.id, kind: 'git', title }))
 }
