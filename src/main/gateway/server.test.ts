@@ -33,6 +33,7 @@ const {
   configureGatewayControl,
   configureScreenLinks,
   phoneCanRespond,
+  setTailnetNode,
   startGateway,
   stopGateway,
 } = await import('./server')
@@ -252,6 +253,81 @@ describe('gateway server over a real WebSocket', () => {
     const c = await connect(token)
     expect(c.json[0]?.result).toMatchObject({ phoneWorkspace: { set: false, agent: 'codex' } })
     expect(deps.phoneDefaults).toHaveBeenCalledTimes(1)
+  })
+
+  describe('addresses a paired phone can reach this computer on', () => {
+    const NODE = { ip: '100.101.102.103', dnsName: 'ostia-box.tail1234.ts.net' }
+    const nodeAddresses = () => [
+      { kind: 'tailnet', host: NODE.dnsName, port },
+      { kind: 'tailnet', host: NODE.ip, port },
+    ]
+
+    afterEach(() => setTailnetNode(null))
+
+    function upgradeStatus(host: string): Promise<number> {
+      return new Promise((resolve) => {
+        const ws = new WebSocket(`wss://127.0.0.1:${port}/ws`, {
+          rejectUnauthorized: false,
+          headers: { Host: host },
+        })
+        ws.once('open', () => {
+          ws.terminate()
+          resolve(101)
+        })
+        ws.once('unexpected-response', (_req, res) => resolve(res.statusCode ?? 0))
+        ws.once('error', () => resolve(0))
+      })
+    }
+
+    it('RDS-C29 hello lists the current addresses, best first', async () => {
+      setTailnetNode(NODE)
+      const { token } = registerDevice({ name: 'Phone', pubkey: 'pk' })
+      const c = await connect(token)
+      expect(c.json[0]?.result).toMatchObject({ addresses: nodeAddresses() })
+    })
+
+    it('RDS-C30 hello lists nothing on a loopback bind with no tunnel', async () => {
+      const { token } = registerDevice({ name: 'Phone', pubkey: 'pk' })
+      const c = await connect(token)
+      expect(c.json[0]?.result).toMatchObject({ addresses: [] })
+    })
+
+    it('RDS-C31 tells live sockets when the list changes, and not when it stays', async () => {
+      const { token } = registerDevice({ name: 'Phone', pubkey: 'pk' })
+      const c = await connect(token)
+      setTailnetNode(NODE)
+      const event = await c.next((m) => m.params?.type === 'addresses.changed')
+      expect(event.params?.payload).toEqual({ addresses: nodeAddresses() })
+      const seen = c.json.length
+      setTailnetNode({ ...NODE })
+      await c.call('device.caps')
+      expect(c.json.slice(seen).filter((m) => m.params?.type === 'addresses.changed')).toEqual([])
+    })
+
+    it('RDS-C32 sends the list to no socket that has not passed hello', async () => {
+      const ws = new WebSocket(`wss://127.0.0.1:${port}/ws`, { rejectUnauthorized: false })
+      const received: string[] = []
+      ws.on('message', (data) => received.push(data.toString()))
+      await new Promise<void>((resolve) => ws.once('open', () => resolve()))
+      setTailnetNode(NODE)
+      await new Promise((resolve) => setTimeout(resolve, 50))
+      ws.terminate()
+      expect(received).toEqual([])
+    })
+
+    it('RDS-C33 accepts the MagicDNS name as Host with or without the port', async () => {
+      setTailnetNode(NODE)
+      expect(await upgradeStatus(`${NODE.dnsName}:${port}`)).toBe(101)
+      expect(await upgradeStatus(NODE.dnsName)).toBe(101)
+    })
+
+    it('RDS-C34 refuses a name or address the gateway no longer has', async () => {
+      setTailnetNode(NODE)
+      setTailnetNode({ ip: '100.101.102.200', dnsName: 'ostia-new.tail1234.ts.net' })
+      expect(await upgradeStatus(`${NODE.dnsName}:${port}`)).toBe(401)
+      expect(await upgradeStatus(`${NODE.ip}:${port}`)).toBe(401)
+      expect(await upgradeStatus('ostia-new.tail1234.ts.net')).toBe(101)
+    })
   })
 
   it('downgrades an owner attach to observer and drops input frames without the input cap', async () => {

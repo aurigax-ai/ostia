@@ -174,7 +174,7 @@ export function startGateway({
   services.stopTailnet = () => tailnet.stop()
   const publisher = createBonjourPublisher()
   configureAnnouncer(publisher)
-  services.stopAnnouncing = publisher.unpublish
+  services.stopAnnouncing = publisher.unpublishAll
   onPairRequestsChanged(() => broadcast('gateway:pair-requests-changed', listPairRequests()))
   registerGatewayIpc()
   registerPhoneWorkspaceIpc({ paths: phonePaths })

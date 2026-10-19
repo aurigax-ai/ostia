@@ -3,6 +3,7 @@ import { hostname } from 'node:os'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import { FRIENDLY_NAME } from '../../shared/gateway/friendlyName'
 import type { GatewayTailnetState } from '../../shared/gateway/gatewayApi'
 import { storePath } from '../platform/jsonStore'
 import type { Tailnet } from './tailnet'
@@ -48,7 +49,7 @@ vi.mock('./server', () => ({
     deviceCount: 0,
   }),
   gatewayHelperPort: () => (server.running ? 40001 : null),
-  setTailnetHosts: vi.fn(),
+  setTailnetNode: vi.fn(),
   applyDeviceCaps: vi.fn(),
   closeDeviceSockets: vi.fn(),
 }))
@@ -102,7 +103,15 @@ beforeEach(() => {
   registerGatewayIpc()
 })
 
-const publisher = { publish: vi.fn(), unpublish: vi.fn() }
+const publisher = { publish: vi.fn(), unpublish: vi.fn(), unpublishAll: vi.fn() }
+
+function withdrawals(key: string): number {
+  return publisher.unpublish.mock.calls.filter(([k]) => k === key).length
+}
+
+function lastPublished(key: string): Record<string, unknown> | undefined {
+  return publisher.publish.mock.calls.filter(([k]) => k === key).at(-1)?.[1]
+}
 
 beforeEach(() => {
   resetCodes()
@@ -129,7 +138,7 @@ describe('the desktop announces itself only while pairing and discoverable', () 
     await invoke('gateway:set-discoverable', 'window', true)
     await liveTailnet()
     mintCode()
-    expect(publisher.publish).toHaveBeenLastCalledWith({
+    expect(publisher.publish).toHaveBeenLastCalledWith('pairing', {
       name: hostname(),
       type: 'ostia',
       protocol: 'tcp',
@@ -138,18 +147,21 @@ describe('the desktop announces itself only while pairing and discoverable', () 
     })
 
     await disableRemote()
-    saveRoute({ bindAddress: LAN_ADDRESS, tailnet: false, phoneAddress: null })
+    saveRoute({
+      bindAddress: LAN_ADDRESS,
+      bindInterface: 'wlan0',
+      tailnet: false,
+      phoneAddress: null,
+    })
     await enableRemote()
     mintCode()
-    expect(publisher.publish).toHaveBeenLastCalledWith(
-      expect.objectContaining({ txt: expect.objectContaining({ host: LAN_ADDRESS }) }),
-    )
+    expect(lastPublished('pairing')).toMatchObject({ txt: { host: LAN_ADDRESS } })
   })
 
   it('CPD-C2 announces nothing while Discoverable is off', async () => {
     await liveTailnet()
     mintCode()
-    expect(publisher.publish).not.toHaveBeenCalled()
+    expect(lastPublished('pairing')).toBeUndefined()
   })
 
   it('CPD-C3 withdraws the announcement when the code is used, expires or remote access stops', async () => {
@@ -157,25 +169,85 @@ describe('the desktop announces itself only while pairing and discoverable', () 
     await liveTailnet()
 
     consumeCode(mintCode())
-    expect(publisher.unpublish).toHaveBeenCalledTimes(1)
+    expect(withdrawals('pairing')).toBe(1)
 
     vi.useFakeTimers()
     mintCode()
     vi.advanceTimersByTime(120_001)
-    expect(publisher.unpublish).toHaveBeenCalledTimes(2)
+    expect(withdrawals('pairing')).toBe(2)
     vi.useRealTimers()
 
     mintCode()
     await disableRemote()
-    expect(publisher.unpublish).toHaveBeenCalledTimes(3)
+    expect(withdrawals('pairing')).toBe(3)
   })
 
   it('CPD-C6 never puts a code, token or device in the announcement', async () => {
     await invoke('gateway:set-discoverable', 'window', true)
     await liveTailnet()
     const code = mintCode()
-    const { txt } = publisher.publish.mock.lastCall?.[0] as { txt: Record<string, string> }
+    const { txt } = lastPublished('pairing') as { txt: Record<string, string> }
     expect(Object.keys(txt).sort()).toEqual(['fp', 'host', 'name', 'port', 'v'])
     expect(Object.values(txt)).not.toContain(code)
+  })
+})
+
+describe('the desktop announces itself for paired phones on a local bind', () => {
+  const LAN_ROUTE = {
+    bindAddress: LAN_ADDRESS,
+    bindInterface: 'wlan0',
+    tailnet: false,
+    phoneAddress: null,
+  }
+
+  it('RDS-C1 announces the friendly name with only the version and the port, no code needed', async () => {
+    saveRoute(LAN_ROUTE)
+    await enableRemote()
+    const lan = lastPublished('lan') as { name: string; host: string; iface: string }
+    expect(lan).toMatchObject({
+      type: 'ostia',
+      protocol: 'tcp',
+      port: 8722,
+      iface: LAN_ADDRESS,
+      txt: { v: '2', port: '8722' },
+    })
+    expect(lan.name).toMatch(FRIENDLY_NAME)
+    expect(lan.host).toBe(`${lan.name}.local`)
+  })
+
+  it('RDS-C2 puts nothing from the machine, no fingerprint, code or token in the TXT or the name', async () => {
+    saveRoute(LAN_ROUTE)
+    await invoke('gateway:set-discoverable', 'window', true)
+    await enableRemote()
+    const code = mintCode()
+    const lan = lastPublished('lan') as { name: string; host: string; txt: Record<string, string> }
+    expect(Object.keys(lan.txt).sort()).toEqual(['port', 'v'])
+    const everything = JSON.stringify(lan)
+    for (const secret of [hostname(), 'sha256/fp', code]) {
+      expect(everything).not.toContain(secret)
+    }
+  })
+
+  it('RDS-C3 announces nothing with a loopback bind', async () => {
+    await invoke('gateway:set-discoverable', 'window', true)
+    await liveTailnet()
+    mintCode()
+    expect(lastPublished('lan')).toBeUndefined()
+  })
+
+  it('RDS-C4 withdraws the announcement when remote access stops', async () => {
+    saveRoute(LAN_ROUTE)
+    await enableRemote()
+    await disableRemote()
+    expect(withdrawals('lan')).toBe(1)
+  })
+
+  it('RDS-C5 keeps the same random name across restarts', async () => {
+    saveRoute(LAN_ROUTE)
+    await enableRemote()
+    const first = lastPublished('lan')?.name
+    await disableRemote()
+    await enableRemote()
+    expect(lastPublished('lan')?.name).toBe(first)
   })
 })

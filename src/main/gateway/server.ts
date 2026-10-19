@@ -7,10 +7,12 @@ import {
   createServer as createNetServer,
 } from 'node:net'
 import { TLSSocket, createSecureContext } from 'node:tls'
+import { isEqual } from 'es-toolkit'
 import { type WebSocket, WebSocketServer } from 'ws'
 import type { GatewayPhoneAddress } from '../../shared/gateway/gatewayApi'
 import { PLATFORM_EVENT_TYPES, type PlatformEventType, platformEvents } from '../control/events'
 import { getByPaneId } from '../control/idRegistry'
+import { type GatewayAddress, type TailnetNode, gatewayAddresses, isCurrentHost } from './addresses'
 import { type GatewayCert, getCert } from './cert'
 import type { GatewayControlDeps } from './controlDispatch'
 import { get as getDevice, list as listDevices } from './devices'
@@ -50,7 +52,7 @@ let httpsServer: HttpsServer | null = null
 let helperServer: NetServer | null = null
 const helperSockets = new Set<Socket>()
 const tailnetPeers = new WeakMap<object, string>()
-let tailnetHosts: ReadonlySet<string> = new Set()
+let tailnetNode: TailnetNode | null = null
 let phoneAddress: GatewayPhoneAddress | null = null
 const MAX_FRAME_BYTES = 1024 * 1024
 
@@ -198,29 +200,29 @@ function hasBrowserOrigin(origin: string | undefined): boolean {
   return typeof origin === 'string' && origin.length > 0
 }
 
-function isAllowedHostHeader(hostHeader: string | undefined): boolean {
-  if (!boundPort || typeof hostHeader !== 'string' || !hostHeader) return false
-  const sepIdx = hostHeader.lastIndexOf(':')
-  const headerHost = sepIdx === -1 ? hostHeader : hostHeader.slice(0, sepIdx)
-  const headerPort = sepIdx === -1 ? undefined : hostHeader.slice(sepIdx + 1)
-  if (
-    phoneAddress &&
-    headerHost.toLowerCase() === phoneAddress.host.toLowerCase() &&
-    (headerPort === undefined || Number(headerPort) === phoneAddress.port)
-  ) {
-    return true
-  }
-  if (headerPort !== undefined && Number(headerPort) !== boundPort) return false
-  return (
-    headerHost === LOOPBACK ||
-    headerHost === 'localhost' ||
-    headerHost === boundHost ||
-    tailnetHosts.has(headerHost)
-  )
+function currentAddresses(): GatewayAddress[] {
+  return gatewayAddresses({
+    port: boundPort,
+    bindHost: boundHost,
+    tailnet: tailnetNode,
+    phoneAddress,
+  })
 }
 
-export function setTailnetHosts(hosts: string[]): void {
-  tailnetHosts = new Set(hosts.filter((h) => h.length > 0))
+function isAllowedHostHeader(hostHeader: string | undefined): boolean {
+  return isCurrentHost(hostHeader, boundPort, currentAddresses())
+}
+
+export function setTailnetNode(node: TailnetNode | null): void {
+  const before = currentAddresses()
+  tailnetNode = node
+  const after = currentAddresses()
+  if (isEqual(before, after)) return
+  const frame = eventFrame('addresses.changed', { addresses: after })
+  for (const [ws, state] of sockets) {
+    if (!state.device || screenLinks?.isLink(ws)) continue
+    if (ws.readyState === ws.OPEN) ws.send(frame)
+  }
 }
 
 function peerAddress(socket: object & { remoteAddress?: string }): string {
@@ -278,6 +280,7 @@ const handleConnection = createPhoneSocket({
   untrackDeviceSocket,
   controlDeps: () => controlDeps,
   screenLinks: () => screenLinks,
+  addresses: currentAddresses,
 })
 
 export async function startGateway(options: GatewayStartOptions = {}): Promise<GatewayStartResult> {
@@ -348,7 +351,7 @@ export async function stopGateway(): Promise<void> {
   boundPort = null
   boundHelperPort = null
   currentFingerprint = null
-  tailnetHosts = new Set()
+  tailnetNode = null
   phoneAddress = null
 
   if (wssToClose) await new Promise<void>((resolve) => wssToClose.close(() => resolve()))

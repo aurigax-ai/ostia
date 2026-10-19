@@ -341,6 +341,8 @@ export const settingsEn = {
     remoteGrantsDesc:
       'Read and notifications are always on. Removing a permission disconnects the device so it reconnects with the smaller set.',
     remoteGrantsFor: 'Permissions, {name}',
+    remoteLanOnlyInfo:
+      'Phones on other networks reach this computer only through Tailscale or your own tunnel.',
     remoteLoopbackOnly:
       'A phone cannot reach 127.0.0.1. Set the address the phone uses, pick another bind address or use the Tailscale node.',
     remoteNoDevices: 'No devices paired yet.',

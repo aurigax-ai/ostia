@@ -28,8 +28,18 @@ vi.mock('./interfaces', () => ({
   ],
 }))
 
-const DEFAULT_ROUTE = { bindAddress: '127.0.0.1', tailnet: true, phoneAddress: null }
-const LAN_ROUTE = { bindAddress: LAN_ADDRESS, tailnet: false, phoneAddress: null }
+const DEFAULT_ROUTE = {
+  bindAddress: '127.0.0.1',
+  bindInterface: null,
+  tailnet: true,
+  phoneAddress: null,
+}
+const LAN_ROUTE = {
+  bindAddress: LAN_ADDRESS,
+  bindInterface: 'wlan0',
+  tailnet: false,
+  phoneAddress: null,
+}
 
 const server = vi.hoisted(() => ({ running: false, host: '127.0.0.1' }))
 vi.mock('./server', () => ({
@@ -50,7 +60,7 @@ vi.mock('./server', () => ({
     deviceCount: 0,
   }),
   gatewayHelperPort: () => (server.running ? 40001 : null),
-  setTailnetHosts: vi.fn(),
+  setTailnetNode: vi.fn(),
   applyDeviceCaps: vi.fn(),
   closeDeviceSockets: vi.fn(),
 }))
@@ -194,7 +204,7 @@ describe('gateway IPC and socket surface for the tailnet', () => {
   })
 
   it('TSN-C43 accepts 127.0.0.1 as the bind address', async () => {
-    const route = { ...LAN_ROUTE, bindAddress: '127.0.0.1' }
+    const route = { ...LAN_ROUTE, bindAddress: '127.0.0.1', bindInterface: null }
     expect(await invoke('gateway:set-route', 'window', route)).toEqual({ ok: true, route })
     expect(await invoke('gateway:status')).toMatchObject({ route })
   })
@@ -245,7 +255,7 @@ describe('gateway IPC and socket surface for the tailnet', () => {
 
   it('TSN-C46 with the node off puts the phone address in the pairing payload', async () => {
     const phoneAddress = { host: 'desk.example.ts.net', port: 443 }
-    const route = { bindAddress: '127.0.0.1', tailnet: false, phoneAddress }
+    const route = { bindAddress: '127.0.0.1', bindInterface: null, tailnet: false, phoneAddress }
     expect(await invoke('gateway:set-route', 'window', route)).toEqual({ ok: true, route })
     await invoke('gateway:enable')
     expect(startGateway).toHaveBeenCalledWith({
@@ -294,7 +304,7 @@ describe('gateway IPC and socket surface for the tailnet', () => {
 
   it('TSN-C41 starts nothing when the saved address is no longer on this computer', async () => {
     saveJson(storePath('gateway-config', 'global'), {
-      route: { bindAddress: '10.1.2.3', tailnet: true, phoneAddress: null },
+      route: { bindAddress: '10.1.2.3', bindInterface: 'eth9', tailnet: true, phoneAddress: null },
     })
     expect(await invoke('gateway:enable')).toEqual({ error: 'address-unavailable' })
     expect(startGateway).not.toHaveBeenCalled()
