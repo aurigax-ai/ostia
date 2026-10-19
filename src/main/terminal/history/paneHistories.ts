@@ -3,6 +3,7 @@ import { chmodSync, existsSync, mkdirSync, readdirSync, rmSync } from 'node:fs'
 import { rm, statfs } from 'node:fs/promises'
 import { join } from 'node:path'
 import type { ScrollbackHistory } from '../../../shared/terminal/scrollbackHistory'
+import type { AppLog } from '../../diagnostics/appLog'
 import {
   type HistoryFeed,
   type SpillClient,
@@ -66,6 +67,7 @@ export class PaneHistories {
   private readonly panes = new Map<string, PaneHistory>()
   private spill: SpillClient | null = null
   private generation = 0
+  private readonly disposing = new Set<Promise<void>>()
   private readonly closing = new Map<string, Promise<void>>()
 
   constructor(private readonly deps: PaneHistoriesDeps) {
@@ -81,7 +83,7 @@ export class PaneHistories {
     const existing = this.panes.get(paneId)
     if (existing?.live) return existing
     if (existing) {
-      void existing.dispose()
+      this.retire(existing)
       this.panes.delete(paneId)
     }
     if (this.deps.setting() === 'off') return null
@@ -124,17 +126,23 @@ export class PaneHistories {
     return this.closing.get(paneId) ?? Promise.resolve()
   }
 
-  async drop(paneId: string): Promise<void> {
+  drop(paneId: string): void {
     const history = this.panes.get(paneId)
     this.panes.delete(paneId)
-    await history?.dispose()
+    if (history) this.retire(history)
   }
 
   async removeAll(): Promise<void> {
-    const disposed = [...this.panes.values()].map((history) => history.dispose())
+    for (const history of this.panes.values()) this.retire(history)
     this.panes.clear()
-    await Promise.all(disposed)
+    await Promise.all(this.disposing)
     await rm(this.runDir, { recursive: true, force: true })
+  }
+
+  private retire(history: PaneHistory): void {
+    const disposed = history.dispose().catch(() => undefined)
+    this.disposing.add(disposed)
+    void disposed.then(() => this.disposing.delete(disposed))
   }
 
   private limitBytes(): number | null {
@@ -157,5 +165,18 @@ export class PaneHistories {
       largest.dropOldestSegment()
       if (largest === asking && !asking.droppable) return false
     }
+  }
+}
+
+export async function removeHistories(
+  histories: PaneHistories | null,
+  appLog: AppLog | null,
+): Promise<void> {
+  try {
+    await histories?.removeAll()
+  } catch (err) {
+    appLog?.warn('history-remove-failed', {
+      code: (err as NodeJS.ErrnoException).code ?? 'unknown',
+    })
   }
 }
