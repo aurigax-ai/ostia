@@ -120,7 +120,7 @@ export function createPtyRegistry({
       try {
         ptyModule = require('node-pty')
       } catch (err) {
-        console.error('[pty] node-pty unavailable — terminals disabled. Run: npm run rebuild', err)
+        console.error('[pty] node-pty unavailable — terminals disabled. Run: pnpm rebuild', err)
         ptyModule = null
       }
     }

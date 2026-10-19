@@ -127,6 +127,23 @@ export const appEn = {
       unanswered: 'The window did not answer, so it may have running commands or unsaved files',
       unknown: 'a command',
     },
+    paneBanner: {
+      hiddenHome:
+        'Sandbox: your home folder is hidden here. Files written to it, outside the\nworkspace folder, are discarded when this shell exits. Add a writable folder\nin Settings › Sandbox to keep them.',
+      install: 'Install them with: {command}',
+      keepShells: 'Keep shells: {reason}.',
+      keepShellsLost: 'This shell will not survive a restart.',
+      missing: 'Missing: {packages}',
+      noShell: 'No shell was started. This workspace only runs sandboxed.',
+      nodePtyMissing: 'node-pty unavailable — run: pnpm rebuild',
+      otherWorkspace: 'the pane belongs to another workspace',
+      restored: 'workspace restored',
+      sandboxEnded: 'its sandbox ended while {product} was closed',
+      sandboxNotKept: "this workspace's sandbox was started without tmux",
+      sandboxUnavailable: 'Sandbox unavailable: {message}',
+      tmuxMissing: 'tmux {version} or newer is not installed',
+      woke: 'woke from hibernation',
+    },
     sandboxSoftware: {
       body: 'Install {packages} to start this sandboxed workspace’s terminals.',
       title: 'Sandbox needs software',

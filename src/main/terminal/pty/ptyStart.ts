@@ -12,8 +12,9 @@ import type { KeptMeta } from '../../tmux/keptShells'
 import type { KeptShells } from '../../tmux/keptShells'
 import type { TmuxPane } from '../../tmux/tmuxPane'
 import { takeRestoredScrollback } from '../../workspaces/savedScrollback'
+import type { PaneBannerText } from '../paneBanner'
 import type { Subscriber } from '../ptySession'
-import { HIBERNATE_SEAM, RESTORE_SEAM } from '../screenMirror'
+import { hibernateSeam, restoreSeam } from '../screenMirror'
 import { PTY_TERM_NAME } from '../terminalType'
 import { type PtyEntry, type PtyRegistry, feedDisplay, replayRestored } from './ptyRegistry'
 import type { SpawnPlan } from './ptySpawnPlan'
@@ -28,6 +29,7 @@ interface PtyStartDeps {
   releaseMergedSandbox: (workspaceId: string, exiting?: PtyEntry) => void
   telemetry: () => Telemetry | null
   appLog: () => AppLog | null
+  bannerText: () => PaneBannerText
 }
 
 export type PtyStart = ReturnType<typeof createPtyStart>
@@ -42,6 +44,7 @@ export function createPtyStart({
   releaseMergedSandbox,
   telemetry,
   appLog,
+  bannerText,
 }: PtyStartDeps) {
   function startTracked(
     e: Electron.IpcMainInvokeEvent,
@@ -113,12 +116,12 @@ export function createPtyStart({
     if (history) appLog()?.info('scrollback-replay', { pane: paneId, chars: history.length })
     const woken = hibernatedPanes.delete(paneId)
     if (woken) paneLifecycleEvents.change(paneId, 'woken')
-    const seam = woken ? HIBERNATE_SEAM : RESTORE_SEAM
+    const seam = woken ? hibernateSeam(bannerText()) : restoreSeam(bannerText())
     if (history) replayRestored(entry, history, seam)
     if (secretNotice) feedDisplay(entry, secretNotice)
-    if (notKept) feedDisplay(entry, keepShellsNotice(notKept))
+    if (notKept) feedDisplay(entry, keepShellsNotice(bannerText(), notKept))
     if (sandboxed && workspaceSandboxes.claimHomeNotice(workspaceId)) {
-      const notice = hiddenHomeNotice()
+      const notice = hiddenHomeNotice(bannerText())
       if (notice) feedDisplay(entry, notice)
     }
 

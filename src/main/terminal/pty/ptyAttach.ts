@@ -1,5 +1,4 @@
 import { rmSync } from 'node:fs'
-import { PRODUCT_DISPLAY_NAME } from '@aurigax-ai/ostia-extension-sdk/contract/productDisplay'
 import type { PtyAttachResult, PtySpawnOptions } from '../../../shared/terminal/ptyApi'
 import { panesOwnedBy } from '../../control/idRegistry'
 import type { Telemetry } from '../../diagnostics/telemetry'
@@ -7,6 +6,7 @@ import { sandboxFailureBanner } from '../../sandbox/spawnBanner'
 import type { KeptReattach } from '../../tmux/keptReattach'
 import type { KeptShells } from '../../tmux/keptShells'
 import type { KeptSpawn, KeptSpawner } from '../../tmux/keptSpawn'
+import { type PaneBannerText, errorBanner } from '../paneBanner'
 import { withPaneToken } from '../terminalType'
 import type { LiveAttach } from './ptyLiveAttach'
 import type { PtyEntry, PtyRegistry } from './ptyRegistry'
@@ -27,6 +27,7 @@ interface PtyAttachDeps {
   startTracked: PtyStart['startTracked']
   historySettled: (paneId: string) => Promise<void>
   telemetry: () => Telemetry | null
+  bannerText: () => PaneBannerText
 }
 
 export type PtyAttach = ReturnType<typeof createPtyAttach>
@@ -48,9 +49,8 @@ export function createPtyAttach({
   startTracked,
   historySettled,
   telemetry,
+  bannerText,
 }: PtyAttachDeps) {
-  const SANDBOX_LOST_WHILE_AWAY = `its sandbox ended while ${PRODUCT_DISPLAY_NAME} was closed`
-
   async function attachPty(
     e: Electron.IpcMainInvokeEvent,
     paneId: string,
@@ -73,7 +73,7 @@ export function createPtyAttach({
     if (keptShells.takeSandboxLost(paneId)) {
       return {
         created: false,
-        buffer: sandboxFailureBanner(SANDBOX_LOST_WHILE_AWAY, []),
+        buffer: sandboxFailureBanner(bannerText(), bannerText().sandboxEnded, []),
         cursor: 0,
         dropped: false,
         sandboxed: true,
@@ -86,7 +86,7 @@ export function createPtyAttach({
       telemetry()?.count('terminal', 'spawn_failure', 'node-pty-unavailable')
       return {
         created: false,
-        buffer: '\r\n\x1b[38;2;239;89;111m node-pty unavailable — run: pnpm rebuild\x1b[0m\r\n',
+        buffer: errorBanner(bannerText().nodePtyMissing),
         cursor: 0,
         dropped: false,
       }

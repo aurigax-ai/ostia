@@ -17,6 +17,7 @@ export function createPaneServices(ctx: AgentContext) {
     keptPlumbing,
     keptShells,
     keptShellsProgram,
+    mainStrings,
     movingPanes,
     openWaits,
     paneLauncherDir,
@@ -94,6 +95,7 @@ export function createPaneServices(ctx: AgentContext) {
     keptShellsProgram,
     withKeptProcess,
     keptPaneEnv,
+    bannerText: () => mainStrings().native.paneBanner,
   })
 
   const { spawnManagerPty } = createManagerPty({ loadPty, primaryWindowId, trackPty, feedPty })
