@@ -12,7 +12,12 @@ import { registerEditorLanguageIpc } from '../lsp/editorLanguages'
 import { registerCompletionIpc } from '../terminal/completionSpecs'
 import type { WindowSend } from '../windows/windowSend'
 import { registerSameFolder } from './sameFolder'
-import { type SnippetDeps, registerSnippetIpc, registerSnippetMethods } from './snippets'
+import {
+  type SnippetDeps,
+  ownSnippets,
+  registerSnippetIpc,
+  registerSnippetMethods,
+} from './snippets'
 import { ViewHost, ViewStore } from './viewHost'
 import { registerViewMethods, registerViewsIpc } from './viewsIpc'
 import { workDirForWorkspace } from './workspaceRegistry'
@@ -79,5 +84,8 @@ export function registerContentIpc({
   )
   registerSameFolder({ workDir: workDirForWorkspace, home: homedir })
 
-  return { viewHost: services.viewHost }
+  return {
+    viewHost: services.viewHost,
+    ownSnippets: (workspaceId: string | undefined) => ownSnippets(snippetDeps, workspaceId),
+  }
 }

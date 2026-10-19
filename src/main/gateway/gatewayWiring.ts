@@ -69,6 +69,7 @@ interface GatewayStartDeps {
   turnConfirms: PaneConfirms
   paneTurns: PaneTurns
   redactor: Redactor
+  ownSnippets: GatewayControlDeps['ownSnippets']
   remoteCwdOfPane: (paneId: string) => unknown
   startAgentForPhone: GatewayControlDeps['startAgent']
 }
@@ -112,6 +113,7 @@ export function startGateway({
   turnConfirms,
   paneTurns,
   redactor,
+  ownSnippets,
   remoteCwdOfPane,
   startAgentForPhone,
 }: GatewayStartDeps) {
@@ -182,6 +184,7 @@ export function startGateway({
     watchesTurn: turnConfirms.watchesSubmit,
     turnStarted: async (pane) => (await turnConfirms.confirmSubmitted(pane)).ok,
     paneTurns,
+    ownSnippets,
     redact: async (text) => (await redactor.redact(text)).text,
     remote: (paneId) => remoteCwdOfPane(paneId) !== undefined,
     startAgent: startAgentForPhone,
