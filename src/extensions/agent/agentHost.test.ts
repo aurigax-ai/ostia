@@ -1,4 +1,4 @@
-import { readdirSync, statSync } from 'node:fs'
+import { mkdirSync, readdirSync, statSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import type { AgentReply } from '@aurigax-ai/ostia-extension-sdk/contract/agent'
 import { afterEach, describe, expect, it } from 'vitest'
@@ -33,6 +33,34 @@ function assistantText(rig: AgentRig): string {
 }
 
 describe('the agent host', () => {
+  it('sends a /skill: line unchanged and reads no skill file', async () => {
+    const rig = await start(() => 'ok')
+    const body = 'SKILL-BODY-MARKER'
+    for (const base of [
+      join(rig.cwd, '.pi', 'skills', 'x'),
+      join(rig.dataDir, 'pi', 'skills', 'x'),
+    ]) {
+      mkdirSync(base, { recursive: true })
+      writeFileSync(join(base, 'SKILL.md'), `---\nname: x\ndescription: x\n---\n${body}\n`)
+    }
+    await ask(rig, '/skill:x')
+    expect(rig.provider.requests.map((r) => r.last)).toEqual(['/skill:x'])
+    expect(JSON.stringify(rig.provider.requests)).not.toContain(body)
+  })
+
+  it("does not offer a model from pi's built-in catalog", async () => {
+    const rig = await start(() => 'ok')
+    const reply = await rig.handle({
+      op: 'open',
+      sessionId: 's1',
+      cwd: rig.cwd,
+      tools: [],
+      providers: [{ id: 'fake', name: 'Fake', baseUrl: rig.provider.url, models: ['fake-model'] }],
+      model: { provider: 'anthropic', model: 'claude-sonnet-4-5' },
+    })
+    expect(reply).toMatchObject({ ok: true, model: { provider: 'fake', model: 'fake-model' } })
+  })
+
   it('answers a prompt from a key-less OpenAI-compatible server', async () => {
     const rig = await start(() => 'hello from the model')
     await ask(rig, 'hi')

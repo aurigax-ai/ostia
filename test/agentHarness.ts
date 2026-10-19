@@ -73,7 +73,6 @@ export async function startAgentRig(answer: FakeAnswer, again?: AgentRig): Promi
     cwd,
     tools,
     providers: [{ id: 'fake', name: 'Fake', baseUrl: fake.url, models: ['fake-model'] }],
-    skillFolders: [],
   })
   return {
     provider: fake,

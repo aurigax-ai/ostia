@@ -97,13 +97,12 @@ export function createAgentHost(deps: AgentHostDeps) {
       dataDir: deps.dataDir,
       tools: req.tools,
       providers: req.providers,
-      skillFolders: req.skillFolders,
       ...(req.model ? { model: req.model } : {}),
       callTool: deps.callTool,
     })
     if (!pi.model) {
       pi.session.dispose()
-      return failed('no-model', 'No model is configured in agent.providers.')
+      return failed('no-model')
     }
     live.set(req.sessionId, { pi, unsubscribe: forward(req.sessionId, pi.session) })
     return { ok: true, model: pi.model, history: historyOf(pi.session) }
@@ -113,13 +112,15 @@ export function createAgentHost(deps: AgentHostDeps) {
     const entry = live.get(req.sessionId)
     if (!entry) return failed('unknown-session')
     if (req.text.length === 0 || req.text.length > AGENT_PROMPT_MAX) return failed('invalid')
-    void entry.pi.session.prompt(req.text).catch((err: unknown) => {
-      deps.emit(req.sessionId, {
-        type: 'error',
-        message: err instanceof Error ? err.message : String(err),
+    void entry.pi.session
+      .prompt(req.text, { expandPromptTemplates: false })
+      .catch((err: unknown) => {
+        deps.emit(req.sessionId, {
+          type: 'error',
+          message: err instanceof Error ? err.message : String(err),
+        })
+        deps.emit(req.sessionId, { type: 'turn-end' })
       })
-      deps.emit(req.sessionId, { type: 'turn-end' })
-    })
     return { ok: true }
   }
 

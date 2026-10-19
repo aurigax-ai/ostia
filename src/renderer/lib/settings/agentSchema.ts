@@ -71,13 +71,6 @@ export const agentHostSchema = {
         },
       },
     },
-    skillFolders: {
-      type: 'array',
-      items: { type: 'string' },
-      description:
-        'Absolute paths of skill folders (a folder with a SKILL.md, or a folder of them) ' +
-        'the Agent can load. Only you can change this; ostia settings set refuses it.',
-    },
   },
 }
 

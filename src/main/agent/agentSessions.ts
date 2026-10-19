@@ -1,5 +1,4 @@
 import {
-  AGENT_EXTENSION_ID,
   AGENT_TOOL_CALL_ID_MAX,
   AGENT_TOOL_OUTPUT_MAX,
   type AgentEvent,
@@ -22,6 +21,7 @@ export interface AgentRenderer {
 export interface AgentSessionsDeps {
   request: (request: AgentRequest) => Promise<AgentReply>
   settings: () => AgentHostSettings
+  sandboxed: (workspaceId: string) => boolean
   redact: (text: string) => Promise<string | null>
 }
 
@@ -51,14 +51,21 @@ export class AgentSessions {
 
   async open(renderer: AgentRenderer, input: AgentOpenInput): Promise<AgentReply> {
     this.watch(renderer)
-    const { providers, skillFolders } = this.deps.settings()
+    if (this.deps.sandboxed(input.workspaceId)) return { ok: false, error: 'sandboxed' }
+    const { providers } = this.deps.settings()
+    const wanted = input.model
+    if (
+      wanted &&
+      !providers.some((p) => p.id === wanted.provider && p.models.includes(wanted.model))
+    ) {
+      return { ok: false, error: 'unknown-model' }
+    }
     const reply = await this.deps.request({
       op: 'open',
       sessionId: input.sessionId,
       cwd: input.cwd,
       tools: input.tools,
       providers,
-      skillFolders,
       ...(input.model ? { model: input.model } : {}),
     })
     if (reply.ok) this.owned.set(input.sessionId, { renderer })
@@ -89,8 +96,8 @@ export class AgentSessions {
     return this.deps.request({ op: 'close', sessionId: id })
   }
 
-  event(extId: string | undefined, params: unknown): { ok: boolean } {
-    if (extId !== AGENT_EXTENSION_ID || !isRecord(params)) return { ok: false }
+  event(fromAgent: boolean, params: unknown): { ok: boolean } {
+    if (!fromAgent || !isRecord(params)) return { ok: false }
     const id = sessionIdOf(params.sessionId)
     const owner = id ? this.owned.get(id) : undefined
     if (!id || !owner || owner.renderer.isDestroyed()) return { ok: false }
@@ -99,11 +106,11 @@ export class AgentSessions {
   }
 
   async tool(
-    extId: string | undefined,
+    fromAgent: boolean,
     params: unknown,
     cancelled: (listener: () => void) => { dispose: () => void } | undefined,
   ): Promise<AgentToolReply> {
-    const call = toolCallOf(extId, params)
+    const call = toolCallOf(fromAgent, params)
     if (!call) return { ok: false, error: 'invalid' }
     const owner = this.owned.get(call.sessionId)
     if (!owner || owner.renderer.isDestroyed()) return DENIED_GONE
@@ -179,8 +186,8 @@ export class AgentSessions {
   }
 }
 
-function toolCallOf(extId: string | undefined, params: unknown): AgentToolCall | null {
-  if (extId !== AGENT_EXTENSION_ID || !isRecord(params)) return null
+function toolCallOf(fromAgent: boolean, params: unknown): AgentToolCall | null {
+  if (!fromAgent || !isRecord(params)) return null
   const sessionId = sessionIdOf(params.sessionId)
   const toolCallId = typeof params.toolCallId === 'string' ? params.toolCallId : ''
   if (!sessionId || !toolCallId || toolCallId.length > AGENT_TOOL_CALL_ID_MAX) return null

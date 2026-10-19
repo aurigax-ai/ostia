@@ -3,10 +3,8 @@ import {
   type AgentProviderEntry,
 } from '@aurigax-ai/ostia-extension-sdk/contract/agent'
 import { isRecord } from '@aurigax-ai/ostia-extension-sdk/contract/isRecord'
-import { isSkillPath } from '../agents/managerSettings'
 
 const AGENT_PROVIDERS_MAX = 16
-const AGENT_SKILL_FOLDERS_MAX = 32
 const AGENT_PROVIDER_ID = /^[a-z0-9][a-z0-9-]{0,31}$/
 const AGENT_PROVIDER_NAME_MAX = 80
 const AGENT_MODEL_MAX = 120
@@ -14,10 +12,9 @@ const AGENT_URL_MAX = 2048
 
 export interface AgentHostSettings {
   providers: AgentProviderEntry[]
-  skillFolders: string[]
 }
 
-export const DEFAULT_AGENT_SETTINGS: AgentHostSettings = { providers: [], skillFolders: [] }
+export const DEFAULT_AGENT_SETTINGS: AgentHostSettings = { providers: [] }
 
 function plainHttpUrl(value: unknown): string | null {
   if (typeof value !== 'string' || value.length > AGENT_URL_MAX) return null
@@ -55,9 +52,5 @@ export function parseAgentSettings(raw: unknown): AgentHostSettings {
     const provider = parseAgentProvider(item)
     if (provider && !providers.some((p) => p.id === provider.id)) providers.push(provider)
   }
-  const folders = Array.isArray(src.skillFolders) ? src.skillFolders.filter(isSkillPath) : []
-  return {
-    providers,
-    skillFolders: [...new Set(folders)].slice(0, AGENT_SKILL_FOLDERS_MAX),
-  }
+  return { providers }
 }

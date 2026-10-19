@@ -18,7 +18,6 @@ import {
   createAgentSession,
   createExtensionRuntime,
   defineTool,
-  loadSkills,
 } from '@earendil-works/pi-coding-agent'
 import { agentSystemPrompt } from './systemPrompt'
 
@@ -30,7 +29,6 @@ export interface PiSessionOptions {
   dataDir: string
   tools: AgentToolSpec[]
   providers: AgentProviderEntry[]
-  skillFolders: string[]
   model?: AgentModelRef
   callTool: ToolCaller
 }
@@ -78,16 +76,10 @@ async function modelRuntime(providers: AgentProviderEntry[]): Promise<ModelRunti
 }
 
 function resourceLoader(opts: PiSessionOptions): ResourceLoader {
-  const skills = loadSkills({
-    cwd: opts.cwd,
-    agentDir: agentDirOf(opts.dataDir),
-    skillPaths: opts.skillFolders,
-    includeDefaults: false,
-  })
   const system = agentSystemPrompt(opts.cwd)
   return {
     getExtensions: () => ({ extensions: [], errors: [], runtime: createExtensionRuntime() }),
-    getSkills: () => skills,
+    getSkills: () => ({ skills: [], diagnostics: [] }),
     getPrompts: () => ({ prompts: [], diagnostics: [] }),
     getThemes: () => ({ themes: [], diagnostics: [] }),
     getAgentsFiles: () => ({ agentsFiles: [] }),
@@ -125,7 +117,8 @@ function toolDefinition(spec: AgentToolSpec, opts: PiSessionOptions): ToolDefini
 
 function chosenModel(runtime: ModelRuntime, opts: PiSessionOptions) {
   const wanted = opts.model
-  if (wanted) {
+  const offered = opts.providers.find((p) => p.id === wanted?.provider)
+  if (wanted && offered?.models.includes(wanted.model)) {
     const model = runtime.getModel(wanted.provider, wanted.model)
     if (model) return model
   }

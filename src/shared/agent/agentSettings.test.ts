@@ -33,14 +33,7 @@ describe('parseAgentSettings', () => {
     expect(parseAgentSettings({ providers: list }).providers).toEqual([local])
   })
 
-  it('keeps only absolute skill folders without parent segments', () => {
-    const parsed = parseAgentSettings({
-      skillFolders: ['/a/skills', 'rel', '/a/../b', '/a/skills'],
-    })
-    expect(parsed.skillFolders).toEqual(['/a/skills'])
-  })
-
   it('answers empty settings for anything that is not an object', () => {
-    expect(parseAgentSettings(null)).toEqual({ providers: [], skillFolders: [] })
+    expect(parseAgentSettings(null)).toEqual({ providers: [] })
   })
 })

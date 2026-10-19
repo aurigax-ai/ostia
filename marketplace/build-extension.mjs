@@ -137,7 +137,9 @@ function copyWasm(out) {
   const owner = installedPackage('@earendil-works/pi-coding-agent')
   for (const [name, file] of wasmFiles) {
     const dir = siblingPackage(owner, name)
-    if (dir && existsSync(join(dir, file))) copyFileSync(join(dir, file), join(out, file))
+    if (!dir || !existsSync(join(dir, file)))
+      throw new Error(`missing ${name}/${file} for ${owner}`)
+    copyFileSync(join(dir, file), join(out, file))
   }
 }
 

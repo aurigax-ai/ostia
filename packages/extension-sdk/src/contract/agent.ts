@@ -42,7 +42,6 @@ export interface AgentOpenRequest {
   cwd: string
   tools: AgentToolSpec[]
   providers: AgentProviderEntry[]
-  skillFolders: string[]
   model?: AgentModelRef
 }
 

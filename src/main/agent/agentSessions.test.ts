@@ -37,6 +37,7 @@ afterEach(() => {
 async function bridge(
   answer: Parameters<typeof startAgentRig>[0],
   redact = async (t: string) => t as string | null,
+  sandboxed = false,
 ) {
   const rig = await startAgentRig(answer)
   rigs.push(rig)
@@ -44,14 +45,14 @@ async function bridge(
     request: (request) => rig.handle(request),
     settings: () => ({
       providers: [{ id: 'fake', name: 'Fake', baseUrl: rig.provider.url, models: ['fake-model'] }],
-      skillFolders: [],
     }),
+    sandboxed: () => sandboxed,
     redact,
   })
   const win = renderer()
-  rig.listen((sessionId, event: AgentEvent) => sessions.event('agent', { sessionId, event }))
+  rig.listen((sessionId, event: AgentEvent) => sessions.event(true, { sessionId, event }))
   rig.setToolCaller((call, signal) =>
-    sessions.tool('agent', call, (listener) => {
+    sessions.tool(true, call, (listener) => {
       signal.addEventListener('abort', listener, { once: true })
       return { dispose: () => signal.removeEventListener('abort', listener) }
     }),
@@ -72,6 +73,25 @@ async function bridge(
 }
 
 describe('AgentSessions', () => {
+  it('refuses a model that is not one of the configured providers', async () => {
+    const { sessions, win, input } = await bridge(() => 'ok')
+    const reply = await sessions.open(win, {
+      ...input,
+      model: { provider: 'anthropic', model: 'claude-sonnet-4-5' },
+    })
+    expect(reply).toEqual({ ok: false, error: 'unknown-model' })
+  })
+
+  it('refuses to open in a sandboxed workspace', async () => {
+    const { rig, sessions, win, input } = await bridge(
+      () => 'ok',
+      async (t) => t,
+      true,
+    )
+    expect(await sessions.open(win, input)).toEqual({ ok: false, error: 'sandboxed' })
+    expect(rig.provider.requests).toEqual([])
+  })
+
   it('sends the redacted prompt to the model, never the original', async () => {
     const { rig, sessions, win, input } = await bridge(
       () => 'ok',
@@ -183,7 +203,7 @@ describe('AgentSessions', () => {
     const { sessions, win, input } = await bridge(() => 'ok')
     await sessions.open(win, input)
     const pending = sessions.tool(
-      'agent',
+      true,
       { sessionId: 's1', toolCallId: 'c1', name: 'read_file', input: {} },
       () => undefined,
     )
@@ -205,11 +225,11 @@ describe('AgentSessions', () => {
   it('refuses events and tool calls that do not come from the agent extension', async () => {
     const { sessions, win, input } = await bridge(() => 'ok')
     await sessions.open(win, input)
-    expect(sessions.event('other', { sessionId: 's1', event: { type: 'turn-end' } })).toEqual({
+    expect(sessions.event(false, { sessionId: 's1', event: { type: 'turn-end' } })).toEqual({
       ok: false,
     })
     const reply = await sessions.tool(
-      'other',
+      false,
       { sessionId: 's1', toolCallId: 'c', name: 'read_file', input: {} },
       () => undefined,
     )

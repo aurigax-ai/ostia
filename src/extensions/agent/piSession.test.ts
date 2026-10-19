@@ -14,7 +14,6 @@ describe('the pi session', () => {
       dataDir: join(root, 'data'),
       tools: [READ_FILE_TOOL],
       providers: [{ id: 'fake', name: 'Fake', baseUrl: 'http://127.0.0.1:1/v1', models: ['m'] }],
-      skillFolders: [],
       callTool: async () => ({ ok: true, output: '' }),
     })
     expect(session.settingsManager.getCacheWarmingMode()).toBe('off')

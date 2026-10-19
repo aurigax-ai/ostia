@@ -8,5 +8,6 @@ export const agentZhHant: typeof agentEn = {
     noProvider: '請在 settings.json 的 agent.providers 加入模型伺服器，才能使用代理。',
     paneTitle: '代理',
     placeholder: '傳訊息給代理',
+    sandboxed: '沙盒工作區中無法使用代理。',
   },
 }

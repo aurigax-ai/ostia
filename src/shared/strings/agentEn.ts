@@ -7,5 +7,6 @@ export const agentEn = {
     noProvider: 'Add a model server under agent.providers in settings.json to use the Agent.',
     paneTitle: 'Agent',
     placeholder: 'Message the agent',
+    sandboxed: 'The Agent is not available in a sandboxed workspace.',
   },
 }

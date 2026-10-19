@@ -1,3 +1,4 @@
+import { agentProblem } from '@/lib/agent/agentProblem'
 import { createAgentTransport } from '@/lib/agent/agentTransport'
 import { workspaceFolder } from '@/lib/assist/chatTools'
 import { chatToolDefs } from '@/lib/assist/chatTools'
@@ -71,7 +72,7 @@ async function openSession(sessionId: string): Promise<AgentReply> {
 
 async function prepare(sessionId: string): Promise<string | null> {
   const reply = await openSession(sessionId)
-  return reply.ok ? null : (reply.message ?? reply.error)
+  return reply.ok ? null : agentProblem(reply)
 }
 
 function historyMessages(history: AgentHistoryEntry[] | undefined): OstiaChatMessage[] {

@@ -1,3 +1,4 @@
+import { agentProblem } from '@/lib/agent/agentProblem'
 import { agentPromptText } from '@/lib/agent/agentPrompt'
 import type { ChatToolDef, ToolOutcome, ToolRun } from '@/lib/assist/chatToolGate'
 import { type OstiaChatMessage, outputText } from '@/lib/assist/chatTransport'
@@ -165,7 +166,7 @@ export function createAgentTransport(
           if (problem) return fail(problem)
           if (!last || closed) return
           const reply = await api.prompt(session.sessionId, agentPromptText(last))
-          if (!reply.ok) fail(reply.message ?? reply.error)
+          if (!reply.ok) fail(agentProblem(reply))
         },
       })
     },
