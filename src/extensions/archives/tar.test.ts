@@ -1,11 +1,15 @@
+import { execFileSync } from 'node:child_process'
 import { randomBytes } from 'node:crypto'
 import { brotliCompressSync, gzipSync, zstdCompressSync } from 'node:zlib'
+import { XzCompressor } from '@napi-rs/lzma'
 import { describe, expect, it } from 'vitest'
 import { tarOf } from '../../../test/fixtures/archives/archives'
+import { archiveDecoders } from '../../../test/fixtures/archives/decoders'
 import { listAll, memoryFile, readEntry } from './memoryFile'
-import { tar } from './tar'
+import { tarProvider } from './tar'
 
 const MIB = 1024 * 1024
+const tar = tarProvider(archiveDecoders)
 const LIMITS = {
   entries: 20_000,
   depth: 32,
@@ -122,6 +126,33 @@ describe('tar provider', () => {
     it('stops reading an entry after a bounded output and says why', async () => {
       const file = memoryFile(compress(Buffer.alloc(64 * MIB, 0x41)))
       expect((await readEntry(tar, file, 0, MIB, limits)).result).toEqual({
+        ok: false,
+        error: 'limit',
+      })
+    })
+  })
+
+  describe.each([
+    ['xz', 'bomb.tar.xz'],
+    ['bzip2', 'bomb.tar.bz2'],
+  ])('%s with a very high ratio', (name) => {
+    const limits = { ...LIMITS, scanBytes: 4 * MIB }
+
+    async function bomb(): Promise<Buffer> {
+      const zeros = Buffer.alloc(64 * MIB, 0x41)
+      if (name === 'bzip2')
+        return execFileSync('bzip2', ['-9', '-c'], { input: zeros, maxBuffer: 64 * MIB })
+      const compressor = new XzCompressor({ preset: 0 })
+      return Buffer.concat([compressor.update(zeros), await compressor.finish()])
+    }
+
+    it('stops listing and reading after a bounded output and says why', async () => {
+      const packed = await bomb()
+      expect((await listAll(tar, memoryFile(packed), limits)).result).toEqual({
+        ok: false,
+        error: 'limit',
+      })
+      expect((await readEntry(tar, memoryFile(packed), 0, MIB, limits)).result).toEqual({
         ok: false,
         error: 'limit',
       })
