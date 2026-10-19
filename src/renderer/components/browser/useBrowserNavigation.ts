@@ -5,6 +5,10 @@ import { type KeyboardEvent, useCallback, useEffect, useRef, useState } from 're
 
 export const BLANK_PAGE = 'about:blank'
 
+function shownAddress(url: string): string {
+  return url === BLANK_PAGE ? '' : url
+}
+
 interface BrowserNavigationParams {
   url?: string
 }
@@ -16,11 +20,11 @@ export function useBrowserNavigation({ url }: BrowserNavigationParams) {
   const readyRef = useRef(false)
   const pendingUrlRef = useRef<string | null>(null)
   const staleSrcRef = useRef<string | null>(null)
-  const [address, setAddress] = useState(startUrl.current)
+  const [address, setAddress] = useState(shownAddress(startUrl.current))
   const [src, setSrc] = useState(startUrl.current)
   const editingRef = useRef(false)
   const showAddress = useCallback((next: string): void => {
-    if (!editingRef.current) setAddress(next)
+    if (!editingRef.current) setAddress(shownAddress(next))
   }, [])
   const srcRef = useRef(src)
   const [canGoBack, setCanGoBack] = useState(false)
@@ -61,7 +65,7 @@ export function useBrowserNavigation({ url }: BrowserNavigationParams) {
   useEffect(() => {
     if (url === undefined || url === lastAppliedUrlRef.current) return
     lastAppliedUrlRef.current = url
-    setAddress(url)
+    setAddress(shownAddress(url))
     load(url)
   }, [url, load])
 
@@ -70,7 +74,7 @@ export function useBrowserNavigation({ url }: BrowserNavigationParams) {
     const next = resolveAddress(raw, useSettingsStore.getState().browser)
     setLoadError(null)
     lastAppliedUrlRef.current = next
-    setAddress(next)
+    setAddress(shownAddress(next))
     load(next)
   }
 
@@ -78,7 +82,7 @@ export function useBrowserNavigation({ url }: BrowserNavigationParams) {
     if (e.key === 'Enter') navigate(address)
     if (e.key === 'Escape') {
       editingRef.current = false
-      setAddress(lastAppliedUrlRef.current)
+      setAddress(shownAddress(lastAppliedUrlRef.current))
     }
   }
 
