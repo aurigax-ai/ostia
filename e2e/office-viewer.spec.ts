@@ -173,7 +173,7 @@ test('a macro workbook, and a workbook and a document with external links, open 
   }
 })
 
-test('a malformed file, bombs and a long sheet each say why', async () => {
+test('a malformed file, bombs and a long sheet each say why, and a runaway viewer is stopped', async () => {
   const long = workbook({ Long: Array.from({ length: 100_500 }, (_unused, row) => [row + 1]) })
   await withApp(
     {
@@ -212,6 +212,17 @@ test('a malformed file, bombs and a long sheet each say why', async () => {
         'const s = document.querySelector(".ostia-grid-scroll"); s.scrollTop = s.scrollHeight',
       )
       await guestText(app, 'long.xlsx').toContain('100000')
+
+      await viewerGuestRun(
+        app,
+        { viewType: SHEET, name: 'long.xlsx' },
+        'setTimeout(() => { const keep = []; for (;;) keep.push(new Uint8Array(8 * 1024 * 1024).fill(1)) }, 0); 0',
+      )
+      const stopped = win.getByTestId('viewer-stopped')
+      await expect(stopped).toBeVisible({ timeout: 20_000 })
+      await expect(stopped.getByRole('button', { name: 'Reload' })).toBeVisible()
+      await openSheet(win, 'broken.xlsx')
+      await guestText(app, 'broken.xlsx').toContain('Could not read this file.')
     },
   )
 })
@@ -307,24 +318,4 @@ test('presentations and OpenDocument text open as outlines, fetch nothing and sa
   } finally {
     server.close()
   }
-})
-
-test('a runaway viewer is stopped within seconds with a reload notice while another pane answers', async () => {
-  await withApp(
-    { 'runaway.xlsx': workbook({ One: [['held']] }), 'ok.xlsx': workbook({ Two: [['alive']] }) },
-    async (win, app) => {
-      await openSheet(win, 'runaway.xlsx')
-      await guestText(app, 'runaway.xlsx').toContain('held')
-      await viewerGuestRun(
-        app,
-        { viewType: SHEET, name: 'runaway.xlsx' },
-        'setTimeout(() => { const keep = []; for (;;) keep.push(new Uint8Array(8 * 1024 * 1024).fill(1)) }, 0); 0',
-      )
-      const stopped = win.getByTestId('viewer-stopped')
-      await expect(stopped).toBeVisible({ timeout: 20_000 })
-      await expect(stopped.getByRole('button', { name: 'Reload' })).toBeVisible()
-      await openSheet(win, 'ok.xlsx')
-      await guestText(app, 'ok.xlsx').toContain('alive')
-    },
-  )
 })
