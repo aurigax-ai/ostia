@@ -18,12 +18,13 @@ const SHEETS = {
   name: 'Office',
   builtin: true,
   enabled: true,
-  fileViewers: [
+  fileKinds: [
     {
-      viewType: 'office.spreadsheet',
+      id: 'office.spreadsheet',
       displayName: 'Spreadsheet',
       selector: [{ filenamePattern: '*.xlsx' }],
-      priority: 'default',
+      view: { priority: 'default' },
+      approved: true,
     },
   ],
 } as unknown as ExtensionInfo

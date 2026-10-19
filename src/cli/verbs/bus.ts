@@ -6,7 +6,8 @@ import {
 import type { MessageConnection } from 'vscode-jsonrpc/node'
 import type { BusDelivery } from '../../shared/agents/busMessages'
 import { parseArgs } from '../common/args'
-import { type ErrResult, describeErrResult, failUsage } from '../common/failure'
+import { type ErrResult, describeErrResult, failUsage, failVerb, failWith } from '../common/failure'
+import { tsvLine } from '../common/lineField'
 
 export const BUS_HOOK_USAGE = `usage: ostia bus hook <${AGENT_HOOK_CONTEXT_EVENTS.join('|')}>`
 
@@ -68,7 +69,7 @@ export async function runBusHook(args: readonly string[], io: BusHookIo): Promis
 
 function sentLine(message: SentMessage): string {
   const state = message.seenAt ? `seen ${message.seenAt}` : 'unseen'
-  return [message.ts, message.to, state, message.preview].join('\t')
+  return tsvLine([message.ts, message.to, state, message.preview])
 }
 
 export function sentLines(messages: readonly SentMessage[]): string[] {
@@ -112,25 +113,29 @@ interface BusHandoffsResult {
   handoffs: BusHandoff[]
 }
 
+export function busSendArgs(argv: readonly string[]): { to: string; text: string } | null {
+  const end = argv.indexOf('--')
+  const [to, ...words] = end === -1 ? argv : [...argv.slice(0, end), ...argv.slice(end + 1)]
+  return to && words.length > 0 ? { to, text: words.join(' ') } : null
+}
+
 export async function runBusVerb(conn: MessageConnection): Promise<void> {
   const sub = process.argv[3]
   const rawArgs = process.argv.slice(4)
 
   if (sub === 'send') {
-    const [to, text] = rawArgs
-    if (!to || text === undefined) {
-      console.error('ostia bus send: missing <toExternalId> "<msg>"')
-      process.exitCode = 1
+    const args = busSendArgs(rawArgs)
+    if (!args) {
+      failVerb('missing arguments')
       return
     }
-    const res = await conn.sendRequest<BusSendOk | ErrResult>('bus.send', { to, text })
+    const res = await conn.sendRequest<BusSendOk | ErrResult>('bus.send', args)
     if (res.ok) {
       console.log(JSON.stringify(res))
       if (res.asleep) console.error(BUS_ASLEEP_HINT)
       else if (res.delivered === 'queued') console.error(BUS_QUEUED_HINT)
     } else {
-      console.error(`ostia: bus send failed (${describeErrResult(res)})`)
-      process.exitCode = 1
+      failWith(describeErrResult(res))
     }
   } else if (sub === 'inbox') {
     const { drain } = parseArgs(rawArgs, { booleans: { drain: '--drain' } }).booleans
@@ -138,8 +143,7 @@ export async function runBusVerb(conn: MessageConnection): Promise<void> {
     if ('messages' in res) {
       console.log(JSON.stringify(res.messages))
     } else {
-      console.error(`ostia: bus inbox failed (${describeErrResult(res)})`)
-      process.exitCode = 1
+      failWith(describeErrResult(res))
     }
   } else if (sub === 'sent') {
     const res = await conn.sendRequest<BusSentResult | ErrResult>('bus.sent')
@@ -147,8 +151,7 @@ export async function runBusVerb(conn: MessageConnection): Promise<void> {
       if (rawArgs.includes('--json')) console.log(JSON.stringify(res.messages))
       else for (const line of sentLines(res.messages)) console.log(line)
     } else {
-      console.error(`ostia: bus sent failed (${describeErrResult(res)})`)
-      process.exitCode = 1
+      failWith(describeErrResult(res))
     }
   } else if (sub === 'hook') {
     process.exitCode = await runBusHook(rawArgs, {
@@ -163,8 +166,7 @@ export async function runBusVerb(conn: MessageConnection): Promise<void> {
     if ('messages' in res) {
       console.log(JSON.stringify(res))
     } else {
-      console.error(`ostia: bus wait failed (${describeErrResult(res)})`)
-      process.exitCode = 1
+      failWith(describeErrResult(res))
     }
   } else if (sub === 'handoff') {
     const { values: flags, positional } = parseArgs(rawArgs, {
@@ -172,8 +174,7 @@ export async function runBusVerb(conn: MessageConnection): Promise<void> {
     })
     const to = positional[0]
     if (!to || !flags.task || !flags.summary) {
-      console.error('ostia bus handoff: missing <to> --task "..." --summary "..."')
-      process.exitCode = 1
+      failVerb('missing arguments')
       return
     }
     const res = await conn.sendRequest<BusSendOk | ErrResult>('bus.handoff', {
@@ -185,22 +186,19 @@ export async function runBusVerb(conn: MessageConnection): Promise<void> {
       console.log(JSON.stringify(res))
       if (res.delivered === 'queued') console.error(BUS_QUEUED_HINT)
     } else {
-      console.error(`ostia: bus handoff failed (${describeErrResult(res)})`)
-      process.exitCode = 1
+      failWith(describeErrResult(res))
     }
   } else if (sub === 'claim') {
     const id = rawArgs[0]
     if (!id) {
-      console.error('ostia bus claim: missing <id>')
-      process.exitCode = 1
+      failVerb('missing arguments')
       return
     }
     const res = await conn.sendRequest<BusOk | ErrResult>('bus.claim', { id })
     if (res.ok) {
       console.log('ok')
     } else {
-      console.error(`ostia: bus claim failed (${describeErrResult(res)})`)
-      process.exitCode = 1
+      failWith(describeErrResult(res))
     }
   } else if (sub === 'handoffs') {
     const { all } = parseArgs(rawArgs, { booleans: { all: '--all' } }).booleans
@@ -208,22 +206,19 @@ export async function runBusVerb(conn: MessageConnection): Promise<void> {
     if ('handoffs' in res) {
       console.log(JSON.stringify(res.handoffs))
     } else {
-      console.error(`ostia: bus handoffs failed (${describeErrResult(res)})`)
-      process.exitCode = 1
+      failWith(describeErrResult(res))
     }
   } else if (sub === 'done') {
     const id = rawArgs[0]
     if (!id) {
-      console.error('ostia bus done: missing <id>')
-      process.exitCode = 1
+      failVerb('missing arguments')
       return
     }
     const res = await conn.sendRequest<BusOk | ErrResult>('bus.update', { id, state: 'completed' })
     if (res.ok) {
       console.log('ok')
     } else {
-      console.error(`ostia: bus done failed (${describeErrResult(res)})`)
-      process.exitCode = 1
+      failWith(describeErrResult(res))
     }
   } else {
     failUsage('bus')

@@ -111,7 +111,7 @@ describe('loadLanguagePacks', () => {
         id: 'langpack-zh-hant',
         name: '繁體中文 (Traditional Chinese)',
         version: '1.0.0',
-        api: '4.0',
+        api: '5.0',
         category: 'langpack',
         locales: ['zh-Hant'],
         contributes: { languages: [{ id: 'zh-Hant', label: '繁體中文', path: 'zh-Hant.json' }] },
@@ -120,6 +120,8 @@ describe('loadLanguagePacks', () => {
     })
     const broadcast = vi.fn()
     const host = new ExtensionHost({
+      sandboxDomains: () => null,
+      isSandboxed: () => false,
       roots: [{ dir: root, builtin: true }],
       store: new ExtensionStore(join(extension({}), 'extensions.json')),
       socketPath: () => join(root, 'none.sock'),

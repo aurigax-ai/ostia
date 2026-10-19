@@ -11,5 +11,7 @@
     "src/renderer/stores/extensions/marketplaceStore.ts",
     "src/shared/extensions/marketplace.ts"
   ],
-  "specs": ["e2e/marketplace.spec.ts"]
+  "specs": [
+    "e2e/marketplace.spec.ts"
+  ]
 }

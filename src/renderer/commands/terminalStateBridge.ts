@@ -59,8 +59,6 @@ function paneIdsInBlocks(state: ReturnType<typeof useBlocksStore.getState>): Set
 }
 
 export function wireTerminalStateBridge(): void {
-  if (!window.ostia?.terminalState) return
-
   useBlocksStore.subscribe((state, prev) => {
     const live = paneIdsInBlocks(state)
     const ids = new Set([...live, ...paneIdsInBlocks(prev)])

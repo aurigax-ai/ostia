@@ -13,12 +13,13 @@ import { join } from 'node:path'
 import { PRODUCT_DISPLAY_NAME } from '@aurigax-ai/ostia-extension-sdk/contract/productDisplay'
 import { build } from 'esbuild'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { en } from '../../shared/app/dict'
 import {
   DEFAULT_SANDBOX_GLOBALS,
   type SandboxViolation,
   type WorkspaceSandbox,
 } from '../../shared/sandbox/sandbox'
-import { SandboxUnavailableError } from './sandboxHosts'
+import { SandboxUnavailableError } from './hostClient'
 import { sandboxFailureBanner } from './spawnBanner'
 import { SandboxStore } from './store'
 import { ViolationLog, recordViolations } from './violations'
@@ -315,7 +316,7 @@ describe('a workspace folder the sandbox cannot confine', () => {
     const failure = await sandboxes.wrap('ws', 'bash', 'bash').catch((err: unknown) => err)
     sandboxes.hosts.stopAll()
     expect(failure).toBeInstanceOf(SandboxUnavailableError)
-    const banner = sandboxFailureBanner((failure as Error).message, [])
+    const banner = sandboxFailureBanner(en.native.paneBanner, (failure as Error).message, [])
     expect(banner).toContain(`${home} is your home folder`)
     expect(banner).toContain('open a project folder instead')
     expect(banner).toContain('No shell was started')

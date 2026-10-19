@@ -61,6 +61,8 @@ export function registerAppQuit({
 }: AppQuitDeps) {
   let telemetrySentForQuit = false
   let sendingTelemetryForQuit = false
+  let tearingDownForQuit = false
+  let tornDownForQuit = false
   let quitAnswer: QuitAnswer | null = null
 
   function confirmQuitOn(): boolean {
@@ -165,7 +167,15 @@ export function registerAppQuit({
       })
       return
     }
-    teardown(quitAnswer)
+    if (!tornDownForQuit) {
+      event.preventDefault()
+      if (tearingDownForQuit) return
+      tearingDownForQuit = true
+      void teardown(quitAnswer).finally(() => {
+        tornDownForQuit = true
+        app.quit()
+      })
+    }
   })
 
   app.on('will-quit', () => {

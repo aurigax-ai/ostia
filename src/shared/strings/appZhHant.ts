@@ -66,6 +66,7 @@ export const appZhHant: typeof appEn = {
   },
   languageNotice: {
     disabled: '{name} 已安裝但已關閉。它可為 {files} 檔案加入語言功能。',
+    disabledView: '{name} 已安裝但已關閉。它可以顯示 {files} 檔案。',
     downloading: '正在下載 {name}… {percent}%',
     fetchFailed: '無法取得 {name}。',
     install: '安裝',
@@ -80,6 +81,7 @@ export const appZhHant: typeof appEn = {
     programMissing: '{name} 無法啟動：尚未安裝 {program}。',
     review: '檢視',
     suggest: '{name} 可為 {files} 檔案加入語言功能。',
+    suggestView: '{name} 可以顯示 {files} 檔案。',
     toolchainMissing: '{name} 無法啟動：尚未安裝 Go。',
   },
   native: {
@@ -104,6 +106,23 @@ export const appZhHant: typeof appEn = {
     folderAccessBlocked: {
       body: '{product} 裡的 shell 可能會持續讀不到這些資料夾。請結束 {product}（若有詢問，選「結束並關閉 shell」）再開啟，即可恢復。',
       title: 'macOS 擋住了 {folders}',
+    },
+    paneBanner: {
+      hiddenHome:
+        '沙箱：這裡看不到你的家目錄。寫入家目錄（工作區資料夾以外）的檔案，\n會在這個 shell 結束時捨棄。請在「設定 › 沙箱」新增可寫入的資料夾來保留它們。',
+      install: '請用這個指令安裝：{command}',
+      keepShells: '保留 shell：{reason}。',
+      keepShellsLost: '這個 shell 無法在重新啟動後保留。',
+      missing: '缺少：{packages}',
+      noShell: '未啟動 shell。這個工作區只能在沙箱中執行。',
+      nodePtyMissing: 'node-pty 無法使用，請執行：pnpm rebuild',
+      otherWorkspace: '這個窗格屬於另一個工作區',
+      restored: '工作區已還原',
+      sandboxEnded: '它的沙箱在 {product} 關閉期間已結束',
+      sandboxNotKept: '這個工作區的沙箱是在沒有 tmux 的情況下啟動的',
+      sandboxUnavailable: '沙箱無法使用：{message}',
+      tmuxMissing: '未安裝 tmux {version} 或更新版本',
+      woke: '已從休眠中喚醒',
     },
     quit: {
       agent: '代理程式：{name}',
@@ -130,10 +149,6 @@ export const appZhHant: typeof appEn = {
     sandboxSoftware: {
       body: '請安裝 {packages}，才能啟動這個沙箱工作區的終端機。',
       title: '沙箱需要安裝軟體',
-    },
-    scriptTokensRetired: {
-      body: '{names} 無法再連線。請產生新權杖並更新腳本裡的權杖。',
-      title: '升級 {product} 後，{count} 個舊版腳本權杖已失效',
     },
     signIn: {
       done: '已登入。你可以關閉此分頁並回到 {product}。',

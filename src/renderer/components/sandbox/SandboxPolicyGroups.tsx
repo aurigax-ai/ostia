@@ -1,4 +1,5 @@
 import { ListRow } from '@/components/common/ListRow'
+import { Notice } from '@/components/common/Notice'
 import { ControlRow } from '@/components/settingsKit/ControlRow'
 import { SettingsGroup, SettingsSubgroup } from '@/components/settingsKit/SettingsGroup'
 import { SettingsList } from '@/components/settingsKit/SettingsList'
@@ -153,11 +154,7 @@ function ReadPresets({
           </fieldset>
         )
       })}
-      {error ? (
-        <p role="alert" className="mt-1 text-attn-fg text-ui-sm">
-          {error}
-        </p>
-      ) : null}
+      {error ? <Notice tone="error">{error}</Notice> : null}
     </fieldset>
   )
 }

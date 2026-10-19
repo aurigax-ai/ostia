@@ -11,6 +11,7 @@ import {
 } from '@aurigax-ai/ghostty-web'
 import wasmDataUrl from '@aurigax-ai/ghostty-web/ghostty-vt.wasm?inline'
 import type { ILinkProvider } from '@xterm/xterm'
+import { type GpuSlot, gpuBudget } from './gpuBudget'
 import type {
   OstiaTerminal,
   PauseTerminal,
@@ -131,6 +132,26 @@ function fontWeightOf(weight: TerminalOptions['fontWeight']): 'normal' | 'bold' 
   return Number(weight)
 }
 
+interface GhosttyRendererInternals {
+  rendererReleased?: boolean
+}
+
+function ghosttyGpuSlot(t: GhosttyTerm): GpuSlot {
+  return gpuBudget.join({
+    acquire: () => {
+      t.setPaused(true)
+      t.options.renderer = 'webgl'
+      ;(t as unknown as GhosttyRendererInternals).rendererReleased = true
+      t.setPaused(false)
+      return t.rendererType === 'webgl'
+    },
+    revoke: () => {
+      t.options.renderer = 'canvas'
+      t.setPaused(true, { releaseRenderer: true })
+    },
+  })
+}
+
 function forceSelectionOnOptionDrag(canvas: HTMLCanvasElement): void {
   let forced = false
   const filter = (event: MouseEvent): void => {
@@ -195,6 +216,57 @@ function optionsProxy(t: GhosttyTerm): TerminalOptions {
   })
 }
 
+interface WasmRows {
+  getScrollbackLength(): number
+  isScrollbackRowWrapped(offset: number): boolean
+  isRowWrapped(row: number): boolean
+}
+
+type GhosttyRows = GhosttyTerm['buffer']['active']
+
+function lazyLine(
+  rows: GhosttyRows,
+  wasm: WasmRows,
+  cols: number,
+  y: number,
+): ReturnType<GhosttyRows['getLine']> {
+  if (y < 0 || y >= rows.length) return undefined
+  let cells: ReturnType<GhosttyRows['getLine']>
+  const real = () => {
+    cells ??= rows.getLine(y)
+    return cells
+  }
+  const scrollback = rows.type === 'normal' ? wasm.getScrollbackLength() : 0
+  const isWrapped =
+    y < scrollback ? wasm.isScrollbackRowWrapped(y) : wasm.isRowWrapped(y - scrollback)
+  return {
+    length: cols,
+    isWrapped,
+    getCell: (x) => real()?.getCell(x),
+    translateToString: (trimRight, start, end) =>
+      real()?.translateToString(trimRight, start, end) ?? '',
+  } as ReturnType<GhosttyRows['getLine']>
+}
+
+export function lazyBuffers(t: GhosttyTerm): OstiaTerminal['buffer'] {
+  const wasm = () => (t as unknown as { wasmTerm: WasmRows }).wasmTerm
+  const lazy = (rows: GhosttyRows): GhosttyRows =>
+    new Proxy(rows, {
+      get: (target, key) => {
+        if (key === 'getLine') return (y: number) => lazyLine(target, wasm(), t.cols, y)
+        const value = Reflect.get(target, key, target)
+        return typeof value === 'function' ? value.bind(target) : value
+      },
+    })
+  return new Proxy(t.buffer, {
+    get: (target, key) => {
+      const value = Reflect.get(target, key, target)
+      if (key === 'active' || key === 'normal' || key === 'alternate') return lazy(value)
+      return typeof value === 'function' ? value.bind(target) : value
+    },
+  }) as unknown as OstiaTerminal['buffer']
+}
+
 export function createGhosttyTerminal(
   options: TerminalOptions,
   gpu: boolean,
@@ -203,7 +275,7 @@ export function createGhosttyTerminal(
   if (!engine) throw new Error('Ghostty engine is not loaded')
   const t = new GhosttyTerm({
     ghostty: engine,
-    renderer: gpu ? 'webgl' : 'canvas',
+    renderer: 'canvas',
     fontWeight: fontWeightOf(options.fontWeight),
     lineHeight: options.lineHeight,
     scrollSensitivity: options.scrollSensitivity,
@@ -222,6 +294,7 @@ export function createGhosttyTerminal(
     scrollback: options.scrollback,
     scrollbar: options.nativeScrollbar,
   })
+  const slot = gpu ? ghosttyGpuSlot(t) : null
   const fit = new FitAddon()
   t.loadAddon(fit)
   const search = new SearchAddon()
@@ -248,7 +321,7 @@ export function createGhosttyTerminal(
     get element() {
       return t.element
     },
-    buffer: t.buffer,
+    buffer: lazyBuffers(t),
     parser,
     get modes() {
       return { mouseTrackingMode: t.modes.mouseTrackingMode }
@@ -263,6 +336,7 @@ export function createGhosttyTerminal(
     onRender: t.onRender,
     open: (parent) => {
       t.open(parent)
+      if (slot) parent.addEventListener('webglcontextlost', () => queueMicrotask(slot.lost), true)
       const canvas = parent.querySelector('canvas')
       canvas?.classList.add('ghostty-screen')
       if (canvas && options.macOptionClickForcesSelection) forceSelectionOnOptionDrag(canvas)
@@ -300,6 +374,7 @@ export function createGhosttyTerminal(
     dispose: () => {
       for (const sub of subscriptions) sub.dispose()
       t.clipboardWriteHandler = null
+      slot?.dispose()
       t.dispose()
     },
   }
@@ -313,7 +388,15 @@ export function createGhosttyTerminal(
       clearDecorations: () => search.clearDecorations(),
       onDidChangeResults: search.onDidChangeResults,
     },
-    setPaused: (paused, pauseOptions) => t.setPaused(paused, pauseOptions),
+    setPaused: (paused) => {
+      if (paused) {
+        t.setPaused(true)
+        slot?.hide()
+        return
+      }
+      slot?.show()
+      t.setPaused(false)
+    },
     silenceQueryReplies: () => {
       t.answerQueries = false
       return {

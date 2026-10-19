@@ -1,11 +1,10 @@
 import { countUsage } from '@/lib/app/usageCounts'
 import { WebglAddon } from '@xterm/addon-webgl'
 import type { Terminal } from '@xterm/xterm'
+import { type GpuSlot, gpuBudget } from './gpuBudget'
 import type { PauseTerminal } from './ostiaTerminal'
 
-export const MAX_WEBGL_TERMINALS = 14
-
-export interface WebglRenderer {
+export interface XtermRenderer {
   pause: PauseTerminal
   dispose(): void
 }
@@ -18,16 +17,6 @@ interface RenderServiceInternals {
         intersectionRatio: number
       }) => void
     }
-  }
-}
-
-const holders = new Set<object>()
-const waiting = new Set<() => void>()
-
-function wakeWaiting(): void {
-  for (const attach of waiting) {
-    if (holders.size >= MAX_WEBGL_TERMINALS) return
-    attach()
   }
 }
 
@@ -52,17 +41,15 @@ function contextLoser(
   return null
 }
 
-export function createWebglRenderer(term: Terminal): WebglRenderer {
+export function createXtermRenderer(term: Terminal, gpu: boolean): XtermRenderer {
   const screen = term.element?.querySelector<HTMLElement>('.xterm-screen') ?? null
-  const slot = {}
   let addon: WebglAddon | null = null
   let loseContext: (() => void) | null = null
-  let shown = false
   let disposed = false
   let parked: { parent: Node; sibling: Node | null } | null = null
 
   const park = (): void => {
-    if (!screen?.parentNode || parked) return
+    if (!screen?.parentNode || parked || screen.contains(document.activeElement)) return
     parked = { parent: screen.parentNode, sibling: screen.nextSibling }
     screen.remove()
   }
@@ -74,6 +61,12 @@ export function createWebglRenderer(term: Terminal): WebglRenderer {
     parent.insertBefore(screen, sibling?.parentNode === parent ? sibling : null)
   }
 
+  const focusTerm = term.focus
+  term.focus = () => {
+    unpark()
+    focusTerm.call(term)
+  }
+
   const release = (): void => {
     const held = addon
     if (!held) return
@@ -81,17 +74,9 @@ export function createWebglRenderer(term: Terminal): WebglRenderer {
     held.dispose()
     loseContext?.()
     loseContext = null
-    holders.delete(slot)
-    wakeWaiting()
   }
 
-  const attach = (): void => {
-    waiting.delete(attach)
-    if (!shown || addon) return
-    if (holders.size >= MAX_WEBGL_TERMINALS) {
-      waiting.add(attach)
-      return
-    }
+  const attach = (): boolean => {
     const before = new Set(screen?.querySelectorAll('canvas'))
     const next = new WebglAddon()
     try {
@@ -99,41 +84,43 @@ export function createWebglRenderer(term: Terminal): WebglRenderer {
     } catch {
       next.dispose()
       countUsage('terminal', 'webgl_fallback')
-      return
+      return false
     }
     addon = next
     loseContext = contextLoser(screen, before)
-    holders.add(slot)
     next.onContextLoss(() => {
       if (addon !== next) return
       countUsage('terminal', 'webgl_fallback')
       release()
-      attach()
+      slot?.lost()
     })
+    return true
   }
+
+  const slot: GpuSlot | null = gpu ? gpuBudget.join({ acquire: attach, revoke: release }) : null
 
   const pause: PauseTerminal = (paused) => {
     if (disposed) return
-    shown = !paused
     if (paused) {
-      waiting.delete(attach)
       syncRenderPause(term, true)
       park()
-      release()
+      slot?.hide()
       return
     }
     unpark()
-    attach()
+    slot?.show()
     syncRenderPause(term, false)
+    term.refresh(0, term.rows - 1)
   }
 
   return {
     pause,
     dispose: () => {
       disposed = true
-      waiting.delete(attach)
+      slot?.dispose()
       release()
       unpark()
+      term.focus = focusTerm
     },
   }
 }

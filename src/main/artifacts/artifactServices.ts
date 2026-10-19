@@ -119,7 +119,7 @@ export function createArtifactServices({
     root: artifactFolders.root,
     folderOf: (workspaceId) => artifactFolders.dirOf(workspaceId),
     isScratch: (workspaceId) => scratchFolders.isScratch(workspaceId),
-    viewerMatches: (name) => services.extensionHost?.panels.hasFileViewer(name) ?? false,
+    kindMatches: (name) => services.extensionHost?.panels.hasViewKind(name) ?? false,
     make: (workspaceId, file) =>
       portableExport.fileFor(file, previews.themeOf(windowForWorkspace(workspaceId))),
   })

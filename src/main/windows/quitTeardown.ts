@@ -21,7 +21,7 @@ import type { PortForwarder } from '../sandbox/ports/portForwarder'
 import type { SandboxListener } from '../sandbox/ports/portForwarder'
 import type { WorkspaceSandboxes } from '../sandbox/workspaceSandboxes'
 import type { WorkspaceAgents } from '../secrets/workspaceAgents'
-import type { PaneHistories } from '../terminal/history/paneHistories'
+import { type PaneHistories, removeHistories } from '../terminal/history/paneHistories'
 import { type PtyEntry, removeStateFile } from '../terminal/pty/ptyRegistry'
 import type { KeptHostMeta } from '../tmux/keptShells'
 import type { KeptShellsWiring } from '../tmux/keptShellsWiring'
@@ -97,7 +97,7 @@ export function createQuitTeardown({
   previews,
   updatePolicy,
 }: QuitTeardownDeps) {
-  function teardown(quitAnswer: QuitAnswer | null): void {
+  async function teardown(quitAnswer: QuitAnswer | null): Promise<void> {
     quitTrace.stage('teardown-windows')
     services.broker?.persist()
     services.managerService?.shutdown()
@@ -113,7 +113,7 @@ export function createQuitTeardown({
       }
     }
     quitTrace.stage('teardown-ptys')
-    services.histories?.removeAll()
+    await removeHistories(services.histories, services.appLog)
     for (const entry of ptys.values()) {
       entry.mirror.dispose()
       if (keepingShells && entry.kept) {
@@ -143,7 +143,7 @@ export function createQuitTeardown({
     artifactHistory.quit()
     artifactHistory.dispose()
     previews.dispose()
-    const stuckScratch = scratchFolders.removeAll()
+    const stuckScratch = await scratchFolders.removeAll()
     if (stuckScratch.length > 0) {
       services.appLog?.warn('scratch-remove-failed', {
         folders: stuckScratch.length,

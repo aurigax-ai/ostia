@@ -13,7 +13,7 @@ import type { LayoutNode, PaneNode } from '@/lib/layout/types'
 import { patch } from '@/lib/panes/layoutPatch'
 import { rememberedPanelFraction } from '@/lib/panes/panelSizes'
 import { useDiffStore } from '@/stores/files/diffStore'
-import { seedLayout } from './layoutSeed'
+import { announcePaneCreated, seedLayout } from './layoutSeed'
 import type { LayoutGet, LayoutSet, LayoutState, WorkspaceLayout } from './layoutTypes'
 
 function withRememberedPanelSize(layout: WorkspaceLayout, paneId: string): WorkspaceLayout {
@@ -55,9 +55,7 @@ function openSingleton(
     const sized = withRememberedPanelSize(created, createdPaneId)
     return sized === created ? next : { byWorkspace: { ...next.byWorkspace, [workspaceId]: sized } }
   })
-  if (createdPaneId) {
-    window.ostia?.lifecycle?.emit?.({ type: 'pane-created', workspaceId, paneId: createdPaneId })
-  }
+  announcePaneCreated(workspaceId, createdPaneId)
   return targetPaneId
 }
 
@@ -173,13 +171,7 @@ export function createLayoutPanelActions(set: LayoutSet, get: LayoutGet): Layout
         return next ?? s
       })
       if (diffPaneId) useDiffStore.getState().set(diffPaneId, content)
-      if (createdPaneId) {
-        window.ostia?.lifecycle?.emit?.({
-          type: 'pane-created',
-          workspaceId,
-          paneId: createdPaneId,
-        })
-      }
+      announcePaneCreated(workspaceId, createdPaneId)
       return diffPaneId
     },
   }

@@ -14,7 +14,7 @@ import { type ViewerOption, associationPattern } from '@/lib/files/viewerChoice'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useOpenWithStore } from '@/stores/files/openWithStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
-import { OWN_VIEW } from '@aurigax-ai/ostia-extension-sdk/contract/fileViewers'
+import { OWN_VIEW } from '@aurigax-ai/ostia-extension-sdk/contract/fileKinds'
 import { useId, useState } from 'react'
 
 interface OpenWithBodyProps {

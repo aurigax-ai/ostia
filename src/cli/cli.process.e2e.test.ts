@@ -621,7 +621,7 @@ describe('ostia process (the real CLI against a live control server)', () => {
   it('logs: fails on an unknown process', async () => {
     const res = await ostia(['process', 'logs', 'nope'])
     expect(res.code).toBe(1)
-    expect(res.stderr).toContain('process logs failed (not-found)')
+    expect(res.stderr).toContain('ostia process logs: not-found')
   })
 
   it('kill: interrupts the command and list shows it exited', async () => {
@@ -717,7 +717,7 @@ describe('ostia pane (the real CLI against a live control server)', () => {
     const fixer = getByPaneId(tab)
     asleep.add(tab)
     const wakingPanes = async (): Promise<string[]> =>
-      JSON.parse((await ostia(['pane', 'list'])).stdout)
+      JSON.parse((await ostia(['pane', 'list', '--json'])).stdout)
         .filter((p: { waking?: true }) => p.waking)
         .map((p: { paneId: string }) => p.paneId)
 

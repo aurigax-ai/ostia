@@ -1,62 +1,42 @@
 import { ipcRenderer } from 'electron'
-import type { CredentialFillResult } from '../shared/browser/browserApi'
-import type { BrowserProfile } from '../shared/browser/browserProfile'
-import type { BrowserStorageRead, StorageWriteResult } from '../shared/browser/browserStorage'
-import type {
-  CredentialImportResult,
-  CredentialSaveResult,
-  CredentialSummary,
-} from '../shared/browser/credentials'
-import type { PickOutcome, PickSendResult } from '../shared/browser/pick'
-import type { RegionCaptureOutcome, RegionCopyResult } from '../shared/browser/regionCapture'
 import type { OstiaBridge } from '../shared/types'
 import { listen } from './listen'
 
 export const browserBridge: Pick<OstiaBridge, 'browser' | 'guestChords' | 'credentials'> = {
   browser: {
-    claimProfile: (paneId, profile) =>
-      ipcRenderer.invoke('browser:claim-profile', paneId, profile) as Promise<BrowserProfile>,
+    claimProfile: (paneId, profile) => ipcRenderer.invoke('browser:claim-profile', paneId, profile),
     register: (paneId, webContentsId) =>
       ipcRenderer.send('browser:register', paneId, webContentsId),
     unregister: (paneId) => ipcRenderer.send('browser:unregister', paneId),
-    pickStart: (paneId, theme) =>
-      ipcRenderer.invoke('browser:pick-start', paneId, theme) as Promise<PickOutcome>,
+    pickStart: (paneId, theme) => ipcRenderer.invoke('browser:pick-start', paneId, theme),
     pickCancel: (paneId) => ipcRenderer.send('browser:pick-cancel', paneId),
-    pickSend: (req) => ipcRenderer.invoke('browser:pick-send', req) as Promise<PickSendResult>,
+    pickSend: (req) => ipcRenderer.invoke('browser:pick-send', req),
     onPickState: (cb) => listen('browser:pick-state', cb),
-    regionCapture: (paneId, req) =>
-      ipcRenderer.invoke('browser:region-capture', paneId, req) as Promise<RegionCaptureOutcome>,
-    regionSend: (req) => ipcRenderer.invoke('browser:region-send', req) as Promise<PickSendResult>,
-    regionCopy: (paneId, captureId) =>
-      ipcRenderer.invoke('browser:region-copy', paneId, captureId) as Promise<RegionCopyResult>,
-    setDevice: (paneId, device) =>
-      ipcRenderer.invoke('browser:set-device', paneId, device) as Promise<boolean>,
+    regionCapture: (paneId, req) => ipcRenderer.invoke('browser:region-capture', paneId, req),
+    regionSend: (req) => ipcRenderer.invoke('browser:region-send', req),
+    regionCopy: (paneId, captureId) => ipcRenderer.invoke('browser:region-copy', paneId, captureId),
+    setDevice: (paneId, device) => ipcRenderer.invoke('browser:set-device', paneId, device),
     deviceTouch: (paneId, input) => ipcRenderer.send('browser:device-touch', paneId, input),
-    storageRead: (paneId) =>
-      ipcRenderer.invoke('browser:storage-read', paneId) as Promise<BrowserStorageRead>,
-    storageSet: (paneId, edit) =>
-      ipcRenderer.invoke('browser:storage-set', paneId, edit) as Promise<StorageWriteResult>,
+    storageRead: (paneId) => ipcRenderer.invoke('browser:storage-read', paneId),
+    storageSet: (paneId, edit) => ipcRenderer.invoke('browser:storage-set', paneId, edit),
     storageRemove: (paneId, removal) =>
-      ipcRenderer.invoke('browser:storage-remove', paneId, removal) as Promise<StorageWriteResult>,
-    storageClear: (paneId, kind) =>
-      ipcRenderer.invoke('browser:storage-clear', paneId, kind) as Promise<StorageWriteResult>,
+      ipcRenderer.invoke('browser:storage-remove', paneId, removal),
+    storageClear: (paneId, kind) => ipcRenderer.invoke('browser:storage-clear', paneId, kind),
     onOpenTab: (cb) => listen('browser:open-tab', cb),
   },
   guestChords: {
     set: (signatures) => ipcRenderer.send('guest-chords:set', signatures),
+    setRemap: (table) => ipcRenderer.send('guest-chords:remap', table),
     onFire: (cb) => listen('guest-chords:fire', cb),
   },
   credentials: {
-    forPage: (paneId) =>
-      ipcRenderer.invoke('credentials:for-page', paneId) as Promise<CredentialSummary[]>,
-    fill: (paneId, id) =>
-      ipcRenderer.invoke('credentials:fill', paneId, id) as Promise<CredentialFillResult>,
-    saveFromPage: (paneId) =>
-      ipcRenderer.invoke('credentials:save-from-page', paneId) as Promise<CredentialSaveResult>,
-    list: () => ipcRenderer.invoke('credentials:list') as Promise<CredentialSummary[]>,
-    save: (input) => ipcRenderer.invoke('credentials:save', input) as Promise<CredentialSaveResult>,
-    remove: (id) => ipcRenderer.invoke('credentials:remove', id) as Promise<boolean>,
-    copyPassword: (id) => ipcRenderer.invoke('credentials:copy-password', id) as Promise<boolean>,
-    import: () => ipcRenderer.invoke('credentials:import') as Promise<CredentialImportResult>,
+    forPage: (paneId) => ipcRenderer.invoke('credentials:for-page', paneId),
+    fill: (paneId, id) => ipcRenderer.invoke('credentials:fill', paneId, id),
+    saveFromPage: (paneId) => ipcRenderer.invoke('credentials:save-from-page', paneId),
+    list: () => ipcRenderer.invoke('credentials:list'),
+    save: (input) => ipcRenderer.invoke('credentials:save', input),
+    remove: (id) => ipcRenderer.invoke('credentials:remove', id),
+    copyPassword: (id) => ipcRenderer.invoke('credentials:copy-password', id),
+    import: () => ipcRenderer.invoke('credentials:import'),
   },
 }

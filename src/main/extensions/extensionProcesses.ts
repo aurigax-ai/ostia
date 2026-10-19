@@ -9,6 +9,7 @@ import {
 } from '@aurigax-ai/ostia-extension-sdk/contract/extensionApi'
 import { EXTENSION_LOCALES_DIR } from '@aurigax-ai/ostia-extension-sdk/contract/extensionLocales'
 import type { ExtensionInfo } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
+import { kindClaim } from '@aurigax-ai/ostia-extension-sdk/contract/fileKinds'
 import { debounce } from 'es-toolkit'
 import type { MessageConnection } from 'vscode-jsonrpc/node'
 import { dropIdentity, setCaps } from '../approvals/capabilityStore'
@@ -104,6 +105,7 @@ export class ExtensionProcesses {
       ...this.host.record(rt),
       enabled: true,
       approved: [...rt.ext.manifest.capabilities],
+      approvedKinds: (rt.ext.manifest.contributes.fileKinds ?? []).map(kindClaim),
     })
     if (rt.identity) setCaps(rt.identity.externalId, this.host.granted(rt))
     if (this.eager(rt)) this.start(rt)

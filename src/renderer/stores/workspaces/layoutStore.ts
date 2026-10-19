@@ -18,7 +18,7 @@ import { createLayoutFileActions } from './layoutFileActions'
 import { createLayoutOpenActions } from './layoutOpenActions'
 import { createLayoutPaneActions } from './layoutPaneActions'
 import { createLayoutPanelActions } from './layoutPanelActions'
-import { neutralTerminalTitle, newTerminalPane } from './layoutSeed'
+import { announcePaneCreated, neutralTerminalTitle, newTerminalPane } from './layoutSeed'
 import { createLayoutTabActions } from './layoutTabActions'
 import { createLayoutTransferActions } from './layoutTransferActions'
 import type { LayoutState } from './layoutTypes'
@@ -41,9 +41,7 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
         },
       }
     })
-    if (createdPaneId) {
-      window.ostia?.lifecycle?.emit?.({ type: 'pane-created', workspaceId, paneId: createdPaneId })
-    }
+    announcePaneCreated(workspaceId, createdPaneId)
   },
 
   hydrate: (layouts) => {
@@ -58,7 +56,7 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
     })
     for (const [workspaceId, layout] of Object.entries(layouts)) {
       for (const paneId of paneIds(layout.root)) {
-        window.ostia?.lifecycle?.emit?.({ type: 'pane-created', workspaceId, paneId })
+        window.ostia.lifecycle.emit({ type: 'pane-created', workspaceId, paneId })
       }
     }
   },
@@ -78,9 +76,7 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
       })
       return next ?? s
     })
-    if (createdPaneId) {
-      window.ostia?.lifecycle?.emit?.({ type: 'pane-created', workspaceId, paneId: createdPaneId })
-    }
+    announcePaneCreated(workspaceId, createdPaneId)
   },
 
   newTab: (workspaceId, paneId, kind, browserProfile = 'isolated') => {
@@ -102,8 +98,8 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
     })
     if (createdPaneId) {
       noteOpener(workspaceId, createdPaneId, paneId)
-      window.ostia?.lifecycle?.emit?.({ type: 'pane-created', workspaceId, paneId: createdPaneId })
     }
+    announcePaneCreated(workspaceId, createdPaneId)
     return createdPaneId
   },
 
@@ -115,7 +111,7 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
         const { [workspaceId]: _emptied, ...byWorkspace } = s.byWorkspace
         return { byWorkspace }
       })
-      window.ostia?.lifecycle?.emit?.({ type: 'pane-closed', workspaceId, paneId })
+      window.ostia.lifecycle.emit({ type: 'pane-closed', workspaceId, paneId })
       return
     }
     const heldKeyboard = surfaceHoldsKeyboard(paneId)
@@ -137,7 +133,7 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
     if (removed) {
       forgetTab(workspaceId, paneId)
       if (heldKeyboard) keepKeyboard(get, workspaceId)
-      window.ostia?.lifecycle?.emit?.({ type: 'pane-closed', workspaceId, paneId })
+      window.ostia.lifecycle.emit({ type: 'pane-closed', workspaceId, paneId })
     }
   },
 

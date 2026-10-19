@@ -20,5 +20,9 @@
     "src/renderer/stores/app/systemThemeStore.ts",
     "src/shared/app/zoom.ts"
   ],
-  "specs": ["e2e/appearance.spec.ts", "e2e/icon-sharpness.spec.ts", "e2e/terminal-settings.spec.ts"]
+  "specs": [
+    "e2e/appearance.spec.ts",
+    "e2e/icon-sharpness.spec.ts",
+    "e2e/terminal-settings.spec.ts"
+  ]
 }

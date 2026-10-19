@@ -177,7 +177,6 @@ function codexSessionContext(
 ): string {
   return [
     `This Codex session runs in a ${PRODUCT_NAME} terminal pane. The \`ostia\` CLI controls the pane and its workspace: notifications, attention state, the in-app browser, background processes, the secret vault, and a message bus to agents in other panes.`,
-    'Your shell tool does not have the `ostia` shell function, so run the CLI as `ELECTRON_RUN_AS_NODE=1 "$OSTIA_NODE" "$OSTIA_CLI" <command>`.',
     `Before you use it, read its guide: ${skillFile}`,
     ...(skills.length > 0
       ? [

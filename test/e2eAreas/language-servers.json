@@ -22,5 +22,9 @@
     "test/fixtures/extensions-lsp/",
     "test/fixtures/lsp/"
   ],
-  "specs": ["e2e/lsp-install.spec.ts", "e2e/lsp-servers.spec.ts", "e2e/lsp.spec.ts"]
+  "specs": [
+    "e2e/lsp-install.spec.ts",
+    "e2e/lsp-servers.spec.ts",
+    "e2e/lsp.spec.ts"
+  ]
 }

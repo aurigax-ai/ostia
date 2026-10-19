@@ -40,7 +40,7 @@ export class ExtensionEvents {
   private sees(rt: Runtime, workspaceId: string): boolean {
     if (rt.callerWorkspaces.has(workspaceId)) return true
     const reachesAll = !!rt.identity && hasCap(rt.identity.externalId, 'all-workspaces')
-    return reachesAll && this.host.deps.sandboxDomains?.(workspaceId) == null
+    return reachesAll && this.host.deps.sandboxDomains(workspaceId) == null
   }
 
   private seenBusEndpoint(rt: Runtime, endpoint: BusEndpoint): BusEndpoint | null {

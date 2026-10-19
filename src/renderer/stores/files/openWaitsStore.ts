@@ -31,5 +31,5 @@ export function isWaitedPane(paneId: string): boolean {
 }
 
 export function wireOpenWaits(): void {
-  window.ostia?.openWaits?.onEnded?.((paneIds) => useOpenWaitsStore.getState().end(paneIds))
+  window.ostia.openWaits.onEnded((paneIds) => useOpenWaitsStore.getState().end(paneIds))
 }

@@ -1,5 +1,4 @@
-import { createHash } from 'node:crypto'
-import { existsSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs'
+import { mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { createConnection } from 'node:net'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -45,12 +44,10 @@ const {
 } = await import('./scriptTokens')
 const { setUserPresenceCheck } = await import('./scriptTokenConfirm')
 const { parseTokenRequest } = await import('./scriptTokenRequests')
-const { retireLegacyScriptTokens, retiredScriptTokens } = await import('./scriptTokenRetired')
 const { createScriptTokenUsage } = await import('./scriptTokenUsage')
 
 const dirs: string[] = []
 let storeFile = ''
-let retiredFile = ''
 let listing: ReachListing = { workspaces: [], groups: [] }
 let paneTitles: { paneId: string; title: string }[] = []
 
@@ -65,16 +62,13 @@ const usageLog = createScriptTokenUsage(() => `${storeFile}.usage.json`, { flush
 
 registerScriptTokenMethods({
   path: () => storeFile,
-  retiredPath: () => retiredFile,
   listing: async () => listing,
   changed,
   usage: usageLog,
   panes: async () => paneTitles,
 })
 registerDocsMethods({ extensions: () => [] })
-setScriptTokenCheck((token) =>
-  checkScriptToken({ path: storeFile, retiredPath: retiredFile }, token),
-)
+setScriptTokenCheck((token) => checkScriptToken({ path: storeFile }, token))
 registerControlMethod('test.scriptsOpen', {
   cap: 'read-board',
   scripts: true,
@@ -113,7 +107,6 @@ beforeEach(() => {
   seq += 1
   const dir = tempDir()
   storeFile = join(dir, 'script-tokens-v2.json')
-  retiredFile = join(dir, 'retired-script-tokens.json')
   listing = { workspaces: [], groups: [] }
   socketPath = join(tmpdir(), `ostia-script-${process.pid}-${seq}.sock`)
   registerControlServer(
@@ -230,7 +223,7 @@ describe('script callers on the control socket', () => {
 
   it('reads the CLI reference', async () => {
     const conn = await client(createScriptToken(storeFile, 'docs', ['read-board']).token)
-    const res = await conn.sendRequest<{ cli: string }>('docs')
+    const res = await conn.sendRequest<{ cli: string }>('docs', { topic: 'capabilities' })
     expect(res.cli).toContain('Scripts reach only these commands')
     expect(res.cli).not.toContain('# Ostia manager')
   })
@@ -1023,84 +1016,14 @@ describe('script token expiry', () => {
   it('records when a token was last used, at most once a minute', async () => {
     const created = createScriptToken(storeFile, 'used', ['read-board'])
     const first = new Date('2026-10-11T00:00:00.000Z')
-    checkScriptToken({ path: storeFile, retiredPath: retiredFile }, created.token, first)
+    checkScriptToken({ path: storeFile }, created.token, first)
     expect(listScriptTokens(storeFile)[0].lastUsedAt).toBe(first.toISOString())
     const soon = new Date(first.getTime() + 30_000)
-    checkScriptToken({ path: storeFile, retiredPath: retiredFile }, created.token, soon)
+    checkScriptToken({ path: storeFile }, created.token, soon)
     expect(listScriptTokens(storeFile)[0].lastUsedAt).toBe(first.toISOString())
     const later = new Date(first.getTime() + 61_000)
-    checkScriptToken({ path: storeFile, retiredPath: retiredFile }, created.token, later)
+    checkScriptToken({ path: storeFile }, created.token, later)
     expect(listScriptTokens(storeFile)[0].lastUsedAt).toBe(later.toISOString())
-  })
-})
-
-describe('tokens from before the upgrade', () => {
-  const legacyToken = `ostia_${'ab'.repeat(32)}`
-  const legacyHash = createHash('sha256').update(legacyToken, 'utf8').digest('hex')
-
-  function writeLegacy(): string {
-    const legacy = join(tempDir(), 'script-tokens.json')
-    writeFileSync(
-      legacy,
-      JSON.stringify({
-        script_old: {
-          id: 'script_old',
-          name: 'ostia-ceo',
-          hash: legacyHash,
-          caps: ['all-workspaces'],
-          createdAt: '2026-09-01T00:00:00.000Z',
-        },
-      }),
-    )
-    return legacy
-  }
-
-  it('moves old tokens to the retired list, deletes the old store and never verifies them', () => {
-    const legacy = writeLegacy()
-    expect(retireLegacyScriptTokens(legacy, retiredFile)).toEqual(['ostia-ceo'])
-    expect(existsSync(legacy)).toBe(false)
-    expect(retireLegacyScriptTokens(legacy, retiredFile)).toEqual([])
-    expect(verifyScriptToken(storeFile, legacyToken)).toBeUndefined()
-    expect(listScriptTokens(storeFile)).toEqual([])
-    expect(readFileSync(retiredFile, 'utf8')).not.toContain(legacyToken)
-  })
-
-  it('tells an old token it was retired, and forgets it after 30 days', async () => {
-    retireLegacyScriptTokens(writeLegacy(), retiredFile, new Date())
-    const socket = createConnection(socketPath)
-    const conn = createMessageConnection(
-      new StreamMessageReader(socket),
-      new StreamMessageWriter(socket),
-    )
-    conn.listen()
-    clients.push(conn)
-    await expect(conn.sendRequest('hello', { token: legacyToken })).rejects.toThrow(
-      'token-retired: the script token "ostia-ceo"',
-    )
-    const later = new Date(Date.now() + 31 * 86_400_000)
-    expect(
-      checkScriptToken({ path: storeFile, retiredPath: retiredFile }, legacyToken, later),
-    ).toBeUndefined()
-  })
-
-  it('keeps one entry per token, with its first retirement time, when it runs again', () => {
-    const first = new Date('2026-10-11T00:00:00.000Z')
-    retireLegacyScriptTokens(writeLegacy(), retiredFile, first)
-    retireLegacyScriptTokens(writeLegacy(), retiredFile, new Date(first.getTime() + 86_400_000))
-    expect(retiredScriptTokens(retiredFile, first)).toEqual([
-      { name: 'ostia-ceo', retiredAt: first.toISOString() },
-    ])
-  })
-
-  it('lists the retired names for the human', async () => {
-    retireLegacyScriptTokens(writeLegacy(), retiredFile)
-    const admin = await client(
-      registerPane({ windowId: 'w1', workspaceId: 'ws1', paneId: 'retired-reader' }).token,
-    )
-    answer = 'once'
-    await expect(admin.sendRequest('token.retired')).resolves.toEqual([
-      { name: 'ostia-ceo', retiredAt: expect.any(String) },
-    ])
   })
 })
 
@@ -1450,7 +1373,6 @@ describe('without a user presence check', () => {
     const tokens = await import('./scriptTokens')
     tokens.registerScriptTokenMethods({
       path: () => storeFile,
-      retiredPath: () => retiredFile,
       listing: async () => listing,
     })
     auth.setCapFilter(() => true)

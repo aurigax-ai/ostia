@@ -1,7 +1,7 @@
 import type { ScriptTokenUsage, ScriptTokensState } from '@shared/permissions/scriptTokens'
 import { useCallback, useEffect, useState } from 'react'
 
-const EMPTY: ScriptTokensState = { tokens: [], retired: [], workspaces: [], groups: [] }
+const EMPTY: ScriptTokensState = { tokens: [], workspaces: [], groups: [] }
 
 const USAGE_REFRESH_MS = 10_000
 

@@ -62,7 +62,7 @@ interface PtyIo {
 }
 
 export function attachPtySession(deps: PtySessionDeps): () => void {
-  const { host, term, paneId, workspaceIdRef, syncSizeRef, session, holdInput } = deps
+  const { host, term, paneId, workspaceIdRef, lastSizeRef, syncSizeRef, session, holdInput } = deps
   const flow: PtyFlow = { attached: false, replayed: false, unparsed: 0, querySilencer: null }
   const pending: string[] = []
   const emit: Write = (data, done) => {
@@ -116,6 +116,23 @@ export function attachPtySession(deps: PtySessionDeps): () => void {
   const io: PtyIo = { flow, pending, writeOutput, writeLive, neighbour }
   const attachAtCurrentSize = createPtyAttach(deps, io)
   const sizing = createPtySizing(deps, io, attachAtCurrentSize)
+
+  let sizedElsewhere = false
+  const offSize = window.ostia.pty.onSize(paneId, (cols, rows) => {
+    if (session.disposed) return
+    neighbour.drain()
+    term.resize(cols, rows)
+    lastSizeRef.current = { cols, rows }
+    sizedElsewhere = true
+  })
+  const takeSizeBack = (): void => {
+    if (!sizedElsewhere) return
+    sizedElsewhere = false
+    sizing.syncSize()
+  }
+  const stack = host.closest('.terminal-stack') ?? host
+  stack.addEventListener('keydown', takeSizeBack, true)
+  stack.addEventListener('paste', takeSizeBack, true)
 
   const input = term.onData((d) => {
     if (!holdInput(d)) window.ostia.pty.write(paneId, d)
@@ -182,6 +199,9 @@ export function attachPtySession(deps: PtySessionDeps): () => void {
     sizing.dispose()
     ro.disconnect()
     input.dispose()
+    stack.removeEventListener('keydown', takeSizeBack, true)
+    stack.removeEventListener('paste', takeSizeBack, true)
+    offSize()
     offData()
     offExit()
     neighbour.dispose()

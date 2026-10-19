@@ -6,7 +6,8 @@ import {
   isWorkspaceGroupColor,
 } from '../../shared/workspaces/workspaceGroups'
 import { parseArgs } from '../common/args'
-import { fail, failUsage } from '../common/failure'
+import { fail, failUsage, failVerb } from '../common/failure'
+import { tsvLine } from '../common/lineField'
 import { confirmWorkspace } from '../common/readBack'
 import { readAllStdin } from '../common/stdinText'
 import type { Opened } from './open'
@@ -92,13 +93,13 @@ async function runWorkspaceList(conn: MessageConnection, json: boolean): Promise
     conn.sendRequest<WorkspaceGroupListing[]>('workspace.groups'),
   ])
   if (json) {
-    console.log(JSON.stringify({ workspaces, groups }, null, 2))
+    console.log(JSON.stringify({ workspaces, groups }))
     return
   }
   const groupName = new Map(groups.map((g) => [g.groupId, g.name]))
   for (const w of workspaces) {
     const group = w.groupId ? (groupName.get(w.groupId) ?? '') : ''
-    console.log([w.workspaceId, group || '-', w.name, w.state, w.workDir].join('\t'))
+    console.log(tsvLine([w.workspaceId, group || '-', w.name, w.state, w.workDir]))
   }
 }
 
@@ -117,8 +118,7 @@ async function runWorkspaceCommand(
   if (res.ok) {
     console.log('ok')
   } else {
-    console.error(`ostia workspace ${verb}: ${res.error?.message ?? 'failed'}`)
-    process.exitCode = 1
+    fail(`ostia workspace ${verb}: ${res.error?.message ?? 'failed'}`)
   }
 }
 
@@ -162,16 +162,16 @@ export async function workspaceFolderIn(
   path: string,
   background: boolean,
 ): Promise<Opened> {
-  const here = await conn
-    .sendRequest<{ ok: boolean; same?: boolean }>('workspace.sameFolder', { dir: path })
-    .catch(() => undefined)
-  if (here?.same) return { problems: [], shown: [`already open\t${path}`] }
+  const here = await conn.sendRequest<{ ok: boolean; same?: boolean }>('workspace.sameFolder', {
+    dir: path,
+  })
+  if (here.same) return { problems: [], shown: [tsvLine(['already open', path])] }
   const made = await newWorkspace(conn, {
     dir: path,
     ...(background ? { focus: false as const } : {}),
   })
   return made.ok
-    ? { problems: [], shown: [`${made.workspaceId}\t${path}`] }
+    ? { problems: [], shown: [tsvLine([made.workspaceId, path])] }
     : { problems: [`ostia: ${path}: ${made.message}`], shown: [] }
 }
 
@@ -186,8 +186,7 @@ export async function runWorkspaceVerb(conn: MessageConnection): Promise<void> {
     try {
       params = parseWorkspaceGroupArgs(rest, sub === 'group')
     } catch (err) {
-      console.error(`ostia workspace ${sub}: ${err instanceof Error ? err.message : String(err)}`)
-      process.exitCode = 1
+      fail(`ostia workspace ${sub}: ${err instanceof Error ? err.message : String(err)}`)
       return
     }
     await runWorkspaceCommand(
@@ -202,8 +201,7 @@ export async function runWorkspaceVerb(conn: MessageConnection): Promise<void> {
   if (sub === 'close') {
     const { positional, values } = parseArgs(rest, { values: { workspace: '--workspace' } })
     if (positional.length > 0) {
-      console.error('ostia workspace close: usage: workspace close [--workspace <id>]')
-      process.exitCode = 1
+      failVerb('unexpected arguments')
       return
     }
     await runWorkspaceCommand(conn, 'close', 'workspace.close', undefined, values.workspace)
@@ -214,10 +212,7 @@ export async function runWorkspaceVerb(conn: MessageConnection): Promise<void> {
     try {
       params = parseGroupColorArgs(rest)
     } catch (err) {
-      console.error(
-        `ostia workspace group-color: ${err instanceof Error ? err.message : String(err)}`,
-      )
-      process.exitCode = 1
+      fail(`ostia workspace group-color: ${err instanceof Error ? err.message : String(err)}`)
       return
     }
     await runWorkspaceCommand(conn, 'group-color', 'workspace.groupColor', params)
@@ -228,8 +223,7 @@ export async function runWorkspaceVerb(conn: MessageConnection): Promise<void> {
     try {
       params = sub === 'group-rename' ? parseGroupRenameArgs(rest) : parseGroupDeleteArgs(rest)
     } catch (err) {
-      console.error(`ostia workspace ${sub}: ${err instanceof Error ? err.message : String(err)}`)
-      process.exitCode = 1
+      fail(`ostia workspace ${sub}: ${err instanceof Error ? err.message : String(err)}`)
       return
     }
     await runWorkspaceCommand(
@@ -243,8 +237,7 @@ export async function runWorkspaceVerb(conn: MessageConnection): Promise<void> {
   if (sub === 'pin' || sub === 'unpin') {
     const { positional, values } = parseArgs(rest, { values: { workspace: '--workspace' } })
     if (positional.length > 0) {
-      console.error(`ostia workspace ${sub}: usage: workspace ${sub} [--workspace <id>]`)
-      process.exitCode = 1
+      failVerb('unexpected arguments')
       return
     }
     await runWorkspaceCommand(
@@ -269,8 +262,7 @@ export async function runWorkspaceVerb(conn: MessageConnection): Promise<void> {
     if (res.ok) {
       console.log(dir)
     } else {
-      console.error(`ostia workspace dir: ${res.error?.message ?? 'failed'}`)
-      process.exitCode = 1
+      fail(`ostia workspace dir: ${res.error?.message ?? 'failed'}`)
     }
     return
   }
@@ -279,8 +271,7 @@ export async function runWorkspaceVerb(conn: MessageConnection): Promise<void> {
     try {
       params = parseWorkspaceRenameArgs(rest)
     } catch (err) {
-      console.error(`ostia workspace rename: ${err instanceof Error ? err.message : String(err)}`)
-      process.exitCode = 1
+      fail(`ostia workspace rename: ${err instanceof Error ? err.message : String(err)}`)
       return
     }
     await conn.sendRequest('workspace.rename', params)
@@ -297,8 +288,7 @@ export async function runWorkspaceVerb(conn: MessageConnection): Promise<void> {
   const raw = positional.join(' ')
   const text = clear ? '' : raw === '-' ? await readAllStdin() : raw
   if (!clear && !text.trim()) {
-    console.error('ostia workspace describe: missing <text|-> (or --clear)')
-    process.exitCode = 1
+    failVerb('missing arguments')
     return
   }
   const res = await conn.sendRequest<CommandResult>('command.exec', {
@@ -309,7 +299,6 @@ export async function runWorkspaceVerb(conn: MessageConnection): Promise<void> {
   if (res.ok) {
     console.log('ok')
   } else {
-    console.error(`ostia workspace describe: ${res.error?.message ?? 'failed'}`)
-    process.exitCode = 1
+    fail(`ostia workspace describe: ${res.error?.message ?? 'failed'}`)
   }
 }

@@ -1,4 +1,4 @@
-import { isViewType } from '@aurigax-ai/ostia-extension-sdk/contract/fileViewers'
+import { isViewType } from '@aurigax-ai/ostia-extension-sdk/contract/fileKinds'
 import { isRecord } from '@aurigax-ai/ostia-extension-sdk/contract/isRecord'
 import { isRemotePath } from '@aurigax-ai/ostia-extension-sdk/contract/remoteFolders'
 import { EXTENSION_ID_PATTERN } from '@aurigax-ai/ostia-extension-sdk/manifest/manifestFields'

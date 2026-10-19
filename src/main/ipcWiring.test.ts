@@ -12,6 +12,9 @@ const ON_CALLS = ['ipcMain.on', 'ipcMain.once', 'ipc.on']
 const SENT_BY_TESTS_ONLY = ['diagnostics:test-crash']
 
 const PUSHED = [
+  'agent:event',
+  'agent:tool-call',
+  'agent:tool-cancel',
   'app-menu:run',
   'app:install-replace-state',
   'app:release-available',
@@ -151,13 +154,17 @@ function preloadChannels(): Record<PreloadKind, Set<string>> & { dynamic: Set<st
     dynamic: new Set<string>(),
   }
   for (const m of text.matchAll(
-    /(?:ipcRenderer\.(invoke|send|sendSync|on|once)|\blisten)\(\s*(['`])([^'`]+)\2/g,
+    /(?:ipcRenderer\.(invoke|send|sendSync|on|once)|\blisten(?:<[^()]*>)?)\(\s*(['`])([^'`]+)\2/g,
   )) {
     const [, kind = 'on', quote, channel] = m
     if (kind === 'invoke') found.invoke.add(channel)
     else if (kind === 'send' || kind === 'sendSync') found.send.add(channel)
     else if (quote === '`') found.dynamic.add(channel.slice(0, channel.indexOf('${')))
     else found.listen.add(channel)
+  }
+  for (const m of text.matchAll(/\banswer\(\s*'([^'\n]+)',\s*'([^'\n]+)'/g)) {
+    found.listen.add(m[1])
+    found.send.add(m[2])
   }
   return found
 }

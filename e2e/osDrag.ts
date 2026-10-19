@@ -1,6 +1,6 @@
 import type { Locator, Page } from './test'
 
-type DragStep = 'dragEnter' | 'dragOver' | 'drop'
+type DragStep = 'dragEnter' | 'dragOver' | 'drop' | 'dragCancel'
 
 export interface Point {
   x: number

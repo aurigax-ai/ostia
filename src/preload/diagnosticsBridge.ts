@@ -8,8 +8,8 @@ export const diagnosticsBridge: Pick<OstiaBridge, 'diagnostics' | 'telemetry'> =
     ready: (paneIds) => ipcRenderer.send('diagnostics:ready', paneIds),
     reloadWindow: () => ipcRenderer.send('diagnostics:reload-window'),
     toggleDevTools: () => ipcRenderer.send('diagnostics:toggle-devtools'),
-    openLogFolder: () => ipcRenderer.invoke('diagnostics:open-log-folder') as Promise<boolean>,
-    testHooks: () => ipcRenderer.invoke('diagnostics:test-hooks') as Promise<boolean>,
+    openLogFolder: () => ipcRenderer.invoke('diagnostics:open-log-folder'),
+    testHooks: () => ipcRenderer.invoke('diagnostics:test-hooks'),
     onTestCrash: (handler) => listen('diagnostics:test-crash', () => handler()),
   },
   telemetry: {

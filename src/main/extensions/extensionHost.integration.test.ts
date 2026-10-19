@@ -58,6 +58,8 @@ describe('ExtensionHost over a real control socket with a fixture extension proc
     dir = mkdtempSync(join(tmpdir(), 'ostia-ext-int-'))
     const socketPath = join(dir, 'control.sock')
     host = new ExtensionHost({
+      sandboxDomains: () => null,
+      isSandboxed: () => false,
       roots: [
         { dir: fixtures, builtin: true },
         { dir: userFixtures, builtin: false },

@@ -17,10 +17,12 @@ import type { HostPaneGrants } from '../../sandbox/hostPanes'
 import type { PortBridge } from '../../sandbox/ports/portBridge'
 import { sandboxFailureBanner } from '../../sandbox/spawnBanner'
 import type { WorkspaceSandboxes } from '../../sandbox/workspaceSandboxes'
+import { tmuxMissing } from '../../tmux/keepShellsBanner'
 import type { KeptProgram } from '../../tmux/keptShells'
 import { tmuxMissingReason } from '../../tmux/keptSpawn'
 import type { ScratchFolders } from '../../workspaces/scratchFolders'
 import { markNonceFileFor, writeMarkNonce } from '../markNonce'
+import type { PaneBannerText } from '../paneBanner'
 import { sendsMarkNonce, shellIntegrationSpawnOptions } from '../shellIntegration'
 import { spawnFolder } from '../spawnCwd'
 import type { SpawnFolder } from '../spawnCwd'
@@ -66,6 +68,7 @@ interface SpawnPlannerDeps {
   keepShellsOn: () => boolean
   keptShellsProgram: () => KeptProgram | null
   telemetry: () => Telemetry | null
+  bannerText: () => PaneBannerText
 }
 
 export type SpawnPlanner = ReturnType<typeof createSpawnPlanner>
@@ -80,6 +83,7 @@ export function createSpawnPlanner({
   keepShellsOn,
   keptShellsProgram,
   telemetry,
+  bannerText,
 }: SpawnPlannerDeps) {
   async function planSpawn(
     paneId: string,
@@ -96,7 +100,7 @@ export function createSpawnPlanner({
     if (!resolved.ok) {
       return {
         created: false,
-        buffer: sandboxFailureBanner('the pane belongs to another workspace', []),
+        buffer: sandboxFailureBanner(bannerText(), bannerText().otherWorkspace, []),
         cursor: 0,
         dropped: false,
       }
@@ -136,7 +140,9 @@ export function createSpawnPlanner({
     const host = opts.hostToken ? hostPaneGrants.consume(opts.hostToken) : false
     const sandboxed = !host && workspaceId !== '' && workspaceSandboxes.isEnabled(workspaceId)
     const wantsKeep = keepShellsOn() && !host
-    const notKept = wantsKeep ? await tmuxMissingReason(keptShellsProgram, loginPathSettled) : ''
+    const notKept = wantsKeep
+      ? await tmuxMissingReason(keptShellsProgram, loginPathSettled, tmuxMissing(bannerText()))
+      : ''
     return {
       identity,
       workspaceId,

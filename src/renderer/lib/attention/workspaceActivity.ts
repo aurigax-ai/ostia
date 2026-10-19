@@ -213,7 +213,7 @@ export function startAttentionSync(): () => void {
   const offAttention = useAttentionStore.subscribe((s, prev) => {
     if (s.byPane === prev.byPane) return
     for (const change of paneAttentionChanges(s.byPane, prev.byPane)) {
-      window.ostia?.lifecycle?.emit?.({ type: 'pane-attention', ...change })
+      window.ostia.lifecycle.emit({ type: 'pane-attention', ...change })
     }
     syncAllWorkspaceStates()
   })

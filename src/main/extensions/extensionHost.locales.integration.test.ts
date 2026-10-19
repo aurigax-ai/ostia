@@ -48,7 +48,7 @@ const MANIFEST = {
   id: 'greeter',
   name: 'Greeter',
   version: '1.0.0',
-  api: '4.0',
+  api: '5.0',
   description: 'Says hello',
   main: 'main.js',
   locales: ['zh-Hant'],
@@ -129,6 +129,8 @@ describe('ExtensionHost resolves manifest strings for the language', () => {
     writeFileSync(join(extDir(), 'ostia.json'), JSON.stringify(MANIFEST))
     if (opts.catalog !== undefined) writeCatalog(opts.catalog)
     host = new ExtensionHost({
+      sandboxDomains: () => null,
+      isSandboxed: () => false,
       roots: [{ dir: root, builtin: opts.builtin }],
       store: new ExtensionStore(join(dir, `${Date.now()}-${Math.random()}-extensions.json`)),
       socketPath: () => socketPath,

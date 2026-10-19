@@ -119,12 +119,13 @@ function SuggestionBar({
     if (result.ok) onGone()
     else setFailure(result.error)
   }
+  const view = suggestion.feature === 'view'
   const text =
     suggestion.kind === 'install'
-      ? fmt(t.suggest, { name, files })
+      ? fmt(view ? t.suggestView : t.suggest, { name, files })
       : suggestion.pending
         ? fmt(t.pending, { name })
-        : fmt(t.disabled, { name, files })
+        : fmt(view ? t.disabledView : t.disabled, { name, files })
   return (
     <Bar>
       <span className="min-w-0 flex-1 truncate">

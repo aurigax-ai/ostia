@@ -2,41 +2,113 @@
   "id": "office",
   "name": "Office documents",
   "version": "1.0.0",
-  "api": "4.13",
-  "description": "Shows spreadsheets (.xlsx, .xlsm, .ods) as sheets with tabs, Word and OpenDocument text (.docx, .odt) as text, and presentations (.pptx, .pptm, .ppsx, .odp) as an outline of each slide's title, text, tables and notes, read-only. It parses the file you opened inside its own sandbox with size, unpacking and content limits that say why when a file goes past them, never runs macros, never follows links and sends the file nowhere.",
+  "api": "5.1",
+  "description": "Shows spreadsheets (.xlsx, .xlsm, .xlsb, .xls, .ods, .fods and their templates) as sheets with tabs, Word and OpenDocument text (.docx, .docm, .odt and their templates) as text, and presentations (.pptx, .pptm, .ppsx, .ppsm, .odp and their templates) as an outline of each slide's title, text, tables and notes, read-only. It parses the file you opened inside its own sandbox with size and content limits that say why when a file goes past them, never runs macros, never follows links and sends the file nowhere.",
   "category": "tools",
   "locales": ["zh-Hant"],
   "contributes": {
-    "fileViewers": [
+    "fileKinds": [
       {
-        "viewType": "office.spreadsheet",
+        "id": "office.spreadsheet",
         "displayName": "Spreadsheet",
         "selector": [
-          { "filenamePattern": "*.xlsx" },
-          { "filenamePattern": "*.xlsm" },
-          { "filenamePattern": "*.ods" }
+          {
+            "filenamePattern": "*.xlsx"
+          },
+          {
+            "filenamePattern": "*.xlsm"
+          },
+          {
+            "filenamePattern": "*.ods"
+          },
+          {
+            "filenamePattern": "*.xls"
+          },
+          {
+            "filenamePattern": "*.xlt"
+          },
+          {
+            "filenamePattern": "*.xlsb"
+          },
+          {
+            "filenamePattern": "*.fods"
+          },
+          {
+            "filenamePattern": "*.xltx"
+          },
+          {
+            "filenamePattern": "*.xltm"
+          },
+          {
+            "filenamePattern": "*.ots"
+          }
         ],
-        "priority": "default",
-        "entry": "sheet.html"
+        "view": {
+          "entry": "sheet.html",
+          "priority": "default"
+        }
       },
       {
-        "viewType": "office.document",
+        "id": "office.document",
         "displayName": "Document",
-        "selector": [{ "filenamePattern": "*.docx" }, { "filenamePattern": "*.odt" }],
-        "priority": "default",
-        "entry": "document.html"
+        "selector": [
+          {
+            "filenamePattern": "*.docx"
+          },
+          {
+            "filenamePattern": "*.odt"
+          },
+          {
+            "filenamePattern": "*.docm"
+          },
+          {
+            "filenamePattern": "*.dotx"
+          },
+          {
+            "filenamePattern": "*.dotm"
+          },
+          {
+            "filenamePattern": "*.ott"
+          }
+        ],
+        "view": {
+          "entry": "document.html",
+          "priority": "default"
+        }
       },
       {
-        "viewType": "office.presentation",
+        "id": "office.presentation",
         "displayName": "Presentation",
         "selector": [
-          { "filenamePattern": "*.pptx" },
-          { "filenamePattern": "*.pptm" },
-          { "filenamePattern": "*.ppsx" },
-          { "filenamePattern": "*.odp" }
+          {
+            "filenamePattern": "*.pptx"
+          },
+          {
+            "filenamePattern": "*.pptm"
+          },
+          {
+            "filenamePattern": "*.ppsx"
+          },
+          {
+            "filenamePattern": "*.odp"
+          },
+          {
+            "filenamePattern": "*.potx"
+          },
+          {
+            "filenamePattern": "*.potm"
+          },
+          {
+            "filenamePattern": "*.ppsm"
+          },
+          {
+            "filenamePattern": "*.otp"
+          }
         ],
-        "priority": "default",
-        "entry": "presentation.html"
+        "view": {
+          "entry": "presentation.html",
+          "priority": "default"
+        }
       }
     ]
   }

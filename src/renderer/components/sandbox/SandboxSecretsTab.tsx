@@ -1,4 +1,5 @@
 import { IconButton } from '@/components/common/IconButton'
+import { Notice } from '@/components/common/Notice'
 import { SettingsList } from '@/components/settingsKit/SettingsList'
 import { SettingsListRow } from '@/components/settingsKit/SettingsListRow'
 import { Badge } from '@/components/ui/badge'
@@ -139,11 +140,7 @@ export function SandboxSecretsTab({ workspaceId }: { workspaceId: string }): JSX
           {d.sandbox.add}
         </Button>
       </form>
-      {error ? (
-        <p role="alert" className="mt-1 text-attn-fg text-ui-sm">
-          {error}
-        </p>
-      ) : null}
+      {error ? <Notice tone="error">{error}</Notice> : null}
       <p className="mt-2 text-fg-muted text-ui-sm">{d.sandbox.restartNoteSecrets}</p>
     </fieldset>
   )

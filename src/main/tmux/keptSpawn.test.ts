@@ -1,13 +1,15 @@
 import { describe, expect, it, vi } from 'vitest'
-import { TMUX_MISSING } from './keepShellsBanner'
+import { en } from '../../shared/app/dict'
+import { tmuxMissing } from './keepShellsBanner'
 import { createKeptSpawner, tmuxMissingReason } from './keptSpawn'
 
+const TMUX_MISSING = tmuxMissing(en.native.paneBanner)
 const program = { tmux: '/usr/bin/tmux', defaultTerminal: 'screen-256color', env: {} }
 
 describe('tmuxMissingReason', () => {
   it('KSH-C20 names tmux as missing when no program is found even after the login shell PATH', async () => {
     const settled = vi.fn(async () => undefined)
-    expect(await tmuxMissingReason(() => null, settled)).toBe(TMUX_MISSING)
+    expect(await tmuxMissingReason(() => null, settled, TMUX_MISSING)).toBe(TMUX_MISSING)
     expect(settled).toHaveBeenCalledTimes(1)
   })
 
@@ -16,12 +18,12 @@ describe('tmuxMissingReason', () => {
     const settled = async () => {
       found = program
     }
-    expect(await tmuxMissingReason(() => found, settled)).toBe('')
+    expect(await tmuxMissingReason(() => found, settled, TMUX_MISSING)).toBe('')
   })
 
   it('does not wait for the login shell PATH when tmux is already found', async () => {
     const settled = vi.fn(async () => undefined)
-    expect(await tmuxMissingReason(() => program, settled)).toBe('')
+    expect(await tmuxMissingReason(() => program, settled, TMUX_MISSING)).toBe('')
     expect(settled).not.toHaveBeenCalled()
   })
 })

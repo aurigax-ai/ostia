@@ -1,4 +1,4 @@
-import { BrowserWindow, app, ipcMain } from 'electron'
+import { app, ipcMain } from 'electron'
 import { type BuildInfo, sameBuild } from '../../shared/app/buildInfo'
 import { restoreGpuLaunchEnv } from '../platform/discreteGpu'
 import { packagedBuildInfoPath, readBuildInfo, runningBuild } from './appVersion'
@@ -33,13 +33,10 @@ function withoutTelemetry(info: BuildInfo): BuildInfo {
   return { version: info.version, builtAt: info.builtAt }
 }
 
-function announce(info: BuildInfo): void {
-  for (const win of BrowserWindow.getAllWindows()) {
-    if (!win.isDestroyed()) win.webContents.send('app:update-available', withoutTelemetry(info))
-  }
-}
-
-export function registerAppUpdate(quit: () => void): void {
+export function registerAppUpdate(
+  quit: () => void,
+  broadcast: (channel: string, payload: unknown) => void,
+): void {
   let watcher: UpdateWatcher | null = null
   if (app.isPackaged) {
     const path = packagedBuildInfoPath()
@@ -48,7 +45,7 @@ export function registerAppUpdate(quit: () => void): void {
       const w = createUpdateWatcher({
         current,
         read: () => readBuildInfo(path),
-        onUpdate: announce,
+        onUpdate: (info) => broadcast('app:update-available', withoutTelemetry(info)),
       })
       watcher = w
       setInterval(() => w.check(), UPDATE_POLL_MS).unref()

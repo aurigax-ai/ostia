@@ -1,4 +1,8 @@
-import { CancellationTokenSource, type MessageConnection } from 'vscode-jsonrpc/node'
+import {
+  type CancellationToken,
+  CancellationTokenSource,
+  type MessageConnection,
+} from 'vscode-jsonrpc/node'
 import type { AgentToolReply } from '../contract/agent'
 import type { AssistProviderEntry } from '../contract/assist'
 import { EXTENSION_BASE_LOCALE } from '../contract/extensionLocales'
@@ -23,6 +27,43 @@ import {
   type WakePaneResult,
   rpcFailure,
 } from './workApi'
+
+type Failed = { ok: false; error: string; message?: string }
+
+async function sent<T>(work: Promise<T>, error: string): Promise<T | Failed> {
+  try {
+    return await work
+  } catch (err) {
+    return failure(error, errorMessage(err)) as Failed
+  }
+}
+
+async function sentRpc<T>(
+  work: Promise<T>,
+  fallback: string,
+): Promise<T | ReturnType<typeof rpcFailure>> {
+  try {
+    return await work
+  } catch (err) {
+    return rpcFailure(err, fallback)
+  }
+}
+
+async function withCancel<T>(
+  signal: AbortSignal | undefined,
+  work: (token: CancellationToken) => Promise<T>,
+): Promise<T> {
+  const source = new CancellationTokenSource()
+  const cancel = (): void => source.cancel()
+  signal?.addEventListener('abort', cancel, { once: true })
+  if (signal?.aborted) source.cancel()
+  try {
+    return await work(source.token)
+  } finally {
+    signal?.removeEventListener('abort', cancel)
+    source.dispose()
+  }
+}
 
 export function windowMethods(
   conn: MessageConnection,
@@ -125,13 +166,8 @@ export function agentMethods(
       conn.sendRequest('pane.setAttention', { [TARGET_PANE_PARAM]: paneId, state, message }),
     openDiff: (diff) => conn.sendRequest('ext.openDiff', diff),
     openFile: (file) => conn.sendRequest('ext.openFile', file),
-    openTerminal: async (opts) => {
-      try {
-        return await conn.sendRequest<OpenTerminalResult>('ext.openTerminal', opts)
-      } catch (err) {
-        return { ok: false, error: 'open-terminal-failed', message: errorMessage(err) }
-      }
-    },
+    openTerminal: (opts) =>
+      sent(conn.sendRequest<OpenTerminalResult>('ext.openTerminal', opts), 'open-terminal-failed'),
     listAgents: async () => {
       try {
         const res = await conn.sendRequest<{ agents?: unknown }>('ext.agents')
@@ -142,27 +178,12 @@ export function agentMethods(
         return []
       }
     },
-    runAgent: async (opts) => {
-      try {
-        return await conn.sendRequest<OpenTerminalResult>('ext.runAgent', opts)
-      } catch (err) {
-        return { ok: false, error: 'run-agent-failed', message: errorMessage(err) }
-      }
-    },
-    offerToAgent: async (opts) => {
-      try {
-        return await conn.sendRequest<AgentOfferResult>('ext.offerToAgent', opts)
-      } catch (err) {
-        return { ok: false, error: 'offer-failed', message: errorMessage(err) }
-      }
-    },
-    focusPane: async (paneId) => {
-      try {
-        return await conn.sendRequest<ExtensionResult>('ext.focusPane', { paneId })
-      } catch (err) {
-        return failure('focus-failed', errorMessage(err))
-      }
-    },
+    runAgent: (opts) =>
+      sent(conn.sendRequest<OpenTerminalResult>('ext.runAgent', opts), 'run-agent-failed'),
+    offerToAgent: (opts) =>
+      sent(conn.sendRequest<AgentOfferResult>('ext.offerToAgent', opts), 'offer-failed'),
+    focusPane: (paneId) =>
+      sent(conn.sendRequest<ExtensionResult>('ext.focusPane', { paneId }), 'focus-failed'),
     redact: async (texts) => {
       try {
         const res = await conn.sendRequest<{ ok?: unknown; texts?: unknown }>('ext.redact', {
@@ -177,37 +198,20 @@ export function agentMethods(
         return null
       }
     },
-    exec: async (opts, signal) => {
-      const source = new CancellationTokenSource()
-      const cancel = (): void => source.cancel()
-      signal?.addEventListener('abort', cancel, { once: true })
-      if (signal?.aborted) source.cancel()
-      try {
-        return await conn.sendRequest<ExecResult>('ext.exec', opts, source.token)
-      } catch (err) {
-        return rpcFailure(err, 'exec-failed')
-      } finally {
-        signal?.removeEventListener('abort', cancel)
-        source.dispose()
-      }
-    },
-    busSend: async (to, text) => {
-      try {
-        return await conn.sendRequest<BusSendResult>('ext.busSend', { to, text })
-      } catch (err) {
-        return rpcFailure(err, 'bus-send-failed')
-      }
-    },
-    wakePane: async (paneId, waitMs) => {
-      try {
-        return await conn.sendRequest<WakePaneResult>(
+    exec: (opts, signal) =>
+      withCancel(signal, (token) =>
+        sentRpc(conn.sendRequest<ExecResult>('ext.exec', opts, token), 'exec-failed'),
+      ),
+    busSend: (to, text) =>
+      sentRpc(conn.sendRequest<BusSendResult>('ext.busSend', { to, text }), 'bus-send-failed'),
+    wakePane: (paneId, waitMs) =>
+      sentRpc(
+        conn.sendRequest<WakePaneResult>(
           'ext.wakePane',
           waitMs === undefined ? { paneId } : { paneId, waitMs },
-        )
-      } catch (err) {
-        return rpcFailure(err, 'wake-failed')
-      }
-    },
+        ),
+        'wake-failed',
+      ),
   }
 }
 
@@ -242,79 +246,35 @@ export function serviceMethods(
   | 'sandboxDomains'
 > {
   return {
-    ask: async (opts, signal) => {
-      const source = new CancellationTokenSource()
-      const cancel = (): void => source.cancel()
-      signal?.addEventListener('abort', cancel, { once: true })
-      if (signal?.aborted) source.cancel()
-      try {
-        return await conn.sendRequest<AskResult>('ext.ask', opts, source.token)
-      } catch (err) {
-        return rpcFailure(err, 'ask-failed')
-      } finally {
-        signal?.removeEventListener('abort', cancel)
-        source.dispose()
-      }
-    },
-    mcpCall: async (server, tool, input, signal) => {
-      const source = new CancellationTokenSource()
-      const cancel = (): void => source.cancel()
-      signal?.addEventListener('abort', cancel, { once: true })
-      if (signal?.aborted) source.cancel()
-      try {
-        return await conn.sendRequest<McpCallReply>(
-          'ext.mcpCall',
-          { server, tool, input },
-          source.token,
-        )
-      } catch (err) {
-        return rpcFailure(err, 'mcp-call-failed')
-      } finally {
-        signal?.removeEventListener('abort', cancel)
-        source.dispose()
-      }
-    },
-    mcpServers: async () => {
-      try {
-        return await conn.sendRequest<McpServersResult>('ext.mcpServers')
-      } catch (err) {
-        return rpcFailure(err, 'mcp-servers-failed')
-      }
-    },
+    ask: (opts, signal) =>
+      withCancel(signal, (token) =>
+        sentRpc(conn.sendRequest<AskResult>('ext.ask', opts, token), 'ask-failed'),
+      ),
+    mcpCall: (server, tool, input, signal) =>
+      withCancel(signal, (token) =>
+        sentRpc(
+          conn.sendRequest<McpCallReply>('ext.mcpCall', { server, tool, input }, token),
+          'mcp-call-failed',
+        ),
+      ),
     onAgent: (handler) => {
       handlers.agent = handler
     },
     agentEvent: async (sessionId, event) => {
       await conn.sendRequest('ext.agentEvent', { sessionId, event })
     },
-    agentTool: async (call, signal) => {
-      const source = new CancellationTokenSource()
-      const cancel = (): void => source.cancel()
-      signal?.addEventListener('abort', cancel, { once: true })
-      if (signal?.aborted) source.cancel()
-      try {
-        return await conn.sendRequest<AgentToolReply>('ext.agentTool', call, source.token)
-      } catch (err) {
-        return { ok: false, error: errorMessage(err) }
-      } finally {
-        signal?.removeEventListener('abort', cancel)
-        source.dispose()
-      }
-    },
-    connections: async () => {
-      try {
-        return await conn.sendRequest<ConnectionsResult>('ext.connections')
-      } catch (err) {
-        return rpcFailure(err, 'connections-failed')
-      }
-    },
-    connection: async (name) => {
-      try {
-        return await conn.sendRequest<ConnectionResult>('ext.connection', { name })
-      } catch (err) {
-        return rpcFailure(err, 'connection-failed')
-      }
-    },
+    agentTool: (call, signal) =>
+      withCancel(signal, (token) =>
+        conn
+          .sendRequest<AgentToolReply>('ext.agentTool', call, token)
+          .catch((err): AgentToolReply => ({ ok: false, error: errorMessage(err) })),
+      ),
+    mcpServers: () =>
+      sentRpc(conn.sendRequest<McpServersResult>('ext.mcpServers'), 'mcp-servers-failed'),
+    connections: () =>
+      sentRpc(conn.sendRequest<ConnectionsResult>('ext.connections'), 'connections-failed'),
+    connection: (name) =>
+      sentRpc(conn.sendRequest<ConnectionResult>('ext.connection', { name }), 'connection-failed'),
     onConnectionsChanged: (handler) => {
       handlers.connections = handler
     },
@@ -349,32 +309,23 @@ export function serviceMethods(
     onAssistProvidersChanged: (handler) => {
       handlers.providers = handler
     },
-    openFolder: async (opts) => {
-      try {
-        return await conn.sendRequest<OpenFolderResult>('ext.openFolder', opts)
-      } catch (err) {
-        return { ok: false, error: 'open-folder-failed', message: errorMessage(err) }
-      }
-    },
-    closeFolder: async (folderId) => {
-      try {
-        return await conn.sendRequest<ExtensionResult>('ext.closeFolder', { folderId })
-      } catch (err) {
-        return failure('close-folder-failed', errorMessage(err))
-      }
-    },
+    openFolder: (opts) =>
+      sent(conn.sendRequest<OpenFolderResult>('ext.openFolder', opts), 'open-folder-failed'),
+    closeFolder: (folderId) =>
+      sent(
+        conn.sendRequest<ExtensionResult>('ext.closeFolder', { folderId }),
+        'close-folder-failed',
+      ),
     onFiles: (handler) => {
       handlers.files = handler
     },
     onFolderClosed: (handler) => {
       handlers.folderClosed = handler
     },
-    sandboxDomains: async (workspaceId) => {
-      try {
-        return await conn.sendRequest<SandboxDomainsResult>('ext.sandboxDomains', { workspaceId })
-      } catch (err) {
-        return { ok: false, error: 'sandbox-domains-failed', message: errorMessage(err) }
-      }
-    },
+    sandboxDomains: (workspaceId) =>
+      sent(
+        conn.sendRequest<SandboxDomainsResult>('ext.sandboxDomains', { workspaceId }),
+        'sandbox-domains-failed',
+      ),
   }
 }

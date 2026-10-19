@@ -4,7 +4,7 @@ import { pathToFileURL } from 'node:url'
 import { chords } from './chords'
 import { freshDataHome, isolatedLaunch } from './dataHome'
 import { fakeAgentBin, isolatedHome, startFakeAgent } from './fakeAgent'
-import { openWorkspace, waitForPaletteSelection } from './helpers'
+import { openWorkspace, shownTerminal, terminalTab, waitForPaletteSelection } from './helpers'
 import { _electron as electron, expect, test } from './test'
 
 const PAGE = `<!doctype html>
@@ -99,7 +99,8 @@ test('pick an element in a browser pane and send it to a terminal pane', async (
     await panel.getByRole('button', { name: 'Send' }).click()
 
     await expect(win.getByText(/The report is at its prompt/)).toBeVisible({ timeout: 15_000 })
-    const terminal = win.locator('.xterm-rows').first()
+    await terminalTab(win).click()
+    const terminal = shownTerminal(win).locator('.xterm-rows')
     await expect(terminal).toContainText(/@\S*capture-\d+\S*\.md @\S*pick-\S*\.png/, {
       timeout: 15_000,
     })

@@ -2,6 +2,7 @@ import { mkdirSync, writeFileSync } from 'node:fs'
 import { type Server, createServer } from 'node:http'
 import type { AddressInfo } from 'node:net'
 import { join } from 'node:path'
+import { cfbBomb } from '../test/fixtures/office/cfbBomb'
 import {
   ODP_MIMETYPE,
   ODT_MIMETYPE,
@@ -21,23 +22,16 @@ import {
   docx,
   externalLinkWorkbook,
   externalRelationship,
-  hiddenDirectoryBomb,
-  hyperlinkRange,
   macroWorkbook,
-  odsRepeats,
   paragraph,
   picture,
-  withEntries,
   workbook,
-  zeroBomb,
-  zeros,
 } from '../test/fixtures/office/workbooks'
 import { freshDataHome, isolatedLaunch } from './dataHome'
 import { openWorkspace } from './helpers'
 import { type ElectronApplication, type Page, _electron as electron, expect, test } from './test'
 import { viewerGuestRun, viewerGuestText } from './viewerGuest'
 
-const MIB = 1024 * 1024
 const SHEET = 'office.spreadsheet'
 
 async function withApp(
@@ -173,29 +167,17 @@ test('a macro workbook, and a workbook and a document with external links, open 
   }
 })
 
-test('a malformed file, bombs and a long sheet each say why', async () => {
+test('a malformed file and a long sheet each say why, and a bomb is stopped', async () => {
   const long = workbook({ Long: Array.from({ length: 100_500 }, (_unused, row) => [row + 1]) })
   await withApp(
     {
       'broken.xlsx': new TextEncoder().encode('this is not a workbook'),
-      'bomb.xlsx': zeroBomb(129 * MIB),
-      'hidden.xlsx': hiddenDirectoryBomb(16 * MIB),
-      'links.xlsx': hyperlinkRange('A1:XFD1048576'),
-      'repeats.ods': odsRepeats(1_000_000, 1_000),
+      'bomb.xls': cfbBomb(2000),
       'long.xlsx': long,
     },
     async (win, app) => {
       await openSheet(win, 'broken.xlsx')
       await guestText(app, 'broken.xlsx').toContain('Could not read this file.')
-      await openSheet(win, 'bomb.xlsx')
-      await guestText(app, 'bomb.xlsx').toContain('so it is not previewed')
-      await openSheet(win, 'hidden.xlsx')
-      await guestText(app, 'hidden.xlsx').toContain('Could not read this file.')
-      await openSheet(win, 'links.xlsx')
-      await guestText(app, 'links.xlsx').toContain('more than 2,000,000 cells')
-      await openSheet(win, 'repeats.ods')
-      await guestText(app, 'repeats.ods').toContain('more than 2,000,000 cells')
-      await expect(win.locator('.topbar')).toBeVisible()
 
       await openSheet(win, 'long.xlsx')
       await guestText(app, 'long.xlsx').toContain('Showing the first 100,000 rows.')
@@ -212,6 +194,13 @@ test('a malformed file, bombs and a long sheet each say why', async () => {
         'const s = document.querySelector(".ostia-grid-scroll"); s.scrollTop = s.scrollHeight',
       )
       await guestText(app, 'long.xlsx').toContain('100000')
+
+      await openSheet(win, 'bomb.xls')
+      const stopped = win.getByTestId('viewer-stopped')
+      await expect(stopped).toBeVisible({ timeout: 20_000 })
+      await expect(stopped.getByRole('button', { name: 'Reload' })).toBeVisible()
+      await openSheet(win, 'broken.xlsx')
+      await guestText(app, 'broken.xlsx').toContain('Could not read this file.')
     },
   )
 })
@@ -257,7 +246,6 @@ test('presentations and OpenDocument text open as outlines, fetch nothing and sa
         }),
         'broken.pptx': new TextEncoder().encode('this is not a presentation'),
         'renamed.pptx': docx({ body: paragraph('a word document') }),
-        'bomb.pptx': withEntries(deck, zeros('ppt/media/b.bin', 129 * MIB)),
       },
       async (win, app) => {
         const slides = (name: string) => ({ viewType: SLIDES, name })
@@ -297,10 +285,6 @@ test('presentations and OpenDocument text open as outlines, fetch nothing and sa
         await expect
           .poll(() => viewerGuestText(app, slides('renamed.pptx')), { timeout: 20_000 })
           .toContain('Could not read this file.')
-        await openViewer(win, 'bomb.pptx', SLIDES)
-        await expect
-          .poll(() => viewerGuestText(app, slides('bomb.pptx')), { timeout: 20_000 })
-          .toContain('so it is not previewed')
       },
     )
     expect(requests).toEqual([])

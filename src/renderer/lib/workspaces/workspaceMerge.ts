@@ -36,7 +36,7 @@ function nameOf(w: Pick<Workspace, 'name' | 'customName'>): string {
 }
 
 async function sandboxOf(workspaceId: string): Promise<WorkspaceSandbox | null> {
-  return (await window.ostia.sandbox?.get(workspaceId).catch(() => null)) ?? null
+  return await window.ostia.sandbox.get(workspaceId).catch(() => null)
 }
 
 function sideOf(

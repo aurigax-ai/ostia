@@ -8,5 +8,9 @@
     "src/renderer/lib/browser/domSelection.ts",
     "src/shared/browser/selection.ts"
   ],
-  "specs": ["e2e/browser-pick.spec.ts", "e2e/detached-send.spec.ts", "e2e/pdf-region.spec.ts"]
+  "specs": [
+    "e2e/browser-pick.spec.ts",
+    "e2e/detached-send.spec.ts",
+    "e2e/pdf-region.spec.ts"
+  ]
 }

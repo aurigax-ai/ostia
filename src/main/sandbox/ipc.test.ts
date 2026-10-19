@@ -3,7 +3,17 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, describe, expect, it, vi } from 'vitest'
 import { DEFAULT_SANDBOX_GLOBALS } from '../../shared/sandbox/sandbox'
+import type { DomainRequests } from './domainRequests'
+import type { PortRequests } from './ports/portRequests'
 import { ViolationLog, parseViolationLine } from './violations'
+
+const inert = {
+  missing: () => [],
+  domains: {} as DomainRequests,
+  ports: {} as PortRequests,
+  violations: new ViolationLog(() => 5),
+  refreshAll: () => {},
+}
 
 const handlers = new Map<string, (...args: unknown[]) => unknown>()
 
@@ -38,7 +48,11 @@ describe('sandbox IPC', () => {
       hostScript: '',
       onAsk: async () => false,
     })
-    registerSandboxIpc({ sandboxes, ownerWindow: (id) => (id === 'ws' ? '1' : undefined) })
+    registerSandboxIpc({
+      ...inert,
+      sandboxes,
+      ownerWindow: (id) => (id === 'ws' ? '1' : undefined),
+    })
     const setEnabled = handlers.get('sandbox:set-enabled')
     const get = handlers.get('sandbox:get')
     expect(await setEnabled?.(sender(2), 'ws', true)).toEqual({ ok: false, reason: 'not-owned' })
@@ -66,7 +80,7 @@ describe('sandbox IPC', () => {
       hostScript: '',
       onAsk: async () => false,
     })
-    registerSandboxIpc({ sandboxes, ownerWindow: () => undefined })
+    registerSandboxIpc({ ...inert, sandboxes, ownerWindow: () => undefined })
     expect(await handlers.get('sandbox:presets')?.(sender(9))).toEqual([
       { id: 'volta', paths: ['~/.volta'] },
     ])
@@ -85,7 +99,7 @@ describe('sandbox IPC', () => {
       onAsk: async () => false,
     })
     let missing = [{ program: 'bwrap', package: 'bubblewrap' }]
-    registerSandboxIpc({ sandboxes, ownerWindow: () => '1', missing: () => missing })
+    registerSandboxIpc({ ...inert, sandboxes, ownerWindow: () => '1', missing: () => missing })
     const setEnabled = handlers.get('sandbox:set-enabled')
     expect(await setEnabled?.(sender(1), 'ws', true)).toEqual({
       ok: false,
@@ -132,6 +146,7 @@ function setup(name: string, workDirs: Record<string, string> = {}) {
   })
   const violations = new ViolationLog(() => 5)
   registerSandboxIpc({
+    ...inert,
     sandboxes,
     violations,
     ownerWindow: (id) => (id === 'other' ? '2' : '1'),
