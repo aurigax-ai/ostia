@@ -4,12 +4,15 @@ import { join } from 'node:path'
 import { afterAll, describe, expect, it } from 'vitest'
 import {
   analyze,
+  benchLines,
   classifyCommand,
   collect,
+  errorCode,
   estimateTokens,
   parseTranscript,
   renderReport,
-} from '../scripts/coordinationTokens.mjs'
+  transcriptBenchLine,
+} from '../scripts/agentTokens.mjs'
 
 const PANE = '3f1c2d4e-1111-4222-8333-444455556666'
 const SECRET = 'sk-live-do-not-leak'
@@ -54,6 +57,13 @@ describe('classifyCommand', () => {
     expect(classifyCommand('ostia bus send abc "hi"')).toBe('bus.send')
     expect(classifyCommand(`cd /tmp && ostia pane read ${PANE} --lines 30`)).toBe('pane.read')
     expect(classifyCommand('ostia pane')).toBe('pane')
+  })
+
+  it('marks a dotted raw id and reads the Codex form of the call', () => {
+    expect(classifyCommand('ostia pane.list | jq .')).toBe('raw:pane.list')
+    expect(classifyCommand('ELECTRON_RUN_AS_NODE=1 "$OSTIA_NODE" "$OSTIA_CLI" bus inbox')).toBe(
+      'bus.inbox',
+    )
   })
 
   it('names a watcher script by its path words and ignores everything else', () => {
@@ -198,7 +208,7 @@ describe('parseTranscript for Codex rollouts', () => {
 })
 
 describe('collect', () => {
-  const root = mkdtempSync(join(tmpdir(), 'ostia-coordination-'))
+  const root = mkdtempSync(join(tmpdir(), 'ostia-agent-tokens-'))
   afterAll(() => rmSync(root, { recursive: true, force: true }))
 
   it('reads every jsonl under both folders and keeps only the asked local day', async () => {
@@ -227,6 +237,104 @@ describe('collect', () => {
     expect(events.map((event: { command: string }) => event.command).sort()).toEqual([
       'ostia bus inbox',
       'ostia pane list',
+    ])
+  })
+})
+
+describe('errorCode', () => {
+  it('reads the code of an Ostia error line and nothing else', () => {
+    expect(errorCode(`ostia: hibernated: ${PANE} is asleep; wake it with ostia pane wake`)).toBe(
+      'hibernated',
+    )
+    expect(errorCode('ostia: bus send failed (unknown-pane: no open pane has that id)')).toBe(
+      'unknown-pane',
+    )
+    expect(errorCode('ostia pane wait: timed out')).toBe('timed-out')
+    expect(errorCode(`ostia bus send: missing <toExternalId> "${SECRET}"`)).toBe('missing')
+    expect(errorCode('ostia pane: usage: ostia pane send <pane>')).toBe('usage')
+    expect(errorCode('usage: ostia pane <verb>   the panes you reach')).toBe('usage')
+    expect(errorCode(`all good ${SECRET}`)).toBeNull()
+  })
+})
+
+describe('agent behaviour in transcripts', () => {
+  const block = (minutes: number) => ({
+    type: 'attachment',
+    timestamp: at(minutes),
+    attachment: {
+      type: 'hook_additional_context',
+      content: ['ostia bus: 1 unread message\n<ostia-bus-messages>\nhi\n</ostia-bus-messages>'],
+    },
+  })
+  const skill = {
+    type: 'user',
+    isMeta: true,
+    timestamp: at(0),
+    message: {
+      content: [
+        {
+          type: 'text',
+          text: `Base directory for this skill: /tmp/ostia-shell-integration-1000/agents/ab/claude-plugin/skills/ostia\n\n${SECRET}`,
+        },
+      ],
+    },
+  }
+  const session = lines(
+    skill,
+    block(1),
+    bash('b1', 2, 'ostia bus inbox | jq .'),
+    result('b1', 2, '[]'),
+    bash('b2', 3, 'until ostia bus inbox | grep -q x; do sleep 30; done'),
+    result('b2', 3, 'x'),
+    bash('b3', 4, 'ostia bus send --help'),
+    result('b3', 4, 'ostia bus send: missing <toExternalId> "<msg>"\nExit code 1'),
+    bash('b4', 5, 'ostia pane.list'),
+    result('b4', 5, 'usage: ostia pane <verb>'),
+    bash('b5', 20, 'ostia bus inbox'),
+    result('b5', 20, '[]'),
+  )
+
+  it('counts loops, sleeps, parsers, verb help, dotted ids and error codes', () => {
+    const report = analyze(parseTranscript(session, 'claude'))
+    expect(report.behaviour).toEqual({ loops: 1, sleeps: 1, parsed: 1, verbHelp: 1, raw: 1 })
+    expect(report.errors).toEqual({ missing: 1, usage: 1 })
+  })
+
+  it('counts an inbox read soon after a bus block as a re-read, in the same session only', () => {
+    const report = analyze(parseTranscript(session, 'claude'))
+    expect(report.rereads.count).toBe(2)
+    const other = parseTranscript(
+      lines(bash('o', 2, 'ostia bus inbox'), result('o', 2, '[]')),
+      'claude',
+    )
+    const mixed = analyze([
+      ...parseTranscript(lines(block(1)), 'claude').map((e: object) => ({ ...e, session: 'a' })),
+      ...other.map((e: object) => ({ ...e, session: 'b' })),
+    ])
+    expect(mixed.rereads.count).toBe(0)
+  })
+
+  it('counts Ostia skill loads by size without keeping their text', () => {
+    const report = analyze(parseTranscript(session, 'claude'))
+    expect(report.skills.ostia.loads).toBe(1)
+    expect(JSON.stringify(report)).not.toContain(SECRET)
+    expect(renderReport(report)).not.toContain(SECRET)
+    expect(transcriptBenchLine(report)).toMatch(/^BENCH agent-tokens transcripts \{/)
+  })
+})
+
+describe('benchLines', () => {
+  it('prints one BENCH line per surface with tokens, exit and the change from a saved run', () => {
+    const now = { 'cli.pane.list': { chars: 350, exit: 0 }, 'skill.ostia/SKILL.md': { chars: 700 } }
+    const before = { 'cli.pane.list': { chars: 700, exit: 0 }, 'docs.old': { chars: 35 } }
+    expect(benchLines(now)).toEqual([
+      'BENCH agent-tokens cli.pane.list {"chars":350,"tokens":100,"exit":0}',
+      'BENCH agent-tokens skill.ostia/SKILL.md {"chars":700,"tokens":200}',
+    ])
+    expect(benchLines(now, before)).toEqual([
+      'BENCH agent-tokens cli.pane.list {"chars":350,"tokens":100,"exit":0,"beforeChars":700,"deltaTokens":-100}',
+      'BENCH agent-tokens docs.old {"chars":0,"tokens":0,"beforeChars":35,"deltaTokens":-10}',
+      'BENCH agent-tokens skill.ostia/SKILL.md {"chars":700,"tokens":200,"beforeChars":0,"deltaTokens":200}',
     ])
   })
 })
