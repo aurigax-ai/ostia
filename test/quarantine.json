@@ -1,11 +1,5 @@
 [
   {
-    "file": "e2e/browser-device.spec.ts",
-    "name": "device mode shows a page as a phone, rotates, resizes, survives reload and restart, and turns off",
-    "issue": 1142,
-    "until": "2026-11-17"
-  },
-  {
     "file": "e2e/graphs-kept.spec.ts",
     "name": "GRF-C71 an agent still working in its kept pane across a restart is reattached as running and its report ends the node",
     "issue": 1044,

@@ -5,9 +5,9 @@ import { app } from 'electron'
 import type { PtyAttachResult } from '../../../shared/terminal/ptyApi'
 import { quoteArgv } from '../../../shared/terminal/shellQuote'
 import { needsPtyRelay } from '../../platform/ptyRelay'
+import { SandboxUnavailableError } from '../../sandbox/hostClient'
 import { PortBridge, bridgesPorts } from '../../sandbox/ports/portBridge'
 import { relayForced, sandboxedShellCommand, wrapForTerminal } from '../../sandbox/ptyWrap'
-import { SandboxUnavailableError } from '../../sandbox/sandboxHosts'
 import { sandboxFailureBanner } from '../../sandbox/spawnBanner'
 import { sandboxSpawnEnv } from '../../sandbox/spawnEnv'
 import type { WorkspaceSandboxes } from '../../sandbox/workspaceSandboxes'
@@ -38,23 +38,11 @@ export function createSandboxSpawn({
   ): Promise<SpawnPlan | PtyAttachResult> {
     const { identity, workspaceId, shell, stateFile, markNonceFile, wantsKeep } = plan
     const markFiles = markNonceFile ? [markNonceFile] : []
-    let {
-      secretNotice,
-      resizePipe,
-      portBridge,
-      tokenFile,
-      notKept,
-      sandboxStamp,
-      file,
-      args,
-      env,
-      cwd,
-    } = plan
+    let { portBridge, tokenFile, notKept } = plan
     try {
       writeFileSync(stateFile, '', { mode: 0o600 })
       const secrets = await injectSecrets(workspaceId)
-      secretNotice = secrets.notice
-      resizePipe = needsPtyRelay(relayForced(app.isPackaged, process.env))
+      const resizePipe = needsPtyRelay(relayForced(app.isPackaged, process.env))
         ? join(workspaceSandboxes.tmp.tmpDir(workspaceId), `resize-${randomUUID()}`)
         : null
       portBridge = bridgesPorts(
@@ -71,8 +59,8 @@ export function createSandboxSpawn({
       const wrapped = await workspaceSandboxes.wrap(
         workspaceId,
         sandboxedShellCommand(
-          quoteArgv([shell, ...args]),
-          env.SHELL,
+          quoteArgv([shell, ...plan.args]),
+          plan.env.SHELL,
           resizePipe,
           portBridge?.command ?? null,
         ),
@@ -82,31 +70,27 @@ export function createSandboxSpawn({
           : [stateFile, ...markFiles],
         tokenFile ? [tokenFile, keptShells.attentionFile(paneId), ...markFiles] : markFiles,
       )
-      sandboxStamp = workspaceSandboxes.wrapStamp(workspaceId)
-      file = '/bin/sh'
-      args = ['-c', wrapForTerminal(wrapped, resizePipe)]
-      env = {
-        ...sandboxSpawnEnv(env),
+      const env = {
+        ...sandboxSpawnEnv(plan.env),
         ...packageCooldownEnv(
           workspaceSandboxes.packagePolicy(workspaceId).cooldownDays,
           Date.now(),
         ),
         ...secrets.env,
+        TMPDIR: workspaceSandboxes.tmp.tmpDir(workspaceId),
       }
-      env.TMPDIR = workspaceSandboxes.tmp.tmpDir(workspaceId)
-      cwd = sandboxCwd(cwd, workspaceSandboxes.workDir(workspaceId))
       return {
         ...plan,
-        secretNotice,
+        secretNotice: secrets.notice,
         resizePipe,
         portBridge,
         tokenFile,
         notKept,
-        sandboxStamp,
-        file,
-        args,
+        sandboxStamp: workspaceSandboxes.wrapStamp(workspaceId),
+        file: '/bin/sh',
+        args: ['-c', wrapForTerminal(wrapped, resizePipe)],
         env,
-        cwd,
+        cwd: sandboxCwd(plan.cwd, workspaceSandboxes.workDir(workspaceId)),
       }
     } catch (err) {
       portBridge?.close()

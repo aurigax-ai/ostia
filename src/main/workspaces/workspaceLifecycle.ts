@@ -86,9 +86,10 @@ export function createWorkspaceLifecycle({
     tellExtensions: (id) => services.extensionHost?.events.workspaceClosed(id),
     closeArtifacts: (id) => artifactHistory.close(id, artifactFolders.close(id)),
     removeScratch: (id) => {
-      const failure = scratchFolders.remove(id)
-      if (failure)
-        services.appLog?.warn('scratch-remove-failed', { folders: 1, codes: failure.code })
+      void scratchFolders.remove(id).then((failure) => {
+        if (failure)
+          services.appLog?.warn('scratch-remove-failed', { folders: 1, codes: failure.code })
+      })
     },
     forgetRequests: forgetWorkspaceRequests,
     forgetSandbox: forgetSandboxRuntime,

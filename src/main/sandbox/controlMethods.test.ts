@@ -14,6 +14,7 @@ import { registerControlServer, stopControlServer } from '../control/controlServ
 import { registerPane } from '../control/idRegistry'
 import { registerSandboxMethods } from './controlMethods'
 import { DomainRequests } from './domainRequests'
+import type { PortRequests } from './ports/portRequests'
 
 let dir: string
 let conn: MessageConnection
@@ -29,6 +30,7 @@ beforeAll(async () => {
       allowUntilRestart: () => undefined,
       now: Date.now,
     }),
+    ports: {} as PortRequests,
   })
   const socketPath = join(dir, 'ctl.sock')
   registerControlServer(
