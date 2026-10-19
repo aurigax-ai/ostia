@@ -1,12 +1,18 @@
-import { mkdtempSync, rmSync } from 'node:fs'
+import { mkdtempSync, readFileSync, readdirSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import type {
+  PhoneScreenEvent,
+  PhoneScreenFrameHeader,
+  PhoneScreenLink,
+} from '@aurigax-ai/ostia-extension-sdk/contract/phoneScreens'
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import WebSocket from 'ws'
 import { emitPlatformEvent } from '../control/events'
 import { registerPane } from '../control/idRegistry'
 import type { GatewayControlDeps } from './controlDispatch'
-import { registerDevice } from './devices'
+import { registerDevice, revoke } from './devices'
+import { type ScreenLinkController, ScreenLinks } from './screenLinks'
 
 const registeredMethods = vi.hoisted(() => [] as string[])
 
@@ -19,15 +25,23 @@ vi.mock('../control/controlServer', () => ({
   registerControlMethod: (name: string) => registeredMethods.push(name),
 }))
 
-const { capForPlatformEvent, configureGatewayControl, phoneCanRespond, startGateway, stopGateway } =
-  await import('./server')
+const {
+  askPhonesForScreen,
+  capForPlatformEvent,
+  closeDeviceSockets,
+  configureGatewayControl,
+  configureScreenLinks,
+  phoneCanRespond,
+  startGateway,
+  stopGateway,
+} = await import('./server')
 const { gatewaySetCap, registerGatewayMethods } = await import('./gatewayIpc')
 
 type Json = {
   id?: unknown
   method?: string
   result?: unknown
-  error?: { code: number; data?: unknown }
+  error?: { code: number; message?: string; data?: unknown }
   params?: { type: string; payload: unknown }
 }
 
@@ -41,6 +55,70 @@ interface Client {
 
 let port = 0
 let seq = 0
+
+const linkLog: Array<[string, Record<string, string>]> = []
+const links = new ScreenLinks({
+  listWorkspaces: async () => [
+    { workspaceId: 's1', name: 'One', kind: 'agent', workDir: '/w', state: 'idle' },
+    { workspaceId: 'pad', name: 'Scratch', kind: 'scratch', workDir: '/s', state: 'idle' },
+    { workspaceId: 'mgr', name: 'Manager', kind: 'manager', workDir: '/m', state: 'idle' },
+  ],
+  askPhones: (sessionId) => askPhonesForScreen(sessionId),
+  log: (event, fields) => linkLog.push([event, fields]),
+  timing: { offerMs: 200, requestMs: 300, graceMs: 100 },
+})
+
+interface FakeController {
+  controller: ScreenLinkController
+  offers: PhoneScreenLink[]
+  events: PhoneScreenEvent[]
+  frames: Array<{ linkId: string; header: PhoneScreenFrameHeader; jpeg: Buffer }>
+}
+
+let controller: FakeController | null = null
+
+function listenForScreens(accept = true): FakeController {
+  const fake: FakeController = {
+    offers: [],
+    events: [],
+    frames: [],
+    controller: {
+      offer: async (link) => {
+        fake.offers.push(link)
+        return accept
+      },
+      frame: (linkId, header, jpeg) => fake.frames.push({ linkId, header, jpeg }),
+      event: (event) => fake.events.push(event),
+    },
+  }
+  expect(links.listen(fake.controller)).toBe(true)
+  controller = fake
+  return fake
+}
+
+function screenParams(over: Record<string, unknown> = {}): Record<string, unknown> {
+  return {
+    sessionId: 's1',
+    width: 1080,
+    height: 2400,
+    density: 2.75,
+    rotation: 0,
+    level: 'control',
+    limitSec: 300,
+    endsAt: Date.now() + 300_000,
+    overlayHeight: 96,
+    label: 'Check the build page',
+    agent: 'claude',
+    ...over,
+  }
+}
+
+function screenFrame(header: Record<string, unknown>, jpeg: Buffer): Buffer {
+  const head = Buffer.from(JSON.stringify(header))
+  const length = Buffer.alloc(4)
+  length.writeUInt32BE(head.length)
+  return Buffer.concat([Buffer.from([0x10]), length, head, jpeg])
+}
 const deps = {
   execCommand: vi.fn().mockResolvedValue({ ok: true, result: null }),
   listCommandsFor: vi.fn().mockReturnValue([
@@ -133,6 +211,7 @@ describe('gateway server over a real WebSocket', () => {
     prevXdg = process.env.XDG_DATA_HOME
     process.env.XDG_DATA_HOME = mkdtempSync(join(tmpdir(), 'ostia-gateway-xdg-'))
     configureGatewayControl(deps)
+    configureScreenLinks(links)
     externalPaneId = registerPane({ windowId: 'w1', workspaceId: 's1', paneId: 'p1' }).externalId
     const started = await startGateway({ port: 0 })
     port = started.port
@@ -141,6 +220,9 @@ describe('gateway server over a real WebSocket', () => {
   afterEach(() => {
     for (const c of clients.splice(0)) c.ws.terminate()
     vi.clearAllMocks()
+    if (controller) links.release(controller.controller)
+    controller = null
+    linkLog.length = 0
   })
 
   afterAll(async () => {
@@ -297,5 +379,281 @@ describe('gateway server over a real WebSocket', () => {
       'gateway.revoke',
       'gateway.status',
     ])
+  })
+
+  describe('phone screen links', () => {
+    async function openLink(level = 'control') {
+      const device = registerDevice({ name: 'Pixel', pubkey: 'pk' })
+      const phone = await connect(device.token)
+      const started = await phone.call('screen.start', screenParams({ level }))
+      const linkId = (started.result as { screenId: string }).screenId
+      return { device, phone, linkId }
+    }
+
+    it('PHD-C1 hands a link the phone opened to the controller and answers the phone its screenId', async () => {
+      const fake = listenForScreens()
+      const { device, linkId } = await openLink()
+      expect(typeof linkId).toBe('string')
+      expect(fake.offers).toEqual([
+        expect.objectContaining({
+          linkId,
+          sessionId: 's1',
+          width: 1080,
+          height: 2400,
+          level: 'control',
+          limitSec: 300,
+          overlayHeight: 96,
+          label: 'Check the build page',
+          agent: 'claude',
+          device: { id: device.deviceId, name: 'Pixel' },
+        }),
+      ])
+      expect(linkLog).toEqual([['phone-screen-link', { linkId, state: 'started' }]])
+    })
+
+    it('PHD-C2 answers no-controller when no extension takes phone screens and keeps nothing', async () => {
+      const device = registerDevice({ name: 'Pixel', pubkey: 'pk' })
+      const phone = await connect(device.token)
+      const refused = await phone.call('screen.start', screenParams())
+      expect(refused.error).toMatchObject({ code: -32004, message: 'no-controller' })
+
+      const declining = listenForScreens(false)
+      const declined = await (await connect(device.token)).call('screen.start', screenParams())
+      expect(declined.error).toMatchObject({ code: -32004, message: 'no-controller' })
+      links.release(declining.controller)
+
+      listenForScreens()
+      const started = await (await connect(device.token)).call('screen.start', screenParams())
+      expect(started.result).toEqual({ screenId: expect.any(String) })
+    })
+
+    it('PHD-C3 refuses a scratch or manager workspace, a second link from the device and a 3600 s limit without an offer', async () => {
+      const fake = listenForScreens()
+      const device = registerDevice({ name: 'Pixel', pubkey: 'pk' })
+      const start = async (params: Record<string, unknown>) =>
+        (await connect(device.token)).call('screen.start', params)
+      for (const sessionId of ['pad', 'mgr']) {
+        const refused = await start(screenParams({ sessionId }))
+        expect(refused.error).toMatchObject({ code: -32602, message: 'unknown-session' })
+        expect(await links.ask(fake.controller, sessionId)).toEqual({
+          ok: false,
+          error: 'unknown-session',
+        })
+      }
+      const hour = await start(screenParams({ limitSec: 3600 }))
+      expect(hour.error).toMatchObject({ code: -32602, message: 'bad-params' })
+      const late = await start(screenParams({ endsAt: Date.now() + 3_600_000 }))
+      expect(late.error).toMatchObject({ code: -32602, message: 'bad-params' })
+      expect(fake.offers).toEqual([])
+
+      const phone = await connect(device.token)
+      await phone.call('screen.start', screenParams())
+      const second = await connect(device.token)
+      const busy = await second.call('screen.start', screenParams())
+      expect(busy.error).toMatchObject({ code: -32602, message: 'busy' })
+      expect(fake.offers).toHaveLength(1)
+    })
+
+    it('PHD-C1 opens a link only on a socket that never attached a pty and never tried a link before', async () => {
+      const fake = listenForScreens()
+      const device = registerDevice({ name: 'Pixel', pubkey: 'pk' })
+      const viewer = await connect(device.token)
+      await viewer.call('pty.attach', { paneId: externalPaneId })
+      await viewer.call('pty.detach', { paneId: externalPaneId })
+      const afterAttach = await viewer.call('screen.start', screenParams())
+      expect(afterAttach.error).toMatchObject({ code: -32602, message: 'busy' })
+
+      const retrying = await connect(device.token)
+      const bad = await retrying.call('screen.start', screenParams({ limitSec: 3600 }))
+      expect(bad.error).toMatchObject({ message: 'bad-params' })
+      const again = await retrying.call('screen.start', screenParams())
+      expect(again.error).toMatchObject({ code: -32602, message: 'busy' })
+      const attach = await retrying.call('pty.attach', { paneId: externalPaneId })
+      expect(attach.error).toMatchObject({ code: -32600, message: 'link-only' })
+      expect(deps.attachPhoneObserver).toHaveBeenCalledTimes(1)
+      expect(fake.offers).toEqual([])
+    })
+
+    it('PHD-C4 answers link-only to pty.attach and command.exec on a link and still lists asks', async () => {
+      listenForScreens()
+      const { device, phone } = await openLink()
+      gatewaySetCap({ deviceId: device.deviceId, cap: 'command', granted: true })
+
+      const attach = await phone.call('pty.attach', { paneId: externalPaneId })
+      expect(attach.error).toMatchObject({ code: -32600, message: 'link-only' })
+      const exec = await phone.call('command.exec', { id: 'pane.splitRight' })
+      expect(exec.error).toMatchObject({ code: -32600, message: 'link-only' })
+      expect(deps.attachPhoneObserver).not.toHaveBeenCalled()
+      expect(deps.execCommand).not.toHaveBeenCalled()
+
+      const asks = await phone.call('ask.list')
+      expect(asks.error).toBeUndefined()
+      expect(deps.listAsks).toHaveBeenCalled()
+    })
+
+    it('PHD-C5 relays a request to the phone, its answer back, and its events and frames to the controller', async () => {
+      const fake = listenForScreens()
+      const { phone, linkId } = await openLink()
+
+      const tapped = links.request(fake.controller, linkId, 'phone.tap', { x: 10, y: 20 })
+      const request = await phone.next((m) => m.method === 'phone.tap')
+      expect(request.params).toEqual({ x: 10, y: 20 })
+      phone.ws.send(
+        JSON.stringify({ jsonrpc: '2.0', id: request.id, result: { target: { text: 'OK' } } }),
+      )
+      expect(await tapped).toEqual({ ok: true, data: { target: { text: 'OK' } } })
+
+      const paused = links.request(fake.controller, linkId, 'phone.swipe', {})
+      const swipe = await phone.next((m) => m.method === 'phone.swipe')
+      phone.ws.send(
+        JSON.stringify({
+          jsonrpc: '2.0',
+          id: swipe.id,
+          error: { code: -32010, message: 'paused', data: { reason: 'human-touch' } },
+        }),
+      )
+      expect(await paused).toEqual({ ok: false, error: 'paused', data: { reason: 'human-touch' } })
+
+      const state = { state: 'paused', reason: 'human-touch', width: 1080, height: 2400 }
+      phone.ws.send(
+        JSON.stringify({
+          jsonrpc: '2.0',
+          method: 'event',
+          params: { type: 'screen.state', payload: state },
+        }),
+      )
+      const header = { seq: 1, width: 540, height: 1200, screenWidth: 1080, screenHeight: 2400 }
+      for (let i = 0; i < 7; i++) {
+        phone.ws.send(screenFrame({ ...header, seq: i, blocked: false }, Buffer.from([0xff, i])))
+      }
+      phone.ws.send(screenFrame({ ...header, blocked: 'no' }, Buffer.from([0xff])))
+      await phone.call('ask.list')
+      expect(fake.events).toEqual([{ linkId, kind: 'state', payload: state }])
+      expect(fake.frames.map((f) => f.header.seq)).toEqual([0, 1, 2, 3, 4])
+      expect(fake.frames[2]).toEqual({
+        linkId,
+        header: { ...header, seq: 2, blocked: false },
+        jpeg: Buffer.from([0xff, 2]),
+      })
+    })
+
+    it('PHD-C6 refuses a method outside the contract, input on a view link and another controller; the phone gets nothing', async () => {
+      const fake = listenForScreens()
+      const { phone, linkId } = await openLink('view')
+      const other: ScreenLinkController = {
+        offer: async () => true,
+        frame: () => {},
+        event: () => {},
+      }
+
+      expect(await links.request(fake.controller, linkId, 'pty.write', {})).toEqual({
+        ok: false,
+        error: 'unknown-method',
+      })
+      expect(await links.request(fake.controller, linkId, 'phone.tap', { x: 1, y: 1 })).toEqual({
+        ok: false,
+        error: 'view-only',
+      })
+      expect(await links.request(other, linkId, 'phone.capture', {})).toEqual({
+        ok: false,
+        error: 'unknown-link',
+      })
+      expect(links.listen(other)).toBe(false)
+      await phone.call('ask.list')
+      expect(phone.json.filter((m) => m.method?.startsWith('phone.'))).toEqual([])
+    })
+
+    it('PHD-C7 closes the link 4003 at revocation, answers a waiting request and tells the controller it ended', async () => {
+      const fake = listenForScreens()
+      const { device, phone, linkId } = await openLink()
+      const waiting = links.request(fake.controller, linkId, 'phone.capture', {})
+      await phone.next((m) => m.method === 'phone.capture')
+
+      revoke(device.deviceId)
+      closeDeviceSockets(device.deviceId)
+      expect(await phone.closed).toBe(4003)
+      expect(await waiting).toEqual({ ok: false, error: 'link-ended' })
+      await vi.waitFor(() =>
+        expect(fake.events).toContainEqual({
+          linkId,
+          kind: 'ended',
+          payload: { reason: 'revoked' },
+        }),
+      )
+    })
+
+    it('PHD-C8 closes the link 4005 once endsAt and the grace have passed and the phone stayed', async () => {
+      const fake = listenForScreens()
+      const device = registerDevice({ name: 'Pixel', pubkey: 'pk' })
+      const phone = await connect(device.token)
+      const started = await phone.call('screen.start', screenParams({ endsAt: Date.now() + 150 }))
+      const linkId = (started.result as { screenId: string }).screenId
+      expect(await phone.closed).toBe(4005)
+      expect(fake.events).toContainEqual({
+        linkId,
+        kind: 'ended',
+        payload: { reason: 'time-limit' },
+      })
+    })
+
+    it('PHD-C9 closes the link 4006 when the controller goes', async () => {
+      const fake = listenForScreens()
+      const { phone, linkId } = await openLink()
+      links.release(fake.controller)
+      expect(await phone.closed).toBe(4006)
+      expect(fake.events).toEqual([{ linkId, kind: 'ended', payload: { reason: 'no-controller' } }])
+    })
+
+    it('PHD-C10 logs only the link id and keeps no frame, request or typed text', async () => {
+      const fake = listenForScreens()
+      const { phone, linkId } = await openLink()
+      const typed = links.request(fake.controller, linkId, 'phone.type', { text: 'hunter2-secret' })
+      const request = await phone.next((m) => m.method === 'phone.type')
+      phone.ws.send(JSON.stringify({ jsonrpc: '2.0', id: request.id, result: {} }))
+      await typed
+      const header = {
+        seq: 1,
+        width: 4,
+        height: 4,
+        screenWidth: 4,
+        screenHeight: 4,
+        blocked: false,
+      }
+      phone.ws.send(screenFrame(header, Buffer.from('jpeg-bytes-of-the-screen')))
+      await phone.call('ask.list')
+      phone.ws.close()
+      await phone.closed
+      await vi.waitFor(() => expect(linkLog).toHaveLength(2))
+
+      expect(linkLog).toEqual([
+        ['phone-screen-link', { linkId, state: 'started' }],
+        ['phone-screen-link', { linkId, state: 'ended', reason: 'closed' }],
+      ])
+      const dataDir = process.env.XDG_DATA_HOME ?? ''
+      const stored = readdirSync(dataDir, { recursive: true, withFileTypes: true })
+        .filter((entry) => entry.isFile())
+        .map((entry) => readFileSync(join(entry.parentPath, entry.name), 'utf8'))
+        .join('\n')
+      for (const secret of ['hunter2-secret', 'jpeg-bytes-of-the-screen', 'Check the build page']) {
+        expect(stored).not.toContain(secret)
+      }
+    })
+
+    it('PHD-C11 asks the phones for a session over their normal sockets and opens no link', async () => {
+      const fake = listenForScreens()
+      const notified = await connect(registerDevice({ name: 'Tablet', pubkey: 'pk2' }).token)
+      const { phone } = await openLink()
+
+      expect(await links.ask(fake.controller, 'pad')).toEqual({
+        ok: false,
+        error: 'unknown-session',
+      })
+      expect(await links.ask(fake.controller, 's1')).toEqual({ ok: true, data: null })
+      const asked = await notified.next((m) => m.params?.type === 'screen.requested')
+      expect(asked.params?.payload).toEqual({ sessionId: 's1', by: 'desktop' })
+      await phone.call('ask.list')
+      expect(phone.json.some((m) => m.params?.type === 'screen.requested')).toBe(false)
+      expect(fake.offers).toHaveLength(1)
+    })
   })
 })

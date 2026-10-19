@@ -39,7 +39,7 @@ jobs:
       - name: Run the packaged-app specs against the unpacked build
         env:
           OSTIA_E2E_PACKAGED: ${{ github.workspace }}/dist/linux-unpacked/ostia
-        run: pnpm test:e2e e2e/packaged-cli.spec.ts e2e/packaged-preview.spec.ts
+        run: pnpm test:e2e e2e/packaged-cli.spec.ts e2e/packaged-preview.spec.ts e2e/packaged-archives.spec.ts
       - name: Fake a newer version of the same package to test the upgrade
         run: |
           mkdir -p repo
