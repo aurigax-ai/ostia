@@ -16,7 +16,6 @@ import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 vi.mock('@/components/editor/FileView', () => ({ FileView: () => null }))
 vi.mock('@/components/editor/DiffView', () => ({ DiffView: () => null }))
 vi.mock('@/components/browser/BrowserView', () => ({ BrowserView: () => null }))
-vi.mock('@/components/extensions/ExtensionPanelView', () => ({ ExtensionPanelView: () => null }))
 vi.mock('./Terminal', () => ({
   TerminalView: ({ paneId, cwd }: { paneId: string; cwd?: string }) => (
     <div data-testid={`terminal-${paneId}`} data-cwd={cwd} />

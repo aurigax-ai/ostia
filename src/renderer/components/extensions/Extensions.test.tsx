@@ -1,4 +1,3 @@
-import { commands } from '@/commands/registry'
 import { DeckRail } from '@/components/sidebar/DeckRail'
 import { useUIStore } from '@/stores/app/uiStore'
 import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
@@ -13,8 +12,8 @@ import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { renderSettled } from '../../../../test/render'
 import { ExtensionApprovalDialog } from './ExtensionApprovalDialog'
-import { ExtensionPanelView } from './ExtensionPanelView'
 import { ExtensionsPage } from './ExtensionSettingsPage'
+import { ExtensionSidePanel } from './ExtensionSidePanel'
 import { ExtensionsSection } from './InstalledExtensions'
 
 function ext(overrides: Partial<ExtensionInfo>): ExtensionInfo {
@@ -337,12 +336,14 @@ describe('Extensions UI', () => {
     })
   })
 
-  describe('ExtensionPanelView', () => {
+  describe('ExtensionSidePanel', () => {
     it('resolves the panel source and renders it in the extension partition', async () => {
       const panel = vi.fn().mockResolvedValue({ ok: true, src: 'http://127.0.0.1:4100/?t=abc' })
       window.ostia.extensions.panel = panel
       useExtensionsStore.setState({ list: [ext({})] })
-      const { container } = render(<ExtensionPanelView extId="demo" workspaceId="s1" paneId="p1" />)
+      const { container } = render(
+        <ExtensionSidePanel extId="demo" workspaceId="s1" focusKey="p1" />,
+      )
 
       await waitFor(() => expect(container.querySelector('webview')).not.toBeNull())
       const webview = container.querySelector('webview') as HTMLElement
@@ -358,44 +359,14 @@ describe('Extensions UI', () => {
         .mockResolvedValueOnce({ ok: true, src: 'http://127.0.0.1:4100/' })
       window.ostia.extensions.panel = panel
       useExtensionsStore.setState({ list: [ext({})] })
-      const { container } = render(<ExtensionPanelView extId="demo" workspaceId="s1" paneId="p1" />)
+      const { container } = render(
+        <ExtensionSidePanel extId="demo" workspaceId="s1" focusKey="p1" />,
+      )
 
       await userEvent.setup().click(await screen.findByRole('button', { name: 'Retry' }))
 
       await waitFor(() => expect(container.querySelector('webview')).not.toBeNull())
       expect(panel).toHaveBeenCalledTimes(2)
-    })
-
-    it('renders no webview for a disabled or missing extension', async () => {
-      const panel = vi.fn()
-      window.ostia.extensions.panel = panel
-      useExtensionsStore.setState({ list: [ext({ enabled: false, status: 'disabled' })] })
-      const { container, rerender } = render(
-        <ExtensionPanelView extId="demo" workspaceId="s1" paneId="p1" />,
-      )
-      expect(
-        screen.getByText('Demo is disabled. Enable it in Settings → Extensions.'),
-      ).toBeVisible()
-      rerender(<ExtensionPanelView extId="gone" workspaceId="s1" paneId="p1" />)
-      expect(screen.getByText('Extension “gone” is not installed.')).toBeVisible()
-      expect(container.querySelector('webview')).toBeNull()
-      expect(panel).not.toHaveBeenCalled()
-    })
-
-    it('says a restored pane’s extension no longer has a panel and offers to close it', async () => {
-      const panel = vi.fn()
-      window.ostia.extensions.panel = panel
-      const exec = vi.spyOn(commands, 'exec').mockResolvedValue({ ok: true, result: undefined })
-      useExtensionsStore.setState({
-        list: [ext({ id: 'assistant', name: 'Assistant', panel: null })],
-      })
-      render(<ExtensionPanelView extId="assistant" workspaceId="s1" paneId="p4" />)
-
-      expect(screen.getByText('Assistant no longer has a panel.')).toBeVisible()
-      await userEvent.setup().click(screen.getByRole('button', { name: 'Close pane' }))
-      expect(exec).toHaveBeenCalledWith('pane.close', { paneId: 'p4' })
-      expect(panel).not.toHaveBeenCalled()
-      exec.mockRestore()
     })
   })
 

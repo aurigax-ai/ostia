@@ -1,34 +1,45 @@
 import { createReadStream } from 'node:fs'
 import { Parser, type ReadEntry } from 'tar'
 import { type EntryRead, collect, openRegular } from './archiveFile'
+import { InflateLimit, inflate, sniffCompression } from './archiveInflate'
 import type { ArchiveLimits, RawEntry } from './archiveTree'
 
 const LINK_TYPES = new Set(['SymbolicLink', 'Link'])
 const HEADER_BYTES = 512
+const READ_CHUNK = 16 * 1024
+
+type ScanEnd = 'complete' | 'stopped' | 'limit'
 
 function scan(
   path: string,
   limits: ArchiveLimits,
   visit: (entry: ReadEntry, index: number) => 'next' | 'stop' | 'read',
   onRead: (entry: ReadEntry) => Promise<void>,
-): Promise<boolean> {
+): Promise<ScanEnd> {
   return new Promise((resolve) => {
-    void openRegular(path).then((fd) => {
+    void openRegular(path).then(async (fd) => {
       if (fd === null) {
-        resolve(false)
+        resolve('stopped')
         return
       }
-      const input = createReadStream('', { fd, autoClose: true })
-      const parser = new Parser()
+      const kind = await sniffCompression(fd)
+      const input = createReadStream('', { fd, autoClose: true, highWaterMark: READ_CHUNK })
+      const inflated = kind ? inflate(input, kind, limits.scanBytes) : null
+      const parser = new Parser({ gzip: false, zstd: false, brotli: false })
       let index = 0
       let scanned = 0
       let settled = false
+      let reading = false
+      let ended = false
+      let limited = false
       const finish = (complete: boolean): void => {
         if (settled) return
         settled = true
         clearTimeout(timer)
         input.destroy()
-        resolve(complete)
+        for (const stage of inflated?.stages ?? []) stage.destroy()
+        if (complete) resolve('complete')
+        else resolve(limited ? 'limit' : 'stopped')
       }
       const timer = setTimeout(() => finish(false), limits.scanMs)
       parser.on('entry', (entry: ReadEntry) => {
@@ -40,23 +51,37 @@ function scan(
         }
         const step = visit(entry, index++)
         if (step === 'read') {
+          reading = true
           void onRead(entry).then(() => finish(true))
           return
         }
         entry.resume()
         if (step === 'stop') finish(true)
       })
+      parser.on('eof', () => {
+        ended = true
+        if (!reading) finish(true)
+        parser.abort(new Error('end of archive'))
+      })
       parser.on('end', () => finish(true))
-      parser.on('error', () => finish(false))
+      parser.on('error', () => {
+        if (!ended) finish(false)
+      })
       input.on('error', () => finish(false))
-      input.pipe(parser)
+      for (const stage of inflated?.stages ?? []) {
+        stage.on('error', (error) => {
+          limited = error instanceof InflateLimit
+          finish(false)
+        })
+      }
+      ;(inflated?.output ?? input).pipe(parser)
     })
   })
 }
 
 export async function listTar(path: string, limits: ArchiveLimits): Promise<RawEntry[] | null> {
   const entries: RawEntry[] = []
-  const complete = await scan(
+  const end = await scan(
     path,
     limits,
     (entry, index) => {
@@ -72,7 +97,7 @@ export async function listTar(path: string, limits: ArchiveLimits): Promise<RawE
     },
     async () => {},
   )
-  return complete || entries.length > 0 ? entries : null
+  return end === 'complete' || entries.length > 0 ? entries : null
 }
 
 export async function readTarEntry(
@@ -82,7 +107,7 @@ export async function readTarEntry(
   limits: ArchiveLimits,
 ): Promise<EntryRead> {
   let result: EntryRead = { ok: false, problem: 'gone' }
-  await scan(
+  const end = await scan(
     path,
     limits,
     (entry, index) => {
@@ -102,5 +127,7 @@ export async function readTarEntry(
       result = read.ok ? { ok: true, data: read.data } : { ok: false, problem: 'unreadable' }
     },
   )
-  return result
+  return end === 'limit' && !result.ok && result.problem === 'gone'
+    ? { ok: false, problem: 'unzip-limit' }
+    : result
 }

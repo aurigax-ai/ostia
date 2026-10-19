@@ -35,12 +35,13 @@
     "src/main/extensions/iconThemes.ts",
     "src/main/extensions/marketplace/extensionSuggestions.",
     "src/renderer/components/agents/AgentOfferDialog.tsx",
+    "src/renderer/components/app/RightPanel.tsx",
     "src/renderer/components/extensions/ExtensionAgentPlugin.tsx",
     "src/renderer/components/extensions/ExtensionApprovalDialog.tsx",
     "src/renderer/components/extensions/ExtensionChips.tsx",
     "src/renderer/components/extensions/ExtensionLocales.test.tsx",
-    "src/renderer/components/extensions/ExtensionPanelView.tsx",
     "src/renderer/components/extensions/ExtensionSettingsForm.",
+    "src/renderer/components/extensions/ExtensionSidePanel.tsx",
     "src/renderer/components/extensions/Extensions.test.tsx",
     "src/renderer/components/extensions/ExtensionsV2.test.tsx",
     "src/renderer/components/extensions/InstalledExtensions.tsx",
@@ -48,7 +49,10 @@
     "src/renderer/lib/extensions/extensionChips.",
     "src/renderer/lib/extensions/extensionSettingText.",
     "src/renderer/lib/extensions/iconTheme.ts",
+    "src/renderer/lib/panes/panelKeepAlive.ts",
+    "src/renderer/lib/panes/rightPanelFocus.ts",
     "src/renderer/stores/agents/agentOfferStore.ts",
+    "src/renderer/stores/app/sidePanelStore.ts",
     "src/renderer/stores/extensions/extensionsStore.ts",
     "src/renderer/stores/extensions/iconThemeStore.ts",
     "src/renderer/stores/extensions/pluginsStore.ts",
@@ -57,6 +61,7 @@
   ],
   "specs": [
     "e2e/extension-locales.spec.ts",
-    "e2e/extensions-v2.spec.ts"
+    "e2e/extensions-v2.spec.ts",
+    "e2e/side-panel.spec.ts"
   ]
 }

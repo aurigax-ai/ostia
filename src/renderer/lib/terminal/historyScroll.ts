@@ -91,6 +91,7 @@ export function createHistoryScroll(deps: HistoryScrollDeps): HistoryScroll {
   let info: Info | null = null
   let infoAt = 0
   let seam = 0
+  let epoch = 0
   let engaged = false
   let busy = false
   let queued: Request | null = null
@@ -194,6 +195,8 @@ export function createHistoryScroll(deps: HistoryScrollDeps): HistoryScroll {
   }
 
   const leave = (to: 'bottom' | number): void => {
+    epoch++
+    queued = null
     if (!engaged) return
     engaged = false
     if (layer) layer.box.style.visibility = 'hidden'
@@ -220,9 +223,11 @@ export function createHistoryScroll(deps: HistoryScrollDeps): HistoryScroll {
     }
     if (!notAlternate()) return
     busy = true
+    const started = epoch
+    const stale = (): boolean => !alive || epoch !== started || !notAlternate()
     try {
       const read = await readInfo()
-      if (!notAlternate()) return
+      if (stale()) return
       if (!read || (!engaged && seam <= read.first)) {
         if (!engaged) noHistoryUntil = Date.now() + NO_HISTORY_MS
         return
@@ -232,12 +237,12 @@ export function createHistoryScroll(deps: HistoryScrollDeps): HistoryScroll {
       const anchor = Math.max(read.first, request.options.follow ? layerTop() : request.pick(read))
       const from = windowStart(anchor, read.first, read.end)
       const next = await window.ostia.pty.historyRead(paneId, from, WINDOW_LINES)
-      if (!alive || !next || layer !== target || !notAlternate()) return
+      if (!next || layer !== target || stale()) return
       const hidden = target.panes[1 - target.shown]
       if (!hidden) return
       const t = hidden.term
       await new Promise<void>((done) => t.write(RESET_TERMINAL + next.lines.join('\r\n'), done))
-      if (!alive || layer !== target || !notAlternate()) return
+      if (layer !== target || stale()) return
       const keep = request.options.follow ? layerTop() : anchor
       const buf = t.buffer.active
       t.scrollToLine(rowOfLine(buf, Math.max(0, keep - next.from)))
@@ -414,10 +419,12 @@ export function createHistoryScroll(deps: HistoryScrollDeps): HistoryScroll {
     },
     scrollLines,
     scrollPages: (count) => scrollLines(count * term.rows),
-    scrollToTop: () =>
+    scrollToTop: () => {
+      const started = epoch
       void load({ pick: (read) => read.first, options: {} }).then(() => {
-        if (!engaged) term.scrollToTop()
-      }),
+        if (!engaged && epoch === started) term.scrollToTop()
+      })
+    },
     scrollToBottom: () => {
       if (engaged) leave('bottom')
       else term.scrollToBottom()

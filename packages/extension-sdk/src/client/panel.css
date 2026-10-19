@@ -433,3 +433,70 @@ input[type="radio"]:focus-visible {
   position: absolute;
   visibility: hidden;
 }
+
+.ostia-toolbar {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 8px;
+  background: var(--surface-2);
+  border-bottom: 1px solid var(--line);
+}
+
+.ostia-spacer {
+  flex: 1;
+}
+
+.ostia-empty {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 12px;
+  padding: 6px 0;
+  color: var(--fg-muted);
+  font-size: var(--text-ui-sm);
+  line-height: var(--text-ui-sm--line-height);
+}
+
+.ostia-empty p {
+  margin: 0;
+}
+
+.ostia-row {
+  display: flex;
+  flex-direction: column;
+  padding: 6px 0;
+  list-style: none;
+}
+
+.ostia-row-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 24px;
+  min-width: 0;
+  font-size: var(--text-ui-base);
+  line-height: var(--text-ui-base--line-height);
+}
+
+.ostia-row-title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ostia-row-head > :not(.ostia-row-title) {
+  flex: none;
+  color: var(--fg-muted);
+  font-size: var(--text-ui-xs);
+  line-height: var(--text-ui-xs--line-height);
+}
+
+.ostia-row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 4px;
+}

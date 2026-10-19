@@ -112,7 +112,7 @@ async function initProject(): Promise<void> {
 
 function body(): HTMLElement {
   if (state.failed) return failureState(state.failed)
-  if (!state.ctx) return h('div', { class: 'empty muted', role: 'status' }, p('loading'))
+  if (!state.ctx) return emptyState(p('loading'))
   if (!state.project) {
     const init = state.ctx.canInit
       ? h('button', { 'data-key': 'init', onclick: () => void initProject() }, p('empty.init'))

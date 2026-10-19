@@ -3,16 +3,25 @@ import type { DocumentResult } from './docModel'
 import { sanitizeDocument } from './documentHtml'
 import { OFFICE_LIMITS, officeProblemText } from './officeLimits'
 import { loadOfficeBytes } from './officePage'
+import { outlineWords } from './outlineHtml'
 
 const root = document.getElementById('root') as HTMLElement
+const presentation = document.body.dataset.viewer === 'presentation'
+
+function note(text: string): HTMLElement {
+  const el = document.createElement('p')
+  el.className = 'note'
+  el.textContent = text
+  return el
+}
 
 async function main(): Promise<void> {
   const loaded = await loadOfficeBytes(root)
   if (!loaded) return
   const { doc, t, bytes } = loaded
   const outcome = await runWorker<DocumentResult>(
-    'document.worker.js',
-    { bytes },
+    presentation ? 'presentation.worker.js' : 'document.worker.js',
+    { bytes, words: outlineWords(t) },
     [bytes],
     OFFICE_LIMITS.parseMs,
   )
@@ -25,13 +34,14 @@ async function main(): Promise<void> {
   article.append(sanitizeDocument(result.html))
   const children: Node[] = []
   if (result.imagesDropped > 0) {
-    const note = document.createElement('p')
-    note.className = 'note'
-    note.textContent = t('imagesDropped', { count: result.imagesDropped })
-    children.push(note)
+    children.push(note(t('imagesDropped', { count: result.imagesDropped })))
   }
+  if (result.slidesCut > 0) {
+    children.push(note(t('slidesCut', { slides: result.slidesCut.toLocaleString(doc.locale) })))
+  }
+  if (result.textCut) children.push(note(t('outlineCut')))
   if (!article.textContent?.trim() && !article.querySelector('img')) {
-    showViewerMessage(root, t('documentEmpty'))
+    showViewerMessage(root, presentation ? t('presentationEmpty') : t('documentEmpty'))
     return
   }
   root.replaceChildren(...children, article)

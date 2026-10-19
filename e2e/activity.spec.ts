@@ -16,6 +16,7 @@ test.describe.configure({ timeout: 150_000 })
 
 const RECAP = 'Fixed the cart total.'
 const PROMPT = 'fix the cart total'
+const NOTE = 'Set the staging key'
 
 const HOOK_RUNNER = `
 const { readFileSync } = require('node:fs')
@@ -35,6 +36,9 @@ for (const [event, payload] of events) {
     }
   }
 }
+execFileSync(process.env.OSTIA_NODE, [process.env.OSTIA_CLI, 'activity', 'add', '${NOTE}', '--needs-you'], {
+  env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' },
+})
 `
 
 const FAKE_CLAUDE = [
@@ -90,7 +94,7 @@ test('the Activity panel shows an agent’s recap, shows its events on the toggl
 
     await openActivity(win)
     await expect.poll(() => text(app, '.agent > .markdown'), { timeout: 30_000 }).toBe(RECAP)
-    expect(await text(app, '.agent-name')).toBe('Claude Code')
+    expect(await text(app, '.agent-name')).toMatch(/^(zsh|bash|sh|fish)$/)
 
     await panelEval(app, `document.querySelector('[data-view="activity"]').click(); 'ok'`)
     await expect.poll(() => text(app, '.turn .prompt'), { timeout: 15_000 }).toBe(PROMPT)
@@ -103,12 +107,14 @@ test('the Activity panel shows an agent’s recap, shows its events on the toggl
       .toBe('true')
     expect(await text(app, '.event')).toBe('Ran\npnpm test')
     await win.keyboard.press(chords.splitRight)
-    await expect
-      .poll(() => text(app, '.stream-text'), { timeout: 15_000 })
-      .toContain('Pane started')
+    await expect.poll(() => text(app, '.stream-text'), { timeout: 15_000 }).toMatch(/\b2 started\b/)
     await panelEval(app, `document.querySelector('.agent-head').click(); 'ok'`)
     await expect(win.locator('.xterm-helper-textarea').first()).toBeFocused({ timeout: 15_000 })
-    expect(await text(app, '.note')).toBe('')
+    expect(await text(app, '.note:not([hidden])')).toBe('')
+    await expect.poll(() => text(app, '.note-text'), { timeout: 15_000 }).toBe(NOTE)
+    await win.locator('.xterm-helper-textarea').first().blur()
+    await panelEval(app, `document.querySelector('.note-pane').click(); 'ok'`)
+    await expect(win.locator('.xterm-helper-textarea').first()).toBeFocused({ timeout: 15_000 })
     await expect
       .poll(
         () => {

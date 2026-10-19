@@ -43,6 +43,26 @@ describe('serializeLogicalLines', () => {
       [`\x1b[0;32m${'g'.repeat(25)}\x1b[0m`],
     ],
     ['fills skipped cells with spaces', 'ab\x1b[5Gcd\r\n', ['ab  cd']],
+    [
+      'keeps the style of each logical line when the next one starts with the same attributes',
+      '\x1b[31mred\r\nsame\x1b[0m\r\n',
+      ['\x1b[0;31mred\x1b[0m', '\x1b[0;31msame\x1b[0m'],
+    ],
+    [
+      'changes style inside the second row of a wrapped line',
+      `${'a'.repeat(20)}\x1b[1mbold\x1b[0m tail\r\n`,
+      [`${'a'.repeat(20)}\x1b[0;1mbold\x1b[0m tail`],
+    ],
+    [
+      'keeps a background left by erase-to-end and drops default blanks after it',
+      '\x1b[44mfill\x1b[K\x1b[0m\r\n',
+      [`\x1b[0;44mfill${' '.repeat(16)}\x1b[0m`],
+    ],
+    [
+      'trims blanks that only carry a foreground colour',
+      '\x1b[32mgreen\x1b[0m\x1b[33m   \x1b[0m\r\n',
+      ['\x1b[0;32mgreen\x1b[0m'],
+    ],
   ])('%s', async (_name, text, expected) => {
     expect(await serialized(text)).toEqual(expected)
   })

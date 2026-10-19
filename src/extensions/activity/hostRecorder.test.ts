@@ -54,7 +54,15 @@ describe('HostRecorder', () => {
       ['p1', 'woken', undefined],
       ['p1', 'closed', undefined],
     ])
-    expect(changed).toHaveBeenCalledTimes(5)
+    expect(changed).toHaveBeenCalledTimes(6)
+  })
+
+  it('tells the panel when a pane’s status is cleared, without recording it', async () => {
+    const rec = recorder()
+    rec.accept('pane.attention', { paneId: 'p1', workspaceId: 'w1', state: 'cleared' })
+    await rec.settled()
+    expect(changed).toHaveBeenCalledTimes(1)
+    expect(hosts('w1')).toEqual([])
   })
 
   it('skips a repeat of the same event for a pane', async () => {

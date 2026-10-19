@@ -1,8 +1,10 @@
 import type {
+  DiffContent,
   ExtensionSidebarItem,
   PaneChip,
   WorkspaceChip,
 } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
+import type { ExtensionOpenDiffRequest } from '@aurigax-ai/ostia-extension-sdk/contract/extensionsBridge'
 import { isRecord } from '@aurigax-ai/ostia-extension-sdk/contract/isRecord'
 
 export const GIT_BRANCH_CHIP = 'branch'
@@ -27,6 +29,14 @@ export interface BranchInfo {
 }
 
 export type ChangeArea = 'staged' | 'unstaged' | 'untracked' | 'conflicted'
+
+export interface ShownDiff extends DiffContent {
+  area?: ChangeArea
+}
+
+export interface GitOpenDiffRequest extends ExtensionOpenDiffRequest {
+  area?: ChangeArea
+}
 
 export interface FileChange {
   path: string

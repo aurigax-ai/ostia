@@ -1,5 +1,11 @@
 import type { ExtensionResult } from '@aurigax-ai/ostia-extension-sdk'
-import { context, h, icon, panelTranslator } from '@aurigax-ai/ostia-extension-sdk/panel'
+import {
+  context,
+  h,
+  icon,
+  emptyState as kitEmptyState,
+  panelTranslator,
+} from '@aurigax-ai/ostia-extension-sdk/panel'
 import { actorName } from './board'
 import en from './locales/en.json'
 import zhHant from './locales/zh-Hant.json'
@@ -108,13 +114,11 @@ export function emptyState(
   tone: 'muted' | 'error' = 'muted',
   action?: HTMLElement,
 ): HTMLElement {
-  return h(
-    'div',
-    { class: `empty ${tone}`, role: tone === 'error' ? 'alert' : 'status' },
-    h('p', { class: 'empty-title' }, title),
-    hint ? h('p', { class: 'empty-hint' }, hint) : null,
-    action ?? null,
-  )
+  const el = kitEmptyState(hint ? `${title} ${hint}` : title, action, {
+    role: tone === 'error' ? 'alert' : 'status',
+  })
+  if (tone === 'error') el.classList.add('error')
+  return el
 }
 
 export function failureState(res: ExtensionResult): HTMLElement {

@@ -8,6 +8,17 @@ import { type ElectronApplication, type Page, expect, launchShared, test } from 
 const RIGHT_EDGE_MAX = 16
 
 async function rows(win: Page) {
+  await win.waitForFunction(() => {
+    const list = document.querySelector('[data-slot="command-list"]')
+    const popup = list?.closest<HTMLElement>('[data-slot="dialog-content"]')
+    if (!popup) return false
+    const style = getComputedStyle(popup)
+    return (
+      !popup.hasAttribute('data-starting-style') &&
+      style.transform === 'none' &&
+      style.opacity === '1'
+    )
+  })
   return win.evaluate(() => {
     const list = document.querySelector('[data-slot="command-list"]') as HTMLElement
     const listRect = list.getBoundingClientRect()
@@ -24,7 +35,7 @@ async function rows(win: Page) {
       const trailingRect = trailing?.getBoundingClientRect()
       const rowRect = row.getBoundingClientRect()
       return {
-        edge: trailingRect ? rowRect.right - trailingRect.right : null,
+        edge: trailingRect ? Math.round(rowRect.right - trailingRect.right) : null,
         afterTitle: trailingRect ? trailingRect.left >= textRect.right : true,
         hasKeys: keys !== null,
         keysDimmer: keys ? getComputedStyle(keys).color !== getComputedStyle(name).color : true,
@@ -90,6 +101,9 @@ test.beforeAll(async () => {
   app = await launchShared(isolatedLaunch(dataHome))
   win = await app.firstWindow()
   await win.waitForLoadState('domcontentloaded')
+  await expect(win.locator('.rail-tab').filter({ hasText: 'deep' })).toBeVisible({
+    timeout: 15_000,
+  })
 })
 
 test.afterAll(async () => {
@@ -97,9 +111,9 @@ test.afterAll(async () => {
 })
 
 test('a long workspace path is cut short inside its row and the names stay whole', async () => {
-  await expect(win.getByText('deep').first()).toBeVisible({ timeout: 15_000 })
   await win.keyboard.press(chords.palette)
   const palette = win.getByRole('dialog', { name: 'Command palette' })
+  await expect(palette.getByRole('combobox')).toHaveValue('>')
   await palette.getByRole('combobox').fill('')
   await expect(palette.getByRole('option', { name: /deep/ }).first()).toBeVisible()
 
@@ -122,6 +136,7 @@ test('each palette row shows its keycap and id at the right edge, the keycap dim
   await openWorkspace(win)
   await win.keyboard.press(chords.palette)
   const palette = win.getByRole('dialog', { name: 'Command palette' })
+  await expect(palette.getByRole('combobox')).toHaveValue('>')
   await expect(palette.getByRole('option').first()).toBeVisible()
 
   const all = await rows(win)

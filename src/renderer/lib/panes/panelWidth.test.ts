@@ -9,6 +9,7 @@ import {
   panelDragResult,
   panelKeyWidth,
   panelMaxWidth,
+  rightPanelWidth,
   storePanelWidth,
   storedPanelWidth,
 } from './panelWidth'
@@ -87,6 +88,11 @@ describe('panelKeyWidth', () => {
   it('jumps to the minimum on Home and the maximum on End', () => {
     expect(panelKeyWidth(RAIL_WIDTH, 'Home', 300, WIDE)).toBe(RAIL_WIDTH.minWidth)
     expect(panelKeyWidth(RAIL_WIDTH, 'End', 300, 1000)).toBe(400)
+  })
+
+  it('widens a panel on the right edge with ArrowLeft and narrows it with ArrowRight', () => {
+    expect(panelKeyWidth(RAIL_WIDTH, 'ArrowLeft', 300, WIDE, 'right')).toBe(300 + PANEL_KEY_STEP)
+    expect(panelKeyWidth(RAIL_WIDTH, 'ArrowRight', 300, WIDE, 'right')).toBe(300 - PANEL_KEY_STEP)
   })
 
   it('ignores other keys', () => {
@@ -170,5 +176,18 @@ describe('Files panel width', () => {
     storePanelWidth(files, 500)
     expect(storedPanelWidth(files)).toBe(500)
     expect(storedPanelWidth(RAIL_WIDTH)).toBe(RAIL_WIDTH.defaultWidth)
+  })
+})
+
+describe('rightPanelWidth', () => {
+  it('remembers each panel on its own key and shares one width variable', () => {
+    expect(rightPanelWidth('graphs').storageKey).toBe('sidePanelWidth:graphs')
+    expect(rightPanelWidth('activity').storageKey).toBe('sidePanelWidth:activity')
+    expect(rightPanelWidth('graphs').cssVar).toBe(rightPanelWidth('activity').cssVar)
+  })
+
+  it('lets a panel grow to 70% of the window', () => {
+    expect(panelMaxWidth(rightPanelWidth('graphs'), 1000)).toBe(700)
+    expect(panelMaxWidth(rightPanelWidth('graphs'), 4000)).toBe(rightPanelWidth('graphs').maxWidth)
   })
 })

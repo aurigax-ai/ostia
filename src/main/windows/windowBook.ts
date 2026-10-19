@@ -62,6 +62,7 @@ export function splitSnapshot(file: AppSnapshot | null): {
         ...emptySnapshot(file.savedAt),
         activeWorkspaceId: w.activeWorkspaceId,
         ...(w.leftPanel ? { leftPanel: w.leftPanel } : {}),
+        ...(w.rightPanel ? { rightPanel: w.rightPanel } : {}),
         workspaces: w.workspaces,
       },
     })),
@@ -81,6 +82,7 @@ export function mergeSnapshots(
       bounds: slot.bounds,
       activeWorkspaceId: slot.snapshot.activeWorkspaceId,
       ...(slot.snapshot.leftPanel ? { leftPanel: slot.snapshot.leftPanel } : {}),
+      ...(slot.snapshot.rightPanel ? { rightPanel: slot.snapshot.rightPanel } : {}),
       workspaces: slot.snapshot.workspaces,
     }))
   const { windows: _stale, ...rest } = base

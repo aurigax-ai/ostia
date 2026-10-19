@@ -33,6 +33,7 @@ interface PanelResizerProps {
   label: string
   controls: string
   className: string
+  side?: 'left' | 'right'
   collapsed?: boolean
   onCollapsedChange?: (collapsed: boolean) => void
 }
@@ -42,6 +43,7 @@ export function PanelResizer({
   label,
   controls,
   className,
+  side = 'left',
   collapsed = false,
   onCollapsedChange,
 }: PanelResizerProps): JSX.Element | null {
@@ -95,7 +97,8 @@ export function PanelResizer({
       }}
       onPointerMove={(e) => {
         if (!drag || e.pointerId !== drag.pointerId) return
-        const result = panelDragResult(spec, drag.width, e.clientX - drag.x, viewport)
+        const dx = side === 'right' ? drag.x - e.clientX : e.clientX - drag.x
+        const result = panelDragResult(spec, drag.width, dx, viewport)
         latest.current = result.width
         setPreferred(result.width)
         if (result.collapsed !== collapsed) onCollapsedChange?.(result.collapsed)
@@ -105,7 +108,7 @@ export function PanelResizer({
       onLostPointerCapture={endDrag}
       onDoubleClick={() => commit(spec.defaultWidth)}
       onKeyDown={(e) => {
-        const next = panelKeyWidth(spec, e.key, width, viewport)
+        const next = panelKeyWidth(spec, e.key, width, viewport, side)
         if (next === null) return
         e.preventDefault()
         commit(next)

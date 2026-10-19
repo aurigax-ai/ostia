@@ -1,8 +1,8 @@
-import { writeFileSync } from 'node:fs'
+import { existsSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { freshDataHome, isolatedLaunch } from './dataHome'
 import { fakeAgentBin, isolatedHome } from './fakeAgent'
-import { openWorkspace, typeLine } from './helpers'
+import { expectHeld, openWorkspace, typeLine } from './helpers'
 import { type Page, _electron as electron, expect, test } from './test'
 
 const REPORT = 'ELECTRON_RUN_AS_NODE=1 "$OSTIA_NODE" "$OSTIA_CLI" resume-token claude e2e-wake'
@@ -25,6 +25,7 @@ const EXITS_AT_ONCE = ['  echo refused-at-once', '  exit 1'].join('\n')
 
 function reportsOnceGated(gate: string): string {
   return [
+    `  touch "${gate}.waiting"`,
     `  while [ ! -e "${gate}" ]; do sleep 0.1; done`,
     `  ${REPORT} >/dev/null 2>&1`,
     '  sleep 2',
@@ -96,8 +97,8 @@ test(
         'ostia pane wake worker; echo wake-exit-$?; until ostia pane read worker | grep -q resumed-ready; do sleep 0.2; done; echo worker-shows-ready-$?',
       )
       await expect(caller).toContainText('ostia pane wake worker')
-      await new Promise((resolve) => setTimeout(resolve, 2000))
-      await expect(caller).not.toContainText('wake-exit-0')
+      await expect.poll(() => existsSync(`${gate}.waiting`), { timeout: 30_000 }).toBe(true)
+      await expectHeld(async () => (await caller.innerText()).includes('wake-exit-0'), false, 500)
       writeFileSync(gate, '')
       await expect(caller).toContainText('wake-exit-0', { timeout: 30_000 })
       await expect(caller).toContainText('worker-shows-ready-0', { timeout: 30_000 })

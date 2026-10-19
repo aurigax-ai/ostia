@@ -258,4 +258,35 @@ describe('Journal', () => {
     expect(memory.archived('scratch-1')).toEqual([])
     expect(existsSync(join(dir, ARCHIVE_DIR))).toBe(false)
   })
+
+  it('bumps a workspace revision on every change to it and on nothing else', () => {
+    const tracked = journal()
+    expect(tracked.revision('w1')).toBe(0)
+    tracked.append('w1', note(now, 'needsyouaa', { needsYou: true }), true)
+    const afterAppend = tracked.revision('w1')
+    expect(afterAppend).toBeGreaterThan(0)
+    expect(tracked.revision('w2')).toBe(0)
+
+    expect(tracked.markDone('w1', 'nosuchaaaa', now)).toBeNull()
+    expect(tracked.revision('w1')).toBe(afterAppend)
+    tracked.markDone('w1', 'needsyouaa', now)
+    const afterDone = tracked.revision('w1')
+    expect(afterDone).toBeGreaterThan(afterAppend)
+    tracked.markDone('w1', 'needsyouaa', now + 5)
+    expect(tracked.revision('w1')).toBe(afterDone)
+
+    tracked.append('w2', event(now - LIVE_MS - 5), true)
+    const other = tracked.revision('w2')
+    expect(tracked.prune()).toBe(true)
+    expect(tracked.revision('w2')).toBeGreaterThan(other)
+    expect(tracked.revision('w1')).toBe(afterDone)
+  })
+
+  it('bumps the revision of a memory-only workspace that is dropped once it is closed', () => {
+    const memory = journal()
+    memory.append('scratch-1', event(now), false)
+    const before = memory.revision('scratch-1')
+    expect(memory.dropClosedMemory(new Set())).toBe(true)
+    expect(memory.revision('scratch-1')).toBeGreaterThan(before)
+  })
 })
