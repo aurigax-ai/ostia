@@ -81,6 +81,19 @@ export default defineConfig({
           },
         },
       },
+      ...(process.env.AGENT_TOKENS_OUT
+        ? [
+            {
+              extends: true,
+              test: {
+                name: 'agent-tokens',
+                environment: 'node',
+                setupFiles: ['./test/hostEnv.ts', './test/privateTmp.ts', './test/appEnv.ts'],
+                include: ['test/agentTokens.bench.ts'],
+              },
+            },
+          ]
+        : []),
     ],
   },
 })
