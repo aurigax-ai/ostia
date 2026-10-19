@@ -6,11 +6,7 @@ const root = process.argv.find((a, i) => i > 1 && !a.startsWith('--')) ?? proces
 const check = process.argv.includes('--check')
 
 const SCAN_DIRS = ['src', 'packages', 'e2e', 'test', 'scripts']
-const ROOT_FILES = [
-  'electron.vite.config.ts',
-  'vitest.config.mts',
-  'playwright.config.ts',
-]
+const ROOT_FILES = ['electron.vite.config.ts', 'vitest.config.mts', 'playwright.config.ts']
 const SKIP = [/node_modules/, /src\/renderer\/components\/ui\//, /\.d\.ts$/]
 const DIRECTIVE =
   /^(\/\/|\/\*)\s*(biome-ignore|@ts-expect-error|@ts-ignore|@ts-nocheck|eslint-|@vite-ignore|webpackIgnore)|^\/\/\/\s*<reference/

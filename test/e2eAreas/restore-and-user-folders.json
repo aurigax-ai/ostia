@@ -11,9 +11,5 @@
     "src/renderer/lib/layout/snapshot.ts",
     "src/renderer/stores/workspaces/persistence.ts"
   ],
-  "specs": [
-    "e2e/session-restore.spec.ts",
-    "e2e/user-dirs.spec.ts",
-    "e2e/workspace-restore.spec.ts"
-  ]
+  "specs": ["e2e/session-restore.spec.ts", "e2e/user-dirs.spec.ts", "e2e/workspace-restore.spec.ts"]
 }

@@ -1,6 +1,13 @@
 import { loadAllow } from './i18nAllow.mjs'
+import {
+  BASE_LANGUAGE,
+  CORE_LANGUAGES,
+  REPO_ROOT,
+  areaFile,
+  bundleModule,
+  loadCatalogue,
+} from './i18nCatalog.mjs'
 import { compareCatalog } from './i18nCompare.mjs'
-import { BASE_LANGUAGE, CORE_LANGUAGES, REPO_ROOT, areaFile, bundleModule, loadCatalogue } from './i18nCatalog.mjs'
 import { checkExtensions } from './i18nExtensions.mjs'
 import { checkLiterals } from './i18nLiterals.mjs'
 import { orderProblems } from './i18nOrder.mjs'
@@ -38,10 +45,19 @@ export async function runChecks(root) {
   problems.push(...orderProblems(root))
   const packs = checkPacks(root, catalogue, allow)
   const extensions = checkExtensions(root, sdk, allow)
-  problems.push(...packs.problems, ...extensions.problems, ...checkLiterals(root, allow), ...allow.stale())
+  problems.push(
+    ...packs.problems,
+    ...extensions.problems,
+    ...checkLiterals(root, allow),
+    ...allow.stale(),
+  )
   return {
     problems: [...new Set(problems)].sort((a, b) => a.localeCompare(b, 'en', { numeric: true })),
-    coverage: { core, areaOf: catalogue.areaOf, packs: packs.packs, extensions: extensions.extensions },
+    coverage: {
+      core,
+      areaOf: catalogue.areaOf,
+      packs: packs.packs,
+      extensions: extensions.extensions,
+    },
   }
 }
-

@@ -24,11 +24,15 @@ wss.on('connection', (ws) => {
     if (message.method === 'initialize') {
       ws.send(JSON.stringify({ id: message.id, result: { userAgent: 'fake-codex' } }))
     } else if (message.method === 'turn/start' && message.params.threadId === 'refuse-me') {
-      ws.send(JSON.stringify({ id: message.id, error: { code: -32000, message: 'no such thread' } }))
+      ws.send(
+        JSON.stringify({ id: message.id, error: { code: -32000, message: 'no such thread' } }),
+      )
     } else if (message.method === 'turn/start') {
       ws.send(JSON.stringify({ id: message.id, result: { turn: { id: 'turn-1' } } }))
     } else {
-      ws.send(JSON.stringify({ id: message.id, error: { code: -32601, message: 'unknown method' } }))
+      ws.send(
+        JSON.stringify({ id: message.id, error: { code: -32601, message: 'unknown method' } }),
+      )
     }
   })
 })

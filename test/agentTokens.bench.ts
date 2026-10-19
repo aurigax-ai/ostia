@@ -163,6 +163,18 @@ beforeAll(async () => {
     scripts: true,
     handler: () => ({ paneId: agent.externalId, text: SCREEN, running: true, lastExitCode: 0 }),
   })
+  registerControlMethod('pane.input', {
+    scripts: true,
+    handler: () => ({
+      ok: true,
+      paneId: agent.externalId,
+      bytes: 12,
+      pasted: false,
+      responded: true,
+      turnStarted: true,
+      running: true,
+    }),
+  })
   registerControlMethod('process.list', { scripts: true, handler: () => PROCESSES })
   for (const cap of [
     'all-workspaces',
@@ -239,6 +251,15 @@ describe('CLI answers through the real CLI', () => {
   it('measures the listing and reading verbs', async () => {
     expect((await measure('cli.pane.list', 'pane', 'list')).code).toBe(0)
     expect((await measure('cli.pane.read', 'pane', 'read', agent.externalId)).code).toBe(0)
+    const send = await measure(
+      'cli.pane.send',
+      'pane',
+      'send',
+      agent.externalId,
+      'run the tests',
+      '--enter',
+    )
+    expect(send.code).toBe(0)
     expect((await measure('cli.process.list', 'process', 'list')).code).toBe(0)
     expect((await measure('cli.docs', 'docs')).code).toBe(0)
   })

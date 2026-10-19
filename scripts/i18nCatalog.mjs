@@ -11,7 +11,9 @@ export const EXTENSIONS_DIR = 'src/extensions'
 export const BASE_LANGUAGE = 'en'
 export const CORE_LANGUAGES = { 'zh-Hant': 'zhHant' }
 const AREA_SUFFIX = 'En.ts'
-export const GENERATED_PACKS = { 'langpack-zh-hant': { exportName: 'zhHant', file: 'zh-Hant.json' } }
+export const GENERATED_PACKS = {
+  'langpack-zh-hant': { exportName: 'zhHant', file: 'zh-Hant.json' },
+}
 
 const PLACEHOLDER = /\{\w+\}/g
 
@@ -38,7 +40,8 @@ export async function bundleModule(root, contents) {
 
 export function flatten(value, path = '', out = new Map()) {
   if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
-    for (const [key, child] of Object.entries(value)) flatten(child, path ? `${path}.${key}` : key, out)
+    for (const [key, child] of Object.entries(value))
+      flatten(child, path ? `${path}.${key}` : key, out)
   } else {
     out.set(path, value)
   }
@@ -71,12 +74,18 @@ export async function loadCatalogue(root) {
     root,
     [
       `export { en, ${exports.join(', ')} } from ${JSON.stringify(join(root, COMPOSER))}`,
-      ...areas.map((area) => `export { ${area}En } from ${JSON.stringify(join(root, areaFile(area, BASE_LANGUAGE)))}`),
+      ...areas.map(
+        (area) =>
+          `export { ${area}En } from ${JSON.stringify(join(root, areaFile(area, BASE_LANGUAGE)))}`,
+      ),
     ].join('\n'),
   )
   const areaOfNamespace = new Map()
-  for (const area of areas) for (const namespace of Object.keys(mod[`${area}En`])) areaOfNamespace.set(namespace, area)
-  const languages = Object.fromEntries(Object.entries(CORE_LANGUAGES).map(([tag, name]) => [tag, flatten(mod[name])]))
+  for (const area of areas)
+    for (const namespace of Object.keys(mod[`${area}En`])) areaOfNamespace.set(namespace, area)
+  const languages = Object.fromEntries(
+    Object.entries(CORE_LANGUAGES).map(([tag, name]) => [tag, flatten(mod[name])]),
+  )
   return {
     en: flatten(mod.en),
     languages,

@@ -6,7 +6,7 @@ import {
   analyze,
   benchLines,
   classifyCommand,
-  codexFailed,
+  codexResult,
   collect,
   errorCode,
   estimateTokens,
@@ -276,12 +276,19 @@ describe('errorCode', () => {
     expect(errorCode(`all good ${SECRET}`, VOCAB.codes)).toBe('other')
   })
 
-  it('reads a failed Codex call from the exit line before the output', () => {
-    expect(codexFailed('Chunk ID: a\nProcess exited with code 1\nOutput:\nx')).toBe(true)
-    expect(codexFailed('Exit code: 2\nOutput:\nx')).toBe(true)
-    expect(codexFailed('Process exited with code 0\nOutput:\nProcess exited with code 1')).toBe(
-      false,
-    )
+  it('reads a failed Codex call from the exit line before the output, or from JSON metadata', () => {
+    expect(codexResult('Chunk ID: a\nProcess exited with code 1\nOutput:\nx').failed).toBe(true)
+    expect(codexResult('Exit code: 2\nOutput:\nx').failed).toBe(true)
+    expect(
+      codexResult('Process exited with code 0\nOutput:\nProcess exited with code 1').failed,
+    ).toBe(false)
+    const failed = JSON.stringify({
+      output: 'ostia pane send: unknown flag --x',
+      metadata: { exit_code: 1 },
+    })
+    expect(codexResult(failed)).toEqual({ text: 'ostia pane send: unknown flag --x', failed: true })
+    const fine = JSON.stringify({ output: 'ok', metadata: { exit_code: 0 } })
+    expect(codexResult(fine)).toEqual({ text: 'ok', failed: false })
   })
 })
 
