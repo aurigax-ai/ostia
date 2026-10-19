@@ -114,8 +114,11 @@ export interface PaneShellEnvParts {
   pane: Record<string, string>
   agentHooks: unknown
   artifactsDir?: string | null
+  workspaceDir?: string | null
   launcherDir?: string
 }
+
+const WORKSPACE_DIR_ENV = 'WORKSPACE_DIR'
 
 function artifactsEnv(dir: string | null | undefined): Record<string, string> {
   return dir ? appEnv({ [ARTIFACTS_ENV]: dir, [PAD_ENV]: join(dir, PAD_FILE) }) : {}
@@ -123,10 +126,11 @@ function artifactsEnv(dir: string | null | undefined): Record<string, string> {
 
 export function paneShellEnv(parts: PaneShellEnvParts): Record<string, string> {
   const env = {
-    ...withoutEnv(withoutGpuLaunchEnv(parts.parent), [ARTIFACTS_ENV, PAD_ENV]),
+    ...withoutEnv(withoutGpuLaunchEnv(parts.parent), [ARTIFACTS_ENV, PAD_ENV, WORKSPACE_DIR_ENV]),
     ...parts.integration,
     ...parts.pane,
     ...artifactsEnv(parts.artifactsDir),
+    ...(parts.workspaceDir ? appEnv({ [WORKSPACE_DIR_ENV]: parts.workspaceDir }) : {}),
     ...agentHooksEnv(parts.agentHooks),
     ...ptyLocaleEnv(parts.parent, parts.locale, parts.hasLocale),
     ...ptyHyperlinkEnv(parts.parent),

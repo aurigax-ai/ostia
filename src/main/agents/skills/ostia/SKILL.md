@@ -13,7 +13,8 @@ Inside an Ostia terminal pane these are set:
 |---|---|
 | `OSTIA_SOCKET` | the app's control socket; unset means the pane is not inside Ostia and every `ostia` command fails |
 | `OSTIA_PANE_ID` | this pane's id, the `paneId` other commands take |
-| `OSTIA_START_DIR` | the folder the workspace is anchored to |
+| `OSTIA_START_DIR` | the folder this pane was asked to start in |
+| `OSTIA_WORKSPACE_DIR` | the folder the workspace is anchored to, as an absolute path (the real path in a sandboxed workspace) |
 | `OSTIA_ARTIFACTS`, `OSTIA_PAD` | the workspace's artifact folder and its scratch pad (unset in sandboxed workspaces) |
 | `OSTIA_NODE`, `OSTIA_CLI` | the app's runtime and the CLI script |
 
