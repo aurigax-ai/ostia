@@ -54,7 +54,14 @@ interface RunResult {
   stderr: string
 }
 
-const NO_PROGRAMS = ['-c', 'core.fsmonitor=false']
+const NO_PROGRAMS = [
+  '-c',
+  'core.fsmonitor=false',
+  '-c',
+  'log.showSignature=false',
+  '-c',
+  'safe.bareRepository=explicit',
+]
 const NO_HOOKS = ['-c', `core.hooksPath=${devNull}`]
 
 const FILTER_KEY = /^(?:local|worktree)\tfilter\.(.+)\.(clean|smudge|process)$/
@@ -274,7 +281,13 @@ export async function commit(root: string, message: string): Promise<string> {
 }
 
 export async function log(root: string, limit: number): Promise<CommitSummary[]> {
-  const res = await run(root, ['log', `-n${limit}`, `--format=${LOG_FORMAT}`, '--no-color'])
+  const res = await run(root, [
+    'log',
+    `-n${limit}`,
+    `--format=${LOG_FORMAT}`,
+    '--no-color',
+    '--no-show-signature',
+  ])
   if (res.code !== 0) return []
   return parseLog(res.stdout.toString('utf8'))
 }
@@ -296,6 +309,7 @@ export async function graphLog(
 ): Promise<GraphCommit[]> {
   const out = await runOk(root, [
     'log',
+    '--no-show-signature',
     '--date-order',
     '--decorate=full',
     '--no-color',
@@ -329,7 +343,9 @@ export interface CommitDetail {
 export async function commitDetail(root: string, input: string): Promise<CommitDetail> {
   const sha = await resolveCommit(root, input)
   const [summary] = parseLog(
-    (await runOk(root, ['log', '-n1', `--format=${LOG_FORMAT}`, sha])).toString('utf8'),
+    (
+      await runOk(root, ['log', '-n1', '--no-show-signature', `--format=${LOG_FORMAT}`, sha])
+    ).toString('utf8'),
   )
   const parent = await firstParent(root, sha)
   const out = parent
