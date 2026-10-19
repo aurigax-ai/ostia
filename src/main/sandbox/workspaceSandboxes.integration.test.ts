@@ -15,6 +15,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { build } from 'esbuild'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { en } from '../../shared/app/dict'
 import { DEFAULT_SANDBOX_GLOBALS } from '../../shared/sandbox/sandbox'
 import { quoteArgv } from '../../shared/terminal/shellQuote'
 import { shellArgv } from '../../shared/terminal/terminalShell'
@@ -101,7 +102,7 @@ describe('WorkspaceSandboxes', () => {
       const failure = await manager.wrap('ws', 'bash', 'bash').catch((err: unknown) => err)
       expect(failure).toBeInstanceOf(SandboxUnavailableError)
       const { message, missing } = failure as SandboxUnavailableError
-      const banner = sandboxFailureBanner(message, missing)
+      const banner = sandboxFailureBanner(en.native.paneBanner, message, missing)
       expect(banner).toContain('bubblewrap')
       expect(banner).toContain('ostia system install bubblewrap')
       expect(banner).not.toContain('socat')
@@ -428,8 +429,10 @@ describe('WorkspaceSandboxes', () => {
       const manager = sandboxes(store)
       expect(manager.claimHomeNotice('ws')).toBe(true)
       expect(manager.claimHomeNotice('ws')).toBe(false)
-      expect(hiddenHomeNotice()).toContain('your home folder is hidden here')
-      expect(hiddenHomeNotice()).toContain('are discarded when this shell exits')
+      expect(hiddenHomeNotice(en.native.paneBanner)).toContain('your home folder is hidden here')
+      expect(hiddenHomeNotice(en.native.paneBanner)).toContain(
+        'are discarded when this shell exits',
+      )
       const home = join(root, 'home')
       const out = await shellIn(
         manager,
