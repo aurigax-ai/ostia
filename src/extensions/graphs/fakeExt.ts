@@ -38,6 +38,7 @@ export interface FakeExt {
     opts: Parameters<GraphsExt['runAgent']>[0],
   ) => { ok: false; error: string; message?: string } | null
   execReply: (opts: ExecOptions) => Awaited<ReturnType<GraphsExt['exec']>>
+  busReply: () => Awaited<ReturnType<GraphsExt['busSend']>>
   answer: (reply: Awaited<ReturnType<GraphsExt['ask']>>) => void
   mcpCalls: { server: string; tool: string; input: Record<string, unknown> }[]
   mcpReply: (server: string, tool: string) => Awaited<ReturnType<GraphsExt['mcpCall']>>
@@ -55,6 +56,7 @@ export function fakeExt(): FakeExt {
     notices: [],
     panes: [],
     refuseAgent: () => null,
+    busReply: () => ({ ok: true, id: 'm1', state: 'delivered' }),
     execReply: () => ({
       ok: true,
       exitCode: 0,
@@ -88,7 +90,7 @@ export function fakeExt(): FakeExt {
       },
       busSend: async (to, text) => {
         fake.busSent.push({ to, text })
-        return { ok: true, id: 'm1', state: 'delivered' }
+        return fake.busReply()
       },
       wakePane: async (paneId) => {
         fake.woken.push(paneId)
