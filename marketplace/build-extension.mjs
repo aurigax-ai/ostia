@@ -86,7 +86,12 @@ function copyAgentSkills(src, out) {
   }
 }
 
-function browserBundle(entry, outfile) {
+function bundleAliases(src) {
+  const file = join(src, 'bundle.json')
+  return existsSync(file) ? (JSON.parse(readFileSync(file, 'utf8')).alias ?? {}) : {}
+}
+
+function browserBundle(entry, outfile, alias = {}) {
   return build({
     entryPoints: [entry],
     outfile,
@@ -95,6 +100,7 @@ function browserBundle(entry, outfile) {
     format: 'iife',
     target: 'chrome120',
     loader: { '.svg': 'text' },
+    alias,
     logLevel: 'warning',
   })
 }
@@ -102,6 +108,7 @@ function browserBundle(entry, outfile) {
 async function buildFileKinds(src, out, panelBaseCss) {
   const kinds = readSourceManifest(src).contributes?.fileKinds ?? []
   if (kinds.length === 0) return
+  const alias = bundleAliases(src)
   copyFileSync(panelBaseCss, join(out, 'base.css'))
   for (const {
     view: { entry },
@@ -109,11 +116,11 @@ async function buildFileKinds(src, out, panelBaseCss) {
     copyFileSync(join(src, entry), join(out, entry))
     const script = entry.replace(/\.html$/, '.ts')
     if (existsSync(join(src, script))) {
-      await browserBundle(join(src, script), join(out, script.replace(/\.ts$/, '.js')))
+      await browserBundle(join(src, script), join(out, script.replace(/\.ts$/, '.js')), alias)
     }
   }
   for (const name of readdirSync(src).filter((file) => file.endsWith('.worker.ts'))) {
-    await browserBundle(join(src, name), join(out, name.replace(/\.ts$/, '.js')))
+    await browserBundle(join(src, name), join(out, name.replace(/\.ts$/, '.js')), alias)
   }
 }
 

@@ -29,10 +29,13 @@
         "@novnc/novnc",
         "@withfig/autocomplete",
         "bash-language-server",
+        "buffer",
         "d3",
+        "events",
         "lucide-react",
         "pyright",
         "recharts",
+        "stream-browserify",
         "typescript-language-server",
         "yaml-language-server"
       ]
