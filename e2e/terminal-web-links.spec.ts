@@ -3,7 +3,14 @@ import { createServer } from 'node:http'
 import type { AddressInfo } from 'node:net'
 import { join } from 'node:path'
 import { freshDataHome, isolatedLaunch } from './dataHome'
-import { PROMPT, newTerminalWorkspace, openWorkspace } from './helpers'
+import { launchGhostty } from './ghostty'
+import {
+  PROMPT,
+  newTerminalWorkspace,
+  openWorkspace,
+  openedExternally,
+  stubExternalOpener,
+} from './helpers'
 import { clickWith, hoverPoint, linkPoint } from './terminalLinks'
 import { type Page, _electron as electron, expect, test } from './test'
 
@@ -144,3 +151,52 @@ test('a hyperlink in a mouse-reporting program leaves plain clicks to the progra
     server.close()
   }
 })
+
+test(
+  'Ghostty: a Ctrl+click on a hyperlink in a mouse-reporting program opens one tab and reports nothing to the program',
+  { tag: '@experimental' },
+  async () => {
+    test.setTimeout(60_000)
+    const requests: string[] = []
+    const server = await listen((url) => requests.push(url))
+    const { app, win } = await launchGhostty()
+    try {
+      await stubExternalOpener(app)
+      const reports = join(freshDataHome(), 'mouse-reports')
+      writeFileSync(reports, '')
+      const reported = () => readFileSync(reports, 'utf8').match(/\[<\d+;\d+;\d+[Mm]/g) ?? []
+      const screen = win.locator('.pane-slot:not([data-hidden]) .ghostty-screen').first()
+      const box = await screen.boundingBox()
+      if (!box) throw new Error('terminal screen not found')
+      const url = `http://127.0.0.1:${server.port}/osc`
+      await win.keyboard.type(
+        `clear; printf '\\033[?1000h\\033[?1006h\\033]8;;${url}\\033\\\\docs page\\033]8;;\\033\\\\\\n'; stty raw -echo; cat > ${reports}`,
+      )
+      await win.keyboard.press('Enter')
+      const link = { x: box.x + 30, y: box.y + 8 }
+      const blank = { x: box.x + 30, y: box.y + 80 }
+
+      await hoverPoint(win, link)
+      await expect(linkHint(win)).toContainText(url, { timeout: 5_000 })
+      await clickWith(win, blank, [])
+      await expect.poll(reported, { timeout: 10_000 }).toHaveLength(2)
+
+      await hoverPoint(win, link)
+      await clickWith(win, link, ['Control'])
+      await expect(win.locator('.pane-slot:not([data-hidden]) .browser-address')).toHaveValue(url, {
+        timeout: 15_000,
+      })
+      await expect.poll(() => requests, { timeout: 15_000 }).toContain('/osc')
+
+      await win.locator('.pane-tab').first().click()
+      await expect(screen).toBeVisible()
+      await clickWith(win, blank, [])
+      await expect.poll(reported, { timeout: 10_000 }).toHaveLength(4)
+      expect(reported().filter((report) => report.startsWith('[<16;'))).toEqual([])
+      expect(await openedExternally(app)).toEqual([])
+    } finally {
+      await app.close()
+      server.close()
+    }
+  },
+)
