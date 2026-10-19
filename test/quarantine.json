@@ -1,11 +1,5 @@
 [
   {
-    "file": "e2e/browser-device.spec.ts",
-    "name": "device mode shows a page as a phone, rotates, resizes, survives reload and restart, and turns off",
-    "issue": 1142,
-    "until": "2026-11-17"
-  },
-  {
     "file": "e2e/command-palette-layout.spec.ts",
     "name": "a long workspace path is cut short inside its row and the names stay whole",
     "issue": 1137,
