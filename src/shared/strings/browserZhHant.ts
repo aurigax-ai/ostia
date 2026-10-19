@@ -3,6 +3,7 @@ import type { browserEn } from './browserEn'
 export const browserZhHant: typeof browserEn = {
   browser: {
     address: '網址',
+    addressPlaceholder: '搜尋或輸入網址',
     back: '上一頁',
     closeSend: '捨棄擷取',
     copyImage: '複製圖片',
