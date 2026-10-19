@@ -1,11 +1,7 @@
-import { execFileSync } from 'node:child_process'
-import { randomBytes } from 'node:crypto'
 import { describe, expect, it } from 'vitest'
+import { TEXT, manyBlocks, mixed, seeded } from '../../../test/fixtures/archives/bzip2Data'
+import { bz2 } from '../../../test/fixtures/archives/bzip2Fixture'
 import { Bzip2Decoder, Bzip2Error } from './bzip2'
-
-function bzip2(bytes: Uint8Array, level = 9): Buffer {
-  return execFileSync('bzip2', [`-${level}`, '-c'], { input: bytes, maxBuffer: 64 * 1024 * 1024 })
-}
 
 function decode(packed: Uint8Array, chunk = packed.length || 1, out = 65_536): Buffer {
   const decoder = new Bzip2Decoder()
@@ -34,52 +30,49 @@ function problem(packed: Uint8Array): string {
   return 'none'
 }
 
-const TEXT = Buffer.from('the quick brown fox jumps over the lazy dog\n'.repeat(3000))
-
 describe('Bzip2Decoder', () => {
   it('decodes what bzip2 wrote, from one chunk or many small ones', () => {
-    for (const data of [Buffer.from('a'), TEXT, randomBytes(70_000)]) {
-      const packed = bzip2(data)
-      expect(decode(packed).equals(data)).toBe(true)
-      expect(decode(packed, 7, 13).equals(data)).toBe(true)
+    for (const [name, data] of [
+      ['a.bz2', Buffer.from('a')],
+      ['text.bz2', TEXT],
+      ['noise.bz2', seeded(8000, 1)],
+    ] as const) {
+      const packed = bz2(name)
+      expect(decode(packed).equals(data), name).toBe(true)
+      expect(decode(packed, 7, 13).equals(data), name).toBe(true)
     }
   })
 
   it('decodes several blocks, long runs and every byte value', () => {
-    const data = Buffer.concat([
-      randomBytes(150_000),
-      Buffer.alloc(300_000, 0x41),
-      Buffer.from(Array.from({ length: 256 * 40 }, (_unused, i) => i & 0xff)),
-      TEXT,
-    ])
-    expect(decode(bzip2(data, 1)).equals(data)).toBe(true)
+    expect(decode(bz2('mixed.bz2')).equals(mixed())).toBe(true)
+    expect(decode(bz2('blocks.bz2')).equals(manyBlocks())).toBe(true)
   })
 
   it('decodes streams written one after another, as pbzip2 does', () => {
-    const packed = Buffer.concat([bzip2(TEXT.subarray(0, 5000)), bzip2(TEXT.subarray(5000))])
+    const packed = Buffer.concat([bz2('text-head.bz2'), bz2('text-tail.bz2')])
     expect(decode(packed, 4096).equals(TEXT)).toBe(true)
   })
 
   it('refuses a wrong magic, a cut stream and an empty input', () => {
     expect(problem(Buffer.from('not bzip2 at all'))).toBe('format')
     expect(problem(Buffer.from('BZh0rest'))).toBe('format')
-    const packed = bzip2(TEXT)
+    const packed = bz2('text.bz2')
     expect(problem(packed.subarray(0, Math.floor(packed.length / 2)))).toBe('truncated')
     expect(problem(packed.subarray(0, packed.length - 3))).toBe('truncated')
     expect(problem(Buffer.alloc(0))).toBe('truncated')
   })
 
   it('refuses a block whose CRC does not match and a stream whose CRC does not', () => {
-    const block = bzip2(TEXT)
+    const block = bz2('text.bz2')
     block[10] ^= 0x01
     expect(problem(block)).toBe('crc')
-    const stream = bzip2(TEXT)
+    const stream = bz2('text.bz2')
     stream[stream.length - 2] ^= 0x10
     expect(problem(stream)).toBe('crc')
   })
 
   it('hands out no byte of a block before its CRC is checked', () => {
-    const block = bzip2(TEXT)
+    const block = bz2('text.bz2')
     block[10] ^= 0x01
     const decoder = new Bzip2Decoder()
     decoder.push(block)
@@ -90,7 +83,7 @@ describe('Bzip2Decoder', () => {
   })
 
   it('refuses a damaged block body without throwing anything else', () => {
-    const packed = bzip2(TEXT)
+    const packed = bz2('text.bz2')
     for (const at of [20, 40, 80, Math.floor(packed.length / 2)]) {
       const damaged = Buffer.from(packed)
       damaged[at] ^= 0xff
@@ -100,7 +93,7 @@ describe('Bzip2Decoder', () => {
 
   it('hands out a large block in pieces the size it is asked for', () => {
     const decoder = new Bzip2Decoder()
-    decoder.push(bzip2(Buffer.alloc(4 * 1024 * 1024)))
+    decoder.push(bz2('zeros4m.bz2'))
     decoder.end()
     const out = new Uint8Array(1000)
     expect(decoder.read(out)).toBe(1000)

@@ -1,9 +1,9 @@
-import { execFileSync } from 'node:child_process'
 import { randomBytes } from 'node:crypto'
 import { brotliCompressSync, gzipSync, zstdCompressSync } from 'node:zlib'
 import { XzCompressor } from '@napi-rs/lzma'
 import { describe, expect, it } from 'vitest'
 import { tarOf } from '../../../test/fixtures/archives/archives'
+import { bz2 } from '../../../test/fixtures/archives/bzip2Fixture'
 import { archiveDecoders } from '../../../test/fixtures/archives/decoders'
 import { listAll, memoryFile, readEntry } from './memoryFile'
 import { tarProvider } from './tar'
@@ -139,9 +139,8 @@ describe('tar provider', () => {
     const limits = { ...LIMITS, scanBytes: 4 * MIB }
 
     async function bomb(): Promise<Buffer> {
+      if (name === 'bzip2') return bz2('a64m.bz2')
       const zeros = Buffer.alloc(64 * MIB, 0x41)
-      if (name === 'bzip2')
-        return execFileSync('bzip2', ['-9', '-c'], { input: zeros, maxBuffer: 64 * MIB })
       const compressor = new XzCompressor({ preset: 0 })
       return Buffer.concat([compressor.update(zeros), await compressor.finish()])
     }
