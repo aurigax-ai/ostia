@@ -159,6 +159,9 @@ const deps = {
   watchesTurn: vi.fn().mockResolvedValue(false),
   turnStarted: vi.fn().mockResolvedValue(true),
   startAgent: vi.fn().mockResolvedValue(null),
+  phoneWorkspace: vi.fn().mockResolvedValue(null),
+  phoneDefaults: vi.fn().mockReturnValue({ set: false, agent: 'claude' }),
+  isPhoneWorkspace: vi.fn().mockReturnValue(false),
 } satisfies GatewayControlDeps
 
 const clients: Client[] = []

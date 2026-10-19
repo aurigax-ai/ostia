@@ -38,6 +38,9 @@ export interface GatewayControlDeps {
   agentRunning: (rendererPaneId: string) => boolean
   watchesTurn: (pane: PaneIdentity) => Promise<boolean>
   turnStarted: (pane: PaneIdentity) => Promise<boolean>
+  phoneWorkspace: () => Promise<string | null>
+  phoneDefaults: () => { set: boolean; agent: PhoneAgent }
+  isPhoneWorkspace: (workDir: string) => boolean
   startAgent: (workspaceId: string, agent: PhoneAgent, prompt: string) => Promise<PhoneAgentStart>
 }
 
@@ -180,10 +183,11 @@ async function sessionList(call: GatewayCall): Promise<RpcOutcome> {
     deps.listWorkspaceGroups(),
   ])
   const groupNames = new Map(groups.map((g) => [g.groupId, g.name]))
-  return {
-    ok: true,
-    result: { sessions: workspaces.map((w) => toWireSession(w, groupNames)) },
-  }
+  const sessions = workspaces.map((w) => ({
+    ...toWireSession(w, groupNames),
+    ...(deps.isPhoneWorkspace(w.workDir) ? { phone: true } : {}),
+  }))
+  return { ok: true, result: { sessions } }
 }
 
 async function paneList(call: GatewayCall): Promise<RpcOutcome> {
@@ -331,14 +335,20 @@ async function agentPrompt(call: GatewayCall): Promise<RpcOutcome> {
 
 async function agentStart(call: GatewayCall): Promise<RpcOutcome> {
   const { p, deps } = call
-  if (typeof p.sessionId !== 'string' || !p.sessionId) return invalidParams('unknown-session')
-  if (p.agent !== 'claude' && p.agent !== 'codex') return invalidParams('bad-params')
-  const agent: PhoneAgent = p.agent
+  if (p.sessionId !== undefined && (typeof p.sessionId !== 'string' || !p.sessionId)) {
+    return invalidParams('unknown-session')
+  }
+  if (p.agent !== undefined && p.agent !== 'claude' && p.agent !== 'codex') {
+    return invalidParams('bad-params')
+  }
+  const agent: PhoneAgent = p.agent ?? deps.phoneDefaults().agent
   const prompt = typeof p.prompt === 'string' ? plainBlock(p.prompt) : ''
   if (prompt.length > AGENT_START_PROMPT_MAX || !phoneAgentCommand(agent, prompt)) {
     return invalidParams('bad-params')
   }
-  const workspace = (await deps.listWorkspaces()).find((w) => w.workspaceId === p.sessionId)
+  const sessionId = p.sessionId ?? (await deps.phoneWorkspace())
+  if (!sessionId) return invalidParams('phone-workspace-unavailable')
+  const workspace = (await deps.listWorkspaces()).find((w) => w.workspaceId === sessionId)
   if (!workspace) return invalidParams('unknown-session')
   if (!PHONE_WORKSPACE_KINDS.has(workspace.kind)) return invalidParams('refused')
   if (!startAllowed(call.deviceId)) return { ok: false, code: -32007, message: 'rate-limited' }

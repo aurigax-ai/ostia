@@ -82,6 +82,23 @@ export type GatewaySetCapResult =
   | { ok: true; caps: string[] }
   | { ok: false; error: 'not-found' | 'invalid-cap' | 'requires-command' }
 
+export type PhoneAgentName = 'claude' | 'codex'
+
+export interface GatewayPhoneWorkspaceSave {
+  folder: string | null
+  openNew: boolean
+  agent: PhoneAgentName
+}
+
+export interface GatewayPhoneWorkspace extends GatewayPhoneWorkspaceSave {
+  trust: 'trusted' | 'ask' | 'unknown'
+  problem?: string
+}
+
+export type GatewayPhoneWorkspaceResult =
+  | { ok: true; value: GatewayPhoneWorkspace }
+  | { ok: false; error: string }
+
 interface GatewayApi {
   enable: () => Promise<GatewayEnableResponse>
   disable: () => Promise<GatewayRemoteStatus>
@@ -103,6 +120,8 @@ interface GatewayApi {
   pairRequests: () => Promise<GatewayPairRequest[]>
   answerPairRequest: (requestId: string, approve: boolean) => Promise<GatewayActionResult>
   onPairRequestsChanged: (cb: (requests: GatewayPairRequest[]) => void) => () => void
+  phoneWorkspace: () => Promise<GatewayPhoneWorkspace>
+  setPhoneWorkspace: (save: GatewayPhoneWorkspaceSave) => Promise<GatewayPhoneWorkspaceResult>
 }
 
 export interface GatewayBridge {

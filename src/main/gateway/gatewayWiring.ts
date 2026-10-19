@@ -21,6 +21,7 @@ import type { WorkspaceSandboxes } from '../sandbox/workspaceSandboxes'
 import type { PtyIo } from '../terminal/pty/ptyIo'
 import type { PtyEntry } from '../terminal/pty/ptyRegistry'
 import type { WindowSend } from '../windows/windowSend'
+import type { ScratchFolders } from '../workspaces/scratchFolders'
 import { windowForWorkspace } from '../workspaces/workspaceRegistry'
 import { createBonjourPublisher } from './announce'
 import type { GatewayControlDeps } from './controlDispatch'
@@ -32,6 +33,13 @@ import {
   registerGatewayMethods,
 } from './gatewayIpc'
 import { listPairRequests, onPairRequestsChanged } from './pairRequests'
+import {
+  type PhoneWorkspacePaths,
+  isPhoneFolder,
+  loadPhoneWorkspace,
+  phoneWorkspaceId,
+} from './phoneWorkspace'
+import { registerPhoneWorkspaceIpc } from './phoneWorkspaceIpc'
 import { ScreenLinks } from './screenLinks'
 import { askPhonesForScreen, configureGatewayControl, configureScreenLinks } from './server'
 import { createTailnet, tailnetNodeName, tsnetHelperPath } from './tailnet'
@@ -65,6 +73,7 @@ interface GatewayStartDeps {
   agentRunning: AgentRunningPanes
   ptys: Map<string, PtyEntry>
   turnConfirms: PaneConfirms
+  scratchFolders: Pick<ScratchFolders, 'root'>
   startAgentForPhone: GatewayControlDeps['startAgent']
 }
 
@@ -105,8 +114,14 @@ export function startGateway({
   agentRunning,
   ptys,
   turnConfirms,
+  scratchFolders,
   startAgentForPhone,
 }: GatewayStartDeps) {
+  const phonePaths = (): PhoneWorkspacePaths => {
+    const { home, dataDirs } = workspaceSandboxes.pathEnv()
+    return { home, dataDirs, closedRoots: [scratchFolders.root, artifactFolders.root] }
+  }
+
   registerPaneListMethods({
     execCommand,
     getTerminalState,
@@ -139,6 +154,7 @@ export function startGateway({
   services.stopAnnouncing = publisher.unpublish
   onPairRequestsChanged(() => broadcast('gateway:pair-requests-changed', listPairRequests()))
   registerGatewayIpc()
+  registerPhoneWorkspaceIpc({ paths: phonePaths })
   configureGatewayControl({
     execCommand,
     listCommandsFor,
@@ -174,5 +190,27 @@ export function startGateway({
     watchesTurn: turnConfirms.watchesSubmit,
     turnStarted: async (pane) => (await turnConfirms.confirmSubmitted(pane)).ok,
     startAgent: startAgentForPhone,
+    phoneWorkspace: () =>
+      phoneWorkspaceId({
+        paths: phonePaths,
+        workspaces: () => listWorkspaces({ execCommand, windowIds }),
+        open: async (dir) => {
+          const windowId = primaryWindowId()
+          if (!windowId) return null
+          const res = await execCommand(
+            { windowId, workspaceId: '', paneId: null },
+            'workspace.new',
+            { dir, focus: false },
+          )
+          const id = res.ok ? (res.result as { workspaceId?: unknown }).workspaceId : null
+          return typeof id === 'string' ? id : null
+        },
+      }),
+    phoneDefaults: () => {
+      const phone = loadPhoneWorkspace()
+      return { set: phone.folder !== null && phone.openNew, agent: phone.agent }
+    },
+    isPhoneWorkspace: (workDir) =>
+      isPhoneFolder(workDir, loadPhoneWorkspace().folder, phonePaths().home),
   })
 }

@@ -549,6 +549,10 @@ export function makeOstiaMock(overrides?: Partial<OstiaBridge>): OstiaBridge {
       pairRequests: vi.fn().mockResolvedValue([]),
       answerPairRequest: vi.fn().mockResolvedValue({ ok: true }),
       onPairRequestsChanged: vi.fn(noopUnsub),
+      phoneWorkspace: vi
+        .fn()
+        .mockResolvedValue({ folder: null, openNew: false, agent: 'claude', trust: 'unknown' }),
+      setPhoneWorkspace: vi.fn().mockResolvedValue({ ok: false, error: 'invalid' }),
     },
     notifications: {
       list: vi.fn().mockResolvedValue([]),

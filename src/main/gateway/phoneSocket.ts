@@ -4,6 +4,7 @@ import type { WebSocket } from 'ws'
 import { resolveExternal } from '../control/idRegistry'
 import { type GatewayControlDeps, dispatchGatewayMethod } from './controlDispatch'
 import { type Device, get as getDevice, verifyToken } from './devices'
+import { loadPhoneWorkspace } from './phoneWorkspace'
 import type { ScreenLinks } from './screenLinks'
 
 const FRAME_PTY_OUTPUT = 0x01
@@ -69,11 +70,13 @@ function handleHello(
   }
   state.device = device
   trackDeviceSocket(device.deviceId, ws)
+  const phone = loadPhoneWorkspace()
   ws.send(
     rpcResult(msg.id, {
       deviceId: device.deviceId,
       caps: device.caps,
       desktop: { name: PRODUCT_NAME, version: app.getVersion() },
+      phoneWorkspace: { set: phone.folder !== null && phone.openNew, agent: phone.agent },
     }),
   )
 }
