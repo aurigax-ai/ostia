@@ -14,6 +14,7 @@ export class PaneWaking {
   private readonly listeners = new Set<WakeListener>()
   private readonly ends = new Map<string, WakeEnd>()
   private readonly reasons = new Map<string, string>()
+  private readonly startedAt = new Map<string, number>()
   readonly changes = new ChangeSignal()
 
   lastEnd(paneId: string): WakeEnd | undefined {
@@ -28,18 +29,25 @@ export class PaneWaking {
     return this.panes.has(paneId)
   }
 
+  since(paneId: string): number | undefined {
+    return this.startedAt.get(paneId)
+  }
+
   start(paneId: string): void {
     this.panes.add(paneId)
+    this.startedAt.set(paneId, Date.now())
     this.ends.delete(paneId)
     this.reasons.delete(paneId)
   }
 
   abandon(paneId: string): void {
     this.panes.delete(paneId)
+    this.startedAt.delete(paneId)
   }
 
   end(paneId: string, how: WakeEnd, reason?: string): void {
     if (!this.panes.delete(paneId)) return
+    this.startedAt.delete(paneId)
     this.ends.set(paneId, how)
     if (reason) this.reasons.set(paneId, reason)
     for (const listener of [...this.listeners]) listener(paneId, how)

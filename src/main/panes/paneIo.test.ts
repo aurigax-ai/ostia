@@ -67,7 +67,10 @@ const startLater = (paneId: string): void => {
   }, 0)
 }
 
+const wakeNotReady = vi.fn()
+
 registerPaneIoMethods({
+  journal: { wakeNotReady },
   io: {
     read: async (paneId, lines) => (paneId === 'no-pty' ? null : `screen of ${paneId} (${lines})`),
     write: (paneId, data) => {
@@ -191,6 +194,7 @@ async function client(identity: { token: string }): Promise<MessageConnection> {
 }
 
 beforeEach(() => {
+  wakeNotReady.mockClear()
   seq += 1
   socketPath = join(tmpdir(), `ostia-pane-io-${process.pid}-${seq}.sock`)
   registerControlServer(
@@ -244,13 +248,33 @@ const facts = (
     caller?: Partial<{ paneId: string; workspaceId: string; sandboxed: boolean }>
     target?: Partial<{ paneId: string; workspaceId: string; manager: boolean; confined: boolean }>
     ownChild?: boolean
+    managedBy?: boolean
     sameScope?: boolean
   } = {},
 ) => ({
   caller: { paneId: 'a', workspaceId: 'ws1', sandboxed: false, ...over.caller },
   target: { paneId: 'b', workspaceId: 'ws1', manager: false, confined: false, ...over.target },
   ownChild: over.ownChild ?? false,
+  managedBy: over.managedBy ?? false,
   sameScope: over.sameScope ?? false,
+})
+
+describe('paneReach to the manager pane', () => {
+  const toManager = { target: { manager: true } }
+
+  it('asks only send-other-pane of a worker the manager started', () => {
+    expect(paneReach('message', facts({ ...toManager, managedBy: true }))).toEqual({
+      allowed: true,
+      caps: ['send-other-pane'],
+    })
+  })
+
+  it('asks all-workspaces of any other pane that wants to mail the manager', () => {
+    expect(paneReach('message', facts(toManager))).toEqual({
+      allowed: true,
+      caps: ['send-other-pane', 'all-workspaces'],
+    })
+  })
 })
 
 describe('paneReach', () => {
@@ -354,6 +378,49 @@ describe('paneReach', () => {
         error: 'unknown-pane',
       })
     }
+  })
+
+  it('asks send-other-pane for a message, with all-workspaces outside reach', () => {
+    expect(paneReach('message', facts())).toEqual({ allowed: true, caps: ['send-other-pane'] })
+    expect(paneReach('message', facts({ target: { workspaceId: 'ws2' } }))).toEqual({
+      allowed: true,
+      caps: ['send-other-pane', 'all-workspaces'],
+    })
+    expect(
+      paneReach('message', facts({ target: { workspaceId: 'ws2' }, sameScope: true })),
+    ).toEqual({
+      allowed: true,
+      caps: ['send-other-pane'],
+    })
+    expect(paneReach('message', facts({ target: { paneId: 'a' } }))).toEqual({
+      allowed: true,
+      caps: [],
+    })
+  })
+
+  it('keeps a sandboxed sender inside the confined panes of its own workspace for a message', () => {
+    const caller = { sandboxed: true }
+    expect(paneReach('message', facts({ caller, target: { workspaceId: 'ws2' } }))).toEqual({
+      allowed: false,
+      error: 'sandboxed',
+    })
+    expect(paneReach('message', facts({ caller }))).toEqual({ allowed: false, error: 'sandboxed' })
+    expect(paneReach('message', facts({ caller, target: { confined: true } }))).toEqual({
+      allowed: true,
+      caps: ['send-other-pane'],
+    })
+  })
+
+  it('lets a message reach the manager pane from its own worker with send-other-pane only, never from a sandbox', () => {
+    const manager = { manager: true, workspaceId: 'mgr' }
+    expect(paneReach('message', facts({ target: manager, managedBy: true }))).toEqual({
+      allowed: true,
+      caps: ['send-other-pane'],
+    })
+    expect(paneReach('message', facts({ caller: { sandboxed: true }, target: manager }))).toEqual({
+      allowed: false,
+      error: 'sandboxed',
+    })
   })
 
   it('lets a pane read its own screen but never type into itself', () => {
@@ -833,6 +900,7 @@ describe('pane.wake', () => {
       woke: [child.externalId],
       closed: child.externalId,
     })
+    expect(wakeNotReady).not.toHaveBeenCalled()
 
     asleepPanes.add('child-pane')
     const failing = conn.sendRequest('pane.wake', { panes: ['echo'] })
@@ -841,11 +909,14 @@ describe('pane.wake', () => {
     await expect(failing).rejects.toThrow(
       `not-started: ${child.externalId} its agent exited with code 1 before it started`,
     )
+    expect(wakeNotReady).toHaveBeenCalledTimes(1)
 
     asleepPanes.add('child-pane')
     await expect(conn.sendRequest('pane.wake', { panes: ['echo'], timeoutMs: 1 })).resolves.toEqual(
       { ok: true, woke: [child.externalId], timedOut: true },
     )
+    expect(wakeNotReady).toHaveBeenCalledTimes(2)
+    expect(wakeNotReady.mock.calls.every(([ms]) => typeof ms === 'number' && ms >= 0)).toBe(true)
     expect(waking.has('child-pane')).toBe(true)
     waking.end('child-pane', 'failed')
   })

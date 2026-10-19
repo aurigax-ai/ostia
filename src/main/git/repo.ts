@@ -1,5 +1,6 @@
 import { execFile } from 'node:child_process'
 import { lstat, readFile, readlink, realpath } from 'node:fs/promises'
+import { devNull } from 'node:os'
 import { isAbsolute, join, relative, resolve, sep } from 'node:path'
 import { isInsidePath } from '../platform/pathGuard'
 import {
@@ -53,11 +54,51 @@ interface RunResult {
   stderr: string
 }
 
-function run(cwd: string, args: string[]): Promise<RunResult> {
+const NO_PROGRAMS = [
+  '-c',
+  'core.fsmonitor=false',
+  '-c',
+  'log.showSignature=false',
+  '-c',
+  'safe.bareRepository=explicit',
+]
+const NO_HOOKS = ['-c', `core.hooksPath=${devNull}`]
+
+const FILTER_KEY = /^(?:local|worktree)\tfilter\.(.+)\.(clean|smudge|process)$/
+
+function gitOutput(cwd: string, args: string[]): Promise<string> {
   return new Promise((done) => {
     execFile(
       'git',
-      args,
+      [...NO_PROGRAMS, ...args],
+      { cwd, encoding: 'utf8', maxBuffer: MAX_OUTPUT },
+      (err, stdout) => done(err ? '' : stdout),
+    )
+  })
+}
+
+async function noRepoFilters(cwd: string): Promise<string[]> {
+  const listed = await gitOutput(cwd, [
+    'config',
+    '--show-scope',
+    '--name-only',
+    '--get-regexp',
+    '^filter\\..*\\.(clean|smudge|process)$',
+  ])
+  const off: string[] = []
+  for (const line of listed.split('\n')) {
+    const match = FILTER_KEY.exec(line)
+    if (match) off.push('-c', `filter.${match[1]}.${match[2]}=`)
+  }
+  return off
+}
+
+async function run(cwd: string, args: string[], hooks = false): Promise<RunResult> {
+  const filters = await noRepoFilters(cwd)
+  return new Promise((done) => {
+    execFile(
+      'git',
+      [...NO_PROGRAMS, ...filters, ...(hooks ? [] : NO_HOOKS), ...args],
       {
         cwd,
         encoding: 'buffer',
@@ -72,8 +113,8 @@ function run(cwd: string, args: string[]): Promise<RunResult> {
   })
 }
 
-async function runOk(cwd: string, args: string[]): Promise<Buffer> {
-  const res = await run(cwd, args)
+async function runOk(cwd: string, args: string[], hooks = false): Promise<Buffer> {
+  const res = await run(cwd, args, hooks)
   if (res.code !== 0)
     throw new RepoError(
       'git-failed',
@@ -91,6 +132,13 @@ export async function repoRoot(cwd: string): Promise<string | null> {
   return root || null
 }
 
+export async function worktreeKey(cwd: string): Promise<string | undefined> {
+  const res = await run(cwd, ['rev-parse', '--show-toplevel', '--absolute-git-dir'])
+  if (res.code !== 0) return undefined
+  const [top, gitDir] = res.stdout.toString('utf8').trim().split('\n')
+  return top && gitDir ? `${top}\0${gitDir}` : undefined
+}
+
 export async function readStatus(root: string): Promise<RepoStatus> {
   const out = await runOk(root, [
     'status',
@@ -98,6 +146,7 @@ export async function readStatus(root: string): Promise<RepoStatus> {
     '--branch',
     '-z',
     '--untracked-files=all',
+    '--ignore-submodules=all',
   ])
   return parsePorcelainV2(out.toString('utf8'))
 }
@@ -153,7 +202,7 @@ export async function diffSides(root: string, change: FileChange): Promise<DiffS
 }
 
 export async function unifiedPatch(root: string, change: FileChange): Promise<string> {
-  const common = ['--no-color', '--no-ext-diff']
+  const common = ['--no-color', '--no-ext-diff', '--no-textconv', '--ignore-submodules=all']
   if (change.area === 'untracked') {
     const res = await run(root, ['diff', ...common, '--no-index', '--', '/dev/null', change.path])
     if (res.code !== 0 && res.code !== 1) throw new RepoError('git-failed', res.stderr.trim())
@@ -187,7 +236,16 @@ async function untrackedLines(root: string, path: string): Promise<number> {
 }
 
 export async function lineChanges(root: string, untracked: string[]): Promise<LineChanges | null> {
-  const res = await run(root, ['-c', 'diff.autoRefreshIndex=false', 'diff', '--shortstat', 'HEAD'])
+  const res = await run(root, [
+    '-c',
+    'diff.autoRefreshIndex=false',
+    'diff',
+    '--no-ext-diff',
+    '--no-textconv',
+    '--shortstat',
+    '--ignore-submodules=all',
+    'HEAD',
+  ])
   const tracked = res.code === 0 ? parseShortstat(res.stdout.toString('utf8')) : null
   if (untracked.length === 0) return tracked
   const counted = await Promise.all(
@@ -218,12 +276,18 @@ export async function discard(root: string, changes: FileChange[]): Promise<void
 }
 
 export async function commit(root: string, message: string): Promise<string> {
-  await runOk(root, ['commit', '-q', '-m', message])
+  await runOk(root, ['commit', '-q', '-m', message], true)
   return (await runOk(root, ['rev-parse', 'HEAD'])).toString('utf8').trim()
 }
 
 export async function log(root: string, limit: number): Promise<CommitSummary[]> {
-  const res = await run(root, ['log', `-n${limit}`, `--format=${LOG_FORMAT}`, '--no-color'])
+  const res = await run(root, [
+    'log',
+    `-n${limit}`,
+    `--format=${LOG_FORMAT}`,
+    '--no-color',
+    '--no-show-signature',
+  ])
   if (res.code !== 0) return []
   return parseLog(res.stdout.toString('utf8'))
 }
@@ -245,6 +309,7 @@ export async function graphLog(
 ): Promise<GraphCommit[]> {
   const out = await runOk(root, [
     'log',
+    '--no-show-signature',
     '--date-order',
     '--decorate=full',
     '--no-color',
@@ -278,11 +343,23 @@ export interface CommitDetail {
 export async function commitDetail(root: string, input: string): Promise<CommitDetail> {
   const sha = await resolveCommit(root, input)
   const [summary] = parseLog(
-    (await runOk(root, ['log', '-n1', `--format=${LOG_FORMAT}`, sha])).toString('utf8'),
+    (
+      await runOk(root, ['log', '-n1', '--no-show-signature', `--format=${LOG_FORMAT}`, sha])
+    ).toString('utf8'),
   )
   const parent = await firstParent(root, sha)
   const out = parent
-    ? await runOk(root, ['diff', '--no-color', '--name-status', '-z', '-M', parent, sha])
+    ? await runOk(root, [
+        'diff',
+        '--no-color',
+        '--no-ext-diff',
+        '--no-textconv',
+        '--name-status',
+        '-z',
+        '-M',
+        parent,
+        sha,
+      ])
     : await runOk(root, ['diff-tree', '--no-commit-id', '--root', '-r', '-z', '--name-status', sha])
   const files = parseNameStatus(out.toString('utf8'))
   return { commit: summary, parent, files }
@@ -302,7 +379,7 @@ export async function commitSides(
 }
 
 export async function blame(root: string, rel: string): Promise<BlameLine[]> {
-  const out = await runOk(root, [LITERAL, 'blame', '--porcelain', '--', rel])
+  const out = await runOk(root, [LITERAL, 'blame', '--no-textconv', '--porcelain', '--', rel])
   if (out.length > MAX_SIDE_BYTES * 4)
     throw new RepoError('too-large', 'file is too large to blame')
   return parseBlamePorcelain(out.toString('utf8'))
