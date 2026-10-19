@@ -18,6 +18,7 @@ import { registerPane } from '../control/idRegistry'
 import {
   AGENT_ENTER_DELAY_MS,
   type GatewayControlDeps,
+  IMAGE_PLACEHOLDER_WAIT_MS,
   dispatchGatewayMethod,
 } from './controlDispatch'
 import { isHiddenFromPhone, readFileSlice } from './workspaceFiles'
@@ -65,6 +66,8 @@ function fakeDeps(overrides: Partial<GatewayControlDeps> = {}): GatewayControlDe
     attachPhoneObserver: vi.fn().mockReturnValue(null),
     ptyResize: vi.fn(),
     ptyWrite: vi.fn(),
+    readScreen: vi.fn().mockResolvedValue(''),
+    withClipboardImage: vi.fn(async (_bytes: Buffer, paste: () => Promise<boolean>) => paste()),
     listAsks: vi.fn().mockReturnValue([]),
     answerAsk: vi.fn().mockReturnValue('unknown-ask'),
     agentRunning: vi.fn().mockReturnValue(false),
@@ -1198,6 +1201,128 @@ describe('dispatchGatewayMethod — asks and agent replies', () => {
       const deps = fakeDeps({ agentRunning: vi.fn().mockReturnValue(true) })
       expect(await prompt(deps, pane.externalId, 'go')).toEqual({ ok: true, result: { ok: true } })
       expect(deps.turnStarted).not.toHaveBeenCalled()
+    })
+
+    describe('agent.prompt with an image', () => {
+      const png = Buffer.concat([
+        Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+        Buffer.alloc(16),
+      ])
+      const image = { mime: 'image/png', data: png.toString('base64') }
+      const workspace = { workspaceId: 'ws-img', kind: 'agent', workDir: '/w', sandboxed: false }
+
+      function imageDeps(overrides: Partial<GatewayControlDeps> = {}) {
+        let screen = 'prompt'
+        const deps = fakeDeps({
+          agentRunning: vi.fn().mockReturnValue(true),
+          listWorkspaces: vi.fn().mockResolvedValue([workspace]),
+          remote: vi.fn().mockReturnValue(false),
+          readScreen: vi.fn(async () => screen),
+          ptyWrite: vi.fn((_pane: string, data: string) => {
+            if (data === '\x16') screen = `${screen} [Image #1]`
+          }),
+          ...overrides,
+        })
+        return deps
+      }
+
+      const send = async (deps: GatewayControlDeps, params: object, deviceId = 'dev-img') => {
+        const pending = dispatchGatewayMethod('agent.prompt', params, RESPOND, deps, deviceId)
+        await vi.advanceTimersByTimeAsync(AGENT_ENTER_DELAY_MS + IMAGE_PLACEHOLDER_WAIT_MS + 200)
+        return pending
+      }
+
+      it('pastes the image with Ctrl+V once the placeholder shows, then types the text', async () => {
+        const pane = registerPane({ windowId: '7', workspaceId: 'ws-img', paneId: 'p-img-1' })
+        const deps = imageDeps()
+        const res = await send(deps, { paneId: pane.externalId, text: 'what is this', image })
+        expect(res).toEqual({ ok: true, result: { ok: true, image: 'pasted' } })
+        expect(vi.mocked(deps.ptyWrite).mock.calls).toEqual([
+          ['p-img-1', '\x16'],
+          ['p-img-1', '\x1b[200~what is this\x1b[201~'],
+          ['p-img-1', '\r'],
+        ])
+        expect(deps.withClipboardImage).toHaveBeenCalledWith(png, expect.any(Function))
+      })
+
+      it('pastes an image alone without text or Enter', async () => {
+        const pane = registerPane({ windowId: '7', workspaceId: 'ws-img', paneId: 'p-img-2' })
+        const deps = imageDeps()
+        expect(await send(deps, { paneId: pane.externalId, text: '', image })).toEqual({
+          ok: true,
+          result: { ok: true, image: 'pasted' },
+        })
+        expect(vi.mocked(deps.ptyWrite).mock.calls).toEqual([['p-img-2', '\x16']])
+      })
+
+      it('answers not-pasted and types nothing when no placeholder appears', async () => {
+        const pane = registerPane({ windowId: '7', workspaceId: 'ws-img', paneId: 'p-img-3' })
+        const deps = imageDeps({ ptyWrite: vi.fn() })
+        expect(await send(deps, { paneId: pane.externalId, text: 'hi', image })).toEqual({
+          ok: false,
+          code: -32005,
+          message: 'not-pasted',
+          data: { paneId: pane.externalId },
+        })
+        expect(deps.ptyWrite).toHaveBeenCalledTimes(1)
+      })
+
+      it('refuses bytes that are not the declared type, and undecodable ones', async () => {
+        const pane = registerPane({ windowId: '7', workspaceId: 'ws-img', paneId: 'p-img-4' })
+        const deps = imageDeps()
+        const jpegAsPng = { mime: 'image/jpeg', data: png.toString('base64') }
+        expect(await send(deps, { paneId: pane.externalId, text: 'x', image: jpegAsPng })).toEqual({
+          ok: false,
+          code: -32602,
+          message: 'image-type',
+        })
+        const broken = imageDeps({ withClipboardImage: vi.fn().mockResolvedValue(null) })
+        expect(await send(broken, { paneId: pane.externalId, text: 'x', image })).toEqual({
+          ok: false,
+          code: -32602,
+          message: 'image-type',
+        })
+        expect(deps.ptyWrite).not.toHaveBeenCalled()
+        expect(broken.ptyWrite).not.toHaveBeenCalled()
+      })
+
+      it('refuses an image for a sandboxed, scratch or remote pane', async () => {
+        const pane = registerPane({ windowId: '7', workspaceId: 'ws-img', paneId: 'p-img-5' })
+        for (const deps of [
+          imageDeps({
+            listWorkspaces: vi.fn().mockResolvedValue([{ ...workspace, sandboxed: true }]),
+          }),
+          imageDeps({
+            listWorkspaces: vi.fn().mockResolvedValue([{ ...workspace, kind: 'scratch' }]),
+          }),
+          imageDeps({ remote: vi.fn().mockReturnValue(true) }),
+        ]) {
+          expect(await send(deps, { paneId: pane.externalId, text: 'x', image })).toEqual({
+            ok: false,
+            code: -32602,
+            message: 'unknown-pane',
+          })
+          expect(deps.ptyWrite).not.toHaveBeenCalled()
+        }
+      })
+
+      it('allows six images a minute per device and then answers rate-limited', async () => {
+        const pane = registerPane({ windowId: '7', workspaceId: 'ws-img', paneId: 'p-img-6' })
+        const deps = imageDeps()
+        for (let i = 0; i < 6; i++) {
+          const res = await send(deps, { paneId: pane.externalId, text: '', image }, 'dev-rate')
+          expect(res.ok).toBe(true)
+        }
+        expect(await send(deps, { paneId: pane.externalId, text: '', image }, 'dev-rate')).toEqual({
+          ok: false,
+          code: -32007,
+          message: 'rate-limited',
+        })
+        await vi.advanceTimersByTimeAsync(60_000)
+        expect(
+          (await send(deps, { paneId: pane.externalId, text: '', image }, 'dev-rate')).ok,
+        ).toBe(true)
+      })
     })
 
     it('agent.interrupt sends Escape or Ctrl+C and nothing else', async () => {
