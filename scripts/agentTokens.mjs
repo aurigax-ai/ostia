@@ -23,7 +23,7 @@ export const COORDINATION_TURN = /<ostia-bus-messages>|ostia bus:/i
 export const DEFAULT_WATCHERS = ['prwatch', 'watcher']
 
 const OSTIA_CALL =
-  /(?:^|[\s;&|(])(?:ostia|"?\$\{?OSTIA_CLI\}?"?)\s+([a-z][a-z-]*)(?:\.([a-zA-Z][\w.]*)|\s+([a-z][a-z-]*))?/
+  /(?:^|[\s;&|(])(?:ostia|"?\$\{?OSTIA_CLI\}?"?)\s+([a-z][a-z-]*)(?:\.([a-z][a-z-]*)|\s+([a-z][a-z-]*))?/
 const PANE_ARG = /ostia\s+pane\s+read\s+(?:--\S+\s+\S+\s+)*([0-9a-f-]{8,})/
 const MERGE_CALL = /\bgh\s+pr\s+merge\b/
 const VERB_HELP = /\s(?:--help|-h)(?:\s|$)/
@@ -32,37 +32,61 @@ const SLEEP = /\bsleep\s+\d/
 const PARSER_PIPE = /\bostia\s[^|;&]*\|\s*(?:jq|python3?|node)\b/
 const SKILL_BASE = /^Base directory for this skill: \S*ostia\S*\/claude-plugin\/skills\/([\w-]+)/
 const ERROR_LINE = /^ostia\b[^:\n]*: |^usage: ostia /
+const CODEX_EXIT = /^(?:Process exited with code|Exit code:) ([1-9]\d*)$/m
+const CODE_LITERAL = /'([a-z]+(?:-[a-z]+)+)'|error: '([a-z]+)'/g
+const CLI_PROBLEMS = [
+  [/^unknown flag /, 'unknown-flag'],
+  [/^-\S* needs a value/, 'missing-value'],
+  [/^missing arguments/, 'missing-arguments'],
+  [/^unexpected arguments/, 'unexpected-arguments'],
+  [/^no verb /, 'unknown-verb'],
+  [/^use 'ostia /, 'dotted-id'],
+  [/^usage: /, 'usage'],
+]
 
 export function estimateTokens(chars) {
   return Math.round(chars / CHARS_PER_TOKEN)
 }
 
-export function classifyCommand(command, watchers = DEFAULT_WATCHERS) {
+export function vocabularyOf(table, sources) {
+  const ids = new Set(
+    table.flatMap((noun) => (noun.verbs ?? []).map((v) => `${noun.noun}.${v.verb}`)),
+  )
+  const codes = new Set(CLI_PROBLEMS.map(([, code]) => code))
+  for (const source of sources) {
+    for (const match of source.matchAll(CODE_LITERAL)) codes.add(match[1] ?? match[2])
+  }
+  return { nouns: new Set(table.map((noun) => noun.noun)), ids, codes }
+}
+
+export function classifyCommand(command, vocabulary, watchers = DEFAULT_WATCHERS) {
   if (typeof command !== 'string') return null
   const match = OSTIA_CALL.exec(command)
   if (match) {
-    if (match[2]) return `raw:${match[1]}.${match[2]}`
-    return match[3] ? `${match[1]}.${match[3]}` : match[1]
+    const [, noun, dotted, verb] = match
+    if (dotted)
+      return vocabulary.ids.has(`${noun}.${dotted}`) ? `raw:${noun}.${dotted}` : 'raw:other'
+    if (!vocabulary.nouns.has(noun)) return 'other'
+    return verb && vocabulary.ids.has(`${noun}.${verb}`) ? `${noun}.${verb}` : noun
   }
   if (watchers.some((word) => command.includes(word))) return 'watcher'
   return null
 }
 
-export function errorCode(text) {
+export function errorCode(text, codes) {
   const line = text.split('\n').find((candidate) => ERROR_LINE.test(candidate))
-  if (!line) return null
+  if (!line) return 'other'
   if (line.startsWith('usage:')) return 'usage'
   const rest = line.slice(line.indexOf(': ') + 2)
-  const failed = /^[a-z][a-z -]* failed \(([a-z][a-z-]*):/.exec(rest)
-  if (failed) return failed[1]
-  const code = /^([a-z][a-z-]*):/.exec(rest)
-  if (code) return code[1]
-  const words = []
-  for (const word of rest.split(/\s+/)) {
-    if (!/^[a-z]+$/.test(word) || words.length === 2) break
-    words.push(word)
-  }
-  return words.length > 0 ? words.join('-') : 'other'
+  const problem = CLI_PROBLEMS.find(([pattern]) => pattern.test(rest))
+  if (problem) return problem[1]
+  const code =
+    /^[a-z][a-z -]* failed \(([a-z][a-z-]*):/.exec(rest)?.[1] ?? /^([a-z][a-z-]*):/.exec(rest)?.[1]
+  return code && codes.has(code) ? code : 'other'
+}
+
+export function codexFailed(output) {
+  return CODEX_EXIT.test(output.split('\nOutput:')[0])
 }
 
 function textOf(content) {
@@ -107,7 +131,13 @@ function claudeEvents(record) {
     const text = []
     for (const part of content) {
       if (part?.type === 'tool_result') {
-        events.push({ kind: 'result', id: part.tool_use_id, at, text: textOf(part.content) })
+        events.push({
+          kind: 'result',
+          id: part.tool_use_id,
+          at,
+          text: textOf(part.content),
+          failed: part.is_error === true,
+        })
       } else if (part?.type === 'text') text.push(part.text ?? '')
     }
     if (text.length > 0) events.push({ kind: 'turn', at, text: text.join('') })
@@ -134,7 +164,8 @@ function codexEvents(record) {
       return [{ kind: 'call', id: payload.call_id, at, command: codexCommand(payload) }]
     }
     if (payload.type === 'function_call_output' || payload.type === 'custom_tool_call_output') {
-      return [{ kind: 'result', id: payload.call_id, at, text: textOf(payload.output) }]
+      const text = textOf(payload.output)
+      return [{ kind: 'result', id: payload.call_id, at, text, failed: codexFailed(text) }]
     }
     if (payload.type === 'message' && payload.role === 'user') {
       return [{ kind: 'turn', at, text: textOf(payload.content) }]
@@ -170,7 +201,7 @@ function hashOf(text) {
   return createHash('sha256').update(text).digest('hex')
 }
 
-export function analyze(events, options = {}) {
+export function analyze(events, vocabulary, options = {}) {
   const watchers = options.watchers ?? DEFAULT_WATCHERS
   const sorted = [...events].sort((a, b) => (a.at || 0) - (b.at || 0))
   const channels = {}
@@ -213,7 +244,7 @@ export function analyze(events, options = {}) {
   for (const event of sorted) {
     if (event.kind === 'call') {
       if (MERGE_CALL.test(event.command)) merged += 1
-      const key = classifyCommand(event.command, watchers)
+      const key = classifyCommand(event.command, vocabulary, watchers)
       if (!key) continue
       channels[key] ??= emptyChannel()
       channels[key].calls += 1
@@ -235,8 +266,10 @@ export function analyze(events, options = {}) {
       if (!call) continue
       pending.delete(event.id)
       addTo(call.key, 'resultChars', event.text.length, call.at)
-      const code = errorCode(event.text)
-      if (code) errors[code] = (errors[code] ?? 0) + 1
+      if (event.failed) {
+        const code = errorCode(event.text, vocabulary.codes)
+        errors[code] = (errors[code] ?? 0) + 1
+      }
       const blockAt = lastBusBlock.get(call.session) ?? Number.NEGATIVE_INFINITY
       if (call.key === 'bus.inbox' && call.at - blockAt <= REREAD_WINDOW_MS) {
         rereads.count += 1
@@ -363,6 +396,32 @@ export async function collect({ day, claudeDir, codexDir }) {
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url))
 
+function sourceFiles(dir, out = []) {
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    const path = join(dir, entry.name)
+    if (entry.isDirectory()) sourceFiles(path, out)
+    else if (/(?<!\.test)\.ts$/.test(entry.name)) out.push(path)
+  }
+  return out
+}
+
+async function loadVocabulary() {
+  const { build } = await import('esbuild')
+  const bundle = await build({
+    entryPoints: [join(ROOT, 'src', 'cli', 'common', 'usageTable.ts')],
+    bundle: true,
+    write: false,
+    format: 'esm',
+    platform: 'node',
+  })
+  const url = `data:text/javascript;base64,${Buffer.from(bundle.outputFiles[0].text).toString('base64')}`
+  const { USAGE_TABLE } = await import(url)
+  const sources = ['main', 'shared', 'cli'].flatMap((dir) =>
+    sourceFiles(join(ROOT, 'src', dir)).map((file) => readFileSync(file, 'utf8')),
+  )
+  return vocabularyOf(USAGE_TABLE, sources)
+}
+
 function runFixtures() {
   execFileSync('pnpm', ['run', 'build:cli'], { cwd: ROOT, stdio: 'ignore' })
   const dir = mkdtempSync(join(tmpdir(), 'ostia-agent-tokens-'))
@@ -415,6 +474,7 @@ async function transcripts(flag, json) {
       claudeDir: flag('--claude') ?? join(homedir(), '.claude', 'projects'),
       codexDir: flag('--codex') ?? join(homedir(), '.codex', 'sessions'),
     }),
+    await loadVocabulary(),
     { watchers: flag('--watcher')?.split(',') },
   )
   console.log(
