@@ -18,7 +18,7 @@ import {
   type SandboxViolation,
   type WorkspaceSandbox,
 } from '../../shared/sandbox/sandbox'
-import { SandboxUnavailableError } from './sandboxHosts'
+import { SandboxUnavailableError } from './hostClient'
 import { sandboxFailureBanner } from './spawnBanner'
 import { SandboxStore } from './store'
 import { ViolationLog, recordViolations } from './violations'
