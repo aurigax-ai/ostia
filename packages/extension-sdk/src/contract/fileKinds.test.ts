@@ -130,7 +130,7 @@ describe('browse role', () => {
       id: 'archives',
       name: 'Archives',
       version: '1.0.0',
-      api: '5.0',
+      api: '6.0',
       main: 'main.js',
       capabilities: ['file-contents'],
       contributes: { fileKinds: [ZIP] },
