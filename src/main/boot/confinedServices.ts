@@ -75,8 +75,6 @@ export function createConfinedServices(ctx: SharedContext) {
     appLog: () => services.appLog,
   })
 
-  const PORT_SCAN_MS = 3000
-
   const { secretService, workspaceAgents, injectSecrets } = createSecretServices({
     workspaceSandboxes,
     paneForWorkspace,
@@ -110,7 +108,6 @@ export function createConfinedServices(ctx: SharedContext) {
     languageServerWatches,
     serverOverrides,
     createLanguageServers,
-    PORT_SCAN_MS,
     secretService,
     workspaceAgents,
     injectSecrets,

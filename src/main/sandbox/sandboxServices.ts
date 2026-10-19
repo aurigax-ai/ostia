@@ -190,22 +190,13 @@ export function createSandboxServices({
   })
 
   function sandboxCanRead(workspaceId: string, path: string): boolean {
-    try {
-      const { denyRead, allowRead } = workspaceSandboxes.config(workspaceId).filesystem
-      return visibleInSandbox(path, { denyRead, allowRead })
-    } catch {
-      return false
-    }
+    return visibleInSandbox(path, workspaceSandboxes.readRules(workspaceId))
   }
 
   function phoneReadRules(workspaceId: string): SandboxReadRules {
-    if (!workspaceSandboxes.isEnabled(workspaceId)) return { denyRead: [], allowRead: [] }
-    try {
-      const { denyRead, allowRead } = workspaceSandboxes.config(workspaceId).filesystem
-      return { denyRead, allowRead }
-    } catch {
-      return { denyRead: ['/'], allowRead: [] }
-    }
+    return workspaceSandboxes.isEnabled(workspaceId)
+      ? workspaceSandboxes.readRules(workspaceId)
+      : { denyRead: [], allowRead: [] }
   }
 
   function phoneFileScope(workspaceId: string): PhoneFileScope {

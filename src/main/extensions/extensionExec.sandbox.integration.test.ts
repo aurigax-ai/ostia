@@ -13,7 +13,7 @@ import { build } from 'esbuild'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { DEFAULT_ALLOW_READ, DEFAULT_CONTROLS } from '../../shared/sandbox/sandbox'
 import { SandboxHost } from '../sandbox/hostClient'
-import { SandboxUnavailableError } from '../sandbox/sandboxHosts'
+import { SandboxUnavailableError } from '../sandbox/hostClient'
 import { buildSrtConfig } from '../sandbox/srtConfig'
 import { ExtensionExec } from './extensionExec'
 

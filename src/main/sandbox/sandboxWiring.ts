@@ -24,6 +24,12 @@ import { reportSandboxSpawnFailure } from './spawnFailureNotice'
 import type { ViolationLog } from './violations'
 import type { WorkspaceSandboxes } from './workspaceSandboxes'
 
+const PORT_SCAN_MS = 3000
+
+function systemExtensionEnabled(extensionHost: ExtensionHost | null): boolean {
+  return extensionHost?.list().some((ext) => ext.id === 'system' && ext.enabled) ?? false
+}
+
 interface SandboxWiringDeps {
   mainStrings: () => Dict
   domainRequests: DomainRequests
@@ -31,7 +37,6 @@ interface SandboxWiringDeps {
   secretService: SecretService
   workspaceSandboxes: WorkspaceSandboxes
   scanSandboxPorts: () => void
-  PORT_SCAN_MS: number
   services: {
     extensionHost: ExtensionHost | null
     onSandboxSpawnFailure: ((workspaceId: string, errors: string[]) => void) | null
@@ -47,7 +52,6 @@ export function registerSandboxWiring({
   secretService,
   workspaceSandboxes,
   scanSandboxPorts,
-  PORT_SCAN_MS,
   services,
   notifyDeps,
   windows,
@@ -81,8 +85,7 @@ export function registerSandboxWiring({
           return {
             missing,
             hint: installHint(missing),
-            canInstall:
-              services.extensionHost?.list().some((x) => x.id === 'system' && x.enabled) ?? false,
+            canInstall: systemExtensionEnabled(services.extensionHost),
           }
         },
       },
@@ -119,11 +122,10 @@ export function registerSandboxIpcWiring({
   })
   registerSystemRequirementsIpc({
     ownerWindow: windowForWorkspace,
-    workDir: (workspaceId) => workDirForWorkspace(workspaceId),
+    workDir: workDirForWorkspace,
     locale: readLocale,
-    systemExtensionEnabled: () =>
-      services.extensionHost?.list().some((ext) => ext.id === 'system' && ext.enabled) ?? false,
-    missing: (feature) => missingRequirements(feature),
+    systemExtensionEnabled: () => systemExtensionEnabled(services.extensionHost),
+    missing: missingRequirements,
     settled: loginPathSettled,
     label: requirementLabel,
     invokeInstall: (args, caller) =>
