@@ -14,7 +14,7 @@ describe('ScreenRequests', () => {
       () => devices,
       (request, ids) => sent.push([request, ids]),
       () => Date.now(),
-      { waitMs: 120_000, cooldownMs: 60_000 },
+      { waitMs: 120_000, cooldownMs: 60_000, noAnswerCooldownMs: 15_000 },
     )
   })
 
@@ -62,5 +62,31 @@ describe('ScreenRequests', () => {
     if (!asked.ok) throw new Error('not asked')
     await vi.advanceTimersByTimeAsync(120_000)
     expect(await asked.answer).toEqual({ outcome: 'no-answer' })
+  })
+
+  it('PHA-C14 drops a gone phone from its waiting request at once', async () => {
+    const declined = ask('w1')
+    if (!declined.ok) throw new Error('not asked')
+    requests.decline(sent[0][0].requestId ?? '', 'phone', 'denied')
+    requests.dropDevice('stranger')
+    requests.dropDevice('tablet')
+    expect(await declined.answer).toEqual({ outcome: 'declined', reason: 'denied' })
+    devices = ['phone']
+    const alone = ask('w2')
+    if (!alone.ok) throw new Error('not asked alone')
+    requests.dropDevice('phone')
+    expect(await alone.answer).toEqual({ outcome: 'no-answer' })
+  })
+
+  it('PHA-C15 cools down briefly after no-answer, and forgets cooldowns that ended', async () => {
+    const asked = ask('w1')
+    if (!asked.ok) throw new Error('not asked')
+    await vi.advanceTimersByTimeAsync(120_000)
+    expect(ask('w1')).toEqual({ ok: false, error: 'cooldown' })
+    const cooling = (requests as unknown as { cooling: Map<string, number> }).cooling
+    expect([...cooling.keys()]).toEqual(['w1'])
+    await vi.advanceTimersByTimeAsync(15_000)
+    expect(ask('w2').ok).toBe(true)
+    expect(cooling.size).toBe(0)
   })
 })

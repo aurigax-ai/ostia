@@ -68,7 +68,7 @@ const links = new ScreenLinks({
   askPhones: (request, deviceIds) => askPhonesForScreen(request, deviceIds),
   log: (event, fields) => linkLog.push([event, fields]),
   timing: { offerMs: 200, requestMs: 300, graceMs: 100 },
-  requestTiming: { waitMs: 400, cooldownMs: 300 },
+  requestTiming: { waitMs: 400, cooldownMs: 300, noAnswerCooldownMs: 0 },
   notifiedDevices: () => notifiedDeviceIds(),
   agentRunning: (paneId) => paneId !== 'plain-shell',
 })
@@ -749,6 +749,26 @@ describe('gateway server over a real WebSocket', () => {
         await first.call('screen.decline', { requestId: repeat.requestId, reason: 'off' })
         await second.call('screen.decline', { requestId: repeat.requestId, reason: 'off' })
         expect(await again).toMatchObject({ data: { outcome: 'declined', reason: 'off' } })
+      })
+
+      it('PHA-C16 ends the wait for a phone that disconnects or is revoked', async () => {
+        await new Promise((resolve) => setTimeout(resolve, 320))
+        const fake = listenForScreens()
+        const first = await connect(registerDevice({ name: 'Pixel', pubkey: 'pk' }).token)
+        const tablet = registerDevice({ name: 'Tablet', pubkey: 'pk2' })
+        const second = await connect(tablet.token)
+        const gone = asking(fake)
+        const { requestId } = await requestOf(first)
+        await first.call('screen.decline', { requestId, reason: 'off' })
+        second.ws.close()
+        expect(await gone).toEqual({ ok: true, data: { outcome: 'declined', reason: 'off' } })
+        await new Promise((resolve) => setTimeout(resolve, 320))
+        await connect(tablet.token)
+        const revoked = asking(fake)
+        const repeat = await requestOf(first, requestId)
+        await first.call('screen.decline', { requestId: repeat.requestId, reason: 'denied' })
+        closeDeviceSockets(tablet.deviceId)
+        expect(await revoked).toEqual({ ok: true, data: { outcome: 'declined', reason: 'denied' } })
       })
 
       it('PHA-C3 answers no-answer when nobody decides, and holds one waiting request per phone', async () => {

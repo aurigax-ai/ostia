@@ -78,7 +78,9 @@ function untrackDeviceSocket(deviceId: string, ws: WebSocket): void {
   const set = socketsByDevice.get(deviceId)
   if (!set) return
   set.delete(ws)
-  if (set.size === 0) socketsByDevice.delete(deviceId)
+  if (set.size > 0) return
+  socketsByDevice.delete(deviceId)
+  screenLinks?.deviceGone(deviceId)
 }
 
 export function closeDeviceSockets(deviceId: string): void {
@@ -86,6 +88,7 @@ export function closeDeviceSockets(deviceId: string): void {
   if (!set) return
   for (const ws of set) ws.close(4003, 'revoked')
   socketsByDevice.delete(deviceId)
+  screenLinks?.deviceGone(deviceId)
 }
 
 function eventFrame(type: string, payload: unknown): string {
