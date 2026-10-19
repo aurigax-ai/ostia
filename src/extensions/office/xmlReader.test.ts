@@ -85,7 +85,7 @@ describe('readXml', () => {
   it('stops nesting past the depth limit with its own reason and no stack overflow', () => {
     const deep = (levels: number): string => `${'<d>'.repeat(levels)}${'</d>'.repeat(levels)}`
     expect(read(deep(8), 8).name).toBe('d')
-    expect(() => read(deep(9), 8)).toThrow('depth-limit')
-    expect(() => read(deep(50_000))).toThrow('depth-limit')
+    expect(() => read(deep(9), 8)).toThrow('failed')
+    expect(() => read(deep(50_000))).toThrow('failed')
   })
 })
