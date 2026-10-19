@@ -13,7 +13,7 @@ export function commandHelp(descriptor: CommandDescriptor): string {
     `usage: ostia ${descriptor.id} [json-args]`,
   ]
   if (descriptor.argsSchema) {
-    lines.push('', 'args (JSON):', JSON.stringify(descriptor.argsSchema, null, 2))
+    lines.push('', 'args (JSON):', JSON.stringify(descriptor.argsSchema))
   } else {
     lines.push('', 'takes no arguments')
   }

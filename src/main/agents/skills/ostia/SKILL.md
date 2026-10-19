@@ -21,7 +21,10 @@ Inside an Ostia terminal pane these are set:
 run `ELECTRON_RUN_AS_NODE=1 "$OSTIA_NODE" "$OSTIA_CLI" <noun> <verb> …`.
 
 Every command is `ostia <noun> <verb> [args]`. `ostia <noun> --help` prints a noun's verbs and
-arguments; `ostia --help` lists the nouns. `ostia docs` prints this skill and the commands of
+arguments, `ostia <noun> <verb> --help` one verb, and `ostia --help` the nouns. A refusal or
+error is one line on stderr, `ostia <noun> <verb>: <code>: <detail>`, with exit 1; a usage
+mistake adds the verb's usage line. JSON answers are one line; in tab-separated text lines a
+tab, newline or control character in a field shows as `\t`, `\n` or `\xNN`. `ostia docs` prints this skill and the commands of
 the enabled extensions. `ostia whoami` prints JSON: `externalId` (the pane id other commands
 take), `paneId` and `workspaceId` (the app's internal ids), `cwd` and `running` (whether a command
 runs there). A script token gets `{externalId, kind: "script"}` and no pane.
@@ -130,7 +133,7 @@ the question. The answer arrives only as the command's output.
 
 ```sh
 ostia process run "npm run dev" --name web [--cwd DIR] [--workspace <id|name>] [--tab <name>]
-ostia process list                       # id, name, status, paneId, command
+ostia process list [--json]              # id, name, status, paneId, command
 ostia process logs web [--since N]       # that command's output only; (cursor=N) on stderr
 ostia process kill web                   # Ctrl+C, then ends the shell if it keeps running
 ostia process restart web                # Ctrl+C, then the same line in the same tab
@@ -146,7 +149,7 @@ output?, reason?}`: `started` (an agent reported its start; a command still runs
 second), `exited` (the command ended with exit code 0), `failed` (it ended otherwise, or its tab
 closed; `output` holds its last 20 lines) or `timed-out` (no start within 15 s, 60 s for an
 agent). Exit 1 for `failed` and `timed-out`. An agent caller also gets the outcome as a bus
-message from `ostia`. `pane list` repeats the outcome as `process.start` on that pane. Unknown
+message from `ostia`. `pane list --json` repeats the outcome as `process.start` on that pane. Unknown
 flags are refused. Status is `starting`, `running`, `exited(<code>)` or `closed`; nothing survives a restart of Ostia. `logs` is empty for a full-screen program: read
 its screen with `ostia pane read`. `restart` answers `still-running` when the command ignores
 Ctrl+C.
@@ -156,12 +159,12 @@ workspace, created once two panes share the name; Ostia arranges it (side by sid
 segment stays readable, then a grid). Only a split tab an agent made can be joined: one the human
 made, named or renamed answers `human-tab:`. From an agent, `agent run` without `--tab` joins its
 split tab `<caller title> · workers`, the same tab for as long as the caller pane lives, and opens a
-plain tab when the human took that tab over. `ostia pane list` reports `splitTabName`.
+plain tab when the human took that tab over. `ostia pane list --json` reports `splitTabName`.
 
 ## Panes
 
 ```sh
-ostia pane list                          # every pane you can see (JSON)
+ostia pane list [--json]                 # a line per pane: paneId, workspaceId, kind, state, title
 ostia pane send <pane> "text" [--enter]  # types text; no Enter unless --enter
 ostia pane send <pane> --enter -- "-y"   # text starting with - goes after --
 ostia pane send <pane> --paste "text"    # --paste: as one bracketed paste; --raw: the bytes as typed
@@ -177,7 +180,8 @@ ostia pane rename <pane> <title…> | --clear
 ostia pane close [<pane>…] [--json]      # no pane: your own
 ```
 
-`<pane>` is a `paneId`, or a process id or name from `ostia process list`. `pane list` fields:
+`<pane>` is a `paneId`, or a process id or name from `ostia process list`. `state` is `hibernated`, `waking`, the agent's state, `running` or `idle`.
+`pane list --json` fields:
 
 | Field | Meaning |
 |---|---|
@@ -230,6 +234,7 @@ ostia pane close [<pane>…] [--json]      # no pane: your own
 
 ```sh
 ostia bus send <pane> "message"          # {"ok":true,"id":…,"delivered":"waiting"|"queued"}
+ostia bus send <pane> -- --help          # after --, even --help is the message
 ostia bus inbox [--drain]                # messages to you (JSON); --drain clears them
 ostia bus sent [--json]                  # what you sent, seen or unseen
 ostia bus wait [--timeout <s>]           # blocks until a new message (1–120 s, default 30)
