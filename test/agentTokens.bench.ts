@@ -25,6 +25,10 @@ const { registerPane } = await import('../src/main/control/idRegistry')
 const { registerPaneListMethods } = await import('../src/main/panes/paneList')
 const { writeCodexIntegration } = await import('../src/main/terminal/codexIntegration')
 const { USAGE_TABLE, nounUsage, topUsage } = await import('../src/cli/common/usageTable')
+const { BUILTIN_SPECS, skillsDescription } = await import(
+  '../src/renderer/lib/assist/chatToolSpecs'
+)
+const { BUILTIN_TOOL_ACCESS } = await import('../src/shared/assist/chatTools')
 
 const cliPath = join(process.cwd(), 'out', 'cli', 'index.js')
 const socketPath = join(dir, 'control.sock')
@@ -74,6 +78,12 @@ const PROCESSES = Array.from({ length: 5 }, (_, i) => ({
   ...(i === 4 ? { exitCode: 0 } : {}),
   paneId: `00000000-0000-4000-8000-00000000010${i}`,
   startedAt: '2026-10-19T10:00:00.000Z',
+}))
+
+const SKILLS = Array.from({ length: 40 }, (_, i) => ({
+  name: `team-skill-${i}`,
+  description: `Use when the task touches area ${i} of the product: the steps, the checks to run before calling it done, and the files that hold the settings for it.`,
+  path: `/home/u/.claude/skills/team-skill-${i}/SKILL.md`,
 }))
 
 const MESSAGE = 'Review done for #101: 3 files changed, the unit tests pass. Next: rebase on main.'
@@ -225,6 +235,23 @@ describe('static surfaces', () => {
     const codex = join(dir, 'codex')
     const { contextFile } = writeCodexIntegration(codex)
     record('hook.codex.session', readFileSync(contextFile, 'utf8'))
+  })
+})
+
+describe('pi tool specs', () => {
+  it('measures every tool declaration the Agent sends with each request', () => {
+    const declarations = Object.keys(BUILTIN_TOOL_ACCESS).map((name) => {
+      const spec = BUILTIN_SPECS[name as keyof typeof BUILTIN_SPECS]
+      const description = name === 'load_skill' ? skillsDescription(SKILLS) : spec.description
+      const json = JSON.stringify({
+        type: 'function',
+        function: { name, description, parameters: spec.inputSchema, strict: false },
+      })
+      record(`pi.tool.${name}`, json)
+      return json
+    })
+    record('pi.tools', `[${declarations.join(',')}]`)
+    expect(declarations).toHaveLength(Object.keys(BUILTIN_SPECS).length)
   })
 })
 
