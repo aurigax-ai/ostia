@@ -1,4 +1,4 @@
-import type { ViewerPortableTables } from '@aurigax-ai/ostia-extension-sdk/contract/fileViewers'
+import type { ViewerPortableTables } from '@aurigax-ai/ostia-extension-sdk/contract/fileKinds'
 import { escape as escapeHtml } from 'es-toolkit'
 import type { PortableDocument } from '../../shared/artifacts/portable'
 

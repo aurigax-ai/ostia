@@ -24,12 +24,12 @@ export function findStatus(
 
 export type FindStepRef = MutableRefObject<((by: number) => void) | null>
 
-export function findStepKey(e: KeyLike): 1 | -1 | null {
+function findStepKey(e: KeyLike): 1 | -1 | null {
   if (e.key === 'F3' && !e.ctrlKey && !e.metaKey && !e.altKey) return e.shiftKey ? -1 : 1
   return findStep(matchChord(e, isMac))
 }
 
-export function useFindStepRef(stepRef: FindStepRef | undefined, step: (by: number) => void): void {
+function useFindStepRef(stepRef: FindStepRef | undefined, step: (by: number) => void): void {
   useEffect(() => {
     if (!stepRef) return
     stepRef.current = step

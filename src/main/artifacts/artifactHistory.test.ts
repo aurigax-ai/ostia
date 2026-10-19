@@ -71,7 +71,7 @@ function rig(quietMs = 30): ArtifactHistory {
     folderOf: (workspaceId) => (workspaceId === 'w1' ? folder : join(root, workspaceId)),
     isScratch: (workspaceId) => scratch.has(workspaceId),
     make,
-    viewerMatches: (name) => name.endsWith('.xlsx'),
+    kindMatches: (name) => name.endsWith('.xlsx'),
     now: () => clock.now,
     quietMs,
   })

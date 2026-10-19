@@ -41,12 +41,12 @@ import {
 } from '../contract/extensions'
 import {
   FILENAME_PATTERN_PATTERN,
-  FILE_VIEWERS_MAX,
-  FILE_VIEWER_DISPLAY_NAME_MAX,
-  FILE_VIEWER_PRIORITIES,
-  FILE_VIEWER_SELECTORS_MAX,
-  FILE_VIEWER_TYPE_PATTERN,
-} from '../contract/fileViewers'
+  FILE_KINDS_MAX,
+  FILE_KIND_DISPLAY_NAME_MAX,
+  FILE_KIND_ID_PATTERN,
+  FILE_KIND_SELECTORS_MAX,
+  FILE_KIND_VIEW_PRIORITIES,
+} from '../contract/fileKinds'
 import { ICON_THEME_ID_PATTERN } from '../contract/iconTheme'
 import { KEYMAP_LABEL_MAX, KEYMAP_PLATFORMS } from '../contract/keymap'
 import { LANGUAGE_ID_PATTERN } from '../contract/languagePack'
@@ -330,20 +330,22 @@ const contributes = z.looseObject({
     .optional(),
   languageServers: z.array(languageServer).max(MAX_LANGUAGE_SERVERS).optional(),
   editorLanguages: z.array(editorLanguage).max(MAX_EDITOR_LANGUAGES).optional(),
-  fileViewers: z
+  fileKinds: z
     .array(
       z.looseObject({
-        viewType: z.string().regex(FILE_VIEWER_TYPE_PATTERN),
-        displayName: z.string().min(1).max(FILE_VIEWER_DISPLAY_NAME_MAX),
+        id: z.string().regex(FILE_KIND_ID_PATTERN),
+        displayName: z.string().min(1).max(FILE_KIND_DISPLAY_NAME_MAX),
         selector: z
           .array(z.looseObject({ filenamePattern: z.string().regex(FILENAME_PATTERN_PATTERN) }))
           .min(1)
-          .max(FILE_VIEWER_SELECTORS_MAX),
-        priority: z.enum(FILE_VIEWER_PRIORITIES).optional(),
-        entry: z.string().regex(/\.html$/),
+          .max(FILE_KIND_SELECTORS_MAX),
+        view: z.looseObject({
+          entry: z.string().regex(/\.html$/),
+          priority: z.enum(FILE_KIND_VIEW_PRIORITIES).optional(),
+        }),
       }),
     )
-    .max(FILE_VIEWERS_MAX)
+    .max(FILE_KINDS_MAX)
     .optional(),
   agentSkills: z
     .array(

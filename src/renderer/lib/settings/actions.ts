@@ -30,7 +30,7 @@ export const ACTION_ICONS = [
   'checklist',
   'broom',
 ] as const
-export type ActionIcon = (typeof ACTION_ICONS)[number]
+type ActionIcon = (typeof ACTION_ICONS)[number]
 
 const PANE_KINDS: readonly SurfaceKind[] = ['terminal', 'editor', 'browser', 'git', 'diff', 'view']
 

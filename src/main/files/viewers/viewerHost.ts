@@ -14,7 +14,7 @@ import {
   VIEWER_SCHEME,
   type ViewerDocumentMeta,
   type ViewerPortableTables,
-} from '@aurigax-ai/ostia-extension-sdk/contract/fileViewers'
+} from '@aurigax-ai/ostia-extension-sdk/contract/fileKinds'
 import type {
   ViewerOpenRequest,
   ViewerOpenResult,

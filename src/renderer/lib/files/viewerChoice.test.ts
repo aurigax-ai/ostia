@@ -5,31 +5,33 @@ import { associationPattern, chooseViewer, viewerOptions } from './viewerChoice'
 function ext(
   id: string,
   builtin: boolean,
-  viewers: ExtensionInfo['fileViewers'],
+  kinds: ExtensionInfo['fileKinds'],
   enabled = true,
 ): ExtensionInfo {
-  return { id, builtin, enabled, fileViewers: viewers } as ExtensionInfo
+  return { id, builtin, enabled, fileKinds: kinds } as ExtensionInfo
 }
 
 const SHEET = {
-  viewType: 'office.spreadsheet',
+  id: 'office.spreadsheet',
   displayName: 'Spreadsheet',
   selector: [{ filenamePattern: '*.xlsx' }],
-  priority: 'default' as const,
+  view: { priority: 'default' as const },
+  approved: true,
 }
-const RIVAL = { ...SHEET, viewType: 'acme.grid', displayName: 'Acme' }
+const RIVAL = { ...SHEET, id: 'acme.grid', displayName: 'Acme' }
 const TABLE = {
-  viewType: 'csv.table',
+  id: 'csv.table',
   displayName: 'Table',
   selector: [{ filenamePattern: '*.csv' }],
-  priority: 'option' as const,
+  view: { priority: 'option' as const },
+  approved: true,
 }
 
 const EXTENSIONS = [
   ext('acme', false, [RIVAL]),
   ext('office', true, [SHEET]),
   ext('csv', true, [TABLE]),
-  ext('off', true, [{ ...SHEET, viewType: 'off.sheet' }], false),
+  ext('off', true, [{ ...SHEET, id: 'off.sheet' }], false),
 ]
 
 function choose(path: string, extra: Partial<Parameters<typeof chooseViewer>[0]> = {}) {
@@ -50,6 +52,21 @@ describe('viewerChoice', () => {
       'acme.grid',
     ])
     expect(viewerOptions('/w/a.txt', EXTENSIONS)).toEqual([])
+  })
+
+  it('leaves out a kind whose claim the human has not approved', () => {
+    const waiting = ext('wide', false, [{ ...RIVAL, id: 'wide.grid', approved: false }])
+    expect(viewerOptions('/w/a.xlsx', [waiting]).map((o) => o.viewType)).toEqual([])
+    expect(
+      chooseViewer({
+        path: '/w/a.xlsx',
+        options: viewerOptions('/w/a.xlsx', [waiting]),
+        chosen: 'wide.grid',
+        associations: {},
+        ownView: false,
+        inArtifacts: false,
+      }).unavailable,
+    ).toBe(true)
   })
 
   it('opens the first default viewer, never an option one outside artifacts', () => {

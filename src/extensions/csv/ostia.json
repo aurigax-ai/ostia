@@ -7,13 +7,22 @@
   "category": "tools",
   "locales": ["zh-Hant"],
   "contributes": {
-    "fileViewers": [
+    "fileKinds": [
       {
-        "viewType": "csv.table",
+        "id": "csv.table",
         "displayName": "Table",
-        "selector": [{ "filenamePattern": "*.csv" }, { "filenamePattern": "*.tsv" }],
-        "priority": "option",
-        "entry": "table.html"
+        "selector": [
+          {
+            "filenamePattern": "*.csv"
+          },
+          {
+            "filenamePattern": "*.tsv"
+          }
+        ],
+        "view": {
+          "entry": "table.html",
+          "priority": "option"
+        }
       }
     ]
   }

@@ -2,7 +2,7 @@ import type { Translate } from '@aurigax-ai/ostia-extension-sdk/contract/extensi
 import {
   PORTABLE_TABLE_ROWS_MAX,
   type PortableTable,
-} from '@aurigax-ai/ostia-extension-sdk/contract/fileViewers'
+} from '@aurigax-ai/ostia-extension-sdk/contract/fileKinds'
 import { type Grid, columnName, grid } from '@aurigax-ai/ostia-extension-sdk/grid'
 import {
   publishPortable,

@@ -9,7 +9,7 @@ import {
   type ExtensionCategory,
   type ExtensionManifest,
 } from '../contract/extensions'
-import { parseFileViewers } from '../contract/fileViewers'
+import { parseFileKinds } from '../contract/fileKinds'
 import { isRecord } from '../contract/isRecord'
 import { parseLanguageServers } from '../contract/languageServerManifest'
 import { isInsideDir } from './confinedRead'
@@ -130,10 +130,8 @@ export function parseManifest(raw: unknown, dir: string): ManifestResult {
     isInsideDir(dir, path),
   )
   if (typeof editorLanguages === 'string') return { ok: false, error: editorLanguages }
-  const fileViewers = parseFileViewers(contributes.fileViewers, id, (path) =>
-    isInsideDir(dir, path),
-  )
-  if (typeof fileViewers === 'string') return { ok: false, error: fileViewers }
+  const fileKinds = parseFileKinds(contributes.fileKinds, id, (path) => isInsideDir(dir, path))
+  if (typeof fileKinds === 'string') return { ok: false, error: fileKinds }
   const agentSkills = parseAgentSkills(contributes.agentSkills, dir)
   if (typeof agentSkills === 'string') return { ok: false, error: agentSkills }
   const agentHooks = parseAgentHooks(contributes.agentHooks, commands)
@@ -187,7 +185,7 @@ export function parseManifest(raw: unknown, dir: string): ManifestResult {
   if (keymaps.length > 0) manifest.contributes.keymaps = keymaps
   if (languageServers.length > 0) manifest.contributes.languageServers = languageServers
   if (editorLanguages.length > 0) manifest.contributes.editorLanguages = editorLanguages
-  if (fileViewers.length > 0) manifest.contributes.fileViewers = fileViewers
+  if (fileKinds.length > 0) manifest.contributes.fileKinds = fileKinds
   if (agentSkills.length > 0) manifest.contributes.agentSkills = agentSkills
   if (agentHooks.length > 0) manifest.contributes.agentHooks = agentHooks
   if (typeof contributes.verb === 'string') manifest.contributes.verb = contributes.verb

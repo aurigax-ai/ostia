@@ -2,7 +2,14 @@ import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { DOM_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
 import { PROMPT, addTab, openWorkspace, quitApp } from './helpers'
-import { type ElectronApplication, type Page, _electron as electron, expect, test } from './test'
+import {
+  type ElectronApplication,
+  type Page,
+  _electron as electron,
+  expect,
+  killApp,
+  test,
+} from './test'
 
 interface Launched {
   app: ElectronApplication
@@ -145,7 +152,7 @@ test('restores terminal history after a crash (no before-quit)', { tag: '@core' 
       )
       .toBe(true)
   } finally {
-    first.app.process().kill('SIGKILL')
+    await killApp(first.app)
   }
 
   const second = await launchApp(dataHome)

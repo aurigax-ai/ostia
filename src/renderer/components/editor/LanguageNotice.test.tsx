@@ -31,6 +31,7 @@ function server(extra: Partial<LanguageServerInfo> = {}): LanguageServerInfo {
 
 const install: ExtensionSuggestion = {
   kind: 'install',
+  feature: 'language',
   extId: 'lsp-rust-analyzer',
   name: 'Rust (rust-analyzer)',
   files: '.rs',
@@ -143,6 +144,19 @@ describe('LanguageNotice', () => {
     expect(await screen.findByRole('status')).toHaveTextContent('is waiting for your approval')
     await userEvent.setup().click(screen.getByRole('button', { name: 'Review' }))
     expect(useExtensionsStore.getState().reviewing).toBe('lsp-rust-analyzer')
+  })
+
+  it('words an offer for a file kind as showing the file, not as language features', async () => {
+    suggest({ ...install, feature: 'view', name: 'Office documents', files: '.xlsx' })
+    const first = render(<LanguageNotice paneId="p1" filePath="/work/a.xlsx" />)
+    expect(await screen.findByRole('status')).toHaveTextContent(
+      'Office documents can show .xlsx files.',
+    )
+    first.unmount()
+
+    suggest({ ...install, kind: 'enable', pending: false, feature: 'view', files: '.xlsx' })
+    render(<LanguageNotice paneId="p1" filePath="/work/a.xlsx" />)
+    expect(await screen.findByRole('status')).toHaveTextContent('It can show .xlsx files.')
   })
 
   it('shows one extension’s offer in one pane per window session', async () => {

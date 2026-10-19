@@ -1,17 +1,17 @@
 import type { ExtensionInfo } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import {
-  type FileViewerPriority,
+  type FileKindViewPriority,
   OWN_VIEW,
+  kindMatches,
   matchesFilenamePattern,
-  viewerMatches,
-} from '@aurigax-ai/ostia-extension-sdk/contract/fileViewers'
+} from '@aurigax-ai/ostia-extension-sdk/contract/fileKinds'
 
 export interface ViewerOption {
   viewType: string
   displayName: string
   extId: string
   builtin: boolean
-  priority: FileViewerPriority
+  priority: FileKindViewPriority
 }
 
 export interface ViewerChoiceInput {
@@ -41,14 +41,14 @@ export function viewerOptions(
   )
   for (const ext of ordered) {
     if (!ext.enabled) continue
-    for (const viewer of ext.fileViewers) {
-      if (!viewerMatches(path, viewer)) continue
+    for (const kind of ext.fileKinds) {
+      if (!kind.approved || !kindMatches(path, kind)) continue
       options.push({
-        viewType: viewer.viewType,
-        displayName: viewer.displayName,
+        viewType: kind.id,
+        displayName: kind.displayName,
         extId: ext.id,
         builtin: ext.builtin,
-        priority: viewer.priority,
+        priority: kind.view.priority,
       })
     }
   }

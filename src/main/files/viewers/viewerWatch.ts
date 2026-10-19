@@ -4,8 +4,7 @@ import type { ProcessUse } from '../../artifacts/previewHostTypes'
 import { previewVerdict } from '../../artifacts/previewLimits'
 
 const MIB = 1024 * 1024
-const PING_MS = 1_000
-const METRICS_MS = 5_000
+const CHECK_MS = 1_000
 
 export const VIEWER_LIMITS: PreviewLimits = { ...PREVIEW_LIMITS, memoryBytes: 1024 * MIB }
 
@@ -13,7 +12,6 @@ export interface WatchedGuest {
   isDestroyed: () => boolean
   getOSProcessId: () => number
   executeJavaScript: (code: string) => Promise<unknown>
-  forcefullyCrashRenderer: () => void
 }
 
 interface Watched {
@@ -25,6 +23,7 @@ interface Watched {
 
 export interface ViewerWatchDeps {
   processes: () => ProcessUse[]
+  kill: (pid: number) => void
   now?: () => number
   limits?: PreviewLimits
 }
@@ -32,8 +31,7 @@ export interface ViewerWatchDeps {
 export class ViewerWatch {
   private readonly watched = new Map<string, Watched>()
   private readonly now: () => number
-  private pingTimer: ReturnType<typeof setInterval> | null = null
-  private metricsTimer: ReturnType<typeof setInterval> | null = null
+  private timer: ReturnType<typeof setInterval> | null = null
 
   constructor(private readonly deps: ViewerWatchDeps) {
     this.now = deps.now ?? Date.now
@@ -41,17 +39,17 @@ export class ViewerWatch {
 
   watch(key: string, guest: WatchedGuest, stop: (reason: ViewerStopReason) => void): void {
     this.watched.set(key, { guest, waitingSince: null, memoryBytes: 0, stop })
-    this.pingTimer ??= setInterval(() => this.tick(), PING_MS)
-    this.metricsTimer ??= setInterval(() => this.measure(), METRICS_MS)
+    this.timer ??= setInterval(() => {
+      this.measure()
+      this.tick()
+    }, CHECK_MS)
   }
 
   unwatch(key: string): void {
     this.watched.delete(key)
     if (this.watched.size > 0) return
-    if (this.pingTimer) clearInterval(this.pingTimer)
-    if (this.metricsTimer) clearInterval(this.metricsTimer)
-    this.pingTimer = null
-    this.metricsTimer = null
+    if (this.timer) clearInterval(this.timer)
+    this.timer = null
   }
 
   unresponsive(key: string): void {
@@ -70,7 +68,7 @@ export class ViewerWatch {
       )
       if (verdict.stop === 'memory' || verdict.stop === 'unresponsive') {
         this.unwatch(key)
-        if (!entry.guest.isDestroyed()) entry.guest.forcefullyCrashRenderer()
+        if (!entry.guest.isDestroyed()) this.deps.kill(entry.guest.getOSProcessId())
         entry.stop(verdict.stop)
       }
     }

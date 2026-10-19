@@ -569,7 +569,7 @@ describe('Marketplace', () => {
     expect(offered?.extensions[0]?.state).toBe('conflict')
   })
 
-  it('lists the editor languages each offered extension’s language servers cover', async () => {
+  it('lists the languages and file patterns each offered extension covers', async () => {
     const repo = marketplaceRepo()
     writeExtension(repo, 'extensions/gleam', {
       id: 'gleam',
@@ -582,6 +582,14 @@ describe('Marketplace', () => {
           { id: 'a', name: 'A', languages: ['gleam', 'toml'], run: { program: 'gleam' } },
           { id: 'b', name: 'B', languages: ['toml'], run: { program: 'taplo' } },
         ],
+        fileKinds: [
+          {
+            id: 'gleam.pkg',
+            displayName: 'Package',
+            selector: [{ filenamePattern: '*.gleam' }],
+            view: { entry: 'pkg.html' },
+          },
+        ],
       },
     })
     writeFileSync(
@@ -590,15 +598,21 @@ describe('Marketplace', () => {
     )
     commit(repo)
     const h = harness()
-    expect(h.marketplace.languageListings()).toEqual([])
+    expect(h.marketplace.listings()).toEqual([])
     await h.marketplace.add(repo)
     const id = marketplaceId(repo)
-    expect(h.marketplace.languageListings()).toEqual([
-      { marketplaceId: id, extId: 'weather', name: 'Weather', languages: [] },
-      { marketplaceId: id, extId: 'gleam', name: 'Gleam', languages: ['gleam', 'toml'] },
+    expect(h.marketplace.listings()).toEqual([
+      { marketplaceId: id, extId: 'weather', name: 'Weather', languages: [], patterns: [] },
+      {
+        marketplaceId: id,
+        extId: 'gleam',
+        name: 'Gleam',
+        languages: ['gleam', 'toml'],
+        patterns: ['*.gleam'],
+      },
     ])
     await h.marketplace.remove(id, false)
-    expect(h.marketplace.languageListings()).toEqual([])
+    expect(h.marketplace.listings()).toEqual([])
   })
 
   it('installs a suggested extension from a marketplace that already lists it', async () => {
@@ -818,7 +832,7 @@ describe('Marketplace', () => {
   it('keeps an unlisted extension out of the language listings and the suggested install', async () => {
     const h = harness()
     const { state } = await h.marketplace.add(repoWithUnlisted())
-    expect(h.marketplace.languageListings().map((l) => l.extId)).toEqual(['weather'])
+    expect(h.marketplace.listings().map((l) => l.extId)).toEqual(['weather'])
     const url = state.marketplaces[0]?.url ?? ''
     expect(await h.marketplace.installSuggested('tides', url, true)).toMatchObject({
       ok: false,

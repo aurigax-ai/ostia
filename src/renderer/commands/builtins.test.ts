@@ -451,6 +451,27 @@ describe('builtins route to store actions', () => {
     expect(useSettingsStore.getState().workspaceGroups.byCwd).toEqual([])
   })
 
+  it('settings.set and settings.unset refuse the modifier remap, so an agent cannot turn a key into another', async () => {
+    useSettingsStore.setState({ modifierRemap: { ControlLeft: 'command' } })
+    const exec = (id: string, args: unknown) => commands.execWith(ctx(null, null), id, args)
+    const attempts = [
+      await exec('settings.set', { key: 'modifierRemap.ControlLeft', value: 'control' }),
+      await exec('settings.set', { key: 'modifierRemap', value: { MetaRight: 'control' } }),
+      await exec('settings.unset', { key: 'modifierRemap' }),
+    ]
+    for (const res of attempts) {
+      expect(res.ok).toBe(false)
+      if (!res.ok) {
+        expect(res.error.message).toBe('modifierRemap can only be changed by you in Settings')
+      }
+    }
+    expect(useSettingsStore.getState().modifierRemap).toEqual({ ControlLeft: 'command' })
+    expect(await exec('settings.get', { key: 'modifierRemap' })).toEqual({
+      ok: true,
+      result: { ControlLeft: 'command' },
+    })
+  })
+
   it('settings.set picks a text editing preset, refuses unknown ones, and unset goes back to null', async () => {
     const exec = (id: string, args: unknown) => commands.execWith(ctx(null, null), id, args)
     expect(await exec('settings.set', { key: 'terminalKeymap', value: 'none' })).toEqual({

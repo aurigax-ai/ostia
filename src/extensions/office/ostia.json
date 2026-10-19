@@ -7,36 +7,63 @@
   "category": "tools",
   "locales": ["zh-Hant"],
   "contributes": {
-    "fileViewers": [
+    "fileKinds": [
       {
-        "viewType": "office.spreadsheet",
+        "id": "office.spreadsheet",
         "displayName": "Spreadsheet",
         "selector": [
-          { "filenamePattern": "*.xlsx" },
-          { "filenamePattern": "*.xlsm" },
-          { "filenamePattern": "*.ods" }
+          {
+            "filenamePattern": "*.xlsx"
+          },
+          {
+            "filenamePattern": "*.xlsm"
+          },
+          {
+            "filenamePattern": "*.ods"
+          }
         ],
-        "priority": "default",
-        "entry": "sheet.html"
+        "view": {
+          "entry": "sheet.html",
+          "priority": "default"
+        }
       },
       {
-        "viewType": "office.document",
+        "id": "office.document",
         "displayName": "Document",
-        "selector": [{ "filenamePattern": "*.docx" }, { "filenamePattern": "*.odt" }],
-        "priority": "default",
-        "entry": "document.html"
+        "selector": [
+          {
+            "filenamePattern": "*.docx"
+          },
+          {
+            "filenamePattern": "*.odt"
+          }
+        ],
+        "view": {
+          "entry": "document.html",
+          "priority": "default"
+        }
       },
       {
-        "viewType": "office.presentation",
+        "id": "office.presentation",
         "displayName": "Presentation",
         "selector": [
-          { "filenamePattern": "*.pptx" },
-          { "filenamePattern": "*.pptm" },
-          { "filenamePattern": "*.ppsx" },
-          { "filenamePattern": "*.odp" }
+          {
+            "filenamePattern": "*.pptx"
+          },
+          {
+            "filenamePattern": "*.pptm"
+          },
+          {
+            "filenamePattern": "*.ppsx"
+          },
+          {
+            "filenamePattern": "*.odp"
+          }
         ],
-        "priority": "default",
-        "entry": "presentation.html"
+        "view": {
+          "entry": "presentation.html",
+          "priority": "default"
+        }
       }
     ]
   }
