@@ -368,6 +368,10 @@ export class ScreenLinks {
     return { ok: true, data: await asked.answer }
   }
 
+  deviceGone(deviceId: string): void {
+    this.requests.dropDevice(deviceId)
+  }
+
   decline(requestId: string, deviceId: string, reason: PhoneScreenDeclineReason): boolean {
     return this.requests.decline(requestId, deviceId, reason)
   }

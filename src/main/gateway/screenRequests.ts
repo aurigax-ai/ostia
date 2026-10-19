@@ -6,6 +6,7 @@ import type {
 
 const REQUEST_MS = 120_000
 const DECLINE_COOLDOWN_MS = 60_000
+const NO_ANSWER_COOLDOWN_MS = 15_000
 
 export interface ScreenRequested {
   sessionId: string
@@ -31,11 +32,13 @@ export type AskFromAgent =
 export interface ScreenRequestTiming {
   waitMs: number
   cooldownMs: number
+  noAnswerCooldownMs: number
 }
 
 const DEFAULT_TIMING: ScreenRequestTiming = {
   waitMs: REQUEST_MS,
   cooldownMs: DECLINE_COOLDOWN_MS,
+  noAnswerCooldownMs: NO_ANSWER_COOLDOWN_MS,
 }
 
 function declineReason(declined: Map<string, PhoneScreenDeclineReason>): PhoneScreenDeclineReason {
@@ -55,8 +58,11 @@ export class ScreenRequests {
   ) {}
 
   askFromAgent(request: Omit<ScreenRequested, 'by' | 'requestId'>): AskFromAgent {
-    const until = this.cooling.get(request.sessionId)
-    if (until !== undefined && this.now() < until) return { ok: false, error: 'cooldown' }
+    const now = this.now()
+    for (const [sessionId, until] of this.cooling) {
+      if (now >= until) this.cooling.delete(sessionId)
+    }
+    if (this.cooling.has(request.sessionId)) return { ok: false, error: 'cooldown' }
     const busy = new Set<string>()
     for (const open of this.waiting.values()) {
       if (open.sessionId === request.sessionId) return { ok: false, error: 'busy' }
@@ -68,10 +74,7 @@ export class ScreenRequests {
     if (free.length === 0) return { ok: false, error: 'busy' }
     const requestId = randomUUID()
     const answer = new Promise<PhoneScreenAskOutcome>((resolve) => {
-      const timer = setTimeout(
-        () => this.settle(requestId, { outcome: 'no-answer' }),
-        this.timing.waitMs,
-      )
+      const timer = setTimeout(() => this.unanswered(requestId), this.timing.waitMs)
       this.waiting.set(requestId, {
         sessionId: request.sessionId,
         asked: new Set(free),
@@ -88,16 +91,36 @@ export class ScreenRequests {
     const open = this.waiting.get(requestId)
     if (!open?.asked.has(deviceId)) return false
     open.declined.set(deviceId, reason)
-    if (open.declined.size < open.asked.size) return true
-    this.cooling.set(open.sessionId, this.now() + this.timing.cooldownMs)
-    this.settle(requestId, { outcome: 'declined', reason: declineReason(open.declined) })
+    this.settleIfAllDeclined(requestId, open)
     return true
+  }
+
+  dropDevice(deviceId: string): void {
+    for (const [requestId, open] of [...this.waiting]) {
+      if (!open.asked.delete(deviceId)) continue
+      open.declined.delete(deviceId)
+      if (open.asked.size === 0) this.unanswered(requestId)
+      else this.settleIfAllDeclined(requestId, open)
+    }
   }
 
   started(requestId: string, deviceId: string, sessionId: string): void {
     const open = this.waiting.get(requestId)
     if (!open || open.sessionId !== sessionId || !open.asked.has(deviceId)) return
     this.settle(requestId, { outcome: 'started' })
+  }
+
+  private settleIfAllDeclined(requestId: string, open: Waiting): void {
+    if (open.declined.size < open.asked.size) return
+    this.cooling.set(open.sessionId, this.now() + this.timing.cooldownMs)
+    this.settle(requestId, { outcome: 'declined', reason: declineReason(open.declined) })
+  }
+
+  private unanswered(requestId: string): void {
+    const open = this.waiting.get(requestId)
+    if (!open) return
+    this.cooling.set(open.sessionId, this.now() + this.timing.noAnswerCooldownMs)
+    this.settle(requestId, { outcome: 'no-answer' })
   }
 
   private settle(requestId: string, outcome: PhoneScreenAskOutcome): boolean {
