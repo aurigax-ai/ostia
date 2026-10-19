@@ -1,6 +1,7 @@
 import type { BrowserWindow } from 'electron'
 import type { CommandDescriptor } from '../../shared/control/commands'
 import type { TerminalStateSnapshot } from '../../shared/terminal/ptyApi'
+import type { AgentSessions } from '../agent/agentSessions'
 import type { ConsoleEntry } from '../browser/browseMethod'
 import type { GuestChords } from '../browser/guestChords'
 import type { McpHost } from '../chat/mcpHost'
@@ -67,6 +68,7 @@ export function createAppState() {
     portsService: null as PortsService | null,
     viewHost: null as ViewHost | null,
     mcpHost: null as McpHost | null,
+    agentSessions: null as AgentSessions | null,
     mcpOAuth: null as McpOAuth | null,
     broker: null as WindowBroker | null,
     profileSync: null as ProfileSyncHandle | null,

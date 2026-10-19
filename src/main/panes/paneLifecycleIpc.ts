@@ -34,6 +34,7 @@ import type { ScratchFolders } from '../workspaces/scratchFolders'
 import type { WorkspaceLifecycle } from '../workspaces/workspaceLifecycle'
 import { setWorkspaceWorkDir } from '../workspaces/workspaceRegistry'
 import type { PaneJournal } from './paneJournal'
+import type { PaneTurns } from './paneTurns'
 import type { PaneWatch } from './paneWait'
 import type { PaneWaking } from './paneWaking'
 import type { ProcessRegistry } from './processRegistry'
@@ -60,6 +61,7 @@ interface PaneLifecycleIpcDeps {
   browserProfiles: GuestProfiles['browserProfiles']
   terminalState: Map<string, TerminalStateSnapshot>
   paneWaking: PaneWaking
+  paneTurns: Pick<PaneTurns, 'drop'>
   paneStartErrors: Map<string, string>
   paneWatch: PaneWatch
   paneJournal: PaneJournal
@@ -86,6 +88,7 @@ export function registerPaneLifecycleIpc({
   browserProfiles,
   terminalState,
   paneWaking,
+  paneTurns,
   paneStartErrors,
   paneWatch,
   paneJournal,
@@ -143,6 +146,7 @@ export function registerPaneLifecycleIpc({
       terminalState.delete(event.paneId)
       services.processes?.paneClosed(event.paneId)
       paneWaking.end(event.paneId, 'closed')
+      paneTurns.drop(event.paneId)
       paneStartErrors.delete(event.paneId)
       paneWatch.emit(event.paneId, { kind: 'closed' })
     } else if (event.type === 'workspace-added') {

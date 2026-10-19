@@ -1,0 +1,19 @@
+{
+  "name": "agent",
+  "paths": [
+    "packages/extension-sdk/src/contract/agent.ts",
+    "src/extensions/agent/",
+    "src/main/agent/",
+    "src/main/extensions/extensionEnv.",
+    "src/preload/agentSessionsBridge.ts",
+    "src/renderer/commands/agentCommand.ts",
+    "src/renderer/components/agent/",
+    "src/renderer/lib/agent/",
+    "src/renderer/stores/agent/",
+    "src/shared/agent/",
+    "test/agentHarness.ts"
+  ],
+  "specs": [
+    "e2e/agent.spec.ts"
+  ]
+}

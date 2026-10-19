@@ -1,5 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import type { OstiaBridge, Platform } from '../shared/types'
+import { agentSessionsBridge } from './agentSessionsBridge'
 import { agentsBridge } from './agentsBridge'
 import { artifactsBridge } from './artifactsBridge'
 import { assistBridge } from './assistBridge'
@@ -41,6 +42,7 @@ const bridge: OstiaBridge = {
   ...permissionsBridge,
   ...extensionsBridge,
   ...assistBridge,
+  ...agentSessionsBridge,
   ...settingsBridge,
   ...updatesBridge,
   ...systemBridge,

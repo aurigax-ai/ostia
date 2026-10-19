@@ -17,8 +17,10 @@ import {
   listWorkspaces,
   registerPaneListMethods,
 } from '../panes/paneList'
+import type { PaneTurns } from '../panes/paneTurns'
 import { processStatusOf } from '../panes/processManager'
 import type { ProcessRegistry } from '../panes/processRegistry'
+import type { Redactor } from '../privacy/redaction'
 import type { WorkspaceSandboxes } from '../sandbox/workspaceSandboxes'
 import type { PtyIo } from '../terminal/pty/ptyIo'
 import type { PtyEntry } from '../terminal/pty/ptyRegistry'
@@ -73,6 +75,9 @@ interface GatewayStartDeps {
   ptys: Map<string, PtyEntry>
   turnConfirms: PaneConfirms
   paneJournal: Pick<PaneJournal, 'since'>
+  paneTurns: PaneTurns
+  redactor: Redactor
+  remoteCwdOfPane: (paneId: string) => unknown
   startAgentForPhone: GatewayControlDeps['startAgent']
 }
 
@@ -117,6 +122,9 @@ export function startGateway({
   ptys,
   turnConfirms,
   paneJournal,
+  paneTurns,
+  redactor,
+  remoteCwdOfPane,
   startAgentForPhone,
 }: GatewayStartDeps) {
   registerPaneListMethods({
@@ -189,6 +197,9 @@ export function startGateway({
       const pane = resolveExternal(externalPaneId)
       return pane ? paneJournal.since(pane.paneId) : undefined
     },
+    paneTurns,
+    redact: async (text) => (await redactor.redact(text)).text,
+    remote: (paneId) => remoteCwdOfPane(paneId) !== undefined,
     startAgent: startAgentForPhone,
   })
 }

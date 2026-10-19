@@ -29,6 +29,7 @@ import {
 } from '@aurigax-ai/ostia-extension-sdk/contract/assist'
 import type { Capability } from '@aurigax-ai/ostia-extension-sdk/contract/capabilities'
 import type { ExtensionSettingValues } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
+import { type AgentHostSettings, DEFAULT_AGENT_SETTINGS } from '@shared/agent/agentSettings'
 import { type AgentHooks, DEFAULT_AGENT_HOOKS } from '@shared/agents/agentHooks'
 import { DEFAULT_MANAGER_SETTINGS, type ManagerSettings } from '@shared/agents/managerSettings'
 import type { Locale } from '@shared/app/dict'
@@ -247,6 +248,7 @@ export interface Persisted {
   keyboardElsewhere: KeyboardElsewhere
   agents: AgentSettings
   assistant: AssistantSettings
+  agent: AgentHostSettings
   workspaceGroups: WorkspaceGroupSettings
   extensionSettings: Record<string, ExtensionSettingValues>
   capabilities?: Capabilities
@@ -319,6 +321,7 @@ export const DEFAULTS: Persisted = {
     trustWorkspaceFolders: false,
     hooks: DEFAULT_AGENT_HOOKS,
   },
+  agent: DEFAULT_AGENT_SETTINGS,
   assistant: {
     chatHistory: true,
     ...DEFAULT_CHAT_TOOL_SETTINGS,

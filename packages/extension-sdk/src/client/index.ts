@@ -6,6 +6,13 @@ import {
   StreamMessageWriter,
   createMessageConnection,
 } from 'vscode-jsonrpc/node'
+import type {
+  AgentEvent,
+  AgentReply,
+  AgentRequest,
+  AgentToolCall,
+  AgentToolReply,
+} from '../contract/agent'
 import { readEnv } from '../contract/appEnv'
 import type {
   AssistModelList,
@@ -235,6 +242,8 @@ export interface AssistContext {
   model?: { provider: string; model: string }
 }
 
+export type AgentHandler = (request: AgentRequest) => Promise<AgentReply>
+
 export type AssistProvidersHandler = (providers: AssistProviderEntry[]) => void
 
 export type AssistHandler = <P extends AssistPoint>(
@@ -308,6 +317,9 @@ export interface OstiaExtension {
     signal?: AbortSignal,
   ) => Promise<McpCallReply>
   mcpServers: () => Promise<McpServersResult>
+  onAgent: (handler: AgentHandler) => void
+  agentEvent: (sessionId: string, event: AgentEvent) => Promise<void>
+  agentTool: (call: AgentToolCall, signal?: AbortSignal) => Promise<AgentToolReply>
   connections: () => Promise<ConnectionsResult>
   connection: (name: string) => Promise<ConnectionResult>
   onConnectionsChanged: (handler: () => void) => void

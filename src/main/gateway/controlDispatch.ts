@@ -9,6 +9,7 @@ import type { PaneEntry, WorkspaceEntry, WorkspaceGroupEntry } from '../panes/pa
 import { type PhoneAgent, phoneAgentCommand } from '../panes/phoneAgent'
 import type { PhoneAgentStart } from '../panes/processManager'
 import { listArtifactFiles, locateArtifactFile, readArtifactFile } from './artifactFiles'
+import { type PhoneTurnDeps, turnList, turnOutput } from './phoneTurns'
 import {
   type PhoneFileScope,
   type WorkspaceFileOutcome,
@@ -16,7 +17,7 @@ import {
   readWorkspaceFile,
 } from './workspaceFiles'
 
-export interface GatewayControlDeps {
+export interface GatewayControlDeps extends PhoneTurnDeps {
   execCommand: (target: CommandTarget, id: string, args?: unknown) => Promise<CommandResult>
   listCommandsFor: (windowId: string) => CommandDescriptor[]
   getTerminalState: (paneId: string) => TerminalStateSnapshot | undefined
@@ -390,6 +391,8 @@ const METHODS: Record<string, [cap: string, handler: (call: GatewayCall) => Prom
     'agent.prompt': ['respond', agentPrompt],
     'agent.start': ['respond', agentStart],
     'agent.interrupt': ['respond', agentInterrupt],
+    'turn.list': ['read', (call) => turnList(call.p, call.deps)],
+    'turn.output': ['read', (call) => turnOutput(call.p, call.deps)],
   }
 
 export async function dispatchGatewayMethod(

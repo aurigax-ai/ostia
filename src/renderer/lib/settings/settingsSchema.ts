@@ -6,6 +6,7 @@ import { DEFAULT_CHORDS } from '@shared/keyboard/defaultChords'
 import { REMAP_DEFAULTS, REMAP_KEYS, REMAP_TARGETS } from '@shared/keyboard/modifierRemap'
 import {
   actionsSchema,
+  agentHostSchema,
   agentsSchema,
   approvalsSchema,
   assistantSchema,
@@ -53,6 +54,7 @@ export const SETTINGS_JSON_SCHEMA = {
     notifications: notificationsSchema,
     sidebar: sidebarSchema,
     assistant: assistantSchema,
+    agent: agentHostSchema,
     agents: agentsSchema,
     workspaces: workspacesSchema,
     browser: {

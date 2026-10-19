@@ -52,6 +52,7 @@ export async function writeSettings(s: SettingsState): Promise<void> {
     modifierRemap: isIdentityRemap(s.modifierRemap) ? undefined : s.modifierRemap,
     agents: s.agents,
     assistant: s.assistant,
+    agent: s.agent,
     workspaceGroups: s.workspaceGroups,
     extensionSettings: s.extensionSettings,
     capabilities,

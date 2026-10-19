@@ -15,6 +15,10 @@ export function hookCommand(cliArgs: string): string {
   return `${IN_PANE} && ${CLI_RUN} ${cliArgs} >/dev/null 2>&1 || true`
 }
 
+export function turnHookCommand(event: string): string {
+  return `${IN_PANE} && { input=$(cat); printf '%s' "$input" | ${CLI_RUN} turn-hook ${event} >/dev/null 2>&1 & } || true`
+}
+
 export function busHookCommand(event: AgentHookEvent): string {
   return `${IN_PANE} && ${CLI_RUN} bus hook ${event} 2>/dev/null || true`
 }

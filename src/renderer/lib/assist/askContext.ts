@@ -3,7 +3,6 @@ import { baseName } from '@/lib/files/fileTree'
 import { allPanes, findPane } from '@/lib/layout/tree'
 import { blockText } from '@/lib/terminal/blockActions'
 import { terminalFor } from '@/lib/terminal/terminalHandles'
-import { chatKey, useChatStore } from '@/stores/assist/chatStore'
 import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
 import { type CommandBlock, useBlocksStore } from '@/stores/terminal/blocksStore'
 import { type LiveSelection, useLiveSelectionStore } from '@/stores/terminal/liveSelectionStore'
@@ -16,7 +15,6 @@ import {
   type ChatContextKind,
 } from '@aurigax-ai/ostia-extension-sdk/contract/assist'
 import { isRemotePath } from '@aurigax-ai/ostia-extension-sdk/contract/remoteFolders'
-import { openChatPane } from './chatPane'
 
 const OUTPUT_TAIL_MAX = 8000
 
@@ -164,39 +162,6 @@ export function liveSelectionContext(
   return { ...item, path: source.file, startLine: source.startLine, endLine: source.endLine }
 }
 
-function failedBlock(paneId: string, blockId: string): CommandBlock | null {
-  const block = useBlocksStore.getState().byPane[paneId]?.find((b) => b.id === blockId)
-  return block?.endLine && block.exitCode !== null && block.exitCode !== 0 ? block : null
-}
-
-function errorContext(paneId: string, blockId: string, label: string): ChatContextItem | null {
-  const block = failedBlock(paneId, blockId)
-  if (!block) return null
-  return {
-    kind: 'error',
-    label,
-    text: `$ ${blockContext(paneId, block)}\n[exit ${block.exitCode}]`,
-  }
-}
-
-export function explainFailedBlock(
-  paneId: string,
-  blockId: string,
-  text: { prompt: string; label: string },
-): boolean {
-  const item = errorContext(paneId, blockId, text.label)
-  if (!item) return false
-  const workspaceId = useWorkspacesStore.getState().activeWorkspaceId
-  return (
-    openChatPane({
-      ...(workspaceId ? { workspaceId } : {}),
-      prompt: text.prompt,
-      context: [item],
-      send: true,
-    }) !== null
-  )
-}
-
 const SHELL_LANGUAGES = new Set(['', 'sh', 'bash', 'zsh', 'shell', 'console', 'fish'])
 
 export function isShellLanguage(language: string): boolean {
@@ -229,15 +194,6 @@ export async function fileAttachment(path: string, label: string): Promise<ChatC
   const { text } = res
   const item: ChatContextItem = { kind: 'file', label, text: text.slice(0, CHAT_CONTEXT_TEXT_MAX) }
   return path.startsWith('/') ? { ...item, path } : item
-}
-
-export async function askAboutFile(
-  path: string,
-  label: string,
-  workspaceId?: string | null,
-): Promise<boolean> {
-  const item = await fileAttachment(path, label)
-  return item ? attachAndOpenChat(item, workspaceId) : false
 }
 
 type ExplainSourceKind = 'selection' | 'block' | 'output'
@@ -281,11 +237,4 @@ export function explainSources(
     })
   }
   return out
-}
-
-export function attachAndOpenChat(item: ChatContextItem, workspaceId?: string | null): boolean {
-  const id = workspaceId ?? useWorkspacesStore.getState().activeWorkspaceId
-  if (!id) return false
-  useChatStore.getState().attach(chatKey(id), item)
-  return openChatPane({ workspaceId: id }) !== null
 }

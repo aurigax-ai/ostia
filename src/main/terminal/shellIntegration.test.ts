@@ -913,6 +913,7 @@ describe('shellIntegrationSpawnOptions', () => {
       expect(commands('UserPromptSubmit')).toEqual([
         expect.stringContaining('state working'),
         busHookCommand('UserPromptSubmit'),
+        expect.stringContaining('turn-hook UserPromptSubmit'),
       ])
       expect(busHookCommand('UserPromptSubmit')).toBe(
         '[ -n "${OSTIA_SOCKET}" ] && ELECTRON_RUN_AS_NODE=1 "${OSTIA_NODE}" "${OSTIA_CLI}" bus hook UserPromptSubmit 2>/dev/null || true',
@@ -1100,6 +1101,7 @@ describe('shellIntegrationSpawnOptions', () => {
         'SessionStart',
         'UserPromptSubmit',
         'PermissionRequest',
+        'PostToolUse',
         'Stop',
       ])
       expect(commands.SessionStart?.[0]).toContain('"${OSTIA_CLI}" resume-token codex -')
@@ -1112,6 +1114,7 @@ describe('shellIntegrationSpawnOptions', () => {
       expect(commands.UserPromptSubmit).toEqual([
         commands.UserPromptSubmit?.[0],
         busHookCommand('UserPromptSubmit'),
+        expect.stringContaining('turn-hook UserPromptSubmit'),
       ])
       expect(commands.PermissionRequest?.[0]).toContain('state waiting -')
       expect(commands.Stop?.[0]).toContain('state done')
@@ -1301,6 +1304,9 @@ describe('shellIntegrationSpawnOptions', () => {
       expect(codex.PreToolUse).toEqual([extensionHookCommand(toolHook, 'codex')])
       expect(JSON.stringify(codex)).not.toContain('Notification')
       expect(claudeHookSettings().hooks.PreToolUse).toHaveLength(1)
+      expect(JSON.stringify(claudeHookSettings().hooks.PostToolUse)).toContain(
+        '| ELECTRON_RUN_AS_NODE=1',
+      )
     })
 
     it('trusts each extension hook by its own Codex hash and handler index', () => {
