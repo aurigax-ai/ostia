@@ -182,14 +182,6 @@ function shownToken(t: ListedToken): string[] {
   ]
 }
 
-async function retiredNotice(conn: MessageConnection): Promise<void> {
-  const retired = await conn.sendRequest<{ name: string }[]>('token.retired', {})
-  if (retired.length === 0) return
-  console.error(
-    `ostia token: ${retired.length} old token(s) stopped working after the upgrade: ${retired.map((t) => t.name).join(', ')}. Create new ones with ostia token create.`,
-  )
-}
-
 const PRESENCE_NOTICE =
   'ostia token: approve the card in Ostia, then confirm it is you (Touch ID, polkit or an Ostia dialog)'
 
@@ -226,7 +218,6 @@ export async function runTokenVerb(conn: MessageConnection, argv: string[]): Pro
       console.log(JSON.stringify(tokens, null, 2))
       return 0
     }
-    await retiredNotice(conn)
     console.log(['ID', 'NAME', 'CAPS', 'SCOPE', 'EXPIRES', 'LAST USED'].join('  '))
     for (const t of tokens) {
       console.log(

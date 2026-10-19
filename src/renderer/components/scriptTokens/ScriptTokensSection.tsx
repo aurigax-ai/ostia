@@ -12,15 +12,10 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { Button } from '@/components/ui/button'
-import { readPref, writePref } from '@/lib/app/localPrefs'
 import { fmt, useDict } from '@/lib/app/useDict'
 import { useSettingsStore } from '@/stores/app/settingsStore'
-import { PlusIcon, WarningIcon } from '@phosphor-icons/react'
-import type {
-  ScriptTokenInfo,
-  ScriptTokenSaveResult,
-  ScriptTokensState,
-} from '@shared/permissions/scriptTokens'
+import { PlusIcon } from '@phosphor-icons/react'
+import type { ScriptTokenInfo, ScriptTokenSaveResult } from '@shared/permissions/scriptTokens'
 import { useMemo, useState } from 'react'
 import { CodeBlock, type Shown, ShownDialog } from './ShownDialog'
 import { TokenDetail } from './TokenDetail'
@@ -28,41 +23,6 @@ import { TokenDialog } from './TokenDialog'
 import { TokenRow } from './TokenRow'
 import { ENV, EXAMPLE } from './tokenText'
 import { useScriptTokens, useTokenUsage } from './useScriptTokens'
-
-const DISMISSED_KEY = 'scriptTokens.retiredDismissedAt'
-
-function RetiredBanner({
-  state,
-  onDismiss,
-}: {
-  state: ScriptTokensState
-  onDismiss: () => void
-}): JSX.Element {
-  const d = useDict()
-  return (
-    <output className="mb-4 flex items-start gap-3 rounded-md border border-warn-fg/40 bg-warn-fg/10 px-3 py-2.5 text-warn-fg">
-      <WarningIcon className="mt-0.5 size-4 shrink-0" />
-      <div className="min-w-0 flex-1 text-ui-sm">
-        <div className="font-medium">
-          {fmt(d.scriptTokens.retiredTitle, { n: state.retired.length })}
-        </div>
-        <div>
-          {fmt(d.scriptTokens.retiredBody, {
-            names: state.retired.map((r) => r.name).join(d.scriptTokens.listSep),
-            env: ENV,
-          })}
-        </div>
-      </div>
-      <Button variant="ghost" size="sm" className="text-warn-fg" onClick={onDismiss}>
-        {d.scriptTokens.dismiss}
-      </Button>
-    </output>
-  )
-}
-
-function latestRetired(state: ScriptTokensState): string {
-  return state.retired.reduce((max, r) => (r.retiredAt > max ? r.retiredAt : max), '')
-}
 
 export function ScriptTokensSection(): JSX.Element {
   const d = useDict()
@@ -74,10 +34,6 @@ export function ScriptTokensSection(): JSX.Element {
   const [revoking, setRevoking] = useState<ScriptTokenInfo | null>(null)
   const [detailId, setDetailId] = useState<string | null>(null)
   const [status, setStatus] = useState<string | null>(null)
-  const [dismissed, setDismissed] = useState(() => {
-    const at = readPref(DISMISSED_KEY)
-    return typeof at === 'string' ? at : ''
-  })
 
   const usage = useTokenUsage(detailId)
 
@@ -86,8 +42,6 @@ export function ScriptTokensSection(): JSX.Element {
     [state.tokens],
   )
   const detail = detailId ? tokens.find((tk) => tk.id === detailId) : undefined
-  const retiredAt = latestRetired(state)
-  const showRetired = state.retired.length > 0 && retiredAt > dismissed
 
   const revoke = (token: ScriptTokenInfo): void => {
     setRevoking(null)
@@ -140,15 +94,6 @@ export function ScriptTokensSection(): JSX.Element {
             </Button>
           }
         >
-          {showRetired ? (
-            <RetiredBanner
-              state={state}
-              onDismiss={() => {
-                writePref(DISMISSED_KEY, retiredAt)
-                setDismissed(retiredAt)
-              }}
-            />
-          ) : null}
           <SettingsList label={t.title} empty={t.empty}>
             {tokens.map((token) => (
               <TokenRow

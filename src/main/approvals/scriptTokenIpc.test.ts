@@ -65,7 +65,6 @@ const usage = createScriptTokenUsage(() => join(dir, 'script-token-usage.json'))
 
 registerScriptTokenIpc({
   path: () => path,
-  retiredPath: () => join(dir, 'retired.json'),
   listing: async () => LISTING,
   changed,
   appWindows: () => [appWindow as never],
@@ -180,7 +179,6 @@ describe('script token IPC', () => {
   it('lists the workspaces and groups the dialog picks from', async () => {
     await expect(call('scriptTokens:list')).resolves.toMatchObject({
       tokens: [],
-      retired: [],
       workspaces: [
         { id: 'w1', name: 'ostia', groupId: 'g1' },
         { id: 'w2', name: 'homelab' },
