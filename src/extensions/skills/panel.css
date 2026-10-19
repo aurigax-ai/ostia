@@ -93,3 +93,15 @@
   font-size: var(--text-ui-sm);
   cursor: pointer;
 }
+
+.notice {
+  margin: 0;
+  padding: 6px 8px;
+  color: var(--warn-fg, var(--fg));
+  font-size: var(--text-ui-sm);
+  line-height: var(--text-ui-sm--line-height);
+}
+
+.notice button {
+  margin-left: 6px;
+}

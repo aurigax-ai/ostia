@@ -36,15 +36,16 @@ export function isScope(value: unknown): value is string {
   return typeof value === 'string' && SCOPE_PATTERN.test(value)
 }
 
-export function parseRulesFile(text: string): RulesFile {
+export function parseRulesFile(text: string): RulesFile | null {
   let raw: unknown
   try {
     raw = JSON.parse(text)
   } catch {
-    return { next: 1, rules: [] }
+    return null
   }
-  const obj = (raw ?? {}) as { next?: unknown; rules?: unknown }
-  const rules = (Array.isArray(obj.rules) ? obj.rules : []).filter(isStoredRule)
+  const obj = raw as { next?: unknown; rules?: unknown } | null
+  if (!obj || !Array.isArray(obj.rules) || !obj.rules.every(isStoredRule)) return null
+  const rules = obj.rules
   const highest = rules.reduce((max, r) => Math.max(max, Number(r.id.slice(1))), 0)
   const next = typeof obj.next === 'number' && obj.next > highest ? obj.next : highest + 1
   return { next, rules }

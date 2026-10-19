@@ -15,9 +15,13 @@ function rank(rule: Rule): number {
   return rule.scope.startsWith('stack:') ? 1 : 2
 }
 
+function oneLine(text: string): string {
+  return text.replace(/[\p{Cc}\p{Cf}\p{Zl}\p{Zp}\s]+/gu, ' ').trim()
+}
+
 function ruleLine(rule: Rule): string {
-  const when = rule.when.trim() ? ` (when: ${rule.when.trim()})` : ''
-  return `- ${rule.rule.trim()}${when} [${rule.id}]`
+  const when = oneLine(rule.when)
+  return `- ${oneLine(rule.rule)}${when ? ` (when: ${when})` : ''} [${rule.id}]`
 }
 
 export function buildInjection(rules: readonly Rule[], where: FolderScope): Injection {

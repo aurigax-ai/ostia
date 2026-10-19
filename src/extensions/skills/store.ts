@@ -1,5 +1,5 @@
-import { chmodSync, existsSync, readFileSync } from 'node:fs'
-import { join } from 'node:path'
+import { chmodSync, existsSync, readFileSync, renameSync } from 'node:fs'
+import { basename, join } from 'node:path'
 import { writeFileAtomic } from '@aurigax-ai/ostia-extension-sdk/atomicWrite'
 import { type Rule, type RuleDraft, type RuleOrigin, parseRulesFile } from './rule'
 
@@ -9,6 +9,7 @@ export class RulesStore {
   private file: string | null
   private next = 1
   private rules: Rule[] = []
+  private kept: string | null = null
 
   constructor(
     dir: string | null,
@@ -17,9 +18,24 @@ export class RulesStore {
     this.file = dir ? join(dir, RULES_FILE) : null
     if (this.file && existsSync(this.file)) {
       const parsed = parseRulesFile(readFileSync(this.file, 'utf8'))
-      this.next = parsed.next
-      this.rules = parsed.rules
+      if (parsed) {
+        this.next = parsed.next
+        this.rules = parsed.rules
+      } else {
+        const aside = `${this.file}.corrupt-${this.now()}`
+        renameSync(this.file, aside)
+        chmodSync(aside, 0o600)
+        this.kept = aside
+      }
     }
+  }
+
+  get unreadable(): string | null {
+    return this.kept ? basename(this.kept) : null
+  }
+
+  acceptUnreadable(): void {
+    this.kept = null
   }
 
   list(): Rule[] {

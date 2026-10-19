@@ -1,6 +1,7 @@
 import {
   type CommandHandler,
   connect,
+  createTranslator,
   failure,
   ok,
   startPanelServer,
@@ -23,6 +24,7 @@ async function main(): Promise<void> {
     },
   })
   let panelChanged = (): void => {}
+  const translate = createTranslator()
   const service = skillsService({
     store,
     redact: (texts) => ext.redact(texts),
@@ -34,6 +36,15 @@ async function main(): Promise<void> {
       return typeof found?.kind === 'string' && typeof found.workDir === 'string'
         ? { kind: found.kind, workDir: found.workDir }
         : null
+    },
+    confirmDelete: (rule, locale) => {
+      const t = translate(locale)
+      return ext.confirm({
+        title: t('delete.title'),
+        message: t('delete.message', { rule }),
+        confirmLabel: t('delete.confirm'),
+        cancelLabel: t('cancel'),
+      })
     },
     changed: () => panelChanged(),
   })

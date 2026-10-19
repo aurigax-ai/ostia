@@ -21,6 +21,7 @@ interface Snapshot {
   rules: Rule[]
   project: string | null
   stacks: string[]
+  unreadable: string | null
 }
 
 interface Candidate {
@@ -34,7 +35,7 @@ type Mode =
   | { kind: 'preview' }
   | { kind: 'import'; candidates: Candidate[] }
 
-let snap: Snapshot = { rules: [], project: null, stacks: [] }
+let snap: Snapshot = { rules: [], project: null, stacks: [], unreadable: null }
 let selected: string | null = null
 let mode: Mode = { kind: 'view' }
 let problem = ''
@@ -372,6 +373,16 @@ function toolbar(): HTMLElement | null {
   })
 }
 
+function notice(): HTMLElement | null {
+  if (!snap.unreadable) return null
+  return h(
+    'p',
+    { class: 'notice' },
+    t('unreadable', { file: snap.unreadable }),
+    button(t('unreadableAccept'), () => void act('accept-unreadable', {})),
+  )
+}
+
 function render(): void {
   const empty = snap.rules.length === 0 && mode.kind === 'view'
   const body = empty
@@ -381,7 +392,7 @@ function render(): void {
         { class: 'body' },
         splitter({
           key: 'rules-details',
-          label: 'Resize details',
+          label: t('resizeDetails'),
           first: listPane(),
           second: detailsPane(),
           defaultFraction: 0.5,
@@ -390,7 +401,7 @@ function render(): void {
           collapseSecond: true,
         }),
       )
-  root.replaceChildren(h('div', { class: 'page' }, toolbar(), body))
+  root.replaceChildren(h('div', { class: 'page' }, toolbar(), notice(), body))
 }
 
 void loadPanelSizes().then(load)

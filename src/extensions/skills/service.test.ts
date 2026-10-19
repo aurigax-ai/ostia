@@ -1,4 +1,4 @@
-import { mkdtempSync, readFileSync, rmSync, statSync } from 'node:fs'
+import { mkdtempSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import type { ExtensionCaller, ExtensionResult } from '@aurigax-ai/ostia-extension-sdk'
@@ -28,6 +28,7 @@ describe('skills service', () => {
   let kinds: Record<string, string>
   let secrets: string[]
   let redactFails: boolean
+  let confirmAnswer: boolean
   let service: ReturnType<typeof skillsService>
 
   const build = () => {
@@ -38,6 +39,7 @@ describe('skills service', () => {
         redactFails
           ? null
           : texts.map((t) => (secrets.some((s) => t.includes(s)) ? '[redacted]' : t)),
+      confirmDelete: async () => confirmAnswer,
       workspace: async (id) => (kinds[id] ? { kind: kinds[id], workDir: '/w' } : null),
       folderScopeOf: async () => where,
       changed: () => {},
@@ -51,6 +53,7 @@ describe('skills service', () => {
     kinds = { w1: 'terminal', sc: 'scratch' }
     secrets = []
     redactFails = false
+    confirmAnswer = true
     build()
   })
   afterEach(() => rmSync(dir, { recursive: true, force: true }))
@@ -89,6 +92,10 @@ describe('skills service', () => {
     expect(store.get(id)?.state).toBe('retired')
     await service.panel.restore({ id }, caller())
     expect(store.get(id)?.state).toBe('active')
+    confirmAnswer = false
+    await service.panel.delete({ id }, caller())
+    expect(store.get(id)).toBeDefined()
+    confirmAnswer = true
     await service.panel.delete({ id }, caller())
     expect(store.list()).toEqual([])
     expect(await service.panel.delete({ id }, caller())).toMatchObject({ ok: false })
@@ -146,5 +153,40 @@ describe('skills service', () => {
         caller(),
       ),
     ).toMatchObject({ ok: false, error: 'refused' })
+  })
+
+  describe('a rules.json that cannot be read', () => {
+    const corrupt = (text: string) => writeFileSync(join(dir, RULES_FILE), text)
+
+    it.each([
+      ['not json', '{"rules": ['],
+      ['wrong shape', '{"rules": 3}'],
+      ['one bad entry', JSON.stringify({ next: 3, rules: [{ id: 'r1' }] })],
+    ])(
+      'keeps the file aside and refuses to save until the human accepts (%s)',
+      async (_n, text) => {
+        corrupt(text)
+        build()
+        const kept = readdirSync(dir).filter((f) => f.includes('.corrupt-'))
+        expect(kept).toHaveLength(1)
+        expect(readFileSync(join(dir, kept[0]), 'utf8')).toBe(text)
+        expect(statSync(join(dir, kept[0])).mode & 0o777).toBe(0o600)
+        const snap = data<{ unreadable: string | null }>(await service.panel.snapshot({}, caller()))
+        expect(snap.unreadable).toBe(kept[0])
+        expect(await save({ rule: 'Keep diffs small.' })).toMatchObject({
+          ok: false,
+          error: 'rules-unreadable',
+        })
+        expect(
+          await service.panel['import-add'](
+            { rules: ['Keep diffs small.'], scope: 'global' },
+            caller(),
+          ),
+        ).toMatchObject({ ok: false })
+        await service.panel['accept-unreadable']({}, caller())
+        expect(await save({ rule: 'Keep diffs small.' })).toMatchObject({ ok: true })
+        expect(readFileSync(join(dir, kept[0]), 'utf8')).toBe(text)
+      },
+    )
   })
 })

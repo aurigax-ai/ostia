@@ -21,6 +21,7 @@ export interface SkillsDeps {
   store: RulesStore
   redact: (texts: string[]) => Promise<string[] | null>
   workspace: (workspaceId: string) => Promise<WorkspaceInfo | null>
+  confirmDelete: (rule: string, locale: string | undefined) => Promise<boolean>
   folderScopeOf?: (dir: string) => Promise<FolderScope>
   changed: () => void
 }
@@ -40,7 +41,7 @@ export function skillsService(deps: SkillsDeps): {
   onSession: SkillsCommand
   panel: Record<string, SkillsCommand>
 } {
-  const { store, redact, workspace, changed } = deps
+  const { store, redact, workspace, confirmDelete, changed } = deps
   const scopeOf = deps.folderScopeOf ?? folderScope
 
   const check = async (draft: RuleDraft): Promise<Checked | null> => {
@@ -57,6 +58,9 @@ export function skillsService(deps: SkillsDeps): {
     if (!isScope(scope)) return null
     return { rule: textOf(a.rule), why: textOf(a.why), when: textOf(a.when), scope }
   }
+
+  const unreadable = (): ExtensionResult | null =>
+    store.unreadable ? failure('rules-unreadable', store.unreadable) : null
 
   const refusal = (checked: Checked | null): ExtensionResult | null => {
     if (!checked) return failure('redact-failed')
@@ -87,10 +91,13 @@ export function skillsService(deps: SkillsDeps): {
       rules: store.list(),
       project: where ? projectScopeOf(where) : null,
       stacks: where?.stacks ?? [],
+      unreadable: store.unreadable,
     })
   }
 
   const save: SkillsCommand = async (args) => {
+    const blocked = unreadable()
+    if (blocked) return blocked
     const draft = draftOf(args)
     if (!draft) return failure('invalid-args')
     const refused = refusal(await check(draft))
@@ -106,13 +113,26 @@ export function skillsService(deps: SkillsDeps): {
     return ok(undefined, { id: rule.id })
   }
 
-  const byId = (action: (id: string) => boolean): SkillsCommand => {
-    return async (args) => {
+  const byId = (action: (id: string) => boolean, confirm = false): SkillsCommand => {
+    return async (args, caller) => {
+      const blocked = unreadable()
+      if (blocked) return blocked
       const id = textOf(namedArgs(args).id)
+      if (confirm && store.get(id) && !(await confirmed(id, caller))) return ok()
       if (!action(id)) return failure('not-found')
       changed()
       return ok()
     }
+  }
+
+  const confirmed = async (id: string, caller: ExtensionCaller): Promise<boolean> => {
+    return confirmDelete(store.get(id)?.rule ?? '', caller.locale)
+  }
+
+  const acceptUnreadable: SkillsCommand = async () => {
+    store.acceptUnreadable()
+    changed()
+    return ok()
   }
 
   const preview: SkillsCommand = async (_args, caller) => {
@@ -138,6 +158,8 @@ export function skillsService(deps: SkillsDeps): {
   }
 
   const importAdd: SkillsCommand = async (args) => {
+    const blocked = unreadable()
+    if (blocked) return blocked
     const a = namedArgs(args)
     const scope = textOf(a.scope)
     const items = Array.isArray(a.rules)
@@ -164,7 +186,8 @@ export function skillsService(deps: SkillsDeps): {
       save,
       retire: byId((id) => store.setState(id, 'retired')),
       restore: byId((id) => store.setState(id, 'active')),
-      delete: byId((id) => store.remove(id)),
+      delete: byId((id) => store.remove(id), true),
+      'accept-unreadable': acceptUnreadable,
       preview,
       'import-scan': importScan,
       'import-add': importAdd,
