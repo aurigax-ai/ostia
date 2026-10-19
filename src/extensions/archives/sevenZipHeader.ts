@@ -272,7 +272,9 @@ function readStreams(bytes: Bytes, headerSize: number, scan: HeaderScan): Stream
       packPos = bytes.number()
       const count = bytes.count(FOLDERS_MAX)
       packSizes = []
+      const props = new Set<number>()
       for (let id = bytes.u8(); id !== K.end; id = bytes.u8()) {
+        once(props, id)
         if (id === K.size) for (let i = 0; i < count; i++) packSizes.push(bytes.number())
         else if (id === K.crc) digests(bytes, count, count)
         else refuse('corrupt', '7z: unknown pack info property')
@@ -311,7 +313,9 @@ function readUnpackInfo(bytes: Bytes, headerSize: number): Folder[] {
     unpackSizes: shape.coders.map(() => bytes.number()),
     crc: null,
   }))
+  const props = new Set<number>()
   for (let id = bytes.u8(); id !== K.end; id = bytes.u8()) {
+    once(props, id)
     if (id !== K.crc) refuse('corrupt', '7z: unknown unpack info property')
     digests(bytes, count, count).forEach((crc, i) => {
       folders[i].crc = crc
@@ -356,7 +360,9 @@ function readSubStreams(
     0,
   )
   let read: Array<number | null> = []
+  const props = new Set<number>()
   while (type !== K.end) {
+    once(props, type)
     if (type !== K.crc) refuse('corrupt', '7z: unknown substreams property')
     read = digests(bytes, unknown, LISTED_MAX)
     type = bytes.u8()

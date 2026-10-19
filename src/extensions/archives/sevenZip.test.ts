@@ -308,6 +308,21 @@ describe('7z limits and damage', () => {
       const { result } = await listAll(sevenZip, memoryFile(seven(Buffer.from(header))))
       expect(result, name).toEqual({ ok: false, error: 'corrupt' })
     }
+    const crc = [0x0a, 0x01, 1, 2, 3, 4]
+    const properties = {
+      packSize: [0x01, 0x04, 0x06, 0x00, 0x01, 0x09, 0x05, 0x09, 0x05, 0x00, 0x00, 0x00],
+      packCrc: [0x01, 0x04, 0x06, 0x00, 0x01, 0x09, 0x05, ...crc, ...crc, 0x00, 0x00, 0x00],
+      unpackCrc: [
+        0x01, 0x04, 0x07, 0x0b, 0x00, 0x00, 0x0c, 0x0a, 0x01, 0x0a, 0x01, 0x00, 0x00, 0x00,
+      ],
+      substreamCrc: [0x01, 0x04, 0x08, 0x0a, 0x01, 0x0a, 0x01, 0x00, 0x00, 0x00],
+    }
+    for (const [name, header] of Object.entries(properties)) {
+      const block = Buffer.from(header)
+      expect(() => parseHeader(block, block.length, unhurried), name).toThrow(/appears twice/)
+      const { result } = await listAll(sevenZip, memoryFile(seven(block)))
+      expect(result, name).toEqual({ ok: false, error: 'corrupt' })
+    }
     const fine = memoryFile(emptyFiles(3))
     expect((await listAll(sevenZip, fine)).result).toEqual({ ok: true, complete: true })
     const late = await listAll(sevenZip, memoryFile(emptyFiles(3)), { ...BROWSE_LIMITS, scanMs: 0 })
