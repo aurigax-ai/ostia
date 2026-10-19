@@ -276,6 +276,19 @@ export const commandsEn = {
     linkClickDesc: '{shiftClick} opens it in the other one.',
     linkClickSystem: 'The system browser',
     listSeparator: ', ',
+    modifierKeyNames: {
+      AltLeft: 'Left Option',
+      AltRight: 'Right Option',
+      ControlLeft: 'Left Control',
+      ControlRight: 'Right Control',
+      MetaLeft: 'Left Command',
+      MetaRight: 'Right Command',
+    },
+    modifierKeys: 'Modifier keys',
+    modifierKeysDesc:
+      'Choose what each physical modifier key does inside the app. Menu shortcuts of the system keep following the physical key.',
+    modifierReset: 'Reset to Defaults',
+    modifierTargets: { command: 'Command', control: 'Control', option: 'Option' },
     monaco:
       'The code editor also uses {keys}, so it won’t reach {product} while the editor has focus.',
     naturalTextEditingNote:

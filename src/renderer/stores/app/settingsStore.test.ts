@@ -108,6 +108,22 @@ describe('settingsStore', () => {
       expect(written.appearance.zoom).toBe(125)
     })
 
+    it('setModifierRemap keeps only real remaps and saves them to settings.json', async () => {
+      store().setModifierRemap({
+        ControlLeft: 'command',
+        AltRight: 'option',
+        MetaLeft: 'nonsense',
+      } as never)
+      expect(store().modifierRemap).toEqual({ ControlLeft: 'command' })
+      await vi.runAllTimersAsync()
+      const written = JSON.parse(String(vi.mocked(window.ostia.fs.write).mock.calls.at(-1)?.[1]))
+      expect(written.modifierRemap).toEqual({ ControlLeft: 'command' })
+      store().setModifierRemap({})
+      await vi.runAllTimersAsync()
+      const reset = JSON.parse(String(vi.mocked(window.ostia.fs.write).mock.calls.at(-1)?.[1]))
+      expect(reset.modifierRemap).toBeUndefined()
+    })
+
     it('saves the follow-system choice with its light and dark themes', async () => {
       store().setFollowSystem(true)
       store().setLightTheme('ostia-light')
@@ -145,6 +161,24 @@ describe('settingsStore', () => {
         'view.toggleRail': null,
         'app.openSettings': 'Ctrl+R',
       })
+    })
+
+    it('reads the modifier remap from the file and drops entries that are not a remap', async () => {
+      vi.mocked(window.ostia.fs.read).mockResolvedValue({
+        ok: true,
+        version: 'v1',
+        text: JSON.stringify({
+          modifierRemap: {
+            ControlRight: 'command',
+            MetaLeft: 'command',
+            AltLeft: 'x',
+            Hyper: 'option',
+          },
+        }),
+      })
+      await store().init()
+      expect({ ...store().modifierRemap }).toEqual({ ControlRight: 'command' })
+      expect(parsePersisted({}).modifierRemap).toEqual({})
     })
 
     it('starts without a keymap, keeps a well-formed keymap id and drops anything else', async () => {

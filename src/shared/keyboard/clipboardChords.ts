@@ -28,6 +28,7 @@ export interface GuestKeyInput {
   meta: boolean
   isAutoRepeat?: boolean
   isComposing?: boolean
+  remapped?: boolean
 }
 
 export function isClipboardEdit(value: unknown): value is ClipboardEdit {
@@ -76,7 +77,7 @@ export function guestClipboardEdit(
     altKey: input.alt,
     metaKey: input.meta,
   }
-  if (mac && isNativeClipboardKey(event)) return null
+  if (mac && !input.remapped && isNativeClipboardKey(event)) return null
   const spec = specFromEvent(event)
   if (!spec) return null
   if (chords.copy && sameChord(chords.copy, spec)) return 'copy'

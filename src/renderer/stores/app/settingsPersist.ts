@@ -1,4 +1,5 @@
 import { writeKeyboard } from '@/lib/settings/keyboardSettings'
+import { isIdentityRemap } from '@shared/keyboard/modifierRemap'
 import { debounce } from 'es-toolkit'
 import {
   type Capabilities,
@@ -48,6 +49,7 @@ export async function writeSettings(s: SettingsState): Promise<void> {
     browser: s.browser,
     editor: s.editor,
     ...keyboard,
+    modifierRemap: isIdentityRemap(s.modifierRemap) ? undefined : s.modifierRemap,
     agents: s.agents,
     assistant: s.assistant,
     workspaceGroups: s.workspaceGroups,

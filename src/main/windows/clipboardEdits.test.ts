@@ -2,6 +2,7 @@ import { EventEmitter } from 'node:events'
 import type { IpcMain, WebContents } from 'electron'
 import { describe, expect, it, vi } from 'vitest'
 import { parseChord } from '../../shared/keyboard/chordSpec'
+import { createGuestRemap } from '../browser/guestRemap'
 import {
   clipboardContents,
   filePathsFromUriList,
@@ -37,13 +38,15 @@ const linuxChords = {
 function setup(formats: string[] = [], mac = false, uriList = '') {
   const app = fakeContents()
   const { ipc, call } = fakeIpc()
+  const remap = createGuestRemap()
   const edits = registerClipboardEdits({
     ipc,
     isAppWindow: (sender) => sender === app,
     snapshot: async () => ({ formats, uriList }),
     mac,
+    remap: remap.remap,
   })
-  return { app, call, edits }
+  return { app, call, edits, remap }
 }
 
 function press(guest: EventEmitter, input: Record<string, unknown>) {
@@ -109,6 +112,21 @@ describe('registerClipboardEdits', () => {
     press(guest, { control: true, shift: true, key: 'V', code: 'KeyV' })
     expect(guest.pasteAndMatchStyle).toHaveBeenCalledTimes(1)
     expect(press(guest, { control: true }).preventDefault).not.toHaveBeenCalled()
+  })
+
+  it('copies for a key remapped to Command, which the system menu never sees, and leaves a real Cmd+C to the page', () => {
+    const { app, call, edits, remap } = setup([], true)
+    const guest = fakeContents()
+    edits.guardGuest(guest)
+    call('clipboard:set-chords', app, {
+      copy: parseChord('Cmd+C', true),
+      paste: parseChord('Cmd+V', true),
+    })
+    remap.set({ ControlRight: 'command' })
+    expect(press(guest, { meta: true }).preventDefault).not.toHaveBeenCalled()
+    press(guest, { key: 'Control', code: 'ControlRight', control: true })
+    expect(press(guest, { control: true }).preventDefault).toHaveBeenCalled()
+    expect(guest.copy).toHaveBeenCalledTimes(1)
   })
 
   it('ignores chords from a stranger or a payload that would steal a terminal key', () => {

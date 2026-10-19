@@ -1,7 +1,13 @@
 import { EventEmitter } from 'node:events'
 import type { IpcMain, WebContents } from 'electron'
 import { describe, expect, it, vi } from 'vitest'
-import { GUEST_CHORDS_FIRE, GUEST_CHORDS_SET, registerGuestChords } from './guestChords'
+import {
+  GUEST_CHORDS_FIRE,
+  GUEST_CHORDS_SET,
+  GUEST_REMAP_SET,
+  registerGuestChords,
+} from './guestChords'
+import { createGuestRemap } from './guestRemap'
 
 type Handler = (event: { sender: WebContents }, ...args: unknown[]) => unknown
 
@@ -16,7 +22,12 @@ function setup(mac = false) {
     id: 9,
     hostWebContents: host,
   }) as unknown as WebContents & EventEmitter
-  const chords = registerGuestChords({ ipc, isAppWindow: (s) => s === app, mac })
+  const chords = registerGuestChords({
+    ipc,
+    isAppWindow: (s) => s === app,
+    mac,
+    remap: createGuestRemap(),
+  })
   chords.guardGuest(guest)
   const set = (sender: WebContents, value: unknown) =>
     handlers.get(GUEST_CHORDS_SET)?.({ sender }, value)
@@ -34,7 +45,9 @@ function setup(mac = false) {
     })
     return event
   }
-  return { app, host, guest, set, press }
+  const remap = (sender: WebContents, value: unknown) =>
+    handlers.get(GUEST_REMAP_SET)?.({ sender }, value)
+  return { app, host, guest, set, press, remap }
 }
 
 describe('registerGuestChords', () => {
@@ -103,5 +116,41 @@ describe('registerGuestChords', () => {
     set(app, ['Ctrl+Shift+P'])
     Object.assign(guest, { hostWebContents: null })
     expect(press({}).preventDefault).not.toHaveBeenCalled()
+  })
+
+  it('matches a chord on the keys the remap makes of the held ones, and nothing for a stranger', () => {
+    const { app, host, set, press, remap } = setup(true)
+    set(app, ['Cmd+K'])
+    const ctrlK = { key: 'k', code: 'KeyK', control: true, shift: false }
+    const hold = { key: 'Control', code: 'ControlRight', control: true, shift: false }
+    remap({ id: 2 } as unknown as WebContents, { ControlRight: 'command' })
+    press(hold)
+    expect(press(ctrlK).preventDefault).not.toHaveBeenCalled()
+    remap(app, { ControlRight: 'command' })
+    const event = press(ctrlK)
+    expect(event.preventDefault).toHaveBeenCalled()
+    expect(host.send).toHaveBeenCalledWith(GUEST_CHORDS_FIRE, {
+      guestId: 9,
+      key: {
+        key: 'k',
+        code: 'KeyK',
+        ctrlKey: false,
+        shiftKey: false,
+        altKey: false,
+        metaKey: true,
+      },
+    })
+  })
+
+  it('lets the page keep a real Cmd+C but treats a key remapped to Command as an app chord', () => {
+    const { app, host, set, press, remap } = setup(true)
+    set(app, ['Cmd+C'])
+    const cmdC = { key: 'c', code: 'KeyC', control: false, shift: false, meta: true }
+    expect(press(cmdC).preventDefault).not.toHaveBeenCalled()
+    remap(app, { ControlLeft: 'command' })
+    press({ key: 'Control', code: 'ControlLeft', control: true, shift: false })
+    const event = press({ key: 'c', code: 'KeyC', control: true, shift: false })
+    expect(event.preventDefault).toHaveBeenCalled()
+    expect(host.send).toHaveBeenCalledTimes(1)
   })
 })

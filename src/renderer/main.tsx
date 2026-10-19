@@ -22,6 +22,7 @@ import { startAssistUi } from '@/lib/assist/assistUi'
 import { revealPane, startAttentionSync } from '@/lib/attention/workspaceActivity'
 import { startFileDropTracking } from '@/lib/files/fileDrop'
 import { loadHomeDir } from '@/lib/files/homeDir'
+import { startModifierRemap } from '@/lib/keyboard/modifierRemapSync'
 import { loadEditorLanguages } from '@/lib/monaco/contributedLanguages'
 import { setSettingsFile } from '@/lib/monaco/language'
 import { startUserActions } from '@/lib/palette/userActions'
@@ -77,6 +78,7 @@ import { isMac } from './platform'
 
 startErrorReporting()
 startFocusModality()
+startModifierRemap(isMac)
 watchScrolling(document)
 registerBuiltinCommands()
 registerExternalEditorCommand()

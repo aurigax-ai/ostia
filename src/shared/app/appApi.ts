@@ -1,6 +1,7 @@
 import type { ExtensionResult } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import type { ClipboardChords, ClipboardEdit } from '../keyboard/clipboardChords'
 import type { GuestChordFire } from '../keyboard/guestChords'
+import type { ModifierRemap } from '../keyboard/modifierRemap'
 import type { AppMenuSpec } from './appMenu'
 import type { BuildInfo } from './buildInfo'
 import type { DiscreteGpuInfo } from './discreteGpu'
@@ -66,6 +67,7 @@ interface ClipboardApi {
 
 interface GuestChordsApi {
   set: (signatures: string[]) => void
+  setRemap: (table: ModifierRemap) => void
   onFire: (cb: (fire: GuestChordFire) => void) => () => void
 }
 
