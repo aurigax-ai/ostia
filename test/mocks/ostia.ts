@@ -340,7 +340,7 @@ export function makeOstiaMock(overrides?: Partial<OstiaBridge>): OstiaBridge {
       import: vi.fn().mockResolvedValue({ ok: false, error: 'cancelled' }),
     },
     scriptTokens: {
-      list: vi.fn().mockResolvedValue({ tokens: [], retired: [], workspaces: [], groups: [] }),
+      list: vi.fn().mockResolvedValue({ tokens: [], workspaces: [], groups: [] }),
       create: vi.fn().mockResolvedValue({ ok: false, error: 'not mocked' }),
       update: vi.fn().mockResolvedValue({ ok: false, error: 'not mocked' }),
       revoke: vi.fn().mockResolvedValue(true),

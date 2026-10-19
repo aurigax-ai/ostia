@@ -18,9 +18,10 @@ import { acceptsPrimarySelection } from './primarySelection'
 
 interface WindowIpcDeps {
   requestQuit: AppQuit['requestQuit']
+  broadcast: (channel: string, payload: unknown) => void
 }
 
-export function registerWindowIpc({ requestQuit }: WindowIpcDeps) {
+export function registerWindowIpc({ requestQuit, broadcast }: WindowIpcDeps) {
   ipcMain.handle('app:ping', () => 'pong' as const)
   ipcMain.handle('settings:path', () => join(app.getPath('userData'), 'settings.json'))
   ipcMain.handle('editor:open-external', (_e, req: ExternalEditorRequest) =>
@@ -50,11 +51,7 @@ export function registerWindowIpc({ requestQuit }: WindowIpcDeps) {
   ipcMain.on('window:quit', () => requestQuit())
   ipcMain.handle('window:system-dark', () => nativeTheme.shouldUseDarkColors)
   nativeTheme.on('updated', () => {
-    for (const win of BrowserWindow.getAllWindows()) {
-      if (!win.isDestroyed()) {
-        win.webContents.send('window:system-dark-changed', nativeTheme.shouldUseDarkColors)
-      }
-    }
+    broadcast('window:system-dark-changed', nativeTheme.shouldUseDarkColors)
   })
   ipcMain.on('window:beep', () => shell.beep())
   ipcMain.on('window:write-primary', (_e, text: unknown) => {

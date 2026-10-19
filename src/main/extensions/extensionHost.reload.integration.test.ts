@@ -103,6 +103,8 @@ describe('ExtensionHost hot reload of the user extensions directory', () => {
     chipBroadcasts = []
     store = new ExtensionStore(join(userRoot, '..', `${Date.now()}-extensions.json`))
     host = new ExtensionHost({
+      sandboxDomains: () => null,
+      isSandboxed: () => false,
       roots: [{ dir: userRoot, builtin: false }],
       store,
       socketPath: () => socketPath,

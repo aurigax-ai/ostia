@@ -1,8 +1,18 @@
-import { closeSync, lstatSync, openSync, readSync, readdirSync } from 'node:fs'
+import {
+  constants,
+  closeSync,
+  fstatSync,
+  lstatSync,
+  openSync,
+  readSync,
+  readdirSync,
+} from 'node:fs'
 import { open } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
 import type { AgentResume } from '../../shared/agents/agentResume'
+
+const READ_FLAGS = constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK
 
 function isPlainFile(path: string): boolean {
   try {
@@ -52,9 +62,11 @@ export function transcriptPath(resume: AgentResume, home = homedir()): string | 
 }
 
 export function readRange(path: string, fromEnd: boolean, bytes: number): string[] {
-  const fd = openSync(path, 'r')
+  const fd = openSync(path, READ_FLAGS)
   try {
-    const size = lstatSync(path).size
+    const info = fstatSync(fd)
+    if (!info.isFile()) throw new Error('not a regular file')
+    const size = info.size
     const length = Math.min(bytes, size)
     const start = fromEnd ? size - length : 0
     const buffer = Buffer.alloc(length)
@@ -74,9 +86,11 @@ export interface TailRead {
 }
 
 export async function readTail(path: string, bytes: number): Promise<TailRead> {
-  const handle = await open(path, 'r')
+  const handle = await open(path, READ_FLAGS)
   try {
-    const { size } = await handle.stat()
+    const info = await handle.stat()
+    if (!info.isFile()) throw new Error('not a regular file')
+    const { size } = info
     const length = Math.min(bytes, size)
     const start = size - length
     const buffer = Buffer.alloc(length)

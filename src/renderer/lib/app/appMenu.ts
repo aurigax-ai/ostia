@@ -126,8 +126,7 @@ export function runAppMenuItem(command: string): void {
 }
 
 export function startAppMenu(): () => void {
-  const api = window.ostia?.appMenu
-  if (!api) return () => {}
+  const api = window.ostia.appMenu
   let scheduled = false
   const publish = (): void => {
     if (scheduled) return

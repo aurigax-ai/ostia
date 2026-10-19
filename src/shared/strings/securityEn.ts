@@ -375,7 +375,6 @@ export const securityEn = {
     detailExpires: 'Expires',
     dialogDesc: 'Give this script only the permissions and workspaces it needs.',
     dialogTitle: 'Generate new token',
-    dismiss: 'Got it',
     done: 'Done',
     edit: 'Edit',
     editTitle: 'Edit "{name}"',
@@ -431,9 +430,6 @@ export const securityEn = {
     resultMissing: 'Missing permission',
     resultOk: 'Allowed',
     resultOutOfScope: 'Outside access',
-    retiredBody:
-      '{names} can no longer connect. Generate new tokens and update {env} in your scripts.',
-    retiredTitle: '{n} old tokens stopped working after the {product} upgrade',
     revoke: 'Revoke',
     revokeBody: "Scripts using this token are disconnected at once and can't reconnect.",
     revokeTitle: 'Revoke "{name}"?',

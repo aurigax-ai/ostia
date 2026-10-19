@@ -120,6 +120,8 @@ describe('loadLanguagePacks', () => {
     })
     const broadcast = vi.fn()
     const host = new ExtensionHost({
+      sandboxDomains: () => null,
+      isSandboxed: () => false,
       roots: [{ dir: root, builtin: true }],
       store: new ExtensionStore(join(extension({}), 'extensions.json')),
       socketPath: () => join(root, 'none.sock'),

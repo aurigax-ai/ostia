@@ -68,6 +68,8 @@ describe('assist routing across providers, models and extensions', () => {
       ],
     }
     host = new ExtensionHost({
+      sandboxDomains: () => null,
+      isSandboxed: () => false,
       roots: [
         { dir: modelFixtures, builtin: false },
         { dir: plainFixtures, builtin: false },

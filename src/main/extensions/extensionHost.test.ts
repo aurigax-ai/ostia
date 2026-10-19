@@ -37,6 +37,8 @@ function makeHost(overrides: Partial<ExtensionHostDeps> = {}): {
     broadcast: vi.fn(),
     openPanelIn: vi.fn(),
     notify: vi.fn(),
+    isSandboxed: () => false,
+    sandboxDomains: () => null,
     log: () => {},
     ...overrides,
   }

@@ -20,7 +20,7 @@ export interface BrowseDeps {
   screenshotRoots: string[]
   consoleBuffers: Map<number, ConsoleEntry[]>
   errorBuffers: Map<number, ConsoleEntry[]>
-  allowNavigation?: (workspaceId: string, url: string) => Promise<boolean>
+  allowNavigation: (workspaceId: string, url: string) => Promise<boolean>
   reach: Pick<Reach, 'inScope'>
 }
 

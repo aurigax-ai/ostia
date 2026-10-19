@@ -195,6 +195,57 @@ function optionsProxy(t: GhosttyTerm): TerminalOptions {
   })
 }
 
+interface WasmRows {
+  getScrollbackLength(): number
+  isScrollbackRowWrapped(offset: number): boolean
+  isRowWrapped(row: number): boolean
+}
+
+type GhosttyRows = GhosttyTerm['buffer']['active']
+
+function lazyLine(
+  rows: GhosttyRows,
+  wasm: WasmRows,
+  cols: number,
+  y: number,
+): ReturnType<GhosttyRows['getLine']> {
+  if (y < 0 || y >= rows.length) return undefined
+  let cells: ReturnType<GhosttyRows['getLine']>
+  const real = () => {
+    cells ??= rows.getLine(y)
+    return cells
+  }
+  const scrollback = rows.type === 'normal' ? wasm.getScrollbackLength() : 0
+  const isWrapped =
+    y < scrollback ? wasm.isScrollbackRowWrapped(y) : wasm.isRowWrapped(y - scrollback)
+  return {
+    length: cols,
+    isWrapped,
+    getCell: (x) => real()?.getCell(x),
+    translateToString: (trimRight, start, end) =>
+      real()?.translateToString(trimRight, start, end) ?? '',
+  } as ReturnType<GhosttyRows['getLine']>
+}
+
+export function lazyBuffers(t: GhosttyTerm): OstiaTerminal['buffer'] {
+  const wasm = () => (t as unknown as { wasmTerm: WasmRows }).wasmTerm
+  const lazy = (rows: GhosttyRows): GhosttyRows =>
+    new Proxy(rows, {
+      get: (target, key) => {
+        if (key === 'getLine') return (y: number) => lazyLine(target, wasm(), t.cols, y)
+        const value = Reflect.get(target, key, target)
+        return typeof value === 'function' ? value.bind(target) : value
+      },
+    })
+  return new Proxy(t.buffer, {
+    get: (target, key) => {
+      const value = Reflect.get(target, key, target)
+      if (key === 'active' || key === 'normal' || key === 'alternate') return lazy(value)
+      return typeof value === 'function' ? value.bind(target) : value
+    },
+  }) as unknown as OstiaTerminal['buffer']
+}
+
 export function createGhosttyTerminal(
   options: TerminalOptions,
   gpu: boolean,
@@ -248,7 +299,7 @@ export function createGhosttyTerminal(
     get element() {
       return t.element
     },
-    buffer: t.buffer,
+    buffer: lazyBuffers(t),
     parser,
     get modes() {
       return { mouseTrackingMode: t.modes.mouseTrackingMode }

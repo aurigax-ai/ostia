@@ -1,5 +1,5 @@
 import type { MessageConnection } from 'vscode-jsonrpc/node'
-import { type ErrResult, describeErrResult, failUsage, isErrResult } from '../common/failure'
+import { type ErrResult, describeErrResult, fail, failUsage, isErrResult } from '../common/failure'
 
 interface GatewayOk {
   ok: true
@@ -36,8 +36,7 @@ export async function runGatewayVerb(conn: MessageConnection): Promise<void> {
   if (sub === 'pair') {
     const res = await conn.sendRequest<GatewayPairResult | ErrResult>('gateway.pair', {})
     if (isErrResult(res)) {
-      console.error(`ostia: gateway pair failed (${describeErrResult(res)})`)
-      process.exitCode = 1
+      fail(`ostia: gateway pair failed (${describeErrResult(res)})`)
       return
     }
     console.log(JSON.stringify(res, null, 2))
@@ -46,8 +45,7 @@ export async function runGatewayVerb(conn: MessageConnection): Promise<void> {
   } else if (sub === 'status') {
     const res = await conn.sendRequest<GatewayStatusResult | ErrResult>('gateway.status', {})
     if (isErrResult(res)) {
-      console.error(`ostia: gateway status failed (${describeErrResult(res)})`)
-      process.exitCode = 1
+      fail(`ostia: gateway status failed (${describeErrResult(res)})`)
       return
     }
     console.log(JSON.stringify(res))
@@ -63,16 +61,14 @@ export async function runGatewayVerb(conn: MessageConnection): Promise<void> {
   } else if (sub === 'revoke') {
     const deviceId = process.argv[4]
     if (!deviceId) {
-      console.error('ostia gateway revoke: missing <deviceId>')
-      process.exitCode = 1
+      fail('ostia gateway revoke: missing <deviceId>')
       return
     }
     const res = await conn.sendRequest<GatewayOk | ErrResult>('gateway.revoke', { deviceId })
     if (res.ok) {
       console.log('ok')
     } else {
-      console.error(`ostia: gateway revoke failed (${describeErrResult(res)})`)
-      process.exitCode = 1
+      fail(`ostia: gateway revoke failed (${describeErrResult(res)})`)
     }
   } else {
     failUsage('gateway')

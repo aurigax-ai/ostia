@@ -135,8 +135,8 @@ export async function opensAsTarget(conn: MessageConnection, word: string): Prom
   const { path } = parseFileArg(word, FILE_PROBE)
   if (!FILE_PROBE.isFile(path) && !FILE_PROBE.isDir?.(path)) return false
   const [extensions, commands] = await Promise.all([
-    conn.sendRequest<{ id: string; verb?: string }[]>('ext.list').catch(() => []),
-    conn.sendRequest<{ id: string }[]>('command.list').catch(() => []),
+    conn.sendRequest<{ id: string; verb?: string }[]>('ext.list'),
+    conn.sendRequest<{ id: string }[]>('command.list'),
   ])
   const claimed = [
     ...extensions.flatMap((e) => (e.verb ? [e.id, e.verb] : [e.id])),

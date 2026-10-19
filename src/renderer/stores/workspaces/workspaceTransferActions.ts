@@ -35,7 +35,7 @@ export function createWorkspaceTransferActions(
         const next = normalizeGroups({ workspaces: remaining, groups: s.groups })
         return { workspaces: next.workspaces, groups: next.groups, activeWorkspaceId: targetId }
       })
-      window.ostia?.lifecycle?.emit?.({ type: 'workspace-activated', workspaceId: targetId })
+      window.ostia.lifecycle.emit({ type: 'workspace-activated', workspaceId: targetId })
     },
 
     adopt: (incoming) => {
@@ -72,13 +72,13 @@ export function createWorkspaceTransferActions(
       })
       useLayoutStore.getState().adopt(layouts)
       for (const { workspace } of adopted) {
-        window.ostia?.lifecycle?.emit?.({
+        window.ostia.lifecycle.emit({
           type: 'workspace-added',
           workspaceId: workspace.id,
           workDir: workspace.workDir,
         })
       }
-      window.ostia?.lifecycle?.emit?.({
+      window.ostia.lifecycle.emit({
         type: 'workspace-activated',
         workspaceId: adopted[adopted.length - 1].workspace.id,
       })

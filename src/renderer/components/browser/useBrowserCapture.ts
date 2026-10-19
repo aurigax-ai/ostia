@@ -48,7 +48,7 @@ export function useBrowserCapture({
 
   useEffect(
     () =>
-      window.ostia?.browser?.onPickState?.((state) => {
+      window.ostia.browser.onPickState((state) => {
         if (state.paneId !== paneId) return
         setPicking(state.active ? { byAgent: state.byAgent } : null)
       }),

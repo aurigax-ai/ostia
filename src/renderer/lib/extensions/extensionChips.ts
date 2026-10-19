@@ -152,7 +152,7 @@ export function useWorkspaceChips(workspaceId: string | null): ShownChip[] {
     workspaceId ? s.byWorkspace[workspaceId]?.activePaneId : undefined,
   )
   useEffect(() => {
-    if (activePaneId) window.ostia?.git?.shown()
+    if (activePaneId) window.ostia.git.shown()
   }, [activePaneId])
   return useMemo(
     () =>

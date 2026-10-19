@@ -18,5 +18,5 @@ export function openManagerWorkspace(req: ManagerOpenPaneRequest): string | null
 }
 
 export function wireManagerBridge(): void {
-  window.ostia?.manager?.onOpen(openManagerWorkspace)
+  window.ostia.manager.onOpen(openManagerWorkspace)
 }

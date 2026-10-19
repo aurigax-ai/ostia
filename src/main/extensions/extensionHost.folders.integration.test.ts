@@ -28,6 +28,8 @@ describe('ExtensionHost remote folders (real extension process, real socket)', (
     const socketPath = join(dir, 'control.sock')
     registerPane({ windowId: 'win1', workspaceId: 'w1', paneId: 'pane-remote' })
     host = new ExtensionHost({
+      sandboxDomains: () => null,
+      isSandboxed: () => false,
       roots: [{ dir: fixtures, builtin: true }],
       store: new ExtensionStore(join(dir, 'extensions.json')),
       socketPath: () => socketPath,

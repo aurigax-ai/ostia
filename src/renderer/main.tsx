@@ -134,7 +134,7 @@ async function boot(): Promise<void> {
   }
   let snapshot = null
   try {
-    snapshot = (await window.ostia?.workspace?.load?.()) ?? null
+    snapshot = await window.ostia.workspace.load()
   } catch (err) {
     console.error('[workspace] restore failed', err)
   }
@@ -174,8 +174,8 @@ async function boot(): Promise<void> {
   startAssistToggleCommands()
   startShortcutReporting()
   applyStoredPanelWidths()
-  window.ostia?.notifications?.onActivate?.((paneId) => revealPane(paneId))
-  window.ostia?.settings?.onChanged?.(() => void useSettingsStore.getState().init())
+  window.ostia.notifications.onActivate((paneId) => revealPane(paneId))
+  window.ostia.settings.onChanged(() => void useSettingsStore.getState().init())
   root.render(
     <StrictMode>
       <AppErrorBoundary>
@@ -184,7 +184,7 @@ async function boot(): Promise<void> {
       </AppErrorBoundary>
     </StrictMode>,
   )
-  window.ostia?.diagnostics?.ready(livePaneIds())
+  window.ostia.diagnostics.ready(livePaneIds())
 }
 
 boot().catch((err: unknown) => {
