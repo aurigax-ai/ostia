@@ -101,6 +101,9 @@ test.beforeAll(async () => {
   app = await launchShared(isolatedLaunch(dataHome))
   win = await app.firstWindow()
   await win.waitForLoadState('domcontentloaded')
+  await expect(win.locator('.rail-tab').filter({ hasText: 'deep' })).toBeVisible({
+    timeout: 15_000,
+  })
 })
 
 test.afterAll(async () => {
@@ -108,9 +111,9 @@ test.afterAll(async () => {
 })
 
 test('a long workspace path is cut short inside its row and the names stay whole', async () => {
-  await expect(win.getByText('deep').first()).toBeVisible({ timeout: 15_000 })
   await win.keyboard.press(chords.palette)
   const palette = win.getByRole('dialog', { name: 'Command palette' })
+  await expect(palette.getByRole('combobox')).toHaveValue('>')
   await palette.getByRole('combobox').fill('')
   await expect(palette.getByRole('option', { name: /deep/ }).first()).toBeVisible()
 
@@ -133,6 +136,7 @@ test('each palette row shows its keycap and id at the right edge, the keycap dim
   await openWorkspace(win)
   await win.keyboard.press(chords.palette)
   const palette = win.getByRole('dialog', { name: 'Command palette' })
+  await expect(palette.getByRole('combobox')).toHaveValue('>')
   await expect(palette.getByRole('option').first()).toBeVisible()
 
   const all = await rows(win)

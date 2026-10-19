@@ -6,18 +6,6 @@
     "until": "2026-11-17"
   },
   {
-    "file": "e2e/command-palette-layout.spec.ts",
-    "name": "a long workspace path is cut short inside its row and the names stay whole",
-    "issue": 1137,
-    "until": "2026-11-02"
-  },
-  {
-    "file": "e2e/command-palette-layout.spec.ts",
-    "name": "each palette row shows its keycap and id at the right edge, the keycap dimmer, with and without a query",
-    "issue": 1141,
-    "until": "2026-11-17"
-  },
-  {
     "file": "e2e/graphs-kept.spec.ts",
     "name": "GRF-C71 an agent still working in its kept pane across a restart is reattached as running and its report ends the node",
     "issue": 1044,
