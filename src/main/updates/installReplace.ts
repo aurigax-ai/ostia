@@ -112,22 +112,28 @@ async function writable(path: string): Promise<boolean> {
   }
 }
 
-export async function canReplaceInstall(appDir: string): Promise<ReplaceAvailability> {
-  const parent = dirname(appDir)
-  if (SYSTEM_PARENTS.some((dir) => isInsidePath(dir, parent)))
-    return { ok: false, reason: 'system-path' }
+export async function replaceableAt(
+  target: string,
+  leftovers: readonly string[],
+): Promise<ReplaceAvailability> {
   try {
-    if ((await lstat(appDir)).isSymbolicLink()) return { ok: false, reason: 'symlink' }
+    if ((await lstat(target)).isSymbolicLink()) return { ok: false, reason: 'symlink' }
   } catch {
     return { ok: false, reason: 'not-writable' }
   }
-  for (const leftover of [newPath(appDir), oldPath(appDir)]) {
+  for (const leftover of leftovers) {
     if (await exists(leftover)) return { ok: false, reason: 'leftover', path: leftover }
   }
-  if (!(await writable(appDir)) || !(await writable(parent))) {
+  if (!(await writable(target)) || !(await writable(dirname(target)))) {
     return { ok: false, reason: 'not-writable' }
   }
   return { ok: true }
+}
+
+export async function canReplaceInstall(appDir: string): Promise<ReplaceAvailability> {
+  if (SYSTEM_PARENTS.some((dir) => isInsidePath(dir, dirname(appDir))))
+    return { ok: false, reason: 'system-path' }
+  return replaceableAt(appDir, [newPath(appDir), oldPath(appDir)])
 }
 
 function strippedEntry(path: string): string | null {
