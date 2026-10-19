@@ -36,3 +36,26 @@ export function Notice({
     </Alert>
   )
 }
+
+export function NoticeBar({
+  tone,
+  actions,
+  className,
+  children,
+  ...rest
+}: Omit<React.ComponentProps<'div'>, 'children'> & {
+  tone?: keyof typeof TONES
+  actions?: React.ReactNode
+  children: React.ReactNode
+}): JSX.Element {
+  return (
+    <div
+      className={cn('rounded-md border border-line bg-surface-1 px-2.5 py-1 shadow-sm', className)}
+      {...rest}
+    >
+      <Notice tone={tone} actions={actions}>
+        {children}
+      </Notice>
+    </div>
+  )
+}

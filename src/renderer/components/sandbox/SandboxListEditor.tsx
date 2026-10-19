@@ -1,5 +1,6 @@
 import { IconButton } from '@/components/common/IconButton'
 import { ListRow } from '@/components/common/ListRow'
+import { Notice } from '@/components/common/Notice'
 import { SettingsSubgroup } from '@/components/settingsKit/SettingsGroup'
 import { SettingsList } from '@/components/settingsKit/SettingsList'
 import { Badge } from '@/components/ui/badge'
@@ -145,11 +146,7 @@ export function SandboxListEditor({
           />
         ))}
       </SettingsList>
-      {error ? (
-        <p role="alert" className="mt-1 text-attn-fg text-ui-sm">
-          {error}
-        </p>
-      ) : null}
+      {error ? <Notice tone="error">{error}</Notice> : null}
     </fieldset>
   )
 }

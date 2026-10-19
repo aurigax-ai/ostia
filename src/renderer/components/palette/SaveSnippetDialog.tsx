@@ -1,3 +1,4 @@
+import { Notice } from '@/components/common/Notice'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -155,11 +156,7 @@ function SaveSnippetForm({ initialCommand }: { initialCommand: string }): JSX.El
               </>
             )}
           </section>
-          {error ? (
-            <p role="alert" className="text-attn-fg text-ui-xs">
-              {error}
-            </p>
-          ) : null}
+          {error ? <Notice tone="error">{error}</Notice> : null}
           <DialogFooter>
             <Button type="button" variant="outline" size="sm" onClick={close}>
               {d.snippets.cancel}
