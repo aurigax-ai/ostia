@@ -179,45 +179,29 @@ function registerPtyQueryIpc({
     if (!entry?.subs.has(String(e.sender.id))) return null
     return paneActivity(entry)
   })
-  registerCommandNamesIpc(executables, (paneId) => {
+  const promptPane = (paneId: string) => {
     const entry = ptys.get(paneId)
     if (!entry) return null
     return {
       owners: entry.subs,
       localPrompt: holdsLocalPrompt(entry),
+      shell: entry.shell,
       stateFile: entry.stateFile,
       spawnPath: entry.spawnPath,
       rules: sandboxReadRules(entry),
     }
-  })
+  }
+  registerCommandNamesIpc(executables, promptPane)
   registerShellHistoryIpc({
     enabled: () => readSettingsFile().behavior?.historySuggestions !== false,
     files: shellHistoryFiles,
-    pane: (paneId) => {
-      const entry = ptys.get(paneId)
-      if (!entry) return null
-      return {
-        owners: entry.subs,
-        localPrompt: holdsLocalPrompt(entry),
-        shell: entry.shell,
-        stateFile: entry.stateFile,
-        rules: sandboxReadRules(entry),
-      }
-    },
+    pane: promptPane,
   })
   ipcMain.handle('pty:local-prompt', (e, paneId: string): boolean => {
     const entry = ptys.get(paneId)
     return entry?.subs.has(String(e.sender.id)) === true && holdsLocalPrompt(entry)
   })
-  registerPathCompletionIpc((paneId) => {
-    const entry = ptys.get(paneId)
-    if (!entry) return null
-    return {
-      owners: entry.subs,
-      localPrompt: holdsLocalPrompt(entry),
-      rules: sandboxReadRules(entry),
-    }
-  })
+  registerPathCompletionIpc(promptPane)
   ipcMain.handle(
     'pty:prompt-context',
     async (e, paneId: string, want: PromptContextRequest): Promise<PromptContext | null> => {
