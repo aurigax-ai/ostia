@@ -1,6 +1,6 @@
 ---
 name: activity
-description: Records notes and items for the human in the Ostia workspace's activity list, and reads what other agents in the workspace reported. Covers ostia activity add, list, show and done, and a needs-the-human item versus ostia ask. Use when an agent inside Ostia leaves the human something that does not block it (a decision to review later, a manual step, a credential to set, a result to check) or reads other agents' reports.
+description: Records notes and items for the human in the Ostia workspace's activity list (ostia activity add, list, show, done) and reads what other agents reported. Use when an agent leaves the human something that does not block it, such as a decision to review, a manual step or a result to check, or reads other agents' reports.
 ---
 
 # Activity: notes and needs-you items

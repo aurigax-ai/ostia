@@ -31,7 +31,8 @@ export const USAGE_TABLE: readonly NounUsage[] = [
   {
     noun: 'docs',
     audience: 'agent',
-    about: 'print the agent skill and the commands of the enabled extensions',
+    args: '[topic]',
+    about: 'print the agent skill, its topics and the extension commands; a topic prints one',
   },
   {
     noun: 'open',
