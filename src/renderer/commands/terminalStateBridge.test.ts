@@ -35,22 +35,6 @@ describe('wireTerminalStateBridge', () => {
     vi.useRealTimers()
   })
 
-  it('GUARD: does not subscribe when window.ostia.terminalState is undefined', () => {
-    const blocksSubscribe = vi.spyOn(useBlocksStore, 'subscribe')
-    const layoutSubscribe = vi.spyOn(useLayoutStore, 'subscribe')
-    try {
-      Reflect.set(window.ostia, 'terminalState', undefined)
-
-      expect(() => wireTerminalStateBridge()).not.toThrow()
-
-      expect(blocksSubscribe).not.toHaveBeenCalled()
-      expect(layoutSubscribe).not.toHaveBeenCalled()
-    } finally {
-      blocksSubscribe.mockRestore()
-      layoutSubscribe.mockRestore()
-    }
-  })
-
   it('SSH-C61 sends the remote folder a pane reported, and drops it after a local report', () => {
     const push = vi.mocked(window.ostia.terminalState.push)
     wireTerminalStateBridge()

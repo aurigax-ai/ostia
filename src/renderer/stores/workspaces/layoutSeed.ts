@@ -13,6 +13,10 @@ export function newTerminalPane(cwd?: string): PaneNode {
   return createTerminalPane(neutralTerminalTitle(), cwd)
 }
 
+export function announcePaneCreated(workspaceId: string, paneId: string | null): void {
+  if (paneId) window.ostia.lifecycle.emit({ type: 'pane-created', workspaceId, paneId })
+}
+
 export function seedLayout(
   set: LayoutSet,
   get: LayoutGet,
@@ -25,6 +29,6 @@ export function seedLayout(
   set((s) => ({
     byWorkspace: { ...s.byWorkspace, [workspaceId]: layoutOf(make(pane)) },
   }))
-  window.ostia?.lifecycle?.emit?.({ type: 'pane-created', workspaceId, paneId: pane.id })
+  announcePaneCreated(workspaceId, pane.id)
   return pane.id
 }
