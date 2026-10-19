@@ -1,7 +1,11 @@
+import { randomInt } from 'node:crypto'
+import { FRIENDLY_NAME, friendlyNameFrom } from '../../shared/gateway/friendlyName'
 import type { GatewayRoute } from '../../shared/gateway/gatewayApi'
 import {
   DEFAULT_GATEWAY_ROUTE,
+  LOOPBACK_ADDRESS,
   isBindAddress,
+  isBindInterface,
   phoneAddressOf,
 } from '../../shared/gateway/gatewayRoute'
 import { loadJson, saveJson, storePath } from '../platform/jsonStore'
@@ -14,17 +18,34 @@ type RouteProblem = 'unknown-address' | 'invalid-phone-address'
 
 export function checkRoute(value: unknown): GatewayRoute | RouteProblem {
   if (typeof value !== 'object' || value === null) return 'unknown-address'
-  const v = value as { bindAddress?: unknown; tailnet?: unknown; phoneAddress?: unknown }
+  const v = value as {
+    bindAddress?: unknown
+    bindInterface?: unknown
+    tailnet?: unknown
+    phoneAddress?: unknown
+  }
   if (!isBindAddress(v.bindAddress) || typeof v.tailnet !== 'boolean') return 'unknown-address'
+  if (
+    !isBindInterface(v.bindInterface) ||
+    (v.bindAddress === LOOPBACK_ADDRESS) !== (v.bindInterface === null)
+  ) {
+    return 'unknown-address'
+  }
   const phoneAddress = v.phoneAddress === null ? null : phoneAddressOf(v.phoneAddress)
   if (v.phoneAddress !== null && !phoneAddress) return 'invalid-phone-address'
-  return { bindAddress: v.bindAddress, tailnet: v.tailnet, phoneAddress }
+  return {
+    bindAddress: v.bindAddress,
+    bindInterface: v.bindInterface,
+    tailnet: v.tailnet,
+    phoneAddress,
+  }
 }
 
 interface GatewayConfig {
   route?: unknown
   discoverable?: unknown
   phoneWorkspace?: unknown
+  friendlyName?: unknown
 }
 
 function loadConfig(): GatewayConfig {
@@ -54,4 +75,14 @@ export function loadDiscoverable(): boolean {
 
 export function saveDiscoverable(discoverable: boolean): void {
   saveJson(routePath(), { ...loadConfig(), discoverable })
+}
+
+export function friendlyName(): string {
+  const config = loadConfig()
+  if (typeof config.friendlyName === 'string' && FRIENDLY_NAME.test(config.friendlyName)) {
+    return config.friendlyName
+  }
+  const fresh = friendlyNameFrom((count) => randomInt(count))
+  saveJson(routePath(), { ...config, friendlyName: fresh })
+  return fresh
 }

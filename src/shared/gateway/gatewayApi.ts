@@ -22,6 +22,7 @@ export interface GatewayPhoneAddress {
 
 export interface GatewayRoute {
   bindAddress: string
+  bindInterface: string | null
   tailnet: boolean
   phoneAddress: GatewayPhoneAddress | null
 }

@@ -2,6 +2,7 @@ import { PRODUCT_NAME } from '@aurigax-ai/ostia-extension-sdk/contract/product'
 import { app } from 'electron'
 import type { WebSocket } from 'ws'
 import { resolveExternal } from '../control/idRegistry'
+import type { GatewayAddress } from './addresses'
 import { type GatewayControlDeps, dispatchGatewayMethod } from './controlDispatch'
 import { type Device, get as getDevice, verifyToken } from './devices'
 import type { ScreenLinks } from './screenLinks'
@@ -27,6 +28,7 @@ export interface PhoneSocketDeps {
   untrackDeviceSocket: (deviceId: string, ws: WebSocket) => void
   controlDeps: () => GatewayControlDeps | null
   screenLinks: () => ScreenLinks | null
+  addresses: () => GatewayAddress[]
 }
 
 export interface SocketState {
@@ -60,6 +62,7 @@ function handleHello(
   msg: { id?: unknown; params?: unknown },
   trackDeviceSocket: PhoneSocketDeps['trackDeviceSocket'],
   controlDeps: GatewayControlDeps | null,
+  addresses: GatewayAddress[],
 ): void {
   const params = (msg.params ?? {}) as { deviceToken?: unknown }
   const device = typeof params.deviceToken === 'string' ? verifyToken(params.deviceToken) : null
@@ -77,6 +80,7 @@ function handleHello(
       caps: device.caps,
       desktop: { name: PRODUCT_NAME, version: app.getVersion() },
       phoneWorkspace,
+      addresses,
     }),
   )
 }
@@ -350,7 +354,7 @@ function handleConnection(ws: WebSocket, deps: PhoneSocketDeps): void {
       return
     }
     if (msg.method === 'hello') {
-      handleHello(ws, state, msg, trackDeviceSocket, deps.controlDeps())
+      handleHello(ws, state, msg, trackDeviceSocket, deps.controlDeps(), deps.addresses())
       return
     }
     if (!state.device) {

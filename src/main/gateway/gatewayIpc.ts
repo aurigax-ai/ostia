@@ -13,21 +13,35 @@ import type {
   GatewayTailnetActionResult,
   GatewayTailnetState,
 } from '../../shared/gateway/gatewayApi'
-import { LOOPBACK_ADDRESS } from '../../shared/gateway/gatewayRoute'
+import { LOOPBACK_ADDRESS, resolveBindAddress } from '../../shared/gateway/gatewayRoute'
 import { registerControlMethod } from '../control/controlServer'
-import { type Announcement, type Publisher, announcementFor } from './announce'
+import {
+  type Announcement,
+  type AnnouncementKey,
+  type Publisher,
+  announcementFor,
+  lanAnnouncementFor,
+} from './announce'
+import { createBindFollower } from './bindFollower'
 import type { Device } from './devices'
 import { list as listDevices, revoke as revokeDevice, setDeviceCap } from './devices'
 import { listBindAddresses } from './interfaces'
 import { answerPairRequest, listPairRequests } from './pairRequests'
 import { liveCodeCount, newCode, onCodesChanged } from './pairing'
-import { checkRoute, loadDiscoverable, loadRoute, saveDiscoverable, saveRoute } from './route'
+import {
+  checkRoute,
+  friendlyName,
+  loadDiscoverable,
+  loadRoute,
+  saveDiscoverable,
+  saveRoute,
+} from './route'
 import {
   applyDeviceCaps,
   closeDeviceSockets,
   gatewayHelperPort,
   gatewayStatus,
-  setTailnetHosts,
+  setTailnetNode,
   startGateway,
   stopGateway,
 } from './server'
@@ -38,28 +52,40 @@ export interface TailnetDeps {
 }
 
 let announcer: Publisher | null = null
-let announced: Announcement | null = null
+let announced: Record<AnnouncementKey, Announcement | null> = { pairing: null, lan: null }
 
 export function configureAnnouncer(publisher: Publisher): void {
   announcer = publisher
-  announced = null
+  announced = { pairing: null, lan: null }
+}
+
+function announce(key: AnnouncementKey, next: Announcement | null): void {
+  if (isEqual(next, announced[key])) return
+  announced[key] = next
+  if (next) announcer?.publish(key, next)
+  else announcer?.unpublish(key)
 }
 
 function refreshAnnouncement(): void {
   const status = gatewayStatus()
   const target = pairTarget()
-  const next = announcementFor({
-    discoverable: loadDiscoverable(),
-    liveCodes: liveCodeCount(),
-    name: hostname(),
-    host: target?.host ?? null,
-    port: target?.port ?? null,
-    fingerprint: status.fingerprint,
-  })
-  if (isEqual(next, announced)) return
-  announced = next
-  if (next) announcer?.publish(next)
-  else announcer?.unpublish()
+  announce(
+    'pairing',
+    announcementFor({
+      discoverable: loadDiscoverable(),
+      liveCodes: liveCodeCount(),
+      name: friendlyName(),
+      host: target?.host ?? null,
+      port: target?.port ?? null,
+      fingerprint: status.fingerprint,
+    }),
+  )
+  announce(
+    'lan',
+    status.running
+      ? lanAnnouncementFor({ name: friendlyName(), bindHost: status.host, port: status.port })
+      : null,
+  )
 }
 
 onCodesChanged(refreshAnnouncement)
@@ -73,9 +99,7 @@ export function configureTailnet(instance: Tailnet, deps: TailnetDeps): void {
 }
 
 export function onTailnetChange(state: GatewayTailnetState): void {
-  setTailnetHosts(
-    state.state === 'running' ? [state.ip, state.dnsName].filter((h): h is string => !!h) : [],
-  )
+  setTailnetNode(state.state === 'running' ? { ip: state.ip, dnsName: state.dnsName } : null)
   refreshAnnouncement()
 }
 
@@ -102,31 +126,78 @@ export function remoteStatus(): GatewayRemoteStatus {
   }
 }
 
-function isBindable(address: string): boolean {
-  return listBindAddresses().some((a) => a.address === address)
-}
+const BIND_POLL_MS = 5000
 
-export async function enableRemote(): Promise<GatewayEnableResponse> {
+async function startFromRoute(): Promise<boolean> {
   const route = loadRoute()
-  if (!isBindable(route.bindAddress)) return { error: 'address-unavailable' }
+  const host = resolveBindAddress(listBindAddresses(), route)
+  if (!host) return false
   const started = await startGateway({
-    host: route.bindAddress,
+    host,
     tailnet: route.tailnet,
     phoneAddress: route.tailnet ? null : route.phoneAddress,
   })
   if (route.tailnet && started.helperPort) {
     tailnet?.start({ helperPort: started.helperPort, port: started.port })
   }
-  return remoteStatus()
+  refreshAnnouncement()
+  return true
+}
+
+let wanted = false
+let queue: Promise<unknown> = Promise.resolve()
+
+function serialized<T>(task: () => Promise<T>): Promise<T> {
+  const run = queue.then(task, task)
+  queue = run.catch(() => {})
+  return run
+}
+
+async function rebindToCard(): Promise<void> {
+  await serialized(async () => {
+    if (!wanted) return
+    await tailnet?.stop()
+    await stopGateway()
+    try {
+      if (wanted) await startFromRoute()
+    } catch {
+      await stopGateway()
+    }
+    refreshAnnouncement()
+  })
+}
+
+const bindFollower = createBindFollower({
+  everyMs: BIND_POLL_MS,
+  resolve: () => resolveBindAddress(listBindAddresses(), loadRoute()),
+  bound: () => gatewayStatus().host,
+  rebind: rebindToCard,
+})
+
+export function enableRemote(): Promise<GatewayEnableResponse> {
+  return serialized(async () => {
+    if (!(await startFromRoute())) return { error: 'address-unavailable' }
+    wanted = true
+    if (loadRoute().bindInterface !== null) bindFollower.start()
+    return remoteStatus()
+  })
+}
+
+export async function stopRemote(): Promise<void> {
+  wanted = false
+  bindFollower.stop()
+  await tailnet?.stop()
 }
 
 function setRoute(value: unknown): GatewaySetRouteResult {
   if (gatewayStatus().running) return { ok: false, error: 'running' }
-  const route = checkRoute(value)
-  if (route === 'invalid-phone-address') return { ok: false, error: route }
-  if (route === 'unknown-address' || !isBindable(route.bindAddress)) {
-    return { ok: false, error: 'unknown-address' }
-  }
+  const requested = typeof value === 'object' && value !== null ? value : {}
+  const card = listBindAddresses().find(
+    (a) => a.address === (requested as { bindAddress?: unknown }).bindAddress,
+  )
+  if (!card) return { ok: false, error: 'unknown-address' }
+  const route = checkRoute({ ...requested, bindInterface: card.loopback ? null : card.iface })
+  if (typeof route === 'string') return { ok: false, error: route }
   saveRoute(route)
   return { ok: true, route }
 }
@@ -140,15 +211,21 @@ function pairTarget(): GatewayPhoneAddress | null {
     return node.state === 'running' && node.ip ? { host: node.ip, port: status.port } : null
   }
   if (route.phoneAddress) return route.phoneAddress
-  if (route.bindAddress === LOOPBACK_ADDRESS || status.host !== route.bindAddress) return null
-  return { host: route.bindAddress, port: status.port }
+  if (!status.host || status.host === LOOPBACK_ADDRESS) return null
+  return { host: status.host, port: status.port }
 }
 
-export async function disableRemote(): Promise<GatewayRemoteStatus> {
-  await tailnet?.stop()
-  await stopGateway()
-  refreshAnnouncement()
-  return remoteStatus()
+export function disableRemote(): Promise<GatewayRemoteStatus> {
+  wanted = false
+  bindFollower.stop()
+  return serialized(async () => {
+    wanted = false
+    bindFollower.stop()
+    await tailnet?.stop()
+    await stopGateway()
+    refreshAnnouncement()
+    return remoteStatus()
+  })
 }
 
 export function gatewayPair(): GatewayPairResponse {

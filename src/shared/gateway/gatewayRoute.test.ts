@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { formatPhoneAddress, isBindAddress, parsePhoneAddress } from './gatewayRoute'
+import {
+  formatPhoneAddress,
+  isBindAddress,
+  isBindInterface,
+  parsePhoneAddress,
+  resolveBindAddress,
+} from './gatewayRoute'
 
 describe('gateway route', () => {
   it('TSN-C43 accepts 127.0.0.1 and a machine IPv4 as bind addresses', () => {
@@ -41,5 +47,45 @@ describe('gateway route', () => {
     ]) {
       expect(parsePhoneAddress(text)).toBeNull()
     }
+  })
+
+  describe('resolveBindAddress', () => {
+    const lo = { address: '127.0.0.1', iface: 'lo', loopback: true }
+    const wlan = { address: '192.168.2.108', iface: 'wlan0', loopback: false }
+    const eth = { address: '10.0.0.5', iface: 'eth0', loopback: false }
+
+    it('RDS-C20 keeps the saved address while its card still has it', () => {
+      const route = { bindAddress: '192.168.2.108', bindInterface: 'wlan0' }
+      expect(resolveBindAddress([lo, eth, wlan], route)).toBe('192.168.2.108')
+    })
+
+    it('RDS-C21 follows the card to its new address', () => {
+      const route = { bindAddress: '192.168.2.108', bindInterface: 'wlan0' }
+      expect(resolveBindAddress([lo, eth, { ...wlan, address: '172.16.1.9' }], route)).toBe(
+        '172.16.1.9',
+      )
+    })
+
+    it('RDS-C22 answers nothing when the card is gone, never another card', () => {
+      const route = { bindAddress: '192.168.2.108', bindInterface: 'wlan0' }
+      expect(resolveBindAddress([lo, eth], route)).toBeNull()
+      expect(resolveBindAddress([lo, { ...eth, address: '192.168.2.108' }], route)).toBeNull()
+    })
+
+    it('RDS-C23 resolves a loopback route only to loopback', () => {
+      expect(
+        resolveBindAddress([lo, wlan], { bindAddress: '127.0.0.1', bindInterface: null }),
+      ).toBe('127.0.0.1')
+      expect(
+        resolveBindAddress([wlan], { bindAddress: '127.0.0.1', bindInterface: null }),
+      ).toBeNull()
+    })
+  })
+
+  it('RDS-C24 accepts no card, or a named card, as the bind interface', () => {
+    expect(isBindInterface(null)).toBe(true)
+    expect(isBindInterface('wlan0')).toBe(true)
+    for (const value of ['', 'x'.repeat(65), 4, undefined])
+      expect(isBindInterface(value)).toBe(false)
   })
 })

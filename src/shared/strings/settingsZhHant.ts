@@ -325,6 +325,7 @@ export const settingsZhHant: typeof settingsEn = {
       '讓 {product} 手機應用程式透過您自己的 Tailscale tailnet 或您選擇的位址連到這台電腦。',
     remoteGrantsDesc: '讀取與通知永遠開啟。移除權限會中斷該裝置的連線，使其以較小的權限重新連線。',
     remoteGrantsFor: '{name} 的權限',
+    remoteLanOnlyInfo: '其他網路上的手機只能透過 Tailscale 或您自己的通道連到這台電腦。',
     remoteLoopbackOnly:
       '手機無法連到 127.0.0.1。請設定手機使用的位址、選擇其他接聽位址，或使用 Tailscale 節點。',
     remoteNoDevices: '尚未配對任何裝置。',
