@@ -80,15 +80,18 @@ function placeNewWorkspace(
   created: Workspace,
   placement: NewWorkspacePlacement,
   groupId?: string,
+  ungrouped = false,
 ): Grouping<Workspace> {
-  const ruleGroup = normalizeGroupName(
-    matchGroupRule(useSettingsStore.getState().workspaceGroups.byCwd, created.workDir),
-  )
+  const ruleGroup = ungrouped
+    ? ''
+    : normalizeGroupName(
+        matchGroupRule(useSettingsStore.getState().workspaceGroups.byCwd, created.workDir),
+      )
   if (ruleGroup) {
     const named = withNamedGroup(grouping(s), ruleGroup)
     return insertWorkspace(named.grouping, { ...created, groupId: named.groupId })
   }
-  if (groupId && s.groups.some((group) => group.id === groupId)) {
+  if (!ungrouped && groupId && s.groups.some((group) => group.id === groupId)) {
     const expanded = patchGroup(grouping(s), groupId, { collapsed: false })
     return insertWorkspace(expanded, { ...created, groupId })
   }
@@ -107,10 +110,16 @@ export const useWorkspacesStore = create<WorkspacesState>((set, get) => ({
     window.ostia.lifecycle.emit({ type: 'workspace-activated', workspaceId: id })
   },
 
-  addWorkspace: (workDir = '~', placement = 'end', kind = 'terminal', groupId?: string) => {
+  addWorkspace: (
+    workDir = '~',
+    placement = 'end',
+    kind = 'terminal',
+    groupId?: string,
+    ungrouped?: boolean,
+  ) => {
     const workspace = makeWorkspace(workDir, kind)
     set((s) => {
-      const next = placeNewWorkspace(s, workspace, placement, groupId)
+      const next = placeNewWorkspace(s, workspace, placement, groupId, ungrouped)
       return { workspaces: next.workspaces, groups: next.groups, activeWorkspaceId: workspace.id }
     })
     window.ostia.lifecycle.emit({ type: 'workspace-added', workspaceId: workspace.id, workDir })

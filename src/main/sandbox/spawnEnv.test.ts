@@ -7,13 +7,18 @@ describe('sandboxSpawnEnv', () => {
     expect(env).toEqual({ PATH: '/bin' })
   })
 
-  it('drops the artifact folder and pad, which the sandbox does not bind', () => {
+  it('drops the artifact folder and pad, which the sandbox does not bind, and keeps the workspace folder', () => {
     const env = sandboxSpawnEnv({
       PATH: '/bin',
       OSTIA_PANE_ID: 'p1',
+      OSTIA_WORKSPACE_DIR: '/home/u/project',
       OSTIA_ARTIFACTS: '/data/artifacts/w1',
       OSTIA_PAD: '/data/artifacts/w1/PAD.md',
     })
-    expect(env).toEqual({ PATH: '/bin', OSTIA_PANE_ID: 'p1' })
+    expect(env).toEqual({
+      PATH: '/bin',
+      OSTIA_PANE_ID: 'p1',
+      OSTIA_WORKSPACE_DIR: '/home/u/project',
+    })
   })
 })

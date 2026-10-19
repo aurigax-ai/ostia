@@ -73,8 +73,12 @@ function fakeDeps(overrides: Partial<GatewayControlDeps> = {}): GatewayControlDe
     paneSince: vi.fn().mockReturnValue(undefined),
     paneTurns: { list: vi.fn().mockReturnValue([]), output: vi.fn().mockReturnValue(null) },
     redact: vi.fn(async (text: string) => text),
+    ownSnippets: vi.fn().mockReturnValue([]),
     remote: vi.fn().mockReturnValue(false),
     startAgent: vi.fn().mockResolvedValue(null),
+    phoneWorkspace: vi.fn().mockResolvedValue(null),
+    phoneDefaults: vi.fn().mockReturnValue({ set: false, agent: 'claude' }),
+    isPhoneWorkspace: vi.fn().mockReturnValue(false),
     ...overrides,
   }
 }
@@ -1160,8 +1164,12 @@ describe('dispatchGatewayMethod — asks and agent replies', () => {
         paneSince: vi.fn().mockReturnValue(undefined),
         paneTurns: { list: vi.fn().mockReturnValue([]), output: vi.fn().mockReturnValue(null) },
         redact: vi.fn(async (text: string) => text),
+        ownSnippets: vi.fn().mockReturnValue([]),
         remote: vi.fn().mockReturnValue(false),
         startAgent: vi.fn().mockResolvedValue(null),
+        phoneWorkspace: vi.fn().mockResolvedValue(null),
+        phoneDefaults: vi.fn().mockReturnValue({ set: false, agent: 'claude' }),
+        isPhoneWorkspace: vi.fn().mockReturnValue(false),
       })
       expect(await prompt(deps, pane.externalId, 'go')).toEqual({ ok: true, result: { ok: true } })
       expect(deps.turnStarted).toHaveBeenCalledWith(
@@ -1624,5 +1632,78 @@ describe('dispatchGatewayMethod — agent.start', () => {
     vi.advanceTimersByTime(60_000)
     expect(await start(job, deps, undefined, 'dev_rate')).toMatchObject({ ok: true })
     expect(startAgent).toHaveBeenCalledTimes(5)
+  })
+})
+
+describe('dispatchGatewayMethod — the Phone workspace', () => {
+  const workspaces = [
+    { workspaceId: 's1', name: 'One', kind: 'agent', workDir: '/w', state: 'idle' },
+    { workspaceId: 'ph', name: 'Phone', kind: 'agent', workDir: '/jobs', state: 'idle' },
+  ]
+  const begun = { paneId: 'pane-ext', started: true, confirmed: true }
+
+  it('PHW-C4 starts a job without a workspace in the Phone workspace with the desktop default agent', async () => {
+    const startAgent = vi.fn().mockResolvedValue(begun)
+    const deps = fakeDeps({
+      listWorkspaces: vi.fn().mockResolvedValue(workspaces),
+      startAgent,
+      phoneWorkspace: vi.fn().mockResolvedValue('ph'),
+      phoneDefaults: vi.fn().mockReturnValue({ set: true, agent: 'codex' }),
+    })
+    const res = await dispatchGatewayMethod(
+      'agent.start',
+      { prompt: 'tidy the notes' },
+      ['read', 'respond'],
+      deps,
+      'dev_phw',
+    )
+    expect(res).toEqual({ ok: true, result: { paneId: 'pane-ext', confirmed: true } })
+    expect(startAgent).toHaveBeenCalledWith('ph', 'codex', 'tidy the notes')
+  })
+
+  it('PHW-C5 answers phone-workspace-unavailable and opens nothing when there is no usable Phone workspace', async () => {
+    const startAgent = vi.fn()
+    const deps = fakeDeps({ listWorkspaces: vi.fn().mockResolvedValue(workspaces), startAgent })
+    expect(
+      await dispatchGatewayMethod(
+        'agent.start',
+        { prompt: 'tidy the notes' },
+        ['respond'],
+        deps,
+        'dev_x',
+      ),
+    ).toEqual({ ok: false, code: -32602, message: 'phone-workspace-unavailable' })
+    expect(startAgent).not.toHaveBeenCalled()
+  })
+
+  it('PHW-C9 rate-limits before it opens the Phone workspace', async () => {
+    const phoneWorkspace = vi.fn().mockResolvedValue(null)
+    const deps = fakeDeps({ listWorkspaces: vi.fn().mockResolvedValue(workspaces), phoneWorkspace })
+    const job = { prompt: 'tidy the notes' }
+    for (let i = 0; i < 3; i++) {
+      expect(
+        await dispatchGatewayMethod('agent.start', job, ['respond'], deps, 'dev_open'),
+      ).toEqual({ ok: false, code: -32602, message: 'phone-workspace-unavailable' })
+    }
+    expect(await dispatchGatewayMethod('agent.start', job, ['respond'], deps, 'dev_open')).toEqual({
+      ok: false,
+      code: -32007,
+      message: 'rate-limited',
+    })
+    expect(phoneWorkspace).toHaveBeenCalledTimes(3)
+  })
+
+  it('PHW-C6 marks the Phone workspace in session.list', async () => {
+    const deps = fakeDeps({
+      listWorkspaces: vi.fn().mockResolvedValue(workspaces),
+      isPhoneWorkspace: vi.fn((workDir: string) => workDir === '/jobs'),
+    })
+    const res = (await dispatchGatewayMethod('session.list', {}, ['read'], deps)) as {
+      result: { sessions: Record<string, unknown>[] }
+    }
+    expect(res.result.sessions.map((s) => [s.sessionId, s.phone])).toEqual([
+      ['s1', undefined],
+      ['ph', true],
+    ])
   })
 })

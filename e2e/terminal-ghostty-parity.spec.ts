@@ -1,12 +1,12 @@
 import { createHash } from 'node:crypto'
-import { existsSync, mkdtempSync } from 'node:fs'
+import { existsSync, mkdtempSync, readFileSync } from 'node:fs'
 import { createServer } from 'node:http'
 import type { AddressInfo } from 'node:net'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { GHOSTTY, launchGhostty } from './ghostty'
-import { expectHeld, openedExternally, stubExternalOpener, typeLine } from './helpers'
-import { clickWith, hoverPoint, printOnFirstRow } from './terminalLinks'
+import { expectHeld, openedExternally, stubExternalOpener, terminalTab, typeLine } from './helpers'
+import { cellPoint, clickWith, hoverPoint, printOnFirstRow } from './terminalLinks'
 import { type ElectronApplication, expect, test } from './test'
 
 const clipboard = (app: ElectronApplication) => app.evaluate(({ clipboard: c }) => c.readText())
@@ -82,7 +82,7 @@ test(
 )
 
 test(
-  'Ghostty web links: a plain click reuses the browser pane, Ctrl adds a tab, Ctrl+Shift goes outside',
+  'Ghostty web links: a plain click reuses the browser pane, Ctrl adds a tab, Ctrl+Shift goes outside, and a mouse-reporting program never sees the Ctrl+click',
   { tag: '@experimental' },
   async () => {
     test.setTimeout(90_000)
@@ -107,7 +107,7 @@ test(
       const addresses = win.locator('.browser-address')
       const shown = win.locator('.pane-slot:not([data-hidden]) .browser-address')
       const backToTerminal = async (): Promise<void> => {
-        await win.locator('.pane-tab').first().click()
+        await terminalTab(win).click()
         await expect(screen()).toBeVisible()
       }
 
@@ -138,6 +138,41 @@ test(
         .poll(() => openedExternally(app), { timeout: 15_000 })
         .toEqual([`${base}/second`])
       await expect(addresses).toHaveCount(2)
+
+      await backToTerminal()
+      const dir = mkdtempSync(join(tmpdir(), 'ostia-mouse-'))
+      const size = join(dir, 'size')
+      const reports = join(dir, 'reports')
+      const reported = (): string[] =>
+        existsSync(reports) ? (readFileSync(reports, 'utf8').match(/\[<[\d;]+[Mm]/g) ?? []) : []
+      await screen().click()
+      await typeLine(
+        win,
+        `clear; stty size > ${size}; printf '\\033[?1000h\\033[?1006h\\033]8;;${base}/osc\\033\\\\docs page\\033]8;;\\033\\\\\\n'; stty raw -echo; cat > ${reports}`,
+      )
+      await expect
+        .poll(() => existsSync(size) && readFileSync(size, 'utf8').trim())
+        .toMatch(/^\d+ \d+$/)
+      const [rows, cols] = readFileSync(size, 'utf8').trim().split(' ').map(Number)
+      const link = await cellPoint(screen(), { rows, cols }, 2, 0)
+      const blank = await cellPoint(screen(), { rows, cols }, 2, 3)
+      const blankClick = ['[<0;3;4M', '[<0;3;4m']
+
+      await hoverPoint(win, link)
+      await expect(hint).toContainText(`${base}/osc`, { timeout: 5_000 })
+      await clickWith(win, blank, [])
+      await expect.poll(reported, { timeout: 10_000 }).toEqual(blankClick)
+
+      await hoverPoint(win, link)
+      await clickWith(win, link, ['Control'])
+      await expect(shown).toHaveValue(`${base}/osc`, { timeout: 15_000 })
+      await expect.poll(() => requests, { timeout: 15_000 }).toContain('/osc')
+      await expect(addresses).toHaveCount(3)
+
+      await backToTerminal()
+      await clickWith(win, blank, [])
+      await expect.poll(reported, { timeout: 10_000 }).toEqual([...blankClick, ...blankClick])
+      expect(await openedExternally(app)).toEqual([`${base}/second`])
     } finally {
       await app.close()
       server.close()
