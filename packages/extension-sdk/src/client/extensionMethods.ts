@@ -1,4 +1,5 @@
 import { CancellationTokenSource, type MessageConnection } from 'vscode-jsonrpc/node'
+import type { AgentToolReply } from '../contract/agent'
 import type { AssistProviderEntry } from '../contract/assist'
 import { EXTENSION_BASE_LOCALE } from '../contract/extensionLocales'
 import {
@@ -218,6 +219,9 @@ export function serviceMethods(
   | 'ask'
   | 'mcpCall'
   | 'mcpServers'
+  | 'onAgent'
+  | 'agentEvent'
+  | 'agentTool'
   | 'connections'
   | 'connection'
   | 'onConnectionsChanged'
@@ -275,6 +279,26 @@ export function serviceMethods(
         return await conn.sendRequest<McpServersResult>('ext.mcpServers')
       } catch (err) {
         return rpcFailure(err, 'mcp-servers-failed')
+      }
+    },
+    onAgent: (handler) => {
+      handlers.agent = handler
+    },
+    agentEvent: async (sessionId, event) => {
+      await conn.sendRequest('ext.agentEvent', { sessionId, event })
+    },
+    agentTool: async (call, signal) => {
+      const source = new CancellationTokenSource()
+      const cancel = (): void => source.cancel()
+      signal?.addEventListener('abort', cancel, { once: true })
+      if (signal?.aborted) source.cancel()
+      try {
+        return await conn.sendRequest<AgentToolReply>('ext.agentTool', call, source.token)
+      } catch (err) {
+        return { ok: false, error: errorMessage(err) }
+      } finally {
+        signal?.removeEventListener('abort', cancel)
+        source.dispose()
       }
     },
     connections: async () => {

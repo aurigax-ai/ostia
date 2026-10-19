@@ -8,7 +8,5 @@
     "src/shared/app/systemRequirements.ts",
     "test/fixtures/system/"
   ],
-  "specs": [
-    "e2e/system.spec.ts"
-  ]
+  "specs": ["e2e/system.spec.ts"]
 }

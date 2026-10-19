@@ -2,6 +2,7 @@ import { join } from 'node:path'
 import { PRODUCT_DISPLAY_NAME } from '@aurigax-ai/ostia-extension-sdk/contract/productDisplay'
 import { BrowserWindow, app, ipcMain, shell } from 'electron'
 import { parseScrollbackHistory } from '../../shared/terminal/scrollbackHistory'
+import { startAgent } from '../agent/agentWiring'
 import { registerAgentTranscriptIpc } from '../agents/agentTranscript'
 import { registerAgentWiring } from '../agents/agentWiring'
 import { registerFolderTrustIpc } from '../agents/folderTrustIpc'
@@ -162,6 +163,7 @@ export function boot(wiring: Wiring): void {
   const { marketplace } = startMarketplace({ ...wiring, extensionStore })
   startProfileSyncWiring({ ...wiring, marketplace })
   startChat({ ...wiring })
+  startAgent({ ...wiring })
   const { viewHost } = registerContentIpc({ ...wiring })
   startGateway({ ...wiring })
   registerBrowserWiring({ ...wiring })

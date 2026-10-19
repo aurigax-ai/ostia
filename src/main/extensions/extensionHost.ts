@@ -1,4 +1,9 @@
 import { EventEmitter } from 'node:events'
+import {
+  AGENT_EXTENSION_ID,
+  type AgentReply,
+  type AgentRequest,
+} from '@aurigax-ai/ostia-extension-sdk/contract/agent'
 import { agentSkillId, hookAgentsFor } from '@aurigax-ai/ostia-extension-sdk/contract/agentPlugins'
 import {
   ALL_CAPABILITIES,
@@ -57,6 +62,7 @@ import { ExtensionSlots } from './extensionSlots'
 import { effectiveRecord, grantedCaps, needsApproval } from './extensionStore'
 import { ExtensionWindowRequests } from './extensionWindowRequests'
 const INTERACTIVE_TIMEOUT_MS = 10 * 60_000
+const AGENT_REQUEST_TIMEOUT_MS = 60_000
 
 function capsOf(externalId: string): Capability[] {
   return ALL_CAPABILITIES.filter((cap) => hasCap(externalId, cap))
@@ -339,6 +345,24 @@ export class ExtensionHost {
       return normalizeResult(raw)
     } catch (err) {
       return fail('extension-unavailable', (err as Error).message)
+    }
+  }
+
+  async agentRequest(request: AgentRequest): Promise<AgentReply> {
+    const rt = this.runtimes.get(AGENT_EXTENSION_ID)
+    if (!rt || !this.active(rt)) return { ok: false, error: 'unavailable' }
+    try {
+      const conn = await this.processes.connected(rt)
+      const raw = await withTimeout(
+        conn.sendRequest('ext.agent', request),
+        AGENT_REQUEST_TIMEOUT_MS,
+        `${AGENT_EXTENSION_ID} ${request.op}`,
+      )
+      return isRecord(raw) && typeof raw.ok === 'boolean'
+        ? (raw as AgentReply)
+        : { ok: false, error: 'failed' }
+    } catch (err) {
+      return { ok: false, error: 'unavailable', message: (err as Error).message }
     }
   }
 

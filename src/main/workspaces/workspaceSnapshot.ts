@@ -64,7 +64,7 @@ export function snapshotPath(): string {
 function copyOptionalString(
   src: Record<string, unknown>,
   dst: SnapshotPaneNode,
-  key: 'cwd' | 'filePath' | 'url' | 'chatSessionId',
+  key: 'cwd' | 'filePath' | 'url' | 'chatSessionId' | 'agentSessionId',
 ): void {
   const value = src[key]
   if (typeof value === 'string' && value.length > 0) dst[key] = value
@@ -111,6 +111,7 @@ function parseNode(
     }
     copyOptionalString(raw, pane, 'url')
     if (pane.kind === 'chat') copyOptionalString(raw, pane, 'chatSessionId')
+    if (pane.kind === 'agent') copyOptionalString(raw, pane, 'agentSessionId')
     if (pane.kind === 'browser' && raw.browserProfile === 'shared') pane.browserProfile = 'shared'
     const device = pane.kind === 'browser' ? parseBrowserDevice(raw.browserDevice) : undefined
     if (device) pane.browserDevice = device

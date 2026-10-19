@@ -462,6 +462,16 @@ export function makeOstiaMock(overrides?: Partial<OstiaBridge>): OstiaBridge {
       reports: vi.fn().mockResolvedValue({ queued: [], sent: [] }),
       count: vi.fn(),
     },
+    agentSessions: {
+      open: vi.fn().mockResolvedValue({ ok: true, history: [] }),
+      prompt: vi.fn().mockResolvedValue({ ok: true }),
+      abort: vi.fn().mockResolvedValue({ ok: true }),
+      close: vi.fn().mockResolvedValue({ ok: true }),
+      answerTool: vi.fn(),
+      onEvent: vi.fn(noopUnsub),
+      onToolCall: vi.fn(noopUnsub),
+      onToolCancel: vi.fn(noopUnsub),
+    },
     chatTools: {
       read: vi.fn().mockResolvedValue({ ok: false, error: 'not-found' }),
       list: vi.fn().mockResolvedValue({ ok: false, error: 'not-found' }),

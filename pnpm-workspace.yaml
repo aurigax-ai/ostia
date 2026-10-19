@@ -13,11 +13,13 @@ catalog:
   zod: ^4.6.5
 allowBuilds:
   '@biomejs/biome': true
+  '@google/genai': false
   electron: true
   electron-winstaller: false
   esbuild: true
   koffi: false
   node-pty: true
+  protobufjs: false
 minimumReleaseAgeExclude:
   - '@aurigax-ai/wire@0.1.14'
   - '@anthropic-ai/sandbox-runtime@0.0.79'

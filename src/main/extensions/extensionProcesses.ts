@@ -2,7 +2,6 @@ import { type ChildProcess, spawn } from 'node:child_process'
 import type { EventEmitter } from 'node:events'
 import { type FSWatcher, mkdirSync, readdirSync, watch } from 'node:fs'
 import { join } from 'node:path'
-import { appEnv, withoutEnv } from '@aurigax-ai/ostia-extension-sdk/contract/appEnv'
 import type { Capability } from '@aurigax-ai/ostia-extension-sdk/contract/capabilities'
 import {
   EXTENSION_API_ENV,
@@ -16,6 +15,7 @@ import { dropIdentity, setCaps } from '../approvals/capabilityStore'
 import { registerExtension, removeExtension } from '../control/idRegistry'
 import type { RemoteFolders } from '../files/remoteFolders'
 import type { ExtensionAssist } from './extensionAssist'
+import { extensionEnvironment } from './extensionEnv'
 import type { ExtensionHostDeps } from './extensionHostDeps'
 import { type LoadedExtension, type Runtime, newRuntime } from './extensionRuntime'
 import type { ExtensionSlots } from './extensionSlots'
@@ -209,17 +209,15 @@ export class ExtensionProcesses {
     setCaps(identity.externalId, this.host.granted(rt))
     const mainPath = join(rt.ext.dir, main)
     const script = /\.(c|m)?js$/.test(main)
-    const env: NodeJS.ProcessEnv = {
-      ...withoutEnv(process.env, ['PANE_ID', 'START_DIR']),
-      ...appEnv({
-        SOCKET: this.host.deps.socketPath(),
-        TOKEN: identity.token,
-        [EXTENSION_API_ENV]: EXTENSION_API_VERSION,
-        EXTENSION_ID: id,
-        EXTENSION_DIR: rt.ext.dir,
-        ...(this.host.deps.dataDir ? { EXTENSION_DATA: join(this.host.deps.dataDir, id) } : {}),
-      }),
-    }
+    const env = extensionEnvironment(process.env, {
+      socket: this.host.deps.socketPath(),
+      token: identity.token,
+      apiVersion: EXTENSION_API_VERSION,
+      apiEnvName: EXTENSION_API_ENV,
+      id,
+      dir: rt.ext.dir,
+      ...(this.host.deps.dataDir ? { dataDir: join(this.host.deps.dataDir, id) } : {}),
+    })
     if (script) env.ELECTRON_RUN_AS_NODE = '1'
     rt.identity = identity
     rt.stopping = false

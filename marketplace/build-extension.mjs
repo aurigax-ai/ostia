@@ -115,6 +115,64 @@ async function buildFileViewers(src, out, panelBaseCss) {
   }
 }
 
+const wasmFiles = [
+  ['quickjs-wasi', 'quickjs.wasm'],
+  ['@silvia-odwyer/photon-node', 'photon_rs_bg.wasm'],
+]
+
+function siblingPackage(from, name) {
+  let dir = from
+  for (;;) {
+    const candidate = join(dir, 'node_modules', name)
+    if (existsSync(join(candidate, 'package.json'))) return realpathSync(candidate)
+    const parent = dirname(dir)
+    if (parent === dir) return null
+    dir = parent
+  }
+}
+
+function copyWasm(out) {
+  const owner = installedPackage('@earendil-works/pi-coding-agent')
+  for (const [name, file] of wasmFiles) {
+    const dir = siblingPackage(owner, name)
+    if (dir && existsSync(join(dir, file))) copyFileSync(join(dir, file), join(out, file))
+  }
+}
+
+async function bundleModuleMain(src, out) {
+  await build({
+    entryPoints: [join(src, 'main.ts')],
+    outdir: out,
+    bundle: true,
+    splitting: true,
+    platform: 'node',
+    format: 'esm',
+    target: 'node24',
+    outExtension: { '.js': '.mjs' },
+    banner: {
+      js: "import { createRequire as __createRequire } from 'node:module'; const require = __createRequire(import.meta.url);",
+    },
+    logLevel: 'warning',
+  })
+  copyWasm(out)
+}
+
+async function bundleMain(src, out) {
+  if (readSourceManifest(src).main?.endsWith('.mjs')) {
+    await bundleModuleMain(src, out)
+    return
+  }
+  await build({
+    entryPoints: [join(src, 'main.ts')],
+    outfile: join(out, 'main.js'),
+    bundle: true,
+    platform: 'node',
+    format: 'cjs',
+    target: 'node20',
+    logLevel: 'warning',
+  })
+}
+
 export async function buildExtension(src, out, panelBaseCss) {
   mkdirSync(out, { recursive: true })
   for (const file of assets) {
@@ -127,17 +185,7 @@ export async function buildExtension(src, out, panelBaseCss) {
   copyAgentSkills(src, out)
   await buildFileViewers(src, out, panelBaseCss)
   if (existsSync(join(src, 'panel.html'))) copyFileSync(panelBaseCss, join(out, 'base.css'))
-  if (existsSync(join(src, 'main.ts'))) {
-    await build({
-      entryPoints: [join(src, 'main.ts')],
-      outfile: join(out, 'main.js'),
-      bundle: true,
-      platform: 'node',
-      format: 'cjs',
-      target: 'node20',
-      logLevel: 'warning',
-    })
-  }
+  if (existsSync(join(src, 'main.ts'))) await bundleMain(src, out)
   if (existsSync(join(src, 'panel.ts'))) {
     await browserBundle(join(src, 'panel.ts'), join(out, 'panel.js'))
   }

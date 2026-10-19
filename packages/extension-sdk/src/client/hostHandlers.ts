@@ -1,4 +1,5 @@
 import type { CancellationToken, MessageConnection } from 'vscode-jsonrpc/node'
+import type { AgentRequest } from '../contract/agent'
 import type { AssistError, AssistPoint, AssistProviderEntry } from '../contract/assist'
 import { CONNECTIONS_CHANGED_EVENT } from '../contract/extensionConnections'
 import {
@@ -13,6 +14,7 @@ import type {
 import { ASSIST_PROVIDERS_CHANGED_EVENT, SETTINGS_CHANGED_EVENT } from '../contract/extensions'
 import { FOLDER_CLOSED_EVENT, type RemoteFilesRequest } from '../contract/remoteFolders'
 import type {
+  AgentHandler,
   AssistHandler,
   AssistModelsHandler,
   AssistProvidersHandler,
@@ -33,6 +35,7 @@ export interface HostHandlers {
   settings: SettingsHandler | null
   connections: (() => void) | null
   locale: LocaleHandler | null
+  agent: AgentHandler | null
   assist: AssistHandler | null
   providers: AssistProvidersHandler | null
   models: AssistModelsHandler | null
@@ -48,6 +51,7 @@ export function createHostHandlers(): HostHandlers {
     settings: null,
     connections: null,
     locale: null,
+    agent: null,
     assist: null,
     providers: null,
     models: null,
@@ -87,6 +91,14 @@ export function listenToHost(conn: MessageConnection, handlers: HostHandlers): v
       }
     },
   )
+  conn.onRequest('ext.agent', async (params: AgentRequest) => {
+    if (!handlers.agent) return { ok: false, error: 'unavailable' }
+    try {
+      return await handlers.agent(params)
+    } catch (err) {
+      return { ok: false, error: 'failed', message: errorMessage(err) }
+    }
+  })
   conn.onRequest(
     'ext.assist',
     async (
