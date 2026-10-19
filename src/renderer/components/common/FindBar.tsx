@@ -49,7 +49,6 @@ export function FindBar({
   stepRef,
   className,
   extra,
-  focusKey,
 }: {
   label: string
   query: string
@@ -60,7 +59,6 @@ export function FindBar({
   stepRef?: FindStepRef
   className?: string
   extra?: ReactNode
-  focusKey?: number
 }): JSX.Element {
   const d = useDict()
   const inputRef = useRef<HTMLInputElement>(null)
@@ -69,7 +67,7 @@ export function FindBar({
   useEffect(() => {
     inputRef.current?.focus()
     inputRef.current?.select()
-  }, [focusKey])
+  }, [])
 
   const onKeyDown = (e: KeyboardEvent<HTMLInputElement>): void => {
     if (e.key === 'Escape') {

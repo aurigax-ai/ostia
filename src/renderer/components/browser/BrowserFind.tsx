@@ -46,6 +46,7 @@ export function BrowserFind({
 
   return (
     <FindBar
+      key={focusKey}
       label={d.browser.findLabel}
       query={query}
       status={status}
@@ -56,7 +57,6 @@ export function BrowserFind({
       onClose={onClose}
       stepRef={stepRef}
       className="browser-find"
-      focusKey={focusKey}
     />
   )
 }
