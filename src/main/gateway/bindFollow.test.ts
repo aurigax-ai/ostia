@@ -21,9 +21,19 @@ const LOOPBACK: GatewayBindAddress = { address: '127.0.0.1', iface: 'lo', loopba
 const machine = vi.hoisted(() => ({ addresses: [] as GatewayBindAddress[] }))
 vi.mock('./interfaces', () => ({ listBindAddresses: () => machine.addresses }))
 
-const server = vi.hoisted(() => ({ running: false, host: '127.0.0.1' }))
+const server = vi.hoisted(() => ({
+  running: false,
+  host: '127.0.0.1',
+  inFlight: 0,
+  mostInFlight: 0,
+}))
 vi.mock('./server', () => ({
   startGateway: vi.fn(async (options?: { host?: string; tailnet?: boolean }) => {
+    server.inFlight++
+    server.mostInFlight = Math.max(server.mostInFlight, server.inFlight)
+    await Promise.resolve()
+    await Promise.resolve()
+    server.inFlight--
     server.running = true
     server.host = options?.host ?? '127.0.0.1'
     return { host: server.host, port: 8722, helperPort: null, fingerprint: 'sha256/fp' }
@@ -44,8 +54,14 @@ vi.mock('./server', () => ({
   closeDeviceSockets: vi.fn(),
 }))
 
-const { configureAnnouncer, configureTailnet, disableRemote, enableRemote, registerGatewayIpc } =
-  await import('./gatewayIpc')
+const {
+  configureAnnouncer,
+  configureTailnet,
+  disableRemote,
+  enableRemote,
+  registerGatewayIpc,
+  stopRemote,
+} = await import('./gatewayIpc')
 const { startGateway, stopGateway } = await import('./server')
 
 let prevXdg: string | undefined
@@ -94,6 +110,7 @@ beforeEach(() => {
   vi.clearAllMocks()
   handlers.clear()
   server.running = false
+  server.mostInFlight = 0
   machine.addresses = [LOOPBACK, card('192.168.2.108')]
   rmSync(storePath('gateway-config', 'global'), { force: true })
   configureAnnouncer({ publish: vi.fn(), unpublish: vi.fn(), unpublishAll: vi.fn() })
@@ -164,5 +181,36 @@ describe('a local bind follows its network card', () => {
     machine.addresses = [LOOPBACK, card('10.0.0.7')]
     await vi.advanceTimersByTimeAsync(POLL_MS * 3)
     expect(startGateway).toHaveBeenCalledTimes(1)
+  })
+
+  it('RDS-C38 does not start again after quit stopped remote access', async () => {
+    await chooseCard('192.168.2.108')
+    await enableRemote()
+    await stopRemote()
+    await stopGateway()
+    await vi.advanceTimersByTimeAsync(POLL_MS * 3)
+    expect(startGateway).toHaveBeenCalledTimes(1)
+    expect(server.running).toBe(false)
+  })
+
+  it('RDS-C39 does not start again when remote access is turned off while a restart is pending', async () => {
+    await chooseCard('192.168.2.108')
+    await enableRemote()
+    machine.addresses = [LOOPBACK, card('10.0.0.7')]
+    const tick = vi.advanceTimersByTimeAsync(POLL_MS)
+    await disableRemote()
+    await tick
+    expect(server.running).toBe(false)
+  })
+
+  it('RDS-C40 never lets two starts run at once', async () => {
+    await chooseCard('192.168.2.108')
+    await Promise.all([enableRemote(), enableRemote()])
+    machine.addresses = [LOOPBACK, card('10.0.0.7')]
+    const tick = vi.advanceTimersByTimeAsync(POLL_MS)
+    const toggles = Promise.all([disableRemote(), enableRemote()])
+    await Promise.all([tick, toggles])
+    expect(server.mostInFlight).toBe(1)
+    expect(server.running).toBe(true)
   })
 })

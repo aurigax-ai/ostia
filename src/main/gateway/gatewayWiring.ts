@@ -35,6 +35,7 @@ import {
   onTailnetChange,
   registerGatewayIpc,
   registerGatewayMethods,
+  stopRemote,
 } from './gatewayIpc'
 import { listPairRequests, onPairRequestsChanged } from './pairRequests'
 import {
@@ -66,7 +67,7 @@ interface GatewayStartDeps {
     appLog: AppLog | null
     processes: ProcessRegistry | null
     stopAnnouncing: (() => void) | null
-    stopTailnet: (() => Promise<void>) | null
+    stopRemote: (() => Promise<void>) | null
   }
   reach: Reach
   workspaceSandboxes: WorkspaceSandboxes
@@ -171,7 +172,7 @@ export function startGateway({
     log: (event, fields) => services.appLog?.info(event, fields),
   })
   configureTailnet(tailnet, { openExternal: (url) => void openExternalSafe(url) })
-  services.stopTailnet = () => tailnet.stop()
+  services.stopRemote = stopRemote
   const publisher = createBonjourPublisher()
   configureAnnouncer(publisher)
   services.stopAnnouncing = publisher.unpublishAll

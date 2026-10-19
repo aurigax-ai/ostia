@@ -74,7 +74,7 @@ function refreshAnnouncement(): void {
     announcementFor({
       discoverable: loadDiscoverable(),
       liveCodes: liveCodeCount(),
-      name: hostname(),
+      name: friendlyName(),
       host: target?.host ?? null,
       port: target?.port ?? null,
       fingerprint: status.fingerprint,
@@ -144,15 +144,27 @@ async function startFromRoute(): Promise<boolean> {
   return true
 }
 
+let wanted = false
+let queue: Promise<unknown> = Promise.resolve()
+
+function serialized<T>(task: () => Promise<T>): Promise<T> {
+  const run = queue.then(task, task)
+  queue = run.catch(() => {})
+  return run
+}
+
 async function rebindToCard(): Promise<void> {
-  await tailnet?.stop()
-  await stopGateway()
-  try {
-    await startFromRoute()
-  } catch {
+  await serialized(async () => {
+    if (!wanted) return
+    await tailnet?.stop()
     await stopGateway()
-  }
-  refreshAnnouncement()
+    try {
+      if (wanted) await startFromRoute()
+    } catch {
+      await stopGateway()
+    }
+    refreshAnnouncement()
+  })
 }
 
 const bindFollower = createBindFollower({
@@ -162,10 +174,19 @@ const bindFollower = createBindFollower({
   rebind: rebindToCard,
 })
 
-export async function enableRemote(): Promise<GatewayEnableResponse> {
-  if (!(await startFromRoute())) return { error: 'address-unavailable' }
-  if (loadRoute().bindInterface !== null) bindFollower.start()
-  return remoteStatus()
+export function enableRemote(): Promise<GatewayEnableResponse> {
+  return serialized(async () => {
+    if (!(await startFromRoute())) return { error: 'address-unavailable' }
+    wanted = true
+    if (loadRoute().bindInterface !== null) bindFollower.start()
+    return remoteStatus()
+  })
+}
+
+export async function stopRemote(): Promise<void> {
+  wanted = false
+  bindFollower.stop()
+  await tailnet?.stop()
 }
 
 function setRoute(value: unknown): GatewaySetRouteResult {
@@ -194,12 +215,17 @@ function pairTarget(): GatewayPhoneAddress | null {
   return { host: status.host, port: status.port }
 }
 
-export async function disableRemote(): Promise<GatewayRemoteStatus> {
+export function disableRemote(): Promise<GatewayRemoteStatus> {
+  wanted = false
   bindFollower.stop()
-  await tailnet?.stop()
-  await stopGateway()
-  refreshAnnouncement()
-  return remoteStatus()
+  return serialized(async () => {
+    wanted = false
+    bindFollower.stop()
+    await tailnet?.stop()
+    await stopGateway()
+    refreshAnnouncement()
+    return remoteStatus()
+  })
 }
 
 export function gatewayPair(): GatewayPairResponse {

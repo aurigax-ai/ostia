@@ -72,7 +72,7 @@ export function createAppState() {
     mcpOAuth: null as McpOAuth | null,
     broker: null as WindowBroker | null,
     profileSync: null as ProfileSyncHandle | null,
-    stopTailnet: null as (() => Promise<void>) | null,
+    stopRemote: null as (() => Promise<void>) | null,
     stopAnnouncing: null as (() => void) | null,
     clipboardEdits: null as ClipboardEdits | null,
     guestChords: null as GuestChords | null,

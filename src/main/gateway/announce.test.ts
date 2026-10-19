@@ -63,7 +63,7 @@ const {
   registerGatewayIpc,
 } = await import('./gatewayIpc')
 const { consumeCode, resetCodes } = await import('./pairing')
-const { saveRoute } = await import('./route')
+const { friendlyName, saveRoute } = await import('./route')
 
 let prevXdg: string | undefined
 beforeAll(() => {
@@ -139,11 +139,12 @@ describe('the desktop announces itself only while pairing and discoverable', () 
     await liveTailnet()
     mintCode()
     expect(publisher.publish).toHaveBeenLastCalledWith('pairing', {
-      name: hostname(),
+      name: friendlyName(),
       type: 'ostia',
       protocol: 'tcp',
       port: 8722,
-      txt: { v: '1', name: hostname(), host: '100.64.1.2', port: '8722', fp: 'sha256/fp' },
+      host: `${friendlyName()}.local`,
+      txt: { v: '1', name: friendlyName(), host: '100.64.1.2', port: '8722', fp: 'sha256/fp' },
     })
 
     await disableRemote()
@@ -209,22 +210,24 @@ describe('the desktop announces itself for paired phones on a local bind', () =>
       protocol: 'tcp',
       port: 8722,
       iface: LAN_ADDRESS,
-      txt: { v: '2', port: '8722' },
+      txt: { v: '1', mode: 'paired', port: '8722' },
     })
     expect(lan.name).toMatch(FRIENDLY_NAME)
     expect(lan.host).toBe(`${lan.name}.local`)
   })
 
-  it('RDS-C2 puts nothing from the machine, no fingerprint, code or token in the TXT or the name', async () => {
+  it('RDS-C2 puts no hostname in any announce, and no fingerprint, code or token in the paired-phone one', async () => {
     saveRoute(LAN_ROUTE)
     await invoke('gateway:set-discoverable', 'window', true)
     await enableRemote()
     const code = mintCode()
     const lan = lastPublished('lan') as { name: string; host: string; txt: Record<string, string> }
-    expect(Object.keys(lan.txt).sort()).toEqual(['port', 'v'])
-    const everything = JSON.stringify(lan)
-    for (const secret of [hostname(), 'sha256/fp', code]) {
-      expect(everything).not.toContain(secret)
+    expect(Object.keys(lan.txt).sort()).toEqual(['mode', 'port', 'v'])
+    const pairing = lastPublished('pairing')
+    expect(JSON.stringify(pairing)).not.toContain(hostname())
+    expect(JSON.stringify(lan)).not.toContain(hostname())
+    for (const secret of ['sha256/fp', code]) {
+      expect(JSON.stringify(lan)).not.toContain(secret)
     }
   })
 

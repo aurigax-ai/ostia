@@ -55,7 +55,7 @@ interface QuitTeardownDeps {
     portsService: PortsService | null
     profileSync: ProfileSyncHandle | null
     stopAnnouncing: (() => void) | null
-    stopTailnet: (() => Promise<void>) | null
+    stopRemote: (() => Promise<void>) | null
     viewHost: ViewHost | null
   }
   ptys: Map<string, PtyEntry>
@@ -163,7 +163,7 @@ export function createQuitTeardown({
     stopControlServer()
     clearControlInfo(controlInfoPath(), controlSocketPath())
     services.portal?.stop()
-    void services.stopTailnet?.()
+    void services.stopRemote?.()
     services.stopAnnouncing?.()
     void stopGateway()
     services.appTray?.remove()

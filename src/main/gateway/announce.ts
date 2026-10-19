@@ -1,4 +1,4 @@
-import { Bonjour, type Service } from 'bonjour-service'
+import { Bonjour, type Service, type ServiceConfig } from 'bonjour-service'
 import { LOOPBACK_ADDRESS } from '../../shared/gateway/gatewayRoute'
 
 export interface Announcement {
@@ -36,6 +36,7 @@ export function announcementFor(input: AnnounceInput): Announcement | null {
     type: 'ostia',
     protocol: 'tcp',
     port,
+    host: `${name}.local`,
     txt: { v: '1', name, host, port: String(port), fp: fingerprint },
   }
 }
@@ -59,7 +60,7 @@ export function lanAnnouncementFor({
     port,
     host: `${name}.local`,
     iface: bindHost,
-    txt: { v: '2', port: String(port) },
+    txt: { v: '1', mode: 'paired', port: String(port) },
   }
 }
 
@@ -75,8 +76,15 @@ export function createBonjourPublisher(): Publisher {
   return {
     publish: (key, { iface, ...announcement }) => {
       unpublish(key)
-      const bonjour = new Bonjour(iface ? ({ interface: iface } as object) : undefined)
-      running.set(key, { bonjour, service: bonjour.publish(announcement) })
+      const options: Partial<ServiceConfig> & { interface?: string } = { interface: iface }
+      const bonjour = new Bonjour(iface ? options : undefined)
+      const service = bonjour.publish({ ...announcement, disableIPv6: true })
+      if (iface) {
+        const records = service.records.bind(service)
+        service.records = () =>
+          records().filter((r) => (r.type === 'A' ? r.data === iface : r.type !== 'AAAA'))
+      }
+      running.set(key, { bonjour, service })
     },
     unpublish,
     unpublishAll: () => {
