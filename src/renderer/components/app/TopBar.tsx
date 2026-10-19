@@ -82,6 +82,7 @@ export function TopBar(): JSX.Element {
           aria-pressed={filesOpen}
           onClick={toggleFiles}
         />
+        <PanelToggles />
         <DashboardButton />
       </div>
 
@@ -104,7 +105,6 @@ export function TopBar(): JSX.Element {
         <WorkspaceChips workspaceId={dashboardActive ? null : activeWorkspaceId} />
         <ZoomReset />
         <UpdateNotice />
-        <PanelToggles />
         <IconButton
           size="bar"
           icon={GearSixIcon}

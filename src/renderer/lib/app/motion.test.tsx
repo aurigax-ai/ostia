@@ -41,6 +41,7 @@ const FORBIDDEN_CODE_MOTION = [
   /\b(?:transition|animation)(?:Duration|TimingFunction|Delay)?\s*:\s*['"`]/,
   /\bbehavior:\s*['"]smooth['"]/,
   /\bsmoothScrolling:(?!\s*false\b)/,
+  /\bsmoothScrollDuration\s*[:=]\s*[1-9]/,
 ]
 
 function motionDeclarations(source: string): string[] {

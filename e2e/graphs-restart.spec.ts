@@ -10,8 +10,8 @@ import {
   type Page,
   _electron as electron,
   expect,
+  killApp,
   test,
-  waitForExit,
 } from './test'
 
 test.describe.configure({ timeout: 240_000 })
@@ -43,10 +43,7 @@ async function openPanel(win: Page): Promise<void> {
 }
 
 async function kill(app: ElectronApplication): Promise<void> {
-  const proc = app.process()
-  const gone = waitForExit(app)
-  proc.kill('SIGKILL')
-  await gone
+  await killApp(app)
 }
 
 async function enableAndRun(app: ElectronApplication, name: string): Promise<void> {

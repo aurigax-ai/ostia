@@ -31,7 +31,6 @@ import {
   regenerates,
   resolveScope,
 } from './scriptTokenRequests'
-import { loadRetired, retiredScriptTokens } from './scriptTokenRetired'
 import { type ScriptTokenUsageLog, type UsageLookups, usageView } from './scriptTokenUsage'
 
 const LAST_USED_EVERY_MS = 60_000
@@ -56,7 +55,6 @@ export type ScriptToken = ScriptTokenInfo
 
 export interface ScriptTokenPaths {
   path: string
-  retiredPath: string
 }
 
 export interface ScriptTokenScopeView {
@@ -298,18 +296,11 @@ export function checkScriptToken(
       stored.scope.kind === 'all' ? [...stored.caps, 'all-workspaces'] : [...stored.caps]
     return { id: stored.id, caps, expiresAt: stored.expiresAt }
   }
-  const retired = matching(loadRetired(paths.retiredPath, now), token)
-  if (retired) {
-    throw fail(
-      `token-retired: the script token "${retired.name}" stopped working when Ostia was upgraded; create a new one with ostia token create`,
-    )
-  }
   return undefined
 }
 
 export interface ScriptTokenDeps {
   path: () => string
-  retiredPath: () => string
   listing: () => Promise<ReachListing>
   changed?: () => void
   usage?: ScriptTokenUsageLog
@@ -420,11 +411,6 @@ export function registerScriptTokenMethods(deps: ScriptTokenDeps): void {
       if (typeof ref !== 'string' || !ref) throw fail('bad-request: id')
       return scriptTokenUsage(deps, ref, false)
     },
-  })
-
-  registerControlMethod('token.retired', {
-    cap: 'settings-read',
-    handler: () => retiredScriptTokens(deps.retiredPath()),
   })
 
   registerControlMethod('token.revoke', {

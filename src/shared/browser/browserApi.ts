@@ -48,7 +48,7 @@ interface SelectionApi {
   send: (req: SelectionSendRequest) => Promise<SelectionSendResult>
 }
 
-export type CredentialFillResult =
+type CredentialFillResult =
   | { ok: true; username: string }
   | { ok: false; error: 'no-login' | 'no-form' | 'origin-changed' | 'locked' }
 

@@ -56,7 +56,7 @@ function closeDropped(workspaceId: string, before: readonly string[], kept: Snap
   const moved = new Set(snapshotPaneIds(kept.root))
   for (const paneId of before) {
     if (!moved.has(paneId)) {
-      window.ostia?.lifecycle?.emit?.({ type: 'pane-closed', workspaceId, paneId })
+      window.ostia.lifecycle.emit({ type: 'pane-closed', workspaceId, paneId })
     }
   }
 }
@@ -190,7 +190,7 @@ function rejoin(workspace: SnapshotWorkspace, home: string): string | null {
   if (!layout) return null
   useLayoutStore.getState().graft(home, layout, workspace.origin?.beside)
   useWorkspacesStore.getState().setActive(home)
-  window.ostia?.lifecycle?.emit?.({ type: 'workspace-closed', workspaceId: workspace.id })
+  window.ostia.lifecycle.emit({ type: 'workspace-closed', workspaceId: workspace.id })
   return layout.activePaneId
 }
 
@@ -276,7 +276,7 @@ function randomNamespace(): string {
 export async function initWindow(): Promise<void> {
   setIdNamespace(randomNamespace())
   try {
-    const info = await window.ostia?.windows?.info?.()
+    const info = await window.ostia.windows.info()
     if (info) useWindowsStore.getState().setInfo(info.windowId, info.detached)
   } catch (err) {
     console.error('[windows] window info unavailable', err)
@@ -284,8 +284,7 @@ export async function initWindow(): Promise<void> {
 }
 
 export function startWindowSync(): () => void {
-  const api = window.ostia?.windows
-  if (!api) return () => {}
+  const api = window.ostia.windows
   let timer: ReturnType<typeof setTimeout> | null = null
   let reported = ''
   const report = (): void => {

@@ -8,6 +8,7 @@ import {
   _electron as electron,
   exitedWithin,
   expect,
+  stopTrace,
   test,
 } from './test'
 
@@ -90,26 +91,13 @@ async function answerNativeQuitPrompt(app: ElectronApplication, dataHome: string
   )
 }
 
-const stoppedTraces: string[] = []
-
-async function saveTrace(app: ElectronApplication): Promise<void> {
-  const path = test.info().outputPath(`stopped-app-trace-${stoppedTraces.length + 1}.zip`)
-  await app
-    .context()
-    .tracing.stop({ path })
-    .then(
-      () => stoppedTraces.push(path),
-      () => {},
-    )
-}
-
 async function stopApp({ app, win }: Launched, how: 'quit' | NodeJS.Signals): Promise<void> {
-  await saveTrace(app)
   const done = exitedWithin(app.process(), EXIT_TIMEOUT_MS)
   if (how === 'quit') {
     await askToQuit(app)
     await confirmQuitIfAsked(win, done)
   } else {
+    await stopTrace(app)
     app.process().kill(how)
   }
   const ok = await done
@@ -190,10 +178,11 @@ async function expectRestored(dataHome: string, expected: Saved): Promise<void> 
     await expect(next.win.locator('.xterm').first()).toBeVisible({ timeout: 15_000 })
     for (let i = 1; i < WORKSPACES; i++) {
       if (expected.agentsRunning === 0 || !agentWorkspace(i)) continue
+      await next.win.locator('.rail-row').nth(i).click()
       await expect(
-        next.win
-          .locator('.xterm-rows')
-          .filter({ hasText: new RegExp(`fake-agent-resumed .*--resume ${agentSession(i)}\\b`) }),
+        shownRows(next.win).filter({
+          hasText: new RegExp(`fake-agent-resumed .*--resume ${agentSession(i)}\\b`),
+        }),
       ).toHaveCount(1, { timeout: 20_000 })
     }
   } finally {
@@ -207,16 +196,6 @@ let dataHome: string
 test.beforeEach(() => {
   dataHome = freshDataHome()
   seedSettings(dataHome, DEFAULT_QUIT_SETTINGS)
-})
-
-test.afterEach(async () => {
-  const testInfo = test.info()
-  const failed = testInfo.status !== testInfo.expectedStatus
-  for (const path of stoppedTraces.splice(0)) {
-    if (failed && existsSync(path))
-      await testInfo.attach('trace', { path, contentType: 'application/zip' })
-    rmSync(path, { force: true })
-  }
 })
 
 async function roundTrip(how: 'quit' | NodeJS.Signals): Promise<void> {
@@ -270,7 +249,7 @@ test('every restored terminal has a shell after a cold start, shown or not', asy
       'let s="";process.stdin.on("data",(d)=>{s+=d}).on("end",()=>{const t=JSON.parse(s).filter((p)=>p.kind==="terminal");console.log("withpid="+t.filter((p)=>p.pid).length+"/"+t.length)})'
     await runInShownTerminal(
       second.win,
-      `for i in 1 2 3 4 5; do ostia pane list | ELECTRON_RUN_AS_NODE=1 "$OSTIA_NODE" -e '${count}'; sleep 1; done`,
+      `for i in 1 2 3 4 5; do ostia pane list --json | ELECTRON_RUN_AS_NODE=1 "$OSTIA_NODE" -e '${count}'; sleep 1; done`,
     )
     await expect(shownRows(second.win).last()).toContainText('withpid=2/2', { timeout: 15_000 })
   } finally {

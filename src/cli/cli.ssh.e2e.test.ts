@@ -103,6 +103,8 @@ describe('ostia ssh (real extension process, real socket, fake ssh)', () => {
     socketPath = join(dir, 'control.sock')
     identity = registerPane({ windowId: 'w1', workspaceId: 's1', paneId: 'pCliSsh' })
     host = new ExtensionHost({
+      sandboxDomains: () => null,
+      isSandboxed: () => false,
       roots: [{ dir: join(repoRoot, 'out', 'extensions'), builtin: true }],
       store: new ExtensionStore(join(dir, 'extensions.json')),
       socketPath: () => socketPath,

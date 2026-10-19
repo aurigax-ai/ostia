@@ -1,4 +1,8 @@
-import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import { useSettingsStore } from '@/stores/app/settingsStore'
+import { Ghostty, Terminal as GhosttyTerm } from '@aurigax-ai/ghostty-web'
+import wasmDataUrl from '@aurigax-ai/ghostty-web/ghostty-vt.wasm?inline'
+import { Terminal as Xterm } from '@xterm/xterm'
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   type GhosttyTerminal,
   createGhosttyTerminal,
@@ -8,6 +12,13 @@ import {
   promptMarkData,
   unknownOsc,
 } from './ghosttyTerminal'
+import { logicalLinesFrom } from './historyPages'
+import type { OstiaTerminal } from './ostiaTerminal'
+import { SMOOTH_SCROLL_MS, attachSmoothScroll, createWheelClassifier } from './smoothScroll'
+
+interface WasmCells {
+  getScrollbackLine(offset: number): unknown
+}
 
 const fills: string[] = []
 const realGetContext = HTMLCanvasElement.prototype.getContext
@@ -28,12 +39,16 @@ function stubContext(canvas: HTMLCanvasElement): unknown {
 
 let created: GhosttyTerminal | null = null
 
-function open(): GhosttyTerminal {
-  created = createGhosttyTerminal({ fontSize: 13, scrollback: 1000 }, false, {
-    activate: () => {},
-    hover: () => {},
-    leave: () => {},
-  })
+function open(gpu = false): GhosttyTerminal {
+  created = createGhosttyTerminal(
+    { fontSize: 13, scrollback: 1000, smoothScrollDuration: 0 },
+    gpu,
+    {
+      activate: () => {},
+      hover: () => {},
+      leave: () => {},
+    },
+  )
   created.term.open(document.createElement('div'))
   return created
 }
@@ -52,7 +67,17 @@ afterAll(() => {
   HTMLCanvasElement.prototype.getContext = realGetContext
 })
 
+const cleanups: (() => void)[] = []
+let settingsInit: ReturnType<typeof useSettingsStore.getState>
+
+beforeEach(() => {
+  settingsInit = useSettingsStore.getState()
+})
+
 afterEach(() => {
+  for (const cleanup of cleanups.splice(0)) cleanup()
+  vi.restoreAllMocks()
+  useSettingsStore.setState(settingsInit, true)
   created?.term.dispose()
   created = null
   fills.length = 0
@@ -135,6 +160,26 @@ describe('Ghostty terminal adapter', () => {
     expect(renders).toEqual([{ start: 0, end: ghostty.term.rows - 1 }])
   })
 
+  it('keeps drawing on the canvas renderer when GPU acceleration is on but WebGL is missing', () => {
+    const ghostty = open(true)
+    const renders: unknown[] = []
+    ghostty.term.onRender((range) => renders.push(range))
+    ghostty.setPaused(false)
+    ghostty.term.write('shown\r\n')
+    expect(renders).toEqual([{ start: 0, end: ghostty.term.rows - 1 }])
+    ghostty.setPaused(true)
+    ghostty.setPaused(false)
+    expect(renders).toHaveLength(2)
+    expect(ghostty.term.buffer.active.getLine(0)?.translateToString(true)).toBe('shown')
+  })
+
+  it('relies on a released-renderer flag that ghostty-web still has', async () => {
+    const wasm = Uint8Array.from(atob(wasmDataUrl.split(',')[1]), (c) => c.charCodeAt(0))
+    const term = new GhosttyTerm({ ghostty: await Ghostty.fromBytes(wasm) })
+    expect(Object.hasOwn(term, 'rendererReleased')).toBe(true)
+    term.dispose()
+  })
+
   it('stops answering terminal queries while shells are kept in tmux', () => {
     const ghostty = open()
     const sent: string[] = []
@@ -163,6 +208,131 @@ describe('Ghostty terminal adapter', () => {
     expect(links?.[0]?.range.start).toEqual({ x: 2, y: 4 })
   })
 
+  function wheel(
+    target: Element,
+    init: WheelEventInit,
+    legacy: { wheelDeltaX?: number; wheelDeltaY?: number } = {},
+  ): void {
+    const e = new WheelEvent('wheel', { bubbles: true, cancelable: true, ...init })
+    Object.defineProperty(e, 'wheelDeltaX', { value: legacy.wheelDeltaX ?? 0 })
+    Object.defineProperty(e, 'wheelDeltaY', { value: legacy.wheelDeltaY ?? 0 })
+    target.dispatchEvent(e)
+  }
+
+  function openInDocument(): { ghostty: OstiaTerminal; host: HTMLElement; target: Element } {
+    created = createGhosttyTerminal(
+      { fontSize: 13, scrollback: 1000, smoothScrollDuration: 0 },
+      false,
+      { activate: () => {}, hover: () => {}, leave: () => {} },
+    )
+    const host = document.createElement('div')
+    document.body.append(host)
+    cleanups.push(() => host.remove())
+    created.term.open(host)
+    return { ghostty: created.term, host, target: host.querySelector('canvas') ?? host }
+  }
+
+  const notch = { deltaMode: WheelEvent.DOM_DELTA_PIXEL, deltaY: -100 }
+  const notchLegacy = { wheelDeltaY: 120 }
+
+  it('decides the scroll duration before ghostty reads it for the same wheel event', () => {
+    useSettingsStore.getState().setBehavior({ wheelSmoothScroll: true })
+    useSettingsStore.getState().setByPath('appearance.motion', 'full')
+    const { ghostty, host, target } = openInDocument()
+    const seen: number[] = []
+    ghostty.attachCustomWheelEventHandler(() => {
+      seen.push(ghostty.options.smoothScrollDuration ?? -1)
+      return true
+    })
+    cleanups.push(attachSmoothScroll(host, ghostty, false, createWheelClassifier()))
+    wheel(target, notch, notchLegacy)
+    for (let i = 0; i < 5; i++) {
+      wheel(target, { deltaMode: WheelEvent.DOM_DELTA_PIXEL, deltaY: -3 }, { wheelDeltaY: 9 })
+    }
+    expect(seen[0]).toBe(SMOOTH_SCROLL_MS)
+    expect(seen.at(-1)).toBe(0)
+  })
+
+  it('keeps a running ghostty animation finite when a wheel event it does not scroll on arrives', () => {
+    useSettingsStore.getState().setBehavior({ wheelSmoothScroll: true })
+    useSettingsStore.getState().setByPath('appearance.motion', 'full')
+    const frames: FrameRequestCallback[] = []
+    vi.spyOn(window, 'requestAnimationFrame').mockImplementation((cb) => frames.push(cb))
+    const { ghostty, host, target } = openInDocument()
+    ghostty.write('line\r\n'.repeat(200))
+    cleanups.push(attachSmoothScroll(host, ghostty, false, createWheelClassifier()))
+    wheel(target, notch, notchLegacy)
+    wheel(target, notch, notchLegacy)
+    expect(ghostty.options.smoothScrollDuration).toBe(SMOOTH_SCROLL_MS)
+    for (let i = 0; i < 4; i++) {
+      wheel(
+        target,
+        { deltaMode: WheelEvent.DOM_DELTA_PIXEL, deltaX: 3, deltaY: 0 },
+        { wheelDeltaX: -10 },
+      )
+    }
+    expect(ghostty.options.smoothScrollDuration).toBe(SMOOTH_SCROLL_MS)
+    for (let i = 0; i < 60 && frames.length > 0; i++) frames.shift()?.(performance.now())
+    expect(Number.isFinite(ghostty.buffer.active.viewportY)).toBe(true)
+    expect(ghostty.buffer.active.viewportY).toBeGreaterThan(0)
+  })
+
+  it('snaps a running ghostty animation to its target when a trackpad event sets the duration to 0', () => {
+    useSettingsStore.getState().setBehavior({ wheelSmoothScroll: true })
+    useSettingsStore.getState().setByPath('appearance.motion', 'full')
+    const frames: FrameRequestCallback[] = []
+    vi.spyOn(window, 'requestAnimationFrame').mockImplementation((cb) => frames.push(cb))
+    const { ghostty, host, target } = openInDocument()
+    ghostty.write('line\r\n'.repeat(200))
+    cleanups.push(attachSmoothScroll(host, ghostty, false, createWheelClassifier()))
+    wheel(target, notch, notchLegacy)
+    expect(ghostty.options.smoothScrollDuration).toBe(SMOOTH_SCROLL_MS)
+    ghostty.options.smoothScrollDuration = 0
+    for (let i = 0; i < 5 && frames.length > 0; i++) frames.shift()?.(performance.now())
+    const y = ghostty.buffer.active.viewportY
+    expect(Number.isFinite(y)).toBe(true)
+    expect(y).toBeGreaterThan(0)
+  })
+
+  it('starts both engines with no scroll animation and gives them the same value per wheel event', () => {
+    const { ghostty, host: ghosttyHost, target } = openInDocument()
+    const xterm = new Xterm({ smoothScrollDuration: 0, allowProposedApi: true })
+    const xtermHost = document.createElement('div')
+    document.body.append(xtermHost)
+    cleanups.push(
+      () => xtermHost.remove(),
+      () => xterm.dispose(),
+    )
+    expect(ghostty.options.smoothScrollDuration).toBe(0)
+    expect(xterm.options.smoothScrollDuration).toBe(0)
+    cleanups.push(
+      attachSmoothScroll(ghosttyHost, ghostty, false, createWheelClassifier()),
+      attachSmoothScroll(xtermHost, xterm, false, createWheelClassifier()),
+    )
+    const both = (init: WheelEventInit, legacy: { wheelDeltaY: number }): number[] => {
+      wheel(target, init, legacy)
+      wheel(xtermHost, init, legacy)
+      return [ghostty.options.smoothScrollDuration ?? -1, xterm.options.smoothScrollDuration ?? -1]
+    }
+    const trackpad = (dy: number) =>
+      both({ deltaMode: WheelEvent.DOM_DELTA_PIXEL, deltaY: dy }, { wheelDeltaY: -3 * dy })
+
+    useSettingsStore.getState().setBehavior({ wheelSmoothScroll: true })
+    useSettingsStore.getState().setByPath('appearance.motion', 'full')
+    expect(both(notch, notchLegacy)).toEqual([SMOOTH_SCROLL_MS, SMOOTH_SCROLL_MS])
+
+    for (const dy of [45, 52, 61, 52]) trackpad(dy)
+    expect(trackpad(40)).toEqual([0, 0])
+
+    for (let i = 0; i < 5; i++) both(notch, notchLegacy)
+    useSettingsStore.getState().setByPath('appearance.motion', 'reduced')
+    expect(both(notch, notchLegacy)).toEqual([0, 0])
+
+    useSettingsStore.getState().setByPath('appearance.motion', 'full')
+    useSettingsStore.getState().setBehavior({ wheelSmoothScroll: false })
+    expect(both(notch, notchLegacy)).toEqual([0, 0])
+  })
+
   it('counts the matches of a search in the output and steps through them', () => {
     const { term, search } = open()
     term.write('one zqneedle\r\ntwo\r\nZQNEEDLE three\r\nfour zqneedle\r\n')
@@ -188,5 +358,22 @@ describe('Ghostty terminal adapter', () => {
     term.write('again\r\n')
     await frame()
     expect(fills).toContain('#fdf6e3')
+  })
+})
+
+describe('Ghostty buffer rows', () => {
+  it('counts the live buffer without reading the cells of any row', async () => {
+    const { term } = open()
+    await new Promise<void>((done) => {
+      term.write(Array.from({ length: 300 }, (_, i) => `line ${i}\r\n`).join(''), done)
+    })
+    const wasm = (term.buffer.normal as unknown as { terminal: { wasmTerm: WasmCells } }).terminal
+      .wasmTerm
+    const cells = vi.spyOn(wasm, 'getScrollbackLine')
+    expect(term.buffer.normal.baseY).toBeGreaterThan(200)
+    expect(logicalLinesFrom(term.buffer.normal, 0)).toBe(300)
+    expect(cells).not.toHaveBeenCalled()
+    expect(term.buffer.normal.getLine(10)?.translateToString(true)).toBe('line 10')
+    expect(cells).toHaveBeenCalledTimes(1)
   })
 })

@@ -1,4 +1,4 @@
-import { usageOf } from './usageTable'
+import { findNoun, usageOf, verbUsageOf } from './usageTable'
 
 export function failureHint(err: unknown): string | undefined {
   const data = (err as { data?: unknown } | null)?.data
@@ -33,4 +33,21 @@ export function fail(message: string): void {
 
 export function failUsage(noun: string): void {
   fail(usageOf(noun))
+}
+
+export function commandLabel(argv: readonly string[] = process.argv.slice(2)): string {
+  const [word, verb] = argv
+  if (!word) return 'ostia'
+  return findNoun(word)?.verbs?.some((v) => v.verb === verb)
+    ? `ostia ${word} ${verb}`
+    : `ostia ${word}`
+}
+
+export function failWith(detail: string): void {
+  fail(`${commandLabel()}: ${detail}`)
+}
+
+export function failVerb(problem: string): void {
+  const [word, verb] = process.argv.slice(2)
+  fail(`${commandLabel()}: ${problem}\n${verbUsageOf(word, verb)}`)
 }

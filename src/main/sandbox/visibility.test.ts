@@ -14,6 +14,13 @@ describe('visibleInSandbox', () => {
     expect(visibleInSandbox('/home/u/app/.pine/vault.json', rules)).toBe(false)
     expect(visibleInSandbox('/home/u/application', rules)).toBe(false)
   })
+
+  it('hides a relative path, also under the deny-all rules used when the config fails', () => {
+    const denyAll = { denyRead: ['/'], allowRead: [] }
+    expect(visibleInSandbox('/usr/bin', denyAll)).toBe(false)
+    expect(visibleInSandbox('relative/file.ts', denyAll)).toBe(false)
+    expect(visibleInSandbox('relative/file.ts', { denyRead: [], allowRead: [] })).toBe(false)
+  })
 })
 
 describe('sandboxPath', () => {

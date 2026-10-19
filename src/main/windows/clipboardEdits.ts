@@ -9,6 +9,7 @@ import {
   isClipboardEdit,
   normalizeClipboardChords,
 } from '../../shared/keyboard/clipboardChords'
+import type { GuestRemap } from '../browser/guestRemap'
 
 export interface ClipboardSnapshot {
   formats: string[]
@@ -47,6 +48,7 @@ export interface ClipboardEditsDeps {
   isAppWindow: (sender: WebContents) => boolean
   snapshot: () => Promise<ClipboardSnapshot>
   mac: boolean
+  remap: GuestRemap
 }
 
 export interface ClipboardEdits {
@@ -79,8 +81,9 @@ export function registerClipboardEdits(deps: ClipboardEditsDeps): ClipboardEdits
 
   return {
     guardGuest: (guest) => {
-      guest.on('before-input-event', (event, input) => {
-        const edit = guestClipboardEdit(input, chords, deps.mac)
+      guest.once('destroyed', () => deps.remap.forget(guest.id))
+      guest.on('before-input-event', (event, raw) => {
+        const edit = guestClipboardEdit(deps.remap.remap(guest.id, raw), chords, deps.mac)
         if (!edit) return
         event.preventDefault()
         applyClipboardEdit(guest, edit)

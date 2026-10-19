@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { running } from '../../../test/tmux'
-import { SandboxUnavailableError } from '../sandbox/sandboxHosts'
+import { SandboxUnavailableError } from '../sandbox/hostClient'
 import { EXEC_CONCURRENT_MAX, type ExecDeps, ExtensionExec } from './extensionExec'
 
 const POLL = { timeout: 6000, interval: 50 }

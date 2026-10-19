@@ -23,6 +23,7 @@ import { createKeptSpawner } from '../../tmux/keptSpawn'
 import type { ScratchFolders } from '../../workspaces/scratchFolders'
 import type { WorkspaceLifecycle } from '../../workspaces/workspaceLifecycle'
 import type { PaneHistories } from '../history/paneHistories'
+import type { PaneBannerText } from '../paneBanner'
 import { createPtyAttach } from './ptyAttach'
 import { createPtyIo } from './ptyIo'
 import { createLiveAttach } from './ptyLiveAttach'
@@ -72,6 +73,7 @@ interface PtyWiringDeps {
   keptShellsProgram: KeptShellsWiring['keptShellsProgram']
   withKeptProcess: KeptShellsWiring['withKeptProcess']
   keptPaneEnv: KeptShellsWiring['keptPaneEnv']
+  bannerText: () => PaneBannerText
 }
 
 type PtyCoreDeps = Pick<
@@ -112,12 +114,12 @@ function createPtyCore({
   paneLifecycleEvents,
   workspaceSandboxes,
 }: PtyCoreDeps) {
-  const { loadPty, feedPty, trackPty } = createPtyRegistry({
+  const registry = createPtyRegistry({
     ptys,
     movingPanes,
     recoveryHeld,
     closedPanes,
-    scheduleReap: (paneId, entry) => scheduleReap(paneId, entry),
+    scheduleReap: (paneId, entry) => recovery.scheduleReap(paneId, entry),
     openWaits,
     agentRunning,
     agentWork,
@@ -127,7 +129,7 @@ function createPtyCore({
     histories: () => services.histories,
   })
 
-  const { killPty, hibernatePty } = createPtyStop({
+  const stop = createPtyStop({
     ptys,
     recoveryHeld,
     closedPanes,
@@ -142,114 +144,28 @@ function createPtyCore({
     appLog: () => services.appLog,
   })
 
-  const { paneActivity, foregroundProgram, agentCwd, sandboxReadRules, ptyPid, paneOutput } =
-    createPtyQueries({
-      ptys,
-      agentRunning,
-      workspaceSandboxes,
-      foregroundCwd,
-    })
-
-  const {
-    paneIo,
-    releasePtyFlow,
-    hidePtyFlow,
-    attachMirror,
-    ptyResize,
-    ptyWrite,
-    attachPhoneObserver,
-  } = createPtyIo({
-    ptys,
-  })
-
-  const {
-    windowOfPane,
-    scheduleReap,
-    startRecovery,
-    finishRecovery,
-    releaseWindowPtys,
-    holdPtys,
-    releaseMovingPane,
-  } = createPtyRecovery({
+  const queries = createPtyQueries({ ptys, agentRunning, workspaceSandboxes, foregroundCwd })
+  const io = createPtyIo({ ptys })
+  const recovery = createPtyRecovery({
     ptys,
     movingPanes,
     recoveryHeld,
     closedPanes,
-    killPty,
+    killPty: stop.killPty,
     appLog: () => services.appLog,
   })
 
-  return {
-    loadPty,
-    feedPty,
-    trackPty,
-    killPty,
-    hibernatePty,
-    paneActivity,
-    foregroundProgram,
-    agentCwd,
-    sandboxReadRules,
-    ptyPid,
-    paneOutput,
-    paneIo,
-    releasePtyFlow,
-    hidePtyFlow,
-    attachMirror,
-    ptyResize,
-    ptyWrite,
-    attachPhoneObserver,
-    windowOfPane,
-    startRecovery,
-    finishRecovery,
-    releaseWindowPtys,
-    holdPtys,
-    releaseMovingPane,
-  }
+  return { ...registry, ...stop, ...queries, ...io, ...recovery }
 }
 
 export function createPtyWiring(deps: PtyWiringDeps) {
   const core = createPtyCore(deps)
-  const { loadPty, feedPty, trackPty } = core
-  const { attachPty } = createPtyAttachWiring({ ...deps, trackPty, feedPty, loadPty })
+  const { attachPty } = createPtyAttachWiring({ ...deps, ...core })
 
   return { ...core, attachPty }
 }
 
-interface PtyAttachWiringDeps {
-  workspaceSandboxes: WorkspaceSandboxes
-  keptShells: KeptShellsWiring['keptShells']
-  injectSecrets: (workspaceId: string) => Promise<{ env: Record<string, string>; notice: string }>
-  services: {
-    appLog: AppLog | null
-    onSandboxSpawnFailure: ((workspaceId: string, errors: string[]) => void) | null
-    processes: ProcessRegistry | null
-    telemetry: Telemetry | null
-    histories: PaneHistories | null
-  }
-  keptPlumbing: KeptShellsWiring['keptPlumbing']
-  keptAttention: KeptAttention
-  agentRunning: AgentRunningPanes
-  hibernatedPanes: Set<string>
-  paneLifecycleEvents: PaneLifecycleEvents
-  portRequests: PortRequests
-  trackPty: PtyRegistry['trackPty']
-  feedPty: PtyRegistry['feedPty']
-  releaseMergedSandbox: WorkspaceLifecycle['releaseMergedSandbox']
-  restoreKeptAttention: (identity: PaneIdentity, saved: SavedAttention) => void
-  windows: Map<string, BrowserWindow>
-  movingPanes: Set<string>
-  recoveryHeld: Set<string>
-  scratchFolders: ScratchFolders
-  artifactFolders: ArtifactFolders
-  hostPaneGrants: HostPaneGrants
-  paneLauncherDir: KeptShellsWiring['paneLauncherDir']
-  keepShellsOn: KeptShellsWiring['keepShellsOn']
-  keptShellsProgram: KeptShellsWiring['keptShellsProgram']
-  withKeptProcess: KeptShellsWiring['withKeptProcess']
-  keptPaneEnv: KeptShellsWiring['keptPaneEnv']
-  ptys: Map<string, PtyEntry>
-  loadPty: PtyRegistry['loadPty']
-}
+type PtyAttachWiringDeps = PtyWiringDeps & Pick<PtyRegistry, 'trackPty' | 'feedPty' | 'loadPty'>
 
 function createPtyAttachWiring({
   workspaceSandboxes,
@@ -277,6 +193,7 @@ function createPtyAttachWiring({
   keptShellsProgram,
   withKeptProcess,
   keptPaneEnv,
+  bannerText,
   ptys,
   loadPty,
 }: PtyAttachWiringDeps) {
@@ -285,6 +202,7 @@ function createPtyAttachWiring({
     keptShells,
     injectSecrets,
     onSandboxSpawnFailure: () => services.onSandboxSpawnFailure,
+    bannerText,
   })
 
   const { reattachKept } = createKeptReattach({
@@ -301,6 +219,7 @@ function createPtyAttachWiring({
     restoreKeptAttention,
     processes: () => services.processes,
     appLog: () => services.appLog,
+    bannerText,
   })
 
   const { subscriberFor, attachExisting } = createLiveAttach({ windows, movingPanes, recoveryHeld })
@@ -315,6 +234,7 @@ function createPtyAttachWiring({
     keepShellsOn,
     keptShellsProgram,
     telemetry: () => services.telemetry,
+    bannerText,
   })
 
   const { spawnKept } = createKeptSpawner({
@@ -335,6 +255,7 @@ function createPtyAttachWiring({
     releaseMergedSandbox,
     telemetry: () => services.telemetry,
     appLog: () => services.appLog,
+    bannerText,
   })
 
   const { attachPty } = createPtyAttach({
@@ -350,6 +271,7 @@ function createPtyAttachWiring({
     startTracked,
     historySettled: (paneId) => services.histories?.settled(paneId) ?? Promise.resolve(),
     telemetry: () => services.telemetry,
+    bannerText,
   })
 
   return { attachPty }

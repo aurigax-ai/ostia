@@ -42,6 +42,7 @@ async function runCommand(win: Page, title: string): Promise<void> {
   await win.locator('[data-slot="command-input"]').fill(title)
   await waitForPaletteSelection(win, title)
   await win.keyboard.press('Enter')
+  await expect(win.locator('[data-slot="dialog-overlay"]')).toHaveCount(0)
 }
 
 async function flood(win: Page, screen: string): Promise<void> {

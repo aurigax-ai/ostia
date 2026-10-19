@@ -24,7 +24,7 @@ export function freshDataHome(): string {
   return dir
 }
 
-export const SOFTWARE_WEBGL = '--enable-unsafe-swiftshader'
+export const SOFTWARE_WEBGL = process.env.OSTIA_E2E_GL_ARG ?? '--enable-unsafe-swiftshader'
 
 export const DOM_RENDERER_SETTINGS = {
   behavior: { gpuAcceleration: false },

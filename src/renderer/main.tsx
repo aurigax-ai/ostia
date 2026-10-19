@@ -22,6 +22,7 @@ import { startAssistUi } from '@/lib/assist/assistUi'
 import { revealPane, startAttentionSync } from '@/lib/attention/workspaceActivity'
 import { startFileDropTracking } from '@/lib/files/fileDrop'
 import { loadHomeDir } from '@/lib/files/homeDir'
+import { startModifierRemap } from '@/lib/keyboard/modifierRemapSync'
 import { loadEditorLanguages } from '@/lib/monaco/contributedLanguages'
 import { setSettingsFile } from '@/lib/monaco/language'
 import { startUserActions } from '@/lib/palette/userActions'
@@ -77,6 +78,7 @@ import { isMac } from './platform'
 
 startErrorReporting()
 startFocusModality()
+startModifierRemap(isMac)
 watchScrolling(document)
 registerBuiltinCommands()
 registerExternalEditorCommand()
@@ -132,7 +134,7 @@ async function boot(): Promise<void> {
   }
   let snapshot = null
   try {
-    snapshot = (await window.ostia?.workspace?.load?.()) ?? null
+    snapshot = await window.ostia.workspace.load()
   } catch (err) {
     console.error('[workspace] restore failed', err)
   }
@@ -170,8 +172,8 @@ async function boot(): Promise<void> {
   startAssistToggleCommands()
   startShortcutReporting()
   applyStoredPanelWidths()
-  window.ostia?.notifications?.onActivate?.((paneId) => revealPane(paneId))
-  window.ostia?.settings?.onChanged?.(() => void useSettingsStore.getState().init())
+  window.ostia.notifications.onActivate((paneId) => revealPane(paneId))
+  window.ostia.settings.onChanged(() => void useSettingsStore.getState().init())
   root.render(
     <StrictMode>
       <AppErrorBoundary>
@@ -180,7 +182,7 @@ async function boot(): Promise<void> {
       </AppErrorBoundary>
     </StrictMode>,
   )
-  window.ostia?.diagnostics?.ready(livePaneIds())
+  window.ostia.diagnostics.ready(livePaneIds())
 }
 
 boot().catch((err: unknown) => {

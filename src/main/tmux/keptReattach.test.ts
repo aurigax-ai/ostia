@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
+import { en } from '../../shared/app/dict'
 import { ScreenMirror } from '../terminal/screenMirror'
 import { pendingRestoredScrollback, stashScrollback } from '../workspaces/savedScrollback'
 import { createKeptReattach } from './keptReattach'
@@ -39,6 +40,7 @@ function setup() {
     restoreKeptAttention: vi.fn(),
     processes: () => null,
     appLog: () => null,
+    bannerText: () => en.native.paneBanner,
   })
   const kept = {
     pane: {

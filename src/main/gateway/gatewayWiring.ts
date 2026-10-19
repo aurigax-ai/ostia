@@ -8,6 +8,7 @@ import type { Reach } from '../approvals/reach'
 import type { ArtifactFolders } from '../artifacts/artifactFolders'
 import type { CommandBridge } from '../control/commandBridge'
 import type { AppLog } from '../diagnostics/appLog'
+import type { PaneConfirms } from '../panes/paneConfirm'
 import {
   listPanes,
   listWorkspaceGroups,
@@ -61,6 +62,7 @@ interface GatewayStartDeps {
   askHub: AskHub
   agentRunning: AgentRunningPanes
   ptys: Map<string, PtyEntry>
+  turnConfirms: PaneConfirms
 }
 
 export function startGateway({
@@ -85,6 +87,7 @@ export function startGateway({
   askHub,
   agentRunning,
   ptys,
+  turnConfirms,
 }: GatewayStartDeps) {
   registerPaneListMethods({
     execCommand,
@@ -150,5 +153,7 @@ export function startGateway({
     listAsks: askHub.list,
     answerAsk: askHub.answer,
     agentRunning: (paneId) => agentRunning.has(paneId) && ptys.has(paneId),
+    watchesTurn: turnConfirms.watchesSubmit,
+    turnStarted: async (pane) => (await turnConfirms.confirmSubmitted(pane)).ok,
   })
 }

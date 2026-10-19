@@ -1,3 +1,7 @@
+import { PRODUCT_NAME } from '@aurigax-ai/ostia-extension-sdk/contract/product'
+import { fmt } from '../../shared/app/dict'
+import { type PaneBannerText, errorBanner } from '../terminal/paneBanner'
+
 const PACKAGE_BY_ERROR: [RegExp, string][] = [
   [/bubblewrap|bwrap/i, 'bubblewrap'],
   [/socat/i, 'socat'],
@@ -12,23 +16,28 @@ export function missingPackages(errors: readonly string[]): string[] {
   return [...found]
 }
 
-export function sandboxFailureBanner(message: string, missing: readonly string[]): string {
-  const lines = [`\r\n\x1b[38;2;239;89;111m Sandbox unavailable: ${message}\x1b[0m\r\n`]
+export function sandboxFailureBanner(
+  t: PaneBannerText,
+  message: string,
+  missing: readonly string[],
+): string {
+  const lines = [errorBanner(fmt(t.sandboxUnavailable, { message }))]
   const packages = missingPackages(missing)
   if (packages.length > 0) {
-    lines.push(` Missing: ${packages.join(', ')}\r\n`)
-    lines.push(` Install them with: ostia system install ${packages.join(' ')}\r\n`)
+    lines.push(` ${fmt(t.missing, { packages: packages.join(', ') })}\r\n`)
+    lines.push(
+      ` ${fmt(t.install, { command: `${PRODUCT_NAME} system install ${packages.join(' ')}` })}\r\n`,
+    )
   }
-  lines.push(' No shell was started. This workspace only runs sandboxed.\r\n')
+  lines.push(` ${t.noShell}\r\n`)
   return lines.join('')
 }
 
-export function hiddenHomeNotice(platform: NodeJS.Platform = process.platform): string {
+export function hiddenHomeNotice(
+  t: PaneBannerText,
+  platform: NodeJS.Platform = process.platform,
+): string {
   if (platform !== 'linux') return ''
-  return [
-    '\x1b[2m Sandbox: your home folder is hidden here. Files written to it, outside the',
-    ' workspace folder, are discarded when this shell exits. Add a writable folder',
-    ' in Settings \u203a Sandbox to keep them.\x1b[0m',
-    '',
-  ].join('\r\n')
+  const lines = t.hiddenHome.split('\n').map((line) => ` ${line}`)
+  return `\x1b[2m${lines.join('\r\n')}\x1b[0m\r\n`
 }

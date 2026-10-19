@@ -26,11 +26,12 @@ import {
   terminalScreen,
 } from '@/lib/terminal/ostiaTerminal'
 import { TERMINAL_INPUT_SELECTOR } from '@/lib/terminal/ostiaTerminal'
+import { attachSmoothScroll } from '@/lib/terminal/smoothScroll'
 import { drawOnGpu } from '@/lib/terminal/softwareGl'
 import { registerHistoryScroll, registerTerminal } from '@/lib/terminal/terminalHandles'
 import { keepDrawing, usePauseWhenHidden } from '@/lib/terminal/usePauseWhenHidden'
-import { type WebglRenderer, createWebglRenderer } from '@/lib/terminal/webglRenderer'
 import { attachWheelReports } from '@/lib/terminal/wheelReports'
+import { type XtermRenderer, createXtermRenderer } from '@/lib/terminal/xtermRenderer'
 import { xtermLinkHandler } from '@/lib/terminalLinks/terminalAppLinks'
 import { useScheme } from '@/lib/theme/colorScheme'
 import { terminalFontStack } from '@/lib/theme/uiFonts'
@@ -209,7 +210,7 @@ function TerminalSurface({
   }, [paneId, engine])
 
   useEffect(() => () => useHistoryViewStore.getState().close(paneId), [paneId])
-  usePauseWhenHidden(pauseRef, shown, paneId, engine)
+  usePauseWhenHidden(pauseRef, syncSizeRef, shown, paneId, engine)
   useTerminalOptions({ termRef, syncSizeRef, font, palette })
   const input = terminalInputBridge({ paneId, termRef, setSuppressedPrompt })
 
@@ -341,6 +342,7 @@ function startTerminal(deps: StartTerminalDeps): () => void {
     history.interceptWheel,
   )
   const detachWheelZoom = attachWheelZoom(host, 'terminal', isMac)
+  const detachSmoothScroll = attachSmoothScroll(host, term, isMac)
   const screenElement = terminalScreen(host)
   const detachLinks = links.attach(term, screenElement)
   termRef.current = term
@@ -393,6 +395,7 @@ function startTerminal(deps: StartTerminalDeps): () => void {
     detachSignals()
     unregisterLinks()
     detachWheelZoom()
+    detachSmoothScroll()
     detachLinks()
     unregisterHistory()
     history.dispose()
@@ -401,7 +404,7 @@ function startTerminal(deps: StartTerminalDeps): () => void {
     useBlocksStore.getState().dropPane(paneId)
     window.ostia.pty.detach(paneId)
     pauseRef.current = keepDrawing
-    created.webgl?.dispose()
+    created.xtermRenderer?.dispose()
     term.dispose()
     termRef.current = null
     setSearch(null)
@@ -416,7 +419,7 @@ interface TerminalEngine {
   term: OstiaTerminal
   fit: TerminalFit
   search: TerminalSearch | null
-  webgl: WebglRenderer | null
+  xtermRenderer: XtermRenderer | null
   silenceReplies: () => { dispose(): void }
   pause: PauseTerminal | null
 }
@@ -437,7 +440,7 @@ function createEngine({
   let term: OstiaTerminal
   let fit: TerminalFit
   let searchAddon: TerminalSearch | null = null
-  let webgl: WebglRenderer | null = null
+  let xtermRenderer: XtermRenderer | null = null
   let silenceReplies: () => { dispose(): void }
   let pause: PauseTerminal | null = null
   const ghostty = engine === 'ghostty' ? ghosttyModule() : null
@@ -469,14 +472,12 @@ function createEngine({
     xterm.loadAddon(xtermSearch)
     searchAddon = xtermSearch
     xterm.open(host)
-    if (gpuAcceleration) {
-      webgl = createWebglRenderer(xterm)
-      pause = webgl.pause
-    }
+    xtermRenderer = createXtermRenderer(xterm, gpuAcceleration)
+    pause = xtermRenderer.pause
     term = xterm
     fit = xtermFit
     silenceReplies = () => silenceQueryReplies(xterm)
   }
   if (ghostty) term.open(host)
-  return { term, fit, search: searchAddon, webgl, silenceReplies, pause }
+  return { term, fit, search: searchAddon, xtermRenderer, silenceReplies, pause }
 }

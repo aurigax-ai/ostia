@@ -2,8 +2,8 @@ import { commands } from '@/commands/registry'
 import { IconButton } from '@/components/common/IconButton'
 import { MenuContent, MenuItem } from '@/components/common/Menu'
 import { FileMenuItems } from '@/components/files/FileMenu'
-import { actionIcon } from '@/components/settings/actionIcons'
 import { ContextMenu, ContextMenuSeparator, ContextMenuTrigger } from '@/components/ui/context-menu'
+import { viewIcon } from '@/components/views/viewIcons'
 import { forkConversation, forkableResume } from '@/lib/agents/forkConversation'
 import { hibernatableAgentPanes } from '@/lib/agents/hibernationScheduler'
 import { useDict } from '@/lib/app/useDict'
@@ -103,7 +103,7 @@ function PaneTabMenuItems({
       {tabActions.map((action) => (
         <MenuItem
           key={action.id}
-          icon={actionIcon(action.icon)}
+          icon={viewIcon(action.icon ?? 'lightning')}
           onClick={() => void runUserAction(action, pane.id)}
         >
           {action.title}
@@ -336,7 +336,7 @@ export function PaneHeaderActions({ pane }: { pane: PaneNode }): JSX.Element {
       {actionsFor(actions, 'paneHeader', pane.kind).map((action) => (
         <IconButton
           key={action.id}
-          icon={actionIcon(action.icon)}
+          icon={viewIcon(action.icon ?? 'lightning')}
           label={action.title}
           onClick={() => void runUserAction(action, pane.id)}
         />

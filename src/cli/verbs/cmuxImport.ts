@@ -8,6 +8,7 @@ import type {
 } from '../../shared/workspaces/cmuxSession'
 import { MAX_PANES, MAX_WORKSPACES } from '../../shared/workspaces/workspaceLimits'
 import { parseArgs } from '../common/args'
+import { tsvLine } from '../common/lineField'
 import { usageOf } from '../common/usageTable'
 
 const CMUX_IMPORT_USAGE = usageOf('cmux')
@@ -51,8 +52,8 @@ export function parseCmuxImportArgs(argv: readonly string[], cwd: string): CmuxI
 
 export function formatCmuxImport(report: CmuxImportReport): string[] {
   const lines = [`read ${report.path}`]
-  for (const w of report.imported) lines.push(`imported\t${w.name}\t${w.panes} panes`)
-  for (const s of report.skipped) lines.push(`skipped\t${s.name}\t${SKIP_TEXT[s.reason]}`)
+  for (const w of report.imported) lines.push(tsvLine(['imported', w.name, `${w.panes} panes`]))
+  for (const s of report.skipped) lines.push(tsvLine(['skipped', s.name, SKIP_TEXT[s.reason]]))
   if (report.imported.length === 0) {
     lines.push('nothing new to import')
     return lines
@@ -85,7 +86,7 @@ export async function runCmuxImportVerb(
     console.error(`ostia cmux import: ${res.ok ? 'no result' : res.error?.message}`)
     return 1
   }
-  if (args.json) console.log(JSON.stringify(res.result, null, 2))
+  if (args.json) console.log(JSON.stringify(res.result))
   else for (const line of formatCmuxImport(res.result)) console.log(line)
   return 0
 }

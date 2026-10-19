@@ -17,8 +17,9 @@ import {
 import { expandHome, isInsidePath } from '../platform/pathGuard'
 import type { PackageBlockReason, PackagePolicy } from '../sandboxPackages/packagePolicy'
 import type { PackageRef } from '../sandboxPackages/packages'
+import { SandboxUnavailableError } from './hostClient'
 import type { SandboxPathEnv } from './pathChecks'
-import { type KeptSandboxHosts, SandboxHosts, SandboxUnavailableError } from './sandboxHosts'
+import { type KeptSandboxHosts, SandboxHosts } from './sandboxHosts'
 import { SandboxTmpDirs } from './sandboxTmp'
 import {
   SSH_AGENT_SOCKET_NAME,
@@ -33,6 +34,7 @@ import {
 } from './srtConfig'
 import type { SandboxStore } from './store'
 import type { WriteRefusal } from './violations'
+import type { SandboxReadRules } from './visibility'
 
 export interface WorkspaceSandboxesDeps {
   store: SandboxStore
@@ -60,6 +62,12 @@ const FOLDER_PROBLEM_TEXT: Record<SandboxFolderProblem['reason'], string> = {
 
 function folderProblemMessage(problem: SandboxFolderProblem): string {
   return `${problem.folder} ${FOLDER_PROBLEM_TEXT[problem.reason]}, so a sandbox cannot confine it; open a project folder instead`
+}
+
+function addFor(map: Map<string, Set<string>>, owner: string, values: Iterable<string>): void {
+  const set = map.get(owner) ?? new Set<string>()
+  for (const value of values) set.add(value)
+  map.set(owner, set)
 }
 
 export class WorkspaceSandboxes {
@@ -260,9 +268,7 @@ export class WorkspaceSandboxes {
       return
     }
     const owner = this.owner(workspaceId)
-    const set = this.sessionPackages.get(owner) ?? new Set<string>()
-    set.add(versionKey)
-    this.sessionPackages.set(owner, set)
+    addFor(this.sessionPackages, owner, [versionKey])
     void this.hosts.refresh(owner)
   }
 
@@ -281,6 +287,15 @@ export class WorkspaceSandboxes {
     const tmpDir = this.tmp.tmpDir(workspaceId)
     mkdirSync(tmpDir, { recursive: true, mode: 0o700 })
     return buildSrtConfig(this.resolved(workspaceId), { ...this.basePaths(), workDir, tmpDir })
+  }
+
+  readRules(workspaceId: string): SandboxReadRules {
+    try {
+      const { denyRead, allowRead } = this.config(workspaceId).filesystem
+      return { denyRead, allowRead }
+    } catch {
+      return { denyRead: ['/'], allowRead: [] }
+    }
   }
 
   async wrap(
@@ -303,10 +318,7 @@ export class WorkspaceSandboxes {
         return await host.wrap(command, binShell)
       }
       if (extraWrites.length > 0) {
-        const owner = this.owner(workspaceId)
-        const seen = this.paneWrites.get(owner) ?? new Set<string>()
-        for (const path of extraWrites) seen.add(path)
-        this.paneWrites.set(owner, seen)
+        addFor(this.paneWrites, this.owner(workspaceId), extraWrites)
       }
       const { filesystem } = this.config(workspaceId)
       return await host.wrap(command, binShell, {
@@ -323,9 +335,7 @@ export class WorkspaceSandboxes {
 
   allowUntilRestart(workspaceId: string, domain: string): void {
     const owner = this.owner(workspaceId)
-    const set = this.sessionDomains.get(owner) ?? new Set<string>()
-    set.add(domain)
-    this.sessionDomains.set(owner, set)
+    addFor(this.sessionDomains, owner, [domain])
     void this.hosts.refresh(owner)
   }
 

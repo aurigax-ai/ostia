@@ -52,6 +52,8 @@ describe('ExtensionHost agent tasks: ext.agents, ext.runAgent, ext.offerToAgent,
     picked = registerPane({ windowId: '7', workspaceId: 'w1', paneId: 'pane-picked' })
     stranger = registerPane({ windowId: '7', workspaceId: 'w1', paneId: 'pane-stranger' })
     host = new ExtensionHost({
+      sandboxDomains: () => null,
+      isSandboxed: () => false,
       roots: [{ dir: fixtures, builtin: true }],
       store: new ExtensionStore(join(dir, 'extensions.json')),
       socketPath: () => socketPath,

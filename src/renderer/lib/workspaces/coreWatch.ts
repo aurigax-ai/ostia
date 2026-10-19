@@ -16,7 +16,7 @@ function flush(feature: CoreFeature): void {
   const key = ids.join('\u0000')
   if (key === sent[feature]) return
   sent[feature] = key
-  window.ostia?.[feature]?.watch(ids)
+  window.ostia[feature].watch(ids)
 }
 
 function queue(feature: CoreFeature): void {

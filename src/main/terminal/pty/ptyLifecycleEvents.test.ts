@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
+import { en } from '../../../shared/app/dict'
 
 vi.mock('electron', () => ({
   app: {
@@ -72,6 +73,7 @@ describe('pane lifecycle events from the pty layer', () => {
       releaseMergedSandbox: () => {},
       telemetry: () => null,
       appLog: () => null,
+      bannerText: () => en.native.paneBanner,
     } as never)
     const pty = { onData: () => {}, onExit: () => {} }
     const plan = {

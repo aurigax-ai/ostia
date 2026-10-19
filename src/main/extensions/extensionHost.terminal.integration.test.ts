@@ -30,6 +30,7 @@ describe('ExtensionHost ext.openTerminal and interactive commands (real socket)'
     agentPane = registerPane({ windowId: '7', workspaceId: 'w1', paneId: 'pane-agent' })
     registerPane({ windowId: '7', workspaceId: 'w2', paneId: 'pane-other' })
     host = new ExtensionHost({
+      sandboxDomains: () => null,
       roots: [{ dir: fixtures, builtin: true }],
       store: new ExtensionStore(join(dir, 'extensions.json')),
       socketPath: () => socketPath,

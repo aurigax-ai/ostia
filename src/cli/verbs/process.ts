@@ -1,10 +1,18 @@
 import { resolve as resolvePath } from 'node:path'
 import type { MessageConnection } from 'vscode-jsonrpc/node'
-import { FlagError, parseArgs } from '../common/args'
+import { parseArgs } from '../common/args'
 import { resolveWorkspaceRef } from '../common/crossWorkspace'
-import { type ErrResult, describeErrResult, fail, failUsage, isErrResult } from '../common/failure'
+import {
+  type ErrResult,
+  describeErrResult,
+  fail,
+  failUsage,
+  failVerb,
+  failWith,
+  isErrResult,
+} from '../common/failure'
+import { tsvLine } from '../common/lineField'
 import { readAllStdin } from '../common/stdinText'
-import { usageOf } from '../common/usageTable'
 
 interface ProcInfo {
   id: string
@@ -56,14 +64,7 @@ function parseAgentArgs(argv: readonly string[]) {
 }
 
 export async function runAgentVerb(conn: MessageConnection): Promise<void> {
-  let parsed: ReturnType<typeof parseAgentArgs>
-  try {
-    parsed = parseAgentArgs(process.argv.slice(4))
-  } catch (err) {
-    if (err instanceof FlagError) throw new Error(`${err.message}\n${usageOf('agent')}`)
-    throw err
-  }
-  const { values: flags, positional } = parsed
+  const { values: flags, positional } = parseAgentArgs(process.argv.slice(4))
   const [agent, given] = positional
   if (process.argv[3] !== 'run' || !agent || given === undefined) return failUsage('agent')
   const prompt = given === '-' ? await readAllStdin() : given
@@ -77,8 +78,7 @@ export async function runAgentVerb(conn: MessageConnection): Promise<void> {
     ...(flags.tab !== undefined ? { tab: flags.tab } : {}),
   })
   if (isErrResult(res)) {
-    console.error(`ostia: agent run failed (${describeErrResult(res)})`)
-    process.exitCode = 1
+    failWith(describeErrResult(res))
     return
   }
   printStart('agent run', res)
@@ -106,17 +106,21 @@ export async function runProcessVerb(conn: MessageConnection): Promise<void> {
       ...(flags.tab !== undefined ? { tab: flags.tab } : {}),
     })
     if (isErrResult(res)) {
-      console.error(`ostia: process run failed (${describeErrResult(res)})`)
-      process.exitCode = 1
+      failWith(describeErrResult(res))
       return
     }
     printStart('process run', res)
   } else if (sub === 'list') {
+    const { positional, booleans } = parseArgs(rawArgs, { booleans: { json: '--json' } })
+    if (positional.length > 0) return failVerb('unexpected arguments')
     const list = await conn.sendRequest<ProcInfo[] | ErrResult>('process.list')
     if (!Array.isArray(list)) {
       const reason = isErrResult(list) ? describeErrResult(list) : 'unexpected response'
-      console.error(`ostia: process list failed (${reason})`)
-      process.exitCode = 1
+      failWith(reason)
+      return
+    }
+    if (booleans.json) {
+      console.log(JSON.stringify(list))
       return
     }
     if (list.length === 0) {
@@ -124,7 +128,7 @@ export async function runProcessVerb(conn: MessageConnection): Promise<void> {
       return
     }
     for (const p of list) {
-      console.log(`${p.id}\t${p.name}\t${processStatus(p)}\t${p.paneId}\t${p.cmd}`)
+      console.log(tsvLine([p.id, p.name, processStatus(p), p.paneId, p.cmd]))
     }
   } else if (sub === 'logs') {
     const { values, positional } = parseArgs(rawArgs, { values: { since: '--since' } })
@@ -135,8 +139,7 @@ export async function runProcessVerb(conn: MessageConnection): Promise<void> {
       { data: string; cursor: number; dropped: boolean } | ErrResult
     >('process.output', { id, sinceCursor })
     if (isErrResult(res)) {
-      console.error(`ostia: process logs failed (${describeErrResult(res)})`)
-      process.exitCode = 1
+      failWith(describeErrResult(res))
       return
     }
     if (res.data) process.stdout.write(res.data)
@@ -146,8 +149,7 @@ export async function runProcessVerb(conn: MessageConnection): Promise<void> {
     if (!id) return failUsage('process')
     const res = await conn.sendRequest<{ ok: true } | ErrResult>('process.kill', { id })
     if (isErrResult(res)) {
-      console.error(`ostia: process kill failed (${describeErrResult(res)})`)
-      process.exitCode = 1
+      failWith(describeErrResult(res))
       return
     }
     console.log('ok')
@@ -156,8 +158,7 @@ export async function runProcessVerb(conn: MessageConnection): Promise<void> {
     if (!id) return failUsage('process')
     const res = await conn.sendRequest<{ id: string } | ErrResult>('process.restart', { id })
     if (isErrResult(res)) {
-      console.error(`ostia: process restart failed (${describeErrResult(res)})`)
-      process.exitCode = 1
+      failWith(describeErrResult(res))
       return
     }
     console.log(JSON.stringify(res))

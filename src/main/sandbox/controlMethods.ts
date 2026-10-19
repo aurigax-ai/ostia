@@ -5,7 +5,7 @@ import type { PortRequests } from './ports/portRequests'
 
 export interface SandboxMethodsDeps {
   domains: DomainRequests
-  ports?: PortRequests
+  ports: PortRequests
 }
 
 export function registerSandboxMethods(deps: SandboxMethodsDeps): void {
@@ -19,7 +19,6 @@ export function registerSandboxMethods(deps: SandboxMethodsDeps): void {
   registerControlMethod('sandbox.expose', {
     handler: async (params, ctx) => {
       const { port } = (params ?? {}) as { port?: unknown }
-      if (!deps.ports) return { ok: false, error: 'unsupported' }
       return deps.ports.request(ctx.identity.workspaceId, ctx.identity.paneId, String(port ?? ''))
     },
   })

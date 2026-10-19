@@ -192,7 +192,7 @@ describe('Ostia prompt in the input editor', () => {
           category: 'other',
           languages: [],
           languageServers: [],
-          fileViewers: [],
+          fileKinds: [],
           agentSkills: [],
           agentHooks: [],
           iconThemes: [],

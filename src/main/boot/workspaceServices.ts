@@ -44,7 +44,6 @@ export function createWorkspaceServices(ctx: BrowserContext) {
 
   const managerResumePath = (): string => storePath('manager-resume', 'global')
   const scriptTokensPath = (): string => storePath('script-tokens-v2', 'global')
-  const retiredScriptTokensPath = (): string => storePath('retired-script-tokens', 'global')
   const scriptTokenUsage = createScriptTokenUsage(() => storePath('script-token-usage', 'global'), {
     known: () => new Set(listScriptTokens(scriptTokensPath()).map((t) => t.id)),
   })
@@ -108,7 +107,6 @@ export function createWorkspaceServices(ctx: BrowserContext) {
   return {
     managerResumePath,
     scriptTokensPath,
-    retiredScriptTokensPath,
     scriptTokenUsage,
     workspaceListing,
     reach,

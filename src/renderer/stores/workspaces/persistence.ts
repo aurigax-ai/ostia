@@ -42,8 +42,8 @@ export function freezeSnapshots(): void {
 
 export function saveSnapshotNow(): void {
   scheduleSave.cancel()
-  const api = window.ostia?.workspace
-  if (!api || frozen) return
+  const api = window.ostia.workspace
+  if (frozen) return
 
   if (!useSettingsStore.getState().behavior.restoreWorkspace) {
     if (!clearedForDisabled) {

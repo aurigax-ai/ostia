@@ -87,17 +87,18 @@ function clip(text: string): string {
   return text.trim().slice(0, DETAIL_MAX)
 }
 
-export interface LanguageListing {
+export interface ExtensionListing {
   marketplaceId: string
   extId: string
   name: string
   languages: string[]
+  patterns: string[]
 }
 
 export class Marketplace {
   private records: Records
   private queue: Promise<unknown> = Promise.resolve()
-  private listed: LanguageListing[] | null = null
+  private listed: ExtensionListing[] | null = null
   private readonly officialUrl: string | null
 
   constructor(private readonly deps: MarketplaceDeps) {
@@ -114,9 +115,9 @@ export class Marketplace {
     saveJson(this.deps.recordsPath, this.records)
   }
 
-  languageListings(): LanguageListing[] {
+  listings(): ExtensionListing[] {
     if (this.listed) return this.listed
-    const listed: LanguageListing[] = []
+    const listed: ExtensionListing[] = []
     for (const source of this.records.sources) {
       const dir = this.cloneDir(source.id)
       const catalog = existsSync(dir) ? readCatalog(dir) : null
@@ -131,6 +132,9 @@ export class Marketplace {
           extId: manifest.id,
           name: manifest.name,
           languages: [...new Set(languages)],
+          patterns: (manifest.contributes.fileKinds ?? []).flatMap((kind) =>
+            kind.selector.map((item) => item.filenamePattern),
+          ),
         })
       }
     }

@@ -28,6 +28,8 @@ describe('a built-in assist extension starts on demand', () => {
     dir = mkdtempSync(join(tmpdir(), 'ostia-ext-on-demand-'))
     const socketPath = join(dir, 'control.sock')
     host = new ExtensionHost({
+      sandboxDomains: () => null,
+      isSandboxed: () => false,
       roots: [
         { dir: echoFixtures, builtin: true },
         { dir: assistFixtures, builtin: true },
@@ -118,6 +120,8 @@ describe('the real built-in extensions', () => {
   it('start no extension host with the window, so the branch, the diff stats and the Git panel run without one', async () => {
     const dir = mkdtempSync(join(tmpdir(), 'ostia-ext-builtins-'))
     const host = new ExtensionHost({
+      sandboxDomains: () => null,
+      isSandboxed: () => false,
       roots: [{ dir: builtinExtensions, builtin: true }],
       store: new ExtensionStore(join(dir, 'extensions.json')),
       launches: new ExtensionLaunches(join(dir, 'extension-launches.json')),

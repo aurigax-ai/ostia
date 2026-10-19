@@ -22,3 +22,26 @@ export function parseProcStat(text: string): ProcEntry | null {
   if (![pid, ppid, pgrp, tpgid].every(Number.isInteger) || pid <= 0) return null
   return { pid, ppid, pgrp, tpgid, comm }
 }
+
+export function childrenOf(procs: Iterable<ProcEntry>): Map<number, number[]> {
+  const children = new Map<number, number[]>()
+  for (const p of procs) {
+    const list = children.get(p.ppid)
+    if (list) list.push(p.pid)
+    else children.set(p.ppid, [p.pid])
+  }
+  return children
+}
+
+export function processTree(root: number, children: Map<number, number[]>): number[] {
+  const seen = new Set<number>([root])
+  const queue = [root]
+  for (let i = 0; i < queue.length; i++) {
+    for (const child of children.get(queue[i]) ?? []) {
+      if (seen.has(child)) continue
+      seen.add(child)
+      queue.push(child)
+    }
+  }
+  return queue
+}

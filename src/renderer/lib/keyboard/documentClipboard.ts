@@ -1,6 +1,7 @@
 import { type KeyLike, isNativeClipboardKey } from '@shared/keyboard/chordSpec'
 import type { ClipboardEdit } from '@shared/keyboard/clipboardChords'
 import { chordOf, matchChord, onBindingsChange } from './chords'
+import { isRemappedEvent } from './modifierRemapEvents'
 
 export interface FocusContext {
   editable: boolean
@@ -12,7 +13,7 @@ const TEXT_INPUT_TYPES = new Set(['text', 'search', 'url', 'tel', 'email', 'pass
 export function clipboardChordOf(e: KeyLike, mac: boolean): ClipboardEdit | null {
   const chord = matchChord(e, mac)
   if (chord !== 'copy' && chord !== 'paste') return null
-  return mac && isNativeClipboardKey(e) ? null : chord
+  return mac && isNativeClipboardKey(e) && !isRemappedEvent(e) ? null : chord
 }
 
 export function documentEdit(edit: ClipboardEdit, focus: FocusContext): ClipboardEdit | null {
