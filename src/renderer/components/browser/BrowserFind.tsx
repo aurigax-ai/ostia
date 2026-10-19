@@ -1,14 +1,6 @@
-import { type FindStepRef, findStepKey, useFindStepRef } from '@/components/common/FindBar'
-import { IconButton } from '@/components/common/IconButton'
-import {
-  InputGroup,
-  InputGroupAddon,
-  InputGroupInput,
-  InputGroupText,
-} from '@/components/ui/input-group'
+import { FindBar, type FindStepRef } from '@/components/common/FindBar'
 import { useDict } from '@/lib/app/useDict'
-import { CaretDownIcon, CaretUpIcon, XIcon } from '@phosphor-icons/react'
-import { type KeyboardEvent, useEffect, useRef, useState } from 'react'
+import { useState } from 'react'
 
 export interface FindResult {
   active: number
@@ -37,40 +29,12 @@ export function BrowserFind({
   stepRef?: FindStepRef
 }): JSX.Element {
   const d = useDict()
-  const inputRef = useRef<HTMLInputElement>(null)
   const [query, setQuery] = useState('')
 
-  useEffect(() => {
-    if (focusKey < 0) return
-    inputRef.current?.focus()
-    inputRef.current?.select()
-  }, [focusKey])
-
-  const step = (forward: boolean): void => {
-    if (query) onSearch({ text: query, forward, next: true })
-  }
-  useFindStepRef(stepRef, (by) => step(by > 0))
-
-  const onChange = (value: string): void => {
+  const onQuery = (value: string): void => {
     setQuery(value)
     if (value) onSearch({ text: value, forward: true, next: false })
     else onClear()
-  }
-
-  const onKeyDown = (e: KeyboardEvent<HTMLInputElement>): void => {
-    if (e.key === 'Escape') {
-      e.preventDefault()
-      onClose()
-    } else if (e.key === 'Enter') {
-      e.preventDefault()
-      step(!e.shiftKey)
-    } else {
-      const by = findStepKey(e)
-      if (by === null) return
-      e.preventDefault()
-      e.stopPropagation()
-      step(by > 0)
-    }
   }
 
   const status =
@@ -81,27 +45,18 @@ export function BrowserFind({
         : `${result.active}/${result.total}`
 
   return (
-    <div className="term-find browser-find">
-      <InputGroup className="h-7 w-64">
-        <InputGroupInput
-          ref={inputRef}
-          className="text-ui-sm md:text-ui-sm"
-          aria-label={d.browser.findLabel}
-          placeholder={d.find.placeholder}
-          spellCheck={false}
-          value={query}
-          onChange={(e) => onChange(e.target.value)}
-          onKeyDown={onKeyDown}
-        />
-        <InputGroupAddon align="inline-end">
-          <InputGroupText className="term-find-count text-ui-sm tabular-nums" aria-live="polite">
-            {status}
-          </InputGroupText>
-        </InputGroupAddon>
-      </InputGroup>
-      <IconButton icon={CaretUpIcon} label={d.find.previous} onClick={() => step(false)} />
-      <IconButton icon={CaretDownIcon} label={d.find.next} onClick={() => step(true)} />
-      <IconButton icon={XIcon} label={d.find.close} onClick={onClose} />
-    </div>
+    <FindBar
+      label={d.browser.findLabel}
+      query={query}
+      status={status}
+      onQuery={onQuery}
+      onStep={(by) => {
+        if (query) onSearch({ text: query, forward: by > 0, next: true })
+      }}
+      onClose={onClose}
+      stepRef={stepRef}
+      className="browser-find"
+      focusKey={focusKey}
+    />
   )
 }

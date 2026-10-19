@@ -24,12 +24,12 @@ export function findStatus(
 
 export type FindStepRef = MutableRefObject<((by: number) => void) | null>
 
-export function findStepKey(e: KeyLike): 1 | -1 | null {
+function findStepKey(e: KeyLike): 1 | -1 | null {
   if (e.key === 'F3' && !e.ctrlKey && !e.metaKey && !e.altKey) return e.shiftKey ? -1 : 1
   return findStep(matchChord(e, isMac))
 }
 
-export function useFindStepRef(stepRef: FindStepRef | undefined, step: (by: number) => void): void {
+function useFindStepRef(stepRef: FindStepRef | undefined, step: (by: number) => void): void {
   useEffect(() => {
     if (!stepRef) return
     stepRef.current = step
@@ -49,6 +49,7 @@ export function FindBar({
   stepRef,
   className,
   extra,
+  focusKey,
 }: {
   label: string
   query: string
@@ -59,6 +60,7 @@ export function FindBar({
   stepRef?: FindStepRef
   className?: string
   extra?: ReactNode
+  focusKey?: number
 }): JSX.Element {
   const d = useDict()
   const inputRef = useRef<HTMLInputElement>(null)
@@ -67,7 +69,7 @@ export function FindBar({
   useEffect(() => {
     inputRef.current?.focus()
     inputRef.current?.select()
-  }, [])
+  }, [focusKey])
 
   const onKeyDown = (e: KeyboardEvent<HTMLInputElement>): void => {
     if (e.key === 'Escape') {
