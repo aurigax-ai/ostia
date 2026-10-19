@@ -11,6 +11,7 @@ import {
 import type { CreateGate } from './createGate'
 import { type InstallState, SERVICE_INSTALL } from './install'
 import type { PanelScope } from './panelServer'
+import type { PhoneLinks, PhoneView } from './phoneLinks'
 import type { OwnedScreen } from './screenRegistry'
 import { MIN_SERVICE_VERSION, isOutdated, runScreens, serviceVersion } from './screensCli'
 import type { ScreensService, ShownScreen } from './screensService'
@@ -26,6 +27,12 @@ export interface PanelInstall extends InstallState {
 
 export interface PanelScreen extends ShownScreen {
   agentDriving: boolean
+  phone?: PhoneView
+}
+
+export interface PanelPhones {
+  listening: boolean
+  asked: boolean
 }
 
 export interface PanelScopeWithSandbox extends PanelScope {
@@ -41,6 +48,7 @@ export interface PanelDeps {
   openTerminal: (opts: OpenTerminalOptions) => Promise<OpenTerminalResult>
   sandboxDomains: (workspaceId: string) => Promise<SandboxDomainsResult>
   viewers: Viewers
+  phones: () => PhoneLinks | null
   now: () => number
 }
 
@@ -86,6 +94,8 @@ export function panelHandlers(deps: PanelDeps): Record<string, PanelHandler> {
     }
 
   const panelScreen = async (shown: ShownScreen): Promise<PanelScreen> => {
+    const phone = deps.phones()?.view(shown.id)
+    if (phone) return { ...shown, agentDriving: false, phone }
     const screen = deps.service.registry.get(shown.id)
     if (!screen || shown.owner !== 'agent') return { ...shown, agentDriving: false }
     const at = await lastAgentAction(screen)
@@ -132,7 +142,36 @@ export function panelHandlers(deps: PanelDeps): Record<string, PanelHandler> {
         install: await installWithVersion(scope),
         screens: await Promise.all((await deps.service.shown(scope.workspaceId)).map(panelScreen)),
         always: deps.gate.isAlways(scope.workspaceId),
+        phones: {
+          listening: deps.phones() !== null,
+          asked: deps.phones()?.askedRecently(scope.workspaceId) === true,
+        } satisfies PanelPhones,
       }),
+
+    watch: async (args, scope) => {
+      const screen = own(args, scope)
+      const phones = deps.phones()
+      if (!screen || !phones) {
+        return failure('refused', t(scope)('verb.notHere', { id: screenIdOf(args) ?? '' }))
+      }
+      const on = (args as { on?: unknown }).on === true
+      return (await phones.watch(screen.id, on))
+        ? ok()
+        : failure('phone', t(scope)('panel.phoneFailed'))
+    },
+
+    frame: async (args, scope) => {
+      const screen = own(args, scope)
+      return ok(undefined, screen ? (deps.phones()?.latest(screen.id) ?? null) : null)
+    },
+
+    ask: async (_args, scope) => {
+      const phones = deps.phones()
+      if (!phones) return failure('phone', t(scope)('panel.phoneFailed'))
+      return (await phones.ask(scope.workspaceId))
+        ? ok()
+        : failure('phone', t(scope)('panel.phoneFailed'))
+    },
 
     takeover: switchOwner('takeover'),
     giveback: switchOwner('giveback'),

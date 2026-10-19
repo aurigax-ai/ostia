@@ -13,6 +13,12 @@ import type {
   WorkspaceChip,
 } from './extensions'
 
+export const PANEL_VISIBILITY_EVENT = 'ostia-panel-visibility'
+
+export interface PanelVisibility {
+  hidden: boolean
+}
+
 export type ExtensionPanelSource = { ok: true; src: string } | { ok: false; error: string }
 
 export interface ExtensionOpenPanelRequest {
