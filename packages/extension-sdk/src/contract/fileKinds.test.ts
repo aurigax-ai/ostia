@@ -88,16 +88,21 @@ describe('parseFileKinds', () => {
 })
 
 describe('kindClaim', () => {
-  it('names the id, the role and the sorted lowercase patterns, so a widened selector is a new claim', () => {
-    const kind = {
-      id: 'office.spreadsheet',
-      selector: [{ filenamePattern: '*.XLSX' }, { filenamePattern: '*.ods' }],
-    }
-    expect(kindClaim(kind)).toBe('office.spreadsheet:view:*.ods,*.xlsx')
+  const kind = {
+    id: 'office.spreadsheet',
+    selector: [{ filenamePattern: '*.XLSX' }, { filenamePattern: '*.ods' }],
+    view: { priority: 'option' as const },
+  }
+
+  it('names the id, the role, the priority and the sorted lowercase patterns', () => {
+    expect(kindClaim(kind)).toBe('office.spreadsheet:view:option:*.ods,*.xlsx')
     expect(kindClaim({ ...kind, selector: [...kind.selector].reverse() })).toBe(kindClaim(kind))
-    expect(
-      kindClaim({ ...kind, selector: [...kind.selector, { filenamePattern: '*.csv' }] }),
-    ).not.toBe(kindClaim(kind))
+  })
+
+  it('is a new claim when the selector widens or an option view becomes the default opener', () => {
+    const widened = { ...kind, selector: [...kind.selector, { filenamePattern: '*.csv' }] }
+    expect(kindClaim(widened)).not.toBe(kindClaim(kind))
+    expect(kindClaim({ ...kind, view: { priority: 'default' } })).not.toBe(kindClaim(kind))
   })
 })
 

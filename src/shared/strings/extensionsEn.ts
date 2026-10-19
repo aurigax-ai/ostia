@@ -8,6 +8,8 @@ export const extensionsEn = {
     approve: 'Approve and enable',
     approveBody:
       '{name} {version} runs as a program on this computer with your user account. It asks for these {product} permissions:',
+    approveFiles:
+      'It asks for no {product} permissions beyond its own commands and panel, and to show the files listed below.',
     approveNone: 'It asks for no {product} permissions beyond its own commands and panel.',
     approveTitle: 'Allow the extension “{name}”?',
     approved: 'Approved',
@@ -72,6 +74,7 @@ export const extensionsEn = {
     connectionsNone: 'No connections yet.',
     connectionsTitle: 'Connections',
     deny: 'Keep disabled',
+    denyKinds: 'Keep them off',
     desc: 'Features that run as separate processes and use the public extension API. Disabling one stops its process and removes its commands, panel and sidebar items.',
     describedBounds: '{description} {bounds}',
     detailsOf: 'Details of {name}',
@@ -119,6 +122,7 @@ export const extensionsEn = {
     statusRunning: 'Running',
     statusStarting: 'Starting',
     unapproved: 'Not approved: {caps}',
+    unapprovedKinds: 'Files not approved: {kinds}',
     unitPerMinute: '{range} per minute',
     unitSeconds: '{range} seconds',
     version: 'Version',

@@ -196,7 +196,7 @@ export class ExtensionHost {
     return effectiveRecord(rt.ext.builtin, this.deps.store.get(rt.ext.manifest.id))
   }
 
-  private kindApproved(rt: Runtime, kind: Pick<FileKindInfo, 'id' | 'selector'>): boolean {
+  private kindApproved(rt: Runtime, kind: Pick<FileKindInfo, 'id' | 'selector' | 'view'>): boolean {
     return kindApproved(rt.ext.builtin, this.deps.store.get(rt.ext.manifest.id), kind)
   }
 
@@ -271,9 +271,11 @@ export class ExtensionHost {
         ...(platform ? { platform } : {}),
       })),
       languageServers: (m.contributes.languageServers ?? []).map(languageServerSummary),
-      fileKinds: (m.contributes.fileKinds ?? []).map(({ view, ...kind }) => ({
-        ...kind,
-        view: { priority: view.priority },
+      fileKinds: (m.contributes.fileKinds ?? []).map((kind) => ({
+        id: kind.id,
+        displayName: kind.displayName,
+        selector: kind.selector,
+        view: { priority: kind.view.priority },
         approved: this.kindApproved(rt, kind),
       })),
       agentSkills: (m.contributes.agentSkills ?? []).map((skill) => agentSkillId(m.id, skill.name)),

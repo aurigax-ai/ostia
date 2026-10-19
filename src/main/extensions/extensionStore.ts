@@ -31,7 +31,7 @@ export function grantedCaps(
 export function kindApproved(
   builtin: boolean,
   record: ExtensionRecord | undefined,
-  kind: Pick<FileKindInfo, 'id' | 'selector'>,
+  kind: Pick<FileKindInfo, 'id' | 'selector' | 'view'>,
 ): boolean {
   return builtin || (record?.approvedKinds ?? []).includes(kindClaim(kind))
 }

@@ -23,6 +23,11 @@ export function ExtensionApprovalDialog(): JSX.Element {
   const dismiss = useExtensionsStore((s) => s.dismiss)
 
   const caps = ext?.requested ?? []
+  const kindsOnly =
+    ext !== null &&
+    ext.status !== 'pending-approval' &&
+    ext.unapproved.length === 0 &&
+    ext.fileKinds.some((kind) => !kind.approved)
 
   return (
     <Dialog
@@ -40,7 +45,9 @@ export function ExtensionApprovalDialog(): JSX.Element {
                   name: ext?.name ?? '',
                   version: ext?.version ?? '',
                 })
-              : d.extensions.approveNone}
+              : (ext?.fileKinds.length ?? 0) > 0
+                ? d.extensions.approveFiles
+                : d.extensions.approveNone}
           </DialogDescription>
         </DialogHeader>
         {ext?.description ? (
@@ -86,10 +93,10 @@ export function ExtensionApprovalDialog(): JSX.Element {
             onClick={() => {
               if (!ext) return
               dismiss(ext.id)
-              void setEnabled(ext.id, false)
+              if (!kindsOnly) void setEnabled(ext.id, false)
             }}
           >
-            {d.extensions.deny}
+            {kindsOnly ? d.extensions.denyKinds : d.extensions.deny}
           </Button>
           <Button size="sm" onClick={() => ext && void approve(ext.id)}>
             {d.extensions.approve}

@@ -176,7 +176,7 @@ export function kindMatches(path: string, kind: Pick<FileKindInfo, 'selector'>):
   return kind.selector.some((item) => matchesFilenamePattern(path, item.filenamePattern))
 }
 
-export function kindClaim(kind: Pick<FileKindInfo, 'id' | 'selector'>): string {
+export function kindClaim(kind: Pick<FileKindInfo, 'id' | 'selector' | 'view'>): string {
   const patterns = kind.selector.map((item) => item.filenamePattern.toLowerCase()).sort()
-  return `${kind.id}:view:${[...new Set(patterns)].join(',')}`
+  return `${kind.id}:view:${kind.view.priority}:${[...new Set(patterns)].join(',')}`
 }

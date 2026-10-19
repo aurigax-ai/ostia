@@ -95,7 +95,7 @@ function PermissionRows({ ext }: { ext: ExtensionInfo }): JSX.Element {
   const d = useDict()
   const review = useExtensionsStore((s) => s.review)
   const needsReview = ext.status === 'pending-approval' || awaitsReview(ext)
-  const waiting = [...ext.unapproved, ...unapprovedKinds(ext).map((kind) => kind.displayName)]
+  const waitingKinds = unapprovedKinds(ext).map((kind) => kind.displayName)
   return (
     <>
       <SettingsSubgroup title={d.extensions.permissions} />
@@ -116,8 +116,11 @@ function PermissionRows({ ext }: { ext: ExtensionInfo }): JSX.Element {
           </Badge>
         </ControlRow>
       ))}
-      {waiting.length > 0 && ext.status !== 'pending-approval' ? (
-        <Notice>{fmt(d.extensions.unapproved, { caps: waiting.join(', ') })}</Notice>
+      {ext.unapproved.length > 0 && ext.status !== 'pending-approval' ? (
+        <Notice>{fmt(d.extensions.unapproved, { caps: ext.unapproved.join(', ') })}</Notice>
+      ) : null}
+      {waitingKinds.length > 0 && ext.status !== 'pending-approval' ? (
+        <Notice>{fmt(d.extensions.unapprovedKinds, { kinds: waitingKinds.join(', ') })}</Notice>
       ) : null}
       {needsReview ? (
         <ControlRow label={d.extensions.review}>

@@ -49,8 +49,9 @@ describe('kindApproved', () => {
   const sheet = {
     id: 'acme.grid',
     selector: [{ filenamePattern: '*.XLSX' }, { filenamePattern: '*.ods' }],
+    view: { priority: 'option' as const },
   }
-  const claim = 'acme.grid:view:*.ods,*.xlsx'
+  const claim = 'acme.grid:view:option:*.ods,*.xlsx'
 
   it('approves a built-in always, and a user kind only for the exact claim', () => {
     expect(kindApproved(true, undefined, sheet)).toBe(true)
@@ -66,6 +67,7 @@ describe('kindApproved', () => {
     const widened = { ...sheet, selector: [...sheet.selector, { filenamePattern: '*.csv' }] }
     expect(kindApproved(false, record, widened)).toBe(false)
     expect(kindApproved(false, record, { ...sheet, id: 'acme.other' })).toBe(false)
+    expect(kindApproved(false, record, { ...sheet, view: { priority: 'default' } })).toBe(false)
   })
 })
 
@@ -100,9 +102,11 @@ describe('ExtensionStore', () => {
     new ExtensionStore(path).set('demo', {
       enabled: true,
       approved: [],
-      approvedKinds: ['demo.grid:view:*.csv'],
+      approvedKinds: ['demo.grid:view:default:*.csv'],
     })
-    expect(new ExtensionStore(path).get('demo')?.approvedKinds).toEqual(['demo.grid:view:*.csv'])
+    expect(new ExtensionStore(path).get('demo')?.approvedKinds).toEqual([
+      'demo.grid:view:default:*.csv',
+    ])
     writeFileSync(
       path,
       JSON.stringify({

@@ -189,6 +189,32 @@ describe('Extensions UI', () => {
       await user.click(within(trellisRow).getByRole('button', { name: 'Review permissions' }))
       expect(useExtensionsStore.getState().reviewing).toBe('trellis')
     })
+
+    it('lists a widened file kind as waiting, in its own line and not among the capabilities', async () => {
+      useExtensionsStore.setState({
+        list: [
+          ext({
+            fileKinds: [
+              {
+                id: 'demo.grid',
+                displayName: 'Grid',
+                selector: [{ filenamePattern: '*.grid' }],
+                view: { priority: 'default' },
+                approved: false,
+              },
+            ],
+          }),
+        ],
+      })
+      await renderSettled(<ExtensionsSection />)
+      const user = userEvent.setup()
+      const row = screen.getByRole('listitem', { name: 'Demo' })
+      expect(within(row).getByText('Problem')).toBeInTheDocument()
+      await user.click(within(row).getByRole('button', { name: 'Details of Demo' }))
+      expect(within(row).getByText('Files not approved: Grid')).toBeInTheDocument()
+      expect(within(row).queryByText(/^Not approved:/)).toBeNull()
+      expect(within(row).getByRole('button', { name: 'Review permissions' })).toBeInTheDocument()
+    })
   })
 
   describe('ExtensionApprovalDialog', () => {
@@ -326,6 +352,39 @@ describe('Extensions UI', () => {
       await userEvent.setup().click(screen.getByRole('button', { name: 'Keep disabled' }))
 
       expect(setEnabled).toHaveBeenCalledWith('trellis', false)
+      await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+    })
+
+    it('names the files, not a permission, and keeps the extension on when only a widened kind is under review', async () => {
+      const setEnabled = vi.fn().mockResolvedValue([])
+      window.ostia.extensions.setEnabled = setEnabled
+      const widened = {
+        ...ext({}),
+        id: 'sheets',
+        name: 'Sheets',
+        enabled: true,
+        status: 'idle' as const,
+        requested: [],
+        unapproved: [],
+        fileKinds: [
+          {
+            id: 'sheets.grid',
+            displayName: 'Grid',
+            selector: [{ filenamePattern: '*.grid' }],
+            view: { priority: 'default' as const },
+            approved: false,
+          },
+        ],
+      }
+      useExtensionsStore.setState({ list: [widened], reviewing: 'sheets' })
+      render(<ExtensionApprovalDialog />)
+
+      const dialog = screen.getByRole('dialog')
+      expect(within(dialog).getByText(/and to show the files listed below/)).toBeInTheDocument()
+      expect(within(dialog).queryByText(/beyond its own commands and panel\.$/)).toBeNull()
+      await userEvent.setup().click(within(dialog).getByRole('button', { name: 'Keep them off' }))
+
+      expect(setEnabled).not.toHaveBeenCalled()
       await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
     })
 

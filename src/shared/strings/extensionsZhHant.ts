@@ -10,6 +10,7 @@ export const extensionsZhHant: typeof extensionsEn = {
     approve: '核准並啟用',
     approveBody:
       '{name} {version} 會以您的使用者帳號在這台電腦上執行程式。它要求下列 {product} 權限：',
+    approveFiles: '除了自身的指令與面板，以及顯示下列檔案外，它不要求任何 {product} 權限。',
     approveNone: '除了自身的指令與面板外，它不要求任何 {product} 權限。',
     approveTitle: '允許擴充功能「{name}」？',
     approved: '已核准',
@@ -74,6 +75,7 @@ export const extensionsZhHant: typeof extensionsEn = {
     connectionsNone: '還沒有連線。',
     connectionsTitle: '連線',
     deny: '保持停用',
+    denyKinds: '保持關閉',
     desc: '以獨立程序執行、只使用公開擴充 API 的功能。停用後會停止其程序，並移除其指令、面板與側欄項目。',
     describedBounds: '{description}{bounds}',
     detailsOf: '{name} 的詳細資料',
@@ -121,6 +123,7 @@ export const extensionsZhHant: typeof extensionsEn = {
     statusRunning: '執行中',
     statusStarting: '啟動中',
     unapproved: '未核准：{caps}',
+    unapprovedKinds: '未核准的檔案：{kinds}',
     unitPerMinute: '每分鐘 {range} 次',
     unitSeconds: '{range} 秒',
     version: '版本',

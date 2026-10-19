@@ -31,7 +31,7 @@ export interface ExtensionPanelsHost {
   deps: Pick<ExtensionHostDeps, 'requestTimeoutMs'>
   runtimes: ReadonlyMap<string, Runtime>
   active(rt: Runtime): boolean
-  kindApproved(rt: Runtime, kind: Pick<FileKindInfo, 'id' | 'selector'>): boolean
+  kindApproved(rt: Runtime, kind: Pick<FileKindInfo, 'id' | 'selector' | 'view'>): boolean
   processes: Pick<ExtensionProcesses, 'connected' | 'start'>
   userCaller(workspaceId: string | null, extra?: Partial<ExtensionCaller>): ExtensionCaller
 }
