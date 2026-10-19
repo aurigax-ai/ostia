@@ -15,6 +15,8 @@ import {
 } from './screensCli'
 import type { ScreensService } from './screensService'
 
+const OFFER_BUDGET_MS = 4_000
+const VERSION_FRESH_MS = 5 * 60_000
 const WATCH_FPS = 2
 const WATCH_MAX_SIDE = 900
 const WATCH_IDLE_MS = 10_000
@@ -48,17 +50,16 @@ interface Link {
   frame: PhoneFrame | null
 }
 
-type PhoneLease = (req: {
-  backend: 'phone'
-  width: number
-  height: number
-  label: string
-}) => Promise<ScreensResult<{ screen: CreatedScreen; lease: Socket }>>
+type PhoneLease = (
+  req: { backend: 'phone'; width: number; height: number; label: string },
+  timeoutMs: number,
+) => Promise<ScreensResult<{ screen: CreatedScreen; lease: Socket }>>
 
 export interface PhoneLinksDeps {
   phone: Pick<PhoneScreens, 'request' | 'ask'>
   service: Pick<ScreensService, 'adopt'>
   version: () => Promise<string | null>
+  prepare: () => Promise<unknown>
   lease: PhoneLease
   changed: (workspaceId: string) => void
   now: () => number
@@ -97,8 +98,22 @@ function write(socket: Socket, message: unknown): void {
 export class PhoneLinks {
   private readonly links = new Map<string, Link>()
   private readonly asked = new Map<string, number>()
+  private known: { version: string | null; at: number } | null = null
 
   constructor(private readonly deps: PhoneLinksDeps) {}
+
+  async warm(): Promise<void> {
+    const version = await this.deps.version()
+    if (version) await this.deps.prepare()
+    this.known = { version, at: this.deps.now() }
+  }
+
+  private async version(): Promise<string | null> {
+    const known = this.known
+    if (known?.version && this.deps.now() - known.at < VERSION_FRESH_MS) return known.version
+    await this.warm()
+    return this.known?.version ?? null
+  }
 
   controller(): PhoneScreensController {
     return {
@@ -109,16 +124,26 @@ export class PhoneLinks {
   }
 
   async offer(info: PhoneScreenLink): Promise<boolean> {
-    const version = await this.deps.version()
+    const deadline = this.deps.now() + OFFER_BUDGET_MS
+    const version = await this.version()
     if (!version || isOutdated(version, PHONE_SERVICE_VERSION)) return false
-    const res = await this.deps.lease({
-      backend: 'phone',
-      width: info.width,
-      height: info.height,
-      label: workspaceLabel(info.sessionId),
-    })
+    const left = deadline - this.deps.now()
+    if (left <= 0) return false
+    const res = await this.deps.lease(
+      {
+        backend: 'phone',
+        width: info.width,
+        height: info.height,
+        label: workspaceLabel(info.sessionId),
+      },
+      left,
+    )
     if (!res.ok) return false
     const { screen, lease } = res.value
+    if (this.deps.now() > deadline) {
+      lease.destroy()
+      return false
+    }
     const link: Link = {
       info,
       screenId: screen.id,
@@ -237,9 +262,10 @@ export class PhoneLinks {
     return link.frame
   }
 
-  hasLink(workspaceId: string): boolean {
-    for (const link of this.links.values()) if (link.info.sessionId === workspaceId) return true
-    return false
+  linksIn(workspaceId: string): number {
+    let count = 0
+    for (const link of this.links.values()) if (link.info.sessionId === workspaceId) count += 1
+    return count
   }
 
   async ask(workspaceId: string): Promise<boolean> {

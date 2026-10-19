@@ -1,5 +1,11 @@
 import type { ExtensionResult } from '@aurigax-ai/ostia-extension-sdk'
-import { emptyState, errorText, h, panelTranslator } from '@aurigax-ai/ostia-extension-sdk/panel'
+import {
+  emptyState,
+  errorText,
+  h,
+  onPanelVisibility,
+  panelTranslator,
+} from '@aurigax-ai/ostia-extension-sdk/panel'
 import en from './locales/en.json'
 import zhHant from './locales/zh-Hant.json'
 import type { PanelInstall, PanelPhones, PanelScreen } from './panelApi'
@@ -109,6 +115,14 @@ async function pollFrame(): Promise<void> {
   if (watching !== shown || !frame || frame.seq === shown.seq) return
   shown.seq = frame.seq
   shown.img.src = `data:image/jpeg;base64,${frame.jpeg}`
+}
+
+async function stopWatch(): Promise<void> {
+  if (!watching) return
+  const id = watching.id
+  closeWatch()
+  render()
+  await call('watch', { id, on: false })
 }
 
 async function toggleWatch(id: string): Promise<void> {
@@ -322,6 +336,10 @@ function render(): void {
     ),
   )
 }
+
+onPanelVisibility((hidden) => {
+  if (hidden) void stopWatch()
+})
 
 const events = new EventSource('events')
 events.onmessage = () => void refresh()

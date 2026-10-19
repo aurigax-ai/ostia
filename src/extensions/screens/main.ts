@@ -13,7 +13,7 @@ import { installState } from './install'
 import { type PanelScopeWithSandbox, panelHandlers } from './panelApi'
 import { startPanelServer } from './panelServer'
 import { PhoneLinks } from './phoneLinks'
-import { SCREENS_BIN, createLeased, isOnPath, serviceVersion } from './screensCli'
+import { SCREENS_BIN, createLeased, isOnPath, runScreens, serviceVersion } from './screensCli'
 import { ScreensService } from './screensService'
 import { verbHandlers } from './verbs'
 import { Viewers, viewStream } from './viewers'
@@ -75,12 +75,13 @@ async function main(): Promise<void> {
   const sandboxDomains = (workspaceId: string) => ext.sandboxDomains(workspaceId)
 
   const showPhone = (workspaceId: string): void => {
+    const count = phoneLinks.linksIn(workspaceId)
     void ext
       .setSidebarItem({
         key: 'phone',
         workspaceId,
-        text: phoneLinks.hasLink(workspaceId) ? translate(locale)('sidebar.phone') : '',
-        badge: 'phone',
+        text: count > 0 ? translate(locale)('sidebar.phone') : '',
+        badge: String(count),
       })
       .catch(() => {})
   }
@@ -88,6 +89,7 @@ async function main(): Promise<void> {
     phone: ext.phoneScreens,
     service,
     version: serviceVersion,
+    prepare: () => runScreens({ args: ['list'] }),
     lease: createLeased,
     changed: (workspaceId) => {
       showPhone(workspaceId)
@@ -96,6 +98,7 @@ async function main(): Promise<void> {
     now: () => Date.now(),
   })
   const listening = await ext.phoneScreens.listen(phoneLinks.controller())
+  if (listening.ok) void phoneLinks.warm()
 
   const panelOnly = panelHandlers({
     service,

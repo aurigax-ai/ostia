@@ -48,6 +48,7 @@ describe('PhoneLinks', () => {
       phone: { request: request as never, ask: ask as never },
       service,
       version: serviceVersion,
+      prepare: async () => {},
       lease: createLeased,
       changed: (workspaceId) => changed.push(workspaceId),
       now: () => now,
@@ -80,7 +81,7 @@ describe('PhoneLinks', () => {
       foreground: '',
       watching: false,
     })
-    expect(links.hasLink('w1')).toBe(true)
+    expect(links.linksIn('w1')).toBe(1)
     expect(changed).toEqual(['w1'])
   })
 
@@ -120,7 +121,7 @@ describe('PhoneLinks', () => {
     )
     controller.event?.({ linkId: 'link-1', kind: 'ended', payload: { reason: 'closed' } })
     await vi.waitFor(() => expect(service.registry.get(id)).toBeUndefined())
-    expect(links.hasLink('w1')).toBe(false)
+    expect(links.linksIn('w1')).toBe(0)
     expect(request).not.toHaveBeenCalledWith('link-1', 'phone.stop', {})
   })
 
@@ -128,7 +129,7 @@ describe('PhoneLinks', () => {
     await controller.offer(LINK)
     expect((await service.stop(screenId())).ok).toBe(true)
     await vi.waitFor(() => expect(request).toHaveBeenCalledWith('link-1', 'phone.stop', {}))
-    expect(links.hasLink('w1')).toBe(false)
+    expect(links.linksIn('w1')).toBe(0)
   })
 
   it('PHD-C29 refuses an offer when the screens service has no phone backend yet', async () => {
@@ -137,6 +138,38 @@ describe('PhoneLinks', () => {
     start('0.1.3')
     expect(await controller.offer(LINK)).toBe(false)
     expect(fake.calls().filter((call) => call.startsWith('daemon create'))).toEqual([])
+  })
+
+  it('PHD-C29 gives up an offer that takes longer than the phone waits, closing the late lease', async () => {
+    const destroy = vi.fn()
+    const adopt = vi.spyOn(service, 'adopt')
+    const version = vi.fn(async () => '0.1.4')
+    const late = new PhoneLinks({
+      phone: { request: request as never, ask: ask as never },
+      service,
+      version,
+      prepare: async () => {},
+      lease: async (_req, timeoutMs) => {
+        expect(timeoutMs).toBeLessThanOrEqual(4_000)
+        now += 4_500
+        return {
+          ok: true,
+          value: {
+            screen: { id: 's9', agentToken: 'a', viewerToken: 'v', width: 1, height: 1 },
+            lease: { destroy } as never,
+          },
+        }
+      },
+      changed: (workspaceId) => changed.push(workspaceId),
+      now: () => now,
+    })
+    await late.warm()
+    expect(await late.controller().offer(LINK)).toBe(false)
+    expect(destroy).toHaveBeenCalled()
+    expect(adopt).not.toHaveBeenCalled()
+    expect(changed).toEqual([])
+    expect(late.linksIn('w1')).toBe(0)
+    expect(version).toHaveBeenCalledTimes(1)
   })
 
   it('PHD-C30 streams frames only while watched and asks the phone for a session', async () => {
@@ -177,6 +210,7 @@ describe('the Screens panel with a phone', () => {
       phone: { request: request as never, ask: ask as never },
       service,
       version: serviceVersion,
+      prepare: async () => {},
       lease: createLeased,
       changed: () => {},
       now: () => Date.now(),

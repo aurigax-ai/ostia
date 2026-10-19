@@ -234,8 +234,11 @@ function failed(code: ScreensErrorCode, message: string): ScreensResult<never> {
   return { ok: false, code, message }
 }
 
-export async function createLeased(req: LeaseRequest): Promise<ScreensResult<LeasedScreen>> {
-  const started = await runScreens<unknown>({ args: ['list'] })
+export async function createLeased(
+  req: LeaseRequest,
+  timeoutMs = DEFAULT_TIMEOUT_MS,
+): Promise<ScreensResult<LeasedScreen>> {
+  const started = await runScreens<unknown>({ args: ['list'], timeoutMs })
   if (!started.ok) return started
   const path = daemonSocketPath()
   try {
@@ -259,7 +262,7 @@ export async function createLeased(req: LeaseRequest): Promise<ScreensResult<Lea
     lease: true,
   }
   socket.write(`${JSON.stringify(request)}\n`)
-  const line = await firstLine(socket, DEFAULT_TIMEOUT_MS)
+  const line = await firstLine(socket, timeoutMs)
   let reply: Record<string, unknown> = {}
   try {
     reply = line === null ? {} : (JSON.parse(line) as Record<string, unknown>)
