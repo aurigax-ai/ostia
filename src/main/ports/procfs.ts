@@ -1,5 +1,3 @@
-import type { ProcEntry } from '../platform/procfs'
-
 export interface ListeningSocket {
   port: number
   inode: string
@@ -35,29 +33,6 @@ export function parseNetTcp(text: string): ListeningSocket[] {
 export function socketInode(link: string): string | null {
   const m = /^socket:\[(\d+)\]$/.exec(link)
   return m ? m[1] : null
-}
-
-export function childrenOf(procs: Iterable<ProcEntry>): Map<number, number[]> {
-  const children = new Map<number, number[]>()
-  for (const p of procs) {
-    const list = children.get(p.ppid)
-    if (list) list.push(p.pid)
-    else children.set(p.ppid, [p.pid])
-  }
-  return children
-}
-
-export function processTree(root: number, children: Map<number, number[]>): number[] {
-  const seen = new Set<number>([root])
-  const queue = [root]
-  for (let i = 0; i < queue.length; i++) {
-    for (const child of children.get(queue[i]) ?? []) {
-      if (seen.has(child)) continue
-      seen.add(child)
-      queue.push(child)
-    }
-  }
-  return queue
 }
 
 const DELETED_SUFFIX = ' (deleted)'
