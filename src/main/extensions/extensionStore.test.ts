@@ -3,7 +3,13 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { ALL_CAPABILITIES } from '@aurigax-ai/ostia-extension-sdk/contract/capabilities'
 import { afterEach, describe, expect, it } from 'vitest'
-import { ExtensionStore, effectiveRecord, grantedCaps, needsApproval } from './extensionStore'
+import {
+  ExtensionStore,
+  effectiveRecord,
+  grantedCaps,
+  kindApproved,
+  needsApproval,
+} from './extensionStore'
 
 describe('grantedCaps', () => {
   it('is the intersection of what the manifest declares and what the human approved', () => {
@@ -39,6 +45,30 @@ describe('needsApproval / effectiveRecord', () => {
   })
 })
 
+describe('kindApproved', () => {
+  const sheet = {
+    id: 'acme.grid',
+    selector: [{ filenamePattern: '*.XLSX' }, { filenamePattern: '*.ods' }],
+  }
+  const claim = 'acme.grid:view:*.ods,*.xlsx'
+
+  it('approves a built-in always, and a user kind only for the exact claim', () => {
+    expect(kindApproved(true, undefined, sheet)).toBe(true)
+    expect(kindApproved(false, undefined, sheet)).toBe(false)
+    expect(kindApproved(false, { enabled: true, approved: [] }, sheet)).toBe(false)
+    expect(
+      kindApproved(false, { enabled: true, approved: [], approvedKinds: [claim] }, sheet),
+    ).toBe(true)
+  })
+
+  it('waits for approval when an update widens the selector or adds a kind', () => {
+    const record = { enabled: true, approved: [], approvedKinds: [claim] }
+    const widened = { ...sheet, selector: [...sheet.selector, { filenamePattern: '*.csv' }] }
+    expect(kindApproved(false, record, widened)).toBe(false)
+    expect(kindApproved(false, record, { ...sheet, id: 'acme.other' })).toBe(false)
+  })
+})
+
 describe('ExtensionStore', () => {
   const dirs: string[] = []
   afterEach(() => {
@@ -63,6 +93,23 @@ describe('ExtensionStore', () => {
       JSON.stringify({ lsp: { enabled: true, approved: [], serversOff: [1, 'ok', null] } }),
     )
     expect(new ExtensionStore(path).get('lsp')?.serversOff).toEqual(['ok'])
+  })
+
+  it('keeps the approved kind claims and drops anything that is not a short string', () => {
+    const path = join(tmp(), 'extensions.json')
+    new ExtensionStore(path).set('demo', {
+      enabled: true,
+      approved: [],
+      approvedKinds: ['demo.grid:view:*.csv'],
+    })
+    expect(new ExtensionStore(path).get('demo')?.approvedKinds).toEqual(['demo.grid:view:*.csv'])
+    writeFileSync(
+      path,
+      JSON.stringify({
+        demo: { enabled: true, approved: [], approvedKinds: [1, 'ok', 'x'.repeat(3000)] },
+      }),
+    )
+    expect(new ExtensionStore(path).get('demo')?.approvedKinds).toEqual(['ok'])
   })
 
   it('persists records and reads them back in a new instance', () => {

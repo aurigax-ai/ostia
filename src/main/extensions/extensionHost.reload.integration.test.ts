@@ -60,14 +60,14 @@ describe('ExtensionHost hot reload of the user extensions directory', () => {
     writeFileSync(join(extDir, 'main.js'), mainJs(commands))
     writeFileSync(
       join(extDir, 'ostia.json'),
-      JSON.stringify({ id, name: id, version: '1.0.0', api: '4.0', main: 'main.js', ...manifest }),
+      JSON.stringify({ id, name: id, version: '1.0.0', api: '5.0', main: 'main.js', ...manifest }),
     )
     return extDir
   }
   const pinger = (capabilities: string[], version = '1.0.0') =>
     writeExtension('pinger', {
       version,
-      api: '4.0',
+      api: '5.0',
       capabilities,
       contributes: { commands: [{ id: 'ping', title: 'Ping' }] },
     })
@@ -236,7 +236,7 @@ describe('ExtensionHost hot reload of the user extensions directory', () => {
         id: 'static',
         name: 'Static',
         version: '1',
-        api: '4.0',
+        api: '5.0',
         contributes: { panel: { title: 'S', entry: 'panel.html' } },
       }),
     )

@@ -19,10 +19,10 @@ import { useUIStore } from '@/stores/app/uiStore'
 import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
 import { useMarketplaceStore } from '@/stores/extensions/marketplaceStore'
 import type { ExtensionInfo } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
+import type { FileKindInfo } from '@aurigax-ai/ostia-extension-sdk/contract/fileKinds'
 import type { Dict } from '@shared/app/dict'
 import { useEffect, useState } from 'react'
 import { ExtensionAgentPlugin } from './ExtensionAgentPlugin'
-import { ExtensionFileViewers } from './ExtensionApprovalDialog'
 import { ExtensionSettingsForm } from './ExtensionSettingsForm'
 import { UninstallExtensionButton, marketplaceName, useMarketplaceList } from './MarketplaceSection'
 import { extensionIcon } from './extensionIcons'
@@ -34,9 +34,17 @@ export interface ExtensionAnchor {
 
 const ANCHOR_HIGHLIGHT_MS = 2000
 
+function unapprovedKinds(ext: ExtensionInfo): FileKindInfo[] {
+  return ext.fileKinds.filter((kind) => !kind.approved)
+}
+
+function awaitsReview(ext: ExtensionInfo): boolean {
+  return ext.unapproved.length > 0 || unapprovedKinds(ext).length > 0
+}
+
 function exceptionLabel(d: Dict, ext: ExtensionInfo): string | null {
   if (ext.status === 'pending-approval') return d.extensions.stateNeedsApproval
-  if (ext.status === 'crashed' || ext.unapproved.length > 0) return d.extensions.stateProblem
+  if (ext.status === 'crashed' || awaitsReview(ext)) return d.extensions.stateProblem
   return null
 }
 
@@ -86,7 +94,8 @@ function Value({ children }: { children: React.ReactNode }): JSX.Element {
 function PermissionRows({ ext }: { ext: ExtensionInfo }): JSX.Element {
   const d = useDict()
   const review = useExtensionsStore((s) => s.review)
-  const needsReview = ext.status === 'pending-approval' || ext.unapproved.length > 0
+  const needsReview = ext.status === 'pending-approval' || awaitsReview(ext)
+  const waiting = [...ext.unapproved, ...unapprovedKinds(ext).map((kind) => kind.displayName)]
   return (
     <>
       <SettingsSubgroup title={d.extensions.permissions} />
@@ -107,8 +116,8 @@ function PermissionRows({ ext }: { ext: ExtensionInfo }): JSX.Element {
           </Badge>
         </ControlRow>
       ))}
-      {ext.unapproved.length > 0 && ext.status !== 'pending-approval' ? (
-        <Notice>{fmt(d.extensions.unapproved, { caps: ext.unapproved.join(', ') })}</Notice>
+      {waiting.length > 0 && ext.status !== 'pending-approval' ? (
+        <Notice>{fmt(d.extensions.unapproved, { caps: waiting.join(', ') })}</Notice>
       ) : null}
       {needsReview ? (
         <ControlRow label={d.extensions.review}>
@@ -167,6 +176,34 @@ function ExtensionSettingsContent({ ext }: { ext: ExtensionInfo }): JSX.Element 
   return <ExtensionSettingsForm ext={ext} bare />
 }
 
+function FileKindRows({ ext }: { ext: ExtensionInfo }): JSX.Element | null {
+  const d = useDict()
+  if (ext.fileKinds.length === 0) return null
+  return (
+    <>
+      <div className="mt-3" />
+      <SettingsSubgroup title={d.extensions.fileKinds} />
+      {ext.fileKinds.map((kind) => (
+        <ControlRow
+          key={kind.id}
+          label={kind.displayName}
+          desc={fmt(
+            kind.view.priority === 'option' ? d.extensions.kindViewOption : d.extensions.kindView,
+            {
+              name: kind.displayName,
+              patterns: kind.selector.map((item) => item.filenamePattern).join(', '),
+            },
+          )}
+        >
+          <Badge variant={kind.approved ? 'outline' : 'secondary'} className="text-ui-xs">
+            {kind.approved ? d.extensions.approved : d.extensions.requested}
+          </Badge>
+        </ControlRow>
+      ))}
+    </>
+  )
+}
+
 function ExtensionDetails({ ext }: { ext: ExtensionInfo }): JSX.Element {
   const d = useDict()
   const source = useSourceLabel(ext)
@@ -189,7 +226,7 @@ function ExtensionDetails({ ext }: { ext: ExtensionInfo }): JSX.Element {
       </ControlRow>
       <div className="mt-3" />
       <PermissionRows ext={ext} />
-      <ExtensionFileViewers ext={ext} />
+      <FileKindRows ext={ext} />
       <ExtensionAgentPlugin ext={ext} explain={false} />
       <ExtensionSettingsArea ext={ext} />
       <UninstallRow ext={ext} />

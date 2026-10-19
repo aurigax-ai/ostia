@@ -8,7 +8,7 @@ import type {
   ExtensionPanelContext,
   ExtensionPanelSource,
 } from '@aurigax-ai/ostia-extension-sdk/contract/extensionsBridge'
-import { viewerMatches } from '@aurigax-ai/ostia-extension-sdk/contract/fileViewers'
+import { type FileKindInfo, kindMatches } from '@aurigax-ai/ostia-extension-sdk/contract/fileKinds'
 import { isInsideDir } from '@aurigax-ai/ostia-extension-sdk/manifest/confinedRead'
 import type { ExtensionHostDeps } from './extensionHostDeps'
 import type { ExtensionProcesses } from './extensionProcesses'
@@ -31,6 +31,7 @@ export interface ExtensionPanelsHost {
   deps: Pick<ExtensionHostDeps, 'requestTimeoutMs'>
   runtimes: ReadonlyMap<string, Runtime>
   active(rt: Runtime): boolean
+  kindApproved(rt: Runtime, kind: Pick<FileKindInfo, 'id' | 'selector'>): boolean
   processes: Pick<ExtensionProcesses, 'connected' | 'start'>
   userCaller(workspaceId: string | null, extra?: Partial<ExtensionCaller>): ExtensionCaller
 }
@@ -100,24 +101,20 @@ export class ExtensionPanels {
     return origin !== null && rt.panelOrigins.has(origin)
   }
 
-  fileViewerSource(
-    extId: string,
-    viewType: string,
-    path: string,
-  ): { dir: string; entry: string } | null {
+  viewSource(extId: string, kindId: string, path: string): { dir: string; entry: string } | null {
     const rt = this.host.runtimes.get(extId)
     if (!rt || !this.host.active(rt)) return null
-    const viewer = rt.ext.manifest.contributes.fileViewers?.find((v) => v.viewType === viewType)
-    if (!viewer || !viewerMatches(path, viewer)) return null
-    return { dir: rt.ext.dir, entry: viewer.entry }
+    const kind = rt.ext.manifest.contributes.fileKinds?.find((k) => k.id === kindId)
+    if (!kind || !kindMatches(path, kind) || !this.host.kindApproved(rt, kind)) return null
+    return { dir: rt.ext.dir, entry: kind.view.entry }
   }
 
-  hasFileViewer(path: string): boolean {
+  hasViewKind(path: string): boolean {
     return [...this.host.runtimes.values()].some(
       (rt) =>
         this.host.active(rt) &&
-        (rt.ext.manifest.contributes.fileViewers ?? []).some((viewer) =>
-          viewerMatches(path, viewer),
+        (rt.ext.manifest.contributes.fileKinds ?? []).some(
+          (kind) => kindMatches(path, kind) && this.host.kindApproved(rt, kind),
         ),
     )
   }

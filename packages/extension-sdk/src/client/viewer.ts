@@ -7,7 +7,7 @@ import {
   VIEWER_PORTABLE_PATH,
   type ViewerDocumentMeta,
   type ViewerPortableTables,
-} from '../contract/fileViewers'
+} from '../contract/fileKinds'
 import { watchScrolling } from '../contract/scrollbar'
 
 if (typeof document !== 'undefined') watchScrolling(document)

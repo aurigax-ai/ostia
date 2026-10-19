@@ -77,7 +77,7 @@ export function ExtensionApprovalDialog(): JSX.Element {
             ))}
           </ul>
         ) : null}
-        {ext ? <ExtensionFileViewers ext={ext} /> : null}
+        {ext ? <ExtensionFileKinds ext={ext} /> : null}
         {ext ? <ExtensionAgentPlugin ext={ext} explain /> : null}
         <DialogFooter>
           <Button
@@ -100,17 +100,20 @@ export function ExtensionApprovalDialog(): JSX.Element {
   )
 }
 
-export function ExtensionFileViewers({ ext }: { ext: ExtensionInfo }): JSX.Element | null {
+function ExtensionFileKinds({ ext }: { ext: ExtensionInfo }): JSX.Element | null {
   const d = useDict()
-  if (ext.fileViewers.length === 0) return null
+  if (ext.fileKinds.length === 0) return null
   return (
-    <ul aria-label={d.extensions.fileViewers} className="flex flex-col gap-1">
-      {ext.fileViewers.map((viewer) => (
-        <li key={viewer.viewType} className="text-fg-muted text-ui-sm">
-          {fmt(d.extensions.opensFiles, {
-            name: viewer.displayName,
-            patterns: viewer.selector.map((item) => item.filenamePattern).join(', '),
-          })}
+    <ul aria-label={d.extensions.fileKinds} className="flex flex-col gap-1">
+      {ext.fileKinds.map((kind) => (
+        <li key={kind.id} className="text-fg-muted text-ui-sm">
+          {fmt(
+            kind.view.priority === 'option' ? d.extensions.kindViewOption : d.extensions.kindView,
+            {
+              name: kind.displayName,
+              patterns: kind.selector.map((item) => item.filenamePattern).join(', '),
+            },
+          )}
         </li>
       ))}
     </ul>

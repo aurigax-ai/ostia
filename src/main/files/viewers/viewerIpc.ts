@@ -33,7 +33,7 @@ export function createViewerHost({
     confine: (path) => sources.of(path).confine(path),
     ownsPane: (windowId, paneId) => getByPaneId(paneId)?.windowId === windowId,
     viewer: (extId, viewType, path) =>
-      extensions()?.panels.fileViewerSource(extId, viewType, path) ?? null,
+      extensions()?.panels.viewSource(extId, viewType, path) ?? null,
     readDocument: async (path): Promise<ViewerRead> => {
       const read = await sources.of(path).readBinary(path, FS_BINARY_MAX)
       if (read.ok) return { ok: true, body: Buffer.from(read.data) }

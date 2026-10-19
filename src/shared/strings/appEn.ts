@@ -66,6 +66,7 @@ export const appEn = {
   },
   languageNotice: {
     disabled: '{name} is installed but turned off. It adds language features for {files} files.',
+    disabledView: '{name} is installed but turned off. It can show {files} files.',
     downloading: 'Downloading {name}… {percent}%',
     fetchFailed: '{name} could not be fetched.',
     install: 'Install',
@@ -80,6 +81,7 @@ export const appEn = {
     programMissing: '{name} cannot start: {program} is not installed.',
     review: 'Review',
     suggest: '{name} adds language features for {files} files.',
+    suggestView: '{name} can show {files} files.',
     toolchainMissing: '{name} cannot start: Go is not installed.',
   },
   native: {
