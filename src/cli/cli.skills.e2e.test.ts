@@ -158,6 +158,7 @@ describe('Skill Workshop gives agents their rules at session start (real CLI, re
       dataDir,
       workDirForWorkspace: () => dir,
       isSandboxed: (workspaceId) => workspaceId === 'sb1',
+      sandboxDomains: () => null,
       broadcast: () => {},
       readExtensionSettings: () => ({}),
       redact: redactor.redact,
