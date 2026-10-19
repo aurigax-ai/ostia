@@ -33,7 +33,7 @@ export interface SerialDeps {
 
 type Target = { device: string; line: LineSettings }
 
-export function parseTarget(
+function parseTarget(
   argv: string[],
   platform: NodeJS.Platform,
   s: Strings,

@@ -1,11 +1,11 @@
 export const DEFAULT_SPEED = 115200
 export const DEFAULT_FRAME = '8N1'
-export const SPEEDS = [
+const SPEEDS = [
   300, 600, 1200, 2400, 4800, 9600, 19200, 38400, 57600, 115200, 230400, 460800, 921600,
 ]
 export const COMMON_SPEEDS = [9600, 19200, 38400, 57600, 115200, 230400, 460800, 921600]
 
-export type Parity = 'none' | 'even' | 'odd'
+type Parity = 'none' | 'even' | 'odd'
 
 export interface Frame {
   dataBits: 5 | 6 | 7 | 8

@@ -30,7 +30,7 @@ export interface BridgeArgs {
   frame?: string
 }
 
-export interface BridgeTerminal {
+interface BridgeTerminal {
   input: NodeJS.ReadableStream & { setRawMode?: (on: boolean) => unknown }
   output: { write: (chunk: string | Uint8Array) => unknown }
 }
@@ -107,7 +107,7 @@ export function bridgeCommand(
   return argv
 }
 
-export function lineText(line: LineSettings): string {
+function lineText(line: LineSettings): string {
   return `${line.speed} ${frameText(line.frame)}`
 }
 
@@ -185,7 +185,7 @@ async function ask<T>(
   }
 }
 
-export async function pickTarget(
+async function pickTarget(
   env: BridgeEnv,
   s: Strings,
 ): Promise<{ device: string; line: LineSettings } | null> {
