@@ -111,7 +111,7 @@ describe('loadLanguagePacks', () => {
         id: 'langpack-zh-hant',
         name: '繁體中文 (Traditional Chinese)',
         version: '1.0.0',
-        api: '5.0',
+        api: '6.0',
         category: 'langpack',
         locales: ['zh-Hant'],
         contributes: { languages: [{ id: 'zh-Hant', label: '繁體中文', path: 'zh-Hant.json' }] },

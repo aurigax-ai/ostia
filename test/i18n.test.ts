@@ -196,7 +196,7 @@ export const page = (name: string) => \`<!doctype html><title>\${name}</title><p
         id: 'pack',
         name: 'Pack',
         version: '1.0.0',
-        api: '5.0',
+        api: '6.0',
         category: 'langpack',
         contributes: {
           languages: [

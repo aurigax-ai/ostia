@@ -2,7 +2,7 @@
   "id": "linked",
   "name": "Linked",
   "version": "0.1.0",
-  "api": "5.0",
+  "api": "6.0",
   "description": "Test fixture: declares an http connection kind and reads its connections",
   "capabilities": [],
   "main": "main.js",

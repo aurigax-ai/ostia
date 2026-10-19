@@ -2,7 +2,7 @@
   "id": "runner",
   "name": "Runner",
   "version": "0.1.0",
-  "api": "5.0",
+  "api": "6.0",
   "description": "Test fixture: runs steps with ext.exec, ext.busSend, ext.wakePane, ext.ask and ext.runAgent",
   "capabilities": [
     "shell",
