@@ -162,4 +162,21 @@ describe('handleDocumentClipboardChord with a modifier remap on macOS', () => {
       uninstall()
     }
   })
+
+  it('copies once for Option remapped to Command even though Option+C types a cedilla', () => {
+    const uninstall = installModifierRemap()
+    try {
+      setActiveModifierRemap({ AltLeft: 'command' })
+      listen(true)
+      const input = document.createElement('input')
+      document.body.append(input)
+      input.focus()
+      press(input, { key: 'Alt', code: 'AltLeft', altKey: true })
+      expect(press(input, { key: 'ç', code: 'KeyC', altKey: true }).defaultPrevented).toBe(true)
+      expect(window.ostia.clipboard.edit).toHaveBeenCalledTimes(1)
+      expect(window.ostia.clipboard.edit).toHaveBeenCalledWith('copy')
+    } finally {
+      uninstall()
+    }
+  })
 })

@@ -44,7 +44,7 @@ function setup(formats: string[] = [], mac = false, uriList = '') {
     isAppWindow: (sender) => sender === app,
     snapshot: async () => ({ formats, uriList }),
     mac,
-    remap: remap.remap,
+    remap,
   })
   return { app, call, edits, remap }
 }
@@ -127,6 +127,29 @@ describe('registerClipboardEdits', () => {
     press(guest, { key: 'Control', code: 'ControlRight', control: true })
     expect(press(guest, { control: true }).preventDefault).toHaveBeenCalled()
     expect(guest.copy).toHaveBeenCalledTimes(1)
+  })
+
+  it('copies for Option remapped to Command on a layout where Option+C types a cedilla', () => {
+    const { app, call, edits, remap } = setup([], true)
+    const guest = fakeContents()
+    edits.guardGuest(guest)
+    call('clipboard:set-chords', app, {
+      copy: parseChord('Cmd+C', true),
+      paste: parseChord('Cmd+V', true),
+    })
+    remap.set({ AltLeft: 'command' })
+    press(guest, { key: 'Alt', code: 'AltLeft', alt: true })
+    expect(press(guest, { key: 'ç', alt: true }).preventDefault).toHaveBeenCalled()
+    expect(guest.copy).toHaveBeenCalledTimes(1)
+  })
+
+  it('forgets the held keys of a guest that is destroyed', () => {
+    const { edits, remap } = setup([], true)
+    const guest = fakeContents()
+    const forget = vi.spyOn(remap, 'forget')
+    edits.guardGuest(guest)
+    guest.emit('destroyed')
+    expect(forget).toHaveBeenCalledTimes(1)
   })
 
   it('ignores chords from a stranger or a payload that would steal a terminal key', () => {

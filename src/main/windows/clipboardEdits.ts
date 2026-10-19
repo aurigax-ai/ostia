@@ -48,7 +48,7 @@ export interface ClipboardEditsDeps {
   isAppWindow: (sender: WebContents) => boolean
   snapshot: () => Promise<ClipboardSnapshot>
   mac: boolean
-  remap: GuestRemap['remap']
+  remap: GuestRemap
 }
 
 export interface ClipboardEdits {
@@ -81,8 +81,9 @@ export function registerClipboardEdits(deps: ClipboardEditsDeps): ClipboardEdits
 
   return {
     guardGuest: (guest) => {
+      guest.once('destroyed', () => deps.remap.forget(guest.id))
       guest.on('before-input-event', (event, raw) => {
-        const edit = guestClipboardEdit(deps.remap(guest.id, raw), chords, deps.mac)
+        const edit = guestClipboardEdit(deps.remap.remap(guest.id, raw), chords, deps.mac)
         if (!edit) return
         event.preventDefault()
         applyClipboardEdit(guest, edit)

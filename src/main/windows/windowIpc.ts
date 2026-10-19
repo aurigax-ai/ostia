@@ -101,7 +101,7 @@ export function registerWindowInputGuards({ services, windows }: WindowInputGuar
       }
     },
     mac: process.platform === 'darwin',
-    remap: remap.remap,
+    remap,
   })
   services.guestChords = registerGuestChords({
     ipc: ipcMain,

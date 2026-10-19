@@ -153,4 +153,24 @@ describe('registerGuestChords', () => {
     expect(event.preventDefault).toHaveBeenCalled()
     expect(host.send).toHaveBeenCalledTimes(1)
   })
+
+  it('matches Cmd+C for Option remapped to Command although Option+C types a cedilla', () => {
+    const { app, host, set, press, remap } = setup(true)
+    set(app, ['Cmd+C'])
+    remap(app, { AltLeft: 'command' })
+    press({ key: 'Alt', code: 'AltLeft', control: false, shift: false, alt: true })
+    const event = press({ key: 'ç', code: 'KeyC', control: false, shift: false, alt: true })
+    expect(event.preventDefault).toHaveBeenCalled()
+    expect(host.send).toHaveBeenCalledWith(GUEST_CHORDS_FIRE, {
+      guestId: 9,
+      key: {
+        key: 'ç',
+        code: 'KeyC',
+        ctrlKey: false,
+        shiftKey: false,
+        altKey: false,
+        metaKey: true,
+      },
+    })
+  })
 })
