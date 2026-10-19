@@ -3,8 +3,6 @@ import { quoteArgv } from '../../shared/terminal/shellQuote'
 
 export type PhoneAgent = 'claude' | 'codex'
 
-export const PHONE_AGENTS: readonly PhoneAgent[] = ['claude', 'codex']
-
 const COMMAND_MAX = 8 * 1024
 
 const SUBCOMMANDS = new Set([
