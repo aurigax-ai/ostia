@@ -88,8 +88,9 @@ async function message(deps: AgentDeps, input: Output, ctx: NodeContext): Promis
     if (sent.error === 'unknown-pane') return { done: { outcome: 'closed' } }
     throw new NodeError('AgentGone', `${sent.error}${sent.message ? `: ${sent.message}` : ''}`)
   }
-  if (input.wait === 'none') return { done: { pane: target, delivered: sent.delivered } }
-  return { waiting: stopWait(target), started: { pane: target, delivered: sent.delivered } }
+  const delivered = sent.state === 'delivered' ? 'waiting' : 'queued'
+  if (input.wait === 'none') return { done: { pane: target, delivered } }
+  return { waiting: stopWait(target), started: { pane: target, delivered } }
 }
 
 function stopOutput(event: Output, started: Output | undefined): Output {

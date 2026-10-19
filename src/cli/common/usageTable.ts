@@ -83,15 +83,31 @@ export const USAGE_TABLE: readonly NounUsage[] = [
       },
       {
         verb: 'send',
-        args: `${PANE} [--enter] [--paste|--raw] [--force] [--] <text…|->`,
+        args: `${PANE} [--enter] [--paste|--raw] [--force] [--json] [--] <text…|->`,
         about: 'type text into a terminal pane (no Enter unless --enter) and confirm it showed',
       },
-      { verb: 'key', args: `${PANE} <key>…`, about: 'press keys in a terminal pane' },
+      { verb: 'key', args: `${PANE} <key>… [--json]`, about: 'press keys in a terminal pane' },
       { verb: 'read', args: `${PANE} [--lines N] [--json]`, about: 'its screen as plain text' },
       {
+        verb: 'status',
+        args: `${PANE}… [--json]`,
+        about:
+          'one line per pane: state, closing line, exit code, git, mail and what changed since you last asked',
+      },
+      {
+        verb: 'transcript',
+        args: `${PANE} [--turns N | --full] [--json]`,
+        about: "the agent's own transcript: by default its last turn, as it was written",
+      },
+      {
         verb: 'wait',
-        args: `${PANE}… [--until done|waiting|idle|exited]… [--timeout <s>] [--json]`,
-        about: 'block until one of those panes stops working',
+        args: `${PANE}… [--until done|waiting|error|idle|exited|command]… [--timeout <s>] [--json]`,
+        about: 'block until one of those panes stops working; prints its status line',
+      },
+      {
+        verb: 'watch',
+        args: `${PANE}… [--until done|waiting|error|command|exited]… | --off`,
+        about: 'get a message in your inbox when one of those panes reaches a state',
       },
       {
         verb: 'wake',
@@ -197,10 +213,22 @@ export const USAGE_TABLE: readonly NounUsage[] = [
     audience: 'agent',
     about: 'messages and handoffs between agents',
     verbs: [
-      { verb: 'send', args: `${PANE} "<msg>"`, about: 'send a message to an agent pane' },
-      { verb: 'inbox', args: '[--drain]', about: 'messages sent to you (JSON)' },
-      { verb: 'sent', args: '[--json]', about: 'messages you sent and whether they were read' },
-      { verb: 'wait', args: '[--timeout <s>]', about: 'block until a message arrives' },
+      {
+        verb: 'send',
+        args: `[--wait <s>] ${PANE} "<msg>"`,
+        about: 'send a message to an agent pane; --wait blocks until it is delivered or fails',
+      },
+      {
+        verb: 'inbox',
+        args: '[--take] [--json]',
+        about: 'messages waiting for you; --take delivers them',
+      },
+      { verb: 'sent', args: '[--json]', about: 'messages you sent and where each one stands' },
+      {
+        verb: 'wait',
+        args: '[--timeout <s>] [--json]',
+        about: 'block until a message arrives; exit 2 timed out',
+      },
       {
         verb: 'handoff',
         args: `${PANE} --task "<task>" --summary "<summary>"`,
@@ -404,6 +432,7 @@ export const USAGE_TABLE: readonly NounUsage[] = [
   },
   { noun: 'resume-token', audience: 'plumbing', needsArgs: true, about: 'agent hook' },
   { noun: 'claude-hook', audience: 'plumbing', needsArgs: true, about: 'agent hook' },
+  { noun: 'codex-server', audience: 'plumbing', needsArgs: true, about: 'codex launcher' },
   { noun: 'permission-hook', audience: 'plumbing', needsArgs: true, about: 'agent hook' },
   { noun: 'agent-hook', audience: 'plumbing', needsArgs: true, about: 'agent hook' },
 ]

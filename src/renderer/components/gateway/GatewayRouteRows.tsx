@@ -1,8 +1,8 @@
 import { Notice } from '@/components/common/Notice'
+import { CommitInput } from '@/components/settingsKit/CommitInput'
 import { ControlRow, ToggleRow } from '@/components/settingsKit/ControlRow'
 import { SelectField } from '@/components/settingsKit/SelectField'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { fmt, useDict } from '@/lib/app/useDict'
 import type { Dict } from '@shared/app/dict'
 import type {
@@ -12,7 +12,7 @@ import type {
   GatewayTailnetState,
 } from '@shared/gateway/gatewayApi'
 import { formatPhoneAddress, parsePhoneAddress } from '@shared/gateway/gatewayRoute'
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import type { GatewayRouteState } from './useGatewayRoute'
 import type { GatewayStatus } from './useGatewayStatus'
 
@@ -47,23 +47,15 @@ function PhoneAddressRow({
 }): JSX.Element {
   const d = useDict()
   const saved = route.phoneAddress ? formatPhoneAddress(route.phoneAddress) : ''
-  const [text, setText] = useState(saved)
   const [invalid, setInvalid] = useState(false)
-  useEffect(() => setText(saved), [saved])
 
-  const commit = (): void => {
+  const commit = (text: string): boolean => {
     const trimmed = text.trim()
-    if (trimmed === saved) {
-      setInvalid(false)
-      return
-    }
     const phoneAddress = trimmed === '' ? null : parsePhoneAddress(trimmed)
-    if (trimmed !== '' && !phoneAddress) {
-      setInvalid(true)
-      return
-    }
-    setInvalid(false)
-    void onSave(phoneAddress)
+    const accepted = trimmed === '' || phoneAddress !== null
+    setInvalid(!accepted)
+    if (accepted && trimmed !== saved) void onSave(phoneAddress)
+    return accepted
   }
 
   return (
@@ -73,19 +65,16 @@ function PhoneAddressRow({
       error={invalid ? d.settings.remotePhoneAddressInvalid : null}
       errorId="remote-phone-address-error"
     >
-      <Input
-        value={text}
+      <CommitInput
+        value={saved}
         spellCheck={false}
         placeholder={d.settings.remotePhoneAddressPlaceholder}
         disabled={disabled}
         aria-label={d.settings.remotePhoneAddress}
         aria-invalid={invalid || undefined}
         aria-describedby={invalid ? 'remote-phone-address-error' : undefined}
-        onChange={(e) => setText(e.target.value)}
-        onBlur={commit}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter') commit()
-        }}
+        onCommit={commit}
+        onCancel={() => setInvalid(false)}
         className="h-7 w-56 font-mono"
       />
     </ControlRow>

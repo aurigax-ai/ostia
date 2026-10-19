@@ -2,7 +2,7 @@
   "id": "limited",
   "name": "Limited",
   "version": "0.1.0",
-  "api": "5.0",
+  "api": "6.0",
   "description": "Test fixture: holds send-other-pane and type-other-pane but not all-workspaces",
   "capabilities": ["send-other-pane", "type-other-pane"],
   "main": "main.js",

@@ -58,7 +58,7 @@ describe('parseFileKinds', () => {
       id: 'office',
       name: 'Office',
       version: '1.0.0',
-      api: '5.0',
+      api: '6.0',
       contributes: {
         fileViewers: [{ viewType: 'office.spreadsheet', entry: 'sheet.html' }],
       },
@@ -72,7 +72,7 @@ describe('parseFileKinds', () => {
       id: 'office',
       name: 'Office',
       version: '1.0.0',
-      api: '5.0',
+      api: '6.0',
       contributes: { fileKinds: [SHEET] },
     }
     const parsed = parseManifest(raw, '/ext/office')

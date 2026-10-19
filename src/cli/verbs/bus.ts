@@ -4,63 +4,105 @@ import {
   agentHookOutput,
 } from '@aurigax-ai/ostia-extension-sdk/contract/agentPlugins'
 import type { MessageConnection } from 'vscode-jsonrpc/node'
-import type { BusDelivery } from '../../shared/agents/busMessages'
+import {
+  type MailPending,
+  type MailReceipt,
+  busInboxText,
+  mailLabel,
+} from '../../shared/agents/busMessages'
 import { parseArgs } from '../common/args'
-import { type ErrResult, describeErrResult, failUsage, failVerb, failWith } from '../common/failure'
+import {
+  type ErrResult,
+  commandLabel,
+  describeErrResult,
+  failUsage,
+  failVerb,
+  failWith,
+} from '../common/failure'
 import { tsvLine } from '../common/lineField'
 
-export const BUS_HOOK_USAGE = `usage: ostia bus hook <${AGENT_HOOK_CONTEXT_EVENTS.join('|')}>`
+export const BUS_HOOK_USAGE = `usage: ostia bus hook <${AGENT_HOOK_CONTEXT_EVENTS.join('|')}|mod-ready|take|ack>`
 
 function isContextEvent(value: unknown): value is AgentHookEvent {
   return AGENT_HOOK_CONTEXT_EVENTS.includes(value as AgentHookEvent)
 }
 
-const BUS_QUEUED_HINT =
-  'queued: the receiver reads it at its next prompt, or the human presses Enter in that pane (ostia bus sent shows when it was seen)'
+const PENDING_HINTS: Record<MailPending, string> = {
+  working: 'working: the agent reads it at its next prompt',
+  'idle-no-wake': 'idle-no-wake: the agent reads it at its next prompt; nothing wakes it',
+  'idle-will-wake': 'idle-will-wake: Ostia starts a turn in the idle agent to read it',
+  draft: 'draft: the human has text in the agent’s prompt; it is read when they send it',
+  'rate-limited': 'rate-limited: too many mail turns lately; it is read at the next prompt',
+  hibernated:
+    'hibernated: Ostia wakes the agent (a few times an hour at most) and it reads the message',
+  'hooks-off':
+    'hooks-off: its Ostia hooks are off, so it reads the message only with ostia bus inbox',
+  'no-agent': 'no-agent: no agent runs in that pane; it reads the message with ostia bus inbox',
+}
 
-const BUS_ASLEEP_HINT =
-  'asleep: the receiver is hibernated; wake it with ostia pane wake <pane> so its agent reads the message'
+const BUS_WAIT_EXIT_TIMEOUT = 2
 
-export function busWaitTimeoutMs(raw: string | undefined): number | undefined {
+export function busSeconds(raw: string | undefined, flag: string): number | undefined {
   if (raw === undefined) return undefined
   const seconds = Number(raw)
   if (raw.trim() === '' || !Number.isFinite(seconds) || seconds <= 0) {
-    throw new Error(`--timeout expects seconds, got '${raw}'`)
+    throw new Error(`${flag} expects seconds, got '${raw}'`)
   }
   return Math.round(seconds * 1000)
 }
 
-interface BusSendOk {
+interface BusSendOk extends MailReceipt {
   ok: true
-  id?: string
-  delivered?: BusDelivery
-  asleep?: true
+  id: string
 }
 
-export interface SentMessage {
+export interface SentMessage extends MailReceipt {
   id: string
   to: string
   preview: string
   ts: string
-  seenAt?: string
+}
+
+export function sendExitCode(res: MailReceipt, waited: boolean): number {
+  if (res.state === 'failed') return 1
+  return waited && res.state !== 'delivered' ? BUS_WAIT_EXIT_TIMEOUT : 0
 }
 
 export interface BusHookIo {
-  context: () => Promise<{ text?: string | null }>
+  context: (event: AgentHookEvent) => Promise<{ text?: string | null; lease?: string }>
+  ack: (lease: string) => Promise<unknown>
+  take: () => Promise<unknown>
+  modReady: (state: string) => Promise<unknown>
   out: (line: string) => void
   err: (line: string) => void
 }
 
+async function modHook(call: () => Promise<unknown>, io: BusHookIo): Promise<number> {
+  try {
+    const res = await call()
+    if (res !== undefined && res !== null) io.out(JSON.stringify(res))
+  } catch {
+    return 0
+  }
+  return 0
+}
+
 export async function runBusHook(args: readonly string[], io: BusHookIo): Promise<number> {
   const [event, ...rest] = args
+  if (event === 'take' && rest.length === 0) return modHook(() => io.take(), io)
+  if (event === 'ack' && rest.length === 1) return modHook(() => io.ack(rest[0]), io)
+  if (event === 'mod-ready' && rest.length >= 1 && rest.length <= 2) {
+    return modHook(() => io.modReady(rest[1] ?? 'idle'), io)
+  }
   if (rest.length > 0 || !isContextEvent(event)) {
     io.err(BUS_HOOK_USAGE)
     return 1
   }
   try {
-    const res = await io.context()
+    const res = await io.context(event)
     const output = agentHookOutput(event, res.text ?? undefined)
     if (output) io.out(output)
+    if (res.lease) await io.ack(res.lease)
   } catch {
     return 0
   }
@@ -68,8 +110,7 @@ export async function runBusHook(args: readonly string[], io: BusHookIo): Promis
 }
 
 function sentLine(message: SentMessage): string {
-  const state = message.seenAt ? `seen ${message.seenAt}` : 'unseen'
-  return tsvLine([message.ts, message.to, state, message.preview])
+  return tsvLine([message.ts, message.to, mailLabel(message), message.preview])
 }
 
 export function sentLines(messages: readonly SentMessage[]): string[] {
@@ -89,13 +130,13 @@ interface BusMessage {
   to: string
   text: string
   ts: string
-  seenAt?: string
+  state: string
 }
 interface BusInboxResult {
   messages: BusMessage[]
+  lease?: string
 }
-interface BusWaitResult {
-  messages: BusMessage[]
+interface BusWaitResult extends BusInboxResult {
   timedOut: boolean
 }
 interface BusHandoff {
@@ -113,10 +154,17 @@ interface BusHandoffsResult {
   handoffs: BusHandoff[]
 }
 
-export function busSendArgs(argv: readonly string[]): { to: string; text: string } | null {
-  const end = argv.indexOf('--')
-  const [to, ...words] = end === -1 ? argv : [...argv.slice(0, end), ...argv.slice(end + 1)]
-  return to && words.length > 0 ? { to, text: words.join(' ') } : null
+export function busSendArgs(
+  argv: readonly string[],
+): { to: string; text: string; wait?: string } | null {
+  const waits = argv[0] === '--wait'
+  const wait = waits ? argv[1] : undefined
+  const args = waits ? argv.slice(2) : argv
+  const end = args.indexOf('--')
+  const [to, ...words] = end === -1 ? args : [...args.slice(0, end), ...args.slice(end + 1)]
+  return to && words.length > 0 && (!waits || wait !== undefined)
+    ? { to, text: words.join(' '), ...(wait === undefined ? {} : { wait }) }
+    : null
 }
 
 export async function runBusVerb(conn: MessageConnection): Promise<void> {
@@ -129,19 +177,27 @@ export async function runBusVerb(conn: MessageConnection): Promise<void> {
       failVerb('missing arguments')
       return
     }
-    const res = await conn.sendRequest<BusSendOk | ErrResult>('bus.send', args)
+    const waitMs = busSeconds(args.wait, '--wait')
+    const res = await conn.sendRequest<BusSendOk | ErrResult>('bus.send', {
+      to: args.to,
+      text: args.text,
+      waitMs,
+    })
     if (res.ok) {
       console.log(JSON.stringify(res))
-      if (res.asleep) console.error(BUS_ASLEEP_HINT)
-      else if (res.delivered === 'queued') console.error(BUS_QUEUED_HINT)
+      if (res.state === 'queued' && res.pending) console.error(PENDING_HINTS[res.pending])
+      process.exitCode = sendExitCode(res, waitMs !== undefined)
     } else {
       failWith(describeErrResult(res))
     }
   } else if (sub === 'inbox') {
-    const { drain } = parseArgs(rawArgs, { booleans: { drain: '--drain' } }).booleans
-    const res = await conn.sendRequest<BusInboxResult | ErrResult>('bus.inbox', { drain })
+    const { take, json } = parseArgs(rawArgs, {
+      booleans: { take: '--take', json: '--json' },
+    }).booleans
+    const res = await conn.sendRequest<BusInboxResult | ErrResult>('bus.inbox', { take })
     if ('messages' in res) {
-      console.log(JSON.stringify(res.messages))
+      console.log(json ? JSON.stringify(res.messages) : busInboxText(res.messages))
+      if (res.lease) await conn.sendRequest('bus.ack', { lease: res.lease })
     } else {
       failWith(describeErrResult(res))
     }
@@ -155,16 +211,27 @@ export async function runBusVerb(conn: MessageConnection): Promise<void> {
     }
   } else if (sub === 'hook') {
     process.exitCode = await runBusHook(rawArgs, {
-      context: () => conn.sendRequest<{ text?: string | null }>('bus.context'),
+      context: (event) =>
+        conn.sendRequest<{ text?: string | null; lease?: string }>('bus.context', { event }),
+      ack: (lease) => conn.sendRequest('bus.ack', { lease }),
+      take: () => conn.sendRequest('bus.take'),
+      modReady: (state) => conn.sendRequest('bus.modReady', { state }),
       out: (line) => console.log(line),
       err: (line) => console.error(line),
     })
   } else if (sub === 'wait') {
-    const { values } = parseArgs(rawArgs, { values: { timeout: '--timeout' } })
-    const timeoutMs = busWaitTimeoutMs(values.timeout)
+    const { values, booleans } = parseArgs(rawArgs, {
+      values: { timeout: '--timeout' },
+      booleans: { json: '--json' },
+    })
+    const timeoutMs = busSeconds(values.timeout, '--timeout')
     const res = await conn.sendRequest<BusWaitResult | ErrResult>('bus.wait', { timeoutMs })
     if ('messages' in res) {
-      console.log(JSON.stringify(res))
+      if (booleans.json) console.log(JSON.stringify(res))
+      else if (res.timedOut) console.error(`${commandLabel()}: timed-out: no message arrived`)
+      else console.log(busInboxText(res.messages))
+      if (res.timedOut) process.exitCode = BUS_WAIT_EXIT_TIMEOUT
+      if (res.lease) await conn.sendRequest('bus.ack', { lease: res.lease })
     } else {
       failWith(describeErrResult(res))
     }
@@ -184,7 +251,7 @@ export async function runBusVerb(conn: MessageConnection): Promise<void> {
     })
     if (res.ok) {
       console.log(JSON.stringify(res))
-      if (res.delivered === 'queued') console.error(BUS_QUEUED_HINT)
+      if (res.state === 'queued' && res.pending) console.error(PENDING_HINTS[res.pending])
     } else {
       failWith(describeErrResult(res))
     }

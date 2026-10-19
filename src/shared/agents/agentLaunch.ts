@@ -289,6 +289,8 @@ function typedFlags(agent: ResumableAgent, argv: readonly string[]): string[] {
   )
 }
 
+export const CODEX_HOOK_ARGS_JSON = 'hook-args.json'
+
 export function capturedArgs(
   agent: ResumableAgent,
   env: Record<string, string | undefined>,

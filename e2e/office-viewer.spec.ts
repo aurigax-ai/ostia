@@ -1,4 +1,4 @@
-import { mkdirSync, writeFileSync } from 'node:fs'
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { type Server, createServer } from 'node:http'
 import type { AddressInfo } from 'node:net'
 import { join } from 'node:path'
@@ -244,6 +244,9 @@ test('presentations and OpenDocument text open as outlines, fetch nothing and sa
         'minutes.odt': odf(ODT_MIMETYPE, {
           body: `<text:h text:outline-level="1">Minutes</text:h><text:p>&lt;img src=x onerror=alert(1)&gt;</text:p><text:p><draw:frame><draw:image xlink:href="${url}/far.png"/></draw:frame></text:p>`,
         }),
+        'notes.doc': new Uint8Array(
+          readFileSync(join(__dirname, '../test/fixtures/office/doc/test01.doc')),
+        ),
         'broken.pptx': new TextEncoder().encode('this is not a presentation'),
         'renamed.pptx': docx({ body: paragraph('a word document') }),
       },
@@ -276,6 +279,13 @@ test('presentations and OpenDocument text open as outlines, fetch nothing and sa
         await expect.poll(() => viewerGuestText(app, doc), { timeout: 20_000 }).toContain('Minutes')
         expect(await viewerGuestText(app, doc)).toContain('<img src=x onerror=alert(1)>')
         expect(await viewerGuestRun(app, doc, 'document.images.length')).toBe(0)
+
+        await openViewer(win, 'notes.doc', DOC)
+        await expect
+          .poll(() => viewerGuestText(app, { viewType: DOC, name: 'notes.doc' }), {
+            timeout: 20_000,
+          })
+          .toContain('A second test of reviewing')
 
         await openViewer(win, 'broken.pptx', SLIDES)
         await expect

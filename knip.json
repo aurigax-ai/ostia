@@ -12,6 +12,7 @@
         "scripts/*.mjs",
         "marketplace/*.mjs",
         "e2e/**/*.{spec,bench}.ts",
+        "test/*.bench.ts",
         "e2e/failed-report/*.ts",
         "test/fixtures/**/*.{mjs,js,ts}"
       ],
@@ -29,10 +30,13 @@
         "@novnc/novnc",
         "@withfig/autocomplete",
         "bash-language-server",
+        "buffer",
         "d3",
+        "events",
         "lucide-react",
         "pyright",
         "recharts",
+        "stream-browserify",
         "typescript-language-server",
         "yaml-language-server"
       ]

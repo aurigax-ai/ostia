@@ -1,3 +1,4 @@
+import { codeEscape, isControl, isHiddenFormat } from '../common/hiddenText'
 import type { PermissionInfo } from './agentPermissions'
 
 export const QUESTION_MAX = 500
@@ -73,17 +74,13 @@ export type QuestionContentResult =
 
 const TAB = 9
 const LF = 10
-const DEL = 127
-
-function isControl(code: number): boolean {
-  return code < 32 || code === DEL || (code >= 0x80 && code <= 0x9f)
-}
 
 function withoutControls(text: string, keepLayout: boolean): string {
   let out = ''
   for (let i = 0; i < text.length; i++) {
     const code = text.charCodeAt(i)
-    if (!isControl(code)) out += text[i]
+    if (isHiddenFormat(code)) out += codeEscape(code)
+    else if (!isControl(code)) out += text[i]
     else if (code === LF || code === TAB) out += keepLayout ? text[i] : ' '
   }
   return out

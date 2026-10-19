@@ -57,7 +57,7 @@ function weather(version: string): Record<string, unknown> {
     id: 'weather',
     name: 'Weather',
     version,
-    api: '5.0',
+    api: '6.0',
     description: 'Shows the weather',
     capabilities: ['notify'],
     main: 'main.js',
@@ -67,7 +67,7 @@ function weather(version: string): Record<string, unknown> {
 const CODE = 'abcdefghijklmnopqrstuvwx23'
 
 function tides(version: string): Record<string, unknown> {
-  return { id: 'tides', name: 'Tides', version, api: '5.0', main: 'main.js' }
+  return { id: 'tides', name: 'Tides', version, api: '6.0', main: 'main.js' }
 }
 
 function repoWithUnlisted(): string {
@@ -575,7 +575,7 @@ describe('Marketplace', () => {
       id: 'gleam',
       name: 'Gleam',
       version: '1.0.0',
-      api: '5.0',
+      api: '6.0',
       capabilities: ['language-server'],
       contributes: {
         languageServers: [

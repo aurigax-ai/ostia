@@ -46,14 +46,16 @@ one. It prints the worker's `paneId`. Workers are ordinary panes with the `ostia
 ## Message workers
 
 ```sh
-ostia bus send <paneId> "message"        # delivered: "waiting" (it was in bus wait) or "queued"
-ostia bus sent [--json]                  # your messages, seen or unseen
-ostia bus inbox [--drain]                # messages to you
-ostia bus wait [--timeout <s>]           # blocks until a new message
+ostia bus send [--wait <s>] <paneId> "message"  # state: "queued" or "delivered"
+ostia bus sent [--json]                  # your messages and where each stands
+ostia bus inbox [--take] [--json]        # messages waiting for you; --take delivers them
+ostia bus wait [--timeout <s>] [--json]  # blocks until a message arrives; exit 2 timed out
 ```
 
-A queued message reaches a claude or codex worker as context at its next prompt; an idle worker
-is not woken. A hibernated worker answers `asleep: true` and gets the message when it wakes.
+A queued message reaches a claude worker as a turn Ostia starts in it once it is idle, and a
+codex worker started by the `codex` command of an Ostia pane the same way (Codex's own app-server
+turn, nothing typed); a codex started any other way reads it as context at its next prompt; `pending` says why it waits and `--wait` blocks
+until it is delivered or failed (exit 0, 1 or 2 if still queued).
 Replies to you also arrive as context at your next prompt.
 
 ## Type into a pane

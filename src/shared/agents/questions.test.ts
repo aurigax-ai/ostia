@@ -49,6 +49,17 @@ describe('normalizeQuestion', () => {
     expect(content({ question: 'q', context: 'one\r\n\ttwo\x00\x9b' }).context).toBe('one\n\ttwo')
   })
 
+  it('shows reordering controls and line separators as escapes, and keeps joiners and marks', () => {
+    const parsed = content({ question: 'ok\u202e?', context: 'a\u2066b\u2028d' })
+    expect(parsed.question).toBe('ok\\u202e?')
+    expect(parsed.context).toBe('a\\u2066b\\u2028d')
+    const kept = 'می\u200cخواهم שלום\u200f 👨\u200d💻 控制'
+    expect(content({ question: kept, context: kept })).toMatchObject({
+      question: kept,
+      context: kept,
+    })
+  })
+
   it('clips a long question and a long context', () => {
     const parsed = content({
       question: 'q'.repeat(QUESTION_MAX + 50),

@@ -1,12 +1,13 @@
 import { ErrorCodes, ResponseError } from 'vscode-jsonrpc/node'
 import type { AttentionState } from '../../shared/attention/attention'
+import type { PaneStatus } from '../../shared/panes/paneStatus'
 import { clampMessage } from '../attention/attention'
 import { registerControlMethod } from '../control/controlServer'
 import type { PaneIdentity } from '../control/idRegistry'
 import type { PaneAttentionPeek } from './paneIo'
 import { type PaneReachDeps, ensurePaneReach, paneTarget, record } from './paneReach'
 
-const PANE_WAIT_STATES = ['done', 'waiting', 'idle', 'exited'] as const
+const PANE_WAIT_STATES = ['done', 'waiting', 'error', 'idle', 'exited', 'command'] as const
 export type PaneWaitState = (typeof PANE_WAIT_STATES)[number]
 const PANE_WAIT_DEFAULT_UNTIL: readonly PaneWaitState[] = ['done', 'waiting', 'exited']
 const PANE_WAIT_MIN_MS = 1000
@@ -31,6 +32,11 @@ type PaneListener = (change: PaneChange) => void
 
 export class PaneWatch {
   private readonly listeners = new Map<string, Set<PaneListener>>()
+  private readonly taps = new Set<(paneId: string, change: PaneChange) => void>()
+
+  tap(listener: (paneId: string, change: PaneChange) => void): void {
+    this.taps.add(listener)
+  }
 
   watch(paneId: string, listener: PaneListener): () => void {
     const set = this.listeners.get(paneId) ?? new Set()
@@ -43,6 +49,7 @@ export class PaneWatch {
   }
 
   emit(paneId: string, change: PaneChange): void {
+    for (const tap of this.taps) tap(paneId, change)
     for (const listener of [...(this.listeners.get(paneId) ?? [])]) listener(change)
   }
 
@@ -67,7 +74,11 @@ export function reachedState(
 ): PaneWaitState | undefined {
   const state = view.attention.state
   const agent: PaneWaitState | undefined =
-    state === 'done' || state === 'waiting' ? state : state === undefined ? 'idle' : undefined
+    state === 'done' || state === 'waiting' || state === 'error'
+      ? state
+      : state === undefined
+        ? 'idle'
+        : undefined
   if (agent && until.includes(agent)) return agent
   if (view.exited && until.includes('exited')) return 'exited'
   return undefined
@@ -94,8 +105,29 @@ export function waitTimeout(raw: unknown): number {
   return Math.min(PANE_WAIT_MAX_MS, Math.max(PANE_WAIT_MIN_MS, raw))
 }
 
+export function commandFinished(
+  base: TerminalProgress | undefined,
+  now: TerminalProgress | undefined,
+): boolean {
+  if (!base || !now || now.running) return false
+  return base.running || now.blockCount > base.blockCount
+}
+
+interface TerminalProgress {
+  running: boolean
+  blockCount: number
+  lastExitCode?: number
+}
+
 type PaneWaitResult =
-  | { reached: true; paneId: string; state: PaneWaitState; message?: string }
+  | {
+      reached: true
+      paneId: string
+      state: PaneWaitState
+      message?: string
+      exitCode?: number
+      status?: PaneStatus
+    }
   | { timedOut: true }
   | { closed: true; paneId: string }
 
@@ -103,6 +135,8 @@ export interface PaneWaitDeps extends PaneReachDeps {
   watch: PaneWatch
   attention: (pane: PaneIdentity) => Promise<PaneAttentionPeek>
   exited: (paneId: string) => boolean
+  terminal: (paneId: string) => TerminalProgress | undefined
+  status: (to: PaneIdentity, callerExternalId: string) => Promise<PaneStatus | undefined>
 }
 
 export function registerPaneWaitMethods(deps: PaneWaitDeps): void {
@@ -126,8 +160,9 @@ export function registerPaneWaitMethods(deps: PaneWaitDeps): void {
         })
       }
 
-      return new Promise<PaneWaitResult>((resolve) => {
+      const result = await new Promise<PaneWaitResult>((resolve) => {
         const known = new Map<string, PaneAttentionPeek>()
+        const baseline = new Map(panes.map(({ to }) => [to.paneId, deps.terminal(to.paneId)]))
         const unwatch: (() => void)[] = []
         let settled = false
         const finish = (result: PaneWaitResult): void => {
@@ -153,7 +188,20 @@ export function registerPaneWaitMethods(deps: PaneWaitDeps): void {
             deps.watch.watch(to.paneId, (change) => {
               if (change.kind === 'closed') finish({ closed: true, paneId: to.externalId })
               else if (change.kind === 'attention') known.set(to.paneId, change.attention)
-              if (change.kind !== 'closed') check(to)
+              if (change.kind === 'closed') return
+              const progress = deps.terminal(to.paneId)
+              if (until.includes('command') && commandFinished(baseline.get(to.paneId), progress)) {
+                finish({
+                  reached: true,
+                  paneId: to.externalId,
+                  state: 'command',
+                  ...(progress?.lastExitCode === undefined
+                    ? {}
+                    : { exitCode: progress.lastExitCode }),
+                })
+                return
+              }
+              check(to)
             }),
           )
         }
@@ -167,6 +215,12 @@ export function registerPaneWaitMethods(deps: PaneWaitDeps): void {
           )
         }
       })
+      if (!('reached' in result)) return result
+      const reachedPane = panes.find(({ to }) => to.externalId === result.paneId)?.to
+      const status = reachedPane
+        ? await deps.status(reachedPane, ctx.identity.externalId)
+        : undefined
+      return status ? { ...result, status } : result
     },
   })
 }

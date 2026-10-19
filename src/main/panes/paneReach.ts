@@ -3,6 +3,7 @@ import { isRecord } from '@aurigax-ai/ostia-extension-sdk/contract/isRecord'
 import { ErrorCodes, ResponseError } from 'vscode-jsonrpc/node'
 import { ensureCaps } from '../approvals/controlElevation'
 import type { Reach } from '../approvals/reach'
+import { connHasCap } from '../control/controlAuth'
 import type { ControlMethodContext } from '../control/controlServer'
 import { type PaneIdentity, getByPaneId, resolveExternal } from '../control/idRegistry'
 import { SANDBOXED_REFUSAL } from '../sandbox/sandboxedCaller'
@@ -15,12 +16,13 @@ export function record(raw: unknown): Record<string, unknown> {
   return isRecord(raw) ? raw : {}
 }
 
-export type PaneReach = 'input' | 'read' | 'close' | 'move'
+export type PaneReach = 'input' | 'read' | 'close' | 'move' | 'message'
 
 export interface ReachFacts {
   caller: { paneId: string; workspaceId: string; sandboxed: boolean }
   target: { paneId: string; workspaceId: string; manager: boolean; confined: boolean }
   ownChild: boolean
+  managedBy: boolean
   sameScope: boolean
 }
 
@@ -31,11 +33,21 @@ const REACH_CAPS: Readonly<Record<PaneReach, Capability>> = {
   read: 'read-other-pane',
   close: 'kill-pane',
   move: 'type-other-pane',
+  message: 'send-other-pane',
+}
+
+function managerReach(kind: PaneReach, facts: ReachFacts): ReachVerdict {
+  if (kind !== 'message') return { allowed: false, error: 'unknown-pane' }
+  if (facts.caller.sandboxed) return { allowed: false, error: 'sandboxed' }
+  return {
+    allowed: true,
+    caps: facts.managedBy ? ['send-other-pane'] : ['send-other-pane', 'all-workspaces'],
+  }
 }
 
 export function paneReach(kind: PaneReach, facts: ReachFacts): ReachVerdict {
   const { caller, target } = facts
-  if (target.manager) return { allowed: false, error: 'unknown-pane' }
+  if (target.manager) return managerReach(kind, facts)
   if (caller.paneId === target.paneId && kind !== 'close') {
     return kind === 'input' ? { allowed: false, error: 'own-pane' } : { allowed: true, caps: [] }
   }
@@ -85,17 +97,16 @@ export async function paneTarget(
   return found
 }
 
-export async function ensurePaneReach(
-  deps: PaneReachDeps,
+async function reachVerdict(
+  deps: Pick<PaneReachDeps, 'inScope' | 'isChild' | 'isSandboxed' | 'isConfined'>,
   kind: PaneReach,
   to: PaneIdentity,
   ctx: ControlMethodContext,
-  ask: { ref: string; method: string; detail: string },
-): Promise<void> {
+): Promise<ReachVerdict> {
   const me = ctx.identity
   const sandboxed = deps.isSandboxed(me.workspaceId)
   const sameScope = !sandboxed && to.manager !== true && (await deps.inScope(ctx, to.workspaceId))
-  const verdict = paneReach(kind, {
+  return paneReach(kind, {
     caller: {
       paneId: me.paneId,
       workspaceId: me.workspaceId,
@@ -108,8 +119,30 @@ export async function ensurePaneReach(
       confined: deps.isConfined(to.paneId),
     },
     ownChild: deps.isChild(me.paneId, to.paneId),
+    managedBy: to.manager === true && deps.isChild(to.paneId, me.paneId),
     sameScope,
   })
+}
+
+export async function holdsPaneReach(
+  deps: Pick<PaneReachDeps, 'inScope' | 'isChild' | 'isSandboxed' | 'isConfined'>,
+  kind: PaneReach,
+  to: PaneIdentity,
+  ctx: ControlMethodContext,
+): Promise<boolean> {
+  const verdict = await reachVerdict(deps, kind, to, ctx)
+  return verdict.allowed && verdict.caps.every((cap) => connHasCap(ctx.authed, cap))
+}
+
+export async function ensurePaneReach(
+  deps: Pick<PaneReachDeps, 'inScope' | 'isChild' | 'isSandboxed' | 'isConfined'>,
+  kind: PaneReach,
+  to: PaneIdentity,
+  ctx: ControlMethodContext,
+  ask: { ref: string; method: string; detail: string },
+): Promise<void> {
+  const me = ctx.identity
+  const verdict = await reachVerdict(deps, kind, to, ctx)
   if (!verdict.allowed) {
     throw fail(
       verdict.error === 'unknown-pane' ? `unknown-pane: ${ask.ref}` : REFUSALS[verdict.error],

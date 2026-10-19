@@ -1,5 +1,6 @@
 import { Notice } from '@/components/common/Notice'
 import { ExtensionConnections } from '@/components/extensions/ExtensionConnections'
+import { CommitInput, NumberInput } from '@/components/settingsKit/CommitInput'
 import { ControlRow } from '@/components/settingsKit/ControlRow'
 import { SelectField } from '@/components/settingsKit/SelectField'
 import { Button } from '@/components/ui/button'
@@ -16,7 +17,7 @@ import type {
   ExtensionSettingValue,
 } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import type { Dict } from '@shared/app/dict'
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 
 export function ExtensionSettingsForm({
   ext,
@@ -212,12 +213,6 @@ function SettingControl({
   return <TextControl title={title} value={value} onSave={onSave} />
 }
 
-function clampToBounds(setting: ExtensionSettingContribution, n: number): number {
-  const low = setting.minimum ?? Number.NEGATIVE_INFINITY
-  const high = setting.maximum ?? Number.POSITIVE_INFINITY
-  return Math.min(high, Math.max(low, n))
-}
-
 function NumberControl({
   setting,
   title,
@@ -229,31 +224,13 @@ function NumberControl({
   value: ExtensionSettingValue
   onSave: (value: unknown) => void
 }): JSX.Element {
-  const [draft, setDraft] = useState(String(value))
-  useEffect(() => setDraft(String(value)), [value])
-  const commit = (): void => {
-    const n = Number(draft)
-    if (!draft.trim() || !Number.isFinite(n)) {
-      setDraft(String(value))
-      return
-    }
-    const next = clampToBounds(setting, n)
-    setDraft(String(next))
-    if (next !== value) onSave(next)
-  }
   return (
-    <Input
-      type="number"
-      inputMode="numeric"
+    <NumberInput
       min={setting.minimum}
       max={setting.maximum}
-      value={draft}
+      value={Number(value)}
       aria-label={title}
-      onChange={(e) => setDraft(e.target.value)}
-      onBlur={commit}
-      onKeyDown={(e) => {
-        if (e.key === 'Enter') commit()
-      }}
+      onCommit={onSave}
       className="h-7 w-24 font-mono"
     />
   )
@@ -268,21 +245,12 @@ function TextControl({
   value: ExtensionSettingValue
   onSave: (value: unknown) => void
 }): JSX.Element {
-  const [draft, setDraft] = useState(String(value))
-  useEffect(() => setDraft(String(value)), [value])
-  const commit = (): void => {
-    if (draft !== String(value)) onSave(draft)
-  }
   return (
-    <Input
-      value={draft}
+    <CommitInput
+      value={String(value)}
       spellCheck={false}
       aria-label={title}
-      onChange={(e) => setDraft(e.target.value)}
-      onBlur={commit}
-      onKeyDown={(e) => {
-        if (e.key === 'Enter') commit()
-      }}
+      onCommit={onSave}
       className="h-7 w-56 font-mono text-ui-sm"
     />
   )

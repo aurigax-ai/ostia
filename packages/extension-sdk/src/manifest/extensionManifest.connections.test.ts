@@ -21,7 +21,7 @@ function withConnections(connections: unknown) {
       id: 'demo',
       name: 'Demo',
       version: '1.0.0',
-      api: '5.0',
+      api: '6.0',
       main: 'main.js',
       contributes: { connections },
     },
@@ -46,7 +46,7 @@ describe('contributes.connections', () => {
         secrets: [{ key: 'secret', title: 'Token', description: 'Sent as the bearer token' }],
       },
     ])
-    const none = parseManifest({ id: 'demo', name: 'Demo', version: '1.0.0', api: '5.0' }, DIR)
+    const none = parseManifest({ id: 'demo', name: 'Demo', version: '1.0.0', api: '6.0' }, DIR)
     expect(none.ok && none.manifest.contributes.connections).toBeUndefined()
   })
 
@@ -137,7 +137,7 @@ describe('contributes.connections', () => {
         id: 'demo',
         name: 'Demo',
         version: '1.0.0',
-        api: '5.0',
+        api: '6.0',
         main: 'main.js',
         contributes: { connections: [HTTP], settingsPage: { title: 'Demo' } },
       },

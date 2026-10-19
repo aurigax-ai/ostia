@@ -2,7 +2,13 @@ import { Notice } from '@/components/common/Notice'
 import { TextLink } from '@/components/common/TextLink'
 import { DiscreteGpuRow } from '@/components/settings/DiscreteGpuRow'
 import { RequirementsNoteView, useRequirements } from '@/components/settings/RequirementsNote'
-import { ControlRow, ExperimentalBadge, ToggleRow } from '@/components/settingsKit/ControlRow'
+import { NumberInput } from '@/components/settingsKit/CommitInput'
+import {
+  ControlRow,
+  ExperimentalBadge,
+  NumberRow,
+  ToggleRow,
+} from '@/components/settingsKit/ControlRow'
 import { SelectField } from '@/components/settingsKit/SelectField'
 import { SettingsGroup } from '@/components/settingsKit/SettingsGroup'
 import { SettingsPage } from '@/components/settingsKit/SettingsPage'
@@ -34,7 +40,6 @@ import {
   SCROLLBACK_HISTORY_MAX_MIB,
   SCROLLBACK_HISTORY_MIN_MIB,
 } from '@shared/terminal/scrollbackHistory'
-import { useEffect, useState } from 'react'
 
 export function TerminalSection(): JSX.Element {
   const d = useDict()
@@ -194,7 +199,7 @@ function TerminalScrollingGroup(): JSX.Element {
         checked={wheelSmoothScroll}
         onChange={(v) => setBehavior({ wheelSmoothScroll: v })}
       />
-      <StepNumberRow
+      <NumberRow
         label={d.settings.scrollSpeed}
         desc={d.settings.scrollSpeedDesc}
         value={scrollSpeed}
@@ -203,7 +208,7 @@ function TerminalScrollingGroup(): JSX.Element {
         step={0.1}
         onCommit={(v) => setTerminal({ scrollSpeed: v })}
       />
-      <StepNumberRow
+      <NumberRow
         label={d.settings.scrollbackLines}
         desc={d.settings.scrollbackLinesDesc}
         value={scrollbackLines}
@@ -269,7 +274,7 @@ function TerminalColorsGroup(): JSX.Element {
   const setTerminal = useSettingsStore((s) => s.setTerminal)
   return (
     <SettingsGroup title={d.settings.groupColors}>
-      <StepNumberRow
+      <NumberRow
         label={d.settings.minimumContrast}
         desc={d.settings.minimumContrastDesc}
         value={minimumContrast}
@@ -370,8 +375,6 @@ function HistoryOnDiskRow(): JSX.Element {
   const value = useSettingsStore((s) => s.terminal.scrollbackHistory)
   const setTerminal = useSettingsStore((s) => s.setTerminal)
   const mode = typeof value === 'number' ? 'limit' : value
-  const [draft, setDraft] = useState(typeof value === 'number' ? String(value) : '')
-  useEffect(() => setDraft(typeof value === 'number' ? String(value) : ''), [value])
   return (
     <ControlRow label={d.settings.scrollbackHistory} desc={d.settings.scrollbackHistoryDesc}>
       <div className="flex items-center gap-2">
@@ -391,70 +394,18 @@ function HistoryOnDiskRow(): JSX.Element {
           ]}
         />
         {typeof value === 'number' ? (
-          <Input
-            type="number"
+          <NumberInput
             min={SCROLLBACK_HISTORY_MIN_MIB}
             max={SCROLLBACK_HISTORY_MAX_MIB}
             step={256}
-            value={draft}
+            value={value}
             aria-label={d.settings.scrollbackHistoryMib}
             title={d.settings.scrollbackHistoryMib}
-            onChange={(e) => {
-              setDraft(e.target.value)
-              const n = Number(e.target.value)
-              if (
-                Number.isFinite(n) &&
-                n >= SCROLLBACK_HISTORY_MIN_MIB &&
-                n <= SCROLLBACK_HISTORY_MAX_MIB
-              ) {
-                setTerminal({ scrollbackHistory: n })
-              }
-            }}
-            onBlur={() => setDraft(String(value))}
+            onCommit={(n) => setTerminal({ scrollbackHistory: n })}
             className="h-7 w-24 font-mono"
           />
         ) : null}
       </div>
-    </ControlRow>
-  )
-}
-
-function StepNumberRow({
-  label,
-  desc,
-  value,
-  min,
-  max,
-  step,
-  onCommit,
-}: {
-  label: string
-  desc: string
-  value: number
-  min: number
-  max: number
-  step: number
-  onCommit: (v: number) => void
-}): JSX.Element {
-  const [draft, setDraft] = useState(String(value))
-  useEffect(() => setDraft(String(value)), [value])
-  return (
-    <ControlRow label={label} desc={desc}>
-      <Input
-        type="number"
-        min={min}
-        max={max}
-        step={step}
-        value={draft}
-        aria-label={label}
-        onChange={(e) => {
-          setDraft(e.target.value)
-          const n = e.target.value.trim() === '' ? Number.NaN : Number(e.target.value)
-          if (Number.isFinite(n) && n >= min && n <= max) onCommit(n)
-        }}
-        onBlur={() => setDraft(String(value))}
-        className="h-7 w-24 font-mono"
-      />
     </ControlRow>
   )
 }

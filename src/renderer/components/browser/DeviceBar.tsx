@@ -1,5 +1,5 @@
 import { IconButton } from '@/components/common/IconButton'
-import { Input } from '@/components/ui/input'
+import { NumberInput } from '@/components/settingsKit/CommitInput'
 import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/ui/select'
 import { fmt, useDict } from '@/lib/app/useDict'
 import { DeviceRotateIcon } from '@phosphor-icons/react'
@@ -8,13 +8,11 @@ import {
   DEVICE_DPRS,
   type DeviceZoom,
   RESPONSIVE,
-  clampDeviceSize,
   resized,
   rotated,
   withPreset,
 } from '@shared/browser/browserDevice'
 import { DEVICE_PRESETS } from '@shared/browser/devicePresets'
-import { type KeyboardEvent, useEffect, useState } from 'react'
 
 function SizeInput({
   value,
@@ -27,31 +25,13 @@ function SizeInput({
   disabled: boolean
   onCommit: (size: number) => void
 }): JSX.Element {
-  const [text, setText] = useState(String(value))
-  useEffect(() => setText(String(value)), [value])
-  const commit = (): void => {
-    const size = Number(text)
-    if (text.trim() === '' || !Number.isFinite(size)) {
-      setText(String(value))
-      return
-    }
-    setText(String(clampDeviceSize(size)))
-    onCommit(size)
-  }
-  const onKeyDown = (e: KeyboardEvent<HTMLInputElement>): void => {
-    if (e.key === 'Enter') commit()
-  }
   return (
-    <Input
-      type="number"
-      inputMode="numeric"
+    <NumberInput
       aria-label={label}
       className="h-6 w-16 font-mono text-ui-sm md:text-ui-sm"
-      value={text}
+      value={value}
       disabled={disabled}
-      onChange={(e) => setText(e.target.value)}
-      onBlur={commit}
-      onKeyDown={onKeyDown}
+      onCommit={onCommit}
     />
   )
 }
