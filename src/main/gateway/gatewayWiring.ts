@@ -79,7 +79,6 @@ interface GatewayStartDeps {
   artifactFolders: ArtifactFolders
   primaryWindowId: WindowSend['primaryWindowId']
   attachPhoneObserver: PtyIo['attachPhoneObserver']
-  ptyResize: PtyIo['ptyResize']
   ptyWrite: PtyIo['ptyWrite']
   askHub: AskHub
   agentRunning: AgentRunningPanes
@@ -128,7 +127,6 @@ export function startGateway({
   artifactFolders,
   primaryWindowId,
   attachPhoneObserver,
-  ptyResize,
   ptyWrite,
   askHub,
   agentRunning,
@@ -207,7 +205,6 @@ export function startGateway({
     listWorkspaceGroups: () => listWorkspaceGroups({ execCommand, windowIds }),
     primaryWindowId,
     attachPhoneObserver,
-    ptyResize,
     ptyWrite,
     readScreen: async (paneId) =>
       (await ptys.get(paneId)?.mirror.screenText(phoneScreenLines)) ?? '',

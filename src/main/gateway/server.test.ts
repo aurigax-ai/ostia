@@ -125,6 +125,7 @@ function screenFrame(header: Record<string, unknown>, jpeg: Buffer): Buffer {
   length.writeUInt32BE(head.length)
   return Buffer.concat([Buffer.from([0x10]), length, head, jpeg])
 }
+const phoneResize = vi.fn()
 const deps = {
   execCommand: vi.fn().mockResolvedValue({ ok: true, result: null }),
   listCommandsFor: vi.fn().mockReturnValue([
@@ -155,9 +156,9 @@ const deps = {
     dropped: false,
     cols: 80,
     rows: 24,
+    resize: phoneResize,
     detach: vi.fn(),
   })),
-  ptyResize: vi.fn(),
   ptyWrite: vi.fn(),
   readScreen: vi.fn().mockResolvedValue(''),
   withClipboardImage: vi.fn().mockResolvedValue(true),
@@ -346,7 +347,7 @@ describe('gateway server over a real WebSocket', () => {
     c.ws.send(binary(0x03, JSON.stringify({ cols: 120, rows: 40 })))
     await c.call('whoami')
     expect(deps.ptyWrite).not.toHaveBeenCalled()
-    expect(deps.ptyResize).not.toHaveBeenCalled()
+    expect(phoneResize).not.toHaveBeenCalled()
   })
 
   it('writes input and resizes the pty once the desktop grants input', async () => {
@@ -370,8 +371,31 @@ describe('gateway server over a real WebSocket', () => {
     await c.call('whoami')
 
     expect(deps.ptyWrite).toHaveBeenCalledWith('p1', 'ls\r')
-    expect(deps.ptyResize).toHaveBeenCalledTimes(1)
-    expect(deps.ptyResize).toHaveBeenCalledWith('p1', 120, 40)
+    expect(phoneResize).toHaveBeenCalledTimes(1)
+    expect(phoneResize).toHaveBeenCalledWith(120, 40)
+  })
+
+  it('puts the phone size back on the pty when the phone types after the desktop took the pane', async () => {
+    const { deviceId, token } = registerDevice({ name: 'Phone', pubkey: 'pk' })
+    gatewaySetCap({ deviceId, cap: 'input', granted: true })
+    const c = await connect(token)
+    await c.call('pty.attach', { paneId: externalPaneId, role: 'owner' })
+
+    c.ws.send(binary(0x02, 'a'))
+    await c.call('whoami')
+    expect(phoneResize).not.toHaveBeenCalled()
+
+    c.ws.send(binary(0x03, JSON.stringify({ cols: 44, rows: 20 })))
+    c.ws.send(binary(0x02, 'b'))
+    await c.call('whoami')
+
+    expect(phoneResize.mock.calls).toEqual([
+      [44, 20],
+      [44, 20],
+    ])
+    expect(vi.mocked(deps.ptyWrite).mock.invocationCallOrder[1]).toBeGreaterThan(
+      phoneResize.mock.invocationCallOrder[1],
+    )
   })
 
   it('never lets the input cap run command.exec', async () => {

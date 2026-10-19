@@ -19,6 +19,8 @@ const LINK_METHODS: ReadonlySet<unknown> = new Set(['ask.list', 'ask.answer'])
 interface PtyAttachment {
   rendererPaneId: string
   canWrite: boolean
+  size: { cols: number; rows: number } | null
+  resize: (cols: number, rows: number) => void
   detach: () => void
 }
 
@@ -234,6 +236,8 @@ function handlePtyAttach(
   state.ptyAttachment = {
     rendererPaneId: identity.paneId,
     canWrite: role === 'owner',
+    size: null,
+    resize: attached.resize,
     detach: attached.detach,
   }
   ws.send(
@@ -314,12 +318,14 @@ function handleBinaryFrame(
       return
     }
     if (type === FRAME_PTY_INPUT) {
+      if (attachment.size) attachment.resize(attachment.size.cols, attachment.size.rows)
       controlDeps.ptyWrite(attachment.rendererPaneId, payload.toString('utf8'))
       return
     }
     const resize = parseResize(payload)
     if (!resize || !resizeTargetsAttachment(resize.paneId, attachment)) return
-    controlDeps.ptyResize(attachment.rendererPaneId, resize.cols, resize.rows)
+    attachment.size = { cols: resize.cols, rows: resize.rows }
+    attachment.resize(resize.cols, resize.rows)
   }
 }
 

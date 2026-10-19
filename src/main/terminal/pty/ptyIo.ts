@@ -2,26 +2,7 @@ import type { MirrorHandle, MirrorSink } from '../../manager/portal'
 import { type PaneIo, pastedText } from '../../panes/paneIo'
 import type { SubscriberRole } from '../ptySession'
 import type { PtyEntry } from './ptyRegistry'
-
-export function resizePty(entry: PtyEntry | undefined, cols: number, rows: number): void {
-  if (!entry) return
-  const c = cols || 80
-  const r = rows || 24
-  try {
-    entry.pty.resize(c, r)
-  } catch {
-    return
-  }
-  entry.mirror.resize(c, r)
-}
-
-function resizeForAll(paneId: string, entry: PtyEntry, cols: number, rows: number): void {
-  if (entry.pty.cols === cols && entry.pty.rows === rows) return
-  resizePty(entry, cols, rows)
-  for (const wc of entry.subs.values()) {
-    if (!wc.isDestroyed()) wc.send(`pty:size:${paneId}`, cols, rows)
-  }
-}
+import { phoneOwnerAttached, phoneOwnerDetached, resizeForAll, resizeFromPhone } from './ptySize'
 
 interface PtyIoDeps {
   ptys: Map<string, PtyEntry>
@@ -84,11 +65,6 @@ export function createPtyIo({ ptys }: PtyIoDeps) {
     }
   }
 
-  function ptyResize(rendererPaneId: string, cols: number, rows: number): void {
-    const entry = ptys.get(rendererPaneId)
-    if (entry) resizeForAll(rendererPaneId, entry, cols, rows)
-  }
-
   function ptyWrite(rendererPaneId: string, data: string): void {
     ptys.get(rendererPaneId)?.pty.write(data)
   }
@@ -102,21 +78,38 @@ export function createPtyIo({ ptys }: PtyIoDeps) {
       role?: 'observer' | 'owner'
       sendData: (data: string) => void
     },
-  ): { cursor: number; dropped: boolean; cols: number; rows: number; detach: () => void } | null {
+  ): {
+    cursor: number
+    dropped: boolean
+    cols: number
+    rows: number
+    resize: (cols: number, rows: number) => void
+    detach: () => void
+  } | null {
     const entry = ptys.get(rendererPaneId)
     if (!entry) return null
     const id = `gw-${++gwSubSeq}`
     const role: SubscriberRole = opts.role === 'owner' ? 'owner' : 'observer'
+    if (role === 'owner') phoneOwnerAttached(entry)
     const { cursor, dropped } = entry.session.addSubscriber(
       { id, role, send: (data) => opts.sendData(data) },
       opts.sinceCursor ?? 0,
     )
+    let detached = false
     return {
       cursor,
       dropped,
       cols: entry.pty.cols,
       rows: entry.pty.rows,
-      detach: () => entry.session.removeSubscriber(id),
+      resize: (cols, rows) => {
+        if (role === 'owner' && !detached) resizeFromPhone(rendererPaneId, entry, id, cols, rows)
+      },
+      detach: () => {
+        if (detached) return
+        detached = true
+        entry.session.removeSubscriber(id)
+        if (role === 'owner') phoneOwnerDetached(rendererPaneId, entry, id)
+      },
     }
   }
   return {
@@ -124,7 +117,6 @@ export function createPtyIo({ ptys }: PtyIoDeps) {
     releasePtyFlow,
     hidePtyFlow,
     attachMirror,
-    ptyResize,
     ptyWrite,
     attachPhoneObserver,
   }

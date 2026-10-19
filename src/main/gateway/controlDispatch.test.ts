@@ -64,7 +64,6 @@ function fakeDeps(overrides: Partial<GatewayControlDeps> = {}): GatewayControlDe
     listWorkspaceGroups: vi.fn().mockResolvedValue([]),
     primaryWindowId: vi.fn().mockReturnValue('w1'),
     attachPhoneObserver: vi.fn().mockReturnValue(null),
-    ptyResize: vi.fn(),
     ptyWrite: vi.fn(),
     readScreen: vi.fn().mockResolvedValue(''),
     withClipboardImage: vi.fn(async (_bytes: Buffer, paste: () => Promise<boolean>) => paste()),
