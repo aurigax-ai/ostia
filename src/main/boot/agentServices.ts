@@ -10,6 +10,7 @@ import { emitPlatformEvent } from '../control/events'
 import { type PaneIdentity, getByPaneId } from '../control/idRegistry'
 import { PaneAttentionEvents } from '../extensions/paneAttentionEvents'
 import { PaneLifecycleEvents } from '../extensions/paneLifecycleEvents'
+import { PaneJournal } from '../panes/paneJournal'
 import { PaneWatch } from '../panes/paneWait'
 import { PaneWaking } from '../panes/paneWaking'
 import type { SavedAttention } from '../tmux/attentionFile'
@@ -17,7 +18,7 @@ import { KeptAttention } from '../tmux/keptAttention'
 import type { WorkspaceContext } from './workspaceServices'
 
 export function createAgentServices(ctx: WorkspaceContext) {
-  const { emitPaneEvent, execCommand, mainStrings, services } = ctx
+  const { emitPaneEvent, execCommand, mainStrings, services, terminalState } = ctx
 
   const agentChanges = new ChangeSignal()
   const startedAgents = new Set<string>()
@@ -43,6 +44,11 @@ export function createAgentServices(ctx: WorkspaceContext) {
     })
   }
   const paneWatch = new PaneWatch()
+  const paneJournal = new PaneJournal({
+    terminal: (paneId) => terminalState.get(paneId),
+    now: Date.now,
+  })
+  paneWatch.tap(paneJournal.onChange)
   const paneAttentionEvents = new PaneAttentionEvents({
     identity: getByPaneId,
     emit: (payload) => emitPaneEvent('pane.attention', payload),
@@ -66,6 +72,7 @@ export function createAgentServices(ctx: WorkspaceContext) {
     keptAttention,
     restoreKeptAttention,
     paneWatch,
+    paneJournal,
     paneAttentionEvents,
     paneLifecycleEvents,
     paneWaking,

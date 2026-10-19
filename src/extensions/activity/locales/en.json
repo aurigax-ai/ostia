@@ -66,8 +66,8 @@
     "stream.bus.message": "{from} sent a message to {to}",
     "stream.bus.task": "{from} handed a task to {to}",
     "stream.phase.queued": "not read yet",
-    "stream.phase.waiting": "handed to a waiting pane",
-    "stream.phase.seen": "read",
+    "stream.phase.delivered": "read by the agent",
+    "stream.phase.failed": "not delivered",
     "stream.rootFolder": "the workspace folder"
   }
 }

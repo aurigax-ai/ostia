@@ -28,7 +28,7 @@ vi.mock('electron', () => ({
 const dataHome = mkdtempSync(join(tmpdir(), 'ostia-graph-api-'))
 process.env.XDG_DATA_HOME = dataHome
 
-const { registerBusMethods } = await import('../agents/bus')
+const { registerBusMethods } = await import('../agents/busMethods')
 const { questions, registerExtensionQuestions, registerQuestions } = await import(
   '../approvals/questions'
 )
@@ -107,8 +107,15 @@ describe('the extension API a graph host needs', () => {
     registerExtensionMethods(() => host)
     registerBusMethods({
       managerSendAllowed: () => true,
+      agentBusy: () => false,
       announce: () => {},
-      hibernated: async () => false,
+      pending: async () => 'idle-no-wake',
+      reach: {
+        inScope: async () => true,
+        isChild: () => false,
+        isSandboxed: () => false,
+        isConfined: () => false,
+      },
     })
     registerQuestions({ opened: () => {}, settled: () => {} })
     registerExtensionQuestions({
@@ -169,7 +176,7 @@ describe('the extension API a graph host needs', () => {
       await call('runner', 'ext.busSend', { to: target.externalId, text: 'checks passed' }),
     ).toMatchObject({
       ok: true,
-      delivered: 'waiting',
+      state: 'delivered',
     })
     const got = await waiting
     expect(got.messages.map((m) => [m.text, m.from])).toEqual([['checks passed', 'runner']])
@@ -178,7 +185,7 @@ describe('the extension API a graph host needs', () => {
       await call('runner', 'ext.busSend', { to: target.externalId, text: 'later' }),
     ).toMatchObject({
       ok: true,
-      delivered: 'queued',
+      state: 'queued',
     })
   })
 

@@ -88,7 +88,7 @@ export function fakeExt(): FakeExt {
       },
       busSend: async (to, text) => {
         fake.busSent.push({ to, text })
-        return { ok: true, id: 'm1', delivered: 'waiting' }
+        return { ok: true, id: 'm1', state: 'delivered' }
       },
       wakePane: async (paneId) => {
         fake.woken.push(paneId)

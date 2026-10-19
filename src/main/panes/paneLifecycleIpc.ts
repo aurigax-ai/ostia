@@ -7,6 +7,10 @@ import { type BrowserWindow, ipcMain } from 'electron'
 import type { LifecycleEvent } from '../../shared/attention/attention'
 import type { CommandDescriptor } from '../../shared/control/commands'
 import type { TerminalStateSnapshot } from '../../shared/terminal/ptyApi'
+import { dropWatchesOf, failPaneMail } from '../agents/busStore'
+import { forgetCodexSocket } from '../agents/codexSockets'
+import { forgetMailFlag } from '../agents/mailFlag'
+import { mailers } from '../agents/mailers'
 import { approvals } from '../approvals/approvals'
 import { dropIdentity } from '../approvals/capabilityStore'
 import { questions } from '../approvals/questions'
@@ -29,6 +33,7 @@ import { dropRestoredScrollback } from '../workspaces/savedScrollback'
 import type { ScratchFolders } from '../workspaces/scratchFolders'
 import type { WorkspaceLifecycle } from '../workspaces/workspaceLifecycle'
 import { setWorkspaceWorkDir } from '../workspaces/workspaceRegistry'
+import type { PaneJournal } from './paneJournal'
 import type { PaneWatch } from './paneWait'
 import type { PaneWaking } from './paneWaking'
 import type { ProcessRegistry } from './processRegistry'
@@ -57,6 +62,7 @@ interface PaneLifecycleIpcDeps {
   paneWaking: PaneWaking
   paneStartErrors: Map<string, string>
   paneWatch: PaneWatch
+  paneJournal: PaneJournal
   scratchFolders: ScratchFolders
   workspaceClosed: WorkspaceLifecycle['workspaceClosed']
   keptShells: KeptShellsWiring['keptShells']
@@ -82,6 +88,7 @@ export function registerPaneLifecycleIpc({
   paneWaking,
   paneStartErrors,
   paneWatch,
+  paneJournal,
   scratchFolders,
   workspaceClosed,
   keptShells,
@@ -113,6 +120,12 @@ export function registerPaneLifecycleIpc({
         approvals()?.forget(identity.externalId)
         questions()?.forget(identity.externalId)
         services.updateRunner?.paneClosed(identity.externalId)
+        failPaneMail(identity.externalId)
+        dropWatchesOf(identity.externalId)
+        mailers.clear(identity.externalId)
+        forgetMailFlag(identity.externalId)
+        forgetCodexSocket(identity.externalId)
+        paneJournal.forget(identity.paneId, identity.externalId)
         emitPaneEvent('pane.closed', {
           paneId: identity.externalId,
           workspaceId: event.workspaceId,

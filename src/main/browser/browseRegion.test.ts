@@ -15,11 +15,11 @@ vi.mock('./browseGuests', async (importOriginal) => ({
   ...(await importOriginal<typeof import('./browseGuests')>()),
   ownedGuest: vi.fn(),
 }))
-vi.mock('../agents/bus', () => ({ postBusMessage: vi.fn(() => 'msg-1') }))
+vi.mock('../agents/busStore', () => ({ postBusMessage: vi.fn(() => 'msg-1') }))
 
 const { clipboard, ipcMain } = await import('electron')
 const { ownedGuest } = await import('./browseGuests')
-const { postBusMessage } = await import('../agents/bus')
+const { postBusMessage } = await import('../agents/busStore')
 const { captureRegion, copyRegionImage, registerRegionIpc, writeRegionReport } = await import(
   './browseRegion'
 )

@@ -1,4 +1,5 @@
 import { Hint } from '@/components/common/Hint'
+import { MailCount } from '@/components/common/MailCount'
 import { Badge } from '@/components/ui/badge'
 import { fmt, useDict } from '@/lib/app/useDict'
 import { aggregateWorkspaceState, latestWaitingAt, unreadCount } from '@/lib/attention/attention'
@@ -119,6 +120,11 @@ export function GroupUnreadDot({ workspaceIds }: { workspaceIds: string[] }): JS
   return <span className="unread-dot" role="img" aria-label={fmt(d.rail.unread, { n })} />
 }
 
+function WorkspaceMail({ workspaceId }: { workspaceId: string }): JSX.Element | null {
+  const root = useLayoutStore((s) => s.byWorkspace[workspaceId]?.root)
+  return root ? <MailCount paneIds={paneIds(root)} /> : null
+}
+
 export function WorkspaceBadges({
   workspace: w,
   sandboxed,
@@ -132,6 +138,7 @@ export function WorkspaceBadges({
   return (
     <>
       {w.kind === 'scratch' ? <ScratchBadge /> : null}
+      <WorkspaceMail workspaceId={w.id} />
       {w.pinned ? (
         <PushPinSimpleIcon size={16} className="tab-pin" aria-label={d.rail.pinned} />
       ) : null}

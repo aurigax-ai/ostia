@@ -39,6 +39,14 @@ describe('attention reported while the app cannot be reached', () => {
     expect(readFileSync(`${tokenFile}.state`, 'utf8')).toBe('')
   })
 
+  it('does not take the Codex --stop flag for a message', async () => {
+    const tokenFile = join(root, 'codex-stop-token')
+    const env = { OSTIA_TOKEN_FILE: tokenFile }
+    const stop = JSON.stringify({ session_id: 's-1', last_assistant_message: 'done' })
+    expect(await saveAttentionOffline(['state', 'done', '--stop'], stdin(stop), env)).toBe(true)
+    expect(JSON.parse(readFileSync(`${tokenFile}.state`, 'utf8'))).toEqual({ state: 'done' })
+  })
+
   it('leaves the file alone when a hook has nothing to report, and handles nothing else', async () => {
     const tokenFile = join(root, 'quiet-token')
     writeFileSync(`${tokenFile}.state`, '{"state":"working"}')
