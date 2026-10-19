@@ -48,9 +48,8 @@ export function sniffCompression(head: Uint8Array): Compression | null {
   return isBzip2(head) ? 'bzip2' : null
 }
 
-class Budget extends Transform {
+export class Counted extends Transform {
   private total = 0
-  private first = true
 
   constructor(private readonly limit: number) {
     super()
@@ -61,6 +60,23 @@ class Budget extends Transform {
     _encoding: BufferEncoding,
     done: (error?: Error | null, data?: Buffer) => void,
   ): void {
+    this.total += chunk.length
+    if (this.total > this.limit) {
+      done(new InflateLimit('decompressed output over the limit'))
+      return
+    }
+    done(null, chunk)
+  }
+}
+
+class Budget extends Counted {
+  private first = true
+
+  override _transform(
+    chunk: Buffer,
+    encoding: BufferEncoding,
+    done: (error?: Error | null, data?: Buffer) => void,
+  ): void {
     if (this.first) {
       this.first = false
       if (isCompressed(chunk)) {
@@ -68,12 +84,7 @@ class Budget extends Transform {
         return
       }
     }
-    this.total += chunk.length
-    if (this.total > this.limit) {
-      done(new InflateLimit('decompressed output over the limit'))
-      return
-    }
-    done(null, chunk)
+    super._transform(chunk, encoding, done)
   }
 }
 
