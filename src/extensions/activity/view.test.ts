@@ -1,6 +1,15 @@
 import { describe, expect, it } from 'vitest'
 import type { ActivityEvent, ActivityHost, ActivityNote } from './hookEvent'
-import { EARLIER_TURNS_MAX, actionCategory, actionCounts, ageOf, panelModel, turnsOf } from './view'
+import {
+  EARLIER_TURNS_MAX,
+  actionCategory,
+  actionCounts,
+  ageOf,
+  groupKey,
+  liveKeys,
+  panelModel,
+  turnsOf,
+} from './view'
 
 let clock = 0
 
@@ -81,12 +90,16 @@ describe('panelModel', () => {
     events: (id: string) => journals[id] ?? [],
   }
 
-  it('shows the agents of the one workspace it is given, most recent first, with state, latest recap and turns', () => {
+  it('shows the agents of the one workspace it is given, in the order they first appeared, with state, latest recap and turns', () => {
     const model = panelModel(sources)
     expect(model.showActivity).toBe(true)
     expect(model.workspace?.agents.map((a) => a.paneId)).toEqual(['claude-pane', 'codex-pane'])
     const claude = model.workspace?.agents[0]
-    expect(claude).toMatchObject({ agent: 'claude', state: 'working', recap: 'Cart fixed.' })
+    expect(claude).toMatchObject({
+      label: { agent: 'claude', n: 1 },
+      state: 'working',
+      recap: 'Cart fixed.',
+    })
     expect(claude?.current.prompt).toBe('now the footer')
     expect(claude?.current.recap).toBeUndefined()
     expect(claude?.earlier.map((t) => [t.prompt, t.recap])).toEqual([
@@ -108,13 +121,35 @@ describe('panelModel', () => {
   it('invents nothing: no recap before a stop, no state Ostia did not report, no row without events', () => {
     const model = panelModel(sources)
     const codex = model.workspace?.agents[1]
-    expect(codex?.agent).toBe('codex')
+    expect(codex?.label.agent).toBe('codex')
     expect(codex && 'recap' in codex).toBe(false)
     expect(codex && 'state' in codex).toBe(false)
     expect(codex?.earlier).toEqual([])
     const shown = model.workspace?.agents.map((a) => a.paneId) ?? []
     expect(shown).not.toContain('idle-pane')
     expect(shown).not.toContain('closed-pane')
+  })
+
+  it('keeps the order of the agents when an older one gets a new event', () => {
+    const records = [
+      ev('first', 'prompt', 'a'),
+      ev('second', 'prompt', 'b'),
+      ev('third', 'prompt', 'c'),
+    ]
+    const order = (extra: ActivityEvent[]) =>
+      panelModel({
+        showActivity: true,
+        workspace: { workspaceId: 'w', name: 'w' },
+        panes: [{ paneId: 'first' }, { paneId: 'second' }, { paneId: 'third' }],
+        events: () => [...records, ...extra],
+      }).workspace?.agents.map((a) => a.paneId)
+    expect(order([])).toEqual(['first', 'second', 'third'])
+    expect(order([ev('first', 'tool', 'pnpm test')])).toEqual(['first', 'second', 'third'])
+    expect(order([ev('second', 'tool', 'ls'), ev('first', 'tool', 'pwd')])).toEqual([
+      'first',
+      'second',
+      'third',
+    ])
   })
 
   it('carries the toggle and caps the earlier turns it sends', () => {
@@ -270,7 +305,7 @@ describe('panelModel notes', () => {
     const model = panelModel({
       showActivity: false,
       workspace: { workspaceId: 'w1', name: 'shop' },
-      panes: [],
+      panes: [{ paneId: 'p1' }],
       events: () => [
         note(1, 'olderopenn', { needsYou: true }),
         note(2, 'plainnotea'),
@@ -279,12 +314,135 @@ describe('panelModel notes', () => {
       ],
     })
     expect(model.workspace?.agents).toEqual([])
+    const shared = { pane: 'p1', label: { n: 1 }, open: true }
     expect(model.workspace?.notes).toEqual([
-      { id: 'neweropenn', t: 5, text: 'neweropenn', needsYou: true, done: false, link: '/w/a.md' },
-      { id: 'olderopenn', t: 1, text: 'olderopenn', needsYou: true, done: false },
-      { id: 'donedonedo', t: 3, text: 'donedonedo', needsYou: true, done: true },
-      { id: 'plainnotea', t: 2, text: 'plainnotea', needsYou: false, done: false },
+      {
+        id: 'neweropenn',
+        t: 5,
+        text: 'neweropenn',
+        needsYou: true,
+        done: false,
+        link: '/w/a.md',
+        ...shared,
+      },
+      { id: 'olderopenn', t: 1, text: 'olderopenn', needsYou: true, done: false, ...shared },
+      { id: 'donedonedo', t: 3, text: 'donedonedo', needsYou: true, done: true, ...shared },
+      { id: 'plainnotea', t: 2, text: 'plainnotea', needsYou: false, done: false, ...shared },
     ])
+  })
+
+  it('carries the pane of a note so it can be shown, and says whether that pane is still open', () => {
+    const model = panelModel({
+      showActivity: false,
+      workspace: { workspaceId: 'w1', name: 'shop' },
+      panes: [{ paneId: 'live', title: 'Fix upload' }],
+      events: () => [
+        note(1, 'liveliveli', { pane: 'live', needsYou: true }),
+        note(2, 'gonegonego', { pane: 'gone', needsYou: true }),
+      ],
+    })
+    expect(model.workspace?.notes.map((n) => [n.id, n.pane, n.open, n.label.title])).toEqual([
+      ['gonegonego', 'gone', false, undefined],
+      ['liveliveli', 'live', true, 'Fix upload'],
+    ])
+  })
+})
+
+describe('pane labels', () => {
+  const labels = (panes: { paneId: string; title?: string }[], records: ActivityEvent[]) => {
+    const workspace = panelModel({
+      showActivity: true,
+      workspace: { workspaceId: 'w', name: 'w' },
+      panes,
+      events: () => records,
+    }).workspace
+    return workspace?.agents.map((a) => a.label)
+  }
+
+  it('uses the tab title of each pane', () => {
+    expect(
+      labels(
+        [
+          { paneId: 'a', title: 'Fix flaky upload test' },
+          { paneId: 'b', title: 'Write docs' },
+        ],
+        [ev('a', 'prompt', 'x'), ev('b', 'prompt', 'y')],
+      ),
+    ).toEqual([
+      { agent: 'claude', title: 'Fix flaky upload test', n: 1 },
+      { agent: 'claude', title: 'Write docs', n: 1 },
+    ])
+  })
+
+  it('numbers panes that share a title in the order they first appeared', () => {
+    const records = [ev('b', 'prompt', 'x'), ev('a', 'prompt', 'y'), ev('c', 'prompt', 'z')]
+    expect(
+      labels(
+        [
+          { paneId: 'a', title: 'claude' },
+          { paneId: 'b', title: 'claude' },
+          { paneId: 'c', title: 'other' },
+        ],
+        records,
+      )?.map((l) => [l.title, l.n]),
+    ).toEqual([
+      ['claude', 1],
+      ['claude', 2],
+      ['other', 1],
+    ])
+  })
+
+  it('falls back to the agent and its number when the title is empty, counting titled peers', () => {
+    expect(
+      labels(
+        [
+          { paneId: 'a', title: 'Fix flaky upload test' },
+          { paneId: 'b', title: '  ' },
+          { paneId: 'c' },
+        ],
+        [ev('a', 'prompt', 'x'), ev('b', 'prompt', 'y'), ev('c', 'prompt', 'z')],
+      ),
+    ).toEqual([
+      { agent: 'claude', title: 'Fix flaky upload test', n: 1 },
+      { agent: 'claude', n: 2 },
+      { agent: 'claude', n: 3 },
+    ])
+  })
+
+  it('breaks a tie between panes first seen at the same moment by pane id', () => {
+    const at = (pane: string) => ev(pane, 'prompt', 'x', { t: 5 })
+    expect(labels([{ paneId: 'b' }, { paneId: 'a' }], [at('b'), at('a')])?.map((l) => l.n)).toEqual(
+      [2, 1],
+    )
+  })
+})
+
+describe('liveKeys', () => {
+  it('names the panes, notes and turn groups the model still shows', () => {
+    const first = ev('p', 'prompt', 'one')
+    const second = ev('p', 'prompt', 'two')
+    const workspace = panelModel({
+      showActivity: true,
+      workspace: { workspaceId: 'w', name: 'w' },
+      panes: [{ paneId: 'p' }],
+      events: () => [
+        first,
+        second,
+        {
+          v: 2,
+          t: 1,
+          id: 'noteidaaaa',
+          pane: 'p',
+          kind: 'note',
+          text: 'n',
+        },
+      ],
+    }).workspace
+    const live = liveKeys(workspace)
+    expect([...live.panes]).toEqual(['p'])
+    expect([...live.notes]).toEqual(['noteidaaaa'])
+    expect(live.groups).toEqual(new Set([groupKey('p', first.t), groupKey('p', second.t)]))
+    expect(liveKeys(null).panes.size).toBe(0)
   })
 })
 

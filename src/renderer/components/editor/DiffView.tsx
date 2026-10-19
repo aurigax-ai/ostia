@@ -1,28 +1,46 @@
+import { commands } from '@/commands/registry'
 import { ATTENTION_ALERT } from '@/components/agents/attentionStyles'
 import { Hint } from '@/components/common/Hint'
 import { IconButton } from '@/components/common/IconButton'
 import { Alert } from '@/components/ui/alert'
 import { useDict } from '@/lib/app/useDict'
+import { useElementSize } from '@/lib/app/useElementSize'
 import { registerEditorPosition } from '@/lib/files/editorPositions'
+import { isInlineDiff } from '@/lib/monaco/diffLayout'
 import { editorInput } from '@/lib/monaco/editorInput'
 import { langFor } from '@/lib/monaco/language'
 import { EDITOR_SCROLLBAR } from '@/lib/monaco/scrollbarOptions'
 import { monaco } from '@/lib/monaco/setup'
 import { ensureMonacoTheme } from '@/lib/monaco/useMonacoTheme'
 import { useSurfaceFocus } from '@/lib/panes/paneFocus'
+import type { DiffLayout } from '@/lib/settings/browserEditorSettings'
 import { codeFontStack } from '@/lib/theme/uiFonts'
 import { cn } from '@/lib/utils'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useDiffStore } from '@/stores/files/diffStore'
+import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { DIFF_TEXT_MAX } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
-import { ArrowSquareOutIcon, ColumnsIcon, RowsIcon } from '@phosphor-icons/react'
-import { useEffect, useRef, useState } from 'react'
+import {
+  ArrowSquareOutIcon,
+  CaretDoubleDownIcon,
+  CaretDoubleUpIcon,
+  CaretDownIcon,
+  CaretUpIcon,
+  ColumnsIcon,
+  FileTextIcon,
+  ParagraphIcon,
+  RowsIcon,
+} from '@phosphor-icons/react'
+import { useEffect, useRef } from 'react'
 import { useExternalEditorAction } from './useEditorView'
 
 const DIFF_COMPUTATION_MS = 2000
 const MB = 1024 * 1024
 
-export function DiffView({ paneId }: { paneId: string }): JSX.Element {
+export function DiffView({
+  workspaceId,
+  paneId,
+}: { workspaceId: string; paneId: string }): JSX.Element {
   const d = useDict()
   const content = useDiffStore((s) => s.byPane[paneId])
   const font = useSettingsStore((s) => s.appearance.editor)
@@ -31,21 +49,26 @@ export function DiffView({ paneId }: { paneId: string }): JSX.Element {
   useSurfaceFocus(paneId, () => editorInput(diffRef.current?.getModifiedEditor()))
   const pathRef = useRef(content?.path)
   pathRef.current = content?.path
-  const [inline, setInline] = useState(
-    () => useSettingsStore.getState().editor.diffLayout === 'inline',
-  )
+  const layout = useSettingsStore((s) => s.editor.diffLayout)
+  const ignoreWhitespace = useSettingsStore((s) => s.editor.diffIgnoreWhitespace)
+  const bodyRef = useRef<HTMLDivElement>(null)
+  const { width } = useElementSize(bodyRef)
+  const inline = isInlineDiff(layout, width)
   const external = useExternalEditorAction(paneId)
 
   useEffect(() => {
     const host = hostRef.current
     if (!host) return
     const initial = useSettingsStore.getState().appearance.editor
+    const initialIgnoreWhitespace = useSettingsStore.getState().editor.diffIgnoreWhitespace
     ensureMonacoTheme()
     const diff = monaco.editor.createDiffEditor(host, {
       automaticLayout: true,
       readOnly: true,
       originalEditable: false,
       renderSideBySide: true,
+      useInlineViewWhenSpaceIsLimited: false,
+      ignoreTrimWhitespace: initialIgnoreWhitespace,
       hideUnchangedRegions: { enabled: true },
       maxComputationTime: DIFF_COMPUTATION_MS,
       maxFileSize: DIFF_TEXT_MAX / MB,
@@ -91,12 +114,19 @@ export function DiffView({ paneId }: { paneId: string }): JSX.Element {
   }, [inline])
 
   useEffect(() => {
+    diffRef.current?.updateOptions({ ignoreTrimWhitespace: ignoreWhitespace })
+  }, [ignoreWhitespace])
+
+  useEffect(() => {
     diffRef.current?.updateOptions({
       fontFamily: codeFontStack(font.family),
       fontSize: font.size,
       fontWeight: String(font.weight),
     })
   }, [font.family, font.size, font.weight])
+
+  const choose = (next: DiffLayout): void =>
+    useSettingsStore.getState().setEditor({ diffLayout: next })
 
   return (
     <div className="diff-surface">
@@ -109,19 +139,68 @@ export function DiffView({ paneId }: { paneId: string }): JSX.Element {
           <span className="diff-title">{content?.title ?? ''}</span>
         )}
         <IconButton
-          icon={inline ? ColumnsIcon : RowsIcon}
-          label={inline ? d.diff.sideBySide : d.diff.inline}
-          onClick={() => setInline((v) => !v)}
+          icon={CaretUpIcon}
+          label={d.diff.previousChange}
+          onClick={() => diffRef.current?.goToDiff('previous')}
         />
-        {content?.path ? (
+        <IconButton
+          icon={CaretDownIcon}
+          label={d.diff.nextChange}
+          onClick={() => diffRef.current?.goToDiff('next')}
+        />
+        {content?.area ? (
+          <>
+            <IconButton
+              icon={CaretDoubleUpIcon}
+              label={d.diff.previousFile}
+              onClick={() => void commands.exec('git.openPreviousChange', { paneId })}
+            />
+            <IconButton
+              icon={CaretDoubleDownIcon}
+              label={d.diff.nextFile}
+              onClick={() => void commands.exec('git.openNextChange', { paneId })}
+            />
+          </>
+        ) : null}
+        <IconButton
+          icon={ParagraphIcon}
+          label={d.diff.ignoreWhitespace}
+          aria-pressed={ignoreWhitespace}
+          onClick={() =>
+            useSettingsStore.getState().setEditor({ diffIgnoreWhitespace: !ignoreWhitespace })
+          }
+        />
+        {/* biome-ignore lint/a11y/useSemanticElements: a toolbar group of two toggles, not a form fieldset */}
+        <div className="segmented" role="group" aria-label={d.editorSettings.diffLayout}>
           <IconButton
-            icon={ArrowSquareOutIcon}
-            label={d.fileMenu.openExternal}
-            onClick={external.open}
+            icon={ColumnsIcon}
+            label={d.diff.sideBySide}
+            aria-pressed={!inline}
+            onClick={() => choose('sideBySide')}
           />
+          <IconButton
+            icon={RowsIcon}
+            label={d.diff.inline}
+            aria-pressed={inline}
+            onClick={() => choose('inline')}
+          />
+        </div>
+        {content?.path ? (
+          <>
+            <IconButton
+              icon={FileTextIcon}
+              label={d.diff.openFile}
+              onClick={() => useLayoutStore.getState().openFile(workspaceId, content.path ?? '')}
+            />
+            <IconButton
+              icon={ArrowSquareOutIcon}
+              label={d.fileMenu.openExternal}
+              onClick={external.open}
+            />
+          </>
         ) : null}
       </div>
-      <div className="diff-body">
+      <div className="diff-body" ref={bodyRef}>
         <div
           ref={hostRef}
           className="editor-host"

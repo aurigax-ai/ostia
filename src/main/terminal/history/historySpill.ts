@@ -30,6 +30,13 @@ interface PendingMark {
   command: string | null
 }
 
+function setsBlankStyle(params: (number | number[])[]): boolean {
+  return params.some((param) => {
+    const code = Array.isArray(param) ? (param[0] ?? 0) : param
+    return code === 7 || (code >= 40 && code <= 49) || (code >= 100 && code <= 107)
+  })
+}
+
 function firstParam(params: (number | number[])[]): number {
   const first = params[0]
   return Array.isArray(first) ? (first[0] ?? 0) : (first ?? 0)
@@ -38,6 +45,7 @@ function firstParam(params: (number | number[])[]): number {
 export class HistorySpill {
   private frontier: IMarker | undefined
   private held = false
+  private blankStyles = false
   private finished = false
   private marks: PendingMark[] = []
   private seq: number
@@ -65,6 +73,10 @@ export class HistorySpill {
           this.command = decodeCommandLine(data.slice(2).split(';')[0] ?? '')
         return false
       }),
+      term.parser.registerCsiHandler({ final: 'm' }, (params) => {
+        if (!this.blankStyles && setsBlankStyle(params)) this.blankStyles = true
+        return false
+      }),
       term.parser.registerCsiHandler({ final: 'J' }, (params) => {
         if (firstParam(params) === 3) this.wipe()
         return false
@@ -89,7 +101,9 @@ export class HistorySpill {
     if (this.held || this.finished || !frontier || frontier.isDisposed) return []
     const buffer = this.buffers.normal
     const last = this.lastContentRow()
-    return last < frontier.line ? [] : serializeLogicalLines(buffer, frontier.line, last)
+    return last < frontier.line
+      ? []
+      : serializeLogicalLines(buffer, frontier.line, last, this.blankStyles)
   }
 
   get seqEnd(): number {
@@ -190,7 +204,7 @@ export class HistorySpill {
     if (!whole) while (last >= from && buffer.getLine(last + 1)?.isWrapped) last--
     if (last < from) return
     const firstLine = this.history.end
-    const lines = serializeLogicalLines(buffer, from, last)
+    const lines = serializeLogicalLines(buffer, from, last, this.blankStyles)
     this.history.append(lines)
     this.recordMarks(from, last, firstLine)
     this.frontier?.dispose()

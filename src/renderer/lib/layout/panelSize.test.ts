@@ -1,14 +1,14 @@
 import { beforeEach, describe, expect, it } from 'vitest'
-import { setPaneChat, setPaneExtension, setPaneView } from './paneFields'
+import { setPaneChat, setPaneView } from './paneFields'
 import { clampFraction, panelFractions, panelKey, setSizes, sizePanel } from './panelSize'
 import { createPane, resetIds, splitOf, splitPane } from './tree'
 import type { LayoutNode, PaneNode, SplitNode } from './types'
 
 beforeEach(() => resetIds())
 
-function extensionPane(extensionId: string): PaneNode {
-  const pane = createPane('extension')
-  return setPaneExtension(pane, pane.id, extensionId, 'Panel') as PaneNode
+function viewPane(name: string): PaneNode {
+  const pane = createPane('view')
+  return setPaneView(pane, pane.id, name, 'Panel') as PaneNode
 }
 
 function sizesOf(root: LayoutNode): number[] {
@@ -16,11 +16,10 @@ function sizesOf(root: LayoutNode): number[] {
 }
 
 describe('panelKey', () => {
-  it('names an extension panel, a view and the chat pane by what they show', () => {
+  it('names a view and the chat pane by what they show', () => {
     const view = createPane('view')
     const chat = createPane('chat')
 
-    expect(panelKey(extensionPane('assistant'))).toBe('extension:assistant')
     expect(panelKey(setPaneView(view, view.id, 'deploys', 'Deploys') as PaneNode)).toBe(
       'view:deploys',
     )
@@ -50,30 +49,26 @@ describe('clampFraction', () => {
 
 describe('panelFractions', () => {
   it('reports the panel share of its split from the dragged sizes', () => {
-    const split = splitOf('horizontal', createPane(), extensionPane('assistant'))
+    const split = splitOf('horizontal', createPane(), viewPane('deploys'))
 
-    expect(panelFractions(split, [900, 300])).toEqual([
-      { key: 'extension:assistant', fraction: 0.25 },
-    ])
+    expect(panelFractions(split, [900, 300])).toEqual([{ key: 'view:deploys', fraction: 0.25 }])
   })
 
   it('ignores panels inside nested splits and panes without a key', () => {
-    const nested = splitOf('vertical', extensionPane('git'), createPane())
+    const nested = splitOf('vertical', viewPane('deploys'), createPane())
     const split = splitOf('horizontal', createPane(), nested)
 
     expect(panelFractions(split, [600, 600])).toEqual([])
   })
 
   it('clamps a panel dragged almost shut', () => {
-    const split = splitOf('horizontal', createPane(), extensionPane('assistant'))
+    const split = splitOf('horizontal', createPane(), viewPane('deploys'))
 
-    expect(panelFractions(split, [990, 10])).toEqual([
-      { key: 'extension:assistant', fraction: 0.15 },
-    ])
+    expect(panelFractions(split, [990, 10])).toEqual([{ key: 'view:deploys', fraction: 0.15 }])
   })
 
   it('reports nothing when the sizes do not match the children', () => {
-    const split = splitOf('horizontal', createPane(), extensionPane('assistant'))
+    const split = splitOf('horizontal', createPane(), viewPane('deploys'))
 
     expect(panelFractions(split, [1000])).toEqual([])
   })
@@ -92,7 +87,7 @@ describe('sizePanel', () => {
   it('takes the room from the pane it was split from, leaving other children alone', () => {
     const a = createPane()
     const b = createPane()
-    const panel = extensionPane('assistant')
+    const panel = viewPane('deploys')
     const root: SplitNode = { ...splitOf('horizontal', a, b, panel), sizes: [400, 400, 400] }
     const next = sizePanel(root, panel.id, 0.25)
 
@@ -102,7 +97,7 @@ describe('sizePanel', () => {
   it('never lets the panel crowd out the pane beside it', () => {
     const a = createPane()
     const b = createPane()
-    const panel = extensionPane('assistant')
+    const panel = viewPane('deploys')
     const root: SplitNode = { ...splitOf('horizontal', a, b, panel), sizes: [800, 200, 200] }
     const next = sizePanel(root, panel.id, 0.85)
 
@@ -119,14 +114,14 @@ describe('sizePanel', () => {
 
   it('returns the same root when the size already matches', () => {
     const a = createPane()
-    const panel = extensionPane('assistant')
+    const panel = viewPane('deploys')
     const root: SplitNode = { ...splitOf('horizontal', a, panel), sizes: [700, 300] }
 
     expect(sizePanel(root, panel.id, 0.3)).toBe(root)
   })
 
   it('reaches a panel inside a nested split', () => {
-    const panel = extensionPane('assistant')
+    const panel = viewPane('deploys')
     const inner: SplitNode = { ...splitOf('horizontal', createPane(), panel), sizes: [1, 1] }
     const root = splitOf('vertical', createPane(), inner)
     const next = sizePanel(root, panel.id, 0.2) as SplitNode

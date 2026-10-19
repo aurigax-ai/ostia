@@ -6,7 +6,7 @@ import {
   useWorkspaceEditorFile,
 } from '@/lib/assist/askContext'
 import { useLiveSelectionStore } from '@/stores/terminal/liveSelectionStore'
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 
 interface ChatContextParams {
   workspaceId: string | null
@@ -18,15 +18,18 @@ export function useChatContext({ workspaceId, labels }: ChatContextParams) {
   const [enabled, setEnabled] = useState<ReadonlySet<AskContextKind>>(
     () => new Set<AskContextKind>(options.cwd ? ['cwd', 'editor'] : ['editor']),
   )
+  const [seenText, setSeenText] = useState<string | undefined>(undefined)
   const editorFile = useWorkspaceEditorFile(workspaceId)
   const liveSelection = useLiveSelectionStore((s) =>
     workspaceId ? s.byWorkspace[workspaceId] : undefined,
   )
   const selectedText = liveSelection?.text
-  useEffect(() => {
-    if (!selectedText) return
-    setEnabled((prev) => (prev.has('selection') ? prev : new Set([...prev, 'selection'])))
-  }, [selectedText])
+  if (selectedText !== seenText) {
+    setSeenText(selectedText)
+    if (selectedText && !enabled.has('selection')) {
+      setEnabled(new Set([...enabled, 'selection']))
+    }
+  }
 
   const toggle = (kind: AskContextKind): void =>
     setEnabled((prev) => {

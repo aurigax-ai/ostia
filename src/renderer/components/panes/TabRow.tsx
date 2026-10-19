@@ -1,4 +1,3 @@
-import { commands } from '@/commands/registry'
 import { Hint } from '@/components/common/Hint'
 import { Button } from '@/components/ui/button'
 import {
@@ -15,7 +14,6 @@ import { allPanes, firstPaneId } from '@/lib/layout/tree'
 import type { PaneNode, SplitNode, TabNode } from '@/lib/layout/types'
 import { type HiddenTabs, hiddenTabs, revealScroll } from '@/lib/panes/tabRow'
 import { useAttentionStore } from '@/stores/agents/attentionStore'
-import { focusSurface } from '@/stores/workspaces/surfaceSlotsStore'
 import { CaretDownIcon } from '@phosphor-icons/react'
 import {
   type ReactNode,
@@ -26,7 +24,7 @@ import {
   useRef,
   useState,
 } from 'react'
-import { SplitTabGlyph } from './SplitTab'
+import { SplitTabGlyph, focusPane } from './SplitTab'
 import { TabFace, usePaneMark } from './TabFace'
 
 const NOTHING_HIDDEN: HiddenTabs = { start: [], end: [] }
@@ -187,9 +185,7 @@ export function TabRow({
           tabs={tabs}
           shownTabId={shownTabId}
           onPick={(tab) => {
-            const paneId = firstPaneId(tab)
-            void commands.exec('pane.focus', { paneId })
-            requestAnimationFrame(() => focusSurface(paneId))
+            focusPane(firstPaneId(tab))
             if (rowRef.current) reveal(rowRef.current, tab.id)
           }}
         />

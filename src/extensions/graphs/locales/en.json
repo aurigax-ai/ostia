@@ -1,8 +1,5 @@
 {
   "messages": {
-    "title": "Graphs",
-    "runsWhileOpen": "Graphs run while Ostia is open.",
-    "runsAsDaemon": "The Graph Runtime runs as a daemon, so graphs also run while Ostia is closed.",
     "runtime.connecting": "Connecting to the Graph Runtime…",
     "runtime.otherContract": "Graph Runtime {version} is running and this Ostia cannot talk to it. Ostia does not stop it. Stop or update it to use Graphs.",
     "runtime.unreachable": "The Graph Runtime did not respond: {message}",
@@ -83,11 +80,8 @@
     "def.secretInput": "The input of {node} looks like a secret. Keep secrets in a connection in Settings, never in the graph file.",
     "row.filesRefused": "Its files trigger is off: this folder has more than 5000 folders to watch outside .git, node_modules and ignored paths.",
     "row.skipped": "Skipped {count} times since Ostia started: a run was still active, or a limit was reached",
-    "empty.folder.title": "No graphs",
-    "empty.folder.description": "A graph is a .yaml file in this folder of the workspace.",
-    "empty.scratch.title": "No graphs here",
-    "empty.scratch.description": "Graphs live in a workspace folder, and a scratch workspace has none.",
-    "empty.runs.title": "No runs",
-    "empty.runs.description": "Start one with Run now in the graph list."
+    "empty.folder.title": "No graphs.",
+    "empty.scratch.title": "No graphs here.",
+    "empty.runs": "No runs. Start one with Run now in the graph list."
   }
 }

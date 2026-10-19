@@ -24,7 +24,7 @@ import { PaneTabMenu } from './PaneTabMenu'
 import { FolderTrustNotice, ResumeFailedNotice } from './ResumeFolderNotice'
 import { focusPane } from './SplitTab'
 import { TabBody } from './TabBody'
-import { TabFace, usePaneMark, usePaneTitle } from './TabFace'
+import { TabFace, usePaneMark } from './TabFace'
 
 interface CellContext {
   workspaceId: string
@@ -44,7 +44,7 @@ function StripFace({
   entering: boolean
 }): JSX.Element {
   const d = useDict()
-  const title = usePaneTitle(pane)
+  const title = pane.title
   const state = useAttentionStore((s) => s.byPane[pane.id]?.state ?? 'none')
   const face = (
     <button

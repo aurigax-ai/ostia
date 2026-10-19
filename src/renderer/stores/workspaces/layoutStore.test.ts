@@ -12,6 +12,7 @@ import type { SplitNode } from '@/lib/layout/types'
 import { forgetSplitTabSeeds } from '@/lib/panes/splitTabSeeds'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { usePluginsStore } from '@/stores/extensions/pluginsStore'
+import { useDiffStore } from '@/stores/files/diffStore'
 import { zhHant } from '@shared/app/dict'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useLayoutStore } from './layoutStore'
@@ -613,6 +614,44 @@ describe('layoutStore', () => {
     })
   })
 
+  describe('openDiff reuse', () => {
+    it('shows every later diff in the one diff tab and keeps its area', () => {
+      const { first, second } = twoPanes('sess')
+      const open = useLayoutStore.getState().openDiff
+      const one = open('sess', {
+        title: 'a.ts (Working Tree)',
+        original: 'a',
+        modified: 'b',
+        path: '/r/a.ts',
+        area: 'unstaged',
+      }) as string
+      useLayoutStore.getState().focusPane('sess', second)
+      const two = open('sess', {
+        title: 'a.ts (Index)',
+        original: 'a',
+        modified: 'c',
+        path: '/r/a.ts',
+        area: 'staged',
+      }) as string
+      const three = open('sess', {
+        title: 'x.ts ↔ y.ts',
+        original: 'x',
+        modified: 'y',
+        path: '/r/y.ts',
+      }) as string
+      expect(new Set([one, two, three]).size).toBe(1)
+      const layout = layoutOf('sess')
+      expect(
+        paneIds(layout.root).filter((id) => findPane(layout.root, id)?.kind === 'diff'),
+      ).toEqual([one])
+      expect(paneIds(layout.root)).toContain(first)
+      expect(findPane(layout.root, one)?.title).toBe('x.ts ↔ y.ts')
+      expect(layout.activePaneId).toBe(one)
+      expect(useDiffStore.getState().byPane[one]).toMatchObject({ modified: 'y' })
+      expect(useDiffStore.getState().byPane[one].area).toBeUndefined()
+    })
+  })
+
   describe('openBrowser', () => {
     it('with no browser pane, adds a browser tab beside the focused pane, emitting pane-created', () => {
       const terminal = ensure('sess')
@@ -751,20 +790,20 @@ describe('layoutStore', () => {
     })
   })
 
-  describe('openExtensionPanel', () => {
-    it('with no panel of that extension, splits and creates one, emitting pane-created', () => {
+  describe('openView', () => {
+    it('with no view pane of that name, splits and creates one, emitting pane-created', () => {
       const terminal = ensure('sess')
       emit().mockClear()
 
-      useLayoutStore.getState().openExtensionPanel('sess', 'demo', 'Board')
+      useLayoutStore.getState().openView('sess', 'demo', 'Board')
       const layout = layoutOf('sess')
       const ids = paneIds(layout.root)
       const demoId = ids.find((id) => id !== terminal) as string
       const demo = findPane(layout.root, demoId)
 
       expect(ids).toHaveLength(2)
-      expect(demo?.kind).toBe('extension')
-      expect(demo?.extensionId).toBe('demo')
+      expect(demo?.kind).toBe('view')
+      expect(demo?.viewName).toBe('demo')
       expect(demo?.title).toBe('Board')
       expect(layout.activePaneId).toBe(demoId)
       expect(emit()).toHaveBeenCalledTimes(1)
@@ -775,14 +814,14 @@ describe('layoutStore', () => {
       })
     })
 
-    it('with an existing panel of that extension, reuses it (no new pane, no emit)', () => {
+    it('with an existing view pane of that name, reuses it (no new pane, no emit)', () => {
       const terminal = ensure('sess')
-      useLayoutStore.getState().openExtensionPanel('sess', 'notes', 'Notes')
+      useLayoutStore.getState().openView('sess', 'notes', 'Notes')
       const notesId = paneIds(layoutOf('sess').root).find((id) => id !== terminal) as string
       useLayoutStore.getState().focusPane('sess', terminal)
       emit().mockClear()
 
-      useLayoutStore.getState().openExtensionPanel('sess', 'notes', 'Notes')
+      useLayoutStore.getState().openView('sess', 'notes', 'Notes')
       const layout = layoutOf('sess')
 
       expect(paneIds(layout.root)).toHaveLength(2)
@@ -790,15 +829,15 @@ describe('layoutStore', () => {
       expect(emit()).not.toHaveBeenCalled()
     })
 
-    it("opens a second extension's panel beside the first instead of reusing it", () => {
+    it('opens a second view beside the first instead of reusing it', () => {
       ensure('sess')
-      useLayoutStore.getState().openExtensionPanel('sess', 'notes', 'Notes')
-      useLayoutStore.getState().openExtensionPanel('sess', 'demo', 'Board')
+      useLayoutStore.getState().openView('sess', 'notes', 'Notes')
+      useLayoutStore.getState().openView('sess', 'demo', 'Board')
       const panes = paneIds(layoutOf('sess').root).map((id) => findPane(layoutOf('sess').root, id))
 
       expect(
         panes
-          .map((p) => p?.extensionId)
+          .map((p) => p?.viewName)
           .filter(Boolean)
           .sort(),
       ).toEqual(['demo', 'notes'])
@@ -850,7 +889,7 @@ describe('layoutStore', () => {
       store.setCwd('ghost', 'p', '/x')
       store.openFile('ghost', '/f')
       store.openBrowser('ghost', 'https://x', 'isolated')
-      store.openExtensionPanel('ghost', 'demo', 'Board')
+      store.openView('ghost', 'demo', 'Board')
 
       expect(useLayoutStore.getState().byWorkspace).toBe(before)
       expect(emit()).not.toHaveBeenCalled()

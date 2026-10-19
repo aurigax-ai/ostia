@@ -27,9 +27,14 @@ export const settingsEn = {
     autoSaveDesc: 'Save changed files as you edit.',
     autoSaveOff: 'Off',
     autoSaveOnFocusChange: 'When focus leaves',
+    diffAuto: 'Automatic',
+    diffIgnoreWhitespace: 'Ignore whitespace in diffs',
+    diffIgnoreWhitespaceDesc:
+      'Leave out changes that only add or remove spaces at the ends of lines.',
     diffInline: 'Inline',
     diffLayout: 'Diff layout',
-    diffLayoutDesc: 'How a diff opens. The button in each diff switches it.',
+    diffLayoutDesc:
+      'Side by side, inline, or automatic: side by side until the pane is too narrow. The buttons in each diff set it.',
     diffSideBySide: 'Side by side',
     formatOnSave: 'Format on save',
     formatOnSaveDesc:

@@ -14,7 +14,7 @@ import {
 } from '@phosphor-icons/react'
 import { PaneHeaderActions } from './PaneTabMenu'
 
-const SERVICE_SURFACES: ReadonlySet<SurfaceKind> = new Set(['extension', 'chat', 'git', 'view'])
+const SERVICE_SURFACES: ReadonlySet<SurfaceKind> = new Set(['chat', 'git', 'view'])
 
 export function PaneActions({
   pane: shown,

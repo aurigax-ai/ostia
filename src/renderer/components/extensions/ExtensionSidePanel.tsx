@@ -1,48 +1,44 @@
-import { commands } from '@/commands/registry'
 import { EmptyState } from '@/components/common/EmptyState'
 import { Button } from '@/components/ui/button'
-import { fmt, useDict } from '@/lib/app/useDict'
+import { useDict } from '@/lib/app/useDict'
 import { useGuestReady, useSurfaceFocus } from '@/lib/panes/paneFocus'
 import { useInjectedCss, usePanelThemeCss } from '@/lib/theme/panelThemeInjection'
 import { useSettingsStore } from '@/stores/app/settingsStore'
-import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
+import type { PanelRoute } from '@/stores/app/sidePanelStore'
 import type {
   ExtensionPanelContext,
   ExtensionPanelSource,
 } from '@aurigax-ai/ostia-extension-sdk/contract/extensionsBridge'
-import { GIT_SOURCE } from '@aurigax-ai/ostia-extension-sdk/manifest/coreNames'
 import { useCallback, useEffect, useRef, useState } from 'react'
 
 const EXTENSION_PARTITION_PREFIX = 'ostia-ext-'
 
-export function ExtensionPanelView({
+export function ExtensionSidePanel({
   extId,
   workspaceId,
-  paneId,
+  focusKey,
+  route,
 }: {
   extId: string
   workspaceId: string
-  paneId: string
+  focusKey: string
+  route?: PanelRoute
 }): JSX.Element {
   const d = useDict()
-  const info = useExtensionsStore((s) => s.list.find((e) => e.id === extId))
-  const nav = useExtensionsStore((s) => s.panelNav[paneId])
-  const enabled = info?.enabled ?? false
-  const hasPanel = Boolean(info?.panel)
   const locale = useSettingsStore((s) => s.locale)
   const themeCss = usePanelThemeCss()
   const [source, setSource] = useState<ExtensionPanelSource | null>(null)
   const [webview, setWebview] = useState<HTMLElement | null>(null)
   const readyWebview = useGuestReady(webview)
-  useSurfaceFocus(paneId, () => readyWebview)
+  useSurfaceFocus(focusKey, () => readyWebview)
   const showing = useRef(false)
   showing.current = source?.ok === true
 
   const resolve = useCallback(
     (isAlive: () => boolean) => {
       if (!showing.current) setSource(null)
-      const context: ExtensionPanelContext = nav
-        ? { workspaceId, locale, path: nav.path }
+      const context: ExtensionPanelContext = route
+        ? { workspaceId, locale, path: route.path }
         : { workspaceId, locale }
       window.ostia.extensions
         .panel(extId, context)
@@ -55,17 +51,16 @@ export function ExtensionPanelView({
           }
         })
     },
-    [extId, workspaceId, locale, nav],
+    [extId, workspaceId, locale, route],
   )
 
   useEffect(() => {
-    if (!enabled || !hasPanel) return
     let alive = true
     resolve(() => alive)
     return () => {
       alive = false
     }
-  }, [enabled, hasPanel, resolve])
+  }, [resolve])
 
   useInjectedCss(webview, themeCss)
 
@@ -82,27 +77,6 @@ export function ExtensionPanelView({
     return () => el.removeEventListener('did-fail-load', onFail)
   }, [webview, d])
 
-  if (!info) {
-    return (
-      <PanelMessage
-        text={extId === GIT_SOURCE ? d.git.oldPane : fmt(d.extensions.notInstalled, { id: extId })}
-      />
-    )
-  }
-  if (!hasPanel) {
-    return (
-      <PanelMessage text={fmt(d.extensions.panelGone, { name: info.name })}>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => void commands.exec('pane.close', { paneId })}
-        >
-          {d.extensions.closePane}
-        </Button>
-      </PanelMessage>
-    )
-  }
-  if (!enabled) return <PanelMessage text={fmt(d.extensions.panelDisabled, { name: info.name })} />
   if (!source) return <PanelMessage text={d.extensions.loading} />
   if (!source.ok) {
     return (

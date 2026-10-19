@@ -85,16 +85,16 @@ describe('Archives', () => {
       'bomb.zip',
       zipOf([
         { name: 'big.bin', deflated: zerosDeflated(MIB), size: 1024 * MIB },
-        { name: 'liar.bin', deflated: zerosDeflated(64 * MIB), size: 1024 },
+        { name: 'liar.bin', deflated: zerosDeflated(4 * MIB), size: 1024 },
       ]),
     )
     const root = archiveRoot(path)
-    expect(await archives.readBinary(`${root}/big.bin`, 50 * MIB)).toEqual({
+    expect(await archives.readBinary(`${root}/big.bin`, MIB)).toEqual({
       ok: false,
       error: 'too-large',
       size: 1024 * MIB,
     })
-    expect(await archives.readBinary(`${root}/liar.bin`, 50 * MIB)).toEqual({
+    expect(await archives.readBinary(`${root}/liar.bin`, MIB)).toEqual({
       ok: false,
       error: 'archive',
       reason: 'unzip-limit',

@@ -1,5 +1,5 @@
 import type { ExtensionResult } from '@aurigax-ai/ostia-extension-sdk'
-import { errorText, h, panelTranslator } from '@aurigax-ai/ostia-extension-sdk/panel'
+import { emptyState, errorText, h, panelTranslator } from '@aurigax-ai/ostia-extension-sdk/panel'
 import en from './locales/en.json'
 import zhHant from './locales/zh-Hant.json'
 import type { PanelInstall, PanelScreen } from './panelApi'
@@ -217,7 +217,7 @@ function render(): void {
         s.install.service ? button(p('new'), () => void act('create'), true) : null,
       ),
       s.screens.length === 0
-        ? h('div', { class: 'muted' }, p('none'))
+        ? emptyState(p('none'))
         : h('ul', { class: 'screens' }, ...s.screens.map(screenRow)),
       s.always
         ? h(

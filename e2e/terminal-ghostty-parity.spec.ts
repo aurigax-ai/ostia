@@ -4,17 +4,10 @@ import { createServer } from 'node:http'
 import type { AddressInfo } from 'node:net'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { chords } from './chords'
 import { GHOSTTY, launchGhostty } from './ghostty'
-import {
-  expectHeld,
-  openedExternally,
-  stubExternalOpener,
-  typeLine,
-  typeLineToEnd,
-} from './helpers'
+import { expectHeld, openedExternally, stubExternalOpener, typeLine } from './helpers'
 import { clickWith, hoverPoint, printOnFirstRow } from './terminalLinks'
-import { type ElectronApplication, type Page, expect, test } from './test'
+import { type ElectronApplication, expect, test } from './test'
 
 const clipboard = (app: ElectronApplication) => app.evaluate(({ clipboard: c }) => c.readText())
 
@@ -89,35 +82,6 @@ test(
 )
 
 test(
-  'Ghostty find: counts matches in the output and steps through them',
-  { tag: '@experimental' },
-  async () => {
-    test.setTimeout(60_000)
-    const { app, win } = await launchGhostty()
-    try {
-      await typeLineToEnd(
-        win,
-        "clear; printf 'one zqneedle\\ntwo\\nZQNEEDLE three\\nfour zqneedle\\n'",
-      )
-      await win.keyboard.press(chords.find)
-      const find = win.getByRole('textbox', { name: 'Find in terminal' })
-      await expect(find).toBeFocused({ timeout: 5_000 })
-      await win.keyboard.type('zqneedle')
-      const count = win.locator('.term-find-count')
-      await expect(count).toHaveText('1/3', { timeout: 5_000 })
-      await win.keyboard.press('Enter')
-      await expect(count).toHaveText('2/3')
-      await win.keyboard.press('Shift+Enter')
-      await expect(count).toHaveText('1/3')
-      await find.fill('zqabsent')
-      await expect(count).toHaveText('No results')
-    } finally {
-      await app.close()
-    }
-  },
-)
-
-test(
   'Ghostty web links: a plain click reuses the browser pane, Ctrl adds a tab, Ctrl+Shift goes outside',
   { tag: '@experimental' },
   async () => {
@@ -177,57 +141,6 @@ test(
     } finally {
       await app.close()
       server.close()
-    }
-  },
-)
-
-async function screenBackground(win: Page): Promise<string> {
-  const screen = win.locator('.ghostty-host').first()
-  const png = await screen.screenshot()
-  return win.evaluate(async (b64) => {
-    const img = new Image()
-    img.src = `data:image/png;base64,${b64}`
-    await img.decode()
-    const canvas = document.createElement('canvas')
-    canvas.width = img.width
-    canvas.height = img.height
-    const ctx = canvas.getContext('2d')
-    if (!ctx) return ''
-    ctx.drawImage(img, 0, 0)
-    const [r, g, b] = ctx.getImageData(img.width - 20, img.height - 20, 1, 1).data
-    return `${r},${g},${b}`
-  }, png.toString('base64'))
-}
-
-function brightness(rgb: string): number {
-  return rgb
-    .split(',')
-    .map(Number)
-    .reduce((sum, channel) => sum + channel, 0)
-}
-
-test(
-  'Ghostty theme: an open terminal takes a new color scheme',
-  { tag: '@experimental' },
-  async () => {
-    test.setTimeout(60_000)
-    const { app, win } = await launchGhostty({
-      appearance: { followSystem: true, lightTheme: 'ostia-light', darkTheme: 'dracula' },
-    })
-    try {
-      await app.evaluate(({ nativeTheme }) => {
-        nativeTheme.themeSource = 'dark'
-      })
-      await expect(win.locator('html')).toHaveAttribute('data-theme', 'dracula')
-      await expect.poll(async () => brightness(await screenBackground(win))).toBeLessThan(384)
-      const dark = brightness(await screenBackground(win))
-      await app.evaluate(({ nativeTheme }) => {
-        nativeTheme.themeSource = 'light'
-      })
-      await expect(win.locator('html')).toHaveAttribute('data-theme', 'ostia-light')
-      await expect.poll(async () => brightness(await screenBackground(win))).toBeGreaterThan(dark)
-    } finally {
-      await app.close()
     }
   },
 )

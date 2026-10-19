@@ -1,0 +1,89 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <link rel="stylesheet" href="base.css" />
+    <style>
+      html,
+      body {
+        height: 100%;
+        margin: 0;
+      }
+      body {
+        overflow: auto;
+        background: var(--surface-1);
+        color: var(--fg);
+        font-family: var(--font-ui);
+      }
+      .note {
+        margin: 0;
+        padding: 6px 24px;
+        border-bottom: 1px solid var(--line);
+        color: var(--fg-muted);
+        font-size: var(--text-ui-sm);
+        line-height: var(--text-ui-sm--line-height);
+      }
+      article {
+        max-width: 860px;
+        margin: 0 auto;
+        padding: 24px;
+        font-size: var(--text-ui-base);
+        line-height: var(--text-ui-base--line-height);
+        overflow-wrap: anywhere;
+      }
+      article h1,
+      article h2,
+      article h3,
+      article h4 {
+        font-weight: var(--font-weight-semibold);
+      }
+      article h1 {
+        font-size: var(--text-ui-lg);
+        line-height: var(--text-ui-lg--line-height);
+      }
+      article table {
+        border-collapse: collapse;
+      }
+      article th,
+      article td {
+        padding: 4px 8px;
+        border: 1px solid var(--line);
+        vertical-align: top;
+      }
+      article img {
+        max-width: 100%;
+      }
+      article a {
+        color: var(--fg);
+        text-decoration: underline dotted;
+      }
+      article section {
+        padding: 16px 0;
+        border-bottom: 1px solid var(--line);
+      }
+      article section:first-child {
+        padding-top: 0;
+      }
+      article h2 {
+        margin: 0 0 8px;
+        font-size: var(--text-ui-lg);
+        line-height: var(--text-ui-lg--line-height);
+      }
+      article blockquote {
+        margin: 12px 0 0;
+        padding: 4px 12px;
+        border-left: 2px solid var(--line);
+        color: var(--fg-muted);
+      }
+      article blockquote h3 {
+        margin: 0;
+        font-size: var(--text-ui-sm);
+        line-height: var(--text-ui-sm--line-height);
+      }
+    </style>
+  </head>
+  <body data-viewer="presentation">
+    <div id="root"></div>
+    <script src="document.js"></script>
+  </body>
+</html>

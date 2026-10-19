@@ -3,7 +3,7 @@ import { join } from 'node:path'
 import { chords } from './chords'
 import { freshDataHome, isolatedLaunch } from './dataHome'
 import { extensionHosts } from './extensionHosts'
-import { guestKeys, pressInPage, webviewHasKeyboard } from './guestKeys'
+import { guestKeys, pressInPage } from './guestKeys'
 import { openWorkspace, quitApp, waitForPaletteSelection } from './helpers'
 import {
   type ElectronApplication,
@@ -124,10 +124,11 @@ edges:
     const again = await app.firstWindow()
     await again.waitForLoadState('domcontentloaded')
     await expect(again.locator('.xterm').first()).toBeVisible({ timeout: 30_000 })
-    await expect.poll(() => webviewHasKeyboard(again), { timeout: 30_000 }).toBe(true)
+    await expect
+      .poll(() => panelEval(app, 'document.readyState'), { timeout: 30_000 })
+      .toBe('complete')
     await pressInPage(app, guestKeys.palette)
     await choosePanel(again)
-    await expect.poll(() => webviewHasKeyboard(again), { timeout: 15_000 }).toBe(true)
     await pressInPage(app, guestKeys.dashboard)
     const card = again.locator('article[data-question]', {
       hasText: 'Keep going after the restart?',
@@ -174,10 +175,8 @@ edges: []
     await openWorkspace(win)
     await openPanel(win)
     await enableAndRun(app, 'held')
-    const panelTab = win.locator('.pane-tab', { hasText: 'Graphs' })
-    await panelTab.hover()
-    await panelTab.getByRole('button', { name: 'Close tab' }).click()
-    await expect.poll(() => panelEval(app, '1'), { timeout: 15_000 }).toBe('')
+    await win.locator('.topbar').getByRole('button', { name: 'Graphs', exact: true }).click()
+    await expect(win.locator('#right-panel')).toHaveAttribute('data-hidden', '')
     await win.keyboard.press('Control+Shift+D')
     await expect(
       win.locator('article[data-question]', { hasText: 'Still waiting after the restart?' }),

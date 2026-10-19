@@ -84,7 +84,7 @@ const LINE_NUMBER_MODES = ['on', 'off', 'relative'] as const
 export const TAB_WIDTHS = [2, 4, 8] as const
 const AUTO_SAVE_MODES = ['off', 'afterDelay', 'onFocusChange'] as const
 export const OPEN_FILES_IN = ['tab', 'split'] as const
-export const DIFF_LAYOUTS = ['sideBySide', 'inline'] as const
+export const DIFF_LAYOUTS = ['auto', 'sideBySide', 'inline'] as const
 
 type WordWrap = (typeof WORD_WRAPS)[number]
 export type LineNumberMode = (typeof LINE_NUMBER_MODES)[number]
@@ -106,6 +106,7 @@ export interface EditorSettings {
   theme: string
   markdownPreview: boolean
   diffLayout: DiffLayout
+  diffIgnoreWhitespace: boolean
 }
 
 export const DEFAULT_EDITOR_SETTINGS: EditorSettings = {
@@ -118,7 +119,8 @@ export const DEFAULT_EDITOR_SETTINGS: EditorSettings = {
   openFilesIn: 'tab',
   theme: MATCH_OSTIA_THEME,
   markdownPreview: false,
-  diffLayout: 'sideBySide',
+  diffLayout: 'auto',
+  diffIgnoreWhitespace: false,
 }
 
 export function parseEditorSettings(raw: unknown): EditorSettings {
@@ -135,5 +137,6 @@ export function parseEditorSettings(raw: unknown): EditorSettings {
     theme: parseThemeChoice(src.theme),
     markdownPreview: src.markdownPreview === true,
     diffLayout: oneOf(DIFF_LAYOUTS, src.diffLayout, defaults.diffLayout),
+    diffIgnoreWhitespace: src.diffIgnoreWhitespace === true,
   }
 }

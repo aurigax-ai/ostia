@@ -13,7 +13,6 @@
     "settings.archiveDays.description": "超過這個天數的封存項目會被刪除"
   },
   "messages": {
-    "title": "活動",
     "view.label": "顯示內容",
     "view.recap": "摘要",
     "view.activity": "時間軸",

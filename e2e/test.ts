@@ -36,7 +36,7 @@ async function stopTrace(app: ElectronApplication): Promise<void> {
 }
 
 export async function waitForExit(app: ElectronApplication): Promise<void> {
-  const proc = app.process()
+  const proc = launched.get(app)?.child ?? app.process()
   if (hasExited(proc)) return
   await new Promise<void>((resolve) => proc.once('exit', () => resolve()))
 }

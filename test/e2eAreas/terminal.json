@@ -26,6 +26,7 @@
     "src/renderer/lib/terminal/clearTerminal.ts",
     "src/renderer/lib/terminal/ghosttyEngine.",
     "src/renderer/lib/terminal/ghosttyTerminal.",
+    "src/renderer/lib/terminal/neighbourWrites.",
     "src/renderer/lib/terminal/offscreenStart.ts",
     "src/renderer/lib/terminal/osc52.",
     "src/renderer/lib/terminal/osc7.",
@@ -46,6 +47,7 @@
   "specs": [
     "e2e/agent-lag.spec.ts",
     "e2e/local-prompt.spec.ts",
+    "e2e/neighbour-output.spec.ts",
     "e2e/new-terminal-focus.spec.ts",
     "e2e/pty-flow.spec.ts",
     "e2e/resize-hold.spec.ts",

@@ -63,12 +63,7 @@ function entryView(slug: string): HTMLElement {
   const attrs = { class: 'detail entry-detail', 'aria-label': slug, 'data-scroll': 'entry' }
   if (state.entryFailure) return h('article', attrs, head, failureState(state.entryFailure))
   if (!state.entryData || state.entryData.slug !== slug) {
-    return h(
-      'article',
-      attrs,
-      head,
-      h('div', { class: 'empty muted', role: 'status' }, p('loading')),
-    )
+    return h('article', attrs, head, emptyState(p('loading')))
   }
   const entry = state.entryData
   return h(
@@ -100,7 +95,7 @@ function entryView(slug: string): HTMLElement {
 
 export function vaultView(): HTMLElement {
   if (state.vaultFailure) return failureState(state.vaultFailure)
-  if (!state.entries) return h('div', { class: 'empty muted', role: 'status' }, p('loading'))
+  if (!state.entries) return emptyState(p('loading'))
   if (state.entries.length === 0) return emptyState(p('vault.empty'))
   const filter = h('input', {
     type: 'search',

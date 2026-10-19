@@ -38,6 +38,7 @@ beforeAll(() => {
 
 afterEach(() => {
   vi.restoreAllMocks()
+  surfaceSlots.releaseSurfaces(new Set())
   document.body.replaceChildren()
   useWorkspacesStore.setState(workspacesInit, true)
   useLayoutStore.setState(layoutInit, true)
@@ -66,6 +67,14 @@ function focusPane(paneId: string): void {
   document.body.append(host)
   input.focus()
   vi.spyOn(document, 'hasFocus').mockReturnValue(true)
+}
+
+function showsKeyboardIn(paneId: string): boolean {
+  const input = document.createElement('textarea')
+  surfaceSlots.surfaceHost(paneId).appendChild(input)
+  document.body.appendChild(surfaceSlots.surfaceHost(paneId))
+  surfaceSlots.setFocusTarget(paneId, () => input)
+  return document.activeElement === input
 }
 
 const fromPane = (paneId: string): CommandContext => ({
@@ -111,6 +120,7 @@ describe('editor.openFiles from a pane', () => {
       filePath: '/home/me/project/a.md',
     })
     expect(useAttentionStore.getState().byPane[layout().activePaneId]).toBeUndefined()
+    expect(showsKeyboardIn(layout().activePaneId)).toBe(true)
   })
 
   it('opens a background tab beside a caller without focus and marks it unread', async () => {
@@ -287,6 +297,16 @@ describe('waited files', () => {
     })
   })
 
+  it('takes the keyboard into the last waited file when the caller has it', async () => {
+    const caller = seed()
+    focusPane(caller)
+    await commands.execWith(fromPane(caller), OPEN_FILES_COMMAND, {
+      files: [{ path: A }, { path: B }],
+      wait: true,
+    })
+    expect(showsKeyboardIn(layout().activePaneId)).toBe(true)
+  })
+
   it('ignores a placement the socket no longer takes', async () => {
     const caller = seed()
     focusPane(caller)
@@ -369,6 +389,7 @@ describe('diff.openFiles', () => {
     })
     expect(res.ok && res.result).toEqual({ opened: [{ path: content.path, paneId: diff?.id }] })
     expect(layout().activePaneId).toBe(diff?.id)
+    expect(showsKeyboardIn(diff?.id ?? '')).toBe(true)
   })
 
   it('opens quietly for a caller without focus', async () => {

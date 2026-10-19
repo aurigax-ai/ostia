@@ -9,9 +9,11 @@ import { signalPane, startAttentionSync } from '@/lib/attention/workspaceActivit
 import { runAppChord } from '@/lib/keyboard/chords'
 import { findPane, resetIds } from '@/lib/layout/tree'
 import type { PaneNode } from '@/lib/layout/types'
+import { instanceKey } from '@/lib/panes/panelKeepAlive'
 import { resetOffscreenStartForTests, startOffscreen } from '@/lib/terminal/offscreenStart'
 import { useApprovalsStore } from '@/stores/agents/approvalsStore'
 import { useAttentionStore } from '@/stores/agents/attentionStore'
+import { useSidePanelStore } from '@/stores/app/sidePanelStore'
 import { useUIStore } from '@/stores/app/uiStore'
 import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
 import { useBlocksStore } from '@/stores/terminal/blocksStore'
@@ -476,6 +478,7 @@ describe('NotificationCenter', () => {
   it('names the extension on its notifications and opens its panel at their path on click', async () => {
     const { workspaceId } = twoPanes()
     const extInit = useExtensionsStore.getState()
+    const sideInit = useSidePanelStore.getState()
     useExtensionsStore.setState({
       list: [
         {
@@ -532,14 +535,13 @@ describe('NotificationCenter', () => {
       expect(row).toHaveTextContent(/^Keeper/)
       expect(row).toBeEnabled()
       await user.click(row)
-      const layout = useLayoutStore.getState().byWorkspace[workspaceId]
-      expect(paneNode(workspaceId, layout.activePaneId)).toMatchObject({
-        kind: 'extension',
-        extensionId: 'keeper',
-      })
-      expect(useExtensionsStore.getState().panelNav[layout.activePaneId]?.path).toBe('/approvals')
+      expect(useSidePanelStore.getState().right).toBe('keeper')
+      expect(
+        useSidePanelStore.getState().routes[instanceKey({ extId: 'keeper', workspaceId })]?.path,
+      ).toBe('/approvals')
     } finally {
       act(() => useExtensionsStore.setState(extInit, true))
+      useSidePanelStore.setState(sideInit, true)
     }
   })
 

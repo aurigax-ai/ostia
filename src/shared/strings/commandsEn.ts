@@ -83,6 +83,8 @@ export const commandsEn = {
       'file.openWith': 'Open With…',
       'files.reveal': 'Show Folder in Files',
       'git.blameFile': 'Blame File',
+      'git.openNextChange': 'Open Next Changed File',
+      'git.openPreviousChange': 'Open Previous Changed File',
       'git.show': 'Show Changes',
       'git.showGraph': 'Show Graph',
       'history.insert': 'Insert Command',

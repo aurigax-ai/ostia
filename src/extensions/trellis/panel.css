@@ -92,35 +92,8 @@ select:focus-visible,
   color: var(--attn-fg);
 }
 
-.empty {
-  display: flex;
-  flex: 1;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  padding: 32px 16px;
-  text-align: center;
-}
-
-.empty p {
-  margin: 0;
-  max-width: 48ch;
-  white-space: pre-wrap;
-}
-
-.empty-title {
-  font-size: var(--text-ui-base);
-  line-height: var(--text-ui-base--line-height);
-  font-weight: var(--font-weight-medium);
-}
-
-.empty.error .empty-title {
+.ostia-empty.error {
   color: var(--attn-fg);
-}
-
-.empty-hint {
-  color: var(--fg-muted);
 }
 
 .board-layout,

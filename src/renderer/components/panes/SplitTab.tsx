@@ -2,6 +2,7 @@ import { commands } from '@/commands/registry'
 import { IconButton } from '@/components/common/IconButton'
 import { RenameInput } from '@/components/common/RenameInput'
 import { fmt, useDict } from '@/lib/app/useDict'
+import { isPaneVisible } from '@/lib/attention/workspaceActivity'
 import { canCollapse, stripAxis } from '@/lib/layout/collapse'
 import { allPanes } from '@/lib/layout/tree'
 import type { LayoutNode, PaneNode, SplitNode } from '@/lib/layout/types'
@@ -10,7 +11,7 @@ import { splitTabLayout } from '@/lib/panes/splitTabs'
 import { cn } from '@/lib/utils'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { usePaneRenameStore } from '@/stores/workspaces/paneRenameStore'
-import { focusSurface } from '@/stores/workspaces/surfaceSlotsStore'
+import { focusSurfaceWhenReady } from '@/stores/workspaces/surfaceSlotsStore'
 import {
   ArrowsInLineHorizontalIcon,
   ArrowsInLineVerticalIcon,
@@ -28,14 +29,15 @@ import {
 } from 'react'
 import { PaneRenameField } from './PaneRenameField'
 import { PaneTabMenu } from './PaneTabMenu'
-import { TabFace, usePaneMark, usePaneTitle } from './TabFace'
+import { TabFace, usePaneMark } from './TabFace'
 import { TabHint } from './TabHint'
 
 export function focusPane(paneId: string): void {
   void commands.exec('pane.focus', { paneId })
-  requestAnimationFrame(() => {
-    if (usePaneRenameStore.getState().paneId !== paneId) focusSurface(paneId)
-  })
+  focusSurfaceWhenReady(
+    paneId,
+    () => isPaneVisible(paneId) && usePaneRenameStore.getState().paneId !== paneId,
+  )
 }
 
 const DOUBLE_CLICK_MS = 250
@@ -81,7 +83,7 @@ const COLLAPSE_ICONS = {
 
 function CollapseButton({ pane, tab }: { pane: PaneNode; tab: SplitNode }): JSX.Element | null {
   const d = useDict()
-  const title = usePaneTitle(pane)
+  const title = pane.title
   const axis = stripAxis(tab, pane.id)
   if (!axis || (!pane.collapsed && !canCollapse(tab, pane.id))) return null
   const [collapseIcon, expandIcon] = COLLAPSE_ICONS[axis]
@@ -116,7 +118,7 @@ function SplitTabSegment({
   workspaceId: string | null
 }): JSX.Element {
   const d = useDict()
-  const title = usePaneTitle(pane)
+  const title = pane.title
   const mark = usePaneMark(pane)
   const renaming = usePaneRenameStore((s) => s.paneId === pane.id)
   const segment = (

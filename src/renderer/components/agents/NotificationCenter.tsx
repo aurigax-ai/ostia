@@ -8,6 +8,7 @@ import {
 } from '@/lib/attention/notificationGroups'
 import { revealPane } from '@/lib/attention/workspaceActivity'
 import { findPane } from '@/lib/layout/tree'
+import { focusRightPanel } from '@/lib/panes/rightPanelFocus'
 import { remoteWorkspacesOf } from '@/lib/workspaces/windowWorkspaces'
 import { useApprovalsStore } from '@/stores/agents/approvalsStore'
 import { useAttentionStore } from '@/stores/agents/attentionStore'
@@ -126,6 +127,7 @@ function NotificationEntryItem({
                 openExtensionPanel(
                   entry.panelPath ? { extId: ext.id, path: entry.panelPath } : { extId: ext.id },
                 )
+                focusRightPanel()
                 onOpened()
               } else if (entry.paneId) {
                 if (!revealPane(entry.paneId)) window.ostia.notifications.reveal(entry.paneId)
