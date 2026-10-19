@@ -220,8 +220,9 @@ describe('WorkspaceSandboxes with kept hosts', () => {
             'bash',
           ),
         )
+        const held = await before.hosts.host('ws-c51')
         before.hosts.releaseAll()
-        await new Promise((r) => setTimeout(r, 200))
+        await expect.poll(() => held.alive).toBe(false)
         request.child.stdin.end('\n')
         await expect.poll(() => existsSync(asking), { timeout: 10_000 }).toBe(true)
         await new Promise((r) => setTimeout(r, 1000))
