@@ -1,4 +1,4 @@
-import { delimiter } from 'node:path'
+import { delimiter, isAbsolute } from 'node:path'
 import { isInsidePath } from '../platform/pathGuard'
 
 export interface SandboxReadRules {
@@ -13,6 +13,7 @@ function deepest(path: string, dirs: readonly string[]): number {
 }
 
 export function visibleInSandbox(path: string, rules: SandboxReadRules): boolean {
+  if (!isAbsolute(path)) return false
   const denied = deepest(path, rules.denyRead)
   return denied < 0 || deepest(path, rules.allowRead) > denied
 }
