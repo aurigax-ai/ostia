@@ -1,5 +1,6 @@
 export const ZOOM_MIN = 80
 export const ZOOM_MAX = 150
+
 export const ZOOM_STEP = 10
 export const ZOOM_DEFAULT = 100
 

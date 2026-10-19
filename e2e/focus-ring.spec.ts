@@ -25,6 +25,7 @@ test.beforeAll(async () => {
   app = await launchShared(isolatedLaunch())
   win = await app.firstWindow()
   await win.waitForLoadState('domcontentloaded')
+
   await openWorkspace(win)
 })
 
