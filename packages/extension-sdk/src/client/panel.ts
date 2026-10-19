@@ -5,6 +5,7 @@ import {
   translatorFor,
 } from '../contract/extensionLocales'
 import type { ExtensionResult } from '../contract/extensions'
+import { PANEL_VISIBILITY_EVENT, type PanelVisibility } from '../contract/extensionsBridge'
 import { watchScrolling } from '../contract/scrollbar'
 import { errorMessage, failure } from './results'
 import { PANEL_SIZES_PATH, parsePanelSizes, withPanelSize } from './split'
@@ -57,6 +58,12 @@ export function savePanelSize(key: string, fraction: number | null): void {
     headers: { 'content-type': 'application/json', 'x-ostia-panel': secret },
     body: JSON.stringify({ key, fraction }),
   }).catch(() => {})
+}
+
+export function onPanelVisibility(cb: (hidden: boolean) => void): void {
+  window.addEventListener(PANEL_VISIBILITY_EVENT, (event) => {
+    cb((event as CustomEvent<PanelVisibility>).detail?.hidden === true)
+  })
 }
 
 export function onChange(cb: () => void): void {

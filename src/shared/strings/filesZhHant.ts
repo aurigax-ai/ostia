@@ -328,6 +328,7 @@ export const filesZhHant: typeof filesEn = {
     alwaysUse: '一律用於 {pattern} 檔案',
     cancel: '取消',
     clearRegion: '清除選取區域',
+    crop: '裁切',
     diagram: '圖表',
     diagramProblem: '無法繪製這個圖表：',
     discard: '捨棄選取內容',

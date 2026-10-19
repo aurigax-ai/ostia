@@ -61,4 +61,40 @@ describe('ExtensionSidePanel keyboard target', () => {
     })
     await waitFor(() => expect(document.activeElement).toBe(webview))
   })
+
+  it('PHD-C30 tells the panel page when its slot is hidden and shown again', async () => {
+    vi.mocked(window.ostia.extensions.panel).mockResolvedValue({
+      ok: true,
+      src: 'http://127.0.0.1:1/panel',
+    })
+    const slot = document.createElement('div')
+    document.body.appendChild(slot)
+    mountSurface(PANE, slot)
+    const view = render(
+      <ExtensionSidePanel extId="probe" workspaceId="w1" focusKey={PANE} hidden={false} />,
+      { container: surfaceHost(PANE) },
+    )
+    const webview = await waitFor(() => {
+      const found = surfaceHost(PANE).querySelector('webview')
+      if (!found) throw new Error('no webview yet')
+      return found as unknown as HTMLElement & {
+        executeJavaScript: (code: string) => Promise<unknown>
+      }
+    })
+    const scripts: string[] = []
+    webview.executeJavaScript = vi.fn(async (code: string) => {
+      scripts.push(code)
+    })
+    view.rerender(<ExtensionSidePanel extId="probe" workspaceId="w1" focusKey={PANE} hidden />)
+    await waitFor(() => expect(scripts.at(-1)).toContain('"hidden":true'))
+    expect(scripts.at(-1)).toContain('ostia-panel-visibility')
+    view.rerender(
+      <ExtensionSidePanel extId="probe" workspaceId="w1" focusKey={PANE} hidden={false} />,
+    )
+    await waitFor(() => expect(scripts.at(-1)).toContain('"hidden":false'))
+    act(() => {
+      webview.dispatchEvent(new Event('dom-ready'))
+    })
+    expect(scripts.at(-1)).toContain('"hidden":false')
+  })
 })

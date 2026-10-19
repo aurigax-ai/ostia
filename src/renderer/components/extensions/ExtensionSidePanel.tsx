@@ -1,6 +1,7 @@
 import { EmptyState } from '@/components/common/EmptyState'
 import { Button } from '@/components/ui/button'
 import { useDict } from '@/lib/app/useDict'
+import { usePanelVisibility } from '@/lib/extensions/panelVisibility'
 import { useGuestReady, useSurfaceFocus } from '@/lib/panes/paneFocus'
 import { useInjectedCss, usePanelThemeCss } from '@/lib/theme/panelThemeInjection'
 import { useSettingsStore } from '@/stores/app/settingsStore'
@@ -18,11 +19,13 @@ export function ExtensionSidePanel({
   workspaceId,
   focusKey,
   route,
+  hidden = false,
 }: {
   extId: string
   workspaceId: string
   focusKey: string
   route?: PanelRoute
+  hidden?: boolean
 }): JSX.Element {
   const d = useDict()
   const locale = useSettingsStore((s) => s.locale)
@@ -63,6 +66,7 @@ export function ExtensionSidePanel({
   }, [resolve])
 
   useInjectedCss(webview, themeCss)
+  usePanelVisibility(webview, hidden)
 
   useEffect(() => {
     const el = webview
