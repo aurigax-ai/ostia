@@ -14,7 +14,7 @@ import {
 
 const HELLO_WAIT_MS = 5000
 
-export class SandboxHostError extends Error {
+export class SandboxUnavailableError extends Error {
   constructor(
     message: string,
     readonly missing: string[] = [],
@@ -85,7 +85,7 @@ export class SandboxHost {
     this.hello = null
     if (protocol !== HOST_PROTOCOL_VERSION) {
       socket.destroy()
-      throw new SandboxHostError(
+      throw new SandboxUnavailableError(
         `the sandbox host speaks protocol ${protocol ?? 'unknown'}, this app speaks ${HOST_PROTOCOL_VERSION}`,
       )
     }
@@ -121,7 +121,7 @@ export class SandboxHost {
       binShell,
       ...(customConfig ? { customConfig } : {}),
     })
-    if (!res.wrapped) throw new SandboxHostError('sandbox host returned no command')
+    if (!res.wrapped) throw new SandboxUnavailableError('sandbox host returned no command')
     return res.wrapped
   }
 
@@ -151,13 +151,13 @@ export class SandboxHost {
 
   private call(request: Request): Promise<HostResponse & { ok: true }> {
     if ((!this.child && !this.socket) || this.dead) {
-      return Promise.reject(new SandboxHostError('sandbox host is not running'))
+      return Promise.reject(new SandboxUnavailableError('sandbox host is not running'))
     }
     const id = ++this.seq
     return new Promise((resolve, reject) => {
       this.pending.set(id, (res) => {
         if (res.ok) resolve(res)
-        else reject(new SandboxHostError(res.error, res.missing))
+        else reject(new SandboxUnavailableError(res.error, res.missing))
       })
       this.post({ ...request, id } as HostRequest)
     })

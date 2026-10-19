@@ -28,11 +28,11 @@ import type { WorkspaceSandboxes } from './workspaceSandboxes'
 export interface SandboxIpcDeps {
   sandboxes: WorkspaceSandboxes
   ownerWindow: (workspaceId: string) => string | undefined
-  missing?: () => MissingRequirement[]
-  domains?: DomainRequests
-  ports?: PortRequests
-  violations?: ViolationLog
-  refreshAll?: () => void
+  missing: () => MissingRequirement[]
+  domains: DomainRequests
+  ports: PortRequests
+  violations: ViolationLog
+  refreshAll: () => void
 }
 
 function stringArray(value: unknown): string[] | null {
@@ -108,7 +108,7 @@ function registerSandboxEditIpc(deps: SandboxIpcDeps): void {
       if (!ownsWorkspace(deps, e.sender.id, workspaceId) || typeof enabled !== 'boolean') {
         return { ok: false, reason: 'not-owned' }
       }
-      if (enabled && (deps.missing?.() ?? []).length > 0) {
+      if (enabled && deps.missing().length > 0) {
         return { ok: false, reason: 'missing-programs' }
       }
       const problem = enabled ? deps.sandboxes.folderProblem(workspaceId) : null
@@ -209,12 +209,12 @@ function registerSandboxPolicyIpc(deps: SandboxIpcDeps): void {
   )
   ipcMain.handle('sandbox:violations', (e, workspaceId: unknown): SandboxViolation[] =>
     ownsWorkspace(deps, e.sender.id, workspaceId)
-      ? (deps.violations?.list(deps.sandboxes.owner(workspaceId)) ?? [])
+      ? deps.violations.list(deps.sandboxes.owner(workspaceId))
       : [],
   )
   ipcMain.handle('sandbox:clear-violations', (e, workspaceId: unknown): boolean => {
     if (!ownsWorkspace(deps, e.sender.id, workspaceId)) return false
-    deps.violations?.clear(deps.sandboxes.owner(workspaceId))
+    deps.violations.clear(deps.sandboxes.owner(workspaceId))
     return true
   })
   ipcMain.handle(
@@ -227,7 +227,7 @@ function registerSandboxPolicyIpc(deps: SandboxIpcDeps): void {
   )
   ipcMain.handle('sandbox:allow-refused', (e, workspaceId: unknown, host: unknown): boolean => {
     if (!ownsWorkspace(deps, e.sender.id, workspaceId) || typeof host !== 'string') return false
-    if (!checkDomainPattern(host).ok || !deps.domains) return false
+    if (!checkDomainPattern(host).ok) return false
     deps.domains.allowFromView(workspaceId, host)
     return true
   })
@@ -247,18 +247,18 @@ function registerSandboxPolicyIpc(deps: SandboxIpcDeps): void {
     },
   )
   ipcMain.handle('sandbox:ports', (e, workspaceId: unknown): PortRow[] =>
-    ownsWorkspace(deps, e.sender.id, workspaceId) ? (deps.ports?.ports(workspaceId) ?? []) : [],
+    ownsWorkspace(deps, e.sender.id, workspaceId) ? deps.ports.ports(workspaceId) : [],
   )
   ipcMain.handle('sandbox:expose', async (e, workspaceId: unknown, port: unknown) => {
     const checked = checkExposePort(String(port))
-    if (!ownsWorkspace(deps, e.sender.id, workspaceId) || checked === null || !deps.ports) {
+    if (!ownsWorkspace(deps, e.sender.id, workspaceId) || checked === null) {
       return { ok: false, error: 'invalid-port' }
     }
     return deps.ports.exposeByHuman(workspaceId, checked)
   })
   ipcMain.handle('sandbox:unexpose', async (e, workspaceId: unknown, port: unknown) => {
     if (!ownsWorkspace(deps, e.sender.id, workspaceId) || typeof port !== 'number') return false
-    await deps.ports?.unexposeByHuman(workspaceId, port)
+    await deps.ports.unexposeByHuman(workspaceId, port)
     return true
   })
   ipcMain.handle(
@@ -272,7 +272,7 @@ function registerSandboxPolicyIpc(deps: SandboxIpcDeps): void {
     },
   )
   ipcMain.handle('sandbox:globals-changed', () => {
-    deps.refreshAll?.()
+    deps.refreshAll()
     return true
   })
 }

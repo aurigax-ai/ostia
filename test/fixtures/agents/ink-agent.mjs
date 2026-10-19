@@ -2,7 +2,9 @@ const SPINNER = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', 
 const transcriptLines = Number(process.env.INK_AGENT_LINES ?? 5000)
 const streamFps = Number(process.env.INK_AGENT_STREAM_FPS ?? 0)
 const streamLines = Number(process.env.INK_AGENT_STREAM_LINES ?? 2)
-const BOX_ROWS = 5
+const TAIL_ROWS = Number(process.env.INK_AGENT_REGION_ROWS ?? 0)
+const BOX_ROWS = 5 + TAIL_ROWS
+const sync = process.env.INK_AGENT_SYNC === '1'
 
 let typed = ''
 let frame = 0
@@ -18,8 +20,14 @@ const transcriptLine = () => {
   return `${tag} \x1b[2m${String(line).padStart(5, '0')}\x1b[0m ${body} \x1b[36m${'x'.repeat(line % 30)}\x1b[0m\r\n`
 }
 
+const tailRow = (k) =>
+  `\x1b[2m  ${String(line - k).padStart(5, '0')} streamed output ${'·'.repeat((line - k) % 40)}\x1b[0m`.padEnd(
+    60,
+  )
+
 const region = () =>
   [
+    ...Array.from({ length: TAIL_ROWS }, (_, k) => tailRow(TAIL_ROWS - k)),
     `\x1b[35m${SPINNER[frame % SPINNER.length]}\x1b[0m Working… (${frame}s · esc to interrupt)`,
     '',
     '╭────────────────────────────────────────────────────────╮',
@@ -30,7 +38,8 @@ const region = () =>
 const erase = () => (drawn > 0 ? `\r${'\x1b[2K\x1b[1A'.repeat(drawn - 1)}\x1b[2K` : '')
 
 const redraw = (before = '') => {
-  out(`${erase()}${before}${region()}`)
+  const body = `${erase()}${before}${region()}`
+  out(sync ? `\x1b[?2026h${body}\x1b[?2026l` : body)
   drawn = BOX_ROWS
 }
 

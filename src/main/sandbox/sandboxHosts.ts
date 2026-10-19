@@ -4,7 +4,7 @@ import type { SandboxFolderProblem } from '../../shared/sandbox/sandbox'
 import { socketPathLimit } from '../platform/privateTmp'
 import type { PackageBlockReason, PackagePolicy } from '../sandboxPackages/packagePolicy'
 import type { PackageRef } from '../sandboxPackages/packages'
-import { SandboxHost, SandboxHostError } from './hostClient'
+import { SandboxHost, SandboxUnavailableError } from './hostClient'
 import type { SrtConfig } from './srtConfig'
 
 interface KeptHostSpawn {
@@ -31,7 +31,8 @@ const CHANNEL_POLL_MS = 50
 async function waitForChannel(path: string): Promise<void> {
   const end = Date.now() + CHANNEL_WAIT_MS
   while (!existsSync(path)) {
-    if (Date.now() > end) throw new SandboxHostError('the sandbox host did not start listening')
+    if (Date.now() > end)
+      throw new SandboxUnavailableError('the sandbox host did not start listening')
     await sleep(CHANNEL_POLL_MS)
   }
 }
@@ -40,15 +41,6 @@ function definedEnv(env: NodeJS.ProcessEnv): Record<string, string> {
   const out: Record<string, string> = {}
   for (const [key, value] of Object.entries(env)) if (value !== undefined) out[key] = value
   return out
-}
-
-export class SandboxUnavailableError extends Error {
-  constructor(
-    message: string,
-    readonly missing: string[] = [],
-  ) {
-    super(message)
-  }
 }
 
 export interface SandboxHostsDeps {
@@ -198,8 +190,6 @@ export class SandboxHosts {
       if (this.hosts.get(workspaceId) === started) this.hosts.delete(workspaceId)
       host.stop()
       if (this.keptHosts.delete(workspaceId)) this.deps.kept?.stop(workspaceId)
-      if (err instanceof SandboxHostError)
-        throw new SandboxUnavailableError(err.message, err.missing)
       throw err
     })
     this.hosts.set(workspaceId, started)

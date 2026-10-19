@@ -47,13 +47,7 @@ export function createPtyQueries({
   }
 
   function sandboxReadRules(entry: PtyEntry): SandboxReadRules | null {
-    if (!entry.sandboxed) return null
-    try {
-      const { denyRead, allowRead } = workspaceSandboxes.config(entry.workspaceId).filesystem
-      return { denyRead, allowRead }
-    } catch {
-      return { denyRead: ['/'], allowRead: [] }
-    }
+    return entry.sandboxed ? workspaceSandboxes.readRules(entry.workspaceId) : null
   }
 
   function foregroundProgram(paneId: string): string | null {
