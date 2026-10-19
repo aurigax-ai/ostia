@@ -28,6 +28,7 @@ vi.mock('../control/controlServer', () => ({
 const {
   askPhonesForScreen,
   capForPlatformEvent,
+  notifiedDeviceIds,
   closeDeviceSockets,
   configureGatewayControl,
   configureScreenLinks,
@@ -62,10 +63,14 @@ const links = new ScreenLinks({
     { workspaceId: 's1', name: 'One', kind: 'agent', workDir: '/w', state: 'idle' },
     { workspaceId: 'pad', name: 'Scratch', kind: 'scratch', workDir: '/s', state: 'idle' },
     { workspaceId: 'mgr', name: 'Manager', kind: 'manager', workDir: '/m', state: 'idle' },
+    { workspaceId: 's2', name: 'Two', kind: 'agent', workDir: '/w2', state: 'idle' },
   ],
-  askPhones: (sessionId) => askPhonesForScreen(sessionId),
+  askPhones: (request, deviceIds) => askPhonesForScreen(request, deviceIds),
   log: (event, fields) => linkLog.push([event, fields]),
   timing: { offerMs: 200, requestMs: 300, graceMs: 100 },
+  requestTiming: { waitMs: 400, cooldownMs: 300 },
+  notifiedDevices: () => notifiedDeviceIds(),
+  agentRunning: (paneId) => paneId !== 'plain-shell',
 })
 
 interface FakeController {
@@ -158,6 +163,7 @@ const deps = {
   agentRunning: vi.fn().mockReturnValue(false),
   watchesTurn: vi.fn().mockResolvedValue(false),
   turnStarted: vi.fn().mockResolvedValue(true),
+  paneSince: vi.fn().mockReturnValue(undefined),
   paneTurns: { list: vi.fn().mockReturnValue([]), output: vi.fn().mockReturnValue(null) },
   redact: vi.fn(async (text: string) => text),
   ownSnippets: vi.fn().mockReturnValue([]),
@@ -669,6 +675,136 @@ describe('gateway server over a real WebSocket', () => {
       await phone.call('ask.list')
       expect(phone.json.some((m) => m.params?.type === 'screen.requested')).toBe(false)
       expect(fake.offers).toHaveLength(1)
+    })
+
+    describe('an agent asking the phone', () => {
+      const askerPane = registerPane({ windowId: 'w1', workspaceId: 's1', paneId: 'asker' })
+      const otherAsker = registerPane({ windowId: 'w1', workspaceId: 's2', paneId: 'asker-2' })
+      const shellPane = registerPane({ windowId: 'w1', workspaceId: 's1', paneId: 'plain-shell' })
+      const otherPane = registerPane({ windowId: 'w1', workspaceId: 'pad', paneId: 'elsewhere' })
+      const asking = (fake: FakeController, over: Record<string, unknown> = {}) =>
+        links.askFor(fake.controller, {
+          sessionId: 's1',
+          pane: askerPane.externalId,
+          reason: 'check the app login screen',
+          agent: 'claude',
+          ...over,
+        })
+      const requestOf = async (phone: Client, after?: string) => {
+        const requested = await phone.next(
+          (m) =>
+            m.params?.type === 'screen.requested' &&
+            (m.params.payload as { requestId?: string }).requestId !== after,
+        )
+        return requested.params?.payload as Record<string, string>
+      }
+
+      it('PHA-C1 sends the agent request with its reason and ends it when the phone starts a session for it', async () => {
+        const fake = listenForScreens()
+        const device = registerDevice({ name: 'Pixel', pubkey: 'pk' })
+        const phone = await connect(device.token)
+        const answer = asking(fake)
+        const payload = await requestOf(phone)
+        expect(payload).toEqual({
+          sessionId: 's1',
+          by: 'agent',
+          reason: 'check the app login screen',
+          agent: 'claude',
+          pane: askerPane.externalId,
+          requestId: expect.any(String),
+        })
+        const linkSocket = await connect(device.token)
+        await linkSocket.call('screen.start', screenParams({ requestId: payload.requestId }))
+        expect(await answer).toEqual({ ok: true, data: { outcome: 'started' } })
+      })
+
+      it('PHA-C2 declines only when every asked phone declined, and refuses an unknown request', async () => {
+        const fake = listenForScreens()
+        const first = await connect(registerDevice({ name: 'Pixel', pubkey: 'pk' }).token)
+        const second = await connect(registerDevice({ name: 'Tablet', pubkey: 'pk2' }).token)
+        const answer = asking(fake)
+        const { requestId } = await requestOf(first)
+        await requestOf(second)
+        const unknown = await first.call('screen.decline', { requestId: 'nope', reason: 'off' })
+        expect(unknown.error).toMatchObject({ code: -32602, message: 'unknown-request' })
+        const odd = await first.call('screen.decline', { requestId, reason: 'later' })
+        expect(odd.error).toMatchObject({ code: -32602, message: 'bad-params' })
+        expect((await first.call('screen.decline', { requestId, reason: 'off' })).result).toEqual(
+          {},
+        )
+        let settled = false
+        void answer.then(() => {
+          settled = true
+        })
+        await second.call('whoami')
+        expect(settled).toBe(false)
+        expect(
+          (await second.call('screen.decline', { requestId, reason: 'denied' })).result,
+        ).toEqual({})
+        expect(await answer).toEqual({ ok: true, data: { outcome: 'declined', reason: 'denied' } })
+        expect(await asking(fake)).toEqual({ ok: false, error: 'cooldown' })
+        await new Promise((resolve) => setTimeout(resolve, 320))
+        const again = asking(fake)
+        const repeat = await requestOf(first, requestId)
+        await first.call('screen.decline', { requestId: repeat.requestId, reason: 'off' })
+        await second.call('screen.decline', { requestId: repeat.requestId, reason: 'off' })
+        expect(await again).toMatchObject({ data: { outcome: 'declined', reason: 'off' } })
+      })
+
+      it('PHA-C3 answers no-answer when nobody decides, and holds one waiting request per phone', async () => {
+        await new Promise((resolve) => setTimeout(resolve, 320))
+        const fake = listenForScreens()
+        await connect(registerDevice({ name: 'Pixel', pubkey: 'pk' }).token)
+        const first = asking(fake)
+        expect(await asking(fake)).toEqual({ ok: false, error: 'busy' })
+        expect(await asking(fake, { sessionId: 's2', pane: otherAsker.externalId })).toEqual({
+          ok: false,
+          error: 'busy',
+        })
+        expect(await first).toEqual({ ok: true, data: { outcome: 'no-answer' } })
+      })
+
+      it('PHA-C4 refuses a pane of another workspace, a pane without an agent, a missing or long reason and a stranger', async () => {
+        const fake = listenForScreens()
+        await connect(registerDevice({ name: 'Pixel', pubkey: 'pk' }).token)
+        const stranger: ScreenLinkController = {
+          offer: async () => true,
+          frame: () => {},
+          event: () => {},
+        }
+        expect(await asking(fake, { pane: otherPane.externalId })).toEqual({
+          ok: false,
+          error: 'unknown-pane',
+        })
+        expect(await asking(fake, { pane: shellPane.externalId })).toEqual({
+          ok: false,
+          error: 'not-an-agent',
+        })
+        expect(await asking(fake, { reason: '  ' })).toEqual({ ok: false, error: 'invalid-reason' })
+        expect(await asking(fake, { reason: 'x'.repeat(301) })).toEqual({
+          ok: false,
+          error: 'invalid-reason',
+        })
+        expect(await asking(fake, { sessionId: 'pad', pane: otherPane.externalId })).toEqual({
+          ok: false,
+          error: 'unknown-session',
+        })
+        expect(await links.askFor(stranger, { sessionId: 's1' })).toEqual({
+          ok: false,
+          error: 'not-listening',
+        })
+      })
+
+      it('PHA-C9 never ends a request with a link opened for another workspace', async () => {
+        const fake = listenForScreens()
+        const device = registerDevice({ name: 'Pixel', pubkey: 'pk' })
+        const phone = await connect(device.token)
+        const answer = asking(fake)
+        const { requestId } = await requestOf(phone)
+        const wrong = await connect(device.token)
+        await wrong.call('screen.start', screenParams({ sessionId: 's2', requestId }))
+        expect(await answer).toEqual({ ok: true, data: { outcome: 'no-answer' } })
+      })
     })
   })
 })

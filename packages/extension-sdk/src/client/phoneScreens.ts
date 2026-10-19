@@ -1,12 +1,14 @@
 import type { MessageConnection } from 'vscode-jsonrpc/node'
 import { isRecord } from '../contract/isRecord'
 import {
+  PHONE_SCREENS_ASK_FOR_METHOD,
   PHONE_SCREENS_ASK_METHOD,
   PHONE_SCREENS_LISTEN_METHOD,
   PHONE_SCREENS_REQUEST_METHOD,
   PHONE_SCREEN_EVENT_METHOD,
   PHONE_SCREEN_FRAME_METHOD,
   PHONE_SCREEN_OFFER_METHOD,
+  type PhoneScreenAskFor,
   type PhoneScreenEvent,
   type PhoneScreenFrameHeader,
   type PhoneScreenFrameParams,
@@ -37,6 +39,7 @@ export interface PhoneScreens {
     params?: Record<string, unknown>,
   ) => Promise<PhoneScreenReply>
   ask: (sessionId: string) => Promise<PhoneScreenReply>
+  askFor: (request: PhoneScreenAskFor) => Promise<PhoneScreenReply>
 }
 
 async function called(work: Promise<unknown>): Promise<PhoneScreenReply> {
@@ -86,5 +89,6 @@ export function phoneScreenMethods(conn: MessageConnection): PhoneScreens {
     request: (linkId, method, params) =>
       called(conn.sendRequest(PHONE_SCREENS_REQUEST_METHOD, { linkId, method, params })),
     ask: (sessionId) => called(conn.sendRequest(PHONE_SCREENS_ASK_METHOD, { sessionId })),
+    askFor: (request) => called(conn.sendRequest(PHONE_SCREENS_ASK_FOR_METHOD, request)),
   }
 }

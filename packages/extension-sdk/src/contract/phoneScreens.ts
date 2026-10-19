@@ -1,6 +1,7 @@
 export const PHONE_SCREENS_LISTEN_METHOD = 'ext.phoneScreens.listen'
 export const PHONE_SCREENS_REQUEST_METHOD = 'ext.phoneScreens.request'
 export const PHONE_SCREENS_ASK_METHOD = 'ext.phoneScreens.ask'
+export const PHONE_SCREENS_ASK_FOR_METHOD = 'ext.phoneScreens.askFor'
 export const PHONE_SCREEN_OFFER_METHOD = 'ext.phoneScreen.offer'
 export const PHONE_SCREEN_FRAME_METHOD = 'ext.phoneScreen.frame'
 export const PHONE_SCREEN_EVENT_METHOD = 'ext.phoneScreen.event'
@@ -91,3 +92,19 @@ export type PhoneScreenReply =
 export interface PhoneScreenOfferReply {
   accept: boolean
 }
+
+export const PHONE_SCREEN_ASK_REASON_MAX = 300
+
+export type PhoneScreenDeclineReason = 'off' | 'unsupported' | 'denied'
+
+export interface PhoneScreenAskFor {
+  sessionId: string
+  pane: string
+  reason: string
+  agent?: 'claude' | 'codex'
+}
+
+export type PhoneScreenAskOutcome =
+  | { outcome: 'started' }
+  | { outcome: 'declined'; reason: PhoneScreenDeclineReason }
+  | { outcome: 'no-answer' }

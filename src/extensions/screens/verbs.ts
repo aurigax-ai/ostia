@@ -2,6 +2,7 @@ import {
   type CommandHandler,
   type ExtensionCaller,
   type ExtensionResult,
+  type PhoneScreenReply,
   type SandboxDomainsResult,
   type Translate,
   cliArgs,
@@ -13,6 +14,13 @@ import type { OwnedScreen } from './screenRegistry'
 import { MIN_SERVICE_VERSION, type ScreensResult, runScreens } from './screensCli'
 import type { ScreensService } from './screensService'
 
+type PhoneAsk = (request: {
+  sessionId: string
+  pane: string
+  reason: string
+  agent?: 'claude' | 'codex'
+}) => Promise<PhoneScreenReply>
+
 export interface VerbDeps {
   service: ScreensService
   gate: CreateGate
@@ -20,6 +28,8 @@ export interface VerbDeps {
   installed: () => boolean
   sandboxDomains: (workspaceId: string) => Promise<SandboxDomainsResult>
   workspaceName: (workspaceId: string) => Promise<string>
+  askPhone?: PhoneAsk
+  agentOf: (paneId: string) => Promise<'claude' | 'codex' | undefined>
 }
 
 interface RelaySpec {
@@ -217,5 +227,32 @@ export function verbHandlers(deps: VerbDeps): Record<string, CommandHandler> {
   const relayed = Object.fromEntries(
     Object.entries(RELAY_VERBS).map(([verb, spec]) => [verb, relay(verb, spec)]),
   )
-  return { create, token, list, stop, ...relayed }
+  const askPhone: CommandHandler = async (args, caller) => {
+    const tr = t(caller)
+    if (caller.kind !== 'pane' || !caller.paneId || !caller.workspaceId) {
+      return failure('refused', tr('verb.askPanesOnly'))
+    }
+    const parsed = parseArgs(cliArgs(args)?.argv ?? [], ['reason'], [])
+    const reason = parsed.ok ? (parsed.flags.reason?.at(-1) ?? parsed.rest.join(' ')) : ''
+    if (!reason.trim()) return failure('usage', tr('verb.askUsage'))
+    if (!deps.askPhone) return failure('phone-off', tr('verb.askOff'))
+    const agent = await deps.agentOf(caller.paneId)
+    const res = await deps.askPhone({
+      sessionId: caller.workspaceId,
+      pane: caller.paneId,
+      reason,
+      ...(agent ? { agent } : {}),
+    })
+    if (!res.ok) return failure(res.error, res.message)
+    const answer = res.data as { outcome?: string }
+    if (answer.outcome === 'started') return ok(tr('verb.askStarted'), answer)
+    if (answer.outcome === 'declined') {
+      const why =
+        (answer as { reason?: string }).reason === 'denied' ? 'verb.askDenied' : 'verb.askDeclined'
+      return failure('declined', tr(why))
+    }
+    return failure('no-answer', tr('verb.askNoAnswer'))
+  }
+
+  return { create, token, list, stop, 'ask-phone': askPhone, ...relayed }
 }

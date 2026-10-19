@@ -58,6 +58,7 @@ export function createAgentServices(ctx: WorkspaceContext) {
   const paneLifecycleEvents = new PaneLifecycleEvents({
     identity: getByPaneId,
     emit: (payload) => emitPaneEvent('pane.lifecycle', payload),
+    noted: (paneId) => paneJournal.lifecycle(paneId),
   })
   const paneWaking = new PaneWaking()
   const paneStartErrors = new Map<string, string>()

@@ -119,6 +119,7 @@ describe('the live view in the Screens panel', () => {
       installed: () => true,
       sandboxDomains: async () => ({ ok: false, error: 'not-sandboxed' }),
       workspaceName: async (id) => id,
+      agentOf: async () => undefined,
     })
     server = await startPanelServer({
       dir: __dirname,

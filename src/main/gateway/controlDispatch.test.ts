@@ -70,6 +70,7 @@ function fakeDeps(overrides: Partial<GatewayControlDeps> = {}): GatewayControlDe
     agentRunning: vi.fn().mockReturnValue(false),
     watchesTurn: vi.fn().mockResolvedValue(false),
     turnStarted: vi.fn().mockResolvedValue(true),
+    paneSince: vi.fn().mockReturnValue(undefined),
     paneTurns: { list: vi.fn().mockReturnValue([]), output: vi.fn().mockReturnValue(null) },
     redact: vi.fn(async (text: string) => text),
     ownSnippets: vi.fn().mockReturnValue([]),
@@ -1160,6 +1161,7 @@ describe('dispatchGatewayMethod — asks and agent replies', () => {
         agentRunning: vi.fn().mockReturnValue(true),
         watchesTurn: vi.fn().mockResolvedValue(true),
         turnStarted: vi.fn().mockResolvedValue(true),
+        paneSince: vi.fn().mockReturnValue(undefined),
         paneTurns: { list: vi.fn().mockReturnValue([]), output: vi.fn().mockReturnValue(null) },
         redact: vi.fn(async (text: string) => text),
         ownSnippets: vi.fn().mockReturnValue([]),
@@ -1479,6 +1481,38 @@ describe('isHiddenFromPhone', () => {
     expect(isHiddenFromPhone('.SSH/id_ed25519', 'linux')).toBe(false)
     expect(isHiddenFromPhone('.ssh/id_ed25519', 'linux')).toBe(true)
     expect(isHiddenFromPhone('notes/readme.md', 'darwin')).toBe(false)
+  })
+})
+
+describe('dispatchGatewayMethod — pane.list since', () => {
+  it('PHA-C8 adds since to a pane whose state main saw change, and nothing else', async () => {
+    const panes = [
+      {
+        paneId: 'ext-1',
+        workspaceId: 'w1',
+        kind: 'terminal',
+        title: 'claude',
+        running: true,
+        blockCount: 0,
+      },
+      {
+        paneId: 'ext-2',
+        workspaceId: 'w1',
+        kind: 'terminal',
+        title: 'zsh',
+        running: false,
+        blockCount: 0,
+      },
+    ]
+    const deps = fakeDeps({
+      listPanes: vi.fn().mockResolvedValue(panes),
+      paneSince: vi.fn((paneId: string) => (paneId === 'ext-1' ? 1700 : undefined)),
+    })
+    const res = (await dispatchGatewayMethod('pane.list', {}, ['read'], deps)) as {
+      result: { panes: Record<string, unknown>[] }
+    }
+    expect(res.result.panes[0]).toMatchObject({ paneId: 'ext-1', sessionId: 'w1', since: 1700 })
+    expect(res.result.panes[1]).not.toHaveProperty('since')
   })
 })
 

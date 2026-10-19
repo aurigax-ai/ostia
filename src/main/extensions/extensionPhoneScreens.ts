@@ -12,7 +12,10 @@ import type { PaneIdentity } from '../control/idRegistry'
 import type { ScreenLinkController, ScreenLinks } from '../gateway/screenLinks'
 import type { Runtime } from './extensionRuntime'
 
-export type PhoneScreenLinks = Pick<ScreenLinks, 'listen' | 'release' | 'request' | 'ask'>
+export type PhoneScreenLinks = Pick<
+  ScreenLinks,
+  'listen' | 'release' | 'request' | 'ask' | 'askFor'
+>
 
 export interface ExtensionPhoneScreensHost {
   links: PhoneScreenLinks | undefined
@@ -83,6 +86,16 @@ export class ExtensionPhoneScreens {
       return Promise.resolve({ ok: false, error: 'invalid-params' })
     }
     return this.host.links.ask(holder.controller, sessionId)
+  }
+
+  askFor(identity: PaneIdentity, conn: MessageConnection, raw: unknown): Promise<PhoneScreenReply> {
+    const holder = this.holderOf(identity, conn)
+    if (!holder || !this.host.links) return Promise.resolve({ ok: false, error: 'not-listening' })
+    const sessionId = isRecord(raw) ? raw.sessionId : undefined
+    if (typeof sessionId !== 'string' || !holder.rt.callerWorkspaces.has(sessionId)) {
+      return Promise.resolve({ ok: false, error: 'not-reached' })
+    }
+    return this.host.links.askFor(holder.controller, raw)
   }
 
   recheck(): void {

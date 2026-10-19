@@ -78,6 +78,15 @@ ostia screen type "hello"
 ostia screen key Escape         # Escape is back, Home is home, alt+Tab is recents, Return, BackSpace, Tab
 ```
 
+To ask for one, say why in one line; the phone shows it and its human decides:
+
+```sh
+ostia screen ask-phone --reason "check the login screen of the app build"
+```
+
+It waits up to 2 minutes and answers when the human started a session, or fails with `declined`
+(the human said no, or phone control is off there) or `no-answer`.
+
 Coordinates are the phone's pixels. `move`, `cursor`, `windows`, `focus`, `hold-key` and right or
 middle clicks answer `unsupported`. When the human touches the phone your input is refused with
 `human-owns-input` until they resume it on the phone. Banking, password and system screens are

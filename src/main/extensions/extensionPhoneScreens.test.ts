@@ -1,4 +1,5 @@
 import {
+  PHONE_SCREENS_ASK_FOR_METHOD,
   PHONE_SCREENS_ASK_METHOD,
   PHONE_SCREENS_LISTEN_METHOD,
   PHONE_SCREENS_REQUEST_METHOD,
@@ -37,7 +38,12 @@ function fakeConn() {
 function extension(id: string, caps: string[]) {
   const identity = { externalId: `ext-${id}`, extId: id, kind: 'extension' } as PaneIdentity
   const { conn, close } = fakeConn()
-  const rt = { identity, conn, ext: { manifest: { id } } } as unknown as Runtime
+  const rt = {
+    identity,
+    conn,
+    ext: { manifest: { id } },
+    callerWorkspaces: new Set(['w1']),
+  } as unknown as Runtime
   setCaps(identity.externalId, caps as never)
   return { identity, conn, close, rt }
 }
@@ -55,6 +61,7 @@ function setup() {
     }),
     request: vi.fn().mockResolvedValue({ ok: true, data: { done: true } }),
     ask: vi.fn().mockResolvedValue({ ok: true, data: null }),
+    askFor: vi.fn().mockResolvedValue({ ok: true, data: { outcome: 'started' } }),
   }
   const runtimes = new Map<MessageConnection, Runtime>()
   let active = true
@@ -138,10 +145,30 @@ describe('ExtensionPhoneScreens', () => {
     registerExtensionMethods(() => null)
     const phoneMethods = [...registered.keys()].filter((name) => /phone/i.test(name))
     expect(phoneMethods.sort()).toEqual(
-      [PHONE_SCREENS_ASK_METHOD, PHONE_SCREENS_LISTEN_METHOD, PHONE_SCREENS_REQUEST_METHOD].sort(),
+      [
+        PHONE_SCREENS_ASK_FOR_METHOD,
+        PHONE_SCREENS_ASK_METHOD,
+        PHONE_SCREENS_LISTEN_METHOD,
+        PHONE_SCREENS_REQUEST_METHOD,
+      ].sort(),
     )
     for (const name of phoneMethods) {
       expect(registered.get(name)).toMatchObject({ callers: 'extensions', cap: 'phone-screens' })
     }
+  })
+  it('PHA-C13 passes on an agent request only for a workspace the extension serves', async () => {
+    const { screens, links, add } = setup()
+    const ext = add('bridge', ['phone-screens'])
+    screens.listen(ext.identity, ext.conn)
+    const request = { sessionId: 'w2', pane: 'p', reason: 'look at it' }
+    expect(await screens.askFor(ext.identity, ext.conn, request)).toEqual({
+      ok: false,
+      error: 'not-reached',
+    })
+    expect(links.askFor).not.toHaveBeenCalled()
+    expect(await screens.askFor(ext.identity, ext.conn, { ...request, sessionId: 'w1' })).toEqual({
+      ok: true,
+      data: { outcome: 'started' },
+    })
   })
 })
