@@ -196,7 +196,7 @@ function registerBusSendMethods(deps: BusDeps): void {
       const abort = new AbortController()
       const closed = ctx.conn.onClose(() => abort.abort())
       const settled =
-        typeof waitMs === 'number' && queued.state === 'queued'
+        typeof waitMs === 'number' && (queued.state === 'queued' || queued.state === 'leased')
           ? await whenSettled(queued.id, clampTimeout(waitMs), abort.signal)
           : queued
       closed.dispose()

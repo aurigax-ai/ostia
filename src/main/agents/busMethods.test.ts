@@ -293,6 +293,15 @@ describe('bus.send --wait', () => {
     expect(await waiting).toMatchObject({ ok: true, state: 'delivered', via: 'read' })
   })
 
+  it('waits through the lease of a pane blocked in bus wait and answers delivered on its ack', async () => {
+    const waiting = call<Promise<Waited>>('bus.wait', receiver, { timeoutMs: 5000 })
+    const sending = send('read this', receiver.externalId, sender, { waitMs: 5000 })
+    const woken = await waiting
+    expect(woken.messages.map((m) => m.text)).toEqual(['read this'])
+    ack(woken.lease)
+    expect(await sending).toMatchObject({ ok: true, state: 'delivered', via: 'read' })
+  })
+
   it('answers failed when the receiver’s pane closes', async () => {
     const waiting = send('read this', receiver.externalId, sender, { waitMs: 5000 })
     await vi.waitFor(() => expect(inbox()).toHaveLength(1))

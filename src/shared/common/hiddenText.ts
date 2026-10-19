@@ -3,13 +3,7 @@ export function isControl(code: number): boolean {
 }
 
 export function isHiddenFormat(code: number): boolean {
-  return (
-    code === 0x061c ||
-    (code >= 0x200b && code <= 0x200f) ||
-    (code >= 0x2028 && code <= 0x202e) ||
-    (code >= 0x2060 && code <= 0x2069) ||
-    code === 0xfeff
-  )
+  return code === 0x061c || (code >= 0x2028 && code <= 0x202e) || (code >= 0x2066 && code <= 0x2069)
 }
 
 export function codeEscape(code: number): string {

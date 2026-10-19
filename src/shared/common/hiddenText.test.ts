@@ -7,10 +7,14 @@ describe('hiddenText', () => {
     expect([0x20, 0x41, 0xa0, 0x4e2d].some(isControl)).toBe(false)
   })
 
-  it('names bidi controls, zero-width characters and line separators as hidden', () => {
-    const hidden = [0x202a, 0x202e, 0x2066, 0x2069, 0x200b, 0x200d, 0x200f, 0x2028, 0x2029, 0xfeff]
+  it('names the reordering controls and line separators as hidden', () => {
+    const hidden = [0x061c, 0x202a, 0x202e, 0x2066, 0x2069, 0x2028, 0x2029]
     expect(hidden.every(isHiddenFormat)).toBe(true)
-    expect([0x2027, 0x2030, 0x41, 0x4e2d].some(isHiddenFormat)).toBe(false)
+  })
+
+  it('leaves joiners and direction marks that real text needs', () => {
+    const kept = [0x200c, 0x200d, 0x200e, 0x200f, 0x2027, 0x2030, 0x41, 0x4e2d]
+    expect(kept.some(isHiddenFormat)).toBe(false)
   })
 
   it('escapes as \\x for one byte and \\u above', () => {

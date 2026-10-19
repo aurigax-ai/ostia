@@ -132,9 +132,11 @@ describe('busInboxText', () => {
     )
   })
 
-  it('escapes bidi controls, zero-width characters and line separators in the text', () => {
-    const text = busInboxText([message('m1', 'fine\u202edone\u2066x\u200by\u2029z')])
-    expect(text).toContain('fine\\u202edone\\u2066x\\u200by\\u2029z')
+  it('escapes reordering controls and line separators, and keeps joiners and marks', () => {
+    const text = busInboxText([message('m1', 'fine\u202edone\u2066x\u2029z')])
+    expect(text).toContain('fine\\u202edone\\u2066x\\u2029z')
+    const kept = 'می\u200cخواهم שלום\u200f 👨\u200d💻 控制'
+    expect(busInboxText([message('m2', kept)])).toContain(kept)
     expect(busContext([message('m1', 'a\u202eb')])?.text).toContain('a\\u202eb')
   })
 

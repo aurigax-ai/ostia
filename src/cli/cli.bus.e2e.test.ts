@@ -298,6 +298,15 @@ describe('bus send --wait through the real CLI', () => {
     expect(JSON.parse(res.stdout)).toMatchObject({ ok: true, state: 'delivered', via: 'read' })
   }, 60_000)
 
+  it('returns delivered, exit 0, when the receiver is blocked in bus wait', async () => {
+    const waiting = ostia(agent, 'bus', 'wait', '--timeout', '20')
+    await new Promise((resolve) => setTimeout(resolve, 2500))
+    const res = await ostia(sender, 'bus', 'send', '--wait', '30', agent.externalId, 'got it?')
+    expect(res.code).toBe(0)
+    expect(JSON.parse(res.stdout)).toMatchObject({ ok: true, state: 'delivered', via: 'read' })
+    expect((await waiting).stdout).toContain('got it?')
+  }, 60_000)
+
   it('returns failed, exit 1, with the reason when the receiver’s pane closes', async () => {
     const waiting = ostia(sender, 'bus', 'send', '--wait', '30', agent.externalId, 'too late')
     await new Promise((resolve) => setTimeout(resolve, 2500))
