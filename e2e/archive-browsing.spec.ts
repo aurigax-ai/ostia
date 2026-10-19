@@ -10,7 +10,9 @@ import { viewerGuestText } from './viewerGuest'
 
 const MIB = 1024 * 1024
 
-const BZIP2_FIXTURE = join(__dirname, '..', 'test', 'fixtures', 'archives', 'bz2-note.tar.bz2')
+const FIXTURES = join(__dirname, '..', 'test', 'fixtures', 'archives')
+const BZIP2_FIXTURE = join(FIXTURES, 'bz2-note.tar.bz2')
+const SEVEN_ZIP_FIXTURE = join(FIXTURES, '7z', 'note.7z')
 
 async function xz(bytes: Uint8Array): Promise<Buffer> {
   const compressor = new XzCompressor({ preset: 0 })
@@ -20,9 +22,10 @@ async function xz(bytes: Uint8Array): Promise<Buffer> {
 const PACKED_ROWS = [
   { name: 'bundle.tar.xz', file: 'xz-note.txt', text: 'packed in xz' },
   { name: 'bundle.tar.bz2', file: 'bz2-note.txt', text: 'packed in bz2' },
+  { name: 'bundle.7z', file: '7z-note.txt', text: 'packed in 7z' },
 ]
 
-test('a zip, a tar.xz and a tar.bz2 expand in the Files panel, their entries open read-only without extracting, and turning the archives extension off makes them plain files', async () => {
+test('a zip, a tar.xz, a tar.bz2 and a 7z expand in the Files panel, their entries open read-only without extracting, and turning the archives extension off makes them plain files', async () => {
   const dataHome = freshDataHome()
   const home = join(dataHome, 'home')
   mkdirSync(home, { recursive: true })
@@ -31,6 +34,7 @@ test('a zip, a tar.xz and a tar.bz2 expand in the Files panel, their entries ope
     await xz(tarOf([{ name: 'xz-note.txt', data: 'packed in xz' }], false)),
   )
   copyFileSync(BZIP2_FIXTURE, join(home, 'bundle.tar.bz2'))
+  copyFileSync(SEVEN_ZIP_FIXTURE, join(home, 'bundle.7z'))
   writeFileSync(
     join(home, 'bundle.zip'),
     zipOf([
@@ -103,7 +107,7 @@ test('a zip, a tar.xz and a tar.bz2 expand in the Files panel, their entries ope
       readdirSync(home)
         .filter((name) => !name.startsWith('.'))
         .sort(),
-    ).toEqual(['bundle.tar.bz2', 'bundle.tar.xz', 'bundle.zip'])
+    ).toEqual(['bundle.7z', 'bundle.tar.bz2', 'bundle.tar.xz', 'bundle.zip'])
 
     await win.getByRole('button', { name: 'Settings', exact: true }).first().click()
     await win.getByRole('button', { name: 'Extensions', exact: true }).first().click()
