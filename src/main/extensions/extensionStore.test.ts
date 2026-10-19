@@ -50,6 +50,13 @@ describe('needsApproval / effectiveRecord', () => {
     })
     const saved = { enabled: false, approved: ['notify' as const] }
     expect(effectiveRecord(true, saved)).toBe(saved)
+    expect(effectiveRecord(true, saved, ['file-contents'])).toEqual({
+      enabled: false,
+      approved: ['notify', 'file-contents'],
+    })
+    expect(effectiveRecord(false, saved, ['file-contents'])).toBe(saved)
+    const granted = { enabled: true, approved: ['file-contents' as const] }
+    expect(effectiveRecord(true, granted, ['file-contents'])).toBe(granted)
   })
 })
 

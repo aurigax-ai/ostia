@@ -517,6 +517,16 @@ describe('ExtensionHost — browse kinds', () => {
     expect(byId.peeker).toMatchObject({ granted: [], unapproved: ['file-contents'] })
   })
 
+  it('gives a built-in that already has a stored record the file-contents its manifest now declares', () => {
+    const { host, deps } = makeHost()
+    deps.store.set('zips', { enabled: true, approved: ['notify'] })
+    const zips = host.list().find((e) => e.id === 'zips')
+    expect(zips?.granted).toContain('file-contents')
+    expect(host.browse.kindFor('/w/a.zip')).toEqual({ extId: 'zips', kind: 'zips.zip' })
+    deps.store.set('rival', { enabled: true, approved: ['notify'] })
+    expect(host.list().find((e) => e.id === 'rival')?.granted).not.toContain('file-contents')
+  })
+
   it('serves nothing from a user extension until the human approved its claim', () => {
     const { host } = makeHost()
     expect(host.browse.kindFor('/w/a.rar')).toBeNull()

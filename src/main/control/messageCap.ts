@@ -62,15 +62,18 @@ class MessageCap extends Transform {
       const end = this.headerEnd(rest)
       if (end === -1) {
         this.header = Buffer.concat([this.header, rest])
-        if (this.header.length > HEADER_MAX) return this.close(done)
-        done()
+        if (this.header.length > HEADER_MAX) this.close(done)
+        else done()
         return
       }
       const block = Buffer.concat([this.header, rest.subarray(0, end)])
       this.header = Buffer.alloc(0)
       this.state = 0
       const bytes = declaredLength(block.toString('ascii'))
-      if (!Number.isSafeInteger(bytes) || bytes < 0 || bytes > this.max) return this.close(done)
+      if (!Number.isSafeInteger(bytes) || bytes < 0 || bytes > this.max) {
+        this.close(done)
+        return
+      }
       this.push(block)
       this.remaining = bytes
       rest = rest.subarray(end)
