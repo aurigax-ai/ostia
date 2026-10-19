@@ -59,7 +59,7 @@ function ext(overrides: Partial<ExtensionInfo> = {}): ExtensionInfo {
     category: 'other',
     languages: [],
     languageServers: [],
-    fileViewers: [],
+    fileKinds: [],
     agentSkills: [],
     agentHooks: [],
     iconThemes: [],

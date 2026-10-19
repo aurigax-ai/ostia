@@ -14,11 +14,15 @@ const GROUPS_MAX = 64
 const ITEMS_MAX = 32
 const TEXT_MAX = 512
 
+export function answerPending(senderId: number, requestId: number, value: unknown): void {
+  const answer = pending.get(requestId)
+  if (answer && answer.senderId === senderId) answer.settle(value)
+}
+
 export function registerCloseGuard(): void {
-  ipcMain.on('window:close-answer', (e, requestId: number, value: unknown) => {
-    const answer = pending.get(requestId)
-    if (answer && answer.senderId === e.sender.id) answer.settle(value)
-  })
+  ipcMain.on('window:close-answer', (e, requestId: number, value: unknown) =>
+    answerPending(e.sender.id, requestId, value),
+  )
 }
 
 function unresponsive(win: BrowserWindow): boolean {

@@ -4,7 +4,7 @@ import type { CommandDescriptor, CommandResult, CommandTarget } from '../../shar
 import type { TerminalStateSnapshot } from '../../shared/terminal/ptyApi'
 import type { Ask, AskAnswerResult } from '../approvals/asks'
 import { internalPaneArgs } from '../control/commandArgs'
-import { resolveExternal } from '../control/idRegistry'
+import { type PaneIdentity, resolveExternal } from '../control/idRegistry'
 import type { PaneEntry, WorkspaceEntry, WorkspaceGroupEntry } from '../panes/paneList'
 import { listArtifactFiles, locateArtifactFile, readArtifactFile } from './artifactFiles'
 import {
@@ -34,6 +34,8 @@ export interface GatewayControlDeps {
   listAsks: () => Ask[]
   answerAsk: (askId: string, choiceId: unknown, text: unknown) => AskAnswerResult
   agentRunning: (rendererPaneId: string) => boolean
+  watchesTurn: (pane: PaneIdentity) => Promise<boolean>
+  turnStarted: (pane: PaneIdentity) => Promise<boolean>
 }
 
 const PHONE_PROMPT_MAX = 8000
@@ -124,7 +126,7 @@ function resolveTarget(target: unknown, primaryWindowId: string | undefined): Co
   return { windowId: identity.windowId, workspaceId: identity.workspaceId, paneId: identity.paneId }
 }
 
-function agentPaneOf(paneId: unknown, deps: GatewayControlDeps): string | RpcOutcome {
+function agentPaneOf(paneId: unknown, deps: GatewayControlDeps): PaneIdentity | RpcOutcome {
   if (typeof paneId !== 'string' || !paneId) return invalidParams('missing paneId')
   const identity = resolveExternal(paneId)
   if (!identity || identity.kind !== 'pane' || identity.manager)
@@ -132,19 +134,27 @@ function agentPaneOf(paneId: unknown, deps: GatewayControlDeps): string | RpcOut
   if (!deps.agentRunning(identity.paneId)) {
     return invalidParams('not-an-agent')
   }
-  return identity.paneId
+  return identity
 }
+
+function isOutcome(value: PaneIdentity | RpcOutcome): value is RpcOutcome {
+  return 'ok' in value
+}
+
+function notSubmitted(pane: PaneIdentity): RpcOutcome {
+  return { ok: false, code: -32005, message: 'not-submitted', data: { paneId: pane.externalId } }
+}
+
+const wait = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms))
 
 interface GatewayCall {
   p: Record<string, unknown>
   deviceCaps: string[]
   deps: GatewayControlDeps
-  hasCap: (cap: string) => boolean
 }
 
 async function sessionList(call: GatewayCall): Promise<RpcOutcome> {
-  const { deps, hasCap } = call
-  if (!hasCap('read')) return needsElevation('read')
+  const { deps } = call
   const [workspaces, groups] = await Promise.all([
     deps.listWorkspaces(),
     deps.listWorkspaceGroups(),
@@ -157,21 +167,18 @@ async function sessionList(call: GatewayCall): Promise<RpcOutcome> {
 }
 
 async function paneList(call: GatewayCall): Promise<RpcOutcome> {
-  const { deps, hasCap } = call
-  if (!hasCap('read')) return needsElevation('read')
+  const { deps } = call
   return { ok: true, result: { panes: (await deps.listPanes()).map(toWirePane) } }
 }
 
 async function commandList(call: GatewayCall): Promise<RpcOutcome> {
-  const { deps, hasCap } = call
-  if (!hasCap('read')) return needsElevation('read')
+  const { deps } = call
   const windowId = deps.primaryWindowId()
   return { ok: true, result: { commands: windowId ? deps.listCommandsFor(windowId) : [] } }
 }
 
 async function commandExec(call: GatewayCall): Promise<RpcOutcome> {
-  const { p, deps, hasCap, deviceCaps } = call
-  if (!hasCap('command')) return needsElevation('command')
+  const { p, deps, deviceCaps } = call
   const id = p.id
   if (typeof id !== 'string' || !id) return invalidParams('missing command id')
   const windowId = deps.primaryWindowId()
@@ -196,8 +203,7 @@ async function commandExec(call: GatewayCall): Promise<RpcOutcome> {
 }
 
 async function paneInfo(call: GatewayCall): Promise<RpcOutcome> {
-  const { p, deps, hasCap } = call
-  if (!hasCap('read')) return needsElevation('read')
+  const { p, deps } = call
   const paneId = p.paneId
   if (typeof paneId !== 'string' || !paneId) return invalidParams('missing paneId')
   const identity = resolveExternal(paneId)
@@ -217,8 +223,7 @@ async function paneInfo(call: GatewayCall): Promise<RpcOutcome> {
 }
 
 async function cwdGet(call: GatewayCall): Promise<RpcOutcome> {
-  const { p, deps, hasCap } = call
-  if (!hasCap('read')) return needsElevation('read')
+  const { p, deps } = call
   const paneId = p.paneId
   if (typeof paneId !== 'string' || !paneId) return invalidParams('missing paneId')
   const identity = resolveExternal(paneId)
@@ -227,8 +232,7 @@ async function cwdGet(call: GatewayCall): Promise<RpcOutcome> {
 }
 
 async function fsList(call: GatewayCall): Promise<RpcOutcome> {
-  const { p, deps, hasCap } = call
-  if (!hasCap('read')) return needsElevation('read')
+  const { p, deps } = call
   const folder = await workspaceFolder(p, deps)
   if ('ok' in folder) return folder
   const root = fileRootOf(p.root)
@@ -245,8 +249,7 @@ async function fsList(call: GatewayCall): Promise<RpcOutcome> {
 }
 
 async function fsRead(call: GatewayCall): Promise<RpcOutcome> {
-  const { p, deps, hasCap } = call
-  if (!hasCap('read')) return needsElevation('read')
+  const { p, deps } = call
   const folder = await workspaceFolder(p, deps)
   if ('ok' in folder) return folder
   const root = fileRootOf(p.root)
@@ -267,8 +270,7 @@ async function fsRead(call: GatewayCall): Promise<RpcOutcome> {
 }
 
 async function artifactOpen(call: GatewayCall): Promise<RpcOutcome> {
-  const { p, deps, hasCap } = call
-  if (!hasCap('command')) return needsElevation('command')
+  const { p, deps } = call
   const folder = await workspaceFolder(p, deps)
   if ('ok' in folder) return folder
   const dir = deps.artifactsDir(folder.workspaceId)
@@ -280,47 +282,62 @@ async function artifactOpen(call: GatewayCall): Promise<RpcOutcome> {
 }
 
 async function askList(call: GatewayCall): Promise<RpcOutcome> {
-  const { deps, hasCap } = call
-  if (!hasCap('read')) return needsElevation('read')
+  const { deps } = call
   return { ok: true, result: { asks: deps.listAsks() } }
 }
 
 async function askAnswer(call: GatewayCall): Promise<RpcOutcome> {
-  const { p, deps, hasCap } = call
-  if (!hasCap('respond')) return needsElevation('respond')
+  const { p, deps } = call
   if (typeof p.askId !== 'string' || !p.askId) return invalidParams('missing askId')
   const answered = deps.answerAsk(p.askId, p.choiceId, p.text)
   return answered === 'ok' ? { ok: true, result: { ok: true } } : invalidParams(answered)
 }
 
 async function agentPrompt(call: GatewayCall): Promise<RpcOutcome> {
-  const { p, deps, hasCap } = call
-  if (!hasCap('respond')) return needsElevation('respond')
-  const paneId = agentPaneOf(p.paneId, deps)
-  if (typeof paneId !== 'string') return paneId
+  const { p, deps } = call
+  const pane = agentPaneOf(p.paneId, deps)
+  if (isOutcome(pane)) return pane
   if (typeof p.text !== 'string') return invalidParams('missing text')
   const text = plainBlock(p.text).slice(0, PHONE_PROMPT_MAX)
   if (!text) return invalidParams('missing text')
-  deps.ptyWrite(paneId, bracketedPaste(text))
-  setTimeout(() => {
-    if (deps.agentRunning(paneId)) deps.ptyWrite(paneId, '\r')
-  }, AGENT_ENTER_DELAY_MS)
+  const watched = await deps.watchesTurn(pane)
+  deps.ptyWrite(pane.paneId, bracketedPaste(text))
+  await wait(AGENT_ENTER_DELAY_MS)
+  if (!deps.agentRunning(pane.paneId)) return notSubmitted(pane)
+  deps.ptyWrite(pane.paneId, '\r')
+  if (watched && !(await deps.turnStarted(pane))) return notSubmitted(pane)
   return { ok: true, result: { ok: true } }
 }
 
 async function agentInterrupt(call: GatewayCall): Promise<RpcOutcome> {
-  const { p, deps, hasCap } = call
-  if (!hasCap('respond')) return needsElevation('respond')
-  const paneId = agentPaneOf(p.paneId, deps)
-  if (typeof paneId !== 'string') return paneId
+  const { p, deps } = call
+  const pane = agentPaneOf(p.paneId, deps)
+  if (isOutcome(pane)) return pane
   const key =
     typeof p.key === 'string' && Object.hasOwn(INTERRUPT_KEYS, p.key)
       ? INTERRUPT_KEYS[p.key]
       : undefined
   if (!key) return invalidParams('unknown key')
-  deps.ptyWrite(paneId, key)
+  deps.ptyWrite(pane.paneId, key)
   return { ok: true, result: { ok: true } }
 }
+
+const METHODS: Record<string, [cap: string, handler: (call: GatewayCall) => Promise<RpcOutcome>]> =
+  {
+    'session.list': ['read', sessionList],
+    'pane.list': ['read', paneList],
+    'command.list': ['read', commandList],
+    'command.exec': ['command', commandExec],
+    'pane.info': ['read', paneInfo],
+    'cwd.get': ['read', cwdGet],
+    'fs.list': ['read', fsList],
+    'fs.read': ['read', fsRead],
+    'artifact.open': ['command', artifactOpen],
+    'ask.list': ['read', askList],
+    'ask.answer': ['respond', askAnswer],
+    'agent.prompt': ['respond', agentPrompt],
+    'agent.interrupt': ['respond', agentInterrupt],
+  }
 
 export async function dispatchGatewayMethod(
   method: string,
@@ -328,51 +345,9 @@ export async function dispatchGatewayMethod(
   deviceCaps: string[],
   deps: GatewayControlDeps,
 ): Promise<RpcOutcome> {
-  const p = (params ?? {}) as Record<string, unknown>
-  const hasCap = (cap: string): boolean => deviceCaps.includes(cap)
-  const call: GatewayCall = { p, deviceCaps, deps, hasCap }
-
-  switch (method) {
-    case 'session.list':
-      return sessionList(call)
-
-    case 'pane.list':
-      return paneList(call)
-
-    case 'command.list':
-      return commandList(call)
-
-    case 'command.exec':
-      return commandExec(call)
-
-    case 'pane.info':
-      return paneInfo(call)
-
-    case 'cwd.get':
-      return cwdGet(call)
-
-    case 'fs.list':
-      return fsList(call)
-
-    case 'fs.read':
-      return fsRead(call)
-
-    case 'artifact.open':
-      return artifactOpen(call)
-
-    case 'ask.list':
-      return askList(call)
-
-    case 'ask.answer':
-      return askAnswer(call)
-
-    case 'agent.prompt':
-      return agentPrompt(call)
-
-    case 'agent.interrupt':
-      return agentInterrupt(call)
-
-    default:
-      return { ok: false, code: -32601, message: `method not found: ${method}` }
-  }
+  const entry = Object.hasOwn(METHODS, method) ? METHODS[method] : undefined
+  if (!entry) return { ok: false, code: -32601, message: `method not found: ${method}` }
+  const [cap, handler] = entry
+  if (!deviceCaps.includes(cap)) return needsElevation(cap)
+  return handler({ p: (params ?? {}) as Record<string, unknown>, deviceCaps, deps })
 }

@@ -9,8 +9,8 @@ import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest
 import { renderSettled } from '../../../../test/render'
 import { SurfacePool } from './SurfacePool'
 
-vi.mock('@/lib/terminal/webglRenderer', () => ({
-  createWebglRenderer: () => ({ pause: () => {}, dispose: () => {} }),
+vi.mock('@/lib/terminal/xtermRenderer', () => ({
+  createXtermRenderer: () => ({ pause: () => {}, dispose: () => {} }),
 }))
 
 if (!Element.prototype.getAnimations) {

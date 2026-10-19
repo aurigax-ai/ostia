@@ -555,7 +555,7 @@ describe('Uninstall and source on the Extensions page', () => {
       category: 'other',
       languages: [],
       languageServers: [],
-      fileViewers: [],
+      fileKinds: [],
       agentSkills: [],
       agentHooks: [],
       iconThemes: [],

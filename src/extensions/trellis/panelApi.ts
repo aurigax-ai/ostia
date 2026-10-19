@@ -173,8 +173,8 @@ function boardHandlers(kit: HandlerKit): Record<string, CommandHandler> {
       const detail = await cli.card(ref)
       if (!detail.ok) return errorResult(detail.error)
       const api = board ? await currentDaemon() : null
-      const project = ref.slice(0, ref.lastIndexOf('-'))
-      const thread = api && board ? await readThread(api, project, board, ref) : null
+      const project = projectOfRef(ref)
+      const thread = api && board && project ? await readThread(api, project, board, ref) : null
       return ok(undefined, { card: detail.value, thread })
     },
   }

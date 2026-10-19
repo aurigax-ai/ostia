@@ -17,7 +17,7 @@ import {
 
 function manifestOf(raw: Record<string, unknown>): ExtensionManifest {
   const res = parseManifest(
-    { id: 'demo', name: 'Demo', version: '1.0.0', api: '4.0', ...raw },
+    { id: 'demo', name: 'Demo', version: '1.0.0', api: '5.0', ...raw },
     '/x',
   )
   if (!res.ok) throw new Error(res.error)

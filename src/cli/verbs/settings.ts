@@ -1,7 +1,7 @@
 import type { MessageConnection } from 'vscode-jsonrpc/node'
 import type { CommandResult } from '../../shared/control/commands'
 import { parseArgs } from '../common/args'
-import { failUsage } from '../common/failure'
+import { failUsage, failVerb, failWith } from '../common/failure'
 
 export async function runSettingsVerb(conn: MessageConnection): Promise<void> {
   const sub = process.argv[3]
@@ -13,10 +13,9 @@ export async function runSettingsVerb(conn: MessageConnection): Promise<void> {
       args: key ? { key } : undefined,
     })
     if (res.ok) {
-      console.log(JSON.stringify(res.result ?? null, null, 2))
+      console.log(JSON.stringify(res.result ?? null))
     } else {
-      console.error('ostia:', res.error?.message)
-      process.exitCode = 1
+      failWith(res.error?.message ?? 'failed')
     }
   } else if (sub === 'set') {
     const { positional, booleans } = parseArgs(process.argv.slice(4), {
@@ -26,8 +25,7 @@ export async function runSettingsVerb(conn: MessageConnection): Promise<void> {
     const { dryRun } = booleans
     const [key, rawValue] = positional
     if (!key || rawValue === undefined) {
-      console.error('ostia settings set: missing <key> <value>')
-      process.exitCode = 1
+      failVerb('missing arguments')
       return
     }
     let value: unknown
@@ -40,8 +38,7 @@ export async function runSettingsVerb(conn: MessageConnection): Promise<void> {
   } else if (sub === 'unset') {
     const key = process.argv[4]
     if (!key) {
-      console.error('ostia settings unset: missing <key>')
-      process.exitCode = 1
+      failVerb('missing arguments')
       return
     }
     await printSettingsCommand(conn, 'settings.unset', { key })
@@ -60,9 +57,8 @@ async function printSettingsCommand(
 ): Promise<void> {
   const res = await conn.sendRequest<CommandResult>('command.exec', { id, args })
   if (res.ok) {
-    console.log(JSON.stringify(res.result ?? null, null, 2))
+    console.log(JSON.stringify(res.result ?? null))
   } else {
-    console.error('ostia:', res.error?.message)
-    process.exitCode = 1
+    failWith(res.error?.message ?? 'failed')
   }
 }

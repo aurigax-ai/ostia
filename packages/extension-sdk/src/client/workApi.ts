@@ -1,4 +1,5 @@
 import type { ConnectionInfo, ConnectionValue } from '../contract/extensionConnections'
+import { errorMessage } from './results'
 export interface ExecOptions {
   workspaceId: string
   command: string[]
@@ -71,7 +72,7 @@ export function rpcFailure(
   err: unknown,
   fallback: string,
 ): { ok: false; error: string; message: string } {
-  const message = err instanceof Error ? err.message : String(err)
+  const message = errorMessage(err)
   const code = /^([a-z][a-z0-9-]{0,40}):/.exec(message)?.[1]
   return { ok: false, error: code ?? fallback, message }
 }

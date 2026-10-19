@@ -7,6 +7,7 @@ import {
   isEditableElement,
   syncClipboardChords,
 } from './documentClipboard'
+import { installModifierRemap, setActiveModifierRemap } from './modifierRemapEvents'
 
 const initialSettings = useSettingsStore.getState()
 
@@ -141,5 +142,41 @@ describe('syncClipboardChords', () => {
       paste: parseChord('Ctrl+Alt+V', false),
     })
     stop()
+  })
+})
+
+describe('handleDocumentClipboardChord with a modifier remap on macOS', () => {
+  it('copies for a key remapped to Command and still leaves a real Cmd+C to the system menu', () => {
+    const uninstall = installModifierRemap()
+    try {
+      setActiveModifierRemap({ ControlRight: 'command' })
+      listen(true)
+      const input = document.createElement('input')
+      document.body.append(input)
+      input.focus()
+      expect(press(input, { key: 'c', code: 'KeyC', metaKey: true }).defaultPrevented).toBe(false)
+      press(input, { key: 'Control', code: 'ControlRight', ctrlKey: true })
+      expect(press(input, { key: 'c', code: 'KeyC', ctrlKey: true }).defaultPrevented).toBe(true)
+      expect(window.ostia.clipboard.edit).toHaveBeenCalledWith('copy')
+    } finally {
+      uninstall()
+    }
+  })
+
+  it('copies once for Option remapped to Command even though Option+C types a cedilla', () => {
+    const uninstall = installModifierRemap()
+    try {
+      setActiveModifierRemap({ AltLeft: 'command' })
+      listen(true)
+      const input = document.createElement('input')
+      document.body.append(input)
+      input.focus()
+      press(input, { key: 'Alt', code: 'AltLeft', altKey: true })
+      expect(press(input, { key: 'ç', code: 'KeyC', altKey: true }).defaultPrevented).toBe(true)
+      expect(window.ostia.clipboard.edit).toHaveBeenCalledTimes(1)
+      expect(window.ostia.clipboard.edit).toHaveBeenCalledWith('copy')
+    } finally {
+      uninstall()
+    }
   })
 })

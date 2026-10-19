@@ -12,15 +12,15 @@ export async function runWhoami(conn: MessageConnection): Promise<void> {
     ? await conn.sendRequest<{ cwd?: string; running?: boolean } | null>('pane.info')
     : null
   console.log(
-    JSON.stringify(
-      { ...who, ...(state ? { cwd: state.cwd ?? null, running: state.running === true } : {}) },
-      null,
-      2,
-    ),
+    JSON.stringify({
+      ...who,
+      ...(state ? { cwd: state.cwd ?? null, running: state.running === true } : {}),
+    }),
   )
 }
 
 export async function runDocs(conn: MessageConnection): Promise<void> {
-  const res = await conn.sendRequest<{ cli: string }>('docs')
+  const topic = process.argv[3]
+  const res = await conn.sendRequest<{ cli: string }>('docs', topic ? { topic } : {})
   console.log(res.cli)
 }

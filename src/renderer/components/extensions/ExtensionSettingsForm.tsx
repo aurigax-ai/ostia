@@ -1,3 +1,4 @@
+import { Notice } from '@/components/common/Notice'
 import { ExtensionConnections } from '@/components/extensions/ExtensionConnections'
 import { CommitInput, NumberInput } from '@/components/settingsKit/CommitInput'
 import { ControlRow } from '@/components/settingsKit/ControlRow'
@@ -57,11 +58,7 @@ export function ExtensionSettingsForm({
           saved={ext.secretsSet.includes(secret.key)}
         />
       ))}
-      {error ? (
-        <p role="alert" className="mt-1 text-attn-fg text-ui-sm">
-          {fmt(d.extensions.settingInvalid, { error })}
-        </p>
-      ) : null}
+      {error ? <Notice tone="error">{fmt(d.extensions.settingInvalid, { error })}</Notice> : null}
       <ExtensionConnections ext={ext} />
     </fieldset>
   )

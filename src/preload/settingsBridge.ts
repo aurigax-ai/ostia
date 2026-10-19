@@ -1,18 +1,17 @@
 import { ipcRenderer } from 'electron'
-import type { SyncStatus } from '../shared/profileSync/profileSync'
 import type { OstiaBridge } from '../shared/types'
 import { listen } from './listen'
 
 export const settingsBridge: Pick<OstiaBridge, 'settings' | 'sync'> = {
   settings: {
-    path: () => ipcRenderer.invoke('settings:path') as Promise<string>,
+    path: () => ipcRenderer.invoke('settings:path'),
     onChanged: (cb) => listen('settings:changed', () => cb()),
   },
   sync: {
-    status: () => ipcRenderer.invoke('sync:status') as Promise<SyncStatus>,
-    run: () => ipcRenderer.invoke('sync:run') as Promise<SyncStatus>,
-    resolve: (conflictId) => ipcRenderer.invoke('sync:resolve', conflictId) as Promise<SyncStatus>,
-    install: (extId) => ipcRenderer.invoke('sync:install', extId) as Promise<SyncStatus>,
+    status: () => ipcRenderer.invoke('sync:status'),
+    run: () => ipcRenderer.invoke('sync:run'),
+    resolve: (conflictId) => ipcRenderer.invoke('sync:resolve', conflictId),
+    install: (extId) => ipcRenderer.invoke('sync:install', extId),
     secrets: {
       reveal: (conflictId) => ipcRenderer.invoke('sync:secrets-reveal', conflictId),
       enable: () => ipcRenderer.invoke('sync:secrets-enable'),
@@ -27,7 +26,7 @@ export const settingsBridge: Pick<OstiaBridge, 'settings' | 'sync'> = {
       recover: (recoveryKey, password, confirm) =>
         ipcRenderer.invoke('sync:secrets-recover', recoveryKey, password, confirm),
     },
-    pickFolder: () => ipcRenderer.invoke('dialog:pick-folder') as Promise<string | null>,
+    pickFolder: () => ipcRenderer.invoke('dialog:pick-folder'),
     onStatus: (cb) => listen('sync:status', cb),
   },
 }

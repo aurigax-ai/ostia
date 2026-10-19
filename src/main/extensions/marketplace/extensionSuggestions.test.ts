@@ -32,8 +32,16 @@ function server(
 function sources(extra: Partial<Record<keyof SuggestionSources, unknown>> = {}): SuggestionSources {
   return {
     servers: () => (extra.servers as LanguageServerSource[]) ?? [],
-    extensions: () => (extra.extensions as ReturnType<SuggestionSources['extensions']>) ?? [],
-    listings: () => (extra.listings as ReturnType<SuggestionSources['listings']>) ?? [],
+    extensions: () =>
+      ((extra.extensions as object[]) ?? []).map((ext) => ({
+        fileKinds: [],
+        ...ext,
+      })) as unknown as ReturnType<SuggestionSources['extensions']>,
+    listings: () =>
+      ((extra.listings as object[]) ?? []).map((listing) => ({
+        patterns: [],
+        ...listing,
+      })) as unknown as ReturnType<SuggestionSources['listings']>,
     dismissed: () => (extra.dismissed as string[]) ?? [],
     official: 'official',
   }
@@ -46,6 +54,7 @@ describe('suggestionFor', () => {
       extId: 'lsp-rust-analyzer',
       name: 'lsp-rust-analyzer',
       files: '.rs',
+      feature: 'language',
       others: 0,
     })
     expect(suggestionFor('/p/go.mod', sources())).toMatchObject({
@@ -91,6 +100,7 @@ describe('suggestionFor', () => {
       extId: 'gleam-tools',
       name: 'Gleam',
       files: '.txt',
+      feature: 'language',
       others: 1,
     })
   })
@@ -106,6 +116,7 @@ describe('suggestionFor', () => {
       name: 'Python (Pyright)',
       files: '.py',
       pending: false,
+      feature: 'language',
       others: 0,
     })
     const pending = [
@@ -174,5 +185,65 @@ describe('DismissedSuggestions', () => {
     })
     store.dismiss('fake-native')
     expect(suggestionFor('/p/notes.txt', offers)).toBeNull()
+  })
+
+  describe('file kinds', () => {
+    const kind = (approved: boolean) => ({
+      id: 'acme.grid',
+      displayName: 'Grid',
+      selector: [{ filenamePattern: '*.GRID' }],
+      view: { priority: 'default' },
+      approved,
+    })
+    const acme = (enabled: boolean, approved: boolean, status = 'idle') => ({
+      id: 'acme',
+      name: 'Acme',
+      enabled,
+      status,
+      fileKinds: [kind(approved)],
+    })
+
+    it('offers to install an extension whose manifest has a kind for the file', () => {
+      const listings = [
+        { marketplaceId: 'm1', extId: 'acme', name: 'Acme', languages: [], patterns: ['*.grid'] },
+        { marketplaceId: 'm1', extId: 'other', name: 'Other', languages: [], patterns: ['*.csv'] },
+      ]
+      expect(suggestionFor('/p/a.grid', sources({ listings }))).toEqual({
+        kind: 'install',
+        extId: 'acme',
+        name: 'Acme',
+        files: '.grid',
+        feature: 'view',
+        others: 0,
+      })
+      expect(suggestionFor('/p/a.txt', sources({ listings }))).toBeNull()
+    })
+
+    it('offers to enable an installed extension with a matching kind that is off', () => {
+      expect(suggestionFor('/p/a.grid', sources({ extensions: [acme(false, true)] }))).toEqual({
+        kind: 'enable',
+        extId: 'acme',
+        name: 'Acme',
+        files: '.grid',
+        pending: false,
+        feature: 'view',
+        others: 0,
+      })
+    })
+
+    it('asks for approval when the extension is on but the kind was never approved', () => {
+      expect(
+        suggestionFor('/p/a.grid', sources({ extensions: [acme(true, false)] })),
+      ).toMatchObject({ kind: 'enable', pending: true, feature: 'view' })
+    })
+
+    it('stays quiet when an enabled, approved kind already shows the file', () => {
+      const listings = [
+        { marketplaceId: 'm1', extId: 'rival', name: 'Rival', languages: [], patterns: ['*.grid'] },
+      ]
+      expect(
+        suggestionFor('/p/a.grid', sources({ extensions: [acme(true, true)], listings })),
+      ).toBeNull()
+    })
   })
 })

@@ -12,7 +12,7 @@ import { patch } from '@/lib/panes/layoutPatch'
 import { noteOpener } from '@/lib/panes/tabHistory'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { isWaitedPane } from '@/stores/files/openWaitsStore'
-import { seedLayout } from './layoutSeed'
+import { announcePaneCreated, seedLayout } from './layoutSeed'
 import type { LayoutGet, LayoutSet, LayoutState } from './layoutTypes'
 
 type LayoutFileActions = Pick<LayoutState, 'openFile' | 'openFileTab' | 'openFileBeside'>
@@ -59,13 +59,7 @@ export function createLayoutFileActions(set: LayoutSet, get: LayoutGet): LayoutF
         })
         return next ?? s
       })
-      if (createdPaneId) {
-        window.ostia?.lifecycle?.emit?.({
-          type: 'pane-created',
-          workspaceId,
-          paneId: createdPaneId,
-        })
-      }
+      announcePaneCreated(workspaceId, createdPaneId)
     },
 
     openFileTab: (workspaceId, path, paneId, background = false, fresh = false) => {
@@ -90,13 +84,7 @@ export function createLayoutFileActions(set: LayoutSet, get: LayoutGet): LayoutF
         return next ?? s
       })
       if (createdPaneId && openerId) noteOpener(workspaceId, createdPaneId, openerId)
-      if (createdPaneId) {
-        window.ostia?.lifecycle?.emit?.({
-          type: 'pane-created',
-          workspaceId,
-          paneId: createdPaneId,
-        })
-      }
+      announcePaneCreated(workspaceId, createdPaneId)
       return createdPaneId
     },
 
@@ -117,13 +105,7 @@ export function createLayoutFileActions(set: LayoutSet, get: LayoutGet): LayoutF
         })
         return next ?? s
       })
-      if (createdPaneId) {
-        window.ostia?.lifecycle?.emit?.({
-          type: 'pane-created',
-          workspaceId,
-          paneId: createdPaneId,
-        })
-      }
+      announcePaneCreated(workspaceId, createdPaneId)
     },
   }
 }

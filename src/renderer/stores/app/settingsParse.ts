@@ -18,6 +18,7 @@ import { parseChatToolSettings } from '@shared/assist/chatTools'
 import { parseGitSettings } from '@shared/boards/git'
 import { parsePortsSettings } from '@shared/boards/ports'
 import { parseGlobalHotkey } from '@shared/keyboard/globalHotkey'
+import { parseModifierRemap } from '@shared/keyboard/modifierRemap'
 import { parseApprovalSettings } from '@shared/permissions/approvals'
 import { parsePrivacySettings } from '@shared/privacy/redaction'
 import { parseSandboxGlobals } from '@shared/sandbox/sandboxParse'
@@ -161,6 +162,7 @@ export function parsePersisted(p: Partial<Persisted>): Persisted {
     browser: parseBrowserSettings(p.browser),
     editor: parseEditorSettings(p.editor),
     ...keyboardFrom(p),
+    modifierRemap: parseModifierRemap(p.modifierRemap),
     agents: {
       hibernation: parseHibernation(p.agents?.hibernation),
       autoResume: p.agents?.autoResume === true,

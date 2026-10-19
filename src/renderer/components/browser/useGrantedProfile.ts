@@ -18,9 +18,8 @@ export function useGrantedProfile({
   const [granted, setGranted] = useState<BrowserProfile | null>(null)
   useEffect(() => {
     let live = true
-    const claim = window.ostia?.browser?.claimProfile
-    const answer = claim ? claim(paneId, requested) : Promise.resolve<BrowserProfile>('isolated')
-    void answer
+    void window.ostia.browser
+      .claimProfile(paneId, requested)
       .catch((): BrowserProfile => 'isolated')
       .then((next) => {
         if (live) setGranted(next)

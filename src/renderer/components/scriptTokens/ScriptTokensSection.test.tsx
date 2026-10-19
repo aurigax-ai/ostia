@@ -74,10 +74,6 @@ const RAYCAST = token({
 
 const STATE: ScriptTokensState = {
   tokens: [CEO, PATROL, RAYCAST],
-  retired: [
-    { name: 'ci-local', retiredAt: at(-DAY) },
-    { name: 'patrol-old', retiredAt: at(-DAY) },
-  ],
   workspaces: [
     { id: 'w1', name: 'ostia', groupId: 'g1' },
     { id: 'w2', name: 'tools' },
@@ -115,7 +111,7 @@ describe('ScriptTokensSection', () => {
   })
 
   afterEach(() => {
-    vi.mocked(api().list).mockResolvedValue({ tokens: [], retired: [], workspaces: [], groups: [] })
+    vi.mocked(api().list).mockResolvedValue({ tokens: [], workspaces: [], groups: [] })
   })
 
   it('lists tokens with scope, permissions, expiry and last use', async () => {
@@ -149,23 +145,6 @@ describe('ScriptTokensSection', () => {
     expect(bin).toBe('ostia')
     expect(findNoun(noun)?.verbs?.map((v) => v.verb)).toContain(verb)
     expect(args).toEqual([])
-  })
-
-  it('shows the retired tokens once and remembers the dismissal', async () => {
-    const user = userEvent.setup()
-    const { unmount } = render(<ScriptTokensSection />)
-    const banner = await screen.findByRole('status')
-    expect(banner).toHaveTextContent(
-      `2 old tokens stopped working after the ${PRODUCT_DISPLAY_NAME} upgrade`,
-    )
-    expect(banner).toHaveTextContent('ci-local, patrol-old can no longer connect')
-    await user.click(within(banner).getByRole('button', { name: 'Got it' }))
-    expect(screen.queryByRole('status')).toBeNull()
-
-    unmount()
-    render(<ScriptTokensSection />)
-    await screen.findByRole('button', { name: 'ostia-ceo' })
-    expect(screen.queryByRole('status')).toBeNull()
   })
 
   it('reloads when main says the tokens changed', async () => {

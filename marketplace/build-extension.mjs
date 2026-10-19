@@ -99,11 +99,13 @@ function browserBundle(entry, outfile) {
   })
 }
 
-async function buildFileViewers(src, out, panelBaseCss) {
-  const viewers = readSourceManifest(src).contributes?.fileViewers ?? []
-  if (viewers.length === 0) return
+async function buildFileKinds(src, out, panelBaseCss) {
+  const kinds = readSourceManifest(src).contributes?.fileKinds ?? []
+  if (kinds.length === 0) return
   copyFileSync(panelBaseCss, join(out, 'base.css'))
-  for (const { entry } of viewers) {
+  for (const {
+    view: { entry },
+  } of kinds) {
     copyFileSync(join(src, entry), join(out, entry))
     const script = entry.replace(/\.html$/, '.ts')
     if (existsSync(join(src, script))) {
@@ -125,7 +127,7 @@ export async function buildExtension(src, out, panelBaseCss) {
   }
   copyVendoredPackages(src, out)
   copyAgentSkills(src, out)
-  await buildFileViewers(src, out, panelBaseCss)
+  await buildFileKinds(src, out, panelBaseCss)
   if (existsSync(join(src, 'panel.html'))) copyFileSync(panelBaseCss, join(out, 'base.css'))
   if (existsSync(join(src, 'main.ts'))) {
     await build({

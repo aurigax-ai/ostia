@@ -1,5 +1,5 @@
 import { EventEmitter } from 'node:events'
-import { PORTABLE_TABLES_BYTES_MAX } from '@aurigax-ai/ostia-extension-sdk/contract/fileViewers'
+import { PORTABLE_TABLES_BYTES_MAX } from '@aurigax-ai/ostia-extension-sdk/contract/fileKinds'
 import { describe, expect, it, vi } from 'vitest'
 import { type ViewerGuest, ViewerHost, type ViewerHostDeps, viewerOwner } from './viewerHost'
 import { VIEWER_PAGE_CSP, type ViewerSession } from './viewerSessions'
@@ -44,6 +44,7 @@ function setup(overrides: Partial<ViewerHostDeps> = {}) {
   const watched: string[] = []
   const unwatched: string[] = []
   const stopped: unknown[] = []
+  const killed: number[] = []
   const memory = { bytes: 0 }
   let tokens = 0
   let enabled = true
@@ -72,6 +73,9 @@ function setup(overrides: Partial<ViewerHostDeps> = {}) {
     locale: () => 'zh-Hant',
     guests: new ViewerWatch({
       processes: () => [{ pid: 9, memoryBytes: memory.bytes, cpuPercent: 0 }],
+      kill: (pid) => {
+        killed.push(pid)
+      },
     }),
     stopped: (windowId, event) => {
       stopped.push({ windowId, ...event })
@@ -83,7 +87,7 @@ function setup(overrides: Partial<ViewerHostDeps> = {}) {
   const disable = (): void => {
     enabled = false
   }
-  return { host, deps, sessions, watched, unwatched, stopped, memory, disable }
+  return { host, deps, sessions, watched, unwatched, stopped, killed, memory, disable }
 }
 
 const OPEN = { workspaceId: 'ws', paneId: 'p1', path: FILE, viewType: 'office.spreadsheet' }
@@ -185,20 +189,16 @@ describe('ViewerHost', () => {
   })
 
   it('stops the viewer of a guest past its memory limit, tells its window and ends its token', () => {
-    const { host, deps, sessions, stopped, memory, unwatched } = setup()
+    const { host, deps, sessions, stopped, killed, memory, unwatched } = setup()
     const opened = host.open('w1', OPEN)
     if (!opened.ok) throw new Error('not opened')
     const guest = Object.assign(new EventEmitter(), {
       session: sessions.get('ostia-viewer-office'),
-      crashed: 0,
       setWindowOpenHandler: () => {},
       setWebRTCIPHandlingPolicy: () => {},
       isDestroyed: () => false,
       getOSProcessId: () => 9,
       executeJavaScript: () => Promise.resolve(0),
-      forcefullyCrashRenderer: () => {
-        guest.crashed++
-      },
     })
     expect(host.adopt(guest as unknown as ViewerGuest)).toBe(true)
     guest.emit('did-navigate', {}, opened.src)
@@ -206,7 +206,7 @@ describe('ViewerHost', () => {
     deps.guests.measure()
     deps.guests.tick()
     deps.guests.dispose()
-    expect(guest.crashed).toBe(1)
+    expect(killed).toEqual([9])
     expect(stopped).toEqual([{ windowId: 'w1', paneId: 'p1', reason: 'memory' }])
     expect(unwatched).toEqual([`${viewerOwner('t1')} ${FILE}`])
   })

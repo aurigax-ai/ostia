@@ -12,6 +12,7 @@ import { PROGRAM_SETTINGS } from '@shared/permissions/programSettings'
 const HUMAN_ONLY_ROOTS: readonly string[] = [
   'privacy',
   'terminalKeys',
+  'modifierRemap',
   'capabilities',
   'workspaceGroups',
 ]
@@ -56,6 +57,7 @@ function readableSettings() {
     terminalKeymap: s.terminalKeymap,
     keybindings: { ...s.keybindings },
     terminalKeys: { ...s.terminalKeys },
+    modifierRemap: { ...s.modifierRemap },
     capabilities: s.capabilities,
     approvals: s.approvals,
     actions: s.actions,

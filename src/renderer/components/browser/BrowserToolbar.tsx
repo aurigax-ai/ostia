@@ -86,6 +86,7 @@ export function BrowserToolbar({
         ref={addressRef}
         className="browser-address h-6 flex-1 font-mono text-ui-sm md:text-ui-sm"
         aria-label={d.browser.address}
+        placeholder={d.browser.addressPlaceholder}
         value={address}
         spellCheck={false}
         onChange={(e) => {

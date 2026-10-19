@@ -287,11 +287,7 @@ function ChordEditor({
       </span>
       {refusal || mode.kind === 'pending' ? (
         <KeyNotice>
-          {refusal ? (
-            <p role="alert" className="text-attn-fg text-ui-sm">
-              {refusal}
-            </p>
-          ) : null}
+          {refusal ? <Notice tone="error">{refusal}</Notice> : null}
           {mode.kind === 'pending' ? (
             <PendingChoice
               pending={mode}

@@ -132,6 +132,8 @@ describe('extension agent skills and hooks reach a fake agent (real CLI, real so
     socketPath = join(dir, 'control.sock')
     identity = registerPane({ windowId: 'w1', workspaceId: 's1', paneId: 'pAgentPlugin' })
     host = new ExtensionHost({
+      sandboxDomains: () => null,
+      isSandboxed: () => false,
       roots: [{ dir: fixtures, builtin: true }],
       store: new ExtensionStore(join(dir, 'extensions.json')),
       socketPath: () => socketPath,
@@ -240,6 +242,8 @@ describe('extension agent skills and hooks reach a fake agent (real CLI, real so
 
   it('an approved extension’s declared skill and hook reach claude in a new pane', async () => {
     const pending: ExtensionHost = new ExtensionHost({
+      sandboxDomains: () => null,
+      isSandboxed: () => false,
       roots: [{ dir: fixtures, builtin: false }],
       store: new ExtensionStore(join(dir, 'pending-extensions.json')),
       socketPath: () => socketPath,

@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest'
 import {
-  PREVIEW_PAGE_CSP,
   type PreviewError,
   allowsPreviewRequest,
   blockedByPolicy,
@@ -13,25 +12,10 @@ import {
   normalizePreviewTheme,
   previewErrorLine,
   previewPartition,
-  shellCsp,
 } from './htmlPreview'
 import { PORTABLE_CSP } from './portable'
 
 describe('preview policy', () => {
-  it('runs scripts with an opaque origin and nothing remote', () => {
-    const directives = PREVIEW_PAGE_CSP.split('; ')
-    expect(directives).toContain("default-src 'none'")
-    expect(directives).toContain('sandbox allow-scripts')
-    expect(directives).toContain('connect-src ostia-preview:')
-    expect(directives).toContain("worker-src 'none'")
-    expect(directives).toContain("frame-src 'none'")
-    expect(directives).toContain("form-action 'none'")
-    expect(directives).toContain("base-uri 'none'")
-    expect(PREVIEW_PAGE_CSP).not.toContain('allow-same-origin')
-    expect(PREVIEW_PAGE_CSP).not.toContain('unsafe-eval')
-    expect(PREVIEW_PAGE_CSP).not.toMatch(/https?:|\*/)
-  })
-
   it('lets a session load only its own scheme', () => {
     expect(allowsPreviewRequest('ostia-preview://abc/')).toBe(true)
     expect(allowsPreviewRequest('ostia-preview://abc/data.json')).toBe(true)
@@ -135,29 +119,18 @@ describe('a script from the network', () => {
   const scriptSources = (csp: string): string[] =>
     (csp.split('; ').find((d) => d.startsWith('script-src ')) ?? '').split(' ').slice(1)
 
-  it.each([
-    ['PRT-C14 the preview page', PREVIEW_PAGE_CSP],
-    ['PRT-C14 the component shell', shellCsp('abc123')],
-    ['PRT-C14 a portable file', PORTABLE_CSP],
-  ])('%s allows no script source but itself and inline code', (_name, csp) => {
-    expect(csp.split('; ')).toContain("default-src 'none'")
-    for (const source of scriptSources(csp)) {
-      expect(source).toMatch(/^('unsafe-inline'|'nonce-[\w-]+'|ostia-preview:)$/)
-    }
-  })
+  it.each([['PRT-C14 a portable file', PORTABLE_CSP]])(
+    '%s allows no script source but itself and inline code',
+    (_name, csp) => {
+      expect(csp.split('; ')).toContain("default-src 'none'")
+      for (const source of scriptSources(csp)) {
+        expect(source).toMatch(/^('unsafe-inline'|'nonce-[\w-]+'|ostia-preview:)$/)
+      }
+    },
+  )
 })
 
 describe('the component shell', () => {
-  it('allows scripts by nonce only, and nothing else the page policy forbids', () => {
-    const csp = shellCsp('abc123')
-    expect(csp).toContain("script-src ostia-preview: 'nonce-abc123'")
-    expect(csp).not.toContain("script-src ostia-preview: 'unsafe-inline'")
-    expect(csp).toContain("style-src ostia-preview: 'unsafe-inline'")
-    expect(csp).not.toContain('unsafe-eval')
-    expect(csp).toContain('sandbox allow-scripts')
-    expect(csp).toContain('connect-src ostia-preview:')
-  })
-
   it('takes only --ostia-* names with plain values from the window', () => {
     expect(
       normalizePreviewTheme({

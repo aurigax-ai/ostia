@@ -38,8 +38,7 @@ export function remoteFolderOf(folders: readonly RemoteFolder[], id: string): Re
 }
 
 export function wireRemoteFolders(): void {
-  const api = window.ostia?.remoteFiles
-  if (!api) return
+  const api = window.ostia.remoteFiles
   const { setFolders, ask } = useRemoteFoldersStore.getState()
   api.onFolders(setFolders)
   api.onConfirm(ask)

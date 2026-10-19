@@ -1,6 +1,10 @@
 import { languageForPath } from '@aurigax-ai/ostia-extension-sdk/contract/editorLanguages'
 import type { ExtensionInfo } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import {
+  kindMatches,
+  matchesFilenamePattern,
+} from '@aurigax-ai/ostia-extension-sdk/contract/fileKinds'
+import {
   EXTENSION_SUGGESTIONS,
   type ExtensionSuggestion,
   filesLabel,
@@ -8,15 +12,15 @@ import {
 } from '../../../shared/extensions/extensionSuggestions'
 import type { LanguageServerSource } from '../../lsp/serverBinaries'
 import { loadJson, saveJson } from '../../platform/jsonStore'
-import type { LanguageListing } from './marketplace'
+import type { ExtensionListing } from './marketplace'
 
 const MAX_DISMISSED = 500
 const EXTENSION_ID = /^[a-z][a-z0-9-]{1,39}$/
 
 export interface SuggestionSources {
   servers: () => LanguageServerSource[]
-  extensions: () => Pick<ExtensionInfo, 'id' | 'name' | 'enabled' | 'status'>[]
-  listings: () => LanguageListing[]
+  extensions: () => Pick<ExtensionInfo, 'id' | 'name' | 'enabled' | 'status' | 'fileKinds'>[]
+  listings: () => ExtensionListing[]
   dismissed: () => readonly string[]
   official: string
   languageOf?: (path: string) => string
@@ -25,6 +29,23 @@ export interface SuggestionSources {
 interface Candidate {
   extId: string
   files: string
+  feature: ExtensionSuggestion['feature']
+}
+
+function viewed(path: string, extensions: ReturnType<SuggestionSources['extensions']>): boolean {
+  return extensions.some(
+    (ext) => ext.enabled && ext.fileKinds.some((kind) => kind.approved && kindMatches(path, kind)),
+  )
+}
+
+function awaitsApproval(
+  path: string,
+  ext: ReturnType<SuggestionSources['extensions']>[number],
+): boolean {
+  return (
+    ext.status === 'pending-approval' ||
+    ext.fileKinds.some((kind) => !kind.approved && kindMatches(path, kind))
+  )
 }
 
 export function suggestionFor(
@@ -40,11 +61,13 @@ export function suggestionFor(
   const dismissed = sources.dismissed()
   const files = filesLabel(path)
   const candidates: Candidate[] = []
-  const add = (extId: string, label: string): void => {
+  const add = (extId: string, label: string, feature: Candidate['feature'] = 'language'): void => {
     if (dismissed.includes(extId) || candidates.some((c) => c.extId === extId)) return
     const installed = extensions.find((ext) => ext.id === extId)
-    if (installed?.enabled && installed.status !== 'pending-approval') return
-    candidates.push({ extId, files: label })
+    if (feature === 'language' && installed?.enabled && installed.status !== 'pending-approval') {
+      return
+    }
+    candidates.push({ extId, files: label, feature })
   }
   const fromTable = suggestedExtension(path)
   if (fromTable) add(fromTable.extId, fromTable.files)
@@ -59,6 +82,16 @@ export function suggestionFor(
   for (const listing of trusted) {
     if (listing.languages.includes(language)) add(listing.extId, files)
   }
+  if (!viewed(path, extensions)) {
+    for (const ext of extensions) {
+      if (ext.fileKinds.some((kind) => kindMatches(path, kind))) add(ext.id, files, 'view')
+    }
+    for (const listing of trusted) {
+      if (listing.patterns.some((pattern) => matchesFilenamePattern(path, pattern))) {
+        add(listing.extId, files, 'view')
+      }
+    }
+  }
   const [first] = candidates
   if (!first) return null
   const others = candidates.length - 1
@@ -69,7 +102,8 @@ export function suggestionFor(
       extId: first.extId,
       name: installed.name,
       files: first.files,
-      pending: installed.status === 'pending-approval',
+      pending: awaitsApproval(path, installed),
+      feature: first.feature,
       others,
     }
   }
@@ -79,6 +113,7 @@ export function suggestionFor(
     extId: first.extId,
     name: listing?.name ?? first.extId,
     files: first.files,
+    feature: first.feature,
     others,
   }
 }

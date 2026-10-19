@@ -30,9 +30,7 @@ export function createWindowSend({ windows, services }: WindowSendDeps) {
   }
 
   function settingsChanged(): void {
-    for (const win of windows.values()) {
-      if (!win.isDestroyed()) win.webContents.send('settings:changed')
-    }
+    broadcast('settings:changed', undefined)
   }
 
   function primaryWindowId(): string | undefined {

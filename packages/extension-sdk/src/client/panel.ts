@@ -6,6 +6,7 @@ import {
 } from '../contract/extensionLocales'
 import type { ExtensionResult } from '../contract/extensions'
 import { watchScrolling } from '../contract/scrollbar'
+import { errorMessage, failure } from './results'
 import { PANEL_SIZES_PATH, parsePanelSizes, withPanelSize } from './split'
 
 watchScrolling(document)
@@ -28,11 +29,7 @@ export async function call(command: string, args?: unknown): Promise<ExtensionRe
     })
     return (await res.json()) as ExtensionResult
   } catch (err) {
-    return {
-      ok: false,
-      error: 'unreachable',
-      message: err instanceof Error ? err.message : String(err),
-    }
+    return failure('unreachable', errorMessage(err))
   }
 }
 

@@ -1,7 +1,7 @@
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { freshDataHome, isolatedLaunch } from './dataHome'
-import { openWorkspace } from './helpers'
+import { PROMPT, openWorkspace, shownTerminal, terminalTab } from './helpers'
 import { centerOf, dragFiles, dropFiles } from './osDrag'
 import { type Page, _electron as electron, expect, test } from './test'
 
@@ -98,7 +98,9 @@ test('ostia <file> shows a text file and an image from outside the home folder, 
       'second line outside home',
       { timeout: 15_000 },
     )
-    await expect(win.locator('.xterm-rows').first()).not.toContainText('ostia:')
+    await terminalTab(win).click()
+    await expect(shownTerminal(win).locator('.xterm-rows')).toContainText(PROMPT)
+    await expect(shownTerminal(win).locator('.xterm-rows')).not.toContainText('ostia:')
   } finally {
     await app.close()
   }

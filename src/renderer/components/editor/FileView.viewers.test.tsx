@@ -32,12 +32,13 @@ const OFFICE = {
   name: 'Office',
   builtin: true,
   enabled: true,
-  fileViewers: [
+  fileKinds: [
     {
-      viewType: 'office.spreadsheet',
+      id: 'office.spreadsheet',
       displayName: 'Spreadsheet',
       selector: [{ filenamePattern: '*.xlsx' }],
-      priority: 'default',
+      view: { priority: 'default' },
+      approved: true,
     },
   ],
 } as unknown as ExtensionInfo
@@ -157,7 +158,7 @@ describe('FileView', () => {
     expect(screen.getByRole('status')).toHaveTextContent('not available')
     expect(screen.queryByRole('button', { name: 'Open With…' })).toBeNull()
     cleanup()
-    seed([{ ...OFFICE, fileViewers: [{ ...OFFICE.fileViewers[0], viewType: 'office.other' }] }], {
+    seed([{ ...OFFICE, fileKinds: [{ ...OFFICE.fileKinds[0], id: 'office.other' }] }], {
       ...PANE,
       viewType: 'office.spreadsheet',
     })

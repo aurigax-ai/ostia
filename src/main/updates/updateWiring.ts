@@ -21,13 +21,7 @@ import {
 import { sweepUpdateLeftovers } from './launchSweep'
 import { canReplaceBundle, macReplace, runCommand } from './macReplace'
 import type { SignaturePolicy } from './macReplace'
-import {
-  announceReplace,
-  announceReplaceProgress,
-  announceUpdateRun,
-  readUpdateChannel,
-  registerReleaseCheck,
-} from './releaseCheck'
+import { readUpdateChannel, registerReleaseCheck } from './releaseCheck'
 import { type UpdateRunner, createUpdateRunner } from './updateRun'
 
 interface UpdateStartDeps {
@@ -47,6 +41,7 @@ interface UpdateStartDeps {
   UPDATE_HOST_GRANT_ID: string
   openExternalSafe: (url: string) => boolean
   updatePolicy: SignaturePolicy
+  broadcast: (channel: string, payload: unknown) => void
 }
 
 export function startUpdates({
@@ -59,11 +54,12 @@ export function startUpdates({
   UPDATE_HOST_GRANT_ID,
   openExternalSafe,
   updatePolicy,
+  broadcast,
 }: UpdateStartDeps) {
   registerAppUpdate(() => {
     quit.restartRequested = true
     requestQuit()
-  })
+  }, broadcast)
   services.updateRunner = createUpdateRunner({
     method: installMethod,
     title: () => mainStrings().native.updateTitle,
@@ -72,7 +68,7 @@ export function startUpdates({
       hostPaneGrants.offer(UPDATE_HOST_GRANT_ID, command)
       return hostPaneGrants.claim(UPDATE_HOST_GRANT_ID, command) ?? ''
     },
-    onChange: announceUpdateRun,
+    onChange: (state) => broadcast('app:update-run-state', state),
   })
   const sweepFile = storePath('install-replace', 'global')
   const macInstall = isMacInstall(installMethod())
@@ -99,6 +95,7 @@ export function startUpdates({
       if (!dir) return null
       return macInstall ? canReplaceBundle(dir) : canReplaceInstall(dir)
     },
+    broadcast,
     replacer: createInstallReplacer({
       appDir: updateDir,
       replace: macInstall
@@ -109,8 +106,8 @@ export function startUpdates({
             policy: updatePolicy,
           })
         : tarballReplace({ base: downloadBase, fetch, tar: runTar }),
-      onState: announceReplace,
-      onProgress: announceReplaceProgress,
+      onState: (state) => broadcast('app:install-replace-state', state),
+      onProgress: (progress) => broadcast('app:update-progress', progress),
       onReplaced: (pending) => {
         if (macInstall) quit.stagedUpdate = { pending, sweepFile }
         else saveJson(sweepFile, pending)

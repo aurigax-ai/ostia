@@ -47,6 +47,8 @@ describe('the pane.attention event', () => {
     dir = mkdtempSync(join(tmpdir(), 'ostia-pane-attention-'))
     const socketPath = join(dir, 'control.sock')
     host = new ExtensionHost({
+      sandboxDomains: () => null,
+      isSandboxed: () => false,
       roots: [{ dir: fixtures, builtin: true }],
       store: new ExtensionStore(join(dir, 'extensions.json')),
       socketPath: () => socketPath,

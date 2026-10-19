@@ -66,6 +66,7 @@ export const appEn = {
   },
   languageNotice: {
     disabled: '{name} is installed but turned off. It adds language features for {files} files.',
+    disabledView: '{name} is installed but turned off. It can show {files} files.',
     downloading: 'Downloading {name}… {percent}%',
     fetchFailed: '{name} could not be fetched.',
     install: 'Install',
@@ -80,6 +81,7 @@ export const appEn = {
     programMissing: '{name} cannot start: {program} is not installed.',
     review: 'Review',
     suggest: '{name} adds language features for {files} files.',
+    suggestView: '{name} can show {files} files.',
     toolchainMissing: '{name} cannot start: Go is not installed.',
   },
   native: {
@@ -104,6 +106,23 @@ export const appEn = {
     folderAccessBlocked: {
       body: 'Shells in {product} may keep failing to read these folders. Quit {product}, choose “Quit and end shells” if it asks, and open it again to restore access.',
       title: 'macOS is blocking {folders}',
+    },
+    paneBanner: {
+      hiddenHome:
+        'Sandbox: your home folder is hidden here. Files written to it, outside the\nworkspace folder, are discarded when this shell exits. Add a writable folder\nin Settings › Sandbox to keep them.',
+      install: 'Install them with: {command}',
+      keepShells: 'Keep shells: {reason}.',
+      keepShellsLost: 'This shell will not survive a restart.',
+      missing: 'Missing: {packages}',
+      noShell: 'No shell was started. This workspace only runs sandboxed.',
+      nodePtyMissing: 'node-pty unavailable — run: pnpm rebuild',
+      otherWorkspace: 'the pane belongs to another workspace',
+      restored: 'workspace restored',
+      sandboxEnded: 'its sandbox ended while {product} was closed',
+      sandboxNotKept: "this workspace's sandbox was started without tmux",
+      sandboxUnavailable: 'Sandbox unavailable: {message}',
+      tmuxMissing: 'tmux {version} or newer is not installed',
+      woke: 'woke from hibernation',
     },
     quit: {
       agent: 'Agent: {name}',
@@ -130,10 +149,6 @@ export const appEn = {
     sandboxSoftware: {
       body: 'Install {packages} to start this sandboxed workspace’s terminals.',
       title: 'Sandbox needs software',
-    },
-    scriptTokensRetired: {
-      body: '{names} can no longer connect. Generate new tokens and put them in your scripts.',
-      title: '{count} old script tokens stopped working after the {product} upgrade',
     },
     signIn: {
       done: 'Signed in. You can close this tab and return to {product}.',

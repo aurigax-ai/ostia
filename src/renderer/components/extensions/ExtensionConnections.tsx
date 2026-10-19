@@ -1,4 +1,5 @@
 import { IconButton } from '@/components/common/IconButton'
+import { Notice } from '@/components/common/Notice'
 import { ControlRow } from '@/components/settingsKit/ControlRow'
 import { SelectField } from '@/components/settingsKit/SelectField'
 import { Button } from '@/components/ui/button'
@@ -128,9 +129,7 @@ export function ExtensionConnections({
           }}
         />
       ) : error ? (
-        <p role="alert" className="mt-1 text-attn-fg text-ui-sm">
-          {fmt(d.extensions.connectionError, { error })}
-        </p>
+        <Notice tone="error">{fmt(d.extensions.connectionError, { error })}</Notice>
       ) : null}
     </section>
   )
@@ -325,11 +324,7 @@ function ConnectionForm({
           {d.extensions.connectionCancel}
         </Button>
       </div>
-      {error ? (
-        <p role="alert" className="mt-1 text-attn-fg text-ui-sm">
-          {fmt(d.extensions.connectionError, { error })}
-        </p>
-      ) : null}
+      {error ? <Notice tone="error">{fmt(d.extensions.connectionError, { error })}</Notice> : null}
     </form>
   )
 }

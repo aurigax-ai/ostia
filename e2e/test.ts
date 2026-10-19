@@ -23,7 +23,7 @@ function recordsTrace(): boolean {
   return mode === 'on' || mode === 'retain-on-failure'
 }
 
-async function stopTrace(app: ElectronApplication): Promise<void> {
+export async function stopTrace(app: ElectronApplication): Promise<void> {
   const path = recording.get(app)
   if (!path) return
   recording.delete(app)
@@ -39,6 +39,16 @@ export async function waitForExit(app: ElectronApplication): Promise<void> {
   const proc = launched.get(app)?.child ?? app.process()
   if (hasExited(proc)) return
   await new Promise<void>((resolve) => proc.once('exit', () => resolve()))
+}
+
+export async function killApp(
+  app: ElectronApplication,
+  signal: NodeJS.Signals = 'SIGKILL',
+): Promise<void> {
+  await stopTrace(app)
+  const exited = waitForExit(app)
+  app.process().kill(signal)
+  await exited
 }
 
 const CLOSE_DEADLINE_MS = 20_000

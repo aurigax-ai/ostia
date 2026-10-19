@@ -147,8 +147,7 @@ function runWhenShellStarts(paneId: string, command: string): void {
 }
 
 export function wireExtensionBridge(): void {
-  const api = window.ostia?.extensions
-  if (!api) return
+  const api = window.ostia.extensions
   const store = useExtensionsStore.getState()
   api.onChanged((list) => {
     store.setList(list)
@@ -161,8 +160,8 @@ export function wireExtensionBridge(): void {
   api.onSettingsStored(({ extId, stored }) =>
     useSettingsStore.getState().setExtensionSettings(extId, stored),
   )
-  window.ostia.git?.onItems((items) => store.setGitItems(items))
-  window.ostia.ports?.onItems((items) => store.setPortsItems(items))
+  window.ostia.git.onItems((items) => store.setGitItems(items))
+  window.ostia.ports.onItems((items) => store.setPortsItems(items))
   api.onOpenPanel(openExtensionPanel)
   api.onOpenDiff(openExtensionDiff)
   api.onOpenTerminal(openExtensionTerminal)
