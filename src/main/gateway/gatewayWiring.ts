@@ -23,6 +23,7 @@ import type { PtyEntry } from '../terminal/pty/ptyRegistry'
 import type { WindowSend } from '../windows/windowSend'
 import { windowForWorkspace } from '../workspaces/workspaceRegistry'
 import { createBonjourPublisher } from './announce'
+import type { GatewayControlDeps } from './controlDispatch'
 import {
   configureAnnouncer,
   configureTailnet,
@@ -64,6 +65,7 @@ interface GatewayStartDeps {
   agentRunning: AgentRunningPanes
   ptys: Map<string, PtyEntry>
   turnConfirms: PaneConfirms
+  startAgentForPhone: GatewayControlDeps['startAgent']
 }
 
 export function createScreenLinks({
@@ -103,6 +105,7 @@ export function startGateway({
   agentRunning,
   ptys,
   turnConfirms,
+  startAgentForPhone,
 }: GatewayStartDeps) {
   registerPaneListMethods({
     execCommand,
@@ -170,5 +173,6 @@ export function startGateway({
     agentRunning: (paneId) => agentRunning.has(paneId) && ptys.has(paneId),
     watchesTurn: turnConfirms.watchesSubmit,
     turnStarted: async (pane) => (await turnConfirms.confirmSubmitted(pane)).ok,
+    startAgent: startAgentForPhone,
   })
 }
