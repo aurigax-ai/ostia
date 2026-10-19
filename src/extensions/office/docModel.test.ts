@@ -6,6 +6,7 @@ import {
   externalRelationship,
   paragraph,
   picture,
+  retyped,
 } from '../../../test/fixtures/office/workbooks'
 import { readDocument } from './docModel'
 import en from './locales/en.json'
@@ -36,6 +37,19 @@ describe('readDocument', () => {
     expect(out).toContain('<p>Quarterly plan</p>')
     expect(out).toContain('&lt;script&gt;')
     expect(out).not.toContain('<script')
+  })
+
+  it('opens docm, dotx and dotm like docx', async () => {
+    const base = docx({ body: paragraph('shared') })
+    const main = 'document.main+xml'
+    const variants = {
+      docm: retyped(base, main, 'document.macroEnabled.main+xml'),
+      dotx: retyped(base, main, 'template.main+xml'),
+      dotm: retyped(base, main, 'template.macroEnabled.main+xml'),
+    }
+    for (const [type, bytes] of Object.entries(variants)) {
+      expect(await html(bytes), type).toContain('shared')
+    }
   })
 
   it('embeds pictures inside the file and never fetches linked ones or link targets', async () => {

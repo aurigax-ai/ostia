@@ -4,7 +4,10 @@ import { GuardStop, type OfficeLimits, type OfficeProblem, problemOf } from './o
 import { isOdfPart, odfMimetype, requirePackage, unzipParts } from './officeZip'
 import { type OutlineWords, documentOutlineHtml } from './outlineHtml'
 
-const ODT_MIMETYPE = 'application/vnd.oasis.opendocument.text'
+const ODT_MIMETYPES = new Set([
+  'application/vnd.oasis.opendocument.text',
+  'application/vnd.oasis.opendocument.text-template',
+])
 const IMAGES_MAX_BYTES = 20 * 1024 * 1024
 const IMAGE_TYPES = new Set(['image/png', 'image/jpeg', 'image/gif', 'image/webp'])
 
@@ -21,7 +24,7 @@ export async function readDocument(
     requirePackage(bytes)
     const parts = unzipParts(bytes, isOdfPart)
     if (parts.has('mimetype')) {
-      if (odfMimetype(parts) !== ODT_MIMETYPE) throw new GuardStop('failed')
+      if (!ODT_MIMETYPES.has(odfMimetype(parts))) throw new GuardStop('failed')
       const outline = documentOutlineHtml(odtOutline(parts, limits), words, limits.outlineChars)
       return {
         ok: true,

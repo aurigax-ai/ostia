@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   PPSX_TYPE,
   PPTM_TYPE,
+  TEMPLATE_TYPES,
   cell,
   para,
   picture,
@@ -204,9 +205,9 @@ describe('readPresentation (pptx)', () => {
     expect(problem(pptx({ slides: [], omit: ['ppt/presentation.xml'] }))).toBe('failed')
   })
 
-  it('opens pptm and ppsx, never reading the macro project', () => {
+  it('opens pptm, ppsx, ppsm, potx and potm, never reading the macro project', () => {
     const macro = deflated('ppt/vbaProject.bin', strToU8('<p:sld>Sub AutoOpen()</p:sld>'))
-    for (const contentType of [PPTM_TYPE, PPSX_TYPE]) {
+    for (const contentType of [PPTM_TYPE, PPSX_TYPE, ...TEMPLATE_TYPES]) {
       const out = html(
         pptx({ slides: [{ shapes: titleShape('show') }], contentType, extra: [macro] }),
       )

@@ -28,6 +28,9 @@ const PRESENTATION_TYPES = new Set([
   'application/vnd.openxmlformats-officedocument.presentationml.presentation.main+xml',
   'application/vnd.ms-powerpoint.presentation.macroEnabled.main+xml',
   'application/vnd.openxmlformats-officedocument.presentationml.slideshow.main+xml',
+  'application/vnd.ms-powerpoint.slideshow.macroEnabled.main+xml',
+  'application/vnd.openxmlformats-officedocument.presentationml.template.main+xml',
+  'application/vnd.ms-powerpoint.template.macroEnabled.main+xml',
 ])
 const TITLES = new Set(['title', 'ctrTitle'])
 const BODIES = new Set(['body', 'obj'])

@@ -6,6 +6,9 @@ import {
   encryptedWorkbook,
   externalLinkWorkbook,
   macroWorkbook,
+  patched,
+  rawZip,
+  retyped,
   workbook,
 } from '../../../test/fixtures/office/workbooks'
 import { OFFICE_LIMITS, type OfficeLimits } from './officeLimits'
@@ -58,6 +61,34 @@ describe('readWorkbook', () => {
     for (const type of ['xlsm', 'ods'] as const) {
       expect(bookOf(workbook({ S: rows }, type)).sheets[0].rows, type).toEqual(expected)
     }
+  })
+
+  it('opens the variant formats: xls, xlt, xlsb, flat ODF and the template types', () => {
+    const rows = [['a', 1]]
+    const expected = bookOf(workbook({ S: rows })).sheets[0].rows
+    const xlsx = workbook({ S: rows })
+    const xlsm = workbook({ S: rows }, 'xlsm')
+    const ods = workbook({ S: rows }, 'ods')
+    const variants = {
+      xls: workbook({ S: rows }, 'biff8'),
+      xlsb: workbook({ S: rows }, 'xlsb'),
+      fods: workbook({ S: rows }, 'fods'),
+      xltx: retyped(xlsx, 'sheet.main+xml', 'template.main+xml'),
+      xltm: retyped(xlsm, 'sheet.macroEnabled.main+xml', 'template.macroEnabled.main+xml'),
+      ots: rawZip(patched(ods, 'mimetype', (text) => `${text}-template`)),
+    }
+    for (const [type, bytes] of Object.entries(variants)) {
+      expect(bookOf(bytes).sheets[0].rows, type).toEqual(expected)
+    }
+  })
+
+  it('refuses bytes that are no spreadsheet file, as .xlsx or flat ODF', () => {
+    const failed = { ok: false, problem: 'failed' }
+    const html = new TextEncoder().encode('<table><tr><td>a</td></tr></table>')
+    expect(readWorkbook(html, OFFICE_LIMITS)).toEqual(failed)
+    expect(
+      readWorkbook(new TextEncoder().encode('<?xml version="1.0"?><a/>'), OFFICE_LIMITS),
+    ).toEqual(failed)
   })
 
   it('cuts a huge sheet to the row and column limits and says so', () => {

@@ -156,9 +156,16 @@ function readBook(bytes: Uint8Array, limits: OfficeLimits): Workbook {
   }
 }
 
+const FLAT_ODS =
+  /<office:document[\s>][^>]*office:mimetype="application\/vnd\.oasis\.opendocument\.spreadsheet(?:-template)?"/
+
+function isFlatOds(bytes: Uint8Array): boolean {
+  return FLAT_ODS.test(new TextDecoder().decode(bytes.subarray(0, 16 * 1024)))
+}
+
 export function readWorkbook(bytes: Uint8Array, limits: OfficeLimits): WorkbookResult {
   try {
-    requirePackage(bytes)
+    if (!isFlatOds(bytes)) requirePackage(bytes)
     return { ok: true, book: readBook(bytes, limits) }
   } catch (error) {
     return { ok: false, problem: problemOf(error) }
