@@ -142,7 +142,7 @@ function isOutcome(value: PaneIdentity | RpcOutcome): value is RpcOutcome {
 }
 
 function notSubmitted(pane: PaneIdentity): RpcOutcome {
-  return { ok: false, code: -32602, message: 'not-submitted', data: { paneId: pane.externalId } }
+  return { ok: false, code: -32005, message: 'not-submitted', data: { paneId: pane.externalId } }
 }
 
 const wait = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms))

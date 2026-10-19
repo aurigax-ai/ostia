@@ -1139,7 +1139,7 @@ describe('dispatchGatewayMethod — asks and agent replies', () => {
       const deps = fakeDeps({ agentRunning })
       expect(await prompt(deps, pane.externalId, 'go')).toEqual({
         ok: false,
-        code: -32602,
+        code: -32005,
         message: 'not-submitted',
         data: { paneId: pane.externalId },
       })
@@ -1168,7 +1168,7 @@ describe('dispatchGatewayMethod — asks and agent replies', () => {
       })
       expect(await prompt(deps, pane.externalId, 'go')).toEqual({
         ok: false,
-        code: -32602,
+        code: -32005,
         message: 'not-submitted',
         data: { paneId: pane.externalId },
       })
