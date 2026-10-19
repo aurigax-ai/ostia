@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs'
 import { translatorFor } from '@aurigax-ai/ostia-extension-sdk/contract/extensionLocales'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
@@ -7,6 +8,7 @@ import {
   paragraph,
   picture,
   retyped,
+  workbook,
 } from '../../../test/fixtures/office/workbooks'
 import { readDocument } from './docModel'
 import en from './locales/en.json'
@@ -26,6 +28,52 @@ async function html(bytes: Uint8Array): Promise<string> {
   if (!result.ok) throw new Error(`not read: ${result.problem}`)
   return result.html
 }
+
+function wordFile(name: string): Uint8Array {
+  return new Uint8Array(
+    readFileSync(new URL(`../../../test/fixtures/office/doc/${name}`, import.meta.url)),
+  )
+}
+
+describe('readDocument (doc)', () => {
+  it('reads the text of a Word 97-2003 file as paragraphs', async () => {
+    const out = await html(wordFile('test01.doc'))
+    expect(out).toContain('<p>A second test of reviewing')
+    const table = await html(wordFile('test03.doc'))
+    expect(table).toContain('Each license name is hyperlinked')
+  })
+
+  it('cuts the text at the outline limit and says so', async () => {
+    const result = await readDocument(
+      wordFile('test02.doc'),
+      { ...OFFICE_LIMITS, outlineChars: 100 },
+      WORDS,
+    )
+    expect(result.ok && result.textCut).toBe(true)
+  })
+
+  it('names a password-protected and an obfuscated Word file', async () => {
+    const FLAGS_AT = 512 + 0x0a
+    for (const bit of [0x0100, 0x8000]) {
+      const locked = wordFile('test01.doc').slice()
+      locked[FLAGS_AT] |= bit & 0xff
+      locked[FLAGS_AT + 1] |= bit >> 8
+      expect(await readDocument(locked, OFFICE_LIMITS, WORDS), String(bit)).toEqual({
+        ok: false,
+        problem: 'encrypted',
+      })
+    }
+  })
+
+  it('names a damaged Word file and a compound file that is no Word document', async () => {
+    const failed = { ok: false, problem: 'failed' }
+    expect(await readDocument(wordFile('badfile-01-bad-header.doc'), OFFICE_LIMITS, WORDS)).toEqual(
+      failed,
+    )
+    const sheet = workbook({ S: [['x']] }, 'biff8')
+    expect(await readDocument(sheet, OFFICE_LIMITS, WORDS)).toEqual(failed)
+  })
+})
 
 describe('readDocument', () => {
   it('turns paragraphs into HTML and keeps markup in the text as text', async () => {

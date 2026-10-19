@@ -1,8 +1,9 @@
 import mammoth from 'mammoth'
+import { wordBinaryBlocks } from './docBinary'
 import { odtOutline } from './odfOutline'
 import { GuardStop, type OfficeLimits, type OfficeProblem, problemOf } from './officeLimits'
-import { isOdfPart, odfMimetype, requirePackage, unzipParts } from './officeZip'
-import { type OutlineWords, documentOutlineHtml } from './outlineHtml'
+import { isCompoundFile, isOdfPart, odfMimetype, requirePackage, unzipParts } from './officeZip'
+import { type Block, type OutlineWords, documentOutlineHtml } from './outlineHtml'
 
 const ODT_MIMETYPES = new Set([
   'application/vnd.oasis.opendocument.text',
@@ -15,6 +16,11 @@ export type DocumentResult =
   | { ok: true; html: string; imagesDropped: number; slidesCut: number; textCut: boolean }
   | { ok: false; problem: OfficeProblem }
 
+function outlineResult(blocks: Block[], words: OutlineWords, limits: OfficeLimits): DocumentResult {
+  const outline = documentOutlineHtml(blocks, words, limits.outlineChars)
+  return { ok: true, html: outline.html, imagesDropped: 0, slidesCut: 0, textCut: outline.textCut }
+}
+
 export async function readDocument(
   bytes: Uint8Array,
   limits: OfficeLimits,
@@ -22,17 +28,13 @@ export async function readDocument(
 ): Promise<DocumentResult> {
   try {
     requirePackage(bytes)
+    if (isCompoundFile(bytes)) {
+      return outlineResult(await wordBinaryBlocks(bytes), words, limits)
+    }
     const parts = unzipParts(bytes, isOdfPart)
     if (parts.has('mimetype')) {
       if (!ODT_MIMETYPES.has(odfMimetype(parts))) throw new GuardStop('failed')
-      const outline = documentOutlineHtml(odtOutline(parts, limits), words, limits.outlineChars)
-      return {
-        ok: true,
-        html: outline.html,
-        imagesDropped: 0,
-        slidesCut: 0,
-        textCut: outline.textCut,
-      }
+      return outlineResult(odtOutline(parts, limits), words, limits)
     }
     let imageBytes = 0
     let imagesDropped = 0
