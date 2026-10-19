@@ -129,6 +129,7 @@ function ciResultAccepts(opts: {
   code: boolean
   full: boolean
   e2e: string
+  changed?: boolean
   results?: Record<string, string>
 }): boolean {
   const step = workflow.jobs['ci-result'].steps?.find((candidate) =>
@@ -148,7 +149,7 @@ function ciResultAccepts(opts: {
             ? 'success'
             : name === 'e2e'
               ? opts.e2e
-              : ['e2e-ptrace', 'build-macos', 'e2e-macos'].includes(name)
+              : ['e2e-ptrace', 'e2e-changed', 'build-macos', 'e2e-macos'].includes(name)
                 ? 'skipped'
                 : other),
       },
@@ -174,6 +175,9 @@ function ciResultAccepts(opts: {
         '--arg',
         'gate',
         'false',
+        '--arg',
+        'changed',
+        String(opts.changed ?? false),
         program,
       ],
       {
@@ -199,6 +203,218 @@ function platformFor(event: string, input = ''): string {
     .replaceAll('==', '===')
   return new Function('event', 'input', `return ${expression}`)(event, input) as string
 }
+
+type Runners = { linux: string; linux_small: string; linux_heavy: string; macos: string }
+
+function stepOutputs(name: string, run: string, env: Record<string, string>) {
+  const output = join(root, `${name}-output`)
+  writeFileSync(output, '')
+  bash(run, { ...env, GITHUB_OUTPUT: output, GITHUB_STEP_SUMMARY: join(root, `${name}-summary`) })
+  const lines = readFileSync(output, 'utf8').split('\n').filter(Boolean)
+  return Object.fromEntries(
+    lines.map((line) => [line.slice(0, line.indexOf('=')), line.slice(line.indexOf('=') + 1)]),
+  )
+}
+
+function runnersFor(ctx: {
+  event: string
+  trusted: boolean
+  refType?: string
+  linuxSwitch?: string
+  selfHosted?: boolean
+}): Runners {
+  const run = workflow.jobs.changes.steps?.find((step) => step.id === 'runner')?.run ?? ''
+  return stepOutputs('runner', run, {
+    TRUSTED: String(ctx.trusted),
+    LINUX_SWITCH: ctx.linuxSwitch ?? '',
+    MACOS_SWITCH: 'off',
+    REF_TYPE: ctx.refType ?? 'branch',
+    EVENT: ctx.event,
+    SELF_HOSTED: ctx.selfHosted === undefined ? '' : String(ctx.selfHosted),
+  }) as Runners
+}
+
+function testsStepFor(plan: object) {
+  mkdirSync(bin, { recursive: true })
+  writeFileSync(join(bin, 'node'), `#!/bin/sh\nprintf '%s' '${JSON.stringify(plan)}'\n`)
+  chmodSync(join(bin, 'node'), 0o755)
+  const run = workflow.jobs.changes.steps?.find((step) => step.id === 'tests')?.run ?? ''
+  return stepOutputs('tests', run, { PATH: `${bin}:${process.env.PATH}`, BASE_SHA: 'base' })
+}
+
+function changedArgs(env: { specs: string; repeat: string; selfHosted?: boolean }) {
+  mkdirSync(bin, { recursive: true })
+  writeFileSync(join(bin, 'pnpm'), '#!/bin/sh\nshift\nprintf \'%s\\n\' "$@"\n')
+  chmodSync(join(bin, 'pnpm'), 0o755)
+  const step = workflow.jobs['e2e-changed'].steps?.find((candidate) =>
+    candidate.run?.includes('pnpm test:e2e'),
+  )
+  return bash(step?.run ?? '', {
+    PATH: `${bin}:${process.env.PATH}`,
+    SHARD: '1/1',
+    SPECS: env.specs,
+    REPEAT: env.repeat,
+    SELF_HOSTED: String(env.selfHosted ?? false),
+    PTRACE_E2E: workflow.env.PTRACE_E2E,
+  })
+    .trim()
+    .split('\n')
+}
+
+function runsOn(name: string): string {
+  return String((workflow.jobs[name] as { 'runs-on'?: string })['runs-on'])
+}
+
+describe('runners', () => {
+  const hosted = '"ubuntu-24.04"'
+  const ostia = '"ostia-linux"'
+  const small = '"ostia-linux-small"'
+
+  it('keeps the heavy pull request jobs on GitHub-hosted runners and the light ones at home', () => {
+    expect(runnersFor({ event: 'pull_request', trusted: true })).toMatchObject({
+      linux: ostia,
+      linux_small: small,
+      linux_heavy: hosted,
+    })
+    expect(runnersFor({ event: 'pull_request', trusted: false })).toMatchObject({
+      linux: hosted,
+      linux_small: hosted,
+      linux_heavy: hosted,
+    })
+  })
+
+  it('runs a manual run on GitHub-hosted runners unless it asks for the self-hosted ones', () => {
+    expect(runnersFor({ event: 'workflow_dispatch', trusted: true })).toMatchObject({
+      linux: ostia,
+      linux_heavy: hosted,
+    })
+    expect(
+      runnersFor({ event: 'workflow_dispatch', trusted: true, selfHosted: false }).linux_heavy,
+    ).toBe(hosted)
+    expect(
+      runnersFor({ event: 'workflow_dispatch', trusted: true, selfHosted: true }).linux_heavy,
+    ).toBe(ostia)
+    expect(
+      runnersFor({ event: 'workflow_dispatch', trusted: false, selfHosted: true }).linux_heavy,
+    ).toBe(hosted)
+    expect(
+      runnersFor({
+        event: 'workflow_dispatch',
+        trusted: true,
+        selfHosted: true,
+        linuxSwitch: 'off',
+      }).linux_heavy,
+    ).toBe(hosted)
+    expect(
+      runnersFor({ event: 'workflow_dispatch', trusted: true, selfHosted: true, refType: 'tag' })
+        .linux_heavy,
+    ).toBe(hosted)
+  })
+
+  it('leaves pushes, the merge queue, the nightly run and tags where they were', () => {
+    const cases = [
+      { ctx: { event: 'push', trusted: true }, linux: ostia, small },
+      { ctx: { event: 'push', trusted: true, refType: 'tag' }, linux: hosted, small: hosted },
+      { ctx: { event: 'push', trusted: true, linuxSwitch: 'off' }, linux: hosted, small: hosted },
+      { ctx: { event: 'merge_group', trusted: false }, linux: hosted, small: hosted },
+      { ctx: { event: 'schedule', trusted: false }, linux: hosted, small: hosted },
+    ]
+    for (const { ctx, linux, small: linuxSmall } of cases) {
+      expect(runnersFor(ctx), JSON.stringify(ctx)).toEqual({
+        linux,
+        linux_small: linuxSmall,
+        linux_heavy: linux,
+        macos: '"macos-26"',
+      })
+    }
+  })
+
+  it('puts e2e and unit-dom on the heavy runner, static and build on the light one', () => {
+    for (const name of ['e2e', 'e2e-changed', 'unit-dom']) {
+      expect(runsOn(name), name).toBe('${{ fromJSON(needs.changes.outputs.linux_heavy) }}')
+    }
+    for (const name of ['static', 'build']) {
+      expect(runsOn(name), name).toBe('${{ fromJSON(needs.changes.outputs.linux) }}')
+    }
+    for (const name of ['ci-result', 'e2e-report']) {
+      expect(runsOn(name), name).toBe('${{ fromJSON(needs.changes.outputs.linux_small) }}')
+    }
+  })
+
+  it('runs e2e-ptrace only when the e2e shards run on a self-hosted runner', () => {
+    expect(workflow.jobs['e2e-ptrace'].if).toContain(
+      `needs.changes.outputs.linux_heavy != '"ubuntu-24.04"'`,
+    )
+    expect(workflow.jobs['e2e-ptrace'].if).not.toContain('outputs.linux ')
+  })
+})
+
+describe('changed specs run three times on a pull request', () => {
+  const plan = {
+    node: [],
+    dom: [],
+    e2e: ['e2e/marketplace.spec.ts'],
+    e2eShards: [1],
+    e2eChanged: ['e2e/smoke.spec.ts', 'e2e/ssh.spec.ts'],
+    e2eChangedRepeat: 3,
+    e2eChangedShards: [1],
+  }
+
+  it('hands the changed specs, their shards and the repeat count to e2e-changed', () => {
+    expect(testsStepFor(plan)).toMatchObject({
+      e2e_specs: 'e2e/marketplace.spec.ts',
+      changed_specs: 'e2e/smoke.spec.ts e2e/ssh.spec.ts',
+      changed_shards: '[1]',
+      changed_repeat: '3',
+    })
+    expect(workflow.jobs.changes.outputs).toMatchObject({
+      changed_specs: '${{ steps.tests.outputs.changed_specs }}',
+    })
+  })
+
+  it('plans no repeated job when the pull request changes no spec', () => {
+    const outputs = testsStepFor({ ...plan, e2eChanged: [], e2eChangedShards: [1] })
+    expect(outputs.e2e_specs).toBe('e2e/marketplace.spec.ts')
+    expect(outputs).not.toHaveProperty('changed_specs')
+  })
+
+  it('still repeats the changed specs when the plan asks for every spec', () => {
+    expect(testsStepFor({ ...plan, e2e: null, e2eShards: null })).toMatchObject({
+      e2e_full: 'true',
+      changed_specs: 'e2e/smoke.spec.ts e2e/ssh.spec.ts',
+    })
+  })
+
+  it('runs the changed specs with --repeat-each from the plan', () => {
+    expect(changedArgs({ specs: 'e2e/smoke.spec.ts e2e/ssh.spec.ts', repeat: '3' })).toEqual([
+      'e2e/smoke.spec.ts',
+      'e2e/ssh.spec.ts',
+      '--shard=1/1',
+      '--repeat-each=3',
+    ])
+    expect(changedArgs({ specs: 'e2e/sandbox.spec.ts', repeat: '3', selfHosted: true })).toEqual([
+      'e2e/sandbox.spec.ts',
+      '--shard=1/1',
+      '--repeat-each=3',
+      '--grep-invert',
+      workflow.env.PTRACE_E2E,
+    ])
+  })
+
+  it('blocks ci-result on the repeated runs, and accepts them skipped when none are planned', () => {
+    const pullRequest = { code: true, full: false, e2e: 'skipped' }
+    expect(
+      ciResultAccepts({ ...pullRequest, changed: true, results: { 'e2e-changed': 'success' } }),
+    ).toBe(true)
+    expect(
+      ciResultAccepts({ ...pullRequest, changed: true, results: { 'e2e-changed': 'failure' } }),
+    ).toBe(false)
+    expect(
+      ciResultAccepts({ ...pullRequest, changed: true, results: { 'e2e-changed': 'skipped' } }),
+    ).toBe(false)
+    expect(ciResultAccepts({ ...pullRequest, results: { 'e2e-changed': 'skipped' } })).toBe(true)
+  })
+})
 
 describe('merge queue e2e gating', () => {
   it('requires full for a merge_group that changes code', () => {
