@@ -49,6 +49,7 @@ import { ExtensionContributions } from './extensionContributions'
 import { ExtensionEvents } from './extensionEvents'
 import type { ExtensionHostDeps } from './extensionHostDeps'
 import { ExtensionPanels } from './extensionPanels'
+import { ExtensionPhoneScreens } from './extensionPhoneScreens'
 import { ExtensionProcesses } from './extensionProcesses'
 import { ExtensionRuns } from './extensionRuns'
 import {
@@ -90,11 +91,17 @@ export class ExtensionHost {
   readonly panels: ExtensionPanels
   readonly events: ExtensionEvents
   readonly browse: ExtensionBrowse
+  readonly phoneScreens: ExtensionPhoneScreens
   private browseSignature = ''
 
   constructor(private readonly deps: ExtensionHostDeps) {
     this.changes.setMaxListeners(0)
     for (const ext of this.discover()) this.runtimes.set(ext.manifest.id, newRuntime(ext))
+    this.phoneScreens = new ExtensionPhoneScreens({
+      links: deps.screenLinks,
+      runtimeOf: (identity, conn) => this.runtimeOf(identity, conn),
+      active: (rt) => this.active(rt),
+    })
     this.config = new ExtensionConfig({
       deps,
       runtimes: this.runtimes,
@@ -387,6 +394,7 @@ export class ExtensionHost {
 
   private changed(rt?: Runtime): void {
     if (rt) this.changes.emit(rt.ext.manifest.id)
+    this.phoneScreens.recheck()
     this.deps.broadcast('extensions:changed', this.list())
     this.assistant.assistChanged()
     this.deps.onChanged?.()

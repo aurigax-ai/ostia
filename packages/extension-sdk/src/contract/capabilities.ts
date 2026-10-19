@@ -25,6 +25,7 @@ export type Capability =
   | 'mcp'
   | 'read-bus'
   | 'file-contents'
+  | 'phone-screens'
 
 export const DEFAULT_CAPABILITIES: Capability[] = [
   'drive-self',
@@ -62,12 +63,14 @@ export const ALL_CAPABILITIES: Capability[] = [
   'mcp',
   'read-bus',
   'file-contents',
+  'phone-screens',
 ]
 
 export const HUMAN_GRANTED_CAPABILITIES: readonly Capability[] = [
   'mcp',
   'read-bus',
   'file-contents',
+  'phone-screens',
 ]
 
 export const BUILTIN_CAPABILITIES: Capability[] = ALL_CAPABILITIES.filter(
@@ -81,7 +84,8 @@ export const MANAGER_CAPABILITIES: Capability[] = ALL_CAPABILITIES.filter(
     cap !== 'destructive' &&
     cap !== 'mcp' &&
     cap !== 'read-bus' &&
-    cap !== 'file-contents',
+    cap !== 'file-contents' &&
+    cap !== 'phone-screens',
 )
 
 export const CAPABILITY_ALLOWS: Record<Capability, string> = {
@@ -110,6 +114,8 @@ export const CAPABILITY_ALLOWS: Record<Capability, string> = {
   mcp: 'call the MCP servers you set up',
   'read-bus': 'see which panes send each other bus messages, never what they say',
   'file-contents': 'read the files you expand in Files, to list and open what is inside them',
+  'phone-screens':
+    "see and drive a phone's screen while its human runs a session they started on the phone",
 }
 
 export type CapabilityRefusal = 'denied' | 'not-approved'

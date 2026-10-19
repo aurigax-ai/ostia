@@ -37,9 +37,10 @@ describe('needsApproval / effectiveRecord', () => {
     expect(effectiveRecord(true, undefined)).toEqual({
       enabled: true,
       approved: ALL_CAPABILITIES.filter(
-        (c) => c !== 'mcp' && c !== 'read-bus' && c !== 'file-contents',
+        (c) => c !== 'mcp' && c !== 'read-bus' && c !== 'file-contents' && c !== 'phone-screens',
       ),
     })
+    expect(effectiveRecord(true, undefined).approved).not.toContain('phone-screens')
     expect(effectiveRecord(false, undefined)).toEqual({ enabled: false, approved: null })
     expect(effectiveRecord(true, undefined).approved).not.toContain('mcp')
     expect(effectiveRecord(true, undefined).approved).not.toContain('file-contents')

@@ -30,6 +30,7 @@ export const extensionsZhHant: typeof extensionsEn = {
       mcp: '呼叫你設定並開啟的 MCP 伺服器',
       notify: '顯示通知',
       phone: '管理手機配套應用程式',
+      'phone-screens': '在手機使用者於手機上啟動的工作階段期間，查看並操控該手機的畫面',
       process: '執行並管理背景程序',
       'read-board': '讀取您開啟的工作區與窗格',
       'read-other-pane': '讀取其他終端機窗格的畫面',
