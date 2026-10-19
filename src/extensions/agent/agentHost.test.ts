@@ -1,7 +1,7 @@
 import { mkdirSync, readdirSync, statSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import type { AgentReply } from '@aurigax-ai/ostia-extension-sdk/contract/agent'
-import { AgentSession, type ResourceLoader } from '@earendil-works/pi-coding-agent'
+import { AgentSession, type ResourceLoader, type Skill } from '@earendil-works/pi-coding-agent'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { type AgentRig, startAgentRig } from '../../../test/agentHarness'
 
@@ -50,10 +50,10 @@ describe('the agent host', () => {
       return {
         ...real,
         getSkills: () => ({
-          skills: [{ name: 'x', description: 'x', filePath, baseDir, sourceInfo: {} }],
+          skills: [{ name: 'x', description: 'x', filePath, baseDir }] as unknown as Skill[],
           diagnostics: [],
         }),
-      } as ResourceLoader
+      }
     })
     await ask(rig, '/skill:x')
     expect(rig.provider.requests.map((r) => r.last)).toEqual(['/skill:x'])
