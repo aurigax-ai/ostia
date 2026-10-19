@@ -150,6 +150,10 @@ function parseFrameHeader(raw: Buffer): PhoneScreenFrameHeader | null {
   }
 }
 
+function linkable(workspace: WorkspaceEntry | undefined): boolean {
+  return workspace !== undefined && workspace.kind !== 'scratch' && workspace.kind !== 'manager'
+}
+
 function phoneReply(msg: Record<string, unknown>): PhoneScreenReply {
   if (!('error' in msg)) return { ok: true, data: msg.result }
   const error = isRecord(msg.error) ? msg.error : {}
@@ -248,7 +252,7 @@ export class ScreenLinks {
   private async admit(link: Link): Promise<RpcOutcome | null> {
     const workspaces = await this.deps.listWorkspaces().catch(() => [])
     const workspace = workspaces.find((w) => w.workspaceId === link.info.sessionId)
-    if (!workspace || workspace.kind === 'scratch') return refused('unknown-session')
+    if (!linkable(workspace)) return refused('unknown-session')
     const controller = this.controller
     if (!controller) return refused('no-controller', -32004)
     const accepted = await within(controller.offer(link.info), this.timing.offerMs, false)
@@ -307,7 +311,7 @@ export class ScreenLinks {
     if (controller !== this.controller) return { ok: false, error: 'not-listening' }
     const workspaces = await this.deps.listWorkspaces().catch(() => [])
     const workspace = workspaces.find((w) => w.workspaceId === sessionId)
-    if (!workspace || workspace.kind === 'scratch') return { ok: false, error: 'unknown-session' }
+    if (!linkable(workspace)) return { ok: false, error: 'unknown-session' }
     this.deps.askPhones(sessionId)
     return { ok: true, data: null }
   }

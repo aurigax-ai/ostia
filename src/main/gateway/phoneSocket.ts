@@ -33,6 +33,8 @@ export interface SocketState {
   device: Device | null
   alive: boolean
   ptyAttachment: PtyAttachment | null
+  attached: boolean
+  screenTried: boolean
 }
 
 function refreshDevice(state: SocketState): Device | null {
@@ -111,12 +113,13 @@ function handleScreenStart(
   msg: { id?: unknown; params?: unknown },
   links: ScreenLinks | null,
 ): void {
-  if (!links) {
-    ws.send(rpcError(msg.id, -32004, 'no-controller'))
+  if (state.attached || state.screenTried) {
+    ws.send(rpcError(msg.id, -32602, 'busy'))
     return
   }
-  if (state.ptyAttachment) {
-    ws.send(rpcError(msg.id, -32602, 'busy'))
+  state.screenTried = true
+  if (!links) {
+    ws.send(rpcError(msg.id, -32004, 'no-controller'))
     return
   }
   links
@@ -159,6 +162,11 @@ function handlePtyAttach(
     ws.send(rpcError(msg.id, -32603, 'gateway control API not configured'))
     return
   }
+  if (state.screenTried) {
+    ws.send(rpcError(msg.id, -32600, 'link-only'))
+    return
+  }
+  state.attached = true
   if (!device.caps.includes('read')) {
     ws.send(rpcError(msg.id, -32003, 'needs-elevation', { cap: 'read' }))
     return
@@ -286,7 +294,13 @@ function handleBinaryFrame(
 
 function handleConnection(ws: WebSocket, deps: PhoneSocketDeps): void {
   const { sockets, trackDeviceSocket, untrackDeviceSocket } = deps
-  const state: SocketState = { device: null, alive: true, ptyAttachment: null }
+  const state: SocketState = {
+    device: null,
+    alive: true,
+    ptyAttachment: null,
+    attached: false,
+    screenTried: false,
+  }
   sockets.set(ws, state)
   const helloDeadline = setTimeout(() => {
     if (!state.device) ws.close(4001, 'hello timeout')

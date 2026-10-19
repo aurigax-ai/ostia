@@ -61,6 +61,7 @@ const links = new ScreenLinks({
   listWorkspaces: async () => [
     { workspaceId: 's1', name: 'One', kind: 'agent', workDir: '/w', state: 'idle' },
     { workspaceId: 'pad', name: 'Scratch', kind: 'scratch', workDir: '/s', state: 'idle' },
+    { workspaceId: 'mgr', name: 'Manager', kind: 'manager', workDir: '/m', state: 'idle' },
   ],
   askPhones: (sessionId) => askPhonesForScreen(sessionId),
   log: (event, fields) => linkLog.push([event, fields]),
@@ -416,35 +417,60 @@ describe('gateway server over a real WebSocket', () => {
       expect(refused.error).toMatchObject({ code: -32004, message: 'no-controller' })
 
       const declining = listenForScreens(false)
-      const declined = await phone.call('screen.start', screenParams())
+      const declined = await (await connect(device.token)).call('screen.start', screenParams())
       expect(declined.error).toMatchObject({ code: -32004, message: 'no-controller' })
       links.release(declining.controller)
 
       listenForScreens()
-      const started = await phone.call('screen.start', screenParams())
+      const started = await (await connect(device.token)).call('screen.start', screenParams())
       expect(started.result).toEqual({ screenId: expect.any(String) })
     })
 
-    it('PHD-C3 refuses a scratch workspace, a second link from the device and a 3600 s limit without an offer', async () => {
+    it('PHD-C3 refuses a scratch or manager workspace, a second link from the device and a 3600 s limit without an offer', async () => {
       const fake = listenForScreens()
       const device = registerDevice({ name: 'Pixel', pubkey: 'pk' })
-      const phone = await connect(device.token)
-      const scratch = await phone.call('screen.start', screenParams({ sessionId: 'pad' }))
-      expect(scratch.error).toMatchObject({ code: -32602, message: 'unknown-session' })
-      const hour = await phone.call('screen.start', screenParams({ limitSec: 3600 }))
+      const start = async (params: Record<string, unknown>) =>
+        (await connect(device.token)).call('screen.start', params)
+      for (const sessionId of ['pad', 'mgr']) {
+        const refused = await start(screenParams({ sessionId }))
+        expect(refused.error).toMatchObject({ code: -32602, message: 'unknown-session' })
+        expect(await links.ask(fake.controller, sessionId)).toEqual({
+          ok: false,
+          error: 'unknown-session',
+        })
+      }
+      const hour = await start(screenParams({ limitSec: 3600 }))
       expect(hour.error).toMatchObject({ code: -32602, message: 'bad-params' })
-      const late = await phone.call(
-        'screen.start',
-        screenParams({ endsAt: Date.now() + 3_600_000 }),
-      )
+      const late = await start(screenParams({ endsAt: Date.now() + 3_600_000 }))
       expect(late.error).toMatchObject({ code: -32602, message: 'bad-params' })
       expect(fake.offers).toEqual([])
 
+      const phone = await connect(device.token)
       await phone.call('screen.start', screenParams())
       const second = await connect(device.token)
       const busy = await second.call('screen.start', screenParams())
       expect(busy.error).toMatchObject({ code: -32602, message: 'busy' })
       expect(fake.offers).toHaveLength(1)
+    })
+
+    it('PHD-C1 opens a link only on a socket that never attached a pty and never tried a link before', async () => {
+      const fake = listenForScreens()
+      const device = registerDevice({ name: 'Pixel', pubkey: 'pk' })
+      const viewer = await connect(device.token)
+      await viewer.call('pty.attach', { paneId: externalPaneId })
+      await viewer.call('pty.detach', { paneId: externalPaneId })
+      const afterAttach = await viewer.call('screen.start', screenParams())
+      expect(afterAttach.error).toMatchObject({ code: -32602, message: 'busy' })
+
+      const retrying = await connect(device.token)
+      const bad = await retrying.call('screen.start', screenParams({ limitSec: 3600 }))
+      expect(bad.error).toMatchObject({ message: 'bad-params' })
+      const again = await retrying.call('screen.start', screenParams())
+      expect(again.error).toMatchObject({ code: -32602, message: 'busy' })
+      const attach = await retrying.call('pty.attach', { paneId: externalPaneId })
+      expect(attach.error).toMatchObject({ code: -32600, message: 'link-only' })
+      expect(deps.attachPhoneObserver).toHaveBeenCalledTimes(1)
+      expect(fake.offers).toEqual([])
     })
 
     it('PHD-C4 answers link-only to pty.attach and command.exec on a link and still lists asks', async () => {
