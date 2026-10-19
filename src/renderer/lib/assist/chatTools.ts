@@ -26,7 +26,7 @@ import {
   readGated,
   str,
 } from './chatToolGate'
-import { BUILTIN_SPECS } from './chatToolSpecs'
+import { BUILTIN_SPECS, skillsDescription } from './chatToolSpecs'
 import { editFile, writeFile } from './chatToolWrites'
 
 const RECENT_COMMANDS = 10
@@ -137,14 +137,6 @@ function builtinRunners(): Record<
       return { state: 'done', output: { opened: url } }
     },
   }
-}
-
-function skillsDescription(skills: SkillSummary[]): string {
-  const lines = skills.map((s) => `- ${s.name}: ${s.description}`)
-  return `${BUILTIN_SPECS.load_skill.description} Available skills:\n${lines.join('\n')}`.slice(
-    0,
-    CHAT_TOOL_DESCRIPTION_MAX,
-  )
 }
 
 function gitAvailable(): boolean {
