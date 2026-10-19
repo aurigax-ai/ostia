@@ -6,6 +6,7 @@ import type { ConsoleEntry } from '../browser/browseMethod'
 import type { GuestChords } from '../browser/guestChords'
 import type { McpHost } from '../chat/mcpHost'
 import type { McpOAuth } from '../chat/mcpOAuth'
+import type { AgentJournal } from '../diagnostics/agentJournal'
 import type { AppLog } from '../diagnostics/appLog'
 import type { Diagnostics } from '../diagnostics/diagnostics'
 import type { Telemetry } from '../diagnostics/telemetry'
@@ -53,6 +54,7 @@ export function createAppState() {
 
   const services = {
     appLog: null as AppLog | null,
+    agentJournal: null as AgentJournal | null,
     diagnostics: null as Diagnostics | null,
     telemetry: null as Telemetry | null,
     restoreOutcome: 'none' as RestoreOutcome,

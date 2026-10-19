@@ -7,7 +7,7 @@ function withAssetUrl(url: string): Record<string, unknown> {
     id: 'demo',
     name: 'Demo',
     version: '1.0.0',
-    api: '5.0',
+    api: '6.0',
     capabilities: ['language-server'],
     contributes: {
       languageServers: [

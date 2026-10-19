@@ -2,6 +2,7 @@ import { BrowserWindow, app } from 'electron'
 import type { Dict } from '../../shared/app/dict'
 import type { PaneActivity } from '../../shared/terminal/ptyApi'
 import type { QuitAnswer } from '../../shared/windows/windowsApi'
+import { flushBus } from '../agents/busStore'
 import type { ScriptTokenUsageLog } from '../approvals/scriptTokenUsage'
 import type { AppLog } from '../diagnostics/appLog'
 import type { Telemetry } from '../diagnostics/telemetry'
@@ -61,6 +62,8 @@ export function registerAppQuit({
 }: AppQuitDeps) {
   let telemetrySentForQuit = false
   let sendingTelemetryForQuit = false
+  let busFlushedForQuit = false
+  let flushingBusForQuit = false
   let tearingDownForQuit = false
   let tornDownForQuit = false
   let quitAnswer: QuitAnswer | null = null
@@ -163,6 +166,17 @@ export function registerAppQuit({
       quitTrace.stage('telemetry')
       void (services.telemetry?.shutdown() ?? Promise.resolve()).finally(() => {
         telemetrySentForQuit = true
+        app.quit()
+      })
+      return
+    }
+    if (!busFlushedForQuit) {
+      event.preventDefault()
+      if (flushingBusForQuit) return
+      flushingBusForQuit = true
+      quitTrace.stage('bus')
+      void flushBus().finally(() => {
+        busFlushedForQuit = true
         app.quit()
       })
       return

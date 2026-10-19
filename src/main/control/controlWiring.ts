@@ -8,6 +8,7 @@ import { registerScriptTokenIpc } from '../approvals/scriptTokenIpc'
 import type { ScriptTokenUsageLog } from '../approvals/scriptTokenUsage'
 import { checkScriptToken, registerScriptTokenMethods } from '../approvals/scriptTokens'
 import { electronPresenceDeps, verifyUserPresence } from '../approvals/userPresence'
+import type { AgentJournal } from '../diagnostics/agentJournal'
 import { listPanes } from '../panes/paneList'
 import type { WorkspaceSandboxes } from '../sandbox/workspaceSandboxes'
 import type { KeptShellsWiring } from '../tmux/keptShellsWiring'
@@ -36,6 +37,7 @@ interface ControlStartDeps {
   reach: Reach
   keptPlumbing: KeptShellsWiring['keptPlumbing']
   keepShellsOn: KeptShellsWiring['keepShellsOn']
+  services: { agentJournal: AgentJournal | null }
 }
 
 export function startControlServer({
@@ -57,6 +59,7 @@ export function startControlServer({
   reach,
   keptPlumbing,
   keepShellsOn,
+  services,
 }: ControlStartDeps) {
   const scriptTokenDeps = {
     path: scriptTokensPath,
@@ -90,6 +93,7 @@ export function startControlServer({
     byAgent: reach.byAgent,
     reach,
     usage: scriptTokenUsage,
+    journal: services.agentJournal ?? undefined,
   })
   writeControlInfo(controlInfoPath(), controlSocketPath(), process.pid)
   keptPlumbing.start(keepShellsOn())

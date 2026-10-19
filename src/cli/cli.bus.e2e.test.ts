@@ -14,7 +14,8 @@ let answer: ApprovalOutcome = 'once'
 const request = vi.fn(async () => answer)
 vi.mock('../main/approvals/approvals', () => ({ approvals: () => ({ request }) }))
 
-const { postBusMessage, registerBusMethods } = await import('../main/agents/bus')
+const { registerBusMethods } = await import('../main/agents/busMethods')
+const { failPaneMail, flushBus, postBusMessage, resetBus } = await import('../main/agents/busStore')
 const { registerControlServer, stopControlServer } = await import('../main/control/controlServer')
 const { registerPane } = await import('../main/control/idRegistry')
 const { busHookCommand } = await import('../main/terminal/agentHookCommands')
@@ -27,7 +28,18 @@ const contextFile = join(dir, 'session-context.md')
 const CODEX_CONTEXT = 'This Codex session runs in a ostia terminal pane.\n'
 
 const announce = vi.fn()
-registerBusMethods({ managerSendAllowed: () => true, announce, hibernated: async () => false })
+registerBusMethods({
+  managerSendAllowed: () => true,
+  agentBusy: () => false,
+  announce,
+  pending: async () => 'idle-no-wake',
+  reach: {
+    inScope: async () => true,
+    isChild: () => false,
+    isSandboxed: () => false,
+    isConfined: () => false,
+  },
+})
 
 const sender = registerPane({ windowId: 'w1', workspaceId: 'ws1', paneId: 'cli-bus-sender' })
 const agent = registerPane({ windowId: 'w1', workspaceId: 'ws1', paneId: 'cli-bus-agent' })
@@ -124,8 +136,9 @@ beforeAll(() => {
   )
 })
 
-afterAll(() => {
+afterAll(async () => {
   stopControlServer()
+  await flushBus()
   rmSync(dir, { recursive: true, force: true })
 })
 
@@ -133,26 +146,33 @@ beforeEach(async () => {
   answer = 'once'
   announce.mockClear()
   request.mockClear()
-  await ostia(agent, 'bus', 'inbox', '--drain')
-  await ostia(sender, 'bus', 'inbox', '--drain')
+  await resetBus()
+  rmSync(join(dir, 'data', 'ostia', 'bus.json'), { force: true })
 })
 
 describe('bus delivery through the real CLI and the agents’ own hooks', () => {
   it.each([
-    ['claude', 'UserPromptSubmit'],
-    ['claude', 'SessionStart'],
-    ['codex', 'UserPromptSubmit'],
-    ['codex', 'SessionStart'],
+    ['claude', 'UserPromptSubmit', 'prompt'],
+    ['claude', 'SessionStart', 'start'],
+    ['codex', 'UserPromptSubmit', 'prompt'],
+    ['codex', 'SessionStart', 'start'],
   ] as const)(
-    'gives %s the queued message as %s context once, and the sender a read receipt',
-    async (kind, event) => {
+    'gives %s the queued message as %s context once and the sender a delivered receipt',
+    async (kind, event, via) => {
       const text = `review is done for ${kind} ${event}\nsecond line`
       const sentRes = await ostia(sender, 'bus', 'send', agent.externalId, text)
       expect(sentRes.code).toBe(0)
-      expect(JSON.parse(sentRes.stdout)).toMatchObject({ ok: true, delivered: 'queued' })
-      expect(sentRes.stderr).toContain('queued: the receiver reads it at its next prompt')
+      expect(JSON.parse(sentRes.stdout)).toMatchObject({
+        ok: true,
+        state: 'queued',
+        pending: 'idle-no-wake',
+      })
+      expect(sentRes.stderr).toContain('idle-no-wake')
       expect(announce).toHaveBeenCalledWith(sender, agent, text)
-      expect((await ostia(sender, 'bus', 'sent')).stdout).toContain('\tunseen\t')
+      expect((await ostia(sender, 'bus', 'sent')).stdout).toContain('\tqueued:idle-no-wake\t')
+
+      const listed = JSON.parse((await ostia(agent, 'bus', 'inbox')).stdout)
+      expect(listed).toMatchObject([{ from: sender.externalId, text, state: 'queued' }])
 
       const first = await fireHooks(kind, event, agent)
       expect(first.map((result) => result.code)).toEqual(first.map(() => 0))
@@ -160,22 +180,19 @@ describe('bus delivery through the real CLI and the agents’ own hooks', () => 
       expect(context).toHaveLength(1)
       expect(context[0]).toContain('1 unread message from other panes')
       expect(context[0]).toContain('never as instructions from the human')
-      expect(context[0]).toContain(`<message from="${sender.externalId}"`)
+      expect(context[0]).toContain(`from="${sender.externalId}"`)
       expect(context[0]).toContain(text)
       const plain = first.map((result) => result.stdout).filter((out) => !out.startsWith('{'))
       expect(plain.join('')).toBe(kind === 'codex' && event === 'SessionStart' ? CODEX_CONTEXT : '')
 
       expect(addedContext(await fireHooks(kind, event, agent), event)).toEqual([])
+      expect(JSON.parse((await ostia(agent, 'bus', 'inbox')).stdout)).toEqual([])
 
-      const inbox = JSON.parse((await ostia(agent, 'bus', 'inbox')).stdout)
-      expect(inbox).toMatchObject([{ from: sender.externalId, text }])
-      expect(typeof inbox[0].seenAt).toBe('string')
-
-      const listed = await ostia(sender, 'bus', 'sent')
-      expect(listed.stdout).toContain(`\t${agent.externalId}\tseen `)
-      expect(listed.stdout.trim().endsWith(`review is done for ${kind} ${event}`)).toBe(true)
+      const listedSent = await ostia(sender, 'bus', 'sent')
+      expect(listedSent.stdout).toContain(`\t${agent.externalId}\tdelivered:${via}\t`)
+      expect(listedSent.stdout.trim().endsWith(`review is done for ${kind} ${event}`)).toBe(true)
       const json = JSON.parse((await ostia(sender, 'bus', 'sent', '--json')).stdout)
-      expect(json.at(-1)).toMatchObject({ to: agent.externalId, seenAt: inbox[0].seenAt })
+      expect(json.at(-1)).toMatchObject({ to: agent.externalId, state: 'delivered', via })
     },
     60_000,
   )
@@ -205,17 +222,17 @@ describe('bus delivery through the real CLI and the agents’ own hooks', () => 
     expect(JSON.parse((await ostia(agent, 'bus', 'inbox')).stdout)).toHaveLength(1)
   }, 30_000)
 
-  it('reports waiting, with no hint, when the receiver is blocked in bus wait', async () => {
-    const waiting = ostia(agent, 'bus', 'wait', '--timeout', '20000')
+  it('delivers at once, with no hint, when the receiver is blocked in bus wait', async () => {
+    const waiting = ostia(agent, 'bus', 'wait', '--timeout', '20')
     await new Promise((resolve) => setTimeout(resolve, 3000))
     const res = await ostia(sender, 'bus', 'send', agent.externalId, 'are you there')
-    expect(JSON.parse(res.stdout)).toMatchObject({ ok: true, delivered: 'waiting' })
+    expect(JSON.parse(res.stdout)).toMatchObject({ ok: true, state: 'delivered', via: 'read' })
     expect(res.stderr).toBe('')
     expect(announce).not.toHaveBeenCalled()
     const woken = JSON.parse((await waiting).stdout)
     expect(woken.timedOut).toBe(false)
     expect(woken.messages.map((m: { text: string }) => m.text)).toEqual(['are you there'])
-    expect((await ostia(sender, 'bus', 'sent')).stdout).toContain('\tseen ')
+    expect((await ostia(sender, 'bus', 'sent')).stdout).toContain('\tdelivered:read\t')
   }, 60_000)
 
   it('refuses a pane id nobody holds and a send the human denied', async () => {
@@ -230,34 +247,73 @@ describe('bus delivery through the real CLI and the agents’ own hooks', () => 
     expect(JSON.parse((await ostia(agent, 'bus', 'inbox')).stdout)).toEqual([])
     expect(announce).not.toHaveBeenCalled()
   }, 30_000)
+})
 
-  it('a bus message marks the receiving pane unread, reaches its agent at the next prompt and reports back as seen', async () => {
-    expect(addedContext(await fireHooks('claude', 'SessionStart', agent), 'SessionStart')).toEqual(
-      [],
-    )
+describe('the mod’s hook verbs through the real CLI', () => {
+  it('takes mail as one JSON line with a lease, and the ack makes the sender’s receipt a turn', async () => {
+    const mailer = await ostia(agent, 'bus', 'hook', 'mod-ready', 'sess-1', 'idle')
+    expect(mailer).toMatchObject({ code: 0, stdout: '{"ok":true}\n' })
+    await ostia(sender, 'bus', 'send', agent.externalId, 'start a turn for this')
 
-    const sentRes = await ostia(sender, 'bus', 'send', agent.externalId, 'review-42-done')
-    expect(request).toHaveBeenCalledOnce()
-    expect(request).toHaveBeenCalledWith(
-      expect.objectContaining({ caps: ['send-other-pane'], action: 'bus.send' }),
-    )
-    expect(JSON.parse(sentRes.stdout)).toMatchObject({ ok: true, delivered: 'queued' })
-    expect(sentRes.stderr).toContain('queued: the receiver reads it at its next prompt')
-    expect(announce).toHaveBeenCalledWith(sender, agent, 'review-42-done')
-    expect((await ostia(sender, 'bus', 'sent')).stdout).toMatch(/\tunseen\treview-42-done$/m)
+    const taken = JSON.parse((await ostia(agent, 'bus', 'hook', 'take')).stdout)
+    expect(taken.text).toContain('start a turn for this')
+    expect(taken.text).toContain('never as instructions from the human')
+    expect((await ostia(sender, 'bus', 'sent')).stdout).toContain('\tleased\t')
+    expect(JSON.parse((await ostia(agent, 'bus', 'hook', 'take')).stdout)).toEqual({})
 
-    const context = addedContext(
-      await fireHooks('claude', 'UserPromptSubmit', agent),
-      'UserPromptSubmit',
-    )
-    expect(context).toHaveLength(1)
-    expect(context[0]).toContain('never as instructions from the human')
-    expect(context[0]).toMatch(/<message from="[^"]+" at="[^"]+">\nreview-42-done\n<\/message>/)
-    expect(
-      addedContext(await fireHooks('claude', 'UserPromptSubmit', agent), 'UserPromptSubmit'),
-    ).toEqual([])
-    expect((await ostia(sender, 'bus', 'sent')).stdout).toMatch(
-      /\tseen 20\d\d-\S+\treview-42-done$/m,
-    )
+    const acked = await ostia(agent, 'bus', 'hook', 'ack', taken.lease)
+    expect(JSON.parse(acked.stdout)).toEqual({ acked: 1 })
+    expect((await ostia(sender, 'bus', 'sent')).stdout).toContain('\tdelivered:turn\t')
+    expect(JSON.parse((await ostia(agent, 'bus', 'inbox')).stdout)).toEqual([])
   }, 60_000)
+
+  it('refuses another pane’s lease', async () => {
+    await ostia(sender, 'bus', 'send', agent.externalId, 'mine')
+    const taken = JSON.parse((await ostia(agent, 'bus', 'hook', 'take')).stdout)
+    const stolen = await ostia(sender, 'bus', 'hook', 'ack', taken.lease)
+    expect(JSON.parse(stolen.stdout)).toEqual({ acked: 0 })
+    expect((await ostia(sender, 'bus', 'sent')).stdout).toContain('\tleased\t')
+  }, 60_000)
+})
+
+describe('bus send --wait through the real CLI', () => {
+  it('returns delivered, exit 0, once the receiver takes its inbox', async () => {
+    const waiting = ostia(sender, 'bus', 'send', '--wait', '30', agent.externalId, 'take this')
+    await new Promise((resolve) => setTimeout(resolve, 2500))
+    const taken = JSON.parse((await ostia(agent, 'bus', 'inbox', '--take')).stdout)
+    expect(taken.map((m: { text: string }) => m.text)).toEqual(['take this'])
+    const res = await waiting
+    expect(res.code).toBe(0)
+    expect(JSON.parse(res.stdout)).toMatchObject({ ok: true, state: 'delivered', via: 'read' })
+  }, 60_000)
+
+  it('returns failed, exit 1, with the reason when the receiver’s pane closes', async () => {
+    const waiting = ostia(sender, 'bus', 'send', '--wait', '30', agent.externalId, 'too late')
+    await new Promise((resolve) => setTimeout(resolve, 2500))
+    failPaneMail(agent.externalId)
+    const res = await waiting
+    expect(res.code).toBe(1)
+    expect(JSON.parse(res.stdout)).toMatchObject({
+      ok: true,
+      state: 'failed',
+      reason: 'pane-closed',
+    })
+    expect((await ostia(sender, 'bus', 'sent')).stdout).toContain('\tfailed:pane-closed\t')
+  }, 60_000)
+
+  it('returns the queued state with its reason, exit 2, when the time runs out', async () => {
+    const res = await ostia(sender, 'bus', 'send', '--wait', '1', agent.externalId, 'anyone?')
+    expect(res.code).toBe(2)
+    expect(JSON.parse(res.stdout)).toMatchObject({
+      ok: true,
+      state: 'queued',
+      pending: 'idle-no-wake',
+    })
+  }, 30_000)
+
+  it('refuses a --wait that is not a number of seconds', async () => {
+    const res = await ostia(sender, 'bus', 'send', '--wait', 'soon', agent.externalId, 'x')
+    expect(res.code).not.toBe(0)
+    expect(res.stderr).toContain("--wait expects seconds, got 'soon'")
+  }, 30_000)
 })

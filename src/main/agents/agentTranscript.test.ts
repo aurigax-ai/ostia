@@ -6,7 +6,8 @@ import { describe, expect, it, vi } from 'vitest'
 
 vi.mock('electron', () => ({ ipcMain: { handle: vi.fn() } }))
 
-const { readRange, readSessionInfo, TRANSCRIPT_TAIL_BYTES } = await import('./agentTranscript')
+const { readSessionInfo, TRANSCRIPT_TAIL_BYTES } = await import('./agentTranscript')
+const { readRange, readTail } = await import('./transcriptFiles')
 
 function home(): string {
   return mkdtempSync(join(tmpdir(), 'ostia-transcript-'))
@@ -59,5 +60,18 @@ describe('readRange', () => {
     expect(() => readRange(join(h, 'link.jsonl'), true, 100)).toThrow()
     expect(() => readRange(join(h, 'pipe.jsonl'), true, 100)).toThrow()
     expect(readRange(join(h, 'real.jsonl'), true, 100)).toEqual(['a', ''])
+  })
+
+  it('reads the tail asynchronously with the same refusals', async () => {
+    const h = home()
+    writeFileSync(join(h, 'real.jsonl'), 'a\n')
+    symlinkSync(join(h, 'real.jsonl'), join(h, 'link.jsonl'))
+    execFileSync('mkfifo', [join(h, 'pipe.jsonl')])
+    await expect(readTail(join(h, 'link.jsonl'), 100)).rejects.toThrow()
+    await expect(readTail(join(h, 'pipe.jsonl'), 100)).rejects.toThrow()
+    expect(await readTail(join(h, 'real.jsonl'), 100)).toEqual({
+      lines: ['a', ''],
+      truncated: false,
+    })
   })
 })

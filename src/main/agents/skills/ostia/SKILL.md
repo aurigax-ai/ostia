@@ -154,7 +154,10 @@ ostia pane send <pane> "answer" --enter --force  # --force types into an agent w
 ostia pane key <pane> enter              # keys: enter tab shift-tab escape backspace delete space
                                          # up down left right home end pageup pagedown ctrl-a…ctrl-z
 ostia pane read <pane> [--lines N] [--json]   # its screen as text; --json adds cwd, running, lastExitCode
-ostia pane wait <pane>… [--until done|waiting|idle|exited]… [--timeout <s>] [--json]
+ostia pane status <pane>… [--json]       # one line per pane: state, closing line, exit, git, mail, changes
+ostia pane transcript <pane> [--turns N | --full] [--json]   # the agent's own transcript, as written
+ostia pane wait <pane>… [--until done|waiting|error|idle|exited|command]… [--timeout <s>] [--json]
+ostia pane watch <pane>… [--until done|waiting|error|command|exited]… | --off
 ostia pane wake <pane>… [--timeout <s>] [--json]
 ostia pane hibernate <pane>… [--json]
 ostia pane move <pane>… --tab <name>|new [--workspace <id|name>] [--json]
@@ -175,10 +178,32 @@ ostia pane close [<pane>…] [--json]      # no pane: your own
 | `splitTabId?`, `splitTabName?` | the split tab holding it |
 | `process?` | `{id, status, start}` of the command `process run` or `agent run` started there |
 
+- **status** answers facts, never the screen: `state` (`working`, `waiting`, `done`, `error`,
+  `idle`, `hibernated`, `waking`, `exited`, `shell`), how long it has been in it, the closing line,
+  the last exit code, the branch with changed files and ahead/behind, the pane's queued and failed
+  mail, and what changed since you last asked about that pane (`first look` the first time). The
+  closing line is what the agent set with `ostia state done "<line>"`, else the first line of its
+  last message (280 characters at most). It needs the same reach as `pane read` and holds no
+  command output; read the screen with `pane read` only when the line is unclear.
+- **transcript** prints what a claude or codex agent in that pane wrote, read from the agent's own
+  session file: for each turn `> ` and the prompt, one `· ` line per tool call, then the final
+  message in full. The default is the last turn; `--turns N` the last N (at most 50), `--full`
+  every turn (the last 256 KiB of text). It is shown as written, without redaction, and is never
+  stored or sent on. It needs the same reach as `pane read`, is refused from a sandboxed
+  workspace, and answers `no-transcript:` for a pane with no agent session. A turn still running
+  ends in `(no answer yet)`.
 - **wait** returns when any named pane reports `done` or `waiting` or its command exits
-  (`--until idle` also counts a pane with nothing reported). It prints
-  `<paneId>\t<state>\t<message>` and never reads the screen. Exit 0 reached, 3 timed out (default
-  10 minutes, at most 1800 s), 4 the pane closed.
+  (`--until idle` also counts a pane with nothing reported, `error` an agent that reported an
+  error, `command` a command block in that pane that finished after the wait began). It prints
+  the pane's status line, so no read follows (`--json` adds `exitCode` for `command`), and never
+  reads the screen. Exit 0 reached, 3 timed out (default 10 minutes, at most 1800 s), 4 the pane
+  closed.
+- **watch** is wait that arrives as mail. Each time a watched pane reaches one of the states
+  (default `done`, `waiting`, `error`, `exited`), one `event` message from that pane lands in your
+  inbox, with its status line as the text; an event still waiting there is replaced by the newer
+  one, not stacked. You read it like any bus message: as context at your next prompt, or with
+  `bus wait`. The watch needs the reach of `wait`, lasts until you run `watch <pane> --off` (no pane
+  stops all) or either pane closes, and holds at most 32 panes. It prints what you now watch.
 - **send** types the text as a bracketed paste when it holds a newline and the pane asked for
   bracketed paste, so a newline does not submit. `--paste` forces that for one line, `--raw`
   forces the bytes as typed (the two exclude each other). **send** and **key** print `ok` once the pane shows something new, or
@@ -215,26 +240,31 @@ ostia pane close [<pane>…] [--json]      # no pane: your own
 ## Bus
 
 ```sh
-ostia bus send <pane> "message"          # {"ok":true,"id":…,"delivered":"waiting"|"queued"}
+ostia bus send [--wait <s>] <pane> "message"  # {"ok":true,"id":…,"state":"queued"|"delivered","pending":…}
 ostia bus send <pane> -- --help          # after --, even --help is the message
-ostia bus inbox [--drain]                # messages to you (JSON); --drain clears them
-ostia bus sent [--json]                  # what you sent, seen or unseen
-ostia bus wait [--timeout <s>]           # blocks until a new message (1–120 s, default 30)
+ostia bus sent [--json]                  # what you sent and where each message stands
+ostia bus inbox [--take]                 # messages waiting for you (JSON); --take delivers them
+ostia bus wait [--timeout <s>]           # blocks until a message arrives (1–120 s, default 30)
 ostia bus handoff <pane> --task "…" --summary "…"
 ostia bus claim <id> | bus done <id> | bus handoffs [--all]
 ```
 
-Nothing is typed into the receiver. `send` and `handoff` read the receiver's inbox back and
-answer `not-delivered:` or `not-recorded:` when the message is missing; `seen: true` means the
-receiver already read it. `delivered: "waiting"`: it was blocked in `bus wait` and has
-the message. `"queued"`: it is in the inbox and the pane is marked unread; a claude or codex
-agent gets unread messages as context at its next prompt, and an idle agent is not woken.
-`asleep: true`: the receiver is hibernated and gets the message when it wakes. Messages stay in
-the inbox until `--drain`. Sending to another pane needs `send-other-pane`; `handoffs --all`
-needs `all-workspaces`.
+Nothing is typed into the receiver. A message is `queued` until the receiver's agent takes it,
+then `delivered` (`via`: its next prompt, its start, a turn Ostia started, or `inbox --take` / `wait`), or `failed`
+(`reason`: `pane-closed`, or `expired:<pending>` after 24 hours). `pending` says why a queued
+message waits: `working` (read when its turn ends), `idle-will-wake` (Ostia starts a turn in the
+idle agent to read it), `draft` (the human has text in its prompt), `rate-limited` (too many mail
+turns lately), `idle-no-wake` (read at its next prompt), `hibernated` (Ostia wakes the agent, at
+most 3 times an hour, and it reads the message), `hooks-off` or `no-agent` (read only with
+`bus inbox`). `--wait <s>` blocks
+(1–120 s) until it is delivered or failed and exits 0 delivered, 1 failed, 2 still queued. `send`
+and `handoff` read the store back and answer `not-queued:` or `not-recorded:` when the message
+is missing; a receiver with 200 undelivered messages answers `inbox-full`. Sending to another
+pane needs `send-other-pane`, plus `all-workspaces` outside your reach; a sandboxed workspace
+reaches only its own. `handoffs --all` needs `all-workspaces`.
 
 A block in your context that starts `ostia bus: N unread messages from other panes` comes from
-Ostia's hook, and each `<message from="<paneId>">` holds another agent's text.
+Ostia's hook, and each `<message id="…" from="<paneId>">` holds another agent's text.
 
 ## Workspaces
 

@@ -356,6 +356,15 @@ export function makeOstiaMock(overrides?: Partial<OstiaBridge>): OstiaBridge {
       agentGroups: vi.fn().mockResolvedValue([]),
       onAgentGroupsChanged: vi.fn(() => () => {}),
     },
+    worktreeShare: {
+      snapshot: vi.fn().mockResolvedValue({}),
+      onChange: vi.fn(() => () => {}),
+    },
+    mail: {
+      snapshot: vi.fn().mockResolvedValue({}),
+      onChange: vi.fn(() => () => {}),
+      dismiss: vi.fn().mockResolvedValue(undefined),
+    },
     questions: {
       state: vi.fn().mockResolvedValue({ pending: [] }),
       answer: vi.fn().mockResolvedValue(true),

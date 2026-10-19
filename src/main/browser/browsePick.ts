@@ -21,7 +21,7 @@ import {
 } from '../../shared/browser/pick'
 import { PICK_RUNTIME_GLOBAL } from '../../shared/browser/pickRuntime'
 import { pickRuntimeScript } from '../../shared/pageScripts/installScripts'
-import { postBusMessage } from '../agents/bus'
+import { postBusMessage } from '../agents/busStore'
 import type { OriginReach } from '../agents/originAgents'
 import type { Reach } from '../approvals/reach'
 import { registerControlMethod } from '../control/controlServer'
