@@ -6,6 +6,23 @@ import { put } from '../../../../test/historySpill'
 import { newHistoryKey, openLines, sealLines } from './historyRecords'
 import { PaneHistory, RECORD_BYTES } from './paneHistory'
 
+const opening = vi.hoisted(() => ({ hold: null as Promise<void> | null, entered: () => {} }))
+
+vi.mock('node:fs/promises', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('node:fs/promises')>()
+  return {
+    ...actual,
+    open: async (...args: Parameters<typeof actual.open>) => {
+      const hold = opening.hold
+      if (hold) {
+        opening.entered()
+        await hold
+      }
+      return actual.open(...args)
+    },
+  }
+})
+
 const histories: PaneHistory[] = []
 
 function makeHistory(overrides: Partial<ConstructorParameters<typeof PaneHistory>[0]> = {}) {
@@ -26,8 +43,9 @@ function makeHistory(overrides: Partial<ConstructorParameters<typeof PaneHistory
 const numbered = (from: number, count: number, text = 'line'): string[] =>
   Array.from({ length: count }, (_, i) => `${text} ${from + i}`)
 
-afterEach(() => {
-  for (const history of histories.splice(0)) history.dispose()
+afterEach(async () => {
+  opening.hold = null
+  await Promise.all(histories.splice(0).map((history) => history.dispose()))
 })
 
 describe('history records', () => {
@@ -142,7 +160,28 @@ describe('PaneHistory', () => {
     const { history, dir } = makeHistory()
     put(history, numbered(0, 3))
     await history.flush()
-    history.dispose()
+    await history.dispose()
+    expect(existsSync(dir)).toBe(false)
+  })
+
+  it('removes its folder only after a write that is opening its segment finishes', async () => {
+    const onFailed = vi.fn()
+    const { history, dir } = makeHistory({ onFailed })
+    let release = () => {}
+    opening.hold = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    const entered = new Promise<void>((resolve) => {
+      opening.entered = resolve
+    })
+    put(history, numbered(0, 3))
+    void history.flush()
+    await entered
+    const disposed = history.dispose()
+    expect(existsSync(dir)).toBe(true)
+    release()
+    await disposed
+    expect(onFailed).not.toHaveBeenCalled()
     expect(existsSync(dir)).toBe(false)
   })
 })

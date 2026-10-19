@@ -29,12 +29,16 @@ export function countCommandStarts(data: string, end = data.length): number {
 
 export class PtyRingBuffer {
   private buf = ''
-  private start = 0
+  private start: number
   private droppedStarts = 0
   private readonly keepBytes: number
 
-  constructor(private readonly capBytes = 1_000_000) {
+  constructor(
+    private readonly capBytes = 1_000_000,
+    private readonly base = 0,
+  ) {
     this.keepBytes = capBytes - (capBytes >> 2)
+    this.start = base
   }
 
   get end(): number {
@@ -51,8 +55,9 @@ export class PtyRingBuffer {
   }
 
   since(cursor: number): RingSlice {
-    const dropped = cursor < this.start
-    const from = Math.max(0, cursor - this.start)
+    const at = cursor === 0 ? this.base : cursor
+    const dropped = at < this.start || at > this.end
+    const from = dropped ? 0 : at - this.start
     return {
       data: this.buf.slice(from),
       cursor: this.end,

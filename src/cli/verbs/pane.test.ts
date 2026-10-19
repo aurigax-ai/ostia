@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { hibernateOutcome, parsePaneArgs, waitOutcome, wakeOutcome } from './pane'
+import { hibernateOutcome, paneLine, parsePaneArgs, waitOutcome, wakeOutcome } from './pane'
 
 describe('parsePaneArgs', () => {
   it('joins the words of send into one text and adds Enter only when asked', () => {
@@ -84,7 +84,7 @@ describe('parsePaneArgs', () => {
     expect(() => parsePaneArgs(['read', 'p1', '--lines', '0'])).toThrow('positive')
     expect(() => parsePaneArgs(['read', 'p1', '--lines', '-3'])).toThrow('positive')
     expect(() => parsePaneArgs(['read', 'p1', '--lines'])).toThrow('--lines needs a value')
-    expect(() => parsePaneArgs(['read', 'p1', '--tail', '5'])).toThrow('usage: ostia pane')
+    expect(() => parsePaneArgs(['read', 'p1', '--tail', '5'])).toThrow('unknown flag --tail')
     expect(() => parsePaneArgs(['read', 'p1', 'extra'])).toThrow('usage: ostia pane')
   })
 
@@ -95,9 +95,32 @@ describe('parsePaneArgs', () => {
     expect(() => parsePaneArgs(['frobnicate', 'p1'])).toThrow('usage: ostia pane')
   })
 
-  it('lists panes as JSON and takes nothing more', () => {
-    expect(parsePaneArgs(['list'])).toEqual({ method: 'pane.list', params: {}, json: true })
+  it('lists panes as text lines, or JSON with --json, and takes nothing more', () => {
+    expect(parsePaneArgs(['list'])).toEqual({ method: 'pane.list', params: {}, json: false })
+    expect(parsePaneArgs(['list', '--json'])).toEqual({
+      method: 'pane.list',
+      params: {},
+      json: true,
+    })
     expect(() => parsePaneArgs(['list', 'p1'])).toThrow('usage: ostia pane <verb>')
+  })
+})
+
+describe('paneLine', () => {
+  it('prints id, workspace, kind, state and title, the state from sleep, agent or command', () => {
+    const pane = { paneId: 'p1', workspaceId: 'ws1', kind: 'terminal', title: 'w-1', running: true }
+    expect(paneLine(pane)).toBe('p1\tws1\tterminal\trunning\tw-1')
+    expect(paneLine({ ...pane, running: false })).toBe('p1\tws1\tterminal\tidle\tw-1')
+    expect(paneLine({ ...pane, agentState: 'waiting' })).toBe('p1\tws1\tterminal\twaiting\tw-1')
+    expect(paneLine({ ...pane, agentState: 'working', waking: true })).toContain('\twaking\t')
+    expect(paneLine({ ...pane, hibernated: true, waking: true })).toContain('\thibernated\t')
+  })
+
+  it('keeps a title with tabs, newlines or control characters on one line of five fields', () => {
+    const pane = { paneId: 'p1', workspaceId: 'ws1', kind: 'terminal', running: true }
+    const line = paneLine({ ...pane, title: 'a\tb\nc\u001b[31m' })
+    expect(line).toBe('p1\tws1\tterminal\trunning\ta\\tb\\nc\\x1b[31m')
+    expect(line.split('\t')).toHaveLength(5)
   })
 })
 

@@ -33,7 +33,7 @@ describe('formatText', () => {
   it('prints string values raw and other values as JSON', () => {
     expect(formatText('get', { value: 'Title' })).toBe('Title')
     expect(formatText('get', { value: 3 })).toBe('3')
-    expect(formatText('eval', { result: { a: 1 } })).toBe('{\n  "a": 1\n}')
+    expect(formatText('eval', { result: { a: 1 } })).toBe('{"a":1}')
     expect(formatText('is', { value: false })).toBe('false')
   })
 
@@ -75,7 +75,7 @@ describe('formatText', () => {
     expect(formatText('storage', { key: 'k', value: 'v' })).toBe('v')
     expect(formatText('storage', { key: 'k', value: null })).toBe('')
     expect(formatText('storage', { origin: 'https://x.test', values: { k: 'v' } })).toBe(
-      '{\n  "k": "v"\n}',
+      '{"k":"v"}',
     )
   })
 })

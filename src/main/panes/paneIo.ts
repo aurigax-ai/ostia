@@ -259,6 +259,7 @@ export function registerPaneIoMethods(deps: PaneIoDeps): void {
       const lines = readLineCount(p.lines)
       await reach('read', to, String(p.pane), ctx, `read the screen of ${to.externalId}`)
       const text = await deps.io.read(to.paneId, lines)
+      if (text === null && (await deps.hibernated(to))) throw asleep(to)
       if (text === null) throw fail(`no-terminal: ${to.externalId} has no running terminal`)
       const state = deps.state(to.paneId)
       return {

@@ -13,10 +13,6 @@ const KNOWN_ALERT_IMPORTERS = [
   'ai-elements/confirmation.tsx',
   'common/Notice.tsx',
   'editor/ArtifactVersions.tsx',
-  'editor/DiffView.tsx',
-  'editor/EditorAlerts.tsx',
-  'editor/HtmlPreview.tsx',
-  'views/DeclarativeView.tsx',
 ]
 
 describe('Notice', () => {

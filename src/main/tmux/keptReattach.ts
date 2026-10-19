@@ -8,9 +8,10 @@ import type { ProcessRegistry } from '../panes/processRegistry'
 import { PortBridge } from '../sandbox/ports/portBridge'
 import type { PortRequests } from '../sandbox/ports/portRequests'
 import type { WorkspaceSandboxes } from '../sandbox/workspaceSandboxes'
+import type { PaneBannerText } from '../terminal/paneBanner'
 import { type PtyEntry, type PtyRegistry, feedDisplay } from '../terminal/pty/ptyRegistry'
 import type { Subscriber } from '../terminal/ptySession'
-import { RESTORE_SEAM } from '../terminal/screenMirror'
+import { restoreSeam } from '../terminal/screenMirror'
 import { takeRestoredScrollback } from '../workspaces/savedScrollback'
 import type { SavedAttention } from './attentionFile'
 import type { KeptAttention } from './keptAttention'
@@ -32,6 +33,7 @@ interface KeptReattachDeps {
   restoreKeptAttention: (identity: PaneIdentity, saved: SavedAttention) => void
   processes: () => ProcessRegistry | null
   appLog: () => AppLog | null
+  bannerText: () => PaneBannerText
 }
 
 export type KeptReattach = ReturnType<typeof createKeptReattach>
@@ -50,6 +52,7 @@ export function createKeptReattach({
   restoreKeptAttention,
   processes,
   appLog,
+  bannerText,
 }: KeptReattachDeps) {
   async function reattachKept(
     e: Electron.IpcMainInvokeEvent,
@@ -115,7 +118,7 @@ export function createKeptReattach({
     try {
       screen = await pane.snapshot(cols, rows)
     } catch {}
-    feedDisplay(entry, RESTORE_SEAM)
+    feedDisplay(entry, restoreSeam(bannerText()))
     feedPty(entry, screen)
     const keptAgent = agentRunning.stillRunning(paneId, {
       foreground: await pane.currentCommand().catch(() => ''),

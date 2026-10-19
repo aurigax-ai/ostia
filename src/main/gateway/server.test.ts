@@ -78,6 +78,8 @@ const deps = {
   listAsks: vi.fn().mockReturnValue([]),
   answerAsk: vi.fn().mockReturnValue('unknown-ask'),
   agentRunning: vi.fn().mockReturnValue(false),
+  watchesTurn: vi.fn().mockResolvedValue(false),
+  turnStarted: vi.fn().mockResolvedValue(true),
 } satisfies GatewayControlDeps
 
 const clients: Client[] = []

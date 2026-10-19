@@ -30,14 +30,41 @@ describe('usage table', () => {
   it('answers a bare noun with verbs, and an unknown verb, with its usage and exit 1', () => {
     for (const noun of shown.filter((n) => n.verbs)) {
       expect(usageGate([noun.noun]), noun.noun).toEqual({ text: nounUsage(noun), code: 1 })
-      expect(usageGate([noun.noun, 'no-such-verb']), noun.noun).toEqual({
-        text: nounUsage(noun),
+      expect(usageGate([noun.noun, 'zzzzzzzzzz']), noun.noun).toEqual({
+        text: `ostia ${noun.noun}: no verb 'zzzzzzzzzz'\n${nounUsage(noun)}`,
         code: 1,
       })
       for (const verb of noun.verbs ?? []) {
         expect(usageGate([noun.noun, verb.verb]), `${noun.noun} ${verb.verb}`).toBeNull()
       }
     }
+  })
+
+  it('names the nearest verb for a misspelt or shortened one', () => {
+    expect(usageGate(['vault', 'ls'])).toEqual({
+      text: "ostia vault: no verb 'ls'; did you mean 'ostia vault list'?",
+      code: 1,
+    })
+    expect(usageGate(['pane', 'rea'])?.text).toBe(
+      "ostia pane: no verb 'rea'; did you mean 'ostia pane read'?",
+    )
+    expect(usageGate(['bus', 'sned'])?.text).toBe(
+      "ostia bus: no verb 'sned'; did you mean 'ostia bus send'?",
+    )
+    expect(usageGate(['bus', 'read'])?.text).toMatch(/^ostia bus: no verb 'read'\nusage: ostia bus/)
+  })
+
+  it('answers --help after a verb with that verb alone, but not after --', () => {
+    for (const noun of shown.filter((n) => n.verbs)) {
+      for (const verb of (noun.verbs ?? []).filter((v) => !v.hidden)) {
+        const answer = usageGate([noun.noun, verb.verb, 'x', '--help'])
+        expect(answer?.code, `${noun.noun} ${verb.verb}`).toBe(0)
+        expect(answer?.text).toMatch(new RegExp(`^usage: ostia ${noun.noun} ${verb.verb}\\b`))
+        expect(answer?.text.split('\n')).toHaveLength(2)
+      }
+    }
+    expect(usageGate(['bus', 'send', '-h'])?.code).toBe(0)
+    expect(usageGate(['pane', 'send', 'p', '--', '--help'])).toBeNull()
   })
 
   it('answers a noun that needs arguments with its usage when it has none', () => {
@@ -48,11 +75,14 @@ describe('usage table', () => {
     }
   })
 
-  it('answers a removed dotted form with the usage of its noun', () => {
+  it('answers a removed dotted form with one line naming the verb form', () => {
     for (const word of ['pane.list', 'pane.close', 'workspace.list', 'workspace.new']) {
-      const noun = findNoun(word.split('.')[0])
-      expect(noun).toBeDefined()
-      if (noun) expect(usageGate([word]), word).toEqual({ text: nounUsage(noun), code: 1 })
+      const [noun, verb] = word.split('.')
+      expect(findNoun(noun)).toBeDefined()
+      expect(usageGate([word]), word).toEqual({
+        text: `ostia: use 'ostia ${noun} ${verb}', not '${word}'`,
+        code: 1,
+      })
     }
     expect(usageGate(['pane.splitRight'])).toBeNull()
   })

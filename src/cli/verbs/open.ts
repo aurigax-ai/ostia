@@ -10,7 +10,7 @@ import {
   openTargetKind,
 } from '../../shared/files/openFiles'
 import { FlagError, type ParsedArgs, parseArgs } from '../common/args'
-import { fail } from '../common/failure'
+import { fail, failVerb } from '../common/failure'
 import {
   type FileProbe,
   diffRefusalLine,
@@ -19,6 +19,7 @@ import {
   refusalLine,
   revealRefusalLine,
 } from '../common/fileArgs'
+import { tsvLine } from '../common/lineField'
 import { confirmFilesOpen, confirmPaneOpen } from '../common/readBack'
 import { TTY_NOTICE, captureStdin } from '../common/stdinCapture'
 import { usageOf } from '../common/usageTable'
@@ -72,13 +73,13 @@ async function openFilesIn(
   if (paths.length === 0) return { problems: refused, shown: [] }
   const seen = await confirmFilesOpen(conn, paths)
   if (!seen.ok) return { problems: [...refused, seen.reason], shown: [] }
-  return { problems: refused, shown: seen.value.map((o) => `${o.paneId}\t${o.path}`) }
+  return { problems: refused, shown: seen.value.map((o) => tsvLine([o.paneId, o.path])) }
 }
 
 async function revealFolderIn(conn: MessageConnection, path: string): Promise<Opened> {
   const res = await conn.sendRequest<RevealFolderResult>('file.reveal', { path })
   return res.ok
-    ? { problems: [], shown: [`files\t${path}`] }
+    ? { problems: [], shown: [tsvLine(['files', path])] }
     : { problems: [revealRefusalLine(path, res.error, res.message)], shown: [] }
 }
 
@@ -98,7 +99,7 @@ async function openUrlIn(
   if (!res.tabId) return { problems: [`ostia open: ${url} names no browser pane`], shown: [] }
   const seen = await confirmPaneOpen(conn, res.tabId, url)
   return seen.ok
-    ? { problems: [], shown: [`${seen.value}\t${url}`] }
+    ? { problems: [], shown: [tsvLine([seen.value, url])] }
     : { problems: [seen.reason], shown: [] }
 }
 
@@ -209,7 +210,7 @@ export async function runDiffFiles(conn: MessageConnection, args: string[]): Pro
     })
   } catch (err) {
     if (!(err instanceof FlagError)) throw err
-    return fail(`ostia diff: ${err.message}`)
+    return failVerb(err.message)
   }
   if (parsed.positional.length !== 2) return fail(usageOf('diff'))
   const [original, modified] = parsed.positional.map((word) => parseFileArg(word, FILE_PROBE).path)

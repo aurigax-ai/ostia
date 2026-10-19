@@ -12,8 +12,8 @@ import { sandboxFailureBanner } from '../../sandbox/spawnBanner'
 import { sandboxSpawnEnv } from '../../sandbox/spawnEnv'
 import type { WorkspaceSandboxes } from '../../sandbox/workspaceSandboxes'
 import { packageCooldownEnv } from '../../sandboxPackages/packageEnv'
-import { SANDBOX_NOT_KEPT } from '../../tmux/keepShellsBanner'
 import type { KeptShells } from '../../tmux/keptShells'
+import type { PaneBannerText } from '../paneBanner'
 import { sandboxCwd } from '../spawnCwd'
 import type { SpawnPlan } from './ptySpawnPlan'
 
@@ -22,6 +22,7 @@ interface SandboxSpawnDeps {
   keptShells: KeptShells
   injectSecrets: (workspaceId: string) => Promise<{ env: Record<string, string>; notice: string }>
   onSandboxSpawnFailure: () => ((workspaceId: string, errors: string[]) => void) | null
+  bannerText: () => PaneBannerText
 }
 
 export type SandboxSpawn = ReturnType<typeof createSandboxSpawn>
@@ -31,6 +32,7 @@ export function createSandboxSpawn({
   keptShells,
   injectSecrets,
   onSandboxSpawnFailure,
+  bannerText,
 }: SandboxSpawnDeps) {
   async function spawnSandboxed(
     paneId: string,
@@ -53,7 +55,7 @@ export function createSandboxSpawn({
         : null
       if (wantsKeep && !notKept) {
         await workspaceSandboxes.hosts.connect(workspaceId)
-        if (!workspaceSandboxes.hosts.isKept(workspaceId)) notKept = SANDBOX_NOT_KEPT
+        if (!workspaceSandboxes.hosts.isKept(workspaceId)) notKept = bannerText().sandboxNotKept
       }
       if (wantsKeep && !notKept) tokenFile = keptShells.writeToken(paneId, identity.token)
       const wrapped = await workspaceSandboxes.wrap(
@@ -100,7 +102,11 @@ export function createSandboxSpawn({
       onSandboxSpawnFailure()?.(workspaceId, missing)
       return {
         created: false,
-        buffer: sandboxFailureBanner(err instanceof Error ? err.message : String(err), missing),
+        buffer: sandboxFailureBanner(
+          bannerText(),
+          err instanceof Error ? err.message : String(err),
+          missing,
+        ),
         cursor: 0,
         dropped: false,
         sandboxed: true,

@@ -1,8 +1,9 @@
 import { hash, randomBytes } from 'node:crypto'
 import { chmodSync, existsSync, mkdirSync, readdirSync, rmSync } from 'node:fs'
-import { statfs } from 'node:fs/promises'
+import { rm, statfs } from 'node:fs/promises'
 import { join } from 'node:path'
 import type { ScrollbackHistory } from '../../../shared/terminal/scrollbackHistory'
+import type { AppLog } from '../../diagnostics/appLog'
 import {
   type HistoryFeed,
   type SpillClient,
@@ -65,6 +66,8 @@ export class PaneHistories {
   private readonly runDir: string
   private readonly panes = new Map<string, PaneHistory>()
   private spill: SpillClient | null = null
+  private generation = 0
+  private readonly disposing = new Set<Promise<void>>()
   private readonly closing = new Map<string, Promise<void>>()
 
   constructor(private readonly deps: PaneHistoriesDeps) {
@@ -80,12 +83,12 @@ export class PaneHistories {
     const existing = this.panes.get(paneId)
     if (existing?.live) return existing
     if (existing) {
-      existing.dispose()
+      this.retire(existing)
       this.panes.delete(paneId)
     }
     if (this.deps.setting() === 'off') return null
     const history = new PaneHistory({
-      dir: join(this.runDir, paneFolder(paneId)),
+      dir: join(this.runDir, `${paneFolder(paneId)}-${this.generation++}`),
       key: this.key,
       limitBytes: () => this.limitBytes(),
       ensureSpace: (asking) => this.ensureSpace(asking),
@@ -124,14 +127,22 @@ export class PaneHistories {
   }
 
   drop(paneId: string): void {
-    this.panes.get(paneId)?.dispose()
+    const history = this.panes.get(paneId)
     this.panes.delete(paneId)
+    if (history) this.retire(history)
   }
 
-  removeAll(): void {
-    for (const history of this.panes.values()) history.dispose()
+  async removeAll(): Promise<void> {
+    for (const history of this.panes.values()) this.retire(history)
     this.panes.clear()
-    rmSync(this.runDir, { recursive: true, force: true })
+    await Promise.all(this.disposing)
+    await rm(this.runDir, { recursive: true, force: true })
+  }
+
+  private retire(history: PaneHistory): void {
+    const disposed = history.dispose().catch(() => undefined)
+    this.disposing.add(disposed)
+    void disposed.then(() => this.disposing.delete(disposed))
   }
 
   private limitBytes(): number | null {
@@ -154,5 +165,18 @@ export class PaneHistories {
       largest.dropOldestSegment()
       if (largest === asking && !asking.droppable) return false
     }
+  }
+}
+
+export async function removeHistories(
+  histories: PaneHistories | null,
+  appLog: AppLog | null,
+): Promise<void> {
+  try {
+    await histories?.removeAll()
+  } catch (err) {
+    appLog?.warn('history-remove-failed', {
+      code: (err as NodeJS.ErrnoException).code ?? 'unknown',
+    })
   }
 }

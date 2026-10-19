@@ -149,7 +149,7 @@ export function boot(wiring: Wiring): void {
   registerSandboxWiring({ ...wiring, notifyDeps })
   startFolderAccessWatch({ ...wiring, notifyDeps })
   const { registry } = registerAgentWiring({ ...wiring })
-  const { paneHibernated } = registerPaneMethodsWiring({ ...wiring, registry })
+  const { paneHibernated, turnConfirms } = registerPaneMethodsWiring({ ...wiring, registry })
   registerToolbeltWiring({ ...wiring, paneHibernated })
   const { extensionRemoteFolders, extensionExec, resumeOfPane } = extensionHostParts({ ...wiring })
   const { extensionStore, extensionHost } = startExtensionHost({
@@ -163,7 +163,7 @@ export function boot(wiring: Wiring): void {
   startProfileSyncWiring({ ...wiring, marketplace })
   startChat({ ...wiring })
   const { viewHost } = registerContentIpc({ ...wiring })
-  startGateway({ ...wiring })
+  startGateway({ ...wiring, turnConfirms })
   registerBrowserWiring({ ...wiring })
   startControlServer({ ...wiring })
   startManager({ ...wiring })

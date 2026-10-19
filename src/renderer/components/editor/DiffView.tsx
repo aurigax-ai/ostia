@@ -1,8 +1,7 @@
 import { commands } from '@/commands/registry'
-import { ATTENTION_ALERT } from '@/components/agents/attentionStyles'
 import { Hint } from '@/components/common/Hint'
 import { IconButton } from '@/components/common/IconButton'
-import { Alert } from '@/components/ui/alert'
+import { NoticeBar } from '@/components/common/Notice'
 import { useDict } from '@/lib/app/useDict'
 import { useElementSize } from '@/lib/app/useElementSize'
 import { registerEditorPosition } from '@/lib/files/editorPositions'
@@ -15,7 +14,6 @@ import { ensureMonacoTheme } from '@/lib/monaco/useMonacoTheme'
 import { useSurfaceFocus } from '@/lib/panes/paneFocus'
 import type { DiffLayout } from '@/lib/settings/browserEditorSettings'
 import { codeFontStack } from '@/lib/theme/uiFonts'
-import { cn } from '@/lib/utils'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useDiffStore } from '@/stores/files/diffStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
@@ -212,7 +210,9 @@ export function DiffView({
           </div>
         )}
         {external.error ? (
-          <Alert className={cn(ATTENTION_ALERT, 'editor-save-error')}>{external.error}</Alert>
+          <NoticeBar tone="error" className="editor-save-error">
+            {external.error}
+          </NoticeBar>
         ) : null}
       </div>
     </div>

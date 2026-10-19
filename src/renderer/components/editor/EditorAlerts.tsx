@@ -1,5 +1,4 @@
-import { ATTENTION_ALERT } from '@/components/agents/attentionStyles'
-import { Alert } from '@/components/ui/alert'
+import { NoticeBar } from '@/components/common/Notice'
 import { Button } from '@/components/ui/button'
 import { formatBytes } from '@/lib/app/localeFormat'
 import { fmt, useDict } from '@/lib/app/useDict'
@@ -7,7 +6,6 @@ import { archiveProblemText } from '@/lib/files/archiveProblems'
 import { baseName } from '@/lib/files/fileTree'
 import { langFor } from '@/lib/monaco/language'
 import type { monaco } from '@/lib/monaco/setup'
-import { cn } from '@/lib/utils'
 import { requestClosePane } from '@/lib/workspaces/closeConfirm'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
@@ -73,6 +71,12 @@ export function EditorAlerts({
     })
   }
 
+  const compareButton =
+    diskBar && diskBar.kind !== 'deleted' && comparable(diskBar.disk) ? (
+      <Button variant="outline" size="xs" onClick={() => compareWithDisk(diskBar.disk)}>
+        {d.editor.diskCompare}
+      </Button>
+    ) : null
   return (
     <>
       {blocked ? (
@@ -89,22 +93,12 @@ export function EditorAlerts({
         </div>
       ) : null}
       {diskBar ? (
-        <Alert className={cn(ATTENTION_ALERT, 'editor-disk-bar')}>
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="min-w-0 flex-1">
-              {diskBar.kind === 'changed'
-                ? d.editor.diskChanged
-                : diskBar.kind === 'conflict'
-                  ? d.editor.diskConflict
-                  : d.editor.diskDeleted}
-            </span>
-            {diskBar.kind === 'changed' ? (
+        <NoticeBar
+          className="editor-disk-bar"
+          actions={
+            diskBar.kind === 'changed' ? (
               <>
-                {comparable(diskBar.disk) ? (
-                  <Button variant="outline" size="xs" onClick={() => compareWithDisk(diskBar.disk)}>
-                    {d.editor.diskCompare}
-                  </Button>
-                ) : null}
+                {compareButton}
                 <Button
                   variant="outline"
                   size="xs"
@@ -134,11 +128,7 @@ export function EditorAlerts({
               </>
             ) : diskBar.kind === 'conflict' ? (
               <>
-                {comparable(diskBar.disk) ? (
-                  <Button variant="outline" size="xs" onClick={() => compareWithDisk(diskBar.disk)}>
-                    {d.editor.diskCompare}
-                  </Button>
-                ) : null}
+                {compareButton}
                 <Button variant="outline" size="xs" onClick={() => setDiskBar(null)}>
                   {d.editor.diskCancel}
                 </Button>
@@ -146,18 +136,22 @@ export function EditorAlerts({
                   {d.editor.diskOverwrite}
                 </Button>
               </>
-            ) : null}
-          </div>
-        </Alert>
+            ) : null
+          }
+        >
+          {diskBar.kind === 'changed'
+            ? d.editor.diskChanged
+            : diskBar.kind === 'conflict'
+              ? d.editor.diskConflict
+              : d.editor.diskDeleted}
+        </NoticeBar>
       ) : null}
       {waitedBy ? (
-        <Alert className={cn(ATTENTION_ALERT, 'editor-waited')} data-testid="editor-waited">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="min-w-0 flex-1">
-              {waitedBy.command
-                ? fmt(d.viewer.waitedBy, { command: waitedBy.command, pane: waitedBy.from })
-                : fmt(d.viewer.waitedByShell, { pane: waitedBy.from })}
-            </span>
+        <NoticeBar
+          tone="info"
+          className="editor-waited"
+          data-testid="editor-waited"
+          actions={
             <Button
               variant="outline"
               size="xs"
@@ -165,20 +159,26 @@ export function EditorAlerts({
             >
               {d.viewer.waitedClose}
             </Button>
-          </div>
-        </Alert>
+          }
+        >
+          {waitedBy.command
+            ? fmt(d.viewer.waitedBy, { command: waitedBy.command, pane: waitedBy.from })
+            : fmt(d.viewer.waitedByShell, { pane: waitedBy.from })}
+        </NoticeBar>
       ) : null}
       {padFull ? (
-        <Alert className={cn(ATTENTION_ALERT, 'editor-pad-full')} data-testid="pad-full">
+        <NoticeBar className="editor-pad-full" data-testid="pad-full">
           {fmt(d.artifacts.padFull, { limit: PAD_MAX_BYTES / 1024 })}
-        </Alert>
+        </NoticeBar>
       ) : null}
       {unsavedPath ? (
-        <Alert className={cn(ATTENTION_ALERT, 'editor-save-error')}>
+        <NoticeBar tone="error" className="editor-save-error">
           {fmt(d.editor.saveError, { path: shownPath(unsavedPath) })}
-        </Alert>
+        </NoticeBar>
       ) : external.error ? (
-        <Alert className={cn(ATTENTION_ALERT, 'editor-save-error')}>{external.error}</Alert>
+        <NoticeBar tone="error" className="editor-save-error">
+          {external.error}
+        </NoticeBar>
       ) : null}
     </>
   )

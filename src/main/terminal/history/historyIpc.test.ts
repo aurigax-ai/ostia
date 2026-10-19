@@ -19,7 +19,7 @@ const { lineMatcher, outputText, sameCommand } = await import('./historySearch')
 
 const ESC = '\x1b'
 const mark = (kind: string) => `${ESC}]133;${kind}\x07`
-const cleanup: (() => void)[] = []
+const cleanup: (() => void | Promise<void>)[] = []
 
 function setup() {
   const histories = new PaneHistories({
@@ -34,9 +34,9 @@ function setup() {
     windowOfPane: (paneId) => (paneId === 'p1' ? '7' : undefined),
     services: { histories },
   })
-  cleanup.push(() => {
+  cleanup.push(async () => {
     mirror.dispose()
-    histories.removeAll()
+    await histories.removeAll()
   })
   const call = (sender: number, channel: string, ...args: unknown[]) =>
     handlers.get(channel)?.({ sender: { id: sender } }, ...args)
@@ -52,8 +52,8 @@ function setup() {
 const numbered = (from: number, count: number, text = 'out'): string =>
   Array.from({ length: count }, (_, i) => `${text} ${from + i}\r\n`).join('')
 
-afterEach(() => {
-  for (const fn of cleanup.splice(0)) fn()
+afterEach(async () => {
+  for (const fn of cleanup.splice(0)) await fn()
   closeSpillChannels()
 })
 

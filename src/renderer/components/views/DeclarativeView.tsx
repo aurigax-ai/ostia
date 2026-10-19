@@ -1,7 +1,6 @@
-import { ATTENTION_ALERT } from '@/components/agents/attentionStyles'
 import { Hint } from '@/components/common/Hint'
+import { NoticeBar } from '@/components/common/Notice'
 import { TextLink } from '@/components/common/TextLink'
-import { Alert } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
@@ -13,7 +12,7 @@ import { type BudgetProblem, type RenderNode, expandView } from '@/lib/views/vie
 import { runViewAction } from '@/lib/views/views'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
-import { CaretDownIcon, CaretRightIcon, WarningIcon } from '@phosphor-icons/react'
+import { CaretDownIcon, CaretRightIcon } from '@phosphor-icons/react'
 import type { Dict } from '@shared/app/dict'
 import type { ViewDoc, ViewGap, ViewInfo, ViewTone } from '@shared/views/views'
 import { useMemo, useRef, useState } from 'react'
@@ -255,12 +254,7 @@ function Node({ node, ctx }: { node: RenderNode; ctx: RenderContext }): JSX.Elem
 }
 
 function ViewStatusNote({ children }: { children: React.ReactNode }): JSX.Element {
-  return (
-    <Alert className={cn(ATTENTION_ALERT, 'flex items-start gap-1.5 text-ui-xs')}>
-      <WarningIcon size={16} className="mt-0.5 shrink-0" aria-hidden />
-      <span className="min-w-0">{children}</span>
-    </Alert>
-  )
+  return <NoticeBar>{children}</NoticeBar>
 }
 
 export function DeclarativeView({

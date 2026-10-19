@@ -7,6 +7,7 @@ import { useSandboxStore } from '@/stores/app/sandboxStore'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { usePaneRecencyStore } from '@/stores/workspaces/paneRecencyStore'
+import { focusSurfaceWhenReady } from '@/stores/workspaces/surfaceSlotsStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import type { PickCapture, PickOutcome, PickState } from '@shared/browser/pick'
 import type { RegionCapture } from '@shared/browser/regionCapture'
@@ -698,5 +699,70 @@ describe('BrowserView keys', () => {
     await readyGuest(container)
     expect(browserPaneOfGuest(31)).toBe(BROWSER)
     expect(browserPaneOfGuest(32)).toBeNull()
+  })
+})
+
+describe('BrowserView keyboard focus', () => {
+  function guestComesUp(container: HTMLElement) {
+    const webview = container.querySelector('webview') as HTMLElement
+    const guest = {
+      getWebContentsId: () => 41,
+      getURL: () => 'about:blank',
+      setZoomFactor: vi.fn(),
+      loadURL: vi.fn(async () => undefined),
+      focus: vi.fn(),
+    }
+    Object.assign(webview, guest)
+    act(() => {
+      webview.dispatchEvent(new Event('dom-ready'))
+    })
+    return guest
+  }
+
+  async function blankTab() {
+    const { workspaceId } = twoTerminals()
+    const { container } = await renderSettled(
+      <TooltipProvider>
+        <BrowserView workspaceId={workspaceId} paneId={BROWSER} profile="isolated" />
+      </TooltipProvider>,
+    )
+    await waitFor(() => expect(container.querySelector('webview')).not.toBeNull())
+    act(() => focusSurfaceWhenReady(BROWSER, () => true))
+    return container
+  }
+
+  it('puts the keyboard in the address bar of a new blank tab before its page is ready, and keeps it there', async () => {
+    const container = await blankTab()
+    const address = screen.getByRole('textbox', { name: /address/i })
+    expect(address).toHaveFocus()
+
+    const guest = guestComesUp(container)
+
+    expect(guest.focus).not.toHaveBeenCalled()
+    expect(address).toHaveFocus()
+  })
+
+  it('shows a blank tab as an empty address field, so what the human types is the whole address', async () => {
+    const container = await blankTab()
+    const address = screen.getByRole('textbox', { name: /address/i })
+    expect(address).toHaveValue('')
+    expect(address).toHaveAttribute('placeholder', 'Search or enter address')
+
+    await userEvent.keyboard('example.com{Enter}')
+    const guest = guestComesUp(container)
+
+    expect(guest.loadURL).toHaveBeenCalledWith('https://example.com')
+  })
+
+  it('gives the keyboard to the page of a tab that has one once it is ready', async () => {
+    const { workspaceId } = twoTerminals()
+    const { container } = await renderView(workspaceId)
+    await waitFor(() => expect(container.querySelector('webview')).not.toBeNull())
+    act(() => focusSurfaceWhenReady(BROWSER, () => true))
+    expect(screen.getByRole('textbox', { name: /address/i })).not.toHaveFocus()
+
+    const guest = guestComesUp(container)
+
+    expect(guest.focus).toHaveBeenCalled()
   })
 })

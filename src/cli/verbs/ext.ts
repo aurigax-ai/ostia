@@ -2,6 +2,7 @@ import type { MessageConnection } from 'vscode-jsonrpc/node'
 import { CONTROL_MESSAGE_MAX } from '../../shared/control/messageLimit'
 import { wantsHelp } from '../common/commandHelp'
 import { fail, failUsage } from '../common/failure'
+import { tsvLine } from '../common/lineField'
 import { StdinTooLarge, readStdinUpTo } from '../common/stdinText'
 import { findNoun, topUsage } from '../common/usageTable'
 
@@ -28,9 +29,9 @@ export async function runExtList(conn: MessageConnection): Promise<void> {
   if (process.argv[3] !== 'list') return failUsage('ext')
   const list = await conn.sendRequest<ExtInfo[]>('ext.list')
   for (const ext of list) {
-    console.log(`${ext.id}\t${ext.status}\t${ext.name}`)
+    console.log(tsvLine([ext.id, ext.status, ext.name]))
     for (const cmd of ext.commands)
-      console.log(`  ostia ${ext.verb ?? ext.id} ${cmd.usage ?? cmd.id}\t${cmd.title}`)
+      console.log(`  ${tsvLine([`ostia ${ext.verb ?? ext.id} ${cmd.usage ?? cmd.id}`, cmd.title])}`)
   }
 }
 
@@ -78,7 +79,7 @@ export async function runExtCommand(
   if (!res.ok) {
     const detail = res.message ? `${res.error}: ${res.message}` : res.error
     if (res.data !== undefined) console.log(JSON.stringify(res.data, null, 2))
-    fail(`ostia: ${extId} ${command} failed (${detail})`)
+    fail(`ostia ${extId} ${command}: ${detail}`)
   } else if (res.text !== undefined) {
     if (res.text) console.log(res.text)
   } else if (res.data !== undefined) {

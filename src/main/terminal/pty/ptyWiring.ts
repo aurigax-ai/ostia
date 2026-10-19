@@ -23,6 +23,7 @@ import { createKeptSpawner } from '../../tmux/keptSpawn'
 import type { ScratchFolders } from '../../workspaces/scratchFolders'
 import type { WorkspaceLifecycle } from '../../workspaces/workspaceLifecycle'
 import type { PaneHistories } from '../history/paneHistories'
+import type { PaneBannerText } from '../paneBanner'
 import { createPtyAttach } from './ptyAttach'
 import { createPtyIo } from './ptyIo'
 import { createLiveAttach } from './ptyLiveAttach'
@@ -72,6 +73,7 @@ interface PtyWiringDeps {
   keptShellsProgram: KeptShellsWiring['keptShellsProgram']
   withKeptProcess: KeptShellsWiring['withKeptProcess']
   keptPaneEnv: KeptShellsWiring['keptPaneEnv']
+  bannerText: () => PaneBannerText
 }
 
 type PtyCoreDeps = Pick<
@@ -191,6 +193,7 @@ function createPtyAttachWiring({
   keptShellsProgram,
   withKeptProcess,
   keptPaneEnv,
+  bannerText,
   ptys,
   loadPty,
 }: PtyAttachWiringDeps) {
@@ -199,6 +202,7 @@ function createPtyAttachWiring({
     keptShells,
     injectSecrets,
     onSandboxSpawnFailure: () => services.onSandboxSpawnFailure,
+    bannerText,
   })
 
   const { reattachKept } = createKeptReattach({
@@ -215,6 +219,7 @@ function createPtyAttachWiring({
     restoreKeptAttention,
     processes: () => services.processes,
     appLog: () => services.appLog,
+    bannerText,
   })
 
   const { subscriberFor, attachExisting } = createLiveAttach({ windows, movingPanes, recoveryHeld })
@@ -229,6 +234,7 @@ function createPtyAttachWiring({
     keepShellsOn,
     keptShellsProgram,
     telemetry: () => services.telemetry,
+    bannerText,
   })
 
   const { spawnKept } = createKeptSpawner({
@@ -249,6 +255,7 @@ function createPtyAttachWiring({
     releaseMergedSandbox,
     telemetry: () => services.telemetry,
     appLog: () => services.appLog,
+    bannerText,
   })
 
   const { attachPty } = createPtyAttach({
@@ -264,6 +271,7 @@ function createPtyAttachWiring({
     startTracked,
     historySettled: (paneId) => services.histories?.settled(paneId) ?? Promise.resolve(),
     telemetry: () => services.telemetry,
+    bannerText,
   })
 
   return { attachPty }
