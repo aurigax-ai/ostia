@@ -1545,7 +1545,7 @@ builds an extension folder for both the app and that project (`buildExtension` i
 `ostia.json`, `locales/`, a bundled `main.js`, a panel's `panel.html`, `panel.css`, bundled
 `panel.js` and the SDK's `panel.css` as `base.css`, and the npm packages an extension's
 `vendor.json` names, copied unchanged (`packages` copies one package to a folder, `closures`
-copies a package and everything it depends on into a `node_modules` folder). The project's
+copies a package and everything it depends on into a `node_modules` folder). An optional `bundle.json` next to `ostia.json` holds an `alias` map (`{ "alias": { "stream": "stream-browserify" } }`) applied to the extension's browser bundles, for a bundled library that imports a Node built-in. The project's
 `package.json` lists every vendored package at the exact version the app pins, so its own
 `pnpm install` and `pnpm build` produce the same `extensions/`. `pnpm publish:marketplace <checkout>`
 copies that into a checkout of the marketplace repository (`aurigax-ai/ostia-extensions`), installs

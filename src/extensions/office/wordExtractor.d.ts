@@ -11,5 +11,6 @@ declare module 'word-extractor/lib/word-ole-extractor' {
 
   export default class WordOleExtractor {
     extract(reader: BufferReader): Promise<{ getBody(): string }>
+    extractWordDocument(document: unknown, buffer: Buffer): Promise<{ getBody(): string }>
   }
 }

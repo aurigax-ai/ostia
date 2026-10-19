@@ -52,6 +52,19 @@ describe('readDocument (doc)', () => {
     expect(result.ok && result.textCut).toBe(true)
   })
 
+  it('names a password-protected and an obfuscated Word file', async () => {
+    const FLAGS_AT = 512 + 0x0a
+    for (const bit of [0x0100, 0x8000]) {
+      const locked = wordFile('test01.doc').slice()
+      locked[FLAGS_AT] |= bit & 0xff
+      locked[FLAGS_AT + 1] |= bit >> 8
+      expect(await readDocument(locked, OFFICE_LIMITS, WORDS), String(bit)).toEqual({
+        ok: false,
+        problem: 'encrypted',
+      })
+    }
+  })
+
   it('names a damaged Word file and a compound file that is no Word document', async () => {
     const failed = { ok: false, problem: 'failed' }
     expect(await readDocument(wordFile('badfile-01-bad-header.doc'), OFFICE_LIMITS, WORDS)).toEqual(

@@ -1,7 +1,1 @@
-{
-  "alias": {
-    "buffer": "buffer",
-    "events": "events",
-    "stream": "stream-browserify"
-  }
-}
+{ "alias": { "stream": "stream-browserify" } }
