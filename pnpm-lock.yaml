@@ -41,6 +41,7 @@ overrides:
   monaco-editor>dompurify: ^3.4.16
 
 patchedDependencies:
+  '@aurigax-ai/ghostty-web': 236665110cf96cd06e1d110366ef2635efdab60f166183eb15497fda75171ff9
   '@xterm/xterm@6.1.0-beta.304': ccc9ddddeea876a0a50af7193b252cacba37a7b8e2807097552522f7e377e133
   monaco-editor@0.57.0: d8a0b3a563025958621786885025d1cb4656cbf006cde9a0f05581ccdad11868
   swr@2.5.1: 88cbabb501253020ef82b08d21a0172d1f299c8b2e9fc3523475a159d7202ac9
@@ -133,7 +134,7 @@ importers:
         version: 4.0.125(react@18.3.1)(zod@4.6.5)
       '@aurigax-ai/ghostty-web':
         specifier: 0.3.5
-        version: 0.3.5
+        version: 0.3.5(patch_hash=236665110cf96cd06e1d110366ef2635efdab60f166183eb15497fda75171ff9)
       '@aurigax-ai/ostia-extension-sdk':
         specifier: workspace:*
         version: link:packages/extension-sdk
@@ -6150,7 +6151,7 @@ snapshots:
 
   '@asamuzakjp/nwsapi@2.3.9': {}
 
-  '@aurigax-ai/ghostty-web@0.3.5': {}
+  '@aurigax-ai/ghostty-web@0.3.5(patch_hash=236665110cf96cd06e1d110366ef2635efdab60f166183eb15497fda75171ff9)': {}
 
   '@aurigax-ai/wire@0.1.14':
     dependencies:

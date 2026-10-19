@@ -14,7 +14,7 @@ import { type PaneReachDeps, ensurePaneReach, fail, paneRefs, record } from './p
 import type { PaneWaking } from './paneWaking'
 
 const WAKE_WAIT_MIN_MS = 1000
-const WAKE_WAIT_DEFAULT_MS = 2 * 60_000
+const WAKE_WAIT_DEFAULT_MS = WAKE_BUDGET_MS
 const WAKE_WAIT_MAX_MS = 30 * 60_000
 
 function wakeWaitTimeout(raw: unknown): number {
@@ -23,6 +23,9 @@ function wakeWaitTimeout(raw: unknown): number {
   return Math.min(WAKE_WAIT_MAX_MS, Math.max(WAKE_WAIT_MIN_MS, raw))
 }
 
+import { WAKE_BUDGET_MS } from '../../shared/agents/agentIssues'
+import type { AgentJournal } from '../diagnostics/agentJournal'
+
 export interface PaneWakeDeps extends PaneReachDeps {
   hibernated: (pane: PaneIdentity) => Promise<boolean>
   wake: (pane: PaneIdentity) => Promise<{ woke: boolean; conflict?: string }>
@@ -30,6 +33,7 @@ export interface PaneWakeDeps extends PaneReachDeps {
   panes: () => Promise<PaneEntry[]>
   waking: PaneWaking
   resume: (pane: PaneIdentity) => Promise<CommandResult>
+  journal?: Pick<AgentJournal, 'wakeNotReady'>
 }
 
 type WakeAnswer =
@@ -132,6 +136,7 @@ export function registerPaneWakeMethods(
         throw err
       }
       if (waited.length === 0) return { ok: true, woke }
+      const began = Date.now()
       const cancelled = new ChangeSignal()
       const closedConn = ctx.conn.onClose(() => cancelled.fire())
       let gone = false
@@ -159,6 +164,10 @@ export function registerPaneWakeMethods(
         onTimeout: () => mismatch('timed out', { ok: true, woke, timedOut: true }),
       })
       closedConn.dispose()
+      const notReady = seen.value
+        ? 'timedOut' in seen.value && seen.value.timedOut === true
+        : !seen.ok && seen.reason.startsWith('not-started')
+      if (notReady) deps.journal?.wakeNotReady(Date.now() - began)
       if (seen.value) return seen.value
       throw fail(seen.ok ? 'not-started' : seen.reason)
     },

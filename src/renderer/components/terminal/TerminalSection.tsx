@@ -175,6 +175,7 @@ function TerminalSelectionGroup(): JSX.Element {
 function TerminalScrollingGroup(): JSX.Element {
   const d = useDict()
   const wheelZoom = useSettingsStore((s) => s.behavior.wheelZoom)
+  const wheelSmoothScroll = useSettingsStore((s) => s.behavior.wheelSmoothScroll)
   const setBehavior = useSettingsStore((s) => s.setBehavior)
   const scrollSpeed = useSettingsStore((s) => s.terminal.scrollSpeed)
   const scrollbackLines = useSettingsStore((s) => s.terminal.scrollbackLines)
@@ -186,6 +187,12 @@ function TerminalScrollingGroup(): JSX.Element {
         desc={d.settings.wheelZoomDesc}
         checked={wheelZoom}
         onChange={(v) => setBehavior({ wheelZoom: v })}
+      />
+      <ToggleRow
+        label={d.settings.wheelSmoothScroll}
+        desc={d.settings.wheelSmoothScrollDesc}
+        checked={wheelSmoothScroll}
+        onChange={(v) => setBehavior({ wheelSmoothScroll: v })}
       />
       <StepNumberRow
         label={d.settings.scrollSpeed}

@@ -46,6 +46,7 @@ export async function offlineAttention(
   if (verb !== 'state') return null
   const { positional, values } = parseArgs([...rest], {
     values: { pane: '--pane' },
+    booleans: { stop: '--stop' },
     unknown: 'keep',
   })
   const [state, rawMessage] = positional

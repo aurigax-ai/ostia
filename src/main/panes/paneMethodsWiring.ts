@@ -3,13 +3,17 @@ import { parseAgentHooks } from '../../shared/agents/agentHooks'
 import { isResumableAgent } from '../../shared/agents/agentResume'
 import type { ManagerSettings } from '../../shared/agents/managerSettings'
 import type { CommandTarget } from '../../shared/control/commands'
+import { statusLine } from '../../shared/panes/paneStatus'
 import type { TerminalStateSnapshot } from '../../shared/terminal/ptyApi'
 import type { AgentWiring } from '../agents/agentWiring'
+import { readTail, transcriptPath } from '../agents/transcriptFiles'
 import type { Reach } from '../approvals/reach'
 import { targetOf } from '../attention/attention'
 import type { CommandBridge } from '../control/commandBridge'
-import { type PaneIdentity, getByPaneId } from '../control/idRegistry'
+import { type PaneIdentity, getByPaneId, resolveExternal } from '../control/idRegistry'
+import type { AgentJournal } from '../diagnostics/agentJournal'
 import type { ExtensionHost } from '../extensions/extensionHost'
+import { worktreeKey } from '../git/repo'
 import { readSettingsFile } from '../platform/settingsFile'
 import type { WorkspaceSandboxes } from '../sandbox/workspaceSandboxes'
 import type { PtyIo } from '../terminal/pty/ptyIo'
@@ -20,13 +24,20 @@ import type { ScratchFolders } from '../workspaces/scratchFolders'
 import { windowForWorkspace } from '../workspaces/workspaceRegistry'
 import { registerExtensionWake } from './extensionWake'
 import { createPaneConfirms } from './paneConfirm'
+import { PaneEvents } from './paneEvents'
+import { paneGit } from './paneGit'
 import { type PaneAttentionPeek, registerPaneIoMethods } from './paneIo'
+import type { PaneJournal } from './paneJournal'
 import { listPanes } from './paneList'
 import { registerPaneMoveToMethods } from './paneMoveTo'
 import type { PaneReachDeps } from './paneReach'
+import { type PaneStatusDeps, collectStatus, registerPaneStatusMethods } from './paneStatus'
+import { registerPaneTranscriptMethods } from './paneTranscript'
 import { type PaneWatch, registerPaneWaitMethods } from './paneWait'
 import { wakeHibernatedPane } from './paneWake'
 import type { PaneWaking } from './paneWaking'
+import { registerPaneWatchMethods } from './paneWatchMethods'
+import { WorktreeShare, registerWorktreeShareIpc } from './worktreeShare'
 
 interface PaneMethodsWiringDeps {
   keptAttention: KeptAttention
@@ -44,10 +55,14 @@ interface PaneMethodsWiringDeps {
   paneWaking: PaneWaking
   services: {
     extensionHost: ExtensionHost | null
+    agentJournal: AgentJournal | null
   }
   scratchFolders: ScratchFolders
   workspaceCommandTarget: (workspaceId: string) => CommandTarget
   paneWatch: PaneWatch
+  broadcast: WindowSend['broadcast']
+  paneJournal: PaneJournal
+  remoteCwdOfPane: (paneId: string) => unknown
   terminalState: Map<string, TerminalStateSnapshot>
 }
 
@@ -71,6 +86,9 @@ export function registerPaneMethodsWiring({
   scratchFolders,
   workspaceCommandTarget,
   paneWatch,
+  broadcast,
+  paneJournal,
+  remoteCwdOfPane,
   terminalState,
 }: PaneMethodsWiringDeps) {
   const peekAttention = async (to: PaneIdentity): Promise<PaneAttentionPeek> => {
@@ -82,6 +100,11 @@ export function registerPaneMethodsWiring({
   const paneHibernated = async (to: PaneIdentity): Promise<boolean> => {
     const res = await execCommand(targetOf(to), 'pane.hibernated')
     return res.ok && (res.result as { hibernated?: unknown } | undefined)?.hibernated === true
+  }
+  const paneExited = (paneId: string): boolean => {
+    const entry = registry.forPane(paneId)
+    if (entry) return entry.status === 'exited'
+    return terminalState.get(paneId)?.running === false
   }
   const paneReachDeps: PaneReachDeps = {
     processPane: async (ref, ctx) => {
@@ -113,6 +136,7 @@ export function registerPaneMethodsWiring({
     waking: paneWaking,
     close: (to) => execCommand(targetOf(to), 'pane.close'),
     resume: (to) => execCommand(targetOf(to), 'agent.resume'),
+    journal: services.agentJournal ?? undefined,
   })
   registerExtensionWake({
     openedBy: (caller, paneId) => services.extensionHost?.openedBy(caller, paneId) ?? false,
@@ -134,16 +158,78 @@ export function registerPaneMethodsWiring({
       execCommand(workspaceCommandTarget(workspaceId), 'pane.joinTab', { paneIds, tab }, true),
     panes: () => listPanes({ execCommand, getTerminalState, ptyPid, windowIds, waking: isWaking }),
   })
+  const listAll = () =>
+    listPanes({ execCommand, getTerminalState, ptyPid, windowIds, waking: isWaking })
+  const worktreeShare = new WorktreeShare({
+    panes: listAll,
+    key: worktreeKey,
+    identity: (externalId) => {
+      const found = resolveExternal(externalId)
+      return found?.kind === 'pane' ? found : undefined
+    },
+    remote: (paneId) => remoteCwdOfPane(paneId) !== undefined,
+    publish: (map) => broadcast('agents:worktree', map),
+  })
+  registerWorktreeShareIpc(worktreeShare)
+  const lastCwd = new Map<string, string | undefined>()
+  paneWatch.tap((paneId, change) => {
+    if (change.kind === 'closed') lastCwd.delete(paneId)
+    if (change.kind === 'state') {
+      const cwd = terminalState.get(paneId)?.cwd
+      if (lastCwd.get(paneId) === cwd) return
+      lastCwd.set(paneId, cwd)
+    }
+    worktreeShare.schedule()
+  })
+  const statusDeps: PaneStatusDeps = {
+    ...paneReachDeps,
+    panes: listAll,
+    journal: paneJournal,
+    wakingSince: (paneId) => paneWaking.since(paneId),
+    conflicts: (externalId) => worktreeShare.others(externalId),
+    exited: paneExited,
+    git: paneGit({
+      isRemote: (paneId) => remoteCwdOfPane(paneId) !== undefined,
+      isSandboxed: (paneId) => {
+        const workspaceId = resolveExternal(paneId)?.workspaceId
+        return workspaceId === undefined || workspaceSandboxes.isEnabled(workspaceId)
+      },
+    }),
+    now: Date.now,
+  }
+  const statusOfPane = async (to: PaneIdentity, callerExternalId: string) =>
+    collectStatus(statusDeps, to, callerExternalId, await listAll())
   registerPaneWaitMethods({
     ...paneReachDeps,
     watch: paneWatch,
     attention: peekAttention,
-    exited: (paneId) => {
-      const entry = registry.forPane(paneId)
-      if (entry) return entry.status === 'exited'
-      return terminalState.get(paneId)?.running === false
+    exited: paneExited,
+    terminal: (paneId) => terminalState.get(paneId),
+    status: statusOfPane,
+  })
+  registerPaneStatusMethods(statusDeps)
+
+  const paneEvents = new PaneEvents({
+    identity: getByPaneId,
+    exited: paneExited,
+    line: async (watched, subscriber) => {
+      const status = await statusOfPane(watched, subscriber.externalId)
+      return status ? statusLine(status) : undefined
+    },
+  })
+  paneJournal.subscribe(paneEvents.onJournal)
+  paneWatch.tap(paneEvents.onChange)
+  registerPaneWatchMethods(paneReachDeps)
+
+  registerPaneTranscriptMethods({
+    ...paneReachDeps,
+    panes: () => listPanes({ execCommand, getTerminalState, ptyPid, windowIds, waking: isWaking }),
+    lines: async (resume, bytes) => {
+      const path = transcriptPath(resume)
+      if (!path) return null
+      return readTail(path, bytes).catch(() => null)
     },
   })
 
-  return { paneHibernated, turnConfirms: createPaneConfirms(confirmDeps) }
+  return { paneReachDeps, turnConfirms: createPaneConfirms(confirmDeps) }
 }

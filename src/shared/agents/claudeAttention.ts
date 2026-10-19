@@ -1,3 +1,5 @@
+import { closingFromStop } from './closingLine'
+
 export const CLAUDE_ATTENTION_EVENTS = [
   'Notification',
   'PreToolUse',
@@ -12,6 +14,7 @@ export const CLAUDE_QUESTION_TOOLS = ['AskUserQuestion', 'ExitPlanMode'] as cons
 export interface ClaudeAttention {
   state: 'waiting' | 'done' | 'error'
   message: string
+  closing?: string
 }
 
 const NOT_WAITING_NOTIFICATIONS: ReadonlySet<string> = new Set(['idle_prompt', 'agent_completed'])
@@ -69,8 +72,10 @@ export function claudeAttention(event: ClaudeAttentionEvent, raw: string): Claud
       return notificationAttention(payload)
     case 'PreToolUse':
       return questionAttention(payload)
-    case 'Stop':
-      return { state: 'done', message: '' }
+    case 'Stop': {
+      const closing = closingFromStop(raw)
+      return { state: 'done', message: '', ...(closing ? { closing } : {}) }
+    }
     case 'StopFailure':
       return { state: 'error', message: text(payload.error) || 'Turn failed' }
   }

@@ -426,6 +426,9 @@ export const settingsEn = {
     warnRiskyPaste: 'Confirm multi-line paste',
     warnRiskyPasteDesc:
       'Ask before pasting two or more lines into a terminal: a shell may run each line as soon as it arrives. A single line is always pasted without its trailing newline or control characters. Agents can’t change this.',
+    wheelSmoothScroll: 'Smooth scrolling',
+    wheelSmoothScrollDesc:
+      'Animate scrollback when you scroll with a mouse wheel. Trackpads already scroll smoothly, and reduced motion turns this off.',
     wheelZoom: 'Ctrl+scroll zooms the font',
     wheelZoomDesc:
       'Scrolling over a terminal or the editor with the key held changes its font size. Keyboard zoom keeps working either way.',

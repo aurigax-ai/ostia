@@ -98,6 +98,17 @@ const guardedPaths = {
   tmpRoot: '/tmp/ostia-sandbox',
 }
 
+describe('the Codex app-server socket folder', () => {
+  const withCodex = { ...guardedPaths, codexDir: '/tmp/ostia-codex-1000' }
+
+  it('is hidden from a sandbox and never opened by a human allow-list entry', () => {
+    const policy = { allowRead: ['/tmp/ostia-codex-1000', '/tmp/ostia-codex-1000/x'], domains: [] }
+    const { filesystem } = buildSrtConfig(policy, withCodex, 'linux', 'x64')
+    expect(filesystem.denyRead).toContain('/tmp/ostia-codex-1000')
+    expect(filesystem.allowRead?.some((p) => p.startsWith('/tmp/ostia-codex-1000'))).toBe(false)
+  })
+})
+
 describe('buildSrtConfig filesystem limits', () => {
   it('makes a writable folder the human added writable and readable, next to the fixed ones', () => {
     const policy = { allowRead: [], domains: [], allowWrite: ['~/builds', '/srv/out'] }

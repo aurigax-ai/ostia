@@ -13,7 +13,7 @@ import {
   renderSelectionReport,
   selectionBusMessage,
 } from '../../shared/browser/selection'
-import { postBusMessage } from '../agents/bus'
+import { postBusMessage } from '../agents/busStore'
 import type { OriginReach } from '../agents/originAgents'
 import { REPORT_DIR_NAME } from '../browser/browsePick'
 import { getByPaneId } from '../control/idRegistry'

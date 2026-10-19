@@ -17,11 +17,13 @@ import {
   StreamMessageWriter,
   createMessageConnection,
 } from 'vscode-jsonrpc/node'
+import { verbCode } from '../../shared/agents/agentIssues'
 import type { CommandDescriptor, CommandResult, CommandTarget } from '../../shared/control/commands'
 import type { TerminalStateSnapshot } from '../../shared/terminal/ptyApi'
 import { ensureCaps, needsElevation } from '../approvals/controlElevation'
 import type { Reach, ScriptReach } from '../approvals/reach'
 import type { ScriptTokenUsageLog } from '../approvals/scriptTokenUsage'
+import type { AgentJournal } from '../diagnostics/agentJournal'
 import { privateTmpDir, socketPath } from '../platform/privateTmp'
 import { SANDBOXED_REFUSAL } from '../sandbox/sandboxedCaller'
 import { SCRIPT_COMMANDS, externalPaneMessage, internalPaneArgs } from './commandArgs'
@@ -157,6 +159,7 @@ export interface ControlServerDeps {
   byAgent?: <T>(run: () => Promise<T>) => Promise<T>
   reach?: Pick<Reach, 'scriptReach' | 'recordCreated'>
   usage?: Pick<ScriptTokenUsageLog, 'record' | 'connected'>
+  journal?: Pick<AgentJournal, 'call'>
 }
 
 let server: Server | null = null
@@ -178,22 +181,37 @@ function callsOn(conn: MessageConnection, session: ConnectionSession, deps: Cont
   const onCall: OnCall = (name, handler) => {
     conn.onRequest(name, async (params, token: CancellationToken) => {
       const tokenId = session.authed?.scriptSession ? session.authed.externalId : undefined
-      const usage = deps.usage
-      if (!tokenId || !usage) return handler(params, token)
-      const method = calledMethod(name, params)
-      const target = calledTarget(params)
+      const usage = tokenId ? deps.usage : undefined
+      const method = usage && tokenId ? calledMethod(name, params) : name
+      const target = usage && tokenId ? calledTarget(params) : {}
+      const began = performance.now()
+      const journaled = (bytes: number, code?: string): void => {
+        const caller = session.authed ? resolveExternal(session.authed.externalId)?.kind : undefined
+        if (!deps.journal || !caller || name === 'hello') return
+        deps.journal.call({ method: name, caller, ms: performance.now() - began, bytes, code })
+      }
       try {
         const result = await handler(params, token)
-        usage.record(tokenId, { method, target, ...resultOutcome(result) })
+        if (usage && tokenId) usage.record(tokenId, { method, target, ...resultOutcome(result) })
+        journaled(deps.journal ? answerBytes(result) : 0)
         return result
       } catch (err) {
-        const outcome = errorOutcome(err)
-        if (outcome) usage.record(tokenId, { method, target, ...outcome })
+        const outcome = usage ? errorOutcome(err) : null
+        if (usage && tokenId && outcome) usage.record(tokenId, { method, target, ...outcome })
+        journaled(0, verbCode(err instanceof Error ? err.message : ''))
         throw err
       }
     })
   }
   return onCall
+}
+
+function answerBytes(result: unknown): number {
+  try {
+    return Buffer.byteLength(JSON.stringify(result) ?? '')
+  } catch {
+    return 0
+  }
 }
 
 function identityOf(session: ConnectionSession) {

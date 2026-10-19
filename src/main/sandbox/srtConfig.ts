@@ -23,6 +23,7 @@ export interface SandboxPaths {
   agentSockets?: string[]
   containerSockets?: string[]
   tmpRoot?: string
+  codexDir?: string
   srtVendorDir?: string
   keptSocketPath?: string
 }
@@ -136,6 +137,7 @@ export function protectedPaths(paths: SandboxBasePaths): string[] {
     ...(paths.containerSockets ?? []),
     ...(paths.runtimeDir ? [paths.runtimeDir] : []),
     ...(paths.tmpRoot ? [paths.tmpRoot] : []),
+    ...(paths.codexDir ? [paths.codexDir] : []),
   ]
 }
 
@@ -190,6 +192,7 @@ export function fixedPolicy(
       ...hiddenSockets,
       ...(paths.runtimeDir ? [paths.runtimeDir] : []),
       ...(paths.tmpRoot ? [paths.tmpRoot] : []),
+      ...(paths.codexDir ? [paths.codexDir] : []),
     ],
     readable: [
       ...(workspace ? [workspace.workDir, workspace.tmpDir] : []),
