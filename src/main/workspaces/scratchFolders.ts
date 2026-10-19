@@ -1,5 +1,6 @@
 import { randomBytes } from 'node:crypto'
-import { type Dirent, lstatSync, mkdirSync, readdirSync, rmSync } from 'node:fs'
+import { type Dirent, lstatSync, mkdirSync, readdirSync } from 'node:fs'
+import { rm } from 'node:fs/promises'
 import { join } from 'node:path'
 import { PRODUCT_NAME } from '@aurigax-ai/ostia-extension-sdk/contract/product'
 import { ipcMain, shell } from 'electron'
@@ -11,6 +12,7 @@ const FOLDER_NAME = /^(\d+)-[0-9a-f]{12}$/
 const COUNT_CAP = 10_000
 const REMOVE_RETRIES = 4
 const REMOVE_RETRY_STEP_MS = 25
+const QUIT_REMOVE_DEADLINE_MS = 2000
 const RETRYABLE = new Set(['ENOTEMPTY', 'EBUSY'])
 
 export interface ScratchFailure {
@@ -41,19 +43,19 @@ function entries(dir: string): Dirent[] {
   }
 }
 
-function pause(ms: number): void {
-  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms)
+function pause(ms: number): Promise<void> {
+  return new Promise((done) => setTimeout(done, ms))
 }
 
-function removeDir(dir: string): ScratchFailure | null {
+async function removeDir(dir: string): Promise<ScratchFailure | null> {
   for (let attempt = 0; ; attempt += 1) {
     try {
-      rmSync(dir, { recursive: true, force: true })
+      await rm(dir, { recursive: true, force: true })
       return null
     } catch (err) {
       const code = (err as NodeJS.ErrnoException).code ?? 'UNKNOWN'
       if (attempt >= REMOVE_RETRIES || !RETRYABLE.has(code)) return { dir, code }
-      pause(REMOVE_RETRY_STEP_MS * (attempt + 1))
+      await pause(REMOVE_RETRY_STEP_MS * (attempt + 1))
     }
   }
 }
@@ -75,6 +77,8 @@ export function countScratchFiles(dir: string): number {
 
 export class ScratchFolders {
   private readonly folders = new Map<string, ScratchFolder>()
+  private readonly removing = new Map<string, Promise<ScratchFailure | null>>()
+  private closed = false
 
   constructor(
     readonly root: string,
@@ -83,6 +87,7 @@ export class ScratchFolders {
   ) {}
 
   create(windowId: string): string {
+    if (this.closed) throw new Error('scratch folders are closed')
     const dir = join(this.root, `${this.pid}-${randomBytes(6).toString('hex')}`)
     mkdirSync(dir, { mode: 0o700 })
     if (!isRealDir(dir)) throw new Error(`refusing to use ${dir}: not a directory`)
@@ -131,35 +136,54 @@ export class ScratchFolders {
     return dir && isRealDir(dir) ? countScratchFiles(dir) : 0
   }
 
-  remove(workspaceId: string): ScratchFailure | null {
+  private track(dir: string): Promise<ScratchFailure | null> {
+    const removal = removeDir(dir).finally(() => this.removing.delete(dir))
+    this.removing.set(dir, removal)
+    return removal
+  }
+
+  remove(workspaceId: string): Promise<ScratchFailure | null> {
     const folder = this.folderOf(workspaceId)
-    if (!folder) return null
+    if (!folder) return Promise.resolve(null)
     this.folders.delete(folder.dir)
-    return removeDir(folder.dir)
+    return this.track(folder.dir)
   }
 
-  removeAll(): ScratchFailure[] {
-    const failed: ScratchFailure[] = []
-    for (const dir of this.folders.keys()) {
-      const failure = removeDir(dir)
-      if (failure) failed.push(failure)
-    }
+  async removeAll(deadlineMs = QUIT_REMOVE_DEADLINE_MS): Promise<ScratchFailure[]> {
+    this.closed = true
+    const dirs = [...this.folders.keys()]
     this.folders.clear()
-    return failed
+    for (const dir of dirs) this.track(dir)
+    let timer: ReturnType<typeof setTimeout> | undefined
+    const expired = new Promise<'expired'>((done) => {
+      timer = setTimeout(() => done('expired'), deadlineMs)
+    })
+    try {
+      const results = await Promise.all(
+        [...this.removing].map(([dir, removal]) =>
+          Promise.race([removal, expired.then((): ScratchFailure => ({ dir, code: 'TIMEOUT' }))]),
+        ),
+      )
+      return results.filter((failure): failure is ScratchFailure => failure !== null)
+    } finally {
+      clearTimeout(timer)
+    }
   }
 
-  sweep(): string[] {
+  async sweep(): Promise<{ removed: string[]; failed: ScratchFailure[] }> {
     const removed: string[] = []
+    const failed: ScratchFailure[] = []
     for (const entry of entries(this.root)) {
       const match = FOLDER_NAME.exec(entry.name)
       if (!match) continue
       const pid = Number(match[1])
       if (pid === this.pid || this.alive(pid)) continue
       const dir = join(this.root, entry.name)
-      rmSync(dir, { recursive: true, force: true })
-      removed.push(dir)
+      const failure = await removeDir(dir)
+      if (failure) failed.push(failure)
+      else removed.push(dir)
     }
-    return removed
+    return { removed, failed }
   }
 }
 
