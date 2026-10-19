@@ -1499,6 +1499,9 @@ describe('dispatchGatewayMethod — pane.list since', () => {
     }
     expect(res.result.panes[0]).toMatchObject({ paneId: 'ext-1', sessionId: 'w1', since: 1700 })
     expect(res.result.panes[1]).not.toHaveProperty('since')
+  })
+})
+
 describe('dispatchGatewayMethod — agent.start', () => {
   const workspaces = [
     { workspaceId: 's1', name: 'One', kind: 'agent', workDir: '/w', state: 'idle' },
