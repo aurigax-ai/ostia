@@ -6,6 +6,7 @@ import type { Ask, AskAnswerResult } from '../approvals/asks'
 import { internalPaneArgs } from '../control/commandArgs'
 import { type PaneIdentity, resolveExternal } from '../control/idRegistry'
 import type { PaneEntry, WorkspaceEntry, WorkspaceGroupEntry } from '../panes/paneList'
+import type { PhoneAgent, PhoneAgentStart } from '../panes/processManager'
 import { listArtifactFiles, locateArtifactFile, readArtifactFile } from './artifactFiles'
 import {
   type PhoneFileScope,
@@ -36,9 +37,11 @@ export interface GatewayControlDeps {
   agentRunning: (rendererPaneId: string) => boolean
   watchesTurn: (pane: PaneIdentity) => Promise<boolean>
   turnStarted: (pane: PaneIdentity) => Promise<boolean>
+  startAgent: (workspaceId: string, agent: PhoneAgent, prompt: string) => Promise<PhoneAgentStart>
 }
 
 const PHONE_PROMPT_MAX = 8000
+const AGENT_START_PROMPT_MAX = 4000
 export const AGENT_ENTER_DELAY_MS = 60
 
 const INTERRUPT_KEYS: Record<string, string> = { esc: '\x1b', 'ctrl-c': '\x03' }
@@ -309,6 +312,27 @@ async function agentPrompt(call: GatewayCall): Promise<RpcOutcome> {
   return { ok: true, result: { ok: true } }
 }
 
+async function agentStart(call: GatewayCall): Promise<RpcOutcome> {
+  const { p, deps } = call
+  if (typeof p.sessionId !== 'string' || !p.sessionId) return invalidParams('unknown-session')
+  if (p.agent !== 'claude' && p.agent !== 'codex') return invalidParams('bad-params')
+  const prompt = typeof p.prompt === 'string' ? plainBlock(p.prompt) : ''
+  if (!prompt || prompt.length > AGENT_START_PROMPT_MAX) return invalidParams('bad-params')
+  const workspace = (await deps.listWorkspaces()).find((w) => w.workspaceId === p.sessionId)
+  if (!workspace) return invalidParams('unknown-session')
+  if (workspace.kind === 'scratch' || workspace.kind === 'manager') return invalidParams('refused')
+  const started = await deps.startAgent(workspace.workspaceId, p.agent, prompt)
+  if (!started?.started) {
+    return {
+      ok: false,
+      code: -32006,
+      message: 'not-started',
+      ...(started ? { data: { paneId: started.paneId } } : {}),
+    }
+  }
+  return { ok: true, result: { paneId: started.paneId } }
+}
+
 async function agentInterrupt(call: GatewayCall): Promise<RpcOutcome> {
   const { p, deps } = call
   const pane = agentPaneOf(p.paneId, deps)
@@ -336,6 +360,7 @@ const METHODS: Record<string, [cap: string, handler: (call: GatewayCall) => Prom
     'ask.list': ['read', askList],
     'ask.answer': ['respond', askAnswer],
     'agent.prompt': ['respond', agentPrompt],
+    'agent.start': ['respond', agentStart],
     'agent.interrupt': ['respond', agentInterrupt],
   }
 

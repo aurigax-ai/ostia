@@ -57,7 +57,18 @@ const CLOSED = {
   message: 'its tab was closed; start it again with ostia process run',
 }
 
-export function registerProcessMethods(deps: ProcessDeps): ProcessRegistry {
+export type PhoneAgent = 'claude' | 'codex'
+
+export type PhoneAgentStart = { paneId: string; started: boolean } | null
+
+export function registerProcessMethods(deps: ProcessDeps): {
+  registry: ProcessRegistry
+  startAgentForPhone: (
+    workspaceId: string,
+    agent: PhoneAgent,
+    prompt: string,
+  ) => Promise<PhoneAgentStart>
+} {
   const registryChanges = new ChangeSignal()
   const registry = new ProcessRegistry({
     ring: deps.ring,
@@ -70,7 +81,26 @@ export function registerProcessMethods(deps: ProcessDeps): ProcessRegistry {
   })
 
   const { scriptReach, find, interrupt, endShell } = createProcessControl({ ...deps, registry })
-  const { runInTab, workersTab } = createProcessLauncher({ ...deps, registry, registryChanges })
+  const { runInTab, workersTab, openAndConfirm } = createProcessLauncher({
+    ...deps,
+    registry,
+    registryChanges,
+  })
+
+  const startAgentForPhone = async (
+    workspaceId: string,
+    agent: PhoneAgent,
+    prompt: string,
+  ): Promise<PhoneAgentStart> => {
+    const argv = [agent, prompt]
+    const started = await openAndConfirm(
+      { command: commandOf(quoteArgv(argv)), workspaceId, title: agent },
+      '',
+      deps.startsWithHook(argv),
+    )
+    if (!started) return null
+    return { paneId: started.entry.externalPaneId, started: started.report.status === 'started' }
+  }
 
   registerControlMethod('process.run', {
     cap: 'process',
@@ -202,5 +232,5 @@ export function registerProcessMethods(deps: ProcessDeps): ProcessRegistry {
     },
   })
 
-  return registry
+  return { registry, startAgentForPhone }
 }

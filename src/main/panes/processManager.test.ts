@@ -59,7 +59,7 @@ const agentSignal = new ChangeSignal()
 const told: { to: string; text: string }[] = []
 let onOpen: ((paneId: string) => void) | null = null
 
-const registry = registerProcessMethods({
+const { registry, startAgentForPhone } = registerProcessMethods({
   isSandboxed: (workspaceId) => sandboxedWorkspaces.has(workspaceId),
   reach: ownWorkspaceReach((id) =>
     id === 'script_ostia_scoped'
@@ -1023,5 +1023,38 @@ describe('ProcessRegistry', () => {
     local.feed('tab-1', `${exit(0)}`, 140)
     expect(local.info(entry).status).toBe('exited')
     expect(changes).toEqual(['web:exited'])
+  })
+})
+
+describe('startAgentForPhone', () => {
+  it('PHD-C21 starts the agent in a new background tab of the workspace typing only the quoted agent word and the prompt', async () => {
+    onOpen = (paneId) => {
+      emit(paneId, `${PROMPT}claude 'fix the build; rm -rf ~'\r\n${C}`)
+      setTimeout(() => {
+        startedAgents.add(paneId)
+        agentSignal.fire()
+      }, 10)
+    }
+    const started = await startAgentForPhone('ws1', 'claude', 'fix the build; rm -rf ~')
+    expect(opened).toEqual([
+      {
+        command: "claude 'fix the build; rm -rf ~'",
+        workspaceId: 'ws1',
+        title: 'claude',
+        backgroundTab: true,
+        pinTitle: true,
+      },
+    ])
+    expect(started).toEqual({ paneId: getByPaneId(`tab-${tabSeq}`)?.externalId, started: true })
+    expect(written).toEqual([])
+    expect(told).toEqual([])
+  })
+
+  it('PHD-C22 reports a phone-started agent whose start hook never fired as not started', async () => {
+    onOpen = (paneId) => emit(paneId, `${PROMPT}codex 'hello'\r\n${C}`)
+    const started = await startAgentForPhone('ws1', 'codex', 'hello')
+    expect(started).toEqual({ paneId: getByPaneId(`tab-${tabSeq}`)?.externalId, started: false })
+    openFails = true
+    expect(await startAgentForPhone('ws1', 'codex', 'hello')).toBeNull()
   })
 })

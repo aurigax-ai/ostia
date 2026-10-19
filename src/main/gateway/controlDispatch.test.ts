@@ -70,6 +70,7 @@ function fakeDeps(overrides: Partial<GatewayControlDeps> = {}): GatewayControlDe
     agentRunning: vi.fn().mockReturnValue(false),
     watchesTurn: vi.fn().mockResolvedValue(false),
     turnStarted: vi.fn().mockResolvedValue(true),
+    startAgent: vi.fn().mockResolvedValue(null),
     ...overrides,
   }
 }
@@ -1152,6 +1153,7 @@ describe('dispatchGatewayMethod — asks and agent replies', () => {
         agentRunning: vi.fn().mockReturnValue(true),
         watchesTurn: vi.fn().mockResolvedValue(true),
         turnStarted: vi.fn().mockResolvedValue(true),
+        startAgent: vi.fn().mockResolvedValue(null),
       })
       expect(await prompt(deps, pane.externalId, 'go')).toEqual({ ok: true, result: { ok: true } })
       expect(deps.turnStarted).toHaveBeenCalledWith(
@@ -1463,5 +1465,75 @@ describe('isHiddenFromPhone', () => {
     expect(isHiddenFromPhone('.SSH/id_ed25519', 'linux')).toBe(false)
     expect(isHiddenFromPhone('.ssh/id_ed25519', 'linux')).toBe(true)
     expect(isHiddenFromPhone('notes/readme.md', 'darwin')).toBe(false)
+  })
+})
+
+describe('dispatchGatewayMethod — agent.start', () => {
+  const workspaces = [
+    { workspaceId: 's1', name: 'One', kind: 'agent', workDir: '/w', state: 'idle' },
+    { workspaceId: 'pad', name: 'Scratch', kind: 'scratch', workDir: '/s', state: 'idle' },
+    { workspaceId: 'mgr', name: 'Manager', kind: 'manager', workDir: '/m', state: 'idle' },
+  ]
+  const start = (params: unknown, deps: GatewayControlDeps, caps = ['read', 'respond']) =>
+    dispatchGatewayMethod('agent.start', params, caps, deps)
+
+  it('PHD-C21 starts the named agent with the phone text and answers its pane once it started', async () => {
+    const startAgent = vi.fn().mockResolvedValue({ paneId: 'pane-ext', started: true })
+    const deps = fakeDeps({ listWorkspaces: vi.fn().mockResolvedValue(workspaces), startAgent })
+    const res = await start(
+      { sessionId: 's1', agent: 'codex', prompt: '  fix\u0007 the build\r\n' },
+      deps,
+    )
+    expect(res).toEqual({ ok: true, result: { paneId: 'pane-ext' } })
+    expect(startAgent).toHaveBeenCalledWith('s1', 'codex', 'fix the build')
+  })
+
+  it('PHD-C22 answers not-started when the agent never reported its start', async () => {
+    const startAgent = vi
+      .fn()
+      .mockResolvedValueOnce({ paneId: 'pane-ext', started: false })
+      .mockResolvedValueOnce(null)
+    const deps = fakeDeps({ listWorkspaces: vi.fn().mockResolvedValue(workspaces), startAgent })
+    expect(await start({ sessionId: 's1', agent: 'claude', prompt: 'hi' }, deps)).toEqual({
+      ok: false,
+      code: -32006,
+      message: 'not-started',
+      data: { paneId: 'pane-ext' },
+    })
+    expect(await start({ sessionId: 's1', agent: 'claude', prompt: 'hi' }, deps)).toEqual({
+      ok: false,
+      code: -32006,
+      message: 'not-started',
+    })
+  })
+
+  it('PHD-C23 refuses scratch, manager and unknown workspaces, other agents, flags and empty or long text', async () => {
+    const startAgent = vi.fn()
+    const deps = fakeDeps({ listWorkspaces: vi.fn().mockResolvedValue(workspaces), startAgent })
+    const cases: Array<[Record<string, unknown>, string]> = [
+      [{ sessionId: 'pad', agent: 'claude', prompt: 'hi' }, 'refused'],
+      [{ sessionId: 'mgr', agent: 'claude', prompt: 'hi' }, 'refused'],
+      [{ sessionId: 'gone', agent: 'claude', prompt: 'hi' }, 'unknown-session'],
+      [{ sessionId: 's1', agent: 'bash', prompt: 'hi' }, 'bad-params'],
+      [
+        { sessionId: 's1', agent: 'claude --dangerously-skip-permissions', prompt: 'hi' },
+        'bad-params',
+      ],
+      [{ sessionId: 's1', agent: 'claude', prompt: ' \u0007 ' }, 'bad-params'],
+      [{ sessionId: 's1', agent: 'claude', prompt: 'x'.repeat(4001) }, 'bad-params'],
+    ]
+    for (const [params, message] of cases) {
+      expect(await start(params, deps)).toEqual({ ok: false, code: -32602, message })
+    }
+    expect(startAgent).not.toHaveBeenCalled()
+  })
+
+  it('PHD-C24 needs the respond cap', async () => {
+    const startAgent = vi.fn()
+    const deps = fakeDeps({ listWorkspaces: vi.fn().mockResolvedValue(workspaces), startAgent })
+    expect(await start({ sessionId: 's1', agent: 'claude', prompt: 'hi' }, deps, ['read'])).toEqual(
+      { ok: false, code: -32003, message: 'needs-elevation', data: { cap: 'respond' } },
+    )
+    expect(startAgent).not.toHaveBeenCalled()
   })
 })

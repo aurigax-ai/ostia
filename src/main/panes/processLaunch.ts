@@ -182,6 +182,40 @@ export function createProcessLauncher(
     return (await deps.humanTab(workspaceId, name)) ? undefined : { name }
   }
 
+  const openAndConfirm = async (
+    req: Omit<ProcessTabRequest, 'backgroundTab' | 'pinTitle'> & {
+      title: string
+      workspaceId: string
+    },
+    ownerPaneId: string,
+    agentHook: boolean,
+  ): Promise<{ entry: ProcessEntry; report: StartReport } | null> => {
+    const opened = await deps.openTab({ ...req, backgroundTab: true, pinTitle: true })
+    const pane = opened ? resolveExternal(opened) : undefined
+    if (pane?.kind !== 'pane') return null
+    const entry = registry.add({
+      name: req.title,
+      cmd: req.command,
+      cwd: req.cwd,
+      workspaceId: req.workspaceId,
+      ownerPaneId,
+      paneId: pane.paneId,
+      externalPaneId: pane.externalId,
+      ...(req.splitTab ? { splitTab: req.splitTab.name } : {}),
+    })
+    const report = await confirmStart({
+      registry,
+      entry,
+      agentHook,
+      agentStarted: deps.agentStarted,
+      changes: anyOf(registryChanges.subscribe, deps.agentChanges),
+      timing: deps.startTiming ?? START_TIMING,
+    })
+    entry.start = report.status
+    deps.onChange?.(entry)
+    return { entry, report }
+  }
+
   const runInTab = async (
     ctx: ControlMethodContext,
     cmd: string,
@@ -215,44 +249,26 @@ export function createProcessLauncher(
       return humanTab(splitTab.name)
     }
     const cwd = givenCwd ?? (here ? deps.cwdOfPane(ctx.identity.paneId) : undefined)
-    const opened = await deps.openTab({
-      command: cmd,
-      workspaceId,
-      ...(here
-        ? {
-            windowId: ctx.identity.windowId,
-            afterPaneId: ctx.identity.paneId,
-            openedPaneIds: registry.openedBy(ctx.identity.paneId),
-          }
-        : {}),
-      backgroundTab: true,
-      pinTitle: true,
-      title: name,
-      ...(cwd ? { cwd } : {}),
-      ...(splitTab ? { splitTab } : {}),
-    })
-    const pane = opened ? resolveExternal(opened) : undefined
-    if (pane?.kind !== 'pane') return NOT_OPENED
-    const entry = registry.add({
-      name,
-      cmd,
-      cwd,
-      workspaceId,
-      ownerPaneId: ctx.identity.paneId,
-      paneId: pane.paneId,
-      externalPaneId: pane.externalId,
-      ...(splitTab ? { splitTab: splitTab.name } : {}),
-    })
-    const report = await confirmStart({
-      registry,
-      entry,
+    const started = await openAndConfirm(
+      {
+        command: cmd,
+        workspaceId,
+        ...(here
+          ? {
+              windowId: ctx.identity.windowId,
+              afterPaneId: ctx.identity.paneId,
+              openedPaneIds: registry.openedBy(ctx.identity.paneId),
+            }
+          : {}),
+        title: name,
+        ...(cwd ? { cwd } : {}),
+        ...(splitTab ? { splitTab } : {}),
+      },
+      ctx.identity.paneId,
       agentHook,
-      agentStarted: deps.agentStarted,
-      changes: anyOf(registryChanges.subscribe, deps.agentChanges),
-      timing: deps.startTiming ?? START_TIMING,
-    })
-    entry.start = report.status
-    deps.onChange?.(entry)
+    )
+    if (!started) return NOT_OPENED
+    const { entry, report } = started
     const caller = ctx.identity
     if (caller.kind === 'pane' && caller.paneId && deps.isAgent(caller.paneId)) {
       deps.tell(caller.externalId, startMessage(entry.name, entry.externalPaneId, report))
@@ -260,5 +276,5 @@ export function createProcessLauncher(
     return { id: entry.id, name: entry.name, paneId: entry.externalPaneId, ...report }
   }
 
-  return { runInTab, workersTab }
+  return { runInTab, workersTab, openAndConfirm }
 }
