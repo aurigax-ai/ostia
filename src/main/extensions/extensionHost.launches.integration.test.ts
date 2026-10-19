@@ -23,6 +23,8 @@ describe('a built-in with sidebar items only starts with the window only after i
 
   const launch = (builtin = true): ExtensionHost => {
     host = new ExtensionHost({
+      sandboxDomains: () => null,
+      isSandboxed: () => false,
       roots: [{ dir: fixtures, builtin }],
       store: new ExtensionStore(join(dir, 'extensions.json')),
       launches: new ExtensionLaunches(launchesFile()),

@@ -149,7 +149,7 @@ export class ExtensionRuns {
     } else if (workspaceId) {
       req.workspaceId = workspaceId
     }
-    if (p.host === true && this.host.deps.isSandboxed?.(req.workspaceId ?? '')) {
+    if (p.host === true && this.host.deps.isSandboxed(req.workspaceId ?? '')) {
       const token = this.host.deps.hostGrants?.claim(rt.ext.manifest.id, command) ?? null
       if (!token)
         return fail(

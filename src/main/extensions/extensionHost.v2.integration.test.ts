@@ -55,6 +55,8 @@ describe('Extension API v2 over a real control socket with the echo fixture', ()
     const socketPath = join(dir, 'control.sock')
     store = new ExtensionStore(join(dir, 'extensions.json'))
     host = new ExtensionHost({
+      sandboxDomains: () => null,
+      isSandboxed: () => false,
       roots: [{ dir: fixtures, builtin: true }],
       store,
       socketPath: () => socketPath,
@@ -76,6 +78,7 @@ describe('Extension API v2 over a real control socket with the echo fixture', ()
     registerBrowseMethods({
       browserPanes: new Map(),
       isSharedPane: () => false,
+      allowNavigation: async () => true,
       reach: ownWorkspaceReach(),
       execCommand,
       screenshotRoots: [dir],

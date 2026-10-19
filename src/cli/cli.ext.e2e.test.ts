@@ -72,6 +72,7 @@ describe('ostia CLI → extensions (real processes, real socket)', () => {
     identity = registerPane({ windowId: 'w1', workspaceId: 's1', paneId: 'pCliExt' })
     sandboxed = registerPane({ windowId: 'w1', workspaceId: 'sbx', paneId: 'pCliExtSbx' })
     host = new ExtensionHost({
+      sandboxDomains: () => null,
       roots: [
         { dir: join(repoRoot, 'out', 'extensions'), builtin: true },
         { dir: join(repoRoot, 'test', 'fixtures', 'extensions'), builtin: true },

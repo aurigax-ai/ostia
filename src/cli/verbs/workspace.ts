@@ -162,10 +162,10 @@ export async function workspaceFolderIn(
   path: string,
   background: boolean,
 ): Promise<Opened> {
-  const here = await conn
-    .sendRequest<{ ok: boolean; same?: boolean }>('workspace.sameFolder', { dir: path })
-    .catch(() => undefined)
-  if (here?.same) return { problems: [], shown: [`already open\t${path}`] }
+  const here = await conn.sendRequest<{ ok: boolean; same?: boolean }>('workspace.sameFolder', {
+    dir: path,
+  })
+  if (here.same) return { problems: [], shown: [`already open\t${path}`] }
   const made = await newWorkspace(conn, {
     dir: path,
     ...(background ? { focus: false as const } : {}),

@@ -39,6 +39,8 @@ describe('an extension reads its own connections, by name, from main', () => {
     }
     const secrets = createSecretStore(deps)
     host = new ExtensionHost({
+      sandboxDomains: () => null,
+      isSandboxed: () => false,
       roots: [{ dir: fixtures, builtin: true }],
       store: new ExtensionStore(join(dir, 'extensions.json')),
       secrets,

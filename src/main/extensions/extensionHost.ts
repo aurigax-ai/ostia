@@ -348,7 +348,7 @@ export class ExtensionHost {
       caller.workspaceId = workspaceId
       const workDir = this.deps.workDirForWorkspace(workspaceId)
       if (workDir) caller.workDir = workDir
-      if (this.deps.isSandboxed?.(workspaceId)) caller.sandboxed = true
+      if (this.deps.isSandboxed(workspaceId)) caller.sandboxed = true
     }
     return caller
   }
@@ -366,7 +366,7 @@ export class ExtensionHost {
     if (cwd) caller.cwd = cwd
     const locale = this.deps.locale?.()
     if (locale) caller.locale = locale
-    if (this.deps.isSandboxed?.(identity.workspaceId)) caller.sandboxed = true
+    if (this.deps.isSandboxed(identity.workspaceId)) caller.sandboxed = true
     if (identity.manager) caller.manager = true
     if (this.deps.agentRunning?.(identity.paneId)) caller.agentRunning = true
     const remote = this.deps.remoteCwdForPane?.(identity.paneId)
@@ -388,7 +388,7 @@ export class ExtensionHost {
     if (!rt.callerWorkspaces.has(workspaceId)) {
       return fail('not-reached', 'only a workspace this extension has a caller in')
     }
-    const domains = this.deps.sandboxDomains?.(workspaceId)
+    const domains = this.deps.sandboxDomains(workspaceId)
     if (!domains) return fail('not-sandboxed', 'the workspace is not sandboxed')
     return { ok: true, domains: [...domains] }
   }
