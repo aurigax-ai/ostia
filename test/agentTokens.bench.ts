@@ -217,19 +217,23 @@ describe('static surfaces', () => {
 })
 
 describe('CLI answers through the real CLI', () => {
-  it('measures the bus hook block for one waiting message', async () => {
+  it('measures the bus hook block for one waiting message and the inbox after it', async () => {
     await ostia(caller, 'bus', 'send', agent.externalId, MESSAGE)
     const hook = await ostia(agent, 'bus', 'hook', 'UserPromptSubmit')
     record('hook.bus.prompt', hook.out, hook.code ?? -1)
     expect(hook.out).toContain('additionalContext')
+    const after = await ostia(agent, 'bus', 'inbox')
+    record('cli.bus.inbox.after-hook', after.out, after.code ?? -1)
   })
 
-  it('measures bus send and an inbox of five messages', async () => {
+  it('measures bus send, and an inbox and a wait of five messages', async () => {
     await measure('cli.bus.send', 'bus', 'send', agent.externalId, MESSAGE)
     for (let i = 0; i < 4; i += 1) await ostia(caller, 'bus', 'send', agent.externalId, MESSAGE)
     const inbox = await ostia(agent, 'bus', 'inbox')
     record('cli.bus.inbox', inbox.out, inbox.code ?? -1)
     expect(inbox.code).toBe(0)
+    const wait = await ostia(agent, 'bus', 'wait', '--timeout', '5')
+    record('cli.bus.wait', wait.out, wait.code ?? -1)
   })
 
   it('measures the listing and reading verbs', async () => {
