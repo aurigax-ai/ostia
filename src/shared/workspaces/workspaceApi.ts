@@ -31,6 +31,7 @@ export interface SnapshotPaneNode {
   viewType?: string
   url?: string
   chatSessionId?: string
+  agentSessionId?: string
   viewName?: string
   browserProfile?: BrowserProfile
   browserDevice?: BrowserDevice

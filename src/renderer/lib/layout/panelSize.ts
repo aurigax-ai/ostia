@@ -12,6 +12,7 @@ export interface PanelFraction {
 export function panelKey(pane: PaneNode): string | null {
   if (pane.kind === 'view' && pane.viewName) return `view:${pane.viewName}`
   if (pane.kind === 'chat') return 'chat'
+  if (pane.kind === 'agent') return 'agent'
   if (pane.kind === 'git') return 'git'
   return null
 }

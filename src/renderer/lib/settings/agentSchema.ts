@@ -49,6 +49,31 @@ export const assistantSchema = {
   },
 }
 
+export const agentHostSchema = {
+  type: 'object',
+  additionalProperties: false,
+  properties: {
+    providers: {
+      type: 'array',
+      description:
+        'Models the Agent can use that you run yourself, through an OpenAI-compatible ' +
+        'HTTP server (llama.cpp, vLLM, Ollama). Each entry is a key-less http(s) URL ' +
+        'without credentials. Only you can change this; ostia settings set refuses it.',
+      items: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['id', 'baseUrl', 'models'],
+        properties: {
+          id: { type: 'string', pattern: '^[a-z0-9][a-z0-9-]{0,31}$' },
+          name: { type: 'string' },
+          baseUrl: { type: 'string', description: 'For example http://127.0.0.1:8080/v1' },
+          models: { type: 'array', items: { type: 'string' }, minItems: 1 },
+        },
+      },
+    },
+  },
+}
+
 export const agentsSchema = {
   type: 'object',
   additionalProperties: false,

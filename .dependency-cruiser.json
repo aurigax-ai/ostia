@@ -145,6 +145,14 @@
       "to": { "path": "node_modules/@aurigax-ai/wire/" }
     },
     {
+      "name": "only-agent-imports-pi",
+      "severity": "error",
+      "from": {
+        "pathNot": "^src/extensions/agent/"
+      },
+      "to": { "path": "node_modules/@earendil-works/" }
+    },
+    {
       "name": "sdk-imports-nothing-from-the-app",
       "severity": "error",
       "from": {

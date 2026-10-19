@@ -98,7 +98,6 @@ export const assistantZhHant: typeof assistantEn = {
     context: {
       cwd: '資料夾',
       editor: '開啟的檔案',
-      error: '失敗的指令',
       output: '最近的輸出',
       pane: '窗格資訊',
       selection: '選取內容',
@@ -116,8 +115,6 @@ export const assistantZhHant: typeof assistantEn = {
       'rate-limited': '請求過多。請稍候，再重新產生。',
       unavailable: '沒有可用的助理。請在「設定 → 助理」新增提供者。',
     } as Record<string, string>,
-    explain: '解釋錯誤',
-    explainPrompt: '解釋這個指令為什麼失敗，以及如何修正。',
     insert: '插入到提示字元',
     insertRefused: '插入到提示字元（{reason}）',
     mode: '詢問',
@@ -250,9 +247,6 @@ export const assistantZhHant: typeof assistantEn = {
   },
   chatActions: {
     addContext: '附加內容（@）',
-    askAboutFile: '詢問助理這個檔案',
-    askAboutOutput: '詢問助理這段輸出',
-    askAboutSelection: '詢問助理這段選取內容',
     attached: '附加到下一個問題',
     browserPage: '瀏覽器：{title}',
     busy: '忙碌中',

@@ -1168,7 +1168,7 @@ describe('EditorView → Open in External Editor', () => {
     render(<EditorView workspaceId="w1" paneId="p1" filePath="/w/a.ts" />)
     await waitFor(() => expect(fake.state.model).not.toBeNull())
 
-    act(() => fake.state.actions[0]?.run())
+    act(() => fake.state.actions.find((a) => a.id === 'ostia.openExternal')?.run())
 
     expect(await screen.findByRole('alert')).toHaveTextContent(/behavior\.externalEditor/)
   })
