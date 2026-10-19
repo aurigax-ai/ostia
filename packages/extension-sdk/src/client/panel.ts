@@ -64,6 +64,7 @@ export function onPanelVisibility(cb: (hidden: boolean) => void): void {
   window.addEventListener(PANEL_VISIBILITY_EVENT, (event) => {
     cb((event as CustomEvent<PanelVisibility>).detail?.hidden === true)
   })
+  document.addEventListener('visibilitychange', () => cb(document.hidden))
 }
 
 export function onChange(cb: () => void): void {

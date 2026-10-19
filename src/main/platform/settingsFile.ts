@@ -11,6 +11,7 @@ export interface SettingsFile {
   workspaces?: { globalHotkey?: unknown; confirmQuit?: unknown }
   manager?: unknown
   assistant?: unknown
+  agent?: unknown
   privacy?: unknown
   terminal?: { shell?: unknown; keepShells?: unknown; scrollbackHistory?: unknown }
   agents?: { hooks?: unknown; trustWorkspaceFolders?: unknown }

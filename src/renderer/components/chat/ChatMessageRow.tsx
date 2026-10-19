@@ -73,8 +73,8 @@ export function ChatMessageRow({
   busy: boolean
   onCopied: () => void
   onQuote: (text: string) => void
-  onEdit: (message: OstiaChatMessage) => void
-  onDelete: (id: string) => void
+  onEdit?: (message: OstiaChatMessage) => void
+  onDelete?: (id: string) => void
   onRestore?: () => void
   onRegenerate?: () => void
 }): JSX.Element {
@@ -120,12 +120,14 @@ export function ChatMessageRow({
         ) : null}
         <MessageActions className="chat-message-actions">
           {common}
-          <MessageAction
-            label={t.edit}
-            disabled={busy}
-            onClick={() => onEdit(message)}
-            icon={PencilSimpleIcon}
-          />
+          {onEdit ? (
+            <MessageAction
+              label={t.edit}
+              disabled={busy}
+              onClick={() => onEdit(message)}
+              icon={PencilSimpleIcon}
+            />
+          ) : null}
           {onRestore ? (
             <MessageAction
               label={d.chatTools.checkpoint.action}
@@ -134,12 +136,14 @@ export function ChatMessageRow({
               icon={ArrowCounterClockwiseIcon}
             />
           ) : null}
-          <MessageAction
-            label={t.deleteMessage}
-            disabled={busy}
-            onClick={() => onDelete(message.id)}
-            icon={TrashIcon}
-          />
+          {onDelete ? (
+            <MessageAction
+              label={t.deleteMessage}
+              disabled={busy}
+              onClick={() => onDelete(message.id)}
+              icon={TrashIcon}
+            />
+          ) : null}
         </MessageActions>
       </Message>
     )
@@ -186,12 +190,14 @@ export function ChatMessageRow({
               icon={ArrowClockwiseIcon}
             />
           ) : null}
-          <MessageAction
-            label={t.deleteMessage}
-            disabled={busy}
-            onClick={() => onDelete(message.id)}
-            icon={TrashIcon}
-          />
+          {onDelete ? (
+            <MessageAction
+              label={t.deleteMessage}
+              disabled={busy}
+              onClick={() => onDelete(message.id)}
+              icon={TrashIcon}
+            />
+          ) : null}
         </MessageActions>
       ) : null}
     </Message>

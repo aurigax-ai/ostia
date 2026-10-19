@@ -1,13 +1,12 @@
 import { MenuContent, MenuItem } from '@/components/common/Menu'
 import { ContextMenu, ContextMenuSeparator, ContextMenuTrigger } from '@/components/ui/context-menu'
+import { addToAgentPane } from '@/lib/agent/agentPane'
 import { openSelectionSend } from '@/lib/agents/selectionSenders'
 import { fmt, useDict } from '@/lib/app/useDict'
-import { attachAndOpenChat, blockOutputContext, explainFailedBlock } from '@/lib/assist/askContext'
-import { featureEnabled, useAssistFeature, useChatAvailable } from '@/lib/assist/assistFeatures'
+import { blockOutputContext } from '@/lib/assist/askContext'
 import { copyBlock, rerunBlock } from '@/lib/terminal/blockActions'
 import { isIdlePrompt } from '@/lib/terminal/blocks'
 import { terminalFor } from '@/lib/terminal/terminalHandles'
-import { useAssistProvider } from '@/stores/assist/assistStore'
 import { useBlocksStore } from '@/stores/terminal/blocksStore'
 import { useSnippetsStore } from '@/stores/terminal/snippetsStore'
 import {
@@ -16,7 +15,6 @@ import {
   ChatCircleTextIcon,
   CopyIcon,
   PaperPlaneTiltIcon,
-  QuestionIcon,
 } from '@phosphor-icons/react'
 import type { ReactElement } from 'react'
 
@@ -37,13 +35,6 @@ export function BlockMenu({
   const typedCommand = useBlocksStore(
     (s) => s.byPane[paneId]?.find((b) => b.id === blockId)?.typedCommand,
   )
-  const failed = useBlocksStore((s) => {
-    const block = s.byPane[paneId]?.find((b) => b.id === blockId)
-    return Boolean(block?.endLine && block.exitCode !== null && block.exitCode !== 0)
-  })
-  const chat = useAssistProvider('chat')
-  const explainOn = featureEnabled(useAssistFeature('explainError'))
-  const askOn = useChatAvailable()
   const hasOutput = useBlocksStore((s) =>
     Boolean(s.byPane[paneId]?.find((b) => b.id === blockId)?.endLine),
   )
@@ -78,7 +69,7 @@ export function BlockMenu({
         >
           {d.blocks.sendOutput}
         </MenuItem>
-        {askOn && hasOutput ? (
+        {hasOutput ? (
           <MenuItem
             icon={ChatCircleTextIcon}
             onClick={() => {
@@ -87,23 +78,10 @@ export function BlockMenu({
                 blockId,
                 fmt(d.chatActions.outputOf, { command: command ?? '' }),
               )
-              if (item) attachAndOpenChat(item)
+              if (item) addToAgentPane(item)
             }}
           >
-            {d.chatActions.askAboutOutput}
-          </MenuItem>
-        ) : null}
-        {failed && chat && explainOn ? (
-          <MenuItem
-            icon={QuestionIcon}
-            onClick={() =>
-              explainFailedBlock(paneId, blockId, {
-                prompt: d.ask.explainPrompt,
-                label: d.ask.context.error,
-              })
-            }
-          >
-            {d.ask.explain}
+            {d.agentPane.addToPane}
           </MenuItem>
         ) : null}
         <ContextMenuSeparator />

@@ -15,6 +15,7 @@ const HUMAN_ONLY_ROOTS: readonly string[] = [
   'modifierRemap',
   'capabilities',
   'workspaceGroups',
+  'agent',
 ]
 
 function launchesProgram(key: string, value: unknown): string | null {

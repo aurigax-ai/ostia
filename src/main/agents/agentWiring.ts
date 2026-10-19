@@ -16,6 +16,7 @@ import type { ManagerService } from '../manager/manager'
 import type { PaneJournal } from '../panes/paneJournal'
 import { registerPaneRenameMethods } from '../panes/paneRename'
 import { registerPaneResumeMethods } from '../panes/paneResume'
+import { type PaneTurns, registerPaneTurnMethods } from '../panes/paneTurns'
 import type { PaneWatch } from '../panes/paneWait'
 import type { PaneWaking } from '../panes/paneWaking'
 import { INTERRUPT_GRACE_MS, registerProcessMethods } from '../panes/processManager'
@@ -36,6 +37,7 @@ interface AgentWiringDeps {
   execCommand: CommandBridge['execCommand']
   keptAttention: KeptAttention
   agentWork: ReportedAgentWork
+  paneTurns: PaneTurns
   reach: Reach
   workspaceWindowId: WindowSend['workspaceWindowId']
   services: {
@@ -69,6 +71,7 @@ export function registerAgentWiring({
   execCommand,
   keptAttention,
   agentWork,
+  paneTurns,
   reach,
   workspaceWindowId,
   services,
@@ -97,6 +100,7 @@ export function registerAgentWiring({
     closing: (paneId, state, message, stop) => paneJournal.report(paneId, state, message, stop),
   })
   registerAgentWorkMethods(agentWork)
+  registerPaneTurnMethods(paneTurns)
   registerPaneRenameMethods({ execCommand, reach, windowOfWorkspace: workspaceWindowId })
   registerPaneResumeMethods({
     execCommand,
