@@ -5,7 +5,7 @@ export const SIGNATURE_HEADER_BYTES = 32
 export const PACKED_HEADER_MAX = 16 * 1024 * 1024
 export const DECODED_HEADER_MAX = 64 * 1024 * 1024
 const FOLDERS_MAX = 20_000
-const LISTED_MAX = 80_004
+export const LISTED_MAX = 80_004
 const CODERS_MAX = 4
 
 export type Refusal = 'unsupported' | 'corrupt' | 'encrypted' | 'limit'
@@ -46,6 +46,14 @@ const K = {
   encodedHeader: 0x17,
 } as const
 
+const FILE_PROPERTIES = new Set<number>([
+  K.emptyStream,
+  K.emptyFile,
+  K.anti,
+  K.name,
+  K.winAttributes,
+])
+
 export const AES_ID = '06f10701'
 
 export interface Coder {
@@ -75,6 +83,21 @@ interface FileRecord {
   emptyFile: boolean
   anti: boolean
   attributes: number | null
+}
+
+export interface HeaderScan {
+  deadline: number
+  signal: AbortSignal
+}
+
+function check(scan: HeaderScan): void {
+  if (scan.signal.aborted) refuse('corrupt', 'cancelled')
+  if (Date.now() >= scan.deadline) refuse('limit', '7z: reading the header took too long')
+}
+
+function once(seen: Set<number>, type: number): void {
+  if (seen.has(type)) refuse('corrupt', `7z: property ${type} appears twice`)
+  seen.add(type)
 }
 
 export interface ParsedHeader {
@@ -233,7 +256,7 @@ function readFolder(bytes: Bytes): Omit<Folder, 'unpackSizes' | 'crc'> {
   return { coders, chain }
 }
 
-function readStreams(bytes: Bytes, headerSize: number): StreamsInfo {
+function readStreams(bytes: Bytes, headerSize: number, scan: HeaderScan): StreamsInfo {
   let packPos = 0
   let packSizes: number[] = []
   let folders: Folder[] = []
@@ -241,7 +264,10 @@ function readStreams(bytes: Bytes, headerSize: number): StreamsInfo {
   let streamSizes: number[] = []
   let streamCrcs: Array<number | null> = []
   let haveSubStreams = false
+  const seen = new Set<number>()
   for (let type = bytes.u8(); type !== K.end; type = bytes.u8()) {
+    check(scan)
+    once(seen, type)
     if (type === K.packInfo) {
       packPos = bytes.number()
       const count = bytes.count(FOLDERS_MAX)
@@ -363,7 +389,11 @@ function readNames(bytes: Bytes, size: number, count: number): string[] {
   return names
 }
 
-function readFiles(bytes: Bytes, headerLeft: number): { files: FileRecord[]; count: number } {
+function readFiles(
+  bytes: Bytes,
+  headerLeft: number,
+  scan: HeaderScan,
+): { files: FileRecord[]; count: number } {
   const count = bytes.count(headerLeft)
   const kept = Math.min(count, LISTED_MAX)
   const files: FileRecord[] = Array.from({ length: kept }, () => ({
@@ -376,10 +406,13 @@ function readFiles(bytes: Bytes, headerLeft: number): { files: FileRecord[]; cou
   let emptyStream: BitVector | null = null
   let emptyFile: BitVector | null = null
   let anti: BitVector | null = null
+  const seen = new Set<number>()
   for (let type = bytes.u8(); type !== K.end; type = bytes.u8()) {
+    check(scan)
     const size = bytes.number()
     const end = bytes.at + size
     if (size > bytes.left) refuse('corrupt', '7z: a file property is longer than the header')
+    if (FILE_PROPERTIES.has(type)) once(seen, type)
     if (type === K.emptyStream) {
       emptyStream = bytes.vector(count)
     } else if (type === K.emptyFile) {
@@ -397,6 +430,7 @@ function readFiles(bytes: Bytes, headerLeft: number): { files: FileRecord[]; cou
         if (bitAt(defined, i)) files[i].attributes = bytes.u32()
       }
     }
+    if (bytes.at > end) refuse('corrupt', '7z: a file property is longer than it says')
     bytes.at = end
   }
   let empties = 0
@@ -410,21 +444,24 @@ function readFiles(bytes: Bytes, headerLeft: number): { files: FileRecord[]; cou
   return { files, count }
 }
 
-export function parseHeader(block: Uint8Array, headerSize: number): ParsedHeader {
+export function parseHeader(block: Uint8Array, headerSize: number, scan: HeaderScan): ParsedHeader {
   const bytes = new Bytes(block)
   if (bytes.u8() !== K.header) refuse('corrupt', '7z: header expected')
   let streams: StreamsInfo | null = null
   let files: FileRecord[] = []
   let fileCount = 0
+  const seen = new Set<number>()
   for (let type = bytes.u8(); type !== K.end; type = bytes.u8()) {
+    check(scan)
+    once(seen, type)
     if (type === K.archiveProperties) {
       for (let id = bytes.u8(); id !== K.end; id = bytes.u8()) bytes.take(bytes.count(bytes.left))
     } else if (type === K.additionalStreamsInfo) {
       refuse('unsupported', '7z: additional streams')
     } else if (type === K.mainStreamsInfo) {
-      streams = readStreams(bytes, headerSize)
+      streams = readStreams(bytes, headerSize, scan)
     } else if (type === K.filesInfo) {
-      const read = readFiles(bytes, bytes.left)
+      const read = readFiles(bytes, bytes.left, scan)
       files = read.files
       fileCount = read.count
     } else refuse('corrupt', `7z: unknown header property ${type}`)
@@ -432,10 +469,10 @@ export function parseHeader(block: Uint8Array, headerSize: number): ParsedHeader
   return { streams, files, fileCount }
 }
 
-export function parseEncodedHeader(block: Uint8Array): StreamsInfo {
+export function parseEncodedHeader(block: Uint8Array, scan: HeaderScan): StreamsInfo {
   const bytes = new Bytes(block)
   if (bytes.u8() !== K.encodedHeader) refuse('corrupt', '7z: encoded header expected')
-  return readStreams(bytes, block.length)
+  return readStreams(bytes, block.length, scan)
 }
 
 export function isEncodedHeader(block: Uint8Array): boolean {

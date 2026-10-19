@@ -40,7 +40,10 @@ async function decodedHeader(
   signal: AbortSignal,
   native: Native,
 ): Promise<Uint8Array> {
-  const streams = parseEncodedHeader(block)
+  const streams = parseEncodedHeader(block, {
+    deadline: Date.now() + limits.scanMs,
+    signal,
+  })
   if (streams.folders.length !== 1)
     refuse('unsupported', '7z: an encoded header in several folders')
   requireSingleChain(streams)
@@ -86,7 +89,10 @@ async function readHeader(
   const plain = isEncodedHeader(block)
     ? await decodedHeader(file, block, limits, signal, native)
     : block
-  const header = parseHeader(plain, plain.length)
+  const header = parseHeader(plain, plain.length, {
+    deadline: Date.now() + limits.scanMs,
+    signal,
+  })
   if (header.streams) {
     requireSingleChain(header.streams)
     header.streams.folders.forEach((folder, index) => {

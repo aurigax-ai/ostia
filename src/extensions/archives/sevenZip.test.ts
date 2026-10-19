@@ -6,6 +6,7 @@ import { lzma2 } from '@napi-rs/lzma'
 import { describe, expect, it } from 'vitest'
 import { listAll, memoryFile, readEntry } from './memoryFile'
 import { sevenZip, sevenZipProvider } from './sevenZip'
+import { LISTED_MAX, parseHeader } from './sevenZipHeader'
 
 const MIB = 1024 * 1024
 const DIR = join(__dirname, '../../../test/fixtures/archives/7z')
@@ -95,6 +96,8 @@ function numberBytes(value: number): number[] {
 function shown(entries: Awaited<ReturnType<typeof listAll>>['entries']): unknown[] {
   return entries.map((e) => [e.name, e.dir ? 'dir' : e.link !== null ? `-> ${e.link}` : e.size])
 }
+
+const unhurried = { deadline: Number.POSITIVE_INFINITY, signal: new AbortController().signal }
 
 const TREE = [
   ['src/emptydir', 'dir'],
@@ -288,8 +291,34 @@ describe('7z limits and damage', () => {
     expect(result).toEqual({ ok: false, error: 'cancelled' })
   })
 
+  it('refuses a header that repeats a section or a file property, and stops on its scan time or a cancel', async () => {
+    const headers = {
+      files: [0x01, 0x05, 0x00, 0x00, 0x05, 0x00, 0x00, 0x00],
+      streams: [0x01, 0x04, 0x00, 0x04, 0x00, 0x00],
+      pack: [0x01, 0x04, 0x06, 0x00, 0x00, 0x00, 0x06, 0x00, 0x00, 0x00, 0x00, 0x00],
+      unpack: [
+        0x01, 0x04, 0x07, 0x0b, 0x00, 0x00, 0x0c, 0x00, 0x07, 0x0b, 0x00, 0x00, 0x0c, 0x00, 0x00,
+        0x00,
+      ],
+      substreams: [0x01, 0x04, 0x08, 0x00, 0x08, 0x00, 0x00, 0x00],
+      property: [0x01, 0x05, 0x08, 0x0e, 0x01, 0xff, 0x0e, 0x01, 0xff, 0x00, 0x00],
+      overrun: [0x01, 0x05, 0x08, 0x0e, 0x01, 0xff, 0x0f, 0x00, 0xff, 0x00, 0x00],
+    }
+    for (const [name, header] of Object.entries(headers)) {
+      const { result } = await listAll(sevenZip, memoryFile(seven(Buffer.from(header))))
+      expect(result, name).toEqual({ ok: false, error: 'corrupt' })
+    }
+    const fine = memoryFile(emptyFiles(3))
+    expect((await listAll(sevenZip, fine)).result).toEqual({ ok: true, complete: true })
+    const late = await listAll(sevenZip, memoryFile(emptyFiles(3)), { ...BROWSE_LIMITS, scanMs: 0 })
+    expect(late.result).toEqual({ ok: false, error: 'limit' })
+    const abort = new AbortController()
+    abort.abort()
+    const cancelled = await listAll(sevenZip, memoryFile(emptyFiles(3)), undefined, abort.signal)
+    expect(cancelled.result).toEqual({ ok: false, error: 'cancelled' })
+  })
+
   it('survives headers that declare millions of files or substreams, plain or packed small', async () => {
-    const started = Date.now()
     const bits = (count: number): Buffer => Buffer.alloc(Math.ceil(count / 8), 0xff)
     const block = (type: number, body: Buffer): Buffer =>
       Buffer.concat([Buffer.from([type, ...numberBytes(body.length)]), body])
@@ -302,6 +331,9 @@ describe('7z limits and damage', () => {
       Buffer.from([0x00, 0x00]),
     ])
     expect(inner.length).toBeLessThan(64 * 1024 * 1024)
+    const parsedFiles = parseHeader(inner, inner.length, unhurried)
+    expect(parsedFiles.fileCount).toBe(files)
+    expect(parsedFiles.files).toHaveLength(LISTED_MAX)
     const packedInner = Buffer.from(lzma2.compressSync(inner))
     expect(packedInner.length).toBeLessThan(inner.length / 100)
     const encoded = Buffer.from([
@@ -348,6 +380,10 @@ describe('7z limits and damage', () => {
       block(0x11, names),
       Buffer.from([0x00, 0x00]),
     ])
+    const parsedStreams = parseHeader(manySubstreams, manySubstreams.length, unhurried).streams
+    expect(parsedStreams?.streamCounts).toEqual([streams])
+    expect(parsedStreams?.streamSizes).toHaveLength(LISTED_MAX)
+    expect(parsedStreams?.streamCrcs).toHaveLength(LISTED_MAX)
     const many = await listAll(sevenZip, memoryFile(seven(manySubstreams, Buffer.alloc(10))))
     expect(many.result).toEqual({ ok: true, complete: true })
     expect(many.entries.map((entry) => [entry.name, entry.size])).toEqual([
@@ -365,7 +401,6 @@ describe('7z limits and damage', () => {
       ok: false,
       error: 'corrupt',
     })
-    expect(Date.now() - started).toBeLessThan(10_000)
   })
 
   it('reads Copy folders without the native module and fails an LZMA folder as failed when it is missing', async () => {
