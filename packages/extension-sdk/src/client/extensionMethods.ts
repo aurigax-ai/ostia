@@ -3,6 +3,7 @@ import {
   CancellationTokenSource,
   type MessageConnection,
 } from 'vscode-jsonrpc/node'
+import { readEnv } from '../contract/appEnv'
 import type { AssistProviderEntry } from '../contract/assist'
 import { EXTENSION_BASE_LOCALE } from '../contract/extensionLocales'
 import {
@@ -12,6 +13,7 @@ import {
   type SandboxDomainsResult,
   TARGET_PANE_PARAM,
 } from '../contract/extensions'
+import { type BrowseProvider, declaresBrowseKind } from './browse'
 import type { HostHandlers } from './hostHandlers'
 import type { OpenFolderResult, OpenTerminalResult, OstiaExtension } from './index'
 import { errorMessage, failure } from './results'
@@ -239,6 +241,7 @@ export function serviceMethods(
   | 'closeFolder'
   | 'onFiles'
   | 'onFolderClosed'
+  | 'onBrowse'
   | 'sandboxDomains'
 > {
   return {
@@ -305,6 +308,14 @@ export function serviceMethods(
     },
     onFolderClosed: (handler) => {
       handlers.folderClosed = handler
+    },
+    onBrowse: (name: string, provider: BrowseProvider) => {
+      const id = `${readEnv('EXTENSION_ID') ?? ''}.${name}`
+      if (!declaresBrowseKind(readEnv('EXTENSION_DIR') ?? '', id)) {
+        throw new Error(`${id} is not a browse kind in this extension's manifest`)
+      }
+      handlers.browse.set(id, provider)
+      void conn.sendRequest('ext.registerCommands', { commands: [] }).catch(() => {})
     },
     sandboxDomains: (workspaceId) =>
       sent(

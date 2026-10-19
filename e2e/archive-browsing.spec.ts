@@ -76,3 +76,40 @@ test('a zip expands in the Files panel and its entries open read-only without ex
     await app.close()
   }
 })
+
+test('turning the archives extension off makes a zip a plain file again, and on lists it again', async () => {
+  const dataHome = freshDataHome()
+  const home = join(dataHome, 'home')
+  mkdirSync(home, { recursive: true })
+  writeFileSync(join(home, 'bundle.zip'), zipOf([{ name: 'readme.txt', data: 'packed readme' }]))
+  const launch = isolatedLaunch(dataHome)
+  const app = await electron.launch({ ...launch, env: { ...launch.env, HOME: home } })
+  try {
+    const win = await app.firstWindow()
+    await openWorkspace(win)
+    await win.locator('.topbar').getByRole('button', { name: 'Files', exact: true }).click()
+    const archive = win.locator('.file-row').filter({ hasText: 'bundle.zip' })
+    await expect(archive).toHaveAttribute('aria-expanded', 'false')
+
+    await win.getByRole('button', { name: 'Settings', exact: true }).first().click()
+    await win.getByRole('button', { name: 'Extensions', exact: true }).first().click()
+    const toggle = win.getByRole('switch', { name: 'Enable Archives' })
+    await toggle.click()
+    await expect(toggle).not.toBeChecked()
+    await win.keyboard.press('Escape')
+    await expect(archive).not.toHaveAttribute('aria-expanded', /.+/, { timeout: 15_000 })
+
+    await win.getByRole('button', { name: 'Settings', exact: true }).first().click()
+    await win.getByRole('button', { name: 'Extensions', exact: true }).first().click()
+    await toggle.click()
+    await expect(toggle).toBeChecked()
+    await win.keyboard.press('Escape')
+    await expect(archive).toHaveAttribute('aria-expanded', 'false', { timeout: 15_000 })
+    await archive.click()
+    await expect(win.locator('.file-row').filter({ hasText: 'readme.txt' })).toBeVisible({
+      timeout: 15_000,
+    })
+  } finally {
+    await app.close()
+  }
+})

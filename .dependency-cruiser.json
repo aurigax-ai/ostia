@@ -125,6 +125,12 @@
       "to": { "path": "node_modules/(xlsx|mammoth|dompurify)/" }
     },
     {
+      "name": "files-reads-no-archive-format",
+      "severity": "error",
+      "from": { "path": "^src/main/files/" },
+      "to": { "path": "node_modules/(yauzl|tar)/" }
+    },
+    {
       "name": "only-graphs-imports-wire",
       "severity": "error",
       "from": {

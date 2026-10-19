@@ -1,3 +1,8 @@
+import {
+  BROWSE_CHUNK_METHOD,
+  BROWSE_ENTRIES_METHOD,
+  BROWSE_READ_AT_METHOD,
+} from '@aurigax-ai/ostia-extension-sdk/contract/fileBrowse'
 import type { MessageConnection } from 'vscode-jsonrpc/node'
 import { registerControlMethod } from '../control/controlServer'
 import type { PaneIdentity } from '../control/idRegistry'
@@ -31,6 +36,7 @@ export function registerExtensionMethods(host: () => ExtensionHost | null): void
   registerRunMethods(host, forExtension)
   registerAssistMethods(forExtension)
   registerConfigMethods(forExtension)
+  registerBrowseMethods(forExtension)
 }
 
 function registerHostMethods(host: () => ExtensionHost | null, forExtension: ForExtension): void {
@@ -202,4 +208,19 @@ function registerConfigMethods(forExtension: ForExtension): void {
     'ext.connection',
     forExtension((h, id, conn, p) => h.config.getConnection(id, conn, p)),
   )
+}
+
+function registerBrowseMethods(forExtension: ForExtension): void {
+  registerControlMethod(BROWSE_READ_AT_METHOD, {
+    ...forExtension((h, id, conn, p) => h.browse.readAt(id, conn, p)),
+    cap: 'file-contents',
+  })
+  registerControlMethod(BROWSE_ENTRIES_METHOD, {
+    ...forExtension((h, id, conn, p) => h.browse.entries(id, conn, p)),
+    cap: 'file-contents',
+  })
+  registerControlMethod(BROWSE_CHUNK_METHOD, {
+    ...forExtension((h, id, conn, p) => h.browse.chunk(id, conn, p)),
+    cap: 'file-contents',
+  })
 }

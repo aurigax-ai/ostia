@@ -1,0 +1,1 @@
+export const CONTROL_MESSAGE_MAX = 64 * 1024 * 1024

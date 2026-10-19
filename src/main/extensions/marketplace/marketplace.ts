@@ -132,9 +132,9 @@ export class Marketplace {
           extId: manifest.id,
           name: manifest.name,
           languages: [...new Set(languages)],
-          patterns: (manifest.contributes.fileKinds ?? []).flatMap((kind) =>
-            kind.selector.map((item) => item.filenamePattern),
-          ),
+          patterns: (manifest.contributes.fileKinds ?? [])
+            .filter((kind) => kind.view)
+            .flatMap((kind) => kind.selector.map((item) => item.filenamePattern)),
         })
       }
     }

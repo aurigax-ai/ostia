@@ -48,6 +48,7 @@ import { startAssistAvailability } from '@/stores/assist/assistStore'
 import { startChatTools } from '@/stores/assist/chatToolsStore'
 import { usePluginsStore } from '@/stores/extensions/pluginsStore'
 import { wireArtifacts } from '@/stores/files/artifactsStore'
+import { useFileTreeStore } from '@/stores/files/fileTreeStore'
 import { wireOpenWaits } from '@/stores/files/openWaitsStore'
 import { wireRemoteFolders } from '@/stores/files/remoteFoldersStore'
 import { startPaneRecencySync } from '@/stores/workspaces/paneRecencyStore'
@@ -174,6 +175,7 @@ async function boot(): Promise<void> {
   applyStoredPanelWidths()
   window.ostia.notifications.onActivate((paneId) => revealPane(paneId))
   window.ostia.settings.onChanged(() => void useSettingsStore.getState().init())
+  window.ostia.files.onKindsChanged(() => useFileTreeStore.getState().reloadAll())
   root.render(
     <StrictMode>
       <AppErrorBoundary>

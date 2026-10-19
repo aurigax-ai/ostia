@@ -1,15 +1,44 @@
 import { mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { BROWSE_LIMITS } from '@aurigax-ai/ostia-extension-sdk/contract/fileBrowse'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { type BrowseHarness, browseHarness } from '../../../../test/browseHarness'
 import { tarOf, zerosDeflated, zipOf } from '../../../../test/fixtures/archives/archives'
+import { tar } from '../../../extensions/archives/tar'
+import { zip } from '../../../extensions/archives/zip'
 import { archiveRoot } from '../../../shared/archives/archivePaths'
-import { ARCHIVE_LIMITS } from './archiveTree'
 import { Archives } from './archives'
 
 const MIB = 1024 * 1024
 let dir: string
 let archives: Archives
+let harness: BrowseHarness
+
+const ARCHIVE_KINDS = [
+  {
+    extId: 'archives',
+    builtin: true,
+    kind: {
+      id: 'archives.zip',
+      selector: [{ filenamePattern: '*.zip' }, { filenamePattern: '*.jar' }],
+    },
+  },
+  {
+    extId: 'archives',
+    builtin: true,
+    kind: {
+      id: 'archives.tar',
+      selector: ['*.tar', '*.tgz', '*.tar.gz', '*.tzst', '*.tar.zst'].map((filenamePattern) => ({
+        filenamePattern,
+      })),
+    },
+  },
+]
+
+function archivesOver(limits = BROWSE_LIMITS): Archives {
+  return new Archives((path) => (path.startsWith(`${dir}/`) ? path : null), harness.browse, limits)
+}
 
 function put(name: string, bytes: Uint8Array): string {
   const path = join(dir, name)
@@ -25,10 +54,15 @@ async function text(path: string): Promise<string> {
 
 beforeEach(() => {
   dir = mkdtempSync(join(tmpdir(), 'archives-'))
-  archives = new Archives((path) => (path.startsWith(`${dir}/`) ? path : null))
+  harness = browseHarness({
+    providers: { 'archives.zip': zip, 'archives.tar': tar },
+    candidates: ARCHIVE_KINDS,
+  })
+  archives = archivesOver()
 })
 
 afterEach(() => {
+  harness.dispose()
   rmSync(dir, { recursive: true, force: true })
 })
 
@@ -150,10 +184,7 @@ describe('Archives', () => {
       name: `f${i}.txt`,
       data: 'x'.repeat(4096),
     }))
-    const small = new Archives((path) => (path.startsWith(`${dir}/`) ? path : null), {
-      ...ARCHIVE_LIMITS,
-      scanBytes: 8 * 4608,
-    })
+    const small = archivesOver({ ...BROWSE_LIMITS, scanBytes: 8 * 4608 })
     const listed = await small.list(archiveRoot(put('many.tgz', tarOf(items))))
     expect(listed.length).toBeGreaterThan(0)
     expect(listed.length).toBeLessThan(20)

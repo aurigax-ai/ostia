@@ -100,7 +100,7 @@ function browserBundle(entry, outfile) {
 }
 
 async function buildFileKinds(src, out, panelBaseCss) {
-  const kinds = readSourceManifest(src).contributes?.fileKinds ?? []
+  const kinds = (readSourceManifest(src).contributes?.fileKinds ?? []).filter((kind) => kind.view)
   if (kinds.length === 0) return
   copyFileSync(panelBaseCss, join(out, 'base.css'))
   for (const {

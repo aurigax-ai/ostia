@@ -22,6 +22,7 @@ export const extensionsEn = {
       credentials: 'Use your saved passwords and your signed-in browser',
       destructive: 'Take actions that cannot be undone, after asking you each time',
       'drive-self': 'Control the pane it was started from',
+      'file-contents': 'Read the files you expand in Files, to list and open what is inside them',
       gateway: 'Control the phone gateway',
       'kill-pane': 'Close panes',
       'language-server': 'Run language servers for code intelligence in the editor',
@@ -84,6 +85,8 @@ export const extensionsEn = {
     groupDetails: 'Details',
     groupInstalled: 'Installed',
     groupSettings: 'Settings',
+    kindBrowse: '{name} lists and opens what is inside {patterns} files you expand in Files.',
+    kindShadowed: 'Not used for {patterns}: {name} handles these files.',
     kindView: '{name} shows {patterns} files, read-only. It cannot send them anywhere.',
     kindViewOption:
       '{name} shows {patterns} files from Open With, read-only. It cannot send them anywhere.',

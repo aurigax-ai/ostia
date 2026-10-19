@@ -23,6 +23,7 @@ export const extensionsZhHant: typeof extensionsEn = {
       credentials: '使用您儲存的密碼與已登入的瀏覽器',
       destructive: '執行無法復原的操作，每次都會先詢問您',
       'drive-self': '控制啟動它的窗格',
+      'file-contents': '讀取你在「檔案」中展開的檔案，以列出並開啟其中內容',
       gateway: '控制手機閘道',
       'kill-pane': '關閉窗格',
       'language-server': '執行語言伺服器，為編輯器提供程式碼智慧功能',
@@ -85,6 +86,8 @@ export const extensionsZhHant: typeof extensionsEn = {
     groupDetails: '詳細資料',
     groupInstalled: '已安裝',
     groupSettings: '設定',
+    kindBrowse: '{name} 會列出並開啟你在「檔案」中展開的 {patterns} 檔案裡的內容。',
+    kindShadowed: '不用於 {patterns}：由 {name} 處理這些檔案。',
     kindView: '{name} 以唯讀方式顯示 {patterns} 檔案，且無法把它們傳送到任何地方。',
     kindViewOption:
       '{name} 以唯讀方式從「開啟方式」顯示 {patterns} 檔案，且無法把它們傳送到任何地方。',

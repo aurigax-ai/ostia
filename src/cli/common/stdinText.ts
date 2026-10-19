@@ -4,6 +4,22 @@ export async function readAllStdin(): Promise<string> {
   return (await text(process.stdin)).replace(/\r?\n$/, '')
 }
 
+export class StdinTooLarge extends Error {}
+
+export async function readStdinUpTo(max: number): Promise<string> {
+  const chunks: Buffer[] = []
+  let total = 0
+  for await (const chunk of process.stdin) {
+    const buffer = Buffer.from(chunk)
+    total += buffer.length
+    if (total > max) throw new StdinTooLarge(`stdin is over ${Math.round(max / (1024 * 1024))} MiB`)
+    chunks.push(buffer)
+  }
+  return Buffer.concat(chunks)
+    .toString('utf8')
+    .replace(/\r?\n$/, '')
+}
+
 export async function readSecretFromStdin(promptLabel: string): Promise<string> {
   if (process.stdin.isTTY) {
     process.stderr.write(`${promptLabel} (input hidden): `)

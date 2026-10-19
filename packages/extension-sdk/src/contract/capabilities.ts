@@ -24,6 +24,7 @@ export type Capability =
   | 'agent-plugin'
   | 'mcp'
   | 'read-bus'
+  | 'file-contents'
 
 export const DEFAULT_CAPABILITIES: Capability[] = [
   'drive-self',
@@ -60,6 +61,7 @@ export const ALL_CAPABILITIES: Capability[] = [
   'agent-plugin',
   'mcp',
   'read-bus',
+  'file-contents',
 ]
 
 export const HUMAN_GRANTED_CAPABILITIES: readonly Capability[] = ['mcp', 'read-bus']
@@ -74,7 +76,8 @@ export const MANAGER_CAPABILITIES: Capability[] = ALL_CAPABILITIES.filter(
     cap !== 'gateway' &&
     cap !== 'destructive' &&
     cap !== 'mcp' &&
-    cap !== 'read-bus',
+    cap !== 'read-bus' &&
+    cap !== 'file-contents',
 )
 
 export const CAPABILITY_ALLOWS: Record<Capability, string> = {
@@ -102,6 +105,7 @@ export const CAPABILITY_ALLOWS: Record<Capability, string> = {
   'agent-plugin': 'manage agent plugins',
   mcp: 'call the MCP servers you set up',
   'read-bus': 'see which panes send each other bus messages, never what they say',
+  'file-contents': 'read the files you expand in Files, to list and open what is inside them',
 }
 
 export type CapabilityRefusal = 'denied' | 'not-approved'

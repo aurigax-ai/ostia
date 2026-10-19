@@ -1,15 +1,5 @@
+import type { BrowseLimits } from '@aurigax-ai/ostia-extension-sdk/contract/fileBrowse'
 import type { FsEntry } from '../../../shared/files/filesApi'
-
-export const ARCHIVE_LIMITS = {
-  entries: 20_000,
-  depth: 32,
-  nameLength: 1_024,
-  scanBytes: 1024 * 1024 * 1024,
-  scanMs: 20_000,
-  linkTargetBytes: 1_024,
-} as const
-
-export type ArchiveLimits = { readonly [K in keyof typeof ARCHIVE_LIMITS]: number }
 
 export interface RawEntry {
   name: string
@@ -41,7 +31,7 @@ function shownText(text: string, limit: number): string {
   return escaped.length > limit ? `${escaped.slice(0, limit)}…` : escaped
 }
 
-export function segmentsOf(name: string, limits: ArchiveLimits): string[] {
+export function segmentsOf(name: string, limits: BrowseLimits): string[] {
   const parts = name
     .split('/')
     .filter((part) => part !== '' && part !== '.')
@@ -54,7 +44,7 @@ function joined(parts: string[]): string {
   return parts.join('/')
 }
 
-export function buildTree(raw: RawEntry[], limits: ArchiveLimits): ArchiveTree {
+export function buildTree(raw: RawEntry[], limits: BrowseLimits): ArchiveTree {
   const dirs = new Map<string, FsEntry[]>([['', []]])
   const files = new Map<string, EntryRef>()
   const kept = raw.slice(0, limits.entries)

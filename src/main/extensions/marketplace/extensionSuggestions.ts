@@ -34,7 +34,9 @@ interface Candidate {
 
 function viewed(path: string, extensions: ReturnType<SuggestionSources['extensions']>): boolean {
   return extensions.some(
-    (ext) => ext.enabled && ext.fileKinds.some((kind) => kind.approved && kindMatches(path, kind)),
+    (ext) =>
+      ext.enabled &&
+      ext.fileKinds.some((kind) => kind.view && kind.approved && kindMatches(path, kind)),
   )
 }
 
@@ -44,7 +46,7 @@ function awaitsApproval(
 ): boolean {
   return (
     ext.status === 'pending-approval' ||
-    ext.fileKinds.some((kind) => !kind.approved && kindMatches(path, kind))
+    ext.fileKinds.some((kind) => kind.view && !kind.approved && kindMatches(path, kind))
   )
 }
 
@@ -84,7 +86,9 @@ export function suggestionFor(
   }
   if (!viewed(path, extensions)) {
     for (const ext of extensions) {
-      if (ext.fileKinds.some((kind) => kindMatches(path, kind))) add(ext.id, files, 'view')
+      if (ext.fileKinds.some((kind) => kind.view && kindMatches(path, kind))) {
+        add(ext.id, files, 'view')
+      }
     }
     for (const listing of trusted) {
       if (listing.patterns.some((pattern) => matchesFilenamePattern(path, pattern))) {

@@ -2,24 +2,42 @@ import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'nod
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { type BrowseHarness, browseHarness } from '../../../test/browseHarness'
 import { zipOf } from '../../../test/fixtures/archives/archives'
+import { zip } from '../../extensions/archives/zip'
 import { archiveRoot } from '../../shared/archives/archivePaths'
 import { Archives } from './archives/archives'
 import { FileSources, localSource } from './fileSources'
 
 let dir: string
 let sources: FileSources
+let harness: BrowseHarness
 
 beforeEach(() => {
   dir = realpathSync(mkdtempSync(join(tmpdir(), 'file-sources-')))
+  harness = browseHarness({
+    providers: { 'archives.zip': zip },
+    candidates: [
+      {
+        extId: 'archives',
+        builtin: true,
+        kind: { id: 'archives.zip', selector: [{ filenamePattern: '*.zip' }] },
+      },
+    ],
+  })
   const confine = (path: string): string | null => (path.startsWith(`${dir}/`) ? path : null)
   sources = new FileSources(
-    localSource(() => [dir], confine),
-    [new Archives(confine)],
+    localSource(
+      () => [dir],
+      confine,
+      (name) => harness.browse.kindFor(name) !== null,
+    ),
+    [new Archives(confine, harness.browse)],
   )
 })
 
 afterEach(() => {
+  harness.dispose()
   rmSync(dir, { recursive: true, force: true })
 })
 
@@ -31,10 +49,12 @@ describe('FileSources', () => {
     writeFileSync(zip, zipOf([{ name: 'inside.txt', data: 'packed' }]))
     const local = sources.of(dir)
     expect(local.watchable).toBe(true)
+    writeFileSync(join(dir, 'plain.tar'), 'not browsable here')
     expect(await local.list(dir)).toEqual([
       { name: 'sub', dir: true },
       { name: 'bundle.zip', dir: false, archive: true },
       { name: 'note.txt', dir: false },
+      { name: 'plain.tar', dir: false },
     ])
     expect(await local.kind(join(dir, 'sub'))).toBe('dir')
     expect((await local.describe(join(dir, 'note.txt')))?.size).toBe(7)

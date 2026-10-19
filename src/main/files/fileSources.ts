@@ -1,6 +1,5 @@
 import type { Stats } from 'node:fs'
 import { readdir, stat } from 'node:fs/promises'
-import { isArchiveName } from '../../shared/archives/archivePaths'
 import type { FsBinaryResult, FsEntry, FsKind, FsTextResult } from '../../shared/files/filesApi'
 import { resolveSafe } from '../platform/pathGuard'
 import { readBinaryConfined } from './fsBinary'
@@ -26,11 +25,11 @@ export interface VirtualSource extends FileSource {
   handles: (path: string) => boolean
 }
 
-async function listDir(dir: string): Promise<FsEntry[]> {
+async function listDir(dir: string, browsable: (name: string) => boolean): Promise<FsEntry[]> {
   const entries = await readdir(dir, { withFileTypes: true }).catch(() => [])
   return entries
     .map((d) =>
-      d.isFile() && isArchiveName(d.name)
+      d.isFile() && browsable(d.name)
         ? { name: d.name, dir: false, archive: true as const }
         : { name: d.name, dir: d.isDirectory() },
     )
@@ -44,13 +43,14 @@ function statOf(path: string | null): Promise<Stats | null> {
 export function localSource(
   roots: () => string[],
   confine: (path: string) => string | null,
+  browsable: (name: string) => boolean,
 ): FileSource {
   return {
     watchable: true,
     confine,
     list: async (path) => {
       const safe = resolveSafe(path, roots())
-      return safe === null ? [] : listDir(safe)
+      return safe === null ? [] : listDir(safe, browsable)
     },
     kind: async (path) => {
       const found = await statOf(confine(path))

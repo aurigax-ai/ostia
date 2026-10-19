@@ -1,10 +1,10 @@
-import { read } from 'node:fs'
 import { type Readable, Transform } from 'node:stream'
 import { createGunzip, createZstdDecompress } from 'node:zlib'
 
 const GZIP = [0x1f, 0x8b]
 const ZSTD = [0x28, 0xb5, 0x2f, 0xfd]
-const SNIFF_BYTES = 4
+
+export const SNIFF_BYTES = 4
 
 export class InflateLimit extends Error {}
 
@@ -16,14 +16,9 @@ function isCompressed(head: Uint8Array): boolean {
   return hasMagic(head, GZIP) || hasMagic(head, ZSTD)
 }
 
-export function sniffCompression(fd: number): Promise<'gzip' | 'zstd' | null> {
-  return new Promise((resolve) => {
-    read(fd, Buffer.alloc(SNIFF_BYTES), 0, SNIFF_BYTES, 0, (error, bytes, head) => {
-      const seen = error ? head.subarray(0, 0) : head.subarray(0, bytes)
-      if (hasMagic(seen, GZIP)) resolve('gzip')
-      else resolve(hasMagic(seen, ZSTD) ? 'zstd' : null)
-    })
-  })
+export function sniffCompression(head: Uint8Array): 'gzip' | 'zstd' | null {
+  if (hasMagic(head, GZIP)) return 'gzip'
+  return hasMagic(head, ZSTD) ? 'zstd' : null
 }
 
 class Budget extends Transform {
