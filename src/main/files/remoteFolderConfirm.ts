@@ -1,9 +1,11 @@
 import type { RemoteFolderAsk } from '@aurigax-ai/ostia-extension-sdk/contract/remoteFolders'
-import type { BrowserWindow } from 'electron'
-import { answersOn, ask as askWindow } from '../windows/closeGuard'
+import { type BrowserWindow, ipcMain } from 'electron'
+import { answerPending, ask as askWindow } from '../windows/closeGuard'
 
 export function registerRemoteFolderConfirm(): void {
-  answersOn('remote-files:confirm-answer')
+  ipcMain.on('remote-files:confirm-answer', (e, requestId: unknown, approved: unknown) => {
+    if (typeof requestId === 'number') answerPending(e.sender.id, requestId, approved)
+  })
 }
 
 export async function confirmRemoteFolder(
