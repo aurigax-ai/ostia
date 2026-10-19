@@ -26,6 +26,7 @@ export const browserBridge: Pick<OstiaBridge, 'browser' | 'guestChords' | 'crede
   },
   guestChords: {
     set: (signatures) => ipcRenderer.send('guest-chords:set', signatures),
+    setRemap: (table) => ipcRenderer.send('guest-chords:remap', table),
     onFire: (cb) => listen('guest-chords:fire', cb),
   },
   credentials: {

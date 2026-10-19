@@ -10,6 +10,7 @@ import {
 } from '@/lib/keyboard/chords'
 import { smartClipboardAction } from '@/lib/keyboard/clipboardKeys'
 import { terminalKeyData } from '@/lib/keyboard/keyPresets'
+import { isRemappedEvent } from '@/lib/keyboard/modifierRemapEvents'
 import { stepBlock } from '@/lib/terminal/blockActions'
 import type { OstiaTerminal } from '@/lib/terminal/ostiaTerminal'
 import { inputEditorFor } from '@/lib/terminal/terminalHandles'
@@ -93,7 +94,7 @@ export function attachTerminalKeys({
       return false
     }
     const clipboard = chord === 'copy' || chord === 'paste'
-    if (isMac && clipboard && isNativeClipboardKey(e)) return true
+    if (isMac && clipboard && isNativeClipboardKey(e) && !isRemappedEvent(e)) return true
     if (e.type !== 'keydown' || isAppChord(chord)) return false
     e.preventDefault()
     const findBy = findStep(chord)

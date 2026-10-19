@@ -30,6 +30,7 @@ import {
   type Page,
   _electron as electron,
   expect,
+  killApp,
   test,
   waitForExit,
 } from './test'
@@ -50,9 +51,7 @@ async function launch(dataHome: string, env: Record<string, string> = {}): Promi
 }
 
 async function crash({ app }: Launched): Promise<void> {
-  const exited = waitForExit(app)
-  app.process().kill('SIGKILL')
-  await exited
+  await killApp(app)
 }
 
 function savedPanes(): Record<string, unknown>[] {
@@ -490,9 +489,7 @@ const KEEP_AND_ASK = {
 }
 
 async function endUnattended(app: ElectronApplication): Promise<void> {
-  const exited = waitForExit(app)
-  app.process().kill('SIGTERM')
-  await exited
+  await killApp(app, 'SIGTERM')
 }
 
 test('KSH-C36 KSH-C70 KSH-C103 an agent still mid-turn after a restart asks nothing, stays marked, is named by pane list and is never resumed over', async () => {

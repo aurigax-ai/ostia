@@ -1,43 +1,19 @@
 import type { RemoteFolderAsk } from '@aurigax-ai/ostia-extension-sdk/contract/remoteFolders'
 import { type BrowserWindow, ipcMain } from 'electron'
-
-interface Pending {
-  senderId: number
-  settle: (approved: boolean) => void
-}
-
-let lastRequestId = 0
-const pending = new Map<number, Pending>()
+import { answerPending, ask as askWindow } from '../windows/closeGuard'
 
 export function registerRemoteFolderConfirm(): void {
   ipcMain.on('remote-files:confirm-answer', (e, requestId: unknown, approved: unknown) => {
-    const waiting = typeof requestId === 'number' ? pending.get(requestId) : undefined
-    if (waiting && waiting.senderId === e.sender.id) waiting.settle(approved === true)
+    if (typeof requestId === 'number') answerPending(e.sender.id, requestId, approved)
   })
 }
 
-export function confirmRemoteFolder(
+export async function confirmRemoteFolder(
   win: BrowserWindow | undefined,
   ask: RemoteFolderAsk,
 ): Promise<boolean> {
-  if (!win || win.isDestroyed() || win.webContents.isLoading() || win.webContents.isCrashed()) {
-    return Promise.resolve(false)
-  }
-  const contents = win.webContents
-  return new Promise((resolve) => {
-    const requestId = ++lastRequestId
-    const settle = (approved: boolean): void => {
-      pending.delete(requestId)
-      contents.removeListener('render-process-gone', onGone)
-      contents.removeListener('destroyed', onGone)
-      resolve(approved)
-    }
-    const onGone = (): void => settle(false)
-    contents.once('render-process-gone', onGone)
-    contents.once('destroyed', onGone)
-    pending.set(requestId, { senderId: contents.id, settle })
-    if (win.isMinimized()) win.restore()
-    win.focus()
-    contents.send('remote-files:confirm', requestId, ask)
-  })
+  if (!win || win.isDestroyed()) return false
+  if (win.isMinimized()) win.restore()
+  win.focus()
+  return (await askWindow(win, 'remote-files:confirm', ask, false)) === true
 }
