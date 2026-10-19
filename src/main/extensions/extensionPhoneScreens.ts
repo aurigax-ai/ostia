@@ -91,6 +91,10 @@ export class ExtensionPhoneScreens {
   askFor(identity: PaneIdentity, conn: MessageConnection, raw: unknown): Promise<PhoneScreenReply> {
     const holder = this.holderOf(identity, conn)
     if (!holder || !this.host.links) return Promise.resolve({ ok: false, error: 'not-listening' })
+    const sessionId = isRecord(raw) ? raw.sessionId : undefined
+    if (typeof sessionId !== 'string' || !holder.rt.callerWorkspaces.has(sessionId)) {
+      return Promise.resolve({ ok: false, error: 'not-reached' })
+    }
     return this.host.links.askFor(holder.controller, raw)
   }
 

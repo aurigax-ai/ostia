@@ -136,11 +136,23 @@ function broadcastEvent(type: PlatformEventType, payload: unknown): void {
   }
 }
 
-export function askPhonesForScreen(request: ScreenRequested): void {
-  const frame = eventFrame('screen.requested', request)
+function notifiedSockets(): Array<[WebSocket, string]> {
+  const found: Array<[WebSocket, string]> = []
   for (const [ws, state] of sockets) {
     if (!state.device?.caps.includes('notify') || screenLinks?.isLink(ws)) continue
-    if (ws.readyState === ws.OPEN) ws.send(frame)
+    if (ws.readyState === ws.OPEN) found.push([ws, state.device.deviceId])
+  }
+  return found
+}
+
+export function notifiedDeviceIds(): string[] {
+  return [...new Set(notifiedSockets().map(([, deviceId]) => deviceId))]
+}
+
+export function askPhonesForScreen(request: ScreenRequested, deviceIds?: string[]): void {
+  const frame = eventFrame('screen.requested', request)
+  for (const [ws, deviceId] of notifiedSockets()) {
+    if (!deviceIds || deviceIds.includes(deviceId)) ws.send(frame)
   }
 }
 

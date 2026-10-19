@@ -149,7 +149,7 @@ function handleScreenDecline(
     ws.send(rpcError(msg.id, -32602, 'bad-params'))
     return
   }
-  if (!links?.decline(p.requestId, reason)) {
+  if (!links?.decline(p.requestId, device.deviceId, reason)) {
     ws.send(rpcError(msg.id, -32602, 'unknown-request'))
     return
   }

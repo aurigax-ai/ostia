@@ -20,7 +20,7 @@ import { resolveExternal } from '../control/idRegistry'
 import type { WorkspaceEntry } from '../panes/paneList'
 import type { RpcOutcome } from './controlDispatch'
 import type { Device } from './devices'
-import { type ScreenRequested, ScreenRequests } from './screenRequests'
+import { type ScreenRequestTiming, type ScreenRequested, ScreenRequests } from './screenRequests'
 
 const FRAME_PHONE_SCREEN = 0x10
 
@@ -59,11 +59,13 @@ export interface ScreenLinkTiming {
 
 export interface ScreenLinksDeps {
   listWorkspaces: () => Promise<WorkspaceEntry[]>
-  askPhones: (request: ScreenRequested) => void
+  askPhones: (request: ScreenRequested, deviceIds?: string[]) => void
+  notifiedDevices: () => string[]
+  agentRunning: (paneId: string) => boolean
   log: (event: string, fields: Record<string, string>) => void
   now?: () => number
   timing?: ScreenLinkTiming
-  askWaitMs?: number
+  requestTiming?: ScreenRequestTiming
 }
 
 interface Pending {
@@ -190,7 +192,12 @@ export class ScreenLinks {
 
   constructor(private readonly deps: ScreenLinksDeps) {
     this.timing = deps.timing ?? DEFAULT_TIMING
-    this.requests = new ScreenRequests((request) => deps.askPhones(request), deps.askWaitMs)
+    this.requests = new ScreenRequests(
+      () => deps.notifiedDevices(),
+      (request, deviceIds) => deps.askPhones(request, deviceIds),
+      () => this.now(),
+      deps.requestTiming,
+    )
   }
 
   private now(): number {
@@ -255,7 +262,9 @@ export class ScreenLinks {
     link.endTimer = setTimeout(() => this.end(link, 'time-limit', 4005), Math.max(0, left))
     this.deps.log('phone-screen-link', { linkId: link.info.linkId, state: 'started' })
     const requestId = isRecord(params) ? params.requestId : undefined
-    if (typeof requestId === 'string') this.requests.started(requestId)
+    if (typeof requestId === 'string') {
+      this.requests.started(requestId, device.deviceId, link.info.sessionId)
+    }
     return { ok: true, result: { screenId: link.info.linkId } }
   }
 
@@ -344,22 +353,23 @@ export class ScreenLinks {
     if (!asker || asker.kind !== 'pane' || asker.manager || asker.workspaceId !== sessionId) {
       return { ok: false, error: 'unknown-pane' }
     }
+    if (!this.deps.agentRunning(asker.paneId)) return { ok: false, error: 'not-an-agent' }
     const workspaces = await this.deps.listWorkspaces().catch(() => [])
     if (!linkable(workspaces.find((w) => w.workspaceId === sessionId))) {
       return { ok: false, error: 'unknown-session' }
     }
-    const answer = this.requests.askFromAgent({
+    const asked = this.requests.askFromAgent({
       sessionId,
       reason: text,
       pane: asker.externalId,
       ...(agent ? { agent } : {}),
     })
-    if (!answer) return { ok: false, error: 'busy' }
-    return { ok: true, data: await answer }
+    if (!asked.ok) return { ok: false, error: asked.error }
+    return { ok: true, data: await asked.answer }
   }
 
-  decline(requestId: string, reason: PhoneScreenDeclineReason): boolean {
-    return this.requests.decline(requestId, reason)
+  decline(requestId: string, deviceId: string, reason: PhoneScreenDeclineReason): boolean {
+    return this.requests.decline(requestId, deviceId, reason)
   }
 
   fromPhone(ws: LinkSocket, msg: Record<string, unknown>): boolean {

@@ -1066,7 +1066,7 @@ here starts a session: only the phone's human does, on the phone, every time.
   `screen.requested` with `by: 'agent'` and a `requestId`, and their human decides. The call waits
   and answers `{ok: true, data: {outcome}}` with `started` (the human started a session for it),
   `declined` with `reason` `denied` (the phone's human said no or did not answer there within 60 s), `off` or `unsupported` (phone control is off on that phone), or
-  `no-answer` after 2 minutes; `busy` while another request for that workspace waits. Call it only
+  `no-answer` after 2 minutes. It goes to each phone that may be notified and has no request of its own waiting; `started` comes from the first of them that starts a session for that workspace, `declined` only once every asked phone declined. Refusals: `busy` (a request for that workspace waits, or every phone waits on one), `cooldown` (that workspace was declined less than a minute ago), `no-phone`, `not-reached` (no caller of yours in that workspace), `not-an-agent`, `unknown-pane`, `invalid-reason`. Call it only
   for a request the agent made itself, from the agent's own pane.
 - Ostia keeps no frame, request, result or event and logs none of them.
 
