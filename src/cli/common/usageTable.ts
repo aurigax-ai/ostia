@@ -83,10 +83,10 @@ export const USAGE_TABLE: readonly NounUsage[] = [
       },
       {
         verb: 'send',
-        args: `${PANE} [--enter] [--paste|--raw] [--force] [--] <text…|->`,
+        args: `${PANE} [--enter] [--paste|--raw] [--force] [--json] [--] <text…|->`,
         about: 'type text into a terminal pane (no Enter unless --enter) and confirm it showed',
       },
-      { verb: 'key', args: `${PANE} <key>…`, about: 'press keys in a terminal pane' },
+      { verb: 'key', args: `${PANE} <key>… [--json]`, about: 'press keys in a terminal pane' },
       { verb: 'read', args: `${PANE} [--lines N] [--json]`, about: 'its screen as plain text' },
       {
         verb: 'status',
@@ -220,11 +220,15 @@ export const USAGE_TABLE: readonly NounUsage[] = [
       },
       {
         verb: 'inbox',
-        args: '[--take]',
-        about: 'messages waiting for you (JSON); --take delivers them',
+        args: '[--take] [--json]',
+        about: 'messages waiting for you; --take delivers them',
       },
       { verb: 'sent', args: '[--json]', about: 'messages you sent and where each one stands' },
-      { verb: 'wait', args: '[--timeout <s>]', about: 'block until a message arrives' },
+      {
+        verb: 'wait',
+        args: '[--timeout <s>] [--json]',
+        about: 'block until a message arrives; exit 2 timed out',
+      },
       {
         verb: 'handoff',
         args: `${PANE} --task "<task>" --summary "<summary>"`,

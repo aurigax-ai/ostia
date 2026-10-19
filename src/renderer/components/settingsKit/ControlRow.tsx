@@ -1,10 +1,9 @@
 import { Hint } from '@/components/common/Hint'
 import { Badge } from '@/components/ui/badge'
-import { Input } from '@/components/ui/input'
 import { Switch } from '@/components/ui/switch'
 import { useDict } from '@/lib/app/useDict'
 import { cn } from '@/lib/utils'
-import { useEffect, useState } from 'react'
+import { NumberInput } from './CommitInput'
 import { Highlight, SearchScopeProvider, useSearchRow } from './SettingsSearch'
 
 export function ControlRow({
@@ -118,6 +117,7 @@ export function NumberRow({
   value,
   min,
   max,
+  step,
   onCommit,
 }: {
   label: string
@@ -125,29 +125,18 @@ export function NumberRow({
   value: number
   min: number
   max: number
+  step?: number
   onCommit: (n: number) => void
 }): JSX.Element {
-  const [draft, setDraft] = useState(String(value))
-  useEffect(() => setDraft(String(value)), [value])
-  const commit = (): void => {
-    const n = Number(draft)
-    if (draft.trim() && Number.isFinite(n)) onCommit(n)
-    else setDraft(String(value))
-  }
   return (
     <ControlRow label={label} desc={desc}>
-      <Input
-        type="number"
-        inputMode="numeric"
+      <NumberInput
         min={min}
         max={max}
-        value={draft}
+        step={step}
+        value={value}
         aria-label={label}
-        onChange={(e) => setDraft(e.target.value)}
-        onBlur={commit}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter') commit()
-        }}
+        onCommit={onCommit}
         className="h-7 w-24 font-mono"
       />
     </ControlRow>

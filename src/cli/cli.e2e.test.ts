@@ -507,7 +507,7 @@ describe('ostia CLI end-to-end (spawns the real out/cli/index.js against a live 
     const missing = await runOstia(['bus', 'wait', '--timeout'], env)
     expect(missing.code).toBe(1)
     expect(missing.stderr.trim()).toMatch(
-      /^ostia bus wait: --timeout needs a value\nusage: ostia bus wait \[--timeout <s>\]\n/,
+      /^ostia bus wait: --timeout needs a value\nusage: ostia bus wait \[--timeout <s>\] \[--json\]\n/,
     )
   })
 

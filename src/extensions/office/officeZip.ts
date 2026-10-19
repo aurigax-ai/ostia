@@ -18,8 +18,12 @@ function holdsUtf16(bytes: Uint8Array, ascii: Uint8Array): boolean {
   return false
 }
 
+export function isCompoundFile(bytes: Uint8Array): boolean {
+  return COMPOUND_FILE.every((byte, i) => bytes[i] === byte)
+}
+
 export function requirePackage(bytes: Uint8Array): void {
-  if (COMPOUND_FILE.every((byte, i) => bytes[i] === byte)) {
+  if (isCompoundFile(bytes)) {
     if (holdsUtf16(bytes, ENCRYPTED_PACKAGE)) throw new GuardStop('encrypted')
     return
   }

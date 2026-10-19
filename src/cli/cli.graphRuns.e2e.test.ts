@@ -187,7 +187,7 @@ edges: []
     )
     await h.enable('tell')
     const opened = h.opened.length
-    const waiting = h.cli(h.human, ['bus', 'wait', '--timeout', '20000'])
+    const waiting = h.cli(h.human, ['bus', 'wait', '--timeout', '20000', '--json'])
     await new Promise((r) => setTimeout(r, 500))
     const run = await h.cli(h.human, ['graph', 'run', 'tell'])
     const got = JSON.parse((await waiting).stdout) as { messages: { text: string; from: string }[] }

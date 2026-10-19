@@ -117,10 +117,14 @@ interface Answer {
 interface Waited {
   messages: Wire[]
   timedOut: boolean
+  lease?: string
 }
 
-const inbox = (identity = receiver, take = false) =>
-  call<{ messages: Wire[] }>('bus.inbox', identity, { take }).messages
+function inbox(identity = receiver, take = false): Wire[] {
+  const res = call<{ messages: Wire[]; lease?: string }>('bus.inbox', identity, { take })
+  if (res.lease) call('bus.ack', identity, { lease: res.lease })
+  return res.messages
+}
 const sent = (identity = sender) =>
   call<Promise<{ messages: Sent[] }>>('bus.sent', identity).then((res) => res.messages)
 const send = (text: string, to = receiver.externalId, from = sender, extra = {}) =>
@@ -178,13 +182,38 @@ describe('bus.send', () => {
   it('hands a message straight to a pane blocked in bus wait', async () => {
     const waiting = call<Promise<Waited>>('bus.wait', receiver, { timeoutMs: 5000 })
     const res = await send('wake up')
-    expect(res).toMatchObject({ ok: true, state: 'delivered', via: 'read' })
+    expect(res).toMatchObject({ ok: true, state: 'leased' })
     expect(res).not.toHaveProperty('pending')
     expect(announce).not.toHaveBeenCalled()
     const woken = await waiting
     expect(woken.timedOut).toBe(false)
     expect(woken.messages.map((m) => m.text)).toEqual(['wake up'])
+    ack(woken.lease)
     expect((await sent())[0]).toMatchObject({ state: 'delivered', via: 'read' })
+  })
+
+  it('keeps a message handed to bus wait when the client dies before it acknowledges', async () => {
+    const closers: Closer[] = []
+    const waiting = call<Promise<Waited>>('bus.wait', receiver, { timeoutMs: 5000 }, closers)
+    await send('do not lose me')
+    expect((await waiting).messages.map((m) => m.text)).toEqual(['do not lose me'])
+    for (const close of [...closers]) close()
+    expect(inbox()).toMatchObject([{ text: 'do not lose me', state: 'queued' }])
+    expect((await sent())[0]).toMatchObject({ state: 'queued' })
+  })
+
+  it('keeps messages taken from the inbox when the client dies before it acknowledges', async () => {
+    await send('still here')
+    const closers: Closer[] = []
+    const taken = call<{ messages: Wire[]; lease?: string }>(
+      'bus.inbox',
+      receiver,
+      { take: true },
+      closers,
+    )
+    expect(taken.lease).toBeDefined()
+    for (const close of [...closers]) close()
+    expect(inbox()).toMatchObject([{ text: 'still here', state: 'queued' }])
   })
 
   it('queues again once the waiting command lost its connection', async () => {
@@ -262,6 +291,15 @@ describe('bus.send --wait', () => {
     await vi.waitFor(() => expect(inbox()).toHaveLength(1))
     inbox(receiver, true)
     expect(await waiting).toMatchObject({ ok: true, state: 'delivered', via: 'read' })
+  })
+
+  it('waits through the lease of a pane blocked in bus wait and answers delivered on its ack', async () => {
+    const waiting = call<Promise<Waited>>('bus.wait', receiver, { timeoutMs: 5000 })
+    const sending = send('read this', receiver.externalId, sender, { waitMs: 5000 })
+    const woken = await waiting
+    expect(woken.messages.map((m) => m.text)).toEqual(['read this'])
+    ack(woken.lease)
+    expect(await sending).toMatchObject({ ok: true, state: 'delivered', via: 'read' })
   })
 
   it('answers failed when the receiver’s pane closes', async () => {
@@ -703,9 +741,9 @@ describe('bus observation', () => {
   })
 
   it('reports a message handed to a waiting pane as queued, then delivered', async () => {
-    const waiting = call<Promise<unknown>>('bus.wait', receiver, { timeoutMs: 5000 })
+    const waiting = call<Promise<Waited>>('bus.wait', receiver, { timeoutMs: 5000 })
     await send('wake up')
-    await waiting
+    ack((await waiting).lease)
     expect(observed.mock.calls.map(([o]) => o.phase)).toEqual(['queued', 'delivered'])
   })
 

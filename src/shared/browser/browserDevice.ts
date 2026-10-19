@@ -24,7 +24,7 @@ export const DEFAULT_DEVICE: BrowserDevice = {
   zoom: 'fit',
 }
 
-export function clampDeviceSize(size: number): number {
+function clampDeviceSize(size: number): number {
   return Math.min(DEVICE_SIZE_MAX, Math.max(DEVICE_SIZE_MIN, Math.round(size)))
 }
 

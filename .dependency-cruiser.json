@@ -122,7 +122,7 @@
       "name": "only-office-imports-its-parsers",
       "severity": "error",
       "from": { "pathNot": "^src/extensions/office/|^test/" },
-      "to": { "path": "node_modules/(xlsx|mammoth|dompurify)/" }
+      "to": { "path": "node_modules/(xlsx|mammoth|dompurify|word-extractor)/" }
     },
     {
       "name": "files-reads-no-archive-format",
