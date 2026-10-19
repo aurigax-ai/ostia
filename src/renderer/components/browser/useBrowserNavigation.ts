@@ -3,13 +3,15 @@ import { useSettingsStore } from '@/stores/app/settingsStore'
 import type { WebviewTag } from 'electron'
 import { type KeyboardEvent, useCallback, useEffect, useRef, useState } from 'react'
 
+export const BLANK_PAGE = 'about:blank'
+
 interface BrowserNavigationParams {
   url?: string
 }
 
 export function useBrowserNavigation({ url }: BrowserNavigationParams) {
   const webviewRef = useRef<HTMLElement | null>(null)
-  const startUrl = useRef(url || 'about:blank')
+  const startUrl = useRef(url || BLANK_PAGE)
   const lastAppliedUrlRef = useRef(startUrl.current)
   const readyRef = useRef(false)
   const pendingUrlRef = useRef<string | null>(null)
