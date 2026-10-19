@@ -24,7 +24,6 @@ async function main(): Promise<void> {
       devices: () => listDevices(process.platform, readdir),
       execPath: process.execPath,
       script: __filename,
-      confirm: (req) => ext.confirm(req),
       openTerminal: (opts) => ext.openTerminal(opts),
     }),
   )

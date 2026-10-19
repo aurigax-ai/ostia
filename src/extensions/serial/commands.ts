@@ -1,6 +1,5 @@
 import {
   type CommandHandler,
-  type ConfirmRequest,
   type ExtensionResult,
   type OpenTerminalResult,
   cliArgs,
@@ -11,7 +10,7 @@ import type {
   ExtensionCaller,
   OpenTerminalOptions,
 } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
-import { bridgeCommand, lineText, paneTitle } from './bridge'
+import { bridgeCommand, paneTitle } from './bridge'
 import {
   DEFAULT_FRAME,
   DEFAULT_SPEED,
@@ -29,7 +28,6 @@ export interface SerialDeps {
   devices: () => string[]
   execPath: string
   script: string
-  confirm: (req: ConfirmRequest) => Promise<boolean>
   openTerminal: (opts: OpenTerminalOptions) => Promise<OpenTerminalResult>
 }
 
@@ -55,18 +53,6 @@ export function parseTarget(
 
 function isFailure(value: Target | null | ExtensionResult): value is ExtensionResult {
   return value !== null && 'ok' in value
-}
-
-function confirmRequest(target: Target | null, s: Strings): ConfirmRequest {
-  const device = target?.device ?? '?'
-  const line = target ? lineText(target.line) : `${DEFAULT_SPEED} ${DEFAULT_FRAME}`
-  return {
-    title: s.confirmTitle,
-    message: s.confirmMessage(device),
-    detail: s.confirmDetail(device, line),
-    confirmLabel: s.connect,
-    cancelLabel: s.deny,
-  }
 }
 
 function describe(target: Target | null): Record<string, unknown> {
@@ -96,14 +82,6 @@ export function serialCommands(deps: SerialDeps): Record<'ls' | 'connect', Comma
       const target = parseTarget(cliArgs(args)?.argv ?? [], deps.platform, s)
       if (isFailure(target)) return target
       const summary = describe(target)
-      if (caller.kind === 'pane' && !(await deps.confirm(confirmRequest(target, s)))) {
-        return {
-          ok: false,
-          error: 'denied',
-          message: s.denied,
-          data: { approved: false, ...summary },
-        }
-      }
       const opened = await deps.openTerminal({
         command: bridgeCommand(deps.execPath, deps.script, caller.locale, target ?? undefined),
         workspaceId: caller.workspaceId,
@@ -113,7 +91,7 @@ export function serialCommands(deps: SerialDeps): Record<'ls' | 'connect', Comma
       if (!opened.ok) {
         return failure('not-opened', s.notOpened(opened.message ?? opened.error))
       }
-      return ok(undefined, { approved: true, ...summary, paneId: opened.paneId })
+      return ok(undefined, { ...summary, paneId: opened.paneId })
     },
   }
 }

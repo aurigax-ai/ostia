@@ -1,4 +1,4 @@
-import type { ConfirmRequest, OpenTerminalResult } from '@aurigax-ai/ostia-extension-sdk'
+import type { OpenTerminalResult } from '@aurigax-ai/ostia-extension-sdk'
 import type {
   ExtensionCaller,
   OpenTerminalOptions,
@@ -9,13 +9,12 @@ import { CONNECT_USAGE } from './strings'
 
 const DEVICE = '/dev/cu.usbserial-A10K2'
 
-function setup(opened: OpenTerminalResult = { ok: true, paneId: 'pane-serial' }, approve = true) {
+function setup(opened: OpenTerminalResult = { ok: true, paneId: 'pane-serial' }) {
   const deps = {
     platform: 'darwin' as NodeJS.Platform,
     devices: vi.fn(() => [DEVICE]),
     execPath: '/Applications/Ostia.app/Contents/MacOS/Ostia',
     script: '/ext/serial/main.js',
-    confirm: vi.fn<(req: ConfirmRequest) => Promise<boolean>>(async () => approve),
     openTerminal: vi.fn<(opts: OpenTerminalOptions) => Promise<OpenTerminalResult>>(
       async () => opened,
     ),
@@ -47,11 +46,10 @@ describe('serial ls', () => {
 })
 
 describe('serial connect', () => {
-  it('opens a picker pane from the palette with no arguments and no dialog', async () => {
+  it('opens a picker pane from the palette with no arguments', async () => {
     const { commands, deps } = setup()
     const res = await commands.connect(null, caller('user', { locale: 'zh-Hant' }))
-    expect(res).toEqual({ ok: true, data: { approved: true, pick: true, paneId: 'pane-serial' } })
-    expect(deps.confirm).not.toHaveBeenCalled()
+    expect(res).toEqual({ ok: true, data: { pick: true, paneId: 'pane-serial' } })
     expect(deps.openTerminal).toHaveBeenCalledWith({
       command: [
         'env',
@@ -68,17 +66,17 @@ describe('serial connect', () => {
     })
   })
 
-  it('asks the human before a pane opens a device, then names device and speed in the title', async () => {
+  it('lets an agent open a device at once and answers the new pane id', async () => {
     const { commands, deps } = setup()
     const res = await commands.connect({ argv: [DEVICE, '9600', '7e1'] }, caller('pane'))
-    expect(deps.confirm).toHaveBeenCalledTimes(1)
-    expect(deps.confirm.mock.calls[0][0].detail).toContain(DEVICE)
-    expect(deps.confirm.mock.calls[0][0].detail).toContain('9600 7E1')
     expect(res).toEqual({
       ok: true,
-      data: { approved: true, device: DEVICE, speed: 9600, frame: '7E1', paneId: 'pane-serial' },
+      data: { device: DEVICE, speed: 9600, frame: '7E1', paneId: 'pane-serial' },
     })
+    expect(deps.openTerminal).toHaveBeenCalledTimes(1)
     const opts = deps.openTerminal.mock.calls[0][0]
+    expect(opts.workspaceId).toBe('ws-1')
+    expect(opts.afterPaneId).toBe('pane-1')
     expect(opts.title).toBe('cu.usbserial-A10K2 9600 7E1')
     expect(opts.command).toEqual([
       'env',
@@ -101,18 +99,39 @@ describe('serial connect', () => {
     expect(deps.openTerminal.mock.calls[0][0].title).toBe('cu.usbserial-A10K2 115200 8N1')
   })
 
-  it('opens nothing when the human denies', async () => {
-    const { commands, deps } = setup(undefined, false)
-    const res = await commands.connect({ argv: [DEVICE] }, caller('pane'))
-    expect(res).toMatchObject({ ok: false, error: 'denied', data: { approved: false } })
-    expect(deps.openTerminal).not.toHaveBeenCalled()
+  it('opens only serial device paths, never other files', async () => {
+    const { commands, deps } = setup()
+    for (const device of [
+      '/etc/passwd',
+      '/dev/disk0',
+      '/dev/tty.usbserial-A10K2',
+      '/dev/ttyUSB0',
+      '/dev/cu.usbserial/../../etc/passwd',
+      'cu.usbserial-A10K2',
+      `${DEVICE} `,
+      '',
+    ]) {
+      const res = await commands.connect({ argv: [device] }, caller('pane'))
+      expect(res, device).toMatchObject({ ok: false, error: 'invalid-args' })
+      expect(res.ok ? '' : res.message).toContain('is not a serial device')
+    }
+    const linux = serialCommands({ ...deps, platform: 'linux' })
+    for (const device of ['/dev/ttyS0', '/dev/sda', DEVICE, '/dev/ttyUSB0x']) {
+      expect(await linux.connect({ argv: [device] }, caller('pane')), device).toMatchObject({
+        ok: false,
+        error: 'invalid-args',
+      })
+    }
+    expect(await linux.connect({ argv: ['/dev/ttyACM0'] }, caller('pane'))).toMatchObject({
+      ok: true,
+      data: { device: '/dev/ttyACM0', paneId: 'pane-serial' },
+    })
+    expect(deps.openTerminal).toHaveBeenCalledTimes(1)
   })
 
-  it('refuses bad devices, speeds, frames and extra arguments before asking', async () => {
+  it('refuses bad speeds, frames and extra arguments', async () => {
     const { commands, deps } = setup()
     const cases: [string[], string][] = [
-      [['/dev/disk0'], 'is not a serial device'],
-      [['/dev/ttyUSB0'], 'is not a serial device'],
       [[DEVICE, '12345'], 'not a supported speed'],
       [[DEVICE, '115200', '9Z9'], 'is not a frame'],
       [[DEVICE, '115200', '8N1', 'x'], CONNECT_USAGE],
@@ -122,21 +141,25 @@ describe('serial connect', () => {
       expect(res, argv.join(' ')).toMatchObject({ ok: false, error: 'invalid-args' })
       expect(res.ok ? '' : res.message).toContain(message)
     }
-    expect(deps.confirm).not.toHaveBeenCalled()
     expect(deps.openTerminal).not.toHaveBeenCalled()
   })
 
   it('reports a terminal that could not open', async () => {
     const { commands } = setup({ ok: false, error: 'rate-limited' })
-    const res = await commands.connect({ argv: [DEVICE] }, caller('user'))
+    const res = await commands.connect({ argv: [DEVICE] }, caller('pane'))
     expect(res).toMatchObject({ ok: false, error: 'not-opened' })
     expect(res.ok ? '' : res.message).toContain('rate-limited')
   })
 
-  it('refuses a sandboxed caller', async () => {
+  it('refuses a sandboxed caller, from a pane or the palette', async () => {
     const { commands, deps } = setup()
-    const res = await commands.connect({ argv: [DEVICE] }, caller('pane', { sandboxed: true }))
-    expect(res).toMatchObject({ ok: false, error: 'sandboxed' })
+    for (const who of [caller('pane', { sandboxed: true }), caller('user', { sandboxed: true })]) {
+      expect(await commands.connect({ argv: [DEVICE] }, who)).toMatchObject({
+        ok: false,
+        error: 'sandboxed',
+      })
+      expect(await commands.connect(null, who)).toMatchObject({ ok: false, error: 'sandboxed' })
+    }
     expect(deps.openTerminal).not.toHaveBeenCalled()
   })
 })

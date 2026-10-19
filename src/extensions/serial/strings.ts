@@ -10,12 +10,6 @@ export interface Strings {
   badDevice: (device: string, globs: string) => string
   badSpeed: (speed: string) => string
   badFrame: (frame: string) => string
-  confirmTitle: string
-  confirmMessage: (device: string) => string
-  confirmDetail: (device: string, line: string) => string
-  connect: string
-  deny: string
-  denied: string
   notOpened: (reason: string) => string
   noDevices: (globs: string) => string
   devicesHeading: string
@@ -42,13 +36,6 @@ const en: Strings = {
   badSpeed: (speed) => `${speed} is not a supported speed`,
   badFrame: (frame) =>
     `${frame} is not a frame; write data bits (5-8), parity (N, E or O) and stop bits (1 or 2), like 8N1 or 7E1`,
-  confirmTitle: 'Open serial console',
-  confirmMessage: (device) => `A command in a pane asks to open the serial device ${device}.`,
-  confirmDetail: (device, line) =>
-    `Device: ${device}\nSettings: ${line}\n\nIt opens in a new terminal beside the caller. You and agents type into the same connection; closing the terminal releases the device.`,
-  connect: 'Connect',
-  deny: 'Deny',
-  denied: 'the human denied the connection; nothing was opened',
   notOpened: (reason) => `the terminal could not be opened (${reason})`,
   noDevices: (globs) =>
     `No serial device found (looked for ${globs}). Plug in the adapter and run the command again.`,
@@ -80,13 +67,6 @@ const zhHant: Strings = {
   badSpeed: (speed) => `不支援 ${speed} 這個速率`,
   badFrame: (frame) =>
     `${frame} 不是有效的資料格式；請依序寫資料位元（5-8）、同位檢查（N、E 或 O）與停止位元（1 或 2），例如 8N1 或 7E1`,
-  confirmTitle: '開啟序列主控台',
-  confirmMessage: (device) => `某個窗格中的指令要求開啟序列裝置 ${device}。`,
-  confirmDetail: (device, line) =>
-    `裝置：${device}\n設定：${line}\n\n會在呼叫者旁的新終端機中開啟。你與代理程式共用同一條連線輸入；關閉終端機就會釋放裝置。`,
-  connect: '連線',
-  deny: '拒絕',
-  denied: '使用者拒絕連線；沒有開啟任何終端機',
   notOpened: (reason) => `無法開啟終端機（${reason}）`,
   noDevices: (globs) => `找不到序列裝置（已找過 ${globs}）。請插上轉接線後再執行一次。`,
   devicesHeading: '序列裝置：',
