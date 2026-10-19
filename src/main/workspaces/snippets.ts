@@ -1,4 +1,4 @@
-import { lstatSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs'
+import { lstatSync, mkdirSync, readdirSync, realpathSync, writeFileSync } from 'node:fs'
 import { basename, join } from 'node:path'
 import {
   type Snippet,
@@ -16,6 +16,7 @@ import { parseAllDocuments, stringify } from 'yaml'
 import { registerControlMethod } from '../control/controlServer'
 import { PROJECT_DIR } from '../platform/jsonStore'
 import { resolveSafe } from '../platform/pathGuard'
+import { readRegularFileSync } from '../platform/regularFileSync'
 
 export const SNIPPET_FILE_MAX_BYTES = 64 * 1024
 export const SNIPPET_FILES_MAX = 200
@@ -39,7 +40,14 @@ export function workspaceSnippetsDir(workDir: string): string {
 }
 
 function workspaceSnippets(workDir: string): SnippetListing {
-  return readSnippetDir(workspaceSnippetsDir(workDir), 'workspace')
+  let real: string
+  try {
+    real = realpathSync(workDir)
+  } catch {
+    return { snippets: [], problems: [] }
+  }
+  if (!isRealDir(join(real, PROJECT_DIR))) return { snippets: [], problems: [] }
+  return readSnippetDir(workspaceSnippetsDir(real), 'workspace')
 }
 
 function isRealDir(path: string): boolean {
@@ -79,31 +87,26 @@ export function parseSnippetFile(text: string): Snippet[] | Error {
   return out
 }
 
+const READ_ERRORS = {
+  unreadable: 'not readable',
+  'not-a-file': 'not a regular file',
+  moved: 'symbolic links are not read',
+  'too-large': `larger than ${SNIPPET_FILE_MAX_BYTES / 1024} KiB`,
+} as const
+
 function readFile(path: string): string | Error {
-  let stat: ReturnType<typeof lstatSync>
-  try {
-    stat = lstatSync(path)
-  } catch (err) {
-    return err as Error
-  }
-  if (stat.isSymbolicLink()) return new Error('symbolic links are not read')
-  if (!stat.isFile()) return new Error('not a regular file')
-  if (stat.size > SNIPPET_FILE_MAX_BYTES) {
-    return new Error(`larger than ${SNIPPET_FILE_MAX_BYTES / 1024} KiB`)
-  }
-  try {
-    return readFileSync(path, 'utf8')
-  } catch (err) {
-    return err as Error
-  }
+  const read = readRegularFileSync(path, SNIPPET_FILE_MAX_BYTES)
+  return read.ok ? read.body.toString('utf8') : new Error(READ_ERRORS[read.error])
 }
 
 export function readSnippetDir(dir: string, source: SnippetSource): SnippetListing {
   const listing: SnippetListing = { snippets: [], problems: [] }
   if (!isRealDir(dir)) return listing
+  let base: string
   let names: string[]
   try {
-    names = readdirSync(dir)
+    base = realpathSync(dir)
+    names = readdirSync(base)
       .filter((n) => SNIPPET_FILE.test(n))
       .sort()
   } catch {
@@ -118,7 +121,7 @@ export function readSnippetDir(dir: string, source: SnippetSource): SnippetListi
     names = names.slice(0, SNIPPET_FILES_MAX)
   }
   for (const name of names) {
-    const text = readFile(join(dir, name))
+    const text = readFile(join(base, name))
     const parsed = text instanceof Error ? text : parseSnippetFile(text)
     if (parsed instanceof Error) {
       listing.problems.push({ source, origin: name, error: parsed.message })

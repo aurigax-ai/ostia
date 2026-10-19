@@ -45,15 +45,21 @@ export async function snippetList(
       typeof p.sessionId === 'string'
         ? (await deps.listWorkspaces()).find((w) => w.workspaceId === p.sessionId)
         : undefined
-    if (!workspace || workspace.kind === 'scratch') {
+    if (
+      !workspace ||
+      workspace.kind === 'scratch' ||
+      workspace.kind === 'manager' ||
+      workspace.sandboxed
+    ) {
       return { ok: false, code: -32602, message: 'unknown-session' }
     }
     workspaceId = workspace.workspaceId
   }
-  const own = deps
-    .ownSnippets(workspaceId)
-    .filter((s) => s.source === 'user' || s.source === 'workspace')
-    .slice(0, SNIPPETS_MAX)
+  const listed = deps.ownSnippets(workspaceId)
+  const own = [
+    ...listed.filter((s) => s.source === 'user'),
+    ...listed.filter((s) => s.source === 'workspace'),
+  ].slice(0, SNIPPETS_MAX)
   try {
     const snippets = []
     for (const snippet of own) snippets.push(await wireSnippet(snippet, deps.redact))
