@@ -1,6 +1,6 @@
 import type { MessageConnection } from 'vscode-jsonrpc/node'
 import { parseArgs } from '../common/args'
-import { failUsage } from '../common/failure'
+import { fail, failUsage } from '../common/failure'
 
 export async function runSecretVerb(conn: MessageConnection): Promise<void> {
   const sub = process.argv[3]
@@ -15,8 +15,7 @@ export async function runSecretVerb(conn: MessageConnection): Promise<void> {
     const target = positional[0]
     const reason = values.reason ?? ''
     if (!target) {
-      console.error('ostia secret get: missing <name>')
-      process.exitCode = 1
+      fail('ostia secret get: missing <name>')
       return
     }
     const res = await conn.sendRequest<{ ok: boolean; value?: string; error?: string }>(
@@ -26,8 +25,7 @@ export async function runSecretVerb(conn: MessageConnection): Promise<void> {
     if (res.ok && res.value !== undefined) {
       process.stdout.write(res.value)
     } else {
-      console.error(`ostia: ${res.error ?? 'failed'}`)
-      process.exitCode = 1
+      fail(`ostia: ${res.error ?? 'failed'}`)
     }
   } else {
     failUsage('secret')
@@ -39,8 +37,7 @@ export async function runSandboxVerb(conn: MessageConnection): Promise<void> {
   const value = process.argv[4]
   if (sub === 'request-domain') {
     if (!value) {
-      console.error('ostia sandbox request-domain: missing <host>')
-      process.exitCode = 1
+      fail('ostia sandbox request-domain: missing <host>')
       return
     }
     const res = await conn.sendRequest<{
@@ -52,13 +49,11 @@ export async function runSandboxVerb(conn: MessageConnection): Promise<void> {
     if (res.ok) {
       console.log(`allowed: ${res.domain}`)
     } else {
-      console.error(`ostia: ${res.error}${res.reason ? ` (${res.reason})` : ''}`)
-      process.exitCode = 1
+      fail(`ostia: ${res.error}${res.reason ? ` (${res.reason})` : ''}`)
     }
   } else if (sub === 'expose') {
     if (!value) {
-      console.error('ostia sandbox expose: missing <port>')
-      process.exitCode = 1
+      fail('ostia sandbox expose: missing <port>')
       return
     }
     const res = await conn.sendRequest<{
@@ -74,8 +69,7 @@ export async function runSandboxVerb(conn: MessageConnection): Promise<void> {
     } else if (res.ok) {
       console.log(`exposed: 127.0.0.1:${res.port}`)
     } else {
-      console.error(`ostia: ${res.error}`)
-      process.exitCode = 1
+      fail(`ostia: ${res.error}`)
     }
   } else {
     failUsage('sandbox')

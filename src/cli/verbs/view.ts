@@ -12,6 +12,7 @@ import {
   viewNameOf,
 } from '../../shared/views/views'
 import { parseArgs } from '../common/args'
+import { fail } from '../common/failure'
 import { usageOf } from '../common/usageTable'
 
 const VIEW_USAGE = usageOf('view')
@@ -99,10 +100,8 @@ export async function runViewVerb(conn: MessageConnection, argv: readonly string
       console.log('ok')
       return
     }
-    console.error(`ostia view open: ${res.message ?? res.error ?? 'failed'}`)
-    process.exitCode = 1
+    fail(`ostia view open: ${res.message ?? res.error ?? 'failed'}`)
     return
   }
-  console.error(VIEW_USAGE)
-  process.exitCode = 1
+  fail(VIEW_USAGE)
 }
