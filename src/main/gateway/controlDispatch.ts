@@ -6,7 +6,8 @@ import type { Ask, AskAnswerResult } from '../approvals/asks'
 import { internalPaneArgs } from '../control/commandArgs'
 import { type PaneIdentity, resolveExternal } from '../control/idRegistry'
 import type { PaneEntry, WorkspaceEntry, WorkspaceGroupEntry } from '../panes/paneList'
-import type { PhoneAgent, PhoneAgentStart } from '../panes/processManager'
+import { type PhoneAgent, phoneAgentCommand } from '../panes/phoneAgent'
+import type { PhoneAgentStart } from '../panes/processManager'
 import { listArtifactFiles, locateArtifactFile, readArtifactFile } from './artifactFiles'
 import {
   type PhoneFileScope,
@@ -42,6 +43,21 @@ export interface GatewayControlDeps {
 
 const PHONE_PROMPT_MAX = 8000
 const AGENT_START_PROMPT_MAX = 4000
+const AGENT_STARTS_PER_MINUTE = 3
+const MINUTE_MS = 60_000
+const PHONE_WORKSPACE_KINDS: ReadonlySet<string> = new Set(['agent', 'terminal'])
+const agentStarts = new Map<string, number[]>()
+
+function startAllowed(deviceId: string): boolean {
+  const now = Date.now()
+  const recent = (agentStarts.get(deviceId) ?? []).filter((at) => now - at < MINUTE_MS)
+  if (recent.length >= AGENT_STARTS_PER_MINUTE) {
+    agentStarts.set(deviceId, recent)
+    return false
+  }
+  agentStarts.set(deviceId, [...recent, now])
+  return true
+}
 export const AGENT_ENTER_DELAY_MS = 60
 
 const INTERRUPT_KEYS: Record<string, string> = { esc: '\x1b', 'ctrl-c': '\x03' }
@@ -153,6 +169,7 @@ const wait = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(
 interface GatewayCall {
   p: Record<string, unknown>
   deviceCaps: string[]
+  deviceId: string
   deps: GatewayControlDeps
 }
 
@@ -316,12 +333,16 @@ async function agentStart(call: GatewayCall): Promise<RpcOutcome> {
   const { p, deps } = call
   if (typeof p.sessionId !== 'string' || !p.sessionId) return invalidParams('unknown-session')
   if (p.agent !== 'claude' && p.agent !== 'codex') return invalidParams('bad-params')
+  const agent: PhoneAgent = p.agent
   const prompt = typeof p.prompt === 'string' ? plainBlock(p.prompt) : ''
-  if (!prompt || prompt.length > AGENT_START_PROMPT_MAX) return invalidParams('bad-params')
+  if (prompt.length > AGENT_START_PROMPT_MAX || !phoneAgentCommand(agent, prompt)) {
+    return invalidParams('bad-params')
+  }
   const workspace = (await deps.listWorkspaces()).find((w) => w.workspaceId === p.sessionId)
   if (!workspace) return invalidParams('unknown-session')
-  if (workspace.kind === 'scratch' || workspace.kind === 'manager') return invalidParams('refused')
-  const started = await deps.startAgent(workspace.workspaceId, p.agent, prompt)
+  if (!PHONE_WORKSPACE_KINDS.has(workspace.kind)) return invalidParams('refused')
+  if (!startAllowed(call.deviceId)) return { ok: false, code: -32007, message: 'rate-limited' }
+  const started = await deps.startAgent(workspace.workspaceId, agent, prompt)
   if (!started?.started) {
     return {
       ok: false,
@@ -330,7 +351,7 @@ async function agentStart(call: GatewayCall): Promise<RpcOutcome> {
       ...(started ? { data: { paneId: started.paneId } } : {}),
     }
   }
-  return { ok: true, result: { paneId: started.paneId } }
+  return { ok: true, result: { paneId: started.paneId, confirmed: started.confirmed } }
 }
 
 async function agentInterrupt(call: GatewayCall): Promise<RpcOutcome> {
@@ -369,10 +390,11 @@ export async function dispatchGatewayMethod(
   params: unknown,
   deviceCaps: string[],
   deps: GatewayControlDeps,
+  deviceId = '',
 ): Promise<RpcOutcome> {
   const entry = Object.hasOwn(METHODS, method) ? METHODS[method] : undefined
   if (!entry) return { ok: false, code: -32601, message: `method not found: ${method}` }
   const [cap, handler] = entry
   if (!deviceCaps.includes(cap)) return needsElevation(cap)
-  return handler({ p: (params ?? {}) as Record<string, unknown>, deviceCaps, deps })
+  return handler({ p: (params ?? {}) as Record<string, unknown>, deviceCaps, deviceId, deps })
 }

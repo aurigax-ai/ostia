@@ -5,6 +5,7 @@ import type { Reach } from '../approvals/reach'
 import { registerControlMethod, registerTargetableMethod } from '../control/controlServer'
 import { getByPaneId } from '../control/idRegistry'
 import { record } from './paneReach'
+import { type PhoneAgent, phoneAgentCommand } from './phoneAgent'
 import { type ProcessControlDeps, createProcessControl } from './processControl'
 import {
   type ProcessLaunchDeps,
@@ -57,9 +58,7 @@ const CLOSED = {
   message: 'its tab was closed; start it again with ostia process run',
 }
 
-export type PhoneAgent = 'claude' | 'codex'
-
-export type PhoneAgentStart = { paneId: string; started: boolean } | null
+export type PhoneAgentStart = { paneId: string; started: boolean; confirmed: boolean } | null
 
 export function registerProcessMethods(deps: ProcessDeps): {
   registry: ProcessRegistry
@@ -92,14 +91,16 @@ export function registerProcessMethods(deps: ProcessDeps): {
     agent: PhoneAgent,
     prompt: string,
   ): Promise<PhoneAgentStart> => {
-    const argv = [agent, prompt]
-    const started = await openAndConfirm(
-      { command: commandOf(quoteArgv(argv)), workspaceId, title: agent },
-      '',
-      deps.startsWithHook(argv),
-    )
+    const command = phoneAgentCommand(agent, prompt)
+    if (!command) return null
+    const confirmed = deps.startsWithHook([agent])
+    const started = await openAndConfirm({ command, workspaceId, title: agent }, '', confirmed)
     if (!started) return null
-    return { paneId: started.entry.externalPaneId, started: started.report.status === 'started' }
+    return {
+      paneId: started.entry.externalPaneId,
+      started: started.report.status === 'started',
+      confirmed,
+    }
   }
 
   registerControlMethod('process.run', {

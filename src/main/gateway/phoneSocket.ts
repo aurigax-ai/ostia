@@ -90,7 +90,7 @@ function handleControlMethod(
     ws.send(rpcError(msg.id, -32603, 'gateway control API not configured'))
     return
   }
-  dispatchGatewayMethod(String(msg.method), msg.params, device.caps, controlDeps)
+  dispatchGatewayMethod(String(msg.method), msg.params, device.caps, controlDeps, device.deviceId)
     .then((outcome) => {
       if (outcome.ok) ws.send(rpcResult(msg.id, outcome.result))
       else ws.send(rpcError(msg.id, outcome.code, outcome.message, outcome.data))

@@ -1045,16 +1045,28 @@ describe('startAgentForPhone', () => {
         pinTitle: true,
       },
     ])
-    expect(started).toEqual({ paneId: getByPaneId(`tab-${tabSeq}`)?.externalId, started: true })
+    expect(started).toEqual({
+      paneId: getByPaneId(`tab-${tabSeq}`)?.externalId,
+      started: true,
+      confirmed: true,
+    })
     expect(written).toEqual([])
     expect(told).toEqual([])
   })
 
   it('PHD-C22 reports a phone-started agent whose start hook never fired as not started', async () => {
-    onOpen = (paneId) => emit(paneId, `${PROMPT}codex 'hello'\r\n${C}`)
-    const started = await startAgentForPhone('ws1', 'codex', 'hello')
-    expect(started).toEqual({ paneId: getByPaneId(`tab-${tabSeq}`)?.externalId, started: false })
+    onOpen = (paneId) => emit(paneId, `${PROMPT}codex 'say hello'\r\n${C}`)
+    const started = await startAgentForPhone('ws1', 'codex', 'say hello')
+    expect(started).toEqual({
+      paneId: getByPaneId(`tab-${tabSeq}`)?.externalId,
+      started: false,
+      confirmed: true,
+    })
     openFails = true
-    expect(await startAgentForPhone('ws1', 'codex', 'hello')).toBeNull()
+    expect(await startAgentForPhone('ws1', 'codex', 'say hello')).toBeNull()
+    openFails = false
+    const before = opened.length
+    expect(await startAgentForPhone('ws1', 'codex', '--yolo now')).toBeNull()
+    expect(opened).toHaveLength(before)
   })
 })
