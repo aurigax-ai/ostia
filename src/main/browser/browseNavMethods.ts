@@ -33,11 +33,7 @@ export function registerBrowseNavMethods(deps: NavDeps): void {
       const p = (params ?? {}) as Params
       const raw = str(p.url)
       const url = raw ? normalizeUrl(raw) : undefined
-      if (
-        url &&
-        deps.allowNavigation &&
-        !(await deps.allowNavigation(ctx.identity.workspaceId, url))
-      ) {
+      if (url && !(await deps.allowNavigation(ctx.identity.workspaceId, url))) {
         return { ok: false, error: 'sandboxed', message: `the sandbox does not allow ${url}` }
       }
       const resolution = await resolveGuest(deps, ctx, str(p.paneId))

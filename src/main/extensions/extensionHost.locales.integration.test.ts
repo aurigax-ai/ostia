@@ -129,6 +129,8 @@ describe('ExtensionHost resolves manifest strings for the language', () => {
     writeFileSync(join(extDir(), 'ostia.json'), JSON.stringify(MANIFEST))
     if (opts.catalog !== undefined) writeCatalog(opts.catalog)
     host = new ExtensionHost({
+      sandboxDomains: () => null,
+      isSandboxed: () => false,
       roots: [{ dir: root, builtin: opts.builtin }],
       store: new ExtensionStore(join(dir, `${Date.now()}-${Math.random()}-extensions.json`)),
       socketPath: () => socketPath,

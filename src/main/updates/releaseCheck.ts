@@ -1,14 +1,11 @@
 import { readEnv } from '@aurigax-ai/ostia-extension-sdk/contract/appEnv'
 import { PRODUCT_NAME } from '@aurigax-ai/ostia-extension-sdk/contract/product'
-import { BrowserWindow, app, ipcMain } from 'electron'
+import { app, ipcMain } from 'electron'
 import { releaseVersion } from '../../shared/app/buildInfo'
 import {
   type InstallMethod,
   type ReleaseState,
   type ReplaceAvailability,
-  type ReplaceProgress,
-  type ReplaceState,
-  type UpdateRunState,
   isMacInstall,
   updateChannelFor,
   updateCommandLine,
@@ -253,24 +250,6 @@ function releaseState(
   return { release, method, updateCommand: updateCommandLine(method), replace }
 }
 
-function broadcast(channel: string, payload: unknown): void {
-  for (const win of BrowserWindow.getAllWindows()) {
-    if (!win.isDestroyed()) win.webContents.send(channel, payload)
-  }
-}
-
-export function announceUpdateRun(state: UpdateRunState): void {
-  broadcast('app:update-run-state', state)
-}
-
-export function announceReplace(state: ReplaceState): void {
-  broadcast('app:install-replace-state', state)
-}
-
-export function announceReplaceProgress(progress: ReplaceProgress): void {
-  broadcast('app:update-progress', progress)
-}
-
 export function registerReleaseCheck(deps: {
   openExternal: (url: string) => boolean
   readSettings: () => unknown
@@ -280,6 +259,7 @@ export function registerReleaseCheck(deps: {
   updateRunner: UpdateRunner
   replaceAvailability: () => Promise<ReplaceAvailability | null>
   replacer: InstallReplacer
+  broadcast: (channel: string, payload: unknown) => void
 }): { settingsChanged: () => void } {
   const stateOf = async (pending: ReleaseInfo | null): Promise<ReleaseState> =>
     releaseState(pending, deps.method(), pending ? await deps.replaceAvailability() : null)
@@ -306,7 +286,7 @@ export function registerReleaseCheck(deps: {
       }
     },
     onChange: (pending) => {
-      void stateOf(pending).then((state) => broadcast('app:release-available', state))
+      void stateOf(pending).then((state) => deps.broadcast('app:release-available', state))
     },
     log: (trigger, outcome, latest) =>
       deps.log?.info('release-check', { trigger, outcome, latest }),

@@ -32,6 +32,8 @@ describe('ExtensionHost confirm and panel notifications', () => {
     const socketPath = join(dir, 'control.sock')
     store = new ExtensionStore(join(dir, 'extensions.json'))
     host = new ExtensionHost({
+      sandboxDomains: () => null,
+      isSandboxed: () => false,
       roots: [{ dir: fixtures, builtin: true }],
       store,
       socketPath: () => socketPath,
