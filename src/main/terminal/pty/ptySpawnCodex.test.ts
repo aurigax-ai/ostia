@@ -1,5 +1,6 @@
 import { dirname } from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { en } from '../../../shared/app/dict'
 
 vi.mock('electron', () => ({
   app: {
@@ -26,6 +27,7 @@ function plan(sandboxed: boolean) {
     keepShellsOn: () => false,
     keptShellsProgram: () => null,
     telemetry: () => null,
+    bannerText: () => en.native.paneBanner,
   }).planSpawn('p-codex', { cwd: '/', workspaceId: 'w1', cols: 80, rows: 24 } as never, '1')
 }
 

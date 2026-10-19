@@ -419,9 +419,7 @@ export async function runPaneVerb(
   }
   if (call.method === 'pane.status') {
     const result = await conn.sendRequest<{ panes: PaneStatus[] }>(call.method, call.params)
-    console.log(
-      call.json ? JSON.stringify(result) : result.panes.map(statusLine).join('\n'),
-    )
+    console.log(call.json ? JSON.stringify(result) : result.panes.map(statusLine).join('\n'))
     return 0
   }
   if (call.method === 'pane.wait') {
