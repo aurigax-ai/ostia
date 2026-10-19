@@ -197,7 +197,7 @@ describe('TerminalView spawn size', () => {
     expect(window.ostia.pty.resize).toHaveBeenCalledWith(paneId, 90, 30)
   })
 
-  it('takes the grid a phone resized the pty to, and gives it back on the human key', async () => {
+  it('takes the grid a phone resized the pty to, and gives it back only on the human key', async () => {
     useSettingsStore.setState({
       terminal: { ...useSettingsStore.getState().terminal, renderer: 'xterm' },
     })
@@ -211,7 +211,7 @@ describe('TerminalView spawn size', () => {
     const paneId = firstPaneId(useLayoutStore.getState().byWorkspace.w1.root)
     box.width = 900
     box.height = 600
-    render(<TerminalView workspaceId="w1" paneId={paneId} />)
+    const { container } = render(<TerminalView workspaceId="w1" paneId={paneId} />)
     await act(async () => {
       layOut(900, 600)
       await nextFrame()
@@ -227,9 +227,16 @@ describe('TerminalView spawn size', () => {
     expect(terminalFor(paneId)?.rows).toBe(20)
     expect(window.ostia.pty.resize).not.toHaveBeenCalled()
 
-    act(() => terminalFor(paneId)?.input('l', true))
+    act(() => terminalFor(paneId)?.input('\x1b[5;1R', false))
+    act(() => terminalFor(paneId)?.input('\x1b[<0;3;4M', false))
+    expect(window.ostia.pty.write).toHaveBeenCalledWith(paneId, '\x1b[5;1R')
+    expect(window.ostia.pty.resize).not.toHaveBeenCalled()
+
+    const keyTarget = container.querySelector('textarea') ?? container.querySelector('.xterm-host')
+    act(() => {
+      keyTarget?.dispatchEvent(new KeyboardEvent('keydown', { key: 'l', bubbles: true }))
+    })
     expect(window.ostia.pty.resize).toHaveBeenCalledWith(paneId, 90, 30)
-    expect(window.ostia.pty.write).toHaveBeenCalledWith(paneId, 'l')
   })
 
   it('starts a terminal an extension opened in a laid-out hidden tab while the window draws no frames', async () => {

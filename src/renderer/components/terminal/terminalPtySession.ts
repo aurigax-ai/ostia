@@ -125,12 +125,16 @@ export function attachPtySession(deps: PtySessionDeps): () => void {
     lastSizeRef.current = { cols, rows }
     sizedElsewhere = true
   })
+  const takeSizeBack = (): void => {
+    if (!sizedElsewhere) return
+    sizedElsewhere = false
+    sizing.syncSize()
+  }
+  const stack = host.closest('.terminal-stack') ?? host
+  stack.addEventListener('keydown', takeSizeBack, true)
+  stack.addEventListener('paste', takeSizeBack, true)
 
   const input = term.onData((d) => {
-    if (sizedElsewhere && !FOCUS_REPORTS.has(d)) {
-      sizedElsewhere = false
-      sizing.syncSize()
-    }
     if (!holdInput(d)) window.ostia.pty.write(paneId, d)
     if (!FOCUS_REPORTS.has(d)) markPaneActivity(paneId)
     if (!FOCUS_REPORTS.has(d) && useBlocksStore.getState().selected[paneId]) {
@@ -195,6 +199,8 @@ export function attachPtySession(deps: PtySessionDeps): () => void {
     sizing.dispose()
     ro.disconnect()
     input.dispose()
+    stack.removeEventListener('keydown', takeSizeBack, true)
+    stack.removeEventListener('paste', takeSizeBack, true)
     offSize()
     offData()
     offExit()
