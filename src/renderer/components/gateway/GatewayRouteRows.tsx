@@ -174,7 +174,10 @@ export function GatewayRouteRows({
       {unreachable ? <Notice>{d.settings.remoteLoopbackOnly}</Notice> : null}
 
       {exposed ? (
-        <Notice>{fmt(d.settings.remoteAddressWarning, { address: route.bindAddress })}</Notice>
+        <>
+          <Notice>{fmt(d.settings.remoteAddressWarning, { address: route.bindAddress })}</Notice>
+          <Notice tone="info">{d.settings.remoteLanOnlyInfo}</Notice>
+        </>
       ) : null}
 
       <ToggleRow

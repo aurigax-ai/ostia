@@ -8,8 +8,20 @@ import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 import { GatewaySection } from './GatewaySection'
 
-const TAILNET_ROUTE: GatewayRoute = { bindAddress: '127.0.0.1', tailnet: true, phoneAddress: null }
-const LAN_ROUTE: GatewayRoute = { bindAddress: '192.168.2.108', tailnet: false, phoneAddress: null }
+const TAILNET_ROUTE: GatewayRoute = {
+  bindAddress: '127.0.0.1',
+  bindInterface: null,
+  tailnet: true,
+  phoneAddress: null,
+}
+const LAN_ROUTE: GatewayRoute = {
+  bindAddress: '192.168.2.108',
+  bindInterface: 'wlan0',
+  tailnet: false,
+  phoneAddress: null,
+}
+
+const LOOPBACK_ROUTE: GatewayRoute = { ...LAN_ROUTE, bindAddress: '127.0.0.1', bindInterface: null }
 
 function remoteOn(
   tailnet: GatewayTailnetState,
@@ -95,7 +107,7 @@ describe('Settings → Remote over the tailnet', () => {
   })
 
   it('TSN-C38 locks the bind address, the node switch and the phone address while remote access is on', async () => {
-    remoteOn({ state: 'off' }, { ...LAN_ROUTE, bindAddress: '127.0.0.1' })
+    remoteOn({ state: 'off' }, LOOPBACK_ROUTE)
     render(<GatewaySection />)
     expect(await screen.findByRole('combobox', { name: 'Bind address' })).toBeDisabled()
     expect(screen.getByRole('switch', { name: 'Use Ostia’s Tailscale node' })).toHaveAttribute(
@@ -115,6 +127,19 @@ describe('Settings → Remote over the tailnet', () => {
     expect(await pairButton()).toBeEnabled()
   })
 
+  it('RDS-C35 says phones on other networks need Tailscale or a tunnel, only under a local bind', async () => {
+    const info =
+      'Phones on other networks reach this computer only through Tailscale or your own tunnel.'
+    remoteOn({ state: 'off' }, LAN_ROUTE)
+    const first = render(<GatewaySection />)
+    expect(await screen.findByText(info)).toBeInTheDocument()
+    first.unmount()
+    remoteOn({ state: 'off' }, LOOPBACK_ROUTE)
+    render(<GatewaySection />)
+    await screen.findByRole('combobox', { name: 'Bind address' })
+    expect(screen.queryByText(info)).not.toBeInTheDocument()
+  })
+
   it('TSN-C45 turns the node off from its own switch, keeping the bind address', async () => {
     remoteOn({ state: 'off' }, TAILNET_ROUTE, false)
     const user = userEvent.setup()
@@ -124,14 +149,14 @@ describe('Settings → Remote over the tailnet', () => {
   })
 
   it('TSN-C43 does not warn for 127.0.0.1', async () => {
-    remoteOn({ state: 'off' }, { ...LAN_ROUTE, bindAddress: '127.0.0.1' }, false)
+    remoteOn({ state: 'off' }, LOOPBACK_ROUTE, false)
     render(<GatewaySection />)
     await screen.findByRole('textbox', { name: 'Address the phone uses' })
     expect(screen.queryByText(/Listens on/)).not.toBeInTheDocument()
   })
 
   it('TSN-C50 says a phone cannot reach 127.0.0.1 and offers no pairing until a phone address is set', async () => {
-    remoteOn({ state: 'off' }, { ...LAN_ROUTE, bindAddress: '127.0.0.1' })
+    remoteOn({ state: 'off' }, LOOPBACK_ROUTE)
     render(<GatewaySection />)
     expect(await screen.findByText(/A phone cannot reach 127\.0\.0\.1/)).toBeInTheDocument()
     expect(await pairButton()).toBeDisabled()
@@ -142,6 +167,7 @@ describe('Settings → Remote over the tailnet', () => {
       { state: 'off' },
       {
         bindAddress: '127.0.0.1',
+        bindInterface: null,
         tailnet: false,
         phoneAddress: { host: 'desk.example', port: 443 },
       },
@@ -152,20 +178,21 @@ describe('Settings → Remote over the tailnet', () => {
   })
 
   it('TSN-C46 saves the phone address the human types, and clears it when emptied', async () => {
-    remoteOn({ state: 'off' }, { ...LAN_ROUTE, bindAddress: '127.0.0.1' }, false)
+    remoteOn({ state: 'off' }, LOOPBACK_ROUTE, false)
     const user = userEvent.setup()
     render(<GatewaySection />)
     const field = await screen.findByRole('textbox', { name: 'Address the phone uses' })
     await user.type(field, 'desk.example.ts.net:443{Enter}')
     expect(window.ostia.gateway.setRoute).toHaveBeenLastCalledWith({
       bindAddress: '127.0.0.1',
+      bindInterface: null,
       tailnet: false,
       phoneAddress: { host: 'desk.example.ts.net', port: 443 },
     })
   })
 
   it('TSN-C47 refuses a phone address with a scheme or without a port, and saves nothing', async () => {
-    remoteOn({ state: 'off' }, { ...LAN_ROUTE, bindAddress: '127.0.0.1' }, false)
+    remoteOn({ state: 'off' }, LOOPBACK_ROUTE, false)
     const user = userEvent.setup()
     render(<GatewaySection />)
     const field = await screen.findByRole('textbox', { name: 'Address the phone uses' })

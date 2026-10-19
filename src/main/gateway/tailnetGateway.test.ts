@@ -15,7 +15,7 @@ vi.mock('electron', () => ({
   ipcMain: { handle: () => {} },
 }))
 
-const { configureGatewayControl, gatewayStatus, setTailnetHosts, startGateway, stopGateway } =
+const { configureGatewayControl, gatewayStatus, setTailnetNode, startGateway, stopGateway } =
   await import('./server')
 const { pairAuditLogPath } = await import('./pairing')
 
@@ -157,7 +157,7 @@ describe('gateway behind the tsnet helper', () => {
     port = started.port
     helperPort = started.helperPort ?? 0
     fingerprint = started.fingerprint
-    setTailnetHosts([TAILNET_IP, TAILNET_NAME])
+    setTailnetNode({ ip: TAILNET_IP, dnsName: TAILNET_NAME })
   }, 30_000)
 
   afterEach(() => {

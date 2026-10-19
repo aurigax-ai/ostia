@@ -1,4 +1,5 @@
-import { Bonjour, type Service } from 'bonjour-service'
+import { Bonjour, type Service, type ServiceConfig } from 'bonjour-service'
+import { LOOPBACK_ADDRESS } from '../../shared/gateway/gatewayRoute'
 
 export interface Announcement {
   name: string
@@ -6,11 +7,16 @@ export interface Announcement {
   protocol: 'tcp'
   port: number
   txt: Record<string, string>
+  host?: string
+  iface?: string
 }
 
+export type AnnouncementKey = 'pairing' | 'lan'
+
 export interface Publisher {
-  publish: (announcement: Announcement) => void
-  unpublish: () => void
+  publish: (key: AnnouncementKey, announcement: Announcement) => void
+  unpublish: (key: AnnouncementKey) => void
+  unpublishAll: () => void
 }
 
 interface AnnounceInput {
@@ -30,25 +36,59 @@ export function announcementFor(input: AnnounceInput): Announcement | null {
     type: 'ostia',
     protocol: 'tcp',
     port,
+    host: `${name}.local`,
     txt: { v: '1', name, host, port: String(port), fp: fingerprint },
   }
 }
 
+interface LanAnnounceInput {
+  name: string
+  bindHost: string | null
+  port: number | null
+}
+
+export function lanAnnouncementFor({
+  name,
+  bindHost,
+  port,
+}: LanAnnounceInput): Announcement | null {
+  if (!bindHost || bindHost === LOOPBACK_ADDRESS || !port) return null
+  return {
+    name,
+    type: 'ostia',
+    protocol: 'tcp',
+    port,
+    host: `${name}.local`,
+    iface: bindHost,
+    txt: { v: '1', mode: 'paired', port: String(port) },
+  }
+}
+
 export function createBonjourPublisher(): Publisher {
-  let bonjour: Bonjour | null = null
-  let service: Service | null = null
-  const unpublish = (): void => {
-    service?.stop?.()
-    service = null
-    bonjour?.destroy()
-    bonjour = null
+  const running = new Map<AnnouncementKey, { bonjour: Bonjour; service: Service }>()
+  const unpublish = (key: AnnouncementKey): void => {
+    const entry = running.get(key)
+    if (!entry) return
+    running.delete(key)
+    entry.service.stop?.()
+    entry.bonjour.destroy()
   }
   return {
-    publish: (announcement) => {
-      unpublish()
-      bonjour = new Bonjour()
-      service = bonjour.publish(announcement)
+    publish: (key, { iface, ...announcement }) => {
+      unpublish(key)
+      const options: Partial<ServiceConfig> & { interface?: string } = { interface: iface }
+      const bonjour = new Bonjour(iface ? options : undefined)
+      const service = bonjour.publish({ ...announcement, disableIPv6: true })
+      if (iface) {
+        const records = service.records.bind(service)
+        service.records = () =>
+          records().filter((r) => (r.type === 'A' ? r.data === iface : r.type !== 'AAAA'))
+      }
+      running.set(key, { bonjour, service })
     },
     unpublish,
+    unpublishAll: () => {
+      for (const key of [...running.keys()]) unpublish(key)
+    },
   }
 }

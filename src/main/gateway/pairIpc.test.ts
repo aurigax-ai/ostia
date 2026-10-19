@@ -48,7 +48,7 @@ vi.mock('./server', () => ({
     deviceCount: 0,
   }),
   gatewayHelperPort: () => (server.running ? 40001 : null),
-  setTailnetHosts: vi.fn(),
+  setTailnetNode: vi.fn(),
   applyDeviceCaps: vi.fn(),
   closeDeviceSockets: vi.fn(),
 }))
