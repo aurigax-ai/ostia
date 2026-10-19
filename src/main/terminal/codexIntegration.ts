@@ -22,9 +22,9 @@ import {
   IN_PANE,
   busHookCommand,
   hookCommand,
-  turnHookCommand,
   hooksFor,
   permissionHookCommand,
+  turnHookCommand,
 } from './agentHookCommands'
 import { writeSkillFiles } from './claudeIntegration'
 

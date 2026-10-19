@@ -69,7 +69,13 @@ describe('PaneTurns', () => {
   it('PHT-C8 keeps each command with its own result, and a late step after Stop in that turn', () => {
     const turns = new PaneTurns()
     turns.report('p2', { kind: 'step', step: 'command', target: 'a', exitCode: 0 })
-    turns.report('p2', { kind: 'step', step: 'command', target: 'b', exitCode: 2, output: 'b failed' })
+    turns.report('p2', {
+      kind: 'step',
+      step: 'command',
+      target: 'b',
+      exitCode: 2,
+      output: 'b failed',
+    })
     turns.report('p2', { kind: 'stop', message: 'done' })
     turns.report('p2', { kind: 'step', step: 'read', target: 'late.ts' })
     turns.report('p2', { kind: 'prompt', text: 'next one' })
@@ -97,7 +103,10 @@ describe('pane.reportTurn', () => {
       method?.handler(params, { identity }) as Promise<unknown>
 
     expect(
-      await call({ kind: 'pane', paneId: 'p1' }, { kind: 'prompt', text: 'hello there', paneId: 'p9' }),
+      await call(
+        { kind: 'pane', paneId: 'p1' },
+        { kind: 'prompt', text: 'hello there', paneId: 'p9' },
+      ),
     ).toEqual({ ok: true })
     expect(turns.list('p1').map((t) => t.prompt)).toEqual(['hello there'])
     expect(turns.list('p9')).toEqual([])

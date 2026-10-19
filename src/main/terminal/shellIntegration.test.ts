@@ -1100,7 +1100,6 @@ describe('shellIntegrationSpawnOptions', () => {
       expect(Object.keys(commands)).toEqual([
         'SessionStart',
         'UserPromptSubmit',
-        'PreToolUse',
         'PermissionRequest',
         'PostToolUse',
         'Stop',
@@ -1298,17 +1297,16 @@ describe('shellIntegrationSpawnOptions', () => {
       expect(commands('SessionStart')[1]).toBe(busHookCommand('SessionStart'))
       expect(commands('SessionStart')[2]).toContain('agent-hook kit on-hook claude SessionStart')
       expect(hooks.PreToolUse[1].hooks.map((h) => h.command)).toEqual([
-        expect.stringContaining('turn-hook PreToolUse'),
         extensionHookCommand(toolHook, 'claude'),
       ])
       expect(commands('Notification')[1]).toContain('agent-hook kit on-hook claude Notification')
       const codex = codexHookCommands(CONTEXT, content.hooks)
-      expect(codex.PreToolUse).toEqual([
-        expect.stringContaining('turn-hook PreToolUse'),
-        extensionHookCommand(toolHook, 'codex'),
-      ])
+      expect(codex.PreToolUse).toEqual([extensionHookCommand(toolHook, 'codex')])
       expect(JSON.stringify(codex)).not.toContain('Notification')
-      expect(claudeHookSettings().hooks.PreToolUse).toHaveLength(2)
+      expect(claudeHookSettings().hooks.PreToolUse).toHaveLength(1)
+      expect(JSON.stringify(claudeHookSettings().hooks.PostToolUse)).toContain(
+        '| ELECTRON_RUN_AS_NODE=1',
+      )
     })
 
     it('trusts each extension hook by its own Codex hash and handler index', () => {

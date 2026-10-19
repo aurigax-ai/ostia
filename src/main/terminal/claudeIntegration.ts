@@ -22,9 +22,9 @@ import {
   CLI_PATH,
   busHookCommand,
   hookCommand,
-  turnHookCommand,
   hooksFor,
   permissionHookCommand,
+  turnHookCommand,
 } from './agentHookCommands'
 import claudeModSource from './claudeMod/register.ts?raw'
 

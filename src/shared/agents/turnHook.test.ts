@@ -51,7 +51,10 @@ describe('turnReportOf', () => {
     expect(text).not.toContain('\u001b')
     expect(new TextEncoder().encode(text).length).toBeLessThanOrEqual(TURN_OUTPUT_MAX)
     expect(
-      turnReportOf('PostToolUse', hook({ tool_name: 'shell', tool_input: { command: ['ls', '-la'] } })),
+      turnReportOf(
+        'PostToolUse',
+        hook({ tool_name: 'shell', tool_input: { command: ['ls', '-la'] } }),
+      ),
     ).toEqual({ kind: 'step', step: 'command', target: 'ls -la' })
   })
 
@@ -71,7 +74,9 @@ describe('turnReportOf', () => {
     expect(
       normalizeTurnReport({ kind: 'step', step: 'command', exitCode: 999, output: '\u001b[1mok' }),
     ).toEqual({ kind: 'step', step: 'command', output: 'ok' })
-    expect(normalizeTurnReport({ kind: 'step', step: 'edit', target: 'a\nb', output: 'x' })).toEqual({
+    expect(
+      normalizeTurnReport({ kind: 'step', step: 'edit', target: 'a\nb', output: 'x' }),
+    ).toEqual({
       kind: 'step',
       step: 'edit',
       target: 'a b',
