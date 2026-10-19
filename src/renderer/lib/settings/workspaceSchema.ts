@@ -1,7 +1,4 @@
-import {
-  FILE_VIEWER_TYPE_PATTERN,
-  OWN_VIEW,
-} from '@aurigax-ai/ostia-extension-sdk/contract/fileViewers'
+import { FILE_KIND_ID_PATTERN, OWN_VIEW } from '@aurigax-ai/ostia-extension-sdk/contract/fileKinds'
 import { PRODUCT_DISPLAY_NAME } from '@aurigax-ai/ostia-extension-sdk/contract/productDisplay'
 import { GIT_POLL_SECONDS } from '@shared/boards/git'
 import { PORTS_INTERVAL_SECONDS } from '@shared/boards/ports'
@@ -93,7 +90,7 @@ export const filesSchema = {
       type: 'object',
       maxProperties: VIEWER_ASSOCIATIONS_MAX,
       additionalProperties: {
-        anyOf: [{ const: OWN_VIEW }, { type: 'string', pattern: FILE_VIEWER_TYPE_PATTERN.source }],
+        anyOf: [{ const: OWN_VIEW }, { type: 'string', pattern: FILE_KIND_ID_PATTERN.source }],
       },
       description:
         "Which viewer opens a file, like VS Code's workbench.editorAssociations: a file " +

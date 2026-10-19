@@ -21,7 +21,7 @@ import type { PortForwarder } from '../sandbox/ports/portForwarder'
 import type { SandboxListener } from '../sandbox/ports/portForwarder'
 import type { WorkspaceSandboxes } from '../sandbox/workspaceSandboxes'
 import type { WorkspaceAgents } from '../secrets/workspaceAgents'
-import type { PaneHistories } from '../terminal/history/paneHistories'
+import { type PaneHistories, removeHistories } from '../terminal/history/paneHistories'
 import { type PtyEntry, removeStateFile } from '../terminal/pty/ptyRegistry'
 import type { KeptHostMeta } from '../tmux/keptShells'
 import type { KeptShellsWiring } from '../tmux/keptShellsWiring'
@@ -113,7 +113,7 @@ export function createQuitTeardown({
       }
     }
     quitTrace.stage('teardown-ptys')
-    services.histories?.removeAll()
+    await removeHistories(services.histories, services.appLog)
     for (const entry of ptys.values()) {
       entry.mirror.dispose()
       if (keepingShells && entry.kept) {

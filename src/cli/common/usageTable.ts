@@ -76,7 +76,11 @@ export const USAGE_TABLE: readonly NounUsage[] = [
     audience: 'agent',
     about: 'the panes you reach: list, type, read, wait, wake, move, close',
     verbs: [
-      { verb: 'list', about: 'every pane you can see (JSON)' },
+      {
+        verb: 'list',
+        args: '[--json]',
+        about: 'every pane you can see: id, workspace, kind, state, title',
+      },
       {
         verb: 'send',
         args: `${PANE} [--enter] [--paste|--raw] [--force] [--] <text…|->`,
@@ -118,7 +122,11 @@ export const USAGE_TABLE: readonly NounUsage[] = [
         args: `"<cmd>" [--name N] [--cwd DIR] ${WORKSPACE_FLAG} [--tab <name>]`,
         about: 'run a command in a new terminal tab',
       },
-      { verb: 'list', about: 'id, name, status, pane and command of each process' },
+      {
+        verb: 'list',
+        args: '[--json]',
+        about: 'id, name, status, pane and command of each process',
+      },
       { verb: 'logs', args: '<id|name> [--since N]', about: "that command's output" },
       { verb: 'kill', args: '<id|name>', about: 'Ctrl+C, then end its shell' },
       { verb: 'restart', args: '<id|name>', about: 'Ctrl+C, then run the same line again' },
@@ -432,6 +440,42 @@ export function usageOf(word: string): string {
   return noun ? nounUsage(noun) : topUsage()
 }
 
+function verbLine(noun: NounUsage, verb: VerbUsage): string {
+  return `usage: ostia ${noun.noun} ${verb.verb}${verb.args ? ` ${verb.args}` : ''}\n  ${verb.about}`
+}
+
+export function verbUsageOf(word: string, verb: string | undefined): string {
+  const noun = findNoun(word)
+  const known = noun?.verbs?.find((v) => v.verb === verb)
+  return noun && known ? verbLine(noun, known) : usageOf(word)
+}
+
+function distance(a: string, b: string): number {
+  const d = Array.from({ length: a.length + 1 }, (_, i) =>
+    Array.from({ length: b.length + 1 }, (_, j) => (i === 0 ? j : j === 0 ? i : 0)),
+  )
+  for (let i = 1; i <= a.length; i += 1) {
+    for (let j = 1; j <= b.length; j += 1) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1
+      d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + cost)
+      if (i > 1 && j > 1 && a[i - 1] === b[j - 2] && a[i - 2] === b[j - 1]) {
+        d[i][j] = Math.min(d[i][j], d[i - 2][j - 2] + 1)
+      }
+    }
+  }
+  return d[a.length][b.length]
+}
+
+function inOrder(word: string, verb: string): boolean {
+  let at = 0
+  for (const letter of verb) if (letter === word[at]) at += 1
+  return at === word.length
+}
+
+function nearestVerb(noun: NounUsage, word: string): string | undefined {
+  return shownVerbs(noun).find((v) => inOrder(word, v.verb) || distance(word, v.verb) <= 1)?.verb
+}
+
 function nounLine(noun: NounUsage): string {
   return `  ${noun.noun.padEnd(12)}${noun.about}`
 }
@@ -474,8 +518,10 @@ export function usageGate(argv: readonly string[]): UsageAnswer | null {
   const dotted = word.indexOf('.')
   if (dotted > 0) {
     const noun = findNoun(word.slice(0, dotted))
-    const replaced = noun && hasVerb(noun, word.slice(dotted + 1))
-    return replaced ? { text: nounUsage(noun), code: 1 } : null
+    const replaced = word.slice(dotted + 1)
+    return noun && hasVerb(noun, replaced)
+      ? { text: `ostia: use 'ostia ${noun.noun} ${replaced}', not '${word}'`, code: 1 }
+      : null
   }
   const noun = findNoun(word)
   if (!noun || noun.audience === 'plumbing') return null
@@ -484,6 +530,20 @@ export function usageGate(argv: readonly string[]): UsageAnswer | null {
     return noun.needsArgs && verb === undefined ? { text: nounUsage(noun), code: 1 } : null
   }
   if (verb === undefined) return { text: nounUsage(noun), code: 1 }
-  if (verb.startsWith('-') || hasVerb(noun, verb)) return null
-  return { text: nounUsage(noun), code: 1 }
+  if (verb.startsWith('-')) return null
+  if (hasVerb(noun, verb)) {
+    const flags = argv.slice(2)
+    const end = flags.indexOf('--')
+    const asksHelp = (end === -1 ? flags : flags.slice(0, end)).some(
+      (arg) => arg === '--help' || arg === '-h',
+    )
+    return asksHelp ? { text: verbUsageOf(noun.noun, verb), code: 0 } : null
+  }
+  const near = nearestVerb(noun, verb)
+  return near
+    ? {
+        text: `ostia ${noun.noun}: no verb '${verb}'; did you mean 'ostia ${noun.noun} ${near}'?`,
+        code: 1,
+      }
+    : { text: `ostia ${noun.noun}: no verb '${verb}'\n${nounUsage(noun)}`, code: 1 }
 }

@@ -1,5 +1,5 @@
 import { EventEmitter } from 'node:events'
-import { PORTABLE_TABLES_BYTES_MAX } from '@aurigax-ai/ostia-extension-sdk/contract/fileViewers'
+import { PORTABLE_TABLES_BYTES_MAX } from '@aurigax-ai/ostia-extension-sdk/contract/fileKinds'
 import { describe, expect, it, vi } from 'vitest'
 import { type ViewerGuest, ViewerHost, type ViewerHostDeps, viewerOwner } from './viewerHost'
 import { VIEWER_PAGE_CSP, type ViewerSession } from './viewerSessions'

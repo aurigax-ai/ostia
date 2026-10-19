@@ -1,6 +1,6 @@
 import type { MessageConnection } from 'vscode-jsonrpc/node'
 import { FlagError, parseArgs } from '../common/args'
-import { fail } from '../common/failure'
+import { fail, failVerb } from '../common/failure'
 import { usageOf } from '../common/usageTable'
 
 export interface BoardRequest {
@@ -75,7 +75,7 @@ async function runBoardVerb(
     request = parse(argv)
   } catch (err) {
     if (!(err instanceof FlagError)) throw err
-    fail(`ostia ${verb}: ${err.message}`)
+    failVerb(err.message)
     return
   }
   if (!request) {
@@ -85,11 +85,11 @@ async function runBoardVerb(
   const res = await conn.sendRequest<BoardReply>(request.method, request.params)
   if (!res.ok) {
     const detail = res.message ? `${res.error}: ${res.message}` : res.error
-    fail(`ostia: ${verb} ${argv[0]} failed (${detail})`)
+    fail(`ostia ${verb} ${argv[0]}: ${detail}`)
   } else if (res.text !== undefined) {
     if (res.text) console.log(res.text)
   } else {
-    console.log(JSON.stringify(res.data, null, 2))
+    console.log(JSON.stringify(res.data))
   }
 }
 

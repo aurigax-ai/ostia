@@ -178,10 +178,11 @@ async function expectRestored(dataHome: string, expected: Saved): Promise<void> 
     await expect(next.win.locator('.xterm').first()).toBeVisible({ timeout: 15_000 })
     for (let i = 1; i < WORKSPACES; i++) {
       if (expected.agentsRunning === 0 || !agentWorkspace(i)) continue
+      await next.win.locator('.rail-row').nth(i).click()
       await expect(
-        next.win
-          .locator('.xterm-rows')
-          .filter({ hasText: new RegExp(`fake-agent-resumed .*--resume ${agentSession(i)}\\b`) }),
+        shownRows(next.win).filter({
+          hasText: new RegExp(`fake-agent-resumed .*--resume ${agentSession(i)}\\b`),
+        }),
       ).toHaveCount(1, { timeout: 20_000 })
     }
   } finally {
@@ -248,7 +249,7 @@ test('every restored terminal has a shell after a cold start, shown or not', asy
       'let s="";process.stdin.on("data",(d)=>{s+=d}).on("end",()=>{const t=JSON.parse(s).filter((p)=>p.kind==="terminal");console.log("withpid="+t.filter((p)=>p.pid).length+"/"+t.length)})'
     await runInShownTerminal(
       second.win,
-      `for i in 1 2 3 4 5; do ostia pane list | ELECTRON_RUN_AS_NODE=1 "$OSTIA_NODE" -e '${count}'; sleep 1; done`,
+      `for i in 1 2 3 4 5; do ostia pane list --json | ELECTRON_RUN_AS_NODE=1 "$OSTIA_NODE" -e '${count}'; sleep 1; done`,
     )
     await expect(shownRows(second.win).last()).toContainText('withpid=2/2', { timeout: 15_000 })
   } finally {

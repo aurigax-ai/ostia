@@ -1,4 +1,4 @@
-import { VIEWER_SCHEME } from '@aurigax-ai/ostia-extension-sdk/contract/fileViewers'
+import { VIEWER_SCHEME } from '@aurigax-ai/ostia-extension-sdk/contract/fileKinds'
 import { lockDownSession } from '../../artifacts/previewAttach'
 import type { PreviewSession } from '../../artifacts/previewHostTypes'
 

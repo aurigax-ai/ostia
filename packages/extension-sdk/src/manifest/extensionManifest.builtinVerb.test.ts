@@ -9,7 +9,7 @@ function manifest(id: string, verb?: string): Record<string, unknown> {
     id,
     name: id,
     version: '1.0.0',
-    api: '4.0',
+    api: '5.0',
     main: 'main.js',
     contributes: { commands: [{ id: 'run', title: 'Run' }], ...(verb ? { verb } : {}) },
   }

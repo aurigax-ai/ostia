@@ -1,5 +1,12 @@
 import { describe, expect, it, vi } from 'vitest'
-import { BUS_HOOK_USAGE, type BusHookIo, busWaitTimeoutMs, runBusHook, sentLines } from './bus'
+import {
+  BUS_HOOK_USAGE,
+  type BusHookIo,
+  busSendArgs,
+  busWaitTimeoutMs,
+  runBusHook,
+  sentLines,
+} from './bus'
 
 function io(context: BusHookIo['context']): BusHookIo & { lines: string[]; errors: string[] } {
   const lines: string[] = []
@@ -80,5 +87,17 @@ describe('busWaitTimeoutMs', () => {
 
   it.each(['0', '-5', 'soon', ''])('refuses %j', (raw) => {
     expect(() => busWaitTimeoutMs(raw)).toThrow(`--timeout expects seconds, got '${raw}'`)
+  })
+})
+
+describe('busSendArgs', () => {
+  it('takes the pane and the message, with -- ending the flags and the words joined', () => {
+    expect(busSendArgs(['p1', 'hello'])).toEqual({ to: 'p1', text: 'hello' })
+    expect(busSendArgs(['p1', '--', '--help'])).toEqual({ to: 'p1', text: '--help' })
+    expect(busSendArgs(['p1', '--', '--'])).toEqual({ to: 'p1', text: '--' })
+    expect(busSendArgs(['p1', 'two', 'words'])).toEqual({ to: 'p1', text: 'two words' })
+    expect(busSendArgs(['p1'])).toBeNull()
+    expect(busSendArgs(['p1', '--'])).toBeNull()
+    expect(busSendArgs([])).toBeNull()
   })
 })
