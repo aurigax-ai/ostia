@@ -42,6 +42,8 @@ describe('sandboxed servers on macOS', () => {
               dataDirs: [],
               socketPath: join(root, 'ostia.sock'),
               runtimeReads: [],
+              agentSockets: [],
+              containerSockets: [],
             },
             'darwin',
           ),

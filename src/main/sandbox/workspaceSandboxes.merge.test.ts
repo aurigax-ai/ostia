@@ -14,7 +14,14 @@ function setup(): { store: SandboxStore; sandboxes: WorkspaceSandboxes } {
   const sandboxes = new WorkspaceSandboxes({
     store,
     globals: () => DEFAULT_SANDBOX_GLOBALS,
-    basePaths: () => ({ home: '/home/u', dataDirs: [], socketPath: '/tmp/s', runtimeReads: [] }),
+    basePaths: () => ({
+      home: '/home/u',
+      dataDirs: [],
+      socketPath: '/tmp/s',
+      runtimeReads: [],
+      agentSockets: [],
+      containerSockets: [],
+    }),
     workDir: (id) => workDirs[id],
     tmpRoot: join(root, 'tmp'),
     nodePath: process.execPath,

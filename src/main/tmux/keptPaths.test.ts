@@ -16,6 +16,8 @@ function policy() {
       dataDirs: [userData],
       socketPath: join(home, '.local/state/ostia/control.sock'),
       runtimeReads: ['/opt/ostia'],
+      agentSockets: [],
+      containerSockets: [],
       tmpRoot,
     },
     { workDir: join(home, 'project'), tmpDir: join(tmpRoot, '42', 'w1') },

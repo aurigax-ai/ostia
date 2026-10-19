@@ -56,6 +56,8 @@ beforeAll(async () => {
       dataDirs: [extData],
       socketPath: join(root, 'ostia.sock'),
       runtimeReads: [],
+      agentSockets: [],
+      containerSockets: [],
     },
   )
   host = new SandboxHost({ nodePath: process.execPath, hostScript, onAsk: async () => false })

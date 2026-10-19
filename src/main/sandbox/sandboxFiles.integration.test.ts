@@ -73,6 +73,8 @@ beforeAll(async () => {
         dataDirs: [dataDir],
         socketPath: join(root, 'ostia.sock'),
         runtimeReads: [],
+        agentSockets: [],
+        containerSockets: [],
       },
     ),
   )

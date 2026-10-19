@@ -20,8 +20,8 @@ export interface SandboxPaths {
   runtimeDir?: string
   socketPath: string
   runtimeReads: string[]
-  agentSockets?: string[]
-  containerSockets?: string[]
+  agentSockets: string[]
+  containerSockets: string[]
   tmpRoot?: string
   srtVendorDir?: string
   keptSocketPath?: string
@@ -129,14 +129,27 @@ export function touches(path: string, guarded: readonly string[]): boolean {
   })
 }
 
-export function protectedPaths(paths: SandboxBasePaths): string[] {
+export function agentSocketDirs(paths: SandboxBasePaths): string[] {
+  return paths.agentSockets.map((sock) => dirname(sock))
+}
+
+export function runtimeAndTmpRoots(paths: SandboxBasePaths): string[] {
   return [
-    ...paths.dataDirs,
-    ...(paths.agentSockets ?? []).map((sock) => dirname(sock)),
-    ...(paths.containerSockets ?? []),
     ...(paths.runtimeDir ? [paths.runtimeDir] : []),
     ...(paths.tmpRoot ? [paths.tmpRoot] : []),
   ]
+}
+
+function socketDirs(paths: SandboxBasePaths): string[] {
+  return [...agentSocketDirs(paths), ...paths.containerSockets, ...runtimeAndTmpRoots(paths)]
+}
+
+export function controlSockets(paths: SandboxBasePaths): string[] {
+  return [paths.socketPath, ...(paths.keptSocketPath ? [paths.keptSocketPath] : [])]
+}
+
+export function protectedPaths(paths: SandboxBasePaths): string[] {
+  return [...paths.dataDirs, ...socketDirs(paths)]
 }
 
 export function protectedFiles(paths: SandboxBasePaths, workDir?: string): string[] {
@@ -174,10 +187,6 @@ export function fixedPolicy(
   const { home } = paths
   const agentDirs = AGENT_DATA_DIRS.map((d) => join(home, d))
   const hiddenFiles = workspace ? WORKDIR_HIDDEN_FILES.map((f) => join(workspace.workDir, f)) : []
-  const hiddenSockets = [
-    ...(paths.agentSockets ?? []).map((sock) => dirname(sock)),
-    ...(paths.containerSockets ?? []),
-  ]
   const guardedInWorkDir = WORKDIR_PROTECTED_FILES.filter(
     (f) => !(switches.gitConfig && f === GIT_CONFIG_FILE),
   )
@@ -187,9 +196,7 @@ export function fixedPolicy(
       ...paths.dataDirs,
       ...HOME_HIDDEN_FILES.map((f) => join(home, f)),
       ...hiddenFiles,
-      ...hiddenSockets,
-      ...(paths.runtimeDir ? [paths.runtimeDir] : []),
-      ...(paths.tmpRoot ? [paths.tmpRoot] : []),
+      ...socketDirs(paths),
     ],
     readable: [
       ...(workspace ? [workspace.workDir, workspace.tmpDir] : []),
@@ -203,7 +210,7 @@ export function fixedPolicy(
       ...(workspace ? guardedInWorkDir.map((f) => join(workspace.workDir, f)) : []),
       ...hiddenFiles,
     ],
-    hiddenSockets,
+    hiddenSockets: [...agentSocketDirs(paths), ...paths.containerSockets],
     socketBlocking: canBlockSockets(platform, arch),
   }
 }
@@ -246,8 +253,7 @@ export function buildSrtConfig(
         ? {
             allowUnixSockets: sockets
               ? [
-                  paths.socketPath,
-                  ...(paths.keptSocketPath ? [paths.keptSocketPath] : []),
+                  ...controlSockets(paths),
                   join(tmpDir, SSH_AGENT_SOCKET_NAME),
                   ...expand(policy.allowSockets).filter((p) => !touches(p, guarded)),
                 ]
@@ -262,8 +268,7 @@ export function buildSrtConfig(
         ...new Set([
           workDir,
           tmpDir,
-          paths.socketPath,
-          ...(paths.keptSocketPath ? [paths.keptSocketPath] : []),
+          ...controlSockets(paths),
           ...agentDirs,
           ...paths.runtimeReads,
           ...opened(policy.allowRead),

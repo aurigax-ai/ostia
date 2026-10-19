@@ -48,6 +48,8 @@ function start(name: string, settings: Partial<WorkspaceSandbox>, folder = workD
       dataDirs: [dataDir],
       socketPath: join(root, 'ostia.sock'),
       runtimeReads: [],
+      agentSockets: [],
+      containerSockets: [],
     }),
     workDir: () => folder,
     tmpRoot: join(root, 'tmp', name),

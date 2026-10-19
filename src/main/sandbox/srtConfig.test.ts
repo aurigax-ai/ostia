@@ -24,6 +24,8 @@ const paths = {
   dataDirs: [],
   socketPath: '/run/ostia.sock',
   runtimeReads: [],
+  agentSockets: [],
+  containerSockets: [],
 }
 
 describe('srtVendorDir', () => {

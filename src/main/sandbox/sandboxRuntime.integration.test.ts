@@ -131,6 +131,8 @@ beforeAll(async () => {
         runtimeDir,
         socketPath,
         runtimeReads: [],
+        agentSockets: [],
+        containerSockets: [],
       },
     ),
   )
@@ -254,6 +256,8 @@ describe.skipIf(process.platform !== 'linux')(
             runtimeDir,
             socketPath,
             runtimeReads: [],
+            agentSockets: [],
+            containerSockets: [],
           },
         ),
       )

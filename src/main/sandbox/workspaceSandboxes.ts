@@ -1,6 +1,6 @@
 import { hash } from 'node:crypto'
 import { mkdirSync } from 'node:fs'
-import { dirname, join } from 'node:path'
+import { join } from 'node:path'
 import { PRODUCT_DISPLAY_NAME } from '@aurigax-ai/ostia-extension-sdk/contract/productDisplay'
 import {
   type ResolvedSandbox,
@@ -24,12 +24,15 @@ import {
   SSH_AGENT_SOCKET_NAME,
   type SandboxPaths,
   type SrtConfig,
+  agentSocketDirs,
   buildSrtConfig,
+  controlSockets,
   fixedPolicy,
   folderProblem,
   protectedFiles,
   protectedPaths,
   realPath,
+  runtimeAndTmpRoots,
 } from './srtConfig'
 import type { SandboxStore } from './store'
 import type { WriteRefusal } from './violations'
@@ -203,13 +206,11 @@ export class WorkspaceSandboxes {
     const base = this.basePaths()
     const tmpDir = this.tmp.tmpDir(workspaceId)
     return [
-      base.socketPath,
-      ...(base.keptSocketPath ? [base.keptSocketPath] : []),
+      ...controlSockets(base),
       ...base.runtimeReads,
       ...base.dataDirs,
-      ...(base.agentSockets ?? []).map((sock) => dirname(sock)),
-      ...(base.runtimeDir ? [base.runtimeDir] : []),
-      ...(base.tmpRoot ? [base.tmpRoot] : []),
+      ...agentSocketDirs(base),
+      ...runtimeAndTmpRoots(base),
       tmpDir,
       join(tmpDir, SSH_AGENT_SOCKET_NAME),
     ]

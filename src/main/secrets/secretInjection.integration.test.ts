@@ -105,6 +105,8 @@ beforeAll(async () => {
       dataDirs: [],
       socketPath: join(root, 'ostia.sock'),
       runtimeReads: [fakeBin],
+      agentSockets: [],
+      containerSockets: [],
     }),
     workDir: () => workDir,
     tmpRoot: join(root, 'sandbox-tmp'),

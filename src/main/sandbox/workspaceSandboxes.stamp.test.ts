@@ -19,6 +19,7 @@ function instance(pid: number, store: SandboxStore): WorkspaceSandboxes {
       keptSocketPath: '/tmp/ostia-kept-1000/k.sock',
       runtimeDir: '/run/user/1000',
       agentSockets: [`/tmp/ssh-${pid}/agent.${pid}`],
+      containerSockets: [],
       runtimeReads: [`/opt/ostia-${pid}/resources/app.asar`, '/tmp/ostia-shell-state-1000'],
     }),
     workDir: () => '/home/u/proj',

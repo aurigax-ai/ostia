@@ -75,6 +75,8 @@ beforeAll(async () => {
       socketPath: join(root, 'ostia.sock'),
       keptSocketPath: join(root, 'kept.sock'),
       runtimeReads: [],
+      agentSockets: [],
+      containerSockets: [],
       workDir,
       tmpDir: join(root, 'tmp'),
     },
