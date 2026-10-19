@@ -47,7 +47,7 @@ export function guestChordKey(
 ): KeyLike | null {
   if (input.type !== 'keyDown' || chords.size === 0) return null
   const key = guestKeyLike(input)
-  if (mac && isNativeClipboardKey(key)) return null
+  if (mac && !input.remapped && isNativeClipboardKey(key)) return null
   const spec = specFromEvent(key)
   if (!spec) return null
   if (chords.has(formatChord(spec, mac))) return key

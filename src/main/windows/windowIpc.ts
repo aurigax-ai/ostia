@@ -8,6 +8,7 @@ import { clampZoom, zoomFactor } from '../../shared/app/zoom'
 import { desktopsOf } from '../../shared/keyboard/desktopChords'
 import type { AppInfo } from '../../shared/types'
 import { type GuestChords, registerGuestChords } from '../browser/guestChords'
+import { createGuestRemap } from '../browser/guestRemap'
 import { openInExternalEditor } from '../files/externalEditor'
 import { discreteGpu, gpuStartPlan, querySwitcherooGpus } from '../platform/discreteGpu'
 import { appVersion } from '../updates/appVersion'
@@ -84,6 +85,7 @@ interface WindowInputGuardsDeps {
 }
 
 export function registerWindowInputGuards({ services, windows }: WindowInputGuardsDeps) {
+  const remap = createGuestRemap()
   services.clipboardEdits = registerClipboardEdits({
     ipc: ipcMain,
     isAppWindow: (sender) => windows.get(String(sender.id))?.webContents === sender,
@@ -96,10 +98,12 @@ export function registerWindowInputGuards({ services, windows }: WindowInputGuar
       }
     },
     mac: process.platform === 'darwin',
+    remap,
   })
   services.guestChords = registerGuestChords({
     ipc: ipcMain,
     isAppWindow: (sender) => windows.get(String(sender.id))?.webContents === sender,
     mac: process.platform === 'darwin',
+    remap,
   })
 }

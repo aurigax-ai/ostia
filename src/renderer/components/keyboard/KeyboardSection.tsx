@@ -1,6 +1,7 @@
 import { commands } from '@/commands/registry'
 import { ControlRow } from '@/components/settingsKit/ControlRow'
 import { SelectField } from '@/components/settingsKit/SelectField'
+import { SettingsGroup } from '@/components/settingsKit/SettingsGroup'
 import { SettingsPage } from '@/components/settingsKit/SettingsPage'
 import { Button } from '@/components/ui/button'
 import { TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
@@ -18,6 +19,13 @@ import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
 import { PlusIcon } from '@phosphor-icons/react'
 import type { Dict } from '@shared/app/dict'
 import { type ChordSpec, chordText, overlaps } from '@shared/keyboard/chordSpec'
+import {
+  REMAP_KEYS,
+  REMAP_TARGETS,
+  type RemapTarget,
+  isIdentityRemap,
+  remapTarget,
+} from '@shared/keyboard/modifierRemap'
 import { Fragment, useState, useSyncExternalStore } from 'react'
 import { ChangesView, useChangeTotal } from './ChangesView'
 import { KeySearch, boundTo } from './KeySearch'
@@ -140,6 +148,43 @@ function LinkClickRow(): JSX.Element {
   )
 }
 
+function ModifierKeysGroup(): JSX.Element {
+  const d = useDict()
+  const table = useSettingsStore((s) => s.modifierRemap)
+  const setModifierRemap = useSettingsStore((s) => s.setModifierRemap)
+  const options = REMAP_TARGETS.map((value) => ({
+    value,
+    label: d.keyboard.modifierTargets[value],
+  }))
+  return (
+    <SettingsGroup
+      title={d.keyboard.modifierKeys}
+      desc={d.keyboard.modifierKeysDesc}
+      action={
+        <Button
+          variant="outline"
+          size="sm"
+          disabled={isIdentityRemap(table)}
+          onClick={() => setModifierRemap({})}
+        >
+          {d.keyboard.modifierReset}
+        </Button>
+      }
+    >
+      {REMAP_KEYS.map((key) => (
+        <ControlRow key={key} label={d.keyboard.modifierKeyNames[key]}>
+          <SelectField<RemapTarget>
+            value={remapTarget(table, key)}
+            onChange={(v) => setModifierRemap({ ...table, [key]: v })}
+            label={d.keyboard.modifierKeyNames[key]}
+            options={options}
+          />
+        </ControlRow>
+      ))}
+    </SettingsGroup>
+  )
+}
+
 export function KeyboardSection(): JSX.Element {
   const d = useDict()
   const [query, setQuery] = useState('')
@@ -182,6 +227,7 @@ export function KeyboardSection(): JSX.Element {
     <SettingsPage title={d.keyboard.title} desc={d.keyboard.desc}>
       <KeymapCombo onShowChanges={() => setView('changes')} />
       <LinkClickRow />
+      {isMac ? <ModifierKeysGroup /> : null}
       <div className="mb-2 flex items-center gap-2">
         <ViewSwitch view={view} total={total} onChange={setView} />
         {view === 'active' ? (
