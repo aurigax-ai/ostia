@@ -40,6 +40,25 @@ export async function printOnFirstRow(win: Page, screen: Locator, text: string):
   return { x: box.x + 30, y: box.y + 8 }
 }
 
+export interface CellGrid {
+  rows: number
+  cols: number
+}
+
+export async function cellPoint(
+  screen: Locator,
+  grid: CellGrid,
+  col: number,
+  row: number,
+): Promise<Point> {
+  const box = await screen.boundingBox()
+  if (!box) throw new Error('terminal screen not found')
+  return {
+    x: box.x + ((col + 0.5) * box.width) / grid.cols,
+    y: box.y + ((row + 0.5) * box.height) / grid.rows,
+  }
+}
+
 export async function hoverPoint(win: Page, point: Point): Promise<void> {
   await win.mouse.move(point.x, point.y + 80)
   await win.mouse.move(point.x, point.y, { steps: 6 })
