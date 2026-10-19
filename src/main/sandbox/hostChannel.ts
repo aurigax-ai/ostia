@@ -1,5 +1,6 @@
-import { chmodSync, lstatSync, rmSync } from 'node:fs'
+import { chmodSync, lstatSync, renameSync, rmSync } from 'node:fs'
 import { type Socket, connect, createServer } from 'node:net'
+import { basename, dirname, join } from 'node:path'
 import {
   HOST_PROTOCOL_VERSION,
   type HostAsk,
@@ -77,6 +78,10 @@ function isAsk(message: HostToMain): message is HostAsk {
   return 'type' in message && message.type === 'ask'
 }
 
+function stagingPath(path: string): string {
+  return join(dirname(path), `.${basename(path).slice(1)}`)
+}
+
 export function listenHostChannel(
   path: string,
   onMessage: (message: MainToHost, respond: Respond) => void,
@@ -103,11 +108,13 @@ export function listenHostChannel(
     for (const ask of asks.values()) writeMessage(socket, ask)
   })
 
-  rmSync(path, { force: true })
+  const staging = stagingPath(path)
+  rmSync(staging, { force: true })
   return new Promise((resolve, reject) => {
     server.once('error', reject)
-    server.listen(path, () => {
-      chmodSync(path, 0o600)
+    server.listen(staging, () => {
+      chmodSync(staging, 0o600)
+      renameSync(staging, path)
       resolve({
         send: (message) => {
           if (isAsk(message)) asks.set(message.askId, message)
