@@ -1,3 +1,4 @@
+import { AgentPane } from '@/components/agent/AgentPane'
 import { BrowserView } from '@/components/browser/BrowserView'
 import { ChatPane } from '@/components/chat/ChatPane'
 import { DiffView } from '@/components/editor/DiffView'
@@ -30,6 +31,7 @@ interface SurfaceRef {
   filePath?: string
   url?: string
   chatSessionId?: string
+  agentSessionId?: string
   viewName?: string
   browserProfile: BrowserProfile
   browserDevice?: BrowserDevice
@@ -45,6 +47,7 @@ function collect(node: LayoutNode, workspaceId: string, out: SurfaceRef[]): void
       pane.kind === 'browser' ||
       pane.kind === 'diff' ||
       pane.kind === 'chat' ||
+      pane.kind === 'agent' ||
       pane.kind === 'git' ||
       pane.kind === 'manager' ||
       (pane.kind === 'view' && pane.viewName)
@@ -57,6 +60,7 @@ function collect(node: LayoutNode, workspaceId: string, out: SurfaceRef[]): void
         filePath: pane.filePath,
         url: pane.url,
         chatSessionId: pane.chatSessionId,
+        agentSessionId: pane.agentSessionId,
         viewName: pane.viewName,
         browserProfile: paneBrowserProfile(pane),
         browserDevice: pane.browserDevice,
@@ -117,6 +121,8 @@ function Surface({
     <DiffView workspaceId={s.workspaceId} paneId={s.paneId} />
   ) : s.kind === 'chat' ? (
     <ChatPane workspaceId={s.workspaceId} paneId={s.paneId} sessionId={s.chatSessionId} />
+  ) : s.kind === 'agent' ? (
+    <AgentPane workspaceId={s.workspaceId} paneId={s.paneId} sessionId={s.agentSessionId} />
   ) : s.kind === 'git' ? (
     <GitView workspaceId={s.workspaceId} paneId={s.paneId} home="pane" />
   ) : s.kind === 'manager' ? (

@@ -169,6 +169,61 @@ async function buildFileKinds(src, out, panelBaseCss) {
   }
 }
 
+const wasmFiles = [
+  ['quickjs-wasi', 'quickjs.wasm'],
+  ['@silvia-odwyer/photon-node', 'photon_rs_bg.wasm'],
+]
+
+function siblingPackage(from, name) {
+  let dir = from
+  for (;;) {
+    const candidate = join(dir, 'node_modules', name)
+    if (existsSync(join(candidate, 'package.json'))) return realpathSync(candidate)
+    const parent = dirname(dir)
+    if (parent === dir) return null
+    dir = parent
+  }
+}
+
+function copyWasm(out) {
+  const owner = installedPackage('@earendil-works/pi-coding-agent')
+  for (const [name, file] of wasmFiles) {
+    const dir = siblingPackage(owner, name)
+    if (!dir || !existsSync(join(dir, file)))
+      throw new Error(`missing ${name}/${file} for ${owner}`)
+    copyFileSync(join(dir, file), join(out, file))
+  }
+}
+
+async function bundleModuleMain(src, out) {
+  await build({
+    entryPoints: [join(src, 'main.ts')],
+    outdir: out,
+    bundle: true,
+    splitting: true,
+    platform: 'node',
+    format: 'esm',
+    target: 'node24',
+    outExtension: { '.js': '.mjs' },
+    banner: {
+      js: "import { createRequire as __createRequire } from 'node:module'; const require = __createRequire(import.meta.url);",
+    },
+    logLevel: 'warning',
+  })
+  copyWasm(out)
+}
+
+async function bundleMain(src, out) {
+  if (readSourceManifest(src).main?.endsWith('.mjs')) {
+    await bundleModuleMain(src, out)
+    return
+  }
+  const threads = readdirSync(src).filter((file) => file.endsWith('.thread.ts'))
+  for (const entry of ['main.ts', ...threads]) {
+    await nodeBundle(join(src, entry), join(out, entry.replace(/\.ts$/, '.js')), src)
+  }
+}
+
 export async function buildExtension(src, out, panelBaseCss) {
   mkdirSync(out, { recursive: true })
   for (const file of assets) {
@@ -181,12 +236,7 @@ export async function buildExtension(src, out, panelBaseCss) {
   copyAgentSkills(src, out)
   await buildFileKinds(src, out, panelBaseCss)
   if (existsSync(join(src, 'panel.html'))) copyFileSync(panelBaseCss, join(out, 'base.css'))
-  if (existsSync(join(src, 'main.ts'))) {
-    const threads = readdirSync(src).filter((file) => file.endsWith('.thread.ts'))
-    for (const entry of ['main.ts', ...threads]) {
-      await nodeBundle(join(src, entry), join(out, entry.replace(/\.ts$/, '.js')), src)
-    }
-  }
+  if (existsSync(join(src, 'main.ts'))) await bundleMain(src, out)
   if (existsSync(join(src, 'panel.ts'))) {
     await browserBundle(join(src, 'panel.ts'), join(out, 'panel.js'))
   }

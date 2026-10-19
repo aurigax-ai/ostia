@@ -4,6 +4,7 @@ import type { ExtensionsApi } from '@aurigax-ai/ostia-extension-sdk/contract/ext
 import type { IconThemesApi } from '@aurigax-ai/ostia-extension-sdk/contract/iconTheme'
 import type { LanguagePacksApi } from '@aurigax-ai/ostia-extension-sdk/contract/languagePack'
 import type { LspApi } from '@aurigax-ai/ostia-extension-sdk/contract/languageServers'
+import type { AgentSessionsApi } from './agent/agentApi'
 import type { AgentsBridge } from './agents/agentsApi'
 import type { AppBridge } from './app/appApi'
 import type { ArtifactsBridge } from './artifacts/artifactsApi'
@@ -72,6 +73,7 @@ export interface OstiaBridge
   ports: PortsBridge
   assist: AssistApi & { wake: () => void }
   chatSessions: ChatSessionsApi
+  agentSessions: AgentSessionsApi
   privacy: PrivacyApi
   telemetry: TelemetryApi
   chatTools: ChatToolsApi
