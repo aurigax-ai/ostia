@@ -1,15 +1,13 @@
 import { execFile } from 'node:child_process'
 import { readFile, readdir, readlink } from 'node:fs/promises'
-import { type ProcEntry, parseProcStat } from '../platform/procfs'
+import { type ProcEntry, childrenOf, parseProcStat, processTree } from '../platform/procfs'
 import { parseLsofListeners, parsePsTable, portsOfTree, splitPsArgs } from './darwin'
 import {
   type ListeningPort,
   type ListeningSocket,
-  childrenOf,
   parseNetTcp,
   portsForHolders,
   processName,
-  processTree,
   socketInode,
 } from './procfs'
 import { type SshLogin, sshArgs, sshLogin } from './ssh'
