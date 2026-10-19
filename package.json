@@ -49,7 +49,7 @@
   },
   "dependencies": {
     "@anthropic-ai/sandbox-runtime": "0.0.79",
-    "@aurigax-ai/wire": "0.1.14",
+    "@aurigax-ai/wire": "0.1.15",
     "@xterm/headless": "^6.0.0",
     "bonjour-service": "^1.4.4",
     "commander": "^14.0.3",

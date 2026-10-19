@@ -193,7 +193,7 @@ edges: []
     const got = JSON.parse((await waiting).stdout) as { messages: { text: string; from: string }[] }
     expect(got.messages.map((m) => [m.text, m.from])).toEqual([['every check passed', 'graphs']])
     await ended(run.stdout.trim(), 'tell')
-    expect(state(run.stdout.trim(), 'tell').delivered).toBe('waiting')
+    expect(state(run.stdout.trim(), 'tell').delivered).toBe('delivered')
     expect(h.opened.length).toBe(opened)
   })
 
