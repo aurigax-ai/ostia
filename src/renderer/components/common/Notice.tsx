@@ -12,10 +12,12 @@ export function Notice({
   tone = 'warn',
   children,
   actions,
+  className,
 }: {
   tone?: keyof typeof TONES
   children: React.ReactNode
   actions?: React.ReactNode
+  className?: string
 }): JSX.Element {
   const { icon: Icon, text } = TONES[tone]
   return (
@@ -24,6 +26,7 @@ export function Notice({
         'mt-1 items-center rounded-none border-0 bg-transparent p-0 has-[.alert-action]:pr-0',
         text,
         actions ? 'has-[>svg]:grid-cols-[auto_1fr_auto]' : null,
+        className,
       )}
     >
       <Icon className="size-4" />
@@ -53,7 +56,7 @@ export function NoticeBar({
       className={cn('rounded-md border border-line bg-surface-1 px-2.5 py-1 shadow-sm', className)}
       {...rest}
     >
-      <Notice tone={tone} actions={actions}>
+      <Notice tone={tone} actions={actions} className="mt-0">
         {children}
       </Notice>
     </div>

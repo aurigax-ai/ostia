@@ -71,6 +71,12 @@ export function EditorAlerts({
     })
   }
 
+  const compareButton =
+    diskBar && diskBar.kind !== 'deleted' && comparable(diskBar.disk) ? (
+      <Button variant="outline" size="xs" onClick={() => compareWithDisk(diskBar.disk)}>
+        {d.editor.diskCompare}
+      </Button>
+    ) : null
   return (
     <>
       {blocked ? (
@@ -92,11 +98,7 @@ export function EditorAlerts({
           actions={
             diskBar.kind === 'changed' ? (
               <>
-                {comparable(diskBar.disk) ? (
-                  <Button variant="outline" size="xs" onClick={() => compareWithDisk(diskBar.disk)}>
-                    {d.editor.diskCompare}
-                  </Button>
-                ) : null}
+                {compareButton}
                 <Button
                   variant="outline"
                   size="xs"
@@ -126,11 +128,7 @@ export function EditorAlerts({
               </>
             ) : diskBar.kind === 'conflict' ? (
               <>
-                {comparable(diskBar.disk) ? (
-                  <Button variant="outline" size="xs" onClick={() => compareWithDisk(diskBar.disk)}>
-                    {d.editor.diskCompare}
-                  </Button>
-                ) : null}
+                {compareButton}
                 <Button variant="outline" size="xs" onClick={() => setDiskBar(null)}>
                   {d.editor.diskCancel}
                 </Button>
@@ -150,6 +148,7 @@ export function EditorAlerts({
       ) : null}
       {waitedBy ? (
         <NoticeBar
+          tone="info"
           className="editor-waited"
           data-testid="editor-waited"
           actions={

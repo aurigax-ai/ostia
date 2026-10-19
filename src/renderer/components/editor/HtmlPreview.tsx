@@ -139,34 +139,22 @@ function PreviewBars({
   const d = useDict()
   return (
     <>
-      {opened && !vitals.responding ? (
+      {opened && (!vitals.responding || vitals.busy) ? (
         <NoticeBar
           className="preview-bar"
-          data-testid="preview-not-responding"
+          data-testid={vitals.responding ? 'preview-busy' : 'preview-not-responding'}
           actions={
             <Button variant="outline" size="xs" onClick={stop}>
               {d.preview.stop}
             </Button>
           }
         >
-          {d.preview.notResponding}
-        </NoticeBar>
-      ) : null}
-      {opened && vitals.responding && vitals.busy ? (
-        <NoticeBar
-          className="preview-bar"
-          data-testid="preview-busy"
-          actions={
-            <Button variant="outline" size="xs" onClick={stop}>
-              {d.preview.stop}
-            </Button>
-          }
-        >
-          {d.preview.busy}
+          {vitals.responding ? d.preview.busy : d.preview.notResponding}
         </NoticeBar>
       ) : null}
       {link ? (
         <NoticeBar
+          tone="info"
           className="preview-bar"
           data-testid="preview-link"
           actions={
