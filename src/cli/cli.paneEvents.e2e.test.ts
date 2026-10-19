@@ -175,7 +175,7 @@ describe('pane events through the real CLI', () => {
   it('delivers one event line to the coordinator’s bus wait when a watched worker finishes', async () => {
     const watching = await run(boss, ['pane', 'watch', worker.externalId, '--until', 'done'])
     expect(watching.code).toBe(0)
-    expect(watching.stdout).toContain(`${worker.externalId}  until done`)
+    expect(watching.stdout).toContain(`${worker.externalId}\tuntil done`)
 
     const waiting = run(boss, ['bus', 'wait', '--timeout', '30'])
     await new Promise((resolve) => setTimeout(resolve, 1500))
