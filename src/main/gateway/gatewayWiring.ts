@@ -38,6 +38,7 @@ import {
   stopRemote,
 } from './gatewayIpc'
 import { listPairRequests, onPairRequestsChanged } from './pairRequests'
+import { phoneScreenLines, withClipboardImage } from './phoneClipboard'
 import {
   type PhoneWorkspacePaths,
   isPhoneFolder,
@@ -208,6 +209,9 @@ export function startGateway({
     attachPhoneObserver,
     ptyResize,
     ptyWrite,
+    readScreen: async (paneId) =>
+      (await ptys.get(paneId)?.mirror.screenText(phoneScreenLines)) ?? '',
+    withClipboardImage,
     listAsks: askHub.list,
     answerAsk: askHub.answer,
     agentRunning: (paneId) => agentRunning.has(paneId) && ptys.has(paneId),

@@ -17,6 +17,7 @@ import { type GatewayCert, getCert } from './cert'
 import type { GatewayControlDeps } from './controlDispatch'
 import { get as getDevice, list as listDevices } from './devices'
 import { createPairHttp } from './pairHttp'
+import { PHONE_IMAGE_FRAME_BYTES } from './phoneImage'
 import { type SocketState, createPhoneSocket } from './phoneSocket'
 import { readProxyHeader } from './proxyProtocol'
 import type { ScreenLinks } from './screenLinks'
@@ -54,7 +55,7 @@ const helperSockets = new Set<Socket>()
 const tailnetPeers = new WeakMap<object, string>()
 let tailnetNode: TailnetNode | null = null
 let phoneAddress: GatewayPhoneAddress | null = null
-const MAX_FRAME_BYTES = 1024 * 1024
+const MAX_FRAME_BYTES = PHONE_IMAGE_FRAME_BYTES
 
 let wss: WebSocketServer | null = null
 let heartbeat: ReturnType<typeof setInterval> | null = null

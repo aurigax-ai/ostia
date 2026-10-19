@@ -22,7 +22,7 @@ function refused(message: string): RpcOutcome {
 
 const REDACTION_FAILED: RpcOutcome = { ok: false, code: -32603, message: 'redaction-failed' }
 
-async function turnPane(
+export async function turnPane(
   p: Params,
   deps: PhoneTurnDeps,
 ): Promise<{ pane: PaneIdentity; workDir: string } | RpcOutcome> {

@@ -9,8 +9,9 @@ import type { PaneEntry, WorkspaceEntry, WorkspaceGroupEntry } from '../panes/pa
 import { type PhoneAgent, phoneAgentCommand } from '../panes/phoneAgent'
 import type { PhoneAgentStart } from '../panes/processManager'
 import { listArtifactFiles, locateArtifactFile, readArtifactFile } from './artifactFiles'
+import { imageAllowed, phoneImageOf } from './phoneImage'
 import { type PhoneSnippetDeps, snippetList } from './phoneSnippets'
-import { type PhoneTurnDeps, turnList, turnOutput } from './phoneTurns'
+import { type PhoneTurnDeps, turnList, turnOutput, turnPane } from './phoneTurns'
 import {
   type PhoneFileScope,
   type WorkspaceFileOutcome,
@@ -36,6 +37,8 @@ export interface GatewayControlDeps extends PhoneTurnDeps, PhoneSnippetDeps {
   ) => { cursor: number; dropped: boolean; cols: number; rows: number; detach: () => void } | null
   ptyResize: (rendererPaneId: string, cols: number, rows: number) => void
   ptyWrite: (rendererPaneId: string, data: string) => void
+  readScreen: (rendererPaneId: string) => Promise<string>
+  withClipboardImage: (bytes: Buffer, paste: () => Promise<boolean>) => Promise<boolean | null>
   listAsks: () => Ask[]
   answerAsk: (askId: string, choiceId: unknown, text: unknown) => AskAnswerResult
   agentRunning: (rendererPaneId: string) => boolean
@@ -65,6 +68,10 @@ function startAllowed(deviceId: string): boolean {
   return true
 }
 export const AGENT_ENTER_DELAY_MS = 60
+const IMAGE_PLACEHOLDER_POLL_MS = 50
+export const IMAGE_PLACEHOLDER_WAIT_MS = 1500
+const PASTE_IMAGE_KEY = '\x16'
+const IMAGE_PLACEHOLDER = /\[Image #\d+\]/g
 
 const INTERRUPT_KEYS: Record<string, string> = { esc: '\x1b', 'ctrl-c': '\x03' }
 
@@ -326,20 +333,59 @@ async function askAnswer(call: GatewayCall): Promise<RpcOutcome> {
   return answered === 'ok' ? { ok: true, result: { ok: true } } : invalidParams(answered)
 }
 
+function notPasted(pane: PaneIdentity): RpcOutcome {
+  return { ok: false, code: -32005, message: 'not-pasted', data: { paneId: pane.externalId } }
+}
+
+async function placeholders(pane: PaneIdentity, deps: GatewayControlDeps): Promise<number> {
+  return ((await deps.readScreen(pane.paneId)).match(IMAGE_PLACEHOLDER) ?? []).length
+}
+
+async function pasteImage(
+  pane: PaneIdentity,
+  bytes: Buffer,
+  deps: GatewayControlDeps,
+): Promise<boolean | null> {
+  const before = await placeholders(pane, deps)
+  return deps.withClipboardImage(bytes, async () => {
+    deps.ptyWrite(pane.paneId, PASTE_IMAGE_KEY)
+    for (let waited = 0; waited <= IMAGE_PLACEHOLDER_WAIT_MS; waited += IMAGE_PLACEHOLDER_POLL_MS) {
+      if ((await placeholders(pane, deps)) > before) return true
+      await wait(IMAGE_PLACEHOLDER_POLL_MS)
+    }
+    return false
+  })
+}
+
 async function agentPrompt(call: GatewayCall): Promise<RpcOutcome> {
   const { p, deps } = call
   const pane = agentPaneOf(p.paneId, deps)
   if (isOutcome(pane)) return pane
   if (typeof p.text !== 'string') return invalidParams('missing text')
   const text = plainBlock(p.text).slice(0, PHONE_PROMPT_MAX)
-  if (!text) return invalidParams('missing text')
+  let bytes: Buffer | null = null
+  if (p.image !== undefined) {
+    const image = phoneImageOf(p.image)
+    if (!Buffer.isBuffer(image)) return image
+    const scope = await turnPane({ paneId: p.paneId }, deps)
+    if ('ok' in scope) return scope
+    if (!imageAllowed(call.deviceId)) return { ok: false, code: -32007, message: 'rate-limited' }
+    bytes = image
+  }
+  if (!text && !bytes) return invalidParams('missing text')
   const watched = await deps.watchesTurn(pane)
+  if (bytes) {
+    const pasted = await pasteImage(pane, bytes, deps)
+    if (pasted === null) return invalidParams('image-type')
+    if (!pasted) return notPasted(pane)
+    if (!text) return { ok: true, result: { ok: true, image: 'pasted' } }
+  }
   deps.ptyWrite(pane.paneId, bracketedPaste(text))
   await wait(AGENT_ENTER_DELAY_MS)
   if (!deps.agentRunning(pane.paneId)) return notSubmitted(pane)
   deps.ptyWrite(pane.paneId, '\r')
   if (watched && !(await deps.turnStarted(pane))) return notSubmitted(pane)
-  return { ok: true, result: { ok: true } }
+  return { ok: true, result: { ok: true, ...(bytes ? { image: 'pasted' } : {}) } }
 }
 
 async function agentStart(call: GatewayCall): Promise<RpcOutcome> {

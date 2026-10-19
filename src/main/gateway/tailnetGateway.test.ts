@@ -42,6 +42,8 @@ const deps = {
   attachPhoneObserver: vi.fn(),
   ptyResize: vi.fn(),
   ptyWrite: vi.fn(),
+  readScreen: vi.fn().mockResolvedValue(''),
+  withClipboardImage: vi.fn().mockResolvedValue(true),
   listAsks: vi.fn().mockReturnValue([]),
   answerAsk: vi.fn().mockReturnValue('unknown-ask'),
   agentRunning: vi.fn().mockReturnValue(false),
