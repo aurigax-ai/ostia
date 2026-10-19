@@ -4,5 +4,11 @@
     "name": "GRF-C71 an agent still working in its kept pane across a restart is reattached as running and its report ends the node",
     "issue": 1044,
     "until": "2026-10-30"
+  },
+  {
+    "file": "e2e/os-file-drop.spec.ts",
+    "name": "a file dropped from the system onto a web page in a browser pane reaches the page",
+    "issue": 1192,
+    "until": "2026-11-18"
   }
 ]
