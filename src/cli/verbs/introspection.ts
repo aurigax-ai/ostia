@@ -21,6 +21,7 @@ export async function runWhoami(conn: MessageConnection): Promise<void> {
 }
 
 export async function runDocs(conn: MessageConnection): Promise<void> {
-  const res = await conn.sendRequest<{ cli: string }>('docs')
+  const topic = process.argv[3]
+  const res = await conn.sendRequest<{ cli: string }>('docs', topic ? { topic } : {})
   console.log(res.cli)
 }

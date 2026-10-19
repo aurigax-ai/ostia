@@ -6,7 +6,7 @@ import { CORE_SKILL_FILES, MANAGER_SKILL_FILES } from '../agents/bundledSkills'
 import { docsText } from './docs'
 
 describe('ostia docs', () => {
-  it('prints the bundled skill files and the commands of the enabled extensions', () => {
+  it('prints the skill, a line per reference topic and the commands of the enabled extensions', () => {
     const text = docsText(
       [
         {
@@ -26,9 +26,13 @@ describe('ostia docs', () => {
       ],
       false,
     )
-    for (const file of CORE_SKILL_FILES) {
-      expect(text).toContain(`==> ${file.path} <==`)
-      expect(text).toContain(file.text.trimEnd())
+    expect(text).toContain(`==> SKILL.md <==\n\n${CORE_SKILL_FILES[0].text.trimEnd()}`)
+    for (const file of CORE_SKILL_FILES.slice(1)) {
+      const topic = file.path.replace(/^reference\/|\.md$/g, '')
+      expect(text).toMatch(
+        new RegExp(`^  ostia docs ${topic} +${file.text.split('\n')[0].slice(2)}$`, 'm'),
+      )
+      expect(text).not.toContain(file.text.trimEnd())
     }
     expect(text).toContain('ostia system info\n      OS as JSON')
     expect(text).not.toContain(MANAGER_SKILL_FILES[0].text.trimEnd())
@@ -38,9 +42,18 @@ describe('ostia docs', () => {
     expect(docsText([], true)).toContain(MANAGER_SKILL_FILES[0].text.trimEnd())
   })
 
+  it('prints one reference file for a topic and names the topics for an unknown one', () => {
+    const git = CORE_SKILL_FILES.find((file) => file.path === 'reference/git.md')
+    expect(docsText([], false, 'git')).toBe(`==> reference/git.md <==\n\n${git?.text.trimEnd()}`)
+    expect(() => docsText([], false, 'nope')).toThrow(/^unknown-topic: nope \(topics: browser, /)
+  })
+
   it('PRT-C32 lists the same libraries in the skill and ostia docs, by name, with no /runtime path', () => {
-    const skill = readFileSync(join(process.cwd(), 'src/main/agents/skills/ostia/SKILL.md'), 'utf8')
-    const docs = docsText([], false)
+    const skill = readFileSync(
+      join(process.cwd(), 'src/main/agents/skills/ostia/reference/previews.md'),
+      'utf8',
+    )
+    const docs = docsText([], false, 'previews')
     for (const specifier of importableSpecifiers()) {
       const line = new RegExp(`^\\s*${specifier.replace(/[/@.-]/g, '\\$&')}\\s`, 'm')
       expect(skill, specifier).toMatch(line)
