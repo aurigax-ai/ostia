@@ -77,8 +77,7 @@ export async function runAgentVerb(conn: MessageConnection): Promise<void> {
     ...(flags.tab !== undefined ? { tab: flags.tab } : {}),
   })
   if (isErrResult(res)) {
-    console.error(`ostia: agent run failed (${describeErrResult(res)})`)
-    process.exitCode = 1
+    fail(`ostia: agent run failed (${describeErrResult(res)})`)
     return
   }
   printStart('agent run', res)
@@ -106,8 +105,7 @@ export async function runProcessVerb(conn: MessageConnection): Promise<void> {
       ...(flags.tab !== undefined ? { tab: flags.tab } : {}),
     })
     if (isErrResult(res)) {
-      console.error(`ostia: process run failed (${describeErrResult(res)})`)
-      process.exitCode = 1
+      fail(`ostia: process run failed (${describeErrResult(res)})`)
       return
     }
     printStart('process run', res)
@@ -115,8 +113,7 @@ export async function runProcessVerb(conn: MessageConnection): Promise<void> {
     const list = await conn.sendRequest<ProcInfo[] | ErrResult>('process.list')
     if (!Array.isArray(list)) {
       const reason = isErrResult(list) ? describeErrResult(list) : 'unexpected response'
-      console.error(`ostia: process list failed (${reason})`)
-      process.exitCode = 1
+      fail(`ostia: process list failed (${reason})`)
       return
     }
     if (list.length === 0) {
@@ -135,8 +132,7 @@ export async function runProcessVerb(conn: MessageConnection): Promise<void> {
       { data: string; cursor: number; dropped: boolean } | ErrResult
     >('process.output', { id, sinceCursor })
     if (isErrResult(res)) {
-      console.error(`ostia: process logs failed (${describeErrResult(res)})`)
-      process.exitCode = 1
+      fail(`ostia: process logs failed (${describeErrResult(res)})`)
       return
     }
     if (res.data) process.stdout.write(res.data)
@@ -146,8 +142,7 @@ export async function runProcessVerb(conn: MessageConnection): Promise<void> {
     if (!id) return failUsage('process')
     const res = await conn.sendRequest<{ ok: true } | ErrResult>('process.kill', { id })
     if (isErrResult(res)) {
-      console.error(`ostia: process kill failed (${describeErrResult(res)})`)
-      process.exitCode = 1
+      fail(`ostia: process kill failed (${describeErrResult(res)})`)
       return
     }
     console.log('ok')
@@ -156,8 +151,7 @@ export async function runProcessVerb(conn: MessageConnection): Promise<void> {
     if (!id) return failUsage('process')
     const res = await conn.sendRequest<{ id: string } | ErrResult>('process.restart', { id })
     if (isErrResult(res)) {
-      console.error(`ostia: process restart failed (${describeErrResult(res)})`)
-      process.exitCode = 1
+      fail(`ostia: process restart failed (${describeErrResult(res)})`)
       return
     }
     console.log(JSON.stringify(res))
