@@ -9,6 +9,8 @@ export interface Subscriber {
   close?: () => void
 }
 
+let issuedCursor = 0
+
 export class PtySession {
   private readonly ring: PtyRingBuffer
   private readonly subs = new Map<string, Subscriber>()
@@ -20,7 +22,7 @@ export class PtySession {
     onNoOwners?: () => void
     onExit?: (code: number) => void
   }) {
-    this.ring = new PtyRingBuffer(opts?.capBytes)
+    this.ring = new PtyRingBuffer(opts?.capBytes, issuedCursor)
     this.onNoOwners = opts?.onNoOwners
     this.onExitCb = opts?.onExit
   }
@@ -28,6 +30,7 @@ export class PtySession {
   push(data: string): void {
     this.ring.push(data)
     const cursor = this.ring.end
+    if (cursor > issuedCursor) issuedCursor = cursor
     for (const s of this.subs.values()) s.send(data, cursor)
   }
 
