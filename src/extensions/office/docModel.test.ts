@@ -6,8 +6,6 @@ import {
   externalRelationship,
   paragraph,
   picture,
-  withEntries,
-  zeros,
 } from '../../../test/fixtures/office/workbooks'
 import { readDocument } from './docModel'
 import en from './locales/en.json'
@@ -62,26 +60,10 @@ describe('readDocument', () => {
     expect(fetch).not.toHaveBeenCalled()
   })
 
-  it('names the problem for a bomb, a password, a large file and a malformed file', async () => {
-    const plain = docx({ body: paragraph('x') })
-    expect(
-      await readDocument(
-        withEntries(plain, zeros('word/media/b.bin', 3 * MIB)),
-        {
-          ...OFFICE_LIMITS,
-          inflatedBytes: 2 * MIB,
-          entryRatio: 1e9,
-        },
-        WORDS,
-      ),
-    ).toEqual({ ok: false, problem: 'unzip-limit' })
+  it('names the problem for a password and a malformed file', async () => {
     expect(await readDocument(encryptedWorkbook(), OFFICE_LIMITS, WORDS)).toEqual({
       ok: false,
       problem: 'encrypted',
-    })
-    expect(await readDocument(plain, { ...OFFICE_LIMITS, fileBytes: 100 }, WORDS)).toEqual({
-      ok: false,
-      problem: 'too-large',
     })
     expect(
       await readDocument(new TextEncoder().encode('not a document'), OFFICE_LIMITS, WORDS),

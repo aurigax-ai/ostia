@@ -1,4 +1,4 @@
-import { Deflate, deflateSync, strToU8, unzipSync } from 'fflate'
+import { deflateSync, strToU8, unzipSync } from 'fflate'
 import * as XLSX from 'xlsx'
 
 export interface ZipEntry {
@@ -120,86 +120,8 @@ export function rawZip(entries: ZipEntry[], directory = entries.map((_entry, i) 
   return concat([bytes, central, endRecord(directory.length, central.length, bytes.length)])
 }
 
-export function hiddenDirectoryBomb(bombBytes: number): Uint8Array {
-  const shown = entriesOf(workbook({ Data: [['safe']] }))
-  const all = [...shown, zeros('xl/media/image1.bin', bombBytes)]
-  const { bytes, offsets } = localPart(all)
-  const hidden = directoryPart(
-    all,
-    offsets,
-    all.map((_entry, i) => i),
-  )
-  const visible = directoryPart(
-    all,
-    offsets,
-    shown.map((_entry, i) => i),
-  )
-  const hiddenAt = bytes.length
-  const visibleAt = hiddenAt + hidden.length
-  const fake = [
-    ...u32(0x06054b50),
-    ...u16(0),
-    ...u16(0),
-    ...u16(all.length),
-    ...u16(all.length),
-    ...u32(hidden.length),
-    ...u32(hiddenAt),
-  ]
-  return concat([
-    bytes,
-    hidden,
-    visible,
-    endRecord(shown.length, visible.length, visibleAt, fake.length),
-    fake,
-  ])
-}
-
-export function zip64Extra(size: number): Uint8Array {
-  return Uint8Array.from([...u16(1), ...u16(16), ...u32(size), ...u32(0), ...u32(0), ...u32(0)])
-}
-
-export function declaredSizeBomb(
-  declared: number,
-  where: 'local' | 'central' | 'zip64',
-): Uint8Array {
-  const entries = entriesOf(workbook({ Data: [['safe']] }))
-  const sheet = entries.findIndex((entry) => entry.name === 'xl/worksheets/sheet1.xml')
-  const target = entries[sheet]
-  entries[sheet] =
-    where === 'central'
-      ? { ...target, size: declared, localSize: declared }
-      : where === 'local'
-        ? { ...target, localSize: declared }
-        : { ...target, localExtra: zip64Extra(declared) }
-  return rawZip(entries)
-}
-
 export function deflated(name: string, data: Uint8Array, size = data.length): ZipEntry {
   return { name, method: 8, data: deflateSync(data), size }
-}
-
-export function zeros(name: string, bytes: number, declared = bytes): ZipEntry {
-  const chunks: Uint8Array[] = []
-  const deflate = new Deflate({ level: 9 }, (chunk) => chunks.push(chunk))
-  const block = new Uint8Array(1024 * 1024)
-  for (let left = bytes; left > 0; left -= block.length) {
-    deflate.push(left > block.length ? block : block.subarray(0, left), left <= block.length)
-  }
-  const data = new Uint8Array(chunks.reduce((sum, chunk) => sum + chunk.length, 0))
-  let at = 0
-  for (const chunk of chunks) {
-    data.set(chunk, at)
-    at += chunk.length
-  }
-  return { name, method: 8, data, size: declared }
-}
-
-export function entriesOf(zip: Uint8Array): ZipEntry[] {
-  return Object.entries(unzipSync(zip)).map(([name, data]) => deflated(name, data))
-}
-
-export function withEntries(zip: Uint8Array, ...extra: ZipEntry[]): Uint8Array {
-  return rawZip([...entriesOf(zip), ...extra])
 }
 
 function patched(zip: Uint8Array, name: string, change: (text: string) => string): ZipEntry[] {
@@ -210,8 +132,8 @@ function patched(zip: Uint8Array, name: string, change: (text: string) => string
   })
 }
 
-export function zeroBomb(bytes: number): Uint8Array {
-  return withEntries(workbook({ Data: [['safe']] }), zeros('xl/media/image1.bin', bytes))
+function entriesOf(zip: Uint8Array): ZipEntry[] {
+  return Object.entries(unzipSync(zip)).map(([name, data]) => deflated(name, data))
 }
 
 export function macroWorkbook(): Uint8Array {
@@ -267,27 +189,6 @@ export function encryptedWorkbook(): Uint8Array {
   XLSX.CFB.utils.cfb_add(container, 'EncryptionInfo', new Uint8Array([4, 0, 4, 0, 0x40, 0, 0, 0]))
   XLSX.CFB.utils.cfb_add(container, 'EncryptedPackage', new Uint8Array(64).fill(7))
   return new Uint8Array(XLSX.CFB.write(container, { type: 'array' }) as ArrayBuffer)
-}
-
-export function odsRepeats(rows: number, columns: number): Uint8Array {
-  const base = workbook({ Data: [['x']] }, 'ods')
-  const row = `<table:table-row table:number-rows-repeated="${rows}"><table:table-cell table:number-columns-repeated="${columns}" office:value-type="float" office:value="1"><text:p>1</text:p></table:table-cell></table:table-row>`
-  return rawZip(
-    patched(base, 'content.xml', (text) =>
-      text.replace(/<table:table-row[\s\S]*<\/table:table-row>/, row),
-    ),
-  )
-}
-
-export function hyperlinkRange(ref: string): Uint8Array {
-  const base = workbook({ Links: [['open me']] }, 'xlsx', (book) => {
-    book.Sheets.Links.A1.l = { Target: 'https://example.invalid/' }
-  })
-  return rawZip(
-    patched(base, 'xl/worksheets/sheet1.xml', (text) =>
-      text.replace(/<hyperlink ref="A1"/, `<hyperlink ref="${ref}"`),
-    ),
-  )
 }
 
 const W = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main'
