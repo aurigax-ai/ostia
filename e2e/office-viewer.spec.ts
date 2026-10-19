@@ -172,7 +172,7 @@ test('a malformed file and a long sheet each say why, and a bomb is stopped', as
   await withApp(
     {
       'broken.xlsx': new TextEncoder().encode('this is not a workbook'),
-      'bomb.xlsx': cfbBomb(2000),
+      'bomb.xls': cfbBomb(2000),
       'long.xlsx': long,
     },
     async (win, app) => {
@@ -195,7 +195,7 @@ test('a malformed file and a long sheet each say why, and a bomb is stopped', as
       )
       await guestText(app, 'long.xlsx').toContain('100000')
 
-      await openSheet(win, 'bomb.xlsx')
+      await openSheet(win, 'bomb.xls')
       const stopped = win.getByTestId('viewer-stopped')
       await expect(stopped).toBeVisible({ timeout: 20_000 })
       await expect(stopped.getByRole('button', { name: 'Reload' })).toBeVisible()

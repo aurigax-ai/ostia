@@ -13,6 +13,11 @@ export const PPTX_TYPE =
 export const PPTM_TYPE = 'application/vnd.ms-powerpoint.presentation.macroEnabled.main+xml'
 export const PPSX_TYPE =
   'application/vnd.openxmlformats-officedocument.presentationml.slideshow.main+xml'
+export const TEMPLATE_TYPES = [
+  'application/vnd.ms-powerpoint.slideshow.macroEnabled.main+xml',
+  'application/vnd.openxmlformats-officedocument.presentationml.template.main+xml',
+  'application/vnd.ms-powerpoint.template.macroEnabled.main+xml',
+]
 export const ODP_MIMETYPE = 'application/vnd.oasis.opendocument.presentation'
 export const ODT_MIMETYPE = 'application/vnd.oasis.opendocument.text'
 
@@ -140,7 +145,7 @@ export function odf(
   mimetype: string,
   { body, styles = '', manifest = '', content, extra = [] }: OdfParts,
 ): Uint8Array {
-  const kind = mimetype === ODP_MIMETYPE ? 'presentation' : 'text'
+  const kind = mimetype.startsWith(ODP_MIMETYPE) ? 'presentation' : 'text'
   return zipOf(
     {
       mimetype,

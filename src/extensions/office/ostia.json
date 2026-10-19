@@ -3,7 +3,7 @@
   "name": "Office documents",
   "version": "1.0.0",
   "api": "5.1",
-  "description": "Shows spreadsheets (.xlsx, .xlsm, .ods) as sheets with tabs, Word and OpenDocument text (.docx, .odt) as text, and presentations (.pptx, .pptm, .ppsx, .odp) as an outline of each slide's title, text, tables and notes, read-only. It parses the file you opened inside its own sandbox with size and content limits that say why when a file goes past them, never runs macros, never follows links and sends the file nowhere.",
+  "description": "Shows spreadsheets (.xlsx, .xlsm, .xlsb, .xls, .ods, .fods and their templates) as sheets with tabs, Word and OpenDocument text (.docx, .docm, .odt and their templates) as text, and presentations (.pptx, .pptm, .ppsx, .ppsm, .odp and their templates) as an outline of each slide's title, text, tables and notes, read-only. It parses the file you opened inside its own sandbox with size and content limits that say why when a file goes past them, never runs macros, never follows links and sends the file nowhere.",
   "category": "tools",
   "locales": ["zh-Hant"],
   "contributes": {
@@ -20,6 +20,27 @@
           },
           {
             "filenamePattern": "*.ods"
+          },
+          {
+            "filenamePattern": "*.xls"
+          },
+          {
+            "filenamePattern": "*.xlt"
+          },
+          {
+            "filenamePattern": "*.xlsb"
+          },
+          {
+            "filenamePattern": "*.fods"
+          },
+          {
+            "filenamePattern": "*.xltx"
+          },
+          {
+            "filenamePattern": "*.xltm"
+          },
+          {
+            "filenamePattern": "*.ots"
           }
         ],
         "view": {
@@ -36,6 +57,18 @@
           },
           {
             "filenamePattern": "*.odt"
+          },
+          {
+            "filenamePattern": "*.docm"
+          },
+          {
+            "filenamePattern": "*.dotx"
+          },
+          {
+            "filenamePattern": "*.dotm"
+          },
+          {
+            "filenamePattern": "*.ott"
           }
         ],
         "view": {
@@ -58,6 +91,18 @@
           },
           {
             "filenamePattern": "*.odp"
+          },
+          {
+            "filenamePattern": "*.potx"
+          },
+          {
+            "filenamePattern": "*.potm"
+          },
+          {
+            "filenamePattern": "*.ppsm"
+          },
+          {
+            "filenamePattern": "*.otp"
           }
         ],
         "view": {
