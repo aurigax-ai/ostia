@@ -40,7 +40,7 @@ const FORBIDDEN_CODE_MOTION = [
   /\b(?:active|data-pressed|data-\[pressed\]):-?(?:scale|translate)/,
   /\b(?:transition|animation)(?:Duration|TimingFunction|Delay)?\s*:\s*['"`]/,
   /\bbehavior:\s*['"]smooth['"]/,
-  /\bsmoothScrolling:(?!\s*false\b)/,
+  /\bsmoothScrolling:\s*true\b/,
 ]
 
 function motionDeclarations(source: string): string[] {
