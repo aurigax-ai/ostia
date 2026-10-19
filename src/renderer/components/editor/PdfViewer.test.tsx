@@ -177,6 +177,28 @@ describe('PdfViewer', () => {
     expect(document.querySelector('.region-select')).toBeNull()
   })
 
+  it('Escape leaves region mode and clears the region, from the page or the toolbar', async () => {
+    await renderPdf()
+    const toggle = screen.getByRole('button', { name: 'Select a region' })
+    await userEvent.click(toggle)
+    await userEvent.keyboard('{Escape}')
+    expect(toggle).toHaveAttribute('aria-pressed', 'false')
+    expect(document.querySelector('.region-select')).toBeNull()
+
+    await userEvent.click(toggle)
+    const layer = document.querySelector('.pdf-region-layer') as HTMLElement
+    layer.getBoundingClientRect = () =>
+      ({ left: 0, top: 0, width: 600, height: 800, right: 600, bottom: 800, x: 0, y: 0 }) as DOMRect
+    fireEvent.pointerDown(layer, { button: 0, clientX: 60, clientY: 100, pointerId: 1 })
+    fireEvent.pointerUp(layer, { clientX: 260, clientY: 150, pointerId: 1 })
+    expect(document.querySelector('.viewer-region')).not.toBeNull()
+    fireEvent.keyDown(layer, { key: 'Escape' })
+    expect(toggle).toHaveAttribute('aria-pressed', 'false')
+    expect(document.querySelector('.pdf-region-layer')).toBeNull()
+    expect(document.querySelector('.viewer-region')).toBeNull()
+    expect(screen.getByRole('button', { name: 'Send page to agent' })).toBeInTheDocument()
+  })
+
   it('snapshots a dragged region of the page canvas in PDF points', async () => {
     await renderPdf()
     await userEvent.click(screen.getByRole('button', { name: 'Select a region' }))
