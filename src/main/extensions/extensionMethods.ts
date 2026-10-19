@@ -3,6 +3,11 @@ import {
   BROWSE_ENTRIES_METHOD,
   BROWSE_READ_AT_METHOD,
 } from '@aurigax-ai/ostia-extension-sdk/contract/fileBrowse'
+import {
+  PHONE_SCREENS_ASK_METHOD,
+  PHONE_SCREENS_LISTEN_METHOD,
+  PHONE_SCREENS_REQUEST_METHOD,
+} from '@aurigax-ai/ostia-extension-sdk/contract/phoneScreens'
 import type { MessageConnection } from 'vscode-jsonrpc/node'
 import { registerControlMethod } from '../control/controlServer'
 import type { PaneIdentity } from '../control/idRegistry'
@@ -37,6 +42,7 @@ export function registerExtensionMethods(host: () => ExtensionHost | null): void
   registerAssistMethods(forExtension)
   registerConfigMethods(forExtension)
   registerBrowseMethods(forExtension)
+  registerPhoneScreenMethods(forExtension)
 }
 
 function registerHostMethods(host: () => ExtensionHost | null, forExtension: ForExtension): void {
@@ -222,5 +228,20 @@ function registerBrowseMethods(forExtension: ForExtension): void {
   registerControlMethod(BROWSE_CHUNK_METHOD, {
     ...forExtension((h, id, conn, p) => h.browse.chunk(id, conn, p)),
     cap: 'file-contents',
+  })
+}
+
+function registerPhoneScreenMethods(forExtension: ForExtension): void {
+  registerControlMethod(PHONE_SCREENS_LISTEN_METHOD, {
+    ...forExtension((h, id, conn) => h.phoneScreens.listen(id, conn)),
+    cap: 'phone-screens',
+  })
+  registerControlMethod(PHONE_SCREENS_REQUEST_METHOD, {
+    ...forExtension((h, id, conn, p) => h.phoneScreens.request(id, conn, p)),
+    cap: 'phone-screens',
+  })
+  registerControlMethod(PHONE_SCREENS_ASK_METHOD, {
+    ...forExtension((h, id, conn, p) => h.phoneScreens.ask(id, conn, p)),
+    cap: 'phone-screens',
   })
 }

@@ -18,6 +18,7 @@ import type { RemoteFolders, RemoteFoldersDeps } from '../files/remoteFolders'
 import type { ExtensionConnections } from './extensionConnections'
 import type { ExtensionExec } from './extensionExec'
 import type { ExtensionLaunches } from './extensionLaunches'
+import type { PhoneScreenLinks } from './extensionPhoneScreens'
 import type { ExtensionConfirmRequest, TerminalOpenRequest } from './extensionRuns'
 import type { ExtensionStore } from './extensionStore'
 
@@ -76,6 +77,7 @@ export interface ExtensionHostDeps {
   agentTaskClock?: () => number
   remoteCwdForPane?: (paneId: string) => RemoteCwd | undefined
   agentRunning?: (paneId: string) => boolean
+  screenLinks?: PhoneScreenLinks
   remoteFolders?: Pick<RemoteFoldersDeps, 'windowOfWorkspace' | 'refusal' | 'confirm'> & {
     publish: (folders: RemoteFolders) => void
   }
