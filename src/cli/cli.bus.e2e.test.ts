@@ -226,11 +226,18 @@ describe('bus delivery through the real CLI and the agents’ own hooks', () => 
     expect(JSON.parse((await ostia(agent, 'bus', 'inbox', '--json')).stdout)).toHaveLength(1)
   }, 30_000)
 
+  it('answers a wait that runs out on stderr with exit 2', async () => {
+    const res = await ostia(agent, 'bus', 'wait', '--timeout', '1')
+    expect(res.code).toBe(2)
+    expect(res.stdout).toBe('')
+    expect(res.stderr).toBe('ostia bus wait: timed-out: no message arrived\n')
+  }, 60_000)
+
   it('delivers at once, with no hint, when the receiver is blocked in bus wait', async () => {
     const waiting = ostia(agent, 'bus', 'wait', '--timeout', '20', '--json')
     await new Promise((resolve) => setTimeout(resolve, 3000))
     const res = await ostia(sender, 'bus', 'send', agent.externalId, 'are you there')
-    expect(JSON.parse(res.stdout)).toMatchObject({ ok: true, state: 'delivered', via: 'read' })
+    expect(JSON.parse(res.stdout)).toMatchObject({ ok: true, state: 'leased', via: 'read' })
     expect(res.stderr).toBe('')
     expect(announce).not.toHaveBeenCalled()
     const woken = JSON.parse((await waiting).stdout)

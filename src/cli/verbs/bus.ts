@@ -11,7 +11,14 @@ import {
   mailLabel,
 } from '../../shared/agents/busMessages'
 import { parseArgs } from '../common/args'
-import { type ErrResult, describeErrResult, failUsage, failVerb, failWith } from '../common/failure'
+import {
+  type ErrResult,
+  commandLabel,
+  describeErrResult,
+  failUsage,
+  failVerb,
+  failWith,
+} from '../common/failure'
 import { tsvLine } from '../common/lineField'
 
 export const BUS_HOOK_USAGE = `usage: ostia bus hook <${AGENT_HOOK_CONTEXT_EVENTS.join('|')}|mod-ready|take|ack>`
@@ -127,15 +134,11 @@ interface BusMessage {
 }
 interface BusInboxResult {
   messages: BusMessage[]
+  lease?: string
 }
-interface BusWaitResult {
-  messages: BusMessage[]
+interface BusWaitResult extends BusInboxResult {
   timedOut: boolean
 }
-export function busWaitText(res: BusWaitResult): string {
-  return res.timedOut ? 'timed-out: no message arrived' : busInboxText(res.messages)
-}
-
 interface BusHandoff {
   id: string
   from: string
@@ -194,6 +197,7 @@ export async function runBusVerb(conn: MessageConnection): Promise<void> {
     const res = await conn.sendRequest<BusInboxResult | ErrResult>('bus.inbox', { take })
     if ('messages' in res) {
       console.log(json ? JSON.stringify(res.messages) : busInboxText(res.messages))
+      if (res.lease) await conn.sendRequest('bus.ack', { lease: res.lease })
     } else {
       failWith(describeErrResult(res))
     }
@@ -223,8 +227,11 @@ export async function runBusVerb(conn: MessageConnection): Promise<void> {
     const timeoutMs = busSeconds(values.timeout, '--timeout')
     const res = await conn.sendRequest<BusWaitResult | ErrResult>('bus.wait', { timeoutMs })
     if ('messages' in res) {
-      console.log(booleans.json ? JSON.stringify(res) : busWaitText(res))
+      if (booleans.json) console.log(JSON.stringify(res))
+      else if (res.timedOut) console.error(`${commandLabel()}: timed-out: no message arrived`)
+      else console.log(busInboxText(res.messages))
       if (res.timedOut) process.exitCode = BUS_WAIT_EXIT_TIMEOUT
+      if (res.lease) await conn.sendRequest('bus.ack', { lease: res.lease })
     } else {
       failWith(describeErrResult(res))
     }

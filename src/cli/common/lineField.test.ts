@@ -9,6 +9,12 @@ describe('tsvLine', () => {
     expect(line.split('\t')).toHaveLength(4)
   })
 
+  it('escapes C1 controls, bidi controls, zero-width characters and line separators', () => {
+    expect(lineField('a\u009bb\u202ec\u2066d\u200be\u2028f\ufeff')).toBe(
+      'a\\x9bb\\u202ec\\u2066d\\u200be\\u2028f\\ufeff',
+    )
+  })
+
   it('prints a missing field as empty and leaves other text alone', () => {
     expect(lineField(undefined)).toBe('')
     expect(lineField('控制面 ✓ a\\b')).toBe('控制面 ✓ a\\b')

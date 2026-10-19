@@ -49,6 +49,12 @@ describe('normalizeQuestion', () => {
     expect(content({ question: 'q', context: 'one\r\n\ttwo\x00\x9b' }).context).toBe('one\n\ttwo')
   })
 
+  it('shows bidi controls, zero-width characters and line separators as escapes', () => {
+    const parsed = content({ question: 'ok\u202e?', context: 'a\u2066b\u200bc\u2028d' })
+    expect(parsed.question).toBe('ok\\u202e?')
+    expect(parsed.context).toBe('a\\u2066b\\u200bc\\u2028d')
+  })
+
   it('clips a long question and a long context', () => {
     const parsed = content({
       question: 'q'.repeat(QUESTION_MAX + 50),

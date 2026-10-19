@@ -256,8 +256,8 @@ message waits: `working` (read when its turn ends), `idle-will-wake` (Ostia star
 idle agent to read it), `draft` (the human has text in its prompt), `rate-limited` (too many mail
 turns lately), `idle-no-wake` (read at its next prompt), `hibernated` (Ostia wakes the agent, at
 most 3 times an hour, and it reads the message), `hooks-off` or `no-agent` (read only with
-`bus inbox`). `inbox` and `wait` print each message as a `<message id from at>` block with
-its whole text, or `(no messages)`; `wait` answers `timed-out:` with exit 2. Give the shell
+`bus inbox`). `inbox` and `wait` print the messages whole, framed as the hook frames them, or
+`(no messages)`; `wait` answers `timed-out:` with exit 2. Give the shell
 command a timeout longer than `--timeout`. `--wait <s>` blocks
 (1–590 s) until it is delivered or failed and exits 0 delivered, 1 failed, 2 still queued. `send`
 and `handoff` read the store back and answer `not-queued:` or `not-recorded:` when the message

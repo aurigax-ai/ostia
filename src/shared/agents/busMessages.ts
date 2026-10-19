@@ -110,7 +110,7 @@ export function busContext(messages: readonly BusContextMessage[]): BusContext |
 }
 
 export function busInboxText(messages: readonly BusContextMessage[]): string {
-  return messages.length === 0
-    ? '(no messages)'
-    : messages.map((message) => messageBlock(message, Number.POSITIVE_INFINITY)).join('\n')
+  if (messages.length === 0) return '(no messages)'
+  const blocks = messages.map((message) => messageBlock(message, Number.POSITIVE_INFINITY))
+  return assemble(messages.length, blocks)
 }

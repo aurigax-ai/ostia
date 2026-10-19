@@ -4,7 +4,6 @@ import {
   type BusHookIo,
   busSeconds,
   busSendArgs,
-  busWaitText,
   runBusHook,
   sendExitCode,
   sentLines,
@@ -195,16 +194,5 @@ describe('busSendArgs', () => {
     })
     expect(busSendArgs(['--wait'])).toBeNull()
     expect(busSendArgs(['--wait', '30'])).toBeNull()
-  })
-})
-
-describe('busWaitText', () => {
-  it('answers timed-out, or the messages that arrived', () => {
-    expect(busWaitText({ messages: [], timedOut: true })).toBe('timed-out: no message arrived')
-    const arrived = busWaitText({
-      messages: [{ id: 'm1', from: 'p1', to: 'p2', text: 'done', ts: 't', state: 'delivered' }],
-      timedOut: false,
-    })
-    expect(arrived).toBe('<message id="m1" from="p1" at="t">\ndone\n</message>')
   })
 })
