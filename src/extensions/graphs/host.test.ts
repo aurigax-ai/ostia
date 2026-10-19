@@ -117,6 +117,33 @@ edges: []
     expect((await h.run(moved))?.state.o).toBe('closed')
   })
 
+  it('a message node passes on the bus state and why it is still queued', async () => {
+    const h = await hostHarness(
+      workspace({
+        g: `${head()}nodes:
+  - { id: a, kind: agent, with: { mode: message, to: trigger, prompt: "go on", wait: none } }
+edges: []
+`,
+      }),
+    )
+    h.panes.push({
+      paneId: 'p1',
+      workspaceId: 'w1',
+      kind: 'terminal',
+      title: 't',
+      running: true,
+      blockCount: 0,
+    })
+    const output = async () => {
+      const id = await enableAndStart(h, 'g', [], 'p1')
+      await settle()
+      return (await h.run(id))?.view.nodes.find((n) => n.node === 'a')?.output
+    }
+    expect(await output()).toEqual({ pane: 'p1', delivered: 'delivered' })
+    h.busReply = () => ({ ok: true, id: 'm2', state: 'queued', pending: 'working' })
+    expect(await output()).toEqual({ pane: 'p1', delivered: 'queued', pending: 'working' })
+  })
+
   it('GRF-C99 an agent node that meets core’s rate limit waits for the next minute and starts then', async () => {
     const h = await hostHarness(
       workspace({

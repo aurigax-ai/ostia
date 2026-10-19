@@ -62,6 +62,7 @@ describe('the manifests in this repository', () => {
       'lsp-yaml',
       'model-runtime',
       'office',
+      'serial',
       'system',
       'trellis',
     ]) {

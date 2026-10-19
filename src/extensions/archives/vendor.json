@@ -1,0 +1,5 @@
+{
+  "packages": {
+    "@napi-rs/lzma": "node_modules/@napi-rs/lzma"
+  }
+}
