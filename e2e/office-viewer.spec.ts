@@ -308,3 +308,23 @@ test('presentations and OpenDocument text open as outlines, fetch nothing and sa
     server.close()
   }
 })
+
+test('a runaway viewer is stopped within seconds with a reload notice while another pane answers', async () => {
+  await withApp(
+    { 'runaway.xlsx': workbook({ One: [['held']] }), 'ok.xlsx': workbook({ Two: [['alive']] }) },
+    async (win, app) => {
+      await openSheet(win, 'runaway.xlsx')
+      await guestText(app, 'runaway.xlsx').toContain('held')
+      await viewerGuestRun(
+        app,
+        { viewType: SHEET, name: 'runaway.xlsx' },
+        'setTimeout(() => { const keep = []; for (;;) keep.push(new Uint8Array(8 * 1024 * 1024).fill(1)) }, 0); 0',
+      )
+      const stopped = win.getByTestId('viewer-stopped')
+      await expect(stopped).toBeVisible({ timeout: 20_000 })
+      await expect(stopped.getByRole('button', { name: 'Reload' })).toBeVisible()
+      await openSheet(win, 'ok.xlsx')
+      await guestText(app, 'ok.xlsx').toContain('alive')
+    },
+  )
+})
