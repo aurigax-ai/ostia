@@ -35,11 +35,6 @@ export interface ScriptTokenInfo {
   source: ScriptTokenSource
 }
 
-export interface RetiredScriptToken {
-  name: string
-  retiredAt: string
-}
-
 interface ScriptTokenWorkspace {
   id: string
   name: string
@@ -54,7 +49,6 @@ interface ScriptTokenGroup {
 
 export interface ScriptTokensState {
   tokens: ScriptTokenInfo[]
-  retired: RetiredScriptToken[]
   workspaces: ScriptTokenWorkspace[]
   groups: ScriptTokenGroup[]
 }

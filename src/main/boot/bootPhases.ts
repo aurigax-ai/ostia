@@ -165,7 +165,7 @@ export function boot(wiring: Wiring): void {
   const { viewHost } = registerContentIpc({ ...wiring })
   startGateway({ ...wiring })
   registerBrowserWiring({ ...wiring })
-  startControlServer({ ...wiring, notifyDeps })
+  startControlServer({ ...wiring })
   startManager({ ...wiring })
   startWindows({
     ...wiring,
