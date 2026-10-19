@@ -31,7 +31,8 @@ import {
   registerGatewayMethods,
 } from './gatewayIpc'
 import { listPairRequests, onPairRequestsChanged } from './pairRequests'
-import { configureGatewayControl } from './server'
+import { ScreenLinks } from './screenLinks'
+import { askPhonesForScreen, configureGatewayControl, configureScreenLinks } from './server'
 import { createTailnet, tailnetNodeName, tsnetHelperPath } from './tailnet'
 import type { PhoneFileScope } from './workspaceFiles'
 
@@ -63,6 +64,20 @@ interface GatewayStartDeps {
   agentRunning: AgentRunningPanes
   ptys: Map<string, PtyEntry>
   turnConfirms: PaneConfirms
+}
+
+export function createScreenLinks({
+  execCommand,
+  windowIds,
+  services,
+}: Pick<GatewayStartDeps, 'execCommand' | 'windowIds' | 'services'>): ScreenLinks {
+  const links = new ScreenLinks({
+    listWorkspaces: () => listWorkspaces({ execCommand, windowIds }),
+    askPhones: askPhonesForScreen,
+    log: (event, fields) => services.appLog?.info(event, fields),
+  })
+  configureScreenLinks(links)
+  return links
 }
 
 export function startGateway({

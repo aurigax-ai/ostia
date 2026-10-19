@@ -17,6 +17,7 @@ import { get as getDevice, list as listDevices } from './devices'
 import { createPairHttp } from './pairHttp'
 import { type SocketState, createPhoneSocket } from './phoneSocket'
 import { readProxyHeader } from './proxyProtocol'
+import type { ScreenLinks } from './screenLinks'
 
 export interface GatewayStartOptions {
   host?: string
@@ -134,6 +135,14 @@ function broadcastEvent(type: PlatformEventType, payload: unknown): void {
   }
 }
 
+export function askPhonesForScreen(sessionId: string): void {
+  const frame = eventFrame('screen.requested', { sessionId, by: 'desktop' })
+  for (const [ws, state] of sockets) {
+    if (!state.device?.caps.includes('notify') || screenLinks?.isLink(ws)) continue
+    if (ws.readyState === ws.OPEN) ws.send(frame)
+  }
+}
+
 export function phoneCanRespond(): boolean {
   for (const [ws, state] of sockets) {
     const device = state.device ? getDevice(state.device.deviceId) : null
@@ -159,9 +168,14 @@ function unsubscribePlatformEvents(): void {
 }
 
 let controlDeps: GatewayControlDeps | null = null
+let screenLinks: ScreenLinks | null = null
 
 export function configureGatewayControl(deps: GatewayControlDeps): void {
   controlDeps = deps
+}
+
+export function configureScreenLinks(links: ScreenLinks): void {
+  screenLinks = links
 }
 
 function hasBrowserOrigin(origin: string | undefined): boolean {
@@ -247,6 +261,7 @@ const handleConnection = createPhoneSocket({
   trackDeviceSocket,
   untrackDeviceSocket,
   controlDeps: () => controlDeps,
+  screenLinks: () => screenLinks,
 })
 
 export async function startGateway(options: GatewayStartOptions = {}): Promise<GatewayStartResult> {

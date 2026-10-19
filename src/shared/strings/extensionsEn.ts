@@ -29,6 +29,8 @@ export const extensionsEn = {
       mcp: 'Call the MCP servers you set up and left on',
       notify: 'Show notifications',
       phone: 'Manage the phone companion',
+      'phone-screens':
+        "See and drive a phone's screen while its human runs a session they started on the phone",
       process: 'Run and manage background processes',
       'read-board': 'Read the workspaces and panes you have open',
       'read-other-pane': 'Read the screen of other terminal panes',

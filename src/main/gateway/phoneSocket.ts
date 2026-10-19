@@ -4,6 +4,7 @@ import type { WebSocket } from 'ws'
 import { resolveExternal } from '../control/idRegistry'
 import { type GatewayControlDeps, dispatchGatewayMethod } from './controlDispatch'
 import { type Device, get as getDevice, verifyToken } from './devices'
+import type { ScreenLinks } from './screenLinks'
 
 const FRAME_PTY_OUTPUT = 0x01
 const FRAME_PTY_INPUT = 0x02
@@ -11,6 +12,8 @@ const FRAME_PTY_RESIZE = 0x03
 const MAX_PTY_DIM = 1000
 
 const HELLO_TIMEOUT_MS = 10_000
+
+const LINK_METHODS: ReadonlySet<unknown> = new Set(['ask.list', 'ask.answer'])
 
 interface PtyAttachment {
   rendererPaneId: string
@@ -23,6 +26,7 @@ export interface PhoneSocketDeps {
   trackDeviceSocket: (deviceId: string, ws: WebSocket) => void
   untrackDeviceSocket: (deviceId: string, ws: WebSocket) => void
   controlDeps: () => GatewayControlDeps | null
+  screenLinks: () => ScreenLinks | null
 }
 
 export interface SocketState {
@@ -98,6 +102,46 @@ function handleControlMethod(
     .catch((err) => {
       ws.send(rpcError(msg.id, -32603, err instanceof Error ? err.message : 'internal error'))
     })
+}
+
+function handleScreenStart(
+  ws: WebSocket,
+  state: SocketState,
+  device: Device,
+  msg: { id?: unknown; params?: unknown },
+  links: ScreenLinks | null,
+): void {
+  if (!links) {
+    ws.send(rpcError(msg.id, -32004, 'no-controller'))
+    return
+  }
+  if (state.ptyAttachment) {
+    ws.send(rpcError(msg.id, -32602, 'busy'))
+    return
+  }
+  links
+    .start(ws, device, msg.params)
+    .then((outcome) => {
+      if (ws.readyState !== ws.OPEN) return
+      if (outcome.ok) ws.send(rpcResult(msg.id, outcome.result))
+      else ws.send(rpcError(msg.id, outcome.code, outcome.message, outcome.data))
+    })
+    .catch(() => ws.send(rpcError(msg.id, -32603, 'internal error')))
+}
+
+function handleLinkMessage(
+  ws: WebSocket,
+  device: Device,
+  msg: { id?: unknown; method?: unknown; params?: unknown },
+  links: ScreenLinks,
+  controlDeps: GatewayControlDeps | null,
+): void {
+  if (links.fromPhone(ws, msg)) return
+  if (LINK_METHODS.has(msg.method)) {
+    handleControlMethod(ws, device, msg, controlDeps)
+    return
+  }
+  ws.send(rpcError(msg.id, -32600, 'link-only'))
 }
 
 function ptyOutputFrame(data: string): Buffer {
@@ -208,11 +252,16 @@ function handleBinaryFrame(
   state: SocketState,
   data: Buffer,
   controlDeps: GatewayControlDeps | null,
+  links: ScreenLinks | null,
 ): void {
   if (!state.device || !controlDeps || data.length < 1) return
   const device = refreshDevice(state)
   if (!device) {
     ws.close(4003, 'revoked')
+    return
+  }
+  if (links?.isLink(ws)) {
+    links.frame(ws, data)
     return
   }
   const type = data[0]
@@ -249,7 +298,7 @@ function handleConnection(ws: WebSocket, deps: PhoneSocketDeps): void {
 
   ws.on('message', (data, isBinary) => {
     if (isBinary) {
-      handleBinaryFrame(ws, state, data as Buffer, deps.controlDeps())
+      handleBinaryFrame(ws, state, data as Buffer, deps.controlDeps(), deps.screenLinks())
       return
     }
     let msg: { jsonrpc?: unknown; id?: unknown; method?: unknown; params?: unknown }
@@ -274,6 +323,15 @@ function handleConnection(ws: WebSocket, deps: PhoneSocketDeps): void {
       ws.close(4003, 'revoked')
       return
     }
+    const links = deps.screenLinks()
+    if (links?.isLink(ws)) {
+      handleLinkMessage(ws, device, msg, links, deps.controlDeps())
+      return
+    }
+    if (msg.method === 'screen.start') {
+      handleScreenStart(ws, state, device, msg, links)
+      return
+    }
     if (msg.method === 'whoami') {
       handleWhoami(ws, device, msg)
       return
@@ -293,8 +351,9 @@ function handleConnection(ws: WebSocket, deps: PhoneSocketDeps): void {
     handleControlMethod(ws, device, msg, deps.controlDeps())
   })
 
-  ws.on('close', () => {
+  ws.on('close', (code) => {
     clearTimeout(helloDeadline)
+    deps.screenLinks()?.closed(ws, code)
     state.ptyAttachment?.detach()
     state.ptyAttachment = null
     if (state.device) untrackDeviceSocket(state.device.deviceId, ws)
