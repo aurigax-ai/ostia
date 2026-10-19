@@ -58,6 +58,7 @@
   ],
   "specs": [
     "e2e/archive-browsing.spec.ts",
+    "e2e/packaged-archives.spec.ts",
     "e2e/open-any-file.spec.ts",
     "e2e/os-file-drop.spec.ts",
     "e2e/palette.spec.ts",

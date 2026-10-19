@@ -66,7 +66,6 @@
   },
   "ignoreBinaries": [
     "busctl",
-    "bzip2",
     "hdiutil",
     "infocmp",
     "jq",

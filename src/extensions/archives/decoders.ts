@@ -1,11 +1,16 @@
 import { join } from 'node:path'
-import { createDecompressStream } from '@napi-rs/lzma/xz'
 import { Bzip2Stream } from './bzip2Stream'
 import type { Decoders } from './inflate'
 
-export function decodersIn(dir: string): Decoders {
+type XzModule = typeof import('@napi-rs/lzma/xz')
+
+function loadXz(): XzModule {
+  return require('@napi-rs/lzma/xz')
+}
+
+export function decodersIn(dir: string, load: () => XzModule = loadXz): Decoders {
   return {
-    xz: createDecompressStream,
+    xz: () => load().createDecompressStream(),
     bzip2: () => new Bzip2Stream(join(dir, 'bzip2.thread.js')),
   }
 }
