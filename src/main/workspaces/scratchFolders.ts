@@ -12,6 +12,7 @@ const FOLDER_NAME = /^(\d+)-[0-9a-f]{12}$/
 const COUNT_CAP = 10_000
 const REMOVE_RETRIES = 4
 const REMOVE_RETRY_STEP_MS = 25
+const QUIT_REMOVE_DEADLINE_MS = 2000
 const RETRYABLE = new Set(['ENOTEMPTY', 'EBUSY'])
 
 export interface ScratchFailure {
@@ -76,7 +77,8 @@ export function countScratchFiles(dir: string): number {
 
 export class ScratchFolders {
   private readonly folders = new Map<string, ScratchFolder>()
-  private readonly removing = new Set<Promise<ScratchFailure | null>>()
+  private readonly removing = new Map<string, Promise<ScratchFailure | null>>()
+  private closed = false
 
   constructor(
     readonly root: string,
@@ -85,6 +87,7 @@ export class ScratchFolders {
   ) {}
 
   create(windowId: string): string {
+    if (this.closed) throw new Error('scratch folders are closed')
     const dir = join(this.root, `${this.pid}-${randomBytes(6).toString('hex')}`)
     mkdirSync(dir, { mode: 0o700 })
     if (!isRealDir(dir)) throw new Error(`refusing to use ${dir}: not a directory`)
@@ -134,8 +137,8 @@ export class ScratchFolders {
   }
 
   private track(dir: string): Promise<ScratchFailure | null> {
-    const removal = removeDir(dir).finally(() => this.removing.delete(removal))
-    this.removing.add(removal)
+    const removal = removeDir(dir).finally(() => this.removing.delete(dir))
+    this.removing.set(dir, removal)
     return removal
   }
 
@@ -146,26 +149,41 @@ export class ScratchFolders {
     return this.track(folder.dir)
   }
 
-  async removeAll(): Promise<ScratchFailure[]> {
+  async removeAll(deadlineMs = QUIT_REMOVE_DEADLINE_MS): Promise<ScratchFailure[]> {
+    this.closed = true
     const dirs = [...this.folders.keys()]
     this.folders.clear()
-    const pending = [...this.removing, ...dirs.map((dir) => this.track(dir))]
-    const results = await Promise.all(pending)
-    return results.filter((failure): failure is ScratchFailure => failure !== null)
+    for (const dir of dirs) this.track(dir)
+    let timer: ReturnType<typeof setTimeout> | undefined
+    const expired = new Promise<'expired'>((done) => {
+      timer = setTimeout(() => done('expired'), deadlineMs)
+    })
+    try {
+      const results = await Promise.all(
+        [...this.removing].map(([dir, removal]) =>
+          Promise.race([removal, expired.then((): ScratchFailure => ({ dir, code: 'TIMEOUT' }))]),
+        ),
+      )
+      return results.filter((failure): failure is ScratchFailure => failure !== null)
+    } finally {
+      clearTimeout(timer)
+    }
   }
 
-  async sweep(): Promise<string[]> {
+  async sweep(): Promise<{ removed: string[]; failed: ScratchFailure[] }> {
     const removed: string[] = []
+    const failed: ScratchFailure[] = []
     for (const entry of entries(this.root)) {
       const match = FOLDER_NAME.exec(entry.name)
       if (!match) continue
       const pid = Number(match[1])
       if (pid === this.pid || this.alive(pid)) continue
       const dir = join(this.root, entry.name)
-      await rm(dir, { recursive: true, force: true })
-      removed.push(dir)
+      const failure = await removeDir(dir)
+      if (failure) failed.push(failure)
+      else removed.push(dir)
     }
-    return removed
+    return { removed, failed }
   }
 }
 

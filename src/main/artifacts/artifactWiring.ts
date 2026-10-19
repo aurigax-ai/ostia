@@ -1,5 +1,6 @@
 import { ClipboardItem, clipboard, ipcMain } from 'electron'
 import type { PreviewOpened } from '../../shared/artifacts/htmlPreview'
+import type { AppLog } from '../diagnostics/appLog'
 import type { WorkspaceSandboxes } from '../sandbox/workspaceSandboxes'
 import { registerCmuxSessionIpc } from '../workspaces/cmuxSession'
 import { registerScratchIpc } from '../workspaces/scratchFolders'
@@ -16,6 +17,7 @@ import { registerPortableIpc } from './portableExport'
 import type { PortableExport } from './portableExport'
 
 interface ArtifactStartDeps {
+  services: { appLog: AppLog | null }
   scratchFolders: ScratchFolders
   artifactFolders: ArtifactFolders
   artifactHistory: ArtifactHistory
@@ -24,13 +26,20 @@ interface ArtifactStartDeps {
 }
 
 export function startArtifacts({
+  services,
   scratchFolders,
   artifactFolders,
   artifactHistory,
   portableExport,
   workspaceSandboxes,
 }: ArtifactStartDeps) {
-  void scratchFolders.sweep()
+  void scratchFolders.sweep().then(({ failed }) => {
+    if (failed.length > 0)
+      services.appLog?.warn('scratch-remove-failed', {
+        folders: failed.length,
+        codes: [...new Set(failed.map((f) => f.code))].join(','),
+      })
+  })
   artifactFolders.sweep()
   artifactHistory.sweep()
   portableExport.sweep()

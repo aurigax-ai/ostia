@@ -2,6 +2,7 @@ import {
   existsSync,
   mkdirSync,
   mkdtempSync,
+  readdirSync,
   rmSync,
   statSync,
   symlinkSync,
@@ -15,6 +16,7 @@ import { SCRATCH_HISTORY_FILE, ScratchFolders, countScratchFiles } from './scrat
 const hooks = vi.hoisted(() => ({
   beforeRm: null as ((dir: string, attempt: number) => void) | null,
   calls: new Map<string, number>(),
+  stall: null as ((dir: string) => boolean) | null,
 }))
 
 vi.mock('node:fs/promises', async (importOriginal) => {
@@ -26,6 +28,7 @@ vi.mock('node:fs/promises', async (importOriginal) => {
       const attempt = (hooks.calls.get(dir) ?? 0) + 1
       hooks.calls.set(dir, attempt)
       hooks.beforeRm?.(dir, attempt)
+      if (hooks.stall?.(dir)) return new Promise<void>(() => {})
       await fs.rm(...args)
     },
   }
@@ -43,6 +46,7 @@ beforeEach(() => {
 
 afterEach(() => {
   hooks.beforeRm = null
+  hooks.stall = null
   hooks.calls.clear()
   rmSync(root, { recursive: true, force: true })
 })
@@ -229,9 +233,43 @@ describe('ScratchFolders', () => {
     for (const dir of [dead, live, unrelated]) mkdirSync(dir)
     writeFileSync(join(dead, 'a.txt'), 'hi')
     const folders = new ScratchFolders(root, 4242, (pid) => pid === 222)
-    expect(await folders.sweep()).toEqual([dead])
+    expect(await folders.sweep()).toEqual({ removed: [dead], failed: [] })
     expect(existsSync(dead)).toBe(false)
     expect(existsSync(live)).toBe(true)
     expect(existsSync(unrelated)).toBe(true)
+  })
+
+  it('keeps sweeping after a leftover folder resists and reports it by code only', async () => {
+    const stuck = join(root, '111-aaaaaaaaaaaa')
+    const other = join(root, '333-cccccccccccc')
+    for (const dir of [stuck, other]) mkdirSync(dir)
+    hooks.beforeRm = (target) => {
+      if (target === stuck) throw failing(target, 'EACCES')
+    }
+    const folders = new ScratchFolders(root, 4242, () => false)
+    expect(await folders.sweep()).toEqual({
+      removed: [other],
+      failed: [{ dir: stuck, code: 'EACCES' }],
+    })
+    expect(existsSync(other)).toBe(false)
+    expect(existsSync(stuck)).toBe(true)
+  })
+
+  it('stops waiting for a removal that never settles once the quit deadline passes', async () => {
+    const folders = new ScratchFolders(root, 4242)
+    const hung = folders.create('1')
+    const fine = folders.create('1')
+    hooks.stall = (target) => target === hung
+    expect(await folders.removeAll(50)).toEqual([{ dir: hung, code: 'TIMEOUT' }])
+    expect(existsSync(fine)).toBe(false)
+  })
+
+  it('refuses to create a folder once everything is being removed on quit', async () => {
+    const folders = new ScratchFolders(root, 4242)
+    folders.create('1')
+    const all = folders.removeAll()
+    expect(() => folders.create('1')).toThrow('scratch folders are closed')
+    await all
+    expect(readdirSync(root)).toEqual([])
   })
 })
