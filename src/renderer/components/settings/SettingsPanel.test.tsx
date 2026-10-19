@@ -596,6 +596,7 @@ describe('SettingsPanel', () => {
 
     await user.type(hex(), '3456')
     await user.keyboard('{Enter}')
+    expect(hex()).toHaveFocus()
     expect(hex()).toHaveAttribute('aria-invalid', 'false')
     expect(useSettingsStore.getState().appearance.accent).toBe('#123456')
 

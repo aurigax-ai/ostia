@@ -1,4 +1,5 @@
 import { fireEvent, render, screen } from '@testing-library/react'
+import { useState } from 'react'
 import { describe, expect, it, vi } from 'vitest'
 import { CommitInput, NumberInput } from './CommitInput'
 
@@ -41,6 +42,66 @@ describe('CommitInput', () => {
     fireEvent.change(input, { target: { value: 'bad' } })
     fireEvent.blur(input)
     expect(input.value).toBe('bad')
+  })
+})
+
+describe('CommitInput errors and focus', () => {
+  function Validated({ onCancel }: { onCancel: () => void }): JSX.Element {
+    const [saved, setSaved] = useState('ok')
+    const [bad, setBad] = useState(false)
+    return (
+      <>
+        <CommitInput
+          aria-label="t"
+          value={saved}
+          aria-invalid={bad}
+          onCommit={(text) => {
+            setBad(text === 'bad')
+            if (text !== 'bad') setSaved(text)
+            return text !== 'bad'
+          }}
+          onCancel={() => {
+            setBad(false)
+            onCancel()
+          }}
+        />
+        <button type="button" onClick={() => setSaved('preset')}>
+          preset
+        </button>
+      </>
+    )
+  }
+
+  it('clears the error when the saved value is retyped', () => {
+    const onCancel = vi.fn()
+    render(<Validated onCancel={onCancel} />)
+    const input = screen.getByLabelText<HTMLInputElement>('t')
+    fireEvent.change(input, { target: { value: 'bad' } })
+    fireEvent.blur(input)
+    expect(input).toHaveAttribute('aria-invalid', 'true')
+    fireEvent.change(input, { target: { value: 'ok' } })
+    fireEvent.blur(input)
+    expect(input).toHaveAttribute('aria-invalid', 'false')
+    expect(onCancel).toHaveBeenCalledOnce()
+  })
+
+  it('keeps focus on the same input after Enter commits a new value', () => {
+    render(<Validated onCancel={() => {}} />)
+    const input = screen.getByLabelText<HTMLInputElement>('t')
+    input.focus()
+    fireEvent.change(input, { target: { value: 'next' } })
+    fireEvent.keyDown(input, { key: 'Enter' })
+    expect(screen.getByLabelText('t')).toBe(input)
+    expect(input).toHaveFocus()
+    expect(input.value).toBe('next')
+  })
+
+  it('drops a draft when the saved value changes elsewhere', () => {
+    render(<Validated onCancel={() => {}} />)
+    const input = screen.getByLabelText<HTMLInputElement>('t')
+    fireEvent.change(input, { target: { value: 'bad' } })
+    fireEvent.click(screen.getByRole('button', { name: 'preset' }))
+    expect(input.value).toBe('preset')
   })
 })
 

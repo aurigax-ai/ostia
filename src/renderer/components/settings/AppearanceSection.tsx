@@ -137,7 +137,6 @@ function AccentRow(): JSX.Element {
         </Hint>
       </div>
       <CommitInput
-        key={accent}
         value={accent}
         spellCheck={false}
         placeholder="#rrggbb"
