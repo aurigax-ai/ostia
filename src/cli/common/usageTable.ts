@@ -220,11 +220,15 @@ export const USAGE_TABLE: readonly NounUsage[] = [
       },
       {
         verb: 'inbox',
-        args: '[--take]',
-        about: 'messages waiting for you (JSON); --take delivers them',
+        args: '[--take] [--json]',
+        about: 'messages waiting for you; --take delivers them',
       },
       { verb: 'sent', args: '[--json]', about: 'messages you sent and where each one stands' },
-      { verb: 'wait', args: '[--timeout <s>]', about: 'block until a message arrives' },
+      {
+        verb: 'wait',
+        args: '[--timeout <s>] [--json]',
+        about: 'block until a message arrives; exit 2 timed out',
+      },
       {
         verb: 'handoff',
         args: `${PANE} --task "<task>" --summary "<summary>"`,

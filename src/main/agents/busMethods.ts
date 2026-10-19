@@ -5,12 +5,13 @@ import { MAIL_INBOX_FULL } from '../../shared/agents/agentIssues'
 import { type MailPending, busContext } from '../../shared/agents/busMessages'
 import { actThenConfirm, confirmed, mismatch } from '../../shared/common/actThenConfirm'
 import { ensureCaps } from '../approvals/controlElevation'
-import { registerControlMethod } from '../control/controlServer'
+import { type ControlMethodContext, registerControlMethod } from '../control/controlServer'
 import { type PaneIdentity, resolveExternal } from '../control/idRegistry'
 import type { AgentJournal } from '../diagnostics/agentJournal'
 import { type PaneReachDeps, ensurePaneReach, holdsPaneReach } from '../panes/paneReach'
 import {
   type BusObservation,
+  type HandedMail,
   type Handoff,
   type HandoffContext,
   type HandoffState,
@@ -24,12 +25,12 @@ import {
   inboxOf,
   leaseMail,
   markBusDirty,
+  releaseMail,
   sentBy,
   setBusJournal,
   setBusObserver,
   setPending,
   sweepBus,
-  takeMail,
   whenSettled,
 } from './busStore'
 import { takeMailTurn } from './mailTurn'
@@ -38,7 +39,7 @@ import { mailers } from './mailers'
 const MAX_HANDOFFS = 500
 
 const MIN_WAIT_MS = 1000
-const MAX_WAIT_MS = 120000
+const MAX_WAIT_MS = 590000
 const DEFAULT_WAIT_MS = 30000
 const SWEEP_MS = 5 * 60 * 1000
 
@@ -53,8 +54,6 @@ const INBOX_FULL = {
   error: MAIL_INBOX_FULL,
   message: 'the receiver has too many undelivered messages; wait until it reads some',
 }
-
-type WaitResult = { messages: Mail[]; timedOut: boolean }
 
 let sweeper: NodeJS.Timeout | undefined
 
@@ -197,7 +196,7 @@ function registerBusSendMethods(deps: BusDeps): void {
       const abort = new AbortController()
       const closed = ctx.conn.onClose(() => abort.abort())
       const settled =
-        typeof waitMs === 'number' && queued.state === 'queued'
+        typeof waitMs === 'number' && (queued.state === 'queued' || queued.state === 'leased')
           ? await whenSettled(queued.id, clampTimeout(waitMs), abort.signal)
           : queued
       closed.dispose()
@@ -234,9 +233,17 @@ function registerBusSendMethods(deps: BusDeps): void {
       const posted = await postAndReadBack({ from, to: receiver.externalId, text })
       const queued = await queuedWithPending(deps, posted, receiver)
       announceQueued(deps, queued, ctx.identity, receiver, text)
-      return { ok: true, ...receiptOf(queued) }
+      const receipt = receiptOf(queued)
+      return { ok: true, ...receipt, ...(receipt.state === 'leased' ? { state: 'delivered' } : {}) }
     },
   })
+}
+
+function handOver(handed: HandedMail | undefined, ctx: ControlMethodContext) {
+  if (!handed) return { messages: [] }
+  const me = ctx.identity.externalId
+  ctx.conn.onClose(() => releaseMail(me, handed.lease))
+  return { messages: handed.messages.map(wireMail), lease: handed.lease }
 }
 
 function registerBusInboxMethods(deps: BusDeps): void {
@@ -244,8 +251,12 @@ function registerBusInboxMethods(deps: BusDeps): void {
     handler: (params, ctx) => {
       const { take } = (params ?? {}) as { take?: boolean }
       const me = ctx.identity.externalId
-      const messages = take === true ? takeMail(me, 'read', () => true) : inboxOf(me)
-      return { messages: messages.map(wireMail) }
+      if (take === true)
+        return handOver(
+          leaseMail(me, 'read', () => true),
+          ctx,
+        )
+      return { messages: inboxOf(me).map(wireMail) }
     },
   })
 
@@ -313,29 +324,25 @@ function registerBusInboxMethods(deps: BusDeps): void {
       const me = ctx.identity.externalId
       const clamped = clampTimeout(timeoutMs)
 
-      const fresh = takeMail(me, 'read', () => true)
-      if (fresh.length > 0) {
-        return Promise.resolve({ messages: fresh.map(wireMail), timedOut: false })
-      }
+      const fresh = leaseMail(me, 'read', () => true)
+      if (fresh) return Promise.resolve({ ...handOver(fresh, ctx), timedOut: false })
 
-      return new Promise<{ messages: ReturnType<typeof wireMail>[]; timedOut: boolean }>(
-        (resolve) => {
-          let settled = false
-          const timer = setTimeout(() => {
-            finish({ messages: [], timedOut: true })
-          }, clamped)
-          const finish = (result: WaitResult): void => {
-            if (settled) return
-            settled = true
-            clearTimeout(timer)
-            unregister()
-            closed.dispose()
-            resolve({ messages: result.messages.map(wireMail), timedOut: result.timedOut })
-          }
-          const unregister = addWaiter(me, (messages) => finish({ messages, timedOut: false }))
-          const closed = ctx.conn.onClose(() => finish({ messages: [], timedOut: true }))
-        },
-      )
+      return new Promise<ReturnType<typeof handOver> & { timedOut: boolean }>((resolve) => {
+        let settled = false
+        const timer = setTimeout(() => {
+          finish(undefined, true)
+        }, clamped)
+        const finish = (handed: HandedMail | undefined, timedOut: boolean): void => {
+          if (settled) return
+          settled = true
+          clearTimeout(timer)
+          unregister()
+          closed.dispose()
+          resolve({ ...handOver(handed, ctx), timedOut })
+        }
+        const unregister = addWaiter(me, (handed) => finish(handed, false))
+        const closed = ctx.conn.onClose(() => finish(undefined, true))
+      })
     },
   })
 }

@@ -24,6 +24,7 @@ const {
   onBusChange,
   inboxOf,
   leaseMail,
+  releaseMail,
   mailCounts,
   mailViews,
   resetBus,
@@ -292,7 +293,8 @@ describe('events and watches', () => {
     const got = vi.fn()
     addWaiter('b', got)
     postEvent('w', 'b', 'status')
-    expect(got.mock.calls[0][0].map((m: { kind: string }) => m.kind)).toEqual(['event'])
+    expect(got.mock.calls[0][0].messages.map((m: { kind: string }) => m.kind)).toEqual(['event'])
+    ackMail('b', got.mock.calls[0][0].lease)
     postEvent('w', 'c', 'status')
     failPaneMail('c')
     expect(mailViews().map((v) => v.state)).toEqual(['failed'])
@@ -387,13 +389,24 @@ describe('observation', () => {
 })
 
 describe('waiting', () => {
-  it('delivers mail straight to a parked waiter as read', () => {
+  it('leases mail straight to a parked waiter and delivers it as read on ack', () => {
     const got = vi.fn()
     addWaiter('b', got)
     const mail = send('wake up')
     expect(got).toHaveBeenCalledOnce()
-    expect(got.mock.calls[0][0].map((m: { text: string }) => m.text)).toEqual(['wake up'])
+    const handed = got.mock.calls[0][0]
+    expect(handed.messages.map((m: { text: string }) => m.text)).toEqual(['wake up'])
+    expect(getMail(mail.id)).toMatchObject({ state: 'leased', via: 'read' })
+    ackMail('b', handed.lease)
     expect(getMail(mail.id)).toMatchObject({ state: 'delivered', via: 'read' })
+  })
+
+  it('queues mail handed to a waiter again when its lease is released unacknowledged', () => {
+    const got = vi.fn()
+    addWaiter('b', got)
+    const mail = send('do not lose me')
+    releaseMail('b', got.mock.calls[0][0].lease)
+    expect(getMail(mail.id)).toMatchObject({ state: 'queued' })
   })
 
   it('hands a message to only the first of two parked waits of one pane, and keeps the other parked', () => {
@@ -406,7 +419,7 @@ describe('waiting', () => {
     expect(second).not.toHaveBeenCalled()
     const next = send('for the second')
     expect(second).toHaveBeenCalledOnce()
-    expect(second.mock.calls[0][0].map((m: { id: string }) => m.id)).toEqual([next.id])
+    expect(second.mock.calls[0][0].messages.map((m: { id: string }) => m.id)).toEqual([next.id])
   })
 
   it('queues again once a waiter is unregistered', () => {
