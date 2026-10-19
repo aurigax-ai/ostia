@@ -3,11 +3,11 @@ import { SettingsList } from '@/components/settingsKit/SettingsList'
 import { SettingsListRow } from '@/components/settingsKit/SettingsListRow'
 import { SettingsPage } from '@/components/settingsKit/SettingsPage'
 import { Badge } from '@/components/ui/badge'
+import { viewIcon } from '@/components/views/viewIcons'
 import { fmt, useDict } from '@/lib/app/useDict'
 import { actionFingerprint } from '@/lib/settings/actions'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { XIcon } from '@phosphor-icons/react'
-import { actionIcon } from './actionIcons'
 
 export function ActionsSection(): JSX.Element {
   const d = useDict()
@@ -20,7 +20,7 @@ export function ActionsSection(): JSX.Element {
       <SettingsPage title={d.actions.settingsTitle} desc={d.actions.settingsDesc}>
         <SettingsList label={d.actions.settingsTitle} empty={d.actions.none}>
           {actions.map((action) => {
-            const Icon = actionIcon(action.icon)
+            const Icon = viewIcon(action.icon ?? 'lightning')
             const places = action.in.map((p) => d.actions.places[p] ?? p)
             return (
               <SettingsListRow
