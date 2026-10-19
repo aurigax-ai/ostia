@@ -1,0 +1,37 @@
+{
+  "id": "skills",
+  "name": "Skill Workshop",
+  "version": "1.0.0",
+  "api": "4.12",
+  "description": "Rules you write for your agents, kept on this computer and given to Claude Code and Codex at the start of a session. A rule is one preference sentence scoped to everywhere, a stack or a project; it grants nothing. Only you add, change or retire a rule, here.",
+  "category": "tools",
+  "capabilities": ["agent-plugin", "read-board"],
+  "main": "main.js",
+  "locales": ["zh-Hant"],
+  "contributes": {
+    "commands": [
+      {
+        "id": "open",
+        "title": "Skill Workshop: Open",
+        "category": "Skill Workshop"
+      },
+      {
+        "id": "on-session",
+        "title": "Give an agent its rules at session start",
+        "palette": false,
+        "stdin": true
+      }
+    ],
+    "agentHooks": [
+      {
+        "event": "SessionStart",
+        "command": "on-session"
+      }
+    ],
+    "panel": {
+      "title": "Skill Workshop",
+      "icon": "chat",
+      "entry": "url"
+    }
+  }
+}
