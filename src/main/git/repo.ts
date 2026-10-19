@@ -54,6 +54,13 @@ interface RunResult {
   stderr: string
 }
 
+const gitEnv = () => ({
+  ...process.env,
+  GIT_OPTIONAL_LOCKS: '0',
+  GIT_TERMINAL_PROMPT: '0',
+  GIT_NO_LAZY_FETCH: '1',
+})
+
 const NO_PROGRAMS = [
   '-c',
   'core.fsmonitor=false',
@@ -61,6 +68,10 @@ const NO_PROGRAMS = [
   'log.showSignature=false',
   '-c',
   'safe.bareRepository=explicit',
+  '-c',
+  'diff.submodule=short',
+  '-c',
+  'submodule.recurse=false',
 ]
 const NO_HOOKS = ['-c', `core.hooksPath=${devNull}`]
 
@@ -71,7 +82,7 @@ function gitOutput(cwd: string, args: string[]): Promise<string> {
     execFile(
       'git',
       [...NO_PROGRAMS, ...args],
-      { cwd, encoding: 'utf8', maxBuffer: MAX_OUTPUT },
+      { cwd, encoding: 'utf8', maxBuffer: MAX_OUTPUT, env: gitEnv() },
       (err, stdout) => done(err ? '' : stdout),
     )
   })
@@ -103,7 +114,7 @@ async function run(cwd: string, args: string[], hooks = false): Promise<RunResul
         cwd,
         encoding: 'buffer',
         maxBuffer: MAX_OUTPUT,
-        env: { ...process.env, GIT_OPTIONAL_LOCKS: '0', GIT_TERMINAL_PROMPT: '0' },
+        env: gitEnv(),
       },
       (err, stdout, stderr) => {
         const code = err ? (typeof err.code === 'number' ? err.code : -1) : 0

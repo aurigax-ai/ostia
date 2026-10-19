@@ -215,3 +215,90 @@ describe('git reads of a repository with a submodule whose own config names prog
     expect(status.changes.some((c) => c.path.includes('secret.txt'))).toBe(false)
   })
 })
+
+describe('git reads that could start more git, in a submodule or from a promisor remote', () => {
+  const base = join(root, 'extra')
+  const ownerRepo = join(base, 'owner')
+  const subSource = join(base, 'subsource')
+
+  const gitAt = (cwd: string, ...args: string[]) =>
+    execFileSync(
+      'git',
+      [
+        '-c',
+        'user.email=a@b.c',
+        '-c',
+        'user.name=t',
+        '-c',
+        'protocol.file.allow=always',
+        '-c',
+        'core.fsmonitor=false',
+        ...args,
+      ],
+      { cwd, stdio: 'ignore' },
+    )
+
+  mkdirSync(subSource, { recursive: true })
+  gitAt(subSource, 'init', '-q', '-b', 'main')
+  writeFileSync(join(subSource, 'f.txt'), 'one\n')
+  gitAt(subSource, 'add', '.')
+  gitAt(subSource, 'commit', '-q', '-m', 'one')
+  mkdirSync(ownerRepo, { recursive: true })
+  gitAt(ownerRepo, 'init', '-q', '-b', 'main')
+  gitAt(ownerRepo, 'submodule', 'add', '-q', subSource, 'sub')
+  gitAt(ownerRepo, 'commit', '-q', '-m', 'owner')
+  const subDir = join(ownerRepo, 'sub')
+  writeFileSync(join(subDir, 'f.txt'), 'two\n')
+  gitAt(subDir, 'commit', '-q', '-a', '-m', 'two')
+  gitAt(subDir, 'config', 'diff.external', program('subexternal'))
+  gitAt(subDir, 'config', 'core.pager', program('subpager'))
+  gitAt(ownerRepo, 'config', 'diff.submodule', 'diff')
+  gitAt(ownerRepo, 'config', 'submodule.recurse', 'true')
+
+  it('does not open a submodule diff when the repository asks for one', async () => {
+    const status = await readStatus(ownerRepo)
+    const moved = status.changes.filter((c) => c.path === 'sub')
+    for (const change of moved) await unifiedPatch(ownerRepo, change)
+    await lineChanges(ownerRepo, [])
+    expect(existsSync(join(marks, 'subexternal'))).toBe(false)
+  })
+
+  it('does not recurse into submodules when the repository asks for it', async () => {
+    const before = execFileSync('git', ['-c', 'core.fsmonitor=false', 'rev-parse', 'HEAD'], {
+      cwd: subDir,
+      encoding: 'utf8',
+    })
+    writeFileSync(join(ownerRepo, 'x.txt'), 'x\n')
+    await stage(ownerRepo, ['x.txt'])
+    await unstage(ownerRepo, ['x.txt'], true)
+    await discard(ownerRepo, [{ path: 'sub', area: 'unstaged', code: 'M' }])
+    const after = execFileSync('git', ['-c', 'core.fsmonitor=false', 'rev-parse', 'HEAD'], {
+      cwd: subDir,
+      encoding: 'utf8',
+    })
+    expect(after).toBe(before)
+  })
+
+  it('never fetches from a promisor remote to find a missing object', async () => {
+    const lazy = join(base, 'lazy')
+    mkdirSync(lazy, { recursive: true })
+    gitAt(lazy, 'init', '-q', '-b', 'main')
+    writeFileSync(join(lazy, 'a.txt'), 'content\n')
+    gitAt(lazy, 'add', '.')
+    gitAt(lazy, 'commit', '-q', '-m', 'a')
+    const sha = execFileSync('git', ['-c', 'core.fsmonitor=false', 'rev-parse', ':a.txt'], {
+      cwd: lazy,
+      encoding: 'utf8',
+    }).trim()
+    gitAt(lazy, 'config', 'extensions.partialClone', 'origin')
+    gitAt(lazy, 'config', 'remote.origin.promisor', 'true')
+    gitAt(lazy, 'config', 'remote.origin.url', 'ssh://example.invalid/repo')
+    gitAt(lazy, 'config', 'core.sshCommand', program('lazyssh'))
+    rmSync(join(lazy, '.git', 'objects', sha.slice(0, 2), sha.slice(2)), { force: true })
+    writeFileSync(join(lazy, 'a.txt'), 'changed\n')
+    const [change] = (await readStatus(lazy)).changes
+    await diffSides(lazy, change).catch(() => undefined)
+    await unifiedPatch(lazy, change).catch(() => undefined)
+    expect(existsSync(join(marks, 'lazyssh'))).toBe(false)
+  })
+})
