@@ -7,8 +7,8 @@ import { cropToPng } from '@/lib/browser/cropImage'
 import { type Size, fitScale } from '@/lib/browser/regionSelect'
 import { imageMimeType } from '@/lib/files/fileKinds'
 import { baseName } from '@/lib/files/fileTree'
-import { useFileBytes, usePinchZoom, useRegionDrag } from '@/lib/files/viewerHooks'
-import { PaperPlaneTiltIcon, XIcon } from '@phosphor-icons/react'
+import { useDragPan, useFileBytes, usePinchZoom, useRegionDrag } from '@/lib/files/viewerHooks'
+import { CropIcon, PaperPlaneTiltIcon, XIcon } from '@phosphor-icons/react'
 import { type KeyboardEvent, useEffect, useRef, useState } from 'react'
 import { ViewerMessage, type Zoom, ZoomControls, useBytesProblem } from './ViewerChrome'
 
@@ -31,6 +31,7 @@ export function ImageViewer({
   const [natural, setNatural] = useState<Size | null>(null)
   const [broken, setBroken] = useState(false)
   const [zoom, setZoom] = useState<Zoom>('fit')
+  const [cropping, setCropping] = useState(false)
   const stageRef = useRef<HTMLDivElement>(null)
   const imgRef = useRef<HTMLImageElement>(null)
   const canvasRef = useRef<HTMLDivElement>(null)
@@ -46,7 +47,12 @@ export function ImageViewer({
   }, [bytes, filePath])
 
   const scale = zoom === 'fit' ? (natural ? fitScale(natural, stage, STAGE_PADDING) : 1) : zoom
-  const drag = useRegionDrag({ scale, bounds: natural ?? NO_SIZE, enabled: natural !== null })
+  const drag = useRegionDrag({
+    scale,
+    bounds: natural ?? NO_SIZE,
+    enabled: cropping && natural !== null,
+  })
+  const pan = useDragPan(stageRef)
   usePinchZoom({ stageRef, contentRef: canvasRef, scale, onZoom: setZoom })
 
   const sendRef = useRef<() => void>(() => {})
@@ -82,10 +88,16 @@ export function ImageViewer({
     else setBroken(true)
   }
 
-  const onCanvasKeyDown = (e: KeyboardEvent<HTMLDivElement>): void => {
-    if (e.key === 'Escape' && drag.region) {
+  const toggleCropping = (): void => {
+    drag.clear()
+    setCropping((on) => !on)
+  }
+
+  const onCropKeyDown = (e: KeyboardEvent<HTMLDivElement>): void => {
+    if (e.key === 'Escape' && cropping) {
       e.stopPropagation()
       drag.clear()
+      setCropping(false)
     }
   }
 
@@ -94,7 +106,7 @@ export function ImageViewer({
 
   return (
     <div className="viewer-surface">
-      <div className="viewer-toolbar">
+      <div className="viewer-toolbar" onKeyDown={onCropKeyDown}>
         <span className="viewer-title">{baseName(filePath)}</span>
         {natural ? (
           <span className="viewer-meta">
@@ -103,6 +115,14 @@ export function ImageViewer({
         ) : null}
         <span className="flex-1" />
         <ZoomControls scale={scale} zoom={zoom} onZoom={setZoom} />
+        <IconButton
+          size="bar"
+          icon={CropIcon}
+          label={d.viewer.crop}
+          aria-pressed={cropping}
+          disabled={!natural}
+          onClick={toggleCropping}
+        />
         {region ? (
           <IconButton size="bar" icon={XIcon} label={d.viewer.clearRegion} onClick={drag.clear} />
         ) : null}
@@ -122,13 +142,13 @@ export function ImageViewer({
             ref={canvasRef}
             className={drag.enabled ? 'viewer-canvas region-select' : 'viewer-canvas'}
             tabIndex={-1}
-            onKeyDown={onCanvasKeyDown}
+            onKeyDown={onCropKeyDown}
             style={
               natural
                 ? { width: natural.width * scale, height: natural.height * scale }
                 : { visibility: 'hidden' }
             }
-            {...drag.handlers}
+            {...(cropping ? drag.handlers : pan)}
           >
             <img
               ref={imgRef}

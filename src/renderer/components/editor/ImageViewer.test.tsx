@@ -55,6 +55,16 @@ function canvasAt(left: number, top: number): HTMLElement {
   return canvas
 }
 
+function drag(canvas: HTMLElement, [x1, y1]: number[], [x2, y2]: number[]): void {
+  fireEvent.pointerDown(canvas, { button: 0, clientX: x1, clientY: y1, pointerId: 1 })
+  fireEvent.pointerMove(canvas, { clientX: x2, clientY: y2, pointerId: 1 })
+  fireEvent.pointerUp(canvas, { clientX: x2, clientY: y2, pointerId: 1 })
+}
+
+async function startCrop(): Promise<void> {
+  await userEvent.click(screen.getByRole('button', { name: 'Crop' }))
+}
+
 describe('ImageViewer', () => {
   it('reads the image through the confined binary IPC and shows it from a blob URL', async () => {
     const img = await renderLoaded()
@@ -63,20 +73,68 @@ describe('ImageViewer', () => {
     expect(screen.getByText('Zoom 100%')).toBeInTheDocument()
   })
 
-  it('marks the canvas as a region-select surface only once the image has loaded', async () => {
-    vi.mocked(window.ostia.fs.readBinary).mockResolvedValue({ ok: true, data: PNG })
-    render(<ImageViewer workspaceId="w1" paneId="img-pane" filePath="/w/shots/login.png" />)
-    const img = await waitFor(() => {
-      const found = document.querySelector<HTMLImageElement>('img[alt="login.png"]')
-      if (!found) throw new Error('image not rendered')
-      return found
-    })
-    const canvas = document.querySelector('.viewer-canvas') as HTMLElement
+  it('opens without crop mode, and a drag pans the stage instead of drawing a region', async () => {
+    await renderLoaded(1200, 800)
+    const stage = document.querySelector('.viewer-stage') as HTMLElement
+    stage.scrollLeft = 300
+    stage.scrollTop = 200
+    const canvas = canvasAt(0, 0)
     expect(canvas).not.toHaveClass('region-select')
-    Object.defineProperty(img, 'naturalWidth', { value: 40 })
-    Object.defineProperty(img, 'naturalHeight', { value: 20 })
-    fireEvent.load(img)
-    await waitFor(() => expect(canvas).toHaveClass('region-select'))
+    expect(screen.getByRole('button', { name: 'Crop' })).toHaveAttribute('aria-pressed', 'false')
+
+    fireEvent.pointerDown(canvas, { button: 0, clientX: 200, clientY: 150, pointerId: 1 })
+    fireEvent.pointerMove(canvas, { clientX: 150, clientY: 120, pointerId: 1 })
+    fireEvent.pointerUp(canvas, { clientX: 120, clientY: 100, pointerId: 1 })
+
+    expect(stage.scrollLeft).toBe(380)
+    expect(stage.scrollTop).toBe(250)
+    expect(document.querySelector('.viewer-region')).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Clear region' })).toBeNull()
+  })
+
+  it('the Crop button turns on crop mode, and pressing it again turns it off', async () => {
+    await renderLoaded()
+    const stage = document.querySelector('.viewer-stage') as HTMLElement
+    const canvas = canvasAt(0, 0)
+    const crop = screen.getByRole('button', { name: 'Crop' })
+
+    await userEvent.click(crop)
+    expect(crop).toHaveAttribute('aria-pressed', 'true')
+    expect(canvas).toHaveClass('region-select')
+    drag(canvas, [10, 10], [60, 40])
+    expect(document.querySelector('.viewer-region')).not.toBeNull()
+    expect(stage.scrollLeft).toBe(0)
+
+    await userEvent.click(crop)
+    expect(crop).toHaveAttribute('aria-pressed', 'false')
+    expect(canvas).not.toHaveClass('region-select')
+    expect(document.querySelector('.viewer-region')).toBeNull()
+    drag(canvas, [10, 10], [60, 40])
+    expect(document.querySelector('.viewer-region')).toBeNull()
+  })
+
+  it('Escape leaves crop mode and clears the region, so a drag pans again', async () => {
+    await renderLoaded(1200, 800)
+    const stage = document.querySelector('.viewer-stage') as HTMLElement
+    const canvas = canvasAt(0, 0)
+    const crop = screen.getByRole('button', { name: 'Crop' })
+
+    await userEvent.click(crop)
+    await userEvent.keyboard('{Escape}')
+    expect(crop).toHaveAttribute('aria-pressed', 'false')
+
+    await userEvent.click(crop)
+    drag(canvas, [10, 10], [60, 40])
+    expect(document.querySelector('.viewer-region')).not.toBeNull()
+    fireEvent.keyDown(canvas, { key: 'Escape' })
+    expect(crop).toHaveAttribute('aria-pressed', 'false')
+    expect(canvas).not.toHaveClass('region-select')
+    expect(document.querySelector('.viewer-region')).toBeNull()
+
+    stage.scrollLeft = 100
+    drag(canvas, [60, 40], [10, 40])
+    expect(stage.scrollLeft).toBe(150)
+    expect(document.querySelector('.viewer-region')).toBeNull()
   })
 
   it('explains a file over the size cap instead of showing it', async () => {
@@ -126,6 +184,7 @@ describe('ImageViewer', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Zoom in' }))
     await userEvent.click(screen.getByRole('button', { name: 'Zoom in' }))
     expect(screen.getByText('Zoom 150%')).toBeInTheDocument()
+    await startCrop()
     const canvas = canvasAt(100, 50)
 
     fireEvent.pointerDown(canvas, { button: 0, clientX: 130, clientY: 80, pointerId: 1 })
@@ -160,6 +219,7 @@ describe('ImageViewer', () => {
 
   it('sends the whole image when no region is drawn, and Escape clears a region', async () => {
     const img = await renderLoaded(64, 32)
+    await startCrop()
     const canvas = canvasAt(0, 0)
     fireEvent.pointerDown(canvas, { button: 0, clientX: 1, clientY: 1, pointerId: 1 })
     fireEvent.pointerUp(canvas, { clientX: 30, clientY: 20, pointerId: 1 })
@@ -188,6 +248,7 @@ describe('ImageViewer', () => {
     try {
       const img = await renderLoaded(240, 120)
       expect(screen.getByText('Zoom 100%')).toBeInTheDocument()
+      await startCrop()
       const canvas = canvasAt(0, 0)
       expect(canvas).toHaveClass('region-select')
       canvas.setPointerCapture = vi.fn()
@@ -263,6 +324,7 @@ describe('ImageViewer', () => {
       expect(fireEvent.wheel(stage, { deltaY: 60, clientX: x, clientY: y })).toBe(true)
       expect(screen.getByText(`Zoom ${Math.round(zoomed * 100)}%`)).toBeInTheDocument()
 
+      await startCrop()
       canvasAt(left, top - 60)
       fireEvent.pointerDown(canvas, { button: 0, clientX: x, clientY: y, pointerId: 1 })
       fireEvent.pointerMove(canvas, { clientX: x + 120, clientY: y + 60, pointerId: 1 })
@@ -284,6 +346,7 @@ describe('ImageViewer', () => {
 
   it('ignores a click that does not drag out a region', async () => {
     await renderLoaded()
+    await startCrop()
     const canvas = canvasAt(0, 0)
     fireEvent.pointerDown(canvas, { button: 0, clientX: 10, clientY: 10, pointerId: 1 })
     fireEvent.pointerUp(canvas, { clientX: 10, clientY: 10, pointerId: 1 })
