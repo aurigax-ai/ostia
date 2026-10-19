@@ -190,10 +190,11 @@ async function expectRestored(dataHome: string, expected: Saved): Promise<void> 
     await expect(next.win.locator('.xterm').first()).toBeVisible({ timeout: 15_000 })
     for (let i = 1; i < WORKSPACES; i++) {
       if (expected.agentsRunning === 0 || !agentWorkspace(i)) continue
+      await next.win.locator('.rail-row').nth(i).click()
       await expect(
-        next.win
-          .locator('.xterm-rows')
-          .filter({ hasText: new RegExp(`fake-agent-resumed .*--resume ${agentSession(i)}\\b`) }),
+        shownRows(next.win).filter({
+          hasText: new RegExp(`fake-agent-resumed .*--resume ${agentSession(i)}\\b`),
+        }),
       ).toHaveCount(1, { timeout: 20_000 })
     }
   } finally {
