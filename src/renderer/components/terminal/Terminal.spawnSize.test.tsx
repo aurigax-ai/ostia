@@ -7,6 +7,7 @@ import {
 } from '@/lib/terminal/offscreenStart'
 import { terminalFor } from '@/lib/terminal/terminalHandles'
 import { useSettingsStore } from '@/stores/app/settingsStore'
+import { usePhoneSizeStore } from '@/stores/terminal/phoneSizeStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import { act, cleanup, render, waitFor } from '@testing-library/react'
@@ -237,6 +238,70 @@ describe('TerminalView spawn size', () => {
       keyTarget?.dispatchEvent(new KeyboardEvent('keydown', { key: 'l', bubbles: true }))
     })
     expect(window.ostia.pty.resize).toHaveBeenCalledWith(paneId, 90, 30)
+  })
+
+  it('shows the phone-size notice until the human focuses the pane, which gives the size back', async () => {
+    useSettingsStore.setState({
+      terminal: { ...useSettingsStore.getState().terminal, renderer: 'xterm' },
+    })
+    const fitted = vi.spyOn(FitAddon.prototype, 'proposeDimensions').mockImplementation(() => ({
+      cols: Math.floor(box.width / 10),
+      rows: Math.floor(box.height / 20),
+    }))
+    onTestFinished(() => fitted.mockRestore())
+    useLayoutStore.getState().ensure('w1')
+    useWorkspacesStore.setState({ activeWorkspaceId: 'w1' })
+    const paneId = firstPaneId(useLayoutStore.getState().byWorkspace.w1.root)
+    box.width = 900
+    box.height = 600
+    const { container } = render(<TerminalView workspaceId="w1" paneId={paneId} />)
+    await act(async () => {
+      layOut(900, 600)
+      await nextFrame()
+    })
+    await waitFor(() => expect(window.ostia.pty.attach).toHaveBeenCalledTimes(1))
+    const phoneSized = vi
+      .mocked(window.ostia.pty.onSize)
+      .mock.calls.find(([id]) => id === paneId)?.[1]
+
+    act(() => phoneSized?.(40, 20))
+    expect(usePhoneSizeStore.getState().byPane[paneId]?.cols).toBe(40)
+
+    const focusTarget =
+      container.querySelector('textarea') ?? container.querySelector('.xterm-host')
+    act(() => {
+      focusTarget?.dispatchEvent(new FocusEvent('focusin', { bubbles: true }))
+    })
+    expect(window.ostia.pty.resize).toHaveBeenCalledWith(paneId, 90, 30)
+    expect(usePhoneSizeStore.getState().byPane[paneId]).toBeUndefined()
+  })
+
+  it('drops the phone-size notice when the pty comes back to the window size', async () => {
+    useSettingsStore.setState({
+      terminal: { ...useSettingsStore.getState().terminal, renderer: 'xterm' },
+    })
+    const fitted = vi.spyOn(FitAddon.prototype, 'proposeDimensions').mockImplementation(() => ({
+      cols: Math.floor(box.width / 10),
+      rows: Math.floor(box.height / 20),
+    }))
+    onTestFinished(() => fitted.mockRestore())
+    useLayoutStore.getState().ensure('w1')
+    useWorkspacesStore.setState({ activeWorkspaceId: 'w1' })
+    const paneId = firstPaneId(useLayoutStore.getState().byWorkspace.w1.root)
+    box.width = 900
+    box.height = 600
+    render(<TerminalView workspaceId="w1" paneId={paneId} />)
+    await act(async () => {
+      layOut(900, 600)
+      await nextFrame()
+    })
+    await waitFor(() => expect(window.ostia.pty.attach).toHaveBeenCalledTimes(1))
+    const sized = vi.mocked(window.ostia.pty.onSize).mock.calls.find(([id]) => id === paneId)?.[1]
+
+    act(() => sized?.(40, 20))
+    expect(usePhoneSizeStore.getState().byPane[paneId]).toBeDefined()
+    act(() => sized?.(90, 30))
+    expect(usePhoneSizeStore.getState().byPane[paneId]).toBeUndefined()
   })
 
   it('starts a terminal an extension opened in a laid-out hidden tab while the window draws no frames', async () => {

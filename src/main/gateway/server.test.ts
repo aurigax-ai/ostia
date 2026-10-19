@@ -296,6 +296,29 @@ describe('gateway server over a real WebSocket', () => {
     expect(deps.ptyResize).toHaveBeenCalledWith('p1', 120, 40)
   })
 
+  it('puts the phone size back on the pty when the phone types after the desktop took the pane', async () => {
+    const { deviceId, token } = registerDevice({ name: 'Phone', pubkey: 'pk' })
+    gatewaySetCap({ deviceId, cap: 'input', granted: true })
+    const c = await connect(token)
+    await c.call('pty.attach', { paneId: externalPaneId, role: 'owner' })
+
+    c.ws.send(binary(0x02, 'a'))
+    await c.call('whoami')
+    expect(deps.ptyResize).not.toHaveBeenCalled()
+
+    c.ws.send(binary(0x03, JSON.stringify({ cols: 44, rows: 20 })))
+    c.ws.send(binary(0x02, 'b'))
+    await c.call('whoami')
+
+    expect(vi.mocked(deps.ptyResize).mock.calls).toEqual([
+      ['p1', 44, 20],
+      ['p1', 44, 20],
+    ])
+    expect(vi.mocked(deps.ptyWrite).mock.invocationCallOrder[1]).toBeGreaterThan(
+      vi.mocked(deps.ptyResize).mock.invocationCallOrder[1],
+    )
+  })
+
   it('never lets the input cap run command.exec', async () => {
     const { deviceId, token } = registerDevice({ name: 'Phone', pubkey: 'pk' })
     gatewaySetCap({ deviceId, cap: 'input', granted: true })

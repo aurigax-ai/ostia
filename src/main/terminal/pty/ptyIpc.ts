@@ -21,9 +21,10 @@ import { KubeContextReader, NodeVersionResolver, promptContext } from '../prompt
 import { ExecutableIndex, readShellState, registerCommandNamesIpc } from '../shellCommands'
 import { ShellHistoryFiles, registerShellHistoryIpc } from '../shellHistory'
 import type { PtyAttach } from './ptyAttach'
-import { type PtyIo, resizePty } from './ptyIo'
+import type { PtyIo } from './ptyIo'
 import { type PtyQueries, holdsLocalPrompt } from './ptyQueries'
 import type { PtyEntry } from './ptyRegistry'
+import { resizeFromDesktop } from './ptySize'
 import type { PtyStop } from './ptyStop'
 
 interface PtyIpcDeps {
@@ -150,7 +151,7 @@ function registerPtyControlIpc({
   })
   ipcMain.on('pty:resize', (_e, paneId: string, cols: number, rows: number) => {
     const entry = ptys.get(paneId)
-    if (!entry?.keepAlive) resizePty(entry, cols, rows)
+    if (!entry?.keepAlive) resizeFromDesktop(entry, cols, rows)
   })
 }
 

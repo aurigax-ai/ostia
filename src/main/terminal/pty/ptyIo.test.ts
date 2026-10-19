@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { PtySession } from '../ptySession'
 import { createPtyIo } from './ptyIo'
 import type { PtyEntry } from './ptyRegistry'
+import { resizeFromDesktop } from './ptySize'
 
 function fakeEntry(cols = 120, rows = 40, session = new PtySession()) {
   const window = { isDestroyed: () => false, send: vi.fn() }
@@ -50,5 +51,80 @@ describe('phone pty io', () => {
     })
     expect(attached).toMatchObject({ dropped: true, cursor: session.cursor })
     expect(sent).toEqual(['y'.repeat(5000)])
+  })
+
+  describe('desktop size', () => {
+    function phoneOn(cols = 120, rows = 40) {
+      const fake = fakeEntry(cols, rows)
+      const io = createPtyIo({ ptys: new Map([['pane-1', fake.entry]]) })
+      const attach = (role: 'owner' | 'observer') =>
+        io.attachPhoneObserver('pane-1', { role, sendData: () => undefined })
+      return { ...fake, io, attach }
+    }
+
+    it('puts the desktop size back when the owner phone detaches', () => {
+      const { entry, window, pty, io, attach } = phoneOn(120, 40)
+      resizeFromDesktop(entry, 100, 30)
+      const owner = attach('owner')
+      io.ptyResize('pane-1', 44, 20)
+      expect(pty.cols).toBe(44)
+      owner?.detach()
+      expect([pty.cols, pty.rows]).toEqual([100, 30])
+      expect(window.send).toHaveBeenLastCalledWith('pty:size:pane-1', 100, 30)
+    })
+
+    it('falls back to the size the pane had when the phone attached', () => {
+      const { pty, io, attach } = phoneOn(120, 40)
+      const owner = attach('owner')
+      io.ptyResize('pane-1', 44, 20)
+      owner?.detach()
+      expect([pty.cols, pty.rows]).toEqual([120, 40])
+    })
+
+    it('restores once even when the phone detaches twice', () => {
+      const { window, io, attach } = phoneOn(120, 40)
+      const owner = attach('owner')
+      io.ptyResize('pane-1', 44, 20)
+      owner?.detach()
+      owner?.detach()
+      expect(window.send).toHaveBeenCalledTimes(2)
+    })
+
+    it('never resizes a pane the phone did not resize', () => {
+      const { pty, window, attach } = phoneOn(120, 40)
+      attach('owner')?.detach()
+      attach('observer')?.detach()
+      expect(pty.resize).not.toHaveBeenCalled()
+      expect(window.send).not.toHaveBeenCalled()
+    })
+
+    it('leaves the pane alone when an observer detaches', () => {
+      const { entry, pty, io, attach } = phoneOn(120, 40)
+      resizeFromDesktop(entry, 100, 30)
+      attach('owner')
+      io.ptyResize('pane-1', 44, 20)
+      attach('observer')?.detach()
+      expect(pty.cols).toBe(44)
+    })
+
+    it('keeps the desktop size when the desktop was the last to resize', () => {
+      const { entry, pty, io, attach } = phoneOn(120, 40)
+      const owner = attach('owner')
+      io.ptyResize('pane-1', 44, 20)
+      resizeFromDesktop(entry, 100, 30)
+      owner?.detach()
+      expect([pty.cols, pty.rows]).toEqual([100, 30])
+      expect(pty.resize).toHaveBeenCalledTimes(2)
+    })
+
+    it('never records a 0x0 desktop size', () => {
+      const { entry, pty, io, attach } = phoneOn(120, 40)
+      const owner = attach('owner')
+      io.ptyResize('pane-1', 44, 20)
+      resizeFromDesktop(entry, 0, 0)
+      io.ptyResize('pane-1', 44, 20)
+      owner?.detach()
+      expect([pty.cols, pty.rows]).toEqual([120, 40])
+    })
   })
 })
