@@ -63,6 +63,13 @@ test('closing a tab returns to the tab that opened it, else the most recently us
     await win.getByRole('button', { name: 'New browser tab' }).first().click()
     const address = win.locator('.pane-slot:not([data-hidden]) .browser-address').first()
     await expect(address).toBeVisible({ timeout: 15_000 })
+    await expect
+      .poll(() =>
+        win.evaluate(
+          () => document.activeElement?.matches('.pane-slot:not([data-hidden]) webview') ?? false,
+        ),
+      )
+      .toBe(true)
     await address.fill(siteUrl)
     await address.press('Enter')
     await expect(tabs(win)).toHaveCount(2, { timeout: 15_000 })

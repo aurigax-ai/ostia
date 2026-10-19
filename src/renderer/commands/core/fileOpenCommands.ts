@@ -9,6 +9,7 @@ import {
 import { waitOnPanes } from '@/lib/files/openWaits'
 import { revealFolder } from '@/lib/files/revealFolder'
 import { callerHasFocus, openKeepingFocus, opensQuietly } from '@/lib/panes/callerFocus'
+import { focusActivePaneWhenReady } from '@/lib/panes/paneFocus'
 import { useSandboxStore } from '@/stores/app/sandboxStore'
 import { useOpenWithStore } from '@/stores/files/openWithStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
@@ -58,9 +59,11 @@ export function registerFileOpenCommands(): void {
         if (args?.wait !== true) {
           if (quiet) openFilesQuietly(workspaceId, files, paneId)
           else openRequestedFiles(workspaceId, files, paneId)
+          if (!quiet) focusActivePaneWhenReady(workspaceId)
           return { opened: [] }
         }
         const opened = openWaitedFiles(workspaceId, files, paneId, quiet)
+        if (!quiet) focusActivePaneWhenReady(workspaceId)
         waitOnPanes(workspaceId, paneId, opened)
         return { opened }
       },
@@ -108,6 +111,7 @@ export function registerFileOpenCommands(): void {
       const paneId = quiet ? openKeepingFocus(open) : open()
       if (!paneId) return { opened: [] }
       if (quiet) markOpenedQuietly(paneId, content.title)
+      else focusActivePaneWhenReady(workspaceId)
       return { opened: [{ path: content.path, paneId }] }
     },
   })

@@ -20,7 +20,9 @@ import {
 } from '@/lib/panes/splitTabPlacement'
 import { forgetSplitTabSeeds, seedSplitTab } from '@/lib/panes/splitTabSeeds'
 import { SPLIT_TAB_NAME_MAX, normalizeSplitTabName } from '@shared/workspaces/splitTabs'
+import { keepKeyboard } from './keepKeyboard'
 import type { LayoutGet, LayoutSet, LayoutState, WorkspaceLayout } from './layoutTypes'
+import { surfaceHoldsKeyboard } from './surfaceSlotsStore'
 
 type LayoutTabActions = Pick<
   LayoutState,
@@ -77,11 +79,15 @@ export function createLayoutTabActions(set: LayoutSet, get: LayoutGet): LayoutTa
       )
     },
 
-    changeCollapse: (workspaceId, paneId, change) =>
+    changeCollapse: (workspaceId, paneId, change) => {
+      const active = get().byWorkspace[workspaceId]?.activePaneId
+      const heldKeyboard = active !== undefined && surfaceHoldsKeyboard(active)
       set(
         (s) =>
           patch(s, workspaceId, (l) => tuckedAway(l, changeCollapse(l.root, paneId, change))) ?? s,
-      ),
+      )
+      if (heldKeyboard) keepKeyboard(get, workspaceId)
+    },
 
     foldSplitTab: (workspaceId, tabId) =>
       set((s) => patch(s, workspaceId, (l) => tuckedAway(l, foldSplitTab(l.root, tabId))) ?? s),
