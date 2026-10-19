@@ -2,6 +2,7 @@ import { createPane, findSplitTabByName, paneIds, splitOf, tabsOf } from '@/lib/
 import type { SplitNode } from '@/lib/layout/types'
 import { forgetSplitTabSeeds } from '@/lib/panes/splitTabSeeds'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
+import { releaseSurfaces, setFocusTarget, surfaceHost } from '@/stores/workspaces/surfaceSlotsStore'
 import { afterEach, beforeAll, describe, expect, it } from 'vitest'
 import { registerPaneTabCommands } from './paneTabCommands'
 import { commands } from './registry'
@@ -18,6 +19,8 @@ afterEach(() => {
     Object.values(useLayoutStore.getState().byWorkspace).flatMap((l) => paneIds(l.root)),
   )
   useLayoutStore.setState(layoutInit, true)
+  releaseSurfaces(new Set())
+  document.body.replaceChildren()
 })
 
 function workspace() {
@@ -110,5 +113,49 @@ describe('pane.joinTab', () => {
       tab: 'workers',
     })
     expect(res).toMatchObject({ ok: true, result: { members: [b.id, c.id], locked: [locked.id] } })
+  })
+})
+
+describe('pane.collapse', () => {
+  function surfaceWithInput(paneId: string): HTMLTextAreaElement {
+    const input = document.createElement('textarea')
+    surfaceHost(paneId).appendChild(input)
+    document.body.appendChild(surfaceHost(paneId))
+    setFocusTarget(paneId, () => input)
+    return input
+  }
+
+  function splitTab() {
+    const [a, b] = [createPane('terminal'), createPane('terminal')]
+    const tab: SplitNode = { ...splitOf('horizontal', a, b), name: 'workers' }
+    useLayoutStore.setState({
+      byWorkspace: {
+        s1: {
+          root: tabsOf(a.id, createPane('terminal'), tab),
+          activePaneId: a.id,
+          zoomedPaneId: null,
+        },
+      },
+    })
+    return { a, b }
+  }
+
+  it('moves the keyboard to the pane shown next when the collapsed pane held it', async () => {
+    const { a, b } = splitTab()
+    surfaceWithInput(a.id).focus()
+    const next = surfaceWithInput(b.id)
+    await commands.execWith(fromMain, 'pane.collapse', { paneId: a.id })
+    expect(useLayoutStore.getState().byWorkspace.s1.activePaneId).toBe(b.id)
+    expect(document.activeElement).toBe(next)
+  })
+
+  it('leaves the keyboard where it was when the collapsed pane did not hold it', async () => {
+    const { a, b } = splitTab()
+    surfaceWithInput(a.id)
+    surfaceWithInput(b.id)
+    const button = document.body.appendChild(document.createElement('button'))
+    button.focus()
+    await commands.execWith(fromMain, 'pane.collapse', { paneId: a.id })
+    expect(document.activeElement).toBe(button)
   })
 })

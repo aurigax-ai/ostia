@@ -99,12 +99,14 @@ function registerOpenAndCloseCommands(): void {
       if (empty) {
         const profile = browserProfileIn(empty, openerOf(ctx))
         useLayoutStore.getState().openBrowser(empty, 'about:blank', profile)
+        if (ctx.origin !== 'remote') focusActivePaneWhenReady(empty)
         return
       }
       const target = args?.paneId ?? ctx.activePaneId
       if (ctx.activeWorkspaceId && target) {
         const profile = browserProfileIn(ctx.activeWorkspaceId, openerOf(ctx))
         useLayoutStore.getState().newTab(ctx.activeWorkspaceId, target, 'browser', profile)
+        if (ctx.origin !== 'remote') focusActivePaneWhenReady(ctx.activeWorkspaceId)
       }
     },
   })
