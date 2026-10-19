@@ -1,6 +1,6 @@
 import { BrowseError, type BrowseFile, type BrowseProvider } from '@aurigax-ai/ostia-extension-sdk'
 import { Parser, type ReadEntry } from 'tar'
-import { InflateLimit, SNIFF_BYTES, inflate, sniffCompression } from './inflate'
+import { type Decoders, InflateLimit, SNIFF_BYTES, inflate, sniffCompression } from './inflate'
 import { shownLink, shownName } from './names'
 
 const LINK_TYPES = new Set(['SymbolicLink', 'Link'])
@@ -17,12 +17,12 @@ interface ScanOptions {
   onRead: (entry: ReadEntry) => Promise<void>
 }
 
-async function scan(file: BrowseFile, options: ScanOptions): Promise<ScanEnd> {
+async function scan(file: BrowseFile, decoders: Decoders, options: ScanOptions): Promise<ScanEnd> {
   const head = await file.readAt(0, Math.min(SNIFF_BYTES, file.size))
   const kind = sniffCompression(head)
   return new Promise((resolve) => {
     const input = file.stream()
-    const inflated = kind ? inflate(input, kind, options.scanBytes) : null
+    const inflated = kind ? inflate(input, kind, options.scanBytes, decoders) : null
     const parser = new Parser({ gzip: false, zstd: false, brotli: false })
     let index = 0
     let scanned = 0
@@ -81,71 +81,73 @@ async function scan(file: BrowseFile, options: ScanOptions): Promise<ScanEnd> {
   })
 }
 
-export const tar: BrowseProvider = {
-  async list(file, sink, { signal, limits }) {
-    let chain: Promise<boolean> = Promise.resolve(true)
-    let count = 0
-    const end = await scan(file, {
-      scanBytes: limits.scanBytes,
-      scanMs: limits.scanMs,
-      signal,
-      visit: (entry) => {
-        count += 1
-        const added = {
-          name: shownName(entry.path),
-          dir: entry.type === 'Directory',
-          size: entry.size,
-          encrypted: false,
-          link: LINK_TYPES.has(entry.type)
-            ? shownLink(entry.linkpath ?? '', limits.linkTargetBytes)
-            : null,
-        }
-        chain = chain.then((more) => (more ? sink.add(added) : false))
-        return count > limits.entries ? 'stop' : 'next'
-      },
-      onRead: async () => {},
-    })
-    const more = await chain
-    if (end === 'cancelled') throw new BrowseError('cancelled')
-    if (end === 'complete' || count > 0) return { ok: true, complete: end === 'complete' && more }
-    return { ok: false, error: end === 'limit' ? 'limit' : 'corrupt' }
-  },
-
-  async read(file, index, sink, { signal, limits, max }) {
-    let result: Awaited<ReturnType<BrowseProvider['read']>> = { ok: false, error: 'gone' }
-    const end = await scan(file, {
-      scanBytes: limits.scanBytes,
-      scanMs: limits.scanMs,
-      signal,
-      visit: (entry, at) => {
-        if (at !== index) return 'next'
-        if (LINK_TYPES.has(entry.type)) {
-          result = { ok: false, error: 'link' }
-          return 'stop'
-        }
-        if (entry.size > max) {
-          result = { ok: false, error: 'too-large', size: entry.size }
-          return 'stop'
-        }
-        return 'read'
-      },
-      onRead: async (entry) => {
-        try {
-          for await (const chunk of entry as AsyncIterable<Buffer>) {
-            if (!(await sink.write(chunk))) {
-              result = { ok: false, error: 'too-large' }
-              return
-            }
+export function tarProvider(decoders: Decoders): BrowseProvider {
+  return {
+    async list(file, sink, { signal, limits }) {
+      let chain: Promise<boolean> = Promise.resolve(true)
+      let count = 0
+      const end = await scan(file, decoders, {
+        scanBytes: limits.scanBytes,
+        scanMs: limits.scanMs,
+        signal,
+        visit: (entry) => {
+          count += 1
+          const added = {
+            name: shownName(entry.path),
+            dir: entry.type === 'Directory',
+            size: entry.size,
+            encrypted: false,
+            link: LINK_TYPES.has(entry.type)
+              ? shownLink(entry.linkpath ?? '', limits.linkTargetBytes)
+              : null,
           }
-          result = { ok: true }
-        } catch {
-          result = { ok: false, error: 'corrupt' }
-        }
-      },
-    })
-    if (end === 'cancelled') throw new BrowseError('cancelled')
-    return end === 'limit' && !result.ok && result.error === 'gone'
-      ? { ok: false, error: 'limit' }
-      : result
-  },
+          chain = chain.then((more) => (more ? sink.add(added) : false))
+          return count > limits.entries ? 'stop' : 'next'
+        },
+        onRead: async () => {},
+      })
+      const more = await chain
+      if (end === 'cancelled') throw new BrowseError('cancelled')
+      if (end === 'complete' || count > 0) return { ok: true, complete: end === 'complete' && more }
+      return { ok: false, error: end === 'limit' ? 'limit' : 'corrupt' }
+    },
+
+    async read(file, index, sink, { signal, limits, max }) {
+      let result: Awaited<ReturnType<BrowseProvider['read']>> = { ok: false, error: 'gone' }
+      const end = await scan(file, decoders, {
+        scanBytes: limits.scanBytes,
+        scanMs: limits.scanMs,
+        signal,
+        visit: (entry, at) => {
+          if (at !== index) return 'next'
+          if (LINK_TYPES.has(entry.type)) {
+            result = { ok: false, error: 'link' }
+            return 'stop'
+          }
+          if (entry.size > max) {
+            result = { ok: false, error: 'too-large', size: entry.size }
+            return 'stop'
+          }
+          return 'read'
+        },
+        onRead: async (entry) => {
+          try {
+            for await (const chunk of entry as AsyncIterable<Buffer>) {
+              if (!(await sink.write(chunk))) {
+                result = { ok: false, error: 'too-large' }
+                return
+              }
+            }
+            result = { ok: true }
+          } catch {
+            result = { ok: false, error: 'corrupt' }
+          }
+        },
+      })
+      if (end === 'cancelled') throw new BrowseError('cancelled')
+      return end === 'limit' && !result.ok && result.error === 'gone'
+        ? { ok: false, error: 'limit' }
+        : result
+    },
+  }
 }
