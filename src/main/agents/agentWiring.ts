@@ -110,7 +110,7 @@ export function registerAgentWiring({
       if (identity.manager) services.managerService?.rememberResume(resume)
     },
   })
-  const registry = registerProcessMethods({
+  const { registry, startAgentForPhone } = registerProcessMethods({
     openTab: openTerminalInWindow,
     onChange: (entry) => {
       syncKeptMeta(entry.paneId)
@@ -163,5 +163,5 @@ export function registerAgentWiring({
   })
   services.processes = registry
 
-  return { registry }
+  return { registry, startAgentForPhone }
 }

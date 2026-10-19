@@ -48,6 +48,7 @@ const deps = {
   watchesTurn: vi.fn().mockResolvedValue(false),
   turnStarted: vi.fn().mockResolvedValue(true),
   paneSince: vi.fn().mockReturnValue(undefined),
+  startAgent: vi.fn().mockResolvedValue(null),
 } satisfies GatewayControlDeps
 
 let port = 0
