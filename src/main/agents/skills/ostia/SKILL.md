@@ -51,6 +51,7 @@ runs there). A script token gets `{externalId, kind: "script"}` and no pane.
 | `vault`, `secret`, `sandbox` | stored secrets; asks from a sandboxed workspace | a credential, a blocked host or port: see [reference/sandbox.md](reference/sandbox.md) |
 | `graph` | graphs: procedures with waits that outlive a session | a long procedure that must survive restarts: see [reference/graphs.md](reference/graphs.md) |
 | `system` | the OS and its package managers | installing a package through the human: see [reference/system.md](reference/system.md) |
+| `serial` | serial consoles in a terminal pane | a switch or router console over a USB serial adapter: see [reference/serial.md](reference/serial.md) |
 | `ext`, `<extId>` | extension commands | `ostia ext list` names them |
 
 Capabilities, reach and phone pairing: see [reference/capabilities.md](reference/capabilities.md).
