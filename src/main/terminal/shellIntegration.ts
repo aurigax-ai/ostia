@@ -10,7 +10,7 @@ import {
 import { type PromptSeparator, isPromptSeparator } from '../../shared/terminal/promptSettings'
 import { privateTmpDir } from '../platform/privateTmp'
 import { CLI_PATH, CLI_RUN } from './agentHookCommands'
-import { hasFiles, writeAgentPlugin } from './agentPlugin'
+import { agentPluginFiles, hasFiles, writeAgentPlugin } from './agentPlugin'
 import { claudeWrapper } from './claudeIntegration'
 import { codexWrapper } from './codexIntegration'
 
@@ -298,15 +298,20 @@ fi
 
 const AGENT_PLUGINS_DIR = join(INTEGRATION_DIR, 'agents')
 
+let agentContent: AgentPluginContent = NO_AGENT_PLUGINS
 let agentDir: string | null = null
+let agentNames: string[] = []
 
 export function setAgentPlugins(content: AgentPluginContent): string {
+  agentContent = content
   agentDir = writeAgentPlugin(AGENT_PLUGINS_DIR, content)
+  agentNames = agentPluginFiles(content)
   return agentDir
 }
 
 function currentAgentDir(): string {
-  return agentDir ?? setAgentPlugins(NO_AGENT_PLUGINS)
+  if (agentDir !== null && hasFiles(agentDir, agentNames)) return agentDir
+  return setAgentPlugins(agentContent)
 }
 
 export type ShellIntegrationFiles = Record<string, string>
@@ -386,9 +391,12 @@ export function writeShellIntegration(
 const SHELLS_DIR = join(INTEGRATION_DIR, 'shells')
 
 let cachedDir: string | null = null
+let cachedNames: string[] = []
 
 export function shellIntegrationDir(): string {
-  cachedDir ??= writeShellIntegration(SHELLS_DIR)
+  if (cachedDir !== null && hasFiles(cachedDir, cachedNames)) return cachedDir
+  cachedDir = writeShellIntegration(SHELLS_DIR)
+  cachedNames = Object.keys(shellIntegrationFiles(cachedDir))
   return cachedDir
 }
 

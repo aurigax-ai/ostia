@@ -54,8 +54,8 @@ importers:
         specifier: 0.0.79
         version: 0.0.79
       '@aurigax-ai/wire':
-        specifier: 0.1.14
-        version: 0.1.14
+        specifier: 0.1.15
+        version: 0.1.15
       '@xterm/headless':
         specifier: ^6.0.0
         version: 6.0.0
@@ -543,8 +543,8 @@ packages:
   '@aurigax-ai/ghostty-web@0.3.5':
     resolution: {integrity: sha512-QoXSPTq3RsLfXN15DE60BgCjo4C9d6XOXpFsE/JEpit2CyDV+cSJAL9ccaMW7K9BqrbRfzT3t1gpLfcDTQMDng==}
 
-  '@aurigax-ai/wire@0.1.14':
-    resolution: {integrity: sha512-4o/NsNfN4yA9jh/pzyzNZ0AsPO9831YyO5EL/hn5NSQ9Hd5KVdkc8kweCKT69XnQSm4enzxUdFTIf6z7ONRTag==}
+  '@aurigax-ai/wire@0.1.15':
+    resolution: {integrity: sha512-IQSew84Rl9D3Px0bkW2zPadB0gYF7FtZCrZv4u+8y5ntCT13Sbff8ACPJiZb738tUWVdbMi9ml58DAIDTI2mAQ==}
     engines: {node: '>=22'}
     hasBin: true
 
@@ -6306,7 +6306,7 @@ snapshots:
 
   '@aurigax-ai/ghostty-web@0.3.5(patch_hash=236665110cf96cd06e1d110366ef2635efdab60f166183eb15497fda75171ff9)': {}
 
-  '@aurigax-ai/wire@0.1.14':
+  '@aurigax-ai/wire@0.1.15':
     dependencies:
       croner: 10.0.1
       ignore: 7.0.12
