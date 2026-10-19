@@ -1,6 +1,5 @@
 import { execFile, execFileSync } from 'node:child_process'
-import { constants } from 'node:fs'
-import { access, lstat, mkdir, mkdtemp, readFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, readFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { basename, dirname, join } from 'node:path'
 import { type EnvSource, readEnv } from '@aurigax-ai/ostia-extension-sdk/contract/appEnv'
@@ -19,6 +18,7 @@ import {
   downloadTo,
   fetchText,
   releaseAssetUrl,
+  replaceableAt,
 } from './installReplace'
 
 const MAC_TEAM_ID = '4ZNCN9338G'
@@ -46,24 +46,6 @@ export const stagedBundlePath = (bundle: string): string =>
   join(dirname(bundle), `.${basename(bundle)}.new`)
 export const oldBundlePath = (bundle: string): string => `${bundle}.old`
 
-async function exists(path: string): Promise<boolean> {
-  try {
-    await lstat(path)
-    return true
-  } catch {
-    return false
-  }
-}
-
-async function writable(path: string): Promise<boolean> {
-  try {
-    await access(path, constants.W_OK)
-    return true
-  } catch {
-    return false
-  }
-}
-
 export async function canReplaceBundle(
   bundle: string,
   arch: string = process.arch,
@@ -71,18 +53,7 @@ export async function canReplaceBundle(
   if (arch !== 'arm64') return { ok: false, reason: 'unsupported' }
   if (bundle.includes('/AppTranslocation/')) return { ok: false, reason: 'translocated' }
   if (bundle.startsWith('/Volumes/')) return { ok: false, reason: 'read-only' }
-  try {
-    if ((await lstat(bundle)).isSymbolicLink()) return { ok: false, reason: 'symlink' }
-  } catch {
-    return { ok: false, reason: 'not-writable' }
-  }
-  for (const leftover of [stagedBundlePath(bundle), oldBundlePath(bundle)]) {
-    if (await exists(leftover)) return { ok: false, reason: 'leftover', path: leftover }
-  }
-  if (!(await writable(bundle)) || !(await writable(dirname(bundle)))) {
-    return { ok: false, reason: 'not-writable' }
-  }
-  return { ok: true }
+  return replaceableAt(bundle, [stagedBundlePath(bundle), oldBundlePath(bundle)])
 }
 
 export interface CommandResult {
