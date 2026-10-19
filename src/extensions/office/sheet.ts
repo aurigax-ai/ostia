@@ -96,10 +96,6 @@ async function main(): Promise<void> {
   const say = (text: string): void => {
     showViewerMessage(root, text)
   }
-  if (bytes.byteLength > OFFICE_LIMITS.fileBytes) {
-    say(officeProblemText(t, 'too-large', doc.locale))
-    return
-  }
   const outcome = await runWorker<WorkbookResult>(
     'sheet.worker.js',
     { bytes },
