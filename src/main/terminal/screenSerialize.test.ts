@@ -273,11 +273,11 @@ const FUZZ_SGR = [
 ]
 const FUZZ_EDITS = ['\x1b[K', '\x1b[5G', '\x1b[2X', '\x1b[1P', '\x1b[2@', '\r\n', '\r\n']
 
-function fuzzInput(next: (n: number) => number): string {
+function fuzzInput(next: (n: number) => number, styled: boolean): string {
   let text = ''
   for (let i = 0, n = 20 + next(200); i < n; i++) {
     const kind = next(10)
-    const pool = kind < 6 ? FUZZ_CHARS : kind < 9 ? FUZZ_SGR : FUZZ_EDITS
+    const pool = kind < 6 ? FUZZ_CHARS : kind < 9 && styled ? FUZZ_SGR : FUZZ_EDITS
     text += pool[next(pool.length)]
   }
   return `${text}\x1b[0m\r\n`
@@ -297,7 +297,7 @@ describe('serializeLogicalLines against the buffer API', () => {
         scrollback: 200,
         allowProposedApi: true,
       })
-      const text = fuzzInput(next)
+      const text = fuzzInput(next, round % 2 === 0)
       await new Promise<void>((resolve) => term.write(text, resolve))
       if (next(4) === 0) term.resize(5 + next(30), 8)
       const buffer = term.buffer.normal
