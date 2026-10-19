@@ -1,20 +1,13 @@
 import { ipcRenderer } from 'electron'
-import type { CoreItems } from '../shared/boards/git'
 import type { OstiaBridge } from '../shared/types'
+import { listen } from './listen'
 
 export const boardsBridge: Pick<OstiaBridge, 'git' | 'ports'> = {
   git: {
     watch: (workspaceIds) => ipcRenderer.send('git:watch', workspaceIds),
-    onItems: (cb) => {
-      const handler = (_e: unknown, items: CoreItems): void => cb(items)
-      ipcRenderer.on('git:items', handler)
-      return () => ipcRenderer.removeListener('git:items', handler)
-    },
-    onChanged: (cb) => {
-      const handler = (): void => cb()
-      ipcRenderer.on('git:changed', handler)
-      return () => ipcRenderer.removeListener('git:changed', handler)
-    },
+    shown: () => ipcRenderer.send('git:shown'),
+    onItems: (cb) => listen('git:items', cb),
+    onChanged: (cb) => listen('git:changed', () => cb()),
     changes: (workspaceId) => ipcRenderer.invoke('git:changes', workspaceId),
     graph: (workspaceId, limit) => ipcRenderer.invoke('git:graph', workspaceId, limit),
     commitFiles: (workspaceId, sha) => ipcRenderer.invoke('git:commit-files', workspaceId, sha),
@@ -31,10 +24,6 @@ export const boardsBridge: Pick<OstiaBridge, 'git' | 'ports'> = {
   },
   ports: {
     watch: (workspaceIds) => ipcRenderer.send('ports:watch', workspaceIds),
-    onItems: (cb) => {
-      const handler = (_e: unknown, items: CoreItems): void => cb(items)
-      ipcRenderer.on('ports:items', handler)
-      return () => ipcRenderer.removeListener('ports:items', handler)
-    },
+    onItems: (cb) => listen('ports:items', cb),
   },
 }

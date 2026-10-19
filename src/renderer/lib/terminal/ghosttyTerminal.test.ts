@@ -13,6 +13,7 @@ import {
 import type { OstiaTerminal } from './ostiaTerminal'
 import { SMOOTH_SCROLL_MS, attachSmoothScroll, createWheelClassifier } from './smoothScroll'
 
+const fills: string[] = []
 const realGetContext = HTMLCanvasElement.prototype.getContext
 
 function stubContext(canvas: HTMLCanvasElement): unknown {
@@ -21,7 +22,10 @@ function stubContext(canvas: HTMLCanvasElement): unknown {
     { canvas, measureText: (text: string) => ({ width: text.length * 8 }) },
     {
       get: (target, key) => (key in target ? target[key as keyof typeof target] : noop),
-      set: () => true,
+      set: (_target, key, value) => {
+        if (key === 'fillStyle') fills.push(String(value))
+        return true
+      },
     },
   )
 }
@@ -59,6 +63,7 @@ afterAll(() => {
 afterEach(() => {
   created?.term.dispose()
   created = null
+  fills.length = 0
 })
 
 describe('Ghostty terminal adapter', () => {
@@ -277,5 +282,32 @@ describe('Ghostty terminal adapter', () => {
     xterm.dispose()
     ghosttyHost.remove()
     xtermHost.remove()
+  })
+
+  it('counts the matches of a search in the output and steps through them', () => {
+    const { term, search } = open()
+    term.write('one zqneedle\r\ntwo\r\nZQNEEDLE three\r\nfour zqneedle\r\n')
+    const seen: string[] = []
+    search.onDidChangeResults((r) => seen.push(`${r.resultIndex + 1}/${r.resultCount}`))
+    const options = {
+      decorations: { matchOverviewRuler: '#888', activeMatchColorOverviewRuler: '#ff0' },
+    }
+    search.findNext('zqneedle', options)
+    search.findNext('zqneedle', options)
+    search.findPrevious('zqneedle', options)
+    search.findNext('zqabsent', options)
+    expect(seen).toEqual(['1/3', '2/3', '1/3', '0/0'])
+  })
+
+  it('paints an open terminal with the colors of a new theme', async () => {
+    const { term } = open()
+    const frame = () => new Promise((resolve) => requestAnimationFrame(resolve))
+    term.write('themed\r\n')
+    await frame()
+    fills.length = 0
+    term.options.theme = { background: '#fdf6e3', foreground: '#657b83' }
+    term.write('again\r\n')
+    await frame()
+    expect(fills).toContain('#fdf6e3')
   })
 })

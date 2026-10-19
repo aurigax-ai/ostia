@@ -1,13 +1,18 @@
-import { existsSync, rmSync } from 'node:fs'
-import { isDangerousSegment } from '@aurigax-ai/ostia-extension-sdk/contract/protoGuard'
+import { isViewType } from '@aurigax-ai/ostia-extension-sdk/contract/fileViewers'
+import { isRecord } from '@aurigax-ai/ostia-extension-sdk/contract/isRecord'
 import { isRemotePath } from '@aurigax-ai/ostia-extension-sdk/contract/remoteFolders'
-import { parseAgentResume, parseResumeFailure } from '../../shared/agents/agentResume'
+import { EXTENSION_ID_PATTERN } from '@aurigax-ai/ostia-extension-sdk/manifest/manifestFields'
+import { parseResumeFailure, parseStoredResume } from '../../shared/agents/agentResume'
+import { parseBrowserDevice } from '../../shared/browser/browserDevice'
+import { VIEW_NAME } from '../../shared/views/views'
+import type { PaneDrop } from '../../shared/windows/windowsApi'
+import { normalizeSplitTabName } from '../../shared/workspaces/splitTabs'
 import type {
   AppSnapshot,
-  PaneDrop,
   PanePlacement,
   PanePlacementZone,
   SnapshotGroup,
+  SnapshotLeftPanel,
   SnapshotNode,
   SnapshotPaneNode,
   SnapshotSurfaceKind,
@@ -16,9 +21,7 @@ import type {
   SnapshotWorkspace,
   WindowBounds,
   WorkspaceOrigin,
-} from '../../shared/types'
-import { VIEW_NAME } from '../../shared/views/views'
-import { normalizeSplitTabName } from '../../shared/workspaces/splitTabs'
+} from '../../shared/workspaces/workspaceApi'
 import { isWorkspaceGroupColor, normalizeGroupName } from '../../shared/workspaces/workspaceGroups'
 import {
   MAX_LAYOUT_DEPTH,
@@ -26,12 +29,9 @@ import {
   MAX_WORKSPACES,
 } from '../../shared/workspaces/workspaceLimits'
 import { normalizeDescription } from '../../shared/workspaces/workspaceText'
-import { loadJson, saveJson, saveJsonAsync, storePath } from '../platform/jsonStore'
-import { tailCut } from '../terminal/ptyRingBuffer'
+import { loadJson, saveJson, storePath } from '../platform/jsonStore'
 
 const SNAPSHOT_VERSION = 1
-
-export const SCROLLBACK_CAP_BYTES = 131_072
 
 const MAX_WINDOWS = 16
 const MAX_GROUPS = 32
@@ -42,7 +42,6 @@ const SURFACE_KINDS: ReadonlySet<string> = new Set<SnapshotSurfaceKind>([
   'editor',
   'agent',
   'browser',
-  'extension',
   'chat',
   'git',
   'view',
@@ -62,18 +61,10 @@ export function snapshotPath(): string {
   return storePath('workspaces', 'global')
 }
 
-export function scrollbackPath(): string {
-  return storePath('scrollback', 'global')
-}
-
-function isRecord(v: unknown): v is Record<string, unknown> {
-  return typeof v === 'object' && v !== null && !Array.isArray(v)
-}
-
 function copyOptionalString(
   src: Record<string, unknown>,
   dst: SnapshotPaneNode,
-  key: 'cwd' | 'filePath' | 'url' | 'extensionId' | 'chatSessionId',
+  key: 'cwd' | 'filePath' | 'url' | 'chatSessionId',
 ): void {
   const value = src[key]
   if (typeof value === 'string' && value.length > 0) dst[key] = value
@@ -89,18 +80,21 @@ function tabPaneIds(node: SnapshotNode): string[] {
   return node.type === 'pane' ? [node.id] : node.children.flatMap(tabPaneIds)
 }
 
+const RETIRED = Symbol('retired')
+
 function parseNode(
   raw: unknown,
   paneIds: string[],
   depth: number,
   inTab = false,
-): SnapshotNode | null {
+): SnapshotNode | typeof RETIRED | null {
   if (depth > MAX_LAYOUT_DEPTH || !isRecord(raw)) return null
   const id = raw.id
   if (typeof id !== 'string' || id.length === 0) return null
 
   if (raw.type === 'pane') {
-    if (typeof raw.kind !== 'string' || !SURFACE_KINDS.has(raw.kind)) return null
+    if (typeof raw.kind !== 'string') return null
+    if (!SURFACE_KINDS.has(raw.kind)) return RETIRED
     if (paneIds.length >= MAX_PANES) return null
     const pane: SnapshotPaneNode = {
       type: 'pane',
@@ -112,14 +106,18 @@ function parseNode(
     if (typeof raw.filePath !== 'string' || !isRemotePath(raw.filePath)) {
       copyOptionalString(raw, pane, 'filePath')
     }
+    if (pane.kind === 'editor' && typeof raw.viewType === 'string' && isViewType(raw.viewType)) {
+      pane.viewType = raw.viewType
+    }
     copyOptionalString(raw, pane, 'url')
-    copyOptionalString(raw, pane, 'extensionId')
     if (pane.kind === 'chat') copyOptionalString(raw, pane, 'chatSessionId')
     if (pane.kind === 'browser' && raw.browserProfile === 'shared') pane.browserProfile = 'shared'
+    const device = pane.kind === 'browser' ? parseBrowserDevice(raw.browserDevice) : undefined
+    if (device) pane.browserDevice = device
     if (typeof raw.viewName === 'string' && VIEW_NAME.test(raw.viewName)) {
       pane.viewName = raw.viewName
     }
-    const resume = parseAgentResume(raw.resume)
+    const resume = parseStoredResume(raw.resume)
     if (resume) pane.resume = resume
     if (resume && raw.agentRunning === true && raw.hibernated !== true) pane.agentRunning = true
     if (resume && raw.hibernated === true) pane.hibernated = true
@@ -128,7 +126,7 @@ function parseNode(
     if (raw.locked === true) pane.locked = true
     if (pane.kind === 'terminal' && raw.defaultTitle === true) pane.defaultTitle = true
     if (raw.titlePinned === true) pane.titlePinned = true
-    if (pane.kind === 'extension' && !pane.extensionId) return null
+    if (inTab && raw.collapsed === true) pane.collapsed = true
     if (pane.kind === 'view' && !pane.viewName) return null
     paneIds.push(id)
     return pane
@@ -140,10 +138,20 @@ function parseNode(
     for (const child of raw.children) {
       if (!isRecord(child) || (child.type !== 'pane' && child.type !== 'split')) return null
       const parsed = parseNode(child, paneIds, depth + 1, true)
+      if (parsed === RETIRED) continue
       if (!parsed || parsed.type === 'tabs') return null
-      const name = parsed.type === 'split' ? normalizeSplitTabName(child.name) : null
-      tabs.push(name && parsed.type === 'split' ? { ...parsed, name } : parsed)
+      if (parsed.type === 'pane') {
+        tabs.push(parsed)
+        continue
+      }
+      const name = normalizeSplitTabName(child.name)
+      tabs.push({
+        ...parsed,
+        ...(name ? { name } : {}),
+        ...(child.folded === true ? { folded: true as const } : {}),
+      })
     }
+    if (tabs.length === 0) return RETIRED
     if (tabs.length === 1) return tabs[0]
     const ids = tabs.flatMap(tabPaneIds)
     const activeId = ids.includes(raw.activeId as string) ? (raw.activeId as string) : ids[0]
@@ -154,23 +162,27 @@ function parseNode(
   if (!Array.isArray(raw.children) || raw.children.length === 0) return null
   const direction = raw.direction === 'vertical' ? 'vertical' : 'horizontal'
   const children: SnapshotNode[] = []
-  for (const child of raw.children) {
+  const kept: number[] = []
+  for (const [index, child] of raw.children.entries()) {
     const parsed = parseNode(child, paneIds, depth + 1, inTab)
+    if (parsed === RETIRED) continue
     if (!parsed) return null
     children.push(parsed)
+    kept.push(index)
   }
-  if (inTab && children.length === 1) return children[0]
+  if (children.length === 0) return RETIRED
+  if (children.length === 1 && (inTab || kept.length < raw.children.length)) return children[0]
   const raws = raw.sizes
   const sizesOk =
     Array.isArray(raws) &&
-    raws.length === children.length &&
+    raws.length === raw.children.length &&
     raws.every((n) => typeof n === 'number' && Number.isFinite(n) && n > 0)
   return {
     type: 'split',
     id,
     direction,
     children,
-    sizes: sizesOk ? (raws as number[]) : children.map(() => 1),
+    sizes: sizesOk ? kept.map((index) => (raws as number[])[index]) : children.map(() => 1),
   }
 }
 
@@ -241,8 +253,9 @@ function parseWorkspace(
   if (entry.kind === 'scratch' && !opts.scratch) return null
 
   const paneIds: string[] = []
-  const root = entry.root === undefined ? undefined : parseNode(entry.root, paneIds, 0)
-  if (root === null) return null
+  const parsedRoot = entry.root === undefined ? undefined : parseNode(entry.root, paneIds, 0)
+  if (parsedRoot === null) return null
+  const root = parsedRoot === RETIRED ? undefined : parsedRoot
   if (root && paneIds.length === 0) return null
   if (new Set(paneIds).size !== paneIds.length) return null
   if (paneIds.some((p) => claims.panes.has(p))) return null
@@ -348,10 +361,23 @@ function parseWindows(raw: unknown, claims: Claims, budget: number): SnapshotWin
       id,
       bounds,
       activeWorkspaceId: activeOf(entry.activeWorkspaceId, workspaces),
+      ...parseSidePanels(entry),
       workspaces,
     })
   }
   return windows
+}
+
+function parseSidePanels(raw: Record<string, unknown>): {
+  leftPanel?: SnapshotLeftPanel
+  rightPanel?: string
+} {
+  return {
+    ...(raw.leftPanel === 'files' ? { leftPanel: raw.leftPanel } : {}),
+    ...(typeof raw.rightPanel === 'string' && EXTENSION_ID_PATTERN.test(raw.rightPanel)
+      ? { rightPanel: raw.rightPanel }
+      : {}),
+  }
 }
 
 function parseDetachedBounds(
@@ -386,6 +412,7 @@ export function parseSnapshot(raw: unknown): AppSnapshot | null {
     activeWorkspaceId: activeOf(raw.activeWorkspaceId, workspaces),
     workspaces,
     groups: knownGroups.filter((g) => workspaces.some((w) => w.groupId === g.id)),
+    ...parseSidePanels(raw),
     ...(bounds ? { bounds } : {}),
     ...(detachedBounds ? { detachedBounds } : {}),
     ...(windows.length > 0 ? { windows } : {}),
@@ -413,93 +440,4 @@ export function saveSnapshot(snapshot: AppSnapshot): void {
 
 export function loadSnapshot(): AppSnapshot | null {
   return parseSnapshot(loadJson<unknown>(snapshotPath(), null))
-}
-
-export function trimScrollback(data: string, capBytes = SCROLLBACK_CAP_BYTES): string {
-  return data.slice(tailCut(data, capBytes))
-}
-
-const restored = new Map<string, string>()
-
-export function scrollbackToSave(
-  byPane: Record<string, string>,
-  unsaved: (paneId: string) => boolean = () => false,
-): Record<string, string> {
-  const out: Record<string, string> = {}
-  let kept = 0
-  for (const [paneId, data] of Object.entries(byPane)) {
-    if (kept >= MAX_PANES) break
-    if (!data || isDangerousSegment(paneId) || unsaved(paneId)) continue
-    out[paneId] = trimScrollback(data)
-    kept++
-  }
-  return out
-}
-
-let scrollbackEpoch = 0
-let scrollbackWrites: Promise<void> = Promise.resolve()
-
-export function saveScrollback(
-  byPane: Record<string, string>,
-  unsaved: (paneId: string) => boolean = () => false,
-): Promise<void> {
-  const epoch = scrollbackEpoch
-  const data = scrollbackToSave(byPane, unsaved)
-  const write = scrollbackWrites.then(() =>
-    epoch === scrollbackEpoch ? saveJsonAsync(scrollbackPath(), data) : undefined,
-  )
-  scrollbackWrites = write.catch(() => undefined)
-  return write
-}
-
-export type RestoreOutcome = 'ok' | 'none' | 'failed'
-
-export function loadRestoredScrollback(): RestoreOutcome {
-  restored.clear()
-  if (!existsSync(scrollbackPath())) return 'none'
-  const raw = loadJson<unknown>(scrollbackPath(), null)
-  if (!isRecord(raw)) return 'failed'
-  for (const [paneId, data] of Object.entries(raw)) {
-    if (typeof data === 'string' && data && !isDangerousSegment(paneId)) restored.set(paneId, data)
-  }
-  return 'ok'
-}
-
-export function takeRestoredScrollback(paneId: string): string | null {
-  const data = restored.get(paneId)
-  if (data === undefined) return null
-  restored.delete(paneId)
-  return data
-}
-
-export function stashedScreen(
-  paneId: string,
-  askingWindow: string,
-  ownerWindow: string | undefined,
-): string | null {
-  if (ownerWindow === undefined || ownerWindow !== askingWindow) return null
-  return restored.get(paneId) ?? null
-}
-
-export function stashScrollback(paneId: string, data: string): void {
-  if (!data || isDangerousSegment(paneId)) return
-  restored.set(paneId, trimScrollback(data))
-}
-
-export function pendingRestoredScrollback(): Record<string, string> {
-  return Object.fromEntries(restored)
-}
-
-export function dropRestoredScrollback(paneId: string): void {
-  restored.delete(paneId)
-}
-
-export function clearPersisted(): Promise<void> {
-  restored.clear()
-  scrollbackEpoch++
-  for (const path of [snapshotPath(), scrollbackPath()]) {
-    rmSync(path, { force: true })
-  }
-  scrollbackWrites = scrollbackWrites.then(() => rmSync(scrollbackPath(), { force: true }))
-  return scrollbackWrites
 }

@@ -1,4 +1,4 @@
-import type { AppSnapshot } from '@shared/types'
+import type { AppSnapshot } from '@shared/workspaces/workspaceApi'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { setDefaultPaneTitle, setPaneView } from './paneFields'
 import { buildSnapshot, restoreSnapshot } from './snapshot'
@@ -20,6 +20,33 @@ function build(root: LayoutNode, activePaneId = root.id): AppSnapshot {
 }
 
 describe('buildSnapshot', () => {
+  it('records the open left side panel and omits it when closed', () => {
+    const root = createPane('terminal', 'zsh', '/home/u/proj')
+    const input = {
+      workspaces: [WORKSPACE],
+      activeWorkspaceId: 's1',
+      layouts: { s1: { root, activePaneId: root.id } },
+      savedAt: 't',
+      groups: [],
+    }
+    expect(buildSnapshot({ ...input, leftPanel: 'files' }).leftPanel).toBe('files')
+    expect('leftPanel' in buildSnapshot({ ...input, leftPanel: null })).toBe(false)
+    expect('leftPanel' in buildSnapshot(input)).toBe(false)
+  })
+
+  it('records the shown right side panel and omits it when none is shown', () => {
+    const root = createPane('terminal', 'zsh', '/home/u/proj')
+    const input = {
+      workspaces: [WORKSPACE],
+      activeWorkspaceId: 's1',
+      layouts: { s1: { root, activePaneId: root.id } },
+      savedAt: 't',
+      groups: [],
+    }
+    expect(buildSnapshot({ ...input, rightPanel: 'graphs' }).rightPanel).toBe('graphs')
+    expect('rightPanel' in buildSnapshot({ ...input, rightPanel: null })).toBe(false)
+  })
+
   it('captures each workspace with its tree and focused pane', () => {
     const root = createPane('terminal', 'zsh', '/home/u/proj')
     const snapshot = build(root)
@@ -53,6 +80,22 @@ describe('buildSnapshot', () => {
     const restored = restoreSnapshot(snapshot).layouts.s1
     expect(restored.root).toEqual(root)
     expect(restored.activePaneId).toBe(c.id)
+  })
+
+  it('round-trips a collapsed pane of a split tab and expands one no tab holds any more', () => {
+    const [a, b, c] = [createPane(), createPane(), createPane()]
+    const tab = splitOf('horizontal', b, { ...c, collapsed: true as const })
+    const root = tabsOf(b.id, a, tab)
+    expect(restoreSnapshot(build(root, b.id)).layouts.s1.root).toEqual(root)
+    const loose = splitOf('horizontal', a, { ...c, collapsed: true as const })
+    const restored = restoreSnapshot(build(loose, a.id)).layouts.s1.root
+    expect(restored.type === 'split' && restored.children[1]).not.toHaveProperty('collapsed')
+  })
+
+  it('round-trips a folded split tab that is not shown', () => {
+    const [a, b, c] = [createPane(), createPane(), createPane()]
+    const root = tabsOf(a.id, a, { ...splitOf('horizontal', b, c), folded: true as const })
+    expect(restoreSnapshot(build(root, a.id)).layouts.s1.root).toEqual(root)
   })
 
   it('carries an editor’s file path and a browser’s url', () => {

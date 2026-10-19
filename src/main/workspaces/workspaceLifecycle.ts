@@ -12,14 +12,15 @@ import {
   rehomeWorkspace,
   workspaceHasManager,
 } from '../control/idRegistry'
+import type { AppLog } from '../diagnostics/appLog'
 import type { ExtensionHost } from '../extensions/extensionHost'
 import type { OpenWaits } from '../files/openWaits'
 import { createWorkspaceClosed } from '../files/workspaceClosed'
 import { registerPaneMoveIpc } from '../panes/paneMove'
 import type { ProcessRegistry } from '../panes/processRegistry'
 import type { DomainRequests } from '../sandbox/domainRequests'
-import type { PortForwarder } from '../sandbox/portForwarder'
-import type { PortRequests } from '../sandbox/portRequests'
+import type { PortForwarder } from '../sandbox/ports/portForwarder'
+import type { PortRequests } from '../sandbox/ports/portRequests'
 import type { ViolationLog } from '../sandbox/violations'
 import type { WorkspaceSandboxes } from '../sandbox/workspaceSandboxes'
 import type { PackageRequests } from '../sandboxPackages/packageRequests'
@@ -34,6 +35,7 @@ interface WorkspaceLifecycleDeps {
   openWaits: OpenWaits
   reach: Reach
   services: {
+    appLog: AppLog | null
     extensionHost: ExtensionHost | null
     processes: ProcessRegistry | null
   }
@@ -83,7 +85,11 @@ export function createWorkspaceLifecycle({
     closeRemoteFolders: (id) => services.extensionHost?.remoteFolders?.workspaceClosed(id),
     tellExtensions: (id) => services.extensionHost?.events.workspaceClosed(id),
     closeArtifacts: (id) => artifactHistory.close(id, artifactFolders.close(id)),
-    removeScratch: (id) => scratchFolders.remove(id),
+    removeScratch: (id) => {
+      const failure = scratchFolders.remove(id)
+      if (failure)
+        services.appLog?.warn('scratch-remove-failed', { folders: 1, codes: failure.code })
+    },
     forgetRequests: forgetWorkspaceRequests,
     forgetSandbox: forgetSandboxRuntime,
   })

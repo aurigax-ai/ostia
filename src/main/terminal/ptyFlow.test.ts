@@ -55,6 +55,21 @@ describe('CoalescedOutput', () => {
 })
 
 describe('PtyFlowControl', () => {
+  it('pauses a lane with its own marks only past its high mark and resumes at its low mark', () => {
+    const { calls, target } = fakePty()
+    const flow = new PtyFlowControl(target)
+    const lane = flow.open('history', shown, { high: 1000, low: 200 })
+    lane.sent(1000)
+    expect(calls).toEqual([])
+    lane.sent(1)
+    expect(calls).toEqual(['pause'])
+    flow.ack('history', 700)
+    expect(calls).toEqual(['pause'])
+    flow.ack('history', 101)
+    expect(calls).toEqual(['pause', 'resume'])
+    flow.dispose()
+  })
+
   it('pauses above the high watermark and resumes once acknowledged below the low one', () => {
     const pty = fakePty()
     const flow = new PtyFlowControl(pty.target)

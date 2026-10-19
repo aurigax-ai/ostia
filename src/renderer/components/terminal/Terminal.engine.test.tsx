@@ -16,8 +16,8 @@ import { useBlocksStore } from '@/stores/terminal/blocksStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { releaseSurfaces, surfaceHost } from '@/stores/workspaces/surfaceSlotsStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
+import type { ClipboardContents } from '@shared/app/appApi'
 import { PTY_ACK_CHARS } from '@shared/terminal/ptyFlow'
-import type { ClipboardContents } from '@shared/types'
 import {
   type RenderResult,
   act,
@@ -51,6 +51,11 @@ vi.mock('@/platform', () => ({
 }))
 
 const webgl = vi.hoisted(() => ({ pause: vi.fn(), dispose: vi.fn() }))
+const gl = vi.hoisted(() => ({ software: false }))
+
+vi.mock('@/lib/terminal/softwareGl', () => ({
+  drawOnGpu: (requested: boolean) => requested && !gl.software,
+}))
 
 vi.mock('@/lib/terminal/webglRenderer', () => ({
   createWebglRenderer: () => webgl,
@@ -132,20 +137,6 @@ const shownUrl = (): string | undefined => {
   return allPanes(layout.root).find((pane) => pane.id === layout.activePaneId)?.url
 }
 
-function dataTransfer(): DataTransfer {
-  const data = new Map<string, string>()
-  return {
-    get types() {
-      return [...data.keys()]
-    },
-    files: [],
-    dropEffect: 'none',
-    effectAllowed: 'all',
-    setData: (type: string, value: string) => data.set(type, value),
-    getData: (type: string) => data.get(type) ?? '',
-  } as unknown as DataTransfer
-}
-
 describe('TerminalView engines', () => {
   let settingsInit: ReturnType<typeof useSettingsStore.getState>
   let workspacesInit: ReturnType<typeof useWorkspacesStore.getState>
@@ -205,11 +196,43 @@ describe('TerminalView engines', () => {
     })
   }
 
+  it('a title a program sets with OSC 0 replaces the shell name of the tab', async () => {
+    useLayoutStore.getState().ensure('w1')
+    const paneId = firstPaneId(useLayoutStore.getState().byWorkspace.w1.root)
+    vi.mocked(window.ostia.pty.attach).mockResolvedValueOnce({
+      created: true,
+      buffer: '',
+      cursor: 0,
+      dropped: false,
+      shell: 'bash',
+    })
+    await renderSettled(<TerminalView workspaceId="w1" paneId={paneId} />)
+    const titleOf = (): string | undefined =>
+      findPane(useLayoutStore.getState().byWorkspace.w1.root, paneId)?.title
+    await waitFor(() => expect(titleOf()).toBe('bash'))
+    await waitFor(() => expect(window.ostia.pty.onData).toHaveBeenCalled())
+    const deliver = vi.mocked(window.ostia.pty.onData).mock.calls[0][1]
+    act(() => deliver('\x1b]0;build logs\x07'))
+    await waitFor(() => expect(titleOf()).toBe('build logs'))
+  })
+
   it('an xterm pane hands its GPU renderer to the hidden-pane pause and drops it on unmount', async () => {
     const { unmount } = await renderSettled(<TerminalView workspaceId="w1" paneId="p1" />)
     expect(webgl.pause).toHaveBeenLastCalledWith(true)
     unmount()
     expect(webgl.dispose).toHaveBeenCalledTimes(1)
+  })
+
+  it('an xterm pane stays on the DOM renderer when WebGL runs in software', async () => {
+    gl.software = true
+    try {
+      const { unmount } = await renderSettled(<TerminalView workspaceId="w1" paneId="p1" />)
+      expect(webgl.pause).not.toHaveBeenCalled()
+      unmount()
+      expect(webgl.dispose).not.toHaveBeenCalled()
+    } finally {
+      gl.software = false
+    }
   })
 
   it('draws a new terminal with Ghostty and starts its shell through the shared path', async () => {
@@ -384,6 +407,57 @@ describe('TerminalView engines', () => {
     expect(vi.mocked(window.ostia.pty.ack).mock.calls).toEqual(
       chunks.map((chunk) => ['p1', chunk.length]),
     )
+  })
+
+  describe('a pane that is not the active one', () => {
+    async function renderNeighbour(): Promise<(data: string) => void> {
+      const pane = { ...createPane('terminal'), id: 'p1' }
+      useLayoutStore.setState({
+        byWorkspace: { w1: { root: pane, activePaneId: 'other', zoomedPaneId: null } },
+      })
+      await renderSettled(<TerminalView workspaceId="w1" paneId="p1" />)
+      await waitFor(() => expect(window.ostia.pty.attach).toHaveBeenCalled())
+      await act(() => new Promise((resolve) => setTimeout(resolve, 50)))
+      return vi.mocked(window.ostia.pty.onData).mock.calls[0][1]
+    }
+
+    function screenText(): string {
+      const xterm = terminalFor('p1') as unknown as Xterm
+      return Array.from(
+        { length: xterm.buffer.active.length },
+        (_, y) => xterm.buffer.active.getLine(y)?.translateToString(true) ?? '',
+      ).join('')
+    }
+
+    it('shows the process-exited banner after the output still queued for it', async () => {
+      const deliver = await renderNeighbour()
+      const exit = vi.mocked(window.ostia.pty.onExit).mock.calls[0][1]
+      act(() => {
+        deliver('last-words\r\n')
+        exit(0, false)
+      })
+      await act(() => new Promise((resolve) => setTimeout(resolve, 200)))
+      const text = screenText()
+      expect(text).toContain('last-words')
+      expect(text.indexOf('last-words')).toBeLessThan(text.indexOf('[process exited]'))
+    })
+
+    it('acknowledges everything it was sent once the coalesced write is parsed', async () => {
+      const deliver = await renderNeighbour()
+      const chunks = ['one', 'two', 'three'].map(
+        (word) => `${word}-out\r\n${' '.repeat(PTY_ACK_CHARS)}\r\n`,
+      )
+      act(() => {
+        for (const chunk of chunks) deliver(chunk)
+      })
+      expect(vi.mocked(window.ostia.pty.ack)).not.toHaveBeenCalled()
+      await waitFor(() =>
+        expect(vi.mocked(window.ostia.pty.ack).mock.calls).toEqual([
+          ['p1', chunks.reduce((sum, chunk) => sum + chunk.length, 0)],
+        ]),
+      )
+      expect(screenText()).toMatch(/one-out.*two-out.*three-out/)
+    })
   })
 
   it('keeps Option-drag away from the program in a Ghostty terminal on macOS only', async () => {
@@ -990,49 +1064,91 @@ describe('TerminalView engines', () => {
     expect(browserUrls()).toEqual([])
   })
 
-  it('a link’s hover hint goes away when its pane stops being visible, the window loses focus or the terminal resizes', async () => {
-    const fitted = vi.spyOn(FitAddon.prototype, 'proposeDimensions').mockReturnValue(undefined)
-    const box = vi
-      .spyOn(Element.prototype, 'getBoundingClientRect')
-      .mockReturnValue(DOMRect.fromRect({ x: 0, y: 0, width: 800, height: 600 }))
-    const settingsActive = useUIStore.getState().settingsActive
-    onTestFinished(() => {
-      fitted.mockRestore()
-      box.mockRestore()
-      useUIStore.setState({ settingsActive })
-    })
-    const { term, links } = await renderLinkTerminal()
-    const hint = (): Element | null => document.querySelector('[data-slot="tooltip-content"]')
-    const hoverUntilHinted = async (): Promise<void> => {
-      act(() =>
-        links.hover?.(new MouseEvent('mousemove'), 'http://127.0.0.1:8000/first', linkRange),
-      )
-      await waitFor(() => expect(hint()).not.toBeNull())
+  describe('a link’s hover hint goes away', () => {
+    async function renderHinted() {
+      const fitted = vi.spyOn(FitAddon.prototype, 'proposeDimensions').mockReturnValue(undefined)
+      const box = vi
+        .spyOn(Element.prototype, 'getBoundingClientRect')
+        .mockReturnValue(DOMRect.fromRect({ x: 0, y: 0, width: 800, height: 600 }))
+      const settingsActive = useUIStore.getState().settingsActive
+      onTestFinished(() => {
+        fitted.mockRestore()
+        box.mockRestore()
+        useUIStore.setState({ settingsActive })
+        vi.useRealTimers()
+      })
+      const { term, links } = await renderLinkTerminal()
+      vi.useFakeTimers()
+      const hint = (): Element | null => document.querySelector('[data-slot="tooltip-content"]')
+      const hover = (): void => {
+        act(() =>
+          links.hover?.(new MouseEvent('mousemove'), 'http://127.0.0.1:8000/first', linkRange),
+        )
+      }
+      const hoverUntilHinted = (): void => {
+        hover()
+        act(() => {
+          vi.advanceTimersByTime(1_000)
+        })
+        expect(hint()).not.toBeNull()
+      }
+      return { term, hint, hover, hoverUntilHinted }
     }
 
-    await hoverUntilHinted()
-    act(() => useUIStore.setState({ settingsActive: true }))
-    expect(hint()).toBeNull()
-    act(() => useUIStore.setState({ settingsActive: false }))
-    expect(hint()).toBeNull()
-
-    await hoverUntilHinted()
-    act(() => useWorkspacesStore.setState({ activeWorkspaceId: 'w2' }))
-    expect(hint()).toBeNull()
-    act(() => useWorkspacesStore.setState({ activeWorkspaceId: 'w1' }))
-
-    await hoverUntilHinted()
-    act(() => {
-      window.dispatchEvent(new Event('blur'))
+    it('when the settings page covers its pane', async () => {
+      const { hint, hoverUntilHinted } = await renderHinted()
+      hoverUntilHinted()
+      act(() => useUIStore.setState({ settingsActive: true }))
+      expect(hint()).toBeNull()
+      act(() => useUIStore.setState({ settingsActive: false }))
+      expect(hint()).toBeNull()
     })
-    expect(hint()).toBeNull()
 
-    await hoverUntilHinted()
-    act(() => term.resize(term.cols + 1, term.rows))
-    expect(hint()).toBeNull()
+    it('when another workspace is shown', async () => {
+      const { hint, hoverUntilHinted } = await renderHinted()
+      hoverUntilHinted()
+      act(() => useWorkspacesStore.setState({ activeWorkspaceId: 'w2' }))
+      expect(hint()).toBeNull()
+      act(() => useWorkspacesStore.setState({ activeWorkspaceId: 'w1' }))
+      expect(hint()).toBeNull()
+    })
+
+    it('when the window loses focus', async () => {
+      const { hint, hoverUntilHinted } = await renderHinted()
+      hoverUntilHinted()
+      act(() => {
+        window.dispatchEvent(new Event('blur'))
+      })
+      expect(hint()).toBeNull()
+    })
+
+    it('when the terminal resizes', async () => {
+      const { term, hint, hoverUntilHinted } = await renderHinted()
+      hoverUntilHinted()
+      act(() => term.resize(term.cols + 1, term.rows))
+      expect(hint()).toBeNull()
+    })
+
+    it('when a mouse button goes down, also before the hint has shown', async () => {
+      const { term, hint, hover, hoverUntilHinted } = await renderHinted()
+      const press = (): void => {
+        act(() => {
+          term.element?.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, ctrlKey: true }))
+        })
+      }
+      hoverUntilHinted()
+      press()
+      expect(hint()).toBeNull()
+      hover()
+      press()
+      act(() => {
+        vi.advanceTimersByTime(1_000)
+      })
+      expect(hint()).toBeNull()
+    })
   })
 
-  it('dragging a file from the Files panel types its quoted path at the terminal prompt', async () => {
+  it('a Files row starts a native file drag, and that file dropped on the terminal types its quoted path', async () => {
     useWorkspacesStore.setState({
       workspaces: [{ id: 'w1', name: 'me', kind: 'terminal', workDir: '/home/me', state: 'idle' }],
       activeWorkspaceId: 'w1',
@@ -1045,13 +1161,16 @@ describe('TerminalView engines', () => {
         <TerminalView workspaceId="w1" paneId="p1" />
       </>,
     )
-    const transfer = dataTransfer()
-
-    fireEvent.dragStart(await screen.findByRole('button', { name: 'notes file.md' }), {
-      dataTransfer: transfer,
-    })
+    const dragged = fireEvent.dragStart(
+      await screen.findByRole('button', { name: 'notes file.md' }),
+      { dataTransfer: { setData: vi.fn() } },
+    )
+    expect(dragged).toBe(false)
+    expect(window.ostia.fileOps.startDrag).toHaveBeenCalledWith('w1', '/home/me/notes file.md')
+    const file = new File([''], 'notes file.md')
+    vi.mocked(window.ostia.files.pathForFile).mockReturnValue('/home/me/notes file.md')
     fireEvent.drop(container.querySelector('.terminal-surface') as HTMLElement, {
-      dataTransfer: transfer,
+      dataTransfer: { types: ['Files'], files: [file], getData: () => '' },
     })
 
     expect(window.ostia.pty.write).toHaveBeenCalledWith('p1', "'/home/me/notes file.md' ")

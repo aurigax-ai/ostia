@@ -1,4 +1,5 @@
-import { type JsonObject, isObject } from './profile'
+import { isRecord } from '@aurigax-ai/ostia-extension-sdk/contract/isRecord'
+import type { JsonObject } from './profile'
 
 export type Side = 'local' | 'remote'
 
@@ -45,7 +46,7 @@ export function mergeMaps<T>(
 
 export function canonicalJson(value: unknown): string {
   if (Array.isArray(value)) return `[${value.map(canonicalJson).join(',')}]`
-  if (isObject(value)) {
+  if (isRecord(value)) {
     const keys = Object.keys(value).sort()
     return `{${keys.map((k) => `${JSON.stringify(k)}:${canonicalJson(value[k])}`).join(',')}}`
   }
@@ -64,7 +65,7 @@ export function flatten(value: JsonObject | null): Map<string, unknown> {
   const walk = (node: JsonObject, path: string[]): void => {
     for (const [key, inner] of Object.entries(node)) {
       const at = [...path, key]
-      if (isObject(inner) && Object.keys(inner).length > 0) walk(inner, at)
+      if (isRecord(inner) && Object.keys(inner).length > 0) walk(inner, at)
       else out.set(pathKey(at), inner)
     }
   }
@@ -79,7 +80,7 @@ export function unflatten(leaves: ReadonlyMap<string, unknown>): JsonObject {
   for (const { path, value } of entries) {
     let cursor = root
     for (const segment of path.slice(0, -1)) {
-      if (!isObject(cursor[segment])) cursor[segment] = {}
+      if (!isRecord(cursor[segment])) cursor[segment] = {}
       cursor = cursor[segment] as JsonObject
     }
     cursor[path[path.length - 1]] = structuredClone(value)

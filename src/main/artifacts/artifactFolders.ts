@@ -11,7 +11,7 @@ import {
   rmdirSync,
   watch,
 } from 'node:fs'
-import { extname, join, sep } from 'node:path'
+import { extname, join } from 'node:path'
 import { ipcMain, shell } from 'electron'
 import {
   ARTIFACT_KEEP_CLOSED_MS,
@@ -22,6 +22,7 @@ import {
   PAD_FILE,
   artifactChanges,
 } from '../../shared/artifacts/artifacts'
+import { isInsidePath } from '../platform/pathGuard'
 import { HISTORY_DIR } from './artifactHistory'
 
 const FOLDER_NAME = 'artifacts'
@@ -150,14 +151,10 @@ export class ArtifactFolders {
 
   holds(path: string): boolean {
     for (const kept of [CLOSED_DIR, HISTORY_DIR]) {
-      const dir = join(this.deps.root, kept)
-      if (path === dir || path.startsWith(`${dir}${sep}`)) return false
+      if (isInsidePath(join(this.deps.root, kept), path)) return false
     }
-    if (path.startsWith(`${this.deps.root}${sep}`)) return true
-    return this.deps.scratchDirs().some((scratch) => {
-      const folder = join(scratch, FOLDER_NAME)
-      return path === folder || path.startsWith(`${folder}${sep}`)
-    })
+    if (path !== this.deps.root && isInsidePath(this.deps.root, path)) return true
+    return this.deps.scratchDirs().some((scratch) => isInsidePath(join(scratch, FOLDER_NAME), path))
   }
 
   padOf(workspaceId: string): string | null {

@@ -1,0 +1,11 @@
+{
+  "name": "component styles",
+  "paths": [
+    "e2e/hasFixtures.tsx",
+    "src/renderer/components/ui/",
+    "src/renderer/lib/theme/hasSelectors."
+  ],
+  "specs": [
+    "e2e/has-free-styles.spec.ts"
+  ]
+}

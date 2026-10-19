@@ -82,7 +82,7 @@ export function RequirementsNoteView({
   const command = report.hint.command
   return (
     <div role="note" className="mt-1 flex items-start gap-2 text-fg-muted text-ui-sm">
-      <InfoIcon className="mt-0.5 size-3.5 shrink-0" />
+      <InfoIcon className="mt-0.5 size-4 shrink-0" />
       <div className="min-w-0 flex-1">
         <p>{fmt(body, { packages })}</p>
         {report.missing.map((m) => (

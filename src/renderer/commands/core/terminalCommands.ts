@@ -8,13 +8,17 @@ import {
   stepBlock,
 } from '@/lib/terminal/blockActions'
 import { clearKeepingScrollback } from '@/lib/terminal/clearTerminal'
-import { terminalFor } from '@/lib/terminal/terminalHandles'
+import { showHistoryAboveLive } from '@/lib/terminal/historyActions'
+import { historyScrollFor, terminalFor } from '@/lib/terminal/terminalHandles'
 import type { InputMode } from '@/stores/app/settingsModel'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useBlocksStore } from '@/stores/terminal/blocksStore'
 import { useHistorySearchStore } from '@/stores/terminal/historySearchStore'
 
-type TerminalHandle = NonNullable<ReturnType<typeof terminalFor>>
+type TerminalHandle = Pick<
+  NonNullable<ReturnType<typeof terminalFor>>,
+  'scrollLines' | 'scrollPages' | 'scrollToTop' | 'scrollToBottom'
+>
 
 export function registerTerminalCommands(): void {
   const blockStep = (id: CoreCommandId, dir: 'prev' | 'next'): void =>
@@ -35,7 +39,8 @@ export function registerTerminalCommands(): void {
       category: 'terminal',
       capabilities: ['drive-self'],
       run: (_args, ctx) => {
-        const term = ctx.activePaneId ? terminalFor(ctx.activePaneId) : undefined
+        const paneId = ctx.activePaneId
+        const term = paneId ? (historyScrollFor(paneId) ?? terminalFor(paneId)) : undefined
         if (term) move(term)
         return { scrolled: term !== undefined }
       },
@@ -106,6 +111,19 @@ export function registerTerminalCommands(): void {
       if (!paneId || !term) return { cleared: false }
       const atPrompt = !useBlocksStore.getState().running[paneId]
       return { cleared: await clearKeepingScrollback(term, atPrompt) }
+    },
+  })
+
+  registerCore<void, { shown: boolean }>({
+    id: 'terminal.showHistory',
+    category: 'terminal',
+    local: true,
+    run: (_args, ctx) => {
+      const paneId = ctx.activePaneId
+      const term = paneId ? terminalFor(paneId) : undefined
+      if (!paneId || !term) return { shown: false }
+      showHistoryAboveLive(paneId)
+      return { shown: true }
     },
   })
 

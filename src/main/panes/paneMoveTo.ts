@@ -1,6 +1,7 @@
 import { actThenConfirm, confirmed, mismatch, pollEvery } from '../../shared/common/actThenConfirm'
-import type { CommandResult, PaneMoveError } from '../../shared/types'
+import type { CommandResult } from '../../shared/control/commands'
 import { normalizeSplitTabName } from '../../shared/workspaces/splitTabs'
+import type { PaneMoveError } from '../../shared/workspaces/workspaceApi'
 import type { Reach } from '../approvals/reach'
 import { type ControlMethodContext, registerControlMethod } from '../control/controlServer'
 import { type PaneIdentity, getByPaneId } from '../control/idRegistry'

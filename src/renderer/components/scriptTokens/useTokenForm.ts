@@ -1,6 +1,7 @@
 import { useDict } from '@/lib/app/useDict'
 import { fmt } from '@/lib/app/useDict'
 import type { Capability } from '@aurigax-ai/ostia-extension-sdk/contract/capabilities'
+import type { Dict } from '@shared/app/dict'
 import {
   DEFAULT_TOKEN_EXPIRY,
   NEVER_EXPIRES,
@@ -63,6 +64,31 @@ export interface TokenForm {
   toggleCap: (cap: Capability, on: boolean) => void
 }
 
+function expiryOptionsOf(
+  t: Dict['scriptTokens'],
+  token: ScriptTokenInfo | null,
+  now: number,
+): { value: ExpiryChoice; label: string }[] {
+  return [
+    ...(token && expiryState(token, now) !== 'expired'
+      ? [
+          {
+            value: 'keep' as const,
+            label: fmt(t.keepExpiry, {
+              when: token.expiresAt ? localDate(token.expiresAt) : t.neverExpires,
+            }),
+          },
+        ]
+      : []),
+    { value: '7d', label: fmt(t.days, { n: 7 }) },
+    { value: '30d', label: fmt(t.days, { n: 30 }) },
+    { value: '90d', label: fmt(t.days, { n: 90 }) },
+    { value: '1y', label: t.oneYear },
+    { value: 'custom', label: t.customDate },
+    { value: 'never', label: t.neverExpires },
+  ]
+}
+
 export function useTokenForm({
   token,
   state,
@@ -118,24 +144,7 @@ export function useTokenForm({
   const reach = reachText(d, caps, reachedCount(sendScope, state))
   const preset = presetOf(caps)
 
-  const expiryOptions: { value: ExpiryChoice; label: string }[] = [
-    ...(editing && expiryState(token, now) !== 'expired'
-      ? [
-          {
-            value: 'keep' as const,
-            label: fmt(t.keepExpiry, {
-              when: token.expiresAt ? localDate(token.expiresAt) : t.neverExpires,
-            }),
-          },
-        ]
-      : []),
-    { value: '7d', label: fmt(t.days, { n: 7 }) },
-    { value: '30d', label: fmt(t.days, { n: 30 }) },
-    { value: '90d', label: fmt(t.days, { n: 90 }) },
-    { value: '1y', label: t.oneYear },
-    { value: 'custom', label: t.customDate },
-    { value: 'never', label: t.neverExpires },
-  ]
+  const expiryOptions = expiryOptionsOf(t, token, now)
 
   const neverAfter = (choice: ExpiryChoice): boolean =>
     choice === NEVER_EXPIRES || (choice === 'keep' && token?.expiresAt === null)

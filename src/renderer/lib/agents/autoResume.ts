@@ -12,7 +12,7 @@ interface PendingPane {
   pane: PaneNode
 }
 
-function awaitsResume(pane: PaneNode): boolean {
+export function awaitsResume(pane: PaneNode): boolean {
   return Boolean(pane.resumePending && pane.resume && !pane.hibernated)
 }
 
@@ -42,7 +42,7 @@ const activated = new Set<string>()
 let sweepNow: (() => void) | null = null
 
 export function resumeOnActivation(paneId: string): void {
-  if (wakePane(paneId)) return
+  if (wakePane(paneId, undefined, true)) return
   if (!pendingPanes().some(({ pane }) => pane.id === paneId)) return
   activated.add(paneId)
   sweepNow?.()
@@ -92,6 +92,7 @@ export function startAutoResume(): () => void {
         },
         undefined,
         null,
+        true,
       )
       if (!settled) scheduled.set(pane.id, cancel)
     }

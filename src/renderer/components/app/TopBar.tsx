@@ -11,6 +11,7 @@ import { ContextMenuSeparator, ContextMenuSub } from '@/components/ui/context-me
 import { Kbd } from '@/components/ui/kbd'
 import { useDict } from '@/lib/app/useDict'
 import { useChordLabel } from '@/lib/keyboard/chords'
+import { COMMANDS_PREFIX } from '@/lib/palette/paletteModes'
 import { startNewWorkspace, startScratchWorkspace } from '@/lib/workspaces/newWorkspace'
 import {
   type SshHosts,
@@ -46,7 +47,7 @@ export function TopBar(): JSX.Element {
   const showWorkspaces = useUIStore((s) => s.showWorkspaces)
   const filesOpen = useUIStore((s) => s.filesOpen)
   const toggleFiles = useUIStore((s) => s.toggleFiles)
-  const paletteKeys = useChordLabel('palette.searchEverywhere', isMac)
+  const paletteKeys = useChordLabel('palette.toggle', isMac)
   const activeWorkspaceId = useWorkspacesStore((s) => s.activeWorkspaceId)
   const dashboardActive = useUIStore((s) => s.dashboardActive)
 
@@ -82,21 +83,16 @@ export function TopBar(): JSX.Element {
           onClick={toggleFiles}
         />
         <DashboardButton />
-        <PanelToggles />
       </div>
 
       <div className="topbar-center">
-        <Hint
-          label={d.palette.everywherePlaceholder}
-          command="palette.searchEverywhere"
-          side="bottom"
-        >
+        <Hint label={d.palette.everywherePlaceholder} command="palette.toggle" side="bottom">
           <Button
             variant="ghost"
             className="h-6 min-w-0 flex-1 justify-start gap-1 rounded-sm bg-fg/6 pr-1 pl-2 font-normal text-fg-muted text-ui-base hover:bg-fg/10 hover:text-fg dark:hover:bg-fg/10"
-            onClick={() => openPalette('everywhere')}
+            onClick={() => openPalette('search', COMMANDS_PREFIX)}
           >
-            <MagnifyingGlassIcon className="size-3.5" />
+            <MagnifyingGlassIcon className="size-4" />
             <span className="flex-1 truncate text-left">{d.search.command}</span>
             {paletteKeys ? <Kbd className="h-4 bg-transparent">{paletteKeys}</Kbd> : null}
           </Button>
@@ -108,6 +104,7 @@ export function TopBar(): JSX.Element {
         <WorkspaceChips workspaceId={dashboardActive ? null : activeWorkspaceId} />
         <ZoomReset />
         <UpdateNotice />
+        <PanelToggles />
         <IconButton
           size="bar"
           icon={GearSixIcon}

@@ -1,4 +1,4 @@
-import type { NotificationEntry } from '@shared/types'
+import type { NotificationEntry } from '@shared/attention/attention'
 import { describe, expect, it } from 'vitest'
 import { groupNotifications, inTab } from './notificationGroups'
 

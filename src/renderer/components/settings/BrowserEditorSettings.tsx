@@ -1,3 +1,8 @@
+import { Notice } from '@/components/common/Notice'
+import { ControlRow, ToggleRow } from '@/components/settingsKit/ControlRow'
+import { SelectField } from '@/components/settingsKit/SelectField'
+import { SettingsGroup } from '@/components/settingsKit/SettingsGroup'
+import { SettingsPage } from '@/components/settingsKit/SettingsPage'
 import { Input } from '@/components/ui/input'
 import { useDict } from '@/lib/app/useDict'
 import {
@@ -18,9 +23,6 @@ import {
 } from '@/lib/settings/browserEditorSettings'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useState } from 'react'
-import { ControlRow, ToggleRow, WarningNote } from './ControlRow'
-import { SelectField } from './SelectField'
-import { SectionHead, SettingsGroup } from './SettingsGroup'
 
 function ZoomField(): JSX.Element {
   const d = useDict()
@@ -62,8 +64,7 @@ export function BrowserSettingsSection(): JSX.Element {
   }
   const custom = browser.searchEngine === 'custom'
   return (
-    <div>
-      <SectionHead title={d.browserSettings.title} />
+    <SettingsPage title={d.browserSettings.title}>
       <SettingsGroup title={d.browserSettings.groupSearch}>
         <ControlRow
           label={d.browserSettings.searchEngine}
@@ -89,7 +90,7 @@ export function BrowserSettingsSection(): JSX.Element {
               />
             </ControlRow>
             {isValidSearchTemplate(browser.customSearchUrl) ? null : (
-              <WarningNote>{d.browserSettings.customUrlInvalid}</WarningNote>
+              <Notice>{d.browserSettings.customUrlInvalid}</Notice>
             )}
           </>
         ) : null}
@@ -107,7 +108,7 @@ export function BrowserSettingsSection(): JSX.Element {
           onChange={(attachCaptureImage) => setBrowser({ attachCaptureImage })}
         />
       </SettingsGroup>
-    </div>
+    </SettingsPage>
   )
 }
 
@@ -126,6 +127,7 @@ export function EditorSettingsSection(): JSX.Element {
     onFocusChange: d.editorSettings.autoSaveOnFocusChange,
   }
   const diffLabel: Record<DiffLayout, string> = {
+    auto: d.editorSettings.diffAuto,
     sideBySide: d.editorSettings.diffSideBySide,
     inline: d.editorSettings.diffInline,
   }
@@ -134,8 +136,7 @@ export function EditorSettingsSection(): JSX.Element {
     split: d.editorSettings.openFilesInSplit,
   }
   return (
-    <div>
-      <SectionHead title={d.editorSettings.title} />
+    <SettingsPage title={d.editorSettings.title}>
       <SettingsGroup title={d.editorSettings.groupView}>
         <ControlRow label={d.editorSettings.openFilesIn} desc={d.editorSettings.openFilesInDesc}>
           <SelectField
@@ -176,6 +177,12 @@ export function EditorSettingsSection(): JSX.Element {
             options={DIFF_LAYOUTS.map((m) => ({ value: m, label: diffLabel[m] }))}
           />
         </ControlRow>
+        <ToggleRow
+          label={d.editorSettings.diffIgnoreWhitespace}
+          desc={d.editorSettings.diffIgnoreWhitespaceDesc}
+          checked={editor.diffIgnoreWhitespace}
+          onChange={(diffIgnoreWhitespace) => setEditor({ diffIgnoreWhitespace })}
+        />
       </SettingsGroup>
       <SettingsGroup title={d.editorSettings.groupIndent}>
         <ControlRow label={d.editorSettings.tabSize} desc={d.editorSettings.tabSizeDesc}>
@@ -212,6 +219,6 @@ export function EditorSettingsSection(): JSX.Element {
           onChange={(formatOnSave) => setEditor({ formatOnSave })}
         />
       </SettingsGroup>
-    </div>
+    </SettingsPage>
   )
 }

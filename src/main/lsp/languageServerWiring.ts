@@ -88,7 +88,7 @@ export function createLanguageServerWiring({
           workspaceSandboxes.wrap(workspaceId, command, 'bash', [], extraReads),
         env: (workspaceId, env) => ({
           ...sandboxSpawnEnv(env as Record<string, string>),
-          TMPDIR: workspaceSandboxes.tmpDir(workspaceId),
+          TMPDIR: workspaceSandboxes.tmp.tmpDir(workspaceId),
         }),
       },
       findProgram: (program) => programPath(program),

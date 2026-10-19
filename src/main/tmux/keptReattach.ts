@@ -1,17 +1,17 @@
 import { rmSync } from 'node:fs'
+import type { PtyAttachResult, PtySpawnOptions } from '../../shared/terminal/ptyApi'
 import { shellName } from '../../shared/terminal/terminalShell'
-import type { PtyAttachResult, PtySpawnOptions } from '../../shared/types'
 import type { AgentRunningPanes } from '../agents/agentRunning'
 import { type PaneIdentity, adoptPane } from '../control/idRegistry'
 import type { AppLog } from '../diagnostics/appLog'
 import type { ProcessRegistry } from '../panes/processRegistry'
-import { PortBridge } from '../sandbox/portBridge'
-import type { PortRequests } from '../sandbox/portRequests'
+import { PortBridge } from '../sandbox/ports/portBridge'
+import type { PortRequests } from '../sandbox/ports/portRequests'
 import type { WorkspaceSandboxes } from '../sandbox/workspaceSandboxes'
 import { type PtyEntry, type PtyRegistry, feedDisplay } from '../terminal/pty/ptyRegistry'
 import type { Subscriber } from '../terminal/ptySession'
 import { RESTORE_SEAM } from '../terminal/screenMirror'
-import { takeRestoredScrollback } from '../workspaces/workspaceSnapshot'
+import { takeRestoredScrollback } from '../workspaces/savedScrollback'
 import type { SavedAttention } from './attentionFile'
 import type { KeptAttention } from './keptAttention'
 import type { KeptPlumbing } from './keptLaunchers'
@@ -75,9 +75,13 @@ export function createKeptReattach({
     const sandbox = meta.sandbox
     const workspaceId = meta.workspaceId
     const keptHost = sandbox ? keptShells.keptHost(workspaceId) : undefined
-    if (keptHost) workspaceSandboxes.adoptKeptTmp(workspaceId, keptHost.tmpDir)
+    if (keptHost) workspaceSandboxes.tmp.adoptKeptTmp(workspaceId, keptHost.tmpDir)
     const portBridge = sandbox?.bridgeId
-      ? await PortBridge.open(workspaceSandboxes.tmpDir(workspaceId), undefined, sandbox.bridgeId)
+      ? await PortBridge.open(
+          workspaceSandboxes.tmp.tmpDir(workspaceId),
+          undefined,
+          sandbox.bridgeId,
+        )
       : null
     const entry = trackPty(paneId, pane, {
       kept: pane,
@@ -99,11 +103,11 @@ export function createKeptReattach({
       entry.exitListeners.add(() => {
         if (sandbox.resizePipe) rmSync(sandbox.resizePipe, { force: true })
         portBridge?.close()
-        void workspaceSandboxes.cleanup(workspaceId)
+        void workspaceSandboxes.hosts.cleanup(workspaceId)
         releaseMergedSandbox(workspaceId, entry)
       })
       portRequests.keep(workspaceId, keptHost?.exposed ?? [])
-      void workspaceSandboxes.connect(workspaceId).catch(() => undefined)
+      void workspaceSandboxes.hosts.connect(workspaceId).catch(() => undefined)
     }
     pane.onData((d) => feedPty(entry, d))
     pane.onExit(({ exitCode }) => entry.session.exit(exitCode))
@@ -131,7 +135,7 @@ export function createKeptReattach({
       )
     }
     pane.live()
-    const { data, cursor, dropped } = entry.session.since(0)
+    const { data, cursor, dropped, startsBefore } = entry.session.since(0)
     entry.session.addLiveSubscriber(mkSub(entry))
     if (savedAttention) restoreKeptAttention(identity, savedAttention)
     return {
@@ -139,6 +143,7 @@ export function createKeptReattach({
       buffer: data,
       cursor,
       dropped,
+      blockSeqBase: entry.mirror.blockSeqBase + startsBefore,
       shell: shellName(meta.shell) || undefined,
       sandboxed: sandbox !== undefined,
       ...(sandbox?.stamp ? { sandboxStamp: sandbox.stamp } : {}),

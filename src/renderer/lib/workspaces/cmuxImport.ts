@@ -1,4 +1,5 @@
 import { formatBytes } from '@/lib/app/localeFormat'
+import { baseName, parentOf } from '@/lib/files/fileTree'
 import { type RestorableWorkspace, workspaceHandoff } from '@/lib/layout/snapshot'
 import {
   TERMINAL_TITLE,
@@ -19,7 +20,6 @@ import {
   nextWorkspaceId,
   useWorkspacesStore,
 } from '@/stores/workspaces/workspacesStore'
-import type { SnapshotWorkspace } from '@shared/types'
 import {
   CMUX_SESSION_MAX_BYTES,
   type CmuxImportReport,
@@ -33,6 +33,7 @@ import {
   type CmuxSurface,
   type CmuxWorkspace,
 } from '@shared/workspaces/cmuxSession'
+import type { SnapshotWorkspace } from '@shared/workspaces/workspaceApi'
 import type { WorkspaceGroupColor } from '@shared/workspaces/workspaceGroups'
 import { MAX_LAYOUT_DEPTH, MAX_PANES, MAX_WORKSPACES } from '@shared/workspaces/workspaceLimits'
 import { normalizeDescription } from '@shared/workspaces/workspaceText'
@@ -104,15 +105,6 @@ function keyOf(name: string, workDir: string): string {
   return JSON.stringify([name, trimDir(workDir)])
 }
 
-function basename(path: string): string {
-  return path.slice(path.lastIndexOf('/') + 1) || path
-}
-
-function parentDir(path: string): string {
-  const slash = path.lastIndexOf('/')
-  return slash > 0 ? path.slice(0, slash) : '/'
-}
-
 function hostOf(url: string): string {
   try {
     return new URL(url).hostname || url
@@ -131,7 +123,7 @@ function displayName(workspace: CmuxWorkspace): string {
 
 function surfaceLabel(surface: CmuxSurface): string {
   if (surface.title) return surface.title
-  if (surface.filePath) return basename(surface.filePath)
+  if (surface.filePath) return baseName(surface.filePath)
   if (surface.url) return hostOf(surface.url)
   return surface.type === 'terminal' ? TERMINAL_TITLE : surface.type
 }
@@ -165,8 +157,8 @@ function browserPane(surface: CmuxSurface, build: Build): PaneNode {
 }
 
 function editorPane(filePath: string, surface: CmuxSurface): PaneNode {
-  const title = surface.title ?? basename(filePath)
-  return { ...createPane('editor', title, parentDir(filePath)), filePath }
+  const title = surface.title ?? baseName(filePath)
+  return { ...createPane('editor', title, parentOf(filePath)), filePath }
 }
 
 function importable(surface: CmuxSurface): boolean {

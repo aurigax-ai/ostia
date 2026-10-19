@@ -9,7 +9,9 @@ import {
 import { waitOnPanes } from '@/lib/files/openWaits'
 import { revealFolder } from '@/lib/files/revealFolder'
 import { callerHasFocus, openKeepingFocus, opensQuietly } from '@/lib/panes/callerFocus'
+import { focusActivePaneWhenReady } from '@/lib/panes/paneFocus'
 import { useSandboxStore } from '@/stores/app/sandboxStore'
+import { useOpenWithStore } from '@/stores/files/openWithStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import {
   OPEN_DIFF_COMMAND,
@@ -20,6 +22,16 @@ import {
 } from '@shared/files/openFiles'
 
 export function registerFileOpenCommands(): void {
+  registerCore<{ paneId?: string } | undefined>({
+    id: 'file.openWith',
+    category: 'editor',
+    local: true,
+    run: (args, ctx) => {
+      const paneId = args?.paneId ?? ctx.activePaneId
+      if (paneId) useOpenWithStore.getState().open(paneId)
+    },
+  })
+
   registerCore<{ path: string }>({
     id: 'editor.open',
     hidden: true,
@@ -47,9 +59,11 @@ export function registerFileOpenCommands(): void {
         if (args?.wait !== true) {
           if (quiet) openFilesQuietly(workspaceId, files, paneId)
           else openRequestedFiles(workspaceId, files, paneId)
+          if (!quiet) focusActivePaneWhenReady(workspaceId)
           return { opened: [] }
         }
         const opened = openWaitedFiles(workspaceId, files, paneId, quiet)
+        if (!quiet) focusActivePaneWhenReady(workspaceId)
         waitOnPanes(workspaceId, paneId, opened)
         return { opened }
       },
@@ -97,6 +111,7 @@ export function registerFileOpenCommands(): void {
       const paneId = quiet ? openKeepingFocus(open) : open()
       if (!paneId) return { opened: [] }
       if (quiet) markOpenedQuietly(paneId, content.title)
+      else focusActivePaneWhenReady(workspaceId)
       return { opened: [{ path: content.path, paneId }] }
     },
   })
@@ -140,9 +155,10 @@ export function registerFileOpenCommands(): void {
         return
       }
       const opened = openKeepingFocus(() =>
-        useLayoutStore
-          .getState()
-          .openBrowserTab(workspaceId, url, profile, { beside: ctx.activePaneId ?? undefined }),
+        useLayoutStore.getState().openBrowserTab(workspaceId, url, profile, {
+          beside: ctx.activePaneId ?? undefined,
+          background: true,
+        }),
       )
       if (opened) markOpenedQuietly(opened, url)
     },

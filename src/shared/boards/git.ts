@@ -1,12 +1,13 @@
 import type {
+  DiffContent,
   ExtensionSidebarItem,
   PaneChip,
   WorkspaceChip,
 } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
+import type { ExtensionOpenDiffRequest } from '@aurigax-ai/ostia-extension-sdk/contract/extensionsBridge'
 import { isRecord } from '@aurigax-ai/ostia-extension-sdk/contract/isRecord'
 
 export const GIT_BRANCH_CHIP = 'branch'
-export const GIT_DIFF_STATS_CHIP = 'diff-stats'
 export const GIT_SHOW_COMMAND = 'git.show'
 export const PORTS_CHIP = 'ports'
 export const SSH_CHIP = 'ssh'
@@ -28,6 +29,14 @@ export interface BranchInfo {
 }
 
 export type ChangeArea = 'staged' | 'unstaged' | 'untracked' | 'conflicted'
+
+export interface ShownDiff extends DiffContent {
+  area?: ChangeArea
+}
+
+export interface GitOpenDiffRequest extends ExtensionOpenDiffRequest {
+  area?: ChangeArea
+}
 
 export interface FileChange {
   path: string
@@ -194,6 +203,7 @@ export interface GitPathsRequest {
 
 export interface GitBridge {
   watch: (workspaceIds: string[]) => void
+  shown: () => void
   onItems: (cb: (items: CoreItems) => void) => () => void
   onChanged: (cb: () => void) => () => void
   changes: (workspaceId: string) => Promise<GitReply<GitChangesData>>

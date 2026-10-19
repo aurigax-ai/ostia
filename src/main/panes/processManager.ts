@@ -4,6 +4,7 @@ import { quoteArgv } from '../../shared/terminal/shellQuote'
 import type { Reach } from '../approvals/reach'
 import { registerControlMethod, registerTargetableMethod } from '../control/controlServer'
 import { getByPaneId } from '../control/idRegistry'
+import { record } from './paneReach'
 import { type ProcessControlDeps, createProcessControl } from './processControl'
 import {
   type ProcessLaunchDeps,
@@ -13,9 +14,9 @@ import {
   createProcessLauncher,
   cwdOf,
   defaultName,
+  modelFlags,
   nameOf,
   promptOf,
-  record,
   splitTabOf,
   workspaceOf,
 } from './processLaunch'
@@ -98,7 +99,7 @@ export function registerProcessMethods(deps: ProcessDeps): ProcessRegistry {
       const agent = agentOf(p.agent)
       const argv = deps.agentArgv(agent)
       if (!argv) return UNKNOWN_AGENT
-      const cmd = commandOf(quoteArgv([...argv, promptOf(p.prompt)]))
+      const cmd = commandOf(quoteArgv([...argv, ...modelFlags(argv, p.model), promptOf(p.prompt)]))
       return runInTab(
         ctx,
         cmd,

@@ -1,3 +1,4 @@
+import { baseName } from '@/lib/files/fileTree'
 import { setPaneEditor } from '@/lib/layout/paneFields'
 import {
   addTab,
@@ -8,6 +9,7 @@ import {
   splitBeside,
 } from '@/lib/layout/tree'
 import { patch } from '@/lib/panes/layoutPatch'
+import { noteOpener } from '@/lib/panes/tabHistory'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { isWaitedPane } from '@/stores/files/openWaitsStore'
 import { seedLayout } from './layoutSeed'
@@ -18,7 +20,7 @@ type LayoutFileActions = Pick<LayoutState, 'openFile' | 'openFileTab' | 'openFil
 export function createLayoutFileActions(set: LayoutSet, get: LayoutGet): LayoutFileActions {
   return {
     openFile: (workspaceId, path) => {
-      const title = path.split('/').pop() || path
+      const title = baseName(path)
       if (seedLayout(set, get, workspaceId, (p) => setPaneEditor(p, p.id, title, path))) return
       let createdPaneId: string | null = null
       set((s) => {
@@ -67,10 +69,11 @@ export function createLayoutFileActions(set: LayoutSet, get: LayoutGet): LayoutF
     },
 
     openFileTab: (workspaceId, path, paneId, background = false, fresh = false) => {
-      const title = path.split('/').pop() || path
+      const title = baseName(path)
       const seeded = seedLayout(set, get, workspaceId, (p) => setPaneEditor(p, p.id, title, path))
       if (seeded) return seeded
       let createdPaneId: string | null = null
+      let openerId: string | null = null
       set((s) => {
         const next = patch(s, workspaceId, (l) => {
           const showing = fresh
@@ -80,11 +83,13 @@ export function createLayoutFileActions(set: LayoutSet, get: LayoutGet): LayoutF
           const target = paneId && findPane(l.root, paneId) ? paneId : l.activePaneId
           const pane = createPane('editor')
           createdPaneId = pane.id
+          openerId = target
           const root = setPaneEditor(addTab(l.root, target, pane, background), pane.id, title, path)
           return background ? { ...l, root } : { ...l, root, activePaneId: pane.id }
         })
         return next ?? s
       })
+      if (createdPaneId && openerId) noteOpener(workspaceId, createdPaneId, openerId)
       if (createdPaneId) {
         window.ostia?.lifecycle?.emit?.({
           type: 'pane-created',
@@ -96,7 +101,7 @@ export function createLayoutFileActions(set: LayoutSet, get: LayoutGet): LayoutF
     },
 
     openFileBeside: (workspaceId, path) => {
-      const title = path.split('/').pop() || path
+      const title = baseName(path)
       if (seedLayout(set, get, workspaceId, (p) => setPaneEditor(p, p.id, title, path))) return
       let createdPaneId: string | null = null
       set((s) => {

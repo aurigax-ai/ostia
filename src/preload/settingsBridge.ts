@@ -1,14 +1,12 @@
 import { ipcRenderer } from 'electron'
-import type { OstiaBridge, SyncStatus } from '../shared/types'
+import type { SyncStatus } from '../shared/profileSync/profileSync'
+import type { OstiaBridge } from '../shared/types'
+import { listen } from './listen'
 
 export const settingsBridge: Pick<OstiaBridge, 'settings' | 'sync'> = {
   settings: {
     path: () => ipcRenderer.invoke('settings:path') as Promise<string>,
-    onChanged: (cb) => {
-      const handler = (): void => cb()
-      ipcRenderer.on('settings:changed', handler)
-      return () => ipcRenderer.removeListener('settings:changed', handler)
-    },
+    onChanged: (cb) => listen('settings:changed', () => cb()),
   },
   sync: {
     status: () => ipcRenderer.invoke('sync:status') as Promise<SyncStatus>,
@@ -30,10 +28,6 @@ export const settingsBridge: Pick<OstiaBridge, 'settings' | 'sync'> = {
         ipcRenderer.invoke('sync:secrets-recover', recoveryKey, password, confirm),
     },
     pickFolder: () => ipcRenderer.invoke('dialog:pick-folder') as Promise<string | null>,
-    onStatus: (cb) => {
-      const handler = (_e: unknown, status: SyncStatus): void => cb(status)
-      ipcRenderer.on('sync:status', handler)
-      return () => ipcRenderer.removeListener('sync:status', handler)
-    },
+    onStatus: (cb) => listen('sync:status', cb),
   },
 }

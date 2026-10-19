@@ -34,7 +34,7 @@ import {
   shellIntegrationDir,
   shellIntegrationSpawnOptions,
 } from '../main/terminal/shellIntegration'
-import type { CommandResult } from '../shared/types'
+import type { CommandResult } from '../shared/control/commands'
 
 const repoRoot = process.cwd()
 const cliPath = join(repoRoot, 'out', 'cli', 'index.js')
@@ -175,9 +175,13 @@ describe('the Activity extension records two fake agents and shows them in its p
     )
   }
 
-  async function panel(command: string, args: unknown = {}): Promise<ExtensionResult> {
+  async function panel(
+    command: string,
+    args: unknown = {},
+    workspaceId = 'w1',
+  ): Promise<ExtensionResult> {
     const source = await serving.panels.resolvePanel('activity', {
-      workspaceId: 'w1',
+      workspaceId,
       locale: 'en',
     })
     if (!source.ok) throw new Error(source.error)
@@ -188,21 +192,19 @@ describe('the Activity extension records two fake agents and shows them in its p
         'content-type': 'application/json',
         'x-ostia-panel': url.searchParams.get('t') ?? '',
       },
-      body: JSON.stringify({ command, args, context: {} }),
+      body: JSON.stringify({ command, args, context: { workspaceId } }),
     })
     return (await res.json()) as ExtensionResult
   }
 
-  async function snapshot(): Promise<PanelModel> {
-    const res = await panel('snapshot')
+  async function snapshot(workspaceId = 'w1'): Promise<PanelModel> {
+    const res = await panel('snapshot', {}, workspaceId)
     if (!res.ok) throw new Error(res.error)
     return res.data as PanelModel
   }
 
   const eventCount = (model: PanelModel): number =>
-    model.workspaces
-      .flatMap((w) => w.agents)
-      .reduce((sum, agent) => sum + agent.current.events.length, 0)
+    (model.workspace?.agents ?? []).reduce((sum, agent) => sum + agent.current.events.length, 0)
 
   beforeAll(() => {
     dir = mkdtempSync(join(tmpdir(), 'ostia-activity-'))
@@ -343,9 +345,12 @@ describe('the Activity extension records two fake agents and shows them in its p
       return eventCount(current) === 6 ? current : undefined
     }, POLL)
     expect(model.showActivity).toBe(false)
-    expect(model.workspaces.map((w) => w.name)).toEqual(['shop'])
-    const [latest, earlier] = model.workspaces[0].agents
-    expect(latest).toMatchObject({ paneId: codexPane.externalId, agent: 'codex', state: 'working' })
+    const [earlier, latest] = model.workspace?.agents ?? []
+    expect(latest).toMatchObject({
+      paneId: codexPane.externalId,
+      label: { agent: 'codex', n: 1 },
+      state: 'working',
+    })
     expect('recap' in latest).toBe(false)
     expect(latest.current.events.map((e) => [e.kind, e.tool, e.text])).toEqual([
       ['prompt', undefined, 'write the docs'],
@@ -353,7 +358,7 @@ describe('the Activity extension records two fake agents and shows them in its p
     ])
     expect(earlier).toMatchObject({
       paneId: claudePane.externalId,
-      agent: 'claude',
+      label: { agent: 'claude', n: 1 },
       state: 'done',
       recap: 'Fixed the cart total.\nAll tests pass.',
     })
@@ -382,11 +387,11 @@ describe('the Activity extension records two fake agents and shows them in its p
       ['UserPromptSubmit', { session_id: 's-3', prompt: 'jot this down' }],
     ])
     const model = await vi.waitUntil(async () => {
-      const current = await snapshot()
-      return current.workspaces.some((w) => w.name === 'notes') ? current : undefined
+      const current = await snapshot('sc1')
+      return current.workspace ? current : undefined
     }, POLL)
-    const notes = model.workspaces.find((w) => w.name === 'notes')
-    expect(notes?.agents[0].current.prompt).toBe('jot this down')
+    expect(model.workspace?.agents[0].current.prompt).toBe('jot this down')
+    expect(JSON.stringify(await snapshot('w1'))).not.toContain('jot this down')
     expect(existsSync(journalFile('sc1'))).toBe(false)
     expect(readdirSync(dirname(journalFile('w1')))).toEqual(['w1.jsonl'])
   }, 60_000)
@@ -423,8 +428,7 @@ describe('the Activity extension records two fake agents and shows them in its p
 
     const model = await snapshot()
     expect(model.showActivity).toBe(true)
-    expect(model.workspaces.map((w) => w.name)).toEqual(['shop'])
-    const claude = model.workspaces[0].agents.find((a) => a.paneId === claudePane.externalId)
+    const claude = model.workspace?.agents.find((a) => a.paneId === claudePane.externalId)
     expect(claude?.recap).toBe('Fixed the cart total.\nAll tests pass.')
     expect(claude?.current.events.map((e) => e.kind)).toEqual(['prompt', 'tool', 'tool', 'stop'])
     expect(await panel('setShowActivity', { value: false })).toMatchObject({ ok: true })
@@ -450,7 +454,7 @@ describe('the Activity extension records two fake agents and shows them in its p
     )
     serving = restarted
 
-    expect(await panel('snapshot')).toMatchObject({ ok: true, data: { showActivity: false } })
+    expect(await panel('snapshot', {})).toMatchObject({ ok: true, data: { showActivity: false } })
   }, 60_000)
 
   it('lets an agent add a needs-you item, read it back, count it in the sidebar, and the human mark it done', async () => {
@@ -481,9 +485,7 @@ describe('the Activity extension records two fake agents and shows them in its p
     expect(notYours.code).toBe(1)
     expect(notYours.stderr).toContain('marks only its own items')
 
-    const note = (await snapshot()).workspaces
-      .find((w) => w.workspaceId === 'w1')
-      ?.notes.find((n) => n.id === id)
+    const note = (await snapshot()).workspace?.notes.find((n) => n.id === id)
     expect(note).toMatchObject({ needsYou: true, done: false })
     expect(await panel('done', { workspaceId: 'w1', id })).toEqual({ ok: true })
     await vi.waitUntil(async () => openCount() === undefined, POLL)

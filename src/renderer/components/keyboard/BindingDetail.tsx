@@ -1,6 +1,7 @@
 import { Button } from '@/components/ui/button'
 import { Kbd } from '@/components/ui/kbd'
 import { TableCell, TableRow } from '@/components/ui/table'
+import { focusSibling } from '@/lib/app/rowFocus'
 import { fmt, useDict } from '@/lib/app/useDict'
 import type {
   CommandSources,
@@ -21,10 +22,7 @@ function moveRowFocus(from: HTMLElement, step: 1 | -1): boolean {
   const scope = from.closest('table')
   if (!scope) return false
   const toggles = [...scope.querySelectorAll<HTMLElement>(`[data-slot="${ROW_TOGGLE}"]`)]
-  const next = toggles[toggles.indexOf(from) + step]
-  if (!next) return false
-  next.focus()
-  return true
+  return focusSibling(toggles, from, step)
 }
 
 function onToggleKey(
@@ -146,7 +144,7 @@ function DetailFrame({
                     <span className="flex items-center gap-1 text-fg-muted text-ui-xs">
                       {on ? (
                         <>
-                          <ArrowLeftIcon className="size-3 shrink-0" aria-hidden />
+                          <ArrowLeftIcon className="size-4 shrink-0" aria-hidden />
                           {d.keyboard.inEffect}
                         </>
                       ) : null}

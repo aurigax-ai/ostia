@@ -1,16 +1,18 @@
 import { ipcRenderer } from 'electron'
 import type { HibernateOutcome } from '../shared/agents/agentWork'
 import type { SelectionSendResult } from '../shared/browser/selection'
+import type { FileUrlTarget } from '../shared/files/fileUrls'
+import type { FsKind, OpenPathResult } from '../shared/files/filesApi'
 import type { OpenFileVerdict } from '../shared/files/openFiles'
 import type { SpecCommand } from '../shared/terminal/completionSpec'
+import type { PaneActivity, PromptContext, PtyAttachResult } from '../shared/terminal/ptyApi'
 import type {
-  FsKind,
-  OpenPathResult,
-  OstiaBridge,
-  PaneActivity,
-  PromptContext,
-  PtyAttachResult,
-} from '../shared/types'
+  HistoryBlockRange,
+  HistoryPage,
+  HistorySearchResult,
+} from '../shared/terminal/scrollbackHistory'
+import type { OstiaBridge } from '../shared/types'
+import { listen } from './listen'
 
 export const terminalBridge: Pick<
   OstiaBridge,
@@ -22,10 +24,30 @@ export const terminalBridge: Pick<
     detach: (paneId) => ipcRenderer.send('pty:detach', paneId),
     hibernate: (paneId) => ipcRenderer.invoke('pty:hibernate', paneId) as Promise<HibernateOutcome>,
     stashed: (paneId) => ipcRenderer.invoke('pty:stashed', paneId) as Promise<string | null>,
+    historyRead: (paneId, from, count) =>
+      ipcRenderer.invoke('pty:history-read', paneId, from, count) as Promise<HistoryPage | null>,
+    historySearch: (paneId, query, options, liveLines) =>
+      ipcRenderer.invoke(
+        'pty:history-search',
+        paneId,
+        query,
+        options,
+        liveLines,
+      ) as Promise<HistorySearchResult | null>,
+    historyBlock: (paneId, seq, command) =>
+      ipcRenderer.invoke(
+        'pty:history-block',
+        paneId,
+        seq,
+        command,
+      ) as Promise<HistoryBlockRange | null>,
+    blockOutput: (paneId, seq, command) =>
+      ipcRenderer.invoke('pty:block-output', paneId, seq, command) as Promise<string | null>,
     keptWaiting: () => ipcRenderer.invoke('pty:kept-waiting') as Promise<string[]>,
     restart: (paneId) => ipcRenderer.invoke('pty:restart', paneId) as Promise<boolean>,
     reportAgentRunning: (paneId, running) => ipcRenderer.send('pty:agent-running', paneId, running),
-    reportWaking: (paneId, waking) => ipcRenderer.send('pty:waking', paneId, waking),
+    reportWaking: (paneId, waking, reason) =>
+      ipcRenderer.send('pty:waking', paneId, waking, reason),
     write: (paneId, data) => ipcRenderer.send('pty:write', paneId, data),
     ack: (paneId, chars) => ipcRenderer.send('pty:ack', paneId, chars),
     resize: (paneId, cols, rows) => ipcRenderer.send('pty:resize', paneId, cols, rows),
@@ -38,26 +60,10 @@ export const terminalBridge: Pick<
       ipcRenderer.invoke('pty:activity', paneId) as Promise<PaneActivity | null>,
     promptContext: (paneId, want) =>
       ipcRenderer.invoke('pty:prompt-context', paneId, want) as Promise<PromptContext | null>,
-    onData: (paneId, cb) => {
-      const handler = (_e: unknown, data: string): void => cb(data)
-      ipcRenderer.on(`pty:data:${paneId}`, handler)
-      return () => ipcRenderer.removeListener(`pty:data:${paneId}`, handler)
-    },
-    onExit: (paneId, cb) => {
-      const handler = (_e: unknown, code: number, closes: boolean): void => cb(code, closes)
-      ipcRenderer.on(`pty:exit:${paneId}`, handler)
-      return () => ipcRenderer.removeListener(`pty:exit:${paneId}`, handler)
-    },
-    onSize: (paneId, cb) => {
-      const handler = (_e: unknown, cols: number, rows: number): void => cb(cols, rows)
-      ipcRenderer.on(`pty:size:${paneId}`, handler)
-      return () => ipcRenderer.removeListener(`pty:size:${paneId}`, handler)
-    },
-    onRun: (cb) => {
-      const handler = (_e: unknown, paneId: string, command: string): void => cb(paneId, command)
-      ipcRenderer.on('pty:run', handler)
-      return () => ipcRenderer.removeListener('pty:run', handler)
-    },
+    onData: (paneId, cb) => listen(`pty:data:${paneId}`, cb),
+    onExit: (paneId, cb) => listen(`pty:exit:${paneId}`, cb),
+    onSize: (paneId, cb) => listen(`pty:size:${paneId}`, cb),
+    onRun: (cb) => listen('pty:run', cb),
   },
   terminalLinks: {
     probe: (paneId, path) =>
@@ -76,6 +82,10 @@ export const terminalBridge: Pick<
         paneId,
         written,
       ) as Promise<OpenPathResult>,
+    fileUrl: (paneId, url) =>
+      ipcRenderer.invoke('terminal-links:file-url', paneId, url) as Promise<FileUrlTarget | null>,
+    openFileUrl: (paneId, url) =>
+      ipcRenderer.invoke('terminal-links:open-file-url', paneId, url) as Promise<OpenPathResult>,
   },
   selection: {
     send: (req) => ipcRenderer.invoke('selection:send', req) as Promise<SelectionSendResult>,

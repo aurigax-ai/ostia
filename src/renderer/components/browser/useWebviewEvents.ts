@@ -1,3 +1,4 @@
+import { guestReached } from '@/lib/panes/guestReached'
 import { terminalTitle } from '@/lib/terminal/terminalTitle'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
@@ -132,6 +133,7 @@ export function useWebviewEvents({
       if (pending) load(pending)
     }
     el.addEventListener('dom-ready', onDomReady)
+    if (guestReached(el)) onDomReady()
     return () => {
       el.removeEventListener('dom-ready', onDomReady)
       window.ostia?.browser?.unregister?.(paneId)

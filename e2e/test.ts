@@ -36,7 +36,7 @@ async function stopTrace(app: ElectronApplication): Promise<void> {
 }
 
 export async function waitForExit(app: ElectronApplication): Promise<void> {
-  const proc = app.process()
+  const proc = launched.get(app)?.child ?? app.process()
   if (hasExited(proc)) return
   await new Promise<void>((resolve) => proc.once('exit', () => resolve()))
 }
@@ -48,6 +48,7 @@ const CRASH_DUMPS_ENV = 'OSTIA_E2E_CRASH_DUMPS'
 
 interface Launched {
   child: ChildProcess
+  shared: boolean
   log: string | null
   reported: boolean
   output: string[]
@@ -168,37 +169,49 @@ async function listOnlyAnnouncedContents(app: ElectronApplication): Promise<void
   })
 }
 
+async function launchApp(
+  options: Parameters<Electron['launch']>[0],
+  shared: boolean,
+): Promise<ElectronApplication> {
+  const crashDumps = base.info().outputPath(`crash-dumps-${launched.size + 1}`)
+  const env = { ...(options?.env ?? (process.env as Record<string, string>)) }
+  const app = await playwrightElectron.launch({
+    ...options,
+    env: { ...env, [CRASH_DUMPS_ENV]: env[CRASH_DUMPS_ENV] ?? crashDumps },
+  })
+  const userData = options?.args?.find((arg) => arg.startsWith(USER_DATA_FLAG))
+  const entry: Launched = {
+    child: app.process(),
+    shared,
+    reported: false,
+    output: keepOutput(app.process()),
+    crashDumps: env[CRASH_DUMPS_ENV] ?? crashDumps,
+    log: userData ? join(userData.slice(USER_DATA_FLAG.length), 'logs', 'main.log') : null,
+  }
+  launched.set(app, entry)
+  await listOnlyAnnouncedContents(app)
+  if (!shared && recordsTrace()) {
+    const path = base.info().outputPath(`app-trace-${recording.size + recorded.length + 1}.zip`)
+    await app.context().tracing.start({ screenshots: true, snapshots: true, sources: true })
+    recording.set(app, path)
+  }
+  const close = app.close.bind(app)
+  app.close = async () => {
+    const exited = waitForExit(app)
+    await stopTrace(app)
+    await closeWithin(entry, close, exited)
+  }
+  return app
+}
+
 export const _electron: Electron = {
-  async launch(options) {
-    const crashDumps = base.info().outputPath(`crash-dumps-${launched.size + 1}`)
-    const env = { ...(options?.env ?? (process.env as Record<string, string>)) }
-    const app = await playwrightElectron.launch({
-      ...options,
-      env: { ...env, [CRASH_DUMPS_ENV]: env[CRASH_DUMPS_ENV] ?? crashDumps },
-    })
-    const userData = options?.args?.find((arg) => arg.startsWith(USER_DATA_FLAG))
-    const entry: Launched = {
-      child: app.process(),
-      reported: false,
-      output: keepOutput(app.process()),
-      crashDumps: env[CRASH_DUMPS_ENV] ?? crashDumps,
-      log: userData ? join(userData.slice(USER_DATA_FLAG.length), 'logs', 'main.log') : null,
-    }
-    launched.set(app, entry)
-    await listOnlyAnnouncedContents(app)
-    if (recordsTrace()) {
-      const path = base.info().outputPath(`app-trace-${recording.size + recorded.length + 1}.zip`)
-      await app.context().tracing.start({ screenshots: true, snapshots: true, sources: true })
-      recording.set(app, path)
-    }
-    const close = app.close.bind(app)
-    app.close = async () => {
-      const exited = waitForExit(app)
-      await stopTrace(app)
-      await closeWithin(entry, close, exited)
-    }
-    return app
-  },
+  launch: (options) => launchApp(options, false),
+}
+
+export function launchShared(
+  options: Parameters<Electron['launch']>[0],
+): Promise<ElectronApplication> {
+  return launchApp(options, true)
 }
 
 const WARM_UP_WAIT_MS = 60_000
@@ -247,7 +260,7 @@ export const test = base.extend<{ appTraces: undefined }, { warmApp: undefined }
       await Promise.all([...recording.keys()].map(stopTrace))
       const failed = testInfo.status !== testInfo.expectedStatus
       for (const entry of launched.values()) {
-        if (!entry.reported && !(await exitedWithin(entry.child, EXIT_SETTLE_MS)))
+        if (!entry.shared && !entry.reported && !(await exitedWithin(entry.child, EXIT_SETTLE_MS)))
           await reportStuck(entry, 'when the test ended')
         if (!failed) continue
         const dumps = crashDumpsIn(entry.crashDumps)
@@ -267,7 +280,7 @@ export const test = base.extend<{ appTraces: undefined }, { warmApp: undefined }
           await testInfo.attach('main-log', { path: entry.log, contentType: 'text/plain' })
         }
       }
-      launched.clear()
+      for (const [app, entry] of launched) if (!entry.shared) launched.delete(app)
       for (const path of recorded.splice(0)) {
         if (failed) await testInfo.attach('trace', { path, contentType: 'application/zip' })
         rmSync(path, { force: true })

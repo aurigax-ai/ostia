@@ -34,10 +34,6 @@ export function announcementFor(input: AnnounceInput): Announcement | null {
   }
 }
 
-export function sameAnnouncement(a: Announcement | null, b: Announcement | null): boolean {
-  return JSON.stringify(a) === JSON.stringify(b)
-}
-
 export function createBonjourPublisher(): Publisher {
   let bonjour: Bonjour | null = null
   let service: Service | null = null

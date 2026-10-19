@@ -1,14 +1,17 @@
 import type { ChildProcessWithoutNullStreams } from 'node:child_process'
 import type { ExtensionSettingValues } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
+import { isRecord } from '@aurigax-ai/ostia-extension-sdk/contract/isRecord'
+import {
+  configurationSection,
+  overlaySettings,
+  substituteJson,
+} from '@aurigax-ai/ostia-extension-sdk/contract/languageServerConfig'
 import {
   type JsonObject,
   LSP_LOG_LINE_MAX,
   type LanguageServerContribution,
   type LspLogEntry,
   type LspStopReason,
-  configurationSection,
-  overlaySettings,
-  substituteJson,
 } from '@aurigax-ai/ostia-extension-sdk/contract/languageServers'
 import { isEqual } from 'es-toolkit'
 import { StreamMessageReader, StreamMessageWriter } from 'vscode-jsonrpc/node'
@@ -46,10 +49,6 @@ export interface Session {
   unwatch: (() => void) | null
   exited: Promise<void>
   resolveExited: () => void
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
 
 interface SettingsSource {

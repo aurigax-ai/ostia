@@ -2,12 +2,23 @@ import { mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { chords } from './chords'
 import { freshDataHome, isolatedLaunch } from './dataHome'
-import { openWorkspace } from './helpers'
-import { type Page, _electron as electron, expect, test } from './test'
+import { closeAllWorkspaces, openWorkspace } from './helpers'
+import { type ElectronApplication, type Page, expect, launchShared, test } from './test'
 
-const TITLE_GAP_MAX = 12.5
+const RIGHT_EDGE_MAX = 16
 
 async function rows(win: Page) {
+  await win.waitForFunction(() => {
+    const list = document.querySelector('[data-slot="command-list"]')
+    const popup = list?.closest<HTMLElement>('[data-slot="dialog-content"]')
+    if (!popup) return false
+    const style = getComputedStyle(popup)
+    return (
+      !popup.hasAttribute('data-starting-style') &&
+      style.transform === 'none' &&
+      style.opacity === '1'
+    )
+  })
   return win.evaluate(() => {
     const list = document.querySelector('[data-slot="command-list"]') as HTMLElement
     const listRect = list.getBoundingClientRect()
@@ -16,29 +27,29 @@ async function rows(win: Page) {
       const name = row.querySelector('[data-slot="palette-name"]') as HTMLElement
       const keys = row.querySelector<HTMLElement>('[data-slot="palette-keys"]')
       const meta = row.querySelector<HTMLElement>('[data-slot="palette-meta"]')
+      const trailing = row.querySelector<HTMLElement>('[data-slot="palette-trailing"]')
       const text = document.createRange()
       text.selectNodeContents(name)
       const textRect = text.getBoundingClientRect()
       const nameRect = name.getBoundingClientRect()
-      const keysRect = keys?.getBoundingClientRect()
-      const metaRect = meta?.getBoundingClientRect()
-      const before = keysRect ?? nameRect
+      const trailingRect = trailing?.getBoundingClientRect()
+      const rowRect = row.getBoundingClientRect()
       return {
-        keyGap: keysRect ? keysRect.left - textRect.right : null,
+        edge: trailingRect ? Math.round(rowRect.right - trailingRect.right) : null,
+        afterTitle: trailingRect ? trailingRect.left >= textRect.right : true,
+        hasKeys: keys !== null,
         keysDimmer: keys ? getComputedStyle(keys).color !== getComputedStyle(name).color : true,
-        sameLine: keysRect ? Math.abs(keysRect.top - nameRect.top) < 20 : true,
-        metaGap: metaRect ? metaRect.left - before.right : null,
-        inside: (metaRect ?? before).right <= listRect.right + 0.5,
+        sameLine: trailingRect ? Math.abs(trailingRect.top - nameRect.top) < 20 : true,
+        inside: (trailingRect ?? nameRect).right <= listRect.right + 0.5,
         metaCut: meta ? meta.scrollWidth > meta.clientWidth : false,
         titleCut: textRect.width > nameRect.width + 0.01,
       }
     })
-    const gaps = (key: 'keyGap' | 'metaGap') =>
-      measured.map((r) => r[key]).filter((gap): gap is number => gap !== null)
     return {
       count: measured.length,
-      keyGaps: gaps('keyGap'),
-      metaGaps: gaps('metaGap'),
+      edges: measured.map((r) => r.edge).filter((edge): edge is number => edge !== null),
+      keyed: measured.filter((r) => r.hasKeys).length,
+      afterTitle: measured.every((r) => r.afterTitle),
       keysDimmer: measured.every((r) => r.keysDimmer),
       sameLine: measured.every((r) => r.sameLine),
       inside: measured.every((r) => r.inside),
@@ -48,49 +59,22 @@ async function rows(win: Page) {
   })
 }
 
-function expectInline(found: Awaited<ReturnType<typeof rows>>): void {
+function expectTrailing(found: Awaited<ReturnType<typeof rows>>): void {
   expect(found.sameLine).toBe(true)
   expect(found.inside).toBe(true)
+  expect(found.afterTitle).toBe(true)
   expect(found.keysDimmer).toBe(true)
   expect(found.titleCut).toBe(0)
-  for (const gap of found.keyGaps) {
-    expect(gap).toBeGreaterThan(0)
-    expect(gap).toBeLessThanOrEqual(TITLE_GAP_MAX)
-  }
-  for (const gap of found.metaGaps) {
-    expect(gap).toBeGreaterThan(0)
-    expect(gap).toBeLessThanOrEqual(TITLE_GAP_MAX)
+  for (const edge of found.edges) {
+    expect(edge).toBeGreaterThanOrEqual(0)
+    expect(edge).toBeLessThanOrEqual(RIGHT_EDGE_MAX)
   }
 }
 
-test('each palette row shows its keycap directly after its title, dimmer, then the secondary text, with and without a query', async () => {
-  const app = await electron.launch(isolatedLaunch())
-  try {
-    const win = await app.firstWindow()
-    await win.waitForLoadState('domcontentloaded')
-    await openWorkspace(win)
-    await win.keyboard.press(chords.palette)
-    const palette = win.getByRole('dialog', { name: 'Command palette' })
-    await expect(palette.getByRole('option').first()).toBeVisible()
+let app: ElectronApplication | undefined
+let win: Page
 
-    const all = await rows(win)
-    expect(all.count).toBeGreaterThan(1)
-    expect(all.keyGaps.length).toBeGreaterThan(1)
-    expect(all.metaGaps.length).toBeGreaterThan(1)
-    expectInline(all)
-
-    await palette.getByRole('combobox').fill('pane')
-    await expect(palette.getByRole('option', { name: /pane/i }).first()).toBeVisible()
-    const searched = await rows(win)
-    expect(searched.count).toBeGreaterThan(1)
-    expect(searched.keyGaps.length).toBeGreaterThan(0)
-    expectInline(searched)
-  } finally {
-    await app.close()
-  }
-})
-
-test('a long workspace path is cut short inside its row and the names stay whole', async () => {
+test.beforeAll(async () => {
   const dataHome = freshDataHome()
   const deep = join(dataHome, ...Array(4).fill('a-rather-long-folder-name-for-the-palette-row'))
   mkdirSync(deep, { recursive: true })
@@ -114,27 +98,57 @@ test('a long workspace path is cut short inside its row and the names stay whole
       ],
     }),
   )
-  const app = await electron.launch(isolatedLaunch(dataHome))
-  try {
-    const win = await app.firstWindow()
-    await win.waitForLoadState('domcontentloaded')
-    await expect(win.getByText('deep').first()).toBeVisible({ timeout: 15_000 })
-    await win.keyboard.press(chords.palette)
-    const palette = win.getByRole('dialog', { name: 'Command palette' })
-    await palette.getByRole('combobox').fill('')
-    await expect(palette.getByRole('option', { name: /deep/ }).first()).toBeVisible()
+  app = await launchShared(isolatedLaunch(dataHome))
+  win = await app.firstWindow()
+  await win.waitForLoadState('domcontentloaded')
+  await expect(win.locator('.rail-tab').filter({ hasText: 'deep' })).toBeVisible({
+    timeout: 15_000,
+  })
+})
 
-    const all = await rows(win)
-    expect(all.keyGaps.length).toBeGreaterThan(1)
-    expect(all.metaCut).toBeGreaterThan(0)
-    expectInline(all)
+test.afterAll(async () => {
+  await app?.close()
+})
 
-    await palette.getByRole('combobox').fill('@deep')
-    await expect(palette.getByRole('option', { name: /deep/ }).first()).toBeVisible()
-    const workspaces = await rows(win)
-    expect(workspaces.metaCut).toBeGreaterThan(0)
-    expectInline(workspaces)
-  } finally {
-    await app.close()
-  }
+test('a long workspace path is cut short inside its row and the names stay whole', async () => {
+  await win.keyboard.press(chords.palette)
+  const palette = win.getByRole('dialog', { name: 'Command palette' })
+  await expect(palette.getByRole('combobox')).toHaveValue('>')
+  await palette.getByRole('combobox').fill('')
+  await expect(palette.getByRole('option', { name: /deep/ }).first()).toBeVisible()
+
+  const all = await rows(win)
+  expect(all.edges.length).toBeGreaterThan(1)
+  expect(all.metaCut).toBeGreaterThan(0)
+  expectTrailing(all)
+
+  await palette.getByRole('combobox').fill('@deep')
+  await expect(palette.getByRole('option', { name: /deep/ }).first()).toBeVisible()
+  const workspaces = await rows(win)
+  expect(workspaces.metaCut).toBeGreaterThan(0)
+  expectTrailing(workspaces)
+  await win.keyboard.press('Escape')
+  await expect(palette).toBeHidden()
+})
+
+test('each palette row shows its keycap and id at the right edge, the keycap dimmer, with and without a query', async () => {
+  await closeAllWorkspaces(win)
+  await openWorkspace(win)
+  await win.keyboard.press(chords.palette)
+  const palette = win.getByRole('dialog', { name: 'Command palette' })
+  await expect(palette.getByRole('combobox')).toHaveValue('>')
+  await expect(palette.getByRole('option').first()).toBeVisible()
+
+  const all = await rows(win)
+  expect(all.count).toBeGreaterThan(1)
+  expect(all.keyed).toBeGreaterThan(1)
+  expect(all.edges.length).toBeGreaterThan(1)
+  expectTrailing(all)
+
+  await palette.getByRole('combobox').fill('pane')
+  await expect(palette.getByRole('option', { name: /pane/i }).first()).toBeVisible()
+  const searched = await rows(win)
+  expect(searched.count).toBeGreaterThan(1)
+  expect(searched.keyed).toBeGreaterThan(0)
+  expectTrailing(searched)
 })

@@ -1,12 +1,13 @@
+import { Notice } from '@/components/common/Notice'
+import { ControlRow, MachineValue } from '@/components/settingsKit/ControlRow'
+import { SettingsPage } from '@/components/settingsKit/SettingsPage'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import { fmt, useDict } from '@/lib/app/useDict'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import type { Dict } from '@shared/app/dict'
-import type { SyncConflict, SyncStatus } from '@shared/types'
+import type { SyncConflict, SyncStatus } from '@shared/profileSync/profileSync'
 import { useEffect, useMemo, useState } from 'react'
-import { ControlRow, MachineValue, WarningNote } from './ControlRow'
-import { SectionHead } from './SettingsGroup'
 import { SyncSecretsSection } from './SyncSecretsSection'
 
 const OFF: SyncStatus = {
@@ -40,6 +41,122 @@ function conflictValue(d: Dict, conflict: SyncConflict, value: string | null): s
   return value ?? d.sync.conflictDeleted
 }
 
+function SyncConflicts({
+  active,
+  status,
+  time,
+  onStatus,
+}: {
+  active: boolean
+  status: SyncStatus
+  time: Intl.DateTimeFormat
+  onStatus: (status: SyncStatus) => void
+}): JSX.Element | null {
+  const d = useDict()
+  const [revealed, setRevealed] = useState<
+    Record<string, { local: string | null; remote: string | null }>
+  >({})
+
+  const resolve = async (id: string): Promise<void> => {
+    setRevealed(({ [id]: _gone, ...rest }) => rest)
+    onStatus(await window.ostia.sync.resolve(id))
+  }
+
+  const toggleReveal = async (id: string): Promise<void> => {
+    if (revealed[id]) {
+      setRevealed(({ [id]: _gone, ...rest }) => rest)
+      return
+    }
+    const res = await window.ostia.sync.secrets.reveal(id)
+    if (res.ok) setRevealed((all) => ({ ...all, [id]: { local: res.local, remote: res.remote } }))
+  }
+
+  if (!active || status.conflicts.length === 0) return null
+  return (
+    <div className="mt-4">
+      <SettingsPage title={d.sync.conflictsTitle} desc={d.sync.conflictsDesc}>
+        {status.conflicts.map((conflict) => {
+          const shownValues = conflict.kind === 'secret' ? revealed[conflict.id] : conflict
+          const kept = shownValues
+            ? conflict.winner === 'local'
+              ? shownValues.local
+              : shownValues.remote
+            : null
+          const other = shownValues
+            ? conflict.winner === 'local'
+              ? shownValues.remote
+              : shownValues.local
+            : null
+          const desc =
+            conflict.kind === 'secret' && !shownValues
+              ? fmt(d.sync.secretChanged, {
+                  here: time.format(new Date(conflict.localAt ?? 0)),
+                  there: time.format(new Date(conflict.remoteAt ?? 0)),
+                })
+              : fmt(d.sync.conflictValues, {
+                  kept: conflictValue(d, conflict, kept),
+                  other: conflictValue(d, conflict, other),
+                })
+          return (
+            <ControlRow key={conflict.id} label={conflict.key} desc={desc}>
+              {conflict.kind === 'secret' ? (
+                <Button variant="ghost" size="sm" onClick={() => void toggleReveal(conflict.id)}>
+                  {shownValues ? d.sync.hide : d.sync.reveal}
+                </Button>
+              ) : null}
+              <Button variant="outline" size="sm" onClick={() => void resolve(conflict.id)}>
+                {d.sync.useOther}
+              </Button>
+            </ControlRow>
+          )
+        })}
+      </SettingsPage>
+    </div>
+  )
+}
+
+function SyncOffers({
+  active,
+  status,
+  onStatus,
+}: {
+  active: boolean
+  status: SyncStatus
+  onStatus: (status: SyncStatus) => void
+}): JSX.Element | null {
+  const d = useDict()
+  const [installing, setInstalling] = useState<string | null>(null)
+
+  const install = async (id: string): Promise<void> => {
+    setInstalling(id)
+    try {
+      onStatus(await window.ostia.sync.install(id))
+    } finally {
+      setInstalling(null)
+    }
+  }
+
+  if (!active || status.offers.length === 0) return null
+  return (
+    <div className="mt-4">
+      <SettingsPage title={d.sync.offersTitle} desc={d.sync.offersDesc}>
+        {status.offers.map((offer) => (
+          <ControlRow key={offer.id} label={offer.id} desc={offer.marketplace}>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={installing === offer.id}
+              onClick={() => void install(offer.id)}
+            >
+              {d.sync.install}
+            </Button>
+          </ControlRow>
+        ))}
+      </SettingsPage>
+    </div>
+  )
+}
+
 export function SyncSection(): JSX.Element {
   const d = useDict()
   const locale = useSettingsStore((s) => s.locale)
@@ -47,10 +164,6 @@ export function SyncSection(): JSX.Element {
   const setSyncDir = useSettingsStore((s) => s.setSyncDir)
   const [status, setStatus] = useState<SyncStatus>(OFF)
   const [busy, setBusy] = useState(false)
-  const [installing, setInstalling] = useState<string | null>(null)
-  const [revealed, setRevealed] = useState<
-    Record<string, { local: string | null; remote: string | null }>
-  >({})
 
   useEffect(() => {
     let live = true
@@ -84,29 +197,6 @@ export function SyncSection(): JSX.Element {
     }
   }
 
-  const resolve = async (id: string): Promise<void> => {
-    setRevealed(({ [id]: _gone, ...rest }) => rest)
-    setStatus(await window.ostia.sync.resolve(id))
-  }
-
-  const toggleReveal = async (id: string): Promise<void> => {
-    if (revealed[id]) {
-      setRevealed(({ [id]: _gone, ...rest }) => rest)
-      return
-    }
-    const res = await window.ostia.sync.secrets.reveal(id)
-    if (res.ok) setRevealed((all) => ({ ...all, [id]: { local: res.local, remote: res.remote } }))
-  }
-
-  const install = async (id: string): Promise<void> => {
-    setInstalling(id)
-    try {
-      setStatus(await window.ostia.sync.install(id))
-    } finally {
-      setInstalling(null)
-    }
-  }
-
   const choose = async (): Promise<void> => {
     const picked = await window.ostia.sync.pickFolder()
     if (!picked) return
@@ -128,8 +218,7 @@ export function SyncSection(): JSX.Element {
         : d.sync.never
 
   return (
-    <div>
-      <SectionHead title={d.sync.title} desc={d.sync.desc} />
+    <SettingsPage title={d.sync.title} desc={d.sync.desc}>
       <Separator className="mb-2" />
       <ControlRow label={d.sync.folder} desc={d.sync.folderDesc}>
         {dir ? (
@@ -157,69 +246,14 @@ export function SyncSection(): JSX.Element {
         </Button>
       </ControlRow>
       {dir && status.skipped.length > 0 ? (
-        <WarningNote>{fmt(d.sync.skipped, { files: status.skipped.join(', ') })}</WarningNote>
+        <Notice>{fmt(d.sync.skipped, { files: status.skipped.join(', ') })}</Notice>
       ) : null}
       {dir && status.heldBack.length > 0 ? (
-        <WarningNote>{fmt(d.sync.heldBack, { keys: status.heldBack.join(', ') })}</WarningNote>
+        <Notice>{fmt(d.sync.heldBack, { keys: status.heldBack.join(', ') })}</Notice>
       ) : null}
-      {dir && status.conflicts.length > 0 ? (
-        <section aria-label={d.sync.conflictsTitle} className="mt-4">
-          <SectionHead title={d.sync.conflictsTitle} desc={d.sync.conflictsDesc} />
-          {status.conflicts.map((conflict) => {
-            const shownValues = conflict.kind === 'secret' ? revealed[conflict.id] : conflict
-            const kept = shownValues
-              ? conflict.winner === 'local'
-                ? shownValues.local
-                : shownValues.remote
-              : null
-            const other = shownValues
-              ? conflict.winner === 'local'
-                ? shownValues.remote
-                : shownValues.local
-              : null
-            const desc =
-              conflict.kind === 'secret' && !shownValues
-                ? fmt(d.sync.secretChanged, {
-                    here: time.format(new Date(conflict.localAt ?? 0)),
-                    there: time.format(new Date(conflict.remoteAt ?? 0)),
-                  })
-                : fmt(d.sync.conflictValues, {
-                    kept: conflictValue(d, conflict, kept),
-                    other: conflictValue(d, conflict, other),
-                  })
-            return (
-              <ControlRow key={conflict.id} label={conflict.key} desc={desc}>
-                {conflict.kind === 'secret' ? (
-                  <Button variant="ghost" size="sm" onClick={() => void toggleReveal(conflict.id)}>
-                    {shownValues ? d.sync.hide : d.sync.reveal}
-                  </Button>
-                ) : null}
-                <Button variant="outline" size="sm" onClick={() => void resolve(conflict.id)}>
-                  {d.sync.useOther}
-                </Button>
-              </ControlRow>
-            )
-          })}
-        </section>
-      ) : null}
+      <SyncConflicts active={dir !== ''} status={status} time={time} onStatus={setStatus} />
       {dir ? <SyncSecretsSection status={status} onStatus={setStatus} /> : null}
-      {dir && status.offers.length > 0 ? (
-        <section aria-label={d.sync.offersTitle} className="mt-4">
-          <SectionHead title={d.sync.offersTitle} desc={d.sync.offersDesc} />
-          {status.offers.map((offer) => (
-            <ControlRow key={offer.id} label={offer.id} desc={offer.marketplace}>
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={installing === offer.id}
-                onClick={() => void install(offer.id)}
-              >
-                {d.sync.install}
-              </Button>
-            </ControlRow>
-          ))}
-        </section>
-      ) : null}
-    </div>
+      <SyncOffers active={dir !== ''} status={status} onStatus={setStatus} />
+    </SettingsPage>
   )
 }

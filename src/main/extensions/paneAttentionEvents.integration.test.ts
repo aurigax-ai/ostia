@@ -6,7 +6,7 @@ import type {
   ExtensionEventPayloads,
 } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
-import type { CommandResult } from '../../shared/types'
+import type { CommandResult } from '../../shared/control/commands'
 import { registerControlServer, stopControlServer } from '../control/controlServer'
 import { getByPaneId, registerPane } from '../control/idRegistry'
 import { ExtensionHost } from './extensionHost'

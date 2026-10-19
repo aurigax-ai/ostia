@@ -1,4 +1,4 @@
-import { isAbsolute, join } from 'node:path'
+import { isAbsolute } from 'node:path'
 import {
   AGENT_OFFER_LABEL_MAX,
   AGENT_OFFER_TEXT_MAX,
@@ -8,6 +8,7 @@ import { type AgentResume, forkCommand, resumeCommand } from '../../shared/agent
 import { MANAGER_AGENT_NAME } from '../../shared/agents/managerSettings'
 import { quoteArg } from '../../shared/terminal/shellQuote'
 import { ReportLimiter } from '../diagnostics/rendererReports'
+import { expandHome } from '../platform/pathGuard'
 
 export const AGENT_TASKS_PER_MINUTE = 6
 const AGENT_TASK_WINDOW_MS = 60_000
@@ -56,8 +57,7 @@ export function agentTaskLimiter(now: () => number = Date.now): ReportLimiter {
 
 export function workspaceFolder(workDir: string | undefined, home: string): string | undefined {
   if (!workDir) return undefined
-  if (workDir === '~') return home
-  const expanded = workDir.startsWith('~/') ? join(home, workDir.slice(2)) : workDir
+  const expanded = expandHome(workDir, home)
   return isAbsolute(expanded) ? expanded : undefined
 }
 

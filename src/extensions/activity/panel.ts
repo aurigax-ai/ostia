@@ -2,46 +2,16 @@ import {
   call,
   errorText,
   h,
-  icon,
   onChange,
   panelTranslator,
 } from '@aurigax-ai/ostia-extension-sdk/panel'
-import chatText from '@phosphor-icons/core/regular/chat-text.svg'
-import checkCircle from '@phosphor-icons/core/regular/check-circle.svg'
-import fileText from '@phosphor-icons/core/regular/file-text.svg'
-import globe from '@phosphor-icons/core/regular/globe.svg'
-import magnifyingGlass from '@phosphor-icons/core/regular/magnifying-glass.svg'
-import noteIcon from '@phosphor-icons/core/regular/note.svg'
-import pencilSimple from '@phosphor-icons/core/regular/pencil-simple.svg'
-import robot from '@phosphor-icons/core/regular/robot.svg'
-import terminalWindow from '@phosphor-icons/core/regular/terminal-window.svg'
-import usersThree from '@phosphor-icons/core/regular/users-three.svg'
-import warningCircle from '@phosphor-icons/core/regular/warning-circle.svg'
-import wrench from '@phosphor-icons/core/regular/wrench.svg'
-import type { ToolKind } from './hookEvent'
 import en from './locales/en.json'
 import zhHant from './locales/zh-Hant.json'
-import {
-  type AgentView,
-  type EventView,
-  type NoteView,
-  type PanelModel,
-  type TurnView,
-  type WorkspaceView,
-  ageOf,
-} from './view'
+import { type ListContent, type RowEnv, ageText, createListView } from './rows'
+import { type NoteView, type PanelModel, type PanelSnapshot, liveKeys } from './view'
 
 const AGE_REFRESH_MS = 30_000
-
-const TOOL_ICONS: Record<ToolKind, string> = {
-  edit: pencilSimple,
-  command: terminalWindow,
-  search: magnifyingGlass,
-  read: fileText,
-  subagent: usersThree,
-  web: globe,
-  other: wrench,
-}
+const TITLE_POLL_MS = 2000
 
 const t = panelTranslator({ en: en.messages, 'zh-Hant': zhHant.messages })
 
@@ -49,10 +19,31 @@ const root = document.getElementById('root') as HTMLElement
 const list = h('main', { class: 'list' })
 const recapButton = viewButton(false)
 const activityButton = viewButton(true)
-const notes = new Map<string, string>()
-const doneFailures = new Map<string, string>()
-const expanded = new Set<string>()
-let model: PanelModel | null = null
+const paneNotes = new Map<string, string>()
+const noteFailures = new Map<string, string>()
+const openGroups = new Set<string>()
+let model: (PanelModel & { rev: string }) | null = null
+let loadError: string | null = null
+let localVersion = 0
+let refreshing = false
+let refreshAgain = false
+
+const env: RowEnv = {
+  t,
+  now: Date.now,
+  focusAgent: (paneId) => void focusPane(paneId, paneNotes, paneId),
+  focusNote: (note: NoteView) => void focusPane(note.pane, noteFailures, note.id),
+  markDone: (workspaceId, id) => void markDone(workspaceId, id),
+  isOpen: (key) => openGroups.has(key),
+  setOpen: (key, open) => {
+    if (open) openGroups.add(key)
+    else openGroups.delete(key)
+  },
+  paneNote: (paneId) => paneNotes.get(paneId),
+  noteFailure: (id) => noteFailures.get(id),
+}
+
+const show = createListView(list, env)
 
 function viewButton(showActivity: boolean): HTMLElement {
   return h(
@@ -67,207 +58,114 @@ function viewButton(showActivity: boolean): HTMLElement {
   )
 }
 
-function ageText(then: number): string {
-  const age = ageOf(then, Date.now())
-  return age.unit === 'now' ? t('time.now') : t(`time.${age.unit}`, { count: age.count })
-}
-
-function age(then: number): HTMLElement {
-  return h('time', { class: 'age muted', 'data-t': String(then) }, ageText(then))
-}
-
 function refreshAges(): void {
   for (const el of list.querySelectorAll<HTMLElement>('time[data-t]')) {
-    el.textContent = ageText(Number(el.dataset.t))
+    const text = ageText(env, Number(el.dataset.t))
+    if (el.textContent !== text) el.textContent = text
   }
 }
 
-function eventRow(event: EventView): HTMLElement {
-  if (event.kind === 'prompt') {
-    return h(
-      'li',
-      { class: 'event', 'data-kind': 'prompt' },
-      icon(chatText),
-      h('span', { class: 'event-label muted' }, t('event.prompt')),
-      event.text ? h('span', { class: 'event-text' }, event.text) : null,
-    )
+function remember(map: Map<string, string>, key: string, value: string | null): void {
+  if (map.get(key) === (value ?? undefined)) return
+  if (value === null) map.delete(key)
+  else map.set(key, value)
+  localVersion++
+}
+
+function retain(
+  collection: { keys: () => Iterable<string>; delete: (key: string) => unknown },
+  live: ReadonlySet<string>,
+): void {
+  for (const key of [...collection.keys()]) if (!live.has(key)) collection.delete(key)
+}
+
+function content(): ListContent | null {
+  if (!model) {
+    return loadError === null
+      ? null
+      : { kind: 'message', text: loadError, error: true, version: loadError }
   }
-  if (event.kind === 'stop') {
-    return h(
-      'li',
-      { class: 'event', 'data-kind': 'stop' },
-      icon(checkCircle),
-      h('span', { class: 'event-label muted' }, t('event.stop')),
-    )
+  const { rev, showActivity, workspace } = model
+  if (!workspace) return { kind: 'message', text: t('empty'), error: false, version: rev }
+  return {
+    kind: 'workspace',
+    workspace,
+    showActivity,
+    version: `${rev}|${showActivity}|${localVersion}`,
   }
-  const tool = event.tool ?? 'other'
-  return h(
-    'li',
-    { class: 'event', 'data-kind': 'tool', 'data-tool': tool },
-    icon(TOOL_ICONS[tool]),
-    h('span', { class: 'event-label muted' }, t(`event.tool.${tool}`)),
-    event.text ? h('code', { class: 'event-text' }, event.text) : null,
-  )
 }
 
-function turnEvents(turn: TurnView): HTMLElement {
-  return h('ul', { class: 'events' }, ...turn.events.map(eventRow))
+function render(): void {
+  if (model) {
+    recapButton.setAttribute('aria-pressed', String(!model.showActivity))
+    activityButton.setAttribute('aria-pressed', String(model.showActivity))
+  }
+  const next = content()
+  if (next) show(next)
 }
 
-function earlierTurn(turn: TurnView): HTMLElement {
-  return h(
-    'div',
-    { class: 'turn' },
-    turnEvents(turn),
-    turn.recap ? h('p', { class: 'recap muted' }, turn.recap) : null,
-  )
+async function load(): Promise<void> {
+  const res = await call('snapshot', { rev: model?.rev })
+  if (!res.ok) {
+    if (!model) {
+      loadError = t('loadFailed', { reason: errorText(res) })
+      render()
+    }
+    return
+  }
+  const snapshot = res.data as PanelSnapshot
+  if ('unchanged' in snapshot) return
+  model = snapshot
+  loadError = null
+  const live = liveKeys(model.workspace)
+  retain(paneNotes, live.panes)
+  retain(noteFailures, live.notes)
+  retain(openGroups, live.groups)
+  render()
 }
 
-function earlierTurns(agent: AgentView): HTMLElement | null {
-  if (agent.earlier.length === 0) return null
-  const details = h(
-    'details',
-    { class: 'earlier', open: expanded.has(agent.paneId) },
-    h('summary', { class: 'muted' }, t('earlier', { count: agent.earlier.length })),
-    ...agent.earlier.map(earlierTurn),
-  ) as HTMLDetailsElement
-  details.addEventListener('toggle', () => {
-    if (details.open) expanded.add(agent.paneId)
-    else expanded.delete(agent.paneId)
-  })
-  return details
-}
-
-function agentCard(agent: AgentView, showActivity: boolean): HTMLElement {
-  const name = t(`agent.${agent.agent}`)
-  const note = notes.get(agent.paneId)
-  return h(
-    'article',
-    { class: 'agent', 'data-pane': agent.paneId },
-    h(
-      'button',
-      {
-        class: 'agent-head',
-        type: 'button',
-        title: t('show', { agent: name }),
-        onClick: () => void focusPane(agent.paneId),
-      },
-      icon(robot),
-      h('span', { class: 'agent-name' }, name),
-      agent.state
-        ? h('span', { class: 'state', 'data-state': agent.state }, t(`state.${agent.state}`))
-        : null,
-      h('span', { class: 'spacer' }),
-      age(agent.last),
-    ),
-    agent.recap ? h('p', { class: 'recap' }, agent.recap) : null,
-    note ? h('p', { class: 'note muted', role: 'status' }, note) : null,
-    showActivity ? turnEvents(agent.current) : null,
-    showActivity ? earlierTurns(agent) : null,
-  )
-}
-
-function noteRow(workspaceId: string, note: NoteView): HTMLElement {
-  const open = note.needsYou && !note.done
-  const failed = doneFailures.get(note.id)
-  return h(
-    'li',
-    {
-      class: 'note-row',
-      'data-note': note.id,
-      'data-needs-you': String(note.needsYou),
-      'data-done': String(note.done),
-    },
-    icon(note.needsYou ? warningCircle : noteIcon),
-    h(
-      'div',
-      { class: 'note-body' },
-      note.needsYou
-        ? h('span', { class: 'needs-you' }, t(note.done ? 'noteDone' : 'needsYou'))
-        : null,
-      h('p', { class: 'note-text' }, note.text),
-      note.link ? h('code', { class: 'note-link muted' }, note.link) : null,
-      failed ? h('p', { class: 'note muted', role: 'status' }, failed) : null,
-    ),
-    age(note.t),
-    open
-      ? h(
-          'button',
-          {
-            class: 'done-button',
-            type: 'button',
-            onClick: () => void markDone(workspaceId, note.id),
-          },
-          t('markDone'),
-        )
-      : null,
-  )
-}
-
-function notesList(workspace: WorkspaceView): HTMLElement | null {
-  if (workspace.notes.length === 0) return null
-  return h(
-    'ul',
-    { class: 'notes', 'aria-label': t('notes') },
-    ...workspace.notes.map((note) => noteRow(workspace.workspaceId, note)),
-  )
-}
-
-function workspaceSection(workspace: WorkspaceView, showActivity: boolean): HTMLElement {
-  return h(
-    'section',
-    { class: 'workspace', 'data-workspace': workspace.workspaceId },
-    h('h2', { class: 'workspace-name muted' }, workspace.name),
-    notesList(workspace),
-    ...workspace.agents.map((agent) => agentCard(agent, showActivity)),
-  )
+async function refresh(): Promise<void> {
+  if (refreshing) {
+    refreshAgain = true
+    return
+  }
+  refreshing = true
+  try {
+    do {
+      refreshAgain = false
+      await load()
+    } while (refreshAgain)
+  } finally {
+    refreshing = false
+  }
 }
 
 async function markDone(workspaceId: string, id: string): Promise<void> {
   const res = await call('done', { workspaceId, id })
-  if (res.ok) doneFailures.delete(id)
-  else doneFailures.set(id, t('doneFailed', { reason: errorText(res) }))
-  await refresh()
-}
-
-function render(): void {
-  if (!model) return
-  recapButton.setAttribute('aria-pressed', String(!model.showActivity))
-  activityButton.setAttribute('aria-pressed', String(model.showActivity))
-  const showActivity = model.showActivity
-  if (model.workspaces.length === 0) {
-    list.replaceChildren(h('p', { class: 'center muted' }, t('empty')))
-    return
-  }
-  list.replaceChildren(...model.workspaces.map((w) => workspaceSection(w, showActivity)))
-}
-
-async function refresh(): Promise<void> {
-  const res = await call('snapshot')
-  if (!res.ok) {
-    if (!model) {
-      list.replaceChildren(
-        h('p', { class: 'center error' }, t('loadFailed', { reason: errorText(res) })),
-      )
-    }
-    return
-  }
-  model = res.data as PanelModel
-  render()
+  remember(noteFailures, id, res.ok ? null : t('doneFailed', { reason: errorText(res) }))
+  if (res.ok) await refresh()
+  else render()
 }
 
 async function setShowActivity(value: boolean): Promise<void> {
   if (!model || model.showActivity === value) return
-  model = { ...model, showActivity: value }
+  model = { ...model, showActivity: value, rev: '' }
   render()
   await call('setShowActivity', { value })
   await refresh()
 }
 
-async function focusPane(paneId: string): Promise<void> {
+async function focusPane(
+  paneId: string,
+  failures: Map<string, string>,
+  key: string,
+): Promise<void> {
   const res = await call('focus', { paneId })
-  if (res.ok) notes.delete(paneId)
-  else notes.set(paneId, t(res.error === 'not-reached' ? 'notReached' : 'paneClosed'))
+  remember(
+    failures,
+    key,
+    res.ok ? null : t(res.error === 'not-reached' ? 'notReached' : 'paneClosed'),
+  )
   render()
 }
 
@@ -277,9 +175,7 @@ root.replaceChildren(
     { class: 'page' },
     h(
       'header',
-      { class: 'toolbar' },
-      h('h1', { class: 'title' }, t('title')),
-      h('span', { class: 'spacer' }),
+      { class: 'ostia-toolbar' },
       h(
         'div',
         { class: 'tabs', role: 'group', 'aria-label': t('view.label') },
@@ -293,4 +189,5 @@ root.replaceChildren(
 
 onChange(() => void refresh())
 setInterval(refreshAges, AGE_REFRESH_MS)
+setInterval(() => void refresh(), TITLE_POLL_MS)
 void refresh()

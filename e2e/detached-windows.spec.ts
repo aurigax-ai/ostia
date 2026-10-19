@@ -1,3 +1,5 @@
+import { existsSync, readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import { isMac } from './chords'
 import { freshDataHome, isolatedLaunch } from './dataHome'
 import { openWorkspace, quitApp } from './helpers'
@@ -63,6 +65,13 @@ async function detachFirstWorkspace(app: ElectronApplication, win: Page): Promis
 
 async function windowTitles(app: ElectronApplication): Promise<string[]> {
   return app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().map((w) => w.getTitle()))
+}
+
+function savedWindowBounds(dataHome: string): unknown[] {
+  const file = join(dataHome, 'ostia', 'workspaces.json')
+  if (!existsSync(file)) return []
+  const { windows = [] } = JSON.parse(readFileSync(file, 'utf8'))
+  return windows.map((w: { bounds: unknown }) => w.bounds)
 }
 
 let dataHome: string
@@ -150,7 +159,7 @@ test('a detached window reopens where it was after a restart, idle', async () =>
       },
       { b: bounds, name: project },
     )
-    await detached.waitForTimeout(1_000)
+    await expect.poll(() => savedWindowBounds(dataHome)).toEqual([bounds])
   } finally {
     await quitApp(first.app)
   }

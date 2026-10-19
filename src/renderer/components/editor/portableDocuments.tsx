@@ -1,13 +1,10 @@
-import { csvDelimiter, parseCsv } from '@/lib/files/csvTable'
 import { mermaidSvg } from '@/lib/files/mermaidImage'
 import { stylesMatching } from '@/lib/files/portableStyles'
 import { type PortableDocument, portableType } from '@shared/artifacts/portable'
 import Markdown, { type Components } from 'react-markdown'
-import { CsvTableView } from './CsvTable'
 import { MARKDOWN_REMARK, markdownComponents } from './MarkdownPreview'
 
 const MARKDOWN_STYLES = /\.typeset|\.markdown-preview|\.mermaid-diagram/
-const CSV_STYLES = /\.csv-table/
 
 function base64(text: string): string {
   const bytes = new TextEncoder().encode(text)
@@ -74,12 +71,6 @@ async function markdownDocument(source: string, dark: boolean): Promise<Portable
   return { body, css: stylesMatching(MARKDOWN_STYLES) }
 }
 
-async function csvDocument(source: string, delimiter: string): Promise<PortableDocument> {
-  const table = await parseCsv(source, delimiter)
-  const body = await render(<CsvTableView table={table} />)
-  return { body, css: stylesMatching(CSV_STYLES) }
-}
-
 export async function portableDocument(
   path: string,
   text: string,
@@ -87,6 +78,5 @@ export async function portableDocument(
 ): Promise<PortableDocument | undefined> {
   const type = portableType(path)
   if (type === 'markdown') return markdownDocument(text, dark)
-  if (type === 'csv') return csvDocument(text, csvDelimiter(path))
   return undefined
 }

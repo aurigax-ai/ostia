@@ -7,20 +7,26 @@ import {
   webLinkTarget,
 } from '@/lib/terminalLinks/linkModifier'
 import type { FileLinkAction } from '@/lib/terminalLinks/terminalFileLinks'
+import type { FileUrlAction } from '@/lib/terminalLinks/terminalFileUrls'
 import { isMac } from '@/platform'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import type { Dict } from '@shared/app/dict'
 import { linkKind } from '@shared/common/externalLinks'
 import { chordText } from '@shared/keyboard/chordSpec'
 
-const FILE_ACTION_TEXT: Record<FileLinkAction, (d: Dict) => string> = {
+type PathHintKind = FileLinkAction | FileUrlAction
+
+const FILE_ACTION_TEXT: Record<PathHintKind, (d: Dict) => string> = {
   'open-file': (d) => d.terminalLinks.openFile,
   'admit-file': (d) => d.terminalLinks.openFile,
   'reveal-folder': (d) => d.terminalLinks.revealFolder,
   'open-folder': (d) => d.terminalLinks.openFolder,
+  'preview-page': (d) => d.terminalLinks.openFile,
+  'browse-page': (d) => d.terminalLinks.openSystem,
+  'open-default': (d) => d.terminalLinks.openDefault,
 }
 
-const FOLDER_ACTIONS: ReadonlySet<FileLinkAction> = new Set(['reveal-folder', 'open-folder'])
+const FOLDER_ACTIONS: ReadonlySet<PathHintKind> = new Set(['reveal-folder', 'open-folder'])
 
 const PATH_CLICKS = [
   { shift: false, alt: false },
@@ -29,10 +35,11 @@ const PATH_CLICKS = [
   { shift: true, alt: true },
 ] as const
 
-function pathTargetText(d: Dict, action: FileLinkAction, how: PathLinkTarget): string {
+function pathTargetText(d: Dict, action: PathHintKind, how: PathLinkTarget): string {
   if (how === 'open') return FILE_ACTION_TEXT[action](d)
   if (how === 'show') return d.terminalLinks.showInFiles
   if (how === 'show-system') return d.terminalLinks.showInFileManager
+  if (action === 'preview-page') return d.terminalLinks.openSystem
   return FOLDER_ACTIONS.has(action) ? d.terminalLinks.openFolder : d.terminalLinks.openDefault
 }
 
@@ -60,7 +67,7 @@ export function TerminalLinkHint({ hint }: { hint: LinkHintBox | null }): JSX.El
     ) === 'system'
       ? d.terminalLinks.openSystem
       : d.terminalLinks.openNewTab
-  const pathRows = (action: FileLinkAction, offers: PathLinkTarget[]): [string, string][] =>
+  const pathRows = (action: PathHintKind, offers: PathLinkTarget[]): [string, string][] =>
     PATH_CLICKS.flatMap(({ shift, alt }) => {
       const how = pathLinkTarget(
         { ctrlKey: !isMac, metaKey: isMac, shiftKey: shift, altKey: alt },

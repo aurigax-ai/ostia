@@ -21,6 +21,19 @@ describe('PaneWaking', () => {
     expect(waking.has('p1')).toBe(false)
   })
 
+  it('keeps the reason of a failed end until the pane wakes again, and abandons without an end', () => {
+    const waking = new PaneWaking()
+    waking.start('p1')
+    waking.end('p1', 'failed', 'its agent exited with code 1 before it started')
+    expect(waking.lastEnd('p1')).toBe('failed')
+    expect(waking.lastReason('p1')).toBe('its agent exited with code 1 before it started')
+    waking.start('p1')
+    expect(waking.lastReason('p1')).toBeUndefined()
+    waking.abandon('p1')
+    expect(waking.has('p1')).toBe(false)
+    expect(waking.lastEnd('p1')).toBeUndefined()
+  })
+
   it('answers started at once for panes that are not waking', async () => {
     const waking = new PaneWaking()
     await expect(waking.until(['p1'], 1000, never)).resolves.toEqual({ how: 'started' })

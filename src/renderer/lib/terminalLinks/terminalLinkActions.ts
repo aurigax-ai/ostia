@@ -5,11 +5,15 @@ import { homeDir } from '@/lib/files/homeDir'
 import { openFileAt, reportFileProblem } from '@/lib/files/openFile'
 import { useSandboxStore } from '@/stores/app/sandboxStore'
 import { useUIStore } from '@/stores/app/uiStore'
+import { useArtifactsStore } from '@/stores/files/artifactsStore'
 import { useFileTreeStore } from '@/stores/files/fileTreeStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
-import type { OpenPathResult } from '@shared/types'
+import { isInside } from '@shared/artifacts/artifacts'
+import type { FileUrlTarget } from '@shared/files/fileUrls'
+import type { OpenPathResult } from '@shared/files/filesApi'
 import type { PathLinkTarget } from './linkModifier'
 import type { FileLinkAction, FileLinkTarget } from './terminalFileLinks'
+import type { FileUrlAction } from './terminalFileUrls'
 
 export interface LinkPane {
   workspaceId: string
@@ -87,4 +91,25 @@ export function activateFileLink(
       .showInFolder(pane.paneId, target.written)
       .then((res) => reportOpenProblem(pane, res, target.written))
   }
+}
+
+export function fileUrlPreviews(pane: LinkPane, target: FileUrlTarget): boolean {
+  const artifacts = useArtifactsStore.getState().byWorkspace[pane.workspaceId]
+  return target.opener === 'html-page' && isInside(artifacts?.dir, target.path)
+}
+
+export function activateFileUrl(
+  pane: LinkPane,
+  how: PathLinkTarget,
+  url: string,
+  target: FileUrlTarget,
+  action: FileUrlAction,
+): void {
+  if (how === 'open' && action === 'preview-page') {
+    openFileAt(target.path)
+    return
+  }
+  void window.ostia.terminalLinks
+    .openFileUrl(pane.paneId, url)
+    .then((res) => reportOpenProblem(pane, res, target.path))
 }

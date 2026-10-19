@@ -20,6 +20,7 @@ import {
   type ExtensionStatus,
   commandArgument,
 } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
+import { isRecord } from '@aurigax-ai/ostia-extension-sdk/contract/isRecord'
 import { languageServerSummary } from '@aurigax-ai/ostia-extension-sdk/contract/languageServers'
 import {
   FOLDER_CLOSED_EVENT,
@@ -48,42 +49,14 @@ import {
   REQUEST_TIMEOUT_MS,
   type Runtime,
   fail,
-  isPlainRecord,
   newRuntime,
+  normalizeResult,
   withTimeout,
 } from './extensionRuntime'
 import { ExtensionSlots } from './extensionSlots'
 import { effectiveRecord, grantedCaps, needsApproval } from './extensionStore'
 import { ExtensionWindowRequests } from './extensionWindowRequests'
 const INTERACTIVE_TIMEOUT_MS = 10 * 60_000
-
-function normalizeResult(raw: unknown): ExtensionResult {
-  if (
-    typeof raw === 'object' &&
-    raw !== null &&
-    typeof (raw as { ok?: unknown }).ok === 'boolean'
-  ) {
-    const r = raw as {
-      ok: boolean
-      error?: unknown
-      message?: unknown
-      text?: unknown
-      data?: unknown
-    }
-    if (!r.ok) {
-      const failed = fail(
-        typeof r.error === 'string' ? r.error : 'failed',
-        typeof r.message === 'string' ? r.message : undefined,
-      )
-      return r.data === undefined ? failed : { ...failed, data: r.data }
-    }
-    const out: ExtensionResult = { ok: true }
-    if (typeof r.text === 'string') out.text = r.text
-    if (r.data !== undefined) out.data = r.data
-    return out
-  }
-  return raw === undefined || raw === null ? { ok: true } : { ok: true, data: raw }
-}
 
 function capsOf(externalId: string): Capability[] {
   return ALL_CAPABILITIES.filter((cap) => hasCap(externalId, cap))
@@ -292,6 +265,7 @@ export class ExtensionHost {
         ...(platform ? { platform } : {}),
       })),
       languageServers: (m.contributes.languageServers ?? []).map(languageServerSummary),
+      fileViewers: (m.contributes.fileViewers ?? []).map(({ entry: _entry, ...viewer }) => viewer),
       agentSkills: (m.contributes.agentSkills ?? []).map((skill) => agentSkillId(m.id, skill.name)),
       agentHooks: (m.contributes.agentHooks ?? []).map((hook) => ({
         ...hook,
@@ -407,7 +381,7 @@ export class ExtensionHost {
 
   sandboxDomains(identity: PaneIdentity, conn: MessageConnection, params: unknown) {
     const rt = this.runtimeOf(identity, conn)
-    const workspaceId = isPlainRecord(params) ? params.workspaceId : undefined
+    const workspaceId = isRecord(params) ? params.workspaceId : undefined
     if (typeof workspaceId !== 'string' || !workspaceId) {
       return fail('invalid-params', 'workspaceId is required')
     }
@@ -417,6 +391,15 @@ export class ExtensionHost {
     const domains = this.deps.sandboxDomains?.(workspaceId)
     if (!domains) return fail('not-sandboxed', 'the workspace is not sandboxed')
     return { ok: true, domains: [...domains] }
+  }
+
+  builtinId(identity: PaneIdentity, conn: MessageConnection): string | null {
+    try {
+      const rt = this.runtimeOf(identity, conn)
+      return rt.ext.builtin ? rt.ext.manifest.id : null
+    } catch {
+      return null
+    }
   }
 
   private runtimeOf(identity: PaneIdentity, conn: MessageConnection): Runtime {
@@ -438,7 +421,7 @@ export class ExtensionHost {
 
   async redactTexts(identity: PaneIdentity, conn: MessageConnection, params: unknown) {
     this.runtimeOf(identity, conn)
-    const texts = isPlainRecord(params) ? params.texts : undefined
+    const texts = isRecord(params) ? params.texts : undefined
     if (
       !Array.isArray(texts) ||
       texts.length > EXTENSION_REDACT_TEXTS_MAX ||

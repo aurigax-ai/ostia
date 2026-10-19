@@ -1,7 +1,7 @@
 import { attachWheelZoom } from '@/lib/app/wheelZoom'
-import { createAutoSave } from '@/lib/files/editorSave'
 import { findStep, matchChord, runAppChord } from '@/lib/keyboard/chords'
 import { fileFeatureOptions } from '@/lib/monaco/largeFile'
+import { EDITOR_SCROLLBAR } from '@/lib/monaco/scrollbarOptions'
 import { monaco } from '@/lib/monaco/setup'
 import { ensureMonacoTheme } from '@/lib/monaco/useMonacoTheme'
 import { AUTO_SAVE_DELAY_MS, type EditorSettings } from '@/lib/settings/browserEditorSettings'
@@ -10,6 +10,7 @@ import { isMac } from '@/platform'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import type { RemoteFileError } from '@aurigax-ai/ostia-extension-sdk/contract/remoteFolders'
 import { PAD_SAVE_DELAY_MS, exceedsPad } from '@shared/artifacts/artifacts'
+import { debounce } from 'es-toolkit'
 import { type MutableRefObject, type RefObject, useEffect } from 'react'
 import {
   type DiskBar,
@@ -73,8 +74,9 @@ export function useMonacoEditor({
       fontWeight: String(initial.weight),
       fontLigatures: true,
       minimap: { enabled: false },
+      scrollbar: EDITOR_SCROLLBAR,
       scrollBeyondLastLine: false,
-      smoothScrolling: !reducedMotionRef.current,
+      smoothScrolling: false,
       ...behaviorOptions(useSettingsStore.getState().editor),
       renderWhitespace: 'selection',
       padding: { top: 8 },
@@ -111,17 +113,17 @@ export function useMonacoEditor({
       if (diskBarRef.current) return
       if (model && isDirty(model)) void save()
     }
-    const autoSave = createAutoSave(() => saveIfDirty('afterDelay'), AUTO_SAVE_DELAY_MS)
-    const padSave = createAutoSave(() => {
+    const autoSave = debounce(() => saveIfDirty('afterDelay'), AUTO_SAVE_DELAY_MS)
+    const padSave = debounce(() => {
       const model = editor.getModel()
       if (padRef.current && !diskBarRef.current && model && isDirty(model)) void save()
     }, PAD_SAVE_DELAY_MS)
     const measurePad = (): void =>
       setPadFull(padRef.current && exceedsPad(editor.getModel()?.getValue() ?? ''))
     const contentSub = editor.onDidChangeModelContent(() => {
-      if (useSettingsStore.getState().editor.autoSave === 'afterDelay') autoSave.schedule()
+      if (useSettingsStore.getState().editor.autoSave === 'afterDelay') autoSave()
       if (!padRef.current) return
-      padSave.schedule()
+      padSave()
       measurePad()
     })
     const modelSub = editor.onDidChangeModel(measurePad)

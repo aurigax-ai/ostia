@@ -5,7 +5,8 @@ import { isResumableAgent } from '../../shared/agents/agentResume'
 import { managerAgents } from '../../shared/agents/managerSettings'
 import type { ManagerSettings } from '../../shared/agents/managerSettings'
 import type { ChangeSignal } from '../../shared/common/actThenConfirm'
-import type { CommandTarget, TerminalStateSnapshot } from '../../shared/types'
+import type { CommandTarget } from '../../shared/control/commands'
+import type { TerminalStateSnapshot } from '../../shared/terminal/ptyApi'
 import type { Reach } from '../approvals/reach'
 import { registerAttentionMethods, targetOf } from '../attention/attention'
 import type { CommandBridge } from '../control/commandBridge'
@@ -56,6 +57,8 @@ interface AgentWiringDeps {
   managerSettings: () => ManagerSettings
   agentRunning: AgentRunningPanes
   workspaceCommandTarget: (workspaceId: string) => CommandTarget
+  foregroundProgram: (paneId: string) => string | null
+  agentCwd: (paneId: string) => Promise<string | null>
 }
 
 export type AgentWiring = ReturnType<typeof registerAgentWiring>
@@ -82,12 +85,16 @@ export function registerAgentWiring({
   managerSettings,
   agentRunning,
   workspaceCommandTarget,
+  foregroundProgram,
+  agentCwd,
 }: AgentWiringDeps) {
   registerAttentionMethods({ execCommand, reported: (paneId) => keptAttention.reported(paneId) })
   registerAgentWorkMethods(agentWork)
   registerPaneRenameMethods({ execCommand, reach, windowOfWorkspace: workspaceWindowId })
   registerPaneResumeMethods({
     execCommand,
+    foregroundProgram,
+    agentCwd,
     onResume: (identity, resume) => {
       services.telemetry?.count('agents', 'resume')
       paneWaking.end(identity.paneId, 'started')

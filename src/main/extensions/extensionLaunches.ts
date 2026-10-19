@@ -1,4 +1,4 @@
-import { EXTENSION_ID_PATTERN } from '@aurigax-ai/ostia-extension-sdk/manifest/extensionManifest'
+import { EXTENSION_ID_PATTERN } from '@aurigax-ai/ostia-extension-sdk/manifest/manifestFields'
 import { loadJson, saveJson } from '../platform/jsonStore'
 
 const MAX_IDS = 64

@@ -3,6 +3,7 @@ import { join } from 'node:path'
 import { DOM_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
 import { openWorkspace, quitApp, runInTerminal, terminalTab } from './helpers'
 import { type ElectronApplication, type Page, _electron as electron, expect, test } from './test'
+import { viewerGuestText } from './viewerGuest'
 
 async function launch(dataHome: string): Promise<{ app: ElectronApplication; win: Page }> {
   const app = await electron.launch(isolatedLaunch(dataHome))
@@ -105,9 +106,15 @@ test('a CSV artifact opens as a table and a mermaid block in Markdown is drawn a
       win,
       'cp ~/cities.csv ~/plan.md "$OSTIA_ARTIFACTS/" && ostia "$OSTIA_ARTIFACTS/cities.csv"',
     )
-    await expect(win.getByTestId('csv-table')).toBeVisible({ timeout: 20_000 })
-    await win.getByRole('button', { name: 'Edit CSV source' }).click()
-    await expect(win.getByTestId('csv-table')).toHaveCount(0)
+    const viewer = win.locator('[data-testid="file-viewer"]:visible')
+    await expect(viewer).toHaveAttribute('data-view-type', 'csv.table', { timeout: 20_000 })
+    await expect
+      .poll(() => viewerGuestText(app, { viewType: 'csv.table' }), { timeout: 20_000 })
+      .toContain('Hsinchu, East')
+    await viewer.getByRole('button', { name: 'Open With…' }).click()
+    await win.getByRole('radio', { name: 'Text editor' }).click()
+    await win.getByRole('button', { name: 'Open', exact: true }).click()
+    await expect(viewer).toHaveCount(0)
     await expect(win.locator('.monaco-editor:visible .view-lines')).toContainText('Taipei,3')
 
     await terminalTab(win).click()
@@ -123,6 +130,43 @@ test('a CSV artifact opens as a table and a mermaid block in Markdown is drawn a
     const preview = win.locator('.markdown-preview')
     expect(await preview.locator('svg, script').count()).toBe(0)
     expect(await win.title()).not.toBe('ran')
+  } finally {
+    await quitApp(app)
+  }
+})
+
+test('the artifact chip menu draws the unread dot apart from the time', async () => {
+  test.setTimeout(120_000)
+  const dataHome = freshDataHome()
+  seedSettings(dataHome, DOM_RENDERER_SETTINGS)
+  const { app, win } = await launch(dataHome)
+  try {
+    await openWorkspace(win)
+    await run(
+      win,
+      'printf "a" > "$OSTIA_ARTIFACTS/a.md" && printf "b" > "$OSTIA_ARTIFACTS/b.md" && ostia open -b "$OSTIA_ARTIFACTS/a.md" "$OSTIA_ARTIFACTS/b.md"',
+    )
+    const chip = win.getByRole('button', { name: 'Artifacts from this pane' })
+    await expect(chip).toBeVisible({ timeout: 20_000 })
+    await run(win, 'printf "more" >> "$OSTIA_ARTIFACTS/b.md"')
+    await expect(win.getByTestId('artifact-chip-dot')).toBeVisible({ timeout: 15_000 })
+
+    await chip.click()
+    const row = win.getByRole('menuitem').filter({ hasText: 'b.md' })
+    const dot = row.getByRole('img', { name: 'New or changed' })
+    await expect(dot).toBeVisible()
+    const box = await dot.boundingBox()
+    expect(box?.width).toBeGreaterThan(0)
+    expect(box?.height).toBeGreaterThan(0)
+    const gap = await row.locator('[data-slot="context-menu-shortcut"]').evaluate((hint) => {
+      const mark = hint.querySelector('.unread-dot')
+      const time = hint.lastChild
+      if (!mark || !time) return -1
+      const range = document.createRange()
+      range.selectNodeContents(time)
+      return range.getBoundingClientRect().left - mark.getBoundingClientRect().right
+    })
+    expect(gap).toBeGreaterThanOrEqual(4)
   } finally {
     await quitApp(app)
   }

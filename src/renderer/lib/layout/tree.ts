@@ -35,7 +35,6 @@ const SURFACE_TITLE: Record<SurfaceKind, string> = {
   editor: 'untitled',
   agent: 'claude',
   browser: 'localhost',
-  extension: 'Extension',
   diff: 'Diff',
   chat: 'Chat',
   git: 'Git',
@@ -249,9 +248,10 @@ export function slotPaneOfKind(
 
 export function isPaneShown(root: LayoutNode, paneId: string): boolean {
   const tabs = tabsOfPane(root, paneId)
-  return tabs
-    ? tabIndex(tabs, tabs.activeId) === tabIndex(tabs, paneId)
-    : findPane(root, paneId) !== null
+  if (!tabs) return findPane(root, paneId) !== null
+  return (
+    tabIndex(tabs, tabs.activeId) === tabIndex(tabs, paneId) && !findPane(tabs, paneId)?.collapsed
+  )
 }
 
 export function slotIdOf(root: LayoutNode, paneId: string): string | null {

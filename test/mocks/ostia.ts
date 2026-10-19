@@ -1,5 +1,6 @@
 import type { BrowserProfile } from '@shared/browser/browserProfile'
-import type { OstiaBridge, SyncStatus } from '@shared/types'
+import type { SyncStatus } from '@shared/profileSync/profileSync'
+import type { OstiaBridge } from '@shared/types'
 import { vi } from 'vitest'
 
 const SYNC_OFF: SyncStatus = {
@@ -56,6 +57,10 @@ export function makeOstiaMock(overrides?: Partial<OstiaBridge>): OstiaBridge {
       detach: vi.fn(),
       hibernate: vi.fn().mockResolvedValue('hibernated'),
       stashed: vi.fn().mockResolvedValue(null),
+      historyRead: vi.fn().mockResolvedValue(null),
+      historySearch: vi.fn().mockResolvedValue(null),
+      historyBlock: vi.fn().mockResolvedValue(null),
+      blockOutput: vi.fn().mockResolvedValue(null),
       keptWaiting: vi.fn().mockResolvedValue([]),
       restart: vi.fn().mockResolvedValue(true),
       reportAgentRunning: vi.fn(),
@@ -80,6 +85,11 @@ export function makeOstiaMock(overrides?: Partial<OstiaBridge>): OstiaBridge {
     },
     search: {
       run: vi.fn().mockResolvedValue({ ok: false, error: 'failed', message: '' }),
+    },
+    viewers: {
+      open: vi.fn().mockResolvedValue({ ok: false, error: 'unknown-viewer' }),
+      close: vi.fn(),
+      onStopped: vi.fn(() => () => {}),
     },
     fs: {
       list: vi.fn().mockResolvedValue([]),
@@ -221,10 +231,13 @@ export function makeOstiaMock(overrides?: Partial<OstiaBridge>): OstiaBridge {
       regionCapture: vi.fn().mockResolvedValue({ ok: false, error: 'browser-not-ready' }),
       regionSend: vi.fn().mockResolvedValue({ ok: false, error: 'not-found' }),
       regionCopy: vi.fn().mockResolvedValue({ ok: true }),
+      setDevice: vi.fn().mockResolvedValue(true),
+      deviceTouch: vi.fn(),
       storageRead: vi.fn().mockResolvedValue({ ok: false, error: 'browser-not-ready' }),
       storageSet: vi.fn().mockResolvedValue({ ok: true }),
       storageRemove: vi.fn().mockResolvedValue({ ok: true }),
       storageClear: vi.fn().mockResolvedValue({ ok: true }),
+      onOpenTab: vi.fn(noopUnsub),
     },
     selection: {
       send: vi.fn().mockResolvedValue({ ok: false, error: 'not-found' }),
@@ -238,6 +251,8 @@ export function makeOstiaMock(overrides?: Partial<OstiaBridge>): OstiaBridge {
       admit: vi.fn().mockResolvedValue(null),
       openDefault: vi.fn().mockResolvedValue({ ok: false, error: 'not-found' }),
       showInFolder: vi.fn().mockResolvedValue({ ok: false, error: 'not-found' }),
+      fileUrl: vi.fn().mockResolvedValue(null),
+      openFileUrl: vi.fn().mockResolvedValue({ ok: false, error: 'not-found' }),
     },
     clipboard: {
       edit: vi.fn().mockResolvedValue(undefined),
@@ -257,6 +272,8 @@ export function makeOstiaMock(overrides?: Partial<OstiaBridge>): OstiaBridge {
     agentSession: {
       info: vi.fn().mockResolvedValue(null),
       claimResume: vi.fn().mockResolvedValue({ ok: true }),
+      folderTrust: vi.fn().mockResolvedValue({ state: 'trusted' }),
+      trustFolder: vi.fn().mockResolvedValue(true),
     },
     update: {
       state: vi.fn().mockResolvedValue(null),
@@ -280,6 +297,7 @@ export function makeOstiaMock(overrides?: Partial<OstiaBridge>): OstiaBridge {
     system: {
       requirements: vi.fn().mockResolvedValue(null),
       discreteGpu: vi.fn().mockResolvedValue(null),
+      softwareWebgl: false,
       installRequirements: vi.fn().mockResolvedValue({ ok: true }),
     },
     secrets: {
@@ -350,6 +368,8 @@ export function makeOstiaMock(overrides?: Partial<OstiaBridge>): OstiaBridge {
       move: vi.fn().mockResolvedValue({ ok: true, paths: [] }),
       copy: vi.fn().mockResolvedValue({ ok: true, paths: [] }),
       trash: vi.fn().mockResolvedValue({ ok: true, paths: [] }),
+      importDropped: vi.fn().mockResolvedValue({ ok: true, paths: [] }),
+      startDrag: vi.fn(),
     },
     marketplace: {
       list: vi.fn().mockResolvedValue({ marketplaces: [], installed: [] }),
@@ -531,6 +551,7 @@ export function makeOstiaMock(overrides?: Partial<OstiaBridge>): OstiaBridge {
     },
     git: {
       watch: vi.fn(),
+      shown: vi.fn(),
       onItems: vi.fn().mockReturnValue(() => {}),
       onChanged: vi.fn().mockReturnValue(() => {}),
       changes: vi.fn().mockResolvedValue({ ok: false, error: 'not-a-repo' }),

@@ -1,6 +1,8 @@
+import { settleCollapse } from '@/lib/layout/collapse'
 import { equalizeSizes } from '@/lib/layout/panelSize'
 import { closePane, firstPaneId, selectTab, slotCount, tabsOfPane } from '@/lib/layout/tree'
 import type { LayoutNode } from '@/lib/layout/types'
+import { noteActivated } from '@/lib/panes/tabHistory'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import type { LayoutState, WorkspaceLayout } from '@/stores/workspaces/layoutTypes'
 
@@ -16,7 +18,8 @@ export function patch(
   const layout = state.byWorkspace[workspaceId]
   if (!layout) return null
   const next = fn(layout)
-  const selected = selectTab(next.root, next.activePaneId)
+  noteActivated(workspaceId, layout.activePaneId, next.activePaneId)
+  const selected = settleCollapse(selectTab(next.root, next.activePaneId))
   const created = slotCount(selected) > slotCount(layout.root)
   const equalize = created && useSettingsStore.getState().panes.equalizeOnSplit
   const root = equalize ? equalizeSizes(selected) : selected

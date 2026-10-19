@@ -1,9 +1,20 @@
 import { ensureContrast, mix } from '@/lib/theme/color'
 import type { ColorScheme } from '@/lib/theme/types'
-import { converter, formatHex, modeOklch, parse, useMode, wcagContrast } from 'culori/fn'
+import {
+  converter,
+  formatHex,
+  formatHex8,
+  modeOklch,
+  modeRgb,
+  parse,
+  useMode,
+  wcagContrast,
+} from 'culori/fn'
 import type { editor } from 'monaco-editor'
 
+useMode(modeRgb)
 useMode(modeOklch)
+const toRgb = converter('rgb')
 const toOklch = converter('oklch')
 
 export const CODE_CONTRAST = 4.5
@@ -72,10 +83,10 @@ export interface DiffColors {
   removedMark: string
 }
 
-const withAlpha = (hex: string, alpha: number): string =>
-  `${hex}${Math.round(alpha * 255)
-    .toString(16)
-    .padStart(2, '0')}`
+function withAlpha(hex: string, alpha: number): string {
+  const rgb = toRgb(hex)
+  return rgb ? formatHex8({ ...rgb, alpha }) : hex
+}
 
 function keepsContrast(color: string, changed: string, bg: string, target: number): boolean {
   return (
@@ -224,8 +235,6 @@ export function monacoThemeData(scheme: ColorScheme): editor.IStandaloneThemeDat
       'diffEditorOverview.insertedForeground': diff.insertedMark,
       'diffEditorOverview.removedForeground': diff.removedMark,
       'diffEditor.diagonalFill': toward(0.12),
-      'scrollbarSlider.background': `${c.foreground}22`,
-      'scrollbarSlider.hoverBackground': `${c.foreground}44`,
     },
   }
 }

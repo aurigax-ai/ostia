@@ -1,0 +1,15 @@
+{
+  "name": "redaction",
+  "paths": [
+    "src/main/privacy/redaction.",
+    "src/main/privacy/redactionScan.ts",
+    "src/main/privacy/redactionTargets.ts",
+    "src/main/privacy/redactionWorker.ts",
+    "src/main/privacy/secretScanner.ts",
+    "src/renderer/components/settings/PrivacySection.tsx",
+    "src/shared/privacy/redaction."
+  ],
+  "specs": [
+    "e2e/secret-redaction.spec.ts"
+  ]
+}

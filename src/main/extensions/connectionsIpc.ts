@@ -1,7 +1,7 @@
 import type {
   ExtensionConnectionEntry,
   ExtensionConnectionResult,
-} from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
+} from '@aurigax-ai/ostia-extension-sdk/contract/extensionConnections'
 import { type IpcMainInvokeEvent, ipcMain } from 'electron'
 import type { ExtensionConfig } from './extensionConfig'
 

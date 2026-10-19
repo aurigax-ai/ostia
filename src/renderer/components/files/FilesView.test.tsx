@@ -79,6 +79,7 @@ function iconThemeExtension(): ExtensionInfo {
     category: 'other',
     languages: [],
     languageServers: [],
+    fileViewers: [],
     agentSkills: [],
     agentHooks: [],
     iconThemes: [{ id: 'fixture-icons', label: 'Fixture Icons' }],
@@ -171,6 +172,37 @@ describe('FilesView', () => {
       expect(await screen.findByRole('button', { name: 'local.ts' })).toBeInTheDocument()
       expect(window.ostia.remoteFiles.list).toHaveBeenCalledWith(ROOT)
       expect(window.ostia.fs.list).not.toHaveBeenCalledWith(ROOT)
+    })
+
+    it('refuses an OS file dropped on a remote folder or its rows and changes nothing', async () => {
+      seedWorkspace()
+      listReturns([])
+      remoteLists({
+        [ROOT]: [
+          { name: 'conf', dir: true },
+          { name: 'app.conf', dir: false },
+        ],
+      })
+      useRemoteFoldersStore.setState({ folders: [FOLDER] })
+      const { container } = render(<FilesView />)
+      const folderRow = await screen.findByRole('button', { name: 'conf' })
+      const fileRow = screen.getByRole('button', { name: 'app.conf' })
+      const tree = container.querySelector<HTMLElement>('.remote-folder-tree')
+      for (const target of [folderRow, fileRow, tree as HTMLElement]) {
+        const transfer = { types: ['Files'], files: [new File(['x'], 'a.txt')], dropEffect: 'copy' }
+        const over = new Event('dragover', { bubbles: true, cancelable: true })
+        const drop = new Event('drop', { bubbles: true, cancelable: true })
+        Object.defineProperty(over, 'dataTransfer', { value: transfer })
+        Object.defineProperty(drop, 'dataTransfer', { value: transfer })
+        fireEvent(target, over)
+        expect(over.defaultPrevented).toBe(true)
+        expect(transfer.dropEffect).toBe('none')
+        fireEvent(target, drop)
+        expect(drop.defaultPrevented).toBe(true)
+        expect(target).not.toHaveClass('drop-target')
+      }
+      expect(window.ostia.fileOps.importDropped).not.toHaveBeenCalled()
+      expect(window.ostia.files.admitDropped).not.toHaveBeenCalled()
     })
 
     it('shows no remote section for a folder of another workspace', async () => {

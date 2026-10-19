@@ -1,4 +1,3 @@
-import { commands } from '@/commands/registry'
 import { DeckRail } from '@/components/sidebar/DeckRail'
 import { useUIStore } from '@/stores/app/uiStore'
 import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
@@ -13,7 +12,8 @@ import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { renderSettled } from '../../../../test/render'
 import { ExtensionApprovalDialog } from './ExtensionApprovalDialog'
-import { ExtensionPanelView } from './ExtensionPanelView'
+import { ExtensionsPage } from './ExtensionSettingsPage'
+import { ExtensionSidePanel } from './ExtensionSidePanel'
 import { ExtensionsSection } from './InstalledExtensions'
 
 function ext(overrides: Partial<ExtensionInfo>): ExtensionInfo {
@@ -42,6 +42,7 @@ function ext(overrides: Partial<ExtensionInfo>): ExtensionInfo {
     category: 'other',
     languages: [],
     languageServers: [],
+    fileViewers: [],
     agentSkills: [],
     agentHooks: [],
     iconThemes: [],
@@ -82,34 +83,38 @@ describe('Extensions UI', () => {
   })
 
   describe('Settings → Extensions', () => {
-    it('lists each extension with its state and shows the selected one’s status and permissions', async () => {
+    it('lists each extension with an exception badge only where one applies and shows status and permissions in its details', async () => {
       useExtensionsStore.setState({
         list: [ext({ status: 'running', granted: ['notify'] }), pending],
       })
       await renderSettled(<ExtensionsSection />)
-      const section = screen.getByRole('region', { name: 'Extensions' })
-      const list = within(section).getByRole('list', { name: 'Installed extensions' })
-      expect(within(list).getByRole('listitem', { name: 'Demo' })).toHaveTextContent('Enabled')
+      const list = screen.getByRole('list', { name: 'Installed extensions' })
+      expect(within(list).getByRole('listitem', { name: 'Demo' })).not.toHaveTextContent('Enabled')
       expect(within(list).getByRole('listitem', { name: 'Trellis' })).toHaveTextContent(
         'Needs approval',
       )
-      const demo = within(section).getByRole('region', { name: 'Demo' })
+      expect(screen.queryByRole('region', { name: 'Details of Demo' })).toBeNull()
+
+      const user = userEvent.setup()
+      await user.click(screen.getByRole('button', { name: 'Details of Demo' }))
+      const demo = screen.getByRole('region', { name: 'Details of Demo' })
       expect(within(demo).getByText('Running')).toBeInTheDocument()
-      expect(within(demo).getByRole('list', { name: 'Approved' })).toHaveTextContent(
-        'notifyShow notifications',
-      )
+      expect(within(demo).getByText('notify')).toBeInTheDocument()
+      expect(within(demo).getByText('Show notifications')).toBeInTheDocument()
+      expect(within(demo).getByText('Approved')).toBeInTheDocument()
 
-      await userEvent.setup().click(within(list).getByRole('button', { name: 'Trellis' }))
-
-      const trellis = within(section).getByRole('region', { name: 'Trellis' })
+      await user.click(screen.getByRole('button', { name: 'Details of Trellis' }))
+      const trellis = screen.getByRole('region', { name: 'Details of Trellis' })
       expect(within(trellis).getByText('Waiting for your approval')).toBeInTheDocument()
-      expect(within(trellis).getByRole('list', { name: 'Requested' })).toHaveTextContent(
-        'read-boardRead the workspaces and panes you have open',
-      )
-      expect(within(section).queryByRole('region', { name: 'Demo' })).toBeNull()
+      expect(within(trellis).getByText('read-board')).toBeInTheDocument()
+      expect(
+        within(trellis).getByText('Read the workspaces and panes you have open'),
+      ).toBeInTheDocument()
+      expect(within(trellis).getAllByText('Requested')).toHaveLength(2)
+      expect(screen.getByRole('region', { name: 'Details of Demo' })).toBeInTheDocument()
     })
 
-    it('keeps settings forms out of the list and shows the selected one’s form in its details', async () => {
+    it('keeps settings forms out of the list and shows each one’s form in its details', async () => {
       const withSetting = (id: string, name: string, title: string): ExtensionInfo =>
         ext({
           id,
@@ -121,12 +126,10 @@ describe('Extensions UI', () => {
         list: [withSetting('one', 'One', 'First level'), withSetting('two', 'Two', 'Second level')],
       })
       await renderSettled(<ExtensionsSection />)
-      const list = screen.getByRole('list', { name: 'Installed extensions' })
-      expect(within(list).queryByRole('spinbutton')).toBeNull()
-      expect(screen.getByRole('spinbutton', { name: 'First level' })).toBeInTheDocument()
-      expect(screen.queryByRole('spinbutton', { name: 'Second level' })).toBeNull()
+      expect(screen.queryByRole('spinbutton')).toBeNull()
 
-      await userEvent.setup().click(within(list).getByRole('button', { name: 'Two' }))
+      const user = userEvent.setup()
+      await user.click(screen.getByRole('button', { name: 'Details of Two' }))
 
       expect(screen.getByRole('spinbutton', { name: 'Second level' })).toBeInTheDocument()
       expect(screen.queryByRole('spinbutton', { name: 'First level' })).toBeNull()
@@ -134,9 +137,26 @@ describe('Extensions UI', () => {
 
     it('links to Browse extensions', async () => {
       useExtensionsStore.setState({ list: [ext({})] })
-      await renderSettled(<ExtensionsSection />)
+      await renderSettled(<ExtensionsPage anchor={null} />)
       await userEvent.setup().click(screen.getByRole('button', { name: 'Browse extensions' }))
       expect(useUIStore.getState().settingsSection).toBe('browseExtensions')
+    })
+
+    it('omits the Settings group for a disabled assist extension', async () => {
+      useExtensionsStore.setState({
+        list: [
+          ext({ id: 'assistant', name: 'Assistant', assist: ['chat'], enabled: false }),
+          ext({ id: 'other', name: 'Other one' }),
+        ],
+      })
+      await renderSettled(<ExtensionsSection />)
+      const user = userEvent.setup()
+      await user.click(screen.getByRole('button', { name: 'Details of Assistant' }))
+      await user.click(screen.getByRole('button', { name: 'Details of Other one' }))
+      const assistant = screen.getByRole('region', { name: 'Details of Assistant' })
+      expect(within(assistant).queryByRole('heading', { name: 'Settings' })).toBeNull()
+      const other = screen.getByRole('region', { name: 'Details of Other one' })
+      expect(within(other).getByRole('heading', { name: 'Settings' })).toBeInTheDocument()
     })
 
     it('toggling an extension persists through the bridge', async () => {
@@ -160,13 +180,13 @@ describe('Extensions UI', () => {
       })
       await renderSettled(<ExtensionsSection />)
       const user = userEvent.setup()
-      await user.click(screen.getByRole('button', { name: 'Review permissions' }))
+      const [demoRow, trellisRow] = screen.getAllByRole('listitem', { name: /^(Demo|Trellis)$/ })
+      expect(within(trellisRow).getByText('Problem')).toBeInTheDocument()
+      await user.click(within(demoRow).getByRole('button', { name: 'Details of Demo' }))
+      await user.click(within(demoRow).getByRole('button', { name: 'Review permissions' }))
       expect(useExtensionsStore.getState().reviewing).toBe('demo')
-      expect(
-        within(screen.getByRole('listitem', { name: 'Trellis' })).getByText('Problem'),
-      ).toBeInTheDocument()
-      await user.click(screen.getByRole('button', { name: 'Trellis' }))
-      await user.click(screen.getByRole('button', { name: 'Review permissions' }))
+      await user.click(within(trellisRow).getByRole('button', { name: 'Details of Trellis' }))
+      await user.click(within(trellisRow).getByRole('button', { name: 'Review permissions' }))
       expect(useExtensionsStore.getState().reviewing).toBe('trellis')
     })
   })
@@ -316,12 +336,14 @@ describe('Extensions UI', () => {
     })
   })
 
-  describe('ExtensionPanelView', () => {
+  describe('ExtensionSidePanel', () => {
     it('resolves the panel source and renders it in the extension partition', async () => {
       const panel = vi.fn().mockResolvedValue({ ok: true, src: 'http://127.0.0.1:4100/?t=abc' })
       window.ostia.extensions.panel = panel
       useExtensionsStore.setState({ list: [ext({})] })
-      const { container } = render(<ExtensionPanelView extId="demo" workspaceId="s1" paneId="p1" />)
+      const { container } = render(
+        <ExtensionSidePanel extId="demo" workspaceId="s1" focusKey="p1" />,
+      )
 
       await waitFor(() => expect(container.querySelector('webview')).not.toBeNull())
       const webview = container.querySelector('webview') as HTMLElement
@@ -337,44 +359,14 @@ describe('Extensions UI', () => {
         .mockResolvedValueOnce({ ok: true, src: 'http://127.0.0.1:4100/' })
       window.ostia.extensions.panel = panel
       useExtensionsStore.setState({ list: [ext({})] })
-      const { container } = render(<ExtensionPanelView extId="demo" workspaceId="s1" paneId="p1" />)
+      const { container } = render(
+        <ExtensionSidePanel extId="demo" workspaceId="s1" focusKey="p1" />,
+      )
 
       await userEvent.setup().click(await screen.findByRole('button', { name: 'Retry' }))
 
       await waitFor(() => expect(container.querySelector('webview')).not.toBeNull())
       expect(panel).toHaveBeenCalledTimes(2)
-    })
-
-    it('renders no webview for a disabled or missing extension', async () => {
-      const panel = vi.fn()
-      window.ostia.extensions.panel = panel
-      useExtensionsStore.setState({ list: [ext({ enabled: false, status: 'disabled' })] })
-      const { container, rerender } = render(
-        <ExtensionPanelView extId="demo" workspaceId="s1" paneId="p1" />,
-      )
-      expect(
-        screen.getByText('Demo is disabled. Enable it in Settings → Extensions.'),
-      ).toBeVisible()
-      rerender(<ExtensionPanelView extId="gone" workspaceId="s1" paneId="p1" />)
-      expect(screen.getByText('Extension “gone” is not installed.')).toBeVisible()
-      expect(container.querySelector('webview')).toBeNull()
-      expect(panel).not.toHaveBeenCalled()
-    })
-
-    it('says a restored pane’s extension no longer has a panel and offers to close it', async () => {
-      const panel = vi.fn()
-      window.ostia.extensions.panel = panel
-      const exec = vi.spyOn(commands, 'exec').mockResolvedValue({ ok: true, result: undefined })
-      useExtensionsStore.setState({
-        list: [ext({ id: 'assistant', name: 'Assistant', panel: null })],
-      })
-      render(<ExtensionPanelView extId="assistant" workspaceId="s1" paneId="p4" />)
-
-      expect(screen.getByText('Assistant no longer has a panel.')).toBeVisible()
-      await userEvent.setup().click(screen.getByRole('button', { name: 'Close pane' }))
-      expect(exec).toHaveBeenCalledWith('pane.close', { paneId: 'p4' })
-      expect(panel).not.toHaveBeenCalled()
-      exec.mockRestore()
     })
   })
 

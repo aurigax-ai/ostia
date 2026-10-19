@@ -1,12 +1,5 @@
+import { EmptyState } from '@/components/common/EmptyState'
 import { Button } from '@/components/ui/button'
-import {
-  Empty,
-  EmptyContent,
-  EmptyDescription,
-  EmptyHeader,
-  EmptyMedia,
-  EmptyTitle,
-} from '@/components/ui/empty'
 import {
   type ErrorDetails,
   errorDetails,
@@ -44,34 +37,34 @@ export function RecoveryScreen({ error }: { error: ErrorDetails }): JSX.Element 
   }
 
   return (
-    <Empty className="app-recovery" role="alert">
-      <EmptyHeader>
-        <EmptyMedia variant="icon">
-          <WarningIcon aria-hidden />
-        </EmptyMedia>
-        <EmptyTitle className="font-semibold text-fg text-ui-lg">
-          <h1>{d.crash.title}</h1>
-        </EmptyTitle>
-        <EmptyDescription className="text-ui-base">{d.crash.body}</EmptyDescription>
-      </EmptyHeader>
-      <EmptyContent>
-        <pre className="app-recovery-error">{error.message}</pre>
-        <div className="app-recovery-actions">
-          <Button onClick={() => window.ostia.diagnostics.reloadWindow()}>
-            <ArrowClockwiseIcon data-icon="inline-start" aria-hidden />
-            {d.crash.reload}
-          </Button>
-          <Button variant="outline" onClick={copy}>
-            <CopyIcon data-icon="inline-start" aria-hidden />
-            {copied ? d.crash.copied : d.crash.copy}
-          </Button>
-          <Button variant="outline" onClick={() => void window.ostia.diagnostics.openLogFolder()}>
-            <FolderOpenIcon data-icon="inline-start" aria-hidden />
-            {d.crash.openLogs}
-          </Button>
-        </div>
-      </EmptyContent>
-    </Empty>
+    <EmptyState
+      variant="surface"
+      className="app-recovery"
+      role="alert"
+      icon={<WarningIcon aria-hidden />}
+      title={d.crash.title}
+      titleAs="h1"
+      desc={d.crash.body}
+      actions={
+        <>
+          <pre className="app-recovery-error">{error.message}</pre>
+          <div className="app-recovery-actions">
+            <Button onClick={() => window.ostia.diagnostics.reloadWindow()}>
+              <ArrowClockwiseIcon data-icon="inline-start" aria-hidden />
+              {d.crash.reload}
+            </Button>
+            <Button variant="outline" onClick={copy}>
+              <CopyIcon data-icon="inline-start" aria-hidden />
+              {copied ? d.crash.copied : d.crash.copy}
+            </Button>
+            <Button variant="outline" onClick={() => void window.ostia.diagnostics.openLogFolder()}>
+              <FolderOpenIcon data-icon="inline-start" aria-hidden />
+              {d.crash.openLogs}
+            </Button>
+          </div>
+        </>
+      }
+    />
   )
 }
 

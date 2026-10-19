@@ -1,14 +1,18 @@
 import {
   call,
   context,
+  emptyState,
   errorText,
   h,
+  listRow,
   onChange,
+  panelToolbar,
   panelTranslator,
 } from '@aurigax-ai/ostia-extension-sdk/panel'
 import en from './locales/en.json'
 import zhHant from './locales/zh-Hant.json'
 import type { Definition, GraphRow, ListModel, RunModel } from './panelModel'
+import { renderGate } from './renderGate'
 
 const t = panelTranslator({ en: en.messages, 'zh-Hant': zhHant.messages })
 const root = document.getElementById('root') as HTMLElement
@@ -44,26 +48,24 @@ function pretty(value: unknown): HTMLElement {
   return h('div', { class: 'mono' }, JSON.stringify(value, null, 2))
 }
 
-function graphRow(row: GraphRow): HTMLElement {
-  const actions = h(
-    'div',
-    { class: 'actions' },
-    row.state !== 'invalid'
-      ? button(t('action.view'), () => go({ kind: 'definition', name: row.name }))
-      : null,
-    row.state === 'enabled' ? button(t('action.runNow'), () => void runNow(row.name), true) : null,
-    row.state === 'enabled'
-      ? button(t('action.disable'), () => void act('disable', { name: row.name }))
-      : null,
-    button(t('action.runs'), () => go({ kind: 'runs', name: row.name })),
+function fold(label: string, value: unknown): HTMLElement {
+  const body = pretty(value)
+  const details = h(
+    'details',
+    {
+      onToggle: () => body.classList.toggle('motion-reveal', (details as HTMLDetailsElement).open),
+    },
+    h('summary', {}, label),
+    body,
   )
-  return h(
-    'li',
-    { class: 'row', 'data-graph': row.name, 'data-state': row.state },
-    h(
-      'div',
-      { class: 'row-head' },
-      h('span', { class: 'name' }, row.name),
+  return details
+}
+
+function graphRow(row: GraphRow): HTMLElement {
+  return listRow({
+    title: row.name,
+    attrs: { 'data-graph': row.name, 'data-state': row.state },
+    meta: [
       h('span', { class: 'state', 'data-state': row.state }, t(`state.${row.state}`)),
       row.lastRun
         ? h(
@@ -72,27 +74,40 @@ function graphRow(row: GraphRow): HTMLElement {
             t('lastRun', { status: t(`status.${row.lastRun.status}`) }),
           )
         : null,
-    ),
-    row.description ? h('div', { class: 'muted' }, row.description) : null,
-    row.filesRefused
-      ? h('div', { class: 'error', 'data-files-refused': '' }, t('row.filesRefused'))
-      : null,
-    row.skipped
-      ? h(
-          'div',
-          { class: 'muted', 'data-skipped': String(row.skipped) },
-          t('row.skipped', { count: row.skipped }),
-        )
-      : null,
-    row.problem
-      ? h(
-          'div',
-          { class: 'error mono', 'data-problem': row.problem.code },
-          `${row.problem.code}${row.problem.node ? ` (${row.problem.node})` : ''}: ${row.problem.message}`,
-        )
-      : null,
-    actions,
-  )
+    ],
+    detail: [
+      row.description ? h('div', { class: 'muted' }, row.description) : null,
+      row.filesRefused
+        ? h('div', { class: 'error', 'data-files-refused': '' }, t('row.filesRefused'))
+        : null,
+      row.skipped
+        ? h(
+            'div',
+            { class: 'muted', 'data-skipped': String(row.skipped) },
+            t('row.skipped', { count: row.skipped }),
+          )
+        : null,
+      row.problem
+        ? h(
+            'div',
+            { class: 'error mono', 'data-problem': row.problem.code },
+            `${row.problem.code}${row.problem.node ? ` (${row.problem.node})` : ''}: ${row.problem.message}`,
+          )
+        : null,
+    ].filter((el): el is HTMLElement => el !== null),
+    actions: [
+      row.state !== 'invalid'
+        ? button(t('action.view'), () => go({ kind: 'definition', name: row.name }))
+        : null,
+      row.state === 'enabled'
+        ? button(t('action.runNow'), () => void runNow(row.name), true)
+        : null,
+      row.state === 'enabled'
+        ? button(t('action.disable'), () => void act('disable', { name: row.name }))
+        : null,
+      button(t('action.runs'), () => go({ kind: 'runs', name: row.name })),
+    ].filter((el): el is HTMLElement => el !== null),
+  })
 }
 
 async function runNow(name: string): Promise<void> {
@@ -110,15 +125,9 @@ async function listView(): Promise<HTMLElement[]> {
   if (!res.ok) return [h('p', { class: 'error' }, t('error', { error: errorText(res) }))]
   const model = res.data as ListModel
   if (model.scratch)
-    return [h('p', { class: 'muted', 'data-empty': 'scratch' }, t('empty.scratch'))]
+    return [emptyState(t('empty.scratch.title'), undefined, { 'data-empty': 'scratch' })]
   if (model.graphs.length === 0) {
-    return [
-      h(
-        'p',
-        { class: 'muted', 'data-empty': 'folder' },
-        t('empty.folder', { folder: model.folder }),
-      ),
-    ]
+    return [emptyState(t('empty.folder.title'), undefined, { 'data-empty': 'folder' })]
   }
   return [h('ul', { class: 'rows' }, ...model.graphs.map(graphRow))]
 }
@@ -239,7 +248,12 @@ async function runsView(name: string): Promise<HTMLElement[]> {
   const res = await call('runs', { workspaceId: context.workspaceId, name })
   if (!res.ok) return [h('p', { class: 'error' }, t('error', { error: errorText(res) }))]
   const runs = res.data as { runId: string; status: string; steps: number }[]
-  if (runs.length === 0) return [h('p', { class: 'muted', 'data-empty': 'runs' }, t('runs.none'))]
+  if (runs.length === 0)
+    return [
+      emptyState(t('empty.runs'), undefined, {
+        'data-empty': 'runs',
+      }),
+    ]
   return [
     h(
       'ul',
@@ -324,43 +338,67 @@ async function runView(runId: string): Promise<HTMLElement[]> {
               )
             : null,
           n.error ? h('div', { class: 'error mono' }, `${n.error.name}: ${n.error.message}`) : null,
-          h('details', {}, h('summary', {}, t('node.input')), pretty(n.input)),
-          n.output ? h('details', {}, h('summary', {}, t('node.output')), pretty(n.output)) : null,
-          n.wait ? h('details', {}, h('summary', {}, t('node.wait')), pretty(n.wait)) : null,
-          n.stateAfter
-            ? h('details', {}, h('summary', {}, t('node.state')), pretty(n.stateAfter))
-            : null,
+          fold(t('node.input'), n.input),
+          n.output ? fold(t('node.output'), n.output) : null,
+          n.wait ? fold(t('node.wait'), n.wait) : null,
+          n.stateAfter ? fold(t('node.state'), n.stateAfter) : null,
         )
       }),
     ),
   ]
 }
 
+async function runtimeNote(): Promise<HTMLElement | null> {
+  const res = await call('runtime', {})
+  const runtime = (res.ok ? res.data : { state: 'failed', message: errorText(res) }) as {
+    state: string
+    daemon?: boolean
+    version?: string
+    message?: string
+  }
+  if (runtime.state === 'ready') return null
+  if (runtime.state === 'other-contract')
+    return h(
+      'p',
+      { class: 'error', role: 'alert', 'data-runtime': 'other-contract' },
+      t('runtime.otherContract', { version: runtime.version ?? '?' }),
+    )
+  if (runtime.state === 'connecting')
+    return h('p', { class: 'note muted', 'data-runtime': 'connecting' }, t('runtime.connecting'))
+  return h(
+    'p',
+    { class: 'error', role: 'alert', 'data-runtime': 'failed' },
+    t('runtime.unreachable', { message: runtime.message ?? '' }),
+  )
+}
+
+const gate = renderGate<View>()
+
 async function render(): Promise<void> {
+  const mine = gate.begin()
+  const shown = view
   const body =
-    view.kind === 'list'
+    shown.kind === 'list'
       ? await listView()
-      : view.kind === 'definition'
-        ? await definitionView(view.name)
-        : view.kind === 'runs'
-          ? await runsView(view.name)
-          : await runView(view.runId)
-  const back = view.kind === 'list' ? null : button(t('action.back'), () => go({ kind: 'list' }))
+      : shown.kind === 'definition'
+        ? await definitionView(shown.name)
+        : shown.kind === 'runs'
+          ? await runsView(shown.name)
+          : await runView(shown.runId)
+  const note = await runtimeNote()
+  if (!gate.mayPaint(mine, shown, view)) return
+  const back = shown.kind !== 'list'
   root.replaceChildren(
     h(
       'div',
       { class: 'page' },
-      h(
-        'header',
-        { class: 'toolbar' },
-        back,
-        h('h1', { class: 'title' }, t('title')),
-        h('div', { class: 'spacer' }),
+      panelToolbar(
+        back ? { back: { label: t('action.back'), onClick: () => go({ kind: 'list' }) } } : {},
       ),
       h(
         'main',
         { class: 'body' },
-        h('p', { class: 'note muted' }, t('runsWhileOpen')),
+        note,
         problem ? h('p', { class: 'error', role: 'alert' }, problem) : null,
         ...body,
       ),

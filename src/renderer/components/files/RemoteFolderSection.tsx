@@ -10,6 +10,7 @@ import { ArrowClockwiseIcon, CaretRightIcon, XIcon } from '@phosphor-icons/react
 import { useState } from 'react'
 import { FileTree } from './FileTree'
 import { type TreeFocus, useTreeContext } from './fileTreeContext'
+import { useFolderDrop } from './fileTreeRows'
 
 export function RemoteFolderSection({
   folder,
@@ -23,6 +24,7 @@ export function RemoteFolderSection({
   const [generation, setGeneration] = useState(0)
   const root = remotePath(folder.id, folder.root)
   const tree = useTreeContext(focus, root)
+  const { over: _over, ...refusedDrop } = useFolderDrop(root, tree)
   return (
     <section className="remote-folder" data-testid="remote-folder" data-host={folder.host}>
       <div className="remote-folder-head">
@@ -33,7 +35,7 @@ export function RemoteFolderSection({
           aria-label={fmt(d.remoteFolders.collapse, { host: folder.host })}
           onClick={() => setOpen((o) => !o)}
         >
-          <CaretRightIcon size={12} className={`file-twisty${open ? ' open' : ''}`} />
+          <CaretRightIcon size={16} className={`file-twisty${open ? ' open' : ''}`} />
           <Badge variant="outline" className="remote-folder-badge">
             {d.remoteFolders.badge}
           </Badge>
@@ -54,7 +56,7 @@ export function RemoteFolderSection({
         <div className="remote-folder-path">{folder.root}</div>
       </Hint>
       {open ? (
-        <div className="file-tree remote-folder-tree">
+        <div className="file-tree remote-folder-tree" {...refusedDrop}>
           <FileTree key={`${root}#${generation}`} path={root} depth={0} tree={tree} />
         </div>
       ) : null}

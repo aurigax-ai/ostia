@@ -8,19 +8,20 @@ import {
 import { removeScript } from '../control/idRegistry'
 import { fromAppWindow } from '../platform/appWindowSender'
 import type { ReachListing } from './reach'
-import type { ScriptTokenUsageLog, UsageLookups } from './scriptTokenUsage'
+import { type PresenceRequest, checkUserPresence } from './scriptTokenConfirm'
 import {
-  type PresenceRequest,
-  checkUserPresence,
   confirmStillNever,
-  createScriptToken,
-  findScriptToken,
-  listScriptTokens,
   parseTokenChanges,
   parseTokenRequest,
   regenerates,
   resolveScope,
-  retiredScriptTokens,
+} from './scriptTokenRequests'
+import { retiredScriptTokens } from './scriptTokenRetired'
+import type { ScriptTokenUsageLog, UsageLookups } from './scriptTokenUsage'
+import {
+  createScriptToken,
+  findScriptToken,
+  listScriptTokens,
   revokeScriptToken,
   scriptTokenUsage,
   updateScriptToken,

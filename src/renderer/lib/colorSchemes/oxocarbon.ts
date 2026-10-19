@@ -1,0 +1,31 @@
+import type { ColorScheme } from '@/lib/theme/types'
+
+export const oxocarbon: ColorScheme = {
+  id: 'oxocarbon',
+  name: 'Oxocarbon',
+  appearance: 'dark',
+  colors: {
+    background: '#161616',
+    foreground: '#f2f4f8',
+    cursor: '#ffffff',
+    cursorAccent: '#000000',
+    selectionBackground: '#393939',
+    selectionForeground: '#f2f4f8',
+    black: '#161616',
+    red: '#00dfdb',
+    green: '#00b4ff',
+    yellow: '#ff4297',
+    blue: '#00c15a',
+    magenta: '#c693ff',
+    cyan: '#ff74b8',
+    white: '#f2f4f8',
+    brightBlack: '#585858',
+    brightRed: '#00dfdb',
+    brightGreen: '#00b4ff',
+    brightYellow: '#ff4297',
+    brightBlue: '#00c15a',
+    brightMagenta: '#c693ff',
+    brightCyan: '#ff74b8',
+    brightWhite: '#f2f4f8',
+  },
+}

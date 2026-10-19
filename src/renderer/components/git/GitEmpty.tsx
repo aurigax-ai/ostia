@@ -1,4 +1,4 @@
-import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from '../ui/empty'
+import { EmptyState } from '@/components/common/EmptyState'
 
 export function GitEmpty({
   title,
@@ -6,17 +6,15 @@ export function GitEmpty({
   tone = 'muted',
 }: { title: string; hint?: string; tone?: 'muted' | 'error' }): JSX.Element {
   return (
-    <Empty className={`empty ${tone}`} role={tone === 'error' ? 'alert' : 'status'}>
-      <EmptyHeader>
-        <EmptyTitle
-          className={`font-medium text-ui-base tracking-normal ${tone === 'error' ? 'text-attn-fg' : 'text-fg'}`}
-        >
-          {title}
-        </EmptyTitle>
-        {hint ? (
-          <EmptyDescription className="text-fg-muted text-ui-sm">{hint}</EmptyDescription>
-        ) : null}
-      </EmptyHeader>
-    </Empty>
+    <EmptyState
+      variant="surface"
+      size="sm"
+      className={`empty ${tone}`}
+      role={tone === 'error' ? 'alert' : 'status'}
+      title={title}
+      titleClassName={`font-medium tracking-normal ${tone === 'error' ? 'text-attn-fg' : 'text-fg'}`}
+      desc={hint}
+      descClassName="text-fg-muted"
+    />
   )
 }

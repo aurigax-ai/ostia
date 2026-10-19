@@ -1,10 +1,13 @@
 import { MenuItem } from '@/components/common/Menu'
 import { SplitButton, SplitButtonMenu } from '@/components/common/SplitButton'
 import { Button } from '@/components/ui/button'
+import { useCopied } from '@/lib/app/useCopied'
 import { fmt, useDict } from '@/lib/app/useDict'
 import { useArtifactListing } from '@/lib/files/artifacts'
+import { viewerOptions } from '@/lib/files/viewerChoice'
 import { previewTheme } from '@/lib/theme/previewTheme'
 import { useSandboxStore } from '@/stores/app/sandboxStore'
+import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
 import { isRemotePath } from '@aurigax-ai/ostia-extension-sdk/contract/remoteFolders'
 import { WarningIcon } from '@phosphor-icons/react'
 import type { Dict } from '@shared/app/dict'
@@ -14,22 +17,26 @@ import {
   portableType,
   runsScripts,
 } from '@shared/artifacts/portable'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { portableDocument } from './portableDocuments'
-
-const COPIED_MS = 2_000
 
 function problemOf(d: Dict, result: PortableResult): string | null {
   if (result.ok || result.reason === 'cancelled') return null
   if (result.reason === 'not-built')
     return fmt(d.portable.notBuilt, { message: result.message ?? '' })
   if (result.reason === 'too-large') return d.portable.tooLarge
+  if (result.reason === 'no-tables') return d.portable.openFirst
   if (result.reason === 'sandboxed') return d.portable.sandboxed
   return fmt(d.portable.failed, { message: result.message ?? result.reason })
 }
 
-function canTakeOut(filePath: string, sandboxed: boolean, artifactDir: string | null): boolean {
-  const type = portableType(filePath)
+function canTakeOut(
+  filePath: string,
+  viewed: boolean,
+  sandboxed: boolean,
+  artifactDir: string | null,
+): boolean {
+  const type = portableType(filePath) ?? (viewed ? 'tables' : null)
   if (type === null || isRemotePath(filePath) || !artifactDir) return false
   if (!filePath.startsWith(`${artifactDir}/`)) return false
   return !(runsScripts(type) && sandboxed)
@@ -39,27 +46,20 @@ export function usePortableFile(workspaceId: string, filePath: string) {
   const d = useDict()
   const sandboxed = useSandboxStore((s) => s.enabled[workspaceId] ?? false)
   const artifactDir = useArtifactListing(workspaceId)?.dir ?? null
+  const viewed = useExtensionsStore((s) => viewerOptions(filePath, s.list).length > 0)
   const [problem, setProblem] = useState<string | null>(null)
-  const [copied, setCopied] = useState(false)
-  const copiedTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const [copied, markCopied] = useCopied()
 
   useEffect(() => {
     void useSandboxStore.getState().load(workspaceId)
   }, [workspaceId])
-
-  useEffect(
-    () => () => {
-      if (copiedTimer.current) clearTimeout(copiedTimer.current)
-    },
-    [],
-  )
 
   const run = async (action: PortableAction): Promise<void> => {
     setProblem(null)
     const theme = previewTheme()
     const type = portableType(filePath)
     let document: Awaited<ReturnType<typeof portableDocument>>
-    if (type === 'markdown' || type === 'csv') {
+    if (type === 'markdown') {
       const read = await window.ostia.fs.read(filePath)
       if (!read.ok) {
         setProblem(fmt(d.portable.failed, { message: read.error }))
@@ -74,14 +74,10 @@ export function usePortableFile(workspaceId: string, filePath: string) {
       ...(document ? { document } : {}),
     })
     setProblem(problemOf(d, result))
-    if (result.ok && action === 'copy') {
-      setCopied(true)
-      if (copiedTimer.current) clearTimeout(copiedTimer.current)
-      copiedTimer.current = setTimeout(() => setCopied(false), COPIED_MS)
-    }
+    if (result.ok && action === 'copy') markCopied()
   }
 
-  return { shown: canTakeOut(filePath, sandboxed, artifactDir), run, problem, copied }
+  return { shown: canTakeOut(filePath, viewed, sandboxed, artifactDir), run, problem, copied }
 }
 
 export function PortableProblem({ problem }: { problem: string | null }): JSX.Element | null {
@@ -92,7 +88,7 @@ export function PortableProblem({ problem }: { problem: string | null }): JSX.El
       data-testid="portable-problem"
       className="portable-problem text-warn-fg text-ui-xs"
     >
-      <WarningIcon aria-hidden />
+      <WarningIcon size={16} aria-hidden />
       <span className="truncate">{problem}</span>
     </span>
   )

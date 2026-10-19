@@ -1,0 +1,28 @@
+{
+  "name": "workspaces",
+  "paths": [
+    "src/main/workspaces/scratchFolders.ts",
+    "src/main/workspaces/workspaceMerge.ts",
+    "src/renderer/components/settings/WorkspacesSection.tsx",
+    "src/renderer/components/sidebar/MergeConfirmDialog.tsx",
+    "src/renderer/components/sidebar/MergeMenuItems.tsx",
+    "src/renderer/components/sidebar/MergeWorkspaces.test.tsx",
+    "src/renderer/lib/panes/scratchPanes.ts",
+    "src/renderer/lib/sidebar/groupPeers.ts",
+    "src/renderer/lib/sidebar/workspaceGroups.ts",
+    "src/renderer/lib/workspaces/codeName.ts",
+    "src/renderer/lib/workspaces/mergeEligibility.",
+    "src/renderer/lib/workspaces/mergeRefusalText.ts",
+    "src/renderer/lib/workspaces/newWorkspace.ts",
+    "src/renderer/lib/workspaces/workspaceMerge.ts",
+    "src/renderer/lib/workspaces/workspaceProjects.ts",
+    "src/renderer/stores/agents/agentGroupsStore.ts",
+    "src/renderer/stores/workspaces/mergeConfirmStore.ts",
+    "src/shared/workspaces/workspaceGroups.ts"
+  ],
+  "specs": [
+    "e2e/scratch-workspace.spec.ts",
+    "e2e/workspace-groups.spec.ts",
+    "e2e/workspace-open.spec.ts"
+  ]
+}

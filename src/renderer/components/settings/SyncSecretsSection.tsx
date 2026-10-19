@@ -1,3 +1,6 @@
+import { Notice } from '@/components/common/Notice'
+import { ControlRow } from '@/components/settingsKit/ControlRow'
+import { SettingsPage } from '@/components/settingsKit/SettingsPage'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -13,10 +16,8 @@ import { Input } from '@/components/ui/input'
 import { Switch } from '@/components/ui/switch'
 import { useDict } from '@/lib/app/useDict'
 import type { Dict } from '@shared/app/dict'
-import type { SecretActionResult, SyncStatus } from '@shared/types'
+import type { SecretActionResult, SyncStatus } from '@shared/profileSync/profileSync'
 import { useState } from 'react'
-import { ControlRow, WarningNote } from './ControlRow'
-import { SectionHead } from './SettingsGroup'
 
 type Form = 'unlock' | 'recover' | 'change' | 'reset' | null
 type Confirming = 'remove' | 'reset' | null
@@ -111,6 +112,76 @@ function PasswordFields({
   )
 }
 
+function SecretsConfirmDialog({
+  confirming,
+  onClose,
+  onConfirm,
+}: {
+  confirming: Confirming
+  onClose: () => void
+  onConfirm: () => void
+}): JSX.Element {
+  const t = useDict().sync.secrets
+  return (
+    <AlertDialog
+      open={confirming !== null}
+      onOpenChange={(open) => {
+        if (!open) onClose()
+      }}
+    >
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>
+            {confirming === 'remove' ? t.removeTitle : t.resetTitle}
+          </AlertDialogTitle>
+          <AlertDialogDescription>
+            {confirming === 'remove' ? t.removeBody : t.resetBody}
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel size="sm">{t.cancel}</AlertDialogCancel>
+          <AlertDialogAction size="sm" variant="destructive" onClick={onConfirm}>
+            {confirming === 'remove' ? t.remove : t.reset}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  )
+}
+
+function RecoveryKeyDialog({
+  recoveryKey,
+  onClose,
+}: {
+  recoveryKey: string | null
+  onClose: () => void
+}): JSX.Element {
+  const t = useDict().sync.secrets
+  return (
+    <AlertDialog
+      open={recoveryKey !== null}
+      onOpenChange={(open) => {
+        if (!open) onClose()
+      }}
+    >
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>{t.recoveryTitle}</AlertDialogTitle>
+          <AlertDialogDescription>{t.recoveryBody}</AlertDialogDescription>
+        </AlertDialogHeader>
+        <output className="select-text break-all font-mono text-fg text-ui-base">
+          {recoveryKey}
+        </output>
+        <AlertDialogFooter>
+          <AlertDialogAction size="sm" onClick={() => onClose()}>
+            {t.recoverySaved}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  )
+}
+
 export function SyncSecretsSection({
   status,
   onStatus,
@@ -139,154 +210,113 @@ export function SyncSecretsSection({
   const shownForm: Form = state === 'locked' && form === null ? 'unlock' : form
 
   return (
-    <section aria-label={t.title} className="mt-4">
-      <SectionHead title={t.title} desc={t.desc} />
-      <ControlRow label={t.toggle} desc={t.toggleDesc}>
-        <Switch
-          aria-label={t.toggle}
-          checked={state !== 'off'}
-          onCheckedChange={(on) => void act(on ? api.enable() : api.disable())}
-        />
-      </ControlRow>
-      {state === 'needs-setup' ? (
-        <ControlRow label={t.setupTitle} desc={t.setupDesc}>
-          <PasswordFields
-            d={d}
-            label={t.setupTitle}
-            withConfirm
-            submit={t.setup}
-            onSubmit={(f) => void act(api.setup(f.password, f.confirm))}
+    <div className="mt-4">
+      <SettingsPage title={t.title} desc={t.desc}>
+        <ControlRow label={t.toggle} desc={t.toggleDesc}>
+          <Switch
+            aria-label={t.toggle}
+            checked={state !== 'off'}
+            onCheckedChange={(on) => void act(on ? api.enable() : api.disable())}
           />
         </ControlRow>
-      ) : null}
-      {state === 'locked' || state === 'damaged' ? (
-        <WarningNote
-          actions={
-            <>
-              {state === 'locked' ? (
-                <Button variant="ghost" size="sm" onClick={() => setForm('recover')}>
-                  {t.useRecoveryKey}
-                </Button>
-              ) : null}
-              <Button variant="ghost" size="sm" onClick={() => setConfirming('reset')}>
-                {t.reset}
-              </Button>
-            </>
-          }
-        >
-          {state === 'locked' ? t.locked : t.damaged}
-        </WarningNote>
-      ) : null}
-      {shownForm === 'unlock' && state === 'locked' ? (
-        <PasswordFields
-          d={d}
-          label={t.unlockTitle}
-          withConfirm={false}
-          submit={t.unlock}
-          onSubmit={(f) => void act(api.unlock(f.password))}
-        />
-      ) : null}
-      {shownForm === 'recover' ? (
-        <PasswordFields
-          d={d}
-          label={t.recoverTitle}
-          withConfirm
-          withRecoveryKey
-          submit={t.recover}
-          onSubmit={(f) => void act(api.recover(f.recoveryKey, f.password, f.confirm))}
-        />
-      ) : null}
-      {shownForm === 'reset' ? (
-        <PasswordFields
-          d={d}
-          label={t.resetTitle}
-          withConfirm
-          submit={t.reset}
-          onSubmit={(f) => void act(api.reset(f.password, f.confirm))}
-        />
-      ) : null}
-      {state === 'unlocked' ? (
-        <>
-          <ControlRow label={t.logins} desc={t.loginsDesc}>
-            <Switch
-              aria-label={t.logins}
-              checked={status.secrets.logins}
-              onCheckedChange={(on) => void act(api.setLogins(on))}
+        {state === 'needs-setup' ? (
+          <ControlRow label={t.setupTitle} desc={t.setupDesc}>
+            <PasswordFields
+              d={d}
+              label={t.setupTitle}
+              withConfirm
+              submit={t.setup}
+              onSubmit={(f) => void act(api.setup(f.password, f.confirm))}
             />
           </ControlRow>
-          <ControlRow label={t.passwordRow}>
-            <Button variant="outline" size="sm" onClick={() => setForm('change')}>
-              {t.change}
-            </Button>
-            <Button variant="ghost" size="sm" onClick={() => setConfirming('remove')}>
-              {t.remove}
-            </Button>
-          </ControlRow>
-        </>
-      ) : null}
-      {shownForm === 'change' && state === 'unlocked' ? (
-        <PasswordFields
-          d={d}
-          label={t.changeTitle}
-          withConfirm
-          submit={t.change}
-          onSubmit={(f) => void act(api.changePassword(f.password, f.confirm))}
+        ) : null}
+        {state === 'locked' || state === 'damaged' ? (
+          <Notice
+            actions={
+              <>
+                {state === 'locked' ? (
+                  <Button variant="ghost" size="sm" onClick={() => setForm('recover')}>
+                    {t.useRecoveryKey}
+                  </Button>
+                ) : null}
+                <Button variant="ghost" size="sm" onClick={() => setConfirming('reset')}>
+                  {t.reset}
+                </Button>
+              </>
+            }
+          >
+            {state === 'locked' ? t.locked : t.damaged}
+          </Notice>
+        ) : null}
+        {shownForm === 'unlock' && state === 'locked' ? (
+          <PasswordFields
+            d={d}
+            label={t.unlockTitle}
+            withConfirm={false}
+            submit={t.unlock}
+            onSubmit={(f) => void act(api.unlock(f.password))}
+          />
+        ) : null}
+        {shownForm === 'recover' ? (
+          <PasswordFields
+            d={d}
+            label={t.recoverTitle}
+            withConfirm
+            withRecoveryKey
+            submit={t.recover}
+            onSubmit={(f) => void act(api.recover(f.recoveryKey, f.password, f.confirm))}
+          />
+        ) : null}
+        {shownForm === 'reset' ? (
+          <PasswordFields
+            d={d}
+            label={t.resetTitle}
+            withConfirm
+            submit={t.reset}
+            onSubmit={(f) => void act(api.reset(f.password, f.confirm))}
+          />
+        ) : null}
+        {state === 'unlocked' ? (
+          <>
+            <ControlRow label={t.logins} desc={t.loginsDesc}>
+              <Switch
+                aria-label={t.logins}
+                checked={status.secrets.logins}
+                onCheckedChange={(on) => void act(api.setLogins(on))}
+              />
+            </ControlRow>
+            <ControlRow label={t.passwordRow}>
+              <Button variant="outline" size="sm" onClick={() => setForm('change')}>
+                {t.change}
+              </Button>
+              <Button variant="ghost" size="sm" onClick={() => setConfirming('remove')}>
+                {t.remove}
+              </Button>
+            </ControlRow>
+          </>
+        ) : null}
+        {shownForm === 'change' && state === 'unlocked' ? (
+          <PasswordFields
+            d={d}
+            label={t.changeTitle}
+            withConfirm
+            submit={t.change}
+            onSubmit={(f) => void act(api.changePassword(f.password, f.confirm))}
+          />
+        ) : null}
+        {error ? <Notice>{error}</Notice> : null}
+        <SecretsConfirmDialog
+          confirming={confirming}
+          onClose={() => setConfirming(null)}
+          onConfirm={() => {
+            const which = confirming
+            setConfirming(null)
+            if (which === 'remove') void act(api.remove())
+            else setForm('reset')
+          }}
         />
-      ) : null}
-      {error ? <WarningNote>{error}</WarningNote> : null}
-      <AlertDialog
-        open={confirming !== null}
-        onOpenChange={(open) => {
-          if (!open) setConfirming(null)
-        }}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>
-              {confirming === 'remove' ? t.removeTitle : t.resetTitle}
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              {confirming === 'remove' ? t.removeBody : t.resetBody}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel size="sm">{t.cancel}</AlertDialogCancel>
-            <AlertDialogAction
-              size="sm"
-              variant="destructive"
-              onClick={() => {
-                const which = confirming
-                setConfirming(null)
-                if (which === 'remove') void act(api.remove())
-                else setForm('reset')
-              }}
-            >
-              {confirming === 'remove' ? t.remove : t.reset}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-      <AlertDialog
-        open={recoveryKey !== null}
-        onOpenChange={(open) => {
-          if (!open) setRecoveryKey(null)
-        }}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>{t.recoveryTitle}</AlertDialogTitle>
-            <AlertDialogDescription>{t.recoveryBody}</AlertDialogDescription>
-          </AlertDialogHeader>
-          <output className="select-text break-all font-mono text-fg text-ui-base">
-            {recoveryKey}
-          </output>
-          <AlertDialogFooter>
-            <AlertDialogAction size="sm" onClick={() => setRecoveryKey(null)}>
-              {t.recoverySaved}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-    </section>
+        <RecoveryKeyDialog recoveryKey={recoveryKey} onClose={() => setRecoveryKey(null)} />
+      </SettingsPage>
+    </div>
   )
 }

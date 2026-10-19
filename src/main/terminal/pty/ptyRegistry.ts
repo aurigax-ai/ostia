@@ -5,10 +5,12 @@ import type { AppLog } from '../../diagnostics/appLog'
 import type { OpenWaits } from '../../files/openWaits'
 import type { PaneProcess } from '../../panes/paneProcess'
 import type { ProcessRegistry } from '../../panes/processRegistry'
-import type { PortBridge } from '../../sandbox/portBridge'
+import type { PortBridge } from '../../sandbox/ports/portBridge'
 import type { KeptAttention } from '../../tmux/keptAttention'
 import type { KeptMeta } from '../../tmux/keptShells'
-import type { TmuxPane } from '../../tmux/tmuxServer'
+import type { TmuxPane } from '../../tmux/tmuxPane'
+import { SPILL_BACKLOG, type SpillPressure } from '../history/historyFeed'
+import type { PaneHistories } from '../history/paneHistories'
 import { markNonceFileFor } from '../markNonce'
 import { PtyFlowControl } from '../ptyFlow'
 import { PtySession } from '../ptySession'
@@ -55,6 +57,18 @@ function pausePty(entry: PtyEntry, paused: boolean): void {
   } catch {}
 }
 
+const HISTORY_LANE = 'history'
+
+function spillPressure(flow: PtyFlowControl, pty: PaneProcess): SpillPressure {
+  const lane = flow.open(HISTORY_LANE, () => true, SPILL_BACKLOG)
+  return {
+    canPause: typeof pty.pause === 'function',
+    hold: (chars) => lane.sent(chars),
+    release: (chars) => flow.ack(HISTORY_LANE, chars),
+    close: () => lane.close(),
+  }
+}
+
 interface PtyRegistryDeps {
   ptys: Map<string, PtyEntry>
   movingPanes: Set<string>
@@ -67,6 +81,7 @@ interface PtyRegistryDeps {
   keptAttention: KeptAttention
   processes: () => ProcessRegistry | null
   appLog: () => AppLog | null
+  histories: () => PaneHistories | null
 }
 
 export type PtyRegistry = ReturnType<typeof createPtyRegistry>
@@ -96,6 +111,7 @@ export function createPtyRegistry({
   keptAttention,
   processes,
   appLog,
+  histories,
 }: PtyRegistryDeps) {
   let ptyModule: typeof import('node-pty') | null | undefined
 
@@ -182,15 +198,17 @@ export function createPtyRegistry({
         }
       },
     })
+    const flow = new PtyFlowControl({
+      pause: () => pausePty(entry, true),
+      resume: () => pausePty(entry, false),
+    })
+    const feed = histories()?.feedFor(paneId, opts.cols, opts.rows, spillPressure(flow, pty))
     const entry: PtyEntry = {
       paneId,
       pty,
       session,
-      flow: new PtyFlowControl({
-        pause: () => pausePty(entry, true),
-        resume: () => pausePty(entry, false),
-      }),
-      mirror: new ScreenMirror(opts.cols, opts.rows),
+      flow,
+      mirror: new ScreenMirror(opts.cols, opts.rows, feed ?? null),
       subs: opts.subs,
       killTimer: null,
       spawnPath: opts.spawnPath,

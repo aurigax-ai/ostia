@@ -1,4 +1,5 @@
 import {
+  type ExtensionCaller,
   type ExtensionResult,
   type OstiaExtension,
   failure,
@@ -7,53 +8,52 @@ import {
 } from '@aurigax-ai/ostia-extension-sdk'
 import { isRecordId } from './hookEvent'
 import type { Journal } from './journal'
-import { type OpenPane, type OpenWorkspace, panelModel } from './view'
+import type { OpenListing } from './openListing'
+import { type PanelSnapshot, panelModel } from './view'
 
 export const SHOW_ACTIVITY = 'showActivity'
-
-function listedPanes(raw: unknown): OpenPane[] {
-  if (!Array.isArray(raw)) return []
-  return raw
-    .filter((p): p is OpenPane => typeof p?.paneId === 'string')
-    .map((p) =>
-      typeof p.agentState === 'string'
-        ? { paneId: p.paneId, agentState: p.agentState }
-        : { paneId: p.paneId },
-    )
-}
 
 interface PanelCommandsDeps {
   ext: OstiaExtension
   journal: Journal
+  hostJournal: Journal
   state: { showActivity: boolean }
   settingsLoaded: Promise<void>
-  refreshWorkspaces: () => Promise<OpenWorkspace[] | null>
+  listing: OpenListing
   changed: () => void
 }
 
-export function activityPanelCommands(
-  deps: PanelCommandsDeps,
-): Record<string, (args: unknown) => Promise<ExtensionResult>> {
-  const { ext, journal, state, settingsLoaded, refreshWorkspaces, changed } = deps
-  const snapshot = async (): Promise<ExtensionResult> => {
+export type PanelCommand = (args: unknown, caller: ExtensionCaller) => Promise<ExtensionResult>
+
+export function activityPanelCommands(deps: PanelCommandsDeps): Record<string, PanelCommand> {
+  const { ext, journal, hostJournal, state, settingsLoaded, listing, changed } = deps
+  const snapshot = async (args: unknown, caller: ExtensionCaller): Promise<ExtensionResult> => {
     await settingsLoaded
-    const open = await refreshWorkspaces()
-    if (!open) return failure('unavailable')
-    let panes: OpenPane[]
-    try {
-      panes = listedPanes(await ext.listPanes())
-    } catch {
-      return failure('unavailable')
+    const workspaceId = caller.workspaceId ?? ''
+    const listed = await listing.read(workspaceId)
+    if (!listed) return failure('unavailable')
+    const workspace = listed.workspaces.find((w) => w.workspaceId === workspaceId)
+    const rev = [
+      state.showActivity ? 1 : 0,
+      workspace ? 1 : 0,
+      listed.rev,
+      journal.revision(workspaceId),
+      hostJournal.revision(workspaceId),
+    ].join('.')
+    if (namedArgs(args).rev === rev) {
+      const unchanged: PanelSnapshot = { unchanged: true }
+      return ok(undefined, unchanged)
     }
-    return ok(
-      undefined,
-      panelModel({
+    const model: PanelSnapshot = {
+      rev,
+      ...panelModel({
         showActivity: state.showActivity,
-        workspaces: open,
-        panes,
-        events: (workspaceId) => journal.events(workspaceId),
+        workspace,
+        panes: listed.panes,
+        events: (id) => [...journal.events(id), ...hostJournal.events(id)],
       }),
-    )
+    }
+    return ok(undefined, model)
   }
 
   return {

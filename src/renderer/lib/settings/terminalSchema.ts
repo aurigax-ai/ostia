@@ -1,5 +1,8 @@
 import { PRODUCT_DISPLAY_NAME } from '@aurigax-ai/ostia-extension-sdk/contract/productDisplay'
 import {
+  BELL_FLASH_EASINGS,
+  BELL_FLASH_MAX_MS,
+  BELL_FLASH_MIN_MS,
   BELL_MODES,
   LONG_COMMAND_MAX_SECONDS,
   LONG_COMMAND_MIN_SECONDS,
@@ -10,6 +13,10 @@ import {
   PROMPT_SEPARATORS,
   PROMPT_STYLES,
 } from '@shared/terminal/promptSettings'
+import {
+  SCROLLBACK_HISTORY_MAX_MIB,
+  SCROLLBACK_HISTORY_MIN_MIB,
+} from '@shared/terminal/scrollbackHistory'
 import { SHELL_SETTING_MAX_LENGTH } from '@shared/terminal/terminalShell'
 import { schemeChoice } from './appearanceSchema'
 
@@ -28,7 +35,25 @@ export const terminalSchema = {
       type: 'integer',
       minimum: 1000,
       maximum: 100000,
-      description: 'Lines of history each terminal keeps. Default: 10000.',
+      description:
+        'Lines each terminal keeps in memory; older output moves to history on disk ' +
+        '(scrollbackHistory). Default: 10000.',
+    },
+    scrollbackHistory: {
+      oneOf: [
+        { type: 'string', enum: ['off', 'unlimited'] },
+        {
+          type: 'integer',
+          minimum: SCROLLBACK_HISTORY_MIN_MIB,
+          maximum: SCROLLBACK_HISTORY_MAX_MIB,
+        },
+      ],
+      description:
+        'Output older than the lines in memory, kept per pane on this machine, encrypted with a ' +
+        'key that lives only while the app runs, and removed when the pane closes, the app ' +
+        'quits or the program clears its scrollback. "off": no history on disk. "unlimited": ' +
+        'bounded only by keeping 2 GiB of disk free. A number: MiB per pane. Only you can change ' +
+        'this, in Settings; agents cannot. Default: unlimited.',
     },
     clipboardKeys: {
       type: 'string',
@@ -222,7 +247,26 @@ export const notificationsSchema = {
       enum: [...BELL_MODES],
       description:
         'What a terminal bell (BEL) does: "attention" marks the pane when you are not ' +
-        'viewing it, "sound" also plays the system sound, "off" ignores it. Default: attention.',
+        'viewing it, "sound" also plays the system sound, "off" neither marks nor plays a sound ' +
+        '(visualBell is separate). Default: attention.',
+    },
+    visualBell: {
+      type: 'boolean',
+      description:
+        'Flash the pane briefly when a terminal bell (BEL) rings, independent of the bell ' +
+        'setting above. Never flashes while reduced motion is on; a run of bells flashes ' +
+        'once. Default: false.',
+    },
+    visualBellMs: {
+      type: 'integer',
+      minimum: BELL_FLASH_MIN_MS,
+      maximum: BELL_FLASH_MAX_MS,
+      description: 'Milliseconds one visual bell flash lasts. Default: 200.',
+    },
+    visualBellEasing: {
+      type: 'string',
+      enum: [...BELL_FLASH_EASINGS],
+      description: 'How the visual bell flash fades out. Default: out.',
     },
   },
 }

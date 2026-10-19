@@ -1,7 +1,8 @@
+import { EmptyState } from '@/components/common/EmptyState'
 import { IconButton } from '@/components/common/IconButton'
 import { DropdownMenu, MenuItem } from '@/components/common/Menu'
-import { ControlRow } from '@/components/settings/ControlRow'
-import { SettingsGroup } from '@/components/settings/SettingsGroup'
+import { ControlRow } from '@/components/settingsKit/ControlRow'
+import { SettingsGroup } from '@/components/settingsKit/SettingsGroup'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
@@ -20,7 +21,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from '@/components/ui/empty'
 import { Input } from '@/components/ui/input'
 import { Item, ItemActions, ItemContent, ItemTitle } from '@/components/ui/item'
 import { Switch } from '@/components/ui/switch'
@@ -425,14 +425,7 @@ export function AssistantProviders(): JSX.Element {
   return (
     <SettingsGroup title={t.providers} desc={t.providersDesc} action={addMenu}>
       {providers.length === 0 && fixed.length === 0 ? (
-        <Empty className="gap-3 rounded-md border border-line border-dashed p-5">
-          <EmptyHeader className="gap-1">
-            <EmptyTitle className="text-fg text-ui-base">{t.noProviders}</EmptyTitle>
-            <EmptyDescription className="text-fg-muted text-ui-sm">
-              {t.noProvidersDesc}
-            </EmptyDescription>
-          </EmptyHeader>
-        </Empty>
+        <EmptyState variant="block" title={t.noProviders} desc={t.noProvidersDesc} />
       ) : (
         <ul aria-label={t.providers} className="flex flex-col gap-2">
           {providers.map((config) => {

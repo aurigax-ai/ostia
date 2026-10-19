@@ -1,0 +1,14 @@
+{
+  "name": "language packs",
+  "paths": [
+    "packages/extension-sdk/src/contract/extensionLocales.ts",
+    "packages/extension-sdk/src/contract/languagePack.ts",
+    "src/extensions/langpack-zh-hant/",
+    "src/main/extensions/languagePacks.ts",
+    "src/main/extensions/strings.ts",
+    "src/renderer/lib/extensions/languagePacks.ts"
+  ],
+  "specs": [
+    "e2e/extension-locales.spec.ts"
+  ]
+}

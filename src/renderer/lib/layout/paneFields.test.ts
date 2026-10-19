@@ -1,15 +1,15 @@
+import { DEFAULT_DEVICE, rotated } from '@shared/browser/browserDevice'
 import { beforeEach, describe, expect, it } from 'vitest'
 import {
-  findExtensionPane,
   firstPaneOfKind,
   followMovedFile,
   hasLockedPane,
   renamePane,
   setPaneBrowser,
+  setPaneBrowserDevice,
   setPaneCwd,
   setPaneDiff,
   setPaneEditor,
-  setPaneExtension,
   setPaneHibernated,
   setPaneLocked,
   setPaneSpawnDir,
@@ -200,23 +200,29 @@ describe('setPaneBrowser', () => {
   })
 })
 
-describe('setPaneExtension', () => {
-  it('turns the matching pane into an extension panel with the given id and title', () => {
-    const a = createPane('terminal')
-    const b = createPane('terminal', undefined, '/w')
-    const root = splitOf('horizontal', a, b)
-    const next = setPaneExtension(root, b.id, 'demo', 'Board')
-    const pane = findPane(next, b.id)
-    expect(pane?.kind).toBe('extension')
-    expect(pane?.extensionId).toBe('demo')
-    expect(pane?.title).toBe('Board')
-    expect(pane?.cwd).toBeUndefined()
-    expect(findPane(next, a.id)?.kind).toBe('terminal')
+describe('setPaneBrowserDevice', () => {
+  function browserPane(): LayoutNode {
+    const root = createPane('terminal')
+    return setPaneBrowser(root, root.id, 'https://example.com')
+  }
+
+  it('saves the device on a browser pane and removes the field when it goes off', () => {
+    const root = browserPane()
+    const on = setPaneBrowserDevice(root, root.id, DEFAULT_DEVICE)
+    expect(findPane(on, root.id)?.browserDevice).toEqual(DEFAULT_DEVICE)
+    const turned = setPaneBrowserDevice(on, root.id, rotated(DEFAULT_DEVICE))
+    expect(findPane(turned, root.id)?.browserDevice).toMatchObject({ width: 800, height: 400 })
+    const off = setPaneBrowserDevice(turned, root.id, null)
+    expect(findPane(off, root.id)).not.toHaveProperty('browserDevice')
   })
 
-  it('returns the same tree when no pane matches', () => {
-    const root = splitOf('horizontal', createPane('terminal'), createPane('terminal'))
-    expect(setPaneExtension(root, 'ghost', 'notes', 'Notes')).toBe(root)
+  it('returns the same tree when nothing changes or the pane is not a browser', () => {
+    const root = browserPane()
+    expect(setPaneBrowserDevice(root, root.id, null)).toBe(root)
+    const on = setPaneBrowserDevice(root, root.id, DEFAULT_DEVICE)
+    expect(setPaneBrowserDevice(on, root.id, { ...DEFAULT_DEVICE })).toBe(on)
+    const terminal = createPane('terminal')
+    expect(setPaneBrowserDevice(terminal, terminal.id, DEFAULT_DEVICE)).toBe(terminal)
   })
 })
 
@@ -234,19 +240,6 @@ describe('setPaneDiff', () => {
       cwd: '/repo',
     })
     expect(next.type === 'split' && next.children[1]).toBe(other)
-  })
-})
-
-describe('findExtensionPane', () => {
-  it('finds the panel pane of one extension and ignores other extensions', () => {
-    const a = createPane('terminal')
-    const b = createPane('terminal')
-    const c = createPane('terminal')
-    let root: LayoutNode = splitOf('horizontal', a, splitOf('vertical', b, c))
-    root = setPaneExtension(root, b.id, 'notes', 'Notes')
-    root = setPaneExtension(root, c.id, 'demo', 'Board')
-    expect(findExtensionPane(root, 'demo')?.id).toBe(c.id)
-    expect(findExtensionPane(root, 'git')).toBeNull()
   })
 })
 

@@ -4,17 +4,14 @@ import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
-import type {
-  ExtensionInfo,
-  ExtensionSettingResult,
-  PaneChip,
-} from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
+import type { ExtensionInfo, PaneChip } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
+import type { ExtensionSettingResult } from '@aurigax-ai/ostia-extension-sdk/contract/extensionsBridge'
 import { act, cleanup, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { renderSettled } from '../../../../test/render'
 import { PaneChips } from './ExtensionChips'
-import { ExtensionPanelView } from './ExtensionPanelView'
+import { ExtensionSidePanel } from './ExtensionSidePanel'
 import { ExtensionsSection } from './InstalledExtensions'
 
 function ext(overrides: Partial<ExtensionInfo>): ExtensionInfo {
@@ -43,6 +40,7 @@ function ext(overrides: Partial<ExtensionInfo>): ExtensionInfo {
     category: 'other',
     languages: [],
     languageServers: [],
+    fileViewers: [],
     agentSkills: [],
     agentHooks: [],
     iconThemes: [],
@@ -224,7 +222,7 @@ describe('Extension API v2 UI', () => {
     })
   })
 
-  describe('extension panel navigation', () => {
+  describe('extension panel route', () => {
     it('navigates the shown panel to a new path without replacing its webview', async () => {
       const panel = vi.fn(async (_id: string, context: { path?: string }) => ({
         ok: true as const,
@@ -232,11 +230,20 @@ describe('Extension API v2 UI', () => {
       }))
       window.ostia.extensions.panel = panel
       useExtensionsStore.setState({ list: [ext({})] })
-      const { container } = render(<ExtensionPanelView extId="demo" workspaceId="s1" paneId="p1" />)
+      const { container, rerender } = render(
+        <ExtensionSidePanel extId="demo" workspaceId="s1" focusKey="k" />,
+      )
       await waitFor(() => expect(container.querySelector('webview')).not.toBeNull())
       const webview = container.querySelector('webview')
 
-      act(() => useExtensionsStore.getState().navigatePanel('p1', '/cards/4'))
+      rerender(
+        <ExtensionSidePanel
+          extId="demo"
+          workspaceId="s1"
+          focusKey="k"
+          route={{ path: '/cards/4', seq: 1 }}
+        />,
+      )
 
       await waitFor(() =>
         expect(webview?.getAttribute('src')).toBe('http://127.0.0.1:4100/cards/4'),
@@ -247,16 +254,6 @@ describe('Extension API v2 UI', () => {
         locale: 'en',
         path: '/cards/4',
       })
-    })
-
-    it('ignores a navigation meant for another pane', async () => {
-      const panel = vi.fn().mockResolvedValue({ ok: true, src: 'http://127.0.0.1:4100/' })
-      window.ostia.extensions.panel = panel
-      useExtensionsStore.setState({ list: [ext({})] })
-      const { container } = render(<ExtensionPanelView extId="demo" workspaceId="s1" paneId="p1" />)
-      await waitFor(() => expect(container.querySelector('webview')).not.toBeNull())
-      act(() => useExtensionsStore.getState().navigatePanel('p9', '/x'))
-      expect(panel).toHaveBeenCalledTimes(1)
     })
   })
 
@@ -273,6 +270,7 @@ describe('Extension API v2 UI', () => {
     it('shows a control per setting with the effective value', async () => {
       useExtensionsStore.setState({ list: [withSettings] })
       await renderSettled(<ExtensionsSection />)
+      await userEvent.setup().click(screen.getByRole('button', { name: 'Details of Demo' }))
       expect(screen.getByRole('group', { name: 'Demo settings' })).toBeInTheDocument()
       expect(screen.getByText('Shout it')).toBeInTheDocument()
       expect(screen.getByRole('switch', { name: 'Loud' })).not.toBeChecked()
@@ -291,7 +289,9 @@ describe('Extension API v2 UI', () => {
       useExtensionsStore.setState({ list: [withSettings] })
       await renderSettled(<ExtensionsSection />)
 
-      await userEvent.setup().click(screen.getByRole('switch', { name: 'Loud' }))
+      const user = userEvent.setup()
+      await user.click(screen.getByRole('button', { name: 'Details of Demo' }))
+      await user.click(screen.getByRole('switch', { name: 'Loud' }))
 
       expect(setSetting).toHaveBeenCalledWith('demo', 'loud', true)
       await waitFor(() => expect(screen.getByRole('switch', { name: 'Loud' })).toBeChecked())
@@ -304,6 +304,7 @@ describe('Extension API v2 UI', () => {
       useExtensionsStore.setState({ list: [withSettings] })
       await renderSettled(<ExtensionsSection />)
       const user = userEvent.setup()
+      await user.click(screen.getByRole('button', { name: 'Details of Demo' }))
       const input = screen.getByRole('spinbutton', { name: 'Count' })
 
       await user.clear(input)

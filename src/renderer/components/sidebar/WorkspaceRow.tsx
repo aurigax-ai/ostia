@@ -151,7 +151,7 @@ export function WorkspaceRow({
         />
         {drop === 'merge' || drop === 'tab' ? (
           <output className="rail-drop-chip motion-enter">
-            {drop === 'tab' ? <ArrowSquareInIcon size={12} /> : <ArrowsMergeIcon size={12} />}
+            {drop === 'tab' ? <ArrowSquareInIcon size={16} /> : <ArrowsMergeIcon size={16} />}
             <span className="rail-drop-chip-label text-ui-xs">
               {fmt(drop === 'tab' ? d.tabMove.into : d.merge.menuInto, { name: title })}
             </span>

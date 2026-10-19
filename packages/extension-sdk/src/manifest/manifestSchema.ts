@@ -21,22 +21,32 @@ import {
   MAX_LANGUAGE_FILE_PATTERNS,
 } from '../contract/editorLanguages'
 import { EXTENSION_API_PATTERN } from '../contract/extensionApi'
-import { EXTENSION_LOCALES_MAX } from '../contract/extensionLocales'
 import {
-  COMMAND_ARGUMENT_LABEL_MAX,
-  EXTENSION_CATEGORIES,
   EXTENSION_CONNECTION_FIELDS_MAX,
   EXTENSION_CONNECTION_FIELD_TYPES,
   EXTENSION_CONNECTION_KINDS_MAX,
   EXTENSION_CONNECTION_KIND_PATTERN,
   EXTENSION_CONNECTION_SECRETS_MAX,
   EXTENSION_CONNECTION_VALUE_MAX,
+} from '../contract/extensionConnections'
+import { EXTENSION_LOCALES_MAX } from '../contract/extensionLocales'
+import {
+  COMMAND_ARGUMENT_LABEL_MAX,
+  EXTENSION_CATEGORIES,
   EXTENSION_ICONS,
   EXTENSION_SETTING_TITLE_MAX,
   EXTENSION_SETTING_TYPES,
   EXTENSION_SETTING_UNITS,
   EXTENSION_VERB_PATTERN,
 } from '../contract/extensions'
+import {
+  FILENAME_PATTERN_PATTERN,
+  FILE_VIEWERS_MAX,
+  FILE_VIEWER_DISPLAY_NAME_MAX,
+  FILE_VIEWER_PRIORITIES,
+  FILE_VIEWER_SELECTORS_MAX,
+  FILE_VIEWER_TYPE_PATTERN,
+} from '../contract/fileViewers'
 import { ICON_THEME_ID_PATTERN } from '../contract/iconTheme'
 import { KEYMAP_LABEL_MAX, KEYMAP_PLATFORMS } from '../contract/keymap'
 import { LANGUAGE_ID_PATTERN } from '../contract/languagePack'
@@ -45,7 +55,6 @@ import {
   GO_MODULE_MAX,
   LANGUAGE_SERVER_ARCHIVES,
   LANGUAGE_SERVER_DOCUMENT_ID_PATTERN,
-  LANGUAGE_SERVER_DOWNLOAD_HOSTS,
   LANGUAGE_SERVER_EXECUTABLE_PATTERN,
   LANGUAGE_SERVER_GO_MODULE_PATTERN,
   LANGUAGE_SERVER_GO_VERSION_PATTERN,
@@ -67,20 +76,21 @@ import {
 import { isCoreSource } from './coreNames'
 import { verbProblem } from './coreNames'
 import {
-  COMMAND_ID_PATTERN,
-  EXTENSION_ID_PATTERN,
   KEYMAP_ID_PATTERN,
   MAX_CHIPS,
   MAX_COMMANDS,
-  MAX_DESCRIPTION,
-  MAX_ENUM_VALUES,
   MAX_ICON_THEMES,
   MAX_KEYMAPS,
   MAX_LANGUAGES,
   MAX_SNIPPETS,
+} from './manifestContributions'
+import {
+  COMMAND_ID_PATTERN,
+  EXTENSION_ID_PATTERN,
+  MAX_DESCRIPTION,
   MAX_TEXT,
-  SETTING_KEY_PATTERN,
-} from './extensionManifest'
+} from './manifestFields'
+import { MAX_ENUM_VALUES, SETTING_KEY_PATTERN } from './manifestSettings'
 import {
   MARKETPLACE_CODE_PATTERN,
   MARKETPLACE_DESCRIPTION_MAX,
@@ -179,9 +189,8 @@ const settingKey = z.string().regex(SETTING_KEY_PATTERN)
 
 const serverArgs = z.array(z.string().max(SERVER_ARG_MAX)).max(MAX_SERVER_ARGS)
 const serverProgram = z.string().regex(LANGUAGE_SERVER_PROGRAM_PATTERN)
-const downloadUrl = new RegExp(
-  `^https://(${LANGUAGE_SERVER_DOWNLOAD_HOSTS.map((host) => host.replaceAll('.', '\\.')).join('|')})/`,
-)
+const downloadUrl =
+  /^https:\/\/(github\.com|objects\.githubusercontent\.com|release-assets\.githubusercontent\.com)\//
 
 const serverAsset = z.strictObject({
   url: z.string().max(DOWNLOAD_URL_MAX).regex(downloadUrl),
@@ -321,6 +330,21 @@ const contributes = z.looseObject({
     .optional(),
   languageServers: z.array(languageServer).max(MAX_LANGUAGE_SERVERS).optional(),
   editorLanguages: z.array(editorLanguage).max(MAX_EDITOR_LANGUAGES).optional(),
+  fileViewers: z
+    .array(
+      z.looseObject({
+        viewType: z.string().regex(FILE_VIEWER_TYPE_PATTERN),
+        displayName: z.string().min(1).max(FILE_VIEWER_DISPLAY_NAME_MAX),
+        selector: z
+          .array(z.looseObject({ filenamePattern: z.string().regex(FILENAME_PATTERN_PATTERN) }))
+          .min(1)
+          .max(FILE_VIEWER_SELECTORS_MAX),
+        priority: z.enum(FILE_VIEWER_PRIORITIES).optional(),
+        entry: z.string().regex(/\.html$/),
+      }),
+    )
+    .max(FILE_VIEWERS_MAX)
+    .optional(),
   agentSkills: z
     .array(
       z.looseObject({

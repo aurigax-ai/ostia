@@ -99,6 +99,7 @@ interface AgentSettings {
   hibernation: HibernationSettings
   autoResume: boolean
   autoSendReferences: boolean
+  trustWorkspaceFolders: boolean
   hooks: AgentHooks
 }
 
@@ -312,6 +313,7 @@ export const DEFAULTS: Persisted = {
     hibernation: DEFAULT_HIBERNATION,
     autoResume: false,
     autoSendReferences: true,
+    trustWorkspaceFolders: false,
     hooks: DEFAULT_AGENT_HOOKS,
   },
   assistant: {
@@ -359,6 +361,7 @@ export interface SettingsState extends Persisted {
   setEditor: (patch: Partial<EditorSettings>) => void
   setAutoResume: (autoResume: boolean) => void
   setAutoSendReferences: (autoSendReferences: boolean) => void
+  setTrustWorkspaceFolders: (trustWorkspaceFolders: boolean) => void
   setAgentHooks: (patch: Partial<AgentHooks>) => void
   setChatHistory: (chatHistory: boolean) => void
   setChatTools: (patch: Partial<ChatToolSettings>) => Promise<void>

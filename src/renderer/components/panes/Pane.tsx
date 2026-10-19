@@ -1,22 +1,33 @@
 import { commands } from '@/commands/registry'
 import { ApprovalCard } from '@/components/agents/ApprovalCard'
 import { QuestionNotice } from '@/components/agents/QuestionNotice'
+import { NoticeSlot } from '@/components/common/NoticeSlot'
 import { PaneChips } from '@/components/extensions/ExtensionChips'
 import { ArtifactChip } from '@/components/files/ArtifactChip'
 import { HostPaneBadge, SandboxRestartButton } from '@/components/sandbox/SandboxRestartButton'
 import { useDict } from '@/lib/app/useDict'
+import { useFlipped } from '@/lib/app/useFlipped'
 import { allPanes, findPane } from '@/lib/layout/tree'
 import type { TabNode } from '@/lib/layout/types'
 import { cn } from '@/lib/utils'
 import { useApprovalsStore } from '@/stores/agents/approvalsStore'
 import { useAttentionStore } from '@/stores/agents/attentionStore'
+import { useFolderTrustStore } from '@/stores/agents/folderTrustStore'
 import { useQuestionsStore } from '@/stores/agents/questionsStore'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { usePaneDnd } from '@/stores/workspaces/paneDndStore'
+import { FileDropCover } from './FileDropCover'
+import { FoldedSplitTab } from './FoldedSplitTab'
 import { PaneActions } from './PaneActions'
 import { PaneTab } from './PaneTab'
-import { ResumeConflictNotice, ResumeFailedNotice, ResumeFolderNotice } from './ResumeFolderNotice'
-import { SplitTabBody, SplitTabPill } from './SplitTab'
+import {
+  FolderTrustNotice,
+  ResumeConflictNotice,
+  ResumeFailedNotice,
+  ResumeFolderNotice,
+} from './ResumeFolderNotice'
+import { SplitTabPill } from './SplitTab'
+import { SplitTabBody } from './SplitTabBody'
 import { TabBody } from './TabBody'
 import { TabRow } from './TabRow'
 import { paneDropHandlers } from './paneDropHandlers'
@@ -43,6 +54,9 @@ export function Pane({
 }: PaneProps): JSX.Element {
   const d = useDict()
   const shownTab = tabs.find((t) => holds(t, shownId)) ?? tabs[0]
+  const flipped = useFlipped(
+    Object.fromEntries(tabs.flatMap((t) => (t.type === 'pane' ? [] : [[t.id, t.folded === true]]))),
+  )
   const shown =
     shownTab.type === 'pane' ? shownTab : (findPane(shownTab, shownId) ?? allPanes(shownTab)[0])
   const active = holds(shownTab, activePaneId)
@@ -52,6 +66,7 @@ export function Pane({
   const attention = useAttentionStore((s) => s.byPane[shown.id])
   const approval = useApprovalsStore((s) => s.pending.find((r) => r.paneId === shown.id))
   const question = useQuestionsStore((s) => s.pending.find((q) => q.paneId === shown.id))
+  const trustFolder = useFolderTrustStore((s) => s.byPane[shown.id])
   const unread = attention?.unread ?? false
   const dimInactive = useSettingsStore((s) => s.panes.dimInactive)
   const hideTabClose = useSettingsStore((s) => s.panes.hideTabClose)
@@ -95,9 +110,18 @@ export function Pane({
                 dropMark={dropMark}
                 showClose={!hideTabClose}
               />
+            ) : tab.folded ? (
+              <FoldedSplitTab
+                key={tab.id}
+                entering={flipped.has(tab.id)}
+                tab={tab}
+                dropMark={dropMark}
+                workspaceId={workspaceId}
+              />
             ) : (
               <SplitTabPill
                 key={tab.id}
+                entering={flipped.has(tab.id)}
                 tab={tab}
                 selected={tab === shownTab}
                 focusedId={shown.id}
@@ -136,24 +160,30 @@ export function Pane({
             />
           ),
         )}
-        {shownTab.type !== 'pane' ? null : approval ? (
-          <ApprovalCard request={approval} paneTitle={shown.title} />
-        ) : question ? (
-          <QuestionNotice question={question} />
-        ) : shown.resumeFailed ? (
-          <ResumeFailedNotice paneId={shown.id} failure={shown.resumeFailed} />
-        ) : shown.resumeFolderMissing && shown.resume ? (
-          <ResumeFolderNotice
-            paneId={shown.id}
-            resume={shown.resume}
-            folder={shown.resumeFolderMissing}
-          />
-        ) : shown.resume ? (
-          <ResumeConflictNotice pane={shown} />
-        ) : null}
+        <NoticeSlot key={shown.id}>
+          {shownTab.type !== 'pane' ? null : approval ? (
+            <ApprovalCard request={approval} paneTitle={shown.title} />
+          ) : question ? (
+            <QuestionNotice question={question} />
+          ) : trustFolder ? (
+            <FolderTrustNotice paneId={shown.id} folder={trustFolder} />
+          ) : shown.resumeFailed ? (
+            <ResumeFailedNotice paneId={shown.id} failure={shown.resumeFailed} />
+          ) : shown.resumeFolderMissing && shown.resume ? (
+            <ResumeFolderNotice
+              paneId={shown.id}
+              resume={shown.resume}
+              folder={shown.resumeFolderMissing}
+            />
+          ) : shown.resume ? (
+            <ResumeConflictNotice pane={shown} />
+          ) : null}
+        </NoticeSlot>
       </div>
 
-      {shown.kind === 'terminal' ? null : <div className="pane-file-drop" />}
+      {shownTab.type === 'pane' ? (
+        <FileDropCover kind={shown.kind} workspaceId={workspaceId} />
+      ) : null}
       {dragging && shownTab.type === 'pane' ? (
         <div
           className="pane-drop-layer"

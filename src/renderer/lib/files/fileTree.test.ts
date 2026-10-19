@@ -1,21 +1,38 @@
 import { DEFAULT_NESTING_PATTERNS } from '@/lib/settings/fileTreeSettings'
-import type { FsEntry } from '@shared/types'
+import type { FsEntry } from '@shared/files/filesApi'
 import { describe, expect, it } from 'vitest'
 import {
+  baseName,
   childPath,
   compactChain,
   excludeMatcher,
   isUnderExcluded,
   nestEntries,
   nestingRules,
+  parentOf,
   pathInTree,
   relativeToRoot,
   sortEntries,
+  splitPath,
 } from './fileTree'
 
 const file = (name: string): FsEntry => ({ name, dir: false })
 const dir = (name: string): FsEntry => ({ name, dir: true })
 const names = (entries: FsEntry[]): string[] => entries.map((e) => e.name)
+
+describe('path parts', () => {
+  it('splits a path into its name and folder', () => {
+    expect(splitPath('src/deep/a.ts')).toEqual({ name: 'a.ts', dir: 'src/deep' })
+    expect(splitPath('a.ts')).toEqual({ name: 'a.ts', dir: '' })
+  })
+
+  it('names the last segment and the parent folder', () => {
+    expect(baseName('/p/src/a.ts')).toBe('a.ts')
+    expect(baseName('/p/src/')).toBe('/p/src/')
+    expect(parentOf('/p/src/a.ts')).toBe('/p/src')
+    expect(parentOf('/a.ts')).toBe('/')
+  })
+})
 
 describe('relativeToRoot', () => {
   it('strips the root prefix and returns null outside it', () => {

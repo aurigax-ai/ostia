@@ -1,4 +1,4 @@
-import type { WindowSummary } from '@shared/types'
+import type { WindowSummary } from '@shared/windows/windowsApi'
 import { create } from 'zustand'
 
 interface WindowsState {

@@ -1,16 +1,22 @@
+import { ControlRow, NumberRow, ToggleRow } from '@/components/settingsKit/ControlRow'
+import { SelectField } from '@/components/settingsKit/SelectField'
+import { SettingsGroup } from '@/components/settingsKit/SettingsGroup'
+import { SettingsPage } from '@/components/settingsKit/SettingsPage'
 import { Input } from '@/components/ui/input'
 import { useDict } from '@/lib/app/useDict'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import {
+  BELL_FLASH_EASINGS,
+  BELL_FLASH_MAX_MS,
+  BELL_FLASH_MIN_MS,
   BELL_MODES,
+  type BellFlashEasing,
   type BellMode,
   LONG_COMMAND_MAX_SECONDS,
   LONG_COMMAND_MIN_SECONDS,
+  clampBellFlashMs,
   clampLongCommandSeconds,
 } from '@shared/app/notificationSettings'
-import { ControlRow, NumberRow, ToggleRow } from './ControlRow'
-import { SelectField } from './SelectField'
-import { SectionHead, SettingsGroup } from './SettingsGroup'
 
 export function NotificationsSection(): JSX.Element {
   const d = useDict()
@@ -21,9 +27,13 @@ export function NotificationsSection(): JSX.Element {
     sound: d.settings.bellSound,
     off: d.settings.bellOff,
   }
+  const easingLabel: Record<BellFlashEasing, string> = {
+    out: d.settings.bellEaseOut,
+    'in-out': d.settings.bellEaseInOut,
+    linear: d.settings.bellLinear,
+  }
   return (
-    <div>
-      <SectionHead title={d.settings.notifications} />
+    <SettingsPage title={d.settings.notifications}>
       <SettingsGroup title={d.settings.groupDesktop}>
         <ToggleRow
           label={d.settings.notifyDesktop}
@@ -92,7 +102,29 @@ export function NotificationsSection(): JSX.Element {
             options={BELL_MODES.map((m) => ({ value: m, label: bellLabel[m] }))}
           />
         </ControlRow>
+        <ToggleRow
+          label={d.settings.bellFlash}
+          desc={d.settings.bellFlashDesc}
+          checked={n.visualBell}
+          onChange={(v) => set({ visualBell: v })}
+        />
+        <NumberRow
+          label={d.settings.bellFlashDuration}
+          desc={d.settings.bellFlashDurationDesc}
+          value={n.visualBellMs}
+          min={BELL_FLASH_MIN_MS}
+          max={BELL_FLASH_MAX_MS}
+          onCommit={(v) => set({ visualBellMs: clampBellFlashMs(v) })}
+        />
+        <ControlRow label={d.settings.bellFlashEasing} desc={d.settings.bellFlashEasingDesc}>
+          <SelectField
+            value={n.visualBellEasing}
+            onChange={(v) => set({ visualBellEasing: v })}
+            label={d.settings.bellFlashEasing}
+            options={BELL_FLASH_EASINGS.map((e) => ({ value: e, label: easingLabel[e] }))}
+          />
+        </ControlRow>
       </SettingsGroup>
-    </div>
+    </SettingsPage>
   )
 }

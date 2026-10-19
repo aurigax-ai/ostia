@@ -388,6 +388,7 @@ describe('DeckRail', () => {
     const blocks = useBlocksStore.getState()
     blocks.promptStart(agent.id, { line: 0 }, null)
     blocks.commandStart(agent.id, { line: 1 }, 'claude')
+    blocks.markAgent(agent.id, 'claude')
     await renderSettled(<DeckRail />)
     const user = userEvent.setup()
 
@@ -424,6 +425,7 @@ describe('DeckRail', () => {
     const blocks = useBlocksStore.getState()
     blocks.promptStart(agent.id, { line: 0 }, null)
     blocks.commandStart(agent.id, { line: 1 }, 'claude')
+    blocks.markAgent(agent.id, 'claude')
     vi.mocked(window.ostia.pty.hibernate).mockResolvedValueOnce('subagent')
     await renderSettled(
       <>
@@ -472,6 +474,7 @@ describe('DeckRail', () => {
     for (const pane of [api, web, outside]) {
       blocks.promptStart(pane.id, { line: 0 }, null)
       blocks.commandStart(pane.id, { line: 1 }, 'claude')
+      blocks.markAgent(pane.id, 'claude')
     }
     blocks.promptStart(shell.id, { line: 0 }, null)
     vi.mocked(window.ostia.pty.hibernate).mockClear()
@@ -511,6 +514,7 @@ describe('DeckRail', () => {
       for (const pane of [api, web]) {
         blocks.promptStart(pane.id, { line: 2 }, null)
         blocks.commandStart(pane.id, { line: 3 }, 'claude')
+        blocks.markAgent(pane.id, 'claude')
       }
     })
     fireEvent.contextMenu(header)
@@ -795,6 +799,20 @@ describe('DeckRail', () => {
       expect(within(members).getByRole('button', { name: /api/ })).toBeInTheDocument()
       expect(within(members).getByRole('button', { name: /web/ })).toBeInTheDocument()
       expect(within(members).queryByRole('button', { name: /solo/ })).toBeNull()
+    })
+
+    it('reveals the members only when the human expands the group, never at first render', async () => {
+      seedGroups()
+      await renderSettled(<DeckRail />)
+      const members = () =>
+        (header().closest('.rail-group') as HTMLElement).querySelector('.rail-group-members')
+      expect(members()).not.toHaveClass('motion-reveal')
+
+      const user = userEvent.setup()
+      await user.click(header())
+      expect(members()).toBeNull()
+      await user.click(header())
+      expect(members()).toHaveClass('motion-reveal')
     })
 
     it('collapses to the header alone and still shows that a member needs you', async () => {

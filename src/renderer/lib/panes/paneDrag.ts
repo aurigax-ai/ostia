@@ -8,7 +8,8 @@ import {
 } from '@/lib/workspaces/windowHandoff'
 import { usePaneDnd } from '@/stores/workspaces/paneDndStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
-import type { PanePlacement, ScreenPoint } from '@shared/types'
+import type { ScreenPoint } from '@shared/windows/windowsApi'
+import type { PanePlacement } from '@shared/workspaces/workspaceApi'
 import { endedOutside } from './dropZone'
 
 export const PANE_DND = 'application/x-ostia-pane'

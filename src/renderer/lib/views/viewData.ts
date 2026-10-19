@@ -7,8 +7,8 @@ import type {
   WorkspaceChip,
 } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import { GIT_SOURCE, PORTS_SOURCE } from '@aurigax-ai/ostia-extension-sdk/manifest/coreNames'
+import type { NotificationEntry } from '@shared/attention/attention'
 import { PORTS_CHIP } from '@shared/boards/git'
-import type { NotificationEntry } from '@shared/types'
 import type { ViewSource } from '@shared/views/views'
 
 export const VIEW_NOTIFICATIONS_MAX = 50

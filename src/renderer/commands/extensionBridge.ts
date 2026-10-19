@@ -7,16 +7,15 @@ import { pinTitle } from '@/lib/terminal/pinnedTitles'
 import { useAgentOfferStore } from '@/stores/agents/agentOfferStore'
 import { useSandboxStore } from '@/stores/app/sandboxStore'
 import { useSettingsStore } from '@/stores/app/settingsStore'
+import { useSidePanelStore } from '@/stores/app/sidePanelStore'
 import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
 import { usePluginsStore } from '@/stores/extensions/pluginsStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
-import type {
-  ExtensionInfo,
-  ExtensionOpenDiffRequest,
-  ExtensionOpenPanelRequest,
-} from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
-import type { ProcessTerminalRequest } from '@shared/types'
+import type { ExtensionInfo } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
+import type { ExtensionOpenPanelRequest } from '@aurigax-ai/ostia-extension-sdk/contract/extensionsBridge'
+import type { GitOpenDiffRequest } from '@shared/boards/git'
+import type { ProcessTerminalRequest } from '@shared/workspaces/workspaceApi'
 import { commands } from './registry'
 
 const registered = new Map<string, string>()
@@ -87,19 +86,14 @@ function targetWorkspace(requested?: string): string | null {
     : workspaces.activeWorkspaceId
 }
 
-export function openExtensionPanel(req: ExtensionOpenPanelRequest): string | null {
-  const extensions = useExtensionsStore.getState()
-  const info = extensions.list.find((e) => e.id === req.extId)
+export function openExtensionPanel(req: ExtensionOpenPanelRequest): void {
+  const info = useExtensionsStore.getState().list.find((e) => e.id === req.extId)
   const workspaceId = targetWorkspace(req.workspaceId)
-  if (!info?.panel || !info.enabled || !workspaceId) return null
-  const paneId = useLayoutStore
-    .getState()
-    .openExtensionPanel(workspaceId, info.id, info.panel.title)
-  if (paneId && req.path) extensions.navigatePanel(paneId, req.path)
-  return paneId
+  if (!info?.panel || !info.enabled || !workspaceId) return
+  useSidePanelStore.getState().showRight(info.id, { workspaceId, path: req.path })
 }
 
-export function openExtensionDiff(req: ExtensionOpenDiffRequest): string | null {
+export function openExtensionDiff(req: GitOpenDiffRequest): string | null {
   const { extId: _extId, workspaceId: requested, ...content } = req
   const workspaceId = targetWorkspace(requested)
   return workspaceId ? useLayoutStore.getState().openDiff(workspaceId, content) : null

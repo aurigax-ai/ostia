@@ -1,6 +1,7 @@
 import { buildSnapshot, restoreSnapshot } from '@/lib/layout/snapshot'
 import { findPane } from '@/lib/layout/tree'
 import type { PaneNode } from '@/lib/layout/types'
+import { useFolderTrustStore } from '@/stores/agents/folderTrustStore'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useBlocksStore } from '@/stores/terminal/blocksStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
@@ -12,6 +13,7 @@ const { runWhenIdle } = await import('@/lib/terminal/blockActions')
 const { RESUME_FAIL_WINDOW_MS, resumeStarted } = await import('./resumeOutcome')
 const { dismissResumeFailure, retryResume, startNewSession } = await import('./resumeFailure')
 const { resumeWhenIdle } = await import('./resumeFolder')
+const { resumeAnyway } = await import('./folderTrust')
 const { startAutoResume } = await import('./autoResume')
 const { startAgentRunningReport } = await import('./agentRunningReport')
 
@@ -71,6 +73,7 @@ describe('a typed resume that fails', () => {
     for (const stop of stops.splice(0)) stop()
     vi.mocked(runWhenIdle).mockClear()
     vi.mocked(window.ostia.pty.reportAgentRunning).mockClear()
+    vi.mocked(window.ostia.pty.reportWaking).mockClear()
     useLayoutStore.setState(init.layout, true)
     useBlocksStore.setState(init.blocks, true)
     useSettingsStore.setState(init.settings, true)
@@ -81,6 +84,17 @@ describe('a typed resume that fails', () => {
       byWorkspace: { w1: { root: pane, activePaneId: 'p1', zoomedPaneId: null } },
     })
   }
+
+  it('tells main the wake ended with the exit code when the typed resume fails', () => {
+    seed()
+    typeResume()
+    runBlock(1)
+    expect(window.ostia.pty.reportWaking).toHaveBeenCalledWith(
+      'p1',
+      false,
+      'its agent exited with code 1 before it started',
+    )
+  })
 
   it('RSM-C2 moves the token into the saved failure, so it is never typed again but survives a restart', () => {
     seed()
@@ -207,6 +221,24 @@ describe('a typed resume that fails', () => {
     expect(current()?.resumeFailed).toBeUndefined()
     expect(current()?.resume).toBeUndefined()
     expect(typed()).toEqual(["'claude'"])
+  })
+
+  it('CFT-C19 Try again and Start new session ask about an untrusted folder before typing', async () => {
+    vi.mocked(window.ostia.agentSession.folderTrust).mockResolvedValue({
+      state: 'ask',
+      folder: '/w',
+    })
+    for (const act of [retryResume, startNewSession]) {
+      seed()
+      typeResume()
+      runBlock(1)
+      vi.mocked(runWhenIdle).mockClear()
+      act('p1')
+      const allowed = vi.mocked(runWhenIdle).mock.calls[0]?.[3]
+      void allowed?.()
+      await vi.waitFor(() => expect(useFolderTrustStore.getState().byPane).toEqual({ p1: '/w' }))
+      resumeAnyway('p1')
+    }
   })
 
   it('RSM-C9 dismisses the note without typing anything', () => {

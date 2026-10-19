@@ -9,10 +9,15 @@ import {
   symlinkSync,
   writeFileSync,
 } from 'node:fs'
-import { createServer } from 'node:net'
+import { createConnection, createServer } from 'node:net'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import {
+  StreamMessageReader,
+  StreamMessageWriter,
+  createMessageConnection,
+} from 'vscode-jsonrpc/node'
 import { ReportedAgentWork, registerAgentWorkMethods } from '../main/agents/agentWork'
 import { grant } from '../main/approvals/capabilityStore'
 import { createReach } from '../main/approvals/reach'
@@ -39,20 +44,20 @@ import { registerPaneMoveToMethods } from '../main/panes/paneMoveTo'
 import { registerPaneResumeMethods } from '../main/panes/paneResume'
 import { registerSandboxMethods } from '../main/sandbox/controlMethods'
 import { DomainRequests } from '../main/sandbox/domainRequests'
-import { PortRequests } from '../main/sandbox/portRequests'
+import { PortRequests } from '../main/sandbox/ports/portRequests'
 import { registerSameFolder } from '../main/workspaces/sameFolder'
 import { registerSnippetMethods, workspaceSnippetsDir } from '../main/workspaces/snippets'
 import { ViewHost, ViewStore } from '../main/workspaces/viewHost'
 import { registerViewMethods } from '../main/workspaces/viewsIpc'
 import { setWorkspaceWorkDir, windowForWorkspace } from '../main/workspaces/workspaceRegistry'
 import { managerAgents, parseManagerSettings } from '../shared/agents/managerSettings'
+import type { CommandDescriptor, CommandResult, CommandTarget } from '../shared/control/commands'
 import {
   OPEN_DIFF_COMMAND,
   OPEN_FILES_COMMAND,
   REVEAL_FOLDER_COMMAND,
 } from '../shared/files/openFiles'
 import { emptyWorkspaceSandbox } from '../shared/sandbox/sandbox'
-import type { CommandDescriptor, CommandResult, CommandTarget } from '../shared/types'
 
 const repoRoot = process.cwd()
 const cliPath = join(repoRoot, 'out', 'cli', 'index.js')
@@ -695,38 +700,155 @@ describe('ostia CLI end-to-end (spawns the real out/cli/index.js against a live 
     })
   })
 
-  it('resume-token keeps the folder from the hook payload and the flags the agent was started with', async () => {
-    registerPaneResumeMethods({ execCommand: fakeDeps.execCommand, onResume: () => {} })
-    const res = await runOstia(
-      ['resume-token', 'claude', '-'],
-      withEnv({ OSTIA_SOCKET: socketPath, OSTIA_TOKEN: identity.token }),
-      undefined,
-      JSON.stringify({ session_id: 'e2e-tok-here', cwd: '/work/tree' }),
-    )
-    expect(res.stderr).toBe('')
-    expect(res.code).toBe(0)
-    expect(execCalls).toEqual([
-      {
+  describe('resume-token and pane.setResume', () => {
+    let foreground: string | null = null
+    let paneCwd: string | null = null
+    let stored: unknown = null
+    const fromMain: string[] = []
+    beforeAll(() => {
+      registerPaneResumeMethods({
+        execCommand: async (target, id, args, main) => {
+          if (main) fromMain.push(id)
+          if (id === 'pane.resumeToken') return { ok: true, result: { resume: stored } }
+          return fakeDeps.execCommand(target, id, args)
+        },
+        foregroundProgram: () => foreground,
+        agentCwd: async () => paneCwd,
+        onResume: () => {},
+      })
+    })
+    beforeEach(() => {
+      foreground = null
+      paneCwd = null
+      stored = null
+      fromMain.length = 0
+    })
+
+    async function setResume(params: unknown): Promise<unknown> {
+      const socket = createConnection(socketPath)
+      const conn = createMessageConnection(
+        new StreamMessageReader(socket),
+        new StreamMessageWriter(socket),
+      )
+      conn.listen()
+      try {
+        await conn.sendRequest('hello', { token: identity.token })
+        return await conn.sendRequest('pane.setResume', params)
+      } finally {
+        conn.dispose()
+        socket.destroy()
+      }
+    }
+
+    it('resume-token stores the folder main saw for the pane, never the hook payload’s, and the flags the agent was started with', async () => {
+      paneCwd = '/work/pane'
+      const res = await runOstia(
+        ['resume-token', 'claude', '-'],
+        withEnv({ OSTIA_SOCKET: socketPath, OSTIA_TOKEN: identity.token }),
+        undefined,
+        JSON.stringify({ session_id: 'e2e-tok-here', cwd: '/work/tree' }),
+      )
+      expect(res.stderr).toBe('')
+      expect(res.code).toBe(0)
+      expect(execCalls).toEqual([
+        {
+          target: { windowId: 'w1', workspaceId: 's1', paneId: 'pE2E' },
+          id: 'resume.set',
+          args: { agent: 'claude', id: 'e2e-tok-here', cwd: '/work/pane' },
+        },
+      ])
+
+      paneCwd = null
+      const started = ['--model', 'opus', '--session-id', 'old', 'fix it'].join('\u001f')
+      const withArgs = await runOstia(
+        ['resume-token', 'claude', 'e2e-tok-args'],
+        withEnv({
+          OSTIA_SOCKET: socketPath,
+          OSTIA_TOKEN: identity.token,
+          OSTIA_CLAUDE_ARGS: started,
+        }),
+      )
+      expect(withArgs.stderr).toBe('')
+      expect(execCalls.at(-1)).toEqual({
         target: { windowId: 'w1', workspaceId: 's1', paneId: 'pE2E' },
         id: 'resume.set',
-        args: { agent: 'claude', id: 'e2e-tok-here', cwd: '/work/tree' },
-      },
-    ])
+        args: { agent: 'claude', id: 'e2e-tok-args', args: ['--model', 'opus'] },
+      })
+    })
 
-    const started = ['--agent', 'ostia', '--session-id', 'old', 'fix it'].join('\u001f')
-    const withArgs = await runOstia(
-      ['resume-token', 'claude', 'e2e-tok-args'],
-      withEnv({
-        OSTIA_SOCKET: socketPath,
-        OSTIA_TOKEN: identity.token,
-        OSTIA_CLAUDE_ARGS: started,
-      }),
-    )
-    expect(withArgs.stderr).toBe('')
-    expect(execCalls.at(-1)).toEqual({
-      target: { windowId: 'w1', workspaceId: 's1', paneId: 'pE2E' },
-      id: 'resume.set',
-      args: { agent: 'claude', id: 'e2e-tok-args', args: ['--agent', 'ostia'] },
+    it('resume-token never sends a flag that leaves the sandbox or its approvals', async () => {
+      const started = [
+        '--dangerously-bypass-approvals-and-sandbox',
+        '--yolo',
+        '-s',
+        'danger-full-access',
+        '-a',
+        'never',
+        '-c',
+        'notify=["sh","-c","id"]',
+        '-m',
+        'gpt-5',
+      ].join('\u001f')
+      const res = await runOstia(
+        ['resume-token', 'codex', 'e2e-tok-sbx'],
+        withEnv({
+          OSTIA_SOCKET: socketPath,
+          OSTIA_TOKEN: identity.token,
+          OSTIA_CODEX_ARGS: started,
+        }),
+      )
+      expect(res.stderr).toBe('')
+      expect(execCalls.at(-1)?.args).toEqual({
+        agent: 'codex',
+        id: 'e2e-tok-sbx',
+        args: ['-m', 'gpt-5'],
+      })
+    })
+
+    it('stores no escaping flag, no variable and no folder from any caller holding the token', async () => {
+      foreground = 'claude'
+      paneCwd = '/work/pane'
+      expect(
+        await setResume({
+          agent: 'claude',
+          id: 'e2e-tok-raw',
+          cwd: process.env.HOME ?? '/root',
+          args: ['--dangerously-skip-permissions', '--agent', 'x', '--model', 'opus'],
+          env: { GIT_DIR: '/tmp/g', OPENAI_BASE_URL: 'http://127.0.0.1:9', GL_ISSUE: '687' },
+        }),
+      ).toEqual({ ok: true })
+      expect(execCalls.at(-1)).toEqual({
+        target: { windowId: 'w1', workspaceId: 's1', paneId: 'pE2E' },
+        id: 'resume.set',
+        args: { agent: 'claude', id: 'e2e-tok-raw', cwd: '/work/pane', args: ['--model', 'opus'] },
+      })
+      expect(fromMain).toContain('resume.set')
+      paneCwd = null
+      expect(await setResume({ agent: 'claude', id: 'e2e-tok-nocwd', cwd: '/tmp' })).toEqual({
+        ok: true,
+      })
+      expect(execCalls.at(-1)?.args).toEqual({ agent: 'claude', id: 'e2e-tok-nocwd' })
+    })
+
+    it('refuses an agent other than the one running in the pane', async () => {
+      foreground = 'codex'
+      expect(
+        await setResume({ agent: 'claude', id: 'e2e-tok-switch', args: ['--model', 'opus'] }),
+      ).toEqual({ ok: false, error: 'agent-mismatch' })
+      expect(execCalls.some((c) => c.id === 'resume.set')).toBe(false)
+      expect(await setResume({ agent: 'codex', id: 'e2e-tok-same' })).toEqual({ ok: true })
+    })
+
+    it('keeps the stored agent when main cannot see which one runs', async () => {
+      foreground = 'node'
+      stored = { agent: 'codex', id: 'e2e-tok-old' }
+      expect(await setResume({ agent: 'claude', id: 'e2e-tok-switch' })).toEqual({
+        ok: false,
+        error: 'agent-mismatch',
+      })
+      expect(await setResume({ agent: 'codex', id: 'e2e-tok-new' })).toEqual({ ok: true })
+      stored = null
+      expect(await setResume({ agent: 'claude', id: 'e2e-tok-first' })).toEqual({ ok: true })
     })
   })
 

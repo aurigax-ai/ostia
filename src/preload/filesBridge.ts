@@ -7,24 +7,27 @@ import type {
   RemoteWriteResult,
 } from '@aurigax-ai/ostia-extension-sdk/contract/remoteFolders'
 import { ipcRenderer, webUtils } from 'electron'
+import type { ExternalEditorResult } from '../shared/app/appApi'
 import type { FileOpResult } from '../shared/files/fileOps'
-import type { OpenFileVerdict } from '../shared/files/openFiles'
-import type { SearchOutcome } from '../shared/files/search'
 import type {
-  ExternalEditorResult,
   FsBinaryResult,
   FsEntry,
   FsKind,
   FsTextResult,
   OpenPathResult,
-  OstiaBridge,
+  ViewerOpenResult,
   WorkspaceProject,
-} from '../shared/types'
+} from '../shared/files/filesApi'
+import type { OpenFileVerdict } from '../shared/files/openFiles'
+import type { SearchOutcome } from '../shared/files/search'
+import type { OstiaBridge } from '../shared/types'
+import { listen } from './listen'
 
 export const filesBridge: Pick<
   OstiaBridge,
   | 'search'
   | 'fs'
+  | 'viewers'
   | 'remoteFiles'
   | 'openWaits'
   | 'files'
@@ -35,6 +38,11 @@ export const filesBridge: Pick<
   search: {
     run: (req) => ipcRenderer.invoke('search:run', req) as Promise<SearchOutcome>,
   },
+  viewers: {
+    open: (request) => ipcRenderer.invoke('viewers:open', request) as Promise<ViewerOpenResult>,
+    close: (paneId) => ipcRenderer.send('viewers:close', paneId),
+    onStopped: (cb) => listen('viewers:stopped', cb),
+  },
   fs: {
     list: (path) => ipcRenderer.invoke('fs:list', path) as Promise<FsEntry[]>,
     read: (path) => ipcRenderer.invoke('fs:read', path) as Promise<FsTextResult>,
@@ -44,19 +52,11 @@ export const filesBridge: Pick<
     readBinary: (path) => ipcRenderer.invoke('fs:read-binary', path) as Promise<FsBinaryResult>,
     watch: (path) => ipcRenderer.invoke('fs:watch', path) as Promise<boolean>,
     unwatch: (path) => ipcRenderer.send('fs:unwatch', path),
-    onChanged: (cb) => {
-      const handler = (_e: unknown, change: { path: string; exists: boolean }): void => cb(change)
-      ipcRenderer.on('fs:changed', handler)
-      return () => ipcRenderer.removeListener('fs:changed', handler)
-    },
+    onChanged: (cb) => listen('fs:changed', cb),
   },
   remoteFiles: {
     folders: () => ipcRenderer.invoke('remote-files:folders') as Promise<RemoteFolder[]>,
-    onFolders: (cb) => {
-      const handler = (_e: unknown, folders: RemoteFolder[]): void => cb(folders)
-      ipcRenderer.on('remote-files:folders-changed', handler)
-      return () => ipcRenderer.removeListener('remote-files:folders-changed', handler)
-    },
+    onFolders: (cb) => listen('remote-files:folders-changed', cb),
     close: (folderId) => ipcRenderer.invoke('remote-files:close', folderId) as Promise<boolean>,
     onConfirm: (cb) => {
       const handler = (_e: unknown, requestId: number, ask: RemoteFolderAsk): void => {
@@ -79,11 +79,7 @@ export const filesBridge: Pick<
       ) as Promise<RemoteWriteResult>,
   },
   openWaits: {
-    onEnded: (cb) => {
-      const handler = (_e: Electron.IpcRendererEvent, paneIds: string[]): void => cb(paneIds)
-      ipcRenderer.on('open-waits:ended', handler)
-      return () => ipcRenderer.removeListener('open-waits:ended', handler)
-    },
+    onEnded: (cb) => listen('open-waits:ended', cb),
   },
   files: {
     pathForFile: (file) => webUtils.getPathForFile(file),
@@ -103,12 +99,25 @@ export const filesBridge: Pick<
       ipcRenderer.invoke('workspace:project', dir, exact) as Promise<WorkspaceProject | null>,
   },
   fileOps: {
-    create: (dir, name, kind) =>
-      ipcRenderer.invoke('files:create', dir, name, kind) as Promise<FileOpResult>,
-    rename: (path, name) => ipcRenderer.invoke('files:rename', path, name) as Promise<FileOpResult>,
-    move: (paths, dir) => ipcRenderer.invoke('files:move', paths, dir) as Promise<FileOpResult>,
-    copy: (paths, dir) => ipcRenderer.invoke('files:copy', paths, dir) as Promise<FileOpResult>,
-    trash: (paths) => ipcRenderer.invoke('files:trash', paths) as Promise<FileOpResult>,
+    create: (workspaceId, dir, name, kind) =>
+      ipcRenderer.invoke('files:create', workspaceId, dir, name, kind) as Promise<FileOpResult>,
+    rename: (workspaceId, path, name) =>
+      ipcRenderer.invoke('files:rename', workspaceId, path, name) as Promise<FileOpResult>,
+    move: (workspaceId, paths, dir) =>
+      ipcRenderer.invoke('files:move', workspaceId, paths, dir) as Promise<FileOpResult>,
+    copy: (workspaceId, paths, dir) =>
+      ipcRenderer.invoke('files:copy', workspaceId, paths, dir) as Promise<FileOpResult>,
+    trash: (workspaceId, paths) =>
+      ipcRenderer.invoke('files:trash', workspaceId, paths) as Promise<FileOpResult>,
+    importDropped: (files, dir, workspaceId, move) =>
+      ipcRenderer.invoke(
+        'files:import',
+        files.map((file) => webUtils.getPathForFile(file)).filter((path) => path.length > 0),
+        dir,
+        workspaceId,
+        move,
+      ) as Promise<FileOpResult>,
+    startDrag: (workspaceId, path) => ipcRenderer.send('files:start-drag', workspaceId, path),
   },
   externalEditor: {
     open: (req) => ipcRenderer.invoke('editor:open-external', req) as Promise<ExternalEditorResult>,

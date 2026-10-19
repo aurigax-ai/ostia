@@ -1,5 +1,6 @@
 import { ipcRenderer } from 'electron'
 import type { OstiaBridge } from '../shared/types'
+import { listen } from './listen'
 
 export const diagnosticsBridge: Pick<OstiaBridge, 'diagnostics' | 'telemetry'> = {
   diagnostics: {
@@ -9,11 +10,7 @@ export const diagnosticsBridge: Pick<OstiaBridge, 'diagnostics' | 'telemetry'> =
     toggleDevTools: () => ipcRenderer.send('diagnostics:toggle-devtools'),
     openLogFolder: () => ipcRenderer.invoke('diagnostics:open-log-folder') as Promise<boolean>,
     testHooks: () => ipcRenderer.invoke('diagnostics:test-hooks') as Promise<boolean>,
-    onTestCrash: (handler) => {
-      const listener = (): void => handler()
-      ipcRenderer.on('diagnostics:test-crash', listener)
-      return () => ipcRenderer.removeListener('diagnostics:test-crash', listener)
-    },
+    onTestCrash: (handler) => listen('diagnostics:test-crash', () => handler()),
   },
   telemetry: {
     state: () => ipcRenderer.invoke('telemetry:state'),

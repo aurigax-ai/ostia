@@ -4,7 +4,7 @@ import { useSettingsStore } from '@/stores/app/settingsStore'
 import { type CommandBlock, useBlocksStore } from '@/stores/terminal/blocksStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
-import type { SnapshotPaneNode } from '@shared/types'
+import type { SnapshotPaneNode } from '@shared/workspaces/workspaceApi'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 
 vi.mock('@/lib/terminal/blockActions', () => ({ runWhenIdle: vi.fn(() => vi.fn()) }))
@@ -215,6 +215,7 @@ describe('startAutoResume', () => {
           { id: 'b1', paneId: holder.id, command: "'claude' --resume abc-1", startedAt: 0 },
         ] as unknown as CommandBlock[],
       },
+      agentBlocks: { [holder.id]: { blockId: 'b1', agent: 'claude' } },
     })
     stop = startAutoResume()
 
@@ -242,6 +243,7 @@ describe('startAutoResume', () => {
           { id: 'b1', paneId: holder.id, command: 'claude', startedAt: 0 },
         ] as unknown as CommandBlock[],
       },
+      agentBlocks: { [holder.id]: { blockId: 'b1', agent: 'claude' } },
     })
     stop = startAutoResume()
 
@@ -333,10 +335,11 @@ describe('startAutoResume', () => {
     expect(runWhenIdle).not.toHaveBeenCalled()
 
     const target = document.getElementById('body')
-    inputListeners.get('pointerdown')?.({
-      type: 'pointerdown',
+    inputListeners.get('click')?.({
+      type: 'click',
       isTrusted: true,
       button: 0,
+      detail: 1,
       target,
     } as unknown as Event)
 
@@ -371,10 +374,11 @@ describe('startAutoResume', () => {
     }
 
     const target = document.getElementById('sidebar')
-    inputListeners.get('pointerdown')?.({
-      type: 'pointerdown',
+    inputListeners.get('click')?.({
+      type: 'click',
       isTrusted: true,
       button: 0,
+      detail: 1,
       target,
     } as unknown as Event)
     useWorkspacesStore.getState().setActive('s2')

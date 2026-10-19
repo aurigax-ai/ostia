@@ -19,25 +19,30 @@ import {
   type AssistUi,
   CHAT_STREAM_MAX,
   choiceLabel,
+} from '@aurigax-ai/ostia-extension-sdk/contract/assist'
+import {
+  normalizeAssistRequest,
+  normalizeAssistResult,
+} from '@aurigax-ai/ostia-extension-sdk/contract/assistPayloads'
+import {
   isAssistModelId,
   normalizeAssistError,
   normalizeAssistFeatures,
   normalizeAssistLabel,
   normalizeAssistModels,
-  normalizeAssistRequest,
-  normalizeAssistResult,
   normalizeAssistStatus,
   normalizeModelRef,
   normalizeProviderKinds,
   normalizeProviderStates,
   normalizeSetupProblem,
   parseAssistModelSettings,
-} from '@aurigax-ai/ostia-extension-sdk/contract/assist'
+} from '@aurigax-ai/ostia-extension-sdk/contract/assistReports'
 import type { Capability } from '@aurigax-ai/ostia-extension-sdk/contract/capabilities'
 import {
   ASSIST_PROVIDERS_CHANGED_EVENT,
   type ExtensionSettingValues,
 } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
+import { isRecord } from '@aurigax-ai/ostia-extension-sdk/contract/isRecord'
 import { isEqual } from 'es-toolkit'
 import {
   type CancellationToken,
@@ -53,7 +58,6 @@ import {
   type Runtime,
   cancelled,
   fail,
-  isPlainRecord,
   withTimeout,
 } from './extensionRuntime'
 
@@ -80,9 +84,9 @@ export interface AssistCallOptions {
 }
 
 function assistReply<P extends AssistPoint>(point: P, raw: unknown): AssistResponse<P> {
-  const error = isPlainRecord(raw) ? raw.error : undefined
+  const error = isRecord(raw) ? raw.error : undefined
   if (ASSIST_ERRORS.includes(error as AssistError)) {
-    const message = isPlainRecord(raw) && typeof raw.message === 'string' ? raw.message : undefined
+    const message = isRecord(raw) && typeof raw.message === 'string' ? raw.message : undefined
     return message
       ? { ok: false, error: error as AssistError, message: message.slice(0, 500) }
       : { ok: false, error: error as AssistError }
@@ -469,7 +473,7 @@ export class ExtensionAssist {
 
   setShortcuts(raw: unknown): void {
     const next: Record<string, string> = {}
-    if (isPlainRecord(raw)) {
+    if (isRecord(raw)) {
       for (const [id, label] of Object.entries(raw)) {
         if (id.length > SHORTCUT_ID_MAX || typeof label !== 'string' || !label) continue
         next[id] = label.slice(0, SHORTCUT_LABEL_MAX)

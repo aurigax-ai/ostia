@@ -2,6 +2,8 @@ import { useSettingsStore } from '@/stores/app/settingsStore'
 import type {
   ExtensionConnectionEntry,
   ExtensionConnectionSave,
+} from '@aurigax-ai/ostia-extension-sdk/contract/extensionConnections'
+import type {
   ExtensionInfo,
   ExtensionSidebarItem,
   PaneChip,
@@ -9,11 +11,6 @@ import type {
 } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import { type CoreItems, NO_CORE_ITEMS } from '@shared/boards/git'
 import { create } from 'zustand'
-
-interface PanelNavigation {
-  path: string
-  seq: number
-}
 
 interface Contributed {
   sidebar: ExtensionSidebarItem[]
@@ -43,14 +40,12 @@ interface ExtensionsState {
   sidebar: ExtensionSidebarItem[]
   chips: PaneChip[]
   workspaceChips: WorkspaceChip[]
-  panelNav: Record<string, PanelNavigation>
   reviewing: string | null
   dismissed: string[]
   setList: (list: ExtensionInfo[]) => void
   setSidebar: (items: ExtensionSidebarItem[]) => void
   setChips: (chips: PaneChip[]) => void
   setWorkspaceChips: (chips: WorkspaceChip[]) => void
-  navigatePanel: (paneId: string, path: string) => void
   load: () => Promise<void>
   setEnabled: (extId: string, enabled: boolean) => Promise<void>
   setSetting: (extId: string, key: string, value: unknown) => Promise<string | null>
@@ -63,8 +58,6 @@ interface ExtensionsState {
   dismiss: (extId: string) => void
 }
 
-let navSeq = 0
-
 export const useExtensionsStore = create<ExtensionsState>((set) => ({
   list: [],
   git: NO_CORE_ITEMS,
@@ -75,7 +68,6 @@ export const useExtensionsStore = create<ExtensionsState>((set) => ({
   sidebar: [],
   chips: [],
   workspaceChips: [],
-  panelNav: {},
   reviewing: null,
   dismissed: [],
 
@@ -95,9 +87,6 @@ export const useExtensionsStore = create<ExtensionsState>((set) => ({
       const contributed = { ...s.contributed, workspaceChips }
       return { contributed, ...shown(s.git, s.ports, contributed) }
     }),
-
-  navigatePanel: (paneId, path) =>
-    set((s) => ({ panelNav: { ...s.panelNav, [paneId]: { path, seq: ++navSeq } } })),
 
   load: async () => {
     const [list, sidebar, chips, workspaceChips] = await Promise.all([

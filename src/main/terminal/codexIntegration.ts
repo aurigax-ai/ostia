@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto'
+import { hash } from 'node:crypto'
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import {
@@ -141,7 +141,7 @@ export function codexHookTrustHash(event: CodexHookEvent, command: string): stri
     event_name: CODEX_HOOK_EVENTS[event],
     hooks: [{ async: false, command, timeout: CODEX_DEFAULT_HOOK_TIMEOUT_SEC, type: 'command' }],
   }
-  return `sha256:${createHash('sha256').update(JSON.stringify(identity)).digest('hex')}`
+  return `sha256:${hash('sha256', JSON.stringify(identity))}`
 }
 
 export function codexHookKey(event: CodexHookEvent, handlerIndex: number): string {

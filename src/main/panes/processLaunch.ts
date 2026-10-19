@@ -1,6 +1,8 @@
 import { isAbsolute } from 'node:path'
 import { PRODUCT_DISPLAY_NAME } from '@aurigax-ai/ostia-extension-sdk/contract/productDisplay'
 import { ErrorCodes, ResponseError } from 'vscode-jsonrpc/node'
+import { resumeFlags } from '../../shared/agents/agentLaunch'
+import { isResumableAgent } from '../../shared/agents/agentResume'
 import { MANAGER_AGENT_NAME } from '../../shared/agents/managerSettings'
 import { type ChangeSignal, type Subscribe, anyOf } from '../../shared/common/actThenConfirm'
 import {
@@ -56,12 +58,6 @@ export function badRequest(message: string): ResponseError<void> {
   return new ResponseError(ErrorCodes.InvalidParams, `bad-request: ${message}`)
 }
 
-export function record(raw: unknown): Record<string, unknown> {
-  return typeof raw === 'object' && raw !== null && !Array.isArray(raw)
-    ? (raw as Record<string, unknown>)
-    : {}
-}
-
 export function commandOf(raw: unknown): string {
   if (typeof raw !== 'string' || !raw.trim()) throw badRequest('cmd')
   if (raw.length > PROCESS_COMMAND_MAX) throw badRequest('cmd is too long')
@@ -72,6 +68,18 @@ export function commandOf(raw: unknown): string {
 export function agentOf(raw: unknown): string {
   if (typeof raw !== 'string' || !MANAGER_AGENT_NAME.test(raw)) throw badRequest('agent')
   return raw
+}
+
+export function modelFlags(argv: readonly string[], raw: unknown): string[] {
+  if (raw === undefined || raw === null) return []
+  const program = argv[0]?.split('/').pop()
+  if (typeof raw !== 'string' || !isResumableAgent(program)) throw badRequest('model')
+  const flags = ['--model', raw]
+  const kept = resumeFlags(program, flags)
+  if (kept.length !== flags.length || kept.some((word, i) => word !== flags[i])) {
+    throw badRequest('model')
+  }
+  return flags
 }
 
 export function promptOf(raw: unknown): string {

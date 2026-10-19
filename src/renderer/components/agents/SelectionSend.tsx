@@ -1,8 +1,10 @@
+import { NoticeSlot } from '@/components/common/NoticeSlot'
 import type { PickTarget } from '@/lib/agents/pickTargets'
 import { sendSelectionToPane } from '@/lib/agents/sendPick'
 import { fmt, useDict } from '@/lib/app/useDict'
+import { useTransientStatus } from '@/lib/app/useTransientStatus'
 import { type SelectionCapture, selectionLabel } from '@shared/browser/selection'
-import { type ReactNode, useCallback, useEffect, useState } from 'react'
+import { type ReactNode, useCallback, useState } from 'react'
 import { PickSendPanel, useAgentTargets, useNoAgentsText } from './PickSendPanel'
 
 const STATUS_MS = 6000
@@ -28,13 +30,7 @@ export function useSelectionSend(workspaceId: string, paneId: string): Selection
   const noTargets = useNoAgentsText(workspaceId)
   const [pending, setPending] = useState<PendingSelection | null>(null)
   const [sending, setSending] = useState(false)
-  const [status, setStatus] = useState<string | null>(null)
-
-  useEffect(() => {
-    if (!status) return
-    const timer = setTimeout(() => setStatus(null), STATUS_MS)
-    return () => clearTimeout(timer)
-  }, [status])
+  const [status, setStatus] = useTransientStatus(STATUS_MS)
 
   const open = useCallback(
     (capture: SelectionCapture, image?: Uint8Array) => {
@@ -42,7 +38,7 @@ export function useSelectionSend(workspaceId: string, paneId: string): Selection
       setStatus(null)
       setPending({ id: `${paneId}-${pendingCounter}`, capture, image })
     },
-    [paneId],
+    [paneId, setStatus],
   )
 
   const send = async (target: PickTarget, note: string): Promise<void> => {
@@ -70,21 +66,25 @@ export function useSelectionSend(workspaceId: string, paneId: string): Selection
     }
   }
 
-  const panel = pending ? (
-    <PickSendPanel
-      key={pending.id}
-      id={pending.id}
-      summary={selectionLabel(pending.capture)}
-      noteLabel={d.viewer.note}
-      notePlaceholder={d.viewer.notePlaceholder}
-      closeLabel={d.viewer.discard}
-      targets={targets}
-      noTargets={noTargets}
-      sending={sending}
-      onSend={(t, note) => void send(t, note)}
-      onClose={() => setPending(null)}
-    />
-  ) : null
+  const panel = (
+    <NoticeSlot>
+      {pending ? (
+        <PickSendPanel
+          key={pending.id}
+          id={pending.id}
+          summary={selectionLabel(pending.capture)}
+          noteLabel={d.viewer.note}
+          notePlaceholder={d.viewer.notePlaceholder}
+          closeLabel={d.viewer.discard}
+          targets={targets}
+          noTargets={noTargets}
+          sending={sending}
+          onSend={(t, note) => void send(t, note)}
+          onClose={() => setPending(null)}
+        />
+      ) : null}
+    </NoticeSlot>
+  )
 
   const statusLine = status ? <output className="viewer-status">{status}</output> : null
 

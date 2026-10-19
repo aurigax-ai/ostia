@@ -4,7 +4,9 @@ import type {
 } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import type { RemoteCwd } from '@aurigax-ai/ostia-extension-sdk/contract/remoteFolders'
 import { type BrowserWindow, ipcMain } from 'electron'
-import type { CommandDescriptor, LifecycleEvent, TerminalStateSnapshot } from '../../shared/types'
+import type { LifecycleEvent } from '../../shared/attention/attention'
+import type { CommandDescriptor } from '../../shared/control/commands'
+import type { TerminalStateSnapshot } from '../../shared/terminal/ptyApi'
 import { approvals } from '../approvals/approvals'
 import { dropIdentity } from '../approvals/capabilityStore'
 import { questions } from '../approvals/questions'
@@ -17,15 +19,16 @@ import type { ExtensionHost } from '../extensions/extensionHost'
 import type { PaneAttentionEvents } from '../extensions/paneAttentionEvents'
 import type { OpenWaits } from '../files/openWaits'
 import type { ManagerService } from '../manager/manager'
+import type { PaneHistories } from '../terminal/history/paneHistories'
 import type { PtyEntry } from '../terminal/pty/ptyRegistry'
 import type { ReapReason } from '../terminal/ptyReaper'
 import { isKeptAttentionState } from '../tmux/attentionFile'
 import type { KeptShellsWiring } from '../tmux/keptShellsWiring'
 import type { UpdateRunner } from '../updates/updateRun'
+import { dropRestoredScrollback } from '../workspaces/savedScrollback'
 import type { ScratchFolders } from '../workspaces/scratchFolders'
 import type { WorkspaceLifecycle } from '../workspaces/workspaceLifecycle'
 import { setWorkspaceWorkDir } from '../workspaces/workspaceRegistry'
-import { dropRestoredScrollback } from '../workspaces/workspaceSnapshot'
 import type { PaneWatch } from './paneWait'
 import type { PaneWaking } from './paneWaking'
 import type { ProcessRegistry } from './processRegistry'
@@ -42,6 +45,7 @@ interface PaneLifecycleIpcDeps {
     managerService: ManagerService | null
     processes: ProcessRegistry | null
     updateRunner: UpdateRunner | null
+    histories: PaneHistories | null
   }
   releaseMovingPane: (paneId: string) => void
   killPty: (paneId: string, reason: ReapReason) => void
@@ -51,6 +55,7 @@ interface PaneLifecycleIpcDeps {
   browserProfiles: GuestProfiles['browserProfiles']
   terminalState: Map<string, TerminalStateSnapshot>
   paneWaking: PaneWaking
+  paneStartErrors: Map<string, string>
   paneWatch: PaneWatch
   scratchFolders: ScratchFolders
   workspaceClosed: WorkspaceLifecycle['workspaceClosed']
@@ -75,6 +80,7 @@ export function registerPaneLifecycleIpc({
   browserProfiles,
   terminalState,
   paneWaking,
+  paneStartErrors,
   paneWatch,
   scratchFolders,
   workspaceClosed,
@@ -117,12 +123,14 @@ export function registerPaneLifecycleIpc({
       if (services.managerService?.isManagerPane(event.paneId)) killPty(event.paneId, 'closed')
       if (ptys.has(event.paneId)) closedPanes.add(event.paneId)
       dropRestoredScrollback(event.paneId)
+      services.histories?.drop(event.paneId)
       hibernatedPanes.delete(event.paneId)
       browserProfiles.forget(event.paneId)
       removePane(event.paneId)
       terminalState.delete(event.paneId)
       services.processes?.paneClosed(event.paneId)
       paneWaking.end(event.paneId, 'closed')
+      paneStartErrors.delete(event.paneId)
       paneWatch.emit(event.paneId, { kind: 'closed' })
     } else if (event.type === 'workspace-added') {
       setWorkspaceWorkDir(event.workspaceId, event.workDir, windowId)

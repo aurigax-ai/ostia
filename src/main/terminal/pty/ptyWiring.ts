@@ -1,17 +1,19 @@
 import type { BrowserWindow } from 'electron'
-import type { TerminalStateSnapshot } from '../../../shared/types'
+import type { TerminalStateSnapshot } from '../../../shared/terminal/ptyApi'
 import type { AgentRunningPanes } from '../../agents/agentRunning'
 import type { ReportedAgentWork } from '../../agents/agentWork'
 import type { ArtifactFolders } from '../../artifacts/artifactFolders'
 import type { PaneIdentity } from '../../control/idRegistry'
 import type { AppLog } from '../../diagnostics/appLog'
 import type { Telemetry } from '../../diagnostics/telemetry'
+import type { PaneLifecycleEvents } from '../../extensions/paneLifecycleEvents'
 import type { OpenWaits } from '../../files/openWaits'
 import type { PaneWaking } from '../../panes/paneWaking'
 import type { ProcessRegistry } from '../../panes/processRegistry'
+import { foregroundCwd } from '../../platform/foregroundCwd'
 import { readSettingsFile } from '../../platform/settingsFile'
 import type { HostPaneGrants } from '../../sandbox/hostPanes'
-import type { PortRequests } from '../../sandbox/portRequests'
+import type { PortRequests } from '../../sandbox/ports/portRequests'
 import type { WorkspaceSandboxes } from '../../sandbox/workspaceSandboxes'
 import type { SavedAttention } from '../../tmux/attentionFile'
 import type { KeptAttention } from '../../tmux/keptAttention'
@@ -20,6 +22,7 @@ import type { KeptShellsWiring } from '../../tmux/keptShellsWiring'
 import { createKeptSpawner } from '../../tmux/keptSpawn'
 import type { ScratchFolders } from '../../workspaces/scratchFolders'
 import type { WorkspaceLifecycle } from '../../workspaces/workspaceLifecycle'
+import type { PaneHistories } from '../history/paneHistories'
 import { createPtyAttach } from './ptyAttach'
 import { createPtyIo } from './ptyIo'
 import { createLiveAttach } from './ptyLiveAttach'
@@ -46,12 +49,14 @@ interface PtyWiringDeps {
     onSandboxSpawnFailure: ((workspaceId: string, errors: string[]) => void) | null
     processes: ProcessRegistry | null
     telemetry: Telemetry | null
+    histories: PaneHistories | null
   }
   hibernatedPanes: Set<string>
   startedAgents: Set<string>
   terminalState: Map<string, TerminalStateSnapshot>
   keptShells: KeptShellsWiring['keptShells']
   paneWaking: PaneWaking
+  paneLifecycleEvents: PaneLifecycleEvents
   workspaceSandboxes: WorkspaceSandboxes
   injectSecrets: (workspaceId: string) => Promise<{ env: Record<string, string>; notice: string }>
   keptPlumbing: KeptShellsWiring['keptPlumbing']
@@ -69,7 +74,27 @@ interface PtyWiringDeps {
   keptPaneEnv: KeptShellsWiring['keptPaneEnv']
 }
 
-export function createPtyWiring({
+type PtyCoreDeps = Pick<
+  PtyWiringDeps,
+  | 'ptys'
+  | 'movingPanes'
+  | 'recoveryHeld'
+  | 'closedPanes'
+  | 'openWaits'
+  | 'agentRunning'
+  | 'agentWork'
+  | 'keptAttention'
+  | 'services'
+  | 'hibernatedPanes'
+  | 'startedAgents'
+  | 'terminalState'
+  | 'keptShells'
+  | 'paneWaking'
+  | 'paneLifecycleEvents'
+  | 'workspaceSandboxes'
+>
+
+function createPtyCore({
   ptys,
   movingPanes,
   recoveryHeld,
@@ -84,22 +109,9 @@ export function createPtyWiring({
   terminalState,
   keptShells,
   paneWaking,
+  paneLifecycleEvents,
   workspaceSandboxes,
-  injectSecrets,
-  keptPlumbing,
-  portRequests,
-  releaseMergedSandbox,
-  restoreKeptAttention,
-  windows,
-  scratchFolders,
-  artifactFolders,
-  hostPaneGrants,
-  paneLauncherDir,
-  keepShellsOn,
-  keptShellsProgram,
-  withKeptProcess,
-  keptPaneEnv,
-}: PtyWiringDeps) {
+}: PtyCoreDeps) {
   const { loadPty, feedPty, trackPty } = createPtyRegistry({
     ptys,
     movingPanes,
@@ -112,6 +124,7 @@ export function createPtyWiring({
     keptAttention,
     processes: () => services.processes,
     appLog: () => services.appLog,
+    histories: () => services.histories,
   })
 
   const { killPty, hibernatePty } = createPtyStop({
@@ -124,15 +137,18 @@ export function createPtyWiring({
     keptShells,
     agentWork,
     paneWaking,
+    paneLifecycleEvents,
     telemetry: () => services.telemetry,
     appLog: () => services.appLog,
   })
 
-  const { paneActivity, sandboxReadRules, ptyPid, paneOutput } = createPtyQueries({
-    ptys,
-    agentRunning,
-    workspaceSandboxes,
-  })
+  const { paneActivity, foregroundProgram, agentCwd, sandboxReadRules, ptyPid, paneOutput } =
+    createPtyQueries({
+      ptys,
+      agentRunning,
+      workspaceSandboxes,
+      foregroundCwd,
+    })
 
   const {
     paneIo,
@@ -162,34 +178,6 @@ export function createPtyWiring({
     killPty,
     appLog: () => services.appLog,
   })
-  const { attachPty } = createPtyAttachWiring({
-    workspaceSandboxes,
-    keptShells,
-    injectSecrets,
-    services,
-    keptPlumbing,
-    keptAttention,
-    agentRunning,
-    hibernatedPanes,
-    portRequests,
-    trackPty,
-    feedPty,
-    releaseMergedSandbox,
-    restoreKeptAttention,
-    windows,
-    movingPanes,
-    recoveryHeld,
-    scratchFolders,
-    artifactFolders,
-    hostPaneGrants,
-    paneLauncherDir,
-    keepShellsOn,
-    keptShellsProgram,
-    withKeptProcess,
-    keptPaneEnv,
-    ptys,
-    loadPty,
-  })
 
   return {
     loadPty,
@@ -198,6 +186,8 @@ export function createPtyWiring({
     killPty,
     hibernatePty,
     paneActivity,
+    foregroundProgram,
+    agentCwd,
     sandboxReadRules,
     ptyPid,
     paneOutput,
@@ -214,8 +204,15 @@ export function createPtyWiring({
     releaseWindowPtys,
     holdPtys,
     releaseMovingPane,
-    attachPty,
   }
+}
+
+export function createPtyWiring(deps: PtyWiringDeps) {
+  const core = createPtyCore(deps)
+  const { loadPty, feedPty, trackPty } = core
+  const { attachPty } = createPtyAttachWiring({ ...deps, trackPty, feedPty, loadPty })
+
+  return { ...core, attachPty }
 }
 
 interface PtyAttachWiringDeps {
@@ -227,11 +224,13 @@ interface PtyAttachWiringDeps {
     onSandboxSpawnFailure: ((workspaceId: string, errors: string[]) => void) | null
     processes: ProcessRegistry | null
     telemetry: Telemetry | null
+    histories: PaneHistories | null
   }
   keptPlumbing: KeptShellsWiring['keptPlumbing']
   keptAttention: KeptAttention
   agentRunning: AgentRunningPanes
   hibernatedPanes: Set<string>
+  paneLifecycleEvents: PaneLifecycleEvents
   portRequests: PortRequests
   trackPty: PtyRegistry['trackPty']
   feedPty: PtyRegistry['feedPty']
@@ -261,6 +260,7 @@ function createPtyAttachWiring({
   keptAttention,
   agentRunning,
   hibernatedPanes,
+  paneLifecycleEvents,
   portRequests,
   trackPty,
   feedPty,
@@ -329,6 +329,7 @@ function createPtyAttachWiring({
     keptShells,
     workspaceSandboxes,
     hibernatedPanes,
+    paneLifecycleEvents,
     trackPty,
     feedPty,
     releaseMergedSandbox,
@@ -347,6 +348,7 @@ function createPtyAttachWiring({
     spawnSandboxed,
     spawnKept,
     startTracked,
+    historySettled: (paneId) => services.histories?.settled(paneId) ?? Promise.resolve(),
     telemetry: () => services.telemetry,
   })
 

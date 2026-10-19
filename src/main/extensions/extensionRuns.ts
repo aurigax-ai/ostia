@@ -14,6 +14,7 @@ import {
   TERMINAL_TITLE_MAX,
   type TerminalWait,
 } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
+import { isRecord } from '@aurigax-ai/ostia-extension-sdk/contract/isRecord'
 import type { CancellationToken, MessageConnection } from 'vscode-jsonrpc/node'
 import { quoteArgv } from '../../shared/terminal/shellQuote'
 import {
@@ -30,7 +31,7 @@ import {
 import { type PaneIdentity, resolveExternal } from '../control/idRegistry'
 import { spawnFolder } from '../terminal/spawnCwd'
 import type { ExtensionHostDeps } from './extensionHostDeps'
-import { type Runtime, fail, isPlainRecord } from './extensionRuntime'
+import { type Runtime, fail } from './extensionRuntime'
 
 function hasControlChar(text: string): boolean {
   for (let i = 0; i < text.length; i++) {
@@ -221,7 +222,7 @@ export class ExtensionRuns {
 
   async runAgent(identity: PaneIdentity, conn: MessageConnection, params: unknown) {
     const rt = this.host.runtimeOf(identity, conn)
-    const p = isPlainRecord(params) ? params : {}
+    const p = isRecord(params) ? params : {}
     const workspaceId = workspaceIdOf(p.workspaceId)
     if (!workspaceId) return fail('invalid-params', 'workspaceId is required')
     if (p.background !== undefined && typeof p.background !== 'boolean') {
@@ -304,7 +305,7 @@ export class ExtensionRuns {
 
   async offerToAgent(identity: PaneIdentity, conn: MessageConnection, params: unknown) {
     const rt = this.host.runtimeOf(identity, conn)
-    const p = isPlainRecord(params) ? params : {}
+    const p = isRecord(params) ? params : {}
     const workspaceId = workspaceIdOf(p.workspaceId)
     if (!workspaceId) return fail('invalid-params', 'workspaceId is required')
     const text = offerText(p.text)
@@ -344,7 +345,7 @@ export class ExtensionRuns {
 
   focusPane(identity: PaneIdentity, conn: MessageConnection, params: unknown) {
     const rt = this.host.runtimeOf(identity, conn)
-    const paneId = isPlainRecord(params) ? params.paneId : undefined
+    const paneId = isRecord(params) ? params.paneId : undefined
     if (typeof paneId !== 'string' || !rt.reached.has(paneId)) {
       return fail(
         'not-reached',

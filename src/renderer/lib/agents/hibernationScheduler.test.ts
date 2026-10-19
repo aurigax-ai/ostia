@@ -73,10 +73,17 @@ const terminal = (id: string, resume = true): PaneNode => ({
   ...(resume ? { resume: { agent: 'claude' as const, id: `tok-${id}` } } : {}),
 })
 
+function hookAgent(command: string): 'claude' | 'codex' | null {
+  const program = command.split(' ')[0]?.replaceAll("'", '')
+  return program === 'claude' || program === 'codex' ? program : null
+}
+
 function run(paneId: string, command: string): void {
   const blocks = useBlocksStore.getState()
   blocks.promptStart(paneId, { line: 0 }, null)
   blocks.commandStart(paneId, { line: 1 }, command)
+  const agent = hookAgent(command)
+  if (agent) useBlocksStore.getState().markAgent(paneId, agent)
 }
 
 function seed(maxLiveTerminals: number): void {
@@ -85,6 +92,7 @@ function seed(maxLiveTerminals: number): void {
       hibernation: { enabled: true, idleSeconds: 600, maxLiveTerminals },
       autoResume: false,
       autoSendReferences: true,
+      trustWorkspaceFolders: false,
       hooks: { claude: true, codex: true },
     },
   })
@@ -159,6 +167,7 @@ describe('hibernateIdleAgents', () => {
         hibernation: { enabled: false, idleSeconds: 600, maxLiveTerminals: 0 },
         autoResume: false,
         autoSendReferences: true,
+        trustWorkspaceFolders: false,
         hooks: { claude: true, codex: true },
       },
     })
@@ -232,8 +241,14 @@ describe('hibernateIdleAgents', () => {
     await commands.exec('pane.focus', { paneId: 'idle-claude' })
     expect(hibernated('idle-claude')).toBe(true)
     const target = document.getElementById('body')
-    const press = { type: 'pointerdown', isTrusted: true, button: 0, target } as unknown as Event
-    for (const listener of inputListeners.get('pointerdown') ?? []) listener(press)
+    const press = {
+      type: 'click',
+      isTrusted: true,
+      button: 0,
+      detail: 1,
+      target,
+    } as unknown as Event
+    for (const listener of inputListeners.get('click') ?? []) listener(press)
 
     expect(hibernated('idle-claude')).toBe(false)
     expect(typed.mock.calls.map(([id, command]) => [id, command])).toEqual([
@@ -453,7 +468,7 @@ describe('hibernating and resuming agents in bulk', () => {
     ])
     heldResumes.shift()?.gaveUp()
     expect(report.mock.calls.slice(3)).toEqual([
-      ['a1', false],
+      ['a1', false, expect.any(String)],
       ['a4', true],
     ])
   })
@@ -569,7 +584,7 @@ describe('the pane.wake command an agent reaches through main', () => {
     typed.mock.calls[0][4]?.()
     expect(report.mock.calls).toEqual([
       ['idle-claude', true],
-      ['idle-claude', false],
+      ['idle-claude', false, expect.any(String)],
     ])
   })
 
@@ -679,7 +694,7 @@ describe('the pane.wake command an agent reaches through main', () => {
     const fresh = () =>
       findPane(useLayoutStore.getState().byWorkspace.s2?.root ?? terminal('x'), 'fresh-claude')
     expect(fresh()?.resumePending).toBe(true)
-    expect(report).toHaveBeenCalledWith('fresh-claude', false)
+    expect(report).toHaveBeenCalledWith('fresh-claude', false, expect.any(String))
     const holder = fresh() ? resumeConflict(fresh() as PaneNode) : null
     expect(holder?.id).toBe('idle-claude')
   })

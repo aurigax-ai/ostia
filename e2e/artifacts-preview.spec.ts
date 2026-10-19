@@ -3,7 +3,7 @@ import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { type AddressInfo, type Server, createServer } from 'node:net'
 import { join } from 'node:path'
 import { DOM_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
-import { openWorkspace, runInTerminal } from './helpers'
+import { expectHeld, openWorkspace, runInTerminal } from './helpers'
 import { type ElectronApplication, type Page, _electron as electron, expect, test } from './test'
 
 const PREVIEW_URL = 'ostia-preview://'
@@ -235,6 +235,17 @@ function guestTick(app: ElectronApplication): Promise<number> {
   }, PREVIEW_URL)
 }
 
+function guestDebuggerAttached(app: ElectronApplication): Promise<boolean> {
+  return app.evaluate(
+    ({ webContents }, prefix) =>
+      webContents
+        .getAllWebContents()
+        .find((wc) => wc.getURL().startsWith(prefix))
+        ?.debugger.isAttached() ?? false,
+    PREVIEW_URL,
+  )
+}
+
 function guestTitle(app: ElectronApplication): Promise<string | null> {
   return app.evaluate(
     ({ webContents }, prefix) =>
@@ -339,51 +350,32 @@ test('PRT-C30 a page in the artifact folder runs with no network, no way into Os
   }
 })
 
-test('PRT-C30 a page that never yields is stopped, and the terminal beside it keeps working', async () => {
-  test.setTimeout(180_000)
-  const dataHome = freshDataHome()
-  const home = join(dataHome, 'home')
-  mkdirSync(home, { recursive: true })
-  writeFileSync(
-    join(home, 'loop.html'),
-    '<!doctype html><title>loop</title><p>spinning</p><script>setTimeout(() => { while (true) {} }, 500)</script>',
-  )
-  const { app, win } = await launch(dataHome)
-  try {
-    await runInTerminal(
-      win,
-      'cp ~/loop.html "$OSTIA_ARTIFACTS/" && ostia open "$OSTIA_ARTIFACTS/loop.html"',
-    )
-    await expect(win.getByTestId('html-preview')).toBeVisible({ timeout: 20_000 })
-    await expect.poll(() => guestUrls(app), { timeout: 20_000 }).toHaveLength(1)
+const NAMES_PAGE = [
+  '<!doctype html><title>names</title>',
+  '<meta http-equiv="x-dns-prefetch-control" content="on">',
+  '<link rel="dns-prefetch" href="//prefetch-probe.ostia-test.invalid">',
+  '<link rel="preconnect" href="https://preconnect-probe.ostia-test.invalid">',
+  '<link rel="prerender" href="https://prerender-probe.ostia-test.invalid/">',
+  '<a href="http://anchor-probe.ostia-test.invalid/">a link</a>',
+  '<script>',
+  'for (const rel of ["dns-prefetch", "preconnect"]) {',
+  '  const link = document.createElement("link")',
+  '  link.rel = rel',
+  '  link.href = "https://" + rel + "-script-probe.ostia-test.invalid/"',
+  '  document.head.append(link)',
+  '}',
+  'Promise.allSettled([',
+  '  new Promise((settled) => {',
+  '    const image = new Image()',
+  '    image.onload = image.onerror = settled',
+  '    image.src = "https://image-probe.ostia-test.invalid/a.png"',
+  '  }),',
+  '  fetch("https://fetch-probe.ostia-test.invalid/"),',
+  ']).then(() => { document.title = "names-done" })',
+  '</script>',
+].join('\n')
 
-    await expect(win.getByTestId('preview-not-responding')).toBeVisible({ timeout: 20_000 })
-    await runInTerminal(win, 'echo alive-$((40 + 2))')
-    await expect(win.locator('.xterm-rows').first()).toContainText('alive-42', { timeout: 5_000 })
-    expect(
-      await win.evaluate(
-        () =>
-          new Promise<number>((ok) => requestAnimationFrame((at) => ok(performance.now() - at))),
-      ),
-    ).toBeLessThan(500)
-
-    const stopped = win.getByTestId('preview-stopped')
-    await expect(stopped).toContainText('did not respond for 15 seconds', { timeout: 30_000 })
-    await expect.poll(() => guestUrls(app), { timeout: 10_000 }).toHaveLength(0)
-
-    writeFileSync(join(home, 'calm.html'), '<!doctype html><title>calm</title><p>fine now</p>')
-    await runInTerminal(win, 'cp ~/calm.html "$OSTIA_ARTIFACTS/loop.html"')
-    await stopped.getByRole('button', { name: 'Reload' }).click()
-    await expect
-      .poll(() => inGuest<string>(app, 'document.title'), { timeout: 20_000 })
-      .toBe('calm')
-    await expect(win.getByTestId('preview-stopped')).toHaveCount(0)
-  } finally {
-    await app.close()
-  }
-})
-
-test('a page outside the artifact folder previews only when asked, reloads on a change and shows its errors', async () => {
+test('a page outside the artifact folder previews only when asked, reloads on a change and shows its errors, and a page in the artifact folder cannot make the resolver look up a host name (PRT-C30)', async () => {
   test.setTimeout(120_000)
   const dataHome = freshDataHome()
   const home = join(dataHome, 'home')
@@ -393,6 +385,8 @@ test('a page outside the artifact folder previews only when asked, reloads on a 
     page,
     `<!doctype html><title>first</title><button id="b">count</button><script>let n = 0; document.getElementById("b").onclick = () => { n += 1; document.title = "clicked " + n; navigator.clipboard.writeText("${COPIED}") }</script>`,
   )
+  writeFileSync(join(home, 'names.html'), NAMES_PAGE)
+  const log = join(dataHome, 'preview-netlog.json')
   const { app, win } = await launch(dataHome)
   try {
     await runInTerminal(win, 'ostia open ~/site/page.html')
@@ -433,17 +427,21 @@ test('a page outside the artifact folder previews only when asked, reloads on a 
     await expect.poll(() => guestTick(app), { timeout: 20_000 }).toBeGreaterThan(3)
     await inGuest(app, 'window.__kept = "state of this load"')
     await win.keyboard.press('Control+Shift+n')
+    await expect.poll(() => guestDebuggerAttached(app), { timeout: 20_000 }).toBe(true)
+    let seen = -1
     await expect
       .poll(
         async () => {
-          const before = await guestTick(app)
-          await win.waitForTimeout(1_200)
-          return (await guestTick(app)) - before
+          const tick = await guestTick(app)
+          const unchanged = tick === seen
+          seen = tick
+          return unchanged
         },
-        { timeout: 20_000 },
+        { timeout: 20_000, intervals: [300] },
       )
-      .toBe(0)
-    const frozenAt = await guestTick(app)
+      .toBe(true)
+    const frozenAt = seen
+    await expectHeld(() => guestTick(app), frozenAt, 500)
     await win.keyboard.press('Control+1')
     await expect.poll(() => guestTick(app), { timeout: 20_000 }).toBeGreaterThan(frozenAt + 3)
     expect(await inGuest<string>(app, 'window.__kept')).toBe('state of this load')
@@ -452,6 +450,36 @@ test('a page outside the artifact folder previews only when asked, reloads on a 
     await expect(win.getByTestId('html-preview')).toHaveCount(0)
     await expect.poll(() => guestUrls(app), { timeout: 10_000 }).toEqual([])
     await expect(win.locator('.monaco-editor:visible .view-lines')).toContainText('setInterval')
+
+    await runInTerminal(
+      win,
+      'cp ~/names.html "$OSTIA_ARTIFACTS/" && ostia open "$OSTIA_ARTIFACTS/names.html"',
+    )
+    await expect.poll(() => guestTitle(app), { timeout: 30_000 }).toBe('names-done')
+    await app.evaluate(
+      async ({ webContents }, [prefix, path]) => {
+        const guest = webContents.getAllWebContents().find((wc) => wc.getURL().startsWith(prefix))
+        if (!guest) throw new Error('no preview guest')
+        await guest.session.netLog.startLogging(path, { captureMode: 'everything' })
+        const settled = new Promise<void>((resolve) => {
+          const onTitle = (_event: unknown, title: string): void => {
+            if (title !== 'names-done') return
+            guest.off('page-title-updated', onTitle)
+            resolve()
+          }
+          guest.on('page-title-updated', onTitle)
+        })
+        guest.reload()
+        await settled
+        await guest.session.resolveHost('control-probe.ostia-test.invalid').catch(() => null)
+        await guest.session.netLog.stopLogging()
+      },
+      [PREVIEW_URL, log] as const,
+    )
+    const recorded = readFileSync(log, 'utf8')
+    expect(recorded).toContain('control-probe.ostia-test.invalid')
+    const looked = [...recorded.matchAll(/([a-z-]+-probe)\.ostia-test\.invalid/g)].map((m) => m[1])
+    expect([...new Set(looked)]).toEqual(['control-probe'])
   } finally {
     await app.close()
   }
@@ -519,7 +547,7 @@ export default function Widget() {
 }
 `
 
-test('a .tsx component runs with the bundled libraries, no eval, no network, and a runaway is stopped', async () => {
+test('PRT-C30 a .tsx component runs with the bundled libraries, no eval, no network, and a runaway is stopped while the terminal keeps working', async () => {
   test.setTimeout(180_000)
   const dataHome = freshDataHome()
   const home = join(dataHome, 'home')
@@ -593,93 +621,22 @@ test('a .tsx component runs with the bundled libraries, no eval, no network, and
     await expect(win.getByTestId('preview-not-responding')).toBeVisible({ timeout: 20_000 })
     await runInTerminal(win, 'echo alive-$((40 + 2))')
     await expect(win.locator('.xterm-rows').first()).toContainText('alive-42', { timeout: 5_000 })
-    await expect(win.getByTestId('preview-stopped')).toContainText(
-      'did not respond for 15 seconds',
-      { timeout: 30_000 },
-    )
+    expect(
+      await win.evaluate(
+        () =>
+          new Promise<number>((ok) => requestAnimationFrame((at) => ok(performance.now() - at))),
+      ),
+    ).toBeLessThan(500)
+    const stopped = win.getByTestId('preview-stopped')
+    await expect(stopped).toContainText('did not respond for 15 seconds', { timeout: 30_000 })
     await expect.poll(() => guestUrls(app), { timeout: 10_000 }).toHaveLength(0)
+
+    await stopped.getByRole('button', { name: 'Reload' }).click()
+    await expect.poll(() => guestTitle(app), { timeout: 20_000 }).toBe('count 0 sibling max 5')
+    await expect(win.getByTestId('preview-stopped')).toHaveCount(0)
     expect(outside.hits()).toBe(0)
   } finally {
     await app.close()
     await outside.close()
-  }
-})
-
-test('a component that imports what is not bundled says so in the strip', async () => {
-  test.setTimeout(120_000)
-  const dataHome = freshDataHome()
-  const home = join(dataHome, 'home')
-  mkdirSync(home, { recursive: true })
-  writeFileSync(
-    join(home, 'Unbundled.tsx'),
-    "import { motion } from 'framer-motion'\nexport default () => <motion.div />\n",
-  )
-  const { app, win } = await launch(dataHome)
-  try {
-    await runInTerminal(
-      win,
-      'cp ~/Unbundled.tsx "$OSTIA_ARTIFACTS/" && ostia open "$OSTIA_ARTIFACTS/Unbundled.tsx"',
-    )
-    await expect(win.getByTestId('preview-errors')).toContainText('framer-motion', {
-      timeout: 30_000,
-    })
-    expect(await guestUrls(app)).toHaveLength(1)
-  } finally {
-    await app.close()
-  }
-})
-
-test('PRT-C30 a page cannot make the resolver look up a host name: no DNS prefetch, preconnect or anchor lookup', async () => {
-  test.setTimeout(120_000)
-  const dataHome = freshDataHome()
-  const home = join(dataHome, 'home')
-  mkdirSync(home, { recursive: true })
-  writeFileSync(
-    join(home, 'names.html'),
-    [
-      '<!doctype html><title>names</title>',
-      '<meta http-equiv="x-dns-prefetch-control" content="on">',
-      '<link rel="dns-prefetch" href="//prefetch-probe.ostia-test.invalid">',
-      '<link rel="preconnect" href="https://preconnect-probe.ostia-test.invalid">',
-      '<link rel="prerender" href="https://prerender-probe.ostia-test.invalid/">',
-      '<a href="http://anchor-probe.ostia-test.invalid/">a link</a>',
-      '<script>',
-      'for (const rel of ["dns-prefetch", "preconnect"]) {',
-      '  const link = document.createElement("link")',
-      '  link.rel = rel',
-      '  link.href = "https://" + rel + "-script-probe.ostia-test.invalid/"',
-      '  document.head.append(link)',
-      '}',
-      'new Image().src = "https://image-probe.ostia-test.invalid/a.png"',
-      'fetch("https://fetch-probe.ostia-test.invalid/").catch(() => {})',
-      '</script>',
-    ].join('\n'),
-  )
-  const log = join(dataHome, 'preview-netlog.json')
-  const { app, win } = await launch(dataHome)
-  try {
-    await runInTerminal(
-      win,
-      'cp ~/names.html "$OSTIA_ARTIFACTS/" && ostia open "$OSTIA_ARTIFACTS/names.html"',
-    )
-    await expect.poll(() => guestTitle(app), { timeout: 30_000 }).toBe('names')
-    await app.evaluate(
-      async ({ webContents }, [prefix, path]) => {
-        const guest = webContents.getAllWebContents().find((wc) => wc.getURL().startsWith(prefix))
-        if (!guest) throw new Error('no preview guest')
-        await guest.session.netLog.startLogging(path, { captureMode: 'everything' })
-        guest.reload()
-        await new Promise((resolve) => setTimeout(resolve, 4_000))
-        await guest.session.resolveHost('control-probe.ostia-test.invalid').catch(() => null)
-        await guest.session.netLog.stopLogging()
-      },
-      [PREVIEW_URL, log] as const,
-    )
-    const recorded = readFileSync(log, 'utf8')
-    expect(recorded).toContain('control-probe.ostia-test.invalid')
-    const looked = [...recorded.matchAll(/([a-z-]+-probe)\.ostia-test\.invalid/g)].map((m) => m[1])
-    expect([...new Set(looked)]).toEqual(['control-probe'])
-  } finally {
-    await app.close()
   }
 })

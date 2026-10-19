@@ -1,5 +1,5 @@
 import type { MessageConnection } from 'vscode-jsonrpc/node'
-import type { CommandDescriptor, CommandResult } from '../../shared/types'
+import type { CommandDescriptor, CommandResult } from '../../shared/control/commands'
 import { commandHelp, wantsHelp } from '../common/commandHelp'
 import { buildCommandCall, parseCommandFlags, resolveWorkspaceRef } from '../common/crossWorkspace'
 import { fail } from '../common/failure'

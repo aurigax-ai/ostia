@@ -1,9 +1,7 @@
 import type {
   AssistAvailability,
   AssistCatalog,
-  AssistChunk,
   AssistExtensionState,
-  AssistOpenUiRequest,
 } from '@aurigax-ai/ostia-extension-sdk/contract/assist'
 import { ipcRenderer } from 'electron'
 import type {
@@ -12,46 +10,26 @@ import type {
   ChatSession,
   ChatSessionSummary,
 } from '../shared/assist/chatSessions'
-import type { McpServerStatus } from '../shared/assist/chatTools'
 import type { OstiaBridge } from '../shared/types'
+import { listen } from './listen'
 
 export const assistBridge: Pick<OstiaBridge, 'assist' | 'chatSessions' | 'chatTools'> = {
   assist: {
     availability: () => ipcRenderer.invoke('assist:availability') as Promise<AssistAvailability>,
-    onAvailability: (cb) => {
-      const handler = (_e: unknown, availability: AssistAvailability): void => cb(availability)
-      ipcRenderer.on('assist:availability', handler)
-      return () => ipcRenderer.removeListener('assist:availability', handler)
-    },
+    onAvailability: (cb) => listen('assist:availability', cb),
     request: (point, requestId, input, model) =>
       ipcRenderer.invoke('assist:request', point, requestId, input, model),
     cancel: (requestId) => ipcRenderer.send('assist:cancel', requestId),
-    onChunk: (cb) => {
-      const handler = (_e: unknown, chunk: AssistChunk): void => cb(chunk)
-      ipcRenderer.on('assist:chunk', handler)
-      return () => ipcRenderer.removeListener('assist:chunk', handler)
-    },
+    onChunk: (cb) => listen('assist:chunk', cb),
     overview: () => ipcRenderer.invoke('assist:overview') as Promise<AssistExtensionState[]>,
-    onOverview: (cb) => {
-      const handler = (_e: unknown, overview: AssistExtensionState[]): void => cb(overview)
-      ipcRenderer.on('assist:overview', handler)
-      return () => ipcRenderer.removeListener('assist:overview', handler)
-    },
-    onOpenUi: (cb) => {
-      const handler = (_e: unknown, req: AssistOpenUiRequest): void => cb(req)
-      ipcRenderer.on('assist:open-ui', handler)
-      return () => ipcRenderer.removeListener('assist:open-ui', handler)
-    },
+    onOverview: (cb) => listen('assist:overview', cb),
+    onOpenUi: (cb) => listen('assist:open-ui', cb),
     reportShortcuts: (shortcuts) => ipcRenderer.send('assist:shortcuts', shortcuts),
     models: (extId, provider) => ipcRenderer.invoke('assist:models', extId, provider),
     setModelLoaded: (extId, id, loaded, provider) =>
       ipcRenderer.invoke('assist:set-model-loaded', extId, id, loaded, provider),
     catalog: () => ipcRenderer.invoke('assist:catalog') as Promise<AssistCatalog>,
-    onCatalog: (cb) => {
-      const handler = (_e: unknown, catalog: AssistCatalog): void => cb(catalog)
-      ipcRenderer.on('assist:catalog', handler)
-      return () => ipcRenderer.removeListener('assist:catalog', handler)
-    },
+    onCatalog: (cb) => listen('assist:catalog', cb),
     setProviderKey: (providerId, value) =>
       ipcRenderer.invoke('assist:set-provider-key', providerId, value),
     wake: () => ipcRenderer.send('assist:wake'),
@@ -80,11 +58,7 @@ export const assistBridge: Pick<OstiaBridge, 'assist' | 'chatSessions' | 'chatTo
     mcpStatus: () => ipcRenderer.invoke('chatTools:mcp-status'),
     mcpRefresh: () => ipcRenderer.invoke('chatTools:mcp-refresh'),
     mcpReconnect: (server) => ipcRenderer.invoke('chatTools:mcp-reconnect', server),
-    onMcpStatus: (cb) => {
-      const handler = (_e: unknown, status: McpServerStatus[]): void => cb(status)
-      ipcRenderer.on('chatTools:mcp-status', handler)
-      return () => ipcRenderer.removeListener('chatTools:mcp-status', handler)
-    },
+    onMcpStatus: (cb) => listen('chatTools:mcp-status', cb),
     mcpCall: (callId, server, tool, input) =>
       ipcRenderer.invoke('chatTools:mcp-call', callId, server, tool, input),
     mcpCancel: (callId) => ipcRenderer.send('chatTools:mcp-cancel', callId),
@@ -97,10 +71,6 @@ export const assistBridge: Pick<OstiaBridge, 'assist' | 'chatSessions' | 'chatTo
     alwaysGrants: () => ipcRenderer.invoke('chatTools:always-grants'),
     grantAlways: (key) => ipcRenderer.invoke('chatTools:grant-always', key),
     removeAlwaysGrant: (key) => ipcRenderer.invoke('chatTools:remove-always-grant', key),
-    onAlwaysGrants: (cb) => {
-      const handler = (_e: unknown, keys: string[]): void => cb(keys)
-      ipcRenderer.on('chatTools:always-grants', handler)
-      return () => ipcRenderer.removeListener('chatTools:always-grants', handler)
-    },
+    onAlwaysGrants: (cb) => listen('chatTools:always-grants', cb),
   },
 }

@@ -1,5 +1,5 @@
 import { MenuItem } from '@/components/common/Menu'
-import { WarningNote } from '@/components/settings/ControlRow'
+import { Notice } from '@/components/common/Notice'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -13,11 +13,11 @@ import {
 import { ContextMenuSeparator } from '@/components/ui/context-menu'
 import { Input } from '@/components/ui/input'
 import { fmt, useDict } from '@/lib/app/useDict'
+import { baseName, parentOf } from '@/lib/files/fileTree'
 import {
   type TreeEditError,
   copyInto,
   createEntry,
-  parentOf,
   pasteInto,
   renameEntry,
   trashEntries,
@@ -36,10 +36,6 @@ import {
   TrashIcon,
 } from '@phosphor-icons/react'
 import { type KeyboardEvent, useState } from 'react'
-
-function nameOf(path: string): string {
-  return path.slice(path.lastIndexOf('/') + 1)
-}
 
 export function FileOpsMenuItems({
   workspaceId,
@@ -127,40 +123,42 @@ export function treeRowKey(
 
 function labelFor(edit: TreeEdit, d: ReturnType<typeof useDict>): string {
   const ops = d.filesView.ops
-  if (edit.kind === 'rename') return fmt(ops.renameTo, { name: nameOf(edit.path) })
+  if (edit.kind === 'rename') return fmt(ops.renameTo, { name: baseName(edit.path) })
   return edit.entry === 'file' ? ops.newFileName : ops.newFolderName
 }
 
 const NAME_OFFSET = 38
 
 export function NameInputRow({
+  workspaceId,
   edit,
   depth,
   dir,
   icon,
 }: {
+  workspaceId: string | null
   edit: TreeEdit
   depth: number
   dir: boolean
   icon: JSX.Element
 }): JSX.Element {
   const d = useDict()
-  const initial = edit.kind === 'rename' ? nameOf(edit.path) : ''
+  const initial = edit.kind === 'rename' ? baseName(edit.path) : ''
   const [name, setName] = useState(initial)
   const [problem, setProblem] = useState<TreeEditError | null>(null)
   const [busy, setBusy] = useState(false)
   const close = (): void => useFileTreeStore.getState().setEdit(null)
   const commit = async (): Promise<void> => {
     if (busy) return
-    if (!name || name === initial) {
+    if (!workspaceId || !name || name === initial) {
       close()
       return
     }
     setBusy(true)
     const error =
       edit.kind === 'rename'
-        ? await renameEntry(edit.path, name)
-        : await createEntry(edit.dir, name, edit.entry)
+        ? await renameEntry(workspaceId, edit.path, name)
+        : await createEntry(workspaceId, edit.dir, name, edit.entry)
     setBusy(false)
     if (error) setProblem(error)
     else close()
@@ -175,7 +173,7 @@ export function NameInputRow({
     <div className="file-name-edit">
       <div className="file-row editing" style={{ paddingLeft: 8 + depth * 13 }}>
         {dir ? (
-          <CaretRightIcon size={12} className="file-twisty" />
+          <CaretRightIcon size={16} className="file-twisty" />
         ) : (
           <span className="file-twisty-spacer" />
         )}
@@ -212,7 +210,7 @@ export function NameInputRow({
       </div>
       {message ? (
         <div style={{ paddingLeft: 8 + depth * 13 + NAME_OFFSET }}>
-          <WarningNote>{message}</WarningNote>
+          <Notice>{message}</Notice>
         </div>
       ) : null}
     </div>
@@ -227,7 +225,7 @@ export function FileTrashDialog({ workspaceId }: { workspaceId: string | null })
   const paths = trashing ?? []
   const count =
     paths.length === 1
-      ? fmt(ops.trashOne, { name: nameOf(paths[0] ?? '') })
+      ? fmt(ops.trashOne, { name: baseName(paths[0] ?? '') })
       : fmt(ops.trashMany, { count: String(paths.length) })
   return (
     <AlertDialog open={trashing !== null} onOpenChange={(open) => (open ? null : askTrash(null))}>
@@ -235,7 +233,7 @@ export function FileTrashDialog({ workspaceId }: { workspaceId: string | null })
         <AlertDialogHeader>
           <AlertDialogTitle>{fmt(ops.trashTitle, { count })}</AlertDialogTitle>
           <AlertDialogDescription className="break-all">
-            {fmt(ops.trashBody, { list: paths.map(nameOf).join(', ') })}
+            {fmt(ops.trashBody, { list: paths.map(baseName).join(', ') })}
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>

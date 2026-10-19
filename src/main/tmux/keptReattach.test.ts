@@ -1,8 +1,10 @@
 import { describe, expect, it, vi } from 'vitest'
 import { ScreenMirror } from '../terminal/screenMirror'
+import { pendingRestoredScrollback, stashScrollback } from '../workspaces/savedScrollback'
 import { createKeptReattach } from './keptReattach'
 
 function setup() {
+  const writeToken = vi.fn()
   const shown: string[] = []
   const mirror = new ScreenMirror(80, 24)
   const entry = {
@@ -20,7 +22,7 @@ function setup() {
     workspaceSandboxes: {} as never,
     keptShells: {
       savedAttention: () => null,
-      writeToken: vi.fn(),
+      writeToken,
       keptHost: () => undefined,
     } as never,
     keptPlumbing: { ensure: vi.fn() } as never,
@@ -51,6 +53,7 @@ function setup() {
     meta: { workspaceId: 'w1', externalId: 'x', shell: '/bin/bash', spawnPath: '', stateFile: '' },
   }
   return {
+    writeToken,
     shown,
     mirror,
     run: () =>
@@ -73,5 +76,25 @@ describe('reattaching a kept shell', () => {
     expect(mirror.serialize()).toContain('kept screen')
     expect(mirror.serialize()).not.toContain('workspace restored')
     mirror.dispose()
+  })
+
+  it('KSH-C72 writes the pane a new token at every reattach', async () => {
+    const { writeToken, run } = setup()
+    await run()
+    await run()
+    expect(writeToken).toHaveBeenCalledTimes(2)
+    const [[firstPane, first], [secondPane, second]] = writeToken.mock.calls
+    expect([firstPane, secondPane]).toEqual(['p1', 'p1'])
+    expect(first).toMatch(/^[0-9a-f]{64}$/)
+    expect(second).toMatch(/^[0-9a-f]{64}$/)
+    expect(second).not.toBe(first)
+  })
+
+  it('KSH-C13 drops the pane’s saved scrollback so the kept screen is its only copy', async () => {
+    const { run } = setup()
+    stashScrollback('p1', 'once-42')
+    stashScrollback('other', 'untouched')
+    await run()
+    expect(pendingRestoredScrollback()).toEqual({ other: 'untouched' })
   })
 })

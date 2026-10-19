@@ -1,0 +1,17 @@
+{
+  "name": "attention",
+  "paths": [
+    "src/main/attention/attention.ts",
+    "src/main/attention/notify.",
+    "src/main/attention/notifyCommand.",
+    "src/renderer/components/agents/NotificationCenter.tsx",
+    "src/renderer/components/agents/attentionStyles.ts",
+    "src/renderer/lib/attention/attention.ts",
+    "src/renderer/lib/attention/bell.ts",
+    "src/renderer/lib/attention/notificationGroups.ts",
+    "src/renderer/lib/attention/pointerView.ts",
+    "src/renderer/stores/agents/attentionStore.ts",
+    "src/shared/app/notificationSettings.ts"
+  ],
+  "specs": []
+}

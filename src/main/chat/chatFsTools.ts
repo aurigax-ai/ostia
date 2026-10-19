@@ -1,7 +1,7 @@
-import { createHash } from 'node:crypto'
+import { hash } from 'node:crypto'
 import { existsSync, realpathSync } from 'node:fs'
 import { lstat, mkdir, open, readFile, readdir, stat, unlink, writeFile } from 'node:fs/promises'
-import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path'
+import { dirname, isAbsolute, join, relative, resolve } from 'node:path'
 import { CHAT_TOOL_OUTPUT_MAX } from '@aurigax-ai/ostia-extension-sdk/contract/assist'
 import { CHAT_EDITS_MAX, applyEdits } from '../../shared/assist/chatEdits'
 import {
@@ -34,7 +34,7 @@ import {
   type ChatWriteOutput,
   type ChatWriteRequest,
 } from '../../shared/assist/chatTools'
-import { expandHome, resolveSafe } from '../platform/pathGuard'
+import { expandHome, isInsidePath, resolveSafe } from '../platform/pathGuard'
 
 const PATH_MAX = 4096
 const READ_TEXT_MAX = CHAT_TOOL_OUTPUT_MAX - 2000
@@ -45,15 +45,11 @@ const SKIPPED_DIRS = new Set(['.git', 'node_modules'])
 type Fail = ChatFsFailure
 
 export function versionOf(content: Buffer | string): string {
-  return createHash('sha256').update(content).digest('hex')
+  return hash('sha256', content)
 }
 
 function fail(error: ChatFsError, path?: string): Fail {
   return path ? { ok: false, error, path } : { ok: false, error }
-}
-
-function inside(root: string, target: string): boolean {
-  return target === root || target.startsWith(root.endsWith(sep) ? root : root + sep)
 }
 
 function realOrNull(path: string): string | null {
@@ -94,7 +90,7 @@ function nearestExisting(path: string): string {
 function throughSymlink(path: string, real: string, folder: string | null): boolean {
   const nearest = nearestExisting(path)
   const realFolder = folder ? realOrNull(folder) : null
-  if (folder && realFolder && inside(folder, nearest)) {
+  if (folder && realFolder && isInsidePath(folder, nearest)) {
     return real !== resolve(realFolder, relative(folder, nearest))
   }
   return real !== nearest
@@ -109,10 +105,11 @@ function locate(req: ChatFsTarget, roots: readonly string[]): Located | Fail {
   if (!path) return fail('not-allowed', req.path)
   const realRoots = roots.map((r) => realOrNull(resolve(expandHome(r)))).filter(Boolean)
   const real = realOfNearest(path)
-  if (!real || !realRoots.some((r) => inside(r as string, real))) return fail('not-allowed', path)
+  if (!real || !realRoots.some((r) => isInsidePath(r as string, real)))
+    return fail('not-allowed', path)
   const folder = typeof req.root === 'string' ? resolveSafe(req.root, [...roots]) : null
   const realFolder = folder ? realOrNull(folder) : null
-  const outside = !realFolder || !inside(realFolder, real)
+  const outside = !realFolder || !isInsidePath(realFolder, real)
   if (outside && req.outside !== true) return fail('outside-folder', path)
   return { path, real, outside, symlink: throughSymlink(path, real, folder) }
 }
@@ -365,7 +362,7 @@ async function parentInsideRoots(path: string, roots: readonly string[]): Promis
   await mkdir(dirname(path), { recursive: true })
   const parent = realOrNull(dirname(path))
   const realRoots = roots.map((r) => realOrNull(resolve(expandHome(r)))).filter(Boolean)
-  return parent !== null && realRoots.some((r) => inside(r as string, parent))
+  return parent !== null && realRoots.some((r) => isInsidePath(r as string, parent))
 }
 
 function writable(req: ChatFsTarget & { symlinks: boolean }, roots: readonly string[]) {

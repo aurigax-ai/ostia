@@ -11,7 +11,7 @@ import {
   type NotificationKind,
   type NotificationPost,
   notificationKindOf,
-} from '../../shared/types'
+} from '../../shared/attention/attention'
 import { registerControlMethod } from '../control/controlServer'
 import { emitPlatformEvent } from '../control/events'
 import { getByPaneId } from '../control/idRegistry'
@@ -84,11 +84,16 @@ function ostiaInFront(windows: Iterable<BrowserWindow>): boolean {
   return false
 }
 
-function desktopNotification(deps: NotifyDeps, title: string, body?: string): Notification | null {
+function desktopNotification(
+  deps: NotifyDeps,
+  title: string,
+  body?: string,
+  evenWhenFocused = false,
+): Notification | null {
   if (!Notification.isSupported()) return null
   const settings = readNotificationSettings()
   if (!settings.desktop) return null
-  if (!settings.whenFocused && ostiaInFront(deps.windows())) return null
+  if (!evenWhenFocused && !settings.whenFocused && ostiaInFront(deps.windows())) return null
   return new Notification({ title, body, silent: !settings.sound })
 }
 
@@ -151,9 +156,9 @@ async function writeRecord(deps: NotifyDeps, input: RecordInput, ts: string): Pr
 
 export function postNotification(
   deps: NotifyDeps,
-  input: { title: string; body?: string; from: string },
+  input: { title: string; body?: string; from: string; evenWhenFocused?: boolean },
 ): void {
-  showDesktop(deps, input.title, input.body)
+  desktopNotification(deps, input.title, input.body, input.evenWhenFocused)?.show()
   void record(deps, input)
 }
 

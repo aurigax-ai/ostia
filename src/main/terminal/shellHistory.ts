@@ -3,7 +3,7 @@ import { open, realpath } from 'node:fs/promises'
 import { basename, isAbsolute } from 'node:path'
 import { ipcMain } from 'electron'
 import { LRUCache } from 'lru-cache'
-import type { ShellHistoryEntry } from '../../shared/types'
+import type { ShellHistoryEntry } from '../../shared/terminal/ptyApi'
 import { type SandboxReadRules, visibleInSandbox } from '../sandbox/visibility'
 import { readShellState } from './shellCommands'
 

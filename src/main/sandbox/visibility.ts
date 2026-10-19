@@ -1,17 +1,14 @@
 import { delimiter } from 'node:path'
+import { isInsidePath } from '../platform/pathGuard'
 
 export interface SandboxReadRules {
   denyRead: readonly string[]
   allowRead: readonly string[]
 }
 
-function within(path: string, dir: string): boolean {
-  return path === dir || path.startsWith(dir.endsWith('/') ? dir : `${dir}/`)
-}
-
 function deepest(path: string, dirs: readonly string[]): number {
   let longest = -1
-  for (const dir of dirs) if (within(path, dir)) longest = Math.max(longest, dir.length)
+  for (const dir of dirs) if (isInsidePath(dir, path)) longest = Math.max(longest, dir.length)
   return longest
 }
 
@@ -22,7 +19,7 @@ export function visibleInSandbox(path: string, rules: SandboxReadRules): boolean
 
 export function leadsIntoSandbox(path: string, rules: SandboxReadRules): boolean {
   return rules.allowRead.some(
-    (allowed) => within(allowed, path) && visibleInSandbox(allowed, rules),
+    (allowed) => isInsidePath(path, allowed) && visibleInSandbox(allowed, rules),
   )
 }
 

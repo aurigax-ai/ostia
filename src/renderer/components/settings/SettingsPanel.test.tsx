@@ -185,6 +185,7 @@ describe('SettingsPanel', () => {
       category: 'langpack',
       languages: [{ id: 'zh-Hant', label: '繁體中文' }],
       languageServers: [],
+      fileViewers: [],
       agentSkills: [],
       agentHooks: [],
       iconThemes: [],
@@ -316,6 +317,7 @@ describe('SettingsPanel', () => {
           category: 'other',
           languages: [],
           languageServers: [],
+          fileViewers: [],
           agentSkills: [],
           agentHooks: [],
           iconThemes: [{ id: 'fixture-icons', label: 'Fixture Icons' }],
@@ -766,6 +768,7 @@ describe('SettingsPanel', () => {
           category: 'other',
           languages: [],
           languageServers: [],
+          fileViewers: [],
           agentSkills: [],
           agentHooks: [],
           iconThemes: [],
@@ -779,6 +782,7 @@ describe('SettingsPanel', () => {
     expect(screen.getByRole('switch', { name: 'Enable Assistant' })).toBeInTheDocument()
     expect(screen.queryByRole('textbox', { name: 'Base url' })).toBeNull()
     expect(screen.queryByText('MCP servers')).toBeNull()
+    await user.click(screen.getByRole('button', { name: 'Details of Assistant' }))
     await user.click(screen.getByRole('button', { name: 'Configure in Assistant settings' }))
     expect(await screen.findByRole('heading', { level: 2, name: 'Assistant' })).toBeInTheDocument()
     expect(screen.getByRole('textbox', { name: 'Base url' })).toBeInTheDocument()

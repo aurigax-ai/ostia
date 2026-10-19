@@ -1,0 +1,43 @@
+{
+  "id": "office",
+  "name": "Office documents",
+  "version": "1.0.0",
+  "api": "4.12",
+  "description": "Shows spreadsheets (.xlsx, .xlsm, .ods) as sheets with tabs, Word and OpenDocument text (.docx, .odt) as text, and presentations (.pptx, .pptm, .ppsx, .odp) as an outline of each slide's title, text, tables and notes, read-only. It parses the file you opened inside its own sandbox with size, unpacking and content limits that say why when a file goes past them, never runs macros, never follows links and sends the file nowhere.",
+  "category": "tools",
+  "locales": ["zh-Hant"],
+  "contributes": {
+    "fileViewers": [
+      {
+        "viewType": "office.spreadsheet",
+        "displayName": "Spreadsheet",
+        "selector": [
+          { "filenamePattern": "*.xlsx" },
+          { "filenamePattern": "*.xlsm" },
+          { "filenamePattern": "*.ods" }
+        ],
+        "priority": "default",
+        "entry": "sheet.html"
+      },
+      {
+        "viewType": "office.document",
+        "displayName": "Document",
+        "selector": [{ "filenamePattern": "*.docx" }, { "filenamePattern": "*.odt" }],
+        "priority": "default",
+        "entry": "document.html"
+      },
+      {
+        "viewType": "office.presentation",
+        "displayName": "Presentation",
+        "selector": [
+          { "filenamePattern": "*.pptx" },
+          { "filenamePattern": "*.pptm" },
+          { "filenamePattern": "*.ppsx" },
+          { "filenamePattern": "*.odp" }
+        ],
+        "priority": "default",
+        "entry": "presentation.html"
+      }
+    ]
+  }
+}

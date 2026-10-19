@@ -1,0 +1,31 @@
+{
+  "name": "sandbox",
+  "paths": [
+    "src/main/sandbox/",
+    "src/main/sandbox/sandboxedCaller.ts",
+    "src/main/sandboxPackages/packages.ts",
+    "src/main/secrets/",
+    "src/main/secrets/vault.ts",
+    "src/renderer/components/sandbox/SandboxFolderDialog.",
+    "src/renderer/components/sandbox/SandboxListEditor.tsx",
+    "src/renderer/components/sandbox/SandboxPackagesTab.",
+    "src/renderer/components/sandbox/SandboxPolicyGroups.tsx",
+    "src/renderer/components/sandbox/SandboxPortsTab.",
+    "src/renderer/components/sandbox/SandboxRequirementsDialog.",
+    "src/renderer/components/sandbox/SandboxRestartButton.tsx",
+    "src/renderer/components/sandbox/SandboxSecretsTab.tsx",
+    "src/renderer/components/sandbox/SandboxSection.tsx",
+    "src/renderer/components/sandbox/SandboxSettings.test.tsx",
+    "src/renderer/components/sandbox/SandboxViolations.",
+    "src/renderer/components/sandbox/WorkspaceSandboxPage.tsx",
+    "src/renderer/stores/app/sandboxStore.ts",
+    "src/shared/sandbox/sandbox.",
+    "src/shared/sandbox/sandboxParse.ts",
+    "src/shared/sandbox/sandboxPresets.",
+    "src/shared/sandbox/secrets.ts"
+  ],
+  "specs": [
+    "e2e/keep-shells-sandbox.spec.ts",
+    "e2e/sandbox.spec.ts"
+  ]
+}

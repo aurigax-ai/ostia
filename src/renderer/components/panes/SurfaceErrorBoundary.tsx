@@ -1,13 +1,6 @@
 import { commands } from '@/commands/registry'
+import { EmptyState } from '@/components/common/EmptyState'
 import { Button } from '@/components/ui/button'
-import {
-  Empty,
-  EmptyContent,
-  EmptyDescription,
-  EmptyHeader,
-  EmptyMedia,
-  EmptyTitle,
-} from '@/components/ui/empty'
 import {
   type ErrorDetails,
   errorDetails,
@@ -21,26 +14,28 @@ import { Component, type ErrorInfo, type ReactNode } from 'react'
 function SurfaceError({ paneId, error }: { paneId: string; error: ErrorDetails }): JSX.Element {
   const d = useDict()
   return (
-    <Empty className="surface-error h-full w-full bg-surface-1" role="alert">
-      <EmptyHeader>
-        <EmptyMedia variant="icon">
-          <WarningIcon aria-hidden />
-        </EmptyMedia>
-        <EmptyTitle className="font-semibold text-fg text-ui-base">{d.crash.paneTitle}</EmptyTitle>
-        <EmptyDescription className="text-ui-sm">{d.crash.paneBody}</EmptyDescription>
-      </EmptyHeader>
-      <EmptyContent>
-        <pre className="app-recovery-error">{error.message}</pre>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => void commands.exec('pane.close', { paneId })}
-        >
-          <XIcon data-icon="inline-start" aria-hidden />
-          {d.crash.closePane}
-        </Button>
-      </EmptyContent>
-    </Empty>
+    <EmptyState
+      variant="surface"
+      size="sm"
+      className="surface-error h-full w-full bg-surface-1"
+      role="alert"
+      icon={<WarningIcon aria-hidden />}
+      title={d.crash.paneTitle}
+      desc={d.crash.paneBody}
+      actions={
+        <>
+          <pre className="app-recovery-error">{error.message}</pre>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => void commands.exec('pane.close', { paneId })}
+          >
+            <XIcon data-icon="inline-start" aria-hidden />
+            {d.crash.closePane}
+          </Button>
+        </>
+      }
+    />
   )
 }
 

@@ -61,6 +61,10 @@ export const agentsSchema = {
       type: 'boolean',
       description: `Press Enter after ${PRODUCT_DISPLAY_NAME} pastes a reference you sent (Point at element, Capture region, Send selection) into a pane running claude or codex, so the agent reads it at once. Never at a shell prompt, and never for references from the file menu, an extension or an agent. Only you can change this; ostia settings set refuses it. Default: true.`,
     },
+    trustWorkspaceFolders: {
+      type: 'boolean',
+      description: `When ${PRODUCT_DISPLAY_NAME} resumes or starts Claude in a workspace folder, mark that folder trusted in Claude's own config (~/.claude.json) so Claude does not ask. This trusts the folder for Claude outside ${PRODUCT_DISPLAY_NAME} too. Never your home folder, scratch or sandboxed workspaces. Turning it off does not remove trust already given. Only you can change this; ostia settings set refuses it. Default: false.`,
+    },
     hooks: {
       type: 'object',
       additionalProperties: false,
@@ -246,7 +250,7 @@ export const actionsSchema = {
         type: 'array',
         items: {
           type: 'string',
-          enum: ['terminal', 'editor', 'browser', 'extension', 'git', 'diff', 'view'],
+          enum: ['terminal', 'editor', 'browser', 'git', 'diff', 'view'],
         },
         description: 'Only show it on these pane kinds. Default: all.',
       },

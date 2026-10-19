@@ -1,4 +1,4 @@
-import { BUILTIN_COLOR_SCHEMES } from '@/lib/theme/colorSchemes'
+import { BUILTIN_COLOR_SCHEMES } from '@/lib/colorSchemes/builtinColorSchemes'
 import { MATCH_OSTIA_THEME } from '@/lib/theme/themeChoice'
 
 const font = (title: string) => ({
@@ -160,8 +160,9 @@ export const behaviorSchema = {
       type: 'boolean',
       description:
         'Draw terminals on the GPU (WebGL). Block and box-drawing characters then fill ' +
-        'their cells exactly. Falls back to the DOM renderer when WebGL is unavailable. ' +
-        'Applies to new terminals.',
+        'their cells exactly. Falls back to the DOM renderer (the canvas renderer with the ' +
+        'ghostty engine) when WebGL is unavailable or runs in software. Applies to new ' +
+        'terminals.',
     },
     restoreWorkspace: {
       type: 'boolean',
@@ -193,8 +194,10 @@ export const behaviorSchema = {
       type: 'boolean',
       description:
         'Linux: run the app on the discrete GPU that switcheroo-control lists. Needs ' +
-        'switcheroo-control. Programs in terminals keep the default GPU. Applies on the ' +
-        'next start. Only you can change this, in Settings → Terminal. Default: false.',
+        'switcheroo-control. Programs in terminals keep the default GPU. When another GPU ' +
+        'drives the screen (most laptops), every frame is copied between the GPUs, which ' +
+        'adds latency to terminal text and scrolling. Applies on the next start. Only you ' +
+        'can change this, in Settings → Terminal. Default: false.',
     },
     externalEditor: {
       type: 'string',

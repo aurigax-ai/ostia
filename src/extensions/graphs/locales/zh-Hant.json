@@ -28,10 +28,9 @@
     "connections.http.secrets.secret.description": "隨此連線的每個請求送出；絕不寫進狀態圖檔案"
   },
   "messages": {
-    "title": "狀態圖",
-    "runsWhileOpen": "狀態圖在 Ostia 開著時執行，包含常駐在系統匣時。",
-    "empty.folder": "還沒有圖。圖是 {folder} 中的檔案。",
-    "empty.scratch": "暫存工作區沒有圖。",
+    "runtime.connecting": "正在連線到狀態圖執行環境…",
+    "runtime.otherContract": "狀態圖執行環境 {version} 正在執行，這個 Ostia 無法與它通訊。Ostia 不會停止它。請停止或更新它，才能使用狀態圖。",
+    "runtime.unreachable": "狀態圖執行環境沒有回應：{message}",
     "state.enabled": "已啟用",
     "state.changed": "已變更，請重新啟用",
     "state.not-enabled": "未啟用",
@@ -51,9 +50,6 @@
     "action.skip": "略過",
     "action.showPane": "顯示窗格",
     "lastRun": "上次執行：{status}",
-    "runs.title": "{name} 的執行紀錄",
-    "runs.none": "還沒有執行紀錄",
-    "run.title": "執行 {id}",
     "run.steps": "{count} 次節點執行",
     "status.running": "執行中",
     "status.waiting": "等待中",
@@ -75,10 +71,9 @@
     "node.attempt": "第 {attempt} 次嘗試",
     "node.input": "輸入",
     "node.output": "輸出",
-    "node.error": "錯誤",
     "node.state": "此節點之後的狀態",
     "node.wait": "等待",
-    "node.interrupted": "Ostia 停止時，這個節點被中斷了。請選擇如何繼續。",
+    "node.interrupted": "這個節點執行時 Ostia 停止了。請選擇接下來的做法。",
     "def.triggers": "觸發方式",
     "def.agentsMayStart": "代理程式可以啟動",
     "def.humanOnly": "只有你能啟動",
@@ -104,7 +99,7 @@
     "effect.external": "呼叫連接器",
     "effect.human": "詢問或通知你",
     "sidebar.active": "{count} 個執行中",
-    "error": "發生錯誤：{error}",
+    "error": "錯誤：{error}",
     "def.use": "{node}：{use}，{effect}",
     "def.useVia": "{node}：{use}，經由連線 {connection}，{effect}",
     "use.read": "只讀取",
@@ -112,6 +107,9 @@
     "use.external": "呼叫外部服務",
     "def.secretInput": "{node} 的輸入看起來像密鑰。請把密鑰放在「設定」的連線中，切勿寫進狀態圖檔案。",
     "row.filesRefused": "它的檔案觸發已關閉：這個資料夾在 .git、node_modules 與忽略的路徑之外有超過 5000 個資料夾要監看。",
-    "row.skipped": "自 Ostia 啟動以來略過 {count} 次：仍有執行在進行，或已達上限"
+    "row.skipped": "自 Ostia 啟動以來略過 {count} 次：仍有執行在進行，或已達上限",
+    "empty.folder.title": "沒有狀態圖。",
+    "empty.scratch.title": "這裡沒有狀態圖。",
+    "empty.runs": "沒有執行紀錄。在狀態圖清單中按「立即執行」來開始一次。"
   }
 }

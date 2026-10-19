@@ -1,18 +1,17 @@
 import { findPane, isPaneShown, paneIds, resetIds, tabsOfPane } from '@/lib/layout/tree'
+import { instanceKey } from '@/lib/panes/panelKeepAlive'
 import { registerOffscreenStarter } from '@/lib/terminal/offscreenStart'
 import { isTitlePinned, resetPinnedTitles } from '@/lib/terminal/pinnedTitles'
 import { registerTerminal } from '@/lib/terminal/terminalHandles'
 import { useSettingsStore } from '@/stores/app/settingsStore'
+import { useSidePanelStore } from '@/stores/app/sidePanelStore'
 import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
 import { useDiffStore } from '@/stores/files/diffStore'
 import { useBlocksStore } from '@/stores/terminal/blocksStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
-import type {
-  ExtensionInfo,
-  ExtensionSettingsStored,
-  PaneChip,
-} from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
+import type { ExtensionInfo, PaneChip } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
+import type { ExtensionSettingsStored } from '@aurigax-ai/ostia-extension-sdk/contract/extensionsBridge'
 import type { Terminal } from '@xterm/xterm'
 import { afterEach, beforeAll, describe, expect, it, onTestFinished, vi } from 'vitest'
 import {
@@ -60,6 +59,7 @@ function ext(overrides: Partial<ExtensionInfo> = {}): ExtensionInfo {
     category: 'other',
     languages: [],
     languageServers: [],
+    fileViewers: [],
     agentSkills: [],
     agentHooks: [],
     iconThemes: [],
@@ -72,11 +72,13 @@ describe('extensionBridge', () => {
   let layoutInit: ReturnType<typeof useLayoutStore.getState>
   let workspacesInit: ReturnType<typeof useWorkspacesStore.getState>
   let extInit: ReturnType<typeof useExtensionsStore.getState>
+  let sideInit: ReturnType<typeof useSidePanelStore.getState>
 
   beforeAll(() => {
     layoutInit = useLayoutStore.getState()
     workspacesInit = useWorkspacesStore.getState()
     extInit = useExtensionsStore.getState()
+    sideInit = useSidePanelStore.getState()
   })
 
   afterEach(() => {
@@ -84,6 +86,7 @@ describe('extensionBridge', () => {
     useLayoutStore.setState(layoutInit, true)
     useWorkspacesStore.setState(workspacesInit, true)
     useExtensionsStore.setState(extInit, true)
+    useSidePanelStore.setState(sideInit, true)
     useDiffStore.setState({ byPane: {} })
     resetIds()
   })
@@ -178,46 +181,38 @@ describe('extensionBridge', () => {
     })
   })
 
-  it('openExtensionPanel opens one panel pane per extension in the requested workspace', () => {
+  it('openExtensionPanel shows the extension in the right side panel and adds no pane', () => {
     useWorkspacesStore.setState({
       workspaces: [{ id: 's1', name: 'a', kind: 'terminal', workDir: '/a', state: 'idle' }],
       activeWorkspaceId: 's1',
     })
     useLayoutStore.getState().ensure('s1')
+    const before = paneIds(useLayoutStore.getState().byWorkspace.s1.root)
+    useExtensionsStore.setState({ list: [ext()] })
+
+    openExtensionPanel({ extId: 'ghost' })
+    expect(useSidePanelStore.getState().right).toBeNull()
+
+    openExtensionPanel({ extId: 'demo', workspaceId: 's1' })
+    expect(useSidePanelStore.getState().right).toBe('demo')
+    expect(paneIds(useLayoutStore.getState().byWorkspace.s1.root)).toEqual(before)
+  })
+
+  it('openExtensionPanel with a path routes that workspace’s instance and ignores an unknown workspace', () => {
+    useWorkspacesStore.setState({
+      workspaces: [{ id: 's1', name: 'a', kind: 'terminal', workDir: '/a', state: 'idle' }],
+      activeWorkspaceId: 's1',
+    })
     useExtensionsStore.setState({ list: [ext()] })
 
     openExtensionPanel({ extId: 'demo', workspaceId: 's1' })
-    openExtensionPanel({ extId: 'demo', workspaceId: 'unknown-workspace' })
-    openExtensionPanel({ extId: 'ghost' })
+    expect(useSidePanelStore.getState().routes).toEqual({})
+    openExtensionPanel({ extId: 'demo', workspaceId: 's1', path: '/cards/3' })
+    openExtensionPanel({ extId: 'demo', workspaceId: 'unknown-workspace', path: '/cards/4' })
 
-    const root = useLayoutStore.getState().byWorkspace.s1.root
-    const panels = paneIds(root)
-      .map((id) => findPane(root, id))
-      .filter((p) => p?.kind === 'extension')
-    expect(panels).toHaveLength(1)
-    expect(panels[0]).toMatchObject({ extensionId: 'demo', title: 'Board' })
-  })
-
-  it('openExtensionPanel with a path navigates the open panel instead of adding a second', () => {
-    useWorkspacesStore.setState({
-      workspaces: [{ id: 's1', name: 'a', kind: 'terminal', workDir: '/a', state: 'idle' }],
-      activeWorkspaceId: 's1',
-    })
-    useLayoutStore.getState().ensure('s1')
-    useExtensionsStore.setState({ list: [ext()] })
-
-    const first = openExtensionPanel({ extId: 'demo', workspaceId: 's1' })
-    expect(useExtensionsStore.getState().panelNav).toEqual({})
-    const second = openExtensionPanel({ extId: 'demo', workspaceId: 's1', path: '/cards/3' })
-    const third = openExtensionPanel({ extId: 'demo', path: '/cards/3' })
-
-    expect(second).toBe(first)
-    expect(third).toBe(first)
-    const root = useLayoutStore.getState().byWorkspace.s1.root
-    expect(paneIds(root).filter((id) => findPane(root, id)?.kind === 'extension')).toEqual([first])
-    const nav = useExtensionsStore.getState().panelNav[first as string]
-    expect(nav.path).toBe('/cards/3')
-    expect(useLayoutStore.getState().byWorkspace.s1.activePaneId).toBe(first)
+    const routes = useSidePanelStore.getState().routes
+    expect(routes[instanceKey({ extId: 'demo', workspaceId: 's1' })]?.path).toBe('/cards/4')
+    expect(Object.keys(routes)).toHaveLength(1)
   })
 
   it('forwards pane chip updates from main into the store', () => {
@@ -306,6 +301,7 @@ describe('extensionBridge', () => {
     useExtensionsStore.setState({ list: [ext()] })
 
     openExtensionPanel({ extId: 'demo' })
+    expect(useSidePanelStore.getState().right).toBeNull()
     const diff = openExtensionDiff({ extId: 'vcs', title: 'a.ts', original: '', modified: '' })
 
     expect(diff).toBeNull()

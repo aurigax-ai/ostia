@@ -1,4 +1,4 @@
-import { SelectField } from '@/components/settings/SelectField'
+import { SelectField } from '@/components/settingsKit/SelectField'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -99,7 +99,7 @@ export function TokenDialog({
                 regenerates ? 'text-warn-fg' : 'text-fg-muted',
               )}
             >
-              {regenerates ? <WarningIcon className="mt-0.5 size-3.5 shrink-0" /> : null}
+              {regenerates ? <WarningIcon className="mt-0.5 size-4 shrink-0" /> : null}
               {regenerates ? t.regenerateNote : t.renameNote}
             </p>
           ) : null}
@@ -188,7 +188,7 @@ function NameExpiryFields({ form }: { form: TokenForm }): JSX.Element {
             maxLength={60}
             autoComplete="off"
             spellCheck={false}
-            placeholder="ostia-ceo"
+            placeholder="deploy-bot"
             aria-invalid={name !== '' && !NAME_PATTERN.test(trimmed)}
             onChange={(e) => setName(e.target.value)}
             className="h-7 text-ui-sm"
@@ -224,7 +224,7 @@ function NameExpiryFields({ form }: { form: TokenForm }): JSX.Element {
       </div>
       {expiry === 'never' ? (
         <p className="flex items-start gap-2 rounded-md border border-warn-fg/40 bg-warn-fg/10 px-3 py-2 text-ui-sm text-warn-fg">
-          <WarningIcon className="mt-0.5 size-3.5 shrink-0" />
+          <WarningIcon className="mt-0.5 size-4 shrink-0" />
           {t.neverWarn}
         </p>
       ) : null}

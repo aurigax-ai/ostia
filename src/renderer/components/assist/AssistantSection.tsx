@@ -1,17 +1,12 @@
+import { EmptyState } from '@/components/common/EmptyState'
 import { IconButton } from '@/components/common/IconButton'
 import { ExtensionSettingsForm } from '@/components/extensions/ExtensionSettingsForm'
-import { ControlRow, ToggleRow } from '@/components/settings/ControlRow'
-import { SectionHead, SettingsGroup } from '@/components/settings/SettingsGroup'
-import { Highlight, useSearchGroup } from '@/components/settings/SettingsSearch'
+import { ControlRow, ToggleRow } from '@/components/settingsKit/ControlRow'
+import { SettingsGroup } from '@/components/settingsKit/SettingsGroup'
+import { SettingsPage } from '@/components/settingsKit/SettingsPage'
+import { Highlight, useSearchGroup } from '@/components/settingsKit/SettingsSearch'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import {
-  Empty,
-  EmptyContent,
-  EmptyDescription,
-  EmptyHeader,
-  EmptyTitle,
-} from '@/components/ui/empty'
 import { Item, ItemActions, ItemContent, ItemDescription, ItemTitle } from '@/components/ui/item'
 import {
   Select,
@@ -449,17 +444,13 @@ export function AssistantSection(): JSX.Element {
   const exts = list.filter((e) => e.enabled && isAssistExtension(e))
   const chat = exts.some((e) => e.assist.includes('chat'))
   return (
-    <div>
-      <SectionHead title={d.assistantSettings.title} desc={d.assistantSettings.desc} />
+    <SettingsPage title={d.assistantSettings.title} desc={d.assistantSettings.desc}>
       {exts.length === 0 ? (
-        <Empty className="mt-3 gap-3 rounded-md border border-line border-dashed p-6">
-          <EmptyHeader className="gap-1">
-            <EmptyTitle className="text-fg text-ui-base">{d.assistantSettings.offTitle}</EmptyTitle>
-            <EmptyDescription className="text-fg-muted text-ui-sm">
-              {d.assistantSettings.offDesc}
-            </EmptyDescription>
-          </EmptyHeader>
-          <EmptyContent>
+        <EmptyState
+          variant="block"
+          title={d.assistantSettings.offTitle}
+          desc={d.assistantSettings.offDesc}
+          action={
             <Button
               size="sm"
               onClick={() =>
@@ -470,8 +461,8 @@ export function AssistantSection(): JSX.Element {
             >
               {d.assistantSettings.openExtensions}
             </Button>
-          </EmptyContent>
-        </Empty>
+          }
+        />
       ) : (
         <>
           <ModelsInUse />
@@ -483,6 +474,6 @@ export function AssistantSection(): JSX.Element {
           {chat ? <ChatToolsSettings /> : null}
         </>
       )}
-    </div>
+    </SettingsPage>
   )
 }

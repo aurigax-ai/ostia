@@ -64,7 +64,11 @@ export async function hibernateAgentPane(
   return stopPane(workspaceId, paneId)
 }
 
-export function wakePane(paneId: string, onSettled: () => void = () => {}): boolean {
+export function wakePane(
+  paneId: string,
+  onSettled: () => void = () => {},
+  askTrust = false,
+): boolean {
   const workspaceId = workspaceOfPane(paneId)
   const layout = workspaceId ? useLayoutStore.getState().byWorkspace[workspaceId] : undefined
   const pane = layout ? findPane(layout.root, paneId) : null
@@ -77,16 +81,31 @@ export function wakePane(paneId: string, onSettled: () => void = () => {}): bool
     return true
   }
   const resume = pane.resume
+  let settled = false
+  const settleOnce = (): void => {
+    if (settled) return
+    settled = true
+    onSettled()
+  }
   window.ostia.pty.reportWaking(paneId, true)
   resumeWhenIdle(
     paneId,
     resume,
     (held) => {
       if (held) useLayoutStore.getState().setResumePending(workspaceId, paneId, true)
-      window.ostia.pty.reportWaking(paneId, false)
-      onSettled()
+      window.ostia.pty.reportWaking(
+        paneId,
+        false,
+        held
+          ? 'its agent session is already running in another tab'
+          : 'its resume command could not be typed: the shell never reached a prompt, or folder trust was declined',
+      )
+      settleOnce()
     },
-    onSettled,
+    settleOnce,
+    undefined,
+    askTrust,
+    settleOnce,
   )
   return true
 }
@@ -103,7 +122,7 @@ function drainWakeQueue(): void {
   while (wakesInFlight < WAKE_WAVE_SIZE && wakeQueue.length > 0) {
     const paneId = wakeQueue.shift() as string
     wakesInFlight += 1
-    if (!wakePane(paneId, wakeSettled)) wakesInFlight -= 1
+    if (!wakePane(paneId, wakeSettled, true)) wakesInFlight -= 1
   }
 }
 

@@ -1,4 +1,5 @@
 import { ipcRenderer } from 'electron'
+import type { CredentialFillResult } from '../shared/browser/browserApi'
 import type { BrowserProfile } from '../shared/browser/browserProfile'
 import type { BrowserStorageRead, StorageWriteResult } from '../shared/browser/browserStorage'
 import type {
@@ -6,10 +7,10 @@ import type {
   CredentialSaveResult,
   CredentialSummary,
 } from '../shared/browser/credentials'
-import type { PickOutcome, PickSendResult, PickState } from '../shared/browser/pick'
+import type { PickOutcome, PickSendResult } from '../shared/browser/pick'
 import type { RegionCaptureOutcome, RegionCopyResult } from '../shared/browser/regionCapture'
-import type { GuestChordFire } from '../shared/keyboard/guestChords'
-import type { CredentialFillResult, OstiaBridge } from '../shared/types'
+import type { OstiaBridge } from '../shared/types'
+import { listen } from './listen'
 
 export const browserBridge: Pick<OstiaBridge, 'browser' | 'guestChords' | 'credentials'> = {
   browser: {
@@ -22,16 +23,15 @@ export const browserBridge: Pick<OstiaBridge, 'browser' | 'guestChords' | 'crede
       ipcRenderer.invoke('browser:pick-start', paneId, theme) as Promise<PickOutcome>,
     pickCancel: (paneId) => ipcRenderer.send('browser:pick-cancel', paneId),
     pickSend: (req) => ipcRenderer.invoke('browser:pick-send', req) as Promise<PickSendResult>,
-    onPickState: (cb) => {
-      const handler = (_e: unknown, state: PickState): void => cb(state)
-      ipcRenderer.on('browser:pick-state', handler)
-      return () => ipcRenderer.removeListener('browser:pick-state', handler)
-    },
+    onPickState: (cb) => listen('browser:pick-state', cb),
     regionCapture: (paneId, req) =>
       ipcRenderer.invoke('browser:region-capture', paneId, req) as Promise<RegionCaptureOutcome>,
     regionSend: (req) => ipcRenderer.invoke('browser:region-send', req) as Promise<PickSendResult>,
     regionCopy: (paneId, captureId) =>
       ipcRenderer.invoke('browser:region-copy', paneId, captureId) as Promise<RegionCopyResult>,
+    setDevice: (paneId, device) =>
+      ipcRenderer.invoke('browser:set-device', paneId, device) as Promise<boolean>,
+    deviceTouch: (paneId, input) => ipcRenderer.send('browser:device-touch', paneId, input),
     storageRead: (paneId) =>
       ipcRenderer.invoke('browser:storage-read', paneId) as Promise<BrowserStorageRead>,
     storageSet: (paneId, edit) =>
@@ -40,14 +40,11 @@ export const browserBridge: Pick<OstiaBridge, 'browser' | 'guestChords' | 'crede
       ipcRenderer.invoke('browser:storage-remove', paneId, removal) as Promise<StorageWriteResult>,
     storageClear: (paneId, kind) =>
       ipcRenderer.invoke('browser:storage-clear', paneId, kind) as Promise<StorageWriteResult>,
+    onOpenTab: (cb) => listen('browser:open-tab', cb),
   },
   guestChords: {
     set: (signatures) => ipcRenderer.send('guest-chords:set', signatures),
-    onFire: (cb) => {
-      const handler = (_e: unknown, fire: GuestChordFire): void => cb(fire)
-      ipcRenderer.on('guest-chords:fire', handler)
-      return () => ipcRenderer.removeListener('guest-chords:fire', handler)
-    },
+    onFire: (cb) => listen('guest-chords:fire', cb),
   },
   credentials: {
     forPage: (paneId) =>

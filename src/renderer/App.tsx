@@ -1,6 +1,7 @@
 import { AgentOfferDialog } from '@/components/agents/AgentOfferDialog'
 import { CmuxImportDialog } from '@/components/app/CmuxImportDialog'
 import { DetachedTitleBar } from '@/components/app/DetachedTitleBar'
+import { RightPanel } from '@/components/app/RightPanel'
 import { TopBar } from '@/components/app/TopBar'
 import { UpdateConfirmDialog } from '@/components/app/UpdateConfirmDialog'
 import { WindowControls } from '@/components/app/WindowControls'
@@ -22,6 +23,7 @@ import { HibernateSkippedDialog } from '@/components/sidebar/HibernateSkippedDia
 import { MergeConfirmDialog } from '@/components/sidebar/MergeConfirmDialog'
 import { TabSleepNoticeDialog } from '@/components/sidebar/TabSleepNoticeDialog'
 import { useMotionAttribute } from '@/lib/app/motion'
+import { wireLinkTabs } from '@/lib/browser/linkTabs'
 import { installDoubleShift, runAppChord } from '@/lib/keyboard/chords'
 import { handleDocumentClipboardChord, syncClipboardChords } from '@/lib/keyboard/documentClipboard'
 import { wireGuestChords } from '@/lib/keyboard/guestChordBridge'
@@ -83,6 +85,7 @@ export function App(): JSX.Element {
 
   useEffect(() => syncClipboardChords(isMac), [])
   useEffect(() => wireGuestChords(isMac), [])
+  useEffect(() => wireLinkTabs(), [])
   useEffect(() => installDoubleShift(window, isMac), [])
 
   useEffect(() => installMiddlePasteGuard(window), [])
@@ -131,6 +134,7 @@ export function App(): JSX.Element {
           {detached ? null : <DeckRail />}
           {filesOpen ? <FilesPanel /> : null}
           <WorkZone />
+          <RightPanel />
           <WindowControls />
           <CommandPalette />
           <ExtensionApprovalDialog />

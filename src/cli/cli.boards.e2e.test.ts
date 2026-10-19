@@ -13,7 +13,7 @@ import { PortsService } from '../main/ports/service'
 import { en } from '../shared/app/dict'
 import { DEFAULT_GIT_SETTINGS } from '../shared/boards/git'
 import { DEFAULT_PORTS_SETTINGS } from '../shared/boards/ports'
-import type { CommandResult } from '../shared/types'
+import type { CommandResult } from '../shared/control/commands'
 
 const cliPath = join(process.cwd(), 'out', 'cli', 'index.js')
 
@@ -155,7 +155,7 @@ describe('ostia git and ostia ports (real CLI process, real socket)', () => {
     expect(openDiff).toHaveBeenCalledWith(
       expect.objectContaining({
         workspaceId: 's1',
-        title: 'readme.md (unstaged)',
+        title: 'readme.md (Working Tree)',
         original: 'v1\n',
         modified: 'v2\n',
       }),

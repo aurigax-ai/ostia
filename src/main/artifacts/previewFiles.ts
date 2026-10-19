@@ -1,7 +1,8 @@
 import { constants, type Stats, lstatSync, realpathSync } from 'node:fs'
 import { open, realpath, stat } from 'node:fs/promises'
-import { basename, dirname, join, relative, sep } from 'node:path'
+import { basename, dirname, join, relative } from 'node:path'
 import { isHiddenFromPhone } from '../gateway/workspaceFiles'
+import { isInsidePath } from '../platform/pathGuard'
 
 export interface PreviewSource {
   file: string
@@ -32,8 +33,11 @@ export function resolvePreviewFile(source: PreviewSource, pathname: string): Pre
   }
   if (!source.root || decoded.includes('\0')) return { ok: false, status: 404 }
   const lexical = join(source.root, decoded)
-  const inside = relative(source.root, lexical)
-  if (inside === '' || inside.startsWith('..') || isHiddenFromPhone(inside)) {
+  if (
+    isInsidePath(lexical, source.root) ||
+    !isInsidePath(source.root, lexical) ||
+    isHiddenFromPhone(relative(source.root, lexical))
+  ) {
     return { ok: false, status: 404 }
   }
   const size = regularFileSize(lexical)
@@ -44,7 +48,7 @@ export function resolvePreviewFile(source: PreviewSource, pathname: string): Pre
   } catch {
     return { ok: false, status: 404 }
   }
-  if (folder !== source.root && !folder.startsWith(`${source.root}${sep}`)) {
+  if (!isInsidePath(source.root, folder)) {
     return { ok: false, status: 404 }
   }
   const path = join(folder, basename(lexical))

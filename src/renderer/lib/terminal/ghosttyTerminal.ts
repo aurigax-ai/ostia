@@ -147,6 +147,55 @@ function forceSelectionOnOptionDrag(canvas: HTMLCanvasElement): void {
   }
 }
 
+function routeOsc(t: GhosttyTerm, osc: OscRoutes): IDisposable[] {
+  const subscriptions: IDisposable[] = [
+    t.onSemanticPrompt((event) => osc.fire(133, promptMarkData(event))),
+    t.onPwdChange((pwd) => osc.fire(7, pwd)),
+    t.onDesktopNotification((n) => {
+      if (n.title) osc.fire(777, `notify;${n.title};${n.body}`)
+      else osc.fire(9, n.body)
+    }),
+    t.onUnknownOsc((content) => {
+      const parsed = unknownOsc(content)
+      if (parsed) osc.fire(parsed.ident, parsed.data)
+    }),
+  ]
+  t.clipboardWriteHandler = (text) => {
+    osc.fire(52, osc52Data(text))
+    return false
+  }
+  return subscriptions
+}
+
+function optionsProxy(t: GhosttyTerm): TerminalOptions {
+  const settable = new Set<keyof TerminalOptions>([
+    'fontFamily',
+    'fontSize',
+    'fontWeight',
+    'lineHeight',
+    'cursorStyle',
+    'cursorBlink',
+    'theme',
+    'scrollback',
+    'nativeScrollbar',
+    'scrollSensitivity',
+    'smoothScrollDuration',
+    'minimumContrastRatio',
+    'macOptionIsMeta',
+  ])
+  return new Proxy({} as TerminalOptions, {
+    get: (_target, key: string) => (t.options as unknown as Record<string, unknown>)[key],
+    set: (_target, key: string, value: unknown) => {
+      if (settable.has(key as keyof TerminalOptions)) {
+        ;(t.options as unknown as Record<string, unknown>)[
+          key === 'nativeScrollbar' ? 'scrollbar' : key
+        ] = key === 'fontWeight' ? fontWeightOf(value as TerminalOptions['fontWeight']) : value
+      }
+      return true
+    },
+  })
+}
+
 export function createGhosttyTerminal(
   options: TerminalOptions,
   gpu: boolean,
@@ -173,6 +222,7 @@ export function createGhosttyTerminal(
     cursorBlink: options.cursorBlink,
     theme: options.theme,
     scrollback: options.scrollback,
+    scrollbar: options.nativeScrollbar,
   })
   const fit = new FitAddon()
   t.loadAddon(fit)
@@ -180,22 +230,7 @@ export function createGhosttyTerminal(
   t.loadAddon(search)
 
   const osc = new OscRoutes()
-  const subscriptions: IDisposable[] = [
-    t.onSemanticPrompt((event) => osc.fire(133, promptMarkData(event))),
-    t.onPwdChange((pwd) => osc.fire(7, pwd)),
-    t.onDesktopNotification((n) => {
-      if (n.title) osc.fire(777, `notify;${n.title};${n.body}`)
-      else osc.fire(9, n.body)
-    }),
-    t.onUnknownOsc((content) => {
-      const parsed = unknownOsc(content)
-      if (parsed) osc.fire(parsed.ident, parsed.data)
-    }),
-  ]
-  t.clipboardWriteHandler = (text) => {
-    osc.fire(52, osc52Data(text))
-    return false
-  }
+  const subscriptions = routeOsc(t, osc)
 
   const parser: TerminalParser = {
     registerOscHandler: (ident, handler) => osc.add(ident, handler),
@@ -203,30 +238,7 @@ export function createGhosttyTerminal(
     registerDcsHandler: () => NONE,
   }
 
-  const settable = new Set<keyof TerminalOptions>([
-    'fontFamily',
-    'fontSize',
-    'fontWeight',
-    'lineHeight',
-    'cursorStyle',
-    'cursorBlink',
-    'theme',
-    'scrollback',
-    'scrollSensitivity',
-    'smoothScrollDuration',
-    'minimumContrastRatio',
-    'macOptionIsMeta',
-  ])
-  const termOptions = new Proxy({} as TerminalOptions, {
-    get: (_target, key: string) => (t.options as unknown as Record<string, unknown>)[key],
-    set: (_target, key: string, value: unknown) => {
-      if (settable.has(key as keyof TerminalOptions)) {
-        ;(t.options as unknown as Record<string, unknown>)[key] =
-          key === 'fontWeight' ? fontWeightOf(value as TerminalOptions['fontWeight']) : value
-      }
-      return true
-    },
-  })
+  const termOptions = optionsProxy(t)
 
   const term: OstiaTerminal = {
     get cols() {
@@ -266,6 +278,7 @@ export function createGhosttyTerminal(
     getSelection: () => t.getSelection(),
     hasSelection: () => t.hasSelection(),
     clearSelection: () => t.clearSelection(),
+    select: (column, row, length) => t.select(column, row, length),
     selectAll: () => t.selectAll(),
     scrollLines: (amount) => t.scrollLines(amount),
     scrollPages: (amount) => t.scrollPages(amount),

@@ -18,12 +18,14 @@ const { postBusMessage, registerBusMethods } = await import('./bus')
 const { markManager, registerPane, registerScript } = await import('../control/idRegistry')
 
 const announce = vi.fn()
+const observed = vi.fn()
 let managerMaySend = true
 const asleepPanes = new Set<string>()
 const scriptReaches = new Set<string>()
 registerBusMethods({
   managerSendAllowed: () => managerMaySend,
   announce,
+  observe: observed,
   hibernated: async (pane) => asleepPanes.has(pane.paneId),
   inScope: async (ctx, workspaceId) =>
     ctx.identity.kind === 'script' && scriptReaches.has(workspaceId),
@@ -80,6 +82,7 @@ const context = (identity = receiver) => call<{ text: string | null }>('bus.cont
 beforeEach(() => {
   rmSync(join(dataHome, 'ostia'), { recursive: true, force: true })
   announce.mockClear()
+  observed.mockClear()
   ensureCaps.mockClear()
   ensureCaps.mockImplementation(async () => {})
   managerMaySend = true
@@ -370,5 +373,47 @@ describe('bus.send to a hibernated pane', () => {
     asleepPanes.add('bus-receiver')
     expect(await send('second')).toMatchObject({ ok: true, delivered: 'queued', asleep: true })
     expect(inbox().map((m) => m.text)).toEqual(['first', 'second'])
+  })
+})
+
+describe('bus observation', () => {
+  it('reports who, to whom, which kind and which phase, and never the text', async () => {
+    const res = await send('rotate the api key sk-secret')
+    expect(observed).toHaveBeenCalledTimes(1)
+    expect(observed).toHaveBeenCalledWith({
+      id: res.id,
+      from: sender.externalId,
+      to: receiver.externalId,
+      kind: 'message',
+      phase: 'queued',
+    })
+    expect(JSON.stringify(observed.mock.calls)).not.toContain('sk-secret')
+  })
+
+  it('reports seen once when the receiver reads its inbox', async () => {
+    const res = await send('read me')
+    observed.mockClear()
+    inbox()
+    inbox()
+    expect(observed.mock.calls.map(([o]) => [o.id, o.phase])).toEqual([[res.id, 'seen']])
+  })
+
+  it('reports a message handed to a waiting pane as waiting, then seen', async () => {
+    const waiting = call<Promise<unknown>>('bus.wait', receiver, { timeoutMs: 5000 })
+    await send('wake up')
+    await waiting
+    expect(observed.mock.calls.map(([o]) => o.phase)).toEqual(['waiting', 'seen'])
+  })
+
+  it('reports a handoff as a task and says nothing about a quiet system message', async () => {
+    await call<Promise<unknown>>('bus.handoff', sender, {
+      to: receiver.externalId,
+      task: 'fix it',
+      summary: 'now',
+    })
+    expect(observed.mock.calls[0]?.[0]).toMatchObject({ kind: 'task', phase: 'queued' })
+    observed.mockClear()
+    postBusMessage(sender.externalId, receiver.externalId, '{"kind":"capture"}')
+    expect(observed).not.toHaveBeenCalled()
   })
 })

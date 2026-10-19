@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { parseViewText } from './viewParse'
 import { viewJsonSchema } from './viewSchema'
 import {
   VIEW_MAX_DEPTH,
@@ -7,7 +8,6 @@ import {
   VIEW_NODE_TYPES,
   type ViewDoc,
   formatViewProblem,
-  parseViewText,
   viewNameOf,
 } from './views'
 

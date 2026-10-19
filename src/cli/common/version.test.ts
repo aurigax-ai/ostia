@@ -3,7 +3,7 @@ import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { buildVersionAt } from './version'
+import { buildInfoPathAt, buildVersionAt } from './version'
 
 function outDir(info: unknown): string {
   const out = mkdtempSync(join(tmpdir(), 'ostia-version-'))
@@ -21,6 +21,34 @@ describe('buildVersionAt', () => {
   it('answers nothing without a valid stamp', () => {
     expect(buildVersionAt(outDir(undefined))).toBeNull()
     expect(buildVersionAt(outDir({ version: '0.5.9' }))).toBeNull()
+  })
+})
+
+function packagedCliDir(info: unknown): string {
+  const resources = mkdtempSync(join(tmpdir(), 'ostia-version-'))
+  const cli = join(resources, 'app.asar', 'out', 'cli')
+  mkdirSync(cli, { recursive: true })
+  if (info !== undefined) writeFileSync(join(resources, 'build-info.json'), JSON.stringify(info))
+  return cli
+}
+
+describe('buildVersionAt in a packaged layout', () => {
+  it('reads the stamp from the resources folder beside app.asar', () => {
+    const cli = packagedCliDir({
+      version: '0.5.12-rc.4+sha.1a2b3c',
+      builtAt: '2026-10-17T00:00:00Z',
+    })
+    expect(buildInfoPathAt(cli)).toBe(join(cli, '..', '..', '..', 'build-info.json'))
+    expect(buildVersionAt(cli)).toBe('0.5.12-rc.4+sha.1a2b3c')
+  })
+
+  it('does not look inside the asar for a stamp', () => {
+    const cli = packagedCliDir(undefined)
+    writeFileSync(
+      join(cli, '..', 'build-info.json'),
+      JSON.stringify({ version: '1.0.0', builtAt: 't' }),
+    )
+    expect(buildVersionAt(cli)).toBeNull()
   })
 })
 

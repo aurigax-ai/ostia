@@ -1,8 +1,12 @@
 import { type FontWeight, type ITerminalOptions, Terminal as Xterm } from '@xterm/xterm'
 import '@xterm/xterm/css/xterm.css'
+import { matchChordInTerminal } from '@/lib/keyboard/chords'
+import { smartClipboardAction } from '@/lib/keyboard/clipboardKeys'
 import { currentScheme, terminalTheme, useScheme } from '@/lib/theme/colorScheme'
 import { terminalFontStack } from '@/lib/theme/uiFonts'
+import { isMac } from '@/platform'
 import { useSettingsStore } from '@/stores/app/settingsStore'
+import { Unicode11Addon } from '@xterm/addon-unicode11'
 import { type RefObject, useEffect } from 'react'
 
 export type ReadOnlyTerminal = Xterm
@@ -22,6 +26,52 @@ export function createReadOnlyTerminal(options: ITerminalOptions = {}): ReadOnly
   })
 }
 
+export function readOnlyCopyKey(e: KeyboardEvent, hasSelection: boolean): boolean {
+  const clipboardKeys = useSettingsStore.getState().terminal.clipboardKeys
+  if (smartClipboardAction(e, clipboardKeys, hasSelection, isMac) === 'copy') return true
+  return matchChordInTerminal(e, isMac) === 'copy'
+}
+
+export interface MountedReadOnlyTerminal {
+  term: ReadOnlyTerminal
+  dispose: () => void
+}
+
+function wireReadOnly(term: ReadOnlyTerminal): void {
+  term.loadAddon(new Unicode11Addon())
+  term.unicode.activeVersion = '11'
+  term.attachCustomKeyEventHandler((e) => {
+    if (e.type !== 'keydown') return false
+    if (readOnlyCopyKey(e, term.hasSelection())) {
+      e.preventDefault()
+      void navigator.clipboard.writeText(term.getSelection())
+      return false
+    }
+    return false
+  })
+}
+
+function readOnlyViewOptions(options: ITerminalOptions): ITerminalOptions {
+  const settings = useSettingsStore.getState().terminal
+  return {
+    scrollSensitivity: settings.scrollSpeed,
+    minimumContrastRatio: settings.minimumContrast,
+    cursorInactiveStyle: 'none',
+    ...options,
+  }
+}
+
+export function mountSizedReadOnlyTerminal(
+  host: HTMLElement,
+  size: { cols: number; rows: number },
+  options: ITerminalOptions,
+): MountedReadOnlyTerminal {
+  const term = createReadOnlyTerminal(readOnlyViewOptions({ ...size, ...options }))
+  wireReadOnly(term)
+  term.open(host)
+  return { term, dispose: () => term.dispose() }
+}
+
 export function useReadOnlyTerminalBackground(
   termRef: RefObject<ReadOnlyTerminal | null>,
 ): string | undefined {
@@ -30,16 +80,4 @@ export function useReadOnlyTerminalBackground(
     if (termRef.current) termRef.current.options.theme = terminalTheme(palette)
   }, [palette, termRef])
   return palette.background
-}
-
-export function useReadOnlyTerminalFont(termRef: RefObject<ReadOnlyTerminal | null>): void {
-  const font = useSettingsStore((s) => s.appearance.terminal)
-  useEffect(() => {
-    const term = termRef.current
-    if (!term) return
-    term.options.fontFamily = terminalFontStack(font.family)
-    term.options.fontSize = font.size
-    term.options.fontWeight = font.weight as FontWeight
-    term.options.lineHeight = font.lineHeight
-  }, [font.family, font.size, font.weight, font.lineHeight, termRef])
 }

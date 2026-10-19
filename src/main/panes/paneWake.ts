@@ -1,4 +1,4 @@
-import type { CommandResult, CommandTarget } from '../../shared/types'
+import type { CommandResult, CommandTarget } from '../../shared/control/commands'
 import { targetOf } from '../attention/attention'
 import type { PaneIdentity } from '../control/idRegistry'
 

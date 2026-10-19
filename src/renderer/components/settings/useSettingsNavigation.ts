@@ -1,5 +1,6 @@
 import type { ExtensionAnchor } from '@/components/extensions/InstalledExtensions'
 import { extensionIcon } from '@/components/extensions/extensionIcons'
+import { type SearchStore, createSearchStore } from '@/components/settingsKit/SettingsSearch'
 import { countUsage } from '@/lib/app/usageCounts'
 import { extensionMatchesQuery } from '@/lib/extensions/extensionSettingText'
 import {
@@ -21,8 +22,14 @@ import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import type { ExtensionInfo } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import type { Icon as IconComponent } from '@phosphor-icons/react'
 import type { Dict } from '@shared/app/dict'
-import { type RefObject, useCallback, useEffect, useState } from 'react'
-import { type SearchStore, createSearchStore } from './SettingsSearch'
+import {
+  type Dispatch,
+  type RefObject,
+  type SetStateAction,
+  useCallback,
+  useEffect,
+  useState,
+} from 'react'
 
 const SANDBOX_DEFAULTS_ITEM = ''
 
@@ -83,6 +90,86 @@ export interface SettingsNavigation extends SettingsNavModel {
   openSandboxItem: (id: string) => void
 }
 
+interface SettingsRequestsInput {
+  open: boolean
+  active: SectionId
+  sections: SettingsSection[]
+  extensions: ExtensionInfo[]
+  setActive: (id: SectionId) => void
+  setAnchor: Dispatch<SetStateAction<ExtensionAnchor | null>>
+  setPageExtId: (id: string | null) => void
+  setExtensionsExpanded: (expanded: boolean) => void
+  setSandboxExpanded: (expanded: boolean) => void
+  changeQuery: (next: string) => void
+}
+
+function useSettingsRequests({
+  open,
+  active,
+  sections,
+  extensions,
+  setActive,
+  setAnchor,
+  setPageExtId,
+  setExtensionsExpanded,
+  setSandboxExpanded,
+  changeQuery,
+}: SettingsRequestsInput): void {
+  const requested = useUIStore((s) => s.settingsSection)
+  const requestedExtension = useUIStore((s) => s.settingsExtension)
+  const requestedQuery = useUIStore((s) => s.settingsQuery)
+  const settingsRequest = useUIStore((s) => s.settingsRequest)
+
+  useEffect(() => {
+    if (open) countUsage('features', 'settings', active)
+  }, [open, active])
+
+  useEffect(() => {
+    if (settingsRequest === 0) return
+    setActive('workspace')
+    setSandboxExpanded(true)
+    rememberNavExpanded(SANDBOX_NAV_EXPANDED_KEY, true)
+  }, [settingsRequest, setActive, setSandboxExpanded])
+
+  useEffect(() => {
+    if (!requested) return
+    if (
+      requested === 'extensions' &&
+      requestedExtension &&
+      extensions.some((e) => e.id === requestedExtension && e.settingsPage)
+    ) {
+      setActive('extensionPage')
+      setPageExtId(requestedExtension)
+      setAnchor(null)
+    } else if (sections.some((s) => s.id === requested)) {
+      setActive(requested as SectionId)
+      if (requested === 'extensions' && requestedExtension) {
+        setAnchor((prev) => ({ id: requestedExtension, nonce: (prev?.nonce ?? 0) + 1 }))
+        setExtensionsExpanded(true)
+        rememberNavExpanded(EXTENSIONS_NAV_EXPANDED_KEY, true)
+      } else {
+        setAnchor(null)
+      }
+    }
+    useUIStore.setState({ settingsSection: null, settingsExtension: null })
+  }, [
+    requested,
+    requestedExtension,
+    sections,
+    extensions,
+    setActive,
+    setPageExtId,
+    setAnchor,
+    setExtensionsExpanded,
+  ])
+
+  useEffect(() => {
+    if (requestedQuery === null) return
+    changeQuery(requestedQuery)
+    useUIStore.setState({ settingsQuery: null })
+  }, [requestedQuery, changeQuery])
+}
+
 export function useSettingsNavigation({
   d,
   open,
@@ -91,9 +178,6 @@ export function useSettingsNavigation({
   contentRef,
 }: NavigationInput): SettingsNavigation {
   const [active, setActive] = useState<SectionId>('appearance')
-  const requested = useUIStore((s) => s.settingsSection)
-  const requestedExtension = useUIStore((s) => s.settingsExtension)
-  const requestedQuery = useUIStore((s) => s.settingsQuery)
   const extensions = useExtensionsStore((s) => s.list)
   const [extensionsExpanded, setExtensionsExpanded] = useState(() =>
     navExpanded(EXTENSIONS_NAV_EXPANDED_KEY),
@@ -120,18 +204,19 @@ export function useSettingsNavigation({
     [],
   )
   const settingsWorkspaceId = useUIStore((s) => s.settingsWorkspaceId)
-  const settingsRequest = useUIStore((s) => s.settingsRequest)
 
-  useEffect(() => {
-    if (open) countUsage('features', 'settings', active)
-  }, [open, active])
-
-  useEffect(() => {
-    if (settingsRequest === 0) return
-    setActive('workspace')
-    setSandboxExpanded(true)
-    rememberNavExpanded(SANDBOX_NAV_EXPANDED_KEY, true)
-  }, [settingsRequest])
+  useSettingsRequests({
+    open,
+    active,
+    sections,
+    extensions,
+    setActive,
+    setAnchor,
+    setPageExtId,
+    setExtensionsExpanded,
+    setSandboxExpanded,
+    changeQuery,
+  })
 
   const expandExtensions = (expanded: boolean): void => {
     setExtensionsExpanded(expanded)
@@ -176,35 +261,6 @@ export function useSettingsNavigation({
     setAnchor(null)
     revealResult(extensionPageResultId(id))
   }
-
-  useEffect(() => {
-    if (!requested) return
-    if (
-      requested === 'extensions' &&
-      requestedExtension &&
-      extensions.some((e) => e.id === requestedExtension && e.settingsPage)
-    ) {
-      setActive('extensionPage')
-      setPageExtId(requestedExtension)
-      setAnchor(null)
-    } else if (sections.some((s) => s.id === requested)) {
-      setActive(requested as SectionId)
-      if (requested === 'extensions' && requestedExtension) {
-        setAnchor((prev) => ({ id: requestedExtension, nonce: (prev?.nonce ?? 0) + 1 }))
-        setExtensionsExpanded(true)
-        rememberNavExpanded(EXTENSIONS_NAV_EXPANDED_KEY, true)
-      } else {
-        setAnchor(null)
-      }
-    }
-    useUIStore.setState({ settingsSection: null, settingsExtension: null })
-  }, [requested, requestedExtension, sections, extensions])
-
-  useEffect(() => {
-    if (requestedQuery === null) return
-    changeQuery(requestedQuery)
-    useUIStore.setState({ settingsQuery: null })
-  }, [requestedQuery, changeQuery])
 
   const state: NavState = {
     active,

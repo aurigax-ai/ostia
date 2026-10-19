@@ -3,12 +3,10 @@ import {
   DEFAULT_SANDBOX_GLOBALS,
   DEFAULT_SWITCHES,
   emptyWorkspaceSandbox,
-  parseSandboxGlobals,
-  parseSwitches,
-  parseWorkspaceSandbox,
   resolveSandbox,
   sameWorkspaceSandbox,
 } from './sandbox'
+import { parseSandboxGlobals, parseSwitches, parseWorkspaceSandbox } from './sandboxParse'
 
 describe('parseWorkspaceSandbox', () => {
   it('keeps the filesystem, domain and socket lists and the switch overrides it was given', () => {

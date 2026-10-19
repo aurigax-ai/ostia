@@ -95,7 +95,7 @@ function Section({
         aria-expanded={!collapsed}
         onClick={() => setCollapsed(!collapsed)}
       >
-        <Caret size={12} aria-hidden />
+        <Caret size={16} aria-hidden />
         {node.title}
       </button>
       {collapsed ? null : <Nodes nodes={node.children} ctx={ctx} />}
@@ -165,7 +165,7 @@ function Node({ node, ctx }: { node: RenderNode; ctx: RenderContext }): JSX.Elem
       const Icon = viewIcon(node.name)
       return (
         <Icon
-          size={rail ? 12 : 14}
+          size={16}
           className={cn('shrink-0', TONE_TEXT[node.tone])}
           {...(node.label ? { role: 'img', 'aria-label': node.label } : { 'aria-hidden': true })}
         />
@@ -257,7 +257,7 @@ function Node({ node, ctx }: { node: RenderNode; ctx: RenderContext }): JSX.Elem
 function ViewStatusNote({ children }: { children: React.ReactNode }): JSX.Element {
   return (
     <Alert className={cn(ATTENTION_ALERT, 'flex items-start gap-1.5 text-ui-xs')}>
-      <WarningIcon size={12} className="mt-0.5 shrink-0" aria-hidden />
+      <WarningIcon size={16} className="mt-0.5 shrink-0" aria-hidden />
       <span className="min-w-0">{children}</span>
     </Alert>
   )

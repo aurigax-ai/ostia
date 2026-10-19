@@ -51,3 +51,18 @@ export function newWindowCommand(spec: NewWindowSpec): string {
     ...[...WITHOUT_TMUX_ENV, spec.file, ...spec.args].map(tmuxQuote),
   ].join(' ')
 }
+
+export const META_OPTION = '@ostia-meta'
+
+export function encodeMeta(meta: unknown): string {
+  return Buffer.from(JSON.stringify(meta), 'utf8').toString('base64')
+}
+
+export function decodeMeta(raw: string): unknown {
+  if (!raw) return null
+  try {
+    return JSON.parse(Buffer.from(raw, 'base64').toString('utf8'))
+  } catch {
+    return null
+  }
+}

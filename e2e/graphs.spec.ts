@@ -78,9 +78,11 @@ test('GRF-C140 GRF-C141 GRF-C142 GRF-C58 the Graphs panel lists, enables, runs a
     await win.waitForLoadState('domcontentloaded')
     await openWorkspace(win)
     await openPanel(win)
-    await expect.poll(() => text(app, '.row .name'), { timeout: 30_000 }).toBe('ready')
+    await expect
+      .poll(() => text(app, '[data-graph] .ostia-row-title'), { timeout: 30_000 })
+      .toBe('ready')
     expect(await attr(app, '[data-graph="ready"]', 'data-state')).toBe('not-enabled')
-    expect(await text(app, '.note')).toContain('while Ostia is open')
+    expect(await text(app, '.note')).toBe('')
 
     await click(app, '[data-graph="ready"] button', 'Look and enable')
     await expect
@@ -131,6 +133,25 @@ test('GRF-C140 GRF-C141 GRF-C142 GRF-C58 the Graphs panel lists, enables, runs a
     ).toBeVisible({
       timeout: 15_000,
     })
+  } finally {
+    await quitApp(app)
+  }
+})
+
+test('GRF-C140 a workspace with no graphs says just No graphs, with no title row, icon or path', async () => {
+  const launch = isolatedLaunch(freshDataHome())
+  const app = await electron.launch(launch)
+  try {
+    const win = await app.firstWindow()
+    await win.waitForLoadState('domcontentloaded')
+    await openWorkspace(win)
+    await openPanel(win)
+    await expect
+      .poll(() => attr(app, '[data-empty]', 'data-empty'), { timeout: 30_000 })
+      .toBe('folder')
+    expect(await text(app, '.ostia-empty')).toBe('No graphs.')
+    expect(await text(app, '.ostia-toolbar, h1, .empty-path, .empty-media, svg')).toBe('')
+    expect(await text(app, '.note')).toBe('')
   } finally {
     await quitApp(app)
   }

@@ -1,13 +1,27 @@
-import { resolve } from 'node:path'
+import { existsSync, readdirSync, statSync } from 'node:fs'
+import { join, resolve } from 'node:path'
+import type { OstiaBridge } from '../src/shared/types'
+import { chords } from './chords'
 import { SOFTWARE_WEBGL, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
 import { fakeAgentBin } from './fakeAgent'
 import { BENCH_ENGINES } from './ghostty'
-import { openWorkspace } from './helpers'
+import { openWorkspace, waitForPaletteSelection } from './helpers'
 import { type ElectronApplication, type Page, _electron as electron, expect, test } from './test'
 
 const BUSY_AGENT = resolve(__dirname, '../test/fixtures/agents/busy-agent.mjs')
 const WINDOW_MS = 6_000
 const BULK_LINES = 200_000
+const CONTINUOUS_MS = 30_000
+const HISTORY_OFF = process.env.OSTIA_BENCH_HISTORY === 'off'
+
+function benchSettings(engine: (typeof BENCH_ENGINES)[number]): object {
+  const terminal = 'terminal' in engine.settings ? engine.settings.terminal : {}
+  return {
+    ...engine.settings,
+    ...(HISTORY_OFF ? { terminal: { ...terminal, scrollbackHistory: 'off' } } : {}),
+    workspaces: { confirmQuit: false },
+  }
+}
 
 const PAGE_PROBE = `(() => {
   const p = { frames: 0, maxLag: 0, longTasks: 0, longMs: 0 }
@@ -66,9 +80,9 @@ for (const engine of BENCH_ENGINES) {
   }
 
   test(`bench ${engine.name} bulk output`, async () => {
-    test.setTimeout(120_000)
+    test.setTimeout(180_000)
     const dataHome = freshDataHome()
-    seedSettings(dataHome, { ...engine.settings, workspaces: { confirmQuit: false } })
+    seedSettings(dataHome, benchSettings(engine))
     const launch = isolatedLaunch(dataHome)
     const app = await electron.launch({ ...launch, args: [SOFTWARE_WEBGL, ...launch.args] })
     try {
@@ -100,6 +114,57 @@ for (const engine of BENCH_ENGINES) {
       const ms = Math.round(doneAt - startAt)
       console.log(
         `BENCH ${engine.name} bulk ${JSON.stringify({ ms, mainMaxLagMs: Math.round(main.maxLag), mainLagOver16: main.over16, pageMaxLagMs: Math.round(page.maxLag), fps: Math.round((page.frames * 1000) / ms), longTaskMs: Math.round(page.longMs) })}`,
+      )
+      if (!HISTORY_OFF) {
+        console.log(
+          `BENCH ${engine.name} history ${JSON.stringify(await measureHistory(win, dataHome))}`,
+        )
+      }
+    } finally {
+      await app.close()
+    }
+  })
+
+  test(`bench ${engine.name} continuous output`, async () => {
+    test.setTimeout(120_000)
+    const dataHome = freshDataHome()
+    seedSettings(dataHome, benchSettings(engine))
+    const launch = isolatedLaunch(dataHome)
+    const app = await electron.launch({ ...launch, args: [SOFTWARE_WEBGL, ...launch.args] })
+    try {
+      const win = await app.firstWindow()
+      await win.waitForLoadState('domcontentloaded')
+      await openTerminal(win)
+      await app.evaluate(() => {
+        const rss = { peak: 0, heap: 0, external: 0, buffers: 0 }
+        ;(globalThis as unknown as { __rss: typeof rss }).__rss = rss
+        setInterval(() => {
+          const now = process.memoryUsage()
+          if (now.rss <= rss.peak) return
+          rss.peak = now.rss
+          rss.heap = now.heapUsed
+          rss.external = now.external
+          rss.buffers = now.arrayBuffers
+        }, 100)
+      })
+      const mib = (bytes: number) => Math.round(bytes / 1024 / 1024)
+      const rssNow = async () => mib(await app.evaluate(() => process.memoryUsage.rss()))
+      const before = await rssNow()
+      await win.keyboard.type('yes')
+      await win.keyboard.press('Enter')
+      await win.waitForTimeout(CONTINUOUS_MS)
+      const peak = await app.evaluate(
+        () =>
+          (
+            globalThis as unknown as {
+              __rss: { peak: number; heap: number; external: number; buffers: number }
+            }
+          ).__rss,
+      )
+      await win.keyboard.press('Control+c')
+      await win.waitForTimeout(10_000)
+      console.log(
+        `BENCH ${engine.name} continuous ${JSON.stringify({ beforeMiB: before, peakMiB: mib(peak.peak), heapMiB: mib(peak.heap), externalMiB: mib(peak.external), buffersMiB: mib(peak.buffers), afterMiB: await rssNow() })}`,
       )
     } finally {
       await app.close()
@@ -245,6 +310,104 @@ for (const engine of BENCH_ENGINES) {
 }
 
 type Metrics = Record<string, number>
+
+function folderBytes(dir: string): number {
+  if (!existsSync(dir)) return 0
+  let total = 0
+  for (const entry of readdirSync(dir, { withFileTypes: true, recursive: true })) {
+    if (entry.isFile()) total += statSync(join(entry.parentPath, entry.name)).size
+  }
+  return total
+}
+
+async function measureHistory(win: Page, dataHome: string): Promise<Metrics> {
+  const paneId =
+    (await win.locator('.pane[data-pane-id]').first().getAttribute('data-pane-id')) ?? ''
+  const stats = await win.evaluate(async (pane) => {
+    const { pty } = (window as unknown as { ostia: OstiaBridge }).ostia
+    const info = await pty.historyRead(pane, 0, 0)
+    const started = performance.now()
+    const all = await pty.historySearch(pane, 'bulk output', {}, 0)
+    const searchMs = performance.now() - started
+    const gaps = await pty.historySearch(pane, 'earlier lines not kept', {}, 0)
+    const readAt = performance.now()
+    await pty.historyRead(pane, 0, 6000)
+    const readOldestMs = performance.now() - readAt
+    const latestAt = performance.now()
+    await pty.historyRead(pane, Math.max(0, (info?.end ?? 0) - 6000), 6000)
+    const readLatestMs = performance.now() - latestAt
+    return {
+      readOldestMs: Math.round(readOldestMs),
+      readLatestMs: Math.round(readLatestMs),
+      lines: info ? info.end - info.first : -1,
+      searchMs: Math.round(searchMs),
+      matches: all?.count ?? -1,
+      gaps: gaps?.count ?? -1,
+    }
+  }, paneId)
+  const diskBytes = folderBytes(join(dataHome, 'ostia', 'scrollback'))
+  const rows = win.locator('.history-pane:not([style*="hidden"]) .xterm-rows')
+  await win.keyboard.press(chords.palette)
+  await win.locator('[data-slot="command-input"]').fill('Scroll to Top')
+  await waitForPaletteSelection(win, 'Scroll to Top')
+  await win.evaluate(watchHistoryText, 'bulk output')
+  await win.evaluate(() => {
+    const w = window as unknown as HistoryTimes
+    document.addEventListener(
+      'keydown',
+      (e) => {
+        if (e.key === 'Enter' && w.__historyFrom === undefined) w.__historyFrom = performance.now()
+      },
+      { capture: true },
+    )
+  })
+  const openAt = Date.now()
+  await win.keyboard.press('Enter')
+  await expect(rows).toContainText('bulk output', { timeout: 30_000 })
+  const openMs = Date.now() - openAt
+  const openInPageMs = await win.evaluate(historyTextShownAfter)
+  const pageMs = openMs
+  const pageInPageMs = openInPageMs
+  await win.keyboard.press(chords.palette)
+  await win.locator('[data-slot="command-input"]').fill('Scroll to Bottom')
+  await waitForPaletteSelection(win, 'Scroll to Bottom')
+  await win.keyboard.press('Enter')
+  return {
+    ...stats,
+    diskBytes,
+    bytesPerLine: +(diskBytes / Math.max(1, stats.lines)).toFixed(1),
+    openMs,
+    openInPageMs,
+    pageMs,
+    pageInPageMs,
+  }
+}
+
+interface HistoryTimes {
+  __historyFrom?: number
+  __historyShown?: Promise<number>
+}
+
+function watchHistoryText(text: string): void {
+  const w = window as unknown as HistoryTimes
+  w.__historyFrom = undefined
+  w.__historyShown = new Promise((resolve) => {
+    const shows = () =>
+      document.querySelector('.history-screen .xterm-rows')?.textContent?.includes(text) ?? false
+    const observer = new MutationObserver(() => {
+      if (!shows()) return
+      observer.disconnect()
+      requestAnimationFrame(() => resolve(performance.now()))
+    })
+    observer.observe(document.body, { childList: true, subtree: true, characterData: true })
+  })
+}
+
+async function historyTextShownAfter(): Promise<number> {
+  const w = window as unknown as HistoryTimes
+  const shown = await w.__historyShown
+  return Math.round((shown ?? Number.NaN) - (w.__historyFrom ?? Number.NaN))
+}
 
 function MAIN_PROBE(): void {
   const p = { maxLag: 0, over16: 0 }

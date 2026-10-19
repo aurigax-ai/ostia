@@ -1,3 +1,4 @@
+import { baseName } from '@/lib/files/fileTree'
 import { monaco } from '@/lib/monaco/setup'
 import type { LspSessionInfo } from '@aurigax-ai/ostia-extension-sdk/contract/languageServers'
 import { PRODUCT_NAME } from '@aurigax-ai/ostia-extension-sdk/contract/product'
@@ -10,14 +11,15 @@ import {
   createMessageConnection,
 } from 'vscode-jsonrpc/browser'
 import type {
-  ClientCapabilities,
   Diagnostic,
   DiagnosticOptions,
   ServerCapabilities,
   TextDocumentContentChangeEvent,
   WorkspaceEdit,
 } from 'vscode-languageserver-protocol'
+import { CLIENT_CAPABILITIES } from './clientCapabilities'
 import { normalizeUri, toLspRange } from './converters'
+import { type DiagnosticReport, mergeDiagnostics } from './lspDiagnostics'
 import {
   DIAGNOSTIC_METHOD,
   DYNAMIC_METHODS,
@@ -36,136 +38,6 @@ const PULL_MAX_RETRIES = 3
 export const FULL_SYNC_DEBOUNCE_MS = 50
 const SYNC_INCREMENTAL = 2
 const SERVER_CANCELLED = -32802
-
-const SEMANTIC_TOKEN_TYPES = [
-  'namespace',
-  'type',
-  'class',
-  'enum',
-  'interface',
-  'struct',
-  'typeParameter',
-  'parameter',
-  'variable',
-  'property',
-  'enumMember',
-  'event',
-  'function',
-  'method',
-  'macro',
-  'keyword',
-  'modifier',
-  'comment',
-  'string',
-  'number',
-  'regexp',
-  'operator',
-  'decorator',
-] as const
-
-const SEMANTIC_TOKEN_MODIFIERS = [
-  'declaration',
-  'definition',
-  'readonly',
-  'static',
-  'deprecated',
-  'abstract',
-  'async',
-  'modification',
-  'documentation',
-  'defaultLibrary',
-] as const
-
-const CLIENT_CAPABILITIES: ClientCapabilities = {
-  textDocument: {
-    synchronization: { dynamicRegistration: false, didSave: true },
-    completion: {
-      dynamicRegistration: true,
-      contextSupport: true,
-      completionItem: {
-        snippetSupport: true,
-        documentationFormat: ['markdown', 'plaintext'],
-        deprecatedSupport: true,
-        preselectSupport: true,
-        tagSupport: { valueSet: [1] },
-        insertReplaceSupport: true,
-        labelDetailsSupport: true,
-        resolveSupport: { properties: ['documentation', 'detail', 'additionalTextEdits'] },
-      },
-      completionList: { itemDefaults: ['commitCharacters', 'insertTextFormat'] },
-    },
-    hover: { dynamicRegistration: true, contentFormat: ['markdown', 'plaintext'] },
-    definition: { dynamicRegistration: true, linkSupport: true },
-    formatting: { dynamicRegistration: true },
-    rangeFormatting: { dynamicRegistration: true },
-    references: { dynamicRegistration: true },
-    rename: { dynamicRegistration: true, prepareSupport: true },
-    signatureHelp: {
-      dynamicRegistration: true,
-      contextSupport: true,
-      signatureInformation: {
-        documentationFormat: ['markdown', 'plaintext'],
-        parameterInformation: { labelOffsetSupport: true },
-        activeParameterSupport: true,
-      },
-    },
-    documentSymbol: {
-      dynamicRegistration: true,
-      hierarchicalDocumentSymbolSupport: true,
-      tagSupport: { valueSet: [1] },
-    },
-    documentHighlight: { dynamicRegistration: true },
-    codeAction: {
-      dynamicRegistration: true,
-      isPreferredSupport: true,
-      disabledSupport: true,
-      dataSupport: true,
-      resolveSupport: { properties: ['edit', 'command'] },
-      codeActionLiteralSupport: {
-        codeActionKind: {
-          valueSet: [
-            '',
-            'quickfix',
-            'refactor',
-            'refactor.extract',
-            'refactor.inline',
-            'refactor.rewrite',
-            'source',
-            'source.organizeImports',
-            'source.fixAll',
-          ],
-        },
-      },
-    },
-    semanticTokens: {
-      dynamicRegistration: true,
-      requests: { full: { delta: true } },
-      tokenTypes: [...SEMANTIC_TOKEN_TYPES],
-      tokenModifiers: [...SEMANTIC_TOKEN_MODIFIERS],
-      formats: ['relative'],
-      overlappingTokenSupport: false,
-      multilineTokenSupport: false,
-    },
-    inlayHint: { dynamicRegistration: true },
-    foldingRange: { dynamicRegistration: true, lineFoldingOnly: true },
-    codeLens: { dynamicRegistration: true },
-    diagnostic: { dynamicRegistration: true, relatedDocumentSupport: true },
-    publishDiagnostics: { relatedInformation: false, tagSupport: { valueSet: [1, 2] } },
-  },
-  workspace: {
-    workspaceFolders: true,
-    configuration: true,
-    didChangeConfiguration: { dynamicRegistration: false },
-    didChangeWatchedFiles: { dynamicRegistration: true, relativePatternSupport: true },
-    applyEdit: true,
-    workspaceEdit: { documentChanges: true },
-    executeCommand: { dynamicRegistration: true },
-    symbol: { dynamicRegistration: true },
-    codeLens: { refreshSupport: true },
-    diagnostics: { refreshSupport: true },
-  },
-  general: { positionEncodings: ['utf-16'] },
-}
 
 export interface LspSessionHooks {
   onDiagnostics: (uri: string, diagnostics: Diagnostic[]) => void
@@ -192,42 +64,6 @@ interface PullState {
   timer: ReturnType<typeof setTimeout> | null
   running: CancellationTokenSource | null
   retries: number
-}
-
-interface DiagnosticReport {
-  kind?: string
-  resultId?: string
-  items?: Diagnostic[]
-  relatedDocuments?: Record<string, DiagnosticReport>
-}
-
-function diagnosticIdentity(diagnostic: Diagnostic): string {
-  return JSON.stringify([
-    diagnostic.range,
-    diagnostic.severity ?? null,
-    diagnostic.code ?? null,
-    diagnostic.source ?? null,
-    diagnostic.message,
-  ])
-}
-
-function mergeDiagnostics(
-  pushed: readonly Diagnostic[],
-  pulled: readonly Diagnostic[],
-): Diagnostic[] {
-  const seen = new Set<string>()
-  const out: Diagnostic[] = []
-  for (const diagnostic of [...pushed, ...pulled]) {
-    const identity = diagnosticIdentity(diagnostic)
-    if (seen.has(identity)) continue
-    seen.add(identity)
-    out.push(diagnostic)
-  }
-  return out
-}
-
-function folderName(root: string): string {
-  return root.slice(root.lastIndexOf('/') + 1) || root
 }
 
 function fileUri(path: string): string {
@@ -292,7 +128,7 @@ export class LspSession {
   }
 
   private workspaceFolders(): { uri: string; name: string }[] {
-    return [{ uri: fileUri(this.info.root), name: folderName(this.info.root) }]
+    return [{ uri: fileUri(this.info.root), name: baseName(this.info.root) }]
   }
 
   async initialize(): Promise<void> {

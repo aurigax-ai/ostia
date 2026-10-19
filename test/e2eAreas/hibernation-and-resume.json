@@ -1,0 +1,33 @@
+{
+  "name": "hibernation and resume",
+  "paths": [
+    "src/main/agents/agentRunning.ts",
+    "src/main/agents/agentWork.ts",
+    "src/main/agents/claudeFolderTrust.ts",
+    "src/main/agents/folderTrustIpc.ts",
+    "src/main/panes/paneResume.ts",
+    "src/main/panes/paneWake.ts",
+    "src/main/panes/paneWaking.ts",
+    "src/main/terminal/spawnCwd.ts",
+    "src/renderer/components/agents/AgentForkButton.tsx",
+    "src/renderer/components/panes/ResumeFolderNotice.tsx",
+    "src/renderer/components/sidebar/HibernateSkippedDialog.tsx",
+    "src/renderer/components/terminal/HibernatedView.tsx",
+    "src/renderer/lib/agents/activationResume.ts",
+    "src/renderer/lib/agents/autoResume.ts",
+    "src/renderer/lib/agents/folderTrust.ts",
+    "src/renderer/lib/agents/forkConversation.ts",
+    "src/renderer/lib/agents/hibernation.",
+    "src/renderer/lib/agents/hibernationScheduler.",
+    "src/renderer/lib/agents/resumeFolder.ts",
+    "src/shared/agents/agentResume.ts",
+    "src/shared/agents/agentWork.ts"
+  ],
+  "specs": [
+    "e2e/auto-resume.spec.ts",
+    "e2e/claude-folder-trust.spec.ts",
+    "e2e/hibernate-background-work.spec.ts",
+    "e2e/hibernate-group.spec.ts",
+    "e2e/resume-folder.spec.ts"
+  ]
+}

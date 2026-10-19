@@ -1,5 +1,5 @@
-import { copyInto, moveInto, parentOf } from '@/lib/files/fileTreeActions'
-import { OSTIA_PATH_MIME } from '@/lib/keyboard/dropPaths'
+import { parentOf } from '@/lib/files/fileTree'
+import { copyInto, importInto, moveInto } from '@/lib/files/fileTreeActions'
 import { isMac } from '@/platform'
 import { useFileTreeStore } from '@/stores/files/fileTreeStore'
 import { type DragEvent, type HTMLAttributes, type KeyboardEvent, useState } from 'react'
@@ -43,17 +43,58 @@ export function startPathDrag(
   fullPath: string,
   tree: TreeContext,
 ): void {
-  if (tree.remote) {
-    e.preventDefault()
-    return
-  }
-  e.dataTransfer.setData(OSTIA_PATH_MIME, fullPath)
-  e.dataTransfer.setData('text/plain', fullPath)
-  e.dataTransfer.effectAllowed = 'copyMove'
+  e.preventDefault()
+  const { workspaceId } = tree.focus
+  if (!tree.remote && workspaceId) window.ostia.fileOps.startDrag(workspaceId, fullPath)
 }
 
-function isCopyDrop(e: DragEvent<HTMLElement>): boolean {
+type DropModifiers = Pick<DragEvent<HTMLElement>, 'altKey' | 'ctrlKey' | 'metaKey' | 'shiftKey'>
+
+function isCopyDrop(e: DropModifiers): boolean {
   return isMac ? e.altKey : e.ctrlKey
+}
+
+export function importMoves(e: DropModifiers, mac: boolean): boolean {
+  return mac ? e.metaKey : e.shiftKey
+}
+
+function insideRoot(root: string, path: string): boolean {
+  return path === root || path.startsWith(root.endsWith('/') ? root : `${root}/`)
+}
+
+function dropInto(e: DragEvent<HTMLElement>, workspaceId: string, dir: string, root: string): void {
+  const files = [...e.dataTransfer.files]
+  const paths = files.map((file) => window.ostia.files.pathForFile(file))
+  if (paths.length > 0 && paths.every((path) => path && insideRoot(root, path))) {
+    if (isCopyDrop(e)) void copyInto(workspaceId, paths, dir)
+    else {
+      const moving = paths.filter((path) => parentOf(path) !== dir)
+      if (moving.length > 0) void moveInto(workspaceId, moving, dir)
+    }
+    return
+  }
+  void importInto(workspaceId, files, dir, importMoves(e, isMac))
+}
+
+const MOVE_ALLOWED = new Set(['all', 'move', 'copyMove', 'linkMove', 'uninitialized'])
+
+function dropEffectFor(e: DragEvent<HTMLElement>): 'copy' | 'move' {
+  return importMoves(e, isMac) && MOVE_ALLOWED.has(e.dataTransfer.effectAllowed) ? 'move' : 'copy'
+}
+
+function isFileDrag(e: DragEvent<HTMLElement>): boolean {
+  return e.dataTransfer.types.includes('Files')
+}
+
+const refusedDrop: Pick<HTMLAttributes<HTMLElement>, 'onDragOver' | 'onDrop'> = {
+  onDragOver: (e) => {
+    if (e.defaultPrevented || !isFileDrag(e)) return
+    e.preventDefault()
+    e.dataTransfer.dropEffect = 'none'
+  },
+  onDrop: (e) => {
+    if (isFileDrag(e)) e.preventDefault()
+  },
 }
 
 export function useFolderDrop(
@@ -62,24 +103,25 @@ export function useFolderDrop(
 ): Pick<HTMLAttributes<HTMLElement>, 'onDragOver' | 'onDragLeave' | 'onDrop'> & { over: boolean } {
   const [over, setOver] = useState(false)
   const workspaceId = tree.focus.workspaceId
-  if (tree.remote || !workspaceId) return { over: false }
+  if (tree.remote) return { over: false, ...refusedDrop }
+  if (!workspaceId) return { over: false }
   return {
     over,
     onDragOver: (e) => {
-      if (!e.dataTransfer.types.includes(OSTIA_PATH_MIME)) return
+      if (e.defaultPrevented || !isFileDrag(e)) {
+        if (over) setOver(false)
+        return
+      }
       e.preventDefault()
-      e.dataTransfer.dropEffect = isCopyDrop(e) ? 'copy' : 'move'
-      setOver(true)
+      e.dataTransfer.dropEffect = dropEffectFor(e)
+      if (!over) setOver(true)
     },
     onDragLeave: () => setOver(false),
     onDrop: (e) => {
       setOver(false)
-      const source = e.dataTransfer.getData(OSTIA_PATH_MIME)
-      if (!source) return
+      if (e.defaultPrevented || !isFileDrag(e)) return
       e.preventDefault()
-      e.stopPropagation()
-      if (isCopyDrop(e)) void copyInto(workspaceId, [source], dir)
-      else if (parentOf(source) !== dir) void moveInto(workspaceId, [source], dir)
+      dropInto(e, workspaceId, dir, tree.root)
     },
   }
 }

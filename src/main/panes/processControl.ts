@@ -1,7 +1,8 @@
 import { ensureCaps } from '../approvals/controlElevation'
 import type { Reach } from '../approvals/reach'
 import type { ControlMethodContext } from '../control/controlServer'
-import { badRequest, record } from './processLaunch'
+import { record } from './paneReach'
+import { badRequest } from './processLaunch'
 import type { ProcessEntry, ProcessRegistry, RingReader } from './processRegistry'
 
 const INTERRUPT = '\x03'

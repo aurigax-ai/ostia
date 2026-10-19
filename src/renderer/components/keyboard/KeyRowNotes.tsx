@@ -1,4 +1,4 @@
-import { WarningNote } from '@/components/settings/ControlRow'
+import { Notice } from '@/components/common/Notice'
 import { currentDesktops } from '@/lib/app/desktop'
 import { fmt, useDict } from '@/lib/app/useDict'
 import type { KeySource } from '@/lib/keyboard/keySources'
@@ -32,12 +32,12 @@ export function DesktopNote({ specs }: { specs: readonly ChordSpec[] }): JSX.Ele
   })
   if (taken.length === 0) return null
   return (
-    <WarningNote>
+    <Notice>
       {fmt(d.keyboard.desktopTakes, {
         desktop: taken[0].desktop,
         keys: taken.map((t) => t.keys).join(' '),
       })}
-    </WarningNote>
+    </Notice>
   )
 }
 
@@ -52,11 +52,11 @@ export function TerminalLosesNote({
   const lost = specs.filter((spec) => isPaletteF1(id, spec))
   if (lost.length === 0) return null
   return (
-    <WarningNote>
+    <Notice>
       {fmt(d.keyboard.terminalLoses, {
         keys: lost.map((spec) => chordText(spec, isMac)).join(' '),
       })}
-    </WarningNote>
+    </Notice>
   )
 }
 

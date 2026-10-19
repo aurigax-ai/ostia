@@ -12,7 +12,7 @@ import { type CommandBlock, useBlocksStore } from '@/stores/terminal/blocksStore
 import { useCloseConfirmStore } from '@/stores/workspaces/closeConfirmStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
-import type { QuitAnswer } from '@shared/types'
+import type { QuitAnswer } from '@shared/windows/windowsApi'
 import { act, cleanup, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
@@ -244,6 +244,7 @@ describe('close confirmation', () => {
     useBlocksStore.setState((s) => ({
       running: { ...s.running, p2: 'b2' },
       byPane: { ...s.byPane, p2: [{ id: 'b2', paneId: 'p2', command: 'claude' } as CommandBlock] },
+      agentBlocks: { ...s.agentBlocks, p2: { blockId: 'b2', agent: 'claude' } },
     }))
     const groups = quitGroups()
     expect(groups.map((g) => [g.commands, g.agents])).toEqual([
@@ -426,6 +427,101 @@ describe('close confirmation', () => {
       expect(quitGroups()).toEqual([
         { workspaceId: 'w3', workspace: 'Scratch', commands: [], files: [] },
       ])
+    })
+  })
+  describe('a long list', () => {
+    const KEPT = 20
+    const LONG = `${'make-target-'.repeat(25)}${'x'.repeat(10)}`
+
+    function seedKept(): string[] {
+      const ids = Array.from({ length: KEPT }, (_, i) => `k${i + 1}`)
+      useWorkspacesStore.setState({
+        workspaces: ids.map((id) => ({
+          id: `ws-${id}`,
+          name: `kept ${id}`,
+          kind: 'terminal' as const,
+          workDir: '/k',
+          state: 'idle' as const,
+        })),
+        activeWorkspaceId: `ws-${ids[0]}`,
+      })
+      useLayoutStore.setState({
+        byWorkspace: Object.fromEntries(
+          ids.map((id) => [`ws-${id}`, { root: pane(id), activePaneId: id, zoomedPaneId: null }]),
+        ),
+      })
+      useBlocksStore.setState({
+        running: Object.fromEntries(ids.map((id) => [id, `b-${id}`])),
+        byPane: Object.fromEntries(
+          ids.map((id) => [id, [{ id: `b-${id}`, paneId: id, command: 'claude' } as CommandBlock]]),
+        ),
+        agentBlocks: Object.fromEntries(
+          ids.map((id) => [id, { blockId: `b-${id}`, agent: 'claude' }]),
+        ),
+      })
+      return ids
+    }
+
+    async function openLong() {
+      const kept = seedKept()
+      render(<CloseConfirmDialog />)
+      const groups = Array.from({ length: 12 }, (_, i) => ({
+        workspaceId: `g${i + 1}`,
+        workspace: i === 0 ? LONG : `group ${i + 1}`,
+        commands: [i === 0 ? LONG : `make ${i + 1}`, `sleep ${i + 1}`],
+        files: [`/g/${i === 0 ? LONG : `file-${i + 1}`}.md`],
+        ...(i === 1 ? { unanswered: true, scratchFiles: 2 } : {}),
+      }))
+      act(() => {
+        void confirmQuit(groups, kept)
+      })
+      return screen.findByRole('dialog')
+    }
+
+    it('keeps losses, workspaces and kept shells in one scroll region above the footer', async () => {
+      const dialog = await openLong()
+      const body = dialog.querySelector('[data-slot="close-confirm-body"]')
+      const footer = dialog.querySelector('[data-slot="dialog-footer"]')
+      expect(body).not.toBeNull()
+      expect(footer).not.toBeNull()
+      expect(body).toHaveClass('overflow-auto', 'min-h-0')
+      expect(body).toContainElement(
+        screen.getByRole('list', { name: 'Quitting ends or discards everything listed here.' }),
+      )
+      expect(body).toContainElement(screen.getByRole('list', { name: 'Quit and lose this work?' }))
+      const kept = screen.getByRole('region', { name: 'Quit with kept shells running?' })
+      expect(body).toContainElement(kept)
+      expect(kept.querySelectorAll('li')).toHaveLength(KEPT)
+      expect(footer).not.toBeNull()
+      expect(body).not.toContainElement(footer as HTMLElement)
+      for (const name of ['Cancel', 'Quit and end shells', 'Quit and keep shells']) {
+        expect(footer).toContainElement(screen.getByRole('button', { name }))
+      }
+      expect(dialog.className).toMatch(/max-h-\[calc\(100dvh-2rem\)\]/)
+      expect(screen.getByRole('list', { name: 'Quit and lose this work?' }).className).not.toMatch(
+        /overflow/,
+      )
+      act(() => useCloseConfirmStore.getState().answer(false))
+    })
+
+    it('lets unbroken commands, names and files wrap instead of widening the dialog', async () => {
+      const dialog = await openLong()
+      const command = screen.getAllByText(LONG, { selector: 'span' })[0]
+      expect(command).toHaveClass('[overflow-wrap:anywhere]', 'whitespace-normal', 'min-w-0')
+      const file = screen.getByText(`${LONG}.md`, { exact: false })
+      expect(file).toHaveClass('[overflow-wrap:anywhere]', 'whitespace-normal')
+      for (const text of [
+        'The window did not answer, so it may have running commands or unsaved files',
+        '2 files in the scratch folder',
+      ]) {
+        expect(screen.getByText(text, { exact: false })).toHaveClass(
+          '[overflow-wrap:anywhere]',
+          'whitespace-normal',
+        )
+      }
+      const workspace = [...dialog.querySelectorAll('div')].find((el) => el.textContent === LONG)
+      expect(workspace).toHaveClass('[overflow-wrap:anywhere]', 'min-w-0')
+      act(() => useCloseConfirmStore.getState().answer(false))
     })
   })
 })

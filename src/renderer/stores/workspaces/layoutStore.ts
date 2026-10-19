@@ -1,5 +1,6 @@
 import { setDefaultPaneTitles, setPaneBrowser, setPaneCwd } from '@/lib/layout/paneFields'
 import { setSizes } from '@/lib/layout/panelSize'
+import { focusAfterClose, showAfterClose } from '@/lib/layout/tabFocus'
 import {
   addTab,
   closePane,
@@ -10,7 +11,9 @@ import {
   splitPane,
 } from '@/lib/layout/tree'
 import { layoutOf, patch, successorOf } from '@/lib/panes/layoutPatch'
+import { forgetTab, noteOpener, tabHistoryOf } from '@/lib/panes/tabHistory'
 import { create } from 'zustand'
+import { keepKeyboard } from './keepKeyboard'
 import { createLayoutFileActions } from './layoutFileActions'
 import { createLayoutOpenActions } from './layoutOpenActions'
 import { createLayoutPaneActions } from './layoutPaneActions'
@@ -19,6 +22,7 @@ import { neutralTerminalTitle, newTerminalPane } from './layoutSeed'
 import { createLayoutTabActions } from './layoutTabActions'
 import { createLayoutTransferActions } from './layoutTransferActions'
 import type { LayoutState } from './layoutTypes'
+import { surfaceHoldsKeyboard } from './surfaceSlotsStore'
 import { workDirOf } from './workspaceLookup'
 
 export const useLayoutStore = create<LayoutState>((set, get) => ({
@@ -97,6 +101,7 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
       return next ?? s
     })
     if (createdPaneId) {
+      noteOpener(workspaceId, createdPaneId, paneId)
       window.ostia?.lifecycle?.emit?.({ type: 'pane-created', workspaceId, paneId: createdPaneId })
     }
     return createdPaneId
@@ -113,19 +118,25 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
       window.ostia?.lifecycle?.emit?.({ type: 'pane-closed', workspaceId, paneId })
       return
     }
+    const heldKeyboard = surfaceHoldsKeyboard(paneId)
     let removed = false
     set((s) => {
       const next = patch(s, workspaceId, (l) => {
-        const root = closePane(l.root, paneId)
+        const shown = focusAfterClose(l.root, paneId, tabHistoryOf(workspaceId))
+        const root = showAfterClose(closePane(l.root, paneId), shown)
         removed = findPane(l.root, paneId) !== null && findPane(root, paneId) === null
         const activePaneId =
-          removed && paneId === l.activePaneId ? successorOf(l.root, root, paneId) : l.activePaneId
+          removed && paneId === l.activePaneId
+            ? (shown ?? successorOf(l.root, root, paneId))
+            : l.activePaneId
         const zoomedPaneId = removed && l.zoomedPaneId === paneId ? null : l.zoomedPaneId
         return { root, activePaneId, zoomedPaneId }
       })
       return next ?? s
     })
     if (removed) {
+      forgetTab(workspaceId, paneId)
+      if (heldKeyboard) keepKeyboard(get, workspaceId)
       window.ostia?.lifecycle?.emit?.({ type: 'pane-closed', workspaceId, paneId })
     }
   },

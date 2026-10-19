@@ -18,13 +18,13 @@ const ROW = 'h-7 gap-2 rounded-sm px-2 text-ui-base'
 function Leading({ icon: IconComponent, leading }: { icon?: Icon; leading?: ReactNode }) {
   if (leading) {
     return (
-      <span aria-hidden className="flex size-3.5 shrink-0 items-center justify-center">
+      <span aria-hidden className="flex size-4 shrink-0 items-center justify-center">
         {leading}
       </span>
     )
   }
-  if (IconComponent) return <IconComponent aria-hidden className="size-3.5 text-fg-muted" />
-  return <span aria-hidden className="size-3.5 shrink-0" />
+  if (IconComponent) return <IconComponent aria-hidden className="size-4 text-fg-muted" />
+  return <span aria-hidden className="size-4 shrink-0" />
 }
 
 export function MenuContent({
@@ -58,7 +58,9 @@ export function MenuItem({
       <Leading icon={icon} leading={leading} />
       <span className="min-w-0 flex-1 truncate">{children}</span>
       {hint ? (
-        <ContextMenuShortcut className="text-ui-xs tracking-normal">{hint}</ContextMenuShortcut>
+        <ContextMenuShortcut className="flex items-center gap-1.5 text-ui-xs tracking-normal">
+          {hint}
+        </ContextMenuShortcut>
       ) : null}
     </ContextMenuItem>
   )

@@ -1,10 +1,7 @@
 import { ipcMain } from 'electron'
 import { ResponseError } from 'vscode-jsonrpc/node'
-import {
-  type SandboxEditResult,
-  type WorkspaceSandbox,
-  parseSecretGrants,
-} from '../../shared/sandbox/sandbox'
+import type { SandboxEditResult, WorkspaceSandbox } from '../../shared/sandbox/sandbox'
+import { parseSecretGrants } from '../../shared/sandbox/sandboxParse'
 import type { SecretEntry } from '../../shared/sandbox/secrets'
 import { registerControlMethod } from '../control/controlServer'
 import type { WorkspaceSandboxes } from '../sandbox/workspaceSandboxes'

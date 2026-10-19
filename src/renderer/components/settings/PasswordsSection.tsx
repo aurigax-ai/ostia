@@ -1,4 +1,8 @@
 import { IconButton } from '@/components/common/IconButton'
+import { SettingsGroup } from '@/components/settingsKit/SettingsGroup'
+import { SettingsList } from '@/components/settingsKit/SettingsList'
+import { SettingsListRow } from '@/components/settingsKit/SettingsListRow'
+import { SettingsPage } from '@/components/settingsKit/SettingsPage'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -15,7 +19,6 @@ import { CopyIcon, TrashIcon } from '@phosphor-icons/react'
 import type { Dict } from '@shared/app/dict'
 import type { CredentialImportResult, CredentialSummary } from '@shared/browser/credentials'
 import { type FormEvent, useCallback, useEffect, useState } from 'react'
-import { SectionHead, SettingsGroup } from './SettingsGroup'
 
 function importMessage(d: Dict, res: CredentialImportResult): string | null {
   if (res.ok)
@@ -30,19 +33,81 @@ function importMessage(d: Dict, res: CredentialImportResult): string | null {
   return d.passwords.importUnreadable
 }
 
-export function PasswordsSection(): JSX.Element {
+function SavedPasswords({
+  list,
+  onStatus,
+  onReload,
+  onRemove,
+}: {
+  list: CredentialSummary[]
+  onStatus: (status: string) => void
+  onReload: () => void
+  onRemove: (credential: CredentialSummary) => void
+}): JSX.Element {
   const d = useDict()
-  const [list, setList] = useState<CredentialSummary[]>([])
-  const [status, setStatus] = useState<string | null>(null)
+  return (
+    <SettingsGroup title={d.passwords.groupSaved}>
+      <SettingsList label={d.passwords.groupSaved} empty={d.passwords.none}>
+        {list.map((c) => (
+          <SettingsListRow
+            key={c.id}
+            title={c.origin}
+            detail={c.username || d.passwords.noUsername}
+            actions={
+              <>
+                <IconButton
+                  icon={CopyIcon}
+                  label={fmt(d.passwords.copy, { origin: c.origin })}
+                  onClick={() =>
+                    void window.ostia.credentials
+                      .copyPassword(c.id)
+                      .then((ok) =>
+                        onStatus(ok ? d.passwords.copied : d.passwords.encryptionUnavailable),
+                      )
+                  }
+                />
+                <IconButton
+                  icon={TrashIcon}
+                  label={fmt(d.passwords.remove, { origin: c.origin })}
+                  className="hover:text-attn-fg"
+                  onClick={() => onRemove(c)}
+                />
+              </>
+            }
+          />
+        ))}
+      </SettingsList>
+      <div className="flex items-center gap-2 pt-2">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() =>
+            void window.ostia.credentials.import().then((res) => {
+              const message = importMessage(d, res)
+              if (message) onStatus(message)
+              if (res.ok) onReload()
+            })
+          }
+        >
+          {d.passwords.import}
+        </Button>
+        <span className="text-fg-muted text-ui-xs">{d.passwords.importHint}</span>
+      </div>
+    </SettingsGroup>
+  )
+}
+
+function AddPasswordForm({
+  onStatus,
+  onSaved,
+}: {
+  onStatus: (status: string) => void
+  onSaved: () => void
+}): JSX.Element {
+  const d = useDict()
   const [origin, setOrigin] = useState('')
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
-  const [removing, setRemoving] = useState<CredentialSummary | null>(null)
-
-  const reload = useCallback(() => {
-    void window.ostia.credentials.list().then(setList)
-  }, [])
-  useEffect(() => reload(), [reload])
 
   const add = async (e: FormEvent): Promise<void> => {
     e.preventDefault()
@@ -51,10 +116,10 @@ export function PasswordsSection(): JSX.Element {
       setOrigin('')
       setUsername('')
       setPassword('')
-      setStatus(res.updated ? d.passwords.updated : d.passwords.saved)
-      reload()
+      onStatus(res.updated ? d.passwords.updated : d.passwords.saved)
+      onSaved()
     } else {
-      setStatus(
+      onStatus(
         res.error === 'invalid-origin'
           ? d.passwords.invalidOrigin
           : res.error === 'empty'
@@ -65,136 +130,116 @@ export function PasswordsSection(): JSX.Element {
   }
 
   return (
-    <div>
-      <SectionHead title={d.passwords.title} desc={d.passwords.desc} />
-      <SettingsGroup title={d.passwords.groupSaved}>
-        {list.length === 0 ? (
-          <p className="px-3 py-2 text-fg-muted text-ui-sm">{d.passwords.none}</p>
-        ) : (
-          <ul className="flex flex-col">
-            {list.map((c) => (
-              <li key={c.id} className="flex items-center gap-3 rounded-sm px-3 py-1.5">
-                <div className="min-w-0 flex-1">
-                  <div className="truncate text-fg text-ui-base">{c.origin}</div>
-                  <div className="truncate text-fg-muted text-ui-sm">
-                    {c.username || d.passwords.noUsername}
-                  </div>
-                </div>
-                <IconButton
-                  icon={CopyIcon}
-                  label={fmt(d.passwords.copy, { origin: c.origin })}
-                  onClick={() =>
-                    void window.ostia.credentials
-                      .copyPassword(c.id)
-                      .then((ok) =>
-                        setStatus(ok ? d.passwords.copied : d.passwords.encryptionUnavailable),
-                      )
-                  }
-                />
-                <IconButton
-                  icon={TrashIcon}
-                  label={fmt(d.passwords.remove, { origin: c.origin })}
-                  className="hover:text-attn-fg"
-                  onClick={() => setRemoving(c)}
-                />
-              </li>
-            ))}
-          </ul>
-        )}
-        <div className="flex items-center gap-2 px-3 pt-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() =>
-              void window.ostia.credentials.import().then((res) => {
-                const message = importMessage(d, res)
-                if (message) setStatus(message)
-                if (res.ok) reload()
-              })
-            }
-          >
-            {d.passwords.import}
+    <SettingsGroup title={d.passwords.groupAdd}>
+      <form
+        className="grid grid-cols-[auto_1fr] items-center gap-x-3 gap-y-2 px-3"
+        onSubmit={(e) => void add(e)}
+      >
+        <Label htmlFor="pw-origin" className="text-ui-sm">
+          {d.passwords.site}
+        </Label>
+        <Input
+          id="pw-origin"
+          value={origin}
+          placeholder="https://github.com"
+          spellCheck={false}
+          onChange={(e) => setOrigin(e.target.value)}
+          className="h-7 text-ui-sm"
+        />
+        <Label htmlFor="pw-username" className="text-ui-sm">
+          {d.passwords.username}
+        </Label>
+        <Input
+          id="pw-username"
+          value={username}
+          autoComplete="off"
+          spellCheck={false}
+          onChange={(e) => setUsername(e.target.value)}
+          className="h-7 text-ui-sm"
+        />
+        <Label htmlFor="pw-password" className="text-ui-sm">
+          {d.passwords.password}
+        </Label>
+        <Input
+          id="pw-password"
+          type="password"
+          value={password}
+          autoComplete="new-password"
+          onChange={(e) => setPassword(e.target.value)}
+          className="h-7 text-ui-sm"
+        />
+        <div className="col-span-2 flex justify-end">
+          <Button type="submit" size="sm" disabled={!origin || !password}>
+            {d.passwords.save}
           </Button>
-          <span className="text-fg-muted text-ui-xs">{d.passwords.importHint}</span>
         </div>
-      </SettingsGroup>
-      <SettingsGroup title={d.passwords.groupAdd}>
-        <form
-          className="grid grid-cols-[auto_1fr] items-center gap-x-3 gap-y-2 px-3"
-          onSubmit={(e) => void add(e)}
-        >
-          <Label htmlFor="pw-origin" className="text-ui-sm">
-            {d.passwords.site}
-          </Label>
-          <Input
-            id="pw-origin"
-            value={origin}
-            placeholder="https://github.com"
-            spellCheck={false}
-            onChange={(e) => setOrigin(e.target.value)}
-            className="h-7 text-ui-sm"
-          />
-          <Label htmlFor="pw-username" className="text-ui-sm">
-            {d.passwords.username}
-          </Label>
-          <Input
-            id="pw-username"
-            value={username}
-            autoComplete="off"
-            spellCheck={false}
-            onChange={(e) => setUsername(e.target.value)}
-            className="h-7 text-ui-sm"
-          />
-          <Label htmlFor="pw-password" className="text-ui-sm">
-            {d.passwords.password}
-          </Label>
-          <Input
-            id="pw-password"
-            type="password"
-            value={password}
-            autoComplete="new-password"
-            onChange={(e) => setPassword(e.target.value)}
-            className="h-7 text-ui-sm"
-          />
-          <div className="col-span-2 flex justify-end">
-            <Button type="submit" size="sm" disabled={!origin || !password}>
-              {d.passwords.save}
-            </Button>
-          </div>
-        </form>
-      </SettingsGroup>
+      </form>
+    </SettingsGroup>
+  )
+}
+
+function RemovePasswordDialog({
+  removing,
+  onClose,
+  onConfirm,
+}: {
+  removing: CredentialSummary | null
+  onClose: () => void
+  onConfirm: () => void
+}): JSX.Element {
+  const d = useDict()
+  return (
+    <Dialog open={removing !== null} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent showCloseButton={false}>
+        <DialogHeader>
+          <DialogTitle>{d.passwords.removeTitle}</DialogTitle>
+          <DialogDescription>
+            {fmt(d.passwords.removeBody, {
+              origin: removing?.origin ?? '',
+              username: removing?.username || d.passwords.noUsername,
+            })}
+          </DialogDescription>
+        </DialogHeader>
+        <DialogFooter>
+          <Button variant="outline" size="sm" onClick={() => onClose()}>
+            {d.passwords.cancel}
+          </Button>
+          <Button variant="destructive" size="sm" onClick={onConfirm}>
+            {d.passwords.removeConfirm}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+export function PasswordsSection(): JSX.Element {
+  const d = useDict()
+  const [list, setList] = useState<CredentialSummary[]>([])
+  const [status, setStatus] = useState<string | null>(null)
+  const [removing, setRemoving] = useState<CredentialSummary | null>(null)
+
+  const reload = useCallback(() => {
+    void window.ostia.credentials.list().then(setList)
+  }, [])
+  useEffect(() => reload(), [reload])
+
+  return (
+    <SettingsPage title={d.passwords.title} desc={d.passwords.desc}>
+      <SavedPasswords list={list} onStatus={setStatus} onReload={reload} onRemove={setRemoving} />
+      <AddPasswordForm onStatus={setStatus} onSaved={reload} />
       {status ? (
         <output className="mt-2 block px-3 text-fg-muted text-ui-sm">{status}</output>
       ) : null}
-      <Dialog open={removing !== null} onOpenChange={(open) => !open && setRemoving(null)}>
-        <DialogContent showCloseButton={false}>
-          <DialogHeader>
-            <DialogTitle>{d.passwords.removeTitle}</DialogTitle>
-            <DialogDescription>
-              {fmt(d.passwords.removeBody, {
-                origin: removing?.origin ?? '',
-                username: removing?.username || d.passwords.noUsername,
-              })}
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" size="sm" onClick={() => setRemoving(null)}>
-              {d.passwords.cancel}
-            </Button>
-            <Button
-              variant="destructive"
-              size="sm"
-              onClick={() => {
-                const target = removing
-                setRemoving(null)
-                if (target) void window.ostia.credentials.remove(target.id).then(reload)
-              }}
-            >
-              {d.passwords.removeConfirm}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </div>
+      <RemovePasswordDialog
+        removing={removing}
+        onClose={() => setRemoving(null)}
+        onConfirm={() => {
+          const target = removing
+          setRemoving(null)
+          if (target) void window.ostia.credentials.remove(target.id).then(reload)
+        }}
+      />
+    </SettingsPage>
   )
 }

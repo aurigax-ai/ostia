@@ -1,6 +1,6 @@
 import { basename, dirname, isAbsolute, join, resolve } from 'node:path'
-import type { ExtensionOpenDiffRequest } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import { GIT_SOURCE } from '@aurigax-ai/ostia-extension-sdk/manifest/coreNames'
+import { changeDiffTitle, commitDiffTitle } from '../../shared/boards/diffTitle'
 import {
   type BlameLine,
   type ChangeArea,
@@ -10,6 +10,7 @@ import {
   type GitChangesData,
   type GitCommitFilesData,
   type GitGraphData,
+  type GitOpenDiffRequest,
   type GitPathsRequest,
   type GitReply,
   type GitSettings,
@@ -66,7 +67,7 @@ export interface GitCommandsDeps {
   text: () => GitText
   cwdOf: (workspaceId: string) => Promise<string | null>
   views: ViewStateStore
-  openDiff: (req: ExtensionOpenDiffRequest) => void
+  openDiff: (req: GitOpenDiffRequest) => void
   confirmDiscard: (prompt: DiscardPrompt) => Promise<boolean>
   touched: () => void
 }
@@ -237,7 +238,8 @@ export class GitCommands {
       this.deps.openDiff({
         extId: GIT_SOURCE,
         workspaceId: caller.workspaceId,
-        title: `${basename(change.path)} (${change.area})`,
+        area: change.area,
+        title: changeDiffTitle(basename(change.path), change.area, change.code),
         original: sides.original,
         modified: sides.modified,
         path: join(repo.root, change.path),
@@ -417,7 +419,7 @@ export class GitCommands {
       this.deps.openDiff({
         extId: GIT_SOURCE,
         workspaceId: caller.workspaceId,
-        title: `${basename(file.path)} (${detail.commit.sha.slice(0, 7)})`,
+        title: commitDiffTitle(basename(file.path), detail.commit.sha),
         original: sides.original,
         modified: sides.modified,
         path: join(repo.root, file.path),

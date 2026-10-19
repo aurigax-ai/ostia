@@ -6,11 +6,11 @@ function parking(): HTMLDivElement {
   return holder
 }
 
-export function surfaceHost(paneId: string): HTMLDivElement {
+export function surfaceHost(paneId: string, fadesIn = false): HTMLDivElement {
   let host = hosts.get(paneId)
   if (!host) {
     host = document.createElement('div')
-    host.className = 'surface-host surface-enter'
+    host.className = fadesIn ? 'surface-host surface-enter' : 'surface-host'
     host.addEventListener('animationend', (e) => {
       if (e.target === host) host.classList.remove('surface-enter')
     })
@@ -62,6 +62,11 @@ function focusTarget(paneId: string): HTMLElement | null {
 function takesNoKeyboard(paneId: string): boolean {
   const entry = focusEntries.get(paneId)
   return entry !== undefined && entry.target === null
+}
+
+export function surfaceHoldsKeyboard(paneId: string): boolean {
+  const active = document.activeElement
+  return Boolean(active && hosts.get(paneId)?.contains(active))
 }
 
 export function focusSurface(paneId: string): void {

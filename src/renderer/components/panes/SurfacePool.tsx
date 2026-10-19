@@ -1,8 +1,7 @@
-import { ChatPane } from '@/components/assist/ChatPane'
 import { BrowserView } from '@/components/browser/BrowserView'
+import { ChatPane } from '@/components/chat/ChatPane'
 import { DiffView } from '@/components/editor/DiffView'
 import { FileView } from '@/components/editor/FileView'
-import { ExtensionPanelView } from '@/components/extensions/ExtensionPanelView'
 import { GitView } from '@/components/git/GitView'
 import { HibernatedView } from '@/components/terminal/HibernatedView'
 import { ManagerView } from '@/components/terminal/ManagerView'
@@ -17,6 +16,7 @@ import { useDiffStore } from '@/stores/files/diffStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { releaseSurfaces, surfaceHost } from '@/stores/workspaces/surfaceSlotsStore'
 import type { AgentResume } from '@shared/agents/agentResume'
+import type { BrowserDevice } from '@shared/browser/browserDevice'
 import type { BrowserProfile } from '@shared/browser/browserProfile'
 import { useEffect, useMemo, useRef } from 'react'
 import { createPortal } from 'react-dom'
@@ -29,10 +29,10 @@ interface SurfaceRef {
   cwd?: string
   filePath?: string
   url?: string
-  extensionId?: string
   chatSessionId?: string
   viewName?: string
   browserProfile: BrowserProfile
+  browserDevice?: BrowserDevice
   hibernated?: true
   resume?: AgentResume
 }
@@ -47,7 +47,6 @@ function collect(node: LayoutNode, workspaceId: string, out: SurfaceRef[]): void
       pane.kind === 'chat' ||
       pane.kind === 'git' ||
       pane.kind === 'manager' ||
-      (pane.kind === 'extension' && pane.extensionId) ||
       (pane.kind === 'view' && pane.viewName)
     ) {
       out.push({
@@ -57,10 +56,10 @@ function collect(node: LayoutNode, workspaceId: string, out: SurfaceRef[]): void
         cwd: pane.spawnDir ?? pane.cwd,
         filePath: pane.filePath,
         url: pane.url,
-        extensionId: pane.extensionId,
         chatSessionId: pane.chatSessionId,
         viewName: pane.viewName,
         browserProfile: paneBrowserProfile(pane),
+        browserDevice: pane.browserDevice,
         hibernated: pane.hibernated,
         resume: pane.resume,
       })
@@ -100,7 +99,7 @@ export function SurfacePool(): JSX.Element {
           <SurfaceErrorBoundary paneId={s.paneId}>
             <Surface surface={s} generation={generation[s.paneId] ?? 0} />
           </SurfaceErrorBoundary>,
-          surfaceHost(s.paneId),
+          surfaceHost(s.paneId, s.kind !== 'terminal' && s.kind !== 'manager'),
           s.paneId,
         ),
       )}
@@ -115,11 +114,11 @@ function Surface({
   return s.kind === 'editor' ? (
     <FileView workspaceId={s.workspaceId} paneId={s.paneId} filePath={s.filePath} />
   ) : s.kind === 'diff' ? (
-    <DiffView paneId={s.paneId} />
+    <DiffView workspaceId={s.workspaceId} paneId={s.paneId} />
   ) : s.kind === 'chat' ? (
     <ChatPane workspaceId={s.workspaceId} paneId={s.paneId} sessionId={s.chatSessionId} />
   ) : s.kind === 'git' ? (
-    <GitView workspaceId={s.workspaceId} paneId={s.paneId} />
+    <GitView workspaceId={s.workspaceId} paneId={s.paneId} home="pane" />
   ) : s.kind === 'manager' ? (
     <ManagerView paneId={s.paneId} />
   ) : s.kind === 'browser' ? (
@@ -128,9 +127,8 @@ function Surface({
       paneId={s.paneId}
       url={s.url}
       profile={s.browserProfile}
+      device={s.browserDevice}
     />
-  ) : s.kind === 'extension' && s.extensionId ? (
-    <ExtensionPanelView extId={s.extensionId} workspaceId={s.workspaceId} paneId={s.paneId} />
   ) : s.kind === 'view' && s.viewName ? (
     <ViewSurface workspaceId={s.workspaceId} paneId={s.paneId} viewName={s.viewName} />
   ) : s.hibernated ? (

@@ -5,6 +5,7 @@ import { refresh } from './panelData'
 import {
   DEFAULT_PRIORITY,
   PRIORITY_VALUES,
+  emptyState,
   failureState,
   field,
   p,
@@ -192,7 +193,7 @@ function newCardForm(board: TrellisBoard, draft: NewCardDraft): HTMLElement {
 
 export function boardView(): HTMLElement {
   if (state.boardFailure) return failureState(state.boardFailure)
-  if (!state.boardData) return h('div', { class: 'empty muted', role: 'status' }, p('loading'))
+  if (!state.boardData) return emptyState(p('loading'))
   const filter = h('input', {
     type: 'search',
     class: 'filter',

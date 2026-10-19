@@ -1,10 +1,6 @@
 import { type BrowserWindow, ipcMain } from 'electron'
-import type {
-  CommandDescriptor,
-  CommandResult,
-  CommandTarget,
-  TerminalStateSnapshot,
-} from '../../shared/types'
+import type { CommandDescriptor, CommandResult, CommandTarget } from '../../shared/control/commands'
+import type { TerminalStateSnapshot } from '../../shared/terminal/ptyApi'
 import type { ProcessTabRequest } from '../panes/processLaunch'
 import type { WindowSend } from '../windows/windowSend'
 import { registerPane } from './idRegistry'

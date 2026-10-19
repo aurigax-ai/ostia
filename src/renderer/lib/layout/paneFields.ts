@@ -1,10 +1,14 @@
+import { baseName, parentOf } from '@/lib/files/fileTree'
 import { isRemotePath } from '@aurigax-ai/ostia-extension-sdk/contract/remoteFolders'
 import { type AgentResume, sameResume } from '@shared/agents/agentResume'
+import { isArchivePath } from '@shared/archives/archivePaths'
+import type { BrowserDevice } from '@shared/browser/browserDevice'
 import { type BrowserProfile, parseBrowserProfile } from '@shared/browser/browserProfile'
+import { isEqual } from 'es-toolkit'
 import { allPanes, findPane } from './tree'
 import type { LayoutNode, PaneNode, SurfaceKind, TabNode } from './types'
 
-function mapPanes(node: LayoutNode, fn: (pane: PaneNode) => PaneNode): LayoutNode {
+export function mapPanes(node: LayoutNode, fn: (pane: PaneNode) => PaneNode): LayoutNode {
   if (node.type === 'pane') return fn(node)
   if (node.type === 'tabs') {
     const children = node.children.map((c) => mapPanes(c, fn) as TabNode)
@@ -152,17 +156,32 @@ export function setPaneEditor(
   title: string,
   filePath: string,
 ): LayoutNode {
-  if (isRemotePath(filePath)) {
-    return mapPane(root, paneId, ({ cwd: _local, ...p }) => ({
+  if (isRemotePath(filePath) || isArchivePath(filePath)) {
+    return mapPane(root, paneId, ({ cwd: _local, viewType: _viewType, ...p }) => ({
       ...p,
       kind: 'editor',
       title,
       filePath,
     }))
   }
-  const slash = filePath.lastIndexOf('/')
-  const cwd = slash > 0 ? filePath.slice(0, slash) : '/'
-  return mapPane(root, paneId, (p) => ({ ...named(p, title), kind: 'editor', filePath, cwd }))
+  return mapPane(root, paneId, ({ viewType: _viewType, ...p }) => ({
+    ...named(p, title),
+    kind: 'editor',
+    filePath,
+    cwd: parentOf(filePath),
+  }))
+}
+
+export function setPaneViewType(
+  root: LayoutNode,
+  paneId: string,
+  viewType: string | null,
+): LayoutNode {
+  return mapPane(root, paneId, (p) => {
+    if ((p.viewType ?? null) === viewType) return p
+    const { viewType: _previous, ...rest } = p
+    return viewType === null ? rest : { ...rest, viewType }
+  })
 }
 
 function movedPath(path: string, from: string, to: string): string | null {
@@ -175,7 +194,7 @@ export function followMovedFile(root: LayoutNode, from: string, to: string): Lay
     if (p.kind !== 'editor' || !p.filePath) return p
     const next = movedPath(p.filePath, from, to)
     if (next === null) return p
-    return setPaneEditor(p, p.id, next.slice(next.lastIndexOf('/') + 1), next) as PaneNode
+    return setPaneEditor(p, p.id, baseName(next), next) as PaneNode
   })
 }
 
@@ -201,6 +220,19 @@ export function setPaneBrowser(
   })
 }
 
+export function setPaneBrowserDevice(
+  root: LayoutNode,
+  paneId: string,
+  device: BrowserDevice | null,
+): LayoutNode {
+  return mapPane(root, paneId, (p) => {
+    if (p.kind !== 'browser') return p
+    const { browserDevice: previous, ...rest } = p
+    if (!device) return previous ? rest : p
+    return previous && isEqual(previous, device) ? p : { ...rest, browserDevice: device }
+  })
+}
+
 export function paneBrowserProfile(pane: PaneNode): BrowserProfile {
   return parseBrowserProfile(pane.browserProfile)
 }
@@ -215,20 +247,6 @@ export function browserPaneInUse(
   const active = findPane(node, activePaneId)
   if (active && isMatch(active)) return active
   return allPanes(node).find(isMatch) ?? null
-}
-
-export function setPaneExtension(
-  root: LayoutNode,
-  paneId: string,
-  extensionId: string,
-  title: string,
-): LayoutNode {
-  return mapPane(root, paneId, (p) => ({
-    ...named(p, title),
-    kind: 'extension',
-    extensionId,
-    cwd: undefined,
-  }))
 }
 
 export function setPaneChat(
@@ -276,10 +294,6 @@ export function setPaneDiff(
 
 export function isRemoteFilePane(pane: PaneNode): boolean {
   return pane.kind === 'editor' && isRemotePath(pane.filePath)
-}
-
-export function findExtensionPane(node: LayoutNode, extensionId: string): PaneNode | null {
-  return allPanes(node).find((p) => p.kind === 'extension' && p.extensionId === extensionId) ?? null
 }
 
 export function findViewPane(node: LayoutNode, viewName: string): PaneNode | null {

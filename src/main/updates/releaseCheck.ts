@@ -32,6 +32,7 @@ import {
   tarballAssetName,
 } from '../../shared/app/releases'
 import type { AppLog } from '../diagnostics/appLog'
+import { readCapped } from '../platform/checkedDownload'
 import { loadJson, saveJson, storePath } from '../platform/jsonStore'
 import type { InstallReplacer } from './installReplace'
 import type { UpdateRunner } from './updateRun'
@@ -88,23 +89,6 @@ export function releaseUserAgent(version: string): string {
   return `${PRODUCT_NAME}/${version}`
 }
 
-async function readCapped(response: Response, maxBytes: number): Promise<string | null> {
-  const reader = response.body?.getReader()
-  if (!reader) return null
-  const chunks: Uint8Array[] = []
-  let size = 0
-  for (;;) {
-    const { done, value } = await reader.read()
-    if (done) return Buffer.concat(chunks).toString('utf8')
-    size += value.byteLength
-    if (size > maxBytes) {
-      await reader.cancel()
-      return null
-    }
-    chunks.push(value)
-  }
-}
-
 function readRelease(text: string | null, parse: (raw: unknown) => ParsedRelease): LatestRelease {
   if (text === null) return { kind: 'error', error: 'unavailable' }
   let raw: unknown
@@ -151,7 +135,8 @@ export async function fetchLatestRelease(opts: {
       return { kind: 'error', error: 'rate-limited' }
     }
     if (response.status !== 200) return { kind: 'error', error: 'unavailable' }
-    return readRelease(await readCapped(response, RELEASE_RESPONSE_MAX_BYTES), query.parse)
+    if (!response.body) return { kind: 'error', error: 'unavailable' }
+    return readRelease(await readCapped(response.body, RELEASE_RESPONSE_MAX_BYTES), query.parse)
   } catch {
     return { kind: 'error', error: 'offline' }
   }

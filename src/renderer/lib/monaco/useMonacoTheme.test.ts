@@ -1,4 +1,4 @@
-import { BUILTIN_COLOR_SCHEMES } from '@/lib/theme/colorSchemes'
+import { BUILTIN_COLOR_SCHEMES } from '@/lib/colorSchemes/builtinColorSchemes'
 import { renderHook } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { monacoThemeId } from './monacoTheme'

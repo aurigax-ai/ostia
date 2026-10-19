@@ -67,6 +67,34 @@ export function fail(error: string, message?: string): ExtensionResult {
   return message ? { ok: false, error, message } : { ok: false, error }
 }
 
+export function normalizeResult(raw: unknown): ExtensionResult {
+  if (
+    typeof raw === 'object' &&
+    raw !== null &&
+    typeof (raw as { ok?: unknown }).ok === 'boolean'
+  ) {
+    const r = raw as {
+      ok: boolean
+      error?: unknown
+      message?: unknown
+      text?: unknown
+      data?: unknown
+    }
+    if (!r.ok) {
+      const failed = fail(
+        typeof r.error === 'string' ? r.error : 'failed',
+        typeof r.message === 'string' ? r.message : undefined,
+      )
+      return r.data === undefined ? failed : { ...failed, data: r.data }
+    }
+    const out: ExtensionResult = { ok: true }
+    if (typeof r.text === 'string') out.text = r.text
+    if (r.data !== undefined) out.data = r.data
+    return out
+  }
+  return raw === undefined || raw === null ? { ok: true } : { ok: true, data: raw }
+}
+
 export function withTimeout<T>(p: Promise<T>, ms: number, what: string): Promise<T> {
   return new Promise((resolve, reject) => {
     const timer = setTimeout(() => reject(new Error(`${what} timed out`)), ms)
@@ -81,10 +109,6 @@ export function withTimeout<T>(p: Promise<T>, ms: number, what: string): Promise
       },
     )
   })
-}
-
-export function isPlainRecord(v: unknown): v is Record<string, unknown> {
-  return typeof v === 'object' && v !== null && !Array.isArray(v)
 }
 
 export function newRuntime(ext: LoadedExtension): Runtime {

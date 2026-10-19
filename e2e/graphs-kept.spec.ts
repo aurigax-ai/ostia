@@ -74,7 +74,7 @@ function setup(report: boolean) {
   writeFileSync(join(launch.home, '.ostia/graphs/kept.yaml'), GRAPH)
   const env = { ...launch.env, PATH: `${bin}:${launch.env.PATH ?? ''}` }
   const lines = (): Line[] => {
-    const root = join(dataHome, 'userData', 'extension-data', 'graphs', 'runs')
+    const root = join(dataHome, 'state', 'wire', 'runs')
     if (!existsSync(root)) return []
     for (const scope of readdirSync(root)) {
       const folder = join(root, scope, 'kept')
@@ -157,7 +157,7 @@ test('GRF-C71 an agent still working in its kept pane across a restart is reatta
       .poll(() => lines().some((l) => l.type === 'run-end'), { timeout: 60_000 })
       .toBe(true)
     const end = lines().find((l) => l.type === 'node-end' && l.node === 'work')
-    expect(end).toMatchObject({ status: 'done' })
+    expect(end, JSON.stringify(lines())).toMatchObject({ status: 'done' })
     expect(JSON.stringify(end)).toContain('"v":"after"')
     expect(lines().filter((l) => l.type === 'node-start' && l.node === 'work')).toHaveLength(1)
     expect(logged()).toEqual(['start', 'stopped'])

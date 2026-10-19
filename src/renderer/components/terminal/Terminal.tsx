@@ -16,6 +16,8 @@ import { acceptsPathDrop, droppedPaths, pathsAsInput } from '@/lib/keyboard/drop
 import { useSurfaceFocus } from '@/lib/panes/paneFocus'
 import { measureCells } from '@/lib/prompt/usePromptGeometry'
 import { ghosttyModule, loadGhostty } from '@/lib/terminal/ghosttyEngine'
+import { liveLogicalLines } from '@/lib/terminal/historyActions'
+import { createHistoryScroll } from '@/lib/terminal/historyScroll'
 import {
   type OstiaTerminal,
   type PauseTerminal,
@@ -25,7 +27,8 @@ import {
 } from '@/lib/terminal/ostiaTerminal'
 import { TERMINAL_INPUT_SELECTOR } from '@/lib/terminal/ostiaTerminal'
 import { attachSmoothScroll } from '@/lib/terminal/smoothScroll'
-import { registerTerminal } from '@/lib/terminal/terminalHandles'
+import { drawOnGpu } from '@/lib/terminal/softwareGl'
+import { registerHistoryScroll, registerTerminal } from '@/lib/terminal/terminalHandles'
 import { keepDrawing, usePauseWhenHidden } from '@/lib/terminal/usePauseWhenHidden'
 import { type WebglRenderer, createWebglRenderer } from '@/lib/terminal/webglRenderer'
 import { attachWheelReports } from '@/lib/terminal/wheelReports'
@@ -35,7 +38,8 @@ import { terminalFontStack } from '@/lib/theme/uiFonts'
 import { isLinux, isMac } from '@/platform'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { type LineAnchor, useBlocksStore } from '@/stores/terminal/blocksStore'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useHistoryViewStore } from '@/stores/terminal/historyViewStore'
+import { type HTMLAttributes, useEffect, useMemo, useRef, useState } from 'react'
 import { Blocks } from './Blocks'
 import { TerminalFind, findOptions } from './TerminalFind'
 import { type LinkHintBox, TerminalLinkHint } from './TerminalLinkHint'
@@ -80,6 +84,61 @@ export function TerminalView(props: TerminalViewProps): JSX.Element {
   return <TerminalSurface engine={engine} {...props} />
 }
 
+function pathDropHandlers(
+  pasteRef: { current: (text: string) => void },
+  termRef: { current: OstiaTerminal | null },
+): Pick<HTMLAttributes<HTMLDivElement>, 'onDragOver' | 'onDrop'> {
+  return {
+    onDragOver: (e) => {
+      if (!acceptsPathDrop([...e.dataTransfer.types])) return
+      e.preventDefault()
+      e.dataTransfer.dropEffect = 'copy'
+    },
+    onDrop: (e) => {
+      if (!acceptsPathDrop([...e.dataTransfer.types])) return
+      e.preventDefault()
+      const text = pathsAsInput(droppedPaths(e.dataTransfer))
+      if (!text) return
+      pasteRef.current(text)
+      termRef.current?.focus()
+    },
+  }
+}
+
+function TerminalFindLayer({
+  paneId,
+  search,
+  options,
+  stepRef,
+  termRef,
+  setFindOpen,
+}: {
+  paneId: string
+  search: TerminalSearch
+  options: ReturnType<typeof findOptions>
+  stepRef: { current: ((by: number) => void) | null }
+  termRef: { current: OstiaTerminal | null }
+  setFindOpen: (open: boolean) => void
+}): JSX.Element {
+  return (
+    <TerminalFind
+      paneId={paneId}
+      search={search}
+      options={options}
+      stepRef={stepRef}
+      liveLines={() => (termRef.current ? liveLogicalLines(termRef.current) : 0)}
+      onShowEarlier={(find) => {
+        setFindOpen(false)
+        useHistoryViewStore.getState().show(paneId, { kind: 'match', find })
+      }}
+      onClose={() => {
+        setFindOpen(false)
+        termRef.current?.focus()
+      }}
+    />
+  )
+}
+
 function TerminalSurface({
   engine,
   workspaceId,
@@ -106,6 +165,8 @@ function TerminalSurface({
   const findStepRef = useRef<((by: number) => void) | null>(null)
   const [alternateScreen, setAlternateScreen] = useState(false)
   const shown = usePaneVisible(paneId)
+  const shownRef = useRef(shown)
+  shownRef.current = shown
   useSurfaceFocus(
     paneId,
     () =>
@@ -132,6 +193,7 @@ function TerminalSurface({
       spawnCwd,
       termRef,
       pauseRef,
+      shownRef,
       lastSizeRef,
       syncSizeRef,
       pasteRef,
@@ -147,6 +209,7 @@ function TerminalSurface({
     })
   }, [paneId, engine])
 
+  useEffect(() => () => useHistoryViewStore.getState().close(paneId), [paneId])
   usePauseWhenHidden(pauseRef, shown, paneId, engine)
   useTerminalOptions({ termRef, syncSizeRef, font, palette })
   const input = terminalInputBridge({ paneId, termRef, setSuppressedPrompt })
@@ -159,23 +222,7 @@ function TerminalSurface({
   const background = palette.background
 
   return (
-    <div
-      ref={surfaceRef}
-      className="terminal-surface"
-      onDragOver={(e) => {
-        if (!acceptsPathDrop([...e.dataTransfer.types])) return
-        e.preventDefault()
-        e.dataTransfer.dropEffect = 'copy'
-      }}
-      onDrop={(e) => {
-        if (!acceptsPathDrop([...e.dataTransfer.types])) return
-        e.preventDefault()
-        const text = pathsAsInput(droppedPaths(e.dataTransfer))
-        if (!text) return
-        pasteRef.current(text)
-        termRef.current?.focus()
-      }}
-    >
+    <div ref={surfaceRef} className="terminal-surface" {...pathDropHandlers(pasteRef, termRef)}>
       <div className="terminal-stack" style={{ background }}>
         <TerminalMenu
           paneId={paneId}
@@ -209,14 +256,13 @@ function TerminalSurface({
         <AssistComposer paneId={paneId} cwd={cwd} termRef={termRef} />
         <TerminalLinkHint hint={shown ? linkHint : null} />
         {findOpen && search && (
-          <TerminalFind
+          <TerminalFindLayer
+            paneId={paneId}
             search={search}
             options={searchOptions}
             stepRef={findStepRef}
-            onClose={() => {
-              setFindOpen(false)
-              termRef.current?.focus()
-            }}
+            termRef={termRef}
+            setFindOpen={setFindOpen}
           />
         )}
       </div>
@@ -243,6 +289,7 @@ interface StartTerminalDeps {
   spawnCwd: { current: string | undefined }
   termRef: { current: OstiaTerminal | null }
   pauseRef: { current: PauseTerminal }
+  shownRef: { current: boolean }
   lastSizeRef: { current: { cols: number; rows: number } }
   syncSizeRef: { current: () => void }
   pasteRef: { current: (text: string) => void }
@@ -274,12 +321,26 @@ function startTerminal(deps: StartTerminalDeps): () => void {
     engine,
     host,
     options: initialTerminalOptions(),
-    gpuAcceleration: useSettingsStore.getState().behavior.gpuAcceleration,
+    gpuAcceleration: drawOnGpu(useSettingsStore.getState().behavior.gpuAcceleration),
     links,
   })
   const { term } = created
   if (created.pause) pauseRef.current = created.pause
-  attachWheelReports(term, () => measureCells(host, term)?.height ?? 0, isLinux)
+  const history = createHistoryScroll({
+    host,
+    paneId,
+    term,
+    engine,
+    options: initialTerminalOptions,
+    pause: (paused) => pauseRef.current(paused),
+    shown: () => deps.shownRef.current,
+  })
+  attachWheelReports(
+    term,
+    () => measureCells(host, term)?.height ?? 0,
+    isLinux,
+    history.interceptWheel,
+  )
   const detachWheelZoom = attachWheelZoom(host, 'terminal', isMac)
   const detachSmoothScroll = attachSmoothScroll(host, term, isMac)
   const screenElement = terminalScreen(host)
@@ -287,6 +348,7 @@ function startTerminal(deps: StartTerminalDeps): () => void {
   termRef.current = term
   setSearch(created.search)
   const unregisterTerminal = registerTerminal(paneId, term)
+  const unregisterHistory = registerHistoryScroll(paneId, history)
   const paste = createTerminalPaste({ host, term, paneId, session, setPendingPaste })
   pasteRef.current = paste.pasteConfirmed
   pasteClipboardRef.current = () => paste.pasteFromClipboard()
@@ -335,6 +397,8 @@ function startTerminal(deps: StartTerminalDeps): () => void {
     detachWheelZoom()
     detachSmoothScroll()
     detachLinks()
+    unregisterHistory()
+    history.dispose()
     unregisterTerminal()
     forgetPaneActivity(paneId)
     useBlocksStore.getState().dropPane(paneId)

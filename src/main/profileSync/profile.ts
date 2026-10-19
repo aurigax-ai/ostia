@@ -1,9 +1,10 @@
 import { type Stats, lstatSync, readFileSync, readdirSync, unlinkSync } from 'node:fs'
 import { join } from 'node:path'
+import { isRecord } from '@aurigax-ai/ostia-extension-sdk/contract/isRecord'
 import { PROGRAM_SETTINGS } from '../../shared/permissions/programSettings'
 import { SPEC_COMMAND_PATTERN, SPEC_FILE_MAX_BYTES } from '../../shared/terminal/completionSpec'
 import { VIEW_FILES_MAX, VIEW_FILE_MAX_BYTES, VIEW_NAME } from '../../shared/views/views'
-import { normalizeMarketplaceUrl } from '../extensions/marketplace/marketplace'
+import { normalizeMarketplaceUrl } from '../extensions/marketplace/marketplaceSources'
 import { SNIPPET_FILES_MAX, SNIPPET_FILE_MAX_BYTES } from '../workspaces/snippets'
 
 export type JsonObject = Record<string, unknown>
@@ -61,9 +62,6 @@ export const PROFILE_FOLDERS: readonly ProfileFolder[] = [
   },
 ]
 
-export const isObject = (v: unknown): v is JsonObject =>
-  typeof v === 'object' && v !== null && !Array.isArray(v)
-
 const LOCAL_ONLY_FIELDS: readonly { group: string; field: string }[] = [
   ...PROGRAM_SETTINGS,
   { group: 'privacy', field: 'telemetry' },
@@ -78,7 +76,7 @@ export function syncedSettings(settings: JsonObject): JsonObject {
   const out: JsonObject = {}
   for (const [key, value] of Object.entries(settings)) {
     if (LOCAL_ONLY_ROOTS.includes(key)) continue
-    if (!isObject(value)) {
+    if (!isRecord(value)) {
       out[key] = value
       continue
     }
@@ -96,8 +94,8 @@ export function withLocalOnly(merged: JsonObject, local: JsonObject): JsonObject
   for (const key of LOCAL_ONLY_ROOTS) if (key in local) out[key] = local[key]
   for (const { group, field } of LOCAL_ONLY_FIELDS) {
     const from = local[group]
-    if (!isObject(from) || !(field in from)) continue
-    const into = isObject(out[group]) ? (out[group] as JsonObject) : {}
+    if (!isRecord(from) || !(field in from)) continue
+    const into = isRecord(out[group]) ? (out[group] as JsonObject) : {}
     into[field] = from[field]
     out[group] = into
   }
@@ -105,10 +103,10 @@ export function withLocalOnly(merged: JsonObject, local: JsonObject): JsonObject
 }
 
 function parseSyncedExtensions(raw: unknown): SyncedExtension[] {
-  const list = isObject(raw) && Array.isArray(raw.extensions) ? raw.extensions : []
+  const list = isRecord(raw) && Array.isArray(raw.extensions) ? raw.extensions : []
   const out: SyncedExtension[] = []
   for (const item of list) {
-    if (!isObject(item) || typeof item.id !== 'string' || typeof item.marketplace !== 'string') {
+    if (!isRecord(item) || typeof item.id !== 'string' || typeof item.marketplace !== 'string') {
       continue
     }
     if (out.some((e) => e.id === item.id)) continue
@@ -141,10 +139,10 @@ const parseJson = (text: string | undefined): { value: unknown; invalid: boolean
 
 export function decodeProfile(files: ReadonlyMap<string, string>): Profile {
   const settings = parseJson(files.get(SETTINGS_FILE))
-  const settingsInvalid = settings.invalid || (settings.value !== null && !isObject(settings.value))
+  const settingsInvalid = settings.invalid || (settings.value !== null && !isRecord(settings.value))
   const meta = parseJson(files.get(META_FILE)).value
   const times: Record<string, number> = {}
-  if (isObject(meta) && isObject(meta.times)) {
+  if (isRecord(meta) && isRecord(meta.times)) {
     for (const [path, time] of Object.entries(meta.times)) {
       if (typeof time === 'number' && Number.isFinite(time)) times[path] = time
     }

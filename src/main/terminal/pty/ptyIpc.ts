@@ -7,14 +7,15 @@ import type {
   PtyAttachResult,
   PtySpawnOptions,
   TerminalStateSnapshot,
-} from '../../../shared/types'
+} from '../../../shared/terminal/ptyApi'
 import type { AgentRunningPanes } from '../../agents/agentRunning'
 import { type ReportedAgentWork, backgroundWork, readProcessTable } from '../../agents/agentWork'
 import { getByPaneId } from '../../control/idRegistry'
 import type { OpenWaits } from '../../files/openWaits'
 import type { PaneWaking } from '../../panes/paneWaking'
+import { wakeReason } from '../../panes/wakeReason'
 import type { KeptShells } from '../../tmux/keptShells'
-import { stashedScreen } from '../../workspaces/workspaceSnapshot'
+import { stashedScreen } from '../../workspaces/savedScrollback'
 import { registerPathCompletionIpc } from '../pathCompletion'
 import { KubeContextReader, NodeVersionResolver, promptContext } from '../promptContext'
 import { ExecutableIndex, readShellState, registerCommandNamesIpc } from '../shellCommands'
@@ -34,6 +35,7 @@ interface PtyIpcDeps {
   agentWork: ReportedAgentWork
   agentRunning: AgentRunningPanes
   paneWaking: PaneWaking
+  paneStartErrors: Map<string, string>
   hibernatePty: PtyStop['hibernatePty']
   killPty: PtyStop['killPty']
   releasePtyFlow: PtyIo['releasePtyFlow']
@@ -57,6 +59,7 @@ function registerPtyLifecycleIpc({
   hibernatePty,
   killPty,
   windowOfPane,
+  paneStartErrors,
 }: PtyIpcDeps): void {
   const attaching = new Map<string, Promise<PtyAttachResult>>()
   ipcMain.handle('pty:attach', async (e, paneId: string, opts: PtySpawnOptions) => {
@@ -65,7 +68,14 @@ function registerPtyLifecycleIpc({
     const pending = attachPty(e, paneId, opts)
     attaching.set(paneId, pending)
     try {
-      return await pending
+      const result = await pending
+      if (!result.created && !opts.attachOnly && !ptys.has(paneId)) {
+        paneStartErrors.set(paneId, 'the shell did not start')
+      } else paneStartErrors.delete(paneId)
+      return result
+    } catch (error) {
+      paneStartErrors.set(paneId, error instanceof Error ? error.message : String(error))
+      throw error
     } finally {
       if (attaching.get(paneId) === pending) attaching.delete(paneId)
     }
@@ -127,11 +137,11 @@ function registerPtyControlIpc({
     openWaits.windowGone(String(contents.id))
   })
 
-  ipcMain.on('pty:waking', (e, paneId: unknown, waking: unknown) => {
+  ipcMain.on('pty:waking', (e, paneId: unknown, waking: unknown, reason: unknown) => {
     if (typeof paneId !== 'string' || typeof waking !== 'boolean') return
     if (getByPaneId(paneId)?.windowId !== String(e.sender.id)) return
     if (waking) paneWaking.start(paneId)
-    else paneWaking.end(paneId, 'failed')
+    else paneWaking.end(paneId, 'failed', wakeReason(reason))
   })
 
   ipcMain.on('pty:write', (e, paneId: string, data: string) => {

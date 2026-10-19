@@ -1,12 +1,14 @@
 import type {
   AppSnapshot,
   SnapshotGroup,
+  SnapshotLeftPanel,
   SnapshotNode,
   SnapshotPaneNode,
   SnapshotSplitNode,
   SnapshotWorkspace,
   WorkspaceOrigin,
-} from '@shared/types'
+} from '@shared/workspaces/workspaceApi'
+import { settleCollapse } from './collapse'
 import { isRemoteFilePane } from './paneFields'
 import { TERMINAL_TITLE, adoptIds, findPane, firstPaneId, withoutPanes } from './tree'
 import type { LayoutNode, PaneNode, SplitNode } from './types'
@@ -171,6 +173,8 @@ export function buildSnapshot(input: {
   layouts: Record<string, { root: LayoutNode; activePaneId: string }>
   savedAt: string
   liveAgentPanes?: ReadonlySet<string>
+  leftPanel?: SnapshotLeftPanel | null
+  rightPanel?: string | null
 }): AppSnapshot {
   const live = input.liveAgentPanes ?? new Set<string>()
   const workspaces = input.workspaces.map((workspace) =>
@@ -183,6 +187,8 @@ export function buildSnapshot(input: {
     v: 1,
     savedAt: input.savedAt,
     activeWorkspaceId,
+    ...(input.leftPanel ? { leftPanel: input.leftPanel } : {}),
+    ...(input.rightPanel ? { rightPanel: input.rightPanel } : {}),
     workspaces,
     groups: input.groups.filter((g) => workspaces.some((w) => w.groupId === g.id)).map(copyGroup),
   }
@@ -211,7 +217,7 @@ export function restoreSnapshot(snapshot: AppSnapshot): {
       ...(s.origin ? { origin: copyOrigin(s.origin) } : {}),
     })
     if (!s.root) continue
-    const root = toLayoutNode(s.root)
+    const root = settleCollapse(toLayoutNode(s.root))
     adoptIds(root)
     layouts[s.id] = { root, activePaneId: s.activePaneId ?? firstPaneId(root), zoomedPaneId: null }
   }

@@ -1,4 +1,5 @@
 import type { BrowserWindow } from 'electron'
+import type { Dict } from '../../shared/app/dict'
 import { postActionNotification } from '../attention/notify'
 import type { NotifyWiring } from '../attention/notifyWiring'
 import type { ExtensionHost } from '../extensions/extensionHost'
@@ -18,12 +19,13 @@ import { windowForWorkspace, workDirForWorkspace } from '../workspaces/workspace
 import { registerSandboxMethods } from './controlMethods'
 import type { DomainRequests } from './domainRequests'
 import { registerSandboxIpc } from './ipc'
-import type { PortRequests } from './portRequests'
+import type { PortRequests } from './ports/portRequests'
 import { reportSandboxSpawnFailure } from './spawnFailureNotice'
 import type { ViolationLog } from './violations'
 import type { WorkspaceSandboxes } from './workspaceSandboxes'
 
 interface SandboxWiringDeps {
+  mainStrings: () => Dict
   domainRequests: DomainRequests
   portRequests: PortRequests
   secretService: SecretService
@@ -39,6 +41,7 @@ interface SandboxWiringDeps {
 }
 
 export function registerSandboxWiring({
+  mainStrings,
   domainRequests,
   portRequests,
   secretService,
@@ -61,6 +64,7 @@ export function registerSandboxWiring({
   services.onSandboxSpawnFailure = (workspaceId, errors) =>
     reportSandboxSpawnFailure(
       {
+        text: () => mainStrings().native.sandboxSoftware,
         notify: (input, onClick) =>
           postActionNotification(notifyDeps, { ...input, from: 'sandbox' }, onClick),
         showRequirements: (id, report) => {
@@ -111,7 +115,7 @@ export function registerSandboxIpcWiring({
     domains: domainRequests,
     ports: portRequests,
     violations: sandboxViolations,
-    refreshAll: () => workspaceSandboxes.refreshAll(),
+    refreshAll: () => workspaceSandboxes.hosts.refreshAll(),
   })
   registerSystemRequirementsIpc({
     ownerWindow: windowForWorkspace,

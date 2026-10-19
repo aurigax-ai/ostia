@@ -1,10 +1,10 @@
 import { readFileSync, statSync } from 'node:fs'
 import { basename } from 'node:path'
 import { DIFF_TEXT_MAX } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
-import type {
-  ExtensionOpenFileRequest,
-  ExtensionResult,
-} from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
+import type { ExtensionResult } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
+import type { ExtensionOpenFileRequest } from '@aurigax-ai/ostia-extension-sdk/contract/extensionsBridge'
+import { filesDiffTitle } from '../../shared/boards/diffTitle'
+import type { CommandResult, CommandTarget } from '../../shared/control/commands'
 import {
   type DiffFilesResult,
   type FileTarget,
@@ -18,7 +18,6 @@ import {
   openedPaneIds,
   parseFileTargets,
 } from '../../shared/files/openFiles'
-import type { CommandResult, CommandTarget } from '../../shared/types'
 import { targetOf } from '../attention/attention'
 import { type ControlMethodContext, registerControlMethod } from '../control/controlServer'
 import type { OpenFileGrants } from './openFileGrants'
@@ -144,7 +143,7 @@ export function registerOpenFileMethods(deps: OpenFileDeps): void {
       const modified = readDiffSide(deps, request.modified, workspaceId)
       if (!modified.ok) return modified
       const res = await deps.execCommand(targetOf(ctx.identity), OPEN_DIFF_COMMAND, {
-        title: `${basename(original.path)} ↔ ${basename(modified.path)}`,
+        title: filesDiffTitle(basename(original.path), basename(modified.path)),
         original: original.text,
         modified: modified.text,
         path: modified.path,

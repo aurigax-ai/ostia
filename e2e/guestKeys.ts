@@ -1,5 +1,5 @@
 import { isMac } from './chords'
-import type { ElectronApplication, Page } from './test'
+import type { ElectronApplication } from './test'
 
 interface GuestKey {
   keyCode: string
@@ -11,10 +11,6 @@ const appMod = isMac ? ['meta'] : ['control', 'shift']
 export const guestKeys: Record<'palette' | 'dashboard', GuestKey> = {
   palette: { keyCode: isMac ? 'K' : 'P', modifiers: appMod },
   dashboard: { keyCode: 'D', modifiers: isMac ? ['meta', 'shift'] : ['control', 'shift'] },
-}
-
-export function webviewHasKeyboard(win: Page): Promise<boolean> {
-  return win.evaluate(() => document.activeElement?.tagName === 'WEBVIEW')
 }
 
 export async function pressInPage(app: ElectronApplication, key: GuestKey): Promise<void> {

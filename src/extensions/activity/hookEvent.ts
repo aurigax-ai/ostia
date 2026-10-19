@@ -39,7 +39,30 @@ export interface ActivityNote {
   doneAt?: number
 }
 
-export type ActivityRecord = ActivityEvent | ActivityNote
+const HOST_KINDS = ['started', 'closed', 'state', 'hibernated', 'woken', 'folder', 'bus'] as const
+
+export type HostKind = (typeof HOST_KINDS)[number]
+
+const BUS_MESSAGE_KINDS = ['message', 'task'] as const
+
+export type BusMessageKind = (typeof BUS_MESSAGE_KINDS)[number]
+
+export interface ActivityHost {
+  v: typeof JOURNAL_VERSION
+  t: number
+  id: string
+  pane: string
+  kind: 'host'
+  host: HostKind
+  state?: string
+  from?: string
+  to?: string
+  message?: BusMessageKind
+  ref?: string
+  folder?: string
+}
+
+export type ActivityRecord = ActivityEvent | ActivityNote | ActivityHost
 
 export const NOTE_TEXT_MAX = 2000
 export const NOTE_LINK_MAX = 2000
@@ -208,12 +231,41 @@ function parseStoredNote(raw: Record<string, unknown>, t: number, id: string, pa
   return note
 }
 
+const HOST_FIELD_MAX = 200
+
+function hostField(raw: unknown): string | null | undefined {
+  if (raw === undefined) return undefined
+  return typeof raw === 'string' && raw !== '' && raw.length <= HOST_FIELD_MAX ? raw : null
+}
+
+function parseStoredHost(raw: Record<string, unknown>, t: number, id: string, pane: string) {
+  const { host, message } = raw
+  if (!HOST_KINDS.includes(host as HostKind)) return null
+  if (message !== undefined && !BUS_MESSAGE_KINDS.includes(message as BusMessageKind)) return null
+  const record: ActivityHost = {
+    v: JOURNAL_VERSION,
+    t,
+    id,
+    pane,
+    kind: 'host',
+    host: host as HostKind,
+  }
+  if (message !== undefined) record.message = message as BusMessageKind
+  for (const field of ['state', 'from', 'to', 'ref', 'folder'] as const) {
+    const value = hostField(raw[field])
+    if (value === null) return null
+    if (value !== undefined) record[field] = value
+  }
+  return record
+}
+
 export function parseStoredRecord(raw: unknown): ActivityRecord | null {
   if (!isRecord(raw) || raw.v !== JOURNAL_VERSION) return null
   const { t, id, pane, agent, session, kind, tool, text } = raw
   if (typeof t !== 'number' || !Number.isFinite(t)) return null
   if (!isRecordId(id) || typeof pane !== 'string' || pane === '') return null
   if (kind === 'note') return parseStoredNote(raw, t, id, pane)
+  if (kind === 'host') return parseStoredHost(raw, t, id, pane)
   if (typeof session !== 'string') return null
   if (agent !== 'claude' && agent !== 'codex') return null
   if (!ACTIVITY_KINDS.includes(kind as ActivityKind)) return null

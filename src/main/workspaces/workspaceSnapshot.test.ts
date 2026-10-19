@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { type BrowserWindow, ipcMain } from 'electron'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { AppSnapshot, SnapshotNode } from '../../shared/types'
+import type { AppSnapshot, SnapshotNode } from '../../shared/workspaces/workspaceApi'
 import { AgentRunningPanes } from '../agents/agentRunning'
 import { MAIN_SLOT } from '../windows/windowBook'
 import { WindowBroker } from '../windows/windowBroker'
@@ -11,18 +11,20 @@ import {
   SCROLLBACK_CAP_BYTES,
   clearPersisted,
   loadRestoredScrollback,
-  loadSnapshot,
-  parseHandoff,
-  parseSnapshot,
   pendingRestoredScrollback,
   saveScrollback,
-  saveSnapshot,
   scrollbackPath,
-  snapshotPath,
   stashScrollback,
   stashedScreen,
   takeRestoredScrollback,
   trimScrollback,
+} from './savedScrollback'
+import {
+  loadSnapshot,
+  parseHandoff,
+  parseSnapshot,
+  saveSnapshot,
+  snapshotPath,
 } from './workspaceSnapshot'
 
 vi.mock('electron', () => ({ ipcMain: { handle: vi.fn(), on: vi.fn() }, screen: {} }))
@@ -71,6 +73,70 @@ beforeEach(() => {
 afterEach(() => {
   vi.unstubAllEnvs()
   rmSync(dataDir, { recursive: true, force: true })
+})
+
+describe('right side panel', () => {
+  it('keeps a well-formed extension id and drops anything else', () => {
+    expect(parseSnapshot(snap({ rightPanel: 'graphs' }))?.rightPanel).toBe('graphs')
+    for (const bad of ['', 'Graphs', 'a b', 'x'.repeat(41), 7, null]) {
+      expect(parseSnapshot({ ...snap(), rightPanel: bad })).not.toHaveProperty('rightPanel')
+    }
+  })
+
+  it('keeps it per detached window', () => {
+    const base = snap().workspaces[0]
+    const window = (rightPanel: unknown) => ({
+      id: 'd1',
+      bounds: { x: 0, y: 0, width: 800, height: 600 },
+      activeWorkspaceId: 'w2',
+      rightPanel,
+      workspaces: [
+        {
+          ...base,
+          id: 'w2',
+          activePaneId: 'pane-2',
+          root: { type: 'pane', id: 'pane-2', title: 'zsh', kind: 'terminal' },
+        },
+      ],
+    })
+    expect(parseSnapshot({ ...snap(), windows: [window('keeper')] })?.windows?.[0].rightPanel).toBe(
+      'keeper',
+    )
+    expect(parseSnapshot({ ...snap(), windows: [window('No!')] })?.windows?.[0]).not.toHaveProperty(
+      'rightPanel',
+    )
+  })
+})
+
+describe('left side panel', () => {
+  it('keeps a known left panel and drops anything else', () => {
+    expect(parseSnapshot(snap({ leftPanel: 'files' }))?.leftPanel).toBe('files')
+    expect(parseSnapshot({ ...snap(), leftPanel: 'git' })).not.toHaveProperty('leftPanel')
+    expect(parseSnapshot({ ...snap(), leftPanel: true })).not.toHaveProperty('leftPanel')
+  })
+
+  it('keeps it per detached window', () => {
+    const window = (leftPanel: unknown) => ({
+      id: 'd1',
+      bounds: { x: 0, y: 0, width: 800, height: 600 },
+      activeWorkspaceId: 'w2',
+      leftPanel,
+      workspaces: [
+        {
+          ...snap().workspaces[0],
+          id: 'w2',
+          root: { ...snap().workspaces[0].root, id: 'pane-2' },
+          activePaneId: 'pane-2',
+        },
+      ],
+    })
+    expect(parseSnapshot({ ...snap(), windows: [window('files')] })?.windows?.[0].leftPanel).toBe(
+      'files',
+    )
+    expect(parseSnapshot({ ...snap(), windows: [window('x')] })?.windows?.[0]).not.toHaveProperty(
+      'leftPanel',
+    )
+  })
 })
 
 describe('parseSnapshot', () => {
@@ -192,8 +258,9 @@ describe('parseSnapshot', () => {
       }),
     )
     expect(withResume(saved)?.workspaces[0].root).toMatchObject({
-      resume: { agent: 'codex', id: 'abc-1', args: ['-m', 'gpt-5'], env: { GL_ISSUE: '685' } },
+      resume: { agent: 'codex', id: 'abc-1', args: ['-m', 'gpt-5'] },
     })
+    expect(withResume(saved)?.workspaces[0].root).not.toHaveProperty('resume.env')
   })
 
   it('keeps a view pane by name and drops one without a valid view name', () => {
@@ -341,6 +408,67 @@ describe('parseSnapshot', () => {
     })
   })
 
+  it('keeps a collapsed mark only on a pane inside a tab and only when it is true', () => {
+    const pane = (id: string, collapsed: unknown) => ({
+      type: 'pane',
+      id,
+      title: 'zsh',
+      kind: 'terminal',
+      collapsed,
+    })
+    const tabs = {
+      type: 'tabs',
+      id: 'tabs-3',
+      activeId: 'pane-1',
+      children: [
+        pane('pane-1', true),
+        { ...split('pane-2', 'pane-3'), children: [pane('pane-2', true), pane('pane-3', 'yes')] },
+      ],
+    }
+    const root = parseSnapshot(
+      snap({ workspaces: [{ ...snap().workspaces[0], root: tabs as never }] }),
+    )?.workspaces[0].root
+    const inTab = root?.type === 'tabs' ? root.children[1] : null
+    expect(inTab?.type === 'split' && inTab.children[0]).toMatchObject({ collapsed: true })
+    expect(inTab?.type === 'split' && inTab.children[1]).not.toHaveProperty('collapsed')
+    const outside = {
+      ...split('pane-1', 'pane-2'),
+      children: [pane('pane-1', true), pane('pane-2', true)],
+    }
+    const top = parseSnapshot(
+      snap({ workspaces: [{ ...snap().workspaces[0], root: outside as never }] }),
+    )?.workspaces[0].root
+    expect(top?.type === 'split' && top.children[0]).not.toHaveProperty('collapsed')
+  })
+
+  it('keeps a folded mark only on a split tab and only when it is true', () => {
+    const tabs = {
+      type: 'tabs',
+      id: 'tabs-3',
+      activeId: 'pane-1',
+      children: [
+        { type: 'pane', id: 'pane-1', title: 'zsh', kind: 'terminal', folded: true },
+        { ...split('pane-2', 'pane-3'), folded: true },
+      ],
+    }
+    const root = parseSnapshot(
+      snap({ workspaces: [{ ...snap().workspaces[0], root: tabs as never }] }),
+    )?.workspaces[0].root
+    expect(root?.type === 'tabs' && root.children[0]).not.toHaveProperty('folded')
+    expect(root?.type === 'tabs' && root.children[1]).toMatchObject({ folded: true })
+    const loose = parseSnapshot(
+      snap({
+        workspaces: [
+          {
+            ...snap().workspaces[0],
+            root: { ...split('pane-1', 'pane-2'), folded: 'yes' } as never,
+          },
+        ],
+      }),
+    )?.workspaces[0].root
+    expect(loose).not.toHaveProperty('folded')
+  })
+
   it('drops a bad split tab name and repairs the shown pane to the first pane', () => {
     const tabs = {
       type: 'tabs',
@@ -442,23 +570,58 @@ describe('parseSnapshot', () => {
     expect(parseHandoff(scratch)?.kind).toBe('scratch')
   })
 
-  it('drops a workspace whose pane kind is unknown', () => {
-    const bad = snap({
-      workspaces: [
-        ...snap().workspaces,
-        {
-          id: 's2',
-          name: 'x',
-          kind: 'terminal',
-          workDir: '/tmp',
-          activePaneId: 'pane-2',
-          // biome-ignore lint/suspicious/noExplicitAny: deliberately invalid on-disk data
-          root: { type: 'pane', id: 'pane-2', title: 'x', kind: 'quantum' as any },
-        },
-      ],
+  describe('a pane whose kind is not a current kind', () => {
+    const term = (id: string) => ({ type: 'pane', id, title: id, kind: 'terminal' })
+    const retired = (id: string) => ({ type: 'pane', id, title: id, kind: 'retired-kind' })
+    const withRoot = (root: unknown, activePaneId = 'a') =>
+      parseSnapshot({
+        ...snap(),
+        workspaces: [
+          { id: 's1', name: 'x', kind: 'terminal', workDir: '/tmp', activePaneId, root },
+        ],
+      })?.workspaces[0]
+
+    it('leaves a workspace whose only pane it was without a layout', () => {
+      const workspace = withRoot(retired('a'))
+      expect(workspace?.id).toBe('s1')
+      expect(workspace?.root).toBeUndefined()
+      expect(workspace?.activePaneId).toBeUndefined()
     })
-    const parsed = parseSnapshot(bad)
-    expect(parsed?.workspaces.map((s) => s.id)).toEqual(['s1'])
+
+    it('is dropped from a split, which collapses around the pane left and keeps the other panes', () => {
+      const split = (children: unknown[], sizes: number[]) => ({
+        type: 'split',
+        id: 'sp',
+        direction: 'horizontal',
+        children,
+        sizes,
+      })
+      expect(withRoot(split([term('a'), retired('b')], [1, 1]))?.root).toMatchObject({
+        type: 'pane',
+        id: 'a',
+      })
+      const three = withRoot(split([term('a'), retired('b'), term('c')], [1, 5, 3]))?.root
+      expect(three).toMatchObject({ type: 'split', sizes: [1, 3] })
+      expect(three?.type === 'split' && three.children.map((c) => c.id)).toEqual(['a', 'c'])
+    })
+
+    it('is dropped from a tab stack, which keeps the tabs that remain', () => {
+      const tabs = (children: unknown[]) => ({ type: 'tabs', id: 't', children, activeId: 'b' })
+      expect(withRoot(tabs([term('a'), retired('b'), term('c')]))?.root).toMatchObject({
+        type: 'tabs',
+        activeId: 'a',
+      })
+      expect(withRoot(tabs([retired('a'), term('b')]), 'b')?.root).toMatchObject({
+        type: 'pane',
+        id: 'b',
+      })
+    })
+
+    it('does not rescue a layout that is malformed in another way', () => {
+      expect(
+        withRoot({ type: 'split', id: 'sp', direction: 'horizontal', children: [term('a'), 5] }),
+      ).toBeUndefined()
+    })
   })
 
   it('drops a workspace that reuses a pane id already claimed by another workspace', () => {
@@ -796,5 +959,38 @@ describe('browser profile on a pane', () => {
     const isolated = parseHandoff({ ...base, activePaneId: 'b1', root: browserPane({}) })
     expect(shared?.root).toMatchObject({ browserProfile: 'shared' })
     expect(isolated?.root).not.toHaveProperty('browserProfile')
+  })
+})
+
+describe('device mode on a browser pane', () => {
+  function restored(pane: Record<string, unknown>): unknown {
+    const base = snap()
+    return parseSnapshot({
+      ...base,
+      workspaces: [{ ...base.workspaces[0], activePaneId: 'b1', root: { id: 'b1', ...pane } }],
+    })?.workspaces[0].root
+  }
+
+  const browser = { type: 'pane', title: 'site', kind: 'browser', url: 'http://x/' }
+
+  it('keeps the device a browser pane was in through a save and restore', () => {
+    const browserDevice = { preset: 'responsive', width: 600, height: 900, dpr: 2, zoom: 'actual' }
+    expect(restored({ ...browser, browserDevice })).toMatchObject({ browserDevice })
+  })
+
+  it('restores a preset from the data, keeping only its orientation and zoom', () => {
+    const browserDevice = { preset: 'iphone-se', width: 900, height: 100, dpr: 7, zoom: 'fit' }
+    expect(restored({ ...browser, browserDevice })).toMatchObject({
+      browserDevice: { preset: 'iphone-se', width: 667, height: 375, dpr: 2, zoom: 'fit' },
+    })
+  })
+
+  it('drops a device that is not one, or on a pane that is not a browser', () => {
+    for (const browserDevice of [true, 'iphone-se', { preset: 'responsive' }, { width: 'x' }]) {
+      expect(restored({ ...browser, browserDevice })).not.toHaveProperty('browserDevice')
+    }
+    const terminal = { type: 'pane', title: 'zsh', kind: 'terminal' }
+    const browserDevice = { preset: 'responsive', width: 600, height: 900, dpr: 1, zoom: 'fit' }
+    expect(restored({ ...terminal, browserDevice })).not.toHaveProperty('browserDevice')
   })
 })
