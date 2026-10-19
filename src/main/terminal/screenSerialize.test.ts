@@ -1,5 +1,5 @@
-import { Terminal } from '@xterm/headless'
-import { describe, expect, it } from 'vitest'
+import { type IBuffer, Terminal } from '@xterm/headless'
+import { describe, expect, it, vi } from 'vitest'
 import { serializeLogicalLines } from './screenSerialize'
 
 function serialized(text: string): Promise<string[]> {
@@ -42,6 +42,7 @@ describe('serializeLogicalLines', () => {
       `\x1b[32m${'g'.repeat(25)}\x1b[0m\r\n`,
       [`\x1b[0;32m${'g'.repeat(25)}\x1b[0m`],
     ],
+    ['keeps latin-1 letters and a tab gap', 'caf\u00e9 \u00f1\tend\r\n', ['caf\u00e9 \u00f1  end']],
     ['fills skipped cells with spaces', 'ab\x1b[5Gcd\r\n', ['ab  cd']],
     [
       'keeps the style of each logical line when the next one starts with the same attributes',
@@ -65,5 +66,43 @@ describe('serializeLogicalLines', () => {
     ],
   ])('%s', async (_name, text, expected) => {
     expect(await serialized(text)).toEqual(expected)
+  })
+})
+
+describe('serializeLogicalLines plain rows', () => {
+  function written(text: string, run: (buffer: IBuffer) => string[]): Promise<string[]> {
+    const term = new Terminal({ cols: 20, rows: 6, allowProposedApi: true })
+    return new Promise((resolve) => {
+      term.write(text, () => {
+        resolve(run(term.buffer.normal))
+        term.dispose()
+      })
+    })
+  }
+
+  function translateCalls(text: string): Promise<number> {
+    return written(text, (buffer) => {
+      const proto = Object.getPrototypeOf(
+        (
+          buffer as unknown as { _buffer: { lines: { get(row: number): object } } }
+        )._buffer.lines.get(0),
+      )
+      const spy = vi.spyOn(proto, 'translateToString')
+      serializeLogicalLines(buffer, 0, buffer.cursorY - 1)
+      const calls = spy.mock.calls.length
+      spy.mockRestore()
+      return [String(calls)]
+    }).then(([calls]) => Number(calls))
+  }
+
+  it('reads unstyled latin-1 rows straight from the cell words', async () => {
+    expect(await translateCalls('plain\r\ncaf\u00e9 \u00f1\r\n')).toBe(0)
+  })
+
+  it.each([
+    ['wide', '\u5b97\u5b57\r\n'],
+    ['combined', 'e\u0301\r\n'],
+  ])('falls back to the buffer for a %s row', async (_name, text) => {
+    expect(await translateCalls(text)).toBeGreaterThan(0)
   })
 })
