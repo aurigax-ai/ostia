@@ -230,7 +230,7 @@ describe('TerminalView spawn size', () => {
 
     act(() => terminalFor(paneId)?.input('\x1b[5;1R', false))
     act(() => terminalFor(paneId)?.input('\x1b[<0;3;4M', false))
-    expect(window.ostia.pty.write).toHaveBeenCalledWith(paneId, '\x1b[5;1R')
+    expect(window.ostia.pty.write).toHaveBeenCalledWith(paneId, '\x1b[5;1R', undefined)
     expect(window.ostia.pty.resize).not.toHaveBeenCalled()
 
     const keyTarget = container.querySelector('textarea') ?? container.querySelector('.xterm-host')

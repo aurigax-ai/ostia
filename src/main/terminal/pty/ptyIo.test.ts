@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
+import { PaneInput } from '../../panes/paneInput'
 import { PtySession } from '../ptySession'
 import { createPtyIo } from './ptyIo'
 import type { PtyEntry } from './ptyRegistry'
@@ -16,8 +17,16 @@ function fakeEntry(cols = 120, rows = 40, session = new PtySession()) {
     }),
   }
   const mirror = { resize: vi.fn() }
-  const entry = { pty, mirror, session, subs: new Map([['1', window]]) } as unknown as PtyEntry
-  return { entry, window, pty, mirror, session }
+  const input = new PaneInput(Date.now)
+  const entry = {
+    pty,
+    mirror,
+    session,
+    input,
+    exitListeners: new Set(),
+    subs: new Map([['1', window]]),
+  } as unknown as PtyEntry
+  return { entry, window, pty, mirror, session, input }
 }
 
 describe('phone pty io', () => {
@@ -153,5 +162,29 @@ describe('phone pty io', () => {
       owner?.detach()
       expect([pty.cols, pty.rows]).toEqual([120, 40])
     })
+  })
+})
+
+describe('input provenance', () => {
+  it('never counts a line written by an agent, the phone or the portal mirror as the human’s', () => {
+    const { entry, input } = fakeEntry()
+    const io = createPtyIo({ ptys: new Map([['pane-1', entry]]) })
+    io.paneIo.write('pane-1', 'from pane send\r')
+    expect(input.claimHumanPrompt('x')).toBe(false)
+    io.ptyWrite('pane-1', 'from the phone\r')
+    expect(input.claimHumanPrompt('x')).toBe(false)
+    io.attachMirror('pane-1', { data: () => undefined, exit: () => undefined })?.write(
+      'from the portal\r',
+    )
+    expect(input.claimHumanPrompt('x')).toBe(false)
+  })
+
+  it('does not let a pane send finish a line the human typed', () => {
+    const { entry, input } = fakeEntry()
+    const io = createPtyIo({ ptys: new Map([['pane-1', entry]]) })
+    input.note('half of my own ', 'key')
+    io.paneIo.write('pane-1', 'and the agent’s rest')
+    input.note('\r', 'key')
+    expect(input.claimHumanPrompt('x')).toBe(false)
   })
 })

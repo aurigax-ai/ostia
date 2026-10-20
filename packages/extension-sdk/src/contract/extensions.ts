@@ -352,6 +352,7 @@ export interface ExtensionCaller {
   remote?: RemoteCwd
   manager?: boolean
   agentRunning?: boolean
+  humanPrompt?: boolean
   capabilities: Capability[]
 }
 

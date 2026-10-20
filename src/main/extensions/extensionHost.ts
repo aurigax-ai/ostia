@@ -470,7 +470,7 @@ export class ExtensionHost {
     return caller
   }
 
-  paneCaller(identity: PaneIdentity): ExtensionCaller {
+  paneCaller(identity: PaneIdentity, hook?: { extId: string; command: string }): ExtensionCaller {
     const caller: ExtensionCaller = {
       kind: 'pane',
       paneId: identity.externalId,
@@ -486,6 +486,13 @@ export class ExtensionHost {
     if (this.deps.isSandboxed(identity.workspaceId)) caller.sandboxed = true
     if (identity.manager) caller.manager = true
     if (this.deps.agentRunning?.(identity.paneId)) caller.agentRunning = true
+    if (
+      hook &&
+      this.runs.declaresHook(hook.extId, hook.command, 'UserPromptSubmit') &&
+      this.deps.claimHumanPrompt?.(identity.paneId, hook.extId)
+    ) {
+      caller.humanPrompt = true
+    }
     const remote = this.deps.remoteCwdForPane?.(identity.paneId)
     if (remote) caller.remote = remote
     return caller

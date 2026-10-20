@@ -24,7 +24,7 @@ export const terminalBridge: Pick<
     reportAgentRunning: (paneId, running) => ipcRenderer.send('pty:agent-running', paneId, running),
     reportWaking: (paneId, waking, reason) =>
       ipcRenderer.send('pty:waking', paneId, waking, reason),
-    write: (paneId, data) => ipcRenderer.send('pty:write', paneId, data),
+    write: (paneId, data, source) => ipcRenderer.send('pty:write', paneId, data, source),
     ack: (paneId, chars) => ipcRenderer.send('pty:ack', paneId, chars),
     resize: (paneId, cols, rows) => ipcRenderer.send('pty:resize', paneId, cols, rows),
     commands: (paneId) => ipcRenderer.invoke('pty:commands', paneId),
