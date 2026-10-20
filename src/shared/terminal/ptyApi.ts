@@ -61,6 +61,7 @@ export interface PtyAttachResult {
   host?: boolean
   cols?: number
   rows?: number
+  held?: true
   kept?: boolean
   reattached?: boolean
   agentRunning?: boolean
@@ -87,6 +88,7 @@ interface PtyApi {
   reportAgentRunning: (paneId: string, running: boolean) => void
   reportWaking: (paneId: string, waking: boolean, reason?: string) => void
   write: (paneId: string, data: string, source?: HumanInputSource) => void
+  releaseHold: (paneId: string) => void
   ack: (paneId: string, chars: number) => void
   resize: (paneId: string, cols: number, rows: number) => void
   commands: (paneId: string) => Promise<string[]>
@@ -98,7 +100,7 @@ interface PtyApi {
   listDir: (paneId: string, dir: string) => Promise<FsEntry[]>
   history: (paneId: string) => Promise<ShellHistoryEntry[]>
   localPrompt: (paneId: string) => Promise<boolean>
-  onSize: (paneId: string, cb: (cols: number, rows: number) => void) => () => void
+  onSize: (paneId: string, cb: (cols: number, rows: number, held: boolean) => void) => () => void
   onRun: (cb: (paneId: string, command: string) => void) => () => void
 }
 

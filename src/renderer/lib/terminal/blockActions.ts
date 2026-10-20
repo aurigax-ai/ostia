@@ -1,3 +1,4 @@
+import { releasePhoneHold } from '@/lib/terminal/phoneHold'
 import { type CommandBlock, useBlocksStore } from '@/stores/terminal/blocksStore'
 import { readBufferText } from './blockText'
 import {
@@ -94,6 +95,7 @@ export function canTypeInto(paneId: string): boolean {
 function runCommand(paneId: string, command: string): boolean {
   const term = terminalFor(paneId)
   if (!term || !command || !canTypeInto(paneId)) return false
+  releasePhoneHold(paneId)
   term.paste(command)
   window.ostia.pty.write(paneId, '\r')
   return true

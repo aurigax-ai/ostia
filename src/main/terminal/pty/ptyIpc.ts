@@ -25,7 +25,7 @@ import type { PtyAttach } from './ptyAttach'
 import type { PtyIo } from './ptyIo'
 import { type PtyQueries, holdsLocalPrompt } from './ptyQueries'
 import type { PtyEntry } from './ptyRegistry'
-import { resizePty } from './ptySize'
+import { releasePty, resizeFromDesktop } from './ptySize'
 import type { PtyStop } from './ptyStop'
 
 interface PtyIpcDeps {
@@ -149,13 +149,19 @@ function registerPtyControlIpc({
   ipcMain.on('pty:write', (e, paneId: string, data: string, source?: unknown) => {
     const entry = ptys.get(paneId)
     if (!entry?.session.canWrite(String(e.sender.id))) return
-    entry.input.note(data, humanInputSource(source))
+    const human = humanInputSource(source)
+    entry.input.note(data, human)
+    if (human !== null) releasePty(paneId, entry)
     entry.pty.write(data)
+  })
+  ipcMain.on('pty:release-hold', (e, paneId: unknown) => {
+    const entry = typeof paneId === 'string' ? ptys.get(paneId) : undefined
+    if (entry?.session.canWrite(String(e.sender.id))) releasePty(paneId as string, entry)
   })
   ipcMain.on('pty:resize', (e, paneId: string, cols: number, rows: number) => {
     const entry = ptys.get(paneId)
     if (!entry?.subs.has(String(e.sender.id)) || entry.keepAlive) return
-    resizePty(entry, cols, rows)
+    resizeFromDesktop(paneId, entry, cols, rows)
   })
 }
 

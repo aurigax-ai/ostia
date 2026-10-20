@@ -11,11 +11,13 @@ import {
 } from '@/lib/terminal/offscreenStart'
 import type { OstiaTerminal } from '@/lib/terminal/ostiaTerminal'
 import { commitShellTitle } from '@/lib/terminal/paneTitle'
+import { releasePhoneHold } from '@/lib/terminal/phoneHold'
 import { createPtyAcker } from '@/lib/terminal/ptyAck'
 import { useAttentionStore } from '@/stores/agents/attentionStore'
 import { useSandboxStore } from '@/stores/app/sandboxStore'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { type LineAnchor, useBlocksStore } from '@/stores/terminal/blocksStore'
+import { usePhoneSizeStore } from '@/stores/terminal/phoneSizeStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import type { HumanInputSource } from '@shared/terminal/ptyApi'
 import type { TerminalSession } from './terminalSession'
@@ -64,7 +66,7 @@ interface PtyIo {
 }
 
 export function attachPtySession(deps: PtySessionDeps): () => void {
-  const { host, term, paneId, workspaceIdRef, syncSizeRef, session, holdInput } = deps
+  const { host, term, paneId, workspaceIdRef, lastSizeRef, syncSizeRef, session, holdInput } = deps
   const flow: PtyFlow = { attached: false, replayed: false, unparsed: 0, querySilencer: null }
   const pending: string[] = []
   const emit: Write = (data, done) => {
@@ -116,8 +118,26 @@ export function attachPtySession(deps: PtySessionDeps): () => void {
   })
 
   const io: PtyIo = { flow, pending, writeOutput, writeLive, neighbour }
-  const attachAtCurrentSize = createPtyAttach(deps, io)
+  const phoneSize = usePhoneSizeStore.getState()
+  const applyHeld = (cols: number, rows: number, held: boolean): void => {
+    if (session.disposed) return
+    neighbour.drain()
+    term.resize(cols, rows)
+    lastSizeRef.current = { cols, rows }
+    sizing.holdBox(held ? { w: host.offsetWidth, h: host.offsetHeight } : null)
+    if (held) phoneSize.hold(paneId, { cols, useDesktop: sizing.takeBack })
+    else phoneSize.release(paneId)
+  }
+  const attachAtCurrentSize = createPtyAttach(deps, io, applyHeld)
   const sizing = createPtySizing(deps, io, attachAtCurrentSize)
+
+  const offSize = window.ostia.pty.onSize(paneId, (cols, rows, held) => {
+    if (held || usePhoneSizeStore.getState().byPane[paneId]) applyHeld(cols, rows, held)
+  })
+  const mouse = (): void => {
+    if (term.modes.mouseTrackingMode !== 'none') releasePhoneHold(paneId)
+  }
+  host.addEventListener('mousedown', mouse, true)
 
   const input = term.onData((d) => {
     const source = humanInputSource(host)
@@ -185,6 +205,9 @@ export function attachPtySession(deps: PtySessionDeps): () => void {
     sizing.dispose()
     ro.disconnect()
     input.dispose()
+    offSize()
+    host.removeEventListener('mousedown', mouse, true)
+    phoneSize.release(paneId)
     offData()
     offExit()
     neighbour.dispose()
@@ -204,6 +227,7 @@ function createPtyAttach(
     silenceReplies,
   }: PtySessionDeps,
   { flow, pending, writeOutput, writeLive }: PtyIo,
+  applyHeld: (cols: number, rows: number, held: boolean) => void,
 ): (cols: number, rows: number) => void {
   return (cols, rows) => {
     flow.attached = true
@@ -238,7 +262,9 @@ function createPtyAttach(
         } = result
         if (session.disposed) return
         session.markNonce = markNonce ?? null
-        if (lastSizeRef.current.cols === 0 && result.cols && result.rows) {
+        if (result.held && result.cols && result.rows) {
+          applyHeld(result.cols, result.rows, true)
+        } else if (lastSizeRef.current.cols === 0 && result.cols && result.rows) {
           term.resize(result.cols, result.rows)
           lastSizeRef.current = { cols: result.cols, rows: result.rows }
         }
@@ -282,6 +308,8 @@ interface PtySizing {
   hold: (data: string) => boolean
   applyFit: () => void
   syncSize: () => void
+  holdBox: (box: { w: number; h: number } | null) => void
+  takeBack: () => void
   dispose: () => void
 }
 
@@ -352,8 +380,13 @@ function createPtySizing(
       syncSize()
     }
   }
+  let heldBox: { w: number; h: number } | null = null
   const syncSize = (): void => {
     if (holdForRedraw || awaitingParse) return
+    if (heldBox) {
+      if (host.offsetWidth === heldBox.w && host.offsetHeight === heldBox.h) return
+      heldBox = null
+    }
     if (flow.attached && screenElement && !screenElement.isConnected) return
     if (flow.attached && host && fit && host.offsetWidth > 0 && host.offsetHeight > 0) {
       const dims = fit.proposeDimensions()
@@ -402,6 +435,13 @@ function createPtySizing(
     hold,
     applyFit,
     syncSize,
+    holdBox: (box) => {
+      heldBox = box
+    },
+    takeBack: () => {
+      heldBox = null
+      syncSize()
+    },
     dispose: () => {
       if (holdIdleTimer) clearTimeout(holdIdleTimer)
       if (holdCapTimer) clearTimeout(holdCapTimer)

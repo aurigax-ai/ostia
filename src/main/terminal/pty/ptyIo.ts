@@ -3,13 +3,23 @@ import type { MirrorHandle, MirrorSink } from '../../manager/portal'
 import { type PaneIo, pastedText } from '../../panes/paneIo'
 import type { SubscriberRole } from '../ptySession'
 import type { PtyEntry } from './ptyRegistry'
-import { resizeForAll } from './ptySize'
+import { type HoldOutcome, holdPty, releasePty, resizeForAll } from './ptySize'
 
 interface PtyIoDeps {
   ptys: Map<string, PtyEntry>
 }
 
 export type PtyIo = ReturnType<typeof createPtyIo>
+
+export interface PhoneObserver {
+  cursor: number
+  dropped: boolean
+  cols: number
+  rows: number
+  hold: (cols: number, rows: number) => HoldOutcome
+  release: () => void
+  detach: () => void
+}
 
 export function createPtyIo({ ptys }: PtyIoDeps) {
   const paneIo: PaneIo = {
@@ -90,7 +100,7 @@ export function createPtyIo({ ptys }: PtyIoDeps) {
       sendData: (data: string) => void
       sendSize: (cols: number, rows: number) => void
     },
-  ): { cursor: number; dropped: boolean; cols: number; rows: number; detach: () => void } | null {
+  ): PhoneObserver | null {
     const entry = ptys.get(rendererPaneId)
     if (!entry) return null
     const id = `gw-${++gwSubSeq}`
@@ -105,7 +115,10 @@ export function createPtyIo({ ptys }: PtyIoDeps) {
       dropped,
       cols: entry.pty.cols,
       rows: entry.pty.rows,
+      hold: (cols, rows) => holdPty(rendererPaneId, entry, id, cols, rows),
+      release: () => releasePty(rendererPaneId, entry, id),
       detach: () => {
+        releasePty(rendererPaneId, entry, id)
         entry.session.removeSubscriber(id)
         entry.sizeListeners.delete(opts.sendSize)
       },

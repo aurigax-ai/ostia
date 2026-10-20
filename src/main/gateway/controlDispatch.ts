@@ -2,12 +2,14 @@ import type { Capability } from '@aurigax-ai/ostia-extension-sdk/contract/capabi
 import { plainBlock } from '../../shared/agents/questions'
 import type { CommandDescriptor, CommandResult, CommandTarget } from '../../shared/control/commands'
 import type { HumanInputSource, TerminalStateSnapshot } from '../../shared/terminal/ptyApi'
+import type { AgentStreams } from '../agents/agentStreams'
 import type { Ask, AskAnswerResult } from '../approvals/asks'
 import { internalPaneArgs } from '../control/commandArgs'
 import { type PaneIdentity, resolveExternal } from '../control/idRegistry'
 import type { PaneEntry, WorkspaceEntry, WorkspaceGroupEntry } from '../panes/paneList'
 import { type PhoneAgent, phoneAgentCommand } from '../panes/phoneAgent'
 import type { PhoneAgentStart } from '../panes/processManager'
+import type { PhoneObserver } from '../terminal/pty/ptyIo'
 import { listArtifactFiles, locateArtifactFile, readArtifactFile } from './artifactFiles'
 import { imageAllowed, phoneImageOf } from './phoneImage'
 import { type PhoneSnippetDeps, snippetList } from './phoneSnippets'
@@ -20,6 +22,7 @@ import {
 } from './workspaceFiles'
 
 export interface GatewayControlDeps extends PhoneTurnDeps, PhoneSnippetDeps {
+  agentStreams: Pick<AgentStreams, 'open'>
   execCommand: (target: CommandTarget, id: string, args?: unknown) => Promise<CommandResult>
   listCommandsFor: (windowId: string) => CommandDescriptor[]
   getTerminalState: (paneId: string) => TerminalStateSnapshot | undefined
@@ -39,7 +42,7 @@ export interface GatewayControlDeps extends PhoneTurnDeps, PhoneSnippetDeps {
       sendData: (data: string) => void
       sendSize: (cols: number, rows: number) => void
     },
-  ) => { cursor: number; dropped: boolean; cols: number; rows: number; detach: () => void } | null
+  ) => PhoneObserver | null
   ptyWrite: (rendererPaneId: string, data: string, source?: HumanInputSource) => void
   readScreen: (rendererPaneId: string) => Promise<string>
   withClipboardImage: (bytes: Buffer, paste: () => Promise<boolean>) => Promise<boolean | null>

@@ -18,6 +18,7 @@ const { pairAuditLogPath } = await import('./pairing')
 const PHONE_ADDRESS = { host: 'desk.example.ts.net', port: 443 }
 
 const deps = {
+  agentStreams: { open: vi.fn() },
   execCommand: vi.fn(),
   listCommandsFor: vi.fn().mockReturnValue([]),
   getTerminalState: vi.fn(),

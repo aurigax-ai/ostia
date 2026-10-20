@@ -393,4 +393,49 @@ describe('AgentSessions', () => {
     expect(reply).toEqual({ ok: false, error: 'invalid' })
     expect(win.sent).toEqual([])
   })
+
+  describe('the stream a phone reads', () => {
+    it('keeps the prompt as typed, the reply and the end of the turn', async () => {
+      const { rig, sessions, win, input } = await bridge(
+        () => 'ok',
+        async (text) => text.replace('sk-SECRET', '[redacted]'),
+      )
+      await sessions.open(win, input)
+      const done = rig.settled()
+      await sessions.prompt(win, 's1', 'use sk-SECRET now')
+      await done
+      const events = sessions.stream('s1')?.snapshot(5) ?? []
+      expect(events.map((e) => e.type)).toEqual(['turn.started', 'prompt', 'text', 'turn.ended'])
+      expect(events[1]).toMatchObject({ text: 'use sk-SECRET now' })
+      expect(events[2]).toMatchObject({ text: 'ok' })
+    })
+
+    it('keeps a tool call with the answer the window gave, unredacted', async () => {
+      const { sessions } = await toolRound(
+        (ctx, call) =>
+          ctx.sessions.answerTool(ctx.win, call.callId, { ok: true, output: 'token sk-SECRET' }),
+        async (text) => text.replace('sk-SECRET', '[redacted]'),
+      )
+      const events = sessions.stream('s1')?.snapshot(5) ?? []
+      expect(events.find((e) => e.type === 'tool')).toMatchObject({
+        name: 'read_file',
+        kind: 'read',
+        target: 'a.txt',
+      })
+      expect(events.find((e) => e.type === 'tool.result')).toMatchObject({
+        output: 'token sk-SECRET',
+      })
+    })
+
+    it('drops the stream when the session closes or its window goes away', async () => {
+      const { sessions, win, input } = await bridge(() => 'ok')
+      await sessions.open(win, input)
+      expect(sessions.stream('s1')).toBeDefined()
+      await sessions.close(win, 's1')
+      expect(sessions.stream('s1')).toBeUndefined()
+      await sessions.open(win, input)
+      win.destroy()
+      expect(sessions.stream('s1')).toBeUndefined()
+    })
+  })
 })

@@ -49,6 +49,7 @@ function descriptor(overrides: Partial<CommandDescriptor> & { id: string }): Com
 
 function fakeDeps(overrides: Partial<GatewayControlDeps> = {}): GatewayControlDeps {
   return {
+    agentStreams: { open: vi.fn() },
     execCommand: vi.fn().mockResolvedValue({ ok: true, result: 'did-it' } as CommandResult),
     listCommandsFor: vi.fn().mockReturnValue([]),
     getTerminalState: vi.fn().mockReturnValue(undefined),
@@ -968,6 +969,30 @@ describe('dispatchGatewayMethod — asks and agent replies', () => {
       t.deps,
     )
     expect(await decision).toEqual({ decision: 'always' })
+  })
+
+  it('closes the desktop prompt when the phone answers a permission request, and the phone ask when the desktop does', async () => {
+    const t = setup()
+    const first = t.permission()
+    const [ask] = await t.list()
+    expect(t.questions.stateFor('7').pending.map((q) => q.id)).toEqual([ask?.askId])
+    await dispatchGatewayMethod(
+      'ask.answer',
+      { askId: ask?.askId, choiceId: 'once' },
+      RESPOND,
+      t.deps,
+    )
+    expect(await first).toEqual({ decision: 'once' })
+    expect(t.questions.stateFor('7').pending).toEqual([])
+    expect(t.resolved).toEqual([{ askId: ask?.askId, outcome: 'answered' }])
+
+    t.resolved.length = 0
+    const second = t.permission()
+    const [open] = await t.list()
+    expect(t.questions.answer('7', open?.askId as string, { choices: [2], text: '' })).toBe(true)
+    expect(await second).toEqual({ decision: 'deny' })
+    expect(await t.list()).toEqual([])
+    expect(t.resolved).toEqual([{ askId: open?.askId, outcome: 'answered' }])
   })
 
   it('answers unknown-ask once the phone answered the ask', async () => {
