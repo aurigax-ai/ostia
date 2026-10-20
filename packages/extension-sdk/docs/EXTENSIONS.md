@@ -168,7 +168,7 @@ The manifest is `ostia.json`; a marketplace's is `ostia-marketplace.json`.
 | `contributes.agentHooks[]` | Up to 16 `{event, command}`: when the agent reaches `event`, Ostia runs your own command `command` with the hook's JSON on stdin. Needs the `agent-plugin` capability and `main`. See [Agent skills and hooks](#agent-skills-and-hooks). |
 
 Icons are a fixed set: `puzzle`, `kanban`, `book-open`, `git-branch`, `globe`, `bell`, `server`,
-`terminal`, `circle`, `check`, `alert`, `shield`, `chat`, `plugs`, `magnifying-glass` (API 2.1).
+`terminal`, `circle`, `check`, `alert`, `shield`, `chat`, `plugs`, `magnifying-glass` (API 2.1), `graph`, `toolbox` (API 6.7).
 
 ## Translations
 
@@ -1212,7 +1212,7 @@ refused. For a `url` panel Ostia hands the path to your process in `ext.panel` a
 full URL (keep your secret in it). Either way the result must pass the same check as any panel
 URL. Navigating keeps the existing panel and webview.
 
-The panel kit (API 4.12, `…/panel` and `panel.css`) draws the parts every panel repeats, in Ostia's own look: `panelToolbar({back?: {label, onClick}, actions?})` is a bar with an optional Back button and actions, and returns `null` when it has neither, so a panel has no title row (the button in the top bar already names it); `emptyState(text, action?, attrs?)` is one muted line with an optional inline action (the text carries its own punctuation); `listRow({title, meta?, detail?, actions?, attrs?})` is a plain row with its badge or state in `meta`, a second line in `detail` and its buttons under it. Their styles are the `.ostia-toolbar`, `.ostia-empty` and `.ostia-row*` rules in `panel.css`.
+The panel kit (API 4.12, `…/panel` and `panel.css`) draws the parts every panel repeats, in Ostia's own look: `panelToolbar({back?: {label, onClick}, tabs?, actions?})` is a bar with an optional Back button, tabs and actions, and returns `null` when it has none of them, so a panel has no title row (the button in the top bar already names it); `panelTab(label, current, onClick)` is a borderless tab for `tabs` (the current one a tone step, `aria-current="page"`) and `quietButton(label, onClick, strong?)` a borderless text button for the actions inside a section (API 6.7); `emptyState(text, action?, attrs?)` is one muted line with an optional inline action (the text carries its own punctuation); `listRow({title, meta?, detail?, actions?, attrs?})` is a plain row with its badge or state in `meta`, a second line in `detail` and its buttons under it. Their styles are the `.ostia-toolbar`, `.ostia-tabs`, `button.quiet`, `.ostia-empty` and `.ostia-row*` rules in `panel.css`.
 
 Ostia injects its theme into the page as CSS custom properties once it loads and whenever the
 theme changes: `--ostia-<token>` for every theme token (`--ostia-bg`, `--ostia-surface-1`,

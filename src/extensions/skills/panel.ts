@@ -4,6 +4,7 @@ import {
   h,
   loadPanelSizes,
   onChange,
+  panelTab,
   panelToolbar,
 } from '@aurigax-ai/ostia-extension-sdk/panel'
 import { caseFormBody } from './caseForm'
@@ -37,6 +38,7 @@ let caseRule = ''
 let mode: Mode = { kind: 'view' }
 let problem = ''
 let previewState = { text: '', cut: 0 }
+let status = ''
 
 async function load(): Promise<void> {
   const res = await call('snapshot')
@@ -60,6 +62,7 @@ async function load(): Promise<void> {
 }
 
 async function act(command: string, args: Record<string, unknown>): Promise<boolean> {
+  status = ''
   const res = await call(command, args)
   problem = res.ok ? '' : t('error', { error: errorText(res) })
   await load()
@@ -70,6 +73,7 @@ function go(next: View): void {
   view = next
   mode = { kind: 'view' }
   problem = ''
+  status = ''
   void load()
 }
 
@@ -80,8 +84,14 @@ function rulesContext(): RulesContext {
     selected,
     mode,
     problem,
+    status,
+    add: addRule,
+    find: () => void findRules(),
+    previewOpen: () => void showPreview(),
+    importFile: pickImport,
+    exportRules: () => void exportRules(),
     select: (id) => {
-      selected = id
+      selected = selected === id ? null : id
       mode = { kind: 'view' }
       problem = ''
       render()
@@ -109,6 +119,7 @@ async function showPreview(): Promise<void> {
   previewState = { text: data.text, cut: data.cut.length }
   view = 'preview'
   mode = { kind: 'view' }
+  status = ''
   render()
 }
 
@@ -155,50 +166,45 @@ async function exportRules(): Promise<void> {
     JSON.stringify((res.data as { rules: unknown }).rules, null, 2),
   )
   problem = ''
+  status = t('exported')
+  render()
+}
+
+function addRule(): void {
+  mode = { kind: 'form', id: null, group: null }
+  problem = ''
+  render()
 }
 
 async function findRules(): Promise<void> {
-  await act('find-rules', {})
+  const res = await call('find-rules', {})
+  problem = res.ok ? '' : t('error', { error: errorText(res) })
+  const found = res.ok ? (res.data as { proposed: number; groups: number; model: string }) : null
+  if (!found) status = ''
+  else if (found.model !== 'ok' && found.groups > 0) status = t('findNoModel')
+  else status = found.proposed + found.groups > 0 ? t('findDone') : t('findNothing')
+  await load()
 }
 
 const NAV: { view: View; label: string }[] = [
   { view: 'rules', label: 'rules' },
-  { view: 'preview', label: 'preview' },
   { view: 'signals', label: 'signals' },
   { view: 'scoreboard', label: 'scoreboard' },
 ]
 
-function navigation(): HTMLElement | null {
-  const current = view === 'case' ? 'scoreboard' : view
-  return panelToolbar({
-    actions: NAV.map(({ view: target, label }) =>
-      button(
-        t(`nav.${label}`),
-        () => (target === 'preview' ? void showPreview() : go(target)),
-        target === current,
-      ),
-    ),
-  })
+function leaveForm(): void {
+  go(view === 'case' ? 'scoreboard' : 'rules')
 }
 
-function actionBar(): HTMLElement | null {
-  if (view === 'signals') {
-    return signals.length > 0
-      ? panelToolbar({ actions: [button(t('forget'), () => void act('forget-signals', {}))] })
-      : null
+function navigation(): HTMLElement | null {
+  if (view === 'case' || view === 'preview' || mode.kind !== 'view') {
+    return panelToolbar({ back: { label: t('back'), onClick: leaveForm } })
   }
-  if (view !== 'rules') return null
   return panelToolbar({
-    actions: [
-      button(t('findRules'), () => void findRules(), true),
-      button(t('add'), () => {
-        mode = { kind: 'form', id: null, group: null }
-        problem = ''
-        render()
-      }),
-      button(t('import'), pickImport),
-      ...(snap.rules.length > 0 ? [button(t('export'), () => void exportRules())] : []),
-    ],
+    tabs: NAV.map(({ view: target, label }) =>
+      panelTab(t(`nav.${label}`), target === view, () => go(target)),
+    ),
+    actions: view === 'rules' ? [button(t('add'), addRule, true)] : [],
   })
 }
 
@@ -218,9 +224,10 @@ function body(): HTMLElement {
       signals,
       selected: selectedSignal,
       select: (id) => {
-        selectedSignal = id
+        selectedSignal = selectedSignal === id ? null : id
         render()
       },
+      forget: () => void act('forget-signals', {}),
       remove: (id) => void act('delete-signal', { id }),
     })
   }
@@ -234,7 +241,7 @@ function body(): HTMLElement {
       failed: evals.failed,
       selected,
       select: (id) => {
-        selected = id
+        selected = selected === id ? null : id
         render()
       },
       addCase: (rule) => {
@@ -257,7 +264,6 @@ function body(): HTMLElement {
         render()
       },
       saved: async () => go('scoreboard'),
-      cancel: () => go('scoreboard'),
     })
   }
   if (view === 'preview') return previewBody()
@@ -265,7 +271,7 @@ function body(): HTMLElement {
 }
 
 function render(): void {
-  root.replaceChildren(h('div', { class: 'page' }, navigation(), actionBar(), notice(), body()))
+  root.replaceChildren(h('div', { class: 'page' }, navigation(), notice(), body()))
 }
 
 void loadPanelSizes().then(load)

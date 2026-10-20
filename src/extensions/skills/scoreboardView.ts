@@ -1,7 +1,7 @@
 import { emptyState, h, listRow } from '@aurigax-ai/ostia-extension-sdk/panel'
 import { splitter } from '@aurigax-ai/ostia-extension-sdk/splitter'
 import { type EvalCase, type EvalRun, MIN_EVAL_CASES } from './evalCase'
-import { button, field, percent, shortDate, t } from './panelKit'
+import { button, field, percent, section, shortDate, t } from './panelKit'
 import type { Rule } from './rule'
 import type { Rate, ScoreRow } from './score'
 
@@ -22,9 +22,9 @@ export interface ScoreboardContext {
   cancelEval: () => void
 }
 
-function rateText(rate: Rate): string {
+function rateText(rate: Rate, key = 'score.rate'): string {
   if (rate.sessions === 0) return t('score.none')
-  return t('score.rate', {
+  return t(key, {
     restated: String(rate.restated),
     sessions: String(rate.sessions),
     rate: percent(rate.rate),
@@ -93,10 +93,10 @@ function evalBlock(rule: Rule, ctx: ScoreboardContext): HTMLElement {
   const last = ctx.runs.filter((r) => r.rule === rule.id).sort((a, b) => b.at - a.at)[0]
   const running = ctx.running?.rule === rule.id ? ctx.running : null
   const accepted = cases.filter((c) => c.accepted).length
-  return h(
-    'div',
-    { class: 'field', 'data-block': 'evals' },
-    h('span', { class: 'label' }, t('eval.title')),
+  return section(
+    t('eval.group'),
+    cases.length,
+    cases.length > 0,
     cases.length === 0
       ? h('div', { class: 'muted' }, t('eval.noCases'))
       : h('ul', { class: 'rows' }, ...cases.map((c) => caseRow(c, ctx))),
@@ -134,23 +134,18 @@ function details(ctx: ScoreboardContext): HTMLElement {
     'div',
     { class: 'details', 'data-pane': 'score' },
     h('div', {}, rule.rule),
-    field(
-      t('score.applied'),
-      h(
-        'div',
-        {},
-        t('score.appliedValue', {
-          sessions: String(score.applied),
-          last: score.lastApplied === null ? t('score.never') : shortDate(score.lastApplied),
-        }),
-      ),
+    h(
+      'div',
+      { class: 'muted' },
+      t('score.summary', {
+        sessions: String(score.applied),
+        last: score.lastApplied === null ? t('score.never') : shortDate(score.lastApplied),
+        count: String(score.restated),
+      }),
     ),
-    field(
-      t('score.restated'),
-      h('div', {}, t('score.restatedValue', { count: String(score.restated) })),
-    ),
-    field(t('score.before'), h('div', {}, rateText(score.before))),
-    field(t('score.after'), h('div', {}, rateText(score.after))),
+    h('div', { class: 'muted' }, t('score.caption')),
+    field(t('score.before'), h('div', {}, rateText(score.before, 'score.rateShort'))),
+    field(t('score.after'), h('div', {}, rateText(score.after, 'score.rateShort'))),
     score.holdout
       ? field(
           t('score.holdout'),
@@ -169,15 +164,27 @@ function details(ctx: ScoreboardContext): HTMLElement {
   )
 }
 
+function trend(score: ScoreRow): string {
+  if (!score.enough) return t('score.early')
+  return t('score.trend', { before: percent(score.before.rate), after: percent(score.after.rate) })
+}
+
 export function scoreboardBody(ctx: ScoreboardContext): HTMLElement {
   const rows = ctx.scores.flatMap((score) => {
     const rule = ctx.rules.find((r) => r.id === score.id)
     if (!rule) return []
     const row = listRow({
       title: rule.rule,
-      meta: [
-        h('span', {}, t('score.appliedChip', { count: String(score.applied) })),
-        h('span', {}, t('score.restatedChip', { count: String(score.restated) })),
+      detail: [
+        h(
+          'div',
+          { class: 'subline' },
+          h(
+            'span',
+            { class: 'sub' },
+            `${trend(score)} · ${t('score.appliedChip', { count: String(score.applied) })}`,
+          ),
+        ),
       ],
       attrs: {
         'data-score': rule.id,
@@ -192,15 +199,17 @@ export function scoreboardBody(ctx: ScoreboardContext): HTMLElement {
     return [row]
   })
   if (rows.length === 0) return h('div', { class: 'body' }, emptyState(t('score.empty')))
+  const list = h('div', { class: 'list' }, h('ul', { class: 'rows' }, ...rows))
+  if (!ctx.scores.some((s) => s.id === ctx.selected)) return h('div', { class: 'body' }, list)
   return h(
     'div',
     { class: 'body' },
     splitter({
       key: 'score-details',
       label: t('resizeDetails'),
-      first: h('div', { class: 'list' }, h('ul', { class: 'rows' }, ...rows)),
+      first: list,
       second: details(ctx),
-      defaultFraction: 0.45,
+      defaultFraction: 0.4,
       minFirst: 96,
       minSecond: 96,
       collapseSecond: true,

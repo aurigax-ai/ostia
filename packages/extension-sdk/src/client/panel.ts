@@ -116,19 +116,38 @@ export function errorText(res: ExtensionResult): string {
 
 export function panelToolbar({
   back,
+  tabs = [],
   actions = [],
 }: {
   back?: { label: string; onClick: () => void }
+  tabs?: Node[]
   actions?: Node[]
 }): HTMLElement | null {
-  if (!back && actions.length === 0) return null
+  if (!back && tabs.length === 0 && actions.length === 0) return null
   return h(
     'header',
-    { class: 'ostia-toolbar' },
+    { class: tabs.length > 0 ? 'ostia-toolbar ostia-tabs' : 'ostia-toolbar' },
     back ? h('button', { type: 'button', onClick: back.onClick }, back.label) : null,
+    ...tabs,
     h('div', { class: 'ostia-spacer' }),
     ...actions,
   )
+}
+
+export function panelTab(label: string, current: boolean, onClick: () => void): HTMLElement {
+  return h(
+    'button',
+    { type: 'button', class: 'tab', ...(current ? { 'aria-current': 'page' } : {}), onClick },
+    label,
+  )
+}
+
+export function quietButton(
+  label: string,
+  onClick: (e: Event) => void,
+  strong = false,
+): HTMLElement {
+  return h('button', { type: 'button', class: strong ? 'quiet strong' : 'quiet', onClick }, label)
 }
 
 export function emptyState(

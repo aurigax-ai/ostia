@@ -448,6 +448,33 @@ input[type="radio"]:focus-visible {
   flex: 1;
 }
 
+.ostia-tabs {
+  gap: 2px;
+  padding: 3px 6px;
+  border-bottom: 0;
+}
+
+.ostia-tabs button.tab {
+  border-color: transparent;
+  color: var(--fg-muted);
+}
+
+.ostia-tabs button.tab[aria-current="page"] {
+  background: var(--surface-3);
+  color: var(--fg);
+}
+
+button.quiet {
+  padding: 0 4px;
+  border-color: transparent;
+  color: var(--fg-muted);
+  font-size: var(--text-ui-sm);
+}
+
+button.quiet.strong {
+  color: var(--fg);
+}
+
 .ostia-empty {
   display: flex;
   flex-wrap: wrap;

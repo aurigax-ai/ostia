@@ -1,6 +1,6 @@
-import { call, emptyState, h, listRow } from '@aurigax-ai/ostia-extension-sdk/panel'
+import { call, emptyState, h, listRow, quietButton } from '@aurigax-ai/ostia-extension-sdk/panel'
 import { splitter } from '@aurigax-ai/ostia-extension-sdk/splitter'
-import { button, field, shortDate, t, tail } from './panelKit'
+import { button, field, heading, section, shortDate, t, tail } from './panelKit'
 import type { Rule } from './rule'
 import type { Signal } from './signal'
 
@@ -34,12 +34,18 @@ export interface RulesContext {
   selected: string | null
   mode: Mode
   problem: string
+  status: string
   select: (id: string) => void
   setMode: (mode: Mode) => void
   setProblem: (problem: string) => void
   act: (command: string, args: Record<string, unknown>) => Promise<boolean>
   saved: (id: string) => Promise<void>
   render: () => void
+  add: () => void
+  find: () => void
+  previewOpen: () => void
+  importFile: () => void
+  exportRules: () => void
 }
 
 function chip(scope: string): string {
@@ -67,16 +73,77 @@ function problemText(res: { error: string; message?: string }): string {
   return codes.map((code) => t(`problem.${code}`)).join(' ')
 }
 
-function ruleRow(ctx: RulesContext, rule: Rule): HTMLElement {
-  const conflicted = (rule.conflicts?.length ?? 0) > 0
+function hasConflict(rule: Rule): boolean {
+  return (rule.conflicts?.length ?? 0) > 0
+}
+
+function cardLine(ctx: RulesContext, rule: Rule): string {
+  const other = ctx.snap.rules.find((r) => r.id === rule.conflicts?.[0])
+  if (rule.state === 'proposed' && hasConflict(rule) && other) {
+    return t('cardConflict', { rule: other.rule })
+  }
+  return [
+    rule.scope === 'global' ? '' : chip(rule.scope),
+    rule.state === 'proposed' && rule.evidence?.length
+      ? t('group.count', { count: String(rule.evidence.length) })
+      : '',
+    hasConflict(rule) ? t('conflictChip') : '',
+  ]
+    .filter(Boolean)
+    .join(' · ')
+}
+
+function cardActions(ctx: RulesContext, rule: Rule): Node[] {
+  if (rule.state !== 'proposed') return []
+  if (hasConflict(rule)) {
+    return [
+      quietButton(
+        t('cardSettle'),
+        (e) => {
+          e.stopPropagation()
+          if (ctx.selected !== rule.id) ctx.select(rule.id)
+        },
+        true,
+      ),
+    ]
+  }
+  return [
+    quietButton(
+      t('approve'),
+      (e) => {
+        e.stopPropagation()
+        void ctx.act('approve', { id: rule.id })
+      },
+      true,
+    ),
+    quietButton(t('dismiss'), (e) => {
+      e.stopPropagation()
+      void ctx.act('retire', { id: rule.id })
+    }),
+  ]
+}
+
+function card(
+  title: string,
+  line: string,
+  actions: Node[],
+  attrs: Record<string, string>,
+): HTMLElement {
   return listRow({
-    title: rule.rule,
-    meta: [h('span', {}, chip(rule.scope)), conflicted ? h('span', {}, t('conflictChip')) : null],
-    attrs: {
-      'data-rule': rule.id,
-      'aria-selected': String(rule.id === ctx.selected),
-      tabindex: '0',
-    },
+    title,
+    detail:
+      line || actions.length > 0
+        ? [h('div', { class: 'subline' }, h('span', { class: 'sub' }, line), ...actions)]
+        : [],
+    attrs,
+  })
+}
+
+function ruleRow(ctx: RulesContext, rule: Rule): HTMLElement {
+  return card(rule.rule, cardLine(ctx, rule), cardActions(ctx, rule), {
+    'data-rule': rule.id,
+    'aria-selected': String(rule.id === ctx.selected),
+    tabindex: '0',
   })
 }
 
@@ -84,31 +151,32 @@ function bindRow(ctx: RulesContext, row: HTMLElement, id: string): HTMLElement {
   const open = (): void => ctx.select(id)
   row.addEventListener('click', open)
   row.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') open()
+    if (e.key === 'Enter' && e.target === row) open()
   })
   return row
 }
 
 function groupRow(ctx: RulesContext, group: Group): HTMLElement {
-  const row = listRow({
-    title: group.words.join(', '),
-    meta: [h('span', {}, t('group.count', { count: String(group.signals.length) }))],
-    attrs: {
+  const row = card(
+    t('group.title', { words: group.words.join(', ') }),
+    t('group.count', { count: String(group.signals.length) }),
+    [
+      quietButton(
+        t('writeRule'),
+        (e) => {
+          e.stopPropagation()
+          ctx.setMode({ kind: 'form', id: null, group: group.id })
+        },
+        true,
+      ),
+    ],
+    {
       'data-group': group.id,
       'aria-selected': String(`group:${group.id}` === ctx.selected),
       tabindex: '0',
     },
-  })
-  return bindRow(ctx, row, `group:${group.id}`)
-}
-
-function section(label: string, count: number, open: boolean, ...rows: Node[]): HTMLElement {
-  return h(
-    'details',
-    { class: 'group', ...(open ? { open: true } : {}) },
-    h('summary', {}, t(label, { count: String(count) })),
-    ...rows,
   )
+  return bindRow(ctx, row, `group:${group.id}`)
 }
 
 function listPane(ctx: RulesContext): HTMLElement {
@@ -128,20 +196,32 @@ function listPane(ctx: RulesContext): HTMLElement {
   return h(
     'div',
     { class: 'list' },
+    ctx.status ? h('div', { class: 'muted pad', role: 'status' }, ctx.status) : null,
     conflicted.length > 0
-      ? section('conflictsGroup', conflicted.length, true, rows(conflicted))
+      ? h('section', {}, heading(t('conflictsGroup'), conflicted.length), rows(conflicted))
       : null,
-    proposed.length + groups.length > 0
-      ? section(
-          'proposedGroup',
-          proposed.length + groups.length,
-          true,
-          rows(proposed),
-          h('ul', { class: 'rows' }, ...groups.map((g) => groupRow(ctx, g))),
-        )
-      : null,
-    rows(active),
-    retired.length > 0 ? section('retiredGroup', retired.length, false, rows(retired)) : null,
+    h(
+      'section',
+      {},
+      heading(t('proposedGroup'), proposed.length + groups.length),
+      rows(proposed),
+      h('ul', { class: 'rows' }, ...groups.map((g) => groupRow(ctx, g))),
+      h('div', { class: 'more' }, quietButton(t('findRules'), ctx.find)),
+    ),
+    h(
+      'section',
+      {},
+      heading(t('activeGroup'), active.length),
+      rows(active),
+      h('div', { class: 'more' }, quietButton(t('preview'), ctx.previewOpen)),
+    ),
+    retired.length > 0 ? section(t('retiredGroup'), retired.length, false, rows(retired)) : null,
+    h(
+      'div',
+      { class: 'more' },
+      quietButton(t('import'), ctx.importFile),
+      ...(rules.length > 0 ? [quietButton(t('export'), ctx.exportRules)] : []),
+    ),
   )
 }
 
@@ -152,7 +232,6 @@ function evidenceList(ctx: RulesContext, ids: string[]): HTMLElement {
   return h(
     'div',
     { class: 'field', 'data-block': 'evidence' },
-    h('span', { class: 'label' }, t('field.evidence')),
     h(
       'div',
       { class: 'muted' },
@@ -184,6 +263,7 @@ function conflictBlock(ctx: RulesContext, rule: Rule): HTMLElement | null {
     h('span', { class: 'label' }, t('field.conflict')),
     h('div', {}, other.rule),
     h('div', { class: 'muted' }, `${t(`state.${other.state}`)} · ${scopeLabel(ctx, other.scope)}`),
+    h('div', { class: 'muted' }, t('keepHint')),
     h(
       'div',
       { class: 'buttons' },
@@ -197,11 +277,12 @@ function conflictBlock(ctx: RulesContext, rule: Rule): HTMLElement | null {
 function actionButtons(ctx: RulesContext, rule: Rule): HTMLElement {
   const edit = button(t('edit'), () => ctx.setMode({ kind: 'form', id: rule.id, group: null }))
   if (rule.state === 'proposed') {
-    const settled = (rule.conflicts?.length ?? 0) === 0
     return h(
       'div',
       { class: 'buttons' },
-      settled ? button(t('approve'), () => void ctx.act('approve', { id: rule.id }), true) : null,
+      hasConflict(rule)
+        ? null
+        : button(t('approve'), () => void ctx.act('approve', { id: rule.id }), true),
       edit,
       button(t('dismiss'), () => void ctx.act('retire', { id: rule.id })),
     )
@@ -218,17 +299,18 @@ function actionButtons(ctx: RulesContext, rule: Rule): HTMLElement {
 }
 
 function viewPane(ctx: RulesContext, rule: Rule): HTMLElement {
+  const blocked = rule.state === 'proposed' && hasConflict(rule)
   return h(
     'div',
     { class: 'details', 'data-pane': 'view' },
     h('div', {}, rule.rule),
+    h('div', { class: 'muted' }, `${scopeLabel(ctx, rule.scope)} · ${t(`origin.${rule.origin}`)}`),
+    blocked ? h('div', { class: 'muted' }, t('conflictFirst')) : null,
+    actionButtons(ctx, rule),
     rule.why ? field(t('field.why'), h('div', {}, rule.why)) : null,
     rule.when ? field(t('field.when'), h('div', {}, rule.when)) : null,
-    field(t('field.scope'), h('div', {}, scopeLabel(ctx, rule.scope))),
-    h('div', { class: 'muted' }, t(`origin.${rule.origin}`)),
-    rule.evidence && rule.evidence.length > 0 ? evidenceList(ctx, rule.evidence) : null,
     conflictBlock(ctx, rule),
-    actionButtons(ctx, rule),
+    rule.evidence && rule.evidence.length > 0 ? evidenceList(ctx, rule.evidence) : null,
   )
 }
 
@@ -237,13 +319,13 @@ function groupPane(ctx: RulesContext, group: Group): HTMLElement {
     'div',
     { class: 'details', 'data-pane': 'group' },
     h('div', { class: 'muted' }, t('groupIntro')),
-    evidenceList(ctx, group.signals),
     h(
       'div',
       { class: 'buttons' },
       button(t('writeRule'), () => ctx.setMode({ kind: 'form', id: null, group: group.id }), true),
       button(t('dismiss'), () => void ctx.act('dismiss-group', { id: group.id })),
     ),
+    evidenceList(ctx, group.signals),
   )
 }
 
@@ -253,6 +335,7 @@ function formPane(ctx: RulesContext, id: string | null, groupId: string | null):
   const text = (name: string, value: string, rows: string): HTMLTextAreaElement =>
     h('textarea', { name, rows }, value) as HTMLTextAreaElement
   const ruleInput = text('rule', rule?.rule ?? '', '2')
+  ruleInput.placeholder = t('placeholder.rule')
   const whyInput = text('why', rule?.why ?? '', '2')
   const whenInput = text('when', rule?.when ?? '', '1')
   const choices = scopeChoices(ctx, rule?.scope)
@@ -276,8 +359,8 @@ function formPane(ctx: RulesContext, id: string | null, groupId: string | null):
     { class: 'details', 'data-pane': 'form' },
     group ? evidenceList(ctx, group.signals) : null,
     field(t('field.rule'), ruleInput),
-    field(t('field.why'), whyInput),
-    field(t('field.when'), whenInput),
+    field(t('form.why'), whyInput),
+    field(t('form.when'), whenInput),
     field(t('field.scope'), h('div', {}, ...radios)),
     ctx.problem ? h('p', { class: 'error' }, ctx.problem) : null,
     h(
@@ -304,10 +387,6 @@ function formPane(ctx: RulesContext, id: string | null, groupId: string | null):
         },
         true,
       ),
-      button(t('cancel'), () => {
-        ctx.setProblem('')
-        ctx.setMode({ kind: 'view' })
-      }),
     ),
   )
 }
@@ -349,11 +428,11 @@ function importPane(ctx: RulesContext, candidates: Candidate[]): HTMLElement {
     ...rows,
     candidates.length > 0 ? field(t('field.scope'), h('div', {}, ...radios)) : null,
     ctx.problem ? h('p', { class: 'error' }, ctx.problem) : null,
-    h(
-      'div',
-      { class: 'buttons' },
-      candidates.length > 0
-        ? button(
+    candidates.length > 0
+      ? h(
+          'div',
+          { class: 'buttons' },
+          button(
             t('importAdd'),
             async () => {
               const rules = boxes.filter((b) => b.box.checked).map((b) => b.rule)
@@ -367,10 +446,9 @@ function importPane(ctx: RulesContext, candidates: Candidate[]): HTMLElement {
               else ctx.render()
             },
             true,
-          )
-        : null,
-      button(t('cancel'), () => ctx.setMode({ kind: 'view' })),
-    ),
+          ),
+        )
+      : null,
   )
 }
 
@@ -387,18 +465,33 @@ function detailsPane(ctx: RulesContext): HTMLElement {
 }
 
 export function rulesBody(ctx: RulesContext): HTMLElement {
-  const empty =
-    ctx.snap.rules.length === 0 && ctx.snap.groups.length === 0 && ctx.mode.kind === 'view'
-  if (empty) return h('div', { class: 'body' }, emptyState(t('empty')))
+  if (ctx.mode.kind !== 'view') return h('div', { class: 'body' }, detailsPane(ctx))
+  if (ctx.snap.rules.length === 0 && ctx.snap.groups.length === 0) {
+    return h(
+      'div',
+      { class: 'body' },
+      emptyState(
+        t('empty'),
+        h(
+          'div',
+          { class: 'buttons' },
+          button(t('add'), ctx.add, true),
+          button(t('import'), ctx.importFile),
+        ),
+      ),
+    )
+  }
+  const list = listPane(ctx)
+  if (!ctx.selected) return h('div', { class: 'body' }, list)
   return h(
     'div',
     { class: 'body' },
     splitter({
       key: 'rules-details',
       label: t('resizeDetails'),
-      first: listPane(ctx),
+      first: list,
       second: detailsPane(ctx),
-      defaultFraction: 0.5,
+      defaultFraction: 0.45,
       minFirst: 96,
       minSecond: 96,
       collapseSecond: true,
