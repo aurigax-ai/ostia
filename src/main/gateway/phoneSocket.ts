@@ -85,7 +85,8 @@ function handleHello(
     return
   }
   state.device = device
-  if (device.caps.includes('respond')) allowImageFrames(ws)
+  const takesImages = device.caps.includes('respond')
+  if (takesImages) allowImageFrames(ws)
   trackDeviceSocket(device.deviceId, ws)
   const phoneWorkspace = controlDeps?.phoneDefaults() ?? { set: false, agent: 'claude' }
   ws.send(
@@ -95,6 +96,7 @@ function handleHello(
       desktop: { name: PRODUCT_NAME, version: app.getVersion() },
       phoneWorkspace,
       addresses,
+      features: takesImages ? ['prompt-image'] : [],
     }),
   )
 }

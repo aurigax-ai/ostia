@@ -531,6 +531,7 @@ describe('gateway server over a real WebSocket', () => {
       const { deviceId, token } = registerDevice({ name: 'Phone', pubkey: 'pk' })
       gatewaySetCap({ deviceId, cap: 'respond', granted: true })
       const c = await connect(token)
+      expect(c.json[0]?.result).toMatchObject({ features: ['prompt-image'] })
       const answer = await prompt(c.call, imageSized)
       expect(answer.error?.message).not.toBe('image-too-large')
       expect(c.ws.readyState).toBe(WebSocket.OPEN)
