@@ -1,7 +1,7 @@
 import { type ChildProcess, spawn } from 'node:child_process'
 import { EventEmitter } from 'node:events'
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
-import { tmpdir } from 'node:os'
+import { mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs'
+import { homedir, tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { PassThrough } from 'node:stream'
 import { build } from 'esbuild'
@@ -19,6 +19,7 @@ import {
   runBridge,
   runStty,
 } from './bridge'
+import { SECRET_ECHO_RECORD, SECRET_SENT_RECORD } from './session'
 import { parseFrame, sttyArgs } from './settings'
 import { stringsFor } from './strings'
 
@@ -34,6 +35,7 @@ class FakePort extends EventEmitter implements DeviceStream {
   written: Buffer[] = []
   writeError: Error | null = null
   destroyed = false
+  answer: ((data: Buffer) => string) | null = null
 
   write(data: Uint8Array, done: (err?: Error | null) => void): boolean {
     if (this.writeError) {
@@ -43,6 +45,8 @@ class FakePort extends EventEmitter implements DeviceStream {
     }
     this.written.push(Buffer.from(data))
     queueMicrotask(() => done(null))
+    const reply = this.answer?.(Buffer.from(data))
+    if (reply) setTimeout(() => this.emit('data', Buffer.from(reply)), 1)
     return true
   }
   destroy(): void {
@@ -260,7 +264,7 @@ describe('serial bridge picker', () => {
     const device = new FakeDevice()
     const { term, bridgeEnv } = env(device, 'darwin', names)
     const done = runBridge({}, bridgeEnv)
-    term.input.write('\n\n\n')
+    term.input.write('\n\n\n\n')
     await until(() => term.text().includes('Connected'))
     expect(term.text()).toContain('  1) /dev/cu.usbserial-A10K2')
     expect(term.text()).toContain('  2) /dev/cu.Bluetooth-Incoming-Port')
@@ -277,7 +281,7 @@ describe('serial bridge picker', () => {
     const device = new FakeDevice()
     const { term, bridgeEnv } = env(device, 'darwin', names)
     const done = runBridge({ locale: 'en' }, bridgeEnv)
-    term.input.write('7\n2\n12345\n9600\n8Q1\n7e1\n')
+    term.input.write('7\n2\n12345\n9600\n8Q1\n7e1\n\n')
     await until(() => term.text().includes('Connected'))
     expect(term.text()).toContain('7 is not a serial device')
     expect(term.text()).toContain('12345 is not a supported speed')
@@ -296,6 +300,244 @@ describe('serial bridge picker', () => {
     expect(await done).toBe(1)
     expect(term.text()).toContain('沒有收到回答')
     expect(device.opened).toEqual([])
+  })
+})
+
+const FAST = { logFlushMs: 20, loopQuietMs: 40, secretGraceMs: 300 }
+const LOG = '/var/log/serial/switch.log'
+const PASSWORD = 'hunter2-Secret'
+
+function memoryLog() {
+  const files: { path: string; text: string; closed: boolean }[] = []
+  const openLog = (path: string) => {
+    const file = { path, text: '', closed: false }
+    files.push(file)
+    return {
+      write: (text: string) => {
+        file.text += text
+      },
+      close: () => {
+        file.closed = true
+      },
+    }
+  }
+  return { files, openLog }
+}
+
+function consoleAnswer(prompt: string) {
+  return (data: Buffer): string => {
+    const text = data.toString()
+    return text.replace(/\r/g, `\r\n${prompt}`)
+  }
+}
+
+function loopback(data: Buffer): string {
+  return data.toString('latin1')
+}
+
+async function settle(ms: number): Promise<void> {
+  await new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+describe('serial session log and secret input', () => {
+  it('logs the session in both directions but never the secret input or its echo', async () => {
+    const device = new FakeDevice()
+    let prompt = 'Password: '
+    device.port.answer = (data) => {
+      const reply = consoleAnswer(prompt)(data)
+      if (data.includes(0x0d)) prompt = 'switch# '
+      return reply
+    }
+    const memory = memoryLog()
+    const { term, bridgeEnv } = env(device)
+    bridgeEnv.openLog = memory.openLog
+    bridgeEnv.timing = FAST
+    const done = connectDevice(DEVICE, LINE, bridgeEnv, s, LOG)
+    await until(() => term.text().includes('Connected'))
+    expect(term.text()).toContain(`Logging this session to ${LOG}.`)
+    expect(term.text()).toContain('Press Ctrl-\\ before typing a password')
+
+    term.input.write('admin\r')
+    await until(() => term.text().includes('Password: '))
+    term.input.write(Buffer.from([0x1c]))
+    await until(() => term.text().includes('[Secret input on'))
+    expect(term.text()).toContain('\x1b]2;🔒 cu.usbserial-A10K2 115200 8N1\x07')
+    for (const ch of PASSWORD) term.input.write(ch)
+    term.input.write('\r')
+    await until(() => term.text().includes('switch# '))
+    term.input.write('show version\r')
+    await until(() => term.text().split('switch# ').length > 2)
+    term.input.write(Buffer.from([0x1d]))
+    expect(await done).toBe(0)
+
+    expect(device.sent()).toBe(`admin\r${PASSWORD}\rshow version\r`)
+    expect(term.text()).toContain('[Secret input off.]')
+    expect(term.text()).toContain('\x1b]2;cu.usbserial-A10K2 115200 8N1\x07')
+    expect(term.text()).not.toContain(PASSWORD)
+    expect(term.text()).not.toContain('hunter')
+    expect(term.text()).not.toContain('network (Ethernet) port')
+
+    const [file] = memory.files
+    expect(file.path).toBe(LOG)
+    expect(file.closed).toBe(true)
+    expect(file.text).not.toContain('hunter')
+    const records = file.text.trimEnd().split('\n')
+    for (const record of records) expect(record).toMatch(/^\d{4}-\d\d-\d\dT[\d:.]+Z [<>#] /)
+    const bodies = records.map((r) => r.slice(r.indexOf(' ') + 1))
+    expect(bodies[0]).toBe(`# connected ${DEVICE} 115200 8N1`)
+    expect(bodies).toContain('> admin\\r')
+    expect(bodies).toContain('< admin\\r\\n')
+    expect(bodies).toContain(`> ${SECRET_SENT_RECORD}`)
+    expect(bodies).toContain(`< ${SECRET_ECHO_RECORD}`)
+    expect(bodies).toContain('> show version\\r')
+    expect(bodies).toContain('< switch# show version\\r\\n')
+    expect(bodies.at(-1)).toBe('# disconnected')
+    expect(bodies.indexOf(`> ${SECRET_SENT_RECORD}`)).toBeLessThan(
+      bodies.indexOf('> show version\\r'),
+    )
+  })
+
+  it('hides a password that arrives in one chunk with its echo, and Ctrl-\\ stops early', async () => {
+    const device = new FakeDevice()
+    device.port.answer = consoleAnswer('switch# ')
+    const memory = memoryLog()
+    const { term, bridgeEnv } = env(device)
+    bridgeEnv.openLog = memory.openLog
+    bridgeEnv.timing = FAST
+    const done = connectDevice(DEVICE, LINE, bridgeEnv, s, LOG)
+    await until(() => term.text().includes('Connected'))
+    term.input.write(`\x1c${PASSWORD}\rdate\r`)
+    await until(() => term.text().includes('date\r\nswitch# '))
+    term.input.write(`\x1c${PASSWORD}\x1c`)
+    await settle(20)
+    device.emit(Buffer.from('x'))
+    await settle(FAST.secretGraceMs + 50)
+    device.emit(Buffer.from('after'))
+    await until(() => term.text().includes('after'))
+    term.input.write(Buffer.from([0x1d]))
+    expect(await done).toBe(0)
+    expect(device.sent()).toBe(`${PASSWORD}\rdate\r${PASSWORD}`)
+    expect(term.text()).not.toContain('hunter')
+    expect(memory.files[0].text).not.toContain('hunter')
+    expect(memory.files[0].text).toContain('> date\\r')
+  })
+
+  it('writes a real log file the owner alone can read, and appends to it', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'serial-log-'))
+    try {
+      const path = join(dir, 'console.log')
+      for (const command of ['first\r', 'second\r']) {
+        const device = new FakeDevice()
+        device.port.answer = consoleAnswer('# ')
+        const { term, bridgeEnv } = env(device)
+        bridgeEnv.timing = FAST
+        const done = connectDevice(DEVICE, LINE, bridgeEnv, s, path)
+        await until(() => term.text().includes('Connected'))
+        term.input.write(`\x1c${PASSWORD}\r`)
+        term.input.write(command)
+        await until(() => term.text().includes(command.replace('\r', '\r\n# ')))
+        term.input.write(Buffer.from([0x1d]))
+        expect(await done).toBe(0)
+      }
+      const text = readFileSync(path, 'utf8')
+      expect(text).toContain('> first\\r')
+      expect(text).toContain('> second\\r')
+      expect(text.match(/# connected/g)).toHaveLength(2)
+      expect(text).not.toContain('hunter')
+      expect(statSync(path).mode & 0o777).toBe(0o600)
+    } finally {
+      rmSync(dir, { recursive: true, force: true })
+    }
+  })
+
+  it('refuses a log path that is not a full path, and reports a log that cannot be opened', async () => {
+    const device = new FakeDevice()
+    const relative = env(device)
+    expect(await runBridge({ device: DEVICE, log: 'switch.log' }, relative.bridgeEnv)).toBe(2)
+    expect(relative.term.text()).toContain('switch.log is not a full path')
+    const failing = env(device)
+    failing.bridgeEnv.openLog = () => {
+      throw errno('EACCES')
+    }
+    expect(await runBridge({ device: DEVICE, log: LOG }, failing.bridgeEnv)).toBe(1)
+    expect(failing.term.text()).toContain(`Could not write the session log ${LOG}: EACCES`)
+    expect(device.opened).toEqual([])
+  })
+
+  it('asks for a log file in the picker and expands ~/', async () => {
+    const device = new FakeDevice()
+    const memory = memoryLog()
+    const { term, bridgeEnv } = env(device, 'darwin', ['cu.usbserial-A10K2'])
+    bridgeEnv.openLog = memory.openLog
+    const done = runBridge({}, bridgeEnv)
+    term.input.write('\n\n\nlogs/a.log\n~/serial.log\n')
+    await until(() => term.text().includes('Connected'))
+    expect(term.text()).toContain('Session log file, a full path or ~/… (Enter for none): ')
+    expect(term.text()).toContain('logs/a.log is not a full path')
+    expect(memory.files.map((f) => f.path)).toEqual([join(homedir(), 'serial.log')])
+    term.input.write(Buffer.from([0x1d]))
+    expect(await done).toBe(0)
+  })
+})
+
+describe('serial echo-loop hint', () => {
+  const hint = 'The cable may be in a network (Ethernet) port'
+
+  async function session(answer: ((data: Buffer) => string) | null, typed: string[]) {
+    const device = new FakeDevice()
+    device.port.answer = answer
+    const { term, bridgeEnv } = env(device)
+    bridgeEnv.timing = FAST
+    const done = connectDevice(DEVICE, LINE, bridgeEnv, s)
+    await until(() => term.text().includes('Connected'))
+    for (const text of typed) {
+      term.input.write(text)
+      await settle(5)
+    }
+    await settle(FAST.loopQuietMs * 4)
+    const text = term.text()
+    term.input.write(Buffer.from([0x1d]))
+    expect(await done).toBe(0)
+    return text
+  }
+
+  it('shows the hint once when every byte comes straight back', async () => {
+    const text = await session(loopback, ['\r', '\r', 'show\r', '\r'])
+    expect(text).toContain(hint)
+    expect(text.split(hint)).toHaveLength(2)
+  })
+
+  it('shows the hint for a looped password too, without showing the password', async () => {
+    const text = await session(loopback, ['\r', `\x1c${PASSWORD}\r`, '\r'])
+    expect(text).toContain(hint)
+    expect(text).not.toContain('hunter')
+  })
+
+  it('stays quiet for a console that echoes and answers Enter with its own output', async () => {
+    expect(await session(consoleAnswer('switch# '), ['\r', '\r', 'show\r', '\r'])).not.toContain(
+      hint,
+    )
+    expect(
+      await session((data) => data.toString().replace(/\r/g, '\r\n'), ['\r\r\r\r']),
+    ).not.toContain(hint)
+  })
+
+  it('stays quiet before Enter, below the byte count, and for a silent or chatty device', async () => {
+    expect(await session(loopback, ['abcdef'])).not.toContain(hint)
+    expect(await session(loopback, ['\r', '\r'])).not.toContain(hint)
+    expect(await session(null, ['\r', '\r', 'show\r', '\r'])).not.toContain(hint)
+    const device = new FakeDevice()
+    device.port.answer = loopback
+    const { term, bridgeEnv } = env(device)
+    bridgeEnv.timing = FAST
+    const done = connectDevice(DEVICE, LINE, bridgeEnv, s)
+    await until(() => term.text().includes('Connected'))
+    device.emit(Buffer.from('U-Boot 2023.04\r\n'))
+    term.input.write('\r\r\r\r')
+    await settle(FAST.loopQuietMs * 4)
+    expect(term.text()).not.toContain(hint)
+    term.input.write(Buffer.from([0x1d]))
+    expect(await done).toBe(0)
   })
 })
 
@@ -350,6 +592,20 @@ describe.skipIf(!ptyRequired && !spawnsPty())('serial bridge on a pseudo-termina
     pty = null
     expect(await done).toBe(1)
     expect(term.text()).toContain('went away')
+  })
+
+  it('shows the echo-loop hint on a terminal device that sends every byte back', async () => {
+    const device = await slave()
+    device.pty.onData((data) => device.pty.write(data))
+    const { term, bridgeEnv } = env(new FakeDevice(), process.platform)
+    bridgeEnv.io = { ...nodeDeviceIo, configure: (fd) => runStty(fd, ['raw', '-echo']) }
+    bridgeEnv.timing = FAST
+    const done = connectDevice(device.path, LINE, bridgeEnv, s)
+    await until(() => term.text().includes('Connected'))
+    term.input.write('show\r\r')
+    await until(() => term.text().includes('network (Ethernet) port'))
+    term.input.write(Buffer.from([0x1d]))
+    expect(await done).toBe(0)
   })
 
   it.runIf(process.platform === 'darwin')(

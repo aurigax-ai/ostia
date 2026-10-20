@@ -5,6 +5,7 @@ import {
   cliArgs,
   failure,
   ok,
+  parseFlags,
 } from '@aurigax-ai/ostia-extension-sdk'
 import type {
   ExtensionCaller,
@@ -18,6 +19,7 @@ import {
   deviceGlobs,
   frameText,
   isSerialDevice,
+  logPath,
   parseFrame,
   parseSpeed,
 } from './settings'
@@ -55,9 +57,15 @@ function isFailure(value: Target | null | ExtensionResult): value is ExtensionRe
   return value !== null && 'ok' in value
 }
 
-function describe(target: Target | null): Record<string, unknown> {
-  if (!target) return { pick: true }
-  return { device: target.device, speed: target.line.speed, frame: frameText(target.line.frame) }
+function describe(target: Target | null, log: string | undefined): Record<string, unknown> {
+  const logged = log === undefined ? {} : { log }
+  if (!target) return { pick: true, ...logged }
+  return {
+    device: target.device,
+    speed: target.line.speed,
+    frame: frameText(target.line.frame),
+    ...logged,
+  }
 }
 
 export function serialCommands(deps: SerialDeps): Record<'ls' | 'connect', CommandHandler> {
@@ -79,11 +87,14 @@ export function serialCommands(deps: SerialDeps): Record<'ls' | 'connect', Comma
       const s = stringsFor(caller.locale)
       const refusal = refused(caller, s)
       if (refusal) return refusal
-      const target = parseTarget(cliArgs(args)?.argv ?? [], deps.platform, s)
+      const { flags, rest } = parseFlags(cliArgs(args)?.argv ?? [], ['log'])
+      const log = flags.log === undefined ? undefined : logPath(flags.log)
+      if (log === null) return failure('invalid-args', s.badLogPath(flags.log ?? ''))
+      const target = parseTarget(rest, deps.platform, s)
       if (isFailure(target)) return target
-      const summary = describe(target)
+      const summary = describe(target, log)
       const opened = await deps.openTerminal({
-        command: bridgeCommand(deps.execPath, deps.script, caller.locale, target ?? undefined),
+        command: bridgeCommand(deps.execPath, deps.script, caller.locale, target ?? undefined, log),
         workspaceId: caller.workspaceId,
         afterPaneId: caller.paneId,
         title: target ? paneTitle(target.device, target.line) : PANE_TITLE,

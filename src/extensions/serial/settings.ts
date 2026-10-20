@@ -1,3 +1,6 @@
+import { isAbsolute } from 'node:path'
+import { expandHome } from '@aurigax-ai/ostia-extension-sdk'
+
 export const DEFAULT_SPEED = 115200
 export const DEFAULT_FRAME = '8N1'
 const SPEEDS = [
@@ -108,4 +111,9 @@ export function sttyArgs({ speed, frame }: LineSettings): string[] {
     'time',
     '0',
   ]
+}
+
+export function logPath(text: string): string | null {
+  const path = expandHome(text.trim())
+  return path !== '' && isAbsolute(path) ? path : null
 }

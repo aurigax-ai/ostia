@@ -1,3 +1,5 @@
+import { homedir } from 'node:os'
+import { join } from 'node:path'
 import type { OpenTerminalResult } from '@aurigax-ai/ostia-extension-sdk'
 import type {
   ExtensionCaller,
@@ -91,6 +93,30 @@ describe('serial connect', () => {
       '--frame',
       '7E1',
     ])
+  })
+
+  it('passes a session log file to the pane, with ~/ expanded', async () => {
+    const { commands, deps } = setup()
+    const res = await commands.connect(
+      { argv: [DEVICE, '--log', '~/logs/switch.log', '9600'] },
+      caller('pane'),
+    )
+    const log = join(homedir(), 'logs/switch.log')
+    expect(res).toEqual({
+      ok: true,
+      data: { device: DEVICE, speed: 9600, frame: '8N1', log, paneId: 'pane-serial' },
+    })
+    expect(deps.openTerminal.mock.calls[0][0].command.slice(-2)).toEqual(['--log', log])
+    const picked = await commands.connect({ argv: ['--log', '/tmp/s.log'] }, caller('user'))
+    expect(picked).toMatchObject({ ok: true, data: { pick: true, log: '/tmp/s.log' } })
+  })
+
+  it('refuses a log file that is not a full path', async () => {
+    const { commands, deps } = setup()
+    const res = await commands.connect({ argv: [DEVICE, '--log', 'switch.log'] }, caller('pane'))
+    expect(res).toMatchObject({ ok: false, error: 'invalid-args' })
+    expect(res.ok ? '' : res.message).toContain('switch.log is not a full path')
+    expect(deps.openTerminal).not.toHaveBeenCalled()
   })
 
   it('defaults to 115200 8N1', async () => {
