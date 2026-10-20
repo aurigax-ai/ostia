@@ -273,9 +273,9 @@ describe('shellIntegrationSpawnOptions', () => {
       describe('HISTFILE', () => {
         const histfileSeen = (userRc: string): { seen: string; home: string } => {
           const home = mkdtempSync(join(tmpdir(), 'ostia-zsh-home-'))
-          writeFileSync(join(home, '.zshrc'), `${userRc}print -rn -- "hist=$HISTFILE"\n`)
+          writeFileSync(join(home, '.zshrc'), userRc)
           const { env } = shellIntegrationSpawnOptions('zsh', { HOME: home })
-          const seen = spawnSync('zsh', ['-i', '-c', 'true'], {
+          const seen = spawnSync('zsh', ['-i', '-c', 'print -rn -- "hist=$HISTFILE"'], {
             env: {
               PATH: '/usr/bin:/bin',
               HOME: home,
@@ -289,6 +289,15 @@ describe('shellIntegrationSpawnOptions', () => {
 
         it('moves a HISTFILE inside the integration folder to the user’s dotdir', () => {
           const { seen, home } = histfileSeen('')
+          try {
+            expect(seen).toContain(`hist=${home}/.zsh_history`)
+          } finally {
+            rmSync(home, { recursive: true, force: true })
+          }
+        })
+
+        it('moves a HISTFILE the user’s rc builds from ZDOTDIR', () => {
+          const { seen, home } = histfileSeen('HISTFILE="$ZDOTDIR/.zsh_history"\n')
           try {
             expect(seen).toContain(`hist=${home}/.zsh_history`)
           } finally {
