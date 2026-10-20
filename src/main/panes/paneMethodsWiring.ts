@@ -37,7 +37,7 @@ import { type PaneWatch, registerPaneWaitMethods } from './paneWait'
 import { wakeHibernatedPane } from './paneWake'
 import type { PaneWaking } from './paneWaking'
 import { registerPaneWatchMethods } from './paneWatchMethods'
-import { WorktreeShare, registerWorktreeShareIpc } from './worktreeShare'
+import { WorktreeShare } from './worktreeShare'
 
 interface PaneMethodsWiringDeps {
   keptAttention: KeptAttention
@@ -60,7 +60,6 @@ interface PaneMethodsWiringDeps {
   scratchFolders: ScratchFolders
   workspaceCommandTarget: (workspaceId: string) => CommandTarget
   paneWatch: PaneWatch
-  broadcast: WindowSend['broadcast']
   paneJournal: PaneJournal
   remoteCwdOfPane: (paneId: string) => unknown
   terminalState: Map<string, TerminalStateSnapshot>
@@ -86,7 +85,6 @@ export function registerPaneMethodsWiring({
   scratchFolders,
   workspaceCommandTarget,
   paneWatch,
-  broadcast,
   paneJournal,
   remoteCwdOfPane,
   terminalState,
@@ -168,9 +166,7 @@ export function registerPaneMethodsWiring({
       return found?.kind === 'pane' ? found : undefined
     },
     remote: (paneId) => remoteCwdOfPane(paneId) !== undefined,
-    publish: (map) => broadcast('agents:worktree', map),
   })
-  registerWorktreeShareIpc(worktreeShare)
   const lastCwd = new Map<string, string | undefined>()
   paneWatch.tap((paneId, change) => {
     if (change.kind === 'closed') lastCwd.delete(paneId)

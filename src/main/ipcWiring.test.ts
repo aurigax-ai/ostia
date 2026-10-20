@@ -16,7 +16,6 @@ const PUSHED = [
   'agent:event',
   'agent:tool-call',
   'agent:tool-cancel',
-  'agents:worktree',
   'app-menu:run',
   'app:install-replace-state',
   'app:release-available',
