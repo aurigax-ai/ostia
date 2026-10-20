@@ -265,7 +265,9 @@ function body(): HTMLElement {
 }
 
 function render(): void {
-  root.replaceChildren(h('div', { class: 'page' }, navigation(), actionBar(), notice(), body()))
+  root.replaceChildren(
+    h('div', { class: 'ostia-page' }, navigation(), actionBar(), notice(), body()),
+  )
 }
 
 void loadPanelSizes().then(load)

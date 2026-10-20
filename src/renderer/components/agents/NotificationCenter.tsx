@@ -10,6 +10,7 @@ import { revealPane } from '@/lib/attention/workspaceActivity'
 import { findPane } from '@/lib/layout/tree'
 import { focusRightPanel } from '@/lib/panes/rightPanelFocus'
 import { remoteWorkspacesOf } from '@/lib/workspaces/windowWorkspaces'
+import { workspaceTitle } from '@/lib/workspaces/workspaceTitle'
 import { useApprovalsStore } from '@/stores/agents/approvalsStore'
 import { useAttentionStore } from '@/stores/agents/attentionStore'
 import { useSettingsStore } from '@/stores/app/settingsStore'
@@ -53,7 +54,7 @@ function usePaneLabels(): (paneId: string | undefined) => PaneLabel | null {
         if (pane) {
           return {
             workspaceId: workspace.id,
-            workspace: workspace.customName ?? workspace.name,
+            workspace: workspaceTitle(workspace),
             pane: pane.title,
           }
         }

@@ -11,6 +11,7 @@ import {
   tabsOf,
 } from '@/lib/layout/tree'
 import type { LayoutNode, PaneNode } from '@/lib/layout/types'
+import { workspaceTitle } from '@/lib/workspaces/workspaceTitle'
 import { useSandboxStore } from '@/stores/app/sandboxStore'
 import { useCmuxImportStore } from '@/stores/workspaces/cmuxImportStore'
 import { isRestorable } from '@/stores/workspaces/persistence'
@@ -309,7 +310,7 @@ function existingWorkspaces(): ExistingWorkspace[] {
     }
   }
   for (const w of useWorkspacesStore.getState().workspaces) {
-    byId.set(w.id, { name: w.customName ?? w.name, workDir: w.workDir, saved: isRestorable(w) })
+    byId.set(w.id, { name: workspaceTitle(w), workDir: w.workDir, saved: isRestorable(w) })
   }
   return [...byId.values()]
 }

@@ -1,4 +1,3 @@
-import { Hint } from '@/components/common/Hint'
 import { Badge } from '@/components/ui/badge'
 import { Switch } from '@/components/ui/switch'
 import { useDict } from '@/lib/app/useDict'
@@ -65,16 +64,6 @@ export function ControlRow({
         </div>
       ) : null}
     </div>
-  )
-}
-
-export function MachineValue({ value, label }: { value: string; label?: string }): JSX.Element {
-  return (
-    <Hint label={value}>
-      <span aria-label={label} className="min-w-0 truncate font-mono text-fg-muted text-ui-xs">
-        {value}
-      </span>
-    </Hint>
   )
 }
 

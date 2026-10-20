@@ -1,5 +1,6 @@
 import { Hint } from '@/components/common/Hint'
 import { IconButton } from '@/components/common/IconButton'
+import { PathText } from '@/components/common/MachineValue'
 import { TextLink } from '@/components/common/TextLink'
 import { WorkspaceChips } from '@/components/extensions/ExtensionChips'
 import { Button } from '@/components/ui/button'
@@ -8,18 +9,18 @@ import { unreadCount } from '@/lib/attention/attention'
 import { markWorkspaceRead, revealPane } from '@/lib/attention/workspaceActivity'
 import { allPanes, paneIds } from '@/lib/layout/tree'
 import {
-  DASHBOARD_PATH_CHARS,
   type NeedsYouItem,
   type PaneWhere,
   needsYouItems,
   paneWhere,
   sourceWhere,
 } from '@/lib/sidebar/dashboard'
-import { shortenPath } from '@/lib/sidebar/railMeta'
 import { cn } from '@/lib/utils'
 import { selectWorkspace } from '@/lib/workspaces/selectWorkspace'
 import { type RemoteWorkspace, remoteWorkspacesOf } from '@/lib/workspaces/windowWorkspaces'
+import { stateLabel } from '@/lib/workspaces/workspaceState'
 import { latestAttentionMessage, runningTitle } from '@/lib/workspaces/workspaceSummary'
+import { workspaceTitle } from '@/lib/workspaces/workspaceTitle'
 import { useApprovalsStore } from '@/stores/agents/approvalsStore'
 import { useAttentionStore } from '@/stores/agents/attentionStore'
 import { useQuestionsStore } from '@/stores/agents/questionsStore'
@@ -30,19 +31,14 @@ import { useWindowsStore } from '@/stores/workspaces/windowsStore'
 import type { Workspace, WorkspaceState } from '@/stores/workspaces/workspaceTypes'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import { AppWindowIcon, ArrowSquareOutIcon, ChatTextIcon, XIcon } from '@phosphor-icons/react'
-import type { Dict } from '@shared/app/dict'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { AgentComposer } from './AgentComposer'
 import { ApprovalCard } from './ApprovalCard'
-import { stateLabel, useLocalAgentTargets } from './PickSendPanel'
+import { useLocalAgentTargets } from './PickSendPanel'
 import { QuestionCard } from './QuestionCard'
 
 const OPEN_POPUP = '[role="dialog"], [role="listbox"], [role="menu"]'
 const FIRST_CONTROL = '[role="radio"], [role="checkbox"], textarea, button'
-
-function workspaceStateLabel(d: Dict, state: WorkspaceState): string {
-  return stateLabel(d, state === 'idle' ? 'none' : state)
-}
 
 function focusCard(root: HTMLElement | null, selector: string): boolean {
   for (const card of root?.querySelectorAll<HTMLElement>(selector) ?? []) {
@@ -235,18 +231,8 @@ function StateMark({ state }: { state: WorkspaceState }): JSX.Element {
   return (
     <span className="flex shrink-0 items-center gap-1.5 text-fg-muted text-ui-xs">
       {state === 'idle' ? null : <span className={`dot ${state}`} aria-hidden="true" />}
-      {workspaceStateLabel(d, state)}
+      {stateLabel(d, state)}
     </span>
-  )
-}
-
-function PathText({ path }: { path: string }): JSX.Element {
-  return (
-    <Hint label={path}>
-      <span className="min-w-0 truncate font-mono text-fg-muted text-ui-xs">
-        {shortenPath(path, DASHBOARD_PATH_CHARS)}
-      </span>
-    </Hint>
   )
 }
 
@@ -261,7 +247,7 @@ function WorkspaceEntry({ workspace: w }: { workspace: Workspace }): JSX.Element
   )
   const agents = useLocalAgentTargets(w.id)
   const [composing, setComposing] = useState(false)
-  const name = w.customName ?? w.name
+  const name = workspaceTitle(w)
   const summary = message ?? running
   const open = (): void => selectWorkspace(w.id)
   return (

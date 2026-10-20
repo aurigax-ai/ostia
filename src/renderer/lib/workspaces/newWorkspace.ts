@@ -1,4 +1,5 @@
 import { findPane } from '@/lib/layout/tree'
+import { workspaceTitle } from '@/lib/workspaces/workspaceTitle'
 import { useSandboxStore } from '@/stores/app/sandboxStore'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
@@ -75,7 +76,7 @@ export async function startScratchWorkspace(
   if (!dir) return null
   const { placement } = useSettingsStore.getState().workspaces
   const store = useWorkspacesStore.getState()
-  const name = codeName(new Set(store.workspaces.map((w) => w.customName ?? w.name)))
+  const name = codeName(new Set(store.workspaces.map(workspaceTitle)))
   store.addWorkspace(dir, placement, 'scratch')
   const created = useWorkspacesStore.getState().activeWorkspaceId
   if (!created) return null

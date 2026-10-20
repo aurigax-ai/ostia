@@ -1,10 +1,10 @@
+import { Button } from '@/components/ui/button'
+import { Textarea } from '@/components/ui/textarea'
 import { fmt, useDict } from '@/lib/app/useDict'
 import { branchLabel } from '@/lib/git/gitView'
+import { isMac } from '@/platform'
 import { GitBranchIcon } from '@phosphor-icons/react'
 import type { GitChangesData } from '@shared/boards/git'
-import { isMac } from '../../platform'
-import { Button } from '../ui/button'
-import { Textarea } from '../ui/textarea'
 import {
   type ChangeHandlers,
   ChangeSections,

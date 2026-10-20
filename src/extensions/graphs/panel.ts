@@ -391,7 +391,7 @@ async function render(): Promise<void> {
   root.replaceChildren(
     h(
       'div',
-      { class: 'page' },
+      { class: 'ostia-page' },
       panelToolbar(
         back ? { back: { label: t('action.back'), onClick: () => go({ kind: 'list' }) } } : {},
       ),

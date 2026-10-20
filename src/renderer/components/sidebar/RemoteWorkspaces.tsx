@@ -3,13 +3,13 @@ import { ContextMenu, ContextMenuTrigger } from '@/components/ui/context-menu'
 import { Kbd } from '@/components/ui/kbd'
 import { useDict } from '@/lib/app/useDict'
 import { type RemoteWorkspace, remoteWorkspacesOf } from '@/lib/workspaces/windowWorkspaces'
+import { stateLabel } from '@/lib/workspaces/workspaceState'
 import { useUIStore } from '@/stores/app/uiStore'
 import { useWindowsStore } from '@/stores/workspaces/windowsStore'
 import type { ExtensionSidebarItem } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import { AppWindowIcon, ArrowSquareInIcon } from '@phosphor-icons/react'
 import { LocationLine } from './RailMeta'
 import { RailTab } from './RailTab'
-import { stateLabel } from './WorkspaceStatus'
 
 const NO_ITEMS: ExtensionSidebarItem[] = []
 
