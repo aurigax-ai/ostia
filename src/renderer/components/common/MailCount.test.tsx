@@ -1,6 +1,6 @@
 import { MailCount } from '@/components/common/MailCount'
 import { TabFace } from '@/components/panes/TabFace'
-import { WorkspaceBadges } from '@/components/sidebar/WorkspaceStatus'
+import { WorkspaceBadges } from '@/components/sidebar/WorkspaceBadges'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { createPane } from '@/lib/layout/tree'
 import type { PaneNode } from '@/lib/layout/types'

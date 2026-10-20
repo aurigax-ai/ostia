@@ -60,7 +60,7 @@ function approvalTitle(
   }
 }
 
-function ApprovalCard({
+function ToolApprovalCard({
   pending,
   workspaceId,
 }: {
@@ -203,7 +203,7 @@ function GenericToolPart({
       <ToolHeader title={toolTitle(d, name)} state={headerState} stateLabel={label} />
       {pending ? (
         <div className="px-2 pb-2">
-          <ApprovalCard pending={pending} workspaceId={workspaceId} />
+          <ToolApprovalCard pending={pending} workspaceId={workspaceId} />
         </div>
       ) : null}
       <ToolContent>

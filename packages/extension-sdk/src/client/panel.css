@@ -448,6 +448,13 @@ input[type="radio"]:focus-visible {
   flex: 1;
 }
 
+.ostia-page {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  min-height: 0;
+}
+
 .ostia-toolbar-tabs {
   gap: 2px;
   padding: 3px 6px;
@@ -465,8 +472,7 @@ button.ostia-tab {
   font-weight: var(--font-weight-medium);
 }
 
-button.ostia-tab[aria-selected="true"],
-button.ostia-tab[aria-pressed="true"] {
+button.ostia-tab[aria-selected="true"] {
   color: var(--fg);
   background: var(--surface-3);
 }

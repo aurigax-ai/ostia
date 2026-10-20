@@ -71,7 +71,7 @@ test('the Activity panel shows an agent’s recap, shows its events on the toggl
   const pressed = (app: ElectronApplication, view: string): Promise<string> =>
     panelEval(
       app,
-      `document.querySelector('[data-view="${view}"]')?.getAttribute('aria-pressed') ?? ''`,
+      `document.querySelector('[data-view="${view}"]')?.getAttribute('aria-selected') ?? ''`,
     )
 
   let app = await electron.launch({ ...launch, env })

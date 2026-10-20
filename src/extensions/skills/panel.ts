@@ -298,7 +298,7 @@ function render(): void {
   const was = focused()
   const sub = isSub()
   if (sub && !wasSub) returnTo = was
-  root.replaceChildren(h('div', { class: 'page' }, navigation(), notice(), body()))
+  root.replaceChildren(h('div', { class: 'ostia-page' }, navigation(), notice(), body()))
   if (sub) {
     if (!wasSub) root.querySelector<HTMLElement>('.ostia-toolbar button')?.focus()
   } else if (wasSub) {

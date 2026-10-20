@@ -1,5 +1,4 @@
 import { ApprovalCard } from '@/components/agents/ApprovalCard'
-import { stateLabel } from '@/components/agents/PickSendPanel'
 import { QuestionNotice } from '@/components/agents/QuestionNotice'
 import { NoticeSlot } from '@/components/common/NoticeSlot'
 import { fmt, useDict } from '@/lib/app/useDict'
@@ -9,6 +8,7 @@ import type { Direction, LayoutNode, PaneNode, SplitNode } from '@/lib/layout/ty
 import { cellDropTarget, dropZoneAt } from '@/lib/panes/dropZone'
 import { PANE_DND, dropPaneOn, isPaneDrag } from '@/lib/panes/paneDrag'
 import { cn } from '@/lib/utils'
+import { stateLabel } from '@/lib/workspaces/workspaceState'
 import { useApprovalsStore } from '@/stores/agents/approvalsStore'
 import { useAttentionStore } from '@/stores/agents/attentionStore'
 import { useFolderTrustStore } from '@/stores/agents/folderTrustStore'

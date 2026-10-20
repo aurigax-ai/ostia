@@ -1,5 +1,6 @@
 import { findPane } from '@/lib/layout/tree'
 import { formatWindowTitle } from '@/lib/settings/windowTitle'
+import { workspaceTitle } from '@/lib/workspaces/workspaceTitle'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
@@ -17,7 +18,7 @@ export function useWindowTitle(): void {
   })
   const title = formatWindowTitle(template, {
     product: PRODUCT_DISPLAY_NAME,
-    workspace: workspace ? (workspace.customName ?? workspace.name) : undefined,
+    workspace: workspace ? workspaceTitle(workspace) : undefined,
     pane: pane?.title,
     cwd: pane?.cwd ?? workspace?.workDir,
   })

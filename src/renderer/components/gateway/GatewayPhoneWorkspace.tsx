@@ -1,4 +1,5 @@
-import { ControlRow, MachineValue, ToggleRow } from '@/components/settingsKit/ControlRow'
+import { MachineValue } from '@/components/common/MachineValue'
+import { ControlRow, ToggleRow } from '@/components/settingsKit/ControlRow'
 import { SelectField } from '@/components/settingsKit/SelectField'
 import { SettingsGroup } from '@/components/settingsKit/SettingsGroup'
 import { Button } from '@/components/ui/button'

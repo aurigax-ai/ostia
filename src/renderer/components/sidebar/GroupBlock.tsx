@@ -37,9 +37,9 @@ import {
   type WorkspaceGroupColor,
 } from '@shared/workspaces/workspaceGroups'
 import { useContext } from 'react'
+import { GroupStatus, GroupUnreadDot } from './GroupStatus'
 import { HibernateMenuItems } from './HibernateMenuItems'
 import { RailCollapsedContext } from './RailTab'
-import { GroupStatus, GroupUnreadDot } from './WorkspaceStatus'
 import { type DragHandlers, GROUP_DND, isRailDrag, upperHalf } from './railDrag'
 
 const NO_COLOR = 'none'

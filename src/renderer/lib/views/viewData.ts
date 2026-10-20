@@ -1,5 +1,6 @@
 import { EMPTY_ATTENTION, type PaneAttention, unreadCount } from '@/lib/attention/attention'
 import { allPanes } from '@/lib/layout/tree'
+import { workspaceTitle } from '@/lib/workspaces/workspaceTitle'
 import type { WorkspaceLayout } from '@/stores/workspaces/layoutTypes'
 import type { Workspace } from '@/stores/workspaces/workspaceTypes'
 import type {
@@ -76,7 +77,7 @@ function workspaceData(inputs: ViewDataInputs, ports: PortData[]) {
     return {
       id: w.id,
       index,
-      name: w.customName ?? w.name,
+      name: workspaceTitle(w),
       project: w.projectDir ? { name: w.name, path: w.projectDir } : null,
       dir: w.workDir,
       description: w.description ?? null,

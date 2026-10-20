@@ -7,13 +7,13 @@ import { fmt, useDict } from '@/lib/app/useDict'
 import { useNow } from '@/lib/app/useNow'
 import type { PaneNode } from '@/lib/layout/types'
 import { formatDuration } from '@/lib/prompt/promptChips'
+import { stateLabel } from '@/lib/workspaces/workspaceState'
 import { useAttentionStore } from '@/stores/agents/attentionStore'
 import { useBlocksStore } from '@/stores/terminal/blocksStore'
 import { RobotIcon } from '@phosphor-icons/react'
 import { type AgentResume, resumeCommand } from '@shared/agents/agentResume'
 import { type AgentSessionInfo, formatTokens } from '@shared/agents/agentSessionInfo'
 import { useEffect, useState } from 'react'
-import { stateLabel } from './PickSendPanel'
 
 const CLOCK_MS = 1000
 const INFO_POLL_MS = 3000
