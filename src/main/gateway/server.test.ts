@@ -125,7 +125,6 @@ function screenFrame(header: Record<string, unknown>, jpeg: Buffer): Buffer {
   length.writeUInt32BE(head.length)
   return Buffer.concat([Buffer.from([0x10]), length, head, jpeg])
 }
-const phoneResize = vi.fn()
 const deps = {
   execCommand: vi.fn().mockResolvedValue({ ok: true, result: null }),
   listCommandsFor: vi.fn().mockReturnValue([
@@ -156,7 +155,6 @@ const deps = {
     dropped: false,
     cols: 80,
     rows: 24,
-    resize: phoneResize,
     detach: vi.fn(),
   })),
   ptyWrite: vi.fn(),
@@ -338,19 +336,15 @@ describe('gateway server over a real WebSocket', () => {
     const c = await connect(token)
 
     const attach = await c.call('pty.attach', { paneId: externalPaneId, role: 'owner' })
-    expect(attach.result).toMatchObject({ cursor: 7, role: 'observer' })
+    expect(attach.result).toMatchObject({ cursor: 7, cols: 80, rows: 24, role: 'observer' })
 
     c.ws.send(binary(0x02, 'rm -rf ~\r'))
     const denied = await c.next((m) => m.error?.code === -32003)
     expect(denied.error?.data).toEqual({ cap: 'input' })
-
-    c.ws.send(binary(0x03, JSON.stringify({ cols: 120, rows: 40 })))
-    await c.call('whoami')
     expect(deps.ptyWrite).not.toHaveBeenCalled()
-    expect(phoneResize).not.toHaveBeenCalled()
   })
 
-  it('writes input and resizes the pty once the desktop grants input', async () => {
+  it('writes input once the desktop grants input', async () => {
     const { deviceId, token } = registerDevice({ name: 'Phone', pubkey: 'pk' })
     const c = await connect(token)
 
@@ -365,37 +359,54 @@ describe('gateway server over a real WebSocket', () => {
     expect(attach.result).toMatchObject({ role: 'owner' })
 
     c.ws.send(binary(0x02, 'ls\r'))
-    c.ws.send(binary(0x03, JSON.stringify({ paneId: externalPaneId, cols: 120, rows: 40 })))
-    c.ws.send(binary(0x03, JSON.stringify({ cols: 0, rows: 40 })))
-    c.ws.send(binary(0x03, JSON.stringify({ paneId: 'someone-else', cols: 50, rows: 10 })))
     await c.call('whoami')
 
     expect(deps.ptyWrite).toHaveBeenCalledWith('p1', 'ls\r', 'key')
-    expect(phoneResize).toHaveBeenCalledTimes(1)
-    expect(phoneResize).toHaveBeenCalledWith(120, 40)
   })
 
-  it('puts the phone size back on the pty when the phone types after the desktop took the pane', async () => {
+  it('never applies a resize frame and answers resize-not-supported', async () => {
     const { deviceId, token } = registerDevice({ name: 'Phone', pubkey: 'pk' })
     gatewaySetCap({ deviceId, cap: 'input', granted: true })
+    const owner = await connect(token)
+    await owner.call('pty.attach', { paneId: externalPaneId, role: 'owner' })
+
+    owner.ws.send(binary(0x03, JSON.stringify({ paneId: externalPaneId, cols: 120, rows: 40 })))
+    const refused = await owner.next((m) => m.error?.message === 'resize-not-supported')
+    expect(refused.error?.code).toBe(-32602)
+
+    const observer = await connect(token)
+    await observer.call('pty.attach', { paneId: externalPaneId })
+    observer.ws.send(binary(0x03, JSON.stringify({ cols: 120, rows: 40 })))
+    const observerRefused = await observer.next((m) => m.error?.message === 'resize-not-supported')
+    expect(observerRefused.error?.code).toBe(-32602)
+    expect(deps.ptyWrite).not.toHaveBeenCalled()
+  })
+
+  it('answers resize-not-supported to a resize frame from a socket that never attached', async () => {
+    const { token } = registerDevice({ name: 'Phone', pubkey: 'pk' })
     const c = await connect(token)
-    await c.call('pty.attach', { paneId: externalPaneId, role: 'owner' })
 
-    c.ws.send(binary(0x02, 'a'))
-    await c.call('whoami')
-    expect(phoneResize).not.toHaveBeenCalled()
+    c.ws.send(binary(0x03, JSON.stringify({ cols: 120, rows: 40 })))
+    const refused = await c.next((m) => m.error?.message === 'resize-not-supported')
+    expect(refused.error?.code).toBe(-32602)
+    expect(deps.attachPhoneObserver).not.toHaveBeenCalled()
+    expect(deps.ptyWrite).not.toHaveBeenCalled()
+  })
 
-    c.ws.send(binary(0x03, JSON.stringify({ cols: 44, rows: 20 })))
-    c.ws.send(binary(0x02, 'b'))
-    await c.call('whoami')
+  it('tells every attached phone the size when the desktop resizes the pane', async () => {
+    const { deviceId, token } = registerDevice({ name: 'Phone', pubkey: 'pk' })
+    gatewaySetCap({ deviceId, cap: 'input', granted: true })
+    const owner = await connect(token)
+    await owner.call('pty.attach', { paneId: externalPaneId, role: 'owner' })
+    const observer = await connect(token)
+    await observer.call('pty.attach', { paneId: externalPaneId })
 
-    expect(phoneResize.mock.calls).toEqual([
-      [44, 20],
-      [44, 20],
-    ])
-    expect(vi.mocked(deps.ptyWrite).mock.invocationCallOrder[1]).toBeGreaterThan(
-      phoneResize.mock.invocationCallOrder[1],
-    )
+    for (const [, opts] of vi.mocked(deps.attachPhoneObserver).mock.calls) opts.sendSize(100, 30)
+
+    for (const phone of [owner, observer]) {
+      const size = await phone.next((m) => m.params?.type === 'pty.size')
+      expect(size.params?.payload).toEqual({ paneId: externalPaneId, cols: 100, rows: 30 })
+    }
   })
 
   it('never lets the input cap run command.exec', async () => {
@@ -492,6 +503,64 @@ describe('gateway server over a real WebSocket', () => {
     c.ws.terminate()
     await c.closed
     await vi.waitFor(() => expect(phoneCanRespond()).toBe(false))
+  })
+
+  describe('frame size', () => {
+    const overOneMiB = 'a'.repeat(1024 * 1024 + 1)
+    const imageSized = Buffer.concat([
+      Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+      Buffer.alloc(2 * 1024 * 1024),
+    ]).toString('base64')
+
+    function prompt(call: (method: string, params?: unknown) => Promise<Json>, text: string) {
+      return call('agent.prompt', {
+        paneId: externalPaneId,
+        text: 'look',
+        image: { mime: 'image/png', data: text },
+      })
+    }
+
+    it('closes a frame over 1 MiB sent before hello with nothing dispatched', async () => {
+      const ws = new WebSocket(`wss://127.0.0.1:${port}/ws`, { rejectUnauthorized: false })
+      const closed = new Promise<number>((resolve) => ws.on('close', (code) => resolve(code)))
+      ws.on('error', () => {})
+      await new Promise<void>((resolve) => ws.once('open', () => resolve()))
+      ws.send(
+        JSON.stringify({
+          jsonrpc: '2.0',
+          id: 1,
+          method: 'agent.prompt',
+          params: { pad: overOneMiB },
+        }),
+      )
+      expect(await closed).toBe(1009)
+      expect(deps.ptyWrite).not.toHaveBeenCalled()
+      expect(deps.withClipboardImage).not.toHaveBeenCalled()
+    })
+
+    it('lets a device holding respond send an image-sized agent.prompt after hello', async () => {
+      const { deviceId, token } = registerDevice({ name: 'Phone', pubkey: 'pk' })
+      gatewaySetCap({ deviceId, cap: 'respond', granted: true })
+      const c = await connect(token)
+      expect(c.json[0]?.result).toMatchObject({ features: ['prompt-image'] })
+      const answer = await prompt(c.call, imageSized)
+      expect(answer.error?.message).not.toBe('image-too-large')
+      expect(c.ws.readyState).toBe(WebSocket.OPEN)
+    })
+
+    it('holds a device without respond to 1 MiB', async () => {
+      const { token } = registerDevice({ name: 'Phone', pubkey: 'pk' })
+      const c = await connect(token)
+      c.ws.send(
+        JSON.stringify({
+          jsonrpc: '2.0',
+          id: 99,
+          method: 'agent.prompt',
+          params: { pad: overOneMiB },
+        }),
+      )
+      expect(await c.closed).toBe(1009)
+    })
   })
 
   it('exposes no control-socket method that can change device permissions', () => {

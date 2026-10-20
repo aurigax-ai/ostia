@@ -25,7 +25,7 @@ import type { PtyAttach } from './ptyAttach'
 import type { PtyIo } from './ptyIo'
 import { type PtyQueries, holdsLocalPrompt } from './ptyQueries'
 import type { PtyEntry } from './ptyRegistry'
-import { resizeFromDesktop } from './ptySize'
+import { resizePty } from './ptySize'
 import type { PtyStop } from './ptyStop'
 
 interface PtyIpcDeps {
@@ -155,7 +155,7 @@ function registerPtyControlIpc({
   ipcMain.on('pty:resize', (e, paneId: string, cols: number, rows: number) => {
     const entry = ptys.get(paneId)
     if (!entry?.subs.has(String(e.sender.id)) || entry.keepAlive) return
-    resizeFromDesktop(entry, cols, rows)
+    resizePty(entry, cols, rows)
   })
 }
 

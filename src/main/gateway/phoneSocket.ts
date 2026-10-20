@@ -5,22 +5,30 @@ import { resolveExternal } from '../control/idRegistry'
 import type { GatewayAddress } from './addresses'
 import { type GatewayControlDeps, dispatchGatewayMethod } from './controlDispatch'
 import { type Device, get as getDevice, verifyToken } from './devices'
+import { PHONE_IMAGE_FRAME_BYTES } from './phoneImage'
 import type { ScreenLinks } from './screenLinks'
 
 const FRAME_PTY_OUTPUT = 0x01
 const FRAME_PTY_INPUT = 0x02
 const FRAME_PTY_RESIZE = 0x03
-const MAX_PTY_DIM = 1000
 
 const HELLO_TIMEOUT_MS = 10_000
+
+export const PHONE_FRAME_BYTES = 1024 * 1024
+
+interface WithReceiver {
+  _receiver: { _maxPayload: number }
+}
+
+function allowImageFrames(ws: WebSocket): void {
+  ;(ws as unknown as WithReceiver)._receiver._maxPayload = PHONE_IMAGE_FRAME_BYTES
+}
 
 const LINK_METHODS: ReadonlySet<unknown> = new Set(['ask.list', 'ask.answer'])
 
 interface PtyAttachment {
   rendererPaneId: string
   canWrite: boolean
-  size: { cols: number; rows: number } | null
-  resize: (cols: number, rows: number) => void
   detach: () => void
 }
 
@@ -74,6 +82,8 @@ function handleHello(
     return
   }
   state.device = device
+  const takesImages = device.caps.includes('respond')
+  if (takesImages) allowImageFrames(ws)
   trackDeviceSocket(device.deviceId, ws)
   const phoneWorkspace = controlDeps?.phoneDefaults() ?? { set: false, agent: 'claude' }
   ws.send(
@@ -83,6 +93,7 @@ function handleHello(
       desktop: { name: PRODUCT_NAME, version: app.getVersion() },
       phoneWorkspace,
       addresses,
+      features: takesImages ? ['prompt-image'] : [],
     }),
   )
 }
@@ -184,6 +195,14 @@ function ptyOutputFrame(data: string): Buffer {
   return Buffer.concat([Buffer.from([FRAME_PTY_OUTPUT]), Buffer.from(data, 'utf8')])
 }
 
+function ptySizeFrame(paneId: string, cols: number, rows: number): string {
+  return JSON.stringify({
+    jsonrpc: '2.0',
+    method: 'event',
+    params: { type: 'pty.size', payload: { paneId, cols, rows } },
+  })
+}
+
 function handlePtyAttach(
   ws: WebSocket,
   state: SocketState,
@@ -209,7 +228,8 @@ function handlePtyAttach(
     ws.send(rpcError(msg.id, -32602, 'missing paneId'))
     return
   }
-  const identity = resolveExternal(p.paneId)
+  const externalPaneId = p.paneId
+  const identity = resolveExternal(externalPaneId)
   if (!identity) {
     ws.send(rpcError(msg.id, -32602, 'unknown paneId'))
     return
@@ -228,6 +248,9 @@ function handlePtyAttach(
     sendData: (data) => {
       if (ws.readyState === ws.OPEN) ws.send(ptyOutputFrame(data))
     },
+    sendSize: (cols, rows) => {
+      if (ws.readyState === ws.OPEN) ws.send(ptySizeFrame(externalPaneId, cols, rows))
+    },
   })
   if (!attached) {
     ws.send(rpcError(msg.id, -32602, 'unknown pane (no live pty)'))
@@ -236,8 +259,6 @@ function handlePtyAttach(
   state.ptyAttachment = {
     rendererPaneId: identity.paneId,
     canWrite: role === 'owner',
-    size: null,
-    resize: attached.resize,
     detach: attached.detach,
   }
   ws.send(
@@ -269,27 +290,6 @@ function handlePtyDetach(
   ws.send(rpcResult(msg.id, { ok: true }))
 }
 
-function isPtyDim(n: unknown): n is number {
-  return typeof n === 'number' && Number.isInteger(n) && n >= 1 && n <= MAX_PTY_DIM
-}
-
-function parseResize(payload: Buffer): { paneId?: unknown; cols: number; rows: number } | null {
-  let resize: { paneId?: unknown; cols?: unknown; rows?: unknown }
-  try {
-    resize = JSON.parse(payload.toString('utf8'))
-  } catch {
-    return null
-  }
-  if (!resize || !isPtyDim(resize.cols) || !isPtyDim(resize.rows)) return null
-  return { paneId: resize.paneId, cols: resize.cols, rows: resize.rows }
-}
-
-function resizeTargetsAttachment(paneId: unknown, attachment: PtyAttachment): boolean {
-  if (paneId === undefined) return true
-  if (typeof paneId !== 'string') return false
-  return resolveExternal(paneId)?.paneId === attachment.rendererPaneId
-}
-
 function handleBinaryFrame(
   ws: WebSocket,
   state: SocketState,
@@ -312,20 +312,16 @@ function handleBinaryFrame(
   const attachment = state.ptyAttachment
   const canWrite = attachment?.canWrite === true && device.caps.includes('input')
 
-  if (type === FRAME_PTY_INPUT || type === FRAME_PTY_RESIZE) {
+  if (type === FRAME_PTY_RESIZE) {
+    ws.send(rpcError(null, -32602, 'resize-not-supported'))
+    return
+  }
+  if (type === FRAME_PTY_INPUT) {
     if (!attachment || !canWrite) {
       ws.send(rpcError(null, -32003, 'needs-elevation', { cap: 'input' }))
       return
     }
-    if (type === FRAME_PTY_INPUT) {
-      if (attachment.size) attachment.resize(attachment.size.cols, attachment.size.rows)
-      controlDeps.ptyWrite(attachment.rendererPaneId, payload.toString('utf8'), 'key')
-      return
-    }
-    const resize = parseResize(payload)
-    if (!resize || !resizeTargetsAttachment(resize.paneId, attachment)) return
-    attachment.size = { cols: resize.cols, rows: resize.rows }
-    attachment.resize(resize.cols, resize.rows)
+    controlDeps.ptyWrite(attachment.rendererPaneId, payload.toString('utf8'), 'key')
   }
 }
 
@@ -342,6 +338,8 @@ function handleConnection(ws: WebSocket, deps: PhoneSocketDeps): void {
   const helloDeadline = setTimeout(() => {
     if (!state.device) ws.close(4001, 'hello timeout')
   }, HELLO_TIMEOUT_MS)
+
+  ws.on('error', () => ws.terminate())
 
   ws.on('pong', () => {
     state.alive = true

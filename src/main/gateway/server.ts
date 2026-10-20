@@ -17,8 +17,7 @@ import { type GatewayCert, getCert } from './cert'
 import type { GatewayControlDeps } from './controlDispatch'
 import { get as getDevice, list as listDevices } from './devices'
 import { createPairHttp } from './pairHttp'
-import { PHONE_IMAGE_FRAME_BYTES } from './phoneImage'
-import { type SocketState, createPhoneSocket } from './phoneSocket'
+import { PHONE_FRAME_BYTES, type SocketState, createPhoneSocket } from './phoneSocket'
 import { readProxyHeader } from './proxyProtocol'
 import type { ScreenLinks } from './screenLinks'
 import type { ScreenRequested } from './screenRequests'
@@ -55,8 +54,6 @@ const helperSockets = new Set<Socket>()
 const tailnetPeers = new WeakMap<object, string>()
 let tailnetNode: TailnetNode | null = null
 let phoneAddress: GatewayPhoneAddress | null = null
-const MAX_FRAME_BYTES = PHONE_IMAGE_FRAME_BYTES
-
 let wss: WebSocketServer | null = null
 let heartbeat: ReturnType<typeof setInterval> | null = null
 let boundHost: string | null = null
@@ -295,7 +292,7 @@ export async function startGateway(options: GatewayStartOptions = {}): Promise<G
   const wsServer = new WebSocketServer({
     server,
     path: '/ws',
-    maxPayload: MAX_FRAME_BYTES,
+    maxPayload: PHONE_FRAME_BYTES,
     verifyClient: (info: { origin: string; req: IncomingMessage }) =>
       !hasBrowserOrigin(info.origin) && isAllowedHostHeader(info.req.headers.host),
   })

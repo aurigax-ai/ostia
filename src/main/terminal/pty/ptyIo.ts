@@ -3,7 +3,7 @@ import type { HumanInputSource } from '../../panes/paneInput'
 import { type PaneIo, pastedText } from '../../panes/paneIo'
 import type { SubscriberRole } from '../ptySession'
 import type { PtyEntry } from './ptyRegistry'
-import { phoneOwnerAttached, phoneOwnerDetached, resizeForAll, resizeFromPhone } from './ptySize'
+import { resizeForAll } from './ptySize'
 
 interface PtyIoDeps {
   ptys: Map<string, PtyEntry>
@@ -88,38 +88,26 @@ export function createPtyIo({ ptys }: PtyIoDeps) {
       sinceCursor?: number
       role?: 'observer' | 'owner'
       sendData: (data: string) => void
+      sendSize: (cols: number, rows: number) => void
     },
-  ): {
-    cursor: number
-    dropped: boolean
-    cols: number
-    rows: number
-    resize: (cols: number, rows: number) => void
-    detach: () => void
-  } | null {
+  ): { cursor: number; dropped: boolean; cols: number; rows: number; detach: () => void } | null {
     const entry = ptys.get(rendererPaneId)
     if (!entry) return null
     const id = `gw-${++gwSubSeq}`
     const role: SubscriberRole = opts.role === 'owner' ? 'owner' : 'observer'
-    if (role === 'owner') phoneOwnerAttached(entry)
     const { cursor, dropped } = entry.session.addSubscriber(
       { id, role, send: (data) => opts.sendData(data) },
       opts.sinceCursor ?? 0,
     )
-    let detached = false
+    entry.sizeListeners.add(opts.sendSize)
     return {
       cursor,
       dropped,
       cols: entry.pty.cols,
       rows: entry.pty.rows,
-      resize: (cols, rows) => {
-        if (role === 'owner' && !detached) resizeFromPhone(rendererPaneId, entry, id, cols, rows)
-      },
       detach: () => {
-        if (detached) return
-        detached = true
         entry.session.removeSubscriber(id)
-        if (role === 'owner') phoneOwnerDetached(rendererPaneId, entry, id)
+        entry.sizeListeners.delete(opts.sendSize)
       },
     }
   }

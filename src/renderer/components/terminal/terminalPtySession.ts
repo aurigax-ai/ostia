@@ -16,7 +16,6 @@ import { useAttentionStore } from '@/stores/agents/attentionStore'
 import { useSandboxStore } from '@/stores/app/sandboxStore'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { type LineAnchor, useBlocksStore } from '@/stores/terminal/blocksStore'
-import { usePhoneSizeStore } from '@/stores/terminal/phoneSizeStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import type { TerminalSession } from './terminalSession'
 import { isPromptRepaint, nextSizeAction, settleFit } from './terminalSizing'
@@ -64,7 +63,7 @@ interface PtyIo {
 }
 
 export function attachPtySession(deps: PtySessionDeps): () => void {
-  const { host, term, paneId, workspaceIdRef, lastSizeRef, syncSizeRef, session, holdInput } = deps
+  const { host, term, paneId, workspaceIdRef, syncSizeRef, session, holdInput } = deps
   const flow: PtyFlow = { attached: false, replayed: false, unparsed: 0, querySilencer: null }
   const pending: string[] = []
   const emit: Write = (data, done) => {
@@ -117,31 +116,7 @@ export function attachPtySession(deps: PtySessionDeps): () => void {
 
   const io: PtyIo = { flow, pending, writeOutput, writeLive, neighbour }
   const attachAtCurrentSize = createPtyAttach(deps, io)
-  const sizing = createPtySizing(deps, io, attachAtCurrentSize, () => sizeTaken())
-
-  const phoneSize = usePhoneSizeStore.getState()
-  let sizedElsewhere = false
-  const offSize = window.ostia.pty.onSize(paneId, (cols, rows) => {
-    if (session.disposed) return
-    neighbour.drain()
-    term.resize(cols, rows)
-    lastSizeRef.current = { cols, rows }
-    sizedElsewhere = true
-    const desktop = deps.fit.proposeDimensions()
-    if (desktop && desktop.cols === cols && desktop.rows === rows) sizeTaken()
-    else phoneSize.hold(paneId, { cols, useDesktop: takeSizeBack })
-  })
-  const sizeTaken = (): void => {
-    sizedElsewhere = false
-    phoneSize.release(paneId)
-  }
-  const takeSizeBack = (): void => {
-    if (sizedElsewhere) sizing.syncSize()
-  }
-  const stack = host.closest('.terminal-stack') ?? host
-  stack.addEventListener('keydown', takeSizeBack, true)
-  stack.addEventListener('paste', takeSizeBack, true)
-  stack.addEventListener('focusin', takeSizeBack, true)
+  const sizing = createPtySizing(deps, io, attachAtCurrentSize)
 
   const input = term.onData((d) => {
     const source = humanInputSource(host)
@@ -209,11 +184,6 @@ export function attachPtySession(deps: PtySessionDeps): () => void {
     sizing.dispose()
     ro.disconnect()
     input.dispose()
-    stack.removeEventListener('keydown', takeSizeBack, true)
-    stack.removeEventListener('paste', takeSizeBack, true)
-    stack.removeEventListener('focusin', takeSizeBack, true)
-    offSize()
-    phoneSize.release(paneId)
     offData()
     offExit()
     neighbour.dispose()
@@ -318,7 +288,6 @@ function createPtySizing(
   { host, term, fit, screenElement, paneId, lastSizeRef, session }: PtySessionDeps,
   { flow, writeOutput, writeLive, neighbour }: PtyIo,
   attachAtCurrentSize: (cols: number, rows: number) => void,
-  sizeSent: () => void,
 ): PtySizing {
   let holdForRedraw = false
   let held: string[] = []
@@ -354,7 +323,6 @@ function createPtySizing(
     } else if (action.type === 'resize') {
       lastSizeRef.current = { cols: action.cols, rows: action.rows }
       window.ostia.pty.resize(paneId, action.cols, action.rows)
-      sizeSent()
     }
   }
 
@@ -421,7 +389,6 @@ function createPtySizing(
           holdForRedraw = true
           lastSizeRef.current = { cols: dims.cols, rows: dims.rows }
           window.ostia.pty.resize(paneId, dims.cols, dims.rows)
-          sizeSent()
           holdCapTimer = setTimeout(flushHold, 150)
           return
         }
