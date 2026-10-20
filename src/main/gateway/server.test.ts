@@ -370,7 +370,7 @@ describe('gateway server over a real WebSocket', () => {
     c.ws.send(binary(0x03, JSON.stringify({ paneId: 'someone-else', cols: 50, rows: 10 })))
     await c.call('whoami')
 
-    expect(deps.ptyWrite).toHaveBeenCalledWith('p1', 'ls\r')
+    expect(deps.ptyWrite).toHaveBeenCalledWith('p1', 'ls\r', 'key')
     expect(phoneResize).toHaveBeenCalledTimes(1)
     expect(phoneResize).toHaveBeenCalledWith(120, 40)
   })

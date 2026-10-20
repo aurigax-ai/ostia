@@ -1,4 +1,5 @@
 import type { MirrorHandle, MirrorSink } from '../../manager/portal'
+import type { HumanInputSource } from '../../panes/paneInput'
 import { type PaneIo, pastedText } from '../../panes/paneIo'
 import type { SubscriberRole } from '../ptySession'
 import type { PtyEntry } from './ptyRegistry'
@@ -68,10 +69,14 @@ export function createPtyIo({ ptys }: PtyIoDeps) {
     }
   }
 
-  function ptyWrite(rendererPaneId: string, data: string): void {
+  function ptyWrite(
+    rendererPaneId: string,
+    data: string,
+    source: HumanInputSource | null = null,
+  ): void {
     const entry = ptys.get(rendererPaneId)
     if (!entry) return
-    entry.input.note(data, null)
+    entry.input.note(data, source)
     entry.pty.write(data)
   }
 

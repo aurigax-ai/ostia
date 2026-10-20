@@ -319,7 +319,7 @@ function handleBinaryFrame(
     }
     if (type === FRAME_PTY_INPUT) {
       if (attachment.size) attachment.resize(attachment.size.cols, attachment.size.rows)
-      controlDeps.ptyWrite(attachment.rendererPaneId, payload.toString('utf8'))
+      controlDeps.ptyWrite(attachment.rendererPaneId, payload.toString('utf8'), 'key')
       return
     }
     const resize = parseResize(payload)

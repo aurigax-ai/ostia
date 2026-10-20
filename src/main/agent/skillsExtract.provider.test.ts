@@ -1,25 +1,21 @@
+import type { ExtensionCaller } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { type AgentRig, startAgentRig } from '../../../test/agentHarness'
-import { AgentSessions } from '../../main/agent/agentSessions'
-import { AppliedStore } from './appliedStore'
-import { EvalStore } from './evalStore'
-import { skillsService } from './service'
-import { SignalStore } from './signalStore'
-import { RulesStore } from './store'
+import { AppliedStore } from '../../extensions/skills/appliedStore'
+import { EvalStore } from '../../extensions/skills/evalStore'
+import { skillsService } from '../../extensions/skills/service'
+import { SignalStore } from '../../extensions/skills/signalStore'
+import { RulesStore } from '../../extensions/skills/store'
+import { AgentSessions } from './agentSessions'
 
 const DAY = 24 * 60 * 60 * 1000
 const NOW = 100 * DAY
-const caller = { kind: 'user', workspaceId: 'w1', capabilities: [] } as const
+const caller: ExtensionCaller = { kind: 'user', workspaceId: 'w1', capabilities: [] }
 
 const COMMENTS = [
   'No comments in the code, I told you last time.',
   'No comments please, the code should explain itself.',
   'Remove the comments again, never add comments.',
-]
-const PNPM = [
-  'Use pnpm here, never npm.',
-  'Always use pnpm, not npm, for installs.',
-  'Stop running npm install, use pnpm.',
 ]
 
 describe('Find rules against an OpenAI-compatible server, through the Agent extension', () => {

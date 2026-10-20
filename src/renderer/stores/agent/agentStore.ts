@@ -31,7 +31,10 @@ export const useAgentStore = create<AgentStoreState>((set) => ({
   rules: {},
   setRules: (sessionId, rules) =>
     set((s) => ({
-      rules: { ...s.rules, [sessionId]: { on: true, count: 0, ...s.rules[sessionId], ...rules } },
+      rules: {
+        ...s.rules,
+        [sessionId]: { ...(s.rules[sessionId] ?? { on: true, count: 0 }), ...rules },
+      },
     })),
   setCurrent: (workspaceId, sessionId) =>
     set((s) => ({ current: { ...s.current, [workspaceId]: sessionId } })),

@@ -5,6 +5,7 @@ import type { TerminalStateSnapshot } from '../../shared/terminal/ptyApi'
 import type { Ask, AskAnswerResult } from '../approvals/asks'
 import { internalPaneArgs } from '../control/commandArgs'
 import { type PaneIdentity, resolveExternal } from '../control/idRegistry'
+import type { HumanInputSource } from '../panes/paneInput'
 import type { PaneEntry, WorkspaceEntry, WorkspaceGroupEntry } from '../panes/paneList'
 import { type PhoneAgent, phoneAgentCommand } from '../panes/phoneAgent'
 import type { PhoneAgentStart } from '../panes/processManager'
@@ -42,7 +43,7 @@ export interface GatewayControlDeps extends PhoneTurnDeps, PhoneSnippetDeps {
     resize: (cols: number, rows: number) => void
     detach: () => void
   } | null
-  ptyWrite: (rendererPaneId: string, data: string) => void
+  ptyWrite: (rendererPaneId: string, data: string, source?: HumanInputSource) => void
   readScreen: (rendererPaneId: string) => Promise<string>
   withClipboardImage: (bytes: Buffer, paste: () => Promise<boolean>) => Promise<boolean | null>
   listAsks: () => Ask[]
@@ -386,10 +387,10 @@ async function agentPrompt(call: GatewayCall): Promise<RpcOutcome> {
     if (!pasted) return notPasted(pane)
     if (!text) return { ok: true, result: { ok: true, image: 'pasted' } }
   }
-  deps.ptyWrite(pane.paneId, bracketedPaste(text))
+  deps.ptyWrite(pane.paneId, bracketedPaste(text), 'paste')
   await wait(AGENT_ENTER_DELAY_MS)
   if (!deps.agentRunning(pane.paneId)) return notSubmitted(pane)
-  deps.ptyWrite(pane.paneId, '\r')
+  deps.ptyWrite(pane.paneId, '\r', 'key')
   if (watched && !(await deps.turnStarted(pane))) return notSubmitted(pane)
   return { ok: true, result: { ok: true, ...(bytes ? { image: 'pasted' } : {}) } }
 }

@@ -171,12 +171,22 @@ describe('input provenance', () => {
     const io = createPtyIo({ ptys: new Map([['pane-1', entry]]) })
     io.paneIo.write('pane-1', 'from pane send\r')
     expect(input.claimHumanPrompt('x')).toBe(false)
-    io.ptyWrite('pane-1', 'from the phone\r')
+    io.ptyWrite('pane-1', 'from an unattributed writer\r')
     expect(input.claimHumanPrompt('x')).toBe(false)
     io.attachMirror('pane-1', { data: () => undefined, exit: () => undefined })?.write(
       'from the portal\r',
     )
     expect(input.claimHumanPrompt('x')).toBe(false)
+  })
+
+  it('counts what the paired phone types or sends as a prompt as the human’s', () => {
+    const { entry, input } = fakeEntry()
+    const io = createPtyIo({ ptys: new Map([['pane-1', entry]]) })
+    io.ptyWrite('pane-1', 'typed on the phone\r', 'key')
+    expect(input.claimHumanPrompt('x')).toBe(true)
+    io.ptyWrite('pane-1', '\x1b[200~sent as a prompt\x1b[201~', 'paste')
+    io.ptyWrite('pane-1', '\r', 'key')
+    expect(input.claimHumanPrompt('y')).toBe(true)
   })
 
   it('does not let a pane send finish a line the human typed', () => {
