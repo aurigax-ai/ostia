@@ -3,6 +3,7 @@ import { EventEmitter } from 'node:events'
 import {
   chmodSync,
   existsSync,
+  linkSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
@@ -546,13 +547,17 @@ describe('serial session log file safety', () => {
     symlinkSync(target, link)
     const folder = join(dir, 'folder.log')
     mkdirSync(folder)
-    for (const path of [link, folder]) {
+    const hard = join(dir, 'hard.log')
+    linkSync(target, hard)
+    chmodSync(target, 0o644)
+    for (const path of [link, folder, hard]) {
       const { code, term, device } = await open(path)
       expect(code, path).toBe(1)
       expect(term.text()).toContain(`Could not write the session log ${path}`)
       expect(device.closed).toEqual([device.opened[0].fd])
     }
     expect(readFileSync(target, 'utf8')).toBe('export PATH\n')
+    expect(statSync(target).mode & 0o777).toBe(0o644)
   })
 
   it('creates no log when the device cannot be opened', async () => {

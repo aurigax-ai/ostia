@@ -18,7 +18,7 @@ missing or unplugged, and ends. Closing the pane releases the device; Ctrl-] dis
 `--log <name>` takes a file name only (letters, digits, `.`, `_`, `-`; no path, no `..`); the log
 is appended to in the serial extension's own logs folder, and `connect` prints its full path as
 `log`. A path is refused, here and in the picker: every log lives in that folder, and
-`ostia serial logs` shows it in the file manager and prints `{dir}`. Everything the pane sends
+`ostia serial logs` prints `{dir}` and opens no window (the human's "Serial: Reveal Session Logs" in the palette shows the folder in the file manager). Everything the pane sends
 and receives goes into the log, including what you type with `ostia pane send`.
 
 Ask the human to type a password themselves. When you must send one, first send the single
