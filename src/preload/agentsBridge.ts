@@ -2,20 +2,13 @@ import { ipcRenderer } from 'electron'
 import type { OstiaBridge } from '../shared/types'
 import { answer, listen } from './listen'
 
-export const agentsBridge: Pick<
-  OstiaBridge,
-  'manager' | 'agentSession' | 'mail' | 'worktreeShare'
-> = {
+export const agentsBridge: Pick<OstiaBridge, 'manager' | 'agentSession' | 'mail'> = {
   manager: {
     onOpen: (cb) => {
       const off = answer('manager:open', 'manager:open-result', cb)
       ipcRenderer.send('manager:ready')
       return off
     },
-  },
-  worktreeShare: {
-    snapshot: () => ipcRenderer.invoke('agents:worktree-snapshot'),
-    onChange: (cb) => listen('agents:worktree', cb),
   },
   mail: {
     snapshot: () => ipcRenderer.invoke('bus:mail-snapshot'),

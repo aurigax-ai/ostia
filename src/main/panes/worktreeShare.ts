@@ -1,5 +1,3 @@
-import { ipcMain } from 'electron'
-import type { WorktreeShareMap } from '../../shared/agents/worktreeShareApi'
 import type { PaneIdentity } from '../control/idRegistry'
 import type { PaneEntry } from './paneList'
 
@@ -10,7 +8,6 @@ export interface WorktreeShareDeps {
   key: (cwd: string) => Promise<string | undefined>
   identity: (externalId: string) => PaneIdentity | undefined
   remote: (paneId: string) => boolean
-  publish: (map: WorktreeShareMap) => void
 }
 
 interface Cached {
@@ -22,7 +19,6 @@ interface Cached {
 export class WorktreeShare {
   private readonly keys = new Map<string, Cached>()
   private shared = new Map<string, string[]>()
-  private map: WorktreeShareMap = {}
   private timer: NodeJS.Timeout | undefined
 
   constructor(private readonly deps: WorktreeShareDeps) {}
@@ -37,10 +33,6 @@ export class WorktreeShare {
 
   others(externalId: string): string[] {
     return this.shared.get(externalId) ?? []
-  }
-
-  current(): WorktreeShareMap {
-    return this.map
   }
 
   async check(): Promise<void> {
@@ -68,19 +60,6 @@ export class WorktreeShare {
           members.filter((other) => other !== member),
         )
     }
-    const map: WorktreeShareMap = {}
-    for (const [externalId, others] of shared) {
-      const own = this.deps.identity(externalId)
-      if (!own) continue
-      map[own.paneId] = others.flatMap((other) => this.deps.identity(other)?.paneId ?? [])
-    }
     this.shared = shared
-    if (JSON.stringify(map) === JSON.stringify(this.map)) return
-    this.map = map
-    this.deps.publish(map)
   }
-}
-
-export function registerWorktreeShareIpc(share: WorktreeShare): void {
-  ipcMain.handle('agents:worktree-snapshot', () => share.current())
 }
