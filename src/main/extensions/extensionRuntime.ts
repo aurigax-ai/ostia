@@ -43,6 +43,7 @@ export interface Runtime {
   reached: Set<string>
   opened: Set<string>
   callerWorkspaces: Set<string>
+  servingPanes: Map<string, number>
 }
 
 export interface AssistRuntimeReport {
@@ -131,5 +132,6 @@ export function newRuntime(ext: LoadedExtension): Runtime {
     reached: new Set(),
     opened: new Set(),
     callerWorkspaces: new Set(),
+    servingPanes: new Map(),
   }
 }

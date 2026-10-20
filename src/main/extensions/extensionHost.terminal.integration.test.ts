@@ -23,6 +23,7 @@ describe('ExtensionHost ext.openTerminal and interactive commands (real socket)'
   let agentPane: PaneIdentity
   const confirm = vi.fn<(req: ExtensionConfirmRequest) => Promise<boolean>>()
   const openTerminalIn = vi.fn<(req: TerminalOpenRequest) => Promise<string | null>>()
+  const adoptPane = vi.fn<(ownerPaneId: string, paneId: string) => void>()
 
   beforeAll(() => {
     dir = mkdtempSync(join(tmpdir(), 'ostia-ext-terminal-'))
@@ -41,6 +42,7 @@ describe('ExtensionHost ext.openTerminal and interactive commands (real socket)'
       notify: () => {},
       confirm,
       openTerminalIn,
+      adoptPane,
       isSandboxed: (workspaceId) => workspaceId === 'w2',
       hostGrants: new HostPaneGrants({ now: Date.now, ttlMs: 60_000 }),
       readyTimeoutMs: 8000,
@@ -69,6 +71,7 @@ describe('ExtensionHost ext.openTerminal and interactive commands (real socket)'
   beforeEach(() => {
     confirm.mockReset()
     openTerminalIn.mockReset()
+    adoptPane.mockReset()
   })
 
   it('quotes the argv once and opens beside the named pane in its own workspace', async () => {
@@ -92,6 +95,55 @@ describe('ExtensionHost ext.openTerminal and interactive commands (real socket)'
       windowId: '7',
       cwd: '/tmp',
       title: 'Install',
+    })
+  })
+
+  describe('a pane opened while serving a call', () => {
+    let opened: PaneIdentity
+
+    beforeAll(() => {
+      opened = registerPane({ windowId: '7', workspaceId: 'w1', paneId: 'pane-serial' })
+    })
+
+    const open = (from: ExtensionCaller, afterPaneId: string) => {
+      openTerminalIn.mockResolvedValue(opened.externalId)
+      return host.invoke('opener', 'open', { command: ['true'], afterPaneId }, from)
+    }
+
+    it('belongs to the pane whose CLI call the extension is serving', async () => {
+      await open(
+        { kind: 'pane', paneId: agentPane.externalId, workspaceId: 'w1', capabilities: [] },
+        agentPane.externalId,
+      )
+      expect(adoptPane).toHaveBeenCalledExactlyOnceWith('pane-agent', 'pane-serial')
+    })
+
+    it('belongs to nobody when the human started it from the palette', async () => {
+      await open(
+        { kind: 'user', paneId: agentPane.externalId, workspaceId: 'w1', capabilities: [] },
+        agentPane.externalId,
+      )
+      expect(adoptPane).not.toHaveBeenCalled()
+    })
+
+    it('belongs to nobody when no calling pane is named', async () => {
+      openTerminalIn.mockResolvedValue(opened.externalId)
+      await host.invoke(
+        'opener',
+        'open',
+        { command: ['true'], workspaceId: 'w1' },
+        { kind: 'pane', paneId: agentPane.externalId, workspaceId: 'w1', capabilities: [] },
+      )
+      expect(adoptPane).not.toHaveBeenCalled()
+    })
+
+    it('does not extend to a pane the extension is not serving', async () => {
+      const other = registerPane({ windowId: '7', workspaceId: 'w1', paneId: 'pane-bystander' })
+      await open(
+        { kind: 'pane', paneId: agentPane.externalId, workspaceId: 'w1', capabilities: [] },
+        other.externalId,
+      )
+      expect(adoptPane).not.toHaveBeenCalled()
     })
   })
 

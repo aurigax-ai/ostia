@@ -102,6 +102,7 @@ export class ProcessRegistry {
   private readonly byPane = new Map<string, ProcessEntry>()
   private readonly frozen = new Map<string, RingSlice>()
   private readonly workersTabs = new Map<string, string>()
+  private readonly adopted = new Map<string, string>()
   private counter = 0
 
   constructor(private readonly deps: RegistryDeps) {}
@@ -196,6 +197,7 @@ export class ProcessRegistry {
 
   paneClosed(paneId: string): void {
     this.workersTabs.delete(paneId)
+    this.adopted.delete(paneId)
     const entry = this.byPane.get(paneId)
     if (!entry) return
     this.release(entry)
@@ -243,7 +245,14 @@ export class ProcessRegistry {
   }
 
   isChild(ownerPaneId: string, paneId: string): boolean {
-    return this.byPane.get(paneId)?.ownerPaneId === ownerPaneId
+    return (
+      this.byPane.get(paneId)?.ownerPaneId === ownerPaneId ||
+      this.adopted.get(paneId) === ownerPaneId
+    )
+  }
+
+  adoptChild(ownerPaneId: string, paneId: string): void {
+    this.adopted.set(paneId, ownerPaneId)
   }
 
   workspaceOf(entry: ProcessEntry): string {

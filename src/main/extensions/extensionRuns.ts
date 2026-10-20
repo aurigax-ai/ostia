@@ -100,6 +100,7 @@ export interface ExtensionRunsHost {
   deps: Pick<
     ExtensionHostDeps,
     | 'agentArgv'
+    | 'adoptPane'
     | 'agentTaskClock'
     | 'agentNames'
     | 'confirm'
@@ -137,8 +138,9 @@ export class ExtensionRuns {
     const req: TerminalOpenRequest = { command }
     const workspaceId =
       typeof p.workspaceId === 'string' && p.workspaceId ? p.workspaceId : undefined
+    let after: PaneIdentity | undefined
     if (p.afterPaneId !== undefined) {
-      const after = typeof p.afterPaneId === 'string' ? resolveExternal(p.afterPaneId) : undefined
+      after = typeof p.afterPaneId === 'string' ? resolveExternal(p.afterPaneId) : undefined
       if (after?.kind !== 'pane') return fail('unknown-pane', 'afterPaneId is not a pane')
       if (workspaceId && workspaceId !== after.workspaceId) {
         return fail('invalid-params', 'afterPaneId is not in that workspace')
@@ -175,8 +177,15 @@ export class ExtensionRuns {
     if (!paneId) return fail('not-opened', 'no workspace to open it in')
     this.reach(rt, paneId)
     this.markOpened(rt, paneId)
+    this.adoptForCaller(rt, after, paneId)
     if (waitMs === null) return { ok: true, paneId }
     return { ok: true, paneId, wait: await this.waitForTerminal(paneId, waitMs) }
+  }
+
+  private adoptForCaller(rt: Runtime, after: PaneIdentity | undefined, paneId: string): void {
+    if (after?.kind !== 'pane' || !rt.servingPanes.has(after.externalId)) return
+    const opened = resolveExternal(paneId)
+    if (opened?.kind === 'pane') this.host.deps.adoptPane?.(after.paneId, opened.paneId)
   }
 
   private waitForTerminal(paneId: string, ms: number): Promise<TerminalWait> {

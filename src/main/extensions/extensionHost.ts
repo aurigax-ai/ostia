@@ -425,6 +425,8 @@ export class ExtensionHost {
     const missing = cmd.capabilities.find((cap) => !caller.capabilities.includes(cap))
     if (missing) return fail('needs-elevation', missing)
     if (caller.workspaceId) rt.callerWorkspaces.add(caller.workspaceId)
+    const serving = caller.kind === 'pane' ? caller.paneId : undefined
+    if (serving) rt.servingPanes.set(serving, (rt.servingPanes.get(serving) ?? 0) + 1)
     try {
       const conn = await this.processes.connected(rt, command)
       const timeoutMs = cmd.interactive
@@ -438,7 +440,15 @@ export class ExtensionHost {
       return normalizeResult(raw)
     } catch (err) {
       return fail('extension-unavailable', (err as Error).message)
+    } finally {
+      if (serving) this.releaseServing(rt, serving)
     }
+  }
+
+  private releaseServing(rt: Runtime, paneId: string): void {
+    const left = (rt.servingPanes.get(paneId) ?? 1) - 1
+    if (left > 0) rt.servingPanes.set(paneId, left)
+    else rt.servingPanes.delete(paneId)
   }
 
   async agentRequest(request: AgentRequest): Promise<AgentReply> {

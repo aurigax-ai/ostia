@@ -337,6 +337,7 @@ async function measureHistory(win: Page, dataHome: string): Promise<Metrics> {
     await pty.historyRead(pane, Math.max(0, (info?.end ?? 0) - 6000), 6000)
     const readLatestMs = performance.now() - latestAt
     return {
+      first: info?.first ?? -1,
       readOldestMs: Math.round(readOldestMs),
       readLatestMs: Math.round(readLatestMs),
       lines: info ? info.end - info.first : -1,
@@ -346,11 +347,12 @@ async function measureHistory(win: Page, dataHome: string): Promise<Metrics> {
     }
   }, paneId)
   const diskBytes = folderBytes(join(dataHome, 'ostia', 'scrollback'))
-  const rows = win.locator('.history-pane:not([style*="hidden"]) .xterm-rows')
+  const { first, ...historyStats } = stats
+  const shownTop = win.locator(`.history-layer[data-top="${first}"]`)
   await win.keyboard.press(chords.palette)
   await win.locator('[data-slot="command-input"]').fill('Scroll to Top')
   await waitForPaletteSelection(win, 'Scroll to Top')
-  await win.evaluate(watchHistoryText, 'bulk output')
+  await win.evaluate(watchHistoryShown)
   await win.evaluate(() => {
     const w = window as unknown as HistoryTimes
     document.addEventListener(
@@ -363,7 +365,7 @@ async function measureHistory(win: Page, dataHome: string): Promise<Metrics> {
   })
   const openAt = Date.now()
   await win.keyboard.press('Enter')
-  await expect(rows).toContainText('bulk output', { timeout: 30_000 })
+  await expect(shownTop).toBeVisible({ timeout: 30_000 })
   const openMs = Date.now() - openAt
   const openInPageMs = await win.evaluate(historyTextShownAfter)
   const pageMs = openMs
@@ -373,7 +375,7 @@ async function measureHistory(win: Page, dataHome: string): Promise<Metrics> {
   await waitForPaletteSelection(win, 'Scroll to Bottom')
   await win.keyboard.press('Enter')
   return {
-    ...stats,
+    ...historyStats,
     diskBytes,
     bytesPerLine: +(diskBytes / Math.max(1, stats.lines)).toFixed(1),
     openMs,
@@ -388,18 +390,25 @@ interface HistoryTimes {
   __historyShown?: Promise<number>
 }
 
-function watchHistoryText(text: string): void {
+function watchHistoryShown(): void {
   const w = window as unknown as HistoryTimes
   w.__historyFrom = undefined
   w.__historyShown = new Promise((resolve) => {
-    const shows = () =>
-      document.querySelector('.history-screen .xterm-rows')?.textContent?.includes(text) ?? false
+    const shows = () => {
+      const box = document.querySelector<HTMLElement>('.history-layer')
+      return box?.style.visibility === 'visible' && box.dataset.top !== undefined
+    }
     const observer = new MutationObserver(() => {
       if (!shows()) return
       observer.disconnect()
       requestAnimationFrame(() => resolve(performance.now()))
     })
-    observer.observe(document.body, { childList: true, subtree: true, characterData: true })
+    observer.observe(document.body, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ['style', 'data-top'],
+    })
   })
 }
 
