@@ -10,7 +10,6 @@ export interface BlockedPackage {
 export interface PackageAsk {
   workspaceId: string
   kind: 'package' | 'package-malware'
-  malware: boolean
   packages: BlockedPackage[]
 }
 
@@ -68,7 +67,6 @@ export class PackageRequests {
     const outcome = await this.deps.ask({
       workspaceId,
       kind: malware ? 'package-malware' : 'package',
-      malware,
       packages,
     })
     const asked = this.asked.get(workspaceId)

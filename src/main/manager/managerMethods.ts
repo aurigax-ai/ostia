@@ -1,10 +1,9 @@
-import { isRecord } from '@aurigax-ai/ostia-extension-sdk/contract/isRecord'
 import { PRODUCT_DISPLAY_NAME } from '@aurigax-ai/ostia-extension-sdk/contract/productDisplay'
-import { ErrorCodes, ResponseError } from 'vscode-jsonrpc/node'
 import type { ManagerSettings } from '../../shared/agents/managerSettings'
 import { type ControlMethod, registerControlMethod } from '../control/controlServer'
 import { type PaneIdentity, resolveExternal } from '../control/idRegistry'
 import { type PaneIo, inputBytes, readLineCount } from '../panes/paneIo'
+import { fail, record } from '../panes/paneReach'
 import { RateWindow } from '../platform/rateWindow'
 
 const SPAWN_WINDOW_MS = 10 * 60 * 1000
@@ -24,14 +23,6 @@ export interface ManagerMethodDeps {
   openWorker: (req: WorkerRequest) => Promise<string | null>
   paneAlive: (paneId: string) => boolean
   now: () => number
-}
-
-function fail(message: string): ResponseError<void> {
-  return new ResponseError(ErrorCodes.InvalidRequest, message)
-}
-
-function params(raw: unknown): Record<string, unknown> {
-  return isRecord(raw) ? raw : {}
 }
 
 function targetPane(raw: unknown, me: PaneIdentity): PaneIdentity {
@@ -60,7 +51,7 @@ export function registerManagerMethods(deps: ManagerMethodDeps): ManagerLimiter 
     'manager.read',
     managerOnly({
       handler: async (raw, ctx) => {
-        const p = params(raw)
+        const p = record(raw)
         const target = targetPane(p.paneId, ctx.identity)
         const text = await deps.io.read(target.paneId, readLineCount(p.lines))
         if (text === null) throw fail(`no-terminal: ${target.externalId} has no running terminal`)
@@ -73,7 +64,7 @@ export function registerManagerMethods(deps: ManagerMethodDeps): ManagerLimiter 
     'manager.spawn',
     managerOnly({
       handler: async (raw) => {
-        const p = params(raw)
+        const p = record(raw)
         if (typeof p.agent !== 'string') throw fail('bad-request: agent')
         const agents = deps.agents()
         const preset = agents[p.agent]
@@ -122,7 +113,7 @@ export function registerManagerMethods(deps: ManagerMethodDeps): ManagerLimiter 
             'input-off: typing into panes is off; the human can turn on manager.allowInput in Settings → Manager',
           )
         }
-        const p = params(raw)
+        const p = record(raw)
         const target = targetPane(p.paneId, ctx.identity)
         const data = inputBytes(p.text, p.keys)
         if (!deps.io.write(target.paneId, data)) {

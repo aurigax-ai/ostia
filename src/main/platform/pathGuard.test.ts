@@ -3,7 +3,7 @@ import { homedir, tmpdir } from 'node:os'
 import { join, sep } from 'node:path'
 import { afterAll, describe, expect, it } from 'vitest'
 import { archiveRoot } from '../../shared/archives/archivePaths'
-import { expandHome, isInsidePath, isPathAllowed, resolveSafe } from './pathGuard'
+import { expandHome, isInsidePath, resolveSafe } from './pathGuard'
 
 const root = mkdtempSync(join(tmpdir(), 'ostia-guard-'))
 
@@ -66,13 +66,13 @@ describe('isInsidePath', () => {
 describe('resolveSafe — rejections', () => {
   it('rejects a remote file address, which is never a local path', () => {
     expect(resolveSafe('remote://abcdef012345/etc/passwd', [process.cwd(), '/'])).toBeNull()
-    expect(isPathAllowed('remote://abcdef012345/srv/app', ['/'])).toBe(false)
+    expect(resolveSafe('remote://abcdef012345/srv/app', ['/'])).toBeNull()
   })
 
   it('rejects an archive path, which resolves against the working folder as a plain path', () => {
     const entry = `${archiveRoot('/etc/archive.zip')}/passwd`
     expect(resolveSafe(entry, [process.cwd(), '/'])).toBeNull()
-    expect(isPathAllowed(entry, ['/'])).toBe(false)
+    expect(resolveSafe(entry, ['/'])).toBeNull()
   })
 
   it('rejects an absolute path outside every root (/etc/passwd)', () => {
@@ -92,7 +92,7 @@ describe('resolveSafe — rejections', () => {
     const appRoot = join(root, 'app')
     const sibling = join(root, 'app-secrets', 'x')
     expect(resolveSafe(sibling, [appRoot])).toBeNull()
-    expect(isPathAllowed(sibling, [appRoot])).toBe(false)
+    expect(resolveSafe(sibling, [appRoot])).toBeNull()
     expect(resolveSafe(appRoot, [appRoot])).toBe(appRoot)
     expect(resolveSafe(join(appRoot, 'main.ts'), [appRoot])).toBe(join(appRoot, 'main.ts'))
   })
@@ -101,20 +101,20 @@ describe('resolveSafe — rejections', () => {
     const a = join(root, 'a')
     const b = join(root, 'b')
     expect(resolveSafe('/etc/hosts', [a, b])).toBeNull()
-    expect(isPathAllowed('/etc/hosts', [a, b])).toBe(false)
+    expect(resolveSafe('/etc/hosts', [a, b])).toBeNull()
   })
 })
 
 describe('resolveSafe — acceptances', () => {
   it('allows the root itself', () => {
     expect(resolveSafe(root, [root])).toBe(root)
-    expect(isPathAllowed(root, [root])).toBe(true)
+    expect(resolveSafe(root, [root])).not.toBeNull()
   })
 
   it('allows a legitimate subpath of the root', () => {
     const target = join(root, 'src', 'a.ts')
     expect(resolveSafe(target, [root])).toBe(target)
-    expect(isPathAllowed(target, [root])).toBe(true)
+    expect(resolveSafe(target, [root])).not.toBeNull()
   })
 
   it('expands ~ for an in-root path (roots = [homedir()])', () => {
@@ -127,7 +127,7 @@ describe('resolveSafe — acceptances', () => {
     const b = join(root, 'b')
     const target = join(b, 'deep', 'file.txt')
     expect(resolveSafe(target, [a, b])).toBe(target)
-    expect(isPathAllowed(target, [a, b])).toBe(true)
+    expect(resolveSafe(target, [a, b])).not.toBeNull()
   })
 })
 

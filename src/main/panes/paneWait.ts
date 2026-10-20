@@ -1,11 +1,10 @@
-import { ErrorCodes, ResponseError } from 'vscode-jsonrpc/node'
 import type { AttentionState } from '../../shared/attention/attention'
 import type { PaneStatus } from '../../shared/panes/paneStatus'
 import { clampMessage } from '../attention/attention'
 import { registerControlMethod } from '../control/controlServer'
 import type { PaneIdentity } from '../control/idRegistry'
 import type { PaneAttentionPeek } from './paneIo'
-import { type PaneReachDeps, ensurePaneReach, paneTarget, record } from './paneReach'
+import { type PaneReachDeps, ensurePaneReach, fail, paneTarget, record } from './paneReach'
 
 const PANE_WAIT_STATES = ['done', 'waiting', 'error', 'idle', 'exited', 'command'] as const
 export type PaneWaitState = (typeof PANE_WAIT_STATES)[number]
@@ -82,10 +81,6 @@ export function reachedState(
   if (agent && until.includes(agent)) return agent
   if (view.exited && until.includes('exited')) return 'exited'
   return undefined
-}
-
-function fail(message: string): ResponseError<void> {
-  return new ResponseError(ErrorCodes.InvalidRequest, message)
 }
 
 export function waitUntil(raw: unknown): readonly PaneWaitState[] {

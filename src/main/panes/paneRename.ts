@@ -1,12 +1,11 @@
 import type { Capability } from '@aurigax-ai/ostia-extension-sdk/contract/capabilities'
-import { ErrorCodes, ResponseError } from 'vscode-jsonrpc/node'
 import type { CommandResult, CommandTarget } from '../../shared/control/commands'
 import { ensureCaps } from '../approvals/controlElevation'
 import type { Reach } from '../approvals/reach'
 import { targetOf } from '../attention/attention'
 import { registerControlMethod } from '../control/controlServer'
 import { type PaneIdentity, resolveExternal } from '../control/idRegistry'
-import { record } from './paneReach'
+import { fail, record } from './paneReach'
 
 const NAME_MAX = 200
 
@@ -14,10 +13,6 @@ export interface PaneRenameDeps {
   execCommand: (target: CommandTarget, id: string, args?: unknown) => Promise<CommandResult>
   reach: Pick<Reach, 'inScope'>
   windowOfWorkspace: (workspaceId: string) => string | undefined
-}
-
-function fail(message: string): ResponseError<void> {
-  return new ResponseError(ErrorCodes.InvalidRequest, message)
 }
 
 function hasControlCharacter(text: string): boolean {

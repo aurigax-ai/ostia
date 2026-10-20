@@ -40,7 +40,7 @@ describe('PackageRequests', () => {
     const { requests, asks, stored, session } = setup('workspace')
     requests.blocked('ws', pkg('evil'), 'malware')
     await vi.advanceTimersByTimeAsync(150)
-    expect(asks[0]).toMatchObject({ malware: true, kind: 'package-malware' })
+    expect(asks[0]).toMatchObject({ kind: 'package-malware' })
     expect(stored).toEqual([])
     expect(session).toEqual([])
   })

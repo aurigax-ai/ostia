@@ -100,8 +100,6 @@ export function parseNameStatus(output: string): CommitFile[] {
   return files
 }
 
-export { isUncommitted } from '../../shared/boards/git'
-
 interface BlameCommit {
   author: string
   time: number
