@@ -1,5 +1,6 @@
 import { spawn } from 'node:child_process'
 import { constants, closeSync, openSync } from 'node:fs'
+import { isAbsolute, join } from 'node:path'
 import { createInterface } from 'node:readline'
 import { ReadStream } from 'node:tty'
 import { parseFlags } from '@aurigax-ai/ostia-extension-sdk'
@@ -13,7 +14,7 @@ import {
   frameText,
   isSerialDevice,
   listDevices,
-  logPath,
+  logName,
   parseFrame,
   parseSpeed,
   sttyArgs,
@@ -32,6 +33,7 @@ export interface BridgeArgs {
   speed?: string
   frame?: string
   log?: string
+  logDir?: string
 }
 
 interface BridgeTiming {
@@ -102,13 +104,14 @@ export const nodeDeviceIo: DeviceIo = {
 }
 
 export function parseBridgeArgs(argv: string[]): BridgeArgs {
-  const { flags } = parseFlags(argv, ['locale', 'device', 'speed', 'frame', 'log'])
+  const { flags } = parseFlags(argv, ['locale', 'device', 'speed', 'frame', 'log', 'log-dir'])
   return {
     locale: flags.locale,
     device: flags.device,
     speed: flags.speed,
     frame: flags.frame,
     log: flags.log,
+    logDir: flags['log-dir'],
   }
 }
 
@@ -117,7 +120,7 @@ export function bridgeCommand(
   script: string,
   locale: string | undefined,
   target?: { device: string; line: LineSettings },
-  log?: string,
+  logs?: { dir: string; name?: string },
 ): string[] {
   const argv = ['env', 'ELECTRON_RUN_AS_NODE=1', execPath, script, BRIDGE_MODE]
   if (locale) argv.push('--locale', locale)
@@ -125,7 +128,8 @@ export function bridgeCommand(
     argv.push('--device', target.device, '--speed', String(target.line.speed))
     argv.push('--frame', frameText(target.line.frame))
   }
-  if (log !== undefined) argv.push('--log', log)
+  if (logs) argv.push('--log-dir', logs.dir)
+  if (logs?.name !== undefined) argv.push('--log', logs.name)
   return argv
 }
 
@@ -215,15 +219,16 @@ async function askLog(
   terminal: BridgeTerminal,
   next: () => Promise<string | null>,
   s: Strings,
+  dir: string,
 ): Promise<{ log?: string } | null> {
   for (;;) {
-    terminal.output.write(`${s.logPrompt}: `)
+    terminal.output.write(`${s.logPrompt(dir)}: `)
     const answer = await next()
     if (answer === null) return null
-    if (answer.trim() === '') return {}
-    const log = logPath(answer)
-    if (log !== null) return { log }
-    say(terminal, s.badLogPath(answer.trim()))
+    const name = answer.trim()
+    if (name === '') return {}
+    if (logName(name)) return { log: join(dir, name) }
+    say(terminal, s.badLogName(name))
   }
 }
 
@@ -233,6 +238,7 @@ async function pickTarget(
   env: BridgeEnv,
   s: Strings,
   log: string | undefined,
+  logDir: string | undefined,
 ): Promise<Picked | null> {
   const { terminal } = env
   const devices = listDevices(env.platform, env.readdir)
@@ -276,7 +282,11 @@ async function pickTarget(
         ? null
         : await ask(terminal, reader.next, s.framePrompt, DEFAULT_FRAME, parseFrame, s.badFrame, s)
     const logged =
-      frame === null ? null : log !== undefined ? { log } : await askLog(terminal, reader.next, s)
+      frame === null
+        ? null
+        : log !== undefined || logDir === undefined
+          ? { log }
+          : await askLog(terminal, reader.next, s, logDir)
     if (device === null || speed === null || frame === null || logged === null) {
       say(terminal, '')
       say(terminal, s.inputClosed)
@@ -513,13 +523,18 @@ export async function runBridge(args: BridgeArgs, env: BridgeEnv): Promise<numbe
     say(env.terminal, s.unsupported)
     return 2
   }
-  const log = args.log === undefined ? undefined : logPath(args.log)
-  if (log === null) {
-    say(env.terminal, s.badLogPath(args.log ?? ''))
+  const logDir = args.logDir !== undefined && isAbsolute(args.logDir) ? args.logDir : undefined
+  if (args.log !== undefined && !logName(args.log)) {
+    say(env.terminal, s.badLogName(args.log))
     return 2
   }
+  if (args.log !== undefined && logDir === undefined) {
+    say(env.terminal, s.noLogDir)
+    return 2
+  }
+  const log = args.log !== undefined && logDir !== undefined ? join(logDir, args.log) : undefined
   if (args.device === undefined) {
-    const picked = await pickTarget(env, s, log)
+    const picked = await pickTarget(env, s, log, logDir)
     if (!picked) return 1
     return connectDevice(picked.device, picked.line, env, s, picked.log)
   }

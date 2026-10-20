@@ -17,8 +17,13 @@ missing or unplugged, and ends. Closing the pane releases the device; Ctrl-] dis
 
 `--log <name>` takes a file name only (letters, digits, `.`, `_`, `-`; no path, no `..`); the log
 is appended to in the serial extension's own logs folder, and `connect` prints its full path as
-`log`. A path is refused: only the human, in the picker, chooses a log file elsewhere. Everything
-the pane sends and receives goes into the log, including what you type with `ostia pane send`.
-To keep a password out of the log and the pane, send `\x1c` (`Ctrl-\`) first: the input up to the
+`log`. A path is refused, here and in the picker: every log lives in that folder, and
+`ostia serial logs` shows it in the file manager and prints `{dir}`. Everything the pane sends
+and receives goes into the log, including what you type with `ostia pane send`.
+
+Ask the human to type a password themselves. When you must send one, first send the single
+byte 0x1c (`Ctrl-\`) with shell ANSI-C quoting, `ostia pane send <paneId> $'\x1c'` (zsh and
+bash); `"\x1c"` in double quotes sends four characters and does nothing. The input up to the
 next Enter still reaches the device, but neither it nor the device's echo of it is logged or
-shown.
+shown in the pane. The password you send stays in your own transcript, and when Ostia asks the
+human to approve your `pane.input` access, the request shows the text you are typing.

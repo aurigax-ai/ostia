@@ -11,7 +11,7 @@ import {
   symlinkSync,
   writeFileSync,
 } from 'node:fs'
-import { homedir, tmpdir } from 'node:os'
+import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { PassThrough } from 'node:stream'
 import { build } from 'esbuild'
@@ -29,7 +29,7 @@ import {
   runBridge,
   runStty,
 } from './bridge'
-import { SECRET_ECHO_RECORD, SECRET_SENT_RECORD } from './session'
+import { SECRET_ECHO_RECORD, SECRET_SENT_RECORD, prepareLogDir } from './session'
 import { parseFrame, sttyArgs } from './settings'
 import { stringsFor } from './strings'
 
@@ -154,6 +154,11 @@ describe('serial bridge arguments', () => {
       frame: '7E2',
     })
     expect(parseBridgeArgs([])).toEqual({})
+    const logged = bridgeCommand('/bin/ostia', '/ext/main.js', undefined, undefined, {
+      dir: LOG_DIR,
+      name: 'sw1.log',
+    })
+    expect(parseBridgeArgs(logged.slice(5))).toMatchObject({ logDir: LOG_DIR, log: 'sw1.log' })
   })
 
   it('refuses bad arguments in the pane without opening anything', async () => {
@@ -274,7 +279,7 @@ describe('serial bridge picker', () => {
     const device = new FakeDevice()
     const { term, bridgeEnv } = env(device, 'darwin', names)
     const done = runBridge({}, bridgeEnv)
-    term.input.write('\n\n\n\n')
+    term.input.write('\n\n\n')
     await until(() => term.text().includes('Connected'))
     expect(term.text()).toContain('  1) /dev/cu.usbserial-A10K2')
     expect(term.text()).toContain('  2) /dev/cu.Bluetooth-Incoming-Port')
@@ -291,7 +296,7 @@ describe('serial bridge picker', () => {
     const device = new FakeDevice()
     const { term, bridgeEnv } = env(device, 'darwin', names)
     const done = runBridge({ locale: 'en' }, bridgeEnv)
-    term.input.write('7\n2\n12345\n9600\n8Q1\n7e1\n\n')
+    term.input.write('7\n2\n12345\n9600\n8Q1\n7e1\n')
     await until(() => term.text().includes('Connected'))
     expect(term.text()).toContain('7 is not a serial device')
     expect(term.text()).toContain('12345 is not a supported speed')
@@ -314,7 +319,8 @@ describe('serial bridge picker', () => {
 })
 
 const FAST = { logFlushMs: 20, loopQuietMs: 40, secretGraceMs: 300 }
-const LOG = '/var/log/serial/switch.log'
+const LOG_DIR = '/var/log/serial'
+const LOG = `${LOG_DIR}/switch.log`
 const PASSWORD = 'hunter2-Secret'
 
 function memoryLog() {
@@ -460,32 +466,55 @@ describe('serial session log and secret input', () => {
     }
   })
 
-  it('refuses a log path that is not a full path, and reports a log that cannot be opened', async () => {
+  it('takes only a log file name inside the logs folder, and reports a log that cannot be opened', async () => {
     const device = new FakeDevice()
-    const relative = env(device)
-    expect(await runBridge({ device: DEVICE, log: 'switch.log' }, relative.bridgeEnv)).toBe(2)
-    expect(relative.term.text()).toContain('switch.log is not a full path')
+    for (const [args, message] of [
+      [{ device: DEVICE, log: '/Users/justin/.zshrc', logDir: LOG_DIR }, 'not a log file name'],
+      [{ device: DEVICE, log: '../.zshrc', logDir: LOG_DIR }, 'not a log file name'],
+      [{ device: DEVICE, log: 'switch.log' }, 'no data folder'],
+      [{ device: DEVICE, log: 'switch.log', logDir: 'logs' }, 'no data folder'],
+    ] as const) {
+      const { term, bridgeEnv } = env(device)
+      expect(await runBridge(args, bridgeEnv), args.log).toBe(2)
+      expect(term.text()).toContain(message)
+    }
+    expect(device.opened).toEqual([])
     const failing = env(device)
     failing.bridgeEnv.openLog = () => {
       throw errno('EACCES')
     }
-    expect(await runBridge({ device: DEVICE, log: LOG }, failing.bridgeEnv)).toBe(1)
+    expect(
+      await runBridge({ device: DEVICE, log: 'switch.log', logDir: LOG_DIR }, failing.bridgeEnv),
+    ).toBe(1)
     expect(failing.term.text()).toContain(`Could not write the session log ${LOG}: EACCES`)
     expect(device.closed).toEqual([device.opened[0].fd])
     expect(device.streamed).toEqual([])
   })
 
-  it('asks for a log file in the picker and expands ~/', async () => {
+  it('asks for a log file name in the picker and refuses a path typed there', async () => {
     const device = new FakeDevice()
     const memory = memoryLog()
     const { term, bridgeEnv } = env(device, 'darwin', ['cu.usbserial-A10K2'])
     bridgeEnv.openLog = memory.openLog
-    const done = runBridge({}, bridgeEnv)
-    term.input.write('\n\n\nlogs/a.log\n~/serial.log\n')
+    const done = runBridge({ logDir: LOG_DIR }, bridgeEnv)
+    term.input.write('\n\n\n/Users/justin/.zshrc\n~/.zshrc\nlogs/a.log\n..\nswitch.log\n')
     await until(() => term.text().includes('Connected'))
-    expect(term.text()).toContain('Session log file, a full path or ~/… (Enter for none): ')
-    expect(term.text()).toContain('logs/a.log is not a full path')
-    expect(memory.files.map((f) => f.path)).toEqual([join(homedir(), 'serial.log')])
+    expect(term.text()).toContain(`Session log file name, kept in ${LOG_DIR} (Enter for none): `)
+    for (const bad of ['/Users/justin/.zshrc', '~/.zshrc', 'logs/a.log', '..']) {
+      expect(term.text()).toContain(`${bad} is not a log file name`)
+    }
+    expect(memory.files.map((f) => f.path)).toEqual([LOG])
+    term.input.write(Buffer.from([0x1d]))
+    expect(await done).toBe(0)
+  })
+
+  it('does not ask for a log in the picker without a logs folder', async () => {
+    const device = new FakeDevice()
+    const { term, bridgeEnv } = env(device, 'darwin', ['cu.usbserial-A10K2'])
+    const done = runBridge({}, bridgeEnv)
+    term.input.write('\n\n\n')
+    await until(() => term.text().includes('Connected'))
+    expect(term.text()).not.toContain('Session log')
     term.input.write(Buffer.from([0x1d]))
     expect(await done).toBe(0)
   })
@@ -547,17 +576,36 @@ describe('serial session log file safety', () => {
     expect(readFileSync(path, 'utf8')).toMatch(/^earlier\n.*# connected/)
   })
 
-  it('takes a full path the human types in the picker', async () => {
+  it('writes the name the human types in the picker into the logs folder', async () => {
     dir = mkdtempSync(join(tmpdir(), 'serial-log-'))
-    const path = join(dir, 'picked.log')
     const device = new FakeDevice()
     const { term, bridgeEnv } = env(device, 'darwin', ['cu.usbserial-A10K2'])
-    const done = runBridge({}, bridgeEnv)
-    term.input.write(`\n\n\n${path}\n`)
+    const done = runBridge({ logDir: dir }, bridgeEnv)
+    term.input.write('\n\n\npicked.log\n')
     await until(() => term.text().includes('Connected'))
     term.input.write(Buffer.from([0x1d]))
     expect(await done).toBe(0)
-    expect(readFileSync(path, 'utf8')).toContain('# disconnected')
+    expect(readFileSync(join(dir, 'picked.log'), 'utf8')).toContain('# disconnected')
+  })
+
+  it('makes the logs folder private and refuses a link, a file or another owner', () => {
+    dir = mkdtempSync(join(tmpdir(), 'serial-log-'))
+    const logs = join(dir, 'logs')
+    prepareLogDir(logs)
+    expect(statSync(logs).mode & 0o777).toBe(0o700)
+    chmodSync(logs, 0o755)
+    prepareLogDir(logs)
+    expect(statSync(logs).mode & 0o777).toBe(0o700)
+    const elsewhere = join(dir, 'elsewhere')
+    mkdirSync(elsewhere)
+    const link = join(dir, 'link')
+    symlinkSync(elsewhere, link)
+    expect(() => prepareLogDir(link)).toThrow('is not a folder')
+    const file = join(dir, 'file')
+    writeFileSync(file, '')
+    expect(() => prepareLogDir(file)).toThrow()
+    const uid = statSync(logs).uid
+    expect(() => prepareLogDir(logs, uid + 1)).toThrow('belongs to another user')
   })
 })
 

@@ -1,4 +1,14 @@
-import { constants, closeSync, fchmodSync, fstatSync, openSync, writeSync } from 'node:fs'
+import {
+  constants,
+  chmodSync,
+  closeSync,
+  fchmodSync,
+  fstatSync,
+  lstatSync,
+  mkdirSync,
+  openSync,
+  writeSync,
+} from 'node:fs'
 
 export const CR = 0x0d
 export const LF = 0x0a
@@ -20,6 +30,14 @@ const LOG_FLAGS =
   constants.O_CREAT |
   constants.O_NOFOLLOW |
   constants.O_NONBLOCK
+
+export function prepareLogDir(dir: string, uid = process.getuid?.()): void {
+  mkdirSync(dir, { recursive: true, mode: 0o700 })
+  const stat = lstatSync(dir)
+  if (stat.isSymbolicLink() || !stat.isDirectory()) throw new Error(`${dir} is not a folder`)
+  if (uid !== undefined && stat.uid !== uid) throw new Error(`${dir} belongs to another user`)
+  chmodSync(dir, 0o700)
+}
 
 export function openLogFile(path: string): LogFile {
   const fd = openSync(path, LOG_FLAGS, 0o600)

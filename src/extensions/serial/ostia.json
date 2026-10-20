@@ -17,6 +17,12 @@
         "usage": "connect [<device> [<speed>] [<frame>]] [--log <name>]"
       },
       {
+        "id": "logs",
+        "title": "Serial: Reveal Session Logs",
+        "category": "Serial",
+        "usage": "logs"
+      },
+      {
         "id": "ls",
         "title": "Serial devices on this computer (JSON)",
         "usage": "ls",

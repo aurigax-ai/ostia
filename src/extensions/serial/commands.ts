@@ -29,6 +29,8 @@ import { CONNECT_USAGE, PANE_TITLE, type Strings, stringsFor } from './strings'
 export interface SerialDeps {
   platform: NodeJS.Platform
   logDir: () => string | null
+  prepareLogDir: (dir: string) => void
+  reveal: (dir: string) => Promise<string | null>
   devices: () => string[]
   execPath: string
   script: string
@@ -70,18 +72,28 @@ function describe(target: Target | null, log: string | undefined): Record<string
   }
 }
 
-export function serialCommands(deps: SerialDeps): Record<'ls' | 'connect', CommandHandler> {
+function reasonOf(err: unknown): string {
+  return err instanceof Error ? err.message : String(err)
+}
+
+export function serialCommands(
+  deps: SerialDeps,
+): Record<'ls' | 'connect' | 'logs', CommandHandler> {
   const refused = (caller: ExtensionCaller, s: Strings): ExtensionResult | null => {
     if (caller.sandboxed) return failure('sandboxed', s.sandboxed)
     if (deviceGlobs(deps.platform).length === 0) return failure('unsupported', s.unsupported)
     return null
   }
 
-  const logIn = (name: string, s: Strings): string | ExtensionResult => {
-    if (!logName(name)) return failure('invalid-args', s.badLogName(name))
+  const logsFolder = (s: Strings): string | ExtensionResult => {
     const dir = deps.logDir()
     if (dir === null) return failure('unsupported', s.noLogDir)
-    return join(dir, name)
+    try {
+      deps.prepareLogDir(dir)
+    } catch (err) {
+      return failure('unsupported', s.logDirUnsafe(reasonOf(err)))
+    }
+    return dir
   }
 
   return {
@@ -97,13 +109,27 @@ export function serialCommands(deps: SerialDeps): Record<'ls' | 'connect', Comma
       const refusal = refused(caller, s)
       if (refusal) return refusal
       const { flags, rest } = parseFlags(cliArgs(args)?.argv ?? [], ['log'])
-      const log = flags.log === undefined ? undefined : logIn(flags.log, s)
-      if (typeof log === 'object') return log
+      const name = flags.log
+      if (name !== undefined && !logName(name)) {
+        return failure('invalid-args', s.badLogName(name))
+      }
       const target = parseTarget(rest, deps.platform, s)
       if (isFailure(target)) return target
-      const summary = describe(target, log)
+      const dir = logsFolder(s)
+      if (typeof dir !== 'string' && name !== undefined) return dir
+      const logs = typeof dir === 'string' ? { dir, name } : undefined
+      const summary = describe(
+        target,
+        logs && name !== undefined ? join(logs.dir, name) : undefined,
+      )
       const opened = await deps.openTerminal({
-        command: bridgeCommand(deps.execPath, deps.script, caller.locale, target ?? undefined, log),
+        command: bridgeCommand(
+          deps.execPath,
+          deps.script,
+          caller.locale,
+          target ?? undefined,
+          logs,
+        ),
         workspaceId: caller.workspaceId,
         afterPaneId: caller.paneId,
         title: target ? paneTitle(target.device, target.line) : PANE_TITLE,
@@ -112,6 +138,17 @@ export function serialCommands(deps: SerialDeps): Record<'ls' | 'connect', Comma
         return failure('not-opened', s.notOpened(opened.message ?? opened.error))
       }
       return ok(undefined, { ...summary, paneId: opened.paneId })
+    },
+
+    logs: async (_args, caller) => {
+      const s = stringsFor(caller.locale)
+      const refusal = refused(caller, s)
+      if (refusal) return refusal
+      const dir = logsFolder(s)
+      if (typeof dir !== 'string') return dir
+      const failed = await deps.reveal(dir)
+      if (failed !== null) return failure('not-opened', s.revealFailed(failed))
+      return ok(undefined, { dir })
     },
   }
 }
