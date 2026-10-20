@@ -1,4 +1,5 @@
 import { SCREEN_INFO_FORMAT, screenReplay } from './screenReplay'
+import { ScreenTitleFilter } from './screenTitleFilter'
 import { META_OPTION, encodeMeta, sendKeysCommands, tmuxQuote } from './tmuxCommand'
 
 export const LOST_EXIT_CODE = 1
@@ -25,6 +26,7 @@ export class TmuxPane {
   private detached = false
   private held: string[] | null = null
   unheard = ''
+  private readonly titles = new ScreenTitleFilter()
 
   constructor(
     private readonly server: PaneServer,
@@ -47,7 +49,8 @@ export class TmuxPane {
     this.dataListeners.add(listener)
     const unheard = this.unheard
     this.unheard = ''
-    if (unheard) listener(unheard)
+    const visible = unheard ? this.titles.push(unheard) : ''
+    if (visible) listener(visible)
     return { dispose: () => this.dataListeners.delete(listener) }
   }
 
@@ -136,8 +139,10 @@ export class TmuxPane {
     if (held && held.length > 0) this.deliver(held.join(''))
   }
 
-  deliver(data: string): void {
+  deliver(raw: string): void {
     if (this.detached) return
+    const data = this.titles.push(raw)
+    if (!data) return
     if (this.held) {
       this.held.push(data)
       return
