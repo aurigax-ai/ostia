@@ -43,6 +43,7 @@ export interface PtyEntry {
   confinedBy: string | null
   keepAlive: boolean
   exitListeners: Set<(code: number) => void>
+  sizeListeners: Set<(cols: number, rows: number) => void>
 }
 
 export function removeStateFile(entry: PtyEntry): void {
@@ -216,6 +217,7 @@ export function createPtyRegistry({
       markNonce: opts.markNonce ?? null,
       keepAlive: opts.keepAlive,
       exitListeners: new Set(),
+      sizeListeners: new Set(),
       workspaceId: opts.workspaceId ?? '',
       sandboxed: opts.sandboxed ?? false,
       shell: opts.shell ?? '',
