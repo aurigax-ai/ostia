@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { StreamEvent } from '../../shared/agents/agentStream'
-import { packFrames, splitEvent } from './streamFrames'
+import { FrameTooLarge, packFrames, splitEvent } from './streamFrames'
 
 const MAX = 2000
 
@@ -16,7 +16,7 @@ function rejoin(events: StreamEvent[]): StreamEvent[] {
     const prev = out.at(-1) as Record<string, unknown> | undefined
     const cur = event as unknown as Record<string, unknown>
     if ('append' in event && prev && prev.type === cur.type && prev.id === cur.id) {
-      for (const key of ['text', 'input', 'output', 'diff']) {
+      for (const key of ['text', 'input', 'output', 'diff', 'target']) {
         if (typeof cur[key] === 'string') prev[key] = `${prev[key] as string}${cur[key] as string}`
       }
       if (Array.isArray(cur.items)) prev.items = [...(prev.items as unknown[]), ...cur.items]
@@ -104,5 +104,59 @@ describe('packFrames', () => {
   it('splitEvent leaves an event that fits whole', () => {
     const event: StreamEvent = { type: 'live' }
     expect(splitEvent(event, 100)).toEqual([event])
+  })
+
+  it('splits a tool call whose target is huge and has no other body', () => {
+    const tool: StreamEvent = {
+      type: 'tool',
+      turn: 'u1',
+      id: 'tu',
+      kind: 'read',
+      name: 'Read',
+      target: 'p'.repeat(5000),
+    }
+    const frames = packFrames('pane-1', 1, false, [tool], MAX)
+    for (const frame of frames) expect(Buffer.byteLength(frame)).toBeLessThanOrEqual(MAX)
+    expect(rejoin(payloads(frames).flatMap((p) => p.events))).toEqual([tool])
+  })
+
+  it('splits a tool call with both a huge target and a huge input', () => {
+    const tool: StreamEvent = {
+      type: 'tool',
+      turn: 'u1',
+      id: 'tu',
+      kind: 'other',
+      name: 'X',
+      target: 'p'.repeat(5000),
+      input: 'i'.repeat(7000),
+    }
+    const frames = packFrames('pane-1', 1, false, [tool], MAX)
+    for (const frame of frames) expect(Buffer.byteLength(frame)).toBeLessThanOrEqual(MAX)
+    expect(rejoin(payloads(frames).flatMap((p) => p.events))).toEqual([tool])
+  })
+
+  it('refuses an event it cannot split, rather than send it over the cap', () => {
+    const plan: StreamEvent = {
+      type: 'plan',
+      turn: 'u1',
+      id: 'p',
+      items: [{ text: 'x'.repeat(5000), status: 'pending' }],
+    }
+    expect(() => packFrames('pane-1', 1, false, [plan], MAX)).toThrow(FrameTooLarge)
+  })
+
+  it('splits a multi-megabyte output in linear time', () => {
+    const output = 'a line of build output\n'.repeat(250_000)
+    const started = performance.now()
+    const frames = packFrames(
+      'pane-1',
+      1,
+      true,
+      [{ type: 'tool.result', turn: 'u1', id: 'tu', output }],
+      1024 * 1024,
+    )
+    expect(performance.now() - started).toBeLessThan(3000)
+    expect(frames.length).toBeGreaterThan(4)
+    for (const frame of frames) expect(Buffer.byteLength(frame)).toBeLessThanOrEqual(1024 * 1024)
   })
 })

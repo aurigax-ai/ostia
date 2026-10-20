@@ -2,6 +2,7 @@ import { keptShellReattached } from '@/lib/agents/autoResume'
 import { keptAgentReattached } from '@/lib/agents/paneAgent'
 import { markPaneActivity } from '@/lib/attention/paneActivity'
 import { spawnPromptOption } from '@/lib/prompt/promptChips'
+import { isHumanInput, markHumanInput } from '@/lib/terminal/humanInput'
 import { type NeighbourQueue, neighbourWrites } from '@/lib/terminal/neighbourWrites'
 import {
   noteFittedGrid,
@@ -61,6 +62,8 @@ interface PtyIo {
   writeLive: Write
   neighbour: NeighbourQueue
 }
+
+const HUMAN_INPUT_EVENTS = ['keydown', 'paste', 'input', 'compositionend'] as const
 
 export function attachPtySession(deps: PtySessionDeps): () => void {
   const { host, term, paneId, workspaceIdRef, lastSizeRef, syncSizeRef, session, holdInput } = deps
@@ -124,12 +127,14 @@ export function attachPtySession(deps: PtySessionDeps): () => void {
     neighbour.drain()
     term.resize(cols, rows)
     lastSizeRef.current = { cols, rows }
-    if (held) phoneSize.hold(paneId, { cols, useDesktop: sizing.syncSize })
+    sizing.holdBox(held ? { w: host.offsetWidth, h: host.offsetHeight } : null)
+    if (held) phoneSize.hold(paneId, { cols, useDesktop: sizing.takeBack })
     else phoneSize.release(paneId)
   })
 
+  for (const type of HUMAN_INPUT_EVENTS) host.addEventListener(type, markHumanInput, true)
   const input = term.onData((d) => {
-    if (!holdInput(d)) window.ostia.pty.write(paneId, d)
+    if (!holdInput(d)) window.ostia.pty.write(paneId, d, isHumanInput())
     if (!FOCUS_REPORTS.has(d)) markPaneActivity(paneId)
     if (!FOCUS_REPORTS.has(d) && useBlocksStore.getState().selected[paneId]) {
       useBlocksStore.getState().select(paneId, null)
@@ -193,6 +198,7 @@ export function attachPtySession(deps: PtySessionDeps): () => void {
     sizing.dispose()
     ro.disconnect()
     input.dispose()
+    for (const type of HUMAN_INPUT_EVENTS) host.removeEventListener(type, markHumanInput, true)
     offSize()
     phoneSize.release(paneId)
     offData()
@@ -292,6 +298,8 @@ interface PtySizing {
   hold: (data: string) => boolean
   applyFit: () => void
   syncSize: () => void
+  holdBox: (box: { w: number; h: number } | null) => void
+  takeBack: () => void
   dispose: () => void
 }
 
@@ -362,8 +370,13 @@ function createPtySizing(
       syncSize()
     }
   }
+  let heldBox: { w: number; h: number } | null = null
   const syncSize = (): void => {
     if (holdForRedraw || awaitingParse) return
+    if (heldBox) {
+      if (host.offsetWidth === heldBox.w && host.offsetHeight === heldBox.h) return
+      heldBox = null
+    }
     if (flow.attached && screenElement && !screenElement.isConnected) return
     if (flow.attached && host && fit && host.offsetWidth > 0 && host.offsetHeight > 0) {
       const dims = fit.proposeDimensions()
@@ -412,6 +425,13 @@ function createPtySizing(
     hold,
     applyFit,
     syncSize,
+    holdBox: (box) => {
+      heldBox = box
+    },
+    takeBack: () => {
+      heldBox = null
+      syncSize()
+    },
     dispose: () => {
       if (holdIdleTimer) clearTimeout(holdIdleTimer)
       if (holdCapTimer) clearTimeout(holdCapTimer)

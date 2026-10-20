@@ -145,10 +145,10 @@ function registerPtyControlIpc({
     else paneWaking.end(paneId, 'failed', wakeReason(reason))
   })
 
-  ipcMain.on('pty:write', (e, paneId: string, data: string) => {
+  ipcMain.on('pty:write', (e, paneId: string, data: string, human: unknown) => {
     const entry = ptys.get(paneId)
     if (!entry?.session.canWrite(String(e.sender.id))) return
-    releasePty(paneId, entry)
+    if (human === true) releasePty(paneId, entry)
     entry.pty.write(data)
   })
   ipcMain.on('pty:resize', (e, paneId: string, cols: number, rows: number) => {

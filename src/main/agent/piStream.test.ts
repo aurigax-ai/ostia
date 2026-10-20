@@ -68,3 +68,23 @@ describe('PiStream', () => {
     expect(live).toHaveLength(3)
   })
 })
+
+describe('PiStream, long turns', () => {
+  it('keeps a streamed message as one stored text, so a turn is never cut at its start by the event cap', () => {
+    const stream = new PiStream()
+    stream.prompt('write a lot')
+    for (let i = 0; i < 6000; i++) stream.event({ type: 'text-delta', text: 'x' })
+    const events = stream.snapshot(5)
+    expect(events.map((e) => e.type)).toEqual(['turn.started', 'prompt', 'text'])
+    expect(events[2]).toMatchObject({ text: 'x'.repeat(6000) })
+  })
+
+  it('hands a late reader a copy that later deltas do not change', () => {
+    const stream = new PiStream()
+    stream.prompt('x')
+    stream.event({ type: 'text-delta', text: 'a' })
+    const snapshot = stream.snapshot(5)
+    stream.event({ type: 'text-delta', text: 'b' })
+    expect(snapshot.at(-1)).toMatchObject({ text: 'a' })
+  })
+})

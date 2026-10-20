@@ -143,12 +143,22 @@ describe('desktop input and a phone size hold', () => {
   it('gives the desktop size back before a key reaches the program', () => {
     const entry = held()
     ptys.set('p1', entry)
-    listeners.get('pty:write')?.({ sender: { id: 1 } }, 'p1', 'a')
+    listeners.get('pty:write')?.({ sender: { id: 1 } }, 'p1', 'a', true)
     expect(resize).toHaveBeenCalledWith(100, 30)
     expect(sent).toHaveBeenCalledWith('pty:size:p1', 100, 30, false)
     expect(entry.hold).toBeNull()
     expect(write).toHaveBeenCalledWith('a')
     expect(resize.mock.invocationCallOrder[0]).toBeLessThan(write.mock.invocationCallOrder[0])
+  })
+
+  it('keeps the hold for what the terminal answers by itself, such as a cursor report', () => {
+    const entry = held()
+    ptys.set('p1', entry)
+    listeners.get('pty:write')?.({ sender: { id: 1 } }, 'p1', '\x1b[5;1R')
+    listeners.get('pty:write')?.({ sender: { id: 1 } }, 'p1', '\x1b[I', false)
+    expect(entry.hold).not.toBeNull()
+    expect(resize).not.toHaveBeenCalled()
+    expect(write).toHaveBeenCalledTimes(2)
   })
 
   it('ends the hold on a desktop resize and applies the size the desktop asked for', () => {

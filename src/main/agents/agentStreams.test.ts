@@ -69,7 +69,7 @@ function fake(over: Partial<AgentStreamsDeps> = {}): Fake {
   const pi = new PiStream()
   const deps: AgentStreamsDeps = {
     panes: async () => [entry],
-    claudeFile: (id) => (id === 's1' ? sessionFile : join(dir, `${id}.jsonl`)),
+    claudeFile: async (id) => (id === 's1' ? sessionFile : join(dir, `${id}.jsonl`)),
     codexSocket: () => '/tmp/codex.sock',
     codexConnect: async (_socket, onNotice) => {
       notice = onNotice
@@ -155,6 +155,29 @@ describe('AgentStreams, Claude', () => {
     writeFileSync(sessionFile, `${user('u1', 'hello')}\n`)
     await vi.waitFor(() => expect(types(got.live())).toEqual(['turn.started', 'prompt']))
     prepared.close()
+  })
+
+  it('starts the phone over, without repeating anything, when the file got shorter', async () => {
+    writeFileSync(sessionFile, `${user('u1', 'a long first prompt, long enough to matter')}\n`)
+    const { streams } = fake()
+    const got = collect(await opened(streams))
+    writeFileSync(sessionFile, `${user('n1', 'new')}\n`)
+    await vi.waitFor(() =>
+      expect(got.live().map((e) => e.type)).toEqual(['session', 'turn.started', 'prompt', 'live']),
+    )
+    expect(got.live()[0]).toEqual({ type: 'session', session: 's1' })
+  })
+
+  it('ends the stream as unavailable when the file keeps failing to read', async () => {
+    const { streams } = fake()
+    vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval'] })
+    const got = collect(await opened(streams))
+    for (let i = 0; i < 25; i++) {
+      await vi.advanceTimersByTimeAsync(300)
+      await new Promise((resolve) => setTimeout(resolve, 10))
+    }
+    vi.useRealTimers()
+    expect(got.live()).toEqual([{ type: 'ended', reason: 'unavailable' }])
   })
 
   it('stops reading once closed', async () => {
@@ -333,10 +356,9 @@ describe('AgentStreams, Codex', () => {
     rollout = true
     f.notice()('thread/status/changed', { threadId: 'thread-1', status: 'active' })
     await vi.waitFor(() =>
-      expect(f.rpc.request).toHaveBeenLastCalledWith('thread/resume', {
-        threadId: 'thread-1',
-        excludeTurns: true,
-      }),
+      expect(f.rpc.request.mock.calls.filter(([method]) => method === 'thread/resume').length).toBe(
+        2,
+      ),
     )
     prepared.close()
   })
@@ -359,6 +381,34 @@ describe('AgentStreams, Codex', () => {
     ])
     const got = collect(await opened(f.streams))
     expect(types(got.all())).toEqual(['turn.started', 'prompt', 'live'])
+  })
+
+  it('keeps trying to subscribe before the first turn exists, and sends the turns it missed once it does', async () => {
+    vi.useFakeTimers()
+    const f = fake()
+    let rollout = false
+    f.rpc.request.mockImplementation(async (method: string) => {
+      if (!rollout) throw new Error('no rollout found for thread id thread-1')
+      return method === 'thread/turns/list' ? { data: [storedTurn] } : {}
+    })
+    const got = collect(await opened(f.streams))
+    expect(got.all()).toEqual([{ type: 'live' }])
+    rollout = true
+    await vi.advanceTimersByTimeAsync(1100)
+    expect(got.live().map((e) => e.type)).toEqual(['turn.started', 'prompt', 'text', 'turn.ended'])
+    await vi.advanceTimersByTimeAsync(5000)
+    expect(got.live()).toHaveLength(4)
+    vi.useRealTimers()
+  })
+
+  it('ends the stream as unavailable when the thread never gets a rollout', async () => {
+    vi.useFakeTimers()
+    const f = fake()
+    f.rpc.request.mockRejectedValue(new Error('no rollout found for thread id thread-1'))
+    const got = collect(await opened(f.streams))
+    await vi.advanceTimersByTimeAsync(301 * 1000)
+    expect(got.live()).toEqual([{ type: 'ended', reason: 'unavailable' }])
+    vi.useRealTimers()
   })
 
   it('says the agent closed when its app-server goes away', async () => {
@@ -411,6 +461,17 @@ describe('AgentStreams, Agent pane', () => {
 })
 
 describe('AgentStreams, scope and lifecycle', () => {
+  it('ends the stream of an agent that is no longer running in its pane', async () => {
+    writeFileSync(sessionFile, `${user('u1', 'go')}\n`)
+    const { streams } = fake()
+    const got = collect(await opened(streams))
+    await streams.agentsChanged()
+    expect(got.live()).toEqual([])
+    entry = { ...entry, agent: undefined }
+    await streams.agentsChanged()
+    expect(got.live()).toEqual([{ type: 'ended', reason: 'agent-closed' }])
+  })
+
   it('refuses a pane that is not a running agent', async () => {
     for (const other of [
       { ...entry, agent: undefined },

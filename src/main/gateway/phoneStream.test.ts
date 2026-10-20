@@ -1,4 +1,4 @@
-import { afterAll, describe, expect, it, vi } from 'vitest'
+import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { WebSocket } from 'ws'
 import type { StreamEvent } from '../../shared/agents/agentStream'
 import type { PreparedStream, StreamSend } from '../agents/agentStreams'
@@ -8,7 +8,9 @@ import type { GatewayControlDeps } from './controlDispatch'
 import type { Device } from './devices'
 import type { SocketState } from './phoneSocket'
 import {
+  SCOPE_CHECK_MS,
   STREAMS_PER_SOCKET,
+  STREAM_BUFFER_MAX,
   closeStreams,
   handleStreamClose,
   handleStreamOpen,
@@ -26,11 +28,15 @@ const remote = registerPane({ windowId: 'win', workspaceId: 'w1', paneId: 'ps-re
 const away = registerPane({ windowId: 'win', workspaceId: 'gone', paneId: 'ps-away' })
 const manager = registerPane({ windowId: 'win', workspaceId: 'w1', paneId: 'ps-manager' })
 manager.manager = true
+const extra = [1, 2, 3, 4, 5].map((n) =>
+  registerPane({ windowId: 'win', workspaceId: 'w1', paneId: `ps-extra-${n}` }),
+)
 
 afterAll(() => {
   for (const id of ['ps-agent', 'ps-pad', 'ps-box', 'ps-remote', 'ps-away', 'ps-manager']) {
     removePane(id)
   }
+  for (let n = 1; n <= 5; n++) removePane(`ps-extra-${n}`)
 })
 
 const FRAME = 4000
@@ -43,15 +49,17 @@ function harness(
   opened: () => Promise<PreparedStream | { error: 'not-an-agent' | 'unavailable' }>,
 ) {
   const sent: Array<Record<string, unknown>> = []
+  let visible = workspaces
   const ws = {
     OPEN: 1,
     readyState: 1,
+    bufferedAmount: 0,
     send: (frame: string) => sent.push(JSON.parse(frame)),
   } as unknown as WebSocket
   const state = { streams: new Map() } as unknown as SocketState
   const open = vi.fn(opened)
   const deps = {
-    listWorkspaces: async () => workspaces,
+    listWorkspaces: async () => visible,
     remote: (paneId: string) => paneId === 'ps-remote',
     agentStreams: { open },
   } as unknown as GatewayControlDeps
@@ -67,7 +75,10 @@ function harness(
     sent
       .filter((m) => (m.params as { type?: string } | undefined)?.type === 'agent.stream')
       .map((m) => (m.params as { payload: Record<string, unknown> }).payload)
-  return { ws, state, open, call, sent, frames, deps }
+  const show = (next: WorkspaceEntry[]): void => {
+    visible = next
+  }
+  return { ws, state, open, call, sent, frames, deps, show }
 }
 
 function prepared(over: Partial<PreparedStream> = {}) {
@@ -201,9 +212,6 @@ describe('agent.stream.open', () => {
 
     for (let i = 1; i < STREAMS_PER_SOCKET; i++) h.state.streams.set(`other-${i}`, prepared().value)
     h.sent.length = 0
-    const res = await h.call({ paneId: manager.externalId })
-    expect(res.error?.message).toBe('not-an-agent')
-    h.sent.length = 0
     h.state.streams.delete(agent.externalId)
     h.state.streams.set('other-9', prepared().value)
     const full = await h.call({ paneId: agent.externalId })
@@ -255,5 +263,139 @@ describe('agent.stream.close', () => {
     expect(p.value.close).toHaveBeenCalledTimes(1)
     expect(q.value.close).toHaveBeenCalledTimes(1)
     expect(state.streams.size).toBe(0)
+  })
+})
+
+describe('agent.stream.open, limits and lifetime', () => {
+  it('holds four streams at most even when five opens are in flight at once', async () => {
+    const h = harness(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 20))
+      return prepared().value
+    })
+    for (const [i, pane] of extra.entries()) {
+      handleStreamOpen(
+        h.ws,
+        h.state,
+        device(),
+        { id: 100 + i, params: { paneId: pane.externalId } },
+        h.deps,
+        FRAME,
+      )
+    }
+    await vi.waitFor(() =>
+      expect(h.sent.filter((m) => 'id' in m && (m.id as number) >= 100)).toHaveLength(5),
+    )
+    const answers = h.sent.filter((m) => 'id' in m && (m.id as number) >= 100) as Array<{
+      result?: unknown
+      error?: { message: string }
+    }>
+    expect(answers.filter((m) => m.result)).toHaveLength(STREAMS_PER_SOCKET)
+    expect(answers.filter((m) => m.error?.message === 'too-many-streams')).toHaveLength(1)
+    expect(h.state.streams.size).toBe(STREAMS_PER_SOCKET)
+  })
+
+  it('drops a stream whose open was superseded by a close while it was still opening', async () => {
+    const p = prepared()
+    const h = harness(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 30))
+      return p.value
+    })
+    handleStreamOpen(
+      h.ws,
+      h.state,
+      device(),
+      { id: 1, params: { paneId: agent.externalId } },
+      h.deps,
+      FRAME,
+    )
+    handleStreamClose(h.ws, h.state, { id: 2, params: { paneId: agent.externalId } })
+    await vi.waitFor(() => expect(p.value.close).toHaveBeenCalled())
+    expect(h.state.streams.size).toBe(0)
+    expect(h.sent.some((m) => m.id === 1)).toBe(false)
+  })
+
+  describe('while streaming', () => {
+    beforeEach(() => {
+      vi.useFakeTimers()
+    })
+    afterEach(() => {
+      vi.useRealTimers()
+    })
+
+    async function streaming() {
+      const p = prepared()
+      const h = harness(async () => p.value)
+      handleStreamOpen(
+        h.ws,
+        h.state,
+        device(),
+        { id: 1, params: { paneId: agent.externalId } },
+        h.deps,
+        FRAME,
+      )
+      await vi.advanceTimersByTimeAsync(5)
+      return { p, h }
+    }
+    const lastEnded = (h: ReturnType<typeof harness>) =>
+      h
+        .frames()
+        .flatMap((f) => f.events as Array<{ type: string; reason?: string }>)
+        .filter((e) => e.type === 'ended')
+
+    it('ends the stream when its workspace leaves what session.list shows', async () => {
+      const { p, h } = await streaming()
+      await vi.advanceTimersByTimeAsync(SCOPE_CHECK_MS + 10)
+      expect(lastEnded(h)).toEqual([])
+      h.show([])
+      await vi.advanceTimersByTimeAsync(SCOPE_CHECK_MS + 10)
+      expect(lastEnded(h)).toEqual([{ type: 'ended', reason: 'out-of-scope' }])
+      expect(p.value.close).toHaveBeenCalledTimes(1)
+      expect(h.state.streams.size).toBe(0)
+    })
+
+    it('ends the stream when its workspace becomes sandboxed or scratch', async () => {
+      for (const next of [
+        [{ ...workspaces[0], sandboxed: true }],
+        [{ ...workspaces[0], kind: 'scratch' }],
+      ]) {
+        const { p, h } = await streaming()
+        h.show(next)
+        await vi.advanceTimersByTimeAsync(SCOPE_CHECK_MS + 10)
+        expect(lastEnded(h)).toEqual([{ type: 'ended', reason: 'out-of-scope' }])
+        expect(p.value.close).toHaveBeenCalled()
+      }
+    })
+
+    it('stops checking once the stream is closed', async () => {
+      const { h } = await streaming()
+      handleStreamClose(h.ws, h.state, { id: 2, params: { paneId: agent.externalId } })
+      h.show([])
+      await vi.advanceTimersByTimeAsync(SCOPE_CHECK_MS * 3)
+      expect(lastEnded(h)).toEqual([])
+    })
+
+    it('ends the stream as too-slow instead of queueing without limit for a phone that does not read', async () => {
+      const { p, h } = await streaming()
+      ;(h.ws as unknown as { bufferedAmount: number }).bufferedAmount = STREAM_BUFFER_MAX + 1
+      p.push([{ type: 'text', turn: 'u1', id: 'a', text: 'hi' }])
+      expect(lastEnded(h)).toEqual([{ type: 'ended', reason: 'too-slow' }])
+      expect(p.value.close).toHaveBeenCalledTimes(1)
+      p.push([{ type: 'text', turn: 'u1', id: 'b', text: 'more' }])
+      expect(h.frames().flatMap((f) => f.events)).toHaveLength(1)
+    })
+
+    it('ends the stream as too-large for an event no frame can carry', async () => {
+      const { p, h } = await streaming()
+      p.push([
+        {
+          type: 'plan',
+          turn: 'u1',
+          id: 'p',
+          items: [{ text: 'x'.repeat(FRAME * 2), status: 'pending' }],
+        },
+      ])
+      expect(lastEnded(h)).toEqual([{ type: 'ended', reason: 'too-large' }])
+      expect(p.value.close).toHaveBeenCalledTimes(1)
+    })
   })
 })

@@ -330,7 +330,7 @@ describe('TerminalView engines', () => {
     await waitFor(() => expect(window.ostia.pty.attach).toHaveBeenCalled())
     const textarea = container.querySelector('.xterm-helper-textarea') as HTMLTextAreaElement
     fireEvent.keyDown(textarea, { key: 'Enter', code: 'Enter', keyCode: 13, shiftKey: true })
-    await waitFor(() => expect(window.ostia.pty.write).toHaveBeenCalledWith('p1', '\x1b\r'))
+    await waitFor(() => expect(window.ostia.pty.write).toHaveBeenCalledWith('p1', '\x1b\r', true))
     expect(window.ostia.pty.write).not.toHaveBeenCalledWith('p1', '\r')
   })
 
@@ -508,7 +508,7 @@ describe('TerminalView engines', () => {
     const textarea = container.querySelector('.xterm-helper-textarea') as HTMLTextAreaElement
     fireEvent.keyDown(textarea, { key: 'v', code: 'KeyV', ctrlKey: true })
     await waitFor(() =>
-      expect(window.ostia.pty.write).toHaveBeenCalledWith('p1', 'echo pasted_$((6*7))'),
+      expect(window.ostia.pty.write).toHaveBeenCalledWith('p1', 'echo pasted_$((6*7))', true),
     )
   })
 
@@ -585,7 +585,9 @@ describe('TerminalView engines', () => {
       fireEvent.keyDown(textarea, { key: 'u', code: 'KeyU', keyCode: 85, ctrlKey: true })
       await act(() => new Promise((resolve) => setTimeout(resolve, 50)))
       expect(readText).not.toHaveBeenCalled()
-      expect(vi.mocked(window.ostia.pty.write).mock.calls).toEqual(sent.map((data) => ['p1', data]))
+      expect(vi.mocked(window.ostia.pty.write).mock.calls).toEqual(
+        sent.map((data) => ['p1', data, true]),
+      )
     })
   }
 
@@ -599,7 +601,7 @@ describe('TerminalView engines', () => {
     const textarea = container.querySelector('.xterm-helper-textarea') as HTMLTextAreaElement
     act(() => textarea.focus())
     await user.keyboard('{Control>}v{/Control}')
-    await waitFor(() => expect(window.ostia.pty.write).toHaveBeenCalledWith('p1', '\x16'))
+    await waitFor(() => expect(window.ostia.pty.write).toHaveBeenCalledWith('p1', '\x16', true))
   })
 
   for (const [name, text, contents, written] of [
@@ -640,7 +642,7 @@ describe('TerminalView engines', () => {
       const { container } = await renderSettled(<TerminalView workspaceId="w1" paneId="p1" />)
       const textarea = container.querySelector('.xterm-helper-textarea') as HTMLTextAreaElement
       fireEvent.keyDown(textarea, { key: 'v', code: 'KeyV', ctrlKey: true })
-      await waitFor(() => expect(window.ostia.pty.write).toHaveBeenCalledWith('p1', written))
+      await waitFor(() => expect(window.ostia.pty.write).toHaveBeenCalledWith('p1', written, true))
     })
   }
 
@@ -658,7 +660,7 @@ describe('TerminalView engines', () => {
     act(() => textarea.focus())
     await user.keyboard('{Control>}v{/Control}')
     await waitFor(() =>
-      expect(window.ostia.pty.write).toHaveBeenCalledWith('p1', "'/tmp/my shot.png' "),
+      expect(window.ostia.pty.write).toHaveBeenCalledWith('p1', "'/tmp/my shot.png' ", true),
     )
     expect(window.ostia.pty.write).not.toHaveBeenCalledWith('p1', '\x16')
   })
@@ -978,7 +980,7 @@ describe('TerminalView engines', () => {
     await navigator.clipboard.writeText('echo ostiaplain\n')
     await user.keyboard('{Control>}{Shift>}V{/Shift}{/Control}')
     await waitFor(() =>
-      expect(window.ostia.pty.write).toHaveBeenCalledWith('p1', 'echo ostiaplain'),
+      expect(window.ostia.pty.write).toHaveBeenCalledWith('p1', 'echo ostiaplain', true),
     )
     expect(screen.queryByRole('dialog')).toBeNull()
 
@@ -989,6 +991,7 @@ describe('TerminalView engines', () => {
       expect(window.ostia.pty.write).toHaveBeenCalledWith(
         'p1',
         expect.stringContaining('echo ostiaquiet77'),
+        true,
       ),
     )
     expect(screen.queryByRole('dialog')).toBeNull()
@@ -1181,7 +1184,7 @@ describe('TerminalView engines', () => {
       dataTransfer: { types: ['Files'], files: [file], getData: () => '' },
     })
 
-    expect(window.ostia.pty.write).toHaveBeenCalledWith('p1', "'/home/me/notes file.md' ")
+    expect(window.ostia.pty.write).toHaveBeenCalledWith('p1', "'/home/me/notes file.md' ", true)
   })
 
   for (const [system, binding, rebound, dropped, kept] of [
@@ -1339,6 +1342,7 @@ describe('TerminalView engines', () => {
       expect(window.ostia.pty.write).toHaveBeenCalledWith(
         'p1',
         expect.stringContaining('echo ostiafirst\recho ostiapasted42'),
+        true,
       ),
     )
   })

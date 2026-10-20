@@ -60,11 +60,7 @@ function searchTarget(item: Record_): string {
   return str(item.query) || str(action?.url) || str(action?.pattern)
 }
 
-function codexItem(
-  raw: unknown,
-  turn: string,
-  stage: 'started' | 'completed',
-): StreamEvent[] {
+function codexItem(raw: unknown, turn: string, stage: 'started' | 'completed'): StreamEvent[] {
   const item = isRecord(raw) ? raw : null
   const id = item ? str(item.id) : ''
   if (!item || !id) return []

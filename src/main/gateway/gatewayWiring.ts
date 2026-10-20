@@ -1,6 +1,7 @@
 import { hostname } from 'node:os'
 import { join } from 'node:path'
 import { app } from 'electron'
+import type { ChangeSignal } from '../../shared/common/actThenConfirm'
 import { OPEN_FILES_COMMAND } from '../../shared/files/openFiles'
 import type { AgentSessions } from '../agent/agentSessions'
 import type { AgentResumes } from '../agents/agentResumes'
@@ -80,6 +81,8 @@ interface GatewayStartDeps {
     agentSessions: AgentSessions | null
   }
   agentResumes: AgentResumes
+  agentChanges: ChangeSignal
+  agentCwd: (paneId: string) => Promise<string | null>
   paneWatch: PaneWatch
   reach: Reach
   workspaceSandboxes: WorkspaceSandboxes
@@ -130,6 +133,8 @@ export function startGateway({
   paneStartErrors,
   services,
   agentResumes,
+  agentChanges,
+  agentCwd,
   paneWatch,
   reach,
   workspaceSandboxes,
@@ -193,13 +198,17 @@ export function startGateway({
   registerPhoneWorkspaceIpc({ paths: phonePaths })
   const agentStreams = new AgentStreams({
     panes: () => listPanes({ execCommand, getTerminalState, ptyPid, windowIds, waking: isWaking }),
-    claudeFile: (id) => transcriptPath({ agent: 'claude', id }),
+    claudeFile: async (id, pane) => {
+      const cwd = await agentCwd(pane.paneId)
+      return cwd ? transcriptPath({ agent: 'claude', id, cwd }) : null
+    },
     codexSocket: codexSocketOf,
     codexConnect: (socket, onNotice) => connectCodexRpc(socket, app.getVersion(), onNotice),
     pi: (sessionId) => services.agentSessions?.stream(sessionId),
     asks: askHub.list,
   })
   agentResumes.subscribe((externalPaneId, resume) => agentStreams.resumed(externalPaneId, resume))
+  agentChanges.subscribe(() => void agentStreams.agentsChanged())
   paneWatch.tap((paneId, change) => {
     if (change.kind === 'closed') agentStreams.paneClosed(paneId)
   })

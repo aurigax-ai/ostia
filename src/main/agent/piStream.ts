@@ -50,13 +50,16 @@ export class PiStream {
       const turn = this.begun()
       const continued = this.text !== null
       this.text ??= this.nextId()
-      this.push({
-        type: 'text',
-        turn,
-        id: this.text,
-        text: event.text,
-        ...(continued ? { append: true as const } : {}),
-      })
+      this.push(
+        {
+          type: 'text',
+          turn,
+          id: this.text,
+          text: event.text,
+          ...(continued ? { append: true as const } : {}),
+        },
+        continued,
+      )
     } else if (event.type === 'tool-call') {
       this.text = null
       const spec = TOOLS[event.name]
@@ -97,7 +100,7 @@ export class PiStream {
   }
 
   snapshot(turns: number): StreamEvent[] {
-    return lastTurns(this.events, turns)
+    return lastTurns(this.events, turns).map((event) => ({ ...event }))
   }
 
   subscribe(listener: (events: StreamEvent[]) => void): () => void {
@@ -126,8 +129,13 @@ export class PiStream {
     return `x${this.items}`
   }
 
-  private push(event: StreamEvent): void {
-    this.events.push(event)
+  private push(event: StreamEvent, merge = false): void {
+    const last = this.events.at(-1)
+    if (merge && last?.type === 'text' && event.type === 'text' && last.id === event.id) {
+      last.text += event.text
+    } else {
+      this.events.push({ ...event })
+    }
     if (this.events.length > KEPT_EVENTS_MAX) {
       this.events = lastTurns(this.events, STREAM_TURNS_MAX)
       if (this.events.length > KEPT_EVENTS_MAX) this.events = this.events.slice(-KEPT_EVENTS_MAX)

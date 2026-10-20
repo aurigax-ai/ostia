@@ -16,7 +16,13 @@ export type EditChange = 'add' | 'update' | 'delete'
 
 export type TurnEnd = 'done' | 'interrupted' | 'failed'
 
-export type StreamEnd = 'pane-closed' | 'agent-closed'
+export type StreamEnd =
+  | 'pane-closed'
+  | 'agent-closed'
+  | 'unavailable'
+  | 'out-of-scope'
+  | 'too-slow'
+  | 'too-large'
 
 export type StreamEvent =
   | { type: 'turn.started'; turn: string }

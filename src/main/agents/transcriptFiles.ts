@@ -31,8 +31,16 @@ function listDir(path: string): string[] {
   }
 }
 
-function claudeTranscript(home: string, id: string): string | null {
+function claudeProjectDir(cwd: string): string {
+  return cwd.replace(/[^a-zA-Z0-9]/g, '-')
+}
+
+function claudeTranscript(home: string, id: string, cwd?: string): string | null {
   const root = join(home, '.claude', 'projects')
+  if (cwd !== undefined) {
+    const path = join(root, claudeProjectDir(cwd), `${id}.jsonl`)
+    return isPlainFile(path) ? path : null
+  }
   for (const project of listDir(root)) {
     const path = join(root, project, `${id}.jsonl`)
     if (isPlainFile(path)) return path
@@ -57,7 +65,7 @@ function codexTranscript(home: string, id: string): string | null {
 
 export function transcriptPath(resume: AgentResume, home = homedir()): string | null {
   return resume.agent === 'claude'
-    ? claudeTranscript(home, resume.id)
+    ? claudeTranscript(home, resume.id, resume.cwd)
     : codexTranscript(home, resume.id)
 }
 
@@ -136,19 +144,30 @@ export async function readTailWindow(path: string, bytes: number): Promise<TailW
   }
 }
 
-export async function readNewLines(
-  path: string,
-  offset: number,
-): Promise<{ lines: string[]; end: number }> {
+const NEW_LINES_BYTES = 4 * 1024 * 1024
+const LONGEST_LINE_BYTES = 64 * 1024 * 1024
+
+export interface NewLines {
+  lines: string[]
+  end: number
+  reset: boolean
+}
+
+export async function readNewLines(path: string, offset: number): Promise<NewLines> {
   const handle = await open(path, READ_FLAGS)
   try {
     const info = await handle.stat()
     if (!info.isFile()) throw new Error('not a regular file')
-    if (info.size < offset) return readNewLines(path, 0)
-    if (info.size === offset) return { lines: [], end: offset }
-    const buffer = Buffer.alloc(info.size - offset)
-    await handle.read(buffer, 0, buffer.length, offset)
-    return completeLines(buffer, offset, false)
+    if (info.size < offset) return { lines: [], end: 0, reset: true }
+    for (let cap = NEW_LINES_BYTES; ; cap *= 2) {
+      const length = Math.min(info.size - offset, cap)
+      if (length === 0) return { lines: [], end: offset, reset: false }
+      const buffer = Buffer.alloc(length)
+      await handle.read(buffer, 0, length, offset)
+      const read = completeLines(buffer, offset, false)
+      const stuck = read.lines.length === 0 && length === cap && length < info.size - offset
+      if (!stuck || cap >= LONGEST_LINE_BYTES) return { ...read, reset: false }
+    }
   } finally {
     await handle.close()
   }

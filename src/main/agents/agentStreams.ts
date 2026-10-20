@@ -12,7 +12,7 @@ import type { StreamSource } from './streamSource'
 
 export interface AgentStreamsDeps {
   panes: () => Promise<PaneEntry[]>
-  claudeFile: (sessionId: string) => string | null
+  claudeFile: (sessionId: string, pane: PaneIdentity) => Promise<string | null>
   codexSocket: (externalPaneId: string) => string | undefined
   codexConnect: (socket: string, onNotice: CodexNotice) => Promise<CodexRpc>
   pi: (sessionId: string) => PiStream | undefined
@@ -199,6 +199,16 @@ export class AgentStreams {
     }
   }
 
+  async agentsChanged(): Promise<void> {
+    const watched = [...this.subs].filter((sub) => sub.agent !== 'pi')
+    if (watched.length === 0) return
+    const panes = await this.deps.panes()
+    for (const sub of watched) {
+      const entry = panes.find((p) => p.paneId === sub.pane.externalId)
+      if (entry?.agent !== sub.agent) sub.end('agent-closed')
+    }
+  }
+
   paneClosed(paneId: string): void {
     for (const sub of [...this.subs]) if (sub.pane.paneId === paneId) sub.end('pane-closed')
   }
@@ -212,7 +222,13 @@ export class AgentStreams {
   }
 
   private source(sub: Subscription, session: string): StreamSource {
-    if (sub.agent === 'claude') return claudeSource(() => this.deps.claudeFile(session))
+    if (sub.agent === 'claude') {
+      return claudeSource({
+        find: () => this.deps.claudeFile(session, sub.pane),
+        session,
+        closed: (reason) => sub.end(reason),
+      })
+    }
     if (sub.agent === 'pi') {
       const stream = this.deps.pi(session)
       if (!stream) throw new Error('no agent session')
@@ -223,7 +239,7 @@ export class AgentStreams {
     return codexSource({
       threadId: session,
       connect: (onNotice) => this.deps.codexConnect(socket, onNotice),
-      closed: () => sub.end('agent-closed'),
+      closed: (reason) => sub.end(reason),
     })
   }
 }

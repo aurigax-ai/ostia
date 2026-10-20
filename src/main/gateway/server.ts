@@ -18,6 +18,7 @@ import type { GatewayControlDeps } from './controlDispatch'
 import { get as getDevice, list as listDevices } from './devices'
 import { createPairHttp } from './pairHttp'
 import { PHONE_FRAME_BYTES, type SocketState, createPhoneSocket } from './phoneSocket'
+import { closeStreams } from './phoneStream'
 import { readProxyHeader } from './proxyProtocol'
 import type { ScreenLinks } from './screenLinks'
 import type { ScreenRequested } from './screenRequests'
@@ -83,10 +84,20 @@ function untrackDeviceSocket(deviceId: string, ws: WebSocket): void {
   screenLinks?.deviceGone(deviceId)
 }
 
+function releaseSocket(state: SocketState): void {
+  state.ptyAttachment?.detach()
+  state.ptyAttachment = null
+  closeStreams(state)
+}
+
 export function closeDeviceSockets(deviceId: string): void {
   const set = socketsByDevice.get(deviceId)
   if (!set) return
-  for (const ws of set) ws.close(4003, 'revoked')
+  for (const ws of set) {
+    const state = sockets.get(ws)
+    if (state) releaseSocket(state)
+    ws.close(4003, 'revoked')
+  }
   socketsByDevice.delete(deviceId)
   screenLinks?.deviceGone(deviceId)
 }
@@ -104,8 +115,7 @@ export function applyDeviceCaps(deviceId: string, caps: string[]): void {
     const lost = state.device.caps.some((c) => !caps.includes(c))
     state.device = { ...state.device, caps: [...caps] }
     if (lost) {
-      state.ptyAttachment?.detach()
-      state.ptyAttachment = null
+      releaseSocket(state)
       ws.close(4004, 'caps-changed')
     } else if (ws.readyState === ws.OPEN) {
       ws.send(eventFrame('caps.changed', { caps }))

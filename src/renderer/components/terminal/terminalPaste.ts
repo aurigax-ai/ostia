@@ -8,6 +8,7 @@ import {
 } from '@/lib/keyboard/clipboardKeys'
 import { pathsAsInput } from '@/lib/keyboard/dropPaths'
 import { planDraftPaste, planHumanPaste } from '@/lib/keyboard/pasteGate'
+import { markHumanInput } from '@/lib/terminal/humanInput'
 import type { OstiaTerminal } from '@/lib/terminal/ostiaTerminal'
 import { inputEditorFor } from '@/lib/terminal/terminalHandles'
 import { isMac } from '@/platform'
@@ -37,7 +38,10 @@ export function createTerminalPaste({
   const pasteConfirmed = (text: string): void => {
     const editor = inputEditorFor(paneId)
     if (editor) editor.type(text)
-    else term.paste(text)
+    else {
+      markHumanInput()
+      term.paste(text)
+    }
   }
   const planPaste = (text: string) =>
     planHumanPaste(text, useSettingsStore.getState().terminal.warnOnRiskyPaste)
@@ -74,7 +78,10 @@ export function createTerminalPaste({
     try {
       if (plan === 'text') requestPaste(text)
       else if (plan === 'files') pasteConfirmed(pathsAsInput(contents.files))
-      else if (plan === 'program') term.input(PROGRAM_PASTE_KEY, true)
+      else if (plan === 'program') {
+        markHumanInput()
+        term.input(PROGRAM_PASTE_KEY, true)
+      }
     } finally {
       heldInput = held
     }
@@ -88,7 +95,7 @@ export function createTerminalPaste({
       const held = heldInput ?? []
       heldInput = null
       if (session.disposed) return
-      for (const data of held) window.ostia.pty.write(paneId, data)
+      for (const data of held) window.ostia.pty.write(paneId, data, true)
     })
   }
   const interceptPaste = (e: ClipboardEvent): void => {

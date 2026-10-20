@@ -1,6 +1,6 @@
 import type { StreamEvent } from '../../shared/agents/agentStream'
 
-const BODY_FIELDS = ['text', 'input', 'output', 'diff'] as const
+const BODY_FIELDS = ['text', 'input', 'output', 'diff', 'target'] as const
 
 type Body = (typeof BODY_FIELDS)[number]
 
@@ -8,18 +8,22 @@ function bytes(value: unknown): number {
   return Buffer.byteLength(JSON.stringify(value))
 }
 
+export class FrameTooLarge extends Error {}
+
 function bodyOf(event: StreamEvent): Body | null {
+  const record = event as unknown as Record<string, unknown>
+  let longest: Body | null = null
   for (const field of BODY_FIELDS) {
-    if (field in event && typeof (event as Record<string, unknown>)[field] === 'string') {
-      return field
-    }
+    const value = record[field]
+    if (typeof value !== 'string') continue
+    if (longest === null || value.length > (record[longest] as string).length) longest = field
   }
-  return null
+  return longest
 }
 
-function prefixLength(text: string, fits: (piece: string) => boolean): number {
+function prefixLength(text: string, maxChars: number, fits: (piece: string) => boolean): number {
   let low = 1
-  let high = text.length
+  let high = Math.min(text.length, maxChars)
   while (low < high) {
     const mid = Math.ceil((low + high) / 2)
     if (fits(text.slice(0, mid))) low = mid
@@ -30,16 +34,24 @@ function prefixLength(text: string, fits: (piece: string) => boolean): number {
 }
 
 function splitText(event: StreamEvent, field: Body, budget: number): StreamEvent[] {
+  let head = true
   const record = event as unknown as Record<string, unknown>
   const text = record[field] as string
   const pieces: StreamEvent[] = []
+  if (bytes({ ...record, [field]: '' }) > budget) {
+    pieces.push(...splitEvent({ ...record, [field]: '' } as StreamEvent, budget))
+    head = false
+  }
   let rest = text
-  let head = true
   while (rest.length > 0) {
     const shell = head
       ? record
       : { type: record.type, turn: record.turn, id: record.id, append: true }
-    const take = prefixLength(rest, (piece) => bytes({ ...shell, [field]: piece }) <= budget)
+    const take = prefixLength(
+      rest,
+      budget,
+      (piece) => bytes({ ...shell, [field]: piece }) <= budget,
+    )
     pieces.push({ ...shell, [field]: rest.slice(0, take) } as StreamEvent)
     rest = rest.slice(take)
     head = false
@@ -61,6 +73,7 @@ function splitPlan(event: Extract<StreamEvent, { type: 'plan' }>, budget: number
     items.push(item)
   }
   flush()
+  if (pieces.some((piece) => bytes(piece) > budget)) throw new FrameTooLarge('plan item too large')
   return pieces
 }
 
@@ -68,7 +81,8 @@ export function splitEvent(event: StreamEvent, budget: number): StreamEvent[] {
   if (bytes(event) <= budget) return [event]
   if (event.type === 'plan') return splitPlan(event, budget)
   const field = bodyOf(event)
-  return field ? splitText(event, field, budget) : [event]
+  if (!field) throw new FrameTooLarge('event has nothing to split')
+  return splitText(event, field, budget)
 }
 
 interface StreamFrame {
@@ -117,6 +131,7 @@ export function packFrames(
   for (const event of events) {
     for (const piece of splitEvent(event, budget)) {
       const size = bytes(piece) + 1
+      if (size - 1 > budget) throw new FrameTooLarge('event does not fit a frame')
       if (used + size > budget) flush()
       current.push(piece)
       used += size

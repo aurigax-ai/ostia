@@ -546,6 +546,28 @@ describe('gateway server over a real WebSocket', () => {
       await vi.waitFor(() => expect(attachment.detach).toHaveBeenCalledTimes(1))
     })
 
+    it('gives the size back and stops the stream the moment the device is revoked, not when the socket finishes closing', async () => {
+      const { c, deviceId } = await holder()
+      deps.listWorkspaces.mockResolvedValueOnce([
+        { workspaceId: 's1', name: 'One', kind: 'agent', workDir: '/w', state: 'idle' },
+      ])
+      const streamClose = vi.fn()
+      deps.agentStreams.open.mockResolvedValueOnce({
+        agent: 'claude',
+        session: 's',
+        truncated: false,
+        start: () => undefined,
+        close: streamClose,
+      })
+      await c.call('pty.attach', { paneId: externalPaneId, role: 'owner' })
+      await c.call('pty.hold', { paneId: externalPaneId, cols: 44, rows: 20 })
+      await c.call('agent.stream.open', { paneId: externalPaneId })
+      const attachment = lastAttachment()
+      closeDeviceSockets(deviceId)
+      expect(attachment.detach).toHaveBeenCalledTimes(1)
+      expect(streamClose).toHaveBeenCalledTimes(1)
+    })
+
     it('gives the size back when the desktop revokes the input cap', async () => {
       const { c, deviceId } = await holder()
       await c.call('pty.attach', { paneId: externalPaneId, role: 'owner' })

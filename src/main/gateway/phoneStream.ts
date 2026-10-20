@@ -1,15 +1,25 @@
 import type { WebSocket } from 'ws'
-import { STREAM_TURNS_DEFAULT, STREAM_TURNS_MAX } from '../../shared/agents/agentStream'
+import {
+  STREAM_TURNS_DEFAULT,
+  STREAM_TURNS_MAX,
+  type StreamEnd,
+  type StreamEvent,
+} from '../../shared/agents/agentStream'
+import type { PreparedStream } from '../agents/agentStreams'
 import type { GatewayControlDeps } from './controlDispatch'
 import type { Device } from './devices'
 import type { SocketState } from './phoneSocket'
 import { turnPane } from './phoneTurns'
 import { rpcError, rpcResult } from './rpcFrames'
-import { packFrames } from './streamFrames'
+import { FrameTooLarge, packFrames } from './streamFrames'
 
 export const STREAMS_PER_SOCKET = 4
+export const STREAM_BUFFER_MAX = 8 * 1024 * 1024
+export const SCOPE_CHECK_MS = 3000
 
 type Message = { id?: unknown; params?: unknown }
+
+const RESERVED = { agent: 'claude', session: null, truncated: false } as const
 
 function turnsOf(raw: unknown): number | null {
   if (raw === undefined) return STREAM_TURNS_DEFAULT
@@ -36,6 +46,10 @@ export function handleStreamOpen(
   })
 }
 
+function reservation(): PreparedStream {
+  return { ...RESERVED, start: () => undefined, close: () => undefined }
+}
+
 async function open(
   ws: WebSocket,
   state: SocketState,
@@ -58,47 +72,102 @@ async function open(
     ws.send(rpcError(msg.id, -32602, 'bad-params'))
     return
   }
-  const found = await turnPane({ paneId: params.paneId }, controlDeps)
-  if ('ok' in found) {
-    if (!found.ok) ws.send(rpcError(msg.id, found.code, found.message))
-    return
-  }
-  const paneId = found.pane.externalId
-  if (!state.streams.has(paneId) && state.streams.size >= STREAMS_PER_SOCKET) {
+  const key = typeof params.paneId === 'string' ? params.paneId : ''
+  if (key && !state.streams.has(key) && state.streams.size >= STREAMS_PER_SOCKET) {
     ws.send(rpcError(msg.id, -32602, 'too-many-streams'))
     return
   }
-  state.streams.get(paneId)?.close()
-  state.streams.delete(paneId)
-  const prepared = await controlDeps.agentStreams.open(found.pane, turns)
-  if ('error' in prepared) {
-    const refused = prepared.error === 'not-an-agent'
-    ws.send(rpcError(msg.id, refused ? -32602 : -32603, prepared.error))
-    return
+  const mine = reservation()
+  if (key) {
+    state.streams.get(key)?.close()
+    state.streams.set(key, mine)
   }
-  if (ws.readyState !== ws.OPEN) {
-    prepared.close()
-    return
+  const release = (): void => {
+    if (state.streams.get(key) === mine) state.streams.delete(key)
   }
-  state.streams.get(paneId)?.close()
-  state.streams.set(paneId, prepared)
-  ws.send(
-    rpcResult(msg.id, {
-      ok: true,
-      paneId,
-      agent: prepared.agent,
-      session: prepared.session,
-      truncated: prepared.truncated,
-    }),
-  )
-  let seq = 1
-  prepared.start((events, backfill) => {
-    if (ws.readyState !== ws.OPEN) return
-    for (const frame of packFrames(paneId, seq, backfill, events, maxFrameBytes)) {
-      ws.send(frame)
-      seq += 1
+  try {
+    const found = await turnPane({ paneId: params.paneId }, controlDeps)
+    if ('ok' in found) {
+      release()
+      if (!found.ok) ws.send(rpcError(msg.id, found.code, found.message))
+      return
     }
-  })
+    const paneId = found.pane.externalId
+    const prepared = await controlDeps.agentStreams.open(found.pane, turns)
+    if ('error' in prepared) {
+      release()
+      const refused = prepared.error === 'not-an-agent'
+      ws.send(rpcError(msg.id, refused ? -32602 : -32603, prepared.error))
+      return
+    }
+    if (ws.readyState !== ws.OPEN || state.streams.get(key) !== mine) {
+      prepared.close()
+      release()
+      return
+    }
+    let watch: ReturnType<typeof setInterval> | null = null
+    let ended = false
+    const stream: PreparedStream = {
+      ...prepared,
+      close: () => {
+        if (watch) clearInterval(watch)
+        watch = null
+        prepared.close()
+      },
+    }
+    state.streams.set(key, stream)
+    const finish = (reason: StreamEnd): void => {
+      if (ended) return
+      ended = true
+      if (ws.readyState === ws.OPEN) {
+        for (const frame of packFrames(
+          paneId,
+          seq,
+          false,
+          [{ type: 'ended', reason }],
+          maxFrameBytes,
+        )) {
+          ws.send(frame)
+        }
+      }
+      stream.close()
+      if (state.streams.get(key) === stream) state.streams.delete(key)
+    }
+    let seq = 1
+    const deliver = (events: StreamEvent[], backfill: boolean): void => {
+      if (ended || ws.readyState !== ws.OPEN) return
+      if (ws.bufferedAmount > STREAM_BUFFER_MAX) {
+        finish('too-slow')
+        return
+      }
+      try {
+        for (const frame of packFrames(paneId, seq, backfill, events, maxFrameBytes)) {
+          ws.send(frame)
+          seq += 1
+        }
+      } catch (err) {
+        if (!(err instanceof FrameTooLarge)) throw err
+        finish('too-large')
+      }
+    }
+    ws.send(
+      rpcResult(msg.id, {
+        ok: true,
+        paneId,
+        agent: prepared.agent,
+        session: prepared.session,
+        truncated: prepared.truncated,
+      }),
+    )
+    prepared.start((events, backfill) => deliver(events, backfill))
+    watch = setInterval(async () => {
+      const again = await turnPane({ paneId: key }, controlDeps).catch(() => null)
+      if (again === null || 'ok' in again) finish('out-of-scope')
+    }, SCOPE_CHECK_MS)
+  } catch (err) {
+    release()
+    throw err
+  }
 }
 
 export function handleStreamClose(ws: WebSocket, state: SocketState, msg: Message): void {

@@ -24,7 +24,7 @@ export function terminalInputBridge({
     setSuppressedPrompt(useBlocksStore.getState().drafts[paneId]?.promptLine ?? null)
     if (text) return insertCommand(paneId, text, true)
     termRef.current?.focus()
-    window.ostia.pty.write(paneId, '\r')
+    window.ostia.pty.write(paneId, '\r', true)
     return true
   }
 
@@ -34,11 +34,11 @@ export function terminalInputBridge({
     setSuppressedPrompt(useBlocksStore.getState().drafts[paneId]?.promptLine ?? null)
     term.focus()
     if (draft) term.paste(draft)
-    if (keys) window.ostia.pty.write(paneId, keys)
+    if (keys) window.ostia.pty.write(paneId, keys, true)
   }
 
   const sendShellKeys = (keys: string): void => {
-    if (canTypeInto(paneId)) window.ostia.pty.write(paneId, keys)
+    if (canTypeInto(paneId)) window.ostia.pty.write(paneId, keys, true)
   }
 
   const makeRows = (rows: number): void => {

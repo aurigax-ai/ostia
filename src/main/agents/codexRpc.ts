@@ -62,8 +62,8 @@ export function connectCodexRpc(
           result?: unknown
           error?: { message?: string }
         }
-        if (message.id === undefined && typeof message.method === 'string') {
-          onNotice?.(message.method, message.params)
+        if (typeof message.method === 'string') {
+          if (message.id === undefined) onNotice?.(message.method, message.params)
           return
         }
         const entry = message.id === undefined ? undefined : pending.get(message.id)
