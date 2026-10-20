@@ -4,12 +4,12 @@ import {
   confirmed,
   mismatch,
 } from '../../shared/common/actThenConfirm'
+import { CLOSE_CONFIRM_MS } from '../../shared/windows/closeWaits'
 import type { PaneIdentity } from '../control/idRegistry'
 import type { PaneEntry } from './paneList'
 
 export const CONFIRM_MAX_MS = 10_000
 const CONFIRM_POLL_MS = 50
-const CLOSE_CONFIRM_MS = 3000
 const SUBMIT_CONFIRM_MS = 5000
 const TURN_STATES: ReadonlySet<string | undefined> = new Set(['working', 'waiting'])
 

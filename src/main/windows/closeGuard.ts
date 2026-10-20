@@ -1,5 +1,6 @@
 import { type BrowserWindow, ipcMain } from 'electron'
 import type { PaneActivity } from '../../shared/terminal/ptyApi'
+import { RUNNING_ANSWER_MS } from '../../shared/windows/closeWaits'
 import type { QuitAnswer, RunningGroup } from '../../shared/windows/windowsApi'
 
 interface PendingAnswer {
@@ -28,8 +29,6 @@ export function registerCloseGuard(): void {
 function unresponsive(win: BrowserWindow): boolean {
   return win.isDestroyed() || win.webContents.isLoading() || win.webContents.isCrashed()
 }
-
-export const RUNNING_ANSWER_MS = 2_000
 
 export function ask(
   win: BrowserWindow,

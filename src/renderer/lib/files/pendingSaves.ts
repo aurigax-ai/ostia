@@ -22,7 +22,7 @@ export async function settleSaves(
   timeoutMs = SAVE_WAIT_MS,
 ): Promise<void> {
   const waits = filePaths.flatMap((path) => [...(pending.get(path) ?? [])])
-  if (waits.length === 0) return
+  if (waits.length === 0 || timeoutMs <= 0) return
   let timer: ReturnType<typeof setTimeout> | undefined
   const limit = new Promise<void>((resolve) => {
     timer = setTimeout(resolve, timeoutMs)
