@@ -45,12 +45,15 @@ export class TmuxPane {
     return this.foreground
   }
 
+  holdEarlyOutput(raw: string): void {
+    this.unheard = this.titles.push(raw)
+  }
+
   onData(listener: Listener<string>): Disposable {
     this.dataListeners.add(listener)
     const unheard = this.unheard
     this.unheard = ''
-    const visible = unheard ? this.titles.push(unheard) : ''
-    if (visible) listener(visible)
+    if (unheard) listener(unheard)
     return { dispose: () => this.dataListeners.delete(listener) }
   }
 
@@ -136,13 +139,16 @@ export class TmuxPane {
   live(): void {
     const held = this.held
     this.held = null
-    if (held && held.length > 0) this.deliver(held.join(''))
+    if (held && held.length > 0) this.emit(held.join(''))
   }
 
   deliver(raw: string): void {
     if (this.detached) return
-    const data = this.titles.push(raw)
-    if (!data) return
+    this.emit(this.titles.push(raw))
+  }
+
+  private emit(data: string): void {
+    if (this.detached || !data) return
     if (this.held) {
       this.held.push(data)
       return

@@ -46,6 +46,51 @@ describe('ScreenTitleFilter', () => {
     const f = new ScreenTitleFilter()
     expect(f.push('\x1bkabc\x18z')).toBe('z')
   })
+
+  it('ends the title at any ESC and parses what follows', () => {
+    const f = new ScreenTitleFilter()
+    expect(f.push('\x1bkt\x1b[31my')).toBe('\x1b[31my')
+  })
+
+  it('keeps a colored prompt after an unterminated title', () => {
+    const f = new ScreenTitleFilter()
+    expect(f.push('a\x1bkt\x1b[31mred\x1b[0m$ ')).toBe('a\x1b[31mred\x1b[0m$ ')
+  })
+
+  it('keeps command output after a BEL inside the title', () => {
+    const f = new ScreenTitleFilter()
+    expect(f.push('\x1bkvim\x07\x1b[32muser@host\x1b[0m $ ls\r\nfile\r\n')).toBe(
+      '\x1b[32muser@host\x1b[0m $ ls\r\nfile\r\n',
+    )
+  })
+
+  it('drops the first ESC of ESC ESC like tmux', () => {
+    const f = new ScreenTitleFilter()
+    expect(f.push('a\x1b\x1bkt\x1b\\b')).toBe('ab')
+  })
+
+  it('starts a new title when ESC k follows inside a title', () => {
+    const f = new ScreenTitleFilter()
+    expect(f.push('\x1bka\x1bkb\x1b\\c')).toBe('c')
+  })
+
+  it('keeps swallowing a title longer than any limit until ESC', () => {
+    const f = new ScreenTitleFilter()
+    const title = 'x'.repeat(2 * 1024 * 1024)
+    expect(f.push(`\x1bk${title}`)).toBe('')
+    expect(f.push('more\x1b\\ok')).toBe('ok')
+  })
+
+  it('treats ESC k after a C0 control as a title like tmux', () => {
+    const f = new ScreenTitleFilter()
+    expect(f.push('a\x1b\nkt\x1b\\b')).toBe('a\nb')
+  })
+
+  it('returns plain text unchanged', () => {
+    const f = new ScreenTitleFilter()
+    const input = 'plain \u00e9\u4e2d\r\n'
+    expect(f.push(input)).toBe(input)
+  })
 })
 
 describe('TmuxPane title filtering', () => {
@@ -59,9 +104,36 @@ describe('TmuxPane title filtering', () => {
 
   it('filters early output replayed to the first listener', () => {
     const p = new TmuxPane(server, '@1', '%1', 1, 80, 24)
-    p.unheard = '\x1bkls\x1b\\ok'
+    p.holdEarlyOutput('\x1bkls\x1b\\ok')
     const seen: string[] = []
     p.onData((d) => seen.push(d))
     expect(seen.join('')).toBe('ok')
+  })
+
+  it('filters early output before later output arrives', () => {
+    const p = new TmuxPane(server, '@1', '%1', 1, 80, 24)
+    p.holdEarlyOutput('ok')
+    p.deliver('\x1bkt')
+    const seen: string[] = []
+    p.onData((d) => seen.push(d))
+    expect(seen.join('')).toBe('ok')
+  })
+
+  it('releases output held during a snapshot without filtering it twice', async () => {
+    const p = new TmuxPane(
+      { ...server, batch: async (lines: string[]) => lines.map(() => ['0']) },
+      '@1',
+      '%1',
+      1,
+      80,
+      24,
+    )
+    const seen: string[] = []
+    p.onData((d) => seen.push(d))
+    await p.snapshot(80, 24)
+    p.deliver('hello\x1bkti')
+    p.live()
+    p.deliver('tle\x1b\\!')
+    expect(seen.join('')).toBe('hello!')
   })
 })
