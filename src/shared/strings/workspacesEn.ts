@@ -64,7 +64,6 @@ export const workspacesEn = {
   },
   dashboard: {
     agents: 'Agents',
-    answer: 'Answer',
     chooseAny: 'Choose any that apply',
     chooseOne: 'Choose one',
     clearChoice: 'Clear choice',

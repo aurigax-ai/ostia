@@ -102,12 +102,10 @@ test('CFT-C17 an untrusted workspace folder holds the resume on a note until the
   const { app, win } = await launch(s)
   try {
     const note = win.getByRole('region', { name: 'Claude folder trust' })
-    await expect(note).toContainText(`Claude will ask to trust this folder: ${s.project}`, {
-      timeout: 20_000,
-    })
+    await expect(note).toContainText(s.project, { timeout: 20_000 })
     expect(resumes(s)).toBe(0)
     expect(trusted(s)).toBeUndefined()
-    await note.getByRole('button', { name: 'Trust for Claude' }).click()
+    await note.getByRole('button', { name: 'Trust folder', exact: true }).click()
     await expect(win.locator(SHOWN_ROWS)).toContainText(
       new RegExp(`fake-agent-resumed .*--resume ${RESUME_ID}`),
       {

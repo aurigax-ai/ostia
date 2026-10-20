@@ -216,7 +216,7 @@ test.describe('chat code editing', () => {
       await expect(card).toHaveAttribute('data-state', 'applied', { timeout: 15_000 })
       await expect.poll(() => readFileSync(notes, 'utf8')).toBe(EDITED)
       await fileTab(win).click()
-      await expect(win.locator('.editor-disk-bar')).toBeVisible({ timeout: 15_000 })
+      await expect(win.getByTestId('editor-disk-bar')).toBeVisible({ timeout: 15_000 })
       await expect(editor).toContainText('MINE one')
       await expect(editor).not.toContainText('TWO')
     } finally {

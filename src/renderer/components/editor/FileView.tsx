@@ -1,4 +1,4 @@
-import { TextLink } from '@/components/common/TextLink'
+import { StatusAction, StatusLine } from '@/components/common/StatusLine'
 import { fmt, useDict } from '@/lib/app/useDict'
 import { useArtifactListing } from '@/lib/files/artifacts'
 import { fileViewKind } from '@/lib/files/fileKinds'
@@ -12,7 +12,6 @@ import { useOpenWithStore } from '@/stores/files/openWithStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { OWN_VIEW } from '@aurigax-ai/ostia-extension-sdk/contract/fileKinds'
 import { isRemotePath } from '@aurigax-ai/ostia-extension-sdk/contract/remoteFolders'
-import { WarningIcon } from '@phosphor-icons/react'
 import { isInside } from '@shared/artifacts/artifacts'
 import { useCallback, useMemo, useState } from 'react'
 import { VersionView } from './ArtifactVersions'
@@ -134,19 +133,20 @@ export function FileView({
   }
 
   return (
-    <>
-      {body}
+    <div className="flex size-full flex-col">
       {note ? (
-        <output className="viewer-fallback">
-          <WarningIcon aria-hidden />
-          <span>{note}</span>
-          {options.length > 0 ? (
-            <TextLink size="sm" onClick={() => openWith(paneId)}>
-              {d.viewer.openWith}
-            </TextLink>
-          ) : null}
-        </output>
+        <StatusLine
+          tone="warn"
+          actions={
+            options.length > 0 ? (
+              <StatusAction onClick={() => openWith(paneId)}>{d.viewer.openWith}</StatusAction>
+            ) : null
+          }
+        >
+          {note}
+        </StatusLine>
       ) : null}
+      <div className="relative min-h-0 flex-1">{body}</div>
       {filePath && options.length > 0 ? (
         <OpenWithDialog
           workspaceId={workspaceId}
@@ -157,6 +157,6 @@ export function FileView({
           ownLabel={kind === 'text' ? d.viewer.ownText : d.viewer.ownView}
         />
       ) : null}
-    </>
+    </div>
   )
 }

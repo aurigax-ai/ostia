@@ -63,7 +63,6 @@ export const workspacesZhHant: typeof workspacesEn = {
   },
   dashboard: {
     agents: '代理程式',
-    answer: '回答',
     chooseAny: '選擇所有適用項目',
     chooseOne: '選擇一項',
     clearChoice: '清除選擇',

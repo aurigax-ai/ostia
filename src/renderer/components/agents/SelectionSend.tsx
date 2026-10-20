@@ -1,4 +1,5 @@
 import { NoticeSlot } from '@/components/common/NoticeSlot'
+import { StatusLine } from '@/components/common/StatusLine'
 import type { PickTarget } from '@/lib/agents/pickTargets'
 import { sendSelectionToPane } from '@/lib/agents/sendPick'
 import { fmt, useDict } from '@/lib/app/useDict'
@@ -86,7 +87,9 @@ export function useSelectionSend(workspaceId: string, paneId: string): Selection
     </NoticeSlot>
   )
 
-  const statusLine = status ? <output className="viewer-status">{status}</output> : null
+  const statusLine = status ? (
+    <StatusLine onDismiss={() => setStatus(null)}>{status}</StatusLine>
+  ) : null
 
   return { open, notify: setStatus, panel, status: statusLine }
 }

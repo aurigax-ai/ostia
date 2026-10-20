@@ -76,7 +76,6 @@ export const appEn = {
     installingServer: 'Installing {name}…',
     label: 'Language features',
     more: 'Settings → Extensions lists {count} more.',
-    no: 'No',
     openSettings: 'Open Settings',
     pending: '{name} is waiting for your approval.',
     programMissing: '{name} cannot start: {program} is not installed.',

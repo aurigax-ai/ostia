@@ -8,7 +8,7 @@
     "src/renderer/components/agents/DashboardButton.tsx",
     "src/renderer/components/agents/DashboardPanel.",
     "src/renderer/components/agents/QuestionCard.",
-    "src/renderer/components/agents/QuestionNotice.tsx",
+    "src/renderer/components/panes/usePanePrompt.tsx",
     "src/renderer/lib/sidebar/dashboard.ts",
     "src/renderer/stores/agents/questionsStore.ts",
     "src/renderer/stores/terminal/agentTurnStore.ts",

@@ -1,3 +1,4 @@
+import { EmptyState } from '@/components/common/EmptyState'
 import { IconButton } from '@/components/common/IconButton'
 import { Button } from '@/components/ui/button'
 import { useDict } from '@/lib/app/useDict'
@@ -5,7 +6,7 @@ import type { ViewerOption } from '@/lib/files/viewerChoice'
 import { useGuestReady, useSurfaceFocus } from '@/lib/panes/paneFocus'
 import { useInjectedCss, usePanelThemeCss } from '@/lib/theme/panelThemeInjection'
 import { useOpenWithStore } from '@/stores/files/openWithStore'
-import { ArrowsLeftRightIcon } from '@phosphor-icons/react'
+import { ArrowsLeftRightIcon, WarningIcon } from '@phosphor-icons/react'
 import type { ViewerOpenResult, ViewerStopReason } from '@shared/files/filesApi'
 import { useEffect, useState } from 'react'
 import { ViewerMessage } from './ViewerChrome'
@@ -103,12 +104,19 @@ function ViewerFrame({
       </div>
       <div className="viewer-body">
         {stopped ? (
-          <div className="preview-stopped" data-testid="viewer-stopped">
-            <span>{d.viewer.stopped[stopped]}</span>
-            <Button variant="outline" size="xs" onClick={onReload}>
-              {d.viewer.reload}
-            </Button>
-          </div>
+          <EmptyState
+            variant="surface"
+            size="sm"
+            className="flex-1"
+            data-testid="viewer-stopped"
+            icon={<WarningIcon aria-hidden />}
+            title={d.viewer.stopped[stopped]}
+            actions={
+              <Button variant="outline" size="sm" onClick={onReload}>
+                {d.viewer.reload}
+              </Button>
+            }
+          />
         ) : opened ? (
           <webview
             ref={setWebview}

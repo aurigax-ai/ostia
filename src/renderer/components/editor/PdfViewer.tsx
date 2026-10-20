@@ -369,6 +369,7 @@ export function PdfViewer({
   return (
     // biome-ignore lint/a11y/noNoninteractiveTabindex: the viewer takes focus so its find key reaches it
     <div className="viewer-surface" tabIndex={0} onKeyDown={onFindKey}>
+      {selectionSend.status}
       {finding ? (
         <FindBar
           className="pdf-find"
@@ -418,7 +419,6 @@ export function PdfViewer({
         onRegionKeyDown={onRegionKeyDown}
       />
       {selectionSend.panel}
-      {selectionSend.status}
     </div>
   )
 }

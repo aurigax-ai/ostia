@@ -27,7 +27,7 @@ function toggled(choices: readonly number[], index: number, on: boolean): number
   return on ? [...rest, index].sort((a, b) => a - b) : rest
 }
 
-export function questionTitle(d: Dict, question: QuestionRequest): string {
+function questionTitle(d: Dict, question: QuestionRequest): string {
   if (!question.permission) return question.question
   return fmt(d.dashboard.permissionTitle, {
     agent: d.agentSession[question.permission.agent],

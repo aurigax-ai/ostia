@@ -1,8 +1,6 @@
-import { Button } from '@/components/ui/button'
+import { StatusAction, StatusLine, useDismissed } from '@/components/common/StatusLine'
 import { fmt, useDict } from '@/lib/app/useDict'
-import { useFlipped } from '@/lib/app/useFlipped'
 import { fileLanguage } from '@/lib/monaco/language'
-import { cn } from '@/lib/utils'
 import { useUIStore } from '@/stores/app/uiStore'
 import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
 import { useLanguageNoticeStore } from '@/stores/extensions/languageNoticeStore'
@@ -10,8 +8,7 @@ import { useLanguageServersStore } from '@/stores/extensions/languageServersStor
 import type { LanguageServerInfo } from '@aurigax-ai/ostia-extension-sdk/contract/languageServers'
 import type { ExtensionSuggestion } from '@shared/extensions/extensionSuggestions'
 import type { MarketplaceError } from '@shared/extensions/marketplace'
-import { useContext, useEffect, useState } from 'react'
-import { NoticeAppearing } from './noticeAppearing'
+import { useEffect, useState } from 'react'
 
 const SERVER_NOTICES = [
   'downloading',
@@ -34,29 +31,35 @@ export function serverNoticeFor(
   return claiming.find((s) => SERVER_NOTICES.includes(s.status as ServerNotice)) ?? null
 }
 
-function Bar({ children }: { children: React.ReactNode }): JSX.Element {
+function Bar({
+  tone,
+  actions,
+  dismissKey,
+  children,
+}: {
+  tone?: 'muted' | 'warn'
+  actions?: React.ReactNode
+  dismissKey?: string
+  children: React.ReactNode
+}): JSX.Element | null {
   const d = useDict()
-  const appearing = useContext(NoticeAppearing)
+  const [dismissed, dismiss] = useDismissed(dismissKey ?? '')
+  if (dismissed) return null
   return (
-    <output
+    <StatusLine
+      tone={tone}
       aria-label={d.languageNotice.label}
-      className={cn(
-        'language-notice flex items-center gap-2 border-line border-b bg-surface-2 px-3 text-fg-muted text-ui-sm',
-        appearing && 'motion-fade',
-      )}
+      actions={actions}
+      onDismiss={dismissKey ? dismiss : undefined}
     >
       {children}
-    </output>
+    </StatusLine>
   )
 }
 
-export function LargeFileNotice(): JSX.Element {
+export function LargeFileNotice(): JSX.Element | null {
   const d = useDict()
-  return (
-    <Bar>
-      <span className="truncate">{d.editor.largeFile}</span>
-    </Bar>
-  )
+  return <Bar dismissKey="large-file">{d.editor.largeFile}</Bar>
 }
 
 function ServerBar({ server }: { server: LanguageServerInfo }): JSX.Element {
@@ -64,20 +67,10 @@ function ServerBar({ server }: { server: LanguageServerInfo }): JSX.Element {
   const t = d.languageNotice
   const openLanguages = (): void => useUIStore.getState().openSettings('languageServers')
   if (server.status === 'downloading') {
-    return (
-      <Bar>
-        <span className="truncate">
-          {fmt(t.downloading, { name: server.name, percent: server.progress ?? 0 })}
-        </span>
-      </Bar>
-    )
+    return <Bar>{fmt(t.downloading, { name: server.name, percent: server.progress ?? 0 })}</Bar>
   }
   if (server.status === 'installing') {
-    return (
-      <Bar>
-        <span className="truncate">{fmt(t.installingServer, { name: server.name })}</span>
-      </Bar>
-    )
+    return <Bar>{fmt(t.installingServer, { name: server.name })}</Bar>
   }
   const text =
     server.status === 'program-missing'
@@ -86,11 +79,12 @@ function ServerBar({ server }: { server: LanguageServerInfo }): JSX.Element {
         ? fmt(t.toolchainMissing, { name: server.name })
         : fmt(t.fetchFailed, { name: server.name })
   return (
-    <Bar>
-      <span className="min-w-0 flex-1 truncate">{text}</span>
-      <Button variant="outline" size="xs" onClick={openLanguages}>
-        {t.openSettings}
-      </Button>
+    <Bar
+      tone="warn"
+      dismissKey={`${server.name}:${server.status}`}
+      actions={<StatusAction onClick={openLanguages}>{t.openSettings}</StatusAction>}
+    >
+      {text}
     </Bar>
   )
 }
@@ -127,37 +121,34 @@ function SuggestionBar({
       : suggestion.pending
         ? fmt(t.pending, { name })
         : fmt(disabledText[suggestion.feature], { name, files })
+  const action =
+    suggestion.kind === 'install' ? (
+      <StatusAction disabled={busy} onClick={() => void install()}>
+        {busy ? t.installing : t.install}
+      </StatusAction>
+    ) : suggestion.pending ? (
+      <StatusAction onClick={() => useExtensionsStore.getState().review(extId)}>
+        {t.review}
+      </StatusAction>
+    ) : (
+      <StatusAction
+        onClick={() => useUIStore.getState().openSettings('extensions', { extension: extId })}
+      >
+        {t.openSettings}
+      </StatusAction>
+    )
+  const more = others > 0 ? ` ${fmt(t.more, { count: others })}` : ''
+  const failed = failure ? ` ${fmt(t.installFailed, { error: d.marketplace.errors[failure] })}` : ''
   return (
-    <Bar>
-      <span className="min-w-0 flex-1 truncate">
-        {text}
-        {others > 0 ? ` ${fmt(t.more, { count: others })}` : ''}
-        {failure ? (
-          <span role="alert" className="ml-2 text-attn-fg">
-            {fmt(t.installFailed, { error: d.marketplace.errors[failure] })}
-          </span>
-        ) : null}
-      </span>
-      {suggestion.kind === 'install' ? (
-        <Button size="xs" disabled={busy} onClick={() => void install()}>
-          {busy ? t.installing : t.install}
-        </Button>
-      ) : suggestion.pending ? (
-        <Button size="xs" onClick={() => useExtensionsStore.getState().review(extId)}>
-          {t.review}
-        </Button>
-      ) : (
-        <Button
-          size="xs"
-          onClick={() => useUIStore.getState().openSettings('extensions', { extension: extId })}
-        >
-          {t.openSettings}
-        </Button>
-      )}
-      <Button variant="outline" size="xs" disabled={busy} onClick={decline}>
-        {t.no}
-      </Button>
-    </Bar>
+    <StatusLine
+      aria-label={t.label}
+      role={failure ? 'alert' : undefined}
+      actions={action}
+      onDismiss={decline}
+      tone={failure ? 'warn' : 'muted'}
+    >
+      {`${text}${more}${failed}`}
+    </StatusLine>
   )
 }
 
@@ -194,15 +185,8 @@ export function LanguageNotice({
 
   useEffect(() => () => useLanguageNoticeStore.getState().release(paneId), [paneId])
 
-  const appearing = useFlipped({ bar: Boolean(serverNotice || suggestion) }).has('bar')
-  if (!serverNotice && !suggestion) return null
-  return (
-    <NoticeAppearing.Provider value={appearing}>
-      {serverNotice ? (
-        <ServerBar server={serverNotice} />
-      ) : suggestion ? (
-        <SuggestionBar suggestion={suggestion} onGone={() => setSuggestion(null)} />
-      ) : null}
-    </NoticeAppearing.Provider>
-  )
+  if (serverNotice) return <ServerBar server={serverNotice} />
+  if (suggestion)
+    return <SuggestionBar suggestion={suggestion} onGone={() => setSuggestion(null)} />
+  return null
 }

@@ -32,7 +32,7 @@ describe('FolderTrustPrompt', () => {
     ).toBeInTheDocument()
   })
 
-  it('CFT-C17 the close button does the same as Let Claude ask and lets the resume go on', async () => {
+  it('the close button does the same as Let Claude ask and lets the resume go on', async () => {
     vi.mocked(window.ostia.agentSession.folderTrust).mockResolvedValueOnce({
       state: 'ask',
       folder: '/home/u/Work/repo',

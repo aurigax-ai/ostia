@@ -29,6 +29,7 @@ interface SurfaceProps {
   actionsClassName?: string
   className?: string
   role?: 'alert' | 'status'
+  'data-testid'?: string
   children?: React.ReactNode
 }
 
@@ -60,6 +61,7 @@ function Surface({
   actionsClassName,
   className,
   role,
+  'data-testid': testId,
   children,
 }: Omit<SurfaceProps, 'variant'>): JSX.Element {
   const classes = SIZES[size]
@@ -67,7 +69,7 @@ function Surface({
   const hasHeader = icon || title || lines.length > 0
   const heading = titleAs === 'h1' ? <h1>{title}</h1> : titleAs === 'h2' ? <h2>{title}</h2> : title
   return (
-    <Empty className={className} role={role}>
+    <Empty className={className} role={role} data-testid={testId}>
       {hasHeader ? (
         <EmptyHeader className={headerClassName}>
           {icon ? <EmptyMedia variant="icon">{icon}</EmptyMedia> : null}

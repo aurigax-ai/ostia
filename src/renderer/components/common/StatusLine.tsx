@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button'
 import { useDict } from '@/lib/app/useDict'
 import { cn } from '@/lib/utils'
 import { InfoIcon, WarningCircleIcon, WarningIcon, XIcon } from '@phosphor-icons/react'
+import { useState } from 'react'
 
 const TONES = {
   muted: { icon: InfoIcon, color: 'text-fg-muted' },
@@ -57,4 +58,9 @@ export function StatusAction({
       {...props}
     />
   )
+}
+
+export function useDismissed(key: string): [boolean, () => void] {
+  const [gone, setGone] = useState<string | null>(null)
+  return [gone === key, () => setGone(key)]
 }
