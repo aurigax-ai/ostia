@@ -6,6 +6,7 @@ import {
   BUILTIN_ICON_THEME,
   ICON_THEME_ID_PATTERN,
 } from '@aurigax-ai/ostia-extension-sdk/contract/iconTheme'
+import { isRecord } from '@aurigax-ai/ostia-extension-sdk/contract/isRecord'
 
 export type FileSortOrder = 'foldersFirst' | 'mixed'
 export type FileSortBy = 'name' | 'type'
@@ -67,9 +68,6 @@ export const DEFAULT_FILE_TREE_SETTINGS: FileTreeSettings = {
   viewerAssociations: {},
 }
 
-const isPlainObject = (v: unknown): v is Record<string, unknown> =>
-  typeof v === 'object' && v !== null && !Array.isArray(v)
-
 const pattern = (v: unknown): string | null =>
   typeof v === 'string' && v.trim() && v.length <= PATTERN_MAX_LENGTH ? v.trim() : null
 
@@ -85,7 +83,7 @@ function parseExclude(raw: unknown): string[] {
 }
 
 function parseNestingPatterns(raw: unknown): Record<string, string> {
-  if (!isPlainObject(raw)) return DEFAULT_NESTING_PATTERNS
+  if (!isRecord(raw)) return DEFAULT_NESTING_PATTERNS
   const out: Record<string, string> = {}
   for (const [key, value] of Object.entries(raw)) {
     if (Object.keys(out).length >= NESTING_MAX) break
@@ -97,7 +95,7 @@ function parseNestingPatterns(raw: unknown): Record<string, string> {
 }
 
 function parseViewerAssociations(raw: unknown): Record<string, string> {
-  if (!isPlainObject(raw)) return {}
+  if (!isRecord(raw)) return {}
   const out: Record<string, string> = {}
   for (const [key, value] of Object.entries(raw)) {
     if (Object.keys(out).length >= VIEWER_ASSOCIATIONS_MAX) break
@@ -110,8 +108,8 @@ function parseViewerAssociations(raw: unknown): Record<string, string> {
 
 export function parseFileTreeSettings(raw: unknown): FileTreeSettings {
   const base = DEFAULT_FILE_TREE_SETTINGS
-  if (!isPlainObject(raw)) return base
-  const nesting = isPlainObject(raw.nesting) ? raw.nesting : {}
+  if (!isRecord(raw)) return base
+  const nesting = isRecord(raw.nesting) ? raw.nesting : {}
   return {
     exclude: parseExclude(raw.exclude),
     showExcluded: typeof raw.showExcluded === 'boolean' ? raw.showExcluded : base.showExcluded,

@@ -1,4 +1,5 @@
 import { MATCH_OSTIA_THEME, parseThemeChoice } from '@/lib/theme/themeChoice'
+import { isRecord } from '@aurigax-ai/ostia-extension-sdk/contract/isRecord'
 
 export const SEARCH_ENGINES = ['google', 'duckduckgo', 'bing', 'kagi', 'custom'] as const
 
@@ -55,17 +56,12 @@ export function searchUrl(settings: BrowserSettings, query: string): string {
   return template.replaceAll(QUERY_PLACEHOLDER, encodeURIComponent(query))
 }
 
-const record = (raw: unknown): Record<string, unknown> =>
-  typeof raw === 'object' && raw !== null && !Array.isArray(raw)
-    ? (raw as Record<string, unknown>)
-    : {}
-
 function oneOf<T extends string | number>(options: readonly T[], value: unknown, fallback: T): T {
   return options.includes(value as T) ? (value as T) : fallback
 }
 
 export function parseBrowserSettings(raw: unknown): BrowserSettings {
-  const src = record(raw)
+  const src = isRecord(raw) ? raw : {}
   const defaults = DEFAULT_BROWSER_SETTINGS
   return {
     searchEngine: oneOf(SEARCH_ENGINES, src.searchEngine, defaults.searchEngine),
@@ -124,7 +120,7 @@ export const DEFAULT_EDITOR_SETTINGS: EditorSettings = {
 }
 
 export function parseEditorSettings(raw: unknown): EditorSettings {
-  const src = record(raw)
+  const src = isRecord(raw) ? raw : {}
   const defaults = DEFAULT_EDITOR_SETTINGS
   return {
     wordWrap: oneOf(WORD_WRAPS, src.wordWrap, defaults.wordWrap),

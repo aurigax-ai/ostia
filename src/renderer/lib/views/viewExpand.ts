@@ -1,3 +1,4 @@
+import { isRecord } from '@aurigax-ai/ostia-extension-sdk/contract/isRecord'
 import { childPath } from '@shared/common/jsonLocated'
 import {
   type ViewFormat,
@@ -91,8 +92,8 @@ function safeUrl(value: unknown): string | null {
 }
 
 function itemKey(item: unknown, index: number): string {
-  if (typeof item === 'object' && item !== null && !Array.isArray(item)) {
-    const id = Object.hasOwn(item, 'id') ? (item as { id: unknown }).id : undefined
+  if (isRecord(item)) {
+    const id = Object.hasOwn(item, 'id') ? item.id : undefined
     if (typeof id === 'string' || typeof id === 'number') return `#${id}`
   }
   return `@${index}`

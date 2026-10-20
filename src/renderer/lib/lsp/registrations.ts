@@ -1,3 +1,4 @@
+import { isRecord } from '@aurigax-ai/ostia-extension-sdk/contract/isRecord'
 import picomatch from 'picomatch/posix'
 import type { ServerCapabilities } from 'vscode-languageserver-protocol'
 
@@ -45,10 +46,6 @@ export interface Registration {
 export interface DocumentIdentity {
   uri: string
   languageId: string | undefined
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
 
 function parseSelector(raw: unknown): DocumentFilter[] | null {

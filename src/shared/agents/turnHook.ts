@@ -1,3 +1,4 @@
+import { isRecord } from '@aurigax-ai/ostia-extension-sdk/contract/isRecord'
 import { oneLine, plainBlock } from './questions'
 
 export const TURN_HOOK_EVENTS = ['UserPromptSubmit', 'PostToolUse', 'Stop'] as const
@@ -44,9 +45,7 @@ const ANSI = new RegExp(
 )
 
 function record(value: unknown): Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
-    ? (value as Record<string, unknown>)
-    : {}
+  return isRecord(value) ? value : {}
 }
 
 function capped(text: string, max: number): string {

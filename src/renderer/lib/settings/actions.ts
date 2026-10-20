@@ -1,4 +1,5 @@
 import type { SurfaceKind } from '@/lib/layout/types'
+import { isRecord } from '@aurigax-ai/ostia-extension-sdk/contract/isRecord'
 
 export const ACTION_PLACES = ['paneHeader', 'tabMenu'] as const
 export type ActionPlace = (typeof ACTION_PLACES)[number]
@@ -49,9 +50,6 @@ const COMMAND_ID = /^[A-Za-z0-9][A-Za-z0-9._-]{0,99}$/
 export const ACTION_TITLE_MAX = 60
 const ACTION_ARGS_MAX = 4096
 export const ACTIONS_MAX = 50
-
-const isRecord = (v: unknown): v is Record<string, unknown> =>
-  typeof v === 'object' && v !== null && !Array.isArray(v)
 
 function subset<T extends string>(allowed: readonly T[], raw: unknown): T[] | null {
   if (!Array.isArray(raw)) return null
