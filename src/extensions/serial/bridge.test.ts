@@ -401,16 +401,29 @@ describe('serial session log and secret input', () => {
     const records = file.text.trimEnd().split('\n')
     for (const record of records) expect(record).toMatch(/^\d{4}-\d\d-\d\dT[\d:.]+Z [<>#] /)
     const bodies = records.map((r) => r.slice(r.indexOf(' ') + 1))
+    const stream = (mark: '<' | '>') =>
+      bodies
+        .filter((body) => body.startsWith(`${mark} `))
+        .map((body) => body.slice(2))
+        .join('')
+    const sent = stream('>')
+    const received = stream('<')
     expect(bodies[0]).toBe(`# connected ${DEVICE} 115200 8N1`)
     expect(bodies).toContain('> admin\\r')
-    expect(bodies).toContain('< admin\\r\\n')
+    expect(sent).toContain('admin\\r')
+    expect(received).toContain('admin\\r\\n')
     expect(bodies).toContain(`> ${SECRET_SENT_RECORD}`)
     expect(bodies).toContain(`< ${SECRET_ECHO_RECORD}`)
     expect(bodies).toContain('> show version\\r')
-    expect(bodies).toContain('< switch# show version\\r\\n')
+    expect(sent).toContain('show version\\r')
+    expect(received).toContain('switch# show version\\r\\n')
     expect(bodies.at(-1)).toBe('# disconnected')
-    expect(bodies.indexOf(`> ${SECRET_SENT_RECORD}`)).toBeLessThan(
-      bodies.indexOf('> show version\\r'),
+    expect(sent.indexOf(SECRET_SENT_RECORD)).toBeGreaterThan(sent.indexOf('admin\\r'))
+    expect(sent.indexOf(SECRET_SENT_RECORD)).toBeLessThan(sent.indexOf('show version\\r'))
+    expect(received).toContain('Password: ')
+    expect(received.indexOf(SECRET_ECHO_RECORD)).toBeGreaterThan(received.indexOf('Password: '))
+    expect(received.indexOf(SECRET_ECHO_RECORD)).toBeLessThan(
+      received.indexOf('switch# show version'),
     )
   })
 
