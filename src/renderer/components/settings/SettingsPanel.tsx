@@ -27,6 +27,7 @@ import {
   pageTitle,
   settingsSections,
 } from '@/lib/settings/settingsSections'
+import { workspaceTitle } from '@/lib/workspaces/workspaceTitle'
 import { useUIStore } from '@/stores/app/uiStore'
 import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
 import type { Workspace } from '@/stores/workspaces/workspaceTypes'
@@ -172,7 +173,7 @@ const SettingsPages = memo(function SettingsPages({
         <WorkspaceSandboxPage
           key={targetWorkspace.id}
           workspaceId={targetWorkspace.id}
-          workspaceName={targetWorkspace.customName ?? targetWorkspace.name}
+          workspaceName={workspaceTitle(targetWorkspace)}
         />
       ) : null}
       {id === 'agents' ? <AgentsSection /> : null}

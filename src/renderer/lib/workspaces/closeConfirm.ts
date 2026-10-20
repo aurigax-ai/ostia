@@ -2,6 +2,7 @@ import { runningAgent, runningAgentOf } from '@/lib/agents/paneAgent'
 import { settleSaves } from '@/lib/files/pendingSaves'
 import { allPanes, findPane, tabIdOf, tabsOfPane } from '@/lib/layout/tree'
 import type { PaneNode } from '@/lib/layout/types'
+import { workspaceTitle } from '@/lib/workspaces/workspaceTitle'
 import { useApprovalsStore } from '@/stores/agents/approvalsStore'
 import { useAttentionStore } from '@/stores/agents/attentionStore'
 import { useQuestionsStore } from '@/stores/agents/questionsStore'
@@ -141,7 +142,7 @@ function groupOf(
   if (commands.length === 0 && agents.length === 0 && files.length === 0) return null
   return {
     workspaceId: workspace.id,
-    workspace: workspace.customName ?? workspace.name,
+    workspace: workspaceTitle(workspace),
     commands,
     ...(agents.length > 0 ? { agents } : {}),
     files,
@@ -151,7 +152,7 @@ function groupOf(
 function managerGroup(workspace: Workspace, panes: readonly PaneNode[]): RunningGroup | null {
   const manager = panes.find((p) => p.kind === 'manager')
   if (manager && agentIdle(manager.id)) return null
-  const name = workspace.customName ?? workspace.name
+  const name = workspaceTitle(workspace)
   return { workspaceId: workspace.id, workspace: name, commands: [], agents: [name], files: [] }
 }
 
@@ -222,7 +223,7 @@ function groupsToConfirm(
 function emptyGroup(workspace: Workspace): RunningGroup {
   return {
     workspaceId: workspace.id,
-    workspace: workspace.customName ?? workspace.name,
+    workspace: workspaceTitle(workspace),
     commands: [],
     files: [],
   }
@@ -410,7 +411,7 @@ export function confirmMove(workspace: Workspace, panes: readonly PaneNode[]): P
   return confirmGroups('move', [
     {
       workspaceId: workspace.id,
-      workspace: workspace.customName ?? workspace.name,
+      workspace: workspaceTitle(workspace),
       commands: [],
       files,
     },

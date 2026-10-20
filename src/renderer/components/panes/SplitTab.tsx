@@ -17,8 +17,6 @@ import {
   ArrowsInLineVerticalIcon,
   ArrowsOutLineHorizontalIcon,
   ArrowsOutLineVerticalIcon,
-  LockSimpleIcon,
-  XIcon,
 } from '@phosphor-icons/react'
 import {
   type CSSProperties,
@@ -29,6 +27,7 @@ import {
 } from 'react'
 import { PaneRenameField } from './PaneRenameField'
 import { PaneTabMenu } from './PaneTabMenu'
+import { TabEndAction } from './TabEndAction'
 import { TabFace, usePaneMark } from './TabFace'
 import { TabHint } from './TabHint'
 
@@ -168,21 +167,11 @@ function SplitTabSegment({
         </TabHint>
       )}
       <CollapseButton pane={pane} tab={tab} />
-      {pane.locked ? (
-        <IconButton
-          icon={LockSimpleIcon}
-          label={d.pane.unlock}
-          className="pane-tab-lock"
-          onClick={() => commands.exec('pane.toggleLock', { paneId: pane.id })}
-        />
-      ) : showClose ? (
-        <IconButton
-          icon={XIcon}
-          label={fmt(d.pane.closeSplitPane, { title })}
-          className="pane-tab-close hover:text-attn-fg"
-          onClick={() => commands.exec('pane.close', { paneId: pane.id })}
-        />
-      ) : null}
+      <TabEndAction
+        pane={pane}
+        showClose={showClose}
+        closeLabel={fmt(d.pane.closeSplitPane, { title })}
+      />
     </div>
   )
   return <PaneTabMenu pane={pane} workspaceId={workspaceId} trigger={segment} />

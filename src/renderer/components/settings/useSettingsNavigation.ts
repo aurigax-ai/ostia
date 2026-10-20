@@ -15,6 +15,7 @@ import {
   type SettingsSection,
   extensionPageResultId,
 } from '@/lib/settings/settingsSections'
+import { workspaceTitle } from '@/lib/workspaces/workspaceTitle'
 import { useUIStore } from '@/stores/app/uiStore'
 import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
 import type { Workspace } from '@/stores/workspaces/workspaceTypes'
@@ -321,7 +322,7 @@ function navModel(
     active === 'extensionPage' ? extensions.find((e) => e.id === pageExtId && e.settingsPage) : null
   const sandboxWorkspaces = workspaces
     .filter((w) => w.kind !== 'manager')
-    .map((w) => ({ id: w.id, name: w.customName ?? w.name }))
+    .map((w) => ({ id: w.id, name: workspaceTitle(w) }))
   const matchingWorkspaces = q
     ? sandboxWorkspaces.filter((w) => w.name.toLowerCase().includes(q))
     : sandboxWorkspaces

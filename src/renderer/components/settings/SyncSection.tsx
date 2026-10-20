@@ -1,5 +1,6 @@
+import { MachineValue } from '@/components/common/MachineValue'
 import { Notice } from '@/components/common/Notice'
-import { ControlRow, MachineValue } from '@/components/settingsKit/ControlRow'
+import { ControlRow } from '@/components/settingsKit/ControlRow'
 import { SettingsPage } from '@/components/settingsKit/SettingsPage'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'

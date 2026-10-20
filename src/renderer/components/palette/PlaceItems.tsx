@@ -6,6 +6,7 @@ import type { PaneNode } from '@/lib/layout/types'
 import { symbolOf } from '@/lib/palette/paletteModes'
 import { selectWorkspace } from '@/lib/workspaces/selectWorkspace'
 import { type RemoteWorkspace, remoteWorkspacesOf } from '@/lib/workspaces/windowWorkspaces'
+import { workspaceTitle } from '@/lib/workspaces/workspaceTitle'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { useWindowsStore } from '@/stores/workspaces/windowsStore'
 import type { Workspace } from '@/stores/workspaces/workspaceTypes'
@@ -48,7 +49,7 @@ export function WorkspaceItems({
   return (
     <CommandGroup heading={d.palette.modes.workspaces} className={GROUP_CLASS}>
       {workspaces.map((w) => {
-        const name = w.customName ?? w.name
+        const name = workspaceTitle(w)
         return (
           <CommandItem
             key={w.id}
@@ -92,7 +93,7 @@ export function TabItems({
   return (
     <CommandGroup heading={d.palette.modes.tabs} className={GROUP_CLASS}>
       {tabs.map(({ pane, workspace }) => {
-        const where = workspace.customName ?? workspace.name
+        const where = workspaceTitle(workspace)
         return (
           <CommandItem
             key={pane.id}

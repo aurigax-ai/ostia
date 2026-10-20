@@ -8,6 +8,7 @@ import { placementOf } from '@/lib/layout/tabMoves'
 import { allPanes, findPane, paneIds } from '@/lib/layout/tree'
 import type { LayoutNode, PaneNode } from '@/lib/layout/types'
 import { focusActivePaneWhenReady, focusPaneWhenReady } from '@/lib/panes/paneFocus'
+import { workspaceTitle } from '@/lib/workspaces/workspaceTitle'
 import { useAttentionStore } from '@/stores/agents/attentionStore'
 import { useSandboxStore } from '@/stores/app/sandboxStore'
 import { useUIStore } from '@/stores/app/uiStore'
@@ -257,7 +258,7 @@ export function workspaceSummaries(): WindowWorkspaceReport[] {
     }
     return {
       id: w.id,
-      name: w.customName ?? w.name,
+      name: workspaceTitle(w),
       workDir: w.projectDir ?? w.workDir,
       state: w.state,
       unreadAt,

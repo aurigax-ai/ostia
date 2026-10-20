@@ -2,6 +2,7 @@ import { takeTab } from '@/lib/layout/tabMoves'
 import { allPanes, findPane, findSplitTab, tabIdOf } from '@/lib/layout/tree'
 import type { PaneNode } from '@/lib/layout/types'
 import { focusActivePaneWhenReady } from '@/lib/panes/paneFocus'
+import { workspaceTitle } from '@/lib/workspaces/workspaceTitle'
 import { useSandboxStore } from '@/stores/app/sandboxStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import type { Workspace, WorkspaceKind } from '@/stores/workspaces/workspaceTypes'
@@ -71,7 +72,7 @@ export function tabMoveTargets(sourceId: string, tabId: string): TabMoveTarget[]
     .filter((w) => w.id !== sourceId)
     .map((w) => ({
       id: w.id,
-      name: w.customName ?? w.name,
+      name: workspaceTitle(w),
       refusal: tabMoveRefusal(sideOf(source), sideOf(w), panes),
     }))
 }

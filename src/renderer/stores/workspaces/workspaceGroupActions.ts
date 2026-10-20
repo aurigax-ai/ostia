@@ -9,6 +9,7 @@ import {
   patchGroup,
   pinWorkspace,
 } from '@/lib/sidebar/workspaceGroups'
+import { workspaceTitle } from '@/lib/workspaces/workspaceTitle'
 import { normalizeGroupName } from '@shared/workspaces/workspaceGroups'
 import type { Workspace, WorkspacesGet, WorkspacesSet, WorkspacesState } from './workspaceTypes'
 
@@ -56,7 +57,7 @@ export function createWorkspaceGroupActions(
       if (!workspace) return null
       const group = {
         id: nextGroupId(),
-        name: normalizeGroupName(name ?? workspace.customName ?? workspace.name) ?? workspace.name,
+        name: normalizeGroupName(name ?? workspaceTitle(workspace)) ?? workspace.name,
       }
       set((s) => applyGrouping(s, createGroup(grouping(s), workspaceId, group)))
       return group.id

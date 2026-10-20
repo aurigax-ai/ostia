@@ -8,6 +8,7 @@ import { runningAgent } from '@/lib/agents/paneAgent'
 import { type PickTarget, pickTargets } from '@/lib/agents/pickTargets'
 import { fmt, useDict } from '@/lib/app/useDict'
 import { groupMates, groupPeerIds } from '@/lib/sidebar/groupPeers'
+import { stateLabel } from '@/lib/workspaces/workspaceState'
 import { useAgentGroupsStore } from '@/stores/agents/agentGroupsStore'
 import { useAttentionStore } from '@/stores/agents/attentionStore'
 import { useOriginAgentsStore } from '@/stores/agents/originAgentsStore'
@@ -19,23 +20,7 @@ import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import { XIcon } from '@phosphor-icons/react'
 import type { ResumableAgent } from '@shared/agents/agentResume'
 import type { Dict } from '@shared/app/dict'
-import type { AttentionState } from '@shared/attention/attention'
 import { type KeyboardEvent, useEffect, useMemo, useRef, useState } from 'react'
-
-export function stateLabel(d: Dict, state: AttentionState): string {
-  switch (state) {
-    case 'working':
-      return d.rail.stateWorking
-    case 'waiting':
-      return d.rail.stateWaiting
-    case 'done':
-      return d.rail.stateDone
-    case 'error':
-      return d.rail.stateError
-    default:
-      return d.rail.stateIdle
-  }
-}
 
 function agentLabel(d: Dict, title: string, agent: ResumableAgent | 'other'): string {
   if (agent === 'other') return title
