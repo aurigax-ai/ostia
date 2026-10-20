@@ -78,6 +78,13 @@ export function trackModifierKey(down: Set<RemapKey>, code: string, pressed: boo
   else down.delete(code)
 }
 
+export function releaseStale(down: Set<RemapKey>, real: ModifierFlags): void {
+  for (const [flag, keys] of FAMILIES) {
+    if (real[flag]) continue
+    for (const key of keys) down.delete(key)
+  }
+}
+
 export function remappedFlags(
   table: ModifierRemap,
   down: ReadonlySet<RemapKey>,
@@ -91,6 +98,10 @@ export function remappedFlags(
     for (const key of held) out[TARGET_FLAG[remapTarget(table, key)]] = true
   }
   return out
+}
+
+export function isRetargeted(table: ModifierRemap, code: string): boolean {
+  return isRemapKey(code) && remapTarget(table, code) !== REMAP_DEFAULTS[code]
 }
 
 export function remappedModifierKey(table: ModifierRemap, code: string): string | null {

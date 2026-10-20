@@ -1,5 +1,5 @@
 import { EventEmitter } from 'node:events'
-import type { IpcMain, WebContents } from 'electron'
+import type { IpcMain, KeyboardInputEvent, WebContents } from 'electron'
 import { describe, expect, it, vi } from 'vitest'
 import {
   GUEST_CHORDS_FIRE,
@@ -11,7 +11,7 @@ import { createGuestRemap } from './guestRemap'
 
 type Handler = (event: { sender: WebContents }, ...args: unknown[]) => unknown
 
-function setup(mac = false) {
+function setup(mac = false, humanBrowser = true) {
   const handlers = new Map<string, Handler>()
   const ipc = {
     on: (channel: string, fn: Handler) => handlers.set(channel, fn),
@@ -21,18 +21,25 @@ function setup(mac = false) {
   const guest = Object.assign(new EventEmitter(), {
     id: 9,
     hostWebContents: host,
+    sendInputEvent: vi.fn(),
   }) as unknown as WebContents & EventEmitter
   const chords = registerGuestChords({
     ipc,
     isAppWindow: (s) => s === app,
     mac,
-    remap: createGuestRemap(),
+    remap: createGuestRemap({ nativeMenuKey: (input) => input.key === 'q' && input.meta }),
+    isHumanBrowser: () => humanBrowser,
   })
   chords.guardGuest(guest)
   const set = (sender: WebContents, value: unknown) =>
     handlers.get(GUEST_CHORDS_SET)?.({ sender }, value)
   const press = (input: Record<string, unknown>) => {
-    const event = { preventDefault: vi.fn() }
+    const event = {
+      defaultPrevented: false,
+      preventDefault: vi.fn(() => {
+        event.defaultPrevented = true
+      }),
+    }
     guest.emit('before-input-event', event, {
       type: 'keyDown',
       key: 'p',
@@ -172,5 +179,69 @@ describe('registerGuestChords', () => {
         metaKey: true,
       },
     })
+  })
+
+  it('cancels a physical key a remap changes and sends the remapped one to the page', () => {
+    const { app, guest, press, remap } = setup(true)
+    remap(app, { ControlLeft: 'command' })
+    const sent = vi.mocked(guest.sendInputEvent)
+    const hold = press({ key: 'Control', code: 'ControlLeft', control: true, shift: false })
+    expect(hold.preventDefault).toHaveBeenCalled()
+    expect(sent).toHaveBeenLastCalledWith({ type: 'keyDown', keyCode: 'Meta', modifiers: ['meta'] })
+    const event = press({ key: 'k', code: 'KeyK', control: true, shift: false })
+    expect(event.preventDefault).toHaveBeenCalled()
+    expect(sent).toHaveBeenLastCalledWith({ type: 'keyDown', keyCode: 'K', modifiers: ['meta'] })
+  })
+
+  it('leaves a key alone with no remap set', () => {
+    const { guest, press } = setup(true)
+    expect(press({ key: 'k', code: 'KeyK', control: true }).preventDefault).not.toHaveBeenCalled()
+    expect(guest.sendInputEvent).not.toHaveBeenCalled()
+  })
+
+  it('sends nothing to the page off macOS', () => {
+    const { app, guest, press, remap } = setup(false)
+    remap(app, { ControlLeft: 'command' })
+    press({ key: 'Control', code: 'ControlLeft', control: true, shift: false })
+    expect(guest.sendInputEvent).not.toHaveBeenCalled()
+  })
+
+  it('leaves the keys of a page that is not the human browser alone', () => {
+    const { app, guest, press, remap } = setup(true, false)
+    remap(app, { ControlLeft: 'command' })
+    expect(
+      press({ key: 'Control', code: 'ControlLeft', control: true }).preventDefault,
+    ).not.toHaveBeenCalled()
+    expect(guest.sendInputEvent).not.toHaveBeenCalled()
+  })
+
+  it('does not send a key an app chord already took', () => {
+    const { app, guest, set, press, remap } = setup(true)
+    set(app, ['Cmd+K'])
+    remap(app, { ControlLeft: 'command' })
+    press({ key: 'Control', code: 'ControlLeft', control: true, shift: false })
+    vi.mocked(guest.sendInputEvent).mockClear()
+    press({ key: 'k', code: 'KeyK', control: true, shift: false })
+    expect(guest.sendInputEvent).not.toHaveBeenCalled()
+  })
+
+  it('does not remap the event it sent itself a second time', () => {
+    const { app, guest, press, remap } = setup(true)
+    remap(app, { ControlLeft: 'command', MetaLeft: 'control' })
+    const sent = vi.mocked(guest.sendInputEvent)
+    sent.mockImplementation((raw) => {
+      const event = raw as KeyboardInputEvent
+      press({
+        type: event.type,
+        key: event.keyCode.toLowerCase(),
+        code: event.keyCode === 'Meta' ? 'MetaLeft' : 'KeyK',
+        control: event.modifiers?.includes('control'),
+        meta: event.modifiers?.includes('meta'),
+      })
+    })
+    press({ key: 'Control', code: 'ControlLeft', control: true, shift: false })
+    press({ key: 'k', code: 'KeyK', control: true, shift: false })
+    expect(sent).toHaveBeenCalledTimes(2)
+    expect(sent).toHaveBeenLastCalledWith({ type: 'keyDown', keyCode: 'K', modifiers: ['meta'] })
   })
 })
