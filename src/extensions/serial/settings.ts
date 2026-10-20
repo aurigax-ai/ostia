@@ -113,6 +113,12 @@ export function sttyArgs({ speed, frame }: LineSettings): string[] {
   ]
 }
 
+const LOG_NAME = /^[A-Za-z0-9_-][A-Za-z0-9._-]{0,127}$/
+
+export function logName(text: string): boolean {
+  return LOG_NAME.test(text)
+}
+
 export function logPath(text: string): string | null {
   const path = expandHome(text.trim())
   return path !== '' && isAbsolute(path) ? path : null

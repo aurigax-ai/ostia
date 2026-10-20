@@ -1,3 +1,4 @@
+import { join } from 'node:path'
 import {
   type CommandHandler,
   type ExtensionResult,
@@ -19,7 +20,7 @@ import {
   deviceGlobs,
   frameText,
   isSerialDevice,
-  logPath,
+  logName,
   parseFrame,
   parseSpeed,
 } from './settings'
@@ -27,6 +28,7 @@ import { CONNECT_USAGE, PANE_TITLE, type Strings, stringsFor } from './strings'
 
 export interface SerialDeps {
   platform: NodeJS.Platform
+  logDir: () => string | null
   devices: () => string[]
   execPath: string
   script: string
@@ -75,6 +77,13 @@ export function serialCommands(deps: SerialDeps): Record<'ls' | 'connect', Comma
     return null
   }
 
+  const logIn = (name: string, s: Strings): string | ExtensionResult => {
+    if (!logName(name)) return failure('invalid-args', s.badLogName(name))
+    const dir = deps.logDir()
+    if (dir === null) return failure('unsupported', s.noLogDir)
+    return join(dir, name)
+  }
+
   return {
     ls: async (_args, caller) => {
       const s = stringsFor(caller.locale)
@@ -88,8 +97,8 @@ export function serialCommands(deps: SerialDeps): Record<'ls' | 'connect', Comma
       const refusal = refused(caller, s)
       if (refusal) return refusal
       const { flags, rest } = parseFlags(cliArgs(args)?.argv ?? [], ['log'])
-      const log = flags.log === undefined ? undefined : logPath(flags.log)
-      if (log === null) return failure('invalid-args', s.badLogPath(flags.log ?? ''))
+      const log = flags.log === undefined ? undefined : logIn(flags.log, s)
+      if (typeof log === 'object') return log
       const target = parseTarget(rest, deps.platform, s)
       if (isFailure(target)) return target
       const summary = describe(target, log)

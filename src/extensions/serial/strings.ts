@@ -1,6 +1,6 @@
 import { localized } from '@aurigax-ai/ostia-extension-sdk/contract/extensionLocales'
 
-export const CONNECT_USAGE = 'connect [<device> [<speed>] [<frame>]] [--log <file>]'
+export const CONNECT_USAGE = 'connect [<device> [<speed>] [<frame>]] [--log <name>]'
 export const PANE_TITLE = 'Serial'
 export const QUIT_KEY = 'Ctrl-]'
 export const SECRET_KEY = 'Ctrl-\\'
@@ -35,6 +35,8 @@ export interface Strings {
   loopHint: string
   logPrompt: string
   badLogPath: (path: string) => string
+  badLogName: (name: string) => string
+  noLogDir: string
   logging: (path: string) => string
   logFailed: (path: string, reason: string) => string
 }
@@ -77,6 +79,9 @@ const en: Strings = {
     'Every byte you sent came straight back unchanged and the device sent nothing of its own. The cable may be in a network (Ethernet) port, or a loopback plug, instead of the console port.',
   logPrompt: 'Session log file, a full path or ~/… (Enter for none)',
   badLogPath: (path) => `${path} is not a full path; start it with / or ~/`,
+  badLogName: (name) =>
+    `${name} is not a log file name; give a name like switch.log (letters, digits, . _ -), not a path. The log is kept in the serial extension's logs folder.`,
+  noLogDir: 'Ostia gave the serial extension no data folder, so it cannot keep a session log',
   logging: (path) => `Logging this session to ${path}.`,
   logFailed: (path, reason) => `Could not write the session log ${path}: ${reason}`,
 }
@@ -118,6 +123,9 @@ const zhHant: Strings = {
     '你送出的每個位元組都原封不動地傳了回來，裝置本身沒有送出任何內容。線可能插在網路（Ethernet）孔或迴路測試頭上，而不是 console 孔。',
   logPrompt: '連線記錄檔，完整路徑或 ~/…（按 Enter 不記錄）',
   badLogPath: (path) => `${path} 不是完整路徑；請以 / 或 ~/ 開頭`,
+  badLogName: (name) =>
+    `${name} 不是記錄檔名稱；請給像 switch.log 這樣的檔名（英數字與 . _ -），不要給路徑。記錄檔會放在序列埠擴充功能的 logs 資料夾。`,
+  noLogDir: 'Ostia 沒有提供序列埠擴充功能的資料夾，無法保留連線記錄',
   logging: (path) => `這次連線會記錄到 ${path}。`,
   logFailed: (path, reason) => `無法寫入連線記錄檔 ${path}：${reason}`,
 }

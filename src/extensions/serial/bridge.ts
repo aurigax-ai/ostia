@@ -308,6 +308,10 @@ function openConfigured(
   })
 }
 
+function frameBits({ frame }: LineSettings): number {
+  return 1 + frame.dataBits + (frame.parity === 'none' ? 0 : 1) + frame.stopBits
+}
+
 function firstLineEnd(bytes: Uint8Array): number {
   for (let i = 0; i < bytes.length; i++) if (bytes[i] === CR || bytes[i] === LF) return i
   return -1
@@ -335,18 +339,18 @@ export async function connectDevice(
 ): Promise<number> {
   const { terminal, io } = env
   const timing = { ...DEFAULT_TIMING, ...env.timing }
+  const opened = await openConfigured(device, line, env, s)
+  if ('message' in opened) {
+    say(terminal, opened.message)
+    return 1
+  }
   const logOpened = openSessionLog(logTo, env, s)
   if ('message' in logOpened) {
+    io.close(opened.fd)
     say(terminal, logOpened.message)
     return 1
   }
   const logFile = logOpened.file
-  const opened = await openConfigured(device, line, env, s)
-  if ('message' in opened) {
-    logFile?.close()
-    say(terminal, opened.message)
-    return 1
-  }
   let port: DeviceStream
   try {
     port = io.stream(opened.fd)
@@ -371,6 +375,7 @@ export async function connectDevice(
     let hiding = false
     let hidSome = false
     let hinted = false
+    let secretBytes = 0
     let graceTimer: ReturnType<typeof setTimeout> | undefined
     let quietTimer: ReturnType<typeof setTimeout> | undefined
     const loop = new EchoLoop()
@@ -394,6 +399,7 @@ export async function connectDevice(
       log?.flushAll()
       secret = true
       hiding = true
+      secretBytes = 0
       setTitle(`${SECRET_TITLE_MARK}${title}`)
       say(terminal, '')
       say(terminal, s.secretOn(SECRET_KEY))
@@ -404,7 +410,8 @@ export async function connectDevice(
       setTitle(title)
       say(terminal, '')
       say(terminal, s.secretOff)
-      graceTimer = setTimeout(stopHiding, timing.secretGraceMs)
+      const echoMs = Math.ceil((secretBytes * frameBits(line) * 1000) / line.speed)
+      graceTimer = setTimeout(stopHiding, timing.secretGraceMs + echoMs)
     }
     const armLoopCheck = (): void => {
       clearTimeout(quietTimer)
@@ -439,7 +446,8 @@ export async function connectDevice(
     const gone = (): void => finish(1, s.gone(device))
     const send = (data: Uint8Array): void => {
       if (data.length === 0 || stopped) return
-      if (!secret) log?.add('sent', data)
+      if (secret) secretBytes += data.length
+      else log?.add('sent', data)
       loop.sent(data)
       armLoopCheck()
       port.write(data, (err) => {

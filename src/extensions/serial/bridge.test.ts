@@ -1,6 +1,16 @@
 import { type ChildProcess, spawn } from 'node:child_process'
 import { EventEmitter } from 'node:events'
-import { mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs'
+import {
+  chmodSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  statSync,
+  symlinkSync,
+  writeFileSync,
+} from 'node:fs'
 import { homedir, tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { PassThrough } from 'node:stream'
@@ -461,7 +471,8 @@ describe('serial session log and secret input', () => {
     }
     expect(await runBridge({ device: DEVICE, log: LOG }, failing.bridgeEnv)).toBe(1)
     expect(failing.term.text()).toContain(`Could not write the session log ${LOG}: EACCES`)
-    expect(device.opened).toEqual([])
+    expect(device.closed).toEqual([device.opened[0].fd])
+    expect(device.streamed).toEqual([])
   })
 
   it('asks for a log file in the picker and expands ~/', async () => {
@@ -477,6 +488,99 @@ describe('serial session log and secret input', () => {
     expect(memory.files.map((f) => f.path)).toEqual([join(homedir(), 'serial.log')])
     term.input.write(Buffer.from([0x1d]))
     expect(await done).toBe(0)
+  })
+})
+
+describe('serial session log file safety', () => {
+  let dir = ''
+
+  afterEach(() => {
+    if (dir) rmSync(dir, { recursive: true, force: true })
+    dir = ''
+  })
+
+  async function open(path: string, device = new FakeDevice()) {
+    const { term, bridgeEnv } = env(device)
+    bridgeEnv.timing = FAST
+    const done = connectDevice(DEVICE, LINE, bridgeEnv, s, path)
+    const settled = await Promise.race([done, until(() => term.text().includes('Connected'))])
+    if (typeof settled === 'number') return { code: settled, term, device }
+    term.input.write(Buffer.from([0x1d]))
+    return { code: await done, term, device }
+  }
+
+  it('refuses a symbolic link and anything but a regular file, and closes the device', async () => {
+    dir = mkdtempSync(join(tmpdir(), 'serial-log-'))
+    const target = join(dir, 'rc')
+    writeFileSync(target, 'export PATH\n')
+    const link = join(dir, 'link.log')
+    symlinkSync(target, link)
+    const folder = join(dir, 'folder.log')
+    mkdirSync(folder)
+    for (const path of [link, folder]) {
+      const { code, term, device } = await open(path)
+      expect(code, path).toBe(1)
+      expect(term.text()).toContain(`Could not write the session log ${path}`)
+      expect(device.closed).toEqual([device.opened[0].fd])
+    }
+    expect(readFileSync(target, 'utf8')).toBe('export PATH\n')
+  })
+
+  it('creates no log when the device cannot be opened', async () => {
+    dir = mkdtempSync(join(tmpdir(), 'serial-log-'))
+    const path = join(dir, 'never.log')
+    const device = new FakeDevice()
+    device.openError = errno('EBUSY')
+    const { code, term } = await open(path, device)
+    expect(code).toBe(1)
+    expect(term.text()).toContain('is busy')
+    expect(existsSync(path)).toBe(false)
+  })
+
+  it('narrows an existing log file to the owner', async () => {
+    dir = mkdtempSync(join(tmpdir(), 'serial-log-'))
+    const path = join(dir, 'old.log')
+    writeFileSync(path, 'earlier\n')
+    chmodSync(path, 0o644)
+    expect((await open(path)).code).toBe(0)
+    expect(statSync(path).mode & 0o777).toBe(0o600)
+    expect(readFileSync(path, 'utf8')).toMatch(/^earlier\n.*# connected/)
+  })
+
+  it('takes a full path the human types in the picker', async () => {
+    dir = mkdtempSync(join(tmpdir(), 'serial-log-'))
+    const path = join(dir, 'picked.log')
+    const device = new FakeDevice()
+    const { term, bridgeEnv } = env(device, 'darwin', ['cu.usbserial-A10K2'])
+    const done = runBridge({}, bridgeEnv)
+    term.input.write(`\n\n\n${path}\n`)
+    await until(() => term.text().includes('Connected'))
+    term.input.write(Buffer.from([0x1d]))
+    expect(await done).toBe(0)
+    expect(readFileSync(path, 'utf8')).toContain('# disconnected')
+  })
+})
+
+describe('serial secret echo at a low speed', () => {
+  it('keeps hiding while the secret bytes are still on the line', async () => {
+    const device = new FakeDevice()
+    const memory = memoryLog()
+    const { term, bridgeEnv } = env(device)
+    bridgeEnv.openLog = memory.openLog
+    bridgeEnv.timing = { ...FAST, secretGraceMs: 100 }
+    const slow = { speed: 300, frame: LINE.frame }
+    const done = connectDevice(DEVICE, slow, bridgeEnv, s, LOG)
+    await until(() => term.text().includes('Connected'))
+    term.input.write(`\x1c${PASSWORD}\r`)
+    await settle(300)
+    device.emit(Buffer.from(PASSWORD))
+    await settle(400)
+    device.emit(Buffer.from('later'))
+    await until(() => term.text().includes('later'))
+    term.input.write(Buffer.from([0x1d]))
+    expect(await done).toBe(0)
+    expect(term.text()).not.toContain('hunter')
+    expect(memory.files[0].text).not.toContain('hunter')
   })
 })
 

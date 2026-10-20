@@ -1,4 +1,4 @@
-import { closeSync, openSync, writeSync } from 'node:fs'
+import { constants, closeSync, fchmodSync, fstatSync, openSync, writeSync } from 'node:fs'
 
 export const CR = 0x0d
 export const LF = 0x0a
@@ -14,8 +14,22 @@ export interface LogFile {
   close: () => void
 }
 
+const LOG_FLAGS =
+  constants.O_WRONLY |
+  constants.O_APPEND |
+  constants.O_CREAT |
+  constants.O_NOFOLLOW |
+  constants.O_NONBLOCK
+
 export function openLogFile(path: string): LogFile {
-  const fd = openSync(path, 'a', 0o600)
+  const fd = openSync(path, LOG_FLAGS, 0o600)
+  try {
+    if (!fstatSync(fd).isFile()) throw new Error('not a regular file')
+    fchmodSync(fd, 0o600)
+  } catch (err) {
+    closeSync(fd)
+    throw err
+  }
   return {
     write: (text) => {
       writeSync(fd, text)

@@ -14,7 +14,7 @@
         "id": "connect",
         "title": "Serial: Connect to Device…",
         "category": "Serial",
-        "usage": "connect [<device> [<speed>] [<frame>]] [--log <file>]"
+        "usage": "connect [<device> [<speed>] [<frame>]] [--log <name>]"
       },
       {
         "id": "ls",

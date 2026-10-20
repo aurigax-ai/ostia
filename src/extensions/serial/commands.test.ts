@@ -10,10 +10,12 @@ import { serialCommands } from './commands'
 import { CONNECT_USAGE } from './strings'
 
 const DEVICE = '/dev/cu.usbserial-A10K2'
+const LOG_DIR = '/Users/me/Library/Application Support/Ostia/extension-data/serial/logs'
 
 function setup(opened: OpenTerminalResult = { ok: true, paneId: 'pane-serial' }) {
   const deps = {
     platform: 'darwin' as NodeJS.Platform,
+    logDir: () => LOG_DIR,
     devices: vi.fn(() => [DEVICE]),
     execPath: '/Applications/Ostia.app/Contents/MacOS/Ostia',
     script: '/ext/serial/main.js',
@@ -95,28 +97,46 @@ describe('serial connect', () => {
     ])
   })
 
-  it('passes a session log file to the pane, with ~/ expanded', async () => {
+  it('keeps an agent log in the extension logs folder, by file name only', async () => {
     const { commands, deps } = setup()
     const res = await commands.connect(
-      { argv: [DEVICE, '--log', '~/logs/switch.log', '9600'] },
+      { argv: [DEVICE, '--log', 'sw1-2026.log', '9600'] },
       caller('pane'),
     )
-    const log = join(homedir(), 'logs/switch.log')
+    const log = join(LOG_DIR, 'sw1-2026.log')
     expect(res).toEqual({
       ok: true,
       data: { device: DEVICE, speed: 9600, frame: '8N1', log, paneId: 'pane-serial' },
     })
     expect(deps.openTerminal.mock.calls[0][0].command.slice(-2)).toEqual(['--log', log])
-    const picked = await commands.connect({ argv: ['--log', '/tmp/s.log'] }, caller('user'))
-    expect(picked).toMatchObject({ ok: true, data: { pick: true, log: '/tmp/s.log' } })
+    const picked = await commands.connect({ argv: ['--log', 's.log'] }, caller('user'))
+    expect(picked).toMatchObject({ ok: true, data: { pick: true, log: join(LOG_DIR, 's.log') } })
   })
 
-  it('refuses a log file that is not a full path', async () => {
+  it('refuses a log path, so an agent cannot append to any other file', async () => {
     const { commands, deps } = setup()
-    const res = await commands.connect({ argv: [DEVICE, '--log', 'switch.log'] }, caller('pane'))
-    expect(res).toMatchObject({ ok: false, error: 'invalid-args' })
-    expect(res.ok ? '' : res.message).toContain('switch.log is not a full path')
+    for (const name of [
+      join(homedir(), '.zshrc'),
+      '/tmp/s.log',
+      '~/.zshrc',
+      '../.zshrc',
+      '..',
+      '.',
+      '.zshrc',
+      'logs/s.log',
+      'a\\b.log',
+      '',
+      'x'.repeat(129),
+    ]) {
+      const res = await commands.connect({ argv: [DEVICE, '--log', name] }, caller('pane'))
+      expect(res, name).toMatchObject({ ok: false, error: 'invalid-args' })
+      expect(res.ok ? '' : res.message).toContain('not a log file name')
+    }
     expect(deps.openTerminal).not.toHaveBeenCalled()
+    const noData = serialCommands({ ...deps, logDir: () => null })
+    expect(
+      await noData.connect({ argv: [DEVICE, '--log', 's.log'] }, caller('pane')),
+    ).toMatchObject({ ok: false, error: 'unsupported' })
   })
 
   it('defaults to 115200 8N1', async () => {
