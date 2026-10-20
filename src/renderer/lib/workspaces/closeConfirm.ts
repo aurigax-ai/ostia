@@ -1,4 +1,5 @@
 import { runningAgent, runningAgentOf } from '@/lib/agents/paneAgent'
+import { settleSaves } from '@/lib/files/pendingSaves'
 import { allPanes, findPane, tabIdOf, tabsOfPane } from '@/lib/layout/tree'
 import type { PaneNode } from '@/lib/layout/types'
 import { useApprovalsStore } from '@/stores/agents/approvalsStore'
@@ -180,6 +181,7 @@ function runningGroups(
 
 async function paneActivities(panes: readonly PaneNode[]): Promise<PaneActivities> {
   const out: Record<string, PaneActivity> = {}
+  await settleSaves(panes.flatMap((p) => (p.kind === 'editor' && p.filePath ? [p.filePath] : [])))
   const live = panes.filter((p) => p.kind === 'terminal' && !p.hibernated)
   const answers = await Promise.all(
     live.map((p) => window.ostia.pty.activity(p.id).catch(() => null)),
@@ -323,6 +325,7 @@ export async function requestClosePane(workspaceId: string, paneId: string): Pro
 export async function closePaneForAgent(workspaceId: string, paneId: string): Promise<void> {
   const layout = useLayoutStore.getState().byWorkspace[workspaceId]
   const pane = layout ? findPane(layout.root, paneId) : null
+  if (pane?.kind === 'editor' && pane.filePath) await settleSaves([pane.filePath])
   const { dirty, disk } = useEditorStatus.getState()
   const asks = pane?.kind === 'manager' || (pane && unsavedFilesOf([pane], dirty, disk).length > 0)
   if (asks) await requestClosePane(workspaceId, paneId)

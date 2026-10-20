@@ -1,5 +1,6 @@
 import { changedLines, minimalLineEdit } from '@/lib/files/diskReload'
 import { saveFormatted } from '@/lib/files/editorSave'
+import { trackSave } from '@/lib/files/pendingSaves'
 import { type RemoteSaveOutcome, checkRemoteText, saveRemoteText } from '@/lib/files/remoteFileSync'
 import { documentSaved } from '@/lib/lsp/client'
 import type { monaco } from '@/lib/monaco/setup'
@@ -93,10 +94,11 @@ export function createEditorSave({
     }
   }
 
-  const save = async (force = false): Promise<void> => {
-    const model = editor.getModel()
-    if (!model) return
-    const fp = pathOf(model)
+  const saveModel = async (
+    model: monaco.editor.ITextModel,
+    fp: string,
+    force: boolean,
+  ): Promise<void> => {
     if (isRemotePath(fp)) {
       await saveRemote(model, fp, force)
       return
@@ -136,6 +138,12 @@ export function createEditorSave({
     useEditorStatus.getState().setDirty(fp, isDirty(model))
     setUnsavedPath(null)
     setDiskBar(null)
+  }
+  const save = (force = false): Promise<void> => {
+    const model = editor.getModel()
+    if (!model) return Promise.resolve()
+    const fp = pathOf(model)
+    return trackSave(fp, saveModel(model, fp, force))
   }
   saveRef.current = save
   return save

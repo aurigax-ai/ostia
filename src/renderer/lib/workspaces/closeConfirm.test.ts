@@ -1,3 +1,4 @@
+import { trackSave } from '@/lib/files/pendingSaves'
 import { paneIds } from '@/lib/layout/tree'
 import type { LayoutNode, PaneNode } from '@/lib/layout/types'
 import { useApprovalsStore } from '@/stores/agents/approvalsStore'
@@ -279,6 +280,71 @@ describe('what a quit loses', () => {
       await vi.waitFor(() => {
         expect(useCloseConfirmStore.getState().pending?.groups[0]?.agents).toEqual(['claude'])
       })
+    })
+  })
+
+  describe('a save that is still running', () => {
+    function startSave(finish: (ok: boolean) => void = () => {}): {
+      done: (ok: boolean) => void
+    } {
+      let release: (ok: boolean) => void = () => {}
+      const save = new Promise<void>((resolve, reject) => {
+        release = (ok) => {
+          if (ok) useEditorStatus.getState().setDirty(FILE, false)
+          finish(ok)
+          if (ok) resolve()
+          else reject(new Error('write failed'))
+        }
+      })
+      void trackSave(FILE, save).catch(() => {})
+      return { done: release }
+    }
+
+    it('waits for the save and does not ask once it succeeds', async () => {
+      seedRow('unsaved editor')
+      const { done } = startSave()
+      let closed = false
+      void requestClosePane('w1', 'p1').then(() => {
+        closed = true
+      })
+      await new Promise((r) => setTimeout(r, 20))
+      expect(useCloseConfirmStore.getState().pending).toBeNull()
+      done(true)
+      await vi.waitFor(() => {
+        expect(closed).toBe(true)
+      })
+      expect(useCloseConfirmStore.getState().pending).toBeNull()
+    })
+
+    it('still asks when the save fails', async () => {
+      seedRow('unsaved editor')
+      const { done } = startSave()
+      void requestClosePane('w1', 'p1')
+      done(false)
+      await vi.waitFor(() => {
+        expect(useCloseConfirmStore.getState().pending?.groups[0]?.files).toEqual([FILE])
+      })
+    })
+
+    it('asks as before when the save never finishes', async () => {
+      vi.useFakeTimers()
+      try {
+        seedRow('unsaved editor')
+        startSave()
+        void requestClosePane('w1', 'p1')
+        await vi.advanceTimersByTimeAsync(10_000)
+        expect(useCloseConfirmStore.getState().pending?.groups[0]?.files).toEqual([FILE])
+      } finally {
+        vi.useRealTimers()
+      }
+    })
+
+    it('waits before the quit dialog counts unsaved files', async () => {
+      seedRow('unsaved editor')
+      const { done } = startSave()
+      const groups = collectQuitGroups(new Set())
+      setTimeout(() => done(true), 20)
+      expect(quitLosses(await groups).files).toBe(0)
     })
   })
 
