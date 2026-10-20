@@ -148,7 +148,7 @@ describe('skills service', () => {
     )
     expect(scan.candidates).toEqual([
       { rule: 'Keep diffs small.', problems: [] },
-      { rule: 'git push -f', problems: ['command'] },
+      { rule: 'git push -f', problems: ['capability', 'command'] },
     ])
     const added = await service.panel['import-add'](
       { rules: ['Keep diffs small.'], scope: 'global' },
