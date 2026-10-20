@@ -4,5 +4,11 @@
     "name": "GRF-C71 an agent still working in its kept pane across a restart is reattached as running and its report ends the node",
     "issue": 1044,
     "until": "2026-10-30"
+  },
+  {
+    "file": "e2e/open-from-shell.spec.ts",
+    "name": "GIT_EDITOR=\"ostia --wait\" commits when the tab is closed, and Ctrl+C ends a wait without closing the tab",
+    "issue": 1274,
+    "until": "2026-11-10"
   }
 ]
