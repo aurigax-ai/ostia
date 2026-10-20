@@ -31,6 +31,7 @@ function signalRow(signal: Signal, selected: boolean): HTMLElement {
     ],
     attrs: {
       'data-signal': signal.id,
+      'data-focus': `signal-${signal.id}`,
       'aria-selected': String(selected),
       tabindex: '0',
     },

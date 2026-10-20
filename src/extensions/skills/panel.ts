@@ -181,7 +181,8 @@ async function findRules(): Promise<void> {
   problem = res.ok ? '' : t('error', { error: errorText(res) })
   const found = res.ok ? (res.data as { proposed: number; groups: number; model: string }) : null
   if (!found) status = ''
-  else if (found.model !== 'ok' && found.groups > 0) status = t('findNoModel')
+  else if (found.model === 'none' && found.groups > 0) status = t('findNoModel')
+  else if (found.model === 'failed' && found.groups > 0) status = t('findFailed')
   else status = found.proposed + found.groups > 0 ? t('findDone') : t('findNothing')
   await load()
 }
@@ -192,19 +193,27 @@ const NAV: { view: View; label: string }[] = [
   { view: 'scoreboard', label: 'scoreboard' },
 ]
 
+function addButton(): HTMLElement {
+  const add = button(t('add'), addRule, true)
+  add.dataset.focus = 'add'
+  return add
+}
+
 function leaveForm(): void {
   go(view === 'case' ? 'scoreboard' : 'rules')
 }
 
 function navigation(): HTMLElement | null {
-  if (view === 'case' || view === 'preview' || mode.kind !== 'view') {
+  if (isSub()) {
     return panelToolbar({ back: { label: t('back'), onClick: leaveForm } })
   }
   return panelToolbar({
-    tabs: NAV.map(({ view: target, label }) =>
-      panelTab(t(`nav.${label}`), target === view, () => go(target)),
-    ),
-    actions: view === 'rules' ? [button(t('add'), addRule, true)] : [],
+    tabs: NAV.map(({ view: target, label }) => {
+      const tab = panelTab(t(`nav.${label}`), target === view, () => go(target))
+      tab.dataset.focus = `tab-${target}`
+      return tab
+    }),
+    actions: view === 'rules' ? [addButton()] : [],
   })
 }
 
@@ -270,8 +279,37 @@ function body(): HTMLElement {
   return rulesBody(rulesContext())
 }
 
+let wasSub = false
+let returnTo: string | null = null
+
+function isSub(): boolean {
+  return view === 'case' || view === 'preview' || mode.kind !== 'view'
+}
+
+function focused(): string | null {
+  const active = document.activeElement as HTMLElement | null
+  return active?.closest('[data-focus]')?.getAttribute('data-focus') ?? null
+}
+
+function refocus(key: string | null): boolean {
+  const target = key ? root.querySelector<HTMLElement>(`[data-focus="${key}"]`) : null
+  target?.focus()
+  return target !== null
+}
+
 function render(): void {
+  const was = focused()
+  const sub = isSub()
+  if (sub && !wasSub) returnTo = was
   root.replaceChildren(h('div', { class: 'page' }, navigation(), notice(), body()))
+  if (sub) {
+    if (!wasSub) root.querySelector<HTMLElement>('.ostia-toolbar button')?.focus()
+  } else if (wasSub) {
+    if (!refocus(returnTo)) refocus(`tab-${view}`)
+    returnTo = null
+  } else if (was?.startsWith('tab-')) refocus(`tab-${view}`)
+  else refocus(was)
+  wasSub = sub
 }
 
 void loadPanelSizes().then(load)

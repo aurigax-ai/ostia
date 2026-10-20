@@ -188,6 +188,7 @@ export function scoreboardBody(ctx: ScoreboardContext): HTMLElement {
       ],
       attrs: {
         'data-score': rule.id,
+        'data-focus': `score-${rule.id}`,
         'aria-selected': String(rule.id === ctx.selected),
         tabindex: '0',
       },

@@ -448,20 +448,27 @@ input[type="radio"]:focus-visible {
   flex: 1;
 }
 
-.ostia-tabs {
+.ostia-toolbar-tabs {
   gap: 2px;
   padding: 3px 6px;
   border-bottom: 0;
 }
 
-.ostia-tabs button.tab {
-  border-color: transparent;
-  color: var(--fg-muted);
+.ostia-tabs {
+  display: flex;
+  gap: 4px;
 }
 
-.ostia-tabs button.tab[aria-current="page"] {
-  background: var(--surface-3);
+button.ostia-tab {
+  border: 0;
+  color: var(--fg-muted);
+  font-weight: var(--font-weight-medium);
+}
+
+button.ostia-tab[aria-selected="true"],
+button.ostia-tab[aria-pressed="true"] {
   color: var(--fg);
+  background: var(--surface-3);
 }
 
 button.quiet {

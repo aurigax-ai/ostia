@@ -126,18 +126,49 @@ export function panelToolbar({
   if (!back && tabs.length === 0 && actions.length === 0) return null
   return h(
     'header',
-    { class: tabs.length > 0 ? 'ostia-toolbar ostia-tabs' : 'ostia-toolbar' },
+    { class: tabs.length > 0 ? 'ostia-toolbar ostia-toolbar-tabs' : 'ostia-toolbar' },
     back ? h('button', { type: 'button', onClick: back.onClick }, back.label) : null,
-    ...tabs,
+    tabs.length > 0 ? tablist(tabs) : null,
     h('div', { class: 'ostia-spacer' }),
     ...actions,
   )
 }
 
+const TAB_KEYS: Record<string, (at: number, count: number) => number> = {
+  ArrowRight: (at, count) => (at + 1) % count,
+  ArrowLeft: (at, count) => (at - 1 + count) % count,
+  Home: () => 0,
+  End: (_at, count) => count - 1,
+}
+
+function tablist(tabs: Node[]): HTMLElement {
+  const list = h('div', { class: 'ostia-tabs', role: 'tablist' }, ...tabs)
+  list.addEventListener('keydown', (e) => {
+    const move = TAB_KEYS[e.key]
+    const items = [...list.querySelectorAll<HTMLElement>('[role="tab"]')]
+    const at = items.indexOf(document.activeElement as HTMLElement)
+    if (!move || at < 0) return
+    e.preventDefault()
+    const next = move(at, items.length)
+    items.forEach((item, i) => {
+      item.tabIndex = i === next ? 0 : -1
+    })
+    items[next]?.focus()
+  })
+  return list
+}
+
 export function panelTab(label: string, current: boolean, onClick: () => void): HTMLElement {
   return h(
     'button',
-    { type: 'button', class: 'tab', ...(current ? { 'aria-current': 'page' } : {}), onClick },
+    {
+      type: 'button',
+      class: 'ostia-tab',
+      role: 'tab',
+      'aria-selected': String(current),
+      tabindex: current ? '0' : '-1',
+      onClick,
+    },
     label,
   )
 }

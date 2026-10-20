@@ -156,6 +156,7 @@
     "score.caption": "需要重複更正的工作階段",
     "score.rateShort": "{sessions} 次中有 {restated} 次（{rate}，範圍 {low} 到 {high}）",
     "eval.group": "測試",
-    "signals.privacy": "保留在這台電腦上 30 天，已移除機密。"
+    "signals.privacy": "保留在這台電腦上 30 天，已移除機密。",
+    "findFailed": "模型沒有回應，因此重複的提示會列出來，由你自己撰寫規則。"
   }
 }

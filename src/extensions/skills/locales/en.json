@@ -145,6 +145,7 @@
     "score.caption": "Sessions with a repeated correction",
     "score.rateShort": "{restated} of {sessions} ({rate}, range {low} to {high})",
     "eval.group": "Test",
-    "signals.privacy": "Kept on this computer for 30 days, with secrets removed."
+    "signals.privacy": "Kept on this computer for 30 days, with secrets removed.",
+    "findFailed": "The model did not answer, so repeated prompts are listed for you to word."
   }
 }

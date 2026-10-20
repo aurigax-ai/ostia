@@ -123,6 +123,12 @@ function cardActions(ctx: RulesContext, rule: Rule): Node[] {
   ]
 }
 
+function quiet(label: string, key: string, onClick: (e: Event) => void): HTMLElement {
+  const item = quietButton(label, onClick)
+  item.dataset.focus = key
+  return item
+}
+
 function card(
   title: string,
   line: string,
@@ -142,6 +148,7 @@ function card(
 function ruleRow(ctx: RulesContext, rule: Rule): HTMLElement {
   return card(rule.rule, cardLine(ctx, rule), cardActions(ctx, rule), {
     'data-rule': rule.id,
+    'data-focus': `rule-${rule.id}`,
     'aria-selected': String(rule.id === ctx.selected),
     tabindex: '0',
   })
@@ -172,6 +179,7 @@ function groupRow(ctx: RulesContext, group: Group): HTMLElement {
     ],
     {
       'data-group': group.id,
+      'data-focus': `group-${group.id}`,
       'aria-selected': String(`group:${group.id}` === ctx.selected),
       tabindex: '0',
     },
@@ -206,21 +214,21 @@ function listPane(ctx: RulesContext): HTMLElement {
       heading(t('proposedGroup'), proposed.length + groups.length),
       rows(proposed),
       h('ul', { class: 'rows' }, ...groups.map((g) => groupRow(ctx, g))),
-      h('div', { class: 'more' }, quietButton(t('findRules'), ctx.find)),
+      h('div', { class: 'more' }, quiet(t('findRules'), 'find', ctx.find)),
     ),
     h(
       'section',
       {},
       heading(t('activeGroup'), active.length),
       rows(active),
-      h('div', { class: 'more' }, quietButton(t('preview'), ctx.previewOpen)),
+      h('div', { class: 'more' }, quiet(t('preview'), 'preview', ctx.previewOpen)),
     ),
     retired.length > 0 ? section(t('retiredGroup'), retired.length, false, rows(retired)) : null,
     h(
       'div',
       { class: 'more' },
-      quietButton(t('import'), ctx.importFile),
-      ...(rules.length > 0 ? [quietButton(t('export'), ctx.exportRules)] : []),
+      quiet(t('import'), 'import', ctx.importFile),
+      ...(rules.length > 0 ? [quiet(t('export'), 'export', ctx.exportRules)] : []),
     ),
   )
 }

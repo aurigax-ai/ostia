@@ -96,6 +96,25 @@ test('the human approves a proposed rule only after resolving its conflict', asy
       .toBe('active')
     const stored = JSON.parse(readFileSync(join(dir, 'rules.json'), 'utf8')).rules
     expect(stored.find((r: { id: string }) => r.id === 'r2').state).toBe('proposed')
+    await panelEval(
+      app,
+      `const add = document.querySelector('[data-focus="add"]'); add.focus(); add.click(); 'ok'`,
+    )
+    await expect
+      .poll(() =>
+        panelEval(
+          app,
+          `document.querySelector('[data-pane="form"]') ? document.activeElement?.textContent : 'none'`,
+        ),
+      )
+      .toBe('Back')
+    await panelEval(
+      app,
+      `[...document.querySelectorAll('button')].find((b) => b.textContent === 'Back')?.click(); 'ok'`,
+    )
+    await expect
+      .poll(() => panelEval(app, `document.activeElement?.getAttribute('data-focus') ?? 'none'`))
+      .toBe('add')
   } finally {
     await quitApp(app)
   }
