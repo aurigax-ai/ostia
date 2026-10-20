@@ -50,6 +50,9 @@ test('GIT_EDITOR="ostia --wait" commits when the tab is closed, and Ctrl+C ends 
     await expect
       .poll(() => execFileSync('cat', [join(repo, '.git', 'COMMIT_EDITMSG')]).toString())
       .toContain('written in the waited tab')
+    await expect(
+      tab(win, 'COMMIT_EDITMSG').locator('.pane-tab-dirty, .pane-disk-mark'),
+    ).toHaveCount(0)
     await waited.getByRole('button', { name: 'Close' }).click()
     await expect(tab(win, 'COMMIT_EDITMSG')).toHaveCount(0, { timeout: 15_000 })
     await expect(terminal(win)).toContainText('git-exit:0', { timeout: 20_000 })
