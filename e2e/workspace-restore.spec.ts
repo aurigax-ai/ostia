@@ -1,7 +1,14 @@
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { DOM_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
-import { PROMPT, addTab, openWorkspace, quitApp, waitForTerminalFocus } from './helpers'
+import {
+  PROMPT,
+  addTab,
+  launchWindow,
+  openWorkspace,
+  quitApp,
+  waitForTerminalFocus,
+} from './helpers'
 import {
   type ElectronApplication,
   type Page,
@@ -14,18 +21,6 @@ import {
 interface Launched {
   app: ElectronApplication
   win: Page
-}
-
-async function launchApp(dataHome: string): Promise<Launched> {
-  const app = await electron.launch(isolatedLaunch(dataHome))
-  try {
-    const win = await app.firstWindow()
-    await win.waitForLoadState('domcontentloaded')
-    return { app, win }
-  } catch (err) {
-    await app.close()
-    throw err
-  }
 }
 
 async function waitForShellPrompt(win: Page): Promise<void> {
@@ -45,7 +40,7 @@ test(
   async () => {
     const marker = `ostia_restore_${Date.now()}`
 
-    const first = await launchApp(dataHome)
+    const first = await launchWindow(dataHome)
     try {
       await openWorkspace(first.win)
       await expect(first.win.locator('.pane.active')).toBeVisible({ timeout: 15_000 })
@@ -71,7 +66,7 @@ test(
     expect(existsSync(scrollbackFile), 'scrollback was not written at quit').toBe(true)
     expect(readFileSync(scrollbackFile, 'utf8')).toContain(marker)
 
-    const second = await launchApp(dataHome)
+    const second = await launchWindow(dataHome)
     try {
       await expect(second.win.locator('.pane')).toHaveCount(2, { timeout: 15_000 })
       await expect(second.win.locator('.workzone')).toContainText(marker, { timeout: 15_000 })
@@ -86,7 +81,7 @@ test(
 
 test('the pane the human last used takes the keyboard after a restart, without a click', async () => {
   const shownRows = '.pane-slot:not([data-hidden]) .xterm-rows'
-  const first = await launchApp(dataHome)
+  const first = await launchWindow(dataHome)
   try {
     await openWorkspace(first.win)
     await addTab(first.win)
@@ -100,7 +95,7 @@ test('the pane the human last used takes the keyboard after a restart, without a
     await quitApp(first.app)
   }
 
-  const second = await launchApp(dataHome)
+  const second = await launchWindow(dataHome)
   try {
     await expect(second.win.getByRole('tablist').getByRole('tab')).toHaveCount(2, {
       timeout: 15_000,
@@ -122,7 +117,7 @@ test('the pane the human last used takes the keyboard after a restart, without a
 
 test('restores terminal history after a crash (no before-quit)', { tag: '@core' }, async () => {
   const marker = `ostia_crash_${Date.now()}`
-  const first = await launchApp(dataHome)
+  const first = await launchWindow(dataHome)
   try {
     await openWorkspace(first.win)
     await first.win.locator('.xterm').first().click()
@@ -145,7 +140,7 @@ test('restores terminal history after a crash (no before-quit)', { tag: '@core' 
     await killApp(first.app)
   }
 
-  const second = await launchApp(dataHome)
+  const second = await launchWindow(dataHome)
   try {
     await expect(second.win.locator('.workzone')).toContainText(marker, { timeout: 15_000 })
   } finally {
@@ -211,7 +206,7 @@ test('restores a clean final screen at a different window size', async () => {
   const marker = `ostia_resized_${Date.now()}`
   seedSettings(dataHome, { ...DOM_RENDERER_SETTINGS, appearance: { terminal: { size: 8 } } })
 
-  const first = await launchApp(dataHome)
+  const first = await launchWindow(dataHome)
   try {
     await setWindowSize(first, 1580, 950)
     await openWorkspace(first.win)
@@ -234,7 +229,7 @@ test('restores a clean final screen at a different window size', async () => {
     await quitApp(first.app)
   }
 
-  const second = await launchApp(dataHome)
+  const second = await launchWindow(dataHome)
   try {
     await setWindowSize(second, 1000, 980)
     await expect(second.win.locator('.xterm-rows').first()).toContainText('workspace restored', {

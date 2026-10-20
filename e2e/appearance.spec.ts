@@ -1,15 +1,13 @@
-import { DOM_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
-import { emptyState } from './helpers'
-import { type Page, _electron as electron, expect, test } from './test'
+import { DOM_RENDERER_SETTINGS, freshDataHome, seedSettings } from './dataHome'
+import { emptyState, launchWindow } from './helpers'
+import { type Page, expect, test } from './test'
 
 async function launch(settings: object) {
   const dataHome = freshDataHome()
   seedSettings(dataHome, { ...DOM_RENDERER_SETTINGS, ...settings })
-  const app = await electron.launch(isolatedLaunch(dataHome))
-  const win = await app.firstWindow()
-  await win.waitForLoadState('domcontentloaded')
-  await expect(emptyState(win)).toBeVisible({ timeout: 15_000 })
-  return { app, win }
+  const launched = await launchWindow(dataHome)
+  await expect(emptyState(launched.win)).toBeVisible({ timeout: 15_000 })
+  return launched
 }
 
 async function openAppearance(win: Page) {
