@@ -4,6 +4,7 @@ import { chords } from './chords'
 import { DOM_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
 import { openWorkspace, panelEval, quitApp, restartApp, waitForPaletteSelection } from './helpers'
 import { type ElectronApplication, type Page, _electron as electron, expect, test } from './test'
+import { wireDataDir } from './wireData'
 
 test.describe.configure({ timeout: 240_000 })
 
@@ -74,7 +75,7 @@ function setup(report: boolean) {
   writeFileSync(join(launch.home, '.ostia/graphs/kept.yaml'), GRAPH)
   const env = { ...launch.env, PATH: `${bin}:${launch.env.PATH ?? ''}` }
   const lines = (): Line[] => {
-    const root = join(dataHome, 'state', 'wire', 'runs')
+    const root = join(wireDataDir(dataHome), 'runs')
     if (!existsSync(root)) return []
     for (const scope of readdirSync(root)) {
       const folder = join(root, scope, 'kept')
