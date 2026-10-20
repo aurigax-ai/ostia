@@ -44,6 +44,7 @@ import {
   manifestIn,
 } from '@aurigax-ai/ostia-extension-sdk/manifest/localeCatalogs'
 import type { MessageConnection } from 'vscode-jsonrpc/node'
+import type { ExtensionCommandRef } from '../../shared/control/commands'
 import { hasCap } from '../approvals/capabilityStore'
 import type { PaneIdentity } from '../control/idRegistry'
 import { REMOTE_REQUEST_TIMEOUT_MS, RemoteFolders } from '../files/remoteFolders'
@@ -536,6 +537,18 @@ export class ExtensionHost {
     const remote = this.deps.remoteCwdForPane?.(identity.paneId)
     if (remote) caller.remote = remote
     return caller
+  }
+
+  paletteCommand(id: string): ExtensionCommandRef | null {
+    const dot = id.indexOf('.')
+    if (dot <= 0) return null
+    const extId = id.slice(0, dot)
+    const command = id.slice(dot + 1)
+    const rt = this.runtimes.get(extId)
+    if (!rt || !this.active(rt)) return null
+    return this.commandsOf(rt).some((c) => c.id === command && c.palette)
+      ? { extId, command }
+      : null
   }
 
   commandCapabilities(extId: string, command: string): Capability[] {

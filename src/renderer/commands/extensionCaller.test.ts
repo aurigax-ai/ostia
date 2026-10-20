@@ -21,13 +21,19 @@ vi.mock('electron', () => ({
   },
   BrowserWindow: class {},
 }))
+const request = vi.fn(async () => 'once' as const)
+vi.mock('../../main/approvals/approvals', async (original) => ({
+  ...(await original<object>()),
+  approvals: () => ({ request }),
+}))
 
 const { parseManifest } = await import('@aurigax-ai/ostia-extension-sdk/manifest/extensionManifest')
 const { runRawCommand } = await import('../../cli/verbs/commands')
 const { setScriptTokenCheck } = await import('../../main/control/controlAuth')
-const { registerControlServer, stopControlServer } = await import(
+const { registerControlMethod, registerControlServer, stopControlServer } = await import(
   '../../main/control/controlServer'
 )
+const { dispatchGatewayMethod } = await import('../../main/gateway/controlDispatch')
 const { registerExtension, registerPane } = await import('../../main/control/idRegistry')
 const { ExtensionHost } = await import('../../main/extensions/extensionHost')
 const { extensionCommandRunner, registerExtensionMethods } = await import(
@@ -47,6 +53,28 @@ const manifest = (() => {
   if (!r.ok) throw new Error(`manifest: ${JSON.stringify(r)}`)
   return r.manifest
 })()
+const probe = {
+  ...manifest,
+  id: 'probe',
+  name: 'Probe',
+  contributes: {
+    ...manifest.contributes,
+    commands: [
+      {
+        id: 'write',
+        title: 'Write',
+        palette: true,
+        capabilities: ['type-other-pane'],
+      },
+    ],
+  },
+} as unknown as typeof manifest
+const runtime = (m: typeof manifest) => ({
+  ext: { manifest: m },
+  ready: new Map(),
+  callerWorkspaces: new Set(),
+  serving: new Map(),
+})
 
 const seen: Caller[] = []
 const confirm = vi.fn(async () => false)
@@ -70,20 +98,19 @@ const host = Object.create(ExtensionHost.prototype) as InstanceType<typeof Exten
 Object.assign(host as object, {
   deps: { workDirForWorkspace: () => null, isSandboxed: () => false },
   runtimes: new Map([
-    [
-      'ssh',
-      { ext: { manifest }, ready: new Map(), callerWorkspaces: new Set(), serving: new Map() },
-    ],
+    ['ssh', runtime(manifest)],
+    ['probe', runtime(probe)],
   ]),
   active: () => true,
   runs: { reachHookCaller, declaresHook: () => false },
   processes: {
-    connected: async () => ({
+    connected: async (rt: { ext: { manifest: typeof manifest } }) => ({
       sendRequest: async (
         _method: string,
         p: { command: 'connect'; args: unknown; caller: Caller },
       ) => {
         seen.push(p.caller)
+        if (rt.ext.manifest.id !== 'ssh') return { ok: true }
         return ssh[p.command](p.args as never, p.caller as never)
       },
     }),
@@ -96,6 +123,11 @@ let invokeFromRenderer: (req: unknown) => Promise<unknown> = async () => {
 
 const socketPath = join(tmpdir(), `ostia-extcaller-${process.pid}.sock`)
 const pane = registerPane({ windowId: 'w1', workspaceId: 'ws1', paneId: 'pAgent' })
+const other = registerPane({ windowId: 'w1', workspaceId: 'ws2', paneId: 'pOther' })
+const execInRenderer = (target: unknown, id: string, args: unknown) =>
+  invokeFromRenderer({ id, args, target }) as ReturnType<
+    Parameters<typeof registerControlServer>[0]['execCommand']
+  >
 const conns: MessageConnection[] = []
 const sockets: ReturnType<typeof createConnection>[] = []
 
@@ -144,6 +176,12 @@ beforeAll(() => {
   } as never)
   ipc.registerExtensionIpc(host)
   registerExtensionMethods(() => host)
+  registerControlMethod('workspace.list', {
+    handler: () => [
+      { workspaceId: 'ws1', name: 'one' },
+      { workspaceId: 'ws2', name: 'two' },
+    ],
+  })
   setScriptTokenCheck((token) =>
     token === 'script-secret' ? { id: 'script-1', caps: ['all-workspaces'] } : undefined,
   )
@@ -151,10 +189,7 @@ beforeAll(() => {
     {
       isSandboxed: () => false,
       listCommandsFor: () => commands.describe(),
-      execCommand: (target, id, args) =>
-        invokeFromRenderer({ id, args, target }) as ReturnType<
-          Parameters<typeof registerControlServer>[0]['execCommand']
-        >,
+      execCommand: execInRenderer,
       extensionCommand: extensionCommandRunner(() => host),
       getTerminalState: () => undefined,
       windowOfWorkspace: (id) => (id === 'ws1' || id === 'ws2' ? 'w1' : undefined),
@@ -168,6 +203,7 @@ beforeEach(() => {
   confirm.mockClear()
   openTerminal.mockClear()
   reachHookCaller.mockClear()
+  request.mockClear()
   window.ostia.commands.publish = () => {}
   window.ostia.commands.onInvoke = (fn) => {
     invokeFromRenderer = fn as (req: unknown) => Promise<unknown>
@@ -176,10 +212,15 @@ beforeEach(() => {
   window.ostia.extensions.invoke = ((...a: unknown[]) =>
     ipcHandlers.get('extensions:invoke')?.({}, ...a)) as typeof window.ostia.extensions.invoke
   wireCommandBridge()
-  syncExtensionCommands([
-    { id: 'ssh', name: manifest.name, enabled: true, commands: manifest.contributes.commands },
-  ] as never)
+  syncExtensionCommands(extensionList())
 })
+
+function extensionList() {
+  return [
+    { id: 'ssh', name: manifest.name, enabled: true, commands: manifest.contributes.commands },
+    { id: 'probe', name: probe.name, enabled: true, commands: probe.contributes.commands },
+  ] as never
+}
 
 afterEach(() => {
   syncExtensionCommands([])
@@ -239,6 +280,93 @@ describe('the caller an extension command sees, by entry point', () => {
       }),
     ).rejects.toThrow(/runs as the calling pane/)
     expect(seen).toEqual([])
+  })
+
+  it('refuses ostia <ext>.<cmd> --workspace from the CLI', async () => {
+    const conn = await connect(pane.token)
+    await expect(
+      cli(conn, ['ssh.connect', '{"argument":"box"}', '--workspace', 'two']),
+    ).rejects.toThrow(/runs as the calling pane/)
+    expect(seen).toEqual([])
+  })
+
+  it('refuses a paneId argument that points at another pane', async () => {
+    const conn = await connect(pane.token)
+    await expect(
+      conn.sendRequest('command.exec', {
+        id: 'ssh.connect',
+        args: { argument: 'box', paneId: other.externalId },
+      }),
+    ).rejects.toThrow(/runs as the calling pane/)
+    expect(seen).toEqual([])
+  })
+
+  it('fails a command the pane lacks the capability for without asking, like ext.invoke', async () => {
+    const conn = await connect(pane.token)
+    const direct = await conn.sendRequest('ext.invoke', { extId: 'probe', command: 'write' })
+    const raw = await conn.sendRequest('command.exec', { id: 'probe.write' })
+    expect(direct).toEqual({ ok: false, error: 'needs-elevation', message: 'type-other-pane' })
+    expect(request).not.toHaveBeenCalled()
+    expect(raw).toEqual({
+      ok: false,
+      error: { code: 'needs-elevation', message: 'needs-elevation: type-other-pane' },
+    })
+    expect(seen).toEqual([])
+  })
+
+  it('never lets an unmarked descriptor run the extension as the user', async () => {
+    commands.unregister('ssh.connect')
+    commands.register<{ argument?: string } | undefined, unknown>({
+      id: 'ssh.connect',
+      title: 'Connect',
+      run: async (args, ctx) =>
+        window.ostia.extensions.invoke(
+          'ssh',
+          'connect',
+          { workspaceId: ctx.activeWorkspaceId, paneId: ctx.activePaneId },
+          args?.argument,
+        ),
+    })
+    const conn = await connect(pane.token)
+    const res = await conn.sendRequest('command.exec', {
+      id: 'ssh.connect',
+      args: { argument: 'box' },
+    })
+    expect(seen).toEqual([])
+    expect(res).toMatchObject({ ok: true, result: { ok: false, error: 'not-available' } })
+    expect(openTerminal).not.toHaveBeenCalled()
+  })
+
+  it('a core command with the same id as an extension command still wins', async () => {
+    syncExtensionCommands([])
+    commands.register({ id: 'probe.write', title: 'Core write', run: () => 'core' })
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    try {
+      syncExtensionCommands(extensionList())
+      const conn = await connect(pane.token)
+      const res = await conn.sendRequest('command.exec', { id: 'probe.write' })
+      expect(res).toEqual({ ok: true, result: 'core' })
+      expect(seen).toEqual([])
+    } finally {
+      warn.mockRestore()
+      commands.unregister('probe.write')
+    }
+  })
+
+  it('a phone gateway run is still the user', async () => {
+    const res = await dispatchGatewayMethod(
+      'command.exec',
+      { id: 'ssh.connect', args: { argument: 'box' }, target: pane.externalId },
+      ['read', 'command'],
+      {
+        execCommand: execInRenderer,
+        listCommandsFor: () => commands.describe(),
+        primaryWindowId: () => 'w1',
+      } as never,
+    )
+    expect(res).toMatchObject({ ok: true, result: { ok: true } })
+    expect(seen.map((c) => c.kind)).toEqual(['user'])
+    expect(confirm).not.toHaveBeenCalled()
   })
 
   it('keeps script tokens and extensions away from extension commands', async () => {

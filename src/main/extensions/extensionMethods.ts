@@ -52,13 +52,12 @@ export function extensionCommandRunner(
   host: () => ExtensionHost | null,
 ): (desc: CommandDescriptor) => ExtensionCommandRun | null {
   return (desc) => {
-    const ref = desc.extension
-    if (!ref) return null
+    const h = host()
+    const ref = h?.paletteCommand(desc.id)
+    if (!h || !ref) return null
+    const marked = desc.extension
+    if (marked?.extId !== ref.extId || marked.command !== ref.command) return null
     return async (identity, args): Promise<CommandResult> => {
-      const h = host()
-      if (!h) {
-        return { ok: false, error: { code: 'command-failed', message: 'no-extension-host' } }
-      }
       const argument = isRecord(args) ? args.argument : undefined
       const res = await invokeAsPane(
         h,
@@ -69,7 +68,8 @@ export function extensionCommandRunner(
       )
       if (res.ok) return { ok: true, result: res.data }
       const message = res.message ? `${res.error}: ${res.message}` : res.error
-      return { ok: false, error: { code: 'command-failed', message } }
+      const code = res.error === 'needs-elevation' ? 'needs-elevation' : 'command-failed'
+      return { ok: false, error: { code, message } }
     }
   }
 }

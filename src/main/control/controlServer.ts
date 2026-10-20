@@ -151,6 +151,23 @@ function actingPane(
 
 export type ExtensionCommandRun = (identity: PaneIdentity, args: unknown) => Promise<CommandResult>
 
+const renderedForControl = new Map<string, number>()
+
+export function runningForControl(id: string): boolean {
+  return renderedForControl.has(id)
+}
+
+async function renderForControl(id: string, run: () => Promise<CommandResult>) {
+  renderedForControl.set(id, (renderedForControl.get(id) ?? 0) + 1)
+  try {
+    return await run()
+  } finally {
+    const left = (renderedForControl.get(id) ?? 1) - 1
+    if (left > 0) renderedForControl.set(id, left)
+    else renderedForControl.delete(id)
+  }
+}
+
 export interface ControlServerDeps {
   execCommand: (target: CommandTarget, id: string, args?: unknown) => Promise<CommandResult>
   extensionCommand?: (desc: CommandDescriptor) => ExtensionCommandRun | null
@@ -349,6 +366,9 @@ function registerCommandExec({ session, deps, onCall, requireIdentity }: Connect
         )
       }
       const asPane = deps.extensionCommand?.(desc) ?? null
+      if (asPane && script) {
+        throw new ResponseError(ErrorCodes.InvalidRequest, 'not-available-to-script')
+      }
       if (asPane && crossTarget) {
         throw new ResponseError(
           ErrorCodes.InvalidParams,
@@ -357,9 +377,11 @@ function registerCommandExec({ session, deps, onCall, requireIdentity }: Connect
       }
       const caps: Capability[] = [
         ...(crossTarget ? (['all-workspaces'] as const) : []),
-        ...(script
-          ? desc.capabilities.filter((cap) => !DEFAULT_CAPABILITIES.includes(cap))
-          : desc.capabilities),
+        ...(asPane
+          ? []
+          : script
+            ? desc.capabilities.filter((cap) => !DEFAULT_CAPABILITIES.includes(cap))
+            : desc.capabilities),
       ]
       await ensureCaps(
         session.authed,
@@ -373,7 +395,9 @@ function registerCommandExec({ session, deps, onCall, requireIdentity }: Connect
         throw new ResponseError(ErrorCodes.InvalidParams, `unknown-workspace: ${given.workspaceId}`)
       }
       const exec = (): Promise<CommandResult> =>
-        asPane ? asPane(me, args) : deps.execCommand(target, params.id, args)
+        asPane
+          ? asPane(me, args)
+          : renderForControl(params.id, () => deps.execCommand(target, params.id, args))
       const result = await (deps.byAgent ? deps.byAgent(exec) : exec())
       const createdId = (result.ok ? (result.result as { workspaceId?: unknown }) : undefined)
         ?.workspaceId
