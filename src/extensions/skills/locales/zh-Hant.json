@@ -143,7 +143,7 @@
     "form.when": "時機（選填）",
     "placeholder.rule": "用 pnpm，不要用 npm。",
     "findDone": "請查看「建議」下的新項目。",
-    "findNothing": "沒有新內容。同一個更正要在 2 天內出現在 3 則提示中才會成為規則。",
+    "findNothing": "沒有新內容。同一個更正要出現在至少 3 則提示、2 個工作階段和 2 個不同的日子，才會成為規則。",
     "findNoModel": "設定中尚未設定代理模型，因此重複的提示會列出來，由你自己撰寫規則。",
     "exported": "已複製到剪貼簿。",
     "keepHint": "保留其中一條會停用另一條。",
@@ -157,6 +157,7 @@
     "score.rateShort": "{sessions} 次中有 {restated} 次（{rate}，範圍 {low} 到 {high}）",
     "eval.group": "測試",
     "signals.privacy": "保留在這台電腦上 30 天，已移除機密。",
-    "findFailed": "模型沒有回應，因此重複的提示會列出來，由你自己撰寫規則。"
+    "findFailed": "模型呼叫失敗，因此重複的提示會列出來，由你自己撰寫規則。",
+    "findAttached": "已把新的提示加入你現有的規則。"
   }
 }

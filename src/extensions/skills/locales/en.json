@@ -132,7 +132,7 @@
     "form.when": "When (optional)",
     "placeholder.rule": "Use pnpm, never npm.",
     "findDone": "Review the new items under Proposed.",
-    "findNothing": "Nothing new. A rule needs the same correction in 3 prompts on 2 days.",
+    "findNothing": "Nothing new. A rule needs the same correction in 3 prompts, 2 sessions and 2 different days.",
     "findNoModel": "No Agent model is set up in Settings, so repeated prompts are listed for you to word.",
     "exported": "Copied to the clipboard.",
     "keepHint": "Keeping one retires the other.",
@@ -146,6 +146,7 @@
     "score.rateShort": "{restated} of {sessions} ({rate}, range {low} to {high})",
     "eval.group": "Test",
     "signals.privacy": "Kept on this computer for 30 days, with secrets removed.",
-    "findFailed": "The model did not answer, so repeated prompts are listed for you to word."
+    "findFailed": "The model call failed, so repeated prompts are listed for you to word.",
+    "findAttached": "Added new prompts to rules you already have."
   }
 }

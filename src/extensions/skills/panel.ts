@@ -9,6 +9,7 @@ import {
 } from '@aurigax-ai/ostia-extension-sdk/panel'
 import { caseFormBody } from './caseForm'
 import type { EvalCase, EvalRun } from './evalCase'
+import { type FindOutcome, findStatus } from './findStatus'
 import { button, t } from './panelKit'
 import { type Candidate, type Mode, type RulesContext, type Snapshot, rulesBody } from './rulesView'
 import type { ScoreRow } from './score'
@@ -179,11 +180,7 @@ function addRule(): void {
 async function findRules(): Promise<void> {
   const res = await call('find-rules', {})
   problem = res.ok ? '' : t('error', { error: errorText(res) })
-  const found = res.ok ? (res.data as { proposed: number; groups: number; model: string }) : null
-  if (!found) status = ''
-  else if (found.model === 'none' && found.groups > 0) status = t('findNoModel')
-  else if (found.model === 'failed' && found.groups > 0) status = t('findFailed')
-  else status = found.proposed + found.groups > 0 ? t('findDone') : t('findNothing')
+  status = res.ok ? findStatus(res.data as FindOutcome) : ''
   await load()
 }
 
