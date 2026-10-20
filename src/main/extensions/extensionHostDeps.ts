@@ -78,6 +78,7 @@ export interface ExtensionHostDeps {
   agentTaskClock?: () => number
   remoteCwdForPane?: (paneId: string) => RemoteCwd | undefined
   agentRunning?: (paneId: string) => boolean
+  claimHumanPrompt?: (paneId: string, extId: string) => string | null
   screenLinks?: PhoneScreenLinks
   remoteFolders?: Pick<RemoteFoldersDeps, 'windowOfWorkspace' | 'refusal' | 'confirm'> & {
     publish: (folders: RemoteFolders) => void

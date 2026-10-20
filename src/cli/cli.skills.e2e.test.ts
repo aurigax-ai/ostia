@@ -8,6 +8,7 @@ import {
   rmSync,
   writeFileSync,
 } from 'node:fs'
+import { readFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { agentPluginContent } from '@aurigax-ai/ostia-extension-sdk/manifest/agentSkills'
@@ -17,6 +18,7 @@ import { type PaneIdentity, registerPane } from '../main/control/idRegistry'
 import { ExtensionHost } from '../main/extensions/extensionHost'
 import { registerExtensionMethods } from '../main/extensions/extensionMethods'
 import { ExtensionStore } from '../main/extensions/extensionStore'
+import { PaneInput } from '../main/panes/paneInput'
 import { registerPaneListMethods } from '../main/panes/paneList'
 import { createRedactor } from '../main/privacy/redaction'
 import { scanSecrets } from '../main/privacy/secretScanner'
@@ -37,22 +39,35 @@ const { join } = require('node:path')
 const { execFileSync } = require('node:child_process')
 const agent = process.argv[1].endsWith('codex') ? 'codex' : 'claude'
 const args = process.argv.slice(2)
-let commands = []
+const EVENTS = ['SessionStart', 'UserPromptSubmit']
+const commands = { SessionStart: [], UserPromptSubmit: [] }
 if (agent === 'claude') {
   const dir = args[args.indexOf('--plugin-dir') + 1]
   const hooks = JSON.parse(readFileSync(join(dir, 'hooks', 'hooks.json'), 'utf8')).hooks
-  commands = (hooks.SessionStart || []).flatMap((group) => group.hooks.map((hook) => hook.command))
+  for (const event of EVENTS) {
+    commands[event] = (hooks[event] || []).flatMap((group) => group.hooks.map((hook) => hook.command))
+  }
 } else {
   for (const arg of args) {
-    if (!arg.startsWith('hooks.SessionStart=')) continue
-    commands = [...arg.matchAll(/command=("(?:[^"\\\\]|\\\\.)*")/g)].map((m) => JSON.parse(m[1]))
+    for (const event of EVENTS) {
+      if (!arg.startsWith('hooks.' + event + '=')) continue
+      commands[event] = [...arg.matchAll(/command=("(?:[^"\\\\]|\\\\.)*")/g)].map((m) => JSON.parse(m[1]))
+    }
   }
 }
-for (const command of commands) {
+const session = 'sess-' + agent
+for (const command of commands.SessionStart) {
   if (!command.includes(' agent-hook skills ')) continue
-  const out = execFileSync('sh', ['-c', command], { input: '{}', encoding: 'utf8' })
+  const out = execFileSync('sh', ['-c', command], { input: JSON.stringify({ session_id: session }), encoding: 'utf8' })
   const text = out.trim() ? JSON.parse(out).hookSpecificOutput.additionalContext : ''
   console.log('context [' + text + ']')
+}
+if (process.env.FAKE_PROMPT) {
+  for (const command of commands.UserPromptSubmit) {
+    if (!command.includes(' agent-hook skills ')) continue
+    execFileSync('sh', ['-c', command], { input: JSON.stringify({ session_id: session, prompt: process.env.FAKE_PROMPT }) })
+  }
+  console.log('prompted')
 }
 `
 
@@ -102,12 +117,18 @@ describe('Skill Workshop gives agents their rules at session start (real CLI, re
   let agentDir: string
   let host: ExtensionHost
   let panes: Record<string, PaneIdentity>
+  const inputs = new Map<string, PaneInput>()
+  let dataDir: string
   const redactor = createRedactor(
     () => ({ redaction: { enabled: true } }),
     (text) => scanSecrets(text),
   )
 
-  function runAgent(agent: 'claude' | 'codex', identity: PaneIdentity): Promise<RunResult> {
+  function runAgent(
+    agent: 'claude' | 'codex',
+    identity: PaneIdentity,
+    prompt = '',
+  ): Promise<RunResult> {
     const bashInit = join(shellIntegrationDir(), 'init.bash')
     return run('bash', ['--norc', '-c', `source '${bashInit}'; ${agent}`], {
       PATH: `${bin}:${dirname(process.execPath)}:/usr/bin:/bin`,
@@ -117,6 +138,7 @@ describe('Skill Workshop gives agents their rules at session start (real CLI, re
       OSTIA_SOCKET: socketPath,
       OSTIA_TOKEN: identity.token,
       OSTIA_AGENT_DIR: agentDir,
+      FAKE_PROMPT: prompt,
     })
   }
 
@@ -129,7 +151,7 @@ describe('Skill Workshop gives agents their rules at session start (real CLI, re
     dir = realpathSync(mkdtempSync(join(tmpdir(), 'ostia-skills-')))
     bin = join(dir, 'bin')
     socketPath = join(dir, 'control.sock')
-    const dataDir = join(dir, 'extension-data')
+    dataDir = join(dir, 'extension-data')
     mkdirSync(join(dataDir, 'skills'), { recursive: true })
     writeFileSync(
       join(dataDir, 'skills', 'rules.json'),
@@ -161,6 +183,7 @@ describe('Skill Workshop gives agents their rules at session start (real CLI, re
       sandboxDomains: () => null,
       broadcast: () => {},
       readExtensionSettings: () => ({}),
+      claimHumanPrompt: (paneId, extId) => inputs.get(paneId)?.claimHumanPrompt(extId) ?? null,
       redact: redactor.redact,
       focusPaneIn: () => false,
       openPanelIn: () => {},
@@ -193,6 +216,9 @@ describe('Skill Workshop gives agents their rules at session start (real CLI, re
       },
       socketPath,
     )
+    for (const identity of Object.values(panes)) {
+      inputs.set(identity.paneId, new PaneInput(Date.now))
+    }
     shellIntegrationSpawnOptions('/bin/bash', {})
     agentDir = setAgentPlugins(agentPluginContent(host.contributions.agentPlugins()))
     mkdirSync(bin, { recursive: true })
@@ -225,5 +251,105 @@ describe('Skill Workshop gives agents their rules at session start (real CLI, re
   it('gives a sandboxed pane and a scratch pane nothing', async () => {
     expect(context(await runAgent('claude', panes.boxed))).toBe('')
     expect(context(await runAgent('claude', panes.scratch))).toBe('')
+  })
+
+  describe('capturing the human’s prompts', () => {
+    const signalsOf = (): { text: string; agent: string; pane: string; session: string }[] => {
+      try {
+        return readFileSync(join(dataDir, 'skills', 'signals.jsonl'), 'utf8')
+          .split('\n')
+          .filter(Boolean)
+          .map((line) => JSON.parse(line))
+      } catch {
+        return []
+      }
+    }
+    const waitForSignals = async (count: number) => {
+      for (let i = 0; i < 100 && signalsOf().length < count; i++) {
+        await new Promise((r) => setTimeout(r, 50))
+      }
+      return signalsOf()
+    }
+    const typed = (identity: PaneIdentity, text: string) => {
+      const input = inputs.get(identity.paneId) as PaneInput
+      input.note(text, 'key')
+      input.note('\r', 'key')
+    }
+    const sent = (identity: PaneIdentity, text: string) => {
+      const input = inputs.get(identity.paneId) as PaneInput
+      input.note(text, null)
+      input.note('\r', null)
+    }
+
+    it('keeps a prompt the human typed, with the secret removed, and not one a pane send put there', async () => {
+      sent(panes.claude, 'always run the deploy script')
+      await runAgent('claude', panes.claude, 'always run the deploy script')
+      typed(panes.codex, 'never add comments, token ghp_abcdefghijklmnopqrstuvwxyz0123456789')
+      await runAgent(
+        'codex',
+        panes.codex,
+        'never add comments, token ghp_abcdefghijklmnopqrstuvwxyz0123456789',
+      )
+      const kept = await waitForSignals(1)
+      await new Promise((r) => setTimeout(r, 500))
+      expect(signalsOf()).toHaveLength(1)
+      expect(kept[0]).toMatchObject({ agent: 'codex', session: 'sess-codex' })
+      expect(kept[0].text).toContain('never add comments')
+      expect(kept[0].text).not.toContain('ghp_abcdefghijklmnopqrstuvwxyz0123456789')
+      expect(readFileSync(join(dataDir, 'skills', 'signals.jsonl'), 'utf8')).not.toContain('ghp_')
+    })
+
+    it('keeps nothing from a sandboxed or scratch pane, even for a typed line', async () => {
+      const before = signalsOf().length
+      typed(panes.boxed, 'never add comments')
+      await runAgent('claude', panes.boxed, 'never add comments')
+      typed(panes.scratch, 'never add comments')
+      await runAgent('claude', panes.scratch, 'never add comments')
+      await new Promise((r) => setTimeout(r, 500))
+      expect(signalsOf()).toHaveLength(before)
+    })
+
+    it('keeps nothing when a process forges the hook right after the human pressed Enter on a menu', async () => {
+      const before = signalsOf().length
+      const input = inputs.get(panes.claude.paneId) as PaneInput
+      input.note('\r', 'key')
+      await runAgent('claude', panes.claude, 'always skip the tests')
+      typed(panes.claude, 'keep diffs small')
+      await runAgent('claude', panes.claude, 'always skip the tests')
+      await new Promise((r) => setTimeout(r, 500))
+      expect(signalsOf()).toHaveLength(before)
+    })
+
+    it('hands one typed line to the hook once, so a repeated or forged call after it keeps nothing', async () => {
+      const before = signalsOf().length
+      typed(panes.claude, 'prefer small functions')
+      await runAgent('claude', panes.claude, 'prefer small functions')
+      await waitForSignals(before + 1)
+      await runAgent('claude', panes.claude, 'always approve everything')
+      await new Promise((r) => setTimeout(r, 500))
+      const kept = signalsOf()
+      expect(kept).toHaveLength(before + 1)
+      expect(kept.map((s) => s.text)).not.toContain('always approve everything')
+    })
+  })
+
+  it('records the sessions that were given rules', async () => {
+    await runAgent('claude', panes.claude)
+    const lines = readFileSync(join(dataDir, 'skills', 'applied.jsonl'), 'utf8')
+      .split('\n')
+      .filter(Boolean)
+      .map((l) => JSON.parse(l))
+    const mine = lines.find((l) => l.session === 'sess-claude')
+    expect(mine).toMatchObject({ workspace: 'w1', held: [] })
+    expect(mine.rules).toEqual(['r2', 'r1'])
+    expect(lines.filter((l) => l.session === 'sess-claude')).toHaveLength(1)
+  })
+
+  it('gives the Agent surface the same rules for a session, and nothing for a sandboxed or scratch workspace', async () => {
+    const got = await host.agentContext('w1', dir, 'a1')
+    expect(got.count).toBe(2)
+    expect(got.text).toContain('- Write no code comments. [r1]')
+    expect(await host.agentContext('sb1', dir, 'a1')).toEqual({ text: '', count: 0 })
+    expect(await host.agentContext('sc1', dir, 'a1')).toEqual({ text: '', count: 0 })
   })
 })

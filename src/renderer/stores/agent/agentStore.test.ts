@@ -1,0 +1,42 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+
+vi.mock('@/lib/assist/chatTools', () => ({
+  workspaceFolder: () => '/work',
+  chatToolDefs: () => [],
+}))
+
+import { ensureAgentSession, setAgentRules, useAgentStore } from './agentStore'
+
+describe('the Agent session and its rules chip', () => {
+  let open: ReturnType<typeof vi.mocked<typeof window.ostia.agentSessions.open>>
+
+  beforeEach(() => {
+    open = vi.mocked(window.ostia.agentSessions.open)
+    open.mockReset()
+    open.mockResolvedValue({ ok: true, rules: 3 })
+  })
+
+  it('opens a session with the rules on and remembers how many went in', async () => {
+    await ensureAgentSession('w1', 'a-open')
+    expect(open).toHaveBeenCalledWith('a-open', expect.objectContaining({ rules: true }))
+    expect(useAgentStore.getState().rules['a-open']).toEqual({ on: true, count: 3 })
+  })
+
+  it('opens the session again without the rules when the human turns the chip off, and with them when back on', async () => {
+    await ensureAgentSession('w1', 'a-toggle')
+    open.mockResolvedValue({ ok: true, rules: 0 })
+    await setAgentRules('a-toggle', false)
+    expect(open).toHaveBeenLastCalledWith('a-toggle', expect.objectContaining({ rules: false }))
+    expect(useAgentStore.getState().rules['a-toggle']).toEqual({ on: false, count: 0 })
+    open.mockResolvedValue({ ok: true, rules: 3 })
+    await setAgentRules('a-toggle', true)
+    expect(open).toHaveBeenLastCalledWith('a-toggle', expect.objectContaining({ rules: true }))
+    expect(open).toHaveBeenCalledTimes(3)
+  })
+
+  it('does not open again when the chip is set to what it already is', async () => {
+    await ensureAgentSession('w1', 'a-same')
+    await setAgentRules('a-same', true)
+    expect(open).toHaveBeenCalledTimes(1)
+  })
+})

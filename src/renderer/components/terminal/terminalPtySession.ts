@@ -2,6 +2,7 @@ import { keptShellReattached } from '@/lib/agents/autoResume'
 import { keptAgentReattached } from '@/lib/agents/paneAgent'
 import { markPaneActivity } from '@/lib/attention/paneActivity'
 import { spawnPromptOption } from '@/lib/prompt/promptChips'
+import { humanInputSource } from '@/lib/terminal/humanInput'
 import { type NeighbourQueue, neighbourWrites } from '@/lib/terminal/neighbourWrites'
 import {
   noteFittedGrid,
@@ -16,6 +17,7 @@ import { useSandboxStore } from '@/stores/app/sandboxStore'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { type LineAnchor, useBlocksStore } from '@/stores/terminal/blocksStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
+import type { HumanInputSource } from '@shared/terminal/ptyApi'
 import type { TerminalSession } from './terminalSession'
 import { isPromptRepaint, nextSizeAction, settleFit } from './terminalSizing'
 
@@ -50,7 +52,7 @@ interface PtySessionDeps {
   anchor: () => LineAnchor
   disposeMarkers: () => void
   silenceReplies: () => { dispose(): void }
-  holdInput: (data: string) => boolean
+  holdInput: (data: string, source: HumanInputSource | undefined) => boolean
 }
 
 interface PtyIo {
@@ -118,7 +120,8 @@ export function attachPtySession(deps: PtySessionDeps): () => void {
   const sizing = createPtySizing(deps, io, attachAtCurrentSize)
 
   const input = term.onData((d) => {
-    if (!holdInput(d)) window.ostia.pty.write(paneId, d)
+    const source = humanInputSource(host)
+    if (!holdInput(d, source)) window.ostia.pty.write(paneId, d, source)
     if (!FOCUS_REPORTS.has(d)) markPaneActivity(paneId)
     if (!FOCUS_REPORTS.has(d) && useBlocksStore.getState().selected[paneId]) {
       useBlocksStore.getState().select(paneId, null)

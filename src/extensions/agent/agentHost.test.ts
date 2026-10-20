@@ -60,6 +60,39 @@ describe('the agent host', () => {
     expect(JSON.stringify(rig.provider.requests)).not.toContain(body)
   })
 
+  it('answers a one-shot completion without opening a session', async () => {
+    const rig = await start(() => '{"rule":"No comments."}')
+    const reply = await rig.handle({
+      op: 'complete',
+      system: 'Answer in JSON.',
+      input: 'say it',
+      providers: [{ id: 'fake', name: 'Fake', baseUrl: rig.provider.url, models: ['fake-model'] }],
+    })
+    expect(reply).toEqual({
+      ok: true,
+      model: { provider: 'fake', model: 'fake-model' },
+      text: '{"rule":"No comments."}',
+    })
+    expect(rig.provider.requests.map((r) => [r.system, r.last, r.tools])).toEqual([
+      ['Answer in JSON.', 'say it', []],
+    ])
+  })
+
+  it('refuses a one-shot completion when no model is configured, and when the server is down', async () => {
+    const rig = await start(() => 'ok')
+    expect(await rig.handle({ op: 'complete', system: 's', input: 'i', providers: [] })).toEqual({
+      ok: false,
+      error: 'no-model',
+    })
+    const down = await rig.handle({
+      op: 'complete',
+      system: 's',
+      input: 'i',
+      providers: [{ id: 'fake', name: 'Fake', baseUrl: 'http://127.0.0.1:1', models: ['m'] }],
+    })
+    expect(down).toMatchObject({ ok: false, error: 'failed' })
+  })
+
   it("does not offer a model from pi's built-in catalog", async () => {
     const rig = await start(() => 'ok')
     const reply = await rig.handle({

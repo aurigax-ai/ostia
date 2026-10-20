@@ -330,8 +330,28 @@ describe('TerminalView engines', () => {
     await waitFor(() => expect(window.ostia.pty.attach).toHaveBeenCalled())
     const textarea = container.querySelector('.xterm-helper-textarea') as HTMLTextAreaElement
     fireEvent.keyDown(textarea, { key: 'Enter', code: 'Enter', keyCode: 13, shiftKey: true })
-    await waitFor(() => expect(window.ostia.pty.write).toHaveBeenCalledWith('p1', '\x1b\r'))
-    expect(window.ostia.pty.write).not.toHaveBeenCalledWith('p1', '\r')
+    await waitFor(() =>
+      expect(window.ostia.pty.write).toHaveBeenCalledWith('p1', '\x1b\r', undefined),
+    )
+    expect(window.ostia.pty.write).not.toHaveBeenCalledWith('p1', '\r', undefined)
+  })
+
+  it('tags a key the human pressed in the terminal as typed, and the same data from a command as untagged', async () => {
+    const { container } = await renderSettled(<TerminalView workspaceId="w1" paneId="p1" />)
+    await waitFor(() => expect(window.ostia.pty.attach).toHaveBeenCalled())
+    const textarea = container.querySelector('.xterm-helper-textarea') as HTMLTextAreaElement
+    Object.defineProperty(window, 'event', {
+      value: { isTrusted: true, type: 'keydown', target: textarea },
+      configurable: true,
+    })
+    onTestFinished(() => {
+      Reflect.deleteProperty(window, 'event')
+    })
+    fireEvent.keyDown(textarea, { key: 'a', code: 'KeyA', keyCode: 65 })
+    expect(window.ostia.pty.write).toHaveBeenCalledWith('p1', 'a', 'key')
+    Reflect.deleteProperty(window, 'event')
+    terminalFor('p1')?.input('b', true)
+    expect(window.ostia.pty.write).toHaveBeenCalledWith('p1', 'b', undefined)
   })
 
   it('repaints a held prompt once and acks it once after a resize in xterm.js', async () => {
@@ -508,7 +528,7 @@ describe('TerminalView engines', () => {
     const textarea = container.querySelector('.xterm-helper-textarea') as HTMLTextAreaElement
     fireEvent.keyDown(textarea, { key: 'v', code: 'KeyV', ctrlKey: true })
     await waitFor(() =>
-      expect(window.ostia.pty.write).toHaveBeenCalledWith('p1', 'echo pasted_$((6*7))'),
+      expect(window.ostia.pty.write).toHaveBeenCalledWith('p1', 'echo pasted_$((6*7))', 'paste'),
     )
   })
 
@@ -585,7 +605,9 @@ describe('TerminalView engines', () => {
       fireEvent.keyDown(textarea, { key: 'u', code: 'KeyU', keyCode: 85, ctrlKey: true })
       await act(() => new Promise((resolve) => setTimeout(resolve, 50)))
       expect(readText).not.toHaveBeenCalled()
-      expect(vi.mocked(window.ostia.pty.write).mock.calls).toEqual(sent.map((data) => ['p1', data]))
+      expect(vi.mocked(window.ostia.pty.write).mock.calls).toEqual(
+        sent.map((data) => ['p1', data, undefined]),
+      )
     })
   }
 
@@ -599,27 +621,32 @@ describe('TerminalView engines', () => {
     const textarea = container.querySelector('.xterm-helper-textarea') as HTMLTextAreaElement
     act(() => textarea.focus())
     await user.keyboard('{Control>}v{/Control}')
-    await waitFor(() => expect(window.ostia.pty.write).toHaveBeenCalledWith('p1', '\x16'))
+    await waitFor(() =>
+      expect(window.ostia.pty.write).toHaveBeenCalledWith('p1', '\x16', undefined),
+    )
   })
 
-  for (const [name, text, contents, written] of [
+  for (const [name, text, contents, written, source] of [
     [
       'the quoted path of a copied file even when text is on the clipboard too',
       'shot.png',
       { files: ['/tmp/my shot.png'], image: true },
       "'/tmp/my shot.png' ",
+      undefined,
     ],
     [
       'the text of a spreadsheet copy that carries an image preview',
       'Name\tQty',
       { files: [], image: true },
       'Name\tQty',
+      'paste',
     ],
     [
       'Ctrl+V for an image whose text is a file name',
       'shot.png',
       { files: [], image: true },
       '\x16',
+      undefined,
     ],
   ] as const) {
     it(`smart Ctrl+V pastes ${name}`, async () => {
@@ -640,7 +667,9 @@ describe('TerminalView engines', () => {
       const { container } = await renderSettled(<TerminalView workspaceId="w1" paneId="p1" />)
       const textarea = container.querySelector('.xterm-helper-textarea') as HTMLTextAreaElement
       fireEvent.keyDown(textarea, { key: 'v', code: 'KeyV', ctrlKey: true })
-      await waitFor(() => expect(window.ostia.pty.write).toHaveBeenCalledWith('p1', written))
+      await waitFor(() =>
+        expect(window.ostia.pty.write).toHaveBeenCalledWith('p1', written, source),
+      )
     })
   }
 
@@ -658,9 +687,9 @@ describe('TerminalView engines', () => {
     act(() => textarea.focus())
     await user.keyboard('{Control>}v{/Control}')
     await waitFor(() =>
-      expect(window.ostia.pty.write).toHaveBeenCalledWith('p1', "'/tmp/my shot.png' "),
+      expect(window.ostia.pty.write).toHaveBeenCalledWith('p1', "'/tmp/my shot.png' ", undefined),
     )
-    expect(window.ostia.pty.write).not.toHaveBeenCalledWith('p1', '\x16')
+    expect(window.ostia.pty.write).not.toHaveBeenCalledWith('p1', '\x16', undefined)
   })
 
   const written = (...wanted: string[]): string[] =>
@@ -978,7 +1007,7 @@ describe('TerminalView engines', () => {
     await navigator.clipboard.writeText('echo ostiaplain\n')
     await user.keyboard('{Control>}{Shift>}V{/Shift}{/Control}')
     await waitFor(() =>
-      expect(window.ostia.pty.write).toHaveBeenCalledWith('p1', 'echo ostiaplain'),
+      expect(window.ostia.pty.write).toHaveBeenCalledWith('p1', 'echo ostiaplain', 'paste'),
     )
     expect(screen.queryByRole('dialog')).toBeNull()
 
@@ -989,6 +1018,7 @@ describe('TerminalView engines', () => {
       expect(window.ostia.pty.write).toHaveBeenCalledWith(
         'p1',
         expect.stringContaining('echo ostiaquiet77'),
+        'paste',
       ),
     )
     expect(screen.queryByRole('dialog')).toBeNull()
@@ -1181,7 +1211,11 @@ describe('TerminalView engines', () => {
       dataTransfer: { types: ['Files'], files: [file], getData: () => '' },
     })
 
-    expect(window.ostia.pty.write).toHaveBeenCalledWith('p1', "'/home/me/notes file.md' ")
+    expect(window.ostia.pty.write).toHaveBeenCalledWith(
+      'p1',
+      "'/home/me/notes file.md' ",
+      undefined,
+    )
   })
 
   for (const [system, binding, rebound, dropped, kept] of [
@@ -1339,6 +1373,7 @@ describe('TerminalView engines', () => {
       expect(window.ostia.pty.write).toHaveBeenCalledWith(
         'p1',
         expect.stringContaining('echo ostiafirst\recho ostiapasted42'),
+        'paste',
       ),
     )
   })

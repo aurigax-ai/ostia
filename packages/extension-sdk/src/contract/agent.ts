@@ -18,6 +18,14 @@ export const AGENT_TOOL_CALL_ID_MAX = 200
 
 export const AGENT_PROVIDER_MODELS_MAX = 64
 
+export const AGENT_COMPLETE_SYSTEM_MAX = 8000
+
+export const AGENT_CONTEXT_MAX = 8000
+
+export const AGENT_COMPLETE_INPUT_MAX = 60_000
+
+export const AGENT_COMPLETE_OUTPUT_MAX = 20_000
+
 export interface AgentToolSpec {
   name: string
   description: string
@@ -43,6 +51,7 @@ export interface AgentOpenRequest {
   tools: AgentToolSpec[]
   providers: AgentProviderEntry[]
   model?: AgentModelRef
+  context?: string
 }
 
 export interface AgentPromptRequest {
@@ -57,10 +66,28 @@ export interface AgentSessionRequest {
   sessionId: string
 }
 
-export type AgentRequest = AgentOpenRequest | AgentPromptRequest | AgentSessionRequest
+export interface AgentCompleteRequest {
+  op: 'complete'
+  system: string
+  input: string
+  providers: AgentProviderEntry[]
+  model?: AgentModelRef
+}
+
+export type AgentRequest =
+  | AgentOpenRequest
+  | AgentPromptRequest
+  | AgentSessionRequest
+  | AgentCompleteRequest
 
 export type AgentReply =
-  | { ok: true; model?: AgentModelRef; history?: AgentHistoryEntry[] }
+  | {
+      ok: true
+      model?: AgentModelRef
+      history?: AgentHistoryEntry[]
+      text?: string
+      rules?: number
+    }
   | { ok: false; error: string; message?: string }
 
 export interface AgentHistoryEntry {

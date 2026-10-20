@@ -36,6 +36,7 @@ import type { Redactor } from '../privacy/redaction'
 import type { HostPaneGrants } from '../sandbox/hostPanes'
 import { sandboxSpawnEnv } from '../sandbox/spawnEnv'
 import type { WorkspaceSandboxes } from '../sandbox/workspaceSandboxes'
+import type { PtyEntry } from '../terminal/pty/ptyRegistry'
 import { setAgentPlugins } from '../terminal/shellIntegration'
 import type { WindowSend } from '../windows/windowSend'
 import type { ScratchFolders } from '../workspaces/scratchFolders'
@@ -158,6 +159,7 @@ interface ExtensionHostStartDeps {
       })
     | undefined
   agentRunning: AgentRunningPanes
+  ptys: Map<string, PtyEntry>
   redactor: Redactor
   assistKeyStore: () => ExtensionSecretStore
   extensionSecretStore: () => ExtensionSecretStore
@@ -194,6 +196,7 @@ export function startExtensionHost({
   remoteCwdOfPane,
   extensionRemoteFolders,
   agentRunning,
+  ptys,
   redactor,
   assistKeyStore,
   extensionSecretStore,
@@ -251,6 +254,7 @@ export function startExtensionHost({
     remoteCwdForPane: remoteCwdOfPane,
     remoteFolders: extensionRemoteFolders,
     agentRunning: (paneId) => agentRunning.has(paneId),
+    claimHumanPrompt: (paneId, extId) => ptys.get(paneId)?.input.claimHumanPrompt(extId) ?? null,
     locale: readLocale,
     readExtensionSettings: () => readSettingsFile().extensionSettings,
     readAssistSettings: readSettingsFileOrNull,

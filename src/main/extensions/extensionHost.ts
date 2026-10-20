@@ -451,6 +451,32 @@ export class ExtensionHost {
     }
   }
 
+  async agentContext(
+    workspaceId: string,
+    cwd: string,
+    sessionId: string,
+  ): Promise<{ text: string; count: number }> {
+    const texts: string[] = []
+    let count = 0
+    for (const [extId, rt] of this.runtimes) {
+      if (!rt.ext.builtin || extId === AGENT_EXTENSION_ID) continue
+      const hooks = rt.ext.manifest.contributes.agentHooks ?? []
+      const hook = hooks.find((h) => h.event === 'SessionStart')
+      if (!hook || !this.runs.declaresHook(extId, hook.command, 'SessionStart')) continue
+      const res = await this.invoke(
+        extId,
+        hook.command,
+        { argv: ['agent', 'SessionStart'], stdin: JSON.stringify({ session_id: sessionId, cwd }) },
+        this.userCaller(workspaceId, { cwd }),
+      )
+      if (!res.ok || !res.text) continue
+      texts.push(res.text)
+      const counted = isRecord(res.data) ? res.data.count : undefined
+      count += typeof counted === 'number' ? counted : 0
+    }
+    return { text: texts.join('\n\n'), count }
+  }
+
   private releaseServing(rt: Runtime, paneId: string, side: keyof ServingCalls): void {
     const calls = rt.serving.get(paneId)
     if (!calls) return
@@ -487,7 +513,7 @@ export class ExtensionHost {
     return caller
   }
 
-  paneCaller(identity: PaneIdentity): ExtensionCaller {
+  paneCaller(identity: PaneIdentity, hook?: { extId: string; command: string }): ExtensionCaller {
     const caller: ExtensionCaller = {
       kind: 'pane',
       paneId: identity.externalId,
@@ -503,6 +529,10 @@ export class ExtensionHost {
     if (this.deps.isSandboxed(identity.workspaceId)) caller.sandboxed = true
     if (identity.manager) caller.manager = true
     if (this.deps.agentRunning?.(identity.paneId)) caller.agentRunning = true
+    if (hook && this.runs.declaresHook(hook.extId, hook.command, 'UserPromptSubmit')) {
+      const typed = this.deps.claimHumanPrompt?.(identity.paneId, hook.extId)
+      if (typed) caller.humanPrompt = typed
+    }
     const remote = this.deps.remoteCwdForPane?.(identity.paneId)
     if (remote) caller.remote = remote
     return caller

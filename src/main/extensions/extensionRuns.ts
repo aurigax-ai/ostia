@@ -1,6 +1,9 @@
 import { homedir } from 'node:os'
 import { isAbsolute } from 'node:path'
-import { AGENT_PLUGIN_CAPABILITY } from '@aurigax-ai/ostia-extension-sdk/contract/agentPlugins'
+import {
+  AGENT_PLUGIN_CAPABILITY,
+  type AgentHookEvent,
+} from '@aurigax-ai/ostia-extension-sdk/contract/agentPlugins'
 import type { Capability } from '@aurigax-ai/ostia-extension-sdk/contract/capabilities'
 import {
   AGENT_OFFER_LABEL_MAX,
@@ -379,13 +382,19 @@ export class ExtensionRuns {
       : fail('unknown-pane', 'that pane is closed')
   }
 
-  reachHookCaller(extId: string, command: string, identity: PaneIdentity): void {
-    if (identity.kind !== 'pane') return
+  declaresHook(extId: string, command: string, event?: AgentHookEvent): boolean {
     const rt = this.host.runtimes.get(extId)
-    if (!rt || !this.host.active(rt) || !this.host.granted(rt).includes(AGENT_PLUGIN_CAPABILITY))
-      return
+    if (!rt || !this.host.active(rt) || !this.host.granted(rt).includes(AGENT_PLUGIN_CAPABILITY)) {
+      return false
+    }
     const hooks = rt.ext.manifest.contributes.agentHooks ?? []
-    if (hooks.some((hook) => hook.command === command)) this.reach(rt, identity.externalId)
+    return hooks.some((hook) => hook.command === command && (!event || hook.event === event))
+  }
+
+  reachHookCaller(extId: string, command: string, identity: PaneIdentity): void {
+    if (identity.kind !== 'pane' || !this.declaresHook(extId, command)) return
+    const rt = this.host.runtimes.get(extId)
+    if (rt) this.reach(rt, identity.externalId)
   }
 
   exec(

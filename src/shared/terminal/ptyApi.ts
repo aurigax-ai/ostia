@@ -1,3 +1,5 @@
+export type HumanInputSource = 'key' | 'paste'
+
 import type { RemoteCwd } from '@aurigax-ai/ostia-extension-sdk/contract/remoteFolders'
 import type { HibernateOutcome } from '../agents/agentWork'
 import type { FsEntry } from '../files/filesApi'
@@ -84,7 +86,7 @@ interface PtyApi {
   restart: (paneId: string) => Promise<boolean>
   reportAgentRunning: (paneId: string, running: boolean) => void
   reportWaking: (paneId: string, waking: boolean, reason?: string) => void
-  write: (paneId: string, data: string) => void
+  write: (paneId: string, data: string, source?: HumanInputSource) => void
   ack: (paneId: string, chars: number) => void
   resize: (paneId: string, cols: number, rows: number) => void
   commands: (paneId: string) => Promise<string[]>

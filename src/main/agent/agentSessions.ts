@@ -1,4 +1,5 @@
 import {
+  AGENT_CONTEXT_MAX,
   AGENT_TOOL_CALL_ID_MAX,
   AGENT_TOOL_OUTPUT_MAX,
   type AgentEvent,
@@ -9,7 +10,7 @@ import {
 } from '@aurigax-ai/ostia-extension-sdk/contract/agent'
 import { isRecord } from '@aurigax-ai/ostia-extension-sdk/contract/isRecord'
 import type { AgentHostSettings } from '../../shared/agent/agentSettings'
-import { type AgentOpenInput, promptOf, sessionIdOf } from './agentRequests'
+import { type AgentOpenInput, completeOf, promptOf, sessionIdOf } from './agentRequests'
 
 export interface AgentRenderer {
   id: number
@@ -23,6 +24,11 @@ export interface AgentSessionsDeps {
   settings: () => AgentHostSettings
   sandboxed: (workspaceId: string) => boolean
   redact: (text: string) => Promise<string | null>
+  rulesContext: (
+    workspaceId: string,
+    cwd: string,
+    sessionId: string,
+  ) => Promise<{ text: string; count: number }>
 }
 
 interface Owned {
@@ -65,6 +71,7 @@ export class AgentSessions {
     ) {
       return { ok: false, error: 'unknown-model' }
     }
+    const { context, count } = await this.rulesFor(input)
     const reply = await this.deps.request({
       op: 'open',
       sessionId: input.sessionId,
@@ -72,9 +79,21 @@ export class AgentSessions {
       tools: input.tools,
       providers,
       ...(input.model ? { model: input.model } : {}),
+      ...(context ? { context } : {}),
     })
-    if (reply.ok) this.owned.set(input.sessionId, { renderer, workspaceId: input.workspaceId })
-    return reply
+    if (!reply.ok) return reply
+    this.owned.set(input.sessionId, { renderer, workspaceId: input.workspaceId })
+    return { ...reply, rules: count }
+  }
+
+  private async rulesFor(input: AgentOpenInput): Promise<{ context: string; count: number }> {
+    if (!input.rules) return { context: '', count: 0 }
+    const found = await this.deps
+      .rulesContext(input.workspaceId, input.cwd, input.sessionId)
+      .catch(() => ({ text: '', count: 0 }))
+    if (!found.text || found.count <= 0) return { context: '', count: 0 }
+    const clean = await this.deps.redact(found.text.slice(0, AGENT_CONTEXT_MAX)).catch(() => null)
+    return clean ? { context: clean, count: found.count } : { context: '', count: 0 }
   }
 
   async prompt(renderer: AgentRenderer, sessionId: unknown, text: unknown): Promise<AgentReply> {
@@ -85,6 +104,17 @@ export class AgentSessions {
     const redacted = await this.deps.redact(clean).catch(() => null)
     if (redacted === null) return { ok: false, error: 'redaction-failed' }
     return this.deps.request({ op: 'prompt', sessionId: id, text: redacted })
+  }
+
+  async complete(params: unknown): Promise<AgentReply> {
+    const asked = completeOf(params)
+    if (!asked) return { ok: false, error: 'invalid' }
+    const { providers } = this.deps.settings()
+    if (providers.length === 0) return { ok: false, error: 'no-model' }
+    const system = await this.deps.redact(asked.system).catch(() => null)
+    const input = await this.deps.redact(asked.input).catch(() => null)
+    if (system === null || input === null) return { ok: false, error: 'redaction-failed' }
+    return this.deps.request({ op: 'complete', system, input, providers })
   }
 
   async abort(renderer: AgentRenderer, sessionId: unknown): Promise<AgentReply> {

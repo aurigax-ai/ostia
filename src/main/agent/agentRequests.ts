@@ -1,5 +1,7 @@
 import { isAbsolute } from 'node:path'
 import {
+  AGENT_COMPLETE_INPUT_MAX,
+  AGENT_COMPLETE_SYSTEM_MAX,
   AGENT_PROMPT_MAX,
   AGENT_SESSION_ID_PATTERN,
   AGENT_TOOLS_MAX,
@@ -16,6 +18,7 @@ export interface AgentOpenInput {
   workspaceId: string
   cwd: string
   tools: AgentToolSpec[]
+  rules: boolean
   model?: AgentModelRef
 }
 
@@ -64,10 +67,21 @@ export function openInputOf(sessionId: unknown, raw: unknown): AgentOpenInput | 
     workspaceId: raw.workspaceId,
     cwd: raw.cwd,
     tools: toolSpecsOf(raw.tools),
+    rules: raw.rules !== false,
     ...(model ? { model } : {}),
   }
 }
 
 export function promptOf(raw: unknown): string | null {
   return typeof raw === 'string' && raw.length > 0 && raw.length <= AGENT_PROMPT_MAX ? raw : null
+}
+
+export function completeOf(raw: unknown): { system: string; input: string } | null {
+  if (!isRecord(raw) || typeof raw.system !== 'string' || typeof raw.input !== 'string') return null
+  const { system, input } = raw
+  if (!system || !input) return null
+  if (system.length > AGENT_COMPLETE_SYSTEM_MAX || input.length > AGENT_COMPLETE_INPUT_MAX) {
+    return null
+  }
+  return { system, input }
 }

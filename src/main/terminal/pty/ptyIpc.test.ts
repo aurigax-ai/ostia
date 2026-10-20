@@ -13,6 +13,7 @@ vi.mock('electron', () => ({
 }))
 
 import type { PtyAttachResult } from '../../../shared/terminal/ptyApi'
+import { PaneInput } from '../../panes/paneInput'
 import { registerPtyIpc } from './ptyIpc'
 
 const event = { sender: { id: 1 } }
@@ -110,5 +111,55 @@ describe('pty:resize', () => {
     send(1, 'p2')
     send(1, 'missing')
     expect(resize).not.toHaveBeenCalled()
+  })
+})
+
+describe('pty:write', () => {
+  const write = vi.fn()
+  const canWrite = vi.fn()
+  const ptys = new Map<string, unknown>()
+  const entry = () => ({ pty: { write }, session: { canWrite }, input: new PaneInput(Date.now) })
+
+  beforeEach(() => {
+    listeners.clear()
+    ptys.clear()
+    write.mockReset()
+    canWrite.mockReset().mockReturnValue(true)
+    registerPtyIpc({ ptys, keptShells: {}, agentWork: {} } as unknown as Parameters<
+      typeof registerPtyIpc
+    >[0])
+  })
+
+  const send = (paneId: string, data: string, source?: unknown) =>
+    listeners.get('pty:write')?.(event, paneId, data, source)
+
+  it('counts a line the renderer tagged as typed', () => {
+    const typed = entry()
+    ptys.set('p1', typed)
+    send('p1', 'fix the cart', 'key')
+    send('p1', '\r', 'key')
+    expect(write.mock.calls).toEqual([['fix the cart'], ['\r']])
+    expect(typed.input.claimHumanPrompt('x')).not.toBeNull()
+  })
+
+  it('does not count untagged text or a source the renderer made up', () => {
+    const forged = entry()
+    const untagged = entry()
+    ptys.set('p1', forged)
+    ptys.set('p2', untagged)
+    send('p1', 'fix the cart\r', 'ostia')
+    send('p2', 'fix the cart\r')
+    expect(write).toHaveBeenCalledTimes(2)
+    expect(forged.input.claimHumanPrompt('x')).toBeNull()
+    expect(untagged.input.claimHumanPrompt('x')).toBeNull()
+  })
+
+  it('writes and counts nothing for a window that cannot write', () => {
+    const blocked = entry()
+    ptys.set('p1', blocked)
+    canWrite.mockReturnValue(false)
+    send('p1', 'fix the cart\r', 'key')
+    expect(write).not.toHaveBeenCalled()
+    expect(blocked.input.claimHumanPrompt('x')).toBeNull()
   })
 })

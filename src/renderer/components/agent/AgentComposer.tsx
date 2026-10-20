@@ -12,6 +12,7 @@ import { ChatToolsMenu } from '@/components/chat/ChatToolsMenu'
 import type { ChatContext } from '@/components/chat/useChatContext'
 import { useDict } from '@/lib/app/useDict'
 import type { OstiaChatMessage } from '@/lib/assist/chatTransport'
+import { setAgentRules, useAgentStore } from '@/stores/agent/agentStore'
 import type { UseChatHelpers } from '@ai-sdk/react'
 import type { ChatContextItem } from '@aurigax-ai/ostia-extension-sdk/contract/assist'
 import { type RefObject, useState } from 'react'
@@ -63,6 +64,7 @@ export function AgentComposer({
   const d = useDict()
   const [pickerQuery, setPickerQuery] = useState('')
   const [toolsOpen, setToolsOpen] = useState(false)
+  const rules = useAgentStore((s) => s.rules[sessionId]) ?? { on: true, count: 0 }
   return (
     <PromptInput className="border-line border-t p-2" onSubmit={(message) => ask(message.text)}>
       <ChatContextChips
@@ -76,6 +78,7 @@ export function AgentComposer({
         context={context}
         attachments={attachments}
         willRedact={willRedact}
+        rules={{ ...rules, disabled: busy, toggle: () => void setAgentRules(sessionId, !rules.on) }}
       />
       <PromptInputBody>
         <PromptInputTextarea

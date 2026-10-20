@@ -79,6 +79,9 @@
         "manifest.commands.open.category"
       ]
     },
+    "skills:zh-Hant": {
+      "product and brand names": ["messages.agent.claude", "messages.agent.codex"]
+    },
     "ssh:zh-Hant": {
       "protocol and key names": [
         "manifest.name",

@@ -2,10 +2,10 @@
   "id": "skills",
   "name": "Skill Workshop",
   "version": "1.0.0",
-  "api": "6.5",
-  "description": "Rules you write for your agents, kept on this computer and given to Claude Code and Codex at the start of a session. A rule is one preference sentence scoped to everywhere, a stack or a project; it grants nothing. Only you add, change or retire a rule, here.",
+  "api": "6.6",
+  "description": "Rules you write for your agents, kept on this computer and given to Claude Code and Codex at the start of a session. A rule is one preference sentence scoped to everywhere, a stack or a project; it grants nothing. Only you add, change or retire a rule, here. The prompts you type to Claude Code and Codex are also kept here for 30 days, with secrets removed, as the evidence for rules; nothing an agent or Ostia sends is kept.",
   "category": "tools",
-  "capabilities": ["agent-plugin", "read-board"],
+  "capabilities": ["agent-plugin", "agent-complete", "read-board"],
   "main": "main.js",
   "locales": ["zh-Hant"],
   "contributes": {
@@ -20,18 +20,36 @@
         "title": "Give an agent its rules at session start",
         "palette": false,
         "stdin": true
+      },
+      {
+        "id": "on-prompt",
+        "title": "Remember a prompt you typed to an agent",
+        "palette": false,
+        "stdin": true
       }
     ],
     "agentHooks": [
       {
         "event": "SessionStart",
         "command": "on-session"
+      },
+      {
+        "event": "UserPromptSubmit",
+        "command": "on-prompt"
       }
     ],
     "panel": {
       "title": "Skill Workshop",
       "icon": "chat",
       "entry": "url"
+    },
+    "settings": {
+      "holdout": {
+        "type": "boolean",
+        "title": "Leave some rules out to measure them",
+        "default": false,
+        "description": "In about one session in ten, an agent starts without one of your rules, so the Scoreboard can compare sessions with and without it. You lose those corrections' benefit in those sessions."
+      }
     }
   }
 }

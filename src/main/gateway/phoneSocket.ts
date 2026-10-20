@@ -321,7 +321,7 @@ function handleBinaryFrame(
       ws.send(rpcError(null, -32003, 'needs-elevation', { cap: 'input' }))
       return
     }
-    controlDeps.ptyWrite(attachment.rendererPaneId, payload.toString('utf8'))
+    controlDeps.ptyWrite(attachment.rendererPaneId, payload.toString('utf8'), 'key')
   }
 }
 
