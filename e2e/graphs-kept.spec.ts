@@ -1,10 +1,15 @@
 import { chmodSync, existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { chords } from './chords'
-import { DOM_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
+import {
+  DOM_RENDERER_SETTINGS,
+  freshDataHome,
+  isolatedLaunch,
+  seedSettings,
+  wireDataDir,
+} from './dataHome'
 import { openWorkspace, panelEval, quitApp, restartApp, waitForPaletteSelection } from './helpers'
 import { type ElectronApplication, type Page, _electron as electron, expect, test } from './test'
-import { wireDataDir } from './wireData'
 
 test.describe.configure({ timeout: 240_000 })
 

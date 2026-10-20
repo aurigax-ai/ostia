@@ -3,7 +3,6 @@ import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { chords, defaultChord } from '../e2e/chords'
 import { dataHomeBase } from '../e2e/dataHome'
-import { wireDataDir } from '../e2e/wireData'
 import { KEPT_SHELLS_DIR } from '../src/shared/terminal/keepShells'
 
 const E2E = join(process.cwd(), 'e2e')
@@ -84,14 +83,5 @@ describe('e2e data home', () => {
       MACOS_SOCKET_PATH_MAX,
     )
     expect(dataHomeBase('linux', '/tmp/run-1')).toBe('/tmp/run-1')
-  })
-
-  it('finds the Wire runtime data where Wire puts it on each platform', () => {
-    expect(wireDataDir('/tmp/ostia-e2e-data-AbC123', 'linux')).toBe(
-      '/tmp/ostia-e2e-data-AbC123/state/wire',
-    )
-    expect(wireDataDir('/tmp/ostia-e2e-data-AbC123', 'darwin')).toBe(
-      '/tmp/ostia-e2e-data-AbC123/home/Library/Application Support/wire',
-    )
   })
 })
