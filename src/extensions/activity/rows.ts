@@ -284,7 +284,7 @@ function agentRow(env: RowEnv, paneId: string): Row<AgentItem> {
     icon(robot),
     name,
     state,
-    h('span', { class: 'spacer' }),
+    h('span', { class: 'ostia-spacer' }),
     age.el,
   )
   const note = h('p', { class: 'note muted', role: 'status', hidden: true })

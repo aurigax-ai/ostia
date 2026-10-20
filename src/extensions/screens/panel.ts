@@ -256,7 +256,7 @@ function phoneRow(screen: PanelScreen): HTMLElement | null {
       : phone.foreground
         ? h('span', { class: 'muted' }, phone.foreground)
         : null,
-    h('span', { class: 'spacer' }),
+    h('span', { class: 'ostia-spacer' }),
     button(shown ? p('watching') : p('watch'), () => void toggleWatch(screen.id), shown),
     button(p('stop'), () => void act('stop', { id: screen.id })),
   )
@@ -268,7 +268,7 @@ function askRow(phones: PanelPhones): HTMLElement | null {
     'div',
     { class: 'row' },
     h('span', { class: 'muted' }, phones.asked ? p('asked') : p('askHint')),
-    h('span', { class: 'spacer' }),
+    h('span', { class: 'ostia-spacer' }),
     h('button', { disabled: busy || phones.asked, onclick: () => void act('ask') }, p('ask')),
   )
 }
@@ -284,7 +284,7 @@ function screenRow(screen: PanelScreen): HTMLElement {
     h('span', { class: 'muted' }, `${screen.width}x${screen.height}`),
     h('span', { class: 'muted' }, p(`owner.${screen.owner === 'human' ? 'human' : 'agent'}`)),
     screen.agentDriving ? h('span', { class: 'badge' }, p('agentDriving')) : null,
-    h('span', { class: 'spacer' }),
+    h('span', { class: 'ostia-spacer' }),
     viewing
       ? button(
           live?.control.holding ? p('giveBack') : p('takeOver'),
@@ -306,14 +306,14 @@ function render(): void {
   root.replaceChildren(
     h(
       'div',
-      { class: 'page' },
+      { class: 'list' },
       h('div', { class: 'alpha' }, p('alpha')),
       ...installView(s.install),
       h(
         'div',
         { class: 'row' },
         h('strong', {}, p('screens')),
-        h('span', { class: 'spacer' }),
+        h('span', { class: 'ostia-spacer' }),
         s.install.service ? button(p('new'), () => void act('create'), true) : null,
       ),
       s.screens.length === 0

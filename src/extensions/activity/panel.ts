@@ -49,7 +49,7 @@ function viewButton(showActivity: boolean): HTMLElement {
   return h(
     'button',
     {
-      class: 'tab',
+      class: 'ostia-tab',
       type: 'button',
       'data-view': showActivity ? 'activity' : 'recap',
       onClick: () => void setShowActivity(showActivity),
@@ -172,13 +172,13 @@ async function focusPane(
 root.replaceChildren(
   h(
     'div',
-    { class: 'page' },
+    { class: 'ostia-page' },
     h(
       'header',
       { class: 'ostia-toolbar' },
       h(
         'div',
-        { class: 'tabs', role: 'group', 'aria-label': t('view.label') },
+        { class: 'ostia-tabs', role: 'group', 'aria-label': t('view.label') },
         recapButton,
         activityButton,
       ),

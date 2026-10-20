@@ -3,43 +3,6 @@
   --detail-width: 440px;
 }
 
-.page {
-  display: flex;
-  flex-direction: column;
-  height: 100vh;
-  min-height: 0;
-}
-
-.spacer {
-  flex: 1;
-}
-
-.toolbar {
-  display: flex;
-  flex: 0 0 auto;
-  align-items: center;
-  gap: 8px;
-  padding: 4px 8px;
-  background: var(--surface-2);
-  border-bottom: 1px solid var(--line);
-}
-
-.tabs {
-  display: flex;
-  gap: 4px;
-}
-
-button.tab {
-  border: 0;
-  color: var(--fg-muted);
-  font-weight: var(--font-weight-medium);
-}
-
-button.tab[aria-selected="true"] {
-  color: var(--fg);
-  background: var(--surface-3);
-}
-
 button.icon {
   display: inline-flex;
   flex: 0 0 auto;
