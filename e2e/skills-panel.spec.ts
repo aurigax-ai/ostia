@@ -37,8 +37,11 @@ async function openPanel(win: Page): Promise<void> {
   await win.keyboard.press('Enter')
 }
 
-const click = (label: string) =>
-  `[...document.querySelectorAll('button')].find((b) => b.textContent === ${JSON.stringify(label)})?.click(); 'ok'`
+const cardButtons = (id: string) =>
+  `[...document.querySelectorAll('[data-rule="${id}"] button')].map((b) => b.textContent).join()`
+
+const clickOnCard = (id: string, label: string) =>
+  `[...document.querySelectorAll('[data-rule="${id}"] button')].find((b) => b.textContent === ${JSON.stringify(label)})?.click(); 'ok'`
 
 test('the human approves a proposed rule only after resolving its conflict', async () => {
   const dataHome = freshDataHome()
@@ -74,14 +77,15 @@ test('the human approves a proposed rule only after resolving its conflict', asy
     await expect
       .poll(() => panelEval(app, `document.querySelector('[data-block="conflict"]') ? 'y' : 'n'`))
       .toBe('y')
+    expect(await panelEval(app, cardButtons('r2'))).toBe('Settle')
     expect(
       await panelEval(
         app,
-        `[...document.querySelectorAll('button')].some((b) => b.textContent === 'Approve') ? 'shown' : 'hidden'`,
+        `[...document.querySelectorAll('[data-pane="view"] button')].some((b) => b.textContent === 'Approve') ? 'shown' : 'hidden'`,
       ),
     ).toBe('hidden')
-    await panelEval(app, `document.querySelector('[data-rule="r3"]').click(); 'ok'`)
-    await expect.poll(() => panelEval(app, click('Approve'))).toBe('ok')
+    expect(await panelEval(app, cardButtons('r3'))).toBe('Approve,Dismiss')
+    await expect.poll(() => panelEval(app, clickOnCard('r3', 'Approve'))).toBe('ok')
     await expect
       .poll(
         () =>
@@ -92,6 +96,25 @@ test('the human approves a proposed rule only after resolving its conflict', asy
       .toBe('active')
     const stored = JSON.parse(readFileSync(join(dir, 'rules.json'), 'utf8')).rules
     expect(stored.find((r: { id: string }) => r.id === 'r2').state).toBe('proposed')
+    await panelEval(
+      app,
+      `const add = document.querySelector('[data-focus="add"]'); add.focus(); add.click(); 'ok'`,
+    )
+    await expect
+      .poll(() =>
+        panelEval(
+          app,
+          `document.querySelector('[data-pane="form"]') ? document.activeElement?.textContent : 'none'`,
+        ),
+      )
+      .toBe('Back')
+    await panelEval(
+      app,
+      `[...document.querySelectorAll('button')].find((b) => b.textContent === 'Back')?.click(); 'ok'`,
+    )
+    await expect
+      .poll(() => panelEval(app, `document.activeElement?.getAttribute('data-focus') ?? 'none'`))
+      .toBe('add')
   } finally {
     await quitApp(app)
   }

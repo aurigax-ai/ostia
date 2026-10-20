@@ -6,7 +6,6 @@ export interface CaseFormContext {
   problem: string
   setProblem: (problem: string) => void
   saved: () => Promise<void>
-  cancel: () => void
 }
 
 function parseFiles(text: string): { path: string; content: string }[] {
@@ -69,7 +68,6 @@ export function caseFormBody(ctx: CaseFormContext): HTMLElement {
           },
           true,
         ),
-        button(t('cancel'), ctx.cancel),
       ),
     ),
   )
