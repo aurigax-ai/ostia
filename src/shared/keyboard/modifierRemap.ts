@@ -78,6 +78,13 @@ export function trackModifierKey(down: Set<RemapKey>, code: string, pressed: boo
   else down.delete(code)
 }
 
+export function releaseStale(down: Set<RemapKey>, real: ModifierFlags): void {
+  for (const [flag, keys] of FAMILIES) {
+    if (real[flag]) continue
+    for (const key of keys) down.delete(key)
+  }
+}
+
 export function remappedFlags(
   table: ModifierRemap,
   down: ReadonlySet<RemapKey>,

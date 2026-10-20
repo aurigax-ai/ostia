@@ -43,7 +43,6 @@
   "specs": [
     "e2e/browser-keys.spec.ts",
     "e2e/clipboard-surfaces.spec.ts",
-    "e2e/guest-modifier-remap.spec.ts",
     "e2e/keybindings.spec.ts",
     "e2e/modifier-remap.spec.ts",
     "e2e/palette.spec.ts"

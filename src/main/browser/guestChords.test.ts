@@ -11,7 +11,7 @@ import { createGuestRemap } from './guestRemap'
 
 type Handler = (event: { sender: WebContents }, ...args: unknown[]) => unknown
 
-function setup(mac = false) {
+function setup(mac = false, humanBrowser = true) {
   const handlers = new Map<string, Handler>()
   const ipc = {
     on: (channel: string, fn: Handler) => handlers.set(channel, fn),
@@ -28,6 +28,7 @@ function setup(mac = false) {
     isAppWindow: (s) => s === app,
     mac,
     remap: createGuestRemap({ nativeMenuKey: (input) => input.key === 'q' && input.meta }),
+    isHumanBrowser: () => humanBrowser,
   })
   chords.guardGuest(guest)
   const set = (sender: WebContents, value: unknown) =>
@@ -202,6 +203,15 @@ describe('registerGuestChords', () => {
     const { app, guest, press, remap } = setup(false)
     remap(app, { ControlLeft: 'command' })
     press({ key: 'Control', code: 'ControlLeft', control: true, shift: false })
+    expect(guest.sendInputEvent).not.toHaveBeenCalled()
+  })
+
+  it('leaves the keys of a page that is not the human browser alone', () => {
+    const { app, guest, press, remap } = setup(true, false)
+    remap(app, { ControlLeft: 'command' })
+    expect(
+      press({ key: 'Control', code: 'ControlLeft', control: true }).preventDefault,
+    ).not.toHaveBeenCalled()
     expect(guest.sendInputEvent).not.toHaveBeenCalled()
   })
 

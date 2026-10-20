@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { injectInto } from './guestInject'
 import { createGuestRemap } from './guestRemap'
 
 const create = (nativeMenuKey = (_input: unknown) => false) => createGuestRemap({ nativeMenuKey })
@@ -30,7 +31,7 @@ describe('createGuestRemap', () => {
       meta: true,
       remapped: true,
     })
-    remapDown(guest, 'AltLeft', 'alt')
+    guest.remap(1, key({ code: 'AltLeft', key: 'Alt', control: true, alt: true }))
     expect(guest.remap(1, key({ control: true, alt: true }))).toMatchObject({
       control: true,
       meta: true,
@@ -62,16 +63,14 @@ describe('createGuestRemap', () => {
     const guest = create()
     guest.set({ ControlLeft: 'command', MetaLeft: 'control' })
     remapDown(guest, 'ControlLeft')
-    guest.inject(1, () => {
+    injectInto(1, () => {
       const injected = key({ code: 'MetaLeft', key: 'Meta', meta: true })
       expect(guest.remap(1, injected)).toBe(injected)
       expect(guest.rewrite(1, injected)).toBeNull()
     })
-    expect(guest.rewrite(1, key({ control: true }))).toEqual({
-      type: 'keyDown',
-      keyCode: 'K',
-      modifiers: ['meta'],
-    })
+    expect(guest.rewrite(1, key({ control: true }))).toEqual([
+      { type: 'keyDown', keyCode: 'K', modifiers: ['meta'] },
+    ])
   })
 })
 
@@ -87,38 +86,32 @@ describe('rewrite', () => {
     const guest = create()
     guest.set({ ControlRight: 'command', AltLeft: 'control' })
     remapDown(guest, 'ControlRight')
-    expect(guest.rewrite(1, key({ control: true, shift: true, isAutoRepeat: true }))).toEqual({
-      type: 'keyDown',
-      keyCode: 'K',
-      modifiers: ['shift', 'meta', 'isautorepeat'],
-    })
-    expect(guest.rewrite(1, key({ type: 'keyUp', control: true }))?.type).toBe('keyUp')
+    expect(guest.rewrite(1, key({ control: true, shift: true, isAutoRepeat: true }))).toEqual([
+      { type: 'keyDown', keyCode: 'K', modifiers: ['shift', 'meta', 'isautorepeat'] },
+    ])
+    expect(guest.rewrite(1, key({ type: 'keyUp', control: true }))).toEqual([
+      { type: 'keyUp', keyCode: 'K', modifiers: ['meta'] },
+    ])
   })
 
   it('takes Option characters away from a key remapped to Command', () => {
     const guest = create()
     guest.set({ AltLeft: 'command' })
     remapDown(guest, 'AltLeft', 'alt')
-    expect(guest.rewrite(1, key({ key: '˚', alt: true }))).toEqual({
-      type: 'keyDown',
-      keyCode: 'K',
-      modifiers: ['meta'],
-    })
+    expect(guest.rewrite(1, key({ key: '˚', alt: true }))).toEqual([
+      { type: 'keyDown', keyCode: 'K', modifiers: ['meta'] },
+    ])
   })
 
   it('sends the modifier press and release as the key it now stands for', () => {
     const guest = create()
     guest.set({ ControlRight: 'command' })
-    expect(guest.rewrite(1, key({ code: 'ControlRight', key: 'Control', control: true }))).toEqual({
-      type: 'keyDown',
-      keyCode: 'Meta',
-      modifiers: ['meta'],
-    })
-    expect(guest.rewrite(1, key({ type: 'keyUp', code: 'ControlRight', key: 'Control' }))).toEqual({
-      type: 'keyUp',
-      keyCode: 'Meta',
-      modifiers: [],
-    })
+    expect(guest.rewrite(1, key({ code: 'ControlRight', key: 'Control', control: true }))).toEqual([
+      { type: 'keyDown', keyCode: 'Meta', modifiers: ['meta'] },
+    ])
+    expect(guest.rewrite(1, key({ type: 'keyUp', code: 'ControlRight', key: 'Control' }))).toEqual([
+      { type: 'keyUp', keyCode: 'Meta', modifiers: [] },
+    ])
     expect(guest.rewrite(1, key({ code: 'ControlLeft', key: 'Control', control: true }))).toBeNull()
   })
 
@@ -145,7 +138,37 @@ describe('rewrite', () => {
       1,
       key({ code: 'ControlRight', key: 'Control', control: true, isComposing: true }),
     )
-    expect(guest.rewrite(1, key({ control: true }))?.modifiers).toEqual(['meta'])
+    expect(guest.rewrite(1, key({ control: true }))?.[0].modifiers).toEqual(['meta'])
+  })
+
+  it('names a letter by the character the layout typed, not by its US position', () => {
+    const guest = create()
+    guest.set({ ControlRight: 'command' })
+    remapDown(guest, 'ControlRight')
+    expect(guest.rewrite(1, key({ control: true, code: 'KeyC', key: 'j' }))?.[0].keyCode).toBe('J')
+    expect(guest.rewrite(1, key({ control: true, code: 'KeyQ', key: 'a' }))?.[0].keyCode).toBe('A')
+  })
+
+  it('types the plain character for a key remapped to Option, and for nothing else', () => {
+    const guest = create()
+    guest.set({ ControlRight: 'option', MetaRight: 'control' })
+    remapDown(guest, 'ControlRight')
+    expect(guest.rewrite(1, key({ control: true }))).toEqual([
+      { type: 'keyDown', keyCode: 'K', modifiers: ['alt'] },
+      { type: 'char', keyCode: 'k', modifiers: ['alt'] },
+    ])
+    expect(guest.rewrite(1, key({ type: 'keyUp', control: true }))).toHaveLength(1)
+    guest.rewrite(1, key({ type: 'keyUp', code: 'ControlRight', key: 'Control' }))
+    remapDown(guest, 'MetaRight', 'meta')
+    expect(guest.rewrite(1, key({ meta: true }))).toHaveLength(1)
+  })
+
+  it('forgets a held key whose modifier the system no longer reports', () => {
+    const guest = create()
+    guest.set({ ControlRight: 'command' })
+    remapDown(guest, 'ControlRight')
+    guest.remap(1, key({ type: 'keyUp', control: false }))
+    expect(guest.rewrite(1, key({ control: true }))).toBeNull()
   })
 })
 
