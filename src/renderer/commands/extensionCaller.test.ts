@@ -41,6 +41,8 @@ const { extensionCommandRunner, registerExtensionMethods } = await import(
 )
 const { createExtensionIpc } = await import('../../main/extensions/extensionWiring')
 const { sshCommands } = await import('../../extensions/ssh/commands')
+const { startUserActions } = await import('@/lib/palette/userActions')
+const { useSettingsStore } = await import('@/stores/app/settingsStore')
 const { syncExtensionCommands } = await import('./extensionBridge')
 const { wireCommandBridge } = await import('./bridge')
 const { commands } = await import('./registry')
@@ -124,10 +126,22 @@ let invokeFromRenderer: (req: unknown) => Promise<unknown> = async () => {
 const socketPath = join(tmpdir(), `ostia-extcaller-${process.pid}.sock`)
 const pane = registerPane({ windowId: 'w1', workspaceId: 'ws1', paneId: 'pAgent' })
 const other = registerPane({ windowId: 'w1', workspaceId: 'ws2', paneId: 'pOther' })
-const execInRenderer = (target: unknown, id: string, args: unknown) =>
-  invokeFromRenderer({ id, args, target }) as ReturnType<
+let stripMarks = false
+const execInRenderer = (
+  target: unknown,
+  id: string,
+  args: unknown,
+  _fromMain?: boolean,
+  source?: string,
+) =>
+  invokeFromRenderer({ id, args, target, ...(source ? { source } : {}) }) as ReturnType<
     Parameters<typeof registerControlServer>[0]['execCommand']
   >
+const gatewayDeps = {
+  execCommand: execInRenderer,
+  listCommandsFor: () => commands.describe(),
+  primaryWindowId: () => 'w1',
+} as never
 const conns: MessageConnection[] = []
 const sockets: ReturnType<typeof createConnection>[] = []
 
@@ -188,7 +202,8 @@ beforeAll(() => {
   registerControlServer(
     {
       isSandboxed: () => false,
-      listCommandsFor: () => commands.describe(),
+      listCommandsFor: () =>
+        commands.describe().map(({ extension, ...d }) => (stripMarks ? d : { ...d, extension })),
       execCommand: execInRenderer,
       extensionCommand: extensionCommandRunner(() => host),
       getTerminalState: () => undefined,
@@ -222,7 +237,20 @@ function extensionList() {
   ] as never
 }
 
+let stopActions: (() => void) | null = null
+
+function withAction(command: string): void {
+  useSettingsStore.setState({
+    actions: [{ id: 'prod', title: 'Prod', command, args: { argument: 'box' }, in: [] }],
+  })
+  stopActions = startUserActions()
+}
+
 afterEach(() => {
+  stripMarks = false
+  stopActions?.()
+  stopActions = null
+  useSettingsStore.setState({ actions: [] })
   syncExtensionCommands([])
 })
 
@@ -314,27 +342,32 @@ describe('the caller an extension command sees, by entry point', () => {
     expect(seen).toEqual([])
   })
 
-  it('never lets an unmarked descriptor run the extension as the user', async () => {
-    commands.unregister('ssh.connect')
-    commands.register<{ argument?: string } | undefined, unknown>({
-      id: 'ssh.connect',
-      title: 'Connect',
-      run: async (args, ctx) =>
-        window.ostia.extensions.invoke(
-          'ssh',
-          'connect',
-          { workspaceId: ctx.activeWorkspaceId, paneId: ctx.activePaneId },
-          args?.argument,
-        ),
-    })
+  it('an extension command reached through the renderer from the socket is refused', async () => {
+    stripMarks = true
     const conn = await connect(pane.token)
     const res = await conn.sendRequest('command.exec', {
       id: 'ssh.connect',
       args: { argument: 'box' },
     })
     expect(seen).toEqual([])
-    expect(res).toMatchObject({ ok: true, result: { ok: false, error: 'not-available' } })
     expect(openTerminal).not.toHaveBeenCalled()
+    expect(res).toMatchObject({
+      ok: false,
+      error: { code: 'command-failed', message: expect.stringContaining('ostia ssh connect') },
+    })
+  })
+
+  it('a pane cannot run an extension command as the user through an action', async () => {
+    withAction('ssh.connect')
+    const post = vi.mocked(window.ostia.notifications.post)
+    const conn = await connect(pane.token)
+    await conn.sendRequest('command.exec', { id: 'action.prod' })
+    expect(seen).toEqual([])
+    expect(confirm).not.toHaveBeenCalled()
+    expect(openTerminal).not.toHaveBeenCalled()
+    expect(post).toHaveBeenCalledWith(
+      expect.objectContaining({ body: expect.stringContaining('ostia ssh connect') }),
+    )
   })
 
   it('a core command with the same id as an extension command still wins', async () => {
@@ -358,15 +391,46 @@ describe('the caller an extension command sees, by entry point', () => {
       'command.exec',
       { id: 'ssh.connect', args: { argument: 'box' }, target: pane.externalId },
       ['read', 'command'],
-      {
-        execCommand: execInRenderer,
-        listCommandsFor: () => commands.describe(),
-        primaryWindowId: () => 'w1',
-      } as never,
+      gatewayDeps,
     )
     expect(res).toMatchObject({ ok: true, result: { ok: true } })
     expect(seen.map((c) => c.kind)).toEqual(['user'])
     expect(confirm).not.toHaveBeenCalled()
+  })
+
+  it('refuses a phone without the command capability', async () => {
+    const res = await dispatchGatewayMethod(
+      'command.exec',
+      { id: 'ssh.connect', args: { argument: 'box' }, target: pane.externalId },
+      ['read'],
+      gatewayDeps,
+    )
+    expect(res).toEqual({
+      ok: false,
+      code: -32003,
+      message: 'needs-elevation',
+      data: { cap: 'command' },
+    })
+    expect(seen).toEqual([])
+  })
+
+  it('an action the phone runs reaches the extension as the user', async () => {
+    withAction('ssh.connect')
+    const gated = await dispatchGatewayMethod(
+      'command.exec',
+      { id: 'action.prod', target: pane.externalId },
+      ['read', 'command', 'notify'],
+      gatewayDeps,
+    )
+    expect(gated).toMatchObject({ ok: false, message: 'needs-elevation' })
+    expect(seen).toEqual([])
+    await invokeFromRenderer({
+      id: 'action.prod',
+      target: { windowId: 'w1', workspaceId: 'ws1', paneId: 'pAgent' },
+      source: 'phone',
+    })
+    expect(seen.map((c) => c.kind)).toEqual(['user'])
+    expect(openTerminal).toHaveBeenCalledTimes(1)
   })
 
   it('keeps script tokens and extensions away from extension commands', async () => {

@@ -5,6 +5,7 @@ import type { Dict } from '@shared/app/dict'
 import type {
   CommandDescriptor,
   CommandResult,
+  CommandSource,
   ExtensionCommandRef,
   JSONSchema,
   TargetMode,
@@ -15,6 +16,7 @@ export interface CommandContext {
   activePaneId: string | null
   target?: { windowId?: string; workspaceId: string; paneId: string | null } | null
   origin?: 'remote'
+  source?: CommandSource
 }
 
 export interface CommandChoice {

@@ -66,6 +66,11 @@ export function syncExtensionCommands(list: ExtensionInfo[]): void {
           }
         : {}),
       run: async (args, ctx) => {
+        if (ctx.source === 'control') {
+          throw new Error(
+            `not-available: run it from the pane with ostia ${ext.verb ?? ext.id} ${command.id}`,
+          )
+        }
         const res = await window.ostia.extensions.invoke(
           ext.id,
           command.id,

@@ -18,7 +18,12 @@ import {
   createMessageConnection,
 } from 'vscode-jsonrpc/node'
 import { verbCode } from '../../shared/agents/agentIssues'
-import type { CommandDescriptor, CommandResult, CommandTarget } from '../../shared/control/commands'
+import type {
+  CommandDescriptor,
+  CommandResult,
+  CommandSource,
+  CommandTarget,
+} from '../../shared/control/commands'
 import type { TerminalStateSnapshot } from '../../shared/terminal/ptyApi'
 import { ensureCaps, needsElevation } from '../approvals/controlElevation'
 import type { Reach, ScriptReach } from '../approvals/reach'
@@ -151,25 +156,14 @@ function actingPane(
 
 export type ExtensionCommandRun = (identity: PaneIdentity, args: unknown) => Promise<CommandResult>
 
-const renderedForControl = new Map<string, number>()
-
-export function runningForControl(id: string): boolean {
-  return renderedForControl.has(id)
-}
-
-async function renderForControl(id: string, run: () => Promise<CommandResult>) {
-  renderedForControl.set(id, (renderedForControl.get(id) ?? 0) + 1)
-  try {
-    return await run()
-  } finally {
-    const left = (renderedForControl.get(id) ?? 1) - 1
-    if (left > 0) renderedForControl.set(id, left)
-    else renderedForControl.delete(id)
-  }
-}
-
 export interface ControlServerDeps {
-  execCommand: (target: CommandTarget, id: string, args?: unknown) => Promise<CommandResult>
+  execCommand: (
+    target: CommandTarget,
+    id: string,
+    args?: unknown,
+    fromMain?: boolean,
+    source?: CommandSource,
+  ) => Promise<CommandResult>
   extensionCommand?: (desc: CommandDescriptor) => ExtensionCommandRun | null
   listCommandsFor: (windowId: string) => CommandDescriptor[]
   getTerminalState: (paneId: string) => TerminalStateSnapshot | undefined
@@ -395,9 +389,7 @@ function registerCommandExec({ session, deps, onCall, requireIdentity }: Connect
         throw new ResponseError(ErrorCodes.InvalidParams, `unknown-workspace: ${given.workspaceId}`)
       }
       const exec = (): Promise<CommandResult> =>
-        asPane
-          ? asPane(me, args)
-          : renderForControl(params.id, () => deps.execCommand(target, params.id, args))
+        asPane ? asPane(me, args) : deps.execCommand(target, params.id, args, false, 'control')
       const result = await (deps.byAgent ? deps.byAgent(exec) : exec())
       const createdId = (result.ok ? (result.result as { workspaceId?: unknown }) : undefined)
         ?.workspaceId

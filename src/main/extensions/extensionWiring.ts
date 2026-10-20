@@ -17,7 +17,7 @@ import { targetOf } from '../attention/attention'
 import { postNotification, postPanelNotification } from '../attention/notify'
 import type { NotifyWiring } from '../attention/notifyWiring'
 import type { CommandBridge } from '../control/commandBridge'
-import { controlSocketPath, runningForControl } from '../control/controlServer'
+import { controlSocketPath } from '../control/controlServer'
 import { type PaneIdentity, getByPaneId } from '../control/idRegistry'
 import type { Telemetry } from '../diagnostics/telemetry'
 import type { FileServices } from '../files/filesWiring'
@@ -50,7 +50,6 @@ import type { ExtensionHostDeps, ExtensionSecretStore } from './extensionHostDep
 import { ExtensionLaunches } from './extensionLaunches'
 import { registerExtensionMethods } from './extensionMethods'
 import type { PhoneScreenLinks } from './extensionPhoneScreens'
-import { fail } from './extensionRuntime'
 import { ExtensionStore } from './extensionStore'
 import { WireRuntime, registerWireRuntime } from './wireRuntime'
 import { workspaceChipsForWindow } from './workspaceChips'
@@ -384,11 +383,6 @@ export function createExtensionIpc({
         target: { workspaceId: string | null; paneId: string | null },
         argument?: unknown,
       ): Promise<ExtensionResult> => {
-        if (runningForControl(`${extId}.${command}`)) {
-          return Promise.resolve(
-            fail('not-available', 'run it with ostia <extension> <command> from the pane'),
-          )
-        }
         const paneId = target?.paneId ? getByPaneId(target.paneId)?.externalId : undefined
         const cwd = target?.paneId ? terminalState.get(target.paneId)?.cwd : undefined
         const remote = target?.paneId ? remoteCwdOfPane(target.paneId) : undefined

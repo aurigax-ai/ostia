@@ -281,6 +281,8 @@ describe('dispatchGatewayMethod — command.exec', () => {
       { windowId: 'w1', workspaceId: '', paneId: null },
       'session.new',
       { a: 1 },
+      false,
+      'phone',
     )
   })
 
@@ -304,6 +306,8 @@ describe('dispatchGatewayMethod — command.exec', () => {
       { windowId: 'w1', workspaceId: '', paneId: null },
       'pane.splitRight',
       { paneId: 'p-args' },
+      false,
+      'phone',
     )
 
     const res = await dispatchGatewayMethod(
@@ -334,6 +338,8 @@ describe('dispatchGatewayMethod — command.exec', () => {
       { windowId: 'w2', workspaceId: 's2', paneId: 'p2' },
       'pane.splitRight',
       undefined,
+      false,
+      'phone',
     )
   })
 

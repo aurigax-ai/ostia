@@ -1,6 +1,11 @@
 import type { Capability } from '@aurigax-ai/ostia-extension-sdk/contract/capabilities'
 import { plainBlock } from '../../shared/agents/questions'
-import type { CommandDescriptor, CommandResult, CommandTarget } from '../../shared/control/commands'
+import type {
+  CommandDescriptor,
+  CommandResult,
+  CommandSource,
+  CommandTarget,
+} from '../../shared/control/commands'
 import type { HumanInputSource, TerminalStateSnapshot } from '../../shared/terminal/ptyApi'
 import type { AgentStreams } from '../agents/agentStreams'
 import type { Ask, AskAnswerResult } from '../approvals/asks'
@@ -23,7 +28,13 @@ import {
 
 export interface GatewayControlDeps extends PhoneTurnDeps, PhoneSnippetDeps {
   agentStreams: Pick<AgentStreams, 'open'>
-  execCommand: (target: CommandTarget, id: string, args?: unknown) => Promise<CommandResult>
+  execCommand: (
+    target: CommandTarget,
+    id: string,
+    args?: unknown,
+    fromMain?: boolean,
+    source?: CommandSource,
+  ) => Promise<CommandResult>
   listCommandsFor: (windowId: string) => CommandDescriptor[]
   getTerminalState: (paneId: string) => TerminalStateSnapshot | undefined
   listPanes: () => Promise<PaneEntry[]>
@@ -246,7 +257,7 @@ async function commandExec(call: GatewayCall): Promise<RpcOutcome> {
   if (!target) return invalidParams('unknown pane target')
   const translated = internalPaneArgs(p.args)
   if (!translated.ok) return invalidParams(translated.error)
-  return { ok: true, result: await deps.execCommand(target, id, translated.args) }
+  return { ok: true, result: await deps.execCommand(target, id, translated.args, false, 'phone') }
 }
 
 async function paneInfo(call: GatewayCall): Promise<RpcOutcome> {

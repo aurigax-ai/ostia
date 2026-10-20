@@ -19,6 +19,7 @@ export function wireCommandBridge(): void {
         activePaneId: req.target.paneId,
         target: req.target,
         origin: 'remote',
+        ...(req.source ? { source: req.source } : {}),
       },
       req.id,
       req.args,
