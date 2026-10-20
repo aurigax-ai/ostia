@@ -177,13 +177,20 @@ export class ExtensionRuns {
     if (!paneId) return fail('not-opened', 'no workspace to open it in')
     this.reach(rt, paneId)
     this.markOpened(rt, paneId)
-    this.adoptForCaller(rt, after, paneId)
+    this.adoptForCaller(rt, after, paneId, p.host === true)
     if (waitMs === null) return { ok: true, paneId }
     return { ok: true, paneId, wait: await this.waitForTerminal(paneId, waitMs) }
   }
 
-  private adoptForCaller(rt: Runtime, after: PaneIdentity | undefined, paneId: string): void {
-    if (after?.kind !== 'pane' || !rt.servingPanes.has(after.externalId)) return
+  private adoptForCaller(
+    rt: Runtime,
+    after: PaneIdentity | undefined,
+    paneId: string,
+    host: boolean,
+  ): void {
+    if (host || after?.kind !== 'pane' || after.manager === true) return
+    const calls = rt.serving.get(after.externalId)
+    if (!calls || calls.cli === 0 || calls.user > 0) return
     const opened = resolveExternal(paneId)
     if (opened?.kind === 'pane') this.host.deps.adoptPane?.(after.paneId, opened.paneId)
   }

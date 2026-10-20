@@ -61,6 +61,7 @@ import {
   type LoadedExtension,
   REQUEST_TIMEOUT_MS,
   type Runtime,
+  type ServingCalls,
   fail,
   newRuntime,
   normalizeResult,
@@ -425,8 +426,13 @@ export class ExtensionHost {
     const missing = cmd.capabilities.find((cap) => !caller.capabilities.includes(cap))
     if (missing) return fail('needs-elevation', missing)
     if (caller.workspaceId) rt.callerWorkspaces.add(caller.workspaceId)
-    const serving = caller.kind === 'pane' ? caller.paneId : undefined
-    if (serving) rt.servingPanes.set(serving, (rt.servingPanes.get(serving) ?? 0) + 1)
+    const serving = caller.paneId
+    const side = caller.kind === 'pane' ? 'cli' : 'user'
+    if (serving) {
+      const calls = rt.serving.get(serving) ?? { cli: 0, user: 0 }
+      calls[side]++
+      rt.serving.set(serving, calls)
+    }
     try {
       const conn = await this.processes.connected(rt, command)
       const timeoutMs = cmd.interactive
@@ -441,14 +447,15 @@ export class ExtensionHost {
     } catch (err) {
       return fail('extension-unavailable', (err as Error).message)
     } finally {
-      if (serving) this.releaseServing(rt, serving)
+      if (serving) this.releaseServing(rt, serving, side)
     }
   }
 
-  private releaseServing(rt: Runtime, paneId: string): void {
-    const left = (rt.servingPanes.get(paneId) ?? 1) - 1
-    if (left > 0) rt.servingPanes.set(paneId, left)
-    else rt.servingPanes.delete(paneId)
+  private releaseServing(rt: Runtime, paneId: string, side: keyof ServingCalls): void {
+    const calls = rt.serving.get(paneId)
+    if (!calls) return
+    calls[side]--
+    if (calls.cli + calls.user <= 0) rt.serving.delete(paneId)
   }
 
   async agentRequest(request: AgentRequest): Promise<AgentReply> {

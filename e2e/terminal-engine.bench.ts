@@ -352,7 +352,7 @@ async function measureHistory(win: Page, dataHome: string): Promise<Metrics> {
   await win.keyboard.press(chords.palette)
   await win.locator('[data-slot="command-input"]').fill('Scroll to Top')
   await waitForPaletteSelection(win, 'Scroll to Top')
-  await win.evaluate(watchHistoryShown)
+  await win.evaluate(watchHistoryShown, first)
   await win.evaluate(() => {
     const w = window as unknown as HistoryTimes
     document.addEventListener(
@@ -390,13 +390,13 @@ interface HistoryTimes {
   __historyShown?: Promise<number>
 }
 
-function watchHistoryShown(): void {
+function watchHistoryShown(first: number): void {
   const w = window as unknown as HistoryTimes
   w.__historyFrom = undefined
   w.__historyShown = new Promise((resolve) => {
     const shows = () => {
       const box = document.querySelector<HTMLElement>('.history-layer')
-      return box?.style.visibility === 'visible' && box.dataset.top !== undefined
+      return box?.style.visibility === 'visible' && box.dataset.top === String(first)
     }
     const observer = new MutationObserver(() => {
       if (!shows()) return

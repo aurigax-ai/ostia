@@ -1042,6 +1042,20 @@ describe('ProcessRegistry adopted children', () => {
     expect(local.isChild('agent-pane', 'other-pane')).toBe(false)
   })
 
+  it('forgets the children when their owner closes', () => {
+    const local = make()
+    local.adoptChild('agent-pane', 'serial-pane')
+    local.paneClosed('agent-pane')
+    expect(local.isChild('agent-pane', 'serial-pane')).toBe(false)
+  })
+
+  it('forgets the children of a closed workspace', () => {
+    const local = make()
+    local.adoptChild('agent-pane', 'serial-pane')
+    local.workspaceClosed('ws1')
+    expect(local.isChild('agent-pane', 'serial-pane')).toBe(false)
+  })
+
   it('forgets the child when its pane closes', () => {
     const local = make()
     local.adoptChild('agent-pane', 'serial-pane')

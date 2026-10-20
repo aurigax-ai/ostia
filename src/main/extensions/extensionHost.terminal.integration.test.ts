@@ -126,6 +126,52 @@ describe('ExtensionHost ext.openTerminal and interactive commands (real socket)'
       expect(adoptPane).not.toHaveBeenCalled()
     })
 
+    it('belongs to nobody while the human has a call open beside the same pane', async () => {
+      let answer: (confirmed: boolean) => void = () => {}
+      confirm.mockImplementation(
+        () =>
+          new Promise<boolean>((resolve) => {
+            answer = resolve
+          }),
+      )
+      const pending = host.invoke('opener', 'ask', null, {
+        kind: 'pane',
+        paneId: agentPane.externalId,
+        workspaceId: 'w1',
+        capabilities: [],
+      })
+      await vi.waitFor(() => expect(confirm).toHaveBeenCalled())
+      await open(
+        { kind: 'user', paneId: agentPane.externalId, workspaceId: 'w1', capabilities: [] },
+        agentPane.externalId,
+      )
+      expect(adoptPane).not.toHaveBeenCalled()
+      answer(true)
+      await pending
+    })
+
+    it('belongs to nobody when it is a host terminal', async () => {
+      openTerminalIn.mockResolvedValue(opened.externalId)
+      await host.invoke(
+        'opener',
+        'open',
+        { command: ['true'], afterPaneId: agentPane.externalId, host: true },
+        { kind: 'pane', paneId: agentPane.externalId, workspaceId: 'w1', capabilities: [] },
+      )
+      expect(openTerminalIn).toHaveBeenCalled()
+      expect(adoptPane).not.toHaveBeenCalled()
+    })
+
+    it('belongs to nobody when the calling pane is the manager', async () => {
+      const manager = registerPane({ windowId: '7', workspaceId: 'w1', paneId: 'pane-manager' })
+      manager.manager = true
+      await open(
+        { kind: 'pane', paneId: manager.externalId, workspaceId: 'w1', capabilities: [] },
+        manager.externalId,
+      )
+      expect(adoptPane).not.toHaveBeenCalled()
+    })
+
     it('belongs to nobody when no calling pane is named', async () => {
       openTerminalIn.mockResolvedValue(opened.externalId)
       await host.invoke(

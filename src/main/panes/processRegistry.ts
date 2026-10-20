@@ -198,6 +198,7 @@ export class ProcessRegistry {
   paneClosed(paneId: string): void {
     this.workersTabs.delete(paneId)
     this.adopted.delete(paneId)
+    for (const [child, owner] of this.adopted) if (owner === paneId) this.adopted.delete(child)
     const entry = this.byPane.get(paneId)
     if (!entry) return
     this.release(entry)
@@ -207,6 +208,14 @@ export class ProcessRegistry {
   }
 
   workspaceClosed(workspaceId: string): void {
+    for (const [child, owner] of this.adopted) {
+      if (
+        this.deps.workspaceOfPane(child) === workspaceId ||
+        this.deps.workspaceOfPane(owner) === workspaceId
+      ) {
+        this.adopted.delete(child)
+      }
+    }
     for (const entry of [...this.entries.values()]) {
       if (this.workspaceOf(entry) !== workspaceId) continue
       this.release(entry)
