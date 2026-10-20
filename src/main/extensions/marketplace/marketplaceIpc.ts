@@ -35,6 +35,7 @@ export function createMarketplaceIpc({
     ipcMain.handle('marketplace:install', (_e, id: unknown, extId: unknown) =>
       marketplace.install(id, extId),
     )
+    ipcMain.handle('marketplace:find-code', (_e, code: unknown) => marketplace.findCode(code))
     ipcMain.handle('marketplace:install-code', (_e, id: unknown, code: unknown) =>
       marketplace.installCode(id, code),
     )

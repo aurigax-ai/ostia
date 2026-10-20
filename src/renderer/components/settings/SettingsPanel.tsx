@@ -1,8 +1,8 @@
 import { AgentsSection } from '@/components/agents/AgentsSection'
 import { AboutSection } from '@/components/app/AboutSection'
 import { AssistantSection } from '@/components/assist/AssistantSection'
+import { BrowseExtensionsDialog } from '@/components/extensions/BrowseExtensions'
 import {
-  BrowseExtensionsPage,
   ExtensionSettingsPage,
   ExtensionsPage,
 } from '@/components/extensions/ExtensionSettingsPage'
@@ -53,6 +53,8 @@ export function SettingsPanel(): JSX.Element | null {
   const d = useDict()
   const open = useUIStore((s) => s.settingsActive)
   const close = useUIStore((s) => s.showWorkspaces)
+  const browsing = useUIStore((s) => s.browseExtensionsOpen)
+  const closeBrowse = useUIStore((s) => s.closeBrowseExtensions)
   const extensions = useExtensionsStore((s) => s.list)
   const contentRef = useRef<HTMLDivElement>(null)
   const settingsWorkspaceId = useUIStore((s) => s.settingsWorkspaceId)
@@ -66,6 +68,10 @@ export function SettingsPanel(): JSX.Element | null {
     [extensions],
   )
   const nav = useSettingsNavigation({ d, open, sections, settingsPageExtensions, contentRef })
+
+  useEffect(() => {
+    if (!open) closeBrowse()
+  }, [open, closeBrowse])
 
   useEffect(() => {
     if (!open) return
@@ -127,6 +133,7 @@ export function SettingsPanel(): JSX.Element | null {
           </div>
         </ScrollArea>
       </div>
+      {browsing ? <BrowseExtensionsDialog /> : null}
     </section>
   )
 }
@@ -189,7 +196,6 @@ const SettingsPages = memo(function SettingsPages({
       {id === 'extensions' || (id === 'extensionPage' && !shownPage) ? (
         <ExtensionsPage anchor={anchor} />
       ) : null}
-      {id === 'browseExtensions' ? <BrowseExtensionsPage /> : null}
       {id === 'extensionPage' && shownPage ? (
         <ExtensionSettingsPage key={shownPage.id} ext={shownPage} />
       ) : null}

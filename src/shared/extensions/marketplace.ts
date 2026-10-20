@@ -7,6 +7,7 @@ import type {
 
 export const MARKETPLACE_FEATURE = 'marketplace'
 export const MARKETPLACE_URL_MAX = 2000
+export const MARKETPLACE_CODE_SHAPE = /^[a-z2-7]{26}$/
 
 export type MarketplaceInstallState = 'available' | 'installed' | 'update' | 'replace' | 'conflict'
 
@@ -69,12 +70,17 @@ export type MarketplaceResult =
   | { ok: true; state: MarketplaceState }
   | { ok: false; error: MarketplaceError; detail?: string; state: MarketplaceState }
 
+export type MarketplaceFound =
+  | { ok: true; marketplaceId: string; extension: MarketplaceExtension }
+  | { ok: false; error: MarketplaceError; detail?: string }
+
 export interface MarketplaceApi {
   list: () => Promise<MarketplaceState>
   add: (url: string) => Promise<MarketplaceResult>
   remove: (marketplaceId: string, uninstallExtensions: boolean) => Promise<MarketplaceResult>
   refresh: (marketplaceId: string) => Promise<MarketplaceResult>
   install: (marketplaceId: string, extId: string) => Promise<MarketplaceResult>
+  findCode: (code: string) => Promise<MarketplaceFound>
   installCode: (marketplaceId: string, code: string) => Promise<MarketplaceResult>
   uninstall: (extId: string) => Promise<MarketplaceResult>
 }

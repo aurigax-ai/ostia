@@ -1,14 +1,13 @@
 import { SettingsPage } from '@/components/settingsKit/SettingsPage'
-import { useSettingsSearch } from '@/components/settingsKit/SettingsSearch'
 import { Button } from '@/components/ui/button'
 import { fmt, useDict } from '@/lib/app/useDict'
 import { pageTitle } from '@/lib/settings/settingsSections'
 import { useUIStore } from '@/stores/app/uiStore'
 import type { ExtensionInfo } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import { MagnifyingGlassIcon } from '@phosphor-icons/react'
-import { BrowseExtensions } from './BrowseExtensions'
 import { ExtensionSettingsForm } from './ExtensionSettingsForm'
 import { type ExtensionAnchor, ExtensionsSection } from './InstalledExtensions'
+import { MarketplacesGroup } from './MarketplaceSection'
 
 export function ExtensionsPage({ anchor }: { anchor: ExtensionAnchor | null }): JSX.Element {
   const d = useDict()
@@ -20,22 +19,17 @@ export function ExtensionsPage({ anchor }: { anchor: ExtensionAnchor | null }): 
         <Button
           variant="outline"
           size="sm"
-          onClick={() => useUIStore.getState().openSettings('browseExtensions')}
+          onClick={() => useUIStore.getState().openBrowseExtensions()}
         >
           <MagnifyingGlassIcon data-icon="inline-start" />
-          {d.extensions.findMore}
+          {d.extensions.browse}
         </Button>
       }
     >
       <ExtensionsSection anchor={anchor} />
+      <MarketplacesGroup />
     </SettingsPage>
   )
-}
-
-export function BrowseExtensionsPage(): JSX.Element | null {
-  const search = useSettingsSearch()
-  if (search && !search.forced) return null
-  return <BrowseExtensions />
 }
 
 export function ExtensionSettingsPage({ ext }: { ext: ExtensionInfo }): JSX.Element {

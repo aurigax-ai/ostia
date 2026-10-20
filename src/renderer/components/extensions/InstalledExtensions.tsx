@@ -21,12 +21,13 @@ import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
 import { useMarketplaceStore } from '@/stores/extensions/marketplaceStore'
 import type { ExtensionInfo } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import type { FileKindInfo } from '@aurigax-ai/ostia-extension-sdk/contract/fileKinds'
+import { GearIcon } from '@phosphor-icons/react'
 import type { Dict } from '@shared/app/dict'
 import { useEffect, useState } from 'react'
 import { ExtensionAgentPlugin } from './ExtensionAgentPlugin'
 import { ExtensionSettingsForm } from './ExtensionSettingsForm'
+import { ExtensionTile } from './ExtensionTile'
 import { UninstallExtensionButton, marketplaceName, useMarketplaceList } from './MarketplaceSection'
-import { extensionIcon } from './extensionIcons'
 
 export interface ExtensionAnchor {
   id: string
@@ -43,20 +44,16 @@ function awaitsReview(ext: ExtensionInfo): boolean {
   return ext.unapproved.length > 0 || unapprovedKinds(ext).length > 0
 }
 
-function exceptionLabel(d: Dict, ext: ExtensionInfo): string | null {
-  if (ext.status === 'pending-approval') return d.extensions.stateNeedsApproval
-  if (ext.status === 'crashed' || awaitsReview(ext)) return d.extensions.stateProblem
-  return null
+function awaitsApproval(ext: ExtensionInfo): boolean {
+  return ext.status === 'pending-approval' || awaitsReview(ext)
 }
 
-function ExceptionChip({ ext }: { ext: ExtensionInfo }): JSX.Element | null {
+function ProblemChip({ ext }: { ext: ExtensionInfo }): JSX.Element | null {
   const d = useDict()
-  const label = exceptionLabel(d, ext)
-  if (!label) return null
-  const problem = ext.status !== 'pending-approval'
+  if (ext.status !== 'crashed') return null
   return (
-    <Badge variant="secondary" className={cn('text-ui-xs', problem && 'text-warn-fg')}>
-      {label}
+    <Badge variant="secondary" className="ml-2 text-ui-xs text-warn-fg">
+      {d.extensions.stateProblem}
     </Badge>
   )
 }
@@ -94,8 +91,6 @@ function Value({ children }: { children: React.ReactNode }): JSX.Element {
 
 function PermissionRows({ ext }: { ext: ExtensionInfo }): JSX.Element {
   const d = useDict()
-  const review = useExtensionsStore((s) => s.review)
-  const needsReview = ext.status === 'pending-approval' || awaitsReview(ext)
   const waitingKinds = unapprovedKinds(ext).map((kind) => kind.displayName)
   return (
     <>
@@ -122,13 +117,6 @@ function PermissionRows({ ext }: { ext: ExtensionInfo }): JSX.Element {
       ) : null}
       {waitingKinds.length > 0 && ext.status !== 'pending-approval' ? (
         <Notice>{fmt(d.extensions.unapprovedKinds, { kinds: waitingKinds.join(', ') })}</Notice>
-      ) : null}
-      {needsReview ? (
-        <ControlRow label={d.extensions.review}>
-          <Button variant="outline" size="sm" onClick={() => review(ext.id)}>
-            {d.extensions.review}
-          </Button>
-        </ControlRow>
       ) : null}
     </>
   )
@@ -200,18 +188,11 @@ function FileKindRows({ ext }: { ext: ExtensionInfo }): JSX.Element | null {
 
 function ExtensionDetails({ ext }: { ext: ExtensionInfo }): JSX.Element {
   const d = useDict()
-  const source = useSourceLabel(ext)
   const description = withProductName(ext.description)
   return (
     <>
       {description ? <p className="mb-2 text-fg text-ui-sm">{description}</p> : null}
       <SettingsSubgroup title={d.extensions.groupDetails} />
-      <ControlRow label={d.extensions.version}>
-        <Value>{ext.version}</Value>
-      </ControlRow>
-      <ControlRow label={d.extensions.sourceLabel}>
-        <Value>{source}</Value>
-      </ControlRow>
       <ControlRow label={d.extensions.categoryLabel}>
         <Value>{d.extensions.categories[ext.category]}</Value>
       </ControlRow>
@@ -223,20 +204,17 @@ function ExtensionDetails({ ext }: { ext: ExtensionInfo }): JSX.Element {
       <FileKindRows ext={ext} />
       <ExtensionAgentPlugin ext={ext} explain={false} />
       <ExtensionSettingsArea ext={ext} />
-      <UninstallRow ext={ext} />
     </>
   )
 }
 
-function UninstallRow({ ext }: { ext: ExtensionInfo }): JSX.Element | null {
-  const d = useDict()
-  const installed = useMarketplaceStore((s) => s.state.installed.includes(ext.id))
-  if (!installed) return null
-  return (
-    <ControlRow label={d.marketplace.uninstall}>
-      <UninstallExtensionButton extId={ext.id} name={ext.name} />
-    </ControlRow>
-  )
+function useUpdateOffer(extId: string): { marketplaceId: string; version: string } | null {
+  const marketplaces = useMarketplaceStore((s) => s.state.marketplaces)
+  for (const marketplace of marketplaces) {
+    const offered = marketplace.extensions.find((e) => e.id === extId && e.state === 'update')
+    if (offered) return { marketplaceId: marketplace.id, version: offered.version }
+  }
+  return null
 }
 
 function ExtensionListRow({
@@ -250,8 +228,12 @@ function ExtensionListRow({
 }): JSX.Element {
   const d = useDict()
   const setEnabled = useExtensionsStore((s) => s.setEnabled)
+  const review = useExtensionsStore((s) => s.review)
+  const busy = useMarketplaceStore((s) => s.busy)
+  const install = useMarketplaceStore((s) => s.install)
   const reducedMotion = useReducedMotion()
-  const Icon = extensionIcon(ext.panel?.icon ?? ext.settingsPage?.icon)
+  const source = useSourceLabel(ext)
+  const offer = useUpdateOffer(ext.id)
   return (
     <SearchGroup
       texts={[
@@ -269,22 +251,46 @@ function ExtensionListRow({
           hidden={search.hidden}
           data-search-hit={search.hit || undefined}
           className="relative scroll-mt-3 outline-none"
-          lead={<Icon aria-hidden className="size-4" />}
+          lead={<ExtensionTile icon={ext.panel?.icon ?? ext.settingsPage?.icon} />}
           title={ext.name}
-          meta={<ExceptionChip ext={ext} />}
+          meta={
+            <>
+              {`${ext.version} · ${source}`}
+              <ProblemChip ext={ext} />
+            </>
+          }
           detail={
             <span className="block truncate">
               {firstSentence(withProductName(ext.description))}
             </span>
           }
-          actions={
-            <Switch
-              checked={ext.enabled}
-              onCheckedChange={(v) => void setEnabled(ext.id, v)}
-              aria-label={fmt(d.extensions.enable, { name: ext.name })}
-            />
-          }
-          expandLabel={fmt(d.extensions.detailsOf, { name: ext.name })}
+          actions={(toggle) => (
+            <>
+              {offer ? (
+                <Button
+                  size="sm"
+                  disabled={busy}
+                  onClick={() => void install(offer.marketplaceId, ext.id)}
+                >
+                  {fmt(d.extensions.updateTo, { version: offer.version })}
+                </Button>
+              ) : null}
+              {awaitsApproval(ext) ? (
+                <Button size="sm" onClick={() => review(ext.id)}>
+                  {d.extensions.approveRow}
+                </Button>
+              ) : null}
+              {toggle}
+              <UninstallExtensionButton extId={ext.id} name={ext.name} icon />
+              <Switch
+                checked={ext.enabled}
+                onCheckedChange={(v) => void setEnabled(ext.id, v)}
+                aria-label={fmt(d.extensions.enable, { name: ext.name })}
+              />
+            </>
+          )}
+          expandIcon={GearIcon}
+          expandLabel={fmt(d.extensions.settingsOf, { name: ext.name })}
           defaultOpen={anchor}
           expanded={<ExtensionDetails ext={ext} />}
           below={

@@ -32,11 +32,11 @@ export function marketplaceName(d: Dict, marketplace: MarketplaceInfo): string {
 export function UninstallExtensionButton({
   extId,
   name,
-  size = 'sm',
+  icon,
 }: {
   extId: string
   name: string
-  size?: 'xs' | 'sm'
+  icon?: boolean
 }): JSX.Element | null {
   const d = useDict()
   const installed = useMarketplaceStore((s) => s.state.installed.includes(extId))
@@ -46,9 +46,18 @@ export function UninstallExtensionButton({
   if (!installed) return null
   return (
     <>
-      <Button variant="outline" size={size} disabled={busy} onClick={() => setAsking(true)}>
-        {d.marketplace.uninstall}
-      </Button>
+      {icon ? (
+        <IconButton
+          icon={TrashIcon}
+          label={fmt(d.marketplace.uninstallLabel, { name })}
+          disabled={busy}
+          onClick={() => setAsking(true)}
+        />
+      ) : (
+        <Button variant="outline" size="sm" disabled={busy} onClick={() => setAsking(true)}>
+          {d.marketplace.uninstall}
+        </Button>
+      )}
       <AlertDialog open={asking} onOpenChange={setAsking}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -70,38 +79,6 @@ export function UninstallExtensionButton({
         </AlertDialogContent>
       </AlertDialog>
     </>
-  )
-}
-
-function InstallCodeRow({ marketplace }: { marketplace: MarketplaceInfo }): JSX.Element {
-  const d = useDict()
-  const busy = useMarketplaceStore((s) => s.busy)
-  const installCode = useMarketplaceStore((s) => s.installCode)
-  const [code, setCode] = useState('')
-  const submit = async (): Promise<void> => {
-    if (!code.trim() || busy) return
-    if (await installCode(marketplace.id, code)) setCode('')
-  }
-  return (
-    <form
-      onSubmit={(e) => {
-        e.preventDefault()
-        void submit()
-      }}
-    >
-      <ControlRow label={d.marketplace.codeTitle}>
-        <Input
-          value={code}
-          onChange={(e) => setCode(e.target.value)}
-          placeholder={d.marketplace.codePlaceholder}
-          aria-label={fmt(d.marketplace.codeLabel, { name: marketplaceName(d, marketplace) })}
-          className="h-7 w-80 font-mono"
-        />
-        <Button type="submit" variant="outline" size="sm" disabled={busy || !code.trim()}>
-          {d.marketplace.install}
-        </Button>
-      </ControlRow>
-    </form>
   )
 }
 
@@ -198,13 +175,6 @@ function MarketplaceRow({ marketplace }: { marketplace: MarketplaceInfo }): JSX.
           {marketplace.official ? null : <RemoveMarketplaceButton marketplace={marketplace} />}
         </>
       }
-      below={
-        marketplace.unlisted ? (
-          <div className="mt-1 mb-2 ml-2 border-line border-l pl-4">
-            <InstallCodeRow marketplace={marketplace} />
-          </div>
-        ) : undefined
-      }
     />
   )
 }
@@ -237,7 +207,7 @@ export function MarketplaceFailureNote(): JSX.Element | null {
 
 export function MarketplacesGroup(): JSX.Element {
   const d = useDict()
-  const marketplaces = useMarketplaceStore((s) => s.state.marketplaces)
+  const marketplaces = useMarketplaceList()
   const busy = useMarketplaceStore((s) => s.busy)
   const add = useMarketplaceStore((s) => s.add)
   const [url, setUrl] = useState('')
@@ -248,6 +218,7 @@ export function MarketplacesGroup(): JSX.Element {
   return (
     <SettingsGroup title={d.marketplace.title}>
       <RequirementsNote feature={MARKETPLACE_FEATURE} body={d.marketplace.requirementsBody} />
+      <MarketplaceFailureNote />
       <form
         onSubmit={(e) => {
           e.preventDefault()

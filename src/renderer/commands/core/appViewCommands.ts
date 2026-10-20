@@ -118,7 +118,7 @@ function registerAppCommands(): void {
     id: 'app.browseExtensions',
     category: 'app',
     target: 'none',
-    run: () => useUIStore.getState().openSettings('browseExtensions'),
+    run: () => useUIStore.getState().openBrowseExtensions(),
   })
 
   registerCore({

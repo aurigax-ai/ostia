@@ -264,23 +264,26 @@ describe('SettingsPanel extensions nav', () => {
     )
   })
 
-  it('opens Browse extensions from its own nav entry and from a deep link', async () => {
+  it('opens Browse as a dialog over the Extensions page and closes it without leaving Settings', async () => {
     await renderSettings()
     const user = userEvent.setup()
-    const entry = within(nav()).getByRole('button', { name: 'Browse extensions' })
-
-    await user.click(entry)
-
-    expect(entry).toHaveAttribute('aria-current', 'page')
-    expect(screen.getByRole('heading', { level: 2, name: 'Browse extensions' })).toBeInTheDocument()
-    expect(screen.queryByRole('list', { name: 'Installed extensions' })).toBeNull()
+    expect(within(nav()).queryByRole('button', { name: 'Browse extensions' })).toBeNull()
 
     await user.click(within(nav()).getByRole('button', { name: 'Extensions' }))
-    expect(screen.queryByRole('heading', { level: 2, name: 'Browse extensions' })).toBeNull()
-    expect(screen.queryByRole('region', { name: 'Marketplaces' })).toBeNull()
+    await user.click(screen.getByRole('button', { name: 'Browse' }))
 
-    act(() => useUIStore.getState().openSettings('browseExtensions'))
-    expect(screen.getByRole('heading', { level: 2, name: 'Browse extensions' })).toBeInTheDocument()
+    expect(await screen.findByRole('dialog', { name: 'Browse extensions' })).toBeInTheDocument()
+    expect(
+      screen.getByRole('list', { name: 'Installed extensions', hidden: true }),
+    ).toBeInTheDocument()
+    await user.keyboard('{Escape}')
+    await waitFor(() =>
+      expect(screen.queryByRole('dialog', { name: 'Browse extensions' })).toBeNull(),
+    )
+    expect(screen.getByRole('region', { name: 'Settings' })).toBeInTheDocument()
+
+    act(() => useUIStore.getState().openBrowseExtensions())
+    expect(await screen.findByRole('dialog', { name: 'Browse extensions' })).toBeInTheDocument()
   })
 
   describe('an extension that asks for its own page', () => {
@@ -314,9 +317,9 @@ describe('SettingsPanel extensions nav', () => {
       const list = screen.getByRole('list', { name: 'Installed extensions' })
 
       const ports = document.getElementById('settings-extension-tunnels') as HTMLElement
-      await user.click(within(list).getByRole('button', { name: 'Details of Tunnels' }))
+      await user.click(within(list).getByRole('button', { name: 'Settings of Tunnels' }))
       expect(within(ports).getByRole('spinbutton', { name: 'Scan interval' })).toBeInTheDocument()
-      await user.click(within(list).getByRole('button', { name: 'Details of Board' }))
+      await user.click(within(list).getByRole('button', { name: 'Settings of Board' }))
       const board = document.getElementById('settings-extension-board') as HTMLElement
       expect(within(board).queryByRole('spinbutton', { name: 'Poll interval' })).toBeNull()
 
@@ -353,7 +356,7 @@ describe('SettingsPanel extensions nav', () => {
       await user.click(within(nav()).getByRole('button', { name: 'Extensions' }))
       await user.click(
         within(screen.getByRole('list', { name: 'Installed extensions' })).getByRole('button', {
-          name: 'Details of Board',
+          name: 'Settings of Board',
         }),
       )
       const board = document.getElementById('settings-extension-board') as HTMLElement

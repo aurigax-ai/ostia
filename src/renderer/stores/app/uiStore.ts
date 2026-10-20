@@ -21,6 +21,7 @@ interface UIState {
   settingsSection: string | null
   settingsExtension: string | null
   settingsQuery: string | null
+  browseExtensionsOpen: boolean
   dashboardActive: boolean
   filesOpen: boolean
   filesSearchOpen: boolean
@@ -38,6 +39,8 @@ interface UIState {
   setRailCollapsed: (collapsed: boolean) => void
   openSettings: (section?: string, options?: OpenSettingsOptions) => void
   openWorkspaceSettings: (workspaceId: string) => void
+  openBrowseExtensions: () => void
+  closeBrowseExtensions: () => void
   closeSettings: () => void
   showWorkspaces: () => void
   openDashboard: () => void
@@ -60,6 +63,7 @@ export const useUIStore = create<UIState>((set, get) => ({
   settingsSection: null,
   settingsExtension: null,
   settingsQuery: null,
+  browseExtensionsOpen: false,
   dashboardActive: false,
   filesOpen: false,
   filesSearchOpen: false,
@@ -105,6 +109,11 @@ export const useUIStore = create<UIState>((set, get) => ({
       settingsWorkspaceId: workspaceId,
       settingsRequest: s.settingsRequest + 1,
     })),
+  openBrowseExtensions: () => {
+    get().openSettings('extensions')
+    set({ browseExtensionsOpen: true })
+  },
+  closeBrowseExtensions: () => set({ browseExtensionsOpen: false }),
   closeSettings: () => set({ settingsTabOpen: false, settingsActive: false }),
   showWorkspaces: () => set({ settingsActive: false, dashboardActive: false }),
   openDashboard: () => set({ dashboardActive: true, settingsActive: false }),

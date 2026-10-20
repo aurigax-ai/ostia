@@ -1,7 +1,6 @@
 import { useUIStore } from '@/stores/app/uiStore'
 import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
 import { useMarketplaceStore } from '@/stores/extensions/marketplaceStore'
-import type { ExtensionInfo } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import type {
   MarketplaceExtension,
   MarketplaceInfo,
@@ -11,12 +10,13 @@ import { cleanup, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { renderSettled } from '../../../../test/render'
-import { BrowseExtensions } from './BrowseExtensions'
-import { ExtensionsSection } from './InstalledExtensions'
+import { BrowseExtensionsDialog } from './BrowseExtensions'
 
 if (!Element.prototype.getAnimations) {
   Element.prototype.getAnimations = () => []
 }
+
+const CODE = 'abcdefghijklmnopqrstuvwx23'
 
 const WEATHER: MarketplaceExtension = {
   id: 'weather',
@@ -77,33 +77,31 @@ function stateWith(info: MarketplaceInfo, installed: string[] = []): Marketplace
   return { marketplaces: [info], installed }
 }
 
-const EMPTY: MarketplaceState = { marketplaces: [], installed: [] }
-
-function results(): HTMLElement {
-  return screen.getByRole('list', { name: 'Extensions in your marketplaces' })
+function dialog(): HTMLElement {
+  return screen.getByRole('dialog', { name: 'Browse extensions' })
 }
 
-function resultNames(): string[] {
-  return within(results())
+function cards(): HTMLElement {
+  return within(dialog()).getByRole('list', { name: 'Extensions in your marketplaces' })
+}
+
+function cardNames(): string[] {
+  return within(cards())
     .getAllByRole('listitem')
     .map((li) => li.getAttribute('aria-label') ?? '')
 }
 
-function marketplaceList(): HTMLElement {
-  return screen.getByRole('list', { name: 'Marketplaces' })
-}
-
-async function openDetails(name: string): Promise<HTMLElement> {
-  await userEvent.click(screen.getByRole('button', { name: `Details of ${name}` }))
-  return screen.getByRole('region', { name: `Details of ${name}` })
+function page(): HTMLElement {
+  return within(dialog()).getByTestId('extension-page')
 }
 
 async function browse(state: MarketplaceState): Promise<void> {
   vi.mocked(window.ostia.marketplace.list).mockResolvedValue(state)
-  await renderSettled(<BrowseExtensions />)
+  useUIStore.setState({ browseExtensionsOpen: true })
+  await renderSettled(<BrowseExtensionsDialog />)
 }
 
-describe('BrowseExtensions', () => {
+describe('BrowseExtensionsDialog', () => {
   let init: ReturnType<typeof useMarketplaceStore.getState>
   let extInit: ReturnType<typeof useExtensionsStore.getState>
   let uiInit: ReturnType<typeof useUIStore.getState>
@@ -121,69 +119,77 @@ describe('BrowseExtensions', () => {
     useUIStore.setState(uiInit, true)
   })
 
-  it('adds the typed repository and lists what it offers in compact rows', async () => {
-    await browse(EMPTY)
-    expect(screen.getByText('No marketplaces added.')).toBeVisible()
-    const addRow = screen.getByText('Add a marketplace')
-    expect(addRow.compareDocumentPosition(screen.getByText('No marketplaces added.'))).toBe(
-      Node.DOCUMENT_POSITION_FOLLOWING,
-    )
-    expect(screen.getByText('Add a marketplace below to browse its extensions.')).toBeVisible()
-    vi.mocked(window.ostia.marketplace.add).mockResolvedValue({
-      ok: true,
-      state: stateWith(marketplace()),
-    })
-    await userEvent.type(screen.getByLabelText('Marketplace repository'), 'acme/ext')
-    await userEvent.click(screen.getByRole('button', { name: 'Add' }))
-    expect(window.ostia.marketplace.add).toHaveBeenCalledWith('acme/ext')
-    const row = await within(results()).findByRole('listitem', { name: 'Weather' })
-    expect(within(row).getByText('Shows the weather. · Acme extensions')).toBeVisible()
-    expect(within(row).getByRole('button', { name: 'Install' })).toBeVisible()
-    expect(
-      within(marketplaceList()).getByRole('listitem', { name: 'Acme extensions' }),
-    ).toBeVisible()
-    expect(screen.getByLabelText('Marketplace repository')).toHaveValue('')
+  it('lists a card for every extension of every marketplace and opens the first one', async () => {
+    await browse({ marketplaces: [marketplace(), OTHER], installed: [] })
+
+    expect(cardNames()).toEqual(['Weather', 'Go language server'])
+    const first = within(cards()).getByRole('listitem', { name: 'Weather' })
+    expect(first).toHaveAttribute('aria-current', 'true')
+    expect(within(first).getByText(/^Shows the weather\./)).toBeVisible()
+    expect(within(dialog()).getByRole('heading', { level: 2, name: 'Weather' })).toBeVisible()
   })
 
-  it('keeps the typed text and shows why when adding fails', async () => {
-    await browse(EMPTY)
-    vi.mocked(window.ostia.marketplace.add).mockResolvedValue({
-      ok: false,
-      error: 'clone-failed',
-      detail: 'fatal: repository not found',
-      state: EMPTY,
-    })
-    await userEvent.type(screen.getByLabelText('Marketplace repository'), 'acme/missing')
-    await userEvent.click(screen.getByRole('button', { name: 'Add' }))
-    expect(await screen.findByText('git could not download the repository.')).toBeVisible()
-    expect(screen.getByText('fatal: repository not found')).toBeVisible()
-    expect(screen.getByLabelText('Marketplace repository')).toHaveValue('acme/missing')
+  it('shows the page of the picked card with what it asks to do, in plain words', async () => {
+    const kit: MarketplaceExtension = {
+      ...GOPLS,
+      id: 'kit',
+      name: 'Kit',
+      capabilities: ['language-server', 'agent-plugin'],
+      agentSkills: ['kit-review'],
+      agentHooks: [{ event: 'SessionStart', command: 'Kit: record' }],
+    }
+    await browse({ marketplaces: [marketplace({ extensions: [WEATHER, kit] })], installed: [] })
+
+    await userEvent.click(within(cards()).getByRole('listitem', { name: 'Kit' }))
+
+    const pane = within(page())
+    expect(pane.getByRole('heading', { level: 2, name: 'Kit' })).toBeVisible()
+    expect(pane.getByText('Languages · 1.1.0 · From Acme extensions')).toBeVisible()
+    expect(pane.getByText('Code intelligence for Go files.')).toBeVisible()
+    expect(pane.getByText('It asks to')).toBeVisible()
+    expect(pane.getByText('Run language servers for code intelligence in the editor')).toBeVisible()
+    expect(
+      pane.getByText('Add skills and hooks to claude and codex in your terminals'),
+    ).toBeVisible()
+    expect(pane.getByText('Runs a program on this computer')).toBeVisible()
+    expect(pane.getByText('Agent skills: kit-review')).toBeVisible()
+    expect(pane.getByText('Hook SessionStart runs “Kit: record”')).toBeVisible()
+  })
+
+  it('says a data-only extension runs no program', async () => {
+    await browse(
+      stateWith(
+        marketplace({ extensions: [{ ...WEATHER, runsProcess: false, capabilities: [] }] }),
+      ),
+    )
+
+    expect(within(page()).getByText('No extra permissions')).toBeVisible()
+    expect(within(page()).getByText('Data only, runs no program')).toBeVisible()
   })
 
   it('searches every marketplace by name, summary, category and id', async () => {
     await browse({ marketplaces: [marketplace(), OTHER], installed: [] })
-    expect(resultNames()).toEqual(['Weather', 'Go language server'])
-    const search = screen.getByRole('searchbox', { name: 'Search extensions' })
+    const search = within(dialog()).getByRole('searchbox', { name: 'Search extensions' })
     const searchFor = async (text: string): Promise<void> => {
       await userEvent.clear(search)
       await userEvent.type(search, text)
     }
 
     await searchFor('go language')
-    expect(resultNames()).toEqual(['Go language server'])
+    expect(cardNames()).toEqual(['Go language server'])
     await searchFor('forecast')
-    expect(resultNames()).toEqual(['Weather'])
+    expect(cardNames()).toEqual(['Weather'])
     await searchFor('languages')
-    expect(resultNames()).toEqual(['Go language server'])
+    expect(cardNames()).toEqual(['Go language server'])
     await searchFor('tools')
-    expect(resultNames()).toEqual(['Weather'])
+    expect(cardNames()).toEqual(['Weather'])
     await searchFor('lsp-gopls')
-    expect(resultNames()).toEqual(['Go language server'])
+    expect(cardNames()).toEqual(['Go language server'])
     await searchFor('nothing like this')
-    expect(screen.getByText('No extension matches.')).toBeVisible()
+    expect(within(dialog()).getAllByText('No extension matches.')[0]).toBeVisible()
   })
 
-  it('filters by install state and by category', async () => {
+  it('filters by install state with the update count, and by category', async () => {
     const update: MarketplaceExtension = {
       ...WEATHER,
       id: 'radar',
@@ -195,7 +201,7 @@ describe('BrowseExtensions', () => {
       marketplaces: [marketplace({ extensions: [WEATHER, TIDES, update] }), OTHER],
       installed: ['tides', 'radar'],
     })
-    const filters = screen.getByRole('group', { name: 'Show' })
+    const filters = within(dialog()).getByRole('group', { name: 'Show' })
     const pick = async (name: string): Promise<void> => {
       await userEvent.click(within(filters).getByRole('button', { name }))
     }
@@ -205,49 +211,19 @@ describe('BrowseExtensions', () => {
       'aria-pressed',
       'true',
     )
-    expect(resultNames()).toEqual(['Tides', 'Radar'])
-    await pick('Not installed')
-    expect(resultNames()).toEqual(['Weather', 'Go language server'])
-    await pick('Updates')
-    expect(resultNames()).toEqual(['Radar'])
+    expect(cardNames()).toEqual(['Tides', 'Radar'])
+    await pick('Updates 1')
+    expect(cardNames()).toEqual(['Radar'])
+    expect(within(filters).queryByRole('button', { name: 'Not installed' })).toBeNull()
     await pick('All')
-    expect(resultNames()).toEqual(['Weather', 'Tides', 'Radar', 'Go language server'])
+    expect(cardNames()).toEqual(['Weather', 'Tides', 'Radar', 'Go language server'])
 
-    await userEvent.click(screen.getByRole('combobox', { name: 'Category' }))
+    await userEvent.click(within(dialog()).getByRole('combobox', { name: 'Category' }))
     await userEvent.click(await screen.findByRole('option', { name: 'Languages' }))
-    await waitFor(() => expect(resultNames()).toEqual(['Go language server']))
+    await waitFor(() => expect(cardNames()).toEqual(['Go language server']))
   })
 
-  it('opens an extension in place to its details and permissions in plain words', async () => {
-    const kit: MarketplaceExtension = {
-      ...GOPLS,
-      id: 'kit',
-      name: 'Kit',
-      capabilities: ['language-server', 'agent-plugin'],
-      agentSkills: ['kit-review'],
-      agentHooks: [{ event: 'SessionStart', command: 'Kit: record' }],
-    }
-    await browse({ marketplaces: [marketplace({ extensions: [WEATHER, kit] })], installed: [] })
-    expect(screen.queryByRole('region', { name: 'Details of Kit' })).toBeNull()
-
-    const pane = await openDetails('Kit')
-
-    expect(within(pane).getByText('Code intelligence for Go files.')).toBeVisible()
-    expect(within(pane).getByText('1.1.0')).toBeVisible()
-    expect(within(pane).getByText('From Acme extensions')).toBeVisible()
-    expect(within(pane).getByText('Languages')).toBeVisible()
-    expect(
-      within(pane).getByText('Run language servers for code intelligence in the editor'),
-    ).toBeVisible()
-    expect(
-      within(pane).getByText('Add skills and hooks to claude and codex in your terminals'),
-    ).toBeVisible()
-    expect(within(pane).getAllByText('Requested')).toHaveLength(2)
-    expect(within(pane).getByText('Agent skills: kit-review')).toBeVisible()
-    expect(within(pane).getByText('Hook SessionStart runs “Kit: record”')).toBeVisible()
-  })
-
-  it('installs from a row, then says it waits for approval and links to it on Extensions', async () => {
+  it('installs from the page, then says it waits for approval and links to it on Extensions', async () => {
     await browse(stateWith(marketplace()))
     vi.mocked(window.ostia.marketplace.install).mockResolvedValue({
       ok: true,
@@ -255,18 +231,21 @@ describe('BrowseExtensions', () => {
         'weather',
       ]),
     })
-    const row = within(results()).getByRole('listitem', { name: 'Weather' })
-    await userEvent.click(within(row).getByRole('button', { name: 'Install' }))
+
+    await userEvent.click(within(page()).getByRole('button', { name: 'Install' }))
+
     expect(window.ostia.marketplace.install).toHaveBeenCalledWith('abc123', 'weather')
     const note = await screen.findByRole('status')
     expect(note).toHaveTextContent('Weather is installed and waits for your approval.')
-    expect(within(row).getByText('Installed')).toBeVisible()
-    expect(within(row).getByRole('button', { name: 'Uninstall' })).toBeVisible()
+    const card = within(cards()).getByRole('listitem', { name: 'Weather' })
+    expect(within(card).getByText('Installed')).toBeVisible()
+    expect(within(page()).getByRole('button', { name: 'Uninstall' })).toBeVisible()
     expect(useExtensionsStore.getState().list).toEqual([])
 
     await userEvent.click(within(note).getByRole('button', { name: 'Open in Extensions' }))
     expect(useUIStore.getState().settingsSection).toBe('extensions')
     expect(useUIStore.getState().settingsExtension).toBe('weather')
+    expect(useUIStore.getState().browseExtensionsOpen).toBe(false)
   })
 
   it('offers an update with the installed and offered versions', async () => {
@@ -276,43 +255,39 @@ describe('BrowseExtensions', () => {
     )
     await browse(offered)
     vi.mocked(window.ostia.marketplace.install).mockResolvedValue({ ok: true, state: offered })
-    const row = within(results()).getByRole('listitem', { name: 'Weather' })
-    expect(within(row).getByText('Update available')).toBeVisible()
-    const pane = await openDetails('Weather')
-    expect(within(pane).getByText('Installed 1.0.0, offered 1.1.0')).toBeVisible()
-    expect(within(pane).getByRole('button', { name: 'Uninstall' })).toBeVisible()
-    await userEvent.click(within(row).getByRole('button', { name: 'Update' }))
+
+    const card = within(cards()).getByRole('listitem', { name: 'Weather' })
+    expect(within(card).getByText('Update available')).toBeVisible()
+    expect(within(page()).getByText(/Installed 1\.0\.0, offered 1\.1\.0/)).toBeVisible()
+    expect(within(page()).getByRole('button', { name: 'Uninstall' })).toBeVisible()
+    await userEvent.click(within(page()).getByRole('button', { name: 'Update to 1.1.0' }))
+
     expect(window.ostia.marketplace.install).toHaveBeenCalledWith('abc123', 'weather')
   })
 
-  it('uninstalls from a row after asking', async () => {
+  it('uninstalls from the page after asking', async () => {
     await browse(stateWith(marketplace({ extensions: [TIDES] }), ['tides']))
-    const row = within(results()).getByRole('listitem', { name: 'Tides' })
-    await userEvent.click(within(row).getByRole('button', { name: 'Uninstall' }))
+
+    await userEvent.click(within(page()).getByRole('button', { name: 'Uninstall' }))
+
     expect(window.ostia.marketplace.uninstall).not.toHaveBeenCalled()
-    const dialog = await screen.findByRole('alertdialog')
-    await userEvent.click(within(dialog).getByRole('button', { name: 'Uninstall' }))
+    const confirm = await screen.findByRole('alertdialog')
+    await userEvent.click(within(confirm).getByRole('button', { name: 'Uninstall' }))
     expect(window.ostia.marketplace.uninstall).toHaveBeenCalledWith('tides')
   })
 
   it('marks an id taken elsewhere as a problem and links to the installed one', async () => {
-    await browse(
-      stateWith(
-        marketplace({
-          extensions: [{ ...WEATHER, state: 'conflict' }],
-          problems: ['extensions/broken: missing name'],
-        }),
-      ),
-    )
-    const row = within(results()).getByRole('listitem', { name: 'Weather' })
-    expect(within(row).getByText('Problem')).toBeVisible()
-    expect(within(row).queryByRole('button', { name: 'Install' })).toBeNull()
-    const pane = await openDetails('Weather')
+    await browse(stateWith(marketplace({ extensions: [{ ...WEATHER, state: 'conflict' }] })))
+
+    const card = within(cards()).getByRole('listitem', { name: 'Weather' })
+    expect(within(card).getByText('Problem')).toBeVisible()
+    expect(within(page()).queryByRole('button', { name: 'Install' })).toBeNull()
     expect(
-      within(pane).getByText('An extension with this id is already installed from somewhere else.'),
+      within(page()).getByText(
+        'An extension with this id is already installed from somewhere else.',
+      ),
     ).toBeVisible()
-    expect(within(pane).queryByRole('button', { name: 'Install' })).toBeNull()
-    await userEvent.click(within(pane).getByRole('button', { name: 'Show the installed one' }))
+    await userEvent.click(within(page()).getByRole('button', { name: 'Show the installed one' }))
     expect(useUIStore.getState().settingsExtension).toBe('weather')
   })
 
@@ -320,67 +295,15 @@ describe('BrowseExtensions', () => {
     await browse(
       stateWith(marketplace({ extensions: [{ ...WEATHER, state: 'replace' }] }), ['weather']),
     )
-    const pane = await openDetails('Weather')
+
     expect(
-      within(pane).getByText('Installed from a marketplace that is no longer added.'),
+      within(page()).getByText('Installed from a marketplace that is no longer added.'),
     ).toBeVisible()
-    await userEvent.click(within(pane).getByRole('button', { name: 'Replace with this version' }))
+    await userEvent.click(within(page()).getByRole('button', { name: 'Replace with this version' }))
     expect(window.ostia.marketplace.install).toHaveBeenCalledWith('abc123', 'weather')
   })
 
-  it('lists the official marketplace first as {product} extensions with its url, also before the download', async () => {
-    const url = 'https://github.com/aurigax-ai/ostia-extensions.git'
-    const pending = marketplace({
-      id: 'official',
-      name: url,
-      url,
-      description: '',
-      extensions: [],
-      official: true,
-      downloaded: false,
-    })
-    await browse({ marketplaces: [pending, marketplace({ extensions: [] })], installed: [] })
-    expect(screen.getByText('Download a marketplace below to browse its extensions.')).toBeVisible()
-    const names = within(marketplaceList())
-      .getAllByRole('listitem')
-      .map((li) => li.getAttribute('aria-label'))
-    expect(names).toEqual(['Ostia extensions', 'Acme extensions'])
-    const row = within(marketplaceList()).getByRole('listitem', { name: 'Ostia extensions' })
-    expect(within(row).getByText(url)).toBeVisible()
-    expect(within(row).getByText('Not downloaded yet.')).toBeVisible()
-    expect(within(row).queryByText('This marketplace lists no extensions.')).toBeNull()
-    expect(within(row).queryByRole('button', { name: /^Remove/ })).toBeNull()
-    vi.mocked(window.ostia.marketplace.refresh).mockResolvedValue({
-      ok: true,
-      state: stateWith(marketplace({ id: 'official', official: true })),
-    })
-    await userEvent.click(within(row).getByRole('button', { name: 'Download' }))
-    expect(window.ostia.marketplace.refresh).toHaveBeenCalledWith('official')
-    expect(await within(results()).findByRole('listitem', { name: 'Weather' })).toBeVisible()
-  })
-
-  it('prints a marketplace url once when it is also the name', async () => {
-    const url = 'https://github.com/acme/new.git'
-    await browse(stateWith(marketplace({ name: url, url, downloaded: false, extensions: [] })))
-    expect(screen.getAllByText(url)).toHaveLength(1)
-  })
-
-  it('has no remove button for the official marketplace and no line to add it', async () => {
-    await browse({
-      marketplaces: [
-        marketplace({ ...OTHER, name: 'Official catalogue', official: true }),
-        marketplace(),
-      ],
-      installed: [],
-    })
-    const panel = marketplaceList()
-    expect(within(panel).getByRole('button', { name: 'Remove Acme extensions' })).toBeVisible()
-    expect(within(panel).queryByRole('button', { name: 'Remove Ostia extensions' })).toBeNull()
-    expect(within(panel).getByRole('listitem', { name: 'Ostia extensions' })).toBeVisible()
-    expect(screen.queryByRole('button', { name: 'Add the official marketplace' })).toBeNull()
-  })
-
-  it('folds every entry a marketplace could not offer into one collapsed row', async () => {
+  it('folds every entry a marketplace could not offer into one line that opens the list', async () => {
     await browse({
       marketplaces: [
         marketplace({
@@ -390,204 +313,82 @@ describe('BrowseExtensions', () => {
       ],
       installed: [],
     })
-    const row = screen.getByText('2 not compatible').closest('li') as HTMLElement
+
+    await userEvent.click(within(dialog()).getByRole('button', { name: '2 not compatible' }))
+
     expect(
-      within(row).getByText("Listed by your marketplaces, but this Ostia can't offer them."),
+      within(dialog()).getByRole('heading', { level: 2, name: 'Entries that are not compatible' }),
     ).toBeVisible()
-    expect(screen.queryByRole('region', { name: 'Entries that are not compatible' })).toBeNull()
-
-    await userEvent.click(
-      within(row).getByRole('button', { name: 'Entries that are not compatible' }),
-    )
-
-    const list = screen.getByRole('region', { name: 'Entries that are not compatible' })
-    expect(within(list).getByText('extensions/lsp-bash')).toBeVisible()
-    expect(within(list).getByText('Needs extension API 9.0; this provides 4.8')).toBeVisible()
-    expect(within(list).getByText('extensions/broken')).toBeVisible()
-    expect(within(list).getByText('missing name')).toBeVisible()
+    expect(within(dialog()).getByText('extensions/lsp-bash')).toBeVisible()
+    expect(within(dialog()).getByText('Needs extension API 9.0; this provides 4.8')).toBeVisible()
+    expect(within(dialog()).getByText('extensions/broken')).toBeVisible()
+    expect(within(dialog()).getByText('missing name')).toBeVisible()
   })
 
-  it('still says nothing matches while a marketplace has entries it could not offer', async () => {
-    await browse(stateWith(marketplace({ problems: ['extensions/broken: missing name'] })))
-    await userEvent.type(screen.getByRole('searchbox', { name: 'Search extensions' }), 'zzz')
-    expect(screen.getByText('No extension matches.')).toBeVisible()
-    expect(screen.getByText('1 not compatible')).toBeVisible()
-  })
-
-  it('shows no not-compatible row when every entry is offered', async () => {
+  it('shows no not-compatible line when every entry is offered', async () => {
     await browse(stateWith(marketplace()))
-    expect(screen.queryByText(/not compatible/)).toBeNull()
+    expect(within(dialog()).queryByText(/not compatible/)).toBeNull()
   })
 
-  it('refreshes and removes a marketplace from its panel', async () => {
-    await browse(stateWith(marketplace()))
-    vi.mocked(window.ostia.marketplace.refresh).mockResolvedValue({
+  it('asks to add or download a marketplace when there is nothing to browse', async () => {
+    await browse({ marketplaces: [], installed: [] })
+    expect(
+      within(dialog()).getAllByText('Add a marketplace below to browse its extensions.'),
+    ).not.toHaveLength(0)
+  })
+
+  it('finds an unlisted extension by a pasted install code and installs it with that code', async () => {
+    const info = marketplace({ unlisted: true })
+    await browse(stateWith(info))
+    vi.mocked(window.ostia.marketplace.findCode).mockResolvedValue({
       ok: true,
-      state: stateWith(marketplace()),
+      marketplaceId: 'abc123',
+      extension: TIDES_AVAILABLE,
     })
-    await userEvent.click(screen.getByRole('button', { name: 'Refresh Acme extensions' }))
-    expect(window.ostia.marketplace.refresh).toHaveBeenCalledWith('abc123')
-    await userEvent.click(await screen.findByRole('button', { name: 'Remove Acme extensions' }))
-    expect(window.ostia.marketplace.remove).toHaveBeenCalledWith('abc123', false)
-  })
-
-  it('asks whether to keep or uninstall what a removed marketplace installed', async () => {
-    await browse(stateWith(marketplace({ installs: ['weather'] }), ['weather']))
-    await userEvent.click(screen.getByRole('button', { name: 'Remove Acme extensions' }))
-    const dialog = await screen.findByRole('alertdialog')
-    expect(
-      within(dialog).getByText('It installed weather. Keep them, or uninstall them with it?'),
-    ).toBeVisible()
-    expect(window.ostia.marketplace.remove).not.toHaveBeenCalled()
-    await userEvent.click(within(dialog).getByRole('button', { name: 'Uninstall them' }))
-    expect(window.ostia.marketplace.remove).toHaveBeenCalledWith('abc123', true)
-  })
-
-  it('offers the install code field only for a marketplace that has unlisted extensions', async () => {
-    await browse(stateWith(marketplace()))
-    expect(screen.queryByLabelText('Install code for Acme extensions')).toBeNull()
-  })
-
-  it('installs an unlisted extension by the typed code and then lists it', async () => {
-    await browse(stateWith(marketplace({ unlisted: true })))
     vi.mocked(window.ostia.marketplace.installCode).mockResolvedValue({
       ok: true,
       state: stateWith(marketplace({ unlisted: true, extensions: [WEATHER, TIDES] }), ['tides']),
     })
-    const field = screen.getByLabelText('Install code for Acme extensions')
-    const form = field.closest('form') as HTMLFormElement
-    expect(within(form).getByRole('button', { name: 'Install' })).toBeDisabled()
-    await userEvent.type(field, 'abcdefghijklmnopqrstuvwx23')
-    await userEvent.click(within(form).getByRole('button', { name: 'Install' }))
-    expect(window.ostia.marketplace.installCode).toHaveBeenCalledWith(
-      'abc123',
-      'abcdefghijklmnopqrstuvwx23',
-    )
-    expect(await within(results()).findByRole('listitem', { name: 'Tides' })).toBeVisible()
-    expect(field).toHaveValue('')
+
+    await userEvent.type(within(dialog()).getByRole('searchbox'), CODE)
+
+    expect(window.ostia.marketplace.findCode).toHaveBeenLastCalledWith(CODE)
+    const card = await within(cards()).findByRole('listitem', { name: 'Tides' })
+    expect(within(card).getByText('Unlisted')).toBeVisible()
+    expect(within(dialog()).getByText('Install code found in Acme extensions.')).toBeVisible()
+    expect(cardNames()).toEqual(['Tides'])
+
+    await userEvent.click(within(page()).getByRole('button', { name: 'Install' }))
+
+    expect(window.ostia.marketplace.installCode).toHaveBeenCalledWith('abc123', CODE)
+    expect(window.ostia.marketplace.install).not.toHaveBeenCalled()
   })
 
-  it('keeps the typed code and says so when no unlisted extension has it', async () => {
-    const info = marketplace({ unlisted: true })
-    await browse(stateWith(info))
-    vi.mocked(window.ostia.marketplace.installCode).mockResolvedValue({
+  it('says so when no unlisted extension has the pasted code, and looks nothing up for other text', async () => {
+    await browse(stateWith(marketplace({ unlisted: true })))
+    vi.mocked(window.ostia.marketplace.findCode).mockResolvedValue({
       ok: false,
       error: 'unknown-code',
-      state: stateWith(info),
     })
-    const field = screen.getByLabelText('Install code for Acme extensions')
-    await userEvent.type(field, 'wrong{Enter}')
+    const search = within(dialog()).getByRole('searchbox')
+
+    await userEvent.type(search, 'wrong')
+    expect(window.ostia.marketplace.findCode).not.toHaveBeenCalled()
+
+    await userEvent.clear(search)
+    await userEvent.type(search, CODE)
     expect(
-      await screen.findByText('No unlisted extension in this marketplace has this install code.'),
+      (await within(dialog()).findAllByText('No unlisted extension has this install code.'))[0],
     ).toBeVisible()
-    expect(field).toHaveValue('wrong')
   })
 
-  it('an unlisted extension stays out of Settings until its install code is typed', async () => {
-    const info = marketplace({ unlisted: true, extensions: [] })
-    await browse(stateWith(info))
-    const card = within(marketplaceList()).getByRole('listitem', { name: 'Acme extensions' })
-    expect(within(card).getByText('This marketplace lists no extensions.')).toBeVisible()
-    expect(screen.queryByRole('listitem', { name: 'Tides' })).toBeNull()
-    vi.mocked(window.ostia.marketplace.installCode).mockResolvedValue({
-      ok: false,
-      error: 'unknown-code',
-      state: stateWith(info),
-    })
-    const code = within(card).getByRole('textbox', { name: 'Install code for Acme extensions' })
-    await userEvent.type(code, 'hello{Enter}')
-    expect(
-      await screen.findByText('No unlisted extension in this marketplace has this install code.'),
-    ).toBeVisible()
-    vi.mocked(window.ostia.marketplace.installCode).mockResolvedValue({
-      ok: true,
-      state: stateWith(marketplace({ unlisted: true, extensions: [TIDES] }), ['tides']),
-    })
-    await userEvent.clear(code)
-    await userEvent.type(code, 'abcdefghijklmnopqrstuvwx23{Enter}')
-    expect(window.ostia.marketplace.installCode).toHaveBeenLastCalledWith(
-      'abc123',
-      'abcdefghijklmnopqrstuvwx23',
-    )
-    const row = await within(results()).findByRole('listitem', { name: 'Tides' })
-    expect(within(row).getByText('Installed', { exact: true })).toBeVisible()
+  it('closes from its close button and leaves Settings open', async () => {
+    await browse(stateWith(marketplace()))
+
+    await userEvent.click(within(dialog()).getByRole('button', { name: 'Close' }))
+
+    expect(useUIStore.getState().browseExtensionsOpen).toBe(false)
   })
 })
 
-describe('Uninstall and source on the Extensions page', () => {
-  let init: ReturnType<typeof useMarketplaceStore.getState>
-  let extInit: ReturnType<typeof useExtensionsStore.getState>
-
-  beforeAll(() => {
-    init = useMarketplaceStore.getState()
-    extInit = useExtensionsStore.getState()
-  })
-
-  afterEach(() => {
-    cleanup()
-    useMarketplaceStore.setState(init, true)
-    useExtensionsStore.setState(extInit, true)
-  })
-
-  function ext(id: string, name: string): ExtensionInfo {
-    return {
-      id,
-      name,
-      version: '1.0.0',
-      description: '',
-      builtin: false,
-      enabled: true,
-      status: 'idle',
-      requested: [],
-      granted: [],
-      unapproved: [],
-      commands: [],
-      panel: null,
-      paneChips: [],
-      workspaceChips: [],
-      settings: [],
-      settingValues: {},
-      assist: [],
-      secrets: [],
-      secretsSet: [],
-      connectionKinds: [],
-      settingsPage: null,
-      category: 'other',
-      languages: [],
-      languageServers: [],
-      fileKinds: [],
-      agentSkills: [],
-      agentHooks: [],
-      iconThemes: [],
-      keymaps: [],
-    }
-  }
-
-  it('shows Uninstall only for marketplace installs and asks before removing', async () => {
-    useExtensionsStore.setState({ list: [ext('manual', 'Manual'), ext('weather', 'Weather')] })
-    vi.mocked(window.ostia.marketplace.list).mockResolvedValue(
-      stateWith(marketplace({ installs: ['weather'] }), ['weather']),
-    )
-    await renderSettled(<ExtensionsSection />)
-    const user = userEvent.setup()
-    await user.click(screen.getByRole('button', { name: 'Details of Manual' }))
-    const manual = screen.getByRole('region', { name: 'Details of Manual' })
-    expect(within(manual).getByText('1.0.0')).toBeVisible()
-    expect(within(manual).getByText('Installed by hand')).toBeVisible()
-    expect(within(manual).getByText('Other')).toBeVisible()
-    expect(within(manual).queryByRole('button', { name: 'Uninstall' })).toBeNull()
-
-    await user.click(screen.getByRole('button', { name: 'Details of Weather' }))
-
-    const weather = screen.getByRole('region', { name: 'Details of Weather' })
-    expect(within(weather).getByText('1.0.0')).toBeVisible()
-    expect(within(weather).getByText('From Acme extensions')).toBeVisible()
-    expect(within(weather).getByText('Other')).toBeVisible()
-    await user.click(within(weather).getByRole('button', { name: 'Uninstall' }))
-    expect(window.ostia.marketplace.uninstall).not.toHaveBeenCalled()
-    const dialog = await screen.findByRole('alertdialog')
-    expect(within(dialog).getByText('Uninstall “Weather”?')).toBeVisible()
-    await userEvent.click(within(dialog).getByRole('button', { name: 'Uninstall' }))
-    expect(window.ostia.marketplace.uninstall).toHaveBeenCalledWith('weather')
-  })
-})
+const TIDES_AVAILABLE: MarketplaceExtension = { ...TIDES, state: 'available' }

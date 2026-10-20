@@ -9,7 +9,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import {
@@ -29,10 +28,10 @@ import { WarningIcon } from '@phosphor-icons/react'
 import {
   SCRIPT_TOKEN_PRESETS,
   SCRIPT_TOKEN_RUN_CAPS,
-  SCRIPT_TOKEN_UI_CAPS,
   type ScriptTokenInfo,
   type ScriptTokenSaveResult,
   type ScriptTokenScope,
+  type ScriptTokenUiCap,
   type ScriptTokensState,
 } from '@shared/permissions/scriptTokens'
 import { ScopePicker } from './ScopePicker'
@@ -291,11 +290,19 @@ function AccessFieldset({
   )
 }
 
+const PERMISSION_COLUMNS: { id: 'read' | 'change' | 'control'; caps: ScriptTokenUiCap[] }[][] = [
+  [
+    { id: 'read', caps: ['read-board', 'read-other-pane'] },
+    { id: 'change', caps: ['notify', 'send-other-pane', 'kill-pane'] },
+  ],
+  [{ id: 'control', caps: ['type-other-pane', 'process'] }],
+]
+
 function PermissionsFieldset({ form }: { form: TokenForm }): JSX.Element {
   const t = useDict().scriptTokens
   const { caps, setCaps, preset, toggleCap } = form
   return (
-    <fieldset aria-label={t.permissions} className="flex flex-col gap-2">
+    <fieldset aria-label={t.permissions} className="flex flex-col gap-3">
       <div className="flex items-center justify-between gap-3">
         <span className="font-medium text-fg text-ui-sm">{t.permissions}</span>
         <div className="flex rounded-md bg-surface-2 p-0.5">
@@ -323,32 +330,41 @@ function PermissionsFieldset({ form }: { form: TokenForm }): JSX.Element {
           ))}
         </div>
       </div>
-      <div className="grid grid-cols-2 gap-x-6 rounded-md border border-line px-3 py-1">
-        {SCRIPT_TOKEN_UI_CAPS.map((cap) => (
-          <Label
-            key={cap}
-            className="flex cursor-pointer items-start gap-2.5 border-line border-b py-2 font-normal"
-          >
-            <Checkbox
-              className="mt-0.5"
-              checked={caps.includes(cap)}
-              onCheckedChange={(checked) => toggleCap(cap, checked === true)}
-            />
-            <span className="min-w-0">
-              <span className="flex flex-wrap items-center gap-1.5 text-fg text-ui-base">
-                {t.caps[cap].label}
-                {SCRIPT_TOKEN_RUN_CAPS.includes(cap) ? (
-                  <Badge
-                    variant="outline"
-                    className="h-4 rounded-sm border-warn-fg/40 px-1 text-ui-xs text-warn-fg"
+      <div className="grid grid-cols-2 gap-x-8">
+        {PERMISSION_COLUMNS.map((column) => (
+          <div key={column[0].id} className="flex flex-col gap-3">
+            {column.map((group) => (
+              <fieldset key={group.id} className="min-w-0">
+                <legend className="mb-1 font-medium text-fg-muted text-ui-xs">
+                  {t.permissionGroups[group.id]}
+                </legend>
+                {group.caps.map((cap) => (
+                  <Label
+                    key={cap}
+                    className="flex cursor-pointer items-start gap-2.5 py-1.5 font-normal"
                   >
-                    {t.canRunCommands}
-                  </Badge>
-                ) : null}
-              </span>
-              <span className="block text-fg-muted text-ui-sm">{t.caps[cap].desc}</span>
-            </span>
-          </Label>
+                    <Checkbox
+                      className="mt-0.5"
+                      checked={caps.includes(cap)}
+                      onCheckedChange={(checked) => toggleCap(cap, checked === true)}
+                    />
+                    <span className="min-w-0">
+                      <span className="flex flex-wrap items-center gap-x-2 text-fg text-ui-base">
+                        {t.capNames[cap]}
+                        {SCRIPT_TOKEN_RUN_CAPS.includes(cap) ? (
+                          <span className="inline-flex items-center gap-1 text-ui-xs text-warn-fg">
+                            <WarningIcon className="size-4" aria-hidden />
+                            {t.runsCommands}
+                          </span>
+                        ) : null}
+                      </span>
+                      <span className="block text-fg-muted text-ui-sm">{t.caps[cap].desc}</span>
+                    </span>
+                  </Label>
+                ))}
+              </fieldset>
+            ))}
+          </div>
         ))}
       </div>
       {caps.length === 0 ? <p className="text-fg-muted text-ui-sm">{t.permissionsNone}</p> : null}

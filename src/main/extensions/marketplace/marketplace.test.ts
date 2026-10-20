@@ -824,6 +824,23 @@ describe('Marketplace', () => {
     expect(res.state.installed).toEqual(['tides'])
   })
 
+  it('finds an unlisted extension by its exact code without installing it', async () => {
+    const h = harness()
+    const { state } = await h.marketplace.add(repoWithUnlisted())
+    const id = state.marketplaces[0]?.id
+    for (const wrong of ['tides', CODE.slice(0, 25), `${CODE.slice(0, 25)}a`, 42, '']) {
+      expect(h.marketplace.findCode(wrong)).toEqual({ ok: false, error: 'unknown-code' })
+    }
+    const found = h.marketplace.findCode(` ${CODE} `)
+    expect(found).toMatchObject({
+      ok: true,
+      marketplaceId: id,
+      extension: { id: 'tides', state: 'available' },
+    })
+    expect(existsSync(join(h.extensionsDir, 'tides'))).toBe(false)
+    expect(h.forgotten).toEqual([])
+  })
+
   it('shows an unlisted extension once it is installed, and updates it like any other', async () => {
     const repo = repoWithUnlisted()
     const h = harness()

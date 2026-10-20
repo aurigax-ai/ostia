@@ -90,28 +90,35 @@ describe('Extensions UI', () => {
       await renderSettled(<ExtensionsSection />)
       const list = screen.getByRole('list', { name: 'Installed extensions' })
       expect(within(list).getByRole('listitem', { name: 'Demo' })).not.toHaveTextContent('Enabled')
-      expect(within(list).getByRole('listitem', { name: 'Trellis' })).toHaveTextContent(
-        'Needs approval',
-      )
-      expect(screen.queryByRole('region', { name: 'Details of Demo' })).toBeNull()
+      expect(
+        within(within(list).getByRole('listitem', { name: 'Trellis' })).getByRole('button', {
+          name: 'Approve…',
+        }),
+      ).toBeInTheDocument()
+      expect(
+        within(within(list).getByRole('listitem', { name: 'Demo' })).queryByRole('button', {
+          name: 'Approve…',
+        }),
+      ).toBeNull()
+      expect(screen.queryByRole('region', { name: 'Settings of Demo' })).toBeNull()
 
       const user = userEvent.setup()
-      await user.click(screen.getByRole('button', { name: 'Details of Demo' }))
-      const demo = screen.getByRole('region', { name: 'Details of Demo' })
+      await user.click(screen.getByRole('button', { name: 'Settings of Demo' }))
+      const demo = screen.getByRole('region', { name: 'Settings of Demo' })
       expect(within(demo).getByText('Running')).toBeInTheDocument()
       expect(within(demo).getByText('notify')).toBeInTheDocument()
       expect(within(demo).getByText('Show notifications')).toBeInTheDocument()
       expect(within(demo).getByText('Approved')).toBeInTheDocument()
 
-      await user.click(screen.getByRole('button', { name: 'Details of Trellis' }))
-      const trellis = screen.getByRole('region', { name: 'Details of Trellis' })
+      await user.click(screen.getByRole('button', { name: 'Settings of Trellis' }))
+      const trellis = screen.getByRole('region', { name: 'Settings of Trellis' })
       expect(within(trellis).getByText('Waiting for your approval')).toBeInTheDocument()
       expect(within(trellis).getByText('read-board')).toBeInTheDocument()
       expect(
         within(trellis).getByText('Read the workspaces and panes you have open'),
       ).toBeInTheDocument()
       expect(within(trellis).getAllByText('Requested')).toHaveLength(2)
-      expect(screen.getByRole('region', { name: 'Details of Demo' })).toBeInTheDocument()
+      expect(screen.getByRole('region', { name: 'Settings of Demo' })).toBeInTheDocument()
     })
 
     it('keeps settings forms out of the list and shows each one’s form in its details', async () => {
@@ -129,17 +136,18 @@ describe('Extensions UI', () => {
       expect(screen.queryByRole('spinbutton')).toBeNull()
 
       const user = userEvent.setup()
-      await user.click(screen.getByRole('button', { name: 'Details of Two' }))
+      await user.click(screen.getByRole('button', { name: 'Settings of Two' }))
 
       expect(screen.getByRole('spinbutton', { name: 'Second level' })).toBeInTheDocument()
       expect(screen.queryByRole('spinbutton', { name: 'First level' })).toBeNull()
     })
 
-    it('links to Browse extensions', async () => {
+    it('opens the Browse dialog from the Browse button', async () => {
       useExtensionsStore.setState({ list: [ext({})] })
       await renderSettled(<ExtensionsPage anchor={null} />)
-      await userEvent.setup().click(screen.getByRole('button', { name: 'Browse extensions' }))
-      expect(useUIStore.getState().settingsSection).toBe('browseExtensions')
+      await userEvent.setup().click(screen.getByRole('button', { name: 'Browse' }))
+      expect(useUIStore.getState().settingsSection).toBe('extensions')
+      expect(useUIStore.getState().browseExtensionsOpen).toBe(true)
     })
 
     it('omits the Settings group for a disabled assist extension', async () => {
@@ -151,11 +159,11 @@ describe('Extensions UI', () => {
       })
       await renderSettled(<ExtensionsSection />)
       const user = userEvent.setup()
-      await user.click(screen.getByRole('button', { name: 'Details of Assistant' }))
-      await user.click(screen.getByRole('button', { name: 'Details of Other one' }))
-      const assistant = screen.getByRole('region', { name: 'Details of Assistant' })
+      await user.click(screen.getByRole('button', { name: 'Settings of Assistant' }))
+      await user.click(screen.getByRole('button', { name: 'Settings of Other one' }))
+      const assistant = screen.getByRole('region', { name: 'Settings of Assistant' })
       expect(within(assistant).queryByRole('heading', { name: 'Settings' })).toBeNull()
-      const other = screen.getByRole('region', { name: 'Details of Other one' })
+      const other = screen.getByRole('region', { name: 'Settings of Other one' })
       expect(within(other).getByRole('heading', { name: 'Settings' })).toBeInTheDocument()
     })
 
@@ -171,7 +179,7 @@ describe('Extensions UI', () => {
       await waitFor(() => expect(useExtensionsStore.getState().list[0].status).toBe('disabled'))
     })
 
-    it('offers a permission review for any extension with unapproved caps, a built-in included', async () => {
+    it('offers Approve… for any extension with unapproved caps, a built-in included', async () => {
       useExtensionsStore.setState({
         list: [
           ext({ unapproved: ['mcp'], requested: ['notify', 'mcp'], granted: ['notify'] }),
@@ -181,12 +189,9 @@ describe('Extensions UI', () => {
       await renderSettled(<ExtensionsSection />)
       const user = userEvent.setup()
       const [demoRow, trellisRow] = screen.getAllByRole('listitem', { name: /^(Demo|Trellis)$/ })
-      expect(within(trellisRow).getByText('Problem')).toBeInTheDocument()
-      await user.click(within(demoRow).getByRole('button', { name: 'Details of Demo' }))
-      await user.click(within(demoRow).getByRole('button', { name: 'Review permissions' }))
+      await user.click(within(demoRow).getByRole('button', { name: 'Approve…' }))
       expect(useExtensionsStore.getState().reviewing).toBe('demo')
-      await user.click(within(trellisRow).getByRole('button', { name: 'Details of Trellis' }))
-      await user.click(within(trellisRow).getByRole('button', { name: 'Review permissions' }))
+      await user.click(within(trellisRow).getByRole('button', { name: 'Approve…' }))
       expect(useExtensionsStore.getState().reviewing).toBe('trellis')
     })
 
@@ -209,11 +214,10 @@ describe('Extensions UI', () => {
       await renderSettled(<ExtensionsSection />)
       const user = userEvent.setup()
       const row = screen.getByRole('listitem', { name: 'Demo' })
-      expect(within(row).getByText('Problem')).toBeInTheDocument()
-      await user.click(within(row).getByRole('button', { name: 'Details of Demo' }))
+      expect(within(row).getByRole('button', { name: 'Approve…' })).toBeInTheDocument()
+      await user.click(within(row).getByRole('button', { name: 'Settings of Demo' }))
       expect(within(row).getByText('Files not approved: Grid')).toBeInTheDocument()
       expect(within(row).queryByText(/^Not approved:/)).toBeNull()
-      expect(within(row).getByRole('button', { name: 'Review permissions' })).toBeInTheDocument()
     })
   })
 

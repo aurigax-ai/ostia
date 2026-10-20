@@ -14,6 +14,7 @@ export const extensionsBridge: Pick<
       ipcRenderer.invoke('marketplace:remove', id, uninstallExtensions),
     refresh: (id) => ipcRenderer.invoke('marketplace:refresh', id),
     install: (id, extId) => ipcRenderer.invoke('marketplace:install', id, extId),
+    findCode: (code) => ipcRenderer.invoke('marketplace:find-code', code),
     installCode: (id, code) => ipcRenderer.invoke('marketplace:install-code', id, code),
     uninstall: (extId) => ipcRenderer.invoke('marketplace:uninstall', extId),
   },

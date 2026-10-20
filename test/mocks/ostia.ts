@@ -383,6 +383,7 @@ export function makeOstiaMock(overrides?: Partial<OstiaBridge>): OstiaBridge {
       remove: vi.fn().mockResolvedValue({ ok: true, state: { marketplaces: [], installed: [] } }),
       refresh: vi.fn().mockResolvedValue({ ok: true, state: { marketplaces: [], installed: [] } }),
       install: vi.fn().mockResolvedValue({ ok: true, state: { marketplaces: [], installed: [] } }),
+      findCode: vi.fn().mockResolvedValue({ ok: false, error: 'unknown-code' }),
       installCode: vi
         .fn()
         .mockResolvedValue({ ok: true, state: { marketplaces: [], installed: [] } }),
