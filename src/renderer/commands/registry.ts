@@ -5,6 +5,8 @@ import type { Dict } from '@shared/app/dict'
 import type {
   CommandDescriptor,
   CommandResult,
+  CommandSource,
+  ExtensionCommandRef,
   JSONSchema,
   TargetMode,
 } from '@shared/control/commands'
@@ -14,6 +16,7 @@ export interface CommandContext {
   activePaneId: string | null
   target?: { windowId?: string; workspaceId: string; paneId: string | null } | null
   origin?: 'remote'
+  source?: CommandSource
 }
 
 export interface CommandChoice {
@@ -43,6 +46,8 @@ export interface CommandDef<Args = void, R = void> {
   resultSchema?: JSONSchema
   capabilities?: Capability[]
   target?: TargetMode
+  extension?: ExtensionCommandRef
+  agentRefusal?: string
   run: (args: Args, ctx: CommandContext) => R | Promise<R>
 }
 
@@ -116,6 +121,11 @@ export class CommandRegistry {
     return Boolean(this.commands.get(id)?.local)
   }
 
+  refusalFor(ctx: CommandContext, id: string): string | null {
+    if (ctx.origin !== 'remote' || ctx.source === 'phone') return null
+    return this.commands.get(id)?.agentRefusal ?? null
+  }
+
   describe(): CommandDescriptor[] {
     return this.list()
       .filter((c) => !c.local)
@@ -128,6 +138,7 @@ export class CommandRegistry {
         resultSchema: c.resultSchema ?? null,
         capabilities: c.capabilities ?? DEFAULT_CAPABILITIES,
         target: c.target ?? 'active',
+        ...(c.extension ? { extension: { ...c.extension } } : {}),
       }))
       .sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))
   }

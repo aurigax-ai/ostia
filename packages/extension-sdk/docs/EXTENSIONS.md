@@ -981,8 +981,9 @@ Every command and panel request carries who is asking:
 { kind: 'pane' | 'user', paneId?, workspaceId?, workDir?, cwd?, locale?, sandboxed?, remote?, humanPrompt?, capabilities: string[] }
 ```
 
-- `pane`: an agent or shell via `ostia`; `capabilities` are that pane's; `locale` is the human's
-  language ("Translations"), so text you show the human can follow it.
+- `pane`: an agent or shell via `ostia`, both `ostia <verb> <command>` and the palette id form
+  `ostia <extId>.<command>` (which takes no `--workspace`); `capabilities` are that pane's;
+  `locale` is the human's language ("Translations"), so text you show the human can follow it.
 - `user`: the palette (capabilities = the command's own declared ones; `paneId` is the focused
   pane, and a chip click's pane) or your panel request (the SDK's panel server fills `locale`
   from the page's query).

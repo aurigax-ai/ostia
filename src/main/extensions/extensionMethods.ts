@@ -3,6 +3,7 @@ import {
   BROWSE_ENTRIES_METHOD,
   BROWSE_READ_AT_METHOD,
 } from '@aurigax-ai/ostia-extension-sdk/contract/fileBrowse'
+import { isRecord } from '@aurigax-ai/ostia-extension-sdk/contract/isRecord'
 import {
   PHONE_SCREENS_ASK_FOR_METHOD,
   PHONE_SCREENS_ASK_METHOD,
@@ -10,7 +11,8 @@ import {
   PHONE_SCREENS_REQUEST_METHOD,
 } from '@aurigax-ai/ostia-extension-sdk/contract/phoneScreens'
 import type { MessageConnection } from 'vscode-jsonrpc/node'
-import { registerControlMethod } from '../control/controlServer'
+import type { CommandDescriptor, CommandResult } from '../../shared/control/commands'
+import { type ExtensionCommandRun, registerControlMethod } from '../control/controlServer'
 import type { PaneIdentity } from '../control/idRegistry'
 import type { ExtensionHost } from './extensionHost'
 import { fail } from './extensionRuntime'
@@ -34,6 +36,43 @@ function extensionHandler(host: () => ExtensionHost | null) {
 }
 
 type ForExtension = ReturnType<typeof extensionHandler>
+
+function invokeAsPane(
+  h: ExtensionHost,
+  identity: PaneIdentity,
+  extId: string,
+  command: string,
+  args: unknown,
+) {
+  h.runs.reachHookCaller(extId, command, identity)
+  return h.invoke(extId, command, args, h.paneCaller(identity, { extId, command }))
+}
+
+export function extensionCommandRunner(
+  host: () => ExtensionHost | null,
+): (desc: CommandDescriptor) => ExtensionCommandRun | null {
+  return (desc) => {
+    const h = host()
+    const ref = h?.paletteCommand(desc.id)
+    if (!h || !ref) return null
+    const marked = desc.extension
+    if (marked?.extId !== ref.extId || marked.command !== ref.command) return null
+    return async (identity, args): Promise<CommandResult> => {
+      const argument = isRecord(args) ? args.argument : undefined
+      const res = await invokeAsPane(
+        h,
+        identity,
+        ref.extId,
+        ref.command,
+        h.paletteArgs(ref.extId, ref.command, argument),
+      )
+      if (res.ok) return { ok: true, result: res.data }
+      const message = res.message ? `${res.error}: ${res.message}` : res.error
+      const code = res.error === 'needs-elevation' ? 'needs-elevation' : 'command-failed'
+      return { ok: false, error: { code, message } }
+    }
+  }
+}
 
 export function registerExtensionMethods(host: () => ExtensionHost | null): void {
   const forExtension = extensionHandler(host)
@@ -70,13 +109,7 @@ function registerHostMethods(host: () => ExtensionHost | null, forExtension: For
       if (typeof p.extId !== 'string' || typeof p.command !== 'string') {
         return fail('invalid-params', 'extId and command are required')
       }
-      h.runs.reachHookCaller(p.extId, p.command, ctx.identity)
-      return h.invoke(
-        p.extId,
-        p.command,
-        p.args,
-        h.paneCaller(ctx.identity, { extId: p.extId, command: p.command }),
-      )
+      return invokeAsPane(h, ctx.identity, p.extId, p.command, p.args)
     },
   })
   registerControlMethod(

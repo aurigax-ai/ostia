@@ -9,6 +9,8 @@ import type { ScriptTokenUsageLog } from '../approvals/scriptTokenUsage'
 import { checkScriptToken, registerScriptTokenMethods } from '../approvals/scriptTokens'
 import { electronPresenceDeps, verifyUserPresence } from '../approvals/userPresence'
 import type { AgentJournal } from '../diagnostics/agentJournal'
+import type { ExtensionHost } from '../extensions/extensionHost'
+import { extensionCommandRunner } from '../extensions/extensionMethods'
 import { listPanes } from '../panes/paneList'
 import type { WorkspaceSandboxes } from '../sandbox/workspaceSandboxes'
 import type { KeptShellsWiring } from '../tmux/keptShellsWiring'
@@ -37,7 +39,7 @@ interface ControlStartDeps {
   reach: Reach
   keptPlumbing: KeptShellsWiring['keptPlumbing']
   keepShellsOn: KeptShellsWiring['keepShellsOn']
-  services: { agentJournal: AgentJournal | null }
+  services: { agentJournal: AgentJournal | null; extensionHost: ExtensionHost | null }
 }
 
 export function startControlServer({
@@ -85,6 +87,7 @@ export function startControlServer({
   )
   registerControlServer({
     execCommand,
+    extensionCommand: extensionCommandRunner(() => services.extensionHost),
     listCommandsFor,
     getTerminalState,
     isSandboxed: (workspaceId) => workspaceSandboxes.isEnabled(workspaceId),

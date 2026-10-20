@@ -18,7 +18,12 @@ import {
   createMessageConnection,
 } from 'vscode-jsonrpc/node'
 import { verbCode } from '../../shared/agents/agentIssues'
-import type { CommandDescriptor, CommandResult, CommandTarget } from '../../shared/control/commands'
+import type {
+  CommandDescriptor,
+  CommandResult,
+  CommandSource,
+  CommandTarget,
+} from '../../shared/control/commands'
 import type { TerminalStateSnapshot } from '../../shared/terminal/ptyApi'
 import { ensureCaps, needsElevation } from '../approvals/controlElevation'
 import type { Reach, ScriptReach } from '../approvals/reach'
@@ -149,8 +154,17 @@ function actingPane(
   return { identity: target, params: rest }
 }
 
+export type ExtensionCommandRun = (identity: PaneIdentity, args: unknown) => Promise<CommandResult>
+
 export interface ControlServerDeps {
-  execCommand: (target: CommandTarget, id: string, args?: unknown) => Promise<CommandResult>
+  execCommand: (
+    target: CommandTarget,
+    id: string,
+    args?: unknown,
+    fromMain?: boolean,
+    source?: CommandSource,
+  ) => Promise<CommandResult>
+  extensionCommand?: (desc: CommandDescriptor) => ExtensionCommandRun | null
   listCommandsFor: (windowId: string) => CommandDescriptor[]
   getTerminalState: (paneId: string) => TerminalStateSnapshot | undefined
   isSandboxed: (workspaceId: string) => boolean
@@ -345,11 +359,23 @@ function registerCommandExec({ session, deps, onCall, requireIdentity }: Connect
           `bad-request: ${params.id} from a script token needs a workspace: pass --workspace <id> (ostia workspace list)`,
         )
       }
+      const asPane = deps.extensionCommand?.(desc) ?? null
+      if (asPane && script) {
+        throw new ResponseError(ErrorCodes.InvalidRequest, 'not-available-to-script')
+      }
+      if (asPane && crossTarget) {
+        throw new ResponseError(
+          ErrorCodes.InvalidParams,
+          `bad-request: ${params.id} runs as the calling pane, so it takes no --workspace or paneId`,
+        )
+      }
       const caps: Capability[] = [
         ...(crossTarget ? (['all-workspaces'] as const) : []),
-        ...(script
-          ? desc.capabilities.filter((cap) => !DEFAULT_CAPABILITIES.includes(cap))
-          : desc.capabilities),
+        ...(asPane
+          ? []
+          : script
+            ? desc.capabilities.filter((cap) => !DEFAULT_CAPABILITIES.includes(cap))
+            : desc.capabilities),
       ]
       await ensureCaps(
         session.authed,
@@ -362,7 +388,8 @@ function registerCommandExec({ session, deps, onCall, requireIdentity }: Connect
       if (given?.workspaceId && deps.windowOfWorkspace && !target.windowId) {
         throw new ResponseError(ErrorCodes.InvalidParams, `unknown-workspace: ${given.workspaceId}`)
       }
-      const exec = (): Promise<CommandResult> => deps.execCommand(target, params.id, args)
+      const exec = (): Promise<CommandResult> =>
+        asPane ? asPane(me, args) : deps.execCommand(target, params.id, args, false, 'control')
       const result = await (deps.byAgent ? deps.byAgent(exec) : exec())
       const createdId = (result.ok ? (result.result as { workspaceId?: unknown }) : undefined)
         ?.workspaceId

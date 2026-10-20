@@ -1,4 +1,4 @@
-import { commands, wordedBy } from '@/commands/registry'
+import { type CommandContext, commands, wordedBy } from '@/commands/registry'
 import { currentDict, fmt } from '@/lib/app/useDict'
 import { findPane } from '@/lib/layout/tree'
 import { type UserAction, actionFingerprint, fillArgs } from '@/lib/settings/actions'
@@ -28,14 +28,19 @@ function paneContext(paneId: string | null): { cwd?: string; file?: string } {
   return { cwd: pane?.cwd, file: pane?.kind === 'editor' ? pane.filePath : undefined }
 }
 
-export function runUserAction(action: UserAction, paneId: string | null): Promise<void> {
-  return runCommandAction(action, paneId, fillArgs(action.args, paneContext(paneId)))
+export function runUserAction(
+  action: UserAction,
+  paneId: string | null,
+  ctx?: CommandContext,
+): Promise<void> {
+  return runCommandAction(action, paneId, fillArgs(action.args, paneContext(paneId)), ctx)
 }
 
 export async function runCommandAction(
   action: CommandAction,
   paneId: string | null,
   args: Record<string, unknown> | undefined,
+  ctx?: CommandContext,
 ): Promise<void> {
   if (!commands.has(action.command)) {
     notifyFailure(
@@ -43,6 +48,11 @@ export async function runCommandAction(
       paneId,
       fmt(currentDict().actions.unknownCommand, { command: action.command }),
     )
+    return
+  }
+  const refused = ctx ? commands.refusalFor(ctx, action.command) : null
+  if (refused) {
+    notifyFailure(action, paneId, refused)
     return
   }
   if (needsTrust(action)) {
@@ -55,7 +65,9 @@ export async function runCommandAction(
   }
   const workspaceId = useWorkspacesStore.getState().activeWorkspaceId
   if (workspaceId && paneId) useLayoutStore.getState().focusPane(workspaceId, paneId)
-  const res = await commands.exec(action.command, args)
+  const res = ctx
+    ? await commands.execWith(ctx, action.command, args)
+    : await commands.exec(action.command, args)
   if (!res.ok) notifyFailure(action, paneId, res.error.message)
   else if (paneId) requestAnimationFrame(() => focusSurface(paneId))
 }
@@ -89,7 +101,7 @@ export function startUserActions(): () => void {
         id,
         ...wordedBy((d) => ({ title: action.title, category: d.actions.category })),
         target: 'active',
-        run: (_args, ctx) => runUserAction(action, ctx.activePaneId),
+        run: (_args, ctx) => runUserAction(action, ctx.activePaneId, ctx),
       })
       registered.push(id)
     }

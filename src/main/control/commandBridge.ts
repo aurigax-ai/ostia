@@ -1,5 +1,10 @@
 import { type BrowserWindow, ipcMain } from 'electron'
-import type { CommandDescriptor, CommandResult, CommandTarget } from '../../shared/control/commands'
+import type {
+  CommandDescriptor,
+  CommandResult,
+  CommandSource,
+  CommandTarget,
+} from '../../shared/control/commands'
 import type { TerminalStateSnapshot } from '../../shared/terminal/ptyApi'
 import type { ProcessTabRequest } from '../panes/processLaunch'
 import type { WindowSend } from '../windows/windowSend'
@@ -37,6 +42,7 @@ export function createCommandBridge({
     id: string,
     args?: unknown,
     fromMain = false,
+    source?: CommandSource,
   ): Promise<CommandResult> {
     const win = target.windowId ? windows.get(target.windowId) : mainWindow()
     if (!win || win.isDestroyed()) {
@@ -59,6 +65,7 @@ export function createCommandBridge({
         args,
         target,
         ...(fromMain ? { fromMain: true } : {}),
+        ...(source ? { source } : {}),
       })
       const timer = setTimeout(() => {
         ipcMain.removeListener('command:result', onResult)
