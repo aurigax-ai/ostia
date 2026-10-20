@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { DOM_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
-import { PROMPT, addTab, openWorkspace, quitApp } from './helpers'
+import { PROMPT, addTab, openWorkspace, quitApp, waitForTerminalFocus } from './helpers'
 import {
   type ElectronApplication,
   type Page,
@@ -31,16 +31,6 @@ async function launchApp(dataHome: string): Promise<Launched> {
 async function waitForShellPrompt(win: Page): Promise<void> {
   await expect(win.locator('.xterm').first()).toBeVisible({ timeout: 15_000 })
   await expect(win.locator('.xterm-rows').first()).toContainText(PROMPT, { timeout: 15_000 })
-}
-
-async function waitForTerminalFocus(win: Page): Promise<void> {
-  await expect
-    .poll(() =>
-      win.evaluate(
-        () => document.activeElement?.classList.contains('xterm-helper-textarea') ?? false,
-      ),
-    )
-    .toBe(true)
 }
 
 let dataHome: string

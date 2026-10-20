@@ -4,9 +4,9 @@ import { type Server, createServer } from 'node:http'
 import type { AddressInfo } from 'node:net'
 import { join, resolve } from 'node:path'
 import { chords } from './chords'
-import { DOM_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
-import { openWorkspace, quitApp } from './helpers'
-import { type ElectronApplication, type Page, _electron as electron, expect, test } from './test'
+import { DOM_RENDERER_SETTINGS, freshDataHome, seedSettings } from './dataHome'
+import { launchWindow, openWorkspace, quitApp, readPaneEnv } from './helpers'
+import { type ElectronApplication, type Page, expect, test } from './test'
 
 const CLI = resolve(__dirname, '../out/cli/index.js')
 const COOKIE = 'ostia_provider=signed'
@@ -67,11 +67,9 @@ function serve(): Promise<Fixture> {
 }
 
 async function launch(dataHome: string): Promise<{ app: ElectronApplication; win: Page }> {
-  const app = await electron.launch(isolatedLaunch(dataHome))
-  const win = await app.firstWindow()
-  await win.waitForLoadState('domcontentloaded')
-  await openWorkspace(win)
-  return { app, win }
+  const launched = await launchWindow(dataHome)
+  await openWorkspace(launched.win)
+  return launched
 }
 
 async function openHumanTab(win: Page, url: string): Promise<void> {
@@ -148,15 +146,6 @@ function popups(app: ElectronApplication, provider: string): Promise<PopupReport
 
 function windowCount(app: ElectronApplication): Promise<number> {
   return app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().length)
-}
-
-function readPaneEnv(path: string): Record<string, string> {
-  const env: Record<string, string> = {}
-  for (const line of readFileSync(path, 'utf8').split('\n')) {
-    const eq = line.indexOf('=')
-    if (eq > 0) env[line.slice(0, eq)] = line.slice(eq + 1)
-  }
-  return env
 }
 
 interface Run {

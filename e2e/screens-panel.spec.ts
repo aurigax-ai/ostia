@@ -1,35 +1,14 @@
-import { cpSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import { PRODUCT_NAME } from '@aurigax-ai/ostia-extension-sdk/contract/product'
 import { chords } from './chords'
 import { freshDataHome, isolatedLaunch } from './dataHome'
-import { waitForPaletteSelection } from './helpers'
+import { installApproved, panelEval, waitForPaletteSelection } from './helpers'
 import { type ElectronApplication, _electron as electron, expect, test } from './test'
 
 const FIXTURES = resolve(__dirname, '../test/fixtures/tools')
-const MARKETPLACE = resolve(__dirname, '../out/marketplace/extensions')
 const EXTENSION = 'screens'
 const COLOUR = [0, 128, 255]
-
-function installApproved(dataHome: string, configHome: string): void {
-  const target = join(configHome, PRODUCT_NAME, 'extensions', EXTENSION)
-  cpSync(join(MARKETPLACE, EXTENSION), target, { recursive: true })
-  const manifest = JSON.parse(readFileSync(join(target, 'ostia.json'), 'utf8'))
-  mkdirSync(join(dataHome, 'userData'), { recursive: true })
-  writeFileSync(
-    join(dataHome, 'userData', 'extensions.json'),
-    JSON.stringify({ [EXTENSION]: { enabled: true, approved: manifest.capabilities ?? [] } }),
-  )
-}
-
-function panelEval(app: ElectronApplication, script: string): Promise<string> {
-  return app.evaluate(async ({ webContents }, code) => {
-    const guest = webContents
-      .getAllWebContents()
-      .find((wc) => wc.getType() === 'webview' && wc.getURL().startsWith('http://127.0.0.1'))
-    return guest ? String(await guest.executeJavaScript(code)) : ''
-  }, script)
-}
 
 async function clickInPanel(app: ElectronApplication, x: number, y: number): Promise<void> {
   await app.evaluate(
@@ -88,7 +67,7 @@ test('SCX-C4 the Screens panel draws the screen with noVNC, and only Take over l
       ],
     }),
   )
-  installApproved(dataHome, launch.env.XDG_CONFIG_HOME)
+  installApproved(dataHome, launch.env.XDG_CONFIG_HOME, EXTENSION)
   const app = await electron.launch({
     ...launch,
     env: {

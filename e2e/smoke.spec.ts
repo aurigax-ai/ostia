@@ -1,6 +1,13 @@
 import { chords } from './chords'
 import { isolatedLaunch } from './dataHome'
-import { PROMPT, closeAllWorkspaces, emptyState, openWorkspace, runInTerminal } from './helpers'
+import {
+  PROMPT,
+  closeAllWorkspaces,
+  emptyState,
+  openWorkspace,
+  runInTerminal,
+  waitForTerminalFocus,
+} from './helpers'
 import { type ElectronApplication, type Page, expect, launchShared, test } from './test'
 
 let app: ElectronApplication | undefined
@@ -21,16 +28,6 @@ test.afterAll(async () => {
   await app?.close()
 })
 
-async function waitForTerminalFocus(): Promise<void> {
-  await expect
-    .poll(() =>
-      win.evaluate(
-        () => document.activeElement?.classList.contains('xterm-helper-textarea') ?? false,
-      ),
-    )
-    .toBe(true)
-}
-
 test('boots and renders the main window', { tag: '@core' }, async () => {
   expect(await win.title()).toBeTruthy()
   await expect(win.locator('.deck-rail')).toBeVisible({ timeout: 15_000 })
@@ -43,7 +40,7 @@ test('terminal spawns and runs a command', { tag: '@core' }, async () => {
 
   const term = win.locator('.xterm').first()
   await term.click()
-  await waitForTerminalFocus()
+  await waitForTerminalFocus(win)
 
   await win.keyboard.type('echo ostia_e2e_$((21+21))')
   await win.keyboard.press('Enter')
@@ -69,7 +66,7 @@ test(
     expect(keptPid).not.toBe('')
 
     await win.locator('.xterm').nth(0).click()
-    await waitForTerminalFocus()
+    await waitForTerminalFocus(win)
     await win.keyboard.press(chords.closePane)
 
     await expect(win.locator('.xterm')).toHaveCount(1, { timeout: 15_000 })

@@ -2,9 +2,9 @@ import { createSocket } from 'node:dgram'
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { type AddressInfo, type Server, createServer } from 'node:net'
 import { join } from 'node:path'
-import { DOM_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
-import { expectHeld, openWorkspace, runInTerminal } from './helpers'
-import { type ElectronApplication, type Page, _electron as electron, expect, test } from './test'
+import { DOM_RENDERER_SETTINGS, freshDataHome, seedSettings } from './dataHome'
+import { expectHeld, launchWindow, openWorkspace, runInTerminal } from './helpers'
+import { type ElectronApplication, type Page, expect, test } from './test'
 
 const PREVIEW_URL = 'ostia-preview://'
 const COPIED = 'copied-by-the-preview-page-7f3a'
@@ -184,11 +184,9 @@ const attempt = async (name, run) => {
 
 async function launch(dataHome: string): Promise<{ app: ElectronApplication; win: Page }> {
   seedSettings(dataHome, { ...DOM_RENDERER_SETTINGS, editor: { openFilesIn: 'split' } })
-  const app = await electron.launch(isolatedLaunch(dataHome))
-  const win = await app.firstWindow()
-  await win.waitForLoadState('domcontentloaded')
-  await openWorkspace(win)
-  return { app, win }
+  const launched = await launchWindow(dataHome)
+  await openWorkspace(launched.win)
+  return launched
 }
 
 function guestUrls(app: ElectronApplication): Promise<string[]> {

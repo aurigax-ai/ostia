@@ -2,7 +2,7 @@ import { chmodSync, existsSync, mkdirSync, readFileSync, readdirSync, writeFileS
 import { join } from 'node:path'
 import { chords } from './chords'
 import { DOM_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
-import { openWorkspace, quitApp, restartApp, waitForPaletteSelection } from './helpers'
+import { openWorkspace, panelEval, quitApp, restartApp, waitForPaletteSelection } from './helpers'
 import { type ElectronApplication, type Page, _electron as electron, expect, test } from './test'
 
 test.describe.configure({ timeout: 240_000 })
@@ -91,15 +91,6 @@ function setup(report: boolean) {
   }
   const logged = () => (existsSync(log) ? readFileSync(log, 'utf8').trim().split('\n') : [])
   return { launch, env, go, lines, logged }
-}
-
-function panelEval(app: ElectronApplication, script: string): Promise<string> {
-  return app.evaluate(async ({ webContents }, code) => {
-    const guest = webContents
-      .getAllWebContents()
-      .find((wc) => wc.getType() === 'webview' && wc.getURL().startsWith('http://127.0.0.1'))
-    return guest ? String(await guest.executeJavaScript(code)) : ''
-  }, script)
 }
 
 const clickLabel = (app: ElectronApplication, selector: string, label: string) =>

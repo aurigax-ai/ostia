@@ -4,7 +4,7 @@ import { type Server, createServer } from 'node:http'
 import type { AddressInfo } from 'node:net'
 import { join, resolve } from 'node:path'
 import { DOM_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
-import { openWorkspace } from './helpers'
+import { openWorkspace, readPaneEnv } from './helpers'
 import { _electron as electron, expect, test } from './test'
 
 const CLI = resolve(__dirname, '../out/cli/index.js')
@@ -41,15 +41,6 @@ function serve(): Promise<Server> {
     res.end(req.url === '/next' ? '<title>Next</title><h1>Next</h1>' : PAGE)
   })
   return new Promise((ok) => server.listen(0, '127.0.0.1', () => ok(server)))
-}
-
-function readPaneEnv(path: string): Record<string, string> {
-  const env: Record<string, string> = {}
-  for (const line of readFileSync(path, 'utf8').split('\n')) {
-    const eq = line.indexOf('=')
-    if (eq > 0) env[line.slice(0, eq)] = line.slice(eq + 1)
-  }
-  return env
 }
 
 test(

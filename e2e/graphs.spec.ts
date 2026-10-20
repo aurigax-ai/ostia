@@ -3,7 +3,7 @@ import { join } from 'node:path'
 import { chords } from './chords'
 import { freshDataHome, isolatedLaunch } from './dataHome'
 import { fakeAgentBin } from './fakeAgent'
-import { openWorkspace, quitApp, waitForPaletteSelection } from './helpers'
+import { openWorkspace, panelEval, quitApp, waitForPaletteSelection } from './helpers'
 import { type ElectronApplication, type Page, _electron as electron, expect, test } from './test'
 
 test.describe.configure({ timeout: 180_000 })
@@ -25,15 +25,6 @@ edges:
     else: end
   - { from: ask, to: work }
 `
-
-function panelEval(app: ElectronApplication, script: string): Promise<string> {
-  return app.evaluate(async ({ webContents }, code) => {
-    const guest = webContents
-      .getAllWebContents()
-      .find((wc) => wc.getType() === 'webview' && wc.getURL().startsWith('http://127.0.0.1'))
-    return guest ? String(await guest.executeJavaScript(code)) : ''
-  }, script)
-}
 
 const attr = (app: ElectronApplication, selector: string, name: string) =>
   panelEval(

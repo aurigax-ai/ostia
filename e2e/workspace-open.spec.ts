@@ -8,6 +8,7 @@ import {
   expectHeld,
   newTerminalWorkspace,
   openWorkspace,
+  waitForTerminalFocus,
 } from './helpers'
 import { type ElectronApplication, type Page, expect, launchShared, test } from './test'
 
@@ -35,16 +36,6 @@ test.afterEach(async () => {
 test.afterAll(async () => {
   await app?.close()
 })
-
-async function waitForTerminalFocus(): Promise<void> {
-  await expect
-    .poll(() =>
-      win.evaluate(
-        () => document.activeElement?.classList.contains('xterm-helper-textarea') ?? false,
-      ),
-    )
-    .toBe(true)
-}
 
 test(
   'boots with no workspace, and the new-workspace chord opens an empty one that offers a terminal',
@@ -90,7 +81,7 @@ test(
     await openWorkspace(win)
     await expect(tab).toHaveCount(1)
     await win.locator('.xterm').first().click()
-    await waitForTerminalFocus()
+    await waitForTerminalFocus(win)
     await win.keyboard.type('echo "ostia_cwd:$PWD:"')
     await win.keyboard.press('Enter')
     await expect(win.locator('.xterm-rows').first()).toContainText(`ostia_cwd:${home}:`, {
@@ -109,7 +100,7 @@ test('Ctrl+1 jumps to the first workspace from a focused terminal', async () => 
   await name.press('Enter')
 
   await win.locator('.pane-slot:not([data-hidden]) .xterm').last().click()
-  await waitForTerminalFocus()
+  await waitForTerminalFocus(win)
   await win.keyboard.press(chords.firstWorkspace)
   await expect(win.locator('.rail-tab.active .tab-title')).toHaveText('home')
 })
