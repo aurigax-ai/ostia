@@ -494,6 +494,64 @@ describe('gateway server over a real WebSocket', () => {
     await vi.waitFor(() => expect(phoneCanRespond()).toBe(false))
   })
 
+  describe('frame size', () => {
+    const overOneMiB = 'a'.repeat(1024 * 1024 + 1)
+    const imageSized = Buffer.concat([
+      Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+      Buffer.alloc(2 * 1024 * 1024),
+    ]).toString('base64')
+
+    function prompt(call: (method: string, params?: unknown) => Promise<Json>, text: string) {
+      return call('agent.prompt', {
+        paneId: externalPaneId,
+        text: 'look',
+        image: { mime: 'image/png', data: text },
+      })
+    }
+
+    it('closes a frame over 1 MiB sent before hello with nothing dispatched', async () => {
+      const ws = new WebSocket(`wss://127.0.0.1:${port}/ws`, { rejectUnauthorized: false })
+      const closed = new Promise<number>((resolve) => ws.on('close', (code) => resolve(code)))
+      ws.on('error', () => {})
+      await new Promise<void>((resolve) => ws.once('open', () => resolve()))
+      ws.send(
+        JSON.stringify({
+          jsonrpc: '2.0',
+          id: 1,
+          method: 'agent.prompt',
+          params: { pad: overOneMiB },
+        }),
+      )
+      expect(await closed).toBe(1009)
+      expect(deps.ptyWrite).not.toHaveBeenCalled()
+      expect(deps.withClipboardImage).not.toHaveBeenCalled()
+    })
+
+    it('lets a device holding respond send an image-sized agent.prompt after hello', async () => {
+      const { deviceId, token } = registerDevice({ name: 'Phone', pubkey: 'pk' })
+      gatewaySetCap({ deviceId, cap: 'respond', granted: true })
+      const c = await connect(token)
+      expect(c.json[0]?.result).toMatchObject({ features: ['prompt-image'] })
+      const answer = await prompt(c.call, imageSized)
+      expect(answer.error?.message).not.toBe('image-too-large')
+      expect(c.ws.readyState).toBe(WebSocket.OPEN)
+    })
+
+    it('holds a device without respond to 1 MiB', async () => {
+      const { token } = registerDevice({ name: 'Phone', pubkey: 'pk' })
+      const c = await connect(token)
+      c.ws.send(
+        JSON.stringify({
+          jsonrpc: '2.0',
+          id: 99,
+          method: 'agent.prompt',
+          params: { pad: overOneMiB },
+        }),
+      )
+      expect(await c.closed).toBe(1009)
+    })
+  })
+
   it('exposes no control-socket method that can change device permissions', () => {
     registerGatewayMethods()
     expect(registeredMethods.sort()).toEqual([

@@ -5,6 +5,7 @@ import { resolveExternal } from '../control/idRegistry'
 import type { GatewayAddress } from './addresses'
 import { type GatewayControlDeps, dispatchGatewayMethod } from './controlDispatch'
 import { type Device, get as getDevice, verifyToken } from './devices'
+import { PHONE_IMAGE_FRAME_BYTES } from './phoneImage'
 import type { ScreenLinks } from './screenLinks'
 
 const FRAME_PTY_OUTPUT = 0x01
@@ -13,6 +14,16 @@ const FRAME_PTY_RESIZE = 0x03
 const MAX_PTY_DIM = 1000
 
 const HELLO_TIMEOUT_MS = 10_000
+
+export const PHONE_FRAME_BYTES = 1024 * 1024
+
+interface WithReceiver {
+  _receiver: { _maxPayload: number }
+}
+
+function allowImageFrames(ws: WebSocket): void {
+  ;(ws as unknown as WithReceiver)._receiver._maxPayload = PHONE_IMAGE_FRAME_BYTES
+}
 
 const LINK_METHODS: ReadonlySet<unknown> = new Set(['ask.list', 'ask.answer'])
 
@@ -74,6 +85,8 @@ function handleHello(
     return
   }
   state.device = device
+  const takesImages = device.caps.includes('respond')
+  if (takesImages) allowImageFrames(ws)
   trackDeviceSocket(device.deviceId, ws)
   const phoneWorkspace = controlDeps?.phoneDefaults() ?? { set: false, agent: 'claude' }
   ws.send(
@@ -83,6 +96,7 @@ function handleHello(
       desktop: { name: PRODUCT_NAME, version: app.getVersion() },
       phoneWorkspace,
       addresses,
+      features: takesImages ? ['prompt-image'] : [],
     }),
   )
 }
@@ -342,6 +356,8 @@ function handleConnection(ws: WebSocket, deps: PhoneSocketDeps): void {
   const helloDeadline = setTimeout(() => {
     if (!state.device) ws.close(4001, 'hello timeout')
   }, HELLO_TIMEOUT_MS)
+
+  ws.on('error', () => ws.terminate())
 
   ws.on('pong', () => {
     state.alive = true
