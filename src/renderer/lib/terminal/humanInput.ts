@@ -1,12 +1,25 @@
-let human = false
+import type { HumanInputSource } from '@shared/terminal/ptyApi'
 
-export function markHumanInput(): void {
-  human = true
-  queueMicrotask(() => {
-    human = false
-  })
+const TYPING_EVENTS = new Set(['keydown', 'keypress', 'input', 'compositionend'])
+
+let pasting = false
+
+export function asHumanPaste(run: () => void): void {
+  pasting = true
+  try {
+    run()
+  } finally {
+    pasting = false
+  }
 }
 
-export function isHumanInput(): boolean {
-  return human
+export function humanInputSource(host: HTMLElement): HumanInputSource | undefined {
+  if (pasting) return 'paste'
+  const event = window.event
+  const typed =
+    event?.isTrusted === true &&
+    TYPING_EVENTS.has(event.type) &&
+    event.target instanceof Node &&
+    host.contains(event.target)
+  return typed ? 'key' : undefined
 }

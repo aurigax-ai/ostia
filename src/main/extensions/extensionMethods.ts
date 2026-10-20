@@ -71,7 +71,12 @@ function registerHostMethods(host: () => ExtensionHost | null, forExtension: For
         return fail('invalid-params', 'extId and command are required')
       }
       h.runs.reachHookCaller(p.extId, p.command, ctx.identity)
-      return h.invoke(p.extId, p.command, p.args, h.paneCaller(ctx.identity))
+      return h.invoke(
+        p.extId,
+        p.command,
+        p.args,
+        h.paneCaller(ctx.identity, { extId: p.extId, command: p.command }),
+      )
     },
   })
   registerControlMethod(

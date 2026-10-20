@@ -30,6 +30,7 @@ export interface PiSessionOptions {
   tools: AgentToolSpec[]
   providers: AgentProviderEntry[]
   model?: AgentModelRef
+  context?: string
   callTool: ToolCaller
 }
 
@@ -76,7 +77,7 @@ async function modelRuntime(providers: AgentProviderEntry[]): Promise<ModelRunti
 }
 
 function resourceLoader(opts: PiSessionOptions): ResourceLoader {
-  const system = agentSystemPrompt(opts.cwd)
+  const system = agentSystemPrompt(opts.cwd, opts.context)
   return {
     getExtensions: () => ({ extensions: [], errors: [], runtime: createExtensionRuntime() }),
     getSkills: () => ({ skills: [], diagnostics: [] }),
@@ -115,7 +116,7 @@ function toolDefinition(spec: AgentToolSpec, opts: PiSessionOptions): ToolDefini
   }) as ToolDefinition
 }
 
-function chosenModel(runtime: ModelRuntime, opts: PiSessionOptions) {
+function chosenModel(runtime: ModelRuntime, opts: Pick<PiSessionOptions, 'providers' | 'model'>) {
   const wanted = opts.model
   const offered = opts.providers.find((p) => p.id === wanted?.provider)
   if (wanted && offered?.models.includes(wanted.model)) {
@@ -127,6 +128,39 @@ function chosenModel(runtime: ModelRuntime, opts: PiSessionOptions) {
     if (model) return model
   }
   return undefined
+}
+
+export interface PiCompletion {
+  text: string
+  model: AgentModelRef
+}
+
+export async function completeOnce(opts: {
+  providers: AgentProviderEntry[]
+  model?: AgentModelRef
+  system: string
+  input: string
+  signal?: AbortSignal
+}): Promise<PiCompletion | { error: string }> {
+  const runtime = await modelRuntime(opts.providers)
+  const model = chosenModel(runtime, {
+    providers: opts.providers,
+    ...(opts.model ? { model: opts.model } : {}),
+  })
+  if (!model) return { error: 'no-model' }
+  const reply = await runtime.complete(
+    model,
+    {
+      systemPrompt: opts.system,
+      messages: [{ role: 'user', content: opts.input, timestamp: Date.now() }],
+    },
+    opts.signal ? { signal: opts.signal } : undefined,
+  )
+  if (reply.stopReason === 'error' || reply.stopReason === 'aborted') {
+    return { error: reply.errorMessage ?? reply.stopReason }
+  }
+  const text = reply.content.map((part) => (part.type === 'text' ? part.text : '')).join('')
+  return { text, model: { provider: model.provider, model: model.id } }
 }
 
 export async function openPiSession(opts: PiSessionOptions): Promise<PiSession> {

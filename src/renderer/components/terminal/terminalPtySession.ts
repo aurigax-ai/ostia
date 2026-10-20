@@ -2,7 +2,7 @@ import { keptShellReattached } from '@/lib/agents/autoResume'
 import { keptAgentReattached } from '@/lib/agents/paneAgent'
 import { markPaneActivity } from '@/lib/attention/paneActivity'
 import { spawnPromptOption } from '@/lib/prompt/promptChips'
-import { isHumanInput, markHumanInput } from '@/lib/terminal/humanInput'
+import { humanInputSource } from '@/lib/terminal/humanInput'
 import { type NeighbourQueue, neighbourWrites } from '@/lib/terminal/neighbourWrites'
 import {
   noteFittedGrid,
@@ -18,6 +18,7 @@ import { useSettingsStore } from '@/stores/app/settingsStore'
 import { type LineAnchor, useBlocksStore } from '@/stores/terminal/blocksStore'
 import { usePhoneSizeStore } from '@/stores/terminal/phoneSizeStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
+import type { HumanInputSource } from '@shared/terminal/ptyApi'
 import type { TerminalSession } from './terminalSession'
 import { isPromptRepaint, nextSizeAction, settleFit } from './terminalSizing'
 
@@ -52,7 +53,7 @@ interface PtySessionDeps {
   anchor: () => LineAnchor
   disposeMarkers: () => void
   silenceReplies: () => { dispose(): void }
-  holdInput: (data: string) => boolean
+  holdInput: (data: string, source: HumanInputSource | undefined) => boolean
 }
 
 interface PtyIo {
@@ -62,8 +63,6 @@ interface PtyIo {
   writeLive: Write
   neighbour: NeighbourQueue
 }
-
-const HUMAN_INPUT_EVENTS = ['keydown', 'paste', 'input', 'compositionend'] as const
 
 export function attachPtySession(deps: PtySessionDeps): () => void {
   const { host, term, paneId, workspaceIdRef, lastSizeRef, syncSizeRef, session, holdInput } = deps
@@ -132,9 +131,9 @@ export function attachPtySession(deps: PtySessionDeps): () => void {
     else phoneSize.release(paneId)
   })
 
-  for (const type of HUMAN_INPUT_EVENTS) host.addEventListener(type, markHumanInput, true)
   const input = term.onData((d) => {
-    if (!holdInput(d)) window.ostia.pty.write(paneId, d, isHumanInput())
+    const source = humanInputSource(host)
+    if (!holdInput(d, source)) window.ostia.pty.write(paneId, d, source)
     if (!FOCUS_REPORTS.has(d)) markPaneActivity(paneId)
     if (!FOCUS_REPORTS.has(d) && useBlocksStore.getState().selected[paneId]) {
       useBlocksStore.getState().select(paneId, null)
@@ -198,7 +197,6 @@ export function attachPtySession(deps: PtySessionDeps): () => void {
     sizing.dispose()
     ro.disconnect()
     input.dispose()
-    for (const type of HUMAN_INPUT_EVENTS) host.removeEventListener(type, markHumanInput, true)
     offSize()
     phoneSize.release(paneId)
     offData()

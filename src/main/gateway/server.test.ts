@@ -364,7 +364,7 @@ describe('gateway server over a real WebSocket', () => {
     c.ws.send(binary(0x02, 'ls\r'))
     await c.call('whoami')
 
-    expect(deps.ptyWrite).toHaveBeenCalledWith('p1', 'ls\r')
+    expect(deps.ptyWrite).toHaveBeenCalledWith('p1', 'ls\r', 'key')
   })
 
   it('never applies a resize frame and answers resize-not-supported', async () => {

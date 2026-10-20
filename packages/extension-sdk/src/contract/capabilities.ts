@@ -22,6 +22,7 @@ export type Capability =
   | 'credentials'
   | 'language-server'
   | 'agent-plugin'
+  | 'agent-complete'
   | 'mcp'
   | 'read-bus'
   | 'file-contents'
@@ -60,6 +61,7 @@ export const ALL_CAPABILITIES: Capability[] = [
   'credentials',
   'language-server',
   'agent-plugin',
+  'agent-complete',
   'mcp',
   'read-bus',
   'file-contents',
@@ -111,6 +113,7 @@ export const CAPABILITY_ALLOWS: Record<Capability, string> = {
   credentials: 'use your saved passwords and your signed-in browser',
   'language-server': 'run language servers',
   'agent-plugin': 'manage agent plugins',
+  'agent-complete': 'send redacted text to the Agent model you set up and read its answer',
   mcp: 'call the MCP servers you set up',
   'read-bus': 'see which panes send each other bus messages, never what they say',
   'file-contents': 'read the files you expand in Files, to list and open what is inside them',

@@ -12,6 +12,7 @@ import type { AgentRunningPanes } from '../../agents/agentRunning'
 import { type ReportedAgentWork, backgroundWork, readProcessTable } from '../../agents/agentWork'
 import { getByPaneId } from '../../control/idRegistry'
 import type { OpenWaits } from '../../files/openWaits'
+import { humanInputSource } from '../../panes/paneInput'
 import type { PaneWaking } from '../../panes/paneWaking'
 import { wakeReason } from '../../panes/wakeReason'
 import type { KeptShells } from '../../tmux/keptShells'
@@ -145,10 +146,12 @@ function registerPtyControlIpc({
     else paneWaking.end(paneId, 'failed', wakeReason(reason))
   })
 
-  ipcMain.on('pty:write', (e, paneId: string, data: string, human: unknown) => {
+  ipcMain.on('pty:write', (e, paneId: string, data: string, source?: unknown) => {
     const entry = ptys.get(paneId)
     if (!entry?.session.canWrite(String(e.sender.id))) return
-    if (human === true) releasePty(paneId, entry)
+    const human = humanInputSource(source)
+    entry.input.note(data, human)
+    if (human !== null) releasePty(paneId, entry)
     entry.pty.write(data)
   })
   ipcMain.on('pty:resize', (e, paneId: string, cols: number, rows: number) => {

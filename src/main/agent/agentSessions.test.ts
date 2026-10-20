@@ -39,7 +39,12 @@ async function bridge(
   redact = async (t: string) => t as string | null,
   sandboxed = false,
 ) {
-  const state = { sandboxed }
+  const state = {
+    sandboxed,
+    rules: { text: '', count: 0 } as { text: string; count: number },
+    asked: [] as string[][],
+    throws: false,
+  }
   const rig = await startAgentRig(answer)
   rigs.push(rig)
   const sessions = new AgentSessions({
@@ -49,6 +54,11 @@ async function bridge(
     }),
     sandboxed: () => state.sandboxed,
     redact,
+    rulesContext: async (...asked) => {
+      state.asked.push(asked)
+      if (state.throws) throw new Error('hook failed')
+      return state.rules
+    },
   })
   const win = renderer()
   rig.listen((sessionId, event: AgentEvent) => sessions.event(true, { sessionId, event }))
@@ -62,6 +72,7 @@ async function bridge(
     sessionId: 's1',
     workspaceId: 'w1',
     cwd: rig.cwd,
+    rules: true,
     tools: [
       {
         name: 'read_file',
@@ -126,6 +137,116 @@ describe('AgentSessions', () => {
     expect(ctx.win.sent.filter((s) => s.channel === 'agent:tool-call')).toHaveLength(1)
     ctx.sessions.answerTool(ctx.win, call.callId, { ok: true, output: 'x' })
     await done
+  })
+
+  describe('rules at session start', () => {
+    const RULES = 'Rules the human approved.\n- Write no comments. [r1]'
+
+    it('puts the approved rules in the session’s system prompt and says how many', async () => {
+      const { rig, sessions, win, input, state } = await bridge(() => 'ok')
+      state.rules = { text: RULES, count: 1 }
+      expect(await sessions.open(win, input)).toMatchObject({ ok: true, rules: 1 })
+      expect(state.asked).toEqual([['w1', rig.cwd, 's1']])
+      const done = rig.settled()
+      await sessions.prompt(win, 's1', 'hi')
+      await done
+      expect(rig.provider.requests[0].system).toContain('- Write no comments. [r1]')
+    })
+
+    it('leaves them out, and does not even ask for them, when the human turned the chip off', async () => {
+      const { rig, sessions, win, input, state } = await bridge(() => 'ok')
+      state.rules = { text: RULES, count: 1 }
+      expect(await sessions.open(win, { ...input, rules: false })).toMatchObject({
+        ok: true,
+        rules: 0,
+      })
+      expect(state.asked).toEqual([])
+      const done = rig.settled()
+      await sessions.prompt(win, 's1', 'hi')
+      await done
+      expect(rig.provider.requests[0].system).not.toContain('Write no comments')
+    })
+
+    it('redacts them, and opens without them when the hook fails, the scan fails or nothing applies', async () => {
+      const redacting = await bridge(
+        () => 'ok',
+        async (t) => t.replace('Write no comments', '[redacted]'),
+      )
+      redacting.state.rules = { text: RULES, count: 1 }
+      await redacting.sessions.open(redacting.win, redacting.input)
+      const done = redacting.rig.settled()
+      await redacting.sessions.prompt(redacting.win, 's1', 'hi')
+      await done
+      expect(redacting.rig.provider.requests[0].system).toContain('- [redacted]. [r1]')
+
+      const failing = await bridge(() => 'ok')
+      failing.state.throws = true
+      expect(await failing.sessions.open(failing.win, failing.input)).toMatchObject({
+        ok: true,
+        rules: 0,
+      })
+
+      const scanFails = await bridge(
+        () => 'ok',
+        async (t) => (t === RULES ? null : t),
+      )
+      scanFails.state.rules = { text: RULES, count: 1 }
+      expect(await scanFails.sessions.open(scanFails.win, scanFails.input)).toMatchObject({
+        ok: true,
+        rules: 0,
+      })
+
+      const none = await bridge(() => 'ok')
+      none.state.rules = { text: RULES, count: 0 }
+      expect(await none.sessions.open(none.win, none.input)).toMatchObject({ ok: true, rules: 0 })
+    })
+  })
+
+  it('sends a one-shot completion redacted, never the original', async () => {
+    const { rig, sessions } = await bridge(
+      () => 'done',
+      async (text) => text.replaceAll('sk-SECRET', '[redacted]'),
+    )
+    const reply = await sessions.complete({ system: 'never use sk-SECRET', input: 'use sk-SECRET' })
+    expect(reply).toMatchObject({ ok: true, text: 'done' })
+    expect(rig.provider.requests.map((r) => [r.system, r.last])).toEqual([
+      ['never use [redacted]', 'use [redacted]'],
+    ])
+  })
+
+  it('sends nothing for a one-shot completion when the redaction fails, the input is not text or too long, or no model is set up', async () => {
+    const failing = await bridge(
+      () => 'done',
+      async () => null,
+    )
+    expect(await failing.sessions.complete({ system: 's', input: 'i' })).toEqual({
+      ok: false,
+      error: 'redaction-failed',
+    })
+    expect(failing.rig.provider.requests).toEqual([])
+    const { rig, sessions } = await bridge(() => 'done')
+    for (const params of [
+      null,
+      { system: 's' },
+      { system: '', input: 'i' },
+      { system: 's', input: 5 },
+      { system: 's', input: 'x'.repeat(60_001) },
+      { system: 's'.repeat(8001), input: 'i' },
+    ]) {
+      expect(await sessions.complete(params)).toEqual({ ok: false, error: 'invalid' })
+    }
+    expect(rig.provider.requests).toEqual([])
+    const none = new AgentSessions({
+      request: (request) => rig.handle(request),
+      settings: () => ({ providers: [] }),
+      sandboxed: () => false,
+      redact: async (t) => t,
+      rulesContext: async () => ({ text: '', count: 0 }),
+    })
+    expect(await none.complete({ system: 's', input: 'i' })).toEqual({
+      ok: false,
+      error: 'no-model',
+    })
   })
 
   it('sends the redacted prompt to the model, never the original', async () => {

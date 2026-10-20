@@ -29,12 +29,14 @@ import type { LanguageServers } from '../lsp/languageServers'
 import { registerLanguageServersIpc } from '../lsp/languageServersIpc'
 import type { ServerOverrides } from '../lsp/serverOverrides'
 import { listPanes } from '../panes/paneList'
+import type { ProcessRegistry } from '../panes/processRegistry'
 import { expandHome } from '../platform/pathGuard'
 import { readLocale, readSettingsFile, readSettingsFileOrNull } from '../platform/settingsFile'
 import type { Redactor } from '../privacy/redaction'
 import type { HostPaneGrants } from '../sandbox/hostPanes'
 import { sandboxSpawnEnv } from '../sandbox/spawnEnv'
 import type { WorkspaceSandboxes } from '../sandbox/workspaceSandboxes'
+import type { PtyEntry } from '../terminal/pty/ptyRegistry'
 import { setAgentPlugins } from '../terminal/shellIntegration'
 import type { WindowSend } from '../windows/windowSend'
 import type { ScratchFolders } from '../workspaces/scratchFolders'
@@ -143,6 +145,7 @@ interface ExtensionHostStartDeps {
     marketplaceInstallIds: () => string[]
     telemetry: Telemetry | null
     files: Pick<FileServices, 'kindsChanged'> | null
+    processes: Pick<ProcessRegistry, 'adoptChild'> | null
   }
   refreshAgentPlugins: () => void
   hostPaneGrants: HostPaneGrants
@@ -156,6 +159,7 @@ interface ExtensionHostStartDeps {
       })
     | undefined
   agentRunning: AgentRunningPanes
+  ptys: Map<string, PtyEntry>
   redactor: Redactor
   assistKeyStore: () => ExtensionSecretStore
   extensionSecretStore: () => ExtensionSecretStore
@@ -192,6 +196,7 @@ export function startExtensionHost({
   remoteCwdOfPane,
   extensionRemoteFolders,
   agentRunning,
+  ptys,
   redactor,
   assistKeyStore,
   extensionSecretStore,
@@ -249,6 +254,7 @@ export function startExtensionHost({
     remoteCwdForPane: remoteCwdOfPane,
     remoteFolders: extensionRemoteFolders,
     agentRunning: (paneId) => agentRunning.has(paneId),
+    claimHumanPrompt: (paneId, extId) => ptys.get(paneId)?.input.claimHumanPrompt(extId) ?? null,
     locale: readLocale,
     readExtensionSettings: () => readSettingsFile().extensionSettings,
     readAssistSettings: readSettingsFileOrNull,
@@ -267,6 +273,7 @@ export function startExtensionHost({
         req,
       ),
     openTerminalIn: openTerminalInWindow,
+    adoptPane: (ownerPaneId, paneId) => services.processes?.adoptChild(ownerPaneId, paneId),
     notify: (n) => postNotification(notifyDeps, n),
     confirm: (req) =>
       confirmForExtension(req, windows.values(), mainStrings().native.extensionConfirm),

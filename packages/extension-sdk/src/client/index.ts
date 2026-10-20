@@ -56,6 +56,8 @@ import { agentMethods, serviceMethods, windowMethods } from './extensionMethods'
 import { createHostHandlers, listenToHost } from './hostHandlers'
 import { type PhoneScreens, phoneScreenMethods } from './phoneScreens'
 import type {
+  AgentCompleteOptions,
+  AgentCompleteResult,
   AskOptions,
   AskResult,
   BusSendResult,
@@ -69,6 +71,8 @@ import type {
 } from './workApi'
 
 export type {
+  AgentCompleteOptions,
+  AgentCompleteResult,
   AskOptions,
   AskResult,
   BusSendResult,
@@ -320,6 +324,7 @@ export interface OstiaExtension {
   onAgent: (handler: AgentHandler) => void
   agentEvent: (sessionId: string, event: AgentEvent) => Promise<void>
   agentTool: (call: AgentToolCall, signal?: AbortSignal) => Promise<AgentToolReply>
+  agentComplete: (opts: AgentCompleteOptions, signal?: AbortSignal) => Promise<AgentCompleteResult>
   connections: () => Promise<ConnectionsResult>
   connection: (name: string) => Promise<ConnectionResult>
   onConnectionsChanged: (handler: () => void) => void

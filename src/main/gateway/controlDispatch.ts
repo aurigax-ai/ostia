@@ -1,7 +1,7 @@
 import type { Capability } from '@aurigax-ai/ostia-extension-sdk/contract/capabilities'
 import { plainBlock } from '../../shared/agents/questions'
 import type { CommandDescriptor, CommandResult, CommandTarget } from '../../shared/control/commands'
-import type { TerminalStateSnapshot } from '../../shared/terminal/ptyApi'
+import type { HumanInputSource, TerminalStateSnapshot } from '../../shared/terminal/ptyApi'
 import type { AgentStreams } from '../agents/agentStreams'
 import type { Ask, AskAnswerResult } from '../approvals/asks'
 import { internalPaneArgs } from '../control/commandArgs'
@@ -43,7 +43,7 @@ export interface GatewayControlDeps extends PhoneTurnDeps, PhoneSnippetDeps {
       sendSize: (cols: number, rows: number) => void
     },
   ) => PhoneObserver | null
-  ptyWrite: (rendererPaneId: string, data: string) => void
+  ptyWrite: (rendererPaneId: string, data: string, source?: HumanInputSource) => void
   readScreen: (rendererPaneId: string) => Promise<string>
   withClipboardImage: (bytes: Buffer, paste: () => Promise<boolean>) => Promise<boolean | null>
   listAsks: () => Ask[]
@@ -387,10 +387,10 @@ async function agentPrompt(call: GatewayCall): Promise<RpcOutcome> {
     if (!pasted) return notPasted(pane)
     if (!text) return { ok: true, result: { ok: true, image: 'pasted' } }
   }
-  deps.ptyWrite(pane.paneId, bracketedPaste(text))
+  deps.ptyWrite(pane.paneId, bracketedPaste(text), 'paste')
   await wait(AGENT_ENTER_DELAY_MS)
   if (!deps.agentRunning(pane.paneId)) return notSubmitted(pane)
-  deps.ptyWrite(pane.paneId, '\r')
+  deps.ptyWrite(pane.paneId, '\r', 'key')
   if (watched && !(await deps.turnStarted(pane))) return notSubmitted(pane)
   return { ok: true, result: { ok: true, ...(bytes ? { image: 'pasted' } : {}) } }
 }

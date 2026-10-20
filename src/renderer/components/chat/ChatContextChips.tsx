@@ -9,6 +9,7 @@ import {
   FileIcon,
   FolderSimpleIcon,
   type Icon,
+  ListChecksIcon,
   SelectionIcon,
   TagIcon,
   TextAlignLeftIcon,
@@ -37,6 +38,7 @@ interface ChatContextChipsProps {
   context: ChatContext
   attachments: ChatContextItem[]
   willRedact: number
+  rules?: { on: boolean; count: number; disabled: boolean; toggle: () => void }
 }
 
 export function ChatContextChips({
@@ -50,6 +52,7 @@ export function ChatContextChips({
   context,
   attachments,
   willRedact,
+  rules,
 }: ChatContextChipsProps): JSX.Element {
   const d = useDict()
   const labels = d.ask.context
@@ -68,6 +71,22 @@ export function ChatContextChips({
         }}
         onAttach={(item) => useChatStore.getState().attach(key, item)}
       />
+      {rules && (rules.count > 0 || !rules.on) ? (
+        <Button
+          type="button"
+          variant="ghost"
+          size="xs"
+          aria-pressed={rules.on}
+          disabled={rules.disabled}
+          title={rules.on ? d.agentPane.rulesOn : d.agentPane.rulesOff}
+          onClick={rules.toggle}
+          className="ask-chip"
+        >
+          <ListChecksIcon />
+          <span>{d.agentPane.rules}</span>
+          {rules.on ? <span className="font-mono text-ui-xs">{rules.count}</span> : null}
+        </Button>
+      ) : null}
       {available.length > 0 ? (
         <fieldset aria-label={d.ask.contextGroup} className="flex min-w-0 flex-wrap gap-1">
           {available.map((kind) => {

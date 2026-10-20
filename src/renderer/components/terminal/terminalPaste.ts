@@ -8,17 +8,18 @@ import {
 } from '@/lib/keyboard/clipboardKeys'
 import { pathsAsInput } from '@/lib/keyboard/dropPaths'
 import { planDraftPaste, planHumanPaste } from '@/lib/keyboard/pasteGate'
-import { markHumanInput } from '@/lib/terminal/humanInput'
+import { asHumanPaste } from '@/lib/terminal/humanInput'
 import type { OstiaTerminal } from '@/lib/terminal/ostiaTerminal'
 import { inputEditorFor } from '@/lib/terminal/terminalHandles'
 import { isMac } from '@/platform'
 import { useSettingsStore } from '@/stores/app/settingsStore'
+import type { HumanInputSource } from '@shared/terminal/ptyApi'
 import type { TerminalSession } from './terminalSession'
 
 interface TerminalPaste {
-  pasteConfirmed: (text: string) => void
+  pasteConfirmed: (text: string, reference?: boolean) => void
   pasteFromClipboard: (eventText?: string | null) => void
-  holdInput: (data: string) => boolean
+  holdInput: (data: string, source: HumanInputSource | undefined) => boolean
   dispose: () => void
 }
 
@@ -35,13 +36,11 @@ export function createTerminalPaste({
   session: TerminalSession
   setPendingPaste: (text: string | null) => void
 }): TerminalPaste {
-  const pasteConfirmed = (text: string): void => {
+  const pasteConfirmed = (text: string, reference = false): void => {
     const editor = inputEditorFor(paneId)
     if (editor) editor.type(text)
-    else {
-      markHumanInput()
-      term.paste(text)
-    }
+    else if (reference) term.paste(text)
+    else asHumanPaste(() => term.paste(text))
   }
   const planPaste = (text: string) =>
     planHumanPaste(text, useSettingsStore.getState().terminal.warnOnRiskyPaste)
@@ -57,7 +56,7 @@ export function createTerminalPaste({
     if (plan.confirm) setPendingPaste(plan.text)
     else if (plan.text) pasteConfirmed(plan.text)
   }
-  let heldInput: string[] | null = null
+  let heldInput: { data: string; source: HumanInputSource | undefined }[] | null = null
   let pasting: Promise<void> = Promise.resolve()
   const pastePlanned = async (eventText: string | null): Promise<void> => {
     const text =
@@ -77,11 +76,8 @@ export function createTerminalPaste({
     heldInput = null
     try {
       if (plan === 'text') requestPaste(text)
-      else if (plan === 'files') pasteConfirmed(pathsAsInput(contents.files))
-      else if (plan === 'program') {
-        markHumanInput()
-        term.input(PROGRAM_PASTE_KEY, true)
-      }
+      else if (plan === 'files') pasteConfirmed(pathsAsInput(contents.files), true)
+      else if (plan === 'program') term.input(PROGRAM_PASTE_KEY, true)
     } finally {
       heldInput = held
     }
@@ -95,7 +91,7 @@ export function createTerminalPaste({
       const held = heldInput ?? []
       heldInput = null
       if (session.disposed) return
-      for (const data of held) window.ostia.pty.write(paneId, data, true)
+      for (const { data, source } of held) window.ostia.pty.write(paneId, data, source)
     })
   }
   const interceptPaste = (e: ClipboardEvent): void => {
@@ -116,9 +112,9 @@ export function createTerminalPaste({
     requestPaste(text)
   }
   host.addEventListener('paste', interceptPaste, true)
-  const holdInput = (data: string): boolean => {
+  const holdInput = (data: string, source: HumanInputSource | undefined): boolean => {
     if (!heldInput) return false
-    heldInput.push(data)
+    heldInput.push({ data, source })
     return true
   }
   return {

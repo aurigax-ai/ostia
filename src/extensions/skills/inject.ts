@@ -19,7 +19,7 @@ function oneLine(text: string): string {
   return text.replace(/[\p{Cc}\p{Cf}\p{Zl}\p{Zp}\s]+/gu, ' ').trim()
 }
 
-function ruleLine(rule: Rule): string {
+export function ruleLine(rule: Rule): string {
   const when = oneLine(rule.when)
   return `- ${oneLine(rule.rule)}${when ? ` (when: ${when})` : ''} [${rule.id}]`
 }

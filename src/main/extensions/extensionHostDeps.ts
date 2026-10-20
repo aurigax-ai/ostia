@@ -40,6 +40,7 @@ export interface ExtensionHostDeps {
   openDiffIn?: (req: ExtensionOpenDiffRequest) => void
   openFileIn?: (req: ExtensionOpenFileRequest) => Promise<ExtensionResult>
   openTerminalIn?: (req: TerminalOpenRequest) => Promise<string | null>
+  adoptPane?: (ownerPaneId: string, paneId: string) => void
   notify: (n: { title: string; body?: string; from: string }) => void
   restartDelayMs?: number
   readyTimeoutMs?: number
@@ -77,6 +78,7 @@ export interface ExtensionHostDeps {
   agentTaskClock?: () => number
   remoteCwdForPane?: (paneId: string) => RemoteCwd | undefined
   agentRunning?: (paneId: string) => boolean
+  claimHumanPrompt?: (paneId: string, extId: string) => string | null
   screenLinks?: PhoneScreenLinks
   remoteFolders?: Pick<RemoteFoldersDeps, 'windowOfWorkspace' | 'refusal' | 'confirm'> & {
     publish: (folders: RemoteFolders) => void

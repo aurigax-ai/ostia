@@ -3,9 +3,11 @@ import { dirname, join } from 'node:path'
 import managerSkill from './skills/ostia-manager/SKILL.md?raw'
 import coreSkill from './skills/ostia/SKILL.md?raw'
 import browserReference from './skills/ostia/reference/browser.md?raw'
+import busReference from './skills/ostia/reference/bus.md?raw'
 import capabilitiesReference from './skills/ostia/reference/capabilities.md?raw'
 import gitReference from './skills/ostia/reference/git.md?raw'
 import graphsReference from './skills/ostia/reference/graphs.md?raw'
+import panesReference from './skills/ostia/reference/panes.md?raw'
 import previewsReference from './skills/ostia/reference/previews.md?raw'
 import reportsReference from './skills/ostia/reference/reports.md?raw'
 import sandboxReference from './skills/ostia/reference/sandbox.md?raw'
@@ -22,9 +24,11 @@ export interface BundledSkillFile {
 export const CORE_SKILL_FILES: readonly BundledSkillFile[] = [
   { path: 'SKILL.md', text: coreSkill },
   { path: 'reference/browser.md', text: browserReference },
+  { path: 'reference/bus.md', text: busReference },
   { path: 'reference/capabilities.md', text: capabilitiesReference },
   { path: 'reference/git.md', text: gitReference },
   { path: 'reference/graphs.md', text: graphsReference },
+  { path: 'reference/panes.md', text: panesReference },
   { path: 'reference/previews.md', text: previewsReference },
   { path: 'reference/reports.md', text: reportsReference },
   { path: 'reference/sandbox.md', text: sandboxReference },

@@ -597,3 +597,75 @@ describe('ExtensionHost — browse kinds', () => {
     expect(onBrowseKindsChanged).toHaveBeenCalledTimes(2)
   })
 })
+
+describe('ExtensionHost human prompt claim', () => {
+  const recorder = {
+    capabilities: ['agent-plugin'],
+    main: 'main.js',
+    contributes: {
+      commands: [
+        { id: 'on-prompt', title: 'Prompt', palette: false, stdin: true },
+        { id: 'on-start', title: 'Start', palette: false, stdin: true },
+      ],
+      agentHooks: [
+        { event: 'UserPromptSubmit', command: 'on-prompt' },
+        { event: 'SessionStart', command: 'on-start' },
+      ],
+    },
+  }
+
+  beforeEach(() => {
+    writeExt(join(base, 'user'), 'recorder', recorder)
+  })
+
+  function pane() {
+    return registerPane({ windowId: 'w1', workspaceId: 's1', paneId: 'p-prompt' })
+  }
+
+  it('marks the caller of an approved extension’s prompt hook while main attributes the line to the human', () => {
+    const claim = vi.fn().mockReturnValue('fix the cart')
+    const { host, deps } = makeHost({ claimHumanPrompt: claim })
+    deps.store.set('recorder', { enabled: true, approved: ['agent-plugin'] })
+    host.processes.approve('recorder')
+    const identity = pane()
+    const caller = host.paneCaller(identity, { extId: 'recorder', command: 'on-prompt' })
+    expect(caller.humanPrompt).toBe('fix the cart')
+    expect(claim).toHaveBeenCalledWith('p-prompt', 'recorder')
+  })
+
+  it('leaves the bit off, and unclaimed, for any other command, event or caller', () => {
+    const claim = vi.fn().mockReturnValue('fix the cart')
+    const { host, deps } = makeHost({ claimHumanPrompt: claim })
+    deps.store.set('recorder', { enabled: true, approved: ['agent-plugin'] })
+    host.processes.approve('recorder')
+    const identity = pane()
+    expect(
+      host.paneCaller(identity, { extId: 'recorder', command: 'on-start' }),
+    ).not.toHaveProperty('humanPrompt')
+    expect(host.paneCaller(identity, { extId: 'recorder', command: 'missing' })).not.toHaveProperty(
+      'humanPrompt',
+    )
+    expect(
+      host.paneCaller(identity, { extId: 'unknown', command: 'on-prompt' }),
+    ).not.toHaveProperty('humanPrompt')
+    expect(host.paneCaller(identity)).not.toHaveProperty('humanPrompt')
+    expect(host.userCaller('s1')).not.toHaveProperty('humanPrompt')
+    expect(claim).not.toHaveBeenCalled()
+  })
+
+  it('leaves the bit off before the human approves agent-plugin, and when main attributes nothing', () => {
+    const claim = vi.fn().mockReturnValue(false)
+    const { host, deps } = makeHost({ claimHumanPrompt: claim })
+    const identity = pane()
+    expect(
+      host.paneCaller(identity, { extId: 'recorder', command: 'on-prompt' }),
+    ).not.toHaveProperty('humanPrompt')
+    expect(claim).not.toHaveBeenCalled()
+    deps.store.set('recorder', { enabled: true, approved: ['agent-plugin'] })
+    host.processes.approve('recorder')
+    expect(
+      host.paneCaller(identity, { extId: 'recorder', command: 'on-prompt' }),
+    ).not.toHaveProperty('humanPrompt')
+    expect(claim).toHaveBeenCalledTimes(1)
+  })
+})

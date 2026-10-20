@@ -1164,8 +1164,8 @@ describe('dispatchGatewayMethod — asks and agent replies', () => {
       const res = await prompt(deps, pane.externalId, 'fix the\ntests\u0007')
       expect(res).toEqual({ ok: true, result: { ok: true } })
       expect(vi.mocked(deps.ptyWrite).mock.calls).toEqual([
-        ['p-agent', '\x1b[200~fix the\ntests\x1b[201~'],
-        ['p-agent', '\r'],
+        ['p-agent', '\x1b[200~fix the\ntests\x1b[201~', 'paste'],
+        ['p-agent', '\r', 'key'],
       ])
     })
 
@@ -1217,7 +1217,7 @@ describe('dispatchGatewayMethod — asks and agent replies', () => {
         message: 'not-submitted',
         data: { paneId: pane.externalId },
       })
-      expect(deps.ptyWrite).toHaveBeenLastCalledWith('p-agent-5', '\r')
+      expect(deps.ptyWrite).toHaveBeenLastCalledWith('p-agent-5', '\r', 'key')
     })
 
     it('agent.prompt does not wait for a turn from an agent it cannot watch', async () => {
@@ -1263,8 +1263,8 @@ describe('dispatchGatewayMethod — asks and agent replies', () => {
         expect(res).toEqual({ ok: true, result: { ok: true, image: 'pasted' } })
         expect(vi.mocked(deps.ptyWrite).mock.calls).toEqual([
           ['p-img-1', '\x16'],
-          ['p-img-1', '\x1b[200~what is this\x1b[201~'],
-          ['p-img-1', '\r'],
+          ['p-img-1', '\x1b[200~what is this\x1b[201~', 'paste'],
+          ['p-img-1', '\r', 'key'],
         ])
         expect(deps.withClipboardImage).toHaveBeenCalledWith(png, expect.any(Function))
       })

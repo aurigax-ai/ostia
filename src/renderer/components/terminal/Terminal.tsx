@@ -85,7 +85,7 @@ export function TerminalView(props: TerminalViewProps): JSX.Element {
 }
 
 function pathDropHandlers(
-  pasteRef: { current: (text: string) => void },
+  pasteRef: { current: (text: string, reference?: boolean) => void },
   termRef: { current: OstiaTerminal | null },
 ): Pick<HTMLAttributes<HTMLDivElement>, 'onDragOver' | 'onDrop'> {
   return {
@@ -99,7 +99,7 @@ function pathDropHandlers(
       e.preventDefault()
       const text = pathsAsInput(droppedPaths(e.dataTransfer))
       if (!text) return
-      pasteRef.current(text)
+      pasteRef.current(text, true)
       termRef.current?.focus()
     },
   }
@@ -156,7 +156,7 @@ function TerminalSurface({
   workspaceIdRef.current = workspaceId
   const font = useSettingsStore((s) => s.appearance.terminal)
   const palette = useScheme('terminal').colors
-  const pasteRef = useRef<(text: string) => void>(() => {})
+  const pasteRef = useRef<(text: string, reference?: boolean) => void>(() => {})
   const pasteClipboardRef = useRef<() => void>(() => {})
   const [pendingPaste, setPendingPaste] = useState<string | null>(null)
   const [search, setSearch] = useState<TerminalSearch | null>(null)
@@ -292,7 +292,7 @@ interface StartTerminalDeps {
   shownRef: { current: boolean }
   lastSizeRef: { current: { cols: number; rows: number } }
   syncSizeRef: { current: () => void }
-  pasteRef: { current: (text: string) => void }
+  pasteRef: { current: (text: string, reference?: boolean) => void }
   pasteClipboardRef: { current: () => void }
   dismissLinkHintRef: { current: () => void }
   findStepRef: { current: ((by: number) => void) | null }

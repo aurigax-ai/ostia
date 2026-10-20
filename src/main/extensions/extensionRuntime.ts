@@ -24,6 +24,11 @@ export interface LoadedExtension extends DiscoveredExtension {
   catalogs: LocaleCatalogs
 }
 
+export interface ServingCalls {
+  cli: number
+  user: number
+}
+
 export interface Runtime {
   ext: LoadedExtension
   proc: ChildProcess | null
@@ -43,6 +48,7 @@ export interface Runtime {
   reached: Set<string>
   opened: Set<string>
   callerWorkspaces: Set<string>
+  serving: Map<string, ServingCalls>
 }
 
 export interface AssistRuntimeReport {
@@ -131,5 +137,6 @@ export function newRuntime(ext: LoadedExtension): Runtime {
     reached: new Set(),
     opened: new Set(),
     callerWorkspaces: new Set(),
+    serving: new Map(),
   }
 }

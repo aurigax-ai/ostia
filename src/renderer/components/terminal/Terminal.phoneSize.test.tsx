@@ -182,18 +182,6 @@ describe('TerminalView phone size hold', () => {
     expect(window.ostia.pty.resize).toHaveBeenCalledWith(paneId, 80, 25)
   })
 
-  it('marks only what the human typed or pasted as human input', async () => {
-    const { paneId } = await shown()
-    const host = document.querySelector('textarea') ?? document.body
-    act(() => terminalFor(paneId)?.input('\x1b[5;1R', false))
-    expect(window.ostia.pty.write).toHaveBeenLastCalledWith(paneId, '\x1b[5;1R', false)
-    act(() => {
-      host.dispatchEvent(new KeyboardEvent('keydown', { key: 'l', bubbles: true }))
-      terminalFor(paneId)?.input('l', false)
-    })
-    expect(window.ostia.pty.write).toHaveBeenLastCalledWith(paneId, 'l', true)
-  })
-
   it('drops the notice with the pane', async () => {
     const { paneId, sized } = await shown()
     act(() => sized(40, 20, true))

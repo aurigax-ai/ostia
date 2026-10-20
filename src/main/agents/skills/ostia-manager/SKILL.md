@@ -14,7 +14,7 @@ The `ostia` CLI is not a shell function here; run it as:
 ELECTRON_RUN_AS_NODE=1 "$OSTIA_NODE" "$OSTIA_CLI" <noun> <verb> …
 ```
 
-Below, `ostia` stands for that command. `ostia docs` prints every other command; they all work
+Below, `ostia` stands for that command. `ostia docs skill` prints every other command; they all work
 across every workspace.
 
 ## See what runs

@@ -6,7 +6,7 @@ import { CORE_SKILL_FILES, MANAGER_SKILL_FILES } from '../agents/bundledSkills'
 import { docsText } from './docs'
 
 describe('ostia docs', () => {
-  it('prints the skill, a line per reference topic and the commands of the enabled extensions', () => {
+  it('prints a line per topic and the commands of the enabled extensions, not the skill', () => {
     const text = docsText(
       [
         {
@@ -26,7 +26,8 @@ describe('ostia docs', () => {
       ],
       false,
     )
-    expect(text).toContain(`==> SKILL.md <==\n\n${CORE_SKILL_FILES[0].text.trimEnd()}`)
+    expect(text).not.toContain(CORE_SKILL_FILES[0].text.trimEnd())
+    expect(text).toMatch(/^ {2}ostia docs skill +Ostia: environment and command map$/m)
     for (const file of CORE_SKILL_FILES.slice(1)) {
       const topic = file.path.replace(/^reference\/|\.md$/g, '')
       expect(text).toMatch(
@@ -42,10 +43,18 @@ describe('ostia docs', () => {
     expect(docsText([], true)).toContain(MANAGER_SKILL_FILES[0].text.trimEnd())
   })
 
+  it('prints the core skill for the skill topic', () => {
+    expect(docsText([], false, 'skill')).toBe(
+      `==> SKILL.md <==\n\n${CORE_SKILL_FILES[0].text.trimEnd()}`,
+    )
+  })
+
   it('prints one reference file for a topic and names the topics for an unknown one', () => {
     const git = CORE_SKILL_FILES.find((file) => file.path === 'reference/git.md')
     expect(docsText([], false, 'git')).toBe(`==> reference/git.md <==\n\n${git?.text.trimEnd()}`)
-    expect(() => docsText([], false, 'nope')).toThrow(/^unknown-topic: nope \(topics: browser, /)
+    expect(() => docsText([], false, 'nope')).toThrow(
+      /^unknown-topic: nope \(topics: skill, browser, /,
+    )
   })
 
   it('PRT-C32 lists the same libraries in the skill and ostia docs, by name, with no /runtime path', () => {

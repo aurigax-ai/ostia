@@ -1,3 +1,4 @@
+import type { HumanInputSource } from '../../../shared/terminal/ptyApi'
 import type { MirrorHandle, MirrorSink } from '../../manager/portal'
 import { type PaneIo, pastedText } from '../../panes/paneIo'
 import type { SubscriberRole } from '../ptySession'
@@ -29,6 +30,7 @@ export function createPtyIo({ ptys }: PtyIoDeps) {
     write: (paneId, data) => {
       const entry = ptys.get(paneId)
       if (!entry) return false
+      entry.input.note(data, null)
       const pasted = entry.kept ? pastedText(data) : null
       if (entry.kept && pasted !== null) entry.kept.paste(pasted)
       else entry.pty.write(data)
@@ -63,7 +65,9 @@ export function createPtyIo({ ptys }: PtyIoDeps) {
     )
     return {
       write: (data) => {
-        if (ptys.get(paneId) === entry) entry.pty.write(data)
+        if (ptys.get(paneId) !== entry) return
+        entry.input.note(data, null)
+        entry.pty.write(data)
       },
       resize: (cols, rows) => {
         if (ptys.get(paneId) === entry) resizeForAll(paneId, entry, cols, rows)
@@ -75,8 +79,15 @@ export function createPtyIo({ ptys }: PtyIoDeps) {
     }
   }
 
-  function ptyWrite(rendererPaneId: string, data: string): void {
-    ptys.get(rendererPaneId)?.pty.write(data)
+  function ptyWrite(
+    rendererPaneId: string,
+    data: string,
+    source: HumanInputSource | null = null,
+  ): void {
+    const entry = ptys.get(rendererPaneId)
+    if (!entry) return
+    entry.input.note(data, source)
+    entry.pty.write(data)
   }
 
   let gwSubSeq = 0

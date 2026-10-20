@@ -3,6 +3,7 @@ import type { AgentRunningPanes } from '../../agents/agentRunning'
 import type { ReportedAgentWork } from '../../agents/agentWork'
 import type { AppLog } from '../../diagnostics/appLog'
 import type { OpenWaits } from '../../files/openWaits'
+import { PaneInput } from '../../panes/paneInput'
 import type { PaneProcess } from '../../panes/paneProcess'
 import type { ProcessRegistry } from '../../panes/processRegistry'
 import type { PortBridge } from '../../sandbox/ports/portBridge'
@@ -31,6 +32,7 @@ export interface PtyEntry {
   session: PtySession
   flow: PtyFlowControl
   mirror: ScreenMirror
+  input: PaneInput
   subs: Map<string, Electron.WebContents>
   killTimer: ReturnType<typeof setTimeout> | null
   spawnPath: string
@@ -213,6 +215,7 @@ export function createPtyRegistry({
       session,
       flow,
       mirror: new ScreenMirror(opts.cols, opts.rows, feed ?? null),
+      input: new PaneInput(Date.now),
       subs: opts.subs,
       killTimer: null,
       spawnPath: opts.spawnPath,

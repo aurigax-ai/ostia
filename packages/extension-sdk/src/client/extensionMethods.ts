@@ -19,6 +19,7 @@ import type { HostHandlers } from './hostHandlers'
 import type { OpenFolderResult, OpenTerminalResult, OstiaExtension } from './index'
 import { errorMessage, failure } from './results'
 import {
+  type AgentCompleteResult,
   type AskResult,
   type BusSendResult,
   type ConnectionResult,
@@ -228,6 +229,7 @@ export function serviceMethods(
   | 'onAgent'
   | 'agentEvent'
   | 'agentTool'
+  | 'agentComplete'
   | 'connections'
   | 'connection'
   | 'onConnectionsChanged'
@@ -271,6 +273,13 @@ export function serviceMethods(
         conn
           .sendRequest<AgentToolReply>('ext.agentTool', call, token)
           .catch((err): AgentToolReply => ({ ok: false, error: errorMessage(err) })),
+      ),
+    agentComplete: (opts, signal) =>
+      withCancel(signal, (token) =>
+        sentRpc(
+          conn.sendRequest<AgentCompleteResult>('ext.agentComplete', opts, token),
+          'agent-complete-failed',
+        ),
       ),
     mcpServers: () =>
       sentRpc(conn.sendRequest<McpServersResult>('ext.mcpServers'), 'mcp-servers-failed'),
