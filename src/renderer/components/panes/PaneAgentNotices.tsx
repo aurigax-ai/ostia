@@ -4,7 +4,6 @@ import { useBlocksStore } from '@/stores/terminal/blocksStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { PhoneSizeNotice } from './PhoneSizeNotice'
 import { ResumeConflictNotice } from './ResumeFolderNotice'
-import { SharedWorktreeNotice } from './SharedWorktreeNotice'
 
 export function PaneAgentNotices({ pane }: { pane: PaneNode }): JSX.Element {
   useBlocksStore((s) => s.running)
@@ -13,11 +12,7 @@ export function PaneAgentNotices({ pane }: { pane: PaneNode }): JSX.Element {
   return (
     <div className="absolute right-0 bottom-0 left-0 z-20 flex flex-col [&>section]:static">
       <PhoneSizeNotice paneId={pane.id} />
-      {resumeConflict(pane) ? (
-        <ResumeConflictNotice pane={pane} />
-      ) : (
-        <SharedWorktreeNotice pane={pane} />
-      )}
+      {resumeConflict(pane) ? <ResumeConflictNotice pane={pane} /> : null}
     </div>
   )
 }

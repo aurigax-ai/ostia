@@ -1,10 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { PaneIdentity } from '../control/idRegistry'
 import type { PaneEntry } from './paneList'
-
-vi.mock('electron', () => ({ ipcMain: { handle: vi.fn() } }))
-
-const { WorktreeShare } = await import('./worktreeShare')
+import { WorktreeShare } from './worktreeShare'
 
 const entries = new Map<string, Partial<PaneEntry>>()
 const keyOf = vi.fn(async (cwd: string): Promise<string | undefined> => {
@@ -12,7 +9,6 @@ const keyOf = vi.fn(async (cwd: string): Promise<string | undefined> => {
   if (cwd.startsWith('/wt')) return '/wt\0/repo/.git/worktrees/wt'
   return undefined
 })
-const published: Record<string, string[]>[] = []
 const remote = new Set<string>()
 
 const share = new WorktreeShare({
@@ -35,24 +31,21 @@ const share = new WorktreeShare({
       ? ({ kind: 'pane', externalId, paneId: `p-${externalId}` } as PaneIdentity)
       : undefined,
   remote: (paneId) => remote.has(paneId),
-  publish: (map) => void published.push(map),
 })
 
 const agent = (cwd: string, over: Partial<PaneEntry> = {}) => ({ agent: 'claude', cwd, ...over })
 
 beforeEach(() => {
   entries.clear()
-  published.length = 0
   remote.clear()
   keyOf.mockClear()
 })
 
 describe('WorktreeShare', () => {
-  it('pairs two running agents in the same worktree, by pane id, and publishes it', async () => {
+  it('pairs two running agents in the same worktree', async () => {
     entries.set('x-a', agent('/repo/src'))
     entries.set('x-b', agent('/repo'))
     await share.check()
-    expect(published).toEqual([{ 'p-x-a': ['p-x-b'], 'p-x-b': ['p-x-a'] }])
     expect(share.others('x-a')).toEqual(['x-b'])
     expect(share.others('x-b')).toEqual(['x-a'])
   })
@@ -61,7 +54,6 @@ describe('WorktreeShare', () => {
     entries.set('x-a', agent('/repo'))
     entries.set('x-b', agent('/wt'))
     await share.check()
-    expect(published.at(-1)).toEqual({})
     expect(share.others('x-a')).toEqual([])
   })
 
@@ -92,23 +84,19 @@ describe('WorktreeShare', () => {
     expect(keyOf).toHaveBeenCalledTimes(4)
   })
 
-  it('publishes only when the pairing changed, and clears it when an agent leaves', async () => {
+  it('clears the pairing when an agent leaves', async () => {
     entries.set('x-a', agent('/repo'))
     entries.set('x-b', agent('/repo'))
     await share.check()
-    await share.check()
-    expect(published).toHaveLength(1)
     entries.delete('x-b')
     await share.check()
-    expect(published).toHaveLength(2)
-    expect(published.at(-1)).toEqual({})
+    expect(share.others('x-a')).toEqual([])
   })
 
   it('pairs three agents with each of the others', async () => {
     for (const id of ['x-a', 'x-b', 'x-c']) entries.set(id, agent('/repo'))
     await share.check()
     expect(share.others('x-a')).toEqual(['x-b', 'x-c'])
-    expect(share.current()['p-x-c']).toEqual(['p-x-a', 'p-x-b'])
   })
 
   it('waits out a burst of changes and checks once', async () => {
@@ -120,7 +108,7 @@ describe('WorktreeShare', () => {
       share.schedule()
       share.schedule()
       await vi.advanceTimersByTimeAsync(500)
-      expect(published).toHaveLength(1)
+      expect(share.others('x-a')).toEqual(['x-b'])
     } finally {
       vi.useRealTimers()
     }

@@ -263,9 +263,6 @@ export const workspacesEn = {
     sandboxRestart: 'Restart to apply',
     sandboxRestartHint: 'The sandbox setting changed. Restart this shell to apply it.',
     searchTabs: 'Search tabs',
-    sharedWorktree:
-      'Shares this git worktree with {panes}. Edits can collide; nothing is resolved for you.',
-    sharedWorktreeLabel: 'Shared git worktree',
     splitDown: 'Split down',
     splitRight: 'Split right',
     splitTab: 'Split tab, {layout}: {panes}',
