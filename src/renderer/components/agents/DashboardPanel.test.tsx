@@ -2,6 +2,7 @@ import { createPane } from '@/lib/layout/tree'
 import { registerTerminal } from '@/lib/terminal/terminalHandles'
 import { useApprovalsStore } from '@/stores/agents/approvalsStore'
 import { useAttentionStore } from '@/stores/agents/attentionStore'
+import { useHiddenPromptsStore } from '@/stores/agents/hiddenPromptsStore'
 import { SENT_LINGER_MS, useQuestionsStore } from '@/stores/agents/questionsStore'
 import { useUIStore } from '@/stores/app/uiStore'
 import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
@@ -20,7 +21,7 @@ import userEvent from '@testing-library/user-event'
 import type { Terminal } from '@xterm/xterm'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { DashboardPanel } from './DashboardPanel'
-import { QuestionNotice } from './QuestionNotice'
+import { QuestionPrompt } from './QuestionCard'
 
 const git: ExtensionInfo = {
   id: 'vcs',
@@ -457,19 +458,22 @@ describe('DashboardPanel', () => {
       at: 20,
     }
     act(() => useQuestionsStore.getState().apply({ pending: [deploy] }))
-    render(<QuestionNotice question={deploy} />)
+    render(<QuestionPrompt question={deploy} />)
     const notice = screen.getByRole('region', { name: 'Agent asks' })
     expect(notice).toHaveTextContent('Continue with the deploy?')
-    await user.click(within(notice).getByRole('button', { name: 'Answer' }))
-    const next = screen.getByRole('article', { name: /^Question from/ })
-    expect(next).toHaveTextContent('Continue with the deploy?')
-    expect(within(next).getByLabelText('Reply')).toHaveFocus()
-    await user.click(within(next).getByRole('button', { name: 'Dismiss' }))
-    expect(window.ostia.questions.dismiss).toHaveBeenCalledWith('q2')
-    act(() => useQuestionsStore.getState().apply({ pending: [] }))
-    expect(screen.queryByRole('article')).toBeNull()
-    await user.click(screen.getByRole('button', { name: 'Close dashboard' }))
-    expect(screen.queryByRole('region', { name: 'Dashboard' })).toBeNull()
+    await user.type(within(notice).getByLabelText('Reply'), 'yes')
+    await user.click(within(notice).getByRole('button', { name: 'Send' }))
+    expect(window.ostia.questions.answer).toHaveBeenLastCalledWith('q2', {
+      choices: [],
+      text: 'yes',
+    })
+    await user.click(
+      within(notice).getByRole('button', {
+        name: 'Decide later. The question waits in the dashboard.',
+      }),
+    )
+    expect(useHiddenPromptsStore.getState().hidden['question:q2']).toBe(true)
+    expect(window.ostia.questions.dismiss).not.toHaveBeenCalled()
   })
 
   it('ostia ask takes a free-text reply and several choices with a comment', async () => {

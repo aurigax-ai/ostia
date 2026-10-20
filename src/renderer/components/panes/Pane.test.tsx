@@ -98,7 +98,7 @@ describe('Pane', () => {
     expect(frame).not.toHaveClass('dimmed')
   })
 
-  it('shows an open question on its pane and opens the dashboard at it', async () => {
+  it('shows an open question on its pane and answers it there', async () => {
     useQuestionsStore.setState({
       pending: [
         {
@@ -116,9 +116,14 @@ describe('Pane', () => {
       render(<Pane tabs={[pane]} shownId={pane.id} activePaneId={pane.id} workspaceId="w" />)
       const notice = screen.getByRole('region', { name: 'Agent asks' })
       expect(notice).toHaveTextContent('Which database?')
-      await userEvent.setup().click(within(notice).getByRole('button', { name: 'Answer' }))
-      expect(useUIStore.getState().dashboardActive).toBe(true)
-      expect(useQuestionsStore.getState().focusId).toBe('question-4')
+      const user = userEvent.setup()
+      await user.type(within(notice).getByLabelText('Reply'), 'Postgres')
+      await user.click(within(notice).getByRole('button', { name: 'Send' }))
+      expect(window.ostia.questions.answer).toHaveBeenCalledWith('question-4', {
+        choices: [],
+        text: 'Postgres',
+      })
+      expect(useUIStore.getState().dashboardActive).toBe(false)
     } finally {
       act(() => {
         useQuestionsStore.setState({ pending: [], focusId: null })

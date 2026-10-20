@@ -183,7 +183,6 @@ function NeedsYouCard({
     <ApprovalCard
       request={item.approval}
       paneTitle={where?.pane ?? d.attention.closedPane}
-      placement="list"
       lead={
         where ? (
           <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5 text-fg-muted text-ui-xs">

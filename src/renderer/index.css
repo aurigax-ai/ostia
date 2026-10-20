@@ -1987,6 +1987,11 @@
   inset: 0;
 }
 
+.pane-body-term[data-status] > .pane-slot,
+.pane-cell[data-status] > .pane-slot {
+  top: 2rem;
+}
+
 .pane-split-tab {
   --split-tab-lead: 36px;
   flex-basis: calc(var(--split-segments) * var(--tab-max-w) + var(--split-tab-lead));
