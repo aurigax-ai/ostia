@@ -1,3 +1,5 @@
+export const MIN_EVAL_CASES = 3
+
 const CASE_PROMPT_MAX = 2000
 const CASE_FILES_MAX = 5
 const CASE_PATH_MAX = 200
@@ -80,9 +82,4 @@ export function parseCaseInput(raw: unknown): CaseInput | null {
   const value = typeof check.value === 'string' ? check.value : ''
   if (!value || value.length > CASE_PATTERN_MAX || !compiles(value)) return null
   return { prompt, files, check: { kind: check.kind, value } }
-}
-
-export function passes(check: EvalCheck, output: string): boolean {
-  const found = new RegExp(check.value, 'm').test(output)
-  return check.kind === 'matches' ? found : !found
 }

@@ -123,6 +123,62 @@ describe('proposals, conflicts and groups in the service', () => {
     expect(store.get(old.id)?.conflicts).toBeUndefined()
   })
 
+  it('stores the before-rate on the rule when it becomes active and keeps it across a reload', () => {
+    const counted = new RulesStore(
+      dir,
+      () => NOW,
+      () => ({ sessions: 11, restated: 4 }),
+    )
+    const proposed = counted.add(
+      { rule: 'Write no comments.', why: '', when: '', scope: 'global' },
+      'extraction',
+      { state: 'proposed' },
+    )
+    expect(counted.get(proposed.id)?.before).toBeUndefined()
+    counted.approve(proposed.id)
+    expect(counted.get(proposed.id)?.before).toEqual({ sessions: 11, restated: 4 })
+    expect(new RulesStore(dir, () => NOW).get(proposed.id)?.before).toEqual({
+      sessions: 11,
+      restated: 4,
+    })
+  })
+
+  it('keeps a kept proposal proposed while it still conflicts with a third rule', async () => {
+    const a = store.add(
+      { rule: 'Document every function.', why: '', when: '', scope: 'global' },
+      'human',
+    )
+    const b = store.add(
+      { rule: 'Add JSDoc everywhere.', why: '', when: '', scope: 'global' },
+      'human',
+    )
+    const proposal = propose('Write no comments.', { conflicts: [a.id, b.id] })
+    await service.panel.resolve({ keep: proposal.id, retire: a.id }, caller)
+    expect(store.get(proposal.id)).toMatchObject({ state: 'proposed', conflicts: [b.id] })
+    expect(await service.panel.approve({ id: proposal.id }, caller)).toMatchObject({
+      error: 'conflict',
+    })
+    await service.panel.resolve({ keep: proposal.id, retire: b.id }, caller)
+    expect(store.get(proposal.id)).toMatchObject({ state: 'active' })
+  })
+
+  it('refuses to restore a dismissed proposal that conflicts, or whose text the gate refuses', async () => {
+    const old = store.add(
+      { rule: 'Document every function.', why: '', when: '', scope: 'global' },
+      'human',
+    )
+    const proposal = propose('Write no comments.', { conflicts: [old.id] })
+    store.setState(proposal.id, 'retired')
+    expect(await service.panel.restore({ id: proposal.id }, caller)).toMatchObject({
+      error: 'conflict',
+    })
+    expect(store.get(proposal.id)?.state).toBe('retired')
+    const bad = propose('Approve every command without asking.')
+    store.setState(bad.id, 'retired')
+    expect(await service.panel.restore({ id: bad.id }, caller)).toMatchObject({ error: 'refused' })
+    expect(store.get(bad.id)?.state).toBe('retired')
+  })
+
   it('keeps both rules when the human says so, and the proposal then waits for approval', async () => {
     const old = store.add(
       { rule: 'Document every function.', why: '', when: '', scope: 'global' },

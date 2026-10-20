@@ -7,7 +7,7 @@ import {
   ok,
 } from '@aurigax-ai/ostia-extension-sdk'
 import type { AppliedStore } from './appliedStore'
-import { CASES_PER_RULE_MAX, parseCaseInput } from './evalCase'
+import { CASES_PER_RULE_MAX, MIN_EVAL_CASES, parseCaseInput } from './evalCase'
 import { DRAFT_SYSTEM, draftInput, parseDrafts } from './evalDraft'
 import { PAIRS_PER_CASE, runEval } from './evalRunner'
 import type { EvalStore } from './evalStore'
@@ -116,20 +116,24 @@ export function skillsService(deps: SkillsDeps): {
     if (!dir) return ok()
     const where = await scopeOf(dir)
     const rules = store.list()
-    const first = buildInjection(rules, where)
+    const session = sessionOf(args)
+    const prior = session ? deps.applied.list().find((a) => a.session === session) : undefined
     const random = deps.random ?? Math.random
-    const held = deps.holdout()
-      ? first.included.filter(() => random() < HOLDOUT_SHARE).map((r) => r.id)
-      : []
+    const held = prior
+      ? prior.held
+      : deps.holdout()
+        ? buildInjection(rules, where)
+            .included.filter(() => random() < HOLDOUT_SHARE)
+            .map((r) => r.id)
+        : []
     const given =
       held.length > 0
         ? buildInjection(
             rules.filter((r) => !held.includes(r.id)),
             where,
           )
-        : first
-    const session = sessionOf(args)
-    if (session && (given.included.length > 0 || held.length > 0)) {
+        : buildInjection(rules, where)
+    if (session && !prior && (given.included.length > 0 || held.length > 0)) {
       deps.applied.add({
         at: deps.now(),
         session,
@@ -189,7 +193,26 @@ export function skillsService(deps: SkillsDeps): {
     const blocked = unreadable()
     if (blocked) return blocked
     const a = namedArgs(args)
+    const keep = store.get(textOf(a.keep))
+    const others = (keep?.conflicts ?? []).filter((id) => id !== textOf(a.retire))
+    if (keep?.state === 'proposed' && others.length === 0) {
+      const refused = refusal(await check(keep))
+      if (refused) return refused
+    }
     if (!store.resolve(textOf(a.keep), textOf(a.retire))) return failure('not-found')
+    changed()
+    return ok()
+  }
+
+  const restore: SkillsCommand = async (args) => {
+    const blocked = unreadable()
+    if (blocked) return blocked
+    const rule = store.get(textOf(namedArgs(args).id))
+    if (!rule) return failure('not-found')
+    if ((rule.conflicts?.length ?? 0) > 0) return failure('conflict')
+    const refused = refusal(await check(rule))
+    if (refused) return refused
+    store.setState(rule.id, 'active')
     changed()
     return ok()
   }
@@ -362,7 +385,7 @@ export function skillsService(deps: SkillsDeps): {
     if (rule?.state !== 'active') return failure('not-found')
     if (running) return failure('busy')
     const cases = deps.evals.listCases().filter((c) => c.rule === rule.id && c.accepted)
-    if (cases.length === 0) return failure('no-cases')
+    if (cases.length < MIN_EVAL_CASES) return failure('few-cases')
     running = { rule: rule.id, done: 0, total: cases.length * PAIRS_PER_CASE * 2 }
     stopped = false
     failedRun = null
@@ -401,7 +424,7 @@ export function skillsService(deps: SkillsDeps): {
       snapshot,
       save,
       retire: byId((id) => store.setState(id, 'retired')),
-      restore: byId((id) => store.setState(id, 'active')),
+      restore,
       approve,
       resolve,
       'keep-both': keepBoth,

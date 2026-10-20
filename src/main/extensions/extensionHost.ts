@@ -512,12 +512,9 @@ export class ExtensionHost {
     if (this.deps.isSandboxed(identity.workspaceId)) caller.sandboxed = true
     if (identity.manager) caller.manager = true
     if (this.deps.agentRunning?.(identity.paneId)) caller.agentRunning = true
-    if (
-      hook &&
-      this.runs.declaresHook(hook.extId, hook.command, 'UserPromptSubmit') &&
-      this.deps.claimHumanPrompt?.(identity.paneId, hook.extId)
-    ) {
-      caller.humanPrompt = true
+    if (hook && this.runs.declaresHook(hook.extId, hook.command, 'UserPromptSubmit')) {
+      const typed = this.deps.claimHumanPrompt?.(identity.paneId, hook.extId)
+      if (typed) caller.humanPrompt = typed
     }
     const remote = this.deps.remoteCwdForPane?.(identity.paneId)
     if (remote) caller.remote = remote

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { type EvalCase, parseCaseInput, passes } from './evalCase'
+import { type EvalCase, parseCaseInput } from './evalCase'
+import { passes } from './evalCheck'
 import { EVAL_SYSTEM, PAIRS_PER_CASE, evalInput, evalSystem, runEval } from './evalRunner'
 import type { Rule } from './rule'
 import { seeded } from './testRandom'
@@ -43,6 +44,8 @@ describe('the eval prompts', () => {
   })
 })
 
+const three = [aCase(), aCase({ id: 'c2' }), aCase({ id: 'c3' })]
+
 describe('runEval', () => {
   const deps = (reply: (system: string) => string, extra: object = {}) => {
     const sent: { system: string; input: string }[] = []
@@ -70,41 +73,50 @@ describe('runEval', () => {
     const { deps: d, sent } = deps((system) =>
       system.includes('[r1]') ? 'const a = 1' : 'const a = 1 // one',
     )
-    const outcome = await runEval(rule, [aCase(), aCase({ id: 'c2' })], d)
+    const outcome = await runEval(rule, three, d)
     expect(outcome.ok).toBe(true)
     if (!outcome.ok) return
     expect(outcome.run).toMatchObject({
       rule: 'r1',
-      pairs: 2 * PAIRS_PER_CASE,
-      withPass: 10,
+      pairs: 3 * PAIRS_PER_CASE,
+      withPass: 15,
       withoutPass: 0,
-      calls: 20,
+      calls: 30,
       verdict: 'helps',
     })
     expect(outcome.run.low).toBeGreaterThan(0)
-    expect(sent.filter((s) => s.system.includes('[r1]'))).toHaveLength(10)
+    expect(sent.filter((s) => s.system.includes('[r1]'))).toHaveLength(15)
   })
 
   it('says no clear effect when both arms answer alike', async () => {
     const { deps: d } = deps(() => 'const a = 1')
-    const outcome = await runEval(rule, [aCase()], d)
+    const outcome = await runEval(rule, three, d)
     expect(outcome.ok && outcome.run).toMatchObject({
-      withPass: 5,
-      withoutPass: 5,
+      withPass: 15,
+      withoutPass: 15,
       verdict: 'no-clear-effect',
     })
   })
 
   it('says hurts when the rule makes the answer fail the check', async () => {
     const { deps: d } = deps((system) => (system.includes('[r1]') ? 'a // b' : 'a'))
-    const outcome = await runEval(rule, [aCase(), aCase({ id: 'c2' })], d)
+    const outcome = await runEval(rule, three, d)
     expect(outcome.ok && outcome.run.verdict).toBe('hurts')
+  })
+
+  it('gives no verdict from fewer than three cases', async () => {
+    const { deps: d, sent } = deps(() => 'x')
+    expect(await runEval(rule, [aCase(), aCase({ id: 'c2' })], d)).toEqual({
+      ok: false,
+      error: 'few-cases',
+    })
+    expect(sent).toEqual([])
   })
 
   it('reports each call as progress and stops at the first failure, with nothing stored', async () => {
     const progress: [number, number][] = []
     let calls = 0
-    const outcome = await runEval(rule, [aCase()], {
+    const outcome = await runEval(rule, three, {
       ...deps(() => 'x').deps,
       complete: async () =>
         ++calls === 3 ? { ok: false, error: 'no-model' } : { ok: true, text: 'x' },
@@ -112,16 +124,16 @@ describe('runEval', () => {
     })
     expect(outcome).toEqual({ ok: false, error: 'no-model' })
     expect(progress).toEqual([
-      [1, 10],
-      [2, 10],
-      [3, 10],
+      [1, 30],
+      [2, 30],
+      [3, 30],
     ])
   })
 
   it('stops when cancelled, before the next call', async () => {
     let cancelled = false
     const { deps: d, sent } = deps(() => 'x')
-    const outcome = await runEval(rule, [aCase()], {
+    const outcome = await runEval(rule, three, {
       ...d,
       cancelled: () => cancelled,
       progress: (done) => {
@@ -133,7 +145,7 @@ describe('runEval', () => {
   })
 
   it('treats a thrown call as a failure', async () => {
-    const outcome = await runEval(rule, [aCase()], {
+    const outcome = await runEval(rule, three, {
       ...deps(() => 'x').deps,
       complete: async () => {
         throw new Error('down')

@@ -21,15 +21,16 @@ const CAPABILITY_WORDS = [
   /consent/,
   /authori[sz]/,
   /sandbox/,
-  /\bhooks?\b/,
+  /\b(?:agent|git|pre-?commit|claude|codex|session|prompt|tool)\W+hooks?\b|\b(?:disable|remove|change|edit|skip|bypass|override)\W+(?:the |my |all |those )?hooks?\b/,
   /capabilit/,
   /bypass/,
   /safety|safeguard|guardrail/,
-  /\b(?:never|don'?t|do not|stop|without|no need to|not need to|instead of|rather than)\W+(?:\w+\W+){0,2}?ask/,
+  /\b(?:never|don'?t|do not|stop|without|skip|avoid|no|omit|drop|no need to|not need to|instead of|rather than|unnecessary|needless)\W+(?:\w+\W+){0,3}?ask(?:s|ed|ing)?\b/,
+  /\bask(?:s|ed|ing)?\b\W+(?:\w+\W+){0,3}?(?:unnecessary|needless|not needed|not necessary|optional|pointless)/,
+  /\b(?:don'?t|do not|never|no need to|stop)\W+(?:wait|waiting|pause|pausing)\b/,
   /(?:^|\s)--?[a-z][\w-]*/,
   /dont-?ask|danger-?full|full-?access|no-?verify|bypasspermissions|skip-?permissions/,
-  /\bwithout\W+(?:\w+\W+){0,2}?(?:review|pausing|stopping|waiting|checking|approval|confirm)/,
-  /\b(?:go-?ahead|do not wait|don'?t wait|no need to wait)\b/,
+  /\bgo[- ]?ahead\b/,
   /\bsettings?\b/,
   /\.(?:claude|codex|ostia)\b|settings\.json|config\.toml/,
   /--dangerously|\bdangerous/,
@@ -38,6 +39,14 @@ const CAPABILITY_WORDS = [
   /\b(?:any|every|all|arbitrary) (?:(?:shell|bash) )?(?:commands?|tools?)\b/,
   /\b(?:disable|turn off|skip|override|ignore|circumvent|disregard|evade|suppress)\b(?:\W+\w+){0,4}?\W+(?:checks?|security|restrictions?|limits?|prompts?|warnings?|protections?|polic(?:y|ies)|instructions?|rules?|guards?)\b/,
 ]
+
+const DROPPED_CHECK =
+  /\bwithout\W+(?:\w+\W+){0,2}?(?:review|pausing|stopping|waiting|checking|asking)\b/g
+const NEGATED = /\b(?:never|not|don'?t|do not)\b(?:\W+\w+){0,3}\W*$/
+
+function dropsACheck(text: string): boolean {
+  return [...text.matchAll(DROPPED_CHECK)].some((m) => !NEGATED.test(text.slice(0, m.index)))
+}
 
 const ABOUT_OSTIA = [
   /\bostia\b/,
@@ -61,6 +70,7 @@ function folded(text: string): string {
   return text
     .normalize('NFKC')
     .replace(/\p{Cf}/gu, '')
+    .replace(/[\u2018\u2019]/g, "'")
     .toLowerCase()
 }
 
@@ -85,7 +95,8 @@ export function shapeGate(draft: RuleDraft, opts: { secret: boolean }): ShapePro
   if (fields.some((f) => MIXED_SCRIPT.test(f))) problems.add('confusable')
   if (seen.some((f) => URL.test(f))) problems.add('url')
   if (fields.some((f) => /OSTIA_[A-Z0-9_]*/i.test(folded(f)))) problems.add('ostia-name')
-  if (seen.some((f) => CAPABILITY_WORDS.some((re) => re.test(f)))) problems.add('capability')
+  if (seen.some((f) => dropsACheck(f) || CAPABILITY_WORDS.some((re) => re.test(f))))
+    problems.add('capability')
   if (seen.some((f) => ABOUT_OSTIA.some((re) => re.test(f)))) problems.add('about-ostia')
   if (NUMBERED.test(rule) || sentenceCount(rule) > 1) problems.add('steps')
   if (COMMAND_START.test(rule) || /^`[^`]+`$/.test(rule)) problems.add('command')

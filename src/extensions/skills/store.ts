@@ -29,6 +29,7 @@ export class RulesStore {
   constructor(
     dir: string | null,
     private readonly now: () => number,
+    private readonly beforeOf: (rule: Rule) => Rule['before'] = () => undefined,
   ) {
     this.file = dir ? join(dir, RULES_FILE) : null
     if (this.file && existsSync(this.file)) {
@@ -101,10 +102,10 @@ export class RulesStore {
       state: extras.state ?? 'active',
       origin,
       createdAt: this.now(),
-      ...((extras.state ?? 'active') === 'active' ? { approvedAt: this.now() } : {}),
       ...(extras.evidence?.length ? { evidence: [...extras.evidence] } : {}),
     }
     this.next += 1
+    if (rule.state === 'active') this.stamp(rule)
     this.rules.push(rule)
     for (const other of extras.conflicts ?? []) this.link(rule.id, other)
     this.save()
@@ -123,7 +124,7 @@ export class RulesStore {
     const rule = this.get(id)
     if (rule?.state !== 'proposed') return false
     rule.state = 'active'
-    rule.approvedAt = this.now()
+    this.stamp(rule)
     this.save()
     return true
   }
@@ -133,13 +134,18 @@ export class RulesStore {
     const gone = this.get(retire)
     if (!kept || !gone || keep === retire) return false
     gone.state = 'retired'
-    if (kept.state === 'proposed') {
-      kept.state = 'active'
-      kept.approvedAt = this.now()
-    }
     this.unlink(keep, retire)
+    if (kept.state === 'proposed' && !kept.conflicts?.length) {
+      kept.state = 'active'
+      this.stamp(kept)
+    }
     this.save()
     return true
+  }
+
+  private stamp(rule: Rule): void {
+    rule.approvedAt = this.now()
+    rule.before = this.beforeOf(rule)
   }
 
   keepBoth(id: string): boolean {
@@ -185,8 +191,10 @@ export class RulesStore {
   setState(id: string, state: Rule['state']): boolean {
     const rule = this.get(id)
     if (!rule) return false
-    if (state === 'active' && rule.state !== 'active') rule.approvedAt = this.now()
+    if (state === 'active' && rule.conflicts?.length) return false
+    const was = rule.state
     rule.state = state
+    if (state === 'active' && was !== 'active') this.stamp(rule)
     this.save()
     return true
   }

@@ -139,7 +139,7 @@ describe('pty:write', () => {
     send('p1', 'fix the cart', 'key')
     send('p1', '\r', 'key')
     expect(write.mock.calls).toEqual([['fix the cart'], ['\r']])
-    expect(typed.input.claimHumanPrompt('x')).toBe(true)
+    expect(typed.input.claimHumanPrompt('x')).not.toBeNull()
   })
 
   it('does not count untagged text or a source the renderer made up', () => {
@@ -150,8 +150,8 @@ describe('pty:write', () => {
     send('p1', 'fix the cart\r', 'ostia')
     send('p2', 'fix the cart\r')
     expect(write).toHaveBeenCalledTimes(2)
-    expect(forged.input.claimHumanPrompt('x')).toBe(false)
-    expect(untagged.input.claimHumanPrompt('x')).toBe(false)
+    expect(forged.input.claimHumanPrompt('x')).toBeNull()
+    expect(untagged.input.claimHumanPrompt('x')).toBeNull()
   })
 
   it('writes and counts nothing for a window that cannot write', () => {
@@ -160,6 +160,6 @@ describe('pty:write', () => {
     canWrite.mockReturnValue(false)
     send('p1', 'fix the cart\r', 'key')
     expect(write).not.toHaveBeenCalled()
-    expect(blocked.input.claimHumanPrompt('x')).toBe(false)
+    expect(blocked.input.claimHumanPrompt('x')).toBeNull()
   })
 })

@@ -129,7 +129,7 @@ describe('test cases and runs in the service', () => {
       ])
       expect(await service.panel['run-eval']({ rule: 'r1' }, caller)).toMatchObject({
         ok: false,
-        error: 'no-cases',
+        error: 'few-cases',
       })
       await service.panel['accept-case']({ id: 'c1' }, caller)
       expect((await board()).cases.map((c) => c.accepted)).toEqual([true, false])
@@ -164,7 +164,15 @@ describe('test cases and runs in the service', () => {
 
   describe('run-eval', () => {
     beforeEach(async () => {
-      await service.panel['save-case'](good, caller)
+      for (let i = 0; i < 3; i++) await service.panel['save-case'](good, caller)
+    })
+
+    it('refuses to run below three accepted cases', async () => {
+      await service.panel['delete-case']({ id: 'c3' }, caller)
+      expect(await service.panel['run-eval']({ rule: 'r1' }, caller)).toMatchObject({
+        ok: false,
+        error: 'few-cases',
+      })
     })
 
     it('runs the paired calls in the background and keeps the result', async () => {
@@ -175,7 +183,7 @@ describe('test cases and runs in the service', () => {
       expect((await service.panel['run-eval']({ rule: 'r1' }, caller)).ok).toBe(true)
       const done = await settled()
       expect(done.runs).toMatchObject([
-        { rule: 'r1', pairs: 5, withPass: 5, withoutPass: 0, calls: 10, verdict: 'helps' },
+        { rule: 'r1', pairs: 15, withPass: 15, withoutPass: 0, calls: 30, verdict: 'helps' },
       ])
       expect(done.failed).toBeNull()
     })
@@ -190,7 +198,7 @@ describe('test cases and runs in the service', () => {
         return { ok: true, text: 'x' }
       }
       await service.panel['run-eval']({ rule: 'r1' }, caller)
-      expect((await board()).running).toEqual({ rule: 'r1', done: 0, total: 10 })
+      expect((await board()).running).toEqual({ rule: 'r1', done: 0, total: 30 })
       expect(await service.panel['run-eval']({ rule: 'r1' }, caller)).toMatchObject({
         ok: false,
         error: 'busy',

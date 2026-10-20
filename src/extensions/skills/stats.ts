@@ -29,22 +29,26 @@ export interface Difference {
 
 const BOOTSTRAP_ROUNDS = 2000
 
+function caseDifference(pairs: readonly Pair[]): number {
+  return pairs.reduce((sum, p) => sum + Number(p.withRule) - Number(p.without), 0) / pairs.length
+}
+
 export function bootstrapDifference(
-  pairs: readonly Pair[],
+  cases: readonly (readonly Pair[])[],
   random: () => number,
   rounds = BOOTSTRAP_ROUNDS,
 ): Difference {
-  if (pairs.length === 0) return { difference: 0, low: 0, high: 0 }
-  const score = (sample: readonly Pair[]): number =>
-    sample.reduce((sum, p) => sum + Number(p.withRule) - Number(p.without), 0) / sample.length
+  const clusters = cases.filter((c) => c.length > 0).map(caseDifference)
+  if (clusters.length === 0) return { difference: 0, low: 0, high: 0 }
+  const mean = (sample: readonly number[]): number =>
+    sample.reduce((sum, d) => sum + d, 0) / sample.length
   const draws: number[] = []
   for (let round = 0; round < rounds; round++) {
-    const sample = pairs.map(() => pairs[Math.floor(random() * pairs.length)])
-    draws.push(score(sample))
+    draws.push(mean(clusters.map(() => clusters[Math.floor(random() * clusters.length)])))
   }
   draws.sort((a, b) => a - b)
   return {
-    difference: score(pairs),
+    difference: mean(clusters),
     low: draws[Math.floor(rounds * 0.025)],
     high: draws[Math.min(rounds - 1, Math.floor(rounds * 0.975))],
   }

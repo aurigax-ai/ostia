@@ -12,6 +12,7 @@ import { AppliedStore } from './appliedStore'
 import { signalCapture } from './capture'
 import { EvalStore } from './evalStore'
 import { folderScope } from './scope'
+import { beforeCounts } from './scoreboard'
 import { type SkillsCommand, skillsService } from './service'
 import { SignalStore } from './signalStore'
 import { RulesStore } from './store'
@@ -21,8 +22,8 @@ const PANEL_FILES = ['panel.html', 'panel.js', 'panel.css', 'base.css']
 async function main(): Promise<void> {
   const ext = await connect()
   const dataDir = readEnv('EXTENSION_DATA') ?? null
-  const store = new RulesStore(dataDir, Date.now)
   const signals = new SignalStore(dataDir, Date.now)
+  const store = new RulesStore(dataDir, Date.now, (rule) => beforeCounts(rule, signals.list()))
   const applied = new AppliedStore(dataDir, Date.now)
   const evals = new EvalStore(dataDir)
   let holdout = false

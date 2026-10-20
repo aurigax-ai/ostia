@@ -49,6 +49,25 @@ function sessionsOf(
   return sessions
 }
 
+export function beforeCounts(rule: Rule, signals: readonly Signal[]): NonNullable<Rule['before']> {
+  const approved = rule.approvedAt ?? rule.createdAt
+  const words = keywords(rule.rule)
+  const sessions = sessionsOf(
+    signals.filter((s) => inScope(rule.scope, s)),
+    approved - WINDOW_MS,
+    approved,
+    (s) => restates(words, s),
+  )
+  return {
+    sessions: sessions.size,
+    restated: [...sessions.values()].filter(Boolean).length,
+  }
+}
+
+function rateFromCounts({ sessions, restated }: { sessions: number; restated: number }): Rate {
+  return { sessions, restated, ...wilson(restated, sessions) }
+}
+
 function scoreRule(rule: Rule, input: ScoreInput): ScoreRow {
   const { signals, applied, now } = input
   const words = keywords(rule.rule)
@@ -59,7 +78,7 @@ function scoreRule(rule: Rule, input: ScoreInput): ScoreRow {
   const heldBack = applied.filter((a) => a.held.includes(rule.id))
   const givenSessions = new Set(given.map((a) => a.session))
   const heldSessions = new Set(heldBack.map((a) => a.session))
-  const before = sessionsOf(mine, approved - WINDOW_MS, approved, restating)
+  const before = rateFromCounts(rule.before ?? beforeCounts(rule, signals))
   const after = sessionsOf(mine, approved, now + 1, restating)
   const onlyIn = (sessions: ReadonlySet<string>) => (s: Signal) => sessions.has(s.session)
   const heldRate = rateOf(sessionsOf(mine, approved, now + 1, restating, onlyIn(heldSessions)))
@@ -70,9 +89,9 @@ function scoreRule(rule: Rule, input: ScoreInput): ScoreRow {
     lastApplied: given.length > 0 ? Math.max(...given.map((a) => a.at)) : null,
     restated: mine.filter((s) => givenSessions.has(s.session) && s.at >= approved && restating(s))
       .length,
-    before: rateOf(before),
+    before,
     after: rateOf(after),
-    enough: before.size >= ENOUGH_SESSIONS && after.size >= ENOUGH_SESSIONS,
+    enough: before.sessions >= ENOUGH_SESSIONS && after.size >= ENOUGH_SESSIONS,
     holdout: heldSessions.size > 0 ? { held: heldRate, given: givenRate } : null,
   }
 }

@@ -1,6 +1,6 @@
 import { emptyState, h, listRow } from '@aurigax-ai/ostia-extension-sdk/panel'
 import { splitter } from '@aurigax-ai/ostia-extension-sdk/splitter'
-import type { EvalCase, EvalRun } from './evalCase'
+import { type EvalCase, type EvalRun, MIN_EVAL_CASES } from './evalCase'
 import { button, field, percent, shortDate, t } from './panelKit'
 import type { Rule } from './rule'
 import type { Rate, ScoreRow } from './score'
@@ -92,6 +92,7 @@ function evalBlock(rule: Rule, ctx: ScoreboardContext): HTMLElement {
   const cases = ctx.cases.filter((c) => c.rule === rule.id)
   const last = ctx.runs.filter((r) => r.rule === rule.id).sort((a, b) => b.at - a.at)[0]
   const running = ctx.running?.rule === rule.id ? ctx.running : null
+  const accepted = cases.filter((c) => c.accepted).length
   return h(
     'div',
     { class: 'field', 'data-block': 'evals' },
@@ -107,6 +108,9 @@ function evalBlock(rule: Rule, ctx: ScoreboardContext): HTMLElement {
           t('eval.running', { done: String(running.done), total: String(running.total) }),
         )
       : null,
+    accepted < MIN_EVAL_CASES
+      ? h('div', { class: 'muted' }, t('eval.needCases', { count: String(MIN_EVAL_CASES) }))
+      : null,
     ctx.failed?.rule === rule.id
       ? h('p', { class: 'error' }, t('eval.failed', { error: ctx.failed.error }))
       : null,
@@ -115,7 +119,7 @@ function evalBlock(rule: Rule, ctx: ScoreboardContext): HTMLElement {
       { class: 'buttons' },
       running
         ? button(t('cancel'), ctx.cancelEval)
-        : button(t('eval.run'), () => ctx.runEval(rule.id), true),
+        : button(t('eval.run'), () => ctx.runEval(rule.id), true, accepted < MIN_EVAL_CASES),
       button(t('eval.addCase'), () => ctx.addCase(rule.id)),
       button(t('eval.draft'), () => ctx.draftCases(rule.id)),
     ),

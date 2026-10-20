@@ -1,4 +1,4 @@
-export type HumanInputSource = 'key' | 'paste'
+import type { HumanInputSource } from '../../shared/terminal/ptyApi'
 
 export const HUMAN_PROMPT_WINDOW_MS = 10_000
 
@@ -28,7 +28,10 @@ function escapeEnd(data: string, at: number): number {
 export class PaneInput {
   private foreign = false
   private pasting = false
-  private submitted: { human: boolean; at: number; claimed: Set<string> } | null = null
+  private edited = false
+  private text: string[] = []
+  private submitted: { human: boolean; text: string; at: number; claimed: Set<string> } | null =
+    null
 
   constructor(private readonly now: () => number) {}
 
@@ -40,30 +43,51 @@ export class PaneInput {
       if (c === ESC) {
         if (data.startsWith(PASTE_START, i)) this.pasting = true
         else if (data.startsWith(PASTE_END, i)) this.pasting = false
+        else if (source !== null) this.edited = true
         i = escapeEnd(data, i)
         continue
       }
-      i += 1
+      const point = String.fromCodePoint(data.codePointAt(i) ?? 0)
+      i += point.length
       if (c === ENTER) {
         if (!this.pasting && source !== 'paste') this.submit()
-      } else if (c < ' ' || c === DEL) {
-        if (source !== null && LINE_CLEARS.has(c)) this.foreign = false
+        else if (source !== null) this.text.push('\n')
+      } else if (c === DEL) {
+        if (source !== null) this.text.pop()
+      } else if (c < ' ') {
+        if (source === null) continue
+        if (LINE_CLEARS.has(c)) {
+          this.foreign = false
+          this.edited = false
+          this.text = []
+        } else if (c === '\n') this.text.push('\n')
+        else this.edited = true
       } else if (source === null) {
         this.foreign = true
+      } else {
+        this.text.push(point)
       }
     }
   }
 
-  claimHumanPrompt(claimant: string): boolean {
+  claimHumanPrompt(claimant: string): string | null {
     const last = this.submitted
-    if (!last?.human || this.now() - last.at > HUMAN_PROMPT_WINDOW_MS) return false
-    if (last.claimed.has(claimant)) return false
+    if (!last?.human || !last.text || this.now() - last.at > HUMAN_PROMPT_WINDOW_MS) return null
+    if (last.claimed.has(claimant)) return null
     last.claimed.add(claimant)
-    return true
+    return last.text
   }
 
   private submit(): void {
-    this.submitted = { human: !this.foreign, at: this.now(), claimed: new Set() }
+    const text = this.text.join('').trim()
+    this.submitted = {
+      human: !this.foreign && !this.edited,
+      text,
+      at: this.now(),
+      claimed: new Set(),
+    }
     this.foreign = false
+    this.edited = false
+    this.text = []
   }
 }

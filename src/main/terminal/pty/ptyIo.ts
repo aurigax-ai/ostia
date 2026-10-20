@@ -1,5 +1,5 @@
+import type { HumanInputSource } from '../../../shared/terminal/ptyApi'
 import type { MirrorHandle, MirrorSink } from '../../manager/portal'
-import type { HumanInputSource } from '../../panes/paneInput'
 import { type PaneIo, pastedText } from '../../panes/paneIo'
 import type { SubscriberRole } from '../ptySession'
 import type { PtyEntry } from './ptyRegistry'

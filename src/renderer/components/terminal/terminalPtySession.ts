@@ -2,7 +2,7 @@ import { keptShellReattached } from '@/lib/agents/autoResume'
 import { keptAgentReattached } from '@/lib/agents/paneAgent'
 import { markPaneActivity } from '@/lib/attention/paneActivity'
 import { spawnPromptOption } from '@/lib/prompt/promptChips'
-import { type HumanInputSource, humanInputSource } from '@/lib/terminal/humanInput'
+import { humanInputSource } from '@/lib/terminal/humanInput'
 import { type NeighbourQueue, neighbourWrites } from '@/lib/terminal/neighbourWrites'
 import {
   noteFittedGrid,
@@ -17,6 +17,7 @@ import { useSandboxStore } from '@/stores/app/sandboxStore'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { type LineAnchor, useBlocksStore } from '@/stores/terminal/blocksStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
+import type { HumanInputSource } from '@shared/terminal/ptyApi'
 import type { TerminalSession } from './terminalSession'
 import { isPromptRepaint, nextSizeAction, settleFit } from './terminalSizing'
 

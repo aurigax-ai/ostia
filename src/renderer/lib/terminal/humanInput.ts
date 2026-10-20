@@ -1,4 +1,4 @@
-export type HumanInputSource = 'key' | 'paste'
+import type { HumanInputSource } from '@shared/terminal/ptyApi'
 
 const TYPING_EVENTS = new Set(['keydown', 'keypress', 'input', 'compositionend'])
 

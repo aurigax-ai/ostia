@@ -109,6 +109,7 @@
     "eval.origin.model": "Drafted by the model",
     "eval.running": "Running {done} of {total}",
     "eval.run": "Run test",
+    "eval.needCases": "A test needs at least {count} accepted cases.",
     "eval.addCase": "Add a case",
     "eval.draft": "Draft cases",
     "case.filesPlaceholder": "=== path/to/file\nfile contents",

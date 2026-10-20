@@ -1,4 +1,5 @@
-import { type EvalCase, type EvalRun, type EvalVerdict, passes } from './evalCase'
+import { type EvalCase, type EvalRun, type EvalVerdict, MIN_EVAL_CASES } from './evalCase'
+import { passes } from './evalCheck'
 import type { Complete } from './extract'
 import { RULES_HEADER, ruleLine } from './inject'
 import type { Rule } from './rule'
@@ -38,9 +39,10 @@ export async function runEval(
   cases: readonly EvalCase[],
   deps: EvalRunDeps,
 ): Promise<EvalOutcome> {
+  if (cases.length < MIN_EVAL_CASES) return { ok: false, error: 'few-cases' }
   const started = deps.now()
   const total = cases.length * PAIRS_PER_CASE * 2
-  const pairs: Pair[] = []
+  const byCase: Pair[][] = []
   let done = 0
   const ask = async (c: EvalCase, arm: Rule | null) => {
     if (deps.cancelled()) return { ok: false as const, error: 'cancelled' }
@@ -53,6 +55,8 @@ export async function runEval(
     return answer
   }
   for (const c of cases) {
+    const pairs: Pair[] = []
+    byCase.push(pairs)
     for (let i = 0; i < PAIRS_PER_CASE; i++) {
       const given = await ask(c, rule)
       if (!given.ok) return { ok: false, error: given.error }
@@ -61,15 +65,16 @@ export async function runEval(
       pairs.push({ withRule: passes(c.check, given.text), without: passes(c.check, left.text) })
     }
   }
-  const { low, high } = bootstrapDifference(pairs, deps.random)
+  const all = byCase.flat()
+  const { low, high } = bootstrapDifference(byCase, deps.random)
   return {
     ok: true,
     run: {
       rule: rule.id,
       at: deps.now(),
-      pairs: pairs.length,
-      withPass: pairs.filter((p) => p.withRule).length,
-      withoutPass: pairs.filter((p) => p.without).length,
+      pairs: all.length,
+      withPass: all.filter((p) => p.withRule).length,
+      withoutPass: all.filter((p) => p.without).length,
       low,
       high,
       seconds: Math.round((deps.now() - started) / 1000),

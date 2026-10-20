@@ -119,6 +119,7 @@
     "eval.origin.human": "你的",
     "eval.origin.model": "模型草擬",
     "eval.running": "執行中 {done} / {total}",
+    "eval.needCases": "測試至少需要 {count} 個已接受的案例。",
     "eval.run": "執行測試",
     "eval.addCase": "新增案例",
     "eval.draft": "草擬案例",

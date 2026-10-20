@@ -252,7 +252,7 @@ export function startExtensionHost({
     remoteCwdForPane: remoteCwdOfPane,
     remoteFolders: extensionRemoteFolders,
     agentRunning: (paneId) => agentRunning.has(paneId),
-    claimHumanPrompt: (paneId, extId) => ptys.get(paneId)?.input.claimHumanPrompt(extId) === true,
+    claimHumanPrompt: (paneId, extId) => ptys.get(paneId)?.input.claimHumanPrompt(extId) ?? null,
     locale: readLocale,
     readExtensionSettings: () => readSettingsFile().extensionSettings,
     readAssistSettings: readSettingsFileOrNull,

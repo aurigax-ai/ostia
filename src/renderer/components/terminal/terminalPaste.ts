@@ -8,11 +8,12 @@ import {
 } from '@/lib/keyboard/clipboardKeys'
 import { pathsAsInput } from '@/lib/keyboard/dropPaths'
 import { planDraftPaste, planHumanPaste } from '@/lib/keyboard/pasteGate'
-import { type HumanInputSource, asHumanPaste } from '@/lib/terminal/humanInput'
+import { asHumanPaste } from '@/lib/terminal/humanInput'
 import type { OstiaTerminal } from '@/lib/terminal/ostiaTerminal'
 import { inputEditorFor } from '@/lib/terminal/terminalHandles'
 import { isMac } from '@/platform'
 import { useSettingsStore } from '@/stores/app/settingsStore'
+import type { HumanInputSource } from '@shared/terminal/ptyApi'
 import type { TerminalSession } from './terminalSession'
 
 interface TerminalPaste {

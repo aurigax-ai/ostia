@@ -41,13 +41,17 @@ function promptOf(stdin: string | undefined): { text: string; session: string } 
   return { text, session }
 }
 
+function squash(text: string): string {
+  return text.replace(/\s+/g, ' ').trim()
+}
+
 function isHumanPane(caller: ExtensionCaller): caller is ExtensionCaller & {
   paneId: string
   workspaceId: string
 } {
   return (
     caller.kind === 'pane' &&
-    caller.humanPrompt === true &&
+    typeof caller.humanPrompt === 'string' &&
     Boolean(caller.paneId && caller.workspaceId) &&
     !caller.manager &&
     !caller.sandboxed &&
@@ -94,7 +98,9 @@ export function signalCapture(deps: CaptureDeps): {
     const [agent, event] = parsed?.argv ?? []
     if (!isHumanPane(caller) || !isHookAgent(agent) || event !== 'UserPromptSubmit') return ok()
     const prompt = promptOf(parsed?.stdin)
-    if (!prompt) return ok()
+    const typed = caller.humanPrompt
+    if (!prompt || typed === undefined || squash(prompt.text) !== squash(typed)) return ok()
+    prompt.text = typed
     queue = queue.then(() => capture(agent, prompt, caller)).catch(() => {})
     return ok()
   }

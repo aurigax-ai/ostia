@@ -623,18 +623,18 @@ describe('ExtensionHost human prompt claim', () => {
   }
 
   it('marks the caller of an approved extension’s prompt hook while main attributes the line to the human', () => {
-    const claim = vi.fn().mockReturnValue(true)
+    const claim = vi.fn().mockReturnValue('fix the cart')
     const { host, deps } = makeHost({ claimHumanPrompt: claim })
     deps.store.set('recorder', { enabled: true, approved: ['agent-plugin'] })
     host.processes.approve('recorder')
     const identity = pane()
     const caller = host.paneCaller(identity, { extId: 'recorder', command: 'on-prompt' })
-    expect(caller.humanPrompt).toBe(true)
+    expect(caller.humanPrompt).toBe('fix the cart')
     expect(claim).toHaveBeenCalledWith('p-prompt', 'recorder')
   })
 
   it('leaves the bit off, and unclaimed, for any other command, event or caller', () => {
-    const claim = vi.fn().mockReturnValue(true)
+    const claim = vi.fn().mockReturnValue('fix the cart')
     const { host, deps } = makeHost({ claimHumanPrompt: claim })
     deps.store.set('recorder', { enabled: true, approved: ['agent-plugin'] })
     host.processes.approve('recorder')

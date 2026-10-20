@@ -8,6 +8,8 @@ import type { WorkspaceSandboxes } from '../sandbox/workspaceSandboxes'
 import { registerAgentIpc } from './agentIpc'
 import { AgentSessions, NO_AGENT } from './agentSessions'
 
+const COMPLETE_EXTENSION_ID = 'skills'
+
 interface AgentStartDeps {
   services: { extensionHost: ExtensionHost | null; agentSessions: AgentSessions | null }
   redactor: { text: RedactText }
@@ -15,8 +17,9 @@ interface AgentStartDeps {
 }
 
 export function startAgent({ services, redactor, workspaceSandboxes }: AgentStartDeps): void {
-  const fromAgent = (ctx: ControlMethodContext): boolean =>
-    services.extensionHost?.builtinId(ctx.identity, ctx.conn) === AGENT_EXTENSION_ID
+  const fromBuiltin = (ctx: ControlMethodContext, id: string): boolean =>
+    services.extensionHost?.builtinId(ctx.identity, ctx.conn) === id
+  const fromAgent = (ctx: ControlMethodContext): boolean => fromBuiltin(ctx, AGENT_EXTENSION_ID)
   services.agentSessions = new AgentSessions({
     request: (request) =>
       services.extensionHost?.agentRequest(request) ?? Promise.resolve(NO_AGENT),
@@ -36,8 +39,10 @@ export function startAgent({ services, redactor, workspaceSandboxes }: AgentStar
   registerControlMethod('ext.agentComplete', {
     callers: 'extensions',
     cap: 'agent-complete',
-    handler: (params) =>
-      services.agentSessions?.complete(params) ?? { ok: false, error: 'unavailable' },
+    handler: (params, ctx) =>
+      fromBuiltin(ctx, COMPLETE_EXTENSION_ID)
+        ? (services.agentSessions?.complete(params) ?? { ok: false, error: 'unavailable' })
+        : { ok: false, error: 'skills-only' },
   })
   registerControlMethod('ext.agentTool', {
     callers: 'extensions',

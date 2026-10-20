@@ -9,8 +9,13 @@ export function tail(key: string): string {
   return parts[parts.length - 1] || key
 }
 
-export function button(label: string, onClick: () => void, primary = false): HTMLElement {
-  return h('button', { type: 'button', class: primary ? 'primary' : '', onClick }, label)
+export function button(
+  label: string,
+  onClick: () => void,
+  primary = false,
+  disabled = false,
+): HTMLElement {
+  return h('button', { type: 'button', class: primary ? 'primary' : '', disabled, onClick }, label)
 }
 
 export function field(label: string, control: Node): HTMLElement {

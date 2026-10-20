@@ -27,28 +27,37 @@ describe('wilson', () => {
 describe('bootstrapDifference', () => {
   const pairs = (withPass: number, withoutPass: number, n: number) =>
     Array.from({ length: n }, (_, i) => ({ withRule: i < withPass, without: i < withoutPass }))
+  const cases = (diffs: number[]) =>
+    diffs.map((d) =>
+      Array.from({ length: 5 }, (_, i) => ({ withRule: d > 0 || i < 2, without: d < 0 || i < 2 })),
+    )
 
-  it('excludes zero for a clear win and brackets the observed difference', () => {
-    const d = bootstrapDifference(pairs(20, 2, 20), seeded(1))
-    expect(d.difference).toBeCloseTo(0.9, 5)
+  it('excludes zero when every case wins, and brackets the observed difference', () => {
+    const d = bootstrapDifference(cases([1, 1, 1, 1]), seeded(1))
+    expect(d.difference).toBeCloseTo(0.6, 5)
     expect(d.low).toBeGreaterThan(0)
     expect(d.low).toBeLessThanOrEqual(d.difference)
     expect(d.high).toBeGreaterThanOrEqual(d.difference)
   })
 
-  it('includes zero when the arms look alike', () => {
-    const alike = Array.from({ length: 20 }, (_, i) => ({ withRule: i < 10, without: i > 10 }))
-    const d = bootstrapDifference(alike, seeded(2))
+  it('includes zero when the cases disagree', () => {
+    const d = bootstrapDifference(cases([1, -1, 1, -1, 0]), seeded(2))
     expect(d.low).toBeLessThan(0)
     expect(d.high).toBeGreaterThan(0)
   })
 
-  it('goes below zero for a rule that hurts, and is the same for the same seed', () => {
-    const hurt = bootstrapDifference(pairs(2, 20, 20), seeded(3))
-    expect(hurt.high).toBeLessThan(0)
-    expect(bootstrapDifference(pairs(5, 2, 8), seeded(7))).toEqual(
-      bootstrapDifference(pairs(5, 2, 8), seeded(7)),
+  it('goes below zero when every case loses, and is the same for the same seed', () => {
+    expect(bootstrapDifference(cases([-1, -1, -1]), seeded(3)).high).toBeLessThan(0)
+    expect(bootstrapDifference([pairs(5, 2, 8)], seeded(7))).toEqual(
+      bootstrapDifference([pairs(5, 2, 8)], seeded(7)),
     )
+  })
+
+  it('does not call one winning case among three a clear win, because pairs of a case move together', () => {
+    const d = bootstrapDifference(cases([1, 0, 0]), seeded(4))
+    expect(d.difference).toBeCloseTo(0.2, 5)
+    expect(d.low).toBeLessThanOrEqual(0)
+    expect(bootstrapDifference(cases([1, 1, 1]), seeded(4)).low).toBeGreaterThan(0)
   })
 
   it('has no pairs, no answer', () => {

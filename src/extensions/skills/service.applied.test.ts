@@ -99,6 +99,17 @@ describe('applied sessions, the holdout and the scoreboard', () => {
     expect(applied.list()[0]).toMatchObject({ rules: ['r2'], held: ['r1'] })
   })
 
+  it('draws the holdout once per session and records it once, however often the session starts again', async () => {
+    holdout = true
+    draws = [HOLDOUT_SHARE - 0.01, HOLDOUT_SHARE, 0, 0]
+    const first = await text(start())
+    const again = await text(start())
+    expect(again).toBe(first)
+    expect(again).not.toContain('[r1]')
+    expect(applied.list()).toHaveLength(1)
+    expect(applied.list()[0]).toMatchObject({ rules: ['r2'], held: ['r1'] })
+  })
+
   it('records a session that left every rule out', async () => {
     holdout = true
     draws = [0, 0]

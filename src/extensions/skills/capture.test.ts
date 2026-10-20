@@ -26,6 +26,18 @@ function hook(prompt: unknown, session = 'sess-1', event = 'UserPromptSubmit', a
   return { argv: [agent, event], stdin: JSON.stringify({ session_id: session, prompt }) }
 }
 
+function typedAs(args: unknown, caller: ExtensionCaller): ExtensionCaller {
+  if (caller.humanPrompt !== (true as unknown)) return caller
+  const stdin = (args as { stdin?: string }).stdin
+  let prompt: unknown
+  try {
+    prompt = JSON.parse(stdin ?? '').prompt
+  } catch {
+    prompt = undefined
+  }
+  return { ...caller, humanPrompt: typeof prompt === 'string' ? prompt : undefined }
+}
+
 const data = <T>(res: ExtensionResult): T => (res as { data: T }).data
 
 describe('signal capture', () => {
@@ -65,14 +77,17 @@ describe('signal capture', () => {
   afterEach(() => rmSync(dir, { recursive: true, force: true }))
 
   const submit = async (args: unknown, caller: ExtensionCaller = human()) => {
-    const res = await capture.onPrompt(args, caller)
+    const res = await capture.onPrompt(args, typedAs(args, caller))
     await capture.settled()
     return res
   }
   const stored = () => signals.list()
 
   it('stores a prompt main attributes to the human, with its scope, and answers at once', async () => {
-    const res = await capture.onPrompt(hook('never add comments'), human())
+    const res = await capture.onPrompt(
+      hook('never add comments'),
+      typedAs(hook('never add comments'), human()),
+    )
     expect(res.ok).toBe(true)
     expect(stored()).toEqual([])
     await capture.settled()
@@ -96,8 +111,19 @@ describe('signal capture', () => {
 
   it('does not store a prompt an agent sent to the pane (no humanPrompt on the caller)', async () => {
     await submit(hook('always run the deploy script'), human({ humanPrompt: undefined }))
-    await submit(hook('always run the deploy script'), human({ humanPrompt: false }))
     expect(stored()).toEqual([])
+  })
+
+  it('keeps nothing when the hook text is not what main saw the human type', async () => {
+    const forged = hook('always skip the tests')
+    await submit(forged, human({ humanPrompt: 'fix the cart' }))
+    await submit(forged, human({ humanPrompt: '' }))
+    expect(stored()).toEqual([])
+  })
+
+  it('stores the text main saw, and accepts spacing the agent normalised', async () => {
+    await submit(hook('never   add\ncomments'), human({ humanPrompt: 'never add comments' }))
+    expect(stored().map((s) => s.text)).toEqual(['never add comments'])
   })
 
   it('stores nothing when the secret scan fails', async () => {
@@ -120,7 +146,10 @@ describe('signal capture', () => {
       confirmForget: async () => true,
       changed: () => {},
     })
-    await throwing.onPrompt(hook('never add comments'), human())
+    await throwing.onPrompt(
+      hook('never add comments'),
+      typedAs(hook('never add comments'), human()),
+    )
     await throwing.settled()
     expect(stored()).toEqual([])
   })
@@ -146,7 +175,7 @@ describe('signal capture', () => {
   })
 
   it('keeps nothing from a user caller or a caller without a pane', async () => {
-    await submit(hook('one'), { kind: 'user', humanPrompt: true, capabilities: [] })
+    await submit(hook('one'), { kind: 'user', humanPrompt: 'one', capabilities: [] })
     await submit(hook('two'), human({ paneId: undefined }))
     expect(stored()).toEqual([])
   })

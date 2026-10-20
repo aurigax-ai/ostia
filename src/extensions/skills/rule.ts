@@ -17,6 +17,7 @@ export interface Rule {
   origin: RuleOrigin
   createdAt: number
   approvedAt?: number
+  before?: { sessions: number; restated: number }
   evidence?: string[]
   conflicts?: string[]
 }
@@ -79,6 +80,11 @@ function isStoredGroup(value: unknown): value is StoredGroup {
   return typeof g?.id === 'string' && isStrings(g.signals) && isStrings(g.words)
 }
 
+function isCounts(value: unknown): boolean {
+  const c = value as { sessions?: unknown; restated?: unknown } | null
+  return Number.isInteger(c?.sessions) && Number.isInteger(c?.restated)
+}
+
 function isStoredRule(value: unknown): value is Rule {
   const r = value as Partial<Rule> | null
   return (
@@ -92,6 +98,7 @@ function isStoredRule(value: unknown): value is Rule {
     (r.origin === 'human' || r.origin === 'import' || r.origin === 'extraction') &&
     typeof r.createdAt === 'number' &&
     (r.approvedAt === undefined || typeof r.approvedAt === 'number') &&
+    (r.before === undefined || isCounts(r.before)) &&
     (r.evidence === undefined || isStrings(r.evidence)) &&
     (r.conflicts === undefined || isStrings(r.conflicts))
   )

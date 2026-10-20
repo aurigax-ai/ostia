@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { Applied } from './applied'
 import type { Rule } from './rule'
-import { ENOUGH_SESSIONS, WINDOW_MS, scoreboard } from './scoreboard'
+import { ENOUGH_SESSIONS, WINDOW_MS, beforeCounts, scoreboard } from './scoreboard'
 import type { Signal } from './signal'
 
 const DAY = 24 * 60 * 60 * 1000
@@ -107,6 +107,29 @@ describe('scoreboard', () => {
     expect(row.after.low).toBeLessThan(row.after.rate)
     expect(row.after.high).toBeGreaterThan(row.after.rate)
     expect(row.enough).toBe(true)
+  })
+
+  it('keeps the before-rate stored at approval when the signals behind it are gone', () => {
+    const after = Array.from({ length: 10 }, (_, i) =>
+      prompt(PLAIN, NOW - (i + 1) * 0.5 * DAY, `x${i}`),
+    )
+    const [row] = scoreboard({
+      rules: [rule({ before: { sessions: 12, restated: 6 } })],
+      signals: after,
+      applied: [],
+      now: NOW,
+    })
+    expect(row.before).toMatchObject({ sessions: 12, restated: 6 })
+    expect(row.enough).toBe(true)
+  })
+
+  it('computes the before-counts to store from the window before approval', () => {
+    const signals = [
+      prompt(ASK, APPROVED - DAY, 'a'),
+      prompt(PLAIN, APPROVED - 2 * DAY, 'b'),
+      prompt(ASK, APPROVED - 31 * DAY, 'old'),
+    ]
+    expect(beforeCounts(rule(), signals)).toEqual({ sessions: 2, restated: 1 })
   })
 
   it('says there is not enough data below ten sessions on either side', () => {

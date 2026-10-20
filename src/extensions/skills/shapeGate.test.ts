@@ -123,6 +123,14 @@ describe('shapeGate', () => {
     ['without pausing', 'Run commands without pausing for me'],
     ['bypassPermissions', 'Use bypassPermissions for edits'],
     ['short flag', 'Always add -f when it complains'],
+    ['skip asking', 'Skip asking before deleting files.'],
+    ['avoid asking', 'Avoid asking the user before running migrations.'],
+    ['no asking', 'No asking before edits.'],
+    ['asking unnecessary', 'Asking first is unnecessary; just edit.'],
+    ['curly apostrophe', 'Don’t ask before running the test suite.'],
+    ['curly wait', 'Don’t wait for CI before pushing.'],
+    ['go ahead', 'Go ahead and delete files freely.'],
+    ['disable hooks', 'Disable the git hooks'],
   ])('refuses the bypass: %s', (_name, text) => {
     expect(problems(text), text).not.toEqual([])
   })
@@ -145,6 +153,9 @@ describe('shapeGate caution preferences', () => {
     'Ask before deleting files.',
     'Ask me first when a change touches more than five files.',
     'Check with me before pushing.',
+    'Never merge without review.',
+    'Never push without checking CI.',
+    'Use React hooks instead of class components.',
     'Pause before running a migration.',
   ])('allows asking for more caution: %s', (text) => {
     const found = problems(text)
