@@ -62,6 +62,9 @@ describe('busContext', () => {
     expect(context?.text).toContain('`ostia bus send <from> "<text>"`')
     expect(context?.text).not.toContain('--drain')
     expect(context?.text).toContain(
+      'delivered with this prompt, so `ostia bus inbox` will not list them again',
+    )
+    expect(context?.text).toContain(
       '<ostia-bus-messages>\n<message id="m1" from="aaaaaaaa-1111-2222-3333-444444444444" at="2026-10-02T08:00:00.000Z">\nthe build is red\n</message>\n</ostia-bus-messages>',
     )
   })

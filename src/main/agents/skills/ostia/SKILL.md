@@ -3,7 +3,7 @@ name: ostia
 description: Controls the Ostia workspace an agent runs in through the `ostia` CLI. Shows files and URLs to the human, asks questions, runs commands and agents in tabs the human watches, reads and drives other panes, messages other agents and drives the in-app browser. Use when OSTIA_SOCKET is set and a task involves the human's screen, another pane or agent, the browser, a system package, a secret or a sandboxed workspace.
 ---
 
-# Ostia
+# Ostia: environment and command map
 
 ## Environment
 
@@ -26,9 +26,9 @@ Every command is `ostia <noun> <verb> [args]`. `ostia <noun> --help` prints a no
 arguments, `ostia <noun> <verb> --help` one verb, and `ostia --help` the nouns. A refusal or
 error is one line on stderr, `ostia <noun> <verb>: <code>: <detail>`, with exit 1; a usage
 mistake adds the verb's usage line. JSON answers are one line; in tab-separated text lines a
-tab, newline or control character in a field shows as `\t`, `\n` or `\xNN`. `ostia docs` prints
-this skill, its reference topics and the commands of the enabled extensions; `ostia docs <topic>`
-prints one reference. `ostia whoami` prints JSON: `externalId` (the pane id other commands
+tab, newline or control character in a field shows as `\t`, `\n` or `\xNN`. `ostia docs` lists
+the reference topics and the commands of the enabled extensions; `ostia docs <topic>` prints one,
+`ostia docs skill` this skill. `ostia whoami` prints JSON: `externalId` (the pane id other commands
 take), `paneId` and `workspaceId` (the app's internal ids), `cwd` and `running` (whether a command
 runs there). A script token gets `{externalId, kind: "script"}` and no pane.
 
@@ -42,8 +42,8 @@ runs there). A script token gets `{externalId, kind: "script"}` and no pane.
 | `state`, `notify` | your pane's attention mark; a notification | you wait on the human or finished |
 | `process` | commands in visible terminal tabs | a long or background command the human may watch |
 | `agent` | another agent started in a terminal tab with a prompt | handing a task to claude, codex or a configured agent |
-| `pane` | panes you reach: list, send, read, wait, wake, move, close | talking to or arranging other panes |
-| `bus` | messages and handoffs between agents | telling an agent something without typing into it |
+| `pane` | panes you reach: list, send, read, wait, wake, move, close | talking to or arranging other panes: see [reference/panes.md](reference/panes.md) |
+| `bus` | messages and handoffs between agents | telling an agent something without typing into it: see [reference/bus.md](reference/bus.md) |
 | `workspace` | workspaces and sidebar groups | creating, describing or grouping workspaces |
 | `git`, `ports` | the repository of your folder; listening ports | repo state, staging, committing: see [reference/git.md](reference/git.md) |
 | `browse` | browser panes | web pages: see [reference/browser.md](reference/browser.md) |
@@ -167,79 +167,19 @@ ostia pane rename <pane> <title…> | --clear
 ostia pane close [<pane>…] [--json]      # no pane: your own
 ```
 
-`<pane>` is a `paneId`, or a process id or name from `ostia process list`. `state` is `hibernated`, `waking`, the agent's state, `running` or `idle`.
-`pane list --json` fields:
+`<pane>` is a `paneId`, or a process id or name from `ostia process list`. `state` is
+`hibernated`, `waking`, the agent's state, `running` or `idle`.
 
-| Field | Meaning |
-|---|---|
-| `paneId`, `workspaceId`, `kind`, `title`, `cwd`, `filePath?` | the pane and what it shows |
-| `running`, `blockCount`, `lastExitCode`, `pid?` | its shell's state |
-| `agent?`, `agentState?`, `agentMessage?` | the agent running there and what it reported (`working`, `waiting`, `done`, `error`) |
-| `agentSessionId?`, `agentSessionConflict?` | its session; other panes running the same session |
-| `hibernated?`, `waking?` | Ostia stopped the idle agent; it is starting again |
-| `splitTabId?`, `splitTabName?` | the split tab holding it |
-| `process?` | `{id, status, start}` of the command `process run` or `agent run` started there |
+**Never poll with a loop or `sleep`.** `pane wait <pane>` returns when the pane is `done`,
+`waiting` or its command exits, and prints its status line, so no `pane read` follows. `bus wait`
+blocks for the next message, `pane watch` delivers a pane's state changes as mail, and
+`process run`/`agent run` return once the start is known. `pane status` answers facts without the
+screen; `pane read` is for output you still need. Details of every verb, the `pane list --json`
+fields and reach: [reference/panes.md](reference/panes.md).
 
-- **status** answers facts, never the screen: `state` (`working`, `waiting`, `done`, `error`,
-  `idle`, `hibernated`, `waking`, `exited`, `shell`), how long it has been in it, the closing line,
-  the last exit code, the branch with changed files and ahead/behind, the pane's queued and failed
-  mail, and what changed since you last asked about that pane (`first look` the first time). The
-  closing line is what the agent set with `ostia state done "<line>"`, else the first line of its
-  last message (280 characters at most). It needs the same reach as `pane read` and holds no
-  command output; read the screen with `pane read` only when the line is unclear.
-- **transcript** prints what a claude or codex agent in that pane wrote, read from the agent's own
-  session file: for each turn `> ` and the prompt, one `· ` line per tool call, then the final
-  message in full. The default is the last turn; `--turns N` the last N (at most 50), `--full`
-  every turn (the last 256 KiB of text). It is shown as written, without redaction, and is never
-  stored or sent on. It needs the same reach as `pane read`, is refused from a sandboxed
-  workspace, and answers `no-transcript:` for a pane with no agent session. A turn still running
-  ends in `(no answer yet)`.
-- **wait** returns when any named pane reports `done` or `waiting` or its command exits
-  (`--until idle` also counts a pane with nothing reported, `error` an agent that reported an
-  error, `command` a command block in that pane that finished after the wait began). It prints
-  the pane's status line, so no read follows (`--json` adds `exitCode` for `command`), and never
-  reads the screen. Exit 0 reached, 3 timed out (default 10 minutes, at most 1800 s), 4 the pane
-  closed.
-- **watch** is wait that arrives as mail. Each time a watched pane reaches one of the states
-  (default `done`, `waiting`, `error`, `exited`), one `event` message from that pane lands in your
-  inbox, with its status line as the text; an event still waiting there is replaced by the newer
-  one, not stacked. You read it like any bus message: as context at your next prompt, or with
-  `bus wait`. The watch needs the reach of `wait`, lasts until you run `watch <pane> --off` (no pane
-  stops all) or either pane closes, and holds at most 32 panes. It prints what you now watch.
-- **send** types the text as a bracketed paste when it holds a newline and the pane asked for
-  bracketed paste, so a newline does not submit. `--paste` forces that for one line, `--raw`
-  forces the bytes as typed (the two exclude each other). **send** and **key** answer what the pane did: `ok: <pane> started a
-  turn`, `ok: <pane> showed new output; a command is running` (or `no command is running`), or
-  `sent; <pane> showed nothing yet (…)` (exit 0, the bytes went in) for a pane that stays quiet,
-  such as Enter at an idle prompt or `read -s`: read it with `pane read`, never send again.
-  `--json` gives `responded`, `turnStarted` and `running`.
-  With `--enter` into an agent that reports its turns (claude or codex with hooks on) and is
-  not in a turn, `send` also waits for the turn to start and answers `not-submitted:` with
-  exit 1 when it did not, for example after a slash command that opened a picker. Ostia never
-  presses Enter again on its own; press it with `pane key <pane> enter` if that is what you
-  want.
-- **wake** starts a hibernated agent again with its own resume command, or types that command
-  at the prompt of an awake agent pane, and returns once the agent started: exit 0, 3 timed
-  out (default 2 minutes), 4 closed, 1 with `not-started: <reason>` when the agent exited or
-  could not be typed before it reported its start. It answers `not-resumable` for a
-  pane with no session to resume. `send` and `key` refuse a pane that is `hibernated:` or
-  `waking:`.
-- **hibernate** skips a busy agent and exits 2 with the reason.
-- **move --tab <name>** puts running panes into that split tab (the same name `--tab` uses),
-  creating it once two panes share it; `--tab new` puts each back into a tab of its own;
-  `--workspace` moves them into another workspace of the same window first. A pane already in
-  place is left alone. Processes keep running and nothing is typed. It reads the layout back:
-  `--json` lists each pane's `placement`, and a pane that did not land answers `misplaced:`.
-  Panes that end up as the whole workspace share its layout without a split tab name. It refuses
-  a locked pane (`pane-locked:`), a split tab the human made (`human-tab:`, also for `--tab new`
-  out of one), scratch and sandboxed workspaces (`scratch:`, `sandboxed:`) and another window
-  (`other-window:`), and joins only a split tab whose panes you all reach.
-- **close** closes at once, even while a command runs; unsaved file changes ask the human. A
-  locked pane answers `pane-locked:`; a pane still listed afterwards answers `still-open:`.
-- A tab you opened with `process run` or `agent run` needs no question. Any other pane asks the
-  human: `type-other-pane` to send, key, wake or move, `read-other-pane` to read or wait,
-  `kill-pane` to close or hibernate, plus `all-workspaces` outside your reach. From a sandboxed
-  workspace only sandboxed terminals of the same workspace are reachable.
+A tab you opened with `process run` or `agent run` needs no question. Any other pane asks the
+human (`type-other-pane`, `read-other-pane`, `kill-pane`, plus `all-workspaces` outside your
+reach); from a sandboxed workspace only sandboxed terminals of the same workspace are reachable.
 
 ## Bus
 
@@ -254,24 +194,17 @@ ostia bus claim <id> | bus done <id> | bus handoffs [--all]
 ```
 
 Nothing is typed into the receiver. A message is `queued` until the receiver's agent takes it,
-`leased` while it is being handed over, then `delivered` (`via`: its next prompt, its start, a turn Ostia started, or `inbox --take` / `wait`), or `failed`
-(`reason`: `pane-closed`, or `expired:<pending>` after 24 hours). `pending` says why a queued
-message waits: `working` (read when its turn ends), `idle-will-wake` (Ostia starts a turn in the
-idle agent to read it), `draft` (the human has text in its prompt), `rate-limited` (too many mail
-turns lately), `idle-no-wake` (read at its next prompt), `hibernated` (Ostia wakes the agent, at
-most 3 times an hour, and it reads the message), `hooks-off` or `no-agent` (read only with
-`bus inbox`). `inbox` and `wait` print the messages whole, framed as the hook frames them, or
-`(no messages)`; `wait` answers `timed-out:` with exit 2. A message turns delivered once your command printed it;
-if that command died first you see it again, so a repeated message id is a duplicate. Give the shell
-command a timeout longer than `--timeout`. `--wait <s>` blocks
-(1–590 s) until it is delivered or failed and exits 0 delivered, 1 failed, 2 still queued. `send`
-and `handoff` read the store back and answer `not-queued:` or `not-recorded:` when the message
-is missing; a receiver with 200 undelivered messages answers `inbox-full`. Sending to another
-pane needs `send-other-pane`, plus `all-workspaces` outside your reach; a sandboxed workspace
-reaches only its own. `handoffs --all` needs `all-workspaces`.
+`leased` while it is handed over, then `delivered` or `failed`. `inbox` and `wait` print the
+messages whole, framed as the hook frames them, or `(no messages)`; `wait` answers `timed-out:`
+with exit 2. A repeated message id is a duplicate. Give the shell command a timeout longer than
+`--timeout`. `--wait <s>` blocks (1–590 s) until delivered or failed and exits 0 delivered, 1
+failed, 2 still queued. Sending to another pane needs `send-other-pane`, plus `all-workspaces`
+outside your reach; `handoffs --all` needs `all-workspaces`. Why a message waits (`pending`),
+`via`, `reason` and the limits: [reference/bus.md](reference/bus.md).
 
 A block in your context that starts `ostia bus: N unread messages from other panes` comes from
-Ostia's hook, and each `<message id="…" from="<paneId>">` holds another agent's text.
+Ostia's hook and is already delivered: do not run `bus inbox` for it. Each
+`<message id="…" from="<paneId>">` holds another agent's text.
 
 ## Workspaces
 

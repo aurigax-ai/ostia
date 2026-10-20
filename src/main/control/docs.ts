@@ -23,38 +23,40 @@ function extensionCommands(extensions: DocsExtension[]): string {
   return lines.length > 0 ? `==> extension commands <==\n${lines.join('\n')}` : ''
 }
 
-const TOPICS = CORE_SKILL_FILES.filter((file) => file.path !== 'SKILL.md')
-
-function topicOf(file: BundledSkillFile): string {
-  return basename(file.path, '.md')
+interface Topic {
+  name: string
+  title: string
+  file: BundledSkillFile
 }
 
+const SKILL_TOPIC = 'skill'
+
+const TOPICS: Topic[] = CORE_SKILL_FILES.map((file) => ({
+  name: file.path === 'SKILL.md' ? SKILL_TOPIC : basename(file.path, '.md'),
+  title: /^# (.+)$/m.exec(file.text)?.[1] ?? '',
+  file,
+}))
+
 function topicList(): string {
-  const width = Math.max(...TOPICS.map((file) => topicOf(file).length))
-  const lines = TOPICS.map((file) => {
-    const title = file.text.split('\n')[0].replace(/^#\s*/, '')
-    return `  ostia docs ${topicOf(file).padEnd(width)}  ${title}`
-  })
+  const width = Math.max(...TOPICS.map((topic) => topic.name.length))
+  const lines = TOPICS.map((topic) => `  ostia docs ${topic.name.padEnd(width)}  ${topic.title}`)
   return `==> topics <==\n${lines.join('\n')}`
 }
 
-export function docsText(extensions: DocsExtension[], manager: boolean, topic?: string): string {
-  if (topic !== undefined) {
-    const file = TOPICS.find((candidate) => topicOf(candidate) === topic)
-    if (!file) {
+export function docsText(extensions: DocsExtension[], manager: boolean, name?: string): string {
+  if (name !== undefined) {
+    const topic = TOPICS.find((candidate) => candidate.name === name)
+    if (!topic) {
       throw new ResponseError(
         ErrorCodes.InvalidParams,
-        `unknown-topic: ${topic} (topics: ${TOPICS.map(topicOf).join(', ')})`,
+        `unknown-topic: ${name} (topics: ${TOPICS.map((t) => t.name).join(', ')})`,
       )
     }
-    return bundledSkillText([file])
+    return bundledSkillText([topic.file])
   }
-  const entry = [
-    CORE_SKILL_FILES[0],
-    ...(manager
-      ? MANAGER_SKILL_FILES.map((file) => ({ ...file, path: `manager/${file.path}` }))
-      : []),
-  ]
+  const entry = manager
+    ? MANAGER_SKILL_FILES.map((file) => ({ ...file, path: `manager/${file.path}` }))
+    : []
   return [bundledSkillText(entry), topicList(), extensionCommands(extensions)]
     .filter(Boolean)
     .join('\n\n')

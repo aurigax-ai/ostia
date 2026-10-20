@@ -8,6 +8,7 @@ const ROOT = join(__dirname, '..', '..', '..')
 const EXTENSIONS = join(ROOT, 'src', 'extensions')
 const SKILL_BODY_MAX_LINES = 500
 const DESCRIPTION_MAX = 1024
+const CORE_SKILL_MAX_CHARS = 17_237
 const CONTENTS_FROM_LINES = 100
 const NAME = /^[a-z0-9]+(-[a-z0-9]+)*$/
 
@@ -210,6 +211,12 @@ describe('bundled agent skills', () => {
 
   it.each(SKILLS)('$label keeps SKILL.md within 500 lines', (skill) => {
     expect(body(entry(skill).text).split('\n').length).toBeLessThanOrEqual(SKILL_BODY_MAX_LINES)
+  })
+
+  it('keeps the core SKILL.md within the size it had after #1191', () => {
+    expect(entry({ label: 'ostia', files: CORE_SKILL_FILES }).text.length).toBeLessThanOrEqual(
+      CORE_SKILL_MAX_CHARS,
+    )
   })
 
   it.each(SKILLS)('$label links only files it ships, one level deep', (skill) => {
