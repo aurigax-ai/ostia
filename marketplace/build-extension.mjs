@@ -10,8 +10,8 @@ import {
 import { dirname, join, resolve, sep } from 'node:path'
 import { build } from 'esbuild'
 
-const manifestFiles = ['ostia.json']
-const assets = [...manifestFiles, 'panel.html', 'panel.css']
+const manifestFile = 'ostia.json'
+const assets = [manifestFile, 'panel.html', 'panel.css']
 const copiedDirs = ['locales', 'assets']
 const vendorList = 'vendor.json'
 const skillEntry = 'SKILL.md'
@@ -104,8 +104,7 @@ function copyVendoredPackages(src, out) {
 }
 
 function readSourceManifest(src) {
-  const file = manifestFiles.find((name) => existsSync(join(src, name))) ?? manifestFiles[0]
-  return JSON.parse(readFileSync(join(src, file), 'utf8'))
+  return JSON.parse(readFileSync(join(src, manifestFile), 'utf8'))
 }
 
 function copyAgentSkills(src, out) {

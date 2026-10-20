@@ -1,5 +1,5 @@
 import { PRODUCT_NAME } from '@aurigax-ai/ostia-extension-sdk/contract/product'
-import { oneLine, plainBlock } from './questions'
+import { clipTo, oneLine, plainBlock } from './questions'
 
 export const BUS_PREVIEW_MAX = 120
 export const BUS_LABEL_MAX = 60
@@ -45,21 +45,17 @@ export interface BusContext {
   shown: string[]
 }
 
-function clip(text: string, max: number): string {
-  return text.length > max ? `${text.slice(0, max - 1)}…` : text
-}
-
 export function busPreview(text: unknown): string {
   if (typeof text !== 'string') return ''
   const firstLine =
     plainBlock(text)
       .split('\n')
       .find((line) => line.trim()) ?? ''
-  return clip(oneLine(firstLine), BUS_PREVIEW_MAX)
+  return clipTo(oneLine(firstLine), BUS_PREVIEW_MAX)
 }
 
 export function busLabel(raw: unknown): string {
-  return typeof raw === 'string' ? clip(oneLine(raw), BUS_LABEL_MAX) : ''
+  return typeof raw === 'string' ? clipTo(oneLine(raw), BUS_LABEL_MAX) : ''
 }
 
 const WRAPPER_TAG = /<(\/?)(ostia-bus-messages|message)\b/gi
@@ -69,7 +65,7 @@ function attribute(value: string): string {
 }
 
 function messageBlock(message: BusContextMessage, max = BUS_CONTEXT_MESSAGE_MAX): string {
-  const body = clip(plainBlock(message.text).replace(WRAPPER_TAG, '&lt;$1$2'), max)
+  const body = clipTo(plainBlock(message.text).replace(WRAPPER_TAG, '&lt;$1$2'), max)
   return `<message id="${attribute(message.id)}" from="${attribute(message.from)}" at="${attribute(message.ts)}">\n${body}\n</message>`
 }
 

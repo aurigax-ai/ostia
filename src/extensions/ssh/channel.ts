@@ -269,8 +269,12 @@ export function parseHeader(
   return { ok, length, meta: match[4] }
 }
 
+function isHelperError(code: string): code is HelperError {
+  return (HELPER_ERRORS as readonly string[]).includes(code)
+}
+
 function helperError(meta: string): HelperError {
-  return (HELPER_ERRORS as readonly string[]).includes(meta) ? (meta as HelperError) : 'failed'
+  return isHelperError(meta) ? meta : 'failed'
 }
 
 export class HelperChannel {
@@ -349,7 +353,7 @@ export class HelperChannel {
     try {
       return await deadline(this.reply(id, req.maxReply), this.requestTimeoutMs, () => {})
     } catch (err) {
-      if (err instanceof HelperFailure && (HELPER_ERRORS as readonly string[]).includes(err.code)) {
+      if (err instanceof HelperFailure && isHelperError(err.code)) {
         throw err
       }
       this.close()

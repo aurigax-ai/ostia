@@ -92,3 +92,12 @@ export function parseArgs<
     ) as Record<B, boolean>,
   }
 }
+
+export function parseTimeoutSeconds(raw: string | undefined): number | undefined {
+  if (raw === undefined) return undefined
+  const seconds = Number(raw)
+  if (!Number.isFinite(seconds) || seconds <= 0) {
+    throw new Error(`--timeout expects seconds, got '${raw}'`)
+  }
+  return seconds
+}
