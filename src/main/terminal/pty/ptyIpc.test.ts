@@ -72,6 +72,7 @@ describe('pty:resize', () => {
     pty: { cols: 80, rows: 24, resize },
     mirror,
     subs: new Map([['1', {}]]),
+    sizeListeners: new Set<(cols: number, rows: number) => void>(),
   })
   const ptys = new Map<string, unknown>()
 
@@ -91,6 +92,15 @@ describe('pty:resize', () => {
     ptys.set('p1', owner())
     send(1, 'p1')
     expect(resize).toHaveBeenCalledWith(100, 30)
+  })
+
+  it('tells the phones attached to the pane the new size', () => {
+    const attached = owner()
+    const sizes: Array<[number, number]> = []
+    attached.sizeListeners.add((cols, rows) => sizes.push([cols, rows]))
+    ptys.set('p1', attached)
+    send(1, 'p1')
+    expect(sizes).toEqual([[100, 30]])
   })
 
   it('ignores a window that is not attached to the pane, a kept pane and an unknown pane', () => {
