@@ -4,8 +4,8 @@ import {
   findPane,
   findSplitTab,
   firstPaneId,
-  replaceSlot,
   replaceTab,
+  selectTab,
   splitTabOfPane,
   tabsOfPane,
 } from './tree'
@@ -27,12 +27,6 @@ function collapsed(pane: PaneNode): PaneNode {
 
 function mapTab(root: LayoutNode, tab: SplitNode, fn: (pane: PaneNode) => PaneNode): LayoutNode {
   return replaceTab(root, tab.id, (t) => mapPanes(t, fn) as SplitNode)
-}
-
-function showPane(root: LayoutNode, paneId: string): LayoutNode {
-  const tabs = tabsOfPane(root, paneId)
-  if (!tabs || tabs.activeId === paneId) return root
-  return replaceSlot(root, tabs.id, () => ({ ...tabs, activeId: paneId }))
 }
 
 export function isStrip(node: LayoutNode): boolean {
@@ -64,7 +58,7 @@ function collapsePane(root: LayoutNode, paneId: string): LayoutNode {
   const nearest = [...panes.slice(at + 1), ...panes.slice(0, at).reverse()].find(
     (p) => !p.collapsed,
   )
-  return nearest ? showPane(next, nearest.id) : next
+  return nearest ? selectTab(next, nearest.id) : next
 }
 
 function collapseOthers(root: LayoutNode, paneId: string): LayoutNode {
@@ -72,7 +66,7 @@ function collapseOthers(root: LayoutNode, paneId: string): LayoutNode {
   if (!tab) return root
   const next = mapTab(root, tab, (p) => (p.id === paneId ? expanded(p) : collapsed(p)))
   const shown = tabsOfPane(next, paneId)?.activeId
-  return shown && findPane(tab, shown) ? showPane(next, paneId) : next
+  return shown && findPane(tab, shown) ? selectTab(next, paneId) : next
 }
 
 function expandAll(root: LayoutNode, paneId: string): LayoutNode {
@@ -144,7 +138,7 @@ export function foldSplitTab(root: LayoutNode, tabId: string): LayoutNode {
   const shown = [...tabs.children.slice(at + 1), ...tabs.children.slice(0, at).reverse()]
     .map(openPaneOf)
     .find((id) => id !== null)
-  return shown ? showPane(folded, shown) : root
+  return shown ? selectTab(folded, shown) : root
 }
 
 export function isTucked(root: LayoutNode, paneId: string): boolean {

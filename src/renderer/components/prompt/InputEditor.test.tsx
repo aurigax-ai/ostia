@@ -13,16 +13,10 @@ import { act, cleanup, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { Terminal as Xterm } from '@xterm/xterm'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import { idlePrompt } from '../../../../test/idlePrompt'
 import { InputEditor, type InputEditorProps } from './InputEditor'
 
 const PANE = 'pane-input'
-
-function idlePrompt(paneId = PANE): LineAnchor {
-  const anchor = { line: 0 }
-  useBlocksStore.getState().promptStart(paneId, anchor, '/w')
-  useBlocksStore.getState().promptEnd(paneId, { line: 0 })
-  return anchor
-}
 
 function runCommand(command: string, paneId = PANE): void {
   const s = useBlocksStore.getState()
@@ -31,7 +25,7 @@ function runCommand(command: string, paneId = PANE): void {
 
 function finishCommand(paneId = PANE): LineAnchor {
   useBlocksStore.getState().commandEnd(paneId, { line: 2 }, 0)
-  return idlePrompt(paneId)
+  return idlePrompt(paneId, '/w')
 }
 
 function setMode(inputMode: 'terminal' | 'editor'): void {
@@ -95,14 +89,14 @@ describe('InputEditor', () => {
   })
 
   it('stays hidden in terminal mode even at an idle prompt', () => {
-    idlePrompt()
+    idlePrompt(PANE, '/w')
     renderEditor()
     expect(editor()).toBeNull()
   })
 
   it('shows at an idle prompt in editor mode', () => {
     setMode('editor')
-    idlePrompt()
+    idlePrompt(PANE, '/w')
     renderEditor()
     expect(editor()).toBeVisible()
     expect(editor()).toHaveAttribute('placeholder', 'Run commands')
@@ -123,14 +117,14 @@ describe('InputEditor', () => {
     renderEditor()
     expect(editor()).toBeNull()
     act(() => {
-      idlePrompt()
+      idlePrompt(PANE, '/w')
     })
     expect(editor()).toBeVisible()
   })
 
   it('hides while a command runs and comes back with focus at the next prompt', () => {
     setMode('editor')
-    idlePrompt()
+    idlePrompt(PANE, '/w')
     const { props } = renderEditor()
     act(() => editor()?.focus())
     act(() => runCommand('vim'))
@@ -146,7 +140,7 @@ describe('InputEditor', () => {
     setMode('editor')
     renderEditor({ ownsFocus: () => false })
     act(() => {
-      idlePrompt()
+      idlePrompt(PANE, '/w')
     })
     expect(editor()).toBeVisible()
     expect(editor()).not.toHaveFocus()
@@ -154,7 +148,7 @@ describe('InputEditor', () => {
 
   it('hides while a full-screen program uses the alternate screen', () => {
     setMode('editor')
-    idlePrompt()
+    idlePrompt(PANE, '/w')
     const { view, props } = renderEditor()
     view.rerender(<InputEditor {...props} alternateScreen />)
     expect(editor()).toBeNull()
@@ -162,7 +156,7 @@ describe('InputEditor', () => {
 
   it('hides for the prompt the user typed into directly', () => {
     setMode('editor')
-    const prompt = idlePrompt()
+    const prompt = idlePrompt(PANE, '/w')
     const { view, props } = renderEditor()
     view.rerender(<InputEditor {...props} suppressedPrompt={prompt} />)
     expect(editor()).toBeNull()
@@ -176,7 +170,7 @@ describe('InputEditor', () => {
   })
 
   it('appears live when the setting switches to editor', () => {
-    idlePrompt()
+    idlePrompt(PANE, '/w')
     renderEditor()
     expect(editor()).toBeNull()
     act(() => setMode('editor'))
@@ -187,7 +181,7 @@ describe('InputEditor', () => {
 
   it('submits on Enter and clears the draft', async () => {
     setMode('editor')
-    idlePrompt()
+    idlePrompt(PANE, '/w')
     const { props } = renderEditor()
     const user = userEvent.setup()
     await user.type(editor() as HTMLElement, 'echo hi{Enter}')
@@ -197,7 +191,7 @@ describe('InputEditor', () => {
 
   it('keeps the draft when the submit is refused', async () => {
     setMode('editor')
-    idlePrompt()
+    idlePrompt(PANE, '/w')
     const { props } = renderEditor({ onSubmit: vi.fn(() => false) })
     const user = userEvent.setup()
     await user.type(editor() as HTMLElement, 'ls{Enter}')
@@ -207,7 +201,7 @@ describe('InputEditor', () => {
 
   it('inserts a newline on Shift+Enter and submits every line together', async () => {
     setMode('editor')
-    idlePrompt()
+    idlePrompt(PANE, '/w')
     const { props } = renderEditor()
     const user = userEvent.setup()
     await user.type(editor() as HTMLElement, 'for i in 1 2{Shift>}{Enter}{/Shift}do echo $i; done')
@@ -222,7 +216,7 @@ describe('InputEditor', () => {
     const s = useBlocksStore.getState()
     s.promptStart('other', { line: 0 }, '/w')
     s.commandStart('other', { line: 1 }, 'make build')
-    idlePrompt()
+    idlePrompt(PANE, '/w')
     runCommand('git status')
     finishCommand()
     renderEditor()
@@ -242,7 +236,7 @@ describe('InputEditor', () => {
 
   it('moves inside a multi-line draft before walking history, but steps straight through history entries', async () => {
     setMode('editor')
-    idlePrompt()
+    idlePrompt(PANE, '/w')
     runCommand('printf a\nprintf b')
     finishCommand()
     runCommand('ls')
@@ -263,7 +257,7 @@ describe('InputEditor', () => {
 
   it('runs a chord that acts only in a terminal, such as Ctrl+Shift+K, and keeps it from the window', async () => {
     setMode('editor')
-    idlePrompt()
+    idlePrompt(PANE, '/w')
     const run = vi.fn()
     commands.register({ id: 'terminal.clear', title: 'Clear Terminal', run })
     const behind = vi.fn((e: KeyboardEvent) => e.code)
@@ -284,7 +278,7 @@ describe('InputEditor', () => {
 
   it('clears the draft on Ctrl+C and hands the draft to the shell line on Escape', async () => {
     setMode('editor')
-    idlePrompt()
+    idlePrompt(PANE, '/w')
     const { props } = renderEditor()
     const user = userEvent.setup()
     await user.type(editor() as HTMLElement, 'rm -rf build')
@@ -302,7 +296,7 @@ describe('InputEditor', () => {
     async (mode) => {
       if (!commands.has('palette.toggle')) registerBuiltinCommands()
       setMode('editor')
-      idlePrompt()
+      idlePrompt(PANE, '/w')
       const { props } = renderEditor()
       render(<CommandPalette />)
       const user = userEvent.setup()
@@ -323,7 +317,7 @@ describe('InputEditor', () => {
   it('copies the selected draft text on smart Ctrl+C and keeps the draft', async () => {
     setMode('editor')
     setClipboardKeys('smart')
-    idlePrompt()
+    idlePrompt(PANE, '/w')
     renderEditor()
     const user = userEvent.setup()
     await user.type(editor() as HTMLElement, 'git status')
@@ -337,7 +331,7 @@ describe('InputEditor', () => {
   it('copies the terminal selection on smart Ctrl+C when the draft has none', async () => {
     setMode('editor')
     setClipboardKeys('smart')
-    idlePrompt()
+    idlePrompt(PANE, '/w')
     const term = fakeTerm('build output')
     renderEditor({ termRef: { current: term } })
     const user = userEvent.setup()
@@ -351,7 +345,7 @@ describe('InputEditor', () => {
   it('clears the draft on smart Ctrl+C when nothing is selected', async () => {
     setMode('editor')
     setClipboardKeys('smart')
-    idlePrompt()
+    idlePrompt(PANE, '/w')
     renderEditor()
     const user = userEvent.setup()
     await user.type(editor() as HTMLElement, 'rm -rf build')
@@ -362,7 +356,7 @@ describe('InputEditor', () => {
   it('keeps Ctrl+C as the shell clear in shift mode even with a selection', async () => {
     setMode('editor')
     setClipboardKeys('shift')
-    idlePrompt()
+    idlePrompt(PANE, '/w')
     renderEditor()
     const user = userEvent.setup()
     await user.type(editor() as HTMLElement, 'git status')
@@ -373,7 +367,7 @@ describe('InputEditor', () => {
 
   it('copies the selection on the copy chord in either mode', async () => {
     setMode('editor')
-    idlePrompt()
+    idlePrompt(PANE, '/w')
     renderEditor()
     const user = userEvent.setup()
     await user.type(editor() as HTMLElement, 'git status')
@@ -385,7 +379,7 @@ describe('InputEditor', () => {
 
   it('pastes into the draft without control characters or a trailing newline', async () => {
     setMode('editor')
-    idlePrompt()
+    idlePrompt(PANE, '/w')
     const { props } = renderEditor()
     const user = userEvent.setup()
     await user.click(editor() as HTMLElement)
@@ -397,7 +391,7 @@ describe('InputEditor', () => {
   it('the input editor copies on the chord and on smart Ctrl+C, and pastes on both', async () => {
     setMode('editor')
     setClipboardKeys('smart')
-    idlePrompt()
+    idlePrompt(PANE, '/w')
     const { props } = renderEditor()
     const fromWindow = vi.fn((e: KeyboardEvent) => {
       const prevented = e.defaultPrevented
@@ -441,7 +435,7 @@ describe('InputEditor', () => {
 
   it('edits with readline keys and a kill ring', async () => {
     setMode('editor')
-    idlePrompt()
+    idlePrompt(PANE, '/w')
     renderEditor()
     const user = userEvent.setup()
     await user.type(editor() as HTMLElement, 'echo hello world')
@@ -458,7 +452,7 @@ describe('InputEditor', () => {
 
   it('hands the draft and the key to the shell for widgets it does not own, like Ctrl+R', async () => {
     setMode('editor')
-    idlePrompt()
+    idlePrompt(PANE, '/w')
     const { props } = renderEditor()
     const user = userEvent.setup()
     await user.type(editor() as HTMLElement, 'git')
@@ -469,7 +463,7 @@ describe('InputEditor', () => {
 
   it('sends Ctrl+L to the shell and keeps the draft, and Ctrl+D on an empty draft as EOF', async () => {
     setMode('editor')
-    idlePrompt()
+    idlePrompt(PANE, '/w')
     const { props } = renderEditor()
     const user = userEvent.setup()
     await user.type(editor() as HTMLElement, 'ls')
@@ -483,7 +477,7 @@ describe('InputEditor', () => {
 
   it('filters history by the typed prefix on Up', async () => {
     setMode('editor')
-    idlePrompt()
+    idlePrompt(PANE, '/w')
     act(() => {
       runCommand('git status')
       finishCommand()
@@ -501,7 +495,7 @@ describe('InputEditor', () => {
 
   it('takes typing and pastes forwarded from the terminal while it is shown', async () => {
     setMode('editor')
-    idlePrompt()
+    idlePrompt(PANE, '/w')
     renderEditor()
     await act(async () => {})
     const area = editor() as HTMLTextAreaElement
@@ -516,7 +510,7 @@ describe('InputEditor', () => {
 
   it('completes paths from the pane cwd on Tab and lists ambiguous matches', async () => {
     setMode('editor')
-    idlePrompt()
+    idlePrompt(PANE, '/w')
     vi.mocked(window.ostia.pty.listDir).mockImplementation(async (_pane, path) =>
       path === '/home/u/proj'
         ? [
@@ -546,7 +540,7 @@ describe('InputEditor', () => {
 
   it('completes a path outside the home folder from the pane’s own listing', async () => {
     setMode('editor')
-    idlePrompt()
+    idlePrompt(PANE, '/w')
     vi.mocked(window.ostia.pty.listDir).mockImplementation(async (_pane, path) =>
       path === '/'
         ? [
@@ -568,7 +562,7 @@ describe('InputEditor', () => {
 
   it('completes subcommands and options from the command’s spec with descriptions', async () => {
     setMode('editor')
-    idlePrompt()
+    idlePrompt(PANE, '/w')
     vi.mocked(window.ostia.completions.spec).mockImplementation(async (command) =>
       command === 'git'
         ? {
@@ -608,7 +602,7 @@ describe('InputEditor', () => {
 
   it('offers arguments that followed the same command in history after the spec’s items', async () => {
     setMode('editor')
-    idlePrompt()
+    idlePrompt(PANE, '/w')
     vi.mocked(window.ostia.completions.spec).mockImplementation(async (command) =>
       command === 'git'
         ? {
@@ -643,7 +637,7 @@ describe('InputEditor', () => {
 
   it('receives history inserts instead of the shell line while it is shown', async () => {
     setMode('editor')
-    idlePrompt()
+    idlePrompt(PANE, '/w')
     const paste = vi.fn()
     const unregister = registerTerminal(PANE, { paste, focus: vi.fn() } as never)
     renderEditor()
@@ -660,7 +654,7 @@ describe('InputEditor', () => {
 
   it('the input editor suggests from history, completes commands, highlights and edits with vim keys', async () => {
     setMode('editor')
-    idlePrompt()
+    idlePrompt(PANE, '/w')
     runCommand('echo ostia_suggest_one')
     finishCommand()
     vi.mocked(window.ostia.pty.commands).mockResolvedValue([
@@ -735,7 +729,7 @@ describe('InputEditor', () => {
 
   it('snippets: fill the input editor when it is shown', async () => {
     setMode('editor')
-    idlePrompt()
+    idlePrompt(PANE, '/w')
     const paste = vi.fn()
     const unregister = registerTerminal(PANE, { paste, focus: vi.fn() } as never)
     renderEditor()
@@ -774,7 +768,7 @@ describe('InputEditor', () => {
 
     function withHistory(...commands: string[]): void {
       setMode('editor')
-      idlePrompt()
+      idlePrompt(PANE, '/w')
       for (const command of commands) {
         runCommand(command)
         finishCommand()
@@ -830,7 +824,7 @@ describe('InputEditor', () => {
       s.promptEnd(PANE, { line: 0 })
       runCommand('pnpm test:e2e')
       useBlocksStore.getState().commandEnd(PANE, { line: 2 }, 0)
-      idlePrompt()
+      idlePrompt(PANE, '/w')
       runCommand('pnpm build')
       finishCommand()
       renderEditor()
@@ -841,7 +835,7 @@ describe('InputEditor', () => {
 
     it('suggests from the shell’s history file in a pane with no session history', async () => {
       setMode('editor')
-      idlePrompt()
+      idlePrompt(PANE, '/w')
       vi.mocked(window.ostia.pty.history).mockResolvedValue([
         { command: 'kubectl get pods', time: 1_700_000_000_000 },
         { command: 'kubectl get nodes -o wide', time: 1_700_000_060_000 },
@@ -886,7 +880,7 @@ describe('InputEditor', () => {
       })
       vi.mocked(window.ostia.pty.history).mockClear()
       setMode('editor')
-      idlePrompt()
+      idlePrompt(PANE, '/w')
       renderEditor()
       await waitFor(() => expect(window.ostia.pty.commands).toHaveBeenCalledWith(PANE))
       expect(window.ostia.pty.history).not.toHaveBeenCalled()
@@ -935,7 +929,7 @@ describe('InputEditor', () => {
   describe('command completion', () => {
     it('completes a unique command name on Tab and paths after it', async () => {
       setMode('editor')
-      idlePrompt()
+      idlePrompt(PANE, '/w')
       vi.mocked(window.ostia.pty.commands).mockResolvedValue(['docker', 'git', 'grep'])
       vi.mocked(window.ostia.pty.listDir).mockResolvedValue([{ name: 'Dockerfile', dir: false }])
       renderEditor()
@@ -950,7 +944,7 @@ describe('InputEditor', () => {
 
     it('opens a menu for several matches, picks with arrows and Enter, and closes on Escape', async () => {
       setMode('editor')
-      idlePrompt()
+      idlePrompt(PANE, '/w')
       vi.mocked(window.ostia.pty.commands).mockResolvedValue(['gitk', 'git', 'gist', 'ls'])
       const { props } = renderEditor()
       await waitFor(() => expect(window.ostia.pty.commands).toHaveBeenCalled())
@@ -987,7 +981,7 @@ describe('InputEditor', () => {
 
     it('reports when no command matches', async () => {
       setMode('editor')
-      idlePrompt()
+      idlePrompt(PANE, '/w')
       vi.mocked(window.ostia.pty.commands).mockResolvedValue(['ls'])
       renderEditor()
       await waitFor(() => expect(window.ostia.pty.commands).toHaveBeenCalled())
@@ -1024,7 +1018,7 @@ describe('InputEditor', () => {
 
     async function openAvail() {
       setMode('editor')
-      idlePrompt()
+      idlePrompt(PANE, '/w')
       folders()
       const rendered = renderEditor()
       const user = userEvent.setup()
@@ -1121,7 +1115,7 @@ describe('InputEditor', () => {
 
     it('the completion menu stays open and narrows while typing, and a slash lists the folder', async () => {
       setMode('editor')
-      idlePrompt()
+      idlePrompt(PANE, '/w')
       vi.mocked(window.ostia.pty.listDir).mockReset()
       vi.mocked(window.ostia.pty.listDir).mockImplementation(async (_pane, path) => {
         if (path === '~/Work/goji') {
@@ -1169,7 +1163,7 @@ describe('InputEditor', () => {
 
     it('filters command names live too', async () => {
       setMode('editor')
-      idlePrompt()
+      idlePrompt(PANE, '/w')
       vi.mocked(window.ostia.pty.commands).mockResolvedValue(['gitk', 'git', 'gist', 'ls'])
       renderEditor()
       await waitFor(() => expect(window.ostia.pty.commands).toHaveBeenCalled())
@@ -1195,7 +1189,7 @@ describe('InputEditor', () => {
 
     it('colors the draft by token and marks commands missing from PATH as unknown', async () => {
       setMode('editor')
-      idlePrompt()
+      idlePrompt(PANE, '/w')
       vi.mocked(window.ostia.pty.commands).mockResolvedValue(['git', 'grep'])
       renderEditor()
       await waitFor(() => expect(window.ostia.pty.commands).toHaveBeenCalled())
@@ -1220,7 +1214,7 @@ describe('InputEditor', () => {
 
     it('shows the typed text itself while an IME composes', async () => {
       setMode('editor')
-      idlePrompt()
+      idlePrompt(PANE, '/w')
       const { view } = renderEditor()
       await act(async () => {})
       const field = view.container.querySelector('.input-editor-field') as HTMLElement
@@ -1244,7 +1238,7 @@ describe('InputEditor', () => {
 
     it('is off by default, so Escape still hands off to the shell line', async () => {
       setMode('editor')
-      idlePrompt()
+      idlePrompt(PANE, '/w')
       const { props } = renderEditor()
       expect(mode()).toBeNull()
       const user = userEvent.setup()
@@ -1256,7 +1250,7 @@ describe('InputEditor', () => {
     it('edits with motions, operators, counts and undo, then submits from normal mode', async () => {
       setMode('editor')
       setVim(true)
-      idlePrompt()
+      idlePrompt(PANE, '/w')
       const { props } = renderEditor()
       const user = userEvent.setup()
       expect(mode()).toBe('INSERT')
@@ -1289,7 +1283,7 @@ describe('InputEditor', () => {
     it('ignores printable keys in normal mode and opens lines with o and O', async () => {
       setMode('editor')
       setVim(true)
-      idlePrompt()
+      idlePrompt(PANE, '/w')
       renderEditor()
       const user = userEvent.setup()
       await user.type(editor() as HTMLElement, 'ls')
@@ -1304,7 +1298,7 @@ describe('InputEditor', () => {
     it('walks history with k on the first line', async () => {
       setMode('editor')
       setVim(true)
-      idlePrompt()
+      idlePrompt(PANE, '/w')
       runCommand('git status')
       finishCommand()
       renderEditor()

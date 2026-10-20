@@ -1,27 +1,16 @@
 import { existsSync } from 'node:fs'
 import { dirname, join } from 'node:path'
-import { freshDataHome, isolatedLaunch } from './dataHome'
+import { freshDataHome } from './dataHome'
 import {
   PROMPT,
   emptyState,
   emptyWorkspace,
+  launchWindow,
   quitApp,
   runInTerminal,
   shownTerminal,
 } from './helpers'
-import { type ElectronApplication, type Page, _electron as electron, expect, test } from './test'
-
-async function launchApp(dataHome: string): Promise<{ app: ElectronApplication; win: Page }> {
-  const app = await electron.launch(isolatedLaunch(dataHome))
-  try {
-    const win = await app.firstWindow()
-    await win.waitForLoadState('domcontentloaded')
-    return { app, win }
-  } catch (err) {
-    await app.close()
-    throw err
-  }
-}
+import { type Page, expect, test } from './test'
 
 async function newScratchWorkspace(win: Page): Promise<void> {
   await win
@@ -51,7 +40,7 @@ test('a scratch workspace runs in its private folder, deletes it on close, and n
   let folder = ''
   let leftOpen = ''
 
-  const first = await launchApp(dataHome)
+  const first = await launchWindow(dataHome)
   try {
     const { win } = first
     await expect(emptyState(win)).toBeVisible({ timeout: 15_000 })
@@ -87,7 +76,7 @@ test('a scratch workspace runs in its private folder, deletes it on close, and n
 
   expect(existsSync(leftOpen)).toBe(false)
 
-  const second = await launchApp(dataHome)
+  const second = await launchWindow(dataHome)
   try {
     await expect(emptyState(second.win)).toBeVisible({ timeout: 15_000 })
     await expect(second.win.locator('.rail-tab')).toHaveCount(0)

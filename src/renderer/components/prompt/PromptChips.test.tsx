@@ -4,13 +4,14 @@ import type { PaneNode } from '@/lib/layout/types'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useUIStore } from '@/stores/app/uiStore'
 import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
-import { type LineAnchor, useBlocksStore } from '@/stores/terminal/blocksStore'
+import { useBlocksStore } from '@/stores/terminal/blocksStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import type { PromptContext } from '@shared/terminal/ptyApi'
 import { act, cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import { idlePrompt } from '../../../../test/idlePrompt'
 import { renderSettled } from '../../../../test/render'
 import { InputEditor } from './InputEditor'
 
@@ -24,13 +25,6 @@ const CONTEXT: PromptContext = {
   condaEnv: null,
   nodeVersion: null,
   kubeContext: null,
-}
-
-function idlePrompt(): LineAnchor {
-  const anchor = { line: 0 }
-  useBlocksStore.getState().promptStart(PANE, anchor, '/home/u/proj')
-  useBlocksStore.getState().promptEnd(PANE, { line: 0 })
-  return anchor
 }
 
 function useOstia(chips: string[], patch: { sameLine?: boolean; separator?: '$' | 'none' } = {}) {
@@ -104,7 +98,7 @@ describe('Ostia prompt in the input editor', () => {
 
   it('leaves the prompt to the shell with the shell prompt style', async () => {
     useSettingsStore.setState((s) => ({ behavior: { ...s.behavior, inputMode: 'editor' } }))
-    idlePrompt()
+    idlePrompt(PANE, '/home/u/proj')
     await renderEditor()
     expect(screen.getByRole('textbox', { name: 'Command input' })).toBeVisible()
     expect(screen.queryByRole('list', { name: 'Prompt' })).toBeNull()
@@ -113,7 +107,7 @@ describe('Ostia prompt in the input editor', () => {
 
   it('shows the chips in order with the pane’s real values and hides empty ones', async () => {
     useOstia(['user', 'kube', 'cwd', 'exitCode'])
-    idlePrompt()
+    idlePrompt(PANE, '/home/u/proj')
     await renderEditor()
     expect(await within(chipRow()).findByText('ada')).toBeVisible()
     const labels = within(chipRow())
@@ -125,10 +119,10 @@ describe('Ostia prompt in the input editor', () => {
 
   it('shows the last command’s exit code after it finishes', async () => {
     useOstia(['exitCode'])
-    idlePrompt()
+    idlePrompt(PANE, '/home/u/proj')
     useBlocksStore.getState().commandStart(PANE, { line: 1 }, 'false')
     useBlocksStore.getState().commandEnd(PANE, { line: 2 }, 1)
-    idlePrompt()
+    idlePrompt(PANE, '/home/u/proj')
     await renderEditor()
     const chip = await within(chipRow()).findByLabelText('Last exit code: 1')
     expect(chip).toHaveAttribute('data-tone', 'error')
@@ -136,7 +130,7 @@ describe('Ostia prompt in the input editor', () => {
 
   it('puts the chips and the separator on the input line when sameLine is on', async () => {
     useOstia(['cwd'], { sameLine: true, separator: '$' })
-    idlePrompt()
+    idlePrompt(PANE, '/home/u/proj')
     const { container } = await renderEditor()
     const line = container.querySelector('.input-editor-line')
     expect(line).not.toBeNull()
@@ -146,7 +140,7 @@ describe('Ostia prompt in the input editor', () => {
 
   it('opens Files when the cwd chip is clicked', async () => {
     useOstia(['cwd'])
-    idlePrompt()
+    idlePrompt(PANE, '/home/u/proj')
     await renderEditor()
     await userEvent.click(within(chipRow()).getByRole('button', { name: /Working directory/ }))
     expect(useUIStore.getState().filesOpen).toBe(true)
@@ -201,7 +195,7 @@ describe('Ostia prompt in the input editor', () => {
       ],
     })
     useOstia(['vcs.dirty', 'cwd', 'vcs.branch'])
-    idlePrompt()
+    idlePrompt(PANE, '/home/u/proj')
     await renderEditor()
     await within(chipRow()).findByText('~/proj')
     expect(
@@ -245,7 +239,7 @@ describe('Ostia prompt in the input editor', () => {
     const writeText = vi.fn().mockResolvedValue(undefined)
     Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true })
     useOstia(['user', 'cwd'], { separator: '$' })
-    idlePrompt()
+    idlePrompt(PANE, '/home/u/proj')
     await renderEditor()
     await within(chipRow()).findByText('ada')
     fireEvent.contextMenu(chipRow())
@@ -265,7 +259,7 @@ describe('Ostia prompt in the input editor', () => {
 
   it('asks main again at each new prompt', async () => {
     useOstia(['user'])
-    idlePrompt()
+    idlePrompt(PANE, '/home/u/proj')
     await renderEditor()
     await within(chipRow()).findByText('ada')
     const calls = vi.mocked(window.ostia.pty.promptContext).mock.calls.length
@@ -300,7 +294,7 @@ describe('Ostia prompt in the input editor', () => {
       },
     })
     useOstia(['virtualenv', 'cwd', 'exitCode'], { separator: '$' })
-    idlePrompt()
+    idlePrompt(PANE, '/home/u/proj')
     const { rerender } = await renderSettled(
       <>
         {editor('/home/u')}

@@ -3,9 +3,9 @@ import { existsSync, readFileSync } from 'node:fs'
 import { type Server, createServer } from 'node:http'
 import type { AddressInfo } from 'node:net'
 import { join, resolve } from 'node:path'
-import { DOM_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
-import { openWorkspace, quitApp } from './helpers'
-import { type ElectronApplication, type Page, _electron as electron, expect, test } from './test'
+import { DOM_RENDERER_SETTINGS, freshDataHome, seedSettings } from './dataHome'
+import { launchWindow, openWorkspace, quitApp, readPaneEnv } from './helpers'
+import { type Page, expect, test } from './test'
 
 const CLI = resolve(__dirname, '../out/cli/index.js')
 const COOKIE = 'ostia_profile=kept'
@@ -24,15 +24,6 @@ function serve(seen: Seen[]): Promise<Server> {
     res.end(`<title>profile ${path}</title><p>${path}</p>`)
   })
   return new Promise((ok) => server.listen(0, '127.0.0.1', () => ok(server)))
-}
-
-function readPaneEnv(path: string): Record<string, string> {
-  const env: Record<string, string> = {}
-  for (const line of readFileSync(path, 'utf8').split('\n')) {
-    const eq = line.indexOf('=')
-    if (eq > 0) env[line.slice(0, eq)] = line.slice(eq + 1)
-  }
-  return env
 }
 
 interface Run {
@@ -64,13 +55,6 @@ function runCli(
   return { child, done }
 }
 
-async function launch(dataHome: string): Promise<{ app: ElectronApplication; win: Page }> {
-  const app = await electron.launch(isolatedLaunch(dataHome))
-  const win = await app.firstWindow()
-  await win.waitForLoadState('domcontentloaded')
-  return { app, win }
-}
-
 async function openHumanTab(win: Page, url: string): Promise<void> {
   await win.getByRole('button', { name: 'New browser tab' }).first().click()
   const address = win.locator('.pane-slot:not([data-hidden]) .browser-address')
@@ -89,7 +73,7 @@ test('the human’s browser panes share one profile that survives a restart, and
   const dataHome = freshDataHome()
   seedSettings(dataHome, { ...DOM_RENDERER_SETTINGS, capabilities: { grants: ['browse'] } })
 
-  const first = await launch(dataHome)
+  const first = await launchWindow(dataHome)
   try {
     const { win } = first
     await openWorkspace(win)
@@ -117,7 +101,7 @@ test('the human’s browser panes share one profile that survives a restart, and
   }
 
   seen.length = 0
-  const second = await launch(dataHome)
+  const second = await launchWindow(dataHome)
   try {
     await expect.poll(() => visited(seen, '/echo')?.cookie, { timeout: 30_000 }).toBe(COOKIE)
     await expect.poll(() => visited(seen, '/agent'), { timeout: 30_000 }).toBeTruthy()

@@ -1,6 +1,6 @@
 import type { MessageConnection } from 'vscode-jsonrpc/node'
 import type { QuestionAskResult, QuestionEnd } from '../../shared/agents/questions'
-import { FlagError, parseArgs } from '../common/args'
+import { FlagError, parseArgs, parseTimeoutSeconds } from '../common/args'
 import { usageOf } from '../common/usageTable'
 
 export const ASK_EXIT = {
@@ -38,21 +38,12 @@ function askFlags(argv: string[]) {
   }
 }
 
-function timeoutFlag(raw: string | undefined): number | undefined {
-  if (raw === undefined) return undefined
-  const seconds = Number(raw)
-  if (raw.trim() === '' || !Number.isFinite(seconds) || seconds <= 0) {
-    throw new Error(`--timeout expects seconds, got '${raw}'`)
-  }
-  return seconds
-}
-
 export function parseAskArgs(argv: string[]): AskCall {
   const { positional, values, lists, booleans } = askFlags(argv)
   const { context } = values
   const { multi, json } = booleans
   const choices = lists.choice
-  const timeoutSeconds = timeoutFlag(values.timeout)
+  const timeoutSeconds = parseTimeoutSeconds(values.timeout)
   const question = positional.join(' ').trim()
   if (!question) throw new Error(USAGE)
   if (multi && choices.length === 0) throw new Error('--multi needs at least one --choice')

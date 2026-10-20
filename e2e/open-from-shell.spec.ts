@@ -1,16 +1,14 @@
 import { execFileSync } from 'node:child_process'
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { freshDataHome, isolatedLaunch } from './dataHome'
-import { openWorkspace, quitApp, runInTerminal, terminalTab } from './helpers'
-import { type ElectronApplication, type Page, _electron as electron, expect, test } from './test'
+import { freshDataHome } from './dataHome'
+import { launchWindow, openWorkspace, quitApp, runInTerminal, terminalTab } from './helpers'
+import { type ElectronApplication, type Page, expect, test } from './test'
 
 async function launch(dataHome: string): Promise<{ app: ElectronApplication; win: Page }> {
-  const app = await electron.launch(isolatedLaunch(dataHome))
-  const win = await app.firstWindow()
-  await win.waitForLoadState('domcontentloaded')
-  await openWorkspace(win)
-  return { app, win }
+  const launched = await launchWindow(dataHome)
+  await openWorkspace(launched.win)
+  return launched
 }
 
 function tab(win: Page, title: string) {

@@ -1,6 +1,8 @@
+import { tmpdir } from 'node:os'
 import { PRODUCT_DISPLAY_NAME } from '@aurigax-ai/ostia-extension-sdk/contract/productDisplay'
 import { type BrowserWindow, app, ipcMain } from 'electron'
 import { MANAGER_FEATURE } from '../../shared/agents/managerSettings'
+import { portalSocketPath } from '../../shared/agents/portal'
 import { quoteArgv } from '../../shared/terminal/shellQuote'
 import type { Reach } from '../approvals/reach'
 import type { CommandBridge } from '../control/commandBridge'
@@ -9,7 +11,7 @@ import type { PtyIo } from '../terminal/pty/ptyIo'
 import type { PtyEntry } from '../terminal/pty/ptyRegistry'
 import type { WindowSend } from '../windows/windowSend'
 import { type ManagerService, managerWindowId } from './manager'
-import { Portal, portalSocketPath, portalSupported } from './portal'
+import { Portal, portalSupported } from './portal'
 import { callerVerdict, procFs, ttysOf } from './portalCaller'
 
 interface ManagerPanesDeps {
@@ -121,7 +123,7 @@ export function createManagerPanes({
   function startPortal(): void {
     if (!services.managerService || !portalSupported(process.platform)) return
     const service = services.managerService
-    services.portal = new Portal(portalSocketPath(app.isPackaged), {
+    services.portal = new Portal(portalSocketPath(app.isPackaged, process.env, tmpdir()), {
       missing: () => missingRequirements(MANAGER_FEATURE),
       hint: (missing) => installHint(missing),
       judge: (socket) =>

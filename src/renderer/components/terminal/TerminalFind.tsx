@@ -2,20 +2,20 @@ import { FindBar, type FindStepRef } from '@/components/common/FindBar'
 import { TextLink } from '@/components/common/TextLink'
 import { fmt, useDict } from '@/lib/app/useDict'
 import type { TerminalSearch } from '@/lib/terminal/ostiaTerminal'
+import type { TerminalColors } from '@/lib/theme/types'
 import type { HistoryFind } from '@/stores/terminal/historyViewStore'
 import type { HistorySearchResult } from '@shared/terminal/scrollbackHistory'
 import type { ISearchOptions } from '@xterm/addon-search'
-import type { ITheme } from '@xterm/xterm'
 import { useEffect, useRef, useState } from 'react'
 
-export function findOptions(palette: ITheme): ISearchOptions {
-  const match = palette.brightBlack ?? '#5c6266'
-  const active = palette.yellow ?? '#cfd77c'
+export function findOptions(palette: TerminalColors): ISearchOptions {
+  const match = palette.brightBlack
+  const active = palette.yellow
   return {
     decorations: {
       matchBackground: match,
       matchOverviewRuler: match,
-      activeMatchBackground: palette.blue ?? '#538bb5',
+      activeMatchBackground: palette.blue,
       activeMatchBorder: active,
       activeMatchColorOverviewRuler: active,
     },

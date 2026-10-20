@@ -62,6 +62,14 @@ function send(res: ServerResponse, status: number, type: string, body: string | 
   res.end(body)
 }
 
+async function jsonReply(res: ServerResponse, work: () => Promise<unknown>): Promise<void> {
+  try {
+    send(res, 200, 'application/json', JSON.stringify(await work()))
+  } catch (err) {
+    send(res, 400, 'application/json', JSON.stringify(failure('bad-request', responseMessage(err))))
+  }
+}
+
 export async function startPanelServer(opts: {
   dir: string
   files: string[]
@@ -94,38 +102,23 @@ export async function startPanelServer(opts: {
       if (req.method === 'GET')
         return send(res, 200, 'application/json', JSON.stringify(sizes.all()))
       if (req.method !== 'POST') return send(res, 405, 'text/plain', 'method not allowed')
-      try {
+      return jsonReply(res, async () => {
         const body = JSON.parse(await readBody(req)) as { key?: unknown; fraction?: unknown }
         if (!sizes.set(body.key, body.fraction ?? null)) throw new Error('key, fraction')
-        return send(res, 200, 'application/json', JSON.stringify(sizes.all()))
-      } catch (err) {
-        return send(
-          res,
-          400,
-          'application/json',
-          JSON.stringify(failure('bad-request', responseMessage(err))),
-        )
-      }
+        return sizes.all()
+      })
     }
     if (req.method === 'POST' && url.pathname === '/api') {
       if (req.headers['x-ostia-panel'] !== secret) return send(res, 403, 'text/plain', 'forbidden')
-      try {
+      return jsonReply(res, async () => {
         const body = JSON.parse(await readBody(req)) as {
           command?: unknown
           args?: unknown
           context?: Record<string, unknown>
         }
         if (typeof body.command !== 'string') throw new Error('missing command')
-        const result = await opts.handle(body.command, body.args, panelCaller(body.context ?? {}))
-        return send(res, 200, 'application/json', JSON.stringify(result))
-      } catch (err) {
-        return send(
-          res,
-          400,
-          'application/json',
-          JSON.stringify(failure('bad-request', responseMessage(err))),
-        )
-      }
+        return opts.handle(body.command, body.args, panelCaller(body.context ?? {}))
+      })
     }
     if (req.method === 'GET') {
       const name = url.pathname === '/' ? 'panel.html' : url.pathname.slice(1)

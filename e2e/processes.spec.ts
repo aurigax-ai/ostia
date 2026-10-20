@@ -1,20 +1,6 @@
-import { freshDataHome, isolatedLaunch } from './dataHome'
-import { openWorkspace, quitApp, typeLine } from './helpers'
-import {
-  type ElectronApplication,
-  type Locator,
-  type Page,
-  _electron as electron,
-  expect,
-  test,
-} from './test'
-
-async function launch(dataHome: string): Promise<{ app: ElectronApplication; win: Page }> {
-  const app = await electron.launch(isolatedLaunch(dataHome))
-  const win = await app.firstWindow()
-  await win.waitForLoadState('domcontentloaded')
-  return { app, win }
-}
+import { freshDataHome } from './dataHome'
+import { launchWindow, openWorkspace, quitApp, typeLine } from './helpers'
+import { type Locator, type Page, expect, test } from './test'
 
 function rows(win: Page, index: number): Locator {
   return win.locator('.xterm-rows').nth(index)
@@ -36,7 +22,7 @@ function callerHasFocus(win: Page): Promise<boolean> {
 
 test('ostia process run shows the command in a terminal tab the human can watch', async () => {
   const dataHome = freshDataHome()
-  let { app, win } = await launch(dataHome)
+  let { app, win } = await launchWindow(dataHome)
   try {
     await openWorkspace(win)
     const tabs = win.getByRole('tablist').getByRole('tab')
@@ -63,7 +49,7 @@ test('ostia process run shows the command in a terminal tab the human can watch'
     await expect(shownRows(win)).toContainText('hello-from-42 two  words', { timeout: 20_000 })
 
     await quitApp(app)
-    ;({ app, win } = await launch(dataHome))
+    ;({ app, win } = await launchWindow(dataHome))
     const restored = win.getByRole('tablist').getByRole('tab')
     await expect(restored).toHaveCount(2, { timeout: 20_000 })
     await expect(restored.nth(1)).toContainText('demo')

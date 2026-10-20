@@ -1,16 +1,9 @@
 import { mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { DOM_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
-import { openWorkspace, quitApp, runInTerminal, terminalTab } from './helpers'
-import { type ElectronApplication, type Page, _electron as electron, expect, test } from './test'
+import { DOM_RENDERER_SETTINGS, freshDataHome, seedSettings } from './dataHome'
+import { launchWindow, openWorkspace, quitApp, runInTerminal, terminalTab } from './helpers'
+import { type Page, expect, test } from './test'
 import { viewerGuestText } from './viewerGuest'
-
-async function launch(dataHome: string): Promise<{ app: ElectronApplication; win: Page }> {
-  const app = await electron.launch(isolatedLaunch(dataHome))
-  const win = await app.firstWindow()
-  await win.waitForLoadState('domcontentloaded')
-  return { app, win }
-}
 
 function run(win: Page, command: string): Promise<void> {
   return runInTerminal(win, command, win.locator('.xterm:visible').first())
@@ -44,7 +37,7 @@ test('a shell writes artifacts that are listed and kept across a restart, and th
   test.setTimeout(180_000)
   const dataHome = freshDataHome()
   let folder = ''
-  let first = await launch(dataHome)
+  let first = await launchWindow(dataHome)
   try {
     const { win } = first
     await openWorkspace(win)
@@ -76,7 +69,7 @@ test('a shell writes artifacts that are listed and kept across a restart, and th
     await quitApp(first.app)
   }
 
-  first = await launch(dataHome)
+  first = await launchWindow(dataHome)
   try {
     const { win } = first
     await expect(win.locator('.pane-tab').first()).toBeVisible({ timeout: 20_000 })
@@ -99,7 +92,7 @@ test('a CSV artifact opens as a table and a mermaid block in Markdown is drawn a
     '# Plan\n\n```mermaid\ngraph TD\n  Start --> Done\n```\n\n<script>document.title = "ran"</script>\n',
   )
   seedSettings(dataHome, { ...DOM_RENDERER_SETTINGS, editor: { markdownPreview: true } })
-  const { app, win } = await launch(dataHome)
+  const { app, win } = await launchWindow(dataHome)
   try {
     await openWorkspace(win)
     await run(
@@ -139,7 +132,7 @@ test('the artifact chip menu draws the unread dot apart from the time', async ()
   test.setTimeout(120_000)
   const dataHome = freshDataHome()
   seedSettings(dataHome, DOM_RENDERER_SETTINGS)
-  const { app, win } = await launch(dataHome)
+  const { app, win } = await launchWindow(dataHome)
   try {
     await openWorkspace(win)
     await run(

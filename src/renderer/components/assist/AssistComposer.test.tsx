@@ -9,6 +9,7 @@ import { act, cleanup, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { Terminal as Xterm } from '@xterm/xterm'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import { idlePrompt } from '../../../../test/idlePrompt'
 
 const agentState = vi.hoisted(() => ({
   agent: 'claude' as 'claude' | 'other' | null,
@@ -50,11 +51,6 @@ function answer(handler: Handler): void {
     _id: string,
     input: AssistRequests[AssistPoint],
   ) => handler(point, input)) as never)
-}
-
-function idlePrompt(): void {
-  useBlocksStore.getState().promptStart(PANE, { line: 0 }, '/w')
-  useBlocksStore.getState().promptEnd(PANE, { line: 0 })
 }
 
 function mount(term: Xterm) {
@@ -172,7 +168,7 @@ describe('AssistComposer', () => {
       texts.map((text) => ({ text, count: text.includes('SECRET') ? 1 : 0, kinds: {} })),
     )
     agentState.agent = null
-    idlePrompt()
+    idlePrompt(PANE, '/w')
     const term = fakeTerm()
     unregister = registerTerminal(PANE, term)
     answer(async () => ({ ok: true, result: { suggestions: [] } }))
@@ -245,7 +241,7 @@ describe('AssistComposer', () => {
 
   it('inserts a chosen command suggestion at an idle prompt without running it', async () => {
     agentState.agent = null
-    idlePrompt()
+    idlePrompt(PANE, '/w')
     const term = fakeTerm()
     unregister = registerTerminal(PANE, term)
     answer(async (point) =>
@@ -273,7 +269,7 @@ describe('AssistComposer', () => {
 
   it('marks the first suggestion selected and moves the selection with the arrow keys', async () => {
     agentState.agent = null
-    idlePrompt()
+    idlePrompt(PANE, '/w')
     answer(async (point) =>
       point === 'command'
         ? {

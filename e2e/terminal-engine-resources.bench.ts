@@ -1,5 +1,6 @@
 import { mkdirSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
+import { setTimeout as sleep } from 'node:timers/promises'
 import { SOFTWARE_WEBGL, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
 import { BENCH_ENGINES } from './ghostty'
 import { newTerminal } from './helpers'
@@ -20,8 +21,6 @@ interface Proc {
   comm: string
   cat: string
 }
-
-const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 
 function cpuSeconds(t: string): number {
   const [rest, frac = '0'] = t.split('.')

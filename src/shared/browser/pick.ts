@@ -205,7 +205,7 @@ export function screenshotRect(
   }
 }
 
-function fence(text: string, lang = ''): string {
+export function fence(text: string, lang = ''): string {
   let ticks = '```'
   while (text.includes(ticks)) ticks += '`'
   return `${ticks}${lang}\n${text}\n${ticks}`

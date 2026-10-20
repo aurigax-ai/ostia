@@ -24,7 +24,3 @@ export function resolveSafe(inputPath: string, roots: string[]): string | null {
   }
   return null
 }
-
-export function isPathAllowed(inputPath: string, roots: string[]): boolean {
-  return resolveSafe(inputPath, roots) !== null
-}

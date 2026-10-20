@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest'
+import { isUncommitted } from '../../shared/boards/git'
 import {
   FIELD_SEP,
   RECORD_SEP,
-  isUncommitted,
   parseBlamePorcelain,
   parseDecorations,
   parseGraphLog,

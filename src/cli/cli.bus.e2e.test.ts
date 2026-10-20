@@ -15,7 +15,9 @@ const request = vi.fn(async () => answer)
 vi.mock('../main/approvals/approvals', () => ({ approvals: () => ({ request }) }))
 
 const { registerBusMethods } = await import('../main/agents/busMethods')
-const { failPaneMail, flushBus, postBusMessage, resetBus } = await import('../main/agents/busStore')
+const { failPaneMail, flushBus, postBusMessage, resetBus, sentBy } = await import(
+  '../main/agents/busStore'
+)
 const { registerControlServer, stopControlServer } = await import('../main/control/controlServer')
 const { registerPane } = await import('../main/control/idRegistry')
 const { busHookCommand } = await import('../main/terminal/agentHookCommands')
@@ -290,7 +292,10 @@ describe('the mod’s hook verbs through the real CLI', () => {
 describe('bus send --wait through the real CLI', () => {
   it('returns delivered, exit 0, once the receiver takes its inbox', async () => {
     const waiting = ostia(sender, 'bus', 'send', '--wait', '30', agent.externalId, 'take this')
-    await new Promise((resolve) => setTimeout(resolve, 2500))
+    await vi.waitUntil(() => sentBy(sender.externalId).length === 1, {
+      timeout: 10_000,
+      interval: 25,
+    })
     const taken = JSON.parse((await ostia(agent, 'bus', 'inbox', '--take', '--json')).stdout)
     expect(taken.map((m: { text: string }) => m.text)).toEqual(['take this'])
     const res = await waiting
@@ -309,7 +314,10 @@ describe('bus send --wait through the real CLI', () => {
 
   it('returns failed, exit 1, with the reason when the receiver’s pane closes', async () => {
     const waiting = ostia(sender, 'bus', 'send', '--wait', '30', agent.externalId, 'too late')
-    await new Promise((resolve) => setTimeout(resolve, 2500))
+    await vi.waitUntil(() => sentBy(sender.externalId).length === 1, {
+      timeout: 10_000,
+      interval: 25,
+    })
     failPaneMail(agent.externalId)
     const res = await waiting
     expect(res.code).toBe(1)

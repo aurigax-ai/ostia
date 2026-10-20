@@ -1,12 +1,6 @@
-export const SPLIT_TAB_NAME_MAX = 60
+import { hasControlCharacter } from '../common/hiddenText'
 
-function hasControlCharacter(text: string): boolean {
-  for (const ch of text) {
-    const code = ch.charCodeAt(0)
-    if (code < 0x20 || (code >= 0x7f && code <= 0x9f)) return true
-  }
-  return false
-}
+export const SPLIT_TAB_NAME_MAX = 60
 
 export interface SplitTabPlacement {
   name: string

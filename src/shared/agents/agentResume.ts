@@ -1,3 +1,4 @@
+import { hasControlCharacter } from '../common/hiddenText'
 import { quoteArg } from '../terminal/shellQuote'
 import { type TypedLaunch, resumeFlags, typedLaunchOf } from './agentLaunch'
 
@@ -33,14 +34,6 @@ export const RESUMABLE_AGENTS: readonly ResumableAgent[] = ['claude', 'codex']
 const RESUME_ID = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/
 
 const RESUME_CWD_MAX = 4096
-
-function hasControlCharacter(text: string): boolean {
-  for (const ch of text) {
-    const code = ch.charCodeAt(0)
-    if (code < 0x20 || (code >= 0x7f && code <= 0x9f)) return true
-  }
-  return false
-}
 
 export function isResumableAgent(value: unknown): value is ResumableAgent {
   return typeof value === 'string' && (RESUMABLE_AGENTS as readonly string[]).includes(value)

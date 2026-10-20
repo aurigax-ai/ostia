@@ -1,5 +1,6 @@
 import { KEYBOARD_PLATFORMS, type KeyboardPlatform } from '@/lib/keyboard/keyboardPresets'
 import { type TerminalKeyMap, parseTerminalKeys } from '@/lib/keyboard/terminalKeys'
+import { isRecord } from '@aurigax-ai/ostia-extension-sdk/contract/isRecord'
 import { type KeybindingMap, parseKeybindings } from '@shared/keyboard/chordSpec'
 import { parseKeymapSetting, parseTerminalKeymapSetting } from './keymapSetting'
 
@@ -19,9 +20,6 @@ export type KeyboardField = (typeof KEYBOARD_FIELDS)[number]
 type PerPlatform = Partial<Record<KeyboardPlatform, unknown>>
 
 export type KeyboardFile = Record<KeyboardField, PerPlatform>
-
-const isRecord = (v: unknown): v is Record<string, unknown> =>
-  typeof v === 'object' && v !== null && !Array.isArray(v)
 
 function byPlatform(raw: unknown): PerPlatform {
   return isRecord(raw) ? raw : {}

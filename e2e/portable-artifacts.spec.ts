@@ -4,7 +4,7 @@ import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { DOM_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
 import { fakeAgentBin, startFakeAgent } from './fakeAgent'
-import { expectHeld, openWorkspace, runInTerminal } from './helpers'
+import { expectHeld, launchWindow, openWorkspace, runInTerminal } from './helpers'
 import {
   type Browser,
   type BrowserContext,
@@ -58,11 +58,9 @@ async function listen(body = 'ok'): Promise<Listener> {
 
 async function launch(dataHome: string): Promise<{ app: ElectronApplication; win: Page }> {
   seedSettings(dataHome, { ...DOM_RENDERER_SETTINGS, editor: { openFilesIn: 'split' } })
-  const app = await electron.launch(isolatedLaunch(dataHome))
-  const win = await app.firstWindow()
-  await win.waitForLoadState('domcontentloaded')
-  await openWorkspace(win)
-  return { app, win }
+  const launched = await launchWindow(dataHome)
+  await openWorkspace(launched.win)
+  return launched
 }
 
 function home(dataHome: string): string {

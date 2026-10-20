@@ -1,24 +1,12 @@
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { FAKE } from '../test/fixtures/secrets/samples'
-import { freshDataHome, isolatedLaunch } from './dataHome'
-import { openWorkspace, quitApp } from './helpers'
-import { type ElectronApplication, type Page, _electron as electron, expect, test } from './test'
+import { freshDataHome } from './dataHome'
+import { launchWindow, openWorkspace, quitApp } from './helpers'
+import { type Page, expect, test } from './test'
 
 const TOKEN = FAKE.githubClassic
 const MARK = '[redacted:github]'
-
-async function launch(dataHome: string): Promise<{ app: ElectronApplication; win: Page }> {
-  const app = await electron.launch(isolatedLaunch(dataHome))
-  try {
-    const win = await app.firstWindow()
-    await win.waitForLoadState('domcontentloaded')
-    return { app, win }
-  } catch (err) {
-    await app.close()
-    throw err
-  }
-}
 
 async function typeInTerminal(win: Page, line: string): Promise<void> {
   await win.locator('.xterm').first().click()
@@ -37,7 +25,7 @@ test('the live terminal keeps a secret, the saved scrollback and the restored hi
   const dataHome = freshDataHome()
   const scrollbackFile = join(dataHome, 'ostia', 'scrollback.json')
 
-  const first = await launch(dataHome)
+  const first = await launchWindow(dataHome)
   try {
     await openWorkspace(first.win)
     await typeInTerminal(first.win, `echo key=${TOKEN} done`)
@@ -65,7 +53,7 @@ test('the live terminal keeps a secret, the saved scrollback and the restored hi
   expect(saved).toContain(`key=${MARK} done`)
   expect(saved).toContain(`last=${MARK}`)
 
-  const second = await launch(dataHome)
+  const second = await launchWindow(dataHome)
   try {
     await expect(second.win.locator('.workzone')).toContainText(`last=${MARK}`, {
       timeout: 15_000,

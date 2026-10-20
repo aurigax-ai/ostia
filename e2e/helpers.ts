@@ -1,15 +1,75 @@
+import { cpSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { join, resolve } from 'node:path'
+import { PRODUCT_NAME } from '@aurigax-ai/ostia-extension-sdk/contract/product'
 import { escapeRegExp } from 'es-toolkit'
+import { isolatedLaunch } from './dataHome'
 import { textPainted } from './pixels'
 import {
   type ElectronApplication,
   type Locator,
   type Page,
+  _electron as electron,
   expect,
   stopTrace,
   waitForExit,
 } from './test'
 
 export const PROMPT = /[❯$%#]/
+
+const MARKETPLACE = resolve(__dirname, '../out/marketplace/extensions')
+
+export function installApproved(dataHome: string, configHome: string, id: string): void {
+  const target = join(configHome, PRODUCT_NAME, 'extensions', id)
+  cpSync(join(MARKETPLACE, id), target, { recursive: true })
+  const manifest = JSON.parse(readFileSync(join(target, 'ostia.json'), 'utf8'))
+  mkdirSync(join(dataHome, 'userData'), { recursive: true })
+  writeFileSync(
+    join(dataHome, 'userData', 'extensions.json'),
+    JSON.stringify({ [id]: { enabled: true, approved: manifest.capabilities ?? [] } }),
+  )
+}
+
+export function panelEval(app: ElectronApplication, script: string): Promise<string> {
+  return app.evaluate(async ({ webContents }, code) => {
+    const guest = webContents
+      .getAllWebContents()
+      .find((wc) => wc.getType() === 'webview' && wc.getURL().startsWith('http://127.0.0.1'))
+    return guest ? String(await guest.executeJavaScript(code)) : ''
+  }, script)
+}
+
+export function readPaneEnv(path: string): Record<string, string> {
+  const env: Record<string, string> = {}
+  for (const line of readFileSync(path, 'utf8').split('\n')) {
+    const eq = line.indexOf('=')
+    if (eq > 0) env[line.slice(0, eq)] = line.slice(eq + 1)
+  }
+  return env
+}
+
+export async function waitForTerminalFocus(win: Page): Promise<void> {
+  await expect
+    .poll(() =>
+      win.evaluate(
+        () => document.activeElement?.classList.contains('xterm-helper-textarea') ?? false,
+      ),
+    )
+    .toBe(true)
+}
+
+export async function launchWindow(
+  dataHome: string,
+): Promise<{ app: ElectronApplication; win: Page }> {
+  const app = await electron.launch(isolatedLaunch(dataHome))
+  try {
+    const win = await app.firstWindow()
+    await win.waitForLoadState('domcontentloaded')
+    return { app, win }
+  } catch (err) {
+    await app.close()
+    throw err
+  }
+}
 
 export function emptyState(win: Page): Locator {
   return win.locator('.workzone-empty')

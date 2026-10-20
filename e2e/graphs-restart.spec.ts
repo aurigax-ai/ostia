@@ -4,7 +4,7 @@ import { chords } from './chords'
 import { freshDataHome, isolatedLaunch } from './dataHome'
 import { extensionHosts } from './extensionHosts'
 import { guestKeys, pressInPage } from './guestKeys'
-import { openWorkspace, quitApp, waitForPaletteSelection } from './helpers'
+import { openWorkspace, panelEval, quitApp, waitForPaletteSelection } from './helpers'
 import {
   type ElectronApplication,
   type Page,
@@ -15,15 +15,6 @@ import {
 } from './test'
 
 test.describe.configure({ timeout: 240_000 })
-
-function panelEval(app: ElectronApplication, script: string): Promise<string> {
-  return app.evaluate(async ({ webContents }, code) => {
-    const guest = webContents
-      .getAllWebContents()
-      .find((wc) => wc.getType() === 'webview' && wc.getURL().startsWith('http://127.0.0.1'))
-    return guest ? String(await guest.executeJavaScript(code)) : ''
-  }, script)
-}
 
 const clickLabel = (app: ElectronApplication, selector: string, label: string) =>
   panelEval(

@@ -1,6 +1,6 @@
-import { DOM_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
-import { openWorkspace, pressQuit, runInTerminal } from './helpers'
-import { _electron as electron, expect, test } from './test'
+import { DOM_RENDERER_SETTINGS, freshDataHome, seedSettings } from './dataHome'
+import { launchWindow, openWorkspace, pressQuit, runInTerminal } from './helpers'
+import { expect, test } from './test'
 
 const CONFIRM_QUIT = {
   ...DOM_RENDERER_SETTINGS,
@@ -15,9 +15,7 @@ const PLAIN_SHELL = {
 async function launch(settings: object) {
   const dataHome = freshDataHome()
   seedSettings(dataHome, settings)
-  const app = await electron.launch(isolatedLaunch(dataHome))
-  const win = await app.firstWindow()
-  await win.waitForLoadState('domcontentloaded')
+  const { app, win } = await launchWindow(dataHome)
   await openWorkspace(win)
   return { app, win, proc: app.process() }
 }

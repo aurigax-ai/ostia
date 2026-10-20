@@ -5,6 +5,7 @@ import { freshDataHome, isolatedLaunch } from './dataHome'
 import { fakeAgentBin } from './fakeAgent'
 import {
   openWorkspace,
+  panelEval,
   quitApp,
   runInTerminal,
   shownTerminal,
@@ -49,15 +50,6 @@ const FAKE_CLAUDE = [
   'exec cat',
   '',
 ].join('\n')
-
-function panelEval(app: ElectronApplication, script: string): Promise<string> {
-  return app.evaluate(async ({ webContents }, code) => {
-    const guest = webContents
-      .getAllWebContents()
-      .find((wc) => wc.getType() === 'webview' && wc.getURL().startsWith('http://127.0.0.1'))
-    return guest ? String(await guest.executeJavaScript(code)) : ''
-  }, script)
-}
 
 async function openActivity(win: Page): Promise<void> {
   await win.keyboard.press(chords.palette)

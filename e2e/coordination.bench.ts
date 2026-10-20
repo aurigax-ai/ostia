@@ -13,7 +13,7 @@ const ostia = (...args) =>
     env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' },
     stdio: 'ignore',
   })
-const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
+const { setTimeout: sleep } = require('node:timers/promises')
 const counter = process.env.BENCH_COUNTER
 const n = (existsSync(counter) ? Number(readFileSync(counter, 'utf8')) : 0) + 1
 writeFileSync(counter, String(n))

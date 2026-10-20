@@ -1,18 +1,11 @@
-import { freshDataHome, isolatedLaunch } from './dataHome'
-import { openWorkspace } from './helpers'
-import { type ElectronApplication, type Page, _electron as electron, expect, test } from './test'
+import { freshDataHome } from './dataHome'
+import { launchWindow, openWorkspace } from './helpers'
+import { type Page, expect, test } from './test'
 
 interface PaneBox {
   x: number
   y: number
   tabs: string[]
-}
-
-async function launchApp(dataHome: string): Promise<{ app: ElectronApplication; win: Page }> {
-  const app = await electron.launch(isolatedLaunch(dataHome))
-  const win = await app.firstWindow()
-  await win.waitForLoadState('domcontentloaded')
-  return { app, win }
 }
 
 async function panes(win: Page): Promise<PaneBox[]> {
@@ -39,7 +32,7 @@ test.beforeEach(() => {
 })
 
 test('a drag over a browser pane lands on the drop layer above the page and splits it', async () => {
-  const { app, win } = await launchApp(dataHome)
+  const { app, win } = await launchWindow(dataHome)
   try {
     await openWorkspace(win)
     const [terminal] = (await panes(win))[0].tabs

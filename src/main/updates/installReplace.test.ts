@@ -16,11 +16,11 @@ import type { AddressInfo } from 'node:net'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { tarballAssetName } from '../../shared/app/releases'
 import { bundleFs } from './bundleFs'
 import {
   ReplaceError,
   allowedHop,
-  archiveName,
   canReplaceInstall,
   checkArchive,
   checksumFor,
@@ -115,9 +115,9 @@ const assetPath = (asset: string, version = VERSION): string =>
 
 function release(data: Buffer, sums?: string): Record<string, Buffer> {
   return {
-    [assetPath(archiveName(VERSION))]: data,
+    [assetPath(tarballAssetName(VERSION))]: data,
     [assetPath('SHA256SUMS')]: Buffer.from(
-      sums ?? `${sha(data)}  ${archiveName(VERSION)}\n${'0'.repeat(64)}  other.deb\n`,
+      sums ?? `${sha(data)}  ${tarballAssetName(VERSION)}\n${'0'.repeat(64)}  other.deb\n`,
     ),
   }
 }
@@ -160,7 +160,7 @@ function untouched(appDir: string): void {
 
 describe('releaseAssetUrl', () => {
   it('builds the download url from the repository and the parsed version only', () => {
-    expect(releaseAssetUrl('https://github.com', '1.2.3', archiveName('1.2.3'))?.href).toBe(
+    expect(releaseAssetUrl('https://github.com', '1.2.3', tarballAssetName('1.2.3'))?.href).toBe(
       'https://github.com/aurigax-ai/ostia/releases/download/v1.2.3/ostia-1.2.3-linux-x64.tar.gz',
     )
     expect(releaseAssetUrl('https://github.com', '1.2.3', 'SHA256SUMS')?.pathname).toBe(
@@ -295,7 +295,7 @@ describe('replaceInstall', () => {
   it('leaves the install untouched on a checksum mismatch', async () => {
     const appDir = installed()
     const data = archive(VERSION)
-    const server = await serve(release(data, `${'f'.repeat(64)}  ${archiveName(VERSION)}\n`))
+    const server = await serve(release(data, `${'f'.repeat(64)}  ${tarballAssetName(VERSION)}\n`))
     try {
       expect(await failure(replaceFrom(server, appDir))).toBe('checksum-mismatch')
     } finally {
@@ -321,7 +321,7 @@ describe('replaceInstall', () => {
     const data = archive(VERSION)
     const server = await serve({
       ...release(data),
-      [assetPath(archiveName(VERSION))]: { redirect: 'http://127.0.0.2:9/elsewhere' },
+      [assetPath(tarballAssetName(VERSION))]: { redirect: 'http://127.0.0.2:9/elsewhere' },
     })
     try {
       expect(await failure(replaceFrom(server, appDir))).toBe('redirect-refused')
@@ -335,8 +335,8 @@ describe('replaceInstall', () => {
     const appDir = installed()
     const data = archive(VERSION)
     const server = await serve({
-      [assetPath('SHA256SUMS')]: Buffer.from(`${sha(data)}  ${archiveName(VERSION)}\n`),
-      [assetPath(archiveName(VERSION))]: { redirect: '/blob' },
+      [assetPath('SHA256SUMS')]: Buffer.from(`${sha(data)}  ${tarballAssetName(VERSION)}\n`),
+      [assetPath(tarballAssetName(VERSION))]: { redirect: '/blob' },
       '/blob': data,
     })
     try {

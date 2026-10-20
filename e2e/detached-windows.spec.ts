@@ -1,33 +1,9 @@
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { isMac } from './chords'
-import { freshDataHome, isolatedLaunch } from './dataHome'
-import { openWorkspace, quitApp } from './helpers'
-import {
-  type ElectronApplication,
-  type Locator,
-  type Page,
-  _electron as electron,
-  expect,
-  test,
-} from './test'
-
-interface Launched {
-  app: ElectronApplication
-  win: Page
-}
-
-async function launchApp(dataHome: string): Promise<Launched> {
-  const app = await electron.launch(isolatedLaunch(dataHome))
-  try {
-    const win = await app.firstWindow()
-    await win.waitForLoadState('domcontentloaded')
-    return { app, win }
-  } catch (err) {
-    await app.close()
-    throw err
-  }
-}
+import { freshDataHome } from './dataHome'
+import { launchWindow, openWorkspace, quitApp } from './helpers'
+import { type ElectronApplication, type Locator, type Page, expect, test } from './test'
 
 async function closeWindow(page: Page): Promise<void> {
   if (isMac) await page.evaluate(() => window.ostia.window.close())
@@ -83,7 +59,7 @@ test.beforeEach(() => {
 test('a detached workspace keeps its running command and comes back when its window closes', async () => {
   test.setTimeout(90_000)
   const marker = `tick${Date.now() % 100000}`
-  const { app, win } = await launchApp(dataHome)
+  const { app, win } = await launchWindow(dataHome)
   try {
     await openWorkspace(win)
     const project = (await win.locator('.rail-row .tab-title').first().innerText()).trim()
@@ -129,7 +105,7 @@ test('a detached workspace keeps its running command and comes back when its win
 test('a detached window reopens where it was after a restart, idle', async () => {
   test.setTimeout(90_000)
   const marker = `ostia_detached_${Date.now()}`
-  const first = await launchApp(dataHome)
+  const first = await launchWindow(dataHome)
   let project = ''
   let bounds = { x: 0, y: 0, width: 0, height: 0 }
   try {
@@ -164,7 +140,7 @@ test('a detached window reopens where it was after a restart, idle', async () =>
     await quitApp(first.app)
   }
 
-  const second = await launchApp(dataHome)
+  const second = await launchWindow(dataHome)
   try {
     await expect.poll(() => second.app.windows().length, { timeout: 15_000 }).toBe(2)
     const pages = second.app.windows()

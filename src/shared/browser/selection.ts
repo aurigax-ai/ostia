@@ -1,4 +1,4 @@
-import { clip } from './pick'
+import { clip, fence } from './pick'
 
 interface TextRange {
   startLine: number
@@ -229,12 +229,6 @@ export function selectionLabel(capture: SelectionCapture): string {
     case 'preview-region':
       return `${name} (${regionText(capture.region)})`
   }
-}
-
-function fence(body: string, lang = ''): string {
-  let ticks = '```'
-  while (body.includes(ticks)) ticks += '`'
-  return `${ticks}${lang}\n${body}\n${ticks}`
 }
 
 function fenceLang(path: string): string {

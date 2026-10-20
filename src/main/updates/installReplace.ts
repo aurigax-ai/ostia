@@ -61,10 +61,6 @@ const downloadPath = (appDir: string): string => `${appDir}.download`
 const newPath = (appDir: string): string => `${appDir}.new`
 const oldPath = (appDir: string): string => `${appDir}.old`
 
-export function archiveName(version: string): string {
-  return tarballAssetName(version)
-}
-
 export function releaseDownloadBase(isPackaged: boolean, env: EnvSource): string {
   return (
     (isPackaged ? undefined : readEnv(RELEASE_DOWNLOAD_BASE_URL_ENV, env)) ??
@@ -303,7 +299,7 @@ export async function replaceInstall(opts: {
   onInstalling: () => void
 }): Promise<void> {
   const { appDir, version } = opts
-  const asset = archiveName(version)
+  const asset = tarballAssetName(version)
   const archiveUrl = releaseAssetUrl(opts.base, version, asset)
   const sumsUrl = releaseAssetUrl(opts.base, version, CHECKSUMS_FILE)
   if (!archiveUrl || !sumsUrl) throw new ReplaceError('http-error')

@@ -1,4 +1,5 @@
 import { MATCH_OSTIA_THEME, parseThemeChoice } from '@/lib/theme/themeChoice'
+import { isRecord } from '@aurigax-ai/ostia-extension-sdk/contract/isRecord'
 import {
   DEFAULT_PROMPT_SETTINGS,
   type PromptSettings,
@@ -100,9 +101,6 @@ function pickBooleans<T extends object>(base: T, raw: Record<string, unknown>): 
   }
   return out
 }
-
-const isRecord = (v: unknown): v is Record<string, unknown> =>
-  typeof v === 'object' && v !== null && !Array.isArray(v)
 
 export function parseTerminalSettings(raw: unknown): TerminalSettings {
   const source = isRecord(raw) ? raw : {}

@@ -1,33 +1,11 @@
-import { copyFileSync, cpSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs'
+import { copyFileSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
-import { PRODUCT_NAME } from '@aurigax-ai/ostia-extension-sdk/contract/product'
 import { chords } from './chords'
 import { freshDataHome, isolatedLaunch } from './dataHome'
-import { waitForPaletteSelection } from './helpers'
-import { type ElectronApplication, _electron as electron, expect, test } from './test'
+import { installApproved, panelEval, waitForPaletteSelection } from './helpers'
+import { _electron as electron, expect, test } from './test'
 
 const FIXTURES = resolve(__dirname, '../test/fixtures/tools')
-const MARKETPLACE = resolve(__dirname, '../out/marketplace/extensions')
-
-function installApproved(dataHome: string, configHome: string): void {
-  const target = join(configHome, PRODUCT_NAME, 'extensions', 'trellis')
-  cpSync(join(MARKETPLACE, 'trellis'), target, { recursive: true })
-  const manifest = JSON.parse(readFileSync(join(target, 'ostia.json'), 'utf8'))
-  mkdirSync(join(dataHome, 'userData'), { recursive: true })
-  writeFileSync(
-    join(dataHome, 'userData', 'extensions.json'),
-    JSON.stringify({ trellis: { enabled: true, approved: manifest.capabilities ?? [] } }),
-  )
-}
-
-function panelEval(app: ElectronApplication, script: string): Promise<string> {
-  return app.evaluate(async ({ webContents }, code) => {
-    const guest = webContents
-      .getAllWebContents()
-      .find((wc) => wc.getType() === 'webview' && wc.getURL().startsWith('http://127.0.0.1'))
-    return guest ? String(await guest.executeJavaScript(code)) : ''
-  }, script)
-}
 
 test('the Trellis panel filters, edits cards, keeps focus and closes in Escape order', async () => {
   test.setTimeout(120_000)
@@ -59,7 +37,7 @@ test('the Trellis panel filters, edits cards, keeps focus and closes in Escape o
       ],
     }),
   )
-  installApproved(dataHome, launch.env.XDG_CONFIG_HOME)
+  installApproved(dataHome, launch.env.XDG_CONFIG_HOME, 'trellis')
   const app = await electron.launch({
     ...launch,
     env: {

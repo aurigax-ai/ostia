@@ -1,7 +1,6 @@
 import {
   chmodSync,
   copyFileSync,
-  cpSync,
   existsSync,
   mkdirSync,
   readFileSync,
@@ -9,26 +8,19 @@ import {
   writeFileSync,
 } from 'node:fs'
 import { join, resolve } from 'node:path'
-import { PRODUCT_NAME } from '@aurigax-ai/ostia-extension-sdk/contract/product'
 import { chords } from './chords'
 import { freshDataHome, isolatedLaunch } from './dataHome'
 import { REPORT_SESSION } from './fakeAgent'
-import { expectHeld, occurrences, waitForPaletteSelection } from './helpers'
-import { type ElectronApplication, _electron as electron, expect, test } from './test'
+import {
+  expectHeld,
+  installApproved,
+  occurrences,
+  panelEval,
+  waitForPaletteSelection,
+} from './helpers'
+import { _electron as electron, expect, test } from './test'
 
 const FIXTURES = resolve(__dirname, '../test/fixtures/tools')
-const MARKETPLACE = resolve(__dirname, '../out/marketplace/extensions')
-
-function installApproved(dataHome: string, configHome: string, id: string): void {
-  const target = join(configHome, PRODUCT_NAME, 'extensions', id)
-  cpSync(join(MARKETPLACE, id), target, { recursive: true })
-  const manifest = JSON.parse(readFileSync(join(target, 'ostia.json'), 'utf8'))
-  mkdirSync(join(dataHome, 'userData'), { recursive: true })
-  writeFileSync(
-    join(dataHome, 'userData', 'extensions.json'),
-    JSON.stringify({ [id]: { enabled: true, approved: manifest.capabilities ?? [] } }),
-  )
-}
 
 function fakeClaude(dataHome: string, promptFile: string, skillFile: string): string {
   const bin = join(dataHome, 'bin')
@@ -49,15 +41,6 @@ function fakeClaude(dataHome: string, promptFile: string, skillFile: string): st
   )
   chmodSync(claude, 0o755)
   return bin
-}
-
-function panelEval(app: ElectronApplication, script: string): Promise<string> {
-  return app.evaluate(async ({ webContents }, code) => {
-    const guest = webContents
-      .getAllWebContents()
-      .find((wc) => wc.getType() === 'webview' && wc.getURL().startsWith('http://127.0.0.1'))
-    return guest ? String(await guest.executeJavaScript(code)) : ''
-  }, script)
 }
 
 test('a Trellis card goes to a new agent or to a running one, only on the human’s clicks', async () => {

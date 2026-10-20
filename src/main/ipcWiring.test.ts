@@ -1,6 +1,7 @@
-import { readFileSync, readdirSync } from 'node:fs'
+import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
+import { sourceFiles } from '../../test/sourceFiles'
 
 const MAIN_DIR = __dirname
 const PRELOAD_DIR = join(__dirname, '..', 'preload')
@@ -85,20 +86,12 @@ const PUSHED = [
   'windows:return-request',
 ]
 
+const TS_SOURCES = '**/!(*.d).ts'
+
 const PUSHED_DYNAMIC = ['lsp:exit:', 'lsp:msg:', 'pty:data:', 'pty:exit:', 'pty:size:']
 
-function sourceFiles(dir: string): string[] {
-  return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
-    const path = join(dir, entry.name)
-    if (entry.isDirectory()) return sourceFiles(path)
-    return path.endsWith('.ts') && !path.endsWith('.test.ts') && !path.endsWith('.d.ts')
-      ? [path]
-      : []
-  })
-}
-
 function mainSources(): string[] {
-  return sourceFiles(MAIN_DIR).map((file) => readFileSync(file, 'utf8'))
+  return sourceFiles(MAIN_DIR, TS_SOURCES).map((file) => readFileSync(file, 'utf8'))
 }
 
 function constants(sources: string[]): Map<string, string> {
@@ -147,7 +140,7 @@ function sentChannels(sources: string[]): Set<string> {
 type PreloadKind = 'invoke' | 'send' | 'listen'
 
 function preloadChannels(): Record<PreloadKind, Set<string>> & { dynamic: Set<string> } {
-  const text = sourceFiles(PRELOAD_DIR)
+  const text = sourceFiles(PRELOAD_DIR, TS_SOURCES)
     .map((file) => readFileSync(file, 'utf8'))
     .join('\n')
   const found = {

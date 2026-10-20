@@ -1,23 +1,6 @@
-import { freshDataHome, isolatedLaunch } from './dataHome'
-import { PROMPT, newTerminalWorkspace, openWorkspace, quitApp } from './helpers'
-import { type ElectronApplication, type Page, _electron as electron, expect, test } from './test'
-
-interface Launched {
-  app: ElectronApplication
-  win: Page
-}
-
-async function launchApp(dataHome: string): Promise<Launched> {
-  const app = await electron.launch(isolatedLaunch(dataHome))
-  try {
-    const win = await app.firstWindow()
-    await win.waitForLoadState('domcontentloaded')
-    return { app, win }
-  } catch (err) {
-    await app.close()
-    throw err
-  }
-}
+import { freshDataHome } from './dataHome'
+import { PROMPT, launchWindow, newTerminalWorkspace, openWorkspace, quitApp } from './helpers'
+import { type Page, expect, test } from './test'
 
 const groupHead = (win: Page) => win.locator('.rail-group-head')
 const groupToggle = (win: Page) => groupHead(win).getByRole('button', { name: /build/ })
@@ -28,7 +11,7 @@ test('workspace groups: a collapsed group shows a member’s failed command and 
   test.setTimeout(150_000)
   const dataHome = freshDataHome()
 
-  const first = await launchApp(dataHome)
+  const first = await launchWindow(dataHome)
   try {
     const { win } = first
     await openWorkspace(win)
@@ -61,7 +44,7 @@ test('workspace groups: a collapsed group shows a member’s failed command and 
     await quitApp(first.app)
   }
 
-  const second = await launchApp(dataHome)
+  const second = await launchWindow(dataHome)
   try {
     const { win } = second
     await expect(groupToggle(win)).toBeVisible({ timeout: 15_000 })

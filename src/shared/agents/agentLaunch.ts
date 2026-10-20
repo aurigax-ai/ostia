@@ -1,5 +1,6 @@
 import { envName } from '@aurigax-ai/ostia-extension-sdk/contract/appEnv'
 import { isRecord } from '@aurigax-ai/ostia-extension-sdk/contract/isRecord'
+import { hasControlCharacter } from '../common/hiddenText'
 import type { ResumableAgent } from './agentResume'
 
 type Arity = 'none' | 'one' | 'optional' | 'many'
@@ -174,14 +175,6 @@ const SECRET_TEXT = [
   /api[_-]?key|token|secret|passw|credential|authorization|bearer/i,
   /[A-Za-z0-9_+=-]{40,}/,
 ]
-
-function hasControlCharacter(text: string): boolean {
-  for (const ch of text) {
-    const code = ch.charCodeAt(0)
-    if (code < 0x20 || (code >= 0x7f && code <= 0x9f)) return true
-  }
-  return false
-}
 
 export function looksSecret(text: string): boolean {
   return SECRET_TEXT.some((pattern) => pattern.test(text))

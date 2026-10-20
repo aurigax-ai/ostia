@@ -1,6 +1,6 @@
 import type { MessageConnection } from 'vscode-jsonrpc/node'
 import { type PaneStatus, statusLine } from '../../shared/panes/paneStatus'
-import { parseArgs } from '../common/args'
+import { parseArgs, parseTimeoutSeconds } from '../common/args'
 import { resolveWorkspaceRef } from '../common/crossWorkspace'
 import { commandLabel } from '../common/failure'
 import { tsvLine } from '../common/lineField'
@@ -97,12 +97,8 @@ const PANE_WAIT_EXIT = { reached: 0, timedOut: 3, closed: 4 } as const
 const USAGE = usageOf('pane')
 
 function timeoutFlag(raw: string | undefined): number | undefined {
-  if (raw === undefined) return undefined
-  const seconds = Number(raw)
-  if (!Number.isFinite(seconds) || seconds <= 0) {
-    throw new Error(`--timeout expects seconds, got '${raw}'`)
-  }
-  return Math.round(seconds * 1000)
+  const seconds = parseTimeoutSeconds(raw)
+  return seconds === undefined ? undefined : Math.round(seconds * 1000)
 }
 
 function parseWait(argv: string[]): PaneCall {

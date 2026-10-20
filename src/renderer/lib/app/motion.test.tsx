@@ -1,27 +1,21 @@
-import { readFileSync, readdirSync } from 'node:fs'
+import { readFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { act, cleanup, renderHook } from '@testing-library/react'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import { sourceFiles } from '../../../../test/sourceFiles'
 import { reducedMotionNow, useMotionAttribute, useReducedMotion } from './motion'
 
 const css = readFileSync(resolve(process.cwd(), 'src/renderer/index.css'), 'utf8')
 
-function sourceFiles(dir: string, extensions: string[]): string[] {
-  const root = resolve(process.cwd(), dir)
-  return readdirSync(root, { recursive: true, encoding: 'utf8' })
-    .filter((f) => extensions.some((ext) => f.endsWith(ext)) && !/\.test\.tsx?$/.test(f))
-    .map((f) => join(root, f))
-}
-
 const styleFiles = [
-  ...sourceFiles('src/renderer', ['.css']),
-  ...sourceFiles('src/extensions', ['.css']),
-  ...sourceFiles(join('packages', 'extension-sdk', 'src', 'client'), ['.css']),
+  ...sourceFiles('src/renderer', '**/*.css'),
+  ...sourceFiles('src/extensions', '**/*.css'),
+  ...sourceFiles(join('packages', 'extension-sdk', 'src', 'client'), '**/*.css'),
 ]
 const codeFiles = [
-  ...sourceFiles('src/renderer', ['.ts', '.tsx']),
-  ...sourceFiles('src/extensions', ['.ts', '.tsx']),
+  ...sourceFiles('src/renderer', '**/*.{ts,tsx}'),
+  ...sourceFiles('src/extensions', '**/*.{ts,tsx}'),
 ]
 
 const RAW_TIMING =

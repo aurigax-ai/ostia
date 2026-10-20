@@ -1,20 +1,13 @@
-import { freshDataHome, isolatedLaunch } from './dataHome'
-import { openWorkspace, quitApp, typeLine } from './helpers'
-import { type ElectronApplication, type Page, _electron as electron, expect, test } from './test'
-
-async function launch(dataHome: string): Promise<{ app: ElectronApplication; win: Page }> {
-  const app = await electron.launch(isolatedLaunch(dataHome))
-  const win = await app.firstWindow()
-  await win.waitForLoadState('domcontentloaded')
-  return { app, win }
-}
+import { freshDataHome } from './dataHome'
+import { launchWindow, openWorkspace, quitApp, typeLine } from './helpers'
+import { type Page, expect, test } from './test'
 
 const coordinatorRows = (win: Page) => win.locator('.xterm-rows').first()
 const memberRows = (win: Page) => win.locator('.rail-group-members .rail-row')
 
 test('a coordinator makes a background workers workspace in its sidebar group and dispatches a worker there', async () => {
   test.setTimeout(90_000)
-  const { app, win } = await launch(freshDataHome())
+  const { app, win } = await launchWindow(freshDataHome())
   try {
     await openWorkspace(win)
     await win.locator('.xterm').first().click()
