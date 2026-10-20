@@ -39,7 +39,6 @@ import { AppearanceSection } from './AppearanceSection'
 import { GitSection, PortsSection } from './BoardSettings'
 import { BrowserSettingsSection, EditorSettingsSection } from './BrowserEditorSettings'
 import { FilesSection } from './FilesSettingsSection'
-import { LanguageSection } from './LanguageSection'
 import { ManagerSection } from './ManagerSection'
 import { NotificationsSection } from './NotificationsSection'
 import { PasswordsSection } from './PasswordsSection'
@@ -198,7 +197,6 @@ const SettingsPages = memo(function SettingsPages({
       {id === 'languageServers' ? <LanguagesSection /> : null}
       {id === 'remote' ? <GatewaySection /> : null}
       {id === 'sync' ? <SyncSection /> : null}
-      {id === 'language' ? <LanguageSection /> : null}
       {id === 'about' ? <AboutSection /> : null}
     </>
   )

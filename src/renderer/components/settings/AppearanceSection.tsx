@@ -1,6 +1,8 @@
 import { Hint } from '@/components/common/Hint'
+import { TextLink } from '@/components/common/TextLink'
 import { CommitInput, NumberInput } from '@/components/settingsKit/CommitInput'
 import { ControlRow } from '@/components/settingsKit/ControlRow'
+import { Field, FieldLine } from '@/components/settingsKit/FieldLine'
 import { SelectField } from '@/components/settingsKit/SelectField'
 import { SettingsGroup } from '@/components/settingsKit/SettingsGroup'
 import { SettingsPage } from '@/components/settingsKit/SettingsPage'
@@ -11,6 +13,7 @@ import { ACCENT_PRESETS, normalizeHex } from '@/lib/theme/color'
 import { useEffectiveTheme } from '@/lib/theme/theme'
 import { cn } from '@/lib/utils'
 import {
+  DEFAULTS,
   FONT_WEIGHTS,
   type FontSurface,
   LINE_HEIGHT_MAX,
@@ -20,14 +23,39 @@ import {
   motionMode,
 } from '@/stores/app/settingsModel'
 import { useSettingsStore } from '@/stores/app/settingsStore'
+import { usePluginsStore } from '@/stores/extensions/pluginsStore'
 import { PRODUCT_PLACEHOLDER } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import { PlusIcon } from '@phosphor-icons/react'
+import type { Dict, Locale } from '@shared/app/dict'
 import { ZOOM_MAX, ZOOM_MIN, ZOOM_STEP } from '@shared/app/zoom'
 import { useState } from 'react'
 import { FontPicker } from './FontPicker'
 import { ThemeRows } from './ThemeSettings'
 
 export function AppearanceSection(): JSX.Element {
+  const d = useDict()
+  return (
+    <SettingsPage title={d.settings.appearance}>
+      <SettingsGroup title={d.settings.groupTheme}>
+        <ThemeRows />
+        <AccentRow />
+        <MotionRow />
+      </SettingsGroup>
+      <SettingsGroup title={d.settings.groupText}>
+        <FontLine surface="terminal" label={d.settings.terminalFont} />
+        <FontLine surface="ui" label={d.settings.uiFont} desc={d.settings.uiFontDesc} />
+        <FontLine surface="editor" label={d.settings.editorFont} desc={d.settings.editorFontDesc} />
+      </SettingsGroup>
+      <SettingsGroup title={d.settings.groupWindow}>
+        <ZoomRow />
+        <WindowTitleRow />
+        <DisplayLanguageRow />
+      </SettingsGroup>
+    </SettingsPage>
+  )
+}
+
+function MotionRow(): JSX.Element {
   const d = useDict()
   const motion = useSettingsStore((s) => s.appearance.motion)
   const setMotion = useSettingsStore((s) => s.setMotion)
@@ -37,30 +65,31 @@ export function AppearanceSection(): JSX.Element {
     full: d.settings.motionFull,
   }
   return (
-    <SettingsPage title={d.settings.appearance}>
-      <SettingsGroup title={d.settings.groupTheme}>
-        <ThemeRows />
-        <ControlRow label={d.settings.motion} desc={d.settings.motionDesc}>
-          <SelectField
-            value={motionMode(motion)}
-            onChange={setMotion}
-            label={d.settings.motion}
-            options={MOTION_MODES.map((m) => ({ value: m, label: motionLabel[m] }))}
-          />
-        </ControlRow>
-        <AccentRow />
-      </SettingsGroup>
-      <SettingsGroup title={d.settings.groupDisplay}>
-        <ZoomRow />
-        <WindowTitleRow />
-      </SettingsGroup>
-      <SettingsGroup title={d.settings.groupFonts}>
-        <FontRow surface="ui" label={d.settings.uiFont} desc={d.settings.uiFontDesc} />
-        <FontRow surface="terminal" label={d.settings.terminalFont} />
-        <LineHeightRow />
-        <FontRow surface="editor" label={d.settings.editorFont} desc={d.settings.editorFontDesc} />
-      </SettingsGroup>
-    </SettingsPage>
+    <ControlRow label={d.settings.motion} desc={d.settings.motionDesc}>
+      <SelectField
+        value={motionMode(motion)}
+        onChange={setMotion}
+        label={d.settings.motion}
+        options={MOTION_MODES.map((m) => ({ value: m, label: motionLabel[m] }))}
+      />
+    </ControlRow>
+  )
+}
+
+function DisplayLanguageRow(): JSX.Element {
+  const d = useDict()
+  const locale = useSettingsStore((s) => s.locale)
+  const setLocale = useSettingsStore((s) => s.setLocale)
+  const languages = usePluginsStore((s) => s.languages)
+  return (
+    <ControlRow label={d.settings.displayLanguage}>
+      <SelectField
+        value={locale}
+        onChange={(l) => setLocale(l as Locale)}
+        label={d.settings.displayLanguage}
+        options={languages.map((l) => ({ value: l.id, label: l.label }))}
+      />
+    </ControlRow>
   )
 }
 
@@ -178,7 +207,41 @@ function ZoomRow(): JSX.Element {
   )
 }
 
-function FontRow({
+function weightName(d: Dict, weight: number): string {
+  const names: Record<number, string> = {
+    300: d.settings.weights.light,
+    400: d.settings.weights.regular,
+    450: d.settings.weights.book,
+    500: d.settings.weights.medium,
+    600: d.settings.weights.semibold,
+    700: d.settings.weights.bold,
+  }
+  return names[weight] ?? String(weight)
+}
+
+function ResetLink({
+  label,
+  value,
+  onReset,
+}: {
+  label: string
+  value: string
+  onReset: () => void
+}): JSX.Element {
+  const d = useDict()
+  return (
+    <TextLink
+      size="xs"
+      className="h-4 px-0 text-ui-xs"
+      aria-label={fmt(d.settings.resetFor, { label, value })}
+      onClick={onReset}
+    >
+      {fmt(d.settings.resetTo, { value })}
+    </TextLink>
+  )
+}
+
+function FontLine({
   surface,
   label,
   desc,
@@ -189,48 +252,96 @@ function FontRow({
 }): JSX.Element {
   const d = useDict()
   const font = useSettingsStore((s) => s.appearance[surface])
-  const setSurfaceFont = useSettingsStore((s) => s.setSurfaceFont)
-  return (
-    <ControlRow label={label} desc={desc}>
-      <FontPicker
-        value={font.family}
-        label={fmt(d.settings.fontFamilyFor, { label })}
-        onChange={(family) => setSurfaceFont(surface, { family })}
-      />
-      <SelectField
-        value={String(font.weight)}
-        onChange={(w) => setSurfaceFont(surface, { weight: Number(w) })}
-        label={fmt(d.settings.fontWeightFor, { label })}
-        width="w-20"
-        options={FONT_WEIGHTS.map((w) => ({ value: String(w), label: String(w) }))}
-      />
-      <NumberInput
-        min={8}
-        max={32}
-        value={font.size}
-        aria-label={fmt(d.settings.fontSizeFor, { label })}
-        onCommit={(n) => setSurfaceFont(surface, { size: Math.round(n) })}
-        className="h-7 w-16 font-mono"
-      />
-    </ControlRow>
-  )
-}
-
-function LineHeightRow(): JSX.Element {
-  const d = useDict()
   const lineHeight = useSettingsStore((s) => s.appearance.terminal.lineHeight)
+  const setSurfaceFont = useSettingsStore((s) => s.setSurfaceFont)
   const setLineHeight = useSettingsStore((s) => s.setTerminalLineHeight)
+  const initial = DEFAULTS.appearance[surface]
+  const initialLineHeight = DEFAULTS.appearance.terminal.lineHeight
   return (
-    <ControlRow label={d.settings.lineHeight} desc={d.settings.lineHeightDesc}>
-      <NumberInput
-        min={LINE_HEIGHT_MIN}
-        max={LINE_HEIGHT_MAX}
-        step={0.05}
-        value={lineHeight}
-        aria-label={d.settings.lineHeight}
-        onCommit={setLineHeight}
-        className="h-7 w-20 font-mono"
-      />
-    </ControlRow>
+    <FieldLine label={label} desc={desc}>
+      <Field
+        label={d.settings.fieldFont}
+        reset={
+          font.family === initial.family ? null : (
+            <ResetLink
+              label={fmt(d.settings.fontFamilyFor, { label })}
+              value={initial.family}
+              onReset={() => setSurfaceFont(surface, { family: initial.family })}
+            />
+          )
+        }
+      >
+        <FontPicker
+          value={font.family}
+          label={fmt(d.settings.fontFamilyFor, { label })}
+          onChange={(family) => setSurfaceFont(surface, { family })}
+        />
+      </Field>
+      <Field
+        label={d.settings.fieldWeight}
+        reset={
+          font.weight === initial.weight ? null : (
+            <ResetLink
+              label={fmt(d.settings.fontWeightFor, { label })}
+              value={weightName(d, initial.weight)}
+              onReset={() => setSurfaceFont(surface, { weight: initial.weight })}
+            />
+          )
+        }
+      >
+        <SelectField
+          value={String(font.weight)}
+          onChange={(w) => setSurfaceFont(surface, { weight: Number(w) })}
+          label={fmt(d.settings.fontWeightFor, { label })}
+          width="w-28"
+          options={FONT_WEIGHTS.map((w) => ({ value: String(w), label: weightName(d, w) }))}
+        />
+      </Field>
+      <Field
+        label={d.settings.fieldSize}
+        reset={
+          font.size === initial.size ? null : (
+            <ResetLink
+              label={fmt(d.settings.fontSizeFor, { label })}
+              value={String(initial.size)}
+              onReset={() => setSurfaceFont(surface, { size: initial.size })}
+            />
+          )
+        }
+      >
+        <NumberInput
+          min={8}
+          max={32}
+          value={font.size}
+          aria-label={fmt(d.settings.fontSizeFor, { label })}
+          onCommit={(n) => setSurfaceFont(surface, { size: Math.round(n) })}
+          className="h-7 w-16 font-mono"
+        />
+      </Field>
+      {surface === 'terminal' ? (
+        <Field
+          label={d.settings.fieldLineHeight}
+          reset={
+            lineHeight === initialLineHeight ? null : (
+              <ResetLink
+                label={d.settings.lineHeight}
+                value={String(initialLineHeight)}
+                onReset={() => setLineHeight(initialLineHeight)}
+              />
+            )
+          }
+        >
+          <NumberInput
+            min={LINE_HEIGHT_MIN}
+            max={LINE_HEIGHT_MAX}
+            step={0.05}
+            value={lineHeight}
+            aria-label={d.settings.lineHeight}
+            onCommit={setLineHeight}
+            className="h-7 w-20 font-mono"
+          />
+        </Field>
+      ) : null}
+    </FieldLine>
   )
 }
