@@ -43,6 +43,7 @@ const { createExtensionIpc } = await import('../../main/extensions/extensionWiri
 const { sshCommands } = await import('../../extensions/ssh/commands')
 const { startUserActions } = await import('@/lib/palette/userActions')
 const { useSettingsStore } = await import('@/stores/app/settingsStore')
+const { useActionConfirmStore } = await import('@/stores/agents/actionConfirmStore')
 const { syncExtensionCommands } = await import('./extensionBridge')
 const { wireCommandBridge } = await import('./bridge')
 const { commands } = await import('./registry')
@@ -250,6 +251,7 @@ afterEach(() => {
   stripMarks = false
   stopActions?.()
   stopActions = null
+  commands.unregister('action.prod')
   useSettingsStore.setState({ actions: [] })
   syncExtensionCommands([])
 })
@@ -368,6 +370,33 @@ describe('the caller an extension command sees, by entry point', () => {
     expect(post).toHaveBeenCalledWith(
       expect.objectContaining({ body: expect.stringContaining('ostia ssh connect') }),
     )
+  })
+
+  it('refuses an action wrapping an extension command before asking for trust', async () => {
+    withAction('probe.write')
+    const ask = vi.fn(async () => 'once' as const)
+    useActionConfirmStore.setState({ ask })
+    const post = vi.mocked(window.ostia.notifications.post)
+    const conn = await connect(pane.token)
+    await conn.sendRequest('command.exec', { id: 'action.prod' })
+    expect(ask).not.toHaveBeenCalled()
+    expect(seen).toEqual([])
+    expect(post).toHaveBeenCalledWith(
+      expect.objectContaining({ body: expect.stringContaining('ostia probe write') }),
+    )
+  })
+
+  it('refuses a remote run that carries no source', async () => {
+    const res = await invokeFromRenderer({
+      id: 'ssh.connect',
+      args: { argument: 'box' },
+      target: { windowId: 'w1', workspaceId: 'ws1', paneId: 'pAgent' },
+    })
+    expect(seen).toEqual([])
+    expect(res).toMatchObject({
+      ok: false,
+      error: { code: 'command-failed', message: expect.stringContaining('ostia ssh connect') },
+    })
   })
 
   it('a core command with the same id as an extension command still wins', async () => {

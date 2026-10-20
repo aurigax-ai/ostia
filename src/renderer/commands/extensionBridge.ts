@@ -59,6 +59,7 @@ export function syncExtensionCommands(list: ExtensionInfo[]): void {
       capabilities: command.capabilities,
       target: 'active',
       extension: { extId: ext.id, command: command.id },
+      agentRefusal: `not-available: run it from the pane with ostia ${ext.verb ?? ext.id} ${command.id}`,
       ...(command.argument
         ? {
             argument: command.argument,
@@ -66,11 +67,8 @@ export function syncExtensionCommands(list: ExtensionInfo[]): void {
           }
         : {}),
       run: async (args, ctx) => {
-        if (ctx.source === 'control') {
-          throw new Error(
-            `not-available: run it from the pane with ostia ${ext.verb ?? ext.id} ${command.id}`,
-          )
-        }
+        const refused = commands.refusalFor(ctx, id)
+        if (refused) throw new Error(refused)
         const res = await window.ostia.extensions.invoke(
           ext.id,
           command.id,

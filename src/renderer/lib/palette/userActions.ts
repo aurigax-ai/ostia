@@ -50,6 +50,11 @@ export async function runCommandAction(
     )
     return
   }
+  const refused = ctx ? commands.refusalFor(ctx, action.command) : null
+  if (refused) {
+    notifyFailure(action, paneId, refused)
+    return
+  }
   if (needsTrust(action)) {
     const fingerprint = actionFingerprint(action)
     if (!useSettingsStore.getState().trustedActions.includes(fingerprint)) {

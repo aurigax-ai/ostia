@@ -47,6 +47,7 @@ export interface CommandDef<Args = void, R = void> {
   capabilities?: Capability[]
   target?: TargetMode
   extension?: ExtensionCommandRef
+  agentRefusal?: string
   run: (args: Args, ctx: CommandContext) => R | Promise<R>
 }
 
@@ -118,6 +119,11 @@ export class CommandRegistry {
 
   isLocal(id: string): boolean {
     return Boolean(this.commands.get(id)?.local)
+  }
+
+  refusalFor(ctx: CommandContext, id: string): string | null {
+    if (ctx.origin !== 'remote' || ctx.source === 'phone') return null
+    return this.commands.get(id)?.agentRefusal ?? null
   }
 
   describe(): CommandDescriptor[] {
