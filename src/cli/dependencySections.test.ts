@@ -1,7 +1,8 @@
-import { readFileSync, readdirSync } from 'node:fs'
+import { readFileSync } from 'node:fs'
 import { builtinModules } from 'node:module'
 import { join, resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
+import { sourceFiles } from '../../test/sourceFiles'
 
 const repoRoot = resolve(__dirname, '../..')
 const manifest = JSON.parse(readFileSync(join(repoRoot, 'package.json'), 'utf8')) as {
@@ -29,15 +30,6 @@ const RENDERER_ONLY = [
 ]
 
 const SPECIFIER = /(?:from\s+|import\s+|import\(\s*|require\(\s*)['"]([^'"]+)['"]/g
-
-function sourceFiles(dir: string): string[] {
-  return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
-    const path = join(dir, entry.name)
-    if (entry.isDirectory()) return sourceFiles(path)
-    const isSource = /\.tsx?$/.test(entry.name) && !/\.(test|d)\.tsx?$/.test(entry.name)
-    return isSource ? [path] : []
-  })
-}
 
 function packageOf(specifier: string): string | null {
   const bare = !/^(\.|\/|node:|@\/|@shared\/)/.test(specifier)
@@ -67,7 +59,7 @@ describe('dependency sections', () => {
     const bundled = new Set(bundledIntoMain())
     const required = new Set<string>()
     for (const root of UNBUNDLED_ROOTS) {
-      for (const file of sourceFiles(join(repoRoot, root))) {
+      for (const file of sourceFiles(join(repoRoot, root), '**/!(*.d).{ts,tsx}')) {
         for (const name of barePackages(readFileSync(file, 'utf8'))) required.add(name)
       }
     }

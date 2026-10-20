@@ -1,15 +1,9 @@
-import { readFileSync, readdirSync } from 'node:fs'
-import { join, relative, resolve } from 'node:path'
+import { readFileSync } from 'node:fs'
+import { relative, resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
+import { sourceFiles } from '../../../../test/sourceFiles'
 
 const ROOT = process.cwd()
-
-function sourceFiles(dir: string, extensions: string[]): string[] {
-  const root = resolve(ROOT, dir)
-  return readdirSync(root, { recursive: true, encoding: 'utf8' })
-    .filter((f) => extensions.some((ext) => f.endsWith(ext)) && !/\.test\.tsx?$/.test(f))
-    .map((f) => join(root, f))
-}
 
 const GENERATED = [/src\/renderer\/components\/ui\//, /src\/renderer\/assets\/fonts\//]
 
@@ -176,13 +170,13 @@ function declarations(file: string, selector: string): string {
 }
 
 const styleFiles = [
-  ...sourceFiles('src/renderer', ['.css']),
-  ...sourceFiles('src/extensions', ['.css']),
+  ...sourceFiles('src/renderer', '**/*.css'),
+  ...sourceFiles('src/extensions', '**/*.css'),
 ].filter((f) => !GENERATED.some((re) => re.test(f)))
 
 const codeFiles = [
-  ...sourceFiles('src/renderer', ['.ts', '.tsx']),
-  ...sourceFiles('src/extensions', ['.ts', '.tsx']),
+  ...sourceFiles('src/renderer', '**/*.{ts,tsx}'),
+  ...sourceFiles('src/extensions', '**/*.{ts,tsx}'),
 ].filter((f) => !GENERATED.some((re) => re.test(f)) && !f.endsWith('.d.ts'))
 
 function fileDeclarationProblems(file: string): string[] {

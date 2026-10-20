@@ -1,18 +1,12 @@
-import { readFileSync, readdirSync } from 'node:fs'
-import { join, relative, resolve } from 'node:path'
+import { readFileSync } from 'node:fs'
+import { relative, resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
+import { sourceFiles } from '../../../../test/sourceFiles'
 
 const ROOT = process.cwd()
 
-function sourceFiles(dir: string, extensions: string[]): string[] {
-  const root = resolve(ROOT, dir)
-  return readdirSync(root, { recursive: true, encoding: 'utf8' })
-    .filter((f) => extensions.some((ext) => f.endsWith(ext)) && !/\.test\.tsx?$/.test(f))
-    .map((f) => join(root, f))
-}
-
 const SHIPPED_CSS = [
-  ...sourceFiles('node_modules/monaco-editor/esm', ['.css']),
+  ...sourceFiles('node_modules/monaco-editor/esm', '**/*.css'),
   resolve(ROOT, 'node_modules/shadcn/dist/tailwind.css'),
 ]
 
@@ -65,7 +59,7 @@ describe(':has() arguments', () => {
   })
 
   it('no shipped style puts an attribute selector inside :has()', () => {
-    const files = [...sourceFiles('src/renderer', ['.ts', '.tsx', '.css']), ...SHIPPED_CSS]
+    const files = [...sourceFiles('src/renderer', '**/*.{ts,tsx,css}'), ...SHIPPED_CSS]
     const found = files.flatMap((file) =>
       attributeHasArguments(readFileSync(file, 'utf8')).map(
         (selector) => `${relative(ROOT, file)}: ${selector}`,

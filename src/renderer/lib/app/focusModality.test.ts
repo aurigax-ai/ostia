@@ -1,6 +1,7 @@
-import { readFileSync, readdirSync } from 'node:fs'
-import { join, relative, resolve } from 'node:path'
+import { readFileSync } from 'node:fs'
+import { relative, resolve } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
+import { sourceFiles } from '../../../../test/sourceFiles'
 import { isNavigationKey, startFocusModality } from './focusModality'
 
 const root = document.documentElement
@@ -64,13 +65,6 @@ describe('focus modality', () => {
   })
 })
 
-function sourceFiles(extensions: string[]): string[] {
-  const dir = resolve(process.cwd(), 'src/renderer')
-  return readdirSync(dir, { recursive: true, encoding: 'utf8' })
-    .filter((f) => extensions.some((ext) => f.endsWith(ext)) && !/\.test\.tsx?$/.test(f))
-    .map((f) => join(dir, f))
-}
-
 function named(file: string): string {
   return relative(process.cwd(), file)
 }
@@ -98,7 +92,7 @@ function focusRules(source: string): { selector: string; body: string }[] {
 describe('one focus indicator', () => {
   it('no component brings its own focus ring classes', () => {
     const found: string[] = []
-    for (const file of sourceFiles(['.ts', '.tsx'])) {
+    for (const file of sourceFiles('src/renderer', '**/*.{ts,tsx}')) {
       for (const match of readFileSync(file, 'utf8').matchAll(RING_CLASS)) {
         found.push(`${named(file)}: ${match[0]}`)
       }
@@ -109,7 +103,7 @@ describe('one focus indicator', () => {
   it('only the global rule in index.css draws a focus outline, and it never sets a radius', () => {
     const found: string[] = []
     const globals: string[] = []
-    for (const file of sourceFiles(['.css'])) {
+    for (const file of sourceFiles('src/renderer', '**/*.css')) {
       for (const { selector, body } of focusRules(readFileSync(file, 'utf8'))) {
         if (selector.includes(GLOBAL_RULE)) {
           globals.push(named(file))

@@ -17,6 +17,7 @@ import type { ChatSessionSummary } from '@shared/assist/chatSessions'
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import { idlePrompt } from '../../../../test/idlePrompt'
 import { renderSettled } from '../../../../test/render'
 import { ChatPane } from './ChatPane'
 import { ChatView, hasVisibleContent } from './ChatView'
@@ -48,12 +49,6 @@ function seedWorkspace(): void {
       },
     },
   })
-}
-
-function idlePrompt(): void {
-  const s = useBlocksStore.getState()
-  s.promptStart(PANE, { line: 0 }, '/home/u/proj')
-  s.promptEnd(PANE, { line: 0 })
 }
 
 interface Pending {
@@ -299,7 +294,7 @@ describe('chat', () => {
 
   it('streams UI message chunks into a markdown answer with a code block', async () => {
     const { pending, chunk } = captureRequests()
-    idlePrompt()
+    idlePrompt(PANE, '/home/u/proj')
     useUIStore.setState({ paletteOpen: true, paletteMode: 'ask' })
     render(<CommandPalette />)
 
@@ -327,7 +322,7 @@ describe('chat', () => {
 
   it('sends the text selected in the workspace with the next question by itself', async () => {
     const { pending } = captureRequests()
-    idlePrompt()
+    idlePrompt(PANE, '/home/u/proj')
     useLiveSelectionStore
       .getState()
       .report(
@@ -366,7 +361,7 @@ describe('chat', () => {
       }),
     )
     const { pending } = captureRequests()
-    idlePrompt()
+    idlePrompt(PANE, '/home/u/proj')
     useLiveSelectionStore
       .getState()
       .report(
@@ -410,7 +405,7 @@ describe('chat', () => {
 
   it('shows no redaction note when nothing would be redacted', async () => {
     captureRequests()
-    idlePrompt()
+    idlePrompt(PANE, '/home/u/proj')
     useUIStore.setState({ paletteOpen: true, paletteMode: 'ask' })
     render(<CommandPalette />)
     await userEvent.type(
@@ -423,7 +418,7 @@ describe('chat', () => {
 
   it('leaves the selection out once the human switches its chip off', async () => {
     const { pending } = captureRequests()
-    idlePrompt()
+    idlePrompt(PANE, '/home/u/proj')
     useLiveSelectionStore.getState().report('w1', PANE, { kind: 'terminal' }, 'ls -la')
     useUIStore.setState({ paletteOpen: true, paletteMode: 'ask' })
     render(<CommandPalette />)
@@ -439,7 +434,7 @@ describe('chat', () => {
 
   it('disables Insert at prompt with the reason while the terminal runs a command', async () => {
     const { pending, chunk } = captureRequests()
-    idlePrompt()
+    idlePrompt(PANE, '/home/u/proj')
     useBlocksStore.getState().commandStart(PANE, { line: 1 }, 'sleep 100')
     useUIStore.setState({ paletteOpen: true, paletteMode: 'ask' })
     render(<CommandPalette />)
