@@ -94,6 +94,21 @@ describe('readNewLines', () => {
     expect(read.lines.map((l) => l.length)).toEqual([5 * 1024 * 1024, 4])
   })
 
+  it('moves past a single line longer than anything it will read, instead of reading it again every call', async () => {
+    writeFileSync(file, `${'z'.repeat(5000)}\nok\n`)
+    const first = await readNewLines(file, 0, 256, 1024)
+    expect(first).toEqual({ lines: [], end: 1024, reset: false })
+    let end = first.end
+    let lines: string[] = []
+    for (let i = 0; i < 40 && lines.length === 0; i++) {
+      const next = await readNewLines(file, end, 256, 1024)
+      expect(next.end).toBeGreaterThan(end)
+      end = next.end
+      lines = next.lines
+    }
+    expect(lines.at(-1)).toBe('ok')
+  })
+
   it('refuses a symlink', async () => {
     writeFileSync(file, 'x\n')
     const link = join(dir, 'link.jsonl')

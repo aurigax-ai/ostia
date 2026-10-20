@@ -163,6 +163,24 @@ describe('desktop input and a phone size hold', () => {
     expect(write).toHaveBeenCalledTimes(2)
   })
 
+  it('releases the hold on the release-only signal, without writing, from a window that can write', () => {
+    const entry = held()
+    ptys.set('p1', entry)
+    listeners.get('pty:release-hold')?.({ sender: { id: 1 } }, 'p1')
+    expect(entry.hold).toBeNull()
+    expect(resize).toHaveBeenCalledWith(100, 30)
+    expect(write).not.toHaveBeenCalled()
+  })
+
+  it('ignores the release-only signal from a window that cannot write and for an unknown pane', () => {
+    const entry = { ...held(), session: { canWrite: () => false } }
+    ptys.set('p1', entry)
+    listeners.get('pty:release-hold')?.({ sender: { id: 1 } }, 'p1')
+    listeners.get('pty:release-hold')?.({ sender: { id: 1 } }, 'missing')
+    listeners.get('pty:release-hold')?.({ sender: { id: 1 } }, 7)
+    expect(entry.hold).not.toBeNull()
+  })
+
   it('ends the hold on a desktop resize and applies the size the desktop asked for', () => {
     const entry = held()
     ptys.set('p1', entry)

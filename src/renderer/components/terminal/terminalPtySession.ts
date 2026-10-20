@@ -11,6 +11,7 @@ import {
 } from '@/lib/terminal/offscreenStart'
 import type { OstiaTerminal } from '@/lib/terminal/ostiaTerminal'
 import { commitShellTitle } from '@/lib/terminal/paneTitle'
+import { releasePhoneHold } from '@/lib/terminal/phoneHold'
 import { createPtyAcker } from '@/lib/terminal/ptyAck'
 import { useAttentionStore } from '@/stores/agents/attentionStore'
 import { useSandboxStore } from '@/stores/app/sandboxStore'
@@ -117,11 +118,8 @@ export function attachPtySession(deps: PtySessionDeps): () => void {
   })
 
   const io: PtyIo = { flow, pending, writeOutput, writeLive, neighbour }
-  const attachAtCurrentSize = createPtyAttach(deps, io)
-  const sizing = createPtySizing(deps, io, attachAtCurrentSize)
-
   const phoneSize = usePhoneSizeStore.getState()
-  const offSize = window.ostia.pty.onSize(paneId, (cols, rows, held) => {
+  const applyHeld = (cols: number, rows: number, held: boolean): void => {
     if (session.disposed) return
     neighbour.drain()
     term.resize(cols, rows)
@@ -129,7 +127,17 @@ export function attachPtySession(deps: PtySessionDeps): () => void {
     sizing.holdBox(held ? { w: host.offsetWidth, h: host.offsetHeight } : null)
     if (held) phoneSize.hold(paneId, { cols, useDesktop: sizing.takeBack })
     else phoneSize.release(paneId)
+  }
+  const attachAtCurrentSize = createPtyAttach(deps, io, applyHeld)
+  const sizing = createPtySizing(deps, io, attachAtCurrentSize)
+
+  const offSize = window.ostia.pty.onSize(paneId, (cols, rows, held) => {
+    if (held || usePhoneSizeStore.getState().byPane[paneId]) applyHeld(cols, rows, held)
   })
+  const mouse = (): void => {
+    if (term.modes.mouseTrackingMode !== 'none') releasePhoneHold(paneId)
+  }
+  host.addEventListener('mousedown', mouse, true)
 
   const input = term.onData((d) => {
     const source = humanInputSource(host)
@@ -198,6 +206,7 @@ export function attachPtySession(deps: PtySessionDeps): () => void {
     ro.disconnect()
     input.dispose()
     offSize()
+    host.removeEventListener('mousedown', mouse, true)
     phoneSize.release(paneId)
     offData()
     offExit()
@@ -218,6 +227,7 @@ function createPtyAttach(
     silenceReplies,
   }: PtySessionDeps,
   { flow, pending, writeOutput, writeLive }: PtyIo,
+  applyHeld: (cols: number, rows: number, held: boolean) => void,
 ): (cols: number, rows: number) => void {
   return (cols, rows) => {
     flow.attached = true
@@ -252,7 +262,9 @@ function createPtyAttach(
         } = result
         if (session.disposed) return
         session.markNonce = markNonce ?? null
-        if (lastSizeRef.current.cols === 0 && result.cols && result.rows) {
+        if (result.held && result.cols && result.rows) {
+          applyHeld(result.cols, result.rows, true)
+        } else if (lastSizeRef.current.cols === 0 && result.cols && result.rows) {
           term.resize(result.cols, result.rows)
           lastSizeRef.current = { cols: result.cols, rows: result.rows }
         }

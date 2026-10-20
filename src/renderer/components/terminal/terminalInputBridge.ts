@@ -1,6 +1,7 @@
 import { scrollUpSequence } from '@/lib/prompt/promptOverlay'
 import { canTypeInto, insertCommand } from '@/lib/terminal/blockActions'
 import type { OstiaTerminal } from '@/lib/terminal/ostiaTerminal'
+import { releasePhoneHold } from '@/lib/terminal/phoneHold'
 import { type LineAnchor, useBlocksStore } from '@/stores/terminal/blocksStore'
 
 interface TerminalInputBridge {
@@ -24,6 +25,7 @@ export function terminalInputBridge({
     setSuppressedPrompt(useBlocksStore.getState().drafts[paneId]?.promptLine ?? null)
     if (text) return insertCommand(paneId, text, true)
     termRef.current?.focus()
+    releasePhoneHold(paneId)
     window.ostia.pty.write(paneId, '\r')
     return true
   }
@@ -33,12 +35,15 @@ export function terminalInputBridge({
     if (!term || !canTypeInto(paneId)) return
     setSuppressedPrompt(useBlocksStore.getState().drafts[paneId]?.promptLine ?? null)
     term.focus()
+    releasePhoneHold(paneId)
     if (draft) term.paste(draft)
     if (keys) window.ostia.pty.write(paneId, keys)
   }
 
   const sendShellKeys = (keys: string): void => {
-    if (canTypeInto(paneId)) window.ostia.pty.write(paneId, keys)
+    if (!canTypeInto(paneId)) return
+    releasePhoneHold(paneId)
+    window.ostia.pty.write(paneId, keys)
   }
 
   const makeRows = (rows: number): void => {

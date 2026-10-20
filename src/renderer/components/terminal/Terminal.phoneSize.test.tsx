@@ -118,7 +118,16 @@ describe('TerminalView phone size hold', () => {
     vi.clearAllMocks()
   })
 
-  async function shown() {
+  async function shown(attached?: Record<string, unknown>) {
+    if (attached) {
+      vi.mocked(window.ostia.pty.attach).mockResolvedValue({
+        created: false,
+        buffer: '',
+        cursor: 0,
+        dropped: false,
+        ...attached,
+      })
+    }
     useSettingsStore.setState({
       terminal: { ...useSettingsStore.getState().terminal, renderer: 'xterm' },
     })
@@ -180,6 +189,42 @@ describe('TerminalView phone size hold', () => {
       await nextFrame()
     })
     expect(window.ostia.pty.resize).toHaveBeenCalledWith(paneId, 80, 25)
+  })
+
+  it('shows the hold again when a window attaches to a pane main still holds, after a reload', async () => {
+    const { paneId } = await shown({ cols: 40, rows: 20, held: true })
+    await waitFor(() => expect(usePhoneSizeStore.getState().byPane[paneId]?.cols).toBe(40))
+    expect(terminalFor(paneId)?.cols).toBe(40)
+    expect(terminalFor(paneId)?.rows).toBe(20)
+    expect(window.ostia.pty.resize).not.toHaveBeenCalled()
+  })
+
+  it("does not follow a resize it was not held for, such as the manager mirror's", async () => {
+    const { paneId, sized } = await shown()
+    const before = terminalFor(paneId)?.cols
+    act(() => sized(100, 30, false))
+    expect(terminalFor(paneId)?.cols).toBe(before)
+    expect(window.ostia.pty.resize).not.toHaveBeenCalled()
+  })
+
+  it('gives the hold up on a desktop mouse press only while the program reports the mouse', async () => {
+    const { paneId, sized } = await shown()
+    act(() => sized(40, 20, true))
+    const host = document.querySelector('textarea') ?? document.body
+    const press = (): void => {
+      const event = new MouseEvent('mousedown', { bubbles: true })
+      act(() => {
+        host.dispatchEvent(event)
+      })
+    }
+    const tracking = (mode: string): Promise<void> =>
+      new Promise((resolve) => terminalFor(paneId)?.write(mode, resolve))
+    await tracking('\x1b[?1000l')
+    press()
+    expect(window.ostia.pty.releaseHold).not.toHaveBeenCalled()
+    await tracking('\x1b[?1000h')
+    press()
+    expect(window.ostia.pty.releaseHold).toHaveBeenCalledWith(paneId)
   })
 
   it('drops the notice with the pane', async () => {

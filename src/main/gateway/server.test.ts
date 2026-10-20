@@ -513,6 +513,17 @@ describe('gateway server over a real WebSocket', () => {
       expect(lastAttachment().hold).not.toHaveBeenCalled()
     })
 
+    it('refuses a hold from an observer attachment, even with the input cap', async () => {
+      const { c } = await holder()
+      await c.call('pty.attach', { paneId: externalPaneId })
+      const refused = await c.call('pty.hold', { paneId: externalPaneId, cols: 44, rows: 20 })
+      expect(refused.error).toMatchObject({ code: -32602, message: 'not-owner' })
+      expect((await c.call('pty.release', { paneId: externalPaneId })).error).toMatchObject({
+        message: 'not-owner',
+      })
+      expect(lastAttachment().hold).not.toHaveBeenCalled()
+    })
+
     it('refuses a grid outside 1 to 1000', async () => {
       const { c } = await holder()
       await c.call('pty.attach', { paneId: externalPaneId, role: 'owner' })

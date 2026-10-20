@@ -154,6 +154,10 @@ function registerPtyControlIpc({
     if (human !== null) releasePty(paneId, entry)
     entry.pty.write(data)
   })
+  ipcMain.on('pty:release-hold', (e, paneId: unknown) => {
+    const entry = typeof paneId === 'string' ? ptys.get(paneId) : undefined
+    if (entry?.session.canWrite(String(e.sender.id))) releasePty(paneId as string, entry)
+  })
   ipcMain.on('pty:resize', (e, paneId: string, cols: number, rows: number) => {
     const entry = ptys.get(paneId)
     if (!entry?.subs.has(String(e.sender.id)) || entry.keepAlive) return

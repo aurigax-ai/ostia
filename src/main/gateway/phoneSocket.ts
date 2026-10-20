@@ -312,6 +312,10 @@ function heldAttachment(
     ws.send(rpcError(msg.id, -32602, 'not-attached'))
     return null
   }
+  if (!attachment.canWrite) {
+    ws.send(rpcError(msg.id, -32602, 'not-owner'))
+    return null
+  }
   return attachment
 }
 

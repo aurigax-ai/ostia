@@ -1,5 +1,6 @@
 import { useBlocksStore } from '@/stores/terminal/blocksStore'
 import { useHistoryViewStore } from '@/stores/terminal/historyViewStore'
+import { usePhoneSizeStore } from '@/stores/terminal/phoneSizeStore'
 import type { Terminal } from '@xterm/xterm'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { copyBlock, insertCommand, rerunBlock, runWhenIdle, stepBlock } from './blockActions'
@@ -150,6 +151,15 @@ describe('blockActions', () => {
     expect(rerunBlock(PANE, ids()[0])).toBe(false)
     expect(insertCommand(PANE, 'ls')).toBe(false)
     expect(term.paste).not.toHaveBeenCalled()
+  })
+
+  it('gives a phone size hold up when it runs a command, and not for a pane nobody holds', () => {
+    expect(insertCommand(PANE, 'ls', true)).toBe(true)
+    expect(window.ostia.pty.releaseHold).not.toHaveBeenCalled()
+    usePhoneSizeStore.getState().hold(PANE, { cols: 44, useDesktop: vi.fn() })
+    expect(insertCommand(PANE, 'ls', true)).toBe(true)
+    expect(window.ostia.pty.releaseHold).toHaveBeenCalledWith(PANE)
+    usePhoneSizeStore.setState({ byPane: {} })
   })
 
   it('inserts a command without executing it', () => {

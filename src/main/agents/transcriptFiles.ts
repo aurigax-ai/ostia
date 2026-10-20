@@ -153,20 +153,26 @@ export interface NewLines {
   reset: boolean
 }
 
-export async function readNewLines(path: string, offset: number): Promise<NewLines> {
+export async function readNewLines(
+  path: string,
+  offset: number,
+  chunk = NEW_LINES_BYTES,
+  longest = LONGEST_LINE_BYTES,
+): Promise<NewLines> {
   const handle = await open(path, READ_FLAGS)
   try {
     const info = await handle.stat()
     if (!info.isFile()) throw new Error('not a regular file')
     if (info.size < offset) return { lines: [], end: 0, reset: true }
-    for (let cap = NEW_LINES_BYTES; ; cap *= 2) {
+    for (let cap = chunk; ; cap *= 2) {
       const length = Math.min(info.size - offset, cap)
       if (length === 0) return { lines: [], end: offset, reset: false }
       const buffer = Buffer.alloc(length)
       await handle.read(buffer, 0, length, offset)
       const read = completeLines(buffer, offset, false)
       const stuck = read.lines.length === 0 && length === cap && length < info.size - offset
-      if (!stuck || cap >= LONGEST_LINE_BYTES) return { ...read, reset: false }
+      if (!stuck) return { ...read, reset: false }
+      if (cap >= longest) return { lines: [], end: offset + length, reset: false }
     }
   } finally {
     await handle.close()
