@@ -382,6 +382,17 @@ describe('gateway server over a real WebSocket', () => {
     expect(deps.ptyWrite).not.toHaveBeenCalled()
   })
 
+  it('answers resize-not-supported to a resize frame from a socket that never attached', async () => {
+    const { token } = registerDevice({ name: 'Phone', pubkey: 'pk' })
+    const c = await connect(token)
+
+    c.ws.send(binary(0x03, JSON.stringify({ cols: 120, rows: 40 })))
+    const refused = await c.next((m) => m.error?.message === 'resize-not-supported')
+    expect(refused.error?.code).toBe(-32602)
+    expect(deps.attachPhoneObserver).not.toHaveBeenCalled()
+    expect(deps.ptyWrite).not.toHaveBeenCalled()
+  })
+
   it('tells every attached phone the size when the desktop resizes the pane', async () => {
     const { deviceId, token } = registerDevice({ name: 'Phone', pubkey: 'pk' })
     gatewaySetCap({ deviceId, cap: 'input', granted: true })
