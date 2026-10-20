@@ -20,6 +20,9 @@ const NAMED_KEYS: ReadonlyMap<string, string> = new Map([
   ['ArrowRight', 'Right'],
   ['ArrowUp', 'Up'],
   ['ArrowDown', 'Down'],
+])
+
+const CHARACTER_KEYS: ReadonlyMap<string, string> = new Map([
   ['Minus', '-'],
   ['Equal', '='],
   ['BracketLeft', '['],
@@ -35,11 +38,16 @@ const NAMED_KEYS: ReadonlyMap<string, string> = new Map([
 
 export function guestKeyName(code: string, key: string, alt: boolean): string | null {
   const letter = /^Key([A-Z])$/.exec(code)
-  if (letter) return !alt && /^[A-Za-z]$/.test(key) ? key.toUpperCase() : letter[1]
   const digit = /^Digit([0-9])$/.exec(code)
-  if (digit) return digit[1]
+  const character = letter?.[1] ?? digit?.[1] ?? CHARACTER_KEYS.get(code)
+  if (character) return !alt && /^[\x21-\x7e]$/.test(key) ? key.toUpperCase() : character
   if (/^F([1-9]|1[0-9]|2[0-4])$/.test(code)) return code
   return NAMED_KEYS.get(code) ?? null
+}
+
+function typedText(key: string): string | null {
+  if (key === 'Enter') return '\r'
+  return key.length === 1 ? key : null
 }
 
 export function guestKeyEvents(
@@ -55,8 +63,9 @@ export function guestKeyEvents(
   if (input.isAutoRepeat) modifiers.push('isautorepeat')
   const down = input.type === 'keyDown'
   const events: KeyboardInputEvent[] = [{ type: down ? 'keyDown' : 'keyUp', keyCode, modifiers }]
-  if (down && !flags.ctrl && !flags.meta && input.key.length === 1) {
-    events.push({ type: 'char', keyCode: input.key, modifiers })
+  const text = typedText(input.key)
+  if (down && !flags.ctrl && !flags.meta && text) {
+    events.push({ type: 'char', keyCode: text, modifiers })
   }
   return events
 }

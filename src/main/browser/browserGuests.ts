@@ -149,5 +149,6 @@ export function createBrowserGuests({
     attachBrowserMenu,
     allowHumanPopups,
     hardenExtensionGuest,
+    isHumanProfile,
   }
 }

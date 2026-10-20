@@ -1,11 +1,10 @@
 import { hostname } from 'node:os'
 import { join } from 'node:path'
 import { PRODUCT_DISPLAY_NAME } from '@aurigax-ai/ostia-extension-sdk/contract/productDisplay'
-import { BrowserWindow, Menu, app, clipboard, ipcMain, nativeTheme, session, shell } from 'electron'
+import { BrowserWindow, Menu, app, clipboard, ipcMain, nativeTheme, shell } from 'electron'
 import type { ExternalEditorRequest } from '../../shared/app/appApi'
 import type { DiscreteGpuInfo } from '../../shared/app/discreteGpu'
 import { clampZoom, zoomFactor } from '../../shared/app/zoom'
-import { SHARED_BROWSER_PARTITION } from '../../shared/browser/browserProfile'
 import { desktopsOf } from '../../shared/keyboard/desktopChords'
 import type { AppInfo } from '../../shared/types'
 import { type GuestChords, registerGuestChords } from '../browser/guestChords'
@@ -84,9 +83,14 @@ interface WindowInputGuardsDeps {
     guestChords: GuestChords | null
   }
   windows: Map<string, BrowserWindow>
+  isHumanProfile: (guest: Electron.WebContents) => boolean
 }
 
-export function registerWindowInputGuards({ services, windows }: WindowInputGuardsDeps) {
+export function registerWindowInputGuards({
+  services,
+  windows,
+  isHumanProfile,
+}: WindowInputGuardsDeps) {
   const remap = createGuestRemap({
     nativeMenuKey: createNativeMenuKey(() => Menu.getApplicationMenu()?.items ?? []),
   })
@@ -109,6 +113,6 @@ export function registerWindowInputGuards({ services, windows }: WindowInputGuar
     isAppWindow: (sender) => windows.get(String(sender.id))?.webContents === sender,
     mac: process.platform === 'darwin',
     remap,
-    isHumanBrowser: (guest) => guest.session === session.fromPartition(SHARED_BROWSER_PARTITION),
+    isHumanBrowser: isHumanProfile,
   })
 }
