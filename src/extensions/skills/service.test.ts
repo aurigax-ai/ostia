@@ -3,7 +3,10 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import type { ExtensionCaller, ExtensionResult } from '@aurigax-ai/ostia-extension-sdk'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { AppliedStore } from './appliedStore'
+import { EvalStore } from './evalStore'
 import { skillsService } from './service'
+import { SignalStore } from './signalStore'
 import { RULES_FILE, RulesStore } from './store'
 
 const where = { projectKeys: ['github.com/a/b'], stacks: [] as string[] }
@@ -35,6 +38,12 @@ describe('skills service', () => {
     store = new RulesStore(dir, () => 1000)
     service = skillsService({
       store,
+      signals: new SignalStore(null, () => 1000),
+      complete: async () => ({ ok: false, error: 'no-model' }),
+      applied: new AppliedStore(null, () => 1000),
+      evals: new EvalStore(null),
+      now: () => 1000,
+      holdout: () => false,
       redact: async (texts) =>
         redactFails
           ? null

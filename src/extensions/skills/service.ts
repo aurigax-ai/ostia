@@ -1,15 +1,24 @@
 import {
   type ExtensionCaller,
   type ExtensionResult,
+  cliArgs,
   failure,
   namedArgs,
   ok,
 } from '@aurigax-ai/ostia-extension-sdk'
+import type { AppliedStore } from './appliedStore'
+import { CASES_PER_RULE_MAX, parseCaseInput } from './evalCase'
+import { DRAFT_SYSTEM, draftInput, parseDrafts } from './evalDraft'
+import { PAIRS_PER_CASE, runEval } from './evalRunner'
+import type { EvalStore } from './evalStore'
+import { type Complete, findRules } from './extract'
 import { importCandidates } from './importLines'
 import { buildInjection } from './inject'
 import { type RuleDraft, isScope } from './rule'
 import { type FolderScope, folderScope, projectScopeOf } from './scope'
+import { scoreboard } from './scoreboard'
 import { type ShapeProblem, shapeGate } from './shapeGate'
+import type { SignalStore } from './signalStore'
 import type { RulesStore } from './store'
 
 interface WorkspaceInfo {
@@ -17,8 +26,18 @@ interface WorkspaceInfo {
   workDir: string
 }
 
+export const HOLDOUT_SHARE = 0.1
+const SESSION_PATTERN = /^[\w.:-]{1,128}$/
+
 export interface SkillsDeps {
   store: RulesStore
+  signals: SignalStore
+  applied: AppliedStore
+  evals: EvalStore
+  complete: Complete
+  now: () => number
+  holdout: () => boolean
+  random?: () => number
   redact: (texts: string[]) => Promise<string[] | null>
   workspace: (workspaceId: string) => Promise<WorkspaceInfo | null>
   confirmDelete: (rule: string, locale: string | undefined) => Promise<boolean>
@@ -42,6 +61,10 @@ export function skillsService(deps: SkillsDeps): {
   panel: Record<string, SkillsCommand>
 } {
   const { store, redact, workspace, confirmDelete, changed } = deps
+  let finding = false
+  let running: { rule: string; done: number; total: number } | null = null
+  let stopped = false
+  let failedRun: { rule: string; error: string } | null = null
   const scopeOf = deps.folderScopeOf ?? folderScope
 
   const check = async (draft: RuleDraft): Promise<Checked | null> => {
@@ -75,13 +98,47 @@ export function skillsService(deps: SkillsDeps): {
 
   const injectionFor = async (dir: string) => buildInjection(store.list(), await scopeOf(dir))
 
-  const onSession: SkillsCommand = async (_args, caller) => {
+  const sessionOf = (args: unknown): string => {
+    try {
+      const id = (JSON.parse(cliArgs(args)?.stdin ?? '') as { session_id?: unknown }).session_id
+      return typeof id === 'string' && SESSION_PATTERN.test(id) ? id : ''
+    } catch {
+      return ''
+    }
+  }
+
+  const onSession: SkillsCommand = async (args, caller) => {
     const info = caller.workspaceId ? await workspace(caller.workspaceId) : null
     if (!info || info.kind === 'scratch' || caller.manager || caller.sandboxed || caller.remote) {
       return ok()
     }
     const dir = await whereDir(caller)
-    return dir ? ok((await injectionFor(dir)).text) : ok()
+    if (!dir) return ok()
+    const where = await scopeOf(dir)
+    const rules = store.list()
+    const first = buildInjection(rules, where)
+    const random = deps.random ?? Math.random
+    const held = deps.holdout()
+      ? first.included.filter(() => random() < HOLDOUT_SHARE).map((r) => r.id)
+      : []
+    const given =
+      held.length > 0
+        ? buildInjection(
+            rules.filter((r) => !held.includes(r.id)),
+            where,
+          )
+        : first
+    const session = sessionOf(args)
+    if (session && (given.included.length > 0 || held.length > 0)) {
+      deps.applied.add({
+        at: deps.now(),
+        session,
+        workspace: caller.workspaceId ?? '',
+        rules: given.included.map((r) => r.id),
+        held,
+      })
+    }
+    return ok(given.text, { count: given.included.length })
   }
 
   const snapshot: SkillsCommand = async (_args, caller) => {
@@ -92,6 +149,7 @@ export function skillsService(deps: SkillsDeps): {
       project: where ? projectScopeOf(where) : null,
       stacks: where?.stacks ?? [],
       unreadable: store.unreadable,
+      groups: store.groups(),
     })
   }
 
@@ -108,9 +166,65 @@ export function skillsService(deps: SkillsDeps): {
       changed()
       return ok(undefined, { id })
     }
-    const rule = store.add(draft, 'human')
+    const group = store.takeGroup(textOf(namedArgs(args).group))
+    const rule = store.add(draft, 'human', group ? { evidence: group.signals } : {})
     changed()
     return ok(undefined, { id: rule.id })
+  }
+
+  const approve: SkillsCommand = async (args) => {
+    const blocked = unreadable()
+    if (blocked) return blocked
+    const rule = store.get(textOf(namedArgs(args).id))
+    if (rule?.state !== 'proposed') return failure('not-found')
+    if ((rule.conflicts?.length ?? 0) > 0) return failure('conflict')
+    const refused = refusal(await check(rule))
+    if (refused) return refused
+    store.approve(rule.id)
+    changed()
+    return ok()
+  }
+
+  const resolve: SkillsCommand = async (args) => {
+    const blocked = unreadable()
+    if (blocked) return blocked
+    const a = namedArgs(args)
+    if (!store.resolve(textOf(a.keep), textOf(a.retire))) return failure('not-found')
+    changed()
+    return ok()
+  }
+
+  const keepBoth: SkillsCommand = async (args) => {
+    const blocked = unreadable()
+    if (blocked) return blocked
+    if (!store.keepBoth(textOf(namedArgs(args).id))) return failure('not-found')
+    changed()
+    return ok()
+  }
+
+  const dismissGroup: SkillsCommand = async (args) => {
+    if (!store.dismissGroup(textOf(namedArgs(args).id))) return failure('not-found')
+    changed()
+    return ok()
+  }
+
+  const find: SkillsCommand = async () => {
+    const blocked = unreadable()
+    if (blocked) return blocked
+    if (finding) return failure('busy')
+    finding = true
+    try {
+      const result = await findRules({
+        store,
+        signals: () => deps.signals.list(),
+        complete: deps.complete,
+        check,
+      })
+      changed()
+      return ok(undefined, result)
+    } finally {
+      finding = false
+    }
   }
 
   const byId = (action: (id: string) => boolean, confirm = false): SkillsCommand => {
@@ -177,6 +291,108 @@ export function skillsService(deps: SkillsDeps): {
     return ok(undefined, { added: checks.length })
   }
 
+  const board: SkillsCommand = async () =>
+    ok(undefined, {
+      scores: scoreboard({
+        rules: store.list(),
+        signals: deps.signals.list(),
+        applied: deps.applied.list(),
+        now: deps.now(),
+      }),
+      evals: {
+        cases: deps.evals.listCases(),
+        runs: deps.evals.listRuns(),
+        running,
+        failed: failedRun,
+      },
+    })
+
+  const caseTexts = (input: { prompt: string; files: { content: string }[] }): string[] => [
+    input.prompt,
+    ...input.files.map((f) => f.content),
+  ]
+
+  const saveCase: SkillsCommand = async (args) => {
+    const a = namedArgs(args)
+    const rule = store.get(textOf(a.rule))
+    const input = parseCaseInput(a)
+    if (!rule || !input) return failure(rule ? 'invalid-args' : 'not-found')
+    if (deps.evals.listCases().filter((c) => c.rule === rule.id).length >= CASES_PER_RULE_MAX) {
+      return failure('too-many')
+    }
+    const texts = caseTexts(input)
+    const clean = await redact(texts)
+    if (!clean) return failure('redact-failed')
+    if (clean.some((t, i) => t !== texts[i])) return failure('refused', 'secret')
+    deps.evals.addCase(rule.id, input, 'human')
+    changed()
+    return ok()
+  }
+
+  const evalCaseById = (action: (id: string) => boolean): SkillsCommand => {
+    return async (args) => {
+      if (!action(textOf(namedArgs(args).id))) return failure('not-found')
+      changed()
+      return ok()
+    }
+  }
+
+  const draftCases: SkillsCommand = async (args) => {
+    const rule = store.get(textOf(namedArgs(args).rule))
+    if (!rule) return failure('not-found')
+    const room =
+      CASES_PER_RULE_MAX - deps.evals.listCases().filter((c) => c.rule === rule.id).length
+    if (room <= 0) return failure('too-many')
+    const answer = await deps.complete(DRAFT_SYSTEM, draftInput(rule.rule)).catch(() => null)
+    if (!answer?.ok) return failure(answer?.error ?? 'failed')
+    let added = 0
+    for (const input of parseDrafts(answer.text).slice(0, room)) {
+      const texts = caseTexts(input)
+      const clean = await redact(texts)
+      if (!clean || clean.some((t, i) => t !== texts[i])) continue
+      deps.evals.addCase(rule.id, input, 'model')
+      added += 1
+    }
+    changed()
+    return ok(undefined, { added })
+  }
+
+  const runTest: SkillsCommand = async (args) => {
+    const rule = store.get(textOf(namedArgs(args).rule))
+    if (rule?.state !== 'active') return failure('not-found')
+    if (running) return failure('busy')
+    const cases = deps.evals.listCases().filter((c) => c.rule === rule.id && c.accepted)
+    if (cases.length === 0) return failure('no-cases')
+    running = { rule: rule.id, done: 0, total: cases.length * PAIRS_PER_CASE * 2 }
+    stopped = false
+    failedRun = null
+    changed()
+    void runEval(rule, cases, {
+      complete: deps.complete,
+      random: deps.random ?? Math.random,
+      now: deps.now,
+      cancelled: () => stopped,
+      progress: (done, total) => {
+        running = { rule: rule.id, done, total }
+        changed()
+      },
+    })
+      .then((outcome) => {
+        if (outcome.ok) deps.evals.addRun(outcome.run)
+        else if (outcome.error !== 'cancelled') failedRun = { rule: rule.id, error: outcome.error }
+      })
+      .finally(() => {
+        running = null
+        changed()
+      })
+    return ok()
+  }
+
+  const cancelTest: SkillsCommand = async () => {
+    stopped = true
+    return ok()
+  }
+
   const exportRules: SkillsCommand = async () => ok(undefined, { rules: store.list() })
 
   return {
@@ -186,7 +402,23 @@ export function skillsService(deps: SkillsDeps): {
       save,
       retire: byId((id) => store.setState(id, 'retired')),
       restore: byId((id) => store.setState(id, 'active')),
-      delete: byId((id) => store.remove(id), true),
+      approve,
+      resolve,
+      'keep-both': keepBoth,
+      'dismiss-group': dismissGroup,
+      'find-rules': find,
+      scoreboard: board,
+      'save-case': saveCase,
+      'delete-case': evalCaseById((id) => deps.evals.removeCase(id)),
+      'accept-case': evalCaseById((id) => deps.evals.accept(id)),
+      'draft-cases': draftCases,
+      'run-eval': runTest,
+      'cancel-eval': cancelTest,
+      delete: byId((id) => {
+        const removed = store.remove(id)
+        if (removed) deps.evals.removeRule(id)
+        return removed
+      }, true),
       'accept-unreadable': acceptUnreadable,
       preview,
       'import-scan': importScan,

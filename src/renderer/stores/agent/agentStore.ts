@@ -11,16 +11,28 @@ import type {
 } from '@aurigax-ai/ostia-extension-sdk/contract/agent'
 import { create } from 'zustand'
 
+interface AgentRules {
+  on: boolean
+  count: number
+}
+
 interface AgentStoreState {
   current: Record<string, string>
   models: Record<string, AgentModelRef>
+  rules: Record<string, AgentRules>
   setCurrent: (workspaceId: string, sessionId: string) => void
   setModel: (sessionId: string, model: AgentModelRef) => void
+  setRules: (sessionId: string, rules: Partial<AgentRules>) => void
 }
 
 export const useAgentStore = create<AgentStoreState>((set) => ({
   current: {},
   models: {},
+  rules: {},
+  setRules: (sessionId, rules) =>
+    set((s) => ({
+      rules: { ...s.rules, [sessionId]: { on: true, count: 0, ...s.rules[sessionId], ...rules } },
+    })),
   setCurrent: (workspaceId, sessionId) =>
     set((s) => ({ current: { ...s.current, [workspaceId]: sessionId } })),
   setModel: (sessionId, model) => set((s) => ({ models: { ...s.models, [sessionId]: model } })),
@@ -29,6 +41,7 @@ export const useAgentStore = create<AgentStoreState>((set) => ({
 interface Opened {
   specsKey: string
   model: string
+  rules: boolean
 }
 
 const chats = new Map<string, Chat<OstiaChatMessage>>()
@@ -52,17 +65,27 @@ async function openSession(sessionId: string): Promise<AgentReply> {
   if (!workspaceId) return { ok: false, error: 'unknown-workspace' }
   const specs = chatToolDefs(sessionId).map((def) => def.spec)
   const model = useAgentStore.getState().models[sessionId]
-  const next: Opened = { specsKey: JSON.stringify(specs), model: modelKey(model) }
+  const rules = useAgentStore.getState().rules[sessionId]?.on ?? true
+  const next: Opened = { specsKey: JSON.stringify(specs), model: modelKey(model), rules }
   const known = opened.get(sessionId)
-  if (known && known.specsKey === next.specsKey && known.model === next.model) return { ok: true }
+  if (
+    known &&
+    known.specsKey === next.specsKey &&
+    known.model === next.model &&
+    known.rules === next.rules
+  ) {
+    return { ok: true }
+  }
   const reply = await window.ostia.agentSessions.open(sessionId, {
     workspaceId,
     cwd: workspaceFolder(workspaceId),
     tools: specs,
+    rules,
     ...(model ? { model } : {}),
   })
   if (reply.ok) {
     opened.set(sessionId, next)
+    useAgentStore.getState().setRules(sessionId, { count: reply.rules ?? 0 })
     if (reply.model && !model) useAgentStore.getState().setModel(sessionId, reply.model)
   }
   return reply
@@ -99,6 +122,11 @@ function createChat(sessionId: string, messages: OstiaChatMessage[]): Chat<Ostia
 
 export function agentChatFor(sessionId: string): Chat<OstiaChatMessage> {
   return chats.get(sessionId) ?? createChat(sessionId, [])
+}
+
+export async function setAgentRules(sessionId: string, on: boolean): Promise<AgentReply> {
+  useAgentStore.getState().setRules(sessionId, { on })
+  return openSession(sessionId)
 }
 
 export async function ensureAgentSession(workspaceId: string, preferred?: string): Promise<string> {

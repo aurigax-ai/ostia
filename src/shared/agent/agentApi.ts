@@ -11,6 +11,7 @@ interface AgentOpenOptions {
   cwd: string
   tools: AgentToolSpec[]
   model?: AgentModelRef
+  rules?: boolean
 }
 
 export interface AgentToolCallNotice {
