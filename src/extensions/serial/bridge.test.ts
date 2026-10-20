@@ -409,15 +409,22 @@ describe('serial session log and secret input', () => {
     const sent = stream('>')
     const received = stream('<')
     expect(bodies[0]).toBe(`# connected ${DEVICE} 115200 8N1`)
+    expect(bodies).toContain('> admin\\r')
     expect(sent).toContain('admin\\r')
     expect(received).toContain('admin\\r\\n')
     expect(bodies).toContain(`> ${SECRET_SENT_RECORD}`)
     expect(bodies).toContain(`< ${SECRET_ECHO_RECORD}`)
+    expect(bodies).toContain('> show version\\r')
     expect(sent).toContain('show version\\r')
     expect(received).toContain('switch# show version\\r\\n')
     expect(bodies.at(-1)).toBe('# disconnected')
     expect(sent.indexOf(SECRET_SENT_RECORD)).toBeGreaterThan(sent.indexOf('admin\\r'))
     expect(sent.indexOf(SECRET_SENT_RECORD)).toBeLessThan(sent.indexOf('show version\\r'))
+    expect(received).toContain('Password: ')
+    expect(received.indexOf(SECRET_ECHO_RECORD)).toBeGreaterThan(received.indexOf('Password: '))
+    expect(received.indexOf(SECRET_ECHO_RECORD)).toBeLessThan(
+      received.indexOf('switch# show version'),
+    )
   })
 
   it('hides a password that arrives in one chunk with its echo, and Ctrl-\\ stops early', async () => {
