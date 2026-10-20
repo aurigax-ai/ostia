@@ -130,6 +130,7 @@ export const extensionsEn = {
     unitPerMinute: '{range} per minute',
     unitSeconds: '{range} seconds',
     updateTo: 'Update to {version}',
+    versionSource: '{version} · {source}',
     workspaceChipsLabel: 'Workspace status',
   },
   extensionsBrowse: {
@@ -150,6 +151,7 @@ export const extensionsEn = {
     notCompatibleDetails: 'Entries that are not compatible',
     notDownloaded: 'Download a marketplace below to browse its extensions.',
     openInExtensions: 'Open in Extensions',
+    pageMeta: '{category} · {version} · {source}',
     results: 'Extensions in your marketplaces',
     search: 'Search extensions',
     searchPlaceholder: 'Search, or paste an install code',

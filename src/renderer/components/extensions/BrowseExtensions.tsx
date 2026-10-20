@@ -74,7 +74,10 @@ interface Shown {
   unlisted: boolean
 }
 
-function useUnlistedMatch(text: string): MarketplaceFound | null {
+function useUnlistedMatch(
+  text: string,
+  marketplaces: readonly MarketplaceInfo[],
+): MarketplaceFound | null {
   const code = text.trim()
   const [found, setFound] = useState<{ code: string; result: MarketplaceFound } | null>(null)
   useEffect(() => {
@@ -86,7 +89,7 @@ function useUnlistedMatch(text: string): MarketplaceFound | null {
     return () => {
       live = false
     }
-  }, [code])
+  }, [code, marketplaces])
   return found?.code === code ? found.result : null
 }
 
@@ -256,16 +259,19 @@ function ExtensionPage({
         <div className="min-w-0 grow">
           <h2 className="font-semibold text-fg text-ui-lg">{ext.name}</h2>
           <p className="text-fg-muted text-ui-sm">
-            {[
-              d.extensions.categories[ext.category],
-              ext.state === 'update' && ext.installedVersion
-                ? fmt(d.extensionsBrowse.versionChange, {
-                    installed: ext.installedVersion,
-                    offered: ext.version,
-                  })
-                : ext.version,
-              shown.unlisted ? fmt(d.extensionsBrowse.sourceUnlisted, { name: source }) : source,
-            ].join(' · ')}
+            {fmt(d.extensionsBrowse.pageMeta, {
+              category: d.extensions.categories[ext.category],
+              version:
+                ext.state === 'update' && ext.installedVersion
+                  ? fmt(d.extensionsBrowse.versionChange, {
+                      installed: ext.installedVersion,
+                      offered: ext.version,
+                    })
+                  : ext.version,
+              source: shown.unlisted
+                ? fmt(d.extensionsBrowse.sourceUnlisted, { name: source })
+                : source,
+            })}
           </p>
         </div>
         <div className="flex shrink-0 items-center gap-2">
@@ -358,8 +364,8 @@ export function BrowseExtensionsDialog(): JSX.Element {
   const [pickedKey, setPickedKey] = useState<string | null>(null)
   const [showProblems, setShowProblems] = useState(false)
   const [installedId, setInstalledId] = useState<string | null>(null)
-  const match = useUnlistedMatch(text)
   const entries = useMemo(() => browseEntries(marketplaces), [marketplaces])
+  const match = useUnlistedMatch(text, marketplaces)
   const categories = useMemo(() => browseCategories(entries), [entries])
   const updates = entries.filter(({ ext }) => ext.state === 'update').length
   const problems = marketplaces.flatMap((m) => m.problems)
@@ -369,7 +375,9 @@ export function BrowseExtensionsDialog(): JSX.Element {
     if (!match?.ok) return []
     const owner = marketplaces.find((m) => m.id === match.marketplaceId)
     if (!owner) return []
-    const listed = entries.find((e) => e.ext.id === match.extension.id)
+    const listed = entries.find(
+      (e) => e.marketplace.id === match.marketplaceId && e.ext.id === match.extension.id,
+    )
     return [
       {
         unlisted: true,

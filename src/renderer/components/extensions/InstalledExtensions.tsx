@@ -255,7 +255,7 @@ function ExtensionListRow({
           title={ext.name}
           meta={
             <>
-              {`${ext.version} · ${source}`}
+              {fmt(d.extensions.versionSource, { version: ext.version, source })}
               <ProblemChip ext={ext} />
             </>
           }

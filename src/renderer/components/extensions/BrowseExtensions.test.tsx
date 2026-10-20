@@ -6,7 +6,7 @@ import type {
   MarketplaceInfo,
   MarketplaceState,
 } from '@shared/extensions/marketplace'
-import { cleanup, screen, waitFor, within } from '@testing-library/react'
+import { act, cleanup, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { renderSettled } from '../../../../test/render'
@@ -362,6 +362,54 @@ describe('BrowseExtensionsDialog', () => {
 
     expect(window.ostia.marketplace.installCode).toHaveBeenCalledWith('abc123', CODE)
     expect(window.ostia.marketplace.install).not.toHaveBeenCalled()
+  })
+
+  it('shows the unlisted extension of the marketplace that holds the code, not a listed one with the same id', async () => {
+    const mine = marketplace({ extensions: [{ ...TIDES, state: 'available' }] })
+    const other = marketplace({ ...OTHER, unlisted: true, extensions: [] })
+    await browse({ marketplaces: [mine, other], installed: [] })
+    vi.mocked(window.ostia.marketplace.findCode).mockResolvedValue({
+      ok: true,
+      marketplaceId: 'def456',
+      extension: { ...TIDES, state: 'available', description: 'The unlisted tides.' },
+    })
+    vi.mocked(window.ostia.marketplace.installCode).mockResolvedValue({
+      ok: true,
+      state: { marketplaces: [mine, other], installed: ['tides'] },
+    })
+
+    await userEvent.type(within(dialog()).getByRole('searchbox'), CODE)
+
+    const card = await within(cards()).findByRole('listitem', { name: 'Tides' })
+    expect(within(card).getByText('Unlisted')).toBeVisible()
+    expect(within(page()).getByText('The unlisted tides.')).toBeVisible()
+    await userEvent.click(within(page()).getByRole('button', { name: 'Install' }))
+    expect(window.ostia.marketplace.installCode).toHaveBeenCalledWith('def456', CODE)
+    expect(window.ostia.marketplace.install).not.toHaveBeenCalled()
+  })
+
+  it('looks the pasted code up again once a marketplace is added or refreshed', async () => {
+    await browse(stateWith(marketplace()))
+    vi.mocked(window.ostia.marketplace.findCode).mockResolvedValue({
+      ok: false,
+      error: 'unknown-code',
+    })
+    await userEvent.type(within(dialog()).getByRole('searchbox'), CODE)
+    await waitFor(() => expect(window.ostia.marketplace.findCode).toHaveBeenCalledTimes(1))
+
+    vi.mocked(window.ostia.marketplace.findCode).mockResolvedValue({
+      ok: true,
+      marketplaceId: 'def456',
+      extension: TIDES_AVAILABLE,
+    })
+    act(() =>
+      useMarketplaceStore.setState({
+        state: { marketplaces: [marketplace(), { ...OTHER, unlisted: true }], installed: [] },
+      }),
+    )
+
+    expect(await within(dialog()).findByRole('listitem', { name: 'Tides' })).toBeVisible()
+    expect(window.ostia.marketplace.findCode).toHaveBeenCalledTimes(2)
   })
 
   it('says so when no unlisted extension has the pasted code, and looks nothing up for other text', async () => {

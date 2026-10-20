@@ -10,8 +10,12 @@ import {
 } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { MARKETPLACE_MANIFEST_FILE } from '@aurigax-ai/ostia-extension-sdk/manifest/marketplaceManifest'
+import {
+  MARKETPLACE_CODE_PATTERN,
+  MARKETPLACE_MANIFEST_FILE,
+} from '@aurigax-ai/ostia-extension-sdk/manifest/marketplaceManifest'
 import { afterEach, describe, expect, it } from 'vitest'
+import { MARKETPLACE_CODE_SHAPE } from '../../../shared/extensions/marketplace'
 import { Marketplace } from './marketplace'
 import {
   GitError,
@@ -822,6 +826,10 @@ describe('Marketplace', () => {
     )
     expect(h.forgotten).toEqual(['tides'])
     expect(res.state.installed).toEqual(['tides'])
+  })
+
+  it('keeps the renderer’s code shape the same as the manifest’s code pattern', () => {
+    expect(MARKETPLACE_CODE_SHAPE.source).toBe(MARKETPLACE_CODE_PATTERN.source)
   })
 
   it('finds an unlisted extension by its exact code without installing it', async () => {

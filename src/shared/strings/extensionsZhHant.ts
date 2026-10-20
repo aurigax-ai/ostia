@@ -130,6 +130,7 @@ export const extensionsZhHant: typeof extensionsEn = {
     unitPerMinute: '每分鐘 {range} 次',
     unitSeconds: '{range} 秒',
     updateTo: '更新至 {version}',
+    versionSource: '{version} · {source}',
     workspaceChipsLabel: '工作區狀態',
   },
   extensionsBrowse: {
@@ -150,6 +151,7 @@ export const extensionsZhHant: typeof extensionsEn = {
     notCompatibleDetails: '不相容的項目',
     notDownloaded: '在下方下載市集即可瀏覽它的擴充功能。',
     openInExtensions: '在擴充功能中開啟',
+    pageMeta: '{category} · {version} · {source}',
     results: '市集中的擴充功能',
     search: '搜尋擴充功能',
     searchPlaceholder: '搜尋，或貼上安裝碼',
