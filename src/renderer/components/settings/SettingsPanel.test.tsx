@@ -61,16 +61,16 @@ describe('SettingsPanel', () => {
 
     expect(screen.getByRole('region', { name: 'Settings' })).toBeInTheDocument()
 
-    for (const name of ['Appearance', 'Terminal', 'Files', 'Language', 'About']) {
+    for (const name of ['Appearance', 'Terminal', 'Files', 'About']) {
       expect(screen.getByRole('button', { name })).toBeInTheDocument()
     }
     expect(screen.getByRole('button', { name: 'Open settings file' })).toBeInTheDocument()
 
     expect(screen.getByRole('heading', { level: 2, name: 'Appearance' })).toBeInTheDocument()
     expect(screen.getByText('Ostia theme')).toBeInTheDocument()
-    expect(screen.getByText('UI font')).toBeInTheDocument()
+    expect(screen.getByText('Interface font')).toBeInTheDocument()
     expect(screen.getByText('Terminal font')).toBeInTheDocument()
-    expect(screen.getByText('Editor font')).toBeInTheDocument()
+    expect(screen.getByText('Editor and code font')).toBeInTheDocument()
   })
 
   it('groups the section nav under headings, in order, so related pages sit together', async () => {
@@ -90,7 +90,7 @@ describe('SettingsPanel', () => {
       within(screen.getByRole('list', { name: group }))
         .getAllByRole('button')
         .map((b) => b.textContent)
-    expect(inGroup('General')).toEqual(['Appearance', 'Language', 'Notifications', 'Sync'])
+    expect(inGroup('General')).toEqual(['Appearance', 'Notifications', 'Sync'])
     expect(inGroup('Terminal')).toEqual(['Terminal', 'Prompt', 'Keyboard', 'Panes'])
     expect(inGroup('Editor and browser')).toEqual(['Editor', 'Languages', 'Browser'])
   })
@@ -138,7 +138,7 @@ describe('SettingsPanel', () => {
     expect(screen.getByRole('combobox', { name: 'Ostia theme' })).toHaveTextContent('Oxocarbon')
   })
 
-  it('changes the display language via the Language section, calling setLocale', async () => {
+  it('changes the display language on the Appearance page, calling setLocale', async () => {
     const setLocale = vi
       .spyOn(useSettingsStore.getState(), 'setLocale')
       .mockImplementation(() => {})
@@ -150,7 +150,6 @@ describe('SettingsPanel', () => {
     await renderSettings()
     const user = userEvent.setup()
 
-    await user.click(screen.getByRole('button', { name: 'Language' }))
     await user.click(screen.getByRole('combobox', { name: 'Display language' }))
 
     expect(await screen.findByRole('option', { name: 'English' })).toBeInTheDocument()
@@ -212,7 +211,6 @@ describe('SettingsPanel', () => {
     await renderSettings()
     const user = userEvent.setup()
 
-    await user.click(screen.getByRole('button', { name: 'Language' }))
     await user.click(screen.getByRole('combobox', { name: 'Display language' }))
     await user.click(await screen.findByRole('option', { name: '繁體中文' }))
 
@@ -231,7 +229,7 @@ describe('SettingsPanel', () => {
 
     expect(window.ostia.extensions.setEnabled).toHaveBeenCalledWith('langpack-zh-hant', false)
     const english = await screen.findByRole('region', { name: 'Settings' })
-    await user.click(within(english).getByRole('button', { name: 'Language' }))
+    await user.click(within(english).getByRole('button', { name: 'Appearance' }))
     await user.click(within(english).getByRole('combobox', { name: 'Display language' }))
     expect(await screen.findByRole('option', { name: 'English' })).toBeInTheDocument()
     expect(screen.queryByRole('option', { name: '繁體中文' })).toBeNull()
@@ -463,9 +461,24 @@ describe('SettingsPanel', () => {
       .mockImplementation(() => {})
     await renderSettings()
     const user = userEvent.setup()
-    await user.click(screen.getByRole('combobox', { name: 'UI font, Weight' }))
-    await user.click(await screen.findByRole('option', { name: '600' }))
+    await user.click(screen.getByRole('combobox', { name: 'Interface font, Weight' }))
+    await user.click(await screen.findByRole('option', { name: 'Semibold' }))
     expect(setSurfaceFont).toHaveBeenCalledWith('ui', { weight: 600 })
+  })
+
+  it('offers Reset to the default only under a changed font value and applies it', async () => {
+    useSettingsStore.setState((s) => ({
+      appearance: { ...s.appearance, terminal: { ...s.appearance.terminal, size: 16 } },
+    }))
+    await renderSettings()
+    const user = userEvent.setup()
+
+    const reset = screen.getByRole('button', { name: 'Reset to 13' })
+    expect(screen.getAllByRole('button', { name: /^Reset to/ })).toHaveLength(1)
+    await user.click(reset)
+
+    expect(useSettingsStore.getState().appearance.terminal.size).toBe(13)
+    expect(screen.queryByRole('button', { name: /^Reset to/ })).toBeNull()
   })
 
   it('changes a font size via setSurfaceFont, clamping to the 8–32 range', async () => {
@@ -500,9 +513,13 @@ describe('SettingsPanel', () => {
     await renderSettings()
 
     expect(screen.getByRole('combobox', { name: 'Ostia theme' })).toHaveTextContent('Dracula')
-    expect(screen.getByRole('combobox', { name: 'UI font, Family' })).toHaveValue('Comic Code')
-    expect(screen.getByRole('combobox', { name: 'UI font, Weight' })).toHaveTextContent('500')
-    expect(screen.getByRole('spinbutton', { name: 'UI font, Size' })).toHaveValue(20)
+    expect(screen.getByRole('combobox', { name: 'Interface font, Family' })).toHaveValue(
+      'Comic Code',
+    )
+    expect(screen.getByRole('combobox', { name: 'Interface font, Weight' })).toHaveTextContent(
+      'Medium',
+    )
+    expect(screen.getByRole('spinbutton', { name: 'Interface font, Size' })).toHaveValue(20)
   })
 
   it('opens the Privacy page from the section nav', async () => {
@@ -742,8 +759,8 @@ describe('SettingsPanel', () => {
     const user = userEvent.setup()
 
     expect(screen.getByRole('combobox', { name: 'Ostia theme' })).toBeInTheDocument()
-    expect(screen.getByRole('combobox', { name: 'UI font, Family' })).toBeInTheDocument()
-    expect(screen.getByRole('spinbutton', { name: 'UI font, Size' })).toBeInTheDocument()
+    expect(screen.getByRole('combobox', { name: 'Interface font, Family' })).toBeInTheDocument()
+    expect(screen.getByRole('spinbutton', { name: 'Interface font, Size' })).toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: 'Files' }))
     expect(screen.getByRole('switch', { name: 'Show hidden files' })).toBeInTheDocument()

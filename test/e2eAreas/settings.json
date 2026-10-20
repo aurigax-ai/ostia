@@ -7,7 +7,6 @@
     "src/renderer/components/extensions/ExtensionSettingsPage.tsx",
     "src/renderer/components/panes/PanesSection.tsx",
     "src/renderer/components/settings/AppearanceSection.tsx",
-    "src/renderer/components/settings/LanguageSection.tsx",
     "src/renderer/components/settings/NotificationsSection.tsx",
     "src/renderer/components/settings/SettingsNav.tsx",
     "src/renderer/components/settings/SettingsPanel.",

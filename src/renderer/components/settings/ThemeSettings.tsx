@@ -274,7 +274,7 @@ function ThemePreview(): JSX.Element {
     <figure
       aria-label={label}
       data-testid="theme-preview"
-      className="my-2 grid grid-cols-2 gap-px overflow-hidden rounded-md border border-line bg-line"
+      className="my-2 grid grid-cols-2 overflow-hidden rounded-md"
     >
       <div className="flex min-w-0 flex-col" data-preview="terminal">
         <PreviewCaption label={d.settings.previewTerminal} scheme={terminal.name} />
