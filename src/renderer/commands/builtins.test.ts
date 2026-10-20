@@ -1720,6 +1720,37 @@ describe('pane.list / workspace.list', () => {
     })
   })
 
+  it('pane.list gives an Agent pane the session it shows, and no other pane one it does not have', async () => {
+    const chat = { ...createPane('agent', 'Agent'), agentSessionId: 'a1b2' }
+    const fresh = createPane('agent', 'Agent')
+    const shell = createPane('terminal', 'zsh', '/work/api')
+    useWorkspacesStore.setState({
+      workspaces: [{ id: 's1', name: 'api', kind: 'agent', workDir: '/work/api', state: 'idle' }],
+    })
+    useLayoutStore.setState({
+      byWorkspace: {
+        s1: {
+          root: {
+            type: 'split',
+            id: 'sp',
+            direction: 'horizontal',
+            children: [chat, fresh, shell],
+            sizes: [1, 1, 1],
+          },
+          activePaneId: chat.id,
+          zoomedPaneId: null,
+        },
+      },
+    })
+
+    const res = await commands.execWith(ctx('s1', null), 'pane.list')
+
+    const panes = (res as { result: Array<{ paneId: string; agentSessionId?: string }> }).result
+    expect(panes.find((p) => p.paneId === chat.id)?.agentSessionId).toBe('a1b2')
+    expect(panes.find((p) => p.paneId === fresh.id)).not.toHaveProperty('agentSessionId')
+    expect(panes.find((p) => p.paneId === shell.id)).not.toHaveProperty('agentSessionId')
+  })
+
   it("pane.list with allWorkspaces walks every workspace's layout tree", async () => {
     const paneS1 = createPane('terminal', 'zsh', '/work/api')
     const paneS2 = createPane('editor', 'untitled', '/work/web')

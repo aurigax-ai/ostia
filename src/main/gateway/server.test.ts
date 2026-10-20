@@ -126,6 +126,7 @@ function screenFrame(header: Record<string, unknown>, jpeg: Buffer): Buffer {
   return Buffer.concat([Buffer.from([0x10]), length, head, jpeg])
 }
 const deps = {
+  agentStreams: { open: vi.fn() },
   execCommand: vi.fn().mockResolvedValue({ ok: true, result: null }),
   listCommandsFor: vi.fn().mockReturnValue([
     {
@@ -155,6 +156,8 @@ const deps = {
     dropped: false,
     cols: 80,
     rows: 24,
+    hold: vi.fn().mockReturnValue('ok'),
+    release: vi.fn(),
     detach: vi.fn(),
   })),
   ptyWrite: vi.fn(),
@@ -391,6 +394,176 @@ describe('gateway server over a real WebSocket', () => {
     expect(refused.error?.code).toBe(-32602)
     expect(deps.attachPhoneObserver).not.toHaveBeenCalled()
     expect(deps.ptyWrite).not.toHaveBeenCalled()
+  })
+
+  describe('agent stream', () => {
+    const owned = [{ workspaceId: 's1', name: 'One', kind: 'agent', workDir: '/w', state: 'idle' }]
+
+    function stream() {
+      let send: (events: unknown[], backfill: boolean) => void = () => undefined
+      const close = vi.fn()
+      deps.agentStreams.open.mockResolvedValueOnce({
+        agent: 'claude',
+        session: 'sess-1',
+        truncated: false,
+        start: (fn: typeof send) => {
+          send = fn
+        },
+        close,
+      })
+      return { push: (events: unknown[], backfill = false) => send(events, backfill), close }
+    }
+
+    it('streams the backfill and then live events to a phone with the read cap', async () => {
+      deps.listWorkspaces.mockResolvedValueOnce(owned)
+      const s = stream()
+      const { token } = registerDevice({ name: 'Phone', pubkey: 'pk' })
+      const c = await connect(token)
+      const opened = await c.call('agent.stream.open', { paneId: externalPaneId, turns: 2 })
+      expect(opened.result).toEqual({
+        ok: true,
+        paneId: externalPaneId,
+        agent: 'claude',
+        session: 'sess-1',
+        truncated: false,
+      })
+      s.push([{ type: 'turn.started', turn: 'u1' }, { type: 'live' }], true)
+      s.push([{ type: 'text', turn: 'u1', id: 'a', text: 'hello' }])
+      const live = await c.next(
+        (m) => m.params?.type === 'agent.stream' && (m.params.payload as { seq: number }).seq === 2,
+      )
+      expect(live.params?.payload).toEqual({
+        paneId: externalPaneId,
+        seq: 2,
+        events: [{ type: 'text', turn: 'u1', id: 'a', text: 'hello' }],
+      })
+      const first = c.json.find(
+        (m) => m.params?.type === 'agent.stream' && (m.params.payload as { seq: number }).seq === 1,
+      )
+      expect(first?.params?.payload).toMatchObject({ backfill: true })
+    })
+
+    it('refuses a pane outside what session.list shows', async () => {
+      const { token } = registerDevice({ name: 'Phone', pubkey: 'pk' })
+      const c = await connect(token)
+      const refused = await c.call('agent.stream.open', { paneId: externalPaneId })
+      expect(refused.error).toMatchObject({ code: -32602, message: 'unknown-pane' })
+      expect(deps.agentStreams.open).not.toHaveBeenCalled()
+    })
+
+    it('stops the stream on agent.stream.close and when the socket closes', async () => {
+      deps.listWorkspaces.mockResolvedValueOnce(owned).mockResolvedValueOnce(owned)
+      const first = stream()
+      const { token } = registerDevice({ name: 'Phone', pubkey: 'pk' })
+      const c = await connect(token)
+      await c.call('agent.stream.open', { paneId: externalPaneId })
+      expect((await c.call('agent.stream.close', { paneId: externalPaneId })).result).toEqual({
+        ok: true,
+      })
+      expect(first.close).toHaveBeenCalledTimes(1)
+
+      const second = stream()
+      await c.call('agent.stream.open', { paneId: externalPaneId })
+      c.ws.close()
+      await vi.waitFor(() => expect(second.close).toHaveBeenCalledTimes(1))
+    })
+  })
+
+  describe('size hold', () => {
+    async function holder(grant = true) {
+      const { deviceId, token } = registerDevice({ name: 'Phone', pubkey: 'pk' })
+      if (grant) gatewaySetCap({ deviceId, cap: 'input', granted: true })
+      const c = await connect(token)
+      return { c, deviceId }
+    }
+    const lastAttachment = () => vi.mocked(deps.attachPhoneObserver).mock.results.at(-1)?.value
+
+    it('holds the pane at the phone grid for the device attached to it', async () => {
+      const { c } = await holder()
+      await c.call('pty.attach', { paneId: externalPaneId, role: 'owner' })
+      const held = await c.call('pty.hold', { paneId: externalPaneId, cols: 44, rows: 20 })
+      expect(held.result).toEqual({ ok: true, cols: 44, rows: 20 })
+      expect(lastAttachment().hold).toHaveBeenCalledWith(44, 20)
+    })
+
+    it('releases the hold on request', async () => {
+      const { c } = await holder()
+      await c.call('pty.attach', { paneId: externalPaneId, role: 'owner' })
+      await c.call('pty.hold', { paneId: externalPaneId, cols: 44, rows: 20 })
+      const released = await c.call('pty.release', { paneId: externalPaneId })
+      expect(released.result).toEqual({ ok: true })
+      expect(lastAttachment().release).toHaveBeenCalledTimes(1)
+    })
+
+    it('refuses a device without the input cap', async () => {
+      const { c } = await holder(false)
+      await c.call('pty.attach', { paneId: externalPaneId })
+      const refused = await c.call('pty.hold', { paneId: externalPaneId, cols: 44, rows: 20 })
+      expect(refused.error).toMatchObject({ code: -32003, data: { cap: 'input' } })
+      expect(lastAttachment().hold).not.toHaveBeenCalled()
+    })
+
+    it('refuses a hold from a socket that is not attached to that pane', async () => {
+      const { c } = await holder()
+      const unattached = await c.call('pty.hold', { paneId: externalPaneId, cols: 44, rows: 20 })
+      expect(unattached.error).toMatchObject({ code: -32602, message: 'not-attached' })
+      await c.call('pty.attach', { paneId: externalPaneId, role: 'owner' })
+      const other = await c.call('pty.hold', { paneId: 'unknown-pane', cols: 44, rows: 20 })
+      expect(other.error).toMatchObject({ code: -32602, message: 'not-attached' })
+      expect(lastAttachment().hold).not.toHaveBeenCalled()
+    })
+
+    it('refuses a grid outside 1 to 1000', async () => {
+      const { c } = await holder()
+      await c.call('pty.attach', { paneId: externalPaneId, role: 'owner' })
+      for (const grid of [
+        { cols: 0, rows: 20 },
+        { cols: 44, rows: 1001 },
+        { cols: 4.5, rows: 20 },
+        { cols: '44', rows: 20 },
+        {},
+      ]) {
+        const refused = await c.call('pty.hold', { paneId: externalPaneId, ...grid })
+        expect(refused.error).toMatchObject({ code: -32602, message: 'bad-size' })
+      }
+      expect(lastAttachment().hold).not.toHaveBeenCalled()
+    })
+
+    it('answers held-by-other when another phone holds the pane', async () => {
+      const { c } = await holder()
+      await c.call('pty.attach', { paneId: externalPaneId, role: 'owner' })
+      lastAttachment().hold.mockReturnValueOnce('held-by-other')
+      const refused = await c.call('pty.hold', { paneId: externalPaneId, cols: 44, rows: 20 })
+      expect(refused.error).toMatchObject({ code: -32602, message: 'held-by-other' })
+    })
+
+    it('gives the size back when the socket closes', async () => {
+      const { c } = await holder()
+      await c.call('pty.attach', { paneId: externalPaneId, role: 'owner' })
+      await c.call('pty.hold', { paneId: externalPaneId, cols: 44, rows: 20 })
+      const attachment = lastAttachment()
+      c.ws.close()
+      await vi.waitFor(() => expect(attachment.detach).toHaveBeenCalledTimes(1))
+    })
+
+    it('gives the size back when the desktop revokes the input cap', async () => {
+      const { c, deviceId } = await holder()
+      await c.call('pty.attach', { paneId: externalPaneId, role: 'owner' })
+      await c.call('pty.hold', { paneId: externalPaneId, cols: 44, rows: 20 })
+      const attachment = lastAttachment()
+      gatewaySetCap({ deviceId, cap: 'input', granted: false })
+      await vi.waitFor(() => expect(attachment.detach).toHaveBeenCalledTimes(1))
+    })
+
+    it('still refuses the 0x03 resize frame while it holds the pane', async () => {
+      const { c } = await holder()
+      await c.call('pty.attach', { paneId: externalPaneId, role: 'owner' })
+      await c.call('pty.hold', { paneId: externalPaneId, cols: 44, rows: 20 })
+      c.ws.send(binary(0x03, JSON.stringify({ paneId: externalPaneId, cols: 120, rows: 40 })))
+      const refused = await c.next((m) => m.error?.message === 'resize-not-supported')
+      expect(refused.error?.code).toBe(-32602)
+      expect(lastAttachment().hold).toHaveBeenCalledTimes(1)
+    })
   })
 
   it('tells every attached phone the size when the desktop resizes the pane', async () => {

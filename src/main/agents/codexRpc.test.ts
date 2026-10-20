@@ -38,6 +38,25 @@ afterAll(() => {
 })
 
 describe('connectCodexRpc', () => {
+  it('hands the server notifications, with their params, to the listener', async () => {
+    const notices: Array<[string, unknown]> = []
+    const rpc = await connectCodexRpc(socket, '1', (method, params) =>
+      notices.push([method, params]),
+    )
+    for (const client of wss.clients) {
+      client.send(JSON.stringify({ method: 'item/agentMessage/delta', params: { delta: 'hi' } }))
+      client.send(JSON.stringify({ method: 'turn/completed' }))
+    }
+    await vi.waitFor(() =>
+      expect(notices).toEqual([
+        ['item/agentMessage/delta', { delta: 'hi' }],
+        ['turn/completed', undefined],
+      ]),
+    )
+    rpc.close()
+    await rpc.closed
+  })
+
   it('initializes as Ostia, then sends initialized, before it hands the client out', async () => {
     received.length = 0
     const rpc = await connectCodexRpc(socket, '1.2.3')

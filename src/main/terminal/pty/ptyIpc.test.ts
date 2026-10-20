@@ -73,6 +73,7 @@ describe('pty:resize', () => {
     mirror,
     subs: new Map([['1', {}]]),
     sizeListeners: new Set<(cols: number, rows: number) => void>(),
+    hold: null,
   })
   const ptys = new Map<string, unknown>()
 
@@ -110,5 +111,60 @@ describe('pty:resize', () => {
     send(1, 'p2')
     send(1, 'missing')
     expect(resize).not.toHaveBeenCalled()
+  })
+})
+
+describe('desktop input and a phone size hold', () => {
+  const resize = vi.fn()
+  const write = vi.fn()
+  const sent = vi.fn()
+  const ptys = new Map<string, unknown>()
+  const held = () => ({
+    keepAlive: false,
+    pty: { cols: 44, rows: 20, resize, write },
+    mirror: { resize: vi.fn() },
+    session: { canWrite: () => true },
+    subs: new Map([['1', { isDestroyed: () => false, send: sent }]]),
+    sizeListeners: new Set<(cols: number, rows: number) => void>(),
+    hold: { holder: 'gw-1', desktop: { cols: 100, rows: 30 } },
+  })
+
+  beforeEach(() => {
+    listeners.clear()
+    ptys.clear()
+    resize.mockReset()
+    write.mockReset()
+    sent.mockReset()
+    registerPtyIpc({ ptys, keptShells: {}, agentWork: {} } as unknown as Parameters<
+      typeof registerPtyIpc
+    >[0])
+  })
+
+  it('gives the desktop size back before a key reaches the program', () => {
+    const entry = held()
+    ptys.set('p1', entry)
+    listeners.get('pty:write')?.({ sender: { id: 1 } }, 'p1', 'a')
+    expect(resize).toHaveBeenCalledWith(100, 30)
+    expect(sent).toHaveBeenCalledWith('pty:size:p1', 100, 30, false)
+    expect(entry.hold).toBeNull()
+    expect(write).toHaveBeenCalledWith('a')
+    expect(resize.mock.invocationCallOrder[0]).toBeLessThan(write.mock.invocationCallOrder[0])
+  })
+
+  it('ends the hold on a desktop resize and applies the size the desktop asked for', () => {
+    const entry = held()
+    ptys.set('p1', entry)
+    listeners.get('pty:resize')?.({ sender: { id: 1 } }, 'p1', 90, 25)
+    expect(resize).toHaveBeenCalledWith(90, 25)
+    expect(sent).toHaveBeenCalledWith('pty:size:p1', 90, 25, false)
+    expect(entry.hold).toBeNull()
+  })
+
+  it('leaves the hold alone when a window that cannot write sends a key', () => {
+    const entry = { ...held(), session: { canWrite: () => false } }
+    ptys.set('p1', entry)
+    listeners.get('pty:write')?.({ sender: { id: 1 } }, 'p1', 'a')
+    expect(entry.hold).not.toBeNull()
+    expect(write).not.toHaveBeenCalled()
   })
 })

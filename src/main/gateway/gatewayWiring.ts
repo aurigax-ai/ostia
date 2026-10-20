@@ -2,11 +2,18 @@ import { hostname } from 'node:os'
 import { join } from 'node:path'
 import { app } from 'electron'
 import { OPEN_FILES_COMMAND } from '../../shared/files/openFiles'
+import type { AgentSessions } from '../agent/agentSessions'
+import type { AgentResumes } from '../agents/agentResumes'
 import type { AgentRunningPanes } from '../agents/agentRunning'
+import { AgentStreams } from '../agents/agentStreams'
+import { connectCodexRpc } from '../agents/codexRpc'
+import { codexSocketOf } from '../agents/codexSockets'
+import { transcriptPath } from '../agents/transcriptFiles'
 import type { AskHub } from '../approvals/asks'
 import type { Reach } from '../approvals/reach'
 import type { ArtifactFolders } from '../artifacts/artifactFolders'
 import type { CommandBridge } from '../control/commandBridge'
+import { type PlatformEventPayloads, platformEvents } from '../control/events'
 import { resolveExternal } from '../control/idRegistry'
 import type { AppLog } from '../diagnostics/appLog'
 import type { PaneConfirms } from '../panes/paneConfirm'
@@ -18,6 +25,7 @@ import {
   registerPaneListMethods,
 } from '../panes/paneList'
 import type { PaneTurns } from '../panes/paneTurns'
+import type { PaneWatch } from '../panes/paneWait'
 import { processStatusOf } from '../panes/processManager'
 import type { ProcessRegistry } from '../panes/processRegistry'
 import type { Redactor } from '../privacy/redaction'
@@ -69,7 +77,10 @@ interface GatewayStartDeps {
     processes: ProcessRegistry | null
     stopAnnouncing: (() => void) | null
     stopRemote: (() => Promise<void>) | null
+    agentSessions: AgentSessions | null
   }
+  agentResumes: AgentResumes
+  paneWatch: PaneWatch
   reach: Reach
   workspaceSandboxes: WorkspaceSandboxes
   broadcast: WindowSend['broadcast']
@@ -118,6 +129,8 @@ export function startGateway({
   isWaking,
   paneStartErrors,
   services,
+  agentResumes,
+  paneWatch,
   reach,
   workspaceSandboxes,
   broadcast,
@@ -178,7 +191,26 @@ export function startGateway({
   onPairRequestsChanged(() => broadcast('gateway:pair-requests-changed', listPairRequests()))
   registerGatewayIpc()
   registerPhoneWorkspaceIpc({ paths: phonePaths })
+  const agentStreams = new AgentStreams({
+    panes: () => listPanes({ execCommand, getTerminalState, ptyPid, windowIds, waking: isWaking }),
+    claudeFile: (id) => transcriptPath({ agent: 'claude', id }),
+    codexSocket: codexSocketOf,
+    codexConnect: (socket, onNotice) => connectCodexRpc(socket, app.getVersion(), onNotice),
+    pi: (sessionId) => services.agentSessions?.stream(sessionId),
+    asks: askHub.list,
+  })
+  agentResumes.subscribe((externalPaneId, resume) => agentStreams.resumed(externalPaneId, resume))
+  paneWatch.tap((paneId, change) => {
+    if (change.kind === 'closed') agentStreams.paneClosed(paneId)
+  })
+  platformEvents.on('ask.created', ({ ask }: PlatformEventPayloads['ask.created']) =>
+    agentStreams.askOpened(ask),
+  )
+  platformEvents.on('ask.resolved', (resolved: PlatformEventPayloads['ask.resolved']) =>
+    agentStreams.askResolved(resolved),
+  )
   configureGatewayControl({
+    agentStreams,
     execCommand,
     listCommandsFor,
     getTerminalState,

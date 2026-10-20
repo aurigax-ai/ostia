@@ -15,6 +15,7 @@ import { useAttentionStore } from '@/stores/agents/attentionStore'
 import { useSandboxStore } from '@/stores/app/sandboxStore'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { type LineAnchor, useBlocksStore } from '@/stores/terminal/blocksStore'
+import { usePhoneSizeStore } from '@/stores/terminal/phoneSizeStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import type { TerminalSession } from './terminalSession'
 import { isPromptRepaint, nextSizeAction, settleFit } from './terminalSizing'
@@ -62,7 +63,7 @@ interface PtyIo {
 }
 
 export function attachPtySession(deps: PtySessionDeps): () => void {
-  const { host, term, paneId, workspaceIdRef, syncSizeRef, session, holdInput } = deps
+  const { host, term, paneId, workspaceIdRef, lastSizeRef, syncSizeRef, session, holdInput } = deps
   const flow: PtyFlow = { attached: false, replayed: false, unparsed: 0, querySilencer: null }
   const pending: string[] = []
   const emit: Write = (data, done) => {
@@ -116,6 +117,16 @@ export function attachPtySession(deps: PtySessionDeps): () => void {
   const io: PtyIo = { flow, pending, writeOutput, writeLive, neighbour }
   const attachAtCurrentSize = createPtyAttach(deps, io)
   const sizing = createPtySizing(deps, io, attachAtCurrentSize)
+
+  const phoneSize = usePhoneSizeStore.getState()
+  const offSize = window.ostia.pty.onSize(paneId, (cols, rows, held) => {
+    if (session.disposed) return
+    neighbour.drain()
+    term.resize(cols, rows)
+    lastSizeRef.current = { cols, rows }
+    if (held) phoneSize.hold(paneId, { cols, useDesktop: sizing.syncSize })
+    else phoneSize.release(paneId)
+  })
 
   const input = term.onData((d) => {
     if (!holdInput(d)) window.ostia.pty.write(paneId, d)
@@ -182,6 +193,8 @@ export function attachPtySession(deps: PtySessionDeps): () => void {
     sizing.dispose()
     ro.disconnect()
     input.dispose()
+    offSize()
+    phoneSize.release(paneId)
     offData()
     offExit()
     neighbour.dispose()

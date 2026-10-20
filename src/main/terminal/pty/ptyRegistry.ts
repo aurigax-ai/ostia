@@ -16,6 +16,7 @@ import { PtyFlowControl } from '../ptyFlow'
 import { PtySession } from '../ptySession'
 import { ScreenMirror } from '../screenMirror'
 import { closesPaneOnExit } from '../shellExit'
+import { type PtyHold, releasePty } from './ptySize'
 
 export interface PaneTitleEntry {
   paneId: string
@@ -44,6 +45,7 @@ export interface PtyEntry {
   keepAlive: boolean
   exitListeners: Set<(code: number) => void>
   sizeListeners: Set<(cols: number, rows: number) => void>
+  hold: PtyHold | null
 }
 
 export function removeStateFile(entry: PtyEntry): void {
@@ -183,6 +185,7 @@ export function createPtyRegistry({
           if (!wc.isDestroyed()) wc.send(`pty:exit:${paneId}`, code, closes)
         }
         for (const listener of entry.exitListeners) listener(code)
+        releasePty(paneId, entry)
         processes()?.shellEnded(paneId, (from) => session.since(from))
         entry.flow.dispose()
         entry.mirror.dispose()
@@ -218,6 +221,7 @@ export function createPtyRegistry({
       keepAlive: opts.keepAlive,
       exitListeners: new Set(),
       sizeListeners: new Set(),
+      hold: null,
       workspaceId: opts.workspaceId ?? '',
       sandboxed: opts.sandboxed ?? false,
       shell: opts.shell ?? '',

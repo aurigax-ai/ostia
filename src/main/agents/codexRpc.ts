@@ -16,7 +16,13 @@ interface Pending {
   timer: NodeJS.Timeout
 }
 
-export function connectCodexRpc(socketPath: string, version: string): Promise<CodexRpc> {
+export type CodexNotice = (method: string, params: unknown) => void
+
+export function connectCodexRpc(
+  socketPath: string,
+  version: string,
+  onNotice?: CodexNotice,
+): Promise<CodexRpc> {
   return new Promise((resolve, reject) => {
     const ws = new WebSocket(`ws+unix://${socketPath}:/`, { handshakeTimeout: CONNECT_TIMEOUT_MS })
     const pending = new Map<number, Pending>()
@@ -51,8 +57,14 @@ export function connectCodexRpc(socketPath: string, version: string): Promise<Co
       try {
         const message = JSON.parse(String(data)) as {
           id?: number
+          method?: string
+          params?: unknown
           result?: unknown
           error?: { message?: string }
+        }
+        if (message.id === undefined && typeof message.method === 'string') {
+          onNotice?.(message.method, message.params)
+          return
         }
         const entry = message.id === undefined ? undefined : pending.get(message.id)
         if (!entry || message.id === undefined) return

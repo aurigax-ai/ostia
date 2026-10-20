@@ -96,7 +96,7 @@ interface PtyApi {
   listDir: (paneId: string, dir: string) => Promise<FsEntry[]>
   history: (paneId: string) => Promise<ShellHistoryEntry[]>
   localPrompt: (paneId: string) => Promise<boolean>
-  onSize: (paneId: string, cb: (cols: number, rows: number) => void) => () => void
+  onSize: (paneId: string, cb: (cols: number, rows: number, held: boolean) => void) => () => void
   onRun: (cb: (paneId: string, command: string) => void) => () => void
 }
 

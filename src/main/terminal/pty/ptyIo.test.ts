@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { PtySession } from '../ptySession'
 import { createPtyIo } from './ptyIo'
 import type { PtyEntry } from './ptyRegistry'
-import { resizePty } from './ptySize'
+import { releasePty, resizePty } from './ptySize'
 
 function fakeEntry(cols = 120, rows = 40, session = new PtySession()) {
   const window = { isDestroyed: () => false, send: vi.fn() }
@@ -22,6 +22,7 @@ function fakeEntry(cols = 120, rows = 40, session = new PtySession()) {
     session,
     subs: new Map([['1', window]]),
     sizeListeners: new Set(),
+    hold: null,
   } as unknown as PtyEntry
   return { entry, window, pty, mirror, session }
 }
@@ -36,7 +37,7 @@ describe('phone pty io', () => {
       sendData: () => undefined,
       sendSize: (c, r) => sizes.push([c, r]),
     })
-    return { ...fake, handle, sizes }
+    return { ...fake, io, handle, sizes }
   }
 
   it('resizes the pty when the desktop resizes it', () => {
@@ -91,5 +92,84 @@ describe('phone pty io', () => {
     })
     expect(handle).toMatchObject({ dropped: true, cursor: session.cursor })
     expect(sent).toEqual(['y'.repeat(5000)])
+  })
+
+  describe('size hold', () => {
+    it('sizes the pty to the phone grid and tells the desktop windows it is held', () => {
+      const { handle, pty, mirror, window } = attached('owner')
+      expect(handle?.hold(44, 20)).toBe('ok')
+      expect([pty.cols, pty.rows]).toEqual([44, 20])
+      expect(mirror.resize).toHaveBeenCalledWith(44, 20)
+      expect(window.send).toHaveBeenCalledWith('pty:size:pane-1', 44, 20, true)
+    })
+
+    it('gives the desktop size back on release and tells the windows it is free', () => {
+      const { handle, pty, window } = attached('owner', 100, 30)
+      handle?.hold(44, 20)
+      handle?.release()
+      expect([pty.cols, pty.rows]).toEqual([100, 30])
+      expect(window.send).toHaveBeenLastCalledWith('pty:size:pane-1', 100, 30, false)
+    })
+
+    it('gives the desktop size back when the phone detaches, and only once', () => {
+      const { handle, pty, window } = attached('owner', 100, 30)
+      handle?.hold(44, 20)
+      handle?.detach()
+      handle?.detach()
+      expect([pty.cols, pty.rows]).toEqual([100, 30])
+      expect(window.send).toHaveBeenCalledTimes(2)
+    })
+
+    it('refuses a second holder and leaves the first grid in place', () => {
+      const first = attached('owner', 100, 30)
+      const second = first.io.attachPhoneObserver('pane-1', {
+        role: 'owner',
+        sendData: () => undefined,
+        sendSize: () => undefined,
+      })
+      expect(first.handle?.hold(44, 20)).toBe('ok')
+      expect(second?.hold(60, 20)).toBe('held-by-other')
+      expect([first.pty.cols, first.pty.rows]).toEqual([44, 20])
+      second?.release()
+      second?.detach()
+      expect([first.pty.cols, first.pty.rows]).toEqual([44, 20])
+    })
+
+    it('keeps the first desktop size when the holder holds again at a new grid', () => {
+      const { handle, pty } = attached('owner', 100, 30)
+      handle?.hold(44, 20)
+      handle?.hold(60, 18)
+      expect([pty.cols, pty.rows]).toEqual([60, 18])
+      handle?.release()
+      expect([pty.cols, pty.rows]).toEqual([100, 30])
+    })
+
+    it('lets another phone hold once the first released', () => {
+      const first = attached('owner', 100, 30)
+      const second = first.io.attachPhoneObserver('pane-1', {
+        role: 'owner',
+        sendData: () => undefined,
+        sendSize: () => undefined,
+      })
+      first.handle?.hold(44, 20)
+      first.handle?.release()
+      expect(second?.hold(60, 20)).toBe('ok')
+    })
+
+    it('puts the desktop size back when the pane program exits', () => {
+      const { handle, entry, pty, window } = attached('owner', 100, 30)
+      handle?.hold(44, 20)
+      releasePty('pane-1', entry)
+      expect([pty.cols, pty.rows]).toEqual([100, 30])
+      expect(window.send).toHaveBeenLastCalledWith('pty:size:pane-1', 100, 30, false)
+    })
+
+    it('never touches the size of a pane nobody held', () => {
+      const { handle, pty, window } = attached('owner')
+      handle?.release()
+      handle?.detach()
+      expect(pty.resize).not.toHaveBeenCalled()
+      expect(window.send).not.toHaveBeenCalled()
+    })
   })
 })

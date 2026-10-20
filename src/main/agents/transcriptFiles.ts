@@ -102,3 +102,54 @@ export async function readTail(path: string, bytes: number): Promise<TailRead> {
     await handle.close()
   }
 }
+
+export interface TailWindow {
+  lines: string[]
+  truncated: boolean
+  end: number
+}
+
+function completeLines(buffer: Buffer, start: number, skipPartialHead: boolean) {
+  const last = buffer.lastIndexOf(0x0a)
+  if (last < 0) return { lines: [] as string[], end: start }
+  let from = 0
+  if (skipPartialHead) {
+    const first = buffer.indexOf(0x0a)
+    from = first + 1
+  }
+  const text = from > last ? '' : buffer.subarray(from, last).toString('utf8')
+  return { lines: text === '' ? [] : text.split('\n'), end: start + last + 1 }
+}
+
+export async function readTailWindow(path: string, bytes: number): Promise<TailWindow> {
+  const handle = await open(path, READ_FLAGS)
+  try {
+    const info = await handle.stat()
+    if (!info.isFile()) throw new Error('not a regular file')
+    const length = Math.min(bytes, info.size)
+    const start = info.size - length
+    const buffer = Buffer.alloc(length)
+    await handle.read(buffer, 0, length, start)
+    return { ...completeLines(buffer, start, start > 0), truncated: start > 0 }
+  } finally {
+    await handle.close()
+  }
+}
+
+export async function readNewLines(
+  path: string,
+  offset: number,
+): Promise<{ lines: string[]; end: number }> {
+  const handle = await open(path, READ_FLAGS)
+  try {
+    const info = await handle.stat()
+    if (!info.isFile()) throw new Error('not a regular file')
+    if (info.size < offset) return readNewLines(path, 0)
+    if (info.size === offset) return { lines: [], end: offset }
+    const buffer = Buffer.alloc(info.size - offset)
+    await handle.read(buffer, 0, buffer.length, offset)
+    return completeLines(buffer, offset, false)
+  } finally {
+    await handle.close()
+  }
+}

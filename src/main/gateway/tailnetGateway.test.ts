@@ -25,6 +25,7 @@ const TAILNET_IP = '100.114.10.128'
 const TAILNET_NAME = 'ostia-xps15.example.ts.net'
 
 const deps = {
+  agentStreams: { open: vi.fn() },
   execCommand: vi.fn(),
   listCommandsFor: vi.fn().mockReturnValue([]),
   getTerminalState: vi.fn(),

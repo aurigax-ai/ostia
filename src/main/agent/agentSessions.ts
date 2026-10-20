@@ -10,6 +10,7 @@ import {
 import { isRecord } from '@aurigax-ai/ostia-extension-sdk/contract/isRecord'
 import type { AgentHostSettings } from '../../shared/agent/agentSettings'
 import { type AgentOpenInput, promptOf, sessionIdOf } from './agentRequests'
+import { PiStream } from './piStream'
 
 export interface AgentRenderer {
   id: number
@@ -50,6 +51,7 @@ export class AgentSessions {
   private readonly owned = new Map<string, Owned>()
   private readonly pending = new Map<string, PendingTool>()
   private readonly watched = new Set<number>()
+  private readonly streams = new Map<string, PiStream>()
   private toolSeq = 0
 
   constructor(private readonly deps: AgentSessionsDeps) {}
@@ -73,7 +75,14 @@ export class AgentSessions {
       providers,
       ...(input.model ? { model: input.model } : {}),
     })
-    if (reply.ok) this.owned.set(input.sessionId, { renderer, workspaceId: input.workspaceId })
+    if (reply.ok) {
+      this.owned.set(input.sessionId, { renderer, workspaceId: input.workspaceId })
+      if (!this.streams.has(input.sessionId)) {
+        const stream = new PiStream()
+        stream.seed(reply.history ?? [])
+        this.streams.set(input.sessionId, stream)
+      }
+    }
     return reply
   }
 
@@ -84,7 +93,9 @@ export class AgentSessions {
     if (this.sandboxedSession(id)) return { ok: false, error: 'sandboxed' }
     const redacted = await this.deps.redact(clean).catch(() => null)
     if (redacted === null) return { ok: false, error: 'redaction-failed' }
-    return this.deps.request({ op: 'prompt', sessionId: id, text: redacted })
+    const reply = await this.deps.request({ op: 'prompt', sessionId: id, text: redacted })
+    if (reply.ok) this.streams.get(id)?.prompt(clean)
+    return reply
   }
 
   async abort(renderer: AgentRenderer, sessionId: unknown): Promise<AgentReply> {
@@ -98,6 +109,7 @@ export class AgentSessions {
     const id = this.ownedId(renderer, sessionId)
     if (!id) return { ok: false, error: 'invalid' }
     this.owned.delete(id)
+    this.streams.delete(id)
     this.cancelTools(id)
     return this.deps.request({ op: 'close', sessionId: id })
   }
@@ -107,7 +119,9 @@ export class AgentSessions {
     const id = sessionIdOf(params.sessionId)
     const owner = id ? this.owned.get(id) : undefined
     if (!id || !owner || owner.renderer.isDestroyed()) return { ok: false }
-    owner.renderer.send('agent:event', { sessionId: id, event: params.event as AgentEvent })
+    const event = params.event as AgentEvent
+    this.streams.get(id)?.event(event)
+    owner.renderer.send('agent:event', { sessionId: id, event })
     return { ok: true }
   }
 
@@ -136,7 +150,14 @@ export class AgentSessions {
       })
       owner.renderer.send('agent:tool-call', { callId, ...call })
     })
+    this.streams
+      .get(call.sessionId)
+      ?.toolResult(call.toolCallId, reply.ok ? reply.output : reply.error, !reply.ok)
     return this.checked(reply)
+  }
+
+  stream(sessionId: string): PiStream | undefined {
+    return this.streams.get(sessionId)
   }
 
   answerTool(renderer: AgentRenderer, callId: unknown, reply: unknown): void {
@@ -192,6 +213,7 @@ export class AgentSessions {
       for (const [sessionId, owner] of this.owned) {
         if (owner.renderer.id !== renderer.id) continue
         this.owned.delete(sessionId)
+        this.streams.delete(sessionId)
         void this.deps.request({ op: 'close', sessionId })
       }
     })

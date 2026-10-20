@@ -13,7 +13,7 @@ export const TRANSCRIPT_OUT_MAX = 256 * 1024
 const NO_ANSWER = '(no answer yet)'
 const NOT_A_PROMPT = /^<(local-command|command-name|command-message)/
 
-function parse(line: string): Record<string, unknown> | null {
+export function parse(line: string): Record<string, unknown> | null {
   if (!line) return null
   try {
     const value: unknown = JSON.parse(line)
@@ -23,7 +23,7 @@ function parse(line: string): Record<string, unknown> | null {
   }
 }
 
-function textParts(content: unknown): string {
+export function textParts(content: unknown): string {
   if (typeof content === 'string') return content
   if (!Array.isArray(content)) return ''
   return content

@@ -29,6 +29,7 @@ import type { ReapReason } from '../terminal/ptyReaper'
 import type { KeptAttention } from '../tmux/keptAttention'
 import type { KeptShellsWiring } from '../tmux/keptShellsWiring'
 import type { WindowSend } from '../windows/windowSend'
+import type { AgentResumes } from './agentResumes'
 import type { AgentRunningPanes } from './agentRunning'
 import { type ReportedAgentWork, registerAgentWorkMethods } from './agentWork'
 import { tellPane } from './busStore'
@@ -48,6 +49,7 @@ interface AgentWiringDeps {
   paneWaking: PaneWaking
   startedAgents: Set<string>
   agentChanges: ChangeSignal
+  agentResumes: AgentResumes
   openTerminalInWindow: CommandBridge['openTerminalInWindow']
   syncKeptMeta: KeptShellsWiring['syncKeptMeta']
   paneWatch: PaneWatch
@@ -78,6 +80,7 @@ export function registerAgentWiring({
   paneWaking,
   startedAgents,
   agentChanges,
+  agentResumes,
   openTerminalInWindow,
   syncKeptMeta,
   paneWatch,
@@ -111,6 +114,7 @@ export function registerAgentWiring({
       paneWaking.end(identity.paneId, 'started')
       startedAgents.add(identity.paneId)
       agentChanges.fire()
+      agentResumes.emit(identity.externalId, resume)
       if (identity.manager) services.managerService?.rememberResume(resume)
     },
   })

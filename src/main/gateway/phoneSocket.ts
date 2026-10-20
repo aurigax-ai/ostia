@@ -1,11 +1,15 @@
 import { PRODUCT_NAME } from '@aurigax-ai/ostia-extension-sdk/contract/product'
 import { app } from 'electron'
 import type { WebSocket } from 'ws'
+import type { PreparedStream } from '../agents/agentStreams'
 import { resolveExternal } from '../control/idRegistry'
+import type { PhoneObserver } from '../terminal/pty/ptyIo'
 import type { GatewayAddress } from './addresses'
 import { type GatewayControlDeps, dispatchGatewayMethod } from './controlDispatch'
 import { type Device, get as getDevice, verifyToken } from './devices'
 import { PHONE_IMAGE_FRAME_BYTES } from './phoneImage'
+import { closeStreams, handleStreamClose, handleStreamOpen } from './phoneStream'
+import { rpcError, rpcResult } from './rpcFrames'
 import type { ScreenLinks } from './screenLinks'
 
 const FRAME_PTY_OUTPUT = 0x01
@@ -29,6 +33,8 @@ const LINK_METHODS: ReadonlySet<unknown> = new Set(['ask.list', 'ask.answer'])
 interface PtyAttachment {
   rendererPaneId: string
   canWrite: boolean
+  hold: PhoneObserver['hold']
+  release: PhoneObserver['release']
   detach: () => void
 }
 
@@ -45,6 +51,7 @@ export interface SocketState {
   device: Device | null
   alive: boolean
   ptyAttachment: PtyAttachment | null
+  streams: Map<string, PreparedStream>
   attached: boolean
   screenTried: boolean
 }
@@ -54,16 +61,6 @@ function refreshDevice(state: SocketState): Device | null {
   const fresh = getDevice(state.device.deviceId)
   if (fresh) state.device = fresh
   return fresh
-}
-
-function rpcResult(id: unknown, result: unknown): string {
-  return JSON.stringify({ jsonrpc: '2.0', id, result })
-}
-
-function rpcError(id: unknown, code: number, message: string, data?: unknown): string {
-  const error: { code: number; message: string; data?: unknown } = { code, message }
-  if (data !== undefined) error.data = data
-  return JSON.stringify({ jsonrpc: '2.0', id: id ?? null, error })
 }
 
 function handleHello(
@@ -259,6 +256,8 @@ function handlePtyAttach(
   state.ptyAttachment = {
     rendererPaneId: identity.paneId,
     canWrite: role === 'owner',
+    hold: attached.hold,
+    release: attached.release,
     detach: attached.detach,
   }
   ws.send(
@@ -287,6 +286,64 @@ function handlePtyDetach(
   }
   state.ptyAttachment?.detach()
   state.ptyAttachment = null
+  ws.send(rpcResult(msg.id, { ok: true }))
+}
+
+const MAX_PTY_DIM = 1000
+
+function isPtyDim(n: unknown): n is number {
+  return typeof n === 'number' && Number.isInteger(n) && n >= 1 && n <= MAX_PTY_DIM
+}
+
+function heldAttachment(
+  ws: WebSocket,
+  state: SocketState,
+  device: Device,
+  msg: { id?: unknown; params?: unknown },
+): PtyAttachment | null {
+  if (!device.caps.includes('input')) {
+    ws.send(rpcError(msg.id, -32003, 'needs-elevation', { cap: 'input' }))
+    return null
+  }
+  const p = (msg.params ?? {}) as { paneId?: unknown }
+  const identity = typeof p.paneId === 'string' ? resolveExternal(p.paneId) : undefined
+  const attachment = state.ptyAttachment
+  if (!attachment || identity?.paneId !== attachment.rendererPaneId) {
+    ws.send(rpcError(msg.id, -32602, 'not-attached'))
+    return null
+  }
+  return attachment
+}
+
+function handlePtyHold(
+  ws: WebSocket,
+  state: SocketState,
+  device: Device,
+  msg: { id?: unknown; params?: unknown },
+): void {
+  const attachment = heldAttachment(ws, state, device, msg)
+  if (!attachment) return
+  const { cols, rows } = (msg.params ?? {}) as { cols?: unknown; rows?: unknown }
+  if (!isPtyDim(cols) || !isPtyDim(rows)) {
+    ws.send(rpcError(msg.id, -32602, 'bad-size'))
+    return
+  }
+  if (attachment.hold(cols, rows) === 'held-by-other') {
+    ws.send(rpcError(msg.id, -32602, 'held-by-other'))
+    return
+  }
+  ws.send(rpcResult(msg.id, { ok: true, cols, rows }))
+}
+
+function handlePtyRelease(
+  ws: WebSocket,
+  state: SocketState,
+  device: Device,
+  msg: { id?: unknown; params?: unknown },
+): void {
+  const attachment = heldAttachment(ws, state, device, msg)
+  if (!attachment) return
+  attachment.release()
   ws.send(rpcResult(msg.id, { ok: true }))
 }
 
@@ -331,6 +388,7 @@ function handleConnection(ws: WebSocket, deps: PhoneSocketDeps): void {
     device: null,
     alive: true,
     ptyAttachment: null,
+    streams: new Map(),
     attached: false,
     screenTried: false,
   }
@@ -401,6 +459,22 @@ function handleConnection(ws: WebSocket, deps: PhoneSocketDeps): void {
       handlePtyDetach(ws, state, msg)
       return
     }
+    if (msg.method === 'agent.stream.open') {
+      handleStreamOpen(ws, state, device, msg, deps.controlDeps(), PHONE_FRAME_BYTES)
+      return
+    }
+    if (msg.method === 'agent.stream.close') {
+      handleStreamClose(ws, state, msg)
+      return
+    }
+    if (msg.method === 'pty.hold') {
+      handlePtyHold(ws, state, device, msg)
+      return
+    }
+    if (msg.method === 'pty.release') {
+      handlePtyRelease(ws, state, device, msg)
+      return
+    }
     handleControlMethod(ws, device, msg, deps.controlDeps())
   })
 
@@ -409,6 +483,7 @@ function handleConnection(ws: WebSocket, deps: PhoneSocketDeps): void {
     deps.screenLinks()?.closed(ws, code)
     state.ptyAttachment?.detach()
     state.ptyAttachment = null
+    closeStreams(state)
     if (state.device) untrackDeviceSocket(state.device.deviceId, ws)
     sockets.delete(ws)
   })

@@ -1,4 +1,5 @@
 import { ChangeSignal } from '../../shared/common/actThenConfirm'
+import { AgentResumes } from '../agents/agentResumes'
 import { AgentRunningPanes } from '../agents/agentRunning'
 import { ReportedAgentWork } from '../agents/agentWork'
 import type { OriginReach } from '../agents/originAgents'
@@ -22,6 +23,7 @@ export function createAgentServices(ctx: WorkspaceContext) {
   const { emitPaneEvent, execCommand, mainStrings, services, terminalState } = ctx
 
   const agentChanges = new ChangeSignal()
+  const agentResumes = new AgentResumes()
   const startedAgents = new Set<string>()
   const agentRunning = new AgentRunningPanes(() => {
     services.broker?.persist()
@@ -68,6 +70,7 @@ export function createAgentServices(ctx: WorkspaceContext) {
 
   return {
     agentChanges,
+    agentResumes,
     startedAgents,
     agentRunning,
     agentWork,

@@ -68,6 +68,9 @@ export function registerListCommands(): void {
             cwd: pane.cwd,
             ...(pane.kind === 'editor' && pane.filePath ? { filePath: pane.filePath } : {}),
             ...(pane.kind === 'terminal' ? paneAgentReport(pane.id, pane.resume) : {}),
+            ...(pane.kind === 'agent' && pane.agentSessionId
+              ? { agentSessionId: pane.agentSessionId }
+              : {}),
             ...(splitTab ? { splitTabId: splitTab.id } : {}),
             ...(splitTab?.name ? { splitTabName: splitTab.name } : {}),
             ...(pane.hibernated ? { hibernated: true } : {}),
