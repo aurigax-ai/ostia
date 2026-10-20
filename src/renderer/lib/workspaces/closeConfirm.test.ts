@@ -1,3 +1,4 @@
+import { trackSave } from '@/lib/files/pendingSaves'
 import { paneIds } from '@/lib/layout/tree'
 import type { LayoutNode, PaneNode } from '@/lib/layout/types'
 import { useApprovalsStore } from '@/stores/agents/approvalsStore'
@@ -15,8 +16,16 @@ import type { QuestionRequest } from '@shared/agents/questions'
 import type { AttentionState } from '@shared/attention/attention'
 import type { ApprovalRequest } from '@shared/permissions/approvals'
 import type { PaneActivity } from '@shared/terminal/ptyApi'
+import {
+  AGENT_CLOSE_SAVE_WAIT_MS,
+  CLOSE_CONFIRM_MS,
+  QUIT_SAVE_WAIT_MS,
+  RUNNING_ANSWER_MS,
+} from '@shared/windows/closeWaits'
+import type { RunningGroup } from '@shared/windows/windowsApi'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
+  closePaneForAgent,
   collectQuitGroups,
   quitGroups,
   quitLosses,
@@ -279,6 +288,153 @@ describe('what a quit loses', () => {
       await vi.waitFor(() => {
         expect(useCloseConfirmStore.getState().pending?.groups[0]?.agents).toEqual(['claude'])
       })
+    })
+  })
+
+  describe('a save that is still running', () => {
+    const unfinished: ((ok: boolean) => void)[] = []
+
+    afterEach(() => {
+      for (const done of unfinished.splice(0)) done(false)
+      vi.mocked(window.ostia.pty.activity).mockReset()
+      vi.mocked(window.ostia.pty.activity).mockResolvedValue(null)
+    })
+
+    function startSave(finish: (ok: boolean) => void = () => {}): {
+      done: (ok: boolean) => void
+    } {
+      let release: (ok: boolean) => void = () => {}
+      const save = new Promise<void>((resolve, reject) => {
+        release = (ok) => {
+          if (ok) useEditorStatus.getState().setDirty(FILE, false)
+          finish(ok)
+          if (ok) resolve()
+          else reject(new Error('write failed'))
+        }
+      })
+      void trackSave(FILE, save).catch(() => {})
+      unfinished.push((ok) => release(ok))
+      return { done: release }
+    }
+
+    it('waits for the save and does not ask once it succeeds', async () => {
+      seedRow('unsaved editor')
+      const { done } = startSave()
+      let closed = false
+      void requestClosePane('w1', 'p1').then(() => {
+        closed = true
+      })
+      await new Promise((r) => setTimeout(r, 20))
+      expect(useCloseConfirmStore.getState().pending).toBeNull()
+      done(true)
+      await vi.waitFor(() => {
+        expect(closed).toBe(true)
+      })
+      expect(useCloseConfirmStore.getState().pending).toBeNull()
+    })
+
+    it('still asks when the save fails', async () => {
+      seedRow('unsaved editor')
+      const { done } = startSave()
+      void requestClosePane('w1', 'p1')
+      done(false)
+      await vi.waitFor(() => {
+        expect(useCloseConfirmStore.getState().pending?.groups[0]?.files).toEqual([FILE])
+      })
+    })
+
+    it('asks as before when the save never finishes', async () => {
+      vi.useFakeTimers()
+      try {
+        seedRow('unsaved editor')
+        startSave()
+        void requestClosePane('w1', 'p1')
+        await vi.advanceTimersByTimeAsync(10_000)
+        expect(useCloseConfirmStore.getState().pending?.groups[0]?.files).toEqual([FILE])
+      } finally {
+        vi.useRealTimers()
+      }
+    })
+
+    it('waits before the quit dialog counts unsaved files', async () => {
+      seedRow('unsaved editor')
+      const { done } = startSave()
+      const groups = collectQuitGroups(new Set())
+      setTimeout(() => done(true), 20)
+      expect(quitLosses(await groups).files).toBe(0)
+    })
+
+    it('answers main before its quit deadline and lists the file when the save is slow', async () => {
+      vi.useFakeTimers()
+      try {
+        seedRow('unsaved editor')
+        startSave()
+        const answer: { groups?: RunningGroup[] } = {}
+        void collectQuitGroups(new Set()).then((groups) => {
+          answer.groups = groups
+        })
+        await vi.advanceTimersByTimeAsync(QUIT_SAVE_WAIT_MS)
+        expect(QUIT_SAVE_WAIT_MS).toBeLessThan(RUNNING_ANSWER_MS)
+        expect(answer.groups?.map((g) => g.files)).toEqual([[FILE]])
+      } finally {
+        vi.useRealTimers()
+      }
+    })
+
+    it('asks the shells about their programs while it waits for the save', async () => {
+      vi.useFakeTimers()
+      try {
+        seedWorkspace({
+          type: 'tabs',
+          id: 't1',
+          activeId: 'p1',
+          children: [
+            { type: 'pane', id: 'p1', title: 'notes.md', kind: 'editor', filePath: FILE },
+            terminal('p2', false),
+          ],
+        })
+        useEditorStatus.getState().setDirty(FILE, true)
+        const { done } = startSave()
+        vi.mocked(window.ostia.pty.activity).mockImplementation(
+          () =>
+            new Promise((resolve) => {
+              setTimeout(() => resolve({ program: 'sleep', agentRunning: false }), 1_000)
+            }),
+        )
+        setTimeout(() => done(true), 1_000)
+        const answer: { groups?: RunningGroup[] } = {}
+        void collectQuitGroups(new Set()).then((groups) => {
+          answer.groups = groups
+        })
+        await vi.advanceTimersByTimeAsync(1_000)
+        expect(answer.groups?.map((g) => [g.commands, g.files])).toEqual([[['sleep'], []]])
+      } finally {
+        vi.useRealTimers()
+      }
+    })
+
+    it('shows the close question before the CLI stops waiting for the pane to go', async () => {
+      vi.useFakeTimers()
+      try {
+        seedRow('unsaved editor')
+        startSave()
+        void closePaneForAgent('w1', 'p1')
+        await vi.advanceTimersByTimeAsync(AGENT_CLOSE_SAVE_WAIT_MS)
+        expect(AGENT_CLOSE_SAVE_WAIT_MS).toBeLessThan(CLOSE_CONFIRM_MS)
+        expect(useCloseConfirmStore.getState().pending?.groups[0]?.files).toEqual([FILE])
+      } finally {
+        vi.useRealTimers()
+      }
+    })
+
+    it('closes for the CLI without asking once a quick save lands', async () => {
+      seedRow('unsaved editor')
+      const { done } = startSave()
+      const closing = closePaneForAgent('w1', 'p1')
+      setTimeout(() => done(true), 20)
+      await closing
+      expect(useCloseConfirmStore.getState().pending).toBeNull()
+      expect(useLayoutStore.getState().byWorkspace.w1).toBeUndefined()
     })
   })
 

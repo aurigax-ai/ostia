@@ -1,12 +1,12 @@
 import type { BrowserWindow } from 'electron'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { RUNNING_ANSWER_MS } from '../../shared/windows/closeWaits'
 import type { QuitAnswer, RunningGroup } from '../../shared/windows/windowsApi'
 
 const ipcOn = vi.hoisted(() => vi.fn())
 vi.mock('electron', () => ({ ipcMain: { on: ipcOn } }))
 
 const {
-  RUNNING_ANSWER_MS,
   ask,
   confirmQuit,
   groupsFromPtys,

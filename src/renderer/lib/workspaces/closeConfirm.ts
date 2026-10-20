@@ -1,4 +1,5 @@
 import { runningAgent, runningAgentOf } from '@/lib/agents/paneAgent'
+import { settleSaves } from '@/lib/files/pendingSaves'
 import { allPanes, findPane, tabIdOf, tabsOfPane } from '@/lib/layout/tree'
 import type { PaneNode } from '@/lib/layout/types'
 import { useApprovalsStore } from '@/stores/agents/approvalsStore'
@@ -19,6 +20,7 @@ import type { Workspace } from '@/stores/workspaces/workspaceTypes'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import { isResumableAgent } from '@shared/agents/agentResume'
 import type { PaneActivity } from '@shared/terminal/ptyApi'
+import { AGENT_CLOSE_SAVE_WAIT_MS, QUIT_SAVE_WAIT_MS } from '@shared/windows/closeWaits'
 import type { QuitAnswer } from '@shared/windows/windowsApi'
 
 export function runningCommandsOf(
@@ -178,12 +180,17 @@ function runningGroups(
   return groups
 }
 
-async function paneActivities(panes: readonly PaneNode[]): Promise<PaneActivities> {
+async function paneActivities(
+  panes: readonly PaneNode[],
+  saveWaitMs?: number,
+): Promise<PaneActivities> {
   const out: Record<string, PaneActivity> = {}
+  const files = panes.flatMap((p) => (p.kind === 'editor' && p.filePath ? [p.filePath] : []))
   const live = panes.filter((p) => p.kind === 'terminal' && !p.hibernated)
-  const answers = await Promise.all(
-    live.map((p) => window.ostia.pty.activity(p.id).catch(() => null)),
-  )
+  const [, answers] = await Promise.all([
+    settleSaves(files, saveWaitMs),
+    Promise.all(live.map((p) => window.ostia.pty.activity(p.id).catch(() => null))),
+  ])
   for (const [index, pane] of live.entries()) {
     const answer = answers[index]
     if (answer) out[pane.id] = answer
@@ -302,30 +309,46 @@ function isManagerPane(workspaceId: string, paneId: string): boolean {
   return layout ? findPane(layout.root, paneId)?.kind === 'manager' : false
 }
 
-async function paneGroup(workspace: Workspace, paneId: string): Promise<RunningGroup | null> {
+async function paneGroup(
+  workspace: Workspace,
+  paneId: string,
+  saveWaitMs?: number,
+): Promise<RunningGroup | null> {
   if (isManagerPane(workspace.id, paneId)) return runningGroup(workspace)
   const layout = useLayoutStore.getState().byWorkspace[workspace.id]
   const pane = layout ? findPane(layout.root, paneId) : null
   if (!pane) return null
-  return groupOf(workspace, [pane], { ...PLAIN, activity: await paneActivities([pane]) })
+  const activity = await paneActivities([pane], saveWaitMs)
+  return groupOf(workspace, [pane], { ...PLAIN, activity })
 }
 
-export async function requestClosePane(workspaceId: string, paneId: string): Promise<void> {
+async function askClosePane(
+  workspaceId: string,
+  paneId: string,
+  saveWaitMs?: number,
+): Promise<void> {
   if (useLayoutStore.getState().isLocked(workspaceId, paneId)) return
   const workspace = useWorkspacesStore.getState().workspaces.find((w) => w.id === workspaceId)
   const { confirmClose } = useSettingsStore.getState().workspaces
-  const group = workspace && confirmClose ? await paneGroup(workspace, paneId) : null
+  const group = workspace && confirmClose ? await paneGroup(workspace, paneId, saveWaitMs) : null
   if (await confirmGroups('pane', group ? [group] : [])) {
     useLayoutStore.getState().closePane(workspaceId, paneId)
   }
 }
 
+export function requestClosePane(workspaceId: string, paneId: string): Promise<void> {
+  return askClosePane(workspaceId, paneId)
+}
+
 export async function closePaneForAgent(workspaceId: string, paneId: string): Promise<void> {
   const layout = useLayoutStore.getState().byWorkspace[workspaceId]
   const pane = layout ? findPane(layout.root, paneId) : null
+  if (pane?.kind === 'editor' && pane.filePath) {
+    await settleSaves([pane.filePath], AGENT_CLOSE_SAVE_WAIT_MS)
+  }
   const { dirty, disk } = useEditorStatus.getState()
   const asks = pane?.kind === 'manager' || (pane && unsavedFilesOf([pane], dirty, disk).length > 0)
-  if (asks) await requestClosePane(workspaceId, paneId)
+  if (asks) await askClosePane(workspaceId, paneId, 0)
   else useLayoutStore.getState().closePane(workspaceId, paneId)
 }
 
@@ -346,7 +369,7 @@ export async function collectQuitGroups(kept: ReadonlySet<string>): Promise<Runn
   const { confirmQuit: enabled } = useSettingsStore.getState().workspaces
   const { workspaces } = useWorkspacesStore.getState()
   const panes = panesOf(workspaces).filter((p) => !kept.has(p.id))
-  return quitGroups(kept, enabled ? await paneActivities(panes) : {})
+  return quitGroups(kept, enabled ? await paneActivities(panes, QUIT_SAVE_WAIT_MS) : {})
 }
 
 export async function confirmQuit(
