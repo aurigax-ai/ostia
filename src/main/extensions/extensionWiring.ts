@@ -29,6 +29,7 @@ import type { LanguageServers } from '../lsp/languageServers'
 import { registerLanguageServersIpc } from '../lsp/languageServersIpc'
 import type { ServerOverrides } from '../lsp/serverOverrides'
 import { listPanes } from '../panes/paneList'
+import type { ProcessRegistry } from '../panes/processRegistry'
 import { expandHome } from '../platform/pathGuard'
 import { readLocale, readSettingsFile, readSettingsFileOrNull } from '../platform/settingsFile'
 import type { Redactor } from '../privacy/redaction'
@@ -144,6 +145,7 @@ interface ExtensionHostStartDeps {
     marketplaceInstallIds: () => string[]
     telemetry: Telemetry | null
     files: Pick<FileServices, 'kindsChanged'> | null
+    processes: Pick<ProcessRegistry, 'adoptChild'> | null
   }
   refreshAgentPlugins: () => void
   hostPaneGrants: HostPaneGrants
@@ -271,6 +273,7 @@ export function startExtensionHost({
         req,
       ),
     openTerminalIn: openTerminalInWindow,
+    adoptPane: (ownerPaneId, paneId) => services.processes?.adoptChild(ownerPaneId, paneId),
     notify: (n) => postNotification(notifyDeps, n),
     confirm: (req) =>
       confirmForExtension(req, windows.values(), mainStrings().native.extensionConfirm),
