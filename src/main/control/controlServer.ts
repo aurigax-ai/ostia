@@ -149,8 +149,11 @@ function actingPane(
   return { identity: target, params: rest }
 }
 
+export type ExtensionCommandRun = (identity: PaneIdentity, args: unknown) => Promise<CommandResult>
+
 export interface ControlServerDeps {
   execCommand: (target: CommandTarget, id: string, args?: unknown) => Promise<CommandResult>
+  extensionCommand?: (desc: CommandDescriptor) => ExtensionCommandRun | null
   listCommandsFor: (windowId: string) => CommandDescriptor[]
   getTerminalState: (paneId: string) => TerminalStateSnapshot | undefined
   isSandboxed: (workspaceId: string) => boolean
@@ -345,6 +348,13 @@ function registerCommandExec({ session, deps, onCall, requireIdentity }: Connect
           `bad-request: ${params.id} from a script token needs a workspace: pass --workspace <id> (ostia workspace list)`,
         )
       }
+      const asPane = deps.extensionCommand?.(desc) ?? null
+      if (asPane && crossTarget) {
+        throw new ResponseError(
+          ErrorCodes.InvalidParams,
+          `bad-request: ${params.id} runs as the calling pane, so it takes no --workspace or paneId`,
+        )
+      }
       const caps: Capability[] = [
         ...(crossTarget ? (['all-workspaces'] as const) : []),
         ...(script
@@ -362,7 +372,8 @@ function registerCommandExec({ session, deps, onCall, requireIdentity }: Connect
       if (given?.workspaceId && deps.windowOfWorkspace && !target.windowId) {
         throw new ResponseError(ErrorCodes.InvalidParams, `unknown-workspace: ${given.workspaceId}`)
       }
-      const exec = (): Promise<CommandResult> => deps.execCommand(target, params.id, args)
+      const exec = (): Promise<CommandResult> =>
+        asPane ? asPane(me, args) : deps.execCommand(target, params.id, args)
       const result = await (deps.byAgent ? deps.byAgent(exec) : exec())
       const createdId = (result.ok ? (result.result as { workspaceId?: unknown }) : undefined)
         ?.workspaceId

@@ -5,6 +5,7 @@ import type { Dict } from '@shared/app/dict'
 import type {
   CommandDescriptor,
   CommandResult,
+  ExtensionCommandRef,
   JSONSchema,
   TargetMode,
 } from '@shared/control/commands'
@@ -43,6 +44,7 @@ export interface CommandDef<Args = void, R = void> {
   resultSchema?: JSONSchema
   capabilities?: Capability[]
   target?: TargetMode
+  extension?: ExtensionCommandRef
   run: (args: Args, ctx: CommandContext) => R | Promise<R>
 }
 
@@ -128,6 +130,7 @@ export class CommandRegistry {
         resultSchema: c.resultSchema ?? null,
         capabilities: c.capabilities ?? DEFAULT_CAPABILITIES,
         target: c.target ?? 'active',
+        ...(c.extension ? { extension: { ...c.extension } } : {}),
       }))
       .sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))
   }

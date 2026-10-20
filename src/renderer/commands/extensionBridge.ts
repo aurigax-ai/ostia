@@ -58,6 +58,7 @@ export function syncExtensionCommands(list: ExtensionInfo[]): void {
       category: command.category ?? ext.name,
       capabilities: command.capabilities,
       target: 'active',
+      extension: { extId: ext.id, command: command.id },
       ...(command.argument
         ? {
             argument: command.argument,

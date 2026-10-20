@@ -24,6 +24,12 @@ export interface CommandDescriptor {
   resultSchema: JSONSchema | null
   capabilities: Capability[]
   target: TargetMode
+  extension?: ExtensionCommandRef
+}
+
+export interface ExtensionCommandRef {
+  extId: string
+  command: string
 }
 
 export interface CommandTarget {
