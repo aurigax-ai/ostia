@@ -11,7 +11,7 @@ import {
 } from '@/components/ui/dialog'
 import { fmt, useDict } from '@/lib/app/useDict'
 import { baseName } from '@/lib/files/fileTree'
-import { type QuitLosses, keptAgents, quitLosses } from '@/lib/workspaces/closeConfirm'
+import { type QuitLosses, keptRunning, quitLosses } from '@/lib/workspaces/closeConfirm'
 import {
   type CloseConfirmKind,
   type RunningGroup,
@@ -131,12 +131,15 @@ function RunningGroupItem({ group }: { group: RunningGroup }): JSX.Element {
 
 function KeptShellsSection({
   keptShells,
+  keptActivity,
   showBody,
 }: {
-  keptShells: Parameters<typeof keptAgents>[0]
+  keptShells: Parameters<typeof keptRunning>[0]
+  keptActivity: Parameters<typeof keptRunning>[1]
   showBody: boolean
 }): JSX.Element {
   const d = useDict()
+  const { agents, commands } = keptRunning(keptShells, keptActivity)
   return (
     <section aria-label={d.closeConfirm.keptTitle} className="flex flex-col gap-1">
       <div className="font-medium text-fg text-ui-sm">
@@ -145,14 +148,27 @@ function KeptShellsSection({
           : fmt(d.closeConfirm.keptShells, { count: keptShells.length })}
       </div>
       <ul className="flex flex-col gap-1">
-        {keptAgents(keptShells).map((agent, index) => (
+        {agents.map((agent, index) => (
           <ListRow
             // biome-ignore lint/suspicious/noArrayIndexKey: agents can repeat and never reorder while the dialog is open
-            key={index}
+            key={`agent-${index}`}
             density="dense"
             lead={<RobotIcon size={16} aria-hidden />}
             title={
               <span className={`${WRAP} font-mono`}>{agent || d.closeConfirm.unknownCommand}</span>
+            }
+          />
+        ))}
+        {commands.map((command, index) => (
+          <ListRow
+            // biome-ignore lint/suspicious/noArrayIndexKey: commands can repeat and never reorder while the dialog is open
+            key={`command-${index}`}
+            density="dense"
+            lead={<TerminalWindowIcon size={16} aria-hidden />}
+            title={
+              <span className={`${WRAP} font-mono`}>
+                {command || d.closeConfirm.unknownCommand}
+              </span>
             }
           />
         ))}
@@ -208,7 +224,11 @@ export function CloseConfirmDialog(): JSX.Element {
             ))}
           </ul>
           {offersKeep ? (
-            <KeptShellsSection keptShells={keptShells} showBody={Boolean(pending?.groups.length)} />
+            <KeptShellsSection
+              keptShells={keptShells}
+              keptActivity={pending?.keptActivity}
+              showBody={Boolean(pending?.groups.length)}
+            />
           ) : null}
         </div>
         <DialogFooter>

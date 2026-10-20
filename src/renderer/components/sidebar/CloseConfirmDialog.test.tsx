@@ -12,6 +12,7 @@ import { type CommandBlock, useBlocksStore } from '@/stores/terminal/blocksStore
 import { useCloseConfirmStore } from '@/stores/workspaces/closeConfirmStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
+import type { PaneActivity } from '@shared/terminal/ptyApi'
 import type { QuitAnswer } from '@shared/windows/windowsApi'
 import { act, cleanup, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
@@ -521,6 +522,87 @@ describe('close confirmation', () => {
       }
       const workspace = [...dialog.querySelectorAll('div')].find((el) => el.textContent === LONG)
       expect(workspace).toHaveClass('[overflow-wrap:anywhere]', 'min-w-0')
+      act(() => useCloseConfirmStore.getState().answer(false))
+    })
+  })
+
+  describe('kept shells after a reattach', () => {
+    const programs: Record<string, PaneActivity> = {
+      k1: { program: 'claude', agentRunning: true },
+      k2: { program: 'claude', agentRunning: false },
+      k3: { program: 'tail', agentRunning: false },
+    }
+
+    function seedReattached(): string[] {
+      const ids = ['k1', 'k2', 'k3', 'k4', 'k5']
+      useWorkspacesStore.setState({
+        workspaces: [{ id: 'w1', name: 'alpha', kind: 'terminal', workDir: '/a', state: 'idle' }],
+        activeWorkspaceId: 'w1',
+      })
+      useLayoutStore.setState({
+        byWorkspace: {
+          w1: {
+            root: {
+              type: 'split',
+              id: 's1',
+              direction: 'horizontal',
+              sizes: ids.map(() => 100 / ids.length),
+              children: ids.map((id) =>
+                id === 'k1' || id === 'k5'
+                  ? { ...pane(id), resume: { agent: 'claude' as const, id: `sess-${id}` } }
+                  : pane(id),
+              ),
+            } as LayoutNode,
+            activePaneId: 'k1',
+            zoomedPaneId: null,
+          },
+        },
+      })
+      useBlocksStore.setState({
+        running: { k1: 'b-k1', k5: 'b-k5' },
+        byPane: {
+          k1: [{ id: 'b-k1', paneId: 'k1', command: '' } as CommandBlock],
+          k5: [{ id: 'b-k5', paneId: 'k5', command: '' } as CommandBlock],
+        },
+        agentBlocks: {
+          k1: { blockId: 'b-k1', agent: 'claude' },
+          k5: { blockId: 'b-k5', agent: 'claude' },
+        },
+      })
+      vi.mocked(window.ostia.pty.activity).mockImplementation(
+        async (paneId: string) => programs[paneId] ?? null,
+      )
+      return ids
+    }
+
+    afterEach(() => {
+      vi.mocked(window.ostia.pty.activity).mockReset()
+      vi.mocked(window.ostia.pty.activity).mockResolvedValue(null)
+    })
+
+    async function openKept(): Promise<HTMLElement> {
+      const kept = seedReattached()
+      render(<CloseConfirmDialog />)
+      act(() => {
+        void confirmQuit([], kept)
+      })
+      await screen.findByRole('dialog')
+      return screen.getByRole('region', { name: 'Quit with kept shells running?' })
+    }
+
+    it('names a reattached agent by its foreground program, or by its known agent', async () => {
+      const region = await openKept()
+      const rows = [...region.querySelectorAll('li')].map((li) => li.textContent)
+      expect(rows.filter((row) => row === 'claude')).toHaveLength(3)
+      expect(region).not.toHaveTextContent('A command')
+      act(() => useCloseConfirmStore.getState().answer(false))
+    })
+
+    it('lists every kept shell still running something, with or without a resume', async () => {
+      const region = await openKept()
+      expect(region).toHaveTextContent('5 kept shells are running')
+      const rows = [...region.querySelectorAll('li')].map((li) => li.textContent)
+      expect(rows.sort()).toEqual(['claude', 'claude', 'claude', 'tail'])
       act(() => useCloseConfirmStore.getState().answer(false))
     })
   })

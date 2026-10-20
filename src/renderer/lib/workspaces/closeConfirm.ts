@@ -103,14 +103,16 @@ function runningIn(
   for (const pane of panes) {
     if (pane.hibernated || (context.quitting && resumesAfterQuit(workspace, pane))) continue
     const blockId = running[pane.id]
+    const activity = context.activity[pane.id]
     if (blockId !== undefined) {
       if (atNestedPrompt(pane.id)) continue
-      const command = byPane[pane.id]?.find((b) => b.id === blockId)?.command.trim() ?? ''
-      if (runningAgent(pane.id) !== null) agents.push(command)
-      else commands.push(command)
+      const typed = byPane[pane.id]?.find((b) => b.id === blockId)?.command.trim() ?? ''
+      const command = typed || activity?.program || ''
+      const agent = runningAgent(pane.id)
+      if (agent === null) commands.push(command)
+      else agents.push(command || (agent === 'other' ? '' : agent))
       continue
     }
-    const activity = context.activity[pane.id]
     if (activity?.agentRunning) {
       agents.push(pane.resume?.agent ?? activity.program ?? '')
       continue
@@ -347,26 +349,32 @@ export async function collectQuitGroups(kept: ReadonlySet<string>): Promise<Runn
   return quitGroups(kept, enabled ? await paneActivities(panes) : {})
 }
 
-export function confirmQuit(
+export async function confirmQuit(
   groups: RunningGroup[],
   keptShells: readonly string[] = [],
 ): Promise<QuitAnswer> {
   if (keptShells.length === 0) {
     return confirmGroups('quit', groups).then((confirmed) => (confirmed ? 'quit' : 'cancel'))
   }
-  return useCloseConfirmStore.getState().askQuit(groups, [...keptShells])
+  const ids = new Set(keptShells)
+  const { workspaces } = useWorkspacesStore.getState()
+  const activity = await paneActivities(panesOf(workspaces).filter((p) => ids.has(p.id)))
+  return useCloseConfirmStore.getState().askQuit(groups, [...keptShells], activity)
 }
 
-export function keptAgents(paneIds: readonly string[]): string[] {
+export function keptRunning(
+  paneIds: readonly string[],
+  activity: PaneActivities = {},
+): { commands: string[]; agents: string[] } {
   const ids = new Set(paneIds)
-  return useWorkspacesStore.getState().workspaces.flatMap(
-    (workspace) =>
-      runningIn(
-        workspace,
-        panesOf([workspace]).filter((pane) => ids.has(pane.id)),
-        PLAIN,
-      ).agents,
-  )
+  const kept = { commands: [] as string[], agents: [] as string[] }
+  for (const workspace of useWorkspacesStore.getState().workspaces) {
+    const panes = panesOf([workspace]).filter((pane) => ids.has(pane.id))
+    const { commands, agents } = runningIn(workspace, panes, { ...PLAIN, activity })
+    kept.commands.push(...commands)
+    kept.agents.push(...agents)
+  }
+  return kept
 }
 
 export function confirmMove(workspace: Workspace, panes: readonly PaneNode[]): Promise<boolean> {
