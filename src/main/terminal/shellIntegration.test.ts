@@ -270,6 +270,42 @@ describe('shellIntegrationSpawnOptions', () => {
         }
       })
 
+      describe('HISTFILE', () => {
+        const histfileSeen = (userRc: string): { seen: string; home: string } => {
+          const home = mkdtempSync(join(tmpdir(), 'ostia-zsh-home-'))
+          writeFileSync(join(home, '.zshrc'), `${userRc}print -rn -- "hist=$HISTFILE"\n`)
+          const { env } = shellIntegrationSpawnOptions('zsh', { HOME: home })
+          const seen = spawnSync('zsh', ['-i', '-c', 'true'], {
+            env: {
+              PATH: '/usr/bin:/bin',
+              HOME: home,
+              ...env,
+              HISTFILE: `${env.ZDOTDIR}/.zsh_history`,
+            },
+            encoding: 'utf8',
+          }).stdout
+          return { seen, home }
+        }
+
+        it('moves a HISTFILE inside the integration folder to the user’s dotdir', () => {
+          const { seen, home } = histfileSeen('')
+          try {
+            expect(seen).toContain(`hist=${home}/.zsh_history`)
+          } finally {
+            rmSync(home, { recursive: true, force: true })
+          }
+        })
+
+        it('keeps a HISTFILE the user’s rc sets', () => {
+          const { seen, home } = histfileSeen('HISTFILE=/tmp/ostia-custom-history\n')
+          try {
+            expect(seen).toContain('hist=/tmp/ostia-custom-history')
+          } finally {
+            rmSync(home, { recursive: true, force: true })
+          }
+        })
+      })
+
       it('leaves the user’s prompt alone when the Ostia prompt is off', () => {
         expect(prompt({})).toBe(`0|user> %{${B_MARK}%}|right|`)
       })

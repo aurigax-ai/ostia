@@ -341,6 +341,7 @@ export function shellIntegrationFiles(dir: string): ShellIntegrationFiles {
       '# With the Ostia prompt, powerlevel10k must not start its instant prompt: its prompt never',
       '# draws, so it would hold the shell output and delete its own caches at exit.',
       '[ "$OSTIA_PROMPT" = ostia ] && typeset -g POWERLEVEL9K_INSTANT_PROMPT=off',
+      '[ "$HISTFILE" = "$ZDOTDIR/.zsh_history" ] && HISTFILE="${OSTIA_ZDOTDIR_ORIG:-$HOME}/.zsh_history"',
       '[ -n "$OSTIA_ZDOTDIR_ORIG" ] && [ -f "$OSTIA_ZDOTDIR_ORIG/.zshrc" ] && source "$OSTIA_ZDOTDIR_ORIG/.zshrc"',
       `source "${zshInit}"`,
       'ZDOTDIR="$OSTIA_ZDOTDIR_ORIG"',
