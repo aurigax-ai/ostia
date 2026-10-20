@@ -25,12 +25,13 @@ const CAPABILITY_WORDS = [
   /capabilit/,
   /bypass/,
   /safety|safeguard|guardrail/,
-  /\b(?:never|don'?t|do not|stop|without|skip|avoid|no|omit|drop|no need to|not need to|instead of|rather than|unnecessary|needless)\W+(?:\w+\W+){0,3}?ask(?:s|ed|ing)?\b/,
+  /\b(?:never|don'?t|do not|stop|skip|avoid|no|omit|drop|no need to|not need to|instead of|rather than|unnecessary|needless)\W+(?:(?!without)\w+\W+){0,3}?ask(?:s|ed|ing)?\b/,
   /\bask(?:s|ed|ing)?\b\W+(?:\w+\W+){0,3}?(?:unnecessary|needless|not needed|not necessary|optional|pointless)/,
   /\b(?:don'?t|do not|never|no need to|stop)\W+(?:wait|waiting|pause|pausing)\b/,
   /(?:^|\s)--?[a-z][\w-]*/,
   /dont-?ask|danger-?full|full-?access|no-?verify|bypasspermissions|skip-?permissions/,
-  /\bgo[- ]?ahead\b/,
+  /\bgo[- ]?ahead\b|\bfeel free to\b/,
+  /\b(?:don'?t|do not|never|no need to|not need to|stop|skip)\W+(?:(?!without)\w+\W+){0,2}?(?:check(?:ing)?|confirm\w*|consult\w*) with (?:me|the user|them)\b/,
   /\bsettings?\b/,
   /\.(?:claude|codex|ostia)\b|settings\.json|config\.toml/,
   /--dangerously|\bdangerous/,
@@ -70,7 +71,7 @@ function folded(text: string): string {
   return text
     .normalize('NFKC')
     .replace(/\p{Cf}/gu, '')
-    .replace(/[\u2018\u2019]/g, "'")
+    .replace(/[\u2018\u2019\u02bc`]/g, "'")
     .toLowerCase()
 }
 

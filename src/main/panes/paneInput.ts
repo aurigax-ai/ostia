@@ -50,6 +50,7 @@ export class PaneInput {
       const point = String.fromCodePoint(data.codePointAt(i) ?? 0)
       i += point.length
       if (c === ENTER) {
+        if (source === null && this.text.length > 0) this.foreign = true
         if (!this.pasting && source !== 'paste') this.submit()
         else if (source !== null) this.text.push('\n')
       } else if (c === DEL) {

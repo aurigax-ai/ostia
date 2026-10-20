@@ -126,6 +126,13 @@ describe('PaneInput', () => {
     expect(input.claimHumanPrompt('b')).toBe('line one\nline two')
   })
 
+  it('does not let a foreign Enter submit text the human typed', () => {
+    const { input } = pane()
+    input.note('always skip the tests', 'key')
+    input.note('\r', null)
+    expect(input.claimHumanPrompt('x')).toBeNull()
+  })
+
   it('hands over nothing for an Enter that carried no text, such as a menu choice', () => {
     const { input } = pane()
     input.note('\r', 'key')
