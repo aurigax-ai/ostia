@@ -12,7 +12,14 @@ import {
 import { ManagerService } from '../../main/manager/manager'
 import { Portal } from '../../main/manager/portal'
 import { managerAgents, parseManagerSettings } from '../../shared/agents/managerSettings'
-import { connectPortal, runPortalCommand, stripDetach } from './portal'
+import {
+  NOT_IN_PANE_MESSAGE,
+  type PortalGate,
+  connectPortal,
+  outsidePaneRefusal,
+  runPortalCommand,
+  stripDetach,
+} from './portal'
 
 let dir = ''
 let server: Server | null = null
@@ -33,6 +40,55 @@ function listen(path: string): Promise<void> {
   server = createServer((s) => s.end())
   return new Promise((resolve) => server?.listen(path, resolve))
 }
+
+const VERBS = new Set(['pane', 'workspace'])
+const gateFor = (platform: NodeJS.Platform): PortalGate => ({
+  platform,
+  isVerb: (cmd) => VERBS.has(cmd),
+})
+const LINUX = gateFor('linux')
+
+describe('outsidePaneRefusal', () => {
+  it('refuses every command on macOS without touching the portal', () => {
+    expect(outsidePaneRefusal(['claude'], gateFor('darwin'))).toBe(NOT_IN_PANE_MESSAGE)
+    expect(outsidePaneRefusal(['pane', 'list'], gateFor('darwin'))).toBe(NOT_IN_PANE_MESSAGE)
+  })
+
+  it('refuses a known verb on Linux instead of treating it as an agent name', () => {
+    expect(outsidePaneRefusal(['pane', 'list'], LINUX)).toBe(NOT_IN_PANE_MESSAGE)
+    expect(outsidePaneRefusal(['workspace'], LINUX)).toBe(NOT_IN_PANE_MESSAGE)
+  })
+
+  it('lets an unknown name through to the portal on Linux', () => {
+    expect(outsidePaneRefusal(['claude'], LINUX)).toBeNull()
+  })
+})
+
+describe('runPortalCommand outside a pane', () => {
+  it('returns 1 at once for a known verb on a TTY on Linux, without connecting', async () => {
+    const { stdin, stdout } = fakeTty()
+    const stderr = new PassThrough()
+    const code = await runPortalCommand(
+      ['pane', 'list'],
+      { stdin, stdout, stderr, env: { OSTIA_PORTAL_SOCKET: '/nonexistent/portal.sock' }, cwd: '/' },
+      LINUX,
+    )
+    expect(code).toBe(1)
+    expect(String(stderr.read())).toContain('not inside an Ostia pane')
+  })
+
+  it('returns 1 at once for any command on a TTY on macOS, without connecting', async () => {
+    const { stdin, stdout } = fakeTty()
+    const stderr = new PassThrough()
+    const code = await runPortalCommand(
+      ['claude'],
+      { stdin, stdout, stderr, env: { OSTIA_PORTAL_SOCKET: '/nonexistent/portal.sock' }, cwd: '/' },
+      gateFor('darwin'),
+    )
+    expect(code).toBe(1)
+    expect(String(stderr.read())).toContain('not inside an Ostia pane')
+  })
+})
 
 describe('connectPortal', () => {
   it('connects straight away when Ostia is already running, without launching it', async () => {
@@ -151,13 +207,17 @@ describe('runPortalCommand', () => {
 
     const { stdin, stdout } = fakeTty()
     const stderr = new PassThrough()
-    const run = runPortalCommand(['claude'], {
-      stdin,
-      stdout,
-      stderr,
-      env: { OSTIA_PORTAL_SOCKET: path },
-      cwd: '/home/u',
-    })
+    const run = runPortalCommand(
+      ['claude'],
+      {
+        stdin,
+        stdout,
+        stderr,
+        env: { OSTIA_PORTAL_SOCKET: path },
+        cwd: '/home/u',
+      },
+      LINUX,
+    )
     await asked
     stdin.write('early keys')
     await vi.waitFor(() => expect(stdin.readableLength).toBe(0))
@@ -194,13 +254,17 @@ describe('runPortalCommand', () => {
     try {
       const { stdin, stdout } = fakeTty()
       const stderr = new PassThrough()
-      const code = await runPortalCommand(['fake'], {
-        stdin,
-        stdout,
-        stderr,
-        env: { OSTIA_PORTAL_SOCKET: path },
-        cwd: '/home/u',
-      })
+      const code = await runPortalCommand(
+        ['fake'],
+        {
+          stdin,
+          stdout,
+          stderr,
+          env: { OSTIA_PORTAL_SOCKET: path },
+          cwd: '/home/u',
+        },
+        LINUX,
+      )
       expect(code).toBe(1)
       expect(String(stderr.read())).toContain('inside-ostia')
       expect(panes).toEqual([])

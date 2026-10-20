@@ -12,9 +12,7 @@ import type { InstallHint, MissingRequirement } from '../../shared/app/systemReq
 import { ManagerError, type ManagerService, parseOpenRequest } from './manager'
 import type { CallerVerdict } from './portalCaller'
 
-export function portalSupported(platform: NodeJS.Platform): boolean {
-  return platform === 'linux'
-}
+export { portalSupported } from '../../shared/agents/portal'
 
 export interface MirrorHandle {
   write: (data: string) => void

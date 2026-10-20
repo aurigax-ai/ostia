@@ -153,13 +153,17 @@ async function main(): Promise<void> {
     if (cmd === 'open' || (cmd !== undefined && opensOffline(cmd))) {
       return fail('ostia: files open from a terminal inside Ostia')
     }
-    process.exitCode = await runPortalCommand(argv, {
-      stdin: process.stdin,
-      stdout: process.stdout,
-      stderr: process.stderr,
-      env: process.env,
-      cwd: process.cwd(),
-    })
+    process.exitCode = await runPortalCommand(
+      argv,
+      {
+        stdin: process.stdin,
+        stdout: process.stdout,
+        stderr: process.stderr,
+        env: process.env,
+        cwd: process.cwd(),
+      },
+      { platform: process.platform, isVerb: (name) => Object.hasOwn(RUNNERS, name) },
+    )
     return
   }
   const gated = usageGate(argv)
