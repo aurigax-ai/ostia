@@ -1,7 +1,12 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import type { ConfirmRequest, OpenTerminalResult, ToolRun } from '@aurigax-ai/ostia-extension-sdk'
+import {
+  type ConfirmRequest,
+  createTranslator,
+  type OpenTerminalResult,
+  type ToolRun,
+} from '@aurigax-ai/ostia-extension-sdk'
 import type {
   ExtensionCaller,
   OpenTerminalOptions,
@@ -12,7 +17,7 @@ import { type SshDeps, sshCommands } from './commands'
 import { shippedHelper } from './helper'
 import { discoverHosts } from './hosts'
 import { REMOTE_COMMAND } from './remote'
-import { CONNECT_USAGE, SHOW_USAGE } from './strings'
+import { CONNECT_USAGE, SHOW_USAGE } from './usage'
 
 const RESOLVED = ['user dev', 'hostname 10.0.0.5', 'port 2200', 'proxyjump b1', ''].join('\n')
 
@@ -22,6 +27,7 @@ function ran(stdout: string): ToolRun {
 
 function setup(run: SshDeps['run'] = async () => ran(RESOLVED), integration = false) {
   const deps = {
+    translate: createTranslator(__dirname),
     discover: vi.fn(() => ({ hosts: ['db', 'web'], truncated: false })),
     run: vi.fn(run),
     confirm: vi.fn<(req: ConfirmRequest) => Promise<boolean>>(async () => true),

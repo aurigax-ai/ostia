@@ -1,6 +1,8 @@
+import { createTranslator } from '@aurigax-ai/ostia-extension-sdk'
 import { describe, expect, it } from 'vitest'
 import { installConfirm } from './confirm'
-import { stringsFor } from './strings'
+
+const t = createTranslator(__dirname)('en')
 
 const plan = (manager: 'pacman' | 'yay' | 'paru') => ({
   manager,
@@ -12,12 +14,11 @@ const plan = (manager: 'pacman' | 'yay' | 'paru') => ({
 
 describe('installConfirm', () => {
   it('SBX-C89 warns that AUR helpers build and run code on this computer', () => {
-    const s = stringsFor('en')
     for (const manager of ['yay', 'paru'] as const) {
-      expect(installConfirm(plan(manager), s).detail).toContain('AUR')
+      expect(installConfirm(plan(manager), t).detail).toContain('AUR')
     }
-    expect(installConfirm(plan('pacman'), s).detail).not.toContain('AUR')
-    expect(installConfirm(plan('yay'), s).hostTerminal).toEqual(['yay', '-S', 'jq'])
+    expect(installConfirm(plan('pacman'), t).detail).not.toContain('AUR')
+    expect(installConfirm(plan('yay'), t).hostTerminal).toEqual(['yay', '-S', 'jq'])
   })
 
   it('ostia system install asks the human with the packages, the exact command and the reason, to Approve or Deny', () => {
@@ -29,7 +30,7 @@ describe('installConfirm', () => {
         command: 'sudo pacman -S --needed ripgrep fd',
         reason: 'e2e-check',
       },
-      stringsFor('en'),
+      t,
     )
     expect(asked).toMatchObject({
       title: 'Install system packages',
