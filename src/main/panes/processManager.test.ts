@@ -1026,6 +1026,44 @@ describe('ProcessRegistry', () => {
   })
 })
 
+describe('ProcessRegistry adopted children', () => {
+  const make = () =>
+    new ProcessRegistry({
+      ring: () => undefined,
+      workspaceOfPane: () => 'ws1',
+      now: () => new Date(0),
+    })
+
+  it('counts a pane adopted for a caller as that caller’s child and no one else’s', () => {
+    const local = make()
+    local.adoptChild('agent-pane', 'serial-pane')
+    expect(local.isChild('agent-pane', 'serial-pane')).toBe(true)
+    expect(local.isChild('neighbour-pane', 'serial-pane')).toBe(false)
+    expect(local.isChild('agent-pane', 'other-pane')).toBe(false)
+  })
+
+  it('forgets the children when their owner closes', () => {
+    const local = make()
+    local.adoptChild('agent-pane', 'serial-pane')
+    local.paneClosed('agent-pane')
+    expect(local.isChild('agent-pane', 'serial-pane')).toBe(false)
+  })
+
+  it('forgets the children of a closed workspace', () => {
+    const local = make()
+    local.adoptChild('agent-pane', 'serial-pane')
+    local.workspaceClosed('ws1')
+    expect(local.isChild('agent-pane', 'serial-pane')).toBe(false)
+  })
+
+  it('forgets the child when its pane closes', () => {
+    const local = make()
+    local.adoptChild('agent-pane', 'serial-pane')
+    local.paneClosed('serial-pane')
+    expect(local.isChild('agent-pane', 'serial-pane')).toBe(false)
+  })
+})
+
 describe('startAgentForPhone', () => {
   it('PHD-C21 starts the agent in a new background tab of the workspace typing only the quoted agent word and the prompt', async () => {
     onOpen = (paneId) => {
