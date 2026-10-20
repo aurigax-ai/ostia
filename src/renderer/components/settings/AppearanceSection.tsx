@@ -219,10 +219,23 @@ function weightName(d: Dict, weight: number): string {
   return names[weight] ?? String(weight)
 }
 
-function ResetLink({ value, onReset }: { value: string; onReset: () => void }): JSX.Element {
+function ResetLink({
+  label,
+  value,
+  onReset,
+}: {
+  label: string
+  value: string
+  onReset: () => void
+}): JSX.Element {
   const d = useDict()
   return (
-    <TextLink size="xs" className="h-4 px-0 text-ui-xs" onClick={onReset}>
+    <TextLink
+      size="xs"
+      className="h-4 px-0 text-ui-xs"
+      aria-label={fmt(d.settings.resetFor, { label, value })}
+      onClick={onReset}
+    >
       {fmt(d.settings.resetTo, { value })}
     </TextLink>
   )
@@ -251,6 +264,7 @@ function FontLine({
         reset={
           font.family === initial.family ? null : (
             <ResetLink
+              label={fmt(d.settings.fontFamilyFor, { label })}
               value={initial.family}
               onReset={() => setSurfaceFont(surface, { family: initial.family })}
             />
@@ -268,6 +282,7 @@ function FontLine({
         reset={
           font.weight === initial.weight ? null : (
             <ResetLink
+              label={fmt(d.settings.fontWeightFor, { label })}
               value={weightName(d, initial.weight)}
               onReset={() => setSurfaceFont(surface, { weight: initial.weight })}
             />
@@ -287,6 +302,7 @@ function FontLine({
         reset={
           font.size === initial.size ? null : (
             <ResetLink
+              label={fmt(d.settings.fontSizeFor, { label })}
               value={String(initial.size)}
               onReset={() => setSurfaceFont(surface, { size: initial.size })}
             />
@@ -308,6 +324,7 @@ function FontLine({
           reset={
             lineHeight === initialLineHeight ? null : (
               <ResetLink
+                label={d.settings.lineHeight}
                 value={String(initialLineHeight)}
                 onReset={() => setLineHeight(initialLineHeight)}
               />

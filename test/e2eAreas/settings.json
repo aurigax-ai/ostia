@@ -27,6 +27,7 @@
     "src/renderer/lib/settings/workspaceSchema.ts"
   ],
   "specs": [
+    "e2e/extension-locales.spec.ts",
     "e2e/settings-gap.spec.ts",
     "e2e/settings-row-width.spec.ts",
     "e2e/terminal-settings.spec.ts"

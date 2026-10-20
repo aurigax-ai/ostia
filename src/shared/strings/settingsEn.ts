@@ -398,6 +398,7 @@ export const settingsEn = {
       'Install Tailscale on the phone and sign in to the same tailnet. There is no hosted relay and no {product} account.',
     rendererGhostty: 'Ghostty',
     rendererXterm: 'xterm.js',
+    resetFor: 'Reset {label} to {value}',
     resetTo: 'Reset to {value}',
     restoreWorkspace: 'Restore workspace on launch',
     restoreWorkspaceDesc:

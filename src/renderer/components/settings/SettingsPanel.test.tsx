@@ -473,12 +473,12 @@ describe('SettingsPanel', () => {
     await renderSettings()
     const user = userEvent.setup()
 
-    const reset = screen.getByRole('button', { name: 'Reset to 13' })
-    expect(screen.getAllByRole('button', { name: /^Reset to/ })).toHaveLength(1)
+    const reset = screen.getByRole('button', { name: 'Reset Terminal font, Size to 13' })
+    expect(screen.getAllByRole('button', { name: /^Reset / })).toHaveLength(1)
     await user.click(reset)
 
     expect(useSettingsStore.getState().appearance.terminal.size).toBe(13)
-    expect(screen.queryByRole('button', { name: /^Reset to/ })).toBeNull()
+    expect(screen.queryByRole('button', { name: /^Reset / })).toBeNull()
   })
 
   it('changes a font size via setSurfaceFont, clamping to the 8–32 range', async () => {

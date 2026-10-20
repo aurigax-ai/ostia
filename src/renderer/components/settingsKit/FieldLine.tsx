@@ -1,4 +1,4 @@
-import { Highlight, SearchScopeProvider, useSearchRow } from './SettingsSearch'
+import { Highlight, SearchScopeProvider, useSearchLeaf, useSearchRow } from './SettingsSearch'
 
 export function FieldLine({
   label,
@@ -41,9 +41,12 @@ export function Field({
   reset?: React.ReactNode
   children: React.ReactNode
 }): JSX.Element {
+  useSearchLeaf([label])
   return (
     <div className="flex min-w-0 flex-col gap-1">
-      <span className="text-fg-muted text-ui-xs">{label}</span>
+      <span className="text-fg-muted text-ui-xs">
+        <Highlight text={label} />
+      </span>
       {children}
       <div className="h-4">{reset}</div>
     </div>

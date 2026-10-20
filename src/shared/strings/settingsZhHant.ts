@@ -379,6 +379,7 @@ export const settingsZhHant: typeof settingsEn = {
       '在手機上安裝 Tailscale 並登入同一個 tailnet。不經過任何雲端中繼，也不需要 {product} 帳號。',
     rendererGhostty: 'Ghostty',
     rendererXterm: 'xterm.js',
+    resetFor: '將{label}重設為 {value}',
     resetTo: '重設為 {value}',
     restoreWorkspace: '啟動時還原工作區',
     restoreWorkspaceDesc:
