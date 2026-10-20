@@ -168,7 +168,7 @@ The manifest is `ostia.json`; a marketplace's is `ostia-marketplace.json`.
 | `contributes.agentHooks[]` | Up to 16 `{event, command}`: when the agent reaches `event`, Ostia runs your own command `command` with the hook's JSON on stdin. Needs the `agent-plugin` capability and `main`. See [Agent skills and hooks](#agent-skills-and-hooks). |
 
 Icons are a fixed set: `puzzle`, `kanban`, `book-open`, `git-branch`, `globe`, `bell`, `server`,
-`terminal`, `circle`, `check`, `alert`, `shield`, `chat`, `plugs`, `magnifying-glass` (API 2.1), `graph`, `toolbox` (API 6.7).
+`terminal`, `circle`, `check`, `alert`, `shield`, `chat`, `plugs`, `magnifying-glass` (API 2.1), `graph`, `toolbox` (API 6.8).
 
 ## Translations
 
