@@ -1,4 +1,11 @@
-import { emptyState, h, listRow, panelToolbar } from '@aurigax-ai/ostia-extension-sdk/panel'
+import {
+  emptyState,
+  h,
+  listRow,
+  panelTab,
+  panelToolbar,
+  quietButton,
+} from '@aurigax-ai/ostia-extension-sdk/panel'
 import { describe, expect, it, vi } from 'vitest'
 
 describe('panel kit', () => {
@@ -26,6 +33,44 @@ describe('panel kit', () => {
         'Back',
         'Refresh',
       ])
+    })
+  })
+
+  describe('tabs and quiet buttons', () => {
+    it('puts the tabs before the actions in a tab bar, and is a bar with tabs alone', () => {
+      const onClick = vi.fn()
+      const bar = panelToolbar({
+        tabs: [panelTab('Rules', true, onClick), panelTab('Prompts', false, () => {})],
+        actions: [h('button', {}, 'Add')],
+      })
+      expect(bar?.className).toBe('ostia-toolbar ostia-tabs')
+      expect([...(bar?.querySelectorAll('button') ?? [])].map((b) => b.textContent)).toEqual([
+        'Rules',
+        'Prompts',
+        'Add',
+      ])
+      expect(panelToolbar({ tabs: [panelTab('Rules', true, () => {})] })).not.toBeNull()
+    })
+
+    it('marks only the current tab and calls its handler', () => {
+      const onClick = vi.fn()
+      const current = panelTab('Rules', true, onClick)
+      const other = panelTab('Prompts', false, () => {})
+      expect(current.getAttribute('aria-current')).toBe('page')
+      expect(other.hasAttribute('aria-current')).toBe(false)
+      expect(current.className).toBe('tab')
+      current.click()
+      expect(onClick).toHaveBeenCalledTimes(1)
+    })
+
+    it('draws a quiet button, stronger when asked, that passes its event on', () => {
+      const onClick = vi.fn()
+      const quiet = quietButton('Find rules', onClick)
+      const strong = quietButton('Approve', () => {}, true)
+      expect(quiet.className).toBe('quiet')
+      expect(strong.className).toBe('quiet strong')
+      quiet.click()
+      expect(onClick.mock.calls[0]?.[0]).toBeInstanceOf(Event)
     })
   })
 
