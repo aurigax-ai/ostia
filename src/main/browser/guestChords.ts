@@ -49,6 +49,14 @@ export function registerGuestChords(deps: GuestChordsDeps): GuestChords {
         if (!tapped) event.preventDefault()
         host.send(GUEST_CHORDS_FIRE, { guestId: guest.id, key })
       })
+      if (!deps.mac) return
+      guest.on('before-input-event', (event, raw) => {
+        if (event.defaultPrevented) return
+        const next = deps.remap.rewrite(guest.id, raw)
+        if (!next) return
+        event.preventDefault()
+        deps.remap.inject(guest.id, () => guest.sendInputEvent(next))
+      })
     },
   }
 }

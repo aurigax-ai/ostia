@@ -93,6 +93,10 @@ export function remappedFlags(
   return out
 }
 
+export function isRetargeted(table: ModifierRemap, code: string): boolean {
+  return isRemapKey(code) && remapTarget(table, code) !== REMAP_DEFAULTS[code]
+}
+
 export function remappedModifierKey(table: ModifierRemap, code: string): string | null {
   return isRemapKey(code) ? TARGET_KEY[remapTarget(table, code)] : null
 }

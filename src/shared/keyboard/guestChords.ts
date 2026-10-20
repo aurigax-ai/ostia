@@ -29,7 +29,7 @@ export function normalizeGuestChords(raw: unknown, mac: boolean): string[] | nul
   return out
 }
 
-function guestKeyLike(input: GuestKeyInput): KeyLike {
+export function guestKeyLike(input: GuestKeyInput): KeyLike {
   return {
     key: input.key,
     code: input.code,
