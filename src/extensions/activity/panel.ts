@@ -51,6 +51,7 @@ function viewButton(showActivity: boolean): HTMLElement {
     {
       class: 'ostia-tab',
       type: 'button',
+      role: 'tab',
       'data-view': showActivity ? 'activity' : 'recap',
       onClick: () => void setShowActivity(showActivity),
     },
@@ -97,8 +98,8 @@ function content(): ListContent | null {
 
 function render(): void {
   if (model) {
-    recapButton.setAttribute('aria-pressed', String(!model.showActivity))
-    activityButton.setAttribute('aria-pressed', String(model.showActivity))
+    recapButton.setAttribute('aria-selected', String(!model.showActivity))
+    activityButton.setAttribute('aria-selected', String(model.showActivity))
   }
   const next = content()
   if (next) show(next)
@@ -178,7 +179,7 @@ root.replaceChildren(
       { class: 'ostia-toolbar' },
       h(
         'div',
-        { class: 'ostia-tabs', role: 'group', 'aria-label': t('view.label') },
+        { class: 'ostia-tabs', role: 'tablist', 'aria-label': t('view.label') },
         recapButton,
         activityButton,
       ),

@@ -466,8 +466,7 @@ button.ostia-tab {
   font-weight: var(--font-weight-medium);
 }
 
-button.ostia-tab[aria-selected="true"],
-button.ostia-tab[aria-pressed="true"] {
+button.ostia-tab[aria-selected="true"] {
   color: var(--fg);
   background: var(--surface-3);
 }
