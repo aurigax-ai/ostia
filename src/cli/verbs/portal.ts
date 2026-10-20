@@ -10,7 +10,7 @@ import {
   StreamMessageWriter,
   createMessageConnection,
 } from 'vscode-jsonrpc/node'
-import { MIRROR_DETACH_KEY, portalSocketPath } from '../../shared/agents/portal'
+import { MIRROR_DETACH_KEY, portalSocketPath, portalSupported } from '../../shared/agents/portal'
 
 const PORTAL_USAGE = `usage: ostia <agent> [args…]
 
@@ -71,9 +71,32 @@ export function stripDetach(chunk: string): { input: string; detach: boolean } {
   return { input: chunk.slice(0, at), detach: true }
 }
 
-export async function runPortalCommand(argv: string[], io: PortalIo): Promise<number> {
+export const NOT_IN_PANE_MESSAGE = 'ostia: not inside an Ostia pane (OSTIA_SOCKET unset)'
+
+export interface PortalGate {
+  platform: NodeJS.Platform
+  isVerb: (cmd: string) => boolean
+}
+
+export function outsidePaneRefusal(argv: string[], gate: PortalGate): string | null {
+  const [cmd] = argv
+  if (cmd === undefined) return portalSupported(gate.platform) ? null : NOT_IN_PANE_MESSAGE
+  if (gate.isVerb(cmd) || !portalSupported(gate.platform)) return NOT_IN_PANE_MESSAGE
+  return null
+}
+
+export async function runPortalCommand(
+  argv: string[],
+  io: PortalIo,
+  gate: PortalGate = { platform: process.platform, isVerb: () => false },
+): Promise<number> {
+  const refusal = outsidePaneRefusal(argv, gate)
+  if (refusal) {
+    io.stderr.write(`${refusal}\n`)
+    return 1
+  }
   if (!io.stdin.isTTY || !io.stdout.isTTY) {
-    io.stderr.write('ostia: not inside an Ostia pane (OSTIA_SOCKET unset)\n')
+    io.stderr.write(`${NOT_IN_PANE_MESSAGE}\n`)
     return 1
   }
   const [agent, ...args] = argv

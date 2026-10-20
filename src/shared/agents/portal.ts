@@ -13,3 +13,7 @@ export function portalSocketPath(
 }
 
 export const MIRROR_DETACH_KEY = '\x1c'
+
+export function portalSupported(platform: NodeJS.Platform): boolean {
+  return platform === 'linux'
+}
