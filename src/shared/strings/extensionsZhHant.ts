@@ -16,6 +16,7 @@ export const extensionsZhHant: typeof extensionsEn = {
     approved: '已核准',
     bounds: '（{text}）',
     capabilityAllows: {
+      'agent-complete': '把已遮蔽的文字傳給你設定的 Agent 模型並讀取它的回答',
       'agent-plugin': '為終端機中的 claude 與 codex 加入技能與掛鉤',
       'all-workspaces': '操作它所屬以外的窗格與工作區',
       assist: '透過 AI 供應商回答助理',

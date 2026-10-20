@@ -441,6 +441,32 @@ export class ExtensionHost {
     }
   }
 
+  async agentContext(
+    workspaceId: string,
+    cwd: string,
+    sessionId: string,
+  ): Promise<{ text: string; count: number }> {
+    const texts: string[] = []
+    let count = 0
+    for (const [extId, rt] of this.runtimes) {
+      if (!rt.ext.builtin || extId === AGENT_EXTENSION_ID) continue
+      const hooks = rt.ext.manifest.contributes.agentHooks ?? []
+      const hook = hooks.find((h) => h.event === 'SessionStart')
+      if (!hook || !this.runs.declaresHook(extId, hook.command, 'SessionStart')) continue
+      const res = await this.invoke(
+        extId,
+        hook.command,
+        { argv: ['agent', 'SessionStart'], stdin: JSON.stringify({ session_id: sessionId, cwd }) },
+        this.userCaller(workspaceId, { cwd }),
+      )
+      if (!res.ok || !res.text) continue
+      texts.push(res.text)
+      const counted = isRecord(res.data) ? res.data.count : undefined
+      count += typeof counted === 'number' ? counted : 0
+    }
+    return { text: texts.join('\n\n'), count }
+  }
+
   async agentRequest(request: AgentRequest): Promise<AgentReply> {
     const rt = this.runtimes.get(AGENT_EXTENSION_ID)
     if (!rt || !this.active(rt)) return { ok: false, error: 'unavailable' }

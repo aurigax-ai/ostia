@@ -1,4 +1,5 @@
 import {
+  AGENT_COMPLETE_OUTPUT_MAX,
   AGENT_PROMPT_MAX,
   AGENT_SESSION_ID_PATTERN,
   AGENT_TOOLS_MAX,
@@ -11,7 +12,7 @@ import {
 } from '@aurigax-ai/ostia-extension-sdk/contract/agent'
 import type { AgentSession } from '@earendil-works/pi-coding-agent'
 import { applyPiEnvironment } from './piEnvironment'
-import { type PiSession, openPiSession } from './piSession'
+import { type PiSession, completeOnce, openPiSession } from './piSession'
 
 export interface AgentHostDeps {
   dataDir: string
@@ -98,6 +99,7 @@ export function createAgentHost(deps: AgentHostDeps) {
       tools: req.tools,
       providers: req.providers,
       ...(req.model ? { model: req.model } : {}),
+      ...(req.context ? { context: req.context } : {}),
       callTool: deps.callTool,
     })
     if (!pi.model) {
@@ -124,8 +126,20 @@ export function createAgentHost(deps: AgentHostDeps) {
     return { ok: true }
   }
 
+  const complete = async (req: Extract<AgentRequest, { op: 'complete' }>): Promise<AgentReply> => {
+    const done = await completeOnce(req).catch((err: unknown) => ({
+      error: err instanceof Error ? err.message : String(err),
+    }))
+    if ('error' in done) {
+      return done.error === 'no-model' ? failed('no-model') : failed('failed', done.error)
+    }
+    if (done.text.length > AGENT_COMPLETE_OUTPUT_MAX) return failed('too-long')
+    return { ok: true, model: done.model, text: done.text }
+  }
+
   const handle = async (req: AgentRequest): Promise<AgentReply> => {
     if (req.op === 'open') return open(req)
+    if (req.op === 'complete') return complete(req)
     if (req.op === 'prompt') return prompt(req)
     if (req.op === 'abort') {
       await live.get(req.sessionId)?.pi.session.abort()

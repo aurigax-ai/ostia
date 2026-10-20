@@ -15,6 +15,7 @@ export const extensionsEn = {
     approved: 'Approved',
     bounds: '({text})',
     capabilityAllows: {
+      'agent-complete': 'Send redacted text to the Agent model you set up and read its answer',
       'agent-plugin': 'Add skills and hooks to claude and codex in your terminals',
       'all-workspaces': 'Act on panes and workspaces other than its own',
       assist: 'Answer the assistant with an AI provider',

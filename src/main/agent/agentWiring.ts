@@ -23,12 +23,21 @@ export function startAgent({ services, redactor, workspaceSandboxes }: AgentStar
     settings: () => parseAgentSettings(readSettingsFile().agent),
     sandboxed: (workspaceId) => workspaceSandboxes.isEnabled(workspaceId),
     redact: (text) => redactor.text(text),
+    rulesContext: (workspaceId, cwd, sessionId) =>
+      services.extensionHost?.agentContext(workspaceId, cwd, sessionId) ??
+      Promise.resolve({ text: '', count: 0 }),
   })
   registerAgentIpc(() => services.agentSessions)
   registerControlMethod('ext.agentEvent', {
     callers: 'extensions',
     handler: (params, ctx) =>
       services.agentSessions?.event(fromAgent(ctx), params) ?? { ok: false },
+  })
+  registerControlMethod('ext.agentComplete', {
+    callers: 'extensions',
+    cap: 'agent-complete',
+    handler: (params) =>
+      services.agentSessions?.complete(params) ?? { ok: false, error: 'unavailable' },
   })
   registerControlMethod('ext.agentTool', {
     callers: 'extensions',

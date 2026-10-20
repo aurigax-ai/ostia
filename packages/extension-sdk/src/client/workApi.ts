@@ -59,6 +59,15 @@ export type AskResult =
   | { ok: true; outcome: 'dismissed' | 'timeout' | 'closed' }
   | { ok: false; error: string; message?: string }
 
+export interface AgentCompleteOptions {
+  system: string
+  input: string
+}
+
+export type AgentCompleteResult =
+  | { ok: true; text: string }
+  | { ok: false; error: string; message?: string }
+
 export type McpCallReply =
   | { ok: true; text: string; structured?: Record<string, unknown> }
   | { ok: false; error: string; message?: string }
