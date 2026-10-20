@@ -146,8 +146,10 @@ export function serialCommands(
       if (refusal) return refusal
       const dir = logsFolder(s)
       if (typeof dir !== 'string') return dir
-      const failed = await deps.reveal(dir)
-      if (failed !== null) return failure('not-opened', s.revealFailed(failed))
+      if (caller.kind === 'user') {
+        const failed = await deps.reveal(dir)
+        if (failed !== null) return failure('not-opened', s.revealFailed(failed))
+      }
       return ok(undefined, { dir })
     },
   }

@@ -164,6 +164,13 @@ describe('serial connect', () => {
     expect(deps.openTerminal.mock.calls[0][0].command).not.toContain('--log-dir')
   })
 
+  it('gives a pane caller the folder and opens no window', async () => {
+    const { commands, deps } = setup()
+    expect(await commands.logs(null, caller('pane'))).toEqual({ ok: true, data: { dir: LOG_DIR } })
+    expect(deps.prepareLogDir).toHaveBeenCalledWith(LOG_DIR)
+    expect(deps.reveal).not.toHaveBeenCalled()
+  })
+
   it('reveals the logs folder in the file manager', async () => {
     const { commands, deps } = setup()
     expect(await commands.logs(null, caller('user'))).toEqual({ ok: true, data: { dir: LOG_DIR } })

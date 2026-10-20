@@ -42,7 +42,9 @@ export function prepareLogDir(dir: string, uid = process.getuid?.()): void {
 export function openLogFile(path: string): LogFile {
   const fd = openSync(path, LOG_FLAGS, 0o600)
   try {
-    if (!fstatSync(fd).isFile()) throw new Error('not a regular file')
+    const stat = fstatSync(fd)
+    if (!stat.isFile()) throw new Error('not a regular file')
+    if (stat.nlink !== 1) throw new Error('has more than one link')
     fchmodSync(fd, 0o600)
   } catch (err) {
     closeSync(fd)
