@@ -10,7 +10,7 @@
   flex: 1 1 auto;
   flex-direction: column;
   min-height: 0;
-  padding: 0 8px;
+  padding: 0 6px;
 }
 
 .list,
@@ -26,7 +26,24 @@
 }
 
 .rows .ostia-row {
+  padding: 3px 0;
   cursor: pointer;
+}
+
+.ostia-toolbar {
+  gap: 4px;
+  padding: 2px 6px;
+}
+
+button {
+  padding: 1px 6px;
+  font-size: var(--text-ui-xs);
+  line-height: var(--text-ui-xs--line-height);
+}
+
+.muted {
+  font-size: var(--text-ui-xs);
+  line-height: var(--text-ui-xs--line-height);
 }
 
 .rows .ostia-row[aria-selected="true"] {
@@ -36,8 +53,8 @@
 .details {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding: 8px 0;
+  gap: 4px;
+  padding: 4px 0;
 }
 
 .details .field {
@@ -62,15 +79,15 @@
 .details .buttons {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: 4px;
 }
 
 .details pre {
   margin: 0;
   white-space: pre-wrap;
   font-family: var(--font-code);
-  font-size: var(--text-ui-sm);
-  line-height: var(--text-ui-sm--line-height);
+  font-size: var(--text-ui-xs);
+  line-height: var(--text-ui-xs--line-height);
 }
 
 .details .candidate {
@@ -88,7 +105,7 @@
   margin: 0;
 }
 
-.retired > summary {
+.group > summary {
   color: var(--fg-muted);
   font-size: var(--text-ui-sm);
   cursor: pointer;

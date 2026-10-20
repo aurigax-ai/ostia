@@ -13,6 +13,7 @@
     "packages/extension-sdk/src/manifest/manifestFields.",
     "packages/extension-sdk/src/manifest/manifestSettings.",
     "src/cli/hooks/agentHook.ts",
+    "src/extensions/skills/",
     "src/main/agents/agentOfferRelay.ts",
     "src/main/agents/extensionAgents.",
     "src/main/extensions/assistModelChoices.ts",
@@ -62,6 +63,7 @@
   "specs": [
     "e2e/extension-locales.spec.ts",
     "e2e/extensions-v2.spec.ts",
-    "e2e/side-panel.spec.ts"
+    "e2e/side-panel.spec.ts",
+    "e2e/skills-panel.spec.ts"
   ]
 }
