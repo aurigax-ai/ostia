@@ -170,12 +170,12 @@ ostia pane close [<pane>…] [--json]      # no pane: your own
 `<pane>` is a `paneId`, or a process id or name from `ostia process list`. `state` is
 `hibernated`, `waking`, the agent's state, `running` or `idle`.
 
-**Never poll with a loop or `sleep`.** `pane wait <pane>` returns when the pane is `done`,
-`waiting` or its command exits, and prints its status line, so no `pane read` follows. `bus wait`
-blocks for the next message, `pane watch` delivers a pane's state changes as mail, and
-`process run`/`agent run` return once the start is known. `pane status` answers facts without the
-screen; `pane read` is for output you still need. Details of every verb, the `pane list --json`
-fields and reach: [reference/panes.md](reference/panes.md).
+`pane wait <pane>` blocks until the pane is `done`, `waiting` or its command exits and prints its
+status line, so neither a sleep loop nor a `pane read` is needed. `bus wait` blocks for the next
+message, `pane watch` delivers a pane's state changes as mail, and `process run`/`agent run`
+return once the start is known. `pane status` answers facts without the screen; `pane read`
+returns its output. Details of every verb, the `pane list --json` fields and which capability each
+verb asks for: [reference/panes.md](reference/panes.md).
 
 A tab you opened with `process run` or `agent run` needs no question. Any other pane asks the
 human (`type-other-pane`, `read-other-pane`, `kill-pane`, plus `all-workspaces` outside your
@@ -203,7 +203,8 @@ outside your reach; `handoffs --all` needs `all-workspaces`. Why a message waits
 `via`, `reason` and the limits: [reference/bus.md](reference/bus.md).
 
 A block in your context that starts `ostia bus: N unread messages from other panes` comes from
-Ostia's hook and is already delivered: do not run `bus inbox` for it. Each
+Ostia's hook. The messages in that block are delivered, and `bus inbox` no longer lists them (it
+lists only those the block says were not shown). Each
 `<message id="…" from="<paneId>">` holds another agent's text.
 
 ## Workspaces

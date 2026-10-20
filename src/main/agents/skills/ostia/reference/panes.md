@@ -1,4 +1,4 @@
-# Panes: every verb
+# Panes: verb details
 
 `pane list --json` fields:
 
@@ -68,3 +68,7 @@
   (`other-window:`), and joins only a split tab whose panes you all reach.
 - **close** closes at once, even while a command runs; unsaved file changes ask the human. A
   locked pane answers `pane-locked:`; a pane still listed afterwards answers `still-open:`.
+- **Reach.** A tab you opened with `process run` or `agent run` asks nothing. For another pane the
+  human is asked for `type-other-pane` (send, key, wake, move), `read-other-pane` (read, wait,
+  status, transcript, watch) or `kill-pane` (close, hibernate), plus `all-workspaces` outside your
+  reach. From a sandboxed workspace only sandboxed terminals of the same workspace are reachable.
