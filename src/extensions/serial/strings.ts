@@ -1,8 +1,10 @@
 import { localized } from '@aurigax-ai/ostia-extension-sdk/contract/extensionLocales'
 
-export const CONNECT_USAGE = 'connect [<device> [<speed>] [<frame>]]'
+export const CONNECT_USAGE = 'connect [<device> [<speed>] [<frame>]] [--log <name>]'
 export const PANE_TITLE = 'Serial'
 export const QUIT_KEY = 'Ctrl-]'
+export const SECRET_KEY = 'Ctrl-\\'
+export const SECRET_TITLE_MARK = '🔒 '
 
 export interface Strings {
   sandboxed: string
@@ -27,6 +29,17 @@ export interface Strings {
   sttyFailed: (device: string, reason: string) => string
   gone: (device: string) => string
   closed: (device: string) => string
+  secretHint: (key: string) => string
+  secretOn: (key: string) => string
+  secretOff: string
+  loopHint: string
+  logPrompt: (dir: string) => string
+  badLogName: (name: string) => string
+  noLogDir: string
+  logDirUnsafe: (reason: string) => string
+  revealFailed: (reason: string) => string
+  logging: (path: string) => string
+  logFailed: (path: string, reason: string) => string
 }
 
 const en: Strings = {
@@ -58,6 +71,21 @@ const en: Strings = {
   sttyFailed: (device, reason) => `Could not set the line settings of ${device}: ${reason}`,
   gone: (device) => `${device} went away (was the adapter unplugged?). Disconnected.`,
   closed: (device) => `Disconnected from ${device}.`,
+  secretHint: (key) =>
+    `Press ${key} before typing a password: what you type next stays out of this terminal and the log until Enter.`,
+  secretOn: (key) =>
+    `[Secret input on: your typing and the device's echo of it are hidden from this terminal and the log until you press Enter, or ${key} to stop.]`,
+  secretOff: '[Secret input off.]',
+  loopHint:
+    'Every byte you sent came straight back unchanged and the device sent nothing of its own. The cable may be in a network (Ethernet) port, or a loopback plug, instead of the console port.',
+  logPrompt: (dir) => `Session log file name, kept in ${dir} (Enter for none)`,
+  badLogName: (name) =>
+    `${name} is not a log file name; give a name like switch.log (letters, digits, . _ -), not a path. The log is kept in the serial extension's logs folder.`,
+  noLogDir: 'Ostia gave the serial extension no data folder, so it cannot keep a session log',
+  logDirUnsafe: (reason) => `The session logs folder cannot be used: ${reason}`,
+  revealFailed: (reason) => `The session logs folder could not be shown (${reason})`,
+  logging: (path) => `Logging this session to ${path}.`,
+  logFailed: (path, reason) => `Could not write the session log ${path}: ${reason}`,
 }
 
 const zhHant: Strings = {
@@ -88,6 +116,21 @@ const zhHant: Strings = {
   sttyFailed: (device, reason) => `無法設定 ${device} 的連線參數：${reason}`,
   gone: (device) => `${device} 已消失（轉接線被拔掉了嗎？）。已中斷連線。`,
   closed: (device) => `已中斷與 ${device} 的連線。`,
+  secretHint: (key) =>
+    `輸入密碼前先按 ${key}：接下來輸入的內容在按 Enter 前不會出現在這個終端機，也不會寫進記錄檔。`,
+  secretOn: (key) =>
+    `[機密輸入已開啟：你輸入的內容與裝置的回顯都不會顯示在這個終端機、也不會寫進記錄檔，直到你按 Enter，或按 ${key} 結束。]`,
+  secretOff: '[機密輸入已關閉。]',
+  loopHint:
+    '你送出的每個位元組都原封不動地傳了回來，裝置本身沒有送出任何內容。線可能插在網路（Ethernet）孔或迴路測試頭上，而不是 console 孔。',
+  logPrompt: (dir) => `連線記錄檔名，存放在 ${dir}（按 Enter 不記錄）`,
+  badLogName: (name) =>
+    `${name} 不是記錄檔名稱；請給像 switch.log 這樣的檔名（英數字與 . _ -），不要給路徑。記錄檔會放在序列埠擴充功能的 logs 資料夾。`,
+  noLogDir: 'Ostia 沒有提供序列埠擴充功能的資料夾，無法保留連線記錄',
+  logDirUnsafe: (reason) => `無法使用連線記錄資料夾：${reason}`,
+  revealFailed: (reason) => `無法顯示連線記錄資料夾（${reason}）`,
+  logging: (path) => `這次連線會記錄到 ${path}。`,
+  logFailed: (path, reason) => `無法寫入連線記錄檔 ${path}：${reason}`,
 }
 
 export function stringsFor(locale: string | undefined): Strings {
