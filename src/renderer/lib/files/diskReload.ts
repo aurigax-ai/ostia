@@ -3,10 +3,7 @@ export interface LineEdit {
   text: string
 }
 
-export function minimalLineEdit(current: string, next: string): LineEdit | null {
-  if (current === next) return null
-  const a = current.split('\n')
-  const b = next.split('\n')
+function commonEnds(a: string[], b: string[]): { head: number; tail: number } {
   let head = 0
   while (head < a.length && head < b.length && a[head] === b[head]) head += 1
   let tail = 0
@@ -17,6 +14,14 @@ export function minimalLineEdit(current: string, next: string): LineEdit | null 
   ) {
     tail += 1
   }
+  return { head, tail }
+}
+
+export function minimalLineEdit(current: string, next: string): LineEdit | null {
+  if (current === next) return null
+  const a = current.split('\n')
+  const b = next.split('\n')
+  const { head, tail } = commonEnds(a, b)
   const oldEnd = a.length - tail
   const newLines = b.slice(head, b.length - tail)
   if (oldEnd > head && newLines.length === 0) {
@@ -76,16 +81,7 @@ export function changedLines(current: string, next: string): { start: number; en
   if (current === next) return null
   const a = current.split('\n')
   const b = next.split('\n')
-  let head = 0
-  while (head < a.length && head < b.length && a[head] === b[head]) head += 1
-  let tail = 0
-  while (
-    tail < a.length - head &&
-    tail < b.length - head &&
-    a[a.length - 1 - tail] === b[b.length - 1 - tail]
-  ) {
-    tail += 1
-  }
+  const { head, tail } = commonEnds(a, b)
   const end = b.length - tail
   return end > head ? { start: head + 1, end } : null
 }

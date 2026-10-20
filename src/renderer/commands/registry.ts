@@ -7,7 +7,7 @@ import type {
   CommandResult,
   JSONSchema,
   TargetMode,
-} from '../../shared/control/commands'
+} from '@shared/control/commands'
 
 export interface CommandContext {
   activeWorkspaceId: string | null
