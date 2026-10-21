@@ -15,12 +15,13 @@ import { Rocket } from 'lucide-react'
 import { HeartIcon } from '@phosphor-icons/react'
 import { max } from 'd3'
 import Papa from 'papaparse'
+import initSqlJs from 'sql.js'
 
 const rows = Papa.parse('y\\n1\\n2', { header: true, dynamicTyping: true }).data
 
 export default function Widget() {
   const [count] = useState(3)
-  document.title = 'widget ' + count + ' ' + max(rows, (r) => r.y) + ' ' + typeof createPortal + ' ' + typeof createRoot
+  document.title = 'widget ' + count + ' ' + max(rows, (r) => r.y) + ' ' + typeof createPortal + ' ' + typeof createRoot + ' ' + typeof initSqlJs
   return (
     <div className="p-4">
       <Rocket />
@@ -64,6 +65,7 @@ test('PRT-C23 the packaged app builds a component with every runtime library fro
     '@phosphor-icons/react',
     'd3',
     'papaparse',
+    'sql.js',
     'tailwindcss',
   ]) {
     expect(existsSync(join(tree, name, 'package.json')), name).toBe(true)
@@ -104,7 +106,7 @@ test('PRT-C23 the packaged app builds a component with every runtime library fro
     )
     await expect
       .poll(() => guestTitle(app), { timeout: 60_000 })
-      .toBe('widget 3 2 function function')
+      .toBe('widget 3 2 function function function')
     await expect(win.getByTestId('preview-errors')).toHaveCount(0)
     expect(
       await app.evaluate(() => process.env.ESBUILD_BINARY_PATH ?? null),
