@@ -36,6 +36,8 @@ import type {
   ExtensionResult,
   ExtensionSettingValue,
   ExtensionSettingValues,
+  InboxActionEvent,
+  InboxItem,
   OpenTerminalOptions,
   PaneChipItem,
   PanelToolbarState,
@@ -94,6 +96,8 @@ export type {
   ExtensionIcon,
   ExtensionResult,
   ExtensionSettingValues,
+  InboxActionEvent,
+  InboxItem,
   OpenTerminalOptions,
   PaneChipItem,
   PanelToolbarState,
@@ -302,6 +306,8 @@ export interface OstiaExtension {
   setPanelToolbar: (
     toolbar: PanelToolbarState & { workspaceId: string },
   ) => Promise<ExtensionResult>
+  setInboxItems: (workspaceId: string, items: InboxItem[]) => Promise<ExtensionResult>
+  onInboxAction: (handler: (event: InboxActionEvent) => void) => void
   setPaneChip: (chip: PaneChipValue) => Promise<ExtensionResult>
   clearPaneChip: (paneId: string, id: string) => Promise<ExtensionResult>
   setWorkspaceChip: (chip: WorkspaceChipValue) => Promise<ExtensionResult>

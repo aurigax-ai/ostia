@@ -1,7 +1,11 @@
-import type { WorkspaceChip } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
+import type { InboxEntry, WorkspaceChip } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import type { BrowserWindow } from 'electron'
 import { type PaneIdentity, windowOfWorkspace } from '../control/idRegistry'
-import { firstKnownOwner, workspaceChipsForWindow } from '../extensions/workspaceChips'
+import {
+  firstKnownOwner,
+  inboxEntriesForWindow,
+  workspaceChipsForWindow,
+} from '../extensions/workspaceChips'
 import type { RemoteFolders } from '../files/remoteFolders'
 import { windowForWorkspace } from '../workspaces/workspaceRegistry'
 import type { WindowBroker } from './windowBroker'
@@ -61,6 +65,16 @@ export function createWindowSend({ windows, services }: WindowSendDeps) {
     }
   }
 
+  function publishInbox(entries: InboxEntry[]): void {
+    for (const [windowId, win] of windows) {
+      if (win.isDestroyed()) continue
+      win.webContents.send(
+        'extensions:inbox',
+        inboxEntriesForWindow(entries, workspaceWindowId, windowId),
+      )
+    }
+  }
+
   function sendToWindow(windowId: string, channel: string, payload: unknown): void {
     const win = windows.get(windowId)
     if (win && !win.isDestroyed()) win.webContents.send(channel, payload)
@@ -99,6 +113,7 @@ export function createWindowSend({ windows, services }: WindowSendDeps) {
     sendToWorkspaceWindow,
     broadcast,
     publishWorkspaceChips,
+    publishInbox,
     focusPaneInWindow,
     primaryWindowId,
     showWindow,

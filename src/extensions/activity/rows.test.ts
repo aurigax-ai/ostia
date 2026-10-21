@@ -53,7 +53,6 @@ function setup() {
     now: () => 1_000_000,
     focusAgent: () => {},
     focusNote: () => {},
-    markDone: () => {},
     isOpen: (key) => open.has(key),
     setOpen: (key, on) => void (on ? open.add(key) : open.delete(key)),
     paneNote: () => undefined,

@@ -2,7 +2,7 @@
   "id": "activity",
   "name": "Activity",
   "version": "1.0.0",
-  "api": "7.5",
+  "api": "7.6",
   "description": "One panel for what each agent did and what needs you: its latest closing message as a running recap, notes agents leave with ostia activity add, and items that need you with a count in the sidebar until you mark them done. Agents keep a short list of tasks for later with ostia activity remember, and Ostia gives it back to the session after a compaction, a clear or a resume. You can park an agent's session and resume it from here. On request it shows the prompt, tool calls and stops of each turn as a timeline, with the workspace's events beside them: panes started, closed, hibernated or woken, agent status, folder changes and, once you grant read-bus, which pane sent a bus message to which, never what it says. It keeps everything on this computer, moves old entries to a compressed archive, and never types into a terminal.",
   "category": "tools",
   "capabilities": ["agent-plugin", "read-board", "read-bus"],
@@ -84,6 +84,11 @@
       "entry": "url",
       "toolbar": {
         "tabs": [
+          {
+            "id": "inbox",
+            "title": "Inbox",
+            "surface": "inbox"
+          },
           {
             "id": "activity",
             "title": "Activity"

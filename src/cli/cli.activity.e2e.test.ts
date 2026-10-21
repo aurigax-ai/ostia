@@ -489,10 +489,23 @@ describe('the Activity extension records two fake agents and shows them in its p
     expect(notYours.code).toBe(1)
     expect(notYours.stderr).toContain('marks only its own items')
 
-    const note = (await snapshot()).workspace?.notes.find((n) => n.id === id)
-    expect(note).toMatchObject({ needsYou: true, done: false })
-    expect(await panel('done', { workspaceId: 'w1', id })).toEqual({ ok: true })
+    expect((await snapshot()).workspace?.notes.find((n) => n.id === id)).toBeUndefined()
+    const inboxItem = () =>
+      serving.slots
+        .inboxEntries()
+        .find((e) => e.extId === 'activity' && e.workspaceId === 'w1')
+        ?.items.find((item) => item.id === id)
+    expect(await vi.waitUntil(async () => inboxItem(), POLL)).toMatchObject({
+      text: expect.stringContaining('into .env.local'),
+    })
+    expect(serving.slots.inboxAction('activity', 'w2', id)).toBe(false)
+    expect(serving.slots.inboxAction('activity', 'w1', id)).toBe(true)
     await vi.waitUntil(async () => openCount() === undefined, POLL)
+    await vi.waitUntil(async () => (inboxItem() === undefined ? true : undefined), POLL)
+    expect((await snapshot()).workspace?.notes.find((n) => n.id === id)).toMatchObject({
+      needsYou: true,
+      done: true,
+    })
 
     const shown = await ostia(claudePane, `ostia activity show ${id} --json`)
     expect(JSON.parse(shown.stdout)).toMatchObject({ id, needsYou: true, done: true })
