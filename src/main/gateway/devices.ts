@@ -1,4 +1,5 @@
 import { randomBytes, randomUUID } from 'node:crypto'
+import { cleanDeviceName } from '../../shared/gateway/deviceName'
 import type { GatewaySetCapResult } from '../../shared/gateway/gatewayApi'
 import {
   PHONE_BASE_CAPS,
@@ -20,6 +21,7 @@ export interface Device {
   token: string
   caps: string[]
   createdAt: string
+  installId?: string
 }
 
 type DeviceStore = Record<string, Device>
@@ -46,27 +48,53 @@ function save(store: DeviceStore): void {
 export interface RegisterDeviceInput {
   name: string
   pubkey: string
+  installId?: string
 }
 
 export interface RegisteredDevice {
   deviceId: string
   token: string
   caps: string[]
+  replaced: string[]
 }
 
 export function registerDevice(input: RegisterDeviceInput): RegisteredDevice {
   const store = load()
+  const replaced = input.installId
+    ? Object.values(store).filter((d) => d.installId === input.installId)
+    : []
+  for (const old of replaced) delete store[old.deviceId]
   const device: Device = {
     deviceId: `dev_${randomUUID()}`,
-    name: input.name,
+    name: replaced[0]?.name ?? cleanDeviceName(input.name) ?? 'Phone',
     pubkey: input.pubkey,
     token: randomBytes(32).toString('hex'),
     caps: [...DEFAULT_PHONE_CAPS],
     createdAt: new Date().toISOString(),
+    ...(input.installId ? { installId: input.installId } : {}),
   }
   store[device.deviceId] = device
   save(store)
-  return { deviceId: device.deviceId, token: device.token, caps: device.caps }
+  return {
+    deviceId: device.deviceId,
+    token: device.token,
+    caps: device.caps,
+    replaced: replaced.map((d) => d.deviceId),
+  }
+}
+
+export function deviceNameFor(installId: string | undefined): string | null {
+  if (!installId) return null
+  return list().find((d) => d.installId === installId)?.name ?? null
+}
+
+export function renameDevice(deviceId: string, name: unknown): boolean {
+  const clean = cleanDeviceName(name)
+  const store = load()
+  if (!clean || !Object.hasOwn(store, deviceId)) return false
+  store[deviceId].name = clean
+  save(store)
+  return true
 }
 
 export function verifyToken(token: string): Device | null {

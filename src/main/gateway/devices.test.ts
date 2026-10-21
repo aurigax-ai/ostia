@@ -8,6 +8,7 @@ import {
   get,
   list,
   registerDevice,
+  renameDevice,
   revoke,
   setDeviceCap,
   verifyToken,
@@ -151,5 +152,28 @@ describe('gateway/devices', () => {
     it('is not-found for an unknown device', () => {
       expect(setDeviceCap('dev_nope', 'input', true)).toEqual({ ok: false, error: 'not-found' })
     })
+  })
+
+  it('PID-C7 renames a device, trims the name and refuses an empty one', () => {
+    const { deviceId } = registerDevice({ name: 'Pixel', pubkey: 'pk' })
+    expect(renameDevice(deviceId, '  Desk phone  ')).toBe(true)
+    expect(get(deviceId)?.name).toBe('Desk phone')
+    expect(renameDevice(deviceId, '   ')).toBe(false)
+    expect(renameDevice(deviceId, 7)).toBe(false)
+    expect(renameDevice('dev_missing', 'x')).toBe(false)
+    expect(get(deviceId)?.name).toBe('Desk phone')
+  })
+
+  it('PID-C8 caps a long name', () => {
+    const { deviceId } = registerDevice({ name: 'a'.repeat(200), pubkey: 'pk' })
+    expect(get(deviceId)?.name).toHaveLength(64)
+  })
+
+  it('PID-C9 replaces every row of one install identity and revokes their tokens', () => {
+    const old = registerDevice({ name: 'Pixel', pubkey: 'pk1', installId: 'i'.repeat(20) })
+    const next = registerDevice({ name: 'Pixel', pubkey: 'pk2', installId: 'i'.repeat(20) })
+    expect(next.replaced).toEqual([old.deviceId])
+    expect(list().map((d) => d.deviceId)).toEqual([next.deviceId])
+    expect(verifyToken(old.token)).toBeNull()
   })
 })

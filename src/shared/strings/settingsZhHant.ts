@@ -318,6 +318,8 @@ export const settingsZhHant: typeof settingsEn = {
       '{name} 將能執行關閉窗格、終止程序或捨棄工作的指令。僅對您掌控的手機允許此權限。',
     remoteDestructiveConfirm: '允許破壞性指令',
     remoteDestructiveTitle: '允許破壞性指令？',
+    remoteDeviceName: '名稱',
+    remoteDeviceNameFor: '{name} 的名稱',
     remoteDevices: '已配對裝置',
     remoteDiscoverable: '可被探索',
     remoteDiscoverableDesc:
@@ -344,6 +346,7 @@ export const settingsZhHant: typeof settingsEn = {
       '用 {product} 的隨附應用程式掃描 QR 碼，或在應用程式中選擇這台電腦並輸入代碼。手機需在此處核准。',
     remotePairDetails: '連線詳細資料',
     remotePairExpires: '{n} 秒後換新代碼',
+    remotePairReplaces: '與 {name} 是同一支手機。核准後會取代它並中斷其連線。',
     remotePairRequest: '{name} 想要配對',
     remotePairedOn: '配對於 {date}',
     remotePairing: '啟動中…',

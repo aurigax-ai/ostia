@@ -85,7 +85,12 @@ describe('GatewaySection pairing', () => {
   })
 
   it('CPD-C13 shows a waiting phone with its check code and approves it', async () => {
-    const request: GatewayPairRequest = { requestId: 'r1', name: 'Pixel 9', checkCode: '396848' }
+    const request: GatewayPairRequest = {
+      requestId: 'r1',
+      name: 'Pixel 9',
+      checkCode: '396848',
+      replaces: null,
+    }
     vi.mocked(window.ostia.gateway.pairRequests).mockResolvedValue([request])
     const user = userEvent.setup()
     render(<GatewaySection />)
@@ -94,6 +99,18 @@ describe('GatewaySection pairing', () => {
     expect(screen.getByText('396 848')).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Approve Pixel 9' }))
     expect(window.ostia.gateway.answerPairRequest).toHaveBeenCalledWith('r1', true)
+  })
+
+  it('PID-C11 says which paired phone an approval replaces', async () => {
+    vi.mocked(window.ostia.gateway.pairRequests).mockResolvedValue([
+      { requestId: 'r1', name: 'Pixel 9', checkCode: '396848', replaces: 'Desk phone' },
+    ])
+    render(<GatewaySection />)
+    expect(
+      await screen.findByText(
+        'Same phone as Desk phone. Approving replaces it and closes its connection.',
+      ),
+    ).toBeInTheDocument()
   })
 
   it('turns Discoverable on from its switch', async () => {

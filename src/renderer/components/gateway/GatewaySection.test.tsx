@@ -101,6 +101,16 @@ describe('GatewaySection', () => {
     )
   })
 
+  it('PID-C12 renames a paired device from its name field', async () => {
+    const user = userEvent.setup()
+    render(<GatewaySection />)
+
+    const field = await screen.findByRole('textbox', { name: 'Name of Pixel' })
+    await user.clear(field)
+    await user.type(field, 'Desk phone{Enter}')
+    expect(window.ostia.gateway.renameDevice).toHaveBeenCalledWith('dev_1', 'Desk phone')
+  })
+
   it('asks before revoking, and revokes only after the confirm', async () => {
     const user = userEvent.setup()
     render(<GatewaySection />)

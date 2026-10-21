@@ -1,5 +1,5 @@
 import { randomBytes, randomUUID } from 'node:crypto'
-import { registerDevice } from './devices'
+import { deviceNameFor, registerDevice } from './devices'
 import { checkCode, commitOf } from './pairCheck'
 import { auditPairAttempt } from './pairing'
 
@@ -12,11 +12,13 @@ export interface PairRequestView {
   requestId: string
   name: string
   checkCode: string
+  replaces: string | null
 }
 
 interface PairRequest {
   name: string
   pubkey: string
+  installId?: string
   commit: string
   peer: string
   desktopNonce: Buffer
@@ -43,6 +45,7 @@ function end(requestId: string): PairRequest | null {
 export function openPairRequest(input: {
   name: string
   pubkey: string
+  installId?: string
   commit: string
   peer: string
 }): { requestId: string; desktopNonce: string } {
@@ -80,26 +83,39 @@ export function cancelPairRequest(requestId: string): void {
   end(requestId)
 }
 
-export function answerPairRequest(requestId: string, approve: boolean): boolean {
-  if (!requests.get(requestId)?.waiting) return false
+export interface PairAnswer {
+  replaced: string[]
+}
+
+export function answerPairRequest(requestId: string, approve: boolean): PairAnswer | null {
+  if (!requests.get(requestId)?.waiting) return null
   const request = end(requestId)
   const waiting = request?.waiting
-  if (!request || !waiting) return false
+  if (!request || !waiting) return null
   if (!approve) {
     waiting.reply(403, { error: 'declined' })
-    return true
+    return { replaced: [] }
   }
-  const { deviceId, token, caps } = registerDevice({ name: request.name, pubkey: request.pubkey })
+  const { deviceId, token, caps, replaced } = registerDevice({
+    name: request.name,
+    pubkey: request.pubkey,
+    installId: request.installId,
+  })
   auditPairAttempt(request.peer, 'ok')
   waiting.reply(200, { deviceId, deviceToken: token, caps, expiresAt: null })
-  return true
+  return { replaced }
 }
 
 export function listPairRequests(): PairRequestView[] {
   const views: PairRequestView[] = []
   for (const [requestId, request] of requests) {
     if (request.waiting) {
-      views.push({ requestId, name: request.name, checkCode: request.waiting.checkCode })
+      views.push({
+        requestId,
+        name: request.name,
+        checkCode: request.waiting.checkCode,
+        replaces: deviceNameFor(request.installId),
+      })
     }
   }
   return views

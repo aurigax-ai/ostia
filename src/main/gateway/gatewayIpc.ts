@@ -24,7 +24,7 @@ import {
 } from './announce'
 import { createBindFollower } from './bindFollower'
 import type { Device } from './devices'
-import { list as listDevices, revoke as revokeDevice, setDeviceCap } from './devices'
+import { list as listDevices, renameDevice, revoke as revokeDevice, setDeviceCap } from './devices'
 import { listBindAddresses } from './interfaces'
 import { answerPairRequest, listPairRequests } from './pairRequests'
 import { liveCodeCount, newCode, onCodesChanged } from './pairing'
@@ -286,7 +286,18 @@ function answerPair(params: unknown): GatewayActionResult {
   if (typeof requestId !== 'string' || typeof approve !== 'boolean') {
     return { ok: false, error: 'invalid' }
   }
-  return answerPairRequest(requestId, approve) ? { ok: true } : { ok: false, error: 'invalid' }
+  const answer = answerPairRequest(requestId, approve)
+  if (!answer) return { ok: false, error: 'invalid' }
+  for (const deviceId of answer.replaced) closeDeviceSockets(deviceId)
+  return { ok: true }
+}
+
+function renameDeviceIpc(params: unknown): GatewayActionResult {
+  const { deviceId, name } = (params ?? {}) as { deviceId?: unknown; name?: unknown }
+  if (typeof deviceId !== 'string' || !renameDevice(deviceId, name)) {
+    return { ok: false, error: 'invalid' }
+  }
+  return { ok: true }
 }
 
 function tailnetSignIn(): GatewayTailnetActionResult {
@@ -340,6 +351,10 @@ export function registerGatewayIpc(): void {
   ipcMain.handle('gateway:set-cap', (e, params): GatewaySetCapResult => {
     if (!fromWindow(e)) return { ok: false, error: 'invalid-cap' }
     return gatewaySetCap(params)
+  })
+  ipcMain.handle('gateway:rename', (e, params): GatewayActionResult => {
+    if (!fromWindow(e)) return { ok: false, error: 'not-a-window' }
+    return renameDeviceIpc(params)
   })
   ipcMain.handle('gateway:bind-addresses', () => listBindAddresses())
   ipcMain.handle('gateway:set-route', (e, params): GatewaySetRouteResult => {

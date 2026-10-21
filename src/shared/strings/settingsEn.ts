@@ -331,6 +331,8 @@ export const settingsEn = {
       '{name} will be able to run commands that close panes, kill processes or discard work. Only allow this for a phone you control.',
     remoteDestructiveConfirm: 'Allow destructive',
     remoteDestructiveTitle: 'Allow destructive commands?',
+    remoteDeviceName: 'Name',
+    remoteDeviceNameFor: 'Name of {name}',
     remoteDevices: 'Paired devices',
     remoteDiscoverable: 'Discoverable',
     remoteDiscoverableDesc:
@@ -359,6 +361,7 @@ export const settingsEn = {
       'Scan the QR code with {product}’s companion app, or pick this computer in the app and type the code. You approve the phone here.',
     remotePairDetails: 'Connection details',
     remotePairExpires: 'New code in {n}s',
+    remotePairReplaces: 'Same phone as {name}. Approving replaces it and closes its connection.',
     remotePairRequest: '{name} wants to pair',
     remotePairedOn: 'Paired {date}',
     remotePairing: 'Starting…',

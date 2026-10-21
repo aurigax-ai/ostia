@@ -37,6 +37,11 @@ export function PairRequests({
               {spacedCheckCode(r.checkCode)}
             </div>
             <p className="mt-0.5 text-fg-muted text-ui-sm">{d.settings.remotePairCheck}</p>
+            {r.replaces ? (
+              <p className="mt-0.5 text-fg-muted text-ui-sm">
+                {fmt(d.settings.remotePairReplaces, { name: r.replaces })}
+              </p>
+            ) : null}
           </div>
           <div className="flex shrink-0 gap-2">
             <Button

@@ -1,3 +1,4 @@
+import { CommitInput } from '@/components/settingsKit/CommitInput'
 import { ControlRow } from '@/components/settingsKit/ControlRow'
 import { SettingsSubgroup } from '@/components/settingsKit/SettingsGroup'
 import { SettingsList } from '@/components/settingsKit/SettingsList'
@@ -26,6 +27,7 @@ import { DATE_ONLY, formatDate } from '@/lib/app/localeFormat'
 import { fmt, useDict } from '@/lib/app/useDict'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import type { Dict } from '@shared/app/dict'
+import { DEVICE_NAME_MAX } from '@shared/gateway/deviceName'
 import type { GatewayDevice } from '@shared/gateway/gatewayApi'
 import { PHONE_GRANTABLE_CAPS, type PhoneGrantableCap } from '@shared/gateway/phoneCapabilities'
 import { useState } from 'react'
@@ -49,9 +51,11 @@ function capText(d: Dict): Record<PhoneGrantableCap, { label: string; desc: stri
 function DeviceRow({
   device,
   onChange,
+  onRename,
   onRevoke,
 }: {
   device: GatewayDevice
+  onRename: (name: string) => void
   onChange: (cap: PhoneGrantableCap, granted: boolean) => void
   onRevoke: () => void
 }): JSX.Element {
@@ -82,6 +86,19 @@ function DeviceRow({
       }
       below={
         <>
+          <ControlRow label={d.settings.remoteDeviceName}>
+            <CommitInput
+              value={device.name}
+              maxLength={DEVICE_NAME_MAX}
+              className="w-56"
+              aria-label={fmt(d.settings.remoteDeviceNameFor, { name: device.name })}
+              onCommit={(text) => {
+                if (!text.trim()) return false
+                onRename(text)
+                return undefined
+              }}
+            />
+          </ControlRow>
           <fieldset aria-label={fmt(d.settings.remoteGrantsFor, { name: device.name })}>
             {PHONE_GRANTABLE_CAPS.map((cap) => {
               const needs = CAP_NEEDS[cap]
@@ -150,6 +167,11 @@ export function DeviceList({
     await refresh()
   }
 
+  const onRename = async (deviceId: string, name: string): Promise<void> => {
+    await window.ostia.gateway.renameDevice(deviceId, name)
+    await refresh()
+  }
+
   const setCap = async (deviceId: string, cap: PhoneGrantableCap, granted: boolean) => {
     await window.ostia.gateway.setCap(deviceId, cap, granted)
     await refresh()
@@ -180,6 +202,7 @@ export function DeviceList({
           <DeviceRow
             key={dev.deviceId}
             device={dev}
+            onRename={(name) => void onRename(dev.deviceId, name)}
             onChange={(cap, v) => onCapChange(dev, cap, v)}
             onRevoke={() => void onRevoke(dev.deviceId)}
           />

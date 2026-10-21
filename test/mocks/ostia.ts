@@ -550,6 +550,7 @@ export function makeOstiaMock(overrides?: Partial<OstiaBridge>): OstiaBridge {
       devices: vi.fn().mockResolvedValue({ devices: [] }),
       revoke: vi.fn().mockResolvedValue({ ok: true }),
       setCap: vi.fn().mockResolvedValue({ ok: true, caps: ['read', 'notify'] }),
+      renameDevice: vi.fn().mockResolvedValue({ ok: true }),
       bindAddresses: vi.fn().mockResolvedValue([]),
       setRoute: vi.fn(async (route) => ({ ok: true, route })),
       tailnetSignIn: vi.fn().mockResolvedValue({ ok: true }),
