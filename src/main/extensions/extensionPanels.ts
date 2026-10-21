@@ -100,12 +100,16 @@ export class ExtensionPanels {
     return origin !== null && rt.panelOrigins.has(origin)
   }
 
-  viewSource(extId: string, kindId: string, path: string): { dir: string; entry: string } | null {
+  viewSource(
+    extId: string,
+    kindId: string,
+    path: string,
+  ): { dir: string; entry: string; builtin: boolean } | null {
     const rt = this.host.runtimes.get(extId)
     if (!rt || !this.host.active(rt)) return null
     const kind = rt.ext.manifest.contributes.fileKinds?.find((k) => k.id === kindId)
     if (!kind?.view || !kindMatches(path, kind) || !this.host.kindApproved(rt, kind)) return null
-    return { dir: rt.ext.dir, entry: kind.view.entry }
+    return { dir: rt.ext.dir, entry: kind.view.entry, builtin: rt.ext.builtin }
   }
 
   hasViewKind(path: string): boolean {

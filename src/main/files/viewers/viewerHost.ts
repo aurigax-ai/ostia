@@ -16,6 +16,7 @@ import {
   type ViewerDocumentMeta,
   type ViewerPortableTables,
 } from '@aurigax-ai/ostia-extension-sdk/contract/fileKinds'
+import { parseRemotePath } from '@aurigax-ai/ostia-extension-sdk/contract/remoteFolders'
 import {
   VIEWER_EDIT_SOURCE_PATH,
   VIEWER_FIND_KEYS_PATH,
@@ -56,6 +57,7 @@ import type { ViewerWatch, WatchedGuest } from './viewerWatch'
 interface ViewerSource {
   dir: string
   entry: string
+  builtin: boolean
 }
 
 export type ViewerRead = { ok: true; body: Buffer } | { ok: false; status: number }
@@ -118,6 +120,7 @@ interface Live {
   pointerAt: number | null
   pointerShift: boolean
   keyAt: number | null
+  openKeyAt: number | null
   keyShift: boolean
   ownsFindKeys: boolean
 }
@@ -221,6 +224,7 @@ export class ViewerHost {
       keyShift: false,
       ownsFindKeys: false,
       keyAt: null,
+      openKeyAt: null,
     }
     this.byToken.set(token, live)
     this.deps.watch(viewerOwner(token), confined)
@@ -417,11 +421,12 @@ export class ViewerHost {
     )
     guest.on(
       'before-input-event',
-      (_event: unknown, input: { type?: string; shift?: boolean } | undefined) => {
+      (_event: unknown, input: { type?: string; key?: string; shift?: boolean } | undefined) => {
         const live = token ? this.byToken.get(token) : undefined
         if (live && input?.type === 'keyDown') {
           live.keyAt = this.now()
           live.keyShift = input.shift === true
+          if (input.key === 'Enter' || input.key === ' ') live.openKeyAt = live.keyAt
         }
       },
     )
@@ -486,7 +491,7 @@ export class ViewerHost {
   }
 
   private headers(live: Live, contentType: string, extra: Record<string, string> = {}): Headers {
-    return viewerHeaders(contentType, extra, viewerAllowsWasm(live.extId))
+    return viewerHeaders(contentType, extra, viewerAllowsWasm(live.extId, live.source.builtin))
   }
 
   private async meta(live: Live): Promise<Response> {
@@ -663,9 +668,12 @@ export class ViewerHost {
     return [live.pointerAt, live.keyAt].some((at) => at !== null && now - at <= GESTURE_WINDOW_MS)
   }
 
-  private spendGesture(live: Live): 'pointerAt' | 'keyAt' | null {
+  private spendGesture(
+    live: Live,
+    inputs: ReadonlyArray<'pointerAt' | 'keyAt' | 'openKeyAt'> = ['pointerAt', 'keyAt'],
+  ): 'pointerAt' | 'keyAt' | null {
     const now = this.now()
-    const fresh = (['pointerAt', 'keyAt'] as const)
+    const fresh = inputs
       .filter((input) => {
         const at = live[input]
         return at !== null && now - at <= GESTURE_WINDOW_MS
@@ -673,7 +681,10 @@ export class ViewerHost {
       .sort((a, b) => (live[b] ?? 0) - (live[a] ?? 0))
     live.pointerAt = null
     live.keyAt = null
-    return fresh[0] ?? null
+    live.openKeyAt = null
+    const used = fresh[0]
+    if (used === undefined) return null
+    return used === 'pointerAt' ? 'pointerAt' : 'keyAt'
   }
 
   private linkTarget(live: Live, href: string, shift: boolean): ViewerLinkTarget | null {
@@ -689,6 +700,7 @@ export class ViewerHost {
       return null
     }
     if (relative === '' || isAbsolute(relative)) return null
+    if (parseRemotePath(live.path) !== null) return null
     if (!isAbsolute(live.path) || !this.deps.fileLinksAllowed(live.paneId)) return null
     const path = this.deps.confine(resolve(dirname(live.path), relative))
     return path ? { kind: 'file', path } : null
@@ -706,7 +718,7 @@ export class ViewerHost {
     if (typeof href !== 'string' || href.length === 0 || href.length > VIEWER_OPEN_HREF_MAX) {
       return new Response(null, { status: 400 })
     }
-    const gesture = this.spendGesture(live)
+    const gesture = this.spendGesture(live, ['pointerAt', 'openKeyAt'])
     if (!gesture) return new Response(null, { status: 403 })
     const target = this.linkTarget(
       live,

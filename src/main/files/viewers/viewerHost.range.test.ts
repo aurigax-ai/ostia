@@ -27,7 +27,7 @@ const confine = (path: string): string | null => (path.startsWith(`${dir}/`) ? p
 function realFiles() {
   return setup({
     confine,
-    viewer: () => ({ dir: '/ext/office', entry: 'sheet.html' }),
+    viewer: () => ({ dir: '/ext/office', entry: 'sheet.html', builtin: true }),
     readDocument: async (path) => {
       const read = readBinaryConfined(path, confine, FS_BINARY_MAX)
       if (read.ok) return { ok: true, body: Buffer.from(read.data) }

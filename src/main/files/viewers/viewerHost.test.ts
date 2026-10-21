@@ -251,7 +251,7 @@ describe('ViewerHost', () => {
     ['market', false],
   ])('sends the %s extension a CSP %s wasm', async (extId, wasm) => {
     const { host, sessions } = setup({
-      viewer: () => ({ dir: `/ext/${extId}`, entry: 'page.html' }),
+      viewer: () => ({ dir: `/ext/${extId}`, entry: 'page.html', builtin: extId !== 'market' }),
       readExtensionFile: () => Buffer.from('x'),
     })
     host.open('w1', { ...OPEN, viewType: `${extId}.view` })
@@ -262,5 +262,15 @@ describe('ViewerHost', () => {
       expect(res.headers.get('content-security-policy'), path).toBe(expected)
     }
     expect(expected.includes('wasm-unsafe-eval')).toBe(wasm)
+  })
+
+  it('gives no wasm CSP to a non built-in extension even with the id pdf', async () => {
+    const { host, sessions } = setup({
+      viewer: () => ({ dir: '/ext/pdf', entry: 'page.html', builtin: false }),
+      readExtensionFile: () => Buffer.from('x'),
+    })
+    host.open('w1', { ...OPEN, viewType: 'pdf.view' })
+    const res = await get(sessions.get('ostia-viewer-pdf'), 'ostia-viewer://t1/page.html')
+    expect(res.headers.get('content-security-policy')).toBe(VIEWER_PAGE_CSP)
   })
 })

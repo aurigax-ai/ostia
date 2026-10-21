@@ -121,7 +121,7 @@ describe('FileViewerFrame', () => {
     mount()
     await act(async () => {})
     expect(document.querySelector('webview')?.getAttribute('src')).toBe(
-      'ostia-viewer://t/#page=3&find=needle',
+      'ostia-viewer://t/#page=3&find=needle&n=0',
     )
     expect(useViewerHintStore.getState().pending).toEqual({})
   })
@@ -133,16 +133,28 @@ describe('FileViewerFrame', () => {
       document.querySelector('webview')?.getAttribute('src')
     expect(src()).toBe('ostia-viewer://t/')
     act(() => useViewerHintStore.getState().request('/w/a.png', 'page=4&find=second'))
-    expect(src()).toBe('ostia-viewer://t/#page=4&find=second')
+    expect(src()).toBe('ostia-viewer://t/#page=4&find=second&n=1')
     expect(useViewerHintStore.getState().pending).toEqual({})
     act(() => useViewerHintStore.getState().request('/w/other.png', 'page=9'))
-    expect(src()).toBe('ostia-viewer://t/#page=4&find=second')
+    expect(src()).toBe('ostia-viewer://t/#page=4&find=second&n=1')
     expect(useViewerHintStore.getState().pending).toEqual({ '/w/other.png': 'page=9' })
     useViewerHintStore.setState({ pending: {} })
     cleanup()
     mount()
     await act(async () => {})
     expect(src()).toBe('ostia-viewer://t/')
+  })
+
+  it('navigates again for the same hint clicked twice', async () => {
+    mount()
+    await act(async () => {})
+    const src = (): string | null | undefined =>
+      document.querySelector('webview')?.getAttribute('src')
+    act(() => useViewerHintStore.getState().request('/w/a.png', 'page=2&find=again'))
+    const first = src()
+    act(() => useViewerHintStore.getState().request('/w/a.png', 'page=2&find=again'))
+    expect(src()).not.toBe(first)
+    expect(src()).toBe('ostia-viewer://t/#page=2&find=again&n=2')
   })
 
   it('leaves no hint behind for a later open when it takes one while mounted', async () => {

@@ -17,17 +17,19 @@ const TAB_BUTTONS = ['button.tab', 'button.ostia-tab']
 const CORE_ROW_TOKENS =
   /ostia-toolbar|ostia-tabs|ostia-tab|panelToolbar|panelTab|role: 'tablist'|class: 'toolbar'/
 
+function cssFiles(dir: string, prefix: string): { id: string; css: string }[] {
+  return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
+    if (entry.isDirectory()) return cssFiles(join(dir, entry.name), `${prefix}/${entry.name}`)
+    return entry.name.endsWith('.css')
+      ? [{ id: `${prefix}/${entry.name}`, css: readFileSync(join(dir, entry.name), 'utf8') }]
+      : []
+  })
+}
+
 function panelStyles(): { id: string; css: string }[] {
   return readdirSync(extensions, { withFileTypes: true })
     .filter((entry) => entry.isDirectory())
-    .flatMap((entry) =>
-      readdirSync(join(extensions, entry.name))
-        .filter((file) => file.endsWith('.css'))
-        .map((file) => ({
-          id: `${entry.name}/${file}`,
-          css: readFileSync(join(extensions, entry.name, file), 'utf8'),
-        })),
-    )
+    .flatMap((entry) => cssFiles(join(extensions, entry.name), entry.name))
 }
 
 function selectors(css: string): string[] {

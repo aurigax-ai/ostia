@@ -17,7 +17,8 @@ function opened(overrides: Partial<ViewerHostDeps> = {}, path = FILE) {
     })
   const click = (modifiers: string[] = []) =>
     guest.emit('input-event', {}, { type: 'mouseDown', modifiers })
-  const press = (shift = false) => guest.emit('before-input-event', {}, { type: 'keyDown', shift })
+  const press = (shift = false, key = 'Enter') =>
+    guest.emit('before-input-event', {}, { type: 'keyDown', shift, key })
   const open = (href: unknown) => post('~open', { href })
   return { ...harness, session, guest, post, click, press, open }
 }
@@ -50,6 +51,18 @@ describe('/~open', () => {
     expect(
       events.map((event) => (event.payload as { target: { shift: boolean } }).target.shift),
     ).toEqual([true, false])
+  })
+
+  it('opens a link only after Enter or Space, not after any other key', async () => {
+    const { open, press } = opened()
+    for (const key of ['a', 'Tab', 'ArrowDown', 'c']) {
+      press(false, key)
+      expect((await open('https://example.com/')).status).toBe(403)
+    }
+    press(false, ' ')
+    expect((await open('https://example.com/')).status).toBe(204)
+    press(false, 'Enter')
+    expect((await open('https://example.com/')).status).toBe(204)
   })
 
   it('takes a pointer press or a key press within the window, spends it once and refuses a stale one', async () => {
@@ -144,7 +157,7 @@ describe('/~open', () => {
       const { open, click, events } = opened(
         {
           confine: (candidate) => candidate,
-          viewer: () => ({ dir: '/ext/office', entry: 'sheet.html' }),
+          viewer: () => ({ dir: '/ext/office', entry: 'sheet.html', builtin: true }),
           statDocument: async () => ({ size: 4, modified: 7 }),
         },
         path,

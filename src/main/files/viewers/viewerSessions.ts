@@ -27,8 +27,8 @@ export const WASM_VIEWER_CSP = pageCsp("script-src 'self' 'wasm-unsafe-eval'")
 
 const WASM_VIEWER_EXTENSIONS: ReadonlySet<string> = new Set(['pdf'])
 
-export function viewerAllowsWasm(extId: string): boolean {
-  return WASM_VIEWER_EXTENSIONS.has(extId)
+export function viewerAllowsWasm(extId: string, builtin: boolean): boolean {
+  return builtin && WASM_VIEWER_EXTENSIONS.has(extId)
 }
 
 export type ViewerSession = Pick<

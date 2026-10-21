@@ -64,7 +64,7 @@ export function setup(overrides: Partial<ViewerHostDeps> = {}) {
     ownsPane: (windowId, paneId) => windowId === 'w1' && paneId === 'p1',
     viewer: (extId, viewType, path) =>
       enabled && extId === 'office' && viewType === 'office.spreadsheet' && path.endsWith('.xlsx')
-        ? { dir: '/ext/office', entry: 'sheet.html' }
+        ? { dir: '/ext/office', entry: 'sheet.html', builtin: true }
         : null,
     readDocument: async (path) =>
       path === FILE ? { ok: true, body: BYTES } : { ok: false, status: 413 },

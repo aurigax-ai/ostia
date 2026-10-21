@@ -72,7 +72,10 @@ function ViewerFrame({
   } | null>(null)
   const [sendRequest, setSendRequest] = useState(0)
   const [status, setStatus] = useTransientStatus(SEND_STATUS_MS)
-  const [hint, setHint] = useState(() => useViewerHintStore.getState().take(filePath))
+  const [hint, setHint] = useState<{ value: string; count: number } | null>(() => {
+    const value = useViewerHintStore.getState().take(filePath)
+    return value === undefined ? null : { value, count: 0 }
+  })
   useLiveDocumentText(paneId, filePath, opened !== null)
   const selection = shown?.selection ?? null
 
@@ -81,7 +84,9 @@ function ViewerFrame({
       useViewerHintStore.subscribe((state) => {
         if (state.pending[filePath] === undefined) return
         const next = useViewerHintStore.getState().take(filePath)
-        if (next !== undefined) setHint(next)
+        if (next !== undefined) {
+          setHint((current) => ({ value: next, count: (current?.count ?? 0) + 1 }))
+        }
       }),
     [filePath],
   )
@@ -234,7 +239,7 @@ function ViewerFrame({
           <webview
             ref={setWebview}
             className="extension-webview"
-            src={hint ? `${opened.src}#${hint}` : opened.src}
+            src={hint ? `${opened.src}#${hint.value}&n=${hint.count}` : opened.src}
             partition={opened.partition}
           />
         ) : (
