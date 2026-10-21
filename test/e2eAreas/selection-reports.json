@@ -9,7 +9,6 @@
     "src/renderer/lib/agents/selectionCopiers.ts",
     "src/renderer/lib/agents/selectionSenders.ts",
     "src/renderer/lib/agents/useAgentTargets.ts",
-    "src/renderer/lib/browser/domSelection.ts",
     "src/shared/browser/selection.ts",
     "src/shared/keyboard/clipboardCapture.ts"
   ],

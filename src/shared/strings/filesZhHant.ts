@@ -323,8 +323,6 @@ export const filesZhHant: typeof filesEn = {
   viewer: {
     alwaysUse: '一律用於 {pattern} 檔案',
     cancel: '取消',
-    clearRegion: '清除選取區域',
-    fit: '符合窗格大小',
     loading: '載入中…',
     noSelection: '請先選取文字。',
     noTerminalSelection: '請先選取文字或區塊。',
@@ -332,8 +330,6 @@ export const filesZhHant: typeof filesEn = {
     openWith: '開啟方式…',
     ownText: '文字編輯器',
     reload: '重新載入',
-    sendPdfSelection: '將選取的文字傳送給代理程式',
-    sendRegion: '將選取區域傳送給代理程式',
     sendSelection: '將選取內容傳送給代理程式',
     showWith: '以 {name} 開啟',
     stopped: {
@@ -341,15 +337,10 @@ export const filesZhHant: typeof filesEn = {
       memory: '已停止：這個檢視器使用的記憶體超過 1 GiB。',
       unresponsive: '已停止：這個檢視器 15 秒沒有回應。',
     },
-    tooLarge: '檔案太大，無法預覽（{size}）。',
-    unreadable: '無法讀取此檔案。',
     viewerFailed: '{name} 無法顯示這個檔案，因此改在編輯器中開啟。',
     viewerUnavailable: '為這個檔案選擇的檢視器無法使用，因此改在編輯器中開啟。',
     waitedBy: '{pane} 中的 {command} 正在等待這個分頁關閉。',
     waitedByShell: '{pane} 中的指令正在等待這個分頁關閉。',
     waitedClose: '關閉',
-    zoomIn: '放大',
-    zoomLevel: '縮放 {percent}%',
-    zoomOut: '縮小',
   },
 }

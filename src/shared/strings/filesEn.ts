@@ -331,8 +331,6 @@ export const filesEn = {
   viewer: {
     alwaysUse: 'Always use for {pattern} files',
     cancel: 'Cancel',
-    clearRegion: 'Clear region',
-    fit: 'Fit to pane',
     loading: 'Loading…',
     noSelection: 'Select some text first.',
     noTerminalSelection: 'Select some text or a block first.',
@@ -340,8 +338,6 @@ export const filesEn = {
     openWith: 'Open With…',
     ownText: 'Text editor',
     reload: 'Reload',
-    sendPdfSelection: 'Send selected text to agent',
-    sendRegion: 'Send region to agent',
     sendSelection: 'Send Selection to Agent',
     showWith: 'Open with {name}',
     stopped: {
@@ -349,16 +345,11 @@ export const filesEn = {
       memory: 'Stopped: this viewer used more than 1 GiB of memory.',
       unresponsive: 'Stopped: this viewer did not respond for 15 seconds.',
     },
-    tooLarge: 'This file is too large to preview ({size}).',
-    unreadable: 'Could not read this file.',
     viewerFailed: '{name} could not show this file, so it opens in the editor.',
     viewerUnavailable:
       'The viewer chosen for this file is not available, so it opens in the editor.',
     waitedBy: '{command} in {pane} is waiting for this tab to close.',
     waitedByShell: 'A command in {pane} is waiting for this tab to close.',
     waitedClose: 'Close',
-    zoomIn: 'Zoom in',
-    zoomLevel: 'Zoom {percent}%',
-    zoomOut: 'Zoom out',
   },
 }
