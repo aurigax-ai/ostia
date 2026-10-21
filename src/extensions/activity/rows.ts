@@ -45,7 +45,6 @@ export interface RowEnv {
   now: () => number
   focusAgent: (paneId: string) => void
   focusNote: (note: NoteView) => void
-  markDone: (workspaceId: string, id: string) => void
   isOpen: (key: string) => boolean
   setOpen: (key: string, open: boolean) => void
   paneNote: (paneId: string) => string | undefined
@@ -319,7 +318,7 @@ function agentRow(env: RowEnv, paneId: string): Row<AgentItem> {
   }
 }
 
-function noteRow(env: RowEnv, workspaceId: string, note: NoteView): Row<NoteRowItem> {
+function noteRow(env: RowEnv, note: NoteView): Row<NoteRowItem> {
   let current = note
   const status = h('span', { class: 'needs-you', hidden: true })
   const text = h('p', { class: 'note-text' })
@@ -331,22 +330,12 @@ function noteRow(env: RowEnv, workspaceId: string, note: NoteView): Row<NoteRowI
   })
   const failure = h('p', { class: 'note muted', role: 'status', hidden: true })
   const age = ageNode(env)
-  const done = h(
-    'button',
-    {
-      class: 'done-button',
-      type: 'button',
-      onClick: () => env.markDone(workspaceId, note.id),
-    },
-    env.t('markDone'),
-  )
   const el = h(
     'li',
     { class: 'note-row', 'data-note': note.id, 'data-needs-you': String(note.needsYou) },
     icon(note.needsYou ? warningCircle : noteIcon),
     h('div', { class: 'note-body' }, status, text, link, pane, failure),
     age.el,
-    done,
   )
   return {
     el,
@@ -367,7 +356,6 @@ function noteRow(env: RowEnv, workspaceId: string, note: NoteView): Row<NoteRowI
       flag(failure, 'hidden', failed === undefined)
       setText(failure, failed ?? '')
       age.set(current.t)
-      flag(done, 'hidden', !(current.needsYou && !current.done))
       return changed
     },
   }
@@ -377,7 +365,7 @@ function notesRow(env: RowEnv): Row<NotesItem> {
   const el = h('ul', { class: 'notes', 'aria-label': env.t('notes') })
   const patch = createPatcher<NoteRowItem>(
     el,
-    (item) => builtRow(noteRow(env, item.workspaceId, item.note), item),
+    (item) => builtRow(noteRow(env, item.note), item),
     env.now,
   )
   return {

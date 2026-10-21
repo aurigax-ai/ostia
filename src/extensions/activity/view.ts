@@ -213,12 +213,11 @@ function notesOf(
   label: (pane: string) => PaneLabel,
   panes: ReadonlyMap<string, OpenPane>,
 ): NoteView[] {
-  const open = notes.filter(isOpenNeedsYou).reverse()
-  const rest = notes
+  return notes
     .filter((note) => !isOpenNeedsYou(note))
     .reverse()
     .slice(0, NOTES_SHOWN_MAX)
-  return [...open, ...rest].map((note) => noteView(note, label(note.pane), panes.has(note.pane)))
+    .map((note) => noteView(note, label(note.pane), panes.has(note.pane)))
 }
 
 function paneLabels(

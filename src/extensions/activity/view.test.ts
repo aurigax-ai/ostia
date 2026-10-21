@@ -301,7 +301,7 @@ describe('panelModel notes', () => {
     ...extra,
   })
 
-  it('lists open needs-you items first, then the latest notes, and shows a workspace that has only notes', () => {
+  it('lists the latest notes and done needs-you items, leaves the open ones to the inbox, and shows a workspace that has only notes', () => {
     const model = panelModel({
       showActivity: false,
       workspace: { workspaceId: 'w1', name: 'shop' },
@@ -316,16 +316,6 @@ describe('panelModel notes', () => {
     expect(model.workspace?.agents).toEqual([])
     const shared = { pane: 'p1', label: { n: 1 }, open: true }
     expect(model.workspace?.notes).toEqual([
-      {
-        id: 'neweropenn',
-        t: 5,
-        text: 'neweropenn',
-        needsYou: true,
-        done: false,
-        link: '/w/a.md',
-        ...shared,
-      },
-      { id: 'olderopenn', t: 1, text: 'olderopenn', needsYou: true, done: false, ...shared },
       { id: 'donedonedo', t: 3, text: 'donedonedo', needsYou: true, done: true, ...shared },
       { id: 'plainnotea', t: 2, text: 'plainnotea', needsYou: false, done: false, ...shared },
     ])
@@ -337,8 +327,8 @@ describe('panelModel notes', () => {
       workspace: { workspaceId: 'w1', name: 'shop' },
       panes: [{ paneId: 'live', title: 'Fix upload' }],
       events: () => [
-        note(1, 'liveliveli', { pane: 'live', needsYou: true }),
-        note(2, 'gonegonego', { pane: 'gone', needsYou: true }),
+        note(1, 'liveliveli', { pane: 'live' }),
+        note(2, 'gonegonego', { pane: 'gone' }),
       ],
     })
     expect(model.workspace?.notes.map((n) => [n.id, n.pane, n.open, n.label.title])).toEqual([

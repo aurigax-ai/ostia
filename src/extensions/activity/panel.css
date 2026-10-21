@@ -388,10 +388,6 @@ button.actions-toggle:hover {
   margin-left: 0;
 }
 
-button.done-button {
-  flex: 0 0 auto;
-}
-
 .text-changed {
   animation: text-changed var(--motion-fast) var(--ease-out);
 }
