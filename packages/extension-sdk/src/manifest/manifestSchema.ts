@@ -38,6 +38,7 @@ import {
   EXTENSION_SETTING_TYPES,
   EXTENSION_SETTING_UNITS,
   EXTENSION_VERB_PATTERN,
+  PANEL_TAB_SURFACES,
   PANEL_TOOLBAR_MAX_ACTIONS,
   PANEL_TOOLBAR_MAX_TABS,
 } from '../contract/extensions'
@@ -285,7 +286,13 @@ const contributes = z.looseObject({
       toolbar: z
         .looseObject({
           tabs: z
-            .array(z.looseObject({ id: z.string().regex(COMMAND_ID_PATTERN), title: text }))
+            .array(
+              z.looseObject({
+                id: z.string().regex(COMMAND_ID_PATTERN),
+                title: text,
+                surface: z.enum(PANEL_TAB_SURFACES).optional(),
+              }),
+            )
             .max(PANEL_TOOLBAR_MAX_TABS)
             .optional(),
           actions: z

@@ -144,6 +144,12 @@ export class ExtensionHost {
       deps,
       runtimeOf: (identity, conn) => this.runtimeOf(identity, conn),
       commandsOf: (rt) => this.commandsOf(rt),
+      sendEvent: (extId, type, payload) => {
+        const conn = this.runtimes.get(extId)?.conn
+        if (!conn) return false
+        void conn.sendNotification('ext.event', { type, payload }).catch(() => {})
+        return true
+      },
     })
     this.assistant = new ExtensionAssist({
       deps,

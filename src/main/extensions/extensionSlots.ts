@@ -6,6 +6,12 @@ import {
   type ExtensionIcon,
   type ExtensionResult,
   type ExtensionSidebarItem,
+  INBOX_ACTION_EVENT,
+  INBOX_ITEMS_MAX,
+  INBOX_TEXT_MAX,
+  type InboxActionEvent,
+  type InboxEntry,
+  type InboxItem,
   PANE_CHIP_ITEMS_MAX,
   PANE_CHIP_TEXT_MAX,
   PANE_CHIP_TOOLTIP_MAX,
@@ -34,10 +40,15 @@ const MAX_PANEL_TOOLBARS = 32
 
 const SIDEBAR_TEXT_MAX = 80
 
+const MAX_INBOX_ENTRIES = 32
+
+const INBOX_ID_PATTERN = /^[a-z2-7]{10}$/
+
 export interface ExtensionSlotsHost {
   deps: Pick<ExtensionHostDeps, 'broadcast' | 'publishWorkspaceChips' | 'workDirForWorkspace'>
   runtimeOf(identity: PaneIdentity, conn: MessageConnection): Runtime
   commandsOf(rt: Runtime): ExtensionCommandContribution[]
+  sendEvent(extId: string, type: string, payload: unknown): boolean
 }
 
 export class ExtensionSlots {
@@ -50,6 +61,8 @@ export class ExtensionSlots {
   private workspaceChipSlots = new Map<string, WorkspaceChip>()
 
   private panelToolbars = new Map<string, PanelToolbarEntry>()
+
+  private inbox = new Map<string, InboxEntry>()
 
   sidebarItems(): ExtensionSidebarItem[] {
     return [...this.sidebar.values()]
@@ -99,6 +112,79 @@ export class ExtensionSlots {
 
   clearWorkspaceChips(workspaceId: string): void {
     this.clearWorkspaceChipsWhere((chip) => chip.workspaceId === workspaceId)
+  }
+
+  inboxEntries(): InboxEntry[] {
+    return [...this.inbox.values()]
+  }
+
+  holdsInboxItem(extId: string, workspaceId: string, id: string): boolean {
+    return (
+      this.inbox.get(`${extId}\u0000${workspaceId}`)?.items.some((item) => item.id === id) === true
+    )
+  }
+
+  inboxAction(extId: string, workspaceId: string, id: string): boolean {
+    if (!this.holdsInboxItem(extId, workspaceId, id)) return false
+    const payload: InboxActionEvent = { workspaceId, id, action: 'done' }
+    return this.host.sendEvent(extId, INBOX_ACTION_EVENT, payload)
+  }
+
+  private inboxChanged(): void {
+    this.host.deps.broadcast('extensions:inbox', this.inboxEntries())
+  }
+
+  clearInboxWhere(match: (entry: InboxEntry) => boolean): void {
+    let removed = false
+    for (const [slot, entry] of this.inbox) {
+      if (match(entry)) {
+        this.inbox.delete(slot)
+        removed = true
+      }
+    }
+    if (removed) this.inboxChanged()
+  }
+
+  setInboxItems(identity: PaneIdentity, conn: MessageConnection, params: unknown) {
+    const rt = this.host.runtimeOf(identity, conn)
+    const extId = rt.ext.manifest.id
+    if (!rt.ext.builtin) return fail('builtin-only', 'only a built-in extension has an inbox')
+    const tabs = rt.ext.manifest.contributes.panel?.toolbar?.tabs ?? []
+    if (!tabs.some((tab) => tab.surface === 'inbox')) {
+      return fail('not-contributed', 'manifest does not contribute an inbox tab')
+    }
+    const p = (params ?? {}) as Record<string, unknown>
+    const workspaceId = typeof p.workspaceId === 'string' ? p.workspaceId : ''
+    if (!workspaceId || this.host.deps.workDirForWorkspace(workspaceId) === undefined) {
+      return fail('unknown-workspace', 'workspaceId is not an open workspace')
+    }
+    if (!Array.isArray(p.items) || p.items.length > INBOX_ITEMS_MAX) {
+      return fail('invalid-params', `items must be an array of at most ${INBOX_ITEMS_MAX}`)
+    }
+    const items: InboxItem[] = []
+    for (const raw of p.items) {
+      const item = inboxItemOf(raw)
+      if (!item) return fail('invalid-params', 'an item needs an id, text and a time')
+      if (items.some((known) => known.id === item.id)) {
+        return fail('invalid-params', `duplicate item ${item.id}`)
+      }
+      if (item.paneId !== undefined) {
+        const found = resolveExternal(item.paneId)
+        if (found?.kind === 'pane' && found.workspaceId === workspaceId) item.paneId = found.paneId
+        else delete item.paneId
+      }
+      items.push(item)
+    }
+    const slot = `${extId}\u0000${workspaceId}`
+    if (items.length === 0) {
+      if (this.inbox.delete(slot)) this.inboxChanged()
+      return { ok: true }
+    }
+    const count = [...this.inbox.values()].filter((e) => e.extId === extId).length
+    if (!this.inbox.has(slot) && count >= MAX_INBOX_ENTRIES) return fail('too-many-items')
+    this.inbox.set(slot, { extId, workspaceId, items })
+    this.inboxChanged()
+    return { ok: true }
   }
 
   panelToolbarEntries(): PanelToolbarEntry[] {
@@ -320,4 +406,15 @@ export class ExtensionSlots {
     const p = (params ?? {}) as Record<string, unknown>
     return this.setWorkspaceChip(identity, conn, { workspaceId: p.workspaceId, id: p.id, text: '' })
   }
+}
+
+function inboxItemOf(raw: unknown): InboxItem | null {
+  if (!isRecord(raw)) return null
+  const { id, text, paneId, at } = raw
+  if (typeof id !== 'string' || !INBOX_ID_PATTERN.test(id)) return null
+  const clean = typeof text === 'string' ? text.replace(/\s+/g, ' ').trim() : ''
+  if (clean === '' || typeof at !== 'number' || !Number.isFinite(at)) return null
+  const item: InboxItem = { id, text: [...clean].slice(0, INBOX_TEXT_MAX).join(''), at }
+  if (typeof paneId === 'string' && paneId !== '') item.paneId = paneId
+  return item
 }

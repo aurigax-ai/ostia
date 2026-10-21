@@ -11,7 +11,12 @@ import type {
   ExtensionEventType,
   ExtensionSettingValues,
 } from '../contract/extensions'
-import { ASSIST_PROVIDERS_CHANGED_EVENT, SETTINGS_CHANGED_EVENT } from '../contract/extensions'
+import {
+  ASSIST_PROVIDERS_CHANGED_EVENT,
+  INBOX_ACTION_EVENT,
+  type InboxActionEvent,
+  SETTINGS_CHANGED_EVENT,
+} from '../contract/extensions'
 import { FOLDER_CLOSED_EVENT, type RemoteFilesRequest } from '../contract/remoteFolders'
 import { type BrowseProvider, listenForBrowse } from './browse'
 import type {
@@ -42,6 +47,7 @@ export interface HostHandlers {
   models: AssistModelsHandler | null
   files: FilesHandler | null
   folderClosed: FolderClosedHandler | null
+  inboxAction: ((event: InboxActionEvent) => void) | null
   browse: Map<string, BrowseProvider>
 }
 
@@ -59,6 +65,7 @@ export function createHostHandlers(): HostHandlers {
     models: null,
     files: null,
     folderClosed: null,
+    inboxAction: null,
     browse: new Map<string, BrowseProvider>(),
   }
 }
@@ -180,6 +187,7 @@ export function listenToHost(conn: MessageConnection, handlers: HostHandlers): v
         | typeof LOCALE_CHANGED_EVENT
         | typeof ASSIST_PROVIDERS_CHANGED_EVENT
         | typeof FOLDER_CLOSED_EVENT
+        | typeof INBOX_ACTION_EVENT
         | typeof CONNECTIONS_CHANGED_EVENT
       payload: never
     }) => {
@@ -191,6 +199,8 @@ export function listenToHost(conn: MessageConnection, handlers: HostHandlers): v
         handlers.locale?.((params.payload as ExtensionLocaleChangedPayload).locale)
       } else if (params.type === CONNECTIONS_CHANGED_EVENT) {
         handlers.connections?.()
+      } else if (params.type === INBOX_ACTION_EVENT) {
+        handlers.inboxAction?.(params.payload as InboxActionEvent)
       } else if (params.type === FOLDER_CLOSED_EVENT) {
         handlers.folderClosed?.((params.payload as { folderId: string }).folderId)
       } else {
