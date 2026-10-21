@@ -358,7 +358,7 @@ other editors' keybindings. It is data only: a manifest entry and one JSON file,
   "id": "keymap-macos",
   "name": "macOS keymap (cmux)",
   "version": "1.0.0",
-  "api": "6.0",
+  "api": "7.0",
   "contributes": {
     "keymaps": [
       { "id": "cmux", "label": "macOS (cmux)", "path": "assets/cmux.json", "platform": "darwin" }
@@ -463,7 +463,7 @@ registration of text synchronization.
   "id": "lsp-pyright",
   "name": "Python (Pyright)",
   "version": "1.0.0",
-  "api": "6.0",
+  "api": "7.0",
   "category": "languages",
   "capabilities": ["language-server"],
   "contributes": {
@@ -687,7 +687,7 @@ folder or file your manifest doesn't name is not copied, and an extension withou
 ```json
 {
   "id": "review-kit",
-  "api": "6.0",
+  "api": "7.0",
   "capabilities": ["agent-plugin"],
   "main": "main.js",
   "contributes": {
@@ -1213,7 +1213,7 @@ refused. For a `url` panel Ostia hands the path to your process in `ext.panel` a
 full URL (keep your secret in it). Either way the result must pass the same check as any panel
 URL. Navigating keeps the existing panel and webview.
 
-The panel kit (`…/panel` and `panel.css`) draws the parts every panel repeats, in Ostia's own look: `quietButton(label, onClick, strong?)` is a borderless text button for the actions inside a section; `emptyState(text, action?, attrs?)` is one muted line with an optional inline action (the text carries its own punctuation); `listRow({title, meta?, detail?, actions?, attrs?})` is a plain row with its badge or state in `meta`, a second line in `detail` and its buttons under it. Their styles are the `.ostia-page` (the full-height column a panel's root uses), `button.quiet` (with `.strong`), `.ostia-empty` and `.ostia-row*` rules in `panel.css`, so a panel defines none of these itself. The page draws no toolbar, tab strip or close button: Ostia draws that row above it.
+The panel kit (`…/panel` and `panel.css`) draws the parts every panel repeats, in Ostia's own look: `quietButton(label, onClick, strong?)` is a borderless text button for the actions inside a section; `emptyState(text, action?, attrs?)` is one muted line with an optional inline action (the text carries its own punctuation); `listRow({title, meta?, detail?, actions?, attrs?})` is a plain row with its badge or state in `meta`, a second line in `detail` and its buttons under it. Their styles are the `.ostia-page` (the full-height column a panel's root uses), `.ostia-spacer` (a flex filler that pushes the rest of a row to the end), `button.quiet` (with `.strong`), `.ostia-empty` and `.ostia-row*` rules in `panel.css`, so a panel defines none of these itself. The page draws no toolbar, tab strip or close button: Ostia draws that row above it.
 
 ## Panel toolbar
 

@@ -5,16 +5,17 @@ import { describe, expect, it } from 'vitest'
 const extensions = join(__dirname, '..', 'src', 'extensions')
 const SDK_OWNED = [
   '.page',
+  '.ostia-page',
+  '.ostia-spacer',
   '.toolbar',
   '.spacer',
   '.tabs',
   '.ostia-toolbar',
   '.ostia-tabs',
-  '.ostia-spacer',
 ]
 const TAB_BUTTONS = ['button.tab', 'button.ostia-tab']
 const CORE_ROW_TOKENS =
-  /ostia-toolbar|ostia-tabs|ostia-tab\b|ostia-spacer|panelToolbar|panelTab|role: 'tablist'|class: 'toolbar'/
+  /ostia-toolbar|ostia-tabs|ostia-tab|panelToolbar|panelTab|role: 'tablist'|class: 'toolbar'/
 
 function panelStyles(): { id: string; css: string }[] {
   return readdirSync(extensions, { withFileTypes: true })

@@ -44,6 +44,7 @@ const PUSHED = [
   'extensions:open-diff',
   'extensions:open-panel',
   'extensions:open-terminal',
+  'extensions:panel-toolbar',
   'extensions:settings-stored',
   'extensions:sidebar',
   'extensions:workspace-chips',

@@ -248,7 +248,7 @@ export interface ExtensionInfo {
   unapproved: Capability[]
   verb?: string
   commands: ExtensionCommandContribution[]
-  panel: { title: string; icon?: ExtensionIcon } | null
+  panel: { title: string; icon?: ExtensionIcon; toolbar?: PanelToolbarContribution } | null
   paneChips: ExtensionChipContribution[]
   workspaceChips: ExtensionChipContribution[]
   settings: ExtensionSettingContribution[]

@@ -293,7 +293,7 @@ describe('loadAgentSkill', () => {
         id: 'kit',
         name: 'Kit',
         version: '1.0.0',
-        api: '6.0',
+        api: '7.0',
         capabilities: ['agent-plugin'],
         contributes: { agentSkills: [skill()] },
       },

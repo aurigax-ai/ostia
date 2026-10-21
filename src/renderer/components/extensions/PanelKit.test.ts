@@ -1,99 +1,19 @@
 import {
+  PANEL_TOOLBAR_EVENT,
+  PANEL_TOOLBAR_PATH,
+} from '@aurigax-ai/ostia-extension-sdk/contract/extensionsBridge'
+import {
   emptyState,
   h,
   listRow,
-  panelTab,
-  panelToolbar,
+  onPanelToolbar,
   quietButton,
+  setPanelToolbar,
 } from '@aurigax-ai/ostia-extension-sdk/panel'
 import { describe, expect, it, vi } from 'vitest'
 
 describe('panel kit', () => {
-  describe('panelToolbar', () => {
-    it('is nothing at all when it has neither a Back button nor actions, so no title row is left', () => {
-      expect(panelToolbar({})).toBeNull()
-      expect(panelToolbar({ actions: [] })).toBeNull()
-    })
-
-    it('is a Back button alone, with no title, that calls back', () => {
-      const onClick = vi.fn()
-      const bar = panelToolbar({ back: { label: 'Back', onClick } })
-      expect(bar?.className).toBe('ostia-toolbar')
-      expect(bar?.querySelector('h1, h2')).toBeNull()
-      const button = bar?.querySelector('button') as HTMLButtonElement
-      expect(button.textContent).toBe('Back')
-      button.click()
-      expect(onClick).toHaveBeenCalledTimes(1)
-    })
-
-    it('puts the actions after the Back button', () => {
-      const action = h('button', {}, 'Refresh')
-      const bar = panelToolbar({ back: { label: 'Back', onClick: () => {} }, actions: [action] })
-      expect([...(bar?.querySelectorAll('button') ?? [])].map((b) => b.textContent)).toEqual([
-        'Back',
-        'Refresh',
-      ])
-    })
-  })
-
-  describe('tabs and quiet buttons', () => {
-    it('puts a tablist before the actions, and is a bar with tabs alone', () => {
-      const bar = panelToolbar({
-        tabs: [panelTab('Rules', true, () => {}), panelTab('Prompts', false, () => {})],
-        actions: [h('button', {}, 'Add')],
-      })
-      expect(bar?.className).toBe('ostia-toolbar ostia-toolbar-tabs')
-      expect(bar?.querySelector('[role="tablist"].ostia-tabs')).not.toBeNull()
-      expect([...(bar?.querySelectorAll('button') ?? [])].map((b) => b.textContent)).toEqual([
-        'Rules',
-        'Prompts',
-        'Add',
-      ])
-      expect(panelToolbar({ tabs: [panelTab('Rules', true, () => {})] })).not.toBeNull()
-    })
-
-    it('marks only the current tab selected and focusable, and calls its handler', () => {
-      const onClick = vi.fn()
-      const current = panelTab('Rules', true, onClick)
-      const other = panelTab('Prompts', false, () => {})
-      expect(current.getAttribute('role')).toBe('tab')
-      expect(current.getAttribute('aria-selected')).toBe('true')
-      expect(current.tabIndex).toBe(0)
-      expect(other.getAttribute('aria-selected')).toBe('false')
-      expect(other.tabIndex).toBe(-1)
-      expect(current.className).toBe('ostia-tab')
-      current.click()
-      expect(onClick).toHaveBeenCalledTimes(1)
-    })
-
-    it('moves focus between tabs with the arrow, Home and End keys, wrapping at the ends', () => {
-      const bar = panelToolbar({
-        tabs: [
-          panelTab('Rules', true, () => {}),
-          panelTab('Prompts', false, () => {}),
-          panelTab('Scoreboard', false, () => {}),
-        ],
-      }) as HTMLElement
-      document.body.append(bar)
-      const tabs = [...bar.querySelectorAll<HTMLElement>('[role="tab"]')]
-      const press = (key: string): void => {
-        document.activeElement?.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true }))
-      }
-      tabs[0]?.focus()
-      press('ArrowRight')
-      expect(document.activeElement).toBe(tabs[1])
-      expect(tabs.map((t) => t.tabIndex)).toEqual([-1, 0, -1])
-      press('End')
-      expect(document.activeElement).toBe(tabs[2])
-      press('ArrowRight')
-      expect(document.activeElement).toBe(tabs[0])
-      press('ArrowLeft')
-      expect(document.activeElement).toBe(tabs[2])
-      press('Home')
-      expect(document.activeElement).toBe(tabs[0])
-      bar.remove()
-    })
-
+  describe('quietButton', () => {
     it('draws a quiet button, stronger when asked, that passes its event on', () => {
       const onClick = vi.fn()
       const quiet = quietButton('Find rules', onClick)
@@ -102,6 +22,37 @@ describe('panel kit', () => {
       expect(strong.className).toBe('quiet strong')
       quiet.click()
       expect(onClick.mock.calls[0]?.[0]).toBeInstanceOf(Event)
+    })
+  })
+
+  describe('panel toolbar', () => {
+    it('posts the state with the workspace once and skips an identical call', () => {
+      const fetcher = vi.fn().mockResolvedValue({ ok: true })
+      vi.stubGlobal('fetch', fetcher)
+      setPanelToolbar({ tab: 'vault', badges: { vault: 2 } })
+      setPanelToolbar({ tab: 'vault', badges: { vault: 2 } })
+      setPanelToolbar({ back: 'ACME-41' })
+      expect(fetcher).toHaveBeenCalledTimes(2)
+      expect(fetcher.mock.calls[0]?.[0]).toBe(PANEL_TOOLBAR_PATH)
+      expect(JSON.parse(fetcher.mock.calls[0]?.[1].body)).toEqual({
+        workspaceId: '',
+        tab: 'vault',
+        badges: { vault: 2 },
+      })
+      vi.unstubAllGlobals()
+    })
+
+    it('hands the clicks the host dispatches to the page', () => {
+      const seen = vi.fn()
+      onPanelToolbar(seen)
+      window.dispatchEvent(
+        new CustomEvent(PANEL_TOOLBAR_EVENT, { detail: { kind: 'tab', id: 'vault' } }),
+      )
+      window.dispatchEvent(new CustomEvent(PANEL_TOOLBAR_EVENT, { detail: { kind: 'back' } }))
+      expect(seen.mock.calls.map((c) => c[0])).toEqual([
+        { kind: 'tab', id: 'vault' },
+        { kind: 'back' },
+      ])
     })
   })
 

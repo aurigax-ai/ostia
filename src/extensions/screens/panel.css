@@ -17,10 +17,6 @@ body {
   gap: 8px;
 }
 
-.spacer {
-  flex: 1 1 auto;
-}
-
 .screens {
   display: flex;
   flex-direction: column;

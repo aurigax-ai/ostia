@@ -434,6 +434,10 @@ input[type="radio"]:focus-visible {
   visibility: hidden;
 }
 
+.ostia-spacer {
+  flex: 1;
+}
+
 .ostia-page {
   display: flex;
   flex-direction: column;

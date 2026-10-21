@@ -9,7 +9,7 @@ import { discoverExtensions, parseManifest, readManifest } from './extensionMani
 const DIR = '/ext/demo'
 
 function manifest(extra: Record<string, unknown> = {}): Record<string, unknown> {
-  return { id: 'demo', name: 'Demo', version: '1.0.0', api: '6.0', main: 'main.js', ...extra }
+  return { id: 'demo', name: 'Demo', version: '1.0.0', api: '7.0', main: 'main.js', ...extra }
 }
 
 describe('parseManifest', () => {
@@ -35,7 +35,7 @@ describe('parseManifest', () => {
         id: 'demo',
         name: 'Demo',
         version: '1.0.0',
-        api: '6.0',
+        api: '7.0',
         description: 'd',
         category: 'other',
         capabilities: ['notify', 'read-board'],
@@ -100,7 +100,7 @@ describe('parseManifest', () => {
           id: 'demo',
           name: 'Demo',
           version: '1',
-          api: '6.0',
+          api: '7.0',
           capabilities: ['assist'],
           contributes: { assist: ['chat'] },
         },
@@ -263,7 +263,7 @@ describe('parseManifest', () => {
     const settings = {
       mode: { type: 'enum', values: ['basic', 'strict'], default: 'basic', description: 'Mode' },
     }
-    const base = { id: 'lsp-demo', name: 'Demo', version: '1.0.0', api: '6.0' }
+    const base = { id: 'lsp-demo', name: 'Demo', version: '1.0.0', api: '7.0' }
     const res = parseManifest(
       {
         ...base,
@@ -386,7 +386,7 @@ describe('parseManifest', () => {
       id: 'demo',
       name: 'Demo',
       version: '1',
-      api: '6.0',
+      api: '7.0',
       contributes: { paneChips: [{ id: 'a', title: 'A' }] },
     }
     expect(parseManifest(noMain, DIR).ok).toBe(false)
@@ -523,7 +523,7 @@ describe('parseManifest', () => {
       id: 'demo',
       name: 'Demo',
       version: '1',
-      api: '6.0',
+      api: '7.0',
       contributes: { sidebarItems: true },
     }
     expect(parseManifest(noMain, DIR).ok).toBe(false)
@@ -535,7 +535,7 @@ describe('parseManifest', () => {
         id: 'static',
         name: 'S',
         version: '1',
-        api: '6.0',
+        api: '7.0',
         contributes: { panel: { title: 'S', entry: 'p.html' } },
       },
       DIR,
@@ -640,7 +640,7 @@ describe('parseManifest — locales', () => {
 
 describe('parseManifest — snippets', () => {
   it('accepts snippets without a main process and validates each one', () => {
-    const noMain = { id: 'demo', name: 'Demo', version: '1', api: '6.0' }
+    const noMain = { id: 'demo', name: 'Demo', version: '1', api: '7.0' }
     const res = parseManifest(
       {
         ...noMain,
@@ -673,7 +673,7 @@ describe('parseManifest — snippets', () => {
 
 describe('parseManifest — completions', () => {
   it('accepts a completion spec folder inside the extension without a main process', () => {
-    const noMain = { id: 'specs', name: 'Specs', version: '1', api: '6.0' }
+    const noMain = { id: 'specs', name: 'Specs', version: '1', api: '7.0' }
     const res = parseManifest({ ...noMain, contributes: { completions: 'specs' } }, DIR)
     if (!res.ok) throw new Error(res.error)
     expect(res.manifest.contributes.completions).toBe('specs')
@@ -687,7 +687,7 @@ describe('parseManifest — completions', () => {
 })
 
 describe('parseManifest — icon themes', () => {
-  const noMain = { id: 'icons', name: 'Icons', version: '1', api: '6.0' }
+  const noMain = { id: 'icons', name: 'Icons', version: '1', api: '7.0' }
   const theme = { id: 'material-icon-theme', label: 'Material', path: 'dist/theme.json' }
 
   it('accepts icon themes without a main process', () => {
@@ -736,7 +736,7 @@ describe('parseManifest — icon themes', () => {
 })
 
 describe('parseManifest — keymaps', () => {
-  const noMain = { id: 'keys', name: 'Keys', version: '1', api: '6.0' }
+  const noMain = { id: 'keys', name: 'Keys', version: '1', api: '7.0' }
   const keymap = { id: 'cmux', label: 'macOS (cmux)', path: 'keymaps/cmux.json' }
   const keymaps = (list: unknown) =>
     parseManifest({ ...noMain, contributes: { keymaps: list } }, DIR)
@@ -981,7 +981,7 @@ describe('discoverExtensions', () => {
     const dir = root({
       good: manifest({ id: 'good' }),
       broken: '{ not json',
-      invalid: { id: 'Bad Id', name: 'x', version: '1', api: '6.0' },
+      invalid: { id: 'Bad Id', name: 'x', version: '1', api: '7.0' },
     })
     mkdirSync(join(dir, 'no-manifest'))
     const errors: string[] = []
