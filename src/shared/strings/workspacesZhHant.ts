@@ -262,7 +262,7 @@ export const workspacesZhHant: typeof workspacesEn = {
       scratch: '暫存工作區不會保留任何內容',
       subagent: '子代理程式仍在執行',
       'too-many': '此工作區已有 25 個暫放的工作階段；請先取消暫放一個',
-      unavailable: 'Ostia 無法完成',
+      unavailable: '無法完成',
       unknown: '無法檢查其程序',
       working: '代理程式正在工作',
       'workspace-closed': '工作區已關閉',

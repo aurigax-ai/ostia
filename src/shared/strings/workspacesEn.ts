@@ -265,7 +265,7 @@ export const workspacesEn = {
       scratch: 'a scratch workspace keeps nothing',
       subagent: 'a subagent is still running',
       'too-many': 'this workspace already has 25 parked sessions; unpark one first',
-      unavailable: 'Ostia could not do it',
+      unavailable: 'it could not be done',
       unknown: 'its processes could not be checked',
       working: 'the agent is working',
       'workspace-closed': 'the workspace is closed',
