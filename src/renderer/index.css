@@ -2534,14 +2534,6 @@
   min-height: 0;
 }
 
-.manager-notice {
-  flex: none;
-  padding: 4px 10px;
-  font-size: var(--text-ui-xs);
-  color: var(--fg-muted);
-  border-bottom: 1px solid var(--line);
-}
-
 .manager-host {
   overflow: auto;
 }
@@ -3105,17 +3097,6 @@ button.prompt-chip:hover {
   padding: 4px 6px 4px 10px;
   background: var(--surface-2);
   border-bottom: 1px solid var(--line);
-}
-
-.diff-title {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  color: var(--fg-muted);
-  font-family: var(--font-code);
-  font-size: var(--text-ui-sm);
 }
 
 .diff-body {

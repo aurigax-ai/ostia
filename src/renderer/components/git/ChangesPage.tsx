@@ -100,9 +100,6 @@ export function ChangesPage({
             <span className="spacer" />
             <ViewToggle />
           </header>
-          <div className="muted root" title={data.root}>
-            {data.root}
-          </div>
           <CommitBox
             canCommit={data.counts.staged > 0 && draft.trim().length > 0}
             draft={draft}

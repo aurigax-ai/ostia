@@ -185,7 +185,7 @@ describe('GitView', () => {
         'title',
         '2 to push, 1 to pull from origin/main',
       )
-      expect(root().querySelector('.root')).toHaveTextContent(ROOT)
+      expect(root().querySelector('.root')).toBeNull()
     })
 
     it('puts the branch and upstream names where the stylesheet truncates them and wraps the tracking line instead of overlapping the branch', async () => {
@@ -202,7 +202,6 @@ describe('GitView', () => {
       const names = block('.git-surface .branch-name,\n.git-surface .upstream-name')
       expect(names).toContain('overflow: hidden')
       expect(names).toContain('text-overflow: ellipsis')
-      expect(block('.git-surface .graph-toolbar')).toContain('flex-wrap: wrap')
       expect(block('.git-surface .head')).toContain('flex-wrap: wrap')
       expect(block('.git-surface .tracking')).toContain('max-width: 100%')
     })
@@ -464,7 +463,7 @@ describe('GitView', () => {
       })
       expect(git().changes).toHaveBeenCalledTimes(3)
 
-      await click(screen.getByRole('button', { name: 'Refresh' }))
+      await click(screen.getByRole('button', { name: /^Refresh/ }))
       expect(git().changes).toHaveBeenCalledTimes(4)
     })
 
@@ -664,6 +663,18 @@ describe('GitView', () => {
       expect(root().querySelector('.graph-row[data-sha$="000"]')).toBeNull()
     })
 
+    it('keeps the graph to one row: tabs left, scope menu and refresh right, tracking in the refresh tooltip', async () => {
+      showGraph()
+      await renderSettled(<GitView workspaceId="w1" paneId="p1" home="pane" />)
+      await openGraph()
+      await waitFor(() => expect(graphRow(HEAD)).not.toBeNull())
+      expect(root().querySelector('.tabs-end .scope-trigger')).not.toBeNull()
+      expect(root().querySelector('.graph-toolbar, .toolbar-branch, .tracking')).toBeNull()
+      expect(screen.getByRole('button', { name: /^Refresh/ })).toHaveAccessibleName(
+        /2 to push, 1 to pull from origin\/main/,
+      )
+    })
+
     it('changes the scope in main and in the settings', async () => {
       showGraph()
       vi.mocked(git().setScope).mockResolvedValue({ ok: true, data: { scope: { kind: 'all' } } })
@@ -782,6 +793,7 @@ describe('GitView', () => {
       expect(rows[1]).not.toHaveClass('blame-first')
       expect(rows[2].querySelector('.blame-text')).toHaveTextContent('three')
       expect(rows[2].querySelector('.blame-no')).toHaveTextContent('3')
+      expect(root().querySelector('.root')).toBeNull()
     })
 
     it('asks for a file when the blame page is opened without one', async () => {

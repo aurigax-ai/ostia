@@ -1,3 +1,4 @@
+import { type Dict, fmt } from '@shared/app/dict'
 import type {
   BranchInfo,
   BranchRef,
@@ -59,6 +60,14 @@ export function shortSha(sha: string): string {
 
 export function branchLabel(branch: BranchInfo, detached: string): string {
   return branch.head ?? `${branch.oid ? shortSha(branch.oid) : ''} (${detached})`
+}
+
+export function trackingTitle(t: Dict['git'], branch: BranchInfo): string {
+  if (!branch.upstream) return t.noUpstream
+  if (branch.ahead > 0 || branch.behind > 0) {
+    return fmt(t.aheadBehind, { ahead: branch.ahead, behind: branch.behind, name: branch.upstream })
+  }
+  return `${fmt(t.upstream, { name: branch.upstream })}: ${t.inSync}`
 }
 
 export type GraphEntry = { kind: 'worktree' } | { kind: 'commit'; commit: GraphCommit }

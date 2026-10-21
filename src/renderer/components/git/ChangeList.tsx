@@ -30,7 +30,7 @@ import { focusSibling } from '@/lib/app/rowFocus'
 import { fmt, useDict } from '@/lib/app/useDict'
 import { splitPath } from '@/lib/files/fileTree'
 import { buildFileTree, type TreeNode } from '@/lib/git/gitFileTree'
-import { AREA_ORDER, leaves, rowIndent } from '@/lib/git/gitView'
+import { AREA_ORDER, leaves, rowIndent, trackingTitle } from '@/lib/git/gitView'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 
 type GitDict = Dict['git']
@@ -114,9 +114,7 @@ export function Tracking({ branch }: { branch: BranchInfo }): JSX.Element {
   const t = useDict().git
   if (!branch.upstream) return <span className="tracking muted">{t.noUpstream}</span>
   const moved = branch.ahead > 0 || branch.behind > 0
-  const title = moved
-    ? fmt(t.aheadBehind, { ahead: branch.ahead, behind: branch.behind, name: branch.upstream })
-    : `${fmt(t.upstream, { name: branch.upstream })}: ${t.inSync}`
+  const title = trackingTitle(t, branch)
   return (
     <span className="tracking" title={title}>
       <span className="upstream muted">

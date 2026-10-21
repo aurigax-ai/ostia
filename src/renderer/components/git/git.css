@@ -66,6 +66,7 @@
 .git-surface .tabs-end {
   display: flex;
   align-items: center;
+  gap: 4px;
   padding: 0 6px;
   border-bottom: 1px solid var(--line);
 }
@@ -105,7 +106,7 @@
   padding: 32px 16px;
 }
 
-.git-surface :is(.branch, .toolbar-branch, .tracking, .scope-trigger, .caret, .folder-icon) svg {
+.git-surface :is(.branch, .tracking, .scope-trigger, .caret, .folder-icon) svg {
   flex: 0 0 auto;
   width: 16px;
   height: 16px;
@@ -210,8 +211,7 @@
   padding: 8px 8px 4px 12px;
 }
 
-.git-surface .branch,
-.git-surface .toolbar-branch {
+.git-surface .branch {
   display: inline-flex;
   flex: 0 1 auto;
   align-items: center;
@@ -230,8 +230,7 @@
   text-overflow: ellipsis;
 }
 
-.git-surface .branch svg,
-.git-surface .toolbar-branch svg {
+.git-surface .branch svg {
   color: var(--fg-muted);
 }
 
@@ -274,17 +273,6 @@
 
 .git-surface .tracking .synced {
   color: var(--fg-muted);
-}
-
-.git-surface .root {
-  flex: 0 0 auto;
-  padding: 0 12px 8px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-family: var(--font-code);
-  font-size: var(--text-ui-xs);
-  line-height: var(--text-ui-xs--line-height);
 }
 
 .git-surface .commit {
@@ -455,17 +443,6 @@
 
 .git-surface .code-U {
   color: var(--attn-fg);
-}
-
-.git-surface .graph-toolbar {
-  display: flex;
-  flex: 0 0 auto;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 4px 12px;
-  min-width: 0;
-  padding: 6px 8px;
-  border-bottom: 1px solid var(--line);
 }
 
 .git-surface button.scope-trigger {
