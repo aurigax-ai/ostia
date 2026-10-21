@@ -1,4 +1,4 @@
-import type { ExtensionCaller, OstiaExtension } from '@aurigax-ai/ostia-extension-sdk'
+import type { ExtensionCaller, OstiaExtension, ParkedItem } from '@aurigax-ai/ostia-extension-sdk'
 import { describe, expect, it, vi } from 'vitest'
 import type { ActivityEvent } from './hookEvent'
 import { Journal } from './journal'
@@ -20,11 +20,16 @@ function setup() {
   ])
   const listing = createOpenListing({ listWorkspaces, listPanes, now: () => now })
   const changed = vi.fn()
+  const parked: { items: ParkedItem[] } = { items: [] }
+  const parkedList = vi.fn(async () => ({ ok: true as const, items: parked.items }))
+  const parkedResume = vi.fn(async (_id: string) => ({ ok: true as const }))
+  const parkedForget = vi.fn(async (_id: string) => ({ ok: true as const }))
+  const remembered = new RememberStore({ dir: null, now: () => now })
   const commands = activityPanelCommands({
-    ext: {} as OstiaExtension,
+    ext: { parkedList, parkedResume, parkedForget } as unknown as OstiaExtension,
     journal,
     hostJournal,
-    remembered: new RememberStore({ dir: null, now: () => now }),
+    remembered,
     state: { showActivity: true, rememberDays: 14 },
     settingsLoaded: Promise.resolve(),
     listing,
@@ -51,6 +56,11 @@ function setup() {
     }
   return {
     journal,
+    remembered,
+    parked,
+    parkedResume,
+    parkedForget,
+    commands,
     listing,
     listWorkspaces,
     listPanes,
@@ -130,5 +140,107 @@ describe('snapshot', () => {
     s.listPanes.mockRejectedValueOnce(new Error('down'))
     expect(await s.snapshot()).toMatchObject({ ok: false, error: 'unavailable' })
     expect((await s.snapshot()).ok).toBe(true)
+  })
+})
+
+describe('parked sessions and remembered tasks in the snapshot', () => {
+  const item = (id: string, sessionId = 's1'): ParkedItem => ({
+    id,
+    workspaceId: 'w1',
+    agent: 'claude',
+    sessionId,
+    title: 'export-tests',
+    summary: 'Flaky on CI',
+    folder: '/home/u/work/api',
+    parkedAt: 1_000_000,
+  })
+
+  it('lists the workspace’s parked items with the tasks remembered for their session and a new revision when one is parked', async () => {
+    const s = setup()
+    const first = await s.snapshot()
+    s.parked.items = [item('parkeda001')]
+    s.remembered.add(
+      'w1',
+      {
+        v: 1,
+        id: 'taskaaaaaa',
+        t: 1_000_000,
+        pane: 'gone',
+        session: 's1',
+        agent: 'claude',
+        text: 'Bisect',
+        state: 'open',
+      },
+      false,
+    )
+    const next = (await s.snapshot(first.data.rev)) as unknown as {
+      data: {
+        parked: { id: string; tasks: number }[]
+        remember: { groups: { open: { where: string }[] } }
+      }
+    }
+    expect(next.data.parked).toEqual([expect.objectContaining({ id: 'parkeda001', tasks: 1 })])
+    expect(next.data.remember.groups.open[0]?.where).toBe('parked')
+  })
+
+  it('resumes and forgets only an item of the caller’s workspace and passes the refusal on', async () => {
+    const s = setup()
+    s.parked.items = [item('parkeda001')]
+    expect(await s.commands.parkedResume({ id: 'parkeda001' }, caller)).toEqual({ ok: true })
+    expect(s.parkedResume).toHaveBeenCalledWith('parkeda001')
+    expect(await s.commands.parkedForget({ id: 'parkeda001' }, caller)).toEqual({ ok: true })
+    expect(s.parkedForget).toHaveBeenCalledWith('parkeda001')
+    expect(await s.commands.parkedResume({ id: 'other00000' }, caller)).toMatchObject({
+      ok: false,
+      error: 'unknown-parked',
+    })
+    expect(await s.commands.parkedResume({}, caller)).toMatchObject({
+      ok: false,
+      error: 'invalid-args',
+    })
+    s.parkedResume.mockResolvedValueOnce({
+      ok: false,
+      error: 'folder-gone',
+      message: '/home/u/work/api',
+    } as never)
+    expect(await s.commands.parkedResume({ id: 'parkeda001' }, caller)).toEqual({
+      ok: false,
+      error: 'folder-gone',
+      message: '/home/u/work/api',
+    })
+  })
+
+  it('moves a remembered task between states for the caller’s workspace only', async () => {
+    const s = setup()
+    s.remembered.add(
+      'w1',
+      {
+        v: 1,
+        id: 'taskaaaaaa',
+        t: 1_000_000,
+        pane: 'p1',
+        session: 's1',
+        agent: 'claude',
+        text: 'Bisect',
+        state: 'open',
+      },
+      false,
+    )
+    expect(await s.commands.rememberState({ id: 'taskaaaaaa', state: 'done' }, caller)).toEqual({
+      ok: true,
+    })
+    expect(s.remembered.find('w1', 'taskaaaaaa')?.state).toBe('done')
+    expect(await s.commands.rememberState({ id: 'taskaaaaaa', state: 'open' }, caller)).toEqual({
+      ok: true,
+    })
+    expect(s.remembered.find('w1', 'taskaaaaaa')?.state).toBe('open')
+    expect(
+      await s.commands.rememberState({ id: 'taskaaaaaa', state: 'open' }, {
+        workspaceId: 'w2',
+      } as ExtensionCaller),
+    ).toMatchObject({ ok: false })
+    expect(
+      await s.commands.rememberState({ id: 'taskaaaaaa', state: 'gone' }, caller),
+    ).toMatchObject({ ok: false, error: 'invalid-args' })
   })
 })

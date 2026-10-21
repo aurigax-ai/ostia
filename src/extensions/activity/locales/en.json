@@ -82,6 +82,16 @@
     "remember.where.closed": "Pane closed",
     "remember.empty.open": "No remembered tasks. An agent keeps one with ostia activity remember.",
     "remember.empty.done": "Nothing is done yet.",
-    "remember.empty.archived": "Nothing is archived. Tasks move here after {count} days or when you archive them."
+    "remember.empty.archived": "Nothing is archived. Tasks move here after {count} days or when you archive them.",
+    "parked.resume": "Resume",
+    "parked.unpark": "Unpark",
+    "parked.tasks": "{count} tasks",
+    "parked.resuming": "Resuming in a new tab.",
+    "parked.empty": "Nothing is parked. Use Park tab in an agent tab’s menu to save it here.",
+    "parked.folderGone": "The folder {path} is gone. Resume needs it; nothing was opened.",
+    "parked.runningElsewhere": "This session is running in another tab ({tab}). Close it there, then resume.",
+    "parked.workspaceClosed": "This workspace is closed, so nothing was resumed.",
+    "parked.gone": "That item is no longer parked.",
+    "parked.failed": "Could not resume it: {reason}"
   }
 }

@@ -1,4 +1,7 @@
-import { emptyState, h, icon, quietButton } from '@aurigax-ai/ostia-extension-sdk/panel'
+import { emptyState, h, icon } from '@aurigax-ai/ostia-extension-sdk/panel'
+import archiveBox from '@phosphor-icons/core/regular/archive.svg'
+import arrowCounterClockwise from '@phosphor-icons/core/regular/arrow-counter-clockwise.svg'
+import check from '@phosphor-icons/core/regular/check.svg'
 import listChecks from '@phosphor-icons/core/regular/list-checks.svg'
 import robot from '@phosphor-icons/core/regular/robot.svg'
 import { createPatcher, type Item, type Row, setAttr, setText } from './listPatch'
@@ -68,6 +71,20 @@ function filtersRow(env: RememberEnv): Row<ViewItem> {
   }
 }
 
+function iconButton(svg: string, label: string, onClick: () => void, strong: boolean): HTMLElement {
+  return h(
+    'button',
+    {
+      class: strong ? 'quiet icon strong' : 'quiet icon',
+      type: 'button',
+      title: label,
+      'aria-label': label,
+      onClick,
+    },
+    icon(svg),
+  )
+}
+
 function itemRow(env: RememberEnv, filter: RememberState, days: number): Row<RememberRow> {
   const text = h('p', { class: 'note-text' })
   const age = h('time', { class: 'age muted' })
@@ -87,8 +104,8 @@ function itemRow(env: RememberEnv, filter: RememberState, days: number): Row<Rem
   )
   const el = h('li', { class: 'note-row item' }, icon(listChecks), body)
   let current: RememberRow | null = null
-  const button = (state: RememberState, label: string, strong: boolean): HTMLElement =>
-    quietButton(label, () => current && env.setState(current.id, state), strong)
+  const button = (state: RememberState, label: string, svg: string, strong: boolean): HTMLElement =>
+    iconButton(svg, label, () => current && env.setState(current.id, state), strong)
   const metaActions = meta.lastElementChild as HTMLElement
   return {
     el,
@@ -108,10 +125,10 @@ function itemRow(env: RememberEnv, filter: RememberState, days: number): Row<Rem
       const buttons =
         filter === 'open'
           ? [
-              button('done', env.t('remember.done'), true),
-              button('archived', env.t('remember.archive'), false),
+              button('done', env.t('remember.done'), check, true),
+              button('archived', env.t('remember.archive'), archiveBox, false),
             ]
-          : [button('open', env.t('remember.restore'), true)]
+          : [button('open', env.t('remember.restore'), arrowCounterClockwise, true)]
       const target = expiring ? metaActions : actions
       const other = expiring ? actions : metaActions
       other.replaceChildren()

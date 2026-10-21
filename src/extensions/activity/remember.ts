@@ -77,6 +77,14 @@ export class RememberStore {
     return this.items(workspaceId).find((item) => item.id === id) ?? null
   }
 
+  openBySession(workspaceId: string): Map<string, number> {
+    const counts = new Map<string, number>()
+    for (const item of this.items(workspaceId)) {
+      if (item.state === 'open') counts.set(item.session, (counts.get(item.session) ?? 0) + 1)
+    }
+    return counts
+  }
+
   openCount(workspaceId: string): number {
     return this.items(workspaceId).filter((item) => item.state === 'open').length
   }

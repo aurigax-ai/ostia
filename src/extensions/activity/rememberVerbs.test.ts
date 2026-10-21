@@ -1,4 +1,8 @@
-import type { ExtensionCaller, ExtensionResult } from '@aurigax-ai/ostia-extension-sdk'
+import type {
+  CommandHandler,
+  ExtensionCaller,
+  ExtensionResult,
+} from '@aurigax-ai/ostia-extension-sdk'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { Journal } from './journal'
 import { RememberStore } from './remember'
@@ -23,7 +27,7 @@ describe('ostia activity remember', () => {
   let sessions: Record<string, { agent: string; session: string } | null>
   let changes: number
   let redact: (texts: string[]) => Promise<string[] | null>
-  const verbs = () => {
+  const verbs = (): Record<string, CommandHandler> => {
     const remembered = rememberVerbs({
       store,
       now: () => NOW,

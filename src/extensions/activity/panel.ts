@@ -9,6 +9,8 @@ import {
 } from '@aurigax-ai/ostia-extension-sdk/panel'
 import en from './locales/en.json'
 import zhHant from './locales/zh-Hant.json'
+import { createParkedView } from './parkedRows'
+import type { ParkedView } from './parkedView'
 import type { RememberState } from './rememberItem'
 import { createRememberView } from './rememberRows'
 import type { RememberView } from './rememberView'
@@ -25,16 +27,20 @@ type Tab = 'activity' | 'parked' | 'remember'
 
 const root = document.getElementById('root') as HTMLElement
 const list = h('div', { class: 'list' })
-const rememberList = h('div', { class: 'list', hidden: true })
+const rememberList = h('div', { class: 'list' })
 const viewSwitch = h('div', { class: 'filters', role: 'group', 'aria-label': t('view.label') })
 const activityPage = h('main', { class: 'tab-page' }, viewSwitch, list)
 const rememberPage = h('main', { class: 'tab-page', hidden: true }, rememberList)
-let tab: Tab = 'activity'
+const parkedList = h('div', { class: 'list' })
+const parkedPage = h('main', { class: 'tab-page', hidden: true }, parkedList)
+const parkedLines = new Map<string, { text: string; error: boolean }>()
+let tab: Tab = new URLSearchParams(location.search).get('tab') === 'parked' ? 'parked' : 'activity'
 let rememberFilter: RememberState = 'open'
 const paneNotes = new Map<string, string>()
 const noteFailures = new Map<string, string>()
 const openGroups = new Set<string>()
-let model: (PanelModel & { rev: string; remember: RememberView }) | null = null
+let model: (PanelModel & { rev: string; remember: RememberView; parked: ParkedView[] }) | null =
+  null
 let loadError: string | null = null
 let localVersion = 0
 let refreshing = false
@@ -56,6 +62,13 @@ const env: RowEnv = {
 }
 
 const show = createListView(list, env)
+const showParked = createParkedView(parkedList, {
+  t,
+  now: Date.now,
+  resume: (id) => void parkedAct(id, 'parkedResume'),
+  forget: (id) => void parkedAct(id, 'parkedForget'),
+  line: (id) => parkedLines.get(id),
+})
 const showRemember = createRememberView(rememberList, {
   t,
   now: Date.now,
@@ -127,14 +140,19 @@ function render(): void {
     const { counts } = model.remember
     setPanelToolbar({
       tab,
-      badges: counts.open > 0 ? { remember: counts.open } : {},
+      badges: {
+        ...(model.parked.length > 0 ? { parked: model.parked.length } : {}),
+        ...(counts.open > 0 ? { remember: counts.open } : {}),
+      },
     })
     for (const button of viewSwitch.children) {
       setAttribute(button, model.showActivity)
     }
     showRemember(model.remember, rememberFilter)
+    showParked(model.parked)
   }
   activityPage.hidden = tab !== 'activity'
+  parkedPage.hidden = tab !== 'parked'
   rememberPage.hidden = tab !== 'remember'
   const next = content()
   if (next) show(next)
@@ -190,6 +208,29 @@ async function markDone(workspaceId: string, id: string): Promise<void> {
   else render()
 }
 
+function parkedFailure(res: { error: string; message?: string }): string {
+  if (res.error === 'folder-gone') return t('parked.folderGone', { path: res.message ?? '' })
+  if (res.error === 'running-elsewhere') {
+    return t('parked.runningElsewhere', { tab: res.message ?? '' })
+  }
+  if (res.error === 'workspace-closed') return t('parked.workspaceClosed')
+  if (res.error === 'unknown-parked') return t('parked.gone')
+  return t('parked.failed', { reason: errorText({ ok: false, ...res }) })
+}
+
+async function parkedAct(id: string, command: 'parkedResume' | 'parkedForget'): Promise<void> {
+  const res = await call(command, { id })
+  if (res.ok) {
+    if (command === 'parkedResume')
+      parkedLines.set(id, { text: t('parked.resuming'), error: false })
+    else parkedLines.delete(id)
+  } else {
+    parkedLines.set(id, { text: parkedFailure(res), error: true })
+  }
+  await refresh()
+  render()
+}
+
 async function setRememberState(id: string, state: RememberState): Promise<void> {
   await call('rememberState', { id, state })
   await refresh()
@@ -217,11 +258,11 @@ async function focusPane(
   render()
 }
 
-root.replaceChildren(h('div', { class: 'ostia-page' }, activityPage, rememberPage))
+root.replaceChildren(h('div', { class: 'ostia-page' }, activityPage, parkedPage, rememberPage))
 
 onPanelToolbar((event) => {
   if (event.kind !== 'tab') return
-  if (event.id === 'activity' || event.id === 'remember') {
+  if (event.id === 'activity' || event.id === 'parked' || event.id === 'remember') {
     tab = event.id
     render()
   }

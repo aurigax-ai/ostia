@@ -100,6 +100,16 @@
     "remember.where.closed": "窗格已關閉",
     "remember.empty.open": "沒有記住的任務。代理程式可用 ostia activity remember 記下一項。",
     "remember.empty.done": "還沒有完成的任務。",
-    "remember.empty.archived": "沒有封存的任務。任務會在 {count} 天後或你封存時移到這裡。"
+    "remember.empty.archived": "沒有封存的任務。任務會在 {count} 天後或你封存時移到這裡。",
+    "parked.resume": "接續",
+    "parked.unpark": "取消暫放",
+    "parked.tasks": "{count} 項任務",
+    "parked.resuming": "正在新分頁中接續。",
+    "parked.empty": "沒有暫放的項目。在代理程式分頁的選單中選「暫放分頁」即可存到這裡。",
+    "parked.folderGone": "資料夾 {path} 已不存在。接續需要它；沒有開啟任何東西。",
+    "parked.runningElsewhere": "這個工作階段正在另一個分頁（{tab}）中執行。請先在那裡關閉，再接續。",
+    "parked.workspaceClosed": "這個工作區已關閉，所以沒有接續。",
+    "parked.gone": "該項目已不在暫放中。",
+    "parked.failed": "無法接續：{reason}"
   }
 }

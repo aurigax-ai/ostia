@@ -80,12 +80,13 @@ async function main(): Promise<void> {
   const handlersReady = new Promise<void>((resolve) => {
     handlersAssigned = resolve
   })
-  ext.onPanel(async (caller) => {
+  ext.onPanel(async (caller, path) => {
     await handlersReady
     return {
       url: (await panelStarting).url({
         workspaceId: caller.workspaceId ?? '',
         locale: caller.locale ?? '',
+        ...(path === 'parked' ? { tab: 'parked' } : {}),
       }),
     }
   })

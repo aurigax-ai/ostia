@@ -9,6 +9,7 @@ import {
 import { isRecordId } from './hookEvent'
 import type { Journal } from './journal'
 import type { OpenListing } from './openListing'
+import { parkedView } from './parkedView'
 import type { RememberStore } from './remember'
 import { rememberView } from './rememberView'
 import type { PanelSnapshot } from './snapshot'
@@ -37,6 +38,8 @@ export function activityPanelCommands(deps: PanelCommandsDeps): Record<string, P
     const listed = await listing.read(workspaceId)
     if (!listed) return failure('unavailable')
     const workspace = listed.workspaces.find((w) => w.workspaceId === workspaceId)
+    const parkedList = await ext.parkedList(workspaceId).catch(() => null)
+    const parkedItems = parkedList?.ok ? parkedList.items : []
     const rev = [
       state.showActivity ? 1 : 0,
       workspace ? 1 : 0,
@@ -45,6 +48,7 @@ export function activityPanelCommands(deps: PanelCommandsDeps): Record<string, P
       hostJournal.revision(workspaceId),
       remembered.revision(workspaceId),
       state.rememberDays,
+      parkedItems.map((item) => `${item.id}${item.parkedAt}`).join(','),
     ].join('.')
     if (namedArgs(args).rev === rev) {
       const unchanged: PanelSnapshot = { unchanged: true }
@@ -61,11 +65,29 @@ export function activityPanelCommands(deps: PanelCommandsDeps): Record<string, P
       remember: rememberView(
         remembered.items(workspaceId),
         listed.panes,
-        new Set(),
+        new Set(parkedItems.map((item) => item.sessionId)),
         state.rememberDays,
       ),
+      parked: parkedView(parkedItems, remembered.openBySession(workspaceId)),
     }
     return ok(undefined, model)
+  }
+
+  const parkedAct = async (
+    args: unknown,
+    caller: ExtensionCaller,
+    act: 'resume' | 'forget',
+  ): Promise<ExtensionResult> => {
+    const { id } = namedArgs(args)
+    const workspaceId = caller.workspaceId
+    if (!workspaceId || typeof id !== 'string') return failure('invalid-args')
+    const listed = await ext.parkedList(workspaceId).catch(() => null)
+    if (!listed?.ok || !listed.items.some((item) => item.id === id)) {
+      return failure('unknown-parked')
+    }
+    const res = await (act === 'resume' ? ext.parkedResume(id) : ext.parkedForget(id))
+    changed()
+    return res.ok ? ok() : failure(res.error, res.message)
   }
 
   return {
@@ -94,6 +116,8 @@ export function activityPanelCommands(deps: PanelCommandsDeps): Record<string, P
       changed()
       return ok()
     },
+    parkedResume: (args: unknown, caller: ExtensionCaller) => parkedAct(args, caller, 'resume'),
+    parkedForget: (args: unknown, caller: ExtensionCaller) => parkedAct(args, caller, 'forget'),
     done: async (args: unknown) => {
       const { workspaceId, id } = namedArgs(args)
       if (typeof workspaceId !== 'string' || !isRecordId(id)) return failure('invalid-args')
