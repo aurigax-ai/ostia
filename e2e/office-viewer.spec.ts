@@ -28,26 +28,30 @@ import {
   workbook,
 } from '../test/fixtures/office/workbooks'
 import { freshDataHome, isolatedLaunch } from './dataHome'
-import { fakeAgentBin, isolatedHome, startFakeAgent } from './fakeAgent'
+import { fakeAgentBin, startFakeAgent } from './fakeAgent'
 import { expectHeld, openWorkspace, shownTerminal, terminalTab } from './helpers'
 import { type ElectronApplication, _electron as electron, expect, type Page, test } from './test'
 import { viewerGuestDrag, viewerGuestRun, viewerGuestText } from './viewerGuest'
 
 const SHEET = 'office.spreadsheet'
+const CSV_ORDERS = 'city,count\nTaipei,3\n"Hsinchu, East",4\n'
 
 async function withApp(
-  files: Record<string, Uint8Array>,
+  files: Record<string, Uint8Array | string>,
   run: (win: Page, app: ElectronApplication) => Promise<void>,
+  options: { agent?: boolean } = {},
 ): Promise<void> {
   const dataHome = freshDataHome()
   const home = join(dataHome, 'home')
   mkdirSync(home, { recursive: true })
   for (const [name, bytes] of Object.entries(files)) writeFileSync(join(home, name), bytes)
   const launch = isolatedLaunch(dataHome)
-  const app = await electron.launch({ ...launch, env: { ...launch.env, HOME: home } })
+  const path = options.agent ? `${fakeAgentBin(dataHome)}:${launch.env.PATH}` : launch.env.PATH
+  const app = await electron.launch({ ...launch, env: { ...launch.env, HOME: home, PATH: path } })
   try {
     const win = await app.firstWindow()
     await openWorkspace(win)
+    if (options.agent) await startFakeAgent(win)
     await win.locator('.topbar').getByRole('button', { name: 'Files', exact: true }).click()
     await run(win, app)
   } finally {
@@ -72,7 +76,8 @@ function guestText(app: ElectronApplication, name: string) {
   return expect.poll(() => viewerGuestText(app, { viewType: SHEET, name }), { timeout: 20_000 })
 }
 
-test('an xlsx file opens in the spreadsheet viewer with its sheets as tabs', async () => {
+test('an xlsx file opens in the spreadsheet viewer with its sheets as tabs, and cells dragged copy as CSV and send as a report with the note', async () => {
+  test.setTimeout(180_000)
   const report = workbook(
     {
       Sales: [
@@ -87,20 +92,36 @@ test('an xlsx file opens in the spreadsheet viewer with its sheets as tabs', asy
       book.Sheets.Sales['!ref'] = 'A1:C2'
     },
   )
-  await withApp({ 'report.xlsx': report }, async (win, app) => {
-    await openSheet(win, 'report.xlsx')
-    await guestText(app, 'report.xlsx').toContain('North')
-    const shown = await viewerGuestText(app, { viewType: SHEET, name: 'report.xlsx' })
-    expect(shown).toContain('1234567.5')
-    expect(shown).toContain('12.50%')
-    expect(await win.locator('.monaco-editor:visible').count()).toBe(0)
-    await viewerGuestRun(
-      app,
-      { viewType: SHEET, name: 'report.xlsx' },
-      '[...document.querySelectorAll("[role=tab]")].find((b) => b.textContent === "Notes").click()',
-    )
-    await guestText(app, 'report.xlsx').toContain('Lee')
+  const forecast = workbook({
+    Q4: [
+      ['Region', 'Orders', 'Revenue'],
+      ['North', 412, 48210],
+      ['South', 305, 36120],
+      ['East', 210, 19800],
+    ],
   })
+  await withApp(
+    { 'report.xlsx': report, 'forecast.xlsx': forecast, 'orders.csv': CSV_ORDERS },
+    async (win, app) => {
+      await test.step('the sheets show as tabs', async () => {
+        await openSheet(win, 'report.xlsx')
+        await guestText(app, 'report.xlsx').toContain('North')
+        const shown = await viewerGuestText(app, { viewType: SHEET, name: 'report.xlsx' })
+        expect(shown).toContain('1234567.5')
+        expect(shown).toContain('12.50%')
+        expect(await win.locator('.monaco-editor:visible').count()).toBe(0)
+        await viewerGuestRun(
+          app,
+          { viewType: SHEET, name: 'report.xlsx' },
+          '[...document.querySelectorAll("[role=tab]")].find((b) => b.textContent === "Notes").click()',
+        )
+        await guestText(app, 'report.xlsx').toContain('Lee')
+      })
+      await test.step('cells are copied as CSV and sent as a report', () =>
+        cellsAreCopiedAndSent(win, app))
+    },
+    { agent: true },
+  )
 })
 
 test('a macro workbook, and a workbook and a document with external links, open without running or fetching anything', async () => {
@@ -329,114 +350,85 @@ async function cellBox(
   )) as { x: number; y: number; left: number; right: number; bottom: number }
 }
 
-test('cells dragged in a sheet or a table copy as CSV and send as a report with the note', async () => {
-  test.setTimeout(180_000)
-  const dataHome = freshDataHome()
-  const home = isolatedHome(dataHome)
-  writeFileSync(
-    join(home, 'forecast.xlsx'),
-    workbook({
-      Q4: [
-        ['Region', 'Orders', 'Revenue'],
-        ['North', 412, 48210],
-        ['South', 305, 36120],
-        ['East', 210, 19800],
-      ],
-    }),
+async function cellsAreCopiedAndSent(win: Page, app: ElectronApplication): Promise<void> {
+  const bar = win.getByRole('toolbar', { name: 'Selection actions' })
+  const webview = win.locator('[data-testid="file-viewer"]:visible webview')
+
+  await openSheet(win, 'forecast.xlsx')
+  const sheet = { viewType: SHEET, name: 'forecast.xlsx' }
+  await guestText(app, 'forecast.xlsx').toContain('South')
+  const from = await cellBox(app, sheet, 0, 0)
+  const to = await cellBox(app, sheet, 2, 2)
+  await viewerGuestDrag(app, sheet, from, to)
+  await expect(bar).toBeVisible({ timeout: 15_000 })
+  const frame = await webview.boundingBox()
+  const barBox = await bar.boundingBox()
+  if (!frame || !barBox) throw new Error('the viewer or the bar has no box')
+  expect(barBox.y).toBeGreaterThanOrEqual(frame.y + to.bottom - 2)
+  expect(barBox.x).toBeGreaterThanOrEqual(frame.x + from.left - 2)
+  expect(barBox.x).toBeLessThanOrEqual(frame.x + to.right)
+
+  await bar.getByRole('button', { name: 'Copy' }).click()
+  await expect(win.getByText('Copied Q4!A1:C3 (3 rows × 3 columns) as CSV.')).toBeVisible()
+  const copied = await readClipboard(app)
+  expect(copied.text).toBe('Region,Orders,Revenue\nNorth,412,48210\nSouth,305,36120')
+  expect(copied.html).toContain('<table>')
+  expect(copied.html).toContain('<td>North</td>')
+  expect(copied.html).toContain('<td>48210</td>')
+  expect(copied.hasImage).toBe(false)
+
+  await viewerGuestDrag(app, sheet, from, from)
+  await expect(bar).toBeVisible({ timeout: 15_000 })
+  const oneCellBar = await bar.boundingBox()
+  await viewerGuestDrag(app, sheet, from, to)
+  await expect
+    .poll(async () => (await bar.boundingBox())?.y ?? 0, { timeout: 15_000 })
+    .toBeGreaterThan((oneCellBar?.y ?? 0) + 20)
+  await bar.getByRole('button', { name: 'Add a note' }).click()
+  await win.getByRole('textbox', { name: 'Add a note' }).fill('Check the total')
+  await bar.getByRole('button', { name: 'Send to agent' }).click()
+  await win.getByRole('menuitem').first().click()
+
+  await terminalTab(win).click()
+  const terminal = shownTerminal(win).locator('.xterm-rows')
+  const pasted = /Check the total @(\S*selection-\d+\.md)/
+  await expect(terminal).toContainText(pasted, { timeout: 15_000 })
+  const reportPath = (((await terminal.textContent()) ?? '').match(pasted) as RegExpMatchArray)[1]
+  const report = readFileSync(reportPath, 'utf8')
+  expect(report).toContain('# Selected cells: ')
+  expect(report).toContain('forecast.xlsx › Q4 › A1:C3')
+  expect(report).toContain('3 rows × 3 columns')
+  expect(report).toContain('Check the total')
+  expect(report).toContain('```csv\nRegion,Orders,Revenue\nNorth,412,48210\nSouth,305,36120\n```')
+  await expectHeld(
+    async () => (((await terminal.textContent()) ?? '').match(/Check the total/g) ?? []).length,
+    1,
+    1_500,
+    'the reference is pasted and never submitted',
   )
-  writeFileSync(join(home, 'orders.csv'), 'city,count\nTaipei,3\n"Hsinchu, East",4\n')
-  const bin = fakeAgentBin(dataHome)
-  const launch = isolatedLaunch(dataHome)
-  const app = await electron.launch({
-    ...launch,
-    env: { ...launch.env, HOME: home, PATH: `${bin}:${launch.env.PATH}` },
-  })
-  try {
-    const win = await app.firstWindow()
-    await openWorkspace(win)
-    await startFakeAgent(win)
-    await win.locator('.topbar').getByRole('button', { name: 'Files', exact: true }).click()
-    const bar = win.getByRole('toolbar', { name: 'Selection actions' })
-    const webview = win.locator('[data-testid="file-viewer"]:visible webview')
 
-    await openSheet(win, 'forecast.xlsx')
-    const sheet = { viewType: SHEET, name: 'forecast.xlsx' }
-    await guestText(app, 'forecast.xlsx').toContain('South')
-    const from = await cellBox(app, sheet, 0, 0)
-    const to = await cellBox(app, sheet, 2, 2)
-    await viewerGuestDrag(app, sheet, from, to)
-    await expect(bar).toBeVisible({ timeout: 15_000 })
-    const frame = await webview.boundingBox()
-    const barBox = await bar.boundingBox()
-    if (!frame || !barBox) throw new Error('the viewer or the bar has no box')
-    expect(barBox.y).toBeGreaterThanOrEqual(frame.y + to.bottom - 2)
-    expect(barBox.x).toBeGreaterThanOrEqual(frame.x + from.left - 2)
-    expect(barBox.x).toBeLessThanOrEqual(frame.x + to.right)
-
-    await bar.getByRole('button', { name: 'Copy' }).click()
-    await expect(win.getByText('Copied Q4!A1:C3 (3 rows × 3 columns) as CSV.')).toBeVisible()
-    const copied = await readClipboard(app)
-    expect(copied.text).toBe('Region,Orders,Revenue\nNorth,412,48210\nSouth,305,36120')
-    expect(copied.html).toContain('<table>')
-    expect(copied.html).toContain('<td>North</td>')
-    expect(copied.html).toContain('<td>48210</td>')
-    expect(copied.hasImage).toBe(false)
-
-    await viewerGuestDrag(app, sheet, from, from)
-    await expect(bar).toBeVisible({ timeout: 15_000 })
-    const oneCellBar = await bar.boundingBox()
-    await viewerGuestDrag(app, sheet, from, to)
-    await expect
-      .poll(async () => (await bar.boundingBox())?.y ?? 0, { timeout: 15_000 })
-      .toBeGreaterThan((oneCellBar?.y ?? 0) + 20)
-    await bar.getByRole('button', { name: 'Add a note' }).click()
-    await win.getByRole('textbox', { name: 'Add a note' }).fill('Check the total')
-    await bar.getByRole('button', { name: 'Send to agent' }).click()
-    await win.getByRole('menuitem').first().click()
-
-    await terminalTab(win).click()
-    const terminal = shownTerminal(win).locator('.xterm-rows')
-    const pasted = /Check the total @(\S*selection-\d+\.md)/
-    await expect(terminal).toContainText(pasted, { timeout: 15_000 })
-    const reportPath = (((await terminal.textContent()) ?? '').match(pasted) as RegExpMatchArray)[1]
-    const report = readFileSync(reportPath, 'utf8')
-    expect(report).toContain('# Selected cells: ')
-    expect(report).toContain('forecast.xlsx › Q4 › A1:C3')
-    expect(report).toContain('3 rows × 3 columns')
-    expect(report).toContain('Check the total')
-    expect(report).toContain('```csv\nRegion,Orders,Revenue\nNorth,412,48210\nSouth,305,36120\n```')
-    await expectHeld(
-      async () => (((await terminal.textContent()) ?? '').match(/Check the total/g) ?? []).length,
-      1,
-      1_500,
-      'the reference is pasted and never submitted',
-    )
-
-    await win.locator('.file-row').filter({ hasText: 'orders.csv' }).click()
-    await win.locator('.pane-tab:visible').last().click({ button: 'right' })
-    await win.getByRole('menuitem', { name: 'Open With…' }).click()
-    await win.getByRole('radio', { name: 'Table' }).click()
-    await win.getByRole('button', { name: 'Open', exact: true }).click()
-    const table = { viewType: 'csv.table', name: 'orders.csv' }
-    await expect(win.locator('[data-testid="file-viewer"]:visible')).toHaveAttribute(
-      'data-view-type',
-      'csv.table',
-      { timeout: 15_000 },
-    )
-    await expect
-      .poll(() => viewerGuestText(app, table), { timeout: 20_000 })
-      .toContain('Hsinchu, East')
-    await viewerGuestDrag(
-      app,
-      table,
-      await cellBox(app, table, 0, 0),
-      await cellBox(app, table, 1, 1),
-    )
-    await expect(bar).toBeVisible({ timeout: 15_000 })
-    await bar.getByRole('button', { name: 'Copy' }).click()
-    await expect(win.getByText('Copied A2:B3 (2 rows × 2 columns) as CSV.')).toBeVisible()
-    expect((await readClipboard(app)).text).toBe('Taipei,3\n"Hsinchu, East",4')
-  } finally {
-    await app.close()
-  }
-})
+  await win.locator('.file-row').filter({ hasText: 'orders.csv' }).click()
+  await win.locator('.pane-tab:visible').last().click({ button: 'right' })
+  await win.getByRole('menuitem', { name: 'Open With…' }).click()
+  await win.getByRole('radio', { name: 'Table' }).click()
+  await win.getByRole('button', { name: 'Open', exact: true }).click()
+  const table = { viewType: 'csv.table', name: 'orders.csv' }
+  await expect(win.locator('[data-testid="file-viewer"]:visible')).toHaveAttribute(
+    'data-view-type',
+    'csv.table',
+    { timeout: 15_000 },
+  )
+  await expect
+    .poll(() => viewerGuestText(app, table), { timeout: 20_000 })
+    .toContain('Hsinchu, East')
+  await viewerGuestDrag(
+    app,
+    table,
+    await cellBox(app, table, 0, 0),
+    await cellBox(app, table, 1, 1),
+  )
+  await expect(bar).toBeVisible({ timeout: 15_000 })
+  await bar.getByRole('button', { name: 'Copy' }).click()
+  await expect(win.getByText('Copied A2:B3 (2 rows × 2 columns) as CSV.')).toBeVisible()
+  expect((await readClipboard(app)).text).toBe('Taipei,3\n"Hsinchu, East",4')
+}

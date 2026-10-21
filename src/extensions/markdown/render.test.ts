@@ -2,7 +2,7 @@ import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it, vi } from 'vitest'
 import { MermaidDiagram } from './diagram'
-import { markdownElement } from './render'
+import { linkHandlers, markdownElement } from './render'
 
 function html(source: string, diagram = vi.fn()): string {
   diagram.mockReturnValue(null)
@@ -71,5 +71,27 @@ describe('markdownElement', () => {
     )
     expect(out).toContain('<pre><code>graph TD\n  A--</code></pre>')
     expect(out).toContain('data-line-start="1"')
+  })
+})
+
+describe('linkHandlers', () => {
+  it('opens the link on a click and on Enter, and on nothing else', () => {
+    const onLink = vi.fn()
+    const handlers = linkHandlers('docs/other.md', onLink)
+    const prevent = vi.fn()
+    handlers.onClick({ preventDefault: prevent })
+    handlers.onKeyDown({ key: 'Enter', preventDefault: prevent })
+    expect(onLink).toHaveBeenCalledTimes(2)
+    expect(onLink).toHaveBeenCalledWith('docs/other.md')
+    expect(prevent).toHaveBeenCalledTimes(2)
+    handlers.onKeyDown({ key: ' ', preventDefault: prevent })
+    handlers.onKeyDown({ key: 'Tab', preventDefault: prevent })
+    expect(onLink).toHaveBeenCalledTimes(2)
+  })
+
+  it('does nothing for a link with no address', () => {
+    const onLink = vi.fn()
+    linkHandlers(undefined, onLink).onKeyDown({ key: 'Enter', preventDefault: () => {} })
+    expect(onLink).not.toHaveBeenCalled()
   })
 })

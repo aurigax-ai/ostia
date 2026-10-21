@@ -1,3 +1,5 @@
+import { VIEWER_TEXT_MAX } from '@aurigax-ai/ostia-extension-sdk/contract/viewerSelection'
+
 export interface SourceLines {
   startLine: number
   endLine: number
@@ -5,6 +7,7 @@ export interface SourceLines {
 
 export interface PreviewSelection extends SourceLines {
   text: string
+  shortened: boolean
   rect: { x: number; y: number; width: number; height: number }
 }
 
@@ -33,6 +36,11 @@ export function sourceLinesOf(range: Range, root: HTMLElement): SourceLines | nu
   return { startLine: Math.min(startLine, endLine), endLine: Math.max(startLine, endLine) }
 }
 
+function cutAtCharacter(text: string, max: number): string {
+  const last = text.charCodeAt(max - 1)
+  return text.slice(0, last >= 0xd800 && last <= 0xdbff ? max - 1 : max)
+}
+
 export function currentSelection(article: HTMLElement): PreviewSelection | null {
   const selection = article.ownerDocument.getSelection()
   if (!selection || selection.rangeCount === 0) return null
@@ -43,7 +51,13 @@ export function currentSelection(article: HTMLElement): PreviewSelection | null 
   const lines = sourceLinesOf(range, article)
   if (!lines) return null
   const { x, y, width, height } = range.getBoundingClientRect()
-  return { text, ...lines, rect: { x, y, width, height } }
+  const shortened = text.length > VIEWER_TEXT_MAX
+  return {
+    text: shortened ? cutAtCharacter(text, VIEWER_TEXT_MAX) : text,
+    shortened,
+    ...lines,
+    rect: { x, y, width, height },
+  }
 }
 
 export interface SelectionTracker {

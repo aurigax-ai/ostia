@@ -13,6 +13,7 @@ import { createRoot } from 'react-dom/client'
 import { createContents } from './contents'
 import { MermaidDiagram } from './diagram'
 import { createFinder } from './find'
+import { findKeyOf } from './findKeys'
 import { ICONS } from './icons'
 import { entryForFragment, type OutlineEntry, outlineOf } from './outline'
 import { markdownElement } from './render'
@@ -24,12 +25,11 @@ export interface PreviewView {
 }
 
 function findChord(): string {
-  return /Mac/i.test(navigator.platform) ? '⌘F' : 'Ctrl+F'
+  return isMac() ? '⌘F' : 'Ctrl+F'
 }
 
-function isFindKey(event: KeyboardEvent): boolean {
-  const mod = /Mac/i.test(navigator.platform) ? event.metaKey : event.ctrlKey
-  return mod && !event.shiftKey && !event.altKey && event.key.toLowerCase() === 'f'
+function isMac(): boolean {
+  return /Mac/i.test(navigator.platform)
 }
 
 export function createPreview(root: HTMLElement, t: Translate): PreviewView {
@@ -43,11 +43,15 @@ export function createPreview(root: HTMLElement, t: Translate): PreviewView {
     entry.element.scrollIntoView({ block: 'start' })
   }
   const contents = createContents({ title: t('contents'), empty: t('noHeadings') }, scrollTo)
-  root.replaceChildren(contents.element, page)
+  const notice = h('div', { class: 'markdown-notice', role: 'status' })
+  notice.hidden = true
+  root.replaceChildren(contents.element, page, notice)
 
   const finder = createFinder(article, (result) => pill?.find.setResult(result))
   const selection = trackSelection(article, {
     publish: (picked) => {
+      notice.textContent = picked.shortened ? t('selectionShortened') : ''
+      notice.hidden = !picked.shortened
       void publishSelection({
         capture: {
           kind: 'text',
@@ -59,6 +63,7 @@ export function createPreview(root: HTMLElement, t: Translate): PreviewView {
       })
     },
     clear: () => {
+      notice.hidden = true
       void clearSelection()
     },
   })
@@ -125,14 +130,11 @@ export function createPreview(root: HTMLElement, t: Translate): PreviewView {
   const tools = pill
 
   const onKeyDown = (event: KeyboardEvent): void => {
-    if (isFindKey(event)) {
-      event.preventDefault()
-      tools.find.open()
-    } else if (event.key === 'F3') {
-      event.preventDefault()
-      if (tools.find.isOpen()) finder.step(event.shiftKey ? -1 : 1)
-      else tools.find.open()
-    }
+    const action = findKeyOf(event, isMac())
+    if (!action) return
+    event.preventDefault()
+    if (action === 'open' || !tools.find.isOpen()) tools.find.open()
+    else finder.step(action === 'next' ? 1 : -1)
   }
   document.addEventListener('keydown', onKeyDown)
 

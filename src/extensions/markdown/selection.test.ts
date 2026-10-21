@@ -1,3 +1,4 @@
+import { VIEWER_TEXT_MAX } from '@aurigax-ai/ostia-extension-sdk/contract/viewerSelection'
 import { JSDOM } from 'jsdom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { currentSelection, sourceLinesOf, trackSelection } from './selection'
@@ -55,6 +56,7 @@ describe('currentSelection', () => {
     select(paragraph, 0, paragraph, 10)
     expect(currentSelection(article)).toEqual({
       text: 'First line',
+      shortened: false,
       startLine: 3,
       endLine: 4,
       rect: { x: 10, y: 20, width: 30, height: 12 },
@@ -68,6 +70,26 @@ describe('currentSelection', () => {
     const outside = window.document.querySelector('button')?.firstChild as Node
     select(outside, 0, outside, 3)
     expect(currentSelection(article)).toBeNull()
+  })
+})
+
+describe('a selection over the text cap', () => {
+  it('is cut to the cap and says so', () => {
+    const long = 'x'.repeat(VIEWER_TEXT_MAX + 10)
+    ;(article.querySelector('p') as HTMLElement).textContent = long
+    const paragraph = article.querySelector('p')?.firstChild as Node
+    select(paragraph, 0, paragraph, long.length)
+    const picked = currentSelection(article)
+    expect(picked?.shortened).toBe(true)
+    expect(picked?.text.length).toBe(VIEWER_TEXT_MAX)
+  })
+
+  it('never ends on half of a surrogate pair', () => {
+    const long = `${'x'.repeat(VIEWER_TEXT_MAX - 1)}😀tail`
+    ;(article.querySelector('p') as HTMLElement).textContent = long
+    const paragraph = article.querySelector('p')?.firstChild as Node
+    select(paragraph, 0, paragraph, long.length)
+    expect(currentSelection(article)?.text.length).toBe(VIEWER_TEXT_MAX - 1)
   })
 })
 
