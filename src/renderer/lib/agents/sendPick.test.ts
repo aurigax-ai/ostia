@@ -113,7 +113,7 @@ describe('sendPickToPane', () => {
     idlePrompt()
     const res = await send()
     expect(res).toEqual({ ok: true, path: REPORT, inserted: true })
-    expect(term.paste).toHaveBeenCalledWith(`@${REPORT} `)
+    expect(term.paste).toHaveBeenCalledWith(`Save is misaligned @${REPORT} `)
     expect(window.ostia.pty.write).not.toHaveBeenCalled()
     expect(writeText).not.toHaveBeenCalled()
   })
@@ -159,7 +159,7 @@ describe('sendPickToPane', () => {
       imagePath: SHOT,
     })
     await send()
-    expect(term.paste).toHaveBeenCalledWith(`@${REPORT} @${SHOT} `)
+    expect(term.paste).toHaveBeenCalledWith(`Save is misaligned @${REPORT} @${SHOT} `)
   })
 
   it('inserts only the report when the setting is off or there is no screenshot', async () => {
@@ -171,7 +171,7 @@ describe('sendPickToPane', () => {
       imagePath: SHOT,
     })
     await send('x', false)
-    expect(term.paste.mock.calls).toEqual([[`@${REPORT} `], [`@${REPORT} `]])
+    expect(term.paste.mock.calls).toEqual([[`Save is misaligned @${REPORT} `], [`x @${REPORT} `]])
   })
 
   it('copies both references when the pane is busy', async () => {
@@ -237,14 +237,14 @@ describe('sendRegionToPane', () => {
       note: 'the header overlaps',
     })
     expect(res).toEqual({ ok: true, path: REGION_REPORT, inserted: true })
-    expect(term.paste).toHaveBeenCalledWith(`@${REGION_REPORT} @${REGION_SHOT} `)
+    expect(term.paste).toHaveBeenCalledWith(`the header overlaps @${REGION_REPORT} @${REGION_SHOT} `)
     expect(window.ostia.pty.write).not.toHaveBeenCalled()
   })
 
   it('pastes only the report with the setting off', async () => {
     idlePrompt()
     await sendRegion(false)
-    expect(term.paste).toHaveBeenCalledWith(`@${REGION_REPORT} `)
+    expect(term.paste).toHaveBeenCalledWith(`the header overlaps @${REGION_REPORT} `)
   })
 })
 
@@ -338,7 +338,7 @@ describe('a target in the origin workspace of another window', () => {
     expect(window.ostia.windows.insertReference).toHaveBeenCalledWith({
       workspaceId: 'w-moved',
       paneId: REMOTE,
-      text: `@${REPORT} `,
+      text: `Save is misaligned @${REPORT} `,
       note: 'Save is misaligned',
     })
     expect(term.paste).not.toHaveBeenCalled()
@@ -479,7 +479,7 @@ describe('a reference is never followed by Enter', () => {
       const res = await send()
       await settle()
       expect(res.ok && res.inserted).toBe(true)
-      expect(term.paste.mock.calls).toEqual([[`@${REPORT} @${SHOT} `]])
+      expect(term.paste.mock.calls).toEqual([[`Save is misaligned @${REPORT} @${SHOT} `]])
       expect(window.ostia.pty.write).not.toHaveBeenCalled()
     })
 

@@ -93,19 +93,21 @@ test('a browser pane moved to its own window sends a picked element to the agent
       { url: pageUrl, x: box.x, y: box.y },
     )
 
-    const panel = detached.getByRole('region', { name: 'Send to agent' })
-    await expect(panel).toBeVisible({ timeout: 15_000 })
-    await expect(panel.getByRole('radio')).toHaveCount(1, { timeout: 15_000 })
-    await expect(panel).toContainText('other window')
-    await expect(panel).not.toContainText('No agent is running')
-    await panel.getByLabel('What’s wrong?').fill('Checkout button is misaligned')
-    await panel.getByRole('button', { name: 'Send' }).click()
+    const bar = detached.getByRole('toolbar', { name: 'Selection actions' })
+    await expect(bar).toBeVisible({ timeout: 15_000 })
+    await bar.getByRole('button', { name: 'Add a note' }).click()
+    await detached.getByRole('textbox', { name: 'Add a note' }).fill('Checkout button is misaligned')
+    await bar.getByRole('button', { name: 'Send to agent' }).click()
+    const targets = detached.getByRole('menuitem')
+    await expect(targets).toHaveCount(1, { timeout: 15_000 })
+    await expect(targets).toContainText('other window')
+    await targets.click()
 
     await expect(detached.getByText(/The report is at its prompt/)).toBeVisible({
       timeout: 15_000,
     })
     const terminal = win.locator('.xterm-rows').first()
-    await expect(terminal).toContainText(/agent-read: @\S*capture-\d+\S*\.md/, { timeout: 15_000 })
+    await expect(terminal).toContainText(/agent-read: [^@]*@\S*capture-\d+\S*\.md/, { timeout: 15_000 })
     await win.locator('.xterm').first().click()
     await win.keyboard.type('flush_marker')
     await win.keyboard.press('Enter')
@@ -113,13 +115,13 @@ test('a browser pane moved to its own window sends a picked element to the agent
     const reports = async (): Promise<{ lines: number; files: number }> => {
       const text = (await terminal.textContent()) ?? ''
       return {
-        lines: text.match(/agent-read: @\S*capture-\d+\S*\.md/g)?.length ?? 0,
+        lines: text.match(/agent-read: [^@]*@\S*capture-\d+\S*\.md/g)?.length ?? 0,
         files: new Set(text.match(/capture-\d+\S*\.md/g)).size,
       }
     }
     await expectHeld(reports, { lines: 1, files: 1 }, 2_000)
     const text = (await terminal.textContent()) ?? ''
-    const match = text.match(/agent-read: @(\S*capture-\d+\S*\.md)/)
+    const match = text.match(/agent-read: [^@]*@(\S*capture-\d+\S*\.md)/)
     const report = readFileSync((match as RegExpMatchArray)[1], 'utf8')
     expect(report).toContain('[data-testid="broken-button"]')
     expect(report).toContain('Checkout button is misaligned')
