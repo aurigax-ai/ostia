@@ -9,12 +9,14 @@ const exit = (code: number): string => `\x1b]133;D;${code}\x1b\\`
 
 function setup(platform: NodeJS.Platform) {
   let clock = 1_000_000
+  let mono = 5
   const ring = new PtyRingBuffer()
   const registry = new ProcessRegistry({
     ring: () => (from) => ring.since(from),
     workspaceOfPane: () => 'ws1',
     now: () => new Date(clock),
     platform,
+    monotonicMs: () => mono,
   })
   const entry = registry.add({
     name: 'tool',
@@ -31,8 +33,12 @@ function setup(platform: NodeJS.Platform) {
   }
   const advance = (ms: number): void => {
     clock += ms
+    mono += ms
   }
-  return { registry, entry, emit, advance }
+  const jumpWall = (ms: number): void => {
+    clock += ms
+  }
+  return { registry, entry, emit, advance, jumpWall }
 }
 
 function runFor(platform: NodeJS.Platform, ms: number, code: number) {
@@ -84,17 +90,46 @@ describe('ProcessRegistry Gatekeeper hint', () => {
     expect(registry.info(entry).hint).toBeUndefined()
   })
 
-  it('clears the hint when the process is run again', () => {
+  it('clears the hint and the timing when the process is run again', () => {
     const { registry, entry, emit, advance } = setup('darwin')
     emit(`${PROMPT}tool\r\n${C}`)
     advance(300)
     emit(`${exit(137)}${PROMPT}`)
     expect(registry.info(entry).hint).toBeDefined()
+    expect(entry.ranMs).toBe(300)
     registry.rerun(entry)
     expect(registry.info(entry).hint).toBeUndefined()
+    expect(entry.ranMs).toBeUndefined()
+    advance(60_000)
+    registry.shellEnded('tab-1', () => ({ data: '', cursor: 0, dropped: false }))
+    expect(entry.ranMs).toBeUndefined()
+    expect(registry.info(entry).hint).toBeUndefined()
+  })
+
+  it('times the second run on its own', () => {
+    const { registry, entry, emit, advance } = setup('darwin')
+    emit(`${PROMPT}tool\r\n${C}`)
+    advance(300)
+    emit(`${exit(137)}${PROMPT}`)
+    registry.rerun(entry)
     emit(`${PROMPT}tool\r\n${C}`)
     advance(60_000)
     emit(`${exit(137)}${PROMPT}`)
     expect(registry.info(entry).hint).toBeUndefined()
+  })
+
+  it('ignores a wall-clock jump while the command ran', () => {
+    const { registry, entry, emit, advance, jumpWall } = setup('darwin')
+    emit(`${PROMPT}tool\r\n${C}`)
+    advance(60_000)
+    jumpWall(-3_600_000)
+    emit(`${exit(137)}${PROMPT}`)
+    expect(registry.info(entry).hint).toBeUndefined()
+    const fast = setup('darwin')
+    fast.emit(`${PROMPT}tool\r\n${C}`)
+    fast.advance(500)
+    fast.jumpWall(3_600_000)
+    fast.emit(`${exit(137)}${PROMPT}`)
+    expect(fast.registry.info(fast.entry).hint).toBeDefined()
   })
 })

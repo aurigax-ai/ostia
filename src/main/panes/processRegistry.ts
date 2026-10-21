@@ -73,6 +73,7 @@ export interface RegistryDeps {
   workspaceOfPane: (paneId: string) => string | undefined
   now: () => Date
   platform?: NodeJS.Platform
+  monotonicMs?: () => number
   onChange?: (entry: ProcessEntry) => void
 }
 
@@ -169,7 +170,7 @@ export class ProcessRegistry {
     for (const mark of tracking.scanner.scan(data, endCursor)) {
       if (mark.kind === COMMAND_START && entry.status === 'starting') {
         entry.status = 'running'
-        entry.runningAt = this.deps.now().getTime()
+        entry.runningAt = this.monotonicMs()
         entry.outputStart = mark.end
         this.deps.onChange?.(entry)
       } else if (mark.kind === COMMAND_END && entry.status === 'running') {
@@ -357,6 +358,10 @@ export class ProcessRegistry {
     }
   }
 
+  private monotonicMs(): number {
+    return (this.deps.monotonicMs ?? (() => performance.now()))()
+  }
+
   private gatekeeperSuspected(entry: ProcessEntry): boolean {
     return (
       entry.status === 'exited' &&
@@ -383,7 +388,7 @@ export class ProcessRegistry {
     entry.status = 'exited'
     entry.exitCode = exitCode
     if (entry.runningAt !== undefined) {
-      entry.ranMs = this.deps.now().getTime() - entry.runningAt
+      entry.ranMs = this.monotonicMs() - entry.runningAt
     }
     if (entry.outputStart !== undefined) entry.outputEnd = Math.max(end, entry.outputStart)
     this.release(entry)

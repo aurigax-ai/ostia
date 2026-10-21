@@ -26,6 +26,6 @@ export function gatekeeperHint(product: string): string {
   return (
     `macOS Gatekeeper may have ended this process: it was killed (exit ${SIGKILL_EXIT_CODE}) within ${seconds} seconds of starting. ` +
     `If the program was just installed or upgraded, open System Settings > Privacy & Security > Developer Tools, ` +
-    `turn on ${product}, then run it again. Setting: ${DEVELOPER_TOOLS_SETTING_URL}`
+    `add or turn on ${product} (use the + button if it is not listed), then run it again. Setting: ${DEVELOPER_TOOLS_SETTING_URL}`
   )
 }

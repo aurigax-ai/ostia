@@ -43,7 +43,7 @@ describe('gatekeeperHint', () => {
     const hint = gatekeeperHint('Ostia')
     expect(hint).toContain('Gatekeeper may have ended')
     expect(hint).toContain('Privacy & Security > Developer Tools')
-    expect(hint).toContain('turn on Ostia')
+    expect(hint).toContain('add or turn on Ostia')
     expect(hint).toContain(DEVELOPER_TOOLS_SETTING_URL)
     expect(hint).toContain(`${GATEKEEPER_WINDOW_MS / 1000} seconds`)
   })
