@@ -16,7 +16,11 @@ import { useSandboxStore } from '@/stores/app/sandboxStore'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { type PanelRoute, useSidePanelStore } from '@/stores/app/sidePanelStore'
 import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
-import { toolbarStateOf, usePanelToolbarStore } from '@/stores/extensions/panelToolbarStore'
+import {
+  surfaceKey,
+  toolbarStateOf,
+  usePanelToolbarStore,
+} from '@/stores/extensions/panelToolbarStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 
 function hasPanel(ext: ExtensionInfo): boolean {
@@ -46,12 +50,19 @@ function PanelSlot({
   )
 }
 
-function inboxTabOf(ext: ExtensionInfo, shownTab: string | undefined): string | undefined {
+function inboxTabOf(
+  ext: ExtensionInfo,
+  shownTab: string | undefined,
+  chosen: boolean,
+): string | undefined {
   if (!ext.builtin) return undefined
   const tabs = ext.panel?.toolbar?.tabs ?? []
   const inbox = tabs.find((tab) => tab.surface === 'inbox')
-  const current = shownTab ?? tabs[0]?.id
-  return inbox && inbox.id === current ? inbox.id : undefined
+  if (!inbox) return undefined
+  const current = chosen
+    ? inbox.id
+    : (shownTab ?? tabs.find((tab) => tab.id !== inbox.id)?.id ?? tabs[0]?.id)
+  return inbox.id === current ? inbox.id : undefined
 }
 
 function ExtensionBody({
@@ -68,7 +79,10 @@ function ExtensionBody({
   hidden: boolean
 }): JSX.Element {
   const entries = usePanelToolbarStore((s) => s.entries)
-  const inbox = inboxTabOf(ext, toolbarStateOf(entries, ext.id, workspaceId).tab)
+  const chosen = usePanelToolbarStore(
+    (s) => s.surfaceChosen[surfaceKey(ext.id, workspaceId)] === true,
+  )
+  const inbox = inboxTabOf(ext, toolbarStateOf(entries, ext.id, workspaceId).tab, chosen)
   const webRef = useInert<HTMLDivElement>(inbox !== undefined)
   return (
     <div className="right-panel-content">

@@ -107,7 +107,7 @@ test('the Activity panel shows an agent’s recap, shows its events on the toggl
     expect(await text(app, '.note:not([hidden])')).toBe('')
     expect(await text(app, '.note-text')).toBe('')
     const panel = win.locator('#right-panel')
-    await panel.getByRole('tab', { name: /Inbox/ }).click()
+    await panel.getByRole('tab', { name: 'Inbox 1' }).click()
     const card = panel.locator('[data-inbox-note]')
     await expect(card).toContainText(NOTE, { timeout: 15_000 })
     await win.locator('.xterm-helper-textarea').first().blur()
@@ -171,7 +171,7 @@ test('a needs-you item an agent adds is counted in the sidebar and marked done b
 
     await openActivity(win)
     const panel = win.locator('#right-panel')
-    await panel.getByRole('tab', { name: /Inbox/ }).click()
+    await panel.getByRole('tab', { name: 'Inbox 1' }).click()
     const card = panel.locator('[data-inbox-note]')
     await expect(card).toContainText('Check the staging deploy', { timeout: 30_000 })
     await card.getByRole('button', { name: 'Mark done' }).click()

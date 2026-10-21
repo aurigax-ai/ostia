@@ -10,7 +10,11 @@ import { Tabs } from '@/components/ui/tabs'
 import { fmt, useDict } from '@/lib/app/useDict'
 import { sendPanelToolbarEvent } from '@/lib/extensions/panelWebviews'
 import { hideRightPanel } from '@/lib/panes/rightPanelFocus'
-import { toolbarStateOf, usePanelToolbarStore } from '@/stores/extensions/panelToolbarStore'
+import {
+  surfaceKey,
+  toolbarStateOf,
+  usePanelToolbarStore,
+} from '@/stores/extensions/panelToolbarStore'
 
 const ENTER_FOCUS_MS = 2000
 
@@ -61,7 +65,12 @@ export function PanelToolbar({
   const actions = bare ? [] : (ext.panel?.toolbar?.actions ?? [])
   const hidden = new Set(state.hidden)
   const disabled = new Set(state.disabled)
-  const tab = state.tab ?? tabs[0]?.id ?? ''
+  const surfaceTab = ext.builtin ? tabs.find((t) => t.surface === 'inbox')?.id : undefined
+  const surfaceChosen = usePanelToolbarStore(
+    (s) => s.surfaceChosen[surfaceKey(ext.id, workspaceId)],
+  )
+  const firstTab = tabs.find((t) => t.id !== surfaceTab)?.id ?? tabs[0]?.id ?? ''
+  const tab = (surfaceChosen ? surfaceTab : undefined) ?? state.tab ?? firstTab
   const row = useRef<HTMLDivElement>(null)
   const opener = useRef<Opener | null>(null)
   const hadBack = useRef(false)
@@ -103,7 +112,13 @@ export function PanelToolbar({
         <Tabs
           value={tab}
           onValueChange={(next) => {
-            usePanelToolbarStore.getState().selectTab(ext.id, workspaceId, String(next))
+            const store = usePanelToolbarStore.getState()
+            store.chooseSurface(
+              ext.id,
+              workspaceId,
+              surfaceTab !== undefined && next === surfaceTab,
+            )
+            store.selectTab(ext.id, workspaceId, String(next))
             sendPanelToolbarEvent(focusKey, { kind: 'tab', id: String(next) })
           }}
           className="h-full min-w-0 flex-1 gap-0 data-horizontal:flex-row"

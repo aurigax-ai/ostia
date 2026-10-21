@@ -547,6 +547,9 @@ describe('RightPanel', () => {
         items: [{ id: 'abcdefghij', text: 'Set the key', at: 2 }],
       },
     ])
+    usePanelToolbarStore.setState({
+      entries: [{ extId: 'activity', workspaceId: 'w1', state: { tab: 'inbox' } }],
+    })
     render(<RightPanel />)
     show('activity')
     await waitFor(() => expect(webviews()).toHaveLength(1))
@@ -563,6 +566,37 @@ describe('RightPanel', () => {
     expect(screen.queryByRole('list', { name: 'Inbox' })).toBeNull()
     expect(web).not.toHaveAttribute('data-hidden')
     expect(webviews()).toHaveLength(1)
+  })
+
+  it('keeps the Inbox the human chose when the page reports another tab, until the human picks one', async () => {
+    setup()
+    useExtensionsStore.setState({ list: [inboxInfo(true)] })
+    usePanelToolbarStore.setState({
+      entries: [{ extId: 'activity', workspaceId: 'w1', state: { tab: 'recap' } }],
+    })
+    render(<RightPanel />)
+    show('activity')
+    await waitFor(() => expect(webviews()).toHaveLength(1))
+    expect(screen.queryByText('Nothing waits for you.')).toBeNull()
+
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('tab', { name: /Inbox/ }))
+    expect(await screen.findByText('Nothing waits for you.')).toBeVisible()
+
+    await act(async () => {
+      usePanelToolbarStore.getState().setEntries([
+        {
+          extId: 'activity',
+          workspaceId: 'w1',
+          state: { tab: 'recap', badges: { remember: 1 } },
+        },
+      ])
+    })
+    expect(screen.getByText('Nothing waits for you.')).toBeVisible()
+    expect(screen.getByRole('tab', { name: /Inbox/ })).toHaveAttribute('aria-selected', 'true')
+
+    await user.click(screen.getByRole('tab', { name: 'Recap' }))
+    expect(screen.queryByText('Nothing waits for you.')).toBeNull()
   })
 
   it('leaves the page of an extension that is not built in alone, whatever its tab declares', async () => {
