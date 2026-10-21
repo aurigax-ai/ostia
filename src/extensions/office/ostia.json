@@ -2,7 +2,7 @@
   "id": "office",
   "name": "Office documents",
   "version": "1.0.0",
-  "api": "7.2",
+  "api": "7.3",
   "description": "Shows spreadsheets (.xlsx, .xlsm, .xlsb, .xls, .ods, .fods and their templates) as sheets with tabs, Word and OpenDocument text (.docx, .docm, .doc, .odt and their templates) as text, and presentations (.pptx, .pptm, .ppsx, .ppsm, .odp and their templates) as an outline of each slide's title, text, tables and notes, read-only. It parses the file you opened inside its own sandbox with size and content limits that say why when a file goes past them, never runs macros, never follows links and sends the file nowhere.",
   "category": "tools",
   "locales": ["zh-Hant"],
