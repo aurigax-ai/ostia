@@ -12,6 +12,18 @@ afterEach(() => {
 })
 
 describe('PaneWaking', () => {
+  it('tells a standing subscriber how each wake ended', () => {
+    const waking = new PaneWaking()
+    const ends: string[] = []
+    waking.subscribe((paneId, how) => ends.push(`${paneId}:${how}`))
+    waking.start('p1')
+    waking.end('p1', 'failed')
+    waking.end('p1', 'failed')
+    waking.start('p2')
+    waking.end('p2', 'started')
+    expect(ends).toEqual(['p1:failed', 'p2:started'])
+  })
+
   it('holds a pane from its wake until it ends, once', () => {
     const waking = new PaneWaking()
     expect(waking.has('p1')).toBe(false)

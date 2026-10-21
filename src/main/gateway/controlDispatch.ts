@@ -64,6 +64,7 @@ export interface GatewayControlDeps extends PhoneTurnDeps, PhoneSnippetDeps, Pho
     },
   ) => PhoneObserver | null
   ptyWrite: (rendererPaneId: string, data: string, source?: HumanInputSource) => void
+  phoneInput: (rendererPaneId: string) => void
   readScreen: (rendererPaneId: string) => Promise<string>
   withClipboardImage: (bytes: Buffer, paste: () => Promise<boolean>) => Promise<boolean | null>
   listAsks: () => Ask[]
@@ -389,6 +390,7 @@ async function agentPrompt(call: GatewayCall): Promise<RpcOutcome> {
     bytes = image
   }
   if (!text && !bytes) return invalidParams('missing text')
+  deps.phoneInput(pane.paneId)
   const watched = await deps.watchesTurn(pane)
   if (bytes) {
     const pasted = await pasteImage(pane, bytes, deps)
@@ -413,6 +415,7 @@ async function agentInterrupt(call: GatewayCall): Promise<RpcOutcome> {
       ? INTERRUPT_KEYS[p.key]
       : undefined
   if (!key) return invalidParams('unknown key')
+  deps.phoneInput(pane.paneId)
   deps.ptyWrite(pane.paneId, key)
   return { ok: true, result: { ok: true } }
 }

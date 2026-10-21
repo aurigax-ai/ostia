@@ -349,7 +349,7 @@ export class TmuxServer {
     } else if (event.type === 'subscription') {
       const pane = this.panes.get(event.pane)
       if (!pane) return
-      if (event.name === COMMAND_SUBSCRIPTION) pane.foreground = event.value
+      if (event.name === COMMAND_SUBSCRIPTION) pane.setForeground(event.value)
       else if (event.name === DEAD_SUBSCRIPTION) {
         const code = parseExit(event.value)
         if (code !== null) pane.died(code)

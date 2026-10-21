@@ -98,7 +98,7 @@ export async function readRemote(
   if (!view) return { key, version: 0, manifest: null, files: new Map(), skipped: [] }
   const sealed = Buffer.from(view.blob, 'base64url')
   let manifest = openManifest(key, sealed)
-  if (manifest) ctx.keyring.wrapRefused = false
+  if (manifest) ctx.keyring.clearRefusal()
   else {
     const adopted = await ctx.keyring.adoptRotation(sealed)
     if (adopted) {

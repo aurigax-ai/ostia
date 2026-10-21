@@ -15,6 +15,11 @@ import {
   claudeAttention,
   isClaudeAttentionEvent,
 } from '../../shared/agents/claudeAttention'
+import {
+  CODEX_ATTENTION_EVENTS,
+  codexAttention,
+  isCodexAttentionEvent,
+} from '../../shared/agents/codexAttention'
 import { isTurnHookEvent, TURN_HOOK_EVENTS, turnReportOf } from '../../shared/agents/turnHook'
 import { fail } from '../common/failure'
 import { readAllStdin } from '../common/stdinText'
@@ -40,6 +45,23 @@ export async function runClaudeHookVerb(conn: MessageConnection): Promise<void> 
   })
   if (!res.ok) {
     fail(`ostia claude-hook: ${res.error ?? 'failed'}`)
+  }
+}
+
+export async function runCodexHookVerb(conn: MessageConnection): Promise<void> {
+  const event = process.argv[3]
+  if (!isCodexAttentionEvent(event)) {
+    fail(`ostia codex-hook: usage: codex-hook <${CODEX_ATTENTION_EVENTS.join('|')}>`)
+    return
+  }
+  const attention = codexAttention(event, await readAllStdin())
+  if (!attention) return
+  const res = await conn.sendRequest<{ ok: boolean; error?: string }>('pane.setAttention', {
+    state: attention.state,
+    message: attention.message || undefined,
+  })
+  if (!res.ok) {
+    fail(`ostia codex-hook: ${res.error ?? 'failed'}`)
   }
 }
 

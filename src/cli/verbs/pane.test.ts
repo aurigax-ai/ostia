@@ -2,14 +2,14 @@ import { describe, expect, it } from 'vitest'
 import type { PaneStatus } from '../../shared/panes/paneStatus'
 import {
   closeLines,
-  filterPanes,
   hibernateOutcome,
   inputLine,
-  paneLine,
   parsePaneArgs,
   waitOutcome,
   wakeOutcome,
 } from './pane'
+import { filterPanes, paneLine } from './paneListVerb'
+import { nameLine } from './paneName'
 
 describe('parsePaneArgs', () => {
   it('joins the words of send into one text and adds Enter only when asked', () => {
@@ -523,5 +523,47 @@ describe('pane wake answers', () => {
     expect(
       wakeOutcome({ woke: [], already: ['3f6a7ced-1111-4222-8333-444455556666'] }, false),
     ).toEqual({ line: '3f6a7ced already awake', code: 0 })
+  })
+})
+
+describe('pane name', () => {
+  it('takes a name with an optional description, or --clear alone', () => {
+    expect(parsePaneArgs(['name', 'boss', '--desc', 'plans the work'])).toEqual({
+      method: 'pane.name',
+      params: { name: 'boss', desc: 'plans the work' },
+      json: false,
+    })
+    expect(parsePaneArgs(['name', '--clear', '--json'])).toEqual({
+      method: 'pane.name',
+      params: { clear: true },
+      json: true,
+    })
+  })
+
+  it('refuses no name, two names, and --clear with a name or a description', () => {
+    for (const argv of [
+      ['name'],
+      ['name', 'a', 'b'],
+      ['name', '--clear', 'a'],
+      ['name', '--clear', '--desc', 'x'],
+      ['name', '--desc', 'x'],
+    ]) {
+      expect(() => parsePaneArgs(argv), argv.join(' ')).toThrow()
+    }
+  })
+
+  it('prints the short id, the name and the description', () => {
+    expect(nameLine({ paneId: '3f6a7ced-0000', name: 'boss', desc: 'plans' })).toBe(
+      '3f6a7ced\tboss\tplans',
+    )
+    expect(nameLine({ paneId: '3f6a7ced-0000' })).toBe('3f6a7ced has no name')
+  })
+
+  it('adds the name and description to a listed pane only when it has a name', () => {
+    const pane = { paneId: 'p1', workspaceId: 'ws1', kind: 'terminal', title: 't', running: true }
+    expect(paneLine({ ...pane, name: 'boss' })).toBe('p1\tws1\tterminal\trunning\tt\tboss')
+    expect(paneLine({ ...pane, name: 'boss', description: 'plans' })).toBe(
+      'p1\tws1\tterminal\trunning\tt\tboss\tplans',
+    )
   })
 })

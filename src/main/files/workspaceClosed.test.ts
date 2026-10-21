@@ -9,6 +9,7 @@ const STEPS: Step[] = [
   'removeWorkspace',
   'forgetReach',
   'closeProcesses',
+  'forgetNames',
   'clearChips',
   'closeRemoteFolders',
   'tellExtensions',

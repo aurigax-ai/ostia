@@ -13,7 +13,8 @@ const SYNC_SERVER_OFF: ServerSyncStatus = {
   linkCodes: [],
   joins: [],
   recoveryStale: false,
-  wrapRefused: false,
+  wrapRefused: null,
+  changedDevices: [],
 }
 
 const SYNC_OFF: SyncStatus = {

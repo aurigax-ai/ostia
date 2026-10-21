@@ -1,10 +1,17 @@
 import { PRODUCT_DISPLAY_NAME } from '@aurigax-ai/ostia-extension-sdk/contract/productDisplay'
+import { ErrorCodes, ResponseError } from 'vscode-jsonrpc/node'
 import { ChangeSignal } from '../../shared/common/actThenConfirm'
 import { quoteArgv } from '../../shared/terminal/shellQuote'
 import type { Reach } from '../approvals/reach'
-import { registerControlMethod, registerTargetableMethod } from '../control/controlServer'
+import {
+  type ControlMethodContext,
+  registerControlMethod,
+  registerTargetableMethod,
+} from '../control/controlServer'
 import { getByPaneId } from '../control/idRegistry'
+import { paneNamed } from './paneNames'
 import { record } from './paneReach'
+import { paneSight } from './paneRef'
 import { type PhoneAgent, phoneAgentCommand } from './phoneAgent'
 import { createProcessControl, type ProcessControlDeps } from './processControl'
 import {
@@ -42,6 +49,7 @@ export interface ProcessDeps extends ProcessLaunchDeps, ProcessControlDeps {
   runInPane: (paneId: string, command: string) => boolean
   agentArgv: (name: string) => string[] | null
   startsWithHook: (argv: readonly string[]) => boolean
+  isConfined: (paneId: string) => boolean
   reach: Pick<Reach, 'ensure' | 'visible' | 'scriptReach'>
 }
 
@@ -103,16 +111,31 @@ export function registerProcessMethods(deps: ProcessDeps): {
     }
   }
 
+  const tabName = async (raw: unknown, ctx: ControlMethodContext): Promise<string | undefined> => {
+    const name = nameOf(raw)
+    if (name === undefined) return undefined
+    const holder = getByPaneId(paneNamed(name) ?? '')
+    if (holder) {
+      const sees = await paneSight({ ...deps, visible: deps.reach.visible }, ctx)
+      const by = sees(holder) ? holder.externalId : 'another pane'
+      throw new ResponseError(
+        ErrorCodes.InvalidParams,
+        `name-taken: ${name} is a bus name held by ${by}`,
+      )
+    }
+    return name
+  }
+
   registerControlMethod('process.run', {
     cap: 'process',
     scripts: true,
-    handler: (raw, ctx) => {
+    handler: async (raw, ctx) => {
       const p = record(raw)
       const cmd = commandOf(p.cmd)
       return runInTab(
         ctx,
         cmd,
-        nameOf(p.name) ?? defaultName(cmd),
+        (await tabName(p.name, ctx)) ?? defaultName(cmd),
         cwdOf(p.cwd),
         workspaceOf(p.workspace),
         splitTabOf(p.tab),
@@ -134,7 +157,7 @@ export function registerProcessMethods(deps: ProcessDeps): {
       return runInTab(
         ctx,
         cmd,
-        nameOf(p.name) ?? agent,
+        (await tabName(p.name, ctx)) ?? agent,
         cwdOf(p.cwd),
         workspaceOf(p.workspace),
         splitTabOf(p.tab) ??

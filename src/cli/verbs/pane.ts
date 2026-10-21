@@ -2,9 +2,11 @@ import type { MessageConnection } from 'vscode-jsonrpc/node'
 import { ageLabel, type PaneStatus, shortId, statusLine } from '../../shared/panes/paneStatus'
 import { parseArgs, parseTimeoutSeconds } from '../common/args'
 import { resolveWorkspaceRef } from '../common/crossWorkspace'
-import { commandLabel, failWith } from '../common/failure'
+import { commandLabel } from '../common/failure'
 import { tsvLine } from '../common/lineField'
 import { usageOf, verbUsageOf } from '../common/usageTable'
+import { type PaneListCall, parseList, runPaneList } from './paneListVerb'
+import { type PaneNameCall, parseName, runPaneName } from './paneName'
 
 interface PaneInputParams {
   pane: string
@@ -18,6 +20,7 @@ export type PaneCall =
   | { method: 'pane.input'; params: PaneInputParams; stdin?: true; json: boolean }
   | { method: 'pane.read'; params: { pane: string; lines?: number }; json: boolean }
   | { method: 'pane.rename'; params: { pane: string; title: string } }
+  | PaneNameCall
   | { method: 'pane.wait'; params: PaneWaitParams; json: boolean }
   | { method: 'pane.status'; params: { panes?: string[] }; json: boolean }
   | {
@@ -33,7 +36,7 @@ export type PaneCall =
   | { method: 'pane.wake'; params: PaneWakeParams; json: boolean }
   | { method: 'pane.hibernate'; params: { panes: string[] }; json: boolean }
   | { method: 'pane.close'; params: { panes?: string[] }; json: boolean }
-  | { method: 'pane.list'; params: PaneListFilter; json: boolean }
+  | PaneListCall
   | { method: 'pane.moveTo'; params: PaneMoveParams; json: boolean }
 
 interface PaneInputResult {
@@ -128,47 +131,6 @@ function parseStatus(argv: string[]): PaneCall {
   return {
     method: 'pane.status',
     params: positional.length > 0 ? { panes: positional } : {},
-    json: booleans.json,
-  }
-}
-
-interface PaneListFilter {
-  here?: true
-  workspace?: string
-  states?: string[]
-  kind?: string
-}
-
-const LIST_STATES = [
-  'idle',
-  'running',
-  'working',
-  'waiting',
-  'done',
-  'error',
-  'hibernated',
-  'waking',
-] as const
-
-function parseList(argv: string[]): PaneCall {
-  const { positional, values, lists, booleans } = parseArgs(argv, {
-    values: { workspace: '--workspace', kind: '--kind' },
-    lists: { state: '--state' },
-    booleans: { here: '--here', json: '--json' },
-  })
-  if (positional.length > 0 || (booleans.here && values.workspace !== undefined)) {
-    throw new Error(USAGE)
-  }
-  const unknown = lists.state.find((state) => !(LIST_STATES as readonly string[]).includes(state))
-  if (unknown) throw new Error(`--state expects one of ${LIST_STATES.join(', ')}, got '${unknown}'`)
-  return {
-    method: 'pane.list',
-    params: {
-      ...(booleans.here ? { here: true as const } : {}),
-      ...(values.workspace === undefined ? {} : { workspace: values.workspace }),
-      ...(lists.state.length > 0 ? { states: lists.state } : {}),
-      ...(values.kind === undefined ? {} : { kind: values.kind }),
-    },
     json: booleans.json,
   }
 }
@@ -343,46 +305,12 @@ export function waitOutcome(result: PaneWaitResult, json: boolean): { line: stri
   }
 }
 
-interface ListedPane {
-  paneId: string
-  workspaceId: string
-  kind: string
-  title: string
-  running: boolean
-  agentState?: string
-  hibernated?: true
-  waking?: true
-}
-
-function listedState(pane: ListedPane): string {
-  return pane.hibernated
-    ? 'hibernated'
-    : pane.waking
-      ? 'waking'
-      : (pane.agentState ?? (pane.running ? 'running' : 'idle'))
-}
-
-export function paneLine(pane: ListedPane): string {
-  return tsvLine([shortId(pane.paneId), pane.workspaceId, pane.kind, listedState(pane), pane.title])
-}
-
-export function filterPanes(
-  panes: readonly ListedPane[],
-  filter: { workspaceId?: string; states?: string[]; kind?: string },
-): ListedPane[] {
-  return panes.filter(
-    (pane) =>
-      (filter.workspaceId === undefined || pane.workspaceId === filter.workspaceId) &&
-      (filter.kind === undefined || pane.kind === filter.kind) &&
-      (filter.states === undefined || filter.states.includes(listedState(pane))),
-  )
-}
-
 export function parsePaneArgs(argv: string[]): PaneCall {
   const [sub, pane, ...rest] = argv
   if (sub === 'list') return parseList(argv.slice(1))
   if (sub === 'status') return parseStatus(argv.slice(1))
   if (sub === 'close') return parseClose(argv.slice(1))
+  if (sub === 'name') return parseName(argv.slice(1))
   if (sub === 'watch' && pane === '--off' && rest.length === 0) return parseWatch(argv.slice(1))
   if (!sub || !pane) throw new Error(USAGE)
   if (sub === 'wait') return parseWait([pane, ...rest])
@@ -480,26 +408,8 @@ export async function runPaneVerb(
     console.log(call.json ? JSON.stringify(result) : result.moved.map(shortId).join('\n'))
     return 0
   }
-  if (call.method === 'pane.list') {
-    const { here, workspace, states, kind } = call.params
-    const home = here
-      ? (await conn.sendRequest<{ workspaceId?: string }>('whoami')).workspaceId
-      : undefined
-    if (here && !home) {
-      failWith('no-pane: --here needs a pane; pass --workspace <id|name> instead')
-      return 1
-    }
-    const workspaceId = workspace ? await resolveWorkspaceRef(conn, workspace) : home
-    const panes = filterPanes(await conn.sendRequest<ListedPane[]>('pane.list'), {
-      workspaceId,
-      states,
-      kind,
-    })
-    if (call.json) console.log(JSON.stringify(panes))
-    else if (panes.length === 0) console.error('(no panes match)')
-    else console.log(panes.map(paneLine).join('\n'))
-    return 0
-  }
+  if (call.method === 'pane.list') return runPaneList(conn, call)
+  if (call.method === 'pane.name') return runPaneName(conn, call)
   if (call.method === 'pane.transcript') {
     const result = await conn.sendRequest<{
       agent: string

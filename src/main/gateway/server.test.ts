@@ -162,6 +162,7 @@ const deps = {
     detach: vi.fn(),
   })),
   ptyWrite: vi.fn(),
+  phoneInput: vi.fn(),
   readScreen: vi.fn().mockResolvedValue(''),
   withClipboardImage: vi.fn().mockResolvedValue(true),
   listAsks: vi.fn().mockReturnValue([]),
@@ -358,6 +359,7 @@ describe('gateway server over a real WebSocket', () => {
     const denied = await c.next((m) => m.error?.code === -32003)
     expect(denied.error?.data).toEqual({ cap: 'input' })
     expect(deps.ptyWrite).not.toHaveBeenCalled()
+    expect(deps.phoneInput).not.toHaveBeenCalled()
   })
 
   it('writes input once the desktop grants input', async () => {
@@ -378,6 +380,28 @@ describe('gateway server over a real WebSocket', () => {
     await c.call('whoami')
 
     expect(deps.ptyWrite).toHaveBeenCalledWith('p1', 'ls\r', 'key')
+    expect(deps.phoneInput).toHaveBeenCalledWith('p1')
+  })
+
+  it('writes a terminal reply from the phone untagged and does not note it as input', async () => {
+    const { deviceId, token } = registerDevice({ name: 'Phone', pubkey: 'pk' })
+    const c = await connect(token)
+    gatewaySetCap({ deviceId, cap: 'input', granted: true })
+    await c.next((m) => m.params?.type === 'caps.changed')
+    await c.call('pty.attach', { paneId: externalPaneId, role: 'owner' })
+
+    for (const reply of ['\x1b[I', '\x1b[O', '\x1b[?1;2c', '\x1b[24;80R']) {
+      c.ws.send(binary(0x02, reply))
+    }
+    await c.call('whoami')
+
+    expect(vi.mocked(deps.ptyWrite).mock.calls).toEqual([
+      ['p1', '\x1b[I'],
+      ['p1', '\x1b[O'],
+      ['p1', '\x1b[?1;2c'],
+      ['p1', '\x1b[24;80R'],
+    ])
+    expect(deps.phoneInput).not.toHaveBeenCalled()
   })
 
   it('never applies a resize frame and answers resize-not-supported', async () => {

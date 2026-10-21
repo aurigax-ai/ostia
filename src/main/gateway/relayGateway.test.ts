@@ -44,6 +44,7 @@ const deps = {
   primaryWindowId: vi.fn().mockReturnValue('w1'),
   attachPhoneObserver: vi.fn(),
   ptyWrite: vi.fn(),
+  phoneInput: vi.fn(),
   readScreen: vi.fn().mockResolvedValue(''),
   withClipboardImage: vi.fn().mockResolvedValue(true),
   listAsks: vi.fn().mockReturnValue([]),

@@ -166,12 +166,13 @@ ostia pane wake <pane>… [--timeout <s>] [--json]
 ostia pane hibernate <pane>… [--json]
 ostia pane move <pane>… --tab <name>|new [--workspace <id|name>] [--json]
 ostia pane rename <pane> <title…> | --clear
+ostia pane name <name> [--desc <text>] [--json] | --clear   # your pane's bus name
 ostia pane close [<pane>…] [--json]      # no pane: your own
 ```
 
-`<pane>` is a `paneId`, its first 8 characters or more (as `pane list` prints them), or the
-`--name` of a `process run`/`agent run` tab; tab titles never match. Several matches answer
-`ambiguous-pane:` with the ids, and `send`, `key`, `close` and `hibernate` also refuse a name that
+`<pane>` is a `paneId`, a bus name (`pane name`), the `--name` of a `process run`/`agent run` tab,
+or its first 8 characters or more (as `pane list` prints them); tab titles never match. Several
+matches answer `ambiguous-pane:` with the ids, and `send`, `key`, `close` and `hibernate` also refuse a name that
 several panes share. `state` is `hibernated`, `waking`, the agent's state, `running` or `idle`.
 `close`, `wake` and `hibernate` succeed when the pane already is that way (`already closed 2h ago
 (w-1)`, `already awake`). Errors end with the command to run next.

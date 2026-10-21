@@ -21,7 +21,12 @@ import { topUsage, type UsageAnswer, usageGate } from './common/usageTable'
 import { buildVersionAt } from './common/version'
 import { skewMarkFile, versionSkewWarning } from './common/versionSkew'
 import { runAgentHook } from './hooks/agentHook'
-import { runClaudeHookVerb, runResumeTokenVerb, runTurnHookVerb } from './hooks/agentReports'
+import {
+  runClaudeHookVerb,
+  runCodexHookVerb,
+  runResumeTokenVerb,
+  runTurnHookVerb,
+} from './hooks/agentReports'
 import { runClaudeAccountVerb } from './hooks/claudeAccount'
 import { saveAttentionOffline } from './hooks/offlineAttention'
 import { runPermissionHook } from './hooks/permissionHook'
@@ -75,6 +80,7 @@ const RUNNERS: Readonly<Record<string, Runner>> = {
   'claude-hook': runClaudeHookVerb,
   'claude-account': runClaudeAccountVerb,
   account: runAccountVerb,
+  'codex-hook': runCodexHookVerb,
   'turn-hook': runTurnHookVerb,
   'codex-server': runCodexServerVerb,
   'permission-hook': async (conn) => {

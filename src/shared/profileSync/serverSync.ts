@@ -19,6 +19,11 @@ export interface ServerJoinRequest {
   createdAt: number
 }
 
+export interface WrapRefusal {
+  reason: 'untrusted' | 'too-new' | 'unverified'
+  after: number | null
+}
+
 export interface ServerSyncStatus {
   state: ServerSyncState
   host: string | null
@@ -27,7 +32,8 @@ export interface ServerSyncStatus {
   linkCodes: ServerLinkCode[]
   joins: ServerJoinRequest[]
   recoveryStale: boolean
-  wrapRefused: boolean
+  wrapRefused: WrapRefusal | null
+  changedDevices: string[]
 }
 
 export type ServerSyncError =
@@ -37,6 +43,8 @@ export type ServerSyncError =
   | 'wrong-recovery-key'
   | 'exists'
   | 'no-wrap'
+  | 'key-differs'
+  | 'link-stale'
   | 'unavailable'
   | 'elevation-required'
   | 'not-signed-in'

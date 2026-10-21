@@ -14,6 +14,7 @@ import {
 } from '@aurigax-ai/ostia-extension-sdk/manifest/agentSkills'
 import { AGENT_HOOKS_OFF_ENV } from '../../shared/agents/agentHooks'
 import { AGENT_ARGS_ENV, CODEX_HOOK_ARGS_JSON } from '../../shared/agents/agentLaunch'
+import { CODEX_QUESTION_TOOL } from '../../shared/agents/codexAttention'
 import { CORE_SKILL_FILES, writeBundledSkill } from '../agents/bundledSkills'
 import type { PlaybookFile } from '../agents/playbookFiles'
 import {
@@ -144,35 +145,73 @@ export function codexHookCommands(
   return commands
 }
 
-export function codexHookTrustHash(event: CodexHookEvent, command: string): string {
+const CODEX_QUESTION_HOOKS: Partial<Record<CodexHookEvent, string>> = {
+  PreToolUse: hookCommand('codex-hook PreToolUse'),
+  PostToolUse: hookCommand('codex-hook PostToolUse'),
+}
+
+export interface CodexHookGroup {
+  matcher?: string
+  commands: string[]
+}
+
+export function codexHookGroups(
+  contextFile: string,
+  extensionHooks: readonly ExtensionAgentHook[] = [],
+): Partial<Record<CodexHookEvent, CodexHookGroup[]>> {
+  const plain = codexHookCommands(contextFile, extensionHooks)
+  const groups: Partial<Record<CodexHookEvent, CodexHookGroup[]>> = {}
+  for (const event of Object.keys(CODEX_HOOK_EVENTS) as CodexHookEvent[]) {
+    const own = plain[event]
+    const question = CODEX_QUESTION_HOOKS[event]
+    const list: CodexHookGroup[] = [
+      ...(own ? [{ commands: own }] : []),
+      ...(question ? [{ matcher: CODEX_QUESTION_TOOL, commands: [question] }] : []),
+    ]
+    if (list.length > 0) groups[event] = list
+  }
+  return groups
+}
+
+export function codexHookTrustHash(
+  event: CodexHookEvent,
+  command: string,
+  matcher?: string,
+): string {
   const identity = {
     event_name: CODEX_HOOK_EVENTS[event],
     hooks: [{ async: false, command, timeout: CODEX_DEFAULT_HOOK_TIMEOUT_SEC, type: 'command' }],
+    ...(matcher ? { matcher } : {}),
   }
   return `sha256:${hash('sha256', JSON.stringify(identity))}`
 }
 
-export function codexHookKey(event: CodexHookEvent, handlerIndex: number): string {
-  return `${CODEX_SESSION_FLAGS_SOURCE}:${CODEX_HOOK_EVENTS[event]}:0:${handlerIndex}`
+export function codexHookKey(event: CodexHookEvent, handlerIndex: number, groupIndex = 0): string {
+  return `${CODEX_SESSION_FLAGS_SOURCE}:${CODEX_HOOK_EVENTS[event]}:${groupIndex}:${handlerIndex}`
 }
 
 export function codexHookArgs(
   contextFile: string,
   extensionHooks: readonly ExtensionAgentHook[] = [],
 ): string[] {
-  const commands = Object.entries(codexHookCommands(contextFile, extensionHooks)) as [
+  const events = Object.entries(codexHookGroups(contextFile, extensionHooks)) as [
     CodexHookEvent,
-    string[],
+    CodexHookGroup[],
   ][]
   const args = ['--no-daemon']
   const trust: string[] = []
-  for (const [event, handlers] of commands) {
-    const hooks = handlers.map((command) => `{type="command",command=${tomlString(command)}}`)
-    args.push('-c', `hooks.${event}=[{hooks=[${hooks.join(',')}]}]`)
-    handlers.forEach((command, index) => {
-      trust.push(
-        `${tomlString(codexHookKey(event, index))}={trusted_hash=${tomlString(codexHookTrustHash(event, command))}}`,
-      )
+  for (const [event, groups] of events) {
+    const tomlGroups = groups.map(({ matcher, commands }) => {
+      const hooks = commands.map((command) => `{type="command",command=${tomlString(command)}}`)
+      return `{${matcher ? `matcher=${tomlString(matcher)},` : ''}hooks=[${hooks.join(',')}]}`
+    })
+    args.push('-c', `hooks.${event}=[${tomlGroups.join(',')}]`)
+    groups.forEach(({ matcher, commands }, groupIndex) => {
+      commands.forEach((command, index) => {
+        trust.push(
+          `${tomlString(codexHookKey(event, index, groupIndex))}={trusted_hash=${tomlString(codexHookTrustHash(event, command, matcher))}}`,
+        )
+      })
     })
   }
   args.push('-c', `hooks.state={${trust.join(',')}}`)

@@ -41,6 +41,7 @@ export const CORE_VERBS: readonly string[] = [
   'claude-hook',
   'claude-account',
   'account',
+  'codex-hook',
   'turn-hook',
   'codex-server',
   'permission-hook',

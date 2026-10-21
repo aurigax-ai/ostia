@@ -220,6 +220,31 @@ describe('Blocks', () => {
     expect(menuRenders.count).toBe(rendered)
   })
 
+  it('moves the layer a bounded number of times per frame however many lines a burst scrolls', () => {
+    vi.useFakeTimers()
+    const { view, scroll } = mount()
+    act(() => useBlocksStore.getState().commandEnd(PANE, { line: 4 }, 0))
+    const track = view.container.querySelector('.blocks-track') as HTMLElement
+    const moved = vi.fn()
+    let transform = track.style.transform
+    Object.defineProperty(track.style, 'transform', {
+      get: () => transform,
+      set: (value: string) => {
+        transform = value
+        moved(value)
+      },
+    })
+
+    act(() => {
+      for (let line = 1; line <= 200; line++) scroll(line)
+    })
+    expect(moved).not.toHaveBeenCalled()
+
+    act(() => vi.advanceTimersToNextFrame())
+    expect(moved.mock.calls.length).toBeLessThanOrEqual(2)
+    expect(transform).toBe(`translateY(${-200 * ROW_HEIGHT}px)`)
+  })
+
   it('does not re-render the running block while its output scrolls the screen', () => {
     vi.useFakeTimers()
     const { view, term, scroll, render: renderFrame } = mount()

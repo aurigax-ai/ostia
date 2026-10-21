@@ -58,6 +58,7 @@ interface ToolbeltWiringDeps {
   ptyPid: (paneId: string) => number | undefined
   windowIds: WindowSend['windowIds']
   isWaking: (paneId: string) => boolean
+  hibernatedPanes: Set<string>
   paneReachDeps: PaneMethodsWiring['paneReachDeps']
   paneJournal: PaneJournal
   paneWaking: PaneWaking
@@ -85,6 +86,7 @@ export function registerToolbeltWiring({
   ptyPid,
   windowIds,
   isWaking,
+  hibernatedPanes,
   paneReachDeps,
   paneJournal,
   paneWaking,
@@ -162,6 +164,7 @@ export function registerToolbeltWiring({
           isResumableAgent(agent) && parseAgentHooks(readSettingsFile().agents?.hooks)[agent],
         { state: mailers.state(pane.externalId), limited: mailers.limited(pane.externalId) },
       ),
+    hibernated: (paneId) => hibernatedPanes.has(paneId),
     agentBusy: (pane) => ['working', 'waiting'].includes(paneJournal.stateOf(pane.paneId) ?? ''),
     journal: services.agentJournal ?? undefined,
     observe: (observation) => {
