@@ -78,6 +78,7 @@ interface ViewersApi {
   onSelection: (cb: (event: ViewerSelectionEvent) => void) => () => void
   copySelection: (paneId: string) => Promise<string>
   sendSelection: (request: ViewerSendSelection) => Promise<SelectionSendResult>
+  clearSelection: (paneId: string) => void
   sendDocumentText: (request: ViewerDocumentText) => void
   onOpenLink: (cb: (event: ViewerOpenLink) => void) => () => void
   onEditSource: (cb: (event: ViewerEditSource) => void) => () => void

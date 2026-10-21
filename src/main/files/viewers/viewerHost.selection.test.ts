@@ -168,6 +168,27 @@ describe('guest selection channel', () => {
     expect(events).toHaveLength(4)
   })
 
+  it('drops the stored selection when the owner window clears it and tells the page', async () => {
+    const { host, session, events } = await opened()
+    const body = await selectionBody({ capture: IMAGE, rect: RECT, frame: FRAME }, pngOf(4, 4))
+    await postSelection(session, body)
+    const stream = await get(session, 'ostia-viewer://t1/~events')
+    const reader = stream.body?.getReader()
+    if (!reader) throw new Error('no stream')
+    await reader.read()
+    host.clearSelection('w2', 'p1')
+    host.clearSelection('w1', 'p9')
+    expect(host.selectionForSend('w1', 'p1')).not.toBeNull()
+    host.clearSelection('w1', 'p1')
+    expect(host.selectionForSend('w1', 'p1')).toBeNull()
+    expect(events.at(-1)).toMatchObject({ payload: { paneId: 'p1', selection: null } })
+    const { value } = await reader.read()
+    expect(new TextDecoder().decode(value)).toBe('event: selection-cleared\ndata: 1\n\n')
+    const count = events.length
+    host.clearSelection('w1', 'p1')
+    expect(events).toHaveLength(count)
+  })
+
   it('copies text with its html first and the image only when there is no text', async () => {
     const { host, session, clipboard } = await opened()
     const base = { rect: RECT, frame: FRAME }

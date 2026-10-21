@@ -1,6 +1,7 @@
 import {
   clearSelection,
   hasPublishedSelection,
+  onSelectionPublished,
   publishSelection,
 } from '@aurigax-ai/ostia-extension-sdk/viewer'
 import { type Box, dragBox, fitBox, nativeRegion, type Point } from './frameCrop'
@@ -68,6 +69,11 @@ export function attachFrameCapture(
     crop.hidden = true
     if (hasPublishedSelection()) void clearSelection()
   }
+  onSelectionPublished((published) => {
+    if (published) return
+    generation++
+    crop.hidden = true
+  })
   const publish = async (selection: Box, region: Box | null): Promise<void> => {
     const ticket = ++generation
     const { width, height } = media()

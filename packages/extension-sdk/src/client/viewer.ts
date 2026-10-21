@@ -5,6 +5,7 @@ import {
   VIEWER_EVENTS_PATH,
   VIEWER_META_PATH,
   VIEWER_PORTABLE_PATH,
+  VIEWER_SELECTION_CLEARED_EVENT,
   type ViewerDocumentMeta,
   type ViewerPortableTables,
 } from '../contract/fileKinds'
@@ -187,7 +188,16 @@ export function onSelectionPublished(listener: (published: boolean) => void): ()
   return () => selectionListeners.delete(listener)
 }
 
+let clearedEvents: EventSource | null = null
+
+function listenForClearedSelection(): void {
+  if (clearedEvents) return
+  clearedEvents = new EventSource(VIEWER_EVENTS_PATH)
+  clearedEvents.addEventListener(VIEWER_SELECTION_CLEARED_EVENT, () => setSelectionPublished(false))
+}
+
 export async function publishSelection(selection: ViewerSelection): Promise<boolean> {
+  listenForClearedSelection()
   const { png, rect, capture, text, html, csv } = selection
   const body = encodeViewerSelection(
     {

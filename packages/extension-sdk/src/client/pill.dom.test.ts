@@ -11,6 +11,13 @@ import {
 } from './pill'
 import { clearSelection, publishSelection } from './viewer'
 
+Object.assign(globalThis, {
+  EventSource: class {
+    addEventListener(): void {}
+    close(): void {}
+  },
+})
+
 const SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><path d="M0 0"/></svg>'
 
 const FIND_LABELS = {

@@ -24,6 +24,7 @@ export const filesBridge: Pick<
     onSelection: (cb) => listen('viewers:selection', cb),
     copySelection: (paneId) => ipcRenderer.invoke('viewers:copy-selection', paneId),
     sendSelection: (request) => ipcRenderer.invoke('viewers:send-selection', request),
+    clearSelection: (paneId) => ipcRenderer.send('viewers:clear-selection', paneId),
     sendDocumentText: (request) => ipcRenderer.send('viewers:document-text', request),
     onOpenLink: (cb) => listen('viewers:open-link', cb),
     onEditSource: (cb) => listen('viewers:edit-source', cb),

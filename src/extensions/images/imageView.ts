@@ -1,7 +1,11 @@
 import type { Translate } from '@aurigax-ai/ostia-extension-sdk/contract/extensionLocales'
 import type { ViewerRect } from '@aurigax-ai/ostia-extension-sdk/contract/viewerSelection'
 import { createPill } from '@aurigax-ai/ostia-extension-sdk/pill'
-import { clearSelection, publishSelection } from '@aurigax-ai/ostia-extension-sdk/viewer'
+import {
+  clearSelection,
+  onSelectionPublished,
+  publishSelection,
+} from '@aurigax-ai/ostia-extension-sdk/viewer'
 import { cropRect, dragRegion, pageRect } from './imageCrop'
 import { IMAGE_ICONS } from './imageIcons'
 import { cropToPng } from './imageRaster'
@@ -97,6 +101,13 @@ export function mountImage(options: {
     selecting = false
     enqueue(() => clearSelection())
   }
+
+  onSelectionPublished((published) => {
+    if (published || !selecting) return
+    token++
+    selecting = false
+    drawRegion(null)
+  })
 
   const select = (chosen: ViewerRect | null): void => {
     const mine = ++token

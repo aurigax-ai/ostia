@@ -12,6 +12,7 @@ import {
   VIEWER_META_PATH,
   VIEWER_PORTABLE_PATH,
   VIEWER_SCHEME,
+  VIEWER_SELECTION_CLEARED_EVENT,
   type ViewerDocumentMeta,
   type ViewerPortableTables,
 } from '@aurigax-ai/ostia-extension-sdk/contract/fileKinds'
@@ -264,7 +265,11 @@ export class ViewerHost {
   }
 
   private announceChange(live: Live): void {
-    const message = encoder.encode(`event: ${VIEWER_CHANGED_EVENT}\ndata: 1\n\n`)
+    this.announce(live, VIEWER_CHANGED_EVENT)
+  }
+
+  private announce(live: Live, event: string): void {
+    const message = encoder.encode(`event: ${event}\ndata: 1\n\n`)
     for (const stream of live.streams) {
       try {
         stream.enqueue(message)
@@ -593,6 +598,14 @@ export class ViewerHost {
     live.selection = stored
     this.pushSelection(live)
     return new Response(null, { status: 204 })
+  }
+
+  clearSelection(windowId: string, paneId: unknown): void {
+    const live = this.liveOfPane(windowId, paneId)
+    if (!live?.selection) return
+    live.selection = null
+    this.pushSelection(live)
+    this.announce(live, VIEWER_SELECTION_CLEARED_EVENT)
   }
 
   private dropSelection(live: Live): Response {

@@ -9,12 +9,13 @@ import type {
 import { useEffect, useState } from 'react'
 import { RegionActionBar } from '@/components/agents/RegionActionBar'
 import { EmptyState } from '@/components/common/EmptyState'
+import { StatusLine } from '@/components/common/StatusLine'
 import { Button } from '@/components/ui/button'
 import type { PickTarget } from '@/lib/agents/pickTargets'
 import { registerSelectionCopier } from '@/lib/agents/selectionCopiers'
-import { registerSelectionSender } from '@/lib/agents/selectionSenders'
 import { sendViewerSelectionToPane } from '@/lib/agents/sendPick'
 import { fmt, useDict } from '@/lib/app/useDict'
+import { useTransientStatus } from '@/lib/app/useTransientStatus'
 import { openBrowserTabAs } from '@/lib/browser/browserProfile'
 import { openFileInWorkspace } from '@/lib/files/openFile'
 import type { ViewerOption } from '@/lib/files/viewerChoice'
@@ -24,6 +25,7 @@ import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { ViewerMessage } from './ViewerChrome'
 
 const ABORTED = -3
+const SEND_STATUS_MS = 6000
 
 interface FrameProps {
   workspaceId: string
@@ -55,28 +57,22 @@ function ViewerFrame({
   useSurfaceFocus(paneId, () => readyWebview)
   useInjectedCss(webview, themeCss)
   const [selection, setSelection] = useState<ViewerSelectionEvent['selection']>(null)
-  const [barShown, setBarShown] = useState(true)
+  const [status, setStatus] = useTransientStatus(SEND_STATUS_MS)
 
   useEffect(
     () =>
       window.ostia.viewers.onSelection((event) => {
         if (event.paneId !== paneId) return
         setSelection(event.selection)
-        setBarShown(true)
       }),
     [paneId],
   )
 
   useEffect(() => {
     if (!selection) return
-    const unregisterSender = registerSelectionSender(paneId, () => setBarShown(true))
-    const unregisterCopier = registerSelectionCopier(paneId, () =>
+    return registerSelectionCopier(paneId, () =>
       window.ostia.viewers.copySelection(paneId).then(() => undefined),
     )
-    return () => {
-      unregisterSender()
-      unregisterCopier()
-    }
   }, [paneId, selection])
 
   useEffect(
@@ -111,6 +107,7 @@ function ViewerFrame({
       label: selectionLabel(selection.capture),
     })
     if (!res.ok) throw new Error(fmt(d.send.sendFailed, { reason: res.error }))
+    setStatus(fmt(res.inserted ? d.send.sentInserted : d.send.sentCopied, { pane: target.title }))
   }
 
   useEffect(
@@ -186,13 +183,19 @@ function ViewerFrame({
           <ViewerMessage>{d.viewer.loading}</ViewerMessage>
         )}
       </div>
-      {selection && barShown ? (
+      {status ? (
+        <div className="absolute inset-x-0 top-0 z-20">
+          <StatusLine onDismiss={() => setStatus(null)}>{status}</StatusLine>
+        </div>
+      ) : null}
+      {selection ? (
         <RegionActionBar
+          key={JSON.stringify(selection.capture)}
           workspaceId={workspaceId}
           anchor={selection.anchor}
           onCopy={() => window.ostia.viewers.copySelection(paneId)}
           onSend={sendSelection}
-          onClose={() => setBarShown(false)}
+          onClose={() => window.ostia.viewers.clearSelection(paneId)}
         />
       ) : null}
     </div>

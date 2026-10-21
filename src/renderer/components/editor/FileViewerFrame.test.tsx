@@ -3,7 +3,6 @@ import type { ViewerOpenLink, ViewerSelectionEvent } from '@shared/files/filesAp
 import { act, cleanup, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { copyPaneSelection } from '@/lib/agents/selectionCopiers'
-import { openSelectionSend } from '@/lib/agents/selectionSenders'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { FileViewerFrame } from './FileViewerFrame'
 
@@ -133,16 +132,37 @@ describe('FileViewerFrame', () => {
     expect(window.ostia.viewers.copySelection).toHaveBeenCalledTimes(2)
   })
 
-  it('reopens a dismissed bar with the send chord', async () => {
+  it('clears the stored selection when the bar is closed', async () => {
     mount()
     await act(async () => {})
     act(() => onSelection({ paneId: 'p1', selection: SELECTION }))
     act(() => screen.getByText('close').click())
-    expect(screen.queryByTestId('region-bar')).toBeNull()
-    act(() => {
-      openSelectionSend('p1')
-    })
-    expect(screen.getByTestId('region-bar')).toBeInTheDocument()
+    expect(window.ostia.viewers.clearSelection).toHaveBeenCalledWith('p1')
+  })
+
+  it('mounts a fresh bar for a new selection and keeps it while the same one moves', async () => {
+    mount()
+    await act(async () => {})
+    act(() => onSelection({ paneId: 'p1', selection: SELECTION }))
+    const first = screen.getByTestId('region-bar')
+    act(() =>
+      onSelection({
+        paneId: 'p1',
+        selection: SELECTION && { ...SELECTION, anchor: { left: 40, top: 50, bottom: 80 } },
+      }),
+    )
+    expect(screen.getByTestId('region-bar')).toBe(first)
+    expect(screen.getByTestId('region-bar')).toHaveAttribute('data-left', '40')
+    act(() =>
+      onSelection({
+        paneId: 'p1',
+        selection: SELECTION && {
+          ...SELECTION,
+          capture: { ...SELECTION.capture, kind: 'image', imageWidth: 99 } as never,
+        },
+      }),
+    )
+    expect(screen.getByTestId('region-bar')).not.toBe(first)
   })
 
   it('opens a web link in a browser tab, a mail link outside and a file in the workspace', async () => {

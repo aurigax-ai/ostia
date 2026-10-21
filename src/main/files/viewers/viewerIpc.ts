@@ -100,6 +100,9 @@ export function registerViewerIpc({ viewers }: { viewers: ViewerHost }): void {
   ipcMain.handle('viewers:copy-selection', (e, paneId: unknown) =>
     viewers.copySelection(String(e.sender.id), paneId),
   )
+  ipcMain.on('viewers:clear-selection', (e, paneId: unknown) =>
+    viewers.clearSelection(String(e.sender.id), paneId),
+  )
   ipcMain.on('viewers:document-text', (e, request: unknown) =>
     viewers.setDocumentText(String(e.sender.id), request),
   )

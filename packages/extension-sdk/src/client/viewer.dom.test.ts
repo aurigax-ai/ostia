@@ -10,6 +10,21 @@ import {
   viewerDocumentUrl,
 } from './viewer'
 
+const eventSources: Array<{ listeners: Map<string, () => void> }> = []
+
+class FakeEventSource {
+  listeners = new Map<string, () => void>()
+  constructor() {
+    eventSources.push(this)
+  }
+  addEventListener(type: string, listener: () => void): void {
+    this.listeners.set(type, listener)
+  }
+  close(): void {}
+}
+
+Object.assign(globalThis, { EventSource: FakeEventSource })
+
 interface Call {
   url: string
   init: RequestInit
@@ -76,6 +91,23 @@ describe('publishSelection', () => {
     vi.stubGlobal('fetch', () => Promise.reject(new Error('down')))
     expect(await publishSelection(selection)).toBe(false)
     expect(hasPublishedSelection()).toBe(false)
+  })
+})
+
+describe('a selection the host cleared', () => {
+  it('is no longer published and tells listeners', async () => {
+    stubFetch()
+    await publishSelection({
+      capture: { kind: 'image', imageWidth: 2, imageHeight: 2, region: null },
+      rect: { x: 0, y: 0, width: 1, height: 1 },
+      png: new Uint8Array([0x89, 0x50, 1]),
+    })
+    const seen: boolean[] = []
+    const stop = onSelectionPublished((published) => seen.push(published))
+    eventSources[0].listeners.get('selection-cleared')?.()
+    expect(hasPublishedSelection()).toBe(false)
+    expect(seen).toEqual([false])
+    stop()
   })
 })
 
