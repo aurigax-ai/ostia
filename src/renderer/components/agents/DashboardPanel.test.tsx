@@ -295,6 +295,16 @@ describe('DashboardPanel', () => {
     expect(within(row as HTMLElement).getByRole('img', { name: /unread/ })).toHaveTextContent('1')
   })
 
+  it('loads the sandbox state itself and shows the shield on a sandboxed workspace', async () => {
+    seed()
+    vi.mocked(window.ostia.sandbox.get).mockResolvedValue({ enabled: true } as never)
+    vi.mocked(window.ostia.sandbox.stamp).mockResolvedValue('stamp')
+    render(<DashboardPanel />)
+    open()
+    const row = screen.getByRole('button', { name: 'Open workspace Storefront' }).closest('li')
+    expect(await within(row as HTMLElement).findByLabelText('Sandboxed')).toBeInTheDocument()
+  })
+
   it('shows the running command when no message is waiting', () => {
     seed()
     useBlocksStore.setState({ running: { 'p-web': 'b1' } })

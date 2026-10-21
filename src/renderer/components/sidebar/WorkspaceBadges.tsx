@@ -8,6 +8,7 @@ import { useSandboxStore } from '@/stores/app/sandboxStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import type { Workspace } from '@/stores/workspaces/workspaceTypes'
 import { LockSimpleIcon, PushPinSimpleIcon, ShieldCheckIcon } from '@phosphor-icons/react'
+import { useEffect } from 'react'
 
 function ScratchBadge(): JSX.Element {
   const d = useDict()
@@ -34,20 +35,26 @@ export function useWorkspaceFlags(workspaceId: string): { sandboxed: boolean; lo
   return { sandboxed, locked }
 }
 
-export function WorkspaceBadges({ workspace: w }: { workspace: Workspace }): JSX.Element {
+export function WorkspaceBadges({
+  workspace: w,
+  marksOnly = false,
+}: { workspace: Workspace; marksOnly?: boolean }): JSX.Element {
   const d = useDict()
   const { sandboxed, locked } = useWorkspaceFlags(w.id)
+  useEffect(() => {
+    if (!marksOnly) void useSandboxStore.getState().load(w.id)
+  }, [w.id, marksOnly])
   return (
     <>
       {w.kind === 'scratch' ? <ScratchBadge /> : null}
-      <WorkspaceMail workspaceId={w.id} />
+      {marksOnly ? null : <WorkspaceMail workspaceId={w.id} />}
       {w.pinned ? (
         <PushPinSimpleIcon size={16} className="tab-pin" aria-label={d.rail.pinned} />
       ) : null}
-      {sandboxed ? (
+      {sandboxed && !marksOnly ? (
         <ShieldCheckIcon size={16} className="tab-pin" role="img" aria-label={d.rail.sandboxed} />
       ) : null}
-      {locked ? (
+      {locked && !marksOnly ? (
         <LockSimpleIcon size={16} className="tab-lock" role="img" aria-label={d.rail.locked} />
       ) : null}
     </>

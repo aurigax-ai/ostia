@@ -74,16 +74,47 @@ describe('icon weight source', () => {
 })
 
 const SMALL_ICON_EXCEPTIONS = ['.git-surface .ref svg']
+const SMALL_SIZE = /(?:width|height):\s*(?:[0-9]|1[0-5])px/
+
+function iconClasses(): Set<string> {
+  const found = new Set<string>()
+  for (const { text } of sources) {
+    for (const tag of text.matchAll(/<\w+Icon\b[^>]*>/g)) {
+      const attribute = /className=(?:"([^"]*)"|\{([^}]*)\})/.exec(tag[0])
+      const literal =
+        attribute?.[1] ??
+        [...(attribute?.[2] ?? '').matchAll(/'([^']*)'/g)].map((m) => m[1]).join(' ')
+      for (const name of literal.split(/\s+/)) if (/^[a-z][\w-]*$/.test(name)) found.add(name)
+    }
+  }
+  return found
+}
+
+function lastCompound(selector: string): string {
+  return (
+    selector
+      .trim()
+      .split(/[\s>+~]+/)
+      .pop() ?? ''
+  )
+}
 
 describe('icon size', () => {
   it('is never set under 16 px in a stylesheet, except the chips of git refs', () => {
+    const classes = iconClasses()
     const offenders = readdirSync(renderer, { recursive: true, encoding: 'utf8' })
       .filter((f) => f.endsWith('.css'))
       .flatMap((f) => {
         const css = readFileSync(join(renderer, f), 'utf8')
-        return [...css.matchAll(/([^{}]*\bsvg\b[^{}]*)\{([^}]*)\}/g)]
-          .filter((m) => /(?:width|height):\s*(?:[0-9]|1[0-5])px/.test(m[2] ?? ''))
-          .map((m) => (m[1] ?? '').trim().replace(/\s+/g, ' '))
+        return [...css.matchAll(/([^{}]+)\{([^}]*)\}/g)]
+          .filter((m) => SMALL_SIZE.test(m[2] ?? ''))
+          .flatMap((m) => (m[1] ?? '').split(','))
+          .map((selector) => selector.trim().replace(/\s+/g, ' '))
+          .filter((selector) => {
+            if (/\bsvg\b/.test(selector)) return true
+            const target = lastCompound(selector)
+            return [...classes].some((name) => new RegExp(`\\.${name}(?![\\w-])`).test(target))
+          })
           .filter((selector) => !SMALL_ICON_EXCEPTIONS.includes(selector))
           .map((selector) => `${f}: ${selector}`)
       })

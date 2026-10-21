@@ -9,14 +9,12 @@ import { type RowDropZone, rowDropZone } from '@/lib/sidebar/railDropZone'
 import { requestCloseWorkspace } from '@/lib/workspaces/closeConfirm'
 import { selectWorkspace } from '@/lib/workspaces/selectWorkspace'
 import { workspaceTitle } from '@/lib/workspaces/workspaceTitle'
-import { useSandboxStore } from '@/stores/app/sandboxStore'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useUIStore } from '@/stores/app/uiStore'
 import { useRailEditStore } from '@/stores/workspaces/railEditStore'
 import type { Workspace } from '@/stores/workspaces/workspaceTypes'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import { ArrowSquareInIcon, ArrowsMergeIcon } from '@phosphor-icons/react'
-import { useEffect } from 'react'
 import { RailTab } from './RailTab'
 import { WorkspaceDetails } from './WorkspaceDetails'
 import { WorkspaceMenu } from './WorkspaceMenu'
@@ -62,9 +60,6 @@ export function WorkspaceRow({
   }
   const title = workspaceTitle(w)
   const { sandboxed, locked } = useWorkspaceFlags(w.id)
-  useEffect(() => {
-    void useSandboxStore.getState().load(w.id)
-  }, [w.id])
   const select = (): void => selectWorkspace(w.id)
   const editor =
     editing === null ? undefined : (

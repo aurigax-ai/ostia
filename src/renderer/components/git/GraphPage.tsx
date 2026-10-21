@@ -66,7 +66,9 @@ export function GraphPage({
         <ScopeControl data={data} onScope={changeScope} />
         <span className="toolbar-branch">
           <GitBranchIcon />
-          <span className="branch-name">{branchLabel(data.branch, t.detached)}</span>
+          <span className="branch-name" title={branchLabel(data.branch, t.detached)}>
+            {branchLabel(data.branch, t.detached)}
+          </span>
         </span>
         <Tracking branch={data.branch} />
       </div>

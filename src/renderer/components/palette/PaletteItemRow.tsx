@@ -13,7 +13,7 @@ export function ItemRow({
   after,
 }: {
   name: string
-  meta?: string
+  meta?: React.ReactNode
   keys?: string | null
   detail?: string
   mono?: boolean
