@@ -1,13 +1,13 @@
-import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import { FAKE } from '../../test/fixtures/secrets/samples'
 import {
   FAKE_TOOL,
+  graphsHarness,
   type Harness,
   POLL,
   SCAN_EXPLODES,
-  graphsHarness,
 } from '../../test/graphsHarness'
 import { running } from '../../test/tmux'
 

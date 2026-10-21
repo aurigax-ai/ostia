@@ -8,8 +8,10 @@ import { Input } from '@/components/ui/input'
 import { useDict } from '@/lib/app/useDict'
 import {
   type AutoSaveMode,
+  clampZoom,
   DIFF_LAYOUTS,
   type DiffLayout,
+  isValidSearchTemplate,
   type LineNumberMode,
   OPEN_FILES_IN,
   type OpenFilesIn,
@@ -19,8 +21,6 @@ import {
   type TabWidth,
   ZOOM_MAX,
   ZOOM_MIN,
-  clampZoom,
-  isValidSearchTemplate,
 } from '@/lib/settings/browserEditorSettings'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 

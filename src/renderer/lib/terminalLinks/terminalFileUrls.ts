@@ -1,7 +1,7 @@
-import type { OstiaTerminal as Terminal, WebLinkHandler } from '@/lib/terminal/ostiaTerminal'
 import { type FileUrlTarget, findFileUrls, opensFileUrl } from '@shared/files/fileUrls'
 import type { IBufferRange, ILink, ILinkProvider } from '@xterm/xterm'
 import { LRUCache } from 'lru-cache'
+import type { OstiaTerminal as Terminal, WebLinkHandler } from '@/lib/terminal/ostiaTerminal'
 import type { PathLinkTarget } from './linkModifier'
 import { matchesOnRow, provideFound, readLogicalLine } from './terminalFileLinks'
 

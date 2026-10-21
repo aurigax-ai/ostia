@@ -5,11 +5,11 @@ import type {
 } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import { MAIL_PANE_CLOSED, mailExpired } from '../../shared/agents/agentIssues'
 import {
+  busPreview,
   type MailKind,
   type MailPending,
   type MailState,
   type MailVia,
-  busPreview,
 } from '../../shared/agents/busMessages'
 import type { AgentJournal } from '../diagnostics/agentJournal'
 import { loadJson, saveJsonAsync, storePath } from '../platform/jsonStore'
@@ -373,7 +373,7 @@ export function dropWatchesOf(externalId: string): void {
 
 export function setPending(id: string, pending: MailPending): void {
   const mail = store().mail.find((item) => item.id === id)
-  if (!mail || mail.state !== 'queued' || mail.pending === pending) return
+  if (mail?.state !== 'queued' || mail.pending === pending) return
   mail.pending = pending
   markBusDirty()
 }

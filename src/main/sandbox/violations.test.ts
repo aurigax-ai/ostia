@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import {
-  VIOLATIONS_PER_WORKSPACE,
-  VIOLATION_TEXT_MAX,
-  ViolationLog,
   parseViolationLine,
   recordViolations,
+  VIOLATION_TEXT_MAX,
+  VIOLATIONS_PER_WORKSPACE,
+  ViolationLog,
 } from './violations'
 
 describe('parseViolationLine', () => {

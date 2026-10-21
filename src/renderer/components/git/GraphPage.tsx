@@ -1,8 +1,8 @@
-import { useDict } from '@/lib/app/useDict'
-import { WORKTREE, branchLabel, buildGraphModel, indexOfKey } from '@/lib/git/gitView'
 import { GitBranchIcon } from '@phosphor-icons/react'
 import type { GitGraphData, GraphScope } from '@shared/boards/git'
 import { useEffect, useMemo, useRef } from 'react'
+import { useDict } from '@/lib/app/useDict'
+import { branchLabel, buildGraphModel, indexOfKey, WORKTREE } from '@/lib/git/gitView'
 import {
   type ChangeHandlers,
   ChangeSections,

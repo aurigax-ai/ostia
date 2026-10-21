@@ -1,3 +1,4 @@
+import type { HumanInputSource } from '@shared/terminal/ptyApi'
 import { keptShellReattached } from '@/lib/agents/autoResume'
 import { keptAgentReattached } from '@/lib/agents/paneAgent'
 import { markPaneActivity } from '@/lib/attention/paneActivity'
@@ -19,7 +20,6 @@ import { useSettingsStore } from '@/stores/app/settingsStore'
 import { type LineAnchor, useBlocksStore } from '@/stores/terminal/blocksStore'
 import { usePhoneSizeStore } from '@/stores/terminal/phoneSizeStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
-import type { HumanInputSource } from '@shared/terminal/ptyApi'
 import type { TerminalSession } from './terminalSession'
 import { isPromptRepaint, nextSizeAction, settleFit } from './terminalSizing'
 

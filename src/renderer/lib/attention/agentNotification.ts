@@ -1,8 +1,8 @@
+import { wantsDesktopBanner } from '@shared/app/notificationSettings'
 import { currentDict } from '@/lib/app/useDict'
 import { findPane } from '@/lib/layout/tree'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
-import { wantsDesktopBanner } from '@shared/app/notificationSettings'
 
 function paneTitle(paneId: string): string | undefined {
   for (const layout of Object.values(useLayoutStore.getState().byWorkspace)) {

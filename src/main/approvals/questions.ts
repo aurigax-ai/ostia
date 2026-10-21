@@ -1,9 +1,11 @@
 import { ipcMain, webContents } from 'electron'
 import type { PermissionInfo } from '../../shared/agents/agentPermissions'
 import {
-  QUESTIONS_PER_PANE,
+  normalizeQuestion,
+  normalizeReply,
   QUESTION_RATE_LIMIT,
   QUESTION_RATE_WINDOW_MS,
+  QUESTIONS_PER_PANE,
   type QuestionAskResult,
   type QuestionContent,
   type QuestionEnd,
@@ -11,8 +13,6 @@ import {
   type QuestionRequest,
   type QuestionSource,
   type QuestionState,
-  normalizeQuestion,
-  normalizeReply,
 } from '../../shared/agents/questions'
 import { registerControlMethod } from '../control/controlServer'
 import { RateWindow } from '../platform/rateWindow'

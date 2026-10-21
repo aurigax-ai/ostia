@@ -1,7 +1,7 @@
-import { mermaidSvg } from '@/lib/files/mermaidImage'
-import { stylesMatching } from '@/lib/files/portableStyles'
 import { type PortableDocument, portableType } from '@shared/artifacts/portable'
 import Markdown, { type Components } from 'react-markdown'
+import { mermaidSvg } from '@/lib/files/mermaidImage'
+import { stylesMatching } from '@/lib/files/portableStyles'
 import { MARKDOWN_REMARK, markdownComponents } from './MarkdownPreview'
 
 const MARKDOWN_STYLES = /\.typeset|\.markdown-preview|\.mermaid-diagram/

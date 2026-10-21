@@ -1,14 +1,14 @@
+import {
+  isWorkspaceGroupColor,
+  normalizeGroupName,
+  WORKSPACE_GROUP_COLORS,
+} from '@shared/workspaces/workspaceGroups'
 import { registerCore } from '@/commands/coreCommand'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { usePaneRenameStore } from '@/stores/workspaces/paneRenameStore'
 import { type RailEdit, revealRailEdit } from '@/stores/workspaces/railEditStore'
 import { useWindowsStore } from '@/stores/workspaces/windowsStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
-import {
-  WORKSPACE_GROUP_COLORS,
-  isWorkspaceGroupColor,
-  normalizeGroupName,
-} from '@shared/workspaces/workspaceGroups'
 
 function namedGroup(raw: unknown) {
   const name = normalizeGroupName(raw)

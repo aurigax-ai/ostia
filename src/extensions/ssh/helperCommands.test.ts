@@ -1,15 +1,16 @@
 import { spawn } from 'node:child_process'
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import type {
-  ConfirmRequest,
-  ExtensionResult,
-  OpenFolderOptions,
-  OpenFolderResult,
+import {
+  type ConfirmRequest,
+  createTranslator,
+  type ExtensionResult,
+  type OpenFolderOptions,
+  type OpenFolderResult,
 } from '@aurigax-ai/ostia-extension-sdk'
 import type { ExtensionCaller } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import { afterEach, describe, expect, it } from 'vitest'
-import { type RemoteHost, helperSource, remoteHost } from '../../../test/fixtures/ssh/remoteHost'
+import { helperSource, type RemoteHost, remoteHost } from '../../../test/fixtures/ssh/remoteHost'
 import { HelperConsent } from './consent'
 import { HelperFolders, Sessions } from './folders'
 import { shippedHelper } from './helper'
@@ -64,6 +65,7 @@ function rig(over: { answer?: boolean; enabled?: boolean } = {}): Rig {
   const folders = new HelperFolders(hosts)
   let folderAnswer: OpenFolderResult = { ok: true, folderId: 'folder000001' }
   const deps: HelperDeps = {
+    translate: createTranslator(__dirname),
     run: async (args) => {
       sshG.push(args)
       return { code: 0, stdout: DB, stderr: '', missing: false, timedOut: false }

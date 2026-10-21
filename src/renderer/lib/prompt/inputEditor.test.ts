@@ -1,6 +1,6 @@
-import type { CommandBlock } from '@/stores/terminal/blocksStore'
 import type { SpecCommand } from '@shared/terminal/completionSpec'
 import { describe, expect, it, vi } from 'vitest'
+import type { CommandBlock } from '@/stores/terminal/blocksStore'
 import {
   applyCompletionItem,
   argumentCandidates,

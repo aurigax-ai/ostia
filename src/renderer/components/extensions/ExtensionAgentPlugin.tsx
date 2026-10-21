@@ -1,6 +1,6 @@
+import type { ExtensionInfo } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import { Notice } from '@/components/common/Notice'
 import { fmt, useDict } from '@/lib/app/useDict'
-import type { ExtensionInfo } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 
 export function ExtensionAgentPlugin({
   ext,

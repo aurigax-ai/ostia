@@ -1,9 +1,9 @@
+import type { WebviewTag } from 'electron'
+import { type Dispatch, type MutableRefObject, type SetStateAction, useEffect } from 'react'
 import { guestReached } from '@/lib/panes/guestReached'
 import { terminalTitle } from '@/lib/terminal/terminalTitle'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
-import type { WebviewTag } from 'electron'
-import { type Dispatch, type MutableRefObject, type SetStateAction, useEffect } from 'react'
 import type { FindResult } from './BrowserFind'
 
 interface WebviewEventsParams {

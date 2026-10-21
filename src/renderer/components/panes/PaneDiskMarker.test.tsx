@@ -1,9 +1,9 @@
 import '@testing-library/jest-dom/vitest'
+import { act, cleanup, render, screen } from '@testing-library/react'
+import { afterEach, beforeAll, describe, expect, it } from 'vitest'
 import type { PaneNode } from '@/lib/layout/types'
 import { unsavedFilesOf } from '@/lib/workspaces/closeConfirm'
 import { useEditorStatus } from '@/stores/files/editorStatusStore'
-import { act, cleanup, render, screen } from '@testing-library/react'
-import { afterEach, beforeAll, describe, expect, it } from 'vitest'
 import { Pane } from './Pane'
 
 const file: PaneNode = {

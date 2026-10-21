@@ -1,8 +1,8 @@
+import { useEffect } from 'react'
 import { SettingsList } from '@/components/settingsKit/SettingsList'
 import { SettingsPage } from '@/components/settingsKit/SettingsPage'
 import { useDict } from '@/lib/app/useDict'
 import { useLanguageServersStore } from '@/stores/extensions/languageServersStore'
-import { useEffect } from 'react'
 import { ServerRow } from './ServerRow'
 
 export function LanguagesSection(): JSX.Element {

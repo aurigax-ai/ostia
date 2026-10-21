@@ -1,8 +1,8 @@
 import '@testing-library/jest-dom/vitest'
-import { useRemoteFoldersStore, wireRemoteFolders } from '@/stores/files/remoteFoldersStore'
 import { act, cleanup, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { useRemoteFoldersStore, wireRemoteFolders } from '@/stores/files/remoteFoldersStore'
 import { RemoteFolderDialog } from './RemoteFolderDialog'
 
 const ASK = { extName: 'SSH', host: 'dev@db', path: '/srv/app' }

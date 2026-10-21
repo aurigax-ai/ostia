@@ -12,8 +12,7 @@ import { type KindRoles, kindMatches } from '@aurigax-ai/ostia-extension-sdk/con
 import { isInsideDir } from '@aurigax-ai/ostia-extension-sdk/manifest/confinedRead'
 import type { ExtensionHostDeps } from './extensionHostDeps'
 import type { ExtensionProcesses } from './extensionProcesses'
-import { withTimeout } from './extensionRuntime'
-import { REQUEST_TIMEOUT_MS, type Runtime } from './extensionRuntime'
+import { REQUEST_TIMEOUT_MS, type Runtime, withTimeout } from './extensionRuntime'
 
 const LOOPBACK_HOSTS = new Set(['127.0.0.1', 'localhost'])
 

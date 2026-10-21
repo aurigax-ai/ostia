@@ -1,9 +1,9 @@
+import { useEffect, useRef } from 'react'
 import { useSelectionSend } from '@/components/agents/SelectionSend'
 import { registerSelectionSender } from '@/lib/agents/selectionSenders'
 import { currentDict } from '@/lib/app/useDict'
 import { selectedBlockOutput } from '@/lib/terminal/blockActions'
 import type { OstiaTerminal } from '@/lib/terminal/ostiaTerminal'
-import { useEffect, useRef } from 'react'
 
 export function useTerminalSelectionSend({
   workspaceId,

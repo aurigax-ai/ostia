@@ -1,10 +1,10 @@
-import { useAssistStore } from '@/stores/assist/assistStore'
-import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
 import type { ExtensionInfo } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import { PRODUCT_DISPLAY_NAME } from '@aurigax-ai/ostia-extension-sdk/contract/productDisplay'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { useAssistStore } from '@/stores/assist/assistStore'
+import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
 import { ExtensionSettingsForm } from './ExtensionSettingsForm'
 
 function assistant(overrides: Partial<ExtensionInfo> = {}): ExtensionInfo {

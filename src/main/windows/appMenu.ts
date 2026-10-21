@@ -1,4 +1,4 @@
-import { Menu, type MenuItemConstructorOptions, app } from 'electron'
+import { app, Menu, type MenuItemConstructorOptions } from 'electron'
 import { type AppMenuEntry, type AppMenuSpec, parseAppMenuSpec } from '../../shared/app/appMenu'
 import { type Dict, fmt } from '../../shared/app/dict'
 

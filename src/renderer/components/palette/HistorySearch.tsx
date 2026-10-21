@@ -1,3 +1,5 @@
+import { BookmarkSimpleIcon } from '@phosphor-icons/react'
+import { useMemo } from 'react'
 import { commands } from '@/commands/registry'
 import { IconButton } from '@/components/common/IconButton'
 import {
@@ -11,15 +13,13 @@ import { useDict } from '@/lib/app/useDict'
 import { allPanes } from '@/lib/layout/tree'
 import { fileOnlyCommands } from '@/lib/prompt/historyRank'
 import { useFileHistory } from '@/lib/prompt/useFileHistory'
-import { type PaneOrigin, collectHistory } from '@/lib/terminal/blocks'
+import { collectHistory, type PaneOrigin } from '@/lib/terminal/blocks'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useBlocksStore } from '@/stores/terminal/blocksStore'
 import { useHistorySearchStore } from '@/stores/terminal/historySearchStore'
 import { useSnippetsStore } from '@/stores/terminal/snippetsStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
-import { BookmarkSimpleIcon } from '@phosphor-icons/react'
-import { useMemo } from 'react'
 
 const FILE_ENTRIES_MAX = 1000
 

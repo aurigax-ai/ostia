@@ -1,11 +1,11 @@
-import { useSettingsStore } from '@/stores/app/settingsStore'
 import { Ghostty, Terminal as GhosttyTerm } from '@aurigax-ai/ghostty-web'
 import wasmDataUrl from '@aurigax-ai/ghostty-web/ghostty-vt.wasm?inline'
 import { Terminal as Xterm } from '@xterm/xterm'
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import { useSettingsStore } from '@/stores/app/settingsStore'
 import {
-  type GhosttyTerminal,
   createGhosttyTerminal,
+  type GhosttyTerminal,
   loadGhosttyEngine,
   oneBasedLinks,
   osc52Data,
@@ -14,7 +14,7 @@ import {
 } from './ghosttyTerminal'
 import { logicalLinesFrom } from './historyPages'
 import type { OstiaTerminal } from './ostiaTerminal'
-import { SMOOTH_SCROLL_MS, attachSmoothScroll, createWheelClassifier } from './smoothScroll'
+import { attachSmoothScroll, createWheelClassifier, SMOOTH_SCROLL_MS } from './smoothScroll'
 
 interface WasmCells {
   getScrollbackLine(offset: number): unknown

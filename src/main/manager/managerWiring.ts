@@ -1,6 +1,6 @@
 import { rmSync } from 'node:fs'
-import { managerAgents } from '../../shared/agents/managerSettings'
 import type { ManagerSettings } from '../../shared/agents/managerSettings'
+import { managerAgents } from '../../shared/agents/managerSettings'
 import { getByPaneId } from '../control/idRegistry'
 import { loadJson, saveJson } from '../platform/jsonStore'
 import type { PtyIo } from '../terminal/pty/ptyIo'

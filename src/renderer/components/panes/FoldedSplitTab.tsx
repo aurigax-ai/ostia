@@ -1,3 +1,4 @@
+import type { AttentionState } from '@shared/attention/attention'
 import { Hint } from '@/components/common/Hint'
 import { fmt, useDict } from '@/lib/app/useDict'
 import { tabMark } from '@/lib/attention/attention'
@@ -5,8 +6,7 @@ import { allPanes } from '@/lib/layout/tree'
 import type { SplitNode } from '@/lib/layout/types'
 import { cn } from '@/lib/utils'
 import { useAttentionStore } from '@/stores/agents/attentionStore'
-import type { AttentionState } from '@shared/attention/attention'
-import { SplitTabGlyph, focusPane, tabDragProps } from './SplitTab'
+import { focusPane, SplitTabGlyph, tabDragProps } from './SplitTab'
 
 const COUNTED = ['waiting', 'error', 'working', 'done'] as const
 

@@ -1,8 +1,8 @@
-import { useDict } from '@/lib/app/useDict'
-import { useLiveSelectionStore } from '@/stores/terminal/liveSelectionStore'
 import { act, cleanup, renderHook } from '@testing-library/react'
 import { useEffect } from 'react'
 import { afterEach, describe, expect, it } from 'vitest'
+import { useDict } from '@/lib/app/useDict'
+import { useLiveSelectionStore } from '@/stores/terminal/liveSelectionStore'
 import { useChatContext } from './useChatContext'
 
 const range = { kind: 'editor', file: '/home/u/proj/src/a.ts', startLine: 2, endLine: 4 } as const

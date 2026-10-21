@@ -1,9 +1,9 @@
+import { en, zhHant } from '@shared/app/dict'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { CommandDef } from '@/commands/registry'
 import { commands } from '@/commands/registry'
 import { useUIStore } from '@/stores/app/uiStore'
-import { en, zhHant } from '@shared/app/dict'
-import { afterEach, describe, expect, it, vi } from 'vitest'
-import { SSH_CONNECT_ITEM, buildAppMenuSpec, runAppMenuItem } from './appMenu'
+import { buildAppMenuSpec, runAppMenuItem, SSH_CONNECT_ITEM } from './appMenu'
 
 function registry(ids: string[], hidden: string[] = []) {
   const map = new Map<string, CommandDef<unknown, unknown>>(

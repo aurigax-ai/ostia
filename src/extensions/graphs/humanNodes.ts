@@ -1,18 +1,18 @@
 import {
-  EXTENSION_REDACT_TEXTS_MAX,
   EXTENSION_REDACT_TEXT_MAX,
+  EXTENSION_REDACT_TEXTS_MAX,
   type OstiaExtension,
 } from '@aurigax-ai/ostia-extension-sdk'
 import {
+  commandNode,
   DEFAULT_CHOICES,
   NodeError,
   type NodeKind,
   type NodeWait,
   type Notice,
+  notifyNode,
   type Output,
   type ProcessRunner,
-  commandNode,
-  notifyNode,
 } from '@aurigax-ai/wire'
 
 const ANSWER = 'answer'

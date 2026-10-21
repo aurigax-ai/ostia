@@ -1,14 +1,10 @@
 import { describe, expect, it, vi } from 'vitest'
-import { type MovingPane, checkPaneMove } from './paneMove'
+import { checkPaneMove, type MovingPane } from './paneMove'
 
 vi.mock('electron', () => ({ ipcMain: { handle: vi.fn() } }))
 
 function deps(
-  over: {
-    panes?: Record<string, MovingPane>
-    sandboxed?: string[]
-    scratch?: string[]
-  } = {},
+  over: { panes?: Record<string, MovingPane>; sandboxed?: string[]; scratch?: string[] } = {},
 ) {
   const owners: Record<string, string> = { a: '7', b: '7', c: '9' }
   const panes: Record<string, MovingPane> = over.panes ?? {

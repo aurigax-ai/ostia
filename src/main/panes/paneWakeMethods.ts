@@ -1,16 +1,16 @@
 import type { ResponseError } from 'vscode-jsonrpc/node'
 import {
-  ChangeSignal,
   actThenConfirm,
   anyOf,
+  ChangeSignal,
   confirmed,
   mismatch,
 } from '../../shared/common/actThenConfirm'
 import type { CommandResult } from '../../shared/control/commands'
 import { type ControlMethodContext, registerControlMethod } from '../control/controlServer'
 import type { PaneIdentity } from '../control/idRegistry'
-import { type PaneEntry, liveSessionHolder } from './paneList'
-import { type PaneReachDeps, ensurePaneReach, fail, paneRefs, record } from './paneReach'
+import { liveSessionHolder, type PaneEntry } from './paneList'
+import { ensurePaneReach, fail, type PaneReachDeps, paneRefs, record } from './paneReach'
 import type { PaneWaking } from './paneWaking'
 
 const WAKE_WAIT_MIN_MS = 1000

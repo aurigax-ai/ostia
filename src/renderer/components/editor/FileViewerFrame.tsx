@@ -1,3 +1,6 @@
+import { ArrowsLeftRightIcon, WarningIcon } from '@phosphor-icons/react'
+import type { ViewerOpenResult, ViewerStopReason } from '@shared/files/filesApi'
+import { useEffect, useState } from 'react'
 import { EmptyState } from '@/components/common/EmptyState'
 import { IconButton } from '@/components/common/IconButton'
 import { Button } from '@/components/ui/button'
@@ -6,9 +9,6 @@ import type { ViewerOption } from '@/lib/files/viewerChoice'
 import { useGuestReady, useSurfaceFocus } from '@/lib/panes/paneFocus'
 import { useInjectedCss, usePanelThemeCss } from '@/lib/theme/panelThemeInjection'
 import { useOpenWithStore } from '@/stores/files/openWithStore'
-import { ArrowsLeftRightIcon, WarningIcon } from '@phosphor-icons/react'
-import type { ViewerOpenResult, ViewerStopReason } from '@shared/files/filesApi'
-import { useEffect, useState } from 'react'
 import { ViewerMessage } from './ViewerChrome'
 
 const ABORTED = -3

@@ -1,10 +1,10 @@
 import { h, panelSize, savePanelSize, setPanelSize } from './panel'
 import {
-  type SplitBounds,
   clampPosition,
   fractionOf,
   keyPosition,
   percentOf,
+  type SplitBounds,
   splitBounds,
 } from './split'
 

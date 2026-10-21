@@ -1,18 +1,18 @@
 import { globMatches } from '../../shared/browser/browseInput'
 import {
-  type NetworkFilter,
   filterRequests,
+  type NetworkFilter,
   summarizeRequest,
 } from '../../shared/browser/browseNetwork'
 import type { StorageArea } from '../../shared/browser/browseRuntime'
 import type { BrowseState } from './browseGuests'
 import { type BrowseMethod, fail, num, str, world } from './browseMethod'
-import { jsArgs } from './browseWorld'
 import { clearStorage, listCookies, readWebStorage, writeCookie } from './browserStorage'
+import { jsArgs } from './browseWorld'
 import {
+  clearRequestLog,
   type PausedReply,
   type PausedRequest,
-  clearRequestLog,
   requestsFor,
   setGuestRoutes,
 } from './guestNetwork'

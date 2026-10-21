@@ -1,6 +1,6 @@
+import { type MutableRefObject, type RefObject, useLayoutEffect, useMemo } from 'react'
 import { cellBox, rowsToMake } from '@/lib/prompt/promptOverlay'
 import type { PromptGeometry } from '@/lib/prompt/usePromptGeometry'
-import { type MutableRefObject, type RefObject, useLayoutEffect, useMemo } from 'react'
 
 const MAX_LINES = 8
 

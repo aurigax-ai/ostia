@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import {
   PANE_CHIP_ITEM_TEXT_MAX,
-  SIDEBAR_URL_MAX,
   paneChipItems,
+  SIDEBAR_URL_MAX,
   sidebarItemUrl,
 } from './extensions'
 

@@ -1,13 +1,3 @@
-import { parseBrowserSettings, parseEditorSettings } from '@/lib/settings/browserEditorSettings'
-import { parseFileTreeSettings } from '@/lib/settings/fileTreeSettings'
-import { parseKeymapSetting, parseTerminalKeymapSetting } from '@/lib/settings/keymapSetting'
-import {
-  clampContrast,
-  clampScrollSpeed,
-  clampScrollback,
-} from '@/lib/settings/terminalPaneSettings'
-import { parseWindowTitle } from '@/lib/settings/windowTitle'
-import { normalizeHex } from '@/lib/theme/color'
 import { parseAssistModelSettings } from '@aurigax-ai/ostia-extension-sdk/contract/assistReports'
 import { parseManagerSettings } from '@shared/agents/managerSettings'
 import { clampZoom } from '@shared/app/zoom'
@@ -20,7 +10,17 @@ import { parseTelemetrySettings } from '@shared/privacy/telemetry'
 import { parsePromptSettings } from '@shared/terminal/promptSettings'
 import { parseScrollbackHistory } from '@shared/terminal/scrollbackHistory'
 import type { StoreApi } from 'zustand'
-import { type SettingsState, clampLineHeight, withBaseSize } from './settingsModel'
+import { parseBrowserSettings, parseEditorSettings } from '@/lib/settings/browserEditorSettings'
+import { parseFileTreeSettings } from '@/lib/settings/fileTreeSettings'
+import { parseKeymapSetting, parseTerminalKeymapSetting } from '@/lib/settings/keymapSetting'
+import {
+  clampContrast,
+  clampScrollback,
+  clampScrollSpeed,
+} from '@/lib/settings/terminalPaneSettings'
+import { parseWindowTitle } from '@/lib/settings/windowTitle'
+import { normalizeHex } from '@/lib/theme/color'
+import { clampLineHeight, type SettingsState, withBaseSize } from './settingsModel'
 import { parseHibernation } from './settingsParse'
 import { scheduleSave, writeSettings } from './settingsPersist'
 

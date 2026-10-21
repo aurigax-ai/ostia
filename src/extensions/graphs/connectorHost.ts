@@ -1,13 +1,13 @@
 import type { OstiaExtension } from '@aurigax-ai/ostia-extension-sdk'
 import {
   type Clock,
+  connectorNode,
+  httpConnector,
   type McpReply,
   type NativeConnector,
   NodeError,
   type NodeKind,
   type ResolvedConnection,
-  connectorNode,
-  httpConnector,
 } from '@aurigax-ai/wire'
 
 export type ConnectorExt = Pick<OstiaExtension, 'mcpCall' | 'connection'>

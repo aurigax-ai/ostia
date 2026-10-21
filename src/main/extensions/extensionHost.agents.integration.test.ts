@@ -2,8 +2,8 @@ import { mkdtempSync, rmSync } from 'node:fs'
 import { homedir, tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import {
-  EXTENSION_REDACT_TEXTS_MAX,
   EXTENSION_REDACT_TEXT_MAX,
+  EXTENSION_REDACT_TEXTS_MAX,
   type ExtensionCaller,
 } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import type { ExtensionAgentOffer } from '@aurigax-ai/ostia-extension-sdk/contract/extensionsBridge'

@@ -5,8 +5,8 @@ import { type EnvSource, readEnv } from '@aurigax-ai/ostia-extension-sdk/contrac
 import { PRODUCT_NAME } from '@aurigax-ai/ostia-extension-sdk/contract/product'
 import { app } from 'electron'
 import {
-  type InstallMethod,
   hasAppFolder,
+  type InstallMethod,
   isInstallMethod,
   isMacInstall,
 } from '../../shared/app/installMethod'

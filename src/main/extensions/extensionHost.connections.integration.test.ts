@@ -8,7 +8,7 @@ import { registerControlServer, stopControlServer } from '../control/controlServ
 import { ExtensionConnections } from './extensionConnections'
 import { ExtensionHost } from './extensionHost'
 import { registerExtensionMethods } from './extensionMethods'
-import { type SecretStoreDeps, createSecretStore } from './extensionSecrets'
+import { createSecretStore, type SecretStoreDeps } from './extensionSecrets'
 import { ExtensionStore } from './extensionStore'
 
 const fixtures = resolve(__dirname, '../../../test/fixtures/extensions-connections')

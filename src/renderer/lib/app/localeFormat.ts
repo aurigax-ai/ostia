@@ -1,6 +1,6 @@
-import { useSettingsStore } from '@/stores/app/settingsStore'
-import { type RelativeStep, formatRelative } from '@shared/common/relativeTime'
+import { formatRelative, type RelativeStep } from '@shared/common/relativeTime'
 import { useMemo } from 'react'
+import { useSettingsStore } from '@/stores/app/settingsStore'
 import { currentDict, useDict } from './useDict'
 
 const DATE_TIME: Intl.DateTimeFormatOptions = {

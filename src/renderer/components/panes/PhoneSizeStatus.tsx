@@ -1,7 +1,7 @@
+import { useState } from 'react'
 import { StatusAction, StatusLine } from '@/components/common/StatusLine'
 import { fmt, useDict } from '@/lib/app/useDict'
 import { usePhoneSizeStore } from '@/stores/terminal/phoneSizeStore'
-import { useState } from 'react'
 
 export function usePhoneSizeStatus(paneId: string): JSX.Element | null {
   const d = useDict()

@@ -1,9 +1,9 @@
 import { isAbsolute, resolve } from 'node:path'
 import {
   type CommandHandler,
+  cliArgs,
   type ExtensionCaller,
   type ExtensionResult,
-  cliArgs,
   failure,
   ok,
   parseFlags,
@@ -11,10 +11,10 @@ import {
 import {
   type ActivityNote,
   type ActivityRecord,
-  NOTE_LINK_MAX,
-  NOTE_TEXT_MAX,
   isOpenNeedsYou,
   isRecordId,
+  NOTE_LINK_MAX,
+  NOTE_TEXT_MAX,
   newRecordId,
 } from './hookEvent'
 import type { Journal } from './journal'

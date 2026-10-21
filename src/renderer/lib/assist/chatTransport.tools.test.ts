@@ -1,11 +1,3 @@
-import { useAssistStore } from '@/stores/assist/assistStore'
-import {
-  answerApproval,
-  removeAlwaysGrant,
-  resetChatTools,
-  useChatToolsStore,
-} from '@/stores/assist/chatToolsStore'
-import { useEditorStatus } from '@/stores/files/editorStatusStore'
 import {
   type AssistChunk,
   type AssistModelRef,
@@ -15,12 +7,20 @@ import {
 import type { ChatPlanOutput, ChatPreviewOutput, ChatWriteOutput } from '@shared/assist/chatTools'
 import type { UIMessageChunk } from 'ai'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { useAssistStore } from '@/stores/assist/assistStore'
+import {
+  answerApproval,
+  removeAlwaysGrant,
+  resetChatTools,
+  useChatToolsStore,
+} from '@/stores/assist/chatToolsStore'
+import { useEditorStatus } from '@/stores/files/editorStatusStore'
 import { decideHunk, undoEdit } from './chatReview'
 import {
+  createAssistTransport,
   OLD_TOOL_OUTPUT_MAX,
   type OstiaChatMessage,
   STOPPED_TOOL_ERROR,
-  createAssistTransport,
   toChatRequest,
 } from './chatTransport'
 

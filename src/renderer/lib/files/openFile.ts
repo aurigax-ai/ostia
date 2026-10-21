@@ -1,10 +1,10 @@
+import type { FileTarget, OpenedPane } from '@shared/files/openFiles'
 import { signalPane } from '@/lib/attention/workspaceActivity'
 import { openKeepingFocus } from '@/lib/panes/callerFocus'
 import { startNewWorkspace } from '@/lib/workspaces/newWorkspace'
 import { useEditorRevealStore } from '@/stores/files/editorRevealStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
-import type { FileTarget, OpenedPane } from '@shared/files/openFiles'
 import { baseName } from './fileTree'
 
 function activeOrNewWorkspaceId(): string | null {

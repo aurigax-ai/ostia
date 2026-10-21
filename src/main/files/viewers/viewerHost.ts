@@ -1,10 +1,10 @@
 import { randomBytes } from 'node:crypto'
 import { join } from 'node:path'
 import {
-  PORTABLE_TABLES_BYTES_MAX,
-  PORTABLE_TABLES_MAX,
   PORTABLE_TABLE_COLUMNS_MAX,
   PORTABLE_TABLE_ROWS_MAX,
+  PORTABLE_TABLES_BYTES_MAX,
+  PORTABLE_TABLES_MAX,
   type PortableTable,
   VIEWER_CHANGED_EVENT,
   VIEWER_DOCUMENT_PATH,
@@ -21,10 +21,10 @@ import type {
   ViewerStopped,
 } from '../../../shared/files/filesApi'
 import {
-  type ViewerSession,
   contentTypeOf,
   extensionOfViewerPartition,
   hardenViewerSession,
+  type ViewerSession,
   viewerHeaders,
   viewerPartition,
 } from './viewerSessions'

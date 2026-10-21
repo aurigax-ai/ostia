@@ -1,10 +1,10 @@
 import { join } from 'node:path'
 import {
   type CommandHandler,
-  type ExtensionResult,
-  type OpenTerminalResult,
   cliArgs,
+  type ExtensionResult,
   failure,
+  type OpenTerminalResult,
   ok,
   parseFlags,
 } from '@aurigax-ai/ostia-extension-sdk'
@@ -16,10 +16,10 @@ import { bridgeCommand, paneTitle } from './bridge'
 import {
   DEFAULT_FRAME,
   DEFAULT_SPEED,
-  type LineSettings,
   deviceGlobs,
   frameText,
   isSerialDevice,
+  type LineSettings,
   logName,
   parseFrame,
   parseSpeed,

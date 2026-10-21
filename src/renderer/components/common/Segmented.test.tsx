@@ -1,8 +1,8 @@
-import { TooltipProvider } from '@/components/ui/tooltip'
 import { ListBulletsIcon, TreeStructureIcon } from '@phosphor-icons/react'
 import { cleanup, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { TooltipProvider } from '@/components/ui/tooltip'
 import { Segmented } from './Segmented'
 
 afterEach(cleanup)

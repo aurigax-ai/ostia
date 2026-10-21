@@ -1,3 +1,6 @@
+import { CheckIcon, CopyIcon, InfoIcon } from '@phosphor-icons/react'
+import type { ScriptTokenInfo, ScriptTokensState } from '@shared/permissions/scriptTokens'
+import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -9,9 +12,6 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { fmt, useDict } from '@/lib/app/useDict'
-import { CheckIcon, CopyIcon, InfoIcon } from '@phosphor-icons/react'
-import type { ScriptTokenInfo, ScriptTokensState } from '@shared/permissions/scriptTokens'
-import { useState } from 'react'
 import { ScopeSummary, Stat } from './TokenSummary'
 import { reachedCount, runsCommands, shownCaps } from './tokenScope'
 import { ENV, EXAMPLE, localDate, masked } from './tokenText'

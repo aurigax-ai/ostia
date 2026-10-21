@@ -1,5 +1,5 @@
 import { PRODUCT_NAME } from '@aurigax-ai/ostia-extension-sdk'
-import { SCREENS_BIN, isOnPath } from './screensCli'
+import { isOnPath, SCREENS_BIN } from './screensCli'
 
 const SERVICE_PACKAGE = '@aurigax-ai/screens@latest'
 export const SERVICE_INSTALL = ['pnpm', 'add', '-g', SERVICE_PACKAGE]

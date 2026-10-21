@@ -1,3 +1,5 @@
+import { zhHant } from '@shared/app/dict'
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { BASE_LANGUAGE } from '@/lib/extensions/languagePacks'
 import {
   allPanes,
@@ -13,8 +15,6 @@ import { forgetSplitTabSeeds } from '@/lib/panes/splitTabSeeds'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { usePluginsStore } from '@/stores/extensions/pluginsStore'
 import { useDiffStore } from '@/stores/files/diffStore'
-import { zhHant } from '@shared/app/dict'
-import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useLayoutStore } from './layoutStore'
 import { useWorkspacesStore } from './workspacesStore'
 

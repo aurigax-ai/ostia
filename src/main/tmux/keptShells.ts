@@ -7,9 +7,9 @@ import type { KeptExposure } from '../sandbox/ports/portRequests'
 import { HOST_PROTOCOL_VERSION } from '../sandbox/protocol'
 import { isMarkNonce } from '../terminal/markNonce'
 import {
-  type SavedAttention,
   attentionFileFor,
   readSavedAttention,
+  type SavedAttention,
   writeSavedAttention,
 } from './attentionFile'
 import {
@@ -23,11 +23,11 @@ import {
 import { type NewWindowSpec, tmuxQuote } from './tmuxCommand'
 import type { TmuxPane } from './tmuxPane'
 import {
+  ensureTmuxSocketDir,
   type KeptWindow,
+  serverEnv,
   TmuxServer,
   type TmuxServerOptions,
-  ensureTmuxSocketDir,
-  serverEnv,
 } from './tmuxServer'
 
 export interface KeptProcessMeta {

@@ -1,7 +1,7 @@
 import { join } from 'node:path'
 import { app, safeStorage } from 'electron'
 import { ExtensionConnections } from '../extensions/extensionConnections'
-import { type SecretStoreDeps, createSecretStore } from '../extensions/extensionSecrets'
+import { createSecretStore, type SecretStoreDeps } from '../extensions/extensionSecrets'
 import { loadJson, saveJson, storePath } from '../platform/jsonStore'
 
 export function createEncryptedStores() {

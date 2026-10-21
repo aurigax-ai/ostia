@@ -1,6 +1,6 @@
-import { useSandboxStore } from '@/stores/app/sandboxStore'
 import { cleanup, render } from '@testing-library/react'
 import { afterEach, beforeAll, describe, expect, it } from 'vitest'
+import { useSandboxStore } from '@/stores/app/sandboxStore'
 import { FileDropCover } from './FileDropCover'
 
 describe('FileDropCover', () => {

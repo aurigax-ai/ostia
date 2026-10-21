@@ -1,14 +1,14 @@
 import { describe, expect, it } from 'vitest'
 import {
-  GPU_RESTORE_ENV,
-  type SwitcherooGpu,
   discreteGpu,
+  GPU_RESTORE_ENV,
   gpuRelaunchEnv,
   gpuStartPlan,
   parseGpuEnvironment,
   parseSwitcherooGpus,
   renderNodeOf,
   restoreGpuLaunchEnv,
+  type SwitcherooGpu,
   withoutGpuLaunchEnv,
 } from './discreteGpu'
 

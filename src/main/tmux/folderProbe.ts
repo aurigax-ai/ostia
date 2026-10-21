@@ -1,14 +1,14 @@
 import { randomUUID } from 'node:crypto'
 import { existsSync } from 'node:fs'
-import { mkdir, open, opendir, readFile, readdir, rm } from 'node:fs/promises'
+import { mkdir, open, opendir, readdir, readFile, rm } from 'node:fs/promises'
 import { join } from 'node:path'
 import { setTimeout as sleep } from 'node:timers/promises'
 import {
   type FolderReads,
-  PROTECTED_FOLDERS,
-  type ProtectedFolder,
   folderReadOfCommand,
   folderReadOfError,
+  PROTECTED_FOLDERS,
+  type ProtectedFolder,
 } from './folderAccess'
 
 const FULL_DISK_ACCESS_PROBE = '/Library/Application Support/com.apple.TCC/TCC.db'

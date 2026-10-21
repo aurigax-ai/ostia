@@ -1,26 +1,4 @@
 import {
-  MenuCheckboxItem,
-  MenuContent,
-  MenuItem,
-  MenuSubContent,
-  MenuSubTrigger,
-} from '@/components/common/Menu'
-import { ContextMenuSeparator, ContextMenuSub } from '@/components/ui/context-menu'
-import { useDict } from '@/lib/app/useDict'
-import { markWorkspaceRead } from '@/lib/attention/workspaceActivity'
-import { type WorkspaceGroup, moveWorkspaceBy } from '@/lib/sidebar/workspaceGroups'
-import { requestCloseOthers, requestCloseWorkspace } from '@/lib/workspaces/closeConfirm'
-import { moveWorkspaceToNewWindow } from '@/lib/workspaces/windowHandoff'
-import {
-  anchorToFocusedPane,
-  canMoveWorkspace,
-  focusedDir,
-} from '@/lib/workspaces/workspaceProjects'
-import { useSandboxStore } from '@/stores/app/sandboxStore'
-import { useUIStore } from '@/stores/app/uiStore'
-import type { Workspace } from '@/stores/workspaces/workspaceTypes'
-import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
-import {
   AppWindowIcon,
   ArrowDownIcon,
   ArrowUpIcon,
@@ -38,6 +16,28 @@ import {
   XIcon,
   XSquareIcon,
 } from '@phosphor-icons/react'
+import {
+  MenuCheckboxItem,
+  MenuContent,
+  MenuItem,
+  MenuSubContent,
+  MenuSubTrigger,
+} from '@/components/common/Menu'
+import { ContextMenuSeparator, ContextMenuSub } from '@/components/ui/context-menu'
+import { useDict } from '@/lib/app/useDict'
+import { markWorkspaceRead } from '@/lib/attention/workspaceActivity'
+import { moveWorkspaceBy, type WorkspaceGroup } from '@/lib/sidebar/workspaceGroups'
+import { requestCloseOthers, requestCloseWorkspace } from '@/lib/workspaces/closeConfirm'
+import { moveWorkspaceToNewWindow } from '@/lib/workspaces/windowHandoff'
+import {
+  anchorToFocusedPane,
+  canMoveWorkspace,
+  focusedDir,
+} from '@/lib/workspaces/workspaceProjects'
+import { useSandboxStore } from '@/stores/app/sandboxStore'
+import { useUIStore } from '@/stores/app/uiStore'
+import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
+import type { Workspace } from '@/stores/workspaces/workspaceTypes'
 import { HibernateMenuItems } from './HibernateMenuItems'
 import { MergeMenuItems } from './MergeMenuItems'
 

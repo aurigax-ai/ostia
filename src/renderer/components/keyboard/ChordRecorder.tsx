@@ -1,6 +1,3 @@
-import { useDict } from '@/lib/app/useDict'
-import { holdDoubleShift } from '@/lib/keyboard/chords'
-import { isMac } from '@/platform'
 import {
   type ChordSpec,
   DOUBLE_SHIFT,
@@ -9,6 +6,9 @@ import {
   specFromEvent,
 } from '@shared/keyboard/chordSpec'
 import { useEffect, useState } from 'react'
+import { useDict } from '@/lib/app/useDict'
+import { holdDoubleShift } from '@/lib/keyboard/chords'
+import { isMac } from '@/platform'
 
 export function ChordRecorder({
   label,

@@ -1,3 +1,10 @@
+import type {
+  AssistProviderConfig,
+  AssistProviderKind,
+  AssistProviderState,
+} from '@aurigax-ai/ostia-extension-sdk/contract/assist'
+import { PlusIcon, TrashIcon, XIcon } from '@phosphor-icons/react'
+import { useEffect, useState } from 'react'
 import { EmptyState } from '@/components/common/EmptyState'
 import { IconButton } from '@/components/common/IconButton'
 import { DropdownMenu, MenuItem } from '@/components/common/Menu'
@@ -29,13 +36,6 @@ import { patchProvider, withModel, withProvider } from '@/lib/assist/assistProvi
 import { cn } from '@/lib/utils'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useAssistStore } from '@/stores/assist/assistStore'
-import type {
-  AssistProviderConfig,
-  AssistProviderKind,
-  AssistProviderState,
-} from '@aurigax-ai/ostia-extension-sdk/contract/assist'
-import { PlusIcon, TrashIcon, XIcon } from '@phosphor-icons/react'
-import { useEffect, useState } from 'react'
 
 const CARD = 'rounded-md border-line px-3 py-2'
 
@@ -55,13 +55,7 @@ function providerStateKey(enabled: boolean, state: AssistProviderState | undefin
   return state.setup ?? 'ready'
 }
 
-function StateLine({
-  stateKey,
-  error,
-}: {
-  stateKey: string
-  error?: string
-}): JSX.Element {
+function StateLine({ stateKey, error }: { stateKey: string; error?: string }): JSX.Element {
   const d = useDict()
   const t = d.assistantSettings
   const dot =

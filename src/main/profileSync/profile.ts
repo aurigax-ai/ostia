@@ -1,11 +1,11 @@
-import { type Stats, lstatSync, readFileSync, readdirSync, unlinkSync } from 'node:fs'
+import { lstatSync, readdirSync, readFileSync, type Stats, unlinkSync } from 'node:fs'
 import { join } from 'node:path'
 import { isRecord } from '@aurigax-ai/ostia-extension-sdk/contract/isRecord'
 import { PROGRAM_SETTINGS } from '../../shared/permissions/programSettings'
 import { SPEC_COMMAND_PATTERN, SPEC_FILE_MAX_BYTES } from '../../shared/terminal/completionSpec'
-import { VIEW_FILES_MAX, VIEW_FILE_MAX_BYTES, VIEW_NAME } from '../../shared/views/views'
+import { VIEW_FILE_MAX_BYTES, VIEW_FILES_MAX, VIEW_NAME } from '../../shared/views/views'
 import { normalizeMarketplaceUrl } from '../extensions/marketplace/marketplaceSources'
-import { SNIPPET_FILES_MAX, SNIPPET_FILE_MAX_BYTES } from '../workspaces/snippets'
+import { SNIPPET_FILE_MAX_BYTES, SNIPPET_FILES_MAX } from '../workspaces/snippets'
 
 export type JsonObject = Record<string, unknown>
 

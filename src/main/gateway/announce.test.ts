@@ -1,6 +1,5 @@
 import { mkdtempSync, rmSync } from 'node:fs'
-import { hostname } from 'node:os'
-import { tmpdir } from 'node:os'
+import { hostname, tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { FRIENDLY_NAME } from '../../shared/gateway/friendlyName'

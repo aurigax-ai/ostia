@@ -1,7 +1,7 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useAttentionStore } from '@/stores/agents/attentionStore'
 import type { CommandBlock } from '@/stores/terminal/blocksStore'
 import { useBlocksStore } from '@/stores/terminal/blocksStore'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   isStaleAgentReport,
   runningAgentOf,

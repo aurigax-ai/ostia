@@ -13,7 +13,7 @@ import type { StoredSecrets } from '../extensions/extensionSecrets'
 import { signInToMcp, signOutOfMcp } from './chatToolsIpc'
 import { McpHost } from './mcpHost'
 import { McpOAuth, type McpOAuthBrowser } from './mcpOAuth'
-import { MCP_OAUTH_KEY, createMcpOAuthStore } from './mcpOAuthStore'
+import { createMcpOAuthStore, MCP_OAUTH_KEY } from './mcpOAuthStore'
 
 function refusesConnections(url: string): Promise<boolean> {
   const { hostname, port } = new URL(url)

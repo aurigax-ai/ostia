@@ -1,7 +1,7 @@
 import { homedir } from 'node:os'
 import { join } from 'node:path'
 import { PRODUCT_NAME } from '@aurigax-ai/ostia-extension-sdk/contract/product'
-import { type BrowserWindow, app, clipboard, dialog, session, shell } from 'electron'
+import { app, type BrowserWindow, clipboard, dialog, session, shell } from 'electron'
 import { ARTIFACT_LIST_MAX } from '../../shared/artifacts/artifacts'
 import { emitPlatformEvent } from '../control/events'
 import { getByPaneId } from '../control/idRegistry'

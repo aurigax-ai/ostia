@@ -1,7 +1,3 @@
-import { IconButton } from '@/components/common/IconButton'
-import { NumberInput } from '@/components/settingsKit/CommitInput'
-import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/ui/select'
-import { fmt, useDict } from '@/lib/app/useDict'
 import { DeviceRotateIcon } from '@phosphor-icons/react'
 import {
   type BrowserDevice,
@@ -13,6 +9,10 @@ import {
   withPreset,
 } from '@shared/browser/browserDevice'
 import { DEVICE_PRESETS } from '@shared/browser/devicePresets'
+import { IconButton } from '@/components/common/IconButton'
+import { NumberInput } from '@/components/settingsKit/CommitInput'
+import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/ui/select'
+import { fmt, useDict } from '@/lib/app/useDict'
 
 function SizeInput({
   value,

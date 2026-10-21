@@ -1,12 +1,12 @@
 import type { MessageConnection } from 'vscode-jsonrpc/node'
 import {
+  isScriptTokenPreset,
   NEVER_EXPIRES,
   SCRIPT_CAPABILITIES,
   SCRIPT_TOKEN_PRESETS,
   type ScriptTokenCall,
   type ScriptTokenScope,
   type ScriptTokenUsage,
-  isScriptTokenPreset,
 } from '../../shared/permissions/scriptTokens'
 import { parseArgs } from '../common/args'
 import { usageOf } from '../common/usageTable'

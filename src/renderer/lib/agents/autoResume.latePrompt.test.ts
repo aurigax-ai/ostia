@@ -1,3 +1,4 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createPane, findPane, tabsOf } from '@/lib/layout/tree'
 import type { PaneNode } from '@/lib/layout/types'
 import { RUN_WHEN_IDLE_TIMEOUT_MS } from '@/lib/terminal/blockActions'
@@ -10,7 +11,6 @@ import { registerTerminal } from '@/lib/terminal/terminalHandles'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { type LineAnchor, useBlocksStore } from '@/stores/terminal/blocksStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { startAutoResume } from './autoResume'
 import { clearResumeClaims } from './resumeFolder'
 

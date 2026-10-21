@@ -1,17 +1,17 @@
 import { hash } from 'node:crypto'
 import { existsSync, realpathSync } from 'node:fs'
-import { lstat, mkdir, open, readFile, readdir, stat, unlink, writeFile } from 'node:fs/promises'
+import { lstat, mkdir, open, readdir, readFile, stat, unlink, writeFile } from 'node:fs/promises'
 import { dirname, isAbsolute, join, relative, resolve } from 'node:path'
 import { CHAT_TOOL_OUTPUT_MAX } from '@aurigax-ai/ostia-extension-sdk/contract/assist'
-import { CHAT_EDITS_MAX, applyEdits } from '../../shared/assist/chatEdits'
+import { applyEdits, CHAT_EDITS_MAX } from '../../shared/assist/chatEdits'
 import {
   CHAT_DIRTY_PATHS_MAX,
   CHAT_LIST_MAX,
   CHAT_QUERY_MAX,
   CHAT_READ_FILE_MAX,
   CHAT_READ_LINES_MAX,
-  CHAT_SEARCH_FILES_MAX,
   CHAT_SEARCH_FILE_MAX,
+  CHAT_SEARCH_FILES_MAX,
   CHAT_SEARCH_MATCHES_MAX,
   CHAT_WRITE_MAX,
   type ChatDirEntry,

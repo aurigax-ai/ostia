@@ -1,6 +1,6 @@
-import { parseTerminalSettings } from '@/lib/settings/terminalPaneSettings'
 import { describe, expect, it, vi } from 'vitest'
-import { OSC52_MAX_PAYLOAD, decodeOsc52, registerOsc52 } from './osc52'
+import { parseTerminalSettings } from '@/lib/settings/terminalPaneSettings'
+import { decodeOsc52, OSC52_MAX_PAYLOAD, registerOsc52 } from './osc52'
 
 const b64 = (text: string): string => btoa(String.fromCharCode(...new TextEncoder().encode(text)))
 

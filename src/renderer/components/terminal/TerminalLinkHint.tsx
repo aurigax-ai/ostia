@@ -1,3 +1,6 @@
+import type { Dict } from '@shared/app/dict'
+import { linkKind } from '@shared/common/externalLinks'
+import { chordText } from '@shared/keyboard/chordSpec'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { useDict } from '@/lib/app/useDict'
 import {
@@ -10,9 +13,6 @@ import type { FileLinkAction } from '@/lib/terminalLinks/terminalFileLinks'
 import type { FileUrlAction } from '@/lib/terminalLinks/terminalFileUrls'
 import { isMac } from '@/platform'
 import { useSettingsStore } from '@/stores/app/settingsStore'
-import type { Dict } from '@shared/app/dict'
-import { linkKind } from '@shared/common/externalLinks'
-import { chordText } from '@shared/keyboard/chordSpec'
 
 type PathHintKind = FileLinkAction | FileUrlAction
 

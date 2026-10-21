@@ -5,9 +5,9 @@ import {
 } from '@aurigax-ai/ostia-extension-sdk/contract/languageServerConfig'
 import {
   type JsonObject,
-  LSP_LOG_MAX_ENTRIES,
   type LanguageServerInfo,
   type LanguageServerOverrideProblem,
+  LSP_LOG_MAX_ENTRIES,
   type LspLog,
   type LspLogEntry,
   type LspSessionInfo,
@@ -27,9 +27,9 @@ import {
   type ServerRecord,
 } from './serverBinaries'
 import {
+  findServerRoot,
   type LanguageServerSandbox,
   type SpawnServer,
-  findServerRoot,
   sourceSignature,
   startServer,
 } from './serverSpawn'

@@ -1,6 +1,6 @@
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { settleSaves } from '@/lib/files/pendingSaves'
 import type { monaco } from '@/lib/monaco/setup'
-import { afterEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('@/lib/monaco/setup', () => ({ monaco: {} }))
 vi.mock('@/lib/lsp/client', () => ({ documentSaved: vi.fn() }))

@@ -1,8 +1,8 @@
+import type { QuestionRequest } from '@shared/agents/questions'
+import type { ApprovalRequest } from '@shared/permissions/approvals'
 import { findPane } from '@/lib/layout/tree'
 import type { LayoutNode } from '@/lib/layout/types'
 import { workspaceTitle } from '@/lib/workspaces/workspaceTitle'
-import type { QuestionRequest } from '@shared/agents/questions'
-import type { ApprovalRequest } from '@shared/permissions/approvals'
 import { shortenPath } from './railMeta'
 
 export const DASHBOARD_PATH_CHARS = 44

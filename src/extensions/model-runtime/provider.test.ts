@@ -1,9 +1,9 @@
 import { mkdtempSync, rmSync } from 'node:fs'
-import { type Server, createServer } from 'node:http'
+import { createServer, type Server } from 'node:http'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { parseEndpoint } from '@aurigax-ai/ostia-extension-sdk/assist'
-import { type UIMessageChunk, streamText } from 'ai'
+import { streamText, type UIMessageChunk } from 'ai'
 import { afterEach, describe, expect, it } from 'vitest'
 import { MODEL_RUNTIME, MODEL_RUNTIME_CATALOG } from './provider'
 

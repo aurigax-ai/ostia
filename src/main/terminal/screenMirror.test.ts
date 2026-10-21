@@ -1,7 +1,7 @@
 import { Terminal } from '@xterm/headless'
 import { describe, expect, it, vi } from 'vitest'
 import { en } from '../../shared/app/dict'
-import { HISTORY_LINES, ScreenMirror, hibernateSeam, restoreSeam } from './screenMirror'
+import { HISTORY_LINES, hibernateSeam, restoreSeam, ScreenMirror } from './screenMirror'
 
 const RESTORE_SEAM = restoreSeam(en.native.paneBanner)
 const HIBERNATE_SEAM = hibernateSeam(en.native.paneBanner)

@@ -1,21 +1,10 @@
-import { EmptyState } from '@/components/common/EmptyState'
-import { DropdownMenu, MenuItem } from '@/components/common/Menu'
-import { StatusAction, StatusLine, useDismissed } from '@/components/common/StatusLine'
-import { Button } from '@/components/ui/button'
-import { ButtonGroup, ButtonGroupSeparator } from '@/components/ui/button-group'
-import { fmt, useDict } from '@/lib/app/useDict'
-import { openBrowserAs } from '@/lib/browser/browserProfile'
-import { useGuestReady } from '@/lib/panes/paneFocus'
-import { previewTheme } from '@/lib/theme/previewTheme'
-import { useEffectiveThemeId } from '@/lib/theme/theme'
-import { retryPendingFocus } from '@/stores/workspaces/surfaceSlotsStore'
 import { CaretDownIcon, CaretRightIcon, WarningIcon } from '@phosphor-icons/react'
 import {
+  isWebLink,
+  keepErrors,
   type PreviewError,
   type PreviewOpened,
   type PreviewStopReason,
-  isWebLink,
-  keepErrors,
   previewErrorLine,
 } from '@shared/artifacts/htmlPreview'
 import type { SelectionCapture } from '@shared/browser/selection'
@@ -27,6 +16,17 @@ import {
   useRef,
   useState,
 } from 'react'
+import { EmptyState } from '@/components/common/EmptyState'
+import { DropdownMenu, MenuItem } from '@/components/common/Menu'
+import { StatusAction, StatusLine, useDismissed } from '@/components/common/StatusLine'
+import { Button } from '@/components/ui/button'
+import { ButtonGroup, ButtonGroupSeparator } from '@/components/ui/button-group'
+import { fmt, useDict } from '@/lib/app/useDict'
+import { openBrowserAs } from '@/lib/browser/browserProfile'
+import { useGuestReady } from '@/lib/panes/paneFocus'
+import { previewTheme } from '@/lib/theme/previewTheme'
+import { useEffectiveThemeId } from '@/lib/theme/theme'
+import { retryPendingFocus } from '@/stores/workspaces/surfaceSlotsStore'
 import {
   type PickedRegion,
   PreviewRegionOverlay,

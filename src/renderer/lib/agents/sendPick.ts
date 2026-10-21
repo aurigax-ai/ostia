@@ -1,13 +1,7 @@
-import { signalPane } from '@/lib/attention/workspaceActivity'
-import { canTypeInto } from '@/lib/terminal/blockActions'
-import { terminalFor } from '@/lib/terminal/terminalHandles'
-import { useAttentionStore } from '@/stores/agents/attentionStore'
-import { useSettingsStore } from '@/stores/app/settingsStore'
-import { useBlocksStore } from '@/stores/terminal/blocksStore'
 import {
+  captureReferences,
   type PickCapture,
   type PickSendResult,
-  captureReferences,
   reportReference,
 } from '@shared/browser/pick'
 import type { RegionCapture } from '@shared/browser/regionCapture'
@@ -17,6 +11,12 @@ import {
   selectionLabel,
 } from '@shared/browser/selection'
 import type { ReferenceInsert } from '@shared/windows/windowsApi'
+import { signalPane } from '@/lib/attention/workspaceActivity'
+import { canTypeInto } from '@/lib/terminal/blockActions'
+import { terminalFor } from '@/lib/terminal/terminalHandles'
+import { useAttentionStore } from '@/stores/agents/attentionStore'
+import { useSettingsStore } from '@/stores/app/settingsStore'
+import { useBlocksStore } from '@/stores/terminal/blocksStore'
 import { pressEnterAfterPaste } from './agentEnter'
 import { runningAgentOf } from './paneAgent'
 

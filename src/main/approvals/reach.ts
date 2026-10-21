@@ -9,8 +9,8 @@ import type { ApprovalAsk } from './approvals'
 import { ensureCaps } from './controlElevation'
 import {
   AgentProvenance,
-  type ScopeWorkspace,
   projectKey,
+  type ScopeWorkspace,
   sameReachScope,
   unconfirmedMembers,
 } from './reachScope'

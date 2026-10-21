@@ -3,13 +3,13 @@ import {
   existsSync,
   mkdirSync,
   mkdtempSync,
-  readFileSync,
   readdirSync,
+  readFileSync,
   realpathSync,
   rmSync,
   writeFileSync,
 } from 'node:fs'
-import { type IncomingHttpHeaders, createServer } from 'node:http'
+import { createServer, type IncomingHttpHeaders } from 'node:http'
 import type { AddressInfo } from 'node:net'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -33,7 +33,7 @@ import { releaseUserAgent } from '../updates/releaseCheck'
 import { loadEditorLanguages } from './editorLanguages'
 import { LanguageServers } from './languageServers'
 import { chooseServerProgram } from './languageServersIpc'
-import { DOWNLOAD_BASE_URL_ENV, ManagedServers, downloadBaseUrl } from './managedServers'
+import { DOWNLOAD_BASE_URL_ENV, downloadBaseUrl, ManagedServers } from './managedServers'
 import type { LanguageServerSource, ManagedServerFiles } from './serverBinaries'
 import { ServerOverrides } from './serverOverrides'
 

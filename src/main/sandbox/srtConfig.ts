@@ -1,4 +1,4 @@
-import { constants, accessSync, realpathSync } from 'node:fs'
+import { accessSync, constants, realpathSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import type { SandboxRuntimeConfig } from '@anthropic-ai/sandbox-runtime'
 import { PRODUCT_NAME } from '@aurigax-ai/ostia-extension-sdk/contract/product'

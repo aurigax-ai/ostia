@@ -1,3 +1,5 @@
+import type { AssistFeatureId, PromptReview } from '@aurigax-ai/ostia-extension-sdk/contract/assist'
+import { type KeyboardEvent, useEffect, useMemo, useRef, useState } from 'react'
 import { composerAgentName } from '@/commands/assistCompose'
 import { Button } from '@/components/ui/button'
 import { Kbd } from '@/components/ui/kbd'
@@ -10,18 +12,10 @@ import { featureEnabled, setAssistFeature, useAssistFeature } from '@/lib/assist
 import { terminalFor } from '@/lib/terminal/terminalHandles'
 import { isMac } from '@/platform'
 import { assistRequest, useAssistProvider } from '@/stores/assist/assistStore'
-import type { AssistFeatureId, PromptReview } from '@aurigax-ai/ostia-extension-sdk/contract/assist'
-import { type KeyboardEvent, useEffect, useMemo, useRef, useState } from 'react'
-import { ComposerFrame, RedactedNote, type Status, StatusLine, failureText } from './ComposerFrame'
+import { ComposerFrame, failureText, RedactedNote, type Status, StatusLine } from './ComposerFrame'
 
 const TYPO_DEBOUNCE_MS = 700
-function FeatureSwitch({
-  id,
-  label,
-}: {
-  id: AssistFeatureId
-  label: string
-}): JSX.Element | null {
+function FeatureSwitch({ id, label }: { id: AssistFeatureId; label: string }): JSX.Element | null {
   const ref = useAssistFeature(id)
   if (!ref) return null
   return (
@@ -128,7 +122,10 @@ function AgentComposerFoot({
 export function AgentPromptComposer({
   paneId,
   onClose,
-}: { paneId: string; onClose: () => void }): JSX.Element {
+}: {
+  paneId: string
+  onClose: () => void
+}): JSX.Element {
   const d = useDict()
   const provider = useAssistProvider('input')
   const agent = useMemo(() => composerAgentName(paneId), [paneId])

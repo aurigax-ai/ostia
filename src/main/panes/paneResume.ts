@@ -1,8 +1,8 @@
 import {
   type AgentResume,
-  type ResumableAgent,
   isResumableAgent,
   parseAgentResume,
+  type ResumableAgent,
 } from '../../shared/agents/agentResume'
 import type { CommandResult, CommandTarget } from '../../shared/control/commands'
 import { targetOf } from '../attention/attention'

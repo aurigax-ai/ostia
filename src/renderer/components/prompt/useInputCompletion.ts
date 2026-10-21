@@ -1,3 +1,5 @@
+import type { SpecCommand } from '@shared/terminal/completionSpec'
+import { type RefObject, useEffect, useRef } from 'react'
 import { useDict } from '@/lib/app/useDict'
 import {
   type CompletionMatch,
@@ -7,9 +9,9 @@ import {
 } from '@/lib/prompt/completionMatch'
 import { historyArguments } from '@/lib/prompt/historyArguments'
 import {
-  type CompletionItem,
   applyCompletionItem,
   argumentCandidates,
+  type CompletionItem,
   commandCandidates,
   completionScope,
   completionToken,
@@ -18,8 +20,6 @@ import {
   recentCommands,
   splitPathWord,
 } from '@/lib/prompt/inputEditor'
-import type { SpecCommand } from '@shared/terminal/completionSpec'
-import { type RefObject, useEffect, useRef } from 'react'
 import type { InputDraft, Menu } from './useInputDraft'
 import type { InputHistory } from './useInputHistory'
 

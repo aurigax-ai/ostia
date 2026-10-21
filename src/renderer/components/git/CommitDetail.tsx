@@ -1,17 +1,17 @@
+import { XIcon } from '@phosphor-icons/react'
+import type { GitCommitFilesData, GitFailure, GraphCommit } from '@shared/boards/git'
+import { type ReactNode, useEffect, useRef, useState } from 'react'
 import { IconButton } from '@/components/common/IconButton'
 import { useDict } from '@/lib/app/useDict'
 import {
-  type GraphModel,
   absoluteTime,
   failureText,
+  type GraphModel,
   indexOfKey,
   relativeTime,
   shortSha,
 } from '@/lib/git/gitView'
 import { useSettingsStore } from '@/stores/app/settingsStore'
-import { XIcon } from '@phosphor-icons/react'
-import type { GitCommitFilesData, GitFailure, GraphCommit } from '@shared/boards/git'
-import { type ReactNode, useEffect, useRef, useState } from 'react'
 import { FileList, type FolderState, ViewToggle } from './ChangeList'
 
 const DETAIL_DELAY_MS = 120
@@ -48,7 +48,11 @@ export function DetailHead({
   title,
   meta,
   onClose,
-}: { title: string; meta: ReactNode; onClose: () => void }): JSX.Element {
+}: {
+  title: string
+  meta: ReactNode
+  onClose: () => void
+}): JSX.Element {
   const t = useDict().git
   return (
     <header className="detail-head">

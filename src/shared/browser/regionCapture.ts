@@ -1,10 +1,10 @@
 import {
+  clip,
+  markdownImage,
   PICK_NOTE_MAX,
   PICK_TEXT_MAX,
   PICK_URL_MAX,
   type PickBox,
-  clip,
-  markdownImage,
 } from './pick'
 import { SELECTION_IMAGE_MAX } from './selection'
 

@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import type { ActivityEvent, ActivityHost, ActivityNote } from './hookEvent'
 import {
-  EARLIER_TURNS_MAX,
   actionCategory,
   actionCounts,
   ageOf,
+  EARLIER_TURNS_MAX,
   groupKey,
   liveKeys,
   panelModel,

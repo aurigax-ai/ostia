@@ -19,8 +19,8 @@ import { CLAUDE_QUESTION_TOOLS } from '../../shared/agents/claudeAttention'
 import { CORE_SKILL_FILES, writeBundledSkill } from '../agents/bundledSkills'
 import {
   AGENT_DIR,
-  CLI_PATH,
   busHookCommand,
+  CLI_PATH,
   hookCommand,
   hooksFor,
   permissionHookCommand,

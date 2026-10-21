@@ -1,10 +1,10 @@
-import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync } from 'node:fs'
+import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 import { writeFileAtomic } from '@aurigax-ai/ostia-extension-sdk/atomicWrite'
 import {
-  CHAT_SESSIONS_MAX,
   CHAT_SESSION_ID_PATTERN,
   CHAT_SESSION_MAX_BYTES,
+  CHAT_SESSIONS_MAX,
   CHAT_TOTAL_MAX_BYTES,
   type ChatSaveResult,
   type ChatSession,

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { HUMAN_PROMPT_WINDOW_MS, PaneInput, humanInputSource } from './paneInput'
+import { HUMAN_PROMPT_WINDOW_MS, humanInputSource, PaneInput } from './paneInput'
 
 function pane(): { input: PaneInput; advance: (ms: number) => void } {
   let clock = 1_000

@@ -1,9 +1,9 @@
 import {
   type ExtensionCaller,
   type ExtensionResult,
-  type OstiaExtension,
   failure,
   namedArgs,
+  type OstiaExtension,
   ok,
 } from '@aurigax-ai/ostia-extension-sdk'
 import { isRecordId } from './hookEvent'

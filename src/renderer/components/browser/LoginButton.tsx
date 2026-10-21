@@ -1,11 +1,11 @@
+import { FloppyDiskIcon, KeyIcon, UserIcon } from '@phosphor-icons/react'
+import type { CredentialSummary } from '@shared/browser/credentials'
+import { useEffect, useState } from 'react'
 import { IconButton } from '@/components/common/IconButton'
 import { Button } from '@/components/ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Separator } from '@/components/ui/separator'
 import { fmt, useDict } from '@/lib/app/useDict'
-import { FloppyDiskIcon, KeyIcon, UserIcon } from '@phosphor-icons/react'
-import type { CredentialSummary } from '@shared/browser/credentials'
-import { useEffect, useState } from 'react'
 
 export function LoginButton({
   paneId,

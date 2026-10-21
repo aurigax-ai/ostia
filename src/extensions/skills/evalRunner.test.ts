@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { type EvalCase, parseCaseInput } from './evalCase'
 import { passes } from './evalCheck'
-import { EVAL_SYSTEM, PAIRS_PER_CASE, evalInput, evalSystem, runEval } from './evalRunner'
+import { EVAL_SYSTEM, evalInput, evalSystem, PAIRS_PER_CASE, runEval } from './evalRunner'
 import type { Rule } from './rule'
 import { seeded } from './testRandom'
 

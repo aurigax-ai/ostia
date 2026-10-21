@@ -1,5 +1,5 @@
-import type { DropZone } from '@/lib/layout/types'
 import type { ScreenPoint } from '@shared/windows/windowsApi'
+import type { DropZone } from '@/lib/layout/types'
 
 export interface Rect {
   left: number

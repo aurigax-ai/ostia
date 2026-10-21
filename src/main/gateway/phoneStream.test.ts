@@ -8,12 +8,12 @@ import type { GatewayControlDeps } from './controlDispatch'
 import type { Device } from './devices'
 import type { SocketState } from './phoneSocket'
 import {
-  SCOPE_CHECK_MS,
-  STREAMS_PER_SOCKET,
-  STREAM_BUFFER_MAX,
   closeStreams,
   handleStreamClose,
   handleStreamOpen,
+  SCOPE_CHECK_MS,
+  STREAM_BUFFER_MAX,
+  STREAMS_PER_SOCKET,
 } from './phoneStream'
 
 const workspaces: WorkspaceEntry[] = [

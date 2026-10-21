@@ -1,12 +1,12 @@
+import type { MailItem } from '@shared/agents/mailApi'
+import type { Dict } from '@shared/app/dict'
+import { ageLabel } from '@shared/panes/paneStatus'
 import { Hint } from '@/components/common/Hint'
 import { Badge } from '@/components/ui/badge'
 import { fmt, useDict } from '@/lib/app/useDict'
 import { paneTitleIn } from '@/lib/layout/paneTitle'
 import { itemsOf, useMailStore } from '@/stores/agents/mailStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
-import type { MailItem } from '@shared/agents/mailApi'
-import type { Dict } from '@shared/app/dict'
-import { ageLabel } from '@shared/panes/paneStatus'
 
 function pendingText(d: Dict, pending: MailItem['pending']): string {
   switch (pending) {

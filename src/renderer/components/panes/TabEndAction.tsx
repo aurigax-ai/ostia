@@ -1,8 +1,8 @@
+import { LockSimpleIcon, XIcon } from '@phosphor-icons/react'
 import { commands } from '@/commands/registry'
 import { IconButton } from '@/components/common/IconButton'
 import { useDict } from '@/lib/app/useDict'
 import type { PaneNode } from '@/lib/layout/types'
-import { LockSimpleIcon, XIcon } from '@phosphor-icons/react'
 
 export function TabEndAction({
   pane,

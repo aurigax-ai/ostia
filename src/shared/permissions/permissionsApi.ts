@@ -5,9 +5,9 @@ import type { AgentGroupPlacement, ReachMode } from './reach'
 import type {
   ScriptTokenCreateInput,
   ScriptTokenSaveResult,
+  ScriptTokensState,
   ScriptTokenUpdateInput,
   ScriptTokenUsage,
-  ScriptTokensState,
 } from './scriptTokens'
 
 interface ScriptTokensApi {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { type NetworkRequest, filterRequests, summarizeRequest } from './browseNetwork'
+import { filterRequests, type NetworkRequest, summarizeRequest } from './browseNetwork'
 
 function req(id: string, extra: Partial<NetworkRequest>): NetworkRequest {
   return {

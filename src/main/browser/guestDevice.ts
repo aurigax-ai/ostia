@@ -4,7 +4,7 @@ import { devicePreset, presetUserAgent } from '../../shared/browser/devicePreset
 import { type DeviceTouch, parseDeviceTouch } from '../../shared/browser/deviceTouch'
 import { ownedGuest } from './browseGuests'
 import { debuggerCommand } from './browseMethod'
-import { type DeviceAgent, type UserAgentMetadata, setDeviceAgent } from './signinUserAgent'
+import { type DeviceAgent, setDeviceAgent, type UserAgentMetadata } from './signinUserAgent'
 
 export interface DeviceEmulation {
   width: number

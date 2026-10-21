@@ -17,19 +17,19 @@ import { pipeline } from 'node:stream/promises'
 import { createGunzip } from 'node:zlib'
 import { readEnv } from '@aurigax-ai/ostia-extension-sdk/contract/appEnv'
 import {
+  goInstallArgs,
+  isDownloadRun,
+  isGoInstallRun,
   LANGUAGE_SERVER_DOWNLOAD_HOSTS,
   type LanguageServerAsset,
   type LanguageServerFetchFailure,
   type LanguageServerGoInstall,
   type LanguageServerPlatform,
   type LanguageServerRun,
-  goInstallArgs,
-  isDownloadRun,
-  isGoInstallRun,
   pinnedVersion,
 } from '@aurigax-ai/ostia-extension-sdk/contract/languageServers'
-import { type ReadEntry, extract as extractTar, list as listTar } from 'tar'
-import { type Entry, type ZipFile, open as openZip } from 'yauzl'
+import { extract as extractTar, list as listTar, type ReadEntry } from 'tar'
+import { type Entry, open as openZip, type ZipFile } from 'yauzl'
 import { redactSecrets } from '../diagnostics/appLog'
 import { DownloadError, downloadChecked, isAllowedHop } from '../platform/checkedDownload'
 import { isInsidePath } from '../platform/pathGuard'

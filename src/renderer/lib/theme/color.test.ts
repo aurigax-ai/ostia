@@ -2,11 +2,11 @@ import { differenceEuclidean, interpolate, oklch, wcagContrast, wcagLuminance } 
 import { describe, expect, it } from 'vitest'
 import {
   ACCENT_PRESETS,
-  SELECTION_MIN_DISTANCE,
   deriveAccent,
   ensureContrast,
   normalizeHex,
   readableOn,
+  SELECTION_MIN_DISTANCE,
   selectionVisibility,
   visibleSelection,
 } from './color'

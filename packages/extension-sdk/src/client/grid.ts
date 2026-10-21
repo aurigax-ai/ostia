@@ -1,8 +1,8 @@
 import {
-  Virtualizer,
   elementScroll,
   observeElementOffset,
   observeElementRect,
+  Virtualizer,
 } from '@tanstack/virtual-core'
 import { columnWidths, rowLabelWidth } from './gridLayout'
 

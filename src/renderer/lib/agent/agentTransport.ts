@@ -1,10 +1,10 @@
+import type { AgentEvent, AgentToolReply } from '@aurigax-ai/ostia-extension-sdk/contract/agent'
+import type { AgentToolCallNotice } from '@shared/agent/agentApi'
+import type { ChatTransport, UIMessageChunk } from 'ai'
 import { agentProblem } from '@/lib/agent/agentProblem'
 import { agentPromptText } from '@/lib/agent/agentPrompt'
 import type { ChatToolDef, ToolOutcome, ToolRun } from '@/lib/assist/chatToolGate'
 import { type OstiaChatMessage, outputText } from '@/lib/assist/chatTransport'
-import type { AgentEvent, AgentToolReply } from '@aurigax-ai/ostia-extension-sdk/contract/agent'
-import type { AgentToolCallNotice } from '@shared/agent/agentApi'
-import type { ChatTransport, UIMessageChunk } from 'ai'
 
 const AGENT_DENIED_TEXT = 'The human denied this call.'
 

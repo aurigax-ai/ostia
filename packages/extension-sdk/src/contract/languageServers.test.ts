@@ -7,10 +7,10 @@ import {
 } from './languageServerConfig'
 import { downloadUrlProblem, parseLanguageServers } from './languageServerManifest'
 import {
-  SERVER_JSON_MAX_BYTES,
   languageServerCommand,
   languageServerSummary,
   parseLanguageServerOverride,
+  SERVER_JSON_MAX_BYTES,
   splitLanguageServerKey,
 } from './languageServers'
 

@@ -1,3 +1,17 @@
+import {
+  type AssistModelChoice,
+  type AssistModelRef,
+  modelRefKey,
+} from '@aurigax-ai/ostia-extension-sdk/contract/assist'
+import {
+  CaretDownIcon,
+  ChatCircleIcon,
+  CubeIcon,
+  GearSixIcon,
+  type Icon,
+  PencilSimpleIcon,
+} from '@phosphor-icons/react'
+import { useMemo } from 'react'
 import { Hint } from '@/components/common/Hint'
 import { DropdownMenu, MenuItem, MenuLabel, MenuRadioItem } from '@/components/common/Menu'
 import { Button } from '@/components/ui/button'
@@ -13,20 +27,6 @@ import { useUIStore } from '@/stores/app/uiStore'
 import { chatChoices, useAssistStore, useChatModel } from '@/stores/assist/assistStore'
 import { setSessionModel, useChatStore } from '@/stores/assist/chatStore'
 import { useChatMode, useChatToolsStore } from '@/stores/assist/chatToolsStore'
-import {
-  type AssistModelChoice,
-  type AssistModelRef,
-  modelRefKey,
-} from '@aurigax-ai/ostia-extension-sdk/contract/assist'
-import {
-  CaretDownIcon,
-  ChatCircleIcon,
-  CubeIcon,
-  GearSixIcon,
-  type Icon,
-  PencilSimpleIcon,
-} from '@phosphor-icons/react'
-import { useMemo } from 'react'
 
 const TRIGGER = 'h-6 gap-1 px-1.5 text-ui-xs'
 

@@ -1,5 +1,21 @@
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
+import { en } from '@shared/app/dict'
+import {
+  bindingProblem,
+  type ChordSpec,
+  chordTexts,
+  formatChord,
+  formatScopedChord,
+  parseChord,
+  parseScopedChord,
+  stealsTerminalKey,
+  TERMINAL_SCOPE,
+  usedByMonaco,
+} from '@shared/keyboard/chordSpec'
+import { DEFAULT_CHORDS } from '@shared/keyboard/defaultChords'
+import { parseKeymapBindings } from '@shared/keyboard/keymapFile'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { registerBuiltinCommands } from '@/commands/builtins'
 import { commands } from '@/commands/registry'
 import { createPane, tabsOf } from '@/lib/layout/tree'
@@ -7,26 +23,7 @@ import { useKeymapStore } from '@/stores/app/keymapStore'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
-import { en } from '@shared/app/dict'
 import {
-  type ChordSpec,
-  TERMINAL_SCOPE,
-  bindingProblem,
-  chordTexts,
-  formatChord,
-  formatScopedChord,
-  parseChord,
-  parseScopedChord,
-  stealsTerminalKey,
-  usedByMonaco,
-} from '@shared/keyboard/chordSpec'
-import { DEFAULT_CHORDS } from '@shared/keyboard/defaultChords'
-import { parseKeymapBindings } from '@shared/keyboard/keymapFile'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import {
-  type KeyLike,
-  type KeybindingMap,
-  TERMINAL_COMMAND_CHORDS,
   baseChords,
   bindableIds,
   checkBinding,
@@ -44,11 +41,14 @@ import {
   isAppChord,
   isBrowserChord,
   isTerminalCommandChord,
+  type KeybindingMap,
+  type KeyLike,
   matchChord,
   matchChordInTerminal,
   matchTerminalChord,
   runAppChord,
   setKeybindingSetting,
+  TERMINAL_COMMAND_CHORDS,
   terminalKeyConflicts,
   workspaceDigit,
   workspaceIndex,

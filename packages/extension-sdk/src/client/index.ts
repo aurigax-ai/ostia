@@ -1,10 +1,10 @@
 import { once } from 'node:events'
 import { createConnection } from 'node:net'
 import {
+  createMessageConnection,
   type MessageConnection,
   StreamMessageReader,
   StreamMessageWriter,
-  createMessageConnection,
 } from 'vscode-jsonrpc/node'
 import type {
   AgentEvent,
@@ -23,7 +23,7 @@ import type {
   AssistResults,
   AssistUi,
 } from '../contract/assist'
-import { EXTENSION_API_ENV, EXTENSION_API_VERSION, apiProblem } from '../contract/extensionApi'
+import { apiProblem, EXTENSION_API_ENV, EXTENSION_API_VERSION } from '../contract/extensionApi'
 import type {
   AgentOfferOptions,
   AgentOfferResult,
@@ -71,24 +71,15 @@ import type {
   WakePaneResult,
 } from './workApi'
 
-export type {
-  AgentCompleteOptions,
-  AgentCompleteResult,
-  AskOptions,
-  AskResult,
-  BusSendResult,
-  ConnectionResult,
-  ConnectionsResult,
-  ExecOptions,
-  ExecResult,
-  McpCallReply,
-  McpServerInfo,
-  McpServersResult,
-  WakePaneOutcome,
-  WakePaneResult,
-} from './workApi'
 export { type AgentStop, parseAgentStop } from '../contract/agentStop'
 export type { ConnectionInfo, ConnectionValue } from '../contract/extensionConnections'
+export {
+  formatMessage,
+  localized,
+  type MessageVars,
+  matchLocale,
+  type Translate,
+} from '../contract/extensionLocales'
 
 export type {
   AgentOfferOptions,
@@ -111,20 +102,10 @@ export type {
 } from '../contract/extensions'
 
 export {
-  EXTENSION_REDACT_TEXTS_MAX,
   EXTENSION_REDACT_TEXT_MAX,
+  EXTENSION_REDACT_TEXTS_MAX,
   OPEN_TERMINAL_WAIT_MAX_MS,
 } from '../contract/extensions'
-
-export {
-  type MessageVars,
-  type Translate,
-  formatMessage,
-  localized,
-  matchLocale,
-} from '../contract/extensionLocales'
-export { createTranslator } from './i18n'
-
 export type {
   RemoteCwd,
   RemoteEntry,
@@ -142,6 +123,23 @@ export {
   REMOTE_WRITE_ANY,
   REMOTE_WRITE_NEW,
 } from '../contract/remoteFolders'
+export { createTranslator } from './i18n'
+export type {
+  AgentCompleteOptions,
+  AgentCompleteResult,
+  AskOptions,
+  AskResult,
+  BusSendResult,
+  ConnectionResult,
+  ConnectionsResult,
+  ExecOptions,
+  ExecResult,
+  McpCallReply,
+  McpServerInfo,
+  McpServersResult,
+  WakePaneOutcome,
+  WakePaneResult,
+} from './workApi'
 
 export type RemoteFilesResult =
   | RemoteListResult
@@ -406,19 +404,7 @@ export function onShutdown(fn: () => void): void {
   }
 }
 
-export { nextBackoff, runTool, type ToolRun, type ToolRunOptions } from './tool'
-export { type MessagePageServer, startMessageServer } from './messagePage'
-
-export {
-  BrowseError,
-  type BrowseContext,
-  type BrowseFile,
-  type BrowseProvider,
-  type ChunkSink,
-  type EntrySink,
-} from './browse'
 export type { BrowseEntry, BrowseLimits } from '../contract/fileBrowse'
-export type { PhoneScreenFrame, PhoneScreens, PhoneScreensController } from './phoneScreens'
 export {
   PHONE_SCREEN_REQUESTS,
   type PhoneScreenAskFor,
@@ -430,7 +416,19 @@ export {
   type PhoneScreenReply,
   type PhoneScreenRequest,
 } from '../contract/phoneScreens'
-export { ok, failure, numberSetting, booleanSetting } from './results'
+
+export {
+  type BrowseContext,
+  BrowseError,
+  type BrowseFile,
+  type BrowseProvider,
+  type ChunkSink,
+  type EntrySink,
+} from './browse'
+export { type CliArgs, cliArgs, expandHome, namedArgs, parseFlags } from './cliArgs'
 export { AssistFailure } from './hostHandlers'
-export { type CliArgs, cliArgs, namedArgs, parseFlags, expandHome } from './cliArgs'
+export { type MessagePageServer, startMessageServer } from './messagePage'
 export { type PanelServer, startPanelServer } from './panelServer'
+export type { PhoneScreenFrame, PhoneScreens, PhoneScreensController } from './phoneScreens'
+export { booleanSetting, failure, numberSetting, ok } from './results'
+export { nextBackoff, runTool, type ToolRun, type ToolRunOptions } from './tool'

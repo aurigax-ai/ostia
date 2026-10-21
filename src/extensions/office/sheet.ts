@@ -3,7 +3,7 @@ import {
   PORTABLE_TABLE_ROWS_MAX,
   type PortableTable,
 } from '@aurigax-ai/ostia-extension-sdk/contract/fileKinds'
-import { type Grid, columnName, grid } from '@aurigax-ai/ostia-extension-sdk/grid'
+import { columnName, type Grid, grid } from '@aurigax-ai/ostia-extension-sdk/grid'
 import {
   publishPortable,
   runWorker,

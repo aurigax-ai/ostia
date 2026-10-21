@@ -1,4 +1,5 @@
 import { nameCollator } from '@/lib/files/fileTree'
+
 interface FolderNode<T> {
   kind: 'folder'
   name: string

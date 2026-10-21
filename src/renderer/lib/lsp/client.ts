@@ -1,6 +1,3 @@
-import { claimedLanguages } from '@/lib/monaco/builtinFeatures'
-import { fileLanguage } from '@/lib/monaco/language'
-import { builtinFeatures, monaco } from '@/lib/monaco/setup'
 import type { LspSessionInfo } from '@aurigax-ai/ostia-extension-sdk/contract/languageServers'
 import type {
   Diagnostic,
@@ -8,6 +5,9 @@ import type {
   SymbolInformation,
   WorkspaceSymbol,
 } from 'vscode-languageserver-protocol'
+import { claimedLanguages } from '@/lib/monaco/builtinFeatures'
+import { fileLanguage } from '@/lib/monaco/language'
+import { builtinFeatures, monaco } from '@/lib/monaco/setup'
 import { refreshCodeLenses } from './codeLens'
 import { normalizeUri, toMarkers } from './converters'
 import { registerProviders } from './providers'
@@ -15,9 +15,9 @@ import { WORKSPACE_SYMBOL_METHOD } from './registrations'
 import { LspSession } from './session'
 import { IpcReader, IpcWriter } from './transport'
 import {
-  type WorkspaceSymbolHit,
   mergeWorkspaceSymbolHits,
   toWorkspaceSymbolHits,
+  type WorkspaceSymbolHit,
 } from './workspaceSymbols'
 
 interface ClientSession {

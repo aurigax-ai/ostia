@@ -1,3 +1,11 @@
+import type { Dict } from '@shared/app/dict'
+import {
+  CMUX_SESSION_MAX_BYTES,
+  type CmuxImportReport,
+  type CmuxLossEntry,
+} from '@shared/workspaces/cmuxSession'
+import { MAX_PANES, MAX_WORKSPACES } from '@shared/workspaces/workspaceLimits'
+import { useId } from 'react'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -11,14 +19,6 @@ import { formatBytes } from '@/lib/app/localeFormat'
 import { fmt, useDict } from '@/lib/app/useDict'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useCmuxImportStore } from '@/stores/workspaces/cmuxImportStore'
-import type { Dict } from '@shared/app/dict'
-import {
-  CMUX_SESSION_MAX_BYTES,
-  type CmuxImportReport,
-  type CmuxLossEntry,
-} from '@shared/workspaces/cmuxSession'
-import { MAX_PANES, MAX_WORKSPACES } from '@shared/workspaces/workspaceLimits'
-import { useId } from 'react'
 
 function lossLine(d: Dict, entry: CmuxLossEntry): string {
   const t = d.cmuxImport
@@ -52,6 +52,7 @@ function ReportBody({ d, report }: { d: Dict; report: CmuxImportReport }): JSX.E
           <div className="font-medium text-fg text-ui-base">{t.skipped}</div>
           <ul aria-label={t.skipped} className="flex flex-col gap-1 text-fg-muted">
             {report.skipped.map((s, i) => (
+              // biome-ignore lint/suspicious/noArrayIndexKey: the index tells repeated entries apart and the list is rebuilt, never reordered
               <li key={`${s.window}-${s.name}-${i}`}>
                 {fmt(t.reasons[s.reason], { name: s.name, max: MAX_WORKSPACES })}
               </li>
@@ -66,6 +67,7 @@ function ReportBody({ d, report }: { d: Dict; report: CmuxImportReport }): JSX.E
           {report.notCarried.length > 0 ? (
             <ul aria-label={t.notCarried} className="flex flex-col gap-1 text-fg-muted">
               {report.notCarried.map((entry, i) => (
+                // biome-ignore lint/suspicious/noArrayIndexKey: the index tells repeated entries apart and the list is rebuilt, never reordered
                 <li key={`${entry.workspace}-${entry.pane ?? ''}-${entry.loss}-${i}`}>
                   {lossLine(d, entry)}
                 </li>

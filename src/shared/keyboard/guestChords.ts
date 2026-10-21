@@ -2,9 +2,9 @@ import {
   DIGIT_RANGE,
   DOUBLE_SHIFT,
   type DoubleShiftDetector,
-  type KeyLike,
   formatChord,
   isNativeClipboardKey,
+  type KeyLike,
   parseChord,
   specFromEvent,
 } from './chordSpec'

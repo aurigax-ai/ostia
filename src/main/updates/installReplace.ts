@@ -4,7 +4,7 @@ import { access, lstat, mkdir, readFile, stat } from 'node:fs/promises'
 import { dirname, resolve } from 'node:path'
 import { type EnvSource, readEnv } from '@aurigax-ai/ostia-extension-sdk/contract/appEnv'
 import { PRODUCT_NAME } from '@aurigax-ai/ostia-extension-sdk/contract/product'
-import { type ReadEntry, list as listTar } from 'tar'
+import { list as listTar, type ReadEntry } from 'tar'
 import { parseBuildInfo, releaseVersion } from '../../shared/app/buildInfo'
 import {
   type ReplaceAvailability,
@@ -15,16 +15,16 @@ import {
   UPDATE_DOWNLOAD_HOSTS,
 } from '../../shared/app/installMethod'
 import {
+  parseVersion,
   RELEASE_REPOSITORY,
   type ReleaseInfo,
-  parseVersion,
   tarballAssetName,
 } from '../../shared/app/releases'
 import {
   DownloadError,
   type DownloadRequest,
-  type Fetch,
   downloadChecked,
+  type Fetch,
   followAllowed,
   isAllowedHop,
   readCapped,
@@ -147,11 +147,7 @@ function leavesRoot(segments: string[]): boolean {
   return depth === 0
 }
 
-export function entryProblem(entry: {
-  path: string
-  type: string
-  linkpath?: string
-}): boolean {
+export function entryProblem(entry: { path: string; type: string; linkpath?: string }): boolean {
   const { path, type, linkpath } = entry
   if (!SAFE_TAR_TYPES.has(type)) return true
   if (path.startsWith('/') || path.includes('\\') || path.includes('\0')) return true
