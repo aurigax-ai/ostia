@@ -8,7 +8,7 @@ import { useSettingsStore } from '@/stores/app/settingsStore'
 import { refreshSyncAttention, useSyncAttentionStore } from '@/stores/server/syncAttentionStore'
 import { ageText } from './deviceAge'
 import { serverErrorText } from './serverText'
-import { syncServerErrorText } from './syncServerText'
+import { changedDevicesText, syncServerErrorText } from './syncServerText'
 
 function AskCard({
   item,
@@ -103,20 +103,20 @@ function card(
         </Notice>
       )
     case 'changed':
-      return (
-        <Notice key={item.id}>
-          {fmt(d.syncServer.changedDevices, { devices: item.names.join(', ') })}
-        </Notice>
-      )
+      return <Notice key={item.id}>{changedDevicesText(d, item.names)}</Notice>
   }
 }
 
-export function SyncAttentionCards(): JSX.Element | null {
+export function SyncAttentionCards({
+  kinds,
+}: {
+  kinds: readonly SyncAttention['kind'][]
+}): JSX.Element | null {
   const d = useDict()
   const locale = useSettingsStore((s) => s.locale)
   const items = useSyncAttentionStore((s) => s.items)
   const hidden = useSyncAttentionStore((s) => s.hidden)
-  const shown = items.filter((item) => !hidden.has(item.id))
+  const shown = items.filter((item) => kinds.includes(item.kind) && !hidden.has(item.id))
   if (shown.length === 0) return null
   return <>{shown.map((item) => card(item, d, (at) => ageText(locale, at)))}</>
 }

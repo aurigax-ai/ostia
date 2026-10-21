@@ -1,4 +1,4 @@
-import { freshDataHome, isolatedLaunch } from './dataHome'
+import { DOM_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
 import { openWorkspace, quitApp } from './helpers'
 import { type ElectronApplication, _electron as electron, expect, type Page, test } from './test'
 
@@ -46,9 +46,16 @@ async function shot(win: Page, name: string): Promise<void> {
   if (SHOTS) await win.screenshot({ path: `${SHOTS}/sync-cards-${name}.png` })
 }
 
-test('device approvals and new-device warnings show at the top of Settings › Server, and a notification click opens it', async () => {
-  const launch = isolatedLaunch(freshDataHome())
-  const app = await electron.launch(launch)
+async function openPage(app: ElectronApplication, page: 'server' | 'sync'): Promise<void> {
+  await app.evaluate(({ BrowserWindow }, target) => {
+    for (const w of BrowserWindow.getAllWindows()) w.webContents.send('syncServer:open', target)
+  }, page)
+}
+
+test('the join request and changed devices show on Settings › Sync, the confirmation and new device on Settings › Server, and a notification click opens its page', async () => {
+  const dataHome = freshDataHome()
+  seedSettings(dataHome, { ...DOM_RENDERER_SETTINGS, sync: { method: 'server' } })
+  const app = await electron.launch(isolatedLaunch(dataHome))
   try {
     const win = await app.firstWindow()
     await win.waitForLoadState('domcontentloaded')
@@ -56,22 +63,28 @@ test('device approvals and new-device warnings show at the top of Settings › S
     const settings = win.getByRole('region', { name: 'Settings' })
     await expect(settings).toBeHidden()
     await announce(app, ITEMS)
-    await app.evaluate(({ BrowserWindow }) => {
-      for (const w of BrowserWindow.getAllWindows()) w.webContents.send('syncServer:open')
-    })
-    await expect(settings).toBeVisible({ timeout: 15_000 })
-    await expect(settings.getByRole('heading', { name: 'Server' })).toBeVisible()
-    await expect(settings.getByText('A device wants your synced data')).toBeVisible()
+
+    await openPage(app, 'sync')
+    await expect(settings.getByRole('heading', { name: 'Sync' })).toBeVisible({ timeout: 15_000 })
     await expect(
       settings.getByText(/Pixel 9 wants to join.*K7QDM-2XPLA-VTRHE-4WNBC-GJ5FS/),
     ).toBeVisible()
+    await expect(
+      settings.getByText(
+        /Studio laptop: keys or creation date changed, so it counts as a new device/,
+      ),
+    ).toBeVisible()
+    await expect(settings.getByText(/build-box/)).toBeHidden()
+    await expect(settings.getByText(/asks you to confirm/)).toBeHidden()
+    await shot(win, 'split-sync')
+
+    await openPage(app, 'server')
+    await expect(settings.getByRole('heading', { name: 'Server' })).toBeVisible()
     await expect(settings.getByText(/A new device was added: build-box/)).toBeVisible()
     await expect(settings.getByText(/Studio laptop asks you to confirm/)).toBeVisible()
-    await expect(settings.getByText(/Studio laptop: keys or creation date changed/)).toBeVisible()
-    await shot(win, 'settings')
-
-    await settings.getByRole('button', { name: 'Deny' }).first().click()
     await expect(settings.getByText(/Pixel 9 wants to join/)).toBeHidden()
+    await expect(settings.getByText(/keys or creation date changed/)).toBeHidden()
+    await shot(win, 'split-server')
 
     await announce(app, [])
     await expect(settings.getByText(/A new device was added/)).toBeHidden()

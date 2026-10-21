@@ -180,14 +180,6 @@ describe('Settings › Sync › Server', () => {
     expect(api().unlock).toHaveBeenCalledWith('a long passphrase')
   })
 
-  it('SSY-C166 names the devices whose keys or creation time changed', async () => {
-    api().status.mockResolvedValue(status({ state: 'ready', changedDevices: ['Desk', 'Laptop'] }))
-    render(<SyncServerSection onChanged={() => {}} />)
-    expect(
-      await screen.findByText(/Desk, Laptop: keys or creation date changed/),
-    ).toBeInTheDocument()
-  })
-
   it('SSY-C167 explains a stale link instead of the recovery key message', async () => {
     const user = userEvent.setup()
     api().status.mockResolvedValue(

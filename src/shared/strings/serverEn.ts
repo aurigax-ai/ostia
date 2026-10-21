@@ -92,6 +92,8 @@ export const serverEn = {
     title: 'Server',
   },
   syncServer: {
+    changedDevice:
+      '{devices}: keys or creation date changed, so it counts as a new device and its sync key is ignored for a day.',
     changedDevices:
       '{devices}: keys or creation date changed, so they count as new devices and their sync keys are ignored for a day.',
     cleanUp: 'Clean up server storage',

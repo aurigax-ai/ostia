@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { MachineValue } from '@/components/common/MachineValue'
 import { Notice } from '@/components/common/Notice'
 import { Segmented } from '@/components/common/Segmented'
+import { SyncAttentionCards } from '@/components/server/SyncAttentionCards'
 import { syncServerStatusError } from '@/components/server/syncServerText'
 import { ControlRow } from '@/components/settingsKit/ControlRow'
 import { SettingsPage } from '@/components/settingsKit/SettingsPage'
@@ -236,6 +237,7 @@ export function SyncSection(): JSX.Element {
   return (
     <SettingsPage title={d.sync.title} desc={d.sync.desc}>
       <Separator className="mb-2" />
+      {server ? <SyncAttentionCards kinds={['join', 'changed']} /> : null}
       <ControlRow label={d.syncServer.where} desc={d.syncServer.whereDesc}>
         <Segmented
           label={d.syncServer.where}

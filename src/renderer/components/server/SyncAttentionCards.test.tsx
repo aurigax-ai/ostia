@@ -5,6 +5,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useSyncAttentionStore } from '@/stores/server/syncAttentionStore'
 import { SyncAttentionCards } from './SyncAttentionCards'
 
+const ALL: SyncAttention['kind'][] = ['join', 'approval', 'new-device', 'changed']
+
 const server = () => vi.mocked(window.ostia.server)
 const syncServer = () => vi.mocked(window.ostia.syncServer)
 
@@ -33,7 +35,7 @@ describe('sync attention cards on Settings › Server', () => {
       createdAt: Date.now() - 180_000,
     })
     server().markSeen.mockResolvedValue({ ok: true })
-    render(<SyncAttentionCards />)
+    render(<SyncAttentionCards kinds={ALL} />)
     expect(
       screen.getByText(/A new device was added: Laptop \(added 3 minutes ago\)/),
     ).toBeInTheDocument()
@@ -63,7 +65,7 @@ describe('sync attention cards on Settings › Server', () => {
       },
     )
     server().approve.mockResolvedValue({ ok: true })
-    render(<SyncAttentionCards />)
+    render(<SyncAttentionCards kinds={ALL} />)
     expect(screen.getByText(/Laptop asks you to confirm.*added 2 minutes ago/)).toBeInTheDocument()
     await user.click(screen.getAllByRole('button', { name: 'Deny' })[1] as HTMLElement)
     expect(screen.queryByText(/Tablet asks you/)).toBeNull()
@@ -83,7 +85,7 @@ describe('sync attention cards on Settings › Server', () => {
       createdAt: 0,
     })
     server().approve.mockResolvedValue({ ok: false, error: 'device-too-new' })
-    render(<SyncAttentionCards />)
+    render(<SyncAttentionCards kinds={ALL} />)
     await user.click(screen.getByRole('button', { name: 'Approve' }))
     expect(await screen.findByRole('alert')).toHaveTextContent(
       'This device joined recently. Approve from an older device.',
@@ -101,7 +103,7 @@ describe('sync attention cards on Settings › Server', () => {
       createdAt: Date.now() - 60_000,
     })
     syncServer().approveJoin.mockResolvedValue({ ok: true, status: {} as never })
-    render(<SyncAttentionCards />)
+    render(<SyncAttentionCards kinds={ALL} />)
     expect(screen.getByText(/Phone wants to join.*ABCD-EFGH-JKLM/)).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Approve' }))
     expect(syncServer().approveJoin).toHaveBeenCalledWith('d9', 'ABCD-EFGH-JKLM')
@@ -109,11 +111,40 @@ describe('sync attention cards on Settings › Server', () => {
 
   it('SYA-C124 warns about devices whose keys changed and renders nothing when nothing is pending', () => {
     show({ kind: 'changed', id: 'changed:Laptop', names: ['Laptop'] })
-    const { container } = render(<SyncAttentionCards />)
-    expect(screen.getByText(/Laptop: keys or creation date changed/)).toBeInTheDocument()
+    const { container } = render(<SyncAttentionCards kinds={ALL} />)
+    expect(
+      screen.getByText(
+        /Laptop: keys or creation date changed, so it counts as a new device and its sync key is ignored/,
+      ),
+    ).toBeInTheDocument()
+    cleanup()
+    show({ kind: 'changed', id: 'changed:Laptop,Phone', names: ['Laptop', 'Phone'] })
+    render(<SyncAttentionCards kinds={ALL} />)
+    expect(
+      screen.getByText(
+        /Laptop, Phone: keys or creation date changed, so they count as new devices and their sync keys are ignored/,
+      ),
+    ).toBeInTheDocument()
     cleanup()
     show()
-    expect(render(<SyncAttentionCards />).container).toBeEmptyDOMElement()
+    expect(render(<SyncAttentionCards kinds={ALL} />).container).toBeEmptyDOMElement()
     expect(container).toBeDefined()
+  })
+
+  it('SYA-C125 shows only the kinds a page asks for', () => {
+    show(
+      { kind: 'changed', id: 'changed:Laptop', names: ['Laptop'] },
+      {
+        kind: 'join',
+        id: 'join:d9',
+        deviceId: 'd9',
+        name: 'Phone',
+        code: 'ABCD-EFGH-JKLM',
+        createdAt: Date.now(),
+      },
+    )
+    render(<SyncAttentionCards kinds={['join']} />)
+    expect(screen.getByText(/Phone wants to join/)).toBeInTheDocument()
+    expect(screen.queryByText(/keys or creation date changed/)).toBeNull()
   })
 })

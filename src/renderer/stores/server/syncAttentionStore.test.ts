@@ -28,10 +28,10 @@ describe('sync attention store', () => {
     expect(useSyncAttentionStore.getState().hidden.has(join.id)).toBe(false)
   })
 
-  it('SYA-C112 takes the list main pushes and opens Settings › Server when main asks', () => {
+  it('SYA-C112 takes the list main pushes and opens the Settings page main names', () => {
     const api = vi.mocked(window.ostia.syncServer)
     let push: (items: SyncAttention[]) => void = () => {}
-    let open: () => void = () => {}
+    let open: (page: 'server' | 'sync') => void = () => {}
     api.onAttention.mockImplementation((cb) => {
       push = cb
       return () => {}
@@ -45,7 +45,9 @@ describe('sync attention store', () => {
     startSyncAttention()
     push([join])
     expect(useSyncAttentionStore.getState().items).toEqual([join])
-    open()
+    open('sync')
+    expect(openSettings).toHaveBeenCalledWith('sync')
+    open('server')
     expect(openSettings).toHaveBeenCalledWith('server')
   })
 })

@@ -103,7 +103,7 @@ interface ServerSyncApi {
   onStatus: (cb: (status: ServerSyncStatus) => void) => () => void
   attention: () => Promise<SyncAttention[]>
   onAttention: (cb: (items: SyncAttention[]) => void) => () => void
-  onOpen: (cb: () => void) => () => void
+  onOpen: (cb: (page: 'server' | 'sync') => void) => () => void
 }
 
 export interface ServerSyncBridge {

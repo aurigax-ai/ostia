@@ -88,6 +88,8 @@ export const serverZhHant: typeof serverEn = {
     title: '伺服器',
   },
   syncServer: {
+    changedDevice:
+      '{devices}：金鑰或建立日期已變更，因此視為新裝置，一天內會忽略它傳來的同步金鑰。',
     changedDevices:
       '{devices}：金鑰或建立日期已變更，因此視為新裝置，一天內會忽略它們傳來的同步金鑰。',
     cleanUp: '清理伺服器儲存空間',

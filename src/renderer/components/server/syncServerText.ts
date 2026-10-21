@@ -1,4 +1,4 @@
-import type { Dict } from '@shared/app/dict'
+import { type Dict, fmt } from '@shared/app/dict'
 import type { ServerSyncError } from '@shared/profileSync/serverSync'
 import { serverErrorText } from './serverText'
 
@@ -60,4 +60,9 @@ export function syncServerStatusError(d: Dict, error: string | undefined): strin
     default:
       return null
   }
+}
+
+export function changedDevicesText(d: Dict, names: readonly string[]): string {
+  const template = names.length === 1 ? d.syncServer.changedDevice : d.syncServer.changedDevices
+  return fmt(template, { devices: names.join(', ') })
 }

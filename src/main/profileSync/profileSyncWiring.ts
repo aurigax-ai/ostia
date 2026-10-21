@@ -114,7 +114,10 @@ export function startProfileSyncWiring({
           if (win.isMinimized()) win.restore()
           win.show()
           win.focus()
-          win.webContents.send('syncServer:open')
+          win.webContents.send(
+            'syncServer:open',
+            item.kind === 'join' || item.kind === 'changed' ? 'sync' : 'server',
+          )
         },
       ),
     syncKeyFile: {

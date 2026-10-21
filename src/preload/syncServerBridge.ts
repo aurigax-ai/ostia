@@ -21,6 +21,6 @@ export const syncServerBridge: Pick<OstiaBridge, 'syncServer'> = {
     onStatus: (cb) => listen('syncServer:status', cb),
     attention: () => ipcRenderer.invoke('syncServer:attention'),
     onAttention: (cb) => listen('syncServer:attention', cb),
-    onOpen: (cb) => listen('syncServer:open', () => cb()),
+    onOpen: (cb) => listen('syncServer:open', cb),
   },
 }

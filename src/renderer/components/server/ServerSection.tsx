@@ -64,7 +64,7 @@ export function ServerSection(): JSX.Element {
 
   return (
     <SettingsPage title={d.server.title} desc={d.server.desc}>
-      <SyncAttentionCards />
+      <SyncAttentionCards kinds={['approval', 'new-device']} />
       <ServerAddressRow status={status} />
       {offered.state === 'error' ? <Notice>{serverErrorText(d, offered.error)}</Notice> : null}
       {offered.state === 'ready' ? (

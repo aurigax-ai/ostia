@@ -30,7 +30,7 @@ export function startSyncAttention(): () => void {
   const off = window.ostia.syncServer.onAttention((items) =>
     useSyncAttentionStore.getState().apply(items),
   )
-  const offOpen = window.ostia.syncServer.onOpen(() => useUIStore.getState().openSettings('server'))
+  const offOpen = window.ostia.syncServer.onOpen((page) => useUIStore.getState().openSettings(page))
   void refreshSyncAttention()
   return () => {
     off()

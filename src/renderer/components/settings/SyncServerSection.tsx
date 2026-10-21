@@ -187,9 +187,6 @@ export function SyncServerSection({ onChanged }: { onChanged: () => void }): JSX
       {status.state === 'unreachable' ? <Notice>{t.unreachable}</Notice> : null}
       {status.state === 'untrusted' ? <Notice tone="error">{t.untrusted}</Notice> : null}
       {status.wrapRefused ? <WrapRefusedNotice refusal={status.wrapRefused} /> : null}
-      {status.changedDevices.length > 0 ? (
-        <Notice>{fmt(t.changedDevices, { devices: status.changedDevices.join(', ') })}</Notice>
-      ) : null}
       {status.state === 'needs-setup' ? (
         <>
           <ControlRow label={t.setupTitle} desc={t.setupDesc} />
