@@ -1,7 +1,9 @@
 {
   "name": "settings",
   "paths": [
+    "src/main/agents/playbookFiles.ts",
     "src/renderer/components/agents/AgentsSection.tsx",
+    "src/renderer/components/agents/Playbook",
     "src/renderer/components/app/AboutSection.tsx",
     "src/renderer/components/common/SectionTabs.tsx",
     "src/renderer/components/extensions/ExtensionSettingsPage.tsx",
@@ -24,10 +26,13 @@
     "src/renderer/lib/settings/terminalPaneSettings.ts",
     "src/renderer/lib/settings/terminalSchema.ts",
     "src/renderer/lib/settings/windowTitle.ts",
-    "src/renderer/lib/settings/workspaceSchema.ts"
+    "src/renderer/lib/settings/workspaceSchema.ts",
+    "src/renderer/stores/app/playbookActions.ts",
+    "src/shared/agents/playbooks"
   ],
   "specs": [
     "e2e/extension-locales.spec.ts",
+    "e2e/playbooks.spec.ts",
     "e2e/settings-gap.spec.ts",
     "e2e/settings-row-width.spec.ts",
     "e2e/terminal-settings.spec.ts"

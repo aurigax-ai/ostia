@@ -42,6 +42,8 @@ export const assistBridge: Pick<OstiaBridge, 'assist' | 'chatSessions' | 'chatTo
     restore: (req) => ipcRenderer.invoke('chatTools:restore', req),
     skills: () => ipcRenderer.invoke('chatTools:skills'),
     loadSkill: (name) => ipcRenderer.invoke('chatTools:load-skill', name),
+    playbooks: () => ipcRenderer.invoke('chatTools:playbooks'),
+    playbookPrompt: (name, task) => ipcRenderer.invoke('chatTools:playbook-prompt', name, task),
     mcpStatus: () => ipcRenderer.invoke('chatTools:mcp-status'),
     mcpRefresh: () => ipcRenderer.invoke('chatTools:mcp-refresh'),
     mcpReconnect: (server) => ipcRenderer.invoke('chatTools:mcp-reconnect', server),

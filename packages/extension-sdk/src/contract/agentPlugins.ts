@@ -78,3 +78,18 @@ export function agentHookOutput(event: AgentHookEvent, text: string | undefined)
     hookSpecificOutput: { hookEventName: event, additionalContext: context },
   })
 }
+
+const LINE_BREAKS = /\r\n|[\n\r\u0085\u2028\u2029]/
+const INLINE_INJECTION = /[!\u01c3][`\u02cb\u02f4\u2035$]/
+const FENCED_INJECTION = /(?:[`\u02cb\u02f4\u2035]{3,}|~{3,})[ \t]*[!\u01c3$]/
+
+export function skillDirective(text: string): string | null {
+  const lines = text.split(LINE_BREAKS)
+  for (const [i, line] of lines.entries()) {
+    const flat = line.normalize('NFKC')
+    if (INLINE_INJECTION.test(flat) || FENCED_INJECTION.test(flat)) {
+      return `line ${i + 1}: shell injection (!\` or a \`\`\`! block) is not allowed`
+    }
+  }
+  return null
+}

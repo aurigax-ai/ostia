@@ -6,13 +6,13 @@ import {
   AGENT_SKILL_DESCRIPTION_MAX,
   AGENT_SKILL_FILE_MAX_BYTES,
   AGENT_SKILL_MAX_BYTES,
+  skillDirective,
 } from '../contract/agentPlugins'
 import { PRODUCT_NAME } from '../contract/product'
 import {
   agentPluginContent,
   agentSkillProblems,
   loadAgentSkill,
-  skillDirective,
   skillFrontmatter,
   withSkillName,
 } from './agentSkills'

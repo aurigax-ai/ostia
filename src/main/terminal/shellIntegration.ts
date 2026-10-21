@@ -8,11 +8,12 @@ import {
   NO_AGENT_PLUGINS,
 } from '@aurigax-ai/ostia-extension-sdk/manifest/agentSkills'
 import { isPromptSeparator, type PromptSeparator } from '../../shared/terminal/promptSettings'
+import type { PlaybookFile } from '../agents/playbookFiles'
 import { privateTmpDir } from '../platform/privateTmp'
 import { CLI_PATH, CLI_RUN } from './agentHookCommands'
 import { agentPluginFiles, hasFiles, writeAgentPlugin } from './agentPlugin'
 import { claudeWrapper } from './claudeIntegration'
-import { codexWrapper } from './codexIntegration'
+import { codexWrapper, PLAYBOOKS_DIR } from './codexIntegration'
 
 export const INTEGRATION_DIR = privateTmpDir(`${PRODUCT_NAME}-shell-integration`)
 
@@ -299,19 +300,57 @@ fi
 const AGENT_PLUGINS_DIR = join(INTEGRATION_DIR, 'agents')
 
 let agentContent: AgentPluginContent = NO_AGENT_PLUGINS
-let agentDir: string | null = null
-let agentNames: string[] = []
+let playbookSource: (taken: readonly string[]) => PlaybookFile[] = () => []
+let built: { dir: string; names: string[] } | null = null
+const generations = new Set<string>()
+const inUse = new Map<string, string>()
+
+export function setPlaybookSource(source: (taken: readonly string[]) => PlaybookFile[]): void {
+  playbookSource = source
+}
+
+function sweepGenerations(): void {
+  const used = new Set(inUse.values())
+  for (const dir of [...generations]) {
+    if (dir === built?.dir || used.has(dir)) continue
+    generations.delete(dir)
+    rmSync(dir, { recursive: true, force: true })
+  }
+}
+
+function rebuildPlugin(): string {
+  const playbooks = playbookSource(agentContent.skills.map((skill) => skill.id))
+  const dir = writeAgentPlugin(AGENT_PLUGINS_DIR, agentContent, playbooks)
+  built = { dir, names: agentPluginFiles(agentContent, playbooks) }
+  generations.add(dir)
+  sweepGenerations()
+  return dir
+}
 
 export function setAgentPlugins(content: AgentPluginContent): string {
   agentContent = content
-  agentDir = writeAgentPlugin(AGENT_PLUGINS_DIR, content)
-  agentNames = agentPluginFiles(content)
-  return agentDir
+  return rebuildPlugin()
+}
+
+export function refreshAgentPlugin(): void {
+  rebuildPlugin()
+}
+
+export function retainAgentDir(paneId: string, dir: string): void {
+  inUse.set(paneId, dir)
+}
+
+export function releaseAgentDir(paneId: string): void {
+  if (inUse.delete(paneId)) sweepGenerations()
 }
 
 function currentAgentDir(): string {
-  if (agentDir !== null && hasFiles(agentDir, agentNames)) return agentDir
-  return setAgentPlugins(agentContent)
+  if (built !== null && hasFiles(built.dir, built.names)) return built.dir
+  return rebuildPlugin()
+}
+
+export function playbooksFolder(): string {
+  return join(currentAgentDir(), 'codex', PLAYBOOKS_DIR)
 }
 
 export type ShellIntegrationFiles = Record<string, string>
@@ -435,14 +474,15 @@ export function shellIntegrationSpawnOptions(
   ostiaPrompt: OstiaPromptOption | null = null,
   histFile: string | null = null,
   markNonceFile: string | null = null,
-): { args: string[]; env: Record<string, string> } {
+): { args: string[]; env: Record<string, string>; agentDir: string | null } {
   const name = basename(shellPath).toLowerCase()
 
-  if (name !== 'zsh' && name !== 'bash') return { args: [], env: {} }
+  if (name !== 'zsh' && name !== 'bash') return { args: [], env: {}, agentDir: null }
 
   const dir = shellIntegrationDir()
+  const agentDir = currentAgentDir()
   const env = {
-    ...appEnv({ AGENT_DIR: currentAgentDir() }),
+    ...appEnv({ AGENT_DIR: agentDir }),
     ...promptEnv(ostiaPrompt),
     ...historyEnv(histFile),
     ...markNonceEnv(markNonceFile),
@@ -451,7 +491,8 @@ export function shellIntegrationSpawnOptions(
     return {
       args: [],
       env: { ZDOTDIR: dir, OSTIA_ZDOTDIR_ORIG: baseEnv.ZDOTDIR || baseEnv.HOME || '', ...env },
+      agentDir,
     }
   }
-  return { args: ['--rcfile', join(dir, 'bashrc')], env }
+  return { args: ['--rcfile', join(dir, 'bashrc')], env, agentDir }
 }

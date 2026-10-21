@@ -2,6 +2,7 @@ import { mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import {
   AGENT_HOOK_EVENTS,
+  AGENT_SKILL_ENTRY,
   type AgentHookEvent,
 } from '@aurigax-ai/ostia-extension-sdk/contract/agentPlugins'
 import { envName, shellEnv } from '@aurigax-ai/ostia-extension-sdk/contract/appEnv'
@@ -17,6 +18,7 @@ import { AGENT_HOOKS_OFF_ENV } from '../../shared/agents/agentHooks'
 import { AGENT_ARGS_ENV } from '../../shared/agents/agentLaunch'
 import { CLAUDE_QUESTION_TOOLS } from '../../shared/agents/claudeAttention'
 import { CORE_SKILL_FILES, writeBundledSkill } from '../agents/bundledSkills'
+import type { PlaybookFile } from '../agents/playbookFiles'
 import {
   AGENT_DIR,
   busHookCommand,
@@ -79,6 +81,11 @@ export const CLAUDE_PLUGIN_MANIFEST = {
   description: `${PRODUCT_NAME} integration: the ${PRODUCT_NAME} CLI skill plus hooks for the agent's resume token and attention state.`,
 }
 
+export function writePlaybookFile(dir: string, playbook: PlaybookFile): void {
+  mkdirSync(dir, { recursive: true })
+  writeFileSync(join(dir, AGENT_SKILL_ENTRY), playbook.skill, 'utf8')
+}
+
 export function writeSkillFiles(dir: string, skill: LoadedAgentSkill): void {
   mkdirSync(dir, { recursive: true })
   for (const file of skill.files) writeFileSync(join(dir, file.name), file.data)
@@ -87,6 +94,7 @@ export function writeSkillFiles(dir: string, skill: LoadedAgentSkill): void {
 export function writeClaudePlugin(
   dir: string,
   content: AgentPluginContent = NO_AGENT_PLUGINS,
+  playbooks: readonly PlaybookFile[] = [],
 ): void {
   mkdirSync(join(dir, '.claude-plugin'), { recursive: true })
   mkdirSync(join(dir, 'hooks'), { recursive: true })
@@ -103,6 +111,7 @@ export function writeClaudePlugin(
   writeFileSync(join(dir, 'hooks', CLAUDE_MOD_FILE), claudeModSource, 'utf8')
   writeBundledSkill(join(dir, 'skills', AGENT_SKILL_NAME), CORE_SKILL_FILES)
   for (const skill of content.skills) writeSkillFiles(join(dir, 'skills', skill.id), skill)
+  for (const playbook of playbooks) writePlaybookFile(join(dir, 'skills', playbook.id), playbook)
 }
 
 export function claudeWrapper(): string {

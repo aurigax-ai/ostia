@@ -6,6 +6,7 @@ import { startAgent } from '../agent/agentWiring'
 import { registerAgentTranscriptIpc } from '../agents/agentTranscript'
 import { registerAgentWiring } from '../agents/agentWiring'
 import { registerFolderTrustIpc } from '../agents/folderTrustIpc'
+import { currentPlaybookFiles, setPlaybookSettings } from '../agents/playbookFiles'
 import { createResumeClaimer, registerResumeClaimIpc } from '../agents/resumeClaims'
 import { registerToolbeltWiring } from '../agents/toolbeltWiring'
 import { registerApprovalsWiring } from '../approvals/approvalsWiring'
@@ -47,6 +48,7 @@ import { registerHistoryIpc } from '../terminal/history/historyIpc'
 import { appSpillWorker, HISTORY_DIR, PaneHistories } from '../terminal/history/paneHistories'
 import { registerPtyIpc } from '../terminal/pty/ptyIpc'
 import { registerSelectionIpc } from '../terminal/selectionReport'
+import { refreshAgentPlugin, setPlaybookSource } from '../terminal/shellIntegration'
 import { startFolderAccessWatch } from '../tmux/folderAccessWiring'
 import { startKeptShells } from '../tmux/keptShellsWiring'
 import { appVersion, runningBuild } from '../updates/appVersion'
@@ -124,6 +126,12 @@ export function boot(wiring: Wiring): void {
     openPath: (path) => shell.openPath(path),
   })
   registerGpuReport(services.appLog)
+  setPlaybookSettings(readSettingsFile().playbooks)
+  setPlaybookSource(currentPlaybookFiles)
+  ipcMain.on('settings:playbooks', (_e, playbooks: unknown) => {
+    setPlaybookSettings(playbooks)
+    refreshAgentPlugin()
+  })
   handleQuitSignals()
   services.histories = new PaneHistories({
     root: join(appDataDir(), HISTORY_DIR),

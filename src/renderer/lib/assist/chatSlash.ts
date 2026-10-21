@@ -62,6 +62,7 @@ export interface SlashContext {
   tools: boolean
   skillFolders: number
   skills: readonly { name: string; description: string }[]
+  playbooks: readonly { name: string; description: string }[]
   skillsOn: boolean
   sessions: readonly { id: string; title: string }[]
   sources: readonly SlashChoice[]
@@ -79,6 +80,7 @@ export interface SlashActions {
   attach: (query: string) => void
   openTools: () => void
   applySkill: (name: string, task: string) => void
+  applyPlaybook: (name: string, task: string) => void
   showModel: () => void
   showHelp: () => void
 }
@@ -116,16 +118,26 @@ function sessionChoices(ctx: SlashContext): SlashChoice[] {
   return ctx.sessions.map((s) => ({ value: s.id, label: s.title }))
 }
 
+function usableSkills(ctx: SlashContext): SlashContext['skills'] {
+  return ctx.tools && ctx.skillsOn ? ctx.skills : []
+}
+
 function skillChoices(ctx: SlashContext): SlashChoice[] {
-  return ctx.skills.map((s) => ({ value: s.name, label: s.name, detail: s.description }))
+  return [...usableSkills(ctx), ...ctx.playbooks].map((s) => ({
+    value: s.name,
+    label: s.name,
+    detail: s.description,
+  }))
 }
 
 function skillReason(ctx: SlashContext): SlashReason | null {
   return firstOf(
     !ctx.provider && 'noProvider',
-    !ctx.tools && 'noTools',
-    ctx.skills.length === 0 && (ctx.skillFolders > 0 ? 'noSkills' : 'noSkillFolders'),
-    !ctx.skillsOn && 'skillsOff',
+    ctx.playbooks.length === 0 && !ctx.tools && 'noTools',
+    ctx.playbooks.length === 0 &&
+      ctx.skills.length === 0 &&
+      (ctx.skillFolders > 0 ? 'noSkills' : 'noSkillFolders'),
+    ctx.playbooks.length === 0 && !ctx.skillsOn && 'skillsOff',
     ctx.busy && 'busy',
   )
 }
@@ -250,9 +262,12 @@ export const SLASH_COMMANDS: readonly SlashCommand[] = [
     run: (actions, arg, ctx) => {
       const [name = '', ...rest] = arg.trim().split(/\s+/)
       if (!name) return 'needsSkill'
-      const skill = ctx.skills.find((s) => s.name.toLowerCase() === name.toLowerCase())
-      if (!skill) return 'unknownSkill'
-      actions.applySkill(skill.name, rest.join(' '))
+      const same = (s: { name: string }): boolean => s.name.toLowerCase() === name.toLowerCase()
+      const skill = usableSkills(ctx).find(same)
+      const playbook = ctx.playbooks.find(same)
+      if (skill) actions.applySkill(skill.name, rest.join(' '))
+      else if (playbook) actions.applyPlaybook(playbook.name, rest.join(' '))
+      else return 'unknownSkill'
       return null
     },
   },
