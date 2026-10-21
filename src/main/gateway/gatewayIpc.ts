@@ -10,6 +10,7 @@ import type {
   GatewayRelayState,
   GatewayRemoteStatus,
   GatewaySetCapResult,
+  GatewaySetPushResult,
   GatewaySetRouteResult,
   GatewayTailnetActionResult,
   GatewayTailnetState,
@@ -27,10 +28,16 @@ import {
 } from './announce'
 import { createBindFollower } from './bindFollower'
 import type { Device } from './devices'
-import { list as listDevices, revoke as revokeDevice, setDeviceCap } from './devices'
+import {
+  get as getDevice,
+  list as listDevices,
+  revoke as revokeDevice,
+  setDeviceCap,
+} from './devices'
 import { listBindAddresses } from './interfaces'
 import { liveCodeCount, newCode, onCodesChanged } from './pairing'
 import { answerPairRequest, listPairRequests } from './pairRequests'
+import { pushView } from './phonePush'
 import type { RelayClient } from './relayClient'
 import {
   checkRoute,
@@ -43,6 +50,7 @@ import {
 import {
   applyDeviceCaps,
   closeDeviceSockets,
+  currentPhonePush,
   gatewayHelperPort,
   gatewayStatus,
   setTailnetNode,
@@ -131,6 +139,7 @@ function toPhoneSafeDevice(d: Device): GatewayDevice {
     pubkey: d.pubkey,
     caps: d.caps,
     createdAt: d.createdAt,
+    push: pushView(d),
   }
 }
 
@@ -145,6 +154,7 @@ export function remoteStatus(): GatewayRemoteStatus {
     route: loadRoute(),
     relay: relayStatus(),
     discoverable: loadDiscoverable(),
+    push: currentPhonePush()?.availability() ?? 'not-signed-in',
   }
 }
 
@@ -287,8 +297,10 @@ function gatewayRevoke(params: unknown): { ok: boolean; error?: string } {
   if (typeof deviceId !== 'string' || !deviceId) {
     return { ok: false, error: 'missing-device-id' }
   }
+  const handle = getDevice(deviceId)?.push?.handle
   if (!revokeDevice(deviceId)) return { ok: false, error: 'not-found' }
   closeDeviceSockets(deviceId)
+  currentPhonePush()?.deviceRemoved(handle)
   return { ok: true }
 }
 
@@ -325,7 +337,17 @@ function answerPair(params: unknown): GatewayActionResult {
   const answer = answerPairRequest(requestId, approve)
   if (!answer) return { ok: false, error: 'invalid' }
   for (const deviceId of answer.replaced) closeDeviceSockets(deviceId)
+  for (const handle of answer.replacedHandles) currentPhonePush()?.deviceRemoved(handle)
   return { ok: true }
+}
+
+function setDevicePush(params: unknown): Promise<GatewaySetPushResult> {
+  const { deviceId, enabled } = (params ?? {}) as { deviceId?: unknown; enabled?: unknown }
+  const push = currentPhonePush()
+  if (typeof deviceId !== 'string' || typeof enabled !== 'boolean' || !push) {
+    return Promise.resolve({ ok: false, error: 'invalid' })
+  }
+  return push.setEnabled(deviceId, enabled)
 }
 
 function tailnetSignIn(): GatewayTailnetActionResult {
@@ -379,6 +401,10 @@ export function registerGatewayIpc(): void {
   ipcMain.handle('gateway:set-cap', (e, params): GatewaySetCapResult => {
     if (!fromWindow(e)) return { ok: false, error: 'invalid-cap' }
     return gatewaySetCap(params)
+  })
+  ipcMain.handle('gateway:set-device-push', (e, params): Promise<GatewaySetPushResult> => {
+    if (!fromWindow(e)) return Promise.resolve({ ok: false, error: 'not-a-window' })
+    return setDevicePush(params)
   })
   ipcMain.handle('gateway:bind-addresses', () => listBindAddresses())
   ipcMain.handle('gateway:set-route', (e, params): GatewaySetRouteResult => {

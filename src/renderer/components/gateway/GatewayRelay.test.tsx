@@ -33,6 +33,7 @@ function remote(
     route,
     relay,
     discoverable: false,
+    push: 'available',
   }
   vi.mocked(window.ostia.gateway.status).mockResolvedValue(status)
   vi.mocked(window.ostia.server.status).mockResolvedValue({

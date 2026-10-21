@@ -53,11 +53,13 @@ export function useGatewayStatus(): GatewayStatus {
       setRequests(next)
       void refresh()
     })
+    const offPush = window.ostia.gateway.onPushChanged(() => void refresh())
     const offTailnet = window.ostia.gateway.onTailnetChanged(setTailnet)
     const offRelay = window.ostia.gateway.onRelayChanged(setRelay)
     return () => {
       mounted.current = false
       offRequests()
+      offPush()
       offTailnet()
       offRelay()
     }

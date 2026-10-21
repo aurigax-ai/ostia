@@ -146,7 +146,10 @@ describe('pairing requests wait for the human', () => {
     expect(pending.name).toBe('Pixel 9')
     expect(pending.checkCode).toBe(checkCode(fingerprint, p.pubkey, p.nonce, desktopNonce))
 
-    expect(answerPairRequest(pending.requestId, true)).toEqual({ replaced: [] })
+    expect(answerPairRequest(pending.requestId, true)).toEqual({
+      replaced: [],
+      replacedHandles: [],
+    })
     const done = await confirm.reply
     expect(done.status).toBe(200)
     expect(typeof done.body.deviceToken).toBe('string')
@@ -160,7 +163,10 @@ describe('pairing requests wait for the human', () => {
     const confirm = p.confirm(started.body.requestId)
     await requestsChange((n) => n === 1)
 
-    expect(answerPairRequest(listPairRequests()[0].requestId, false)).toEqual({ replaced: [] })
+    expect(answerPairRequest(listPairRequests()[0].requestId, false)).toEqual({
+      replaced: [],
+      replacedHandles: [],
+    })
     const done = await confirm.reply
     expect(done).toEqual({ status: 403, body: { error: 'declined' } })
     expect(listDevices().some((d) => d.pubkey === p.pubkey)).toBe(false)

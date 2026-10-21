@@ -17,6 +17,7 @@ import { type GatewayCert, getCert } from './cert'
 import type { GatewayControlDeps } from './controlDispatch'
 import { get as getDevice, list as listDevices, touchDevice } from './devices'
 import { createPairHttp } from './pairHttp'
+import type { PhonePush, PushConfig } from './phonePush'
 import { createPhoneSocket, PHONE_FRAME_BYTES, type SocketState } from './phoneSocket'
 import { closeStreams } from './phoneStream'
 import { type ProxyPeer, readProxyHeader } from './proxyProtocol'
@@ -143,14 +144,50 @@ export function capForPlatformEvent(type: PlatformEventType): string {
   return NOTIFY_CAP_EVENTS.has(type) ? 'notify' : 'read'
 }
 
+function withWaitingSince(payload: unknown): unknown {
+  const { sessionId } = payload as { sessionId?: unknown }
+  const waitingSince =
+    typeof sessionId === 'string' ? controlDeps?.sessionWaitingSince(sessionId) : undefined
+  return waitingSince === undefined ? payload : { ...(payload as object), waitingSince }
+}
+
 function phonePayload(type: PlatformEventType, payload: unknown): unknown {
-  if (type !== 'notify' || !payload || typeof payload !== 'object') return payload
+  if (!payload || typeof payload !== 'object') return payload
+  if (type === 'agent.needs-input') return withWaitingSince(payload)
+  if (type === 'session.state') {
+    return (payload as { state?: unknown }).state === 'waiting'
+      ? withWaitingSince(payload)
+      : payload
+  }
+  if (type !== 'notify') return payload
   const { from, ...rest } = payload as { from?: unknown }
   const external = typeof from === 'string' ? (getByPaneId(from)?.externalId ?? null) : null
   return { ...rest, from: external }
 }
 
+export function sendDeviceConfig(deviceId: string, config: PushConfig): void {
+  const frame = eventFrame('push.config', config)
+  for (const ws of socketsByDevice.get(deviceId) ?? []) {
+    if (!screenLinks?.isLink(ws) && ws.readyState === ws.OPEN) ws.send(frame)
+  }
+}
+
+export function deviceConnected(deviceId: string): boolean {
+  return socketsByDevice.has(deviceId)
+}
+
+let phonePush: PhonePush | null = null
+
+export function configurePhonePush(push: PhonePush): void {
+  phonePush = push
+}
+
+export function currentPhonePush(): PhonePush | null {
+  return phonePush
+}
+
 function broadcastEvent(type: PlatformEventType, payload: unknown): void {
+  void phonePush?.event(type)
   const cap = capForPlatformEvent(type)
   const frame = eventFrame(type, phonePayload(type, payload))
   for (const [ws, state] of sockets) {

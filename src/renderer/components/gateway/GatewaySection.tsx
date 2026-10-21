@@ -55,7 +55,11 @@ export function GatewaySection(): JSX.Element {
 
       <Separator className="my-3" />
 
-      <DeviceList devices={devices} refresh={refresh} />
+      <DeviceList
+        devices={devices}
+        push={gateway.status?.push ?? 'unreachable'}
+        refresh={refresh}
+      />
 
       <GatewayPhoneWorkspace />
     </SettingsPage>

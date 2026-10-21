@@ -39,11 +39,18 @@ export interface GatewayBindAddress {
   loopback: boolean
 }
 
+export type GatewayPushAvailability =
+  | 'available'
+  | 'not-signed-in'
+  | 'server-push-off'
+  | 'unreachable'
+
 export interface GatewayRemoteStatus extends GatewayStatus {
   tailnet: GatewayTailnetState
   route: GatewayRoute
   relay: GatewayRelayState
   discoverable: boolean
+  push: GatewayPushAvailability
 }
 
 export interface GatewayPairRequest {
@@ -85,7 +92,20 @@ export interface GatewayDevice {
   pubkey: string
   caps: string[]
   createdAt: string
+  push: { enabled: boolean; registered: boolean }
 }
+
+export type GatewaySetPushResult =
+  | { ok: true }
+  | {
+      ok: false
+      error:
+        | 'not-a-window'
+        | 'invalid'
+        | 'not-found'
+        | 'needs-notify'
+        | Exclude<GatewayPushAvailability, 'available'>
+    }
 
 export type GatewaySetCapResult =
   | { ok: true; caps: string[] }
@@ -123,6 +143,8 @@ interface GatewayApi {
     cap: PhoneGrantableCap,
     granted: boolean,
   ) => Promise<GatewaySetCapResult>
+  setDevicePush: (deviceId: string, enabled: boolean) => Promise<GatewaySetPushResult>
+  onPushChanged: (cb: () => void) => () => void
   bindAddresses: () => Promise<GatewayBindAddress[]>
   setRoute: (route: GatewayRoute) => Promise<GatewaySetRouteResult>
   tailnetSignIn: () => Promise<GatewayTailnetActionResult>

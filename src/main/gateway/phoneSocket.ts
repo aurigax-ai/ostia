@@ -87,6 +87,7 @@ function handleHello(
   if (takesImages) allowImageFrames(ws)
   trackDeviceSocket(device.deviceId, ws)
   const phoneWorkspace = controlDeps?.phoneDefaults() ?? { set: false, agent: 'claude' }
+  const push = controlDeps?.push.hello(device)
   ws.send(
     rpcResult(msg.id, {
       deviceId: device.deviceId,
@@ -95,6 +96,7 @@ function handleHello(
       phoneWorkspace,
       addresses,
       features: takesImages ? ['prompt-image'] : [],
+      ...(push ? { push } : {}),
     }),
   )
 }

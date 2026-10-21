@@ -5,6 +5,7 @@ import { join } from 'node:path'
 import { type TLSSocket, connect as tlsConnect } from 'node:tls'
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import WebSocket from 'ws'
+import { pushDepsStub } from '../../../test/fixtures/server/pushDepsStub'
 import type { GatewayControlDeps } from './controlDispatch'
 import { registerDevice } from './devices'
 import type { ProxyPeer } from './proxyProtocol'
@@ -51,6 +52,7 @@ const deps = {
   watchesTurn: vi.fn().mockResolvedValue(false),
   turnStarted: vi.fn().mockResolvedValue(true),
   paneSince: vi.fn().mockReturnValue(undefined),
+  ...pushDepsStub(),
   paneTurns: { list: vi.fn().mockReturnValue([]), output: vi.fn().mockReturnValue(null) },
   redact: vi.fn(async (text: string) => text),
   ownSnippets: vi.fn().mockReturnValue([]),

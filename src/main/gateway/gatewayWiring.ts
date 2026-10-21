@@ -15,7 +15,7 @@ import type { Reach } from '../approvals/reach'
 import type { ArtifactFolders } from '../artifacts/artifactFolders'
 import type { CommandBridge } from '../control/commandBridge'
 import { type PlatformEventPayloads, platformEvents } from '../control/events'
-import { resolveExternal } from '../control/idRegistry'
+import { getByPaneId, resolveExternal } from '../control/idRegistry'
 import type { AppLog } from '../diagnostics/appLog'
 import type { PaneConfirms } from '../panes/paneConfirm'
 import type { PaneJournal } from '../panes/paneJournal'
@@ -39,6 +39,7 @@ import type { ScratchFolders } from '../workspaces/scratchFolders'
 import { windowForWorkspace } from '../workspaces/workspaceRegistry'
 import { createBonjourPublisher } from './announce'
 import type { GatewayControlDeps } from './controlDispatch'
+import { get as getDevice, list as listDevices, setDevicePush } from './devices'
 import {
   configureAnnouncer,
   configureRelay,
@@ -51,6 +52,7 @@ import {
 } from './gatewayIpc'
 import { listPairRequests, onPairRequestsChanged } from './pairRequests'
 import { phoneScreenLines, withClipboardImage } from './phoneClipboard'
+import { PhonePush } from './phonePush'
 import {
   DEFAULT_FOLDER_NAME,
   isPhoneFolder,
@@ -66,13 +68,17 @@ import { ScreenLinks } from './screenLinks'
 import {
   askPhonesForScreen,
   configureGatewayControl,
+  configurePhonePush,
   configureRelayPeers,
   configureScreenLinks,
+  deviceConnected,
   gatewayHelperPort,
   notifiedDeviceIds,
+  sendDeviceConfig,
   setRelayHost,
 } from './server'
 import { createTailnet, tailnetNodeName, tsnetHelperPath } from './tailnet'
+import { WaitingSince } from './waitingSince'
 import type { PhoneFileScope } from './workspaceFiles'
 
 interface GatewayStartDeps {
@@ -234,9 +240,28 @@ export function startGateway({
   })
   agentResumes.subscribe((externalPaneId, resume) => agentStreams.resumed(externalPaneId, resume))
   agentChanges.subscribe(() => void agentStreams.agentsChanged())
-  paneWatch.tap((paneId, change) => {
-    if (change.kind === 'closed') agentStreams.paneClosed(paneId)
+  const waitingSince = new WaitingSince({
+    now: Date.now,
+    workspaceOf: (paneId) => getByPaneId(paneId)?.workspaceId,
   })
+  paneWatch.tap((paneId, change) => {
+    if (change.kind === 'closed') {
+      agentStreams.paneClosed(paneId)
+      waitingSince.forget(paneId)
+    } else if (change.kind === 'attention') {
+      waitingSince.change(paneId, change.attention.state)
+    }
+  })
+  const phonePush = new PhonePush({
+    account: server,
+    devices: { list: listDevices, get: getDevice, setPush: setDevicePush },
+    connected: deviceConnected,
+    sendConfig: sendDeviceConfig,
+    changed: () => broadcast('gateway:push-changed', null),
+    log: (event, fields) => services.appLog?.info(event, fields),
+  })
+  configurePhonePush(phonePush)
+  phonePush.start()
   platformEvents.on('ask.created', ({ ask }: PlatformEventPayloads['ask.created']) =>
     agentStreams.askOpened(ask),
   )
@@ -287,6 +312,12 @@ export function startGateway({
       const pane = resolveExternal(externalPaneId)
       return pane ? paneJournal.since(pane.paneId) : undefined
     },
+    waitingSince: (externalPaneId) => {
+      const pane = resolveExternal(externalPaneId)
+      return pane ? waitingSince.ofPane(pane.paneId) : undefined
+    },
+    sessionWaitingSince: (sessionId) => waitingSince.ofWorkspace(sessionId),
+    push: phonePush,
     paneTurns,
     ownSnippets,
     redact: async (text) => (await redactor.redact(text)).text,

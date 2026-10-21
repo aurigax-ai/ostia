@@ -5,12 +5,15 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { storePath } from '../platform/jsonStore'
 import {
   DEFAULT_PHONE_CAPS,
+  type Device,
   get,
   list,
+  pushOf,
   registerDevice,
   revoke,
   setDeviceCap,
   setDeviceName,
+  setDevicePush,
   verifyToken,
 } from './devices'
 
@@ -190,5 +193,35 @@ describe('gateway/devices', () => {
     expect(next.replaced).toEqual([old.deviceId])
     expect(list().map((d) => d.deviceId)).toEqual([next.deviceId])
     expect(verifyToken(old.token)).toBeNull()
+  })
+
+  it('PSH-C50 keeps push off by default and stores the switch, handle and platform in the secure store', () => {
+    const { deviceId } = registerDevice({ name: 'Pixel', pubkey: 'pk' })
+    expect(pushOf(get(deviceId) as Device)).toEqual({ enabled: false })
+    const handle = 'h'.repeat(26)
+    expect(setDevicePush(deviceId, { enabled: true, handle, platform: 'fcm' })).toBe(true)
+    expect(get(deviceId)?.push).toEqual({ enabled: true, handle, platform: 'fcm' })
+    expect(setDevicePush('dev_missing', { enabled: true })).toBe(false)
+  })
+
+  it('PSH-C51 drops the handle when the switch goes off and refuses a malformed handle or platform', () => {
+    const { deviceId } = registerDevice({ name: 'Pixel', pubkey: 'pk' })
+    setDevicePush(deviceId, { enabled: true, handle: 'h'.repeat(26), platform: 'apns' })
+    setDevicePush(deviceId, { enabled: false })
+    expect(pushOf(get(deviceId) as Device)).toEqual({ enabled: false })
+    setDevicePush(deviceId, { enabled: true, handle: 'bad handle!', platform: 'fcm' })
+    expect(pushOf(get(deviceId) as Device)).toEqual({ enabled: true })
+    setDevicePush(deviceId, { enabled: true, handle: 'h'.repeat(26), platform: 'sms' as never })
+    expect(pushOf(get(deviceId) as Device)).toEqual({ enabled: true })
+  })
+
+  it('PSH-C52 does not carry the switch or the handle over to the device an approval replaces', () => {
+    const installId = 'p'.repeat(20)
+    const old = registerDevice({ name: 'Pixel', pubkey: 'pk1', installId })
+    const handle = 'h'.repeat(26)
+    setDevicePush(old.deviceId, { enabled: true, handle, platform: 'fcm' })
+    const next = registerDevice({ name: 'Pixel', pubkey: 'pk2', installId })
+    expect(next.replacedHandles).toEqual([handle])
+    expect(pushOf(get(next.deviceId) as Device)).toEqual({ enabled: false })
   })
 })

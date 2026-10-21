@@ -51,6 +51,7 @@ vi.mock('./server', () => ({
   setTailnetNode: vi.fn(),
   applyDeviceCaps: vi.fn(),
   closeDeviceSockets: vi.fn(),
+  currentPhonePush: () => null,
 }))
 
 const {

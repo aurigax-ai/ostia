@@ -87,6 +87,7 @@ export function cancelPairRequest(requestId: string): void {
 
 export interface PairAnswer {
   replaced: string[]
+  replacedHandles: string[]
 }
 
 export function answerPairRequest(requestId: string, approve: boolean): PairAnswer | null {
@@ -96,16 +97,16 @@ export function answerPairRequest(requestId: string, approve: boolean): PairAnsw
   if (!request || !waiting) return null
   if (!approve) {
     waiting.reply(403, { error: 'declined' })
-    return { replaced: [] }
+    return { replaced: [], replacedHandles: [] }
   }
-  const { deviceId, token, caps, replaced } = registerDevice({
+  const { deviceId, token, caps, replaced, replacedHandles } = registerDevice({
     name: request.name,
     pubkey: request.pubkey,
     installId: request.installId,
   })
   auditPairAttempt(request.peer, 'ok', request.via)
   waiting.reply(200, { deviceId, deviceToken: token, caps, expiresAt: null })
-  return { replaced }
+  return { replaced, replacedHandles }
 }
 
 function replacesView(installId: string | undefined): PairRequestView['replaces'] {

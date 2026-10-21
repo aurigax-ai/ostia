@@ -20,6 +20,7 @@ const STATUS: GatewayRemoteStatus = {
   },
   relay: { state: 'off' },
   discoverable: false,
+  push: 'available',
 }
 
 const STATUS_LATENCY_MS = 50

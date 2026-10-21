@@ -17,6 +17,12 @@ import type { PhoneAgentStart } from '../panes/processManager'
 import type { PhoneObserver } from '../terminal/pty/ptyIo'
 import { listArtifactFiles, locateArtifactFile, readArtifactFile } from './artifactFiles'
 import { imageAllowed, phoneImageOf } from './phoneImage'
+import {
+  type PhonePushMethodDeps,
+  pushRegister,
+  pushTicket,
+  pushUnregister,
+} from './phonePushMethods'
 import { type PhoneSnippetDeps, snippetList } from './phoneSnippets'
 import { type PhoneTurnDeps, turnList, turnOutput, turnPane } from './phoneTurns'
 import {
@@ -26,7 +32,7 @@ import {
   type WorkspaceFileOutcome,
 } from './workspaceFiles'
 
-export interface GatewayControlDeps extends PhoneTurnDeps, PhoneSnippetDeps {
+export interface GatewayControlDeps extends PhoneTurnDeps, PhoneSnippetDeps, PhonePushMethodDeps {
   agentStreams: Pick<AgentStreams, 'open'>
   execCommand: (
     target: CommandTarget,
@@ -39,6 +45,8 @@ export interface GatewayControlDeps extends PhoneTurnDeps, PhoneSnippetDeps {
   getTerminalState: (paneId: string) => TerminalStateSnapshot | undefined
   listPanes: () => Promise<PaneEntry[]>
   paneSince: (externalPaneId: string) => number | undefined
+  waitingSince: (externalPaneId: string) => number | undefined
+  sessionWaitingSince: (sessionId: string) => number | undefined
   listWorkspaces: () => Promise<WorkspaceEntry[]>
   fileScope: (workspaceId: string) => PhoneFileScope
   artifactsDir: (workspaceId: string) => string | null
@@ -116,8 +124,14 @@ function toWireSession(
 function toWirePane(
   { workspaceId, ...rest }: PaneEntry,
   since: number | undefined,
+  waitingSince: number | undefined,
 ): Record<string, unknown> {
-  return { sessionId: workspaceId, ...rest, ...(since === undefined ? {} : { since }) }
+  return {
+    sessionId: workspaceId,
+    ...rest,
+    ...(since === undefined ? {} : { since }),
+    ...(rest.agentState === 'waiting' && waitingSince !== undefined ? { waitingSince } : {}),
+  }
 }
 
 function needsElevation(cap: string): RpcOutcome {
@@ -223,7 +237,7 @@ async function sessionList(call: GatewayCall): Promise<RpcOutcome> {
 async function paneList(call: GatewayCall): Promise<RpcOutcome> {
   const { deps } = call
   const panes = (await deps.listPanes()).map((pane) =>
-    toWirePane(pane, deps.paneSince(pane.paneId)),
+    toWirePane(pane, deps.paneSince(pane.paneId), deps.waitingSince(pane.paneId)),
   )
   return { ok: true, result: { panes } }
 }
@@ -468,6 +482,9 @@ const METHODS: Record<string, [cap: string, handler: (call: GatewayCall) => Prom
     'turn.list': ['read', (call) => turnList(call.p, call.deps)],
     'turn.output': ['read', (call) => turnOutput(call.p, call.deps)],
     'snippet.list': ['read', (call) => snippetList(call.p, call.deps)],
+    'push.ticket': ['notify', (call) => pushTicket(call.deviceId, call.deps)],
+    'push.register': ['notify', async (call) => pushRegister(call.deviceId, call.p, call.deps)],
+    'push.unregister': ['notify', async (call) => pushUnregister(call.deviceId, call.deps)],
   }
 
 export async function dispatchGatewayMethod(

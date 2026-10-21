@@ -14,6 +14,24 @@ export const DEFAULT_PHONE_CAPS: readonly string[] = PHONE_BASE_CAPS
 
 const CAP_ORDER: readonly PhoneCap[] = [...PHONE_BASE_CAPS, ...PHONE_GRANTABLE_CAPS]
 
+export type PushPlatform = 'fcm' | 'apns'
+
+export interface DevicePush {
+  enabled: boolean
+  handle?: string
+  platform?: PushPlatform
+}
+
+const PUSH_HANDLE = /^[A-Za-z0-9_-]{16,128}$/
+
+export function isPushHandle(value: unknown): value is string {
+  return typeof value === 'string' && PUSH_HANDLE.test(value)
+}
+
+export function isPushPlatform(value: unknown): value is PushPlatform {
+  return value === 'fcm' || value === 'apns'
+}
+
 export interface Device {
   deviceId: string
   name: string
@@ -23,6 +41,7 @@ export interface Device {
   createdAt: string
   lastSeenAt?: string
   installId?: string
+  push?: DevicePush
 }
 
 type DeviceStore = Record<string, Device>
@@ -36,9 +55,25 @@ function knownCaps(caps: unknown): string[] {
   return CAP_ORDER.filter((cap) => held.includes(cap))
 }
 
+export function pushOf(device: Pick<Device, 'push'>): DevicePush {
+  return device.push ?? { enabled: false }
+}
+
+function cleanPush(raw: unknown): DevicePush | undefined {
+  if (typeof raw !== 'object' || raw === null) return undefined
+  const { enabled, handle, platform } = raw as Record<string, unknown>
+  if (enabled !== true) return undefined
+  return isPushHandle(handle) && isPushPlatform(platform)
+    ? { enabled, handle, platform }
+    : { enabled }
+}
+
 function load(): DeviceStore {
   const store = loadJson<DeviceStore>(storeFile(), {})
-  for (const device of Object.values(store)) device.caps = knownCaps(device.caps)
+  for (const device of Object.values(store)) {
+    device.caps = knownCaps(device.caps)
+    device.push = cleanPush(device.push)
+  }
   return store
 }
 
@@ -57,6 +92,7 @@ export interface RegisteredDevice {
   token: string
   caps: string[]
   replaced: string[]
+  replacedHandles: string[]
 }
 
 export function registerDevice(input: RegisterDeviceInput): RegisteredDevice {
@@ -81,6 +117,7 @@ export function registerDevice(input: RegisterDeviceInput): RegisteredDevice {
     token: device.token,
     caps: device.caps,
     replaced: replaced.map((d) => d.deviceId),
+    replacedHandles: replaced.flatMap((d) => pushOf(d).handle ?? []),
   }
 }
 
@@ -127,6 +164,14 @@ export function revoke(deviceId: string): boolean {
   const store = load()
   if (!Object.hasOwn(store, deviceId)) return false
   delete store[deviceId]
+  save(store)
+  return true
+}
+
+export function setDevicePush(deviceId: string, push: DevicePush): boolean {
+  const store = load()
+  if (!Object.hasOwn(store, deviceId)) return false
+  store[deviceId].push = cleanPush(push)
   save(store)
   return true
 }

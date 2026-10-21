@@ -351,6 +351,16 @@ export const settingsZhHant: typeof settingsEn = {
       '選填。配對碼會帶著這個 host:port，而不是接聽位址，供您自己設定的通道或轉送使用。它必須原封不動地轉送 TCP：手機會釘選這台電腦的憑證，所以終止 TLS 的代理無法使用。',
     remotePhoneAddressInvalid: '請輸入主機名稱或 IPv4 位址與連接埠，例如 host.example:8722。',
     remotePhoneAddressPlaceholder: '主機:連接埠',
+    remotePush: '透過伺服器通知',
+    remotePushDescOff:
+      '當代理程式需要你、而手機尚未連線時，透過你的伺服器喚醒這支手機。喚醒訊息不含任何文字，手機連線後才會從這台電腦讀取內容。',
+    remotePushDescRegistered: '已開啟。代理程式需要你、而手機尚未連線時，你的伺服器會喚醒它。',
+    remotePushDescWaiting: '正在等手機註冊。請在手機上開啟應用程式並連線。',
+    remotePushFor: '透過伺服器通知，{name}',
+    remotePushNeedsNotify: '這支手機未獲准接收通知。',
+    remotePushNotSignedIn: '推播需要這台電腦登入你的伺服器。',
+    remotePushServerOff: '你的伺服器沒有提供推播。',
+    remotePushUnreachable: '連不到你的伺服器，無法確認推播。',
     remoteRelay: '透過中繼伺服器',
     remoteRelayDesc:
       '透過 {server} 連線到這台電腦，伺服器只轉送位元組。閘道仍以固定的憑證終止 TLS，因此伺服器無法讀取或更改流量。在啟用遠端存取時生效。',

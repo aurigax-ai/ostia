@@ -366,6 +366,18 @@ export const settingsEn = {
     remotePhoneAddressInvalid:
       'Enter a host name or IPv4 address and a port, like host.example:8722.',
     remotePhoneAddressPlaceholder: 'host:port',
+    remotePush: 'Notify through the server',
+    remotePushDescOff:
+      'Wake this phone through your server when an agent needs you and the app is not connected. A wake-up carries no text; the phone reads the details from this computer once it connects.',
+    remotePushDescRegistered:
+      'On. Your server wakes this phone when an agent needs you and the app is not connected.',
+    remotePushDescWaiting:
+      'Waiting for the phone to register. Open the app on the phone and connect.',
+    remotePushFor: 'Notify through the server, {name}',
+    remotePushNeedsNotify: 'This phone is not allowed notifications.',
+    remotePushNotSignedIn: 'Push needs this computer to be signed in to your server.',
+    remotePushServerOff: 'Your server does not offer push.',
+    remotePushUnreachable: 'Your server cannot be reached to check push.',
     remoteRelay: 'Through a relay server',
     remoteRelayDesc:
       'Reach this computer through {server}, which only forwards bytes. The gateway still ends TLS with its pinned certificate, so the server cannot read or change the traffic. Takes effect when remote access is enabled.',

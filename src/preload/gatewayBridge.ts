@@ -16,6 +16,9 @@ export const gatewayBridge: Pick<OstiaBridge, 'gateway'> = {
         cap,
         granted,
       }),
+    setDevicePush: (deviceId, enabled) =>
+      ipcRenderer.invoke('gateway:set-device-push', { deviceId, enabled }),
+    onPushChanged: (cb) => listen('gateway:push-changed', cb),
     bindAddresses: () => ipcRenderer.invoke('gateway:bind-addresses'),
     setRoute: (route) => ipcRenderer.invoke('gateway:set-route', route),
     tailnetSignIn: () => ipcRenderer.invoke('gateway:tailnet-sign-in'),

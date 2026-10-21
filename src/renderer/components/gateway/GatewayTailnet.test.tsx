@@ -40,6 +40,7 @@ function remoteOn(
     route,
     relay: { state: 'off' },
     discoverable: false,
+    push: 'available',
   }
   vi.mocked(window.ostia.gateway.status).mockResolvedValue(status)
 }
