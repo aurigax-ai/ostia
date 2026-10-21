@@ -1,3 +1,5 @@
+import { PathText } from '@/components/common/MachineValue'
+import { WorkspaceBadges } from '@/components/sidebar/WorkspaceBadges'
 import { CommandGroup, CommandItem } from '@/components/ui/command'
 import { useDict } from '@/lib/app/useDict'
 import { revealPane } from '@/lib/attention/workspaceActivity'
@@ -53,13 +55,23 @@ export function WorkspaceItems({
         return (
           <CommandItem
             key={w.id}
-            value={`${symbol} ${name} ${w.workDir} ${w.id}`}
+            value={`${symbol} ${name} ${w.workDir} ${w.projectDir ?? ''} ${w.id}`}
             onSelect={() => {
               selectWorkspace(w.id)
               onDone()
             }}
           >
-            <ItemRow name={name} meta={w.workDir} mono />
+            <ItemRow
+              name={name}
+              meta={
+                <PathText
+                  className="text-inherit"
+                  max={Number.POSITIVE_INFINITY}
+                  path={w.projectDir ?? w.workDir}
+                />
+              }
+              after={<WorkspaceBadges workspace={w} marksOnly />}
+            />
           </CommandItem>
         )
       })}

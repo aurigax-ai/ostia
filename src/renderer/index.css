@@ -795,6 +795,7 @@
 }
 
 .rail-tab:hover,
+.rail-tab:focus-within,
 .rail-tab.active {
   background: var(--surface-2);
   color: var(--fg);
@@ -1316,15 +1317,23 @@
 }
 
 .tab-actions {
-  display: none;
-  flex-shrink: 0;
+  position: absolute;
+  top: 5px;
+  right: 4px;
+  display: flex;
   align-items: center;
   gap: 2px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--motion-fast) var(--ease-out);
 }
 
 .rail-tab:hover .tab-actions,
 .rail-tab:focus-within .tab-actions {
-  display: flex;
+  opacity: 1;
+  pointer-events: auto;
 }
 
 .collapsed .tab-rename,
@@ -3075,21 +3084,6 @@ button.prompt-chip:hover {
   line-height: var(--text-ui-xs--line-height);
   white-space: pre-wrap;
   overflow-wrap: anywhere;
-}
-
-.segmented {
-  display: inline-flex;
-  flex: 0 0 auto;
-  gap: 2px;
-  padding: 1px;
-  border: 1px solid var(--line-strong);
-  border-radius: var(--radius-sm);
-}
-
-.segmented button[aria-pressed="true"] {
-  background: var(--surface-3);
-  color: var(--fg);
-  box-shadow: inset 0 0 0 1px var(--line-strong);
 }
 
 .diff-surface {

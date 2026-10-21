@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import { PANEL_SIZES_KEY, PANEL_SIZES_WRITE_DELAY_MS } from '@/lib/panes/panelSizes'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useGitViewStore } from '@/stores/files/gitViewStore'
@@ -184,6 +186,25 @@ describe('GitView', () => {
         '2 to push, 1 to pull from origin/main',
       )
       expect(root().querySelector('.root')).toHaveTextContent(ROOT)
+    })
+
+    it('puts the branch and upstream names where the stylesheet truncates them and wraps the tracking line instead of overlapping the branch', async () => {
+      showChanges()
+      await renderSettled(<GitView workspaceId="w1" paneId="p1" home="dock" />)
+
+      expect(root().querySelector('.branch .branch-name')).toHaveTextContent('main')
+      expect(root().querySelector('.branch .branch-name')).toHaveAttribute('title', 'main')
+      expect(root().querySelector('.tracking .upstream-name')).toHaveTextContent('origin/main')
+      const css = readFileSync(join(__dirname, 'git.css'), 'utf8')
+      const block = (selector: string): string =>
+        css.match(new RegExp(`${selector.replace(/[.\\[\]]/g, '\\$&')}\\s*\\{([^}]*)\\}`))?.[1] ??
+        ''
+      const names = block('.git-surface .branch-name,\n.git-surface .upstream-name')
+      expect(names).toContain('overflow: hidden')
+      expect(names).toContain('text-overflow: ellipsis')
+      expect(block('.git-surface .graph-toolbar')).toContain('flex-wrap: wrap')
+      expect(block('.git-surface .head')).toContain('flex-wrap: wrap')
+      expect(block('.git-surface .tracking')).toContain('max-width: 100%')
     })
 
     it('says there are no changes in a clean repository', async () => {

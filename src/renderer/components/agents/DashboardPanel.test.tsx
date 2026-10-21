@@ -273,8 +273,37 @@ describe('DashboardPanel', () => {
     expect(rows[0]).toHaveTextContent('~/work/api')
     expect(rows[0]).toHaveTextContent('Approve the migration plan')
     expect(rows[1]).toHaveTextContent('Storefront')
-    expect(rows[1]).toHaveTextContent('Idle')
+    expect(rows[1]).not.toHaveTextContent('Idle')
     expect(rows[1]).toHaveTextContent('~/work/web')
+  })
+
+  it('shows a badge for a pinned or scratch workspace and a count of unread panes', () => {
+    seed()
+    const store = useWorkspacesStore.getState()
+    useWorkspacesStore.setState({
+      workspaces: store.workspaces.map((w, i) =>
+        i === 1 ? { ...w, kind: 'scratch', pinned: true } : w,
+      ),
+    })
+    useAttentionStore
+      .getState()
+      .dispatch('p-web', { type: 'notify', message: 'Done', waiting: false, at: 9 })
+    render(<DashboardPanel />)
+    open()
+    const row = screen.getByRole('button', { name: 'Open workspace Storefront' }).closest('li')
+    expect(within(row as HTMLElement).getByText('Scratch')).toBeInTheDocument()
+    expect(within(row as HTMLElement).getByLabelText('Pinned')).toBeInTheDocument()
+    expect(within(row as HTMLElement).getByRole('img', { name: /unread/ })).toHaveTextContent('1')
+  })
+
+  it('loads the sandbox state itself and shows the shield on a sandboxed workspace', async () => {
+    seed()
+    vi.mocked(window.ostia.sandbox.get).mockResolvedValue({ enabled: true } as never)
+    vi.mocked(window.ostia.sandbox.stamp).mockResolvedValue('stamp')
+    render(<DashboardPanel />)
+    open()
+    const row = screen.getByRole('button', { name: 'Open workspace Storefront' }).closest('li')
+    expect(await within(row as HTMLElement).findByLabelText('Sandboxed')).toBeInTheDocument()
   })
 
   it('shows the running command when no message is waiting', () => {
