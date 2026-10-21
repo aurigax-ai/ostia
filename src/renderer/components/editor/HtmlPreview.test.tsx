@@ -1,6 +1,6 @@
 import '@testing-library/jest-dom/vitest'
 import type { PreviewEvent, PreviewOpened } from '@shared/artifacts/htmlPreview'
-import { act, cleanup, screen } from '@testing-library/react'
+import { act, cleanup, fireEvent, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { paneBrowserProfile } from '@/lib/layout/paneFields'
@@ -285,7 +285,7 @@ describe('HtmlPreview', () => {
     useSettingsStore.setState(settingsInit, true)
   })
 
-  it('PRT-C55 captures nothing for a tiny drag, a drag ending outside, or a stopped preview', async () => {
+  it('PRT-C55 captures nothing for a tiny drag or a stopped preview, and hands a crop to the bar', async () => {
     const sendRegion = vi.fn()
     vi.mocked(window.ostia.preview.capture).mockResolvedValue({
       image: new Uint8Array([0x89, 0x50, 0x4e, 0x47]),
@@ -302,36 +302,33 @@ describe('HtmlPreview', () => {
       />,
     )
     const box = { left: 0, top: 0, right: 400, bottom: 300, width: 400, height: 300, x: 0, y: 0 }
+    const crop = () => screen.getByRole('button', { name: 'Capture region' })
+    const layer = () => screen.queryByRole('application', { name: /drag over the page/i })
     const drag = async (from: [number, number], to: [number, number]): Promise<void> => {
-      await userEvent.click(screen.getByRole('button', { name: 'Send Region to Agent' }))
-      const overlay = await screen.findByTestId('preview-region')
+      await userEvent.click(crop())
+      const overlay = await screen.findByRole('application', { name: /drag over the page/i })
       vi.spyOn(overlay, 'getBoundingClientRect').mockReturnValue({
         ...box,
         toJSON: () => box,
       } as DOMRect)
-      Object.defineProperty(overlay, 'clientWidth', { value: 400, configurable: true })
-      Object.defineProperty(overlay, 'clientHeight', { value: 300, configurable: true })
-      await act(async () => {
-        overlay.dispatchEvent(
-          new MouseEvent('pointerdown', { bubbles: true, clientX: from[0], clientY: from[1] }),
-        )
+      fireEvent.pointerDown(overlay, {
+        button: 0,
+        clientX: from[0],
+        clientY: from[1],
+        pointerId: 1,
       })
-      await act(async () => {
-        window.dispatchEvent(
-          new MouseEvent('pointermove', { bubbles: true, clientX: to[0], clientY: to[1] }),
-        )
-        window.dispatchEvent(
-          new MouseEvent('pointerup', { bubbles: true, clientX: to[0], clientY: to[1] }),
-        )
-      })
+      fireEvent.pointerUp(overlay, { clientX: to[0], clientY: to[1], pointerId: 1 })
     }
+    expect(crop()).toHaveAttribute('aria-pressed', 'false')
     await drag([10, 10], [12, 12])
-    expect(screen.queryByTestId('preview-region')).toBeNull()
-    await drag([10, 10], [500, 120])
-    expect(screen.queryByTestId('preview-region')).toBeNull()
     expect(window.ostia.preview.capture).not.toHaveBeenCalled()
+    fireEvent.keyDown(await screen.findByRole('application', { name: /drag over the page/i }), {
+      key: 'Escape',
+    })
+    expect(layer()).toBeNull()
     await drag([10, 20], [110, 70])
     await vi.waitFor(() => expect(sendRegion).toHaveBeenCalledTimes(1))
+    expect(layer()).toBeNull()
     expect(window.ostia.preview.capture).toHaveBeenCalledWith('load1', {
       x: 10,
       y: 20,
@@ -347,7 +344,7 @@ describe('HtmlPreview', () => {
       version: null,
     })
     await fire({ id: 'load1', type: 'stopped', reason: 'human' })
-    expect(screen.queryByRole('button', { name: 'Send Region to Agent' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Capture region' })).toBeNull()
     view.unmount()
   })
 })

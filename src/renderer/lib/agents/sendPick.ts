@@ -15,9 +15,7 @@ import { signalPane } from '@/lib/attention/workspaceActivity'
 import { canTypeInto } from '@/lib/terminal/blockActions'
 import { terminalFor } from '@/lib/terminal/terminalHandles'
 import { useAttentionStore } from '@/stores/agents/attentionStore'
-import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useBlocksStore } from '@/stores/terminal/blocksStore'
-import { pressEnterAfterPaste } from './agentEnter'
 import { runningAgentOf } from './paneAgent'
 
 const AGENT_AT_PROMPT = new Set(['waiting', 'done'])
@@ -32,31 +30,15 @@ export function canInsertReference(paneId: string): boolean {
   return state !== undefined && AGENT_AT_PROMPT.has(state)
 }
 
-function submitsReference(paneId: string): boolean {
-  return (
-    useSettingsStore.getState().agents.autoSendReferences &&
-    runningAgentOf(paneId) !== null &&
-    canInsertReference(paneId)
-  )
-}
-
 export interface ReferenceTarget {
   paneId: string
   via?: string
 }
 
-export interface ReferenceSend {
-  note?: string
-  pointedByHuman?: boolean
-}
-
-function insertReference(paneId: string, text: string, pointedByHuman: boolean): boolean {
+function insertReference(paneId: string, text: string): boolean {
   const term = terminalFor(paneId)
   if (!term || !canInsertReference(paneId)) return false
   term.paste(text)
-  if (pointedByHuman && submitsReference(paneId)) {
-    pressEnterAfterPaste(paneId, () => submitsReference(paneId))
-  }
   return true
 }
 
@@ -65,7 +47,7 @@ function markWorking(paneId: string, message: string): void {
 }
 
 export function receiveReference(insert: ReferenceInsert): boolean {
-  const inserted = insertReference(insert.paneId, insert.text, insert.pointedByHuman === true)
+  const inserted = insertReference(insert.paneId, insert.text)
   if (insert.note) markWorking(insert.paneId, insert.note)
   return inserted
 }
@@ -73,10 +55,10 @@ export function receiveReference(insert: ReferenceInsert): boolean {
 export async function sendReference(
   target: ReferenceTarget,
   text: string,
-  { note, pointedByHuman = false }: ReferenceSend = {},
+  note?: string,
 ): Promise<boolean> {
   if (target.via === undefined) {
-    const inserted = insertReference(target.paneId, text, pointedByHuman)
+    const inserted = insertReference(target.paneId, text)
     if (note !== undefined) markWorking(target.paneId, note)
     return inserted
   }
@@ -86,7 +68,6 @@ export async function sendReference(
       paneId: target.paneId,
       text,
       ...(note ? { note } : {}),
-      ...(pointedByHuman ? { pointedByHuman } : {}),
     })
     .catch(() => false)
 }
@@ -95,20 +76,18 @@ export function insertPathReference(target: ReferenceTarget, path: string): Prom
   return sendReference(target, reportReference(path))
 }
 
-const PREVIEW_KINDS: ReadonlySet<string> = new Set(['preview-error', 'preview-region'])
-
 async function deliverReport(
   target: ReferenceTarget,
   references: string,
   note: string,
   fallback: string,
-  pointedByHuman = true,
 ): Promise<boolean> {
-  const summary = note.trim().replace(/\s+/g, ' ').slice(0, ATTENTION_NOTE_MAX)
-  const inserted = await sendReference(target, references, {
-    note: summary || fallback,
-    pointedByHuman,
-  })
+  const flat = note.trim().replace(/\s+/g, ' ')
+  const inserted = await sendReference(
+    target,
+    flat ? `${flat} ${references}` : references,
+    flat.slice(0, ATTENTION_NOTE_MAX) || fallback,
+  )
   if (!inserted) {
     await navigator.clipboard?.writeText(references.trim()).catch(() => undefined)
   }
@@ -191,7 +170,6 @@ export async function sendSelectionToPane(opts: {
     reportReference(res.path),
     opts.note,
     selectionLabel(opts.capture),
-    !PREVIEW_KINDS.has(opts.capture.kind),
   )
   return { ok: true, path: res.path, imagePath: res.imagePath, inserted }
 }

@@ -49,7 +49,7 @@ test('a dirty repo shows Changes in the side panel, opens a diff as a pane and c
     const diff = win.locator('.diff-surface .monaco-diff-editor')
     await expect(diff).toBeVisible({ timeout: 15_000 })
     await expect(diff).toContainText('second line from e2e', { timeout: 15_000 })
-    await expect(win.locator('.diff-title')).toHaveText(join(home, 'notes.txt'))
+    await expect(win.locator('.diff-surface').getByText(join(home, 'notes.txt'))).toHaveCount(0)
     await expect(panel).toHaveAttribute('data-e2e-mount', 'first')
 
     await win.getByRole('button', { name: 'Inline view' }).click()

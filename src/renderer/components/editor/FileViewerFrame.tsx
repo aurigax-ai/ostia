@@ -1,14 +1,12 @@
-import { ArrowsLeftRightIcon, WarningIcon } from '@phosphor-icons/react'
+import { WarningIcon } from '@phosphor-icons/react'
 import type { ViewerOpenResult, ViewerStopReason } from '@shared/files/filesApi'
 import { useEffect, useState } from 'react'
 import { EmptyState } from '@/components/common/EmptyState'
-import { IconButton } from '@/components/common/IconButton'
 import { Button } from '@/components/ui/button'
 import { useDict } from '@/lib/app/useDict'
 import type { ViewerOption } from '@/lib/files/viewerChoice'
 import { useGuestReady, useSurfaceFocus } from '@/lib/panes/paneFocus'
 import { useInjectedCss, usePanelThemeCss } from '@/lib/theme/panelThemeInjection'
-import { useOpenWithStore } from '@/stores/files/openWithStore'
 import { ViewerMessage } from './ViewerChrome'
 
 const ABORTED = -3
@@ -35,7 +33,6 @@ function ViewerFrame({
   onReload,
 }: FrameProps & { onReload: () => void }): JSX.Element {
   const d = useDict()
-  const openWith = useOpenWithStore((s) => s.open)
   const themeCss = usePanelThemeCss()
   const [opened, setOpened] = useState<Extract<ViewerOpenResult, { ok: true }> | null>(null)
   const [webview, setWebview] = useState<HTMLElement | null>(null)
@@ -91,17 +88,6 @@ function ViewerFrame({
 
   return (
     <div className="viewer-surface" data-testid="file-viewer" data-view-type={viewer.viewType}>
-      <div className="viewer-toolbar">
-        <span className="viewer-title">{filePath.slice(filePath.lastIndexOf('/') + 1)}</span>
-        <span className="viewer-meta">{viewer.displayName}</span>
-        <span className="flex-1" />
-        <IconButton
-          size="bar"
-          icon={ArrowsLeftRightIcon}
-          label={d.viewer.openWith}
-          onClick={() => openWith(paneId)}
-        />
-      </div>
       <div className="viewer-body">
         {stopped ? (
           <EmptyState

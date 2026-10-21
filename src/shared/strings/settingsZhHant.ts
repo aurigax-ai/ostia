@@ -73,9 +73,6 @@ export const settingsZhHant: typeof settingsEn = {
     autoResume: '重新啟動後自動恢復代理程式',
     autoResumeDesc:
       '結束 {product} 時仍在執行的代理程式工作階段，會在其窗格顯示後、於第一個閒置提示字元自動恢復。背景分頁與其他工作區會在你開啟時才恢復。只有你能變更此設定。',
-    autoSendReferences: '立即將參照送給代理程式',
-    autoSendReferencesDesc:
-      '當你指向元素、擷取區域或傳送選取內容到執行 Claude Code 或 Codex 的窗格時，貼上後按下 Enter，讓代理程式立即讀取。絕不在 shell 提示字元按下。只有你能變更此設定。',
     bell: '程式響鈴時',
     bellAttention: '標示需要注意',
     bellDesc: '標示面板需要注意、同時播放系統音效，或兩者都不做。下方的閃爍另外設定。',
@@ -168,7 +165,6 @@ export const settingsZhHant: typeof settingsEn = {
     groupPaneTabs: '分頁',
     groupPaste: '貼上',
     groupPerformance: '效能',
-    groupReferences: '參照',
     groupRendering: '繪製',
     groupResume: '恢復',
     groupRows: '工作區列',

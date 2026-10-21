@@ -2,6 +2,10 @@ import { fileURLToPath } from 'node:url'
 import type { IpcMain, WebContents } from 'electron'
 import type { ClipboardContents } from '../../shared/app/appApi'
 import {
+  type ClipboardCapture,
+  normalizeClipboardCapture,
+} from '../../shared/keyboard/clipboardCapture'
+import {
   type ClipboardChords,
   type ClipboardEdit,
   guestClipboardEdit,
@@ -43,10 +47,19 @@ export function clipboardContents(snapshot: ClipboardSnapshot): ClipboardContent
   }
 }
 
+export function clipboardItemData(capture: ClipboardCapture): Record<string, Blob> {
+  const data: Record<string, Blob> = {}
+  if (capture.text !== undefined) data['text/plain'] = new Blob([capture.text])
+  if (capture.html !== undefined) data['text/html'] = new Blob([capture.html])
+  if (capture.png) data['image/png'] = new Blob([new Uint8Array(capture.png)])
+  return data
+}
+
 export interface ClipboardEditsDeps {
   ipc: Pick<IpcMain, 'handle' | 'on'>
   isAppWindow: (sender: WebContents) => boolean
   snapshot: () => Promise<ClipboardSnapshot>
+  write: (capture: ClipboardCapture) => Promise<void>
   mac: boolean
   remap: GuestRemap
 }
@@ -72,6 +85,14 @@ export function registerClipboardEdits(deps: ClipboardEditsDeps): ClipboardEdits
   deps.ipc.handle('clipboard:edit', (e, edit: unknown) => {
     if (!deps.isAppWindow(e.sender) || !isClipboardEdit(edit)) return
     applyClipboardEdit(e.sender, edit)
+  })
+
+  deps.ipc.handle('clipboard:write-capture', async (e, raw: unknown): Promise<boolean> => {
+    if (!deps.isAppWindow(e.sender)) return false
+    const capture = normalizeClipboardCapture(raw)
+    if (!capture) return false
+    await deps.write(capture)
+    return true
   })
 
   deps.ipc.handle('clipboard:contents', async (e): Promise<ClipboardContents> => {

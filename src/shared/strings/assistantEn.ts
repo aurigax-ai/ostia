@@ -223,7 +223,6 @@ export const assistantEn = {
     noModel: 'No model',
     noProvider: 'No assistant is ready. Add a provider in Settings → Assistant.',
     noSessions: 'No saved chats yet.',
-    notRecording: 'Not saved',
     notRecordingHint: 'Chat history is off. This chat is kept until the app quits.',
     notices: {
       copiedInstead: 'No idle prompt, so it was copied instead.',
@@ -235,9 +234,6 @@ export const assistantEn = {
     oneMessage: '1 message',
     openInPane: 'Open in pane',
     paneTitle: 'Chat',
-    recording: 'Saved',
-    recordingHint:
-      'This chat is saved on this computer and never synced. Turn chat history off in Settings.',
     rename: 'Rename',
     renameLabel: 'Chat title',
     saveHistory: 'Save chat history',
@@ -246,8 +242,7 @@ export const assistantEn = {
     scrollDown: 'Scroll to the latest message',
     searchSessions: 'Search chats',
     sessions: 'Chat sessions',
-    sessionsButton: 'Switch chat: {title}',
-    untitled: 'New chat',
+    sessionsRecording: 'Sessions (recording)',
   },
   chatActions: {
     addContext: 'Attach context (@)',

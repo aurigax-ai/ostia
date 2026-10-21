@@ -1,5 +1,5 @@
 import '@testing-library/jest-dom/vitest'
-import { act, cleanup, render, screen } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 const terms: FakeXterm[] = []
@@ -64,7 +64,9 @@ describe('ManagerView', () => {
     expect(term?.written).toEqual(['hello'])
     expect(pty().write).not.toHaveBeenCalled()
     expect(pty().resize).not.toHaveBeenCalled()
-    expect(screen.getByText(/Read-only/)).toBeInTheDocument()
+    expect(screen.queryByText(/Read-only/)).toBeNull()
+    fireEvent.keyDown(document.querySelector('.terminal-surface') as Element, { key: 'a' })
+    expect(await screen.findByText(/Read-only/)).toBeInTheDocument()
   })
 
   it('MGR-C21 follows the size the mirror sets', async () => {

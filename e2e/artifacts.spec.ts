@@ -1,8 +1,8 @@
-import { mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs'
+import { mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { DOM_RENDERER_SETTINGS, freshDataHome, seedSettings } from './dataHome'
 import { launchWindow, openWorkspace, quitApp, runInTerminal, terminalTab } from './helpers'
-import { type Page, expect, test } from './test'
+import { expect, type Page, test } from './test'
 import { viewerGuestText } from './viewerGuest'
 
 function run(win: Page, command: string): Promise<void> {
@@ -104,7 +104,8 @@ test('a CSV artifact opens as a table and a mermaid block in Markdown is drawn a
     await expect
       .poll(() => viewerGuestText(app, { viewType: 'csv.table' }), { timeout: 20_000 })
       .toContain('Hsinchu, East')
-    await viewer.getByRole('button', { name: 'Open With…' }).click()
+    await win.locator('.pane-tab:visible').last().click({ button: 'right' })
+    await win.getByRole('menuitem', { name: 'Open With…' }).click()
     await win.getByRole('radio', { name: 'Text editor' }).click()
     await win.getByRole('button', { name: 'Open', exact: true }).click()
     await expect(viewer).toHaveCount(0)

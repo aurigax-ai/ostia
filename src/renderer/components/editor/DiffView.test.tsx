@@ -130,7 +130,7 @@ describe('DiffView', () => {
       language: 'typescript',
     })
     expect(fake.state.model?.modified).toMatchObject({ value: CONTENT.modified })
-    expect(screen.getByText('/repo/src/a.ts')).toBeInTheDocument()
+    expect(screen.queryByText('/repo/src/a.ts')).toBeNull()
   })
 
   it('prefers an explicit language and swaps models when the content changes', () => {
