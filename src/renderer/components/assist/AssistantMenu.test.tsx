@@ -42,6 +42,7 @@ const assistant: ExtensionInfo = {
   languageServers: [],
   fileKinds: [],
   agentSkills: [],
+  agentSkillProblems: [],
   agentHooks: [],
   iconThemes: [],
   keymaps: [],

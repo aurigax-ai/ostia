@@ -4,6 +4,7 @@ export const extensionsEn = {
     agentPluginNote:
       'New agent sessions in your terminals get these. Each hook sends the extension what the agent reports at that moment, such as your prompt or a tool it runs; at session start and prompt submit, the extension may add text to the agent’s context.',
     agentPluginTitle: 'Adds to claude and codex in your terminals',
+    agentSkillRefused: 'Not added to the agent: {problem}',
     agentSkillsList: 'Agent skills: {list}',
     approve: 'Approve and enable',
     approveBody:

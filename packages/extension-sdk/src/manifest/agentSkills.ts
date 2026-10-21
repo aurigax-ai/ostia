@@ -61,8 +61,8 @@ const FIELD_LINE = /^([A-Za-z][A-Za-z0-9_-]*):(?: +(.*))?$/
 const BLOCK_SCALAR = /^[>|][+-]?$/
 const SKILL_KEYS: readonly string[] = ['name', 'description']
 const LINE_BREAKS = /\r\n|[\n\r\u0085\u2028\u2029]/
-const INLINE_INJECTION = /[!\u01c3][`\u02cb\u02f4\u2035]/
-const FENCED_INJECTION = /(?:[`\u02cb\u02f4\u2035]{3,}|~{3,})[ \t]*[!\u01c3]/
+const INLINE_INJECTION = /[!\u01c3][`\u02cb\u02f4\u2035$]/
+const FENCED_INJECTION = /(?:[`\u02cb\u02f4\u2035]{3,}|~{3,})[ \t]*[!\u01c3$]/
 
 export type SkillFrontmatter =
   | { ok: true; name: string; description: string }

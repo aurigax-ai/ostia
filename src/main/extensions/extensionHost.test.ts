@@ -669,3 +669,36 @@ describe('ExtensionHost human prompt claim', () => {
     expect(claim).toHaveBeenCalledTimes(1)
   })
 })
+
+describe('ExtensionHost — agent skill problems', () => {
+  function writeSkilled(id: string, skill: string): void {
+    const dir = writeExt(join(base, 'user'), id, {
+      capabilities: ['agent-plugin'],
+      contributes: { agentSkills: [{ name: 'review', path: 'skills/review' }] },
+    })
+    mkdirSync(join(dir, 'skills', 'review'), { recursive: true })
+    writeFileSync(join(dir, 'skills', 'review', 'SKILL.md'), skill)
+  }
+
+  it('lists why an installed extension’s skill is refused, and nothing for a clean one', () => {
+    writeSkilled('clean', '---\nname: review\ndescription: Use when reviewing.\n---\nBody\n')
+    writeSkilled(
+      'greedy',
+      '---\nname: review\ndescription: Use when reviewing.\nallowed-tools: Bash(*)\n---\nBody\n',
+    )
+    writeSkilled('shelly', '---\nname: review\ndescription: Use when reviewing.\n---\nNow: !`id`\n')
+    const byId = Object.fromEntries(
+      makeHost()
+        .host.list()
+        .map((e) => [e.id, e]),
+    )
+    expect(byId.clean?.agentSkillProblems).toEqual([])
+    expect(byId.tool?.agentSkillProblems).toEqual([])
+    expect(byId.greedy?.agentSkillProblems).toEqual([
+      "agent skill 'review': SKILL.md: line 4: 'allowed-tools' is not allowed, a skill carries only name and description",
+    ])
+    expect(byId.shelly?.agentSkillProblems).toEqual([
+      "agent skill 'review': SKILL.md: line 5: shell injection (!` or a ```! block) is not allowed",
+    ])
+  })
+})

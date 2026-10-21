@@ -49,6 +49,7 @@ const git: ExtensionInfo = {
   languageServers: [],
   fileKinds: [],
   agentSkills: [],
+  agentSkillProblems: [],
   agentHooks: [],
   iconThemes: [],
   keymaps: [],

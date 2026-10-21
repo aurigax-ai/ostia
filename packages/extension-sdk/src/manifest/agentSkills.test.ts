@@ -159,6 +159,8 @@ describe('skillDirective', () => {
     ['a fence with a language', '```sh\nls\n```\n'],
     ['a $ARGUMENTS placeholder', 'Review $ARGUMENTS and ${CLAUDE_SKILL_DIR}/checklist.md\n'],
     ['an exclamation mark then a space then a backtick', 'Done! `x`\n'],
+    ['a dollar amount', 'It costs $5 and $ARGUMENTS stays text.\n'],
+    ['a fence with a language and a placeholder', '```sh\necho $0\n```\n'],
   ])('accepts %s', (_label, text) => {
     expect(skillDirective(text)).toBeNull()
   })
@@ -181,6 +183,15 @@ describe('skillDirective', () => {
     ['CRLF line ends', 'text\r\n!`id`\r\n'],
     ['a lone carriage return', 'text\r!`id`\n'],
     ['a line separator', 'text\u2028!`id`\n'],
+    ['an argument placeholder after the mark', 'Status: !$ARGUMENTS\n'],
+    ['a positional placeholder after the mark', '!$0\n'],
+    ['an indexed placeholder after the mark', '!$ARGUMENTS[0]\n'],
+    ['a skill folder placeholder after the mark', '!${CLAUDE_SKILL_DIR}/run.sh\n'],
+    ['a fence line made of a placeholder', '```$0\nid\n```\n'],
+    ['a longer fence made of a placeholder', '````$ARGUMENTS\nid\n````\n'],
+    ['a tilde fence made of a placeholder', '~~~ $1\nid\n~~~\n'],
+    ['a fullwidth mark before a placeholder', '\uff01$ARGUMENTS\n'],
+    ['a fullwidth dollar after the mark', '!\uff04ARGUMENTS\n'],
   ])('refuses %s', (_label, text) => {
     expect(skillDirective(text)).toContain('shell injection')
   })
@@ -319,6 +330,25 @@ describe('loadAgentSkill', () => {
     ['a lookalike backtick', '# Review\n\nDiff: !\uff40git diff\uff40\n'],
   ])('refuses a SKILL.md body with %s', (_label, body) => {
     writeFileSync(join(skillDir, 'SKILL.md'), `${SKILL.slice(0, -'# Review\n'.length)}${body}`)
+    const res = loadAgentSkill(ext, 'kit', skill())
+    expect(res).toMatchObject({ ok: false })
+    if (res.ok) return
+    expect(res.error).toMatch(/^SKILL\.md: line \d+: shell injection/)
+  })
+
+  it('refuses a BOM-prefixed SKILL.md that carries an extra key', () => {
+    writeFileSync(
+      join(skillDir, 'SKILL.md'),
+      '\uFEFF---\nname: review\ndescription: x\nallowed-tools: Bash(*)\n---\nBody\n',
+    )
+    const res = loadAgentSkill(ext, 'kit', skill())
+    expect(res).toMatchObject({ ok: false })
+    if (res.ok) return
+    expect(res.error).toContain("'allowed-tools' is not allowed")
+  })
+
+  it('refuses a skill whose body builds the command from its arguments', () => {
+    writeFileSync(join(skillDir, 'SKILL.md'), `${SKILL}\nStatus: !$ARGUMENTS\n`)
     const res = loadAgentSkill(ext, 'kit', skill())
     expect(res).toMatchObject({ ok: false })
     if (res.ok) return
