@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto'
 import { describe, expect, it } from 'vitest'
+import linkVectors from '../../../../test/fixtures/server/vectors/link.json'
 import { linkCode } from './syncLink'
 
 const ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567'
@@ -45,5 +46,13 @@ describe('the link code', () => {
     expect(linkCode({ signPub: b64(bytes(1)), boxPub: b64(bytes(2)) }, b64(bytes(9)))).not.toBe(
       base,
     )
+  })
+
+  it('SSY-C158 matches the server vector and changes with a swapped box key', () => {
+    const joiner = { signPub: linkVectors.joinerSignPub, boxPub: linkVectors.joinerBoxPub }
+    expect(linkCode(joiner, linkVectors.approverSignPub)).toBe(linkVectors.linkCode)
+    expect(
+      linkCode({ ...joiner, boxPub: linkVectors.swappedJoinerBoxPub }, linkVectors.approverSignPub),
+    ).toBe(linkVectors.swappedBoxLinkCode)
   })
 })
