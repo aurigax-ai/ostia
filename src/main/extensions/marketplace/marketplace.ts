@@ -48,6 +48,11 @@ import {
 } from './marketplaceSources'
 
 const DETAIL_MAX = 400
+const VERIFY_WAIT_MS = 35_000
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms).unref())
+}
 
 interface Source {
   id: string
@@ -121,6 +126,7 @@ export interface MarketplaceDeps {
   bundled: (extId: string) => ExtensionManifest | undefined
   disable: (extId: string) => void
   verified: () => Promise<void>
+  verifyWaitMs?: number
   officialUpdate: OfficialUpdateCheck
   saveRevocations: (revoked: readonly RevokedVersion[]) => boolean
   forget: (extId: string) => void
@@ -217,10 +223,15 @@ export class Marketplace {
     return res.ok ? res.manifest.version : undefined
   }
 
-  private installState(sourceId: string, entry: CatalogEntry): MarketplaceInstallState {
+  private installState(
+    sourceId: string,
+    entry: CatalogEntry,
+    allowPending = true,
+  ): MarketplaceInstallState {
     const { manifest } = entry
     const bundled = this.deps.bundled(manifest.id)
-    if (bundled !== undefined && !this.canUpdateBuiltin(sourceId, entry, bundled)) return 'conflict'
+    if (bundled !== undefined && !this.canUpdateBuiltin(sourceId, entry, bundled, allowPending))
+      return 'conflict'
     if (entry.needsApi) return 'incompatible'
     if (!existsSync(this.installDir(manifest.id))) return 'available'
     const owner = this.records.installs[manifest.id]
@@ -257,12 +268,13 @@ export class Marketplace {
     sourceId: string,
     entry: CatalogEntry,
     bundled: ExtensionManifest,
+    allowPending: boolean,
   ): boolean {
     const source = this.records.sources.find((s) => s.id === sourceId)
     if (!source || source.url !== this.officialUrl) return false
     if (!isNewerVersion(entry.manifest.version, bundled.version)) return false
     const verdict = this.deps.officialUpdate(entry.dir, entry.manifest, bundled)
-    return verdict === null || verdict === OFFICIAL_UPDATE_PENDING
+    return verdict === null || (allowPending && verdict === OFFICIAL_UPDATE_PENDING)
   }
 
   private hasSource(id: string): boolean {
@@ -551,9 +563,9 @@ export class Marketplace {
     if ('ok' in entry) return entry
     if (this.isBundled(entry)) {
       this.installState(source.id, entry)
-      await this.deps.verified()
+      await Promise.race([this.deps.verified(), sleep(this.deps.verifyWaitMs ?? VERIFY_WAIT_MS)])
     }
-    const state = this.installState(source.id, entry)
+    const state = this.installState(source.id, entry, false)
     if (state === 'conflict') return this.fail('conflict')
     if (state === 'incompatible') return this.fail('needs-newer-app', entry.needsApi)
     if (state === 'update' && !confirmDowngrade && this.isDowngrade(entry)) {

@@ -127,6 +127,7 @@ function harness(
     bundled?: Record<string, string>
     officialUpdate?: OfficialUpdateCheck
     verified?: () => Promise<void>
+    verifyWaitMs?: number
     git?: GitRunner
     locale?: () => string
     official?: string
@@ -151,6 +152,7 @@ function harness(
         opts.bundled?.[id] ? ({ id, version: opts.bundled[id] } as ExtensionManifest) : undefined,
       disable: (id) => disabled.push(id),
       verified: opts.verified ?? (async () => {}),
+      ...(opts.verifyWaitMs ? { verifyWaitMs: opts.verifyWaitMs } : {}),
       officialUpdate: opts.officialUpdate ?? (() => 'unsigned'),
       saveRevocations: (revoked) => {
         saved.push([...revoked])
@@ -1344,6 +1346,22 @@ describe('Marketplace and a built-in that is being verified', () => {
       error: 'conflict',
     })
     expect(existsSync(join(bad.extensionsDir, 'weather'))).toBe(false)
+  })
+
+  it('stops waiting for a verification that never ends and refuses the update', async () => {
+    const repo = repoWith('1.2.0')
+    const h = harness({
+      official: repo,
+      bundled: { weather: '1.0.0' },
+      officialUpdate: () => OFFICIAL_UPDATE_PENDING,
+      verified: () => new Promise(() => {}),
+      verifyWaitMs: 30,
+    })
+    const { id } = await offered(h, repo)
+    expect(await h.marketplace.install(id, 'weather')).toMatchObject({
+      ok: false,
+      error: 'conflict',
+    })
   })
 
   it('does not offer a built-in a way back from a pre-release it never asked for', async () => {

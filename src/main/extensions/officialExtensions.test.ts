@@ -12,6 +12,7 @@ import {
   OfficialRevocations,
   OfficialVerifier,
   UPDATABLE_BUILTINS,
+  VerdictStore,
 } from './officialExtensions'
 
 const dirs: string[] = []
@@ -130,6 +131,31 @@ describe('OfficialVerifier', () => {
     running.verifier.check(running.folder, manifest('1.1.0'), manifest('1.0.0'))
     await running.verifier.settled()
     expect(running.accepted.highest('csv')).toBe('1.1.0')
+  })
+
+  it('gives up on a check that never ends, remembers the failure and lets the bundled copy run', async () => {
+    const root = tmp()
+    const folder = join(root, 'csv')
+    mkdirSync(folder)
+    writeFileSync(join(folder, 'ostia.json'), '{}')
+    const onVerified = vi.fn()
+    const verdicts = new VerdictStore(join(root, 'verdicts.json'))
+    const verifier = new OfficialVerifier({
+      publicKey: () => 'key',
+      revocations: new OfficialRevocations(join(root, 'revoked.json')),
+      accepted: new AcceptedVersions(join(root, 'seen.json')),
+      onVerified,
+      recordAccepted: true,
+      verdicts,
+      verifyTimeoutMs: 50,
+      verifyFn: () => new Promise(() => {}),
+    })
+    const call = () => verifier.check(folder, manifest('1.1.0'), manifest('1.0.0'))
+    expect(call()).toBe(OFFICIAL_UPDATE_PENDING)
+    await verifier.settled()
+    expect(onVerified).toHaveBeenCalledTimes(1)
+    expect(call()).toBe('verification timed out')
+    expect([...verdicts.read().values()].map((v) => v.problem)).toEqual(['verification timed out'])
   })
 
   it('refuses an id that stays tied to the app before it reads a file', () => {

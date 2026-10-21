@@ -18,6 +18,7 @@ import officialKey from './officialKey.json'
 export const OFFICIAL_REVOCATIONS_FILE = 'official-revocations.json'
 export const OFFICIAL_VERSIONS_FILE = 'official-versions.json'
 export const OFFICIAL_VERDICTS_FILE = 'official-verdicts.json'
+const OFFICIAL_VERIFY_TIMEOUT_MS = 30_000
 
 export const UPDATABLE_BUILTINS: readonly string[] = [
   'csv',
@@ -113,6 +114,8 @@ export interface OfficialVerifierDeps {
   onVerified: () => void
   recordAccepted: boolean
   verdicts?: VerdictStore
+  verifyTimeoutMs?: number
+  verifyFn?: typeof checkExtensionSignatureAsync
   updatable?: readonly string[]
 }
 
@@ -148,15 +151,29 @@ export class OfficialVerifier {
 
   private verify(key: string, dir: string, id: string, version: string, stamp: string): void {
     if (this.pending.has(key)) return
-    const run = checkExtensionSignatureAsync(dir, id, version, this.deps.publicKey())
+    const limit = AbortSignal.timeout(this.deps.verifyTimeoutMs ?? OFFICIAL_VERIFY_TIMEOUT_MS)
+    const finish = (problem: string | null): void => {
+      this.verdicts.set(key, { stamp, problem })
+      this.deps.verdicts?.write(this.verdicts)
+    }
+    const timedOut = new Promise<never>((_resolve, reject) => {
+      limit.addEventListener('abort', () => reject(new Error('verification timed out')))
+    })
+    const run = Promise.race([
+      (this.deps.verifyFn ?? checkExtensionSignatureAsync)(
+        dir,
+        id,
+        version,
+        this.deps.publicKey(),
+        limit,
+      ),
+      timedOut,
+    ])
       .then((res) => {
-        this.verdicts.set(key, { stamp, problem: res.ok ? null : res.problem })
-        this.deps.verdicts?.write(this.verdicts)
+        finish(res.ok ? null : res.problem)
         if (res.ok && this.deps.recordAccepted) this.deps.accepted.record(id, version)
       })
-      .catch((err: unknown) => {
-        this.verdicts.set(key, { stamp, problem: (err as Error).message })
-      })
+      .catch((err: unknown) => finish((err as Error).message))
       .finally(() => {
         this.pending.delete(key)
         this.deps.onVerified()

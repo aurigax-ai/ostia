@@ -6,7 +6,8 @@ import {
   sign,
   verify,
 } from 'node:crypto'
-import { createReadStream, readFileSync, statSync, writeFileSync } from 'node:fs'
+import { constants, readFileSync, statSync, writeFileSync } from 'node:fs'
+import { open } from 'node:fs/promises'
 import { join, sep } from 'node:path'
 import { isRecord } from '../contract/isRecord'
 import { planCopy } from './marketplaceManifest'
@@ -42,21 +43,32 @@ export function extensionDigest(dir: string): string | null {
   return digestOf(files.map((file) => ({ file, hash: sha256(readFileSync(join(dir, file))) })))
 }
 
-function hashFile(path: string): Promise<string> {
-  return new Promise((resolve, reject) => {
+async function hashFile(path: string, signal?: AbortSignal): Promise<string> {
+  const handle = await open(path, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK)
+  try {
+    if (!(await handle.stat()).isFile()) throw new Error(`${path} is not a plain file`)
     const hash = createHash('sha256')
-    createReadStream(path)
-      .on('data', (chunk) => hash.update(chunk))
-      .on('error', reject)
-      .on('end', () => resolve(hash.digest('hex')))
-  })
+    for await (const chunk of handle.createReadStream({ autoClose: false })) {
+      signal?.throwIfAborted()
+      hash.update(chunk)
+    }
+    return hash.digest('hex')
+  } finally {
+    await handle.close()
+  }
 }
 
-export async function extensionDigestAsync(dir: string): Promise<string | null> {
+export async function extensionDigestAsync(
+  dir: string,
+  signal?: AbortSignal,
+): Promise<string | null> {
   const files = signedFiles(dir)
   if (files === null) return null
   const entries: { file: string; hash: string }[] = []
-  for (const file of files) entries.push({ file, hash: await hashFile(join(dir, file)) })
+  for (const file of files) {
+    signal?.throwIfAborted()
+    entries.push({ file, hash: await hashFile(join(dir, file), signal) })
+  }
   return digestOf(entries)
 }
 
@@ -159,8 +171,9 @@ export async function checkExtensionSignatureAsync(
   id: string,
   version: string,
   publicKey: string | undefined,
+  signal?: AbortSignal,
 ): Promise<SignatureCheck> {
   const key = publicKey ? publicKeyOf(publicKey) : null
-  const digest = key ? await extensionDigestAsync(dir) : null
+  const digest = key ? await extensionDigestAsync(dir, signal) : null
   return judge(readSignature(dir), digest, id, version, key)
 }

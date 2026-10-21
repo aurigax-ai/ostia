@@ -1,3 +1,4 @@
+import { execFileSync } from 'node:child_process'
 import { generateKeyPairSync } from 'node:crypto'
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -121,5 +122,20 @@ describe('extension signatures, read without blocking', () => {
       ok: false,
       problem: 'this build holds no official key',
     })
+  })
+})
+
+describe('hashing a hostile folder', () => {
+  it('refuses a named pipe instead of waiting on it', async () => {
+    const dir = extension()
+    execFileSync('mkfifo', [join(dir, 'pipe')])
+    expect(await extensionDigestAsync(dir)).toBeNull()
+    rmSync(join(dir, 'pipe'))
+    expect(await extensionDigestAsync(dir)).toBe(extensionDigest(dir))
+  })
+
+  it('stops when told to', async () => {
+    const dir = extension()
+    await expect(extensionDigestAsync(dir, AbortSignal.abort())).rejects.toThrow()
   })
 })
