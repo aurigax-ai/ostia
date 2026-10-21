@@ -3,7 +3,7 @@ import {
   encodeViewerSelection,
   type ViewerSelectionMeta,
 } from '@aurigax-ai/ostia-extension-sdk/contract/viewerSelection'
-import type { ClipboardCapture } from './viewerClipboard'
+import type { ClipboardCapture } from '../../../shared/keyboard/clipboardCapture'
 import { type ViewerEvent, type ViewerGuest, ViewerHost, type ViewerHostDeps } from './viewerHost'
 import type { ViewerSession } from './viewerSessions'
 import { ViewerWatch } from './viewerWatch'
