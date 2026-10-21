@@ -9,6 +9,14 @@ import {
   type ViewerPortableTables,
 } from '../contract/fileKinds'
 import { watchScrolling } from '../contract/scrollbar'
+import {
+  encodeViewerSelection,
+  VIEWER_EDIT_SOURCE_PATH,
+  VIEWER_OPEN_PATH,
+  VIEWER_SELECTION_PATH,
+  type ViewerRect,
+  type ViewerSelectionCapture,
+} from '../contract/viewerSelection'
 
 if (typeof document !== 'undefined') watchScrolling(document)
 
@@ -150,4 +158,86 @@ export function serveWorker<Request>(handle: (request: Request) => unknown): voi
   scope.onmessage = (event) => {
     void Promise.resolve(handle(event.data)).then((reply) => scope.postMessage(reply))
   }
+}
+
+export interface ViewerSelection {
+  capture: ViewerSelectionCapture
+  rect: ViewerRect
+  text?: string
+  html?: string
+  csv?: string
+  png?: Blob | Uint8Array
+}
+
+const selectionListeners = new Set<(published: boolean) => void>()
+let selectionPublished = false
+
+function setSelectionPublished(published: boolean): void {
+  if (published === selectionPublished) return
+  selectionPublished = published
+  for (const listener of selectionListeners) listener(published)
+}
+
+export function hasPublishedSelection(): boolean {
+  return selectionPublished
+}
+
+export function onSelectionPublished(listener: (published: boolean) => void): () => void {
+  selectionListeners.add(listener)
+  return () => selectionListeners.delete(listener)
+}
+
+export async function publishSelection(selection: ViewerSelection): Promise<boolean> {
+  const { png, rect, capture, text, html, csv } = selection
+  const body = encodeViewerSelection(
+    {
+      capture,
+      rect,
+      frame: { width: window.innerWidth, height: window.innerHeight },
+      ...(text === undefined ? {} : { text }),
+      ...(html === undefined ? {} : { html }),
+      ...(csv === undefined ? {} : { csv }),
+    },
+    (png as BlobPart | undefined) ?? null,
+  )
+  try {
+    const res = await fetch(VIEWER_SELECTION_PATH, { method: 'POST', body })
+    setSelectionPublished(res.ok)
+    return res.ok
+  } catch {
+    setSelectionPublished(false)
+    return false
+  }
+}
+
+export async function clearSelection(): Promise<void> {
+  setSelectionPublished(false)
+  try {
+    await fetch(VIEWER_SELECTION_PATH, { method: 'DELETE' })
+  } catch {}
+}
+
+async function postGesture(path: string, body?: unknown): Promise<boolean> {
+  try {
+    const res = await fetch(path, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(body ?? {}),
+    })
+    return res.ok
+  } catch {
+    return false
+  }
+}
+
+export function openViewerLink(href: string): Promise<boolean> {
+  return postGesture(VIEWER_OPEN_PATH, { href })
+}
+
+export function requestEditSource(): Promise<boolean> {
+  return postGesture(VIEWER_EDIT_SOURCE_PATH)
+}
+
+export function viewerDocumentUrl(): string {
+  return new URL(VIEWER_DOCUMENT_PATH, location.href).href
 }
