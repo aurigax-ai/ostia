@@ -70,13 +70,13 @@ async function rotateOnce(
     devices: devices.map((d) => ({ id: d.id, name: d.name })),
   }
   const wraps: Record<string, string> = {
-    passphrase: (await wrapWithSecret(newKey, passphrase)).toString('base64url'),
+    passphrase: (await wrapWithSecret(newKey, passphrase, ctx.keyring.cost)).toString('base64url'),
   }
   const keepRecovery = recoveryKey.trim() !== ''
   if (keepRecovery) {
-    wraps.recovery = (await wrapWithSecret(newKey, normalizeRecoveryKey(recoveryKey))).toString(
-      'base64url',
-    )
+    wraps.recovery = (
+      await wrapWithSecret(newKey, normalizeRecoveryKey(recoveryKey), ctx.keyring.cost)
+    ).toString('base64url')
   }
   for (const row of devices) wraps[`device:${row.id}`] = wrapFor(row, newKey)
   const body = {

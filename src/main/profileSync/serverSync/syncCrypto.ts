@@ -1,5 +1,4 @@
 import {
-  argon2,
   createCipheriv,
   createDecipheriv,
   createHash,
@@ -10,6 +9,7 @@ import {
 } from 'node:crypto'
 import { isRecord } from '@aurigax-ai/ostia-extension-sdk/contract/isRecord'
 import { publicBytes, x25519Exchange, x25519FromSeed } from '../../server/deviceKeys'
+import { type Argon2Cost, argon2idKey } from '../argon2'
 
 export const KEY_BYTES = 32
 const NONCE_BYTES = 12
@@ -29,13 +29,7 @@ const ARGON_MEMORY_MAX_KIB = 256 * 1024
 const ARGON_PASSES_MAX = 10
 const ARGON_LANES_MAX = 16
 
-export interface ArgonParams {
-  memoryKiB: number
-  passes: number
-  lanes: number
-}
-
-const PRODUCTION_ARGON: ArgonParams = { memoryKiB: 64 * 1024, passes: 3, lanes: 4 }
+export const PRODUCTION_ARGON: Argon2Cost = { memoryKiB: 64 * 1024, passes: 3, lanes: 4 }
 
 interface ManifestFile {
   blobId: string
@@ -179,27 +173,10 @@ export function openManifest(profileKey: Buffer, sealed: Buffer): Manifest | nul
   return plain ? parseManifest(plain.toString('utf8')) : null
 }
 
-function argonKey(secret: string, salt: Buffer, params: ArgonParams): Promise<Buffer> {
-  return new Promise((resolve, reject) => {
-    argon2(
-      'argon2id',
-      {
-        message: Buffer.from(secret, 'utf8'),
-        nonce: salt,
-        parallelism: params.lanes,
-        tagLength: KEY_BYTES,
-        memory: params.memoryKiB,
-        passes: params.passes,
-      },
-      (err, key) => (err ? reject(err) : resolve(key)),
-    )
-  })
-}
-
 export async function wrapWithSecret(
   profileKey: Buffer,
   secret: string,
-  params: ArgonParams = PRODUCTION_ARGON,
+  params: Argon2Cost = PRODUCTION_ARGON,
   salt: Buffer = randomBytes(SALT_BYTES),
   nonce: Buffer = randomBytes(NONCE_BYTES),
 ): Promise<Buffer> {
@@ -209,14 +186,14 @@ export async function wrapWithSecret(
   header[5] = params.passes
   header[6] = params.lanes
   salt.copy(header, 7)
-  const key = await argonKey(secret, salt, params)
+  const key = await argon2idKey(secret, salt, params)
   const aad = Buffer.concat([Buffer.from(AAD_SECRET_WRAP), header])
   return Buffer.concat([header, seal(key, profileKey, aad, nonce)])
 }
 
 export async function unwrapWithSecret(wrap: Buffer, secret: string): Promise<Buffer | null> {
   if (wrap.length < SECRET_HEADER_BYTES || wrap[0] !== WRAP_VERSION) return null
-  const params: ArgonParams = {
+  const params: Argon2Cost = {
     memoryKiB: wrap.readUInt32BE(1),
     passes: wrap[5] ?? 0,
     lanes: wrap[6] ?? 0,
@@ -230,7 +207,7 @@ export async function unwrapWithSecret(wrap: Buffer, secret: string): Promise<Bu
     params.lanes <= ARGON_LANES_MAX
   if (!sane) return null
   const header = wrap.subarray(0, SECRET_HEADER_BYTES)
-  const key = await argonKey(secret, header.subarray(7), params)
+  const key = await argon2idKey(secret, header.subarray(7), params)
   const aad = Buffer.concat([Buffer.from(AAD_SECRET_WRAP), header])
   return open(key, wrap.subarray(SECRET_HEADER_BYTES), aad)
 }

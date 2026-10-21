@@ -1,5 +1,6 @@
-import { argon2, createCipheriv, createDecipheriv, randomBytes, randomUUID } from 'node:crypto'
+import { createCipheriv, createDecipheriv, randomBytes, randomUUID } from 'node:crypto'
 import { isRecord } from '@aurigax-ai/ostia-extension-sdk/contract/isRecord'
+import { argon2idKey } from './argon2'
 import { canonicalJson } from './merge'
 
 const BUNDLE_FORMAT = 1
@@ -65,19 +66,10 @@ const inRange = (value: unknown, [min, max]: readonly [number, number]): value i
   typeof value === 'number' && Number.isInteger(value) && value >= min && value <= max
 
 function deriveKey(secret: string, salt: Buffer, kdf: Kdf): Promise<Buffer> {
-  return new Promise((resolve, reject) => {
-    argon2(
-      'argon2id',
-      {
-        message: Buffer.from(secret, 'utf8'),
-        nonce: salt,
-        parallelism: kdf.parallelism,
-        tagLength: KEY_BYTES,
-        memory: kdf.memory,
-        passes: kdf.passes,
-      },
-      (err, key) => (err ? reject(err) : resolve(key)),
-    )
+  return argon2idKey(secret, salt, {
+    memoryKiB: kdf.memory,
+    passes: kdf.passes,
+    lanes: kdf.parallelism,
   })
 }
 

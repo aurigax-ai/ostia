@@ -2,9 +2,11 @@ import { publicBytes } from '../../server/deviceKeys'
 import type { ServerAccount } from '../../server/serverAccount'
 import { ServerError } from '../../server/serverClient'
 import { hostOf } from '../../server/serverUrl'
+import type { Argon2Cost } from '../argon2'
 import { newRecoveryKey, normalizeRecoveryKey } from '../secretCrypto'
 import {
   newProfileKey,
+  PRODUCTION_ARGON,
   unwrapForDevice,
   unwrapWithSecret,
   wrapForDevice,
@@ -58,6 +60,7 @@ export class SyncKeyring {
   constructor(
     private readonly account: KeyringAccount,
     private readonly store: SyncKeyStore,
+    readonly cost: Argon2Cost = PRODUCTION_ARGON,
   ) {}
 
   target(): SyncTarget | null {
@@ -118,8 +121,8 @@ export class SyncKeyring {
       if ((await this.slots()).has(PASSPHRASE_SLOT)) return { ok: false, error: 'exists' }
       const key = newProfileKey()
       const recoveryKey = newRecoveryKey()
-      const passphraseWrap = await wrapWithSecret(key, passphrase)
-      const recoveryWrap = await wrapWithSecret(key, normalizeRecoveryKey(recoveryKey))
+      const passphraseWrap = await wrapWithSecret(key, passphrase, this.cost)
+      const recoveryWrap = await wrapWithSecret(key, normalizeRecoveryKey(recoveryKey), this.cost)
       await this.account.authed(async (token, routes) => {
         await routes.putWrap(token, PASSPHRASE_SLOT, passphraseWrap.toString('base64url'))
         await routes.putWrap(token, RECOVERY_SLOT, recoveryWrap.toString('base64url'))
@@ -198,7 +201,7 @@ export class SyncKeyring {
     if (!key) return { ok: false, error: 'wrong-password' }
     try {
       const recoveryKey = newRecoveryKey()
-      const wrap = await wrapWithSecret(key, normalizeRecoveryKey(recoveryKey))
+      const wrap = await wrapWithSecret(key, normalizeRecoveryKey(recoveryKey), this.cost)
       await this.account.authed((token, routes) =>
         routes.putWrap(token, RECOVERY_SLOT, wrap.toString('base64url')),
       )

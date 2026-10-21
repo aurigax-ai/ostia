@@ -8,6 +8,8 @@ import {
   type SyncDevice,
   setUp,
 } from '../../../../test/fixtures/server/syncHarness'
+import { SyncKeyring } from './syncKeyring'
+import { createSyncKeyStore } from './syncKeyStore'
 import { readRemote } from './syncRemote'
 
 const servers: FakeServer[] = []
@@ -87,6 +89,21 @@ describe('key lifecycle', () => {
     const loose = recoveryKey.toLowerCase().replaceAll('-', ' ')
     expect((await other.service.recover(loose)).ok).toBe(true)
     expect((await other.service.status()).state).toBe('ready')
+  })
+
+  it('SSY-C35 wraps with 64 MiB, 3 passes and 4 lanes unless a test asks for less', async () => {
+    const { first } = await world()
+    const real = new SyncKeyring(
+      first.account,
+      createSyncKeyStore(
+        { load: () => ({}), save: () => {} },
+        {
+          encrypt: (plain) => plain,
+          decrypt: (kept) => kept,
+        },
+      ),
+    )
+    expect(real.cost).toEqual({ memoryKiB: 65_536, passes: 3, lanes: 4 })
   })
 
   it('SSY-C34 forgets the key when the account signs out', async () => {

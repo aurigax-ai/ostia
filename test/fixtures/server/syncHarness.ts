@@ -11,6 +11,8 @@ import { ServerElevation } from '../../../src/main/server/serverElevation'
 import { type AccountHarness, accountHarness, signedIn } from './accountHarness'
 import type { FakeServer } from './fakeServer'
 
+const FAST_ARGON = { memoryKiB: 1024, passes: 1, lanes: 1 }
+
 export const PASSPHRASE = 'a long passphrase for tests'
 
 const at = (minute: number): Date => new Date(Date.UTC(2026, 9, 6, 12, minute))
@@ -71,7 +73,7 @@ function assemble(harness: AccountHarness): SyncDevice {
       decrypt: (kept) => Buffer.from(kept, 'base64').toString(),
     },
   )
-  const keyring = new SyncKeyring(harness.account, keyStore)
+  const keyring = new SyncKeyring(harness.account, keyStore, FAST_ARGON)
   const target = createServerTarget(harness.account, keyring)
   const local = localProfile(mkdtempSync(join(tmpdir(), 'sync-device-')))
   const clock = { now: at(0) }
