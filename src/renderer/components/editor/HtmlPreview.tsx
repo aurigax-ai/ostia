@@ -1,5 +1,4 @@
 import { EmptyState } from '@/components/common/EmptyState'
-import { Hint } from '@/components/common/Hint'
 import { DropdownMenu, MenuItem } from '@/components/common/Menu'
 import { StatusAction, StatusLine, useDismissed } from '@/components/common/StatusLine'
 import { Button } from '@/components/ui/button'
@@ -168,6 +167,7 @@ function PreviewBars({
       ) : null}
       {link ? (
         <StatusLine
+          wrap
           role="alert"
           data-testid="preview-link"
           actions={
@@ -184,11 +184,7 @@ function PreviewBars({
           }
           onDismiss={() => setLink(null)}
         >
-          <Hint label={link}>
-            <span className="select-text font-mono" tabIndex={0}>
-              {link}
-            </span>
-          </Hint>
+          <span className="select-text font-mono">{link}</span>
         </StatusLine>
       ) : null}
     </>

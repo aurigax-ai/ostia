@@ -19,6 +19,7 @@ export function StatusLine({
   actions,
   onDismiss,
   dismissDisabled,
+  wrap,
   className,
   ...rest
 }: Omit<React.ComponentProps<'output'>, 'children'> & {
@@ -27,19 +28,23 @@ export function StatusLine({
   actions?: React.ReactNode
   onDismiss?: () => void
   dismissDisabled?: boolean
+  wrap?: boolean
 }): JSX.Element {
   const d = useDict()
   const { icon: Icon, color } = TONES[tone]
   return (
     <output
       className={cn(
-        'motion-enter-edge flex h-8 w-full shrink-0 items-center gap-2 bg-surface-1 px-3 text-fg text-ui-sm',
+        'motion-enter-edge flex w-full shrink-0 items-center gap-2 bg-surface-1 px-3 text-fg text-ui-sm',
+        wrap ? 'min-h-8 py-1' : 'h-8',
         className,
       )}
       {...rest}
     >
       <Icon size={16} aria-hidden className={cn('shrink-0', color)} />
-      <span className="min-w-0 flex-1 truncate">{children}</span>
+      <span className={cn('min-w-0 flex-1', wrap ? '[overflow-wrap:anywhere]' : 'truncate')}>
+        {children}
+      </span>
       {actions}
       {onDismiss ? (
         <IconButton

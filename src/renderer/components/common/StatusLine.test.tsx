@@ -45,4 +45,17 @@ describe('StatusLine', () => {
     expect(screen.getByText('Could not save.')).not.toHaveClass('text-attn-fg')
     expect(screen.getByTestId('line')).not.toHaveClass('text-attn-fg')
   })
+
+  it('can wrap its text instead of cutting it, to show a whole URL', () => {
+    render(
+      <StatusLine wrap data-testid="line">
+        https://example.test/a/very/long/path
+      </StatusLine>,
+    )
+
+    const line = screen.getByTestId('line')
+    expect(line).toHaveClass('min-h-8')
+    expect(line).not.toHaveClass('h-8')
+    expect(screen.getByText('https://example.test/a/very/long/path')).not.toHaveClass('truncate')
+  })
 })
