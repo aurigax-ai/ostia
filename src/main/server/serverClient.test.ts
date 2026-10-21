@@ -13,25 +13,25 @@ function client(fetchFn: typeof fetch, pause = vi.fn(async () => {})) {
 }
 
 describe('the server client', () => {
-  it('SSY-C166 reports the server time from the Date header of every answer', async () => {
+  it('SSY-C166 reports the server time only for answers that ask for it and puts it on a failure', async () => {
     const onServerTime = vi.fn()
     const fetchFn = vi
       .fn()
       .mockResolvedValueOnce(answer(200, {}, { Date: 'Wed, 21 Oct 2026 07:28:00 GMT' }))
-      .mockResolvedValueOnce(answer(403, { error: 'x' }, { Date: 'Wed, 21 Oct 2026 07:29:00 GMT' }))
-      .mockResolvedValueOnce(answer(200, {}))
+      .mockResolvedValueOnce(answer(200, {}, { Date: 'Wed, 21 Oct 2026 07:29:00 GMT' }))
+      .mockResolvedValueOnce(answer(403, { error: 'x' }, { Date: 'Wed, 21 Oct 2026 07:30:00 GMT' }))
     const api = createServerClient({
       baseUrl: () => 'https://s.example',
       fetchFn: fetchFn as unknown as typeof fetch,
       onServerTime,
     })
     await api.request('GET', '/v1/a')
-    await api.request('GET', '/v1/b').catch(() => {})
-    await api.request('GET', '/v1/c')
-    expect(onServerTime.mock.calls).toEqual([
-      [Date.UTC(2026, 9, 21, 7, 28)],
-      [Date.UTC(2026, 9, 21, 7, 29)],
-    ])
+    await api.request('GET', '/v1/b', { reportsTime: true })
+    const failure = await api
+      .request<void>('GET', '/v1/c', { reportsTime: true })
+      .catch((e: ServerError) => e)
+    expect((failure as ServerError).serverTime).toBe(Date.UTC(2026, 9, 21, 7, 30))
+    expect(onServerTime.mock.calls).toEqual([[Date.UTC(2026, 9, 21, 7, 29)]])
   })
 
   it('SVA-C12 sends JSON with the bearer token and parses the answer', async () => {

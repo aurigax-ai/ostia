@@ -53,18 +53,40 @@ describe('signed requests with a timestamp', () => {
     expect(fetchFn).toHaveBeenCalledTimes(2)
   })
 
-  it('SSY-C167 recovers from a desktop clock ten minutes behind the server on the first signed read', async () => {
+  it('SSY-C167 takes the server clock at sign-in, so a desktop clock ten minutes behind needs no retry', async () => {
     const harness = await signedIn({ signerNow: () => Date.now() - 10 * 60_000 })
     const read = () =>
       harness.account.authed((token, routes) =>
         harness.account
           .signer()
-          .signed('wrapRead', (headers) => routes.wrap(token, 'passphrase', headers), [
+          .signed('wrapRead', (headers) => routes.secretWrap(token, 'passphrase', headers), [
             'passphrase',
           ]),
       )
     await expect(read()).rejects.toMatchObject({ status: 404 })
     await expect(read()).rejects.toMatchObject({ status: 404 })
+    expect(
+      harness.server.requests.filter((r) => r === 'GET /v1/sync/wraps/passphrase'),
+    ).toHaveLength(2)
+    await harness.close()
+  })
+
+  it('SSY-C170 corrects a clock offset that put stamps in the future, then the next request is accepted', async () => {
+    const harness = await signedIn()
+    await harness.account.authed(async () => {})
+    const signer = harness.account.signer()
+    signer.observeServerTime(Date.now() + 10 * 60_000)
+    const read = () =>
+      harness.account.authed((token, routes) =>
+        signer.signed('wrapRead', (headers) => routes.secretWrap(token, 'passphrase', headers), [
+          'passphrase',
+        ]),
+      )
+    await expect(read()).rejects.toMatchObject({ status: 404 })
+    await expect(read()).rejects.toMatchObject({ status: 404 })
+    expect(
+      harness.server.requests.filter((r) => r === 'GET /v1/sync/wraps/passphrase'),
+    ).toHaveLength(3)
     await harness.close()
   })
 })

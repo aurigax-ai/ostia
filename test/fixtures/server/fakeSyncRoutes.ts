@@ -79,30 +79,35 @@ export function syncRoutes(server: FakeServer): Array<[string, RegExp, Handler]>
   const putManifest: Handler = (req, res, body, raw) => {
     const auth = server.authed(req, res)
     if (!auth) return
+    const match = req.headers['if-match']
+    if (match === undefined) {
+      server.error(res, 428, 'precondition-required')
+      return
+    }
+    const version = Number(match.replace(/"/g, '').trim())
+    if (!Number.isInteger(version)) {
+      server.error(res, 400, 'bad-request')
+      return
+    }
     if (
       !server.signed(
         req,
         res,
         auth.device,
         (s) =>
-          `ostia-server/manifest-put/v1\n${auth.device.id}\n${s}\n${String(req.headers['if-match'])}\n${createHash('sha256').update(raw).digest('base64url')}`,
+          `ostia-server/manifest-put/v1\n${auth.device.id}\n${s}\n${version}\n${createHash('sha256').update(raw).digest('base64url')}`,
         true,
       )
     ) {
       return
     }
     const data = dataOf(auth.device.accountId)
-    const match = req.headers['if-match']
-    if (match === undefined) {
-      server.error(res, 428, 'precondition-required')
-      return
-    }
     const blob = stored(body.blob)
     if (!blob) {
       server.error(res, 400, 'bad-request')
       return
     }
-    if (Number(match) !== current(data)) {
+    if (version !== current(data)) {
       server.reply(res, 412, { error: 'version-mismatch', current: current(data) })
       return
     }

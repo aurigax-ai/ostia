@@ -92,14 +92,34 @@ describe('device signatures', () => {
     expect(calls).toBe(1)
   })
 
-  it('SSY-C165 moves the timestamp by the offset between the server Date and the local clock', async () => {
+  it('SSY-C165 stamps from the clock the server just gave after a future offset was refused as stale', async () => {
     const { signer } = setup()
-    signer.observeServerTime(1_700_000_600_000)
-    const headers = await signer.signed('invite', async (h) => h)
-    expect(headers['X-Device-Timestamp']).toBe('1700000600000')
-    signer.observeServerTime(1_700_000_000_000)
-    const back = await signer.signed('invite', async (h) => h)
-    expect(back['X-Device-Timestamp']).toBe('1700000600001')
+    const now = 1_700_000_000_000
+    signer.observeServerTime(now + 20 * 60_000)
+    const sent: number[] = []
+    const refuseFirst = (headers: Record<string, string>) => {
+      sent.push(Number(headers['X-Device-Timestamp']))
+      return sent.length === 1
+        ? Promise.reject(new ServerError(403, 'stale-signature', null, now))
+        : Promise.resolve(headers)
+    }
+    await signer.signed('invite', refuseFirst)
+    expect(sent).toEqual([now + 10 * 60_000, now])
+    const next = await signer.signed('invite', async (h) => h)
+    expect(next['X-Device-Timestamp']).toBe(String(now + 1))
+  })
+
+  it('SSY-C169 counts any answer but a signature refusal as having used the stamp', async () => {
+    const { signer } = setup()
+    const now = 1_700_000_000_000
+    await expect(
+      signer.signed('manifestPut', () => Promise.reject(new ServerError(412, 'version-mismatch'))),
+    ).rejects.toMatchObject({ status: 412 })
+    await expect(
+      signer.signed('manifestPut', () => Promise.reject(new ServerError(403, 'bad-signature'))),
+    ).rejects.toMatchObject({ code: 'bad-signature' })
+    const next = await signer.signed('manifestPut', async (h) => h)
+    expect(next['X-Device-Timestamp']).toBe(String(now + 1))
   })
 
   it('SSY-C168 signs the bound fields after the timestamp', async () => {

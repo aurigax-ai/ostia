@@ -51,7 +51,7 @@ export interface SyncTarget {
   accountId: string
 }
 
-export const deviceSlot = (deviceId: string): string => `device:${deviceId}`
+export const deviceSlot = (deviceId: string): `device:${string}` => `device:${deviceId}`
 
 const fromB64 = (text: string): Buffer => Buffer.from(text, 'base64url')
 
@@ -169,7 +169,7 @@ export class SyncKeyring {
     return this.account.authed((token, routes) =>
       this.account
         .signer()
-        .signed('wrapRead', (headers) => routes.wrap(token, slot, headers), [slot]),
+        .signed('wrapRead', (headers) => routes.secretWrap(token, slot, headers), [slot]),
     )
   }
 
@@ -210,7 +210,7 @@ export class SyncKeyring {
     if (!identity) return null
     const slot = deviceSlot(identity.deviceId)
     try {
-      const found = await this.account.authed((token, routes) => routes.wrap(token, slot))
+      const found = await this.account.authed((token, routes) => routes.deviceWrap(token, slot))
       return { slot, wrap: fromB64(found.blob) }
     } catch {
       return null

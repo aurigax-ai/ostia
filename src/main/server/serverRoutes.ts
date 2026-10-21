@@ -130,6 +130,7 @@ export function serverRoutes(client: ServerClient) {
     registerWithInvite: (code: string, name: string, registration: Registration) =>
       client.request<DeviceRegistered>('POST', '/v1/auth/invite', {
         body: { code, name, ...registration },
+        reportsTime: true,
       }),
     githubDevice: () => client.request<GithubFlow>('POST', '/v1/auth/github/device'),
     githubPoll: async (
@@ -139,13 +140,19 @@ export function serverRoutes(client: ServerClient) {
     ): Promise<GithubPolled> => {
       const answer = await client.request<
         { status: 'pending'; interval: number } | DeviceRegistered
-      >('POST', '/v1/auth/github/poll', { body: { flowId, name, ...registration } })
+      >('POST', '/v1/auth/github/poll', {
+        body: { flowId, name, ...registration },
+        reportsTime: true,
+      })
       return 'status' in answer ? answer : { status: 'registered', ...answer }
     },
     challenge: (deviceId: string) =>
       client.request<{ nonce: string }>('POST', '/v1/auth/challenge', { body: { deviceId } }),
     verify: (deviceId: string, nonce: string, sig: string) =>
-      client.request<SessionGrant>('POST', '/v1/auth/verify', { body: { deviceId, nonce, sig } }),
+      client.request<SessionGrant>('POST', '/v1/auth/verify', {
+        body: { deviceId, nonce, sig },
+        reportsTime: true,
+      }),
     endSession: (token: string) => client.request<void>('DELETE', '/v1/auth/session', { token }),
     devices: (token: string) =>
       client.request<{ devices: DeviceRow[] }>('GET', '/v1/devices', { token }),
@@ -206,11 +213,13 @@ export function serverRoutes(client: ServerClient) {
       client.request<void>('PUT', `/v1/sync/blobs/${id}`, { token, bytes }),
     wraps: (token: string) =>
       client.request<{ wraps: WrapSlot[] }>('GET', '/v1/sync/wraps', { token }),
-    wrap: (token: string, slot: string, headers?: Record<string, string>) =>
+    deviceWrap: (token: string, slot: `device:${string}`) =>
+      client.request<{ slot: string; blob: string }>('GET', `/v1/sync/wraps/${slot}`, { token }),
+    secretWrap: (token: string, slot: 'passphrase' | 'recovery', headers: Record<string, string>) =>
       client.request<{ slot: string; blob: string }>('GET', `/v1/sync/wraps/${slot}`, {
         token,
         headers,
-        ...(headers && { retryRateLimited: false as const }),
+        retryRateLimited: false,
       }),
     putWrap: (token: string, slot: string, blob: string) =>
       client.request<void>('PUT', `/v1/sync/wraps/${slot}`, { token, body: { blob } }),
