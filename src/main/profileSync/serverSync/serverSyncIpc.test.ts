@@ -19,6 +19,7 @@ const STATUS = {
   linkCodes: [],
   joins: [],
   recoveryStale: false,
+  wrapRefused: false,
 }
 const OK: ServerSyncResult = { ok: true, status: STATUS }
 const window = { sender: { getType: () => 'window' } }
@@ -32,6 +33,7 @@ const service = {
   linkStart: vi.fn(async () => OK),
   linkStop: vi.fn(async () => OK),
   approveJoin: vi.fn(async () => OK),
+  linkConfirm: vi.fn(async () => OK),
   removeDevice: vi.fn(async () => OK),
   rotate: vi.fn(async () => OK),
   newRecoveryKey: vi.fn(async () => OK),
@@ -72,10 +74,10 @@ describe('syncServer owner IPC', () => {
       error: 'invalid-input',
     })
     expect(await call('syncServer:unlock', window)).toMatchObject({ error: 'invalid-input' })
-    expect(await call('syncServer:approve-join', window, 'x'.repeat(129))).toMatchObject({
+    expect(await call('syncServer:approve-join', window, 'x'.repeat(129), 'c')).toMatchObject({
       error: 'invalid-input',
     })
-    expect(await call('syncServer:approve-join', window, '')).toMatchObject({
+    expect(await call('syncServer:approve-join', window, '', 'c')).toMatchObject({
       error: 'invalid-input',
     })
     expect(service.setup).not.toHaveBeenCalled()
@@ -96,5 +98,12 @@ describe('syncServer owner IPC', () => {
   it('SSY-C113 passes the removal inputs through in order', async () => {
     await call('syncServer:remove-device', window, 'd2', 'pass phrase 1', 'AAAA-BBBB')
     expect(service.removeDevice).toHaveBeenCalledWith('d2', 'pass phrase 1', 'AAAA-BBBB')
+  })
+
+  it('SSY-C114 passes the device id and the code the human saw to approve and confirm', async () => {
+    await call('syncServer:approve-join', window, 'd2', 'AAAAA-BBBBB')
+    expect(service.approveJoin).toHaveBeenCalledWith('d2', 'AAAAA-BBBBB')
+    await call('syncServer:link-confirm', window, 'AAAAA-BBBBB')
+    expect(service.linkConfirm).toHaveBeenCalledWith('AAAAA-BBBBB')
   })
 })

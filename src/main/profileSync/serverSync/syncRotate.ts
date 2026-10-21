@@ -5,17 +5,19 @@ import {
   blobId,
   contentHash,
   type Manifest,
+  type ManifestDevice,
   newProfileKey,
   sealBlob,
   sealManifest,
   wrapWithSecret,
 } from './syncCrypto'
-import { wrapFor } from './syncLink'
+import { localPublicKeys } from './syncLink'
 import { type Remote, type RemoteContext, readRemote, uploadAll } from './syncRemote'
 
 const ROTATE_ATTEMPTS = 3
 
 export type RotateError =
+  | 'untrusted'
   | 'wrong-password'
   | 'wrong-recovery-key'
   | 'elevation-required'
@@ -65,18 +67,34 @@ async function rotateOnce(
   const newKey = newProfileKey()
   const files = await resealed(ctx, remote, newKey)
   const listed = await ctx.account.authed((token, routes) => routes.devices(token))
-  const trusted = new Set([
-    ...(remote.manifest?.devices ?? []).map((d) => d.id),
-    ...ctx.keyring.approvedDevices(),
-  ])
-  const devices = listed.devices.filter((d) => d.current === true || trusted.has(d.id))
-  const unwrapped = listed.devices.filter((d) => !devices.includes(d)).map((d) => d.name)
-  const counter = Math.max(remote.manifest?.counter ?? 0, ctx.keyring.highest()) + 1
-  const manifest: Manifest = {
-    counter,
-    files,
-    devices: devices.map((d) => ({ id: d.id, name: d.name })),
+  const keys = ctx.account.deviceKeys()
+  const trusted = ctx.keyring.trusted()
+  const self = listed.devices.filter((d) => d.current === true)
+  const local = keys ? localPublicKeys(keys) : null
+  const me = self[0]
+  if (!local || self.length !== 1 || me?.signPub !== local.signPub || me?.boxPub !== local.boxPub) {
+    return { ok: false, error: 'untrusted' }
   }
+  const devices: ManifestDevice[] = [
+    {
+      id: me.id,
+      name: me.name,
+      signPub: local.signPub,
+      boxPub: local.boxPub,
+      createdAt: trusted.find((d) => d.id === me.id)?.createdAt ?? ctx.keyring.now(),
+    },
+  ]
+  const unwrapped: string[] = []
+  for (const row of listed.devices) {
+    if (row.current === true) continue
+    const pinned = trusted.find(
+      (d) => d.id === row.id && d.signPub === row.signPub && d.boxPub === row.boxPub,
+    )
+    if (pinned) devices.push(pinned)
+    else unwrapped.push(row.name)
+  }
+  const counter = Math.max(remote.manifest?.counter ?? 0, ctx.keyring.highest()) + 1
+  const manifest: Manifest = { counter, files, devices }
   const wraps: Record<string, string> = {
     passphrase: (await wrapWithSecret(newKey, passphrase, ctx.keyring.cost)).toString('base64url'),
   }
@@ -86,7 +104,11 @@ async function rotateOnce(
       await wrapWithSecret(newKey, normalizeRecoveryKey(recoveryKey), ctx.keyring.cost)
     ).toString('base64url')
   }
-  for (const row of devices) wraps[`device:${row.id}`] = wrapFor(row, newKey)
+  for (const device of devices) {
+    const blob = ctx.keyring.wrapFor(device.boxPub, device.id, newKey, counter)
+    if (!blob) return { ok: false, error: 'untrusted' }
+    wraps[`device:${device.id}`] = blob
+  }
   const body = {
     ifMatch: remote.version,
     manifest: sealManifest(newKey, manifest).toString('base64url'),
@@ -101,6 +123,7 @@ async function rotateOnce(
   }
   ctx.keyring.keep(newKey)
   ctx.keyring.raise(counter)
+  ctx.keyring.pin(devices)
   return { ok: true, recoveryStale: !keepRecovery, unwrapped }
 }
 

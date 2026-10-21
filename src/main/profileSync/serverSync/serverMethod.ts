@@ -1,30 +1,19 @@
 import type { ServerAccount } from '../../server/serverAccount'
 import { ServerError } from '../../server/serverClient'
 import { type SyncMethod, type SyncSnapshot, SyncTargetError, type WriteResult } from '../engine'
-import {
-  blobId,
-  contentHash,
-  type Manifest,
-  type ManifestDevice,
-  sealBlob,
-  sealManifest,
-} from './syncCrypto'
+import { blobId, contentHash, type Manifest, sealBlob, sealManifest } from './syncCrypto'
 import type { SyncKeyring } from './syncKeyring'
 import { type RemoteContext, readRemote, targetErrorOf, uploadAll } from './syncRemote'
 
 const FIRST_VERSION = '0'
 const CACHE_MAX = 600
 
-interface MethodContext extends RemoteContext {
-  self: () => ManifestDevice | null
-}
-
 class ServerMethod implements SyncMethod {
   private last: { version: number; manifest: Manifest | null } = { version: 0, manifest: null }
   private readonly cache = new Map<string, Buffer>()
 
   constructor(
-    private readonly ctx: MethodContext,
+    private readonly ctx: RemoteContext,
     readonly id: string,
   ) {}
 
@@ -68,12 +57,10 @@ class ServerMethod implements SyncMethod {
         uploads.push({ id, sealed: sealBlob(key, path, content) })
       }
     }
-    const self = this.ctx.self()
-    const known = (this.last.manifest?.devices ?? []).filter((d) => d.id !== self?.id)
     const manifest: Manifest = {
       counter,
       files: entries,
-      devices: self ? [...known, self] : known,
+      devices: this.last.manifest?.devices ?? [],
     }
     try {
       await uploadAll(this.ctx, uploads)
@@ -108,17 +95,7 @@ export function createServerTarget(account: TargetAccount, keyring: SyncKeyring)
       if (!target) return signedOutMethod
       const id = `server:${target.id}`
       if (current?.id !== id) {
-        current = new ServerMethod(
-          {
-            account,
-            keyring,
-            self: () => {
-              const identity = account.identity()
-              return identity ? { id: identity.deviceId, name: identity.deviceName } : null
-            },
-          },
-          id,
-        )
+        current = new ServerMethod({ account, keyring }, id)
       }
       return current
     },

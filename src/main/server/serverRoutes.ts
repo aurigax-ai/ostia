@@ -5,6 +5,7 @@ export interface ServerInfo {
   api: number
   modules: { relay: boolean; publish: boolean; sync: boolean; push: boolean }
   auth: { invite: boolean; github: boolean }
+  approverMinAgeSeconds?: number
   relayDomain: string
   shareDomain: string
   limits?: { shareMaxBytes?: number; allowPublic?: boolean; allowNever?: boolean }

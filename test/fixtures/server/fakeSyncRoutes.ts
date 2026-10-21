@@ -1,5 +1,6 @@
 import type { ServerResponse } from 'node:http'
-import type { FakeServer, Handler } from './fakeServer'
+import type { FakeDevice, FakeServer, Handler } from './fakeServer'
+import { checkDeviceWrap } from './fakeWraps'
 
 const BLOB_ID = /^[A-Za-z0-9_-]{43}$/
 const DEFAULT_QUOTA = 64 * 1024 * 1024
@@ -159,6 +160,18 @@ export function syncRoutes(server: FakeServer): Array<[string, RegExp, Handler]>
     else server.reply(res, 200, { slot, blob: found.blob, updatedAt: found.updatedAt })
   }
 
+  const refuseWrap = (
+    res: ServerResponse,
+    signer: FakeDevice,
+    slot: string,
+    blob: string,
+  ): boolean => {
+    const verdict = checkDeviceWrap(server, signer, slot, blob)
+    if (verdict === 'ok') return false
+    server.error(res, verdict === 'wrong-signer' ? 403 : 400, verdict)
+    return true
+  }
+
   const putWrap: Handler = (req, res, body, _raw, [slot]) => {
     const auth = server.authed(req, res)
     if (!auth) return
@@ -170,6 +183,7 @@ export function syncRoutes(server: FakeServer): Array<[string, RegExp, Handler]>
       server.error(res, 400, 'bad-slot')
       return
     }
+    if (name.startsWith('device:') && refuseWrap(res, device, name, blob)) return
     const own = name === `device:${device.id}`
     if (data.wraps.has(name) && !own && needElevation(auth, res)) return
     data.wraps.set(name, { blob, updatedAt: server.now() })
@@ -206,6 +220,11 @@ export function syncRoutes(server: FakeServer): Array<[string, RegExp, Handler]>
       server.error(res, 400, 'bad-slot')
       return
     }
+    const refused = entries.some(
+      ([slot, blob]) =>
+        slot.startsWith('device:') && refuseWrap(res, auth.device, slot, String(blob)),
+    )
+    if (refused) return
     for (const [slot, blob] of entries) {
       data.wraps.set(slot, { blob: String(blob), updatedAt: server.now() })
     }

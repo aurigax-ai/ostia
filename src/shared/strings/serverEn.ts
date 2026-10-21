@@ -121,7 +121,7 @@ export const serverEn = {
       'This device was approved. Confirm only if the code above matches the one on the approving device.',
     linkByApproval: 'Approve from another device',
     linkCodeFor: '{device}: {code}',
-    linkConfirm: 'The codes match',
+    linkConfirm: 'The code {code} matches',
     linkStop: 'Stop waiting',
     linkWaiting:
       'On a device that is already signed in, open Settings › Sync and check that the code matches, then approve.',
@@ -155,5 +155,7 @@ export const serverEn = {
       'A folder you own, or the server you signed in to. The server only stores data it cannot read. One at a time.',
     whereFolder: 'Folder',
     whereServer: 'Server',
+    wrapRefused:
+      'Another device sent a new sync key that was not signed by a device you trust, so it was ignored.',
   },
 }

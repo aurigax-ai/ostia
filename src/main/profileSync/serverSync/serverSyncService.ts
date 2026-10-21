@@ -8,13 +8,15 @@ import type { ServerFailure } from '../../../shared/server/serverApi'
 import { failureOf, type ServerAccount } from '../../server/serverAccount'
 import { ServerError } from '../../server/serverClient'
 import type { ServerDevices } from '../../server/serverDevices'
+import type { ManifestDevice } from './syncCrypto'
 import type { SyncKeyring } from './syncKeyring'
 import {
+  approverForCode,
   joinRequestsFor,
+  linkCode,
   linkCodesFor,
   localPublicKeys,
   serverAgreesWith,
-  wrapFor,
 } from './syncLink'
 import { registerInManifest } from './syncRegister'
 import { collectGarbage, rotateKey, verifySecrets } from './syncRotate'
@@ -38,6 +40,7 @@ const SIGNED_OUT: ServerSyncStatus = {
   linkCodes: [],
   joins: [],
   recoveryStale: false,
+  wrapRefused: false,
 }
 
 const PASSED_THROUGH: readonly ServerFailure[] = [
@@ -78,7 +81,7 @@ export class ServerSyncService {
     const { account, keyring } = this.deps
     const target = keyring.target()
     if (!account.signedIn() || !target) return SIGNED_OUT
-    const base = { ...SIGNED_OUT, host: target.host }
+    const base = { ...SIGNED_OUT, host: target.host, wrapRefused: keyring.wrapRefused }
     const keys = account.deviceKeys()
     if (!keys) return SIGNED_OUT
     const me = localPublicKeys(keys)
@@ -119,27 +122,38 @@ export class ServerSyncService {
 
   async setup(passphrase: string, confirm: string): Promise<ServerSyncResult> {
     const res = await this.deps.keyring.setup(passphrase, confirm)
+    if (res.ok) await this.registerSelf()
     return this.done(res)
   }
 
-  private async joined(): Promise<void> {
+  private async selfEntry(): Promise<ManifestDevice | null> {
+    const keys = this.deps.account.deviceKeys()
+    if (!keys) return null
+    const me = localPublicKeys(keys)
+    try {
+      const { devices } = await this.deps.account.authed((token, routes) => routes.devices(token))
+      const row = devices.find((d) => d.current === true)
+      if (!row || !serverAgreesWith(devices, me)) return null
+      return { id: row.id, name: row.name, ...me, createdAt: this.deps.keyring.now() }
+    } catch {
+      return null
+    }
+  }
+
+  private async registerSelf(): Promise<void> {
     this.linking = false
-    const identity = this.deps.account.identity()
-    await registerInManifest(
-      this.ctx,
-      identity ? { id: identity.deviceId, name: identity.deviceName } : null,
-    )
+    await registerInManifest(this.ctx, await this.selfEntry())
   }
 
   async unlock(passphrase: string): Promise<ServerSyncResult> {
     const res = await this.deps.keyring.unlock(passphrase)
-    if (res.ok) await this.joined()
+    if (res.ok) await this.registerSelf()
     return this.done(res)
   }
 
   async recover(recoveryKey: string): Promise<ServerSyncResult> {
     const res = await this.deps.keyring.recover(recoveryKey)
-    if (res.ok) await this.joined()
+    if (res.ok) await this.registerSelf()
     return this.done(res)
   }
 
@@ -148,12 +162,24 @@ export class ServerSyncService {
     return this.done({ ok: true })
   }
 
-  async linkConfirm(): Promise<ServerSyncResult> {
-    if (!this.linking) return this.done({ ok: false, error: 'locked' })
-    if (!(await this.deps.keyring.adoptOwnDeviceWrap()))
-      return this.done({ ok: false, error: 'no-wrap' })
-    await this.joined()
-    return this.done({ ok: true })
+  async linkConfirm(code: string): Promise<ServerSyncResult> {
+    const keys = this.deps.account.deviceKeys()
+    if (!this.linking || !keys) return this.done({ ok: false, error: 'locked' })
+    try {
+      const { devices } = await this.deps.account.authed((token, routes) => routes.devices(token))
+      const me = localPublicKeys(keys)
+      const approver = serverAgreesWith(devices, me)
+        ? approverForCode(devices, me, code)
+        : undefined
+      if (!approver) return this.done({ ok: false, error: 'untrusted' })
+      if (!(await this.deps.keyring.adoptLinkWrap(approver))) {
+        return this.done({ ok: false, error: 'no-wrap' })
+      }
+      this.linking = false
+      return this.done({ ok: true })
+    } catch (error) {
+      return this.done({ ok: false, error: this.errorOf(error) })
+    }
   }
 
   linkStop(): Promise<ServerSyncResult> {
@@ -161,19 +187,35 @@ export class ServerSyncService {
     return this.done({ ok: true })
   }
 
-  async approveJoin(deviceId: string): Promise<ServerSyncResult> {
+  async approveJoin(deviceId: string, code: string): Promise<ServerSyncResult> {
     const key = this.deps.keyring.key()
     const keys = this.deps.account.deviceKeys()
     if (!key || !keys) return this.done({ ok: false, error: 'locked' })
     try {
-      await this.deps.account.authed(async (token, routes) => {
+      const me = localPublicKeys(keys)
+      const row = await this.deps.account.authed(async (token, routes) => {
         const { devices } = await routes.devices(token)
-        if (!serverAgreesWith(devices, localPublicKeys(keys))) throw new UntrustedServer()
-        const row = devices.find((d) => d.id === deviceId && d.current !== true)
-        if (!row) throw new ServerError(404, 'unknown-device')
-        await routes.putWrap(token, `device:${row.id}`, wrapFor(row, key))
+        if (!serverAgreesWith(devices, me)) throw new UntrustedServer()
+        const found = devices.find((d) => d.id === deviceId && d.current !== true)
+        if (!found) throw new ServerError(404, 'unknown-device')
+        if (linkCode(found, me.signPub) !== code) throw new UntrustedServer()
+        return found
       })
-      this.deps.keyring.approve(deviceId)
+      const joiner: ManifestDevice = {
+        id: row.id,
+        name: row.name,
+        signPub: row.signPub,
+        boxPub: row.boxPub,
+        createdAt: this.deps.keyring.now(),
+      }
+      const counter = await registerInManifest(this.ctx, joiner)
+      if (counter === null) return this.done({ ok: false, error: 'failed' })
+      const blob = this.deps.keyring.wrapFor(row.boxPub, row.id, key, counter)
+      if (!blob) return this.done({ ok: false, error: 'failed' })
+      await this.deps.account.authed((token, routes) =>
+        routes.putWrap(token, `device:${row.id}`, blob),
+      )
+      this.deps.keyring.approve(joiner)
       return this.done({ ok: true })
     } catch (error) {
       return this.done({ ok: false, error: this.errorOf(error) })
@@ -206,6 +248,7 @@ export class ServerSyncService {
       if (refused) return this.done({ ok: false, error: refused })
     }
     const revoked = await devices.revoke(deviceId)
+    if (revoked.ok) keyring.unapprove(deviceId)
     if (!revoked.ok) return this.done({ ok: false, error: syncErrorOf(revoked.error) })
     if (!syncing) return this.done({ ok: true, removed: true, rotated: false })
     const res = await rotateKey(this.ctx, passphrase, recoveryKey)

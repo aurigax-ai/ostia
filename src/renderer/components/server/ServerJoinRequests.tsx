@@ -16,7 +16,7 @@ export function ServerJoinRequests(): JSX.Element | null {
   const [error, setError] = useState<string | null>(null)
 
   const approve = async (join: ServerJoinRequest): Promise<void> => {
-    const res = await window.ostia.syncServer.approveJoin(join.deviceId)
+    const res = await window.ostia.syncServer.approveJoin(join.deviceId, join.code)
     setStatus(res.status)
     setError(res.ok ? null : syncServerErrorText(d, res.error))
   }

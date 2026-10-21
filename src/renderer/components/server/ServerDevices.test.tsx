@@ -13,6 +13,7 @@ const SYNC: ServerSyncStatus = {
   linkCodes: [],
   joins: [],
   recoveryStale: false,
+  wrapRefused: false,
 }
 
 const device = (over: Partial<ServerDevice>): ServerDevice => ({
@@ -123,7 +124,7 @@ describe('shared device list, warnings and approval cards', () => {
     render(<ServerDevices />)
     expect(await screen.findByText(/Phone wants to join.*ABCD-EFGH-JKLM/)).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Approve' }))
-    expect(syncServer().approveJoin).toHaveBeenCalledWith('d9')
+    expect(syncServer().approveJoin).toHaveBeenCalledWith('d9', 'ABCD-EFGH-JKLM')
   })
 
   it('SSY-C85 asks another device when removing needs a confirmation and retries once it approved', async () => {

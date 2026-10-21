@@ -27,6 +27,7 @@ export interface ServerSyncStatus {
   linkCodes: ServerLinkCode[]
   joins: ServerJoinRequest[]
   recoveryStale: boolean
+  wrapRefused: boolean
 }
 
 export type ServerSyncError =
@@ -68,8 +69,8 @@ interface ServerSyncApi {
   recover: (recoveryKey: string) => Promise<ServerSyncResult>
   linkStart: () => Promise<ServerSyncResult>
   linkStop: () => Promise<ServerSyncResult>
-  linkConfirm: () => Promise<ServerSyncResult>
-  approveJoin: (deviceId: string) => Promise<ServerSyncResult>
+  linkConfirm: (code: string) => Promise<ServerSyncResult>
+  approveJoin: (deviceId: string, code: string) => Promise<ServerSyncResult>
   removeDevice: (
     deviceId: string,
     passphrase: string,

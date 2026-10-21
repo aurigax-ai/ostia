@@ -74,7 +74,7 @@ function assemble(harness: AccountHarness): SyncDevice {
       decrypt: (kept) => Buffer.from(kept, 'base64').toString(),
     },
   )
-  const keyring = new SyncKeyring(harness.account, keyStore, FAST_ARGON)
+  const keyring = new SyncKeyring(harness.account, keyStore, FAST_ARGON, () => harness.server.now())
   const target = createServerTarget(harness.account, keyring)
   const local = localProfile(mkdtempSync(join(tmpdir(), 'sync-device-')))
   const clock = { now: at(0) }
@@ -137,7 +137,7 @@ export async function joinedDevice(
 }
 
 export async function setUp(device: SyncDevice): Promise<string> {
-  const result = await device.keyring.setup(PASSPHRASE, PASSPHRASE)
-  if (!result.ok) throw new Error(`setup failed: ${result.error}`)
+  const result = await device.service.setup(PASSPHRASE, PASSPHRASE)
+  if (!result.ok || !result.recoveryKey) throw new Error(`setup failed: ${result.error}`)
   return result.recoveryKey
 }

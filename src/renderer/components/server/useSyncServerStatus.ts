@@ -11,6 +11,7 @@ const SYNC_SERVER_OFF: ServerSyncStatus = {
   linkCodes: [],
   joins: [],
   recoveryStale: false,
+  wrapRefused: false,
 }
 
 export function useSyncServerStatus(

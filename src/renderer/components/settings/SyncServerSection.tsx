@@ -59,11 +59,16 @@ function Locked({ status, act }: StateProps): JSX.Element {
       <LinkCodes status={status} />
       {status.linkApproved ? (
         <Notice
-          actions={
-            <Button variant="outline" size="sm" onClick={() => void act(api.linkConfirm())}>
-              {t.linkConfirm}
+          actions={status.linkCodes.map((link) => (
+            <Button
+              key={link.code}
+              variant="outline"
+              size="sm"
+              onClick={() => void act(api.linkConfirm(link.code))}
+            >
+              {fmt(t.linkConfirm, { code: link.code })}
             </Button>
-          }
+          ))}
         >
           {t.linkApproved}
         </Notice>
@@ -157,6 +162,7 @@ export function SyncServerSection({ onChanged }: { onChanged: () => void }): JSX
       {status.state === 'unsupported' ? <Notice>{t.unsupported}</Notice> : null}
       {status.state === 'unreachable' ? <Notice>{t.unreachable}</Notice> : null}
       {status.state === 'untrusted' ? <Notice tone="error">{t.untrusted}</Notice> : null}
+      {status.wrapRefused ? <Notice tone="error">{t.wrapRefused}</Notice> : null}
       {status.state === 'needs-setup' ? (
         <>
           <ControlRow label={t.setupTitle} desc={t.setupDesc} />

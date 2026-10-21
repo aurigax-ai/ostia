@@ -1,14 +1,13 @@
-import { createPublicKey, randomBytes, verify } from 'node:crypto'
+import { randomBytes } from 'node:crypto'
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http'
 import type { AddressInfo } from 'node:net'
-import type { Duplex } from 'node:stream'
-import { type WebSocket, WebSocketServer } from 'ws'
 import { accountRoutes } from './fakeAccountRoutes'
+import { verifyEd25519 } from './fakeCrypto'
 import { newPushState, type PushState, pushRoutes } from './fakePushRoutes'
+import { FakeRelay, type PhoneStream } from './fakeRelay'
 import { type FakeShare, shareRoutes } from './fakeShareRoutes'
 import { type AccountSync, syncRoutes } from './fakeSyncRoutes'
 
-const SPKI_ED25519 = Buffer.from('302a300506032b6570032100', 'hex')
 const REGISTER_CONTEXT = 'ostia-server/register/v1'
 const CHALLENGE_CONTEXT = 'ostia-server/auth/v1'
 const RELAY_DOMAIN = 'relay.test'
@@ -45,32 +44,6 @@ interface Intercept {
   headers?: Record<string, string>
 }
 
-interface Listener {
-  ws: WebSocket
-  deviceId: string
-}
-
-export interface PhoneStream {
-  id: string
-  received: () => Buffer
-  send: (data: Buffer) => void
-  onData: (listener: (data: Buffer) => void) => void
-  accepted: Promise<void>
-  closed: Promise<void>
-  close: () => void
-}
-
-interface PendingStream {
-  id: string
-  deviceId: string
-  ws: WebSocket | null
-  chunks: Buffer[]
-  listeners: Array<(data: Buffer) => void>
-  confirmed: boolean
-  accept: () => void
-  closed: () => void
-}
-
 export interface FakeServerOptions {
   sessionTtlMs?: number
   pingMs?: number
@@ -97,19 +70,6 @@ function b64(buffer: Buffer): string {
 
 const SIGNATURE_SKEW_MS = 120_000
 const DAY_MS = 86_400_000
-
-export function verifyEd25519(signPub: string, message: string, signature: string): boolean {
-  try {
-    const key = createPublicKey({
-      key: Buffer.concat([SPKI_ED25519, Buffer.from(signPub, 'base64url')]),
-      format: 'der',
-      type: 'spki',
-    })
-    return verify(null, Buffer.from(message, 'utf8'), key, Buffer.from(signature, 'base64url'))
-  } catch {
-    return false
-  }
-}
 
 async function readRaw(req: IncomingMessage): Promise<Buffer> {
   const chunks: Buffer[] = []
@@ -159,9 +119,7 @@ export class FakeServer {
   private readonly extraHandlers: Array<[string, RegExp, Handler]> = []
   private readonly nonces = new Map<string, string>()
   private readonly http: Server
-  private readonly sockets = new WebSocketServer({ noServer: true })
-  private readonly listeners = new Map<string, Listener>()
-  private readonly streams = new Map<string, PendingStream>()
+  private readonly relay = new FakeRelay(this)
   private pingTimer: ReturnType<typeof setInterval> | null = null
   private nextDevice = 1
   private nextAccount = 1
@@ -174,7 +132,7 @@ export class FakeServer {
     if (options.publish !== false) this.extraHandlers.push(...shareRoutes(this))
     if (options.push === true) this.extraHandlers.push(...pushRoutes(this))
     this.http = createServer((req, res) => void this.route(req, res))
-    this.http.on('upgrade', (req, socket, head) => this.upgrade(req, socket, head))
+    this.http.on('upgrade', (req, socket, head) => this.relay.upgrade(req, socket, head))
   }
 
   now(): number {
@@ -189,14 +147,14 @@ export class FakeServer {
     await new Promise<void>((resolve) => this.http.listen(0, '127.0.0.1', resolve))
     this.url = `http://127.0.0.1:${(this.http.address() as AddressInfo).port}`
     if (this.options.pingMs) {
-      this.pingTimer = setInterval(() => this.pingListeners(), this.options.pingMs)
+      this.pingTimer = setInterval(() => this.relay.pingListeners(), this.options.pingMs)
     }
     return this
   }
 
   async close(): Promise<void> {
     if (this.pingTimer) clearInterval(this.pingTimer)
-    for (const client of this.sockets.clients) client.terminate()
+    this.relay.terminateAll()
     this.http.closeAllConnections()
     await new Promise<void>((resolve) => this.http.close(() => resolve()))
   }
@@ -206,66 +164,30 @@ export class FakeServer {
   }
 
   listenerCount(): number {
-    return this.listeners.size
+    return this.relay.listenerCount()
+  }
+
+  dropListener(deviceId: string, code = 1008): void {
+    this.relay.dropListener(deviceId, code)
+  }
+
+  offer(message: Record<string, unknown>): void {
+    this.relay.offer(message)
+  }
+
+  pausePhone(id: string): void {
+    this.relay.pausePhone(id)
+  }
+
+  phoneConnect(peer: string, family: 4 | 6 = 4): PhoneStream {
+    return this.relay.phoneConnect(peer, family)
   }
 
   expireSessions(): void {
     for (const session of this.sessions.values()) session.expiresAt = 0
   }
 
-  dropListener(deviceId: string, code = 1008): void {
-    this.listeners.get(deviceId)?.ws.close(code)
-  }
-
-  offer(message: Record<string, unknown>): void {
-    const listener = [...this.listeners.values()][0]
-    listener?.ws.send(JSON.stringify(message))
-  }
-
-  pausePhone(id: string): void {
-    this.streams.get(id)?.ws?.pause()
-  }
-
-  private pingListeners(): void {
-    for (const { ws } of this.listeners.values()) ws.send('{"t":"ping"}')
-  }
-
-  phoneConnect(peer: string, family: 4 | 6 = 4): PhoneStream {
-    const listener = [...this.listeners.values()][0]
-    if (!listener) throw new Error('no desktop is listening')
-    const id = b64(randomBytes(9))
-    let accept = (): void => {}
-    let closed = (): void => {}
-    const accepted = new Promise<void>((resolve) => {
-      accept = resolve
-    })
-    const closedPromise = new Promise<void>((resolve) => {
-      closed = resolve
-    })
-    const stream: PendingStream = {
-      id,
-      deviceId: listener.deviceId,
-      ws: null,
-      chunks: [],
-      listeners: [],
-      confirmed: false,
-      accept,
-      closed,
-    }
-    this.streams.set(id, stream)
-    listener.ws.send(JSON.stringify({ t: 'incoming', stream: id, peer, family }))
-    return {
-      id,
-      received: () => Buffer.concat(stream.chunks),
-      send: (data) => stream.ws?.send(data, { binary: true }),
-      onData: (listener) => stream.listeners.push(listener),
-      accepted,
-      closed: closedPromise,
-      close: () => stream.ws?.close(),
-    }
-  }
-
-  private sessionOf(req: IncomingMessage): { token: string; session: FakeSession } | null {
+  sessionOf(req: IncomingMessage): { token: string; session: FakeSession } | null {
     const header = req.headers.authorization ?? ''
     const token = header.startsWith('Bearer ') ? header.slice(7) : ''
     const session = this.sessions.get(token)
@@ -355,73 +277,7 @@ export class FakeServer {
       if (session.deviceId === device.id) this.sessions.delete(token)
     }
     this.syncData.get(device.accountId)?.wraps.delete(`device:${device.id}`)
-    this.listeners.get(device.id)?.ws.close(1008)
-  }
-
-  private upgrade(req: IncomingMessage, socket: Duplex, head: Buffer): void {
-    const auth = this.sessionOf(req)
-    const path = req.url ?? ''
-    this.requests.push(`UPGRADE ${path}`)
-    if (!auth) {
-      socket.write('HTTP/1.1 401 Unauthorized\r\nConnection: close\r\n\r\n')
-      socket.destroy()
-      return
-    }
-    this.sockets.handleUpgrade(req, socket, head, (ws) => {
-      if (path === '/v1/relay/listen') this.attachListener(ws, auth.session.deviceId)
-      else if (path.startsWith('/v1/relay/accept/')) {
-        this.attachAccept(ws, path.slice('/v1/relay/accept/'.length), auth.session.deviceId)
-      } else ws.close()
-    })
-  }
-
-  private attachListener(ws: WebSocket, deviceId: string): void {
-    this.listenerConnections += 1
-    this.listeners.get(deviceId)?.ws.close(1008)
-    const listener = { ws, deviceId }
-    this.listeners.set(deviceId, listener)
-    const viewer = this.devices.get(deviceId)
-    if (viewer) {
-      for (const peer of this.accountDevices(viewer.accountId)) {
-        if (this.isUnseen(viewer, peer)) this.notifyAdded(deviceId, peer)
-      }
-    }
-    ws.on('message', (data) => {
-      const message = JSON.parse(data.toString('utf8')) as { t?: string; stream?: string }
-      if (message.t === 'pong') this.pongs += 1
-      if (message.t === 'confirm' && message.stream) {
-        this.confirmed.push(message.stream)
-        const stream = this.streams.get(message.stream)
-        if (stream) stream.confirmed = true
-      }
-    })
-    ws.on('close', () => {
-      if (this.listeners.get(deviceId) === listener) this.listeners.delete(deviceId)
-    })
-  }
-
-  private attachAccept(ws: WebSocket, id: string, deviceId: string): void {
-    const stream = this.streams.get(id)
-    if (!stream || stream.deviceId !== deviceId || stream.ws) {
-      ws.close(1008)
-      return
-    }
-    stream.ws = ws
-    ws.on('message', (data: Buffer) => {
-      stream.chunks.push(Buffer.from(data))
-      for (const listener of stream.listeners) listener(Buffer.from(data))
-    })
-    const limit = this.options.unconfirmedMs
-    const timer = limit
-      ? setTimeout(() => {
-          if (!stream.confirmed) ws.close(1008)
-        }, limit)
-      : null
-    ws.on('close', () => {
-      if (timer) clearTimeout(timer)
-      stream.closed()
-    })
-    stream.accept()
+    this.relay.dropListener(device.id)
   }
 
   reply(res: ServerResponse, status: number, body?: unknown, headers = {}): void {
@@ -487,20 +343,9 @@ export class FakeServer {
     }
     this.devices.set(id, device)
     if (existing.length > 0) {
-      for (const peer of existing) this.notifyAdded(peer.id, device)
+      for (const peer of existing) this.relay.notifyAdded(peer.id, device)
     }
     this.reply(res, 201, { accountId, deviceId: id, provider })
-  }
-
-  private notifyAdded(listenerId: string, device: FakeDevice): void {
-    this.listeners.get(listenerId)?.ws.send(
-      JSON.stringify({
-        t: 'device-added',
-        deviceId: device.id,
-        name: device.name,
-        createdAt: device.createdAt,
-      }),
-    )
   }
 
   private handlers(): Record<string, Handler> {
@@ -515,6 +360,7 @@ export class FakeServer {
             push: this.options.push === true,
           },
           auth: { invite: true, github: this.options.github === true },
+          approverMinAgeSeconds: Math.floor(this.approverMinAgeMs / 1000),
           relayDomain: RELAY_DOMAIN,
           shareDomain: 'shares.test',
           limits: {

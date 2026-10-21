@@ -4,7 +4,7 @@ import { type ElectronApplication, _electron as electron, expect, type Page, tes
 
 const SERVER_BIN = process.env.OSTIA_SERVER_BIN
 const PASSPHRASE = 'an e2e passphrase for sync'
-const CHECK_CODE = /([A-Z2-7]{4}-[A-Z2-7]{4}-[A-Z2-7]{4})/
+const CHECK_CODE = /([A-Z2-7]{5}(?:-[A-Z2-7]{5}){4})/
 const SEEDED_THEME = 'dracula'
 const CHANGED_THEME = 'ostia-light'
 const SLOW = { timeout: 30_000 }
@@ -170,7 +170,7 @@ test.describe('profile sync through the server end to end', () => {
       expect(await asks.innerText()).toContain(checkCode)
       await firstSettings.getByRole('button', { name: 'It is mine' }).click()
       await firstSettings.getByRole('button', { name: 'Approve', exact: true }).click()
-      await secondSettings.getByRole('button', { name: 'The codes match' }).click()
+      await secondSettings.getByRole('button', { name: `The code ${checkCode} matches` }).click()
       await expect(secondSettings.getByText('Sync is on for this device.')).toBeVisible(SLOW)
 
       await changeTheme(first.win, CHANGED_THEME)
@@ -211,7 +211,16 @@ test.describe('profile sync through the server end to end', () => {
       await expect(removed).toBeVisible(SLOW)
 
       await changeTheme(first.win, SEEDED_THEME)
-      await expectTheme(second.win, SEEDED_THEME)
+      await expect(async () => {
+        await syncNow(second.win)
+        await openSettingsPage(second.win, 'Server')
+        await openSettingsPage(second.win, 'Sync')
+        await expect(
+          settingsOf(second.win).getByText(
+            'Another device sent a new sync key that was not signed by a device you trust, so it was ignored.',
+          ),
+        ).toBeVisible({ timeout: 2_000 })
+      }).toPass({ timeout: 30_000 })
 
       await openSettingsPage(third.win, 'Sync')
       await syncNow(third.win)

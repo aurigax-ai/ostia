@@ -6,7 +6,7 @@ import { Duplex } from 'node:stream'
 import { connect, type TLSSocket } from 'node:tls'
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { type AccountHarness, signedIn } from '../../../test/fixtures/server/accountHarness'
-import type { PhoneStream } from '../../../test/fixtures/server/fakeServer'
+import type { PhoneStream } from '../../../test/fixtures/server/fakeRelay'
 import type { GatewayControlDeps } from './controlDispatch'
 import { RelayClient } from './relayClient'
 

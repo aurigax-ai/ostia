@@ -159,7 +159,7 @@ describe('ServerMethod file parity with FolderMethod', () => {
     const folder = await new FolderMethod(root, []).read()
     const method = first.target.method()
     const empty = await method.read()
-    expect(empty.version).toBe('0')
+    expect(empty.version).toBe('1')
     expect((await method.write(folder.files, empty.version)).ok).toBe(true)
     const served = await method.read()
     expect(new Map([...served.files].sort())).toEqual(new Map([...folder.files].sort()))
@@ -175,8 +175,8 @@ describe('ServerMethod file parity with FolderMethod', () => {
     const method = first.target.method()
     const empty = await method.read()
     const settings = new Map([['settings.json', '{"a":1}\n']])
-    expect(await method.write(settings, empty.version)).toEqual({ ok: true, version: '1' })
-    expect(await method.write(settings, '0')).toEqual({ ok: false })
+    expect(await method.write(settings, empty.version)).toEqual({ ok: true, version: '2' })
+    expect(await method.write(settings, '1')).toEqual({ ok: false })
   })
 
   it('SSY-C28 lists an oversize remote file as skipped and maps a server limit to a quota error', async () => {
@@ -188,7 +188,7 @@ describe('ServerMethod file parity with FolderMethod', () => {
         ['settings.json', huge],
         ['profile.json', '{}\n'],
       ]),
-      '0',
+      '1',
     )
     const served = await method.read()
     expect(served.skipped).toEqual(['settings.json'])

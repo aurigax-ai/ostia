@@ -3,9 +3,12 @@ import {
   createDecipheriv,
   createHash,
   createHmac,
+  createPublicKey,
   hkdfSync,
   type KeyObject,
   randomBytes,
+  sign,
+  verify,
 } from 'node:crypto'
 import { isRecord } from '@aurigax-ai/ostia-extension-sdk/contract/isRecord'
 import { publicBytes, x25519Exchange, x25519FromSeed } from '../../server/deviceKeys'
@@ -16,12 +19,17 @@ const NONCE_BYTES = 12
 const TAG_BYTES = 16
 const SALT_BYTES = 16
 const WRAP_VERSION = 1
+const DEVICE_WRAP_VERSION = 2
+const EPHEMERAL_BYTES = 32
+const COUNTER_BYTES = 8
+const SIGNATURE_BYTES = 64
+const SPKI_ED25519 = Buffer.from('302a300506032b6570032100', 'hex')
 const SECRET_HEADER_BYTES = 1 + 4 + 1 + 1 + SALT_BYTES
-const DEVICE_HEADER_BYTES = 1 + 32
 const LABEL_BLOB = 'ostia-sync/blob'
 const LABEL_MANIFEST = 'ostia-sync/manifest'
 const LABEL_PATH = 'ostia-sync/path'
 const LABEL_DEVICE_WRAP = 'ostia-sync/wrap/device'
+const WRAP_SIGNATURE_CONTEXT = 'ostia-sync/wrap/sig/v1\n'
 const AAD_BLOB = 'ostia-sync/blob/v1\n'
 const AAD_MANIFEST = 'ostia-sync/manifest/v1'
 const AAD_SECRET_WRAP = 'ostia-sync/wrap/passphrase/v1'
@@ -36,6 +44,9 @@ interface ManifestFile {
 export interface ManifestDevice {
   id: string
   name: string
+  signPub: string
+  boxPub: string
+  createdAt: number
 }
 
 export interface Manifest {
@@ -112,7 +123,7 @@ export function openBlob(profileKey: Buffer, path: string, sealed: Buffer): Buff
   return open(subkey(profileKey, LABEL_BLOB), sealed, Buffer.from(AAD_BLOB + path))
 }
 
-export function manifestJson(manifest: Manifest): string {
+function manifestJson(manifest: Manifest): string {
   const files = Object.fromEntries(
     Object.entries(manifest.files)
       .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
@@ -121,7 +132,13 @@ export function manifestJson(manifest: Manifest): string {
   return JSON.stringify({
     counter: manifest.counter,
     files,
-    devices: manifest.devices.map((d) => ({ id: d.id, name: d.name })),
+    devices: manifest.devices.map((d) => ({
+      id: d.id,
+      name: d.name,
+      signPub: d.signPub,
+      boxPub: d.boxPub,
+      createdAt: d.createdAt,
+    })),
   })
 }
 
@@ -136,6 +153,22 @@ export function sealManifest(
     Buffer.from(AAD_MANIFEST),
     nonce,
   )
+}
+
+function isManifestDevice(d: unknown): d is ManifestDevice {
+  return (
+    isRecord(d) &&
+    typeof d.id === 'string' &&
+    typeof d.name === 'string' &&
+    typeof d.signPub === 'string' &&
+    typeof d.boxPub === 'string' &&
+    typeof d.createdAt === 'number' &&
+    Number.isFinite(d.createdAt)
+  )
+}
+
+function manifestDeviceOf(d: ManifestDevice): ManifestDevice {
+  return { id: d.id, name: d.name, signPub: d.signPub, boxPub: d.boxPub, createdAt: d.createdAt }
 }
 
 function parseManifest(text: string): Manifest | null {
@@ -157,11 +190,7 @@ function parseManifest(text: string): Manifest | null {
   return {
     counter: raw.counter as number,
     files,
-    devices: devices.flatMap((d) =>
-      isRecord(d) && typeof d.id === 'string' && typeof d.name === 'string'
-        ? [{ id: d.id, name: d.name }]
-        : [],
-    ),
+    devices: devices.flatMap((d) => (isManifestDevice(d) ? [manifestDeviceOf(d)] : [])),
   }
 }
 
@@ -214,27 +243,108 @@ function deviceWrapKey(shared: Buffer, ephemeralPub: Buffer, devicePub: Buffer):
   return Buffer.from(hkdfSync('sha256', shared, Buffer.alloc(0), info, KEY_BYTES))
 }
 
+export interface WrapSigner {
+  id: string
+  signPrivate: KeyObject
+}
+
+export interface DeviceWrap {
+  signerId: string
+  counter: number
+  signed: Buffer
+  signature: Buffer
+  ephemeralPub: Buffer
+  nonce: Buffer
+  ciphertext: Buffer
+}
+
+function signatureMessage(slot: string, signed: Buffer): Buffer {
+  return Buffer.concat([Buffer.from(`${WRAP_SIGNATURE_CONTEXT}${slot}\n`), signed])
+}
+
 export function wrapForDevice(
   profileKey: Buffer,
   deviceBoxPub: Buffer,
+  slot: string,
+  signer: WrapSigner,
+  counter: number,
   ephemeral: KeyObject = x25519FromSeed(randomBytes(KEY_BYTES)),
   nonce: Buffer = randomBytes(NONCE_BYTES),
 ): Buffer {
   const ephemeralPub = publicBytes(ephemeral)
-  const header = Buffer.concat([Buffer.from([WRAP_VERSION]), ephemeralPub])
+  const id = Buffer.from(signer.id, 'utf8')
+  const counterBytes = Buffer.alloc(COUNTER_BYTES)
+  counterBytes.writeBigUInt64BE(BigInt(counter))
+  const header = Buffer.concat([
+    Buffer.from([DEVICE_WRAP_VERSION, id.length]),
+    id,
+    counterBytes,
+    ephemeralPub,
+    nonce,
+  ])
   const key = deviceWrapKey(x25519Exchange(ephemeral, deviceBoxPub), ephemeralPub, deviceBoxPub)
-  return Buffer.concat([header, seal(key, profileKey, header, nonce)])
+  const cipher = createCipheriv('aes-256-gcm', key, nonce)
+  cipher.setAAD(Buffer.concat([header, Buffer.from(slot)]))
+  const ciphertext = Buffer.concat([cipher.update(profileKey), cipher.final(), cipher.getAuthTag()])
+  const signed = Buffer.concat([header, ciphertext])
+  const signature = sign(null, signatureMessage(slot, signed), signer.signPrivate)
+  return Buffer.concat([signed, signature])
 }
 
-export function unwrapForDevice(wrap: Buffer, boxPrivate: KeyObject): Buffer | null {
-  if (wrap.length < DEVICE_HEADER_BYTES || wrap[0] !== WRAP_VERSION) return null
-  const header = wrap.subarray(0, DEVICE_HEADER_BYTES)
-  const ephemeralPub = header.subarray(1)
+export function parseDeviceWrap(wrap: Buffer): DeviceWrap | null {
+  if (wrap.length < 2 || wrap[0] !== DEVICE_WRAP_VERSION) return null
+  const idLength = wrap[1] ?? 0
+  const ciphertextLength = KEY_BYTES + TAG_BYTES
+  const signedLength =
+    2 + idLength + COUNTER_BYTES + EPHEMERAL_BYTES + NONCE_BYTES + ciphertextLength
+  if (idLength === 0 || wrap.length !== signedLength + SIGNATURE_BYTES) return null
+  const counter = Number(wrap.readBigUInt64BE(2 + idLength))
+  if (!Number.isSafeInteger(counter)) return null
+  const ephemeralAt = 2 + idLength + COUNTER_BYTES
+  return {
+    signerId: wrap.subarray(2, 2 + idLength).toString('utf8'),
+    counter,
+    signed: wrap.subarray(0, signedLength),
+    signature: wrap.subarray(signedLength),
+    ephemeralPub: wrap.subarray(ephemeralAt, ephemeralAt + EPHEMERAL_BYTES),
+    nonce: wrap.subarray(
+      ephemeralAt + EPHEMERAL_BYTES,
+      ephemeralAt + EPHEMERAL_BYTES + NONCE_BYTES,
+    ),
+    ciphertext: wrap.subarray(signedLength - ciphertextLength, signedLength),
+  }
+}
+
+export function wrapSignedBy(wrap: DeviceWrap, slot: string, signPub: string): boolean {
   try {
-    const shared = x25519Exchange(boxPrivate, ephemeralPub)
-    const key = deviceWrapKey(shared, ephemeralPub, publicBytes(boxPrivate))
-    const profileKey = open(key, wrap.subarray(DEVICE_HEADER_BYTES), header)
-    return profileKey?.length === KEY_BYTES ? profileKey : null
+    const key = createPublicKey({
+      key: Buffer.concat([SPKI_ED25519, Buffer.from(signPub, 'base64url')]),
+      format: 'der',
+      type: 'spki',
+    })
+    return verify(null, signatureMessage(slot, wrap.signed), key, wrap.signature)
+  } catch {
+    return false
+  }
+}
+
+export function openDeviceWrap(
+  wrap: DeviceWrap,
+  slot: string,
+  boxPrivate: KeyObject,
+): Buffer | null {
+  try {
+    const shared = x25519Exchange(boxPrivate, wrap.ephemeralPub)
+    const key = deviceWrapKey(shared, wrap.ephemeralPub, publicBytes(boxPrivate))
+    const header = wrap.signed.subarray(0, wrap.signed.length - wrap.ciphertext.length)
+    const decipher = createDecipheriv('aes-256-gcm', key, wrap.nonce)
+    decipher.setAAD(Buffer.concat([header, Buffer.from(slot)]))
+    decipher.setAuthTag(wrap.ciphertext.subarray(KEY_BYTES))
+    const profileKey = Buffer.concat([
+      decipher.update(wrap.ciphertext.subarray(0, KEY_BYTES)),
+      decipher.final(),
+    ])
+    return profileKey.length === KEY_BYTES ? profileKey : null
   } catch {
     return null
   }

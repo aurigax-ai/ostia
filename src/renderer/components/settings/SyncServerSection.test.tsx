@@ -22,6 +22,7 @@ const status = (over: Partial<ServerSyncStatus>): ServerSyncStatus => ({
   linkCodes: [],
   joins: [],
   recoveryStale: false,
+  wrapRefused: false,
   ...over,
 })
 
@@ -134,15 +135,30 @@ describe('Settings › Sync › Server', () => {
 
   it('SSY-C96 asks the human to confirm the code once approved, and shows a paused sync for a mismatch', async () => {
     const user = userEvent.setup()
-    api().status.mockResolvedValue(status({ state: 'locked', linking: true, linkApproved: true }))
+    api().status.mockResolvedValue(
+      status({
+        state: 'locked',
+        linking: true,
+        linkApproved: true,
+        linkCodes: [{ deviceName: 'Desk', code: 'AAAAA-BBBBB-CCCCC-DDDDD-EEEEE' }],
+      }),
+    )
     api().linkConfirm.mockResolvedValue({ ok: true, status: status({}) })
     const view = render(<SyncServerSection onChanged={() => {}} />)
     expect(await screen.findByText(/Confirm only if the code above matches/)).toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: 'The codes match' }))
-    expect(api().linkConfirm).toHaveBeenCalled()
+    await user.click(
+      screen.getByRole('button', { name: 'The code AAAAA-BBBBB-CCCCC-DDDDD-EEEEE matches' }),
+    )
+    expect(api().linkConfirm).toHaveBeenCalledWith('AAAAA-BBBBB-CCCCC-DDDDD-EEEEE')
     view.unmount()
     api().status.mockResolvedValue(status({ state: 'untrusted' }))
     render(<SyncServerSection onChanged={() => {}} />)
     expect(await screen.findByText(/lists other keys for this device/)).toBeInTheDocument()
+  })
+
+  it('SSY-C97 warns when a new sync key from another device was ignored', async () => {
+    api().status.mockResolvedValue(status({ wrapRefused: true }))
+    render(<SyncServerSection onChanged={() => {}} />)
+    expect(await screen.findByText(/was not signed by a device you trust/)).toBeInTheDocument()
   })
 })

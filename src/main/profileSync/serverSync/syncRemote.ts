@@ -8,7 +8,7 @@ import type { SyncKeyring } from './syncKeyring'
 const FETCH_PARALLEL = 8
 const SEALED_OVERHEAD = 28
 
-type RemoteAccount = Pick<ServerAccount, 'authed'>
+type RemoteAccount = Pick<ServerAccount, 'authed' | 'deviceKeys'>
 
 export interface RemoteContext {
   account: RemoteAccount
@@ -81,14 +81,12 @@ export async function readRemote(
   if (!view) return { key, version: 0, manifest: null, files: new Map(), skipped: [] }
   const sealed = Buffer.from(view.blob, 'base64url')
   let manifest = openManifest(key, sealed)
-  if (!manifest) {
-    const candidate = await ctx.keyring.ownDeviceKey()
-    const rotated = candidate ? openManifest(candidate, sealed) : null
-    if (candidate && rotated) {
-      if (rotated.counter <= ctx.keyring.highest()) throw new SyncTargetError('stale-manifest')
-      ctx.keyring.keep(candidate)
-      key = candidate
-      manifest = rotated
+  if (manifest) ctx.keyring.wrapRefused = false
+  else {
+    const adopted = await ctx.keyring.adoptRotation(sealed)
+    if (adopted) {
+      key = adopted.key
+      manifest = adopted.manifest
     }
   }
   if (!manifest) throw new SyncTargetError('server-locked')
@@ -119,5 +117,6 @@ export async function readRemote(
     files.set(path, content)
   })
   ctx.keyring.raise(manifest.counter)
+  ctx.keyring.pin(manifest.devices)
   return { key, version: view.version, manifest, files, skipped: skipped.sort() }
 }

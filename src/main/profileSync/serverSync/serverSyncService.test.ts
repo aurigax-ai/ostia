@@ -1,48 +1,14 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import { FakeServer } from '../../../../test/fixtures/server/fakeServer'
-import {
-  elevate,
-  firstDevice,
-  joinedDevice,
-  PASSPHRASE,
-  type SyncDevice,
-  setUp,
-} from '../../../../test/fixtures/server/syncHarness'
-import { newProfileKey, sealManifest, wrapForDevice } from './syncCrypto'
+import { elevate, firstDevice, PASSPHRASE } from '../../../../test/fixtures/server/syncHarness'
+import { syncWorld } from '../../../../test/fixtures/server/syncWorld'
 import { SyncKeyring } from './syncKeyring'
 import { createSyncKeyStore } from './syncKeyStore'
 import { readRemote } from './syncRemote'
 
-const servers: FakeServer[] = []
-const devices: SyncDevice[] = []
+const { world, join, track, close } = syncWorld()
 
-async function world(
-  options: ConstructorParameters<typeof FakeServer>[0] = { approverMinAgeMs: 0 },
-) {
-  const server = await new FakeServer(options).start()
-  servers.push(server)
-  const first = await firstDevice(server)
-  devices.push(first)
-  const recoveryKey = await setUp(first)
-  return { server, first, recoveryKey }
-}
-
-async function join(
-  server: FakeServer,
-  via: SyncDevice,
-  unlock = true,
-  approver?: SyncDevice,
-): Promise<SyncDevice> {
-  const device = await joinedDevice(server, via, approver)
-  devices.push(device)
-  if (unlock) expect((await device.service.unlock(PASSPHRASE)).ok).toBe(true)
-  return device
-}
-
-afterEach(async () => {
-  for (const device of devices.splice(0)) await device.close()
-  for (const server of servers.splice(0)) await server.close()
-})
+afterEach(close)
 
 describe('key lifecycle', () => {
   it('SSY-C30 sets up once, shows the recovery key once and reports ready', async () => {
@@ -56,9 +22,8 @@ describe('key lifecycle', () => {
 
   it('SSY-C31 checks the passphrase length and confirmation before touching the server', async () => {
     const server = await new FakeServer().start()
-    servers.push(server)
     const device = await firstDevice(server)
-    devices.push(device)
+    track(server, device)
     expect(await device.service.setup('short', 'short')).toMatchObject({ error: 'too-short' })
     expect(await device.service.setup(PASSPHRASE, `${PASSPHRASE}!`)).toMatchObject({
       error: 'mismatch',
@@ -133,14 +98,16 @@ describe('linking a device through an approval', () => {
     const asked = (await first.service.status()).joins
     expect(asked).toHaveLength(1)
     expect(asked[0]?.name).toBe('Test desktop')
-    expect(asked[0]?.code).toMatch(/^[A-Z2-7]{4}-[A-Z2-7]{4}-[A-Z2-7]{4}$/)
+    expect(asked[0]?.code).toMatch(/^([A-Z2-7]{5}-){4}[A-Z2-7]{5}$/)
     expect(waiting.linkCodes.map((c) => c.code)).toEqual([asked[0]?.code])
-    expect((await first.service.approveJoin(asked[0]?.deviceId ?? '')).ok).toBe(true)
+    expect(
+      (await first.service.approveJoin(asked[0]?.deviceId ?? '', asked[0]?.code ?? '')).ok,
+    ).toBe(true)
     expect((await first.service.status()).joins).toEqual([])
     const approved = await fresh.service.status()
     expect(approved).toMatchObject({ state: 'locked', linkApproved: true })
     expect(fresh.keyring.key()).toBeNull()
-    expect((await fresh.service.linkConfirm()).ok).toBe(true)
+    expect((await fresh.service.linkConfirm(waiting.linkCodes[0]?.code ?? '')).ok).toBe(true)
     const done = await fresh.service.status()
     expect(done.state).toBe('ready')
     expect(fresh.keyring.key()?.equals(first.keyring.key() ?? Buffer.alloc(0))).toBe(true)
@@ -150,11 +117,11 @@ describe('linking a device through an approval', () => {
     const { server, first } = await world()
     const fresh = await join(server, first, false)
     const asked = (await first.service.status()).joins
-    await first.service.approveJoin(asked[0]?.deviceId ?? '')
+    await first.service.approveJoin(asked[0]?.deviceId ?? '', asked[0]?.code ?? '')
     const before = await fresh.service.status()
     expect(before.state).toBe('locked')
     expect(fresh.keyring.key()).toBeNull()
-    expect(await fresh.service.linkConfirm()).toMatchObject({ ok: false, error: 'locked' })
+    expect(await fresh.service.linkConfirm('x')).toMatchObject({ ok: false, error: 'locked' })
     await fresh.service.linkStart()
     expect((await fresh.service.status()).linkApproved).toBe(true)
     expect(fresh.keyring.key()).toBeNull()
@@ -180,40 +147,12 @@ describe('linking a device through an approval', () => {
     server.rewriteDevices = (viewer, rows) =>
       rows.map((r) => (r.id === firstId && viewer === firstId ? { ...r, signPub: swapped } : r))
     expect((await first.service.status()).state).toBe('untrusted')
-    expect(await first.service.approveJoin(freshId)).toMatchObject({
+    expect(await first.service.approveJoin(freshId, honest?.code ?? '')).toMatchObject({
       ok: false,
       error: 'untrusted',
     })
     const account = server.devices.get(firstId)?.accountId ?? ''
     expect(server.syncData.get(account)?.wraps.has(`device:${freshId}`)).toBe(false)
-  })
-
-  it('SSY-C45 refuses a rotation the server forged: an attacker key at a counter not above the highest', async () => {
-    const { server, first } = await world()
-    first.writeSettings({ locale: 'en' }, 1)
-    await first.sync.run()
-    const before = first.keyring.key()
-    const account = server.devices.get('device1')?.accountId ?? ''
-    const attacker = newProfileKey()
-    const boxPub = Buffer.from(server.devices.get('device1')?.boxPub ?? '', 'base64url')
-    const data = server.syncData.get(account)
-    data?.wraps.set('device:device1', {
-      blob: wrapForDevice(attacker, boxPub).toString('base64url'),
-      updatedAt: 0,
-    })
-    const forged = sealManifest(attacker, { counter: 1, files: {}, devices: [] }).toString(
-      'base64url',
-    )
-    data?.manifests.push({ version: 99, blob: forged, updatedAt: 0 })
-    const refused = await first.sync.run()
-    expect(refused.status.error).toBe('stale-manifest')
-    expect(first.keyring.key()?.equals(before ?? Buffer.alloc(0))).toBe(true)
-    const higher = sealManifest(attacker, { counter: 500, files: {}, devices: [] }).toString(
-      'base64url',
-    )
-    data?.manifests.push({ version: 100, blob: higher, updatedAt: 0 })
-    expect((await first.sync.run()).status.state).toBe('ok')
-    expect(first.keyring.key()?.equals(attacker)).toBe(true)
   })
 
   it('SSY-C42 a denied device stays without a key and keeps asking', async () => {
@@ -307,9 +246,8 @@ describe('elevation, approvals and the age rule', () => {
 
   it('SSY-C55 elevates a GitHub account with a fresh sign-in', async () => {
     const server = await new FakeServer({ github: true, approverMinAgeMs: 0 }).start()
-    servers.push(server)
     const first = await firstDevice(server)
-    devices.push(first)
+    track(server, first)
     expect(await first.elevation.start('github')).toEqual({
       ok: false,
       error: 'not-a-github-account',
@@ -328,7 +266,7 @@ describe('removing a device and rotating the key', () => {
     const oldKey = first.keyring.key() ?? Buffer.alloc(0)
     const before = await readRemote({ account: first.account, keyring: first.keyring })
     const thirdId = third.account.identity()?.deviceId ?? ''
-    server.advance(6 * 60_000)
+    server.advance(25 * 3_600_000)
 
     const blocked = await first.service.removeDevice(thirdId, PASSPHRASE, recoveryKey)
     expect(blocked).toMatchObject({ ok: false, error: 'elevation-required' })

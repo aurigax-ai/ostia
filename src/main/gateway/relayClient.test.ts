@@ -5,7 +5,7 @@ import {
   accountHarness,
   signedIn,
 } from '../../../test/fixtures/server/accountHarness'
-import type { PhoneStream } from '../../../test/fixtures/server/fakeServer'
+import type { PhoneStream } from '../../../test/fixtures/server/fakeRelay'
 import type { GatewayPhoneAddress, GatewayRelayState } from '../../shared/gateway/gatewayApi'
 import { RelayClient } from './relayClient'
 

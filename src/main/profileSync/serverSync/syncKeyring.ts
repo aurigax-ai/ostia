@@ -5,11 +5,16 @@ import { hostOf } from '../../server/serverUrl'
 import type { Argon2Cost } from '../argon2'
 import { newRecoveryKey, normalizeRecoveryKey } from '../secretCrypto'
 import {
+  type Manifest,
+  type ManifestDevice,
   newProfileKey,
+  openDeviceWrap,
+  openManifest,
   PRODUCTION_ARGON,
-  unwrapForDevice,
+  parseDeviceWrap,
   unwrapWithSecret,
   wrapForDevice,
+  wrapSignedBy,
   wrapWithSecret,
 } from './syncCrypto'
 import type { SyncKeyStore } from './syncKeyStore'
@@ -17,6 +22,7 @@ import type { SyncKeyStore } from './syncKeyStore'
 const PASSPHRASE_MIN = 12
 const PASSPHRASE_SLOT = 'passphrase'
 const RECOVERY_SLOT = 'recovery'
+const MIN_APPROVER_AGE_MS = 24 * 60 * 60 * 1000
 
 export type KeyringAccount = Pick<
   ServerAccount,
@@ -61,7 +67,10 @@ export class SyncKeyring {
     private readonly account: KeyringAccount,
     private readonly store: SyncKeyStore,
     readonly cost: Argon2Cost = PRODUCTION_ARGON,
+    readonly now: () => number = Date.now,
   ) {}
+
+  wrapRefused = false
 
   target(): SyncTarget | null {
     const identity = this.account.identity()
@@ -88,7 +97,9 @@ export class SyncKeyring {
 
   keep(key: Buffer): boolean {
     const target = this.target()
-    return target !== null && this.store.setKey(target.id, key)
+    if (target === null || !this.store.setKey(target.id, key)) return false
+    this.wrapRefused = false
+    return true
   }
 
   forget(): void {
@@ -103,11 +114,30 @@ export class SyncKeyring {
     })
   }
 
+  wrapFor(boxPub: string, deviceId: string, key: Buffer, counter: number): string | null {
+    const keys = this.account.deviceKeys()
+    const identity = this.account.identity()
+    if (!keys || !identity) return null
+    return wrapForDevice(
+      key,
+      fromB64(boxPub),
+      deviceSlot(deviceId),
+      { id: identity.deviceId, signPrivate: keys.signPrivate },
+      counter,
+    ).toString('base64url')
+  }
+
   private async writeOwnDeviceWrap(key: Buffer): Promise<void> {
     const identity = this.account.identity()
     const keys = this.account.deviceKeys()
     if (!identity || !keys) return
-    const blob = wrapForDevice(key, publicBytes(keys.boxPrivate)).toString('base64url')
+    const blob = this.wrapFor(
+      publicBytes(keys.boxPrivate).toString('base64url'),
+      identity.deviceId,
+      key,
+      this.highest(),
+    )
+    if (!blob) return
     await this.account.authed((token, routes) =>
       routes.putWrap(token, deviceSlot(identity.deviceId), blob),
     )
@@ -165,33 +195,108 @@ export class SyncKeyring {
     return this.openWith(RECOVERY_SLOT, normalizeRecoveryKey(recoveryKey), 'wrong-recovery-key')
   }
 
-  async ownDeviceKey(): Promise<Buffer | null> {
+  private async ownWrap(): Promise<{ slot: string; wrap: Buffer } | null> {
     const identity = this.account.identity()
-    const keys = this.account.deviceKeys()
-    if (!identity || !keys) return null
+    if (!identity) return null
+    const slot = deviceSlot(identity.deviceId)
     try {
-      const wrap = await this.account.authed((token, routes) =>
-        routes.wrap(token, deviceSlot(identity.deviceId)),
-      )
-      return unwrapForDevice(fromB64(wrap.blob), keys.boxPrivate)
+      const found = await this.account.authed((token, routes) => routes.wrap(token, slot))
+      return { slot, wrap: fromB64(found.blob) }
     } catch {
       return null
     }
   }
 
-  async adoptOwnDeviceWrap(): Promise<boolean> {
-    const key = await this.ownDeviceKey()
-    return key !== null && this.keep(key)
+  async adoptLinkWrap(approver: { id: string; signPub: string }): Promise<boolean> {
+    const keys = this.account.deviceKeys()
+    const own = await this.ownWrap()
+    if (!keys || !own) return false
+    const parsed = parseDeviceWrap(own.wrap)
+    if (
+      !parsed ||
+      parsed.signerId !== approver.id ||
+      parsed.counter < 1 ||
+      !wrapSignedBy(parsed, own.slot, approver.signPub)
+    ) {
+      return false
+    }
+    const key = openDeviceWrap(parsed, own.slot, keys.boxPrivate)
+    if (!key) return false
+    try {
+      const view = await this.account.authed((token, routes) => routes.manifest(token))
+      const manifest = openManifest(key, fromB64(view.blob))
+      if (!manifest || parsed.counter < manifest.counter || !this.keep(key)) return false
+      this.raise(manifest.counter)
+      this.pin(manifest.devices)
+      return true
+    } catch {
+      return false
+    }
   }
 
-  approvedDevices(): string[] {
+  private async approverOldEnough(signer: ManifestDevice): Promise<boolean> {
     const target = this.target()
-    return target ? this.store.approved(target.id) : []
+    if (!target) return false
+    const seenAt = this.store.firstSeen(target.id, signer)
+    if (seenAt === null) return false
+    try {
+      const [info, listing] = await this.account.authed(async (token, routes) =>
+        Promise.all([routes.info(), routes.devices(token)]),
+      )
+      const row = listing.devices.find((d) => d.id === signer.id && d.signPub === signer.signPub)
+      if (!row) return false
+      const served = info.approverMinAgeSeconds
+      const seconds = typeof served === 'number' && Number.isFinite(served) ? served : 0
+      const since = Math.max(signer.createdAt, seenAt, row.createdAt)
+      return this.now() - since >= Math.max(MIN_APPROVER_AGE_MS, seconds * 1000)
+    } catch {
+      return false
+    }
   }
 
-  approve(deviceId: string): void {
+  async adoptRotation(sealed: Buffer): Promise<{ key: Buffer; manifest: Manifest } | null> {
+    const keys = this.account.deviceKeys()
+    const own = await this.ownWrap()
+    if (!keys || !own) return null
+    const refuse = (): null => {
+      this.wrapRefused = true
+      return null
+    }
+    const parsed = parseDeviceWrap(own.wrap)
+    const signer = parsed ? this.trusted().find((d) => d.id === parsed.signerId) : undefined
+    if (
+      !parsed ||
+      !signer ||
+      !wrapSignedBy(parsed, own.slot, signer.signPub) ||
+      parsed.counter <= this.highest() ||
+      !(await this.approverOldEnough(signer))
+    ) {
+      return refuse()
+    }
+    const key = openDeviceWrap(parsed, own.slot, keys.boxPrivate)
+    const manifest = key ? openManifest(key, sealed) : null
+    if (!key || !manifest || manifest.counter < parsed.counter || !this.keep(key)) return refuse()
+    return { key, manifest }
+  }
+
+  trusted(): ManifestDevice[] {
     const target = this.target()
-    if (target) this.store.approve(target.id, deviceId)
+    return target ? [...this.store.pinned(target.id), ...this.store.approved(target.id)] : []
+  }
+
+  pin(devices: ManifestDevice[]): void {
+    const target = this.target()
+    if (target) this.store.pin(target.id, devices, this.now())
+  }
+
+  approve(device: ManifestDevice): void {
+    const target = this.target()
+    if (target) this.store.approve(target.id, device, this.now())
+  }
+
+  unapprove(deviceId: string): void {
+    const target = this.target()
+    if (target) this.store.unapprove(target.id, deviceId)
   }
 
   async verifySecret(

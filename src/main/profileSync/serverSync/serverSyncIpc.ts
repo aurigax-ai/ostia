@@ -19,6 +19,7 @@ const REFUSED_STATUS: ServerSyncStatus = {
   linkCodes: [],
   joins: [],
   recoveryStale: false,
+  wrapRefused: false,
 }
 
 const refused = (error: 'not-a-window' | 'invalid-input'): ServerSyncResult => ({
@@ -65,16 +66,18 @@ export function registerServerSyncIpc({ service, run, broadcast }: ServerSyncIpc
   act('syncServer:recover', 1, (key) => service.recover(key ?? ''))
   act('syncServer:link-start', 0, () => service.linkStart(), false)
   act('syncServer:link-stop', 0, () => service.linkStop(), false)
-  act('syncServer:link-confirm', 0, () => service.linkConfirm())
+  act('syncServer:link-confirm', 1, (code) => service.linkConfirm(code ?? ''))
   act('syncServer:new-recovery-key', 0, () => service.newRecoveryKey(), false)
   act('syncServer:gc', 0, () => service.collectGarbage(), false)
   act('syncServer:rotate', 2, (pw, key) => service.rotate(pw ?? '', key ?? ''))
   act(
     'syncServer:approve-join',
-    1,
-    (deviceId) => {
+    2,
+    (deviceId, code) => {
       const checked = id(deviceId)
-      return checked ? service.approveJoin(checked) : Promise.resolve(refused('invalid-input'))
+      return checked
+        ? service.approveJoin(checked, code ?? '')
+        : Promise.resolve(refused('invalid-input'))
     },
     false,
   )

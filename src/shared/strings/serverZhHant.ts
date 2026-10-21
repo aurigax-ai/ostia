@@ -114,7 +114,7 @@ export const serverZhHant: typeof serverEn = {
     linkApproved: '這台裝置已獲核准。只有在上方代碼與核准裝置上的相同時才確認。',
     linkByApproval: '在另一台裝置核准',
     linkCodeFor: '{device}：{code}',
-    linkConfirm: '代碼相同',
+    linkConfirm: '代碼 {code} 相同',
     linkStop: '不再等待',
     linkWaiting: '請在已登入的裝置開啟「設定 › 同步」，確認代碼相同後核准。',
     newPassphrase: '新的同步密語',
@@ -143,5 +143,6 @@ export const serverZhHant: typeof serverEn = {
     whereDesc: '您自己的資料夾，或您登入的伺服器。伺服器只儲存它讀不懂的資料。一次只能選一種。',
     whereFolder: '資料夾',
     whereServer: '伺服器',
+    wrapRefused: '另一台裝置傳來新的同步金鑰，但並非由你信任的裝置簽署，因此已忽略。',
   },
 }

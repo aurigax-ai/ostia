@@ -1,13 +1,13 @@
 import {
   AbstractMessageReader,
   AbstractMessageWriter,
+  createMessageConnection,
   type DataCallback,
   type Disposable,
   type Message,
   type MessageConnection,
   type MessageReader,
   type MessageWriter,
-  createMessageConnection,
 } from 'vscode-jsonrpc/browser'
 
 class QueueReader extends AbstractMessageReader implements MessageReader {
