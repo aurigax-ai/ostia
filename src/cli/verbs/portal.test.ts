@@ -19,6 +19,7 @@ import {
   type PortalGate,
   runPortalCommand,
   stripDetach,
+  verbIn,
 } from './portal'
 
 let dir = ''
@@ -47,6 +48,26 @@ const gateFor = (platform: NodeJS.Platform): PortalGate => ({
   isVerb: (cmd) => VERBS.has(cmd),
 })
 const LINUX = gateFor('linux')
+
+describe('verbIn', () => {
+  const isVerb = verbIn({ pane: 1, 'resume-token': 2 })
+
+  it('accepts the names the table holds, hyphens included', () => {
+    expect(isVerb('pane')).toBe(true)
+    expect(isVerb('resume-token')).toBe(true)
+  })
+
+  it('rejects an agent name the table does not hold', () => {
+    expect(isVerb('claude')).toBe(false)
+    expect(isVerb('')).toBe(false)
+  })
+
+  it('does not take a property of Object.prototype for a verb', () => {
+    for (const name of ['toString', 'constructor', 'hasOwnProperty', '__proto__']) {
+      expect(isVerb(name)).toBe(false)
+    }
+  })
+})
 
 describe('outsidePaneRefusal', () => {
   it('refuses every command on macOS without touching the portal', () => {
