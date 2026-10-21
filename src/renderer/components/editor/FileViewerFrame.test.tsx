@@ -8,12 +8,9 @@ import { useViewerHintStore } from '@/stores/files/viewerHintStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { FileViewerFrame } from './FileViewerFrame'
 
-const openFileInWorkspace = vi.fn()
+const openFile = vi.fn()
 const openBrowserTabAs = vi.fn()
 
-vi.mock('@/lib/files/openFile', () => ({
-  openFileInWorkspace: (path: string) => openFileInWorkspace(path),
-}))
 vi.mock('@/lib/browser/browserProfile', () => ({
   openBrowserTabAs: (...args: unknown[]) => openBrowserTabAs(...args),
 }))
@@ -108,7 +105,8 @@ beforeEach(() => {
   })
   vi.mocked(window.ostia.viewers.copySelection).mockClear()
   paneVisible.value = true
-  openFileInWorkspace.mockClear()
+  openFile.mockClear()
+  useLayoutStore.setState({ openFile } as never)
   openBrowserTabAs.mockClear()
 })
 
@@ -126,6 +124,35 @@ describe('FileViewerFrame', () => {
       'ostia-viewer://t/#page=3&find=needle',
     )
     expect(useViewerHintStore.getState().pending).toEqual({})
+  })
+
+  it('takes a hint that arrives while the page is open, once, and not again on a reload', async () => {
+    mount()
+    await act(async () => {})
+    const src = (): string | null | undefined =>
+      document.querySelector('webview')?.getAttribute('src')
+    expect(src()).toBe('ostia-viewer://t/')
+    act(() => useViewerHintStore.getState().request('/w/a.png', 'page=4&find=second'))
+    expect(src()).toBe('ostia-viewer://t/#page=4&find=second')
+    expect(useViewerHintStore.getState().pending).toEqual({})
+    act(() => useViewerHintStore.getState().request('/w/other.png', 'page=9'))
+    expect(src()).toBe('ostia-viewer://t/#page=4&find=second')
+    expect(useViewerHintStore.getState().pending).toEqual({ '/w/other.png': 'page=9' })
+    useViewerHintStore.setState({ pending: {} })
+    cleanup()
+    mount()
+    await act(async () => {})
+    expect(src()).toBe('ostia-viewer://t/')
+  })
+
+  it('leaves no hint behind for a later open when it takes one while mounted', async () => {
+    mount()
+    await act(async () => {})
+    act(() => useViewerHintStore.getState().request('/w/a.png', 'page=2'))
+    cleanup()
+    mount()
+    await act(async () => {})
+    expect(document.querySelector('webview')?.getAttribute('src')).toBe('ostia-viewer://t/')
   })
 
   it('draws no toolbar row, only the page', async () => {
@@ -227,7 +254,7 @@ describe('FileViewerFrame', () => {
     expect(openSelectionSend('p1')).toBe(false)
   })
 
-  it('opens a web link in a browser tab, a mail link outside and a file in the workspace', async () => {
+  it('opens a web link in a browser tab, a mail link outside and a file in the frame’s own workspace', async () => {
     mount()
     await act(async () => {})
     act(() =>
@@ -249,7 +276,7 @@ describe('FileViewerFrame', () => {
     )
     expect(window.ostia.openPath.openLink).toHaveBeenCalledWith('mailto:a@b.c')
     act(() => onOpenLink({ paneId: 'p1', target: { kind: 'file', path: '/w/notes.md' } }))
-    expect(openFileInWorkspace).toHaveBeenCalledWith('/w/notes.md')
+    expect(openFile).toHaveBeenCalledWith('w', '/w/notes.md')
   })
 
   it('switches the pane back to the editor on an edit-source request', async () => {

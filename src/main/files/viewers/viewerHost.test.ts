@@ -3,7 +3,7 @@ import { PORTABLE_TABLES_BYTES_MAX } from '@aurigax-ai/ostia-extension-sdk/contr
 import { describe, expect, it, vi } from 'vitest'
 import { type ViewerGuest, viewerOwner } from './viewerHost'
 import { adoptGuest, BYTES, FILE, fakeSession, get, OPEN, setup } from './viewerHostHarness'
-import { VIEWER_PAGE_CSP } from './viewerSessions'
+import { VIEWER_PAGE_CSP, WASM_VIEWER_CSP } from './viewerSessions'
 import { VIEWER_LIMITS } from './viewerWatch'
 
 describe('ViewerHost', () => {
@@ -133,6 +133,11 @@ describe('ViewerHost', () => {
     expect(attempt(opened.src)).toBe(false)
     expect(attempt('https://example.com/')).toBe(true)
     expect(attempt(`${opened.src}#other`)).toBe(true)
+    guest.emit('did-navigate-in-page', {}, `${opened.src}#page=3`, false)
+    expect(attempt(`${opened.src}#page=3`)).toBe(true)
+    guest.emit('did-navigate-in-page', {}, `${opened.src}#page=3`, true)
+    expect(attempt(`${opened.src}#page=3`)).toBe(false)
+    expect(attempt(opened.src)).toBe(true)
   })
 
   it('ends the viewers of a window when its page reloads, not on an in-page navigation', () => {
@@ -227,10 +232,35 @@ describe('ViewerHost', () => {
     expect(granted).toHaveBeenCalledWith(false)
   })
 
-  it('lets a page decode media and wasm and fetch nothing else off the viewer scheme', () => {
+  it('lets a page decode media and fetch nothing else off the viewer scheme', () => {
     expect(VIEWER_PAGE_CSP).toContain("media-src 'self' blob:")
-    expect(VIEWER_PAGE_CSP).toContain("script-src 'self' 'wasm-unsafe-eval'")
+    expect(VIEWER_PAGE_CSP).toContain("script-src 'self'")
+    expect(VIEWER_PAGE_CSP).not.toContain('wasm-unsafe-eval')
+    expect(WASM_VIEWER_CSP).toContain("script-src 'self' 'wasm-unsafe-eval'")
     expect(VIEWER_PAGE_CSP).toContain("connect-src 'self'")
     expect(VIEWER_PAGE_CSP).toContain("default-src 'none'")
+  })
+
+  it.each([
+    ['pdf', true],
+    ['office', false],
+    ['markdown', false],
+    ['images', false],
+    ['video', false],
+    ['csv', false],
+    ['market', false],
+  ])('sends the %s extension a CSP %s wasm', async (extId, wasm) => {
+    const { host, sessions } = setup({
+      viewer: () => ({ dir: `/ext/${extId}`, entry: 'page.html' }),
+      readExtensionFile: () => Buffer.from('x'),
+    })
+    host.open('w1', { ...OPEN, viewType: `${extId}.view` })
+    const session = sessions.get(`ostia-viewer-${extId}`)
+    const expected = wasm ? WASM_VIEWER_CSP : VIEWER_PAGE_CSP
+    for (const path of ['page.html', 'pdf.worker.js', '~meta', '~document', '~events']) {
+      const res = await get(session, `ostia-viewer://t1/${path}`)
+      expect(res.headers.get('content-security-policy'), path).toBe(expected)
+    }
+    expect(expected.includes('wasm-unsafe-eval')).toBe(wasm)
   })
 })

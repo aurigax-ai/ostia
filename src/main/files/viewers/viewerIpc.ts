@@ -41,6 +41,7 @@ interface ViewerWiringDeps {
   extensions: () => ExtensionHost | null
   readLocale: () => string | undefined
   copyStrings: () => ViewerCopyStrings
+  fileLinksAllowed: (paneId: string) => boolean
 }
 
 export function createViewerHost({
@@ -50,6 +51,7 @@ export function createViewerHost({
   extensions,
   readLocale,
   copyStrings,
+  fileLinksAllowed,
 }: ViewerWiringDeps): ViewerHost {
   return new ViewerHost({
     sessionOf: (partition) => session.fromPartition(partition) as unknown as ViewerSession,
@@ -81,6 +83,7 @@ export function createViewerHost({
     },
     writeClipboard: (copied) => clipboard.write([new ClipboardItem(clipboardItemData(copied))]),
     copyStrings,
+    fileLinksAllowed,
   })
 }
 

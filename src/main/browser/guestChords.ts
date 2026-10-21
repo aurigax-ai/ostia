@@ -15,7 +15,7 @@ export interface GuestChordsDeps {
   mac: boolean
   remap: GuestRemap
   isHumanBrowser: (guest: WebContents) => boolean
-  isViewerGuest: (guest: WebContents) => boolean
+  viewerOwnsFindKeys: (guest: WebContents) => boolean
 }
 
 export interface GuestChords {
@@ -46,7 +46,7 @@ export function registerGuestChords(deps: GuestChordsDeps): GuestChords {
       guest.on('before-input-event', (event, raw) => {
         const input = deps.remap.remap(guest.id, raw)
         const tapped = guestDoubleShift(input, chords, doubleShift, Date.now())
-        const pageFind = isPageFindKey(input, deps.mac) && deps.isViewerGuest(guest)
+        const pageFind = isPageFindKey(input, deps.mac) && deps.viewerOwnsFindKeys(guest)
         const key = tapped
           ? DOUBLE_SHIFT_KEY
           : pageFind

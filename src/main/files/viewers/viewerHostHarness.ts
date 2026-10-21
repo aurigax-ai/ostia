@@ -100,6 +100,7 @@ export function setup(overrides: Partial<ViewerHostDeps> = {}) {
       text: 'txt',
       textAndImage: 'both',
     }),
+    fileLinksAllowed: () => true,
     now: () => clock.now,
     token: () => `t${++tokens}`,
     ...overrides,

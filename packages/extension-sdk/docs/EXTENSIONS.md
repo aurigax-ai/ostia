@@ -1380,7 +1380,7 @@ doc.onDidChange(() => location.reload())
 - Copy writes `text/plain` and `text/html` first (cells: the CSV, and an html table), the image only when there is no text, and both for a `pdf-region` that holds text. Send writes a report with the same content and pastes its path at the agent's prompt, never followed by Enter.
 - `clearSelection()` withdraws it. Publish again to replace it, and clear it when the human clicks elsewhere or presses Escape. Ostia drops it when the page ends.
 
-**Links and the source, API 7.5.** `openViewerLink(href)` asks Ostia to open a link: it works only right after a real pointer press on the page, once per press, for `http:`, `https:` and `mailto:` links and for relative paths that stay inside the folders Ostia already lets the human read (never a path Ostia would have to ask about). It resolves `false` otherwise. `requestEditSource()` asks Ostia to switch the pane to the source text; it works only after a real pointer or key press on the page.
+**Links and the source, API 7.5.** `openViewerLink(href)` asks Ostia to open a link: it works only right after a real pointer or key press on the page (a click, or Enter on a focused link), once per press, for `http:`, `https:` and `mailto:` links and for relative paths that stay inside the folders Ostia already lets the human read (never a path Ostia would have to ask about). A relative path opens only when the document is a plain file on disk, and never in a sandboxed, scratch or remote workspace. It resolves `false` otherwise. `requestEditSource()` asks Ostia to switch the pane to the source text; it works only after a real pointer or key press on the page.
 
 **Find keys, API 7.5.** In a viewer page the find keys (`Ctrl+F` or `Cmd+F`, `F3`, `Ctrl+G` or `Cmd+G`, with Shift for the previous match) reach the page itself and are not forwarded to Ostia, so a viewer with its own find (the pill's `find` control) listens for them; every other Ostia shortcut is still forwarded.
 
@@ -1409,6 +1409,7 @@ pill.find.setResult({ index: 2, total: 5 })
 ```
 
 - Controls are `button`, `toggle` (`aria-pressed`), `menu` (groups of items with a check on one id and an optional chord), `pager` (page box, `of`, previous and next) and `find`. Every control has `id`, `label` (the accessible name and tooltip), an optional `chord` (shown in the tooltip) and `disabled`. Icons are SVG strings drawn with `currentColor`.
+- A pill with a `find` control tells Ostia that the page owns find, so Ostia leaves primary+F, primary+G and F3 to the page (it handles them itself: `pill.find.open()`, Enter and Shift+Enter, and your own primary+G and F3 handlers). A viewer page without one keeps the app's find keys.
 - `find` adds a search button. `pill.find.open()` turns the pill into the find row (field, `n of N` through `labels.count`, match case, highlight all, previous, next, Done); Enter and Shift+Enter step, Escape closes. The page does the searching and reports with `pill.find.setResult`.
 - `setState(id, {disabled?, pressed?, text?, checked?, page?, count?})`, `setHidden(hidden)` and `destroy()`.
 - `createSlider({label, min, max, value, step?, format?, onInput})` from `.../slider` returns `{element, setValue, setMax}`: the seek and volume range input, styled by `.ostia-slider` in `panel.css`.
