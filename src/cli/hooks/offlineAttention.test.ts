@@ -1,7 +1,7 @@
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { afterAll, describe, expect, it } from 'vitest'
+import { afterAll, describe, expect, it, vi } from 'vitest'
 import { offlineAttention, saveAttentionOffline } from './offlineAttention'
 
 const root = mkdtempSync(join(tmpdir(), 'ostia-offline-attention-'))
@@ -44,6 +44,13 @@ describe('attention reported while the app cannot be reached', () => {
       true,
     )
     expect(JSON.parse(readFileSync(`${tokenFile}.state`, 'utf8')).state).toBe('working')
+  })
+
+  it('rejects an unknown hook event without reading stdin', async () => {
+    const read = vi.fn(async () => '{}')
+    expect(await offlineAttention(['claude-hook', 'Nope'], read)).toBeNull()
+    expect(await offlineAttention(['codex-hook', 'Nope'], read)).toBeNull()
+    expect(read).not.toHaveBeenCalled()
   })
 
   it('KSH-C85 writes what the Codex hooks report through the state verb, and clears on clear', async () => {

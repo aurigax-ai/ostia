@@ -1,14 +1,16 @@
-import type { PaneIdentity } from '../control/idRegistry'
-import type { PtyIo } from '../terminal/pty/ptyIo'
-
-export function phoneInputNoted(
-  ptyWrite: PtyIo['ptyWrite'],
-  identityOf: (rendererPaneId: string) => PaneIdentity | undefined,
-  inputSent: (pane: PaneIdentity) => void,
-): PtyIo['ptyWrite'] {
-  return (rendererPaneId, data, source) => {
-    ptyWrite(rendererPaneId, data, source)
-    const pane = identityOf(rendererPaneId)
-    if (pane) inputSent(pane)
+export function phoneInputNoter(
+  waitingSince: (paneId: string) => number | undefined,
+  inputSent: (paneId: string) => void,
+): (paneId: string) => void {
+  const noted = new Map<string, number>()
+  return (paneId) => {
+    const since = waitingSince(paneId)
+    if (since === undefined) {
+      noted.delete(paneId)
+      return
+    }
+    if (noted.get(paneId) === since) return
+    noted.set(paneId, since)
+    inputSent(paneId)
   }
 }

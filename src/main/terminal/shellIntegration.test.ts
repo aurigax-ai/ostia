@@ -1189,6 +1189,12 @@ describe('shellIntegrationSpawnOptions', () => {
       )
     })
 
+    it('hashes a matcher group the way codex-cli 0.163 computes its trust hash', () => {
+      expect(codexHookTrustHash('PreToolUse', 'date > /tmp/codexprobe/fired2.txt', 'Bash')).toBe(
+        'sha256:a8b79ff9ec4a2a6ab330607f39093f663b356e56133c1c9713b2ed1dd9e10b96',
+      )
+    })
+
     it('pins the trust hashes of the bus hooks, which print context', () => {
       expect(codexHookTrustHash('UserPromptSubmit', busHookCommand('UserPromptSubmit'))).toBe(
         'sha256:6d1627ffada98cdfdfb78abf5655cb545afa5bd013ae973d24dc47c10d814d96',

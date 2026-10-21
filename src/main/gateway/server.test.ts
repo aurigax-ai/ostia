@@ -162,6 +162,7 @@ const deps = {
     detach: vi.fn(),
   })),
   ptyWrite: vi.fn(),
+  phoneInput: vi.fn(),
   readScreen: vi.fn().mockResolvedValue(''),
   withClipboardImage: vi.fn().mockResolvedValue(true),
   listAsks: vi.fn().mockReturnValue([]),
@@ -358,6 +359,7 @@ describe('gateway server over a real WebSocket', () => {
     const denied = await c.next((m) => m.error?.code === -32003)
     expect(denied.error?.data).toEqual({ cap: 'input' })
     expect(deps.ptyWrite).not.toHaveBeenCalled()
+    expect(deps.phoneInput).not.toHaveBeenCalled()
   })
 
   it('writes input once the desktop grants input', async () => {
@@ -378,6 +380,7 @@ describe('gateway server over a real WebSocket', () => {
     await c.call('whoami')
 
     expect(deps.ptyWrite).toHaveBeenCalledWith('p1', 'ls\r', 'key')
+    expect(deps.phoneInput).toHaveBeenCalledWith('p1')
   })
 
   it('never applies a resize frame and answers resize-not-supported', async () => {

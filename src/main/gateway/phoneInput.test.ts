@@ -1,37 +1,38 @@
 import { describe, expect, it, vi } from 'vitest'
-import type { PaneIdentity } from '../control/idRegistry'
-import { phoneInputNoted } from './phoneInput'
+import { phoneInputNoter } from './phoneInput'
 
-const pane = { paneId: 'p1', externalId: 'x1' } as PaneIdentity
-
-describe('phoneInputNoted', () => {
-  it('writes the phone key and then notes input for the pane', () => {
-    const order: string[] = []
-    const write = vi.fn(() => void order.push('write'))
-    const sent = vi.fn(() => void order.push('sent'))
-    phoneInputNoted(write, () => pane, sent)('p1', 'y', 'key')
-    expect(write).toHaveBeenCalledWith('p1', 'y', 'key')
-    expect(sent).toHaveBeenCalledWith(pane)
-    expect(order).toEqual(['write', 'sent'])
+describe('phoneInputNoter', () => {
+  it('notes only the first input after a wait was set, per pane', () => {
+    const since = new Map<string, number>([
+      ['p1', 100],
+      ['p2', 200],
+    ])
+    const sent = vi.fn()
+    const note = phoneInputNoter((id) => since.get(id), sent)
+    note('p1')
+    note('p1')
+    note('p1')
+    expect(sent.mock.calls).toEqual([['p1']])
+    note('p2')
+    expect(sent.mock.calls).toEqual([['p1'], ['p2']])
   })
 
-  it('notes a phone paste', () => {
+  it('notes again for a later wait of the same pane', () => {
+    const since = new Map<string, number>([['p1', 100]])
     const sent = vi.fn()
-    phoneInputNoted(vi.fn(), () => pane, sent)('p1', 'text', 'paste')
-    expect(sent).toHaveBeenCalledWith(pane)
+    const note = phoneInputNoter((id) => since.get(id), sent)
+    note('p1')
+    since.delete('p1')
+    note('p1')
+    since.set('p1', 300)
+    note('p1')
+    note('p1')
+    expect(sent).toHaveBeenCalledTimes(2)
   })
 
-  it('notes writes without a source, like the interrupt key', () => {
+  it('notes nothing for a pane that is not waiting', () => {
     const sent = vi.fn()
-    phoneInputNoted(vi.fn(), () => pane, sent)('p1', '\x1b')
-    expect(sent).toHaveBeenCalledWith(pane)
-  })
-
-  it('writes and notes nothing for a pane main does not know', () => {
-    const write = vi.fn()
-    const sent = vi.fn()
-    phoneInputNoted(write, () => undefined, sent)('gone', 'y', 'key')
-    expect(write).toHaveBeenCalledWith('gone', 'y', 'key')
+    phoneInputNoter(() => undefined, sent)('p1')
     expect(sent).not.toHaveBeenCalled()
   })
 })

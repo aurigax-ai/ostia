@@ -339,6 +339,7 @@ function handleBinaryFrame(
       ws.send(rpcError(null, -32003, 'needs-elevation', { cap: 'input' }))
       return
     }
+    controlDeps.phoneInput(attachment.rendererPaneId)
     controlDeps.ptyWrite(attachment.rendererPaneId, payload.toString('utf8'), 'key')
   }
 }

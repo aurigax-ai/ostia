@@ -44,11 +44,12 @@ export async function offlineAttention(
   const [verb, ...rest] = args
   if (verb === 'claude-hook' || verb === 'codex-hook') {
     const event = rest[0]
-    const raw = await readStdin()
     if (verb === 'claude-hook') {
-      return isClaudeAttentionEvent(event) ? savedOf(claudeAttention(event, raw)) : null
+      return isClaudeAttentionEvent(event)
+        ? savedOf(claudeAttention(event, await readStdin()))
+        : null
     }
-    return isCodexAttentionEvent(event) ? savedOf(codexAttention(event, raw)) : null
+    return isCodexAttentionEvent(event) ? savedOf(codexAttention(event, await readStdin())) : null
   }
   if (verb !== 'state') return null
   const { positional, values } = parseArgs([...rest], {

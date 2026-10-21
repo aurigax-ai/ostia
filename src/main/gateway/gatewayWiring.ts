@@ -62,7 +62,7 @@ import {
   phoneWorkspaceId,
 } from './phone/phoneWorkspace'
 import { registerPhoneWorkspaceIpc } from './phone/phoneWorkspaceIpc'
-import { phoneInputNoted } from './phoneInput'
+import { phoneInputNoter } from './phoneInput'
 import { startPhonePush } from './push/pushWiring'
 import { RelayClient } from './relayClient'
 import { ScreenLinks } from './screenLinks'
@@ -183,10 +183,6 @@ export function startGateway({
     }
   }
 
-  const phonePtyWrite = phoneInputNoted(ptyWrite, getByPaneId, (pane) => {
-    void execCommand(targetOf(pane), 'attention.typed')
-  })
-
   registerPaneListMethods({
     execCommand,
     getTerminalState,
@@ -290,7 +286,11 @@ export function startGateway({
     listWorkspaceGroups: () => listWorkspaceGroups({ execCommand, windowIds }),
     primaryWindowId,
     attachPhoneObserver,
-    ptyWrite: phonePtyWrite,
+    ptyWrite,
+    phoneInput: phoneInputNoter(waitingSince.ofPane, (paneId) => {
+      const pane = getByPaneId(paneId)
+      if (pane) void execCommand(targetOf(pane), 'attention.typed')
+    }),
     readScreen: async (paneId) =>
       (await ptys.get(paneId)?.mirror.screenText(phoneScreenLines)) ?? '',
     withClipboardImage,
