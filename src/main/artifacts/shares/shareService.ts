@@ -115,6 +115,14 @@ interface ShareScope {
 
 const GONE_STATUSES: readonly number[] = [404, 410]
 
+function metaUrl(shareUrl: string): string {
+  const url = new URL(shareUrl)
+  url.pathname = `${url.pathname.replace(/\/+$/, '')}/meta`
+  url.search = ''
+  url.hash = ''
+  return url.toString()
+}
+
 export class ShareService {
   private readonly digestKey = randomBytes(32)
 
@@ -295,7 +303,7 @@ export class ShareService {
   private async prune(unlisted: ShareRecord[]): Promise<void> {
     await Promise.all(
       unlisted.map(async (record) => {
-        const status = await this.deps.probe(`${record.url}meta`)
+        const status = await this.deps.probe(metaUrl(record.url))
         if (status !== null && GONE_STATUSES.includes(status)) this.deps.store.remove(record.id)
       }),
     )

@@ -533,4 +533,21 @@ describe('pruning the records of the current account', () => {
     expect(r.probe.urls).toEqual([`${made.share.url}meta`])
     expect(r.store.get(made.share.id)).toBeNull()
   })
+
+  it('SHR-C92 builds the meta probe URL with or without a trailing slash and drops query and fragment', async () => {
+    const r = await rig()
+    const made = await publish(r)
+    if (!made.ok || !made.share) throw new Error('published')
+    const record = r.store.get(made.share.id)
+    if (!record) throw new Error('stored')
+    const base = record.url.replace(/\/+$/, '')
+    r.harness.server.shares.clear()
+    r.probe.status = 200
+    for (const url of [base, `${base}?x=1#y`]) {
+      r.store.remove(record.id)
+      r.store.add({ ...record, url })
+      await r.service.list()
+    }
+    expect(r.probe.urls).toEqual([`${base}/meta`, `${base}/meta`])
+  })
 })

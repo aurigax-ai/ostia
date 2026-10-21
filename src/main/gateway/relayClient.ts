@@ -58,6 +58,8 @@ function validLabel(found: { label: string; host: string; port: number }): {
 } {
   const { label, host, port } = found
   if (
+    typeof label !== 'string' ||
+    label === '' ||
     typeof host !== 'string' ||
     host === '' ||
     !Number.isInteger(port) ||

@@ -143,6 +143,24 @@ describe('the relay listener', () => {
     running = null
   })
 
+  it('RLY-C64 ignores a label answer whose label or host is not a non-empty string', async () => {
+    const harness = await signedIn()
+    for (const body of [
+      { label: 7, host: 'x.relay.test', port: 443 },
+      { label: '', host: 'x.relay.test', port: 443 },
+      { label: 'x', host: 7, port: 443 },
+    ]) {
+      harness.server.intercept('POST /v1/relay/label', { status: 200, body })
+      const r = await boot({ harness, start: false })
+      r.client.start()
+      await vi.waitFor(() => expect(r.client.status()).toEqual({ state: 'error', code: 'failed' }))
+      expect(r.addresses).toEqual([])
+      r.client.stop()
+      await r.helper.close()
+    }
+    running = null
+  })
+
   it('RLY-C2 answers the server ping with a pong', async () => {
     const harness = await signedIn({ pingMs: 30 })
     const r = await boot({ harness })
