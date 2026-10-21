@@ -19,6 +19,7 @@ import { extensionAnchorId } from '@/lib/settings/settingsNav'
 import { cn } from '@/lib/utils'
 import { useUIStore } from '@/stores/app/uiStore'
 import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
+import { useLanguageServersStore } from '@/stores/extensions/languageServersStore'
 import { useMarketplaceStore } from '@/stores/extensions/marketplaceStore'
 import type { ExtensionInfo } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import type { FileKindInfo } from '@aurigax-ai/ostia-extension-sdk/contract/fileKinds'
@@ -236,6 +237,10 @@ function ExtensionListRow({
   const reducedMotion = useReducedMotion()
   const source = useSourceLabel(ext)
   const offer = useUpdateOffer(ext.id)
+  const servers = useLanguageServersStore((s) => s.list)
+  const serverTexts = servers
+    .filter((server) => server.extId === ext.id)
+    .flatMap((server) => [server.name, d.languageServers.kinds[server.kind]])
   return (
     <SearchGroup
       texts={[
@@ -243,6 +248,7 @@ function ExtensionListRow({
         withProductName(ext.description),
         ...ext.settings.map(entryTitle),
         ...ext.secrets.map(entryTitle),
+        ...serverTexts,
       ]}
     >
       {(search) => (

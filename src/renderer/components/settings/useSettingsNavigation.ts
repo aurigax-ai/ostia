@@ -118,6 +118,7 @@ function useSettingsRequests({
 }: SettingsRequestsInput): void {
   const requested = useUIStore((s) => s.settingsSection)
   const requestedExtension = useUIStore((s) => s.settingsExtension)
+  const requestedRow = useUIStore((s) => s.settingsExtensionRow)
   const requestedQuery = useUIStore((s) => s.settingsQuery)
   const settingsRequest = useUIStore((s) => s.settingsRequest)
 
@@ -137,6 +138,7 @@ function useSettingsRequests({
     if (
       requested === 'extensions' &&
       requestedExtension &&
+      !requestedRow &&
       extensions.some((e) => e.id === requestedExtension && e.settingsPage)
     ) {
       setActive('extensionPage')
@@ -152,10 +154,15 @@ function useSettingsRequests({
         setAnchor(null)
       }
     }
-    useUIStore.setState({ settingsSection: null, settingsExtension: null })
+    useUIStore.setState({
+      settingsSection: null,
+      settingsExtension: null,
+      settingsExtensionRow: false,
+    })
   }, [
     requested,
     requestedExtension,
+    requestedRow,
     sections,
     extensions,
     setActive,

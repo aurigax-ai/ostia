@@ -208,6 +208,7 @@ describe('LanguageNotice', () => {
     await userEvent.setup().click(screen.getByRole('button', { name: 'Open Settings' }))
     expect(useUIStore.getState().settingsSection).toBe('extensions')
     expect(useUIStore.getState().settingsExtension).toBe('lsp-rust-analyzer')
+    expect(useUIStore.getState().settingsExtensionRow).toBe(true)
   })
 })
 

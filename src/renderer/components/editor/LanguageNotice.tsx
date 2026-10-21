@@ -66,7 +66,9 @@ function ServerBar({ server }: { server: LanguageServerInfo }): JSX.Element {
   const d = useDict()
   const t = d.languageNotice
   const openExtension = (): void =>
-    useUIStore.getState().openSettings('extensions', { extension: server.extId })
+    useUIStore
+      .getState()
+      .openSettings('extensions', { extension: server.extId, extensionRow: true })
   if (server.status === 'downloading') {
     return <Bar>{fmt(t.downloading, { name: server.name, percent: server.progress ?? 0 })}</Bar>
   }
