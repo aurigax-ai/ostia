@@ -5,6 +5,7 @@ const streamLines = Number(process.env.INK_AGENT_STREAM_LINES ?? 2)
 const TAIL_ROWS = Number(process.env.INK_AGENT_REGION_ROWS ?? 0)
 const BOX_ROWS = 5 + TAIL_ROWS
 const sync = process.env.INK_AGENT_SYNC === '1'
+const fullRedraw = Number(process.env.INK_AGENT_FULL_REDRAW ?? 0)
 
 let typed = ''
 let frame = 0
@@ -37,8 +38,17 @@ const region = () =>
 
 const erase = () => (drawn > 0 ? `\r${'\x1b[2K\x1b[1A'.repeat(drawn - 1)}\x1b[2K` : '')
 
+const recent = []
+
 const redraw = (before = '') => {
-  const body = `${erase()}${before}${region()}`
+  if (fullRedraw > 0) {
+    recent.push(before)
+    if (recent.length > fullRedraw) recent.splice(0, recent.length - fullRedraw)
+  }
+  const body =
+    fullRedraw > 0
+      ? `\x1b[2J\x1b[3J\x1b[H${recent.join('')}${region()}`
+      : `${erase()}${before}${region()}`
   out(sync ? `\x1b[?2026h${body}\x1b[?2026l` : body)
   drawn = BOX_ROWS
 }
