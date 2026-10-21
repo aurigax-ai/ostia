@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest'
-import { DOCUMENT_TEXT_MAX, GESTURE_WINDOW_MS } from './viewerHost'
+import { DOCUMENT_TEXT_MAX, GESTURE_WINDOW_MS, type ViewerHostDeps } from './viewerHost'
 import { adoptGuest, BYTES, FILE, get, OPEN, setup } from './viewerHostHarness'
 
 const SESSION = 'ostia-viewer-office'
 
-function opened() {
-  const harness = setup()
-  const result = harness.host.open('w1', OPEN)
+function opened(overrides: Partial<ViewerHostDeps> = {}, path = FILE) {
+  const harness = setup(overrides)
+  const result = harness.host.open('w1', { ...OPEN, path })
   if (!result.ok) throw new Error('not opened')
   const session = harness.sessions.get(SESSION)
   const guest = adoptGuest(harness.host, session, result.src)
@@ -17,7 +17,7 @@ function opened() {
     })
   const click = (modifiers: string[] = []) =>
     guest.emit('input-event', {}, { type: 'mouseDown', modifiers })
-  const press = () => guest.emit('before-input-event', {}, { type: 'keyDown' })
+  const press = (shift = false) => guest.emit('before-input-event', {}, { type: 'keyDown', shift })
   const open = (href: unknown) => post('~open', { href })
   return { ...harness, session, guest, post, click, press, open }
 }
@@ -52,14 +52,22 @@ describe('/~open', () => {
     ).toEqual([true, false])
   })
 
-  it('does not accept a key press or a stale pointer input', async () => {
+  it('takes a pointer press or a key press within the window, spends it once and refuses a stale one', async () => {
     const { open, click, press, clock, events } = opened()
     press()
-    expect((await open('https://example.com/')).status).toBe(403)
+    expect((await open('https://example.com/a')).status).toBe(204)
+    expect((await open('https://example.com/a')).status).toBe(403)
+    press(true)
+    expect((await open('https://example.com/b')).status).toBe(204)
     click()
     clock.now += GESTURE_WINDOW_MS + 1
     expect((await open('https://example.com/')).status).toBe(403)
-    expect(events).toEqual([])
+    press()
+    clock.now += GESTURE_WINDOW_MS + 1
+    expect((await open('https://example.com/')).status).toBe(403)
+    expect(
+      events.map((event) => (event.payload as { target: { shift: boolean } }).target.shift),
+    ).toEqual([false, true])
   })
 
   it('allows http, https and mailto and refuses every other scheme and form', async () => {
@@ -106,6 +114,46 @@ describe('/~open', () => {
     }
     expect(events).toHaveLength(1)
   })
+
+  it('opens no file for a sandboxed, scratch or remote workspace and still opens web links', async () => {
+    const { open, click, events } = opened({ fileLinksAllowed: () => false })
+    click()
+    expect((await open('notes/b.md')).status).toBe(403)
+    click()
+    expect((await open('https://example.com/')).status).toBe(204)
+    expect(events).toHaveLength(1)
+    expect(events[0]).toMatchObject({ payload: { target: { kind: 'url' } } })
+  })
+
+  it('asks the workspace of the viewer pane about file links', async () => {
+    const asked: string[] = []
+    const { open, click } = opened({
+      fileLinksAllowed: (paneId) => {
+        asked.push(paneId)
+        return true
+      },
+    })
+    click()
+    await open('notes/b.md')
+    expect(asked).toEqual(['p1'])
+  })
+
+  it.each(['archive:%2Fhome%2Fu%2Fpack.zip!/docs/a.md', 'remote://host/home/u/a.md'])(
+    'opens no relative link beside %s, which is not a plain disk path',
+    async (path) => {
+      const { open, click, events } = opened(
+        {
+          confine: (candidate) => candidate,
+          viewer: () => ({ dir: '/ext/office', entry: 'sheet.html' }),
+          statDocument: async () => ({ size: 4, modified: 7 }),
+        },
+        path,
+      )
+      click()
+      expect((await open('b.md')).status).toBe(403)
+      expect(events).toEqual([])
+    },
+  )
 
   it('refuses a body that is not a href', async () => {
     const { post, click } = opened()
@@ -171,5 +219,21 @@ describe('live document text', () => {
     host.setDocumentText('w1', { paneId: 'p1', path: FILE, text: 5 })
     host.setDocumentText('w1', null)
     expect(new Uint8Array(Buffer.from(await served(), 'latin1'))).toEqual(new Uint8Array(BYTES))
+  })
+
+  it('counts bytes against the cap and falls back to the file when the text grows past it', async () => {
+    const { host, session } = opened()
+    const served = async () =>
+      new Uint8Array(await (await get(session, 'ostia-viewer://t1/~document')).arrayBuffer())
+    host.setDocumentText('w1', text('# first'))
+    expect(await served()).toEqual(new Uint8Array(Buffer.from('# first')))
+    host.setDocumentText('w1', text('x'.repeat(DOCUMENT_TEXT_MAX + 1)))
+    expect(await served()).toEqual(new Uint8Array(BYTES))
+    host.setDocumentText('w1', text('# again'))
+    expect(await served()).toEqual(new Uint8Array(Buffer.from('# again')))
+    host.setDocumentText('w1', text('€'.repeat(Math.floor(DOCUMENT_TEXT_MAX / 3) + 1)))
+    expect(await served()).toEqual(new Uint8Array(BYTES))
+    host.setDocumentText('w1', text('€'.repeat(Math.floor(DOCUMENT_TEXT_MAX / 3))))
+    expect((await served()).byteLength).toBe(Math.floor(DOCUMENT_TEXT_MAX / 3) * 3)
   })
 })

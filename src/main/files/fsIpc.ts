@@ -84,6 +84,14 @@ export function registerFsIpc({
     confine: (path) => openFileGrants.confine(path),
     extensions: () => services.extensionHost,
     copyStrings: () => mainStrings().native.viewerCopy,
+    fileLinksAllowed: (paneId) => {
+      const pane = getByPaneId(paneId)
+      return (
+        pane !== undefined &&
+        !workspaceSandboxes.isEnabled(pane.workspaceId) &&
+        !scratchFolders.isScratch(pane.workspaceId)
+      )
+    },
   })
   services.files = files
   const { sources } = files

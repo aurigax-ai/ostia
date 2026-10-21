@@ -94,6 +94,7 @@ export interface ViewerHostDeps {
   emit: (windowId: string, event: ViewerEvent) => void
   writeClipboard: (copied: ClipboardCapture) => Promise<void>
   copyStrings: () => ViewerCopyStrings
+  fileLinksAllowed: (paneId: string) => boolean
   now?: () => number
   token?: () => string
 }
@@ -116,6 +117,7 @@ interface Live {
   pointerAt: number | null
   pointerShift: boolean
   keyAt: number | null
+  keyShift: boolean
 }
 
 export const RANGE_STREAMS_MAX = 8
@@ -214,6 +216,7 @@ export class ViewerHost {
       rangeSlots: 0,
       pointerAt: null,
       pointerShift: false,
+      keyShift: false,
       keyAt: null,
     }
     this.byToken.set(token, live)
@@ -353,9 +356,13 @@ export class ViewerHost {
     const { paneId, path, text } = (request ?? {}) as Partial<ViewerDocumentText>
     const live = this.liveOfPane(windowId, paneId)
     if (!live || typeof path !== 'string' || this.deps.confine(path) !== live.path) return
-    if (text !== null && (typeof text !== 'string' || text.length > DOCUMENT_TEXT_MAX)) return
-    if (live.documentText === text) return
-    live.documentText = text
+    if (text !== null && typeof text !== 'string') return
+    const tooLarge =
+      text !== null &&
+      (text.length > DOCUMENT_TEXT_MAX || Buffer.byteLength(text) > DOCUMENT_TEXT_MAX)
+    const next = tooLarge ? null : text
+    if (live.documentText === next) return
+    live.documentText = next
     this.announceChange(live)
   }
 
@@ -401,10 +408,16 @@ export class ViewerHost {
         }
       },
     )
-    guest.on('before-input-event', (_event: unknown, input: { type?: string } | undefined) => {
-      const live = token ? this.byToken.get(token) : undefined
-      if (live && input?.type === 'keyDown') live.keyAt = this.now()
-    })
+    guest.on(
+      'before-input-event',
+      (_event: unknown, input: { type?: string; shift?: boolean } | undefined) => {
+        const live = token ? this.byToken.get(token) : undefined
+        if (live && input?.type === 'keyDown') {
+          live.keyAt = this.now()
+          live.keyShift = input.shift === true
+        }
+      },
+    )
     guest.on('unresponsive', () => {
       if (token) this.deps.guests.unresponsive(token)
     })
@@ -639,21 +652,23 @@ export class ViewerHost {
     return [live.pointerAt, live.keyAt].some((at) => at !== null && now - at <= GESTURE_WINDOW_MS)
   }
 
-  private spendGesture(live: Live, inputs: ReadonlyArray<'pointerAt' | 'keyAt'>): boolean {
+  private spendGesture(live: Live): 'pointerAt' | 'keyAt' | null {
     const now = this.now()
-    const fresh = inputs.some((input) => {
-      const at = live[input]
-      return at !== null && now - at <= GESTURE_WINDOW_MS
-    })
+    const fresh = (['pointerAt', 'keyAt'] as const)
+      .filter((input) => {
+        const at = live[input]
+        return at !== null && now - at <= GESTURE_WINDOW_MS
+      })
+      .sort((a, b) => (live[b] ?? 0) - (live[a] ?? 0))
     live.pointerAt = null
     live.keyAt = null
-    return fresh
+    return fresh[0] ?? null
   }
 
-  private linkTarget(live: Live, href: string): ViewerLinkTarget | null {
+  private linkTarget(live: Live, href: string, shift: boolean): ViewerLinkTarget | null {
     if (/^[a-z][a-z0-9+.-]*:/i.test(href)) {
       const external = externalHref(href, { apps: false })
-      return external ? { kind: 'url', href: external, shift: live.pointerShift } : null
+      return external ? { kind: 'url', href: external, shift } : null
     }
     if (href.startsWith('//') || href.includes('\\')) return null
     let relative: string
@@ -663,6 +678,7 @@ export class ViewerHost {
       return null
     }
     if (relative === '' || isAbsolute(relative)) return null
+    if (!isAbsolute(live.path) || !this.deps.fileLinksAllowed(live.paneId)) return null
     const path = this.deps.confine(resolve(dirname(live.path), relative))
     return path ? { kind: 'file', path } : null
   }
@@ -679,15 +695,20 @@ export class ViewerHost {
     if (typeof href !== 'string' || href.length === 0 || href.length > VIEWER_OPEN_HREF_MAX) {
       return new Response(null, { status: 400 })
     }
-    if (!this.spendGesture(live, ['pointerAt'])) return new Response(null, { status: 403 })
-    const target = this.linkTarget(live, href)
+    const gesture = this.spendGesture(live)
+    if (!gesture) return new Response(null, { status: 403 })
+    const target = this.linkTarget(
+      live,
+      href,
+      gesture === 'pointerAt' ? live.pointerShift : live.keyShift,
+    )
     if (!target) return new Response(null, { status: 403 })
     this.deps.emit(live.windowId, { type: 'open-link', payload: { paneId: live.paneId, target } })
     return new Response(null, { status: 204 })
   }
 
   private receiveEditSource(live: Live): Response {
-    if (!this.spendGesture(live, ['pointerAt', 'keyAt'])) return new Response(null, { status: 403 })
+    if (!this.spendGesture(live)) return new Response(null, { status: 403 })
     this.deps.emit(live.windowId, { type: 'edit-source', payload: { paneId: live.paneId } })
     return new Response(null, { status: 204 })
   }
