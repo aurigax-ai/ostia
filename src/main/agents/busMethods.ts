@@ -200,35 +200,40 @@ function registerBusSendMethods(deps: BusDeps): void {
       })
       if (inboxFull(receiver.externalId)) return INBOX_FULL
       const pair = `${from}>${receiver.externalId}`
-      if (typeof waitMs === 'number' && replyWaits.has(pair)) return REPLY_BUSY
-      const wakes = await holdsPaneReach(deps.reach, 'input', receiver, ctx)
-      const posted = await postAndReadBack({
-        from,
-        to: receiver.externalId,
-        text,
-        ...(wakes ? { wakes: true as const } : {}),
-      })
-      const queued = await queuedWithPending(deps, posted, receiver)
-      announceQueued(deps, queued, ctx.identity, receiver, text)
-      deps.sent?.()
-      if (typeof waitMs !== 'number' || queued.state === 'failed') {
-        return { ok: true, ...receiptOf(queued) }
-      }
-      const abort = new AbortController()
-      const closed = ctx.conn.onClose(() => abort.abort())
-      replyWaits.add(pair)
-      const reply = await awaitReply(
-        from,
-        { from: receiver.externalId, after: queued.ts, sent: queued.id },
-        clampTimeout(waitMs),
-        abort.signal,
-      ).finally(() => replyWaits.delete(pair))
-      closed.dispose()
-      const latest = getMail(queued.id) ?? queued
-      return {
-        ok: true,
-        ...receiptOf(latest),
-        ...(reply ? { reply: handOver(reply, ctx) } : {}),
+      const waits = typeof waitMs === 'number'
+      if (waits && replyWaits.has(pair)) return REPLY_BUSY
+      if (waits) replyWaits.add(pair)
+      try {
+        const wakes = await holdsPaneReach(deps.reach, 'input', receiver, ctx)
+        const posted = await postAndReadBack({
+          from,
+          to: receiver.externalId,
+          text,
+          ...(wakes ? { wakes: true as const } : {}),
+        })
+        const queued = await queuedWithPending(deps, posted, receiver)
+        announceQueued(deps, queued, ctx.identity, receiver, text)
+        deps.sent?.()
+        if (typeof waitMs !== 'number' || queued.state === 'failed') {
+          return { ok: true, ...receiptOf(queued) }
+        }
+        const abort = new AbortController()
+        const closed = ctx.conn.onClose(() => abort.abort())
+        const reply = await awaitReply(
+          from,
+          { from: receiver.externalId, after: queued.ts, sent: queued.id },
+          clampTimeout(waitMs),
+          abort.signal,
+        )
+        closed.dispose()
+        const latest = getMail(queued.id) ?? queued
+        return {
+          ok: true,
+          ...receiptOf(latest),
+          ...(reply ? { reply: handOver(reply, ctx) } : {}),
+        }
+      } finally {
+        if (waits) replyWaits.delete(pair)
       }
     },
   })

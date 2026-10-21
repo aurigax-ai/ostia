@@ -329,6 +329,32 @@ describe('bus.send --wait', () => {
     expect(await first).toMatchObject({ ok: true })
   })
 
+  it('lets only one of two concurrent waits to the same pane through', async () => {
+    const results = await Promise.all([
+      send('one?', receiver.externalId, sender, { waitMs: 1000 }),
+      send('two?', receiver.externalId, sender, { waitMs: 1000 }),
+      (async () => {
+        await vi.waitFor(() => expect(inbox()).toHaveLength(1))
+        await reply('answer')
+        return undefined
+      })(),
+    ])
+    const [first, second] = results as Answer[]
+    expect([first.error, second.error].sort()).toEqual(['busy', undefined])
+    expect(inbox()).toHaveLength(1)
+  })
+
+  it('gives the reply to the waiting send, not to an earlier plain bus wait of the sender', async () => {
+    const plain = call<Promise<Waited>>('bus.wait', sender, { timeoutMs: 5000 })
+    const waiting = send('status?', receiver.externalId, sender, { waitMs: 5000 })
+    await vi.waitFor(() => expect(inbox()).toHaveLength(1))
+    await reply('the answer')
+    const res = (await waiting) as { reply?: { messages: Wire[] } }
+    expect(res.reply?.messages.map((m) => m.text)).toEqual(['the answer'])
+    await reply('later note')
+    expect((await plain).messages.map((m) => m.text)).toEqual(['later note'])
+  })
+
   it('does not take an event about the receiver for its reply', async () => {
     vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
     try {

@@ -109,6 +109,7 @@ export interface HandedMail {
 interface Waiter {
   resolve: (handed: HandedMail) => void
   pick: (mail: Mail) => boolean
+  priority: boolean
 }
 
 const waiters = new Map<string, Set<Waiter>>()
@@ -293,7 +294,8 @@ export function enqueue(draft: MailDraft): Mail {
   store().mail.push(mail)
   observe(mail, 'queued')
   const parked = waiters.get(draft.to)
-  const first = parked && [...parked].find((waiter) => waiter.pick(mail))
+  const matching = parked ? [...parked].filter((waiter) => waiter.pick(mail)) : []
+  const first = matching.find((waiter) => waiter.priority) ?? matching[0]
   if (parked && first) {
     parked.delete(first)
     if (parked.size === 0) waiters.delete(draft.to)
@@ -569,10 +571,10 @@ export function sentAfter(id: string, ts: string): (mail: Mail) => boolean {
 export function addWaiter(
   to: string,
   resolve: (handed: HandedMail) => void,
-  pick: (mail: Mail) => boolean = () => true,
+  pick?: (mail: Mail) => boolean,
 ): () => void {
   const parked = waiters.get(to) ?? new Set()
-  const waiter: Waiter = { resolve, pick }
+  const waiter: Waiter = { resolve, pick: pick ?? (() => true), priority: pick !== undefined }
   parked.add(waiter)
   waiters.set(to, parked)
   return () => {

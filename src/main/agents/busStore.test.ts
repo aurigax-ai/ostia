@@ -433,6 +433,18 @@ describe('waiting', () => {
     expect(got.mock.calls[0][0].messages.map((m: { id: string }) => m.id)).toEqual([wanted.id])
   })
 
+  it('hands a message to the waiter that picks it before a plain waiter parked earlier', () => {
+    const plain = vi.fn()
+    const picky = vi.fn()
+    addWaiter('b', plain)
+    addWaiter('b', picky, (mail) => mail.from === 'c')
+    send('from c', 'b', 'c')
+    expect(picky).toHaveBeenCalledOnce()
+    expect(plain).not.toHaveBeenCalled()
+    send('from a')
+    expect(plain).toHaveBeenCalledOnce()
+  })
+
   it('tells a message sent after another by its place in the store, not its clock', () => {
     const before = send('before')
     const question = send('question')
