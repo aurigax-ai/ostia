@@ -30,7 +30,7 @@ export interface GatewayRoute {
 
 export type GatewayRelayState =
   | { state: 'off' | 'needs-sign-in' | 'connecting' }
-  | { state: 'listening'; host: string }
+  | { state: 'listening'; host: string; port: number }
   | { state: 'error'; code: string }
 
 export interface GatewayBindAddress {

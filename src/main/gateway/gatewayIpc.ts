@@ -18,7 +18,6 @@ import type {
 import { LOOPBACK_ADDRESS, resolveBindAddress } from '../../shared/gateway/gatewayRoute'
 import { registerControlMethod } from '../control/controlServer'
 import type { ServerAccount } from '../server/serverAccount'
-import { RELAY_PORT } from './addresses'
 import {
   type Announcement,
   type AnnouncementKey,
@@ -253,7 +252,7 @@ function directTarget(): GatewayPhoneAddress | null {
 
 function relayTarget(): GatewayPhoneAddress | null {
   const state = relayStatus()
-  return state.state === 'listening' ? { host: state.host, port: RELAY_PORT } : null
+  return state.state === 'listening' ? { host: state.host, port: state.port } : null
 }
 
 function pairTarget(): GatewayPhoneAddress | null {

@@ -1,7 +1,7 @@
 import { connect, isIP } from 'node:net'
 import { pipeline } from 'node:stream'
 import { createWebSocketStream, WebSocket } from 'ws'
-import type { GatewayRelayState } from '../../shared/gateway/gatewayApi'
+import type { GatewayPhoneAddress, GatewayRelayState } from '../../shared/gateway/gatewayApi'
 import { failureOf, type ServerAccount } from '../server/serverAccount'
 import type { Session } from '../server/serverSession'
 import { socketOrigin } from '../server/serverUrl'
@@ -26,7 +26,7 @@ export interface RelayDeps {
   account: RelayAccount
   helperPort: () => number | null
   onState: (state: GatewayRelayState) => void
-  onHost: (host: string | null) => void
+  onAddress: (address: GatewayPhoneAddress | null) => void
   random?: () => number
   now?: () => number
 }
@@ -49,6 +49,24 @@ interface Incoming {
   stream?: unknown
   peer?: unknown
   family?: unknown
+}
+
+function validLabel(found: { label: string; host: string; port: number }): {
+  label: string
+  host: string
+  port: number
+} {
+  const { label, host, port } = found
+  if (
+    typeof host !== 'string' ||
+    host === '' ||
+    !Number.isInteger(port) ||
+    port < 1 ||
+    port > 65_535
+  ) {
+    throw new Error('bad-label')
+  }
+  return { label, host, port }
 }
 
 function clearTimers(listener: Listener): void {
@@ -85,7 +103,7 @@ export class RelayClient {
   private state: GatewayRelayState = { state: 'off' }
   private listener: Listener | null = null
   private streams = new Map<string, RelayedStream>()
-  private label: { label: string; host: string } | null = null
+  private label: { label: string; host: string; port: number } | null = null
   private generation = 0
   private backoff = BACKOFF_MIN_MS
   private retry: ReturnType<typeof setTimeout> | null = null
@@ -132,9 +150,9 @@ export class RelayClient {
     this.deps.onState(state)
   }
 
-  private setLabel(label: { label: string; host: string } | null): void {
+  private setLabel(label: { label: string; host: string; port: number } | null): void {
     this.label = label
-    this.deps.onHost(label?.host ?? null)
+    this.deps.onAddress(label ? { host: label.host, port: label.port } : null)
   }
 
   private sync(): void {
@@ -175,7 +193,7 @@ export class RelayClient {
       if (!this.label) {
         const found = await account.relayLabel()
         if (generation !== this.generation) return
-        this.setLabel({ label: found.label, host: found.host })
+        this.setLabel(validLabel(found))
       }
       const session = await account.session().ensure()
       if (generation !== this.generation) return
@@ -275,7 +293,7 @@ export class RelayClient {
       this.setState({ state: 'connecting' })
       this.scheduleReconnect()
     })
-    this.setState({ state: 'listening', host: this.label?.host ?? '' })
+    this.setState({ state: 'listening', host: this.label?.host ?? '', port: this.label?.port ?? 0 })
   }
 
   private async redial(listener: Listener, generation: number): Promise<void> {

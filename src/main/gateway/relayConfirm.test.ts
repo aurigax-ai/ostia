@@ -19,7 +19,7 @@ const {
   configureGatewayControl,
   configureRelayPeers,
   gatewayHelperPort,
-  setRelayHost,
+  setRelayAddress,
   startGateway,
   stopGateway,
 } = await import('./server')
@@ -106,7 +106,7 @@ beforeAll(async () => {
     account: harness.account,
     helperPort: gatewayHelperPort,
     onState: () => {},
-    onHost: setRelayHost,
+    onAddress: setRelayAddress,
   })
   configureRelayPeers(client)
   client.start()

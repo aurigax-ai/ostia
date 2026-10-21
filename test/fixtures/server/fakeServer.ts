@@ -76,6 +76,7 @@ export interface FakeServerOptions {
   pingMs?: number
   github?: boolean
   unconfirmedMs?: number
+  relayPort?: number
   approverMinAgeMs?: number
   elevationTtlMs?: number
   quotaBytes?: number
@@ -606,7 +607,7 @@ export class FakeServer {
           return
         }
         const label = `lbl${auth.session.deviceId}`
-        this.reply(res, 200, { label, host: `${label}.${RELAY_DOMAIN}`, port: 443 })
+        this.reply(res, 200, { label, host: `${label}.${RELAY_DOMAIN}`, port: this.options.relayPort ?? 443 })
       },
     }
   }

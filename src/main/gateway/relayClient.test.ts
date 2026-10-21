@@ -6,7 +6,7 @@ import {
   signedIn,
 } from '../../../test/fixtures/server/accountHarness'
 import type { PhoneStream } from '../../../test/fixtures/server/fakeServer'
-import type { GatewayRelayState } from '../../shared/gateway/gatewayApi'
+import type { GatewayPhoneAddress, GatewayRelayState } from '../../shared/gateway/gatewayApi'
 import { RelayClient } from './relayClient'
 
 interface Helper {
@@ -45,7 +45,7 @@ interface Running {
   helper: Helper
   client: RelayClient
   states: GatewayRelayState[]
-  hosts: Array<string | null>
+  addresses: Array<GatewayPhoneAddress | null>
 }
 
 let running: Running | null = null
@@ -57,15 +57,15 @@ async function boot(
   const harness = options.harness ?? (await signedIn())
   const helper = await startHelper()
   const states: GatewayRelayState[] = []
-  const hosts: Array<string | null> = []
+  const addresses: Array<GatewayPhoneAddress | null> = []
   const client = new RelayClient({
     account: harness.account,
     helperPort: () => helper.port,
     onState: (state) => states.push(state),
-    onHost: (host) => hosts.push(host),
+    onAddress: (address) => addresses.push(address),
     random: options.random,
   })
-  running = { harness, helper, client, states, hosts }
+  running = { harness, helper, client, states, addresses }
   if (options.start !== false) client.start()
   return running
 }
@@ -106,12 +106,41 @@ describe('the relay listener', () => {
     const r = await boot()
     await listening(r)
     const host = 'lbldevice1.relay.test'
-    expect(r.client.status()).toEqual({ state: 'listening', host })
-    expect(r.hosts).toEqual([host])
+    expect(r.client.status()).toEqual({ state: 'listening', host, port: 443 })
+    expect(r.addresses).toEqual([{ host, port: 443 }])
     const calls = r.harness.server.requests
     expect(calls.indexOf('POST /v1/relay/label')).toBeLessThan(
       calls.indexOf('UPGRADE /v1/relay/listen'),
     )
+  })
+
+  it('RLY-C60 keeps the public port the server reports with the label', async () => {
+    const harness = await signedIn({ relayPort: 8443 })
+    const r = await boot({ harness })
+    await listening(r)
+    expect(r.client.status()).toEqual({
+      state: 'listening',
+      host: 'lbldevice1.relay.test',
+      port: 8443,
+    })
+    expect(r.addresses).toEqual([{ host: 'lbldevice1.relay.test', port: 8443 }])
+  })
+
+  it('RLY-C61 ignores a label answer with a port out of range and retries', async () => {
+    const harness = await signedIn()
+    for (const port of [0, 65_536, 1.5, '443']) {
+      harness.server.intercept('POST /v1/relay/label', {
+        status: 200,
+        body: { label: 'x', host: 'x.relay.test', port },
+      })
+      const r = await boot({ harness, start: false })
+      r.client.start()
+      await vi.waitFor(() => expect(r.client.status()).toEqual({ state: 'error', code: 'failed' }))
+      expect(r.addresses).toEqual([])
+      r.client.stop()
+      await r.helper.close()
+    }
+    running = null
   })
 
   it('RLY-C2 answers the server ping with a pong', async () => {
@@ -147,7 +176,7 @@ describe('the relay listener', () => {
     await listening(r)
     r.client.stop()
     expect(r.client.status()).toEqual({ state: 'off' })
-    expect(r.hosts.at(-1)).toBeNull()
+    expect(r.addresses.at(-1)).toBeNull()
     await vi.waitFor(() => expect(r.harness.server.listenerCount()).toBe(0))
   })
 
@@ -166,7 +195,7 @@ describe('the relay listener', () => {
     await listening(r)
     await r.harness.account.signOut()
     expect(r.client.status()).toEqual({ state: 'needs-sign-in' })
-    expect(r.hosts.at(-1)).toBeNull()
+    expect(r.addresses.at(-1)).toBeNull()
     await vi.waitFor(() => expect(r.harness.server.listenerCount()).toBe(0))
   })
 

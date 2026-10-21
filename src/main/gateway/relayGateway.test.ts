@@ -19,7 +19,7 @@ const {
   configureGatewayControl,
   configureRelayPeers,
   gatewayHelperPort,
-  setRelayHost,
+  setRelayAddress,
   startGateway,
   stopGateway,
 } = await import('./server')
@@ -157,7 +157,7 @@ describe('the gateway behind the relay client', () => {
   beforeEach(() => {
     accepted.mockClear()
     resetPairRateLimit()
-    setRelayHost(RELAY_HOST)
+    setRelayAddress({ host: RELAY_HOST, port: 8443 })
   })
 
   afterAll(async () => {
@@ -175,16 +175,16 @@ describe('the gateway behind the relay client', () => {
     expect(port).toBeGreaterThan(0)
   })
 
-  it('RLY-C23 accepts the relay host as Host while it is known, with or without 443', async () => {
+  it('RLY-C23 accepts the relay host as Host while it is known, with or without the public port', async () => {
     expect(await getStatus('198.51.100.7', RELAY_HOST)).toBe(404)
-    expect(await getStatus('198.51.100.7', `${RELAY_HOST}:443`)).toBe(404)
+    expect(await getStatus('198.51.100.7', `${RELAY_HOST}:8443`)).toBe(404)
     expect(await getStatus('198.51.100.7', `LBLABC.relay.test`)).toBe(404)
   })
 
   it('RLY-C24 refuses the relay host on another port, another host, and once the label is gone', async () => {
-    expect(await getStatus('198.51.100.7', `${RELAY_HOST}:8443`)).toBe(403)
+    expect(await getStatus('198.51.100.7', `${RELAY_HOST}:443`)).toBe(403)
     expect(await getStatus('198.51.100.7', 'other.relay.test')).toBe(403)
-    setRelayHost(null)
+    setRelayAddress(null)
     expect(await getStatus('198.51.100.7', RELAY_HOST)).toBe(403)
   })
 
@@ -245,15 +245,15 @@ describe('the gateway behind the relay client', () => {
   it('RLY-C31 puts the relay host last in hello.addresses and announces a change', async () => {
     const { token } = registerDevice({ name: 'Phone', pubkey: 'pk2' })
     const { ws, reply } = await hello('198.51.100.52', token)
-    expect(reply.result?.addresses).toEqual([{ kind: 'relay', host: RELAY_HOST, port: 443 }])
+    expect(reply.result?.addresses).toEqual([{ kind: 'relay', host: RELAY_HOST, port: 8443 }])
     const changed = new Promise<{
       params?: { type?: string; payload?: { addresses?: unknown[] } }
     }>((resolve) => ws.once('message', (d) => resolve(JSON.parse(d.toString()))))
-    setRelayHost('lblnew.relay.test')
+    setRelayAddress({ host: 'lblnew.relay.test', port: 8443 })
     const event = await changed
     expect(event.params?.type).toBe('addresses.changed')
     expect(event.params?.payload?.addresses).toEqual([
-      { kind: 'relay', host: 'lblnew.relay.test', port: 443 },
+      { kind: 'relay', host: 'lblnew.relay.test', port: 8443 },
     ])
     ws.terminate()
   })

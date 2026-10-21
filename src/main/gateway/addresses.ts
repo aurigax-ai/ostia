@@ -1,8 +1,6 @@
 import type { GatewayPhoneAddress } from '../../shared/gateway/gatewayApi'
 import { LOOPBACK_ADDRESS } from '../../shared/gateway/gatewayRoute'
 
-export const RELAY_PORT = 443
-
 export interface GatewayAddress {
   kind: 'tailnet' | 'phone' | 'lan' | 'relay'
   host: string
@@ -19,7 +17,7 @@ interface AddressSources {
   bindHost: string | null
   tailnet: TailnetNode | null
   phoneAddress: GatewayPhoneAddress | null
-  relayHost: string | null
+  relay: GatewayPhoneAddress | null
 }
 
 export function gatewayAddresses({
@@ -27,7 +25,7 @@ export function gatewayAddresses({
   bindHost,
   tailnet,
   phoneAddress,
-  relayHost,
+  relay,
 }: AddressSources): GatewayAddress[] {
   if (!port) return []
   const found: GatewayAddress[] = []
@@ -35,7 +33,7 @@ export function gatewayAddresses({
   if (tailnet?.ip) found.push({ kind: 'tailnet', host: tailnet.ip, port })
   if (phoneAddress) found.push({ kind: 'phone', ...phoneAddress })
   if (bindHost && bindHost !== LOOPBACK_ADDRESS) found.push({ kind: 'lan', host: bindHost, port })
-  if (relayHost) found.push({ kind: 'relay', host: relayHost, port: RELAY_PORT })
+  if (relay) found.push({ kind: 'relay', ...relay })
   return found
 }
 

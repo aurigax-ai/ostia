@@ -75,7 +75,7 @@ import {
   gatewayHelperPort,
   notifiedDeviceIds,
   sendDeviceConfig,
-  setRelayHost,
+  setRelayAddress,
 } from './server'
 import { createTailnet, tailnetNodeName, tsnetHelperPath } from './tailnet'
 import { WaitingSince } from './waitingSince'
@@ -215,7 +215,7 @@ export function startGateway({
     account: server,
     helperPort: gatewayHelperPort,
     onState: (state) => broadcast('gateway:relay-changed', state),
-    onHost: setRelayHost,
+    onAddress: setRelayAddress,
   })
   configureRelay(relay, server)
   configureRelayPeers(relay)

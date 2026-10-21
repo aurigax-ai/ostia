@@ -117,7 +117,7 @@ describe('Settings › Remote through a relay server', () => {
     first.unmount()
     remote(
       { ...LOOPBACK_ROUTE, relay: true },
-      { state: 'listening', host: 'lblabc.relay.test' },
+      { state: 'listening', host: 'lblabc.relay.test', port: 443 },
       true,
     )
     render(<GatewaySection />)
@@ -134,7 +134,7 @@ describe('Settings › Remote through a relay server', () => {
     remote({ ...LOOPBACK_ROUTE, relay: true }, { state: 'connecting' }, true)
     render(<GatewaySection />)
     expect(await pairButton()).toBeDisabled()
-    act(() => push({ state: 'listening', host: 'lblabc.relay.test' }))
+    act(() => push({ state: 'listening', host: 'lblabc.relay.test', port: 443 }))
     expect(await pairButton()).toBeEnabled()
   })
 

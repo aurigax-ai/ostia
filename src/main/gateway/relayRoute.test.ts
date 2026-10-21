@@ -119,7 +119,7 @@ beforeEach(() => {
   handlers.clear()
   server.running = false
   server.started = []
-  relayState = { state: 'listening', host: RELAY_HOST }
+  relayState = { state: 'listening', host: RELAY_HOST, port: 443 }
   signedIn = true
   tailnetState = { state: 'off' }
   rmSync(storePath('gateway-config', 'global'), { force: true })
@@ -199,6 +199,13 @@ describe('where a new pairing points', () => {
     await disableRemote()
     await enableRemote()
     expect(pairTarget()).toEqual({ host: RELAY_HOST, port: 443 })
+  })
+
+  it('RLY-C63 points the pairing at the public port the server reported', async () => {
+    saveRoute(LOOPBACK_ROUTE)
+    await enableRemote()
+    relayState = { state: 'listening', host: RELAY_HOST, port: 8443 }
+    expect(pairTarget()).toEqual({ host: RELAY_HOST, port: 8443 })
   })
 
   it('RLY-C38 offers no pairing while the relay is not listening', async () => {

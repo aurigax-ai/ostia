@@ -61,7 +61,7 @@ let helperServer: NetServer | null = null
 const helperSockets = new Set<Socket>()
 const proxyPeers = new WeakMap<object, ProxyPeer>()
 let tailnetNode: TailnetNode | null = null
-let relayHost: string | null = null
+let relayAddress: GatewayPhoneAddress | null = null
 let relayPeers: RelayPeers | null = null
 let phoneAddress: GatewayPhoneAddress | null = null
 let wss: WebSocketServer | null = null
@@ -261,7 +261,7 @@ function currentAddresses(): GatewayAddress[] {
     bindHost: boundHost,
     tailnet: tailnetNode,
     phoneAddress,
-    relayHost,
+    relay: relayAddress,
   })
 }
 
@@ -275,9 +275,9 @@ export function setTailnetNode(node: TailnetNode | null): void {
   })
 }
 
-export function setRelayHost(host: string | null): void {
+export function setRelayAddress(address: GatewayPhoneAddress | null): void {
   changeAddresses(() => {
-    relayHost = host
+    relayAddress = address
   })
 }
 
@@ -442,7 +442,7 @@ export async function stopGateway(): Promise<void> {
   boundHelperPort = null
   currentFingerprint = null
   tailnetNode = null
-  relayHost = null
+  relayAddress = null
   phoneAddress = null
 
   if (wssToClose) await new Promise<void>((resolve) => wssToClose.close(() => resolve()))
