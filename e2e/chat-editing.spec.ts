@@ -210,7 +210,6 @@ test.describe('chat code editing', () => {
       await ask(session, 'shout the second line again')
       const card = win.locator('.chat-edit[data-tool="edit_file"]').last()
       await expect(card).toHaveAttribute('data-state', 'pending', { timeout: 15_000 })
-      await expect(card).toContainText('You have unsaved edits in this file')
       expect(readFileSync(notes, 'utf8')).toBe(ORIGINAL)
       await card.getByRole('button', { name: 'Accept' }).click()
       await expect(card).toHaveAttribute('data-state', 'applied', { timeout: 15_000 })

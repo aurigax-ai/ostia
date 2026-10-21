@@ -344,6 +344,8 @@ jobs:
       - uses: ./.github/actions/linux-deps
       - uses: ./.github/actions/setup
         timeout-minutes: 10
+        with:
+          go: false
       - uses: ./.github/actions/node-pty
       - uses: ./.github/actions/playwright-browsers
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
@@ -389,6 +391,8 @@ jobs:
       - uses: ./.github/actions/linux-deps
       - uses: ./.github/actions/setup
         timeout-minutes: 10
+        with:
+          go: false
       - uses: ./.github/actions/node-pty
       - uses: ./.github/actions/playwright-browsers
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
@@ -430,6 +434,8 @@ jobs:
       - uses: ./.github/actions/linux-deps
       - uses: ./.github/actions/setup
         timeout-minutes: 10
+        with:
+          go: false
       - uses: ./.github/actions/node-pty
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
         with:
@@ -459,6 +465,8 @@ jobs:
       - uses: ./.github/actions/linux-deps
       - uses: ./.github/actions/setup
         timeout-minutes: 10
+        with:
+          go: false
       - uses: ./.github/actions/node-pty
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
         with:
@@ -530,6 +538,8 @@ jobs:
       - uses: ./.github/actions/macos-deps
       - uses: ./.github/actions/setup
         timeout-minutes: 10
+        with:
+          go: false
       - run: pnpm rebuild
       - uses: ./.github/actions/playwright-browsers
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
@@ -563,6 +573,8 @@ jobs:
       - uses: ./.github/actions/macos-deps
       - uses: ./.github/actions/setup
         timeout-minutes: 10
+        with:
+          go: false
       - run: pnpm rebuild
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
         with:
@@ -589,6 +601,8 @@ jobs:
           persist-credentials: false
       - uses: ./.github/actions/setup
         timeout-minutes: 10
+        with:
+          go: false
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
         with:
           pattern: blob-*
