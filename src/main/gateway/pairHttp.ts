@@ -114,7 +114,7 @@ async function handlePair(
 async function handlePairConfirm(
   req: IncomingMessage,
   res: ServerResponse,
-  fingerprint: PairHttpDeps['fingerprint'],
+  deps: PairHttpDeps,
 ): Promise<void> {
   const body = (await readJsonBody(req)) as { requestId?: unknown; nonce?: unknown } | null
   if (typeof body?.requestId !== 'string' || typeof body.nonce !== 'string') {
@@ -122,9 +122,13 @@ async function handlePairConfirm(
     return
   }
   const requestId = body.requestId
-  const outcome = revealPairRequest(requestId, body.nonce, fingerprint() ?? '', (status, reply) =>
-    sendJson(res, status, reply),
+  const outcome = revealPairRequest(
+    requestId,
+    body.nonce,
+    deps.fingerprint() ?? '',
+    (status, reply) => sendJson(res, status, reply),
   )
+  if (outcome === 'ok') deps.accepted(req.socket)
   if (outcome === 'unknown-request') {
     sendJson(res, 404, { error: 'unknown-request' })
     return
@@ -152,9 +156,7 @@ function requestHandler(req: IncomingMessage, res: ServerResponse, deps: PairHtt
     return
   }
   if (req.method === 'POST' && req.url === '/pair/confirm') {
-    handlePairConfirm(req, res, deps.fingerprint).catch(() =>
-      sendJson(res, 500, { error: 'internal-error' }),
-    )
+    handlePairConfirm(req, res, deps).catch(() => sendJson(res, 500, { error: 'internal-error' }))
     return
   }
   sendJson(res, 404, { error: 'not-found' })

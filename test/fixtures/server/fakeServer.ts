@@ -36,6 +36,7 @@ export interface PhoneStream {
   id: string
   received: () => Buffer
   send: (data: Buffer) => void
+  onData: (listener: (data: Buffer) => void) => void
   accepted: Promise<void>
   closed: Promise<void>
   close: () => void
@@ -46,6 +47,8 @@ interface PendingStream {
   deviceId: string
   ws: WebSocket | null
   chunks: Buffer[]
+  listeners: Array<(data: Buffer) => void>
+  confirmed: boolean
   accept: () => void
   closed: () => void
 }
@@ -54,6 +57,7 @@ export interface FakeServerOptions {
   sessionTtlMs?: number
   pingMs?: number
   github?: boolean
+  unconfirmedMs?: number
 }
 
 function b64(buffer: Buffer): string {
@@ -174,6 +178,8 @@ export class FakeServer {
       deviceId: listener.deviceId,
       ws: null,
       chunks: [],
+      listeners: [],
+      confirmed: false,
       accept,
       closed,
     }
@@ -183,6 +189,7 @@ export class FakeServer {
       id,
       received: () => Buffer.concat(stream.chunks),
       send: (data) => stream.ws?.send(data, { binary: true }),
+      onData: (listener) => stream.listeners.push(listener),
       accepted,
       closed: closedPromise,
       close: () => stream.ws?.close(),
@@ -221,7 +228,11 @@ export class FakeServer {
     ws.on('message', (data) => {
       const message = JSON.parse(data.toString('utf8')) as { t?: string; stream?: string }
       if (message.t === 'pong') this.pongs += 1
-      if (message.t === 'confirm' && message.stream) this.confirmed.push(message.stream)
+      if (message.t === 'confirm' && message.stream) {
+        this.confirmed.push(message.stream)
+        const stream = this.streams.get(message.stream)
+        if (stream) stream.confirmed = true
+      }
     })
     ws.on('close', () => {
       if (this.listeners.get(deviceId) === listener) this.listeners.delete(deviceId)
@@ -235,8 +246,20 @@ export class FakeServer {
       return
     }
     stream.ws = ws
-    ws.on('message', (data: Buffer) => stream.chunks.push(Buffer.from(data)))
-    ws.on('close', () => stream.closed())
+    ws.on('message', (data: Buffer) => {
+      stream.chunks.push(Buffer.from(data))
+      for (const listener of stream.listeners) listener(Buffer.from(data))
+    })
+    const limit = this.options.unconfirmedMs
+    const timer = limit
+      ? setTimeout(() => {
+          if (!stream.confirmed) ws.close(1008)
+        }, limit)
+      : null
+    ws.on('close', () => {
+      if (timer) clearTimeout(timer)
+      stream.closed()
+    })
     stream.accept()
   }
 
