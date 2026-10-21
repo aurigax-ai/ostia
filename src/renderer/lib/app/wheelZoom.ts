@@ -9,11 +9,28 @@ import { useSettingsStore } from '@/stores/app/settingsStore'
 
 const ZOOMABLE_SURFACES: readonly FontSurface[] = ['terminal', 'editor']
 
+let ctrlHeld = false
+
+if (typeof window !== 'undefined') {
+  const track = (e: KeyboardEvent): void => {
+    ctrlHeld = e.ctrlKey
+  }
+  window.addEventListener('keydown', track, true)
+  window.addEventListener('keyup', track, true)
+  window.addEventListener('blur', () => {
+    ctrlHeld = false
+  })
+}
+
+function isPinch(e: Pick<WheelEvent, 'ctrlKey'>, mac: boolean): boolean {
+  return !mac && e.ctrlKey && !ctrlHeld
+}
+
 export function zoomStep(
   e: Pick<WheelEvent, 'ctrlKey' | 'metaKey' | 'deltaY'>,
   mac: boolean,
 ): number {
-  if (!(mac ? e.metaKey : e.ctrlKey) || e.deltaY === 0) return 0
+  if (!(mac ? e.metaKey : e.ctrlKey && ctrlHeld) || e.deltaY === 0) return 0
   return e.deltaY < 0 ? 1 : -1
 }
 
@@ -61,6 +78,11 @@ export function resetZoom(): void {
 
 export function attachWheelZoom(host: HTMLElement, surface: FontSurface, mac: boolean): () => void {
   const onWheel = (e: WheelEvent): void => {
+    if (isPinch(e, mac)) {
+      e.preventDefault()
+      e.stopPropagation()
+      return
+    }
     if (!useSettingsStore.getState().behavior.wheelZoom) return
     const step = zoomStep(e, mac)
     if (step === 0) return
