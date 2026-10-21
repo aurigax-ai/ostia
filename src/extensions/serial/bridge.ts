@@ -1,18 +1,18 @@
 import { spawn } from 'node:child_process'
-import { constants, closeSync, openSync } from 'node:fs'
+import { closeSync, constants, openSync } from 'node:fs'
 import { isAbsolute, join } from 'node:path'
 import { createInterface } from 'node:readline'
 import { ReadStream } from 'node:tty'
 import { parseFlags } from '@aurigax-ai/ostia-extension-sdk'
-import { CR, EchoLoop, LF, type LogFile, SessionLog, openLogFile } from './session'
+import { CR, EchoLoop, LF, type LogFile, openLogFile, SessionLog } from './session'
 import {
   COMMON_SPEEDS,
   DEFAULT_FRAME,
   DEFAULT_SPEED,
-  type LineSettings,
   deviceGlobs,
   frameText,
   isSerialDevice,
+  type LineSettings,
   listDevices,
   logName,
   parseFrame,

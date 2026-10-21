@@ -1,7 +1,7 @@
+import { afterEach, beforeAll, describe, expect, it } from 'vitest'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
-import { afterEach, beforeAll, describe, expect, it } from 'vitest'
 import { newWorkspaceDir, startNewWorkspace } from './newWorkspace'
 
 describe('newWorkspaceDir', () => {

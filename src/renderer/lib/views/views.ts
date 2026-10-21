@@ -1,3 +1,4 @@
+import { OPEN_VIEW_COMMAND, type ViewInfo } from '@shared/views/views'
 import { registerCore } from '@/commands/coreCommand'
 import { commands, wordedBy } from '@/commands/registry'
 import { fmt } from '@/lib/app/useDict'
@@ -7,7 +8,6 @@ import { useUIStore } from '@/stores/app/uiStore'
 import { enabledViews, useViewsStore } from '@/stores/extensions/viewsStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
-import { OPEN_VIEW_COMMAND, type ViewInfo } from '@shared/views/views'
 import type { ViewActionTarget } from './viewExpand'
 
 const OPEN_VIEW_PREFIX = `${OPEN_VIEW_COMMAND}.`

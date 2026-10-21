@@ -3,16 +3,16 @@ import { mkdirSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { PRODUCT_DISPLAY_NAME } from '@aurigax-ai/ostia-extension-sdk/contract/productDisplay'
 import {
+  emptyWorkspaceSandbox,
   type ResolvedSandbox,
+  resolvePackages,
+  resolveSandbox,
   type SandboxFixedPolicy,
   type SandboxFolderProblem,
   type SandboxGlobals,
   type SandboxMergeRefusal,
-  type WorkspaceSandbox,
-  emptyWorkspaceSandbox,
-  resolvePackages,
-  resolveSandbox,
   sandboxMergeRefusal,
+  type WorkspaceSandbox,
 } from '../../shared/sandbox/sandbox'
 import { expandHome, isInsidePath } from '../platform/pathGuard'
 import type { PackageBlockReason, PackagePolicy } from '../sandboxPackages/packagePolicy'
@@ -22,15 +22,15 @@ import type { SandboxPathEnv } from './pathChecks'
 import { type KeptSandboxHosts, SandboxHosts } from './sandboxHosts'
 import { SandboxTmpDirs } from './sandboxTmp'
 import {
-  SSH_AGENT_SOCKET_NAME,
-  type SandboxPaths,
-  type SrtConfig,
   buildSrtConfig,
   fixedPolicy,
   folderProblem,
   protectedFiles,
   protectedPaths,
   realPath,
+  type SandboxPaths,
+  type SrtConfig,
+  SSH_AGENT_SOCKET_NAME,
 } from './srtConfig'
 import type { SandboxStore } from './store'
 import type { WriteRefusal } from './violations'

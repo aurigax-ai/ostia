@@ -2,8 +2,8 @@ import { resolve as resolvePath } from 'node:path'
 import type { MessageConnection } from 'vscode-jsonrpc/node'
 import type { CommandResult } from '../../shared/control/commands'
 import {
-  WORKSPACE_GROUP_COLORS,
   isWorkspaceGroupColor,
+  WORKSPACE_GROUP_COLORS,
 } from '../../shared/workspaces/workspaceGroups'
 import { parseArgs } from '../common/args'
 import { fail, failUsage, failVerb } from '../common/failure'

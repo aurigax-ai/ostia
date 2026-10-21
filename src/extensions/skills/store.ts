@@ -2,12 +2,12 @@ import { chmodSync, existsSync, readFileSync, renameSync } from 'node:fs'
 import { basename, join } from 'node:path'
 import { writeFileAtomic } from '@aurigax-ai/ostia-extension-sdk/atomicWrite'
 import {
+  parseRulesFile,
   type Rule,
   type RuleDraft,
   type RuleOrigin,
   type RuleState,
   type StoredGroup,
-  parseRulesFile,
 } from './rule'
 
 export interface RuleExtras {

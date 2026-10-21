@@ -1,5 +1,3 @@
-import { withProductName } from '@/lib/app/useDict'
-import { platform } from '@/platform'
 import type { ExtensionInfo } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import {
   ArrowsClockwiseIcon,
@@ -13,9 +11,9 @@ import {
   GlobeIcon,
   type Icon as IconComponent,
   InfoIcon,
-  KeyIcon,
   KeyboardIcon,
   KeyholeIcon,
+  KeyIcon,
   LayoutIcon,
   PaletteIcon,
   PlugsIcon,
@@ -30,6 +28,8 @@ import {
   TreeStructureIcon,
 } from '@phosphor-icons/react'
 import type { Dict } from '@shared/app/dict'
+import { withProductName } from '@/lib/app/useDict'
+import { platform } from '@/platform'
 
 export const SETTINGS_GROUPS = [
   'general',

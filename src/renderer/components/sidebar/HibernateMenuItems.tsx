@@ -1,3 +1,4 @@
+import { MoonIcon, SunIcon } from '@phosphor-icons/react'
 import { MenuItem } from '@/components/common/Menu'
 import {
   hibernatableAgentPanes,
@@ -9,7 +10,6 @@ import { useDict } from '@/lib/app/useDict'
 import { useBlocksStore } from '@/stores/terminal/blocksStore'
 import { useHibernateSkippedStore } from '@/stores/workspaces/hibernateSkippedStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
-import { MoonIcon, SunIcon } from '@phosphor-icons/react'
 
 export function HibernateMenuItems({ workspaceIds }: { workspaceIds: string[] }): JSX.Element {
   const d = useDict()

@@ -1,3 +1,4 @@
+import { CHORDS_PER_COMMAND_MAX } from '@shared/keyboard/chordSpec'
 import {
   KEYBOARD_PLATFORMS,
   type KeyboardPlatform,
@@ -5,7 +6,6 @@ import {
   TERMINAL_KEYMAPS,
 } from '@/lib/keyboard/keyboardPresets'
 import { TERMINAL_SEND_MAX, TERMINAL_SEND_TYPES } from '@/lib/keyboard/terminalKeys'
-import { CHORDS_PER_COMMAND_MAX } from '@shared/keyboard/chordSpec'
 import { KEYMAP_SETTING_PATTERN } from './keymapSetting'
 
 const CHORD_VALUE = {

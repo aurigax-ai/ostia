@@ -1,12 +1,12 @@
-import { readFileSync, readdirSync } from 'node:fs'
+import { readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import {
   FAKE_MCP_SERVER,
+  graphsHarness,
   type Harness,
   MCP_SECRET,
   POLL,
-  graphsHarness,
 } from '../../test/graphsHarness'
 
 vi.mock('electron', () => ({

@@ -1,3 +1,5 @@
+import { emptyWorkspaceSandbox, type WorkspaceSandbox } from '@shared/sandbox/sandbox'
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { paneIds, splitOf } from '@/lib/layout/tree'
 import type { PaneNode, SurfaceKind } from '@/lib/layout/types'
 import { useUIStore } from '@/stores/app/uiStore'
@@ -6,10 +8,8 @@ import { type CommandBlock, useBlocksStore } from '@/stores/terminal/blocksStore
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { useMergeConfirmStore } from '@/stores/workspaces/mergeConfirmStore'
 import { useWindowsStore } from '@/stores/workspaces/windowsStore'
-import type { Workspace } from '@/stores/workspaces/workspaceTypes'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
-import { type WorkspaceSandbox, emptyWorkspaceSandbox } from '@shared/sandbox/sandbox'
-import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import type { Workspace } from '@/stores/workspaces/workspaceTypes'
 import { loadMergeTargets, requestMergeWorkspace } from './workspaceMerge'
 
 const pane = (id: string, kind: SurfaceKind = 'terminal', title = 'zsh'): PaneNode => ({

@@ -3,10 +3,10 @@ import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import {
   FAST_POLL_MS,
-  IDLE_POLL_MS,
-  MAX_BACKOFF_MS,
   formatQueue,
+  IDLE_POLL_MS,
   isAllowedKeeperCall,
+  MAX_BACKOFF_MS,
   newTickets,
   nextPollDelay,
   parseApprovals,

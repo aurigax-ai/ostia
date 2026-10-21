@@ -1,5 +1,5 @@
 import { ASK_COMMAND_ID } from '@/commands/askCommand'
-import { type CommandWording, commandWording, commands } from '@/commands/registry'
+import { type CommandWording, commands, commandWording } from '@/commands/registry'
 import { CommandGroup, CommandItem } from '@/components/ui/command'
 import { useDict } from '@/lib/app/useDict'
 import { chordLabel, useBindings } from '@/lib/keyboard/chords'

@@ -1,4 +1,3 @@
-import { type Point, dragRegion } from '@/lib/browser/regionSelect'
 import type { PickBox } from '@shared/browser/pick'
 import { REGION_MIN, type RegionView } from '@shared/browser/regionCapture'
 import {
@@ -8,6 +7,7 @@ import {
   useRef,
   useState,
 } from 'react'
+import { dragRegion, type Point } from '@/lib/browser/regionSelect'
 
 export interface RegionCropOverlayProps {
   label: string

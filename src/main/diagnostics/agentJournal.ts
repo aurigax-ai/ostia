@@ -1,11 +1,11 @@
 import {
+  budgetBreach,
   MAIL_LEASE_TIMEOUT,
   OVER_BUDGET,
   READBACK_CODES,
   READBACK_MISMATCH,
-  WAKE_NOT_READY,
-  budgetBreach,
   verbCode,
+  WAKE_NOT_READY,
 } from '../../shared/agents/agentIssues'
 import type { AppLog } from './appLog'
 

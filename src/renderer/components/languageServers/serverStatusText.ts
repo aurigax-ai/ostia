@@ -1,6 +1,6 @@
-import { fmt } from '@/lib/app/useDict'
 import type { LanguageServerInfo } from '@aurigax-ai/ostia-extension-sdk/contract/languageServers'
 import type { Dict } from '@shared/app/dict'
+import { fmt } from '@/lib/app/useDict'
 
 function failureReason(d: Dict, server: LanguageServerInfo): string {
   if (!server.failure) return ''

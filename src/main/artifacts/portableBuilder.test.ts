@@ -5,7 +5,7 @@ import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
 import type { PreviewTheme } from '../../shared/artifacts/htmlPreview'
 import { PORTABLE_CSP } from '../../shared/artifacts/portable'
-import { PortableBuilder, failedDocument, missingRuntimePackages } from './portableBuilder'
+import { failedDocument, missingRuntimePackages, PortableBuilder } from './portableBuilder'
 import type { Bundler } from './portableBundle'
 import type { PreviewSource } from './previewFiles'
 

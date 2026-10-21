@@ -3,8 +3,8 @@ import type {
   LspSessionInfo,
 } from '@aurigax-ai/ostia-extension-sdk/contract/languageServers'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { type ServerEndpoint, createServerEndpoint } from '../../../../test/mocks/lspTransport'
-import { FakeModel, createFakeMonaco } from '../../../../test/mocks/monaco'
+import { createServerEndpoint, type ServerEndpoint } from '../../../../test/mocks/lspTransport'
+import { createFakeMonaco, FakeModel } from '../../../../test/mocks/monaco'
 
 const fake = createFakeMonaco()
 const applyBuiltin = vi.fn()

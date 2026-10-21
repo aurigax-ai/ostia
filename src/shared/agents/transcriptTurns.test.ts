@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import {
-  TRANSCRIPT_OUT_MAX,
-  TRANSCRIPT_TOOL_MAX,
   claudeTurns,
   codexTurns,
   renderTurns,
+  TRANSCRIPT_OUT_MAX,
+  TRANSCRIPT_TOOL_MAX,
 } from './transcriptTurns'
 
 const lines = (...entries: object[]) => entries.map((entry) => JSON.stringify(entry))

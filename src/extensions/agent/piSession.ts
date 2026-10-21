@@ -10,14 +10,14 @@ import type {
 import { InMemoryCredentialStore, Type } from '@earendil-works/pi-ai'
 import {
   type AgentSession,
+  createAgentSession,
+  createExtensionRuntime,
+  defineTool,
   ModelRuntime,
   type ResourceLoader,
   SessionManager,
   SettingsManager,
   type ToolDefinition,
-  createAgentSession,
-  createExtensionRuntime,
-  defineTool,
 } from '@earendil-works/pi-coding-agent'
 import { agentSystemPrompt } from './systemPrompt'
 

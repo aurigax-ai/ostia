@@ -1,6 +1,3 @@
-import { TooltipProvider } from '@/components/ui/tooltip'
-import { useLanguageServersStore } from '@/stores/extensions/languageServersStore'
-import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import type { ExtensionInfo } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import type {
   LanguageServerInfo,
@@ -9,6 +6,9 @@ import type {
 import { cleanup, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import { TooltipProvider } from '@/components/ui/tooltip'
+import { useLanguageServersStore } from '@/stores/extensions/languageServersStore'
+import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import { LanguageServerRows } from './LanguageServerRows'
 
 function server(extra: Partial<LanguageServerInfo> = {}): LanguageServerInfo {

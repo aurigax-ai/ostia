@@ -1,3 +1,8 @@
+import type {
+  LanguageServerInfo,
+  LanguageServerOverrideProblem,
+} from '@aurigax-ai/ostia-extension-sdk/contract/languageServers'
+import { type FormEvent, useId, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -12,11 +17,6 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { fmt, useDict } from '@/lib/app/useDict'
 import { useLanguageServersStore } from '@/stores/extensions/languageServersStore'
-import type {
-  LanguageServerInfo,
-  LanguageServerOverrideProblem,
-} from '@aurigax-ai/ostia-extension-sdk/contract/languageServers'
-import { type FormEvent, useId, useState } from 'react'
 
 function programArguments(text: string): string[] {
   return text

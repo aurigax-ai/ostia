@@ -21,20 +21,20 @@ import { isRecord } from '@aurigax-ai/ostia-extension-sdk/contract/isRecord'
 import type { CancellationToken, MessageConnection } from 'vscode-jsonrpc/node'
 import { quoteArgv } from '../../shared/terminal/shellQuote'
 import {
-  REACHED_PANES_MAX,
   agentName,
   agentPrompt,
   agentTaskLimiter,
   continueCommand,
   offerLabel,
   offerText,
+  REACHED_PANES_MAX,
   workspaceFolder,
   workspaceIdOf,
 } from '../agents/extensionAgents'
 import { type PaneIdentity, resolveExternal } from '../control/idRegistry'
 import { spawnFolder } from '../terminal/spawnCwd'
 import type { ExtensionHostDeps } from './extensionHostDeps'
-import { type Runtime, fail } from './extensionRuntime'
+import { fail, type Runtime } from './extensionRuntime'
 
 function hasControlChar(text: string): boolean {
   for (let i = 0; i < text.length; i++) {

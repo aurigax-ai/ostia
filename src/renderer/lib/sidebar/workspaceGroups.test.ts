@@ -1,11 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import {
-  type Groupable,
-  type Grouping,
-  type WorkspaceGroup,
   applyDrop,
   createGroup,
   deleteGroup,
+  type Groupable,
+  type Grouping,
   insertWorkspace,
   joinGroup,
   leaveGroup,
@@ -15,6 +14,7 @@ import {
   patchGroup,
   pinWorkspace,
   toBlocks,
+  type WorkspaceGroup,
 } from './workspaceGroups'
 
 const group = (id: string, extra: Partial<WorkspaceGroup> = {}): WorkspaceGroup => ({

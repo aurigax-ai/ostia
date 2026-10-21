@@ -1,16 +1,16 @@
+import type { UseChatHelpers } from '@ai-sdk/react'
+import type { ChatContextItem } from '@aurigax-ai/ostia-extension-sdk/contract/assist'
+import { useEffect, useMemo, useState } from 'react'
 import {
   ASK_CONTEXT_ORDER,
   type AskContextKind,
   askContextOptions,
   liveSelectionContext,
 } from '@/lib/assist/askContext'
-import { redactOutgoing, redactedCount } from '@/lib/assist/chatRedaction'
+import { redactedCount, redactOutgoing } from '@/lib/assist/chatRedaction'
 import { parseSlash } from '@/lib/assist/chatSlash'
 import type { OstiaChatMessage } from '@/lib/assist/chatTransport'
 import { nameSession, useChatStore } from '@/stores/assist/chatStore'
-import type { UseChatHelpers } from '@ai-sdk/react'
-import type { ChatContextItem } from '@aurigax-ai/ostia-extension-sdk/contract/assist'
-import { useEffect, useMemo, useState } from 'react'
 import type { ChatContext } from './useChatContext'
 import type { SlashCard } from './useChatSlash'
 

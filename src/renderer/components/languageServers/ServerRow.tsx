@@ -1,12 +1,3 @@
-import { IconButton } from '@/components/common/IconButton'
-import { useRequirements } from '@/components/settings/RequirementsNote'
-import { ControlRow } from '@/components/settingsKit/ControlRow'
-import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
-import { Switch } from '@/components/ui/switch'
-import { fmt, useDict } from '@/lib/app/useDict'
-import { useLanguageServersStore } from '@/stores/extensions/languageServersStore'
-import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import type {
   LanguageServerInfo,
   LanguageServerStatus,
@@ -19,6 +10,15 @@ import {
   WrenchIcon,
 } from '@phosphor-icons/react'
 import { useState } from 'react'
+import { IconButton } from '@/components/common/IconButton'
+import { useRequirements } from '@/components/settings/RequirementsNote'
+import { ControlRow } from '@/components/settingsKit/ControlRow'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Switch } from '@/components/ui/switch'
+import { fmt, useDict } from '@/lib/app/useDict'
+import { useLanguageServersStore } from '@/stores/extensions/languageServersStore'
+import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import { ServerLogDialog } from './ServerLogDialog'
 import { ServerProgramDialog } from './ServerProgramDialog'
 import { binaryNote, sandboxReason, statusLabel } from './serverStatusText'

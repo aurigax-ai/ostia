@@ -1,4 +1,3 @@
-import { isMac } from '@/platform'
 import {
   FitAddon,
   Ghostty,
@@ -11,6 +10,7 @@ import {
 } from '@aurigax-ai/ghostty-web'
 import wasmDataUrl from '@aurigax-ai/ghostty-web/ghostty-vt.wasm?inline'
 import type { ILinkProvider } from '@xterm/xterm'
+import { isMac } from '@/platform'
 import { type GpuSlot, gpuBudget } from './gpuBudget'
 import type {
   OstiaTerminal,

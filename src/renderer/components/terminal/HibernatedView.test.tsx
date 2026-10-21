@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 
 import { commands } from '@/commands/registry'
-import { RESUME_CLAIM_MS, claimResume, clearResumeClaims } from '@/lib/agents/resumeFolder'
+import { claimResume, clearResumeClaims, RESUME_CLAIM_MS } from '@/lib/agents/resumeFolder'
 import { findPane } from '@/lib/layout/tree'
 import type { PaneNode } from '@/lib/layout/types'
 import * as blockActions from '@/lib/terminal/blockActions'

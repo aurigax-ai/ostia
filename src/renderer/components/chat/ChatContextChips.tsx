@@ -1,9 +1,3 @@
-import { PromptInputHeader } from '@/components/ai-elements/prompt-input'
-import { Button } from '@/components/ui/button'
-import { fmt, useDict } from '@/lib/app/useDict'
-import type { AskContextKind } from '@/lib/assist/askContext'
-import { baseName } from '@/lib/files/fileTree'
-import { useChatStore } from '@/stores/assist/chatStore'
 import type { ChatContextItem } from '@aurigax-ai/ostia-extension-sdk/contract/assist'
 import {
   FileIcon,
@@ -15,6 +9,12 @@ import {
   TextAlignLeftIcon,
 } from '@phosphor-icons/react'
 import type { RefObject } from 'react'
+import { PromptInputHeader } from '@/components/ai-elements/prompt-input'
+import { Button } from '@/components/ui/button'
+import { fmt, useDict } from '@/lib/app/useDict'
+import type { AskContextKind } from '@/lib/assist/askContext'
+import { baseName } from '@/lib/files/fileTree'
+import { useChatStore } from '@/stores/assist/chatStore'
 import { AttachmentChips, ChatContextPicker } from './ChatContextPicker'
 import type { ChatContext } from './useChatContext'
 import { focusAtEnd } from './useChatFocus'

@@ -1,3 +1,5 @@
+import type { ExtensionInfo } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
+import { useEffect, useLayoutEffect, useRef } from 'react'
 import { PanelToolbar } from '@/components/app/PanelToolbar'
 import { EmptyState } from '@/components/common/EmptyState'
 import { PanelResizer } from '@/components/common/PanelResizer'
@@ -6,16 +8,14 @@ import { GitView } from '@/components/git/GitView'
 import { Button } from '@/components/ui/button'
 import { fmt, useDict } from '@/lib/app/useDict'
 import { GIT_PANEL_ID } from '@/lib/git/gitPanel'
-import { type PanelInstance, instanceKey, sameInstance } from '@/lib/panes/panelKeepAlive'
+import { instanceKey, type PanelInstance, sameInstance } from '@/lib/panes/panelKeepAlive'
 import { rightPanelWidth } from '@/lib/panes/panelWidth'
-import { RIGHT_PANEL_ID, hideRightPanel, rightFocusKey } from '@/lib/panes/rightPanelFocus'
+import { hideRightPanel, RIGHT_PANEL_ID, rightFocusKey } from '@/lib/panes/rightPanelFocus'
 import { useSandboxStore } from '@/stores/app/sandboxStore'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useSidePanelStore } from '@/stores/app/sidePanelStore'
 import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
-import type { ExtensionInfo } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
-import { useEffect, useLayoutEffect, useRef } from 'react'
 
 function hasPanel(ext: ExtensionInfo): boolean {
   return ext.enabled && ext.panel !== null
@@ -32,7 +32,10 @@ function useInert<T extends HTMLElement>(inert: boolean): React.RefObject<T> {
 function PanelSlot({
   shown,
   children,
-}: { shown: boolean; children: React.ReactNode }): JSX.Element {
+}: {
+  shown: boolean
+  children: React.ReactNode
+}): JSX.Element {
   const ref = useInert<HTMLDivElement>(!shown)
   return (
     <div ref={ref} className="right-panel-slot" data-hidden={shown ? undefined : ''}>

@@ -1,17 +1,17 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { installLocalStorage } from '../../../../test/mocks/memoryStorage'
 import {
-  FILES_WIDTH,
-  PANEL_KEY_STEP,
-  RAIL_WIDTH,
   applyStoredPanelWidths,
   clampPanelWidth,
+  FILES_WIDTH,
+  PANEL_KEY_STEP,
   panelDragResult,
   panelKeyWidth,
   panelMaxWidth,
+  RAIL_WIDTH,
   rightPanelWidth,
-  storePanelWidth,
   storedPanelWidth,
+  storePanelWidth,
 } from './panelWidth'
 
 const WIDE = 1600

@@ -1,3 +1,11 @@
+import {
+  FileDashedIcon,
+  FlaskIcon,
+  QuestionIcon,
+  RobotIcon,
+  TerminalWindowIcon,
+} from '@phosphor-icons/react'
+import type { Dict } from '@shared/app/dict'
 import { ListRow } from '@/components/common/ListRow'
 import { TextLink } from '@/components/common/TextLink'
 import { Button } from '@/components/ui/button'
@@ -11,20 +19,12 @@ import {
 } from '@/components/ui/dialog'
 import { fmt, useDict } from '@/lib/app/useDict'
 import { baseName } from '@/lib/files/fileTree'
-import { type QuitLosses, keptRunning, quitLosses } from '@/lib/workspaces/closeConfirm'
+import { keptRunning, type QuitLosses, quitLosses } from '@/lib/workspaces/closeConfirm'
 import {
   type CloseConfirmKind,
   type RunningGroup,
   useCloseConfirmStore,
 } from '@/stores/workspaces/closeConfirmStore'
-import {
-  FileDashedIcon,
-  FlaskIcon,
-  QuestionIcon,
-  RobotIcon,
-  TerminalWindowIcon,
-} from '@phosphor-icons/react'
-import type { Dict } from '@shared/app/dict'
 
 const WRAP = 'block min-w-0 whitespace-normal [overflow-wrap:anywhere]'
 

@@ -1,11 +1,11 @@
 import { isAbsolute, resolve } from 'node:path'
 import {
   type CommandHandler,
+  cliArgs,
   type ExtensionCaller,
   type ExtensionResult,
-  type OstiaExtension,
-  cliArgs,
   failure,
+  type OstiaExtension,
   ok,
   parseFlags,
 } from '@aurigax-ai/ostia-extension-sdk'

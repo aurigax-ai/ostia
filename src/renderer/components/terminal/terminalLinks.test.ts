@@ -1,6 +1,6 @@
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { openBrowserAs, openBrowserTabAs } from '@/lib/browser/browserProfile'
 import type { OstiaTerminal } from '@/lib/terminal/ostiaTerminal'
-import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createTerminalLinks } from './terminalLinks'
 import type { TerminalSession } from './terminalSession'
 

@@ -1,15 +1,15 @@
+import { useEffect, useState } from 'react'
 import { CommandGroup, CommandItem } from '@/components/ui/command'
 import { useDict } from '@/lib/app/useDict'
 import { openFileAt } from '@/lib/files/openFile'
 import {
-  SYMBOL_SEARCH_DELAY_MS,
-  type WorkspaceSymbolResult,
   findWorkspaceSymbols,
+  SYMBOL_SEARCH_DELAY_MS,
   symbolPlace,
+  type WorkspaceSymbolResult,
 } from '@/lib/files/workspaceSymbolSearch'
 import { symbolOf } from '@/lib/palette/paletteModes'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
-import { useEffect, useState } from 'react'
 import { ItemRow } from './PaletteItemRow'
 import { GROUP_CLASS } from './paletteClasses'
 

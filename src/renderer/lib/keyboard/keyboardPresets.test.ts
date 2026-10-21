@@ -2,8 +2,8 @@ import { parseChord } from '@shared/keyboard/chordSpec'
 import { describe, expect, it } from 'vitest'
 import {
   KEYBOARD_PLATFORMS,
-  TERMINAL_KEYMAPS,
   keyboardPlatform,
+  TERMINAL_KEYMAPS,
   terminalKeymapIn,
   terminalKeymapKeys,
   terminalKeymapsFor,

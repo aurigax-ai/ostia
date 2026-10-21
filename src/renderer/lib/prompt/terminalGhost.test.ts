@@ -1,9 +1,9 @@
-import type { CommandBlock } from '@/stores/terminal/blocksStore'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import type { CommandBlock } from '@/stores/terminal/blocksStore'
 import {
+  aiContinuation,
   GHOST_DEBOUNCE_MS,
   type GhostBlockers,
-  aiContinuation,
   ghostEligible,
   ghostRequester,
   pickGhost,

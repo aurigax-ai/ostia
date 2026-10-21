@@ -1,7 +1,7 @@
 import {
+  cliArgs,
   type ExtensionCaller,
   type ExtensionResult,
-  cliArgs,
   failure,
   namedArgs,
   ok,

@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import {
+  clampContrast,
+  clampScrollback,
+  clampScrollSpeed,
   DEFAULT_PANE_SETTINGS,
   DEFAULT_TERMINAL_SETTINGS,
-  clampContrast,
-  clampScrollSpeed,
-  clampScrollback,
   parsePaneSettings,
   parseTerminalSettings,
 } from './terminalPaneSettings'

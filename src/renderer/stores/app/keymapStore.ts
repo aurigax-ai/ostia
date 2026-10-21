@@ -1,6 +1,3 @@
-import { OSTIA_KEYMAP } from '@/lib/keyboard/keyboardPresets'
-import { platform } from '@/platform'
-import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
 import type { ExtensionInfo } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import {
   type KeymapInfo,
@@ -9,6 +6,9 @@ import {
 } from '@aurigax-ai/ostia-extension-sdk/contract/keymap'
 import type { LoadedKeymap } from '@shared/keyboard/keymapFile'
 import { create } from 'zustand'
+import { OSTIA_KEYMAP } from '@/lib/keyboard/keyboardPresets'
+import { platform } from '@/platform'
+import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
 import { useSettingsStore } from './settingsStore'
 
 export interface KeymapChoice {

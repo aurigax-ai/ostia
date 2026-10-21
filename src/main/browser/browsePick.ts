@@ -3,6 +3,9 @@ import { join } from 'node:path'
 import { PRODUCT_NAME } from '@aurigax-ai/ostia-extension-sdk/contract/product'
 import { ipcMain } from 'electron'
 import {
+  clip,
+  nextPickReportNumber,
+  normalizeCapture,
   PICK_NOTE_MAX,
   type PickCapture,
   type PickOutcome,
@@ -10,12 +13,9 @@ import {
   type PickSendResult,
   type PickState,
   type PickTheme,
-  type RawPick,
-  clip,
-  nextPickReportNumber,
-  normalizeCapture,
   pickBusMessage,
   pickReportName,
+  type RawPick,
   renderPickReport,
   screenshotRect,
 } from '../../shared/browser/pick'

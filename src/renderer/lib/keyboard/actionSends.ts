@@ -1,4 +1,4 @@
-import { type TerminalSend, sendData } from './terminalKeys'
+import { sendData, type TerminalSend } from './terminalKeys'
 
 const hex = (value: string): TerminalSend => ({ type: 'hex', value })
 

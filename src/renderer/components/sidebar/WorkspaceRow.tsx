@@ -1,5 +1,6 @@
+import { ArrowSquareInIcon, ArrowsMergeIcon } from '@phosphor-icons/react'
 import { RenameInput } from '@/components/common/RenameInput'
-import { WorkspaceBadges, useWorkspaceFlags } from '@/components/sidebar/WorkspaceBadges'
+import { useWorkspaceFlags, WorkspaceBadges } from '@/components/sidebar/WorkspaceBadges'
 import { WorkspaceIcon } from '@/components/sidebar/WorkspaceIcon'
 import { ContextMenu, ContextMenuTrigger } from '@/components/ui/context-menu'
 import { Kbd } from '@/components/ui/kbd'
@@ -12,20 +13,19 @@ import { workspaceTitle } from '@/lib/workspaces/workspaceTitle'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useUIStore } from '@/stores/app/uiStore'
 import { useRailEditStore } from '@/stores/workspaces/railEditStore'
-import type { Workspace } from '@/stores/workspaces/workspaceTypes'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
-import { ArrowSquareInIcon, ArrowsMergeIcon } from '@phosphor-icons/react'
+import type { Workspace } from '@/stores/workspaces/workspaceTypes'
 import { RailTab } from './RailTab'
-import { WorkspaceDetails } from './WorkspaceDetails'
-import { WorkspaceMenu } from './WorkspaceMenu'
 import {
   type DragHandlers,
-  type TabDropHandlers,
-  WORKSPACE_DND,
   dragFraction,
   isRailDrag,
+  type TabDropHandlers,
   takesDraggedTab,
+  WORKSPACE_DND,
 } from './railDrag'
+import { WorkspaceDetails } from './WorkspaceDetails'
+import { WorkspaceMenu } from './WorkspaceMenu'
 
 export function WorkspaceRow({
   workspace: w,

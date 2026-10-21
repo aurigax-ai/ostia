@@ -1,11 +1,11 @@
+import { PlusIcon, XIcon } from '@phosphor-icons/react'
+import type { ScriptTokensState } from '@shared/permissions/scriptTokens'
 import { DropdownMenu, MenuItem, MenuLabel } from '@/components/common/Menu'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { ContextMenuGroup } from '@/components/ui/context-menu'
 import { Label } from '@/components/ui/label'
 import { fmt, useDict } from '@/lib/app/useDict'
-import { PlusIcon, XIcon } from '@phosphor-icons/react'
-import type { ScriptTokensState } from '@shared/permissions/scriptTokens'
 import { GroupDot } from './TokenSummary'
 import { groupSize } from './tokenScope'
 

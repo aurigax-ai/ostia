@@ -1,9 +1,9 @@
-import { useSettingsStore } from '@/stores/app/settingsStore'
-import { startUpdateWatch, useUpdateStore } from '@/stores/app/updateStore'
 import type { ReleaseState } from '@shared/app/installMethod'
 import type { ReleaseCheckResult } from '@shared/app/releases'
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import { useSettingsStore } from '@/stores/app/settingsStore'
+import { startUpdateWatch, useUpdateStore } from '@/stores/app/updateStore'
 import { UpdateCheck } from './UpdateCheck'
 
 const RELEASE = {

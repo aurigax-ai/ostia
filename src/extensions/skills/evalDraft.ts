@@ -1,4 +1,4 @@
-import { CASES_PER_RULE_MAX, CASE_PATTERN_MAX, type CaseInput, parseCaseInput } from './evalCase'
+import { CASE_PATTERN_MAX, CASES_PER_RULE_MAX, type CaseInput, parseCaseInput } from './evalCase'
 
 const DRAFT_CASES_MAX = 3
 

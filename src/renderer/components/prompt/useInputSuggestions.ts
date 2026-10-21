@@ -1,3 +1,5 @@
+import type { CommandSuggestion } from '@aurigax-ai/ostia-extension-sdk/contract/assist'
+import { type Dispatch, type SetStateAction, useEffect, useRef, useState } from 'react'
 import { latestRequest, naturalCommandQuery } from '@/lib/assist/assistComposer'
 import {
   type AssistFeatureRef,
@@ -9,9 +11,9 @@ import { everyChip, promptExtensionChips } from '@/lib/extensions/extensionChips
 import { rankedSuggestion } from '@/lib/prompt/historyRank'
 import {
   type AiGhost,
+  chipContext,
   type Ghost,
   type GhostBlockers,
-  chipContext,
   ghostBlocked,
   ghostEligible,
   ghostRequester,
@@ -23,8 +25,6 @@ import { platform } from '@/platform'
 import { assistRequest, useAssistProvider } from '@/stores/assist/assistStore'
 import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
 import { type CommandBlock, useBlocksStore } from '@/stores/terminal/blocksStore'
-import type { CommandSuggestion } from '@aurigax-ai/ostia-extension-sdk/contract/assist'
-import { type Dispatch, type SetStateAction, useEffect, useRef, useState } from 'react'
 import type { InputDraft, Menu } from './useInputDraft'
 import type { InputHistory } from './useInputHistory'
 

@@ -1,3 +1,11 @@
+import {
+  isRemotePath,
+  type RemoteFileError,
+} from '@aurigax-ai/ostia-extension-sdk/contract/remoteFolders'
+import { isArchivePath } from '@shared/archives/archivePaths'
+import { isInside, isPadPath } from '@shared/artifacts/artifacts'
+import { isPreviewPath } from '@shared/artifacts/htmlPreview'
+import { useEffect, useRef, useState } from 'react'
 import { externalEditorError, openPaneInExternalEditor } from '@/commands/externalEditor'
 import { useSelectionSend } from '@/components/agents/SelectionSend'
 import { useReducedMotion } from '@/lib/app/motion'
@@ -9,16 +17,8 @@ import type { monaco } from '@/lib/monaco/setup'
 import { useSurfaceFocus } from '@/lib/panes/paneFocus'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useOpenWaitsStore } from '@/stores/files/openWaitsStore'
-import {
-  type RemoteFileError,
-  isRemotePath,
-} from '@aurigax-ai/ostia-extension-sdk/contract/remoteFolders'
-import { isArchivePath } from '@shared/archives/archivePaths'
-import { isInside, isPadPath } from '@shared/artifacts/artifacts'
-import { isPreviewPath } from '@shared/artifacts/htmlPreview'
-import { useEffect, useRef, useState } from 'react'
-import { type PreviewSelection, isMarkdownPath } from './MarkdownPreview'
 import type { DiskBar, ReloadFromDisk } from './editorDiskSync'
+import { isMarkdownPath, type PreviewSelection } from './MarkdownPreview'
 import { sendSelection, useEditorActions } from './useEditorActions'
 import { type Blocked, useEditorFile } from './useEditorFile'
 import { useEditorOptions } from './useEditorOptions'

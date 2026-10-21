@@ -1,8 +1,8 @@
+import { CHAT_CONTEXT_TEXT_MAX } from '@aurigax-ai/ostia-extension-sdk/contract/assist'
+import { type RefObject, useEffect } from 'react'
 import { addToAgentPane } from '@/lib/agent/agentPane'
 import { fmt, useDict } from '@/lib/app/useDict'
 import { setAssistFeature, useAssistFeature } from '@/lib/assist/assistFeatures'
-import { CHAT_CONTEXT_TEXT_MAX } from '@aurigax-ai/ostia-extension-sdk/contract/assist'
-import { type RefObject, useEffect } from 'react'
 import type { monaco } from './setup'
 
 const ASSIST_COMPLETIONS_ACTION_ID = 'ostia.assist.toggleEditorCompletions'

@@ -1,8 +1,8 @@
-import { Badge } from '@/components/ui/badge'
-import { Combobox, ComboboxInput } from '@/components/ui/combobox'
 import { render } from '@testing-library/react'
 import { createRef } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { Badge } from '@/components/ui/badge'
+import { Combobox, ComboboxInput } from '@/components/ui/combobox'
 import { Hint } from './Hint'
 
 describe('ui components used as Base UI triggers', () => {

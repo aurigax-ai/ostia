@@ -1,3 +1,5 @@
+import type { ExtensionSidebarItem } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
+import { useLayoutEffect, useRef, useState } from 'react'
 import { Hint } from '@/components/common/Hint'
 import { extensionIcon } from '@/components/extensions/extensionIcons'
 import { Badge } from '@/components/ui/badge'
@@ -7,8 +9,6 @@ import { fitCount, shortenPath } from '@/lib/sidebar/railMeta'
 import { openSidebarUrl, visibleSidebarItems } from '@/lib/sidebar/sidebarItems'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
-import type { ExtensionSidebarItem } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
-import { useLayoutEffect, useRef, useState } from 'react'
 
 const itemKey = (item: ExtensionSidebarItem): string => `${item.extId}:${item.key}`
 
@@ -100,7 +100,7 @@ export function LocationLine({
     if (!el || !path) return
     const measure = (): void => {
       const span = el.querySelector<HTMLElement>('.rail-meta-path')
-      if (!span || !span.textContent) return
+      if (!span?.textContent) return
       const charWidth = span.scrollWidth / span.textContent.length
       if (!charWidth) return
       let budget = el.clientWidth

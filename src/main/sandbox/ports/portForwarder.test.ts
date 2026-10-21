@@ -1,10 +1,10 @@
 import { mkdtempSync, rmSync } from 'node:fs'
-import { type Server, type Socket, connect, createServer } from 'node:net'
+import { connect, createServer, type Server, type Socket } from 'node:net'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { holdPort } from '../../../../test/heldPort'
-import { PortBridge, controlSocketName, dataSocketName } from './portBridge'
+import { controlSocketName, dataSocketName, PortBridge } from './portBridge'
 import { PortForwarder, type SandboxListener, type SandboxPane } from './portForwarder'
 
 let dir: string

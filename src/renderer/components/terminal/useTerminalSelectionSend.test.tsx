@@ -1,8 +1,8 @@
 import '@testing-library/jest-dom/vitest'
-import { openSelectionSend } from '@/lib/agents/selectionSenders'
-import type { OstiaTerminal } from '@/lib/terminal/ostiaTerminal'
 import { act, cleanup, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it } from 'vitest'
+import { openSelectionSend } from '@/lib/agents/selectionSenders'
+import type { OstiaTerminal } from '@/lib/terminal/ostiaTerminal'
 import { useTerminalSelectionSend } from './useTerminalSelectionSend'
 
 function Host(): JSX.Element {

@@ -4,9 +4,9 @@ import type { ClipboardContents } from '../../shared/app/appApi'
 import {
   type ClipboardChords,
   type ClipboardEdit,
-  NO_CLIPBOARD_CHORDS,
   guestClipboardEdit,
   isClipboardEdit,
+  NO_CLIPBOARD_CHORDS,
   normalizeClipboardChords,
 } from '../../shared/keyboard/clipboardChords'
 import type { GuestRemap } from '../browser/guestRemap'

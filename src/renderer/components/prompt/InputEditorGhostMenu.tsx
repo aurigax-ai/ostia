@@ -1,9 +1,9 @@
+import { ClipboardTextIcon, CopyIcon } from '@phosphor-icons/react'
 import { MenuCheckboxItem, MenuContent, MenuItem } from '@/components/common/Menu'
 import { ContextMenu, ContextMenuSeparator, ContextMenuTrigger } from '@/components/ui/context-menu'
 import { useDict } from '@/lib/app/useDict'
 import { type AssistFeatureRef, setAssistFeature } from '@/lib/assist/assistFeatures'
 import { planDraftPaste } from '@/lib/keyboard/pasteGate'
-import { ClipboardTextIcon, CopyIcon } from '@phosphor-icons/react'
 
 export function InputEditorGhostMenu({
   ghostFeature,

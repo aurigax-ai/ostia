@@ -3,7 +3,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync }
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { type Tailnet, type TailnetState, createTailnet, tailnetNodeName } from './tailnet'
+import { createTailnet, type Tailnet, type TailnetState, tailnetNodeName } from './tailnet'
 
 const root = resolve(__dirname, '../../..')
 const fakeHelper = join(root, 'test', 'fixtures', 'tsnet', 'fake-helper.mjs')

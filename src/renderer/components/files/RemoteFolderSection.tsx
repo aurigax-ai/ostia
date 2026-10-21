@@ -1,13 +1,13 @@
-import { Hint } from '@/components/common/Hint'
-import { IconButton } from '@/components/common/IconButton'
-import { Badge } from '@/components/ui/badge'
-import { fmt, useDict } from '@/lib/app/useDict'
 import {
   type RemoteFolder,
   remotePath,
 } from '@aurigax-ai/ostia-extension-sdk/contract/remoteFolders'
 import { ArrowClockwiseIcon, CaretRightIcon, XIcon } from '@phosphor-icons/react'
 import { useState } from 'react'
+import { Hint } from '@/components/common/Hint'
+import { IconButton } from '@/components/common/IconButton'
+import { Badge } from '@/components/ui/badge'
+import { fmt, useDict } from '@/lib/app/useDict'
 import { FileTree } from './FileTree'
 import { type TreeFocus, useTreeContext } from './fileTreeContext'
 import { useFolderDrop } from './fileTreeRows'

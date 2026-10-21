@@ -1,13 +1,13 @@
 import { type FontWeight, type ITerminalOptions, Terminal as Xterm } from '@xterm/xterm'
 import '@xterm/xterm/css/xterm.css'
+import { Unicode11Addon } from '@xterm/addon-unicode11'
+import { type RefObject, useEffect } from 'react'
 import { matchChordInTerminal } from '@/lib/keyboard/chords'
 import { smartClipboardAction } from '@/lib/keyboard/clipboardKeys'
 import { currentScheme, terminalTheme, useScheme } from '@/lib/theme/colorScheme'
 import { terminalFontStack } from '@/lib/theme/uiFonts'
 import { isMac } from '@/platform'
 import { useSettingsStore } from '@/stores/app/settingsStore'
-import { Unicode11Addon } from '@xterm/addon-unicode11'
-import { type RefObject, useEffect } from 'react'
 
 export type ReadOnlyTerminal = Xterm
 

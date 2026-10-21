@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from 'react'
 import { isPaneVisible } from '@/lib/attention/workspaceActivity'
 import { keyboardPaneId } from '@/lib/layout/focusDirection'
 import { guestReached } from '@/lib/panes/guestReached'
@@ -7,7 +8,6 @@ import {
   retryPendingFocus,
   setFocusTarget,
 } from '@/stores/workspaces/surfaceSlotsStore'
-import { useEffect, useRef, useState } from 'react'
 
 export function focusPaneWhenReady(paneId: string): void {
   focusSurfaceWhenReady(paneId, () => isPaneVisible(paneId))

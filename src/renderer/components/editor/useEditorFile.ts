@@ -1,15 +1,15 @@
+import {
+  isRemotePath,
+  type RemoteFileError,
+} from '@aurigax-ai/ostia-extension-sdk/contract/remoteFolders'
+import type { ArchiveEntryProblem, FsTextResult } from '@shared/files/filesApi'
+import { type MutableRefObject, useEffect } from 'react'
 import { REMOTE_POLL_MS } from '@/lib/files/remoteFileSync'
 import { openDocument } from '@/lib/lsp/client'
 import { fileFeatureOptions, isLargeModel } from '@/lib/monaco/largeFile'
 import { monaco } from '@/lib/monaco/setup'
 import { useEditorRevealStore } from '@/stores/files/editorRevealStore'
 import { useEditorStatus } from '@/stores/files/editorStatusStore'
-import {
-  type RemoteFileError,
-  isRemotePath,
-} from '@aurigax-ai/ostia-extension-sdk/contract/remoteFolders'
-import type { ArchiveEntryProblem, FsTextResult } from '@shared/files/filesApi'
-import { type MutableRefObject, useEffect } from 'react'
 import type { DiskBar } from './editorDiskSync'
 import {
   createTrackedModel,

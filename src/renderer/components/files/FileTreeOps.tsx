@@ -1,3 +1,15 @@
+import {
+  CaretRightIcon,
+  ClipboardIcon,
+  CopyIcon,
+  CopySimpleIcon,
+  FilePlusIcon,
+  FolderPlusIcon,
+  PencilSimpleIcon,
+  ScissorsIcon,
+  TrashIcon,
+} from '@phosphor-icons/react'
+import { type KeyboardEvent, useState } from 'react'
 import { MenuItem } from '@/components/common/Menu'
 import { Notice } from '@/components/common/Notice'
 import {
@@ -15,27 +27,15 @@ import { Input } from '@/components/ui/input'
 import { fmt, useDict } from '@/lib/app/useDict'
 import { baseName, parentOf } from '@/lib/files/fileTree'
 import {
-  type TreeEditError,
   copyInto,
   createEntry,
   pasteInto,
   renameEntry,
+  type TreeEditError,
   trashEntries,
 } from '@/lib/files/fileTreeActions'
 import { isMac } from '@/platform'
 import { type TreeEdit, useFileTreeStore } from '@/stores/files/fileTreeStore'
-import {
-  CaretRightIcon,
-  ClipboardIcon,
-  CopyIcon,
-  CopySimpleIcon,
-  FilePlusIcon,
-  FolderPlusIcon,
-  PencilSimpleIcon,
-  ScissorsIcon,
-  TrashIcon,
-} from '@phosphor-icons/react'
-import { type KeyboardEvent, useState } from 'react'
 
 export function FileOpsMenuItems({
   workspaceId,

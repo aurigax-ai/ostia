@@ -2,7 +2,7 @@ import { constants, type Dirent, type Stats } from 'node:fs'
 import { lstat, open, readdir, realpath, stat } from 'node:fs/promises'
 import { isAbsolute, join, relative, resolve, sep } from 'node:path'
 import { expandHome, resolveSafe } from '../platform/pathGuard'
-import { HOME_HIDDEN_FILES, WORKDIR_HIDDEN_FILES, folderProblem } from '../sandbox/srtConfig'
+import { folderProblem, HOME_HIDDEN_FILES, WORKDIR_HIDDEN_FILES } from '../sandbox/srtConfig'
 import { type SandboxReadRules, visibleInSandbox } from '../sandbox/visibility'
 
 const FS_READ_MAX_BYTES = 256 * 1024

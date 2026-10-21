@@ -1,3 +1,4 @@
+import { XIcon } from '@phosphor-icons/react'
 import { IconButton } from '@/components/common/IconButton'
 import { SettingsList } from '@/components/settingsKit/SettingsList'
 import { SettingsListRow } from '@/components/settingsKit/SettingsListRow'
@@ -7,7 +8,6 @@ import { viewIcon } from '@/components/views/viewIcons'
 import { fmt, useDict } from '@/lib/app/useDict'
 import { actionFingerprint } from '@/lib/settings/actions'
 import { useSettingsStore } from '@/stores/app/settingsStore'
-import { XIcon } from '@phosphor-icons/react'
 
 export function ActionsSection(): JSX.Element {
   const d = useDict()

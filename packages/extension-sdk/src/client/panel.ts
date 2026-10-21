@@ -1,7 +1,7 @@
 import {
   type LocaleCatalogs,
-  type Translate,
   localized,
+  type Translate,
   translatorFor,
 } from '../contract/extensionLocales'
 import type { ExtensionResult, PanelToolbarState } from '../contract/extensions'

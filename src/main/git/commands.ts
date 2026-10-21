@@ -19,7 +19,6 @@ import {
 } from '../../shared/boards/git'
 import { expandHome } from '../platform/pathGuard'
 import {
-  RepoError,
   blame,
   branchRefs,
   commit,
@@ -30,6 +29,7 @@ import {
   graphLog,
   log,
   pickChange,
+  RepoError,
   readStatus,
   repoRelative,
   stage,

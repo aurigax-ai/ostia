@@ -1,3 +1,5 @@
+import type { AttentionState } from '@shared/attention/attention'
+import { useSyncExternalStore } from 'react'
 import { type FocusDirection, paneInDirection } from '@/lib/layout/focusDirection'
 import { adjacentTab, findPane, isPaneShown, paneIds } from '@/lib/layout/tree'
 import { latestRemoteUnread } from '@/lib/workspaces/windowWorkspaces'
@@ -8,13 +10,11 @@ import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { focusSurface } from '@/stores/workspaces/surfaceSlotsStore'
 import { useWindowsStore } from '@/stores/workspaces/windowsStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
-import type { AttentionState } from '@shared/attention/attention'
-import { useSyncExternalStore } from 'react'
 import {
   type AttentionEvent,
-  type PaneAttention,
   aggregateWorkspaceState,
   latestUnread,
+  type PaneAttention,
   paneLiveState,
 } from './attention'
 import { isPanePointedAt, pointAtPane } from './pointerView'

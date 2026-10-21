@@ -1,10 +1,10 @@
 import '@testing-library/jest-dom/vitest'
-import { SettingsPanel } from '@/components/settings/SettingsPanel'
-import { useSettingsStore } from '@/stores/app/settingsStore'
-import { useUIStore } from '@/stores/app/uiStore'
 import { cleanup, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import { SettingsPanel } from '@/components/settings/SettingsPanel'
+import { useSettingsStore } from '@/stores/app/settingsStore'
+import { useUIStore } from '@/stores/app/uiStore'
 import { TerminalView } from './Terminal'
 
 vi.mock('@/lib/terminal/ghosttyEngine', () => ({

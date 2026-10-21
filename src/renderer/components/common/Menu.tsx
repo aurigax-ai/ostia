@@ -1,3 +1,6 @@
+import { Menu as MenuPrimitive } from '@base-ui/react/menu'
+import type { Icon } from '@phosphor-icons/react'
+import type { ComponentProps, ReactElement, ReactNode } from 'react'
 import {
   ContextMenuCheckboxItem,
   ContextMenuContent,
@@ -9,9 +12,6 @@ import {
   ContextMenuSubTrigger,
 } from '@/components/ui/context-menu'
 import { cn } from '@/lib/utils'
-import { Menu as MenuPrimitive } from '@base-ui/react/menu'
-import type { Icon } from '@phosphor-icons/react'
-import type { ComponentProps, ReactElement, ReactNode } from 'react'
 
 const ROW = 'h-7 gap-2 rounded-sm px-2 text-ui-base'
 

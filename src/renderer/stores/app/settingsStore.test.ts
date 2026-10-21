@@ -986,13 +986,13 @@ describe('settingsStore', () => {
         expect(() => store().setByPath(`appearance.${segment}.polluted`, 'evil')).toThrow()
         const after = store()
         expect(after.appearance).toEqual(before.appearance)
-        expect(Object.prototype.hasOwnProperty.call({}, 'polluted')).toBe(false)
+        expect(Object.hasOwn({}, 'polluted')).toBe(false)
       },
     )
 
     it('rejects a bare dangerous top-level segment', () => {
       expect(() => store().setByPath('__proto__', { polluted: true })).toThrow()
-      expect(Object.prototype.hasOwnProperty.call({}, 'polluted')).toBe(false)
+      expect(Object.hasOwn({}, 'polluted')).toBe(false)
     })
 
     it('does not schedule a save when the path is rejected', async () => {

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
-  MIN_INPUT_COLS,
   cellBox,
+  MIN_INPUT_COLS,
   placePrompt,
   rightPromptStart,
   rowsToMake,

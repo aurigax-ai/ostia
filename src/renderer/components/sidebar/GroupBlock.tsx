@@ -1,3 +1,17 @@
+import {
+  CaretDownIcon,
+  CaretRightIcon,
+  ChecksIcon,
+  PaletteIcon,
+  PencilSimpleIcon,
+  PlusIcon,
+  TrashIcon,
+} from '@phosphor-icons/react'
+import {
+  WORKSPACE_GROUP_COLORS,
+  type WorkspaceGroupColor,
+} from '@shared/workspaces/workspaceGroups'
+import { useContext } from 'react'
 import { IconButton } from '@/components/common/IconButton'
 import {
   MenuContent,
@@ -21,22 +35,8 @@ import type { WorkspaceGroup } from '@/lib/sidebar/workspaceGroups'
 import { cn } from '@/lib/utils'
 import { startNewWorkspace } from '@/lib/workspaces/newWorkspace'
 import { useUIStore } from '@/stores/app/uiStore'
-import type { Workspace } from '@/stores/workspaces/workspaceTypes'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
-import {
-  CaretDownIcon,
-  CaretRightIcon,
-  ChecksIcon,
-  PaletteIcon,
-  PencilSimpleIcon,
-  PlusIcon,
-  TrashIcon,
-} from '@phosphor-icons/react'
-import {
-  WORKSPACE_GROUP_COLORS,
-  type WorkspaceGroupColor,
-} from '@shared/workspaces/workspaceGroups'
-import { useContext } from 'react'
+import type { Workspace } from '@/stores/workspaces/workspaceTypes'
 import { GroupStatus, GroupUnreadDot } from './GroupStatus'
 import { HibernateMenuItems } from './HibernateMenuItems'
 import { RailCollapsedContext } from './RailTab'
@@ -133,6 +133,7 @@ export function GroupBlock({
               <span className="rail-group-swatch" aria-hidden />
               <GroupUnreadDot workspaceIds={members.map((w) => w.id)} />
               <span className="rail-group-name">{group.name}</span>
+              {/* biome-ignore lint/a11y/useAriaPropsSupportedByRole: the label names the block for screen readers and tests; a role would change how it is announced */}
               <span
                 className="rail-group-count"
                 aria-label={fmt(d.rail.groupCount, { n: members.length })}

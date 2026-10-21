@@ -1,5 +1,3 @@
-import { useAssistStore } from '@/stores/assist/assistStore'
-import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
 import {
   ASSIST_FEATURES,
   type AssistCatalog,
@@ -11,6 +9,8 @@ import {
   sameModelRef,
 } from '@aurigax-ai/ostia-extension-sdk/contract/assist'
 import { useMemo } from 'react'
+import { useAssistStore } from '@/stores/assist/assistStore'
+import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
 
 export interface AssistFeatureRef {
   extId: string

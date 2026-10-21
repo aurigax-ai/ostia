@@ -1,6 +1,6 @@
 import { hasControlCharacter } from '../common/hiddenText'
 import { quoteArg } from '../terminal/shellQuote'
-import { type TypedLaunch, resumeFlags, typedLaunchOf } from './agentLaunch'
+import { resumeFlags, type TypedLaunch, typedLaunchOf } from './agentLaunch'
 
 export type ResumableAgent = 'claude' | 'codex'
 

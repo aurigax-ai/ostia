@@ -1,6 +1,6 @@
 import { readEnv } from '@aurigax-ai/ostia-extension-sdk/contract/appEnv'
-import { createScrollbackRedactor } from '../privacy/redaction'
 import type { Redactor } from '../privacy/redaction'
+import { createScrollbackRedactor } from '../privacy/redaction'
 import type { PtyEntry } from '../terminal/pty/ptyRegistry'
 import type { QuitTrace } from '../windows/quitPlan'
 import type { WindowBroker } from '../windows/windowBroker'

@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest'
 import {
-  type Version,
   compareVersions,
   isMainChannelVersion,
   isNewerVersion,
@@ -10,6 +9,7 @@ import {
   pickBetaRelease,
   pickMainChannelRelease,
   tarballAssetName,
+  type Version,
 } from './releases'
 
 const version = (text: string): Version => {

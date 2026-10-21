@@ -1,3 +1,7 @@
+import { ArrowsClockwiseIcon, TrashIcon } from '@phosphor-icons/react'
+import type { Dict } from '@shared/app/dict'
+import { MARKETPLACE_FEATURE, type MarketplaceInfo } from '@shared/extensions/marketplace'
+import { useEffect, useState } from 'react'
 import { IconButton } from '@/components/common/IconButton'
 import { MachineValue } from '@/components/common/MachineValue'
 import { Notice } from '@/components/common/Notice'
@@ -21,10 +25,6 @@ import { Input } from '@/components/ui/input'
 import { fmt, useDict } from '@/lib/app/useDict'
 import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
 import { useMarketplaceStore } from '@/stores/extensions/marketplaceStore'
-import { ArrowsClockwiseIcon, TrashIcon } from '@phosphor-icons/react'
-import type { Dict } from '@shared/app/dict'
-import { MARKETPLACE_FEATURE, type MarketplaceInfo } from '@shared/extensions/marketplace'
-import { useEffect, useState } from 'react'
 
 export function marketplaceName(d: Dict, marketplace: MarketplaceInfo): string {
   return marketplace.official ? d.marketplace.officialName : marketplace.name
@@ -83,11 +83,7 @@ export function UninstallExtensionButton({
   )
 }
 
-function RemoveMarketplaceButton({
-  marketplace,
-}: {
-  marketplace: MarketplaceInfo
-}): JSX.Element {
+function RemoveMarketplaceButton({ marketplace }: { marketplace: MarketplaceInfo }): JSX.Element {
   const d = useDict()
   const busy = useMarketplaceStore((s) => s.busy)
   const remove = useMarketplaceStore((s) => s.remove)

@@ -1,11 +1,11 @@
 import {
-  type Settled,
-  type Subscribe,
   actThenConfirm,
   anyOf,
   confirmed,
   mismatch,
   pollEvery,
+  type Settled,
+  type Subscribe,
 } from '../../shared/common/actThenConfirm'
 import type { ProcessEntry, ProcessRegistry, StartOutcome } from './processRegistry'
 

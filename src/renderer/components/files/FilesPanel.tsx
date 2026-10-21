@@ -1,10 +1,10 @@
+import type { KeyboardEvent } from 'react'
 import { PanelResizer } from '@/components/common/PanelResizer'
 import { useDict } from '@/lib/app/useDict'
 import { matchChord } from '@/lib/keyboard/chords'
 import { FILES_WIDTH } from '@/lib/panes/panelWidth'
 import { isMac } from '@/platform'
 import { useUIStore } from '@/stores/app/uiStore'
-import type { KeyboardEvent } from 'react'
 import { FilesView } from './FilesView'
 
 const FILES_PANEL_ID = 'files-panel'

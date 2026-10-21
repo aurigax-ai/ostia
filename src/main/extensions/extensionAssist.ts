@@ -55,9 +55,9 @@ import { AssistModelChoices } from './assistModelChoices'
 import type { ExtensionHostDeps } from './extensionHostDeps'
 import {
   type AssistRuntimeReport,
-  type Runtime,
   cancelled,
   fail,
+  type Runtime,
   withTimeout,
 } from './extensionRuntime'
 

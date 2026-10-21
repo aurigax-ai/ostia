@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { type SnapshotNode, formatSnapshot } from './browseSnapshot'
+import { formatSnapshot, type SnapshotNode } from './browseSnapshot'
 
 function node(role: string, name: string, extra: Partial<SnapshotNode> = {}): SnapshotNode {
   return { role, name, children: [], ...extra }

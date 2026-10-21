@@ -1,0 +1,29 @@
+{
+  "manifest": {},
+  "messages": {
+    "confirmTitle": "Install system packages",
+    "confirmMessage": "An agent asks to install {packages} with {manager}.",
+    "confirmDetail": "Command:\n{command}\n\nReason: {reason}\n\nIt runs in a new terminal next to the agent, where you can see and answer any password prompt.",
+    "aurWarning": "This is an AUR helper: it downloads and builds the package from its PKGBUILD, which runs code from the AUR on this computer, outside the sandbox.",
+    "approve": "Approve",
+    "deny": "Deny",
+    "terminalTitle": "Install packages",
+    "denied": "the human denied the install; nothing ran",
+    "noPackages": "name at least one package",
+    "invalidPackages": "invalid package name: {names} (letters, digits and @ . _ + : -, starting with a letter or digit)",
+    "tooManyPackages": "at most {max} packages per request",
+    "unknownManager": "unknown manager '{name}' (one of: {known})",
+    "managerMissing": "{name} is not on PATH",
+    "noManager": "no supported package manager found on PATH; pass --manager",
+    "noSudo": "this manager needs root and sudo is not on PATH",
+    "onePackageOnly": "{manager} installs one package per request",
+    "notOpened": "approved, but the terminal could not be opened ({reason})",
+    "installed": "installed: the install command finished with exit code 0",
+    "installFailed": "the install command failed (exit code {code}); read its terminal or ask the human",
+    "installClosed": "the install terminal was closed before the command finished",
+    "installStillRunning": "the install is still running in its terminal; check with `command -v` or the package manager later",
+    "listSeparator": ", ",
+    "noReason": "none given",
+    "exitUnknown": "unknown"
+  }
+}

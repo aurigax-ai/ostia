@@ -17,12 +17,12 @@ import { AGENT_ARGS_ENV, CODEX_HOOK_ARGS_JSON } from '../../shared/agents/agentL
 import { CORE_SKILL_FILES, writeBundledSkill } from '../agents/bundledSkills'
 import {
   AGENT_DIR,
+  busHookCommand,
   CLI_PATH,
   CLI_RUN,
-  IN_PANE,
-  busHookCommand,
   hookCommand,
   hooksFor,
+  IN_PANE,
   permissionHookCommand,
   turnHookCommand,
 } from './agentHookCommands'

@@ -1,8 +1,8 @@
+import { afterEach, beforeAll, describe, expect, it } from 'vitest'
 import { firstPaneOfKind } from '@/lib/layout/paneFields'
 import { useSidePanelStore } from '@/stores/app/sidePanelStore'
 import { useGitViewStore } from '@/stores/files/gitViewStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
-import { afterEach, beforeAll, describe, expect, it } from 'vitest'
 import { GIT_PANEL_ID, openGit } from './gitPanel'
 
 describe('openGit', () => {

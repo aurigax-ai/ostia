@@ -1,7 +1,7 @@
-import { buttonVariants } from '@/components/ui/button'
-import { cn } from '@/lib/utils'
 import type { Icon as IconComponent } from '@phosphor-icons/react'
 import { type ButtonHTMLAttributes, forwardRef } from 'react'
+import { buttonVariants } from '@/components/ui/button'
+import { cn } from '@/lib/utils'
 import { Hint } from './Hint'
 
 const BUTTON_SIZE = { bar: 'icon-sm', row: 'icon-2xs' } as const

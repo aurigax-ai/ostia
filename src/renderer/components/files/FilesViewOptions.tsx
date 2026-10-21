@@ -1,3 +1,5 @@
+import { BUILTIN_ICON_THEME } from '@aurigax-ai/ostia-extension-sdk/contract/iconTheme'
+import { SlidersHorizontalIcon } from '@phosphor-icons/react'
 import { IconButton } from '@/components/common/IconButton'
 import {
   DropdownMenu,
@@ -17,8 +19,6 @@ import { useDict } from '@/lib/app/useDict'
 import type { FileSortBy, FileSortOrder, FileTreeSettings } from '@/lib/settings/fileTreeSettings'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useAvailableIconThemes } from '@/stores/extensions/iconThemeStore'
-import { BUILTIN_ICON_THEME } from '@aurigax-ai/ostia-extension-sdk/contract/iconTheme'
-import { SlidersHorizontalIcon } from '@phosphor-icons/react'
 
 export function FilesViewOptions({ settings }: { settings: FileTreeSettings }): JSX.Element {
   const d = useDict()

@@ -1,9 +1,9 @@
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { panelFractions } from '@/lib/layout/panelSize'
 import { findPane, firstPaneId, paneIds } from '@/lib/layout/tree'
 import type { SplitNode } from '@/lib/layout/types'
 import { rememberPanelFractions } from '@/lib/panes/panelSizes'
 import { useSettingsStore } from '@/stores/app/settingsStore'
-import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { installLocalStorage } from '../../../../test/mocks/memoryStorage'
 import { useLayoutStore } from './layoutStore'
 

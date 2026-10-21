@@ -11,10 +11,10 @@ import type { BrowseInput } from './browseInput'
 import {
   type BrowseDeps,
   type BrowseMethod,
-  type OpenTab,
   debuggerCommand,
   fail,
   num,
+  type OpenTab,
   safeOutPath,
   str,
   world,

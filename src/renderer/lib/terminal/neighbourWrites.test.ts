@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import {
+  createNeighbourWrites,
   FOCUS_QUIET_MS,
   FRAME_CHARS,
   type FrameClock,
   MAX_DEFER_MS,
   OVER_BUDGET_MS,
-  createNeighbourWrites,
 } from './neighbourWrites'
 
 function fakeClock() {

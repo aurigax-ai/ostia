@@ -17,9 +17,9 @@ import type { CommandDescriptor, CommandResult } from '../../shared/control/comm
 import { registerPane } from '../control/idRegistry'
 import {
   AGENT_ENTER_DELAY_MS,
+  dispatchGatewayMethod,
   type GatewayControlDeps,
   IMAGE_PLACEHOLDER_WAIT_MS,
-  dispatchGatewayMethod,
 } from './controlDispatch'
 import { isHiddenFromPhone, readFileSlice } from './workspaceFiles'
 

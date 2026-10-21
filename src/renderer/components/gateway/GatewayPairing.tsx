@@ -1,12 +1,12 @@
+import { CaretRightIcon, CopyIcon } from '@phosphor-icons/react'
+import type { GatewayPairRequest } from '@shared/gateway/gatewayApi'
+import { formatCode } from '@shared/gateway/pairCode'
+import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { Textarea } from '@/components/ui/textarea'
 import { fmt, useDict } from '@/lib/app/useDict'
 import { cn } from '@/lib/utils'
-import { CaretRightIcon, CopyIcon } from '@phosphor-icons/react'
-import type { GatewayPairRequest } from '@shared/gateway/gatewayApi'
-import { formatCode } from '@shared/gateway/pairCode'
-import { useState } from 'react'
 import type { PairCode } from './usePairCode'
 
 function spacedCheckCode(code: string): string {

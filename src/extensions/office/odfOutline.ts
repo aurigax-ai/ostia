@@ -1,7 +1,7 @@
 import { GuardStop, type OfficeLimits } from './officeLimits'
-import { type Block, type Cell, type Figure, type Run, type Slide, runsText } from './outlineHtml'
+import { type Block, type Cell, type Figure, type Run, runsText, type Slide } from './outlineHtml'
 import type { PresentationOutline } from './pptxOutline'
-import { type XmlElement, childOf, childrenOf, elementsOf, xmlPartReader } from './xmlReader'
+import { childOf, childrenOf, elementsOf, type XmlElement, xmlPartReader } from './xmlReader'
 
 type Parts = Map<string, { data: Uint8Array }>
 

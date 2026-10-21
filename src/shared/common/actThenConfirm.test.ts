@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { ChangeSignal, actThenConfirm, confirmed, mismatch } from './actThenConfirm'
+import { actThenConfirm, ChangeSignal, confirmed, mismatch } from './actThenConfirm'
 
 describe('actThenConfirm', () => {
   it('acts first, then answers with what it observed at once', async () => {

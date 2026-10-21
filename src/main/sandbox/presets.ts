@@ -5,7 +5,7 @@ import {
   type SandboxReadPresetId,
 } from '../../shared/sandbox/sandboxPresets'
 import { isInsidePath } from '../platform/pathGuard'
-import { type SandboxPathEnv, checkSandboxPath } from './pathChecks'
+import { checkSandboxPath, type SandboxPathEnv } from './pathChecks'
 
 type ProcessEnv = Record<string, string | undefined>
 

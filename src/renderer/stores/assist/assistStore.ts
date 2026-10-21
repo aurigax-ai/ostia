@@ -8,8 +8,8 @@ import {
   type AssistProviderInfo,
   type AssistRequests,
   type AssistResponse,
-  EMPTY_ASSIST_CATALOG,
   choiceLabel,
+  EMPTY_ASSIST_CATALOG,
   sameModelRef,
 } from '@aurigax-ai/ostia-extension-sdk/contract/assist'
 import { useMemo } from 'react'

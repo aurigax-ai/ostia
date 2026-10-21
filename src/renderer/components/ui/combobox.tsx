@@ -1,7 +1,7 @@
 'use client'
 
-import { cn } from '@/lib/utils'
 import { Combobox as ComboboxPrimitive } from '@base-ui/react'
+import { CaretDownIcon, CheckIcon } from '@phosphor-icons/react'
 import * as React from 'react'
 
 import {
@@ -10,7 +10,7 @@ import {
   InputGroupButton,
   InputGroupInput,
 } from '@/components/ui/input-group'
-import { CaretDownIcon, CheckIcon } from '@phosphor-icons/react'
+import { cn } from '@/lib/utils'
 
 const Combobox = ComboboxPrimitive.Root
 
@@ -178,14 +178,14 @@ function ComboboxSeparator({ className, ...props }: ComboboxPrimitive.Separator.
 
 export {
   Combobox,
-  ComboboxInput,
-  ComboboxContent,
-  ComboboxList,
-  ComboboxItem,
-  ComboboxGroup,
-  ComboboxLabel,
   ComboboxCollection,
+  ComboboxContent,
   ComboboxEmpty,
+  ComboboxGroup,
+  ComboboxInput,
+  ComboboxItem,
+  ComboboxLabel,
+  ComboboxList,
   ComboboxSeparator,
   ComboboxTrigger,
   ComboboxValue,

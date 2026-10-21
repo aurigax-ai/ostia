@@ -1,22 +1,22 @@
 import { mkdtempSync, rmSync } from 'node:fs'
-import { type Server, createServer } from 'node:net'
+import { createServer, type Server } from 'node:net'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { PassThrough } from 'node:stream'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
+  createMessageConnection,
   StreamMessageReader,
   StreamMessageWriter,
-  createMessageConnection,
 } from 'vscode-jsonrpc/node'
 import { ManagerService } from '../../main/manager/manager'
 import { Portal } from '../../main/manager/portal'
 import { managerAgents, parseManagerSettings } from '../../shared/agents/managerSettings'
 import {
-  NOT_IN_PANE_MESSAGE,
-  type PortalGate,
   connectPortal,
+  NOT_IN_PANE_MESSAGE,
   outsidePaneRefusal,
+  type PortalGate,
   runPortalCommand,
   stripDetach,
 } from './portal'

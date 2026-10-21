@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { EXTENSION_API_VERSION, apiProblem, isApiCompatible, parseApiVersion } from './extensionApi'
+import { apiProblem, EXTENSION_API_VERSION, isApiCompatible, parseApiVersion } from './extensionApi'
 
 describe('parseApiVersion', () => {
   it('reads major.minor and refuses anything else', () => {

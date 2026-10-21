@@ -1,6 +1,6 @@
+import { useMemo } from 'react'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { usePluginsStore } from '@/stores/extensions/pluginsStore'
-import { useMemo } from 'react'
 import { normalizeHex, visibleSelection } from './color'
 import { currentTheme, themedTokens, useEffectiveTheme } from './theme'
 import { isLinkedTheme } from './themeChoice'

@@ -1,7 +1,7 @@
 import { existsSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
 import { loadJson, saveJson } from '../platform/jsonStore'
-import { type EnvSource, appDataDir } from '../platform/userDirs'
+import { appDataDir, type EnvSource } from '../platform/userDirs'
 
 interface ControlInfo {
   socket?: unknown

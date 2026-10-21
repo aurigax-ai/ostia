@@ -6,9 +6,9 @@ import type { ScrollbackHistory } from '../../../shared/terminal/scrollbackHisto
 import type { AppLog } from '../../diagnostics/appLog'
 import {
   type HistoryFeed,
+  historyWorkerScript,
   type SpillClient,
   type SpillPressure,
-  historyWorkerScript,
   startSpillWorker,
 } from './historyFeed'
 import { newHistoryKey } from './historyRecords'

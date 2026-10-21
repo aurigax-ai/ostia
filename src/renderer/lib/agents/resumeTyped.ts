@@ -1,8 +1,8 @@
+import { typedLaunch } from '@shared/agents/agentLaunch'
+import type { AgentResume } from '@shared/agents/agentResume'
 import { findPane } from '@/lib/layout/tree'
 import { useBlocksStore } from '@/stores/terminal/blocksStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
-import { typedLaunch } from '@shared/agents/agentLaunch'
-import type { AgentResume } from '@shared/agents/agentResume'
 
 function runningTypedCommand(paneId: string): string | undefined {
   const { running, byPane } = useBlocksStore.getState()

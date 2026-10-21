@@ -1,3 +1,9 @@
+import {
+  placeholderNames,
+  snippetDocument,
+} from '@aurigax-ai/ostia-extension-sdk/contract/snippets'
+import { fmt } from '@shared/app/dict'
+import { type FormEvent, useId, useState } from 'react'
 import { Notice } from '@/components/common/Notice'
 import { Button } from '@/components/ui/button'
 import {
@@ -14,12 +20,6 @@ import { Textarea } from '@/components/ui/textarea'
 import { useDict } from '@/lib/app/useDict'
 import { parseTags, suggestedName } from '@/lib/palette/snippets'
 import { useSnippetsStore } from '@/stores/terminal/snippetsStore'
-import {
-  placeholderNames,
-  snippetDocument,
-} from '@aurigax-ai/ostia-extension-sdk/contract/snippets'
-import { fmt } from '@shared/app/dict'
-import { type FormEvent, useId, useState } from 'react'
 import { SnippetCommand } from './SnippetPicker'
 
 interface ArgumentDraft {

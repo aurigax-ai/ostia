@@ -1,3 +1,6 @@
+import { ArrowCounterClockwiseIcon, XIcon } from '@phosphor-icons/react'
+import { chordText } from '@shared/keyboard/chordSpec'
+import { useState } from 'react'
 import { IconButton } from '@/components/common/IconButton'
 import { Notice } from '@/components/common/Notice'
 import { Kbd } from '@/components/ui/kbd'
@@ -7,14 +10,11 @@ import { terminalKeyConflicts } from '@/lib/keyboard/chords'
 import { removeTerminalKey, resetTerminalKey } from '@/lib/keyboard/keyPresets'
 import type { TerminalKeySources } from '@/lib/keyboard/keySources'
 import { isMac } from '@/platform'
-import { ArrowCounterClockwiseIcon, XIcon } from '@phosphor-icons/react'
-import { chordText } from '@shared/keyboard/chordSpec'
-import { useState } from 'react'
 import { RowToggle, TerminalKeyDetail } from './BindingDetail'
 import { CustomBar, DesktopNote, SourceLabel } from './KeyRowNotes'
-import { TerminalKeyEditor } from './TerminalKeyEditor'
-import { useCollapse } from './keyRows'
 import { commandTitle, sendActionText, sendText } from './keyboardLabels'
+import { useCollapse } from './keyRows'
+import { TerminalKeyEditor } from './TerminalKeyEditor'
 
 export function TerminalKeyLine({
   entry,

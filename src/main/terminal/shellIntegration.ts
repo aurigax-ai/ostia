@@ -7,7 +7,7 @@ import {
   type AgentPluginContent,
   NO_AGENT_PLUGINS,
 } from '@aurigax-ai/ostia-extension-sdk/manifest/agentSkills'
-import { type PromptSeparator, isPromptSeparator } from '../../shared/terminal/promptSettings'
+import { isPromptSeparator, type PromptSeparator } from '../../shared/terminal/promptSettings'
 import { privateTmpDir } from '../platform/privateTmp'
 import { CLI_PATH, CLI_RUN } from './agentHookCommands'
 import { agentPluginFiles, hasFiles, writeAgentPlugin } from './agentPlugin'

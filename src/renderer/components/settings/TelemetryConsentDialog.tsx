@@ -1,3 +1,11 @@
+import {
+  anyTelemetryOn,
+  DEFAULT_TELEMETRY_SETTINGS,
+  TELEMETRY_CATEGORIES,
+  type TelemetryCategory,
+  type TelemetrySettings,
+} from '@shared/privacy/telemetry'
+import { useEffect, useState } from 'react'
 import { TextLink } from '@/components/common/TextLink'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -14,14 +22,6 @@ import { Label } from '@/components/ui/label'
 import { useDict } from '@/lib/app/useDict'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useTelemetryConsentStore } from '@/stores/app/telemetryConsentStore'
-import {
-  DEFAULT_TELEMETRY_SETTINGS,
-  TELEMETRY_CATEGORIES,
-  type TelemetryCategory,
-  type TelemetrySettings,
-  anyTelemetryOn,
-} from '@shared/privacy/telemetry'
-import { useEffect, useState } from 'react'
 
 export function CategoryDetails({ category }: { category: TelemetryCategory }): JSX.Element {
   const d = useDict()

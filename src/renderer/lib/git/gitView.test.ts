@@ -9,8 +9,6 @@ import {
   splitBounds,
 } from './gitSplit'
 import {
-  ROW_HEIGHT,
-  WORKTREE,
   branchLabel,
   buildGraphModel,
   edgePath,
@@ -19,11 +17,13 @@ import {
   indexOfKey,
   leaves,
   matchingBranches,
+  ROW_HEIGHT,
   relativeTime,
   scrollTopToShow,
   selectionTarget,
   toggledRefs,
   visibleRange,
+  WORKTREE,
 } from './gitView'
 
 function commit(sha: string, parents: string[]): GraphCommit {

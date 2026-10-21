@@ -1,9 +1,9 @@
-import { newRequests, useApprovalsStore } from '@/stores/agents/approvalsStore'
 import type { Capability } from '@aurigax-ai/ostia-extension-sdk/contract/capabilities'
 import type { ApprovalRequest } from '@shared/permissions/approvals'
 import { fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { newRequests, useApprovalsStore } from '@/stores/agents/approvalsStore'
 import { ApprovalCard, ApprovalPrompt } from './ApprovalCard'
 
 const REQUEST: ApprovalRequest = {

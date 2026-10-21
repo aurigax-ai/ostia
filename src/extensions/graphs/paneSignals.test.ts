@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import type { OstiaExtension } from '@aurigax-ai/ostia-extension-sdk'
 import { afterEach, describe, expect, it } from 'vitest'
-import { type HostHarness, closeHarnesses, hostHarness, settle } from './fakeExt'
+import { closeHarnesses, type HostHarness, hostHarness, settle } from './fakeExt'
 import { createPaneSignals } from './paneSignals'
 
 afterEach(() => closeHarnesses())

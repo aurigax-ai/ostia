@@ -1,16 +1,16 @@
+import { wcagContrast } from 'culori'
+import { describe, expect, it } from 'vitest'
 import { BUILTIN_COLOR_SCHEMES } from '@/lib/colorSchemes/builtinColorSchemes'
 import { mix } from '@/lib/theme/color'
 import type { ColorScheme } from '@/lib/theme/types'
-import { wcagContrast } from 'culori'
-import { describe, expect, it } from 'vitest'
 import {
   CODE_CONTRAST,
   COMMENT_CONTRAST,
+  codeColors,
   DIFF_CONTRAST_KEEP,
   DIFF_LINE_ALPHA,
   DIFF_MIN_STRENGTH,
   DIFF_TOKEN_CONTRAST,
-  codeColors,
   diffColors,
   diffTintStrength,
   monacoThemeData,

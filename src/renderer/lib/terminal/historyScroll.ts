@@ -1,11 +1,11 @@
+import type { HistoryMatch } from '@shared/terminal/scrollbackHistory'
 import { terminalKeyData } from '@/lib/keyboard/keyPresets'
 import type { TerminalRenderer } from '@/lib/settings/terminalPaneSettings'
 import { isMac } from '@/platform'
 import { type HistoryTarget, useHistoryViewStore } from '@/stores/terminal/historyViewStore'
-import type { HistoryMatch } from '@shared/terminal/scrollbackHistory'
-import { type LayerPane, createLayerPane } from './historyLayerPane'
-import { WINDOW_LINES, lineAtRow, logicalLinesFrom, rowOfLine, windowStart } from './historyPages'
-import { type HistoryScrollbar, createHistoryScrollbar } from './historyScrollbar'
+import { createLayerPane, type LayerPane } from './historyLayerPane'
+import { lineAtRow, logicalLinesFrom, rowOfLine, WINDOW_LINES, windowStart } from './historyPages'
+import { createHistoryScrollbar, type HistoryScrollbar } from './historyScrollbar'
 import type { OstiaTerminal, TerminalOptions } from './ostiaTerminal'
 import { readOnlyCopyKey } from './readOnlyTerminal'
 import { inputEditorFor } from './terminalHandles'
@@ -146,7 +146,7 @@ export function createHistoryScroll(deps: HistoryScrollDeps): HistoryScroll {
 
   const copyLayerSelection = (e: KeyboardEvent): boolean => {
     const pane = visible()
-    if (!pane || !pane.term.hasSelection() || !readOnlyCopyKey(e, true)) return false
+    if (!pane?.term.hasSelection() || !readOnlyCopyKey(e, true)) return false
     e.preventDefault()
     e.stopPropagation()
     void navigator.clipboard.writeText(pane.term.getSelection())
