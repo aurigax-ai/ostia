@@ -1,0 +1,19 @@
+{
+  "manifest": {},
+  "messages": {
+    "controls": "Player controls",
+    "loading": "Loading…",
+    "unreadable": "Could not read this file.",
+    "unplayable": "This file can't be played here.",
+    "play": "Play",
+    "pause": "Pause",
+    "back": "Back {seconds} seconds",
+    "forward": "Forward {seconds} seconds",
+    "seek": "Seek",
+    "mute": "Mute",
+    "unmute": "Unmute",
+    "volume": "Volume",
+    "speed": "Playback speed",
+    "loop": "Loop"
+  }
+}
