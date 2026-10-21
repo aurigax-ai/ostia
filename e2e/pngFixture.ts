@@ -22,7 +22,10 @@ export function pngOf(width: number, height: number, color: (x: number, y: numbe
     const row = y * (width * 3 + 1)
     for (let x = 0; x < width; x++) {
       const [red, green, blue] = color(x, y)
-      rows.set([red, green, blue], row + 1 + x * 3)
+      const at = row + 1 + x * 3
+      rows[at] = red
+      rows[at + 1] = green
+      rows[at + 2] = blue
     }
   }
   return Buffer.concat([
