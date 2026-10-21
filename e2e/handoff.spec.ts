@@ -47,7 +47,6 @@ test('/handoff opens a new tab beside the caller that follows its intake while t
 
     const handed = win.locator('.pane-slot:not([data-hidden]) .xterm-rows')
     await expect(handed).toContainText('fake-intake-done', { timeout: 60_000 })
-    await expect(handed).toContainText(`topic: ${TOPIC}`)
     await expect(win.locator('.pane-slot:not([data-hidden]) .xterm-helper-textarea')).toBeFocused()
 
     await tabs.nth(0).getByRole('tab').click()

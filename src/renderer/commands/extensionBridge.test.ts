@@ -3,6 +3,7 @@ import type { ExtensionSettingsStored } from '@aurigax-ai/ostia-extension-sdk/co
 import type { Terminal } from '@xterm/xterm'
 import { afterEach, beforeAll, describe, expect, it, onTestFinished, vi } from 'vitest'
 import { findPane, isPaneShown, paneIds, resetIds, tabsOfPane } from '@/lib/layout/tree'
+import * as callerFocus from '@/lib/panes/callerFocus'
 import { instanceKey } from '@/lib/panes/panelKeepAlive'
 import { registerOffscreenStarter } from '@/lib/terminal/offscreenStart'
 import { isTitlePinned, resetPinnedTitles } from '@/lib/terminal/pinnedTitles'
@@ -137,6 +138,24 @@ describe('extensionBridge', () => {
       playbooks: { ...before.playbooks, enabled: { handoff: false } },
     })
     expect(listed()).toBe(false)
+    syncExtensionCommands([])
+    syncExtensionCommands([
+      ext({
+        id: 'handoff',
+        builtin: false,
+        commands: [
+          {
+            id: 'start',
+            title: 'Hand off…',
+            palette: true,
+            stdin: false,
+            needsPlaybook: true,
+            capabilities: [],
+          },
+        ],
+      }),
+    ])
+    expect(listed()).toBeUndefined()
   })
 
   it('removes the commands when the extension is disabled, and notifies subscribers', () => {
@@ -469,6 +488,29 @@ describe('extensionBridge', () => {
       expect(layout.activePaneId).toBe(paneId)
       expect(tabsOfPane(layout.root, agent)).toMatchObject({ activeId: paneId })
       expect(tabsOfPane(layout.root, agent)?.children.map((p) => p.id)).toEqual([agent, paneId])
+      expect(isPaneShown(layout.root, paneId)).toBe(true)
+      expect(useWorkspacesStore.getState().activeWorkspaceId).toBe('s1')
+    })
+
+    it('shows an agent’s tab and gives it the workspace when its caller pane holds the keyboard', () => {
+      twoWorkspaces()
+      useLayoutStore.getState().ensure('s1')
+      const agent = useLayoutStore.getState().byWorkspace.s1.activePaneId
+      const holds = vi.spyOn(callerFocus, 'paneHoldsKeyboard').mockReturnValue(true)
+      onTestFinished(() => {
+        holds.mockRestore()
+      })
+
+      const paneId = openExtensionTerminal({
+        requestId: 'r5d',
+        workspaceId: 's1',
+        afterPaneId: agent,
+        command: 'claude go',
+        asTab: true,
+      }) as string
+
+      const layout = useLayoutStore.getState().byWorkspace.s1
+      expect(layout.activePaneId).toBe(paneId)
       expect(isPaneShown(layout.root, paneId)).toBe(true)
       expect(useWorkspacesStore.getState().activeWorkspaceId).toBe('s1')
     })

@@ -60,7 +60,7 @@ export function syncExtensionCommands(list: ExtensionInfo[]): void {
       title: command.title,
       category: command.category ?? ext.name,
       capabilities: command.capabilities,
-      ...(command.needsPlaybook
+      ...(command.needsPlaybook && ext.builtin
         ? { listed: () => isBuiltinPlaybookOn(useSettingsStore.getState().playbooks, ext.id) }
         : {}),
       target: 'active',

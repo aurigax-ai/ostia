@@ -251,29 +251,34 @@ async function resolveSessions(
   prefixes: readonly string[],
   all: boolean,
 ): Promise<SessionFile[] | ExtensionResult> {
-  const inScope = new Set(sessionsInScope(deps, who).map((s) => s.path))
+  const inScope = sessionsInScope(deps, who)
+  const near = (prefix: string): SessionFile[] => inScope.filter((s) => s.id.startsWith(prefix))
+  const outside = prefixes.filter((prefix) => near(prefix).length === 0)
+  if (outside.length > 0) {
+    if (!all) {
+      return failure(
+        'unknown-session',
+        `no session ${outside[0]} in this folder; --all searches every project`,
+      )
+    }
+    const denied = await reachAll(deps, who)
+    if (denied) return denied
+  }
   const chosen = new Map<string, SessionFile>()
-  let outside = false
   for (const prefix of prefixes) {
-    const found = sessionsByPrefix(deps.projectsDir, prefix)
+    const found = outside.includes(prefix)
+      ? sessionsByPrefix(deps.projectsDir, prefix)
+      : near(prefix)
     if (found.length === 0) return failure('unknown-session', `no session ${prefix}`)
     const exact = found.filter((s) => s.id === prefix)
-    const near = found.filter((s) => inScope.has(s.path))
-    const candidates = exact.length === 1 ? exact : near.length > 0 ? near : found
+    const candidates = exact.length === 1 ? exact : found
     if (candidates.length > 1) {
       return failure(
         'ambiguous-session',
         `${prefix} matches ${candidates.map((c) => c.id).join(', ')}; give more characters`,
       )
     }
-    const pick = candidates[0]
-    if (!inScope.has(pick.path)) outside = true
-    chosen.set(pick.path, pick)
-  }
-  if (outside) {
-    if (!all) return failure('other-project', 'that session is in another project; add --all')
-    const denied = await reachAll(deps, who)
-    if (denied) return denied
+    chosen.set(candidates[0].path, candidates[0])
   }
   return [...chosen.values()].sort((a, b) => a.modified - b.modified)
 }

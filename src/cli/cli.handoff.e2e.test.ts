@@ -284,7 +284,8 @@ describe('ostia handoff (real extension process, real socket, real CLI)', () => 
 
   it('reaches other projects only through a card the human answers, even after the command timeout', async () => {
     const elsewhere = await ostia(opened, ['handoff', 'timeline', 'cccc3333'])
-    expect(elsewhere.stderr).toContain('other-project')
+    expect(elsewhere.stderr).toContain('unknown-session')
+    expect(elsewhere.stderr).not.toContain(OTHER_SESSION)
 
     const pending = (): number => approvals()?.stateFor('w').pending.length ?? 0
     const answer = (choice: string): unknown => {

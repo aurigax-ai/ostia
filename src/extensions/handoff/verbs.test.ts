@@ -326,7 +326,7 @@ describe('ostia handoff verbs', () => {
     })
 
     it('refuses a session of another project unless --all is answered', async () => {
-      expect(error(await run('timeline', ['cccc3333']))).toBe('other-project')
+      expect(error(await run('timeline', ['cccc3333']))).toBe('unknown-session')
       const res = await run('timeline', ['cccc3333', '--all'])
       expect(requireCallerCaps).toHaveBeenCalledOnce()
       expect(text(res)).toContain('# session cccc3333-0000')
