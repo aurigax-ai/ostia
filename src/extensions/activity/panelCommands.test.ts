@@ -21,6 +21,7 @@ function setup() {
   ])
   const listing = createOpenListing({ listWorkspaces, listPanes, now: () => now })
   const changed = vi.fn()
+  const opened = vi.fn()
   const parked: { items: ParkedItem[] } = { items: [] }
   const parkedList = vi.fn(async () => ({ ok: true as const, items: parked.items }))
   const parkedResume = vi.fn(async (_id: string) => ({ ok: true as const }))
@@ -35,6 +36,7 @@ function setup() {
     settingsLoaded: Promise.resolve(),
     listing,
     changed,
+    opened,
   })
   const record = (text: string): ActivityEvent => ({
     v: 2,
@@ -62,6 +64,7 @@ function setup() {
     }
   return {
     journal,
+    opened,
     remembered,
     parked,
     parkedResume,
@@ -165,6 +168,15 @@ describe('snapshot', () => {
     s.listPanes.mockRejectedValueOnce(new Error('down'))
     expect(await s.snapshot()).toMatchObject({ ok: false, error: 'unavailable' })
     expect((await s.snapshot()).ok).toBe(true)
+  })
+})
+
+describe('publishing needs-you items to the Inbox', () => {
+  it('asks for a publish the first time a workspace’s panel reads a snapshot, once per workspace', async () => {
+    const s = setup()
+    await s.snapshot()
+    await s.snapshot()
+    expect(s.opened).toHaveBeenCalledTimes(1)
   })
 })
 

@@ -181,6 +181,7 @@ async function main(): Promise<void> {
       settingsLoaded,
       listing,
       changed,
+      opened: () => void showNeedsYou(),
     }),
   )
   handlersAssigned()

@@ -26,6 +26,7 @@ interface PanelCommandsDeps {
   settingsLoaded: Promise<void>
   listing: OpenListing
   changed: () => void
+  opened: () => void
 }
 
 const LIMITS_MAX_KEYS = 500
@@ -43,9 +44,14 @@ export type PanelCommand = (args: unknown, caller: ExtensionCaller) => Promise<E
 
 export function activityPanelCommands(deps: PanelCommandsDeps): Record<string, PanelCommand> {
   const { ext, journal, hostJournal, remembered, state, settingsLoaded, listing, changed } = deps
+  const opened = new Set<string>()
   const snapshot = async (args: unknown, caller: ExtensionCaller): Promise<ExtensionResult> => {
     await settingsLoaded
     const workspaceId = caller.workspaceId ?? ''
+    if (workspaceId && !opened.has(workspaceId)) {
+      opened.add(workspaceId)
+      deps.opened()
+    }
     const limits = parseLimits(namedArgs(args).limits)
     const listed = await listing.read(workspaceId)
     if (!listed) return failure('unavailable')
