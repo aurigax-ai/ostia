@@ -12,7 +12,8 @@ const request = vi.fn(async () => answer)
 vi.mock('../main/approvals/approvals', () => ({ approvals: () => ({ request }) }))
 
 const { registerControlServer, stopControlServer } = await import('../main/control/controlServer')
-const { getByPaneId, registerPane } = await import('../main/control/idRegistry')
+const { getByPaneId, registerPane, removePane } = await import('../main/control/idRegistry')
+const { forgetClosedPanes, rememberClosedPane } = await import('../main/panes/closedPanes')
 const { registerPaneIoMethods } = await import('../main/panes/paneIo')
 const { registerPaneResumeMethods } = await import('../main/panes/paneResume')
 const { PaneWaking } = await import('../main/panes/paneWaking')
@@ -44,6 +45,10 @@ const reruns: { paneId: string; command: string }[] = []
 const closedPanes: string[] = []
 const newWorkspaceArgs: unknown[] = []
 const asleep = new Set<string>()
+const hookStarts = new Set<string>()
+const turnStates = new Map<string, string>()
+const sessions = new Map<string, string>()
+let livePanes: { paneId: string; agent?: string; running: boolean }[] = []
 const waking = new PaneWaking()
 let tabSeq = 0
 
@@ -165,11 +170,13 @@ const { registry } = registerProcessMethods({
   paneTitle: async () => undefined,
   splitTabNow: async () => null,
   humanTab: async () => false,
-  agentStarted: () => false,
+  agentStarted: (paneId) => hookStarts.has(paneId),
+  turnState: async (paneId) => turnStates.get(paneId),
+  agentSession: async (paneId) => sessions.get(paneId),
   startsWithHook: () => hooked,
   agentChanges: () => () => {},
   tell: () => {},
-  startTiming: { settleMs: 10, processMs: 60, agentMs: 60, pollMs: 5 },
+  startTiming: { settleMs: 10, processMs: 60, agentMs: 60, turnMs: 60, pollMs: 5 },
   agentArgv: (name) => (name === 'claude' ? ['claude'] : null),
   interruptGraceMs: 50,
 })
@@ -186,10 +193,11 @@ registerPaneIoMethods({
     outputCursor: (paneId) => rings.get(paneId)?.end,
   },
   state: (paneId) => ({ paneId, generation: 1, cwd: '/w', running: true, blockCount: 1 }),
-  processPane: async (ref, ctx) => {
-    const entry = registry.resolve(ref, ctx.identity.workspaceId, await reach.visible(ctx))
-    return entry && entry.status !== 'closed' ? entry.paneId : undefined
-  },
+  processPane: async (ref, ctx) =>
+    registry
+      .livePanes(ref, ctx.identity.workspaceId, await reach.visible(ctx))
+      .map((entry) => entry.paneId),
+  visible: reach.visible,
   inScope: reach.inScope,
   isChild: (ownerPaneId, paneId) => registry.isChild(ownerPaneId, paneId),
   isSandboxed: () => false,
@@ -200,10 +208,26 @@ registerPaneIoMethods({
   hibernated: async (pane) => asleep.has(pane.paneId),
   wake: async (pane) => ({ woke: asleep.delete(pane.paneId) }),
   hibernate: async () => ({ ok: true, result: { hibernated: true, outcome: 'hibernated' } }),
-  panes: async () => [],
+  panes: async () =>
+    livePanes.map((p) => ({
+      ...p,
+      paneId: getByPaneId(p.paneId)?.externalId ?? p.paneId,
+      workspaceId: 'ws1',
+      kind: 'terminal',
+      title: p.paneId,
+      blockCount: 0,
+    })),
   waking,
   close: async (pane) => {
     closedPanes.push(pane.paneId)
+    rememberClosedPane({
+      externalId: pane.externalId,
+      workspaceId: pane.workspaceId,
+      closedAt: Date.now() - 2 * 60 * 60_000,
+      ...(registry.forPane(pane.paneId)?.name ? { name: registry.forPane(pane.paneId)?.name } : {}),
+    })
+    removePane(pane.paneId)
+    livePanes = livePanes.filter((p) => p.paneId !== pane.paneId)
     return { ok: true, result: undefined }
   },
   resume: async () => ({ ok: true, result: { resumed: true } }),
@@ -307,6 +331,11 @@ beforeEach(() => {
   reruns.length = 0
   closedPanes.length = 0
   asleep.clear()
+  hookStarts.clear()
+  turnStates.clear()
+  sessions.clear()
+  livePanes = []
+  forgetClosedPanes()
 })
 
 afterEach(() => {
@@ -485,10 +514,53 @@ describe('ostia process (the real CLI against a live control server)', () => {
     expect(opened[0]).toMatchObject({ cwd: join(home, 'api'), title: 'pnpm' })
   })
 
+  it('agent run: answers the pane, that the agent took the prompt and its session in one line', async () => {
+    hooked = true
+    onOpen = (paneId, command) => {
+      startsRunning(paneId, command)
+      hookStarts.add(paneId)
+      turnStates.set(paneId, 'working')
+      sessions.set(paneId, '7c1e0000-aaaa-4bbb-8ccc-ddddeeeeffff')
+    }
+    const res = await ostia(['agent', 'run', 'claude', '--name', 'fixer', 'fix it'])
+    expect(res.code).toBe(0)
+    expect(res.stderr).toBe('')
+    expect(res.stdout.trim()).toMatch(
+      /^fixer [0-9a-f]{8} started a turn; session 7c1e0000-aaaa-4bbb-8ccc-ddddeeeeffff$/,
+    )
+    const json = await ostia(['agent', 'run', 'claude', '--name', 'fixer2', '--json', 'fix it'])
+    expect(JSON.parse(json.stdout)).toMatchObject({
+      name: 'fixer2',
+      status: 'started',
+      turnStarted: true,
+      session: '7c1e0000-aaaa-4bbb-8ccc-ddddeeeeffff',
+    })
+  })
+
+  it('agent run: says no turn yet when the agent started but did not take the prompt', async () => {
+    hooked = true
+    onOpen = (paneId, command) => {
+      startsRunning(paneId, command)
+      hookStarts.add(paneId)
+    }
+    const res = await ostia(['agent', 'run', 'claude', '--name', 'slow', 'fix it'])
+    expect(res.code).toBe(0)
+    expect(res.stdout.trim()).toMatch(/^slow [0-9a-f]{8} started; no turn yet$/)
+  })
+
+  it('agent run: a start that failed prints the object and the command that shows why', async () => {
+    hooked = true
+    onOpen = () => {}
+    const res = await ostia(['agent', 'run', 'claude', '--name', 'dead', 'fix it'])
+    expect(res.code).toBe(1)
+    expect(JSON.parse(res.stdout)).toMatchObject({ name: 'dead', status: 'timed-out' })
+    expect(res.stderr).toMatch(/See what it printed: ostia pane read [0-9a-f]{8}/)
+  })
+
   it('agent run: starts the agent in a tab with the prompt quoted, and refuses an unknown one', async () => {
     const started = await ostia(['agent', 'run', 'claude', '--name', 'fixer', "fix it; don't stop"])
     expect(started.code).toBe(0)
-    expect(JSON.parse(started.stdout)).toMatchObject({ name: 'fixer', paneId: expect.any(String) })
+    expect(started.stdout.trim()).toMatch(/^fixer [0-9a-f]{8} started; turn unknown \(hooks off\)$/)
     expect(opened.at(-1)).toMatchObject({
       command: "claude 'fix it; don'\\''t stop'",
       title: 'fixer',
@@ -530,7 +602,7 @@ describe('ostia process (the real CLI against a live control server)', () => {
     ])
     expect(fixer.stderr).toBe('')
     expect(fixer.code).toBe(0)
-    expect(JSON.parse(fixer.stdout)).toMatchObject({ name: 'fixer' })
+    expect(fixer.stdout).toMatch(/^fixer [0-9a-f]{8} started/)
     expect(opened.at(-1)).toMatchObject({ workspaceId: 'ws2', title: 'fixer' })
     expect(request).not.toHaveBeenCalled()
     emit(`tab-${tabSeq}`, `${PROMPT}claude 'fix the login bug'\r\n${C}`)
@@ -590,7 +662,9 @@ describe('ostia process (the real CLI against a live control server)', () => {
 
   it('list: prints each process with its status as the pane reports it', async () => {
     onOpen = () => {}
-    expect((await ostia(['process', 'list'])).stdout.trim()).toBe('(no tracked processes)')
+    const empty = await ostia(['process', 'list'])
+    expect(empty.stdout).toBe('')
+    expect(empty.stderr.trim()).toBe('(no tracked processes)')
     const { id, tab } = await run('make build', '--name', 'build')
     const line = async (): Promise<string[]> =>
       (await ostia(['process', 'list'])).stdout.trim().split('\t')
@@ -696,9 +770,10 @@ describe('ostia pane (the real CLI against a live control server)', () => {
 
   it('close: closes a tab the caller opened by process name without asking', async () => {
     const { tab } = await run('sleep 30', '--name', 'sleeper')
+    const id = getByPaneId(tab)?.externalId ?? ''
     const res = await ostia(['pane', 'close', 'sleeper'])
     expect(res.code).toBe(0)
-    expect(res.stdout.trim()).toBe(getByPaneId(tab)?.externalId)
+    expect(res.stdout.trim()).toBe(id.slice(0, 8))
     expect(closedPanes).toEqual([tab])
     expect(request).not.toHaveBeenCalled()
   })
@@ -736,7 +811,7 @@ describe('ostia pane (the real CLI against a live control server)', () => {
     expect(token.stdout.trim()).toBe('ok')
     const done = await woke
     expect(done.code).toBe(0)
-    expect(done.stdout.trim()).toBe(fixer?.externalId)
+    expect(done.stdout.trim()).toBe(fixer?.externalId.slice(0, 8))
 
     const sent = await ostia(['pane', 'send', 'fixer', 'hi', '--enter'])
     expect(sent.stdout.trim()).toMatch(/^ok: \S+ showed new output/)
@@ -745,6 +820,89 @@ describe('ostia pane (the real CLI against a live control server)', () => {
       { paneId: tab, data: '\r' },
     ])
     expect(await wakingPanes()).toEqual([])
+  })
+
+  it('resolves the first 8 characters of an id, never a tab title, and says what it does not know', async () => {
+    const { tab } = await run('sleep 30', '--name', 'sleeper')
+    const full = getByPaneId(tab)?.externalId ?? ''
+    const byPrefix = await ostia(['pane', 'read', full.slice(0, 8)])
+    expect(byPrefix.code).toBe(0)
+    expect(byPrefix.stdout.trim()).toBe(`screen of ${tab} (200)`)
+    const short = await ostia(['pane', 'read', full.slice(0, 7)])
+    expect(short.code).toBe(1)
+    expect(short.stderr).toContain(`unknown-pane: ${full.slice(0, 7)}`)
+    expect(short.stderr).toContain('ostia pane list')
+    const title = await ostia(['pane', 'read', tab])
+    expect(title.code).toBe(1)
+    expect(title.stderr).toContain(`unknown-pane: ${tab}`)
+  })
+
+  it('does not reveal a pane of a workspace the caller cannot reach by a prefix', async () => {
+    const hidden = registerPane({ windowId: 'w1', workspaceId: 'ws-far', paneId: 'far-pane' })
+    const res = await ostia(['pane', 'read', hidden.externalId.slice(0, 8)])
+    expect(res.code).toBe(1)
+    expect(res.stderr).toContain('unknown-pane')
+    expect(request).not.toHaveBeenCalled()
+  })
+
+  it('refuses to close or type into a name two tabs share, and reads the newest', async () => {
+    const first = await run('sleep 30', '--name', 'dup')
+    const second = await run('sleep 31', '--name', 'dup')
+    const close = await ostia(['pane', 'close', 'dup'])
+    expect(close.code).toBe(1)
+    expect(close.stderr).toContain('ambiguous-pane: dup matches')
+    expect(close.stderr).toContain(getByPaneId(first.tab)?.externalId)
+    expect(close.stderr).toContain(getByPaneId(second.tab)?.externalId)
+    const send = await ostia(['pane', 'send', 'dup', 'x', '--enter'])
+    expect(send.code).toBe(1)
+    expect(send.stderr).toContain('ambiguous-pane')
+    const wake = await ostia(['pane', 'wake', 'dup'])
+    expect(wake.code).toBe(1)
+    expect(wake.stderr).toContain('ambiguous-pane')
+    expect(closedPanes).toEqual([])
+    expect(written).toEqual([])
+    const read = await ostia(['pane', 'read', 'dup'])
+    expect(read.stdout.trim()).toBe(`screen of ${second.tab} (200)`)
+  })
+
+  it('close: a second close of a closed pane succeeds and says when and as what it closed', async () => {
+    const { tab } = await run('sleep 30', '--name', 'sleeper')
+    const id = getByPaneId(tab)?.externalId ?? ''
+    expect((await ostia(['pane', 'close', id])).code).toBe(0)
+    const again = await ostia(['pane', 'close', id.slice(0, 8)])
+    expect(again.code).toBe(0)
+    expect(again.stdout.trim()).toBe(`${id.slice(0, 8)} already closed 2h ago (sleeper)`)
+    const read = await ostia(['pane', 'read', id])
+    expect(read.code).toBe(1)
+    expect(read.stderr).toContain(`unknown-pane: ${id} closed 2h ago (sleeper)`)
+    expect(closedPanes).toEqual([tab])
+  })
+
+  it('hibernate: a pane that is asleep already is listed and nothing is stopped again', async () => {
+    const { tab } = await run('claude', '--name', 'fixer')
+    asleep.add(tab)
+    const res = await ostia(['pane', 'hibernate', 'fixer'])
+    expect(res.code).toBe(0)
+    expect(res.stdout.trim()).toBe(`${getByPaneId(tab)?.externalId.slice(0, 8)} already hibernated`)
+  })
+
+  it('wake: an agent that runs already answers already awake and nothing is typed', async () => {
+    const { tab } = await run('claude', '--name', 'fixer')
+    livePanes = [{ paneId: tab, agent: 'claude', running: true }]
+    const res = await ostia(['pane', 'wake', 'fixer'])
+    expect(res.code).toBe(0)
+    expect(res.stdout.trim()).toBe(`${getByPaneId(tab)?.externalId.slice(0, 8)} already awake`)
+    expect(reruns).toEqual([])
+  })
+
+  it('errors name the command to run next', async () => {
+    const { tab } = await run('claude', '--name', 'fixer')
+    asleep.add(tab)
+    const id = getByPaneId(tab)?.externalId ?? ''
+    const res = await ostia(['pane', 'send', 'fixer', 'hi'])
+    expect(res.code).toBe(1)
+    expect(res.stderr).toContain(`wake it with ostia pane wake ${id.slice(0, 8)}`)
+    expect(res.stderr).toContain(`ostia bus send ${id.slice(0, 8)} "<text>" wakes it too`)
   })
 
   it('prints usage for a missing pane or an unknown key', async () => {

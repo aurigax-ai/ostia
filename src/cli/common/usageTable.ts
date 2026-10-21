@@ -79,8 +79,8 @@ export const USAGE_TABLE: readonly NounUsage[] = [
     verbs: [
       {
         verb: 'list',
-        args: '[--json]',
-        about: 'every pane you can see: id, workspace, kind, state, title',
+        args: '[--here | --workspace <id|name>] [--state <state>]… [--kind <kind>] [--json]',
+        about: 'the panes you can see: id, workspace, kind, state, title',
       },
       {
         verb: 'send',
@@ -91,9 +91,9 @@ export const USAGE_TABLE: readonly NounUsage[] = [
       { verb: 'read', args: `${PANE} [--lines N] [--json]`, about: 'its screen as plain text' },
       {
         verb: 'status',
-        args: `${PANE}… [--json]`,
+        args: `[${PANE}…] [--json]`,
         about:
-          'one line per pane: state, closing line, exit code, git, mail and what changed since you last asked',
+          'one line per pane: id, state, closing line, exit code, git, mail and what changed since you last asked; no pane means every other terminal in your workspace',
       },
       {
         verb: 'transcript',
@@ -156,8 +156,9 @@ export const USAGE_TABLE: readonly NounUsage[] = [
     verbs: [
       {
         verb: 'run',
-        args: `<agent> [--name N] [--model M] [--cwd DIR] ${WORKSPACE_FLAG} [--tab <name>] <prompt|->`,
-        about: 'start claude, codex or an agent the human configured with that prompt',
+        args: `<agent> [--name N] [--model M] [--cwd DIR] ${WORKSPACE_FLAG} [--tab <name>] [--json] <prompt|->`,
+        about:
+          'start claude, codex or an agent the human configured with that prompt; answers its pane, whether it took the prompt and its session',
       },
     ],
   },
@@ -217,7 +218,8 @@ export const USAGE_TABLE: readonly NounUsage[] = [
       {
         verb: 'send',
         args: `[--wait <s>] ${PANE} "<msg>"`,
-        about: 'send a message to an agent pane; --wait blocks until it is delivered or fails',
+        about:
+          'send a message to an agent pane; --wait blocks until that pane replies (exit 3 timed out)',
       },
       {
         verb: 'inbox',
@@ -228,7 +230,7 @@ export const USAGE_TABLE: readonly NounUsage[] = [
       {
         verb: 'wait',
         args: '[--timeout <s>] [--json]',
-        about: 'block until a message arrives; exit 2 timed out',
+        about: 'block until a message arrives; exit 3 timed out',
       },
       {
         verb: 'handoff',

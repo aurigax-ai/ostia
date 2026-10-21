@@ -84,7 +84,8 @@ beforeAll(() => {
     `${entries.map((entry) => JSON.stringify(entry)).join('\n')}\n`,
   )
   registerPaneTranscriptMethods({
-    processPane: async () => undefined,
+    processPane: async () => [],
+    visible: async () => () => true,
     inScope: async () => true,
     isChild: () => false,
     isSandboxed: () => false,

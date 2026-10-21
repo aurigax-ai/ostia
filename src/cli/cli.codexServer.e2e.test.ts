@@ -111,6 +111,8 @@ beforeAll(() => {
     announce: () => {},
     pending: async () => 'idle-will-wake',
     reach: {
+      processPane: async () => [],
+      visible: async () => () => true,
       inScope: async () => true,
       isChild: () => false,
       isSandboxed: () => false,

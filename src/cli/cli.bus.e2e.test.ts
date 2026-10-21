@@ -36,6 +36,8 @@ registerBusMethods({
   announce,
   pending: async () => 'idle-no-wake',
   reach: {
+    processPane: async () => [],
+    visible: async () => () => true,
     inScope: async () => true,
     isChild: () => false,
     isSandboxed: () => false,
@@ -45,6 +47,7 @@ registerBusMethods({
 
 const sender = registerPane({ windowId: 'w1', workspaceId: 'ws1', paneId: 'cli-bus-sender' })
 const agent = registerPane({ windowId: 'w1', workspaceId: 'ws1', paneId: 'cli-bus-agent' })
+const other = registerPane({ windowId: 'w1', workspaceId: 'ws1', paneId: 'cli-bus-other' })
 
 type Pane = typeof sender
 type HookEvent = 'SessionStart' | 'UserPromptSubmit'
@@ -192,7 +195,9 @@ describe('bus delivery through the real CLI and the agents’ own hooks', () => 
 
       expect(addedContext(await fireHooks(kind, event, agent), event)).toEqual([])
       expect(JSON.parse((await ostia(agent, 'bus', 'inbox', '--json')).stdout)).toEqual([])
-      expect((await ostia(agent, 'bus', 'inbox')).stdout).toBe('(no messages)\n')
+      const empty = await ostia(agent, 'bus', 'inbox')
+      expect(empty.stdout).toBe('')
+      expect(empty.stderr).toBe('(no messages)\n')
 
       const listedSent = await ostia(sender, 'bus', 'sent')
       expect(listedSent.stdout).toContain(`\t${agent.externalId}\tdelivered:${via}\t`)
@@ -264,9 +269,9 @@ describe('bus delivery through the real CLI and the agents’ own hooks', () => 
     expect(JSON.parse((await ostia(agent, 'bus', 'inbox', '--json')).stdout)).toHaveLength(1)
   }, 30_000)
 
-  it('answers a wait that runs out on stderr with exit 2', async () => {
+  it('answers a wait that runs out on stderr with exit 3', async () => {
     const res = await ostia(agent, 'bus', 'wait', '--timeout', '1')
-    expect(res.code).toBe(2)
+    expect(res.code).toBe(3)
     expect(res.stdout).toBe('')
     expect(res.stderr).toBe('ostia bus wait: timed-out: no message arrived\n')
   }, 60_000)
@@ -283,6 +288,17 @@ describe('bus delivery through the real CLI and the agents’ own hooks', () => 
     expect(woken.messages.map((m: { text: string }) => m.text)).toEqual(['are you there'])
     expect((await ostia(sender, 'bus', 'sent')).stdout).toContain('\tdelivered:read\t')
   }, 60_000)
+
+  it('takes the first 8 characters of the receiver’s id', async () => {
+    const res = await ostia(sender, 'bus', 'send', agent.externalId.slice(0, 8), 'by prefix')
+    expect(res.code).toBe(0)
+    expect(JSON.parse(res.stdout)).toMatchObject({ ok: true, state: 'queued' })
+    const listed = JSON.parse((await ostia(agent, 'bus', 'inbox', '--json')).stdout)
+    expect(listed.map((m: { text: string }) => m.text)).toEqual(['by prefix'])
+    const unknown = await ostia(sender, 'bus', 'send', 'abcdef01', 'nobody')
+    expect(unknown.code).toBe(1)
+    expect(unknown.stderr).toContain('unknown-pane')
+  }, 30_000)
 
   it('refuses a pane id nobody holds and a send the human denied', async () => {
     const unknown = await ostia(sender, 'bus', 'send', 'not-a-pane', 'hello')
@@ -340,54 +356,67 @@ describe('the mod’s hook verbs through the real CLI', () => {
 })
 
 describe('bus send --wait through the real CLI', () => {
-  it('returns delivered, exit 0, once the receiver takes its inbox', async () => {
-    const waiting = ostia(sender, 'bus', 'send', '--wait', '30', agent.externalId, 'take this')
-    await vi.waitUntil(() => sentBy(sender.externalId).length === 1, {
+  async function waitForSend(from: Pane): Promise<void> {
+    await vi.waitUntil(() => sentBy(from.externalId).length === 1, {
       timeout: 10_000,
       interval: 25,
     })
-    const taken = JSON.parse((await ostia(agent, 'bus', 'inbox', '--take', '--json')).stdout)
-    expect(taken.map((m: { text: string }) => m.text)).toEqual(['take this'])
+  }
+
+  it('prints the receiver’s reply and exits 0, taking only that reply', async () => {
+    const waiting = ostia(sender, 'bus', 'send', '--wait', '30', agent.externalId, 'status?')
+    await waitForSend(sender)
+    await ostia(other, 'bus', 'send', sender.externalId, 'from a third pane')
+    await ostia(agent, 'bus', 'send', sender.externalId, 'all green')
     const res = await waiting
     expect(res.code).toBe(0)
-    expect(JSON.parse(res.stdout)).toMatchObject({ ok: true, state: 'delivered', via: 'read' })
+    expect(res.stdout).toContain(`from="${agent.externalId}"`)
+    expect(res.stdout).toContain('all green')
+    expect(res.stdout).not.toContain('from a third pane')
+    expect(res.stderr).toMatch(/^sent [0-9a-f-]{36}\n$/)
+    const left = JSON.parse((await ostia(sender, 'bus', 'inbox', '--json')).stdout)
+    expect(left.map((m: { text: string }) => m.text)).toEqual(['from a third pane'])
   }, 60_000)
 
-  it('returns delivered, exit 0, when the receiver is blocked in bus wait', async () => {
-    const waiting = ostia(agent, 'bus', 'wait', '--timeout', '20')
-    await new Promise((resolve) => setTimeout(resolve, 2500))
-    const res = await ostia(sender, 'bus', 'send', '--wait', '30', agent.externalId, 'got it?')
-    expect(res.code).toBe(0)
-    expect(JSON.parse(res.stdout)).toMatchObject({ ok: true, state: 'delivered', via: 'read' })
-    expect((await waiting).stdout).toContain('got it?')
+  it('does not take a message the receiver sent before the question', async () => {
+    await ostia(agent, 'bus', 'send', sender.externalId, 'an older note')
+    await new Promise((resolve) => setTimeout(resolve, 20))
+    const res = await ostia(sender, 'bus', 'send', '--wait', '1', agent.externalId, 'status?')
+    expect(res.code).toBe(3)
+    expect(res.stdout).toBe('')
+    const left = JSON.parse((await ostia(sender, 'bus', 'inbox', '--json')).stdout)
+    expect(left.map((m: { text: string }) => m.text)).toEqual(['an older note'])
+  }, 30_000)
+
+  it('exits 3 and names the message state when no reply comes in time', async () => {
+    const res = await ostia(sender, 'bus', 'send', '--wait', '1', agent.externalId, 'anyone?')
+    expect(res.code).toBe(3)
+    expect(res.stdout).toBe('')
+    expect(res.stderr).toContain(
+      `ostia bus send: timed-out: ${agent.externalId} sent no reply; the message is queued:idle-no-wake`,
+    )
+  }, 30_000)
+
+  it('refuses a second --wait to the same pane while the first still waits', async () => {
+    const first = ostia(sender, 'bus', 'send', '--wait', '30', agent.externalId, 'first?')
+    await waitForSend(sender)
+    const second = await ostia(sender, 'bus', 'send', '--wait', '5', agent.externalId, 'second?')
+    expect(second.code).toBe(1)
+    expect(second.stderr).toContain('busy:')
+    expect(sentBy(sender.externalId)).toHaveLength(1)
+    await ostia(agent, 'bus', 'send', sender.externalId, 'one answer')
+    expect((await first).stdout).toContain('one answer')
   }, 60_000)
 
-  it('returns failed, exit 1, with the reason when the receiver’s pane closes', async () => {
+  it('exits 1 with the reason as soon as the receiver’s pane closes', async () => {
     const waiting = ostia(sender, 'bus', 'send', '--wait', '30', agent.externalId, 'too late')
-    await vi.waitUntil(() => sentBy(sender.externalId).length === 1, {
-      timeout: 10_000,
-      interval: 25,
-    })
+    await waitForSend(sender)
     failPaneMail(agent.externalId)
     const res = await waiting
     expect(res.code).toBe(1)
-    expect(JSON.parse(res.stdout)).toMatchObject({
-      ok: true,
-      state: 'failed',
-      reason: 'pane-closed',
-    })
+    expect(res.stderr).toContain('ostia bus send: failed:pane-closed')
     expect((await ostia(sender, 'bus', 'sent')).stdout).toContain('\tfailed:pane-closed\t')
   }, 60_000)
-
-  it('returns the queued state with its reason, exit 2, when the time runs out', async () => {
-    const res = await ostia(sender, 'bus', 'send', '--wait', '1', agent.externalId, 'anyone?')
-    expect(res.code).toBe(2)
-    expect(JSON.parse(res.stdout)).toMatchObject({
-      ok: true,
-      state: 'queued',
-      pending: 'idle-no-wake',
-    })
-  }, 30_000)
 
   it('refuses a --wait that is not a number of seconds', async () => {
     const res = await ostia(sender, 'bus', 'send', '--wait', 'soon', agent.externalId, 'x')

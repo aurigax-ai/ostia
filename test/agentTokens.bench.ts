@@ -1,5 +1,5 @@
 import { spawn } from 'node:child_process'
-import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { skillFrontmatter } from '@aurigax-ai/ostia-extension-sdk/manifest/agentSkills'
@@ -145,6 +145,8 @@ beforeAll(async () => {
     announce: () => {},
     pending: async () => 'idle-no-wake',
     reach: {
+      processPane: async () => [],
+      visible: async () => () => true,
       inScope: async () => true,
       isChild: () => false,
       isSandboxed: () => false,
@@ -277,6 +279,20 @@ describe('CLI answers through the real CLI', () => {
 
   it('measures the listing and reading verbs', async () => {
     expect((await measure('cli.pane.list', 'pane', 'list')).code).toBe(0)
+    expect((await measure('cli.pane.list.here', 'pane', 'list', '--here')).code).toBe(0)
+    expect(
+      (
+        await measure(
+          'cli.pane.list.live',
+          'pane',
+          'list',
+          '--kind',
+          'terminal',
+          '--state',
+          'working',
+        )
+      ).code,
+    ).toBe(0)
     expect((await measure('cli.pane.read', 'pane', 'read', agent.externalId)).code).toBe(0)
     const send = await measure(
       'cli.pane.send',

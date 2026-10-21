@@ -121,15 +121,17 @@ ostia process list [--json]              # id, name, status, paneId, command
 ostia process logs web [--since N]       # that command's output only; (cursor=N) on stderr
 ostia process kill web                   # Ctrl+C, then ends the shell if it keeps running
 ostia process restart web                # Ctrl+C, then the same line in the same tab
-ostia agent run claude "fix the login bug" --name fixer [--model M] [--cwd DIR] [--workspace <id|name>] [--tab <name>]
+ostia agent run claude "fix the login bug" --name fixer [--model M] [--cwd DIR] [--workspace <id|name>] [--tab <name>] [--json]
 ostia agent run codex - --name review < task.md   # - reads the prompt from stdin
 ```
 
 `process run` opens a terminal tab beside the pane and runs the line in its interactive shell,
 exactly as written; the pane keeps the keyboard. `agent run` starts `claude`, `codex` or an agent
 the human configured with the prompt as one argument, and answers `unknown-agent` for any other
-name. Both return only once the start is known and print `{id, name, paneId, status, exitCode?,
-output?, reason?}`: `started` (an agent reported its start; a command still runs after a
+name. Both return only once the start is known. `process run` prints `{id, name, paneId, status,
+exitCode?, output?, reason?}`; `agent run` prints one line, `<name> <pane> started a turn; session <id>`
+(or `started; no turn yet` after 20 s, `started; turn unknown (hooks off)`), so no `pane read` or
+`pane list` follows; `--json` prints the object with `turnStarted` and `session`. `status` is `started` (an agent reported its start; a command still runs after a
 second), `exited` (the command ended with exit code 0), `failed` (it ended otherwise, or its tab
 closed; `output` holds its last 20 lines) or `timed-out` (no start within 15 s, 60 s for an
 agent). Exit 1 for `failed` and `timed-out`. An agent caller also gets the outcome as a bus
@@ -148,7 +150,7 @@ plain tab when the human took that tab over. `ostia pane list --json` reports `s
 ## Panes
 
 ```sh
-ostia pane list [--json]                 # a line per pane: paneId, workspaceId, kind, state, title
+ostia pane list [--here | --workspace <id|name>] [--state <state>]… [--kind <kind>] [--json]   # a line per pane: id, workspace, kind, state, title
 ostia pane send <pane> "text" [--enter]  # types text; no Enter unless --enter
 ostia pane send <pane> --enter -- "-y"   # text starting with - goes after --
 ostia pane send <pane> --paste "text"    # --paste: as one bracketed paste; --raw: the bytes as typed
@@ -156,7 +158,7 @@ ostia pane send <pane> "answer" --enter --force  # --force types into an agent w
 ostia pane key <pane> enter              # keys: enter tab shift-tab escape backspace delete space
                                          # up down left right home end pageup pagedown ctrl-a…ctrl-z
 ostia pane read <pane> [--lines N] [--json]   # its screen as text; --json adds cwd, running, lastExitCode
-ostia pane status <pane>… [--json]       # one line per pane: state, closing line, exit, git, mail, changes
+ostia pane status [<pane>…] [--json]    # a line per pane: id, state, closing line, exit, git, mail, changes; none: the terminals you may read here
 ostia pane transcript <pane> [--turns N | --full] [--json]   # the agent's own transcript, as written
 ostia pane wait <pane>… [--until done|waiting|error|idle|exited|command]… [--timeout <s>] [--json]
 ostia pane watch <pane>… [--until done|waiting|error|command|exited]… | --off
@@ -167,8 +169,12 @@ ostia pane rename <pane> <title…> | --clear
 ostia pane close [<pane>…] [--json]      # no pane: your own
 ```
 
-`<pane>` is a `paneId`, or a process id or name from `ostia process list`. `state` is
-`hibernated`, `waking`, the agent's state, `running` or `idle`.
+`<pane>` is a `paneId`, its first 8 characters or more (as `pane list` prints them), or the
+`--name` of a `process run`/`agent run` tab; tab titles never match. Several matches answer
+`ambiguous-pane:` with the ids, and `send`, `key`, `close` and `hibernate` also refuse a name that
+several panes share. `state` is `hibernated`, `waking`, the agent's state, `running` or `idle`.
+`close`, `wake` and `hibernate` succeed when the pane already is that way (`already closed 2h ago
+(w-1)`, `already awake`). Errors end with the command to run next.
 
 `pane wait <pane>` blocks until the pane is `done`, `waiting` or its command exits and prints its
 status line, so neither a sleep loop nor a `pane read` is needed. `bus wait` blocks for the next
@@ -184,7 +190,7 @@ reach); from a sandboxed workspace only sandboxed terminals of the same workspac
 ## Bus
 
 ```sh
-ostia bus send [--wait <s>] <pane> "message"  # {"ok":true,"id":…,"state":"queued"|"leased"|"delivered","pending":…}
+ostia bus send [--wait <s>] <pane> "message"  # {"ok":true,"id":…,"state":"queued"|"leased"|"delivered","pending":…}; --wait: its reply
 ostia bus send <pane> -- --help          # after --, even --help is the message
 ostia bus sent [--json]                  # what you sent and where each message stands
 ostia bus inbox [--take] [--json]        # messages waiting for you; --take delivers them
@@ -195,10 +201,11 @@ ostia bus claim <id> | bus done <id> | bus handoffs [--all]
 
 Nothing is typed into the receiver. A message is `queued` until the receiver's agent takes it,
 `leased` while it is handed over, then `delivered` or `failed`. `inbox` and `wait` print the
-messages whole, framed as the hook frames them, or `(no messages)`; `wait` answers `timed-out:`
-with exit 2. A repeated message id is a duplicate. Give the shell command a timeout longer than
-`--timeout`. `--wait <s>` blocks (1–590 s) until delivered or failed and exits 0 delivered, 1
-failed, 2 still queued. Sending to another pane needs `send-other-pane`, plus `all-workspaces`
+messages whole, framed as the hook frames them; an empty list, `(no messages)`, goes to stderr.
+`wait` answers `timed-out:` with exit 3, as every timeout does. A repeated message id is a
+duplicate. Give the shell command a timeout longer than `--timeout`. `send --wait <s>` blocks
+(1–590 s) for that pane's reply, the first message it sends you after yours, prints it and exits 0;
+1 when the message failed (`busy:` for a second wait to the same pane); 3 when no reply came. It prints `sent <id>` on stderr. Sending to another pane needs `send-other-pane`, plus `all-workspaces`
 outside your reach; `handoffs --all` needs `all-workspaces`. Why a message waits (`pending`),
 `via`, `reason` and the limits: [reference/bus.md](reference/bus.md).
 

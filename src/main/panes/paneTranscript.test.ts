@@ -29,7 +29,8 @@ const lines =
   >()
 
 registerPaneTranscriptMethods({
-  processPane: async () => undefined,
+  processPane: async () => [],
+  visible: async () => () => true,
   inScope: async (ctx, workspaceId) =>
     ctx.identity.workspaceId === workspaceId || scope.has(workspaceId),
   isChild: () => false,

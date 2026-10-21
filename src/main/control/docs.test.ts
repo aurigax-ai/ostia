@@ -21,7 +21,16 @@ describe('ostia docs', () => {
               stdin: false,
               capabilities: [],
             },
+            {
+              id: 'on-hook',
+              title: 'Agent hook',
+              usage: 'on-hook',
+              palette: false,
+              stdin: true,
+              capabilities: [],
+            },
           ],
+          agentHooks: [{ event: 'Stop', command: 'on-hook', agents: ['claude'] }],
         },
       ],
       false,
@@ -35,7 +44,8 @@ describe('ostia docs', () => {
       )
       expect(text).not.toContain(file.text.trimEnd())
     }
-    expect(text).toContain('ostia system info\n      OS as JSON')
+    expect(text).toMatch(/^ {2}ostia system info {2}OS as JSON$/m)
+    expect(text).not.toContain('on-hook')
     expect(text).not.toContain(MANAGER_SKILL_FILES[0].text.trimEnd())
   })
 

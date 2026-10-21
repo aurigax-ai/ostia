@@ -3,15 +3,19 @@ import type { CommandResult, CommandTarget } from '../../shared/control/commands
 import { ensureCaps } from '../approvals/controlElevation'
 import type { Reach } from '../approvals/reach'
 import { targetOf } from '../attention/attention'
-import { registerControlMethod } from '../control/controlServer'
-import { type PaneIdentity, resolveExternal } from '../control/idRegistry'
-import { fail, record } from './paneReach'
+import { type ControlMethodContext, registerControlMethod } from '../control/controlServer'
+import type { PaneIdentity } from '../control/idRegistry'
+import { fail, paneTarget, record } from './paneReach'
+import type { PaneRefDeps } from './paneRef'
 
 const NAME_MAX = 200
 
 export interface PaneRenameDeps {
+  processPane: PaneRefDeps['processPane']
+  isSandboxed: PaneRefDeps['isSandboxed']
+  isConfined: PaneRefDeps['isConfined']
   execCommand: (target: CommandTarget, id: string, args?: unknown) => Promise<CommandResult>
-  reach: Pick<Reach, 'inScope'>
+  reach: Pick<Reach, 'inScope' | 'visible'>
   windowOfWorkspace: (workspaceId: string) => string | undefined
 }
 
@@ -36,13 +40,15 @@ export function renameCaps(self: boolean, sameScope: boolean): Capability[] {
   return sameScope ? ['send-other-pane'] : ['send-other-pane', 'all-workspaces']
 }
 
-function targetPane(raw: unknown, me: PaneIdentity): PaneIdentity {
+async function targetPane(
+  deps: PaneRefDeps,
+  raw: unknown,
+  me: PaneIdentity,
+  ctx: ControlMethodContext,
+): Promise<PaneIdentity> {
   if (raw === undefined) return me
-  if (typeof raw !== 'string' || !raw) throw fail('bad-request: pane')
-  const found = resolveExternal(raw)
-  if (found?.kind !== 'pane' || (found.manager && found !== me)) {
-    throw fail(`unknown-pane: ${raw}`)
-  }
+  const found = await paneTarget(deps, raw, ctx)
+  if (found.manager && found !== me) throw fail(`unknown-pane: ${raw}`)
   return found
 }
 
@@ -64,7 +70,17 @@ export function registerPaneRenameMethods(deps: PaneRenameDeps): void {
       const title = cleanName(p.title, 'title')
       const me = ctx.identity
       if (me.kind === 'script' && p.pane === undefined) throw fail('bad-request: pane')
-      const to = targetPane(p.pane, me)
+      const to = await targetPane(
+        {
+          processPane: deps.processPane,
+          visible: deps.reach.visible,
+          isSandboxed: deps.isSandboxed,
+          isConfined: deps.isConfined,
+        },
+        p.pane,
+        me,
+        ctx,
+      )
       const caps =
         to === me
           ? renameCaps(true, true)

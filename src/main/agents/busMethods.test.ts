@@ -33,7 +33,10 @@ const {
 } = await import('./busStore')
 const { mailers } = await import('./mailers')
 const { EVENT_BATCH_MS, MAIL_TURNS_MAX } = await import('../../shared/agents/mailDelivery')
-const { markManager, registerPane, registerScript } = await import('../control/idRegistry')
+const { markManager, registerPane, registerScript, removePane } = await import(
+  '../control/idRegistry'
+)
+const { rememberClosedPane } = await import('../panes/closedPanes')
 
 const queuedWakes: Array<boolean | undefined> = []
 onMailQueued((mail) => queuedWakes.push(mail.wakes))
@@ -47,6 +50,7 @@ const busyPanes = new Set<string>()
 const sandboxed = new Set<string>()
 const confined = new Set<string>()
 const owned = new Set<string>()
+const named = new Map<string, string[]>()
 registerBusMethods({
   managerSendAllowed: () => managerMaySend,
   agentBusy: (pane) => busyPanes.has(pane.paneId),
@@ -54,6 +58,8 @@ registerBusMethods({
   observe: observed,
   pending: async (pane) => pendingByPane.get(pane.paneId) ?? 'idle-no-wake',
   reach: {
+    processPane: async (ref) => named.get(ref) ?? [],
+    visible: async () => (workspaceId) => scopeReaches.has(workspaceId),
     inScope: async (ctx, workspaceId) =>
       ctx.identity.kind === 'script'
         ? scriptReaches.has(workspaceId)
@@ -141,6 +147,7 @@ beforeEach(async () => {
   queuedWakes.length = 0
   held.clear()
   owned.clear()
+  named.clear()
   observed.mockClear()
   ensureCaps.mockClear()
   ensureCaps.mockImplementation(async () => {})
@@ -286,39 +293,153 @@ describe('bus.send', () => {
 })
 
 describe('bus.send --wait', () => {
-  it('answers delivered as soon as the receiver takes the message', async () => {
-    const waiting = send('read this', receiver.externalId, sender, { waitMs: 5000 })
+  const reply = (text: string, from = receiver, to = sender) =>
+    send(text, to.externalId, from).then((res) => res.id)
+
+  it('answers the first message the receiver sends back and takes only that one', async () => {
+    const waiting = send('status?', receiver.externalId, sender, { waitMs: 5000 })
     await vi.waitFor(() => expect(inbox()).toHaveLength(1))
-    inbox(receiver, true)
-    expect(await waiting).toMatchObject({ ok: true, state: 'delivered', via: 'read' })
+    await send('not from the receiver', sender.externalId, faraway)
+    await reply('all green')
+    const res = (await waiting) as Answer & { reply?: { messages: Wire[]; lease: string } }
+    expect(res).toMatchObject({ ok: true, state: 'queued' })
+    expect(res.reply?.messages.map((m) => m.text)).toEqual(['all green'])
+    ack(res.reply?.lease, sender)
+    expect(inbox(sender).map((m) => m.text)).toEqual(['not from the receiver'])
   })
 
-  it('waits through the lease of a pane blocked in bus wait and answers delivered on its ack', async () => {
-    const waiting = call<Promise<Waited>>('bus.wait', receiver, { timeoutMs: 5000 })
-    const sending = send('read this', receiver.externalId, sender, { waitMs: 5000 })
-    const woken = await waiting
-    expect(woken.messages.map((m) => m.text)).toEqual(['read this'])
-    ack(woken.lease)
-    expect(await sending).toMatchObject({ ok: true, state: 'delivered', via: 'read' })
+  it('answers a reply that is queued already by the time it looks, but not an older message', async () => {
+    await reply('an older note')
+    const waiting = send('status?', receiver.externalId, sender, { waitMs: 5000 })
+    await vi.waitFor(() => expect(inbox()).toHaveLength(1))
+    await reply('the answer')
+    const res = (await waiting) as { reply?: { messages: Wire[] } }
+    expect(res.reply?.messages.map((m) => m.text)).toEqual(['the answer'])
   })
 
-  it('answers failed when the receiver’s pane closes', async () => {
+  it('refuses a second wait for the same sender and receiver before sending anything', async () => {
+    const first = send('one?', receiver.externalId, sender, { waitMs: 5000 })
+    await vi.waitFor(() => expect(inbox()).toHaveLength(1))
+    expect(await send('two?', receiver.externalId, sender, { waitMs: 5000 })).toMatchObject({
+      ok: false,
+      error: 'busy',
+    })
+    expect(inbox()).toHaveLength(1)
+    await reply('answer')
+    expect(await first).toMatchObject({ ok: true })
+  })
+
+  it('lets only one of two concurrent waits to the same pane through', async () => {
+    const results = await Promise.all([
+      send('one?', receiver.externalId, sender, { waitMs: 1000 }),
+      send('two?', receiver.externalId, sender, { waitMs: 1000 }),
+      (async () => {
+        await vi.waitFor(() => expect(inbox()).toHaveLength(1))
+        await reply('answer')
+        return undefined
+      })(),
+    ])
+    const [first, second] = results as Answer[]
+    expect([first.error, second.error].sort()).toEqual(['busy', undefined])
+    expect(inbox()).toHaveLength(1)
+  })
+
+  it('gives the reply to the waiting send, not to an earlier plain bus wait of the sender', async () => {
+    const plain = call<Promise<Waited>>('bus.wait', sender, { timeoutMs: 5000 })
+    const waiting = send('status?', receiver.externalId, sender, { waitMs: 5000 })
+    await vi.waitFor(() => expect(inbox()).toHaveLength(1))
+    await reply('the answer')
+    const res = (await waiting) as { reply?: { messages: Wire[] } }
+    expect(res.reply?.messages.map((m) => m.text)).toEqual(['the answer'])
+    await reply('later note')
+    expect((await plain).messages.map((m) => m.text)).toEqual(['later note'])
+  })
+
+  it('does not take an event about the receiver for its reply', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+    try {
+      const waiting = send('status?', receiver.externalId, sender, { waitMs: 1000 })
+      await vi.advanceTimersByTimeAsync(10)
+      postEvent(receiver.externalId, sender.externalId, 'w-1 done')
+      await vi.advanceTimersByTimeAsync(1000)
+      expect(await waiting).not.toHaveProperty('reply')
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('answers failed at once when the receiver’s pane closes', async () => {
     const waiting = send('read this', receiver.externalId, sender, { waitMs: 5000 })
     await vi.waitFor(() => expect(inbox()).toHaveLength(1))
     failPaneMail(receiver.externalId)
     expect(await waiting).toMatchObject({ ok: true, state: 'failed', reason: 'pane-closed' })
   })
 
-  it('answers the observed state, queued with its reason, when the time runs out', async () => {
+  it('answers the observed state, queued with its reason, when no reply comes in time', async () => {
     vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
     try {
       pendingByPane.set('bus-receiver', 'idle-no-wake')
       const waiting = send('slow', receiver.externalId, sender, { waitMs: 1000 })
       await vi.advanceTimersByTimeAsync(1000)
-      expect(await waiting).toMatchObject({ ok: true, state: 'queued', pending: 'idle-no-wake' })
+      const res = await waiting
+      expect(res).toMatchObject({ ok: true, state: 'queued', pending: 'idle-no-wake' })
+      expect(res).not.toHaveProperty('reply')
     } finally {
       vi.useRealTimers()
     }
+  })
+
+  it('announces the question before it waits, and releases a reply the client never acknowledged', async () => {
+    const closers: Closer[] = []
+    const waiting = call<Promise<Answer & { reply?: { lease: string } }>>(
+      'bus.send',
+      sender,
+      { to: receiver.externalId, text: 'status?', waitMs: 5000 },
+      closers,
+    )
+    await vi.waitFor(() => expect(announce).toHaveBeenCalledWith(sender, receiver, 'status?'))
+    await reply('done')
+    const res = await waiting
+    expect(res.reply?.lease).toBeDefined()
+    for (const close of [...closers]) close()
+    expect(inbox(sender).map((m) => m.text)).toEqual(['done'])
+  })
+})
+
+describe('naming the receiver', () => {
+  it('takes the first 8 characters of its id and a process name', async () => {
+    expect(await send('by prefix', receiver.externalId.slice(0, 8))).toMatchObject({
+      ok: true,
+      state: 'queued',
+    })
+    named.set('w-1', ['bus-receiver'])
+    expect(await send('by name', 'w-1')).toMatchObject({ ok: true, state: 'queued' })
+    expect(inbox().map((m) => m.text)).toEqual(['by prefix', 'by name'])
+  })
+
+  it('answers ambiguous-pane with the ids instead of choosing, and says what closed', async () => {
+    const twin = registerPane({ windowId: 'w1', workspaceId: 'ws1', paneId: 'bus-twin' })
+    twin.externalId = `${receiver.externalId.slice(0, 8)}-ffff-4fff-8fff-ffffffffffff`
+    const res = await send('which?', receiver.externalId.slice(0, 8))
+    expect(res).toMatchObject({ ok: false, error: 'ambiguous-pane' })
+    expect((res as { message?: string }).message).toContain(twin.externalId)
+    removePane('bus-twin')
+    rememberClosedPane({
+      externalId: 'e6546de6-0000-4000-8000-000000000000',
+      workspaceId: 'ws1',
+      name: 'w-1241',
+      closedAt: Date.now() - 7_200_000,
+    })
+    expect(await send('gone?', 'e6546de6')).toMatchObject({
+      ok: false,
+      error: 'unknown-pane',
+      message: expect.stringContaining('closed 2h ago (w-1241)'),
+    })
+  })
+
+  it('never reaches a pane outside the caller’s reach by a prefix', async () => {
+    const res = await send('hello', faraway.externalId.slice(0, 8))
+    expect(res).toMatchObject({ ok: false, error: 'unknown-pane' })
   })
 })
 

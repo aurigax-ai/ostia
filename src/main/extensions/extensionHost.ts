@@ -637,6 +637,7 @@ export class ExtensionHost {
         status: e.status,
         ...(e.verb ? { verb: e.verb } : {}),
         commands: e.commands,
+        agentHooks: e.agentHooks,
       }))
   }
 

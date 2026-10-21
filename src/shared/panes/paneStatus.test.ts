@@ -42,7 +42,7 @@ describe('ageLabel', () => {
 describe('statusLine', () => {
   it('puts state, age, exit code, git, mail, the closing line and what changed on one line', () => {
     expect(statusLine(base)).toBe(
-      'w-3  done 2m  exit 0  feat/inbox +2 ↑1  mail 0  "PR #1081 open, unit green"  (since last: working→done, 3 commands, 0 failed, new closing line)',
+      'p1  w-3  done 2m  exit 0  feat/inbox +2 ↑1  mail 0  "PR #1081 open, unit green"  (since last: working→done, 3 commands, 0 failed, new closing line)',
     )
   })
 

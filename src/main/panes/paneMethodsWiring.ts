@@ -105,10 +105,11 @@ export function registerPaneMethodsWiring({
     return terminalState.get(paneId)?.running === false
   }
   const paneReachDeps: PaneReachDeps = {
-    processPane: async (ref, ctx) => {
-      const entry = registry.resolve(ref, ctx.identity.workspaceId, await reach.visible(ctx))
-      return entry && entry.status !== 'closed' ? entry.paneId : undefined
-    },
+    processPane: async (ref, ctx) =>
+      registry
+        .livePanes(ref, ctx.identity.workspaceId, await reach.visible(ctx))
+        .map((entry) => entry.paneId),
+    visible: reach.visible,
     inScope: reach.inScope,
     isChild: (ownerPaneId, paneId) => registry.isChild(ownerPaneId, paneId),
     isSandboxed: (workspaceId) => workspaceSandboxes.isEnabled(workspaceId),
