@@ -309,6 +309,24 @@ describe('shellIntegrationSpawnOptions', () => {
           }
         })
 
+        it('moves a HISTFILE under an integration folder whose name has glob characters', () => {
+          const home = mkdtempSync(join(tmpdir(), 'ostia-zsh-home-'))
+          try {
+            const dir = writeShellIntegration(join(home, 'a[b]*?c'))
+            writeFileSync(
+              join(home, '.zshrc'),
+              'setopt globsubst\nHISTFILE="$ZDOTDIR/sub/.zsh_history"\n',
+            )
+            const seen = spawnSync('zsh', ['-i', '-c', 'print -rn -- "hist=$HISTFILE"'], {
+              env: { PATH: '/usr/bin:/bin', HOME: home, ZDOTDIR: dir, OSTIA_ZDOTDIR_ORIG: home },
+              encoding: 'utf8',
+            }).stdout
+            expect(seen).toContain(`hist=${home}/sub/.zsh_history`)
+          } finally {
+            rmSync(home, { recursive: true, force: true })
+          }
+        })
+
         it('keeps a HISTFILE the user’s rc sets', () => {
           const { seen, home } = histfileSeen('HISTFILE=/tmp/ostia-custom-history\n')
           try {
