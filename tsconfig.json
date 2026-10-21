@@ -9,5 +9,10 @@
       "@shared/*": ["src/shared/*"]
     }
   },
-  "include": ["src/renderer/**/*", "src/shared/**/*", "src/extensions/**/panel.ts"]
+  "include": [
+    "src/renderer/**/*",
+    "src/shared/**/*",
+    "src/extensions/**/panel.ts",
+    "src/extensions/activity/rows.test.ts"
+  ]
 }
