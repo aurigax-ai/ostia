@@ -258,7 +258,9 @@ export class ServerAccount {
     const id = this.identity()?.deviceId
     if (!id) return true
     try {
-      await this.authed((token, routes) => routes.revokeDevice(token, id, this.signer().revoke(id)))
+      await this.authed((token, routes) =>
+        this.signer().signed('revoke', (headers) => routes.revokeDevice(token, id, headers), [id]),
+      )
       return true
     } catch {
       return false

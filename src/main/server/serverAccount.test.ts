@@ -222,7 +222,7 @@ describe('the signed-in account', () => {
     harness.account.onChange(() => {
       changes += 1
     })
-    expect(await harness.account.signOut()).toEqual({ ok: true, deviceKept: true })
+    expect(await harness.account.signOut()).toEqual({ ok: true, deviceKept: false })
     expect(harness.server.sessions.has(token)).toBe(false)
     expect(harness.account.status().signedIn).toBe(false)
     expect(harness.saved().identity).toBeNull()

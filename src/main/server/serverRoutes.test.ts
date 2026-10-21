@@ -18,13 +18,17 @@ describe('routes that must not be retried on a rate limit', () => {
     )
   })
 
-  it('SYA-C151 asks once to clean up, bound to the manifest it pushed', async () => {
+  it('SYA-C151 asks once to clean up, with the manifest version in If-Match and the signed headers', async () => {
     const { request, routes: r } = routes()
-    await r.gc('token', ['a'], 4)
+    await r.gc('token', '{"keep":["a"]}', '4', { 'X-Device-Signature': 'sig' })
     expect(request).toHaveBeenCalledWith(
       'POST',
       '/v1/sync/gc',
-      expect.objectContaining({ body: { keep: ['a'], ifMatch: 4 }, retryRateLimited: false }),
+      expect.objectContaining({
+        json: '{"keep":["a"]}',
+        headers: { 'If-Match': '4', 'X-Device-Signature': 'sig' },
+        retryRateLimited: false,
+      }),
     )
   })
 })

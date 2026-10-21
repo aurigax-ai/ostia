@@ -55,7 +55,7 @@ export interface FakeServerOptions {
   quotaBytes?: number
   maxBlobBytes?: number
   gcGraceMs?: number
-  syncGcBound?: boolean
+  syncGCBound?: boolean
   publish?: boolean
   allowPublic?: boolean
   allowNever?: boolean
@@ -357,7 +357,7 @@ export class FakeServer {
           },
           auth: { invite: true, github: this.options.github === true },
           approverMinAgeSeconds: Math.floor(this.approverMinAgeMs / 1000),
-          ...(this.options.syncGcBound ? { syncGcBound: true } : {}),
+          ...(this.options.syncGCBound ? { syncGCBound: true } : {}),
           relayDomain: RELAY_DOMAIN,
           shareDomain: 'shares.test',
           limits: {

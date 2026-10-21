@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
+import { digestOf } from '../../server/deviceKeys'
 import { ServerError } from '../../server/serverClient'
 import { collectAfterPush } from './syncGc'
 import type { RemoteContext } from './syncRemote'
@@ -8,14 +9,33 @@ function context(opts: { bound?: boolean; due?: boolean; fails?: ServerError } =
     if (opts.fails) throw opts.fails
     return { deleted: 1 }
   })
-  const info = vi.fn(async () => (opts.bound ? { syncGcBound: true } : {}))
+  const info = vi.fn(async () => (opts.bound ? { syncGCBound: true } : {}))
   const authed = vi.fn(
     async (
       work: (token: string, routes: { info: typeof info; gc: typeof gc }) => Promise<unknown>,
     ) => work('token', { info, gc }),
   )
+  const signed = vi.fn(
+    async (
+      kind: string,
+      send: (headers: Record<string, string>) => Promise<unknown>,
+      bound: readonly string[],
+    ) => {
+      void kind
+      void bound
+      return send({ 'X-Device-Signature': 'sig' })
+    },
+  )
   const keyring = { gcDue: vi.fn(() => opts.due ?? true), gcDone: vi.fn() }
-  return { ctx: { account: { authed }, keyring } as unknown as RemoteContext, gc, keyring }
+  return {
+    ctx: {
+      account: { authed, signer: () => ({ signed }) },
+      keyring,
+    } as unknown as RemoteContext,
+    gc,
+    signed,
+    keyring,
+  }
 }
 
 describe('automatic server clean-up', () => {
@@ -26,14 +46,16 @@ describe('automatic server clean-up', () => {
     expect(keyring.gcDone).not.toHaveBeenCalled()
   })
 
-  it('SYA-C141 sends the blobs and the version of the manifest it pushed to a server that binds clean-up to it', async () => {
-    const { ctx, gc, keyring } = context({ bound: true })
+  it('SYA-C141 signs the version of the pushed manifest and the exact body for a server that binds clean-up to it', async () => {
+    const { ctx, gc, signed, keyring } = context({ bound: true })
     await collectAfterPush(ctx, ['a', 'b'], 7)
-    expect(gc).toHaveBeenCalledWith('token', ['a', 'b'], 7)
+    const json = JSON.stringify({ keep: ['a', 'b'] })
+    expect(signed).toHaveBeenCalledWith('syncGc', expect.any(Function), ['7', digestOf(json)])
+    expect(gc).toHaveBeenCalledWith('token', json, '7', { 'X-Device-Signature': 'sig' })
     expect(keyring.gcDone).toHaveBeenCalledTimes(1)
   })
 
-  it('SYA-C142 never calls the unbound route on a server that does not advertise the bound one', async () => {
+  it('SYA-C142 never calls the unbound route on a server that does not advertise syncGCBound', async () => {
     const { ctx, gc, keyring } = context({ bound: false })
     await collectAfterPush(ctx, ['a'], 7)
     expect(gc).not.toHaveBeenCalled()
@@ -42,7 +64,7 @@ describe('automatic server clean-up', () => {
 
   it.each([
     [429, 'rate-limited'],
-    [403, 'elevation-required'],
+    [403, 'device-too-new'],
     [412, 'version-mismatch'],
   ])(
     'SYA-C143 counts a %s answer as the day’s attempt and does not ask again',

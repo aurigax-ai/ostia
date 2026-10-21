@@ -20,7 +20,9 @@ export class ServerDevices {
   async revoke(deviceId: string): Promise<ServerActionResult> {
     try {
       await this.account.authed((token, routes) =>
-        routes.revokeDevice(token, deviceId, this.account.signer().revoke(deviceId)),
+        this.account
+          .signer()
+          .signed('revoke', (headers) => routes.revokeDevice(token, deviceId, headers), [deviceId]),
       )
       return { ok: true }
     } catch (error) {

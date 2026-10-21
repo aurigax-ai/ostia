@@ -6,7 +6,7 @@ export interface ServerInfo {
   modules: { relay: boolean; publish: boolean; sync: boolean; push: boolean }
   auth: { invite: boolean; github: boolean }
   approverMinAgeSeconds?: number
-  syncGcBound?: boolean
+  syncGCBound?: boolean
   relayDomain: string
   shareDomain: string
   limits?: { shareMaxBytes?: number; allowPublic?: boolean; allowNever?: boolean }
@@ -224,10 +224,11 @@ export function serverRoutes(client: ServerClient) {
       client.request<void>('PUT', `/v1/sync/wraps/${slot}`, { token, body: { blob } }),
     rotate: (token: string, body: RotateBody) =>
       client.request<{ version: number }>('POST', '/v1/sync/rotate', { token, body }),
-    gc: (token: string, keep: string[], ifMatch: number) =>
+    gc: (token: string, json: string, ifMatch: string, signed: Record<string, string>) =>
       client.request<{ deleted: number }>('POST', '/v1/sync/gc', {
         token,
-        body: { keep, ifMatch },
+        json,
+        headers: { 'If-Match': ifMatch, ...signed },
         retryRateLimited: false,
       }),
     createShare: (token: string, body: CreateShareBody) =>

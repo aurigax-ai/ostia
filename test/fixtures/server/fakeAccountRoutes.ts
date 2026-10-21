@@ -69,17 +69,14 @@ export function accountRoutes(server: FakeServer): Array<[string, RegExp, Handle
         req,
         res,
         device,
-        () => `ostia-server/revoke/v1\n${device.id}\n${other.id}`,
-        false,
+        (s) => `ostia-server/revoke/v2\n${device.id}\n${s}\n${other.id}`,
+        true,
       )
     ) {
       return
     }
     const probation = !old(other) && other.order > device.order && other.id !== device.id
-    const older = server
-      .accountDevices(device.accountId)
-      .some((d) => d.id !== device.id && d.order < device.order)
-    const free = other.id === device.id ? older : probation
+    const free = other.id === device.id || probation
     if (!free && !server.elevated(session)) {
       server.error(res, 403, 'elevation-required')
       return

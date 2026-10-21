@@ -20,9 +20,10 @@ const STAMPED_CONTEXTS = {
   elevate: 'ostia-server/elevate/v1',
   wrapRead: 'ostia-server/wrap-read/v1',
   manifestPut: 'ostia-server/manifest-put/v1',
+  revoke: 'ostia-server/revoke/v2',
+  syncGc: 'ostia-server/sync-gc/v1',
 }
 export type StampedKind = keyof typeof STAMPED_CONTEXTS
-const REVOKE_CONTEXT = 'ostia-server/revoke/v1'
 const APPROVE_CONTEXT = 'ostia-server/approve/v1'
 
 export interface DeviceKeys {
@@ -104,10 +105,6 @@ export function signStamped(
   bound: readonly string[] = [],
 ): string {
   return signText(keys, [STAMPED_CONTEXTS[kind], deviceId, String(stamp), ...bound].join('\n'))
-}
-
-export function signRevoke(keys: DeviceKeys, signerId: string, targetId: string): string {
-  return signText(keys, `${REVOKE_CONTEXT}\n${signerId}\n${targetId}`)
 }
 
 export function signApprove(

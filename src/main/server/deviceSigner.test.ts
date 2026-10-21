@@ -140,10 +140,21 @@ describe('device signatures', () => {
     ).toBe(true)
   })
 
-  it('SSY-C3 signs revoke, approve and seen over the exact messages', () => {
+  it('SSY-C3 signs a stamped revoke, the clean-up and the approval over the exact messages', async () => {
     const { signer, valid } = setup()
+    const revoke = await signer.signed('revoke', async (h) => h, ['dev-2'])
     expect(
-      valid('ostia-server/revoke/v1\ndev-1\ndev-2', signer.revoke('dev-2')['X-Device-Signature']),
+      valid(
+        `ostia-server/revoke/v2\ndev-1\n${revoke['X-Device-Timestamp']}\ndev-2`,
+        revoke['X-Device-Signature'],
+      ),
+    ).toBe(true)
+    const gc = await signer.signed('syncGc', async (h) => h, ['3', 'hash'])
+    expect(
+      valid(
+        `ostia-server/sync-gc/v1\ndev-1\n${gc['X-Device-Timestamp']}\n3\nhash`,
+        gc['X-Device-Signature'],
+      ),
     ).toBe(true)
     expect(
       valid(
@@ -153,8 +164,8 @@ describe('device signatures', () => {
     ).toBe(true)
   })
 
-  it('SSY-C4 refuses to sign when signed out', () => {
+  it('SSY-C4 refuses to sign when signed out', async () => {
     const signer = new DeviceSigner({ keys: () => null, deviceId: () => null })
-    expect(() => signer.revoke('x')).toThrow(/not-signed-in/)
+    await expect(signer.signed('revoke', async (h) => h, ['x'])).rejects.toThrow(/not-signed-in/)
   })
 })

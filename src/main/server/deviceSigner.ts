@@ -1,10 +1,4 @@
-import {
-  type DeviceKeys,
-  type StampedKind,
-  signApprove,
-  signRevoke,
-  signStamped,
-} from './deviceKeys'
+import { type DeviceKeys, type StampedKind, signApprove, signStamped } from './deviceKeys'
 import { ServerError } from './serverClient'
 
 export interface SignerDeps {
@@ -88,11 +82,6 @@ export class DeviceSigner {
     const result = this.tail.then(run, run)
     this.tail = result.catch(() => undefined)
     return result
-  }
-
-  revoke(targetId: string): SignedHeaders {
-    const { keys, id } = this.who()
-    return { 'X-Device-Signature': signRevoke(keys, id, targetId) }
   }
 
   approve(approvalId: string, requesterId: string): SignedHeaders {
