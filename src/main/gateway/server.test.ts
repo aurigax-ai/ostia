@@ -724,7 +724,6 @@ describe('gateway server over a real WebSocket', () => {
 
   describe('frame size', () => {
     const overOneMiB = 'a'.repeat(1024 * 1024 + 1)
-    const tooBigCloses = process.platform === 'darwin' ? [1009, 1006] : [1009]
     const imageSized = Buffer.concat([
       Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
       Buffer.alloc(2 * 1024 * 1024),
@@ -751,7 +750,7 @@ describe('gateway server over a real WebSocket', () => {
           params: { pad: overOneMiB },
         }),
       )
-      expect(tooBigCloses).toContain(await closed)
+      expect(await closed).toBe(1009)
       expect(deps.ptyWrite).not.toHaveBeenCalled()
       expect(deps.withClipboardImage).not.toHaveBeenCalled()
     })
@@ -777,7 +776,7 @@ describe('gateway server over a real WebSocket', () => {
           params: { pad: overOneMiB },
         }),
       )
-      expect(tooBigCloses).toContain(await c.closed)
+      expect(await c.closed).toBe(1009)
     })
   })
 

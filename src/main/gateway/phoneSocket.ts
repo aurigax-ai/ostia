@@ -402,7 +402,9 @@ function handleConnection(ws: WebSocket, deps: PhoneSocketDeps): void {
     if (!state.device) ws.close(4001, 'hello timeout')
   }, HELLO_TIMEOUT_MS)
 
-  ws.on('error', () => ws.terminate())
+  ws.on('error', () => {
+    if (ws.readyState !== ws.CLOSING) ws.terminate()
+  })
 
   ws.on('pong', () => {
     state.alive = true
