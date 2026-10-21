@@ -11,7 +11,10 @@ import type {
   ExtensionOpenPanelRequest,
 } from '@aurigax-ai/ostia-extension-sdk/contract/extensionsBridge'
 import type { RemoteCwd } from '@aurigax-ai/ostia-extension-sdk/contract/remoteFolders'
-import type { ExtensionRoot } from '@aurigax-ai/ostia-extension-sdk/manifest/extensionManifest'
+import type {
+  ExtensionRoot,
+  OfficialUpdateCheck,
+} from '@aurigax-ai/ostia-extension-sdk/manifest/extensionManifest'
 import type { RedactionResult } from '../../shared/privacy/redaction'
 import type { AgentOfferDelivery, HeldResume } from '../agents/extensionAgents'
 import type { PaneIdentity } from '../control/idRegistry'
@@ -25,6 +28,7 @@ import type { ExtensionStore } from './extensionStore'
 
 export interface ExtensionHostDeps {
   roots: ExtensionRoot[]
+  officialUpdate?: OfficialUpdateCheck
   store: ExtensionStore
   launches?: ExtensionLaunches
   socketPath: () => string

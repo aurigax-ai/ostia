@@ -1,6 +1,9 @@
 name: Setup
 description: pnpm, Node, Go, the Electron download cache, and the project's dependencies
 inputs:
+  cache:
+    description: Cache the pnpm store (off for a job that publishes or signs)
+    default: 'true'
   go:
     description: Install Go (the tsnet helper's toolchain)
     default: 'true'
@@ -18,10 +21,10 @@ runs:
         version=$(node -p "require('./package.json').packageManager.split('@')[1]")
         scripts/retry.sh npm install --global --no-audit --no-fund "pnpm@$version"
     - id: pnpm-store
-      if: runner.environment == 'github-hosted'
+      if: inputs.cache == 'true' && runner.environment == 'github-hosted'
       shell: bash
       run: echo "path=$(pnpm store path --silent)" >> "$GITHUB_OUTPUT"
-    - if: runner.environment == 'github-hosted'
+    - if: inputs.cache == 'true' && runner.environment == 'github-hosted'
       uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
       with:
         path: ${{ steps.pnpm-store.outputs.path }}

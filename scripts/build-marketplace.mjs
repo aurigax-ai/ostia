@@ -36,6 +36,7 @@ const dependencies = [
     'mdast-util-from-markdown',
     'mdast-util-gfm',
     'micromark-extension-gfm',
+    'semver',
     'typescript',
     'undici',
     'vitest',
@@ -49,6 +50,8 @@ if (!existsSync(join(sdk, 'package.json'))) {
   console.error(`${sdk} is missing: run pnpm build:sdk first`)
   process.exit(1)
 }
+
+const sdkVersion = JSON.parse(readFileSync(join(sdk, 'package.json'), 'utf8')).version
 
 rmSync(out, { recursive: true, force: true })
 cpSync(marketplaceProject, out, { recursive: true })
@@ -77,7 +80,7 @@ writeFileSync(
         validate: 'ostia-extension validate .',
       },
       devDependencies: {
-        [sdkName]: app.version,
+        [sdkName]: sdkVersion,
         ...Object.fromEntries(dependencies.map((name) => [name, dependencyRange(name)])),
       },
     },

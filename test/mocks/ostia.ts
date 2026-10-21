@@ -420,24 +420,60 @@ export function makeOstiaMock(overrides?: Partial<OstiaBridge>): OstiaBridge {
       startDrag: vi.fn(),
     },
     marketplace: {
-      list: vi.fn().mockResolvedValue({ marketplaces: [], installed: [] }),
-      add: vi.fn().mockResolvedValue({ ok: true, state: { marketplaces: [], installed: [] } }),
-      remove: vi.fn().mockResolvedValue({ ok: true, state: { marketplaces: [], installed: [] } }),
-      refresh: vi.fn().mockResolvedValue({ ok: true, state: { marketplaces: [], installed: [] } }),
-      install: vi.fn().mockResolvedValue({ ok: true, state: { marketplaces: [], installed: [] } }),
+      list: vi.fn().mockResolvedValue({ marketplaces: [], installed: [], prerelease: [], dev: {} }),
+      add: vi
+        .fn()
+        .mockResolvedValue({
+          ok: true,
+          state: { marketplaces: [], installed: [], prerelease: [], dev: {} },
+        }),
+      remove: vi
+        .fn()
+        .mockResolvedValue({
+          ok: true,
+          state: { marketplaces: [], installed: [], prerelease: [], dev: {} },
+        }),
+      refresh: vi
+        .fn()
+        .mockResolvedValue({
+          ok: true,
+          state: { marketplaces: [], installed: [], prerelease: [], dev: {} },
+        }),
+      install: vi
+        .fn()
+        .mockResolvedValue({
+          ok: true,
+          state: { marketplaces: [], installed: [], prerelease: [], dev: {} },
+        }),
       findCode: vi.fn().mockResolvedValue({ ok: false, error: 'unknown-code' }),
       installCode: vi
         .fn()
-        .mockResolvedValue({ ok: true, state: { marketplaces: [], installed: [] } }),
+        .mockResolvedValue({
+          ok: true,
+          state: { marketplaces: [], installed: [], prerelease: [], dev: {} },
+        }),
       uninstall: vi.fn().mockResolvedValue({
         ok: true,
-        state: { marketplaces: [], installed: [] },
+        state: { marketplaces: [], installed: [], prerelease: [], dev: {} },
+      }),
+      setPrerelease: vi.fn().mockResolvedValue({
+        ok: true,
+        state: { marketplaces: [], installed: [], prerelease: [], dev: {} },
+      }),
+      installDev: vi.fn().mockResolvedValue({
+        ok: true,
+        state: { marketplaces: [], installed: [], prerelease: [], dev: {} },
       }),
     },
     suggestions: {
       forFile: vi.fn().mockResolvedValue(null),
       dismiss: vi.fn().mockResolvedValue(undefined),
-      install: vi.fn().mockResolvedValue({ ok: true, state: { marketplaces: [], installed: [] } }),
+      install: vi
+        .fn()
+        .mockResolvedValue({
+          ok: true,
+          state: { marketplaces: [], installed: [], prerelease: [], dev: {} },
+        }),
     },
     extensions: {
       list: vi.fn().mockResolvedValue([]),

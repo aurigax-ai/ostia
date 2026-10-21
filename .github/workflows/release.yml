@@ -116,26 +116,6 @@ jobs:
           path: dist/*.dmg
           if-no-files-found: error
 
-  sdk:
-    needs: publish
-    runs-on: ubuntu-24.04
-    timeout-minutes: 10
-    permissions:
-      contents: read
-      id-token: write
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-      - uses: ./.github/actions/setup
-        timeout-minutes: 10
-      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
-        with:
-          node-version: 24
-          registry-url: https://registry.npmjs.org
-      - run: pnpm build:sdk
-      - name: Publish the extension SDK to npm
-        working-directory: out/sdk
-        run: npm publish --tag ${{ contains(github.ref_name, '-') && 'next' || 'latest' }}
-
   publish:
     needs: [ci, package, package-macos]
     runs-on: ${{ fromJSON(needs.ci.outputs.linux) }}

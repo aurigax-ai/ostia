@@ -97,6 +97,7 @@ import {
   MARKETPLACE_CODE_PATTERN,
   MARKETPLACE_DESCRIPTION_MAX,
   MARKETPLACE_MAX_EXTENSIONS,
+  MARKETPLACE_MAX_HISTORY,
   MARKETPLACE_NAME_MAX,
 } from './marketplaceManifest'
 
@@ -444,6 +445,16 @@ export const marketplaceManifestSchema = z.looseObject({
       }),
     )
     .max(MARKETPLACE_MAX_EXTENSIONS)
+    .optional(),
+  history: z.array(z.string().min(1)).max(MARKETPLACE_MAX_HISTORY).optional(),
+  revoked: z
+    .array(
+      z.looseObject({
+        id: z.string().regex(EXTENSION_ID_PATTERN),
+        version: z.string().min(1).max(VERSION_MAX),
+      }),
+    )
+    .max(MARKETPLACE_MAX_HISTORY)
     .optional(),
 })
 

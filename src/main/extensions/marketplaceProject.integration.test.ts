@@ -38,10 +38,10 @@ describe('the marketplace project, built the way its own repository builds it', 
     expect(escaping).toEqual([])
   })
 
-  it('depends on the SDK of this version and on nothing unversioned', () => {
+  it('depends on the SDK built here and on nothing unversioned', () => {
     const pkg = JSON.parse(readFileSync(join(marketplace, 'package.json'), 'utf8'))
-    const app = JSON.parse(readFileSync(join(repoRoot, 'package.json'), 'utf8'))
-    expect(pkg.devDependencies['@aurigax-ai/ostia-extension-sdk']).toBe(app.version)
+    const sdk = JSON.parse(readFileSync(join(repoRoot, 'out/sdk/package.json'), 'utf8'))
+    expect(pkg.devDependencies['@aurigax-ai/ostia-extension-sdk']).toBe(sdk.version)
     expect(Object.values(pkg.devDependencies).every((range) => typeof range === 'string')).toBe(
       true,
     )

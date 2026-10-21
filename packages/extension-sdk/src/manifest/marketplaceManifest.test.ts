@@ -24,6 +24,8 @@ describe('parseMarketplaceManifest', () => {
       description: '',
       extensions: ['a', 'tools/b'],
       unlisted: [],
+      history: [],
+      revoked: [],
     })
   })
 
@@ -34,7 +36,36 @@ describe('parseMarketplaceManifest', () => {
       description: '',
       extensions: ['a'],
       unlisted,
+      history: [],
+      revoked: [],
     })
+  })
+
+  it('accepts the folders of older releases and the revoked versions', () => {
+    const history = ['versions/a/1.0.0', 'versions/a/1.0.1', 'versions/a/1.0.0']
+    const revoked = [{ id: 'abc', version: '1.0.1' }]
+    expect(parseMarketplaceManifest({ name: 'Mine', extensions: ['a'], history, revoked })).toEqual(
+      {
+        name: 'Mine',
+        description: '',
+        extensions: ['a'],
+        unlisted: [],
+        history: ['versions/a/1.0.0', 'versions/a/1.0.1'],
+        revoked,
+      },
+    )
+  })
+
+  it('refuses a history path outside the repository and a malformed revoked entry', () => {
+    const base = { name: 'Mine', extensions: ['a'] }
+    expect(parseMarketplaceManifest({ ...base, history: ['../x'] })).toMatch(/history\[0\]/)
+    expect(parseMarketplaceManifest({ ...base, history: 'x' })).toMatch(/history/)
+    expect(parseMarketplaceManifest({ ...base, revoked: [{ id: 'A', version: '1.0.0' }] })).toMatch(
+      /revoked\[0\].id/,
+    )
+    expect(parseMarketplaceManifest({ ...base, revoked: [{ id: 'ab', version: '' }] })).toMatch(
+      /revoked\[0\].version/,
+    )
   })
 
   it('refuses an unlisted entry with a weak, shared or missing code, or a path listed twice', () => {
@@ -92,5 +123,21 @@ describe('planCopy', () => {
     const dir = tmp()
     for (let i = 0; i <= EXTENSION_MAX_FILES; i++) writeFileSync(join(dir, `f${i}`), '')
     expect(planCopy(dir)).toEqual({ ok: false, error: 'too-large' })
+  })
+})
+
+describe('planCopy and a top-level .git', () => {
+  it('never copies a .git folder and refuses one that is a file or a link', () => {
+    const dir = tmp()
+    writeFileSync(join(dir, 'ostia.json'), '{}')
+    mkdirSync(join(dir, '.git'))
+    writeFileSync(join(dir, '.git', 'config'), 'x')
+    expect(planCopy(dir)).toEqual({ ok: true, files: ['ostia.json'] })
+    const file = tmp()
+    writeFileSync(join(file, '.git'), 'gitdir: /elsewhere')
+    expect(planCopy(file)).toEqual({ ok: false, error: 'invalid-extension' })
+    const link = tmp()
+    symlinkSync(dir, join(link, '.git'))
+    expect(planCopy(link)).toEqual({ ok: false, error: 'invalid-extension' })
   })
 })

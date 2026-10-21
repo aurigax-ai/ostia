@@ -1036,7 +1036,9 @@ describe('discoverExtensions', () => {
     expect(found).toHaveLength(1)
     expect(found[0].builtin).toBe(true)
     expect(found[0].manifest.name).toBe('Builtin')
-    expect(errors).toEqual(["duplicate extension id 'system'"])
+    expect(errors).toEqual([
+      "not used in place of the built-in 'system': no official update channel",
+    ])
   })
 
   it('treats a missing root as empty', () => {

@@ -1,6 +1,10 @@
 import { ArrowsClockwiseIcon, TrashIcon } from '@phosphor-icons/react'
 import type { Dict } from '@shared/app/dict'
-import { MARKETPLACE_FEATURE, type MarketplaceInfo } from '@shared/extensions/marketplace'
+import {
+  MARKETPLACE_FEATURE,
+  type MarketplaceExtension,
+  type MarketplaceInfo,
+} from '@shared/extensions/marketplace'
 import { useEffect, useState } from 'react'
 import { IconButton } from '@/components/common/IconButton'
 import { MachineValue } from '@/components/common/MachineValue'
@@ -23,6 +27,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { fmt, useDict } from '@/lib/app/useDict'
+import { parseDevSource } from '@/lib/extensions/devSource'
 import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
 import { useMarketplaceStore } from '@/stores/extensions/marketplaceStore'
 
@@ -75,6 +80,55 @@ export function UninstallExtensionButton({
               }}
             >
               {d.marketplace.uninstall}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
+  )
+}
+
+export function UpdateExtensionButton({
+  marketplaceId,
+  ext,
+}: {
+  marketplaceId: string
+  ext: MarketplaceExtension
+}): JSX.Element {
+  const d = useDict()
+  const busy = useMarketplaceStore((s) => s.busy)
+  const install = useMarketplaceStore((s) => s.install)
+  const [asking, setAsking] = useState(false)
+  if (!ext.downgrade) {
+    return (
+      <Button size="sm" disabled={busy} onClick={() => void install(marketplaceId, ext.id)}>
+        {fmt(d.extensions.updateTo, { version: ext.version })}
+      </Button>
+    )
+  }
+  return (
+    <>
+      <Button size="sm" disabled={busy} onClick={() => setAsking(true)}>
+        {fmt(d.extensions.switchTo, { version: ext.version })}
+      </Button>
+      <AlertDialog open={asking} onOpenChange={setAsking}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {fmt(d.marketplace.downgradeTitle, { name: ext.name, version: ext.version })}
+            </AlertDialogTitle>
+            <AlertDialogDescription>{d.marketplace.downgradeBody}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel size="sm">{d.marketplace.cancel}</AlertDialogCancel>
+            <AlertDialogAction
+              size="sm"
+              onClick={() => {
+                setAsking(false)
+                void install(marketplaceId, ext.id, true)
+              }}
+            >
+              {fmt(d.extensions.switchTo, { version: ext.version })}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -202,6 +256,39 @@ export function MarketplaceFailureNote(): JSX.Element | null {
   )
 }
 
+function DevInstallRow(): JSX.Element {
+  const d = useDict()
+  const busy = useMarketplaceStore((s) => s.busy)
+  const installDev = useMarketplaceStore((s) => s.installDev)
+  const [text, setText] = useState('')
+  const source = parseDevSource(text)
+  const submit = async (): Promise<void> => {
+    if (!source || busy) return
+    if (await installDev(source)) setText('')
+  }
+  return (
+    <form
+      onSubmit={(e) => {
+        e.preventDefault()
+        void submit()
+      }}
+    >
+      <ControlRow label={d.marketplace.devTitle} desc={d.marketplace.devDesc}>
+        <Input
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          placeholder={d.marketplace.devPlaceholder}
+          aria-label={d.marketplace.devLabel}
+          className="h-7 w-56 font-mono"
+        />
+        <Button type="submit" variant="outline" size="sm" disabled={busy || !source}>
+          {d.marketplace.devInstall}
+        </Button>
+      </ControlRow>
+    </form>
+  )
+}
+
 export function MarketplacesGroup(): JSX.Element {
   const d = useDict()
   const marketplaces = useMarketplaceList()
@@ -235,6 +322,7 @@ export function MarketplacesGroup(): JSX.Element {
           </Button>
         </ControlRow>
       </form>
+      <DevInstallRow />
       <SettingsList label={d.marketplace.title} empty={d.marketplace.none}>
         {marketplaces.map((marketplace) => (
           <MarketplaceRow key={marketplace.id} marketplace={marketplace} />

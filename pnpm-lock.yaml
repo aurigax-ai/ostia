@@ -15,12 +15,18 @@ catalogs:
     '@types/node':
       specifier: ^24.19.1
       version: 24.19.1
+    '@types/semver':
+      specifier: ^7.7.1
+      version: 7.8.0
     ai:
       specifier: ^7.0.122
       version: 7.0.122
     esbuild:
       specifier: ^0.28.2
       version: 0.28.2
+    semver:
+      specifier: ^7.8.5
+      version: 7.8.5
     typescript:
       specifier: 5.9.3
       version: 5.9.3
@@ -233,6 +239,9 @@ importers:
       '@types/react-dom':
         specifier: ^18.3.7
         version: 18.3.7(@types/react@18.3.31)
+      '@types/semver':
+        specifier: 'catalog:'
+        version: 7.8.0
       '@types/ws':
         specifier: ^8.18.1
         version: 8.18.1
@@ -374,6 +383,9 @@ importers:
       remark-gfm:
         specifier: ^4.0.1
         version: 4.0.1(supports-color@7.2.0)
+      semver:
+        specifier: 'catalog:'
+        version: 7.8.5
       shadcn:
         specifier: ^4.16.1
         version: 4.16.1(supports-color@7.2.0)(typescript@5.9.3)
@@ -441,6 +453,9 @@ importers:
       '@tanstack/virtual-core':
         specifier: 3.19.4
         version: 3.19.4
+      semver:
+        specifier: 'catalog:'
+        version: 7.8.5
       vscode-jsonrpc:
         specifier: 'catalog:'
         version: 9.0.2
@@ -454,6 +469,9 @@ importers:
       '@types/node':
         specifier: 'catalog:'
         version: 24.19.1
+      '@types/semver':
+        specifier: 'catalog:'
+        version: 7.8.0
       ai:
         specifier: 'catalog:'
         version: 7.0.122(zod@4.6.5)
@@ -2794,6 +2812,9 @@ packages:
 
   '@types/retry@0.12.5':
     resolution: {integrity: sha512-3xSjTp3v03X/lSQLkczaN9UIEwJMoMCA1+Nb5HfbJEQWogdeQIyVtTvxPXDQjZ5zws8rFQfVfRdz03ARihPJgw==}
+
+  '@types/semver@7.8.0':
+    resolution: {integrity: sha512-1mAINjtQCXXeLkJ9ehXkwOcBpqtLxiVtKhpUf83DdRNdQKV0iXZpaHYqRr7nj+wvxuJzoAmAwXI+sCNMv1CzLQ==}
 
   '@types/tough-cookie@4.0.5':
     resolution: {integrity: sha512-/Ad8+nIOV7Rl++6f1BdKxFSMgmoqEoYbHRpPcx3JEfv8VRsQe9Z4mCXeJBzxs7mbHY/XOZZuXlRNfhpVPbs6ZA==}
@@ -8850,6 +8871,8 @@ snapshots:
   '@types/retry@0.12.0': {}
 
   '@types/retry@0.12.5': {}
+
+  '@types/semver@7.8.0': {}
 
   '@types/tough-cookie@4.0.5': {}
 
