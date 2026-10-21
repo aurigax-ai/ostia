@@ -3,7 +3,7 @@ import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { chords } from './chords'
 import { freshDataHome, isolatedLaunch } from './dataHome'
-import { REPORT_SESSION, fakeAgentBin, isolatedHome, startFakeAgent } from './fakeAgent'
+import { fakeAgentBin, isolatedHome, REPORT_SESSION, startFakeAgent } from './fakeAgent'
 import { expectHeld, openWorkspace, waitForPaletteSelection } from './helpers'
 import { _electron as electron, expect, test } from './test'
 
@@ -96,7 +96,9 @@ test('a browser pane moved to its own window sends a picked element to the agent
     const bar = detached.getByRole('toolbar', { name: 'Selection actions' })
     await expect(bar).toBeVisible({ timeout: 15_000 })
     await bar.getByRole('button', { name: 'Add a note' }).click()
-    await detached.getByRole('textbox', { name: 'Add a note' }).fill('Checkout button is misaligned')
+    await detached
+      .getByRole('textbox', { name: 'Add a note' })
+      .fill('Checkout button is misaligned')
     await bar.getByRole('button', { name: 'Send to agent' }).click()
     const targets = detached.getByRole('menuitem')
     await expect(targets).toHaveCount(1, { timeout: 15_000 })
@@ -107,11 +109,15 @@ test('a browser pane moved to its own window sends a picked element to the agent
       timeout: 15_000,
     })
     const terminal = win.locator('.xterm-rows').first()
-    await expect(terminal).toContainText(/agent-read: [^@]*@\S*capture-\d+\S*\.md/, { timeout: 15_000 })
+    await expect(terminal).toContainText(/Checkout button is misaligned @\S*capture-\d+\S*\.md/, {
+      timeout: 15_000,
+    })
+    await expect(terminal).not.toContainText('agent-read:')
     await win.locator('.xterm').first().click()
-    await win.keyboard.type('flush_marker')
     await win.keyboard.press('Enter')
-    await expect(terminal).toContainText('agent-read: flush_marker', { timeout: 15_000 })
+    await expect(terminal).toContainText(/agent-read: [^@]*@\S*capture-\d+\S*\.md/, {
+      timeout: 15_000,
+    })
     const reports = async (): Promise<{ lines: number; files: number }> => {
       const text = (await terminal.textContent()) ?? ''
       return {
