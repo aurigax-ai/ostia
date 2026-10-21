@@ -197,6 +197,9 @@ export function markManager(paneId: string): PaneIdentity | undefined {
 export function getByPaneId(paneId: string): PaneIdentity | undefined {
   return byPane.get(paneId)
 }
+export function paneIdentities(): PaneIdentity[] {
+  return [...byPane.values()]
+}
 export function windowOfWorkspace(workspaceId: string): string | undefined {
   for (const id of byPane.values()) if (id.workspaceId === workspaceId) return id.windowId
   return undefined

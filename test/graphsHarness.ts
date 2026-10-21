@@ -312,6 +312,8 @@ export async function graphsHarness(
     announce: () => {},
     pending: async () => 'idle-no-wake',
     reach: {
+      processPane: async () => [],
+      visible: async () => () => true,
       inScope: async () => true,
       isChild: () => false,
       isSandboxed: () => false,

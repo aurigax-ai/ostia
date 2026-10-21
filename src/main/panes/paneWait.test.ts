@@ -63,7 +63,8 @@ const terminals = new Map<string, { running: boolean; blockCount: number; lastEx
 const statuses = new Map<string, PaneStatus>()
 
 registerPaneWaitMethods({
-  processPane: async (ref) => processes.get(ref),
+  processPane: async (ref) => (processes.has(ref) ? [processes.get(ref) as string] : []),
+  visible: async () => () => true,
   inScope: async (ctx, workspaceId) => ctx.identity.workspaceId === workspaceId,
   isChild: (ownerPaneId, paneId) => children.get(paneId) === ownerPaneId,
   isSandboxed: () => false,

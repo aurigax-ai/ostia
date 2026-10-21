@@ -174,6 +174,7 @@ export interface ControlServerDeps {
   reach?: Pick<Reach, 'scriptReach' | 'recordCreated'>
   usage?: Pick<ScriptTokenUsageLog, 'record' | 'connected'>
   journal?: Pick<AgentJournal, 'call'>
+  version?: () => string | null
 }
 
 let server: Server | null = null
@@ -267,7 +268,8 @@ function registerSessionCalls({ session, deps, onCall, requireIdentity, conn }: 
         pid: callerPid(params?.pid),
       })
     }
-    return { externalId: session.authed.externalId }
+    const version = deps.version?.()
+    return { externalId: session.authed.externalId, ...(version ? { version } : {}) }
   })
 
   onCall('whoami', (): Record<string, string | undefined> => {

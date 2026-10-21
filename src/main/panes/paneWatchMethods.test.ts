@@ -27,7 +27,8 @@ const sandboxed = new Set<string>()
 const confined = new Set<string>()
 
 registerPaneWatchMethods({
-  processPane: async () => undefined,
+  processPane: async () => [],
+  visible: async () => () => true,
   inScope: async (ctx, workspaceId) => ctx.identity.workspaceId === workspaceId,
   isChild: () => false,
   isSandboxed: (workspaceId) => sandboxed.has(workspaceId),

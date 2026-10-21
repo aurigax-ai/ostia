@@ -29,7 +29,11 @@ registerPaneRenameMethods({
     calls.push({ target, id, args })
     return reply
   },
-  reach: { inScope: async (ctx, workspaceId) => ctx.identity.workspaceId === workspaceId },
+  processPane: async () => [],
+  reach: {
+    inScope: async (ctx, workspaceId) => ctx.identity.workspaceId === workspaceId,
+    visible: async () => () => false,
+  },
   windowOfWorkspace: (workspaceId) =>
     windowOfWorkspace(workspaceId) ?? (workspaceId === 'ws-no-pane' ? 'w1' : undefined),
 })

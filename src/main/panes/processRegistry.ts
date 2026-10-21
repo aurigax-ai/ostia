@@ -296,6 +296,24 @@ export class ProcessRegistry {
     return named.find((e) => this.workspaceOf(e) === workspaceId) ?? named.find(visible)
   }
 
+  livePanes(
+    ref: string,
+    workspaceId: string,
+    reaches: (workspaceId: string) => boolean,
+  ): ProcessEntry[] {
+    const seen = (entry: ProcessEntry): boolean => {
+      const owner = this.workspaceOf(entry)
+      return owner === workspaceId || reaches(owner)
+    }
+    const byId = this.entries.get(ref)
+    if (byId) return byId.status !== 'closed' && seen(byId) ? [byId] : []
+    const named = [...this.entries.values()]
+      .filter((e) => e.name === ref && e.status !== 'closed')
+      .reverse()
+    const own = named.filter((e) => this.workspaceOf(e) === workspaceId)
+    return own.length > 0 ? own : named.filter(seen)
+  }
+
   output(entry: ProcessEntry, since: number): ProcessOutput | undefined {
     if (entry.outputStart === undefined) return { data: '', cursor: 0, dropped: false }
     const from = Math.max(since, entry.outputStart)

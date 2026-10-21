@@ -14,6 +14,7 @@ import { extensionCommandRunner } from '../extensions/extensionMethods'
 import { listPanes } from '../panes/paneList'
 import type { WorkspaceSandboxes } from '../sandbox/workspaceSandboxes'
 import type { KeptShellsWiring } from '../tmux/keptShellsWiring'
+import { runningBuild } from '../updates/appVersion'
 import type { WindowSend } from '../windows/windowSend'
 import type { CommandBridge } from './commandBridge'
 import { setScriptTokenCheck } from './controlAuth'
@@ -97,6 +98,7 @@ export function startControlServer({
     reach,
     usage: scriptTokenUsage,
     journal: services.agentJournal ?? undefined,
+    version: () => runningBuild()?.version ?? null,
   })
   writeControlInfo(controlInfoPath(), controlSocketPath(), process.pid)
   keptPlumbing.start(keepShellsOn())

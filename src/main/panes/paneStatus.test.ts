@@ -19,7 +19,7 @@ const { registerPaneStatusMethods, paneStateOf, staleMarks, statusOf, summarizeC
   await import('./paneStatus')
 const { PaneJournal } = await import('./paneJournal')
 const { enqueue, flushBus, resetBus, takeMail, failPaneMail } = await import('../agents/busStore')
-const { markManager, registerPane } = await import('../control/idRegistry')
+const { markManager, registerPane, registerScript } = await import('../control/idRegistry')
 
 const caller = registerPane({ windowId: 'w1', workspaceId: 'ws1', paneId: 'st-caller' })
 const worker = registerPane({ windowId: 'w1', workspaceId: 'ws1', paneId: 'st-worker' })
@@ -38,7 +38,8 @@ const wakingAt = new Map<string, number>()
 const sharing = new Map<string, string[]>()
 
 registerPaneStatusMethods({
-  processPane: async () => undefined,
+  processPane: async () => [],
+  visible: async () => () => true,
   inScope: async (ctx, workspaceId) =>
     ctx.identity.workspaceId === workspaceId || scope.has(workspaceId),
   isChild: () => false,
@@ -305,8 +306,19 @@ describe('pane.status', () => {
     await expect(ask(caller, [manager.externalId])).rejects.toThrow('unknown-pane')
   })
 
-  it('refuses a missing, empty or unknown pane list and a list over the cap', async () => {
-    await expect(ask(caller, undefined)).rejects.toThrow('bad-request: panes')
+  it('answers every other terminal of the caller’s workspace when no pane is named', async () => {
+    entries.set(second.externalId, { agent: 'codex', title: 'w-2' })
+    entries.set(caller.externalId, { agent: 'claude', title: 'me' })
+    entries.set(faraway.externalId, { workspaceId: 'ws9', title: 'elsewhere' })
+    entries.set('browser-1', { kind: 'browser', title: 'docs' })
+    const res = await ask(caller, undefined)
+    expect(res.panes.map((p) => p.pane).sort()).toEqual(
+      [worker.externalId, second.externalId].sort(),
+    )
+    await expect(ask(registerScript('st-script'), undefined)).rejects.toThrow('bad-request: panes')
+  })
+
+  it('refuses an empty or unknown pane list and a list over the cap', async () => {
     await expect(ask(caller, [])).rejects.toThrow('bad-request: panes')
     await expect(ask(caller, ['nope'])).rejects.toThrow('unknown-pane')
     await expect(

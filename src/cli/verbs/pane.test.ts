@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import type { PaneStatus } from '../../shared/panes/paneStatus'
 import {
+  closeLines,
+  filterPanes,
   hibernateOutcome,
   inputLine,
   paneLine,
@@ -94,7 +96,7 @@ describe('parsePaneArgs', () => {
     expect(inputLine({ ...base, turnStarted: true })).toBe('ok: p1 started a turn')
     expect(inputLine(base)).toBe('ok: p1 showed new output; a command is running')
     expect(inputLine({ ...base, responded: false, running: false })).toBe(
-      'sent; p1 showed nothing yet (no command is running): read it with ostia pane read',
+      'sent; p1 showed nothing yet (no command is running): read it with ostia pane read p1',
     )
   })
 
@@ -171,7 +173,7 @@ describe('pane rename', () => {
 })
 
 describe('pane status', () => {
-  it('takes several panes and --json, and needs at least one pane', () => {
+  it('takes several panes and --json, and none means the caller’s workspace', () => {
     expect(parsePaneArgs(['status', 'w1', 'w2'])).toEqual({
       method: 'pane.status',
       params: { panes: ['w1', 'w2'] },
@@ -182,7 +184,12 @@ describe('pane status', () => {
       params: { panes: ['w1'] },
       json: true,
     })
-    expect(() => parsePaneArgs(['status'])).toThrow('usage: ostia pane')
+    expect(parsePaneArgs(['status'])).toEqual({ method: 'pane.status', params: {}, json: false })
+    expect(parsePaneArgs(['status', '--json'])).toEqual({
+      method: 'pane.status',
+      params: {},
+      json: true,
+    })
     expect(() => parsePaneArgs(['status', 'w1', '--lines', '3'])).toThrow()
   })
 })
@@ -290,7 +297,7 @@ describe('pane wait', () => {
       changes: { first: true, states: [], commands: 0, failed: 0, closing: false, mail: 0 },
     }
     const command = { reached: true as const, paneId: 'p1', state: 'command', exitCode: 2, status }
-    expect(waitOutcome(command, false).line).toBe('w-1  shell  exit 2  mail 0  (first look)')
+    expect(waitOutcome(command, false).line).toBe('p1  w-1  shell  exit 2  mail 0  (first look)')
     expect(JSON.parse(waitOutcome(command, true).line)).toMatchObject({
       paneId: 'p1',
       state: 'command',
@@ -426,5 +433,95 @@ describe('pane move', () => {
   it('needs a pane and a workspace or a tab', () => {
     expect(() => parsePaneArgs(['move', 'fixer'])).toThrow('ostia pane move <pane>')
     expect(() => parsePaneArgs(['move', '--workspace', 'w3'])).toThrow('ostia pane move <pane>')
+  })
+})
+
+describe('pane list', () => {
+  const pane = {
+    paneId: '3f6a7ced-1111-4222-8333-444455556666',
+    workspaceId: 'ws1',
+    kind: 'terminal',
+    title: 'w-1',
+    running: true,
+  }
+
+  it('takes --here or --workspace, --state (several), --kind and --json', () => {
+    expect(parsePaneArgs(['list'])).toEqual({ method: 'pane.list', params: {}, json: false })
+    expect(
+      parsePaneArgs([
+        'list',
+        '--here',
+        '--state',
+        'working',
+        '--state',
+        'waiting',
+        '--kind',
+        'terminal',
+      ]),
+    ).toEqual({
+      method: 'pane.list',
+      params: { here: true, states: ['working', 'waiting'], kind: 'terminal' },
+      json: false,
+    })
+    expect(parsePaneArgs(['list', '--workspace', 'api', '--json'])).toEqual({
+      method: 'pane.list',
+      params: { workspace: 'api' },
+      json: true,
+    })
+  })
+
+  it('refuses --here with --workspace, a stray argument and a state it does not know', () => {
+    expect(() => parsePaneArgs(['list', '--here', '--workspace', 'api'])).toThrow(
+      'usage: ostia pane',
+    )
+    expect(() => parsePaneArgs(['list', 'extra'])).toThrow('usage: ostia pane')
+    expect(() => parsePaneArgs(['list', '--state', 'asleep'])).toThrow('--state expects one of')
+  })
+
+  it('prints the first 8 characters of the id', () => {
+    expect(paneLine(pane)).toBe('3f6a7ced\tws1\tterminal\trunning\tw-1')
+  })
+
+  it('keeps the panes of a workspace, a kind and any of the states', () => {
+    const idle = { ...pane, paneId: 'b', running: false }
+    const other = { ...pane, paneId: 'c', workspaceId: 'ws2', agentState: 'working' }
+    const browser = { ...pane, paneId: 'd', kind: 'browser' }
+    const all = [pane, idle, other, browser]
+    expect(filterPanes(all, {})).toHaveLength(4)
+    expect(filterPanes(all, { workspaceId: 'ws2' })).toEqual([other])
+    expect(filterPanes(all, { kind: 'browser' })).toEqual([browser])
+    expect(filterPanes(all, { states: ['idle', 'working'] })).toEqual([idle, other])
+    expect(filterPanes(all, { workspaceId: 'ws1', kind: 'terminal', states: ['running'] })).toEqual(
+      [pane],
+    )
+  })
+})
+
+describe('pane close answers', () => {
+  it('lists what closed and what had closed already, with the age and the name', () => {
+    expect(
+      closeLines(
+        {
+          closed: ['3f6a7ced-1111-4222-8333-444455556666'],
+          already: [
+            { paneId: 'e6546de6-aaaa-4bbb-8ccc-ddddeeeeffff', closedAt: 0, name: 'w-1241' },
+            { paneId: '99999999-aaaa-4bbb-8ccc-ddddeeeeffff', closedAt: 60_000 },
+          ],
+        },
+        2 * 60 * 60_000,
+      ),
+    ).toEqual([
+      '3f6a7ced',
+      'e6546de6 already closed 2h ago (w-1241)',
+      '99999999 already closed 1h ago',
+    ])
+  })
+})
+
+describe('pane wake answers', () => {
+  it('names a pane that was awake already', () => {
+    expect(
+      wakeOutcome({ woke: [], already: ['3f6a7ced-1111-4222-8333-444455556666'] }, false),
+    ).toEqual({ line: '3f6a7ced already awake', code: 0 })
   })
 })

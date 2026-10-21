@@ -312,7 +312,8 @@ describe('ostia CLI end-to-end (spawns the real out/cli/index.js against a live 
       agentGroupsChanged: () => {},
     })
     registerPaneMoveToMethods({
-      processPane: async () => undefined,
+      processPane: async () => [],
+      visible: async () => () => true,
       inScope: reach.inScope,
       isChild: () => false,
       isSandboxed: () => false,
@@ -548,7 +549,7 @@ describe('ostia CLI end-to-end (spawns the real out/cli/index.js against a live 
 
     expect(res.stderr).toBe('')
     expect(res.code).toBe(0)
-    expect(res.stdout.trim()).toBe(moving.externalId)
+    expect(res.stdout.trim()).toBe(moving.externalId.slice(0, 8))
     expect(moves).toEqual([{ paneId: 'pMoving', workspaceId: 's2' }])
   })
 

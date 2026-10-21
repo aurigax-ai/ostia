@@ -97,7 +97,8 @@ registerPaneIoMethods({
           lastExitCode: 1,
         }
       : undefined,
-  processPane: async (ref) => processes.get(ref),
+  processPane: async (ref) => (processes.has(ref) ? [processes.get(ref) as string] : []),
+  visible: async () => () => true,
   inScope: async (ctx, workspaceId) =>
     ctx.identity.workspaceId === workspaceId || scopedWorkspaces.has(workspaceId),
   isChild: (ownerPaneId, paneId) => children.get(paneId) === ownerPaneId,
@@ -624,14 +625,18 @@ describe('pane.hibernate', () => {
     })
   })
 
-  it('answers hibernated for a pane already asleep and stops none of the named panes', async () => {
+  it('lists a pane that is already asleep as hibernated and stops only the others', async () => {
     asleepPanes.add('sibling-pane')
     answer = 'once'
     const conn = await client(agent)
     await expect(
       conn.sendRequest('pane.hibernate', { panes: ['echo', sibling.externalId] }),
-    ).rejects.toThrow(`hibernated: ${sibling.externalId} is already asleep`)
-    expect(hibernateCalls).toEqual([])
+    ).resolves.toEqual({
+      ok: true,
+      hibernated: [child.externalId, sibling.externalId],
+      skipped: {},
+    })
+    expect(hibernateCalls).toEqual(['child-pane'])
   })
 
   it('asks for kill-pane before stopping a pane the caller did not open, and stops on Deny', async () => {
@@ -839,7 +844,9 @@ describe('pane.wake', () => {
     const conn = await client(agent)
     await expect(
       conn.sendRequest('pane.input', { pane: 'echo', text: 'hi', keys: ['enter'] }),
-    ).rejects.toThrow(`hibernated: ${child.externalId} is asleep; wake it with ostia pane wake`)
+    ).rejects.toThrow(
+      `hibernated: ${child.externalId} is asleep; ostia bus send ${child.externalId.slice(0, 8)} "<text>" wakes it, or ostia pane wake ${child.externalId.slice(0, 8)}`,
+    )
     expect(written).toEqual([])
   })
 
@@ -987,6 +994,7 @@ describe('pane.close', () => {
     await expect(conn.sendRequest('pane.close', { panes: ['echo'] })).resolves.toEqual({
       ok: true,
       closed: [child.externalId],
+      already: [],
     })
     expect(closed).toEqual(['child-pane'])
     expect(request).not.toHaveBeenCalled()
@@ -1133,6 +1141,7 @@ describe('pane.wake on an awake pane', () => {
     await expect(conn.sendRequest('pane.close', {})).resolves.toEqual({
       ok: true,
       closed: [agent.externalId],
+      already: [],
     })
     expect(closed).toEqual(['agent-pane'])
     const script = await client({ token: SCRIPT_TOKEN })
@@ -1385,7 +1394,7 @@ describe('pane.read', () => {
     )
     asleepPanes.add(noPty.paneId)
     await expect(conn.sendRequest('pane.read', { pane: noPty.externalId })).rejects.toThrow(
-      `hibernated: ${noPty.externalId} is asleep; wake it with ostia pane wake`,
+      `hibernated: ${noPty.externalId} is asleep; ostia bus send`,
     )
   })
 

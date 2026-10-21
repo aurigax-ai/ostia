@@ -53,7 +53,8 @@ const inScope = async (ctx: ReachCaller, workspaceId: string) =>
   ctx.identity.workspaceId === workspaceId || scoped.has(workspaceId)
 
 registerPaneMoveToMethods({
-  processPane: async (ref) => (ref === 'worker' ? 'child-pane' : undefined),
+  processPane: async (ref) => (ref === 'worker' ? ['child-pane'] : []),
+  visible: async () => () => true,
   inScope,
   isChild: (ownerPaneId, paneId) => children.get(paneId) === ownerPaneId,
   isSandboxed: (workspaceId) => workspaceId === 'ws-sbx',

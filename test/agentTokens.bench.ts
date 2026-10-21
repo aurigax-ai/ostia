@@ -145,6 +145,8 @@ beforeAll(async () => {
     announce: () => {},
     pending: async () => 'idle-no-wake',
     reach: {
+      processPane: async () => [],
+      visible: async () => () => true,
       inScope: async () => true,
       isChild: () => false,
       isSandboxed: () => false,
@@ -277,6 +279,20 @@ describe('CLI answers through the real CLI', () => {
 
   it('measures the listing and reading verbs', async () => {
     expect((await measure('cli.pane.list', 'pane', 'list')).code).toBe(0)
+    expect((await measure('cli.pane.list.here', 'pane', 'list', '--here')).code).toBe(0)
+    expect(
+      (
+        await measure(
+          'cli.pane.list.live',
+          'pane',
+          'list',
+          '--kind',
+          'terminal',
+          '--state',
+          'working',
+        )
+      ).code,
+    ).toBe(0)
     expect((await measure('cli.pane.read', 'pane', 'read', agent.externalId)).code).toBe(0)
     const send = await measure(
       'cli.pane.send',

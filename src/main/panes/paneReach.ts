@@ -5,8 +5,9 @@ import { ensureCaps } from '../approvals/controlElevation'
 import type { Reach } from '../approvals/reach'
 import { connHasCap } from '../control/controlAuth'
 import type { ControlMethodContext } from '../control/controlServer'
-import { type PaneIdentity, getByPaneId, resolveExternal } from '../control/idRegistry'
+import type { PaneIdentity } from '../control/idRegistry'
 import { SANDBOXED_REFUSAL } from '../sandbox/sandboxedCaller'
+import { type PaneRefDeps, refFailure, resolvePaneRef } from './paneRef'
 
 export function fail(message: string): ResponseError<void> {
   return new ResponseError(ErrorCodes.InvalidRequest, message)
@@ -63,8 +64,7 @@ export function paneReach(kind: PaneReach, facts: ReachFacts): ReachVerdict {
   }
 }
 
-export interface PaneReachDeps {
-  processPane: (ref: string, ctx: ControlMethodContext) => Promise<string | undefined>
+export interface PaneReachDeps extends PaneRefDeps {
   inScope: Reach['inScope']
   isChild: (ownerPaneId: string, paneId: string) => boolean
   isSandboxed: (workspaceId: string) => boolean
@@ -76,7 +76,7 @@ const REFUSALS: Readonly<Record<string, string>> = {
   sandboxed: SANDBOXED_REFUSAL,
 }
 
-const PANE_REFS_MAX = 32
+export const PANE_REFS_MAX = 32
 
 export function paneRefs(raw: unknown): string[] {
   if (!Array.isArray(raw) || raw.length === 0) throw fail('bad-request: panes')
@@ -86,15 +86,15 @@ export function paneRefs(raw: unknown): string[] {
 }
 
 export async function paneTarget(
-  deps: Pick<PaneReachDeps, 'processPane'>,
+  deps: PaneRefDeps,
   raw: unknown,
   ctx: ControlMethodContext,
+  destructive = false,
 ): Promise<PaneIdentity> {
   if (typeof raw !== 'string' || !raw) throw fail('bad-request: pane')
-  const processPane = await deps.processPane(raw, ctx)
-  const found = processPane ? getByPaneId(processPane) : resolveExternal(raw)
-  if (found?.kind !== 'pane') throw fail(`unknown-pane: ${raw}`)
-  return found
+  const resolved = await resolvePaneRef(deps, raw, ctx, destructive)
+  if ('found' in resolved) return resolved.found
+  throw fail(refFailure(raw, resolved))
 }
 
 async function reachVerdict(
