@@ -278,9 +278,10 @@ export const commandsEn = {
     layerYours: 'Your setting',
     layers: 'Sources',
     linkClick: '{click} on a terminal link opens',
-    linkClickApp: 'A new browser tab',
-    linkClickDesc: '{shiftClick} opens it in the other one.',
-    linkClickSystem: 'The system browser',
+    linkClickApp: 'In {product}',
+    linkClickDesc:
+      '{shiftClick} opens it in the other one. File paths printed in the terminal follow the same choice.',
+    linkClickSystem: "In the system's default app",
     listSeparator: ', ',
     modifierKeyNames: {
       AltLeft: 'Left Option',
