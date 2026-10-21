@@ -49,9 +49,11 @@ import {
 import { listPairRequests, onPairRequestsChanged } from './pairRequests'
 import { phoneScreenLines, withClipboardImage } from './phoneClipboard'
 import {
+  DEFAULT_FOLDER_NAME,
   type PhoneWorkspacePaths,
   isPhoneFolder,
   loadPhoneWorkspace,
+  ownFolder,
   phoneWorkspaceDefaults,
   phoneWorkspaceId,
 } from './phoneWorkspace'
@@ -160,7 +162,12 @@ export function startGateway({
 }: GatewayStartDeps) {
   const phonePaths = (): PhoneWorkspacePaths => {
     const { home, dataDirs } = workspaceSandboxes.pathEnv()
-    return { home, dataDirs, closedRoots: [scratchFolders.root, artifactFolders.root] }
+    return {
+      home,
+      dataDirs,
+      closedRoots: [scratchFolders.root, artifactFolders.root],
+      defaultFolder: join(app.getPath('userData'), DEFAULT_FOLDER_NAME),
+    }
   }
 
   registerPaneListMethods({
@@ -232,7 +239,10 @@ export function startGateway({
         waking: isWaking,
       }),
     listWorkspaces: () => listWorkspaces({ execCommand, windowIds }),
-    fileScope: phoneFileScope,
+    fileScope: (workspaceId) => ({
+      ...phoneFileScope(workspaceId),
+      phoneFolder: ownFolder(phonePaths().defaultFolder),
+    }),
     artifactsDir: (workspaceId) => artifactFolders.followed(workspaceId),
     openArtifact: async (workspaceId, path) => {
       const windowId = windowForWorkspace(workspaceId)
@@ -282,6 +292,10 @@ export function startGateway({
       }),
     phoneDefaults: () => phoneWorkspaceDefaults(phonePaths()),
     isPhoneWorkspace: (workDir) =>
-      isPhoneFolder(workDir, loadPhoneWorkspace().folder, phonePaths().home),
+      isPhoneFolder(
+        workDir,
+        loadPhoneWorkspace().folder ?? phonePaths().defaultFolder,
+        phonePaths().home,
+      ),
   })
 }

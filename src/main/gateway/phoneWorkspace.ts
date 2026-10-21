@@ -1,5 +1,13 @@
-import { realpathSync, statSync } from 'node:fs'
-import { isAbsolute } from 'node:path'
+import {
+  constants,
+  accessSync,
+  chmodSync,
+  lstatSync,
+  mkdirSync,
+  realpathSync,
+  statSync,
+} from 'node:fs'
+import { basename, dirname, isAbsolute, join } from 'node:path'
 import type { PhoneAgent } from '../panes/phoneAgent'
 import { isInsidePath } from '../platform/pathGuard'
 import { folderProblem } from '../sandbox/srtConfig'
@@ -23,9 +31,64 @@ export interface PhoneWorkspacePaths {
   home: string
   dataDirs: readonly string[]
   closedRoots: readonly string[]
+  defaultFolder: string
 }
 
-const DEFAULT: PhoneWorkspace = { folder: null, openNew: false, agent: 'claude' }
+export const DEFAULT_FOLDER_NAME = 'remote-workspace'
+
+const DEFAULT: PhoneWorkspace = { folder: null, openNew: true, agent: 'claude' }
+
+export function ownFolder(defaultFolder: string): string {
+  try {
+    return join(realpathSync.native(dirname(defaultFolder)), basename(defaultFolder))
+  } catch {
+    return defaultFolder
+  }
+}
+
+type OwnState = 'absent' | 'ready' | 'missing'
+
+function ownState(paths: PhoneWorkspacePaths): OwnState {
+  try {
+    const info = lstatSync(paths.defaultFolder)
+    return info.isDirectory() ? 'ready' : 'missing'
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') return 'missing'
+    try {
+      accessSync(dirname(paths.defaultFolder), constants.W_OK)
+      return 'absent'
+    } catch {
+      return 'missing'
+    }
+  }
+}
+
+function ensureOwnFolder(paths: PhoneWorkspacePaths): boolean {
+  try {
+    mkdirSync(paths.defaultFolder, { recursive: true, mode: 0o700 })
+    if (ownState(paths) === 'ready' && lstatSync(paths.defaultFolder).mode & 0o077) {
+      chmodSync(paths.defaultFolder, 0o700)
+    }
+  } catch {}
+  return ownState(paths) === 'ready'
+}
+
+export function phoneFolderState(
+  phone: PhoneWorkspace,
+  paths: PhoneWorkspacePaths,
+): { folder: string; problem: PhoneWorkspaceProblem | null; absent: boolean } {
+  if (phone.folder !== null) {
+    return { folder: phone.folder, problem: folderRefusal(phone.folder, paths), absent: false }
+  }
+  const folder = ownFolder(paths.defaultFolder)
+  const state = ownState(paths)
+  if (state === 'absent') return { folder, problem: null, absent: true }
+  return {
+    folder,
+    problem: state === 'missing' ? 'missing' : folderRefusal(paths.defaultFolder, paths),
+    absent: false,
+  }
+}
 
 function agentOf(value: unknown): PhoneAgent | null {
   return value === 'claude' || value === 'codex' ? value : null
@@ -37,7 +100,7 @@ export function loadPhoneWorkspace(): PhoneWorkspace {
   const { folder, openNew, agent } = raw as Record<string, unknown>
   return {
     folder: typeof folder === 'string' && isAbsolute(folder) ? folder : null,
-    openNew: openNew === true,
+    openNew: typeof openNew === 'boolean' ? openNew : DEFAULT.openNew,
     agent: agentOf(agent) ?? DEFAULT.agent,
   }
 }
@@ -48,16 +111,17 @@ function checkFolder(
 ): { real: string } | { problem: PhoneWorkspaceProblem } {
   let real: string
   try {
-    real = realpathSync(folder)
+    real = realpathSync.native(folder)
     if (!statSync(real).isDirectory()) return { problem: 'missing' }
   } catch {
     return { problem: 'missing' }
   }
+  if (real === ownFolder(paths.defaultFolder)) return { real }
   const problem = folderProblem(real, paths)
   if (problem) return { problem }
   const closed = paths.closedRoots.some((root) => {
     try {
-      const rootReal = realpathSync(root)
+      const rootReal = realpathSync.native(root)
       return isInsidePath(rootReal, real) || isInsidePath(real, rootReal)
     } catch {
       return false
@@ -78,8 +142,11 @@ export function phoneWorkspaceDefaults(paths: PhoneWorkspacePaths): {
   set: boolean
   agent: PhoneAgent
 } {
-  const { folder, openNew, agent } = loadPhoneWorkspace()
-  return { set: folder !== null && openNew && !folderRefusal(folder, paths), agent }
+  const phone = loadPhoneWorkspace()
+  return {
+    set: phone.openNew && phoneFolderState(phone, paths).problem === null,
+    agent: phone.agent,
+  }
 }
 
 export type PhoneWorkspaceSet =
@@ -98,9 +165,10 @@ export function setPhoneWorkspace(raw: unknown, paths: PhoneWorkspacePaths): Pho
     const problem = folderRefusal(folder, paths)
     if (problem) return { ok: false, error: problem }
   }
+  const real = folder === null ? null : realpathSync.native(folder)
   const value: PhoneWorkspace = {
-    folder: folder === null ? null : realpathSync(folder),
-    openNew: folder !== null && openNew,
+    folder: real === ownFolder(paths.defaultFolder) ? null : real,
+    openNew,
     agent: chosen,
   }
   savePhoneWorkspaceRecord(value)
@@ -127,10 +195,11 @@ async function findOrOpen(real: string, deps: PhoneWorkspaceOpen, home: string) 
 }
 
 export async function phoneWorkspaceId(deps: PhoneWorkspaceOpen): Promise<string | null> {
-  const { folder, openNew } = loadPhoneWorkspace()
-  if (!folder || !openNew) return null
+  const phone = loadPhoneWorkspace()
+  if (!phone.openNew) return null
   const paths = deps.paths()
-  const checked = checkFolder(folder, paths)
+  if (phone.folder === null && !ensureOwnFolder(paths)) return null
+  const checked = checkFolder(phone.folder ?? paths.defaultFolder, paths)
   if ('problem' in checked) return null
   const pending = opening.get(checked.real)
   if (pending) return pending

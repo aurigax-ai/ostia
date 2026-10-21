@@ -65,7 +65,7 @@ export function GatewayPhoneWorkspace(): JSX.Element {
 
   if (!phone) return <SettingsGroup title={d.settings.phoneGroup}>{null}</SettingsGroup>
   const current: GatewayPhoneWorkspaceSave = {
-    folder: phone.folder,
+    folder: phone.isDefault ? null : phone.folder,
     openNew: phone.openNew,
     agent: phone.agent,
   }
@@ -79,34 +79,29 @@ export function GatewayPhoneWorkspace(): JSX.Element {
     <SettingsGroup title={d.settings.phoneGroup} desc={d.settings.phoneGroupDesc}>
       <ControlRow
         label={d.settings.phoneWorkspace}
-        desc={d.settings.phoneWorkspaceDesc}
+        desc={phone.absent ? d.settings.phoneWorkspaceAbsent : d.settings.phoneWorkspaceDesc}
         error={shownError}
       >
         <div className="flex min-w-0 items-center gap-2">
-          {phone.folder ? (
-            <MachineValue value={phone.folder} label={d.settings.phoneWorkspace} />
-          ) : (
-            <span className="text-fg-muted text-ui-sm">{d.settings.phoneWorkspaceNone}</span>
-          )}
+          <MachineValue value={phone.folder} label={d.settings.phoneWorkspace} />
           <Button variant="outline" size="sm" onClick={() => void choose()}>
             {d.settings.phoneWorkspaceChoose}
           </Button>
-          {phone.folder ? (
+          {phone.isDefault ? null : (
             <Button
               variant="outline"
               size="sm"
-              onClick={() => void save({ ...current, folder: null, openNew: false })}
+              onClick={() => void save({ ...current, folder: null })}
             >
-              {d.settings.phoneWorkspaceClear}
+              {d.settings.phoneWorkspaceDefault}
             </Button>
-          ) : null}
+          )}
         </div>
       </ControlRow>
       <ToggleRow
         label={d.settings.phoneOpenNew}
-        desc={phone.folder ? d.settings.phoneOpenNewDesc : d.settings.phoneOpenNewNeedsFolder}
+        desc={d.settings.phoneOpenNewDesc}
         checked={phone.openNew}
-        disabled={!phone.folder}
         onChange={(openNew) => void save({ ...current, openNew })}
       />
       <ControlRow label={d.settings.phoneAgent} desc={d.settings.phoneAgentDesc}>
@@ -120,11 +115,9 @@ export function GatewayPhoneWorkspace(): JSX.Element {
           onChange={(agent) => void save({ ...current, agent })}
         />
       </ControlRow>
-      {phone.folder ? (
-        <ControlRow label={d.settings.phoneTrust} desc={d.settings.phoneTrustDesc}>
-          <span className="text-fg-muted text-ui-sm">{trustText(d, phone.trust)}</span>
-        </ControlRow>
-      ) : null}
+      <ControlRow label={d.settings.phoneTrust} desc={d.settings.phoneTrustDesc}>
+        <span className="text-fg-muted text-ui-sm">{trustText(d, phone.trust)}</span>
+      </ControlRow>
     </SettingsGroup>
   )
 }

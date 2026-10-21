@@ -26,6 +26,7 @@ export interface WorkspaceFileRead {
 export interface PhoneFileScope {
   home: string
   dataDirs: readonly string[]
+  phoneFolder?: string
   rules: SandboxReadRules
 }
 
@@ -97,7 +98,7 @@ async function workspaceRoot(
 ): Promise<WorkspaceFileOutcome<string>> {
   const root = await realOrNull(resolve(expandHome(workDir)))
   if (root === null) return fail('not-found')
-  if (folderProblem(root, scope)) return fail('workspace-too-broad')
+  if (root !== scope.phoneFolder && folderProblem(root, scope)) return fail('workspace-too-broad')
   return { ok: true, value: root }
 }
 
