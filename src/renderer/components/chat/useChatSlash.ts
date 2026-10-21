@@ -113,6 +113,10 @@ function createSlashActions({
           ? fmt(d.chatSlash.skillPrompt, { name, task })
           : fmt(d.chatSlash.skillPromptAlone, { name }),
       ),
+    applyPlaybook: (name, task) =>
+      void window.ostia.chatTools.playbookPrompt(name, task).then((text) => {
+        if (text !== null) ask(text)
+      }),
     showModel: () => setModelOpen(true),
     showHelp: () => setCard('help'),
   }
@@ -152,6 +156,7 @@ export function useChatSlash(params: ChatSlashParams) {
   } = params
   const { messages } = chat
   const skills = useChatToolsStore((s) => s.skills)
+  const playbooks = useChatToolsStore((s) => s.playbooks)
   const skillsOn = useChatToolsStore((s) => !(s.off[sessionId] ?? []).includes(SKILLS_GROUP))
   const skillFolders = useSettingsStore((s) => s.assistant.skillFolders.length)
   const summaries = useChatStore((s) => s.summaries)
@@ -191,6 +196,7 @@ export function useChatSlash(params: ChatSlashParams) {
     tools: Boolean(provider?.tools),
     skillFolders,
     skills,
+    playbooks,
     skillsOn,
     sessions: summaries.filter((s) => s.id !== sessionId),
     sources: sources.map((s) => ({ value: s.value, label: s.item.label })),

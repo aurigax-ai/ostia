@@ -17,6 +17,7 @@ import { PtyFlowControl } from '../ptyFlow'
 import { PtySession } from '../ptySession'
 import { ScreenMirror } from '../screenMirror'
 import { closesPaneOnExit } from '../shellExit'
+import { releaseAgentDir } from '../shellIntegration'
 import { type PtyHold, releasePty } from './ptySize'
 
 export interface PaneTitleEntry {
@@ -201,6 +202,7 @@ export function createPtyRegistry({
           keptAttention.reported(paneId)
           recoveryHeld.delete(paneId)
           closedPanes.delete(paneId)
+          releaseAgentDir(paneId)
         }
       },
     })

@@ -2,6 +2,7 @@ import type { ExtensionInfo } from '@aurigax-ai/ostia-extension-sdk/contract/ext
 import {
   ArrowsClockwiseIcon,
   BellIcon,
+  BookOpenTextIcon,
   BroadcastIcon,
   ChatCircleDotsIcon,
   DeviceMobileIcon,
@@ -54,6 +55,7 @@ export type SectionId =
   | 'sidebar'
   | 'workspaces'
   | 'agents'
+  | 'playbooks'
   | 'assistant'
   | 'files'
   | 'git'
@@ -105,6 +107,7 @@ export function settingsSections(d: Dict): SettingsSection[] {
     { id: 'ports', group: 'workspace', icon: PlugsIcon, label: d.ports.title },
     { id: 'views', group: 'workspace', icon: LayoutIcon, label: d.views.title },
     { id: 'agents', group: 'agents', icon: RobotIcon, label: d.settings.agents },
+    { id: 'playbooks', group: 'agents', icon: BookOpenTextIcon, label: d.playbooks.title },
     {
       id: 'assistant',
       group: 'agents',

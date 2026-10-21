@@ -434,6 +434,30 @@ describe('builtins route to store actions', () => {
     expect(useSettingsStore.getState().workspaceGroups.byCwd).toEqual([])
   })
 
+  it('settings.set and settings.unset refuse playbooks, so an agent cannot turn one on or write its own', async () => {
+    const exec = (id: string, args: unknown) => commands.execWith(ctx(null, null), id, args)
+    const attempts = [
+      await exec('settings.set', { key: 'playbooks.enabled.coordinator', value: true }),
+      await exec('settings.set', {
+        key: 'playbooks.own.sneaky',
+        value: { description: 'x', text: 'y', enabled: true },
+      }),
+      await exec('settings.set', { key: 'playbooks', value: { enabled: { worker: true } } }),
+      await exec('settings.unset', { key: 'playbooks' }),
+    ]
+    for (const res of attempts) {
+      expect(res.ok).toBe(false)
+      if (!res.ok)
+        expect(res.error.message).toBe('playbooks can only be changed by you in Settings')
+    }
+    expect(useSettingsStore.getState().playbooks).toEqual({
+      enabled: {},
+      accepted: {},
+      edits: {},
+      own: {},
+    })
+  })
+
   it('settings.set and settings.unset refuse the modifier remap, so an agent cannot turn a key into another', async () => {
     useSettingsStore.setState({ modifierRemap: { ControlLeft: 'command' } })
     const exec = (id: string, args: unknown) => commands.execWith(ctx(null, null), id, args)

@@ -15,6 +15,7 @@ import {
 import { AGENT_HOOKS_OFF_ENV } from '../../shared/agents/agentHooks'
 import { AGENT_ARGS_ENV, CODEX_HOOK_ARGS_JSON } from '../../shared/agents/agentLaunch'
 import { CORE_SKILL_FILES, writeBundledSkill } from '../agents/bundledSkills'
+import type { PlaybookFile } from '../agents/playbookFiles'
 import {
   AGENT_DIR,
   busHookCommand,
@@ -26,7 +27,7 @@ import {
   permissionHookCommand,
   turnHookCommand,
 } from './agentHookCommands'
-import { writeSkillFiles } from './claudeIntegration'
+import { writePlaybookFile, writeSkillFiles } from './claudeIntegration'
 
 const CODEX_ARGS = envName(AGENT_ARGS_ENV.codex)
 
@@ -178,9 +179,18 @@ export function codexHookArgs(
   return args
 }
 
+export const PLAYBOOKS_DIR = 'playbooks'
+
+interface ListedSkill {
+  id: string
+  file: string
+  description: string
+}
+
 function codexSessionContext(
   skillFile: string,
-  skills: { id: string; file: string; description: string }[],
+  skills: ListedSkill[],
+  playbooks: ListedSkill[],
 ): string {
   return [
     `This Codex session runs in a ${PRODUCT_NAME} terminal pane. The \`ostia\` CLI controls the pane and its workspace: notifications, attention state, the in-app browser, background processes, the secret vault, and a message bus to agents in other panes.`,
@@ -190,6 +200,13 @@ function codexSessionContext(
           '',
           `${PRODUCT_NAME} extensions the human enabled add these skills. When a task matches one, read its file first:`,
           ...skills.map((skill) => `- ${skill.id} (${skill.file}): ${skill.description}`),
+        ]
+      : []),
+    ...(playbooks.length > 0
+      ? [
+          '',
+          'These playbooks are slash commands only the human uses. Read one of these files only when the human types its /name in this session, then follow it:',
+          ...playbooks.map((p) => `- /${p.id} (${p.file})`),
         ]
       : []),
     '',
@@ -209,6 +226,7 @@ export function writeCodexIntegration(
   dir: string,
   content: AgentPluginContent = NO_AGENT_PLUGINS,
   finalDir: string = dir,
+  playbooks: readonly PlaybookFile[] = [],
 ): { contextFile: string } {
   mkdirSync(dir, { recursive: true })
   const skillFile = join(finalDir, 'SKILL.md')
@@ -222,7 +240,19 @@ export function writeCodexIntegration(
       description: skill.description.replace(/\s+/g, ' '),
     }
   })
-  writeFileSync(join(dir, 'session-context.md'), codexSessionContext(skillFile, skills), 'utf8')
+  const listed = playbooks.map((playbook) => {
+    writePlaybookFile(join(dir, PLAYBOOKS_DIR, playbook.id), playbook)
+    return {
+      id: playbook.id,
+      file: join(finalDir, PLAYBOOKS_DIR, playbook.id, AGENT_SKILL_ENTRY),
+      description: playbook.description,
+    }
+  })
+  writeFileSync(
+    join(dir, 'session-context.md'),
+    codexSessionContext(skillFile, skills, listed),
+    'utf8',
+  )
   const hookArgs = codexHookArgs(contextFile, content.hooks)
   writeFileSync(join(dir, CODEX_HOOK_ARGS_FILE), codexHookArgsScript(hookArgs), 'utf8')
   writeFileSync(join(dir, CODEX_HOOK_ARGS_JSON), `${JSON.stringify(hookArgs)}\n`, 'utf8')
