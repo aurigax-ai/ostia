@@ -1,4 +1,5 @@
 import {
+  chmodSync,
   mkdirSync,
   mkdtempSync,
   realpathSync,
@@ -12,9 +13,9 @@ import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   type PhoneWorkspacePaths,
-  folderOf,
   folderRefusal,
   loadPhoneWorkspace,
+  phoneFolderState,
   phoneWorkspaceDefaults,
   phoneWorkspaceId,
   setPhoneWorkspace,
@@ -85,9 +86,7 @@ describe('the Phone workspace', () => {
 
   it('PHW-C12 makes the default folder 0700 on first use and exempts only that exact folder', () => {
     const own = paths.defaultFolder
-    expect(() => statSync(own)).toThrow()
-    expect(folderOf(loadPhoneWorkspace(), paths)).toBe(own)
-    expect(statSync(own).mode & 0o777).toBe(0o700)
+    mkdirSync(own, { mode: 0o700 })
     expect(folderRefusal(own, paths)).toBeNull()
     expect(folderRefusal(join(own, '..'), paths)).toBe('ostia-data')
     mkdirSync(join(own, 'sub'))
@@ -129,6 +128,54 @@ describe('the Phone workspace', () => {
     expect(await phoneWorkspaceId(deps)).toBe('existing')
     expect(open).not.toHaveBeenCalled()
     expect(phoneWorkspaceDefaults(paths)).toEqual({ set: true, agent: 'claude' })
+  })
+
+  it('PHW-C16 looking at the default folder never creates it', () => {
+    expect(phoneFolderState(loadPhoneWorkspace(), paths)).toEqual({
+      folder: paths.defaultFolder,
+      problem: null,
+      absent: true,
+    })
+    expect(phoneWorkspaceDefaults(paths)).toEqual({ set: true, agent: 'claude' })
+    expect(() => statSync(paths.defaultFolder)).toThrow()
+  })
+
+  it('PHW-C17 opens nothing and offers no default when the default path cannot be a folder', async () => {
+    const open = vi.fn(async () => 'ws')
+    const deps = { paths: () => paths, workspaces: vi.fn(async () => []), open }
+    const unusable = async () => {
+      expect(await phoneWorkspaceId(deps)).toBeNull()
+      expect(phoneWorkspaceDefaults(paths)).toEqual({ set: false, agent: 'claude' })
+      expect(phoneFolderState(loadPhoneWorkspace(), paths).problem).toBe('missing')
+    }
+    writeFileSync(paths.defaultFolder, 'x')
+    await unusable()
+    rmSync(paths.defaultFolder)
+    symlinkSync(join(root, 'gone'), paths.defaultFolder)
+    await unusable()
+    rmSync(paths.defaultFolder)
+    symlinkSync(join(root, 'home', 'jobs'), paths.defaultFolder)
+    await unusable()
+    rmSync(paths.defaultFolder)
+    chmodSync(join(root, 'data', 'ostia'), 0o500)
+    try {
+      await unusable()
+    } finally {
+      chmodSync(join(root, 'data', 'ostia'), 0o700)
+    }
+    expect(open).not.toHaveBeenCalled()
+  })
+
+  it('PHW-C18 tightens an existing default folder to 0700', async () => {
+    mkdirSync(paths.defaultFolder, { mode: 0o755 })
+    chmodSync(paths.defaultFolder, 0o755)
+    const deps = {
+      paths: () => paths,
+      workspaces: vi.fn(async () => []),
+      open: vi.fn(async () => 'ws'),
+    }
+    expect(await phoneWorkspaceId(deps)).toBe('ws')
+    expect(statSync(paths.defaultFolder).mode & 0o777).toBe(0o700)
   })
 
   it('PHW-C3 reuses an open workspace on the folder, opens one otherwise, and never falls back', async () => {

@@ -94,6 +94,7 @@ export interface GatewayPhoneWorkspaceSave {
 export interface GatewayPhoneWorkspace extends Omit<GatewayPhoneWorkspaceSave, 'folder'> {
   folder: string
   isDefault: boolean
+  absent: boolean
   trust: 'trusted' | 'ask' | 'unknown'
   problem?: string
 }

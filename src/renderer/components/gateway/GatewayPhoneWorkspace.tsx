@@ -79,7 +79,7 @@ export function GatewayPhoneWorkspace(): JSX.Element {
     <SettingsGroup title={d.settings.phoneGroup} desc={d.settings.phoneGroupDesc}>
       <ControlRow
         label={d.settings.phoneWorkspace}
-        desc={d.settings.phoneWorkspaceDesc}
+        desc={phone.absent ? d.settings.phoneWorkspaceAbsent : d.settings.phoneWorkspaceDesc}
         error={shownError}
       >
         <div className="flex min-w-0 items-center gap-2">

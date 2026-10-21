@@ -559,6 +559,7 @@ export function makeOstiaMock(overrides?: Partial<OstiaBridge>): OstiaBridge {
       phoneWorkspace: vi.fn().mockResolvedValue({
         folder: '/data/ostia/remote-workspace',
         isDefault: true,
+        absent: true,
         openNew: true,
         agent: 'claude',
         trust: 'unknown',

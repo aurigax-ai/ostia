@@ -273,6 +273,7 @@ export const settingsZhHant: typeof settingsEn = {
     phoneTrustTrusted: '已信任',
     phoneTrustUnknown: '未知',
     phoneWorkspace: '手機工作區',
+    phoneWorkspaceAbsent: '手機首次開始工作階段時建立。',
     phoneWorkspaceChoose: '選擇…',
     phoneWorkspaceDefault: '使用預設',
     phoneWorkspaceDesc:

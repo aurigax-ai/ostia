@@ -14,6 +14,7 @@ describe('GatewayPhoneWorkspace', () => {
     vi.mocked(gateway.setPhoneWorkspace).mockResolvedValueOnce({ ok: false, error: 'home' })
     render(<GatewayPhoneWorkspace />)
     expect(await screen.findByText('/data/ostia/remote-workspace')).toBeTruthy()
+    expect(screen.getByText('Made when a phone first starts a session.')).toBeTruthy()
     expect(screen.queryByRole('button', { name: 'Use default' })).toBeNull()
     expect(
       screen
@@ -36,6 +37,7 @@ describe('GatewayPhoneWorkspace', () => {
       value: {
         folder: '/home/me/jobs',
         isDefault: false,
+        absent: false,
         openNew: true,
         agent: 'claude',
         trust: 'ask',
@@ -50,6 +52,7 @@ describe('GatewayPhoneWorkspace', () => {
       value: {
         folder: '/data/ostia/remote-workspace',
         isDefault: true,
+        absent: false,
         openNew: true,
         agent: 'claude',
         trust: 'unknown',

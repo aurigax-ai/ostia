@@ -284,6 +284,7 @@ export const settingsEn = {
     phoneTrustTrusted: 'Trusted',
     phoneTrustUnknown: 'Unknown',
     phoneWorkspace: 'Phone workspace',
+    phoneWorkspaceAbsent: 'Made when a phone first starts a session.',
     phoneWorkspaceChoose: 'Choose…',
     phoneWorkspaceDefault: 'Use default',
     phoneWorkspaceDesc:
