@@ -28,8 +28,10 @@ function pane(paneId: string, workspaceId: string, host = hostname(), windowId =
   return identity
 }
 
-const ask = (paneId: string, sender = '1') =>
-  handlers.get('agent:folder-trust')?.({ sender: { id: Number(sender) } }, paneId)
+const accountDirs = new Map<string, string>()
+
+const ask = (paneId: string, sender = '1', sessionId?: string) =>
+  handlers.get('agent:folder-trust')?.({ sender: { id: Number(sender) } }, paneId, sessionId)
 const trust = (paneId: string, sender = '1', shown = project) =>
   handlers.get('agent:trust-folder')?.({ sender: { id: Number(sender) } }, paneId, shown)
 
@@ -49,12 +51,14 @@ beforeEach(() => {
     scratchFolders: { isScratch: (id) => scratch.has(id ?? '') },
     workspaceSandboxes: { isEnabled: (id) => sandboxed.has(id) },
     readSettingsFile: () => ({}),
+    claudeAccounts: { configDirFor: (session) => accountDirs.get(session ?? '') },
   })
 })
 
 afterEach(() => {
   for (const id of ptys.keys()) removePane(id)
   ptys.clear()
+  accountDirs.clear()
   for (const id of ['ws', 'scratch', 'sandbox']) removeWorkspace(id)
   vi.unstubAllEnvs()
   rmSync(home, { recursive: true, force: true })
@@ -95,6 +99,20 @@ describe('folder trust IPC', () => {
     ).toEqual({
       hasTrustDialogAccepted: true,
     })
+    expect(readFileSync(config, 'utf8')).toBe('{"projects":{}}\n')
+  })
+
+  it('CFT-C35 writes the trust key into the profile of the session the pane is about to resume', async () => {
+    pane('p-ok', 'ws')
+    const profile = join(home, 'accounts', 'work')
+    mkdirSync(profile, { recursive: true })
+    writeFileSync(join(profile, '.claude.json'), '{"projects":{}}\n')
+    accountDirs.set('session-work', profile)
+    expect(await ask('p-ok', '1', 'session-work')).toEqual({ state: 'ask', folder: project })
+    expect(await trust('p-ok')).toBe(true)
+    expect(
+      JSON.parse(readFileSync(join(profile, '.claude.json'), 'utf8')).projects[project],
+    ).toEqual({ hasTrustDialogAccepted: true })
     expect(readFileSync(config, 'utf8')).toBe('{"projects":{}}\n')
   })
 

@@ -1,4 +1,5 @@
 import type { BrowserProfile } from '@shared/browser/browserProfile'
+import { NO_ACCOUNTS } from '@shared/claudeAccounts/claudeAccounts'
 import type { SyncStatus } from '@shared/profileSync/profileSync'
 import type { ServerSyncStatus } from '@shared/profileSync/serverSync'
 import type { OstiaBridge } from '@shared/types'
@@ -301,6 +302,13 @@ export function makeOstiaMock(overrides?: Partial<OstiaBridge>): OstiaBridge {
     },
     park: {
       pane: vi.fn().mockResolvedValue({ ok: false, reason: 'unavailable' }),
+    },
+    claudeAccounts: {
+      state: vi.fn().mockResolvedValue(NO_ACCOUNTS),
+      onChange: vi.fn(noopUnsub),
+      add: vi.fn().mockResolvedValue('opened'),
+      remove: vi.fn().mockResolvedValue(true),
+      use: vi.fn().mockResolvedValue(true),
     },
     agentSession: {
       info: vi.fn().mockResolvedValue(null),

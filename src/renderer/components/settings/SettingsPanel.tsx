@@ -4,6 +4,7 @@ import { AgentsSection } from '@/components/agents/AgentsSection'
 import { PlaybooksSection } from '@/components/agents/PlaybooksSection'
 import { AboutSection } from '@/components/app/AboutSection'
 import { AssistantSection } from '@/components/assist/AssistantSection'
+import { AccountsSection } from '@/components/claudeAccounts/AccountsSection'
 import { BrowseExtensionsDialog } from '@/components/extensions/BrowseExtensions'
 import {
   ExtensionSettingsPage,
@@ -184,6 +185,7 @@ const SettingsPages = memo(function SettingsPages({
           workspaceName={workspaceTitle(targetWorkspace)}
         />
       ) : null}
+      {id === 'claudeAccounts' ? <AccountsSection /> : null}
       {id === 'agents' ? <AgentsSection /> : null}
       {id === 'playbooks' ? <PlaybooksSection /> : null}
       {id === 'assistant' ? <AssistantSection /> : null}

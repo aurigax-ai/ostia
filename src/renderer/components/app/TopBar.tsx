@@ -13,6 +13,7 @@ import { useState } from 'react'
 import { DashboardButton } from '@/components/agents/DashboardButton'
 import { NotificationCenter } from '@/components/agents/NotificationCenter'
 import { AssistantMenu } from '@/components/assist/AssistantMenu'
+import { AccountsMenu } from '@/components/claudeAccounts/AccountsMenu'
 import { Hint } from '@/components/common/Hint'
 import { IconButton } from '@/components/common/IconButton'
 import { DropdownMenu, MenuItem, MenuSubContent, MenuSubTrigger } from '@/components/common/Menu'
@@ -82,6 +83,7 @@ export function TopBar(): JSX.Element {
           aria-pressed={filesOpen}
           onClick={toggleFiles}
         />
+        <AccountsMenu />
         <PanelToggles />
         <DashboardButton />
       </div>

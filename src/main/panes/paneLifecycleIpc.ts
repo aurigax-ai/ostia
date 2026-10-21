@@ -8,6 +8,7 @@ import type { LifecycleEvent } from '../../shared/attention/attention'
 import type { CommandDescriptor } from '../../shared/control/commands'
 import type { TerminalStateSnapshot } from '../../shared/terminal/ptyApi'
 import { dropWatchesOf, failPaneMail } from '../agents/busStore'
+import type { ClaudeAccounts } from '../agents/claudeAccounts/claudeAccounts'
 import { forgetCodexSocket } from '../agents/codexSockets'
 import { mailers } from '../agents/mailers'
 import { forgetMailFlag } from '../agents/mailFlag'
@@ -54,6 +55,7 @@ interface PaneLifecycleIpcDeps {
     updateRunner: UpdateRunner | null
     histories: PaneHistories | null
   }
+  claudeAccounts: Pick<ClaudeAccounts, 'paneClosed'>
   releaseMovingPane: (paneId: string) => void
   killPty: (paneId: string, reason: ReapReason) => void
   ptys: Map<string, PtyEntry>
@@ -93,6 +95,7 @@ export function registerPaneLifecycleIpc({
   paneStartErrors,
   paneWatch,
   paneJournal,
+  claudeAccounts,
   scratchFolders,
   workspaceClosed,
   keptShells,
@@ -133,6 +136,7 @@ export function registerPaneLifecycleIpc({
         approvals()?.forget(identity.externalId)
         questions()?.forget(identity.externalId)
         services.updateRunner?.paneClosed(identity.externalId)
+        void claudeAccounts.paneClosed(identity.externalId)
         failPaneMail(identity.externalId)
         dropWatchesOf(identity.externalId)
         mailers.clear(identity.externalId)

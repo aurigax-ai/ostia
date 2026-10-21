@@ -405,6 +405,19 @@ export const USAGE_TABLE: readonly NounUsage[] = [
     ],
   },
   {
+    noun: 'account',
+    audience: 'admin',
+    about: 'the Claude accounts new sessions can use',
+    verbs: [
+      {
+        verb: 'list',
+        args: '[--json]',
+        about: 'every account: number, email, which one is current',
+      },
+      { verb: 'switch', args: '<email|number>', about: 'the account new Claude sessions start on' },
+    ],
+  },
+  {
     noun: 'gateway',
     audience: 'admin',
     about: 'the phone gateway',
@@ -435,6 +448,7 @@ export const USAGE_TABLE: readonly NounUsage[] = [
   },
   { noun: 'resume-token', audience: 'plumbing', needsArgs: true, about: 'agent hook' },
   { noun: 'claude-hook', audience: 'plumbing', needsArgs: true, about: 'agent hook' },
+  { noun: 'claude-account', audience: 'plumbing', needsArgs: true, about: 'claude launcher' },
   { noun: 'turn-hook', audience: 'plumbing', needsArgs: true, about: 'agent hook' },
   { noun: 'codex-server', audience: 'plumbing', needsArgs: true, about: 'codex launcher' },
   { noun: 'permission-hook', audience: 'plumbing', needsArgs: true, about: 'agent hook' },

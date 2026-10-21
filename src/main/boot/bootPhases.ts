@@ -5,6 +5,7 @@ import { parseScrollbackHistory } from '../../shared/terminal/scrollbackHistory'
 import { startAgent } from '../agent/agentWiring'
 import { registerAgentTranscriptIpc } from '../agents/agentTranscript'
 import { registerAgentWiring } from '../agents/agentWiring'
+import { registerClaudeAccountsWiring } from '../agents/claudeAccounts/claudeAccountsWiring'
 import { registerFolderTrustIpc } from '../agents/folderTrustIpc'
 import { currentPlaybookFiles, setPlaybookSettings } from '../agents/playbookFiles'
 import { createResumeClaimer, registerResumeClaimIpc } from '../agents/resumeClaims'
@@ -169,6 +170,7 @@ export function boot(wiring: Wiring): void {
     ),
   )
   registerFolderTrustIpc({ ...wiring, readSettingsFile })
+  registerClaudeAccountsWiring({ ...wiring })
   const { notifyDeps } = registerNotifyWiring({ ...wiring })
   registerSandboxWiring({ ...wiring, notifyDeps })
   startFolderAccessWatch({ ...wiring, notifyDeps })

@@ -48,7 +48,7 @@ runs there). A script token gets `{externalId, kind: "script"}` and no pane.
 | `git`, `ports` | the repository of your folder; listening ports | repo state, staging, committing: see [reference/git.md](reference/git.md) |
 | `browse` | browser panes | web pages: see [reference/browser.md](reference/browser.md) |
 | `view` | sidebar sections and panels from a JSON file | building UI for the human: see [reference/views.md](reference/views.md) |
-| `settings`, `snippet` | `settings.json`; the human's saved commands | reading or changing a setting; how a project is run: see [reference/settings.md](reference/settings.md) |
+| `settings`, `snippet`, `account` | `settings.json`; the human's saved commands | reading or changing a setting; how a project is run: see [reference/settings.md](reference/settings.md) |
 | `vault`, `secret`, `sandbox` | stored secrets; asks from a sandboxed workspace | a credential, a blocked host or port: see [reference/sandbox.md](reference/sandbox.md) |
 | `graph` | graphs: procedures with waits that outlive a session | a long procedure that must survive restarts: see [reference/graphs.md](reference/graphs.md) |
 | `system` | the OS and its package managers | installing a package through the human: see [reference/system.md](reference/system.md) |
