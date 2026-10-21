@@ -65,7 +65,7 @@ describe('FileView keyboard target', () => {
     })
     await settle()
     showVersion({ file: '/h/v3.md', type: 'markdown', sources: { 'report.md': '# Third' } })
-    await screen.findByText('Third')
+    await screen.findByText('# Third')
 
     focusSurfaceWhenReady(PANE, () => true)
     const late = document.createElement('textarea')

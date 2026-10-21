@@ -1,6 +1,6 @@
 import { OWN_VIEW } from '@aurigax-ai/ostia-extension-sdk/contract/fileKinds'
 import { isRemotePath } from '@aurigax-ai/ostia-extension-sdk/contract/remoteFolders'
-import { isInside } from '@shared/artifacts/artifacts'
+import { isInside, isPadPath } from '@shared/artifacts/artifacts'
 import { useCallback, useMemo, useState } from 'react'
 import { StatusAction, StatusLine } from '@/components/common/StatusLine'
 import { fmt, useDict } from '@/lib/app/useDict'
@@ -16,7 +16,6 @@ import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { VersionView } from './ArtifactVersions'
 import { EditorView } from './Editor'
 import { FileViewerFrame } from './FileViewerFrame'
-import { isMarkdownPath } from './MarkdownPreview'
 import { OpenWithDialog } from './OpenWithDialog'
 
 const NO_OPTIONS: ViewerOption[] = []
@@ -41,8 +40,8 @@ function useViewerChoice(workspaceId: string, paneId: string, filePath: string |
           options,
           chosen,
           associations,
-          ownView: isMarkdownPath(filePath),
-          inArtifacts: isInside(artifacts?.dir, filePath),
+          inArtifacts:
+            isInside(artifacts?.dir, filePath) && !isPadPath(artifacts ?? null, filePath),
         })
       : { viewer: null, unavailable: false }
   return { options, choice, chosen: chosen ?? null }

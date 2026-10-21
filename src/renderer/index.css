@@ -2990,10 +2990,6 @@ button.prompt-chip:hover {
   margin: 12px auto;
 }
 
-.mermaid-problem {
-  color: var(--attn-fg);
-}
-
 .html-preview {
   position: absolute;
   inset: 0;
@@ -4503,15 +4499,13 @@ button.prompt-chip:hover {
   outline: none;
 }
 
-.markdown-preview .document-find {
-  position: sticky;
-  top: 0;
-  float: right;
-}
-
 .markdown-preview > .typeset {
   max-width: 76ch;
   margin: 0 auto;
+}
+
+.viewer-surface .pdf-find {
+  top: 44px;
 }
 
 .typeset {

@@ -61,6 +61,7 @@ describe('the manifests in this repository', () => {
       'lsp-rust-analyzer',
       'lsp-typescript',
       'lsp-yaml',
+      'markdown',
       'model-runtime',
       'office',
       'pdf',

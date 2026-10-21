@@ -108,16 +108,13 @@ describe('parseEditorSettings', () => {
       formatOnSave: true,
       openFilesIn: 'split',
       theme: 'rose-pine',
-      markdownPreview: true,
       diffLayout: 'inline',
       diffIgnoreWhitespace: true,
     }
     expect(parseEditorSettings(custom)).toEqual(custom)
   })
 
-  it('opens Markdown as source and lets a diff pick its layout unless set otherwise', () => {
-    expect(parseEditorSettings({}).markdownPreview).toBe(false)
-    expect(parseEditorSettings({ markdownPreview: 'yes' }).markdownPreview).toBe(false)
+  it('lets a diff pick its layout unless set otherwise', () => {
     expect(parseEditorSettings({}).diffLayout).toBe('auto')
     expect(parseEditorSettings({ diffLayout: 'stacked' }).diffLayout).toBe('auto')
     expect(parseEditorSettings({ diffLayout: 'sideBySide' }).diffLayout).toBe('sideBySide')

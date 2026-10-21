@@ -27,7 +27,6 @@ import { type ShownVersion, useArtifactVersionsStore } from '@/stores/files/arti
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { FileViewerFrame } from './FileViewerFrame'
 import { HtmlPreview } from './HtmlPreview'
-import { MarkdownPreview } from './MarkdownPreview'
 
 function useTopArtifact(workspaceId: string, filePath: string): boolean {
   const listing = useArtifactListing(workspaceId)
@@ -149,7 +148,6 @@ function VersionBody({
       />
     )
   }
-  if (content.type === 'markdown') return <MarkdownPreview source={source} />
   if (viewer) {
     return (
       <FileViewerFrame

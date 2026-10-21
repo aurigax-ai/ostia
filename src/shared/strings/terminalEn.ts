@@ -13,7 +13,6 @@ export const terminalEn = {
   },
   find: {
     close: 'Close find',
-    documentLabel: 'Find in preview',
     earlier: '{count} earlier',
     earlierHint: 'Show matches in the output kept on disk',
     label: 'Find in terminal',

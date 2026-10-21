@@ -3,8 +3,8 @@ import {
   cpSync,
   existsSync,
   mkdirSync,
-  readFileSync,
   readdirSync,
+  readFileSync,
   realpathSync,
 } from 'node:fs'
 import { dirname, join, resolve, sep } from 'node:path'
@@ -143,6 +143,7 @@ function browserBundle(entry, outfile, alias = {}) {
     format: 'iife',
     target: 'chrome120',
     loader: { '.svg': 'text' },
+    define: { 'process.env.NODE_ENV': '"production"' },
     alias,
     logLevel: 'warning',
   })
@@ -175,7 +176,7 @@ async function buildFileKinds(src, out, panelBaseCss) {
       await browserBundle(join(src, script), join(out, script.replace(/\.ts$/, '.js')), alias)
     }
   }
-  for (const name of readdirSync(src).filter((file) => file.endsWith('.worker.ts'))) {
+  for (const name of readdirSync(src).filter((file) => /\.(worker|script)\.ts$/.test(file))) {
     await browserBundle(join(src, name), join(out, name.replace(/\.ts$/, '.js')), alias)
   }
 }

@@ -10,6 +10,7 @@ import { FileViewerFrame } from './FileViewerFrame'
 const openFileInWorkspace = vi.fn()
 const openBrowserTabAs = vi.fn()
 
+vi.mock('./useLiveDocumentText', () => ({ useLiveDocumentText: () => {} }))
 vi.mock('@/lib/files/openFile', () => ({
   openFileInWorkspace: (path: string) => openFileInWorkspace(path),
 }))

@@ -1,0 +1,25 @@
+{
+  "manifest": {},
+  "messages": {
+    "loading": "Loading…",
+    "tooLarge": "This file is too large to preview ({size}).",
+    "unreadable": "Could not read this file.",
+    "gone": "This file is no longer there.",
+    "tools": "Markdown tools",
+    "contents": "Contents",
+    "noHeadings": "This document has no headings.",
+    "find": "Find",
+    "findPlaceholder": "Find in document",
+    "matchCase": "Match case",
+    "highlightAll": "Highlight all",
+    "previousMatch": "Previous match",
+    "nextMatch": "Next match",
+    "done": "Done",
+    "noMatches": "No matches",
+    "matchCount": "{index} of {total}",
+    "editSource": "Edit source",
+    "diagram": "Diagram",
+    "diagramProblem": "This diagram could not be drawn:",
+    "diagramTooLarge": "the diagram is too large to draw"
+  }
+}

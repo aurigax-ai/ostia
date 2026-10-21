@@ -1,5 +1,5 @@
 import { exceedsPad } from '@shared/artifacts/artifacts'
-import { type Dispatch, type MutableRefObject, type SetStateAction, useEffect } from 'react'
+import { type MutableRefObject, useEffect } from 'react'
 import type { monaco } from '@/lib/monaco/setup'
 import type { EditorSettings } from '@/lib/settings/browserEditorSettings'
 import { codeFontStack } from '@/lib/theme/uiFonts'
@@ -23,7 +23,6 @@ interface EditorOptionsParams {
   pad: boolean
   padHint: string
   setPadFull: (full: boolean) => void
-  setPreview: Dispatch<SetStateAction<boolean>>
   font: SurfaceFont
 }
 
@@ -33,7 +32,6 @@ export function useEditorOptions({
   pad,
   padHint,
   setPadFull,
-  setPreview,
   font,
 }: EditorOptionsParams): void {
   useEffect(() => {
@@ -46,11 +44,10 @@ export function useEditorOptions({
       setPadFull(false)
       return
     }
-    setPreview(false)
     setPadFull(exceedsPad(editor.getModel()?.getValue() ?? ''))
     editor.updateOptions({ placeholder: padHint })
     return () => editor.updateOptions({ placeholder: '' })
-  }, [editorRef, pad, padHint, setPadFull, setPreview])
+  }, [editorRef, pad, padHint, setPadFull])
 
   useEffect(() => {
     editorRef.current?.updateOptions({

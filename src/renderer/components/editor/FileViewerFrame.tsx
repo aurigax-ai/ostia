@@ -23,6 +23,7 @@ import { useGuestReady, useSurfaceFocus } from '@/lib/panes/paneFocus'
 import { useInjectedCss, usePanelThemeCss } from '@/lib/theme/panelThemeInjection'
 import { useViewerHintStore } from '@/stores/files/viewerHintStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
+import { useLiveDocumentText } from './useLiveDocumentText'
 import { ViewerMessage } from './ViewerChrome'
 
 const ABORTED = -3
@@ -60,6 +61,7 @@ function ViewerFrame({
   const [selection, setSelection] = useState<ViewerSelectionEvent['selection']>(null)
   const [status, setStatus] = useTransientStatus(SEND_STATUS_MS)
   const [hint] = useState(() => useViewerHintStore.getState().take(filePath))
+  useLiveDocumentText(paneId, filePath, opened !== null)
 
   useEffect(
     () =>

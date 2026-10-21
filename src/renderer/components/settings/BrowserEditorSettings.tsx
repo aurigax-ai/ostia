@@ -153,12 +153,6 @@ export function EditorSettingsSection(): JSX.Element {
             }))}
           />
         </ControlRow>
-        <ToggleRow
-          label={d.editorSettings.markdownPreview}
-          desc={d.editorSettings.markdownPreviewDesc}
-          checked={editor.markdownPreview}
-          onChange={(markdownPreview) => setEditor({ markdownPreview })}
-        />
         <ControlRow label={d.editorSettings.diffLayout} desc={d.editorSettings.diffLayoutDesc}>
           <SelectField
             value={editor.diffLayout}

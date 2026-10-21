@@ -16,11 +16,3 @@ export async function mermaidSvg(code: string, dark: boolean): Promise<string> {
   const { svg } = await mermaid.render(`ostia-mermaid-${counter}`, code)
   return svg
 }
-
-export function svgImageUrl(svg: string): string {
-  return URL.createObjectURL(new Blob([svg], { type: 'image/svg+xml' }))
-}
-
-export function releaseImageUrl(url: string): void {
-  URL.revokeObjectURL(url)
-}

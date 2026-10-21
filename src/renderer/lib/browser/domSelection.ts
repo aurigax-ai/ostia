@@ -13,24 +13,3 @@ export function trackSelection(
   doc.addEventListener('selectionchange', onSelectionChange)
   return () => doc.removeEventListener('selectionchange', onSelectionChange)
 }
-
-function elementOf(node: Node): Element | null {
-  return node.nodeType === Node.ELEMENT_NODE ? (node as Element) : node.parentElement
-}
-
-function lineAttr(node: Node, root: HTMLElement, attr: string): number | null {
-  const el = elementOf(node)?.closest(`[${attr}]`)
-  if (!el || !root.contains(el)) return null
-  const n = Number(el.getAttribute(attr))
-  return Number.isInteger(n) && n > 0 ? n : null
-}
-
-export function sourceLinesOf(
-  range: Range,
-  root: HTMLElement,
-): { startLine: number; endLine: number } | null {
-  const startLine = lineAttr(range.startContainer, root, 'data-line-start')
-  const endLine = lineAttr(range.endContainer, root, 'data-line-end')
-  if (startLine === null || endLine === null) return null
-  return { startLine: Math.min(startLine, endLine), endLine: Math.max(startLine, endLine) }
-}

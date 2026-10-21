@@ -23,7 +23,6 @@
     "src/main/files/openWaits.ts",
     "src/main/gateway/artifactFiles.ts",
     "src/renderer/components/editor/HtmlPreview.tsx",
-    "src/renderer/components/editor/MermaidDiagram.tsx",
     "src/renderer/components/editor/PortableActions.tsx",
     "src/renderer/components/editor/portableDocuments.tsx",
     "src/renderer/components/files/ArtifactsSection.tsx",

@@ -3,7 +3,7 @@ import { join } from 'node:path'
 import { DOM_RENDERER_SETTINGS, freshDataHome, seedSettings } from './dataHome'
 import { launchWindow, openWorkspace, quitApp, runInTerminal, terminalTab } from './helpers'
 import { expect, type Page, test } from './test'
-import { viewerGuestText } from './viewerGuest'
+import { viewerGuestRun, viewerGuestText } from './viewerGuest'
 
 function run(win: Page, command: string): Promise<void> {
   return runInTerminal(win, command, win.locator('.xterm:visible').first())
@@ -91,7 +91,7 @@ test('a CSV artifact opens as a table and a mermaid block in Markdown is drawn a
     join(home, 'plan.md'),
     '# Plan\n\n```mermaid\ngraph TD\n  Start --> Done\n```\n\n<script>document.title = "ran"</script>\n',
   )
-  seedSettings(dataHome, { ...DOM_RENDERER_SETTINGS, editor: { markdownPreview: true } })
+  seedSettings(dataHome, DOM_RENDERER_SETTINGS)
   const { app, win } = await launchWindow(dataHome)
   try {
     await openWorkspace(win)
@@ -113,16 +113,28 @@ test('a CSV artifact opens as a table and a mermaid block in Markdown is drawn a
 
     await terminalTab(win).click()
     await run(win, 'ostia "$OSTIA_ARTIFACTS/plan.md"')
-    const diagram = win.getByTestId('mermaid-diagram')
-    await expect(diagram).toBeVisible({ timeout: 30_000 })
+    await expect(viewer).toHaveAttribute('data-view-type', 'markdown.preview', {
+      timeout: 30_000,
+    })
+    const match = { viewType: 'markdown.preview' }
     await expect
-      .poll(() => diagram.evaluate((img: HTMLImageElement) => img.naturalWidth), {
-        timeout: 15_000,
-      })
-      .toBeGreaterThan(20)
-    expect(await diagram.getAttribute('src')).toMatch(/^blob:/)
-    const preview = win.locator('.markdown-preview')
-    expect(await preview.locator('svg, script').count()).toBe(0)
+      .poll(
+        () =>
+          viewerGuestRun(
+            app,
+            match,
+            `(() => { const img = document.querySelector('img.mermaid-diagram'); return img ? [img.src.slice(0, 5), img.naturalWidth > 20] : null })()`,
+          ),
+        { timeout: 30_000 },
+      )
+      .toEqual(['blob:', true])
+    expect(
+      await viewerGuestRun(
+        app,
+        match,
+        'document.querySelectorAll("article svg, article script").length',
+      ),
+    ).toBe(0)
     expect(await win.title()).not.toBe('ran')
   } finally {
     await quitApp(app)
