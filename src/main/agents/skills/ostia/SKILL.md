@@ -117,7 +117,7 @@ the question. The answer arrives only as the command's output.
 
 ```sh
 ostia process run "npm run dev" --name web [--cwd DIR] [--workspace <id|name>] [--tab <name>]
-ostia process list [--json]              # id, name, status, paneId, command
+ostia process list [--json]              # id, name, status, paneId, command; a hint on stderr (`hint` in --json) when macOS may have ended it
 ostia process logs web [--since N]       # that command's output only; (cursor=N) on stderr
 ostia process kill web                   # Ctrl+C, then ends the shell if it keeps running
 ostia process restart web                # Ctrl+C, then the same line in the same tab
