@@ -114,13 +114,19 @@ describe('busContext', () => {
     expect(context?.text).toContain(`${'6'.repeat(900)}\n</message>`)
   })
 
-  it('never cuts a message: one too long for the block stays out and later ones still fit', () => {
+  it('never cuts a message: the first one that does not fit and all after it stay queued, in order', () => {
     const long = 'y'.repeat(9000)
-    const context = busContext([message('m1', long), message('m2', 'short')])
-    expect(context?.shown).toEqual(['m2'])
+    const context = busContext([
+      message('m1', 'before'),
+      message('m2', long),
+      message('m3', 'overtaker'),
+    ])
+    expect(context?.shown).toEqual(['m1'])
+    expect(context?.text).toContain('before')
     expect(context?.text).not.toContain('yyyy')
-    expect(context?.text).toContain('1 more not shown here')
-    expect(context?.text).toContain('`ostia bus inbox`')
+    expect(context?.text).not.toContain('overtaker')
+    expect(context?.text).toContain('2 more not shown here')
+    expect(context?.text).toContain('`ostia bus inbox --take`')
   })
 
   it('says only that messages wait when none fits, and shows none', () => {

@@ -572,17 +572,19 @@ describe('hook context', () => {
     expect(context().text).toBeNull()
   })
 
-  it('shows the messages that fit whole and keeps the too long one queued', async () => {
+  it('shows the messages before a too long one and keeps it and the ones after it queued, in order', async () => {
     const body = 'c'.repeat(9000)
-    await send(body)
     await send('short one')
+    await send(body)
+    await send('overtaker')
     const shown = context()
     expect(shown.text).toContain('short one')
-    expect(shown.text).toContain('1 more not shown here')
+    expect(shown.text).toContain('2 more not shown here')
     expect(shown.text).not.toContain('cccc')
+    expect(shown.text).not.toContain('overtaker')
     ack(shown.lease)
-    expect((await sent()).map((m) => m.state)).toEqual(['queued', 'delivered'])
-    expect(inbox().map((m) => m.text)).toEqual([body])
+    expect((await sent()).map((m) => m.state)).toEqual(['delivered', 'queued', 'queued'])
+    expect(inbox().map((m) => m.text)).toEqual([body, 'overtaker'])
   })
 })
 

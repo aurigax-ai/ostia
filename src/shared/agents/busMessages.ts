@@ -79,7 +79,7 @@ function contextHead(count: number, delivered: boolean): string {
 
 function contextTail(hidden: number): string {
   return hidden > 0
-    ? `${hidden} more not shown here; they stay queued: your next prompt brings those that fit, or run \`ostia bus inbox\` to read them whole.`
+    ? `${hidden} more not shown here; they stay queued: your next prompt brings those that fit, or run \`ostia bus inbox --take\` to read them whole.`
     : ''
 }
 
@@ -111,7 +111,7 @@ function pack(
   for (const message of messages) {
     const next = [...blocks, messageBlock(message)]
     const fits = assemble(messages.length, next, true).length <= max
-    if (!fits && !(leadsAlways && blocks.length === 0)) continue
+    if (!fits && !(leadsAlways && blocks.length === 0)) break
     blocks.push(next[next.length - 1])
     shown.push(message.id)
   }
