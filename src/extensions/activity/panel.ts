@@ -3,7 +3,9 @@ import {
   errorText,
   h,
   onChange,
+  onPanelToolbar,
   panelTranslator,
+  setPanelToolbar,
 } from '@aurigax-ai/ostia-extension-sdk/panel'
 import en from './locales/en.json'
 import zhHant from './locales/zh-Hant.json'
@@ -18,8 +20,6 @@ const t = panelTranslator({ en: en.messages, 'zh-Hant': zhHant.messages })
 
 const root = document.getElementById('root') as HTMLElement
 const list = h('main', { class: 'list' })
-const recapButton = viewButton(false)
-const activityButton = viewButton(true)
 const paneNotes = new Map<string, string>()
 const noteFailures = new Map<string, string>()
 const openGroups = new Set<string>()
@@ -64,20 +64,6 @@ const moreObserver = new IntersectionObserver(
 
 const show = createListView(list, env)
 
-function viewButton(showActivity: boolean): HTMLElement {
-  return h(
-    'button',
-    {
-      class: 'ostia-tab',
-      type: 'button',
-      role: 'tab',
-      'data-view': showActivity ? 'activity' : 'recap',
-      onClick: () => void setShowActivity(showActivity),
-    },
-    t(showActivity ? 'view.activity' : 'view.recap'),
-  )
-}
-
 function refreshAges(): void {
   for (const el of list.querySelectorAll<HTMLElement>('time[data-t]')) {
     const text = ageText(env, Number(el.dataset.t))
@@ -116,10 +102,7 @@ function content(): ListContent | null {
 }
 
 function render(): void {
-  if (model) {
-    recapButton.setAttribute('aria-selected', String(!model.showActivity))
-    activityButton.setAttribute('aria-selected', String(model.showActivity))
-  }
+  if (model) setPanelToolbar({ tab: model.showActivity ? 'activity' : 'recap' })
   const next = content()
   if (next) show(next)
 }
@@ -190,24 +173,11 @@ async function focusPane(
   render()
 }
 
-root.replaceChildren(
-  h(
-    'div',
-    { class: 'ostia-page' },
-    h(
-      'header',
-      { class: 'ostia-toolbar' },
-      h(
-        'div',
-        { class: 'ostia-tabs', role: 'tablist', 'aria-label': t('view.label') },
-        recapButton,
-        activityButton,
-      ),
-    ),
-    list,
-  ),
-)
+root.replaceChildren(h('div', { class: 'ostia-page' }, list))
 
+onPanelToolbar((event) => {
+  if (event.kind === 'tab') void setShowActivity(event.id === 'activity')
+})
 onChange(() => void refresh())
 setInterval(refreshAges, AGE_REFRESH_MS)
 setInterval(() => void refresh(), TITLE_POLL_MS)

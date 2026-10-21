@@ -1,10 +1,15 @@
-import { call, errorText, h, icon, onChange } from '@aurigax-ai/ostia-extension-sdk/panel'
-import arrowClockwise from '@phosphor-icons/core/regular/arrow-clockwise.svg'
-import plus from '@phosphor-icons/core/regular/plus.svg'
+import {
+  call,
+  errorText,
+  h,
+  onChange,
+  onPanelToolbar,
+  setPanelToolbar,
+} from '@aurigax-ai/ostia-extension-sdk/panel'
 import { boardView, openNewCard } from './panelBoard'
 import { closeCard } from './panelCard'
 import { refresh } from './panelData'
-import { emptyState, failureState, iconButton, p, select, show } from './panelDom'
+import { emptyState, failureState, p, select, show } from './panelDom'
 import { type View, hooks, state } from './panelState'
 import { vaultView } from './panelVault'
 
@@ -29,40 +34,21 @@ function setProject(next: string): void {
   void refresh()
 }
 
-function toolbar(): HTMLElement {
-  const views: View[] = ['board', 'vault']
+function scopeRow(): HTMLElement | null {
   const projects = state.ctx?.projects ?? []
   const boards = state.boardData?.boards ?? []
-  return h(
-    'nav',
-    { class: 'ostia-toolbar' },
-    h(
-      'div',
-      { class: 'ostia-tabs', role: 'tablist' },
-      ...views.map((v) =>
-        h(
-          'button',
-          {
-            class: 'ostia-tab',
-            role: 'tab',
-            'data-key': `tab-${v}`,
-            'aria-selected': v === state.view ? 'true' : 'false',
-            onclick: () => setView(v),
-          },
-          p(`tab.${v}`),
-        ),
-      ),
-    ),
-    projects.length > 0 && state.project
-      ? select(
-          'project',
-          p('project'),
-          projects.map((x) => ({ value: x.key, text: x.key })),
-          state.project,
-          setProject,
-        )
-      : projects.length > 0
+  const projectSelect =
+    projects.length === 0
+      ? null
+      : state.project
         ? select(
+            'project',
+            p('project'),
+            projects.map((x) => ({ value: x.key, text: x.key })),
+            state.project,
+            setProject,
+          )
+        : select(
             'project',
             p('project'),
             [
@@ -72,7 +58,7 @@ function toolbar(): HTMLElement {
             '',
             (value) => value && setProject(value),
           )
-        : null,
+  const boardSelect =
     state.view === 'board' && boards.length > 1 && state.boardData
       ? select(
           'board',
@@ -84,18 +70,17 @@ function toolbar(): HTMLElement {
             void refresh()
           },
         )
-      : null,
-    h('span', { class: 'ostia-spacer' }),
-    state.view === 'board' && state.boardData
-      ? h(
-          'button',
-          { class: 'with-icon', 'data-key': 'new-card', onclick: openNewCard },
-          icon(plus),
-          p('newCard'),
-        )
-      : null,
-    iconButton(p('refresh'), arrowClockwise, () => void refresh(), { 'data-key': 'refresh' }),
-  )
+      : null
+  return projectSelect || boardSelect
+    ? h('div', { class: 'scope-row' }, projectSelect, boardSelect)
+    : null
+}
+
+function syncToolbar(): void {
+  setPanelToolbar({
+    tab: state.view,
+    hidden: state.view === 'board' && state.boardData ? [] : ['new-card'],
+  })
 }
 
 function bannerView(): HTMLElement | null {
@@ -125,7 +110,8 @@ function body(): HTMLElement {
 }
 
 function render(): void {
-  show(h('main', { class: 'ostia-page' }, toolbar(), bannerView(), body()))
+  syncToolbar()
+  show(h('main', { class: 'ostia-page' }, scopeRow(), bannerView(), body()))
 }
 
 document.addEventListener('keydown', (e) => {
@@ -144,6 +130,12 @@ document.addEventListener('pointerdown', (e) => {
   if (!state.workMenu || (e.target as HTMLElement | null)?.closest('.work')) return
   state.workMenu = null
   render()
+})
+
+onPanelToolbar((event) => {
+  if (event.kind === 'tab') setView(event.id as View)
+  else if (event.kind === 'action' && event.id === 'refresh') void refresh()
+  else if (event.kind === 'action' && event.id === 'new-card') openNewCard()
 })
 
 hooks.render = render

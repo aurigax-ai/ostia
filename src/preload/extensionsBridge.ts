@@ -31,6 +31,7 @@ export const extensionsBridge: Pick<
       ipcRenderer.invoke('extensions:invoke', extId, command, target, argument),
     panel: (extId, context) => ipcRenderer.invoke('extensions:panel', extId, context),
     sidebarItems: () => ipcRenderer.invoke('extensions:sidebar'),
+    panelToolbars: () => ipcRenderer.invoke('extensions:panel-toolbar'),
     paneChips: () => ipcRenderer.invoke('extensions:chips'),
     workspaceChips: () => ipcRenderer.invoke('extensions:workspace-chips'),
     setSetting: (extId, key, value) =>
@@ -44,6 +45,7 @@ export const extensionsBridge: Pick<
       ipcRenderer.invoke('extensions:remove-connection', extId, name),
     onChanged: (cb) => listen('extensions:changed', cb),
     onSidebar: (cb) => listen('extensions:sidebar', cb),
+    onPanelToolbars: (cb) => listen('extensions:panel-toolbar', cb),
     onPaneChips: (cb) => listen('extensions:chips', cb),
     onWorkspaceChips: (cb) => listen('extensions:workspace-chips', cb),
     onSettingsStored: (cb) => listen('extensions:settings-stored', cb),

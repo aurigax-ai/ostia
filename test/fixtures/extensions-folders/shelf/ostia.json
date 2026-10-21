@@ -2,7 +2,7 @@
   "id": "shelf",
   "name": "Shelf",
   "version": "1.0.0",
-  "api": "6.0",
+  "api": "7.0",
   "description": "Test fixture: serves a remote folder from memory.",
   "main": "main.js",
   "contributes": {

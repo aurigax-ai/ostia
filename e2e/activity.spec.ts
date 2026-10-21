@@ -68,11 +68,6 @@ test('the Activity panel shows an agent’s recap, shows its events on the toggl
       app,
       `[...document.querySelectorAll('${selector}')].map((el) => el.innerText).join('|')`,
     )
-  const pressed = (app: ElectronApplication, view: string): Promise<string> =>
-    panelEval(
-      app,
-      `document.querySelector('[data-view="${view}"]')?.getAttribute('aria-selected') ?? ''`,
-    )
 
   let app = await electron.launch({ ...launch, env })
   try {
@@ -88,7 +83,7 @@ test('the Activity panel shows an agent’s recap, shows its events on the toggl
     await expect.poll(() => text(app, '.agent > .markdown'), { timeout: 30_000 }).toBe(RECAP)
     expect(await text(app, '.agent-name')).toMatch(/^(zsh|bash|sh|fish)$/)
 
-    await panelEval(app, `document.querySelector('[data-view="activity"]').click(); 'ok'`)
+    await win.locator('#right-panel').getByRole('tab', { name: 'Timeline' }).click()
     await expect.poll(() => text(app, '.turn .prompt'), { timeout: 15_000 }).toBe(PROMPT)
     expect(await text(app, '.turn .markdown')).toBe(RECAP)
     expect(await text(app, '.actions-toggle')).toBe('Ran 1 command')
@@ -133,7 +128,9 @@ test('the Activity panel shows an agent’s recap, shows its events on the toggl
     await win.waitForLoadState('domcontentloaded')
     await expect(win.locator('.xterm').first()).toBeVisible({ timeout: 30_000 })
     await openActivity(win)
-    await expect.poll(() => pressed(app, 'activity'), { timeout: 30_000 }).toBe('true')
+    await expect(
+      win.locator('#right-panel').getByRole('tab', { name: 'Timeline' }),
+    ).toHaveAttribute('aria-selected', 'true', { timeout: 30_000 })
     await expect.poll(() => text(app, '.turn .markdown'), { timeout: 15_000 }).toBe(RECAP)
     expect(await text(app, '.turn .prompt')).toBe(PROMPT)
     expect(await text(app, '.actions-toggle')).toBe('Ran 1 command')

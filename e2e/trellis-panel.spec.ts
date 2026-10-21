@@ -114,7 +114,7 @@ test('the Trellis panel filters, edits cards, keeps focus and closes in Escape o
     await type('[data-key="card-filter"]', '')
     await expect.poll(() => exists('[data-ref="DEMO-1"]')).toBe('true')
 
-    await click('[data-key="new-card"]')
+    await win.locator('#right-panel').getByRole('button', { name: 'New card' }).click()
     await expect.poll(() => exists('form.new-card')).toBe('true')
     expect(await panel(`document.activeElement?.dataset.key ?? ''`)).toBe('new-title')
     await type('[data-key="new-title"]', 'Draft that is dropped')
@@ -124,7 +124,7 @@ test('the Trellis panel filters, edits cards, keeps focus and closes in Escape o
       'DEMO-5',
       'DEMO-3',
     ])
-    await click('[data-key="new-card"]')
+    await win.locator('#right-panel').getByRole('button', { name: 'New card' }).click()
     await expect
       .poll(() => panel(`document.querySelector('[data-key="new-title"]')?.value ?? 'x'`))
       .toBe('')
@@ -190,7 +190,7 @@ test('the Trellis panel filters, edits cards, keeps focus and closes in Escape o
     await expect.poll(() => exists('.detail')).toBe('false')
     expect(await panel(`document.activeElement?.dataset.key ?? ''`)).toBe('card-DEMO-3')
 
-    await click('[data-key="tab-vault"]')
+    await win.locator('#right-panel').getByRole('tab', { name: 'Vault' }).click()
     await expect
       .poll(() => exists('[data-slug="database-concurrency"]'), { timeout: 15_000 })
       .toBe('true')

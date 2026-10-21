@@ -4,8 +4,8 @@ import {
   h,
   loadPanelSizes,
   onChange,
-  panelTab,
-  panelToolbar,
+  onPanelToolbar,
+  setPanelToolbar,
 } from '@aurigax-ai/ostia-extension-sdk/panel'
 import { caseFormBody } from './caseForm'
 import type { EvalCase, EvalRun } from './evalCase'
@@ -184,35 +184,31 @@ async function findRules(): Promise<void> {
   await load()
 }
 
-const NAV: { view: View; label: string }[] = [
-  { view: 'rules', label: 'rules' },
-  { view: 'signals', label: 'signals' },
-  { view: 'scoreboard', label: 'scoreboard' },
-]
-
-function addButton(): HTMLElement {
-  const add = button(t('add'), addRule, true)
-  add.dataset.focus = 'add'
-  return add
-}
-
 function leaveForm(): void {
   go(view === 'case' ? 'scoreboard' : 'rules')
 }
 
-function navigation(): HTMLElement | null {
-  if (isSub()) {
-    return panelToolbar({ back: { label: t('back'), onClick: leaveForm } })
-  }
-  return panelToolbar({
-    tabs: NAV.map(({ view: target, label }) => {
-      const tab = panelTab(t(`nav.${label}`), target === view, () => go(target))
-      tab.dataset.focus = `tab-${target}`
-      return tab
-    }),
-    actions: view === 'rules' ? [addButton()] : [],
-  })
+function subTitle(): string {
+  if (view === 'case') return t('back.case')
+  if (view === 'preview') return t('preview')
+  if (mode.kind === 'import') return t('import')
+  return mode.kind === 'form' && mode.id ? t('back.edit') : t('add')
 }
+
+function syncToolbar(): void {
+  if (isSub()) {
+    setPanelToolbar({ back: subTitle() })
+    return
+  }
+  setPanelToolbar({ tab: view, hidden: view === 'rules' ? [] : ['find-rules', 'add'] })
+}
+
+onPanelToolbar((event) => {
+  if (event.kind === 'back') leaveForm()
+  else if (event.kind === 'tab') go(event.id as View)
+  else if (event.id === 'add') addRule()
+  else if (event.id === 'find-rules') void findRules()
+})
 
 function notice(): HTMLElement | null {
   if (!snap.unreadable) return null
@@ -298,14 +294,14 @@ function render(): void {
   const was = focused()
   const sub = isSub()
   if (sub && !wasSub) returnTo = was
-  root.replaceChildren(h('div', { class: 'ostia-page' }, navigation(), notice(), body()))
-  if (sub) {
-    if (!wasSub) root.querySelector<HTMLElement>('.ostia-toolbar button')?.focus()
-  } else if (wasSub) {
-    if (!refocus(returnTo)) refocus(`tab-${view}`)
-    returnTo = null
-  } else if (was?.startsWith('tab-')) refocus(`tab-${view}`)
-  else refocus(was)
+  root.replaceChildren(h('div', { class: 'ostia-page' }, notice(), body()))
+  syncToolbar()
+  if (!sub) {
+    if (wasSub) {
+      refocus(returnTo)
+      returnTo = null
+    } else refocus(was)
+  }
   wasSub = sub
 }
 

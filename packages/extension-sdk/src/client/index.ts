@@ -37,6 +37,7 @@ import type {
   ExtensionSettingValues,
   OpenTerminalOptions,
   PaneChipItem,
+  PanelToolbarState,
   RunAgentOptions,
   SandboxDomainsResult,
   SidebarKind,
@@ -100,6 +101,7 @@ export type {
   ExtensionSettingValues,
   OpenTerminalOptions,
   PaneChipItem,
+  PanelToolbarState,
   RunAgentOptions,
   SandboxDomainsResult,
   SidebarTone,
@@ -291,6 +293,9 @@ export interface OstiaExtension {
   wireRuntime: () => Promise<WireRuntimeResult>
   notify: (title: string, body?: string) => Promise<unknown>
   openPanel: (workspaceId?: string, path?: string) => Promise<unknown>
+  setPanelToolbar: (
+    toolbar: PanelToolbarState & { workspaceId: string },
+  ) => Promise<ExtensionResult>
   setPaneChip: (chip: PaneChipValue) => Promise<ExtensionResult>
   clearPaneChip: (paneId: string, id: string) => Promise<ExtensionResult>
   setWorkspaceChip: (chip: WorkspaceChipValue) => Promise<ExtensionResult>

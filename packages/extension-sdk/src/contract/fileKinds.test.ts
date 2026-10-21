@@ -67,7 +67,7 @@ describe('parseFileKinds', () => {
       id: 'office',
       name: 'Office',
       version: '1.0.0',
-      api: '6.0',
+      api: '7.0',
       contributes: {
         fileViewers: [{ viewType: 'office.spreadsheet', entry: 'sheet.html' }],
       },
@@ -81,7 +81,7 @@ describe('parseFileKinds', () => {
       id: 'office',
       name: 'Office',
       version: '1.0.0',
-      api: '6.0',
+      api: '7.0',
       contributes: { fileKinds: [SHEET] },
     }
     const parsed = parseManifest(raw, '/ext/office')
@@ -130,7 +130,7 @@ describe('browse role', () => {
       id: 'archives',
       name: 'Archives',
       version: '1.0.0',
-      api: '6.0',
+      api: '7.0',
       main: 'main.js',
       capabilities: ['file-contents'],
       contributes: { fileKinds: [ZIP] },
