@@ -11,6 +11,7 @@ import {
   agentPluginContent,
   agentSkillProblems,
   loadAgentSkill,
+  skillDirective,
   skillFrontmatter,
   withSkillName,
 } from './agentSkills'
@@ -33,10 +34,9 @@ describe('skillFrontmatter', () => {
   it.each([
     ['double quotes', 'name: "a"\ndescription: "b c"'],
     ['single quotes', "name: 'a'\ndescription: 'b c'"],
-    ['blank lines and extra keys', '\nname: a\n\nlicense: MIT\ndescription: b\n'],
+    ['blank lines', '\nname: a\n\ndescription: b\n'],
     ['a colon and dashes inside the value', 'name: a\ndescription: b - c (d-1)'],
     ['a hash without a space before it', 'name: a\ndescription: b#c'],
-    ['an empty extra key', 'name: a\ndescription: b\nextra:'],
     ['CRLF line ends', 'name: a\r\ndescription: b\r'],
   ])('accepts %s', (_label, lines) => {
     expect(skillFrontmatter(front(lines))).toMatchObject({ ok: true })
@@ -71,7 +71,7 @@ describe('skillFrontmatter', () => {
     ['a kept folded scalar', 'name: a\ndescription: >+', 3, 'block scalars'],
     ['a kept literal scalar', 'name: a\ndescription: |+', 3, 'block scalars'],
     ['a nested map', 'name: a\ndescription:\n  x: y', 4, 'indented lines'],
-    ['a list', 'name: a\ndescription: b\nitems:\n  - x', 5, 'indented lines'],
+    ['a list', 'name: a\ndescription:\n  - x', 4, 'indented lines'],
     ['a stray indented line', 'name: a\n  description: b', 3, 'indented lines'],
     ['a flow map', 'name: a\ndescription: {x: y}', 3, 'flow collections'],
     ['a flow list', 'name: a\ndescription: [x]', 3, 'flow collections'],
@@ -98,6 +98,41 @@ describe('skillFrontmatter', () => {
     expect(res.error).toContain(reason)
   })
 
+  it.each([
+    ['allowed-tools', 'name: a\ndescription: b\nallowed-tools: Bash(*)'],
+    ['allowed-tools with a list', 'name: a\ndescription: b\nallowed-tools:\n  - Bash'],
+    ['model', 'name: a\ndescription: b\nmodel: opus'],
+    ['hooks', 'name: a\ndescription: b\nhooks:\n  PreToolUse:\n    - command: x'],
+    ['hooks with no value', 'name: a\ndescription: b\nhooks:'],
+    ['disable-model-invocation', 'name: a\ndescription: b\ndisable-model-invocation: true'],
+    ['disallowed-tools', 'name: a\ndescription: b\ndisallowed-tools: Read'],
+    ['context', 'name: a\ndescription: b\ncontext: fork'],
+    ['agent', 'name: a\ndescription: b\nagent: general-purpose'],
+    ['shell', 'name: a\ndescription: b\nshell: bash'],
+    ['paths', 'name: a\ndescription: b\npaths: src/**'],
+    ['license', 'name: a\ndescription: b\nlicense: MIT'],
+    ['a different case', 'name: a\ndescription: b\nAllowed-Tools: Bash(*)'],
+    ['a key before name', 'allowed-tools: Bash(*)\nname: a\ndescription: b'],
+  ])('refuses the key %s', (_label, lines) => {
+    const res = skillFrontmatter(front(lines))
+    expect(res).toMatchObject({ ok: false })
+    if (res?.ok !== false) return
+    expect(res.error).toContain('only name and description')
+  })
+
+  it.each([
+    ['a lone carriage return', 'name: a\ndescription: b\rallowed-tools: Bash(*)'],
+    ['a next line character', 'name: a\ndescription: b\u0085allowed-tools: Bash(*)'],
+    ['a line separator', 'name: a\ndescription: b\u2028allowed-tools: Bash(*)'],
+    ['a paragraph separator', 'name: a\ndescription: b\u2029allowed-tools: Bash(*)'],
+    ['a vertical tab', 'name: a\ndescription: b\u000ballowed-tools: Bash(*)'],
+  ])('refuses %s inside the frontmatter', (_label, lines) => {
+    const res = skillFrontmatter(front(lines))
+    expect(res).toMatchObject({ ok: false })
+    if (res?.ok !== false) return
+    expect(res.error).toContain('control characters')
+  })
+
   it('refuses a second frontmatter block after the closing fence', () => {
     expect(skillFrontmatter(front(NAME_DESC, '\n---\nname: x\n---\n'))).toEqual({
       ok: false,
@@ -116,6 +151,48 @@ describe('skillFrontmatter', () => {
   })
 })
 
+describe('skillDirective', () => {
+  it.each([
+    ['a plain body', '# Review\n\nRun `ostia docs skill`.\n'],
+    ['an exclamation mark in prose', 'Careful! Run it twice!\n'],
+    ['a backtick span after a word', 'Use the `git` command.\n'],
+    ['a fence with a language', '```sh\nls\n```\n'],
+    ['a $ARGUMENTS placeholder', 'Review $ARGUMENTS and ${CLAUDE_SKILL_DIR}/checklist.md\n'],
+    ['an exclamation mark then a space then a backtick', 'Done! `x`\n'],
+  ])('accepts %s', (_label, text) => {
+    expect(skillDirective(text)).toBeNull()
+  })
+
+  it.each([
+    ['inline injection at the line start', '!`rm -rf ~`\n'],
+    ['inline injection after text', '- PR diff: !`gh pr diff`\n'],
+    ['inline injection glued to a word', 'KEY=!`id`\n'],
+    ['inline injection in the frontmatter', '---\nname: a\ndescription: !`id`\n---\n'],
+    ['a fenced block', '```!\nnode --version\n```\n'],
+    ['a longer fence', '````!\nid\n````\n'],
+    ['a fence with a space before the mark', '``` !\nid\n```\n'],
+    ['a tilde fence', '~~~!\nid\n~~~\n'],
+    ['an indented fence', '   ```!\nid\n```\n'],
+    ['a fullwidth exclamation mark', '\uff01`id`\n'],
+    ['a fullwidth backtick', '!\uff40id\uff40\n'],
+    ['a modifier letter grave', '!\u02cbid`\n'],
+    ['a reversed prime', '!\u2035id`\n'],
+    ['a fullwidth fenced block', '\uff40\uff40\uff40!\nid\n'],
+    ['CRLF line ends', 'text\r\n!`id`\r\n'],
+    ['a lone carriage return', 'text\r!`id`\n'],
+    ['a line separator', 'text\u2028!`id`\n'],
+  ])('refuses %s', (_label, text) => {
+    expect(skillDirective(text)).toContain('shell injection')
+  })
+
+  it('names the line', () => {
+    expect(skillDirective('a\nb\nc !`id`\n')).toBe(
+      'line 3: shell injection (!` or a ```! block) is not allowed',
+    )
+    expect(skillDirective('a\r\nb\rc\n!`id`')).toContain('line 4:')
+  })
+})
+
 describe('withSkillName', () => {
   it('renames only the frontmatter name, keeping CRLF line ends', () => {
     expect(withSkillName('---\r\nname: a\r\ndescription: b\r\n---\r\nname: body\r\n', 'x-a')).toBe(
@@ -128,7 +205,7 @@ describe('withSkillName', () => {
     'description: b\nname: a',
     'name: "a"\ndescription: b',
     "name: 'a'\ndescription: b",
-    '\nname: a\n\ndescription: b\nlicense: MIT',
+    '\nname: a\n\ndescription: b\n',
     'name:   a  \ndescription: b',
   ])('leaves exactly one name line, x-a, for every accepted frontmatter (%j)', (lines) => {
     const text = front(lines, 'name: body\n')
@@ -220,6 +297,52 @@ describe('loadAgentSkill', () => {
       ok: false,
       error: 'SKILL.md: line 3: block scalars are not supported',
     })
+  })
+
+  it.each([
+    ['allowed-tools', 'allowed-tools: Bash(*)'],
+    ['model', 'model: opus'],
+    ['hooks', 'hooks:\n  PreToolUse:\n    - command: id'],
+  ])('refuses a SKILL.md that carries %s and names it', (key, extra) => {
+    writeFileSync(join(skillDir, 'SKILL.md'), `---\nname: review\ndescription: x\n${extra}\n---\n`)
+    const res = loadAgentSkill(ext, 'kit', skill())
+    expect(res).toMatchObject({ ok: false })
+    if (res.ok) return
+    expect(res.error).toContain('SKILL.md: line 4:')
+    expect(res.error).toContain(`'${key}'`)
+    expect(res.error).toContain('only name and description')
+  })
+
+  it.each([
+    ['inline injection', '# Review\n\nDiff: !`git diff`\n'],
+    ['a fenced block', '# Review\n\n```!\ngit diff\n```\n'],
+    ['a lookalike backtick', '# Review\n\nDiff: !\uff40git diff\uff40\n'],
+  ])('refuses a SKILL.md body with %s', (_label, body) => {
+    writeFileSync(join(skillDir, 'SKILL.md'), `${SKILL.slice(0, -'# Review\n'.length)}${body}`)
+    const res = loadAgentSkill(ext, 'kit', skill())
+    expect(res).toMatchObject({ ok: false })
+    if (res.ok) return
+    expect(res.error).toMatch(/^SKILL\.md: line \d+: shell injection/)
+  })
+
+  it('does not read a reference file for directives, only SKILL.md is rendered', () => {
+    writeFileSync(join(skillDir, 'checklist.md'), 'Docs: !`id` runs a command\n')
+    expect(loadAgentSkill(ext, 'kit', skill()).ok).toBe(true)
+  })
+
+  it('refuses the extension skill and keeps the rest when collecting', () => {
+    writeFileSync(
+      join(skillDir, 'SKILL.md'),
+      '---\nname: review\ndescription: x\nallowed-tools: Bash(*)\n---\n',
+    )
+    const problems: string[] = []
+    const content = agentPluginContent(
+      [{ extId: 'kit', dir: ext, skills: [skill()], hooks: [] }],
+      (extId, problem) => problems.push(`${extId}: ${problem}`),
+    )
+    expect(content.skills).toEqual([])
+    expect(problems).toHaveLength(1)
+    expect(problems[0]).toContain("'allowed-tools' is not allowed")
   })
 
   it('refuses a missing declared file', () => {

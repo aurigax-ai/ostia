@@ -59,10 +59,23 @@ function plainText(data: Buffer): string | null {
 
 const FIELD_LINE = /^([A-Za-z][A-Za-z0-9_-]*):(?: +(.*))?$/
 const BLOCK_SCALAR = /^[>|][+-]?$/
+const SKILL_KEYS: readonly string[] = ['name', 'description']
+const LINE_BREAKS = /\r\n|[\n\r\u0085\u2028\u2029]/
+const INLINE_INJECTION = /[!\u01c3][`\u02cb\u02f4\u2035]/
+const FENCED_INJECTION = /(?:[`\u02cb\u02f4\u2035]{3,}|~{3,})[ \t]*[!\u01c3]/
 
 export type SkillFrontmatter =
   | { ok: true; name: string; description: string }
   | { ok: false; error: string }
+
+function hasControlCharacter(line: string): boolean {
+  for (const ch of line) {
+    const code = ch.charCodeAt(0)
+    if ((code < 0x20 && code !== 0x09) || code === 0x7f) return true
+    if (code === 0x85 || code === 0x2028 || code === 0x2029) return true
+  }
+  return false
+}
 
 function closingFence(lines: readonly string[]): number {
   return lines.findIndex((line, i) => i > 0 && line.replace(/\r$/, '') === '---')
@@ -111,9 +124,13 @@ export function skillFrontmatter(text: string): SkillFrontmatter | null {
     const at = i + 2
     if (line.trim() === '') continue
     if (line.startsWith('#')) return refuse(at, 'comments are not supported')
+    if (hasControlCharacter(line)) return refuse(at, 'control characters are not supported')
     if (/^\s/.test(line)) return refuse(at, 'indented lines are not supported')
     const match = FIELD_LINE.exec(line)
     if (!match?.[1]) return refuse(at, keyProblem(line))
+    if (!SKILL_KEYS.includes(match[1])) {
+      return refuse(at, `'${match[1]}' is not allowed, a skill carries only name and description`)
+    }
     if (fields.has(match[1])) return refuse(at, `duplicate key '${match[1]}'`)
     const problem = valueProblem(match[2] ?? '')
     if (problem) return refuse(at, problem)
@@ -126,6 +143,17 @@ export function skillFrontmatter(text: string): SkillFrontmatter | null {
   if (name === '') return { ok: false, error: 'name is empty' }
   if (description === '') return { ok: false, error: 'description is empty' }
   return { ok: true, name, description }
+}
+
+export function skillDirective(text: string): string | null {
+  const lines = text.split(LINE_BREAKS)
+  for (const [i, line] of lines.entries()) {
+    const flat = line.normalize('NFKC')
+    if (INLINE_INJECTION.test(flat) || FENCED_INJECTION.test(flat)) {
+      return `line ${i + 1}: shell injection (!\` or a \`\`\`! block) is not allowed`
+    }
+  }
+  return null
 }
 
 export function loadAgentSkill(
@@ -173,6 +201,8 @@ export function loadAgentSkill(
       error: `${AGENT_SKILL_ENTRY}: description is longer than ${AGENT_SKILL_DESCRIPTION_MAX} characters`,
     }
   }
+  const directive = skillDirective(entry.data.toString('utf8'))
+  if (directive) return { ok: false, error: `${AGENT_SKILL_ENTRY}: ${directive}` }
   const renamed = {
     name: entry.name,
     data: Buffer.from(withSkillName(entry.data.toString('utf8'), id)),
