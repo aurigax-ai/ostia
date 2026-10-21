@@ -43,7 +43,91 @@ async function announce(app: ElectronApplication, items: unknown[]): Promise<voi
 }
 
 async function shot(win: Page, name: string): Promise<void> {
-  if (SHOTS) await win.screenshot({ path: `${SHOTS}/sync-cards-${name}.png` })
+  if (SHOTS)
+    await win.screenshot({ path: `${SHOTS}/sync-cards-${name}.png`, animations: 'disabled' })
+}
+
+async function signedInServer(app: ElectronApplication): Promise<void> {
+  await app.evaluate(({ ipcMain }, now) => {
+    const hour = 3_600_000
+    const day = 24 * hour
+    const reply = (channel: string, value: unknown): void => {
+      ipcMain.removeHandler(channel)
+      ipcMain.handle(channel, () => value)
+    }
+    reply('server:status', {
+      url: 'https://ostia.example.com',
+      host: 'ostia.example.com',
+      signedIn: true,
+      provider: 'invite',
+      deviceName: 'Work laptop',
+    })
+    reply('server:info', {
+      ok: true,
+      offer: { relay: true, publish: false, sync: true, push: false, invite: true, github: false },
+    })
+    reply('server:devices', {
+      ok: true,
+      devices: [
+        {
+          id: 'me',
+          name: 'Work laptop',
+          current: true,
+          lastSeen: now,
+          createdAt: now - 40 * day,
+          isNew: false,
+        },
+        {
+          id: 'd1',
+          name: 'Studio laptop',
+          current: false,
+          lastSeen: now,
+          createdAt: now - 3 * hour,
+          isNew: false,
+        },
+        {
+          id: 'd3',
+          name: 'build-box',
+          current: false,
+          lastSeen: now,
+          createdAt: now - hour,
+          isNew: true,
+        },
+        {
+          id: 'd2',
+          name: 'Pixel 9',
+          current: false,
+          lastSeen: now,
+          createdAt: now - 2 * 60_000,
+          isNew: false,
+        },
+      ],
+    })
+    reply('server:approvals', { ok: true, approvals: [] })
+    reply('syncServer:status', {
+      state: 'ready',
+      host: 'ostia.example.com',
+      linking: false,
+      linkApproved: false,
+      linkCodes: [],
+      joins: [],
+      recoveryStale: false,
+      wrapRefused: null,
+      changedDevices: [],
+    })
+    const synced = {
+      dir: null,
+      state: 'ok',
+      lastSync: new Date().toISOString(),
+      conflicts: [],
+      skipped: [],
+      heldBack: [],
+      offers: [],
+      secrets: { state: 'off', logins: false },
+    }
+    reply('sync:status', synced)
+    reply('sync:run', synced)
+  }, Date.now())
 }
 
 async function openPage(app: ElectronApplication, page: 'server' | 'sync'): Promise<void> {
@@ -62,7 +146,10 @@ test('the join request and changed devices show on Settings › Sync, the confir
     await openWorkspace(win)
     const settings = win.getByRole('region', { name: 'Settings' })
     await expect(settings).toBeHidden()
+    await signedInServer(app)
     await announce(app, ITEMS)
+    const nav = (name: string) =>
+      settings.getByRole('navigation').getByRole('button', { name, exact: true })
 
     await openPage(app, 'sync')
     await expect(settings.getByRole('heading', { name: 'Sync' })).toBeVisible({ timeout: 15_000 })
@@ -74,8 +161,11 @@ test('the join request and changed devices show on Settings › Sync, the confir
         /Studio laptop: keys or creation date changed, so it counts as a new device/,
       ),
     ).toBeVisible()
-    await expect(settings.getByText(/build-box/)).toBeHidden()
+    await expect(settings.getByText(/A new device was added/)).toBeHidden()
     await expect(settings.getByText(/asks you to confirm/)).toBeHidden()
+    await expect(nav('Sync')).toHaveAttribute('aria-current', 'page')
+    await expect(settings.getByText('Where to sync')).toHaveCount(1)
+    await expect(settings.getByText(/not signed in/)).toBeHidden()
     await shot(win, 'split-sync')
 
     await openPage(app, 'server')
@@ -84,6 +174,7 @@ test('the join request and changed devices show on Settings › Sync, the confir
     await expect(settings.getByText(/Studio laptop asks you to confirm/)).toBeVisible()
     await expect(settings.getByText(/Pixel 9 wants to join/)).toBeHidden()
     await expect(settings.getByText(/keys or creation date changed/)).toBeHidden()
+    await expect(nav('Server')).toHaveAttribute('aria-current', 'page')
     await shot(win, 'split-server')
 
     await announce(app, [])
