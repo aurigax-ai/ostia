@@ -14,7 +14,7 @@ the setting does not list. The human's own keys are refused with `can only be ch
 Settings`: the roots `capabilities`, `privacy`, `terminalKeys`, `modifierRemap` and `workspaceGroups`, and
 `behavior.externalEditor`, `behavior.checkForUpdates`, `behavior.updateChannel`,
 `behavior.discreteGpu`, `notifications.command`, `agents.autoResume`,
-`agents.autoSendReferences`, `agents.hooks`, `agents.trustWorkspaceFolders`,
+`agents.hooks`, `agents.trustWorkspaceFolders`,
 `terminal.warnOnRiskyPaste`, `terminal.shell`, `terminal.osc52Write`, `terminal.keepShells`,
 `terminal.scrollbackHistory`, `workspaces.globalHotkey`. Any other root that is not a settings
 group (`approvals`, `sync`, `sandbox`, `manager`, `assistant`, …) answers `unknown settings key`.

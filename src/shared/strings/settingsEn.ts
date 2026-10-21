@@ -75,9 +75,6 @@ export const settingsEn = {
     autoResume: 'Resume agents after a restart',
     autoResumeDesc:
       'An agent session that was running when {product} quit resumes at its pane’s first idle prompt once the pane is visible. Background tabs and other workspaces resume when you open them. Only you can change this.',
-    autoSendReferences: 'Send references to agents right away',
-    autoSendReferencesDesc:
-      'When you point at an element, capture a region or send a selection to a pane running Claude Code or Codex, press Enter after pasting so the agent reads it at once. Never at a shell prompt. Only you can change this.',
     bell: 'When a program rings the bell',
     bellAttention: 'Mark for attention',
     bellDesc:
@@ -174,7 +171,6 @@ export const settingsEn = {
     groupPaneTabs: 'Tabs',
     groupPaste: 'Paste',
     groupPerformance: 'Performance',
-    groupReferences: 'References',
     groupRendering: 'Rendering',
     groupResume: 'Resume',
     groupRows: 'Workspace rows',

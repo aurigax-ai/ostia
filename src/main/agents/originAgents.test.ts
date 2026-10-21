@@ -228,15 +228,10 @@ describe('parseReferenceRequest', () => {
     expect(parseReferenceRequest(base)).toEqual(base)
   })
 
-  it('keeps pointedByHuman only when it is exactly true', () => {
+  it('drops any flag that would submit the reference', () => {
     const base = { workspaceId: 'w-moved', paneId: 'agent-1', text: 'hi' }
 
-    expect(parseReferenceRequest({ ...base, pointedByHuman: true })).toEqual({
-      ...base,
-      pointedByHuman: true,
-    })
-    expect(parseReferenceRequest({ ...base, pointedByHuman: 'yes' })).toEqual(base)
-    expect(parseReferenceRequest({ ...base, pointedByHuman: false })).toEqual(base)
+    expect(parseReferenceRequest({ ...base, pointedByHuman: true, enter: true })).toEqual(base)
   })
 })
 
@@ -270,12 +265,15 @@ describe('ReferenceRelay', () => {
     await expect(result).resolves.toBe(true)
   })
 
-  it('carries pointedByHuman to the owning window as data, never a key', () => {
-    void relay.forward(MAIN, { ...request, pointedByHuman: true })
+  it('hands the owning window the pane, text and note only, nothing that submits', () => {
     void relay.forward(MAIN, request)
 
-    expect(sent[0].insert).toMatchObject({ text: '@/tmp/r.md ', pointedByHuman: true })
-    expect(sent[1].insert).not.toHaveProperty('pointedByHuman')
+    expect(sent[0].insert).toEqual({
+      requestId: sent[0].insert.requestId,
+      paneId: 'agent-1',
+      text: '@/tmp/r.md ',
+      note: 'look',
+    })
   })
 
   it('ignores an answer from a window that was not asked', async () => {

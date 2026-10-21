@@ -15,9 +15,8 @@ The human can send what they point at to a pane. Ostia writes a markdown report 
 
 - pastes `@<report path> ` at the pane's prompt when it is an idle shell prompt or its agent
   reported `waiting` or `done`, followed by `@<screenshot>.png ` when the human left Settings →
-  Browser → Attach the screenshot on; otherwise the references go to the human's clipboard. For
-  claude or codex with Settings → Agents → Send references to agents right away on, Ostia then
-  presses Enter once; it never presses Enter at a shell prompt;
+  Browser → Attach the screenshot on; otherwise the references go to the human's clipboard.
+  Ostia never presses Enter after pasting; the human reads the reference and sends it;
 - puts a bus message in the pane's inbox whose `text` is JSON describing the report (it marks
   nothing unread and is not repeated in prompt context);
 - sets the pane's attention to `working`.
