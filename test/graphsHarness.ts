@@ -12,6 +12,7 @@ import {
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import type { ExtensionResult } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
+import { runtimePaths } from '@aurigax-ai/wire'
 import type { AgentResume } from '../src/shared/agents/agentResume'
 import type { CommandResult } from '../src/shared/control/commands'
 import { journalLines } from './journalLines'
@@ -261,21 +262,23 @@ export async function graphsHarness(
     HOME: dir,
     XDG_STATE_HOME: join(dir, 'wire-state'),
     XDG_RUNTIME_DIR: join(dir, 'wire-run'),
+    TMPDIR: dir,
   }
   mkdirSync(wireEnv.XDG_RUNTIME_DIR, { recursive: true, mode: 0o700 })
-  const wireData = join(wireEnv.XDG_STATE_HOME, 'wire')
+  const wirePaths = {
+    env: wireEnv,
+    platform: process.platform,
+    uid: process.getuid?.() ?? 0,
+    home: dir,
+    tmp: dir,
+  }
+  const wireData = runtimePaths(wirePaths).data
   registerWireRuntime({
     host: () => host,
     runtime: new WireRuntime({
       nodePath: process.execPath,
       baseEnv: () => wireEnv,
-      pathEnv: () => ({
-        env: wireEnv,
-        platform: process.platform,
-        uid: process.getuid?.() ?? 0,
-        home: dir,
-        tmp: tmpdir(),
-      }),
+      pathEnv: () => wirePaths,
     }),
   })
   const mcp = opts.mcp
