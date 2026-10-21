@@ -1,5 +1,6 @@
 import type { ExtensionInfo } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import type { ExtensionOpenPanelRequest } from '@aurigax-ai/ostia-extension-sdk/contract/extensionsBridge'
+import { isBuiltinPlaybookOn } from '@shared/agents/playbooks'
 import type { GitOpenDiffRequest } from '@shared/boards/git'
 import type { ProcessTerminalRequest } from '@shared/workspaces/workspaceApi'
 import { revealPane } from '@/lib/attention/workspaceActivity'
@@ -59,6 +60,9 @@ export function syncExtensionCommands(list: ExtensionInfo[]): void {
       title: command.title,
       category: command.category ?? ext.name,
       capabilities: command.capabilities,
+      ...(command.needsPlaybook
+        ? { listed: () => isBuiltinPlaybookOn(useSettingsStore.getState().playbooks, ext.id) }
+        : {}),
       target: 'active',
       extension: { extId: ext.id, command: command.id },
       agentRefusal: `not-available: run it from the pane with ostia ${ext.verb ?? ext.id} ${command.id}`,

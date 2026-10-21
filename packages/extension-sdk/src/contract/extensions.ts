@@ -51,6 +51,7 @@ export interface ExtensionCommandContribution {
   palette: boolean
   stdin: boolean
   interactive?: true
+  needsPlaybook?: true
   capabilities: Capability[]
 }
 

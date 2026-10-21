@@ -234,8 +234,6 @@ describe('ostia handoff (real extension process, real socket, real CLI)', () => 
     rmSync(dir, { recursive: true, force: true })
   })
 
-  const ticketOf = (stdout: string): string => /^handoff (\w+) →/.exec(stdout)?.[1] ?? ''
-
   it('hands a topic to a new tab beside the caller whose typed line carries only a ticket', async () => {
     const starting = ostia(caller, ['handoff', 'start', 'fix the checkout retry; $(rm -rf /)'])
     await vi.waitFor(() => expect(openTerminalIn).toHaveBeenCalledOnce(), { timeout: 10_000 })
@@ -314,9 +312,12 @@ describe('ostia handoff (real extension process, real socket, real CLI)', () => 
     expect(found.stderr).toBe('')
     expect(found.stdout).toContain(OTHER_SESSION)
 
-    const timeline = await ostia(opened, ['handoff', 'timeline', 'cccc3333', '--all'])
+    const reading = ostia(opened, ['handoff', 'timeline', 'cccc3333', '--all'])
+    await vi.waitFor(() => expect(pending()).toBe(1), { timeout: 10_000 })
+    answer('once')
+    const timeline = await reading
     expect(timeline.stdout).toContain('checkout retry in another project')
-  })
+  }, 60_000)
 
   it('refuses a sandboxed caller and everything while the playbook is off', async () => {
     const box = await ostia(sandboxed, ['handoff', 'start', 'anything'])

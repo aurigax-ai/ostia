@@ -103,6 +103,42 @@ describe('extensionBridge', () => {
     expect(commands.has('demo.add')).toBe(false)
   })
 
+  it('lists a command that needs its playbook only while the human has it on', () => {
+    const before = useSettingsStore.getState()
+    onTestFinished(() => {
+      useSettingsStore.setState(before, true)
+    })
+    syncExtensionCommands([
+      ext({
+        id: 'handoff',
+        commands: [
+          {
+            id: 'start',
+            title: 'Hand off…',
+            palette: true,
+            stdin: false,
+            needsPlaybook: true,
+            capabilities: [],
+          },
+        ],
+      }),
+    ])
+    const listed = (): boolean | undefined =>
+      commands
+        .list()
+        .find((c) => c.id === 'handoff.start')
+        ?.listed?.()
+    expect(listed()).toBe(false)
+    useSettingsStore.setState({
+      playbooks: { ...before.playbooks, enabled: { handoff: true } },
+    })
+    expect(listed()).toBe(true)
+    useSettingsStore.setState({
+      playbooks: { ...before.playbooks, enabled: { handoff: false } },
+    })
+    expect(listed()).toBe(false)
+  })
+
   it('removes the commands when the extension is disabled, and notifies subscribers', () => {
     const listener = vi.fn()
     const unsubscribe = commands.subscribe(listener)

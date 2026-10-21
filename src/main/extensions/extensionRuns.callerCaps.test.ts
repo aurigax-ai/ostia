@@ -111,7 +111,12 @@ describe('ext.requireCallerCaps', () => {
   it('takes only all-workspaces and a clean one-line reason', async () => {
     const r = runs()
     r.holdCliCall(pane, authed)
-    for (const bad of [{ caps: ['kill-pane'] }, { caps: [] }, { reason: '' }, { reason: 'a\u0000b' }]) {
+    for (const bad of [
+      { caps: ['kill-pane'] },
+      { caps: [] },
+      { reason: '' },
+      { reason: 'a\u0000b' },
+    ]) {
       expect(await ask(r, bad)).toMatchObject({ ok: false, error: 'invalid-params' })
     }
     expect(ensureCaps).not.toHaveBeenCalled()

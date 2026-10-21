@@ -1,6 +1,7 @@
 import { skillDirective } from '@aurigax-ai/ostia-extension-sdk/contract/agentPlugins'
 import { PRODUCT_NAME } from '@aurigax-ai/ostia-extension-sdk/contract/product'
 import coordinatorText from './playbooks/coordinator.md?raw'
+import handoffText from './playbooks/handoff.md?raw'
 import rememberText from './playbooks/remember.md?raw'
 import reviewText from './playbooks/review.md?raw'
 import workerText from './playbooks/worker.md?raw'
@@ -29,6 +30,12 @@ export const BUILTIN_PLAYBOOKS: readonly BuiltinPlaybook[] = [
     id: 'review',
     description: 'One focused review of a PR against its issue.',
     text: reviewText,
+    defaultOn: false,
+  },
+  {
+    id: 'handoff',
+    description: 'Start a clean new session on one topic, beside this one.',
+    text: handoffText,
     defaultOn: false,
   },
   {
@@ -288,6 +295,10 @@ export function activePlaybooks(settings: PlaybooksSettings): ResolvedPlaybook[]
       playbookTextProblem(p.text) === null &&
       (p.builtin || playbookDescriptionProblem(p.description) === null),
   )
+}
+
+export function isBuiltinPlaybookOn(settings: PlaybooksSettings, id: string): boolean {
+  return activePlaybooks(settings).some((p) => p.builtin && p.id === id)
 }
 
 export function playbookSkillText(playbook: ResolvedPlaybook): string {

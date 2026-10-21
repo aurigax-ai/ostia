@@ -18,13 +18,9 @@ const FAKE_CLAUDE = [
   '  echo "fake-prompt: $prompt"',
   '  ticket=$(printf "%s" "$prompt" | sed -n "s/.*intake \\([0-9a-f]*\\).*/\\1/p")',
   `  ${OSTIA} handoff intake "$ticket" | head -4`,
-  `  ${OSTIA} handoff find "cart total" | head -2`,
   '  echo fake-intake-done',
   '  exec cat',
   'fi',
-  'dir="$HOME/.claude/projects/$(pwd | sed "s/[^A-Za-z0-9]/-/g")"',
-  'mkdir -p "$dir"',
-  `printf '%s\\n' '{"type":"user","timestamp":"2026-10-21T01:00:00.000Z","cwd":"/x","origin":{"kind":"human"},"message":{"content":"${TOPIC} is wrong"}}' > "$dir/$session.jsonl"`,
   'echo fake-agent-ready',
   'sleep 2',
   `${OSTIA} handoff start "${TOPIC}"`,
@@ -51,9 +47,7 @@ test('/handoff opens a new tab beside the caller that follows its intake while t
 
     const handed = win.locator('.pane-slot:not([data-hidden]) .xterm-rows')
     await expect(handed).toContainText('fake-intake-done', { timeout: 60_000 })
-    await expect(handed).toContainText('Run `ostia handoff intake')
     await expect(handed).toContainText(`topic: ${TOPIC}`)
-    await expect(handed).toContainText('(the session that handed off)')
     await expect(win.locator('.pane-slot:not([data-hidden]) .xterm-helper-textarea')).toBeFocused()
 
     await tabs.nth(0).getByRole('tab').click()

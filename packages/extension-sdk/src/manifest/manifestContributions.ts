@@ -65,6 +65,7 @@ export function parseCommand(raw: unknown, index: number): ExtensionCommandContr
   const argument = text(raw.argument, COMMAND_ARGUMENT_LABEL_MAX)
   if (argument) command.argument = argument
   if (raw.interactive === true) command.interactive = true
+  if (raw.needsPlaybook === true) command.needsPlaybook = true
   return command
 }
 

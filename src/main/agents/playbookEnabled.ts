@@ -1,5 +1,5 @@
-import { isRecord } from '@aurigax-ai/ostia-extension-sdk/contract/isRecord'
+import { isBuiltinPlaybookOn, parsePlaybooks } from '../../shared/agents/playbooks'
 
 export function playbookEnabled(raw: unknown, id: string): boolean {
-  return isRecord(raw) && isRecord(raw.enabled) && raw.enabled[id] === true
+  return isBuiltinPlaybookOn(parsePlaybooks(raw), id)
 }
