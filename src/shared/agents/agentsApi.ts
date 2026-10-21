@@ -1,3 +1,4 @@
+import type { ClaudeAccountsBridge } from '../claudeAccounts/claudeAccountsApi'
 import type { ParkBridge } from '../park/parkApi'
 import type { AgentResume } from './agentResume'
 import type { AgentSessionInfo } from './agentSessionInfo'
@@ -22,11 +23,11 @@ export type FolderTrust =
 interface AgentSessionApi {
   info: (resume: AgentResume) => Promise<AgentSessionInfo | null>
   claimResume: (paneId: string, resume: AgentResume) => Promise<ResumeVerdict>
-  folderTrust: (paneId: string) => Promise<FolderTrust>
+  folderTrust: (paneId: string, sessionId?: string) => Promise<FolderTrust>
   trustFolder: (paneId: string, folder: string) => Promise<boolean>
 }
 
-export interface AgentsBridge extends ParkBridge {
+export interface AgentsBridge extends ParkBridge, ClaudeAccountsBridge {
   manager: ManagerApi
   agentSession: AgentSessionApi
   mail: MailApi

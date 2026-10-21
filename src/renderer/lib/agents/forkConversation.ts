@@ -46,7 +46,10 @@ export function forkConversation(workspaceId: string, paneId: string): string | 
     forkId,
     forkCommand(resume),
     undefined,
-    () => (resumeFolderMissing(forkId) ? false : claudeTrustGate(forkId, resume.agent)),
+    () =>
+      resumeFolderMissing(forkId)
+        ? false
+        : claudeTrustGate(forkId, resume.agent, undefined, resume.id),
     () => {
       const missing = resumeFolderMissing(forkId)
       if (!missing) return

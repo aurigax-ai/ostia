@@ -23,8 +23,10 @@ import {
   AGENT_DIR,
   busHookCommand,
   CLI_PATH,
+  CLI_RUN,
   hookCommand,
   hooksFor,
+  IN_PANE,
   permissionHookCommand,
   turnHookCommand,
 } from './agentHookCommands'
@@ -150,17 +152,34 @@ export function writeClaudeFoldPlugin(dir: string): void {
 }
 
 export function claudeWrapper(): string {
+  const hooksOn = `[ -z "${shellEnv(AGENT_HOOKS_OFF_ENV.claude)}" ]`
+  const pluginDir = `${AGENT_DIR}/${CLAUDE_PLUGIN_DIR}`
+  const foldDir = `${AGENT_DIR}/${CLAUDE_FOLD_DIR}`
   return [
     '',
     '# Run claude with the Ostia plugins (CLI skill, extension skills and hooks, resume token,',
-    '# attention hooks, bus row display). `command claude` skips them.',
-    `if [ -n "${CLI_PATH}" ] && [ -z "${shellEnv(AGENT_HOOKS_OFF_ENV.claude)}" ]; then`,
-    '  claude() {',
+    '# attention hooks, bus row display) and on the Claude account Ostia picks for this start.',
+    '# `command claude` skips both.',
+    `if [ -n "${CLI_PATH}" ]; then`,
+    '  __ostia_claude() {',
     "    local IFS=$'\\037'",
-    `    if [ -n "${AGENT_DIR}" ] && [ -d "${AGENT_DIR}/${CLAUDE_PLUGIN_DIR}" ] && [ -d "${AGENT_DIR}/${CLAUDE_FOLD_DIR}" ]; then`,
-    `      ${CLAUDE_ARGS}="$*" command claude --plugin-dir "${AGENT_DIR}/${CLAUDE_PLUGIN_DIR}" --plugin-dir "${AGENT_DIR}/${CLAUDE_FOLD_DIR}" "$@"`,
-    '    else',
+    `    if ${hooksOn} && [ -n "${AGENT_DIR}" ] && [ -d "${pluginDir}" ] && [ -d "${foldDir}" ]; then`,
+    `      ${CLAUDE_ARGS}="$*" command claude --plugin-dir "${pluginDir}" --plugin-dir "${foldDir}" "$@"`,
+    `    elif ${hooksOn}; then`,
     `      ${CLAUDE_ARGS}="$*" command claude "$@"`,
+    '    else',
+    '      command claude "$@"',
+    '    fi',
+    '  }',
+    '  claude() {',
+    "    local IFS=$'\\037' account=",
+    `    if [ -z "\${CLAUDE_CONFIG_DIR-}" ] && ${IN_PANE}; then`,
+    `      account=$(${CLI_RUN} claude-account start -- "$@" 2>/dev/null)`,
+    '    fi',
+    '    if [ -n "$account" ]; then',
+    '      CLAUDE_CONFIG_DIR="$account" __ostia_claude "$@"',
+    '    else',
+    '      __ostia_claude "$@"',
     '    fi',
     '  }',
     'fi',

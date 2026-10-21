@@ -2,6 +2,7 @@ import { ChangeSignal } from '../../shared/common/actThenConfirm'
 import { AgentResumes } from '../agents/agentResumes'
 import { AgentRunningPanes } from '../agents/agentRunning'
 import { ReportedAgentWork } from '../agents/agentWork'
+import { createClaudeAccounts } from '../agents/claudeAccounts/claudeAccountsWiring'
 import type { OriginReach } from '../agents/originAgents'
 import { approvals } from '../approvals/approvals'
 import { createAskHub } from '../approvals/asks'
@@ -20,7 +21,15 @@ import { KeptAttention } from '../tmux/keptAttention'
 import type { WorkspaceContext } from './workspaceServices'
 
 export function createAgentServices(ctx: WorkspaceContext) {
-  const { emitPaneEvent, execCommand, mainStrings, services, terminalState } = ctx
+  const {
+    broadcast,
+    emitPaneEvent,
+    execCommand,
+    mainStrings,
+    openTerminalInWindow,
+    services,
+    terminalState,
+  } = ctx
 
   const agentChanges = new ChangeSignal()
   const agentResumes = new AgentResumes()
@@ -28,6 +37,12 @@ export function createAgentServices(ctx: WorkspaceContext) {
   const agentRunning = new AgentRunningPanes(() => {
     services.broker?.persist()
     agentChanges.fire()
+  })
+  const claudeAccounts = createClaudeAccounts({
+    openTerminalInWindow,
+    mainStrings,
+    broadcast,
+    agentRunning,
   })
   const agentWork = new ReportedAgentWork()
   const paneTurns = new PaneTurns()
@@ -71,6 +86,7 @@ export function createAgentServices(ctx: WorkspaceContext) {
   return {
     agentChanges,
     agentResumes,
+    claudeAccounts,
     startedAgents,
     agentRunning,
     agentWork,

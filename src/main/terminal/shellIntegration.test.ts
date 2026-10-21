@@ -16,7 +16,7 @@ import {
   type AgentPluginContent,
   NO_AGENT_PLUGINS,
 } from '@aurigax-ai/ostia-extension-sdk/manifest/agentSkills'
-import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import { CORE_SKILL_FILES } from '../agents/bundledSkills'
 import { busHookCommand, extensionHookCommand, permissionHookCommand } from './agentHookCommands'
 import { agentPluginFiles, writeAgentPlugin } from './agentPlugin'
@@ -1107,6 +1107,94 @@ describe('shellIntegrationSpawnOptions', () => {
     it('hands codex its own arguments, without the hook flags', () => {
       expect(run(`codex -m gpt-5 'fix it'`)).toBe('-m|gpt-5|fix it')
       expect(run('codex exec run')).toBe('unset')
+    })
+  })
+
+  describe.each([
+    ['bash', '--norc'],
+    ['zsh', '-f'],
+  ])('the Claude account a start runs on in %s', (shell, noRc) => {
+    let dir = ''
+    let wrapper = ''
+
+    beforeAll(() => {
+      dir = mkdtempSync(join(tmpdir(), 'ostia-fake-account-'))
+      writeFileSync(
+        join(dir, 'claude'),
+        '#!/bin/sh\nprintf "dir=%s args=%s" "${CLAUDE_CONFIG_DIR-unset}" "$*"\n',
+      )
+      chmodSync(join(dir, 'claude'), 0o755)
+      writeFileSync(
+        join(dir, 'node'),
+        '#!/bin/sh\nprintf "%s\\n" "$*" >> "$FAKE_ASKED"\nprintf "%s\\n" "$FAKE_ACCOUNT"\n',
+      )
+      chmodSync(join(dir, 'node'), 0o755)
+      wrapper = join(dir, 'wrapper.sh')
+      writeFileSync(wrapper, claudeWrapper())
+    })
+
+    beforeEach(() => {
+      rmSync(join(dir, 'asked'), { force: true })
+    })
+
+    afterAll(() => {
+      rmSync(dir, { recursive: true, force: true })
+    })
+
+    const run = (script: string, env: Record<string, string> = {}) =>
+      spawnSync(shell, [noRc, '-c', `source '${wrapper}'; ${script}`], {
+        env: {
+          PATH: `${dir}:/usr/bin:/bin`,
+          OSTIA_CLI: '/x/cli.js',
+          OSTIA_NODE: join(dir, 'node'),
+          OSTIA_SOCKET: '/x/sock',
+          OSTIA_AGENT_DIR: AGENT_DIR,
+          OSTIA_NO_CLAUDE_HOOKS: '1',
+          FAKE_ASKED: join(dir, 'asked'),
+          ...env,
+        },
+        encoding: 'utf8',
+      }).stdout
+
+    const asked = () => {
+      const file = join(dir, 'asked')
+      const text = existsSync(file) ? readFileSync(file, 'utf8') : ''
+      rmSync(file, { force: true })
+      return text
+    }
+
+    it('runs claude on the folder main answers and leaves the shell’s own variable alone', () => {
+      expect(
+        run('claude hi; echo " ${CLAUDE_CONFIG_DIR-unset}"', { FAKE_ACCOUNT: '/p/work' }),
+      ).toBe('dir=/p/work args=hi unset\n')
+      expect(asked()).toBe('/x/cli.js claude-account start -- hi\n')
+    })
+
+    it('asks with the arguments the human typed, quoted, after --', () => {
+      run("claude --resume abc 'two words' --help", { FAKE_ACCOUNT: '' })
+      expect(asked()).toBe('/x/cli.js claude-account start -- --resume abc two words --help\n')
+    })
+
+    it('starts claude as it is when main answers nothing', () => {
+      expect(run('claude hi', { FAKE_ACCOUNT: '' })).toBe('dir=unset args=hi')
+    })
+
+    it('keeps a CLAUDE_CONFIG_DIR the human set and does not ask', () => {
+      expect(run('claude hi', { FAKE_ACCOUNT: '/p/work', CLAUDE_CONFIG_DIR: '/mine' })).toBe(
+        'dir=/mine args=hi',
+      )
+      expect(run('CLAUDE_CONFIG_DIR=/typed claude hi', { FAKE_ACCOUNT: '/p/work' })).toBe(
+        'dir=/typed args=hi',
+      )
+      expect(asked()).toBe('')
+    })
+
+    it('does not ask outside an Ostia pane, and `command claude` never asks', () => {
+      expect(run('claude hi', { FAKE_ACCOUNT: '/p/work', OSTIA_SOCKET: '' })).toBe(
+        'dir=unset args=hi',
+      )
+      expect(run('command claude hi', { FAKE_ACCOUNT: '/p/work' })).toBe('dir=unset args=hi')
+      expect(asked()).toBe('')
     })
   })
 

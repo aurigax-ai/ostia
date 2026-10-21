@@ -29,6 +29,7 @@ import {
   TerminalIcon,
   TerminalWindowIcon,
   TreeStructureIcon,
+  UserSwitchIcon,
 } from '@phosphor-icons/react'
 import type { Dict } from '@shared/app/dict'
 import { withProductName } from '@/lib/app/useDict'
@@ -48,6 +49,7 @@ type SettingsGroupId = (typeof SETTINGS_GROUPS)[number]
 
 export type SectionId =
   | 'manager'
+  | 'claudeAccounts'
   | 'appearance'
   | 'terminal'
   | 'prompt'
@@ -112,6 +114,12 @@ export function settingsSections(d: Dict): SettingsSection[] {
     { id: 'git', group: 'workspace', icon: GitBranchIcon, label: d.git.title },
     { id: 'ports', group: 'workspace', icon: PlugsIcon, label: d.ports.title },
     { id: 'views', group: 'workspace', icon: LayoutIcon, label: d.views.title },
+    {
+      id: 'claudeAccounts',
+      group: 'agents',
+      icon: UserSwitchIcon,
+      label: d.claudeAccounts.title,
+    },
     { id: 'agents', group: 'agents', icon: RobotIcon, label: d.settings.agents },
     { id: 'playbooks', group: 'agents', icon: BookOpenTextIcon, label: d.playbooks.title },
     {

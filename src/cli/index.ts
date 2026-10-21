@@ -27,9 +27,11 @@ import {
   runResumeTokenVerb,
   runTurnHookVerb,
 } from './hooks/agentReports'
+import { runClaudeAccountVerb } from './hooks/claudeAccount'
 import { saveAttentionOffline } from './hooks/offlineAttention'
 import { runPermissionHook } from './hooks/permissionHook'
 import { runTokenVerb } from './hooks/token'
+import { runAccountVerb } from './verbs/account'
 import { runAskVerb } from './verbs/ask'
 import { runNotify, runStateVerb } from './verbs/attention'
 import { runBrowse } from './verbs/browse'
@@ -76,6 +78,8 @@ const RUNNERS: Readonly<Record<string, Runner>> = {
   workspace: runWorkspaceVerb,
   'resume-token': runResumeTokenVerb,
   'claude-hook': runClaudeHookVerb,
+  'claude-account': runClaudeAccountVerb,
+  account: runAccountVerb,
   'codex-hook': runCodexHookVerb,
   'turn-hook': runTurnHookVerb,
   'codex-server': runCodexServerVerb,

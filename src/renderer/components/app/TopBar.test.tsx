@@ -280,7 +280,7 @@ describe('TopBar', () => {
     expect(within(button).getByText('Ctrl+Alt+K')).toBeInTheDocument()
   })
 
-  it('puts the extension panel toggles right after Files on the left, and the Git chip stays on the right', () => {
+  it('puts the extension panel toggles right after Files and the accounts menu on the left, and the Git chip stays on the right', () => {
     seedWorkspace()
     const activity: ExtensionInfo = {
       ...git,
@@ -302,7 +302,12 @@ describe('TopBar', () => {
       Array.from(container.querySelector(selector)?.querySelectorAll('button') ?? []).map((b) =>
         b.getAttribute('aria-label'),
       )
-    expect(names('.topbar-left').slice(-3)).toEqual(['Files', 'Activity', 'Dashboard'])
+    expect(names('.topbar-left').slice(-4)).toEqual([
+      'Files',
+      'Claude accounts',
+      'Activity',
+      'Dashboard',
+    ])
     expect(names('.topbar-right')).not.toContain('Activity')
     expect(container.querySelector('.topbar-right')).toContainElement(
       screen.getByRole('list', { name: 'Workspace status' }),

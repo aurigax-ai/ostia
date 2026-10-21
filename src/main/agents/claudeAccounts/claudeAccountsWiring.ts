@@ -1,0 +1,181 @@
+import { homedir } from 'node:os'
+import { ipcMain } from 'electron'
+import type { Dict } from '../../../shared/app/dict'
+import {
+  accountOfTarget,
+  type ClaudeAccountView,
+  NO_ACCOUNTS,
+} from '../../../shared/claudeAccounts/claudeAccounts'
+import { quoteArg } from '../../../shared/terminal/shellQuote'
+import { approvals } from '../../approvals/approvals'
+import type { CommandBridge } from '../../control/commandBridge'
+import { type ControlMethodContext, registerControlMethod } from '../../control/controlServer'
+import { resolveExternal } from '../../control/idRegistry'
+import { listWorkspaces } from '../../panes/paneList'
+import { storePath } from '../../platform/jsonStore'
+import type { WorkspaceSandboxes } from '../../sandbox/workspaceSandboxes'
+import type { ScratchFolders } from '../../workspaces/scratchFolders'
+import type { AgentResumes } from '../agentResumes'
+import type { AgentRunningPanes } from '../agentRunning'
+import { accountEmail, accountsRoot, defaultConfigHome } from './accountProfiles'
+import { syncProfileFromDefault } from './accountSync'
+import { ClaudeAccountsStore } from './accountsStore'
+import { ClaudeAccounts, type LoginTarget } from './claudeAccounts'
+
+const ACCOUNTS_DIR = 'claude-accounts'
+
+interface CreateDeps {
+  openTerminalInWindow: CommandBridge['openTerminalInWindow']
+  mainStrings: () => Dict
+  broadcast: (channel: string, payload: unknown) => void
+  agentRunning: Pick<AgentRunningPanes, 'has'>
+}
+
+export function createClaudeAccounts(deps: CreateDeps): ClaudeAccounts {
+  return new ClaudeAccounts({
+    store: new ClaudeAccountsStore(storePath(ACCOUNTS_DIR, 'global')),
+    root: accountsRoot(),
+    defaultHome: () => defaultConfigHome(),
+    defaultEmail: () => accountEmail(process.env.CLAUDE_CONFIG_DIR || undefined),
+    profileEmail: (dir) => accountEmail(dir),
+    syncProfile: (dir) => syncProfileFromDefault(dir, defaultConfigHome()),
+    openLoginTab: (dir, target) =>
+      deps.openTerminalInWindow({
+        command: `CLAUDE_CONFIG_DIR=${quoteArg(dir)} 'claude'`,
+        title: deps.mainStrings().claudeAccounts.loginTitle,
+        workspaceId: target.workspaceId,
+        windowId: target.windowId,
+        cwd: homedir(),
+      }),
+    agentRunning: (paneId) => deps.agentRunning.has(paneId),
+    paneOf: (externalId) => {
+      const pane = resolveExternal(externalId)
+      return pane?.kind === 'pane' ? pane.paneId : undefined
+    },
+    onChange: (state) => deps.broadcast('claude-accounts:changed', state),
+  })
+}
+
+interface RegisterDeps {
+  claudeAccounts: ClaudeAccounts
+  agentResumes: AgentResumes
+  workspaceSandboxes: Pick<WorkspaceSandboxes, 'isEnabled'>
+  scratchFolders: Pick<ScratchFolders, 'isScratch'>
+  workspaceWindowId: (workspaceId: string) => string | undefined
+  execCommand: CommandBridge['execCommand']
+  windowIds: () => string[]
+}
+
+const fromWindow = (e: Electron.IpcMainInvokeEvent): boolean => e.sender.getType() === 'window'
+
+export function registerClaudeAccountsWiring(deps: RegisterDeps): void {
+  const { claudeAccounts, workspaceSandboxes, scratchFolders } = deps
+  void claudeAccounts.boot()
+
+  const defaultOnly = (ctx: ControlMethodContext): 'manager' | 'sandboxed' | 'scratch' | null => {
+    if (ctx.identity.manager === true) return 'manager'
+    if (workspaceSandboxes.isEnabled(ctx.identity.workspaceId)) return 'sandboxed'
+    return scratchFolders.isScratch(ctx.identity.workspaceId) ? 'scratch' : null
+  }
+
+  async function loginTarget(
+    e: Electron.IpcMainInvokeEvent,
+    workspaceId: unknown,
+  ): Promise<LoginTarget | null> {
+    if (typeof workspaceId !== 'string') return null
+    const windowId = String(e.sender.id)
+    if (deps.workspaceWindowId(workspaceId) !== windowId) return null
+    if (workspaceSandboxes.isEnabled(workspaceId) || scratchFolders.isScratch(workspaceId)) {
+      return null
+    }
+    const found = (await listWorkspaces(deps)).find((w) => w.workspaceId === workspaceId)
+    return found?.kind === 'terminal' ? { workspaceId, windowId } : null
+  }
+
+  ipcMain.handle('claude-accounts:state', (e) =>
+    fromWindow(e) ? claudeAccounts.state() : NO_ACCOUNTS,
+  )
+  ipcMain.handle('claude-accounts:add', async (e, workspaceId: unknown) => {
+    if (!fromWindow(e)) return 'not-opened'
+    const target = await loginTarget(e, workspaceId)
+    return target ? claudeAccounts.add(target) : 'no-workspace'
+  })
+  ipcMain.handle('claude-accounts:remove', (e, id: unknown) =>
+    fromWindow(e) && typeof id === 'string' ? claudeAccounts.remove(id) : 'unknown',
+  )
+  ipcMain.handle('claude-accounts:use', (e, id: unknown) =>
+    fromWindow(e) && typeof id === 'string' ? claudeAccounts.use(id) : false,
+  )
+  ipcMain.handle('claude-accounts:recover', (e) =>
+    fromWindow(e) ? claudeAccounts.recover() : null,
+  )
+
+  registerControlMethod('claudeAccount.start', {
+    handler: async (params, ctx) => {
+      if (defaultOnly(ctx)) return { dir: '' }
+      const args = (params as { args?: unknown } | null)?.args
+      const argv = Array.isArray(args) ? args.filter((a): a is string => typeof a === 'string') : []
+      return { dir: await claudeAccounts.startDirectory(argv, ctx.identity.paneId) }
+    },
+  })
+
+  registerControlMethod('account.list', {
+    cap: 'settings-read',
+    handler: async (_params, ctx) => {
+      const isolated = defaultOnly(ctx)
+      if (isolated) return { ok: false, error: isolated }
+      const { accounts, current } = await claudeAccounts.state()
+      return {
+        ok: true,
+        accounts: accounts.map(({ id, email }, i) => ({
+          number: i + 1,
+          email,
+          current: id === current,
+        })),
+      }
+    },
+  })
+
+  registerControlMethod('account.switch', {
+    handler: async (params, ctx) => {
+      const target = (params as { target?: unknown } | null)?.target
+      if (typeof target !== 'string') return { ok: false, error: 'invalid-params' }
+      const isolated = defaultOnly(ctx)
+      if (isolated) return { ok: false, error: isolated }
+      const { accounts } = await claudeAccounts.state()
+      const account = accountOfTarget(accounts, target)
+      if (!account) return { ok: false, error: 'unknown-account' }
+      if (!(await humanApproves(ctx, account))) return { ok: false, error: 'not-approved' }
+      if (!(await claudeAccounts.use(account.id))) return { ok: false, error: 'unavailable' }
+      return { ok: true, number: accounts.indexOf(account) + 1, email: account.email }
+    },
+  })
+
+  deps.agentResumes.subscribe((externalPaneId, resume) => {
+    if (resume.agent !== 'claude') return
+    const pane = resolveExternal(externalPaneId)
+    if (pane?.kind === 'pane') claudeAccounts.sessionStarted(pane.paneId, resume.id)
+  })
+}
+
+async function humanApproves(
+  ctx: ControlMethodContext,
+  account: ClaudeAccountView,
+): Promise<boolean> {
+  const approver = approvals()
+  const { identity } = ctx
+  if (!approver || identity.kind !== 'pane') return false
+  const subject = account.email ?? 'default'
+  const outcome = await approver.request({
+    externalId: identity.externalId,
+    windowId: identity.windowId,
+    paneId: identity.paneId,
+    workspaceId: identity.workspaceId,
+    caps: [],
+    action: 'account.switch',
+    detail: subject,
+    kind: 'account-switch',
+    subject,
+  })
+  return outcome === 'once'
+}
