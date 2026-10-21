@@ -7,6 +7,7 @@ import { SettingsPage } from '@/components/settingsKit/SettingsPage'
 import { Button } from '@/components/ui/button'
 import { fmt, useDict } from '@/lib/app/useDict'
 import { ServerAddressRow } from './ServerAddressRow'
+import { ServerDevices } from './ServerDevices'
 import { ServerSignIn } from './ServerSignIn'
 import { serverErrorText } from './serverText'
 import { useServerOffer, useServerStatus } from './useServerStatus'
@@ -71,6 +72,7 @@ export function ServerSection(): JSX.Element {
         />
       ) : null}
       {status.signedIn ? <SignedInRow status={status} /> : null}
+      {status.signedIn ? <ServerDevices /> : null}
       {!status.signedIn && offered.state === 'ready' ? (
         <ServerSignIn offer={offered.offer} />
       ) : null}

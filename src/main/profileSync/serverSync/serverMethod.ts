@@ -15,11 +15,11 @@ import { type RemoteContext, readRemote, targetErrorOf, uploadAll } from './sync
 const FIRST_VERSION = '0'
 const CACHE_MAX = 600
 
-export interface MethodContext extends RemoteContext {
+interface MethodContext extends RemoteContext {
   self: () => ManifestDevice | null
 }
 
-export class ServerMethod implements SyncMethod {
+class ServerMethod implements SyncMethod {
   private last: { version: number; manifest: Manifest | null } = { version: 0, manifest: null }
   private readonly cache = new Map<string, Buffer>()
 

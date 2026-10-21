@@ -12,7 +12,7 @@ import type { SyncKeyring } from './syncKeyring'
 import { joinRequestsFor, linkCodesFor, wrapFor } from './syncLink'
 import { collectGarbage, rotateKey, verifySecrets } from './syncRotate'
 
-export type ServiceAccount = Pick<
+type ServiceAccount = Pick<
   ServerAccount,
   'signedIn' | 'identity' | 'baseUrl' | 'authed' | 'deviceKeys' | 'onChange'
 >

@@ -3,6 +3,8 @@ import type { SyncConflict, SyncStatus } from '@shared/profileSync/profileSync'
 import { useEffect, useMemo, useState } from 'react'
 import { MachineValue } from '@/components/common/MachineValue'
 import { Notice } from '@/components/common/Notice'
+import { Segmented } from '@/components/common/Segmented'
+import { syncServerStatusError } from '@/components/server/syncServerText'
 import { ControlRow } from '@/components/settingsKit/ControlRow'
 import { SettingsPage } from '@/components/settingsKit/SettingsPage'
 import { Button } from '@/components/ui/button'
@@ -10,6 +12,7 @@ import { Separator } from '@/components/ui/separator'
 import { fmt, useDict } from '@/lib/app/useDict'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { SyncSecretsSection } from './SyncSecretsSection'
+import { SyncServerSection } from './SyncServerSection'
 
 const OFF: SyncStatus = {
   dir: null,
@@ -23,6 +26,8 @@ const OFF: SyncStatus = {
 }
 
 function syncErrorText(d: Dict, error: string | undefined): string {
+  const server = syncServerStatusError(d, error)
+  if (server) return server
   if (error === 'missing') return d.sync.errMissing
   if (error === 'not-a-directory') return d.sync.errNotDir
   if (error === 'same-as-local') return d.sync.errSame
@@ -162,7 +167,11 @@ export function SyncSection(): JSX.Element {
   const d = useDict()
   const locale = useSettingsStore((s) => s.locale)
   const dir = useSettingsStore((s) => s.sync?.dir ?? '')
+  const method = useSettingsStore((s) => s.sync?.method ?? 'folder')
   const setSyncDir = useSettingsStore((s) => s.setSyncDir)
+  const setSyncMethod = useSettingsStore((s) => s.setSyncMethod)
+  const server = method === 'server'
+  const active = server || dir !== ''
   const [status, setStatus] = useState<SyncStatus>(OFF)
   const [busy, setBusy] = useState(false)
 
@@ -210,7 +219,13 @@ export function SyncSection(): JSX.Element {
     setStatus(OFF)
   }
 
-  const statusText = !dir
+  const pickMethod = async (next: 'folder' | 'server'): Promise<void> => {
+    await setSyncMethod(next)
+    if (next === 'server') await syncNow()
+    else setStatus(await window.ostia.sync.status())
+  }
+
+  const statusText = !active
     ? d.sync.off
     : status.state === 'error'
       ? syncErrorText(d, status.error)
@@ -221,40 +236,59 @@ export function SyncSection(): JSX.Element {
   return (
     <SettingsPage title={d.sync.title} desc={d.sync.desc}>
       <Separator className="mb-2" />
-      <ControlRow label={d.sync.folder} desc={d.sync.folderDesc}>
-        {dir ? (
-          <MachineValue value={dir} />
-        ) : (
-          <span className="text-fg-muted text-ui-sm">{d.sync.notSet}</span>
-        )}
-        <Button variant="outline" size="sm" onClick={() => void choose()}>
-          {d.sync.choose}
-        </Button>
-        {dir ? (
-          <Button variant="ghost" size="sm" onClick={() => void stop()}>
-            {d.sync.stop}
-          </Button>
-        ) : null}
+      <ControlRow label={d.syncServer.where} desc={d.syncServer.whereDesc}>
+        <Segmented
+          label={d.syncServer.where}
+          value={method}
+          options={[
+            { value: 'folder', label: d.syncServer.whereFolder },
+            { value: 'server', label: d.syncServer.whereServer },
+          ]}
+          onChange={(next) => void pickMethod(next)}
+        />
       </ControlRow>
+      {server ? null : (
+        <ControlRow label={d.sync.folder} desc={d.sync.folderDesc}>
+          {dir ? (
+            <MachineValue value={dir} />
+          ) : (
+            <span className="text-fg-muted text-ui-sm">{d.sync.notSet}</span>
+          )}
+          <Button variant="outline" size="sm" onClick={() => void choose()}>
+            {d.sync.choose}
+          </Button>
+          {dir ? (
+            <Button variant="ghost" size="sm" onClick={() => void stop()}>
+              {d.sync.stop}
+            </Button>
+          ) : null}
+        </ControlRow>
+      )}
+      {server ? <SyncServerSection onChanged={() => void syncNow()} /> : null}
       <ControlRow label={d.sync.status}>
         <output
-          className={`text-ui-sm ${status.state === 'error' && dir ? 'text-attn-fg' : 'text-fg-muted'}`}
+          className={`text-ui-sm ${status.state === 'error' && active ? 'text-attn-fg' : 'text-fg-muted'}`}
         >
           {statusText}
         </output>
-        <Button variant="outline" size="sm" disabled={!dir || busy} onClick={() => void syncNow()}>
+        <Button
+          variant="outline"
+          size="sm"
+          disabled={!active || busy}
+          onClick={() => void syncNow()}
+        >
           {d.sync.now}
         </Button>
       </ControlRow>
-      {dir && status.skipped.length > 0 ? (
+      {active && status.skipped.length > 0 ? (
         <Notice>{fmt(d.sync.skipped, { files: status.skipped.join(', ') })}</Notice>
       ) : null}
-      {dir && status.heldBack.length > 0 ? (
+      {active && status.heldBack.length > 0 ? (
         <Notice>{fmt(d.sync.heldBack, { keys: status.heldBack.join(', ') })}</Notice>
       ) : null}
-      <SyncConflicts active={dir !== ''} status={status} time={time} onStatus={setStatus} />
-      {dir ? <SyncSecretsSection status={status} onStatus={setStatus} /> : null}
-      <SyncOffers active={dir !== ''} status={status} onStatus={setStatus} />
+      <SyncConflicts active={active} status={status} time={time} onStatus={setStatus} />
+      {active ? <SyncSecretsSection status={status} onStatus={setStatus} /> : null}
+      <SyncOffers active={active} status={status} onStatus={setStatus} />
     </SettingsPage>
   )
 }

@@ -8,7 +8,7 @@ import type { SyncKeyring } from './syncKeyring'
 const FETCH_PARALLEL = 8
 const SEALED_OVERHEAD = 28
 
-export type RemoteAccount = Pick<ServerAccount, 'authed'>
+type RemoteAccount = Pick<ServerAccount, 'authed'>
 
 export interface RemoteContext {
   account: RemoteAccount

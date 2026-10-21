@@ -7,7 +7,7 @@ export interface SyncKeyFile {
   save: (data: StoredSyncKeys) => void
 }
 
-export interface StoredSyncKeys {
+interface StoredSyncKeys {
   keys: Record<string, string>
   counters: Record<string, number>
 }

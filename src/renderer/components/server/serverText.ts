@@ -21,6 +21,20 @@ export function serverErrorText(d: Dict, error: ServerErrorCode): string {
       return d.server.errDeviceLimit
     case 'unavailable':
       return d.server.errUnavailable
+    case 'elevation-required':
+      return d.server.errElevation
+    case 'device-too-new':
+      return d.server.approvalTooNew
+    case 'requester-too-new':
+      return d.server.approvalRequesterTooNew
+    case 'no-second-device':
+      return d.server.errNoSecondDevice
+    case 'not-a-github-account':
+      return d.server.errNotGithub
+    case 'stale-signature':
+      return d.server.errStaleSignature
+    case 'quota':
+      return d.server.errQuota
     case 'denied':
       return d.server.errDenied
     case 'expired':

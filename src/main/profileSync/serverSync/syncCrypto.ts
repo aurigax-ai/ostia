@@ -35,9 +35,9 @@ export interface ArgonParams {
   lanes: number
 }
 
-export const PRODUCTION_ARGON: ArgonParams = { memoryKiB: 64 * 1024, passes: 3, lanes: 4 }
+const PRODUCTION_ARGON: ArgonParams = { memoryKiB: 64 * 1024, passes: 3, lanes: 4 }
 
-export interface ManifestFile {
+interface ManifestFile {
   blobId: string
   hash: string
 }
