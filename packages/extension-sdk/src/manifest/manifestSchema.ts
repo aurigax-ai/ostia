@@ -38,6 +38,8 @@ import {
   EXTENSION_SETTING_TYPES,
   EXTENSION_SETTING_UNITS,
   EXTENSION_VERB_PATTERN,
+  PANEL_TOOLBAR_MAX_ACTIONS,
+  PANEL_TOOLBAR_MAX_TABS,
 } from '../contract/extensions'
 import {
   FILENAME_PATTERN_PATTERN,
@@ -281,6 +283,24 @@ const contributes = z.looseObject({
       title: text,
       entry: z.string().min(1),
       icon: z.enum(EXTENSION_ICONS).optional(),
+      toolbar: z
+        .looseObject({
+          tabs: z
+            .array(z.looseObject({ id: z.string().regex(COMMAND_ID_PATTERN), title: text }))
+            .max(PANEL_TOOLBAR_MAX_TABS)
+            .optional(),
+          actions: z
+            .array(
+              z.looseObject({
+                id: z.string().regex(COMMAND_ID_PATTERN),
+                title: text,
+                icon: z.enum(EXTENSION_ICONS),
+              }),
+            )
+            .max(PANEL_TOOLBAR_MAX_ACTIONS)
+            .optional(),
+        })
+        .optional(),
     })
     .optional(),
   paneChips: chips.optional(),

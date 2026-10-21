@@ -50,7 +50,7 @@ export function lines(d: Dict, mode: Mode): string[] {
     id: 'demo',
     name: 'Demo',
     version: '1.0.0',
-    api: '6.0',
+    api: '7.0',
     main: 'main.js',
     locales: ['zh-Hant'],
     contributes: { commands: [{ id: 'run', title: 'Run the demo' }] },

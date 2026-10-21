@@ -37,7 +37,7 @@ async function kill(app: ElectronApplication): Promise<void> {
   await killApp(app)
 }
 
-async function enableAndRun(app: ElectronApplication, name: string): Promise<void> {
+async function enableAndRun(app: ElectronApplication, win: Page, name: string): Promise<void> {
   await expect
     .poll(() => clickLabel(app, `[data-graph="${name}"] button`, 'Look and enable'), {
       timeout: 30_000,
@@ -49,11 +49,11 @@ async function enableAndRun(app: ElectronApplication, name: string): Promise<voi
       timeout: 15_000,
     })
     .toBe('yes')
-  await clickLabel(app, 'button', 'Back')
+  await win.locator('#right-panel').getByRole('button', { name: 'Back' }).click()
   await expect
     .poll(() => clickLabel(app, `[data-graph="${name}"] button`, 'Run now'), { timeout: 15_000 })
     .toBe('ok')
-  await expect.poll(() => clickLabel(app, 'button', 'Back'), { timeout: 15_000 }).toBe('ok')
+  await win.locator('#right-panel').getByRole('button', { name: 'Back' }).click()
 }
 
 test('GRF-C59 GRF-C70 a waiting approval and a cut-off command come back after Ostia is killed', async () => {
@@ -96,12 +96,12 @@ edges:
   await win.waitForLoadState('domcontentloaded')
   await openWorkspace(win)
   await openPanel(win)
-  await enableAndRun(app, 'asked')
+  await enableAndRun(app, win, 'asked')
   await win.keyboard.press('Control+Shift+D')
   await expect(
     win.locator('article[data-question]', { hasText: 'Keep going after the restart?' }),
   ).toBeVisible({ timeout: 30_000 })
-  await enableAndRun(app, 'cut')
+  await enableAndRun(app, win, 'cut')
   await expect
     .poll(() => lines().filter((l) => l.startsWith('slow')).length, { timeout: 30_000 })
     .toBe(1)
@@ -162,7 +162,7 @@ edges: []
     await win.waitForLoadState('domcontentloaded')
     await openWorkspace(win)
     await openPanel(win)
-    await enableAndRun(app, 'held')
+    await enableAndRun(app, win, 'held')
     await win.locator('.topbar').getByRole('button', { name: 'Graphs', exact: true }).click()
     await expect(win.locator('#right-panel')).toHaveAttribute('data-hidden', '')
     await win.keyboard.press('Control+Shift+D')

@@ -121,7 +121,7 @@ async function startRun(app: ElectronApplication, win: Page): Promise<void> {
       timeout: 15_000,
     })
     .toBe('yes')
-  await clickLabel(app, 'button', 'Back')
+  await win.locator('#right-panel').getByRole('button', { name: 'Back' }).click()
   await expect
     .poll(() => clickLabel(app, '[data-graph="kept"] button', 'Run now'), { timeout: 15_000 })
     .toBe('ok')

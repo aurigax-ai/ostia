@@ -9,6 +9,7 @@ import { useSandboxStore } from '@/stores/app/sandboxStore'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useSidePanelStore } from '@/stores/app/sidePanelStore'
 import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
+import { usePanelToolbarStore } from '@/stores/extensions/panelToolbarStore'
 import { usePluginsStore } from '@/stores/extensions/pluginsStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
@@ -159,6 +160,7 @@ export function wireExtensionBridge(): void {
     void usePluginsStore.getState().loadLanguages()
   })
   api.onSidebar((items) => store.setSidebar(items))
+  api.onPanelToolbars((entries) => usePanelToolbarStore.getState().setEntries(entries))
   api.onPaneChips((chips) => store.setChips(chips))
   api.onWorkspaceChips((chips) => store.setWorkspaceChips(chips))
   api.onSettingsStored(({ extId, stored }) =>

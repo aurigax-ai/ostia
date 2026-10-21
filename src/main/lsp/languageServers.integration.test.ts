@@ -615,7 +615,7 @@ describe('a real language server process', () => {
           id: 'fake-native',
           name: 'Fake native',
           version: '1.0.0',
-          api: '6.0',
+          api: '7.0',
           category: 'languages',
           capabilities: ['language-server'],
           contributes: {

@@ -6,10 +6,13 @@ import {
   type ExtensionIcon,
   type ExtensionResult,
   type ExtensionSidebarItem,
+  PANEL_TOOLBAR_BACK_MAX,
   PANE_CHIP_ITEMS_MAX,
   PANE_CHIP_TEXT_MAX,
   PANE_CHIP_TOOLTIP_MAX,
   type PaneChip,
+  type PanelToolbarEntry,
+  type PanelToolbarState,
   SIDEBAR_BADGE_PATTERN,
   SIDEBAR_KINDS,
   SIDEBAR_TONES,
@@ -19,12 +22,15 @@ import {
   paneChipItems,
   sidebarItemUrl,
 } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
+import { isRecord } from '@aurigax-ai/ostia-extension-sdk/contract/isRecord'
 import type { MessageConnection } from 'vscode-jsonrpc/node'
 import { type PaneIdentity, resolveExternal } from '../control/idRegistry'
 import type { ExtensionHostDeps } from './extensionHostDeps'
 import { type Runtime, fail } from './extensionRuntime'
 
 const MAX_SIDEBAR_ITEMS = 32
+
+const MAX_PANEL_TOOLBARS = 32
 
 const SIDEBAR_TEXT_MAX = 80
 
@@ -42,6 +48,8 @@ export class ExtensionSlots {
   private chips = new Map<string, PaneChip>()
 
   private workspaceChipSlots = new Map<string, WorkspaceChip>()
+
+  private panelToolbars = new Map<string, PanelToolbarEntry>()
 
   sidebarItems(): ExtensionSidebarItem[] {
     return [...this.sidebar.values()]
@@ -91,6 +99,84 @@ export class ExtensionSlots {
 
   clearWorkspaceChips(workspaceId: string): void {
     this.clearWorkspaceChipsWhere((chip) => chip.workspaceId === workspaceId)
+  }
+
+  panelToolbarEntries(): PanelToolbarEntry[] {
+    return [...this.panelToolbars.values()]
+  }
+
+  private panelToolbarsChanged(): void {
+    this.host.deps.broadcast('extensions:panel-toolbar', this.panelToolbarEntries())
+  }
+
+  clearPanelToolbarsWhere(match: (entry: PanelToolbarEntry) => boolean): void {
+    let removed = false
+    for (const [slot, entry] of this.panelToolbars) {
+      if (match(entry)) {
+        this.panelToolbars.delete(slot)
+        removed = true
+      }
+    }
+    if (removed) this.panelToolbarsChanged()
+  }
+
+  setPanelToolbar(identity: PaneIdentity, conn: MessageConnection, params: unknown) {
+    const rt = this.host.runtimeOf(identity, conn)
+    const extId = rt.ext.manifest.id
+    const toolbar = rt.ext.manifest.contributes.panel?.toolbar
+    if (!rt.ext.manifest.contributes.panel) {
+      return fail('not-contributed', 'manifest does not contribute a panel')
+    }
+    const p = (params ?? {}) as Record<string, unknown>
+    const workspaceId = typeof p.workspaceId === 'string' ? p.workspaceId : ''
+    if (!workspaceId || this.host.deps.workDirForWorkspace(workspaceId) === undefined) {
+      return fail('unknown-workspace', 'workspaceId is not an open workspace')
+    }
+    if (!rt.callerWorkspaces.has(workspaceId)) {
+      return fail('no-caller', 'your panel has not been opened in that workspace')
+    }
+    const tabs = new Set((toolbar?.tabs ?? []).map((t) => t.id))
+    const actions = new Set((toolbar?.actions ?? []).map((a) => a.id))
+    const state: PanelToolbarState = {}
+    if (p.tab !== undefined) {
+      if (typeof p.tab !== 'string' || !tabs.has(p.tab)) {
+        return fail('invalid-params', 'tab must be one of your declared tabs')
+      }
+      state.tab = p.tab
+    }
+    if (p.back !== undefined) {
+      const back = typeof p.back === 'string' ? p.back.trim().slice(0, PANEL_TOOLBAR_BACK_MAX) : ''
+      if (!back) return fail('invalid-params', 'back must be a non-empty string')
+      state.back = back
+    }
+    if (p.badges !== undefined) {
+      if (!isRecord(p.badges)) return fail('invalid-params', 'badges must be an object')
+      const entries = Object.entries(p.badges)
+      const ok = entries.every(
+        ([id, n]) => (tabs.has(id) || actions.has(id)) && Number.isInteger(n) && (n as number) > 0,
+      )
+      if (!ok) return fail('invalid-params', 'badges must map declared ids to positive integers')
+      state.badges = Object.fromEntries(entries.map(([id, n]) => [id, Math.min(n as number, 999)]))
+    }
+    for (const field of ['disabled', 'hidden'] as const) {
+      const value = p[field]
+      if (value === undefined) continue
+      const ids = Array.isArray(value) ? value : null
+      if (!ids?.every((id) => typeof id === 'string' && (tabs.has(id) || actions.has(id)))) {
+        return fail('invalid-params', `${field} must list declared ids`)
+      }
+      state[field] = ids as string[]
+    }
+    const slot = `${extId}\u0000${workspaceId}`
+    if (Object.keys(state).length === 0) {
+      if (this.panelToolbars.delete(slot)) this.panelToolbarsChanged()
+      return { ok: true }
+    }
+    const count = [...this.panelToolbars.values()].filter((e) => e.extId === extId).length
+    if (!this.panelToolbars.has(slot) && count >= MAX_PANEL_TOOLBARS) return fail('too-many-items')
+    this.panelToolbars.set(slot, { extId, workspaceId, state })
+    this.panelToolbarsChanged()
+    return { ok: true }
   }
 
   private sidebarChanged(): void {

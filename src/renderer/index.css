@@ -406,6 +406,69 @@
 .right-panel-slot {
   position: absolute;
   inset: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.right-panel-sandboxed {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.right-panel-content {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.panel-toolbar {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
+  height: 32px;
+  padding-right: 6px;
+  background: var(--surface-2);
+  border-bottom: 1px solid var(--line);
+}
+
+.panel-toolbar-lead {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  padding-left: 6px;
+}
+
+.panel-toolbar-title {
+  min-width: 0;
+  padding: 0 4px;
+  overflow: hidden;
+  color: var(--fg-muted);
+  font-size: var(--text-ui-xs);
+  font-weight: var(--font-weight-medium);
+  letter-spacing: var(--tracking-caps);
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.panel-toolbar-actions {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 2px;
+}
+
+.panel-toolbar-badge {
+  margin-left: 4px;
+  color: var(--fg-muted);
+  font-size: var(--text-ui-xs);
+  font-variant-numeric: tabular-nums;
 }
 
 .right-panel-slot[data-hidden] {

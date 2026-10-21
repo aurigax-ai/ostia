@@ -4,7 +4,8 @@ import { type IncomingMessage, type ServerResponse, createServer } from 'node:ht
 import { join } from 'node:path'
 import { readEnv } from '../contract/appEnv'
 import { ALL_CAPABILITIES } from '../contract/capabilities'
-import type { ExtensionCaller, ExtensionResult } from '../contract/extensions'
+import type { ExtensionCaller, ExtensionResult, PanelToolbarState } from '../contract/extensions'
+import { PANEL_TOOLBAR_PATH } from '../contract/extensionsBridge'
 import { PANEL_SIZES_FILE, PanelSizeStore } from './panelSizes'
 import { failure } from './results'
 import { PANEL_SIZES_PATH } from './split'
@@ -74,6 +75,7 @@ export async function startPanelServer(opts: {
   dir: string
   files: string[]
   handle: (command: string, args: unknown, caller: ExtensionCaller) => Promise<ExtensionResult>
+  toolbar?: (state: PanelToolbarState & { workspaceId: string }) => Promise<ExtensionResult>
 }): Promise<PanelServer> {
   const secret = randomBytes(24).toString('hex')
   const dataDir = readEnv('EXTENSION_DATA')
@@ -106,6 +108,13 @@ export async function startPanelServer(opts: {
         const body = JSON.parse(await readBody(req)) as { key?: unknown; fraction?: unknown }
         if (!sizes.set(body.key, body.fraction ?? null)) throw new Error('key, fraction')
         return sizes.all()
+      })
+    }
+    if (req.method === 'POST' && url.pathname === PANEL_TOOLBAR_PATH) {
+      if (req.headers['x-ostia-panel'] !== secret) return send(res, 403, 'text/plain', 'forbidden')
+      return jsonReply(res, async () => {
+        const body = JSON.parse(await readBody(req)) as PanelToolbarState & { workspaceId: string }
+        return opts.toolbar ? opts.toolbar(body) : failure('not-contributed', 'no toolbar handler')
       })
     }
     if (req.method === 'POST' && url.pathname === '/api') {

@@ -1,5 +1,6 @@
 import type { ExtensionIcon } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import {
+  ArrowClockwiseIcon,
   BellIcon,
   BookOpenIcon,
   ChatCircleDotsIcon,
@@ -13,6 +14,7 @@ import {
   KanbanIcon,
   MagnifyingGlassIcon,
   PlugsIcon,
+  PlusIcon,
   PuzzlePieceIcon,
   ShieldCheckIcon,
   TerminalWindowIcon,
@@ -38,6 +40,8 @@ const ICONS: Record<ExtensionIcon, IconComponent> = {
   'magnifying-glass': MagnifyingGlassIcon,
   graph: GraphIcon,
   toolbox: ToolboxIcon,
+  plus: PlusIcon,
+  refresh: ArrowClockwiseIcon,
 }
 
 export function extensionIcon(icon: ExtensionIcon | undefined): IconComponent {
