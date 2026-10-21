@@ -16,10 +16,11 @@ import { createRememberView } from './rememberRows'
 import type { RememberView } from './rememberView'
 import { ageText, createListView, type ListContent, type RowEnv } from './rows'
 import type { PanelSnapshot } from './snapshot'
-import { liveKeys, type NoteView, type PanelModel } from './view'
+import { liveKeys, type NoteView, type PanelModel, widen } from './view'
 
 const AGE_REFRESH_MS = 30_000
 const TITLE_POLL_MS = 2000
+const MORE_MARGIN_PX = 200
 
 const t = panelTranslator({ en: en.messages, 'zh-Hant': zhHant.messages })
 
@@ -39,6 +40,7 @@ let rememberFilter: RememberState = 'open'
 const paneNotes = new Map<string, string>()
 const noteFailures = new Map<string, string>()
 const openGroups = new Set<string>()
+const limits = new Map<string, number>()
 let model: (PanelModel & { rev: string; remember: RememberView; parked: ParkedView[] }) | null =
   null
 let loadError: string | null = null
@@ -59,7 +61,25 @@ const env: RowEnv = {
   },
   paneNote: (paneId) => paneNotes.get(paneId),
   noteFailure: (id) => noteFailures.get(id),
+  watchMore: (el) => {
+    moreObserver.unobserve(el)
+    moreObserver.observe(el)
+  },
+  loadMore,
 }
+
+function loadMore(el: HTMLElement): void {
+  const key = el.dataset.more
+  if (key === undefined) return
+  if (widen(limits, key, Number(el.dataset.loaded))) void refresh()
+}
+
+const moreObserver = new IntersectionObserver(
+  (entries) => {
+    for (const entry of entries) if (entry.isIntersecting) loadMore(entry.target as HTMLElement)
+  },
+  { root: list, rootMargin: `0px 0px ${MORE_MARGIN_PX}px 0px` },
+)
 
 const show = createListView(list, env)
 const showParked = createParkedView(parkedList, {
@@ -166,7 +186,7 @@ function setAttribute(button: Element, timeline: boolean): void {
 }
 
 async function load(): Promise<void> {
-  const res = await call('snapshot', { rev: model?.rev })
+  const res = await call('snapshot', { rev: model?.rev, limits: Object.fromEntries(limits) })
   if (!res.ok) {
     if (!model) {
       loadError = t('loadFailed', { reason: errorText(res) })
@@ -182,6 +202,7 @@ async function load(): Promise<void> {
   retain(paneNotes, live.panes)
   retain(noteFailures, live.notes)
   retain(openGroups, live.groups)
+  retain(limits, live.limits)
   render()
 }
 

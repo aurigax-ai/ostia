@@ -24,8 +24,8 @@ export function registerParkCommands(): void {
     category: 'pane',
     local: true,
     hidden: true,
-    run: ({ workspaceId, resume, title }) => ({
-      opened: resumeParked(workspaceId, resume, typeof title === 'string' ? title : ''),
+    run: async ({ workspaceId, resume, title }) => ({
+      opened: await resumeParked(workspaceId, resume, typeof title === 'string' ? title : ''),
     }),
   })
 }

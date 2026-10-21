@@ -13,7 +13,7 @@ import { parkedView } from './parkedView'
 import type { RememberStore } from './remember'
 import { rememberView } from './rememberView'
 import type { PanelSnapshot } from './snapshot'
-import { panelModel } from './view'
+import { type Limits, limitsDigest, panelModel } from './view'
 
 export const SHOW_ACTIVITY = 'showActivity'
 
@@ -28,6 +28,17 @@ interface PanelCommandsDeps {
   changed: () => void
 }
 
+const LIMITS_MAX_KEYS = 500
+
+export function parseLimits(raw: unknown): Limits {
+  if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) return {}
+  const limits: Record<string, number> = {}
+  for (const [key, value] of Object.entries(raw).slice(0, LIMITS_MAX_KEYS)) {
+    if (Number.isSafeInteger(value) && (value as number) > 0) limits[key] = value as number
+  }
+  return limits
+}
+
 export type PanelCommand = (args: unknown, caller: ExtensionCaller) => Promise<ExtensionResult>
 
 export function activityPanelCommands(deps: PanelCommandsDeps): Record<string, PanelCommand> {
@@ -35,6 +46,7 @@ export function activityPanelCommands(deps: PanelCommandsDeps): Record<string, P
   const snapshot = async (args: unknown, caller: ExtensionCaller): Promise<ExtensionResult> => {
     await settingsLoaded
     const workspaceId = caller.workspaceId ?? ''
+    const limits = parseLimits(namedArgs(args).limits)
     const listed = await listing.read(workspaceId)
     if (!listed) return failure('unavailable')
     const workspace = listed.workspaces.find((w) => w.workspaceId === workspaceId)
@@ -49,6 +61,7 @@ export function activityPanelCommands(deps: PanelCommandsDeps): Record<string, P
       remembered.revision(workspaceId),
       state.rememberDays,
       parkedItems.map((item) => `${item.id}${item.parkedAt}`).join(','),
+      limitsDigest(limits),
     ].join('.')
     if (namedArgs(args).rev === rev) {
       const unchanged: PanelSnapshot = { unchanged: true }
@@ -60,6 +73,7 @@ export function activityPanelCommands(deps: PanelCommandsDeps): Record<string, P
         showActivity: state.showActivity,
         workspace,
         panes: listed.panes,
+        limits,
         events: (id) => [...journal.events(id), ...hostJournal.events(id)],
       }),
       remember: rememberView(

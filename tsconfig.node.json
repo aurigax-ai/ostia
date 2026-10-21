@@ -20,6 +20,7 @@
     "src/extensions/activity/rows.ts",
     "src/extensions/activity/rememberRows.ts",
     "src/extensions/activity/parkedRows.ts",
+    "src/extensions/activity/rows.test.ts",
     "src/extensions/trellis/panelState.ts",
     "src/extensions/trellis/panelDom.ts",
     "src/extensions/trellis/panelWork.ts",

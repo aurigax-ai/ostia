@@ -3,8 +3,9 @@ import { describe, expect, it, vi } from 'vitest'
 import type { ActivityEvent } from './hookEvent'
 import { Journal } from './journal'
 import { createOpenListing, LISTING_TTL_MS } from './openListing'
-import { activityPanelCommands } from './panelCommands'
+import { activityPanelCommands, parseLimits } from './panelCommands'
 import { RememberStore } from './remember'
+import { agentLimitKey, TURN_PAGE } from './view'
 
 const caller = { workspaceId: 'w1' } as ExtensionCaller
 
@@ -45,13 +46,18 @@ function setup() {
     kind: 'prompt',
     text,
   })
-  const snapshot = async (rev?: string) =>
-    (await commands.snapshot(rev === undefined ? {} : { rev }, caller)) as {
+  const snapshot = async (rev?: string, limits?: Record<string, unknown>) =>
+    (await commands.snapshot(
+      { ...(rev === undefined ? {} : { rev }), ...(limits ? { limits } : {}) },
+      caller,
+    )) as {
       ok: boolean
       data: {
         unchanged?: true
         rev?: string
-        workspace?: { agents: { label: { title?: string } }[] }
+        workspace?: {
+          agents: { label: { title?: string }; earlier: unknown[]; more: number }[]
+        }
       }
     }
   return {
@@ -133,6 +139,25 @@ describe('snapshot', () => {
     const next = await s.snapshot(first.data.rev)
     expect(next.data.rev).not.toBe(first.data.rev)
     expect((next.data.workspace?.agents[0] as unknown as { state?: string }).state).toBe('done')
+  })
+
+  it('sends a page of earlier turns and, when the panel asks for more, a new revision with more of them', async () => {
+    const s = setup()
+    for (let i = 0; i < TURN_PAGE * 3; i++) s.journal.append('w1', s.record(`turn ${i}`), false)
+    const first = await s.snapshot()
+    const agent = first.data.workspace?.agents[0]
+    expect(agent?.earlier).toHaveLength(TURN_PAGE)
+    expect(agent?.more).toBe(TURN_PAGE * 3 - 1 - TURN_PAGE)
+    expect((await s.snapshot(first.data.rev)).data.unchanged).toBe(true)
+    const wider = await s.snapshot(first.data.rev, { [agentLimitKey('p1')]: TURN_PAGE * 2 })
+    expect(wider.data.unchanged).toBeUndefined()
+    expect(wider.data.rev).not.toBe(first.data.rev)
+    expect(wider.data.workspace?.agents[0].earlier).toHaveLength(TURN_PAGE * 2)
+    expect(
+      (await s.snapshot(wider.data.rev, { [agentLimitKey('p1')]: TURN_PAGE * 2 })).data,
+    ).toEqual({
+      unchanged: true,
+    })
   })
 
   it('fails as unavailable when the panes cannot be listed', async () => {
@@ -242,5 +267,21 @@ describe('parked sessions and remembered tasks in the snapshot', () => {
     expect(
       await s.commands.rememberState({ id: 'taskaaaaaa', state: 'gone' }, caller),
     ).toMatchObject({ ok: false, error: 'invalid-args' })
+  })
+})
+
+describe('parseLimits', () => {
+  it('keeps positive whole numbers and drops everything else', () => {
+    expect(
+      parseLimits({ a: 10, b: 0, c: -1, d: 1.5, e: '5', f: null, g: Number.NaN, h: 1e20 }),
+    ).toEqual({ a: 10 })
+    expect(parseLimits(undefined)).toEqual({})
+    expect(parseLimits([5])).toEqual({})
+    expect(parseLimits('x')).toEqual({})
+  })
+
+  it('reads no more than a bounded number of keys', () => {
+    const many = Object.fromEntries(Array.from({ length: 2000 }, (_, i) => [`k${i}`, 1]))
+    expect(Object.keys(parseLimits(many)).length).toBeLessThanOrEqual(500)
   })
 })

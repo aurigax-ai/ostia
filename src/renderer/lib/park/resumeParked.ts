@@ -1,25 +1,30 @@
 import { type AgentResume, parseAgentResume } from '@shared/agents/agentResume'
 import type { ResumeFailReason } from '@shared/park/park'
+import { commands } from '@/commands/registry'
 import { resumeFolderMissing, resumeWhenIdle } from '@/lib/agents/resumeFolder'
 import { focusActivePaneWhenReady } from '@/lib/panes/paneFocus'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { useParkStore } from '@/stores/workspaces/parkStore'
 
-function openTab(workspaceId: string): string | null {
+async function openTab(workspaceId: string): Promise<string | null> {
   const layouts = useLayoutStore.getState()
   const layout = layouts.byWorkspace[workspaceId]
-  if (!layout) {
-    layouts.ensure(workspaceId)
-    return useLayoutStore.getState().byWorkspace[workspaceId]?.activePaneId ?? null
+  if (layout) {
+    return layout.activePaneId ? layouts.newTab(workspaceId, layout.activePaneId, 'terminal') : null
   }
-  return layout.activePaneId ? layouts.newTab(workspaceId, layout.activePaneId, 'terminal') : null
+  await commands.execWith({ activeWorkspaceId: workspaceId, activePaneId: null }, 'tab.new')
+  return useLayoutStore.getState().byWorkspace[workspaceId]?.activePaneId ?? null
 }
 
-export function resumeParked(workspaceId: string, raw: unknown, title: string): boolean {
+export async function resumeParked(
+  workspaceId: string,
+  raw: unknown,
+  title: string,
+): Promise<boolean> {
   const resume: AgentResume | null = parseAgentResume(raw)
   const folder = resume?.cwd
   if (!resume || !folder) return false
-  const tabId = openTab(workspaceId)
+  const tabId = await openTab(workspaceId)
   if (!tabId) return false
   const layouts = useLayoutStore.getState()
   layouts.setSpawnDir(workspaceId, tabId, folder)
