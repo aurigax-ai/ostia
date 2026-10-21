@@ -155,7 +155,7 @@ export function boot(wiring: Wiring): void {
   registerPtyIpc({ ...wiring })
   registerHistoryIpc({ ...wiring })
   registerFsIpc({ ...wiring })
-  registerSelectionIpc(reachesPane, redactor.text)
+  registerSelectionIpc(reachesPane, redactor.text, () => services.files?.viewers ?? null)
   registerArtifactViewIpc({ ...wiring })
   registerPrivacyIpc(redactor)
   registerApprovalsWiring({ ...wiring })

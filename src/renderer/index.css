@@ -4635,26 +4635,11 @@ button.prompt-chip:hover {
   background: var(--bg-sunken);
 }
 
-.viewer-canvas,
 .pdf-page {
   position: relative;
   flex: none;
   margin: auto;
   user-select: none;
-}
-
-.viewer-canvas {
-  background:
-    repeating-conic-gradient(var(--surface-2) 0% 25%, var(--surface-3) 0% 50%) 0 0 / 16px 16px;
-  outline: none;
-}
-
-.viewer-canvas img {
-  display: block;
-  width: 100%;
-  height: 100%;
-  image-rendering: auto;
-  pointer-events: none;
 }
 
 .viewer-message {

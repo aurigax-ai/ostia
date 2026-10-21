@@ -12,14 +12,27 @@ import {
   VIEWER_META_PATH,
   VIEWER_PORTABLE_PATH,
   VIEWER_SCHEME,
+  VIEWER_SELECTION_CLEARED_EVENT,
   type ViewerDocumentMeta,
   type ViewerPortableTables,
 } from '@aurigax-ai/ostia-extension-sdk/contract/fileKinds'
+import {
+  VIEWER_SELECTION_BODY_MAX,
+  VIEWER_SELECTION_PATH,
+} from '@aurigax-ai/ostia-extension-sdk/contract/viewerSelection'
+import type { SelectionCapture } from '../../../shared/browser/selection'
 import type {
   ViewerOpenRequest,
   ViewerOpenResult,
+  ViewerSelectionEvent,
   ViewerStopped,
 } from '../../../shared/files/filesApi'
+import type { ClipboardCapture } from '../../../shared/keyboard/clipboardCapture'
+import type { FsRangeResult } from '../fsRange'
+import { readBoundedBody } from './viewerBody'
+import { clipboardOf, copyStatus, type ViewerCopyStrings } from './viewerClipboard'
+import { parseByteRange } from './viewerRanges'
+import { acceptGuestSelection, type StoredSelection, selectionState } from './viewerSelection'
 import {
   contentTypeOf,
   extensionOfViewerPartition,
@@ -42,6 +55,8 @@ interface ViewerStat {
   modified: number
 }
 
+export type ViewerEvent = { type: 'selection'; payload: ViewerSelectionEvent }
+
 export interface ViewerGuest extends WatchedGuest {
   session: unknown
   setWindowOpenHandler: (handler: () => { action: 'deny' }) => void
@@ -56,6 +71,7 @@ export interface ViewerHostDeps {
   ownsPane: (windowId: string, paneId: string) => boolean
   viewer: (extId: string, viewType: string, path: string) => ViewerSource | null
   readDocument: (path: string) => Promise<ViewerRead>
+  readRange: (path: string, start: number, end: number) => Promise<FsRangeResult | null>
   statDocument: (path: string) => Promise<ViewerStat | null>
   readExtensionFile: (dir: string, path: string) => Buffer | null
   watch: (owner: string, path: string) => void
@@ -63,6 +79,10 @@ export interface ViewerHostDeps {
   locale: () => string
   guests: ViewerWatch
   stopped: (windowId: string, event: ViewerStopped) => void
+  emit: (windowId: string, event: ViewerEvent) => void
+  writeClipboard: (copied: ClipboardCapture) => Promise<void>
+  copyStrings: () => ViewerCopyStrings
+  now?: () => number
   token?: () => string
 }
 
@@ -76,8 +96,18 @@ interface Live {
   source: ViewerSource
   streams: Set<ReadableStreamDefaultController<Uint8Array>>
   portable: ViewerPortableTables | 'too-large' | null
+  selection: StoredSelection | null
+  selectionSeq: number
+  rangeStreams: Set<() => void>
+  rangeSlots: number
+  pointerAt: number | null
+  keyAt: number | null
 }
 
+export const RANGE_STREAMS_MAX = 8
+export const GESTURE_WINDOW_MS = 3000
+
+const POINTER_INPUTS = new Set(['mouseDown', 'mouseUp', 'touchStart', 'touchEnd'])
 const OWNER_PREFIX = 'viewer:'
 const encoder = new TextEncoder()
 
@@ -120,8 +150,11 @@ interface NavigationSource {
 export class ViewerHost {
   private readonly byToken = new Map<string, Live>()
   private readonly prepared = new Map<string, ViewerSession>()
+  private readonly now: () => number
 
-  constructor(private readonly deps: ViewerHostDeps) {}
+  constructor(private readonly deps: ViewerHostDeps) {
+    this.now = deps.now ?? Date.now
+  }
 
   private newToken(): string {
     return this.deps.token?.() ?? randomBytes(16).toString('hex')
@@ -159,6 +192,12 @@ export class ViewerHost {
       source,
       streams: new Set(),
       portable: null,
+      selection: null,
+      selectionSeq: 0,
+      rangeStreams: new Set(),
+      rangeSlots: 0,
+      pointerAt: null,
+      keyAt: null,
     }
     this.byToken.set(token, live)
     this.deps.watch(viewerOwner(token), confined)
@@ -197,13 +236,31 @@ export class ViewerHost {
       } catch {}
     }
     live.streams.clear()
+    for (const finish of [...live.rangeStreams]) finish()
+    this.forgetSelection(live)
+  }
+
+  private forgetSelection(live: Live): boolean {
+    if (!live.selection) return false
+    live.selection = null
+    this.pushSelection(live)
+    return true
   }
 
   changed(owner: string): void {
     if (!owner.startsWith(OWNER_PREFIX)) return
     const live = this.byToken.get(owner.slice(OWNER_PREFIX.length))
     if (!live) return
-    const message = encoder.encode(`event: ${VIEWER_CHANGED_EVENT}\ndata: 1\n\n`)
+    this.forgetSelection(live)
+    this.announceChange(live)
+  }
+
+  private announceChange(live: Live): void {
+    this.announce(live, VIEWER_CHANGED_EVENT)
+  }
+
+  private announce(live: Live, event: string): void {
+    const message = encoder.encode(`event: ${event}\ndata: 1\n\n`)
     for (const stream of live.streams) {
       try {
         stream.enqueue(message)
@@ -223,6 +280,54 @@ export class ViewerHost {
     return null
   }
 
+  private liveOfPane(windowId: string, paneId: unknown): Live | null {
+    if (typeof paneId !== 'string') return null
+    for (const live of this.byToken.values()) {
+      if (live.windowId === windowId && live.paneId === paneId) return live
+    }
+    return null
+  }
+
+  private pushSelection(live: Live): void {
+    this.deps.emit(live.windowId, {
+      type: 'selection',
+      payload: {
+        paneId: live.paneId,
+        selection: live.selection ? selectionState(live.selection) : null,
+      },
+    })
+  }
+
+  private async copyStored(stored: StoredSelection): Promise<string> {
+    const copied = clipboardOf(stored)
+    const strings = this.deps.copyStrings()
+    if (copied.text === undefined && copied.html === undefined && !copied.png) {
+      return strings.nothing
+    }
+    await this.deps.writeClipboard(copied)
+    return copyStatus(copied, strings)
+  }
+
+  async copySelection(windowId: string, paneId: unknown): Promise<string> {
+    const stored = this.liveOfPane(windowId, paneId)?.selection
+    return stored ? this.copyStored(stored) : this.deps.copyStrings().nothing
+  }
+
+  copyForGuest(guest: { getURL: () => string }): boolean {
+    const stored = this.liveOf(guest.getURL())?.selection
+    if (!stored) return false
+    void this.copyStored(stored).catch(() => undefined)
+    return true
+  }
+
+  selectionForSend(
+    windowId: string,
+    paneId: unknown,
+  ): { capture: SelectionCapture; image: Uint8Array | null } | null {
+    const stored = this.liveOfPane(windowId, paneId)?.selection
+    return stored ? { capture: stored.capture, image: stored.png } : null
+  }
+
   acceptsAttach(partition: string | undefined, src: string | undefined, windowId: string): boolean {
     const extId = extensionOfViewerPartition(partition)
     if (!extId || !src) return false
@@ -239,14 +344,29 @@ export class ViewerHost {
     if (![...this.prepared.values()].includes(guest.session as ViewerSession)) return false
     guest.setWindowOpenHandler(() => ({ action: 'deny' }))
     guest.setWebRTCIPHandlingPolicy('disable_non_proxied_udp')
-    guest.on('will-navigate', (event: { preventDefault: () => void }) => event.preventDefault())
+    let shownUrl: string | null = null
+    guest.on('will-navigate', (event: { url?: string; preventDefault: () => void }) => {
+      if (event.url === undefined || event.url !== shownUrl) event.preventDefault()
+    })
     guest.on('will-redirect', (event: { preventDefault: () => void }) => event.preventDefault())
     let token: string | null = null
     guest.on('did-navigate', (_event: unknown, url: string) => {
+      shownUrl = url
       const live = typeof url === 'string' ? this.liveOf(url) : null
       if (token) this.deps.guests.unwatch(token)
       token = live?.token ?? null
-      if (live) this.watchGuest(live, guest)
+      if (live) {
+        this.forgetSelection(live)
+        this.watchGuest(live, guest)
+      }
+    })
+    guest.on('input-event', (_event: unknown, input: { type?: string } | undefined) => {
+      const live = token ? this.byToken.get(token) : undefined
+      if (live && input?.type && POINTER_INPUTS.has(input.type)) live.pointerAt = this.now()
+    })
+    guest.on('before-input-event', (_event: unknown, input: { type?: string } | undefined) => {
+      const live = token ? this.byToken.get(token) : undefined
+      if (live && input?.type === 'keyDown') live.keyAt = this.now()
     })
     guest.on('unresponsive', () => {
       if (token) this.deps.guests.unresponsive(token)
@@ -285,9 +405,15 @@ export class ViewerHost {
     if (pathname === VIEWER_PORTABLE_PATH && request.method === 'POST') {
       return this.receivePortable(live, request)
     }
+    if (pathname === VIEWER_SELECTION_PATH && request.method === 'POST') {
+      return this.receiveSelection(live, request)
+    }
+    if (pathname === VIEWER_SELECTION_PATH && request.method === 'DELETE') {
+      return this.dropSelection(live)
+    }
     if (request.method !== 'GET') return new Response(null, { status: 405 })
     if (pathname === VIEWER_META_PATH) return this.meta(live)
-    if (pathname === VIEWER_DOCUMENT_PATH) return this.document(live)
+    if (pathname === VIEWER_DOCUMENT_PATH) return this.document(live, request)
     if (pathname === VIEWER_EVENTS_PATH) return this.events(live)
     return this.extensionFile(live, pathname)
   }
@@ -307,17 +433,97 @@ export class ViewerHost {
     })
   }
 
-  private async document(live: Live): Promise<Response> {
+  private async document(live: Live, request: Request): Promise<Response> {
+    const range = request.headers.get('range')
+    if (range !== null) {
+      const ranged = await this.rangedDocument(live, range)
+      if (ranged) return ranged
+    }
     const read = await this.deps.readDocument(live.path)
     if (read.ok) {
       return new Response(new Uint8Array(read.body), {
-        headers: viewerHeaders('application/octet-stream'),
+        headers: viewerHeaders('application/octet-stream', { 'accept-ranges': 'bytes' }),
       })
     }
     const size = (await this.deps.statDocument(live.path))?.size
     return new Response(null, {
       status: read.status,
       headers: viewerHeaders('text/plain', size ? { 'x-ostia-size': String(size) } : {}),
+    })
+  }
+
+  private async rangedDocument(live: Live, header: string): Promise<Response | null> {
+    const stat = await this.deps.statDocument(live.path)
+    if (!stat) return new Response(null, { status: 404, headers: viewerHeaders('text/plain') })
+    const range = parseByteRange(header, stat.size)
+    if (range.kind === 'none') return null
+    const unsatisfiable = (): Response =>
+      new Response(null, {
+        status: 416,
+        headers: viewerHeaders('text/plain', { 'content-range': `bytes */${stat.size}` }),
+      })
+    if (range.kind === 'unsatisfiable') return unsatisfiable()
+    if (live.rangeSlots >= RANGE_STREAMS_MAX) {
+      return new Response(null, { status: 429, headers: viewerHeaders('text/plain') })
+    }
+    live.rangeSlots++
+    const release = (): void => {
+      live.rangeSlots--
+    }
+    let opened: FsRangeResult | null
+    try {
+      opened = await this.deps.readRange(live.path, range.start, range.end)
+    } catch {
+      opened = { ok: false, error: 'unreadable' }
+    }
+    if (opened === null) {
+      release()
+      return null
+    }
+    if (!opened.ok) {
+      release()
+      if (opened.error === 'unsatisfiable') return unsatisfiable()
+      return new Response(null, { status: 410, headers: viewerHeaders('text/plain') })
+    }
+    const { reader } = opened
+    if (this.byToken.get(live.token) !== live) {
+      release()
+      await reader.close()
+      return new Response(null, { status: 404, headers: viewerHeaders('text/plain') })
+    }
+    let finished = false
+    const finish = (): void => {
+      if (finished) return
+      finished = true
+      live.rangeStreams.delete(finish)
+      release()
+      void reader.close()
+    }
+    live.rangeStreams.add(finish)
+    const body = new ReadableStream<Uint8Array>({
+      pull: async (controller) => {
+        try {
+          const chunk = await reader.read()
+          if (chunk) {
+            controller.enqueue(chunk)
+            return
+          }
+          finish()
+          controller.close()
+        } catch (error) {
+          finish()
+          controller.error(error)
+        }
+      },
+      cancel: finish,
+    })
+    return new Response(body, {
+      status: 206,
+      headers: viewerHeaders('application/octet-stream', {
+        'accept-ranges': 'bytes',
+        'content-range': `bytes ${range.start}-${range.end}/${reader.size}`,
+        'content-length': String(range.end - range.start + 1),
+      }),
     })
   }
 
@@ -337,15 +543,14 @@ export class ViewerHost {
   }
 
   private async receivePortable(live: Live, request: Request): Promise<Response> {
-    const length = Number(request.headers.get('content-length') ?? '0')
-    const text = length > PORTABLE_TABLES_BYTES_MAX ? '' : await request.text().catch(() => '')
-    if (length > PORTABLE_TABLES_BYTES_MAX || text.length > PORTABLE_TABLES_BYTES_MAX) {
+    const body = await readBoundedBody(request, PORTABLE_TABLES_BYTES_MAX)
+    if (!body) {
       live.portable = 'too-large'
       return new Response(null, { status: 413 })
     }
     let parsed: unknown
     try {
-      parsed = JSON.parse(text)
+      parsed = JSON.parse(new TextDecoder().decode(body))
     } catch {
       return new Response(null, { status: 400 })
     }
@@ -353,6 +558,33 @@ export class ViewerHost {
     if (!tables) return new Response(null, { status: 400 })
     live.portable = tables
     return new Response(null, { status: 204 })
+  }
+
+  private async receiveSelection(live: Live, request: Request): Promise<Response> {
+    if (!this.recentInput(live)) return new Response(null, { status: 403 })
+    const body = await readBoundedBody(request, VIEWER_SELECTION_BODY_MAX)
+    if (!body) return new Response(null, { status: 413 })
+    const stored = acceptGuestSelection(body, live.path, live.selectionSeq + 1)
+    if (!stored) return new Response(null, { status: 400 })
+    live.selectionSeq = stored.seq
+    live.selection = stored
+    this.pushSelection(live)
+    return new Response(null, { status: 204 })
+  }
+
+  clearSelection(windowId: string, paneId: unknown): void {
+    const live = this.liveOfPane(windowId, paneId)
+    if (live && this.forgetSelection(live)) this.announce(live, VIEWER_SELECTION_CLEARED_EVENT)
+  }
+
+  private dropSelection(live: Live): Response {
+    this.forgetSelection(live)
+    return new Response(null, { status: 204 })
+  }
+
+  private recentInput(live: Live): boolean {
+    const now = this.now()
+    return [live.pointerAt, live.keyAt].some((at) => at !== null && now - at <= GESTURE_WINDOW_MS)
   }
 
   private extensionFile(live: Live, pathname: string): Response {

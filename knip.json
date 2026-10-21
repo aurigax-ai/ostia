@@ -8,6 +8,8 @@
         "src/extensions/*/*.worker.ts",
         "src/extensions/*/*.thread.ts",
         "src/extensions/csv/table.ts",
+        "src/extensions/images/image.ts",
+        "src/extensions/video/player.ts",
         "src/extensions/office/{sheet,document}.ts",
         "src/extensions/*/panel.css",
         "scripts/*.mjs",

@@ -1,0 +1,22 @@
+{
+  "manifest": {
+    "name": "圖片",
+    "description": "把 .png、.jpg、.jpeg、.gif、.webp、.svg、.bmp、.ico 與 .avif 檔案依窗格大小顯示，可縮放、顯示透明格線，並可拖曳框選裁切。它只讀取你開啟的檔案，以圖片方式顯示 SVG 而不執行它，在你選擇「傳送給代理程式」之前不會把檔案傳送到任何地方。",
+    "fileKinds.images.image.displayName": "圖片"
+  },
+  "messages": {
+    "loading": "載入中…",
+    "tooLarge": "檔案太大，無法顯示（{size}）。",
+    "unreadable": "無法讀取這個檔案。",
+    "gone": "這個檔案已經不在了。",
+    "broken": "無法顯示這張圖片。",
+    "captureFailed": "無法擷取這張圖片。",
+    "tools": "圖片工具",
+    "zoomOut": "縮小",
+    "zoomLevel": "縮放比例",
+    "zoomIn": "放大",
+    "fit": "符合窗格大小",
+    "actualSize": "實際大小",
+    "transparency": "顯示透明格線"
+  }
+}

@@ -173,3 +173,25 @@ export async function sendSelectionToPane(opts: {
   )
   return { ok: true, path: res.path, imagePath: res.imagePath, inserted }
 }
+
+export async function sendViewerSelectionToPane(opts: {
+  paneId: string
+  targetPaneId: string
+  via?: string
+  note: string
+  label: string
+}): Promise<SendSelectionOutcome> {
+  const res = await window.ostia.viewers.sendSelection({
+    paneId: opts.paneId,
+    targetPaneId: opts.targetPaneId,
+    note: opts.note,
+  })
+  if (!res.ok) return res
+  const inserted = await deliverReport(
+    { paneId: opts.targetPaneId, via: opts.via },
+    reportReference(res.path),
+    opts.note,
+    opts.label,
+  )
+  return { ok: true, path: res.path, imagePath: res.imagePath, inserted }
+}

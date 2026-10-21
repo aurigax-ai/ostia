@@ -55,6 +55,7 @@ export default defineConfig({
             'packages/*/src/**/*.test.ts',
             'test/*.test.ts',
           ],
+          exclude: ['**/node_modules/**', 'packages/*/src/**/*.dom.test.ts'],
         },
       },
       {
@@ -69,7 +70,7 @@ export default defineConfig({
             './test/setup.ts',
             './test/quarantineSetup.ts',
           ],
-          include: ['src/renderer/**/*.test.{ts,tsx}'],
+          include: ['src/renderer/**/*.test.{ts,tsx}', 'packages/*/src/**/*.dom.test.ts'],
           server: { deps: { inline: ['@aurigax-ai/ghostty-web'] } },
           deps: {
             optimizer: {

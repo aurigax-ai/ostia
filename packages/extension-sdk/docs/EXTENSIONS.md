@@ -1350,7 +1350,7 @@ Open With (in the file view, the tab menu and the palette) lists every view that
 - every request outside its own origin is cancelled, and `connect-src 'self'` is in its CSP, so it cannot reach the network, your process or loopback;
 - popups, navigation and downloads are refused. Unlike a panel, `window.open` does not reach the OS browser either.
 
-Scripts, styles and workers load from your folder (`worker-src 'self'`). Ostia injects the same theme custom properties and fonts as for panels (see Panels), so start from `panel.css` (it is copied to `base.css`).
+Scripts, styles and workers load from your folder (`worker-src 'self'`). (API 7.4.) The CSP also has `media-src 'self' blob:` (a `<video>` or `<audio>` may play `viewerDocumentUrl()` or a blob). Ostia injects the same theme custom properties and fonts as for panels (see Panels), so start from `panel.css` (it is copied to `base.css`).
 
 ```ts
 import { openViewerDocument, publishPortable, ViewerDocumentError } from '@aurigax-ai/ostia-extension-sdk/viewer'
@@ -1371,6 +1371,43 @@ doc.onDidChange(() => location.reload())
   - never put its text into `innerHTML` without a sanitizer;
   - remember that a guest that runs out of memory only loses itself.
 - `publishPortable({tables: [{name, columns, rows}]})` hands Ostia the text a table viewer shows, so the human can save the open file as a portable artifact. Ostia renders the tables itself, at most 256 tables of 5,000 rows and 1,000 columns, 16 MiB in all.
+
+**Reading a large file, API 7.4.** `viewerDocumentUrl()` returns the absolute URL of `/~document` for a `<video>`, an `<audio>` or a library such as pdf.js. The URL honours one `Range: bytes=a-b` (also `a-` and `-n`) and answers `206` with `Content-Range`, `416` outside the file, and `Accept-Ranges: bytes`. Range reads are not capped by the 50 MiB of `bytes()`: Ostia reads the file in chunks of at most 1 MiB through an open that never follows a link, and answers at most 8 range requests at a time per document (`429` beyond). A file inside an archive answers a range request with the whole document, so a page must cope with `200` to a range request.
+
+**Selecting, API 7.4.** A page never writes the clipboard and never picks a target. It tells Ostia what the human selected, and the human decides in Ostia's own bar (Copy, Send to agent) or with the copy chord.
+- `publishSelection({capture, rect, text?, html?, csv?, png?})` resolves `true` when Ostia took it. `rect` is the selection box in page pixels (`{x, y, width, height}`; Ostia clamps it to the page and puts its bar under it). `capture` is one of `{kind: 'image', imageWidth, imageHeight, region}` (a crop or a video frame, `region` null for the whole image; `png` is required), `{kind: 'pdf-text', firstPage, lastPage}` (`text` required), `{kind: 'pdf-region', page, pageWidth, pageHeight, region}` (`png` required, `text` optional: a rectangle that holds text is copied and sent as both), `{kind: 'text', view: 'preview', range: {startLine, endLine}}` (`text` required, `html` optional, for Markdown with its source lines) and `{kind: 'cells', sheet, range: 'A1:C3', rows, columns}` (`csv` required). Ostia fills the file from the page's own document and refuses any other kind.
+- Limits: `text`, `html` and `csv` at most 256 KiB each, cells at most 10,000 (`rows * columns`), `png` a PNG of at most 25 MiB, 16,384 px a side and 100 million pixels. A refused selection resolves `false`. Ostia accepts a selection only within 3 seconds of the human's own pointer press or key press on the page, so publish from the handler of that input (or right after it); a page that publishes from a timer or after longer work gets `false`.
+- Copy writes `text/plain` and `text/html` first (cells: the CSV, and an html table), the image only when there is no text, and both for a `pdf-region` that holds text. Send writes a report with the same content and pastes its path at the agent's prompt, never followed by Enter.
+- `clearSelection()` withdraws it. Publish again to replace it, and clear it when the human clicks elsewhere or presses Escape. Ostia drops it when the page ends.
+
+**The pill and the slider, API 7.4.** `createPill` from `@aurigax-ai/ostia-extension-sdk/pill` is the one floating control bar a viewer uses, at the top right of the page; a viewer draws no toolbar of its own. It appears on pointer movement or keyboard focus and hides after 2.5 s unless the pointer or focus is on it, a menu is open or find is open. The first Tab on the page focuses its first button, Escape returns focus to the page, `prefers-reduced-motion` removes the slide, and it hides while the page has a published selection. Pass the strings in the human's language: the pill has none.
+
+```ts
+import { createPill } from '@aurigax-ai/ostia-extension-sdk/pill'
+
+const pill = createPill({
+  label: t('tools'),
+  controls: [
+    { type: 'button', id: 'fit', label: t('fit'), chord: 'Ctrl+9', icon: fitSvg, onClick: fit },
+    { type: 'toggle', id: 'grid', label: t('grid'), icon: gridSvg, onToggle: showGrid },
+    { type: 'menu', id: 'zoom', label: t('zoom'), text: '100%', checked: 'actual',
+      items: [[{ id: 'fit-width', label: t('fitWidth'), chord: 'Ctrl+8' }], [{ id: '50', label: '50%' }]],
+      onPick: pickZoom },
+    { type: 'pager', id: 'pages', label: t('page'), page: 1, count: 3, of: (n) => t('of', { n }),
+      previous: { label: t('previous') }, next: { label: t('next') }, onGo: goToPage },
+    { type: 'find', id: 'find', label: t('find'), chord: 'Ctrl+F', icon: searchSvg, labels: findLabels,
+      onQuery: (query, { matchCase, highlightAll }) => search(query, matchCase, highlightAll),
+      onStep: (direction) => step(direction), onClose: clearHighlights },
+  ],
+})
+pill.setState('zoom', { text: '120%', checked: null })
+pill.find.setResult({ index: 2, total: 5 })
+```
+
+- Controls are `button`, `toggle` (`aria-pressed`), `menu` (groups of items with a check on one id and an optional chord), `pager` (page box, `of`, previous and next) and `find`. Every control has `id`, `label` (the accessible name and tooltip), an optional `chord` (shown in the tooltip) and `disabled`. Icons are SVG strings drawn with `currentColor`.
+- `find` adds a search button. `pill.find.open()` turns the pill into the find row (field, `n of N` through `labels.count`, match case, highlight all, previous, next, Done); Enter and Shift+Enter step, Escape closes. The page does the searching and reports with `pill.find.setResult`.
+- `setState(id, {disabled?, pressed?, text?, checked?, page?, count?})`, `setHidden(hidden)` and `destroy()`.
+- `createSlider({label, min, max, value, step?, format?, onInput})` from `.../slider` returns `{element, setValue, setMax}`: the seek and volume range input, styled by `.ostia-slider` in `panel.css`.
 
 `grid({label, columns, rowCount, cell(row, column), rowLabels?, notes?})` returns `{element, destroy}`: a read-only grid of text that windows rows and columns with `@tanstack/virtual-core`, so a sheet of 100,000 rows and 1,000 columns keeps only the visible cells in the page. `columnName(index)` gives spreadsheet column letters. Its styles are the `.ostia-grid*` rules in `panel.css`.
 

@@ -1,0 +1,18 @@
+{
+  "manifest": {},
+  "messages": {
+    "loading": "Loading…",
+    "tooLarge": "This file is too large to show ({size}).",
+    "unreadable": "Could not read this file.",
+    "gone": "This file is no longer there.",
+    "broken": "Could not display this image.",
+    "captureFailed": "Could not capture this image.",
+    "tools": "Image tools",
+    "zoomOut": "Zoom out",
+    "zoomLevel": "Zoom level",
+    "zoomIn": "Zoom in",
+    "fit": "Fit to pane",
+    "actualSize": "Actual size",
+    "transparency": "Show transparency grid"
+  }
+}

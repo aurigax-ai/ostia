@@ -1,0 +1,24 @@
+{
+  "manifest": {
+    "name": "影片與音訊",
+    "description": "在同一個播放器中播放影片（.mp4、.m4v、.mov、.webm、.mkv）與音訊（.mp3、.wav、.m4a、.ogg、.flac）檔案，提供跳轉、音量、速度與循環控制。在暫停的影片畫面上拖曳即可裁切並把圖片傳送給代理。它只讀取你開啟的檔案，以分段方式串流，且不會傳送到任何地方。",
+    "fileKinds.video.video.displayName": "播放器"
+  },
+  "messages": {
+    "controls": "播放控制",
+    "loading": "載入中…",
+    "unreadable": "無法讀取這個檔案。",
+    "captureFailed": "無法擷取這個畫面。",
+    "unplayable": "這裡無法播放這個檔案。",
+    "play": "播放",
+    "pause": "暫停",
+    "back": "倒退 {seconds} 秒",
+    "forward": "快轉 {seconds} 秒",
+    "seek": "跳轉",
+    "mute": "靜音",
+    "unmute": "取消靜音",
+    "volume": "音量",
+    "speed": "播放速度",
+    "loop": "循環播放"
+  }
+}

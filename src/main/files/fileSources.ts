@@ -3,6 +3,7 @@ import { readdir, stat } from 'node:fs/promises'
 import type { FsBinaryResult, FsEntry, FsKind, FsTextResult } from '../../shared/files/filesApi'
 import { resolveSafe } from '../platform/pathGuard'
 import { readBinaryConfined } from './fsBinary'
+import { type FsRangeResult, readRangeConfined } from './fsRange'
 import { readTextConfined, versionConfined } from './fsText'
 
 export interface FileStat {
@@ -17,6 +18,7 @@ export interface FileSource {
   kind: (path: string) => Promise<FsKind | null>
   readText: (path: string, max: number) => Promise<FsTextResult>
   readBinary: (path: string, max: number) => Promise<FsBinaryResult>
+  readRange?: (path: string, start: number, end: number) => Promise<FsRangeResult>
   version: (path: string) => Promise<string | null>
   describe: (path: string) => Promise<FileStat | null>
 }
@@ -58,6 +60,7 @@ export function localSource(
     },
     readText: (path, max) => readTextConfined(path, confine, max),
     readBinary: async (path, max) => readBinaryConfined(path, confine, max),
+    readRange: (path, start, end) => readRangeConfined(path, start, end, confine),
     version: (path) => versionConfined(path, confine),
     describe: async (path) => {
       const found = await statOf(confine(path))

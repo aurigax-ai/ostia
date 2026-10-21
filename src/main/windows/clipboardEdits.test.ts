@@ -38,7 +38,12 @@ const linuxChords = {
 
 const written: unknown[] = []
 
-function setup(formats: string[] = [], mac = false, uriList = '') {
+function setup(
+  formats: string[] = [],
+  mac = false,
+  uriList = '',
+  copyViewerSelection: (guest: WebContents) => boolean = () => false,
+) {
   written.length = 0
   const app = fakeContents()
   const { ipc, call } = fakeIpc()
@@ -52,6 +57,7 @@ function setup(formats: string[] = [], mac = false, uriList = '') {
     },
     mac,
     remap,
+    copyViewerSelection,
   })
   return { app, call, edits, remap }
 }
@@ -142,6 +148,71 @@ describe('registerClipboardEdits', () => {
     press(guest, { control: true, shift: true, key: 'V', code: 'KeyV' })
     expect(guest.pasteAndMatchStyle).toHaveBeenCalledTimes(1)
     expect(press(guest, { control: true }).preventDefault).not.toHaveBeenCalled()
+  })
+
+  describe('a viewer guest with a stored selection', () => {
+    const macChords = { copy: parseChord('Cmd+C', true), paste: parseChord('Cmd+V', true) }
+
+    function viewer(mac: boolean, stored: boolean) {
+      const guest = fakeContents()
+      const copyViewerSelection = vi.fn(() => stored)
+      const harness = setup([], mac, '', copyViewerSelection)
+      harness.edits.guardGuest(guest)
+      harness.call('clipboard:set-chords', harness.app, mac ? macChords : linuxChords)
+      return { guest, copyViewerSelection, ...harness }
+    }
+
+    const CTRL_C = { control: true }
+    const CTRL_SHIFT_C = { control: true, shift: true }
+    const CMD_C = { meta: true }
+
+    it.each([
+      ['the app copy chord', false, CTRL_SHIFT_C],
+      ['plain Ctrl+C', false, CTRL_C],
+      ['plain Cmd+C', true, CMD_C],
+    ])('copies %s from main, once, and keeps the native copy out of it', (_name, mac, input) => {
+      const { guest, copyViewerSelection } = viewer(mac, true)
+      expect(press(guest, input).preventDefault).toHaveBeenCalledTimes(1)
+      expect(copyViewerSelection).toHaveBeenCalledTimes(1)
+      expect(guest.copy).not.toHaveBeenCalled()
+    })
+
+    it('copies from main for Control remapped to Command', () => {
+      const { guest, copyViewerSelection, remap } = viewer(true, true)
+      remap.set({ ControlRight: 'command' })
+      press(guest, { key: 'Control', code: 'ControlRight', control: true })
+      expect(press(guest, CTRL_C).preventDefault).toHaveBeenCalled()
+      expect(copyViewerSelection).toHaveBeenCalledTimes(1)
+      expect(guest.copy).not.toHaveBeenCalled()
+    })
+
+    it('copies nothing from main without a selection: the app chord copies natively, plain keys stay with the page', () => {
+      const linux = viewer(false, false)
+      expect(press(linux.guest, CTRL_SHIFT_C).preventDefault).toHaveBeenCalled()
+      expect(linux.guest.copy).toHaveBeenCalledTimes(1)
+      expect(press(linux.guest, CTRL_C).preventDefault).not.toHaveBeenCalled()
+      expect(linux.guest.copy).toHaveBeenCalledTimes(1)
+      const mac = viewer(true, false)
+      expect(press(mac.guest, CMD_C).preventDefault).not.toHaveBeenCalled()
+      expect(mac.guest.copy).not.toHaveBeenCalled()
+    })
+
+    it('does not treat other keys as a copy', () => {
+      const { guest, copyViewerSelection } = viewer(false, true)
+      press(guest, { control: true, key: 'x', code: 'KeyX' })
+      press(guest, { control: true, alt: true })
+      press(guest, { control: true, meta: true })
+      press(guest, { control: true, key: 'v', code: 'KeyV' })
+      press(guest, { control: true, type: 'keyUp' })
+      expect(copyViewerSelection).not.toHaveBeenCalled()
+      expect(guest.copy).not.toHaveBeenCalled()
+    })
+
+    it('pastes natively as before', () => {
+      const { guest } = viewer(false, true)
+      press(guest, { control: true, shift: true, key: 'V', code: 'KeyV' })
+      expect(guest.pasteAndMatchStyle).toHaveBeenCalledTimes(1)
+    })
   })
 
   it('copies for a key remapped to Command, which the system menu never sees, and leaves a real Cmd+C to the page', () => {

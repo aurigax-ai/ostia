@@ -81,7 +81,7 @@ afterAll(() => {
 describe('package firewall', () => {
   it('SBX-C80 lets an old, clean package download through the terminated TLS', async () => {
     const out = await run(
-      'curl -s -m 40 -o /dev/null -w "code=%{http_code}\\n" https://registry.npmjs.org/left-pad/-/left-pad-1.3.0.tgz',
+      'curl -s -m 40 -w "\\ncode=%{http_code}\\n" https://registry.npmjs.org/left-pad/-/left-pad-1.3.0.tgz | tail -c 400',
     )
     expect(out).toContain('code=200')
   }, 60_000)
