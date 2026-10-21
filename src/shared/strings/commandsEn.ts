@@ -278,7 +278,7 @@ export const commandsEn = {
     layerYours: 'Your setting',
     layers: 'Sources',
     linkClick: '{click} on a terminal link opens',
-    linkClickApp: 'In Ostia',
+    linkClickApp: 'In {product}',
     linkClickDesc:
       'Web links and file paths follow the same choice. {shiftClick} opens it in the other one.',
     linkClickSystem: 'In the system’s default app',
