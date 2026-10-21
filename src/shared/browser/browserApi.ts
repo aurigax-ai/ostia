@@ -15,14 +15,21 @@ import type {
 } from './credentials'
 import type { DeviceTouch } from './deviceTouch'
 import type { BrowserTabOpen } from './linkTabs'
-import type { PickOutcome, PickSendRequest, PickSendResult, PickState, PickTheme } from './pick'
+import type {
+  PickCopyResult,
+  PickOutcome,
+  PickSendRequest,
+  PickSendResult,
+  PickState,
+  PickTheme,
+} from './pick'
 import type {
   RegionCaptureOutcome,
   RegionCaptureRequest,
   RegionCopyResult,
   RegionSendRequest,
 } from './regionCapture'
-import type { SelectionSendRequest, SelectionSendResult } from './selection'
+import type { PageSelection, SelectionSendRequest, SelectionSendResult } from './selection'
 
 interface BrowserApi {
   claimProfile: (paneId: string, profile: BrowserProfile) => Promise<BrowserProfile>
@@ -31,6 +38,8 @@ interface BrowserApi {
   pickStart: (paneId: string, theme: PickTheme) => Promise<PickOutcome>
   pickCancel: (paneId: string) => void
   pickSend: (req: PickSendRequest) => Promise<PickSendResult>
+  pickCopy: (paneId: string, captureId: string) => Promise<PickCopyResult>
+  pageSelection: (paneId: string) => Promise<PageSelection | null>
   onPickState: (cb: (state: PickState) => void) => () => void
   regionCapture: (paneId: string, req: RegionCaptureRequest) => Promise<RegionCaptureOutcome>
   regionSend: (req: RegionSendRequest) => Promise<PickSendResult>

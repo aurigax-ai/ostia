@@ -11,6 +11,8 @@ export const browserBridge: Pick<OstiaBridge, 'browser' | 'guestChords' | 'crede
     pickStart: (paneId, theme) => ipcRenderer.invoke('browser:pick-start', paneId, theme),
     pickCancel: (paneId) => ipcRenderer.send('browser:pick-cancel', paneId),
     pickSend: (req) => ipcRenderer.invoke('browser:pick-send', req),
+    pickCopy: (paneId, captureId) => ipcRenderer.invoke('browser:pick-copy', paneId, captureId),
+    pageSelection: (paneId) => ipcRenderer.invoke('browser:page-selection', paneId),
     onPickState: (cb) => listen('browser:pick-state', cb),
     regionCapture: (paneId, req) => ipcRenderer.invoke('browser:region-capture', paneId, req),
     regionSend: (req) => ipcRenderer.invoke('browser:region-send', req),

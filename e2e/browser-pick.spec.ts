@@ -87,16 +87,17 @@ test('pick an element in a browser pane and send it to a terminal pane', async (
       { url: pageUrl, x: box.x, y: box.y },
     )
 
-    const panel = win.getByRole('region', { name: 'Send to agent' })
-    await expect(panel).toBeVisible({ timeout: 15_000 })
-    await expect(panel).toContainText('button')
+    const bar = win.getByRole('toolbar', { name: 'Selection actions' })
+    await expect(bar).toBeVisible({ timeout: 15_000 })
     await expect
       .poll(() => guestEval<boolean>('!!document.querySelector("[data-ostia-pick]")'))
       .toBe(false)
 
-    await panel.getByLabel('What’s wrong?').fill('Checkout button is misaligned')
-    await expect(panel.getByRole('radio')).toHaveCount(1)
-    await panel.getByRole('button', { name: 'Send' }).click()
+    await bar.getByRole('button', { name: 'Add a note' }).click()
+    await win.getByRole('textbox', { name: 'Add a note' }).fill('Checkout button is misaligned')
+    await bar.getByRole('button', { name: 'Send to agent' }).click()
+    await expect(win.getByRole('menuitem')).toHaveCount(1)
+    await win.getByRole('menuitem').click()
 
     await expect(win.getByText(/The report is at its prompt/)).toBeVisible({ timeout: 15_000 })
     await terminalTab(win).click()

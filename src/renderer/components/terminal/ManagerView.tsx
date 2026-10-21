@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { StatusLine } from '@/components/common/StatusLine'
 import { useDict } from '@/lib/app/useDict'
 import { useSurfaceFocus } from '@/lib/panes/paneFocus'
 import {
@@ -7,13 +8,27 @@ import {
   useReadOnlyTerminalBackground,
 } from '@/lib/terminal/readOnlyTerminal'
 
+const MODIFIER_KEYS: ReadonlySet<string> = new Set(['Shift', 'Control', 'Alt', 'Meta'])
+
 export function ManagerView({ paneId }: { paneId: string }): JSX.Element {
   const d = useDict()
   const hostRef = useRef<HTMLDivElement>(null)
   const termRef = useRef<ReadOnlyTerminal | null>(null)
+  const surfaceRef = useRef<HTMLDivElement>(null)
   const [ended, setEnded] = useState(false)
+  const [hint, setHint] = useState<'idle' | 'shown' | 'dismissed'>('idle')
   const background = useReadOnlyTerminalBackground(termRef)
   useSurfaceFocus(paneId, () => termRef.current?.textarea ?? null)
+
+  useEffect(() => {
+    const surface = surfaceRef.current
+    if (!surface) return
+    const onKey = (event: KeyboardEvent): void => {
+      if (!MODIFIER_KEYS.has(event.key)) setHint((now) => (now === 'idle' ? 'shown' : now))
+    }
+    surface.addEventListener('keydown', onKey, true)
+    return () => surface.removeEventListener('keydown', onKey, true)
+  }, [])
 
   useEffect(() => {
     const host = hostRef.current
@@ -56,8 +71,12 @@ export function ManagerView({ paneId }: { paneId: string }): JSX.Element {
   }, [paneId])
 
   return (
-    <div className="terminal-surface">
-      <output className="manager-notice">{ended ? d.manager.ended : d.manager.readOnly}</output>
+    <div ref={surfaceRef} className="terminal-surface">
+      {ended ? (
+        <StatusLine>{d.manager.ended}</StatusLine>
+      ) : hint === 'shown' ? (
+        <StatusLine onDismiss={() => setHint('dismissed')}>{d.manager.readOnly}</StatusLine>
+      ) : null}
       <div className="terminal-stack">
         <div ref={hostRef} className="xterm-host manager-host" style={{ background }} />
       </div>

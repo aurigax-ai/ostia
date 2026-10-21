@@ -50,6 +50,7 @@
     "test/fixtures/office/"
   ],
   "specs": [
+    "e2e/capture-bar.spec.ts",
     "e2e/markdown-preview.spec.ts",
     "e2e/office-viewer.spec.ts",
     "e2e/open-any-file.spec.ts",

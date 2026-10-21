@@ -1,5 +1,5 @@
 import {
-  CaretDownIcon,
+  ClockCounterClockwiseIcon,
   DownloadSimpleIcon,
   NotePencilIcon,
   PencilSimpleIcon,
@@ -42,18 +42,24 @@ function filterSessions(list: readonly ChatSessionSummary[], query: string): Cha
 export function ChatSessions({
   workspaceId,
   sessionId,
+  recording,
+  scratch,
   open,
   onOpenChange: setOpen,
 }: {
   workspaceId: string | null
   sessionId: string
+  recording: boolean
+  scratch: boolean
   open: boolean
   onOpenChange: (open: boolean) => void
 }): JSX.Element {
   const d = useDict()
   const locale = useSettingsStore((s) => s.locale)
-  const recording = useSettingsStore((s) => s.assistant.chatHistory)
-  const title = useChatStore((s) => s.meta[sessionId]?.title) || d.chat.untitled
+  const saveHistory = useSettingsStore((s) => s.assistant.chatHistory)
+  const sessionsName = recording ? d.chat.sessionsRecording : d.chat.sessions
+  const sessionsHint = scratch ? d.chat.scratchHint : recording ? null : d.chat.notRecordingHint
+  const sessionsLabel = sessionsHint ? `${sessionsName}. ${sessionsHint}` : sessionsName
   const summaries = useChatStore((s) => s.summaries)
   const [query, setQuery] = useState('')
   const [editing, setEditing] = useState<string | null>(null)
@@ -77,20 +83,21 @@ export function ChatSessions({
   return (
     <>
       <Popover open={open} onOpenChange={setOpen}>
-        <PopoverTrigger
-          render={
-            <Button
-              variant="ghost"
-              size="xs"
-              className="min-w-0 max-w-64 justify-start font-medium text-fg"
-              aria-label={fmt(d.chat.sessionsButton, { title })}
-            >
-              <span className="truncate">{title}</span>
-              <CaretDownIcon className="shrink-0 text-fg-muted" />
-            </Button>
-          }
-        />
-        <PopoverContent align="start" className="chat-sessions w-80 gap-2 p-2">
+        <span className="relative flex">
+          <PopoverTrigger
+            render={
+              <IconButton size="bar" icon={ClockCounterClockwiseIcon} label={sessionsLabel} />
+            }
+          />
+          {recording ? (
+            <span
+              aria-hidden
+              data-testid="chat-recording-dot"
+              className="pointer-events-none absolute top-1 right-1 size-1.5 rounded-full bg-ok"
+            />
+          ) : null}
+        </span>
+        <PopoverContent align="end" className="chat-sessions w-80 gap-2 p-2">
           <div className="flex items-center gap-1">
             <Input
               value={query}
@@ -146,7 +153,7 @@ export function ChatSessions({
           <div className="flex items-center justify-between gap-2 border-line border-t px-1 pt-2 text-fg text-ui-sm">
             <span>{d.chat.saveHistory}</span>
             <Switch
-              checked={recording}
+              checked={saveHistory}
               aria-label={d.chat.saveHistory}
               onCheckedChange={(on) => useSettingsStore.getState().setChatHistory(on)}
             />

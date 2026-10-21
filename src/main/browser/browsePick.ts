@@ -1,13 +1,15 @@
 import { readdirSync, writeFileSync } from 'node:fs'
+import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { PRODUCT_NAME } from '@aurigax-ai/ostia-extension-sdk/contract/product'
-import { ipcMain } from 'electron'
+import { ClipboardItem, clipboard, ipcMain } from 'electron'
 import {
   clip,
   nextPickReportNumber,
   normalizeCapture,
   PICK_NOTE_MAX,
   type PickCapture,
+  type PickCopyResult,
   type PickOutcome,
   type PickSendRequest,
   type PickSendResult,
@@ -20,6 +22,8 @@ import {
   screenshotRect,
 } from '../../shared/browser/pick'
 import { PICK_RUNTIME_GLOBAL } from '../../shared/browser/pickRuntime'
+import { isPng, normalizePageSelection, type PageSelection } from '../../shared/browser/selection'
+import type { ClipboardCapture } from '../../shared/keyboard/clipboardCapture'
 import { pickRuntimeScript } from '../../shared/pageScripts/installScripts'
 import { postBusMessage } from '../agents/busStore'
 import type { OriginReach } from '../agents/originAgents'
@@ -28,6 +32,7 @@ import { registerControlMethod } from '../control/controlServer'
 import { getByPaneId } from '../control/idRegistry'
 import { privateTmpDir } from '../platform/privateTmp'
 import type { RedactText } from '../privacy/redactionTargets'
+import { clipboardItemData } from '../windows/clipboardEdits'
 import { ownedGuest, resolveGuest } from './browseGuests'
 import type { ConsoleEntry } from './browseMethod'
 import { failedRequestsFor } from './guestNetwork'
@@ -241,6 +246,58 @@ export async function writePickReport(
   return { ok: true, path, imagePath: stored.capture.screenshotPath }
 }
 
+async function readScreenshot(path: string | null): Promise<Uint8Array | null> {
+  if (!path) return null
+  try {
+    const bytes = await readFile(path)
+    return isPng(bytes) ? new Uint8Array(bytes) : null
+  } catch {
+    return null
+  }
+}
+
+export async function copyPick(
+  paneId: string,
+  captureId: string,
+  senderWindowId: string,
+  write: (capture: ClipboardCapture) => Promise<void>,
+): Promise<PickCopyResult> {
+  if (getByPaneId(paneId)?.windowId !== senderWindowId) return { ok: false, error: 'not-found' }
+  const stored = captures.get(captureId)
+  if (!stored || stored.paneId !== paneId) return { ok: false, error: 'capture-expired' }
+  const { capture } = stored
+  const png = capture.hasText || capture.table ? null : await readScreenshot(capture.screenshotPath)
+  const result: PickCopyResult = capture.table
+    ? { ok: true, kind: 'table', rows: capture.table.rows, columns: capture.table.columns }
+    : { ok: true, kind: png ? 'image' : 'report' }
+  const data: ClipboardCapture = capture.table
+    ? { text: capture.table.csv }
+    : png
+      ? { png }
+      : { text: renderPickReport(capture, '', true) }
+  try {
+    await write(data)
+  } catch {
+    return { ok: false, error: 'write-failed' }
+  }
+  return result
+}
+
+export async function readPageSelection(
+  guest: Electron.WebContents,
+): Promise<PageSelection | null> {
+  try {
+    return normalizePageSelection(
+      await runInPickWorld(guest, `window.${PICK_RUNTIME_GLOBAL}.selection()`),
+    )
+  } catch {
+    return null
+  }
+}
+
+const writeToClipboard = (capture: ClipboardCapture): Promise<void> =>
+  clipboard.write([new ClipboardItem(clipboardItemData(capture))])
+
 export function registerPickIpc(deps: PickDeps, reaches: OriginReach, redact: RedactText): void {
   ipcMain.handle('browser:pick-start', (e, paneId: string, theme?: unknown) => {
     const guest = ownedGuest(deps.browserPanes, paneId, String(e.sender.id))
@@ -253,6 +310,13 @@ export function registerPickIpc(deps: PickDeps, reaches: OriginReach, redact: Re
   })
   ipcMain.on('browser:pick-cancel', (e, paneId: string) => {
     if (getByPaneId(paneId)?.windowId === String(e.sender.id)) cancelPick(paneId)
+  })
+  ipcMain.handle('browser:pick-copy', (e, paneId: string, captureId: string) =>
+    copyPick(paneId, captureId, String(e.sender.id), writeToClipboard),
+  )
+  ipcMain.handle('browser:page-selection', (e, paneId: string) => {
+    const guest = ownedGuest(deps.browserPanes, paneId, String(e.sender.id))
+    return guest ? readPageSelection(guest) : null
   })
   ipcMain.handle('browser:pick-send', (e, req: PickSendRequest) =>
     writePickReport(req ?? ({} as PickSendRequest), String(e.sender.id), reaches, redact),

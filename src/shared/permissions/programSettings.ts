@@ -7,7 +7,6 @@ export const PROGRAM_SETTINGS: readonly { group: ProgramSettingGroup; field: str
   { group: 'behavior', field: 'discreteGpu' },
   { group: 'notifications', field: 'command' },
   { group: 'agents', field: 'autoResume' },
-  { group: 'agents', field: 'autoSendReferences' },
   { group: 'agents', field: 'hooks' },
   { group: 'agents', field: 'trustWorkspaceFolders' },
   { group: 'terminal', field: 'warnOnRiskyPaste' },

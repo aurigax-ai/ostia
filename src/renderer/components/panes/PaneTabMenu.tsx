@@ -14,6 +14,7 @@ import {
   LockSimpleIcon,
   LockSimpleOpenIcon,
   MoonIcon,
+  NotePencilIcon,
   PencilSimpleIcon,
   SunIcon,
   XSquareIcon,
@@ -206,6 +207,14 @@ function PaneTabMenuItems({
       ) : null}
       {lockable && workspaceId ? (
         <TabMoveMenuItems workspaceId={workspaceId} tabId={pane.id} />
+      ) : null}
+      {pane.kind === 'agent' ? (
+        <MenuItem
+          icon={NotePencilIcon}
+          onClick={() => void commands.exec('agent.newSession', { paneId: pane.id })}
+        >
+          {d.agentPane.newSession}
+        </MenuItem>
       ) : null}
       {agentTab && workspaceId ? <TabHibernateItems workspaceId={workspaceId} pane={pane} /> : null}
       {workspaceId && forkableResume(pane) ? (

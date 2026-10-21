@@ -43,6 +43,7 @@ export const commandsEn = {
     },
     titles: {
       'agent.forkConversation': 'Fork Agent Conversation',
+      'agent.newSession': 'Agent: New session',
       'agent.open': 'Agent: Open pane',
       'agent.resume': 'Resume Agent',
       'agent.resumeParked': 'Resume Parked Session',
