@@ -216,12 +216,12 @@ test.describe('profile sync through the server end to end', () => {
         await openSettingsPage(second.win, 'Server')
         await openSettingsPage(second.win, 'Sync')
         await expect(
-          secondSettings.getByText(/has known it for less than a day, so the key is ignored until/),
+          secondSettings.getByText(/is too new to trust yet, so the key is ignored until/),
         ).toBeVisible({ timeout: 2_000 })
       }).toPass({ timeout: 30_000 })
       await secondSettings.getByRole('textbox', { name: 'Sync passphrase' }).fill(PASSPHRASE)
       await secondSettings.getByRole('button', { name: 'Unlock', exact: true }).click()
-      await expect(secondSettings.getByText(/has known it for less than a day/)).toBeHidden(SLOW)
+      await expect(secondSettings.getByText(/too new to trust yet/)).toBeHidden(SLOW)
       await expectTheme(second.win, SEEDED_THEME)
 
       await openSettingsPage(third.win, 'Sync')

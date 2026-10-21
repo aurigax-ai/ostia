@@ -384,6 +384,69 @@ describe('what the human is told and can do after a refused rotation', () => {
   })
 })
 
+describe('the passphrase unlock after a refused rotation cannot roll the key back', () => {
+  async function removedThird() {
+    const { server, first } = await world()
+    const second = await join(server, first)
+    const third = await join(server, first, true, second)
+    const account = server.devices.get(idOf(first))?.accountId ?? ''
+    const old = server.syncData.get(account)?.wraps.get('passphrase')
+    if (!old) throw new Error('no passphrase wrap')
+    await elevate(first, second)
+    expect((await first.service.removeDevice(idOf(third), PASSPHRASE, '')).ok).toBe(true)
+    const replay = (): void => {
+      server.syncData.get(account)?.wraps.set('passphrase', { ...old })
+    }
+    return { server, first, second, replay }
+  }
+
+  it('SSY-C168 refuses an old passphrase wrap replayed by the server and keeps the key', async () => {
+    const { second, replay } = await removedThird()
+    expect((await second.sync.run()).status.state).toBe('error')
+    expect((await second.service.status()).wrapRefused?.reason).toBe('too-new')
+    const kept = second.keyring.key() ?? Buffer.alloc(0)
+    replay()
+    expect(await second.service.unlock(PASSPHRASE)).toMatchObject({
+      ok: false,
+      error: 'key-differs',
+    })
+    expect(second.keyring.key()?.equals(kept)).toBe(true)
+    expect((await second.service.status()).wrapRefused?.reason).toBe('too-new')
+  })
+
+  it('SSY-C169 refuses any ready-state unlock while the refusal is untrusted', async () => {
+    const r = await rig()
+    plant(
+      r.server,
+      r.second,
+      r.attacker,
+      r.forge({ id: 'ghost', signPrivate: signKey(r.first) }, r.ahead),
+      r.ahead,
+    )
+    expect((await r.second.sync.run()).status.state).toBe('error')
+    expect((await r.second.service.status()).wrapRefused?.reason).toBe('untrusted')
+    expect(await r.second.service.unlock(PASSPHRASE)).toMatchObject({
+      ok: false,
+      error: 'key-differs',
+    })
+    expect(r.second.keyring.key()?.equals(r.victimKey)).toBe(true)
+  })
+})
+
+describe('a check that cannot be made is not called untrusted', () => {
+  it('SSY-C170 reports an unverified signer when the listing lacks its row, then adopts once it is back', async () => {
+    const r = await rig()
+    const signer = { id: idOf(r.first), signPrivate: signKey(r.first) }
+    plant(r.server, r.second, r.attacker, r.forge(signer, r.ahead), r.ahead)
+    r.server.rewriteDevices = (_viewer, rows) => rows.filter((d) => d.id !== idOf(r.first))
+    expect((await r.second.sync.run()).status.state).toBe('error')
+    expect((await r.second.service.status()).wrapRefused?.reason).toBe('unverified')
+    r.server.rewriteDevices = null
+    expect((await r.second.sync.run()).status.state).toBe('ok')
+    expect(r.second.keyring.key()?.equals(r.attacker)).toBe(true)
+  })
+})
+
 describe('a join that another device overtakes', () => {
   it('SSY-C162 reports a stale link in its own words, keeps the device locked and stops waiting', async () => {
     const { server, first } = await world()

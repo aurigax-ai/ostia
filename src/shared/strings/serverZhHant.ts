@@ -90,7 +90,7 @@ export const serverZhHant: typeof serverEn = {
   },
   syncServer: {
     changedDevices:
-      '{devices} 的金鑰已變更，因此這台裝置視為新裝置，24 小時內不會接受它傳來的同步金鑰。',
+      '{devices}：金鑰或建立日期已變更，因此視為新裝置，一天內會忽略它們傳來的同步金鑰。',
     cleanUp: '清理伺服器儲存空間',
     cleanUpDesc: '刪除伺服器上保留、但目前的設定檔已不需要的資料。需要另一台裝置確認。',
     cleanUpRun: '清理',
@@ -98,7 +98,9 @@ export const serverZhHant: typeof serverEn = {
     confirmPassphrase: '再輸入一次',
     errExists: '另一台裝置已設定過同步，請改用解鎖。',
     errFailed: '沒有成功，請再試一次。',
-    errLinkStale: '另一台裝置在這段期間同步過。請用密語解鎖，或登出後重新連結。',
+    errKeyDiffers: '密語開啟的金鑰與另一台裝置傳來的不同，因此沒有做任何變更。',
+    errLinkStale:
+      '另一台裝置在這段期間同步過。請用密語解鎖，或登出後重新連結，然後在「裝置」中移除舊的項目。',
     errLocked: '請先在這台裝置解鎖同步。',
     errMismatch: '兩次輸入的密語不相同。',
     errNoWrap: '這個帳號沒有復原金鑰，請使用密語。',
@@ -147,8 +149,8 @@ export const serverZhHant: typeof serverEn = {
     whereFolder: '資料夾',
     whereServer: '伺服器',
     wrapRefusedTooNew:
-      '另一台裝置傳來新的同步金鑰，但這台裝置認識它不到一天，因此在 {time} 前會忽略。請用密語解鎖以立即繼續。',
-    wrapRefusedUntrusted:
-      '另一台裝置傳來新的同步金鑰，但並非由你信任的裝置簽署，因此已忽略。請用密語解鎖以繼續。',
+      '另一台裝置傳來新的同步金鑰，但傳送它的裝置還太新、尚不能信任，因此在 {time} 前會忽略。請用密語解鎖以立即使用。',
+    wrapRefusedUntrusted: '另一台裝置傳來新的同步金鑰，但並非由你信任的裝置簽署，因此已忽略。',
+    wrapRefusedUnverified: '另一台裝置傳來新的同步金鑰，但目前無法檢查。下次同步時會再試一次。',
   },
 }

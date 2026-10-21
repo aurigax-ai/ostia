@@ -38,13 +38,11 @@ function LinkCodes({ status }: { status: ServerSyncStatus }): JSX.Element | null
 function WrapRefusedNotice({ refusal }: { refusal: WrapRefusal }): JSX.Element {
   const t = useDict().syncServer
   const locale = useSettingsStore((s) => s.locale)
-  return (
-    <Notice tone="error">
-      {refusal.reason === 'too-new' && refusal.after !== null
-        ? fmt(t.wrapRefusedTooNew, { time: formatDate(refusal.after, locale) })
-        : t.wrapRefusedUntrusted}
-    </Notice>
-  )
+  if (refusal.reason === 'too-new' && refusal.after !== null) {
+    return <Notice>{fmt(t.wrapRefusedTooNew, { time: formatDate(refusal.after, locale) })}</Notice>
+  }
+  if (refusal.reason === 'unverified') return <Notice>{t.wrapRefusedUnverified}</Notice>
+  return <Notice tone="error">{t.wrapRefusedUntrusted}</Notice>
 }
 
 interface StateProps {
@@ -113,7 +111,7 @@ function Ready({ status, act }: StateProps): JSX.Element {
   return (
     <>
       <output className="block py-1 text-fg-muted text-ui-sm">{t.ready}</output>
-      {status.wrapRefused ? (
+      {status.wrapRefused?.reason === 'too-new' ? (
         <PassphraseForm
           label={t.unlockTitle}
           placeholder={t.passphrase}

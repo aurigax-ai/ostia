@@ -20,7 +20,7 @@ export interface ServerJoinRequest {
 }
 
 export interface WrapRefusal {
-  reason: 'untrusted' | 'too-new'
+  reason: 'untrusted' | 'too-new' | 'unverified'
   after: number | null
 }
 
@@ -43,6 +43,7 @@ export type ServerSyncError =
   | 'wrong-recovery-key'
   | 'exists'
   | 'no-wrap'
+  | 'key-differs'
   | 'link-stale'
   | 'unavailable'
   | 'elevation-required'

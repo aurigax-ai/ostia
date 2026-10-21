@@ -94,7 +94,7 @@ export const serverEn = {
   },
   syncServer: {
     changedDevices:
-      'The keys of {devices} changed, so this device counts it as new and will not accept a sync key from it for 24 hours.',
+      '{devices}: keys or creation date changed, so they count as new devices and their sync keys are ignored for a day.',
     cleanUp: 'Clean up server storage',
     cleanUpDesc:
       'Deletes what the server keeps but your current profile no longer needs. Needs a confirmation from another device.',
@@ -103,8 +103,10 @@ export const serverEn = {
     confirmPassphrase: 'Type it again',
     errExists: 'Sync was already set up on another device. Unlock it instead.',
     errFailed: 'That did not work. Try again.',
+    errKeyDiffers:
+      'The passphrase opens a different key than the one the other device sent, so nothing was changed.',
     errLinkStale:
-      'Another device synced in between. Unlock with the passphrase, or sign out and link again.',
+      'Another device synced in between. Unlock with the passphrase, or sign out and link again, then remove the old entry under Devices.',
     errLocked: 'Unlock sync on this device first.',
     errMismatch: 'The two passphrases do not match.',
     errNoWrap: 'There is no recovery key for this account. Use the passphrase.',
@@ -160,8 +162,10 @@ export const serverEn = {
     whereFolder: 'Folder',
     whereServer: 'Server',
     wrapRefusedTooNew:
-      'Another device sent a new sync key. This device has known it for less than a day, so the key is ignored until {time}. Unlock with the passphrase to continue now.',
+      'Another device sent a new sync key, but the device that sent it is too new to trust yet, so the key is ignored until {time}. Unlock with the passphrase to use it now.',
     wrapRefusedUntrusted:
-      'Another device sent a new sync key that was not signed by a device you trust, so it was ignored. Unlock with the passphrase to continue.',
+      'Another device sent a new sync key that was not signed by a device you trust, so it was ignored.',
+    wrapRefusedUnverified:
+      'Another device sent a new sync key that could not be checked right now. It will be tried again on the next sync.',
   },
 }
