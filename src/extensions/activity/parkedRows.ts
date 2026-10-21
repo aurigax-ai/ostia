@@ -25,7 +25,6 @@ function metaText(env: ParkedEnv, parked: ParkedView): string {
 
 function parkedRow(env: ParkedEnv): Row<ParkedRowItem> {
   const summary = h('p', { class: 'note-text' })
-  const note = h('p', { class: 'line-note', hidden: true })
   const meta = h('span', { class: 'grow' })
   let current: ParkedView | null = null
   const resume = quietButton(env.t('parked.resume'), () => current && env.resume(current.id), true)
@@ -35,7 +34,6 @@ function parkedRow(env: ParkedEnv): Row<ParkedRowItem> {
     'div',
     { class: 'item-body' },
     summary,
-    note,
     h('div', { class: 'item-meta' }, meta, h('span', { class: 'item-actions' }, resume, forget)),
     line,
   )
@@ -46,8 +44,6 @@ function parkedRow(env: ParkedEnv): Row<ParkedRowItem> {
       current = parked
       const changed: HTMLElement[] = []
       if (setText(summary, parked.summary ?? parked.title)) changed.push(summary)
-      note.hidden = parked.note === undefined
-      setText(note, parked.note ? `“${parked.note}”` : '')
       setText(meta, metaText(env, parked))
       line.hidden = status === undefined
       setText(line, status?.text ?? '')

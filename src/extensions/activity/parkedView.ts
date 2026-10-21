@@ -5,7 +5,6 @@ export interface ParkedView {
   agent: 'claude' | 'codex'
   title: string
   summary?: string
-  note?: string
   folder?: string
   parkedAt: number
   tasks: number
@@ -22,7 +21,6 @@ export function parkedView(
       agent: item.agent,
       title: item.title,
       ...(item.summary ? { summary: item.summary } : {}),
-      ...(item.note ? { note: item.note } : {}),
       ...(item.folder ? { folder: item.folder } : {}),
       parkedAt: item.parkedAt,
       tasks: tasksBySession.get(item.sessionId) ?? 0,
