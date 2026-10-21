@@ -32,7 +32,7 @@ describe('SettingsPanel nav follows a request for a page', () => {
     useUIStore.setState(uiInit, true)
   })
 
-  it('SYA-C130 highlights the page a notification opens, also when Settings already shows another one', async () => {
+  it('SYA-C135 highlights the page a notification opens, also when Settings already shows another one', async () => {
     await act(async () => {
       render(<SettingsPanel />)
     })

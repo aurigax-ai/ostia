@@ -66,9 +66,11 @@ export function registerServerSyncIpc({
     })
   }
 
-  ipcMain.handle('syncServer:status', (e) =>
-    fromWindow(e) ? service.status() : Promise.resolve(REFUSED_STATUS),
-  )
+  ipcMain.handle('syncServer:status', (e) => {
+    if (!fromWindow(e)) return Promise.resolve(REFUSED_STATUS)
+    attention.touch()
+    return service.status()
+  })
   ipcMain.handle('syncServer:attention', (e) =>
     fromWindow(e) ? attention.scan() : Promise.resolve([]),
   )

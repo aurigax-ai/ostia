@@ -12,6 +12,7 @@ import { ServerDevices } from './ServerDevices'
 import { ServerLeaveDialog } from './ServerLeaveDialog'
 import { ServerSignIn } from './ServerSignIn'
 import { serverErrorText } from './serverText'
+import { useServerDevices } from './useServerDevices'
 import { useServerOffer, useServerStatus } from './useServerStatus'
 
 function offerNames(d: Dict, offer: ServerOffer): string[] {
@@ -32,19 +33,9 @@ function SignedInRow({
   onSignOut,
 }: {
   status: ServerStatus
-  onSignOut: () => Promise<void>
+  onSignOut: () => void
 }): JSX.Element {
   const d = useDict()
-  const [busy, setBusy] = useState(false)
-
-  const signOut = async (): Promise<void> => {
-    setBusy(true)
-    try {
-      await onSignOut()
-    } finally {
-      setBusy(false)
-    }
-  }
 
   return (
     <ControlRow
@@ -54,7 +45,7 @@ function SignedInRow({
         provider: providerName(d, status),
       })} ${d.server.signOutDesc}`}
     >
-      <Button variant="outline" size="sm" disabled={busy} onClick={() => void signOut()}>
+      <Button variant="outline" size="sm" onClick={onSignOut}>
         {d.server.signOut}
       </Button>
     </ControlRow>
@@ -66,6 +57,7 @@ export function ServerSection(): JSX.Element {
   const status = useServerStatus()
   const offered = useServerOffer(status.url)
   const names = offered.state === 'ready' ? offerNames(d, offered.offer) : []
+  const devices = useServerDevices(status.signedIn)
   const [leaving, setLeaving] = useState(false)
   const [kept, setKept] = useState(false)
 
@@ -86,18 +78,21 @@ export function ServerSection(): JSX.Element {
             desc={names.length > 0 ? names.join(' · ') : d.server.offerNone}
           />
         ) : null}
-        {status.signedIn ? <SignedInRow status={status} onSignOut={signOut} /> : null}
+        {status.signedIn ? (
+          <SignedInRow status={status} onSignOut={() => setLeaving(true)} />
+        ) : null}
         {!status.signedIn && offered.state === 'ready' ? (
           <ServerSignIn offer={offered.offer} />
         ) : null}
       </SettingsGroup>
       {status.signedIn ? (
         <SettingsGroup title={d.server.devicesLabel}>
-          <ServerDevices onLeave={() => setLeaving(true)} />
+          <ServerDevices state={devices} onLeave={() => setLeaving(true)} />
         </SettingsGroup>
       ) : null}
       <ServerLeaveDialog
         open={leaving}
+        last={devices.loaded && devices.devices.length <= 1}
         onClose={() => setLeaving(false)}
         onConfirm={() => {
           setLeaving(false)

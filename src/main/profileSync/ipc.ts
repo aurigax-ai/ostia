@@ -128,6 +128,7 @@ export function startProfileSync(deps: ProfileSyncIpcDeps): ProfileSyncHandle {
   const elevation = new ServerElevation(deps.server)
   const attention = createSyncAttention({
     active: () => serverChosen() && deps.server.signedIn(),
+    account: () => keyring.target()?.id ?? null,
     announced: { load: () => keyring.announcedItems(), save: (ids) => keyring.saveAnnounced(ids) },
     syncStatus: () => serverSync.status(),
     approvals: () => elevation.approvals(),

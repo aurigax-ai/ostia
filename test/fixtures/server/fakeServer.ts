@@ -270,6 +270,7 @@ export class FakeServer {
     }
     this.syncData.get(device.accountId)?.wraps.delete(`device:${device.id}`)
     this.relay.dropListener(device.id)
+    if (this.accountDevices(device.accountId).length === 0) this.syncData.delete(device.accountId)
   }
 
   reply(res: ServerResponse, status: number, body?: unknown, headers = {}): void {

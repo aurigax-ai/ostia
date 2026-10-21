@@ -3,6 +3,7 @@ import type { ServerApprovalsResult } from '../../../shared/server/serverApi'
 
 export interface SyncAttentionDeps {
   active: () => boolean
+  account: () => string | null
   announced: { load: () => string[]; save: (ids: string[]) => void }
   syncStatus: () => Promise<ServerSyncStatus>
   approvals: () => Promise<ServerApprovalsResult>
@@ -12,12 +13,14 @@ export interface SyncAttentionDeps {
 
 export interface SyncAttentionWatch {
   scan: () => Promise<SyncAttention[]>
+  touch: () => void
   delay: () => number
 }
 
 export const PENDING_SCAN_MS = 8_000
 export const IDLE_SCAN_MS = 60_000
 export const MAX_SCAN_MS = 15 * 60_000
+export const TOUCH_SCAN_MS = 3_000
 
 async function gather(deps: SyncAttentionDeps): Promise<SyncAttention[] | null> {
   const [status, approvals] = await Promise.all([deps.syncStatus(), deps.approvals()])
@@ -55,13 +58,21 @@ async function gather(deps: SyncAttentionDeps): Promise<SyncAttention[] | null> 
 export function createSyncAttention(deps: SyncAttentionDeps): SyncAttentionWatch {
   let current: SyncAttention[] = []
   let announced: Set<string> | null = null
+  let announcedFor: string | null = null
   let failures = 0
+  let lastScan = 0
   let scanning: Promise<SyncAttention[]> | null = null
 
   const run = async (): Promise<SyncAttention[]> => {
-    announced ??= new Set(deps.announced.load())
+    lastScan = Date.now()
     let next: SyncAttention[] = []
+    const account = deps.account()
+    if (account !== announcedFor) {
+      announced = null
+      announcedFor = account
+    }
     if (deps.active()) {
+      announced ??= new Set(deps.announced.load())
       try {
         const gathered = await gather(deps)
         if (!gathered) {
@@ -76,7 +87,14 @@ export function createSyncAttention(deps: SyncAttentionDeps): SyncAttentionWatch
       }
     } else {
       failures = 0
+      announced = null
+      if (current.length > 0) {
+        current = []
+        deps.publish([])
+      }
+      return current
     }
+    if (!announced) return current
     const ids = new Set(next.map((item) => item.id))
     const before = announced.size
     for (const id of announced) if (!ids.has(id)) announced.delete(id)
@@ -95,16 +113,20 @@ export function createSyncAttention(deps: SyncAttentionDeps): SyncAttentionWatch
     return current
   }
 
-  return {
+  const watch: SyncAttentionWatch = {
     scan: () => {
       scanning ??= run().finally(() => {
         scanning = null
       })
       return scanning
     },
+    touch: () => {
+      if (Date.now() - lastScan >= TOUCH_SCAN_MS) void watch.scan()
+    },
     delay: () => {
       if (failures > 0) return Math.min(IDLE_SCAN_MS * 2 ** (failures - 1), MAX_SCAN_MS)
       return current.length > 0 ? PENDING_SCAN_MS : IDLE_SCAN_MS
     },
   }
+  return watch
 }

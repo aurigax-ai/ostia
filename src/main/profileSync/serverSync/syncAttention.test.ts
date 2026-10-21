@@ -1,6 +1,12 @@
 import { describe, expect, it, vi } from 'vitest'
 import type { ServerSyncStatus, SyncAttention } from '../../../shared/profileSync/serverSync'
-import { createSyncAttention, IDLE_SCAN_MS, MAX_SCAN_MS, PENDING_SCAN_MS } from './syncAttention'
+import {
+  createSyncAttention,
+  IDLE_SCAN_MS,
+  MAX_SCAN_MS,
+  PENDING_SCAN_MS,
+  TOUCH_SCAN_MS,
+} from './syncAttention'
 
 const STATUS: ServerSyncStatus = {
   state: 'ready',
@@ -27,9 +33,10 @@ const ask = (id: string): never =>
   }) as never
 
 function setup(saved: string[] = []) {
-  const stored = { ids: saved }
+  const stored = { ids: saved, saves: 0 }
   const state = {
     signedIn: true,
+    account: 'acct-1' as string | null,
     syncCalls: 0,
     status: STATUS,
     approvals: { ok: true, approvals: [] } as Approvals,
@@ -38,10 +45,12 @@ function setup(saved: string[] = []) {
   const notify = vi.fn<(item: SyncAttention) => void>()
   const watch = createSyncAttention({
     active: () => state.signedIn,
+    account: () => state.account,
     announced: {
       load: () => stored.ids,
       save: (ids) => {
         stored.ids = ids
+        stored.saves += 1
       },
     },
     syncStatus: async () => {
@@ -162,5 +171,54 @@ describe('sync attention', () => {
     state.approvals = { ok: true, approvals: [] }
     await watch.scan()
     expect(watch.delay()).toBe(IDLE_SCAN_MS)
+  })
+
+  it('SYA-C109 keeps the saved announced ids while the scanner is inactive', async () => {
+    const { state, watch, stored } = setup(['approval:a1'])
+    state.approvals = { ok: true, approvals: [ask('a1')] }
+    await watch.scan()
+    state.signedIn = false
+    await watch.scan()
+    expect(stored.ids).toEqual(['approval:a1'])
+    expect(stored.saves).toBe(0)
+  })
+
+  it('SYA-C110 loads the announced ids of the account it scans after a switch', async () => {
+    const { state, notify, watch, stored } = setup(['approval:a1'])
+    state.approvals = { ok: true, approvals: [ask('a1')] }
+    await watch.scan()
+    expect(notify).not.toHaveBeenCalled()
+    state.account = 'acct-2'
+    stored.ids = []
+    await watch.scan()
+    expect(notify).toHaveBeenCalledTimes(1)
+    state.signedIn = false
+    state.account = null
+    await watch.scan()
+    state.signedIn = true
+    state.account = 'acct-1'
+    stored.ids = ['approval:a1']
+    notify.mockClear()
+    await watch.scan()
+    expect(notify).not.toHaveBeenCalled()
+  })
+
+  it('SYA-C111 scans when the Settings page asks, at most once every 3 seconds', async () => {
+    vi.useFakeTimers()
+    try {
+      const { state, watch } = setup()
+      watch.touch()
+      await vi.advanceTimersByTimeAsync(0)
+      expect(state.syncCalls).toBe(1)
+      watch.touch()
+      await vi.advanceTimersByTimeAsync(TOUCH_SCAN_MS - 100)
+      expect(state.syncCalls).toBe(1)
+      await vi.advanceTimersByTimeAsync(200)
+      watch.touch()
+      await vi.advanceTimersByTimeAsync(0)
+      expect(state.syncCalls).toBe(2)
+    } finally {
+      vi.useRealTimers()
+    }
   })
 })

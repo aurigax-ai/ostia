@@ -398,6 +398,18 @@ describe('removing a device and rotating the key', () => {
     expect(second.account.signedIn()).toBe(false)
   })
 
+  it('SSY-C76 deletes the synced profile from the server when its last device signs out', async () => {
+    const { server, first } = await world()
+    first.writeSettings({ appearance: { theme: 'dark' } }, 1)
+    await first.sync.run()
+    const id = first.account.identity()?.deviceId ?? ''
+    const account = server.devices.get(id)?.accountId ?? ''
+    expect(server.syncData.get(account)?.manifests.length).toBeGreaterThan(0)
+    expect(await first.account.signOut()).toEqual({ ok: true, deviceKept: false })
+    expect(server.devices.has(id)).toBe(false)
+    expect(server.syncData.has(account)).toBe(false)
+  })
+
   it('SSY-C73 waits for the sign-out hooks, then deletes the device row, then ends the session', async () => {
     const { server, first } = await world()
     const second = await join(server, first)

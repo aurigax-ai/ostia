@@ -1,6 +1,6 @@
 import type { SyncAttention } from '@shared/profileSync/serverSync'
 import type { ServerDevice } from '@shared/server/serverApi'
-import { useCallback, useEffect, useState } from 'react'
+import { useState } from 'react'
 import { Notice } from '@/components/common/Notice'
 import { SettingsList } from '@/components/settingsKit/SettingsList'
 import { SettingsListRow } from '@/components/settingsKit/SettingsListRow'
@@ -15,38 +15,21 @@ import { type RemoveTarget, ServerRemoveDialog } from './ServerRemoveDialog'
 import { serverErrorText } from './serverText'
 import { syncServerErrorText } from './syncServerText'
 import { useElevated } from './useElevated'
+import type { ServerDevicesState } from './useServerDevices'
 import { useSyncServerStatus } from './useSyncServerStatus'
-
-const POLL_MS = 8000
 
 type AskItem = Extract<SyncAttention, { kind: 'approval' }>
 type ChangedItem = Extract<SyncAttention, { kind: 'changed' }>
 
-function useDevices(): [ServerDevice[], () => void, boolean] {
-  const [devices, setDevices] = useState<ServerDevice[]>([])
-  const [loaded, setLoaded] = useState(false)
-  const load = useCallback((): void => {
-    void window.ostia.server.devices().then((res) => {
-      if (res.ok) setDevices(res.devices)
-      setLoaded(true)
-    })
-  }, [])
-  useEffect(() => {
-    load()
-    const timer = setInterval(load, POLL_MS)
-    const off = window.ostia.server.onDevicesChanged(load)
-    return () => {
-      clearInterval(timer)
-      off()
-    }
-  }, [load])
-  return [devices, load, loaded]
-}
-
-export function ServerDevices({ onLeave }: { onLeave: () => void }): JSX.Element {
+export function ServerDevices({
+  state: { devices, loaded, reload },
+  onLeave,
+}: {
+  state: ServerDevicesState
+  onLeave: () => void
+}): JSX.Element {
   const d = useDict()
   const locale = useSettingsStore((s) => s.locale)
-  const [devices, reload, loaded] = useDevices()
   const [sync, setSync] = useSyncServerStatus()
   const elevated = useElevated()
   const [removing, setRemoving] = useState<RemoveTarget | null>(null)

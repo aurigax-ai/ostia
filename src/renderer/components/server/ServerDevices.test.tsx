@@ -5,6 +5,11 @@ import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useSyncAttentionStore } from '@/stores/server/syncAttentionStore'
 import { ServerDevices } from './ServerDevices'
+import { useServerDevices } from './useServerDevices'
+
+function Devices({ onLeave }: { onLeave: () => void }): JSX.Element {
+  return <ServerDevices state={useServerDevices()} onLeave={onLeave} />
+}
 
 const SYNC: ServerSyncStatus = {
   state: 'ready',
@@ -50,7 +55,7 @@ describe('shared device list', () => {
         device({ id: 'd2', name: 'Laptop', current: false, createdAt: Date.now() - 180_000 }),
       ],
     })
-    render(<ServerDevices onLeave={() => {}} />)
+    render(<Devices onLeave={() => {}} />)
     expect(await screen.findByText('This computer')).toBeInTheDocument()
     expect(screen.getByText('Added 3 minutes ago')).toBeInTheDocument()
     expect(screen.getAllByRole('button', { name: 'Remove' })).toHaveLength(2)
@@ -67,7 +72,7 @@ describe('shared device list', () => {
         { kind: 'changed', id: `changed:d2:${until}`, deviceId: 'd2', name: 'Laptop', until },
       ],
     })
-    render(<ServerDevices onLeave={() => {}} />)
+    render(<Devices onLeave={() => {}} />)
     expect(await screen.findByText('Changed')).toBeInTheDocument()
     expect(
       screen.getByText(
@@ -85,7 +90,7 @@ describe('shared device list', () => {
   it("SYA-C125 asks the section to leave the server from this computer's row", async () => {
     const user = userEvent.setup()
     const onLeave = vi.fn()
-    render(<ServerDevices onLeave={onLeave} />)
+    render(<Devices onLeave={onLeave} />)
     await user.click(await screen.findByRole('button', { name: 'Remove' }))
     expect(onLeave).toHaveBeenCalledTimes(1)
     expect(server().signOut).not.toHaveBeenCalled()
@@ -105,7 +110,7 @@ describe('shared device list', () => {
         },
       ],
     })
-    render(<ServerDevices onLeave={() => {}} />)
+    render(<Devices onLeave={() => {}} />)
     expect(await screen.findByText('Studio laptop')).toBeInTheDocument()
     expect(screen.getByText('Asks to confirm a change')).toBeInTheDocument()
     expect(screen.getByText('Approve only if you made this change.')).toBeInTheDocument()
@@ -135,7 +140,7 @@ describe('shared device list', () => {
     ]
     useSyncAttentionStore.setState({ items })
     syncServer().attention.mockResolvedValue(items)
-    render(<ServerDevices onLeave={() => {}} />)
+    render(<Devices onLeave={() => {}} />)
     expect(
       await screen.findByText('Asks to confirm a change · added 2 minutes ago'),
     ).toBeInTheDocument()
@@ -166,7 +171,7 @@ describe('shared device list', () => {
     ]
     useSyncAttentionStore.setState({ items })
     syncServer().attention.mockResolvedValue(items)
-    render(<ServerDevices onLeave={() => {}} />)
+    render(<Devices onLeave={() => {}} />)
     await user.click(await screen.findByRole('button', { name: 'Approve' }))
     expect(await screen.findByText(/This device joined recently/)).toBeInTheDocument()
   })
@@ -181,7 +186,7 @@ describe('shared device list', () => {
       .removeDevice.mockResolvedValueOnce({ ok: false, error: 'elevation-required', status: SYNC })
       .mockResolvedValueOnce({ ok: true, removed: true, rotated: true, status: SYNC })
     server().elevationPoll.mockResolvedValue({ state: 'done' })
-    render(<ServerDevices onLeave={() => {}} />)
+    render(<Devices onLeave={() => {}} />)
     await user.click((await screen.findAllByRole('button', { name: 'Remove' }))[1] as HTMLElement)
     await user.type(screen.getByLabelText('Sync passphrase'), 'a long passphrase')
     await user.click(screen.getByRole('button', { name: 'Remove device' }))
@@ -198,7 +203,7 @@ describe('shared device list', () => {
   it('SSY-C86 makes a one-time code for a new device', async () => {
     const user = userEvent.setup()
     server().createInvite.mockResolvedValue({ ok: true, code: 'ABCD-1234', expiresAt: 0 })
-    render(<ServerDevices onLeave={() => {}} />)
+    render(<Devices onLeave={() => {}} />)
     await user.click(await screen.findByRole('button', { name: 'Make a code' }))
     expect(await screen.findByText('ABCD-1234')).toBeInTheDocument()
     expect(screen.getByText('Waiting for the new device to sign in.')).toBeInTheDocument()

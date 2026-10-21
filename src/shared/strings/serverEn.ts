@@ -53,10 +53,12 @@ export const serverEn = {
     joinCheck: 'Check this code matches the one on {name}.',
     joinDeny: 'Deny',
     leaveBody: 'Signs this computer out of the server. Other devices stay signed in.',
-    leaveConfirm: 'Remove this computer',
+    leaveBodyLast:
+      'This is the only device on this account. Signing out deletes your synced profile from the server.',
+    leaveConfirm: 'Sign out',
     leaveKept:
-      'Signed out. The server keeps this computer in its device list until a server update; remove it from another device.',
-    leaveTitle: 'Remove this computer?',
+      "Signed out here, but the server could not delete this computer's entry. Remove it from another device.",
+    leaveTitle: 'Sign out of the server?',
     linkCode: 'One-time code',
     linkDesc: 'Make a code and enter it on the new device. It expires in 10 minutes.',
     linkLabel: 'Add a device',
@@ -82,7 +84,7 @@ export const serverEn = {
     removeUnwrapped:
       'These devices did not get the new key: {names}. Approve them again or unlock them with the passphrase.',
     signOut: 'Sign out',
-    signOutDesc: "Ends this computer's session and forgets its keys.",
+    signOutDesc: 'Removes this computer from the server and forgets its keys.',
     signedInDesc: 'Signed in as {device} with {provider}.',
     signedInLabel: 'Signed in',
     title: 'Server',

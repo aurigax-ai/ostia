@@ -35,7 +35,7 @@ describe('device keys', () => {
     )
   })
 
-  it('SSY-C5 signs the invite, elevation, revoke, approve and seen messages like the Go reference', () => {
+  it('SSY-C5 signs the invite, elevation, revoke and approve messages like the Go reference', () => {
     const keys = vectorKeys()
     const stamp = 1_700_000_000_000
     expect(signStamped(keys, 'invite', 'dev-1', stamp)).toBe(
