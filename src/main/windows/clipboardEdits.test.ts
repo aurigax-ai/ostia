@@ -5,6 +5,7 @@ import { parseChord } from '../../shared/keyboard/chordSpec'
 import { createGuestRemap } from '../browser/guestRemap'
 import {
   clipboardContents,
+  clipboardItemData,
   filePathsFromUriList,
   isImageFormat,
   registerClipboardEdits,
@@ -35,7 +36,10 @@ const linuxChords = {
   paste: parseChord('Ctrl+Shift+V', false),
 }
 
+const written: unknown[] = []
+
 function setup(formats: string[] = [], mac = false, uriList = '') {
+  written.length = 0
   const app = fakeContents()
   const { ipc, call } = fakeIpc()
   const remap = createGuestRemap({ nativeMenuKey: () => false })
@@ -43,6 +47,9 @@ function setup(formats: string[] = [], mac = false, uriList = '') {
     ipc,
     isAppWindow: (sender) => sender === app,
     snapshot: async () => ({ formats, uriList }),
+    write: async (capture) => {
+      written.push(capture)
+    },
     mac,
     remap,
   })
@@ -75,6 +82,29 @@ describe('registerClipboardEdits', () => {
     const stranger = fakeContents()
     call('clipboard:edit', stranger, 'paste')
     expect(stranger.pasteAndMatchStyle).not.toHaveBeenCalled()
+  })
+
+  it('writes a validated capture for an app window only', async () => {
+    const { app, call } = setup()
+    expect(
+      await call('clipboard:write-capture', app, { text: 'a,b', html: '<table></table>' }),
+    ).toBe(true)
+    expect(written).toEqual([{ text: 'a,b', html: '<table></table>' }])
+    expect(await call('clipboard:write-capture', fakeContents(), { text: 'x' })).toBe(false)
+    expect(await call('clipboard:write-capture', app, { png: new Uint8Array(12) })).toBe(false)
+    expect(await call('clipboard:write-capture', app, {})).toBe(false)
+    expect(written).toHaveLength(1)
+  })
+
+  it('maps a capture to one clipboard item per format', async () => {
+    const data = clipboardItemData({
+      text: 'a',
+      html: '<b>a</b>',
+      png: new Uint8Array([0x89, 0x50]),
+    })
+    expect(Object.keys(data)).toEqual(['text/plain', 'text/html', 'image/png'])
+    expect(await data['text/plain'].text()).toBe('a')
+    expect(Object.keys(clipboardItemData({ text: 'a' }))).toEqual(['text/plain'])
   })
 
   it('reports the clipboard contents only to an app window', async () => {

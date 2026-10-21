@@ -1,5 +1,6 @@
 import { isNativeClipboardKey, type KeyLike } from '@shared/keyboard/chordSpec'
 import type { ClipboardEdit } from '@shared/keyboard/clipboardChords'
+import { copyActivePaneSelection } from '@/lib/agents/selectionCopiers'
 import { chordOf, matchChord, onBindingsChange } from './chords'
 import { isRemappedEvent } from './modifierRemapEvents'
 
@@ -37,12 +38,20 @@ export function handleDocumentClipboardChord(e: KeyboardEvent, mac: boolean): bo
   const edit = clipboardChordOf(e, mac)
   if (!edit) return false
   e.preventDefault()
+  if (edit === 'copy' && !isEditableElement(document.activeElement) && copyActivePaneSelection()) {
+    return true
+  }
   const plan = documentEdit(edit, {
     editable: isEditableElement(document.activeElement),
     hasSelection: Boolean(document.getSelection()?.toString()),
   })
   if (plan) void window.ostia.clipboard.edit(plan)
   return true
+}
+
+export function handleDocumentCopyEvent(e: ClipboardEvent): void {
+  if (e.defaultPrevented || isEditableElement(document.activeElement)) return
+  if (copyActivePaneSelection()) e.preventDefault()
 }
 
 export function syncClipboardChords(mac: boolean): () => void {

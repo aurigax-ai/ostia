@@ -57,5 +57,6 @@ export const windowBridge: Pick<
     edit: (edit) => ipcRenderer.invoke('clipboard:edit', edit),
     contents: () => ipcRenderer.invoke('clipboard:contents'),
     setChords: (chords) => ipcRenderer.send('clipboard:set-chords', chords),
+    writeCapture: (capture) => ipcRenderer.invoke('clipboard:write-capture', capture),
   },
 }

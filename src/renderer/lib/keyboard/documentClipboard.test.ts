@@ -1,9 +1,13 @@
 import { parseChord } from '@shared/keyboard/chordSpec'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { registerSelectionCopier } from '@/lib/agents/selectionCopiers'
 import { useSettingsStore } from '@/stores/app/settingsStore'
+import { useLayoutStore } from '@/stores/workspaces/layoutStore'
+import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import {
   documentEdit,
   handleDocumentClipboardChord,
+  handleDocumentCopyEvent,
   isEditableElement,
   syncClipboardChords,
 } from './documentClipboard'
@@ -178,5 +182,58 @@ describe('handleDocumentClipboardChord with a modifier remap on macOS', () => {
     } finally {
       uninstall()
     }
+  })
+})
+
+describe('the pane copier registry', () => {
+  const layoutBefore = useLayoutStore.getState()
+  const workspacesBefore = useWorkspacesStore.getState()
+
+  beforeEach(() => {
+    useWorkspacesStore.setState({ activeWorkspaceId: 'w1' })
+    useLayoutStore.setState({ byWorkspace: { w1: { activePaneId: 'p1' } as never } })
+  })
+
+  afterEach(() => {
+    useLayoutStore.setState(layoutBefore, true)
+    useWorkspacesStore.setState(workspacesBefore, true)
+  })
+
+  it('answers the copy chord before the native copy', () => {
+    listen()
+    const copy = vi.fn(() => Promise.resolve())
+    const off = registerSelectionCopier('p1', copy)
+    const text = document.createElement('p')
+    document.body.append(text)
+    expect(press(text, copyChord).defaultPrevented).toBe(true)
+    expect(copy).toHaveBeenCalledTimes(1)
+    expect(window.ostia.clipboard.edit).not.toHaveBeenCalled()
+    off()
+  })
+
+  it('leaves a text field to the native copy', () => {
+    listen()
+    const copy = vi.fn(() => Promise.resolve())
+    const off = registerSelectionCopier('p1', copy)
+    const input = document.createElement('input')
+    document.body.append(input)
+    input.focus()
+    press(input, copyChord)
+    expect(copy).not.toHaveBeenCalled()
+    expect(window.ostia.clipboard.edit).toHaveBeenCalledWith('copy')
+    off()
+  })
+
+  it('takes the copy event when the pane has something, and lets it through when not', () => {
+    const copy = vi.fn((): Promise<void> | null => Promise.resolve())
+    const off = registerSelectionCopier('p1', copy)
+    const taken = new Event('copy', { cancelable: true }) as ClipboardEvent
+    handleDocumentCopyEvent(taken)
+    expect(taken.defaultPrevented).toBe(true)
+    copy.mockReturnValue(null)
+    const passed = new Event('copy', { cancelable: true }) as ClipboardEvent
+    handleDocumentCopyEvent(passed)
+    expect(passed.defaultPrevented).toBe(false)
+    off()
   })
 })
