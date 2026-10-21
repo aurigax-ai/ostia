@@ -130,6 +130,7 @@ export class ExtensionContributions {
       )
       .map((rt) => ({
         extId: rt.ext.manifest.id,
+        builtin: rt.ext.builtin,
         dir: rt.ext.dir,
         skills: rt.ext.manifest.contributes.agentSkills ?? [],
         hooks: rt.ext.manifest.contributes.agentHooks ?? [],

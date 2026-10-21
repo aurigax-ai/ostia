@@ -8,6 +8,7 @@ import {
   AGENT_SKILL_MAX_BYTES,
   skillDirective,
 } from '../contract/agentPlugins'
+import { PRODUCT_NAME } from '../contract/product'
 import {
   agentPluginContent,
   agentSkillProblems,
@@ -261,6 +262,42 @@ describe('loadAgentSkill', () => {
     expect(res.skill.files[0]?.data.toString()).toBe(
       '---\nname: kit-review\ndescription: Use when reviewing.\n---\n\n# Review\n',
     )
+  })
+
+  it('keeps the bare name of a built-in extension’s skill and refuses it for any other', () => {
+    const bare = { ...skill(), bare: true }
+    const builtin = loadAgentSkill(ext, 'kit', bare, true)
+    if (!builtin.ok) throw new Error(builtin.error)
+    expect(builtin.skill.id).toBe('review')
+    expect(builtin.skill.files[0]?.data.toString()).toContain('name: review\n')
+    expect(loadAgentSkill(ext, 'kit', bare)).toEqual({
+      ok: false,
+      error: 'only a built-in extension may use a bare skill name',
+    })
+  })
+
+  it('refuses a bare skill that takes the product’s own skill name', () => {
+    const own = { name: PRODUCT_NAME, path: 'skills/review', files: [], bare: true }
+    expect(loadAgentSkill(ext, 'kit', own, true)).toEqual({
+      ok: false,
+      error: `'${PRODUCT_NAME}' is a reserved skill name`,
+    })
+  })
+
+  it('reports a second skill with a taken id and keeps the first', () => {
+    const problems: string[] = []
+    const source = (extId: string) => ({
+      extId,
+      builtin: true,
+      dir: ext,
+      skills: [{ ...skill(), bare: true }],
+      hooks: [],
+    })
+    const content = agentPluginContent([source('one'), source('two')], (id, problem) =>
+      problems.push(`${id}: ${problem}`),
+    )
+    expect(content.skills.map((s) => s.id)).toEqual(['review'])
+    expect(problems).toEqual(["two: agent skill 'review': 'review' is already taken"])
   })
 
   it('accepts a skill of exactly the total size and refuses one a byte over', () => {

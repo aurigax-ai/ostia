@@ -9,8 +9,14 @@ import {
 } from '@aurigax-ai/ostia-extension-sdk/panel'
 import en from './locales/en.json'
 import zhHant from './locales/zh-Hant.json'
+import { createParkedView } from './parkedRows'
+import type { ParkedView } from './parkedView'
+import type { RememberState } from './rememberItem'
+import { createRememberView } from './rememberRows'
+import type { RememberView } from './rememberView'
 import { ageText, createListView, type ListContent, type RowEnv } from './rows'
-import { liveKeys, type NoteView, type PanelModel, type PanelSnapshot, widen } from './view'
+import type { PanelSnapshot } from './snapshot'
+import { liveKeys, type NoteView, type PanelModel, widen } from './view'
 
 const AGE_REFRESH_MS = 30_000
 const TITLE_POLL_MS = 2000
@@ -18,13 +24,25 @@ const MORE_MARGIN_PX = 200
 
 const t = panelTranslator({ en: en.messages, 'zh-Hant': zhHant.messages })
 
+type Tab = 'activity' | 'parked' | 'remember'
+
 const root = document.getElementById('root') as HTMLElement
-const list = h('main', { class: 'list' })
+const list = h('div', { class: 'list' })
+const rememberList = h('div', { class: 'list' })
+const viewSwitch = h('div', { class: 'filters', role: 'group', 'aria-label': t('view.label') })
+const activityPage = h('main', { class: 'tab-page' }, viewSwitch, list)
+const rememberPage = h('main', { class: 'tab-page', hidden: true }, rememberList)
+const parkedList = h('div', { class: 'list' })
+const parkedPage = h('main', { class: 'tab-page', hidden: true }, parkedList)
+const parkedLines = new Map<string, { text: string; error: boolean }>()
+let tab: Tab = new URLSearchParams(location.search).get('tab') === 'parked' ? 'parked' : 'activity'
+let rememberFilter: RememberState = 'open'
 const paneNotes = new Map<string, string>()
 const noteFailures = new Map<string, string>()
 const openGroups = new Set<string>()
 const limits = new Map<string, number>()
-let model: (PanelModel & { rev: string }) | null = null
+let model: (PanelModel & { rev: string; remember: RememberView; parked: ParkedView[] }) | null =
+  null
 let loadError: string | null = null
 let localVersion = 0
 let refreshing = false
@@ -64,6 +82,41 @@ const moreObserver = new IntersectionObserver(
 )
 
 const show = createListView(list, env)
+const showParked = createParkedView(parkedList, {
+  t,
+  now: Date.now,
+  resume: (id) => void parkedAct(id, 'parkedResume'),
+  forget: (id) => void parkedAct(id, 'parkedForget'),
+  line: (id) => parkedLines.get(id),
+})
+const showRemember = createRememberView(rememberList, {
+  t,
+  now: Date.now,
+  setState: (id, state) => void setRememberState(id, state),
+  focusPane: (paneId) => void focusPane(paneId, paneNotes, paneId),
+  setFilter: (filter) => {
+    rememberFilter = filter
+    render()
+  },
+})
+
+for (const [value, label] of [
+  [false, 'view.recap'],
+  [true, 'view.timeline'],
+] as const) {
+  viewSwitch.append(
+    h(
+      'button',
+      {
+        class: 'quiet',
+        type: 'button',
+        'data-timeline': String(value),
+        onClick: () => void setShowActivity(value),
+      },
+      t(label),
+    ),
+  )
+}
 
 function refreshAges(): void {
   for (const el of list.querySelectorAll<HTMLElement>('time[data-t]')) {
@@ -103,9 +156,33 @@ function content(): ListContent | null {
 }
 
 function render(): void {
-  if (model) setPanelToolbar({ tab: model.showActivity ? 'activity' : 'recap' })
+  if (model) {
+    const { counts } = model.remember
+    setPanelToolbar({
+      tab,
+      badges: {
+        ...(model.parked.length > 0 ? { parked: model.parked.length } : {}),
+        ...(counts.open > 0 ? { remember: counts.open } : {}),
+      },
+    })
+    for (const button of viewSwitch.children) {
+      setAttribute(button, model.showActivity)
+    }
+    showRemember(model.remember, rememberFilter)
+    showParked(model.parked)
+  }
+  activityPage.hidden = tab !== 'activity'
+  parkedPage.hidden = tab !== 'parked'
+  rememberPage.hidden = tab !== 'remember'
   const next = content()
   if (next) show(next)
+}
+
+function setAttribute(button: Element, timeline: boolean): void {
+  button.setAttribute(
+    'aria-pressed',
+    String((button as HTMLElement).dataset.timeline === String(timeline)),
+  )
 }
 
 async function load(): Promise<void> {
@@ -152,6 +229,34 @@ async function markDone(workspaceId: string, id: string): Promise<void> {
   else render()
 }
 
+function parkedFailure(res: { error: string; message?: string }): string {
+  if (res.error === 'folder-gone') return t('parked.folderGone', { path: res.message ?? '' })
+  if (res.error === 'running-elsewhere') {
+    return t('parked.runningElsewhere', { tab: res.message ?? '' })
+  }
+  if (res.error === 'workspace-closed') return t('parked.workspaceClosed')
+  if (res.error === 'unknown-parked') return t('parked.gone')
+  return t('parked.failed', { reason: errorText({ ok: false, ...res }) })
+}
+
+async function parkedAct(id: string, command: 'parkedResume' | 'parkedForget'): Promise<void> {
+  const res = await call(command, { id })
+  if (res.ok) {
+    if (command === 'parkedResume')
+      parkedLines.set(id, { text: t('parked.resuming'), error: false })
+    else parkedLines.delete(id)
+  } else {
+    parkedLines.set(id, { text: parkedFailure(res), error: true })
+  }
+  await refresh()
+  render()
+}
+
+async function setRememberState(id: string, state: RememberState): Promise<void> {
+  await call('rememberState', { id, state })
+  await refresh()
+}
+
 async function setShowActivity(value: boolean): Promise<void> {
   if (!model || model.showActivity === value) return
   model = { ...model, showActivity: value, rev: '' }
@@ -174,10 +279,14 @@ async function focusPane(
   render()
 }
 
-root.replaceChildren(h('div', { class: 'ostia-page' }, list))
+root.replaceChildren(h('div', { class: 'ostia-page' }, activityPage, parkedPage, rememberPage))
 
 onPanelToolbar((event) => {
-  if (event.kind === 'tab') void setShowActivity(event.id === 'activity')
+  if (event.kind !== 'tab') return
+  if (event.id === 'activity' || event.id === 'parked' || event.id === 'remember') {
+    tab = event.id
+    render()
+  }
 })
 onChange(() => void refresh())
 setInterval(refreshAges, AGE_REFRESH_MS)

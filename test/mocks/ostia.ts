@@ -274,6 +274,9 @@ export function makeOstiaMock(overrides?: Partial<OstiaBridge>): OstiaBridge {
       openLink: vi.fn().mockResolvedValue(true),
       project: vi.fn().mockResolvedValue(null),
     },
+    park: {
+      pane: vi.fn().mockResolvedValue({ ok: false, reason: 'unavailable' }),
+    },
     agentSession: {
       info: vi.fn().mockResolvedValue(null),
       claimResume: vi.fn().mockResolvedValue({ ok: true }),

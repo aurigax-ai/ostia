@@ -319,7 +319,15 @@ export function parseAgentSkills(raw: unknown, dir: string): AgentSkillContribut
       }
     }
     if (new Set(files).size !== files.length) return `${where}: duplicate file`
-    skills.push({ name: item.name, path: item.path, files: files as string[] })
+    if (item.bare !== undefined && typeof item.bare !== 'boolean') {
+      return `${where}: bare must be true or false`
+    }
+    skills.push({
+      name: item.name,
+      path: item.path,
+      files: files as string[],
+      ...(item.bare === true ? { bare: true } : {}),
+    })
   }
   return skills
 }

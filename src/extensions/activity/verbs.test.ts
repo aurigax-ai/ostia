@@ -4,6 +4,8 @@ import { join } from 'node:path'
 import type { ExtensionCaller, ExtensionResult } from '@aurigax-ai/ostia-extension-sdk'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { JOURNAL_DIR, Journal } from './journal'
+import { RememberStore } from './remember'
+import { rememberVerbs } from './rememberVerbs'
 import { activityVerbs, type Entry } from './verbs'
 
 const NOW = Date.UTC(2026, 9, 14, 12)
@@ -35,6 +37,14 @@ describe('ostia activity verbs', () => {
       changed: () => {
         changes++
       },
+      remembered: rememberVerbs({
+        store: new RememberStore({ dir: null, now: () => NOW }),
+        now: () => NOW,
+        redact: async (texts) => texts,
+        workspaceKind: async (id) => kinds[id] ?? null,
+        paneSession: async () => null,
+        changed: () => {},
+      }),
     })
   const run = (verb: string, argv: string[], caller: ExtensionCaller): Promise<ExtensionResult> =>
     Promise.resolve(verbs()[verb]?.({ argv }, caller)) as Promise<ExtensionResult>

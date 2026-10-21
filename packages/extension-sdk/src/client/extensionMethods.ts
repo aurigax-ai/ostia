@@ -28,6 +28,8 @@ import {
   type ExecResult,
   type McpCallReply,
   type McpServersResult,
+  type ParkedActResult,
+  type ParkedListResult,
   rpcFailure,
   type WakePaneResult,
 } from './workApi'
@@ -248,6 +250,9 @@ export function serviceMethods(
   | 'agentEvent'
   | 'agentTool'
   | 'agentComplete'
+  | 'parkedList'
+  | 'parkedResume'
+  | 'parkedForget'
   | 'connections'
   | 'connection'
   | 'onConnectionsChanged'
@@ -299,6 +304,15 @@ export function serviceMethods(
           'agent-complete-failed',
         ),
       ),
+    parkedList: (workspaceId) =>
+      sentRpc(
+        conn.sendRequest<ParkedListResult>('ext.parkedList', { workspaceId }),
+        'parked-failed',
+      ),
+    parkedResume: (id) =>
+      sentRpc(conn.sendRequest<ParkedActResult>('ext.parkedResume', { id }), 'parked-failed'),
+    parkedForget: (id) =>
+      sentRpc(conn.sendRequest<ParkedActResult>('ext.parkedForget', { id }), 'parked-failed'),
     mcpServers: () =>
       sentRpc(conn.sendRequest<McpServersResult>('ext.mcpServers'), 'mcp-servers-failed'),
     connections: () =>
