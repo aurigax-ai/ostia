@@ -45,6 +45,7 @@ export const commandsZhHant: typeof commandsEn = {
     },
     titles: {
       'agent.forkConversation': '分支代理程式對話',
+      'agent.newSession': '代理：新工作階段',
       'agent.open': '代理：開啟窗格',
       'agent.resume': '恢復代理程式',
       'app.browseExtensions': '瀏覽擴充功能',

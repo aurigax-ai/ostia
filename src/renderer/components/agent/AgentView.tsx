@@ -9,17 +9,11 @@ import { useChatContext } from '@/components/chat/useChatContext'
 import { focusAtEnd } from '@/components/chat/useChatFocus'
 import { fmt, useDict } from '@/lib/app/useDict'
 import { decodeChatError } from '@/lib/assist/chatTransport'
-import {
-  agentAttachmentKey,
-  agentChatFor,
-  startNewAgentSession,
-  useAgentStore,
-} from '@/stores/agent/agentStore'
+import { agentAttachmentKey, agentChatFor, useAgentStore } from '@/stores/agent/agentStore'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useChatStore } from '@/stores/assist/chatStore'
 import { retryPendingFocus } from '@/stores/workspaces/surfaceSlotsStore'
 import { AgentComposer } from './AgentComposer'
-import { AgentHeader } from './AgentHeader'
 
 const NO_ATTACHMENTS: ChatContextItem[] = []
 const NO_STOPPED: ReadonlySet<string> = new Set()
@@ -94,16 +88,8 @@ export function AgentView({
   const modelName = model ? model.model : null
   const waiting =
     busy && (last?.role === 'user' || !last?.parts.some((p) => p.type !== 'step-start'))
-  const title = useMemo(() => {
-    const first = messages.find((m) => m.role === 'user')
-    const text = first?.parts.find((p) => p.type === 'text')
-    return text && text.type === 'text' && text.text.trim()
-      ? text.text.trim().slice(0, 60)
-      : d.agentPane.paneTitle
-  }, [messages, d.agentPane.paneTitle])
   return (
     <div className="chat-view relative flex h-full min-h-0 flex-col bg-bg">
-      <AgentHeader title={title} busy={busy} onNew={() => void startNewAgentSession(workspaceId)} />
       <ChatReviewBar sessionId={sessionId} />
       <ChatConversation
         variant="pane"
