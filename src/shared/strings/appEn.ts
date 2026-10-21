@@ -155,6 +155,21 @@ export const appEn = {
       done: 'Signed in. You can close this tab and return to {product}.',
       failed: 'Sign-in did not finish. Return to {product} and try again.',
     },
+    syncAttention: {
+      approval: { body: '{name} asks you to confirm it.', title: 'Confirmation requested' },
+      changed: {
+        body: '{names}: keys or creation date changed. Review them in Settings › Server.',
+        title: 'A synced device changed',
+      },
+      join: {
+        body: '{name} wants to join your synced data. Check its code in the app.',
+        title: 'A device wants your synced data',
+      },
+      newDevice: {
+        body: '{name} was added to your account. If it was not you, remove it in Settings › Server.',
+        title: 'New device on your account',
+      },
+    },
     tray: { quit: 'Quit', show: 'Show', unread: '{count} unread' },
     updateTitle: 'Update {product}',
     userPresence: {

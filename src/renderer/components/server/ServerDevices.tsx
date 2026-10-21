@@ -7,6 +7,7 @@ import { SettingsListRow } from '@/components/settingsKit/SettingsListRow'
 import { Button } from '@/components/ui/button'
 import { fmt, useDict } from '@/lib/app/useDict'
 import { useSettingsStore } from '@/stores/app/settingsStore'
+import { refreshSyncAttention } from '@/stores/server/syncAttentionStore'
 import { ageText } from './deviceAge'
 import { ServerApprovals } from './ServerApprovals'
 import { ServerJoinRequests } from './ServerJoinRequests'
@@ -70,6 +71,7 @@ export function ServerDevices(): JSX.Element {
   const markSeen = async (id: string): Promise<void> => {
     await window.ostia.server.markSeen(id)
     reload()
+    void refreshSyncAttention()
   }
 
   const fresh = devices.filter((device) => device.isNew)

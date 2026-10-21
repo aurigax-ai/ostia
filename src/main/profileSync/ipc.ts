@@ -4,8 +4,10 @@ import { isRecord } from '@aurigax-ai/ostia-extension-sdk/contract/isRecord'
 import { app, BrowserWindow, dialog, ipcMain } from 'electron'
 import { debounce, throttle } from 'es-toolkit'
 import type { SecretActionResult, SyncStatus } from '../../shared/profileSync/profileSync'
+import type { SyncAttention } from '../../shared/profileSync/serverSync'
 import type { ServerAccount } from '../server/serverAccount'
 import { ServerDevices } from '../server/serverDevices'
+import { ServerElevation } from '../server/serverElevation'
 import { type DetectSecrets, ProfileSync } from './engine'
 import { FolderMethod } from './folderMethod'
 import { PROFILE_FOLDERS, SECRETS_FILE, SETTINGS_FILE, type SyncedExtension } from './profile'
@@ -13,12 +15,14 @@ import { type Protect, type SecretSource, SecretSync } from './secrets'
 import { createServerTarget } from './serverSync/serverMethod'
 import { registerServerSyncIpc } from './serverSync/serverSyncIpc'
 import { ServerSyncService } from './serverSync/serverSyncService'
+import { createSyncAttention } from './serverSync/syncAttention'
 import { SyncKeyring } from './serverSync/syncKeyring'
 import { createSyncKeyStore, type SyncKeyFile } from './serverSync/syncKeyStore'
 import { expandSyncDir } from './syncDir'
 
 const FOCUS_THROTTLE_MS = 2000
 const WATCH_DEBOUNCE_MS = 800
+const ATTENTION_SCAN_MS = 8000
 const MARKETPLACES_FILE = 'marketplaces.json'
 const SECRET_INPUT_MAX = 1024
 
@@ -36,6 +40,7 @@ export interface ProfileSyncIpcDeps {
   protect: Protect
   server: ServerAccount
   syncKeyFile: SyncKeyFile
+  notifyAttention: (item: SyncAttention) => void
 }
 
 export interface ProfileSyncHandle {
@@ -116,12 +121,28 @@ export function startProfileSync(deps: ProfileSyncIpcDeps): ProfileSyncHandle {
   watchDir(deps.userData, new Set([SETTINGS_FILE, MARKETPLACES_FILE]))
   for (const folder of PROFILE_FOLDERS) watchDir(join(deps.configDir, folder.name), null)
 
+  const serverSync = new ServerSyncService({
+    account: deps.server,
+    keyring,
+    devices: new ServerDevices(deps.server),
+  })
+  const elevation = new ServerElevation(deps.server)
+  const attention = createSyncAttention({
+    signedIn: () => deps.server.signedIn(),
+    syncStatus: () => serverSync.status(),
+    devices: () => deps.server.devices(),
+    approvals: () => elevation.approvals(),
+    publish: (items) => deps.broadcast('syncServer:attention', items),
+    notify: deps.notifyAttention,
+  })
+  const scanAttention = (): void => void attention.scan()
+  const offDevices = deps.server.onDevicesChanged(scanAttention)
+  const offAccount = deps.server.onChange(scanAttention)
+  const attentionTimer = setInterval(scanAttention, ATTENTION_SCAN_MS)
+  attentionTimer.unref()
   registerServerSyncIpc({
-    service: new ServerSyncService({
-      account: deps.server,
-      keyring,
-      devices: new ServerDevices(deps.server),
-    }),
+    service: serverSync,
+    attention,
     run,
     broadcast: deps.broadcast,
   })
@@ -202,6 +223,9 @@ export function startProfileSync(deps: ProfileSyncIpcDeps): ProfileSyncHandle {
     stop: () => {
       app.off('browser-window-focus', onFocus)
       runSoon.cancel()
+      clearInterval(attentionTimer)
+      offDevices()
+      offAccount()
       for (const watcher of watchers) watcher.close()
     },
   }

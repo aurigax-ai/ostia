@@ -1,9 +1,11 @@
 import { type IpcMainInvokeEvent, ipcMain } from 'electron'
 import type { ServerSyncResult, ServerSyncStatus } from '../../../shared/profileSync/serverSync'
 import type { ServerSyncService } from './serverSyncService'
+import type { SyncAttentionWatch } from './syncAttention'
 
 export interface ServerSyncIpcDeps {
   service: ServerSyncService
+  attention: SyncAttentionWatch
   run: () => Promise<unknown>
   broadcast: (channel: string, payload?: unknown) => void
 }
@@ -41,7 +43,12 @@ function fromWindow(e: IpcMainInvokeEvent): boolean {
   return e.sender.getType() === 'window'
 }
 
-export function registerServerSyncIpc({ service, run, broadcast }: ServerSyncIpcDeps): void {
+export function registerServerSyncIpc({
+  service,
+  attention,
+  run,
+  broadcast,
+}: ServerSyncIpcDeps): void {
   const act = (
     channel: string,
     arity: number,
@@ -61,6 +68,9 @@ export function registerServerSyncIpc({ service, run, broadcast }: ServerSyncIpc
 
   ipcMain.handle('syncServer:status', (e) =>
     fromWindow(e) ? service.status() : Promise.resolve(REFUSED_STATUS),
+  )
+  ipcMain.handle('syncServer:attention', (e) =>
+    fromWindow(e) ? attention.scan() : Promise.resolve([]),
   )
   act('syncServer:setup', 2, (pw, confirm) => service.setup(pw ?? '', confirm ?? ''))
   act('syncServer:unlock', 1, (pw) => service.unlock(pw ?? ''))

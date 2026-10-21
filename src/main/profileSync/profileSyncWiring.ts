@@ -1,6 +1,10 @@
 import { statSync } from 'node:fs'
-import { app, safeStorage } from 'electron'
+import { app, type BrowserWindow, safeStorage } from 'electron'
+import { type Dict, fmt } from '../../shared/app/dict'
 import { parsePrivacySettings } from '../../shared/privacy/redaction'
+import type { SyncAttention } from '../../shared/profileSync/serverSync'
+import { postActionNotification } from '../attention/notify'
+import type { NotifyWiring } from '../attention/notifyWiring'
 import { credentials } from '../browser/credentials'
 import type { ExtensionHost } from '../extensions/extensionHost'
 import type { SecretStoreDeps } from '../extensions/extensionSecrets'
@@ -24,6 +28,28 @@ interface ProfileSyncStartDeps {
   encryptedFile: (path: string) => SecretStoreDeps
   redactionScan: WorkerScan
   server: ServerAccount
+  mainStrings: () => Dict
+  notifyDeps: NotifyWiring['notifyDeps']
+  windows: Map<string, BrowserWindow>
+}
+
+function attentionText(
+  text: Dict['native']['syncAttention'],
+  item: SyncAttention,
+): { title: string; body: string } {
+  switch (item.kind) {
+    case 'join':
+      return { title: text.join.title, body: fmt(text.join.body, { name: item.name }) }
+    case 'new-device':
+      return { title: text.newDevice.title, body: fmt(text.newDevice.body, { name: item.name }) }
+    case 'approval':
+      return { title: text.approval.title, body: fmt(text.approval.body, { name: item.name }) }
+    case 'changed':
+      return {
+        title: text.changed.title,
+        body: fmt(text.changed.body, { names: item.names.join(', ') }),
+      }
+  }
 }
 
 export function startProfileSyncWiring({
@@ -34,6 +60,9 @@ export function startProfileSyncWiring({
   encryptedFile,
   redactionScan,
   server,
+  mainStrings,
+  notifyDeps,
+  windows,
 }: ProfileSyncStartDeps) {
   const syncKeyPath = storePath('sync-server', 'global')
   services.profileSync = startProfileSync({
@@ -75,6 +104,18 @@ export function startProfileSyncWiring({
       decrypt: (kept) => safeStorage.decryptString(Buffer.from(kept, 'base64')),
     },
     server,
+    notifyAttention: (item) =>
+      postActionNotification(
+        notifyDeps,
+        { ...attentionText(mainStrings().native.syncAttention, item), from: 'sync' },
+        () => {
+          const win = [...windows.values()].find((w) => !w.isDestroyed())
+          if (!win) return
+          if (win.isMinimized()) win.restore()
+          win.show()
+          win.focus()
+        },
+      ),
     syncKeyFile: {
       load: () => loadJson<unknown>(syncKeyPath, {}),
       save: (data) => saveJson(syncKeyPath, data, { secure: true }),

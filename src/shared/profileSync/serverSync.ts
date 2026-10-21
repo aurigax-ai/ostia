@@ -36,6 +36,19 @@ export interface ServerSyncStatus {
   changedDevices: string[]
 }
 
+export type SyncAttention =
+  | { kind: 'join'; id: string; deviceId: string; name: string; code: string; createdAt: number }
+  | { kind: 'new-device'; id: string; deviceId: string; name: string; createdAt: number }
+  | {
+      kind: 'approval'
+      id: string
+      approvalId: string
+      name: string
+      deviceCreatedAt: number
+      createdAt: number
+    }
+  | { kind: 'changed'; id: string; names: string[] }
+
 export type ServerSyncError =
   | 'too-short'
   | 'mismatch'
@@ -88,6 +101,8 @@ interface ServerSyncApi {
   newRecoveryKey: () => Promise<ServerSyncResult>
   collectGarbage: () => Promise<ServerSyncResult>
   onStatus: (cb: (status: ServerSyncStatus) => void) => () => void
+  attention: () => Promise<SyncAttention[]>
+  onAttention: (cb: (items: SyncAttention[]) => void) => () => void
 }
 
 export interface ServerSyncBridge {

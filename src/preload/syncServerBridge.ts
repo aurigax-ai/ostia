@@ -19,5 +19,7 @@ export const syncServerBridge: Pick<OstiaBridge, 'syncServer'> = {
     newRecoveryKey: () => ipcRenderer.invoke('syncServer:new-recovery-key'),
     collectGarbage: () => ipcRenderer.invoke('syncServer:gc'),
     onStatus: (cb) => listen('syncServer:status', cb),
+    attention: () => ipcRenderer.invoke('syncServer:attention'),
+    onAttention: (cb) => listen('syncServer:attention', cb),
   },
 }

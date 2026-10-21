@@ -4,6 +4,7 @@ import { ControlRow } from '@/components/settingsKit/ControlRow'
 import { Button } from '@/components/ui/button'
 import { fmt, useDict } from '@/lib/app/useDict'
 import { useSettingsStore } from '@/stores/app/settingsStore'
+import { refreshSyncAttention } from '@/stores/server/syncAttentionStore'
 import { ageText } from './deviceAge'
 import { syncServerErrorText } from './syncServerText'
 import { useSyncServerStatus } from './useSyncServerStatus'
@@ -19,6 +20,7 @@ export function ServerJoinRequests(): JSX.Element | null {
     const res = await window.ostia.syncServer.approveJoin(join.deviceId, join.code)
     setStatus(res.status)
     setError(res.ok ? null : syncServerErrorText(d, res.error))
+    void refreshSyncAttention()
   }
 
   const shown = status.joins.filter((j) => !denied.has(j.deviceId))

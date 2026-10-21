@@ -25,6 +25,7 @@ export function defaultChord(id: keyof typeof DEFAULT_CHORDS, mac: boolean): str
 export const chords = {
   newWorkspace: isMac ? 'Meta+n' : 'Control+Shift+N',
   palette: defaultChord('palette.toggle', isMac),
+  dashboard: defaultChord('dashboard.toggle', isMac),
   find: isMac ? 'Meta+f' : 'Control+Shift+f',
   copy: isMac ? 'Meta+c' : 'Control+Shift+c',
   paste: isMac ? 'Meta+v' : 'Control+Shift+v',

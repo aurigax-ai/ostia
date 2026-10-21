@@ -4,6 +4,7 @@ import { ControlRow } from '@/components/settingsKit/ControlRow'
 import { Button } from '@/components/ui/button'
 import { fmt, useDict } from '@/lib/app/useDict'
 import { useSettingsStore } from '@/stores/app/settingsStore'
+import { refreshSyncAttention } from '@/stores/server/syncAttentionStore'
 import { ageText } from './deviceAge'
 import { type ServerErrorCode, serverErrorText } from './serverText'
 
@@ -35,6 +36,7 @@ export function ServerApprovals(): JSX.Element | null {
     const res = await window.ostia.server.approve(id)
     setError(res.ok ? null : res.error)
     if (res.ok) setAsks((list) => list.filter((a) => a.id !== id))
+    void refreshSyncAttention()
   }
 
   const shown = asks.filter((a) => !denied.has(a.id))

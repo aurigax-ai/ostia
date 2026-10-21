@@ -4,9 +4,12 @@
     "src/main/profileSync/argon2.",
     "src/main/profileSync/serverSync/",
     "src/renderer/components/settings/SyncServer",
-    "src/shared/profileSync/serverSync."
+    "src/shared/profileSync/serverSync.",
+    "src/renderer/components/agents/SyncAttentionCard.",
+    "src/renderer/stores/server/"
   ],
   "specs": [
-    "e2e/server-sync.spec.ts"
+    "e2e/server-sync.spec.ts",
+    "e2e/sync-attention.spec.ts"
   ]
 }

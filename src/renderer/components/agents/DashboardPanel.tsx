@@ -24,6 +24,7 @@ import { useApprovalsStore } from '@/stores/agents/approvalsStore'
 import { useAttentionStore } from '@/stores/agents/attentionStore'
 import { useQuestionsStore } from '@/stores/agents/questionsStore'
 import { useUIStore } from '@/stores/app/uiStore'
+import { timedAttention, useSyncAttentionStore } from '@/stores/server/syncAttentionStore'
 import { useBlocksStore } from '@/stores/terminal/blocksStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { useWindowsStore } from '@/stores/workspaces/windowsStore'
@@ -31,6 +32,7 @@ import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import type { Workspace } from '@/stores/workspaces/workspaceTypes'
 import { AgentComposer } from './AgentComposer'
 import { NeedsYouCard, useWhere } from './NeedsYouCard'
+import { SyncAttentionCard } from './SyncAttentionCard'
 
 const OPEN_POPUP = '[role="dialog"], [role="listbox"], [role="menu"]'
 const FIRST_CONTROL = '[role="radio"], [role="checkbox"], textarea, button'
@@ -127,17 +129,26 @@ function NeedsYou(): JSX.Element {
   const approvals = useApprovalsStore((s) => s.pending)
   const whereOf = useWhere()
   const items = needsYouItems(questions, sent, approvals)
-  const waiting = questions.length + approvals.length
+  const attention = useSyncAttentionStore((s) => s.items)
+  const seenAt = useSyncAttentionStore((s) => s.seenAt)
+  const hidden = useSyncAttentionStore((s) => s.hidden)
+  const sync = timedAttention(attention, seenAt, hidden)
+  const waiting = questions.length + approvals.length + sync.length
   return (
     <section aria-label={d.dashboard.needsYou} className="flex flex-col gap-2">
       <SectionTitle title={d.dashboard.needsYou} count={waiting} />
-      {items.length === 0 ? (
+      {items.length === 0 && sync.length === 0 ? (
         <EmptyLine>{d.dashboard.needsYouEmpty}</EmptyLine>
       ) : (
         <ul className="flex flex-col gap-2">
           {items.map((item) => (
             <li key={item.id}>
               <NeedsYouCard item={item} where={whereOf(item)} />
+            </li>
+          ))}
+          {sync.map(({ item, at }) => (
+            <li key={item.id}>
+              <SyncAttentionCard item={item} at={at} />
             </li>
           ))}
         </ul>

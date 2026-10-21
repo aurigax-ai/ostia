@@ -45,6 +45,7 @@ describe('inbox cards', () => {
       questions: [question('late', 'mine-1', 30), question('other', 'theirs', 5)],
       sent: [],
       approvals: [approval('mid', 'w1', 20), approval('elsewhere', 'w2', 1)],
+      sync: [],
       notes: [{ id: 'abcdefghij', text: 'note', paneId: 'p1', at: 10 }],
       workspaceId: 'w1',
       whereOf,
@@ -58,6 +59,7 @@ describe('inbox cards', () => {
       questions: [question('q', 'mine-1', 1)],
       sent: [],
       approvals: [approval('a', 'w1', 2)],
+      sync: [],
       notes: [
         { id: 'abcdefghij', text: 'n', at: 3 },
         { id: 'bcdefghijk', text: 'm', paneId: 'p9', at: 4 },
@@ -74,11 +76,42 @@ describe('inbox cards', () => {
       questions: [question('open', 'mine-1', 2)],
       sent: [answered],
       approvals: [approval('a', 'w1', 3)],
+      sync: [],
       notes: [{ id: 'abcdefghij', text: 'n', at: 4 }],
       workspaceId: 'w1',
       whereOf,
     })
     expect(cards).toHaveLength(4)
     expect(waitingCount(cards)).toBe(3)
+  })
+
+  it('SYA-C130 shows a sync card in every workspace, counts it as waiting and has no pane', () => {
+    const sync = [
+      {
+        item: {
+          kind: 'join' as const,
+          id: 'join:d2',
+          deviceId: 'd2',
+          name: 'Phone',
+          code: 'AAAAA-BBBBB',
+          createdAt: 5,
+        },
+        at: 5,
+      },
+    ]
+    for (const workspaceId of ['w1', 'w2']) {
+      const cards = inboxCards({
+        questions: [],
+        sent: [],
+        approvals: [],
+        sync,
+        notes: [],
+        workspaceId,
+        whereOf,
+      })
+      expect(cards.map((c) => c.kind)).toEqual(['sync'])
+      expect(cardPane(cards[0])).toBeUndefined()
+      expect(waitingCount(cards)).toBe(1)
+    }
   })
 })

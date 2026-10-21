@@ -703,6 +703,8 @@ export function makeOstiaMock(overrides?: Partial<OstiaBridge>): OstiaBridge {
       newRecoveryKey: vi.fn().mockResolvedValue({ ok: true, status: SYNC_SERVER_OFF }),
       collectGarbage: vi.fn().mockResolvedValue({ ok: true, status: SYNC_SERVER_OFF }),
       onStatus: vi.fn(noopUnsub),
+      attention: vi.fn().mockResolvedValue([]),
+      onAttention: vi.fn(noopUnsub),
     },
     views: {
       list: vi.fn().mockResolvedValue({ dir: '/home/u/.config/ostia/views', views: [] }),

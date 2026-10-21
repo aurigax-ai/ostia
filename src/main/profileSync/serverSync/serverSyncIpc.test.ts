@@ -11,6 +11,8 @@ vi.mock('electron', () => ({
 
 import { registerServerSyncIpc } from './serverSyncIpc'
 
+const attention = { scan: vi.fn(async () => [{ kind: 'changed' as const, id: 'c', names: ['x'] }]) }
+
 const STATUS = {
   state: 'ready' as const,
   host: 'h',
@@ -51,6 +53,7 @@ beforeEach(() => {
   handlers.clear()
   registerServerSyncIpc({
     service: service as unknown as Parameters<typeof registerServerSyncIpc>[0]['service'],
+    attention,
     run,
     broadcast,
   })
@@ -60,10 +63,13 @@ describe('syncServer owner IPC', () => {
   it('SSY-C110 refuses every channel from anything but a top-level window', async () => {
     for (const channel of handlers.keys()) {
       const res = await call(channel, webview, 'x', 'y', 'z')
-      expect(res).toMatchObject(
-        channel === 'syncServer:status' ? { state: 'signed-out' } : { ok: false },
-      )
+      if (channel === 'syncServer:attention') expect(res).toEqual([])
+      else
+        expect(res).toMatchObject(
+          channel === 'syncServer:status' ? { state: 'signed-out' } : { ok: false },
+        )
     }
+    expect(attention.scan).not.toHaveBeenCalled()
     for (const fn of Object.values(service)) expect(fn).not.toHaveBeenCalled()
     expect(run).not.toHaveBeenCalled()
   })
@@ -106,5 +112,11 @@ describe('syncServer owner IPC', () => {
     expect(service.approveJoin).toHaveBeenCalledWith('d2', 'AAAAA-BBBBB')
     await call('syncServer:link-confirm', window, 'AAAAA-BBBBB')
     expect(service.linkConfirm).toHaveBeenCalledWith('AAAAA-BBBBB')
+  })
+
+  it('SSY-C115 returns the attention list to a window', async () => {
+    expect(await call('syncServer:attention', window)).toEqual([
+      { kind: 'changed', id: 'c', names: ['x'] },
+    ])
   })
 })
