@@ -423,6 +423,26 @@
   min-height: 0;
 }
 
+.right-panel-web {
+  position: absolute;
+  inset: 0;
+}
+
+.right-panel-web[data-hidden] {
+  visibility: hidden;
+}
+
+.right-panel-web[data-hidden] [style*="visibility: visible"] {
+  visibility: hidden !important;
+}
+
+.right-panel-inbox {
+  position: absolute;
+  inset: 0;
+  overflow-y: auto;
+  background: var(--surface-1);
+}
+
 .panel-toolbar {
   display: flex;
   flex: none;

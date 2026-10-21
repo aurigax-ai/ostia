@@ -1,6 +1,8 @@
 import type { ExtensionInfo } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import { ArrowLeftIcon, XIcon } from '@phosphor-icons/react'
 import { useEffect, useRef } from 'react'
+import { useInboxCount } from '@/components/agents/useInboxCards'
+import { CountBadge } from '@/components/common/CountBadge'
 import { IconButton } from '@/components/common/IconButton'
 import { SectionTab, SectionTabsList } from '@/components/common/SectionTabs'
 import { extensionIcon } from '@/components/extensions/extensionIcons'
@@ -11,6 +13,21 @@ import { hideRightPanel } from '@/lib/panes/rightPanelFocus'
 import { toolbarStateOf, usePanelToolbarStore } from '@/stores/extensions/panelToolbarStore'
 
 const ENTER_FOCUS_MS = 2000
+
+function InboxBadge({
+  extId,
+  workspaceId,
+}: {
+  extId: string
+  workspaceId: string
+}): JSX.Element | null {
+  const count = useInboxCount(extId, workspaceId)
+  return count > 0 ? (
+    <span className="ml-1">
+      <CountBadge variant="attn" count={count} />
+    </span>
+  ) : null
+}
 
 interface Opener {
   id: string
@@ -97,7 +114,9 @@ export function PanelToolbar({
               .map((t) => (
                 <SectionTab key={t.id} value={t.id} disabled={disabled.has(t.id)}>
                   {t.title}
-                  {state.badges?.[t.id] ? (
+                  {t.surface === 'inbox' && ext.builtin ? (
+                    <InboxBadge extId={ext.id} workspaceId={workspaceId} />
+                  ) : state.badges?.[t.id] ? (
                     <span className="panel-toolbar-badge">{state.badges[t.id]}</span>
                   ) : null}
                 </SectionTab>

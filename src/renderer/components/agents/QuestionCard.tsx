@@ -91,9 +91,11 @@ function PermissionActions({
 function QuestionHeader({
   question,
   where,
+  compact,
 }: {
   question: QuestionRequest
   where: PaneWhere | null
+  compact: boolean
 }): JSX.Element {
   const d = useDict()
   const locale = useSettingsStore((s) => s.locale)
@@ -106,17 +108,25 @@ function QuestionHeader({
   return (
     <header className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5 text-fg-muted text-ui-xs">
       <ChatCircleTextIcon size={16} aria-hidden className="shrink-0" />
-      <span className="truncate font-medium text-fg">
-        {where?.workspace ?? d.attention.closedPane}
-      </span>
-      {where ? (
+      {compact ? (
+        <span className="truncate font-medium text-fg">
+          {where?.pane ?? d.attention.closedPane}
+        </span>
+      ) : (
         <>
-          <Hint label={where.path}>
-            <span className="truncate font-mono">{where.shortPath}</span>
-          </Hint>
-          <span className="truncate">{where.pane}</span>
+          <span className="truncate font-medium text-fg">
+            {where?.workspace ?? d.attention.closedPane}
+          </span>
+          {where ? (
+            <>
+              <Hint label={where.path}>
+                <span className="truncate font-mono">{where.shortPath}</span>
+              </Hint>
+              <span className="truncate">{where.pane}</span>
+            </>
+          ) : null}
         </>
-      ) : null}
+      )}
       <time dateTime={new Date(question.at).toISOString()} className="tabular-nums">
         {ago(now - question.at)}
       </time>
@@ -290,10 +300,12 @@ export function QuestionCard({
   question,
   where,
   sent = false,
+  compact = false,
 }: {
   question: QuestionRequest
   where: PaneWhere | null
   sent?: boolean
+  compact?: boolean
 }): JSX.Element {
   const d = useDict()
   return (
@@ -302,7 +314,7 @@ export function QuestionCard({
       data-question={question.id}
       className="dashboard-card flex flex-col gap-2 rounded-md border border-line bg-surface-1 p-3 text-fg text-ui-base"
     >
-      <QuestionHeader question={question} where={where} />
+      <QuestionHeader question={question} where={where} compact={compact} />
 
       <h3 className="font-medium text-ui-emphasis [overflow-wrap:anywhere]">
         {questionTitle(d, question)}
