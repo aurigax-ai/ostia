@@ -18,6 +18,7 @@ const { removePane } = await import('../../control/idRegistry')
 const { removeWorkspace, setWorkspaceWorkDir } = await import('../../workspaces/workspaceRegistry')
 const { createSpawnPlanner } = await import('./ptySpawnPlan')
 const { shellIntegrationDir } = await import('../shellIntegration')
+const { privateTmpDir } = await import('../../platform/privateTmp')
 
 const dirs: string[] = []
 
@@ -95,6 +96,26 @@ describe('a pane whose shell integration cannot be written', () => {
         chmodSync(dirname(dir), 0o700)
       }
       expect((await plan(false)).integrationNotice).toBe('')
+    },
+  )
+})
+
+describe('a pane whose shell state folder cannot be written', () => {
+  it.skipIf(process.getuid?.() === 0)(
+    'opens a plain shell with the banner instead of failing to start',
+    async () => {
+      vi.stubEnv('SHELL', '/bin/bash')
+      const stateDir = privateTmpDir('ostia-shell-state')
+      chmodSync(stateDir, 0o500)
+      try {
+        const result = await plan(false)
+        expect(result.args).not.toContain('--rcfile')
+        expect(result.env.OSTIA_AGENT_DIR).toBeUndefined()
+        expect(result.integrationNotice).toContain('Shell integration not loaded (EACCES)')
+      } finally {
+        chmodSync(stateDir, 0o700)
+      }
+      expect((await plan(false)).args).toContain('--rcfile')
     },
   )
 })

@@ -2,6 +2,7 @@ import { mkdirSync, mkdtempSync, rmSync, statSync, writeFileSync } from 'node:fs
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { describe, expect, it, vi } from 'vitest'
+import { insideRealHome } from '../../../test/realHome'
 import { privateRunDir, privateTmpDir, socketPath } from './privateTmp'
 
 describe('privateTmpDir', () => {
@@ -22,6 +23,10 @@ describe('privateTmpDir', () => {
 })
 
 describe('privateRunDir', () => {
+  it('resolves outside the real home folder while tests run', () => {
+    expect(insideRealHome(privateRunDir('isolation-check'))).toBe(false)
+  })
+
   it('is a private folder in the app data folder on macOS, which dirhelper does not clean', () => {
     const home = mkdtempSync(join(tmpdir(), 'run-home-'))
     try {

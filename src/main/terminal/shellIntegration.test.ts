@@ -17,6 +17,7 @@ import {
   NO_AGENT_PLUGINS,
 } from '@aurigax-ai/ostia-extension-sdk/manifest/agentSkills'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { insideRealHome } from '../../../test/realHome'
 import { CORE_SKILL_FILES } from '../agents/bundledSkills'
 import { busHookCommand, extensionHookCommand, permissionHookCommand } from './agentHookCommands'
 import { agentPluginFiles, writeAgentPlugin } from './agentPlugin'
@@ -58,9 +59,11 @@ const AGENT_DIR = shellIntegrationSpawnOptions('/bin/bash', {}).env.OSTIA_AGENT_
 const CLAUDE_PLUGIN = join(AGENT_DIR, 'claude-plugin')
 
 describe('test isolation', () => {
-  it("writes the integration files under this run's private temp folder", () => {
+  it("writes the integration files under this run's private folder, never the real home", () => {
     expect(process.env.TMPDIR).toMatch(process.platform === 'darwin' ? /\/pv-/ : /ostia-vitest-/)
-    expect(INTEGRATION_DIR.startsWith(`${process.env.TMPDIR}/`)).toBe(true)
+    const runRoot = process.platform === 'darwin' ? process.env.XDG_DATA_HOME : process.env.TMPDIR
+    expect(INTEGRATION_DIR.startsWith(`${runRoot}/`)).toBe(true)
+    expect(insideRealHome(INTEGRATION_DIR)).toBe(false)
   })
 })
 

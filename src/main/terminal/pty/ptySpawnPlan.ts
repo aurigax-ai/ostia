@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto'
-import { homedir } from 'node:os'
+import { homedir, tmpdir } from 'node:os'
 import { basename, join } from 'node:path'
 import { appEnv } from '@aurigax-ai/ostia-extension-sdk/contract/appEnv'
 import { PRODUCT_NAME } from '@aurigax-ai/ostia-extension-sdk/contract/product'
@@ -28,7 +28,13 @@ import type { ScratchFolders } from '../../workspaces/scratchFolders'
 import { workDirForWorkspace } from '../../workspaces/workspaceRegistry'
 import { markNonceFileFor, writeMarkNonce } from '../markNonce'
 import { integrationNotLoadedNotice, type PaneBannerText } from '../paneBanner'
-import { retainAgentDir, sendsMarkNonce, shellIntegrationSpawnOptions } from '../shellIntegration'
+import {
+  integrationFailure,
+  retainAgentDir,
+  type ShellIntegrationSpawn,
+  sendsMarkNonce,
+  shellIntegrationSpawnOptions,
+} from '../shellIntegration'
 import type { SpawnFolder } from '../spawnCwd'
 import { sandboxCwd, spawnFolder } from '../spawnCwd'
 import { paneShellEnv } from '../terminalType'
@@ -57,6 +63,30 @@ export interface SpawnPlan {
   wantsKeep: boolean
   notKept: string
   tokenFile: string | null
+}
+
+interface ShellFiles {
+  stateFile: string
+  markNonceFile: string | null
+  markNonce: string | null
+  failure: string | null
+}
+
+function shellFiles(shell: string): ShellFiles {
+  const name = randomUUID()
+  try {
+    const stateFile = join(privateTmpDir(`${PRODUCT_NAME}-shell-state`), name)
+    const markNonceFile = sendsMarkNonce(shell) ? markNonceFileFor(stateFile) : null
+    const markNonce = markNonceFile ? writeMarkNonce(markNonceFile) : null
+    return { stateFile, markNonceFile, markNonce, failure: null }
+  } catch (err) {
+    return {
+      stateFile: join(tmpdir(), `${PRODUCT_NAME}-shell-state-unavailable`, name),
+      markNonceFile: null,
+      markNonce: null,
+      failure: sendsMarkNonce(shell) ? integrationFailure(err) : null,
+    }
+  }
 }
 
 function shellFamily(shell: string): string {
@@ -122,22 +152,22 @@ export function createSpawnPlanner({
     }
     const identity = registerPane({ windowId: subId, workspaceId: resolved.workspaceId, paneId })
     const workspaceId = identity.workspaceId
-    const stateFile = join(privateTmpDir(`${PRODUCT_NAME}-shell-state`), randomUUID())
+    const { stateFile, markNonceFile, markNonce, failure } = shellFiles(shell)
     const mailFile = `${stateFile}.mail`
     registerMailFlag(identity.externalId, mailFile)
     const host = opts.hostToken ? hostPaneGrants.consume(opts.hostToken) : false
     const sandboxed = !host && workspaceId !== '' && workspaceSandboxes.isEnabled(workspaceId)
     const codexSock = sandboxed ? null : codexSocketPath()
     if (codexSock) registerCodexSocket(identity.externalId, codexSock)
-    const markNonceFile = sendsMarkNonce(shell) ? markNonceFileFor(stateFile) : null
-    const markNonce = markNonceFile ? writeMarkNonce(markNonceFile) : null
-    const integration = shellIntegrationSpawnOptions(
-      shell,
-      process.env,
-      opts.ostiaPrompt ?? null,
-      scratchFolders.historyFile(workspaceId),
-      markNonceFile,
-    )
+    const integration: ShellIntegrationSpawn = failure
+      ? { args: [], env: {}, agentDir: null, notLoaded: failure }
+      : shellIntegrationSpawnOptions(
+          shell,
+          process.env,
+          opts.ostiaPrompt ?? null,
+          scratchFolders.historyFile(workspaceId),
+          markNonceFile,
+        )
     if (integration.agentDir) retainAgentDir(paneId, integration.agentDir)
     if (integration.notLoaded) {
       telemetry()?.count('terminal', 'spawn_failure', 'integration-not-loaded')

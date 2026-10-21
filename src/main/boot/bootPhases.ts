@@ -50,7 +50,11 @@ import { registerHistoryIpc } from '../terminal/history/historyIpc'
 import { appSpillWorker, HISTORY_DIR, PaneHistories } from '../terminal/history/paneHistories'
 import { registerPtyIpc } from '../terminal/pty/ptyIpc'
 import { registerSelectionIpc } from '../terminal/selectionReport'
-import { refreshAgentPlugin, setPlaybookSource } from '../terminal/shellIntegration'
+import {
+  refreshAgentPlugin,
+  setPlaybookSource,
+  sweepOldIntegration,
+} from '../terminal/shellIntegration'
 import { startFolderAccessWatch } from '../tmux/folderAccessWiring'
 import { startKeptShells } from '../tmux/keptShellsWiring'
 import { appVersion, runningBuild } from '../updates/appVersion'
@@ -130,6 +134,10 @@ export function boot(wiring: Wiring): void {
   registerGpuReport(services.appLog)
   setPlaybookSettings(readSettingsFile().playbooks)
   setPlaybookSource(currentPlaybookFiles)
+  const removedGenerations = sweepOldIntegration().length
+  if (removedGenerations > 0) {
+    services.appLog?.info('integration-swept', { folders: removedGenerations })
+  }
   ipcMain.on('settings:playbooks', (_e, playbooks: unknown) => {
     setPlaybookSettings(playbooks)
     refreshAgentPlugin()

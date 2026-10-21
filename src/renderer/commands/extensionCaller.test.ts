@@ -31,9 +31,10 @@ vi.mock('../../main/approvals/approvals', async (original) => ({
 const { parseManifest } = await import('@aurigax-ai/ostia-extension-sdk/manifest/extensionManifest')
 const { runRawCommand } = await import('../../cli/verbs/commands')
 const { setScriptTokenCheck } = await import('../../main/control/controlAuth')
-const { registerControlMethod, registerControlServer, stopControlServer } = await import(
-  '../../main/control/controlServer'
-)
+const { controlSocketPath, registerControlMethod, registerControlServer, stopControlServer } =
+  await import('../../main/control/controlServer')
+const { INTEGRATION_DIR } = await import('../../main/terminal/shellIntegration')
+const { insideRealHome } = await import('../../../test/realHome')
 const { dispatchGatewayMethod } = await import('../../main/gateway/controlDispatch')
 const { registerExtension, registerPane } = await import('../../main/control/idRegistry')
 const { ExtensionHost } = await import('../../main/extensions/extensionHost')
@@ -263,6 +264,13 @@ afterAll(() => {
   for (const s of sockets) s.destroy()
   stopControlServer()
   setScriptTokenCheck(() => undefined)
+})
+
+describe('test isolation', () => {
+  it('keeps the shell integration and the control socket out of the real home folder', () => {
+    expect(insideRealHome(INTEGRATION_DIR)).toBe(false)
+    expect(insideRealHome(controlSocketPath())).toBe(false)
+  })
 })
 
 describe('the caller an extension command sees, by entry point', () => {
