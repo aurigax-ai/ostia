@@ -229,6 +229,7 @@ async function main(): Promise<void> {
     remember: rememberedVerbs.remember,
     'on-session': sessionHook({
       store: remembered,
+      paneSession,
       now: Date.now,
       days: () => state.rememberDays,
       changed,

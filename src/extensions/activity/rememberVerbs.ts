@@ -8,9 +8,14 @@ import {
   parseFlags,
 } from '@aurigax-ai/ostia-extension-sdk'
 import { isRecordId, newRecordId } from './hookEvent'
-import { keepsOnDisk } from './recorder'
 import type { RememberStore } from './remember'
-import { REMEMBER_OPEN_MAX, REMEMBER_TEXT_MAX, type RememberItem, startOf } from './rememberItem'
+import {
+  oneLine,
+  REMEMBER_OPEN_MAX,
+  REMEMBER_TEXT_MAX,
+  type RememberItem,
+  startOf,
+} from './rememberItem'
 import { ageOf } from './view'
 
 interface PaneSession {
@@ -29,15 +34,6 @@ export interface RememberDeps {
 
 const USAGE = 'remember "<task>"'
 
-function withoutControls(text: string): string {
-  let out = ''
-  for (const ch of text) {
-    const code = ch.codePointAt(0) ?? 0
-    out += code < 0x20 || code === 0x7f ? ' ' : ch
-  }
-  return out.replace(/\s+/g, ' ').trim()
-}
-
 function ageText(item: RememberItem, now: number): string {
   const age = ageOf(startOf(item), now)
   if (age.unit === 'now') return 'now'
@@ -49,6 +45,12 @@ function ownPane(caller: ExtensionCaller): caller is ExtensionCaller & {
   workspaceId: string
 } {
   return caller.kind === 'pane' && !!caller.paneId && !!caller.workspaceId && !caller.manager
+}
+
+function persistOf(caller: ExtensionCaller, kind: string | null): boolean | undefined {
+  if (caller.sandboxed === true) return false
+  if (kind === null) return undefined
+  return kind !== 'scratch'
 }
 
 const NO_SESSION =
@@ -68,7 +70,7 @@ export function rememberVerbs(deps: RememberDeps): RememberVerbs {
     const { rest } = parseFlags(cliArgs(args)?.argv ?? [], [], [])
     const odd = rest.find((arg) => arg.startsWith('--'))
     if (odd) return failure('usage', `unknown option ${odd}\nusage: ostia activity ${USAGE}`)
-    const text = withoutControls(rest.join(' '))
+    const text = oneLine(rest.join(' '))
     if (text === '') return failure('usage', `the task is missing\nusage: ostia activity ${USAGE}`)
     if ([...text].length > REMEMBER_TEXT_MAX) {
       return failure('too-long', `the task is longer than ${REMEMBER_TEXT_MAX} characters`)
@@ -98,7 +100,7 @@ export function rememberVerbs(deps: RememberDeps): RememberVerbs {
       state: 'open',
     }
     const kind = await deps.workspaceKind(workspaceId).catch(() => null)
-    deps.store.add(workspaceId, item, keepsOnDisk(caller, kind))
+    deps.store.add(workspaceId, item, persistOf(caller, kind))
     deps.changed()
     return ok(`remembered ${item.id}`, { id: item.id })
   }
@@ -139,7 +141,7 @@ export function rememberVerbs(deps: RememberDeps): RememberVerbs {
       return failure('not-available', 'the human marks items done in the Activity panel')
     }
     const found = await deps.paneSession(caller.paneId).catch(() => null)
-    if (item.pane !== caller.paneId && item.session !== found?.session) {
+    if (found === null || item.session !== found.session) {
       return failure(
         'not-yours',
         'an agent finishes only its own remembered tasks; the human does the others in the Activity panel',

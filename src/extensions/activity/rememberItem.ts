@@ -25,6 +25,10 @@ export interface RememberItem {
   restoredAt?: number
 }
 
+export function oneLine(text: string): string {
+  return text.replace(/[\p{Cc}\p{Cf}\p{Zl}\p{Zp}\s]+/gu, ' ').trim()
+}
+
 export function parseRememberItem(raw: unknown): RememberItem | null {
   if (!isRecord(raw) || raw.v !== REMEMBER_VERSION) return null
   const { id, t, pane, session, agent, text, state, doneAt, archivedAt, restoredAt } = raw
@@ -32,7 +36,9 @@ export function parseRememberItem(raw: unknown): RememberItem | null {
   if (typeof pane !== 'string' || pane === '') return null
   if (typeof session !== 'string' || !SESSION_PATTERN.test(session)) return null
   if (typeof agent !== 'string' || !AGENT_PATTERN.test(agent)) return null
-  if (typeof text !== 'string' || text === '' || [...text].length > REMEMBER_TEXT_MAX) return null
+  if (typeof text !== 'string') return null
+  const clean = oneLine(text)
+  if (clean === '' || [...clean].length > REMEMBER_TEXT_MAX) return null
   if (!REMEMBER_STATES.includes(state as RememberState)) return null
   const item: RememberItem = {
     v: REMEMBER_VERSION,
@@ -41,7 +47,7 @@ export function parseRememberItem(raw: unknown): RememberItem | null {
     pane,
     session,
     agent,
-    text,
+    text: clean,
     state: state as RememberState,
   }
   for (const [key, value] of [

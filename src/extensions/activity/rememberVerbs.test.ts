@@ -1,3 +1,6 @@
+import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import type {
   CommandHandler,
   ExtensionCaller,
@@ -165,5 +168,92 @@ describe('ostia activity remember', () => {
     const mine = idOf(await run('remember', ['mine'], pane('p1')))
     const user = { kind: 'user', workspaceId: 'w1', capabilities: [] } as ExtensionCaller
     expect(await run('done', [mine], user)).toMatchObject({ ok: false, error: 'not-available' })
+  })
+})
+
+describe('remember hardening', () => {
+  it('collapses control, format and bidi characters of a task to spaces', async () => {
+    const store = new RememberStore({ dir: null, now: () => NOW })
+    const remembered = rememberVerbs({
+      store,
+      now: () => NOW,
+      redact: async (texts) => texts,
+      workspaceKind: async () => 'terminal',
+      paneSession: async () => ({ agent: 'claude', session: 's1' }),
+      changed: () => {},
+    })
+    const res = await remembered.remember(
+      { argv: ['a\u202Eb\u200Bc\u0085d\u2028e', 'f'] },
+      pane('p1'),
+    )
+    expect(res).toMatchObject({ ok: true })
+    expect(store.items('w1')[0]?.text).toBe('a b c d e f')
+  })
+
+  it('never takes a store that is already on disk off the disk because the workspace kind is unknown', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'ostia-remember-kind-'))
+    try {
+      const store = new RememberStore({ dir, now: () => NOW })
+      const make = (kind: string | null) =>
+        rememberVerbs({
+          store,
+          now: () => NOW,
+          redact: async (texts) => texts,
+          workspaceKind: async () => kind,
+          paneSession: async () => ({ agent: 'claude', session: 's1' }),
+          changed: () => {},
+        })
+      await make('terminal').remember({ argv: ['first task'] }, pane('p1'))
+      const file = join(dir, 'remember', 'w1.json')
+      expect(existsSync(file)).toBe(true)
+      await make(null).remember({ argv: ['second task'] }, pane('p1'))
+      expect(existsSync(file)).toBe(true)
+      expect(readFileSync(file, 'utf8')).toContain('second task')
+      await make('terminal').remember({ argv: ['third task'] }, pane('p1', { sandboxed: true }))
+      expect(existsSync(file)).toBe(false)
+    } finally {
+      rmSync(dir, { recursive: true, force: true })
+    }
+  })
+
+  it('keeps a new workspace of an unknown kind in memory', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'ostia-remember-kind-'))
+    try {
+      const store = new RememberStore({ dir, now: () => NOW })
+      const remembered = rememberVerbs({
+        store,
+        now: () => NOW,
+        redact: async (texts) => texts,
+        workspaceKind: async () => null,
+        paneSession: async () => ({ agent: 'claude', session: 's1' }),
+        changed: () => {},
+      })
+      await remembered.remember({ argv: ['a task'] }, pane('p1'))
+      expect(existsSync(join(dir, 'remember'))).toBe(false)
+    } finally {
+      rmSync(dir, { recursive: true, force: true })
+    }
+  })
+
+  it('refuses done from a later session in the same pane or a pane with no session', async () => {
+    const store = new RememberStore({ dir: null, now: () => NOW })
+    const sessions: Record<string, { agent: string; session: string } | null> = {
+      p1: { agent: 'claude', session: 's1' },
+    }
+    const remembered = rememberVerbs({
+      store,
+      now: () => NOW,
+      redact: async (texts) => texts,
+      workspaceKind: async () => 'terminal',
+      paneSession: async (id) => sessions[id] ?? null,
+      changed: () => {},
+    })
+    const res = await remembered.remember({ argv: ['mine'] }, pane('p1'))
+    const id = (res as { data: { id: string } }).data.id
+    sessions.p1 = { agent: 'claude', session: 's2' }
+    expect(await remembered.done(id, pane('p1'))).toMatchObject({ ok: false, error: 'not-yours' })
+    sessions.p1 = null
+    expect(await remembered.done(id, pane('p1'))).toMatchObject({ ok: false, error: 'not-yours' })
+    expect(store.find('w1', id)?.state).toBe('open')
   })
 })

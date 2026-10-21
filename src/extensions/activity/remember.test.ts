@@ -136,6 +136,12 @@ describe('remember store', () => {
     expect(readFileSync(join(folder, 'w1.json'), 'utf8')).toContain('"items"')
   })
 
+  it('cleans the text of an item it reads from disk', () => {
+    const parsed = parseRememberItem({ ...item(), text: 'a\u202Eb\u200Bc\u0085d' })
+    expect(parsed?.text).toBe('a b c d')
+    expect(parseRememberItem({ ...item(), text: '\u200B\u202E ' })).toBeNull()
+  })
+
   it('refuses malformed items when it parses', () => {
     expect(parseRememberItem(item())).not.toBeNull()
     expect(parseRememberItem({ ...item(), text: '' })).toBeNull()

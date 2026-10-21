@@ -89,9 +89,9 @@ export class RememberStore {
     return this.items(workspaceId).filter((item) => item.state === 'open').length
   }
 
-  add(workspaceId: string, item: RememberItem, persist: boolean): void {
-    const entry = this.byWorkspace.get(workspaceId) ?? this.create(workspaceId, persist)
-    if (entry.onDisk && !persist) {
+  add(workspaceId: string, item: RememberItem, persist: boolean | undefined): void {
+    const entry = this.byWorkspace.get(workspaceId) ?? this.create(workspaceId, persist === true)
+    if (entry.onDisk && persist === false) {
       entry.onDisk = false
       this.removeFile(workspaceId)
     }
