@@ -1,5 +1,6 @@
 import { cleanup, renderHook } from '@testing-library/react'
-import { afterEach, describe, expect, it } from 'vitest'
+import { act } from 'react'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { OstiaTerminal as Xterm } from '@/lib/terminal/ostiaTerminal'
 import { usePromptGeometry } from './usePromptGeometry'
 
@@ -15,8 +16,15 @@ function terminalHost(): HTMLDivElement {
   return host
 }
 
-function fakeTerminal(): { term: Xterm; listening: () => number } {
+function fakeTerminal(): {
+  term: Xterm
+  listening: () => number
+  scroll: () => void
+  reads: () => number
+} {
   let listeners = 0
+  let reads = 0
+  let onScroll: () => void = () => {}
   const on = () => () => {
     listeners++
     return { dispose: () => listeners-- }
@@ -32,14 +40,21 @@ function fakeTerminal(): { term: Xterm; listening: () => number } {
         baseY: 0,
         cursorY: 3,
         cursorX: 2,
-        getLine: () => line,
+        getLine: () => {
+          reads++
+          return line
+        },
       },
     },
     onRender: on(),
-    onScroll: on(),
+    onScroll: (fn: () => void) => {
+      onScroll = fn
+      listeners++
+      return { dispose: () => listeners-- }
+    },
     onResize: on(),
   } as unknown as Xterm
-  return { term, listening: () => listeners }
+  return { term, listening: () => listeners, scroll: () => onScroll(), reads: () => reads }
 }
 
 describe('usePromptGeometry', () => {
@@ -66,5 +81,22 @@ describe('usePromptGeometry', () => {
     rerender({ shown: false })
     expect(listening()).toBe(0)
     expect(result.current).toBe(shownGeometry)
+  })
+
+  it('measures once per frame however many lines a burst scrolls', () => {
+    vi.useFakeTimers()
+    const { term, scroll, reads } = fakeTerminal()
+    const refs = { termRef: { current: term }, hostRef: { current: terminalHost() } }
+    renderHook(() => usePromptGeometry(refs.termRef, refs.hostRef, true, true, 'shell', false))
+    const settled = reads()
+
+    act(() => {
+      for (let i = 0; i < 200; i++) scroll()
+    })
+    expect(reads()).toBe(settled)
+
+    act(() => vi.advanceTimersToNextFrame())
+    expect(reads()).toBe(settled + 1)
+    vi.useRealTimers()
   })
 })

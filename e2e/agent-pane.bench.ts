@@ -1,23 +1,24 @@
 import { resolve } from 'node:path'
-import { SOFTWARE_WEBGL, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
+import { freshDataHome, isolatedLaunch, SOFTWARE_WEBGL, seedSettings } from './dataHome'
 import {
-  type MainProbe,
-  type TerminalHandle,
   alignKeys,
   hookTerminal,
   installMainProbe,
+  type MainProbe,
   percentile,
   readProbes,
   summarize,
+  type TerminalHandle,
 } from './echoProbe'
 import { fakeAgentBin } from './fakeAgent'
 import { BENCH_ENGINES } from './ghostty'
 import { openWorkspace } from './helpers'
-import { type Page, _electron as electron, expect, test } from './test'
+import { _electron as electron, expect, type Page, test } from './test'
 
 const INK_AGENT = resolve(__dirname, '../test/fixtures/agents/ink-agent.mjs')
 const KEYS = Number(process.env.OSTIA_AGENT_KEYS ?? 60)
 const LINES = Number(process.env.OSTIA_AGENT_LINES ?? 50000)
+const FULL = Number(process.env.OSTIA_AGENT_FULL ?? 0)
 const SYNC = process.env.OSTIA_AGENT_SYNC === '1' ? '1' : '0'
 const ENGINES = (process.env.OSTIA_AGENT_ENGINES ?? '').split(',').filter(Boolean)
 const TERMINALS = '.xterm, .ghostty-host'
@@ -53,7 +54,7 @@ for (const engine of BENCH_ENGINES.filter(
       })
       const bin = fakeAgentBin(
         dataHome,
-        `#!/bin/sh\nINK_AGENT_LINES=${LINES} INK_AGENT_REGION_ROWS=24 INK_AGENT_SYNC=${SYNC} INK_AGENT_STREAM_FPS=${mode.fps} ELECTRON_RUN_AS_NODE=1 exec "$OSTIA_NODE" "${INK_AGENT}"\n`,
+        `#!/bin/sh\nINK_AGENT_LINES=${LINES} INK_AGENT_REGION_ROWS=24 INK_AGENT_FULL_REDRAW=${FULL} INK_AGENT_SYNC=${SYNC} INK_AGENT_STREAM_FPS=${mode.fps} ELECTRON_RUN_AS_NODE=1 exec "$OSTIA_NODE" "${INK_AGENT}"\n`,
       )
       const launch = isolatedLaunch(dataHome)
       const app = await electron.launch({
