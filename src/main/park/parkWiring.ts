@@ -86,17 +86,36 @@ export function registerParkWiring(deps: ParkWiringDeps): ParkedStore {
     title: async (identity: NonNullable<ReturnType<typeof getByPaneId>>) =>
       (await panes()).find((p) => p.paneId === identity.paneId)?.title,
     redact: (text: string) => deps.redactor.text(text),
+    lockedOf: async (identity: NonNullable<ReturnType<typeof getByPaneId>>) => {
+      const res = await execCommand(targetOf(identity), 'pane.locked', undefined, true)
+      return !res.ok || (res.result as { locked?: unknown } | undefined)?.locked !== false
+    },
+    closePane: async (identity: NonNullable<ReturnType<typeof getByPaneId>>) => {
+      const res = await execCommand(
+        targetOf(identity),
+        'pane.close',
+        { paneId: identity.paneId },
+        true,
+      )
+      if (!res.ok) return res.error.message.startsWith('pane-locked') ? 'locked' : 'failed'
+      return (await panes()).some((p) => p.paneId === identity.paneId) ? 'failed' : 'closed'
+    },
   }
 
   ipcMain.handle(
     'park:pane',
-    async (e, workspaceId: unknown, paneId: unknown): Promise<ParkOutcome> => {
+    async (
+      e,
+      workspaceId: unknown,
+      paneId: unknown,
+      titlePinned: unknown,
+    ): Promise<ParkOutcome> => {
       if (typeof workspaceId !== 'string' || typeof paneId !== 'string') {
         return { ok: false, reason: 'unavailable' }
       }
       const senderId = String(e.sender.id)
       if (!panesOwnedBy([paneId], senderId)) return { ok: false, reason: 'unavailable' }
-      return parkPane(act, workspaceId, paneId)
+      return parkPane(act, workspaceId, paneId, titlePinned === true)
     },
   )
 
@@ -141,7 +160,11 @@ export function registerParkWiring(deps: ParkWiringDeps): ParkedStore {
             const res = await execCommand(
               deps.workspaceCommandTarget(workspaceId),
               'agent.resumeParked',
-              { workspaceId, resume: record.resume, title: record.title },
+              {
+                workspaceId,
+                resume: record.resume,
+                ...(record.titlePinned ? { title: record.title } : {}),
+              },
               true,
             )
             return res.ok && (res.result as { opened?: unknown } | undefined)?.opened === true

@@ -18,6 +18,8 @@ export type ParkRefusal =
   | 'workspace-closed'
   | 'unavailable'
 
+export type ResumeFailReason = 'folder-missing' | 'not-started' | 'running-elsewhere'
+
 export interface ParkFacts {
   manager: boolean
   workspaceKind: string

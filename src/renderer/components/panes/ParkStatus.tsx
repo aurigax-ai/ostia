@@ -13,7 +13,24 @@ export function useParkStatus(
   const notice = useParkStore((s) => s.notice)
   const dismiss = useParkStore((s) => s.dismissNotice)
   if (!notice || notice.workspaceId !== workspaceId) return null
-  if (notice.kind === 'refused' ? notice.paneId !== paneId : paneId !== activePaneId) return null
+  if (notice.kind !== 'parked' ? notice.paneId !== paneId : paneId !== activePaneId) return null
+  if (notice.kind === 'resumeFailed') {
+    return (
+      <div className="absolute inset-x-0 top-0 z-20">
+        <StatusLine
+          tone="warn"
+          data-park-status="resume-failed"
+          onDismiss={dismiss}
+          aria-label={d.pane.parkLabel}
+        >
+          {fmt(d.pane.parkResumeFailed, {
+            title: notice.title,
+            reason: d.pane.parkResumeReasons[notice.reason],
+          })}
+        </StatusLine>
+      </div>
+    )
+  }
   if (notice.kind === 'refused') {
     return (
       <div className="absolute inset-x-0 top-0 z-20">

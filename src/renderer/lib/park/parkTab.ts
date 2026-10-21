@@ -38,13 +38,16 @@ export async function requestPark(workspaceId: string, paneId: string): Promise<
     park.showNotice({ kind: 'refused', workspaceId, paneId, title, reason: refusal })
     return
   }
-  const outcome = await window.ostia.park.pane(workspaceId, paneId)
+  const outcome = await window.ostia.park.pane(
+    workspaceId,
+    paneId,
+    paneOf(workspaceId, paneId)?.titlePinned === true,
+  )
   if (!outcome.ok) {
     useParkStore
       .getState()
       .showNotice({ kind: 'refused', workspaceId, paneId, title, reason: outcome.reason })
     return
   }
-  useLayoutStore.getState().closePane(workspaceId, paneId)
   useParkStore.getState().showNotice({ kind: 'parked', workspaceId, title: outcome.title || title })
 }

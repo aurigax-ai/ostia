@@ -18,8 +18,12 @@ export interface ParkActDeps {
   busy: (paneId: string) => Promise<AgentBusyReason | null>
   closing: (paneId: string) => string | undefined
   title: (identity: PaneIdentity) => Promise<string | undefined>
+  lockedOf: (identity: PaneIdentity) => Promise<boolean>
+  closePane: (identity: PaneIdentity) => Promise<'closed' | 'locked' | 'failed'>
   redact: (text: string) => Promise<string>
 }
+
+const TITLE_MAX = 200
 
 async function redacted(deps: ParkActDeps, text: string | undefined, max: number) {
   const line = text === undefined ? '' : singleLine(text, max)
@@ -36,6 +40,7 @@ export async function parkPane(
   deps: ParkActDeps,
   workspaceId: string,
   paneId: string,
+  titlePinned: boolean,
 ): Promise<ParkOutcome> {
   const identity = deps.identityOf(paneId)
   if (!identity || identity.workspaceId !== workspaceId) {
@@ -49,7 +54,7 @@ export async function parkPane(
     workspaceKind: deps.isScratch(workspaceId) ? 'scratch' : kind,
     sandboxed: deps.isSandboxed(workspaceId),
     remote: deps.isRemote(identity.paneId),
-    locked: false,
+    locked: await deps.lockedOf(identity),
     agentRunning: deps.agentRunning(identity.paneId),
     hasResume: token !== null,
     working: (await deps.attentionState(identity)) === 'working',
@@ -61,15 +66,21 @@ export async function parkPane(
     ? parseAgentResume({ ...token, cwd: token.cwd ?? deps.paneCwd(identity.paneId) })
     : null
   if (!resume?.cwd) return { ok: false, reason: 'no-session' }
-  const title = (await deps.title(identity)) ?? resume.agent
+  const title = (await redacted(deps, await deps.title(identity), TITLE_MAX)) ?? resume.agent
   const result = deps.store.park({
     workspaceId,
     resume,
     title,
+    ...(titlePinned ? { titlePinned: true as const } : {}),
     summary: await redacted(deps, deps.closing(identity.paneId), PARK_SUMMARY_MAX),
   })
   if (!result.ok) {
     return { ok: false, reason: result.reason === 'too-many' ? 'too-many' : 'unavailable' }
+  }
+  const closed = await deps.closePane(identity)
+  if (closed !== 'closed') {
+    deps.store.remove(result.record.id)
+    return { ok: false, reason: closed === 'locked' ? 'locked' : 'unavailable' }
   }
   return { ok: true, id: result.record.id, title: result.record.title }
 }

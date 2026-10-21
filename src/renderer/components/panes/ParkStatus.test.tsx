@@ -31,6 +31,22 @@ describe('useParkStatus', () => {
     expect(render(<Status paneId="p2" active="p2" />).container).toBeEmptyDOMElement()
   })
 
+  it('says why a resume gave up, on the tab it opened, and keeps the record for Parked', () => {
+    useParkStore.getState().showNotice({
+      kind: 'resumeFailed',
+      workspaceId: 'w1',
+      paneId: 'p9',
+      title: 'export-tests',
+      reason: 'folder-missing',
+    })
+    const { container } = render(<Status paneId="p9" active="p1" />)
+    expect(container).toHaveTextContent(
+      'Could not resume “export-tests”: its folder no longer exists. It stays in Parked.',
+    )
+    cleanup()
+    expect(render(<Status paneId="p1" active="p1" />).container).toBeEmptyDOMElement()
+  })
+
   it('says it parked on the active pane of the workspace, and Show opens the Activity panel', async () => {
     useParkStore.getState().showNotice({ kind: 'parked', workspaceId: 'w1', title: 'export-tests' })
     expect(render(<Status paneId="p3" active="p2" />).container).toBeEmptyDOMElement()

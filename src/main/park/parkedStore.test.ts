@@ -113,6 +113,15 @@ describe('ParkedStore', () => {
     expect(store.park({ workspaceId: 'w2', resume: claude('extra'), title: 't' }).ok).toBe(true)
   })
 
+  it('keeps whether the human named the tab, and drops it when they did not', () => {
+    const store = new ParkedStore(fileIn())
+    store.park({ workspaceId: 'w1', resume: claude('a'), title: 'mine', titlePinned: true })
+    store.park({ workspaceId: 'w1', resume: claude('b'), title: 'auto' })
+    const byTitle = Object.fromEntries(store.list('w1').map((r) => [r.title, r]))
+    expect(byTitle.mine).toMatchObject({ titlePinned: true })
+    expect(byTitle.auto).not.toHaveProperty('titlePinned')
+  })
+
   it('lists newest first and only the workspace asked for', () => {
     let now = 0
     const store = new ParkedStore(fileIn(), () => ++now)

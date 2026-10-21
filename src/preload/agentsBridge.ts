@@ -16,7 +16,8 @@ export const agentsBridge: Pick<OstiaBridge, 'manager' | 'agentSession' | 'mail'
     dismiss: (paneId) => ipcRenderer.invoke('bus:mail-dismiss', paneId),
   },
   park: {
-    pane: (workspaceId, paneId) => ipcRenderer.invoke('park:pane', workspaceId, paneId),
+    pane: (workspaceId, paneId, titlePinned) =>
+      ipcRenderer.invoke('park:pane', workspaceId, paneId, titlePinned),
   },
   agentSession: {
     info: (resume) => ipcRenderer.invoke('agent:session-info', resume),

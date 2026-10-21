@@ -25,7 +25,12 @@ export function SplitButton({
       // biome-ignore lint/a11y/useSemanticElements: a fieldset draws a border and a legend; this is a bare button group
       <div role="group" aria-label={label} className="flex items-center">
         {main}
-        {children}
+        {children ? (
+          <>
+            <ButtonGroupSeparator className="my-0 h-3.5 bg-line-strong" />
+            {children}
+          </>
+        ) : null}
       </div>
     )
   }
@@ -60,7 +65,7 @@ export function SplitButtonMenu({
           type="button"
           variant={variant}
           size={CARET_SIZE[size]}
-          className={size === '2xs' ? 'w-3.5!' : undefined}
+          className={size === '2xs' ? 'w-4!' : undefined}
           aria-label={label}
         >
           <CaretDownIcon aria-hidden />

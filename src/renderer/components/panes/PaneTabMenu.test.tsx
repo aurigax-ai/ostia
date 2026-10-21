@@ -175,7 +175,7 @@ describe('PaneTabMenu close others and hibernation', () => {
     const item = await screen.findByRole('menuitem', { name: 'Park' })
     expect(item).not.toHaveAttribute('aria-disabled', 'true')
     await userEvent.setup().click(item)
-    expect(window.ostia.park.pane).toHaveBeenCalledWith('w', 'b')
+    expect(window.ostia.park.pane).toHaveBeenCalledWith('w', 'b', false)
     cleanup()
     useAttentionStore.getState().dispatch('b', { type: 'set', state: 'working', at: 1 })
     openMenu(agentTab, [shell, agentTab])

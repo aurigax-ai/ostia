@@ -118,7 +118,7 @@ describe('park from the renderer', () => {
     expect(parkRefusalOf('w1', 'nope')).toBe('unavailable')
   })
 
-  it('parks at once through main with no question, then closes the tab and says so', async () => {
+  it('parks at once through main with no question, and says so; the tab is main’s to close', async () => {
     seed(tabs(agent, shell))
     runAgent()
     vi.mocked(window.ostia.park.pane).mockResolvedValue({
@@ -128,9 +128,8 @@ describe('park from the renderer', () => {
     })
     await requestPark('w1', 'p1')
     expect(window.ostia.park.pane).toHaveBeenCalledTimes(1)
-    expect(window.ostia.park.pane).toHaveBeenCalledWith('w1', 'p1')
+    expect(window.ostia.park.pane).toHaveBeenCalledWith('w1', 'p1', false)
     expect(useParkStore.getState().notice).toMatchObject({ kind: 'parked', title: 'export-tests' })
-    expect(JSON.stringify(useLayoutStore.getState().byWorkspace.w1)).not.toContain('"p1"')
   })
 
   it('keeps the tab, asks main nothing and shows the warn line when the renderer already refuses', async () => {
@@ -155,5 +154,13 @@ describe('park from the renderer', () => {
       paneId: 'p1',
     })
     expect(JSON.stringify(useLayoutStore.getState().byWorkspace.w1)).toContain('"p1"')
+  })
+
+  it('tells main when the human named the tab', async () => {
+    seed(tabs({ ...agent, titlePinned: true }, shell))
+    runAgent()
+    vi.mocked(window.ostia.park.pane).mockResolvedValue({ ok: true, id: 'abcdefghij', title: 'x' })
+    await requestPark('w1', 'p1')
+    expect(window.ostia.park.pane).toHaveBeenCalledWith('w1', 'p1', true)
   })
 })
