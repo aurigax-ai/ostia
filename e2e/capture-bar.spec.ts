@@ -53,7 +53,7 @@ test('Monaco opens the capture bar only from the chord, and Copy puts the select
     const editor = win.locator('.monaco-editor').first()
     await expect(editor).toBeVisible({ timeout: 15_000 })
 
-    const line = win.locator('.view-line').nth(1)
+    const line = editor.locator('.view-line').filter({ hasText: 'items.reduce' })
     await expect(line).toContainText('items.reduce', { timeout: 15_000 })
     const box = await line.boundingBox()
     if (!box) throw new Error('editor line has no box')
