@@ -6,7 +6,7 @@ import { sourceFiles } from '../../test/sourceFiles'
 const MAIN_DIR = __dirname
 const PRELOAD_DIR = join(__dirname, '..', 'preload')
 
-const HANDLE_CALLS = ['ipcMain.handle', 'ipc.handle', 'owned', 'secretAction']
+const HANDLE_CALLS = ['ipcMain.handle', 'ipc.handle', 'owned', 'secretAction', 'act']
 
 const ON_CALLS = ['ipcMain.on', 'ipcMain.once', 'ipc.on']
 
@@ -52,6 +52,8 @@ const PUSHED = [
   'files:kinds-changed',
   'fs:changed',
   'gateway:pair-requests-changed',
+  'gateway:push-changed',
+  'gateway:relay-changed',
   'gateway:tailnet-changed',
   'git:changed',
   'git:items',
@@ -70,8 +72,11 @@ const PUSHED = [
   'remote-files:folders-changed',
   'sandbox:blocked',
   'scriptTokens:changed',
+  'server:changed',
+  'server:devices-changed',
   'settings:changed',
   'sync:status',
+  'syncServer:status',
   'viewers:edit-source',
   'viewers:open-link',
   'viewers:selection',

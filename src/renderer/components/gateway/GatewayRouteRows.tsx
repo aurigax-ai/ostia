@@ -2,17 +2,20 @@ import type { Dict } from '@shared/app/dict'
 import type {
   GatewayBindAddress,
   GatewayPhoneAddress,
+  GatewayRelayState,
   GatewayRoute,
   GatewayTailnetState,
 } from '@shared/gateway/gatewayApi'
 import { formatPhoneAddress, parsePhoneAddress } from '@shared/gateway/gatewayRoute'
 import { useState } from 'react'
 import { Notice } from '@/components/common/Notice'
+import { useServerStatus } from '@/components/server/useServerStatus'
 import { CommitInput } from '@/components/settingsKit/CommitInput'
 import { ControlRow, ToggleRow } from '@/components/settingsKit/ControlRow'
 import { SelectField } from '@/components/settingsKit/SelectField'
 import { Button } from '@/components/ui/button'
 import { fmt, useDict } from '@/lib/app/useDict'
+import { useUIStore } from '@/stores/app/uiStore'
 import type { GatewayRouteState } from './useGatewayRoute'
 import type { GatewayStatus } from './useGatewayStatus'
 
@@ -90,6 +93,54 @@ function tailnetSummary(d: Dict, node: GatewayTailnetState): string {
   return d.settings.remoteTailnetOff
 }
 
+function RelayRows({
+  route,
+  relay,
+  running,
+  onRoute,
+}: {
+  route: GatewayRoute
+  relay: GatewayRelayState
+  running: boolean
+  onRoute: (next: Partial<GatewayRoute>) => Promise<void>
+}): JSX.Element {
+  const d = useDict()
+  const server = useServerStatus()
+  return (
+    <>
+      <ToggleRow
+        label={d.settings.remoteRelay}
+        desc={
+          server.host
+            ? fmt(d.settings.remoteRelayDesc, { server: server.host })
+            : d.settings.remoteRelayDescNoServer
+        }
+        checked={route.relay}
+        onChange={(v) => void onRoute({ relay: v })}
+        disabled={running}
+      />
+      {route.relay && relay.state === 'needs-sign-in' ? (
+        <Notice
+          actions={
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => useUIStore.getState().openSettings('server')}
+            >
+              {d.settings.remoteRelayOpenServer}
+            </Button>
+          }
+        >
+          {d.settings.remoteRelayNeedsSignIn}
+        </Notice>
+      ) : null}
+      {route.relay && relay.state === 'error' ? (
+        <Notice>{fmt(d.settings.remoteRelayError, { code: relay.code })}</Notice>
+      ) : null}
+    </>
+  )
+}
+
 export function GatewayRouteRows({
   gateway,
   routing,
@@ -98,7 +149,7 @@ export function GatewayRouteRows({
   routing: GatewayRouteState
 }): JSX.Element {
   const d = useDict()
-  const { status, tailnet, addresses } = gateway
+  const { status, tailnet, relay, addresses } = gateway
   const {
     running,
     route,
@@ -170,6 +221,8 @@ export function GatewayRouteRows({
           onSave={(phoneAddress) => onRoute({ phoneAddress })}
         />
       )}
+
+      <RelayRows route={route} relay={relay} running={running} onRoute={onRoute} />
 
       {unreachable ? <Notice>{d.settings.remoteLoopbackOnly}</Notice> : null}
 

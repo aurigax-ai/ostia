@@ -29,3 +29,7 @@ export function telemetryStamp(env) {
   const host = env.OSTIA_TELEMETRY_HOST
   return key && host ? { key, host } : null
 }
+
+export function serverStamp(env) {
+  return env.OSTIA_SERVER_STAMP_URL || null
+}

@@ -10,14 +10,19 @@ function isPort(value: string): boolean {
   return Number(value) <= 65_535
 }
 
-function parseProxyLine(line: string): string | null {
+export interface ProxyPeer {
+  ip: string
+  port: number
+}
+
+function parseProxyLine(line: string): ProxyPeer | null {
   const [tag, family, src, dst, srcPort, dstPort, ...rest] = line.split(' ')
   if (tag !== 'PROXY' || rest.length > 0) return null
   const version = FAMILY_IP_VERSION[family ?? '']
   if (!version || !src || !dst || !srcPort || !dstPort) return null
   if (isIP(src) !== version || isIP(dst) !== version) return null
   if (!isPort(srcPort) || !isPort(dstPort)) return null
-  return src
+  return { ip: src, port: Number(srcPort) }
 }
 
 class SocketStream extends Duplex {
@@ -59,7 +64,7 @@ class SocketStream extends Duplex {
 
 export function readProxyHeader(
   socket: Socket,
-  onHeader: (peer: string, stream: Duplex) => void,
+  onHeader: (peer: ProxyPeer, stream: Duplex) => void,
 ): void {
   let buffered = Buffer.alloc(0)
   const deadline = setTimeout(() => socket.destroy(), HEADER_DEADLINE_MS)

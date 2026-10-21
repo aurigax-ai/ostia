@@ -52,6 +52,7 @@ vi.mock('./server', () => ({
   setTailnetNode: vi.fn(),
   applyDeviceCaps: vi.fn(),
   closeDeviceSockets: vi.fn(),
+  currentPhonePush: () => null,
 }))
 
 const {
@@ -100,6 +101,7 @@ async function chooseCard(address: string): Promise<void> {
     bindInterface: 'forged0',
     tailnet: false,
     phoneAddress: null,
+    relay: false,
   })
 }
 

@@ -203,6 +203,13 @@ export const SETTINGS_JSON_SCHEMA = {
             'Syncthing or Dropbox folder). Empty turns sync off. Set it from Settings → Sync; ' +
             'agents cannot change it. Secrets and capability grants never sync.',
         },
+        method: {
+          type: 'string',
+          enum: ['folder', 'server'],
+          description:
+            'Where the profile syncs: a folder you own or a server you signed in to. ' +
+            'Folder is the default. Set it from Settings → Sync; agents cannot change it.',
+        },
       },
     },
     actions: actionsSchema,

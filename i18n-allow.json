@@ -15,7 +15,8 @@
         "settings.rendererXterm",
         "settings.rendererGhostty",
         "settings.remoteTailscale",
-        "git.title"
+        "git.title",
+        "server.providerGithub"
       ],
       "protocol and key names": [
         "keyboard.modifierTargets.*",

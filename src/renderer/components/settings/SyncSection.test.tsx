@@ -55,6 +55,25 @@ describe('SyncSection', () => {
     expect(screen.getByRole('status')).toHaveTextContent(/^Last synced /)
   })
 
+  it('SSY-C96 switches to the server method, keeps the folder default, and explains server errors', async () => {
+    const ostia = window.ostia
+    vi.mocked(ostia.sync.run).mockResolvedValue(
+      status({ dir: 'ostia.example.com', state: 'error', error: 'server-locked' }),
+    )
+    render(<SyncSection />)
+    expect(screen.getByRole('button', { name: 'Folder' })).toHaveAttribute('aria-pressed', 'true')
+    await userEvent.click(screen.getByRole('button', { name: 'Server' }))
+    await waitFor(() => expect(ostia.sync.run).toHaveBeenCalled())
+    expect(useSettingsStore.getState().sync).toEqual({ dir: '', method: 'server' })
+    const written = vi.mocked(ostia.fs.write).mock.calls.at(-1)
+    expect(JSON.parse(String(written?.[1]))).toMatchObject({ sync: { method: 'server' } })
+    expect(screen.queryByRole('button', { name: 'Choose folder…' })).toBeNull()
+    expect(screen.getByRole('status')).toHaveTextContent('Unlock sync on this device to continue.')
+    await userEvent.click(screen.getByRole('button', { name: 'Folder' }))
+    expect(useSettingsStore.getState().sync).toBeUndefined()
+    expect(screen.getByRole('button', { name: 'Choose folder…' })).toBeInTheDocument()
+  })
+
   it('does nothing when the folder picker is cancelled', async () => {
     render(<SyncSection />)
     await userEvent.click(screen.getByRole('button', { name: 'Choose folder…' }))

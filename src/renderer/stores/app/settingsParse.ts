@@ -269,5 +269,9 @@ const extensionSettingsOf = (v: unknown): Record<string, ExtensionSettingValues>
   return out
 }
 
-const syncOf = (v: unknown): SyncSettings | undefined =>
-  isPlainObject(v) && typeof v.dir === 'string' ? { dir: v.dir } : undefined
+const syncOf = (v: unknown): SyncSettings | undefined => {
+  if (!isPlainObject(v)) return undefined
+  const dir = typeof v.dir === 'string' ? v.dir : ''
+  if (v.method === 'server') return { dir, method: 'server' }
+  return typeof v.dir === 'string' ? { dir } : undefined
+}

@@ -11,6 +11,7 @@ describe('gatewayAddresses', () => {
         bindHost: '192.168.2.108',
         tailnet: NODE,
         phoneAddress: { host: 'gw.example.org', port: 443 },
+        relay: null,
       }),
     ).toEqual([
       { kind: 'tailnet', host: 'ostia-box.tail1234.ts.net', port: 8722 },
@@ -22,7 +23,13 @@ describe('gatewayAddresses', () => {
 
   it('RDS-C16 leaves out loopback and whatever does not exist now', () => {
     expect(
-      gatewayAddresses({ port: 8722, bindHost: '127.0.0.1', tailnet: null, phoneAddress: null }),
+      gatewayAddresses({
+        port: 8722,
+        bindHost: '127.0.0.1',
+        tailnet: null,
+        phoneAddress: null,
+        relay: null,
+      }),
     ).toEqual([])
     expect(
       gatewayAddresses({
@@ -30,13 +37,41 @@ describe('gatewayAddresses', () => {
         bindHost: null,
         tailnet: { ip: '100.64.0.9', dnsName: null },
         phoneAddress: null,
+        relay: null,
       }),
     ).toEqual([{ kind: 'tailnet', host: '100.64.0.9', port: 8722 }])
   })
 
+  it('RLY-C40 lists the relay host on 443 after the tailnet, phone and LAN addresses', () => {
+    expect(
+      gatewayAddresses({
+        port: 8722,
+        bindHost: '192.168.2.108',
+        tailnet: NODE,
+        phoneAddress: { host: 'gw.example.org', port: 443 },
+        relay: { host: 'lblabc.relay.test', port: 443 },
+      }).map((a) => a.kind),
+    ).toEqual(['tailnet', 'tailnet', 'phone', 'lan', 'relay'])
+    expect(
+      gatewayAddresses({
+        port: 8722,
+        bindHost: null,
+        tailnet: null,
+        phoneAddress: null,
+        relay: { host: 'lblabc.relay.test', port: 443 },
+      }),
+    ).toEqual([{ kind: 'relay', host: 'lblabc.relay.test', port: 443 }])
+  })
+
   it('RDS-C17 lists nothing while the gateway is not listening', () => {
     expect(
-      gatewayAddresses({ port: null, bindHost: null, tailnet: NODE, phoneAddress: null }),
+      gatewayAddresses({
+        port: null,
+        bindHost: null,
+        tailnet: NODE,
+        phoneAddress: null,
+        relay: null,
+      }),
     ).toEqual([])
   })
 })
@@ -47,6 +82,7 @@ describe('isCurrentHost', () => {
     bindHost: '192.168.2.108',
     tailnet: NODE,
     phoneAddress: { host: 'gw.example.org', port: 443 },
+    relay: null,
   })
 
   it('RDS-C18 accepts every current address, with its port or without one', () => {
@@ -79,5 +115,48 @@ describe('isCurrentHost', () => {
     }
     expect(isCurrentHost(undefined, 8722, addresses)).toBe(false)
     expect(isCurrentHost('127.0.0.1:8722', null, addresses)).toBe(false)
+  })
+})
+
+describe('isCurrentHost with the relay', () => {
+  const addresses = gatewayAddresses({
+    port: 8722,
+    bindHost: null,
+    tailnet: null,
+    phoneAddress: null,
+    relay: { host: 'lblabc.relay.test', port: 443 },
+  })
+
+  it('RLY-C41 accepts the relay host with 443 or no port, and nothing else on it', () => {
+    expect(isCurrentHost('lblabc.relay.test', 8722, addresses)).toBe(true)
+    expect(isCurrentHost('LBLABC.relay.test:443', 8722, addresses)).toBe(true)
+    expect(isCurrentHost('lblabc.relay.test:8722', 8722, addresses)).toBe(false)
+    expect(isCurrentHost('other.relay.test', 8722, addresses)).toBe(false)
+  })
+
+  it('RLY-C62 accepts the relay host on the public port of the server, with it or without one', () => {
+    const mapped = gatewayAddresses({
+      port: 8722,
+      bindHost: null,
+      tailnet: null,
+      phoneAddress: null,
+      relay: { host: 'lblabc.relay.test', port: 8443 },
+    })
+    expect(mapped).toEqual([{ kind: 'relay', host: 'lblabc.relay.test', port: 8443 }])
+    expect(isCurrentHost('lblabc.relay.test', 8722, mapped)).toBe(true)
+    expect(isCurrentHost('lblabc.relay.test:8443', 8722, mapped)).toBe(true)
+    expect(isCurrentHost('lblabc.relay.test:443', 8722, mapped)).toBe(false)
+    expect(isCurrentHost('lblabc.relay.test:8722', 8722, mapped)).toBe(false)
+  })
+
+  it('RLY-C42 stops accepting the relay host once no address lists it', () => {
+    const without = gatewayAddresses({
+      port: 8722,
+      bindHost: null,
+      tailnet: null,
+      phoneAddress: null,
+      relay: null,
+    })
+    expect(isCurrentHost('lblabc.relay.test', 8722, without)).toBe(false)
   })
 })

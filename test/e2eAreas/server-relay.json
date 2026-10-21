@@ -1,0 +1,13 @@
+{
+  "name": "server-relay",
+  "paths": [
+    "src/main/gateway/relayClient.",
+    "src/main/server/",
+    "src/renderer/components/server/",
+    "src/shared/server/",
+    "test/fixtures/server/"
+  ],
+  "specs": [
+    "e2e/server-relay.spec.ts"
+  ]
+}

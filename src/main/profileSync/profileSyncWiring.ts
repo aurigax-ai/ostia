@@ -5,9 +5,10 @@ import { credentials } from '../browser/credentials'
 import type { ExtensionHost } from '../extensions/extensionHost'
 import type { SecretStoreDeps } from '../extensions/extensionSecrets'
 import type { Marketplace } from '../extensions/marketplace/marketplace'
-import { storePath } from '../platform/jsonStore'
+import { loadJson, saveJson, storePath } from '../platform/jsonStore'
 import { readSettingsFile } from '../platform/settingsFile'
 import type { WorkerScan } from '../privacy/redactionScan'
+import type { ServerAccount } from '../server/serverAccount'
 import type { WindowSend } from '../windows/windowSend'
 import { type ProfileSyncHandle, startProfileSync } from './ipc'
 import { flatSource, groupedSource, loginsSource } from './secretSources'
@@ -22,6 +23,7 @@ interface ProfileSyncStartDeps {
   marketplace: Marketplace
   encryptedFile: (path: string) => SecretStoreDeps
   redactionScan: WorkerScan
+  server: ServerAccount
 }
 
 export function startProfileSyncWiring({
@@ -31,7 +33,9 @@ export function startProfileSyncWiring({
   marketplace,
   encryptedFile,
   redactionScan,
+  server,
 }: ProfileSyncStartDeps) {
+  const syncKeyPath = storePath('sync-server', 'global')
   services.profileSync = startProfileSync({
     userData: app.getPath('userData'),
     configDir: configDir(),
@@ -69,6 +73,11 @@ export function startProfileSyncWiring({
     protect: {
       encrypt: (plain) => safeStorage.encryptString(plain).toString('base64'),
       decrypt: (kept) => safeStorage.decryptString(Buffer.from(kept, 'base64')),
+    },
+    server,
+    syncKeyFile: {
+      load: () => loadJson<unknown>(syncKeyPath, {}),
+      save: (data) => saveJson(syncKeyPath, data, { secure: true }),
     },
     detectSecrets: (text) =>
       redactionScan.scan(text, parsePrivacySettings(readSettingsFile().privacy).redaction.patterns),

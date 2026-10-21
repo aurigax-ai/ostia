@@ -8,6 +8,7 @@ import type {
 } from '@aurigax-ai/ostia-extension-sdk/contract/phoneScreens'
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import WebSocket from 'ws'
+import { pushDepsStub } from '../../../test/fixtures/server/pushDepsStub'
 import { emitPlatformEvent } from '../control/events'
 import { registerPane } from '../control/idRegistry'
 import type { GatewayControlDeps } from './controlDispatch'
@@ -169,6 +170,7 @@ const deps = {
   watchesTurn: vi.fn().mockResolvedValue(false),
   turnStarted: vi.fn().mockResolvedValue(true),
   paneSince: vi.fn().mockReturnValue(undefined),
+  ...pushDepsStub(),
   paneTurns: { list: vi.fn().mockReturnValue([]), output: vi.fn().mockReturnValue(null) },
   redact: vi.fn(async (text: string) => text),
   ownSnippets: vi.fn().mockReturnValue([]),

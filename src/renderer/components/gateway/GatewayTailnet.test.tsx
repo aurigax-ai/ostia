@@ -13,12 +13,14 @@ const TAILNET_ROUTE: GatewayRoute = {
   bindInterface: null,
   tailnet: true,
   phoneAddress: null,
+  relay: false,
 }
 const LAN_ROUTE: GatewayRoute = {
   bindAddress: '192.168.2.108',
   bindInterface: 'wlan0',
   tailnet: false,
   phoneAddress: null,
+  relay: false,
 }
 
 const LOOPBACK_ROUTE: GatewayRoute = { ...LAN_ROUTE, bindAddress: '127.0.0.1', bindInterface: null }
@@ -36,7 +38,9 @@ function remoteOn(
     deviceCount: 0,
     tailnet,
     route,
+    relay: { state: 'off' },
     discoverable: false,
+    push: 'available',
   }
   vi.mocked(window.ostia.gateway.status).mockResolvedValue(status)
 }
@@ -170,6 +174,7 @@ describe('Settings → Remote over the tailnet', () => {
         bindInterface: null,
         tailnet: false,
         phoneAddress: { host: 'desk.example', port: 443 },
+        relay: false,
       },
     )
     render(<GatewaySection />)
@@ -188,6 +193,7 @@ describe('Settings → Remote over the tailnet', () => {
       bindInterface: null,
       tailnet: false,
       phoneAddress: { host: 'desk.example.ts.net', port: 443 },
+      relay: false,
     })
   })
 

@@ -755,6 +755,18 @@ describe('settingsStore', () => {
       expect(useSettingsStore.getState().sync).toEqual({ dir: '/home/me/Sync' })
     })
 
+    it('SSY-C70 refuses an agent choosing the sync method and keeps the human choice', async () => {
+      useSettingsStore.setState({ sync: { dir: '/home/me/Sync' } })
+      expect(() => store().setByPath('sync.method', 'server')).toThrow(/unknown settings key/)
+      expect(useSettingsStore.getState().sync).toEqual({ dir: '/home/me/Sync' })
+      await store().setSyncMethod('server')
+      expect(useSettingsStore.getState().sync).toEqual({ dir: '/home/me/Sync', method: 'server' })
+      await store().setSyncDir('')
+      expect(useSettingsStore.getState().sync).toEqual({ dir: '', method: 'server' })
+      await store().setSyncMethod('folder')
+      expect(useSettingsStore.getState().sync).toBeUndefined()
+    })
+
     it('PSY-C32 refuses an agent turning secret sync on', () => {
       useSettingsStore.setState({ sync: { dir: '/home/me/Sync' } })
       expect(() => store().setByPath('sync.secrets', true)).toThrow(/unknown settings key/)

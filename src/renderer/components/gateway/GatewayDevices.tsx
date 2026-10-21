@@ -1,5 +1,5 @@
 import type { Dict } from '@shared/app/dict'
-import type { GatewayDevice } from '@shared/gateway/gatewayApi'
+import type { GatewayDevice, GatewayPushAvailability } from '@shared/gateway/gatewayApi'
 import { PHONE_GRANTABLE_CAPS, type PhoneGrantableCap } from '@shared/gateway/phoneCapabilities'
 import { useState } from 'react'
 import { ControlRow } from '@/components/settingsKit/ControlRow'
@@ -29,6 +29,7 @@ import { Switch } from '@/components/ui/switch'
 import { DATE_ONLY, formatDate } from '@/lib/app/localeFormat'
 import { fmt, useDict } from '@/lib/app/useDict'
 import { useSettingsStore } from '@/stores/app/settingsStore'
+import { DevicePushRow } from './GatewayDevicePush'
 
 const CAP_NEEDS: Partial<Record<PhoneGrantableCap, PhoneGrantableCap>> = {
   destructive: 'command',
@@ -48,10 +49,14 @@ export function capText(d: Dict): Record<PhoneGrantableCap, { label: string; des
 
 function DeviceRow({
   device,
+  push,
+  refresh,
   onChange,
   onRevoke,
 }: {
   device: GatewayDevice
+  push: GatewayPushAvailability
+  refresh: () => Promise<void>
   onChange: (cap: PhoneGrantableCap, granted: boolean) => void
   onRevoke: () => void
 }): JSX.Element {
@@ -104,6 +109,7 @@ function DeviceRow({
               )
             })}
           </fieldset>
+          <DevicePushRow device={device} availability={push} refresh={refresh} />
           <AlertDialog open={asking} onOpenChange={setAsking}>
             <AlertDialogContent>
               <AlertDialogHeader>
@@ -137,9 +143,11 @@ function DeviceRow({
 
 export function DeviceList({
   devices,
+  push,
   refresh,
 }: {
   devices: GatewayDevice[]
+  push: GatewayPushAvailability
   refresh: () => Promise<void>
 }): JSX.Element {
   const d = useDict()
@@ -180,6 +188,8 @@ export function DeviceList({
           <DeviceRow
             key={dev.deviceId}
             device={dev}
+            push={push}
+            refresh={refresh}
             onChange={(cap, v) => onCapChange(dev, cap, v)}
             onRevoke={() => void onRevoke(dev.deviceId)}
           />

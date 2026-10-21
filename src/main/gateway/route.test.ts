@@ -26,6 +26,7 @@ const LAN = {
   bindInterface: 'wlan0',
   tailnet: false,
   phoneAddress: null,
+  relay: false,
 }
 
 describe('the saved route names the card of a local bind', () => {
@@ -40,6 +41,12 @@ describe('the saved route names the card of a local bind', () => {
     expect(checkRoute({ ...LAN, bindInterface: null })).toBe('unknown-address')
     expect(checkRoute({ ...LAN, bindAddress: '127.0.0.1' })).toBe('unknown-address')
     expect(checkRoute({ ...LAN, bindInterface: undefined })).toBe('unknown-address')
+  })
+
+  it('RLY-C43 keeps the relay switch and refuses a route without one', () => {
+    expect(checkRoute({ ...LAN, relay: true })).toMatchObject({ relay: true })
+    expect(checkRoute({ ...LAN, relay: undefined })).toBe('unknown-address')
+    expect(checkRoute({ ...LAN, relay: 'yes' })).toBe('unknown-address')
   })
 
   it('RDS-C27 reads a saved route back with its card', () => {

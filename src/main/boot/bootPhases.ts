@@ -11,6 +11,7 @@ import { createResumeClaimer, registerResumeClaimIpc } from '../agents/resumeCla
 import { registerToolbeltWiring } from '../agents/toolbeltWiring'
 import { registerApprovalsWiring } from '../approvals/approvalsWiring'
 import { registerArtifactViewIpc, startArtifacts } from '../artifacts/artifactWiring'
+import { startShares } from '../artifacts/shares/sharesWiring'
 import { registerNotifyWiring } from '../attention/notifyWiring'
 import { registerBrowserGuestIpc } from '../browser/browserGuestIpc'
 import { registerBrowserWiring } from '../browser/browserWiring'
@@ -44,6 +45,7 @@ import { appDataDir } from '../platform/userDirs'
 import { registerPrivacyIpc } from '../privacy/privacyIpc'
 import { startProfileSyncWiring } from '../profileSync/profileSyncWiring'
 import { registerSandboxIpcWiring, registerSandboxWiring } from '../sandbox/sandboxWiring'
+import { startServer } from '../server/serverWiring'
 import { registerHistoryIpc } from '../terminal/history/historyIpc'
 import { appSpillWorker, HISTORY_DIR, PaneHistories } from '../terminal/history/paneHistories'
 import { registerPtyIpc } from '../terminal/pty/ptyIpc'
@@ -185,11 +187,13 @@ export function boot(wiring: Wiring): void {
     resumeOfPane,
   })
   const { marketplace } = startMarketplace({ ...wiring, extensionStore })
-  startProfileSyncWiring({ ...wiring, marketplace })
+  const server = startServer({ ...wiring })
+  startShares({ ...wiring, server })
+  startProfileSyncWiring({ ...wiring, marketplace, server })
   startChat({ ...wiring })
   startAgent({ ...wiring })
   const { viewHost, ownSnippets } = registerContentIpc({ ...wiring })
-  startGateway({ ...wiring, turnConfirms, startAgentForPhone, ownSnippets })
+  startGateway({ ...wiring, turnConfirms, startAgentForPhone, ownSnippets, server })
   registerBrowserWiring({ ...wiring })
   startControlServer({ ...wiring })
   startManager({ ...wiring })

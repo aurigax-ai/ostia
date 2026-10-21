@@ -7,6 +7,7 @@ export const DEFAULT_GATEWAY_ROUTE: GatewayRoute = {
   bindInterface: null,
   tailnet: true,
   phoneAddress: null,
+  relay: false,
 }
 
 const IPV4 = /^(25[0-5]|2[0-4]\d|1?\d?\d)(\.(25[0-5]|2[0-4]\d|1?\d?\d)){3}$/

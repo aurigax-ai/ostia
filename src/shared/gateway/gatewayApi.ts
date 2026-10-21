@@ -25,7 +25,13 @@ export interface GatewayRoute {
   bindInterface: string | null
   tailnet: boolean
   phoneAddress: GatewayPhoneAddress | null
+  relay: boolean
 }
+
+export type GatewayRelayState =
+  | { state: 'off' | 'needs-sign-in' | 'connecting' }
+  | { state: 'listening'; host: string; port: number }
+  | { state: 'error'; code: string }
 
 export interface GatewayBindAddress {
   address: string
@@ -33,10 +39,18 @@ export interface GatewayBindAddress {
   loopback: boolean
 }
 
+export type GatewayPushAvailability =
+  | 'available'
+  | 'not-signed-in'
+  | 'server-push-off'
+  | 'unreachable'
+
 export interface GatewayRemoteStatus extends GatewayStatus {
   tailnet: GatewayTailnetState
   route: GatewayRoute
+  relay: GatewayRelayState
   discoverable: boolean
+  push: GatewayPushAvailability
 }
 
 export interface GatewayPairRequest {
@@ -78,7 +92,20 @@ export interface GatewayDevice {
   pubkey: string
   caps: string[]
   createdAt: string
+  push: { enabled: boolean; registered: boolean }
 }
+
+export type GatewaySetPushResult =
+  | { ok: true }
+  | {
+      ok: false
+      error:
+        | 'not-a-window'
+        | 'invalid'
+        | 'not-found'
+        | 'needs-notify'
+        | Exclude<GatewayPushAvailability, 'available'>
+    }
 
 export type GatewaySetCapResult =
   | { ok: true; caps: string[] }
@@ -116,11 +143,14 @@ interface GatewayApi {
     cap: PhoneGrantableCap,
     granted: boolean,
   ) => Promise<GatewaySetCapResult>
+  setDevicePush: (deviceId: string, enabled: boolean) => Promise<GatewaySetPushResult>
+  onPushChanged: (cb: () => void) => () => void
   bindAddresses: () => Promise<GatewayBindAddress[]>
   setRoute: (route: GatewayRoute) => Promise<GatewaySetRouteResult>
   tailnetSignIn: () => Promise<GatewayTailnetActionResult>
   tailnetSignOut: () => Promise<GatewayTailnetActionResult>
   onTailnetChanged: (cb: (state: GatewayTailnetState) => void) => () => void
+  onRelayChanged: (cb: (state: GatewayRelayState) => void) => () => void
   setDiscoverable: (on: boolean) => Promise<GatewayActionResult>
   pairRequests: () => Promise<GatewayPairRequest[]>
   answerPairRequest: (requestId: string, approve: boolean) => Promise<GatewayActionResult>

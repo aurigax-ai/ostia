@@ -33,12 +33,14 @@ const DEFAULT_ROUTE = {
   bindInterface: null,
   tailnet: true,
   phoneAddress: null,
+  relay: false,
 }
 const LAN_ROUTE = {
   bindAddress: LAN_ADDRESS,
   bindInterface: 'wlan0',
   tailnet: false,
   phoneAddress: null,
+  relay: false,
 }
 
 const server = vi.hoisted(() => ({ running: false, host: '127.0.0.1' }))
@@ -63,6 +65,7 @@ vi.mock('./server', () => ({
   setTailnetNode: vi.fn(),
   applyDeviceCaps: vi.fn(),
   closeDeviceSockets: vi.fn(),
+  currentPhonePush: () => null,
 }))
 
 const { configureTailnet, registerGatewayIpc, registerGatewayMethods } = await import(
@@ -248,6 +251,7 @@ describe('gateway IPC and socket surface for the tailnet', () => {
       host: LAN_ADDRESS,
       tailnet: false,
       phoneAddress: null,
+      relay: false,
     })
     expect(tailnet.start).not.toHaveBeenCalled()
     expect(await invoke('gateway:pair')).toMatchObject({ host: LAN_ADDRESS, port: 8722 })
@@ -255,13 +259,20 @@ describe('gateway IPC and socket surface for the tailnet', () => {
 
   it('TSN-C46 with the node off puts the phone address in the pairing payload', async () => {
     const phoneAddress = { host: 'desk.example.ts.net', port: 443 }
-    const route = { bindAddress: '127.0.0.1', bindInterface: null, tailnet: false, phoneAddress }
+    const route = {
+      bindAddress: '127.0.0.1',
+      bindInterface: null,
+      tailnet: false,
+      phoneAddress,
+      relay: false,
+    }
     expect(await invoke('gateway:set-route', 'window', route)).toEqual({ ok: true, route })
     await invoke('gateway:enable')
     expect(startGateway).toHaveBeenCalledWith({
       host: '127.0.0.1',
       tailnet: false,
       phoneAddress,
+      relay: false,
     })
     expect(tailnet.start).not.toHaveBeenCalled()
     expect(await invoke('gateway:pair')).toMatchObject({ host: 'desk.example.ts.net', port: 443 })
@@ -278,6 +289,7 @@ describe('gateway IPC and socket surface for the tailnet', () => {
       bindAddress: '127.0.0.1',
       tailnet: true,
       phoneAddress: { host: 'desk.example.ts.net', port: 443 },
+      relay: false,
     }
     await invoke('gateway:set-route', 'window', route)
     await invoke('gateway:enable')
@@ -285,6 +297,7 @@ describe('gateway IPC and socket surface for the tailnet', () => {
       host: '127.0.0.1',
       tailnet: true,
       phoneAddress: null,
+      relay: false,
     })
     tailnetState = { state: 'running', ip: '100.64.0.9', dnsName: 'ostia-x.example.ts.net' }
     expect(await invoke('gateway:pair')).toMatchObject({ host: '100.64.0.9', port: 8722 })
@@ -298,13 +311,20 @@ describe('gateway IPC and socket surface for the tailnet', () => {
       host: LAN_ADDRESS,
       tailnet: true,
       phoneAddress: null,
+      relay: false,
     })
     expect(tailnet.start).toHaveBeenCalledWith({ helperPort: 40001, port: 8722 })
   })
 
   it('TSN-C41 starts nothing when the saved address is no longer on this computer', async () => {
     saveJson(storePath('gateway-config', 'global'), {
-      route: { bindAddress: '10.1.2.3', bindInterface: 'eth9', tailnet: true, phoneAddress: null },
+      route: {
+        bindAddress: '10.1.2.3',
+        bindInterface: 'eth9',
+        tailnet: true,
+        phoneAddress: null,
+        relay: false,
+      },
     })
     expect(await invoke('gateway:enable')).toEqual({ error: 'address-unavailable' })
     expect(startGateway).not.toHaveBeenCalled()

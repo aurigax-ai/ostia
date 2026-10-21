@@ -25,10 +25,20 @@ vi.mock('electron', () => ({
 
 import type { PreviewTheme } from '../../shared/artifacts/htmlPreview'
 import type { PortableResult } from '../../shared/artifacts/portable'
+import type { PublishOptions } from '../../shared/artifacts/shares'
 import { PortableBuilder } from './portableBuilder'
 import type { Bundler } from './portableBundle'
 import { PortableExport, registerPortableIpc } from './portableExport'
 import type { PublishedTables } from './portableTables'
+import type { ShareService } from './shares/shareService'
+
+const PUBLISH: PublishOptions = {
+  mode: 'link',
+  password: '',
+  withLinkKey: false,
+  expiresInSeconds: 2_592_000,
+  acceptedDigest: '',
+}
 
 const THEME: PreviewTheme = { dark: false, vars: { '--ostia-bg': '#fff' } }
 const DAY = 24 * 60 * 60 * 1000
@@ -210,6 +220,7 @@ describe('PortableExport', () => {
     expect([...handlers.keys()].sort()).toEqual([
       'artifacts:portable-copy',
       'artifacts:portable-open',
+      'artifacts:portable-publish',
       'artifacts:portable-save',
     ])
     const path = write('chart.tsx', COMPONENT)
@@ -260,8 +271,13 @@ describe('PortableExport', () => {
     const component = write('chart.tsx', COMPONENT)
     const page = write('page.html', '<!doctype html><p>x</p>')
     for (const path of [component, page]) {
-      for (const action of ['open', 'save', 'copy'] as const) {
-        const result = await r.exporter.run('1', action, { workspaceId: '1:w', path, theme: THEME })
+      for (const action of ['open', 'save', 'copy', 'publish'] as const) {
+        const result = await r.exporter.run('1', action, {
+          workspaceId: '1:w',
+          path,
+          theme: THEME,
+          publish: PUBLISH,
+        })
         expect(result, `${action} ${path}`).toEqual({ ok: false, reason: 'sandboxed' })
       }
     }
@@ -328,5 +344,69 @@ describe('PortableExport', () => {
       document: MARKDOWN,
     })
     expect(refused).toEqual({ ok: false, reason: 'too-large' })
+  })
+
+  it('PRT-C80 hands the finished portable file to the share service for the owner window only', async () => {
+    const publish = vi.fn(async () => ({ ok: true }) as PortableResult)
+    r.exporter.useShares({ publish } as unknown as ShareService)
+    const path = write('plan.md', '# Plan\n')
+    const request = { workspaceId: '1:w', path, theme: THEME, document: MARKDOWN, publish: PUBLISH }
+    expect(await r.exporter.run('1', 'publish', request)).toEqual({ ok: true })
+    expect(publish).toHaveBeenCalledTimes(1)
+    const [given, options] = publish.mock.calls[0] as unknown as [
+      { file: string; source: string; name: string },
+      PublishOptions,
+    ]
+    expect(given.name).toBe('plan.md')
+    expect(given.file).toContain('"format":"ostia-artifact/1"')
+    expect(options).toEqual(PUBLISH)
+    expect(await r.exporter.run('2', 'publish', request)).toEqual({
+      ok: false,
+      reason: 'not-allowed',
+    })
+    expect(publish).toHaveBeenCalledTimes(1)
+  })
+
+  it('PRT-C81 publishes nothing without options, without a share service or with options of the wrong shape', async () => {
+    const path = write('plan.md', '# Plan\n')
+    const base = { workspaceId: '1:w', path, theme: THEME, document: MARKDOWN }
+    expect(await r.exporter.run('1', 'publish', { ...base, publish: PUBLISH })).toEqual({
+      ok: false,
+      reason: 'unavailable',
+    })
+    const publish = vi.fn(async () => ({ ok: true }) as PortableResult)
+    r.exporter.useShares({ publish } as unknown as ShareService)
+    expect(await r.exporter.run('1', 'publish', base)).toEqual({ ok: false, reason: 'bad-options' })
+    registerPortableIpc(r.exporter)
+    const handler = handlers.get('artifacts:portable-publish')
+    for (const bad of [
+      { ...PUBLISH, mode: 'everyone' },
+      { ...PUBLISH, password: 7 },
+      { ...PUBLISH, expiresInSeconds: 1.5 },
+      { ...PUBLISH, acceptedDigest: true },
+      'link',
+    ]) {
+      expect(await handler?.({ sender: { id: 1 } }, { ...base, publish: bad })).toEqual({
+        ok: false,
+        reason: 'not-allowed',
+      })
+    }
+    expect(publish).not.toHaveBeenCalled()
+  })
+
+  it('PRT-C82 publishes a document of a sandboxed workspace but never its runnable file', async () => {
+    r.sandboxed.add('1:w')
+    const publish = vi.fn(async () => ({ ok: true }) as PortableResult)
+    r.exporter.useShares({ publish } as unknown as ShareService)
+    const notes = write('notes.md', '# Notes\n')
+    expect(
+      await r.exporter.run('1', 'publish', {
+        workspaceId: '1:w',
+        path: notes,
+        theme: THEME,
+        document: MARKDOWN,
+        publish: PUBLISH,
+      }),
+    ).toEqual({ ok: true })
   })
 })

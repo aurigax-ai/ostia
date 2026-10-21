@@ -18,6 +18,7 @@ export function GatewaySection(): JSX.Element {
   const routing = useGatewayRoute({
     status: gateway.status,
     tailnet: gateway.tailnet,
+    relay: gateway.relay,
     refresh: gateway.refresh,
     clearPairing: pair.clear,
   })
@@ -54,7 +55,11 @@ export function GatewaySection(): JSX.Element {
 
       <Separator className="my-3" />
 
-      <DeviceList devices={devices} refresh={refresh} />
+      <DeviceList
+        devices={devices}
+        push={gateway.status?.push ?? 'unreachable'}
+        refresh={refresh}
+      />
 
       <GatewayPhoneWorkspace />
     </SettingsPage>

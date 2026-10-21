@@ -85,17 +85,20 @@ function isLocalPeer(ip: string): boolean {
   return ip.startsWith('127.') || ip.startsWith('::ffff:127.') || ip === '::1'
 }
 
+export type PairVia = 'relay'
+
 export function auditPairAttempt(
   ip: string,
   outcome: 'ok' | 'invalid-code' | 'bad-request' | 'rate-limited',
+  via?: PairVia,
 ): void {
   try {
     const path = pairAuditLogPath()
     mkdirSync(dirname(path), { recursive: true })
-    const via = isLocalPeer(ip) ? { via: 'this-computer' } : {}
+    const route = via ? { via } : isLocalPeer(ip) ? { via: 'this-computer' } : {}
     appendFileSync(
       path,
-      `${JSON.stringify({ ts: new Date().toISOString(), ip, outcome, ...via })}\n`,
+      `${JSON.stringify({ ts: new Date().toISOString(), ip, outcome, ...route })}\n`,
       'utf8',
     )
   } catch {}

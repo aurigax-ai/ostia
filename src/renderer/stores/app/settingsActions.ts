@@ -289,6 +289,7 @@ export function createTrustActions(
   | 'removeAction'
   | 'setApprovalMode'
   | 'setSyncDir'
+  | 'setSyncMethod'
 > {
   return {
     setSandbox: async (next) => {
@@ -396,7 +397,17 @@ export function createTrustActions(
 
     setSyncDir: async (dir) => {
       scheduleSave.cancel()
-      set({ sync: dir ? { dir } : undefined })
+      const method = get().sync?.method
+      set({ sync: dir || method ? { dir, ...(method ? { method } : {}) } : undefined })
+      await writeSettings(get())
+    },
+
+    setSyncMethod: async (method) => {
+      scheduleSave.cancel()
+      const dir = get().sync?.dir ?? ''
+      set({
+        sync: method === 'server' ? { dir, method } : dir ? { dir } : undefined,
+      })
       await writeSettings(get())
     },
   }

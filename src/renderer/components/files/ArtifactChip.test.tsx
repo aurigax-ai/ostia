@@ -193,7 +193,7 @@ describe('ArtifactChip', () => {
       const text = readFileSync(join(root, view), 'utf8')
       const components = [...text.matchAll(/from '@\/components\/([^']+)'/g)].map((m) => m[1])
       for (const used of components) {
-        expect(used, `${view} imports ${used}`).toMatch(/^(ui|common|files|editor|agents)\//)
+        expect(used, `${view} imports ${used}`).toMatch(/^(ui|common|files|editor|agents|shares)\//)
       }
       expect(text, view).not.toMatch(/focus-visible:|focus-within:|outline-/)
       expect(text, view).not.toMatch(/#[0-9a-fA-F]{3,8}\b|text-\[|font-\[/)

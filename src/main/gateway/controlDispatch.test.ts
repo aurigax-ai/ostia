@@ -12,6 +12,7 @@ import {
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest'
+import { pushDepsStub } from '../../../test/fixtures/server/pushDepsStub'
 import { en, zhHant } from '../../shared/app/dict'
 import type { CommandDescriptor, CommandResult } from '../../shared/control/commands'
 import { registerPane } from '../control/idRegistry'
@@ -74,6 +75,7 @@ function fakeDeps(overrides: Partial<GatewayControlDeps> = {}): GatewayControlDe
     watchesTurn: vi.fn().mockResolvedValue(false),
     turnStarted: vi.fn().mockResolvedValue(true),
     paneSince: vi.fn().mockReturnValue(undefined),
+    ...pushDepsStub(),
     paneTurns: { list: vi.fn().mockReturnValue([]), output: vi.fn().mockReturnValue(null) },
     redact: vi.fn(async (text: string) => text),
     ownSnippets: vi.fn().mockReturnValue([]),
@@ -1712,6 +1714,38 @@ describe('dispatchGatewayMethod — pane.list since', () => {
     }
     expect(res.result.panes[0]).toMatchObject({ paneId: 'ext-1', sessionId: 'w1', since: 1700 })
     expect(res.result.panes[1]).not.toHaveProperty('since')
+  })
+})
+
+describe('dispatchGatewayMethod — pane.list waitingSince', () => {
+  const agentPane = (paneId: string, agentState: string) => ({
+    paneId,
+    workspaceId: 'w1',
+    kind: 'terminal',
+    title: 'claude',
+    running: true,
+    blockCount: 0,
+    agent: 'claude',
+    agentState,
+  })
+
+  it('PSH-C49 adds waitingSince to an agent pane that is waiting, and only to that pane', async () => {
+    const deps = fakeDeps({
+      listPanes: vi
+        .fn()
+        .mockResolvedValue([
+          agentPane('ext-1', 'waiting'),
+          agentPane('ext-2', 'working'),
+          agentPane('ext-3', 'waiting'),
+        ]),
+      waitingSince: vi.fn((paneId: string) => (paneId === 'ext-3' ? undefined : 4200)),
+    })
+    const res = (await dispatchGatewayMethod('pane.list', {}, ['read'], deps)) as {
+      result: { panes: Record<string, unknown>[] }
+    }
+    expect(res.result.panes[0]).toMatchObject({ paneId: 'ext-1', waitingSince: 4200 })
+    expect(res.result.panes[1]).not.toHaveProperty('waitingSince')
+    expect(res.result.panes[2]).not.toHaveProperty('waitingSince')
   })
 })
 

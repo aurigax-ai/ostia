@@ -1,7 +1,7 @@
 import { execFileSync, spawn } from 'node:child_process'
-import { cpSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { chmodSync, cpSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { delimiter, join } from 'node:path'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 
 const userData = mkdtempSync(join(tmpdir(), 'ostia-handoff-approvals-'))
@@ -119,6 +119,9 @@ describe('ostia handoff (real extension process, real socket, real CLI)', () => 
     session(join(dir, 'other'), OTHER_SESSION, [
       prompt('checkout retry in another project', join(dir, 'other')),
     ])
+    mkdirSync(join(dir, 'bin'))
+    writeFileSync(join(dir, 'bin', 'gh'), '#!/bin/sh\nexit 1\n')
+    chmodSync(join(dir, 'bin', 'gh'), 0o755)
     process.env.HOME = join(dir, 'home')
     socketPath = join(dir, 'control.sock')
     cpSync(join(repoRoot, 'out', 'extensions', 'handoff'), join(dir, 'builtin', 'handoff'), {
@@ -133,7 +136,10 @@ describe('ostia handoff (real extension process, real socket, real CLI)', () => 
       wrap: async (_id, command) => command,
       sandboxEnv: (_id, env) => env,
       dataDir: () => join(dir, 'ext-data'),
-      baseEnv: () => process.env,
+      baseEnv: () => ({
+        ...process.env,
+        PATH: `${join(dir, 'bin')}${delimiter}${process.env.PATH}`,
+      }),
     })
     host = new ExtensionHost({
       sandboxDomains: () => null,

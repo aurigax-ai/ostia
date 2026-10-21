@@ -11,6 +11,7 @@ function device(caps: string[]): GatewayDevice {
     pubkey: 'pk',
     caps,
     createdAt: '2026-09-01T00:00:00.000Z',
+    push: { enabled: false, registered: false },
   }
 }
 

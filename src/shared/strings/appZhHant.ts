@@ -224,7 +224,7 @@ export const appZhHant: typeof appEn = {
     conflictValues: '保留：{kept} · 另一個：{other}',
     conflictsDesc: '已保留最近的變更。若要改用另一個值，請選擇「改用另一個值」。',
     conflictsTitle: '兩台電腦都有變更',
-    desc: '把你的設定檔（設定、按鍵綁定、指令片段、補全規格、檢視與市集擴充功能清單）存放在你自己的資料夾，例如 Syncthing、iCloud Drive 或 Dropbox 資料夾。機密、核准、權限授予與會執行程式的設定只留在這台電腦。',
+    desc: '把你的設定檔（設定、按鍵綁定、指令片段、補全規格、檢視與市集擴充功能清單）存放在你自己的資料夾，例如 Syncthing、iCloud Drive 或 Dropbox 資料夾，或以端對端加密存放在你登入的伺服器。機密、核准、權限授予與會執行程式的設定只留在這台電腦。',
     errBusy: '同步時同步資料夾一直在變動。請再同步一次。',
     errInvalid: '同步的檔案不是有效的 JSON（{files}）。請修正或刪除後再同步。',
     errMissing: '同步資料夾不存在。',

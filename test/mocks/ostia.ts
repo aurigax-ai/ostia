@@ -1,7 +1,19 @@
 import type { BrowserProfile } from '@shared/browser/browserProfile'
 import type { SyncStatus } from '@shared/profileSync/profileSync'
+import type { ServerSyncStatus } from '@shared/profileSync/serverSync'
 import type { OstiaBridge } from '@shared/types'
 import { vi } from 'vitest'
+
+const SYNC_SERVER_OFF: ServerSyncStatus = {
+  state: 'signed-out',
+  host: null,
+  linking: false,
+  linkApproved: false,
+  linkCodes: [],
+  joins: [],
+  recoveryStale: false,
+  wrapRefused: false,
+}
 
 const SYNC_OFF: SyncStatus = {
   dir: null,
@@ -182,6 +194,12 @@ export function makeOstiaMock(overrides?: Partial<OstiaBridge>): OstiaBridge {
       version: vi.fn().mockResolvedValue(null),
       restore: vi.fn().mockResolvedValue(null),
       producers: vi.fn().mockResolvedValue({}),
+    },
+    shares: {
+      status: vi.fn().mockResolvedValue({ state: 'signed-out' }),
+      list: vi.fn().mockResolvedValue({ ok: false, error: 'signed-out' }),
+      copyLink: vi.fn().mockResolvedValue({ ok: true }),
+      remove: vi.fn().mockResolvedValue({ ok: true }),
     },
     openWaits: { onEnded: vi.fn(noopUnsub) },
     preview: {
@@ -537,7 +555,8 @@ export function makeOstiaMock(overrides?: Partial<OstiaBridge>): OstiaBridge {
         fingerprint: 'sha256/x',
         deviceCount: 0,
         tailnet: { state: 'starting' },
-        route: { bindAddress: '127.0.0.1', tailnet: true, phoneAddress: null },
+        route: { bindAddress: '127.0.0.1', tailnet: true, phoneAddress: null, relay: false },
+        relay: { state: 'off' },
       }),
       disable: vi.fn().mockResolvedValue({
         running: false,
@@ -546,7 +565,8 @@ export function makeOstiaMock(overrides?: Partial<OstiaBridge>): OstiaBridge {
         fingerprint: null,
         deviceCount: 0,
         tailnet: { state: 'off' },
-        route: { bindAddress: '127.0.0.1', tailnet: true, phoneAddress: null },
+        route: { bindAddress: '127.0.0.1', tailnet: true, phoneAddress: null, relay: false },
+        relay: { state: 'off' },
       }),
       pair: vi.fn().mockResolvedValue({
         v: 1,
@@ -563,17 +583,22 @@ export function makeOstiaMock(overrides?: Partial<OstiaBridge>): OstiaBridge {
         fingerprint: null,
         deviceCount: 0,
         tailnet: { state: 'off' },
-        route: { bindAddress: '127.0.0.1', tailnet: true, phoneAddress: null },
+        route: { bindAddress: '127.0.0.1', tailnet: true, phoneAddress: null, relay: false },
+        relay: { state: 'off' },
         discoverable: false,
+        push: 'available',
       }),
       devices: vi.fn().mockResolvedValue({ devices: [] }),
       revoke: vi.fn().mockResolvedValue({ ok: true }),
       setCap: vi.fn().mockResolvedValue({ ok: true, caps: ['read', 'notify'] }),
+      setDevicePush: vi.fn().mockResolvedValue({ ok: true }),
+      onPushChanged: vi.fn(noopUnsub),
       bindAddresses: vi.fn().mockResolvedValue([]),
       setRoute: vi.fn(async (route) => ({ ok: true, route })),
       tailnetSignIn: vi.fn().mockResolvedValue({ ok: true }),
       tailnetSignOut: vi.fn().mockResolvedValue({ ok: true }),
       onTailnetChanged: vi.fn(noopUnsub),
+      onRelayChanged: vi.fn(noopUnsub),
       setDiscoverable: vi.fn().mockResolvedValue({ ok: true }),
       pairRequests: vi.fn().mockResolvedValue([]),
       answerPairRequest: vi.fn().mockResolvedValue({ ok: true }),
@@ -635,6 +660,48 @@ export function makeOstiaMock(overrides?: Partial<OstiaBridge>): OstiaBridge {
     },
     editorLanguages: {
       load: vi.fn().mockResolvedValue([]),
+    },
+    server: {
+      status: vi.fn().mockResolvedValue({
+        url: null,
+        host: null,
+        signedIn: false,
+        provider: null,
+        deviceName: null,
+      }),
+      setUrl: vi.fn().mockResolvedValue({ ok: true }),
+      info: vi.fn().mockResolvedValue({ ok: false, error: 'no-server' }),
+      signInWithInvite: vi.fn().mockResolvedValue({ ok: true }),
+      githubStart: vi.fn().mockResolvedValue({ ok: false, error: 'no-server' }),
+      githubPoll: vi.fn().mockResolvedValue({ state: 'pending' }),
+      githubCancel: vi.fn().mockResolvedValue(undefined),
+      openVerification: vi.fn().mockResolvedValue(undefined),
+      signOut: vi.fn().mockResolvedValue({ ok: true }),
+      devices: vi.fn().mockResolvedValue({ ok: true, devices: [] }),
+      markSeen: vi.fn().mockResolvedValue({ ok: true }),
+      createInvite: vi.fn().mockResolvedValue({ ok: true, code: 'invite-code', expiresAt: 0 }),
+      elevationStart: vi.fn().mockResolvedValue({ ok: true, kind: 'approval' }),
+      elevationPoll: vi.fn().mockResolvedValue({ state: 'done' }),
+      elevationCancel: vi.fn().mockResolvedValue(undefined),
+      approvals: vi.fn().mockResolvedValue({ ok: true, approvals: [] }),
+      approve: vi.fn().mockResolvedValue({ ok: true }),
+      onChanged: vi.fn(noopUnsub),
+      onDevicesChanged: vi.fn(noopUnsub),
+    },
+    syncServer: {
+      status: vi.fn().mockResolvedValue(SYNC_SERVER_OFF),
+      setup: vi.fn().mockResolvedValue({ ok: true, status: SYNC_SERVER_OFF }),
+      unlock: vi.fn().mockResolvedValue({ ok: true, status: SYNC_SERVER_OFF }),
+      recover: vi.fn().mockResolvedValue({ ok: true, status: SYNC_SERVER_OFF }),
+      linkStart: vi.fn().mockResolvedValue({ ok: true, status: SYNC_SERVER_OFF }),
+      linkStop: vi.fn().mockResolvedValue({ ok: true, status: SYNC_SERVER_OFF }),
+      linkConfirm: vi.fn().mockResolvedValue({ ok: true, status: SYNC_SERVER_OFF }),
+      approveJoin: vi.fn().mockResolvedValue({ ok: true, status: SYNC_SERVER_OFF }),
+      removeDevice: vi.fn().mockResolvedValue({ ok: true, status: SYNC_SERVER_OFF }),
+      rotate: vi.fn().mockResolvedValue({ ok: true, status: SYNC_SERVER_OFF }),
+      newRecoveryKey: vi.fn().mockResolvedValue({ ok: true, status: SYNC_SERVER_OFF }),
+      collectGarbage: vi.fn().mockResolvedValue({ ok: true, status: SYNC_SERVER_OFF }),
+      onStatus: vi.fn(noopUnsub),
     },
     views: {
       list: vi.fn().mockResolvedValue({ dir: '/home/u/.config/ostia/views', views: [] }),

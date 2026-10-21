@@ -7,9 +7,13 @@ import {
   portableType,
   runsScripts,
 } from '@shared/artifacts/portable'
+import type { PublishOptions } from '@shared/artifacts/shares'
 import { useEffect, useState } from 'react'
 import { MenuItem } from '@/components/common/Menu'
 import { SplitButton, SplitButtonMenu } from '@/components/common/SplitButton'
+import { PublishDialog } from '@/components/shares/PublishDialog'
+import { PublishMenuItems } from '@/components/shares/PublishMenuItems'
+import { type Publishing, usePublishing } from '@/components/shares/usePublishing'
 import { Button } from '@/components/ui/button'
 import { useCopied } from '@/lib/app/useCopied'
 import { fmt, useDict } from '@/lib/app/useDict'
@@ -54,7 +58,10 @@ export function usePortableFile(workspaceId: string, filePath: string) {
     void useSandboxStore.getState().load(workspaceId)
   }, [workspaceId])
 
-  const run = async (action: PortableAction): Promise<void> => {
+  const run = async (
+    action: PortableAction,
+    publish?: PublishOptions,
+  ): Promise<PortableResult | null> => {
     setProblem(null)
     const theme = previewTheme()
     const type = portableType(filePath)
@@ -63,7 +70,7 @@ export function usePortableFile(workspaceId: string, filePath: string) {
       const read = await window.ostia.fs.read(filePath)
       if (!read.ok) {
         setProblem(fmt(d.portable.failed, { message: read.error }))
-        return
+        return null
       }
       document = await portableDocument(filePath, read.text, theme.dark)
     }
@@ -72,9 +79,11 @@ export function usePortableFile(workspaceId: string, filePath: string) {
       path: filePath,
       theme,
       ...(document ? { document } : {}),
+      ...(publish ? { publish } : {}),
     })
-    setProblem(problemOf(d, result))
+    if (action !== 'publish') setProblem(problemOf(d, result))
     if (result.ok && action === 'copy') markCopied()
+    return result
   }
 
   return { shown: canTakeOut(filePath, viewed, sandboxed, artifactDir), run, problem, copied }
@@ -103,10 +112,11 @@ export function PortableActions({
 }): JSX.Element | null {
   const d = useDict()
   const { shown, run, problem, copied } = usePortableFile(workspaceId, filePath)
+  const publishing = usePublishing(filePath, run)
   if (!shown) return null
   return (
     <span className="portable-actions">
-      <PortableProblem problem={problem} />
+      <PortableProblem problem={problem ?? publishing.problem} />
       <SplitButton
         label={d.portable.group}
         variant="outline"
@@ -119,16 +129,20 @@ export function PortableActions({
         <SplitButtonMenu label={d.portable.more} size="xs" variant="outline">
           <MenuItem onClick={() => void run('save')}>{d.portable.save}</MenuItem>
           <MenuItem onClick={() => void run('copy')}>{d.portable.copy}</MenuItem>
+          <PublishMenuItems publishing={publishing} />
         </SplitButtonMenu>
       </SplitButton>
+      <PublishDialog publishing={publishing} />
     </span>
   )
 }
 
 export function PortableMenuItems({
   run,
+  publishing,
 }: {
-  run: (action: PortableAction) => Promise<void>
+  run: (action: PortableAction) => Promise<PortableResult | null>
+  publishing: Publishing
 }): JSX.Element {
   const d = useDict()
   return (
@@ -136,6 +150,7 @@ export function PortableMenuItems({
       <MenuItem onClick={() => void run('open')}>{d.portable.open}</MenuItem>
       <MenuItem onClick={() => void run('save')}>{d.portable.save}</MenuItem>
       <MenuItem onClick={() => void run('copy')}>{d.portable.copy}</MenuItem>
+      <PublishMenuItems publishing={publishing} />
     </>
   )
 }

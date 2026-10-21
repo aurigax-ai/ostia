@@ -227,8 +227,11 @@ export interface Capabilities {
   reach?: ReachMode
 }
 
+type SyncMethodChoice = 'folder' | 'server'
+
 export interface SyncSettings {
   dir: string
+  method?: 'server'
 }
 
 export interface Persisted {
@@ -390,6 +393,7 @@ export interface SettingsState extends Persisted {
   setByPath: (path: string, value: unknown) => SettingChange
   unsetByPath: (path: string) => SettingChange
   setSyncDir: (dir: string) => Promise<void>
+  setSyncMethod: (method: SyncMethodChoice) => Promise<void>
   setApprovalMode: (mode: ApprovalMode) => void
   setWindowTitle: (template: string) => void
   trustAction: (fingerprint: string) => void

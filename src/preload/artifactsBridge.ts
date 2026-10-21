@@ -2,7 +2,7 @@ import { ipcRenderer } from 'electron'
 import type { OstiaBridge } from '../shared/types'
 import { listen } from './listen'
 
-export const artifactsBridge: Pick<OstiaBridge, 'artifacts' | 'preview'> = {
+export const artifactsBridge: Pick<OstiaBridge, 'artifacts' | 'preview' | 'shares'> = {
   artifacts: {
     list: (workspaceId) => ipcRenderer.invoke('artifacts:list', workspaceId),
     pad: (workspaceId) => ipcRenderer.invoke('artifacts:pad', workspaceId),
@@ -13,7 +13,9 @@ export const artifactsBridge: Pick<OstiaBridge, 'artifacts' | 'preview'> = {
           ? 'artifacts:portable-open'
           : action === 'save'
             ? 'artifacts:portable-save'
-            : 'artifacts:portable-copy'
+            : action === 'copy'
+              ? 'artifacts:portable-copy'
+              : 'artifacts:portable-publish'
       return ipcRenderer.invoke(channel, request)
     },
     versions: (workspaceId, path) => ipcRenderer.invoke('artifacts:versions', workspaceId, path),
@@ -23,6 +25,12 @@ export const artifactsBridge: Pick<OstiaBridge, 'artifacts' | 'preview'> = {
       ipcRenderer.invoke('artifacts:restore', workspaceId, path, id),
     producers: (workspaceId) => ipcRenderer.invoke('artifacts:producers', workspaceId),
     onChanged: (cb) => listen('artifacts:changed', cb),
+  },
+  shares: {
+    status: () => ipcRenderer.invoke('shares:status'),
+    list: () => ipcRenderer.invoke('shares:list'),
+    copyLink: (id) => ipcRenderer.invoke('shares:copy-link', id),
+    remove: (id) => ipcRenderer.invoke('shares:delete', id),
   },
   preview: {
     open: (paneId, path, theme) => ipcRenderer.invoke('preview:open', paneId, path, theme),

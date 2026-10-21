@@ -16,7 +16,9 @@ import { lspBridge } from './lspBridge'
 import { permissionsBridge } from './permissionsBridge'
 import { privacyBridge } from './privacyBridge'
 import { sandboxBridge } from './sandboxBridge'
+import { serverBridge } from './serverBridge'
 import { settingsBridge } from './settingsBridge'
+import { syncServerBridge } from './syncServerBridge'
 import { systemBridge } from './systemBridge'
 import { terminalBridge } from './terminalBridge'
 import { updatesBridge } from './updatesBridge'
@@ -47,6 +49,8 @@ const bridge: OstiaBridge = {
   ...updatesBridge,
   ...systemBridge,
   ...gatewayBridge,
+  ...serverBridge,
+  ...syncServerBridge,
   ...attentionBridge,
   ...boardsBridge,
 }

@@ -1,0 +1,10 @@
+{
+  "name": "server-push",
+  "paths": [
+    "src/main/gateway/push/",
+    "src/renderer/components/gateway/GatewayDevicePush."
+  ],
+  "specs": [
+    "e2e/server-push.spec.ts"
+  ]
+}

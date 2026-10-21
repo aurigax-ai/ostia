@@ -1,0 +1,12 @@
+{
+  "name": "server-publish",
+  "paths": [
+    "src/main/artifacts/shares/",
+    "src/renderer/components/shares/",
+    "src/renderer/stores/files/sharesStore.",
+    "src/shared/artifacts/shares."
+  ],
+  "specs": [
+    "e2e/server-publish.spec.ts"
+  ]
+}

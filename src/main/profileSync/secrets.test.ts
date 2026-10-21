@@ -10,7 +10,7 @@ import {
 } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { FAKE } from '../../../test/fixtures/secrets/samples'
 import { createCredentialStore } from '../browser/credentials'
 import { ProfileSync } from './engine'
@@ -19,6 +19,8 @@ import { SECRETS_FILE } from './profile'
 import { openBundle } from './secretCrypto'
 import { loginsSource } from './secretSources'
 import { type SecretEntry, type SecretSource, type SecretSourceName, SecretSync } from './secrets'
+
+vi.mock('./argon2', () => import('../../../test/fixtures/secrets/nativeArgon2'))
 
 const PASSWORD = 'correct horse battery'
 const NEW_PASSWORD = 'staple orange lantern'

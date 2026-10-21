@@ -186,6 +186,12 @@ export function encodeProfile(profile: {
   return out
 }
 
+export function profileFileLimit(path: string): number | null {
+  if (path === SECRETS_FILE) return SECRETS_FILE_MAX_BYTES
+  if ((TOP_FILES as readonly string[]).includes(path)) return TOP_FILE_MAX_BYTES
+  return folderOf(path)?.maxBytes ?? null
+}
+
 function folderOf(path: string): ProfileFolder | null {
   const slash = path.indexOf('/')
   if (slash < 0 || path.indexOf('/', slash + 1) >= 0) return null

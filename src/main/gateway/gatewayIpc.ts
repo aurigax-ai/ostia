@@ -7,14 +7,17 @@ import type {
   GatewayEnableResponse,
   GatewayPairResponse,
   GatewayPhoneAddress,
+  GatewayRelayState,
   GatewayRemoteStatus,
   GatewaySetCapResult,
+  GatewaySetPushResult,
   GatewaySetRouteResult,
   GatewayTailnetActionResult,
   GatewayTailnetState,
 } from '../../shared/gateway/gatewayApi'
 import { LOOPBACK_ADDRESS, resolveBindAddress } from '../../shared/gateway/gatewayRoute'
 import { registerControlMethod } from '../control/controlServer'
+import type { ServerAccount } from '../server/serverAccount'
 import {
   type Announcement,
   type AnnouncementKey,
@@ -24,10 +27,17 @@ import {
 } from './announce'
 import { createBindFollower } from './bindFollower'
 import type { Device } from './devices'
-import { list as listDevices, revoke as revokeDevice, setDeviceCap } from './devices'
+import {
+  get as getDevice,
+  list as listDevices,
+  revoke as revokeDevice,
+  setDeviceCap,
+} from './devices'
 import { listBindAddresses } from './interfaces'
 import { liveCodeCount, newCode, onCodesChanged } from './pairing'
 import { answerPairRequest, listPairRequests } from './pairRequests'
+import { pushView } from './push/phonePush'
+import type { RelayClient } from './relayClient'
 import {
   checkRoute,
   friendlyName,
@@ -39,6 +49,7 @@ import {
 import {
   applyDeviceCaps,
   closeDeviceSockets,
+  currentPhonePush,
   gatewayHelperPort,
   gatewayStatus,
   setTailnetNode,
@@ -68,7 +79,7 @@ function announce(key: AnnouncementKey, next: Announcement | null): void {
 
 function refreshAnnouncement(): void {
   const status = gatewayStatus()
-  const target = pairTarget()
+  const target = directTarget()
   announce(
     'pairing',
     announcementFor({
@@ -98,6 +109,23 @@ export function configureTailnet(instance: Tailnet, deps: TailnetDeps): void {
   tailnetDeps = deps
 }
 
+let relay: RelayClient | null = null
+let relayAccount: Pick<ServerAccount, 'signedIn'> | null = null
+
+export function configureRelay(
+  client: RelayClient,
+  account: Pick<ServerAccount, 'signedIn'>,
+): void {
+  relay = client
+  relayAccount = account
+}
+
+export function relayStatus(): GatewayRelayState {
+  if (!loadRoute().relay) return { state: 'off' }
+  if (!relayAccount?.signedIn()) return { state: 'needs-sign-in' }
+  return relay?.status() ?? { state: 'off' }
+}
+
 export function onTailnetChange(state: GatewayTailnetState): void {
   setTailnetNode(state.state === 'running' ? { ip: state.ip, dnsName: state.dnsName } : null)
   refreshAnnouncement()
@@ -110,6 +138,7 @@ function toPhoneSafeDevice(d: Device): GatewayDevice {
     pubkey: d.pubkey,
     caps: d.caps,
     createdAt: d.createdAt,
+    push: pushView(d),
   }
 }
 
@@ -122,7 +151,9 @@ export function remoteStatus(): GatewayRemoteStatus {
     ...gatewayStatus(),
     tailnet: tailnetState(),
     route: loadRoute(),
+    relay: relayStatus(),
     discoverable: loadDiscoverable(),
+    push: currentPhonePush()?.availability() ?? 'not-signed-in',
   }
 }
 
@@ -136,10 +167,12 @@ async function startFromRoute(): Promise<boolean> {
     host,
     tailnet: route.tailnet,
     phoneAddress: route.tailnet ? null : route.phoneAddress,
+    relay: route.relay,
   })
   if (route.tailnet && started.helperPort) {
     tailnet?.start({ helperPort: started.helperPort, port: started.port })
   }
+  if (route.relay) relay?.start()
   refreshAnnouncement()
   return true
 }
@@ -156,6 +189,7 @@ function serialized<T>(task: () => Promise<T>): Promise<T> {
 async function rebindToCard(): Promise<void> {
   await serialized(async () => {
     if (!wanted) return
+    relay?.stop()
     await tailnet?.stop()
     await stopGateway()
     try {
@@ -186,6 +220,7 @@ export function enableRemote(): Promise<GatewayEnableResponse> {
 export async function stopRemote(): Promise<void> {
   wanted = false
   bindFollower.stop()
+  relay?.stop()
   await tailnet?.stop()
 }
 
@@ -202,7 +237,7 @@ function setRoute(value: unknown): GatewaySetRouteResult {
   return { ok: true, route }
 }
 
-function pairTarget(): GatewayPhoneAddress | null {
+function directTarget(): GatewayPhoneAddress | null {
   const status = gatewayStatus()
   if (!status.running || !status.port) return null
   const route = loadRoute()
@@ -215,12 +250,22 @@ function pairTarget(): GatewayPhoneAddress | null {
   return { host: status.host, port: status.port }
 }
 
+function relayTarget(): GatewayPhoneAddress | null {
+  const state = relayStatus()
+  return state.state === 'listening' ? { host: state.host, port: state.port } : null
+}
+
+function pairTarget(): GatewayPhoneAddress | null {
+  return directTarget() ?? relayTarget()
+}
+
 export function disableRemote(): Promise<GatewayRemoteStatus> {
   wanted = false
   bindFollower.stop()
   return serialized(async () => {
     wanted = false
     bindFollower.stop()
+    relay?.stop()
     await tailnet?.stop()
     await stopGateway()
     refreshAnnouncement()
@@ -251,8 +296,10 @@ function gatewayRevoke(params: unknown): { ok: boolean; error?: string } {
   if (typeof deviceId !== 'string' || !deviceId) {
     return { ok: false, error: 'missing-device-id' }
   }
+  const handle = getDevice(deviceId)?.push?.handle
   if (!revokeDevice(deviceId)) return { ok: false, error: 'not-found' }
   closeDeviceSockets(deviceId)
+  currentPhonePush()?.deviceRemoved(handle)
   return { ok: true }
 }
 
@@ -266,7 +313,10 @@ export function gatewaySetCap(params: unknown): GatewaySetCapResult {
     return { ok: false, error: 'invalid-cap' }
   }
   const result = setDeviceCap(deviceId, cap, granted)
-  if (result.ok) applyDeviceCaps(deviceId, result.caps)
+  if (result.ok) {
+    currentPhonePush()?.capsChanged(deviceId)
+    applyDeviceCaps(deviceId, result.caps)
+  }
   return result
 }
 
@@ -289,7 +339,17 @@ function answerPair(params: unknown): GatewayActionResult {
   const answer = answerPairRequest(requestId, approve)
   if (!answer) return { ok: false, error: 'invalid' }
   for (const deviceId of answer.replaced) closeDeviceSockets(deviceId)
+  for (const handle of answer.replacedHandles) currentPhonePush()?.deviceRemoved(handle)
   return { ok: true }
+}
+
+function setDevicePush(params: unknown): Promise<GatewaySetPushResult> {
+  const { deviceId, enabled } = (params ?? {}) as { deviceId?: unknown; enabled?: unknown }
+  const push = currentPhonePush()
+  if (typeof deviceId !== 'string' || typeof enabled !== 'boolean' || !push) {
+    return Promise.resolve({ ok: false, error: 'invalid' })
+  }
+  return push.setEnabled(deviceId, enabled)
 }
 
 function tailnetSignIn(): GatewayTailnetActionResult {
@@ -343,6 +403,10 @@ export function registerGatewayIpc(): void {
   ipcMain.handle('gateway:set-cap', (e, params): GatewaySetCapResult => {
     if (!fromWindow(e)) return { ok: false, error: 'invalid-cap' }
     return gatewaySetCap(params)
+  })
+  ipcMain.handle('gateway:set-device-push', (e, params): Promise<GatewaySetPushResult> => {
+    if (!fromWindow(e)) return Promise.resolve({ ok: false, error: 'not-a-window' })
+    return setDevicePush(params)
   })
   ipcMain.handle('gateway:bind-addresses', () => listBindAddresses())
   ipcMain.handle('gateway:set-route', (e, params): GatewaySetRouteResult => {

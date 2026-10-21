@@ -17,9 +17,10 @@ import { type GatewayCert, getCert } from './cert'
 import type { GatewayControlDeps } from './controlDispatch'
 import { get as getDevice, list as listDevices, touchDevice } from './devices'
 import { createPairHttp } from './pairHttp'
+import { closeStreams } from './phone/phoneStream'
 import { createPhoneSocket, PHONE_FRAME_BYTES, type SocketState } from './phoneSocket'
-import { closeStreams } from './phoneStream'
-import { readProxyHeader } from './proxyProtocol'
+import { type ProxyPeer, readProxyHeader } from './proxyProtocol'
+import type { PhonePush, PushConfig } from './push/phonePush'
 import type { ScreenLinks } from './screenLinks'
 import type { ScreenRequested } from './screenRequests'
 
@@ -28,6 +29,12 @@ export interface GatewayStartOptions {
   port?: number
   tailnet?: boolean
   phoneAddress?: GatewayPhoneAddress | null
+  relay?: boolean
+}
+
+export interface RelayPeers {
+  owns: (peer: ProxyPeer) => boolean
+  accepted: (peer: ProxyPeer) => void
 }
 
 export interface GatewayStartResult {
@@ -52,8 +59,10 @@ const HEARTBEAT_MS = 15_000
 let httpsServer: HttpsServer | null = null
 let helperServer: NetServer | null = null
 const helperSockets = new Set<Socket>()
-const tailnetPeers = new WeakMap<object, string>()
+const proxyPeers = new WeakMap<object, ProxyPeer>()
 let tailnetNode: TailnetNode | null = null
+let relayAddress: GatewayPhoneAddress | null = null
+let relayPeers: RelayPeers | null = null
 let phoneAddress: GatewayPhoneAddress | null = null
 let wss: WebSocketServer | null = null
 let heartbeat: ReturnType<typeof setInterval> | null = null
@@ -80,10 +89,13 @@ function untrackDeviceSocket(deviceId: string, ws: WebSocket): void {
   const set = socketsByDevice.get(deviceId)
   if (!set) return
   set.delete(ws)
-  if (set.size > 0) return
-  socketsByDevice.delete(deviceId)
-  touchDevice(deviceId)
-  screenLinks?.deviceGone(deviceId)
+  const lastLive = !deviceConnected(deviceId)
+  if (set.size === 0) {
+    socketsByDevice.delete(deviceId)
+    touchDevice(deviceId)
+    screenLinks?.deviceGone(deviceId)
+  }
+  if (lastLive) void phonePush?.deviceGone(deviceId)
 }
 
 function releaseSocket(state: SocketState): void {
@@ -135,14 +147,53 @@ export function capForPlatformEvent(type: PlatformEventType): string {
   return NOTIFY_CAP_EVENTS.has(type) ? 'notify' : 'read'
 }
 
+function withWaitingSince(payload: unknown): unknown {
+  const { sessionId } = payload as { sessionId?: unknown }
+  const waitingSince =
+    typeof sessionId === 'string' ? controlDeps?.sessionWaitingSince(sessionId) : undefined
+  return waitingSince === undefined ? payload : { ...(payload as object), waitingSince }
+}
+
 function phonePayload(type: PlatformEventType, payload: unknown): unknown {
-  if (type !== 'notify' || !payload || typeof payload !== 'object') return payload
+  if (!payload || typeof payload !== 'object') return payload
+  if (type === 'agent.needs-input') return withWaitingSince(payload)
+  if (type === 'session.state') {
+    return (payload as { state?: unknown }).state === 'waiting'
+      ? withWaitingSince(payload)
+      : payload
+  }
+  if (type !== 'notify') return payload
   const { from, ...rest } = payload as { from?: unknown }
   const external = typeof from === 'string' ? (getByPaneId(from)?.externalId ?? null) : null
   return { ...rest, from: external }
 }
 
+export function sendDeviceConfig(deviceId: string, config: PushConfig): void {
+  const frame = eventFrame('push.config', config)
+  for (const ws of socketsByDevice.get(deviceId) ?? []) {
+    if (!screenLinks?.isLink(ws) && ws.readyState === ws.OPEN) ws.send(frame)
+  }
+}
+
+export function deviceConnected(deviceId: string): boolean {
+  for (const ws of socketsByDevice.get(deviceId) ?? []) {
+    if (!screenLinks?.isLink(ws)) return true
+  }
+  return false
+}
+
+let phonePush: PhonePush | null = null
+
+export function configurePhonePush(push: PhonePush): void {
+  phonePush = push
+}
+
+export function currentPhonePush(): PhonePush | null {
+  return phonePush
+}
+
 function broadcastEvent(type: PlatformEventType, payload: unknown): void {
+  void phonePush?.event(type)
   const cap = capForPlatformEvent(type)
   const frame = eventFrame(type, phonePayload(type, payload))
   for (const [ws, state] of sockets) {
@@ -216,6 +267,7 @@ function currentAddresses(): GatewayAddress[] {
     bindHost: boundHost,
     tailnet: tailnetNode,
     phoneAddress,
+    relay: relayAddress,
   })
 }
 
@@ -224,8 +276,20 @@ function isAllowedHostHeader(hostHeader: string | undefined): boolean {
 }
 
 export function setTailnetNode(node: TailnetNode | null): void {
+  changeAddresses(() => {
+    tailnetNode = node
+  })
+}
+
+export function setRelayAddress(address: GatewayPhoneAddress | null): void {
+  changeAddresses(() => {
+    relayAddress = address
+  })
+}
+
+function changeAddresses(change: () => void): void {
   const before = currentAddresses()
-  tailnetNode = node
+  change()
   const after = currentAddresses()
   if (isEqual(before, after)) return
   const frame = eventFrame('addresses.changed', { addresses: after })
@@ -236,7 +300,25 @@ export function setTailnetNode(node: TailnetNode | null): void {
 }
 
 function peerAddress(socket: object & { remoteAddress?: string }): string {
-  return tailnetPeers.get(socket) ?? socket.remoteAddress ?? 'unknown'
+  return proxyPeers.get(socket)?.ip ?? socket.remoteAddress ?? 'unknown'
+}
+
+export function configureRelayPeers(peers: RelayPeers | null): void {
+  relayPeers = peers
+}
+
+function isRelayed(socket: object): boolean {
+  const peer = proxyPeers.get(socket)
+  return peer !== undefined && relayPeers?.owns(peer) === true
+}
+
+function relayVia(socket: object): 'relay' | undefined {
+  return isRelayed(socket) ? 'relay' : undefined
+}
+
+function phoneAccepted(socket: object): void {
+  const peer = proxyPeers.get(socket)
+  if (peer && isRelayed(socket)) relayPeers?.accepted(peer)
 }
 
 function startHeartbeat(): void {
@@ -263,7 +345,7 @@ function listenHelper(server: HttpsServer, cert: GatewayCert): Promise<NetServer
         server,
         secureContext,
       })
-      tailnetPeers.set(tls, peer)
+      proxyPeers.set(tls, peer)
       tls.on('error', () => tls.destroy())
       tls.once('secure', () => server.emit('secureConnection', tls))
     })
@@ -279,6 +361,8 @@ function listenHelper(server: HttpsServer, cert: GatewayCert): Promise<NetServer
 
 const requestHandler = createPairHttp({
   peerAddress,
+  via: relayVia,
+  accepted: phoneAccepted,
   fingerprint: () => currentFingerprint,
   isAllowedHostHeader,
   hasBrowserOrigin,
@@ -291,6 +375,7 @@ const handleConnection = createPhoneSocket({
   controlDeps: () => controlDeps,
   screenLinks: () => screenLinks,
   addresses: currentAddresses,
+  accepted: phoneAccepted,
 })
 
 export async function startGateway(options: GatewayStartOptions = {}): Promise<GatewayStartResult> {
@@ -308,7 +393,7 @@ export async function startGateway(options: GatewayStartOptions = {}): Promise<G
     verifyClient: (info: { origin: string; req: IncomingMessage }) =>
       !hasBrowserOrigin(info.origin) && isAllowedHostHeader(info.req.headers.host),
   })
-  wsServer.on('connection', handleConnection)
+  wsServer.on('connection', (ws, req) => handleConnection(ws, req.socket))
   server.on('error', (err) => console.error('[gateway] server error:', err))
 
   await new Promise<void>((resolve, reject) => {
@@ -318,7 +403,8 @@ export async function startGateway(options: GatewayStartOptions = {}): Promise<G
       resolve()
     })
   })
-  const helper = options.tailnet === false ? null : await listenHelper(server, cert)
+  const helper =
+    options.tailnet === false && options.relay !== true ? null : await listenHelper(server, cert)
 
   httpsServer = server
   helperServer = helper
@@ -362,6 +448,7 @@ export async function stopGateway(): Promise<void> {
   boundHelperPort = null
   currentFingerprint = null
   tailnetNode = null
+  relayAddress = null
   phoneAddress = null
 
   if (wssToClose) await new Promise<void>((resolve) => wssToClose.close(() => resolve()))

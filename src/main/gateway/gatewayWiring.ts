@@ -31,6 +31,7 @@ import { processStatusOf } from '../panes/processManager'
 import type { ProcessRegistry } from '../panes/processRegistry'
 import type { Redactor } from '../privacy/redaction'
 import type { WorkspaceSandboxes } from '../sandbox/workspaceSandboxes'
+import type { ServerAccount } from '../server/serverAccount'
 import type { PtyIo } from '../terminal/pty/ptyIo'
 import type { PtyEntry } from '../terminal/pty/ptyRegistry'
 import type { WindowSend } from '../windows/windowSend'
@@ -40,14 +41,16 @@ import { createBonjourPublisher } from './announce'
 import type { GatewayControlDeps } from './controlDispatch'
 import {
   configureAnnouncer,
+  configureRelay,
   configureTailnet,
   onTailnetChange,
   registerGatewayIpc,
   registerGatewayMethods,
+  relayStatus,
   stopRemote,
 } from './gatewayIpc'
 import { listPairRequests, onPairRequestsChanged } from './pairRequests'
-import { phoneScreenLines, withClipboardImage } from './phoneClipboard'
+import { phoneScreenLines, withClipboardImage } from './phone/phoneClipboard'
 import {
   DEFAULT_FOLDER_NAME,
   isPhoneFolder,
@@ -56,14 +59,20 @@ import {
   type PhoneWorkspacePaths,
   phoneWorkspaceDefaults,
   phoneWorkspaceId,
-} from './phoneWorkspace'
-import { registerPhoneWorkspaceIpc } from './phoneWorkspaceIpc'
+} from './phone/phoneWorkspace'
+import { registerPhoneWorkspaceIpc } from './phone/phoneWorkspaceIpc'
+import { startPhonePush } from './push/pushWiring'
+import { RelayClient } from './relayClient'
 import { ScreenLinks } from './screenLinks'
 import {
   askPhonesForScreen,
   configureGatewayControl,
+  configurePhonePush,
+  configureRelayPeers,
   configureScreenLinks,
+  gatewayHelperPort,
   notifiedDeviceIds,
+  setRelayAddress,
 } from './server'
 import { createTailnet, tailnetNodeName, tsnetHelperPath } from './tailnet'
 import type { PhoneFileScope } from './workspaceFiles'
@@ -107,6 +116,7 @@ interface GatewayStartDeps {
   remoteCwdOfPane: (paneId: string) => unknown
   scratchFolders: Pick<ScratchFolders, 'root'>
   startAgentForPhone: GatewayControlDeps['startAgent']
+  server: ServerAccount
 }
 
 export function createScreenLinks({
@@ -159,6 +169,7 @@ export function startGateway({
   remoteCwdOfPane,
   scratchFolders,
   startAgentForPhone,
+  server,
 }: GatewayStartDeps) {
   const phonePaths = (): PhoneWorkspacePaths => {
     const { home, dataDirs } = workspaceSandboxes.pathEnv()
@@ -196,6 +207,15 @@ export function startGateway({
     log: (event, fields) => services.appLog?.info(event, fields),
   })
   configureTailnet(tailnet, { openExternal: (url) => void openExternalSafe(url) })
+  const relay = new RelayClient({
+    account: server,
+    helperPort: gatewayHelperPort,
+    onState: (state) => broadcast('gateway:relay-changed', state),
+    onAddress: setRelayAddress,
+  })
+  configureRelay(relay, server)
+  configureRelayPeers(relay)
+  server.onChange(() => broadcast('gateway:relay-changed', relayStatus()))
   services.stopRemote = stopRemote
   const publisher = createBonjourPublisher()
   configureAnnouncer(publisher)
@@ -216,8 +236,16 @@ export function startGateway({
   })
   agentResumes.subscribe((externalPaneId, resume) => agentStreams.resumed(externalPaneId, resume))
   agentChanges.subscribe(() => void agentStreams.agentsChanged())
+  const { phonePush, waitingSince } = startPhonePush({
+    server,
+    broadcast,
+    log: (event, fields) => services.appLog?.info(event, fields),
+    listAsks: askHub.list,
+  })
+  configurePhonePush(phonePush)
   paneWatch.tap((paneId, change) => {
     if (change.kind === 'closed') agentStreams.paneClosed(paneId)
+    waitingSince.observe(paneId, change)
   })
   platformEvents.on('ask.created', ({ ask }: PlatformEventPayloads['ask.created']) =>
     agentStreams.askOpened(ask),
@@ -269,6 +297,12 @@ export function startGateway({
       const pane = resolveExternal(externalPaneId)
       return pane ? paneJournal.since(pane.paneId) : undefined
     },
+    waitingSince: (externalPaneId) => {
+      const pane = resolveExternal(externalPaneId)
+      return pane ? waitingSince.ofPane(pane.paneId) : undefined
+    },
+    sessionWaitingSince: (sessionId) => waitingSince.ofWorkspace(sessionId),
+    push: phonePush,
     paneTurns,
     ownSnippets,
     redact: async (text) => (await redactor.redact(text)).text,

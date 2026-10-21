@@ -27,7 +27,9 @@ import type { PermissionsBridge } from './permissions/permissionsApi'
 import type { PrivacyApi } from './privacy/redaction'
 import type { TelemetryApi } from './privacy/telemetry'
 import type { ProfileSyncBridge } from './profileSync/profileSync'
+import type { ServerSyncBridge } from './profileSync/serverSync'
 import type { SandboxBridge } from './sandbox/sandboxApi'
+import type { ServerBridge } from './server/serverApi'
 import type { PtyBridge } from './terminal/ptyApi'
 import type { ViewsApi } from './views/views'
 import type { WindowsBridge } from './windows/windowsApi'
@@ -54,11 +56,13 @@ export interface OstiaBridge
     WorkspaceBridge,
     AttentionBridge,
     ProfileSyncBridge,
+    ServerSyncBridge,
     SandboxBridge,
     PermissionsBridge,
     BrowserBridge,
     ArtifactsBridge,
-    GatewayBridge {
+    GatewayBridge,
+    ServerBridge {
   ping: () => Promise<'pong'>
   info: () => Promise<AppInfo>
   platform: Platform

@@ -227,7 +227,7 @@ export const appEn = {
     conflictsDesc:
       'The most recent change was kept. Use the other value to keep it everywhere instead.',
     conflictsTitle: 'Changed on both machines',
-    desc: 'Keep your profile (settings, keybindings, snippets, completion specs, views and the list of marketplace extensions) in a folder you own, such as a Syncthing, iCloud Drive or Dropbox folder. Secrets, approvals, capability grants and settings that run programs stay on this machine.',
+    desc: 'Keep your profile (settings, keybindings, snippets, completion specs, views and the list of marketplace extensions) in a folder you own, such as a Syncthing, iCloud Drive or Dropbox folder, or end to end encrypted on a server you signed in to. Secrets, approvals, capability grants and settings that run programs stay on this machine.',
     errBusy: 'The sync folder kept changing while syncing. Sync again.',
     errInvalid: 'A synced file is not valid JSON ({files}). Fix or delete it, then sync again.',
     errMissing: 'The sync folder does not exist.',
