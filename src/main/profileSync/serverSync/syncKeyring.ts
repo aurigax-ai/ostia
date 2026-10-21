@@ -24,6 +24,7 @@ const PASSPHRASE_MIN = 12
 const PASSPHRASE_SLOT = 'passphrase'
 const RECOVERY_SLOT = 'recovery'
 const MIN_APPROVER_AGE_MS = 24 * 60 * 60 * 1000
+const GC_INTERVAL_MS = 24 * 60 * 60 * 1000
 
 export type KeyringAccount = Pick<
   ServerAccount,
@@ -319,6 +320,16 @@ export class SyncKeyring {
   trusted(): ManifestDevice[] {
     const target = this.target()
     return target ? this.store.pinned(target.id) : []
+  }
+
+  gcDue(): boolean {
+    const target = this.target()
+    return target !== null && this.now() - this.store.lastGc(target.id) >= GC_INTERVAL_MS
+  }
+
+  gcDone(): void {
+    const target = this.target()
+    if (target) this.store.setLastGc(target.id, this.now())
   }
 
   changedDevices(): ChangedDevice[] {

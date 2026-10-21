@@ -78,10 +78,6 @@ export const serverZhHant: typeof serverEn = {
     title: '伺服器',
   },
   syncServer: {
-    cleanUp: '清理伺服器儲存空間',
-    cleanUpDesc: '刪除目前設定檔已不需要的資料。',
-    cleanUpRun: '清理',
-    cleanedUp: '已移除 {count} 項。',
     confirmPassphrase: '再輸入一次',
     errExists: '另一台裝置已設定過同步，請改用解鎖。',
     errFailed: '沒有成功，請再試一次。',

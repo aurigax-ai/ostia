@@ -129,14 +129,6 @@ describe('Settings › Sync › Server', () => {
       recoveryKey: 'NEWK-NEWK',
       status: status({}),
     })
-    api()
-      .collectGarbage.mockResolvedValueOnce({
-        ok: false,
-        error: 'elevation-required',
-        status: status({}),
-      })
-      .mockResolvedValueOnce({ ok: true, deleted: 4, status: status({}) })
-    vi.mocked(window.ostia.server.elevationPoll).mockResolvedValue({ state: 'done' })
     render(<Section />)
     expect(
       await screen.findByText('The old recovery key no longer opens new data.'),
@@ -144,9 +136,6 @@ describe('Settings › Sync › Server', () => {
     await user.click(screen.getByRole('button', { name: 'Make a new recovery key' }))
     expect(await screen.findByText('NEWK-NEWK')).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'I saved it' }))
-    await user.click(screen.getByRole('button', { name: 'Clean up' }))
-    expect(await screen.findByText('Removed 4 items.', {}, { timeout: 5000 })).toBeInTheDocument()
-    expect(api().collectGarbage).toHaveBeenCalledTimes(2)
   })
 
   it('SSY-C96 asks the human to confirm the code once approved, and shows a paused sync for a mismatch', async () => {

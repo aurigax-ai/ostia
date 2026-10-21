@@ -253,10 +253,21 @@ export class ServerAccount {
     }
   }
 
+  private async leaveServer(): Promise<void> {
+    const id = this.identity()?.deviceId
+    if (!id) return
+    try {
+      const headers = this.signer().revoke(id)
+      await this.authed((token, routes) => routes.revokeDevice(token, id, headers))
+    } catch {}
+  }
+
   async signOut(): Promise<ServerActionResult> {
     let cap: ReturnType<typeof setTimeout> | undefined
     await Promise.race([
-      Promise.allSettled([...this.signOutHooks].map(async (hook) => hook())),
+      Promise.allSettled([...this.signOutHooks].map(async (hook) => hook())).then(() =>
+        this.leaveServer(),
+      ),
       new Promise<void>((resolve) => {
         cap = setTimeout(resolve, SIGN_OUT_HOOKS_CAP_MS)
       }),

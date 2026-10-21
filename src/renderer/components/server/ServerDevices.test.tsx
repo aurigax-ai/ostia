@@ -42,7 +42,7 @@ afterEach(() => {
 })
 
 describe('shared device list', () => {
-  it('SYA-C120 lists each device with its age, marks this computer and offers Remove on the others', async () => {
+  it('SYA-C120 lists each device with its age, marks this computer and offers Remove on every row', async () => {
     server().devices.mockResolvedValue({
       ok: true,
       devices: [
@@ -53,7 +53,7 @@ describe('shared device list', () => {
     render(<ServerDevices />)
     expect(await screen.findByText('This computer')).toBeInTheDocument()
     expect(screen.getByText('Added 3 minutes ago')).toBeInTheDocument()
-    expect(screen.getAllByRole('button', { name: 'Remove' })).toHaveLength(1)
+    expect(screen.getAllByRole('button', { name: 'Remove' })).toHaveLength(2)
   })
 
   it('SYA-C124 marks a device whose keys changed on its own row, with Remove and no warning text', async () => {
@@ -70,7 +70,14 @@ describe('shared device list', () => {
     render(<ServerDevices />)
     expect(await screen.findByText('Changed')).toBeInTheDocument()
     expect(screen.getByText(/^Keys changed · sync key ignored until /)).toBeInTheDocument()
-    expect(screen.getAllByRole('button', { name: 'Remove' })).toHaveLength(1)
+    expect(screen.getAllByRole('button', { name: 'Remove' })).toHaveLength(2)
+  })
+
+  it("SYA-C125 leaves the server from this computer's row", async () => {
+    const user = userEvent.setup()
+    render(<ServerDevices />)
+    await user.click(await screen.findByRole('button', { name: 'Remove' }))
+    expect(server().signOut).toHaveBeenCalledTimes(1)
   })
 
   it('SYA-C122 gives the device asking for a confirmation Approve and Deny in place of Remove', async () => {
@@ -100,12 +107,12 @@ describe('shared device list', () => {
     expect(
       await screen.findByText('Asks to confirm a change · added 2 minutes ago'),
     ).toBeInTheDocument()
-    expect(screen.getAllByRole('button', { name: 'Remove' })).toHaveLength(1)
+    expect(screen.getAllByRole('button', { name: 'Remove' })).toHaveLength(2)
     await user.click(screen.getByRole('button', { name: 'Approve' }))
     expect(server().approve).toHaveBeenCalledWith('a1')
     await user.click(screen.getByRole('button', { name: 'Deny' }))
     expect(screen.queryByRole('button', { name: 'Approve' })).toBeNull()
-    expect(screen.getAllByRole('button', { name: 'Remove' })).toHaveLength(2)
+    expect(screen.getAllByRole('button', { name: 'Remove' })).toHaveLength(3)
   })
 
   it('SYA-C123 says in plain words that the approving device is too new', async () => {
@@ -143,7 +150,7 @@ describe('shared device list', () => {
       .mockResolvedValueOnce({ ok: true, removed: true, rotated: true, status: SYNC })
     server().elevationPoll.mockResolvedValue({ state: 'done' })
     render(<ServerDevices />)
-    await user.click(await screen.findByRole('button', { name: 'Remove' }))
+    await user.click((await screen.findAllByRole('button', { name: 'Remove' }))[1] as HTMLElement)
     await user.type(screen.getByLabelText('Sync passphrase'), 'a long passphrase')
     await user.click(screen.getByRole('button', { name: 'Remove device' }))
     await waitFor(() => expect(syncServer().removeDevice).toHaveBeenCalledTimes(2), {

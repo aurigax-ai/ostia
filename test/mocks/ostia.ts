@@ -700,7 +700,6 @@ export function makeOstiaMock(overrides?: Partial<OstiaBridge>): OstiaBridge {
       removeDevice: vi.fn().mockResolvedValue({ ok: true, status: SYNC_SERVER_OFF }),
       rotate: vi.fn().mockResolvedValue({ ok: true, status: SYNC_SERVER_OFF }),
       newRecoveryKey: vi.fn().mockResolvedValue({ ok: true, status: SYNC_SERVER_OFF }),
-      collectGarbage: vi.fn().mockResolvedValue({ ok: true, status: SYNC_SERVER_OFF }),
       onStatus: vi.fn(noopUnsub),
       attention: vi.fn().mockResolvedValue([]),
       onAttention: vi.fn(noopUnsub),

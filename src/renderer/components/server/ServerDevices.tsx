@@ -98,7 +98,13 @@ export function ServerDevices(): JSX.Element {
         </>
       )
     }
-    if (device.current) return null
+    if (device.current) {
+      return (
+        <Button variant="ghost" size="sm" onClick={() => void window.ostia.server.signOut()}>
+          {d.server.deviceRemove}
+        </Button>
+      )
+    }
     return (
       <Button
         variant="ghost"

@@ -81,7 +81,6 @@ export interface ServerSyncResult {
   ok: boolean
   error?: ServerSyncError
   recoveryKey?: string
-  deleted?: number
   removed?: boolean
   rotated?: boolean
   unwrapped?: string[]
@@ -104,7 +103,6 @@ interface ServerSyncApi {
   ) => Promise<ServerSyncResult>
   rotate: (passphrase: string, recoveryKey: string) => Promise<ServerSyncResult>
   newRecoveryKey: () => Promise<ServerSyncResult>
-  collectGarbage: () => Promise<ServerSyncResult>
   onStatus: (cb: (status: ServerSyncStatus) => void) => () => void
   attention: () => Promise<SyncAttention[]>
   onAttention: (cb: (items: SyncAttention[]) => void) => () => void

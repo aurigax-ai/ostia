@@ -19,7 +19,7 @@ import {
   serverAgreesWith,
 } from './syncLink'
 import { registerInManifest } from './syncRegister'
-import { collectGarbage, rotateKey, verifySecrets } from './syncRotate'
+import { rotateKey, verifySecrets } from './syncRotate'
 
 type ServiceAccount = Pick<
   ServerAccount,
@@ -269,14 +269,5 @@ export class ServerSyncService {
   async newRecoveryKey(): Promise<ServerSyncResult> {
     const res = await this.deps.keyring.newRecovery()
     return this.done(res)
-  }
-
-  async collectGarbage(): Promise<ServerSyncResult> {
-    const res = await collectGarbage(this.ctx)
-    return this.done(
-      res.ok
-        ? { ok: true, deleted: res.deleted }
-        : { ok: false, error: res.error as ServerSyncError },
-    )
   }
 }

@@ -44,7 +44,6 @@ const service = {
   removeDevice: vi.fn(async () => OK),
   rotate: vi.fn(async () => OK),
   newRecoveryKey: vi.fn(async () => OK),
-  collectGarbage: vi.fn(async () => OK),
 }
 const run = vi.fn(async () => undefined)
 const broadcast = vi.fn()
@@ -102,7 +101,7 @@ describe('syncServer owner IPC', () => {
     expect(run).toHaveBeenCalledTimes(1)
     expect(broadcast).toHaveBeenCalledWith('syncServer:status', STATUS)
     expect(JSON.stringify(res)).not.toContain('a long passphrase')
-    await call('syncServer:gc', window)
+    await call('syncServer:new-recovery-key', window)
     expect(run).toHaveBeenCalledTimes(1)
   })
 

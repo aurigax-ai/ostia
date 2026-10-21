@@ -79,10 +79,6 @@ export const serverEn = {
     title: 'Server',
   },
   syncServer: {
-    cleanUp: 'Clean up server storage',
-    cleanUpDesc: 'Deletes data your profile no longer needs.',
-    cleanUpRun: 'Clean up',
-    cleanedUp: 'Removed {count} items.',
     confirmPassphrase: 'Type it again',
     errExists: 'Sync was already set up on another device. Unlock it instead.',
     errFailed: 'That did not work. Try again.',

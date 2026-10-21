@@ -20,6 +20,7 @@ interface StoredSyncKeys {
   counters: Record<string, number>
   pinned: Record<string, ManifestDevice[]>
   seen: Record<string, Record<string, SeenDevice>>
+  gc: Record<string, number>
 }
 
 export interface SyncKeyStore {
@@ -31,6 +32,8 @@ export interface SyncKeyStore {
   pinned: (account: string) => ManifestDevice[]
   pin: (account: string, devices: ManifestDevice[], now: number) => void
   firstSeen: (account: string, device: ManifestDevice) => number | null
+  lastGc: (account: string) => number
+  setLastGc: (account: string, at: number) => void
   changedSince: (account: string, since: number) => { id: string; name: string; at: number }[]
 }
 
@@ -60,7 +63,7 @@ function devicesOf(value: unknown): ManifestDevice[] {
 
 function read(file: SyncKeyFile): StoredSyncKeys {
   const raw = file.load()
-  const out: StoredSyncKeys = { keys: {}, counters: {}, pinned: {}, seen: {} }
+  const out: StoredSyncKeys = { keys: {}, counters: {}, pinned: {}, seen: {}, gc: {} }
   if (!isRecord(raw)) return out
   if (isRecord(raw.keys)) {
     for (const [id, value] of Object.entries(raw.keys)) {
@@ -76,6 +79,11 @@ function read(file: SyncKeyFile): StoredSyncKeys {
   }
   if (isRecord(raw.pinned)) {
     for (const [id, value] of Object.entries(raw.pinned)) out.pinned[id] = devicesOf(value)
+  }
+  if (isRecord(raw.gc)) {
+    for (const [id, value] of Object.entries(raw.gc)) {
+      if (typeof value === 'number' && Number.isFinite(value)) out.gc[id] = value
+    }
   }
   if (isRecord(raw.seen)) {
     for (const [account, byId] of Object.entries(raw.seen)) {
@@ -163,6 +171,12 @@ export function createSyncKeyStore(file: SyncKeyFile, protect: Protect): SyncKey
     firstSeen: (account, device) => {
       const seen = read(file).seen[account]?.[device.id]
       return sameEntry(seen, device) ? (seen?.at ?? null) : null
+    },
+    lastGc: (account) => read(file).gc[account] ?? 0,
+    setLastGc: (account, at) => {
+      const data = read(file)
+      data.gc[account] = at
+      file.save(data)
     },
     changedSince: (account, since) => {
       const data = read(file)

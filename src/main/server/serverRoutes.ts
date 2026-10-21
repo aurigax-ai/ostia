@@ -220,7 +220,11 @@ export function serverRoutes(client: ServerClient) {
     rotate: (token: string, body: RotateBody) =>
       client.request<{ version: number }>('POST', '/v1/sync/rotate', { token, body }),
     gc: (token: string, keep: string[]) =>
-      client.request<{ deleted: number }>('POST', '/v1/sync/gc', { token, body: { keep } }),
+      client.request<{ deleted: number }>('POST', '/v1/sync/gc', {
+        token,
+        body: { keep },
+        retryRateLimited: false,
+      }),
     createShare: (token: string, body: CreateShareBody) =>
       client.request<ShareCreated>('POST', '/v1/shares', { token, body }),
     uploadShare: (token: string, path: string, bytes: Uint8Array<ArrayBuffer>) =>

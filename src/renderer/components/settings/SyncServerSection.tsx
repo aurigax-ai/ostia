@@ -8,7 +8,6 @@ import { useState } from 'react'
 import { MachineValue } from '@/components/common/MachineValue'
 import { Notice } from '@/components/common/Notice'
 import { syncServerErrorText } from '@/components/server/syncServerText'
-import { useElevated } from '@/components/server/useElevated'
 import { ControlRow } from '@/components/settingsKit/ControlRow'
 import { Button } from '@/components/ui/button'
 import { formatDate } from '@/lib/app/localeFormat'
@@ -94,18 +93,6 @@ function Locked({ status, act }: StateProps): JSX.Element {
 function Ready({ status, act }: StateProps): JSX.Element {
   const t = useDict().syncServer
   const api = window.ostia.syncServer
-  const elevated = useElevated()
-  const [cleaned, setCleaned] = useState<number | null>(null)
-  const [error, setError] = useState<string | null>(null)
-  const d = useDict()
-
-  const cleanUp = async (): Promise<void> => {
-    setError(null)
-    const res = await elevated.run(() => api.collectGarbage())
-    if (res.ok) setCleaned(res.deleted ?? 0)
-    else setError(syncServerErrorText(d, res.error))
-  }
-
   return (
     <>
       {status.wrapRefused?.reason === 'too-new' ? (
@@ -127,23 +114,6 @@ function Ready({ status, act }: StateProps): JSX.Element {
           {t.recoveryStale}
         </Notice>
       ) : null}
-      <ControlRow
-        label={t.cleanUp}
-        desc={t.cleanUpDesc}
-        error={error}
-        below={
-          cleaned !== null ? (
-            <output className="text-fg-muted text-ui-sm">
-              {fmt(t.cleanedUp, { count: String(cleaned) })}
-            </output>
-          ) : null
-        }
-      >
-        <Button variant="outline" size="sm" onClick={() => void cleanUp()}>
-          {t.cleanUpRun}
-        </Button>
-      </ControlRow>
-      {elevated.prompt}
     </>
   )
 }
