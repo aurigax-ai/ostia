@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { hostOf, parseServerUrl, socketOrigin } from './serverUrl'
+import { defaultServerUrl, hostOf, parseServerUrl, socketOrigin } from './serverUrl'
 
 describe('the server address', () => {
   it('SVA-C8 takes a bare host as https and keeps only the origin', () => {
@@ -37,5 +37,25 @@ describe('the server address', () => {
     expect(socketOrigin('https://a.example')).toBe('wss://a.example')
     expect(socketOrigin('http://127.0.0.1:5')).toBe('ws://127.0.0.1:5')
     expect(hostOf('https://a.example:8443')).toBe('a.example:8443')
+  })
+})
+
+describe('the default server', () => {
+  it('SVA-C56 is nothing unless the build stamp or, unpackaged, the environment names one', () => {
+    expect(defaultServerUrl(true, {}, undefined)).toBeNull()
+    expect(defaultServerUrl(false, {}, undefined)).toBeNull()
+    expect(defaultServerUrl(true, {}, 'ostia.example.com')).toBe('https://ostia.example.com')
+  })
+
+  it('SVA-C57 takes OSTIA_SERVER_URL only when unpackaged, and over the stamp', () => {
+    const env = { OSTIA_SERVER_URL: 'http://example.test:8080' }
+    expect(defaultServerUrl(false, env, 'ostia.example.com')).toBe('http://example.test:8080')
+    expect(defaultServerUrl(true, env, undefined)).toBeNull()
+    expect(defaultServerUrl(true, env, 'ostia.example.com')).toBe('https://ostia.example.com')
+  })
+
+  it('SVA-C58 refuses a stamp that is not a valid address', () => {
+    expect(defaultServerUrl(true, {}, 'http://example.com')).toBeNull()
+    expect(defaultServerUrl(true, {}, 'https://example.com/path')).toBeNull()
   })
 })

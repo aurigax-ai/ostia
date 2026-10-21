@@ -30,7 +30,7 @@ export interface ServerOffer {
   github: boolean
 }
 
-export interface ServerDevice {
+interface ServerDevice {
   id: string
   name: string
   current: boolean

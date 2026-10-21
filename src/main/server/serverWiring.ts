@@ -1,5 +1,4 @@
 import { hostname } from 'node:os'
-import { readEnv } from '@aurigax-ai/ostia-extension-sdk/contract/appEnv'
 import { app, safeStorage } from 'electron'
 import { loadJson, saveJson, storePath } from '../platform/jsonStore'
 import { runningBuild } from '../updates/appVersion'
@@ -11,23 +10,11 @@ import { ServerConfig } from './serverConfig'
 import { registerServerIpc } from './serverIpc'
 import { serverRoutes } from './serverRoutes'
 import { ServerSession } from './serverSession'
-import { parseServerUrl } from './serverUrl'
-
-export const SERVER_URL_ENV = 'SERVER_URL'
+import { defaultServerUrl } from './serverUrl'
 
 interface ServerStartDeps {
   broadcast: WindowSend['broadcast']
   openExternalSafe: (url: string) => boolean
-}
-
-export function defaultServerUrl(
-  isPackaged: boolean,
-  env: Record<string, string | undefined>,
-  stamp: string | undefined,
-): string | null {
-  const override = isPackaged ? undefined : readEnv(SERVER_URL_ENV, env)
-  const text = override ?? stamp
-  return text ? parseServerUrl(text, !isPackaged) : null
 }
 
 function encryptedKeys() {

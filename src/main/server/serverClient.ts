@@ -14,7 +14,7 @@ export class ServerError extends Error {
   }
 }
 
-export interface RequestOptions {
+interface RequestOptions {
   body?: unknown
   token?: string
 }

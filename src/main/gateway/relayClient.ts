@@ -17,7 +17,7 @@ const MAX_STREAMS = 64
 const LOOPBACK = '127.0.0.1'
 const STREAM_ID = /^[A-Za-z0-9_-]{1,64}$/
 
-export type RelayAccount = Pick<
+type RelayAccount = Pick<
   ServerAccount,
   'signedIn' | 'onChange' | 'baseUrl' | 'relayLabel' | 'session'
 >

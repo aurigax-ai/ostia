@@ -2,7 +2,7 @@ import { type DeviceKeys, signChallenge } from './deviceKeys'
 import { ServerError } from './serverClient'
 import type { ServerRoutes } from './serverRoutes'
 
-export const RENEW_MARGIN_MS = 60_000
+const RENEW_MARGIN_MS = 60_000
 
 export interface Session {
   token: string

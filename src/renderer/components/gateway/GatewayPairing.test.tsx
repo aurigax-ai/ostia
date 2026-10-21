@@ -18,6 +18,7 @@ const STATUS: GatewayRemoteStatus = {
     phoneAddress: null,
     relay: false,
   },
+  relay: { state: 'off' },
   discoverable: false,
 }
 
