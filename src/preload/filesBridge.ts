@@ -21,6 +21,12 @@ export const filesBridge: Pick<
     open: (request) => ipcRenderer.invoke('viewers:open', request),
     close: (paneId) => ipcRenderer.send('viewers:close', paneId),
     onStopped: (cb) => listen('viewers:stopped', cb),
+    onSelection: (cb) => listen('viewers:selection', cb),
+    copySelection: (paneId) => ipcRenderer.invoke('viewers:copy-selection', paneId),
+    sendSelection: (request) => ipcRenderer.invoke('viewers:send-selection', request),
+    sendDocumentText: (request) => ipcRenderer.send('viewers:document-text', request),
+    onOpenLink: (cb) => listen('viewers:open-link', cb),
+    onEditSource: (cb) => listen('viewers:edit-source', cb),
   },
   fs: {
     list: (path) => ipcRenderer.invoke('fs:list', path),

@@ -5,6 +5,7 @@ import { Archives } from './archives/archives'
 import type { BrowseProviders } from './archives/browseProviders'
 import { FileSources, localSource } from './fileSources'
 import { FileWatches } from './fileWatch'
+import type { ViewerCopyStrings } from './viewers/viewerClipboard'
 import type { ViewerHost } from './viewers/viewerHost'
 import { createViewerHost } from './viewers/viewerIpc'
 
@@ -22,6 +23,7 @@ interface FileServicesDeps {
   fileRoots: () => string[]
   confine: (path: string) => string | null
   extensions: () => ExtensionHost | null
+  copyStrings: () => ViewerCopyStrings
 }
 
 export function createFileServices({
@@ -29,6 +31,7 @@ export function createFileServices({
   fileRoots,
   confine,
   extensions,
+  copyStrings,
 }: FileServicesDeps): FileServices {
   const noProvider = { ok: false as const, error: 'no-provider' }
   const providers: BrowseProviders = {
@@ -54,7 +57,14 @@ export function createFileServices({
       }
     },
   })
-  const viewers = createViewerHost({ windows, sources, watches, extensions, readLocale })
+  const viewers = createViewerHost({
+    windows,
+    sources,
+    watches,
+    extensions,
+    readLocale,
+    copyStrings,
+  })
   const kindsChanged = (): void => {
     archives.dropCache()
     for (const win of windows.values()) {

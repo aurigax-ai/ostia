@@ -49,6 +49,7 @@ export interface ClipboardEditsDeps {
   snapshot: () => Promise<ClipboardSnapshot>
   mac: boolean
   remap: GuestRemap
+  copyViewerSelection: (guest: WebContents) => boolean
 }
 
 export interface ClipboardEdits {
@@ -86,6 +87,7 @@ export function registerClipboardEdits(deps: ClipboardEditsDeps): ClipboardEdits
         const edit = guestClipboardEdit(deps.remap.remap(guest.id, raw), chords, deps.mac)
         if (!edit) return
         event.preventDefault()
+        if (edit === 'copy' && deps.copyViewerSelection(guest)) return
         applyClipboardEdit(guest, edit)
       })
     },

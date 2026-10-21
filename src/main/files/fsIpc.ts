@@ -1,6 +1,7 @@
 import { homedir, hostname } from 'node:os'
 import { join } from 'node:path'
 import { app, type BrowserWindow, ipcMain, shell } from 'electron'
+import type { Dict } from '../../shared/app/dict'
 import type { FsEntry, FsKind } from '../../shared/files/filesApi'
 import { OPEN_FILES_MAX } from '../../shared/files/openFiles'
 import { getByPaneId } from '../control/idRegistry'
@@ -34,6 +35,7 @@ interface FsIpcDeps {
     extensionHost: ExtensionHost | null
   }
   onSettingsWritten: () => void
+  mainStrings: () => Dict
 }
 
 export function registerFsIpc({
@@ -45,6 +47,7 @@ export function registerFsIpc({
   scratchFolders,
   services,
   onSettingsWritten,
+  mainStrings,
 }: FsIpcDeps): void {
   const allowedRoots = fileRoots()
   const settingsFile = join(app.getPath('userData'), 'settings.json')
@@ -80,6 +83,7 @@ export function registerFsIpc({
     fileRoots,
     confine: (path) => openFileGrants.confine(path),
     extensions: () => services.extensionHost,
+    copyStrings: () => mainStrings().native.viewerCopy,
   })
   services.files = files
   const { sources } = files

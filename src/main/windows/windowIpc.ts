@@ -11,6 +11,7 @@ import { type GuestChords, registerGuestChords } from '../browser/guestChords'
 import { createGuestRemap } from '../browser/guestRemap'
 import { createNativeMenuKey } from '../browser/nativeMenuKeys'
 import { openInExternalEditor } from '../files/externalEditor'
+import type { FileServices } from '../files/filesWiring'
 import { discreteGpu, gpuStartPlan, querySwitcherooGpus } from '../platform/discreteGpu'
 import { appVersion } from '../updates/appVersion'
 import type { AppQuit } from './appQuit'
@@ -81,6 +82,7 @@ interface WindowInputGuardsDeps {
   services: {
     clipboardEdits: ClipboardEdits | null
     guestChords: GuestChords | null
+    files: FileServices | null
   }
   windows: Map<string, BrowserWindow>
   isHumanProfile: (guest: Electron.WebContents) => boolean
@@ -107,6 +109,7 @@ export function registerWindowInputGuards({
     },
     mac: process.platform === 'darwin',
     remap,
+    copyViewerSelection: (guest) => services.files?.viewers.copyForGuest(guest) ?? false,
   })
   services.guestChords = registerGuestChords({
     ipc: ipcMain,

@@ -243,3 +243,59 @@ describe('preview errors', () => {
     expect(md).toContain('````\n```\n# Note\nrun this\n````')
   })
 })
+
+describe('cells captures', () => {
+  const capture: SelectionCapture = {
+    kind: 'cells',
+    file: '/data/q3/report.xlsx',
+    sheet: 'Totals',
+    range: 'A1:C2',
+    rows: 2,
+    columns: 3,
+    csv: 'a,b,c\n1,2,3',
+  }
+
+  it('keeps a well-formed capture and rejects a bad range, size or csv', () => {
+    expect(normalizeSelection(capture)).toEqual(capture)
+    expect(normalizeSelection({ ...capture, range: 'A1:' })).toBeNull()
+    expect(normalizeSelection({ ...capture, range: 'a1' })).toBeNull()
+    expect(normalizeSelection({ ...capture, rows: 101, columns: 100 })).toBeNull()
+    expect(normalizeSelection({ ...capture, rows: 0 })).toBeNull()
+    expect(normalizeSelection({ ...capture, csv: '' })).toBeNull()
+    expect(normalizeSelection({ ...capture, csv: 'x'.repeat(256 * 1024 + 1) })).toBeNull()
+    expect(normalizeSelection({ ...capture, sheet: 5 })).toMatchObject({ sheet: '' })
+  })
+
+  it('writes a Selected cells report with the sheet, range, size and a csv fence', () => {
+    expect(selectionLabel(capture)).toBe('report.xlsx › Totals › A1:C2')
+    expect(selectionLabel({ ...capture, sheet: '' })).toBe('report.xlsx › A1:C2')
+    const md = renderSelectionReport(capture, 'check the sum', null, AT)
+    expect(md).toContain('# Selected cells: report.xlsx › Totals › A1:C2')
+    expect(md).toContain('- File: /data/q3/report.xlsx')
+    expect(md).toContain('- Sheet: Totals')
+    expect(md).toContain('- Range: A1:C2')
+    expect(md).toContain('- Size: 2 rows × 3 columns')
+    expect(md).toContain('check the sum')
+    expect(md).toContain('## Selected cells\n\n```csv\na,b,c\n1,2,3\n```')
+  })
+})
+
+describe('pdf region with text', () => {
+  const region: SelectionCapture = {
+    kind: 'pdf-region',
+    file: '/data/a.pdf',
+    page: 2,
+    pageWidth: 600,
+    pageHeight: 800,
+    region: { x: 1, y: 2, width: 3, height: 4 },
+    text: 'caption',
+  }
+
+  it('keeps the text it contains and writes it next to the snapshot', () => {
+    expect(normalizeSelection(region)).toEqual(region)
+    expect(normalizeSelection({ ...region, text: '' })).not.toHaveProperty('text')
+    expect(renderSelectionReport(region, '', '/tmp/s.png', AT)).toContain(
+      '## Selected text\n\n```\ncaption\n```',
+    )
+  })
+})

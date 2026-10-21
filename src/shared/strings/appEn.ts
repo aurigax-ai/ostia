@@ -171,6 +171,12 @@ export const appEn = {
       title: 'Confirm it is you',
       typeName: 'Type "{name}" to allow it',
     },
+    viewerCopy: {
+      image: 'Copied image',
+      nothing: 'Nothing to copy',
+      text: 'Copied text',
+      textAndImage: 'Copied text and image',
+    },
   },
   portable: {
     allArtifacts: 'All artifacts',

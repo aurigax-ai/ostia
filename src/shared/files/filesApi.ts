@@ -6,6 +6,7 @@ import type {
   RemoteStatResult,
   RemoteWriteResult,
 } from '@aurigax-ai/ostia-extension-sdk/contract/remoteFolders'
+import type { SelectionCapture, SelectionSendResult } from '../browser/selection'
 import type { FileUrlTarget } from './fileUrls'
 import type { OpenFileVerdict } from './openFiles'
 
@@ -35,10 +36,51 @@ export interface ViewerStopped {
   reason: ViewerStopReason
 }
 
+export interface ViewerSelectionState {
+  capture: SelectionCapture
+  hasImage: boolean
+  hasText: boolean
+  anchor: { left: number; top: number; bottom: number }
+}
+
+export interface ViewerSelectionEvent {
+  paneId: string
+  selection: ViewerSelectionState | null
+}
+
+export type ViewerLinkTarget = { kind: 'url'; href: string } | { kind: 'file'; path: string }
+
+export interface ViewerOpenLink {
+  paneId: string
+  target: ViewerLinkTarget
+}
+
+export interface ViewerEditSource {
+  paneId: string
+}
+
+export interface ViewerDocumentText {
+  paneId: string
+  path: string
+  text: string | null
+}
+
+export interface ViewerSendSelection {
+  paneId: string
+  targetPaneId: string
+  note: string
+}
+
 interface ViewersApi {
   open: (request: ViewerOpenRequest) => Promise<ViewerOpenResult>
   close: (paneId: string) => void
   onStopped: (cb: (event: ViewerStopped) => void) => () => void
+  onSelection: (cb: (event: ViewerSelectionEvent) => void) => () => void
+  copySelection: (paneId: string) => Promise<string>
+  sendSelection: (request: ViewerSendSelection) => Promise<SelectionSendResult>
+  sendDocumentText: (request: ViewerDocumentText) => void
+  onOpenLink: (cb: (event: ViewerOpenLink) => void) => () => void
+  onEditSource: (cb: (event: ViewerEditSource) => void) => () => void
 }
 
 interface FsApi {

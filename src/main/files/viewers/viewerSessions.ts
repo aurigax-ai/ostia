@@ -6,10 +6,11 @@ const VIEWER_PARTITION_PREFIX = 'ostia-viewer-'
 
 export const VIEWER_PAGE_CSP = [
   "default-src 'none'",
-  "script-src 'self'",
+  "script-src 'self' 'wasm-unsafe-eval'",
   "worker-src 'self'",
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob:",
+  "media-src 'self' blob:",
   "font-src 'self' data:",
   "connect-src 'self'",
   "form-action 'none'",
