@@ -17,7 +17,7 @@ export function daysLeft(start: number, now: number, days: number): number {
   return Math.max(0, Math.ceil((start + days * DAY_MS - now) / DAY_MS))
 }
 
-export type RememberWhere = 'open' | 'parked' | 'closed'
+type RememberWhere = 'open' | 'parked' | 'closed'
 
 export interface RememberRow {
   id: string

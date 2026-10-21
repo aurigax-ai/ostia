@@ -8,7 +8,7 @@ export const REMEMBER_VERSION = 1
 const SESSION_PATTERN = /^[A-Za-z0-9._:-]{1,80}$/
 const AGENT_PATTERN = /^[a-z][a-z0-9-]{0,31}$/
 
-export const REMEMBER_STATES = ['open', 'done', 'archived'] as const
+const REMEMBER_STATES = ['open', 'done', 'archived'] as const
 export type RememberState = (typeof REMEMBER_STATES)[number]
 
 export interface RememberItem {

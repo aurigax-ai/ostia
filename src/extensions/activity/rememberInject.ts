@@ -1,7 +1,7 @@
 import { type RememberItem, startOf } from './rememberItem'
 import { ageOf } from './view'
 
-export const INJECT_ITEMS_MAX = 10
+const INJECT_ITEMS_MAX = 10
 export const INJECT_CHARS_MAX = 1200
 
 const HEADER =

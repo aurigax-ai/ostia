@@ -13,7 +13,7 @@ import type { RememberStore } from './remember'
 import { REMEMBER_OPEN_MAX, REMEMBER_TEXT_MAX, type RememberItem, startOf } from './rememberItem'
 import { ageOf } from './view'
 
-export interface PaneSession {
+interface PaneSession {
   agent: string
   session: string
 }
