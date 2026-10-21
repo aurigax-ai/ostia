@@ -45,7 +45,10 @@ const MAX_INBOX_ENTRIES = 32
 const INBOX_ID_PATTERN = /^[a-z2-7]{10}$/
 
 export interface ExtensionSlotsHost {
-  deps: Pick<ExtensionHostDeps, 'broadcast' | 'publishWorkspaceChips' | 'workDirForWorkspace'>
+  deps: Pick<
+    ExtensionHostDeps,
+    'broadcast' | 'publishWorkspaceChips' | 'publishInbox' | 'workDirForWorkspace'
+  >
   runtimeOf(identity: PaneIdentity, conn: MessageConnection): Runtime
   commandsOf(rt: Runtime): ExtensionCommandContribution[]
   sendEvent(extId: string, type: string, payload: unknown): boolean
@@ -131,7 +134,7 @@ export class ExtensionSlots {
   }
 
   private inboxChanged(): void {
-    this.host.deps.broadcast('extensions:inbox', this.inboxEntries())
+    this.host.deps.publishInbox?.(this.inboxEntries())
   }
 
   clearInboxWhere(match: (entry: InboxEntry) => boolean): void {
@@ -157,6 +160,9 @@ export class ExtensionSlots {
     const workspaceId = typeof p.workspaceId === 'string' ? p.workspaceId : ''
     if (!workspaceId || this.host.deps.workDirForWorkspace(workspaceId) === undefined) {
       return fail('unknown-workspace', 'workspaceId is not an open workspace')
+    }
+    if (!rt.callerWorkspaces.has(workspaceId)) {
+      return fail('no-caller', 'you have no caller in that workspace')
     }
     if (!Array.isArray(p.items) || p.items.length > INBOX_ITEMS_MAX) {
       return fail('invalid-params', `items must be an array of at most ${INBOX_ITEMS_MAX}`)

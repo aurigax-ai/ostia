@@ -53,7 +53,7 @@ import type { PhoneScreenLinks } from './extensionPhoneScreens'
 import { ExtensionStore } from './extensionStore'
 import { answerInboxAction } from './inboxIpc'
 import { registerWireRuntime, WireRuntime } from './wireRuntime'
-import { workspaceChipsForWindow } from './workspaceChips'
+import { inboxEntriesForWindow, workspaceChipsForWindow } from './workspaceChips'
 
 interface ExtensionHostPartsDeps {
   workspaceWindowId: WindowSend['workspaceWindowId']
@@ -168,6 +168,7 @@ interface ExtensionHostStartDeps {
   sendToWorkspaceWindow: WindowSend['sendToWorkspaceWindow']
   broadcast: WindowSend['broadcast']
   publishWorkspaceChips: WindowSend['publishWorkspaceChips']
+  publishInbox: WindowSend['publishInbox']
   openFileGrants: OpenFileGrants
   workspaceWindowId: WindowSend['workspaceWindowId']
   execCommand: CommandBridge['execCommand']
@@ -205,6 +206,7 @@ export function startExtensionHost({
   sendToWorkspaceWindow,
   broadcast,
   publishWorkspaceChips,
+  publishInbox,
   openFileGrants,
   workspaceWindowId,
   execCommand,
@@ -266,6 +268,7 @@ export function startExtensionHost({
     openAssistUiIn: (req) => sendToWorkspaceWindow(req.workspaceId, 'assist:open-ui', req),
     broadcast,
     publishWorkspaceChips,
+    publishInbox,
     openPanelIn: (req) => sendToWorkspaceWindow(req.workspaceId, 'extensions:open-panel', req),
     openDiffIn: (req) => sendToWorkspaceWindow(req.workspaceId, 'extensions:open-diff', req),
     openFileIn: (req) =>
@@ -362,7 +365,9 @@ export function createExtensionIpc({
     )
     ipcMain.handle('extensions:sidebar', () => host.slots.sidebarItems())
     ipcMain.handle('extensions:panel-toolbar', () => host.slots.panelToolbarEntries())
-    ipcMain.handle('extensions:inbox', () => host.slots.inboxEntries())
+    ipcMain.handle('extensions:inbox', (e) =>
+      inboxEntriesForWindow(host.slots.inboxEntries(), workspaceWindowId, String(e.sender.id)),
+    )
     ipcMain.handle(
       'extensions:inbox-action',
       (e, extId: unknown, workspaceId: unknown, id: unknown): boolean =>

@@ -1,6 +1,7 @@
 import type { AssistOpenUiRequest } from '@aurigax-ai/ostia-extension-sdk/contract/assist'
 import type {
   ExtensionResult,
+  InboxEntry,
   WorkspaceChip,
 } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import type {
@@ -36,6 +37,7 @@ export interface ExtensionHostDeps {
   onChanged?: () => void
   onBrowseKindsChanged?: () => void
   publishWorkspaceChips?: (chips: WorkspaceChip[]) => void
+  publishInbox?: (entries: InboxEntry[]) => void
   openPanelIn: (req: ExtensionOpenPanelRequest) => void
   openDiffIn?: (req: ExtensionOpenDiffRequest) => void
   openFileIn?: (req: ExtensionOpenFileRequest) => Promise<ExtensionResult>

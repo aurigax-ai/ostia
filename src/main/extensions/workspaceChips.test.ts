@@ -1,6 +1,6 @@
-import type { WorkspaceChip } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
+import type { InboxEntry, WorkspaceChip } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import { describe, expect, it } from 'vitest'
-import { firstKnownOwner, workspaceChipsForWindow } from './workspaceChips'
+import { firstKnownOwner, inboxEntriesForWindow, workspaceChipsForWindow } from './workspaceChips'
 
 const chip = (workspaceId: string, id: string): WorkspaceChip => ({
   extId: 'git',
@@ -22,6 +22,26 @@ describe('workspaceChipsForWindow', () => {
 
   it('drops chips of a workspace no window owns', () => {
     expect(workspaceChipsForWindow(chips, ownerOf, 'win-c')).toEqual([])
+  })
+})
+
+describe('inboxEntriesForWindow', () => {
+  const owners: Record<string, string> = { w1: 'win-a', w2: 'win-b' }
+  const ownerOf = (id: string) => owners[id]
+  const entry = (workspaceId: string): InboxEntry => ({
+    extId: 'activity',
+    workspaceId,
+    items: [{ id: 'abcdefghij', text: 'Set the key', at: 1 }],
+  })
+  const entries = [entry('w1'), entry('w2'), entry('gone')]
+
+  it('gives a window only the inbox entries of the workspaces it owns', () => {
+    expect(inboxEntriesForWindow(entries, ownerOf, 'win-a')).toEqual([entry('w1')])
+    expect(inboxEntriesForWindow(entries, ownerOf, 'win-b')).toEqual([entry('w2')])
+  })
+
+  it('drops the entries of a workspace no window owns', () => {
+    expect(inboxEntriesForWindow(entries, ownerOf, 'win-c')).toEqual([])
   })
 })
 
