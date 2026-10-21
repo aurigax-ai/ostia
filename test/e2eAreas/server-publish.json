@@ -6,5 +6,7 @@
     "src/renderer/stores/files/sharesStore.",
     "src/shared/artifacts/shares."
   ],
-  "specs": ["e2e/server-publish.spec.ts"]
+  "specs": [
+    "e2e/server-publish.spec.ts"
+  ]
 }

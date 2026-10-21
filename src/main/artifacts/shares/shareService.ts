@@ -57,7 +57,7 @@ function maskOf(value: string): string {
   return value.length < MASK_MIN_LENGTH ? '…' : `${value.slice(0, MASK_REVEALED)}…`
 }
 
-export function findingsOf(text: string, spans: readonly SecretSpan[]): ShareFinding[] {
+function findingsOf(text: string, spans: readonly SecretSpan[]): ShareFinding[] {
   return [...spans]
     .sort((a, b) => a.start - b.start)
     .slice(0, FINDINGS_MAX)

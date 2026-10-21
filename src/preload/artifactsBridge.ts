@@ -8,7 +8,15 @@ export const artifactsBridge: Pick<OstiaBridge, 'artifacts' | 'preview' | 'share
     pad: (workspaceId) => ipcRenderer.invoke('artifacts:pad', workspaceId),
     reveal: (workspaceId) => ipcRenderer.send('artifacts:reveal', workspaceId),
     portable: (action, request) => {
-      return ipcRenderer.invoke(`artifacts:portable-${action}`, request)
+      const channel =
+        action === 'open'
+          ? 'artifacts:portable-open'
+          : action === 'save'
+            ? 'artifacts:portable-save'
+            : action === 'copy'
+              ? 'artifacts:portable-copy'
+              : 'artifacts:portable-publish'
+      return ipcRenderer.invoke(channel, request)
     },
     versions: (workspaceId, path) => ipcRenderer.invoke('artifacts:versions', workspaceId, path),
     version: (workspaceId, path, id) =>

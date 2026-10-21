@@ -15,7 +15,7 @@ export const sharesEn = {
     disabledUnreachable: 'Server unreachable',
     doneExpires: 'It expires on {date}.',
     doneNever: 'It never expires.',
-    donePassword: 'Share the password separately. Ostia does not keep it.',
+    donePassword: 'Share the password separately. It is not stored on this computer.',
     doneTitle: 'Published',
     empty: 'Nothing published yet. Choose Publish… on an artifact to share it.',
     errBadOptions: 'Those choices are not valid. Check them and try again.',

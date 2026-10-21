@@ -9,10 +9,10 @@ const PBKDF2_ROUNDS = 600_000
 const AAD_PREFIX = 'ostia-share/1:'
 const COMBINE_INFO = 'ostia-share/1/key'
 
-export const SHARE_SALT_BYTES = 16
+const SHARE_SALT_BYTES = 16
 export const SHARE_OVERHEAD = 1 + NONCE_BYTES + TAG_BYTES
 
-export type EncryptedMode = 'link' | 'password'
+type EncryptedMode = 'link' | 'password'
 
 export interface KeyMaterial {
   mode: EncryptedMode

@@ -17,7 +17,7 @@ export const sharesZhHant: typeof sharesEn = {
     disabledUnreachable: '無法連線到伺服器',
     doneExpires: '到期日：{date}。',
     doneNever: '永不過期。',
-    donePassword: '請另外告知密碼。Ostia 不會保存密碼。',
+    donePassword: '請另外告知密碼。密碼不會保存在這台電腦上。',
     doneTitle: '已發佈',
     empty: '尚未發佈任何內容。在成品上選擇「發佈…」即可分享。',
     errBadOptions: '這些選項無效，請檢查後再試一次。',
