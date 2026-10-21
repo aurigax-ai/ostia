@@ -3,6 +3,7 @@ import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { chords, defaultChord, isMac } from './chords'
 import { freshDataHome, isolatedLaunch } from './dataHome'
+import { guestKeys, pressInPage } from './guestKeys'
 import { openWorkspace, waitForPaletteSelection } from './helpers'
 import { type ElectronApplication, _electron as electron, expect, test } from './test'
 
@@ -184,7 +185,7 @@ test('a browser pane copies a table as CSV, an element without text as an image,
     await guestEval<void>(
       'window.getSelection().selectAllChildren(document.getElementById("note"))',
     )
-    await win.keyboard.press(sendToAgent)
+    await pressInPage(app, guestKeys.sendToAgent)
     await expect(bar).toBeVisible({ timeout: 15_000 })
     await bar.getByRole('button', { name: 'Copy' }).click()
     await expect(win.getByText('Copied the selection.')).toBeVisible()

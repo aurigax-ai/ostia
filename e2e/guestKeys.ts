@@ -8,7 +8,8 @@ interface GuestKey {
 
 const appMod = isMac ? ['meta'] : ['control', 'shift']
 
-export const guestKeys: Record<'palette' | 'dashboard', GuestKey> = {
+export const guestKeys: Record<'palette' | 'dashboard' | 'sendToAgent', GuestKey> = {
+  sendToAgent: { keyCode: 'E', modifiers: isMac ? ['meta', 'shift'] : ['control', 'shift'] },
   palette: { keyCode: isMac ? 'K' : 'P', modifiers: appMod },
   dashboard: { keyCode: 'D', modifiers: isMac ? ['meta', 'shift'] : ['control', 'shift'] },
 }
