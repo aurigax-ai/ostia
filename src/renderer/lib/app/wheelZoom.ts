@@ -11,15 +11,29 @@ const ZOOMABLE_SURFACES: readonly FontSurface[] = ['terminal', 'editor']
 
 let ctrlHeld = false
 
-if (typeof window !== 'undefined') {
-  const track = (e: KeyboardEvent): void => {
+export function startCtrlTracking(target: Window = window): () => void {
+  const onKey = (e: KeyboardEvent): void => {
+    ctrlHeld = e.key === 'Control' ? e.type === 'keydown' : e.ctrlKey
+  }
+  const onPointer = (e: MouseEvent): void => {
     ctrlHeld = e.ctrlKey
   }
-  window.addEventListener('keydown', track, true)
-  window.addEventListener('keyup', track, true)
-  window.addEventListener('blur', () => {
+  const onBlur = (): void => {
     ctrlHeld = false
-  })
+  }
+  target.addEventListener('keydown', onKey, true)
+  target.addEventListener('keyup', onKey, true)
+  target.addEventListener('pointerdown', onPointer, true)
+  target.addEventListener('pointermove', onPointer, true)
+  target.addEventListener('blur', onBlur)
+  return () => {
+    target.removeEventListener('keydown', onKey, true)
+    target.removeEventListener('keyup', onKey, true)
+    target.removeEventListener('pointerdown', onPointer, true)
+    target.removeEventListener('pointermove', onPointer, true)
+    target.removeEventListener('blur', onBlur)
+    ctrlHeld = false
+  }
 }
 
 function isPinch(e: Pick<WheelEvent, 'ctrlKey'>, mac: boolean): boolean {
