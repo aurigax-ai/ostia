@@ -6,6 +6,7 @@ import type { AgentResume } from '@shared/agents/agentResume'
 import { SCRIPT_CAPABILITIES } from '@shared/permissions/scriptTokens'
 import { Terminal } from '@xterm/xterm'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import { registerAgentCommand } from '@/commands/agentCommand'
 import { resumeAnyway } from '@/lib/agents/folderTrust'
 import * as resumeFolder from '@/lib/agents/resumeFolder'
 import { activeFontZoom, zoomFont } from '@/lib/app/wheelZoom'
@@ -18,6 +19,7 @@ import * as blockActions from '@/lib/terminal/blockActions'
 import { startKeptReattach } from '@/lib/terminal/keptReattach'
 import { registerTerminal } from '@/lib/terminal/terminalHandles'
 import * as closeConfirm from '@/lib/workspaces/closeConfirm'
+import * as agentStore from '@/stores/agent/agentStore'
 import { useAttentionStore } from '@/stores/agents/attentionStore'
 import { useFolderTrustStore } from '@/stores/agents/folderTrustStore'
 import { useSandboxStore } from '@/stores/app/sandboxStore'
@@ -361,25 +363,6 @@ describe('builtins route to store actions', () => {
     expect(direct.ok).toBe(false)
     expect(nested.ok).toBe(false)
     expect(useSettingsStore.getState().agents.autoResume).toBe(false)
-  })
-
-  it('settings.set and settings.unset refuse the reference auto-send switch, directly or via agents', async () => {
-    const direct = await commands.execWith(ctx(null, null), 'settings.set', {
-      key: 'agents.autoSendReferences',
-      value: false,
-    })
-    const nested = await commands.execWith(ctx(null, null), 'settings.set', {
-      key: 'agents',
-      value: { ...useSettingsStore.getState().agents, autoSendReferences: false },
-    })
-    const unset = await commands.execWith(ctx(null, null), 'settings.unset', {
-      key: 'agents.autoSendReferences',
-    })
-    for (const res of [direct, nested, unset]) {
-      expect(res.ok).toBe(false)
-      if (!res.ok) expect(res.error.message).toMatch(/agents.autoSendReferences/)
-    }
-    expect(useSettingsStore.getState().agents.autoSendReferences).toBe(true)
   })
 
   it('CFT-C14 settings.set refuses to turn on folder trust for Claude, directly or via agents', async () => {
@@ -2208,6 +2191,49 @@ describe('pane.locked', () => {
       ok: true,
       result: { locked: false },
     })
+  })
+})
+
+describe('agent.newSession', () => {
+  it('is listed only while an agent pane is active and starts a session unless the agent is busy', async () => {
+    registerAgentCommand()
+    const command = commands.list().find((c) => c.id === 'agent.newSession')
+    expect(command?.title).toBe('Agent: New session')
+    useWorkspacesStore.setState({ activeWorkspaceId: 's1' })
+    useLayoutStore.setState({
+      byWorkspace: {
+        s1: { root: createPane('terminal'), activePaneId: 'none', zoomedPaneId: null },
+      },
+    })
+    expect(command?.listed?.()).toBe(false)
+    expect(commands.isLocal('agent.newSession')).toBe(true)
+
+    const agent: PaneNode = {
+      type: 'pane',
+      id: 'ag',
+      kind: 'agent',
+      title: 'Agent',
+      agentSessionId: 'sess-1',
+    }
+    useLayoutStore.setState({
+      byWorkspace: { s1: { root: agent, activePaneId: 'ag', zoomedPaneId: null } },
+    })
+    expect(command?.listed?.()).toBe(true)
+    const start = vi.spyOn(agentStore, 'startNewAgentSession').mockResolvedValue('next')
+    const status = vi.spyOn(agentStore.agentChatFor('sess-1'), 'status', 'get')
+
+    status.mockReturnValue('ready')
+    await commands.execWith(ctx('s1', 'ag'), 'agent.newSession')
+    expect(start).toHaveBeenCalledWith('s1')
+
+    start.mockClear()
+    status.mockReturnValue('streaming')
+    await commands.execWith(ctx('s1', 'ag'), 'agent.newSession')
+    expect(start).not.toHaveBeenCalled()
+
+    const shell = createPane('terminal')
+    await commands.execWith(ctx('s1', shell.id), 'agent.newSession')
+    expect(start).not.toHaveBeenCalled()
   })
 })
 

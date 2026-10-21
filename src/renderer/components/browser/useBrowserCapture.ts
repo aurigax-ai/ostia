@@ -1,18 +1,35 @@
 import type { Dict } from '@shared/app/dict'
 import { PASSKEY_NOTICE_PREFIX } from '@shared/browser/passkeyGuard'
-import type { PickBox, PickCapture, PickTheme } from '@shared/browser/pick'
+import type { PickBox, PickCapture, PickCopyResult, PickTheme } from '@shared/browser/pick'
 import type { RegionCapture, RegionView } from '@shared/browser/regionCapture'
+import type { PageSelection } from '@shared/browser/selection'
 import type { WebviewTag } from 'electron'
 import { type MutableRefObject, useCallback, useEffect, useState } from 'react'
-import { useAgentTargets, useNoAgentsText } from '@/components/agents/PickSendPanel'
+import type { BarAnchor } from '@/lib/agents/barAnchor'
 import type { PickTarget } from '@/lib/agents/pickTargets'
-import { sendPickToPane, sendRegionToPane } from '@/lib/agents/sendPick'
+import { registerSelectionCopier } from '@/lib/agents/selectionCopiers'
+import { registerSelectionSender } from '@/lib/agents/selectionSenders'
+import { sendPickToPane, sendRegionToPane, sendSelectionToPane } from '@/lib/agents/sendPick'
 import { fmt } from '@/lib/app/useDict'
 import { useTransientStatus } from '@/lib/app/useTransientStatus'
+import { layerRectAnchor, pageBoxAnchor } from '@/lib/browser/captureAnchor'
 import { registerRegionCapture } from '@/lib/browser/regionCaptures'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 
 const STATUS_MS = 6000
+
+type OpenCapture =
+  | { kind: 'pick'; capture: PickCapture }
+  | { kind: 'region'; capture: RegionCapture }
+  | { kind: 'text'; selection: PageSelection }
+
+function pickCopyStatus(d: Dict, res: PickCopyResult): string {
+  if (!res.ok) throw new Error(fmt(d.browser.pickCopyFailed, { reason: res.error }))
+  if (res.kind === 'table') {
+    return fmt(d.browser.pickCopiedTable, { rows: res.rows, columns: res.columns })
+  }
+  return res.kind === 'image' ? d.browser.pickCopiedImage : d.browser.pickCopiedReport
+}
 
 function pickTheme(): PickTheme {
   const css = getComputedStyle(document.documentElement)
@@ -21,7 +38,6 @@ function pickTheme(): PickTheme {
 }
 
 interface BrowserCaptureParams {
-  workspaceId: string
   paneId: string
   partition: string | null
   webviewRef: MutableRefObject<HTMLElement | null>
@@ -29,8 +45,26 @@ interface BrowserCaptureParams {
   d: Dict
 }
 
+interface CaptureBarState {
+  key: number
+  open: OpenCapture
+  anchor: BarAnchor
+}
+
+let barCounter = 0
+
+function barOf(open: OpenCapture, anchor: BarAnchor | null): CaptureBarState {
+  barCounter += 1
+  return { key: barCounter, open, anchor: anchor ?? FALLBACK_ANCHOR }
+}
+
+const FALLBACK_ANCHOR: BarAnchor = { left: 12, top: 12, bottom: 12 }
+
+function messageOf(error: unknown): string {
+  return error instanceof Error ? error.message : String(error)
+}
+
 export function useBrowserCapture({
-  workspaceId,
   paneId,
   partition,
   webviewRef,
@@ -38,13 +72,9 @@ export function useBrowserCapture({
   d,
 }: BrowserCaptureParams) {
   const [picking, setPicking] = useState<{ byAgent: boolean } | null>(null)
-  const [capture, setCapture] = useState<PickCapture | null>(null)
   const [cropping, setCropping] = useState(false)
-  const [region, setRegion] = useState<RegionCapture | null>(null)
-  const [sending, setSending] = useState(false)
+  const [bar, setBar] = useState<CaptureBarState | null>(null)
   const [status, setStatus] = useTransientStatus(STATUS_MS)
-  const targets = useAgentTargets(workspaceId)
-  const noTargets = useNoAgentsText(workspaceId)
 
   useEffect(
     () =>
@@ -66,32 +96,28 @@ export function useBrowserCapture({
     return () => el.removeEventListener('console-message', onConsole)
   }, [partition, d.browser.passkeyUnsupported, webviewRef, setStatus])
 
+  const closeBar = useCallback((): void => setBar(null), [])
+
   const startCrop = useCallback((): void => {
     window.ostia.browser.pickCancel(paneId)
-    setCapture(null)
-    setRegion(null)
+    setBar(null)
     setStatus(null)
     setCropping(true)
   }, [paneId, setStatus])
 
   useEffect(() => registerRegionCapture(paneId, startCrop), [paneId, startCrop])
 
-  const finishCrop = async (rect: PickBox, view: RegionView): Promise<void> => {
+  const finishCrop = async (rect: PickBox, view: RegionView, layerRect: PickBox): Promise<void> => {
     setCropping(false)
     const outcome = await window.ostia.browser.regionCapture(paneId, { rect, view })
-    if (outcome.ok) setRegion(outcome.capture)
-    else setStatus(fmt(d.browser.regionFailed, { reason: outcome.error }))
-  }
-
-  const copyRegion = async (): Promise<void> => {
-    if (!region) return
-    const res = await window.ostia.browser.regionCopy(paneId, region.id)
-    if (res.ok) {
-      setRegion(null)
-      setStatus(d.browser.imageCopied)
-    } else {
-      setStatus(fmt(d.browser.imageCopyFailed, { reason: res.error }))
+    if (!outcome.ok) {
+      setStatus(fmt(d.browser.regionFailed, { reason: outcome.error }))
+      return
     }
+    const wv = webviewRef.current
+    setBar(
+      barOf({ kind: 'region', capture: outcome.capture }, wv && layerRectAnchor(wv, layerRect)),
+    )
   }
 
   const togglePick = async (): Promise<void> => {
@@ -99,68 +125,104 @@ export function useBrowserCapture({
       window.ostia.browser.pickCancel(paneId)
       return
     }
-    setCapture(null)
-    setRegion(null)
+    setBar(null)
     setCropping(false)
     setStatus(null)
     setPicking({ byAgent: false })
     withGuest((wv) => wv.focus())
     const outcome = await window.ostia.browser.pickStart(paneId, pickTheme())
     setPicking(null)
-    if (outcome.ok) setCapture(outcome.capture)
-    else if (outcome.error !== 'cancelled' && outcome.error !== 'busy') {
+    if (outcome.ok) {
+      const wv = webviewRef.current
+      const { capture } = outcome
+      setBar(
+        barOf({ kind: 'pick', capture }, wv && pageBoxAnchor(wv, capture.box, capture.viewport)),
+      )
+    } else if (outcome.error !== 'cancelled' && outcome.error !== 'busy') {
       setStatus(fmt(d.browser.pickFailed, { reason: outcome.error }))
     }
   }
 
-  const send = async (target: PickTarget, note: string): Promise<void> => {
-    if (!capture && !region) return
-    setSending(true)
-    try {
-      const opts = {
-        sourcePaneId: paneId,
-        targetPaneId: target.paneId,
-        via: target.via,
-        note,
-        attachImage: useSettingsStore.getState().browser.attachCaptureImage,
-      }
-      const res = region
-        ? await sendRegionToPane({ ...opts, capture: region })
-        : capture
-          ? await sendPickToPane({ ...opts, capture })
-          : null
-      if (!res) return
-      if (res.ok) {
-        setCapture(null)
-        setRegion(null)
-        setStatus(
-          fmt(res.inserted ? d.send.sentInserted : d.send.sentCopied, { pane: target.title }),
-        )
-      } else {
-        setStatus(fmt(d.send.sendFailed, { reason: res.error }))
-      }
-    } finally {
-      setSending(false)
+  const openPageSelection = useCallback(async (): Promise<void> => {
+    const selection = await window.ostia.browser.pageSelection(paneId)
+    if (!selection) {
+      setStatus(d.viewer.noSelection)
+      return
     }
+    window.ostia.browser.pickCancel(paneId)
+    setCropping(false)
+    const wv = webviewRef.current
+    setBar(
+      barOf(
+        { kind: 'text', selection },
+        wv && pageBoxAnchor(wv, selection.box, selection.viewport),
+      ),
+    )
+  }, [paneId, webviewRef, setStatus, d.viewer.noSelection])
+
+  useEffect(
+    () => registerSelectionSender(paneId, () => void openPageSelection()),
+    [paneId, openPageSelection],
+  )
+
+  const copyOpen = useCallback(
+    async (open: OpenCapture): Promise<string> => {
+      if (open.kind === 'pick') {
+        return pickCopyStatus(d, await window.ostia.browser.pickCopy(paneId, open.capture.id))
+      }
+      if (open.kind === 'region') {
+        const res = await window.ostia.browser.regionCopy(paneId, open.capture.id)
+        if (!res.ok) throw new Error(fmt(d.browser.imageCopyFailed, { reason: res.error }))
+        return d.browser.imageCopied
+      }
+      const written = await window.ostia.clipboard.writeCapture({
+        text: open.selection.capture.text,
+      })
+      if (!written) throw new Error(d.send.copyFailed)
+      return d.send.copied
+    },
+    [paneId, d],
+  )
+
+  const openBar = bar?.open ?? null
+  useEffect(() => {
+    if (!openBar) return
+    return registerSelectionCopier(paneId, () =>
+      copyOpen(openBar)
+        .then(setStatus, (e: unknown) => setStatus(messageOf(e)))
+        .finally(closeBar),
+    )
+  }, [openBar, paneId, copyOpen, setStatus, closeBar])
+
+  const copyBar = (): Promise<string | null> => (bar ? copyOpen(bar.open) : Promise.resolve(null))
+
+  const sendBar = async (target: PickTarget, note: string): Promise<void> => {
+    if (!bar) return
+    const { open } = bar
+    const route = { sourcePaneId: paneId, targetPaneId: target.paneId, via: target.via, note }
+    const attachImage = useSettingsStore.getState().browser.attachCaptureImage
+    const res =
+      open.kind === 'region'
+        ? await sendRegionToPane({ ...route, attachImage, capture: open.capture })
+        : open.kind === 'pick'
+          ? await sendPickToPane({ ...route, attachImage, capture: open.capture })
+          : await sendSelectionToPane({ ...route, capture: open.selection.capture })
+    if (!res.ok) throw new Error(fmt(d.send.sendFailed, { reason: res.error }))
+    setStatus(fmt(res.inserted ? d.send.sentInserted : d.send.sentCopied, { pane: target.title }))
   }
 
   return {
     picking,
-    capture,
-    setCapture,
     cropping,
     setCropping,
-    region,
-    setRegion,
-    sending,
     status,
     setStatus,
-    targets,
-    noTargets,
+    bar,
+    closeBar,
     startCrop,
     finishCrop,
-    copyRegion,
     togglePick,
-    send,
+    copyBar,
+    sendBar,
   }
 }

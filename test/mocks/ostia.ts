@@ -183,7 +183,6 @@ export function makeOstiaMock(overrides?: Partial<OstiaBridge>): OstiaBridge {
       close: vi.fn(),
       onEvent: vi.fn(noopUnsub),
       capture: vi.fn().mockResolvedValue(null),
-      copyRegion: vi.fn().mockResolvedValue(false),
     },
     windows: {
       info: vi.fn().mockResolvedValue({ windowId: '1', detached: false }),
@@ -228,6 +227,8 @@ export function makeOstiaMock(overrides?: Partial<OstiaBridge>): OstiaBridge {
       pickStart: vi.fn().mockResolvedValue({ ok: false, error: 'cancelled' }),
       pickCancel: vi.fn(),
       pickSend: vi.fn().mockResolvedValue({ ok: false, error: 'not-found' }),
+      pickCopy: vi.fn().mockResolvedValue({ ok: false, error: 'not-found' }),
+      pageSelection: vi.fn().mockResolvedValue(null),
       onPickState: vi.fn(noopUnsub),
       regionCapture: vi.fn().mockResolvedValue({ ok: false, error: 'browser-not-ready' }),
       regionSend: vi.fn().mockResolvedValue({ ok: false, error: 'not-found' }),
@@ -259,6 +260,7 @@ export function makeOstiaMock(overrides?: Partial<OstiaBridge>): OstiaBridge {
       edit: vi.fn().mockResolvedValue(undefined),
       contents: vi.fn().mockResolvedValue({ files: [], image: false }),
       setChords: vi.fn(),
+      writeCapture: vi.fn().mockResolvedValue(true),
     },
     guestChords: {
       set: vi.fn(),
@@ -266,6 +268,7 @@ export function makeOstiaMock(overrides?: Partial<OstiaBridge>): OstiaBridge {
     },
     openPath: {
       openDefault: vi.fn().mockResolvedValue({ ok: true }),
+      canOpenDefault: vi.fn().mockResolvedValue(true),
       reveal: vi.fn().mockResolvedValue({ ok: true }),
       openLink: vi.fn().mockResolvedValue(true),
       project: vi.fn().mockResolvedValue(null),

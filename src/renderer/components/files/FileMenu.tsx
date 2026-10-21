@@ -14,7 +14,6 @@ import {
 } from '@phosphor-icons/react'
 import type { ReactElement } from 'react'
 import { externalEditorError } from '@/commands/externalEditor'
-import { useAgentTargets, useNoAgentsText } from '@/components/agents/PickSendPanel'
 import { MenuContent, MenuItem, MenuSubContent, MenuSubTrigger } from '@/components/common/Menu'
 import {
   ContextMenu,
@@ -25,6 +24,7 @@ import {
 import { addFileToAgentPane } from '@/lib/agent/agentPane'
 import type { PickTarget } from '@/lib/agents/pickTargets'
 import { insertPathReference } from '@/lib/agents/sendPick'
+import { useAgentTargets, useNoAgentsText } from '@/lib/agents/useAgentTargets'
 import { currentDict, fmt, useDict } from '@/lib/app/useDict'
 import { parentOf, relativeToRoot } from '@/lib/files/fileTree'
 import {

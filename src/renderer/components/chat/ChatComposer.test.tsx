@@ -182,13 +182,15 @@ describe('chat composer row', () => {
     expect(await modeButton()).toHaveClass('shrink-0')
   })
 
-  it('keeps only the session title, saved state and new chat in the header', async () => {
+  it('keeps only the sessions button and new chat in the header', async () => {
     render(<ChatPane workspaceId="w1" paneId="p-chat" />)
     await modelButton()
     expect(screen.queryByRole('button', { name: 'Change' })).toBeNull()
     const header = screen.getByRole('button', { name: 'New chat' }).parentElement as HTMLElement
     expect(header).not.toHaveTextContent('qwen-small')
-    expect(header).toHaveTextContent('Saved')
+    expect(header).not.toHaveTextContent('Saved')
+    expect(screen.getByRole('button', { name: 'Sessions (recording)' })).toBeInTheDocument()
+    expect(screen.getByTestId('chat-recording-dot')).toBeInTheDocument()
   })
 
   it('starts every chat in Ask mode and switches to Write only from its menu, by keyboard too', async () => {

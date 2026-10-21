@@ -282,7 +282,6 @@ export function createTrustActions(
   | 'setChatTools'
   | 'setAssistModels'
   | 'setAutoResume'
-  | 'setAutoSendReferences'
   | 'setTrustWorkspaceFolders'
   | 'setAgentHooks'
   | 'setHibernation'
@@ -353,11 +352,6 @@ export function createTrustActions(
 
     setAutoResume: (autoResume) => {
       set((s) => ({ agents: { ...s.agents, autoResume } }))
-      scheduleSave(get)
-    },
-
-    setAutoSendReferences: (autoSendReferences) => {
-      set((s) => ({ agents: { ...s.agents, autoSendReferences } }))
       scheduleSave(get)
     },
 

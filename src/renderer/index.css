@@ -2483,26 +2483,6 @@
   min-height: 0;
 }
 
-.preview-tools {
-  position: absolute;
-  right: 8px;
-  bottom: 8px;
-  z-index: 2;
-}
-
-.preview-region {
-  position: absolute;
-  inset: 0;
-  z-index: 3;
-  cursor: crosshair;
-}
-
-.preview-region-box {
-  position: absolute;
-  border: 1px solid var(--brand);
-  background: color-mix(in srgb, var(--brand) 12%, transparent);
-}
-
 .portable-problem {
   display: flex;
   align-items: center;
@@ -2552,14 +2532,6 @@
   position: relative;
   flex: 1;
   min-height: 0;
-}
-
-.manager-notice {
-  flex: none;
-  padding: 4px 10px;
-  font-size: var(--text-ui-xs);
-  color: var(--fg-muted);
-  border-bottom: 1px solid var(--line);
 }
 
 .manager-host {
@@ -3125,17 +3097,6 @@ button.prompt-chip:hover {
   padding: 4px 6px 4px 10px;
   background: var(--surface-2);
   border-bottom: 1px solid var(--line);
-}
-
-.diff-title {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  color: var(--fg-muted);
-  font-family: var(--font-code);
-  font-size: var(--text-ui-sm);
 }
 
 .diff-body {

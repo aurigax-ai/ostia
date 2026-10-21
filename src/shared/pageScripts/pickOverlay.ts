@@ -16,9 +16,10 @@ interface PickSessionDeps {
   win: Window & typeof globalThis
   labelFor: (el: Element) => string
   describe: (el: Element) => RawPick
+  resolveTarget: (el: Element, single: boolean) => Element
 }
 
-export function createPickSession({ win, labelFor, describe }: PickSessionDeps) {
+export function createPickSession({ win, labelFor, describe, resolveTarget }: PickSessionDeps) {
   const doc = win.document
 
   let session: { finish: (el: Element | null) => void } | null = null
@@ -66,8 +67,9 @@ export function createPickSession({ win, labelFor, describe }: PickSessionDeps) 
         tag.style.top = `${above >= 0 ? above : Math.min(win.innerHeight - 20, r.bottom + 4)}px`
       }
       const onMove = (e: Event): void => {
-        if (!e.isTrusted || isOurs(e.target)) return
-        if (e.target instanceof win.Element && e.target !== hovered) show(e.target)
+        if (!e.isTrusted || isOurs(e.target) || !(e.target instanceof win.Element)) return
+        const el = resolveTarget(e.target, (e as MouseEvent).altKey === true)
+        if (el !== hovered) show(el)
       }
       const onBlocked = (e: Event): void => {
         if (!e.isTrusted) return
@@ -75,7 +77,8 @@ export function createPickSession({ win, labelFor, describe }: PickSessionDeps) 
         e.stopImmediatePropagation()
         if (e.type !== 'click') return
         const target = e.target instanceof win.Element ? e.target : hovered
-        if (target && !isOurs(target)) finish(target)
+        if (target && !isOurs(target))
+          finish(resolveTarget(target, (e as MouseEvent).altKey === true))
       }
       const onKey = (e: KeyboardEvent): void => {
         if (!e.isTrusted || e.key !== 'Escape') return

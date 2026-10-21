@@ -9,9 +9,6 @@ export function BlamePage({ data }: { data: GitBlameData }): JSX.Element {
   const now = Date.now()
   return (
     <div className="blame-scroll">
-      <div className="muted root" title={`${data.root}/${data.path}`}>
-        {data.path}
-      </div>
       <table className="blame">
         <tbody>
           {data.lines.map((line, i) => {

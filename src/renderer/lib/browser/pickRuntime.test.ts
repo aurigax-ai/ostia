@@ -134,6 +134,68 @@ describe('describe', () => {
   })
 })
 
+describe('describe for the capture bar', () => {
+  it('says whether the element has text, never for media', () => {
+    document.body.innerHTML =
+      '<p id="t">hello</p><div id="e"> </div><img id="i" alt="logo"><video id="v">fallback text</video>'
+    const r = runtime()
+    expect(r.describe(q('#t')).hasText).toBe(true)
+    expect(r.describe(q('#e')).hasText).toBe(false)
+    expect(r.describe(q('#i')).hasText).toBe(false)
+    expect(r.describe(q('#v')).hasText).toBe(false)
+    expect(r.describe(q('#t')).table).toBeNull()
+  })
+
+  it('reads a table into rectangular rows, header first, spans repeated, nested tables flattened', () => {
+    document.body.innerHTML = `
+      <table id="t">
+        <tbody><tr><td>row</td><td>x</td><td>y</td></tr></tbody>
+        <thead><tr><th rowspan="2">Region</th><th colspan="2">Totals</th></tr>
+        <tr><th>Orders</th><th>Revenue</th></tr></thead>
+        <tfoot><tr><td>sum</td><td><table><tr><td>a</td><td>b</td></tr></table></td><td>  1 <b>2</b> </td></tr></tfoot>
+      </table>`
+    expect(runtime().describe(q('#t')).table).toEqual([
+      ['Region', 'Totals', 'Totals'],
+      ['Region', 'Orders', 'Revenue'],
+      ['row', 'x', 'y'],
+      ['sum', 'a b', '1 2'],
+    ])
+  })
+
+  it('stops reading a table that is far over the cell cap', () => {
+    const rows = Array.from({ length: 400 }, () => `<tr>${'<td>1</td>'.repeat(100)}</tr>`).join('')
+    document.body.innerHTML = `<table id="t">${rows}</table>`
+    const table = runtime().describe(q('#t')).table
+    expect(table?.length).toBeLessThan(400)
+    expect(table?.length).toBeGreaterThan(100)
+  })
+})
+
+describe('selection', () => {
+  it('answers null without a selection and the selected text with its box', () => {
+    document.body.innerHTML = '<p id="p">refund pending</p>'
+    document.title = 'Orders'
+    Object.defineProperty(Range.prototype, 'getBoundingClientRect', {
+      value: () => ({ x: 1, y: 2, width: 3, height: 4 }),
+      configurable: true,
+    })
+    const r = runtime()
+    expect(r.selection()).toBeNull()
+    const range = document.createRange()
+    range.selectNodeContents(q('#p'))
+    window.getSelection()?.removeAllRanges()
+    window.getSelection()?.addRange(range)
+    const picked = r.selection()
+    expect(picked?.text).toBe('refund pending')
+    expect(picked?.title).toBe('Orders')
+    expect(picked?.url).toBe(window.location.href)
+    expect(picked?.box).toEqual({ x: 1, y: 2, width: 3, height: 4 })
+    expect(picked?.viewport.width).toBe(window.innerWidth)
+    window.getSelection()?.removeAllRanges()
+    Reflect.deleteProperty(Range.prototype, 'getBoundingClientRect')
+  })
+})
+
 describe('start / cancel', () => {
   it('shows an overlay host while active and removes it on cancel', async () => {
     document.body.innerHTML = FIXTURE
