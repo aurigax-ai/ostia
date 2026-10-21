@@ -75,6 +75,17 @@ describe('Codex mail', () => {
     expect(getMail(queued.id)).toMatchObject({ state: 'delivered', via: 'turn' })
   })
 
+  it.each([2500, 9000])('starts the turn with a %i-character message whole', async (length) => {
+    const body = 'k'.repeat(length)
+    const queued = send(body)
+    mail.attach('codex-pane')
+    await settle()
+    const turn = request.mock.calls.find(([method]) => method === 'turn/start')
+    const input = (turn?.[1] as { input: { text: string }[] }).input
+    expect(input[0]?.text).toContain(`>\n${body}\n</message>`)
+    expect(getMail(queued.id)).toMatchObject({ state: 'delivered', via: 'turn' })
+  })
+
   it('delivers mail that arrives later when it is kicked, over the same connection', async () => {
     mail.attach('codex-pane')
     await settle()

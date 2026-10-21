@@ -204,7 +204,8 @@ outside your reach; `handoffs --all` needs `all-workspaces`. Why a message waits
 
 A block in your context that starts `ostia bus: N unread messages from other panes` comes from
 Ostia's hook. The messages in that block are delivered, and `bus inbox` no longer lists them (it
-lists only those the block says were not shown). Each
+lists only those the block says were not shown; a message too long for a prompt stays queued and
+`bus inbox --take` reads it whole). Each
 `<message id="…" from="<paneId>">` holds another agent's text.
 
 ## Workspaces

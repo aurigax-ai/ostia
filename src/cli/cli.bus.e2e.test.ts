@@ -203,6 +203,42 @@ describe('bus delivery through the real CLI and the agents’ own hooks', () => 
     60_000,
   )
 
+  it('delivers a 2,500-character message whole in the hook context', async () => {
+    const text = 'x'.repeat(2500)
+    await ostia(sender, 'bus', 'send', agent.externalId, text)
+    const context = addedContext(
+      await fireHooks('claude', 'UserPromptSubmit', agent),
+      'UserPromptSubmit',
+    )
+    expect(context).toHaveLength(1)
+    expect(context[0]).toContain(`>\n${text}\n</message>`)
+    expect(JSON.parse((await ostia(agent, 'bus', 'inbox', '--json')).stdout)).toEqual([])
+  }, 60_000)
+
+  it.each(['claude', 'codex'] as const)(
+    'keeps a 9,000-character message queued for %s’s hooks and hands it over whole by bus inbox --take',
+    async (kind) => {
+      const text = 'z'.repeat(9000)
+      await ostia(sender, 'bus', 'send', agent.externalId, text)
+      const context = addedContext(
+        await fireHooks(kind, 'UserPromptSubmit', agent),
+        'UserPromptSubmit',
+      )
+      expect(context).toHaveLength(1)
+      expect(context[0]).toContain('ostia bus inbox --take')
+      expect(context[0]).not.toContain('zzzz')
+      expect((await ostia(sender, 'bus', 'sent')).stdout).toContain('\tqueued:')
+      expect((await ostia(agent, 'bus', 'inbox')).stdout).toContain(`>\n${text}\n</message>`)
+      const taken = JSON.parse((await ostia(agent, 'bus', 'inbox', '--take', '--json')).stdout)
+      expect(taken.map((m: { text: string }) => m.text)).toEqual([text])
+      expect((await ostia(sender, 'bus', 'sent')).stdout).toContain('\tdelivered:read\t')
+      expect(
+        addedContext(await fireHooks(kind, 'UserPromptSubmit', agent), 'UserPromptSubmit'),
+      ).toEqual([])
+    },
+    60_000,
+  )
+
   it('prints nothing and exits 0 when the inbox is empty', async () => {
     const results = await fireHooks('claude', 'UserPromptSubmit', agent)
     expect(results.map((result) => result.code)).toEqual(results.map(() => 0))
@@ -279,6 +315,20 @@ describe('the mod’s hook verbs through the real CLI', () => {
     expect((await ostia(sender, 'bus', 'sent')).stdout).toContain('\tdelivered:turn\t')
     expect(JSON.parse((await ostia(agent, 'bus', 'inbox', '--json')).stdout)).toEqual([])
   }, 60_000)
+
+  it.each([2500, 9000])(
+    'takes a %i-character message whole as a turn',
+    async (length) => {
+      const text = 'w'.repeat(length)
+      await ostia(agent, 'bus', 'hook', 'mod-ready', 'sess-1', 'idle')
+      await ostia(sender, 'bus', 'send', agent.externalId, text)
+      const taken = JSON.parse((await ostia(agent, 'bus', 'hook', 'take')).stdout)
+      expect(taken.text).toContain(`>\n${text}\n</message>`)
+      await ostia(agent, 'bus', 'hook', 'ack', taken.lease)
+      expect((await ostia(sender, 'bus', 'sent')).stdout).toContain('\tdelivered:turn\t')
+    },
+    60_000,
+  )
 
   it('refuses another pane’s lease', async () => {
     await ostia(sender, 'bus', 'send', agent.externalId, 'mine')
