@@ -1,8 +1,10 @@
 {
   "name": "file views",
   "paths": [
+    "packages/extension-sdk/src/client/cells.ts",
     "packages/extension-sdk/src/client/grid.ts",
     "packages/extension-sdk/src/client/gridLayout.ts",
+    "packages/extension-sdk/src/client/gridSelection.ts",
     "packages/extension-sdk/src/client/viewer.ts",
     "packages/extension-sdk/src/contract/fileKinds.ts",
     "src/extensions/csv/",

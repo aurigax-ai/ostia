@@ -13,6 +13,8 @@
     "failed": "無法把這個檔案讀成表格。",
     "empty": "這個檔案是空的。",
     "rowsCut": "只顯示前 {rows} 列。",
-    "columnsCut": "只顯示前 {columns} 欄。"
+    "columnsCut": "只顯示前 {columns} 欄。",
+    "selected": "已選取 {range}：{rows} 列 × {columns} 欄",
+    "selectionTooLarge": "選取範圍太大，無法複製。"
   }
 }

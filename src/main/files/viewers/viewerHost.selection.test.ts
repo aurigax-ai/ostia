@@ -223,7 +223,7 @@ describe('guest selection channel', () => {
         csv: 'a,"b <1>"\n"x ""y""",2',
       }),
     )
-    await host.copySelection('w1', 'p1')
+    expect(await host.copySelection('w1', 'p1')).toBe('cells S!A1:B2 2x2')
     expect(clipboard.at(-1)).toEqual({
       text: 'a,"b <1>"\n"x ""y""",2',
       html: '<table><tbody><tr><td>a</td><td>b &lt;1&gt;</td></tr><tr><td>x &quot;y&quot;</td><td>2</td></tr></tbody></table>',

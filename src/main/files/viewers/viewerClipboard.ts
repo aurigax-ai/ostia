@@ -1,3 +1,4 @@
+import { fmt } from '../../../shared/app/dict'
 import type { StoredSelection } from './viewerSelection'
 
 export interface ClipboardCapture {
@@ -7,6 +8,7 @@ export interface ClipboardCapture {
 }
 
 export interface ViewerCopyStrings {
+  cells: string
   image: string
   nothing: string
   text: string
@@ -74,7 +76,18 @@ export function clipboardOf(stored: StoredSelection): ClipboardCapture {
   return out
 }
 
-export function copyStatus(copied: ClipboardCapture, strings: ViewerCopyStrings): string {
+export function copyStatus(
+  copied: ClipboardCapture,
+  strings: ViewerCopyStrings,
+  capture: StoredSelection['capture'],
+): string {
+  if (capture.kind === 'cells' && copied.text !== undefined) {
+    return fmt(strings.cells, {
+      range: capture.sheet ? `${capture.sheet}!${capture.range}` : capture.range,
+      rows: capture.rows,
+      columns: capture.columns,
+    })
+  }
   if (copied.png && copied.text !== undefined) return strings.textAndImage
   if (copied.png) return strings.image
   return copied.text === undefined ? strings.nothing : strings.text

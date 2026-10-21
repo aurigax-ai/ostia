@@ -1,9 +1,17 @@
+import { type CellsPublisher, createCellsPublisher } from '@aurigax-ai/ostia-extension-sdk/cells'
 import type { Translate } from '@aurigax-ai/ostia-extension-sdk/contract/extensionLocales'
 import {
   PORTABLE_TABLE_ROWS_MAX,
   type PortableTable,
 } from '@aurigax-ai/ostia-extension-sdk/contract/fileKinds'
-import { columnName, type Grid, grid } from '@aurigax-ai/ostia-extension-sdk/grid'
+import {
+  columnName,
+  type Grid,
+  grid,
+  rangeColumns,
+  rangeLabel,
+  rangeRows,
+} from '@aurigax-ai/ostia-extension-sdk/grid'
 import {
   publishPortable,
   runWorker,
@@ -48,32 +56,47 @@ function render(book: Workbook, t: Translate, locale: string): void {
   const text = (sheet: SheetData, row: number, column: number): string =>
     cellText(sheet.rows[row]?.[column], locale, words)
   let current: Grid | null = null
+  let publisher: CellsPublisher | null = null
   const tabs = document.createElement('div')
   tabs.className = 'tabs'
   tabs.setAttribute('role', 'tablist')
   tabs.setAttribute('aria-label', t('sheets'))
   const select = (index: number): void => {
     const sheet = book.sheets[index]
+    publisher?.clear()
     current?.destroy()
     for (const [i, tab] of Array.from(tabs.children).entries()) {
       tab.setAttribute('aria-selected', String(i === index))
     }
     if (sheet.columnCount === 0) {
       current = null
+      publisher = null
       showViewerMessage(
         root,
         [t('empty'), ...notesOf(t, book, sheet, locale)].filter(Boolean).join(' '),
       )
     } else {
-      current = grid({
+      const view = grid({
         label: sheet.name,
         columns: Array.from({ length: sheet.columnCount }, (_u, c) => columnName(c)),
         rowCount: sheet.rowCount,
         cell: (row, column) => text(sheet, row, column),
         rowLabels: true,
         notes: notesOf(t, book, sheet, locale),
+        describe: (range) =>
+          t('selected', {
+            range: rangeLabel(range),
+            rows: rangeRows(range).toLocaleString(locale),
+            columns: rangeColumns(range).toLocaleString(locale),
+          }),
+        onSelect: (event) => publisher?.update(event),
       })
-      root.replaceChildren(current.element)
+      publisher = createCellsPublisher(
+        { sheet: sheet.name, rowOffset: 0, text: (row, column) => text(sheet, row, column) },
+        (tooLarge) => view.setStatus(tooLarge ? t('selectionTooLarge') : null),
+      )
+      current = view
+      root.replaceChildren(view.element)
     }
   }
   for (const [index, sheet] of book.sheets.entries()) {

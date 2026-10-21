@@ -314,7 +314,7 @@ export class ViewerHost {
       return strings.nothing
     }
     await this.deps.writeClipboard(copied)
-    return copyStatus(copied, strings)
+    return copyStatus(copied, strings, stored.capture)
   }
 
   async copySelection(windowId: string, paneId: unknown): Promise<string> {

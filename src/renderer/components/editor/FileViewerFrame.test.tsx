@@ -1,12 +1,14 @@
 import '@testing-library/jest-dom/vitest'
 import type { ViewerOpenLink, ViewerSelectionEvent } from '@shared/files/filesApi'
 import { act, cleanup, render, screen } from '@testing-library/react'
+import { useState } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { copyPaneSelection } from '@/lib/agents/selectionCopiers'
 import { useViewerHintStore } from '@/stores/files/viewerHintStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { FileViewerFrame } from './FileViewerFrame'
 
+let barMounts = 0
 const openFileInWorkspace = vi.fn()
 const openBrowserTabAs = vi.fn()
 
@@ -26,16 +28,24 @@ vi.mock('@/components/agents/RegionActionBar', () => ({
     anchor: { left: number; top: number }
     onCopy: () => Promise<string | null>
     onClose: () => void
-  }) => (
-    <div data-testid="region-bar" data-left={anchor.left} data-top={anchor.top}>
-      <button type="button" onClick={() => void onCopy()}>
-        copy
-      </button>
-      <button type="button" onClick={onClose}>
-        close
-      </button>
-    </div>
-  ),
+  }) => {
+    const [mount] = useState(() => ++barMounts)
+    return (
+      <div
+        data-testid="region-bar"
+        data-left={anchor.left}
+        data-top={anchor.top}
+        data-mount={mount}
+      >
+        <button type="button" onClick={() => void onCopy()}>
+          copy
+        </button>
+        <button type="button" onClick={onClose}>
+          close
+        </button>
+      </div>
+    )
+  },
 }))
 
 const layoutInit = useLayoutStore.getState()
@@ -125,6 +135,23 @@ describe('FileViewerFrame', () => {
     expect(bar).toHaveAttribute('data-top', '30')
     act(() => onSelection({ paneId: 'p1', selection: null }))
     expect(screen.queryByTestId('region-bar')).toBeNull()
+  })
+
+  it('mounts a new bar for a new selection and keeps the bar when the same selection moves', async () => {
+    mount()
+    await act(async () => {})
+    act(() => onSelection({ paneId: 'p1', selection: SELECTION }))
+    const first = screen.getByTestId('region-bar').getAttribute('data-mount')
+    const moved = { ...SELECTION, anchor: { left: 20, top: 40, bottom: 70 } }
+    act(() => onSelection({ paneId: 'p1', selection: moved }))
+    expect(screen.getByTestId('region-bar')).toHaveAttribute('data-left', '20')
+    expect(screen.getByTestId('region-bar').getAttribute('data-mount')).toBe(first)
+    const other = {
+      ...SELECTION,
+      capture: { ...SELECTION.capture, region: { x: 2, y: 2, width: 3, height: 3 } },
+    } as ViewerSelectionEvent['selection']
+    act(() => onSelection({ paneId: 'p1', selection: other }))
+    expect(screen.getByTestId('region-bar').getAttribute('data-mount')).not.toBe(first)
   })
 
   it('ignores another pane’s selection', async () => {

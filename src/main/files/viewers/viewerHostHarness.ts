@@ -93,7 +93,13 @@ export function setup(overrides: Partial<ViewerHostDeps> = {}) {
     writeClipboard: async (copied) => {
       clipboard.push(copied)
     },
-    copyStrings: () => ({ image: 'img', nothing: 'none', text: 'txt', textAndImage: 'both' }),
+    copyStrings: () => ({
+      cells: 'cells {range} {rows}x{columns}',
+      image: 'img',
+      nothing: 'none',
+      text: 'txt',
+      textAndImage: 'both',
+    }),
     now: () => clock.now,
     token: () => `t${++tokens}`,
     ...overrides,
