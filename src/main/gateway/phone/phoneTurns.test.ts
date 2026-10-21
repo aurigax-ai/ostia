@@ -1,7 +1,7 @@
 import { afterAll, describe, expect, it, vi } from 'vitest'
-import { registerPane, removePane } from '../control/idRegistry'
-import type { WorkspaceEntry } from '../panes/paneList'
-import { PaneTurns } from '../panes/paneTurns'
+import { registerPane, removePane } from '../../control/idRegistry'
+import type { WorkspaceEntry } from '../../panes/paneList'
+import { PaneTurns } from '../../panes/paneTurns'
 import { type PhoneTurnDeps, TURN_LIST_MAX, turnList, turnOutput } from './phoneTurns'
 
 const workspaces: WorkspaceEntry[] = [

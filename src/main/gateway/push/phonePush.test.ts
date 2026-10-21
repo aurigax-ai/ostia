@@ -3,8 +3,8 @@ import {
   type AccountHarness,
   accountHarness,
   signedIn,
-} from '../../../test/fixtures/server/accountHarness'
-import type { Device, DevicePush } from './devices'
+} from '../../../../test/fixtures/server/accountHarness'
+import type { Device, DevicePush } from '../devices'
 import { PhonePush, type PushConfig } from './phonePush'
 
 const HOUR_S = 3600
@@ -16,6 +16,7 @@ interface Rig {
   push: PhonePush
   devices: Map<string, Device>
   connected: Set<string>
+  needs: { value: boolean }
   sent: Array<[string, PushConfig]>
   changed: ReturnType<typeof vi.fn>
   advance: (ms: number) => void
@@ -29,6 +30,7 @@ let next = 1
 async function build(harness: AccountHarness, options: { start?: boolean } = {}): Promise<Rig> {
   const devices = new Map<string, Device>()
   const connected = new Set<string>()
+  const needs = { value: true }
   const sent: Array<[string, PushConfig]> = []
   const changed = vi.fn()
   let clock = 5_000_000
@@ -45,6 +47,7 @@ async function build(harness: AccountHarness, options: { start?: boolean } = {})
       },
     },
     connected: (id) => connected.has(id),
+    needsHuman: async () => needs.value,
     sendConfig: (id, config) => sent.push([id, config]),
     changed,
     now: () => clock,
@@ -58,6 +61,7 @@ async function build(harness: AccountHarness, options: { start?: boolean } = {})
     push,
     devices,
     connected,
+    needs,
     sent,
     changed,
     advance: (ms) => {
@@ -418,5 +422,76 @@ describe('push through the server: the ping', () => {
     await rig.harness.account.signOut()
     await rig.push.event('notify')
     expect(rig.serverPings()).toBe(0)
+  })
+})
+
+describe('push through the server: a phone that slept, sign-out and lost permission', () => {
+  it('PSH-C63 pings once when the last socket goes after an event arrived while it was still registered', async () => {
+    const { deviceId } = await registeredDevice()
+    rig.connected.add(deviceId)
+    await rig.push.event('agent.needs-input')
+    expect(rig.serverPings()).toBe(0)
+    rig.connected.delete(deviceId)
+    await rig.push.deviceGone(deviceId)
+    expect(rig.serverPings()).toBe(1)
+    await rig.push.deviceGone(deviceId)
+    expect(rig.serverPings()).toBe(1)
+  })
+
+  it('PSH-C64 pings nothing when the socket goes with nothing waiting for the human, or while a socket is live', async () => {
+    const { deviceId } = await registeredDevice()
+    rig.needs.value = false
+    await rig.push.deviceGone(deviceId)
+    expect(rig.serverPings()).toBe(0)
+    rig.needs.value = true
+    rig.connected.add(deviceId)
+    await rig.push.deviceGone(deviceId)
+    expect(rig.serverPings()).toBe(0)
+  })
+
+  it('PSH-C65 deletes every handle at the server on sign-out, before the session ends', async () => {
+    const first = await registeredDevice()
+    const second = await registeredDevice()
+    await rig.harness.account.signOut()
+    expect([...rig.harness.server.push.deleted].sort()).toEqual(
+      [first.handle, second.handle].sort(),
+    )
+    expect(rig.harness.server.push.handles.size).toBe(0)
+    for (const id of [first.deviceId, second.deviceId]) {
+      expect(rig.devices.get(id)?.push).toEqual({ enabled: true })
+    }
+  })
+
+  it('PSH-C66 clears the handles locally on sign-out even when the server refuses the delete', async () => {
+    const { deviceId, handle } = await registeredDevice()
+    rig.harness.server.intercept(`DELETE /v1/push/${handle}`, {
+      status: 503,
+      body: { error: 'busy' },
+    })
+    await rig.harness.account.signOut()
+    expect(rig.devices.get(deviceId)?.push).toEqual({ enabled: true })
+    expect(rig.harness.server.push.handles.has(handle)).toBe(true)
+    expect(rig.harness.account.signedIn()).toBe(false)
+  })
+
+  it('PSH-C67 turns push off, deletes the handle and tells the phone when notify is removed', async () => {
+    const { deviceId, handle } = await registeredDevice()
+    const device = rig.devices.get(deviceId) as Device
+    device.caps = ['read']
+    rig.sent.length = 0
+    rig.push.capsChanged(deviceId)
+    expect(device.push).toBeUndefined()
+    expect(rig.sent).toEqual([[deviceId, { server: null }]])
+    await vi.waitFor(() => expect(rig.harness.server.push.deleted).toEqual([handle]))
+    expect(rig.push.hello(device)).toBeUndefined()
+  })
+
+  it('PSH-C68 stops advertising push to a device without notify and leaves one that kept it alone', async () => {
+    const { deviceId } = await registeredDevice()
+    const device = rig.devices.get(deviceId) as Device
+    rig.push.capsChanged(deviceId)
+    expect(device.push?.enabled).toBe(true)
+    device.caps = ['read']
+    expect(rig.push.hello(device)).toBeUndefined()
   })
 })

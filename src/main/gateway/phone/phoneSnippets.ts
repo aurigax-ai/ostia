@@ -1,6 +1,6 @@
 import type { SnippetEntry } from '@aurigax-ai/ostia-extension-sdk/contract/snippets'
-import type { WorkspaceEntry } from '../panes/paneList'
-import type { RpcOutcome } from './controlDispatch'
+import type { WorkspaceEntry } from '../../panes/paneList'
+import type { RpcOutcome } from '../controlDispatch'
 
 const SNIPPETS_MAX = 200
 

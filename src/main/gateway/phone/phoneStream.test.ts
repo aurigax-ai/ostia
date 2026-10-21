@@ -1,12 +1,12 @@
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { WebSocket } from 'ws'
-import type { StreamEvent } from '../../shared/agents/agentStream'
-import type { PreparedStream, StreamSend } from '../agents/agentStreams'
-import { registerPane, removePane } from '../control/idRegistry'
-import type { WorkspaceEntry } from '../panes/paneList'
-import type { GatewayControlDeps } from './controlDispatch'
-import type { Device } from './devices'
-import type { SocketState } from './phoneSocket'
+import type { StreamEvent } from '../../../shared/agents/agentStream'
+import type { PreparedStream, StreamSend } from '../../agents/agentStreams'
+import { registerPane, removePane } from '../../control/idRegistry'
+import type { WorkspaceEntry } from '../../panes/paneList'
+import type { GatewayControlDeps } from '../controlDispatch'
+import type { Device } from '../devices'
+import type { SocketState } from '../phoneSocket'
 import {
   closeStreams,
   handleStreamClose,

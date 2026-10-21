@@ -1,4 +1,4 @@
-import type { RpcOutcome } from './controlDispatch'
+import type { RpcOutcome } from '../controlDispatch'
 import type { PhonePush } from './phonePush'
 
 export interface PhonePushMethodDeps {

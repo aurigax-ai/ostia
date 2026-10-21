@@ -2,8 +2,8 @@ import { ipcMain } from 'electron'
 import type {
   GatewayPhoneWorkspace,
   GatewayPhoneWorkspaceResult,
-} from '../../shared/gateway/gatewayApi'
-import { folderTrust } from '../agents/claudeFolderTrust'
+} from '../../../shared/gateway/gatewayApi'
+import { folderTrust } from '../../agents/claudeFolderTrust'
 import {
   loadPhoneWorkspace,
   type PhoneWorkspace,

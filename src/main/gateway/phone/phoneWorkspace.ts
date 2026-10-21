@@ -8,11 +8,11 @@ import {
   statSync,
 } from 'node:fs'
 import { basename, dirname, isAbsolute, join } from 'node:path'
-import type { PhoneAgent } from '../panes/phoneAgent'
-import { isInsidePath } from '../platform/pathGuard'
-import { folderProblem } from '../sandbox/srtConfig'
-import { isSameFolder } from '../workspaces/sameFolder'
-import { loadPhoneWorkspaceRecord, savePhoneWorkspaceRecord } from './route'
+import type { PhoneAgent } from '../../panes/phoneAgent'
+import { isInsidePath } from '../../platform/pathGuard'
+import { folderProblem } from '../../sandbox/srtConfig'
+import { isSameFolder } from '../../workspaces/sameFolder'
+import { loadPhoneWorkspaceRecord, savePhoneWorkspaceRecord } from '../route'
 
 export interface PhoneWorkspace {
   folder: string | null

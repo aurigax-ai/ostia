@@ -3,13 +3,14 @@ import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { GatewayDevice } from '../../shared/gateway/gatewayApi'
+import type { GatewayDevice } from '../../../shared/gateway/gatewayApi'
 
 const handlers = vi.hoisted(() => new Map<string, (...args: unknown[]) => unknown>())
 const pushStub = vi.hoisted(() => ({
   availability: vi.fn(() => 'available'),
   setEnabled: vi.fn(async () => ({ ok: true })),
   deviceRemoved: vi.fn(),
+  capsChanged: vi.fn(),
 }))
 
 vi.mock('electron', () => ({
@@ -19,13 +20,13 @@ vi.mock('electron', () => ({
   },
 }))
 
-vi.mock('../control/controlServer', () => ({ registerControlMethod: vi.fn() }))
+vi.mock('../../control/controlServer', () => ({ registerControlMethod: vi.fn() }))
 
-vi.mock('./interfaces', () => ({
+vi.mock('../interfaces', () => ({
   listBindAddresses: () => [{ address: '127.0.0.1', iface: 'lo', loopback: true }],
 }))
 
-vi.mock('./server', () => ({
+vi.mock('../server', () => ({
   startGateway: vi.fn(),
   stopGateway: vi.fn(),
   gatewayStatus: () => ({
@@ -42,10 +43,10 @@ vi.mock('./server', () => ({
   currentPhonePush: () => pushStub,
 }))
 
-const { registerGatewayIpc, remoteStatus } = await import('./gatewayIpc')
-const { closeDeviceSockets } = await import('./server')
-const { registerDevice, setDevicePush } = await import('./devices')
-const { openPairRequest, revealPairRequest } = await import('./pairRequests')
+const { registerGatewayIpc, remoteStatus } = await import('../gatewayIpc')
+const { closeDeviceSockets } = await import('../server')
+const { registerDevice, setDevicePush } = await import('../devices')
+const { openPairRequest, revealPairRequest } = await import('../pairRequests')
 
 const HANDLE = 'q'.repeat(26)
 
@@ -132,5 +133,13 @@ describe('the push switch is the human’s', () => {
       ok: true,
     })
     expect(pushStub.deviceRemoved).toHaveBeenCalledWith(HANDLE)
+  })
+
+  it('PSH-C71 lets the push switch react after the human changes a phone permission', async () => {
+    const { deviceId } = registerDevice({ name: 'Pixel', pubkey: 'pk' })
+    expect(
+      await invoke('gateway:set-cap', 'window', { deviceId, cap: 'input', granted: true }),
+    ).toMatchObject({ ok: true })
+    expect(pushStub.capsChanged).toHaveBeenCalledWith(deviceId)
   })
 })

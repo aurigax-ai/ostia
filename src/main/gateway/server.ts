@@ -17,10 +17,10 @@ import { type GatewayCert, getCert } from './cert'
 import type { GatewayControlDeps } from './controlDispatch'
 import { get as getDevice, list as listDevices, touchDevice } from './devices'
 import { createPairHttp } from './pairHttp'
-import type { PhonePush, PushConfig } from './phonePush'
+import { closeStreams } from './phone/phoneStream'
 import { createPhoneSocket, PHONE_FRAME_BYTES, type SocketState } from './phoneSocket'
-import { closeStreams } from './phoneStream'
 import { type ProxyPeer, readProxyHeader } from './proxyProtocol'
+import type { PhonePush, PushConfig } from './push/phonePush'
 import type { ScreenLinks } from './screenLinks'
 import type { ScreenRequested } from './screenRequests'
 
@@ -89,10 +89,13 @@ function untrackDeviceSocket(deviceId: string, ws: WebSocket): void {
   const set = socketsByDevice.get(deviceId)
   if (!set) return
   set.delete(ws)
-  if (set.size > 0) return
-  socketsByDevice.delete(deviceId)
-  touchDevice(deviceId)
-  screenLinks?.deviceGone(deviceId)
+  const lastLive = !deviceConnected(deviceId)
+  if (set.size === 0) {
+    socketsByDevice.delete(deviceId)
+    touchDevice(deviceId)
+    screenLinks?.deviceGone(deviceId)
+  }
+  if (lastLive) void phonePush?.deviceGone(deviceId)
 }
 
 function releaseSocket(state: SocketState): void {
@@ -173,7 +176,10 @@ export function sendDeviceConfig(deviceId: string, config: PushConfig): void {
 }
 
 export function deviceConnected(deviceId: string): boolean {
-  return socketsByDevice.has(deviceId)
+  for (const ws of socketsByDevice.get(deviceId) ?? []) {
+    if (!screenLinks?.isLink(ws)) return true
+  }
+  return false
 }
 
 let phonePush: PhonePush | null = null

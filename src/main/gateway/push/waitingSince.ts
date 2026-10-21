@@ -1,3 +1,8 @@
+export type PaneChange =
+  | { kind: 'attention'; attention: { state?: string } }
+  | { kind: 'state' }
+  | { kind: 'closed' }
+
 export interface WaitingSinceDeps {
   now: () => number
   workspaceOf: (paneId: string) => string | undefined
@@ -8,16 +13,21 @@ export class WaitingSince {
 
   constructor(private readonly deps: WaitingSinceDeps) {}
 
-  change(paneId: string, state: string | undefined): void {
+  observe(paneId: string, change: PaneChange): void {
+    if (change.kind === 'closed') this.since.delete(paneId)
+    else if (change.kind === 'attention') this.change(paneId, change.attention.state)
+  }
+
+  any(): boolean {
+    return this.since.size > 0
+  }
+
+  private change(paneId: string, state: string | undefined): void {
     if (state !== 'waiting') {
       this.since.delete(paneId)
       return
     }
     if (!this.since.has(paneId)) this.since.set(paneId, this.deps.now())
-  }
-
-  forget(paneId: string): void {
-    this.since.delete(paneId)
   }
 
   ofPane(paneId: string): number | undefined {

@@ -36,7 +36,7 @@ import {
 import { listBindAddresses } from './interfaces'
 import { liveCodeCount, newCode, onCodesChanged } from './pairing'
 import { answerPairRequest, listPairRequests } from './pairRequests'
-import { pushView } from './phonePush'
+import { pushView } from './push/phonePush'
 import type { RelayClient } from './relayClient'
 import {
   checkRoute,
@@ -313,7 +313,10 @@ export function gatewaySetCap(params: unknown): GatewaySetCapResult {
     return { ok: false, error: 'invalid-cap' }
   }
   const result = setDeviceCap(deviceId, cap, granted)
-  if (result.ok) applyDeviceCaps(deviceId, result.caps)
+  if (result.ok) {
+    currentPhonePush()?.capsChanged(deviceId)
+    applyDeviceCaps(deviceId, result.caps)
+  }
   return result
 }
 

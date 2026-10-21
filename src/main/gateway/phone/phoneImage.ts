@@ -1,4 +1,4 @@
-import type { RpcOutcome } from './controlDispatch'
+import type { RpcOutcome } from '../controlDispatch'
 
 export const PHONE_IMAGE_MAX_BYTES = 10 * 1024 * 1024
 export const PHONE_IMAGE_FRAME_BYTES = Math.ceil((PHONE_IMAGE_MAX_BYTES * 4) / 3) + 64 * 1024

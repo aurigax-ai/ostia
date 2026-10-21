@@ -1,8 +1,8 @@
 import { basename, isAbsolute, relative } from 'node:path'
-import { type PaneIdentity, resolveExternal } from '../control/idRegistry'
-import type { WorkspaceEntry } from '../panes/paneList'
-import type { PaneTurns, Turn } from '../panes/paneTurns'
-import type { RpcOutcome } from './controlDispatch'
+import { type PaneIdentity, resolveExternal } from '../../control/idRegistry'
+import type { WorkspaceEntry } from '../../panes/paneList'
+import type { PaneTurns, Turn } from '../../panes/paneTurns'
+import type { RpcOutcome } from '../controlDispatch'
 
 export const TURN_LIST_MAX = 20
 const TURN_LIST_OUT_MAX = 256 * 1024

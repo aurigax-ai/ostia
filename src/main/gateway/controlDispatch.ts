@@ -12,19 +12,20 @@ import type { Ask, AskAnswerResult } from '../approvals/asks'
 import { internalPaneArgs } from '../control/commandArgs'
 import { type PaneIdentity, resolveExternal } from '../control/idRegistry'
 import type { PaneEntry, WorkspaceEntry, WorkspaceGroupEntry } from '../panes/paneList'
-import { type PhoneAgent, phoneAgentCommand } from '../panes/phoneAgent'
+import type { PhoneAgent } from '../panes/phoneAgent'
 import type { PhoneAgentStart } from '../panes/processManager'
 import type { PhoneObserver } from '../terminal/pty/ptyIo'
 import { listArtifactFiles, locateArtifactFile, readArtifactFile } from './artifactFiles'
-import { imageAllowed, phoneImageOf } from './phoneImage'
+import { agentStart } from './phone/phoneAgentStart'
+import { imageAllowed, phoneImageOf } from './phone/phoneImage'
+import { type PhoneSnippetDeps, snippetList } from './phone/phoneSnippets'
+import { type PhoneTurnDeps, turnList, turnOutput, turnPane } from './phone/phoneTurns'
 import {
   type PhonePushMethodDeps,
   pushRegister,
   pushTicket,
   pushUnregister,
-} from './phonePushMethods'
-import { type PhoneSnippetDeps, snippetList } from './phoneSnippets'
-import { type PhoneTurnDeps, turnList, turnOutput, turnPane } from './phoneTurns'
+} from './push/phonePushMethods'
 import {
   listWorkspaceFiles,
   type PhoneFileScope,
@@ -77,22 +78,6 @@ export interface GatewayControlDeps extends PhoneTurnDeps, PhoneSnippetDeps, Pho
 }
 
 const PHONE_PROMPT_MAX = 8000
-const AGENT_START_PROMPT_MAX = 4000
-const AGENT_STARTS_PER_MINUTE = 3
-const MINUTE_MS = 60_000
-const PHONE_WORKSPACE_KINDS: ReadonlySet<string> = new Set(['agent', 'terminal'])
-const agentStarts = new Map<string, number[]>()
-
-function startAllowed(deviceId: string): boolean {
-  const now = Date.now()
-  const recent = (agentStarts.get(deviceId) ?? []).filter((at) => now - at < MINUTE_MS)
-  if (recent.length >= AGENT_STARTS_PER_MINUTE) {
-    agentStarts.set(deviceId, recent)
-    return false
-  }
-  agentStarts.set(deviceId, [...recent, now])
-  return true
-}
 export const AGENT_ENTER_DELAY_MS = 60
 const IMAGE_PLACEHOLDER_POLL_MS = 50
 export const IMAGE_PLACEHOLDER_WAIT_MS = 1500
@@ -419,37 +404,6 @@ async function agentPrompt(call: GatewayCall): Promise<RpcOutcome> {
   return { ok: true, result: { ok: true, ...(bytes ? { image: 'pasted' } : {}) } }
 }
 
-async function agentStart(call: GatewayCall): Promise<RpcOutcome> {
-  const { p, deps } = call
-  if (p.sessionId !== undefined && (typeof p.sessionId !== 'string' || !p.sessionId)) {
-    return invalidParams('unknown-session')
-  }
-  if (p.agent !== undefined && p.agent !== 'claude' && p.agent !== 'codex') {
-    return invalidParams('bad-params')
-  }
-  const agent: PhoneAgent = p.agent ?? deps.phoneDefaults().agent
-  const prompt = typeof p.prompt === 'string' ? plainBlock(p.prompt) : ''
-  if (prompt.length > AGENT_START_PROMPT_MAX || !phoneAgentCommand(agent, prompt)) {
-    return invalidParams('bad-params')
-  }
-  if (!startAllowed(call.deviceId)) return { ok: false, code: -32007, message: 'rate-limited' }
-  const sessionId = p.sessionId ?? (await deps.phoneWorkspace())
-  if (!sessionId) return invalidParams('phone-workspace-unavailable')
-  const workspace = (await deps.listWorkspaces()).find((w) => w.workspaceId === sessionId)
-  if (!workspace) return invalidParams('unknown-session')
-  if (!PHONE_WORKSPACE_KINDS.has(workspace.kind)) return invalidParams('refused')
-  const started = await deps.startAgent(workspace.workspaceId, agent, prompt)
-  if (!started?.started) {
-    return {
-      ok: false,
-      code: -32006,
-      message: 'not-started',
-      ...(started ? { data: { paneId: started.paneId } } : {}),
-    }
-  }
-  return { ok: true, result: { paneId: started.paneId, confirmed: started.confirmed } }
-}
-
 async function agentInterrupt(call: GatewayCall): Promise<RpcOutcome> {
   const { p, deps } = call
   const pane = agentPaneOf(p.paneId, deps)
@@ -477,7 +431,7 @@ const METHODS: Record<string, [cap: string, handler: (call: GatewayCall) => Prom
     'ask.list': ['read', askList],
     'ask.answer': ['respond', askAnswer],
     'agent.prompt': ['respond', agentPrompt],
-    'agent.start': ['respond', agentStart],
+    'agent.start': ['respond', (call) => agentStart(call.p, call.deviceId, call.deps)],
     'agent.interrupt': ['respond', agentInterrupt],
     'turn.list': ['read', (call) => turnList(call.p, call.deps)],
     'turn.output': ['read', (call) => turnOutput(call.p, call.deps)],

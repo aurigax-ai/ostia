@@ -4,14 +4,14 @@ import {
   STREAM_TURNS_MAX,
   type StreamEnd,
   type StreamEvent,
-} from '../../shared/agents/agentStream'
-import type { PreparedStream } from '../agents/agentStreams'
-import type { GatewayControlDeps } from './controlDispatch'
-import type { Device } from './devices'
-import type { SocketState } from './phoneSocket'
+} from '../../../shared/agents/agentStream'
+import type { PreparedStream } from '../../agents/agentStreams'
+import type { GatewayControlDeps } from '../controlDispatch'
+import type { Device } from '../devices'
+import type { SocketState } from '../phoneSocket'
+import { rpcError, rpcResult } from '../rpcFrames'
+import { FrameTooLarge, packFrames } from '../streamFrames'
 import { turnPane } from './phoneTurns'
-import { rpcError, rpcResult } from './rpcFrames'
-import { FrameTooLarge, packFrames } from './streamFrames'
 
 export const STREAMS_PER_SOCKET = 4
 export const STREAM_BUFFER_MAX = 8 * 1024 * 1024

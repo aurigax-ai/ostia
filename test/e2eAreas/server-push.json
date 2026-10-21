@@ -1,8 +1,7 @@
 {
   "name": "server-push",
   "paths": [
-    "src/main/gateway/phonePush",
-    "src/main/gateway/waitingSince.",
+    "src/main/gateway/push/",
     "src/renderer/components/gateway/GatewayDevicePush."
   ],
   "specs": [

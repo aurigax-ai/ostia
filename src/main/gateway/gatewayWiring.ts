@@ -15,7 +15,7 @@ import type { Reach } from '../approvals/reach'
 import type { ArtifactFolders } from '../artifacts/artifactFolders'
 import type { CommandBridge } from '../control/commandBridge'
 import { type PlatformEventPayloads, platformEvents } from '../control/events'
-import { getByPaneId, resolveExternal } from '../control/idRegistry'
+import { resolveExternal } from '../control/idRegistry'
 import type { AppLog } from '../diagnostics/appLog'
 import type { PaneConfirms } from '../panes/paneConfirm'
 import type { PaneJournal } from '../panes/paneJournal'
@@ -39,7 +39,6 @@ import type { ScratchFolders } from '../workspaces/scratchFolders'
 import { windowForWorkspace } from '../workspaces/workspaceRegistry'
 import { createBonjourPublisher } from './announce'
 import type { GatewayControlDeps } from './controlDispatch'
-import { get as getDevice, list as listDevices, setDevicePush } from './devices'
 import {
   configureAnnouncer,
   configureRelay,
@@ -51,8 +50,7 @@ import {
   stopRemote,
 } from './gatewayIpc'
 import { listPairRequests, onPairRequestsChanged } from './pairRequests'
-import { phoneScreenLines, withClipboardImage } from './phoneClipboard'
-import { PhonePush } from './phonePush'
+import { phoneScreenLines, withClipboardImage } from './phone/phoneClipboard'
 import {
   DEFAULT_FOLDER_NAME,
   isPhoneFolder,
@@ -61,8 +59,9 @@ import {
   type PhoneWorkspacePaths,
   phoneWorkspaceDefaults,
   phoneWorkspaceId,
-} from './phoneWorkspace'
-import { registerPhoneWorkspaceIpc } from './phoneWorkspaceIpc'
+} from './phone/phoneWorkspace'
+import { registerPhoneWorkspaceIpc } from './phone/phoneWorkspaceIpc'
+import { startPhonePush } from './push/pushWiring'
 import { RelayClient } from './relayClient'
 import { ScreenLinks } from './screenLinks'
 import {
@@ -71,14 +70,11 @@ import {
   configurePhonePush,
   configureRelayPeers,
   configureScreenLinks,
-  deviceConnected,
   gatewayHelperPort,
   notifiedDeviceIds,
-  sendDeviceConfig,
   setRelayAddress,
 } from './server'
 import { createTailnet, tailnetNodeName, tsnetHelperPath } from './tailnet'
-import { WaitingSince } from './waitingSince'
 import type { PhoneFileScope } from './workspaceFiles'
 
 interface GatewayStartDeps {
@@ -240,28 +236,17 @@ export function startGateway({
   })
   agentResumes.subscribe((externalPaneId, resume) => agentStreams.resumed(externalPaneId, resume))
   agentChanges.subscribe(() => void agentStreams.agentsChanged())
-  const waitingSince = new WaitingSince({
-    now: Date.now,
-    workspaceOf: (paneId) => getByPaneId(paneId)?.workspaceId,
-  })
-  paneWatch.tap((paneId, change) => {
-    if (change.kind === 'closed') {
-      agentStreams.paneClosed(paneId)
-      waitingSince.forget(paneId)
-    } else if (change.kind === 'attention') {
-      waitingSince.change(paneId, change.attention.state)
-    }
-  })
-  const phonePush = new PhonePush({
-    account: server,
-    devices: { list: listDevices, get: getDevice, setPush: setDevicePush },
-    connected: deviceConnected,
-    sendConfig: sendDeviceConfig,
-    changed: () => broadcast('gateway:push-changed', null),
+  const { phonePush, waitingSince } = startPhonePush({
+    server,
+    broadcast,
     log: (event, fields) => services.appLog?.info(event, fields),
+    listAsks: askHub.list,
   })
   configurePhonePush(phonePush)
-  phonePush.start()
+  paneWatch.tap((paneId, change) => {
+    if (change.kind === 'closed') agentStreams.paneClosed(paneId)
+    waitingSince.observe(paneId, change)
+  })
   platformEvents.on('ask.created', ({ ask }: PlatformEventPayloads['ask.created']) =>
     agentStreams.askOpened(ask),
   )

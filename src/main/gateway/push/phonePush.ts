@@ -1,17 +1,16 @@
-import type { GatewayPushAvailability, GatewaySetPushResult } from '../../shared/gateway/gatewayApi'
-import { failureOf, type ServerAccount } from '../server/serverAccount'
-import { ServerError } from '../server/serverClient'
-import { type Device, type DevicePush, isPushHandle, isPushPlatform, pushOf } from './devices'
+import type {
+  GatewayPushAvailability,
+  GatewaySetPushResult,
+} from '../../../shared/gateway/gatewayApi'
+import { failureOf, type ServerAccount } from '../../server/serverAccount'
+import { ServerError } from '../../server/serverClient'
+import { type Device, type DevicePush, isPushHandle, isPushPlatform, pushOf } from '../devices'
+import { PingLimits, TicketLimits } from './pushLimits'
 
 const PUSH_EVENTS: ReadonlySet<string> = new Set(['agent.needs-input', 'ask.created', 'notify'])
 
-const PING_GAP_MS = 30_000
-const PINGS_PER_HOUR = 60
-const HOUR_MS = 3_600_000
 const DEFAULT_BACKOFF_S = 30
 const OFFER_TTL_MS = 600_000
-const TICKETS_PER_WINDOW = 3
-const TICKET_WINDOW_MS = 600_000
 
 export interface PushConfig {
   server: string | null
@@ -25,34 +24,35 @@ export type PushTicketResult =
 export type PushRegisterResult = { ok: true } | { ok: false; error: 'push-off' | 'bad-params' }
 
 export interface PhonePushDeps {
-  account: Pick<ServerAccount, 'signedIn' | 'baseUrl' | 'authed' | 'fetchInfo' | 'onChange'>
+  account: Pick<
+    ServerAccount,
+    'signedIn' | 'baseUrl' | 'authed' | 'fetchInfo' | 'onChange' | 'beforeSignOut'
+  >
   devices: {
     list: () => Device[]
     get: (deviceId: string) => Device | null
     setPush: (deviceId: string, push: DevicePush) => boolean
   }
   connected: (deviceId: string) => boolean
+  needsHuman: () => Promise<boolean>
   sendConfig: (deviceId: string, config: PushConfig) => void
   changed: () => void
   now?: () => number
   log?: (event: string, fields: Record<string, string>) => void
 }
 
-interface PingState {
-  last: number
-  recent: number[]
-  blockedUntil: number
-}
-
 export class PhonePush {
   private offered: boolean | null = null
   private offeredAt = 0
   private refreshing: Promise<void> | null = null
-  private readonly pings = new Map<string, PingState>()
-  private readonly tickets = new Map<string, number[]>()
+  private readonly pings: PingLimits
+  private readonly tickets: TicketLimits
   private unsubscribe: (() => void) | null = null
 
-  constructor(private readonly deps: PhonePushDeps) {}
+  constructor(private readonly deps: PhonePushDeps) {
+    this.pings = new PingLimits(() => this.now())
+    this.tickets = new TicketLimits(() => this.now())
+  }
 
   private now(): number {
     return (this.deps.now ?? Date.now)()
@@ -61,6 +61,7 @@ export class PhonePush {
   start(): void {
     if (this.unsubscribe) return
     this.unsubscribe = this.deps.account.onChange(() => this.accountChanged())
+    this.deps.account.beforeSignOut(() => this.dropEveryHandle())
     void this.refreshOffer()
   }
 
@@ -76,7 +77,11 @@ export class PhonePush {
   }
 
   private active(device: Device | null): device is Device {
-    return device !== null && pushOf(device).enabled && this.availability() === 'available'
+    return (
+      device?.caps.includes('notify') === true &&
+      pushOf(device).enabled &&
+      this.availability() === 'available'
+    )
   }
 
   private configOf(device: Device): PushConfig {
@@ -134,15 +139,40 @@ export class PhonePush {
     if (!this.deps.account.signedIn()) {
       this.offered = null
       this.pings.clear()
-      for (const device of this.deps.devices.list()) {
-        const push = pushOf(device)
-        if (push.handle) this.deps.devices.setPush(device.deviceId, { enabled: push.enabled })
-      }
+      this.forgetHandles()
       this.announceAll()
       this.deps.changed()
       return
     }
     void this.refreshOffer()
+  }
+
+  private forgetHandles(): string[] {
+    const handles: string[] = []
+    for (const device of this.deps.devices.list()) {
+      const push = pushOf(device)
+      if (!push.handle) continue
+      handles.push(push.handle)
+      this.deps.devices.setPush(device.deviceId, { enabled: push.enabled })
+    }
+    return handles
+  }
+
+  private async dropEveryHandle(): Promise<void> {
+    const handles = this.forgetHandles()
+    await Promise.allSettled(handles.map((handle) => this.deleteRemote(handle)))
+    if (handles.length > 0) this.deps.changed()
+  }
+
+  capsChanged(deviceId: string): void {
+    const device = this.deps.devices.get(deviceId)
+    if (!device || device.caps.includes('notify')) return
+    const push = pushOf(device)
+    if (!push.enabled && !push.handle) return
+    this.deps.devices.setPush(deviceId, { enabled: false })
+    this.dropRemote(push.handle)
+    this.announce(deviceId)
+    this.deps.changed()
   }
 
   async setEnabled(deviceId: string, enabled: boolean): Promise<GatewaySetPushResult> {
@@ -166,10 +196,7 @@ export class PhonePush {
 
   async ticket(deviceId: string): Promise<PushTicketResult> {
     if (!this.active(this.deps.devices.get(deviceId))) return { ok: false, error: 'push-off' }
-    const now = this.now()
-    const recent = (this.tickets.get(deviceId) ?? []).filter((at) => now - at < TICKET_WINDOW_MS)
-    this.tickets.set(deviceId, [...recent, now])
-    if (recent.length >= TICKETS_PER_WINDOW) return { ok: false, error: 'rate-limited' }
+    if (!this.tickets.permit(deviceId)) return { ok: false, error: 'rate-limited' }
     try {
       const minted = await this.deps.account.authed((token, routes) => routes.pushTicket(token))
       return { ok: true, ticket: minted.ticket, expiresAt: minted.expiresAt }
@@ -209,40 +236,42 @@ export class PhonePush {
   }
 
   private dropRemote(handle: string | undefined): void {
-    if (!handle) return
-    this.pings.delete(handle)
-    this.deps.account
-      .authed((token, routes) => routes.pushDelete(token, handle))
-      .catch((error: unknown) => this.deps.log?.('push.delete-failed', { reason: reasonOf(error) }))
+    if (handle) void this.deleteRemote(handle)
+  }
+
+  private async deleteRemote(handle: string): Promise<void> {
+    this.pings.forget(handle)
+    try {
+      await this.deps.account.authed((token, routes) => routes.pushDelete(token, handle))
+    } catch (error) {
+      this.deps.log?.('push.delete-failed', { reason: reasonOf(error) })
+    }
+  }
+
+  private pingable(device: Device): string | null {
+    const handle = pushOf(device).handle
+    if (!handle || !this.active(device) || this.deps.connected(device.deviceId)) return null
+    return handle
   }
 
   async event(type: string): Promise<void> {
     if (!PUSH_EVENTS.has(type)) return
     const pings: Promise<void>[] = []
     for (const device of this.deps.devices.list()) {
-      const push = pushOf(device)
-      if (!push.handle || !device.caps.includes('notify') || !this.active(device)) continue
-      if (this.deps.connected(device.deviceId)) continue
-      pings.push(this.ping(device.deviceId, push.handle))
+      const handle = this.pingable(device)
+      if (handle) pings.push(this.ping(device.deviceId, handle))
     }
     await Promise.all(pings)
   }
 
-  private permitted(handle: string): boolean {
-    const now = this.now()
-    const state = this.pings.get(handle) ?? { last: 0, recent: [], blockedUntil: 0 }
-    const recent = state.recent.filter((at) => now - at < HOUR_MS)
-    const allowed =
-      now - state.last >= PING_GAP_MS && now >= state.blockedUntil && recent.length < PINGS_PER_HOUR
-    this.pings.set(
-      handle,
-      allowed ? { ...state, last: now, recent: [...recent, now] } : { ...state, recent },
-    )
-    return allowed
+  async deviceGone(deviceId: string): Promise<void> {
+    const device = this.deps.devices.get(deviceId)
+    const handle = device ? this.pingable(device) : null
+    if (handle && (await this.deps.needsHuman())) await this.ping(deviceId, handle)
   }
 
   private async ping(deviceId: string, handle: string): Promise<void> {
-    if (!this.permitted(handle)) return
+    if (!this.pings.permit(handle)) return
     try {
       await this.deps.account.authed((token, routes) => routes.pushPing(token, handle))
     } catch (error) {
@@ -252,10 +281,7 @@ export class PhonePush {
 
   private pingFailed(deviceId: string, handle: string, error: unknown): void {
     if (error instanceof ServerError && error.status === 429) {
-      const state = this.pings.get(handle)
-      if (state) {
-        state.blockedUntil = this.now() + (error.retryAfter ?? DEFAULT_BACKOFF_S) * 1000
-      }
+      this.pings.blockFor(handle, error.retryAfter ?? DEFAULT_BACKOFF_S)
       return
     }
     if (error instanceof ServerError && error.status === 410) {
@@ -268,7 +294,7 @@ export class PhonePush {
   private handleGone(deviceId: string, handle: string): void {
     const device = this.deps.devices.get(deviceId)
     if (!device || pushOf(device).handle !== handle) return
-    this.pings.delete(handle)
+    this.pings.forget(handle)
     this.deps.devices.setPush(deviceId, { enabled: true })
     this.announce(deviceId)
     this.deps.changed()

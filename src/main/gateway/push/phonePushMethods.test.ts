@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { dispatchGatewayMethod, type GatewayControlDeps } from './controlDispatch'
+import { dispatchGatewayMethod, type GatewayControlDeps } from '../controlDispatch'
 
 function depsWith(push: Partial<GatewayControlDeps['push']>): GatewayControlDeps {
   return { push } as unknown as GatewayControlDeps
