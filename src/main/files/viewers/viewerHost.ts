@@ -113,6 +113,7 @@ interface Live {
   rangeStreams: Set<() => void>
   rangeSlots: number
   pointerAt: number | null
+  pointerShift: boolean
   keyAt: number | null
 }
 
@@ -211,6 +212,7 @@ export class ViewerHost {
       rangeStreams: new Set(),
       rangeSlots: 0,
       pointerAt: null,
+      pointerShift: false,
       keyAt: null,
     }
     this.byToken.set(token, live)
@@ -388,10 +390,16 @@ export class ViewerHost {
         this.watchGuest(live, guest)
       }
     })
-    guest.on('input-event', (_event: unknown, input: { type?: string } | undefined) => {
-      const live = token ? this.byToken.get(token) : undefined
-      if (live && input?.type && POINTER_INPUTS.has(input.type)) live.pointerAt = this.now()
-    })
+    guest.on(
+      'input-event',
+      (_event: unknown, input: { type?: string; modifiers?: string[] } | undefined) => {
+        const live = token ? this.byToken.get(token) : undefined
+        if (live && input?.type && POINTER_INPUTS.has(input.type)) {
+          live.pointerAt = this.now()
+          live.pointerShift = input.modifiers?.includes('shift') === true
+        }
+      },
+    )
     guest.on('before-input-event', (_event: unknown, input: { type?: string } | undefined) => {
       const live = token ? this.byToken.get(token) : undefined
       if (live && input?.type === 'keyDown') live.keyAt = this.now()
@@ -640,7 +648,7 @@ export class ViewerHost {
   private linkTarget(live: Live, href: string): ViewerLinkTarget | null {
     if (/^[a-z][a-z0-9+.-]*:/i.test(href)) {
       const external = externalHref(href, { apps: false })
-      return external ? { kind: 'url', href: external } : null
+      return external ? { kind: 'url', href: external, shift: live.pointerShift } : null
     }
     if (href.startsWith('//') || href.includes('\\')) return null
     let relative: string

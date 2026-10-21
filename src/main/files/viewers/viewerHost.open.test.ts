@@ -15,7 +15,8 @@ function opened() {
       method: 'POST',
       body: typeof body === 'string' ? body : JSON.stringify(body),
     })
-  const click = () => guest.emit('input-event', {}, { type: 'mouseDown' })
+  const click = (modifiers: string[] = []) =>
+    guest.emit('input-event', {}, { type: 'mouseDown', modifiers })
   const press = () => guest.emit('before-input-event', {}, { type: 'keyDown' })
   const open = (href: unknown) => post('~open', { href })
   return { ...harness, session, guest, post, click, press, open }
@@ -32,9 +33,23 @@ describe('/~open', () => {
       {
         windowId: 'w1',
         type: 'open-link',
-        payload: { paneId: 'p1', target: { kind: 'url', href: 'https://example.com/a' } },
+        payload: {
+          paneId: 'p1',
+          target: { kind: 'url', href: 'https://example.com/a', shift: false },
+        },
       },
     ])
+  })
+
+  it('tells the window whether Shift was held at the press', async () => {
+    const { open, click, events } = opened()
+    click(['shift'])
+    await open('https://example.com/a')
+    click(['control'])
+    await open('https://example.com/b')
+    expect(
+      events.map((event) => (event.payload as { target: { shift: boolean } }).target.shift),
+    ).toEqual([true, false])
   })
 
   it('does not accept a key press or a stale pointer input', async () => {

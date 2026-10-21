@@ -230,9 +230,23 @@ describe('FileViewerFrame', () => {
   it('opens a web link in a browser tab, a mail link outside and a file in the workspace', async () => {
     mount()
     await act(async () => {})
-    act(() => onOpenLink({ paneId: 'p1', target: { kind: 'url', href: 'https://example.com/' } }))
+    act(() =>
+      onOpenLink({
+        paneId: 'p1',
+        target: { kind: 'url', href: 'https://example.com/', shift: false },
+      }),
+    )
     expect(openBrowserTabAs).toHaveBeenCalledWith('w', 'https://example.com/', 'human')
-    act(() => onOpenLink({ paneId: 'p1', target: { kind: 'url', href: 'mailto:a@b.c' } }))
+    act(() =>
+      onOpenLink({
+        paneId: 'p1',
+        target: { kind: 'url', href: 'https://example.com/b', shift: true },
+      }),
+    )
+    expect(window.ostia.openPath.openLink).toHaveBeenCalledWith('https://example.com/b')
+    act(() =>
+      onOpenLink({ paneId: 'p1', target: { kind: 'url', href: 'mailto:a@b.c', shift: false } }),
+    )
     expect(window.ostia.openPath.openLink).toHaveBeenCalledWith('mailto:a@b.c')
     act(() => onOpenLink({ paneId: 'p1', target: { kind: 'file', path: '/w/notes.md' } }))
     expect(openFileInWorkspace).toHaveBeenCalledWith('/w/notes.md')

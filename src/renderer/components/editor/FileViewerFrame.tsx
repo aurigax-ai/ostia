@@ -22,10 +22,13 @@ import { openBrowserTabAs } from '@/lib/browser/browserProfile'
 import { openFileInWorkspace } from '@/lib/files/openFile'
 import type { ViewerOption } from '@/lib/files/viewerChoice'
 import { useGuestReady, useSurfaceFocus } from '@/lib/panes/paneFocus'
+import { webLinkTarget } from '@/lib/terminalLinks/linkModifier'
 import { useInjectedCss, usePanelThemeCss } from '@/lib/theme/panelThemeInjection'
+import { isMac } from '@/platform'
+import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useViewerHintStore } from '@/stores/files/viewerHintStore'
-import { useLiveDocumentText } from './useLiveDocumentText'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
+import { useLiveDocumentText } from './useLiveDocumentText'
 import { ViewerMessage } from './ViewerChrome'
 
 const ABORTED = -3
@@ -54,6 +57,7 @@ function ViewerFrame({
 }: FrameProps & { onReload: () => void }): JSX.Element {
   const d = useDict()
   const themeCss = usePanelThemeCss()
+  const linkClick = useSettingsStore((s) => s.terminal.linkClick)
   const [opened, setOpened] = useState<Extract<ViewerOpenResult, { ok: true }> | null>(null)
   const [webview, setWebview] = useState<HTMLElement | null>(null)
   const [stopped, setStopped] = useState<ViewerStopReason | 'crashed' | null>(null)
@@ -108,12 +112,28 @@ function ViewerFrame({
     () =>
       window.ostia.viewers.onOpenLink((event) => {
         if (event.paneId !== paneId) return
-        if (event.target.kind === 'file') openFileInWorkspace(event.target.path)
-        else if (event.target.href.startsWith('mailto:')) {
-          void window.ostia.openPath.openLink(event.target.href)
-        } else openBrowserTabAs(workspaceId, event.target.href, 'human')
+        const { target } = event
+        if (target.kind === 'file') {
+          openFileInWorkspace(target.path)
+          return
+        }
+        const click = {
+          ctrlKey: !isMac,
+          metaKey: isMac,
+          shiftKey: target.shift,
+          detail: 1,
+        }
+        const where = webLinkTarget(click, {
+          mac: isMac,
+          hasSelection: false,
+          mouseReporting: false,
+          linkClick,
+        })
+        if (target.href.startsWith('mailto:') || where === 'system') {
+          void window.ostia.openPath.openLink(target.href)
+        } else openBrowserTabAs(workspaceId, target.href, 'human')
       }),
-    [paneId, workspaceId],
+    [paneId, workspaceId, linkClick],
   )
 
   useEffect(

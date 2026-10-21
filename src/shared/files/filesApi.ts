@@ -49,7 +49,9 @@ export interface ViewerSelectionEvent {
   selection: ViewerSelectionState | null
 }
 
-export type ViewerLinkTarget = { kind: 'url'; href: string } | { kind: 'file'; path: string }
+export type ViewerLinkTarget =
+  | { kind: 'url'; href: string; shift: boolean }
+  | { kind: 'file'; path: string }
 
 export interface ViewerOpenLink {
   paneId: string
