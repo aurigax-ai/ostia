@@ -37,7 +37,7 @@ export interface PtyEntry {
   subs: Map<string, Electron.WebContents>
   killTimer: ReturnType<typeof setTimeout> | null
   spawnPath: string
-  stateFile: string
+  stateFile: string | null
   markNonce: string | null
   workspaceId: string
   sandboxed: boolean
@@ -52,6 +52,7 @@ export interface PtyEntry {
 }
 
 export function removeStateFile(entry: PtyEntry): void {
+  if (!entry.stateFile) return
   rmSync(entry.stateFile, { force: true })
   rmSync(markNonceFileFor(entry.stateFile), { force: true })
 }
@@ -149,7 +150,7 @@ export function createPtyRegistry({
       rows: number
       subs: Map<string, Electron.WebContents>
       spawnPath: string
-      stateFile: string
+      stateFile: string | null
       markNonce?: string | null
       keepAlive: boolean
       workspaceId?: string

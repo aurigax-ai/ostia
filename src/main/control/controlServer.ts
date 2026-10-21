@@ -1,5 +1,5 @@
 import { hash } from 'node:crypto'
-import { chmodSync, existsSync, readdirSync, rmSync } from 'node:fs'
+import { chmodSync, readdirSync, rmSync } from 'node:fs'
 import { createServer, type Server, type Socket } from 'node:net'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -98,21 +98,6 @@ export function keptControlSocketPath(
   env: NodeJS.ProcessEnv = process.env,
 ): string {
   return socketPath(privateRunDir('kept', platform, env), keptSocketName(userData), platform)
-}
-
-export function legacyKeptControlSocketPath(
-  userData: string,
-  platform: NodeJS.Platform = process.platform,
-  tmp: string = tmpdir(),
-): string | null {
-  if (platform !== 'darwin') return null
-  const dir = join(tmp, `${PRODUCT_NAME}-kept-${process.getuid?.() ?? 0}`)
-  return existsSync(dir) ? socketPath(dir, keptSocketName(userData), platform) : null
-}
-
-export function keptControlSocketPaths(userData: string): string[] {
-  const legacy = legacyKeptControlSocketPath(userData)
-  return [keptControlSocketPath(userData), ...(legacy ? [legacy] : [])]
 }
 
 function unauthenticatedError(message: string): ResponseError<void> {
@@ -571,23 +556,21 @@ export function registerControlServer(deps: ControlServerDeps, socketPathOverrid
   })
 }
 
-export function listenKeptControlSocket(paths: readonly string[]): void {
+export function listenKeptControlSocket(path: string): void {
   const handle = handleConnection
   if (!handle || keptServers.length > 0) return
-  for (const path of new Set(paths)) {
+  try {
+    rmSync(path, { force: true })
+  } catch {}
+  keptPaths.push(path)
+  const kept = createServer(handle)
+  kept.on('error', (err) => console.error('[control] kept socket error:', err))
+  kept.listen(path, () => {
     try {
-      rmSync(path, { force: true })
+      chmodSync(path, 0o600)
     } catch {}
-    keptPaths.push(path)
-    const kept = createServer(handle)
-    kept.on('error', (err) => console.error('[control] kept socket error:', err))
-    kept.listen(path, () => {
-      try {
-        chmodSync(path, 0o600)
-      } catch {}
-    })
-    keptServers.push(kept)
-  }
+  })
+  keptServers.push(kept)
 }
 
 export function stopControlServer(): void {

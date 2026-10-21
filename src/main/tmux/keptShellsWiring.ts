@@ -3,11 +3,7 @@ import { join } from 'node:path'
 import { appEnv } from '@aurigax-ai/ostia-extension-sdk/contract/appEnv'
 import { app } from 'electron'
 import { KEEP_SHELLS_FEATURE, parseKeepShells } from '../../shared/terminal/keepShells'
-import {
-  keptControlSocketPath,
-  keptControlSocketPaths,
-  listenKeptControlSocket,
-} from '../control/controlServer'
+import { keptControlSocketPath, listenKeptControlSocket } from '../control/controlServer'
 import type { AppLog } from '../diagnostics/appLog'
 import type { ProcessRegistry } from '../panes/processRegistry'
 import { readSettingsFile } from '../platform/settingsFile'
@@ -113,7 +109,7 @@ export function createKeptShellsWiring({
     launcherDir: paneLauncherDir(),
     execPath: process.execPath,
     appPath: app.getAppPath(),
-    listen: () => listenKeptControlSocket(keptControlSocketPaths(app.getPath('userData'))),
+    listen: () => listenKeptControlSocket(keptControlSocketPath(app.getPath('userData'))),
     warn: (code) => appLog()?.warn('launcher-write-failed', { launcher: 'kept', code }),
   })
 

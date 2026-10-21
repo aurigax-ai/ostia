@@ -37,7 +37,6 @@ export function paneControlSocket(
   scriptToken: boolean,
   infoPath: string,
 ): string | undefined {
-  if (envSocket && existsSync(envSocket)) return envSocket
-  if (!envSocket && !scriptToken) return undefined
-  return readControlSocket(infoPath) ?? envSocket
+  if (envSocket) return envSocket
+  return scriptToken ? readControlSocket(infoPath) : undefined
 }

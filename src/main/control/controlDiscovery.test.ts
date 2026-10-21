@@ -58,7 +58,7 @@ describe('control socket discovery', () => {
     expect(readControlSocket(info)).toBeUndefined()
   })
 
-  it('sends a pane to the running app when the socket it was started with is gone', () => {
+  it('keeps the socket a pane was started with, even when it is gone', () => {
     const dir = tempDir()
     const info = join(dir, 'control.json')
     const current = join(dir, 'ostia-2.sock')
@@ -66,12 +66,11 @@ describe('control socket discovery', () => {
     writeFileSync(current, '')
     writeControlInfo(info, current, 2)
 
-    expect(paneControlSocket(moved, false, info)).toBe(current)
-    writeFileSync(moved, '')
     expect(paneControlSocket(moved, false, info)).toBe(moved)
+    expect(paneControlSocket(moved, true, info)).toBe(moved)
   })
 
-  it('keeps the pane socket when no running app is recorded, and needs a pane or a script', () => {
+  it('finds the running app only for a script with no socket of its own', () => {
     const dir = tempDir()
     const info = join(dir, 'control.json')
     const gone = join(dir, 'gone.sock')

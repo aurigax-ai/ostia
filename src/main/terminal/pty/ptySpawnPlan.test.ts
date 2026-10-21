@@ -1,4 +1,4 @@
-import { chmodSync, mkdirSync, mkdtempSync, rmSync, symlinkSync } from 'node:fs'
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, rmSync, symlinkSync } from 'node:fs'
 import { homedir, tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -118,4 +118,43 @@ describe('a pane whose shell state folder cannot be written', () => {
       expect((await plan(false)).args).toContain('--rcfile')
     },
   )
+})
+
+describe('a pane whose private shell state folder is not ours', () => {
+  function takeOverStateFolder(): string {
+    const tmp = mkdtempSync(join(tmpdir(), 'ostia-state-owner-'))
+    dirs.push(tmp)
+    symlinkSync(tmp, join(tmp, `ostia-shell-state-${process.getuid?.() ?? 0}`))
+    vi.stubEnv('TMPDIR', tmp)
+    return tmp
+  }
+
+  it('gets no state, mark or mail file and a plain shell with the banner', async () => {
+    vi.stubEnv('SHELL', '/bin/bash')
+    const tmp = takeOverStateFolder()
+    const result = (await planner(false).planSpawn(
+      'p-wsdir',
+      { cwd: '/', workspaceId: 'w-wsdir', cols: 80, rows: 24 },
+      '1',
+    )) as {
+      env: Record<string, string>
+      args: string[]
+      integrationNotice: string
+      stateFile: null
+    }
+    expect(result.stateFile).toBeNull()
+    expect(result.env.OSTIA_SHELL_STATE).toBeUndefined()
+    expect(result.env.OSTIA_MAIL_FILE).toBeUndefined()
+    expect(result.args).not.toContain('--rcfile')
+    expect(result.integrationNotice).toContain('Shell integration not loaded')
+    expect(existsSync(join(tmp, 'ostia-shell-state-unavailable'))).toBe(false)
+  })
+
+  it('does the same for a shell that sends no mark', async () => {
+    vi.stubEnv('SHELL', '/bin/sh')
+    takeOverStateFolder()
+    const result = await plan(false)
+    expect(result.env.OSTIA_SHELL_STATE).toBeUndefined()
+    expect(result.integrationNotice).toContain('Shell integration not loaded')
+  })
 })

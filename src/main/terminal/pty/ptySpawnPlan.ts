@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto'
-import { homedir, tmpdir } from 'node:os'
+import { homedir } from 'node:os'
 import { basename, join } from 'node:path'
 import { appEnv } from '@aurigax-ai/ostia-extension-sdk/contract/appEnv'
 import { PRODUCT_NAME } from '@aurigax-ai/ostia-extension-sdk/contract/product'
@@ -45,7 +45,7 @@ export interface SpawnPlan {
   shell: string
   cols: number
   rows: number
-  stateFile: string
+  stateFile: string | null
   markNonce: string | null
   markNonceFile: string | null
   env: Record<string, string>
@@ -66,7 +66,7 @@ export interface SpawnPlan {
 }
 
 interface ShellFiles {
-  stateFile: string
+  stateFile: string | null
   markNonceFile: string | null
   markNonce: string | null
   failure: string | null
@@ -81,10 +81,10 @@ function shellFiles(shell: string): ShellFiles {
     return { stateFile, markNonceFile, markNonce, failure: null }
   } catch (err) {
     return {
-      stateFile: join(tmpdir(), `${PRODUCT_NAME}-shell-state-unavailable`, name),
+      stateFile: null,
       markNonceFile: null,
       markNonce: null,
-      failure: sendsMarkNonce(shell) ? integrationFailure(err) : null,
+      failure: integrationFailure(err),
     }
   }
 }
@@ -153,8 +153,8 @@ export function createSpawnPlanner({
     const identity = registerPane({ windowId: subId, workspaceId: resolved.workspaceId, paneId })
     const workspaceId = identity.workspaceId
     const { stateFile, markNonceFile, markNonce, failure } = shellFiles(shell)
-    const mailFile = `${stateFile}.mail`
-    registerMailFlag(identity.externalId, mailFile)
+    const mailFile = stateFile ? `${stateFile}.mail` : null
+    if (mailFile) registerMailFlag(identity.externalId, mailFile)
     const host = opts.hostToken ? hostPaneGrants.consume(opts.hostToken) : false
     const sandboxed = !host && workspaceId !== '' && workspaceSandboxes.isEnabled(workspaceId)
     const codexSock = sandboxed ? null : codexSocketPath()
@@ -185,8 +185,7 @@ export function createSpawnPlanner({
         SOCKET: controlSocketPath(),
         CLI: join(app.getAppPath(), 'out/cli/index.js'),
         NODE: process.execPath,
-        SHELL_STATE: stateFile,
-        MAIL_FILE: mailFile,
+        ...(stateFile && mailFile ? { SHELL_STATE: stateFile, MAIL_FILE: mailFile } : {}),
         ...(codexSock ? { CODEX_SOCK: codexSock } : {}),
       }),
       agentHooks: settings.agents?.hooks,

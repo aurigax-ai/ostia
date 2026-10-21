@@ -9,6 +9,7 @@ import {
   unlinkSync,
 } from 'node:fs'
 import { dirname, join, relative } from 'node:path'
+import { isInsidePath } from '../platform/pathGuard'
 
 export function hasFiles(dir: string, names: readonly string[]): boolean {
   return names.every((name) => existsSync(join(dir, name)))
@@ -46,7 +47,7 @@ export function installGenerated(
 
 function removeEmptyFolders(dir: string, stop: string): void {
   let current = dir
-  while (current.startsWith(stop)) {
+  while (isInsidePath(stop, current)) {
     try {
       rmdirSync(current)
     } catch {

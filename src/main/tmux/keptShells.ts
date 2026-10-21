@@ -51,7 +51,7 @@ export interface KeptMeta {
   externalId: string
   workspaceId: string
   shell: string
-  stateFile: string
+  stateFile: string | null
   spawnPath: string
   markNonce?: string
   process?: KeptProcessMeta
@@ -153,14 +153,16 @@ function parseKeptMeta(raw: unknown): KeptMeta | null {
     externalId: text(r.externalId),
     workspaceId: text(r.workspaceId),
     shell: text(r.shell),
-    stateFile: text(r.stateFile),
     spawnPath: text(r.spawnPath),
   }
+  const stateFile = r.stateFile === null ? null : text(r.stateFile)
   if (Object.values(fields).some((v) => v === null) || !fields.paneId) return null
+  if (r.stateFile !== null && stateFile === null) return null
   const keptProcess = parseProcess(r.process)
   const sandbox = parseSandbox(r.sandbox)
   return {
     ...(fields as KeptMeta),
+    stateFile,
     ...(isMarkNonce(r.markNonce) ? { markNonce: r.markNonce } : {}),
     ...(keptProcess ? { process: keptProcess } : {}),
     ...(sandbox ? { sandbox } : {}),

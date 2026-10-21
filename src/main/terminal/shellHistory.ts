@@ -135,7 +135,7 @@ export interface HistoryPane {
   owners: { has: (senderId: string) => boolean }
   localPrompt: boolean
   shell: string
-  stateFile: string
+  stateFile: string | null
   rules: SandboxReadRules | null
 }
 

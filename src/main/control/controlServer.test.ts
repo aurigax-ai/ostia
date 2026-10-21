@@ -1,7 +1,6 @@
 import {
   existsSync,
   lstatSync,
-  mkdirSync,
   mkdtempSync,
   readdirSync,
   readFileSync,
@@ -26,8 +25,6 @@ import {
   type ControlServerDeps,
   controlSocketPathFor,
   keptControlSocketPath,
-  keptControlSocketPaths,
-  legacyKeptControlSocketPath,
   listenKeptControlSocket,
   registerControlServer,
   stopControlServer,
@@ -349,24 +346,20 @@ describe('controlServer (socket auth, end-to-end)', () => {
     await expect(client.conn.sendRequest('whoami')).rejects.toThrow()
   })
 
-  it('serves kept shells on every kept path, including the one from before the move', async () => {
+  it('serves kept shells on the kept path', async () => {
     socketPath = nextSocketPath()
     const id = registerPane({ windowId: 'w1', workspaceId: 's1', paneId: 'pTest1' })
     registerControlServer(fakeDeps, socketPath)
     const moved = nextSocketPath()
-    const legacy = nextSocketPath()
-    listenKeptControlSocket([moved, legacy])
-    await expect.poll(() => existsSync(moved) && existsSync(legacy)).toBe(true)
-    for (const path of [moved, legacy]) {
-      const kept = connectClient(path)
-      await expect(kept.conn.sendRequest('hello', { token: id.token })).resolves.toEqual({
-        externalId: id.externalId,
-      })
-      kept.destroy()
-    }
+    listenKeptControlSocket(moved)
+    await expect.poll(() => existsSync(moved)).toBe(true)
+    const kept = connectClient(moved)
+    await expect(kept.conn.sendRequest('hello', { token: id.token })).resolves.toEqual({
+      externalId: id.externalId,
+    })
+    kept.destroy()
     stopControlServer()
     expect(existsSync(moved)).toBe(false)
-    expect(existsSync(legacy)).toBe(false)
   })
 
   it('removes the socket file after stopControlServer', async () => {
@@ -412,18 +405,10 @@ describe('the control socket on macOS', () => {
     )
   })
 
-  it('puts the kept socket next to it, and finds the old TMPDIR one only when it exists', () => {
+  it('puts the kept socket next to it', () => {
     const data = dataHome()
     const kept = keptControlSocketPath('/data/ostia-a', 'darwin', { XDG_DATA_HOME: data })
     expect(dirname(kept)).toBe(join(data, 'ostia', 'run', 'kept'))
-    const tmp = dataHome()
-    expect(legacyKeptControlSocketPath('/data/ostia-a', 'darwin', tmp)).toBeNull()
-    expect(legacyKeptControlSocketPath('/data/ostia-a', 'linux', tmp)).toBeNull()
-    const old = join(tmp, `ostia-kept-${process.getuid?.()}`)
-    mkdirSync(old)
-    expect(legacyKeptControlSocketPath('/data/ostia-a', 'darwin', tmp)).toBe(
-      join(old, kept.slice(dirname(kept).length + 1)),
-    )
   })
 
   it('removes the sockets of Ostia processes that are gone, and nothing else', () => {
@@ -446,7 +431,6 @@ describe('keptControlSocketPath', () => {
     expect(folder.uid).toBe(process.getuid?.())
     expect(keptControlSocketPath('/data/ostia-a')).toBe(path)
     expect(keptControlSocketPath('/data/ostia-b')).not.toBe(path)
-    expect(keptControlSocketPaths('/data/ostia-a')[0]).toBe(path)
   })
 })
 
