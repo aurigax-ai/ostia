@@ -46,6 +46,7 @@ import {
   extensionOfViewerPartition,
   hardenViewerSession,
   type ViewerSession,
+  viewerAllowsWasm,
   viewerHeaders,
   viewerPartition,
 } from './viewerSessions'
@@ -460,9 +461,13 @@ export class ViewerHost {
     return this.extensionFile(live, pathname)
   }
 
+  private headers(live: Live, contentType: string, extra: Record<string, string> = {}): Headers {
+    return viewerHeaders(contentType, extra, viewerAllowsWasm(live.extId))
+  }
+
   private async meta(live: Live): Promise<Response> {
     const stat = await this.deps.statDocument(live.path)
-    if (!stat) return new Response(null, { status: 404, headers: viewerHeaders('text/plain') })
+    if (!stat) return new Response(null, { status: 404, headers: this.headers(live, 'text/plain') })
     const meta: ViewerDocumentMeta = {
       name: live.path.slice(live.path.lastIndexOf('/') + 1),
       size: live.documentText === null ? stat.size : Buffer.byteLength(live.documentText),
@@ -471,14 +476,14 @@ export class ViewerHost {
       viewType: live.viewType,
     }
     return new Response(JSON.stringify(meta), {
-      headers: viewerHeaders('application/json; charset=utf-8'),
+      headers: this.headers(live, 'application/json; charset=utf-8'),
     })
   }
 
   private async document(live: Live, request: Request): Promise<Response> {
     if (live.documentText !== null) {
       return new Response(Buffer.from(live.documentText), {
-        headers: viewerHeaders('application/octet-stream', { 'accept-ranges': 'none' }),
+        headers: this.headers(live, 'application/octet-stream', { 'accept-ranges': 'none' }),
       })
     }
     const range = request.headers.get('range')
@@ -489,29 +494,29 @@ export class ViewerHost {
     const read = await this.deps.readDocument(live.path)
     if (read.ok) {
       return new Response(new Uint8Array(read.body), {
-        headers: viewerHeaders('application/octet-stream', { 'accept-ranges': 'bytes' }),
+        headers: this.headers(live, 'application/octet-stream', { 'accept-ranges': 'bytes' }),
       })
     }
     const size = (await this.deps.statDocument(live.path))?.size
     return new Response(null, {
       status: read.status,
-      headers: viewerHeaders('text/plain', size ? { 'x-ostia-size': String(size) } : {}),
+      headers: this.headers(live, 'text/plain', size ? { 'x-ostia-size': String(size) } : {}),
     })
   }
 
   private async rangedDocument(live: Live, header: string): Promise<Response | null> {
     const stat = await this.deps.statDocument(live.path)
-    if (!stat) return new Response(null, { status: 404, headers: viewerHeaders('text/plain') })
+    if (!stat) return new Response(null, { status: 404, headers: this.headers(live, 'text/plain') })
     const range = parseByteRange(header, stat.size)
     if (range.kind === 'none') return null
     const unsatisfiable = (): Response =>
       new Response(null, {
         status: 416,
-        headers: viewerHeaders('text/plain', { 'content-range': `bytes */${stat.size}` }),
+        headers: this.headers(live, 'text/plain', { 'content-range': `bytes */${stat.size}` }),
       })
     if (range.kind === 'unsatisfiable') return unsatisfiable()
     if (live.rangeSlots >= RANGE_STREAMS_MAX) {
-      return new Response(null, { status: 429, headers: viewerHeaders('text/plain') })
+      return new Response(null, { status: 429, headers: this.headers(live, 'text/plain') })
     }
     live.rangeSlots++
     const release = (): void => {
@@ -530,13 +535,13 @@ export class ViewerHost {
     if (!opened.ok) {
       release()
       if (opened.error === 'unsatisfiable') return unsatisfiable()
-      return new Response(null, { status: 410, headers: viewerHeaders('text/plain') })
+      return new Response(null, { status: 410, headers: this.headers(live, 'text/plain') })
     }
     const { reader } = opened
     if (this.byToken.get(live.token) !== live) {
       release()
       await reader.close()
-      return new Response(null, { status: 404, headers: viewerHeaders('text/plain') })
+      return new Response(null, { status: 404, headers: this.headers(live, 'text/plain') })
     }
     let finished = false
     const finish = (): void => {
@@ -566,7 +571,7 @@ export class ViewerHost {
     })
     return new Response(body, {
       status: 206,
-      headers: viewerHeaders('application/octet-stream', {
+      headers: this.headers(live, 'application/octet-stream', {
         'accept-ranges': 'bytes',
         'content-range': `bytes ${range.start}-${range.end}/${reader.size}`,
         'content-length': String(range.end - range.start + 1),
@@ -586,7 +591,7 @@ export class ViewerHost {
         if (controller) live.streams.delete(controller)
       },
     })
-    return new Response(stream, { headers: viewerHeaders('text/event-stream') })
+    return new Response(stream, { headers: this.headers(live, 'text/event-stream') })
   }
 
   private async receivePortable(live: Live, request: Request): Promise<Response> {
@@ -695,9 +700,9 @@ export class ViewerHost {
       return new Response(null, { status: 400 })
     }
     const body = relative ? this.deps.readExtensionFile(live.source.dir, relative) : null
-    if (!body) return new Response(null, { status: 404, headers: viewerHeaders('text/plain') })
+    if (!body) return new Response(null, { status: 404, headers: this.headers(live, 'text/plain') })
     return new Response(new Uint8Array(body), {
-      headers: viewerHeaders(contentTypeOf(join(live.source.dir, relative))),
+      headers: this.headers(live, contentTypeOf(join(live.source.dir, relative))),
     })
   }
 }
