@@ -53,6 +53,7 @@ async function enableAndRun(app: ElectronApplication, name: string): Promise<voi
   await expect
     .poll(() => clickLabel(app, `[data-graph="${name}"] button`, 'Run now'), { timeout: 15_000 })
     .toBe('ok')
+  await expect.poll(() => clickLabel(app, 'button', 'Back'), { timeout: 15_000 }).toBe('ok')
 }
 
 test('GRF-C59 GRF-C70 a waiting approval and a cut-off command come back after Ostia is killed', async () => {
@@ -100,7 +101,6 @@ edges:
   await expect(
     win.locator('article[data-question]', { hasText: 'Keep going after the restart?' }),
   ).toBeVisible({ timeout: 30_000 })
-  await clickLabel(app, 'button', 'Back')
   await enableAndRun(app, 'cut')
   await expect
     .poll(() => lines().filter((l) => l.startsWith('slow')).length, { timeout: 30_000 })

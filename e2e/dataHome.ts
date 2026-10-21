@@ -89,17 +89,20 @@ export function isolatedLaunch(dataHome: string = freshDataHome()): {
   }
 }
 
+export function wireDataDir(
+  dataHome: string,
+  platform: NodeJS.Platform = process.platform,
+): string {
+  return platform === 'darwin'
+    ? join(dataHome, 'home', 'Library', 'Application Support', 'wire')
+    : join(dataHome, 'state', 'wire')
+}
+
 function stopWireRuntime(dataHome: string): void {
-  const homes = [
-    join(dataHome, 'state', 'wire'),
-    join(dataHome, 'home', 'Library', 'Application Support', 'wire'),
-  ]
-  for (const data of homes) {
-    try {
-      const pid = Number(readFileSync(join(data, 'runtime.lock'), 'utf8').trim())
-      if (pid > 0) process.kill(pid, 'SIGKILL')
-    } catch {}
-  }
+  try {
+    const pid = Number(readFileSync(join(wireDataDir(dataHome), 'runtime.lock'), 'utf8').trim())
+    if (pid > 0) process.kill(pid, 'SIGKILL')
+  } catch {}
 }
 
 process.on('exit', () => {
