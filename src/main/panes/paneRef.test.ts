@@ -44,31 +44,39 @@ describe('resolvePaneRef', () => {
     expect(await resolvePaneRef(deps, 'w-2', ctx, true)).toEqual({ found: near })
   })
 
-  it('takes a registered name after an exact id and a tab name, before an id prefix', async () => {
-    claimName('ref-sibling', 'boss', undefined)
-    expect(await resolvePaneRef(deps, 'Boss', ctx, true)).toEqual({ found: sibling })
+  it('takes a registered name after an exact id and before a tab name and an id prefix', async () => {
+    claimName('ref-sibling', 'boss', undefined, () => true)
     named.set('boss', ['ref-near'])
-    expect(await resolvePaneRef(deps, 'boss', ctx, true)).toEqual({ found: near })
-    claimName('ref-near', 'deadbeefz', undefined)
+    expect(await resolvePaneRef(deps, 'boss', ctx, true)).toEqual({ found: sibling })
+    claimName('ref-near', 'deadbeefz', undefined, () => true)
     expect(await resolvePaneRef(deps, 'deadbeefz', ctx, true)).toEqual({ found: near })
+    expect(await resolvePaneRef(deps, 'Boss', ctx, true)).toEqual({ unknown: true })
+  })
+
+  it('lists the panes that hold one name when the caller reaches more than one', async () => {
+    claimName('ref-sibling', 'boss', undefined, () => true)
+    claimName('ref-near', 'boss', undefined, () => false)
+    expect(await resolvePaneRef(deps, 'boss', ctx, false)).toEqual({ ambiguous: [sibling, near] })
+    claimName('ref-far', 'boss', undefined, () => false)
+    expect(await resolvePaneRef(deps, 'boss', ctx, false)).toEqual({ ambiguous: [sibling, near] })
   })
 
   it('resolves a registered name only to a pane the caller reaches', async () => {
-    claimName('ref-near', 'near-name', undefined)
-    claimName('ref-far', 'far-name', undefined)
+    claimName('ref-near', 'near-name', undefined, () => true)
+    claimName('ref-far', 'far-name', undefined, () => true)
     expect(await resolvePaneRef(deps, 'near-name', ctx, false)).toEqual({ found: near })
     expect(await resolvePaneRef(deps, 'far-name', ctx, false)).toEqual({ unknown: true })
   })
 
   it('never resolves a registered name of a manager pane', async () => {
-    claimName('ref-manager', 'mgr-name', undefined)
+    claimName('ref-manager', 'mgr-name', undefined, () => true)
     expect(await resolvePaneRef(deps, 'mgr-name', ctx, false)).toEqual({ unknown: true })
   })
 
   it('lets a sandboxed caller reach a named pane only when it is a confined pane of its workspace', async () => {
     sandboxed.add('ws1')
-    claimName('ref-sibling', 'sib', undefined)
-    claimName('ref-near', 'nr', undefined)
+    claimName('ref-sibling', 'sib', undefined, () => true)
+    claimName('ref-near', 'nr', undefined, () => true)
     expect(await resolvePaneRef(deps, 'sib', ctx, false)).toEqual({ unknown: true })
     confined.add('ref-sibling')
     confined.add('ref-near')

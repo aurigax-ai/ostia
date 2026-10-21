@@ -8,7 +8,7 @@ import { ensureCaps } from '../approvals/controlElevation'
 import { type ControlMethodContext, registerControlMethod } from '../control/controlServer'
 import { type PaneIdentity, resolveExternal } from '../control/idRegistry'
 import type { AgentJournal } from '../diagnostics/agentJournal'
-import { takeNameNotice } from '../panes/paneNames'
+import { dropName, nameOf } from '../panes/paneNames'
 import { ensurePaneReach, holdsPaneReach, type PaneReachDeps } from '../panes/paneReach'
 import { type PaneRef, refProblem, resolvePaneRef } from '../panes/paneRef'
 import {
@@ -127,6 +127,7 @@ export interface BusDeps {
   observe?: (observation: BusObservation) => void
   journal?: Pick<AgentJournal, 'mail' | 'leaseTimeout'>
   agentBusy: (pane: PaneIdentity) => boolean
+  hibernated: (paneId: string) => boolean
 }
 
 function receiverOf(to: unknown): PaneIdentity | undefined {
@@ -334,14 +335,17 @@ function registerBusInboxMethods(deps: BusDeps): void {
 
   registerControlMethod('bus.context', {
     handler: (params, ctx) => {
-      const { event } = (params ?? {}) as { event?: string }
+      const { event, source } = (params ?? {}) as { event?: string; source?: string }
       const me = ctx.identity.externalId
       const fresh = inboxOf(me).filter((mail) => mail.state === 'queued' && !mail.quiet)
       const context = busContext(
         fresh.map((mail) => ({ ...withSenderName(mail), text: mail.text ?? '' })),
       )
       const notice =
-        event === 'SessionStart' && !ctx.identity.manager && takeNameNotice(ctx.identity.paneId)
+        event === 'SessionStart' &&
+        source === 'resume' &&
+        !ctx.identity.manager &&
+        !nameOf(ctx.identity.paneId)
           ? BUS_NAME_NOTICE
           : null
       const joined = (text: string | null): string | null =>
@@ -360,8 +364,10 @@ function registerBusInboxMethods(deps: BusDeps): void {
     handler: (params, ctx) => {
       const { state } = (params ?? {}) as { state?: string }
       const me = ctx.identity.externalId
-      if (state === 'gone') mailers.clear(me)
-      else mailers.set(me, state === 'draft')
+      if (state === 'gone') {
+        mailers.clear(me)
+        if (!deps.hibernated(ctx.identity.paneId)) dropName(ctx.identity.paneId)
+      } else mailers.set(me, state === 'draft')
       return { ok: true }
     },
   })

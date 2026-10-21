@@ -6,7 +6,7 @@ import {
   resolveExternal,
 } from '../control/idRegistry'
 import { type ClosedPane, closedLabel, PREFIX_MIN, recallClosedPane } from './closedPanes'
-import { paneNamed } from './paneNames'
+import { panesNamed } from './paneNames'
 
 const ID_PREFIX = /^[0-9a-f-]+$/
 
@@ -28,6 +28,27 @@ function asPane(paneId: string): PaneIdentity | undefined {
   return found?.kind === 'pane' ? found : undefined
 }
 
+async function sight(
+  deps: Pick<PaneRefDeps, 'visible' | 'isSandboxed' | 'isConfined'>,
+  ctx: ControlMethodContext,
+) {
+  const sandboxed = deps.isSandboxed(ctx.identity.workspaceId)
+  const seen = (pane: PaneIdentity): boolean =>
+    !sandboxed || (pane.workspaceId === ctx.identity.workspaceId && deps.isConfined(pane.paneId))
+  const reaches = sandboxed ? () => false : await deps.visible(ctx)
+  const mine = (workspaceId: string): boolean =>
+    workspaceId === ctx.identity.workspaceId || reaches(workspaceId)
+  return { sandboxed, seen, mine }
+}
+
+export async function paneSight(
+  deps: Pick<PaneRefDeps, 'visible' | 'isSandboxed' | 'isConfined'>,
+  ctx: ControlMethodContext,
+): Promise<(pane: PaneIdentity) => boolean> {
+  const { seen, mine } = await sight(deps, ctx)
+  return (pane) => mine(pane.workspaceId) && seen(pane)
+}
+
 export async function resolvePaneRef(
   deps: PaneRefDeps,
   ref: string,
@@ -36,20 +57,15 @@ export async function resolvePaneRef(
 ): Promise<PaneRef> {
   const exact = resolveExternal(ref)
   if (exact?.kind === 'pane') return { found: exact }
-  const sandboxed = deps.isSandboxed(ctx.identity.workspaceId)
-  const seen = (pane: PaneIdentity): boolean =>
-    !sandboxed || (pane.workspaceId === ctx.identity.workspaceId && deps.isConfined(pane.paneId))
+  const { sandboxed, seen, mine } = await sight(deps, ctx)
+  const registered = panesNamed(ref)
+    .flatMap((id) => asPane(id) ?? [])
+    .filter((pane) => !pane.manager && mine(pane.workspaceId) && seen(pane))
+  if (registered.length === 1) return { found: registered[0] }
+  if (registered.length > 1) return { ambiguous: registered }
   const named = (await deps.processPane(ref, ctx)).flatMap((id) => asPane(id) ?? []).filter(seen)
   if (named.length > 0) {
     return destructive && named.length > 1 ? { ambiguous: named } : { found: named[0] }
-  }
-  const reaches = sandboxed ? () => false : await deps.visible(ctx)
-  const mine = (workspaceId: string): boolean =>
-    workspaceId === ctx.identity.workspaceId || reaches(workspaceId)
-  const holder = paneNamed(ref)
-  const registered = holder === undefined ? undefined : asPane(holder)
-  if (registered && !registered.manager && mine(registered.workspaceId) && seen(registered)) {
-    return { found: registered }
   }
   const prefix = ref.toLowerCase()
   if (prefix.length >= PREFIX_MIN && ID_PREFIX.test(prefix)) {

@@ -106,6 +106,7 @@ describe('the extension API a graph host needs', () => {
     })
     registerExtensionMethods(() => host)
     registerBusMethods({
+      hibernated: () => false,
       managerSendAllowed: () => true,
       agentBusy: () => false,
       announce: () => {},

@@ -18,22 +18,20 @@ export type Claim =
   | { ok: false; error: 'bad-name' | 'bad-desc'; message: string }
 
 const held = new Map<string, PaneName>()
-const holders = new Map<string, string>()
+const holders = new Map<string, Set<string>>()
 const sessions = new Map<string, string>()
-const noticed = new Set<string>()
 
 export function parseName(raw: unknown): { name: string } | { message: string } {
   if (typeof raw !== 'string') return { message: 'name must be text' }
-  const name = raw.trim().toLowerCase()
-  if (name.length === 0 || name.length > NAME_MAX || !SLUG.test(name)) {
+  if (raw.length === 0 || raw.length > NAME_MAX || !SLUG.test(raw)) {
     return {
       message: `name is 1-${NAME_MAX} lowercase letters, digits, '-' or '.', starting and ending with a letter or digit`,
     }
   }
-  if (name.length >= SHORT_ID_LENGTH && ID_LIKE.test(name)) {
+  if (raw.length >= SHORT_ID_LENGTH && ID_LIKE.test(raw)) {
     return { message: 'name looks like a pane id; add a letter that is not a hex digit' }
   }
-  return { name }
+  return { name: raw }
 }
 
 export function parseDesc(raw: unknown): { desc: string | undefined } | { message: string } {
@@ -48,19 +46,22 @@ export function parseDesc(raw: unknown): { desc: string | undefined } | { messag
   return { desc: desc || undefined }
 }
 
-export function claimName(paneId: string, rawName: unknown, rawDesc: unknown): Claim {
+export function claimName(
+  paneId: string,
+  rawName: unknown,
+  rawDesc: unknown,
+  reaches: (holderPaneId: string) => boolean,
+): Claim {
   const name = parseName(rawName)
   if ('message' in name) return { ok: false, error: 'bad-name', message: name.message }
   const desc = parseDesc(rawDesc)
   if ('message' in desc) return { ok: false, error: 'bad-desc', message: desc.message }
-  const holder = holders.get(name.name)
-  if (holder !== undefined && holder !== paneId) {
-    return { ok: false, error: 'name-taken', name: name.name, holder }
-  }
+  const rival = [...(holders.get(name.name) ?? [])].find((id) => id !== paneId && reaches(id))
+  if (rival !== undefined) return { ok: false, error: 'name-taken', name: name.name, holder: rival }
   release(paneId)
   const entry: PaneName = { name: name.name, ...(desc.desc ? { desc: desc.desc } : {}) }
   held.set(paneId, entry)
-  holders.set(entry.name, paneId)
+  holders.set(entry.name, new Set([...(holders.get(entry.name) ?? []), paneId]))
   return { ok: true, held: entry }
 }
 
@@ -68,27 +69,22 @@ export function nameOf(paneId: string): PaneName | undefined {
   return held.get(paneId)
 }
 
-export function paneNamed(name: string): string | undefined {
-  return holders.get(name.toLowerCase())
+export function panesNamed(name: string): string[] {
+  return [...(holders.get(name) ?? [])]
 }
 
 function release(paneId: string): boolean {
   const entry = held.get(paneId)
   if (!entry) return false
   held.delete(paneId)
-  holders.delete(entry.name)
-  return true
-}
-
-export function takeNameNotice(paneId: string): boolean {
-  if (held.has(paneId) || noticed.has(paneId)) return false
-  noticed.add(paneId)
+  const rest = holders.get(entry.name)
+  rest?.delete(paneId)
+  if (rest?.size === 0) holders.delete(entry.name)
   return true
 }
 
 export function dropName(paneId: string): boolean {
   sessions.delete(paneId)
-  noticed.delete(paneId)
   return release(paneId)
 }
 
@@ -107,5 +103,4 @@ export function forgetNames(): void {
   held.clear()
   holders.clear()
   sessions.clear()
-  noticed.clear()
 }

@@ -2,15 +2,14 @@ import { describe, expect, it } from 'vitest'
 import type { PaneStatus } from '../../shared/panes/paneStatus'
 import {
   closeLines,
-  filterPanes,
   hibernateOutcome,
   inputLine,
-  nameLine,
-  paneLine,
   parsePaneArgs,
   waitOutcome,
   wakeOutcome,
 } from './pane'
+import { filterPanes, paneLine } from './paneListVerb'
+import { nameLine } from './paneName'
 
 describe('parsePaneArgs', () => {
   it('joins the words of send into one text and adds Enter only when asked', () => {

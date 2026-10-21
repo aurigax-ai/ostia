@@ -156,6 +156,7 @@ export function registerAgentWiring({
     cwdOfPane: (paneId) => terminalState.get(paneId)?.cwd,
     agentArgv: (name) => managerAgents(managerSettings())[name] ?? null,
     isAgent: (paneId) => agentRunning.has(paneId),
+    isConfined: (paneId) => ptys.get(paneId)?.sandboxed === true,
     agentStarted: (paneId) => startedAgents.has(paneId),
     startsWithHook: (argv) => {
       const program = basename(argv[0] ?? '')
@@ -189,10 +190,16 @@ export function registerAgentWiring({
     interruptGraceMs: INTERRUPT_GRACE_MS,
   })
   services.processes = registry
+  const processPane = async (ref: string, ctx: Parameters<typeof reach.visible>[0]) =>
+    registry
+      .livePanes(ref, ctx.identity.workspaceId, await reach.visible(ctx))
+      .map((entry) => entry.paneId)
   registerPaneNameMethods({
-    reach,
+    visible: reach.visible,
     isSandboxed: (workspaceId) => workspaceSandboxes.isEnabled(workspaceId),
     isConfined: (paneId) => ptys.get(paneId)?.sandboxed === true,
+    processPane,
+    agentRunning: (paneId) => agentRunning.has(paneId),
   })
   registerPaneRenameMethods({
     execCommand,
@@ -200,10 +207,7 @@ export function registerAgentWiring({
     windowOfWorkspace: workspaceWindowId,
     isSandboxed: (workspaceId) => workspaceSandboxes.isEnabled(workspaceId),
     isConfined: (paneId) => ptys.get(paneId)?.sandboxed === true,
-    processPane: async (ref, ctx) =>
-      registry
-        .livePanes(ref, ctx.identity.workspaceId, await reach.visible(ctx))
-        .map((entry) => entry.paneId),
+    processPane,
   })
 
   return { registry, startAgentForPhone }

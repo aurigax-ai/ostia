@@ -1,3 +1,4 @@
+import { agentLeft } from '../agents/agentLeft'
 import { createManagerPty } from '../manager/managerPty'
 import { createPtyWiring } from '../terminal/pty/ptyWiring'
 import type { AgentContext } from './agentServices'
@@ -96,6 +97,17 @@ export function createPaneServices(ctx: AgentContext) {
     keptPaneEnv,
     bannerText: () => mainStrings().native.paneBanner,
   })
+
+  agentRunning.whenStopped((paneId) =>
+    agentLeft(
+      {
+        waking: (id) => paneWaking.has(id),
+        sandboxed: (id) => ptys.get(id)?.sandboxed,
+        program: foregroundProgram,
+      },
+      paneId,
+    ),
+  )
 
   const { spawnManagerPty } = createManagerPty({ loadPty, primaryWindowId, trackPty, feedPty })
 

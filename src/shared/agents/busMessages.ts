@@ -46,7 +46,7 @@ export interface BusContext {
   shown: string[]
 }
 
-export const BUS_NAME_NOTICE = `${PRODUCT_NAME} bus names live in memory and are cleared when ${PRODUCT_NAME} restarts. If you had one, register it again with \`ostia pane name <name>\`.`
+export const BUS_NAME_NOTICE = `${PRODUCT_NAME} bus names live in memory and are cleared when ${PRODUCT_NAME} restarts. If this session had one, register it again with \`ostia pane name <name>\`.`
 
 export function busPreview(text: unknown): string {
   if (typeof text !== 'string') return ''

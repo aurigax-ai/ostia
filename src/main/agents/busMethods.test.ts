@@ -37,7 +37,7 @@ const { markManager, registerPane, registerScript, removePane } = await import(
   '../control/idRegistry'
 )
 const { rememberClosedPane } = await import('../panes/closedPanes')
-const { claimName, dropName, forgetNames } = await import('../panes/paneNames')
+const { claimName, dropName, forgetNames, nameOf } = await import('../panes/paneNames')
 const { BUS_NAME_NOTICE } = await import('../../shared/agents/busMessages')
 
 const queuedWakes: Array<boolean | undefined> = []
@@ -53,7 +53,9 @@ const sandboxed = new Set<string>()
 const confined = new Set<string>()
 const owned = new Set<string>()
 const named = new Map<string, string[]>()
+const hibernating = new Set<string>()
 registerBusMethods({
+  hibernated: (paneId) => hibernating.has(paneId),
   managerSendAllowed: () => managerMaySend,
   agentBusy: (pane) => busyPanes.has(pane.paneId),
   announce,
@@ -137,8 +139,8 @@ const sent = (identity = sender) =>
   call<Promise<{ messages: Sent[] }>>('bus.sent', identity).then((res) => res.messages)
 const send = (text: string, to = receiver.externalId, from = sender, extra = {}) =>
   call<Promise<Answer>>('bus.send', from, { to, text, ...extra })
-const context = (identity = receiver, event = 'UserPromptSubmit') =>
-  call<{ text: string | null; lease?: string }>('bus.context', identity, { event })
+const context = (identity = receiver, event = 'UserPromptSubmit', source?: string) =>
+  call<{ text: string | null; lease?: string }>('bus.context', identity, { event, source })
 const ack = (lease: string | undefined, identity = receiver) =>
   call<{ acked: number }>('bus.ack', identity, { lease }).acked
 
@@ -975,7 +977,7 @@ describe('who may wake a hibernated pane by mail', () => {
 
 describe('bus names', () => {
   it('sends to a registered name and queues the mail for the pane that held it', async () => {
-    claimName(receiver.paneId, 'boss', undefined)
+    claimName(receiver.paneId, 'boss', undefined, () => true)
     const res = await send('by name', 'boss')
     expect(res).toMatchObject({ ok: true, state: 'queued' })
     expect(inbox().map((m) => m.text)).toEqual(['by name'])
@@ -983,30 +985,37 @@ describe('bus names', () => {
   })
 
   it('keeps mail addressed to the pane id when the name moves or goes away', async () => {
-    claimName(receiver.paneId, 'boss', undefined)
+    claimName(receiver.paneId, 'boss', undefined, () => true)
     await send('queued', 'boss')
     dropName(receiver.paneId)
-    claimName(sender.paneId, 'boss', undefined)
+    claimName(sender.paneId, 'boss', undefined, () => true)
     expect(inbox().map((m) => m.text)).toEqual(['queued'])
     expect(inbox(sender)).toEqual([])
   })
 
   it('answers unknown-pane for a name that was dropped', async () => {
-    claimName(receiver.paneId, 'boss', undefined)
+    claimName(receiver.paneId, 'boss', undefined, () => true)
     dropName(receiver.paneId)
     expect(await send('lost', 'boss')).toMatchObject({ ok: false, error: 'unknown-pane' })
   })
 
   it('needs all-workspaces for a name held in another workspace and reaches only what the caller sees', async () => {
-    claimName(faraway.paneId, 'far-boss', undefined)
+    claimName(faraway.paneId, 'far-boss', undefined, () => true)
     expect(await send('x', 'far-boss')).toMatchObject({ ok: false, error: 'unknown-pane' })
     scopeReaches.add('ws9')
     expect(await send('y', 'far-boss')).toMatchObject({ ok: true, state: 'queued' })
     expect(inbox(faraway)).toHaveLength(1)
   })
 
+  it('refuses to choose between two reached panes that hold one name', async () => {
+    claimName(receiver.paneId, 'boss', undefined, () => true)
+    claimName(sender.paneId, 'boss', undefined, () => false)
+    scopeReaches.add('ws1')
+    expect(await send('who', 'boss', faraway)).toMatchObject({ ok: false, error: 'ambiguous-pane' })
+  })
+
   it('shows the sender’s real pane id and its current name, never a claimed identity', async () => {
-    claimName(sender.paneId, 'lead', undefined)
+    claimName(sender.paneId, 'lead', undefined, () => true)
     await send('who am I', receiver.externalId, sender)
     const [wire] = inbox()
     expect(wire).toMatchObject({ from: sender.externalId, fromName: 'lead' })
@@ -1014,16 +1023,22 @@ describe('bus names', () => {
     expect(shown).toContain(`from="${sender.externalId}" name="lead"`)
   })
 
-  it('tells the first session start of a pane that bus names are cleared, once', () => {
-    expect(context(receiver, 'UserPromptSubmit').text).toBeNull()
-    expect(context(receiver, 'SessionStart').text).toBe(BUS_NAME_NOTICE)
+  it('tells a resumed session without a name that names are cleared, and nobody else', () => {
+    expect(context(receiver, 'SessionStart', 'resume').text).toBe(BUS_NAME_NOTICE)
+    expect(context(receiver, 'SessionStart', 'startup').text).toBeNull()
     expect(context(receiver, 'SessionStart').text).toBeNull()
+    expect(context(receiver, 'UserPromptSubmit', 'resume').text).toBeNull()
+    claimName(receiver.paneId, 'boss', undefined, () => true)
+    expect(context(receiver, 'SessionStart', 'resume').text).toBeNull()
   })
 
-  it('tells nothing to a pane that already has a name, and again after its agent stopped', () => {
-    claimName(receiver.paneId, 'boss', undefined)
-    expect(context(receiver, 'SessionStart').text).toBeNull()
-    dropName(receiver.paneId)
-    expect(context(receiver, 'SessionStart').text).toBe(BUS_NAME_NOTICE)
+  it('drops the name when the agent’s session ends, but not when the pane is hibernating', () => {
+    claimName(receiver.paneId, 'boss', undefined, () => true)
+    hibernating.add(receiver.paneId)
+    call('bus.modReady', receiver, { state: 'gone' })
+    expect(nameOf(receiver.paneId)?.name).toBe('boss')
+    hibernating.clear()
+    call('bus.modReady', receiver, { state: 'gone' })
+    expect(nameOf(receiver.paneId)).toBeUndefined()
   })
 })

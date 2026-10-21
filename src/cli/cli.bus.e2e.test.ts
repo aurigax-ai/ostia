@@ -33,6 +33,7 @@ const CODEX_CONTEXT = 'This Codex session runs in a ostia terminal pane.\n'
 const announce = vi.fn()
 const outOfScope = new Set<string>()
 registerBusMethods({
+  hibernated: () => false,
   managerSendAllowed: () => true,
   agentBusy: () => false,
   announce,
@@ -48,9 +49,11 @@ registerBusMethods({
 })
 
 registerPaneNameMethods({
-  reach: { visible: async () => () => true },
+  visible: async () => () => true,
   isSandboxed: () => false,
   isConfined: () => false,
+  processPane: async () => [],
+  agentRunning: () => true,
 })
 
 const sender = registerPane({ windowId: 'w1', workspaceId: 'ws1', paneId: 'cli-bus-sender' })
@@ -117,8 +120,18 @@ function hookCommands(kind: HookAgent, event: HookEvent): string[] {
   return hooks[event]?.[0]?.hooks.map((hook) => hook.command) ?? []
 }
 
-async function fireHooks(kind: HookAgent, event: HookEvent, pane: Pane): Promise<RunResult[]> {
-  const payload = JSON.stringify({ session_id: 's-1', hook_event_name: event, prompt: 'go on' })
+async function fireHooks(
+  kind: HookAgent,
+  event: HookEvent,
+  pane: Pane,
+  source?: string,
+): Promise<RunResult[]> {
+  const payload = JSON.stringify({
+    session_id: 's-1',
+    hook_event_name: event,
+    prompt: 'go on',
+    ...(source ? { source } : {}),
+  })
   const results: RunResult[] = []
   for (const command of hookCommands(kind, event)) {
     results.push(await run('sh', ['-c', command], paneEnv(pane), payload))
@@ -218,6 +231,17 @@ describe('bus delivery through the real CLI and the agents’ own hooks', () => 
     60_000,
   )
 
+  it('tells a resumed session that its bus name is cleared, and a fresh one nothing', async () => {
+    for (const kind of ['claude', 'codex'] as const) {
+      const fresh = await fireHooks(kind, 'SessionStart', agent, 'startup')
+      expect(addedContext(fresh, 'SessionStart')).toEqual([])
+      const resumed = await fireHooks(kind, 'SessionStart', agent, 'resume')
+      expect(addedContext(resumed, 'SessionStart')).toEqual([
+        expect.stringContaining('ostia pane name <name>'),
+      ])
+    }
+  }, 60_000)
+
   it('delivers a 2,500-character message whole in the hook context', async () => {
     const text = 'x'.repeat(2500)
     await ostia(sender, 'bus', 'send', agent.externalId, text)
@@ -312,7 +336,10 @@ describe('bus delivery through the real CLI and the agents’ own hooks', () => 
 
   it('sends to a registered name in another workspace once the human allowed all-workspaces', async () => {
     outOfScope.add('ws2')
-    const named = await ostia(remote, 'pane', 'name', 'Remote-Boss', '--desc', 'plans')
+    const upper = await ostia(remote, 'pane', 'name', 'Remote-Boss')
+    expect(upper.code).toBe(1)
+    expect(upper.stderr).toContain('bad-name')
+    const named = await ostia(remote, 'pane', 'name', 'remote-boss', '--desc', 'plans')
     expect(named.code).toBe(0)
     expect(named.stdout).toBe(`${remote.externalId.slice(0, 8)}\tremote-boss\tplans\n`)
 

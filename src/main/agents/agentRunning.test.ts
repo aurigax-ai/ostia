@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import type { AppSnapshot, SnapshotPaneNode } from '../../shared/workspaces/workspaceApi'
-import { claimName, forgetNames, paneNamed } from '../panes/paneNames'
+import { claimName, forgetNames, panesNamed } from '../panes/paneNames'
 import { AgentRunningPanes } from './agentRunning'
 
 const resume = { agent: 'claude' as const, id: 'tok-1' }
@@ -174,23 +174,12 @@ describe('AgentRunningPanes', () => {
   })
 })
 
-describe('a bus name follows its agent', () => {
-  it('is dropped when the agent stops and a shell stays in the pane', () => {
-    forgetNames()
-    const running = new AgentRunningPanes(() => {})
-    running.report('a', true, true)
-    claimName('a', 'boss', undefined)
-    running.report('a', false, false)
-    expect(paneNamed('boss')).toBe('a')
-    running.report('a', false, true)
-    expect(paneNamed('boss')).toBeUndefined()
-  })
-
+describe('a bus name and the pty', () => {
   it('is dropped when the pty exits, even if the pane never reported an agent', () => {
     forgetNames()
     const running = new AgentRunningPanes(() => {})
-    claimName('b', 'worker', undefined)
+    claimName('b', 'worker', undefined, () => true)
     running.shellEnded('b')
-    expect(paneNamed('worker')).toBeUndefined()
+    expect(panesNamed('worker')).toEqual([])
   })
 })

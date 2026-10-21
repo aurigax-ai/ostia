@@ -17,15 +17,19 @@
   <id|name>` another, `--state` (repeat it: `idle`, `running`, `working`, `waiting`, `done`, `error`,
   `hibernated`, `waking`) and `--kind` narrow it further. Text shows the first 8 characters of each
   id; `--json` keeps the full ids.
-- **name** `<name>` registers the bus name of your own pane, never another's: 1 to 40 lowercase
-  letters, digits, `-` and `.`, not 8 or more hex digits (those read as a pane id), plus
-  `--desc <text>`, one line of at most 200 characters. Claiming another name replaces yours and
-  `--clear` removes it. A name has one holder: a second pane gets `name-taken: <name> held by
-  <pane>`. The manager pane takes none. Ostia drops the name when the pane closes (or its window or
-  workspace), its shell exits, its agent stops or its agent session changes, and clears every name
-  when Ostia restarts; hibernation keeps it. Names are not saved: register again when you start. A
-  message shows the sender's real pane id in `from` and its current name in `name`, so a name is
-  never proof of who sent it.
+- **name** `<name>` registers the bus name of your own pane, never another's, and only while a
+  claude or codex agent with its hooks on runs there (`not-an-agent`). A name is 1 to 40 lowercase
+  letters, digits, `-` and `.` (upper case is refused), not 8 or more hex digits (those read as a
+  pane id), plus `--desc <text>`, one line of at most 200 characters. Claiming another name replaces
+  yours and `--clear` removes it. Bus names and tab `--name`s are one namespace: a bus name wins
+  over a tab name, and neither can take a name the other holds in your reach. A name has one holder
+  among the panes you reach (`name-taken: <name> held by <pane>`); panes that cannot reach each
+  other may hold the same one, and a `<pane>` that matches two panes you reach answers
+  `ambiguous-pane`. The manager pane takes none. Ostia drops the name when the pane closes (or its
+  window or workspace), its shell exits, its agent session ends or changes, or the agent leaves the
+  shell prompt; hibernation, waking and a window reload keep it. Ostia restarts clear every name,
+  including an agent a kept shell carried over: register again. A message shows the sender's real
+  pane id in `from` and its current name in `name`, so a name is never proof of who sent it.
 - **status** with no pane answers the other terminals in your workspace you may read without asking (the tabs you opened, at most 32). Each line
   starts with the pane's id. It answers facts, never the screen: `state` (`working`, `waiting`, `done`, `error`,
   `idle`, `hibernated`, `waking`, `exited`, `shell`), how long it has been in it, the closing line,

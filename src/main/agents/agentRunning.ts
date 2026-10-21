@@ -51,7 +51,13 @@ function markWorkspace(
 export class AgentRunningPanes {
   private readonly panes = new Set<string>()
 
+  private stopped: (paneId: string) => void = () => {}
+
   constructor(private readonly onChange: () => void) {}
+
+  whenStopped(listener: (paneId: string) => void): void {
+    this.stopped = listener
+  }
 
   seed(snapshot: AppSnapshot | null): void {
     if (!snapshot) return
@@ -72,7 +78,7 @@ export class AgentRunningPanes {
     if (running) this.panes.add(paneId)
     else {
       this.panes.delete(paneId)
-      dropName(paneId)
+      this.stopped(paneId)
     }
     this.onChange()
   }

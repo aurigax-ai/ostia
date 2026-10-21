@@ -170,7 +170,7 @@ ostia pane name <name> [--desc <text>] [--json] | --clear   # your pane's bus na
 ostia pane close [<pane>…] [--json]      # no pane: your own
 ```
 
-`<pane>` is a `paneId`, the `--name` of a `process run`/`agent run` tab, a bus name (`pane name`),
+`<pane>` is a `paneId`, a bus name (`pane name`), the `--name` of a `process run`/`agent run` tab,
 or its first 8 characters or more (as `pane list` prints them); tab titles never match. Several
 matches answer `ambiguous-pane:` with the ids, and `send`, `key`, `close` and `hibernate` also refuse a name that
 several panes share. `state` is `hibernated`, `waking`, the agent's state, `running` or `idle`.

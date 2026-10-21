@@ -25,6 +25,7 @@ import {
 } from '../control/idRegistry'
 import { attachWorkspace } from '../sandbox/attachWorkspace'
 import { PtyRingBuffer } from '../terminal/ptyRingBuffer'
+import { claimName, forgetNames } from './paneNames'
 import type { ProcessTabRequest } from './processLaunch'
 import { registerProcessMethods } from './processManager'
 import { type ProcessInfo, type ProcessOutput, ProcessRegistry } from './processRegistry'
@@ -63,6 +64,7 @@ let onOpen: ((paneId: string) => void) | null = null
 
 const { registry, startAgentForPhone } = registerProcessMethods({
   isSandboxed: (workspaceId) => sandboxedWorkspaces.has(workspaceId),
+  isConfined: () => false,
   reach: ownWorkspaceReach((id) =>
     id === 'script_ostia_scoped'
       ? {
@@ -376,6 +378,22 @@ describe('agent.run', () => {
       conn.sendRequest('agent.run', { agent: 'claude', prompt: 'x'.repeat(9000) }),
     ).rejects.toThrow('too long')
     expect(opened).toEqual([])
+  })
+})
+
+describe('process.run and bus names', () => {
+  it('refuses a tab --name a pane in reach holds as a bus name, for process and agent runs', async () => {
+    const holder = registerPane({ windowId: 'w1', workspaceId: 'ws1', paneId: 'bus-holder' })
+    claimName('bus-holder', 'boss', undefined, () => true)
+    const conn = await client(agent)
+    await expect(conn.sendRequest('process.run', { cmd: 'echo hi', name: 'boss' })).rejects.toThrow(
+      `name-taken: boss is a bus name held by ${holder.externalId}`,
+    )
+    await expect(
+      conn.sendRequest('agent.run', { agent: 'claude', prompt: 'go', name: 'boss' }),
+    ).rejects.toThrow('name-taken: boss')
+    expect(opened).toEqual([])
+    forgetNames()
   })
 })
 
