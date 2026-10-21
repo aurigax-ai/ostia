@@ -1,3 +1,4 @@
+import { VIEWER_TEXT_MAX } from '@aurigax-ai/ostia-extension-sdk/contract/viewerSelection'
 import { h } from '@aurigax-ai/ostia-extension-sdk/panel'
 import { clearSelection, publishSelection } from '@aurigax-ai/ostia-extension-sdk/viewer'
 import type { PageView } from './pageView'
@@ -13,8 +14,6 @@ import {
   type Rect,
   textInRect,
 } from './pdfSelection'
-
-const TEXT_MAX = 256 * 1024
 
 export interface CaptureOptions {
   pageOf: (element: Element | null) => PageView | null
@@ -100,7 +99,7 @@ export function attachCapture(options: CaptureOptions): Capture {
     const area = pixelRect(region, factor, { width: canvas.width, height: canvas.height })
     const png = await cropCanvas(canvas, area)
     if (!png || mine !== token) return
-    const text = textInRect(view.textBoxes(), region).slice(0, TEXT_MAX)
+    const text = textInRect(view.textBoxes(), region).slice(0, VIEWER_TEXT_MAX)
     const scale = options.scale()
     const unit = view.sizeAt({ scale: 1, rotation: options.rotation() })
     const ok = await publishSelection({
@@ -135,7 +134,7 @@ export function attachCapture(options: CaptureOptions): Capture {
     const ok = await publishSelection({
       capture: { kind: 'pdf-text', firstPage: Math.min(...pages), lastPage: Math.max(...pages) },
       rect: viewportRect(range.getBoundingClientRect()),
-      text: text.slice(0, TEXT_MAX),
+      text: text.slice(0, VIEWER_TEXT_MAX),
     })
     if (mine === token) {
       published = ok
