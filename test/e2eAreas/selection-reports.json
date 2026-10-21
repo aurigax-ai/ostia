@@ -2,14 +2,21 @@
   "name": "selection reports",
   "paths": [
     "src/main/terminal/selectionReport.ts",
+    "src/renderer/components/agents/RegionActionBar.tsx",
     "src/renderer/components/agents/SelectionSend.tsx",
+    "src/renderer/lib/agents/captureClipboard.ts",
     "src/renderer/lib/agents/fileReference.ts",
+    "src/renderer/lib/agents/selectionCopiers.ts",
     "src/renderer/lib/agents/selectionSenders.ts",
+    "src/renderer/lib/agents/useAgentTargets.ts",
     "src/renderer/lib/browser/domSelection.ts",
-    "src/shared/browser/selection.ts"
+    "src/shared/browser/selection.ts",
+    "src/shared/keyboard/clipboardCapture.ts"
   ],
   "specs": [
     "e2e/browser-pick.spec.ts",
+    "e2e/browser-region.spec.ts",
+    "e2e/capture-bar.spec.ts",
     "e2e/detached-send.spec.ts",
     "e2e/pdf-region.spec.ts"
   ]

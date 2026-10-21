@@ -37,7 +37,6 @@
     "src/main/browser/guestTabs.",
     "src/main/browser/loginFill.ts",
     "src/main/browser/signinUserAgent.",
-    "src/renderer/components/agents/PickSendPanel.tsx",
     "src/renderer/components/browser/BrowserCaptureBar.tsx",
     "src/renderer/components/browser/BrowserDevice.test.tsx",
     "src/renderer/components/browser/BrowserFind.tsx",
@@ -66,6 +65,7 @@
     "src/renderer/lib/browser/browserAddress.",
     "src/renderer/lib/browser/browserHandles.",
     "src/renderer/lib/browser/browserProfile.ts",
+    "src/renderer/lib/browser/captureAnchor.",
     "src/renderer/lib/browser/cropImage.ts",
     "src/renderer/lib/browser/deviceFrame.",
     "src/renderer/lib/browser/linkTabs.",
@@ -107,6 +107,7 @@
     "e2e/browser-storage.spec.ts",
     "e2e/browser-tab.spec.ts",
     "e2e/browser-width.spec.ts",
+    "e2e/capture-bar.spec.ts",
     "e2e/detached-send.spec.ts",
     "e2e/os-file-drop.spec.ts"
   ]
