@@ -3057,6 +3057,14 @@ describe('commands open to script tokens', () => {
     expect(commands.isLocal(id)).toBe(true)
   })
 
+  it.each(['pane.park', 'agent.resumeParked'])(
+    '%s is the human’s: local only, never a socket command',
+    (id) => {
+      expect(commands.isLocal(id)).toBe(true)
+      expect(SCRIPT_COMMANDS).not.toContain(id)
+    },
+  )
+
   it('SCRIPT_COMMANDS matches the relaxed-capability allowlist', () => {
     expect(
       [...SCRIPT_COMMANDS].sort(),

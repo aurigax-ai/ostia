@@ -8,6 +8,7 @@ import {
   ArrowsOutIcon,
   ArrowsOutLineHorizontalIcon,
   ArrowsOutSimpleIcon,
+  BookmarkSimpleIcon,
   CaretDoubleLeftIcon,
   GitForkIcon,
   LockSimpleIcon,
@@ -33,6 +34,7 @@ import { canCollapse } from '@/lib/layout/collapse'
 import { allPanes, splitTabOfPane } from '@/lib/layout/tree'
 import type { PaneNode, SplitNode } from '@/lib/layout/types'
 import { runUserAction } from '@/lib/palette/userActions'
+import { parkRefusalOf, requestPark } from '@/lib/park/parkTab'
 import { actionsFor } from '@/lib/settings/actions'
 import { closableOtherTabPanes } from '@/lib/workspaces/closeConfirm'
 import { canMovePane, movePaneToNewWindow } from '@/lib/workspaces/windowHandoff'
@@ -76,6 +78,7 @@ interface PaneTabMenuItemsProps {
   splitTabId: string | null
   otherTabs: number
   agentTab: boolean
+  parkKeys: string | null
 }
 
 function PaneTabMenuItems({
@@ -94,6 +97,7 @@ function PaneTabMenuItems({
   splitTabId,
   otherTabs,
   agentTab,
+  parkKeys,
 }: PaneTabMenuItemsProps): JSX.Element {
   const d = useDict()
   return (
@@ -211,6 +215,16 @@ function PaneTabMenuItems({
           {d.pane.forkConversation}
         </MenuItem>
       ) : null}
+      {agentTab && workspaceId ? (
+        <MenuItem
+          icon={BookmarkSimpleIcon}
+          hint={parkKeys}
+          disabled={parkRefusalOf(workspaceId, pane.id) !== null}
+          onClick={() => requestPark(workspaceId, pane.id)}
+        >
+          {d.pane.parkTab}
+        </MenuItem>
+      ) : null}
       {otherTabs > 0 ? (
         <MenuItem
           icon={XSquareIcon}
@@ -261,6 +275,7 @@ export function PaneTabMenu({
   const splitTabId = splitTab?.id ?? null
   const collapse = splitTab ? collapseOffers(splitTab, pane) : NO_COLLAPSE
   const collapseKeys = useChordLabel('pane.collapse', isMac)
+  const parkKeys = useChordLabel('pane.park', isMac)
   const agentTab = pane.kind === 'terminal' && pane.resume !== undefined
   const renamable = workspaceId !== null
   if (
@@ -296,6 +311,7 @@ export function PaneTabMenu({
           splitTabId={splitTabId}
           otherTabs={otherTabs}
           agentTab={agentTab}
+          parkKeys={parkKeys}
         />
       </MenuContent>
     </ContextMenu>
