@@ -13,7 +13,7 @@ import { CLI_PATH, CLI_RUN } from './agentHookCommands'
 import { agentPluginFiles, writeAgentPlugin } from './agentPlugin'
 import { claudeWrapper } from './claudeIntegration'
 import { codexWrapper, PLAYBOOKS_DIR } from './codexIntegration'
-import { hasFiles, installGenerated, removeGenerated, sweepOldGenerations } from './generatedFolder'
+import { hasFiles, installGenerated, removeGenerated } from './generatedFolder'
 
 export const INTEGRATION_DIR = privateRunDir('shell-integration')
 
@@ -430,33 +430,6 @@ export function shellIntegrationDir(): string {
   cachedDir = writeShellIntegration(SHELLS_DIR)
   cachedNames = Object.keys(shellIntegrationFiles(cachedDir))
   return cachedDir
-}
-
-const OLD_GENERATIONS_KEPT = 3
-
-const SHELL_CACHE = /^\.zcompdump/
-
-function ownsShellEntry(name: string): boolean {
-  return Object.hasOwn(shellIntegrationFiles(''), name) || SHELL_CACHE.test(name)
-}
-
-function ownsAgentEntry(name: string): boolean {
-  return name === 'claude-plugin' || name === 'codex'
-}
-
-export function sweepOldIntegration(
-  shellsRoot: string = SHELLS_DIR,
-  agentsRoot: string = AGENT_PLUGINS_DIR,
-): string[] {
-  const shells: string[] = []
-  try {
-    shells.push(shellIntegrationDir())
-  } catch {}
-  const agents = [...(built ? [built.dir] : []), ...inUse.values()]
-  return [
-    ...sweepOldGenerations(shellsRoot, shells, OLD_GENERATIONS_KEPT, ownsShellEntry),
-    ...sweepOldGenerations(agentsRoot, agents, OLD_GENERATIONS_KEPT, ownsAgentEntry),
-  ]
 }
 
 export interface OstiaPromptOption {
