@@ -18,6 +18,7 @@ import { createPortal } from 'react-dom'
 import { afterAll, afterEach, beforeAll, describe, expect, it, onTestFinished, vi } from 'vitest'
 import { commands } from '@/commands/registry'
 import { FilesView } from '@/components/files/FilesView'
+import { startCtrlTracking } from '@/lib/app/wheelZoom'
 import { focusPaneInDirection } from '@/lib/attention/workspaceActivity'
 import { runAppChord } from '@/lib/keyboard/chords'
 import { CLIPBOARD_READ_MS } from '@/lib/keyboard/clipboardKeys'
@@ -545,6 +546,8 @@ describe('TerminalView engines', () => {
         }
       })
 
+    const stopTracking = startCtrlTracking()
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Control', ctrlKey: true }))
     const before = fontSize()
     scroll(-100)
     expect(fontSize()).toBeGreaterThan(before)
@@ -552,6 +555,7 @@ describe('TerminalView engines', () => {
     const zoomed = fontSize()
     scroll(100)
     expect(fontSize()).toBeLessThan(zoomed)
+    stopTracking()
   })
 
   it('moves the pane cwd to the folder an xterm shell reports with OSC 7', async () => {

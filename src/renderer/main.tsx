@@ -20,6 +20,7 @@ import { startAppMenu } from '@/lib/app/appMenu'
 import { loadDesktops } from '@/lib/app/desktop'
 import { errorDetails, reportError, startErrorReporting } from '@/lib/app/errorReporting'
 import { startFocusModality } from '@/lib/app/focusModality'
+import { startCtrlTracking } from '@/lib/app/wheelZoom'
 import { startShortcutReporting } from '@/lib/assist/assistShortcuts'
 import { startAssistUi } from '@/lib/assist/assistUi'
 import { revealPane, startAttentionSync } from '@/lib/attention/workspaceActivity'
@@ -83,6 +84,7 @@ import { isMac } from './platform'
 startErrorReporting()
 startFocusModality()
 startModifierRemap(isMac)
+startCtrlTracking()
 watchScrolling(document)
 registerBuiltinCommands()
 registerExternalEditorCommand()

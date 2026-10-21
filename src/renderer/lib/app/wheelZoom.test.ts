@@ -1,4 +1,4 @@
-import { afterEach, beforeAll, describe, expect, it } from 'vitest'
+import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import { parsePersisted } from '@/stores/app/settingsParse'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import {
@@ -7,18 +7,33 @@ import {
   fontZoomPercent,
   resetFontZoom,
   resetZoom,
+  startCtrlTracking,
   zoomFont,
   zoomStep,
 } from './wheelZoom'
+
+const holdCtrl = (held: boolean): void => {
+  window.dispatchEvent(
+    new KeyboardEvent(held ? 'keydown' : 'keyup', { key: 'Control', ctrlKey: held }),
+  )
+}
 
 describe('wheel zoom', () => {
   let init: ReturnType<typeof useSettingsStore.getState>
   beforeAll(() => {
     init = useSettingsStore.getState()
   })
-  afterEach(() => useSettingsStore.setState(init, true))
+  let stopTracking: () => void
+  beforeEach(() => {
+    stopTracking = startCtrlTracking()
+  })
+  afterEach(() => {
+    stopTracking()
+    useSettingsStore.setState(init, true)
+  })
 
   it('zooms in on Ctrl+scroll up and out on Ctrl+scroll down, Cmd on macOS', () => {
+    holdCtrl(true)
     expect(zoomStep({ ctrlKey: true, metaKey: false, deltaY: -40 }, false)).toBe(1)
     expect(zoomStep({ ctrlKey: true, metaKey: false, deltaY: 40 }, false)).toBe(-1)
     expect(zoomStep({ ctrlKey: false, metaKey: false, deltaY: -40 }, false)).toBe(0)
@@ -30,6 +45,7 @@ describe('wheel zoom', () => {
     useSettingsStore.getState().setBehavior({ wheelZoom: true })
     const host = document.createElement('div')
     const detach = attachWheelZoom(host, 'terminal', false)
+    holdCtrl(true)
     useSettingsStore.getState().setSurfaceFont('terminal', { size: 31 })
     const wheel = () =>
       new WheelEvent('wheel', { deltaY: -40, ctrlKey: true, cancelable: true, bubbles: true })
@@ -46,6 +62,54 @@ describe('wheel zoom', () => {
     detach()
     host.dispatchEvent(new WheelEvent('wheel', { deltaY: 40, ctrlKey: true }))
     expect(useSettingsStore.getState().appearance.terminal.size).toBe(32)
+  })
+
+  it('ignores and swallows a touchpad pinch, which reports ctrlKey without Ctrl held', () => {
+    useSettingsStore.getState().setBehavior({ wheelZoom: true })
+    useSettingsStore.getState().setSurfaceFont('terminal', { size: 14 })
+    const host = document.createElement('div')
+    const detach = attachWheelZoom(host, 'terminal', false)
+    const pinch = new WheelEvent('wheel', {
+      deltaY: -4,
+      ctrlKey: true,
+      cancelable: true,
+      bubbles: true,
+    })
+    expect(zoomStep(pinch, false)).toBe(0)
+    host.dispatchEvent(pinch)
+    expect(pinch.defaultPrevented).toBe(true)
+    expect(useSettingsStore.getState().appearance.terminal.size).toBe(14)
+    detach()
+  })
+
+  it('swallows a pinch even when wheel zoom is off', () => {
+    useSettingsStore.getState().setBehavior({ wheelZoom: false })
+    const host = document.createElement('div')
+    const detach = attachWheelZoom(host, 'terminal', false)
+    const pinch = new WheelEvent('wheel', { deltaY: -4, ctrlKey: true, cancelable: true })
+    host.dispatchEvent(pinch)
+    expect(pinch.defaultPrevented).toBe(true)
+    detach()
+  })
+
+  it('forgets a held Ctrl when the window loses focus', () => {
+    holdCtrl(true)
+    window.dispatchEvent(new Event('blur'))
+    expect(zoomStep({ ctrlKey: true, metaKey: false, deltaY: -4 }, false)).toBe(0)
+  })
+
+  it('learns a held Ctrl from the pointer when the window never saw the key', () => {
+    window.dispatchEvent(new MouseEvent('pointermove', { ctrlKey: true }))
+    expect(zoomStep({ ctrlKey: true, metaKey: false, deltaY: -4 }, false)).toBe(1)
+    window.dispatchEvent(new MouseEvent('pointermove', { ctrlKey: false }))
+    expect(zoomStep({ ctrlKey: true, metaKey: false, deltaY: -4 }, false)).toBe(0)
+  })
+
+  it('stops tracking once disposed', () => {
+    stopTracking()
+    holdCtrl(true)
+    expect(zoomStep({ ctrlKey: true, metaKey: false, deltaY: -4 }, false)).toBe(0)
+    stopTracking = startCtrlTracking()
   })
 
   it('leaves Ctrl+scroll and Cmd+scroll to normal scrolling when wheel zoom is off', () => {

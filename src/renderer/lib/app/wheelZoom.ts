@@ -9,11 +9,42 @@ import { useSettingsStore } from '@/stores/app/settingsStore'
 
 const ZOOMABLE_SURFACES: readonly FontSurface[] = ['terminal', 'editor']
 
+let ctrlHeld = false
+
+export function startCtrlTracking(target: Window = window): () => void {
+  const onKey = (e: KeyboardEvent): void => {
+    ctrlHeld = e.key === 'Control' ? e.type === 'keydown' : e.ctrlKey
+  }
+  const onPointer = (e: MouseEvent): void => {
+    ctrlHeld = e.ctrlKey
+  }
+  const onBlur = (): void => {
+    ctrlHeld = false
+  }
+  target.addEventListener('keydown', onKey, true)
+  target.addEventListener('keyup', onKey, true)
+  target.addEventListener('pointerdown', onPointer, true)
+  target.addEventListener('pointermove', onPointer, true)
+  target.addEventListener('blur', onBlur)
+  return () => {
+    target.removeEventListener('keydown', onKey, true)
+    target.removeEventListener('keyup', onKey, true)
+    target.removeEventListener('pointerdown', onPointer, true)
+    target.removeEventListener('pointermove', onPointer, true)
+    target.removeEventListener('blur', onBlur)
+    ctrlHeld = false
+  }
+}
+
+function isPinch(e: Pick<WheelEvent, 'ctrlKey'>, mac: boolean): boolean {
+  return !mac && e.ctrlKey && !ctrlHeld
+}
+
 export function zoomStep(
   e: Pick<WheelEvent, 'ctrlKey' | 'metaKey' | 'deltaY'>,
   mac: boolean,
 ): number {
-  if (!(mac ? e.metaKey : e.ctrlKey) || e.deltaY === 0) return 0
+  if (!(mac ? e.metaKey : e.ctrlKey && ctrlHeld) || e.deltaY === 0) return 0
   return e.deltaY < 0 ? 1 : -1
 }
 
@@ -61,6 +92,11 @@ export function resetZoom(): void {
 
 export function attachWheelZoom(host: HTMLElement, surface: FontSurface, mac: boolean): () => void {
   const onWheel = (e: WheelEvent): void => {
+    if (isPinch(e, mac)) {
+      e.preventDefault()
+      e.stopPropagation()
+      return
+    }
     if (!useSettingsStore.getState().behavior.wheelZoom) return
     const step = zoomStep(e, mac)
     if (step === 0) return
