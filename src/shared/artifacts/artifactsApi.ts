@@ -5,6 +5,7 @@ import type {
   ArtifactVersionContent,
 } from './artifacts'
 import type { PortableAction, PortableRequest, PortableResult } from './portable'
+import type { ShareActionResult, ShareAvailability, SharesListResult } from './shares'
 
 interface ArtifactsApi {
   list: (workspaceId: string) => Promise<ArtifactListing | null>
@@ -18,6 +19,14 @@ interface ArtifactsApi {
   producers: (workspaceId: string) => Promise<Record<string, string> | null>
 }
 
+interface SharesApi {
+  status: () => Promise<ShareAvailability>
+  list: () => Promise<SharesListResult>
+  copyLink: (id: string) => Promise<ShareActionResult>
+  remove: (id: string) => Promise<ShareActionResult>
+}
+
 export interface ArtifactsBridge {
   artifacts: ArtifactsApi
+  shares: SharesApi
 }

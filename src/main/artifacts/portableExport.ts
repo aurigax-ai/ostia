@@ -21,11 +21,13 @@ import {
   runsScripts,
   wrapPortable,
 } from '../../shared/artifacts/portable'
+import { type PublishOptions, SHARE_PASSWORD_MAX } from '../../shared/artifacts/shares'
 import { isInsidePath } from '../platform/pathGuard'
 import type { PortableBuilder } from './portableBuilder'
 import { problemText } from './portableBundle'
 import { type PublishedTables, tablesDocument } from './portableTables'
 import { readRegularFile } from './previewFiles'
+import type { ShareService } from './shares/shareService'
 
 const SWEEP_AGE_MS = 24 * 60 * 60 * 1000
 
@@ -72,19 +74,45 @@ function normalizePortableRequest(value: unknown): PortableRequest | null {
   if (!raw || typeof raw.workspaceId !== 'string' || typeof raw.path !== 'string') return null
   const document = raw.document === undefined ? undefined : normalizeDocument(raw.document)
   if (document === null) return null
+  const publish = raw.publish === undefined ? undefined : normalizePublish(raw.publish)
+  if (publish === null) return null
   return {
     workspaceId: raw.workspaceId,
     path: raw.path,
     theme: normalizePreviewTheme(raw.theme),
     ...(document ? { document } : {}),
+    ...(publish ? { publish } : {}),
+  }
+}
+
+const SHARE_MODES: readonly unknown[] = ['link', 'password', 'public']
+
+function normalizePublish(value: unknown): PublishOptions | null {
+  const raw = value as Partial<PublishOptions> | null
+  if (!raw || typeof raw !== 'object') return null
+  if (!SHARE_MODES.includes(raw.mode)) return null
+  if (typeof raw.password !== 'string' || raw.password.length > SHARE_PASSWORD_MAX * 4) return null
+  if (typeof raw.withLinkKey !== 'boolean' || typeof raw.acceptFindings !== 'boolean') return null
+  if (!Number.isSafeInteger(raw.expiresInSeconds)) return null
+  return {
+    mode: raw.mode as PublishOptions['mode'],
+    password: raw.password,
+    withLinkKey: raw.withLinkKey,
+    expiresInSeconds: raw.expiresInSeconds as number,
+    acceptFindings: raw.acceptFindings,
   }
 }
 
 export class PortableExport {
   private readonly now: () => number
+  private shares: ShareService | null = null
 
   constructor(private readonly deps: PortableExportDeps) {
     this.now = deps.now ?? Date.now
+  }
+
+  useShares(shares: ShareService): void {
+    this.shares = shares
   }
 
   async run(
@@ -115,11 +143,19 @@ export class PortableExport {
       ? await this.tables(file, published, request)
       : await this.make(file, type, request)
     if (!made.ok) return made
+    if (action === 'publish') return this.publish(file, made.file, request)
     if (action === 'copy') {
       this.deps.writeClipboard(made.file)
       return { ok: true }
     }
     return action === 'open' ? this.open(file, made.file) : this.save(windowId, file, made.file)
+  }
+
+  private publish(file: string, text: string, request: PortableRequest): Promise<PortableResult> {
+    if (!this.shares || !request.publish) {
+      return Promise.resolve({ ok: false, reason: this.shares ? 'bad-options' : 'unavailable' })
+    }
+    return this.shares.publish({ file: text, source: file, name: basename(file) }, request.publish)
   }
 
   private insideSandbox(file: string): boolean {
@@ -271,4 +307,5 @@ export function registerPortableIpc(exporter: PortableExport): void {
   ipcMain.handle('artifacts:portable-open', portableHandler(exporter, 'open'))
   ipcMain.handle('artifacts:portable-save', portableHandler(exporter, 'save'))
   ipcMain.handle('artifacts:portable-copy', portableHandler(exporter, 'copy'))
+  ipcMain.handle('artifacts:portable-publish', portableHandler(exporter, 'publish'))
 }

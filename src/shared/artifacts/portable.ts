@@ -1,4 +1,5 @@
 import type { PreviewTheme } from './htmlPreview'
+import type { PublishOptions, ShareFinding, ShareView } from './shares'
 
 export const PORTABLE_FORMAT = 'ostia-artifact/1'
 const PORTABLE_MANIFEST_ID = 'ostia-artifact'
@@ -26,7 +27,7 @@ export const PORTABLE_LIMITS = {
 
 export type PortableType = 'component' | 'page' | 'markdown' | 'svg' | 'json' | 'tables'
 export type PortableMode = 'development' | 'production'
-export type PortableAction = 'open' | 'save' | 'copy'
+export type PortableAction = 'open' | 'save' | 'copy' | 'publish'
 
 const TYPE_BY_EXTENSION: Readonly<Record<string, PortableType>> = {
   jsx: 'component',
@@ -74,10 +75,11 @@ export interface PortableRequest {
   path: string
   theme: PreviewTheme
   document?: PortableDocument
+  publish?: PublishOptions
 }
 
 export type PortableResult =
-  | { ok: true }
+  | { ok: true; share?: ShareView }
   | {
       ok: false
       reason:
@@ -88,7 +90,18 @@ export type PortableResult =
         | 'too-large'
         | 'not-built'
         | 'no-tables'
+        | 'findings'
+        | 'scan-failed'
+        | 'signed-out'
+        | 'publish-off'
+        | 'unreachable'
+        | 'quota'
+        | 'public-off'
+        | 'never-off'
+        | 'bad-options'
+        | 'unavailable'
       message?: string
+      findings?: ShareFinding[]
     }
 
 function escapeAttribute(text: string): string {

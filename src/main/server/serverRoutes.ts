@@ -7,6 +7,34 @@ export interface ServerInfo {
   auth: { invite: boolean; github: boolean }
   relayDomain: string
   shareDomain: string
+  limits?: { shareMaxBytes?: number; allowPublic?: boolean; allowNever?: boolean }
+}
+
+export interface ShareCreated {
+  id: string
+  url: string
+  uploadUrl: string
+  deleteToken: string
+  expiresAt: number
+}
+
+export interface ShareRow {
+  id: string
+  url: string
+  mode: 'link' | 'password' | 'public'
+  size: number
+  views: number
+  createdAt: number
+  expiresAt: number
+  uploaded: boolean
+  expired?: boolean
+}
+
+export interface CreateShareBody {
+  mode: 'link' | 'password' | 'public'
+  size: number
+  expiresInSeconds: number
+  salt?: string
 }
 
 export interface DeviceRegistered {
@@ -178,6 +206,18 @@ export function serverRoutes(client: ServerClient) {
       client.request<{ version: number }>('POST', '/v1/sync/rotate', { token, body }),
     gc: (token: string, keep: string[]) =>
       client.request<{ deleted: number }>('POST', '/v1/sync/gc', { token, body: { keep } }),
+    createShare: (token: string, body: CreateShareBody) =>
+      client.request<ShareCreated>('POST', '/v1/shares', { token, body }),
+    uploadShare: (token: string, path: string, bytes: Uint8Array<ArrayBuffer>) =>
+      client.request<void>('PUT', path, { token, bytes }),
+    shares: (token: string) =>
+      client.request<{ shares: ShareRow[] }>('GET', '/v1/shares', { token }),
+    deleteShare: (id: string, auth: { token: string } | { deleteToken: string }) =>
+      client.request<void>('DELETE', `/v1/shares/${encodeURIComponent(id)}`, {
+        ...('token' in auth
+          ? { token: auth.token }
+          : { headers: { 'X-Delete-Token': auth.deleteToken } }),
+      }),
     relayLabel: (token: string) => client.request<RelayLabel>('POST', '/v1/relay/label', { token }),
   }
 }

@@ -11,6 +11,7 @@ import { createResumeClaimer, registerResumeClaimIpc } from '../agents/resumeCla
 import { registerToolbeltWiring } from '../agents/toolbeltWiring'
 import { registerApprovalsWiring } from '../approvals/approvalsWiring'
 import { registerArtifactViewIpc, startArtifacts } from '../artifacts/artifactWiring'
+import { startShares } from '../artifacts/shares/sharesWiring'
 import { registerNotifyWiring } from '../attention/notifyWiring'
 import { registerBrowserGuestIpc } from '../browser/browserGuestIpc'
 import { registerBrowserWiring } from '../browser/browserWiring'
@@ -187,6 +188,7 @@ export function boot(wiring: Wiring): void {
   })
   const { marketplace } = startMarketplace({ ...wiring, extensionStore })
   const server = startServer({ ...wiring })
+  startShares({ ...wiring, server })
   startProfileSyncWiring({ ...wiring, marketplace, server })
   startChat({ ...wiring })
   startAgent({ ...wiring })

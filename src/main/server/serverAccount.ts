@@ -12,7 +12,13 @@ import type { DeviceSigner } from './deviceSigner'
 import type { KeyStore } from './keyStore'
 import { ServerError } from './serverClient'
 import type { ServerConfig, ServerIdentity } from './serverConfig'
-import type { DeviceRegistered, GithubFlow, RelayLabel, ServerRoutes } from './serverRoutes'
+import type {
+  DeviceRegistered,
+  GithubFlow,
+  RelayLabel,
+  ServerInfo,
+  ServerRoutes,
+} from './serverRoutes'
 import type { ServerSession } from './serverSession'
 import { hostOf } from './serverUrl'
 
@@ -134,6 +140,10 @@ export class ServerAccount {
     } catch (error) {
       return { ok: false, error: failureOf(error) }
     }
+  }
+
+  fetchInfo(): Promise<ServerInfo> {
+    return this.deps.routes.info()
   }
 
   private begin(): { keys: DeviceKeys; name: string } | ServerFailure {
@@ -281,6 +291,10 @@ export class ServerAccount {
 
   authed<T>(use: (token: string, routes: ServerRoutes) => Promise<T>): Promise<T> {
     return this.deps.session.authed((token) => use(token, this.deps.routes))
+  }
+
+  unauthed<T>(use: (routes: ServerRoutes) => Promise<T>): Promise<T> {
+    return use(this.deps.routes)
   }
 
   relayLabel(): Promise<RelayLabel> {

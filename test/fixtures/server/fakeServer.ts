@@ -4,6 +4,7 @@ import type { AddressInfo } from 'node:net'
 import type { Duplex } from 'node:stream'
 import { type WebSocket, WebSocketServer } from 'ws'
 import { accountRoutes } from './fakeAccountRoutes'
+import { type FakeShare, shareRoutes } from './fakeShareRoutes'
 import { type AccountSync, syncRoutes } from './fakeSyncRoutes'
 
 const SPKI_ED25519 = Buffer.from('302a300506032b6570032100', 'hex')
@@ -79,6 +80,11 @@ export interface FakeServerOptions {
   quotaBytes?: number
   maxBlobBytes?: number
   gcGraceMs?: number
+  publish?: boolean
+  allowPublic?: boolean
+  allowNever?: boolean
+  shareMaxBytes?: number
+  maxShares?: number
 }
 
 function b64(buffer: Buffer): string {
@@ -129,6 +135,7 @@ export class FakeServer {
   readonly sessions = new Map<string, FakeSession>()
   readonly removed: string[] = []
   readonly syncData = new Map<string, AccountSync>()
+  readonly shares = new Map<string, FakeShare>()
   readonly intercepts = new Map<string, Intercept[]>()
   githubPolls = 0
   githubPendingPolls = 1
@@ -156,6 +163,7 @@ export class FakeServer {
     this.approverMinAgeMs = options.approverMinAgeMs ?? DAY_MS
     this.elevationTtlMs = options.elevationTtlMs ?? 300_000
     this.extraHandlers.push(...accountRoutes(this), ...syncRoutes(this))
+    if (options.publish !== false) this.extraHandlers.push(...shareRoutes(this))
     this.http = createServer((req, res) => void this.route(req, res))
     this.http.on('upgrade', (req, socket, head) => this.upgrade(req, socket, head))
   }
@@ -491,11 +499,20 @@ export class FakeServer {
       'GET /v1/info': (_req, res) =>
         this.reply(res, 200, {
           api: 1,
-          modules: { relay: true, publish: true, sync: true, push: false },
+          modules: {
+            relay: true,
+            publish: this.options.publish !== false,
+            sync: true,
+            push: false,
+          },
           auth: { invite: true, github: this.options.github === true },
           relayDomain: RELAY_DOMAIN,
           shareDomain: 'shares.test',
-          limits: {},
+          limits: {
+            shareMaxBytes: this.options.shareMaxBytes ?? 16 * 1024 * 1024,
+            allowPublic: this.options.allowPublic === true,
+            allowNever: this.options.allowNever === true,
+          },
         }),
       'POST /v1/auth/invite': (_req, res, body) => {
         const code = String(body.code ?? '')
