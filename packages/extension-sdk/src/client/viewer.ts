@@ -5,10 +5,17 @@ import {
   VIEWER_EVENTS_PATH,
   VIEWER_META_PATH,
   VIEWER_PORTABLE_PATH,
+  VIEWER_SELECTION_CLEARED_EVENT,
   type ViewerDocumentMeta,
   type ViewerPortableTables,
 } from '../contract/fileKinds'
 import { watchScrolling } from '../contract/scrollbar'
+import {
+  encodeViewerSelection,
+  VIEWER_SELECTION_PATH,
+  type ViewerRect,
+  type ViewerSelectionCapture,
+} from '../contract/viewerSelection'
 
 if (typeof document !== 'undefined') watchScrolling(document)
 
@@ -150,4 +157,74 @@ export function serveWorker<Request>(handle: (request: Request) => unknown): voi
   scope.onmessage = (event) => {
     void Promise.resolve(handle(event.data)).then((reply) => scope.postMessage(reply))
   }
+}
+
+export interface ViewerSelection {
+  capture: ViewerSelectionCapture
+  rect: ViewerRect
+  text?: string
+  html?: string
+  csv?: string
+  png?: Blob | Uint8Array
+}
+
+const selectionListeners = new Set<(published: boolean) => void>()
+let selectionPublished = false
+
+function setSelectionPublished(published: boolean): void {
+  if (published === selectionPublished) return
+  selectionPublished = published
+  for (const listener of selectionListeners) listener(published)
+}
+
+export function hasPublishedSelection(): boolean {
+  return selectionPublished
+}
+
+export function onSelectionPublished(listener: (published: boolean) => void): () => void {
+  selectionListeners.add(listener)
+  return () => selectionListeners.delete(listener)
+}
+
+let clearedEvents: EventSource | null = null
+
+function listenForClearedSelection(): void {
+  if (clearedEvents) return
+  clearedEvents = new EventSource(VIEWER_EVENTS_PATH)
+  clearedEvents.addEventListener(VIEWER_SELECTION_CLEARED_EVENT, () => setSelectionPublished(false))
+}
+
+export async function publishSelection(selection: ViewerSelection): Promise<boolean> {
+  listenForClearedSelection()
+  const { png, rect, capture, text, html, csv } = selection
+  const body = encodeViewerSelection(
+    {
+      capture,
+      rect,
+      frame: { width: window.innerWidth, height: window.innerHeight },
+      ...(text === undefined ? {} : { text }),
+      ...(html === undefined ? {} : { html }),
+      ...(csv === undefined ? {} : { csv }),
+    },
+    (png as BlobPart | undefined) ?? null,
+  )
+  try {
+    const res = await fetch(VIEWER_SELECTION_PATH, { method: 'POST', body })
+    setSelectionPublished(res.ok)
+    return res.ok
+  } catch {
+    setSelectionPublished(false)
+    return false
+  }
+}
+
+export async function clearSelection(): Promise<void> {
+  setSelectionPublished(false)
+  try {
+    await fetch(VIEWER_SELECTION_PATH, { method: 'DELETE' })
+  } catch {}
+}
+
+export function viewerDocumentUrl(): string {
+  return new URL(VIEWER_DOCUMENT_PATH, location.href).href
 }

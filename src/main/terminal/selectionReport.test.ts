@@ -19,6 +19,15 @@ const sameWindow = (sender: string, _source: string, target: string): boolean =>
   getByPaneId(target)?.windowId === sender
 
 const PNG = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1, 2, 3])
+function pngOfSize(width: number, height: number): Uint8Array {
+  const bytes = new Uint8Array(33)
+  bytes.set([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 13, 0x49, 0x48, 0x44, 0x52])
+  const view = new DataView(bytes.buffer)
+  view.setUint32(16, width)
+  view.setUint32(20, height)
+  return bytes
+}
+
 const AT = new Date('2026-09-29T10:00:00.000Z')
 
 const textCapture: SelectionCapture = {
@@ -191,6 +200,30 @@ describe('writeSelectionReport', () => {
     expect(md).toContain('- Region: x 20, y 10, 100 × 50')
     expect(md).toContain(`- Snapshot: ${res.imagePath}`)
     expect(existsSync(res.imagePath as string)).toBe(true)
+  })
+
+  it('tells the pixel size of the image that was sent, and when it was scaled down', async () => {
+    const sentFor = async (width: number, height: number): Promise<string> => {
+      const res = await writeSelectionReport(
+        request({
+          capture: {
+            kind: 'image',
+            file: '/home/u/photo.jpg',
+            imageWidth: 8000,
+            imageHeight: 6000,
+            region: null,
+          },
+          image: pngOfSize(width, height),
+        }),
+        'w1',
+        sameWindow,
+        AT,
+      )
+      if (!res.ok) throw new Error(res.error)
+      return readFileSync(res.path, 'utf8')
+    }
+    expect(await sentFor(4096, 3072)).toContain('- Sent image: 4096 × 3072 px (scaled down)')
+    expect(await sentFor(8000, 6000)).toContain('- Sent image: 8000 × 6000 px\n')
   })
 
   it('posts a selection bus message from the source pane to the target pane', async () => {

@@ -21,6 +21,10 @@ export const filesBridge: Pick<
     open: (request) => ipcRenderer.invoke('viewers:open', request),
     close: (paneId) => ipcRenderer.send('viewers:close', paneId),
     onStopped: (cb) => listen('viewers:stopped', cb),
+    onSelection: (cb) => listen('viewers:selection', cb),
+    copySelection: (paneId) => ipcRenderer.invoke('viewers:copy-selection', paneId),
+    sendSelection: (request) => ipcRenderer.invoke('viewers:send-selection', request),
+    clearSelection: (paneId) => ipcRenderer.send('viewers:clear-selection', paneId),
   },
   fs: {
     list: (path) => ipcRenderer.invoke('fs:list', path),

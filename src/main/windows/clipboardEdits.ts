@@ -10,6 +10,7 @@ import {
   type ClipboardEdit,
   guestClipboardEdit,
   isClipboardEdit,
+  isPlainCopyKey,
   NO_CLIPBOARD_CHORDS,
   normalizeClipboardChords,
 } from '../../shared/keyboard/clipboardChords'
@@ -62,6 +63,7 @@ export interface ClipboardEditsDeps {
   write: (capture: ClipboardCapture) => Promise<void>
   mac: boolean
   remap: GuestRemap
+  copyViewerSelection: (guest: WebContents) => boolean
 }
 
 export interface ClipboardEdits {
@@ -104,7 +106,15 @@ export function registerClipboardEdits(deps: ClipboardEditsDeps): ClipboardEdits
     guardGuest: (guest) => {
       guest.once('destroyed', () => deps.remap.forget(guest.id))
       guest.on('before-input-event', (event, raw) => {
-        const edit = guestClipboardEdit(deps.remap.remap(guest.id, raw), chords, deps.mac)
+        const input = deps.remap.remap(guest.id, raw)
+        const edit = guestClipboardEdit(input, chords, deps.mac)
+        if (
+          (edit === 'copy' || isPlainCopyKey(input, deps.mac)) &&
+          deps.copyViewerSelection(guest)
+        ) {
+          event.preventDefault()
+          return
+        }
         if (!edit) return
         event.preventDefault()
         applyClipboardEdit(guest, edit)

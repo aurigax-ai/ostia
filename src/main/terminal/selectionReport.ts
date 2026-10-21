@@ -6,6 +6,7 @@ import {
   isPng,
   needsImage,
   normalizeSelection,
+  pngSize,
   renderSelectionReport,
   SELECTION_IMAGE_MAX,
   SELECTION_NOTE_MAX,
@@ -13,10 +14,12 @@ import {
   type SelectionSendResult,
   selectionBusMessage,
 } from '../../shared/browser/selection'
+import type { ViewerSendSelection } from '../../shared/files/filesApi'
 import { postBusMessage } from '../agents/busStore'
 import type { OriginReach } from '../agents/originAgents'
 import { REPORT_DIR_NAME } from '../browser/browsePick'
 import { getByPaneId } from '../control/idRegistry'
+import type { ViewerHost } from '../files/viewers/viewerHost'
 import { privateTmpDir } from '../platform/privateTmp'
 import type { RedactText } from '../privacy/redactionTargets'
 
@@ -68,7 +71,9 @@ export async function writeSelectionReport(
       writeFileSync(imagePath, image, { mode: 0o600, flag: 'wx' })
     }
     path = `${stem}.md`
-    const report = await redact(renderSelectionReport(capture, note, imagePath, now))
+    const report = await redact(
+      renderSelectionReport(capture, note, imagePath, now, image ? pngSize(image) : null),
+    )
     message = selectionBusMessage(capture, await redact(note), path, imagePath)
     writeFileSync(path, report, { mode: 0o600, flag: 'wx' })
   } catch {
@@ -78,7 +83,11 @@ export async function writeSelectionReport(
   return { ok: true, path, imagePath }
 }
 
-export function registerSelectionIpc(reaches: OriginReach, redact: RedactText): void {
+export function registerSelectionIpc(
+  reaches: OriginReach,
+  redact: RedactText,
+  viewers: () => ViewerHost | null,
+): void {
   ipcMain.handle('selection:send', (e, req: SelectionSendRequest) =>
     writeSelectionReport(
       req ?? ({} as SelectionSendRequest),
@@ -87,5 +96,28 @@ export function registerSelectionIpc(reaches: OriginReach, redact: RedactText): 
       new Date(),
       redact,
     ),
+  )
+  ipcMain.handle(
+    'viewers:send-selection',
+    (e, req: Partial<ViewerSendSelection> | undefined): Promise<SelectionSendResult> => {
+      const windowId = String(e.sender.id)
+      const stored = viewers()?.selectionForSend(windowId, req?.paneId)
+      if (!stored || typeof req?.paneId !== 'string') {
+        return Promise.resolve({ ok: false, error: 'not-found' })
+      }
+      return writeSelectionReport(
+        {
+          capture: stored.capture,
+          image: stored.image ?? undefined,
+          sourcePaneId: req.paneId,
+          targetPaneId: String(req.targetPaneId),
+          note: typeof req.note === 'string' ? req.note : '',
+        },
+        windowId,
+        reaches,
+        new Date(),
+        redact,
+      )
+    },
   )
 }
