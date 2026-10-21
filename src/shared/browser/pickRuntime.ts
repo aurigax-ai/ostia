@@ -1,5 +1,13 @@
 /// <reference lib="dom" />
-import type { PickTheme, RawPick } from './pick'
+import type { PickBox, PickTheme, RawPick } from './pick'
+
+export interface PickSelection {
+  url: string
+  title: string
+  text: string
+  box: PickBox
+  viewport: { width: number; height: number }
+}
 
 export interface PickRuntime {
   selectorFor: (el: Element) => string
@@ -10,6 +18,7 @@ export interface PickRuntime {
   start: (theme: PickTheme) => Promise<RawPick | null>
   cancel: () => void
   active: () => boolean
+  selection: () => PickSelection | null
 }
 
 export const PICK_RUNTIME_GLOBAL = '__ostiaPick'

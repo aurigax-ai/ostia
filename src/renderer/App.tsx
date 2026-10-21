@@ -28,7 +28,12 @@ import { TabSleepNoticeDialog } from '@/components/sidebar/TabSleepNoticeDialog'
 import { useMotionAttribute } from '@/lib/app/motion'
 import { wireLinkTabs } from '@/lib/browser/linkTabs'
 import { installDoubleShift, runAppChord } from '@/lib/keyboard/chords'
-import { handleDocumentClipboardChord, syncClipboardChords } from '@/lib/keyboard/documentClipboard'
+import {
+  handleDocumentBeforeCopy,
+  handleDocumentClipboardChord,
+  handleDocumentCopyEvent,
+  syncClipboardChords,
+} from '@/lib/keyboard/documentClipboard'
 import { wireGuestChords } from '@/lib/keyboard/guestChordBridge'
 import { useModifierHint } from '@/lib/keyboard/useModifierHint'
 import { startLanguageServices } from '@/lib/lsp/client'
@@ -123,7 +128,13 @@ export function App(): JSX.Element {
       runAppChord(e, isMac)
     }
     window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
+    document.addEventListener('copy', handleDocumentCopyEvent, true)
+    document.addEventListener('beforecopy', handleDocumentBeforeCopy, true)
+    return () => {
+      window.removeEventListener('keydown', onKey)
+      document.removeEventListener('copy', handleDocumentCopyEvent, true)
+      document.removeEventListener('beforecopy', handleDocumentBeforeCopy, true)
+    }
   }, [])
 
   return (

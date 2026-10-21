@@ -131,6 +131,18 @@ describe('PaneTabMenu close others and hibernation', () => {
     fireEvent.contextMenu(screen.getByRole('button', { name: 'tab' }))
   }
 
+  it('starts a new session from the tab menu of an agent pane only', async () => {
+    const exec = vi.spyOn(commands, 'exec').mockResolvedValue({ ok: true, result: undefined })
+    const agentPane: PaneNode = { type: 'pane', id: 'ag', kind: 'agent', title: 'Agent' }
+    openMenu(agentPane, [shell])
+    await userEvent.setup().click(await screen.findByRole('menuitem', { name: 'New session' }))
+    expect(exec).toHaveBeenCalledWith('agent.newSession', { paneId: 'ag' })
+    cleanup()
+    openMenu(shell, [agentPane])
+    await screen.findByRole('menuitem', { name: /Rename/ })
+    expect(screen.queryByRole('menuitem', { name: 'New session' })).toBeNull()
+  })
+
   it('closes the other tabs of the group from the tab menu', async () => {
     const exec = vi.spyOn(commands, 'exec').mockResolvedValue({ ok: true, result: undefined })
     openMenu(shell, [shell, agentTab])

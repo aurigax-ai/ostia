@@ -1,14 +1,8 @@
-import {
-  ArrowsOutSimpleIcon,
-  ClockCounterClockwiseIcon,
-  NotePencilIcon,
-} from '@phosphor-icons/react'
-import { Hint } from '@/components/common/Hint'
+import { ArrowsOutSimpleIcon, NotePencilIcon } from '@phosphor-icons/react'
 import { IconButton } from '@/components/common/IconButton'
 import { Badge } from '@/components/ui/badge'
 import { useDict } from '@/lib/app/useDict'
 import { openChatPane } from '@/lib/assist/chatPane'
-import { cn } from '@/lib/utils'
 import { useUIStore } from '@/stores/app/uiStore'
 import { startNewSession } from '@/stores/assist/chatStore'
 import { ChatSessions } from './ChatSessions'
@@ -42,29 +36,15 @@ export function ChatHeader({
           {d.ask.mode}
         </Badge>
       ) : null}
+      <span className="ml-auto" />
       <ChatSessions
         workspaceId={workspaceId}
         sessionId={sessionId}
+        recording={recording}
+        scratch={scratch}
         open={sessionsOpen}
         onOpenChange={onSessionsOpenChange}
       />
-      <Hint
-        label={
-          scratch ? d.chat.scratchHint : recording ? d.chat.recordingHint : d.chat.notRecordingHint
-        }
-      >
-        <span
-          className={cn(
-            'chat-recording flex shrink-0 items-center gap-1 text-ui-xs',
-            recording ? 'text-fg' : 'text-fg-muted',
-          )}
-          data-recording={recording || undefined}
-        >
-          <ClockCounterClockwiseIcon className="size-4" />
-          {recording ? d.chat.recording : d.chat.notRecording}
-        </span>
-      </Hint>
-      <span className="ml-auto" />
       {variant === 'palette' ? (
         <IconButton
           size="bar"

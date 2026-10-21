@@ -1,3 +1,5 @@
+import { parentOf, pathInTree } from '@/lib/files/fileTree'
+import { homeDir } from '@/lib/files/homeDir'
 import { findPane } from '@/lib/layout/tree'
 import { useUIStore } from '@/stores/app/uiStore'
 import { useFileTreeStore } from '@/stores/files/fileTreeStore'
@@ -32,6 +34,20 @@ export function revealFolder(workspaceId: string, dir: string): void {
   const tree = useFileTreeStore.getState()
   const followed = followedFolder(workspaceId).cwd
   if (treeRoot(workspaceId, followed, tree.shown) !== dir) tree.show(workspaceId, dir, followed)
+  if (useWorkspacesStore.getState().activeWorkspaceId === workspaceId) {
+    useUIStore.getState().showFiles()
+  }
+}
+
+export function revealFile(workspaceId: string, path: string): void {
+  const tree = useFileTreeStore.getState()
+  const followed = followedFolder(workspaceId).cwd
+  let root = treeRoot(workspaceId, followed, tree.shown)
+  if (pathInTree(path, root, homeDir()) === null) {
+    root = parentOf(path)
+    tree.show(workspaceId, root, followed)
+  }
+  tree.reveal(root, pathInTree(path, root, homeDir()) ?? path)
   if (useWorkspacesStore.getState().activeWorkspaceId === workspaceId) {
     useUIStore.getState().showFiles()
   }

@@ -9,6 +9,7 @@ import {
   type AgentHookEvent,
   type AgentSkillContribution,
   agentSkillId,
+  skillDirective,
 } from '../contract/agentPlugins'
 import type { ExtensionManifest } from '../contract/extensions'
 import { readConfined } from './confinedRead'
@@ -60,9 +61,6 @@ function plainText(data: Buffer): string | null {
 const FIELD_LINE = /^([A-Za-z][A-Za-z0-9_-]*):(?: +(.*))?$/
 const BLOCK_SCALAR = /^[>|][+-]?$/
 const SKILL_KEYS: readonly string[] = ['name', 'description']
-const LINE_BREAKS = /\r\n|[\n\r\u0085\u2028\u2029]/
-const INLINE_INJECTION = /[!\u01c3][`\u02cb\u02f4\u2035$]/
-const FENCED_INJECTION = /(?:[`\u02cb\u02f4\u2035]{3,}|~{3,})[ \t]*[!\u01c3$]/
 
 export type SkillFrontmatter =
   | { ok: true; name: string; description: string }
@@ -143,17 +141,6 @@ export function skillFrontmatter(text: string): SkillFrontmatter | null {
   if (name === '') return { ok: false, error: 'name is empty' }
   if (description === '') return { ok: false, error: 'description is empty' }
   return { ok: true, name, description }
-}
-
-export function skillDirective(text: string): string | null {
-  const lines = text.split(LINE_BREAKS)
-  for (const [i, line] of lines.entries()) {
-    const flat = line.normalize('NFKC')
-    if (INLINE_INJECTION.test(flat) || FENCED_INJECTION.test(flat)) {
-      return `line ${i + 1}: shell injection (!\` or a \`\`\`! block) is not allowed`
-    }
-  }
-  return null
 }
 
 export function loadAgentSkill(

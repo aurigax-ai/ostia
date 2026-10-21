@@ -11,10 +11,10 @@ ostia snippet list [--json] | snippet show <name> [--json]
 
 `set` prints `{previous, value, applied}` and refuses an unknown key, a wrong type or a value
 the setting does not list. The human's own keys are refused with `can only be changed by you in
-Settings`: the roots `capabilities`, `privacy`, `terminalKeys`, `modifierRemap` and `workspaceGroups`, and
+Settings`: the roots `capabilities`, `privacy`, `terminalKeys`, `modifierRemap`, `workspaceGroups` and `playbooks`, and
 `behavior.externalEditor`, `behavior.checkForUpdates`, `behavior.updateChannel`,
 `behavior.discreteGpu`, `notifications.command`, `agents.autoResume`,
-`agents.autoSendReferences`, `agents.hooks`, `agents.trustWorkspaceFolders`,
+`agents.hooks`, `agents.trustWorkspaceFolders`,
 `terminal.warnOnRiskyPaste`, `terminal.shell`, `terminal.osc52Write`, `terminal.keepShells`,
 `terminal.scrollbackHistory`, `workspaces.globalHotkey`. Any other root that is not a settings
 group (`approvals`, `sync`, `sandbox`, `manager`, `assistant`, …) answers `unknown settings key`.

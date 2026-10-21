@@ -45,6 +45,7 @@ import { startApprovals } from '@/stores/agents/approvalsStore'
 import { startMail } from '@/stores/agents/mailStore'
 import { startQuestions } from '@/stores/agents/questionsStore'
 import { startKeymapSync } from '@/stores/app/keymapStore'
+import { startPlaybookPush } from '@/stores/app/playbookPush'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useSystemThemeStore } from '@/stores/app/systemThemeStore'
 import { startUpdateWatch } from '@/stores/app/updateStore'
@@ -127,6 +128,7 @@ async function boot(): Promise<void> {
     console.error('[languages] load failed', err)
   }
   startKeymapSync()
+  startPlaybookPush()
   const { ui, editor, terminal } = useSettingsStore.getState().appearance
   applyUiFonts(document.documentElement, { ui, editor })
   await preloadFonts({ ui, editor, terminal })

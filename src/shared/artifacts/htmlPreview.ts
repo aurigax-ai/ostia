@@ -46,7 +46,6 @@ export interface PreviewApi {
   close: (id: string) => void
   onEvent: (cb: (event: PreviewEvent) => void) => () => void
   capture: (id: string, rect: Region) => Promise<{ image: Uint8Array; region: Region } | null>
-  copyRegion: (id: string, rect: Region) => Promise<boolean>
 }
 
 export function isComponentPath(path: string | undefined): boolean {

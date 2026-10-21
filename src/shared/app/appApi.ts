@@ -1,4 +1,5 @@
 import type { ExtensionResult } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
+import type { ClipboardCapture } from '../keyboard/clipboardCapture'
 import type { ClipboardChords, ClipboardEdit } from '../keyboard/clipboardChords'
 import type { GuestChordFire } from '../keyboard/guestChords'
 import type { ModifierRemap } from '../keyboard/modifierRemap'
@@ -47,6 +48,7 @@ interface SystemApi {
 interface SettingsApi {
   path: () => Promise<string>
   onChanged: (cb: () => void) => () => void
+  setPlaybooks: (playbooks: unknown) => void
 }
 
 interface AppMenuApi {
@@ -63,6 +65,7 @@ interface ClipboardApi {
   edit: (edit: ClipboardEdit) => Promise<void>
   contents: () => Promise<ClipboardContents>
   setChords: (chords: ClipboardChords) => void
+  writeCapture: (capture: ClipboardCapture) => Promise<boolean>
 }
 
 interface GuestChordsApi {

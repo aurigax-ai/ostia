@@ -207,6 +207,33 @@ describe('terminal captures', () => {
   })
 })
 
+describe('page text captures', () => {
+  const capture: SelectionCapture = {
+    kind: 'page-text',
+    url: 'https://example.com/orders',
+    title: 'Orders',
+    text: 'Refund pending',
+  }
+
+  it('keeps a page selection without a file and refuses a non-web address or empty text', () => {
+    expect(normalizeSelection(capture)).toEqual(capture)
+    expect(normalizeSelection({ ...capture, url: 'javascript:alert(1)' })).toBeNull()
+    expect(normalizeSelection({ ...capture, url: 5 })).toBeNull()
+    expect(normalizeSelection({ ...capture, text: '' })).toBeNull()
+    expect(normalizeSelection({ ...capture, title: 5 })).toEqual({ ...capture, title: '' })
+  })
+
+  it('reports the page and fences the text, with no file', () => {
+    expect(selectionLabel(capture)).toBe('Orders')
+    const md = renderSelectionReport(capture, 'why?', null, AT)
+    expect(md).toContain('# Page text selection: Orders')
+    expect(md).toContain('- Page: Orders — https://example.com/orders')
+    expect(md).not.toContain('- File:')
+    expect(md).toContain('## Selected text\n\n```\nRefund pending\n```')
+    expect(JSON.parse(selectionBusMessage(capture, '', '/r.md', null)).file).toBeNull()
+  })
+})
+
 describe('preview errors', () => {
   const capture: SelectionCapture = {
     kind: 'preview-error',

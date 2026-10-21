@@ -170,7 +170,11 @@ describe('shellIntegrationSpawnOptions', () => {
       expect(shellIntegrationSpawnOptions('/bin/bash', {}, null).env).toEqual({
         OSTIA_AGENT_DIR: AGENT_DIR,
       })
-      expect(shellIntegrationSpawnOptions('fish', {}, split)).toEqual({ args: [], env: {} })
+      expect(shellIntegrationSpawnOptions('fish', {}, split)).toEqual({
+        args: [],
+        env: {},
+        agentDir: null,
+      })
     })
 
     const B_MARK = '\x1b]133;B\x1b\\'
@@ -547,7 +551,7 @@ describe('shellIntegrationSpawnOptions', () => {
       'returns no integration for %s',
       (shell) => {
         const result = shellIntegrationSpawnOptions(shell, { HOME: '/home/u' })
-        expect(result).toEqual({ args: [], env: {} })
+        expect(result).toEqual({ args: [], env: {}, agentDir: null })
       },
     )
   })

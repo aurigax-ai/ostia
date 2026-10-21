@@ -197,9 +197,9 @@ describe('ImageViewer', () => {
 
     const region20 = { x: 20, y: 20, width: 100, height: 50 }
     expect(cropToPng).toHaveBeenCalledWith(img, region20)
-    const panel = await screen.findByRole('region', { name: 'Send to agent' })
-    expect(panel).toHaveTextContent('login.png (x 20, y 20, 100 × 50)')
-    await userEvent.click(screen.getByRole('button', { name: 'Send' }))
+    await screen.findByRole('toolbar', { name: 'Selection actions' })
+    await userEvent.click(screen.getByRole('button', { name: 'Send to agent' }))
+    await userEvent.click((await screen.findAllByRole('menuitem'))[0])
     await waitFor(() =>
       expect(window.ostia.selection.send).toHaveBeenCalledWith({
         capture: {
@@ -231,7 +231,7 @@ describe('ImageViewer', () => {
       openSelectionSend('img-pane')
     })
 
-    await screen.findByRole('region', { name: 'Send to agent' })
+    await screen.findByRole('toolbar', { name: 'Selection actions' })
     expect(cropToPng).toHaveBeenCalledWith(img, { x: 0, y: 0, width: 64, height: 32 })
     expect(screen.getByRole('button', { name: 'Send image to agent' })).toBeInTheDocument()
   })
@@ -266,10 +266,11 @@ describe('ImageViewer', () => {
       expect(region.style.height).toBe('50px')
 
       await userEvent.click(screen.getByRole('button', { name: 'Send region to agent' }))
-      await screen.findByRole('region', { name: 'Send to agent' })
+      await screen.findByRole('toolbar', { name: 'Selection actions' })
       expect(drawImage).toHaveBeenCalledWith(img, 20, 10, 100, 50, 0, 0, 100, 50)
       expect(toBlob).toHaveBeenCalledWith(expect.any(Function), 'image/png')
-      await userEvent.click(screen.getByRole('button', { name: 'Send' }))
+      await userEvent.click(screen.getByRole('button', { name: 'Send to agent' }))
+      await userEvent.click((await screen.findAllByRole('menuitem'))[0])
       await waitFor(() =>
         expect(window.ostia.selection.send).toHaveBeenCalledWith(
           expect.objectContaining({
@@ -330,7 +331,8 @@ describe('ImageViewer', () => {
       fireEvent.pointerMove(canvas, { clientX: x + 120, clientY: y + 60, pointerId: 1 })
       fireEvent.pointerUp(canvas, { clientX: x + 120, clientY: y + 60, pointerId: 1 })
       await userEvent.click(screen.getByRole('button', { name: 'Send region to agent' }))
-      await userEvent.click(await screen.findByRole('button', { name: 'Send' }))
+      await userEvent.click(screen.getByRole('button', { name: 'Send to agent' }))
+      await userEvent.click((await screen.findAllByRole('menuitem'))[0])
       await waitFor(() => expect(window.ostia.selection.send).toHaveBeenCalled())
       const [{ capture }] = vi.mocked(window.ostia.selection.send).mock.calls[0]
       if (capture.kind !== 'image' || !capture.region) throw new Error('no region sent')

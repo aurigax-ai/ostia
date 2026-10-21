@@ -1,19 +1,11 @@
-import { GitBranchIcon } from '@phosphor-icons/react'
-import type { GitGraphData, GraphScope } from '@shared/boards/git'
+import type { GitGraphData } from '@shared/boards/git'
 import { useEffect, useMemo, useRef } from 'react'
 import { useDict } from '@/lib/app/useDict'
-import { branchLabel, buildGraphModel, indexOfKey, WORKTREE } from '@/lib/git/gitView'
-import {
-  type ChangeHandlers,
-  ChangeSections,
-  CountChips,
-  type FolderState,
-  Tracking,
-} from './ChangeList'
+import { buildGraphModel, indexOfKey, WORKTREE } from '@/lib/git/gitView'
+import { type ChangeHandlers, ChangeSections, CountChips, type FolderState } from './ChangeList'
 import { CommitDetail, DetailHead } from './CommitDetail'
 import { GitEmpty } from './GitEmpty'
 import { GraphList } from './GraphList'
-import { ScopeControl } from './ScopeControl'
 import { SplitPane } from './SplitPane'
 
 const GRAPH_SPLIT = 'graph-details'
@@ -30,7 +22,6 @@ export function GraphPage({
   handlers,
   onSelect,
   onLoadMore,
-  onScope,
   onOpenFile,
 }: {
   workspaceId: string
@@ -41,7 +32,6 @@ export function GraphPage({
   handlers: ChangeHandlers
   onSelect: (key: string | null) => void
   onLoadMore: () => void
-  onScope: (scope: GraphScope) => void
   onOpenFile: (sha: string, path: string) => void
 }): JSX.Element {
   const t = useDict().git
@@ -55,23 +45,14 @@ export function GraphPage({
     if (gone) onSelect(null)
   }, [gone, onSelect])
 
-  const changeScope = (scope: GraphScope): void => {
-    if (scroller.current) scroller.current.scrollTop = 0
-    onScope(scope)
-  }
+  const scopeKey = JSON.stringify(data.scope)
+  useEffect(() => {
+    const list = scroller.current
+    if (list && scopeKey) list.scrollTop = 0
+  }, [scopeKey])
 
   return (
     <>
-      <div className="graph-toolbar">
-        <ScopeControl data={data} onScope={changeScope} />
-        <span className="toolbar-branch">
-          <GitBranchIcon />
-          <span className="branch-name" title={branchLabel(data.branch, t.detached)}>
-            {branchLabel(data.branch, t.detached)}
-          </span>
-        </span>
-        <Tracking branch={data.branch} />
-      </div>
       {model.entries.length === 0 ? (
         <GitEmpty title={t.noCommits} />
       ) : (

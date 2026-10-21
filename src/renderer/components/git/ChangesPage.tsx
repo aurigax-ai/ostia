@@ -92,7 +92,10 @@ export function ChangesPage({
           <header className="head">
             <span className="branch">
               <GitBranchIcon />
-              <span className="branch-name" title={branchLabel(data.branch, t.detached)}>
+              <span
+                className="branch-name"
+                title={`${branchLabel(data.branch, t.detached)} · ${data.root}`}
+              >
                 {branchLabel(data.branch, t.detached)}
               </span>
             </span>
@@ -100,9 +103,6 @@ export function ChangesPage({
             <span className="spacer" />
             <ViewToggle />
           </header>
-          <div className="muted root" title={data.root}>
-            {data.root}
-          </div>
           <CommitBox
             canCommit={data.counts.staged > 0 && draft.trim().length > 0}
             draft={draft}

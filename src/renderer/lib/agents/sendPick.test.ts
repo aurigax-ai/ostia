@@ -5,7 +5,6 @@ import type { Terminal } from '@xterm/xterm'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { registerTerminal } from '@/lib/terminal/terminalHandles'
 import { useAttentionStore } from '@/stores/agents/attentionStore'
-import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useBlocksStore } from '@/stores/terminal/blocksStore'
 import { ENTER_AFTER_PASTE_MS } from './agentEnter'
 import {
@@ -38,11 +37,13 @@ const capture: PickCapture = {
   failedRequests: [],
   screenshotPath: null,
   capturedAt: '2026-09-28T00:00:00.000Z',
+  viewport: { width: 1280, height: 800 },
+  hasText: true,
+  table: null,
 }
 
 let blocksInit: ReturnType<typeof useBlocksStore.getState>
 let attentionInit: ReturnType<typeof useAttentionStore.getState>
-let settingsInit: ReturnType<typeof useSettingsStore.getState>
 let term: { paste: ReturnType<typeof vi.fn>; focus: ReturnType<typeof vi.fn> }
 let unregister: () => void
 let writeText = vi.fn()
@@ -50,7 +51,6 @@ let writeText = vi.fn()
 beforeAll(() => {
   blocksInit = useBlocksStore.getState()
   attentionInit = useAttentionStore.getState()
-  settingsInit = useSettingsStore.getState()
 })
 
 beforeEach(() => {
@@ -70,7 +70,6 @@ afterEach(() => {
   unregister()
   useBlocksStore.setState(blocksInit, true)
   useAttentionStore.setState(attentionInit, true)
-  useSettingsStore.setState(settingsInit, true)
   vi.useRealTimers()
   vi.restoreAllMocks()
 })
@@ -89,12 +88,6 @@ function claudeRunning(): void {
     running: { [TARGET]: 'b1' },
     byPane: { [TARGET]: [{ id: 'b1', paneId: TARGET, command: 'claude --model opus' } as never] },
     agentBlocks: { [TARGET]: { blockId: 'b1', agent: 'claude' } },
-  })
-}
-
-function autoSend(on: boolean): void {
-  useSettingsStore.setState({
-    agents: { ...useSettingsStore.getState().agents, autoSendReferences: on },
   })
 }
 
@@ -123,7 +116,7 @@ describe('sendPickToPane', () => {
     idlePrompt()
     const res = await send()
     expect(res).toEqual({ ok: true, path: REPORT, inserted: true })
-    expect(term.paste).toHaveBeenCalledWith(`@${REPORT} `)
+    expect(term.paste).toHaveBeenCalledWith(`Save is misaligned @${REPORT} `)
     expect(window.ostia.pty.write).not.toHaveBeenCalled()
     expect(writeText).not.toHaveBeenCalled()
   })
@@ -138,7 +131,6 @@ describe('sendPickToPane', () => {
   })
 
   it('pastes into a running claude or codex whatever state it last reported', async () => {
-    autoSend(false)
     claudeRunning()
     expect(canInsertReference(TARGET)).toBe(true)
     const res = await send()
@@ -170,7 +162,7 @@ describe('sendPickToPane', () => {
       imagePath: SHOT,
     })
     await send()
-    expect(term.paste).toHaveBeenCalledWith(`@${REPORT} @${SHOT} `)
+    expect(term.paste).toHaveBeenCalledWith(`Save is misaligned @${REPORT} @${SHOT} `)
   })
 
   it('inserts only the report when the setting is off or there is no screenshot', async () => {
@@ -182,7 +174,7 @@ describe('sendPickToPane', () => {
       imagePath: SHOT,
     })
     await send('x', false)
-    expect(term.paste.mock.calls).toEqual([[`@${REPORT} `], [`@${REPORT} `]])
+    expect(term.paste.mock.calls).toEqual([[`Save is misaligned @${REPORT} `], [`x @${REPORT} `]])
   })
 
   it('copies both references when the pane is busy', async () => {
@@ -248,14 +240,16 @@ describe('sendRegionToPane', () => {
       note: 'the header overlaps',
     })
     expect(res).toEqual({ ok: true, path: REGION_REPORT, inserted: true })
-    expect(term.paste).toHaveBeenCalledWith(`@${REGION_REPORT} @${REGION_SHOT} `)
+    expect(term.paste).toHaveBeenCalledWith(
+      `the header overlaps @${REGION_REPORT} @${REGION_SHOT} `,
+    )
     expect(window.ostia.pty.write).not.toHaveBeenCalled()
   })
 
   it('pastes only the report with the setting off', async () => {
     idlePrompt()
     await sendRegion(false)
-    expect(term.paste).toHaveBeenCalledWith(`@${REGION_REPORT} `)
+    expect(term.paste).toHaveBeenCalledWith(`the header overlaps @${REGION_REPORT} `)
   })
 })
 
@@ -349,9 +343,8 @@ describe('a target in the origin workspace of another window', () => {
     expect(window.ostia.windows.insertReference).toHaveBeenCalledWith({
       workspaceId: 'w-moved',
       paneId: REMOTE,
-      text: `@${REPORT} `,
+      text: `Save is misaligned @${REPORT} `,
       note: 'Save is misaligned',
-      pointedByHuman: true,
     })
     expect(term.paste).not.toHaveBeenCalled()
     expect(writeText).not.toHaveBeenCalled()
@@ -425,65 +418,38 @@ describe('receiveReference', () => {
   })
 })
 
-describe('pressing Enter after a reference the human pointed at', () => {
+describe('a reference is never followed by Enter', () => {
   beforeEach(() => {
     vi.useFakeTimers()
   })
 
-  const settle = () => vi.advanceTimersByTimeAsync(ENTER_AFTER_PASTE_MS)
+  const settle = () => vi.advanceTimersByTimeAsync(ENTER_AFTER_PASTE_MS * 10)
 
-  it('presses Enter once after pasting into a running agent with the setting on', async () => {
-    claudeRunning()
-    const res = await send()
-    expect(res.ok && res.inserted).toBe(true)
-    expect(term.paste).toHaveBeenCalledWith(`@${REPORT} `)
-    expect(window.ostia.pty.write).not.toHaveBeenCalled()
-    await settle()
-    expect(window.ostia.pty.write).toHaveBeenCalledOnce()
-    expect(window.ostia.pty.write).toHaveBeenCalledWith(TARGET, '\r')
-  })
+  const region: RegionCapture = {
+    id: 'region-1',
+    url: 'http://localhost/',
+    title: 'App',
+    rect: { x: 0, y: 0, width: 1, height: 1 },
+    imageWidth: 1,
+    imageHeight: 1,
+    capturedAt: '2026-10-01T00:00:00.000Z',
+  }
 
-  it('presses Enter once after the report and its screenshot', async () => {
-    claudeRunning()
-    vi.mocked(window.ostia.browser.pickSend).mockResolvedValue({
-      ok: true,
-      path: REPORT,
-      imagePath: SHOT,
-    })
-    await send()
-    await settle()
-    expect(term.paste.mock.calls).toEqual([[`@${REPORT} @${SHOT} `]])
-    expect(window.ostia.pty.write).toHaveBeenCalledOnce()
-  })
-
-  it('never presses Enter after a preview’s errors, whose text the page wrote', async () => {
-    claudeRunning()
-    vi.mocked(window.ostia.selection.send).mockResolvedValue({
-      ok: true,
-      path: REPORT,
-      imagePath: null,
-    })
-    const res = await sendSelectionToPane({
-      capture: { kind: 'preview-error', file: '/a/page.html', count: 1, text: 'boom' },
-      sourcePaneId: 'pane-editor',
-      targetPaneId: TARGET,
-      note: '',
-    })
-    expect(res.ok && res.inserted).toBe(true)
-    await settle()
-    expect(term.paste).toHaveBeenCalledWith(`@${REPORT} `)
-    expect(window.ostia.pty.write).not.toHaveBeenCalled()
-  })
-
-  it('never presses Enter after a preview region, which the page drew', async () => {
-    claudeRunning()
-    vi.mocked(window.ostia.selection.send).mockResolvedValue({
-      ok: true,
-      path: REPORT,
-      imagePath: SHOT,
-    })
-    const res = await sendSelectionToPane({
-      capture: {
+  const selections: [string, SelectionCapture][] = [
+    [
+      'text',
+      {
+        kind: 'text',
+        file: '/w/a.ts',
+        view: 'source',
+        range: { startLine: 1, startColumn: 1, endLine: 1, endColumn: 2 },
+        text: 'x',
+      },
+    ],
+    ['preview-error', { kind: 'preview-error', file: '/a/page.html', count: 1, text: 'boom' }],
+    [
+      'preview-region',
+      {
         kind: 'preview-region',
         file: '/a/chart.tsx',
         viewWidth: 400,
@@ -491,153 +457,119 @@ describe('pressing Enter after a reference the human pointed at', () => {
         region: { x: 10, y: 10, width: 150, height: 80 },
         version: null,
       },
-      sourcePaneId: 'pane-editor',
-      targetPaneId: TARGET,
-      note: '',
+    ],
+  ]
+
+  const targets: [string, () => void][] = [
+    ['an idle shell prompt', idlePrompt],
+    ['a running claude', claudeRunning],
+    [
+      'a waiting agent',
+      () => {
+        running()
+        useAttentionStore.getState().dispatch(TARGET, { type: 'set', state: 'waiting', at: 1 })
+      },
+    ],
+  ]
+
+  describe.each(targets)('at %s', (_name, prepare) => {
+    beforeEach(prepare)
+
+    it('pastes a picked element and its screenshot without Enter', async () => {
+      vi.mocked(window.ostia.browser.pickSend).mockResolvedValue({
+        ok: true,
+        path: REPORT,
+        imagePath: SHOT,
+      })
+      const res = await send()
+      await settle()
+      expect(res.ok && res.inserted).toBe(true)
+      expect(term.paste.mock.calls).toEqual([[`Save is misaligned @${REPORT} @${SHOT} `]])
+      expect(window.ostia.pty.write).not.toHaveBeenCalled()
     })
-    expect(res.ok && res.inserted).toBe(true)
-    await settle()
-    expect(term.paste).toHaveBeenCalledWith(`@${REPORT} `)
-    expect(window.ostia.pty.write).not.toHaveBeenCalled()
+
+    it('pastes a captured region without Enter', async () => {
+      vi.mocked(window.ostia.browser.regionSend).mockResolvedValue({
+        ok: true,
+        path: REPORT,
+        imagePath: SHOT,
+      })
+      await sendRegionToPane({
+        capture: region,
+        sourcePaneId: 'pane-browser',
+        targetPaneId: TARGET,
+        note: '',
+        attachImage: true,
+      })
+      await settle()
+      expect(term.paste).toHaveBeenCalledOnce()
+      expect(window.ostia.pty.write).not.toHaveBeenCalled()
+    })
+
+    it.each(selections)('pastes a %s selection without Enter', async (_kind, capture) => {
+      vi.mocked(window.ostia.selection.send).mockResolvedValue({
+        ok: true,
+        path: REPORT,
+        imagePath: null,
+      })
+      const res = await sendSelectionToPane({
+        capture,
+        sourcePaneId: 'pane-editor',
+        targetPaneId: TARGET,
+        note: '',
+      })
+      await settle()
+      expect(res.ok && res.inserted).toBe(true)
+      expect(term.paste).toHaveBeenCalledWith(`@${REPORT} `)
+      expect(window.ostia.pty.write).not.toHaveBeenCalled()
+    })
+
+    it('pastes a file path and chat text without Enter', async () => {
+      await insertPathReference({ paneId: TARGET }, '/w/src/app.ts')
+      await sendReference({ paneId: TARGET }, 'look at this', 'x')
+      await settle()
+      expect(term.paste).toHaveBeenCalledTimes(2)
+      expect(window.ostia.pty.write).not.toHaveBeenCalled()
+    })
+
+    it('pastes a reference forwarded from another window without Enter', async () => {
+      expect(receiveReference({ requestId: 'r', paneId: TARGET, text: '@/tmp/r.md ' })).toBe(true)
+      await settle()
+      expect(term.paste).toHaveBeenCalledWith('@/tmp/r.md ')
+      expect(window.ostia.pty.write).not.toHaveBeenCalled()
+    })
   })
 
-  it('presses Enter after a region capture and a sent selection too', async () => {
-    claudeRunning()
+  it('asks the owning window for a plain reference of every kind, with no flag to submit it', async () => {
+    vi.mocked(window.ostia.windows.insertReference).mockResolvedValue(true)
     vi.mocked(window.ostia.browser.regionSend).mockResolvedValue({
       ok: true,
       path: REPORT,
-      imagePath: SHOT,
+      imagePath: null,
     })
     vi.mocked(window.ostia.selection.send).mockResolvedValue({
       ok: true,
       path: REPORT,
       imagePath: null,
     })
+    const via = { targetPaneId: 'pane-far-agent', via: 'w-moved', note: '' }
+    await sendPickToPane({ capture, sourcePaneId: 'pane-browser', attachImage: true, ...via })
     await sendRegionToPane({
-      capture: {
-        id: 'region-1',
-        url: 'http://localhost/',
-        title: 'App',
-        rect: { x: 0, y: 0, width: 1, height: 1 },
-        imageWidth: 1,
-        imageHeight: 1,
-        capturedAt: '2026-10-01T00:00:00.000Z',
-      },
+      capture: region,
       sourcePaneId: 'pane-browser',
-      targetPaneId: TARGET,
-      note: '',
       attachImage: true,
+      ...via,
     })
-    await sendSelectionToPane({
-      capture: {
-        kind: 'text',
-        file: '/w/a.ts',
-        view: 'source',
-        range: { startLine: 1, startColumn: 1, endLine: 1, endColumn: 2 },
-        text: 'x',
-      },
-      sourcePaneId: 'pane-editor',
-      targetPaneId: TARGET,
-      note: '',
-    })
-    await settle()
-    expect(vi.mocked(window.ostia.pty.write).mock.calls).toEqual([
-      [TARGET, '\r'],
-      [TARGET, '\r'],
-    ])
-  })
-
-  it('only pastes with the setting off', async () => {
-    autoSend(false)
-    claudeRunning()
-    await send()
-    await settle()
-    expect(term.paste).toHaveBeenCalledOnce()
-    expect(window.ostia.pty.write).not.toHaveBeenCalled()
-  })
-
-  it('never presses Enter at an idle shell prompt', async () => {
-    idlePrompt()
-    await send()
-    await settle()
-    expect(term.paste).toHaveBeenCalledOnce()
-    expect(window.ostia.pty.write).not.toHaveBeenCalled()
-  })
-
-  it('never presses Enter for a command that only reported waiting', async () => {
-    running()
-    useAttentionStore.getState().dispatch(TARGET, { type: 'set', state: 'waiting', at: 1 })
-    await send()
-    await settle()
-    expect(term.paste).toHaveBeenCalledOnce()
-    expect(window.ostia.pty.write).not.toHaveBeenCalled()
-  })
-
-  it('skips Enter when the agent stopped before it', async () => {
-    claudeRunning()
-    await send()
-    idlePrompt()
-    await settle()
-    expect(term.paste).toHaveBeenCalledOnce()
-    expect(window.ostia.pty.write).not.toHaveBeenCalled()
-  })
-
-  it('skips Enter when the human turned the setting off before it', async () => {
-    claudeRunning()
-    await send()
-    autoSend(false)
-    await settle()
-    expect(window.ostia.pty.write).not.toHaveBeenCalled()
-  })
-
-  it('never presses Enter for a file path, chat text or an offer', async () => {
-    claudeRunning()
-    await insertPathReference({ paneId: TARGET }, '/w/src/app.ts')
-    await sendReference({ paneId: TARGET }, 'look at this', { note: 'x' })
-    await settle()
-    expect(term.paste).toHaveBeenCalledTimes(2)
-    expect(window.ostia.pty.write).not.toHaveBeenCalled()
-  })
-
-  it('asks the owning window to submit a pointed reference, and never a file path', async () => {
-    vi.mocked(window.ostia.windows.insertReference).mockResolvedValue(true)
-    await sendPickToPane({
-      capture,
-      sourcePaneId: 'pane-browser',
-      targetPaneId: 'pane-far-agent',
-      via: 'w-moved',
-      note: '',
-      attachImage: true,
-    })
+    await sendSelectionToPane({ capture: selections[0][1], sourcePaneId: 'pane-editor', ...via })
     await insertPathReference({ paneId: 'pane-far-agent', via: 'w-moved' }, '/w/a.ts')
     const calls = vi.mocked(window.ostia.windows.insertReference).mock.calls
-    expect(calls[0][0]).toMatchObject({ pointedByHuman: true })
-    expect(calls[1][0]).not.toHaveProperty('pointedByHuman')
-    await settle()
-    expect(window.ostia.pty.write).not.toHaveBeenCalled()
-  })
-
-  it('presses Enter for a forwarded pointed reference in the owning window only', async () => {
-    claudeRunning()
-    const insert = { requestId: 'reference-1', paneId: TARGET, text: '@/tmp/r.md ' }
-    expect(receiveReference(insert)).toBe(true)
-    await settle()
-    expect(window.ostia.pty.write).not.toHaveBeenCalled()
-    expect(receiveReference({ ...insert, pointedByHuman: true })).toBe(true)
-    await settle()
-    expect(vi.mocked(window.ostia.pty.write).mock.calls).toEqual([[TARGET, '\r']])
-  })
-
-  it('never presses Enter for a forwarded pointed reference at an idle prompt', async () => {
-    idlePrompt()
-    expect(
-      receiveReference({
-        requestId: 'r',
-        paneId: TARGET,
-        text: '@/tmp/r.md ',
-        pointedByHuman: true,
-      }),
-    ).toBe(true)
+    expect(calls).toHaveLength(4)
+    for (const [request] of calls) {
+      expect(Object.keys(request).sort()).toEqual(
+        expect.arrayContaining(['paneId', 'text', 'workspaceId']),
+      )
+      expect(request).not.toHaveProperty('pointedByHuman')
+    }
     await settle()
     expect(window.ostia.pty.write).not.toHaveBeenCalled()
   })

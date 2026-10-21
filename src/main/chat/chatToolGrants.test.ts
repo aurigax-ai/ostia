@@ -36,6 +36,7 @@ function register(grants: InstanceType<typeof ChatToolGrants>, onGrants = vi.fn(
   registerChatToolsIpc({
     roots: () => [base],
     settings: () => ({ skillFolders: [], mcpServers: [] }),
+    playbooksFolder: () => join(base, 'playbooks'),
     mcp: {} as never,
     secrets: {} as never,
     oauth: {} as never,

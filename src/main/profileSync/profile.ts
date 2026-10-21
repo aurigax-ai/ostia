@@ -65,6 +65,8 @@ export const PROFILE_FOLDERS: readonly ProfileFolder[] = [
 const LOCAL_ONLY_FIELDS: readonly { group: string; field: string }[] = [
   ...PROGRAM_SETTINGS,
   { group: 'privacy', field: 'telemetry' },
+  { group: 'playbooks', field: 'enabled' },
+  { group: 'playbooks', field: 'accepted' },
 ]
 
 export function isLocalOnlyPath(path: readonly string[]): boolean {
