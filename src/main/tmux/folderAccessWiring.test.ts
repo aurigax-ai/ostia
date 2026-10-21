@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { en } from '../../shared/app/dict'
 import type { Dict } from '../../shared/app/dict'
+import { en } from '../../shared/app/dict'
 import type { NotifyWiring } from '../attention/notifyWiring'
 import type { AppLog } from '../diagnostics/appLog'
 import type { FolderReads } from './folderAccess'

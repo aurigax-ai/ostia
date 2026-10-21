@@ -1,3 +1,11 @@
+import type { UseChatHelpers } from '@ai-sdk/react'
+import type {
+  AssistProviderInfo,
+  ChatContextItem,
+} from '@aurigax-ai/ostia-extension-sdk/contract/assist'
+import { WarningCircleIcon } from '@phosphor-icons/react'
+import { useEffect, useState } from 'react'
+import type { Components } from 'react-markdown'
 import {
   Conversation,
   ConversationContent,
@@ -7,15 +15,7 @@ import {
 import { Suggestion, Suggestions } from '@/components/ai-elements/suggestion'
 import { fmt, useDict } from '@/lib/app/useDict'
 import type { AskContextOptions } from '@/lib/assist/askContext'
-import type { OstiaChatMessage, decodeChatError } from '@/lib/assist/chatTransport'
-import type { UseChatHelpers } from '@ai-sdk/react'
-import type {
-  AssistProviderInfo,
-  ChatContextItem,
-} from '@aurigax-ai/ostia-extension-sdk/contract/assist'
-import { WarningCircleIcon } from '@phosphor-icons/react'
-import { useEffect, useState } from 'react'
-import type { Components } from 'react-markdown'
+import type { decodeChatError, OstiaChatMessage } from '@/lib/assist/chatTransport'
 import type { ChatVariant } from './ChatHeader'
 import { ChatMessageRow } from './ChatMessageRow'
 import { ChatSlashHelp } from './ChatSlashMenu'

@@ -1,3 +1,6 @@
+import { FilesIcon } from '@phosphor-icons/react'
+import type { ArtifactEntry } from '@shared/artifacts/artifacts'
+import { useMemo } from 'react'
 import { IconButton } from '@/components/common/IconButton'
 import { DropdownMenu, MenuItem } from '@/components/common/Menu'
 import { useAgoText } from '@/lib/app/localeFormat'
@@ -5,9 +8,6 @@ import { fmt, useDict } from '@/lib/app/useDict'
 import { openArtifact, useArtifactListing } from '@/lib/files/artifacts'
 import { useUIStore } from '@/stores/app/uiStore'
 import { useArtifactsStore } from '@/stores/files/artifactsStore'
-import { FilesIcon } from '@phosphor-icons/react'
-import type { ArtifactEntry } from '@shared/artifacts/artifacts'
-import { useMemo } from 'react'
 import { fileIcon } from './fileIcon'
 
 function useProduced(workspaceId: string, paneId: string): ArtifactEntry[] {

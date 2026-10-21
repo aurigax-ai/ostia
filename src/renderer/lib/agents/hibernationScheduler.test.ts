@@ -1,3 +1,4 @@
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { registerBuiltinCommands } from '@/commands/builtins'
 import { commands } from '@/commands/registry'
 import { forgetPaneActivity, markPaneActivity } from '@/lib/attention/paneActivity'
@@ -9,16 +10,15 @@ import { useBlocksStore } from '@/stores/terminal/blocksStore'
 import { useHibernateSkippedStore } from '@/stores/workspaces/hibernateSkippedStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
-import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { startActivationResume } from './activationResume'
 import {
   HIBERNATION_CHECK_MS,
-  WAKE_WAVE_SIZE,
   hibernateAgentPane,
   hibernateIdleAgents,
   hibernateWorkspaces,
   resumeWorkspaces,
   startHibernation,
+  WAKE_WAVE_SIZE,
 } from './hibernationScheduler'
 import { clearResumeClaims, resumeConflict } from './resumeFolder'
 

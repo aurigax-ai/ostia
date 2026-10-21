@@ -1,7 +1,7 @@
-import { useSettingsStore } from '@/stores/app/settingsStore'
-import { useCmuxImportStore } from '@/stores/workspaces/cmuxImportStore'
 import { act, cleanup, screen } from '@testing-library/react'
 import { afterEach, beforeAll, describe, expect, it } from 'vitest'
+import { useSettingsStore } from '@/stores/app/settingsStore'
+import { useCmuxImportStore } from '@/stores/workspaces/cmuxImportStore'
 import { renderSettled } from '../../../../test/render'
 import { CmuxImportDialog } from './CmuxImportDialog'
 

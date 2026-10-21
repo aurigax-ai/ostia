@@ -4,11 +4,11 @@ import { join } from 'node:path'
 import { afterAll, describe, expect, it } from 'vitest'
 import { DEFAULT_ALLOW_READ, DEFAULT_CONTROLS } from '../../shared/sandbox/sandbox'
 import {
-  HOME_HIDDEN_FILES,
   buildSrtConfig,
   canBlockSockets,
   fixedPolicy,
   folderProblem,
+  HOME_HIDDEN_FILES,
   reachableContainerSockets,
   srtVendorDir,
 } from './srtConfig'

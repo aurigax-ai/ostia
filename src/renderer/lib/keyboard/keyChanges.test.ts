@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { NATURAL_TEXT_EDITING, NO_TERMINAL_KEYMAP, OSTIA_KEYMAP } from './keyboardPresets'
 import {
   appPresetChanges,
   appPreview,
@@ -8,7 +9,6 @@ import {
   userChangeCount,
   userChanges,
 } from './keyChanges'
-import { NATURAL_TEXT_EDITING, NO_TERMINAL_KEYMAP, OSTIA_KEYMAP } from './keyboardPresets'
 
 describe('userChanges', () => {
   it('splits your own layer into custom and removed, for commands and text editing keys', () => {

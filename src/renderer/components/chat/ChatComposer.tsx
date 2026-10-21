@@ -1,3 +1,9 @@
+import type { UseChatHelpers } from '@ai-sdk/react'
+import type {
+  AssistProviderInfo,
+  ChatContextItem,
+} from '@aurigax-ai/ostia-extension-sdk/contract/assist'
+import type { RefObject } from 'react'
 import {
   PromptInput,
   PromptInputBody,
@@ -9,13 +15,7 @@ import {
 import { TextLink } from '@/components/common/TextLink'
 import { useDict } from '@/lib/app/useDict'
 import type { OstiaChatMessage } from '@/lib/assist/chatTransport'
-import type { UseChatHelpers } from '@ai-sdk/react'
-import type {
-  AssistProviderInfo,
-  ChatContextItem,
-} from '@aurigax-ai/ostia-extension-sdk/contract/assist'
-import type { RefObject } from 'react'
-import { ChatModeSelect, ChatModelSelect } from './ChatComposerControls'
+import { ChatModelSelect, ChatModeSelect } from './ChatComposerControls'
 import { ChatContextChips } from './ChatContextChips'
 import { ChatToolsMenu } from './ChatToolsMenu'
 import type { ChatContext } from './useChatContext'

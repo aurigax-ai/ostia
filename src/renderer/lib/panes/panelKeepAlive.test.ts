@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { KEEP_ALIVE_MAX, type PanelInstance, instanceKey, keepInstance } from './panelKeepAlive'
+import { instanceKey, KEEP_ALIVE_MAX, keepInstance, type PanelInstance } from './panelKeepAlive'
 
 const at = (extId: string, workspaceId = 'w1'): PanelInstance => ({ extId, workspaceId })
 

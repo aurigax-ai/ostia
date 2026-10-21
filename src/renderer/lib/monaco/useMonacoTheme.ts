@@ -1,6 +1,6 @@
+import { useEffect } from 'react'
 import { currentScheme, useScheme } from '@/lib/theme/colorScheme'
 import type { ColorScheme } from '@/lib/theme/types'
-import { useEffect } from 'react'
 import { monacoThemeData, monacoThemeId } from './monacoTheme'
 import { monaco } from './setup'
 

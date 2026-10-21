@@ -1,12 +1,12 @@
+import { render, screen, waitFor } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import type { Terminal } from '@xterm/xterm'
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ENTER_AFTER_PASTE_MS } from '@/lib/agents/agentEnter'
 import type { PickTarget } from '@/lib/agents/pickTargets'
 import { registerTerminal } from '@/lib/terminal/terminalHandles'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useBlocksStore } from '@/stores/terminal/blocksStore'
-import { render, screen, waitFor } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
-import type { Terminal } from '@xterm/xterm'
-import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { AgentComposer } from './AgentComposer'
 
 function target(paneId: string, title: string): PickTarget {

@@ -4,7 +4,7 @@ import type {
 } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import type { PortHost } from '../../shared/boards/ports'
 import type { PaneEntry } from '../panes/paneList'
-import { type ListeningPort, addOwner, sortedPorts } from './procfs'
+import { addOwner, type ListeningPort, sortedPorts } from './procfs'
 import type { TreeInfo } from './scan'
 
 const SSH_KEY = 'ssh'

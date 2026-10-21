@@ -1,10 +1,10 @@
 import '@testing-library/jest-dom/vitest'
-import { claudeTrustGate } from '@/lib/agents/folderTrust'
-import { useFolderTrustStore } from '@/stores/agents/folderTrustStore'
-import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { claudeTrustGate } from '@/lib/agents/folderTrust'
+import { useFolderTrustStore } from '@/stores/agents/folderTrustStore'
+import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { FolderTrustPrompt } from './ResumePrompts'
 
 const layout = useLayoutStore.getState()

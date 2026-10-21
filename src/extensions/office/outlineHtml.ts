@@ -1,6 +1,6 @@
 import {
-  type Translate,
   formatMessage,
+  type Translate,
 } from '@aurigax-ai/ostia-extension-sdk/contract/extensionLocales'
 
 export interface Figure {

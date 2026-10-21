@@ -20,10 +20,10 @@ import { imageAllowed, phoneImageOf } from './phoneImage'
 import { type PhoneSnippetDeps, snippetList } from './phoneSnippets'
 import { type PhoneTurnDeps, turnList, turnOutput, turnPane } from './phoneTurns'
 import {
-  type PhoneFileScope,
-  type WorkspaceFileOutcome,
   listWorkspaceFiles,
+  type PhoneFileScope,
   readWorkspaceFile,
+  type WorkspaceFileOutcome,
 } from './workspaceFiles'
 
 export interface GatewayControlDeps extends PhoneTurnDeps, PhoneSnippetDeps {
@@ -182,8 +182,7 @@ function resolveTarget(target: unknown, primaryWindowId: string | undefined): Co
 function agentPaneOf(paneId: unknown, deps: GatewayControlDeps): PaneIdentity | RpcOutcome {
   if (typeof paneId !== 'string' || !paneId) return invalidParams('missing paneId')
   const identity = resolveExternal(paneId)
-  if (!identity || identity.kind !== 'pane' || identity.manager)
-    return invalidParams('not-an-agent')
+  if (identity?.kind !== 'pane' || identity.manager) return invalidParams('not-an-agent')
   if (!deps.agentRunning(identity.paneId)) {
     return invalidParams('not-an-agent')
   }

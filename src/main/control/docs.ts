@@ -3,9 +3,9 @@ import type { ExtensionInfo } from '@aurigax-ai/ostia-extension-sdk/contract/ext
 import { ErrorCodes, ResponseError } from 'vscode-jsonrpc/node'
 import {
   type BundledSkillFile,
+  bundledSkillText,
   CORE_SKILL_FILES,
   MANAGER_SKILL_FILES,
-  bundledSkillText,
 } from '../agents/bundledSkills'
 import { registerControlMethod } from './controlServer'
 

@@ -8,30 +8,30 @@ import {
 import type { BrowseLimits } from '@aurigax-ai/ostia-extension-sdk/contract/fileBrowse'
 import { shownLink, shownName } from './names'
 import {
-  type FolderRun,
-  type Native,
   checkFolder,
   decodeFolder,
+  type FolderRun,
   isEncrypted,
+  type Native,
   nativeLzma,
   packRange,
 } from './sevenZipCoders'
 import { type Placed, placeEntries, requireSingleChain } from './sevenZipFiles'
 import {
+  crcOf,
   DECODED_HEADER_MAX,
+  isEncodedHeader,
   PACKED_HEADER_MAX,
   type ParsedHeader,
-  SIGNATURE_HEADER_BYTES,
-  SevenZipRefused,
-  type StreamsInfo,
-  crcOf,
-  isEncodedHeader,
   parseEncodedHeader,
   parseHeader,
   parseStartHeader,
   refuse,
+  SevenZipRefused,
+  SIGNATURE_HEADER_BYTES,
+  type StreamsInfo,
+  unpackSize,
 } from './sevenZipHeader'
-import { unpackSize } from './sevenZipHeader'
 
 async function decodedHeader(
   file: BrowseFile,

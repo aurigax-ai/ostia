@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import {
-  type ModifierRemap,
-  type RemapKey,
   isIdentityRemap,
   isRetargeted,
+  type ModifierRemap,
   parseModifierRemap,
+  type RemapKey,
   releaseStale,
   remappedFlags,
   remappedModifierKey,

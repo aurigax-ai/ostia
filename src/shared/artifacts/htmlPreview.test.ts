@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest'
 import {
-  type PreviewError,
   allowsPreviewRequest,
   blockedByPolicy,
   blockedHost,
@@ -10,6 +9,7 @@ import {
   isWebLink,
   keepErrors,
   normalizePreviewTheme,
+  type PreviewError,
   previewErrorLine,
   previewPartition,
 } from './htmlPreview'

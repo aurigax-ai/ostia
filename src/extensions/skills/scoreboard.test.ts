@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { Applied } from './applied'
 import type { Rule } from './rule'
-import { ENOUGH_SESSIONS, WINDOW_MS, beforeCounts, scoreboard } from './scoreboard'
+import { beforeCounts, ENOUGH_SESSIONS, scoreboard, WINDOW_MS } from './scoreboard'
 import type { Signal } from './signal'
 
 const DAY = 24 * 60 * 60 * 1000

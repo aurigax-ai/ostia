@@ -4,8 +4,8 @@ import { shortId } from '../../shared/panes/paneStatus'
 import { parseArgs } from '../common/args'
 import { resolveWorkspaceRef } from '../common/crossWorkspace'
 import {
-  type ErrResult,
   describeErrResult,
+  type ErrResult,
   fail,
   failUsage,
   failVerb,

@@ -18,16 +18,16 @@ import { registerControlMethod } from '../control/controlServer'
 import {
   type Announcement,
   type AnnouncementKey,
-  type Publisher,
   announcementFor,
   lanAnnouncementFor,
+  type Publisher,
 } from './announce'
 import { createBindFollower } from './bindFollower'
 import type { Device } from './devices'
 import { list as listDevices, revoke as revokeDevice, setDeviceCap } from './devices'
 import { listBindAddresses } from './interfaces'
-import { answerPairRequest, listPairRequests } from './pairRequests'
 import { liveCodeCount, newCode, onCodesChanged } from './pairing'
+import { answerPairRequest, listPairRequests } from './pairRequests'
 import {
   checkRoute,
   friendlyName,
@@ -45,7 +45,7 @@ import {
   startGateway,
   stopGateway,
 } from './server'
-import { type Tailnet, isAllowedLoginUrl } from './tailnet'
+import { isAllowedLoginUrl, type Tailnet } from './tailnet'
 
 export interface TailnetDeps {
   openExternal: (url: string) => void

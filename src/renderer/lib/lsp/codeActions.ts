@@ -1,5 +1,5 @@
-import { monaco } from '@/lib/monaco/setup'
 import type { CodeAction, Command } from 'vscode-languageserver-protocol'
+import { monaco } from '@/lib/monaco/setup'
 import { rangesOverlap, toLspRange, toMarkers } from './converters'
 import type { ProviderParams } from './providerParams'
 import type { LspSession } from './session'

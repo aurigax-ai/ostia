@@ -4,7 +4,7 @@ import { join } from 'node:path'
 import type { ExtensionCaller, ExtensionResult } from '@aurigax-ai/ostia-extension-sdk'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { JOURNAL_DIR, Journal } from './journal'
-import { type Entry, activityVerbs } from './verbs'
+import { activityVerbs, type Entry } from './verbs'
 
 const NOW = Date.UTC(2026, 9, 14, 12)
 

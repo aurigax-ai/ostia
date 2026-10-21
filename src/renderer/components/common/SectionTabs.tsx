@@ -1,6 +1,6 @@
+import type { ComponentProps } from 'react'
 import { TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { cn } from '@/lib/utils'
-import type { ComponentProps } from 'react'
 
 export function SectionTabsList({
   className,

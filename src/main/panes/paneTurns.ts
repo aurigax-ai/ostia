@@ -1,7 +1,7 @@
 import {
+  normalizeTurnReport,
   type TurnReport,
   type TurnStepKind,
-  normalizeTurnReport,
 } from '../../shared/agents/turnHook'
 import { registerControlMethod } from '../control/controlServer'
 

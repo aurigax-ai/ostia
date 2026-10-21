@@ -1,11 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import { FAKE, HARMLESS } from '../../../test/fixtures/secrets/samples'
 import {
+  applyRedactions,
   CUSTOM_WINDOW,
   CUSTOM_WINDOW_STEP,
-  REDACTION_PATTERNS_MAX,
-  REDACTION_PATTERN_MAX,
-  applyRedactions,
   compilePatterns,
   countPlaceholders,
   customSpans,
@@ -13,6 +11,8 @@ import {
   parsePrivacySettings,
   parseRedactionSettings,
   patternProblem,
+  REDACTION_PATTERN_MAX,
+  REDACTION_PATTERNS_MAX,
 } from './redaction'
 import { DEFAULT_TELEMETRY_SETTINGS } from './telemetry'
 

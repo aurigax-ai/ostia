@@ -3,9 +3,9 @@ import { describe, expect, it } from 'vitest'
 import { en } from '../../shared/app/dict'
 import {
   MCP_OAUTH_BROWSER_ENV,
-  SignInFailure,
   mcpOAuthBrowser,
   openCallbackListener,
+  SignInFailure,
 } from './mcpOAuth'
 
 const pages = en.native.signIn

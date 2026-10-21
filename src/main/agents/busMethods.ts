@@ -2,29 +2,29 @@ import { randomUUID } from 'node:crypto'
 import { BUS_SEND_TEXT_MAX } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import { ErrorCodes, ResponseError } from 'vscode-jsonrpc/node'
 import { MAIL_INBOX_FULL } from '../../shared/agents/agentIssues'
-import { type MailPending, busContext } from '../../shared/agents/busMessages'
+import { busContext, type MailPending } from '../../shared/agents/busMessages'
 import { actThenConfirm, confirmed, mismatch } from '../../shared/common/actThenConfirm'
 import { ensureCaps } from '../approvals/controlElevation'
 import { type ControlMethodContext, registerControlMethod } from '../control/controlServer'
 import { type PaneIdentity, resolveExternal } from '../control/idRegistry'
 import type { AgentJournal } from '../diagnostics/agentJournal'
-import { type PaneReachDeps, ensurePaneReach, holdsPaneReach } from '../panes/paneReach'
+import { ensurePaneReach, holdsPaneReach, type PaneReachDeps } from '../panes/paneReach'
 import { type PaneRef, refProblem, resolvePaneRef } from '../panes/paneRef'
 import {
+  ackMail,
+  addWaiter,
   type BusObservation,
+  busHandoffs,
+  enqueue,
+  getMail,
   type HandedMail,
   type Handoff,
   type HandoffContext,
   type HandoffState,
-  type Mail,
-  ackMail,
-  addWaiter,
-  busHandoffs,
-  enqueue,
-  getMail,
   inboxFull,
   inboxOf,
   leaseMail,
+  type Mail,
   markBusDirty,
   releaseMail,
   sentAfter,
@@ -34,8 +34,8 @@ import {
   setPending,
   sweepBus,
 } from './busStore'
-import { takeMailTurn } from './mailTurn'
 import { mailers } from './mailers'
+import { takeMailTurn } from './mailTurn'
 
 const MAX_HANDOFFS = 500
 

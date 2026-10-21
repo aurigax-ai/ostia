@@ -4,10 +4,10 @@ import { join } from 'node:path'
 import type { Capability } from '@aurigax-ai/ostia-extension-sdk/contract/capabilities'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
+  createMessageConnection,
   type MessageConnection,
   StreamMessageReader,
   StreamMessageWriter,
-  createMessageConnection,
 } from 'vscode-jsonrpc/node'
 import { ownWorkspaceReach } from '../../../test/reach'
 import { ChangeSignal } from '../../shared/common/actThenConfirm'
@@ -16,8 +16,8 @@ import { grant, setCaps } from '../approvals/capabilityStore'
 import { setScriptTokenCheck } from '../control/controlAuth'
 import { registerControlServer, stopControlServer } from '../control/controlServer'
 import {
-  type PaneIdentity,
   getByPaneId,
+  type PaneIdentity,
   registerExtension,
   registerPane,
   removePane,

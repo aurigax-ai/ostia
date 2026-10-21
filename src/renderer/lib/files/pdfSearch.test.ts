@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { PDF_SEARCH_MAX_BYTES, clipLine, searchPdfs } from './pdfSearch'
+import { clipLine, PDF_SEARCH_MAX_BYTES, searchPdfs } from './pdfSearch'
 import { textMatcher } from './textMatch'
 
 const pages: Record<string, { str: string; hasEOL: boolean }[][]> = {

@@ -6,27 +6,27 @@ import {
   type ExtensionIcon,
   type ExtensionResult,
   type ExtensionSidebarItem,
-  PANEL_TOOLBAR_BACK_MAX,
   PANE_CHIP_ITEMS_MAX,
   PANE_CHIP_TEXT_MAX,
   PANE_CHIP_TOOLTIP_MAX,
+  PANEL_TOOLBAR_BACK_MAX,
   type PaneChip,
   type PanelToolbarEntry,
   type PanelToolbarState,
+  paneChipItems,
   SIDEBAR_BADGE_PATTERN,
   SIDEBAR_KINDS,
   SIDEBAR_TONES,
   type SidebarKind,
   type SidebarTone,
-  type WorkspaceChip,
-  paneChipItems,
   sidebarItemUrl,
+  type WorkspaceChip,
 } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import { isRecord } from '@aurigax-ai/ostia-extension-sdk/contract/isRecord'
 import type { MessageConnection } from 'vscode-jsonrpc/node'
 import { type PaneIdentity, resolveExternal } from '../control/idRegistry'
 import type { ExtensionHostDeps } from './extensionHostDeps'
-import { type Runtime, fail } from './extensionRuntime'
+import { fail, type Runtime } from './extensionRuntime'
 
 const MAX_SIDEBAR_ITEMS = 32
 

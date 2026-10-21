@@ -1,11 +1,11 @@
 import type { ControlMethodContext } from '../control/controlServer'
 import {
-  type PaneIdentity,
   getByPaneId,
+  type PaneIdentity,
   paneIdentities,
   resolveExternal,
 } from '../control/idRegistry'
-import { type ClosedPane, PREFIX_MIN, closedLabel, recallClosedPane } from './closedPanes'
+import { type ClosedPane, closedLabel, PREFIX_MIN, recallClosedPane } from './closedPanes'
 
 const ID_PREFIX = /^[0-9a-f-]+$/
 

@@ -1,6 +1,6 @@
-import { type Mock, describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, type Mock, vi } from 'vitest'
 import { OpenWaits } from './openWaits'
-import { type WorkspaceClosedDeps, createWorkspaceClosed } from './workspaceClosed'
+import { createWorkspaceClosed, type WorkspaceClosedDeps } from './workspaceClosed'
 
 type Step = Exclude<keyof WorkspaceClosedDeps, 'openWaits'>
 type StepFn = WorkspaceClosedDeps[Step]

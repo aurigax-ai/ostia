@@ -3,9 +3,9 @@ import { FRIENDLY_NAME, friendlyNameFrom } from '../../shared/gateway/friendlyNa
 import type { GatewayRoute } from '../../shared/gateway/gatewayApi'
 import {
   DEFAULT_GATEWAY_ROUTE,
-  LOOPBACK_ADDRESS,
   isBindAddress,
   isBindInterface,
+  LOOPBACK_ADDRESS,
   phoneAddressOf,
 } from '../../shared/gateway/gatewayRoute'
 import { loadJson, saveJson, storePath } from '../platform/jsonStore'

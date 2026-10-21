@@ -28,7 +28,7 @@ export async function turnPane(
 ): Promise<{ pane: PaneIdentity; workDir: string } | RpcOutcome> {
   if (typeof p.paneId !== 'string' || !p.paneId) return refused('missing paneId')
   const pane = resolveExternal(p.paneId)
-  if (!pane || pane.kind !== 'pane' || pane.manager) return refused('not-an-agent')
+  if (pane?.kind !== 'pane' || pane.manager) return refused('not-an-agent')
   if (deps.remote(pane.paneId)) return refused('unknown-pane')
   const workspace = (await deps.listWorkspaces()).find((w) => w.workspaceId === pane.workspaceId)
   if (!workspace || workspace.kind === 'scratch' || workspace.sandboxed) {

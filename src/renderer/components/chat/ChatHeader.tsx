@@ -1,3 +1,8 @@
+import {
+  ArrowsOutSimpleIcon,
+  ClockCounterClockwiseIcon,
+  NotePencilIcon,
+} from '@phosphor-icons/react'
 import { Hint } from '@/components/common/Hint'
 import { IconButton } from '@/components/common/IconButton'
 import { Badge } from '@/components/ui/badge'
@@ -6,11 +11,6 @@ import { openChatPane } from '@/lib/assist/chatPane'
 import { cn } from '@/lib/utils'
 import { useUIStore } from '@/stores/app/uiStore'
 import { startNewSession } from '@/stores/assist/chatStore'
-import {
-  ArrowsOutSimpleIcon,
-  ClockCounterClockwiseIcon,
-  NotePencilIcon,
-} from '@phosphor-icons/react'
 import { ChatSessions } from './ChatSessions'
 
 export type ChatVariant = 'pane' | 'palette'

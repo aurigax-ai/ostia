@@ -6,19 +6,19 @@ import { type EnvSource, readEnv } from '@aurigax-ai/ostia-extension-sdk/contrac
 import { PRODUCT_NAME } from '@aurigax-ai/ostia-extension-sdk/contract/product'
 import { parseBuildInfo, releaseVersion } from '../../shared/app/buildInfo'
 import type { ReplaceAvailability, ReplaceProgress } from '../../shared/app/installMethod'
-import { type ReleaseInfo, dmgAssetName } from '../../shared/app/releases'
+import { dmgAssetName, type ReleaseInfo } from '../../shared/app/releases'
 import type { Fetch } from '../platform/checkedDownload'
 import { bundleFs } from './bundleFs'
 import {
   CHECKSUMS_FILE,
   CHECKSUMS_MAX_BYTES,
-  ReplaceError,
-  UPDATE_ARCHIVE_MAX_BYTES,
   checksumFor,
   downloadTo,
   fetchText,
+  ReplaceError,
   releaseAssetUrl,
   replaceableAt,
+  UPDATE_ARCHIVE_MAX_BYTES,
 } from './installReplace'
 
 const MAC_TEAM_ID = '4ZNCN9338G'

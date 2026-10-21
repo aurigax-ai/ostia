@@ -8,7 +8,7 @@ import {
 import { isRecord } from '@aurigax-ai/ostia-extension-sdk/contract/isRecord'
 import { app } from 'electron'
 import { ALWAYS_ASK } from '../../shared/permissions/approvals'
-import { type ReachMode, isReachMode, parseReachMode } from '../../shared/permissions/reach'
+import { isReachMode, parseReachMode, type ReachMode } from '../../shared/permissions/reach'
 
 const grants = new Map<string, Set<Capability>>()
 const followsSettings = new Set<string>()

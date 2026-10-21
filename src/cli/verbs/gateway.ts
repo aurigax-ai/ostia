@@ -1,7 +1,7 @@
 import type { MessageConnection } from 'vscode-jsonrpc/node'
 import {
-  type ErrResult,
   describeErrResult,
+  type ErrResult,
   failUsage,
   failVerb,
   failWith,

@@ -7,11 +7,11 @@ import { createBrowseInput } from './browseInput'
 import {
   type BrowseDeps,
   type ConsoleEntry,
-  type MethodCtx,
-  type Params,
   commandTarget,
   errMessage,
   fail,
+  type MethodCtx,
+  type Params,
   str,
   waitFor,
 } from './browseMethod'

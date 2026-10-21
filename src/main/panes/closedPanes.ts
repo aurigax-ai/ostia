@@ -1,4 +1,4 @@
-import { SHORT_ID_LENGTH, ageLabel } from '../../shared/panes/paneStatus'
+import { ageLabel, SHORT_ID_LENGTH } from '../../shared/panes/paneStatus'
 
 export const PREFIX_MIN = SHORT_ID_LENGTH
 

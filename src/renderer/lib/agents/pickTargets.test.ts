@@ -1,5 +1,5 @@
-import type { LayoutNode, PaneNode } from '@/lib/layout/types'
 import { describe, expect, it } from 'vitest'
+import type { LayoutNode, PaneNode } from '@/lib/layout/types'
 import { pickTargets } from './pickTargets'
 
 function pane(id: string, kind: PaneNode['kind'], cwd?: string): PaneNode {

@@ -1,11 +1,17 @@
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { useKeymapStore } from '@/stores/app/keymapStore'
-import { useSettingsStore } from '@/stores/app/settingsStore'
 import { type ChordSpec, type KeyLike, parseChord } from '@shared/keyboard/chordSpec'
 import { parseKeymapBindings } from '@shared/keyboard/keymapFile'
 import { afterEach, describe, expect, it } from 'vitest'
+import { useKeymapStore } from '@/stores/app/keymapStore'
+import { useSettingsStore } from '@/stores/app/settingsStore'
 import { matchChord, matchChordInTerminal } from './chords'
+import {
+  NATURAL_TEXT_EDITING,
+  NATURAL_TEXT_EDITING_KEYS,
+  NO_TERMINAL_KEYMAP,
+  OSTIA_TERMINAL_KEYS,
+} from './keyboardPresets'
 import {
   currentTerminalKeys,
   presetKeys,
@@ -15,12 +21,6 @@ import {
   terminalKeyData,
   terminalKeyTable,
 } from './keyPresets'
-import {
-  NATURAL_TEXT_EDITING,
-  NATURAL_TEXT_EDITING_KEYS,
-  NO_TERMINAL_KEYMAP,
-  OSTIA_TERMINAL_KEYS,
-} from './keyboardPresets'
 
 const initialSettings = useSettingsStore.getState()
 const initialKeymap = useKeymapStore.getState()

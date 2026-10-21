@@ -1,5 +1,5 @@
-import type { CommandBlock } from '@/stores/terminal/blocksStore'
 import type { ShellHistoryEntry } from '@shared/terminal/ptyApi'
+import type { CommandBlock } from '@/stores/terminal/blocksStore'
 import { firstCommand } from './shellTokens'
 
 export interface HistoryFacts {

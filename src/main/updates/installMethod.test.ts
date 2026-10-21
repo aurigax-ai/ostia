@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import {
-  type InstallProbe,
   appBundleOf,
   detectInstallMethod,
+  type InstallProbe,
   replaceableAppDir,
   seededInstallMethod,
 } from './installMethod'

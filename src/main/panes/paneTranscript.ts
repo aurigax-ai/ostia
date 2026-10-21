@@ -4,7 +4,7 @@ import type { TailRead } from '../agents/transcriptFiles'
 import { registerControlMethod } from '../control/controlServer'
 import { SANDBOXED_REFUSAL } from '../sandbox/sandboxedCaller'
 import type { PaneEntry } from './paneList'
-import { type PaneReachDeps, ensurePaneReach, fail, paneTarget, record } from './paneReach'
+import { ensurePaneReach, fail, type PaneReachDeps, paneTarget, record } from './paneReach'
 
 const TRANSCRIPT_TURNS_MAX = 50
 const TAIL_BYTES = 4 * 1024 * 1024

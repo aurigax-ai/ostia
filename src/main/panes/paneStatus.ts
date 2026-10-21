@@ -1,10 +1,10 @@
 import { STALE_MAIL_MS, WAKE_BUDGET_MS } from '../../shared/agents/agentIssues'
 import { STATUS_MESSAGE_MAX } from '../../shared/agents/closingLine'
 import {
+  ageLabel,
   type PaneStateName,
   type PaneStatus,
   type PaneStatusChanges,
-  ageLabel,
 } from '../../shared/panes/paneStatus'
 import { mailCounts } from '../agents/busStore'
 import { type ControlMethodContext, registerControlMethod } from '../control/controlServer'
@@ -12,11 +12,11 @@ import { type PaneIdentity, resolveExternal } from '../control/idRegistry'
 import type { PaneJournal, StampedEvent } from './paneJournal'
 import type { PaneEntry } from './paneList'
 import {
-  PANE_REFS_MAX,
-  type PaneReachDeps,
   ensurePaneReach,
   fail,
   holdsPaneReach,
+  PANE_REFS_MAX,
+  type PaneReachDeps,
   paneRefs,
   paneTarget,
   record,

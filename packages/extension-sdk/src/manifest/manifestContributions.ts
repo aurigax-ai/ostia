@@ -4,10 +4,10 @@ import {
   AGENT_SKILL_NAME_PATTERN,
   type AgentHookContribution,
   type AgentSkillContribution,
-  MAX_AGENT_HOOKS,
-  MAX_AGENT_SKILLS,
-  MAX_AGENT_SKILL_FILES,
   isAgentHookEvent,
+  MAX_AGENT_HOOKS,
+  MAX_AGENT_SKILL_FILES,
+  MAX_AGENT_SKILLS,
 } from '../contract/agentPlugins'
 import { type AssistPoint, isAssistPoint } from '../contract/assist'
 import type { Capability } from '../contract/capabilities'
@@ -24,13 +24,13 @@ import {
 import { ICON_THEME_ID_PATTERN, type IconThemeContribution } from '../contract/iconTheme'
 import { isRecord } from '../contract/isRecord'
 import {
+  isKeymapPlatform,
   KEYMAP_LABEL_MAX,
   KEYMAP_PLATFORMS,
   type KeymapContribution,
-  isKeymapPlatform,
 } from '../contract/keymap'
 import { LANGUAGE_ID_PATTERN, type LanguageContribution } from '../contract/languagePack'
-import { type Snippet, parseSnippet } from '../contract/snippets'
+import { parseSnippet, type Snippet } from '../contract/snippets'
 import { isInsideDir } from './confinedRead'
 import { COMMAND_ID_PATTERN, capabilities, parseIcon, text } from './manifestFields'
 

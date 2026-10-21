@@ -4,10 +4,10 @@ import en from './locales/en.json'
 import zhHant from './locales/zh-Hant.json'
 import {
   type Block,
-  type Slide,
   documentOutlineHtml,
   outlineWords,
   presentationOutlineHtml,
+  type Slide,
 } from './outlineHtml'
 
 const WORDS = outlineWords(translatorFor({ en: en.messages }, 'en'))

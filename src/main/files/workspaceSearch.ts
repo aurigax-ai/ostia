@@ -10,7 +10,7 @@ import type {
 } from '../../shared/files/search'
 import { resolveSafe } from '../platform/pathGuard'
 import { fuzzyMatch } from './fuzzyPaths'
-import { type FileList, type RgOutcome, listFiles, searchText } from './ripgrep'
+import { type FileList, listFiles, type RgOutcome, searchText } from './ripgrep'
 
 export const QUERY_MAX = 1000
 const NAME_LIMIT = 50

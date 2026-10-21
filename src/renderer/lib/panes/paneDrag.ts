@@ -1,3 +1,5 @@
+import type { ScreenPoint } from '@shared/windows/windowsApi'
+import type { PanePlacement } from '@shared/workspaces/workspaceApi'
 import { commands } from '@/commands/registry'
 import type { DropZone } from '@/lib/layout/types'
 import {
@@ -8,8 +10,6 @@ import {
 } from '@/lib/workspaces/windowHandoff'
 import { usePaneDnd } from '@/stores/workspaces/paneDndStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
-import type { ScreenPoint } from '@shared/windows/windowsApi'
-import type { PanePlacement } from '@shared/workspaces/workspaceApi'
 import { endedOutside } from './dropZone'
 
 export const PANE_DND = 'application/x-ostia-pane'

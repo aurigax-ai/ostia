@@ -1,6 +1,6 @@
+import { flushSync } from 'react-dom'
 import type { CommandContext } from '@/commands/registry'
 import { focusSurface } from '@/stores/workspaces/surfaceSlotsStore'
-import { flushSync } from 'react-dom'
 
 function focusedPaneId(): string | undefined {
   return document.activeElement?.closest<HTMLElement>('.surface-host')?.dataset.paneId

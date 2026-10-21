@@ -1,5 +1,5 @@
 import { isRecord } from '@aurigax-ai/ostia-extension-sdk/contract/isRecord'
-import { type StreamEnd, type StreamEvent, lastTurns } from '../../shared/agents/agentStream'
+import { lastTurns, type StreamEnd, type StreamEvent } from '../../shared/agents/agentStream'
 import { codexNotification, codexTurn } from '../../shared/agents/codexStream'
 import type { CodexNotice, CodexRpc } from './codexRpc'
 import type { StreamSource } from './streamSource'

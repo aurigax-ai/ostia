@@ -1,11 +1,11 @@
+import { useEffect, useRef, useState } from 'react'
 import { useDict } from '@/lib/app/useDict'
 import { useSurfaceFocus } from '@/lib/panes/paneFocus'
 import {
-  type ReadOnlyTerminal,
   createReadOnlyTerminal,
+  type ReadOnlyTerminal,
   useReadOnlyTerminalBackground,
 } from '@/lib/terminal/readOnlyTerminal'
-import { useEffect, useRef, useState } from 'react'
 
 export function ManagerView({ paneId }: { paneId: string }): JSX.Element {
   const d = useDict()

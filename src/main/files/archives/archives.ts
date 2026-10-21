@@ -5,8 +5,8 @@ import {
 import { isArchivePath, parseArchivePath } from '../../../shared/archives/archivePaths'
 import type { FsBinaryResult, FsEntry, FsKind, FsTextResult } from '../../../shared/files/filesApi'
 import type { FileStat, VirtualSource } from '../fileSources'
-import { type EntryRead, closeFd, openRegular } from './archiveFile'
-import { type ArchiveTree, type EntryRef, buildTree } from './archiveTree'
+import { closeFd, type EntryRead, openRegular } from './archiveFile'
+import { type ArchiveTree, buildTree, type EntryRef } from './archiveTree'
 import type { BrowseProviders, BrowseTarget } from './browseProviders'
 
 const CACHED_ARCHIVES = 16

@@ -1,7 +1,7 @@
 import { commands } from '@/commands/registry'
 import { useDict } from '@/lib/app/useDict'
 import type { PaneNode } from '@/lib/layout/types'
-import { PANE_DND, beginPaneDrag, endPaneDrag } from '@/lib/panes/paneDrag'
+import { beginPaneDrag, endPaneDrag, PANE_DND } from '@/lib/panes/paneDrag'
 import { cn } from '@/lib/utils'
 import { usePaneRenameStore } from '@/stores/workspaces/paneRenameStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'

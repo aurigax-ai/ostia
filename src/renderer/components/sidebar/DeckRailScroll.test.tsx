@@ -1,8 +1,8 @@
 import '@testing-library/jest-dom/vitest'
-import type { Workspace } from '@/stores/workspaces/workspaceTypes'
-import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import { act, cleanup, fireEvent } from '@testing-library/react'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
+import type { Workspace } from '@/stores/workspaces/workspaceTypes'
 import { renderSettled } from '../../../../test/render'
 import { DeckRail } from './DeckRail'
 

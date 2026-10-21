@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { CHAT_EDITS_MAX, applyEdits, parseEdits } from './chatEdits'
+import { applyEdits, CHAT_EDITS_MAX, parseEdits } from './chatEdits'
 
 describe('parseEdits', () => {
   it('reads the edits list the tool schema describes', () => {

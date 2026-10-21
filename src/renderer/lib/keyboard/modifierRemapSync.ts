@@ -1,5 +1,5 @@
-import { useSettingsStore } from '@/stores/app/settingsStore'
 import type { ModifierRemap } from '@shared/keyboard/modifierRemap'
+import { useSettingsStore } from '@/stores/app/settingsStore'
 import { installModifierRemap, setActiveModifierRemap } from './modifierRemapEvents'
 
 export function startModifierRemap(mac: boolean): () => void {

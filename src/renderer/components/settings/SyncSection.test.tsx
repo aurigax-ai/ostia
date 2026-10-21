@@ -1,8 +1,8 @@
-import { useSettingsStore } from '@/stores/app/settingsStore'
 import type { SyncStatus } from '@shared/profileSync/profileSync'
 import { act, cleanup, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import { useSettingsStore } from '@/stores/app/settingsStore'
 import { renderSettled } from '../../../../test/render'
 import { SyncSection } from './SyncSection'
 

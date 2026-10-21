@@ -1,5 +1,5 @@
 import type { MessageConnection } from 'vscode-jsonrpc/node'
-import { type PaneStatus, ageLabel, shortId, statusLine } from '../../shared/panes/paneStatus'
+import { ageLabel, type PaneStatus, shortId, statusLine } from '../../shared/panes/paneStatus'
 import { parseArgs, parseTimeoutSeconds } from '../common/args'
 import { resolveWorkspaceRef } from '../common/crossWorkspace'
 import { commandLabel, failWith } from '../common/failure'

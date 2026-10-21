@@ -1,11 +1,11 @@
+import {
+  parseRemotePath,
+  type RemoteFileError,
+} from '@aurigax-ai/ostia-extension-sdk/contract/remoteFolders'
 import { StatusLine } from '@/components/common/StatusLine'
 import { Badge } from '@/components/ui/badge'
 import { fmt, useDict } from '@/lib/app/useDict'
 import { remoteFolderOf, useRemoteFoldersStore } from '@/stores/files/remoteFoldersStore'
-import {
-  type RemoteFileError,
-  parseRemotePath,
-} from '@aurigax-ai/ostia-extension-sdk/contract/remoteFolders'
 
 export function RemoteFileBar({
   filePath,

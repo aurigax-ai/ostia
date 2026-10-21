@@ -1,8 +1,8 @@
+import { parseRemotePath } from '@aurigax-ai/ostia-extension-sdk/contract/remoteFolders'
 import { langFor } from '@/lib/monaco/language'
 import { holdModel } from '@/lib/monaco/modelHolds'
 import { monaco } from '@/lib/monaco/setup'
 import { useEditorStatus } from '@/stores/files/editorStatusStore'
-import { parseRemotePath } from '@aurigax-ai/ostia-extension-sdk/contract/remoteFolders'
 
 export const savedVersions = new Map<string, number>()
 export const diskBase = new Map<string, string | null>()

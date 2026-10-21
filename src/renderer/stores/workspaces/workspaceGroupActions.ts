@@ -1,8 +1,9 @@
+import { normalizeGroupName } from '@shared/workspaces/workspaceGroups'
 import {
-  type Grouping,
   applyDrop,
   createGroup,
   deleteGroup,
+  type Grouping,
   joinGroup,
   leaveGroup,
   moveWorkspaceBy,
@@ -10,7 +11,6 @@ import {
   pinWorkspace,
 } from '@/lib/sidebar/workspaceGroups'
 import { workspaceTitle } from '@/lib/workspaces/workspaceTitle'
-import { normalizeGroupName } from '@shared/workspaces/workspaceGroups'
 import type { Workspace, WorkspacesGet, WorkspacesSet, WorkspacesState } from './workspaceTypes'
 
 export function grouping(s: WorkspacesState): Grouping<Workspace> {

@@ -1,3 +1,5 @@
+import { CaretDownIcon, CaretUpIcon, XIcon } from '@phosphor-icons/react'
+import { type KeyboardEvent, type MutableRefObject, type ReactNode, useEffect, useRef } from 'react'
 import {
   InputGroup,
   InputGroupAddon,
@@ -5,10 +7,8 @@ import {
   InputGroupText,
 } from '@/components/ui/input-group'
 import { useDict } from '@/lib/app/useDict'
-import { type KeyLike, findStep, matchChord } from '@/lib/keyboard/chords'
+import { findStep, type KeyLike, matchChord } from '@/lib/keyboard/chords'
 import { isMac } from '@/platform'
-import { CaretDownIcon, CaretUpIcon, XIcon } from '@phosphor-icons/react'
-import { type KeyboardEvent, type MutableRefObject, type ReactNode, useEffect, useRef } from 'react'
 import { IconButton } from './IconButton'
 
 export function findStatus(

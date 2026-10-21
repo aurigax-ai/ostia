@@ -1,8 +1,8 @@
 import {
   mkdirSync,
   mkdtempSync,
-  readFileSync,
   readdirSync,
+  readFileSync,
   rmSync,
   statSync,
   symlinkSync,
@@ -14,11 +14,11 @@ import { ipcMain } from 'electron'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { parse } from 'yaml'
 import {
-  SNIPPET_FILE_MAX_BYTES,
   loadSnippets,
   parseSnippetFile,
   readSnippetDir,
   registerSnippetIpc,
+  SNIPPET_FILE_MAX_BYTES,
   saveSnippet,
   workspaceSnippetsDir,
 } from './snippets'

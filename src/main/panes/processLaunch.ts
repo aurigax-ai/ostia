@@ -4,11 +4,11 @@ import { ErrorCodes, ResponseError } from 'vscode-jsonrpc/node'
 import { resumeFlags } from '../../shared/agents/agentLaunch'
 import { isResumableAgent } from '../../shared/agents/agentResume'
 import { MANAGER_AGENT_NAME } from '../../shared/agents/managerSettings'
-import { type ChangeSignal, type Subscribe, anyOf } from '../../shared/common/actThenConfirm'
+import { anyOf, type ChangeSignal, type Subscribe } from '../../shared/common/actThenConfirm'
 import {
+  normalizeSplitTabName,
   SPLIT_TAB_NAME_MAX,
   type SplitTabPlacement,
-  normalizeSplitTabName,
 } from '../../shared/workspaces/splitTabs'
 import type { Reach } from '../approvals/reach'
 import type { ControlMethodContext } from '../control/controlServer'
@@ -17,11 +17,11 @@ import type { TerminalOpenRequest } from '../extensions/extensionRuns'
 import { SANDBOXED_REFUSAL } from '../sandbox/sandboxedCaller'
 import type { ProcessEntry, ProcessRegistry } from './processRegistry'
 import {
+  confirmStart,
+  confirmTurn,
   START_TIMING,
   type StartReport,
   type StartTiming,
-  confirmStart,
-  confirmTurn,
   startMessage,
 } from './startConfirm'
 

@@ -1,6 +1,6 @@
+import { useEffect, useSyncExternalStore } from 'react'
 import { motionMode } from '@/stores/app/settingsModel'
 import { useSettingsStore } from '@/stores/app/settingsStore'
-import { useEffect, useSyncExternalStore } from 'react'
 
 const REDUCED_MOTION_QUERY = '(prefers-reduced-motion: reduce)'
 

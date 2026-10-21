@@ -1,6 +1,6 @@
+import type { ChatFsError } from '@shared/assist/chatTools'
 import { saveSession } from '@/stores/assist/chatStore'
 import { type ChatEditRecord, nextSeq, useChatToolsStore } from '@/stores/assist/chatToolsStore'
-import type { ChatFsError } from '@shared/assist/chatTools'
 import { restoreFile } from './chatReview'
 
 interface MessageLike {

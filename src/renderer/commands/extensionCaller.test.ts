@@ -2,12 +2,13 @@ import { readFileSync } from 'node:fs'
 import { createConnection } from 'node:net'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
+import { createTranslator } from '@aurigax-ai/ostia-extension-sdk'
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
+  createMessageConnection,
   type MessageConnection,
   StreamMessageReader,
   StreamMessageWriter,
-  createMessageConnection,
 } from 'vscode-jsonrpc/node'
 
 const ipcHandlers = new Map<string, (...args: unknown[]) => unknown>()
@@ -83,6 +84,7 @@ const seen: Caller[] = []
 const confirm = vi.fn(async () => false)
 const openTerminal = vi.fn(async () => ({ ok: true as const, paneId: 'p-new' }))
 const ssh = sshCommands({
+  translate: createTranslator(resolve(__dirname, '../../extensions/ssh')),
   discover: () => ({ hosts: [] }) as never,
   run: async () => ({
     code: 0,

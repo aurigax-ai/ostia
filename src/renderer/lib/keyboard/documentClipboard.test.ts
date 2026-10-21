@@ -1,6 +1,6 @@
-import { useSettingsStore } from '@/stores/app/settingsStore'
 import { parseChord } from '@shared/keyboard/chordSpec'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { useSettingsStore } from '@/stores/app/settingsStore'
 import {
   documentEdit,
   handleDocumentClipboardChord,

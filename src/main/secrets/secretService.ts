@@ -1,4 +1,4 @@
-import { readFileSync, readdirSync, statSync } from 'node:fs'
+import { readdirSync, readFileSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 import type { ApprovalOutcome } from '../../shared/permissions/approvals'
 import type { SecretEntry } from '../../shared/sandbox/secrets'

@@ -3,8 +3,8 @@ import {
   existsSync,
   mkdirSync,
   mkdtempSync,
-  readFileSync,
   readdirSync,
+  readFileSync,
   realpathSync,
   rmSync,
   statSync,
@@ -23,10 +23,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { makeTar, makeZip } from '../../../test/fixtures/lsp/archives'
 import {
   DOWNLOAD_BASE_URL_ENV,
+  downloadBaseUrl,
   FetchError,
   ManagedServers,
   type ManagedServersDeps,
-  downloadBaseUrl,
 } from './managedServers'
 
 const FAKE_BIN = resolve(__dirname, '../../../test/fixtures/lsp/bin')

@@ -1,8 +1,8 @@
+import { type DragEvent, type HTMLAttributes, type KeyboardEvent, useState } from 'react'
 import { parentOf } from '@/lib/files/fileTree'
 import { copyInto, importInto, moveInto } from '@/lib/files/fileTreeActions'
 import { isMac } from '@/platform'
 import { useFileTreeStore } from '@/stores/files/fileTreeStore'
-import { type DragEvent, type HTMLAttributes, type KeyboardEvent, useState } from 'react'
 import type { TreeVisibility } from './FileMenu'
 import type { TreeContext } from './fileTreeContext'
 

@@ -1,6 +1,3 @@
-import { sourceLinesOf, trackSelection } from '@/lib/browser/domSelection'
-import { findStep, matchChord } from '@/lib/keyboard/chords'
-import { isMac } from '@/platform'
 import {
   type KeyboardEvent,
   type MutableRefObject,
@@ -11,6 +8,9 @@ import {
 } from 'react'
 import Markdown, { type Components } from 'react-markdown'
 import remarkGfm from 'remark-gfm'
+import { sourceLinesOf, trackSelection } from '@/lib/browser/domSelection'
+import { findStep, matchChord } from '@/lib/keyboard/chords'
+import { isMac } from '@/platform'
 import { DocumentFind } from './DocumentFind'
 import { MermaidDiagram } from './MermaidDiagram'
 
@@ -46,7 +46,7 @@ function textOf(node: HastNode & { value?: string }): string {
 
 function mermaidSource(pre: HastNode | undefined): string | null {
   const code = pre?.children?.[0] as (HastNode & { tagName?: string }) | undefined
-  if (!code || code.tagName !== 'code') return null
+  if (code?.tagName !== 'code') return null
   const classes = code.properties?.className
   const names = Array.isArray(classes) ? classes : []
   return names.includes('language-mermaid') ? textOf(code).replace(/\n$/, '') : null

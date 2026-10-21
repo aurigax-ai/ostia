@@ -1,12 +1,3 @@
-import { IconButton } from '@/components/common/IconButton'
-import { extensionIcon } from '@/components/extensions/extensionIcons'
-import { Button } from '@/components/ui/button'
-import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/input-group'
-import { ScrollArea } from '@/components/ui/scroll-area'
-import { useDict } from '@/lib/app/useDict'
-import { firstMatchControl } from '@/lib/settings/settingsSearch'
-import { SETTINGS_GROUPS, extensionPageResultId, pageTitle } from '@/lib/settings/settingsSections'
-import { cn } from '@/lib/utils'
 import {
   CaretRightIcon,
   FileCodeIcon,
@@ -14,6 +5,15 @@ import {
   MagnifyingGlassIcon,
 } from '@phosphor-icons/react'
 import { Fragment, type RefObject, useRef } from 'react'
+import { IconButton } from '@/components/common/IconButton'
+import { extensionIcon } from '@/components/extensions/extensionIcons'
+import { Button } from '@/components/ui/button'
+import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/input-group'
+import { ScrollArea } from '@/components/ui/scroll-area'
+import { useDict } from '@/lib/app/useDict'
+import { firstMatchControl } from '@/lib/settings/settingsSearch'
+import { extensionPageResultId, pageTitle, SETTINGS_GROUPS } from '@/lib/settings/settingsSections'
+import { cn } from '@/lib/utils'
 import type { NavChild, SettingsNavigation } from './useSettingsNavigation'
 
 export function SettingsNav({

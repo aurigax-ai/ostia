@@ -1,13 +1,13 @@
+import { act, cleanup, render, screen, waitFor } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import type { Terminal } from '@xterm/xterm'
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createPane } from '@/lib/layout/tree'
 import { registerTerminal } from '@/lib/terminal/terminalHandles'
 import { useAgentOfferStore } from '@/stores/agents/agentOfferStore'
 import { useBlocksStore } from '@/stores/terminal/blocksStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
-import { act, cleanup, render, screen, waitFor } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
-import type { Terminal } from '@xterm/xterm'
-import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { AgentOfferDialog } from './AgentOfferDialog'
 
 const OFFER = {

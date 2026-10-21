@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { PRIMARY_WRITE_DELAY_MS, installPrimarySelection } from './primarySelection'
+import { installPrimarySelection, PRIMARY_WRITE_DELAY_MS } from './primarySelection'
 
 function fakeTerm(selection: string) {
   let listener: (() => void) | null = null

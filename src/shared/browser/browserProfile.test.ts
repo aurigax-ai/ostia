@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import {
-  SHARED_BROWSER_PARTITION,
   browserPartition,
   browserProfileFor,
   isIsolatedBrowserPartition,
   parseBrowserProfile,
+  SHARED_BROWSER_PARTITION,
 } from './browserProfile'
 
 describe('browserProfileFor', () => {

@@ -2,13 +2,14 @@ import { isRecord } from '@aurigax-ai/ostia-extension-sdk/contract/isRecord'
 import { childPath } from '../common/jsonLocated'
 import { bindingsOf, compileTemplate, hasBindings, isIdentifier, parsePath } from './viewBindings'
 import {
+  isHttpUrl,
   NODE_KEYS,
   type NodeBase,
   VIEW_ARGS_MAX,
   VIEW_BUTTON_VARIANTS,
   VIEW_GAPS,
-  VIEW_ICONS,
   VIEW_ICON_TONES,
+  VIEW_ICONS,
   VIEW_JUSTIFY,
   VIEW_KV_MAX,
   VIEW_MAX_DEPTH,
@@ -29,7 +30,6 @@ import {
   type ViewProblem,
   type ViewSource,
   type ViewTone,
-  isHttpUrl,
 } from './views'
 
 const VIEW_PROBLEMS_MAX = 50

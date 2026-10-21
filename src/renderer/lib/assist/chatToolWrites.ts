@@ -1,20 +1,20 @@
-import { knownVersion, nextSeq, useChatToolsStore } from '@/stores/assist/chatToolsStore'
-import { useEditorStatus } from '@/stores/files/editorStatusStore'
 import { parseEdits } from '@shared/assist/chatEdits'
 import {
   type BuiltinChatTool,
   CHAT_DIRTY_PATHS_MAX,
   type ChatFsFailure,
 } from '@shared/assist/chatTools'
+import { knownVersion, nextSeq, useChatToolsStore } from '@/stores/assist/chatToolsStore'
+import { useEditorStatus } from '@/stores/files/editorStatusStore'
 import { contentWith, editHunks, hunkCounts, settle } from './chatHunks'
 import {
   DENIED,
-  type ToolOutcome,
-  type ToolRun,
   fsError,
   gate,
   pathOf,
   readsOutside,
+  type ToolOutcome,
+  type ToolRun,
 } from './chatToolGate'
 
 function writeFailure(run: ToolRun, failure: ChatFsFailure, path: string): ToolOutcome {

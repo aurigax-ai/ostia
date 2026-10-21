@@ -1,3 +1,5 @@
+import { PlusIcon, TerminalWindowIcon } from '@phosphor-icons/react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { commands } from '@/commands/registry'
 import { DashboardPanel } from '@/components/agents/DashboardPanel'
 import { ChordButton } from '@/components/common/ChordButton'
@@ -12,8 +14,6 @@ import { useSettingsStore } from '@/stores/app/settingsStore'
 import { coversWorkspaces, useUIStore } from '@/stores/app/uiStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
-import { PlusIcon, TerminalWindowIcon } from '@phosphor-icons/react'
-import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 
 export function WorkZone(): JSX.Element {
   const workspaces = useWorkspacesStore((s) => s.workspaces)
@@ -63,7 +63,10 @@ export function WorkZone(): JSX.Element {
 function WorkspaceLayer({
   workspaceId,
   active,
-}: { workspaceId: string; active: boolean }): JSX.Element {
+}: {
+  workspaceId: string
+  active: boolean
+}): JSX.Element {
   const ref = useRef<HTMLDivElement>(null)
   useLayoutEffect(() => {
     if (ref.current) ref.current.inert = !active

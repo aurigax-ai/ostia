@@ -1,3 +1,7 @@
+import { CaretDownIcon, CaretRightIcon } from '@phosphor-icons/react'
+import type { Dict } from '@shared/app/dict'
+import type { ViewDoc, ViewGap, ViewInfo, ViewTone } from '@shared/views/views'
+import { useMemo, useRef, useState } from 'react'
 import { Hint } from '@/components/common/Hint'
 import { Notice } from '@/components/common/Notice'
 import { TextLink } from '@/components/common/TextLink'
@@ -8,14 +12,10 @@ import { Separator } from '@/components/ui/separator'
 import { fmt, useDict } from '@/lib/app/useDict'
 import { cn } from '@/lib/utils'
 import { useViewScope } from '@/lib/views/useViewScope'
-import { type BudgetProblem, type RenderNode, expandView } from '@/lib/views/viewExpand'
+import { type BudgetProblem, expandView, type RenderNode } from '@/lib/views/viewExpand'
 import { runViewAction } from '@/lib/views/views'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
-import { CaretDownIcon, CaretRightIcon } from '@phosphor-icons/react'
-import type { Dict } from '@shared/app/dict'
-import type { ViewDoc, ViewGap, ViewInfo, ViewTone } from '@shared/views/views'
-import { useMemo, useRef, useState } from 'react'
 import { viewIcon } from './viewIcons'
 
 export type ViewDensity = 'rail' | 'pane'
@@ -241,6 +241,7 @@ function Node({ node, ctx }: { node: RenderNode; ctx: RenderContext }): JSX.Elem
       return (
         <dl className="grid min-w-0 grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 text-ui-sm">
           {node.items.map((pair, i) => (
+            // biome-ignore lint/suspicious/noArrayIndexKey: the index tells repeated entries apart and the list is rebuilt, never reordered
             <div key={`${pair.key}-${i}`} className="contents">
               <dt className="truncate text-fg-muted">{pair.key}</dt>
               <dd className="min-w-0 truncate text-fg tabular-nums">{pair.value}</dd>

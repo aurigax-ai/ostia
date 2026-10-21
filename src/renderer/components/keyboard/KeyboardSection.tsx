@@ -1,3 +1,14 @@
+import { PlusIcon } from '@phosphor-icons/react'
+import type { Dict } from '@shared/app/dict'
+import { type ChordSpec, chordText, overlaps } from '@shared/keyboard/chordSpec'
+import {
+  isIdentityRemap,
+  REMAP_KEYS,
+  REMAP_TARGETS,
+  type RemapTarget,
+  remapTarget,
+} from '@shared/keyboard/modifierRemap'
+import { Fragment, useState, useSyncExternalStore } from 'react'
 import { commands } from '@/commands/registry'
 import { Segmented } from '@/components/common/Segmented'
 import { ControlRow } from '@/components/settingsKit/ControlRow'
@@ -17,24 +28,13 @@ import { isMac, platform } from '@/platform'
 import { appKeymap, keymapChoices, useKeymapStore } from '@/stores/app/keymapStore'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
-import { PlusIcon } from '@phosphor-icons/react'
-import type { Dict } from '@shared/app/dict'
-import { type ChordSpec, chordText, overlaps } from '@shared/keyboard/chordSpec'
-import {
-  REMAP_KEYS,
-  REMAP_TARGETS,
-  type RemapTarget,
-  isIdentityRemap,
-  remapTarget,
-} from '@shared/keyboard/modifierRemap'
-import { Fragment, useState, useSyncExternalStore } from 'react'
 import { ChangesView, useChangeTotal } from './ChangesView'
-import { KeySearch, boundTo } from './KeySearch'
 import { KeybindingRow } from './KeybindingRow'
 import { KeymapCombo } from './KeymapCombo'
+import { boundTo, KeySearch } from './KeySearch'
+import { commandTitle, KEY_TABLE_COLUMNS, sendText, terminalKeymapLabel } from './keyboardLabels'
 import { TerminalKeyEditor } from './TerminalKeyEditor'
 import { TerminalKeyLine } from './TerminalKeyLine'
-import { KEY_TABLE_COLUMNS, commandTitle, sendText, terminalKeymapLabel } from './keyboardLabels'
 
 const subscribeCommands = (cb: () => void): (() => void) => commands.subscribe(cb)
 

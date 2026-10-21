@@ -230,8 +230,8 @@
   :root[data-keyboard-nav] [data-focus-ring="within"]:has(:focus-visible),
   :read-write:focus-visible,
   [data-slot="input-group"]:has(.input-group-control:focus-visible):not(
-      [data-slot="combobox-content"] *
-    ) {
+    [data-slot="combobox-content"] *
+  ) {
     outline: 2px solid var(--brand);
     outline-offset: 1px;
   }
@@ -500,8 +500,9 @@
   color: var(--fg-muted);
   font-size: var(--text-ui-sm);
   font-weight: var(--font-weight-medium);
-  transition: background-color var(--motion-fast) var(--ease-out), color var(--motion-fast)
-    var(--ease-out);
+  transition:
+    background-color var(--motion-fast) var(--ease-out),
+    color var(--motion-fast) var(--ease-out);
   animation: zoom-chip-in var(--motion-base) var(--ease-out);
 }
 
@@ -1290,8 +1291,9 @@
   background: none;
   color: var(--fg-muted);
   font: inherit;
-  transition: color var(--motion-fast) var(--ease-out), background-color var(--motion-fast)
-    var(--ease-out);
+  transition:
+    color var(--motion-fast) var(--ease-out),
+    background-color var(--motion-fast) var(--ease-out);
 }
 
 .rail-meta-more:hover,
@@ -1953,8 +1955,9 @@
   padding-right: 4px;
   border-right: 1px solid var(--line);
   color: var(--fg-muted);
-  transition: background-color var(--motion-fast) var(--ease-out), color var(--motion-fast)
-    var(--ease-out);
+  transition:
+    background-color var(--motion-fast) var(--ease-out),
+    color var(--motion-fast) var(--ease-out);
 }
 
 .pane-tab:hover {
@@ -2171,8 +2174,9 @@
   min-width: var(--tab-min-w);
   max-width: var(--tab-max-w);
   padding-right: 2px;
-  transition: background-color var(--motion-fast) var(--ease-out), color var(--motion-fast)
-    var(--ease-out);
+  transition:
+    background-color var(--motion-fast) var(--ease-out),
+    color var(--motion-fast) var(--ease-out);
 }
 
 .split-tab-head + .split-tab-segment {
@@ -3849,8 +3853,9 @@ button.prompt-chip:hover {
 }
 
 .pane-chip-action {
-  transition: color var(--motion-fast) var(--ease-out), border-color var(--motion-fast)
-    var(--ease-out);
+  transition:
+    color var(--motion-fast) var(--ease-out),
+    border-color var(--motion-fast) var(--ease-out);
 }
 
 .pane-chip-action:hover {
@@ -4658,8 +4663,8 @@ button.prompt-chip:hover {
 }
 
 .viewer-canvas {
-  background: repeating-conic-gradient(var(--surface-2) 0% 25%, var(--surface-3) 0% 50%) 0 0 / 16px
-    16px;
+  background:
+    repeating-conic-gradient(var(--surface-2) 0% 25%, var(--surface-3) 0% 50%) 0 0 / 16px 16px;
   outline: none;
 }
 

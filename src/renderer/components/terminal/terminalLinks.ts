@@ -1,15 +1,16 @@
+import type { IBufferRange } from '@xterm/xterm'
 import { isPaneVisible } from '@/lib/attention/workspaceActivity'
 import { openBrowserAs, openBrowserTabAs } from '@/lib/browser/browserProfile'
 import { measureCells } from '@/lib/prompt/usePromptGeometry'
 import type { OstiaTerminal, WebLinkHandler } from '@/lib/terminal/ostiaTerminal'
 import { createLinkHint } from '@/lib/terminalLinks/linkHint'
 import {
-  type LinkKind,
-  type PathLinkTarget,
   attachLinkClaim,
   attachLinkModifier,
+  type LinkKind,
   linkModifierHeld,
   linkSpan,
+  type PathLinkTarget,
   pathLinkTarget,
   terminalLinkTarget,
 } from '@/lib/terminalLinks/linkModifier'
@@ -21,16 +22,15 @@ import {
   withFileUrls,
 } from '@/lib/terminalLinks/terminalFileUrls'
 import {
-  type LinkPane,
   activateFileLink,
   activateFileUrl,
   fileUrlPreviews,
+  type LinkPane,
   linkRevealable,
   linksConfinedOnly,
 } from '@/lib/terminalLinks/terminalLinkActions'
 import { isMac } from '@/platform'
 import { useSettingsStore } from '@/stores/app/settingsStore'
-import type { IBufferRange } from '@xterm/xterm'
 import type { LinkHintBox } from './TerminalLinkHint'
 import type { TerminalSession } from './terminalSession'
 

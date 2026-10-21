@@ -1,4 +1,8 @@
 import '@testing-library/jest-dom/vitest'
+import type { AssistCatalog, AssistChunk } from '@aurigax-ai/ostia-extension-sdk/contract/assist'
+import { act, cleanup, render, screen, waitFor, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { registerBuiltinCommands } from '@/commands/builtins'
 import { commands } from '@/commands/registry'
 import { CommandPalette } from '@/components/palette/CommandPalette'
@@ -14,10 +18,6 @@ import {
 import { modeFor, resetChatTools } from '@/stores/assist/chatToolsStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
-import type { AssistCatalog, AssistChunk } from '@aurigax-ai/ostia-extension-sdk/contract/assist'
-import { act, cleanup, render, screen, waitFor, within } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
-import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ChatPane } from './ChatPane'
 
 vi.mock('@/lib/theme/colorize', () => ({ colorizeCode: async () => null }))

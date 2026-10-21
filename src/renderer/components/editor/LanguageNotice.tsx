@@ -1,3 +1,7 @@
+import type { LanguageServerInfo } from '@aurigax-ai/ostia-extension-sdk/contract/languageServers'
+import type { ExtensionSuggestion } from '@shared/extensions/extensionSuggestions'
+import type { MarketplaceError } from '@shared/extensions/marketplace'
+import { useEffect, useState } from 'react'
 import { StatusAction, StatusLine, useDismissed } from '@/components/common/StatusLine'
 import { fmt, useDict } from '@/lib/app/useDict'
 import { fileLanguage } from '@/lib/monaco/language'
@@ -5,10 +9,6 @@ import { useUIStore } from '@/stores/app/uiStore'
 import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
 import { useLanguageNoticeStore } from '@/stores/extensions/languageNoticeStore'
 import { useLanguageServersStore } from '@/stores/extensions/languageServersStore'
-import type { LanguageServerInfo } from '@aurigax-ai/ostia-extension-sdk/contract/languageServers'
-import type { ExtensionSuggestion } from '@shared/extensions/extensionSuggestions'
-import type { MarketplaceError } from '@shared/extensions/marketplace'
-import { useEffect, useState } from 'react'
 
 const SERVER_NOTICES = [
   'downloading',

@@ -1,7 +1,7 @@
 import { readFileSync, realpathSync, statSync } from 'node:fs'
 import { dirname, isAbsolute, join, resolve } from 'node:path'
 import type { ReachMode } from '../../shared/permissions/reach'
-import { type WorkspaceSandbox, sandboxMergeRefusal } from '../../shared/sandbox/sandbox'
+import { sandboxMergeRefusal, type WorkspaceSandbox } from '../../shared/sandbox/sandbox'
 import { expandHome, isInsidePath } from '../platform/pathGuard'
 
 interface ScopeGroup {

@@ -1,3 +1,4 @@
+import type { ChatContextItem } from '@aurigax-ai/ostia-extension-sdk/contract/assist'
 import { currentDict } from '@/lib/app/useDict'
 import { fileAttachment } from '@/lib/assist/askContext'
 import { agentAttachmentKey, ensureAgentSession } from '@/stores/agent/agentStore'
@@ -5,7 +6,6 @@ import { useUIStore } from '@/stores/app/uiStore'
 import { useChatStore } from '@/stores/assist/chatStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
-import type { ChatContextItem } from '@aurigax-ai/ostia-extension-sdk/contract/assist'
 
 export function openAgentPane(workspaceId?: string | null): string | null {
   const workspaces = useWorkspacesStore.getState()

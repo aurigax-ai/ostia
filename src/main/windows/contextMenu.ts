@@ -1,4 +1,4 @@
-import { BrowserWindow, Menu, type WebContents, clipboard } from 'electron'
+import { BrowserWindow, clipboard, Menu, type WebContents } from 'electron'
 import {
   type ContextActions,
   type ContextMenuText,

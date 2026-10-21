@@ -1,6 +1,6 @@
+import { useCallback, useLayoutEffect, useRef } from 'react'
 import type { PaneNode } from '@/lib/layout/types'
 import { mountSurface, parkSurface } from '@/stores/workspaces/surfaceSlotsStore'
-import { useCallback, useLayoutEffect, useRef } from 'react'
 
 export function TabBody({ pane, shown }: { pane: PaneNode; shown: boolean }): JSX.Element | null {
   const slotEl = useRef<HTMLDivElement | null>(null)

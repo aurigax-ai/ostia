@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
-import { MAX_AGENT_HOOKS, MAX_AGENT_SKILLS, MAX_AGENT_SKILL_FILES } from '../contract/agentPlugins'
+import { MAX_AGENT_HOOKS, MAX_AGENT_SKILL_FILES, MAX_AGENT_SKILLS } from '../contract/agentPlugins'
 import { EXTENSION_API_VERSION } from '../contract/extensionApi'
 import { discoverExtensions, parseManifest, readManifest } from './extensionManifest'
 

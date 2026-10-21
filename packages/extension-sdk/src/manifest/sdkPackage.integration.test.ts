@@ -4,8 +4,8 @@ import {
   existsSync,
   mkdirSync,
   mkdtempSync,
-  readFileSync,
   readdirSync,
+  readFileSync,
   rmSync,
   symlinkSync,
   writeFileSync,
@@ -17,7 +17,7 @@ import { EXTENSION_API_VERSION } from '../contract/extensionApi'
 import { parseManifest } from './extensionManifest'
 import { extensionManifestSchema, marketplaceManifestSchema } from './manifestSchema'
 import { MARKETPLACE_CODE_PATTERN, MARKETPLACE_MANIFEST_FILE } from './marketplaceManifest'
-import { SDK_CLI_USAGE, newInstallCode, runSdkCli } from './sdkCli'
+import { newInstallCode, runSdkCli, SDK_CLI_USAGE } from './sdkCli'
 
 const packageDir = resolve(__dirname, '../..')
 const sdkPackage = resolve(packageDir, '../../out/sdk')

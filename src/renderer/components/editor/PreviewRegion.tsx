@@ -1,9 +1,9 @@
+import type { Region } from '@shared/browser/selection'
+import { type PointerEvent, useEffect, useRef, useState } from 'react'
 import { MenuItem } from '@/components/common/Menu'
 import { SplitButton, SplitButtonMenu } from '@/components/common/SplitButton'
 import { Button } from '@/components/ui/button'
 import { useDict } from '@/lib/app/useDict'
-import type { Region } from '@shared/browser/selection'
-import { type PointerEvent, useEffect, useRef, useState } from 'react'
 
 const REGION_MIN = 4
 

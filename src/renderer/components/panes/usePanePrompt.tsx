@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { ApprovalPrompt } from '@/components/agents/ApprovalCard'
 import { QuestionPrompt } from '@/components/agents/QuestionCard'
 import { resumeConflict } from '@/lib/agents/resumeFolder'
@@ -16,7 +17,6 @@ import {
 import { useQuestionsStore } from '@/stores/agents/questionsStore'
 import { useBlocksStore } from '@/stores/terminal/blocksStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
-import { useEffect } from 'react'
 import {
   FolderTrustPrompt,
   ResumeConflictPrompt,

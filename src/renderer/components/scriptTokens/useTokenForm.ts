@@ -1,5 +1,3 @@
-import { useDict } from '@/lib/app/useDict'
-import { fmt } from '@/lib/app/useDict'
 import type { Capability } from '@aurigax-ai/ostia-extension-sdk/contract/capabilities'
 import type { Dict } from '@shared/app/dict'
 import {
@@ -10,15 +8,16 @@ import {
   type ScriptTokenInfo,
   type ScriptTokenSaveResult,
   type ScriptTokenScope,
-  type ScriptTokenUpdateInput,
   type ScriptTokensState,
+  type ScriptTokenUpdateInput,
 } from '@shared/permissions/scriptTokens'
 import { useState } from 'react'
+import { fmt, useDict } from '@/lib/app/useDict'
 import {
   knownScope,
   presetOf,
-  reachText,
   reachedCount,
+  reachText,
   sameScope,
   sameSet,
   shownCaps,

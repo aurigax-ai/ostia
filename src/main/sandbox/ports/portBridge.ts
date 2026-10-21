@@ -1,6 +1,6 @@
 import { randomBytes } from 'node:crypto'
 import { mkdirSync, rmSync } from 'node:fs'
-import { type Server, type Socket, createServer } from 'node:net'
+import { createServer, type Server, type Socket } from 'node:net'
 import { join } from 'node:path'
 import { quoteArg } from '../../../shared/terminal/shellQuote'
 

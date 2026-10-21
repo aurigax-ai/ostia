@@ -1,6 +1,6 @@
+import type { CSSProperties, ReactNode, RefObject } from 'react'
 import { type ShellToken, tokenizeShell } from '@/lib/prompt/shellTokens'
 import type { Ghost } from '@/lib/prompt/terminalGhost'
-import type { CSSProperties, ReactNode, RefObject } from 'react'
 
 function unescapeWord(word: string): string {
   return word.replace(/\\(.)/g, '$1')

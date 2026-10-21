@@ -1,8 +1,8 @@
-import { type WorkspaceSandbox, emptyWorkspaceSandbox } from '@shared/sandbox/sandbox'
+import { emptyWorkspaceSandbox, type WorkspaceSandbox } from '@shared/sandbox/sandbox'
 import { describe, expect, it } from 'vitest'
 import {
-  type MergeSide,
   inferHome,
+  type MergeSide,
   mergeOptions,
   mergeRefusal,
   workspacePath,

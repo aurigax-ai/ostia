@@ -1,9 +1,9 @@
+import { ArrowSquareInIcon } from '@phosphor-icons/react'
 import { IconButton } from '@/components/common/IconButton'
 import { useDict } from '@/lib/app/useDict'
 import { returnToMainWindow } from '@/lib/workspaces/windowHandoff'
 import { workspaceTitle } from '@/lib/workspaces/workspaceTitle'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
-import { ArrowSquareInIcon } from '@phosphor-icons/react'
 
 export function DetachedTitleBar(): JSX.Element {
   const d = useDict()

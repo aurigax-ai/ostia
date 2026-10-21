@@ -12,20 +12,20 @@ import usersThree from '@phosphor-icons/core/regular/users-three.svg'
 import warningCircle from '@phosphor-icons/core/regular/warning-circle.svg'
 import wrench from '@phosphor-icons/core/regular/wrench.svg'
 import type { ToolKind } from './hookEvent'
-import { type Item, type Row, createPatcher, setAttr, setText } from './listPatch'
+import { createPatcher, type Item, type Row, setAttr, setText } from './listPatch'
 import { type MarkdownNode, renderMarkdown } from './markdown'
 import {
   type AgentView,
+  actionCounts,
+  ageOf,
   type EventView,
+  groupKey,
   type NoteView,
   type PaneLabel,
   type StreamEndpoint,
   type StreamRow,
   type TurnView,
   type WorkspaceView,
-  actionCounts,
-  ageOf,
-  groupKey,
 } from './view'
 
 const TOOL_ICONS: Record<ToolKind, string> = {

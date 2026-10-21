@@ -1,6 +1,6 @@
 import { hash } from 'node:crypto'
 import { chmodSync, rmSync } from 'node:fs'
-import { type Server, type Socket, createServer } from 'node:net'
+import { createServer, type Server, type Socket } from 'node:net'
 import { tmpdir } from 'node:os'
 import {
   type Capability,
@@ -10,12 +10,12 @@ import { TARGET_PANE_PARAM } from '@aurigax-ai/ostia-extension-sdk/contract/exte
 import { PRODUCT_NAME } from '@aurigax-ai/ostia-extension-sdk/contract/product'
 import {
   type CancellationToken,
+  createMessageConnection,
   ErrorCodes,
   type MessageConnection,
   ResponseError,
   StreamMessageReader,
   StreamMessageWriter,
-  createMessageConnection,
 } from 'vscode-jsonrpc/node'
 import { verbCode } from '../../shared/agents/agentIssues'
 import type {
@@ -31,7 +31,7 @@ import type { ScriptTokenUsageLog } from '../approvals/scriptTokenUsage'
 import type { AgentJournal } from '../diagnostics/agentJournal'
 import { privateTmpDir, socketPath } from '../platform/privateTmp'
 import { SANDBOXED_REFUSAL } from '../sandbox/sandboxedCaller'
-import { SCRIPT_COMMANDS, externalPaneMessage, internalPaneArgs } from './commandArgs'
+import { externalPaneMessage, internalPaneArgs, SCRIPT_COMMANDS } from './commandArgs'
 import { type AuthedConn, authenticate, connHasCap, scriptExpired } from './controlAuth'
 import { type PaneIdentity, resolveExternal } from './idRegistry'
 import { capIncomingMessages } from './messageCap'

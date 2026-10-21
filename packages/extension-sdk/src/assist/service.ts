@@ -1,8 +1,8 @@
 import {
-  NoObjectGeneratedError,
-  Output,
   extractJsonMiddleware,
   generateText,
+  NoObjectGeneratedError,
+  Output,
   streamText,
   wrapLanguageModel,
 } from 'ai'
@@ -32,25 +32,25 @@ import { cleanCompletion } from './completionCleanup'
 import {
   type AssistantConfig,
   type EntryProblem,
-  FEATURES,
-  POINT_FEATURES,
   endpointOf,
   entryProblem,
+  FEATURES,
+  POINT_FEATURES,
   pointOn,
   readConfig,
 } from './config'
-import { type Flight, createFlight } from './flight'
-import { type Limiter, createLimiter } from './limiter'
+import { createFlight, type Flight } from './flight'
+import { createLimiter, type Limiter } from './limiter'
 import { chatToolSet, messageOf, statusOf } from './modelCalls'
 import { withPromptedTools } from './promptedTools'
 import {
-  type Prompt,
   chatPrompt,
   cleanTerminal,
   commandPrompt,
   commandSchema,
   commandsFrom,
   completionPrompt,
+  type Prompt,
   parseCorrection,
   reviewFrom,
   reviewPrompt,

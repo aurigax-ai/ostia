@@ -1,5 +1,5 @@
 import { readPref, writePref } from '@/lib/app/localPrefs'
-import { type PanelFraction, clampFraction } from '@/lib/layout/panelSize'
+import { clampFraction, type PanelFraction } from '@/lib/layout/panelSize'
 
 export const PANEL_SIZES_KEY = 'panelSizes'
 export const PANEL_SIZES_WRITE_DELAY_MS = 300

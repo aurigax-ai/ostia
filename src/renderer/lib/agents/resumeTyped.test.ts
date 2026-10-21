@@ -1,8 +1,8 @@
+import type { AgentResume } from '@shared/agents/agentResume'
+import { beforeEach, describe, expect, it } from 'vitest'
 import { createPane, findPane } from '@/lib/layout/tree'
 import { type CommandBlock, useBlocksStore } from '@/stores/terminal/blocksStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
-import type { AgentResume } from '@shared/agents/agentResume'
-import { beforeEach, describe, expect, it } from 'vitest'
 import { clearTypedLaunchOnNewBlock, withTypedLaunch } from './resumeTyped'
 
 const TYPED = { args: ['--agent', 'a', '--dangerously-skip-permissions'], env: { GL_ISSUE: '1' } }

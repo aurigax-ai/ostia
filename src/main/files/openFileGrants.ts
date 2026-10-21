@@ -1,4 +1,4 @@
-import { constants, type Stats, accessSync, realpathSync, statSync } from 'node:fs'
+import { accessSync, constants, realpathSync, type Stats, statSync } from 'node:fs'
 import { isAbsolute, resolve } from 'node:path'
 import { isArchivePath } from '../../shared/archives/archivePaths'
 import type { OpenFileVerdict } from '../../shared/files/openFiles'

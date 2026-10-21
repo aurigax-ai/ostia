@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { ZOOM_DEFAULT, ZOOM_MAX, ZOOM_MIN, clampZoom, stepZoom, zoomFactor } from './zoom'
+import { clampZoom, stepZoom, ZOOM_DEFAULT, ZOOM_MAX, ZOOM_MIN, zoomFactor } from './zoom'
 
 describe('clampZoom', () => {
   it('keeps values inside 80 to 150 and rounds to a whole percent', () => {

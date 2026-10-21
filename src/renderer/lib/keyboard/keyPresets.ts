@@ -1,11 +1,11 @@
-import { useSettingsStore } from '@/stores/app/settingsStore'
 import {
   type ChordSpec,
-  type KeyLike,
   formatChord,
+  type KeyLike,
   parseChord,
   specFromEvent,
 } from '@shared/keyboard/chordSpec'
+import { useSettingsStore } from '@/stores/app/settingsStore'
 import { isBrowserChord, matchChordInTerminal } from './chords'
 import {
   type KeyboardPlatform,
@@ -14,11 +14,11 @@ import {
   terminalKeymapKeys,
 } from './keyboardPresets'
 import {
-  type TerminalKeyMap,
-  type TerminalSend,
   sameSend,
   sendChordProblem,
   sendData,
+  type TerminalKeyMap,
+  type TerminalSend,
 } from './terminalKeys'
 
 const platformOf = (mac: boolean): KeyboardPlatform => (mac ? 'mac' : 'linux')

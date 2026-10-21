@@ -5,10 +5,10 @@ import { join } from 'node:path'
 import { PRODUCT_DISPLAY_NAME } from '@aurigax-ai/ostia-extension-sdk/contract/productDisplay'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
+  createMessageConnection,
   type MessageConnection,
   StreamMessageReader,
   StreamMessageWriter,
-  createMessageConnection,
 } from 'vscode-jsonrpc/node'
 import { managerAgents, parseManagerSettings } from '../../shared/agents/managerSettings'
 import type { MissingRequirement } from '../../shared/app/systemRequirements'

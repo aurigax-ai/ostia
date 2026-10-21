@@ -1,7 +1,7 @@
 import '@testing-library/jest-dom/vitest'
-import { TooltipProvider } from '@/components/ui/tooltip'
 import { cleanup, render, screen, within } from '@testing-library/react'
 import { afterEach, describe, expect, it } from 'vitest'
+import { TooltipProvider } from '@/components/ui/tooltip'
 import { SettingsList } from './SettingsList'
 import { SettingsListRow } from './SettingsListRow'
 

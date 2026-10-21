@@ -1,8 +1,8 @@
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { registerSelectionSender } from '@/lib/agents/selectionSenders'
 import { chordLabel } from '@/lib/keyboard/chords'
-import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { commands } from './registry'
-import { SEND_SELECTION_COMMAND, registerSelectionSendCommand } from './selectionSend'
+import { registerSelectionSendCommand, SEND_SELECTION_COMMAND } from './selectionSend'
 
 describe('selection.sendToAgent command', () => {
   const cleanups: (() => void)[] = []

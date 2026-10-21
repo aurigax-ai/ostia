@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { PROFILE_FOLDERS, TOP_FILES, readProfileFolders } from './profile'
+import { PROFILE_FOLDERS, readProfileFolders, TOP_FILES } from './profile'
 
 describe('profile sync and graph runs', () => {
   it('GRF-C103 nothing under the extension data folder is in the pushed set', () => {

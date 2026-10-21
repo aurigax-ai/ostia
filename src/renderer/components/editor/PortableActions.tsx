@@ -1,13 +1,3 @@
-import { MenuItem } from '@/components/common/Menu'
-import { SplitButton, SplitButtonMenu } from '@/components/common/SplitButton'
-import { Button } from '@/components/ui/button'
-import { useCopied } from '@/lib/app/useCopied'
-import { fmt, useDict } from '@/lib/app/useDict'
-import { useArtifactListing } from '@/lib/files/artifacts'
-import { viewerOptions } from '@/lib/files/viewerChoice'
-import { previewTheme } from '@/lib/theme/previewTheme'
-import { useSandboxStore } from '@/stores/app/sandboxStore'
-import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
 import { isRemotePath } from '@aurigax-ai/ostia-extension-sdk/contract/remoteFolders'
 import { WarningIcon } from '@phosphor-icons/react'
 import type { Dict } from '@shared/app/dict'
@@ -18,6 +8,16 @@ import {
   runsScripts,
 } from '@shared/artifacts/portable'
 import { useEffect, useState } from 'react'
+import { MenuItem } from '@/components/common/Menu'
+import { SplitButton, SplitButtonMenu } from '@/components/common/SplitButton'
+import { Button } from '@/components/ui/button'
+import { useCopied } from '@/lib/app/useCopied'
+import { fmt, useDict } from '@/lib/app/useDict'
+import { useArtifactListing } from '@/lib/files/artifacts'
+import { viewerOptions } from '@/lib/files/viewerChoice'
+import { previewTheme } from '@/lib/theme/previewTheme'
+import { useSandboxStore } from '@/stores/app/sandboxStore'
+import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
 import { portableDocument } from './portableDocuments'
 
 function problemOf(d: Dict, result: PortableResult): string | null {
@@ -127,7 +127,9 @@ export function PortableActions({
 
 export function PortableMenuItems({
   run,
-}: { run: (action: PortableAction) => Promise<void> }): JSX.Element {
+}: {
+  run: (action: PortableAction) => Promise<void>
+}): JSX.Element {
   const d = useDict()
   return (
     <>

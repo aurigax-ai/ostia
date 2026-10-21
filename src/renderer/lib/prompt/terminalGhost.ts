@@ -1,6 +1,3 @@
-import { NATURAL_COMMAND_PATTERN } from '@/lib/assist/assistComposer'
-import type { ShownChip } from '@/lib/extensions/extensionChips'
-import type { CommandBlock } from '@/stores/terminal/blocksStore'
 import type {
   TerminalAssistRequest,
   TerminalContextEntry,
@@ -8,6 +5,9 @@ import type {
 } from '@aurigax-ai/ostia-extension-sdk/contract/assist'
 import { TERMINAL_LINE_MAX } from '@aurigax-ai/ostia-extension-sdk/contract/assist'
 import { LRUCache } from 'lru-cache'
+import { NATURAL_COMMAND_PATTERN } from '@/lib/assist/assistComposer'
+import type { ShownChip } from '@/lib/extensions/extensionChips'
+import type { CommandBlock } from '@/stores/terminal/blocksStore'
 
 export const GHOST_DEBOUNCE_MS = 300
 const GHOST_CACHE_MAX = 100
@@ -45,7 +45,7 @@ export function ghostBlocked(b: GhostBlockers): boolean {
 }
 
 export function aiContinuation(text: string, ai: AiGhost | null): string {
-  if (!ai || !ai.text) return ''
+  if (!ai?.text) return ''
   const full = ai.line + ai.text
   if (!text.startsWith(ai.line) || !full.startsWith(text)) return ''
   return full.slice(text.length)

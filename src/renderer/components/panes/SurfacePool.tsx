@@ -1,3 +1,8 @@
+import type { AgentResume } from '@shared/agents/agentResume'
+import type { BrowserDevice } from '@shared/browser/browserDevice'
+import type { BrowserProfile } from '@shared/browser/browserProfile'
+import { useEffect, useMemo, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import { AgentPane } from '@/components/agent/AgentPane'
 import { BrowserView } from '@/components/browser/BrowserView'
 import { ChatPane } from '@/components/chat/ChatPane'
@@ -16,11 +21,6 @@ import { useSandboxStore } from '@/stores/app/sandboxStore'
 import { useDiffStore } from '@/stores/files/diffStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { releaseSurfaces, surfaceHost } from '@/stores/workspaces/surfaceSlotsStore'
-import type { AgentResume } from '@shared/agents/agentResume'
-import type { BrowserDevice } from '@shared/browser/browserDevice'
-import type { BrowserProfile } from '@shared/browser/browserProfile'
-import { useEffect, useMemo, useRef } from 'react'
-import { createPortal } from 'react-dom'
 import { SurfaceErrorBoundary } from './SurfaceErrorBoundary'
 
 interface SurfaceRef {
@@ -114,7 +114,10 @@ export function SurfacePool(): JSX.Element {
 function Surface({
   surface: s,
   generation,
-}: { surface: SurfaceRef; generation: number }): JSX.Element {
+}: {
+  surface: SurfaceRef
+  generation: number
+}): JSX.Element {
   return s.kind === 'editor' ? (
     <FileView workspaceId={s.workspaceId} paneId={s.paneId} filePath={s.filePath} />
   ) : s.kind === 'diff' ? (

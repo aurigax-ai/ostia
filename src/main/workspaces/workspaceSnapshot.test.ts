@@ -8,14 +8,14 @@ import { AgentRunningPanes } from '../agents/agentRunning'
 import { MAIN_SLOT } from '../windows/windowBook'
 import { WindowBroker } from '../windows/windowBroker'
 import {
-  SCROLLBACK_CAP_BYTES,
   clearPersisted,
   loadRestoredScrollback,
   pendingRestoredScrollback,
+  SCROLLBACK_CAP_BYTES,
   saveScrollback,
   scrollbackPath,
-  stashScrollback,
   stashedScreen,
+  stashScrollback,
   takeRestoredScrollback,
   trimScrollback,
 } from './savedScrollback'

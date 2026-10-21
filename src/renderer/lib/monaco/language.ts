@@ -1,7 +1,7 @@
 import {
   type EditorLanguageMapping,
-  SETTINGS_LANGUAGE_ID,
   languageForPath,
+  SETTINGS_LANGUAGE_ID,
 } from '@aurigax-ai/ostia-extension-sdk/contract/editorLanguages'
 
 export { SETTINGS_LANGUAGE_ID }

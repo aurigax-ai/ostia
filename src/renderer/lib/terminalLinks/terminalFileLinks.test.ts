@@ -2,8 +2,8 @@ import type { ILink, Terminal } from '@xterm/xterm'
 import { describe, expect, it, vi } from 'vitest'
 import { pathLinkTarget } from './linkModifier'
 import {
-  type FileLinkDeps,
   createFileLinkProvider,
+  type FileLinkDeps,
   fileLinkAction,
   pathLinkOffers,
   readLogicalLine,

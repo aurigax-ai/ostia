@@ -1,16 +1,16 @@
+import { CropIcon, PaperPlaneTiltIcon, XIcon } from '@phosphor-icons/react'
+import { type KeyboardEvent, useEffect, useRef, useState } from 'react'
 import { useSelectionSend } from '@/components/agents/SelectionSend'
 import { IconButton } from '@/components/common/IconButton'
 import { registerSelectionSender } from '@/lib/agents/selectionSenders'
 import { useDict } from '@/lib/app/useDict'
 import { useElementSize } from '@/lib/app/useElementSize'
 import { cropToPng } from '@/lib/browser/cropImage'
-import { type Size, fitScale } from '@/lib/browser/regionSelect'
+import { fitScale, type Size } from '@/lib/browser/regionSelect'
 import { imageMimeType } from '@/lib/files/fileKinds'
 import { baseName } from '@/lib/files/fileTree'
 import { useDragPan, useFileBytes, usePinchZoom, useRegionDrag } from '@/lib/files/viewerHooks'
-import { CropIcon, PaperPlaneTiltIcon, XIcon } from '@phosphor-icons/react'
-import { type KeyboardEvent, useEffect, useRef, useState } from 'react'
-import { ViewerMessage, type Zoom, ZoomControls, useBytesProblem } from './ViewerChrome'
+import { useBytesProblem, ViewerMessage, type Zoom, ZoomControls } from './ViewerChrome'
 
 const STAGE_PADDING = 16
 const NO_SIZE: Size = { width: 0, height: 0 }

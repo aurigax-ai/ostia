@@ -1,10 +1,10 @@
+import type { WebviewTag } from 'electron'
+import { useCallback, useEffect, useMemo, useRef } from 'react'
 import { useReducedMotion } from '@/lib/app/motion'
 import { panelFontFaces } from '@/lib/theme/panelFontFaces'
 import { panelThemeCss } from '@/lib/theme/panelTheme'
 import { themedTokens, useEffectiveTheme } from '@/lib/theme/theme'
 import { useSettingsStore } from '@/stores/app/settingsStore'
-import type { WebviewTag } from 'electron'
-import { useCallback, useEffect, useMemo, useRef } from 'react'
 
 export function usePanelThemeCss(): string {
   const activeTheme = useEffectiveTheme()

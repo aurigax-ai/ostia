@@ -1,12 +1,12 @@
-import { useUIStore } from '@/stores/app/uiStore'
-import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
-import { useLanguageNoticeStore } from '@/stores/extensions/languageNoticeStore'
-import { useLanguageServersStore } from '@/stores/extensions/languageServersStore'
 import type { LanguageServerInfo } from '@aurigax-ai/ostia-extension-sdk/contract/languageServers'
 import type { ExtensionSuggestion } from '@shared/extensions/extensionSuggestions'
 import { cleanup, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import { useUIStore } from '@/stores/app/uiStore'
+import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
+import { useLanguageNoticeStore } from '@/stores/extensions/languageNoticeStore'
+import { useLanguageServersStore } from '@/stores/extensions/languageServersStore'
 import { LanguageNotice, serverNoticeFor } from './LanguageNotice'
 
 const state = { marketplaces: [], installed: [] }

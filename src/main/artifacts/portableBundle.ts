@@ -10,9 +10,9 @@ import type {
   PluginBuild,
 } from 'esbuild'
 import {
-  RUNTIME_MODULES,
   allowsRuntimeImport,
   importableSpecifiers,
+  RUNTIME_MODULES,
 } from '../../shared/artifacts/artifactRuntime'
 import { PORTABLE_LIMITS, type PortableMode } from '../../shared/artifacts/portable'
 import { isInsidePath } from '../platform/pathGuard'

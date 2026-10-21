@@ -1,3 +1,6 @@
+import type { ExtensionInfo } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
+import { act, cleanup, render, waitFor } from '@testing-library/react'
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
 import {
   focusSurfaceWhenReady,
@@ -5,9 +8,6 @@ import {
   releaseSurfaces,
   surfaceHost,
 } from '@/stores/workspaces/surfaceSlotsStore'
-import type { ExtensionInfo } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
-import { act, cleanup, render, waitFor } from '@testing-library/react'
-import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { ExtensionSidePanel } from './ExtensionSidePanel'
 
 const PANE = 'panel-pane'

@@ -5,7 +5,7 @@ import type { TerminalStateSnapshot } from '../../shared/terminal/ptyApi'
 import { type ControlMethodContext, registerControlMethod } from '../control/controlServer'
 import type { PaneIdentity } from '../control/idRegistry'
 import { CONFIRM_MAX_MS, createPaneConfirms } from './paneConfirm'
-import { type PaneReach, ensurePaneReach, fail, paneRefs, paneTarget, record } from './paneReach'
+import { ensurePaneReach, fail, type PaneReach, paneRefs, paneTarget, record } from './paneReach'
 import { refFailure, resolvePaneRef } from './paneRef'
 import { type PaneWakeDeps, registerPaneWakeMethods } from './paneWakeMethods'
 

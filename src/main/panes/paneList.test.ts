@@ -3,11 +3,11 @@ import type { CommandResult, CommandTarget } from '../../shared/control/commands
 import type { TerminalStateSnapshot } from '../../shared/terminal/ptyApi'
 import { registerPane } from '../control/idRegistry'
 import {
-  type PaneListDeps,
   listPanes,
   listWorkspaceGroups,
   listWorkspaces,
   markSessionConflicts,
+  type PaneListDeps,
 } from './paneList'
 
 const ONE_WINDOW = (): string[] => ['1']

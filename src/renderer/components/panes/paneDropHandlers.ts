@@ -1,10 +1,10 @@
+import type { DragEvent, RefObject } from 'react'
 import { commands } from '@/commands/registry'
 import { firstPaneId } from '@/lib/layout/tree'
 import type { PaneNode, TabNode } from '@/lib/layout/types'
-import { type TabDrop, dropZoneAt, paneDropTarget, tabDropTarget } from '@/lib/panes/dropZone'
-import { PANE_DND, dropPaneOn, isPaneDrag, reportForeignDrop } from '@/lib/panes/paneDrag'
+import { dropZoneAt, paneDropTarget, type TabDrop, tabDropTarget } from '@/lib/panes/dropZone'
+import { dropPaneOn, isPaneDrag, PANE_DND, reportForeignDrop } from '@/lib/panes/paneDrag'
 import { usePaneDnd } from '@/stores/workspaces/paneDndStore'
-import type { DragEvent, RefObject } from 'react'
 
 export function paneDropHandlers({
   tabs,

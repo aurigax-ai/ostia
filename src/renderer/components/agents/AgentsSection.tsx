@@ -1,3 +1,6 @@
+import type { Capability } from '@aurigax-ai/ostia-extension-sdk/contract/capabilities'
+import type { ApprovalMode } from '@shared/permissions/approvals'
+import { parseReachMode, REACH_MODES, type ReachMode } from '@shared/permissions/reach'
 import { Notice } from '@/components/common/Notice'
 import { ControlRow, NumberRow, ToggleRow } from '@/components/settingsKit/ControlRow'
 import { SelectField } from '@/components/settingsKit/SelectField'
@@ -11,9 +14,6 @@ import {
   HIBERNATION_LIVE_MAX,
 } from '@/stores/app/settingsModel'
 import { useSettingsStore } from '@/stores/app/settingsStore'
-import type { Capability } from '@aurigax-ai/ostia-extension-sdk/contract/capabilities'
-import type { ApprovalMode } from '@shared/permissions/approvals'
-import { REACH_MODES, type ReachMode, parseReachMode } from '@shared/permissions/reach'
 import { capLabel } from './ApprovalCard'
 
 const NO_GRANTS: readonly Capability[] = []

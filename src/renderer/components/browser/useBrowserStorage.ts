@@ -1,5 +1,3 @@
-import { fmt } from '@/lib/app/useDict'
-import { useTransientStatus } from '@/lib/app/useTransientStatus'
 import type { Dict } from '@shared/app/dict'
 import type {
   BrowserStorageSnapshot,
@@ -10,6 +8,8 @@ import type {
   StorageWriteResult,
 } from '@shared/browser/browserStorage'
 import { useCallback, useEffect, useState } from 'react'
+import { fmt } from '@/lib/app/useDict'
+import { useTransientStatus } from '@/lib/app/useTransientStatus'
 
 export type Editing =
   | { kind: 'cookies'; name: string; value: string; cookie: StorageCookie }

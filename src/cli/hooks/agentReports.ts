@@ -1,8 +1,8 @@
 import type { MessageConnection } from 'vscode-jsonrpc/node'
 import { capturedArgs } from '../../shared/agents/agentLaunch'
 import {
-  RESUMABLE_AGENTS,
   isResumableAgent,
+  RESUMABLE_AGENTS,
   resumeFromHookPayload,
 } from '../../shared/agents/agentResume'
 import {
@@ -15,7 +15,7 @@ import {
   claudeAttention,
   isClaudeAttentionEvent,
 } from '../../shared/agents/claudeAttention'
-import { TURN_HOOK_EVENTS, isTurnHookEvent, turnReportOf } from '../../shared/agents/turnHook'
+import { isTurnHookEvent, TURN_HOOK_EVENTS, turnReportOf } from '../../shared/agents/turnHook'
 import { fail } from '../common/failure'
 import { readAllStdin } from '../common/stdinText'
 

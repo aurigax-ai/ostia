@@ -1,5 +1,5 @@
-import { existsSync, readFileSync, readdirSync } from 'node:fs'
-import { type Server, connect, createServer } from 'node:net'
+import { existsSync, readdirSync, readFileSync } from 'node:fs'
+import { connect, createServer, type Server } from 'node:net'
 import { dirname, join } from 'node:path'
 import type {
   AskOptions,
