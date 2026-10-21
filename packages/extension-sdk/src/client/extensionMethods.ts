@@ -22,6 +22,7 @@ import {
   type AgentCompleteResult,
   type AskResult,
   type BusSendResult,
+  type CallerCapsResult,
   type ConnectionResult,
   type ConnectionsResult,
   type ExecResult,
@@ -165,6 +166,8 @@ export function agentMethods(
   | 'exec'
   | 'busSend'
   | 'wakePane'
+  | 'requireCallerCaps'
+  | 'playbookEnabled'
 > {
   return {
     setAttention: (paneId, state, message) =>
@@ -217,6 +220,19 @@ export function agentMethods(
         ),
         'wake-failed',
       ),
+    requireCallerCaps: (paneId, caps, reason) =>
+      sentRpc(
+        conn.sendRequest<CallerCapsResult>('ext.requireCallerCaps', { paneId, caps, reason }),
+        'caller-caps-failed',
+      ),
+    playbookEnabled: async () => {
+      try {
+        const res = await conn.sendRequest<{ enabled?: unknown }>('ext.playbookEnabled')
+        return res?.enabled === true
+      } catch {
+        return false
+      }
+    },
   }
 }
 

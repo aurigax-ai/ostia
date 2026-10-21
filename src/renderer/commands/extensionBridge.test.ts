@@ -415,6 +415,27 @@ describe('extensionBridge', () => {
       unregister()
     })
 
+    it('opens a normal tab right after the caller and shows it, as the active pane', () => {
+      twoWorkspaces()
+      useLayoutStore.getState().ensure('s1')
+      const agent = useLayoutStore.getState().byWorkspace.s1.activePaneId
+
+      const paneId = openExtensionTerminal({
+        requestId: 'r5b',
+        workspaceId: 's1',
+        afterPaneId: agent,
+        command: 'claude go',
+        asTab: true,
+      }) as string
+
+      const layout = useLayoutStore.getState().byWorkspace.s1
+      expect(layout.activePaneId).toBe(paneId)
+      expect(tabsOfPane(layout.root, agent)).toMatchObject({ activeId: paneId })
+      expect(tabsOfPane(layout.root, agent)?.children.map((p) => p.id)).toEqual([agent, paneId])
+      expect(isPaneShown(layout.root, paneId)).toBe(true)
+      expect(useWorkspacesStore.getState().activeWorkspaceId).toBe('s1')
+    })
+
     it('starts the shell of a terminal opened in a workspace nobody has looked at', () => {
       twoWorkspaces()
       const paneId = openExtensionTerminal({

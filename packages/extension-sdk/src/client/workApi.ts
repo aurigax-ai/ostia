@@ -39,6 +39,8 @@ export type BusSendResult =
     }
   | { ok: false; error: string; message?: string }
 
+export type CallerCapsResult = { ok: true } | { ok: false; error: string; message?: string }
+
 export type WakePaneOutcome = 'woke' | 'started' | 'timedOut' | 'closed' | 'resume-failed'
 
 export type WakePaneResult =

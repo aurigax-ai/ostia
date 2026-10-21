@@ -530,6 +530,7 @@ export interface RunAgentOptions {
   prompt: string
   background?: boolean
   continueFrom?: string
+  afterPaneId?: string
 }
 
 export const EXEC_TIMEOUT_MAX_MS = 600_000

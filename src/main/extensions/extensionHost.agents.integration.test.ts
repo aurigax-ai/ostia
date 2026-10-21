@@ -39,8 +39,14 @@ describe('ExtensionHost agent tasks: ext.agents, ext.runAgent, ext.offerToAgent,
   const focusPaneIn = vi.fn<(pane: PaneIdentity) => boolean>()
   const redact = vi.fn<(text: string) => Promise<RedactionResult>>()
 
-  const call = async (extId: string, method: string, params?: unknown) => {
-    const res = await host.invoke(extId, 'call', { method, params }, caller)
+  const call = async (
+    extId: string,
+    method: string,
+    params?: unknown,
+    servingPane?: PaneIdentity,
+  ) => {
+    const who = servingPane ? { ...caller, paneId: servingPane.externalId } : caller
+    const res = await host.invoke(extId, 'call', { method, params }, who)
     if (!res.ok) return { rpcError: res.message }
     return res.data as Record<string, unknown>
   }
@@ -69,6 +75,7 @@ describe('ExtensionHost agent tasks: ext.agents, ext.runAgent, ext.offerToAgent,
       agentArgv: (name) => ({ claude: ['claude'], codex: ['codex', '--full-auto'] })[name] ?? null,
       agentNames: () => ['claude', 'codex'],
       agentTaskClock: () => clock,
+      playbookEnabled: (id) => id === 'tasker',
       readyTimeoutMs: 8000,
       interactiveTimeoutMs: 8000,
       log: () => {},
@@ -173,6 +180,87 @@ describe('ExtensionHost agent tasks: ext.agents, ext.runAgent, ext.offerToAgent,
       await call('plain', 'ext.runAgent', { workspaceId: 'w1', agent: 'claude', prompt: 'x' }),
     ).toEqual({ rpcError: 'needs-elevation: shell' })
     expect(openTerminalIn).not.toHaveBeenCalled()
+  })
+
+  it('opens the agent as a tab right after the pane its command is serving, taking focus', async () => {
+    openTerminalIn.mockResolvedValue(picked.externalId)
+    const res = await call(
+      'tasker',
+      'ext.runAgent',
+      { workspaceId: 'w1', agent: 'claude', prompt: 'go', afterPaneId: opened.externalId },
+      opened,
+    )
+    expect(res).toEqual({ ok: true, paneId: picked.externalId })
+    expect(openTerminalIn).toHaveBeenCalledWith({
+      command: 'claude go',
+      workspaceId: 'w1',
+      cwd: join(homedir(), 'shop'),
+      afterPaneId: 'pane-opened',
+      windowId: '7',
+      asTab: true,
+    })
+  })
+
+  it('refuses afterPaneId for a pane the extension is not serving, a background run or another workspace', async () => {
+    const run = { workspaceId: 'w1', agent: 'claude', prompt: 'go' }
+    expect(
+      await call('tasker', 'ext.runAgent', { ...run, afterPaneId: stranger.externalId }, opened),
+    ).toMatchObject({ ok: false, error: 'not-reached' })
+    expect(
+      await call('tasker', 'ext.runAgent', { ...run, afterPaneId: opened.externalId }),
+    ).toMatchObject({ ok: false, error: 'not-reached' })
+    expect(
+      await call(
+        'tasker',
+        'ext.runAgent',
+        { ...run, afterPaneId: opened.externalId, background: true },
+        opened,
+      ),
+    ).toMatchObject({ ok: false, error: 'invalid-params' })
+    expect(
+      await call(
+        'tasker',
+        'ext.runAgent',
+        { ...run, workspaceId: 'w2', afterPaneId: opened.externalId },
+        opened,
+      ),
+    ).toMatchObject({ ok: false, error: 'unknown-pane' })
+    expect(openTerminalIn).not.toHaveBeenCalled()
+  })
+
+  it('asks the caller’s capability only for the pane whose command line call it is serving', async () => {
+    expect(
+      await call('tasker', 'ext.requireCallerCaps', {
+        paneId: opened.externalId,
+        caps: ['all-workspaces'],
+        reason: 'read every project',
+      }),
+    ).toMatchObject({ ok: false, error: 'not-reached' })
+    expect(
+      await call(
+        'tasker',
+        'ext.requireCallerCaps',
+        { paneId: opened.externalId, caps: ['all-workspaces'], reason: 'read every project' },
+        opened,
+      ),
+    ).toMatchObject({ ok: false, error: 'not-reached' })
+    const refused: unknown[] = [
+      { paneId: opened.externalId, caps: ['kill-pane'], reason: 'x' },
+      { paneId: opened.externalId, caps: [], reason: 'x' },
+      { paneId: opened.externalId, caps: ['all-workspaces'], reason: '' },
+      { paneId: opened.externalId, caps: ['all-workspaces'], reason: 'a\u0000b' },
+    ]
+    for (const params of refused) {
+      expect(await call('tasker', 'ext.requireCallerCaps', params, opened)).toMatchObject({
+        ok: false,
+        error: 'invalid-params',
+      })
+    }
+  })
+
+  it('tells a built-in only whether its own playbook is on', async () => {
+    expect(await call('tasker', 'ext.playbookEnabled')).toEqual({ ok: true, enabled: true })
+    expect(await call('plain', 'ext.playbookEnabled')).toEqual({ ok: true, enabled: false })
   })
 
   it('hands the human one line to pick an agent for and says which pane got it', async () => {

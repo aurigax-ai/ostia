@@ -5,6 +5,7 @@ import type { ProcessTerminalRequest } from '@shared/workspaces/workspaceApi'
 import { revealPane } from '@/lib/attention/workspaceActivity'
 import { findPane } from '@/lib/layout/tree'
 import { openKeepingFocus } from '@/lib/panes/callerFocus'
+import { focusPaneWhenReady } from '@/lib/panes/paneFocus'
 import { runWhenIdle } from '@/lib/terminal/blockActions'
 import { startOffscreen } from '@/lib/terminal/offscreenStart'
 import { pinTitle } from '@/lib/terminal/pinnedTitles'
@@ -115,6 +116,7 @@ export function openExtensionTerminal(req: ProcessTerminalRequest): string | nul
       cwd: req.cwd,
       title: req.title,
       backgroundTab: req.backgroundTab,
+      asTab: req.asTab,
       splitTab: req.splitTab,
     })
   const paneId = req.backgroundTab ? openKeepingFocus(open) : open()
@@ -125,6 +127,7 @@ export function openExtensionTerminal(req: ProcessTerminalRequest): string | nul
     workspaces.setActive(workspaceId)
   }
   startOffscreen(paneId)
+  if (req.asTab) focusPaneWhenReady(paneId)
   runWhenShellStarts(paneId, req.command)
   return paneId
 }

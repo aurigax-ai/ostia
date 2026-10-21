@@ -114,6 +114,15 @@ export function createLayoutOpenActions(set: LayoutSet, get: LayoutGet): LayoutO
             markNewSplitTab(l.root, root, opts.splitTab.name)
             return { ...l, root: describeTerminal(root, pane.id, opts) }
           }
+          if (opts.asTab) {
+            const pane = newTerminalPane()
+            createdPaneId = pane.id
+            return {
+              root: describeTerminal(addTab(l.root, beside, pane), pane.id, opts),
+              activePaneId: pane.id,
+              zoomedPaneId: null,
+            }
+          }
           if (opts.backgroundTab) {
             const pane = newTerminalPane()
             createdPaneId = pane.id

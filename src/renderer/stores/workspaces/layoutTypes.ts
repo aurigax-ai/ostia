@@ -95,6 +95,7 @@ export interface OpenTerminalPlacement {
   cwd?: string
   title?: string
   backgroundTab?: boolean
+  asTab?: boolean
   splitTab?: SplitTabPlacement
 }
 
