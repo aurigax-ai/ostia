@@ -714,6 +714,7 @@ hook sees what the agent reports (your prompt, the tools it runs).
 | `name` | Lowercase letters, digits and dashes, unique in the extension. The agent sees the skill as `<extension id>-<name>` (`review-kit-review`). |
 | `path` | A folder inside the extension that holds `SKILL.md`. |
 | `files` | Optional. Up to 16 more files in that same folder (`.md` or `.txt`, no subfolders) that the skill refers to. Only these and `SKILL.md` are copied. |
+| `bare` | Optional, built-in extensions only. Keeps the skill's own name (`/remember`) instead of `<extension id>-<name>`; refused for any other extension, for the product's own skill names and for a name another skill already holds (API 7.2). |
 
 `SKILL.md` starts with frontmatter whose `name` is the skill's `name` from the manifest and whose
 `description` (one line, at most 1024 characters) says when to use the skill:
