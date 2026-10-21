@@ -18,6 +18,8 @@
     "./viewer": "./src/client/viewer.ts",
     "./browse": "./src/client/browse.ts",
     "./grid": "./src/client/grid.ts",
+    "./pill": "./src/client/pill.ts",
+    "./slider": "./src/client/slider.ts",
     "./atomicWrite": "./src/client/atomicWrite.ts",
     "./panel.css": "./src/client/panel.css",
     "./contract/*": "./src/contract/*.ts",

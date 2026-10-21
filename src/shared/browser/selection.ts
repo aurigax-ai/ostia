@@ -1,3 +1,7 @@
+import {
+  VIEWER_CELLS_MAX,
+  VIEWER_CSV_MAX,
+} from '@aurigax-ai/ostia-extension-sdk/contract/viewerSelection'
 import { clip, fence } from './pick'
 
 interface TextRange {
@@ -25,6 +29,16 @@ export type SelectionCapture =
       pageWidth: number
       pageHeight: number
       region: Region | null
+      text?: string
+    }
+  | {
+      kind: 'cells'
+      file: string
+      sheet: string
+      range: string
+      rows: number
+      columns: number
+      csv: string
     }
   | { kind: 'terminal'; cwd: string | null; command: string | null; text: string }
   | { kind: 'preview-error'; file: string; count: number; text: string }
@@ -58,6 +72,9 @@ const SELECTION_PATH_MAX = 4096
 export const SELECTION_NOTE_MAX = 4000
 export const SELECTION_IMAGE_MAX = 25 * 1024 * 1024
 const PREVIEW_ERROR_MAX = 8 * 1024
+
+const SHEET_NAME_MAX = 200
+const CELL_RANGE = /^[A-Z]{1,3}[0-9]{1,7}(:[A-Z]{1,3}[0-9]{1,7})?$/
 
 const ABSOLUTE_PATH = /^(\/|[A-Za-z]:[\\/])/
 
@@ -126,6 +143,16 @@ function normalizeTerminal(c: Record<string, unknown>): SelectionCapture | null 
   return { kind: 'terminal', cwd, command, text: body }
 }
 
+function normalizeCells(c: Record<string, unknown>, file: string): SelectionCapture | null {
+  const rows = count(c.rows)
+  const columns = count(c.columns)
+  if (rows === null || columns === null || rows * columns > VIEWER_CELLS_MAX) return null
+  if (typeof c.range !== 'string' || !CELL_RANGE.test(c.range)) return null
+  if (typeof c.csv !== 'string' || c.csv.length === 0 || c.csv.length > VIEWER_CSV_MAX) return null
+  const sheet = typeof c.sheet === 'string' ? clip(c.sheet, SHEET_NAME_MAX) : ''
+  return { kind: 'cells', file, sheet, range: c.range, rows, columns, csv: c.csv }
+}
+
 export function normalizeSelection(value: unknown): SelectionCapture | null {
   if (!value || typeof value !== 'object') return null
   const c = value as Record<string, unknown>
@@ -164,8 +191,19 @@ export function normalizeSelection(value: unknown): SelectionCapture | null {
       if (page === null || pageWidth === null || pageHeight === null || region === undefined) {
         return null
       }
-      return { kind: 'pdf-region', file, page, pageWidth, pageHeight, region }
+      const body = text(c.text)
+      return {
+        kind: 'pdf-region',
+        file,
+        page,
+        pageWidth,
+        pageHeight,
+        region,
+        ...(body === null ? {} : { text: body }),
+      }
     }
+    case 'cells':
+      return normalizeCells(c, file)
     case 'preview-error': {
       const errors = count(c.count)
       const body = text(c.text)
@@ -224,6 +262,8 @@ export function selectionLabel(capture: SelectionCapture): string {
       return `${name}, ${pageSpan(capture.firstPage, capture.lastPage)}`
     case 'pdf-region':
       return `${name}, page ${capture.page}${capture.region ? ` (${regionText(capture.region)})` : ''}`
+    case 'cells':
+      return [name, capture.sheet, capture.range].filter(Boolean).join(' › ')
     case 'preview-error':
       return `${name}, ${capture.count} ${capture.count === 1 ? 'error' : 'errors'}`
     case 'preview-region':
@@ -246,6 +286,8 @@ function title(capture: SelectionCapture): string {
       return 'PDF text selection'
     case 'pdf-region':
       return capture.region ? 'PDF page region' : 'PDF page'
+    case 'cells':
+      return 'Selected cells'
     case 'terminal':
       return capture.command ? 'Terminal output' : 'Terminal text'
     case 'preview-error':
@@ -280,6 +322,12 @@ function sourceLines(capture: SelectionCapture, imagePath: string | null): strin
         `- Page: ${capture.page} (1-based), ${capture.pageWidth} × ${capture.pageHeight} pt`,
         `- Region: ${capture.region ? `${regionText(capture.region)} (PDF points, origin top-left)` : 'whole page'}`,
         snapshot,
+      ]
+    case 'cells':
+      return [
+        ...(capture.sheet ? [`- Sheet: ${capture.sheet}`] : []),
+        `- Range: ${capture.range}`,
+        `- Size: ${capture.rows} rows × ${capture.columns} columns`,
       ]
     case 'terminal':
       return [
@@ -319,6 +367,10 @@ export function renderSelectionReport(
     lines.push('## Terminal text', '', fence(capture.text), '')
   } else if (capture.kind === 'preview-error') {
     lines.push('## Errors', '', fence(capture.text), '')
+  } else if (capture.kind === 'cells') {
+    lines.push('## Selected cells', '', fence(capture.csv, 'csv'), '')
+  } else if (capture.kind === 'pdf-region' && capture.text) {
+    lines.push('## Selected text', '', fence(capture.text), '')
   } else if (capture.kind === 'text' || capture.kind === 'pdf-text') {
     const lang = capture.kind === 'text' && capture.view === 'source' ? fenceLang(capture.file) : ''
     lines.push('## Selected text', '', fence(capture.text, lang), '')

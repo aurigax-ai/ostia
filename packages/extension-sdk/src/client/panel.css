@@ -509,3 +509,255 @@ button.quiet.strong {
   gap: 6px;
   margin-top: 4px;
 }
+
+.ostia-pill {
+  position: fixed;
+  top: 12px;
+  right: 12px;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  max-width: calc(100vw - 24px);
+  padding: 4px;
+  border: 1px solid var(--line-strong);
+  border-radius: calc(var(--radius-md) + 4px);
+  background: var(--surface-2);
+  color: var(--fg-muted);
+  font-size: var(--text-ui-sm);
+  line-height: var(--text-ui-sm--line-height);
+  box-shadow: 0 8px 24px -12px var(--bg-sunken);
+  opacity: 1;
+  transform: none;
+  transition:
+    opacity var(--motion-base) var(--ease-out),
+    transform var(--motion-base) var(--ease-out);
+}
+
+.ostia-pill[data-state="hidden"] {
+  opacity: 0;
+  transform: translateY(-6px);
+  pointer-events: none;
+  transition:
+    opacity var(--motion-base-exit) var(--ease-in),
+    transform var(--motion-base-exit) var(--ease-in);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ostia-pill,
+  .ostia-pill[data-state="hidden"] {
+    transform: none;
+    transition: none;
+  }
+}
+
+.ostia-pill [hidden] {
+  display: none;
+}
+
+.ostia-pill-controls,
+.ostia-pill-find,
+.ostia-pill-pager {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.ostia-pill-button {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  min-width: 28px;
+  height: 28px;
+  padding: 0 6px;
+  border-color: transparent;
+  color: inherit;
+  font-size: var(--text-ui-base);
+}
+
+.ostia-pill-button:hover:not(:disabled),
+.ostia-pill-button[aria-pressed="true"],
+.ostia-pill-button[aria-expanded="true"] {
+  background: var(--surface-3);
+  color: var(--fg);
+}
+
+.ostia-pill-button svg {
+  width: 16px;
+  height: 16px;
+}
+
+.ostia-pill-menu-button {
+  font-variant-numeric: tabular-nums;
+}
+
+.ostia-pill-case {
+  font-size: var(--text-ui-sm);
+  font-weight: var(--font-weight-medium);
+}
+
+.ostia-pill-menu-anchor {
+  position: relative;
+}
+
+.ostia-pill-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 200px;
+  padding: 4px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+  box-shadow: 0 8px 24px -12px var(--bg-sunken);
+}
+
+.ostia-pill-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 4px 8px 4px 4px;
+  border-color: transparent;
+  color: var(--fg);
+  text-align: left;
+}
+
+.ostia-pill-menu-item:hover,
+.ostia-pill-menu-item:focus-visible {
+  background: var(--surface-3);
+}
+
+.ostia-pill-menu-check {
+  display: inline-flex;
+  flex: none;
+  width: 16px;
+  height: 16px;
+  visibility: hidden;
+}
+
+.ostia-pill-menu-item[aria-checked="true"] .ostia-pill-menu-check {
+  visibility: visible;
+}
+
+.ostia-pill-menu-label {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.ostia-pill-menu-chord {
+  flex: none;
+  color: var(--fg-dim);
+  font-size: var(--text-ui-xs);
+  line-height: var(--text-ui-xs--line-height);
+}
+
+.ostia-pill-menu-separator {
+  height: 1px;
+  margin: 4px 0;
+  background: var(--line);
+}
+
+.ostia-pill-page {
+  width: calc(var(--digits, 2) * 1ch + 16px);
+  min-width: 28px;
+  height: 24px;
+  padding: 0 4px;
+  border-color: transparent;
+  background: var(--bg-sunken);
+  color: var(--fg);
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.ostia-pill-of {
+  padding: 0 4px;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.ostia-pill-find {
+  gap: 4px;
+}
+
+.ostia-pill-field {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: min(280px, calc(100vw - 220px));
+  height: 28px;
+  padding: 0 8px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-md);
+  background: var(--bg-sunken);
+  color: var(--fg-muted);
+}
+
+.ostia-pill-field:focus-within {
+  border-color: var(--brand);
+}
+
+.ostia-pill-field svg {
+  flex: none;
+  width: 14px;
+  height: 14px;
+}
+
+.ostia-pill-find-field {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--fg);
+}
+
+.ostia-pill-find-field:focus-visible {
+  outline: none;
+}
+
+.ostia-pill-find-count {
+  flex: none;
+  color: var(--fg-muted);
+  font-size: var(--text-ui-xs);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.ostia-slider {
+  --fill: 0%;
+  appearance: none;
+  width: 100%;
+  min-width: 0;
+  height: 16px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.ostia-slider::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: var(--radius-full);
+  background: linear-gradient(to right, var(--fg) var(--fill), var(--line-strong) var(--fill));
+}
+
+.ostia-slider::-webkit-slider-thumb {
+  appearance: none;
+  width: 12px;
+  height: 12px;
+  margin-top: -4px;
+  border: 0;
+  border-radius: var(--radius-full);
+  background: var(--fg);
+}
+
+.ostia-slider:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+}

@@ -1,0 +1,231 @@
+import { describe, expect, it } from 'vitest'
+import {
+  FILE,
+  FRAME,
+  get,
+  OPEN,
+  pngOf,
+  postSelection,
+  RECT,
+  selectionBody,
+  setup,
+} from './viewerHostHarness'
+
+const IMAGE = {
+  kind: 'image',
+  imageWidth: 40,
+  imageHeight: 30,
+  region: { x: 1, y: 2, width: 3, height: 4 },
+}
+const SESSION = 'ostia-viewer-office'
+
+async function opened(overrides = {}) {
+  const harness = setup(overrides)
+  const result = harness.host.open('w1', OPEN)
+  if (!result.ok) throw new Error('not opened')
+  return { ...harness, session: harness.sessions.get(SESSION), src: result.src }
+}
+
+describe('guest selection channel', () => {
+  it('keeps a validated selection, fills the file from the token and tells the owner window only', async () => {
+    const { session, events } = await opened()
+    const body = await selectionBody(
+      { capture: { ...IMAGE, file: '/etc/passwd' }, rect: RECT, frame: FRAME },
+      pngOf(40, 30),
+    )
+    expect((await postSelection(session, body)).status).toBe(204)
+    expect(events).toEqual([
+      {
+        windowId: 'w1',
+        type: 'selection',
+        payload: {
+          paneId: 'p1',
+          selection: {
+            capture: { ...IMAGE, file: FILE },
+            hasImage: true,
+            hasText: false,
+            anchor: { left: 10, top: 20, bottom: 60 },
+          },
+        },
+      },
+    ])
+  })
+
+  it('clamps the rect to the frame', async () => {
+    const { session, events } = await opened()
+    const rect = { x: -50, y: 5000, width: 1e9, height: 1e9 }
+    await postSelection(
+      session,
+      await selectionBody({ capture: IMAGE, rect, frame: FRAME }, pngOf(4, 4)),
+    )
+    expect(events[0].payload).toMatchObject({
+      selection: { anchor: { left: 0, top: 600, bottom: 600 } },
+    })
+    const wide = { x: 700, y: 100, width: 1e9, height: 1e9 }
+    await postSelection(
+      session,
+      await selectionBody({ capture: IMAGE, rect: wide, frame: FRAME }, pngOf(4, 4)),
+    )
+    expect(events[1].payload).toMatchObject({
+      selection: { anchor: { left: 700, top: 100, bottom: 600 } },
+    })
+  })
+
+  it('refuses what a guest may not publish or what breaks a cap', async () => {
+    const { session, events } = await opened()
+    const send = async (meta: unknown, png: Uint8Array | null = null) =>
+      (await postSelection(session, await selectionBody(meta, png))).status
+    const base = { rect: RECT, frame: FRAME }
+    expect(await send({ ...base, capture: { kind: 'terminal', text: 'x' } })).toBe(400)
+    expect(await send({ ...base, capture: { kind: 'preview-error', count: 1, text: 'x' } })).toBe(
+      400,
+    )
+    expect(await send({ ...base, capture: IMAGE })).toBe(400)
+    expect(await send({ ...base, capture: IMAGE }, new Uint8Array(64))).toBe(400)
+    expect(await send({ ...base, capture: IMAGE }, pngOf(0, 5))).toBe(400)
+    expect(await send({ ...base, capture: IMAGE }, pngOf(40_000, 5))).toBe(400)
+    expect(await send({ ...base, capture: IMAGE }, pngOf(5, 5, 25 * 1024 * 1024))).toBe(400)
+    const text = { kind: 'text', view: 'preview', range: { startLine: 1, endLine: 2 } }
+    expect(await send({ ...base, capture: text })).toBe(400)
+    expect(await send({ ...base, capture: text, text: 'x'.repeat(256 * 1024 + 1) })).toBe(400)
+    expect(await send({ ...base, capture: text, text: 'ok', rect: { x: 'a' } })).toBe(400)
+    const cells = { kind: 'cells', sheet: 'S', range: 'A1:C3', rows: 3, columns: 3 }
+    expect(await send({ ...base, capture: cells })).toBe(400)
+    expect(await send({ ...base, capture: { ...cells, rows: 101, columns: 100 }, csv: 'a' })).toBe(
+      400,
+    )
+    expect(await send({ ...base, capture: { ...cells, range: 'not a range' }, csv: 'a' })).toBe(400)
+    expect(await send({ ...base, capture: cells, csv: 'x'.repeat(256 * 1024 + 1) })).toBe(400)
+    expect((await postSelection(session, new Uint8Array([1, 2]))).status).toBe(400)
+    expect(
+      (
+        await postSelection(session, new Uint8Array(1), {
+          'content-length': String(60 * 1024 * 1024),
+        })
+      ).status,
+    ).toBe(413)
+    expect(events).toEqual([])
+  })
+
+  it('accepts cells, text and pdf selections with their caps', async () => {
+    const { session, events } = await opened()
+    const base = { rect: RECT, frame: FRAME }
+    const cells = { kind: 'cells', sheet: 'S', range: 'A1:B2', rows: 2, columns: 2 }
+    expect(
+      (
+        await postSelection(
+          session,
+          await selectionBody({ ...base, capture: cells, csv: 'a,b\n1,2' }),
+        )
+      ).status,
+    ).toBe(204)
+    const text = { kind: 'text', view: 'preview', range: { startLine: 3, endLine: 4 } }
+    expect(
+      (await postSelection(session, await selectionBody({ ...base, capture: text, text: 'hello' })))
+        .status,
+    ).toBe(204)
+    const pdf = { kind: 'pdf-region', page: 1, pageWidth: 600, pageHeight: 800, region: null }
+    expect(
+      (
+        await postSelection(
+          session,
+          await selectionBody({ ...base, capture: pdf, text: 'abc' }, pngOf(9, 9)),
+        )
+      ).status,
+    ).toBe(204)
+    expect(
+      events.map(
+        (e) =>
+          (
+            e.payload as {
+              selection: { capture: { kind: string }; hasText: boolean; hasImage: boolean }
+            }
+          ).selection,
+      ),
+    ).toMatchObject([
+      { capture: { kind: 'cells', csv: 'a,b\n1,2', file: FILE }, hasText: true, hasImage: false },
+      { capture: { kind: 'text', view: 'preview', text: 'hello' }, hasText: true, hasImage: false },
+      { capture: { kind: 'pdf-region', text: 'abc' }, hasText: true, hasImage: true },
+    ])
+  })
+
+  it('clears the selection on DELETE, on close and when the viewer ends', async () => {
+    const { host, session, events } = await opened()
+    const body = await selectionBody({ capture: IMAGE, rect: RECT, frame: FRAME }, pngOf(4, 4))
+    await postSelection(session, body)
+    await get(session, 'ostia-viewer://t1/~selection', { method: 'DELETE' })
+    expect(events.at(-1)).toMatchObject({
+      type: 'selection',
+      payload: { paneId: 'p1', selection: null },
+    })
+    expect(host.selectionForSend('w1', 'p1')).toBeNull()
+    await postSelection(session, body)
+    expect(events).toHaveLength(3)
+    host.close('w1', 'p1')
+    expect(events.at(-1)).toMatchObject({ payload: { selection: null } })
+    expect(host.selectionForSend('w1', 'p1')).toBeNull()
+    await get(session, 'ostia-viewer://t1/~selection', { method: 'DELETE' })
+    expect(events).toHaveLength(4)
+  })
+
+  it('copies text with its html first and the image only when there is no text', async () => {
+    const { host, session, clipboard } = await opened()
+    const base = { rect: RECT, frame: FRAME }
+    const text = { kind: 'text', view: 'preview', range: { startLine: 1, endLine: 1 } }
+    await postSelection(
+      session,
+      await selectionBody({ ...base, capture: text, text: 'hi', html: '<b>hi</b>' }, pngOf(4, 4)),
+    )
+    expect(await host.copySelection('w1', 'p1')).toBe('txt')
+    expect(clipboard.at(-1)).toEqual({ text: 'hi', html: '<b>hi</b>' })
+    await postSelection(session, await selectionBody({ ...base, capture: IMAGE }, pngOf(4, 4)))
+    expect(await host.copySelection('w1', 'p1')).toBe('img')
+    expect(Object.keys(clipboard.at(-1) ?? {})).toEqual(['png'])
+    const pdf = { kind: 'pdf-region', page: 1, pageWidth: 600, pageHeight: 800, region: null }
+    await postSelection(
+      session,
+      await selectionBody({ ...base, capture: pdf, text: 'abc' }, pngOf(9, 9)),
+    )
+    expect(await host.copySelection('w1', 'p1')).toBe('both')
+    expect(Object.keys(clipboard.at(-1) ?? {}).sort()).toEqual(['png', 'text'])
+  })
+
+  it('copies cells as csv text and an html table', async () => {
+    const { host, session, clipboard } = await opened()
+    const cells = { kind: 'cells', sheet: 'S', range: 'A1:B2', rows: 2, columns: 2 }
+    await postSelection(
+      session,
+      await selectionBody({
+        rect: RECT,
+        frame: FRAME,
+        capture: cells,
+        csv: 'a,"b <1>"\n"x ""y""",2',
+      }),
+    )
+    await host.copySelection('w1', 'p1')
+    expect(clipboard.at(-1)).toEqual({
+      text: 'a,"b <1>"\n"x ""y""",2',
+      html: '<table><tbody><tr><td>a</td><td>b &lt;1&gt;</td></tr><tr><td>x &quot;y&quot;</td><td>2</td></tr></tbody></table>',
+    })
+  })
+
+  it('answers the owner window only and says nothing to copy otherwise', async () => {
+    const { host, session, clipboard, src } = await opened()
+    expect(await host.copySelection('w1', 'p1')).toBe('none')
+    await postSelection(
+      session,
+      await selectionBody({ capture: IMAGE, rect: RECT, frame: FRAME }, pngOf(4, 4)),
+    )
+    expect(await host.copySelection('w2', 'p1')).toBe('none')
+    expect(await host.copySelection('w1', 'other')).toBe('none')
+    expect(clipboard).toEqual([])
+    expect(host.selectionForSend('w2', 'p1')).toBeNull()
+    expect(host.selectionForSend('w1', 'p1')).toMatchObject({
+      capture: { kind: 'image', file: FILE },
+    })
+    expect(host.copyForGuest({ getURL: () => src })).toBe(true)
+    expect(host.copyForGuest({ getURL: () => 'https://example.com/' })).toBe(false)
+    await Promise.resolve()
+    expect(clipboard).toHaveLength(1)
+  })
+})

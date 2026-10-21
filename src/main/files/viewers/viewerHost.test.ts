@@ -1,101 +1,10 @@
 import { EventEmitter } from 'node:events'
 import { PORTABLE_TABLES_BYTES_MAX } from '@aurigax-ai/ostia-extension-sdk/contract/fileKinds'
 import { describe, expect, it, vi } from 'vitest'
-import { type ViewerGuest, ViewerHost, type ViewerHostDeps, viewerOwner } from './viewerHost'
-import { VIEWER_PAGE_CSP, type ViewerSession } from './viewerSessions'
-import { VIEWER_LIMITS, ViewerWatch } from './viewerWatch'
-
-interface FakeSession extends ViewerSession {
-  handler: ((request: Request) => Promise<Response>) | null
-  filter: ((details: { url: string }, cb: (r: { cancel: boolean }) => void) => void) | null
-  permission: ((wc: unknown, permission: string, cb: (granted: boolean) => void) => void) | null
-}
-
-function fakeSession(): FakeSession {
-  const session: FakeSession = {
-    handler: null,
-    filter: null,
-    permission: null,
-    protocol: {
-      handle: (_scheme, handler) => {
-        session.handler = handler
-      },
-    },
-    webRequest: {
-      onBeforeRequest: (listener) => {
-        session.filter = listener
-      },
-    },
-    setProxy: async () => {},
-    setPermissionRequestHandler: (handler) => {
-      session.permission = handler
-    },
-    setPermissionCheckHandler: () => {},
-    on: () => {},
-  }
-  return session
-}
-
-const FILE = '/home/u/report.xlsx'
-const BYTES = Buffer.from([1, 2, 3, 4])
-
-function setup(overrides: Partial<ViewerHostDeps> = {}) {
-  const sessions = new Map<string, FakeSession>()
-  const watched: string[] = []
-  const unwatched: string[] = []
-  const stopped: unknown[] = []
-  const killed: number[] = []
-  const memory = { bytes: 0 }
-  let tokens = 0
-  let enabled = true
-  const deps: ViewerHostDeps = {
-    sessionOf: (partition) => {
-      const session = sessions.get(partition) ?? fakeSession()
-      sessions.set(partition, session)
-      return session
-    },
-    confine: (path) => (path.startsWith('/home/u/') ? path : null),
-    ownsPane: (windowId, paneId) => windowId === 'w1' && paneId === 'p1',
-    viewer: (extId, viewType, path) =>
-      enabled && extId === 'office' && viewType === 'office.spreadsheet' && path.endsWith('.xlsx')
-        ? { dir: '/ext/office', entry: 'sheet.html' }
-        : null,
-    readDocument: async (path) =>
-      path === FILE ? { ok: true, body: BYTES } : { ok: false, status: 413 },
-    statDocument: async (path) => (path.startsWith('/home/u/') ? { size: 4, modified: 7 } : null),
-    readExtensionFile: (_dir, path) => (path === 'sheet.html' ? Buffer.from('<html>') : null),
-    watch: (owner, path) => {
-      watched.push(`${owner} ${path}`)
-    },
-    unwatch: (owner, path) => {
-      unwatched.push(`${owner} ${path}`)
-    },
-    locale: () => 'zh-Hant',
-    guests: new ViewerWatch({
-      processes: () => [{ pid: 9, memoryBytes: memory.bytes, cpuPercent: 0 }],
-      kill: (pid) => {
-        killed.push(pid)
-      },
-    }),
-    stopped: (windowId, event) => {
-      stopped.push({ windowId, ...event })
-    },
-    token: () => `t${++tokens}`,
-    ...overrides,
-  }
-  const host = new ViewerHost(deps)
-  const disable = (): void => {
-    enabled = false
-  }
-  return { host, deps, sessions, watched, unwatched, stopped, killed, memory, disable }
-}
-
-const OPEN = { workspaceId: 'ws', paneId: 'p1', path: FILE, viewType: 'office.spreadsheet' }
-
-function get(session: FakeSession | undefined, url: string, init?: RequestInit): Promise<Response> {
-  if (!session?.handler) throw new Error('no handler')
-  return session.handler(new Request(url, init))
-}
+import { type ViewerGuest, viewerOwner } from './viewerHost'
+import { BYTES, FILE, fakeSession, get, OPEN, setup } from './viewerHostHarness'
+import { VIEWER_PAGE_CSP } from './viewerSessions'
+import { VIEWER_LIMITS } from './viewerWatch'
 
 describe('ViewerHost', () => {
   it('opens a viewer only for the owner window, a known viewer and a confined path', () => {
@@ -277,5 +186,12 @@ describe('ViewerHost', () => {
     const granted = vi.fn()
     session?.permission?.(null, 'clipboard-read', granted)
     expect(granted).toHaveBeenCalledWith(false)
+  })
+
+  it('lets a page decode media and wasm and fetch nothing else off the viewer scheme', () => {
+    expect(VIEWER_PAGE_CSP).toContain("media-src 'self' blob:")
+    expect(VIEWER_PAGE_CSP).toContain("script-src 'self' 'wasm-unsafe-eval'")
+    expect(VIEWER_PAGE_CSP).toContain("connect-src 'self'")
+    expect(VIEWER_PAGE_CSP).toContain("default-src 'none'")
   })
 })

@@ -35,7 +35,12 @@ const linuxChords = {
   paste: parseChord('Ctrl+Shift+V', false),
 }
 
-function setup(formats: string[] = [], mac = false, uriList = '') {
+function setup(
+  formats: string[] = [],
+  mac = false,
+  uriList = '',
+  copyViewerSelection: (guest: WebContents) => boolean = () => false,
+) {
   const app = fakeContents()
   const { ipc, call } = fakeIpc()
   const remap = createGuestRemap({ nativeMenuKey: () => false })
@@ -45,6 +50,7 @@ function setup(formats: string[] = [], mac = false, uriList = '') {
     snapshot: async () => ({ formats, uriList }),
     mac,
     remap,
+    copyViewerSelection,
   })
   return { app, call, edits, remap }
 }
@@ -112,6 +118,28 @@ describe('registerClipboardEdits', () => {
     press(guest, { control: true, shift: true, key: 'V', code: 'KeyV' })
     expect(guest.pasteAndMatchStyle).toHaveBeenCalledTimes(1)
     expect(press(guest, { control: true }).preventDefault).not.toHaveBeenCalled()
+  })
+
+  it('copies a viewer guest selection from main, and everything else natively', () => {
+    const viewerGuest = fakeContents()
+    const stored = new Set<WebContents>([viewerGuest])
+    const copyViewerSelection = vi.fn((guest: WebContents) => stored.has(guest))
+    const { app, call, edits } = setup([], false, '', copyViewerSelection)
+    const page = fakeContents()
+    edits.guardGuest(viewerGuest)
+    edits.guardGuest(page)
+    call('clipboard:set-chords', app, linuxChords)
+    expect(press(viewerGuest, { control: true, shift: true }).preventDefault).toHaveBeenCalled()
+    expect(copyViewerSelection).toHaveBeenCalledWith(viewerGuest)
+    expect(viewerGuest.copy).not.toHaveBeenCalled()
+    press(page, { control: true, shift: true })
+    expect(page.copy).toHaveBeenCalledTimes(1)
+    stored.clear()
+    press(viewerGuest, { control: true, shift: true })
+    expect(viewerGuest.copy).toHaveBeenCalledTimes(1)
+    press(viewerGuest, { control: true, shift: true, key: 'V', code: 'KeyV' })
+    expect(copyViewerSelection).toHaveBeenCalledTimes(3)
+    expect(viewerGuest.pasteAndMatchStyle).toHaveBeenCalledTimes(1)
   })
 
   it('copies for a key remapped to Command, which the system menu never sees, and leaves a real Cmd+C to the page', () => {
