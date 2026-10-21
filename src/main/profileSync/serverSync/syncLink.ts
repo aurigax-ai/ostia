@@ -31,7 +31,10 @@ function linkCode(joining: PublicKeys, approving: PublicKeys): string {
   return out.match(new RegExp(`.{${GROUP}}`, 'g'))?.join('-') ?? out
 }
 
-export function linkCodesFor(rows: readonly DeviceRow[], slots: ReadonlySet<string>): ServerLinkCode[] {
+export function linkCodesFor(
+  rows: readonly DeviceRow[],
+  slots: ReadonlySet<string>,
+): ServerLinkCode[] {
   const me = rows.find((r) => r.current)
   if (!me) return []
   const others = rows.filter((r) => !r.current)
