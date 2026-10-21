@@ -65,6 +65,13 @@ export function claudeHookSettings(extensionHooks: readonly ExtensionAgentHook[]
     },
     ...(hooks.PreToolUse ?? []),
   ]
+  hooks.PostToolUse = [
+    {
+      matcher: CLAUDE_QUESTION_TOOLS.join('|'),
+      hooks: [commandHook(hookCommand('claude-hook PostToolUse'))],
+    },
+    ...(hooks.PostToolUse ?? []),
+  ]
   hooks.StopFailure = [{ hooks: [commandHook(hookCommand('claude-hook StopFailure'))] }]
   for (const event of CLAUDE_SUBAGENT_EVENTS) {
     hooks[event] = [{ hooks: [commandHook(hookCommand(`claude-hook ${event}`))] }]

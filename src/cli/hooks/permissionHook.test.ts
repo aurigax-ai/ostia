@@ -46,6 +46,18 @@ describe('runPermissionHook', () => {
     })
   })
 
+  it('leaves a question or a plan to Claude’s own dialog and raises no permission', async () => {
+    for (const tool_name of ['AskUserQuestion', 'ExitPlanMode']) {
+      const t = io(
+        payload({ tool_name, tool_input: { questions: [{ question: 'Which?' }] } }),
+        'once',
+      )
+      expect(await runPermissionHook(['claude'], t.io)).toBe(0)
+      expect(t.ask).not.toHaveBeenCalled()
+      expect(t.out).toEqual([])
+    }
+  })
+
   it('returns a deny decision', async () => {
     const t = io(payload(), 'deny')
     await runPermissionHook(['codex'], t.io)

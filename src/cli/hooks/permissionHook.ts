@@ -7,6 +7,7 @@ import {
   permissionAskParams,
   permissionHookOutput,
 } from '../../shared/agents/agentPermissions'
+import { isClaudeQuestionTool } from '../../shared/agents/claudeAttention'
 
 const PERMISSION_HOOK_USAGE =
   'usage: ostia permission-hook <claude|codex>   (stdin: the PermissionRequest hook JSON)'
@@ -30,7 +31,7 @@ export async function runPermissionHook(
   const input = await io.readInput()
   if (Buffer.byteLength(input) > PERMISSION_HOOK_INPUT_MAX) return 0
   const payload = parsePermissionPayload(input)
-  if (!payload) return 0
+  if (!payload || (agent === 'claude' && isClaudeQuestionTool(payload.tool))) return 0
   const { decision } = await io.ask(permissionAskParams(agent, payload))
   const output = permissionHookOutput(decision, payload.suggestions)
   if (output) io.out(output)

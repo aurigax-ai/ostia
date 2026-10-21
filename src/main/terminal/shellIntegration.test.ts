@@ -949,6 +949,10 @@ describe('shellIntegrationSpawnOptions', () => {
       expect(command('SubagentStop')).toContain('"${OSTIA_CLI}" claude-hook SubagentStop')
       expect(settings.hooks.PreToolUse[0].matcher).toBe('AskUserQuestion|ExitPlanMode')
       expect(command('PreToolUse')).toContain('"${OSTIA_CLI}" claude-hook PreToolUse')
+      expect(settings.hooks.PostToolUse[0].matcher).toBe('AskUserQuestion|ExitPlanMode')
+      expect(settings.hooks.PostToolUse[0].hooks[0].command).toContain(
+        '"${OSTIA_CLI}" claude-hook PostToolUse',
+      )
       expect(command('SessionStart')).toMatch(/^\[ -n "\$\{OSTIA_SOCKET\}" \] && .*\|\| true$/)
     })
 

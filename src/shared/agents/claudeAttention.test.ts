@@ -52,6 +52,31 @@ describe('claudeAttention', () => {
     expect(claudeAttention('PreToolUse', JSON.stringify({ tool_name: 'Bash' }))).toBeNull()
   })
 
+  it('keeps the question when Claude also announces a permission prompt for the question tool', () => {
+    expect(
+      notification({
+        notification_type: 'permission_prompt',
+        message: 'Claude needs your permission to use AskUserQuestion',
+      }),
+    ).toBeNull()
+    expect(
+      notification({
+        notification_type: 'permission_prompt',
+        message: 'Claude needs your permission to use ExitPlanMode',
+      }),
+    ).toBeNull()
+  })
+
+  it('returns to working once the question or plan is answered, and ignores other tools', () => {
+    for (const tool_name of ['AskUserQuestion', 'ExitPlanMode']) {
+      expect(claudeAttention('PostToolUse', JSON.stringify({ tool_name }))).toEqual({
+        state: 'working',
+        message: '',
+      })
+    }
+    expect(claudeAttention('PostToolUse', JSON.stringify({ tool_name: 'Bash' }))).toBeNull()
+  })
+
   it('ends a turn as done, and a failed turn as an error', () => {
     expect(claudeAttention('Stop', '{}')).toEqual({ state: 'done', message: '' })
     const stop = JSON.stringify({
