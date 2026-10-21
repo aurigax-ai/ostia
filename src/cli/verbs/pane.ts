@@ -2,7 +2,7 @@ import type { MessageConnection } from 'vscode-jsonrpc/node'
 import { type PaneStatus, ageLabel, shortId, statusLine } from '../../shared/panes/paneStatus'
 import { parseArgs, parseTimeoutSeconds } from '../common/args'
 import { resolveWorkspaceRef } from '../common/crossWorkspace'
-import { commandLabel } from '../common/failure'
+import { commandLabel, failWith } from '../common/failure'
 import { tsvLine } from '../common/lineField'
 import { usageOf, verbUsageOf } from '../common/usageTable'
 
@@ -73,6 +73,7 @@ interface PaneWakeResult {
 
 interface PaneHibernateResult {
   hibernated: string[]
+  already?: string[]
   skipped: Record<string, string>
 }
 
@@ -237,6 +238,7 @@ export function hibernateOutcome(
   if (json) return { line: JSON.stringify(result), code: skipped.length > 0 ? 2 : 0 }
   const lines = [
     ...result.hibernated.map(shortId),
+    ...(result.already ?? []).map((paneId) => `${shortId(paneId)} already hibernated`),
     ...skipped.map(
       ([paneId, reason]) => `ostia pane hibernate: ${shortId(paneId)} skipped (${reason})`,
     ),
@@ -484,7 +486,7 @@ export async function runPaneVerb(
       ? (await conn.sendRequest<{ workspaceId?: string }>('whoami')).workspaceId
       : undefined
     if (here && !home) {
-      console.error('ostia pane list: --here needs a pane; pass --workspace <id|name> instead')
+      failWith('no-pane: --here needs a pane; pass --workspace <id|name> instead')
       return 1
     }
     const workspaceId = workspace ? await resolveWorkspaceRef(conn, workspace) : home

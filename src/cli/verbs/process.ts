@@ -49,6 +49,7 @@ interface StartAnswer {
 }
 
 function agentStartLine(res: StartAnswer): string {
+  if (res.status !== 'started') return `${res.name} ${shortId(res.paneId)} ${res.status}`
   const turn =
     res.turnStarted === undefined
       ? 'started; turn unknown (hooks off)'

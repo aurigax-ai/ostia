@@ -12,14 +12,20 @@ const manager = registerPane({ windowId: 'w1', workspaceId: 'ws1', paneId: 'ref-
 markManager('ref-manager')
 
 const named = new Map<string, string[]>()
+const sandboxed = new Set<string>()
+const confined = new Set<string>()
 const deps: PaneRefDeps = {
   processPane: async (ref) => named.get(ref) ?? [],
   visible: async () => (workspaceId) => workspaceId === 'ws2',
+  isSandboxed: (workspaceId) => sandboxed.has(workspaceId),
+  isConfined: (paneId) => confined.has(paneId),
 }
 const ctx = { identity: caller } as unknown as ControlMethodContext
 
 beforeEach(() => {
   named.clear()
+  sandboxed.clear()
+  confined.clear()
   forgetClosedPanes()
 })
 
@@ -71,6 +77,28 @@ describe('resolvePaneRef', () => {
     expect(refFailure('x', ambiguous as never)).toMatch(
       /^ambiguous-pane: x matches .*\(ws1\).*; pass one of those ids$/,
     )
+  })
+
+  it('shows a sandboxed caller only the confined panes of its own workspace, and nothing closed', async () => {
+    sandboxed.add('ws1')
+    confined.add('ref-sibling')
+    named.set('w-1', ['ref-sibling', 'ref-near'])
+    expect(await resolvePaneRef(deps, 'w-1', ctx, true)).toEqual({ found: sibling })
+    expect(await resolvePaneRef(deps, sibling.externalId.slice(0, 8), ctx, true)).toEqual({
+      found: sibling,
+    })
+    expect(await resolvePaneRef(deps, near.externalId.slice(0, 8), ctx, false)).toEqual({
+      unknown: true,
+    })
+    expect(await resolvePaneRef(deps, manager.externalId.slice(0, 8), ctx, false)).toEqual({
+      unknown: true,
+    })
+    rememberClosedPane({
+      externalId: 'e6546de6-0000-4000-8000-000000000000',
+      workspaceId: 'ws1',
+      closedAt: 1,
+    })
+    expect(await resolvePaneRef(deps, 'e6546de6', ctx, false)).toEqual({ unknown: true })
   })
 
   it('says when and as what a pane closed, only to a caller who could see it', async () => {

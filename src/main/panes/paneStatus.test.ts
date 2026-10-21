@@ -12,6 +12,11 @@ const methods = new Map<string, ControlMethod>()
 vi.mock('../control/controlServer', () => ({
   registerControlMethod: (name: string, method: ControlMethod) => methods.set(name, method),
 }))
+const held = new Set<string>()
+vi.mock('../control/controlAuth', async (original) => ({
+  ...(await original<typeof import('../control/controlAuth')>()),
+  connHasCap: (_conn: unknown, cap: string) => held.has(cap),
+}))
 const ensureCaps = vi.fn(async (..._args: unknown[]) => {})
 vi.mock('../approvals/controlElevation', () => ({ ensureCaps }))
 
@@ -30,6 +35,7 @@ const entries = new Map<string, Partial<PaneEntry>>()
 const sandboxed = new Set<string>()
 const confined = new Set<string>()
 const scope = new Set<string>()
+const children = new Set<string>()
 const clock = { now: 100_000 }
 const terminal = new Map<string, { running: boolean; lastExitCode?: number }>()
 const journal = new PaneJournal({ terminal: (id) => terminal.get(id), now: () => clock.now })
@@ -42,7 +48,7 @@ registerPaneStatusMethods({
   visible: async () => () => true,
   inScope: async (ctx, workspaceId) =>
     ctx.identity.workspaceId === workspaceId || scope.has(workspaceId),
-  isChild: () => false,
+  isChild: (owner, paneId) => children.has(`${owner}>${paneId}`),
   isSandboxed: (workspaceId) => sandboxed.has(workspaceId),
   isConfined: (paneId) => confined.has(paneId),
   panes: async () =>
@@ -88,6 +94,8 @@ beforeEach(async () => {
   sandboxed.clear()
   confined.clear()
   scope.clear()
+  children.clear()
+  held.clear()
   terminal.clear()
   gitCalls.length = 0
   wakingAt.clear()
@@ -306,7 +314,10 @@ describe('pane.status', () => {
     await expect(ask(caller, [manager.externalId])).rejects.toThrow('unknown-pane')
   })
 
-  it('answers every other terminal of the caller’s workspace when no pane is named', async () => {
+  it('answers the other terminals of the caller’s workspace it may read when no pane is named', async () => {
+    held.add('process')
+    children.add(`${caller.paneId}>${worker.paneId}`)
+    children.add(`${caller.paneId}>${second.paneId}`)
     entries.set(second.externalId, { agent: 'codex', title: 'w-2' })
     entries.set(caller.externalId, { agent: 'claude', title: 'me' })
     entries.set(faraway.externalId, { workspaceId: 'ws9', title: 'elsewhere' })
@@ -316,6 +327,11 @@ describe('pane.status', () => {
       [worker.externalId, second.externalId].sort(),
     )
     await expect(ask(registerScript('st-script'), undefined)).rejects.toThrow('bad-request: panes')
+    held.clear()
+    expect((await ask(caller, undefined)).panes).toEqual([])
+    held.add('process')
+    sandboxed.add('ws1')
+    expect((await ask(caller, undefined)).panes).toEqual([])
   })
 
   it('refuses an empty or unknown pane list and a list over the cap', async () => {

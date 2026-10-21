@@ -99,7 +99,7 @@ export function registerPaneWakeMethods(
       const already: string[] = []
       const listed = await deps.panes()
       for (const ref of refs) {
-        const to = await target(ref, ctx)
+        const to = await target(ref, ctx, true)
         await ensurePaneReach(deps, 'input', to, ctx, {
           ref,
           method: 'pane.wake',
@@ -198,10 +198,11 @@ export function registerPaneWakeMethods(
         panes.push(to)
       }
       const hibernated: string[] = []
+      const already: string[] = []
       const skipped: Record<string, string> = {}
       for (const to of panes) {
         if (await deps.hibernated(to)) {
-          hibernated.push(to.externalId)
+          already.push(to.externalId)
           continue
         }
         const res = await deps.hibernate(to)
@@ -210,7 +211,7 @@ export function registerPaneWakeMethods(
         if (outcome === 'hibernated') hibernated.push(to.externalId)
         else skipped[to.externalId] = typeof outcome === 'string' ? outcome : 'unknown'
       }
-      return { ok: true, hibernated, skipped }
+      return { ok: true, hibernated, ...(already.length > 0 ? { already } : {}), skipped }
     },
   })
 }

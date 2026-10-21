@@ -30,6 +30,8 @@ registerPaneRenameMethods({
     return reply
   },
   processPane: async () => [],
+  isSandboxed: () => false,
+  isConfined: () => false,
   reach: {
     inScope: async (ctx, workspaceId) => ctx.identity.workspaceId === workspaceId,
     visible: async () => () => false,

@@ -136,7 +136,7 @@ export interface PaneIoDeps extends PaneWakeDeps {
 function asleep(to: PaneIdentity): ResponseError<void> {
   const id = shortId(to.externalId)
   return fail(
-    `hibernated: ${to.externalId} is asleep; ostia bus send ${id} "<text>" wakes it, or ostia pane wake ${id}`,
+    `hibernated: ${to.externalId} is asleep; wake it with ostia pane wake ${id} (ostia bus send ${id} "<text>" wakes it too if you hold pane wake's reach)`,
   )
 }
 

@@ -317,6 +317,18 @@ describe('bus.send --wait', () => {
     expect(res.reply?.messages.map((m) => m.text)).toEqual(['the answer'])
   })
 
+  it('refuses a second wait for the same sender and receiver before sending anything', async () => {
+    const first = send('one?', receiver.externalId, sender, { waitMs: 5000 })
+    await vi.waitFor(() => expect(inbox()).toHaveLength(1))
+    expect(await send('two?', receiver.externalId, sender, { waitMs: 5000 })).toMatchObject({
+      ok: false,
+      error: 'busy',
+    })
+    expect(inbox()).toHaveLength(1)
+    await reply('answer')
+    expect(await first).toMatchObject({ ok: true })
+  })
+
   it('does not take an event about the receiver for its reply', async () => {
     vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
     try {

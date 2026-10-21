@@ -194,6 +194,7 @@ export async function runBusVerb(conn: MessageConnection): Promise<void> {
       failWith(describeErrResult(res))
       return
     }
+    if (waitMs !== undefined) console.error(`sent ${res.id}`)
     if (waitMs === undefined) {
       console.log(JSON.stringify(res))
       if (res.state === 'queued' && res.pending) console.error(PENDING_HINTS[res.pending])

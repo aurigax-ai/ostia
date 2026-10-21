@@ -16,6 +16,7 @@ import {
   type PaneReachDeps,
   ensurePaneReach,
   fail,
+  holdsPaneReach,
   paneRefs,
   paneTarget,
   record,
@@ -161,7 +162,7 @@ export async function collectStatus(
 }
 
 async function workspacePanes(
-  deps: Pick<PaneStatusDeps, 'panes'>,
+  deps: PaneStatusDeps,
   ctx: ControlMethodContext,
 ): Promise<{ ref: string; to: PaneIdentity }[]> {
   const me = ctx.identity
@@ -170,7 +171,9 @@ async function workspacePanes(
   for (const entry of await deps.panes()) {
     const to = resolveExternal(entry.paneId)
     if (to?.kind !== 'pane' || to.workspaceId !== me.workspaceId || to === me) continue
-    if (entry.kind === 'terminal') found.push({ ref: entry.paneId, to })
+    if (entry.kind === 'terminal' && (await holdsPaneReach(deps, 'read', to, ctx))) {
+      found.push({ ref: entry.paneId, to })
+    }
   }
   return found.slice(0, PANE_REFS_MAX)
 }

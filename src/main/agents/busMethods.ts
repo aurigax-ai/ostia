@@ -199,6 +199,8 @@ function registerBusSendMethods(deps: BusDeps): void {
         detail: `to ${to}`,
       })
       if (inboxFull(receiver.externalId)) return INBOX_FULL
+      const pair = `${from}>${receiver.externalId}`
+      if (typeof waitMs === 'number' && replyWaits.has(pair)) return REPLY_BUSY
       const wakes = await holdsPaneReach(deps.reach, 'input', receiver, ctx)
       const posted = await postAndReadBack({
         from,
@@ -214,12 +216,13 @@ function registerBusSendMethods(deps: BusDeps): void {
       }
       const abort = new AbortController()
       const closed = ctx.conn.onClose(() => abort.abort())
+      replyWaits.add(pair)
       const reply = await awaitReply(
         from,
         { from: receiver.externalId, after: queued.ts, sent: queued.id },
         clampTimeout(waitMs),
         abort.signal,
-      )
+      ).finally(() => replyWaits.delete(pair))
       closed.dispose()
       const latest = getMail(queued.id) ?? queued
       return {
@@ -263,6 +266,12 @@ function registerBusSendMethods(deps: BusDeps): void {
 }
 
 const REPLY_WATCH_MS = 200
+const replyWaits = new Set<string>()
+const REPLY_BUSY = {
+  ok: false as const,
+  error: 'busy' as const,
+  message: 'another bus send --wait to that pane is waiting for its reply; wait for it first',
+}
 
 function awaitReply(
   me: string,

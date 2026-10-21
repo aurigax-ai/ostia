@@ -625,7 +625,7 @@ describe('pane.hibernate', () => {
     })
   })
 
-  it('lists a pane that is already asleep as hibernated and stops only the others', async () => {
+  it('lists a pane that is asleep already apart and stops only the others', async () => {
     asleepPanes.add('sibling-pane')
     answer = 'once'
     const conn = await client(agent)
@@ -633,7 +633,8 @@ describe('pane.hibernate', () => {
       conn.sendRequest('pane.hibernate', { panes: ['echo', sibling.externalId] }),
     ).resolves.toEqual({
       ok: true,
-      hibernated: [child.externalId, sibling.externalId],
+      hibernated: [child.externalId],
+      already: [sibling.externalId],
       skipped: {},
     })
     expect(hibernateCalls).toEqual(['child-pane'])
@@ -845,7 +846,7 @@ describe('pane.wake', () => {
     await expect(
       conn.sendRequest('pane.input', { pane: 'echo', text: 'hi', keys: ['enter'] }),
     ).rejects.toThrow(
-      `hibernated: ${child.externalId} is asleep; ostia bus send ${child.externalId.slice(0, 8)} "<text>" wakes it, or ostia pane wake ${child.externalId.slice(0, 8)}`,
+      `hibernated: ${child.externalId} is asleep; wake it with ostia pane wake ${child.externalId.slice(0, 8)}`,
     )
     expect(written).toEqual([])
   })
@@ -1394,7 +1395,7 @@ describe('pane.read', () => {
     )
     asleepPanes.add(noPty.paneId)
     await expect(conn.sendRequest('pane.read', { pane: noPty.externalId })).rejects.toThrow(
-      `hibernated: ${noPty.externalId} is asleep; ostia bus send`,
+      `hibernated: ${noPty.externalId} is asleep; wake it with ostia pane wake`,
     )
   })
 

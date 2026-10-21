@@ -158,7 +158,7 @@ ostia pane send <pane> "answer" --enter --force  # --force types into an agent w
 ostia pane key <pane> enter              # keys: enter tab shift-tab escape backspace delete space
                                          # up down left right home end pageup pagedown ctrl-a…ctrl-z
 ostia pane read <pane> [--lines N] [--json]   # its screen as text; --json adds cwd, running, lastExitCode
-ostia pane status [<pane>…] [--json]    # a line per pane: id, state, closing line, exit, git, mail, changes; none: your workspace's other terminals
+ostia pane status [<pane>…] [--json]    # a line per pane: id, state, closing line, exit, git, mail, changes; none: the terminals you may read here
 ostia pane transcript <pane> [--turns N | --full] [--json]   # the agent's own transcript, as written
 ostia pane wait <pane>… [--until done|waiting|error|idle|exited|command]… [--timeout <s>] [--json]
 ostia pane watch <pane>… [--until done|waiting|error|command|exited]… | --off
@@ -205,7 +205,7 @@ messages whole, framed as the hook frames them; an empty list, `(no messages)`, 
 `wait` answers `timed-out:` with exit 3, as every timeout does. A repeated message id is a
 duplicate. Give the shell command a timeout longer than `--timeout`. `send --wait <s>` blocks
 (1–590 s) for that pane's reply, the first message it sends you after yours, prints it and exits 0;
-1 when the message failed; 3 when no reply came, with the message's state on stderr. Sending to another pane needs `send-other-pane`, plus `all-workspaces`
+1 when the message failed (`busy:` for a second wait to the same pane); 3 when no reply came. It prints `sent <id>` on stderr. Sending to another pane needs `send-other-pane`, plus `all-workspaces`
 outside your reach; `handoffs --all` needs `all-workspaces`. Why a message waits (`pending`),
 `via`, `reason` and the limits: [reference/bus.md](reference/bus.md).
 

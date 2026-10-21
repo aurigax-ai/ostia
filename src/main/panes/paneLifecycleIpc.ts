@@ -121,12 +121,14 @@ export function registerPaneLifecycleIpc({
       const identity = getByPaneId(event.paneId)
       if (identity) {
         const name = services.processes?.forPane(event.paneId)?.name
-        rememberClosedPane({
-          externalId: identity.externalId,
-          workspaceId: identity.workspaceId,
-          closedAt: Date.now(),
-          ...(name ? { name } : {}),
-        })
+        if (!identity.manager) {
+          rememberClosedPane({
+            externalId: identity.externalId,
+            workspaceId: identity.workspaceId,
+            closedAt: Date.now(),
+            ...(name ? { name } : {}),
+          })
+        }
         dropIdentity(identity.externalId)
         approvals()?.forget(identity.externalId)
         questions()?.forget(identity.externalId)

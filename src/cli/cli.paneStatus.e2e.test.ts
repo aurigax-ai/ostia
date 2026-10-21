@@ -92,7 +92,7 @@ beforeAll(() => {
     processPane: async () => [],
     visible: async () => () => true,
     inScope: async () => true,
-    isChild: () => false,
+    isChild: (owner, paneId) => owner === coordinator.paneId && paneId === worker.paneId,
     isSandboxed: () => false,
     isConfined: () => false,
     panes: async () => [

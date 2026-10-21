@@ -373,7 +373,7 @@ describe('bus send --wait through the real CLI', () => {
     expect(res.stdout).toContain(`from="${agent.externalId}"`)
     expect(res.stdout).toContain('all green')
     expect(res.stdout).not.toContain('from a third pane')
-    expect(res.stderr).toBe('')
+    expect(res.stderr).toMatch(/^sent [0-9a-f-]{36}\n$/)
     const left = JSON.parse((await ostia(sender, 'bus', 'inbox', '--json')).stdout)
     expect(left.map((m: { text: string }) => m.text)).toEqual(['from a third pane'])
   }, 60_000)
@@ -396,6 +396,17 @@ describe('bus send --wait through the real CLI', () => {
       `ostia bus send: timed-out: ${agent.externalId} sent no reply; the message is queued:idle-no-wake`,
     )
   }, 30_000)
+
+  it('refuses a second --wait to the same pane while the first still waits', async () => {
+    const first = ostia(sender, 'bus', 'send', '--wait', '30', agent.externalId, 'first?')
+    await waitForSend(sender)
+    const second = await ostia(sender, 'bus', 'send', '--wait', '5', agent.externalId, 'second?')
+    expect(second.code).toBe(1)
+    expect(second.stderr).toContain('busy:')
+    expect(sentBy(sender.externalId)).toHaveLength(1)
+    await ostia(agent, 'bus', 'send', sender.externalId, 'one answer')
+    expect((await first).stdout).toContain('one answer')
+  }, 60_000)
 
   it('exits 1 with the reason as soon as the receiver’s pane closes', async () => {
     const waiting = ostia(sender, 'bus', 'send', '--wait', '30', agent.externalId, 'too late')

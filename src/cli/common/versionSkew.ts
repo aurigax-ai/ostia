@@ -3,18 +3,18 @@ import { readFileSync, writeFileSync } from 'node:fs'
 export function versionSkewWarning(
   app: string | undefined,
   cli: string | null,
-  warned: { read: () => string | undefined; write: (mark: string) => void },
+  warned: { read: () => string | undefined; write: (mark: string) => boolean },
 ): string | undefined {
   if (!app || !cli || app === cli) return undefined
   const mark = `${app}|${cli}`
   if (warned.read() === mark) return undefined
-  warned.write(mark)
+  if (!warned.write(mark)) return undefined
   return `ostia: the app runs ${app}, this CLI is ${cli}; restart Ostia`
 }
 
 export function skewMarkFile(path: string): {
   read: () => string | undefined
-  write: (mark: string) => void
+  write: (mark: string) => boolean
 } {
   return {
     read: () => {
@@ -27,7 +27,10 @@ export function skewMarkFile(path: string): {
     write: (mark) => {
       try {
         writeFileSync(path, mark)
-      } catch {}
+        return true
+      } catch {
+        return false
+      }
     },
   }
 }

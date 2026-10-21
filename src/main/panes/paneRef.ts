@@ -12,6 +12,8 @@ const ID_PREFIX = /^[0-9a-f-]+$/
 export interface PaneRefDeps {
   processPane: (ref: string, ctx: ControlMethodContext) => Promise<string[]>
   visible: (ctx: ControlMethodContext) => Promise<(workspaceId: string) => boolean>
+  isSandboxed: (workspaceId: string) => boolean
+  isConfined: (paneId: string) => boolean
 }
 
 export type PaneRef =
@@ -33,11 +35,14 @@ export async function resolvePaneRef(
 ): Promise<PaneRef> {
   const exact = resolveExternal(ref)
   if (exact?.kind === 'pane') return { found: exact }
-  const named = (await deps.processPane(ref, ctx)).flatMap((id) => asPane(id) ?? [])
+  const sandboxed = deps.isSandboxed(ctx.identity.workspaceId)
+  const seen = (pane: PaneIdentity): boolean =>
+    !sandboxed || (pane.workspaceId === ctx.identity.workspaceId && deps.isConfined(pane.paneId))
+  const named = (await deps.processPane(ref, ctx)).flatMap((id) => asPane(id) ?? []).filter(seen)
   if (named.length > 0) {
     return destructive && named.length > 1 ? { ambiguous: named } : { found: named[0] }
   }
-  const reaches = await deps.visible(ctx)
+  const reaches = sandboxed ? () => false : await deps.visible(ctx)
   const mine = (workspaceId: string): boolean =>
     workspaceId === ctx.identity.workspaceId || reaches(workspaceId)
   const prefix = ref.toLowerCase()
@@ -47,14 +52,14 @@ export async function resolvePaneRef(
         pane.kind === 'pane' &&
         !pane.manager &&
         pane.externalId.startsWith(prefix) &&
-        mine(pane.workspaceId),
+        mine(pane.workspaceId) &&
+        seen(pane),
     )
     if (matches.length === 1) return { found: matches[0] }
     if (matches.length > 1) return { ambiguous: matches }
-    const closed = recallClosedPane(prefix, mine)
-    if (closed) return { closed }
   }
-  const closed = recallClosedPane(ref, mine)
+  if (sandboxed) return { unknown: true }
+  const closed = recallClosedPane(prefix.length >= PREFIX_MIN ? prefix : ref, mine)
   return closed ? { closed } : { unknown: true }
 }
 

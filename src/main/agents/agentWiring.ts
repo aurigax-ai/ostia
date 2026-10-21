@@ -190,6 +190,8 @@ export function registerAgentWiring({
     execCommand,
     reach,
     windowOfWorkspace: workspaceWindowId,
+    isSandboxed: (workspaceId) => workspaceSandboxes.isEnabled(workspaceId),
+    isConfined: (paneId) => ptys.get(paneId)?.sandboxed === true,
     processPane: async (ref, ctx) =>
       registry
         .livePanes(ref, ctx.identity.workspaceId, await reach.visible(ctx))

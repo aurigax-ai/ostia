@@ -16,7 +16,7 @@
   <id|name>` another, `--state` (repeat it: `idle`, `running`, `working`, `waiting`, `done`, `error`,
   `hibernated`, `waking`) and `--kind` narrow it further. Text shows the first 8 characters of each
   id; `--json` keeps the full ids.
-- **status** with no pane answers every other terminal in your workspace (at most 32). Each line
+- **status** with no pane answers the other terminals in your workspace you may read without asking (the tabs you opened, at most 32). Each line
   starts with the pane's id. It answers facts, never the screen: `state` (`working`, `waiting`, `done`, `error`,
   `idle`, `hibernated`, `waking`, `exited`, `shell`), how long it has been in it, the closing line,
   the last exit code, the branch with changed files and ahead/behind, the pane's queued and failed

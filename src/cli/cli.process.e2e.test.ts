@@ -856,6 +856,9 @@ describe('ostia pane (the real CLI against a live control server)', () => {
     const send = await ostia(['pane', 'send', 'dup', 'x', '--enter'])
     expect(send.code).toBe(1)
     expect(send.stderr).toContain('ambiguous-pane')
+    const wake = await ostia(['pane', 'wake', 'dup'])
+    expect(wake.code).toBe(1)
+    expect(wake.stderr).toContain('ambiguous-pane')
     expect(closedPanes).toEqual([])
     expect(written).toEqual([])
     const read = await ostia(['pane', 'read', 'dup'])
@@ -880,7 +883,7 @@ describe('ostia pane (the real CLI against a live control server)', () => {
     asleep.add(tab)
     const res = await ostia(['pane', 'hibernate', 'fixer'])
     expect(res.code).toBe(0)
-    expect(res.stdout.trim()).toBe(getByPaneId(tab)?.externalId.slice(0, 8))
+    expect(res.stdout.trim()).toBe(`${getByPaneId(tab)?.externalId.slice(0, 8)} already hibernated`)
   })
 
   it('wake: an agent that runs already answers already awake and nothing is typed', async () => {
@@ -898,8 +901,8 @@ describe('ostia pane (the real CLI against a live control server)', () => {
     const id = getByPaneId(tab)?.externalId ?? ''
     const res = await ostia(['pane', 'send', 'fixer', 'hi'])
     expect(res.code).toBe(1)
-    expect(res.stderr).toContain(`ostia bus send ${id.slice(0, 8)} "<text>" wakes it`)
-    expect(res.stderr).toContain(`ostia pane wake ${id.slice(0, 8)}`)
+    expect(res.stderr).toContain(`wake it with ostia pane wake ${id.slice(0, 8)}`)
+    expect(res.stderr).toContain(`ostia bus send ${id.slice(0, 8)} "<text>" wakes it too`)
   })
 
   it('prints usage for a missing pane or an unknown key', async () => {

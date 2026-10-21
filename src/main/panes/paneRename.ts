@@ -12,6 +12,8 @@ const NAME_MAX = 200
 
 export interface PaneRenameDeps {
   processPane: PaneRefDeps['processPane']
+  isSandboxed: PaneRefDeps['isSandboxed']
+  isConfined: PaneRefDeps['isConfined']
   execCommand: (target: CommandTarget, id: string, args?: unknown) => Promise<CommandResult>
   reach: Pick<Reach, 'inScope' | 'visible'>
   windowOfWorkspace: (workspaceId: string) => string | undefined
@@ -69,7 +71,12 @@ export function registerPaneRenameMethods(deps: PaneRenameDeps): void {
       const me = ctx.identity
       if (me.kind === 'script' && p.pane === undefined) throw fail('bad-request: pane')
       const to = await targetPane(
-        { processPane: deps.processPane, visible: deps.reach.visible },
+        {
+          processPane: deps.processPane,
+          visible: deps.reach.visible,
+          isSandboxed: deps.isSandboxed,
+          isConfined: deps.isConfined,
+        },
         p.pane,
         me,
         ctx,
