@@ -33,7 +33,9 @@ export class ServerElevation {
         }
       }
       const { approvalId } = await this.account.authed((token, routes) =>
-        routes.requestApproval(token, this.account.signer().stamped('elevate')),
+        this.account
+          .signer()
+          .signed('elevate', (headers) => routes.requestApproval(token, headers)),
       )
       this.pending = { kind: 'approval', approvalId }
       return { ok: true, kind: 'approval' }

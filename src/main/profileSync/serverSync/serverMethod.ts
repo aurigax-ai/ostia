@@ -3,7 +3,13 @@ import { ServerError } from '../../server/serverClient'
 import { type SyncMethod, type SyncSnapshot, SyncTargetError, type WriteResult } from '../engine'
 import { blobId, contentHash, type Manifest, sealBlob, sealManifest } from './syncCrypto'
 import type { SyncKeyring } from './syncKeyring'
-import { type RemoteContext, readRemote, targetErrorOf, uploadAll } from './syncRemote'
+import {
+  pushManifest,
+  type RemoteContext,
+  readRemote,
+  targetErrorOf,
+  uploadAll,
+} from './syncRemote'
 
 const FIRST_VERSION = '0'
 const CACHE_MAX = 600
@@ -65,9 +71,7 @@ class ServerMethod implements SyncMethod {
     try {
       await uploadAll(this.ctx, uploads)
       const sealed = sealManifest(key, manifest).toString('base64url')
-      const put = await this.ctx.account.authed((token, routes) =>
-        routes.putManifest(token, sealed, expected),
-      )
+      const put = await pushManifest(this.ctx, sealed, expected)
       this.keyring.raise(counter)
       return { ok: true, version: String(put.version) }
     } catch (error) {

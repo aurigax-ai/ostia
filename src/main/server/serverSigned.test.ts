@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
+import { signedIn } from '../../../test/fixtures/server/accountHarness'
 import { generateDeviceKeys } from './deviceKeys'
 import { DeviceSigner } from './deviceSigner'
 import { createServerClient, ServerError } from './serverClient'
@@ -50,5 +51,20 @@ describe('signed requests with a timestamp', () => {
       status: 429,
     })
     expect(fetchFn).toHaveBeenCalledTimes(2)
+  })
+
+  it('SSY-C167 recovers from a desktop clock ten minutes behind the server on the first signed read', async () => {
+    const harness = await signedIn({ signerNow: () => Date.now() - 10 * 60_000 })
+    const read = () =>
+      harness.account.authed((token, routes) =>
+        harness.account
+          .signer()
+          .signed('wrapRead', (headers) => routes.wrap(token, 'passphrase', headers), [
+            'passphrase',
+          ]),
+      )
+    await expect(read()).rejects.toMatchObject({ status: 404 })
+    await expect(read()).rejects.toMatchObject({ status: 404 })
+    await harness.close()
   })
 })

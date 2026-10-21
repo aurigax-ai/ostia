@@ -21,6 +21,7 @@ export async function accountHarness(
     url?: string
     canEncrypt?: boolean | (() => boolean)
     now?: () => number
+    signerNow?: () => number
     server?: FakeServer
   } = {},
 ): Promise<AccountHarness> {
@@ -46,19 +47,23 @@ export async function accountHarness(
     encrypt: (plain) => Buffer.from(plain).toString('base64'),
     decrypt: (secret) => Buffer.from(secret, 'base64').toString(),
   })
+  const signer = new DeviceSigner({
+    keys: () => keyStore.load(),
+    deviceId: () => config.identity()?.deviceId ?? null,
+    now: options.signerNow ?? (() => server.now()),
+  })
   const routes = serverRoutes(
-    createServerClient({ baseUrl: () => config.url(), pause: async () => {} }),
+    createServerClient({
+      baseUrl: () => config.url(),
+      pause: async () => {},
+      onServerTime: (ms) => signer.observeServerTime(ms),
+    }),
   )
   const session = new ServerSession({
     routes,
     keys: () => keyStore.load(),
     deviceId: () => config.identity()?.deviceId ?? null,
     now: options.now,
-  })
-  const signer = new DeviceSigner({
-    keys: () => keyStore.load(),
-    deviceId: () => config.identity()?.deviceId ?? null,
-    now: () => server.now(),
   })
   const account = new ServerAccount({
     config,

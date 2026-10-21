@@ -13,6 +13,27 @@ function client(fetchFn: typeof fetch, pause = vi.fn(async () => {})) {
 }
 
 describe('the server client', () => {
+  it('SSY-C166 reports the server time from the Date header of every answer', async () => {
+    const onServerTime = vi.fn()
+    const fetchFn = vi
+      .fn()
+      .mockResolvedValueOnce(answer(200, {}, { Date: 'Wed, 21 Oct 2026 07:28:00 GMT' }))
+      .mockResolvedValueOnce(answer(403, { error: 'x' }, { Date: 'Wed, 21 Oct 2026 07:29:00 GMT' }))
+      .mockResolvedValueOnce(answer(200, {}))
+    const api = createServerClient({
+      baseUrl: () => 'https://s.example',
+      fetchFn: fetchFn as unknown as typeof fetch,
+      onServerTime,
+    })
+    await api.request('GET', '/v1/a')
+    await api.request('GET', '/v1/b').catch(() => {})
+    await api.request('GET', '/v1/c')
+    expect(onServerTime.mock.calls).toEqual([
+      [Date.UTC(2026, 9, 21, 7, 28)],
+      [Date.UTC(2026, 9, 21, 7, 29)],
+    ])
+  })
+
   it('SVA-C12 sends JSON with the bearer token and parses the answer', async () => {
     const fetchFn = vi.fn(async () => answer(200, { ok: 1 }))
     const { api } = client(fetchFn as unknown as typeof fetch)

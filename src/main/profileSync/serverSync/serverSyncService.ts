@@ -23,7 +23,7 @@ import { collectGarbage, rotateKey, verifySecrets } from './syncRotate'
 
 type ServiceAccount = Pick<
   ServerAccount,
-  'signedIn' | 'identity' | 'baseUrl' | 'authed' | 'deviceKeys' | 'beforeSignOut'
+  'signedIn' | 'identity' | 'baseUrl' | 'authed' | 'deviceKeys' | 'signer' | 'beforeSignOut'
 >
 
 export interface ServiceDeps {

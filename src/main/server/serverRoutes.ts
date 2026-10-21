@@ -193,11 +193,12 @@ export function serverRoutes(client: ServerClient) {
       ),
     manifest: (token: string) =>
       client.request<ManifestView>('GET', '/v1/sync/manifest', { token }),
-    putManifest: (token: string, blob: string, ifMatch: string) =>
+    putManifest: (token: string, json: string, ifMatch: string, signed: Record<string, string>) =>
       client.request<{ version: number }>('PUT', '/v1/sync/manifest', {
         token,
-        body: { blob },
-        headers: { 'If-Match': ifMatch },
+        json,
+        headers: { 'If-Match': ifMatch, ...signed },
+        retryRateLimited: false,
       }),
     blob: (token: string, id: string) =>
       client.request<Buffer>('GET', `/v1/sync/blobs/${id}`, { token, asBytes: true }),
@@ -205,8 +206,12 @@ export function serverRoutes(client: ServerClient) {
       client.request<void>('PUT', `/v1/sync/blobs/${id}`, { token, bytes }),
     wraps: (token: string) =>
       client.request<{ wraps: WrapSlot[] }>('GET', '/v1/sync/wraps', { token }),
-    wrap: (token: string, slot: string) =>
-      client.request<{ slot: string; blob: string }>('GET', `/v1/sync/wraps/${slot}`, { token }),
+    wrap: (token: string, slot: string, headers?: Record<string, string>) =>
+      client.request<{ slot: string; blob: string }>('GET', `/v1/sync/wraps/${slot}`, {
+        token,
+        headers,
+        ...(headers && { retryRateLimited: false as const }),
+      }),
     putWrap: (token: string, slot: string, blob: string) =>
       client.request<void>('PUT', `/v1/sync/wraps/${slot}`, { token, body: { blob } }),
     rotate: (token: string, body: RotateBody) =>

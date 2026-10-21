@@ -41,13 +41,18 @@ export function startServer({ broadcast, openExternalSafe }: ServerStartDeps): S
     allowInsecure,
   })
   const keyStore = encryptedKeys()
-  const routes = serverRoutes(createServerClient({ baseUrl: () => config.url() }))
-  const session = new ServerSession({
-    routes,
+  const signer = new DeviceSigner({
     keys: () => keyStore.load(),
     deviceId: () => config.identity()?.deviceId ?? null,
   })
-  const signer = new DeviceSigner({
+  const routes = serverRoutes(
+    createServerClient({
+      baseUrl: () => config.url(),
+      onServerTime: (ms) => signer.observeServerTime(ms),
+    }),
+  )
+  const session = new ServerSession({
+    routes,
     keys: () => keyStore.load(),
     deviceId: () => config.identity()?.deviceId ?? null,
   })

@@ -1,3 +1,4 @@
+import { digestOf } from '../../server/deviceKeys'
 import type { ServerAccount } from '../../server/serverAccount'
 import { ServerError } from '../../server/serverClient'
 import { SyncTargetError } from '../engine'
@@ -8,7 +9,7 @@ import type { SyncKeyring } from './syncKeyring'
 const FETCH_PARALLEL = 8
 const SEALED_OVERHEAD = 28
 
-type RemoteAccount = Pick<ServerAccount, 'authed' | 'deviceKeys'>
+type RemoteAccount = Pick<ServerAccount, 'authed' | 'deviceKeys' | 'signer'>
 
 export interface RemoteContext {
   account: RemoteAccount
@@ -59,6 +60,22 @@ export function uploadAll(
       throw error
     }
   })
+}
+
+export function pushManifest(
+  ctx: RemoteContext,
+  sealed: string,
+  ifMatch: string,
+): Promise<{ version: number }> {
+  const json = JSON.stringify({ blob: sealed })
+  return ctx.account.authed((token, routes) =>
+    ctx.account
+      .signer()
+      .signed('manifestPut', (headers) => routes.putManifest(token, json, ifMatch, headers), [
+        ifMatch,
+        digestOf(json),
+      ]),
+  )
 }
 
 async function fetchManifest(ctx: RemoteContext) {

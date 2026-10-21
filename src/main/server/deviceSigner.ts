@@ -1,4 +1,11 @@
-import { type DeviceKeys, signApprove, signRevoke, signSeen, signStamped } from './deviceKeys'
+import {
+  type DeviceKeys,
+  type StampedKind,
+  signApprove,
+  signRevoke,
+  signSeen,
+  signStamped,
+} from './deviceKeys'
 import { ServerError } from './serverClient'
 
 export interface SignerDeps {
@@ -11,6 +18,8 @@ export type SignedHeaders = Record<string, string>
 
 export class DeviceSigner {
   private lastStamp = 0
+  private offset = 0
+  private tail: Promise<unknown> = Promise.resolve()
 
   constructor(private readonly deps: SignerDeps) {}
 
@@ -22,16 +31,38 @@ export class DeviceSigner {
   }
 
   private nextStamp(): number {
-    this.lastStamp = Math.max((this.deps.now ?? Date.now)(), this.lastStamp + 1)
+    this.lastStamp = Math.max((this.deps.now ?? Date.now)() + this.offset, this.lastStamp + 1)
     return this.lastStamp
   }
 
-  stamped(kind: 'invite' | 'elevate'): SignedHeaders {
+  observeServerTime(serverMs: number): void {
+    this.offset = serverMs - (this.deps.now ?? Date.now)()
+  }
+
+  signed<T>(
+    kind: StampedKind,
+    send: (headers: SignedHeaders) => Promise<T>,
+    bound: readonly string[] = [],
+  ): Promise<T> {
+    const run = async (): Promise<T> => {
+      try {
+        return await send(this.stamped(kind, bound))
+      } catch (error) {
+        if (!(error instanceof ServerError) || error.code !== 'stale-signature') throw error
+        return send(this.stamped(kind, bound))
+      }
+    }
+    const result = this.tail.then(run, run)
+    this.tail = result.catch(() => undefined)
+    return result
+  }
+
+  private stamped(kind: StampedKind, bound: readonly string[]): SignedHeaders {
     const { keys, id } = this.who()
     const stamp = this.nextStamp()
     return {
       'X-Device-Timestamp': String(stamp),
-      'X-Device-Signature': signStamped(keys, kind, id, stamp),
+      'X-Device-Signature': signStamped(keys, kind, id, stamp, bound),
     }
   }
 
