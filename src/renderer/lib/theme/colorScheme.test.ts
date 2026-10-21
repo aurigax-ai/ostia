@@ -90,6 +90,14 @@ describe('terminalTheme', () => {
   })
 })
 
+describe('oxocarbon', () => {
+  it('prints red and bright red in Oxocarbon red', () => {
+    const { red, brightRed } = scheme('oxocarbon').colors
+    expect(red).toBe('#ee5396')
+    expect(brightRed).toBe('#ee5396')
+  })
+})
+
 describe('accentScheme', () => {
   it('gives a linked scheme the accent as its cursor color', () => {
     const linked = accentScheme(scheme('adeberry'), 'match', theme('adeberry'), '#f2b347')
