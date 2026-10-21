@@ -83,20 +83,6 @@ export function RegionActionBar({
 
   useEffect(() => {
     if (copied !== null) return
-    const root = rootRef.current
-    const origin = document.activeElement
-    root?.focus({ preventScroll: true })
-    return () => {
-      const active = document.activeElement
-      const free = !active || active === document.body || active === root
-      if (free && origin instanceof HTMLElement && origin.isConnected) {
-        origin.focus({ preventScroll: true })
-      }
-    }
-  }, [copied])
-
-  useEffect(() => {
-    if (copied !== null) return
     const close = (): void => closeRef.current()
     const inside = (target: EventTarget | null): boolean =>
       target instanceof Node && (rootRef.current?.contains(target) ?? false)
@@ -123,6 +109,20 @@ export function RegionActionBar({
       document.removeEventListener('pointerdown', onOutside, true)
       document.removeEventListener('scroll', onOutside, true)
       window.removeEventListener('blur', close)
+    }
+  }, [copied])
+
+  useEffect(() => {
+    if (copied !== null) return
+    const root = rootRef.current
+    const origin = document.activeElement
+    root?.focus({ preventScroll: true })
+    return () => {
+      const active = document.activeElement
+      const free = !active || active === document.body || active === root
+      if (free && origin instanceof HTMLElement && origin.isConnected) {
+        origin.focus({ preventScroll: true })
+      }
     }
   }, [copied])
 

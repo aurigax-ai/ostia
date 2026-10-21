@@ -11,9 +11,12 @@ import { useTransientStatus } from '@/lib/app/useTransientStatus'
 import { RegionActionBar } from './RegionActionBar'
 
 const STATUS_MS = 6000
+let barCounter = 0
+
 const DEFAULT_ANCHOR: BarAnchor = { left: 12, top: 40, bottom: 40 }
 
 interface PendingSelection {
+  key: number
   capture: SelectionCapture
   image?: Uint8Array
   anchor: BarAnchor
@@ -38,7 +41,8 @@ export function useSelectionSend(
   const open = useCallback(
     (capture: SelectionCapture, image?: Uint8Array, anchor: BarAnchor = DEFAULT_ANCHOR) => {
       setStatus(null)
-      setPending({ capture, image, anchor })
+      barCounter += 1
+      setPending({ key: barCounter, capture, image, anchor })
     },
     [setStatus],
   )
@@ -77,6 +81,7 @@ export function useSelectionSend(
 
   const panel = pending ? (
     <RegionActionBar
+      key={pending.key}
       workspaceId={workspaceId}
       anchor={pending.anchor}
       onCopy={copy}

@@ -1,5 +1,6 @@
 import '@testing-library/jest-dom/vitest'
-import { act, cleanup, render, screen } from '@testing-library/react'
+import { act, cleanup, render, screen, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { useEffect } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { TooltipProvider } from '@/components/ui/tooltip'
@@ -77,5 +78,28 @@ describe('useSelectionSend', () => {
     await screen.findByRole('toolbar', { name: 'Selection actions' })
     expect(copyPaneSelection('p1')).toBe(false)
     expect(vi.mocked(window.ostia.clipboard.writeCapture)).not.toHaveBeenCalled()
+  })
+
+  it('shows a fresh bar when a new selection opens while the last Copy status is still up', async () => {
+    let open: SelectionSend['open'] = () => {}
+    function Panel(): JSX.Element {
+      const selectionSend = useSelectionSend('w1', 'p1')
+      open = selectionSend.open
+      return <TooltipProvider>{selectionSend.panel}</TooltipProvider>
+    }
+    render(<Panel />)
+    const capture = {
+      kind: 'terminal',
+      cwd: null,
+      command: null,
+      text: 'ls',
+    } as const
+    act(() => open(capture))
+    const bar = await screen.findByRole('toolbar', { name: 'Selection actions' })
+    await userEvent.click(within(bar).getByRole('button', { name: 'Copy' }))
+    expect(await screen.findByText('Copied the selection.')).toBeInTheDocument()
+    expect(screen.queryByRole('toolbar')).toBeNull()
+    act(() => open(capture))
+    expect(await screen.findByRole('toolbar', { name: 'Selection actions' })).toBeInTheDocument()
   })
 })
