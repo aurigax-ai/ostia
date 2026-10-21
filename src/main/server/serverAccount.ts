@@ -24,6 +24,7 @@ import { githubDeviceUri, hostOf } from './serverUrl'
 
 const NAME_MAX = 64
 const MS = 1000
+const SIGN_OUT_HOOKS_CAP_MS = 5000
 
 export interface AccountDeps {
   config: ServerConfig
@@ -253,7 +254,14 @@ export class ServerAccount {
   }
 
   async signOut(): Promise<ServerActionResult> {
-    await Promise.allSettled([...this.signOutHooks].map(async (hook) => hook()))
+    let cap: ReturnType<typeof setTimeout> | undefined
+    await Promise.race([
+      Promise.allSettled([...this.signOutHooks].map(async (hook) => hook())),
+      new Promise<void>((resolve) => {
+        cap = setTimeout(resolve, SIGN_OUT_HOOKS_CAP_MS)
+      }),
+    ])
+    clearTimeout(cap)
     await this.deps.session.end()
     this.deps.config.setIdentity(null)
     this.deps.keyStore.erase()

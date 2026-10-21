@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { type AccountHarness, accountHarness } from '../../../test/fixtures/server/accountHarness'
 import { cleanDeviceName } from './serverAccount'
 
@@ -229,6 +229,26 @@ describe('the signed-in account', () => {
     expect(harness.saved().identity).toBeNull()
     expect(changes).toBe(1)
     expect(await harness.account.devices()).toEqual({ ok: false, error: 'not-signed-in' })
+  })
+
+  it('SVA-C59 stops waiting for a sign-out hook after five seconds and still signs out', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+    try {
+      harness = await signedInAccount()
+      harness.account.beforeSignOut(() => new Promise<void>(() => {}))
+      let done = false
+      const out = harness.account.signOut().then((result) => {
+        done = true
+        return result
+      })
+      await vi.advanceTimersByTimeAsync(4900)
+      expect(done).toBe(false)
+      await vi.advanceTimersByTimeAsync(200)
+      expect(await out).toEqual({ ok: true })
+      expect(harness.account.status().signedIn).toBe(false)
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it('SVA-C40 keeps the address fixed while signed in', async () => {
