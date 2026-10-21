@@ -587,6 +587,13 @@ describe('wrapper-only prompts', () => {
     expect(current?.wrapper).toEqual({ kind: 'message', from: { agent: 'claude', n: 2 } })
   })
 
+  it('names the pane a bus message block comes from by its short id', () => {
+    const current = agentOf([
+      ev('p', 'prompt', '<message id="m1" from="send" name="api">'),
+    ])?.current
+    expect(current?.wrapper).toEqual({ kind: 'message', from: { agent: 'claude', n: 2 } })
+  })
+
   it('labels a wrapper with its closing tag and nothing else, and ignores surrounding blanks', () => {
     expect(
       agentOf([ev('p', 'prompt', '<system-reminder></system-reminder>')])?.current.wrapper,

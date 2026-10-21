@@ -57,6 +57,7 @@ const BASH_INIT = join(INTEGRATION_DIR, 'init.bash')
 const BASH_RC = join(INTEGRATION_DIR, 'bashrc')
 const AGENT_DIR = shellIntegrationSpawnOptions('/bin/bash', {}).env.OSTIA_AGENT_DIR ?? ''
 const CLAUDE_PLUGIN = join(AGENT_DIR, 'claude-plugin')
+const CLAUDE_FOLD = join(AGENT_DIR, 'claude-fold')
 
 describe('test isolation', () => {
   it("writes the integration files under this run's private temp folder", () => {
@@ -1010,6 +1011,8 @@ describe('shellIntegrationSpawnOptions', () => {
         expect(run('claude --resume abc').split('\n')).toEqual([
           '--plugin-dir',
           CLAUDE_PLUGIN,
+          '--plugin-dir',
+          CLAUDE_FOLD,
           '--resume',
           'abc',
         ])
@@ -1033,6 +1036,8 @@ describe('shellIntegrationSpawnOptions', () => {
         const agentDir = join(bin, 'agent')
         const pluginDir = join(agentDir, 'claude-plugin')
         mkdirSync(pluginDir, { recursive: true })
+        const foldDir = join(agentDir, 'claude-fold')
+        mkdirSync(foldDir, { recursive: true })
         const run = (off: string) =>
           spawnSync(shell, [noRc, '-c', `source '${wrapper}'; claude --resume abc`], {
             env: {
@@ -1046,7 +1051,14 @@ describe('shellIntegrationSpawnOptions', () => {
             .stdout.trim()
             .split('\n')
         expect(run('1')).toEqual(['--resume', 'abc'])
-        expect(run('')).toEqual(['--plugin-dir', pluginDir, '--resume', 'abc'])
+        expect(run('')).toEqual([
+          '--plugin-dir',
+          pluginDir,
+          '--plugin-dir',
+          foldDir,
+          '--resume',
+          'abc',
+        ])
       } finally {
         rmSync(bin, { recursive: true, force: true })
       }

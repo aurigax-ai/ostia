@@ -30,9 +30,11 @@ import {
   permissionHookCommand,
   turnHookCommand,
 } from './agentHookCommands'
+import claudeFoldSource from './claudeMod/fold.ts?raw'
 import claudeModSource from './claudeMod/register.ts?raw'
 
 export const CLAUDE_MOD_SOURCE = claudeModSource
+export const CLAUDE_FOLD_SOURCE = claudeFoldSource
 
 const CLAUDE_ARGS = envName(AGENT_ARGS_ENV.claude)
 
@@ -41,6 +43,8 @@ const commandHook = (command: string) => ({ type: 'command', command })
 const CLAUDE_SUBAGENT_EVENTS = ['SubagentStart', 'SubagentStop'] as const
 
 export const CLAUDE_MOD_FILE = 'register.ts'
+export const CLAUDE_FOLD_DIR = 'claude-fold'
+const CLAUDE_PLUGIN_DIR = 'claude-plugin'
 
 export function claudeHookSettings(extensionHooks: readonly ExtensionAgentHook[] = []): {
   hooks: Record<string, unknown[]>
@@ -92,6 +96,12 @@ export const CLAUDE_PLUGIN_MANIFEST = {
   description: `${PRODUCT_NAME} integration: the ${PRODUCT_NAME} CLI skill plus hooks for the agent's resume token and attention state.`,
 }
 
+export const CLAUDE_FOLD_MANIFEST = {
+  name: `${PRODUCT_NAME}-fold`,
+  version,
+  description: `${PRODUCT_NAME} display plugin: draws a bus message turn as one row.`,
+}
+
 export function writePlaybookFile(dir: string, playbook: PlaybookFile): void {
   mkdirSync(dir, { recursive: true })
   writeFileSync(join(dir, AGENT_SKILL_ENTRY), playbook.skill, 'utf8')
@@ -125,19 +135,36 @@ export function writeClaudePlugin(
   for (const playbook of playbooks) writePlaybookFile(join(dir, 'skills', playbook.id), playbook)
 }
 
+export function writeClaudeFoldPlugin(dir: string): void {
+  mkdirSync(join(dir, '.claude-plugin'), { recursive: true })
+  mkdirSync(join(dir, 'hooks'), { recursive: true })
+  writeFileSync(
+    join(dir, '.claude-plugin', 'plugin.json'),
+    `${JSON.stringify(CLAUDE_FOLD_MANIFEST, null, 2)}\n`,
+    'utf8',
+  )
+  writeFileSync(
+    join(dir, 'hooks', 'hooks.json'),
+    `${JSON.stringify({ hooks: {}, modules: [`./${CLAUDE_MOD_FILE}`] }, null, 2)}\n`,
+    'utf8',
+  )
+  writeFileSync(join(dir, 'hooks', CLAUDE_MOD_FILE), claudeFoldSource, 'utf8')
+}
+
 export function claudeWrapper(): string {
   const hooksOn = `[ -z "${shellEnv(AGENT_HOOKS_OFF_ENV.claude)}" ]`
-  const pluginDir = `${AGENT_DIR}/claude-plugin`
+  const pluginDir = `${AGENT_DIR}/${CLAUDE_PLUGIN_DIR}`
+  const foldDir = `${AGENT_DIR}/${CLAUDE_FOLD_DIR}`
   return [
     '',
-    '# Run claude with the Ostia plugin (CLI skill, extension skills and hooks, resume token,',
-    '# attention hooks) and on the Claude account Ostia picks for this start. `command claude`',
-    '# skips both.',
+    '# Run claude with the Ostia plugins (CLI skill, extension skills and hooks, resume token,',
+    '# attention hooks, bus row display) and on the Claude account Ostia picks for this start.',
+    '# `command claude` skips both.',
     `if [ -n "${CLI_PATH}" ]; then`,
     '  __ostia_claude() {',
     "    local IFS=$'\\037'",
-    `    if ${hooksOn} && [ -n "${AGENT_DIR}" ] && [ -d "${pluginDir}" ]; then`,
-    `      ${CLAUDE_ARGS}="$*" command claude --plugin-dir "${pluginDir}" "$@"`,
+    `    if ${hooksOn} && [ -n "${AGENT_DIR}" ] && [ -d "${pluginDir}" ] && [ -d "${foldDir}" ]; then`,
+    `      ${CLAUDE_ARGS}="$*" command claude --plugin-dir "${pluginDir}" --plugin-dir "${foldDir}" "$@"`,
     `    elif ${hooksOn}; then`,
     `      ${CLAUDE_ARGS}="$*" command claude "$@"`,
     '    else',

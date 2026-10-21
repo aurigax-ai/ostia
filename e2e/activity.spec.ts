@@ -44,7 +44,7 @@ execFileSync(process.env.OSTIA_NODE, [process.env.OSTIA_CLI, 'activity', 'add', 
 
 const FAKE_CLAUDE = [
   '#!/bin/sh',
-  'for arg; do [ "$prev" = --plugin-dir ] && plugin=$arg; prev=$arg; done',
+  'for arg; do [ "$prev" = --plugin-dir ] && [ -z "$plugin" ] && plugin=$arg; prev=$arg; done',
   `ELECTRON_RUN_AS_NODE=1 "$OSTIA_NODE" -e '${HOOK_RUNNER.replaceAll("'", "'\\''")}' "$plugin"`,
   'echo fake-agent-ready',
   'exec cat',

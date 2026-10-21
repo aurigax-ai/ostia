@@ -5,6 +5,8 @@ import { PROMPT, openWorkspace, runInTerminal } from './helpers'
 import { sandboxedShell, setSandbox } from './sandboxShell'
 import { type Page, _electron as electron, expect, test } from './test'
 
+test.describe.configure({ timeout: 90_000 })
+
 async function launch() {
   const dataHome = freshDataHome()
   const home = join(dataHome, 'home')

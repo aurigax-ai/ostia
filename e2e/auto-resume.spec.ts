@@ -309,7 +309,7 @@ test('agents the human typed after a cd and a coordinator started with process r
     await expect.poll(() => resumedRuns().length, { timeout: 30_000 }).toBe(2)
     for (const run of resumedRuns()) {
       expect(run).toMatch(
-        /^fake-agent-resumed --plugin-dir [^ ]+ --resume e2e-pane-\S+ --model Y --name Slack push --agent X --dangerously-skip-permissions GL=665#2 TOK=none END$/,
+        /^fake-agent-resumed --plugin-dir [^ ]+ --plugin-dir [^ ]+ --resume e2e-pane-\S+ --model Y --name Slack push --agent X --dangerously-skip-permissions GL=665#2 TOK=none END$/,
       )
     }
   } finally {

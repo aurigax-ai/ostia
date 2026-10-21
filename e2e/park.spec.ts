@@ -48,7 +48,7 @@ function fakeClaude(): string {
   const script = [
     '#!/bin/sh',
     'cli() { ELECTRON_RUN_AS_NODE=1 "$OSTIA_NODE" "$OSTIA_CLI" "$@" >/dev/null 2>&1; }',
-    '[ "$1" = --plugin-dir ] && shift 2',
+    '[ "$1" = --plugin-dir ] && shift 4',
     'case "$1" in',
     '  --resume)',
     `    echo "fake-agent-resumed $*" | tee -a '${log}'`,
