@@ -18,15 +18,19 @@ export interface ClaudeAccountsState {
   current: string
   adding: boolean
   duplicate: string | null
+  damaged: boolean
 }
 
-export type AddAccountOutcome = 'opened' | 'busy' | 'not-opened'
+export type AddAccountOutcome = 'opened' | 'busy' | 'not-opened' | 'no-workspace' | 'damaged'
+
+export type RemoveAccountOutcome = 'removed' | 'unknown' | 'running' | 'damaged'
 
 export const NO_ACCOUNTS: ClaudeAccountsState = {
   accounts: [{ id: DEFAULT_ACCOUNT, email: null }],
   current: DEFAULT_ACCOUNT,
   adding: false,
   duplicate: null,
+  damaged: false,
 }
 
 export function sessionIdOfArgs(args: readonly string[]): string | null {

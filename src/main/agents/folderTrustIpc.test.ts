@@ -116,6 +116,38 @@ describe('folder trust IPC', () => {
     expect(readFileSync(config, 'utf8')).toBe('{"projects":{}}\n')
   })
 
+  it('CFT-C37 does not let another window pick the profile the owner’s next trust writes into', async () => {
+    pane('p-ok', 'ws')
+    const profile = join(home, 'accounts', 'work')
+    mkdirSync(profile, { recursive: true })
+    writeFileSync(join(profile, '.claude.json'), '{"projects":{}}\n')
+    accountDirs.set('session-work', profile)
+    expect(await ask('p-ok', '2', 'session-work')).toEqual({ state: 'unknown' })
+    expect(await ask('p-ok')).toEqual({ state: 'ask', folder: project })
+    expect(await trust('p-ok')).toBe(true)
+    expect(readFileSync(join(profile, '.claude.json'), 'utf8')).toBe('{"projects":{}}\n')
+    expect(JSON.parse(readFileSync(config, 'utf8')).projects[project]).toEqual({
+      hasTrustDialogAccepted: true,
+    })
+  })
+
+  it('CFT-C38 forgets the session a closed pane was asked about', async () => {
+    pane('p-gone', 'ws')
+    const profile = join(home, 'accounts', 'work')
+    mkdirSync(profile, { recursive: true })
+    writeFileSync(join(profile, '.claude.json'), '{"projects":{}}\n')
+    accountDirs.set('session-work', profile)
+    await ask('p-gone', '1', 'session-work')
+    removePane('p-gone')
+    ptys.delete('p-gone')
+    pane('p-next', 'ws')
+    await ask('p-next')
+    registerPane({ windowId: '1', workspaceId: 'ws', paneId: 'p-gone' })
+    ptys.set('p-gone', { mirror: { cwdReport: { host: hostname(), path: project } } })
+    expect(await trust('p-gone')).toBe(true)
+    expect(readFileSync(join(profile, '.claude.json'), 'utf8')).toBe('{"projects":{}}\n')
+  })
+
   it('CFT-C34 trusts only the folder the note showed, never one the pane moved to since', async () => {
     pane('p-ok', 'ws')
     const other = join(home, 'work', 'other')

@@ -4,6 +4,7 @@ import {
   type AddAccountOutcome,
   type ClaudeAccountsState,
   DEFAULT_ACCOUNT,
+  type RemoveAccountOutcome,
   sessionIdOfArgs,
 } from '../../../shared/claudeAccounts/claudeAccounts'
 import { createProfile, credentialsPresent, removeProfile, sweepProfiles } from './accountProfiles'
@@ -11,7 +12,13 @@ import type { ClaudeAccountsStore } from './accountsStore'
 
 const LOGIN_POLL_MS = 2000
 const LOGIN_TIMEOUT_MS = 30 * 60 * 1000
+const DUPLICATE_SHOWN_MS = 8000
 const PANE_ACCOUNTS_MAX = 256
+
+export interface LoginTarget {
+  workspaceId: string
+  windowId: string
+}
 
 export interface ClaudeAccountsDeps {
   store: ClaudeAccountsStore
@@ -19,11 +26,14 @@ export interface ClaudeAccountsDeps {
   defaultHome: () => string
   defaultEmail: () => Promise<string | null>
   profileEmail: (dir: string) => Promise<string | null>
-  openLoginTab: (dir: string) => Promise<string | null>
+  syncProfile: (dir: string) => Promise<void>
+  openLoginTab: (dir: string, target: LoginTarget) => Promise<string | null>
+  agentRunning: (paneId: string) => boolean
   onChange: (state: ClaudeAccountsState) => void
   now?: () => number
   pollMs?: number
   timeoutMs?: number
+  duplicateMs?: number
 }
 
 interface PendingLogin {
@@ -37,6 +47,7 @@ interface PendingLogin {
 export class ClaudeAccounts {
   private pending: PendingLogin | null = null
   private duplicate: string | null = null
+  private duplicateTimer: NodeJS.Timeout | null = null
   private readonly paneAccounts = new Map<string, string>()
 
   constructor(private readonly deps: ClaudeAccountsDeps) {}
@@ -51,23 +62,32 @@ export class ClaudeAccounts {
       current: store.current(),
       adding: this.pending !== null,
       duplicate: this.duplicate,
+      damaged: store.isDamaged,
     }
   }
 
-  sweepOrphans(): void {
-    sweepProfiles(this.deps.root, new Set(this.deps.store.accounts().map((account) => account.id)))
+  async sweepOrphans(): Promise<void> {
+    if (this.deps.store.isDamaged) return
+    await sweepProfiles(this.deps.root, new Set(this.deps.store.accounts().map((a) => a.id)))
   }
 
-  async add(): Promise<AddAccountOutcome> {
+  async startFresh(): Promise<boolean> {
+    if (!this.deps.store.startFresh()) return false
+    await this.publish()
+    return true
+  }
+
+  async add(target: LoginTarget): Promise<AddAccountOutcome> {
+    if (this.deps.store.isDamaged) return 'damaged'
     if (this.pending) return 'busy'
     const id = randomBytes(8).toString('hex')
     const dir = createProfile(this.deps.root, id, this.deps.defaultHome())
-    const paneId = await this.deps.openLoginTab(dir)
+    const paneId = await this.deps.openLoginTab(dir, target)
     if (!paneId) {
-      removeProfile(this.deps.root, id)
+      await removeProfile(this.deps.root, id)
       return 'not-opened'
     }
-    this.duplicate = null
+    this.clearDuplicate()
     const timer = setInterval(() => void this.check(), this.deps.pollMs ?? LOGIN_POLL_MS)
     timer.unref?.()
     this.pending = { id, dir, paneId, startedAt: (this.deps.now ?? Date.now)(), timer }
@@ -77,14 +97,18 @@ export class ClaudeAccounts {
 
   async paneClosed(externalPaneId: string): Promise<void> {
     if (this.pending?.paneId !== externalPaneId) return
-    if (!(await this.check())) this.cancel()
+    if (!(await this.check())) await this.cancel()
   }
 
-  async remove(id: string): Promise<boolean> {
-    if (!this.deps.store.remove(id)) return false
-    removeProfile(this.deps.root, id)
+  async remove(id: string): Promise<RemoveAccountOutcome> {
+    const { store } = this.deps
+    if (store.isDamaged) return 'damaged'
+    if (!store.has(id)) return 'unknown'
+    if (this.runningOn(id)) return 'running'
+    store.remove(id)
+    await removeProfile(this.deps.root, id)
     await this.publish()
-    return true
+    return 'removed'
   }
 
   async use(id: string): Promise<boolean> {
@@ -93,7 +117,7 @@ export class ClaudeAccounts {
     return true
   }
 
-  startDirectory(args: readonly string[], paneId: string): string {
+  async startDirectory(args: readonly string[], paneId: string): Promise<string> {
     const account = this.accountFor(sessionIdOfArgs(args))
     this.paneAccounts.delete(paneId)
     this.paneAccounts.set(paneId, account)
@@ -101,7 +125,10 @@ export class ClaudeAccounts {
       const oldest = this.paneAccounts.keys().next().value
       if (oldest !== undefined) this.paneAccounts.delete(oldest)
     }
-    return account === DEFAULT_ACCOUNT ? '' : join(this.deps.root, account)
+    if (account === DEFAULT_ACCOUNT) return ''
+    const dir = join(this.deps.root, account)
+    await this.deps.syncProfile(dir)
+    return dir
   }
 
   configDirFor(sessionId: string | null): string | undefined {
@@ -112,6 +139,13 @@ export class ClaudeAccounts {
   sessionStarted(paneId: string, sessionId: string): void {
     const account = this.paneAccounts.get(paneId)
     if (account) this.deps.store.rememberSession(sessionId, account)
+  }
+
+  private runningOn(id: string): boolean {
+    for (const [paneId, account] of this.paneAccounts) {
+      if (account === id && this.deps.agentRunning(paneId)) return true
+    }
+    return false
   }
 
   private accountFor(sessionId: string | null): string {
@@ -131,12 +165,8 @@ export class ClaudeAccounts {
       await this.finish(pending, email)
       return true
     }
-    if (
-      (this.deps.now ?? Date.now)() - pending.startedAt >
-      (this.deps.timeoutMs ?? LOGIN_TIMEOUT_MS)
-    ) {
-      this.cancel()
-    }
+    const waited = (this.deps.now ?? Date.now)() - pending.startedAt
+    if (waited > (this.deps.timeoutMs ?? LOGIN_TIMEOUT_MS)) await this.cancel()
     return false
   }
 
@@ -147,22 +177,40 @@ export class ClaudeAccounts {
       await this.deps.defaultEmail(),
       ...this.deps.store.accounts().map((account) => account.email),
     ]
-    if (known.some((other) => other?.toLowerCase() === email.toLowerCase())) {
-      removeProfile(this.deps.root, pending.id)
-      this.duplicate = email
-    } else {
+    const added =
+      !known.some((other) => other?.toLowerCase() === email.toLowerCase()) &&
       this.deps.store.add({ id: pending.id, email, addedAt: (this.deps.now ?? Date.now)() })
+    if (!added) {
+      await removeProfile(this.deps.root, pending.id)
+      this.showDuplicate(email)
     }
     await this.publish()
   }
 
-  private cancel(): void {
+  private showDuplicate(email: string): void {
+    this.clearDuplicate()
+    this.duplicate = email
+    this.duplicateTimer = setTimeout(() => {
+      this.duplicate = null
+      this.duplicateTimer = null
+      void this.publish()
+    }, this.deps.duplicateMs ?? DUPLICATE_SHOWN_MS)
+    this.duplicateTimer.unref?.()
+  }
+
+  private clearDuplicate(): void {
+    if (this.duplicateTimer) clearTimeout(this.duplicateTimer)
+    this.duplicateTimer = null
+    this.duplicate = null
+  }
+
+  private async cancel(): Promise<void> {
     const pending = this.pending
     if (!pending) return
     clearInterval(pending.timer)
     this.pending = null
-    removeProfile(this.deps.root, pending.id)
-    void this.publish()
+    await removeProfile(this.deps.root, pending.id)
+    await this.publish()
   }
 
   private async publish(): Promise<void> {

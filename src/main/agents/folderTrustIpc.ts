@@ -47,13 +47,18 @@ function placeOf(
 
 export function registerFolderTrustIpc(deps: FolderTrustIpcDeps): void {
   const askedFor = new Map<string, string | null>()
+  const remember = (paneId: unknown, session: string | null): void => {
+    for (const id of askedFor.keys()) if (!getByPaneId(id)) askedFor.delete(id)
+    if (typeof paneId === 'string') askedFor.set(paneId, session)
+  }
+
   ipcMain.handle(
     'agent:folder-trust',
     async (e, paneId: unknown, sessionId?: unknown): Promise<FolderTrust> => {
       const session = typeof sessionId === 'string' ? sessionId : null
-      if (typeof paneId === 'string') askedFor.set(paneId, session)
       const place = placeOf(deps, String(e.sender.id), paneId, session)
       if (!place) return { state: 'unknown' }
+      remember(paneId, session)
       const verdict = await folderTrust(place)
       if (verdict.state !== 'ask' || deps.readSettingsFile().agents?.trustWorkspaceFolders !== true)
         return verdict
@@ -64,12 +69,8 @@ export function registerFolderTrustIpc(deps: FolderTrustIpcDeps): void {
   ipcMain.handle(
     'agent:trust-folder',
     async (e, paneId: unknown, shown: unknown): Promise<boolean> => {
-      const place = placeOf(
-        deps,
-        String(e.sender.id),
-        paneId,
-        (typeof paneId === 'string' && askedFor.get(paneId)) || null,
-      )
+      const session = (typeof paneId === 'string' && askedFor.get(paneId)) || null
+      const place = placeOf(deps, String(e.sender.id), paneId, session)
       return place && typeof shown === 'string' ? trustFolder(place, shown) : false
     },
   )

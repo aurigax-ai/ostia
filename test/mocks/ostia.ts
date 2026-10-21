@@ -307,8 +307,9 @@ export function makeOstiaMock(overrides?: Partial<OstiaBridge>): OstiaBridge {
       state: vi.fn().mockResolvedValue(NO_ACCOUNTS),
       onChange: vi.fn(noopUnsub),
       add: vi.fn().mockResolvedValue('opened'),
-      remove: vi.fn().mockResolvedValue(true),
+      remove: vi.fn().mockResolvedValue('removed'),
       use: vi.fn().mockResolvedValue(true),
+      startFresh: vi.fn().mockResolvedValue(true),
     },
     agentSession: {
       info: vi.fn().mockResolvedValue(null),

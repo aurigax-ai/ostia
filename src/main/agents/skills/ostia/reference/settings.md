@@ -8,7 +8,7 @@ ostia settings unset appearance.terminal.size
 ostia settings set keybindings.palette.toggle '"Ctrl+Shift+Y"'   # null unbinds
 ostia snippet list [--json] | snippet show <name> [--json]
 ostia account list [--json]              # number, email and the current account of each Claude account
-ostia account switch <email|number>     # the account new Claude sessions start on; needs settings-write
+ostia account switch <email|number>     # the account new Claude sessions start on; the human is asked every time
 ```
 
 `set` prints `{previous, value, applied}` and refuses an unknown key, a wrong type or a value
@@ -24,4 +24,4 @@ A chord the shell needs (plain Ctrl+letter,
 arrows, Escape, Tab) is refused for a keybinding. Snippets come from
 `<workDir>/.ostia/snippets/*.yaml`, `~/.config/ostia/snippets/*.yaml` and extensions; there is
 no verb that runs one. `account switch` changes only the account new Claude sessions start on, never
-a running one; the human approves it on a card, and nothing here adds, removes or signs out an account.
+a running one; the human approves it on a card each time, and nothing here adds, removes or signs out an account.

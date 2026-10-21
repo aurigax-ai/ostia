@@ -1,4 +1,5 @@
-import { lstatSync, mkdirSync, readdirSync, rmSync, symlinkSync } from 'node:fs'
+import { lstatSync, mkdirSync, symlinkSync } from 'node:fs'
+import { readdir, rm } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
 import { isProfileId } from '../../../shared/claudeAccounts/claudeAccounts'
@@ -10,7 +11,6 @@ const PROFILE_MODE = 0o700
 const CREDENTIAL_FILE = '.credentials.json'
 const SHARED_FOLDERS = ['projects']
 const SHARED_WHEN_PRESENT = [
-  'settings.json',
   'keybindings.json',
   'CLAUDE.md',
   'skills',
@@ -45,21 +45,14 @@ export function createProfile(root: string, id: string, defaultHome: string): st
   return dir
 }
 
-export function removeProfile(root: string, id: string): void {
-  rmSync(join(root, id), { recursive: true, force: true })
+export async function removeProfile(root: string, id: string): Promise<void> {
+  await rm(join(root, id), { recursive: true, force: true })
 }
 
-function profileIds(root: string): string[] {
-  try {
-    return readdirSync(root)
-  } catch {
-    return []
-  }
-}
-
-export function sweepProfiles(root: string, keep: ReadonlySet<string>): void {
-  for (const id of profileIds(root)) {
-    if (isProfileId(id) && !keep.has(id)) removeProfile(root, id)
+export async function sweepProfiles(root: string, keep: ReadonlySet<string>): Promise<void> {
+  const ids = await readdir(root).catch(() => [])
+  for (const id of ids) {
+    if (isProfileId(id) && !keep.has(id)) await removeProfile(root, id)
   }
 }
 

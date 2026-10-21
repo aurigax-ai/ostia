@@ -1,5 +1,6 @@
+import { chmodSync, existsSync, readFileSync, renameSync } from 'node:fs'
 import { DEFAULT_ACCOUNT, isProfileId } from '../../../shared/claudeAccounts/claudeAccounts'
-import { loadJson, saveJson } from '../../platform/jsonStore'
+import { saveJson } from '../../platform/jsonStore'
 
 const FORMAT = 1
 const SESSIONS_MAX = 500
@@ -25,15 +26,16 @@ function parseAccount(raw: unknown): StoredAccount | null {
   return { id, email, addedAt: typeof addedAt === 'number' ? addedAt : 0 }
 }
 
-function parseStored(raw: unknown): StoredAccounts {
-  const empty: StoredAccounts = { accounts: [], current: DEFAULT_ACCOUNT, sessions: {} }
-  if (typeof raw !== 'object' || raw === null) return empty
+function parseStored(raw: unknown): StoredAccounts | null {
+  if (typeof raw !== 'object' || raw === null) return null
   const stored = raw as Record<string, unknown>
-  if (stored.v !== FORMAT || !Array.isArray(stored.accounts)) return empty
-  const accounts = stored.accounts.flatMap((entry) => {
+  if (stored.v !== FORMAT || !Array.isArray(stored.accounts)) return null
+  const accounts: StoredAccount[] = []
+  for (const entry of stored.accounts) {
     const account = parseAccount(entry)
-    return account ? [account] : []
-  })
+    if (!account) return null
+    accounts.push(account)
+  }
   const known = new Set(accounts.map((account) => account.id))
   const current =
     typeof stored.current === 'string' && known.has(stored.current)
@@ -49,11 +51,38 @@ function parseStored(raw: unknown): StoredAccounts {
   return { accounts, current, sessions }
 }
 
-export class ClaudeAccountsStore {
-  private data: StoredAccounts
+const EMPTY = (): StoredAccounts => ({ accounts: [], current: DEFAULT_ACCOUNT, sessions: {} })
 
-  constructor(private readonly file: string) {
-    this.data = parseStored(loadJson<unknown>(file, null))
+export class ClaudeAccountsStore {
+  private data: StoredAccounts = EMPTY()
+  private damaged = false
+
+  constructor(
+    private readonly file: string,
+    private readonly now: () => number = Date.now,
+  ) {
+    if (!existsSync(file)) return
+    const parsed = this.read()
+    if (parsed) {
+      this.data = parsed
+      return
+    }
+    const aside = `${file}.corrupt-${this.now()}`
+    renameSync(file, aside)
+    chmodSync(aside, 0o600)
+    this.damaged = true
+  }
+
+  get isDamaged(): boolean {
+    return this.damaged
+  }
+
+  startFresh(): boolean {
+    if (!this.damaged) return false
+    this.damaged = false
+    this.data = EMPTY()
+    this.save()
+    return true
   }
 
   accounts(): readonly StoredAccount[] {
@@ -68,17 +97,15 @@ export class ClaudeAccountsStore {
     return this.data.current
   }
 
-  emailOf(id: string): string | undefined {
-    return this.data.accounts.find((account) => account.id === id)?.email
-  }
-
-  add(account: StoredAccount): void {
+  add(account: StoredAccount): boolean {
+    if (this.damaged) return false
     this.data.accounts = [...this.data.accounts, account]
     this.save()
+    return true
   }
 
   remove(id: string): boolean {
-    if (!this.has(id)) return false
+    if (this.damaged || !this.has(id)) return false
     this.data.accounts = this.data.accounts.filter((account) => account.id !== id)
     if (this.data.current === id) this.data.current = DEFAULT_ACCOUNT
     this.data.sessions = Object.fromEntries(
@@ -89,7 +116,7 @@ export class ClaudeAccountsStore {
   }
 
   use(id: string): boolean {
-    if (id !== DEFAULT_ACCOUNT && !this.has(id)) return false
+    if (this.damaged || (id !== DEFAULT_ACCOUNT && !this.has(id))) return false
     this.data.current = id
     this.save()
     return true
@@ -100,12 +127,20 @@ export class ClaudeAccountsStore {
   }
 
   rememberSession(sessionId: string, accountId: string): void {
-    if (accountId !== DEFAULT_ACCOUNT && !this.has(accountId)) return
+    if (this.damaged || (accountId !== DEFAULT_ACCOUNT && !this.has(accountId))) return
     if (this.data.sessions[sessionId] === accountId) return
     const sessions = Object.entries(this.data.sessions).filter(([id]) => id !== sessionId)
     sessions.push([sessionId, accountId])
     this.data.sessions = Object.fromEntries(sessions.slice(-SESSIONS_MAX))
     this.save()
+  }
+
+  private read(): StoredAccounts | null {
+    try {
+      return parseStored(JSON.parse(readFileSync(this.file, 'utf8')))
+    } catch {
+      return null
+    }
   }
 
   private save(): void {

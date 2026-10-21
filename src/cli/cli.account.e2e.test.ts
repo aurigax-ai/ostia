@@ -53,11 +53,17 @@ beforeAll(() => {
       defaultHome: () => join(base, 'home'),
       defaultEmail: async () => 'me@example.com',
       profileEmail: async () => null,
+      syncProfile: async () => {},
+      agentRunning: () => false,
       openLoginTab: async () => null,
       onChange: () => {},
     }),
     agentResumes: { subscribe: () => {} } as never,
     workspaceSandboxes: { isEnabled: () => false },
+    scratchFolders: { isScratch: () => false },
+    workspaceWindowId: () => '7',
+    execCommand: async () => ({ ok: true }) as CommandResult,
+    windowIds: () => ['7'],
   })
 })
 
@@ -96,22 +102,18 @@ describe('ostia account (the real CLI against a live control server)', () => {
     ])
   })
 
-  it('holds a switch until the human approves settings-write, then switches new sessions', async () => {
+  it('never switches without the human’s card, not even after an Always allow of settings-write', async () => {
     const held = await ostia(['account', 'switch', '2'])
     expect(held.code).not.toBe(0)
-    expect(held.stderr).toContain('needs-elevation: settings-write')
-    expect(store.current()).toBe('default')
-
+    expect(held.stderr).toContain('ostia account switch: not-approved')
     grant(pane.externalId, 'settings-write')
-    const done = await ostia(['account', 'switch', 'work@example.com'])
-    expect(done.code).toBe(0)
-    expect(done.stdout).toBe('2\twork@example.com\n')
-    expect(store.current()).toBe(WORK)
-    store.use('default')
+    const granted = await ostia(['account', 'switch', 'work@example.com'])
+    expect(granted.code).not.toBe(0)
+    expect(granted.stderr).toContain('not-approved')
+    expect(store.current()).toBe('default')
   })
 
   it('names an unknown account and the command to list them', async () => {
-    grant(pane.externalId, 'settings-write')
     const res = await ostia(['account', 'switch', '9'])
     expect(res.code).not.toBe(0)
     expect(res.stderr).toContain('ostia account switch: unknown-account')

@@ -53,6 +53,22 @@ function setup(mode: ApprovalMode = 'ask', windowOpen = true) {
   }
 }
 
+describe('account-switch approvals', () => {
+  const SWITCH = { ...ASK, caps: [], action: 'account.switch', kind: 'account-switch' as const }
+
+  it('ask even when approvals are on automatic, and offer only once or deny', async () => {
+    const { approvals, published, grant } = setup('allow')
+    const waiting = approvals.request(SWITCH)
+    const [pending] = published.at(-1)?.pending ?? []
+    expect(pending?.kind).toBe('account-switch')
+    expect(approvals.answer(SWITCH.windowId, pending?.id ?? '', 'always')).toBe(false)
+    expect(approvals.answer(SWITCH.windowId, pending?.id ?? '', 'session')).toBe(false)
+    expect(approvals.answer(SWITCH.windowId, pending?.id ?? '', 'once')).toBe(true)
+    expect(await waiting).toBe('once')
+    expect(grant).not.toHaveBeenCalled()
+  })
+})
+
 describe('approvals', () => {
   it('MGR-C32 brings the pane window forward only when a request waits for the human', async () => {
     const { approvals, reveal, setMode } = setup()

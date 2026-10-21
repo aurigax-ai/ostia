@@ -2,7 +2,6 @@ import { CheckIcon, UserSwitchIcon } from '@phosphor-icons/react'
 import { DEFAULT_ACCOUNT } from '@shared/claudeAccounts/claudeAccounts'
 import { IconButton } from '@/components/common/IconButton'
 import { DropdownMenu, MenuItem, MenuLabel } from '@/components/common/Menu'
-import { Segmented } from '@/components/common/Segmented'
 import { TextLink } from '@/components/common/TextLink'
 import { ContextMenuGroup, ContextMenuSeparator } from '@/components/ui/context-menu'
 import { useClaudeAccounts } from '@/lib/agents/useClaudeAccounts'
@@ -11,7 +10,7 @@ import { useUIStore } from '@/stores/app/uiStore'
 
 const SECTION = 'claudeAccounts'
 
-export function AccountsMenu(): JSX.Element {
+export function ClaudeAccountsMenu(): JSX.Element {
   const d = useDict().claudeAccounts
   const { accounts, current } = useClaudeAccounts()
   const openSettings = useUIStore((s) => s.openSettings)
@@ -37,18 +36,6 @@ export function AccountsMenu(): JSX.Element {
             {account.email ?? d.defaultAccount}
           </MenuItem>
         ))}
-      </ContextMenuGroup>
-      <ContextMenuSeparator />
-      <ContextMenuGroup>
-        <MenuLabel>{d.rotation}</MenuLabel>
-        <div className="px-2 pb-2">
-          <Segmented
-            label={d.rotation}
-            value="manual"
-            onChange={() => {}}
-            options={[{ value: 'manual', label: d.rotationManual }]}
-          />
-        </div>
       </ContextMenuGroup>
       <ContextMenuSeparator />
       <div className="flex items-center justify-end px-2 py-1.5 text-ui-xs">

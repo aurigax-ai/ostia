@@ -25,7 +25,6 @@ export function createAgentServices(ctx: WorkspaceContext) {
     broadcast,
     emitPaneEvent,
     execCommand,
-    hostPaneGrants,
     mainStrings,
     openTerminalInWindow,
     services,
@@ -34,16 +33,16 @@ export function createAgentServices(ctx: WorkspaceContext) {
 
   const agentChanges = new ChangeSignal()
   const agentResumes = new AgentResumes()
-  const claudeAccounts = createClaudeAccounts({
-    openTerminalInWindow,
-    hostPaneGrants,
-    mainStrings,
-    broadcast,
-  })
   const startedAgents = new Set<string>()
   const agentRunning = new AgentRunningPanes(() => {
     services.broker?.persist()
     agentChanges.fire()
+  })
+  const claudeAccounts = createClaudeAccounts({
+    openTerminalInWindow,
+    mainStrings,
+    broadcast,
+    agentRunning,
   })
   const agentWork = new ReportedAgentWork()
   const paneTurns = new PaneTurns()

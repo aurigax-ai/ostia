@@ -40,12 +40,12 @@ beforeEach(() => {
 afterEach(() => rmSync(base, { recursive: true, force: true }))
 
 describe('createProfile', () => {
-  it('makes a 0700 folder that shares projects and the files the default has', () => {
+  it('makes a 0700 folder that shares projects and the files the default has, but never links settings.json', () => {
     const dir = createProfile(root, WORK, home)
     expect(dir).toBe(join(root, WORK))
     expect(statSync(dir).mode & 0o777).toBe(0o700)
     expect(readlinkSync(join(dir, 'projects'))).toBe(join(home, 'projects'))
-    expect(readlinkSync(join(dir, 'settings.json'))).toBe(join(home, 'settings.json'))
+    expect(existsSync(join(dir, 'settings.json'))).toBe(false)
     expect(readlinkSync(join(dir, 'skills'))).toBe(join(home, 'skills'))
     expect(existsSync(join(dir, 'history.jsonl'))).toBe(false)
     expect(existsSync(join(dir, '.credentials.json'))).toBe(false)
@@ -58,12 +58,12 @@ describe('createProfile', () => {
 })
 
 describe('removeProfile', () => {
-  it('deletes the profile and never what its links point to', () => {
+  it('deletes the profile and never what its links point to', async () => {
     const dir = createProfile(root, WORK, home)
     writeFileSync(join(dir, '.credentials.json'), 'x')
     mkdirSync(join(home, 'projects', 'p'))
     writeFileSync(join(home, 'projects', 'p', 's.jsonl'), 'session')
-    removeProfile(root, WORK)
+    await removeProfile(root, WORK)
     expect(existsSync(dir)).toBe(false)
     expect(readFileSync(join(home, 'projects', 'p', 's.jsonl'), 'utf8')).toBe('session')
     expect(readFileSync(join(home, 'settings.json'), 'utf8')).toBe('{}')
@@ -71,18 +71,18 @@ describe('removeProfile', () => {
 })
 
 describe('sweepProfiles', () => {
-  it('removes profile folders nothing remembers and leaves the rest', () => {
+  it('removes profile folders nothing remembers and leaves the rest', async () => {
     createProfile(root, WORK, home)
     createProfile(root, STALE, home)
     mkdirSync(join(root, 'not-a-profile'))
-    sweepProfiles(root, new Set([WORK]))
+    await sweepProfiles(root, new Set([WORK]))
     expect(existsSync(join(root, WORK))).toBe(true)
     expect(existsSync(join(root, STALE))).toBe(false)
     expect(existsSync(join(root, 'not-a-profile'))).toBe(true)
   })
 
-  it('does nothing when the folder does not exist', () => {
-    expect(() => sweepProfiles(join(base, 'missing'), new Set())).not.toThrow()
+  it('does nothing when the folder does not exist', async () => {
+    await expect(sweepProfiles(join(base, 'missing'), new Set())).resolves.toBeUndefined()
   })
 })
 

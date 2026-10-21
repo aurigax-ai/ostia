@@ -25,9 +25,10 @@ export const agentsBridge: Pick<
   claudeAccounts: {
     state: () => ipcRenderer.invoke('claude-accounts:state'),
     onChange: (cb) => listen('claude-accounts:changed', cb),
-    add: () => ipcRenderer.invoke('claude-accounts:add'),
+    add: (workspaceId) => ipcRenderer.invoke('claude-accounts:add', workspaceId),
     remove: (id) => ipcRenderer.invoke('claude-accounts:remove', id),
     use: (id) => ipcRenderer.invoke('claude-accounts:use', id),
+    startFresh: () => ipcRenderer.invoke('claude-accounts:start-fresh'),
   },
   agentSession: {
     info: (resume) => ipcRenderer.invoke('agent:session-info', resume),

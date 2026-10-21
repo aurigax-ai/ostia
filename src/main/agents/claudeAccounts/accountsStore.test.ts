@@ -1,4 +1,4 @@
-import { mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
@@ -71,18 +71,51 @@ describe('ClaudeAccountsStore', () => {
     expect(store.accountOfSession('s501')).toBe('default')
   })
 
-  it('drops malformed entries and unknown ids from a damaged file', () => {
+  it.each([
+    ['not JSON', '{'],
+    ['a newer format', JSON.stringify({ v: 2, accounts: [] })],
+    ['accounts that are not a list', JSON.stringify({ v: 1, accounts: {} })],
+    [
+      'an account that does not parse',
+      JSON.stringify({ v: 1, accounts: [{ id: '../x', email: 'x@example.com' }] }),
+    ],
+  ])(
+    'sets %s aside, reads as damaged and refuses every write until the human starts fresh',
+    (_name, text) => {
+      writeFileSync(file, text)
+      const store = new ClaudeAccountsStore(file, () => 42)
+      expect(store.isDamaged).toBe(true)
+      expect(existsSync(file)).toBe(false)
+      expect(readFileSync(`${file}.corrupt-42`, 'utf8')).toBe(text)
+      expect(statSync(`${file}.corrupt-42`).mode & 0o777).toBe(0o600)
+      expect(store.add(account(WORK, 'work@example.com'))).toBe(false)
+      expect(store.use('default')).toBe(false)
+      store.rememberSession('s', 'default')
+      expect(store.accountOfSession('s')).toBeUndefined()
+      expect(existsSync(file)).toBe(false)
+      expect(store.startFresh()).toBe(true)
+      expect(store.isDamaged).toBe(false)
+      expect(store.add(account(WORK, 'work@example.com'))).toBe(true)
+      expect(new ClaudeAccountsStore(file).accounts()).toHaveLength(1)
+    },
+  )
+
+  it('has nothing to start fresh from a healthy file', () => {
+    expect(new ClaudeAccountsStore(file).startFresh()).toBe(false)
+  })
+
+  it('drops a session or the current account that points at an unknown account', () => {
     writeFileSync(
       file,
       JSON.stringify({
         v: 1,
-        accounts: [account(WORK, 'work@example.com'), { id: '../x', email: 'x@example.com' }, 7],
+        accounts: [account(WORK, 'work@example.com')],
         current: SPARE,
         sessions: { good: WORK, bad: SPARE, worse: 3 },
       }),
     )
     const store = new ClaudeAccountsStore(file)
-    expect(store.accounts().map((a) => a.id)).toEqual([WORK])
+    expect(store.isDamaged).toBe(false)
     expect(store.current()).toBe('default')
     expect(store.accountOfSession('good')).toBe(WORK)
     expect(store.accountOfSession('bad')).toBeUndefined()

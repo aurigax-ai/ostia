@@ -3,7 +3,7 @@ import { cleanup, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { useUIStore } from '@/stores/app/uiStore'
-import { AccountsMenu } from './AccountsMenu'
+import { ClaudeAccountsMenu } from './ClaudeAccountsMenu'
 
 if (!Element.prototype.getAnimations) {
   Element.prototype.getAnimations = () => []
@@ -25,12 +25,13 @@ function open() {
     current: WORK,
     adding: false,
     duplicate: null,
+    damaged: false,
   })
-  render(<AccountsMenu />)
+  render(<ClaudeAccountsMenu />)
   return userEvent.click(screen.getByRole('button', { name: 'Claude accounts' }))
 }
 
-describe('AccountsMenu', () => {
+describe('ClaudeAccountsMenu', () => {
   it('lists the accounts with a check on the one new sessions use', async () => {
     await open()
     const work = await screen.findByRole('menuitem', { name: /work@example.com/ })
@@ -48,13 +49,11 @@ describe('AccountsMenu', () => {
     expect(window.ostia.claudeAccounts.use).toHaveBeenCalledWith('default')
   })
 
-  it('offers Manual rotation only', async () => {
+  it('shows no rotation control until it does something', async () => {
     await open()
-    expect(await screen.findByRole('button', { name: 'Manual' })).toHaveAttribute(
-      'aria-pressed',
-      'true',
-    )
-    expect(screen.queryByRole('button', { name: 'Custom' })).toBeNull()
+    await screen.findByRole('menuitem', { name: /work@example.com/ })
+    expect(screen.queryByText('Rotation')).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Manual' })).toBeNull()
   })
 
   it('opens the Claude accounts settings page', async () => {

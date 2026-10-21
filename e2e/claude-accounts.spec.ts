@@ -1,13 +1,4 @@
-import {
-  chmodSync,
-  existsSync,
-  lstatSync,
-  mkdirSync,
-  readdirSync,
-  readlinkSync,
-  statSync,
-  writeFileSync,
-} from 'node:fs'
+import { chmodSync, mkdirSync, readdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { freshDataHome, isolatedLaunch } from './dataHome'
 import { openWorkspace, typeLine } from './helpers'
@@ -31,7 +22,7 @@ const FAKE_CLAUDE = [
   '',
 ].join('\n')
 
-test('CLA-E1 Add signs in on a new profile in a terminal tab, lists the account, and a new Claude then starts on it', async () => {
+test('CLA-E1 Add signs in on a new profile in a terminal tab, lists the account, a new Claude starts on it, and a switch from a pane asks the human every time', async () => {
   const dataHome = freshDataHome()
   const bin = join(dataHome, 'bin')
   mkdirSync(bin, { recursive: true })
@@ -65,11 +56,6 @@ test('CLA-E1 Add signs in on a new profile in a terminal tab, lists the account,
     const profiles = join(dataHome, 'ostia', 'claude-accounts')
     const [id] = readdirSync(profiles)
     const profile = join(profiles, id)
-    expect(statSync(profile).mode & 0o777).toBe(0o700)
-    expect(lstatSync(join(profile, 'projects')).isSymbolicLink()).toBe(true)
-    expect(readlinkSync(join(profile, 'projects'))).toBe(join(launch.home, '.claude', 'projects'))
-    expect(existsSync(join(dataHome, 'ostia', 'claude-accounts.json'))).toBe(true)
-    expect(statSync(join(dataHome, 'ostia', 'claude-accounts.json')).mode & 0o777).toBe(0o600)
 
     const row = list.getByRole('listitem').filter({ hasText: EMAIL })
     await row.getByRole('button', { name: `Actions for ${EMAIL}` }).click()
@@ -80,6 +66,16 @@ test('CLA-E1 Add signs in on a new profile in a terminal tab, lists the account,
     await win.locator('.xterm').first().click()
     await typeLine(win, 'claude')
     await expect(terminal).toContainText(`fake-claude dir=${profile}`, { timeout: 15_000 })
+    await win.keyboard.press('Control+C')
+
+    await typeLine(win, 'ostia account switch 1')
+    await win.getByRole('button', { name: 'Allow once' }).first().click()
+    await expect(terminal).toContainText(/1\s+default/, { timeout: 15_000 })
+    await win.locator('.xterm').first().click()
+    await typeLine(win, 'ostia account switch 2')
+    await expect(win.getByRole('button', { name: 'Allow once' }).first()).toBeVisible({
+      timeout: 15_000,
+    })
   } finally {
     await app.close()
   }

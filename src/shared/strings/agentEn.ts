@@ -16,8 +16,15 @@ export const agentEn = {
     actionsFor: 'Actions for {account}',
     active: 'Active',
     add: 'Add',
+    addNoWorkspace:
+      'Open a terminal workspace that is not sandboxed or scratch, then add the account.',
+    addNotOpened: 'Could not open a terminal tab to sign in.',
     adding:
       'Sign in to the account in the new terminal tab. It is added here when the sign-in is done.',
+    cancel: 'Cancel',
+    damaged:
+      'The list of Claude accounts could not be read, so nothing was changed. The old file is kept beside it. Accounts cannot be added or removed until you start fresh.',
+    damagedFresh: 'Start fresh',
     defaultAccount: 'Default account',
     defaultLabel: 'Default',
     duplicate: '{email} is already added.',
@@ -26,10 +33,14 @@ export const agentEn = {
     manage: 'Manage accounts…',
     menuLabel: 'Claude accounts',
     remove: 'Remove',
-    removeNote:
-      'Removing forgets the account here. It does not sign you out of Claude anywhere else.',
-    rotation: 'Rotation',
-    rotationManual: 'Manual',
+    removeBody:
+      '{product} forgets this account and deletes its sign-in from this computer. It does not sign you out of Claude anywhere else.',
+    removeRunning:
+      'A Claude session is still running on this account. Close it, then remove the account.',
+    removeTitle: 'Remove {account}?',
+    sharedDesc:
+      'Settings, MCP servers, keybindings, CLAUDE.md, skills, commands, agents, history and sessions come from the Default account; settings and MCP servers are copied each time a session starts. Plugins and the sign-in belong to each account.',
+    sharedTitle: 'What accounts share',
     switchTo: 'Switch to',
     title: 'Claude accounts',
     titleDesc: 'Sign in with more than one Claude account and choose which one new sessions use.',
