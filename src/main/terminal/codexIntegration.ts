@@ -205,8 +205,8 @@ function codexSessionContext(
     ...(playbooks.length > 0
       ? [
           '',
-          'The human may ask for one of these playbooks by name. Read its file only when they ask, then follow it:',
-          ...playbooks.map((p) => `- ${p.id} (${p.file}): ${p.description}`),
+          'These playbooks are slash commands only the human uses. Read one of these files only when the human types its /name in this session, then follow it:',
+          ...playbooks.map((p) => `- /${p.id} (${p.file})`),
         ]
       : []),
     '',

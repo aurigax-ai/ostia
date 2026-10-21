@@ -317,12 +317,19 @@ export const privacySchema = {
 export const playbooksSchema = {
   type: 'object',
   additionalProperties: false,
-  description: `Slash commands you turn on for agents (Settings → Playbooks). A change reaches agents started afterwards. Synced with your other settings. Only you can change this, in Settings; agents cannot.`,
+  description: `Slash commands you turn on for agents (Settings → Playbooks). A change reaches terminals opened afterwards. Your own playbooks and your edits sync with your other settings; which playbooks are on, and which texts you accepted on this computer, never do. Only you can change this, in Settings; agents cannot.`,
   properties: {
     enabled: {
       type: 'object',
-      description: 'Playbook name → on or off. A playbook not listed uses its default.',
+      description:
+        'Playbook name → on or off, on this computer only. A playbook not listed uses its default.',
       additionalProperties: { type: 'boolean' },
+    },
+    accepted: {
+      type: 'object',
+      description:
+        'Playbook name → the text you accepted on this computer, only. A synced edit or own playbook whose text differs is not used until you accept it.',
+      additionalProperties: { type: 'string', maxLength: PLAYBOOK_TEXT_MAX },
     },
     edits: {
       type: 'object',
@@ -345,7 +352,6 @@ export const playbooksSchema = {
         properties: {
           description: { type: 'string', maxLength: PLAYBOOK_DESCRIPTION_MAX },
           text: { type: 'string', maxLength: PLAYBOOK_TEXT_MAX },
-          enabled: { type: 'boolean' },
         },
       },
     },

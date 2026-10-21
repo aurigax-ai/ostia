@@ -362,6 +362,7 @@ export interface SettingsState extends Persisted {
   setPlaybookEnabled: (id: string, enabled: boolean) => void
   setPlaybookText: (id: string, text: string) => void
   resetPlaybook: (id: string) => void
+  acceptPlaybook: (id: string) => void
   saveOwnPlaybook: (
     name: string,
     fields: Pick<OwnPlaybook, 'description' | 'text'>,

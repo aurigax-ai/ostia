@@ -1,6 +1,8 @@
 import type { playbooksEn } from './playbooksEn'
 
 export const playbooksZhHant: typeof playbooksEn = {
+  changedElsewhere: '在另一台裝置上已變更。在這裡接受之前不會被使用。',
+  changedElsewhereShort: '在別處已變更',
   command: '指令',
   defaultChanged: '{product} 的預設內容已更新，你的修改仍保留。',
   delete: '刪除',
@@ -20,9 +22,11 @@ export const playbooksZhHant: typeof playbooksEn = {
   },
   discardDraft: '捨棄',
   edited: '已修改',
+  extensionClash: '/{name} 同時是已安裝擴充功能的技能，因此未啟用。請重新命名。',
   hideDefault: '隱藏',
   listLabel: '劇本',
   nameProblems: {
+    extension: '/{name} 是已安裝擴充功能的技能。',
     invalid: '請用小寫字母、數字與連字號，以字母開頭，最長 32 個字元。',
     reserved: '/{name} 是內建名稱。',
     taken: '/{name} 已經存在。',
@@ -42,5 +46,6 @@ export const playbooksZhHant: typeof playbooksEn = {
   },
   title: '劇本',
   tokens: '約 {count} 個 token',
+  useIt: '採用',
   yours: '你的',
 }

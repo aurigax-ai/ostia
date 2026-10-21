@@ -1,3 +1,5 @@
+import { skillDirective } from '@aurigax-ai/ostia-extension-sdk/contract/agentPlugins'
+import { PRODUCT_NAME } from '@aurigax-ai/ostia-extension-sdk/contract/product'
 import coordinatorText from './playbooks/coordinator.md?raw'
 import rememberText from './playbooks/remember.md?raw'
 import reviewText from './playbooks/review.md?raw'
@@ -45,31 +47,96 @@ interface PlaybookEdit {
 export interface OwnPlaybook {
   description: string
   text: string
-  enabled: boolean
 }
 
 export interface PlaybooksSettings {
   enabled: Record<string, boolean>
+  accepted: Record<string, string>
   edits: Record<string, PlaybookEdit>
   own: Record<string, OwnPlaybook>
 }
 
-export const DEFAULT_PLAYBOOKS: PlaybooksSettings = { enabled: {}, edits: {}, own: {} }
+export const DEFAULT_PLAYBOOKS: PlaybooksSettings = {
+  enabled: {},
+  accepted: {},
+  edits: {},
+  own: {},
+}
 
 const PLAYBOOK_NAME = /^[a-z][a-z0-9-]{0,31}$/
 export const PLAYBOOK_TEXT_MAX = 8000
 export const PLAYBOOK_DESCRIPTION_MAX = 120
 export const OWN_PLAYBOOKS_MAX = 24
 
-const RESERVED_NAMES: readonly string[] = [...BUILTIN_PLAYBOOKS.map((p) => p.id), 'ostia']
+const CLAUDE_COMMANDS: readonly string[] = [
+  'add-dir',
+  'agents',
+  'batch',
+  'bug',
+  'clear',
+  'code-review',
+  'compact',
+  'config',
+  'context',
+  'copy',
+  'cost',
+  'debug',
+  'doctor',
+  'effort',
+  'exit',
+  'export',
+  'fast',
+  'feedback',
+  'help',
+  'hooks',
+  'ide',
+  'init',
+  'install-github-app',
+  'login',
+  'logout',
+  'loop',
+  'mcp',
+  'memory',
+  'mobile',
+  'model',
+  'output-style',
+  'permissions',
+  'plugin',
+  'pr-comments',
+  'privacy-settings',
+  'release-notes',
+  'remote-control',
+  'resume',
+  'review',
+  'rewind',
+  'schedule',
+  'security-review',
+  'simplify',
+  'skills',
+  'stats',
+  'status',
+  'statusline',
+  'terminal-setup',
+  'theme',
+  'todos',
+  'ultrareview',
+  'upgrade',
+  'usage',
+  'vim',
+  'voice',
+]
 
-export type NameProblem = 'invalid' | 'reserved' | 'taken'
+const RESERVED_NAMES: readonly string[] = [
+  ...BUILTIN_PLAYBOOKS.map((p) => p.id),
+  PRODUCT_NAME,
+  ...CLAUDE_COMMANDS,
+]
+
+export type NameProblem = 'invalid' | 'reserved' | 'extension' | 'taken'
 export type TextProblem = 'empty' | 'long' | 'control' | 'shell'
 export type DescriptionProblem = 'empty' | 'long' | 'control'
 
-const INLINE_INJECTION = /[!\u01c3][`\u02cb\u02f4\u2035$]/
-const FENCED_INJECTION = /(?:[`\u02cb\u02f4\u2035]{3,}|~{3,})[ \t]*[!\u01c3$]/
-const LINE_BREAKS = /\r\n|[\n\r\u0085\u2028\u2029]/
+const FORMAT_CHARACTER = /\p{Cf}/u
 
 function hasControl(text: string, allowLineBreaks: boolean): boolean {
   for (const ch of text) {
@@ -81,9 +148,14 @@ function hasControl(text: string, allowLineBreaks: boolean): boolean {
   return false
 }
 
-export function playbookNameProblem(name: string, taken: readonly string[]): NameProblem | null {
+export function playbookNameProblem(
+  name: string,
+  taken: readonly string[],
+  extensionSkillIds: readonly string[],
+): NameProblem | null {
   if (!PLAYBOOK_NAME.test(name)) return 'invalid'
   if (RESERVED_NAMES.includes(name)) return 'reserved'
+  if (extensionSkillIds.includes(name)) return 'extension'
   return taken.includes(name) ? 'taken' : null
 }
 
@@ -91,17 +163,13 @@ export function playbookTextProblem(text: string): TextProblem | null {
   if (text.trim() === '') return 'empty'
   if (text.length > PLAYBOOK_TEXT_MAX) return 'long'
   if (hasControl(text, true)) return 'control'
-  for (const line of text.split(LINE_BREAKS)) {
-    const flat = line.normalize('NFKC')
-    if (INLINE_INJECTION.test(flat) || FENCED_INJECTION.test(flat)) return 'shell'
-  }
-  return null
+  return skillDirective(text) === null ? null : 'shell'
 }
 
 export function playbookDescriptionProblem(description: string): DescriptionProblem | null {
   if (description.trim() === '') return 'empty'
   if (description.length > PLAYBOOK_DESCRIPTION_MAX) return 'long'
-  return hasControl(description, false) ? 'control' : null
+  return hasControl(description, false) || FORMAT_CHARACTER.test(description) ? 'control' : null
 }
 
 export function playbookHash(text: string): string {
@@ -118,6 +186,15 @@ const isObject = (value: unknown): value is Record<string, unknown> =>
 
 function builtinOf(id: string): BuiltinPlaybook | undefined {
   return BUILTIN_PLAYBOOKS.find((p) => p.id === id)
+}
+
+function textMap(raw: unknown, keep: (id: string) => boolean): Record<string, string> {
+  const out: Record<string, string> = {}
+  if (!isObject(raw)) return out
+  for (const [id, value] of Object.entries(raw)) {
+    if (keep(id) && typeof value === 'string') out[id] = value.slice(0, PLAYBOOK_TEXT_MAX)
+  }
+  return out
 }
 
 export function parsePlaybooks(raw: unknown): PlaybooksSettings {
@@ -140,18 +217,22 @@ export function parsePlaybooks(raw: unknown): PlaybooksSettings {
   if (isObject(src.own)) {
     for (const [name, value] of Object.entries(src.own)) {
       if (Object.keys(own).length >= OWN_PLAYBOOKS_MAX) break
-      if (playbookNameProblem(name, []) !== null || !isObject(value)) continue
+      if (playbookNameProblem(name, [], []) !== null || !isObject(value)) continue
       own[name] = {
         description:
           typeof value.description === 'string'
             ? value.description.slice(0, PLAYBOOK_DESCRIPTION_MAX)
             : '',
         text: typeof value.text === 'string' ? value.text.slice(0, PLAYBOOK_TEXT_MAX) : '',
-        enabled: value.enabled === true,
       }
     }
   }
-  return { enabled, edits, own }
+  return {
+    enabled,
+    accepted: textMap(src.accepted, (id) => PLAYBOOK_NAME.test(id)),
+    edits,
+    own,
+  }
 }
 
 export interface ResolvedPlaybook {
@@ -163,21 +244,24 @@ export interface ResolvedPlaybook {
   enabled: boolean
   edited: boolean
   defaultChanged: boolean
+  unaccepted: string | null
 }
 
 export function resolvePlaybooks(settings: PlaybooksSettings): ResolvedPlaybook[] {
   const builtins = BUILTIN_PLAYBOOKS.map((p): ResolvedPlaybook => {
     const edit = settings.edits[p.id]
-    const edited = edit !== undefined && edit.text !== p.text
+    const differs = edit !== undefined && edit.text !== p.text
+    const accepted = differs && settings.accepted[p.id] === edit.text
     return {
       id: p.id,
       builtin: true,
       description: p.description,
-      text: edited ? edit.text : p.text,
+      text: accepted ? edit.text : p.text,
       defaultText: p.text,
       enabled: settings.enabled[p.id] ?? p.defaultOn,
-      edited,
-      defaultChanged: edited && edit.from !== playbookHash(p.text),
+      edited: accepted,
+      defaultChanged: accepted && edit.from !== playbookHash(p.text),
+      unaccepted: differs && !accepted ? edit.text : null,
     }
   })
   const own = Object.entries(settings.own).map(
@@ -187,9 +271,10 @@ export function resolvePlaybooks(settings: PlaybooksSettings): ResolvedPlaybook[
       description: p.description,
       text: p.text,
       defaultText: null,
-      enabled: p.enabled,
+      enabled: settings.enabled[id] ?? false,
       edited: false,
       defaultChanged: false,
+      unaccepted: settings.accepted[id] === p.text ? null : p.text,
     }),
   )
   return [...builtins, ...own]
@@ -199,6 +284,7 @@ export function activePlaybooks(settings: PlaybooksSettings): ResolvedPlaybook[]
   return resolvePlaybooks(settings).filter(
     (p) =>
       p.enabled &&
+      (p.builtin || p.unaccepted === null) &&
       playbookTextProblem(p.text) === null &&
       (p.builtin || playbookDescriptionProblem(p.description) === null),
   )
@@ -223,10 +309,21 @@ export function withPlaybookEnabled(
   id: string,
   enabled: boolean,
 ): PlaybooksSettings {
-  const own = settings.own[id]
-  if (own) return { ...settings, own: { ...settings.own, [id]: { ...own, enabled } } }
-  if (!builtinOf(id)) return settings
+  if (!settings.own[id] && !builtinOf(id)) return settings
   return { ...settings, enabled: { ...settings.enabled, [id]: enabled } }
+}
+
+function without<T>(record: Record<string, T>, id: string): Record<string, T> {
+  const { [id]: _dropped, ...rest } = record
+  return rest
+}
+
+export function withPlaybookReset(settings: PlaybooksSettings, id: string): PlaybooksSettings {
+  return {
+    ...settings,
+    edits: without(settings.edits, id),
+    accepted: without(settings.accepted, id),
+  }
 }
 
 export function withPlaybookText(
@@ -234,35 +331,54 @@ export function withPlaybookText(
   id: string,
   text: string,
 ): PlaybooksSettings {
+  const accepted = { ...settings.accepted, [id]: text }
   const own = settings.own[id]
-  if (own) return { ...settings, own: { ...settings.own, [id]: { ...own, text } } }
+  if (own) return { ...settings, accepted, own: { ...settings.own, [id]: { ...own, text } } }
   const builtin = builtinOf(id)
   if (!builtin) return settings
   if (text === builtin.text) return withPlaybookReset(settings, id)
   const kept = settings.edits[id]
   const from = kept && kept.text !== builtin.text ? kept.from : playbookHash(builtin.text)
-  return { ...settings, edits: { ...settings.edits, [id]: { text, from } } }
+  return { ...settings, accepted, edits: { ...settings.edits, [id]: { text, from } } }
 }
 
-export function withPlaybookReset(settings: PlaybooksSettings, id: string): PlaybooksSettings {
-  const { [id]: _dropped, ...edits } = settings.edits
-  return { ...settings, edits }
+export function withPlaybookAccepted(settings: PlaybooksSettings, id: string): PlaybooksSettings {
+  const text = settings.own[id]?.text ?? settings.edits[id]?.text
+  return text === undefined
+    ? settings
+    : { ...settings, accepted: { ...settings.accepted, [id]: text } }
 }
 
 export function withOwnPlaybook(
   settings: PlaybooksSettings,
   name: string,
-  fields: { description: string; text: string },
+  fields: OwnPlaybook,
   replaces?: string,
 ): PlaybooksSettings {
-  const previous = settings.own[replaces ?? name]
-  const own = { ...settings.own }
-  if (replaces !== undefined) delete own[replaces]
-  own[name] = { ...fields, enabled: previous?.enabled ?? false }
-  return { ...settings, own }
+  const moved = replaces === undefined ? name : replaces
+  const kept = settings.enabled[moved]
+  let enabled = settings.enabled
+  let own = settings.own
+  let accepted = settings.accepted
+  if (replaces !== undefined) {
+    enabled = without(enabled, replaces)
+    own = without(own, replaces)
+    accepted = without(accepted, replaces)
+  }
+  if (kept !== undefined) enabled = { ...enabled, [name]: kept }
+  return {
+    ...settings,
+    enabled,
+    accepted: { ...accepted, [name]: fields.text },
+    own: { ...own, [name]: fields },
+  }
 }
 
 export function withoutOwnPlaybook(settings: PlaybooksSettings, name: string): PlaybooksSettings {
-  const { [name]: _dropped, ...own } = settings.own
-  return { ...settings, own }
+  return {
+    ...settings,
+    enabled: without(settings.enabled, name),
+    accepted: without(settings.accepted, name),
+    own: without(settings.own, name),
+  }
 }

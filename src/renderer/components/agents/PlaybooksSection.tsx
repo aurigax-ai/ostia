@@ -8,6 +8,7 @@ import { Switch } from '@/components/ui/switch'
 import { useDict } from '@/lib/app/useDict'
 import { cn } from '@/lib/utils'
 import { useSettingsStore } from '@/stores/app/settingsStore'
+import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
 import {
   canAddPlaybook,
   type Draft,
@@ -24,6 +25,8 @@ export function PlaybooksSection(): JSX.Element {
   const setEnabled = useSettingsStore((s) => s.setPlaybookEnabled)
   const list = useMemo(() => resolvePlaybooks(playbooks), [playbooks])
   const ownNames = useMemo(() => Object.keys(playbooks.own), [playbooks.own])
+  const extensions = useExtensionsStore((x) => x.list)
+  const extensionIds = useMemo(() => extensions.flatMap((e) => e.agentSkills), [extensions])
   const [selected, setSelected] = useState(list[0]?.id ?? DRAFT_ID)
   const [draft, setDraft] = useState<Draft | null>(null)
   const current = list.find((p) => p.id === selected)
@@ -32,7 +35,11 @@ export function PlaybooksSection(): JSX.Element {
     setDraft(null)
   }
   const mark = (p: (typeof list)[number]): string | undefined => {
-    const parts = [p.builtin ? null : d.playbooks.yours, p.edited ? d.playbooks.edited : null]
+    const parts = [
+      p.builtin ? null : d.playbooks.yours,
+      p.edited ? d.playbooks.edited : null,
+      p.unaccepted !== null ? d.playbooks.changedElsewhereShort : null,
+    ]
     return parts.filter(Boolean).join(' · ') || undefined
   }
   const rowClass = (on: boolean): string =>
@@ -87,6 +94,7 @@ export function PlaybooksSection(): JSX.Element {
                 <span className="relative z-10">
                   <Switch
                     checked={p.enabled}
+                    disabled={!p.builtin && (p.unaccepted !== null || extensionIds.includes(p.id))}
                     onCheckedChange={(next) => setEnabled(p.id, next)}
                     aria-label={`/${p.id}`}
                   />
@@ -108,12 +116,19 @@ export function PlaybooksSection(): JSX.Element {
         <DraftDetail
           draft={draft}
           ownNames={ownNames}
+          extensionIds={extensionIds}
           onChange={setDraft}
           onCreated={show}
           onDiscard={() => show(list[0]?.id ?? DRAFT_ID)}
         />
       ) : current ? (
-        <PlaybookDetail key={current.id} playbook={current} ownNames={ownNames} onRenamed={show} />
+        <PlaybookDetail
+          key={current.id}
+          playbook={current}
+          ownNames={ownNames}
+          extensionIds={extensionIds}
+          onRenamed={show}
+        />
       ) : null}
     </SettingsPage>
   )

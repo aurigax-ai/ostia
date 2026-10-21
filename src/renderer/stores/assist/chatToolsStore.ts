@@ -52,8 +52,10 @@ interface ChatToolsState {
   versions: Record<string, Record<string, string>>
   mcp: McpServerStatus[]
   skills: SkillSummary[]
+  playbooks: SkillSummary[]
   setMcp: (mcp: McpServerStatus[]) => void
   setSkills: (skills: SkillSummary[]) => void
+  setPlaybooks: (playbooks: SkillSummary[]) => void
   toggle: (sessionId: string, key: string, on: boolean) => void
   setMode: (sessionId: string, mode: ChatMode) => void
   recordEdit: (edit: ChatEditRecord) => void
@@ -78,6 +80,7 @@ export const useChatToolsStore = create<ChatToolsState>((set) => ({
   versions: {},
   mcp: [],
   skills: [],
+  playbooks: [],
   setMode: (sessionId, mode) => set((s) => ({ mode: { ...s.mode, [sessionId]: mode } })),
   recordEdit: (edit) => set((s) => ({ edits: { ...s.edits, [edit.toolCallId]: edit } })),
   loadEdits: (sessionId, edits) =>
@@ -108,6 +111,7 @@ export const useChatToolsStore = create<ChatToolsState>((set) => ({
     }),
   setMcp: (mcp) => set({ mcp }),
   setSkills: (skills) => set({ skills }),
+  setPlaybooks: (playbooks) => set({ playbooks }),
   toggle: (sessionId, key, on) =>
     set((s) => {
       const current = new Set(s.off[sessionId] ?? [])
@@ -212,8 +216,12 @@ export function answerApproval(toolCallId: string, answer: ApprovalAnswer): void
 }
 
 export async function refreshSkills(): Promise<SkillSummary[]> {
-  const skills = await window.ostia.chatTools.skills().catch(() => [] as SkillSummary[])
+  const [skills, playbooks] = await Promise.all([
+    window.ostia.chatTools.skills().catch(() => [] as SkillSummary[]),
+    window.ostia.chatTools.playbooks().catch(() => [] as SkillSummary[]),
+  ])
   useChatToolsStore.getState().setSkills(skills)
+  useChatToolsStore.getState().setPlaybooks(playbooks)
   return skills
 }
 

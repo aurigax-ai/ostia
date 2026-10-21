@@ -109,9 +109,16 @@ export function registerChatToolsIpc(deps: ChatToolsDeps): void {
   ipcMain.handle('chatTools:restore', (_e, req: ChatRestoreRequest) =>
     restoreTool(req, deps.roots()),
   )
-  const skillFolders = (): string[] => [...deps.settings().skillFolders, deps.playbooksFolder()]
-  ipcMain.handle('chatTools:skills', () => listSkills(skillFolders()))
-  ipcMain.handle('chatTools:load-skill', (_e, name: unknown) => loadSkill(skillFolders(), name))
+  ipcMain.handle('chatTools:skills', () => listSkills(deps.settings().skillFolders))
+  ipcMain.handle('chatTools:load-skill', (_e, name: unknown) =>
+    loadSkill(deps.settings().skillFolders, name),
+  )
+  ipcMain.handle('chatTools:playbooks', () => listSkills([deps.playbooksFolder()]))
+  ipcMain.handle('chatTools:playbook-prompt', (_e, name: unknown, task: unknown) => {
+    const loaded = loadSkill([deps.playbooksFolder()], name)
+    const text = typeof task === 'string' ? task : ''
+    return loaded.ok ? loaded.body.replaceAll('$ARGUMENTS', () => text) : null
+  })
   ipcMain.handle('chatTools:mcp-status', () => deps.mcp.status())
   ipcMain.handle('chatTools:mcp-refresh', () => deps.mcp.refresh())
   ipcMain.handle('chatTools:mcp-reconnect', (_e, server: unknown) =>

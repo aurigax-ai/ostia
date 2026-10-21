@@ -8,4 +8,6 @@ One focused review of the pull request in the task.
 - Give a verdict in this shape: approve, or changes with `file:line` for each.
 - Run no heavy suites inside a review.
 
-Task: $ARGUMENTS
+The task:
+
+$ARGUMENTS

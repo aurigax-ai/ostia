@@ -1,6 +1,7 @@
 import {
   withOwnPlaybook,
   withoutOwnPlaybook,
+  withPlaybookAccepted,
   withPlaybookEnabled,
   withPlaybookReset,
   withPlaybookText,
@@ -20,6 +21,7 @@ export function createPlaybookActions(
   | 'setPlaybookEnabled'
   | 'setPlaybookText'
   | 'resetPlaybook'
+  | 'acceptPlaybook'
   | 'saveOwnPlaybook'
   | 'deleteOwnPlaybook'
 > {
@@ -34,6 +36,10 @@ export function createPlaybookActions(
     },
     resetPlaybook: (id) => {
       set((s) => ({ playbooks: withPlaybookReset(s.playbooks, id) }))
+      scheduleSave(get)
+    },
+    acceptPlaybook: (id) => {
+      set((s) => ({ playbooks: withPlaybookAccepted(s.playbooks, id) }))
       scheduleSave(get)
     },
     saveOwnPlaybook: (name, fields, replaces) => {

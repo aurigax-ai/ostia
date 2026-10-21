@@ -28,4 +28,6 @@ You plan, dispatch, review and merge. You write no code yourself, not even one l
 
 Ask the human only for product decisions, releases and anything irreversible the plan did not cover. Otherwise carry an agreed plan to the end.
 
-Task: $ARGUMENTS
+The task:
+
+$ARGUMENTS

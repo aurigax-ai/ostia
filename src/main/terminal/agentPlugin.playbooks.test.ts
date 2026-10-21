@@ -36,13 +36,15 @@ describe('writeAgentPlugin with playbooks', () => {
     )
   })
 
-  it('lists the playbooks apart from the extension skills in the Codex context', () => {
+  it('names the playbooks apart from the extension skills in the Codex context, human-typed only', () => {
     const dir = writeAgentPlugin(root, NO_AGENT_PLUGINS, [coordinator])
     const context = readFileSync(join(dir, 'codex', 'session-context.md'), 'utf8')
-    expect(context).toContain('The human may ask for one of these playbooks by name')
+    expect(context).toContain('only the human uses')
+    expect(context).toContain('when the human types its /name')
     expect(context).toContain(
-      `- coordinator (${join(dir, 'codex', 'playbooks', 'coordinator', 'SKILL.md')}): Plan, dispatch, review and merge.`,
+      `- /coordinator (${join(dir, 'codex', 'playbooks', 'coordinator', 'SKILL.md')})`,
     )
+    expect(context).not.toContain(coordinator.description)
     expect(context).not.toContain('extensions the human enabled')
   })
 

@@ -7,4 +7,6 @@ Scout first: read the issue, the code it touches and the project's rules file. K
 - Report to the coordinator with `ostia bus send`: the PR link and any sentences you propose for the shared instruction file.
 - Never merge, never bump a version, never edit the shared instruction file.
 
-Task: $ARGUMENTS
+The task:
+
+$ARGUMENTS

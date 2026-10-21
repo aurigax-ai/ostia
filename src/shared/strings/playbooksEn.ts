@@ -1,4 +1,6 @@
 export const playbooksEn = {
+  changedElsewhere: 'Changed on another device. It is not used until you accept it here.',
+  changedElsewhereShort: 'Changed elsewhere',
   command: 'Command',
   defaultChanged: '{product}’s default changed. Your edit is kept.',
   delete: 'Delete',
@@ -18,9 +20,12 @@ export const playbooksEn = {
   },
   discardDraft: 'Discard',
   edited: 'Edited',
+  extensionClash:
+    '/{name} is also a skill of an installed extension, so it is not in use. Rename it.',
   hideDefault: 'Hide',
   listLabel: 'Playbooks',
   nameProblems: {
+    extension: '/{name} is a skill of an installed extension.',
     invalid: 'Use lowercase letters, digits and dashes, starting with a letter, up to 32.',
     reserved: '/{name} is a built-in name.',
     taken: '/{name} is already a playbook.',
@@ -40,5 +45,6 @@ export const playbooksEn = {
   },
   title: 'Playbooks',
   tokens: '~{count} tokens',
+  useIt: 'Use it',
   yours: 'Yours',
 }

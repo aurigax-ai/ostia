@@ -33,12 +33,46 @@ function useTokens(text: string): string {
   return d.playbooks.tokens.replace('{count}', String(Math.ceil(text.length / 4)))
 }
 
-function useNameError(): (name: string, taken: readonly string[]) => string | null {
+function useNameError(
+  extensionIds: readonly string[],
+): (name: string, taken: readonly string[]) => string | null {
   const d = useDict()
   return (name, taken) => {
-    const problem: NameProblem | null = playbookNameProblem(name, taken)
+    const problem: NameProblem | null = playbookNameProblem(name, taken, extensionIds)
     return problem ? d.playbooks.nameProblems[problem].replace('{name}', name) : null
   }
+}
+
+function Pending({ playbook }: { playbook: ResolvedPlaybook }): JSX.Element {
+  const d = useDict()
+  const accept = useSettingsStore((s) => s.acceptPlaybook)
+  const [shown, setShown] = useState(false)
+  return (
+    <>
+      <Notice
+        tone="info"
+        actions={
+          <>
+            {playbook.builtin ? (
+              <TextLink size="xs" onClick={() => setShown((v) => !v)}>
+                {shown ? d.playbooks.hideDefault : d.playbooks.showDefault}
+              </TextLink>
+            ) : null}
+            <TextLink size="xs" onClick={() => accept(playbook.id)}>
+              {d.playbooks.useIt}
+            </TextLink>
+          </>
+        }
+      >
+        {d.playbooks.changedElsewhere}
+      </Notice>
+      {shown ? (
+        <pre className="mt-1 max-h-64 overflow-auto whitespace-pre-wrap rounded-md bg-surface-2 p-3 font-mono text-fg text-ui-sm">
+          {playbook.unaccepted}
+        </pre>
+      ) : null}
+    </>
+  )
 }
 
 function DefaultChanged({ playbook }: { playbook: ResolvedPlaybook }): JSX.Element {
@@ -74,10 +108,12 @@ function DefaultChanged({ playbook }: { playbook: ResolvedPlaybook }): JSX.Eleme
 export function PlaybookDetail({
   playbook,
   ownNames,
+  extensionIds,
   onRenamed,
 }: {
   playbook: ResolvedPlaybook
   ownNames: readonly string[]
+  extensionIds: readonly string[]
   onRenamed: (name: string) => void
 }): JSX.Element {
   const d = useDict()
@@ -85,7 +121,7 @@ export function PlaybookDetail({
   const resetPlaybook = useSettingsStore((s) => s.resetPlaybook)
   const save = useSettingsStore((s) => s.saveOwnPlaybook)
   const remove = useSettingsStore((s) => s.deleteOwnPlaybook)
-  const nameError = useNameError()
+  const nameError = useNameError(extensionIds)
   const [commandError, setCommandError] = useState<string | null>(null)
   const [descriptionError, setDescriptionError] = useState<string | null>(null)
   const fields = { description: playbook.description, text: playbook.text }
@@ -107,7 +143,11 @@ export function PlaybookDetail({
   )
   return (
     <SettingsGroup title={command} action={action}>
+      {playbook.unaccepted !== null ? <Pending playbook={playbook} /> : null}
       {playbook.defaultChanged ? <DefaultChanged playbook={playbook} /> : null}
+      {!playbook.builtin && extensionIds.includes(playbook.id) ? (
+        <Notice tone="error">{d.playbooks.extensionClash.replace('{name}', playbook.id)}</Notice>
+      ) : null}
       {playbook.builtin ? null : (
         <>
           <ControlRow label={d.playbooks.command} error={commandError}>
@@ -163,23 +203,25 @@ export function PlaybookDetail({
 export function DraftDetail({
   draft,
   ownNames,
+  extensionIds,
   onChange,
   onCreated,
   onDiscard,
 }: {
   draft: Draft
   ownNames: readonly string[]
+  extensionIds: readonly string[]
   onChange: (draft: Draft) => void
   onCreated: (name: string) => void
   onDiscard: () => void
 }): JSX.Element {
   const d = useDict()
   const save = useSettingsStore((s) => s.saveOwnPlaybook)
-  const nameError = useNameError()
+  const nameError = useNameError(extensionIds)
   const next = (patch: Partial<Draft>): void => {
     const merged = { ...draft, ...patch }
     const ready =
-      playbookNameProblem(merged.name, ownNames) === null &&
+      playbookNameProblem(merged.name, ownNames, extensionIds) === null &&
       playbookDescriptionProblem(merged.description) === null &&
       playbookTextProblem(merged.text) === null
     if (!ready) {

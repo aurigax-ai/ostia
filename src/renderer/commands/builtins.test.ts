@@ -467,7 +467,12 @@ describe('builtins route to store actions', () => {
       if (!res.ok)
         expect(res.error.message).toBe('playbooks can only be changed by you in Settings')
     }
-    expect(useSettingsStore.getState().playbooks).toEqual({ enabled: {}, edits: {}, own: {} })
+    expect(useSettingsStore.getState().playbooks).toEqual({
+      enabled: {},
+      accepted: {},
+      edits: {},
+      own: {},
+    })
   })
 
   it('settings.set and settings.unset refuse the modifier remap, so an agent cannot turn a key into another', async () => {

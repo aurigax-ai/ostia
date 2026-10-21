@@ -1,10 +1,20 @@
-import { skillDirective } from '@aurigax-ai/ostia-extension-sdk/manifest/agentSkills'
+import { skillDirective } from '@aurigax-ai/ostia-extension-sdk/contract/agentPlugins'
 import { activePlaybooks, parsePlaybooks, playbookSkillText } from '../../shared/agents/playbooks'
 
 export interface PlaybookFile {
   id: string
   description: string
   skill: string
+}
+
+let current: unknown
+
+export function setPlaybookSettings(raw: unknown): void {
+  current = raw
+}
+
+export function currentPlaybookFiles(takenIds: readonly string[]): PlaybookFile[] {
+  return playbookFiles(current, takenIds)
 }
 
 export function playbookFiles(raw: unknown, takenIds: readonly string[]): PlaybookFile[] {

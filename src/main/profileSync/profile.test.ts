@@ -18,41 +18,65 @@ describe('profile local-only settings', () => {
 })
 
 describe('profile playbooks', () => {
-  const own = (text: string) => ({ description: 'Check', text, enabled: true })
+  const own = (text: string) => ({ description: 'Check', text })
 
-  it('syncs playbooks with the other settings as data', () => {
-    expect(isLocalOnlyPath(['playbooks'])).toBe(false)
-    expect(isLocalOnlyPath(['playbooks', 'own', 'release-check'])).toBe(false)
-    const local = { playbooks: { enabled: { coordinator: true }, own: { mine: own('Do it') } } }
-    expect(syncedSettings(local)).toEqual(local)
+  it('syncs the texts as data but never which playbooks are on or accepted here', () => {
+    expect(isLocalOnlyPath(['playbooks', 'enabled'])).toBe(true)
+    expect(isLocalOnlyPath(['playbooks', 'accepted'])).toBe(true)
+    expect(isLocalOnlyPath(['playbooks', 'edits'])).toBe(false)
+    expect(isLocalOnlyPath(['playbooks', 'own'])).toBe(false)
+    const local = {
+      playbooks: {
+        enabled: { coordinator: true, mine: true },
+        accepted: { coordinator: 'Mine.', mine: 'Do it' },
+        edits: { coordinator: { text: 'Mine.', from: 'abc' } },
+        own: { mine: own('Do it') },
+      },
+    }
+    expect(syncedSettings(local)).toEqual({
+      playbooks: { edits: local.playbooks.edits, own: local.playbooks.own },
+    })
+  })
+
+  it('keeps the local switches and accepted texts when another device’s settings merge in', () => {
+    const local = {
+      playbooks: { enabled: { coordinator: true }, accepted: { coordinator: 'Mine.' } },
+    }
+    const merged = {
+      playbooks: {
+        edits: { coordinator: { text: 'Theirs.', from: 'abc' } },
+        own: { mine: own('Do it') },
+      },
+    }
+    expect(withLocalOnly(merged, local)).toEqual({
+      playbooks: {
+        enabled: { coordinator: true },
+        accepted: { coordinator: 'Mine.' },
+        edits: { coordinator: { text: 'Theirs.', from: 'abc' } },
+        own: { mine: own('Do it') },
+      },
+    })
   })
 
   it('merges two machines per playbook, never as one block', () => {
-    const base = { playbooks: { enabled: { coordinator: true }, own: { a: own('one') } } }
-    const here = {
-      playbooks: {
-        enabled: { coordinator: true },
-        own: { a: own('one'), b: own('added here') },
-      },
-    }
+    const base = { playbooks: { own: { a: own('one') } } }
+    const here = { playbooks: { own: { a: own('one'), b: own('added here') } } }
     const there = {
       playbooks: {
-        enabled: { coordinator: true, worker: true },
         edits: { coordinator: { text: 'edited there', from: 'abc' } },
         own: { a: own('edited there') },
       },
     }
     const { merged, conflicts } = mergeMaps(
-      flatten(base),
-      flatten(here),
-      flatten(there),
+      flatten(syncedSettings(base)),
+      flatten(syncedSettings(here)),
+      flatten(syncedSettings(there)),
       sameJson,
       () => 'remote',
     )
     expect(conflicts).toEqual([])
     expect(unflatten(merged)).toEqual({
       playbooks: {
-        enabled: { coordinator: true, worker: true },
         edits: { coordinator: { text: 'edited there', from: 'abc' } },
         own: { a: own('edited there'), b: own('added here') },
       },

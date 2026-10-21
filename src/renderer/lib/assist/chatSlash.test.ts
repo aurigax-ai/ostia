@@ -30,6 +30,7 @@ function context(over: Partial<SlashContext> = {}): SlashContext {
       { name: 'pdf', description: 'Read and fill PDFs' },
       { name: 'release-notes', description: 'Write release notes' },
     ],
+    playbooks: [],
     skillsOn: true,
     sessions: [
       { id: 's-deploy', title: 'Deploy notes' },
@@ -56,6 +57,7 @@ function actions(): SlashActions & Record<string, ReturnType<typeof vi.fn>> {
     attach: vi.fn(),
     openTools: vi.fn(),
     applySkill: vi.fn(),
+    applyPlaybook: vi.fn(),
     showModel: vi.fn(),
     showHelp: vi.fn(),
   }
@@ -121,6 +123,15 @@ describe('slashMenu', () => {
   it('completes a skill name from the configured skills', () => {
     const menu = slashMenu('/skill re', context())
     expect(menu).toMatchObject({ phase: 'arg', choices: [{ value: 'release-notes' }] })
+  })
+
+  it('offers the human’s playbooks next to the skills, and they work without the tools', () => {
+    const playbooks = [{ name: 'coordinator', description: 'Plan and dispatch' }]
+    const menu = slashMenu('/skill co', context({ playbooks, tools: false }))
+    expect(menu).toMatchObject({ phase: 'arg', choices: [{ value: 'coordinator' }] })
+    const reason = (ctx: SlashContext) => command('skill').unavailable(ctx)
+    expect(reason(context({ playbooks, tools: false, skills: [] }))).toBeNull()
+    expect(reason(context({ playbooks: [], tools: false }))).toBe('noTools')
   })
 
   it('stops completing the skill once its name is followed by a space', () => {
@@ -220,6 +231,14 @@ describe('runSlash', () => {
     expect(runSlash('/rename', context(), acts)).toMatchObject({ reason: 'needsTitle' })
     runSlash('/rename   Release plan ', context(), acts)
     expect(acts.rename).toHaveBeenCalledWith('Release plan')
+  })
+
+  it('runs a playbook only by the human typing its name, never as a skill', () => {
+    const acts = actions()
+    const playbooks = [{ name: 'coordinator', description: 'Plan and dispatch' }]
+    runSlash('/skill Coordinator ship it', context({ playbooks }), acts)
+    expect(acts.applyPlaybook).toHaveBeenCalledWith('coordinator', 'ship it')
+    expect(acts.applySkill).not.toHaveBeenCalled()
   })
 
   it('passes the skill name and the task after it', () => {
