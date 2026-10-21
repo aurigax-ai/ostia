@@ -193,7 +193,10 @@ describe('GitView', () => {
       await renderSettled(<GitView workspaceId="w1" paneId="p1" home="dock" />)
 
       expect(root().querySelector('.branch .branch-name')).toHaveTextContent('main')
-      expect(root().querySelector('.branch .branch-name')).toHaveAttribute('title', 'main')
+      expect(root().querySelector('.branch .branch-name')).toHaveAttribute(
+        'title',
+        `main · ${ROOT}`,
+      )
       expect(root().querySelector('.tracking .upstream-name')).toHaveTextContent('origin/main')
       const css = readFileSync(join(__dirname, 'git.css'), 'utf8')
       const block = (selector: string): string =>

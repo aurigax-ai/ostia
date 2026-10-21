@@ -1,6 +1,7 @@
 import '@testing-library/jest-dom/vitest'
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { useState } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import type { PickTarget } from '@/lib/agents/pickTargets'
@@ -155,6 +156,18 @@ describe('RegionActionBar', () => {
     await waitFor(() => expect(props.onSend).toHaveBeenLastCalledWith(targets[1], 'again'))
   })
 
+  it('opens the agent menu on Ctrl+Enter when no agent was used yet', async () => {
+    available = targets.map((t) => ({ ...t, paneId: `${t.paneId}-fresh` }))
+    const props = setup()
+    await userEvent.click(within(bar()).getByRole('button', { name: /add a note/i }))
+    await userEvent.type(
+      screen.getByRole('textbox', { name: /add a note/i }),
+      'which one{Control>}{Enter}{/Control}',
+    )
+    expect(await screen.findAllByRole('menuitem')).toHaveLength(2)
+    expect(props.onSend).not.toHaveBeenCalled()
+  })
+
   it('closes on its button, Escape, a click elsewhere, a scroll and a plain key', async () => {
     const props = setup()
     await userEvent.click(within(bar()).getByRole('button', { name: /cancel/i }))
@@ -177,5 +190,67 @@ describe('RegionActionBar', () => {
     await userEvent.click(within(bar()).getByRole('button', { name: /add a note/i }))
     await userEvent.type(screen.getByRole('textbox', { name: /add a note/i }), 'abc')
     expect(props.onClose).not.toHaveBeenCalled()
+  })
+
+  describe('keyboard focus', () => {
+    function origin(): HTMLButtonElement {
+      const button = document.createElement('button')
+      button.textContent = 'origin'
+      document.body.append(button)
+      button.focus()
+      return button
+    }
+
+    it('takes the focus when it opens, so Tab reaches Copy, Send to agent and the note', async () => {
+      origin()
+      setup()
+      expect(bar()).toHaveFocus()
+      await userEvent.tab()
+      expect(within(bar()).getByRole('button', { name: 'Copy' })).toHaveFocus()
+      await userEvent.tab()
+      expect(within(bar()).getByRole('button', { name: /send to agent/i })).toHaveFocus()
+      await userEvent.tab()
+      expect(within(bar()).getByRole('button', { name: /add a note/i })).toHaveFocus()
+    })
+
+    it('gives the focus back to where it came from when it closes', async () => {
+      const from = origin()
+      const Host = (): JSX.Element => {
+        const [open, setOpen] = useState(true)
+        return open ? (
+          <RegionActionBar
+            workspaceId="w1"
+            anchor={{ left: 0, top: 0, bottom: 10 }}
+            onCopy={vi.fn()}
+            onSend={vi.fn()}
+            onClose={() => setOpen(false)}
+          />
+        ) : (
+          <span>closed</span>
+        )
+      }
+      render(
+        <TooltipProvider>
+          <div className="relative">
+            <Host />
+          </div>
+        </TooltipProvider>,
+      )
+      expect(bar()).toHaveFocus()
+      fireEvent.keyDown(bar(), { key: 'Escape' })
+      expect(await screen.findByText('closed')).toBeInTheDocument()
+      expect(from).toHaveFocus()
+    })
+
+    it('does not take the focus back from what the user clicked', async () => {
+      origin()
+      const other = document.createElement('input')
+      document.body.append(other)
+      const props = setup()
+      other.focus()
+      fireEvent.pointerDown(other)
+      expect(props.onClose).toHaveBeenCalled()
+      expect(other).toHaveFocus()
+    })
   })
 })

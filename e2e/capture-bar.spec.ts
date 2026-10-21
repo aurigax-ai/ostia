@@ -3,6 +3,7 @@ import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { chords, defaultChord, isMac } from './chords'
 import { freshDataHome, isolatedLaunch } from './dataHome'
+import { guestKeys, pressInPage } from './guestKeys'
 import { openWorkspace, waitForPaletteSelection } from './helpers'
 import { type ElectronApplication, _electron as electron, expect, test } from './test'
 
@@ -26,6 +27,7 @@ const PAGE = `<!doctype html>
 </body></html>`
 
 const sendToAgent = defaultChord('selection.sendToAgent', isMac)
+const plainCopy = isMac ? 'Meta+c' : 'Control+c'
 
 const readClipboard = (app: ElectronApplication) =>
   app.evaluate(async ({ clipboard }) => {
@@ -65,6 +67,22 @@ test('Monaco opens the capture bar only from the chord, and Copy puts the select
     await win.waitForTimeout(600)
     await expect(bar).toHaveCount(0)
 
+    const editorFocused = () =>
+      win.evaluate(() => document.activeElement?.closest('.monaco-editor') != null)
+
+    await win.keyboard.press(sendToAgent)
+    await expect(bar).toBeVisible()
+    await expect(bar).toBeFocused()
+    await win.keyboard.press('Tab')
+    await expect(bar.getByRole('button', { name: 'Copy' })).toBeFocused()
+    await win.keyboard.press('Tab')
+    await expect(bar.getByRole('button', { name: 'Send to agent' })).toBeFocused()
+    await win.keyboard.press('Tab')
+    await expect(bar.getByRole('button', { name: 'Add a note' })).toBeFocused()
+    await win.keyboard.press('Escape')
+    await expect(bar).toHaveCount(0)
+    await expect.poll(editorFocused).toBe(true)
+
     await win.keyboard.press(sendToAgent)
     await expect(bar).toBeVisible()
     await bar.getByRole('button', { name: 'Copy' }).click()
@@ -74,6 +92,15 @@ test('Monaco opens the capture bar only from the chord, and Copy puts the select
     expect(copied.text.length).toBeGreaterThan(4)
     expect(SOURCE).toContain(copied.text)
     expect(copied.hasImage).toBe(false)
+
+    await app.evaluate(({ clipboard }) => clipboard.writeText('marker'))
+    await expect.poll(editorFocused).toBe(true)
+    await win.keyboard.press(sendToAgent)
+    await expect(bar).toBeVisible()
+    await win.keyboard.press(plainCopy)
+    await expect(win.getByText('Copied the selection.')).toBeVisible()
+    await expect(bar).toHaveCount(0)
+    expect((await readClipboard(app)).text).toBe(copied.text)
   } finally {
     await app.close()
   }
@@ -149,7 +176,8 @@ test('a browser pane copies a table as CSV, an element without text as an image,
 
     await pointAt('#swatch')
     await expect(bar).toBeVisible({ timeout: 15_000 })
-    await bar.getByRole('button', { name: 'Copy' }).click()
+    await app.evaluate(({ clipboard }) => clipboard.writeText('marker'))
+    await win.keyboard.press(plainCopy)
     await expect(win.getByText('Copied the element screenshot.')).toBeVisible()
     const swatch = await readClipboard(app)
     expect(swatch.hasImage).toBe(true)
@@ -157,7 +185,7 @@ test('a browser pane copies a table as CSV, an element without text as an image,
     await guestEval<void>(
       'window.getSelection().selectAllChildren(document.getElementById("note"))',
     )
-    await win.keyboard.press(sendToAgent)
+    await pressInPage(app, guestKeys.sendToAgent)
     await expect(bar).toBeVisible({ timeout: 15_000 })
     await bar.getByRole('button', { name: 'Copy' }).click()
     await expect(win.getByText('Copied the selection.')).toBeVisible()

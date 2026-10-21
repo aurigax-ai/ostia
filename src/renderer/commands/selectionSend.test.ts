@@ -1,6 +1,7 @@
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { registerSelectionSender } from '@/lib/agents/selectionSenders'
 import { chordLabel } from '@/lib/keyboard/chords'
+import { SCRIPT_COMMANDS } from '../../main/control/commandArgs'
 import { commands } from './registry'
 import { registerSelectionSendCommand, SEND_SELECTION_COMMAND } from './selectionSend'
 
@@ -17,13 +18,18 @@ describe('selection.sendToAgent command', () => {
 
   const ctx = (activePaneId: string | null) => ({ activeWorkspaceId: 's1', activePaneId })
 
-  it('is a palette command whose id is the app chord it answers', () => {
-    expect(commands.describe().find((c) => c.id === SEND_SELECTION_COMMAND)).toMatchObject({
+  it('is a local palette command whose id is the app chord it answers', () => {
+    expect(commands.list().find((c) => c.id === SEND_SELECTION_COMMAND)).toMatchObject({
       title: 'Send Selection to Agent',
       category: 'Pane',
-      hidden: false,
     })
+    expect(commands.isLocal(SEND_SELECTION_COMMAND)).toBe(true)
     expect(chordLabel(SEND_SELECTION_COMMAND, false)).toBe('Ctrl+Shift+E')
+  })
+
+  it('is not callable from the socket or a script token', () => {
+    expect(commands.describe().some((c) => c.id === SEND_SELECTION_COMMAND)).toBe(false)
+    expect(SCRIPT_COMMANDS.has(SEND_SELECTION_COMMAND)).toBe(false)
   })
 
   it('opens the send panel of the active pane only', async () => {

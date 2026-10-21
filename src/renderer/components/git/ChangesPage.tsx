@@ -92,7 +92,10 @@ export function ChangesPage({
           <header className="head">
             <span className="branch">
               <GitBranchIcon />
-              <span className="branch-name" title={branchLabel(data.branch, t.detached)}>
+              <span
+                className="branch-name"
+                title={`${branchLabel(data.branch, t.detached)} · ${data.root}`}
+              >
                 {branchLabel(data.branch, t.detached)}
               </span>
             </span>

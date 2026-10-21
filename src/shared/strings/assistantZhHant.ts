@@ -222,6 +222,7 @@ export const assistantZhHant: typeof assistantEn = {
     noModel: '沒有模型',
     noProvider: '沒有可用的助理。請在「設定 → 助理」新增提供者。',
     noSessions: '尚無已儲存的對話。',
+    notRecordingHint: '對話紀錄已關閉。這個對話會保留到應用程式結束。',
     notices: {
       copiedInstead: '沒有閒置的提示字元，已改為複製。',
       evicted: '最舊的已儲存對話已被移除，以維持在儲存上限內。',
@@ -235,6 +236,7 @@ export const assistantZhHant: typeof assistantEn = {
     rename: '重新命名',
     renameLabel: '對話標題',
     saveHistory: '儲存對話紀錄',
+    scratchHint: '這個對話在暫存工作區中開始，只會保留到應用程式結束。',
     scrollDown: '捲動到最新訊息',
     searchSessions: '搜尋對話',
     sessions: '對話紀錄',

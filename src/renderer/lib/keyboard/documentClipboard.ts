@@ -1,6 +1,6 @@
 import { isNativeClipboardKey, type KeyLike } from '@shared/keyboard/chordSpec'
 import type { ClipboardEdit } from '@shared/keyboard/clipboardChords'
-import { copyActivePaneSelection } from '@/lib/agents/selectionCopiers'
+import { copyActivePaneSelection, hasActivePaneCopier } from '@/lib/agents/selectionCopiers'
 import { chordOf, matchChord, onBindingsChange } from './chords'
 import { isRemappedEvent } from './modifierRemapEvents'
 
@@ -33,14 +33,24 @@ function hasEditContext(el: HTMLElement): boolean {
   return Boolean((el as HTMLElement & { editContext?: unknown }).editContext)
 }
 
+function isCopyKey(e: KeyboardEvent, mac: boolean): boolean {
+  if (clipboardChordOf(e, mac) === 'copy') return true
+  return mac && isNativeClipboardKey(e) && e.key.toLowerCase() === 'c'
+}
+
 export function handleDocumentClipboardChord(e: KeyboardEvent, mac: boolean): boolean {
   if (e.defaultPrevented) return false
+  if (
+    isCopyKey(e, mac) &&
+    !isEditableElement(document.activeElement) &&
+    copyActivePaneSelection()
+  ) {
+    e.preventDefault()
+    return true
+  }
   const edit = clipboardChordOf(e, mac)
   if (!edit) return false
   e.preventDefault()
-  if (edit === 'copy' && !isEditableElement(document.activeElement) && copyActivePaneSelection()) {
-    return true
-  }
   const plan = documentEdit(edit, {
     editable: isEditableElement(document.activeElement),
     hasSelection: Boolean(document.getSelection()?.toString()),
@@ -52,6 +62,11 @@ export function handleDocumentClipboardChord(e: KeyboardEvent, mac: boolean): bo
 export function handleDocumentCopyEvent(e: ClipboardEvent): void {
   if (e.defaultPrevented || isEditableElement(document.activeElement)) return
   if (copyActivePaneSelection()) e.preventDefault()
+}
+
+export function handleDocumentBeforeCopy(e: Event): void {
+  if (e.defaultPrevented || isEditableElement(document.activeElement)) return
+  if (hasActivePaneCopier()) e.preventDefault()
 }
 
 export function syncClipboardChords(mac: boolean): () => void {

@@ -43,19 +43,23 @@ export function ChatSessions({
   workspaceId,
   sessionId,
   recording,
+  scratch,
   open,
   onOpenChange: setOpen,
 }: {
   workspaceId: string | null
   sessionId: string
   recording: boolean
+  scratch: boolean
   open: boolean
   onOpenChange: (open: boolean) => void
 }): JSX.Element {
   const d = useDict()
   const locale = useSettingsStore((s) => s.locale)
   const saveHistory = useSettingsStore((s) => s.assistant.chatHistory)
-  const sessionsLabel = recording ? d.chat.sessionsRecording : d.chat.sessions
+  const sessionsName = recording ? d.chat.sessionsRecording : d.chat.sessions
+  const sessionsHint = scratch ? d.chat.scratchHint : recording ? null : d.chat.notRecordingHint
+  const sessionsLabel = sessionsHint ? `${sessionsName}. ${sessionsHint}` : sessionsName
   const summaries = useChatStore((s) => s.summaries)
   const [query, setQuery] = useState('')
   const [editing, setEditing] = useState<string | null>(null)
