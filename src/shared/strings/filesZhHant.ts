@@ -331,7 +331,6 @@ export const filesZhHant: typeof filesEn = {
     open: '開啟',
     openWith: '開啟方式…',
     ownText: '文字編輯器',
-    ownView: '內建檢視器',
     reload: '重新載入',
     sendPdfSelection: '將選取的文字傳送給代理程式',
     sendRegion: '將選取區域傳送給代理程式',

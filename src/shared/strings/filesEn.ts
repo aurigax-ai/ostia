@@ -339,7 +339,6 @@ export const filesEn = {
     open: 'Open',
     openWith: 'Open With…',
     ownText: 'Text editor',
-    ownView: 'Built-in viewer',
     reload: 'Reload',
     sendPdfSelection: 'Send selected text to agent',
     sendRegion: 'Send region to agent',

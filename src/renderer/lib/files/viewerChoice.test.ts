@@ -48,7 +48,6 @@ function choose(path: string, extra: Partial<Parameters<typeof chooseViewer>[0]>
     path,
     options: viewerOptions(path, EXTENSIONS),
     associations: {},
-    ownView: false,
     inArtifacts: false,
     ...extra,
   })
@@ -72,7 +71,6 @@ describe('viewerChoice', () => {
         options: viewerOptions('/w/a.xlsx', [waiting]),
         chosen: 'wide.grid',
         associations: {},
-        ownView: false,
         inArtifacts: false,
       }).unavailable,
     ).toBe(true)
@@ -100,7 +98,6 @@ describe('viewerChoice', () => {
       'acme.grid',
     )
     expect(choose('/w/a.xlsx', { associations: { '*.xlsx': 'default' } }).viewer).toBeNull()
-    expect(choose('/w/a.xlsx', { ownView: true }).viewer).toBeNull()
   })
 
   it('falls back to the own view and says so when the chosen viewer is gone', () => {
