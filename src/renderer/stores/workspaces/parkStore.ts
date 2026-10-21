@@ -1,15 +1,15 @@
 import type { ParkRefusal } from '@shared/park/park'
 import { create } from 'zustand'
 
-export const PARK_NOTICE_MS = 15_000
+const PARK_NOTICE_MS = 15_000
 
-export interface ParkPromptRequest {
+interface ParkPromptRequest {
   workspaceId: string
   paneId: string
   title: string
 }
 
-export type ParkNotice =
+type ParkNotice =
   | { kind: 'parked'; workspaceId: string; title: string; seq: number }
   | {
       kind: 'refused'

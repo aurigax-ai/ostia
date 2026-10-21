@@ -2,7 +2,7 @@ import type { ParkedItem } from '@aurigax-ai/ostia-extension-sdk'
 import type { AgentResume } from '../../shared/agents/agentResume'
 import type { ParkedRecord, ParkedStore } from './parkedStore'
 
-export interface ParkedFail {
+interface ParkedFail {
   ok: false
   error: 'unknown-parked' | 'workspace-closed' | 'folder-gone' | 'running-elsewhere' | 'unavailable'
   message?: string
