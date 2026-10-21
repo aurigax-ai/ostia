@@ -2,7 +2,7 @@
   "id": "images",
   "name": "Images",
   "version": "1.0.0",
-  "api": "7.5",
+  "api": "7.6",
   "description": "Shows .png, .jpg, .jpeg, .gif, .webp, .svg, .bmp, .ico and .avif files fitted to the pane, with zoom, a transparency grid and a crop you draw by dragging. It reads only the file you opened, draws an SVG as a picture without running it, and sends the file nowhere until you choose Send to agent.",
   "category": "tools",
   "locales": ["zh-Hant"],

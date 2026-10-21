@@ -2,7 +2,7 @@
   "id": "archives",
   "name": "Archives",
   "version": "1.0.0",
-  "api": "7.5",
+  "api": "7.6",
   "description": "Lists and opens what is inside zip, jar, tar, tar.gz, tar.zst, tar.xz, tar.bz2 and 7z files in the Files panel, read-only. It reads the archive you expand through Ostia in small blocks, never gets a path, never extracts anything to disk, never follows links and refuses encrypted entries and decompression bombs.",
   "category": "tools",
   "locales": ["zh-Hant"],
