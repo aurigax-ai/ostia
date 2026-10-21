@@ -16,7 +16,6 @@ export const gatewayBridge: Pick<OstiaBridge, 'gateway'> = {
         cap,
         granted,
       }),
-    renameDevice: (deviceId, name) => ipcRenderer.invoke('gateway:rename', { deviceId, name }),
     bindAddresses: () => ipcRenderer.invoke('gateway:bind-addresses'),
     setRoute: (route) => ipcRenderer.invoke('gateway:set-route', route),
     tailnetSignIn: () => ipcRenderer.invoke('gateway:tailnet-sign-in'),

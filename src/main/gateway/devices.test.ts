@@ -8,9 +8,9 @@ import {
   get,
   list,
   registerDevice,
-  renameDevice,
   revoke,
   setDeviceCap,
+  setDeviceName,
   verifyToken,
 } from './devices'
 
@@ -154,19 +154,32 @@ describe('gateway/devices', () => {
     })
   })
 
-  it('PID-C7 renames a device, trims the name and refuses an empty one', () => {
+  it('PID-C7 updates a device name from the phone, trimmed, and keeps the old one for a bad name', () => {
     const { deviceId } = registerDevice({ name: 'Pixel', pubkey: 'pk' })
-    expect(renameDevice(deviceId, '  Desk phone  ')).toBe(true)
+    expect(setDeviceName(deviceId, '  Desk phone  ')).toBe(true)
     expect(get(deviceId)?.name).toBe('Desk phone')
-    expect(renameDevice(deviceId, '   ')).toBe(false)
-    expect(renameDevice(deviceId, 7)).toBe(false)
-    expect(renameDevice('dev_missing', 'x')).toBe(false)
+    for (const bad of [
+      '   ',
+      7,
+      'a\nb',
+      'a\u202Eb',
+      'a\u200Bb',
+      'a\u2028b',
+      'a\u0000b',
+      'a\ud800b',
+    ]) {
+      expect(setDeviceName(deviceId, bad)).toBe(false)
+    }
+    expect(setDeviceName('dev_missing', 'x')).toBe(false)
     expect(get(deviceId)?.name).toBe('Desk phone')
   })
 
-  it('PID-C8 caps a long name', () => {
+  it('PID-C8 cuts a long name at 64 characters without splitting an emoji', () => {
     const { deviceId } = registerDevice({ name: 'a'.repeat(200), pubkey: 'pk' })
     expect(get(deviceId)?.name).toHaveLength(64)
+    const emoji = registerDevice({ name: '\u{1F600}'.repeat(70), pubkey: 'pk' })
+    expect(Array.from(get(emoji.deviceId)?.name ?? '')).toHaveLength(64)
+    expect(() => encodeURIComponent(get(emoji.deviceId)?.name ?? '')).not.toThrow()
   })
 
   it('PID-C9 replaces every row of one install identity and revokes their tokens', () => {

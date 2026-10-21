@@ -67,7 +67,7 @@ export function registerDevice(input: RegisterDeviceInput): RegisteredDevice {
   for (const old of replaced) delete store[old.deviceId]
   const device: Device = {
     deviceId: `dev_${randomUUID()}`,
-    name: replaced[0]?.name ?? cleanDeviceName(input.name) ?? 'Phone',
+    name: cleanDeviceName(input.name) ?? 'Phone',
     pubkey: input.pubkey,
     token: randomBytes(32).toString('hex'),
     caps: replaced[0] ? [...replaced[0].caps] : [...DEFAULT_PHONE_CAPS],
@@ -96,10 +96,11 @@ export function touchDevice(deviceId: string): void {
   save(store)
 }
 
-export function renameDevice(deviceId: string, name: unknown): boolean {
+export function setDeviceName(deviceId: string, name: unknown): boolean {
   const clean = cleanDeviceName(name)
   const store = load()
   if (!clean || !Object.hasOwn(store, deviceId)) return false
+  if (store[deviceId].name === clean) return true
   store[deviceId].name = clean
   save(store)
   return true

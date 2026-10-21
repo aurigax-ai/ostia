@@ -117,7 +117,7 @@ describe('GatewaySection pairing', () => {
     render(<GatewaySection />)
     expect(
       await screen.findByText(
-        'Replaces Desk phone (last seen never connected) and closes its connection. Approve only if this is the same phone.',
+        'Says it is the same phone as Desk phone (last seen never connected). Approving replaces it and closes its connection.',
       ),
     ).toBeInTheDocument()
     expect(screen.getByText('It keeps: Run commands, Type into panes.')).toBeInTheDocument()

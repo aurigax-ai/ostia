@@ -331,8 +331,6 @@ export const settingsEn = {
       '{name} will be able to run commands that close panes, kill processes or discard work. Only allow this for a phone you control.',
     remoteDestructiveConfirm: 'Allow destructive',
     remoteDestructiveTitle: 'Allow destructive commands?',
-    remoteDeviceName: 'Name',
-    remoteDeviceNameFor: 'Name of {name}',
     remoteDevices: 'Paired devices',
     remoteDiscoverable: 'Discoverable',
     remoteDiscoverableDesc:
@@ -365,7 +363,7 @@ export const settingsEn = {
     remotePairKeepsNone: 'It keeps no extra permissions.',
     remotePairNeverSeen: 'never connected',
     remotePairReplaces:
-      'Replaces {name} (last seen {when}) and closes its connection. Approve only if this is the same phone.',
+      'Says it is the same phone as {name} (last seen {when}). Approving replaces it and closes its connection.',
     remotePairRequest: '{name} wants to pair',
     remotePairedOn: 'Paired {date}',
     remotePairing: 'Starting…',

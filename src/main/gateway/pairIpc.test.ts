@@ -165,25 +165,20 @@ describe("Discoverable and pairing approval are the human's", () => {
     expect(listPairRequests()).toEqual([])
   })
 
-  it('PID-C10 closes the sockets of the device an approval replaces, and renames only from a window', async () => {
+  it('PID-C10 closes the sockets of the device an approval replaces, and shows no identity in the device list', async () => {
     const installId = 'a'.repeat(24)
     const old = registerDevice({ name: 'Pixel', pubkey: 'pk0', installId })
+    expect(JSON.stringify(await invoke('gateway:devices'))).not.toContain(installId)
     const { requestId } = pendingRequest(installId)
+    expect(JSON.stringify(listPairRequests())).not.toContain(installId)
     expect(await invoke('gateway:pair-answer', 'window', { requestId, approve: true })).toEqual({
       ok: true,
     })
     expect(closeDeviceSockets).toHaveBeenCalledWith(old.deviceId)
-
-    expect(await invoke('gateway:rename', 'webview', { deviceId: 'x', name: 'y' })).toEqual({
-      ok: false,
-      error: 'not-a-window',
-    })
-    expect(await invoke('gateway:rename', 'window', { deviceId: 'dev_none', name: 'y' })).toEqual({
-      ok: false,
-      error: 'invalid',
-    })
+    expect(JSON.stringify(await invoke('gateway:devices'))).not.toContain(installId)
     registeredMethods.length = 0
     registerGatewayMethods()
     expect(registeredMethods.filter((m) => /rename/i.test(m))).toEqual([])
+    expect(handlers.has('gateway:rename')).toBe(false)
   })
 })

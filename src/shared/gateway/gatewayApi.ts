@@ -116,7 +116,6 @@ interface GatewayApi {
     cap: PhoneGrantableCap,
     granted: boolean,
   ) => Promise<GatewaySetCapResult>
-  renameDevice: (deviceId: string, name: string) => Promise<GatewayActionResult>
   bindAddresses: () => Promise<GatewayBindAddress[]>
   setRoute: (route: GatewayRoute) => Promise<GatewaySetRouteResult>
   tailnetSignIn: () => Promise<GatewayTailnetActionResult>

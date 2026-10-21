@@ -20,13 +20,7 @@ const { newCode, pairAuditLogPath, resetCodes, resetPairRateLimit } = await impo
 const { answerPairRequest, listPairRequests, onPairRequestsChanged, resetPairRequests } =
   await import('./pairRequests')
 const { checkCode } = await import('./pairCheck')
-const {
-  list: listDevices,
-  renameDevice,
-  setDeviceCap,
-  touchDevice,
-  verifyToken,
-} = await import('./devices')
+const { list: listDevices, setDeviceCap, touchDevice, verifyToken } = await import('./devices')
 
 interface Reply {
   status: number
@@ -231,24 +225,23 @@ describe('pairing requests wait for the human', () => {
     expect(listDevices().some((d) => d.pubkey === 'pk-old')).toBe(false)
   })
 
-  it('PID-C1 replaces the row and the token, keeping the name and the grants, when the same install identity pairs again', async () => {
+  it('PID-C1 replaces the row and the token, keeping the grants and taking the name the phone sends now, when the same install identity pairs again', async () => {
     const id = randomBytes(16).toString('hex')
     const first = await pairPhone(phone('Pixel 9', id))
     expect(first.replaces).toBeNull()
-    renameDevice(first.deviceId, 'Desk phone')
     setDeviceCap(first.deviceId, 'input', true)
 
     touchDevice(first.deviceId)
-    const second = await pairPhone(phone('Pixel 9', id))
+    const second = await pairPhone(phone('Pixel 9 Pro', id))
     expect(second.replaces).toMatchObject({
-      name: 'Desk phone',
+      name: 'Pixel 9',
       lastSeenAt: expect.any(String),
       caps: ['read', 'notify', 'input'],
     })
     expect(second.replaced).toEqual([first.deviceId])
     const rows = listDevices().filter((d) => d.installId === id)
     expect(rows.map((d) => d.deviceId)).toEqual([second.deviceId])
-    expect(rows[0].name).toBe('Desk phone')
+    expect(rows[0].name).toBe('Pixel 9 Pro')
     expect(rows[0].caps).toEqual(['read', 'notify', 'input'])
     expect(verifyToken(first.token)).toBeNull()
     expect(verifyToken(second.token)?.deviceId).toBe(second.deviceId)
@@ -289,9 +282,15 @@ describe('pairing requests wait for the human', () => {
     expect((await p.start(newCode())).status).toBe(400)
   })
 
-  it('PID-C6 never writes the install identity to the audit log or the device list view', async () => {
+  it('PID-C6 never writes the install identity to the audit log', async () => {
     const id = randomBytes(16).toString('hex')
     await pairPhone(phone('Pixel 9', id))
     expect(readFileSync(pairAuditLogPath(), 'utf8')).not.toContain(id)
+  })
+
+  it('PID-C14 refuses a name with control, bidi or invisible characters', async () => {
+    for (const name of ['Pixel\n9', 'Pixel\u202E9', 'Pixel\u200B9', '   ']) {
+      expect((await phone(name).start(newCode())).status).toBe(400)
+    }
   })
 })
