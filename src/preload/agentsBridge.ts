@@ -2,7 +2,7 @@ import { ipcRenderer } from 'electron'
 import type { OstiaBridge } from '../shared/types'
 import { answer, listen } from './listen'
 
-export const agentsBridge: Pick<OstiaBridge, 'manager' | 'agentSession' | 'mail'> = {
+export const agentsBridge: Pick<OstiaBridge, 'manager' | 'agentSession' | 'mail' | 'park'> = {
   manager: {
     onOpen: (cb) => {
       const off = answer('manager:open', 'manager:open-result', cb)
@@ -14,6 +14,10 @@ export const agentsBridge: Pick<OstiaBridge, 'manager' | 'agentSession' | 'mail'
     snapshot: () => ipcRenderer.invoke('bus:mail-snapshot'),
     onChange: (cb) => listen('bus:mail', cb),
     dismiss: (paneId) => ipcRenderer.invoke('bus:mail-dismiss', paneId),
+  },
+  park: {
+    pane: (workspaceId, paneId, titlePinned) =>
+      ipcRenderer.invoke('park:pane', workspaceId, paneId, titlePinned),
   },
   agentSession: {
     info: (resume) => ipcRenderer.invoke('agent:session-info', resume),

@@ -458,6 +458,8 @@ describe('script tokens on command.exec', () => {
     'workspace.hibernateGroupAgents',
     'workspace.resumeAgents',
     'workspace.resumeGroupAgents',
+    'pane.park',
+    'agent.resumeParked',
   ])('never runs %s, the human’s bulk command', async (id) => {
     const full = await client(
       createScriptToken(storeFile, 'c', ['all-workspaces', 'kill-pane', 'type-other-pane']).token,

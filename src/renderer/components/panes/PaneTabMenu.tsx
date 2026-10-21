@@ -8,6 +8,7 @@ import {
   ArrowsOutIcon,
   ArrowsOutLineHorizontalIcon,
   ArrowsOutSimpleIcon,
+  BookmarkSimpleIcon,
   CaretDoubleLeftIcon,
   GitForkIcon,
   LockSimpleIcon,
@@ -34,6 +35,7 @@ import { canCollapse } from '@/lib/layout/collapse'
 import { allPanes, splitTabOfPane } from '@/lib/layout/tree'
 import type { PaneNode, SplitNode } from '@/lib/layout/types'
 import { runUserAction } from '@/lib/palette/userActions'
+import { parkRefusalOf, requestPark } from '@/lib/park/parkTab'
 import { actionsFor } from '@/lib/settings/actions'
 import { closableOtherTabPanes } from '@/lib/workspaces/closeConfirm'
 import { canMovePane, movePaneToNewWindow } from '@/lib/workspaces/windowHandoff'
@@ -220,6 +222,7 @@ function PaneTabMenuItems({
           {d.pane.forkConversation}
         </MenuItem>
       ) : null}
+      {agentTab && workspaceId ? <TabParkItem workspaceId={workspaceId} pane={pane} /> : null}
       {otherTabs > 0 ? (
         <MenuItem
           icon={XSquareIcon}
@@ -308,6 +311,21 @@ export function PaneTabMenu({
         />
       </MenuContent>
     </ContextMenu>
+  )
+}
+
+function TabParkItem({ workspaceId, pane }: { workspaceId: string; pane: PaneNode }): JSX.Element {
+  const d = useDict()
+  const refusal = parkRefusalOf(workspaceId, pane.id)
+  return (
+    <MenuItem
+      icon={BookmarkSimpleIcon}
+      disabled={refusal !== null}
+      hint={refusal ? d.pane.parkReasons[refusal] : null}
+      onClick={() => void requestPark(workspaceId, pane.id)}
+    >
+      {d.pane.parkTab}
+    </MenuItem>
   )
 }
 

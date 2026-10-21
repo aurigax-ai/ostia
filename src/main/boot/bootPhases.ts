@@ -36,6 +36,7 @@ import { startManager } from '../manager/managerWiring'
 import { registerPaneLifecycleIpc } from '../panes/paneLifecycleIpc'
 import { listPanes } from '../panes/paneList'
 import { registerPaneMethodsWiring } from '../panes/paneMethodsWiring'
+import { registerParkWiring } from '../park/parkWiring'
 import { storePath } from '../platform/jsonStore'
 import { readLocale, readSettingsFile } from '../platform/settingsFile'
 import { resolveLoginPath } from '../platform/toolPath'
@@ -170,6 +171,7 @@ export function boot(wiring: Wiring): void {
   registerSandboxWiring({ ...wiring, notifyDeps })
   startFolderAccessWatch({ ...wiring, notifyDeps })
   const { registry, startAgentForPhone } = registerAgentWiring({ ...wiring })
+  registerParkWiring({ ...wiring })
   const { paneReachDeps, turnConfirms } = registerPaneMethodsWiring({ ...wiring, registry })
   registerToolbeltWiring({ ...wiring, paneReachDeps })
   const { extensionRemoteFolders, extensionExec, resumeOfPane } = extensionHostParts({ ...wiring })

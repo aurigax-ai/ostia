@@ -19,11 +19,19 @@ import { createOpenListing } from './openListing'
 import { activityPanelCommands, type PanelCommand, SHOW_ACTIVITY } from './panelCommands'
 import { coalesced, PUSH_WINDOW_MS } from './panelPush'
 import { Recorder } from './recorder'
+import { RememberStore } from './remember'
+import { REMEMBER_DAYS } from './rememberItem'
+import { rememberVerbs } from './rememberVerbs'
+import { sessionHook } from './sessionHook'
 import { activityVerbs } from './verbs'
 import type { OpenWorkspace } from './view'
 
 const PANEL_FILES = ['panel.html', 'panel.js', 'panel.css', 'base.css']
 const PRUNE_EVERY_MS = 60 * 60 * 1000
+
+function rememberDaysOf(values: ExtensionSettingValues): number {
+  return numberSetting(values, 'rememberDays', REMEMBER_DAYS, { min: 1, max: 365 })
+}
 
 function retentionOf(values: ExtensionSettingValues): Retention {
   const liveDays = numberSetting(values, 'retentionDays', RETENTION_DAYS, { min: 1, max: 365 })
@@ -72,12 +80,13 @@ async function main(): Promise<void> {
   const handlersReady = new Promise<void>((resolve) => {
     handlersAssigned = resolve
   })
-  ext.onPanel(async (caller) => {
+  ext.onPanel(async (caller, path) => {
     await handlersReady
     return {
       url: (await panelStarting).url({
         workspaceId: caller.workspaceId ?? '',
         locale: caller.locale ?? '',
+        ...(path === 'parked' ? { tab: 'parked' } : {}),
       }),
     }
   })
@@ -86,14 +95,17 @@ async function main(): Promise<void> {
   const hostJournal = new Journal({ dir: dataDir ? join(dataDir, HOST_DIR) : null, now: Date.now })
   const journals = [journal, hostJournal]
   const translate = createTranslator()
-  const state = { locale: 'en', showActivity: false }
+  const state = { locale: 'en', showActivity: false, rememberDays: REMEMBER_DAYS }
+  const remembered = new RememberStore({ dir: dataDir, now: Date.now })
   let panelChanged = (): void => {}
   const settingsLoaded = ext.getSettings().then((values) => {
     state.showActivity = booleanSetting(values, SHOW_ACTIVITY, false)
+    state.rememberDays = rememberDaysOf(values)
     for (const j of journals) j.setRetention(retentionOf(values))
   })
   await settingsLoaded
   for (const j of journals) j.load()
+  remembered.load()
   const showNeedsYou = createNeedsYou({ ext, journal, translate, state })
   const changed = coalesced(
     () => {
@@ -120,6 +132,7 @@ async function main(): Promise<void> {
     }
     const open = new Set(workspaces.map((w) => w.workspaceId))
     for (const j of journals) j.dropClosedMemory(open)
+    remembered.dropClosedMemory(open)
     void retrySubscribe()
     return workspaces
   }
@@ -162,6 +175,7 @@ async function main(): Promise<void> {
       ext,
       journal,
       hostJournal,
+      remembered,
       state,
       settingsLoaded,
       listing,
@@ -176,8 +190,10 @@ async function main(): Promise<void> {
 
   ext.onSettingsChanged((values) => {
     state.showActivity = booleanSetting(values, SHOW_ACTIVITY, false)
+    state.rememberDays = rememberDaysOf(values)
     for (const j of journals) j.setRetention(retentionOf(values))
     for (const j of journals) j.prune()
+    remembered.expire(Date.now(), state.rememberDays)
     changed()
   })
   state.locale = await ext.getLocale()
@@ -186,12 +202,36 @@ async function main(): Promise<void> {
     void showNeedsYou()
   })
 
+  const paneSession = async (paneId: string) => {
+    const panes = await ext.listPanes()
+    const pane = panes.find((p) => p.paneId === paneId)
+    return pane?.agent && pane.agentSessionId
+      ? { agent: pane.agent, session: pane.agentSessionId }
+      : null
+  }
+  const rememberedVerbs = rememberVerbs({
+    store: remembered,
+    now: Date.now,
+    redact: (texts) => ext.redact(texts),
+    workspaceKind,
+    paneSession,
+    changed,
+  })
   const handlers: Record<string, CommandHandler> = {
     ...activityVerbs({
       journal,
       now: Date.now,
       redact: (texts) => ext.redact(texts),
       workspaceKind,
+      changed,
+      remembered: rememberedVerbs,
+    }),
+    remember: rememberedVerbs.remember,
+    'on-session': sessionHook({
+      store: remembered,
+      paneSession,
+      now: Date.now,
+      days: () => state.rememberDays,
       changed,
     }),
     open: async (_args, caller) => {
@@ -231,8 +271,11 @@ async function main(): Promise<void> {
   await refreshWorkspaces()
   for (const j of journals) j.prune()
   await showNeedsYou()
+  remembered.expire(Date.now(), state.rememberDays)
   setInterval(() => {
-    if (journals.map((j) => j.prune()).some(Boolean)) changed()
+    const pruned = journals.map((j) => j.prune()).some(Boolean)
+    const expired = remembered.expire(Date.now(), state.rememberDays)
+    if (pruned || expired) changed()
   }, PRUNE_EVERY_MS).unref()
 }
 

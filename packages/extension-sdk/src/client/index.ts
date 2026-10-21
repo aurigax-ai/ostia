@@ -68,6 +68,8 @@ import type {
   ExecResult,
   McpCallReply,
   McpServersResult,
+  ParkedActResult,
+  ParkedListResult,
   WakePaneResult,
 } from './workApi'
 
@@ -137,6 +139,9 @@ export type {
   McpCallReply,
   McpServerInfo,
   McpServersResult,
+  ParkedActResult,
+  ParkedItem,
+  ParkedListResult,
   WakePaneOutcome,
   WakePaneResult,
 } from './workApi'
@@ -328,6 +333,9 @@ export interface OstiaExtension {
   agentEvent: (sessionId: string, event: AgentEvent) => Promise<void>
   agentTool: (call: AgentToolCall, signal?: AbortSignal) => Promise<AgentToolReply>
   agentComplete: (opts: AgentCompleteOptions, signal?: AbortSignal) => Promise<AgentCompleteResult>
+  parkedList: (workspaceId: string) => Promise<ParkedListResult>
+  parkedResume: (id: string) => Promise<ParkedActResult>
+  parkedForget: (id: string) => Promise<ParkedActResult>
   connections: () => Promise<ConnectionsResult>
   connection: (name: string) => Promise<ConnectionResult>
   onConnectionsChanged: (handler: () => void) => void
