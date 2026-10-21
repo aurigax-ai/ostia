@@ -17,6 +17,8 @@ export function syncServerErrorText(d: Dict, error: ServerSyncError | undefined)
       return t.errExists
     case 'no-wrap':
       return t.errNoWrap
+    case 'link-stale':
+      return t.errLinkStale
     case 'unavailable':
       return t.errUnavailable
     case 'locked':

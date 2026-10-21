@@ -19,7 +19,8 @@ const STATUS = {
   linkCodes: [],
   joins: [],
   recoveryStale: false,
-  wrapRefused: false,
+  wrapRefused: null,
+  changedDevices: [],
 }
 const OK: ServerSyncResult = { ok: true, status: STATUS }
 const window = { sender: { getType: () => 'window' } }

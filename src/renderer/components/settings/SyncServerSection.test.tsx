@@ -22,7 +22,8 @@ const status = (over: Partial<ServerSyncStatus>): ServerSyncStatus => ({
   linkCodes: [],
   joins: [],
   recoveryStale: false,
-  wrapRefused: false,
+  wrapRefused: null,
+  changedDevices: [],
   ...over,
 })
 
@@ -156,9 +157,55 @@ describe('Settings › Sync › Server', () => {
     expect(await screen.findByText(/lists other keys for this device/)).toBeInTheDocument()
   })
 
-  it('SSY-C97 warns when a new sync key from another device was ignored', async () => {
-    api().status.mockResolvedValue(status({ wrapRefused: true }))
+  it('SSY-C97 warns when a new sync key from another device was ignored and offers the passphrase', async () => {
+    const user = userEvent.setup()
+    api().status.mockResolvedValue(
+      status({ state: 'ready', wrapRefused: { reason: 'untrusted', after: null } }),
+    )
+    api().unlock.mockResolvedValue({ ok: true, status: status({ state: 'ready' }) })
     render(<SyncServerSection onChanged={() => {}} />)
     expect(await screen.findByText(/was not signed by a device you trust/)).toBeInTheDocument()
+    await user.type(screen.getByLabelText('Sync passphrase'), 'a long passphrase')
+    await user.click(screen.getByRole('button', { name: 'Unlock' }))
+    expect(api().unlock).toHaveBeenCalledWith('a long passphrase')
+  })
+
+  it('SSY-C165 says a trusted signer is too new and until when', async () => {
+    api().status.mockResolvedValue(
+      status({ state: 'ready', wrapRefused: { reason: 'too-new', after: Date.UTC(2026, 9, 7) } }),
+    )
+    render(<SyncServerSection onChanged={() => {}} />)
+    expect(await screen.findByText(/known it for less than a day/)).toBeInTheDocument()
+    expect(screen.queryByText(/was not signed by a device you trust/)).toBeNull()
+    expect(screen.getByLabelText('Sync passphrase')).toBeInTheDocument()
+  })
+
+  it('SSY-C166 names the devices whose keys or creation time changed', async () => {
+    api().status.mockResolvedValue(status({ state: 'ready', changedDevices: ['Desk', 'Laptop'] }))
+    render(<SyncServerSection onChanged={() => {}} />)
+    expect(await screen.findByText(/The keys of Desk, Laptop changed/)).toBeInTheDocument()
+  })
+
+  it('SSY-C167 explains a stale link instead of the recovery key message', async () => {
+    const user = userEvent.setup()
+    api().status.mockResolvedValue(
+      status({
+        state: 'locked',
+        linking: true,
+        linkApproved: true,
+        linkCodes: [{ deviceName: 'Desk', code: 'AAAAA-BBBBB-CCCCC-DDDDD-EEEEE' }],
+      }),
+    )
+    api().linkConfirm.mockResolvedValue({
+      ok: false,
+      error: 'link-stale',
+      status: status({ state: 'locked' }),
+    })
+    render(<SyncServerSection onChanged={() => {}} />)
+    await user.click(
+      await screen.findByRole('button', { name: 'The code AAAAA-BBBBB-CCCCC-DDDDD-EEEEE matches' }),
+    )
+    expect(await screen.findByText(/Another device synced in between/)).toBeInTheDocument()
+    expect(screen.queryByText(/no recovery key/)).toBeNull()
   })
 })

@@ -12,6 +12,7 @@ interface SeenDevice {
   boxPub: string
   createdAt: number
   at: number
+  changed: boolean
 }
 
 interface StoredSyncKeys {
@@ -30,6 +31,7 @@ export interface SyncKeyStore {
   pinned: (account: string) => ManifestDevice[]
   pin: (account: string, devices: ManifestDevice[], now: number) => void
   firstSeen: (account: string, device: ManifestDevice) => number | null
+  changedSince: (account: string, since: number) => string[]
 }
 
 function deviceOf(value: unknown): ManifestDevice | null {
@@ -96,6 +98,7 @@ function seenOf(value: unknown): SeenDevice | null {
         boxPub: device.boxPub,
         createdAt: device.createdAt,
         at: value.at,
+        changed: value.changed === true,
       }
     : null
 }
@@ -110,7 +113,13 @@ function markSeen(data: StoredSyncKeys, account: string, devices: ManifestDevice
   const byId = data.seen[account] ?? {}
   for (const d of devices) {
     if (sameEntry(byId[d.id], d)) continue
-    byId[d.id] = { signPub: d.signPub, boxPub: d.boxPub, createdAt: d.createdAt, at: now }
+    byId[d.id] = {
+      signPub: d.signPub,
+      boxPub: d.boxPub,
+      createdAt: d.createdAt,
+      at: now,
+      changed: d.id in byId,
+    }
   }
   data.seen[account] = byId
 }
@@ -154,6 +163,14 @@ export function createSyncKeyStore(file: SyncKeyFile, protect: Protect): SyncKey
     firstSeen: (account, device) => {
       const seen = read(file).seen[account]?.[device.id]
       return sameEntry(seen, device) ? (seen?.at ?? null) : null
+    },
+    changedSince: (account, since) => {
+      const data = read(file)
+      const seen = data.seen[account] ?? {}
+      return (data.pinned[account] ?? []).flatMap((d) => {
+        const entry = seen[d.id]
+        return sameEntry(entry, d) && entry?.changed && entry.at > since ? [d.name] : []
+      })
     },
     pin: (account, devices, now) => {
       const data = read(file)

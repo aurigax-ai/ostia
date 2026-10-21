@@ -1,3 +1,4 @@
+import type { WrapRefusal } from '../../../shared/profileSync/serverSync'
 import { publicBytes } from '../../server/deviceKeys'
 import type { ServerAccount } from '../../server/serverAccount'
 import { ServerError } from '../../server/serverClient'
@@ -42,6 +43,8 @@ export type KeyringError =
   | 'unreachable'
   | 'failed'
 
+export type LinkAdoption = 'adopted' | 'stale' | 'refused'
+
 export type SetupResult = { ok: true; recoveryKey: string } | { ok: false; error: KeyringError }
 export type UnlockResult = { ok: true } | { ok: false; error: KeyringError }
 
@@ -70,7 +73,7 @@ export class SyncKeyring {
     readonly now: () => number = Date.now,
   ) {}
 
-  wrapRefused = false
+  wrapRefused: WrapRefusal | null = null
 
   target(): SyncTarget | null {
     const identity = this.account.identity()
@@ -98,7 +101,7 @@ export class SyncKeyring {
   keep(key: Buffer): boolean {
     const target = this.target()
     if (target === null || !this.store.setKey(target.id, key)) return false
-    this.wrapRefused = false
+    this.wrapRefused = null
     return true
   }
 
@@ -217,10 +220,10 @@ export class SyncKeyring {
     }
   }
 
-  async adoptLinkWrap(approver: { id: string; signPub: string }): Promise<boolean> {
+  async adoptLinkWrap(approver: { id: string; signPub: string }): Promise<LinkAdoption> {
     const keys = this.account.deviceKeys()
     const own = await this.ownWrap()
-    if (!keys || !own) return false
+    if (!keys || !own) return 'refused'
     const parsed = parseDeviceWrap(own.wrap)
     if (
       !parsed ||
@@ -228,39 +231,41 @@ export class SyncKeyring {
       parsed.counter < 1 ||
       !wrapSignedBy(parsed, own.slot, approver.signPub)
     ) {
-      return false
+      return 'refused'
     }
     const key = openDeviceWrap(parsed, own.slot, keys.boxPrivate)
-    if (!key) return false
+    if (!key) return 'refused'
     try {
       const view = await this.account.authed((token, routes) => routes.manifest(token))
       const manifest = openManifest(key, fromB64(view.blob))
-      if (!manifest || parsed.counter < manifest.counter || !this.keep(key)) return false
+      if (!manifest) return 'refused'
+      if (parsed.counter < manifest.counter) return 'stale'
+      if (!this.keep(key)) return 'refused'
       this.raise(manifest.counter)
       this.pin(manifest.devices)
-      return true
+      return 'adopted'
     } catch {
-      return false
+      return 'refused'
     }
   }
 
-  private async approverOldEnough(signer: ManifestDevice): Promise<boolean> {
+  private async approverReadyAt(signer: ManifestDevice): Promise<number | null> {
     const target = this.target()
-    if (!target) return false
+    if (!target) return null
     const seenAt = this.store.firstSeen(target.id, signer)
-    if (seenAt === null) return false
+    if (seenAt === null) return null
     try {
       const [info, listing] = await this.account.authed(async (token, routes) =>
         Promise.all([routes.info(), routes.devices(token)]),
       )
       const row = listing.devices.find((d) => d.id === signer.id && d.signPub === signer.signPub)
-      if (!row) return false
+      if (!row) return null
       const served = info.approverMinAgeSeconds
       const seconds = typeof served === 'number' && Number.isFinite(served) ? served : 0
       const since = Math.max(signer.createdAt, seenAt, row.createdAt)
-      return this.now() - since >= Math.max(MIN_APPROVER_AGE_MS, seconds * 1000)
+      return since + Math.max(MIN_APPROVER_AGE_MS, seconds * 1000)
     } catch {
-      return false
+      return null
     }
   }
 
@@ -268,8 +273,8 @@ export class SyncKeyring {
     const keys = this.account.deviceKeys()
     const own = await this.ownWrap()
     if (!keys || !own) return null
-    const refuse = (): null => {
-      this.wrapRefused = true
+    const refuse = (reason: WrapRefusal['reason'], after: number | null = null): null => {
+      this.wrapRefused = { reason, after }
       return null
     }
     const parsed = parseDeviceWrap(own.wrap)
@@ -278,20 +283,29 @@ export class SyncKeyring {
       !parsed ||
       !signer ||
       !wrapSignedBy(parsed, own.slot, signer.signPub) ||
-      parsed.counter <= this.highest() ||
-      !(await this.approverOldEnough(signer))
+      parsed.counter <= this.highest()
     ) {
-      return refuse()
+      return refuse('untrusted')
     }
+    const readyAt = await this.approverReadyAt(signer)
+    if (readyAt === null) return refuse('untrusted')
+    if (readyAt > this.now()) return refuse('too-new', readyAt)
     const key = openDeviceWrap(parsed, own.slot, keys.boxPrivate)
     const manifest = key ? openManifest(key, sealed) : null
-    if (!key || !manifest || manifest.counter < parsed.counter || !this.keep(key)) return refuse()
+    if (!key || !manifest || manifest.counter < parsed.counter || !this.keep(key)) {
+      return refuse('untrusted')
+    }
     return { key, manifest }
   }
 
   trusted(): ManifestDevice[] {
     const target = this.target()
     return target ? this.store.pinned(target.id) : []
+  }
+
+  changedDevices(): string[] {
+    const target = this.target()
+    return target ? this.store.changedSince(target.id, this.now() - MIN_APPROVER_AGE_MS) : []
   }
 
   pin(devices: ManifestDevice[]): void {

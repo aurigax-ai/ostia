@@ -216,11 +216,13 @@ test.describe('profile sync through the server end to end', () => {
         await openSettingsPage(second.win, 'Server')
         await openSettingsPage(second.win, 'Sync')
         await expect(
-          settingsOf(second.win).getByText(
-            'Another device sent a new sync key that was not signed by a device you trust, so it was ignored.',
-          ),
+          secondSettings.getByText(/has known it for less than a day, so the key is ignored until/),
         ).toBeVisible({ timeout: 2_000 })
       }).toPass({ timeout: 30_000 })
+      await secondSettings.getByRole('textbox', { name: 'Sync passphrase' }).fill(PASSPHRASE)
+      await secondSettings.getByRole('button', { name: 'Unlock', exact: true }).click()
+      await expect(secondSettings.getByText(/has known it for less than a day/)).toBeHidden(SLOW)
+      await expectTheme(second.win, SEEDED_THEME)
 
       await openSettingsPage(third.win, 'Sync')
       await syncNow(third.win)

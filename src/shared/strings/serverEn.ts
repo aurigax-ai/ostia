@@ -93,6 +93,8 @@ export const serverEn = {
     title: 'Server',
   },
   syncServer: {
+    changedDevices:
+      'The keys of {devices} changed, so this device counts it as new and will not accept a sync key from it for 24 hours.',
     cleanUp: 'Clean up server storage',
     cleanUpDesc:
       'Deletes what the server keeps but your current profile no longer needs. Needs a confirmation from another device.',
@@ -101,6 +103,8 @@ export const serverEn = {
     confirmPassphrase: 'Type it again',
     errExists: 'Sync was already set up on another device. Unlock it instead.',
     errFailed: 'That did not work. Try again.',
+    errLinkStale:
+      'Another device synced in between. Unlock with the passphrase, or sign out and link again.',
     errLocked: 'Unlock sync on this device first.',
     errMismatch: 'The two passphrases do not match.',
     errNoWrap: 'There is no recovery key for this account. Use the passphrase.',
@@ -155,7 +159,9 @@ export const serverEn = {
       'A folder you own, or the server you signed in to. The server only stores data it cannot read. One at a time.',
     whereFolder: 'Folder',
     whereServer: 'Server',
-    wrapRefused:
-      'Another device sent a new sync key that was not signed by a device you trust, so it was ignored.',
+    wrapRefusedTooNew:
+      'Another device sent a new sync key. This device has known it for less than a day, so the key is ignored until {time}. Unlock with the passphrase to continue now.',
+    wrapRefusedUntrusted:
+      'Another device sent a new sync key that was not signed by a device you trust, so it was ignored. Unlock with the passphrase to continue.',
   },
 }

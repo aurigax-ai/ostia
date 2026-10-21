@@ -1,4 +1,8 @@
-import type { ServerSyncResult, ServerSyncStatus } from '@shared/profileSync/serverSync'
+import type {
+  ServerSyncResult,
+  ServerSyncStatus,
+  WrapRefusal,
+} from '@shared/profileSync/serverSync'
 import { useState } from 'react'
 import { MachineValue } from '@/components/common/MachineValue'
 import { Notice } from '@/components/common/Notice'
@@ -9,7 +13,9 @@ import { useServerStatus } from '@/components/server/useServerStatus'
 import { useSyncServerStatus } from '@/components/server/useSyncServerStatus'
 import { ControlRow } from '@/components/settingsKit/ControlRow'
 import { Button } from '@/components/ui/button'
+import { formatDate } from '@/lib/app/localeFormat'
 import { fmt, useDict } from '@/lib/app/useDict'
+import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useUIStore } from '@/stores/app/uiStore'
 import { PassphraseForm, RecoveryKeyDialog, RecoveryKeyForm } from './SyncServerForms'
 
@@ -26,6 +32,18 @@ function LinkCodes({ status }: { status: ServerSyncStatus }): JSX.Element | null
         />
       ))}
     </div>
+  )
+}
+
+function WrapRefusedNotice({ refusal }: { refusal: WrapRefusal }): JSX.Element {
+  const t = useDict().syncServer
+  const locale = useSettingsStore((s) => s.locale)
+  return (
+    <Notice tone="error">
+      {refusal.reason === 'too-new' && refusal.after !== null
+        ? fmt(t.wrapRefusedTooNew, { time: formatDate(refusal.after, locale) })
+        : t.wrapRefusedUntrusted}
+    </Notice>
   )
 }
 
@@ -95,6 +113,14 @@ function Ready({ status, act }: StateProps): JSX.Element {
   return (
     <>
       <output className="block py-1 text-fg-muted text-ui-sm">{t.ready}</output>
+      {status.wrapRefused ? (
+        <PassphraseForm
+          label={t.unlockTitle}
+          placeholder={t.passphrase}
+          submit={t.unlock}
+          onSubmit={(passphrase) => void act(api.unlock(passphrase))}
+        />
+      ) : null}
       {status.recoveryStale ? (
         <Notice
           actions={
@@ -162,7 +188,10 @@ export function SyncServerSection({ onChanged }: { onChanged: () => void }): JSX
       {status.state === 'unsupported' ? <Notice>{t.unsupported}</Notice> : null}
       {status.state === 'unreachable' ? <Notice>{t.unreachable}</Notice> : null}
       {status.state === 'untrusted' ? <Notice tone="error">{t.untrusted}</Notice> : null}
-      {status.wrapRefused ? <Notice tone="error">{t.wrapRefused}</Notice> : null}
+      {status.wrapRefused ? <WrapRefusedNotice refusal={status.wrapRefused} /> : null}
+      {status.changedDevices.length > 0 ? (
+        <Notice>{fmt(t.changedDevices, { devices: status.changedDevices.join(', ') })}</Notice>
+      ) : null}
       {status.state === 'needs-setup' ? (
         <>
           <ControlRow label={t.setupTitle} desc={t.setupDesc} />

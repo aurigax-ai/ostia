@@ -19,7 +19,8 @@ const REFUSED_STATUS: ServerSyncStatus = {
   linkCodes: [],
   joins: [],
   recoveryStale: false,
-  wrapRefused: false,
+  wrapRefused: null,
+  changedDevices: [],
 }
 
 const refused = (error: 'not-a-window' | 'invalid-input'): ServerSyncResult => ({
