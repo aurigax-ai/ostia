@@ -1,5 +1,6 @@
 import type { AgentResume } from './agentResume'
 import type { AgentSessionInfo } from './agentSessionInfo'
+import type { ParkBridge } from '../park/parkApi'
 import type { MailApi } from './mailApi'
 
 export interface ManagerOpenPaneRequest {
@@ -25,7 +26,7 @@ interface AgentSessionApi {
   trustFolder: (paneId: string, folder: string) => Promise<boolean>
 }
 
-export interface AgentsBridge {
+export interface AgentsBridge extends ParkBridge {
   manager: ManagerApi
   agentSession: AgentSessionApi
   mail: MailApi

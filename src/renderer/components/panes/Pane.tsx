@@ -15,6 +15,7 @@ import { FileDropCover } from './FileDropCover'
 import { FoldedSplitTab } from './FoldedSplitTab'
 import { PaneActions } from './PaneActions'
 import { PaneTab } from './PaneTab'
+import { useParkStatus } from './ParkStatus'
 import { usePhoneSizeStatus } from './PhoneSizeStatus'
 import { paneDropHandlers } from './paneDropHandlers'
 import { SplitTabPill } from './SplitTab'
@@ -57,6 +58,7 @@ export function Pane({
   const attention = useAttentionStore((s) => s.byPane[shown.id])
   const prompt = usePanePrompt(shown)
   const phoneStatus = usePhoneSizeStatus(shown.id)
+  const parkStatus = useParkStatus(shown.id, workspaceId, activePaneId)
   const unread = attention?.unread ?? false
   const dimInactive = useSettingsStore((s) => s.panes.dimInactive)
   const hideTabClose = useSettingsStore((s) => s.panes.hideTabClose)
@@ -150,7 +152,9 @@ export function Pane({
             />
           ),
         )}
-        <NoticeSlot key={shown.id}>{shownTab.type === 'pane' ? phoneStatus : null}</NoticeSlot>
+        <NoticeSlot key={shown.id}>
+          {shownTab.type === 'pane' ? (parkStatus ?? phoneStatus) : null}
+        </NoticeSlot>
         <NoticeSlot key={`${shown.id}:prompt`}>
           {shownTab.type === 'pane' ? prompt : null}
         </NoticeSlot>

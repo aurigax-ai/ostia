@@ -178,6 +178,7 @@ const GROUP_BY_ID: Readonly<Record<string, CommandGroup>> = {
   'history.search': 'app',
   'snippets.search': 'app',
   'agent.resume': 'app',
+  'pane.park': 'app',
   'selection.sendToAgent': 'app',
   'assist.compose': 'app',
   'dashboard.toggle': 'view',

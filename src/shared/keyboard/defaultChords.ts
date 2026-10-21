@@ -39,6 +39,7 @@ type AppChord =
   | 'pane.zoom'
   | 'pane.collapse'
   | 'pane.close'
+  | 'pane.park'
   | 'tab.next'
   | 'tab.previous'
   | 'workspace.next'
@@ -89,6 +90,7 @@ export const DEFAULT_CHORDS: Readonly<
   ],
   'pane.collapse': ['Cmd+Ctrl+M', 'Ctrl+Shift+Alt+M'],
   'pane.close': ['Cmd+W', 'Ctrl+Shift+W'],
+  'pane.park': ['Cmd+Alt+Shift+P', 'Ctrl+Shift+Alt+P'],
   'tab.next': [
     ['Ctrl+Tab', 'Shift+Cmd+]'],
     ['Ctrl+Tab', 'Ctrl+PageDown'],
