@@ -60,6 +60,14 @@ describe('signing in with an invite code', () => {
     expect(harness.server.devices.size).toBe(0)
   })
 
+  it('SSY-C132 says unavailable, not ok, when the keys cannot be saved after the server registered the device', async () => {
+    let calls = 0
+    harness = await accountHarness({ canEncrypt: () => ++calls === 1 })
+    harness.server.invites.add('a')
+    expect(await harness.account.signInWithInvite('a')).toEqual({ ok: false, error: 'unavailable' })
+    expect(harness.account.signedIn()).toBe(false)
+  })
+
   it('SVA-C30 reports an unreachable server', async () => {
     harness = await accountHarness()
     await harness.server.close()

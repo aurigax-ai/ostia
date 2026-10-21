@@ -152,6 +152,7 @@ export function serverRoutes(client: ServerClient) {
       client.request<{ code: string; expiresAt: number }>('POST', '/v1/devices/invite', {
         token,
         headers,
+        retryRateLimited: false,
       }),
     markSeen: (token: string, id: string, sig: string) =>
       client.request<void>('POST', `/v1/devices/${encodeURIComponent(id)}/seen`, {
@@ -166,7 +167,7 @@ export function serverRoutes(client: ServerClient) {
       client.request<{ approvalId: string; expiresAt: number }>(
         'POST',
         '/v1/auth/elevation/approval',
-        { token, headers },
+        { token, headers, retryRateLimited: false },
       ),
     approvals: (token: string) =>
       client.request<{ approvals: ApprovalRow[] }>('GET', '/v1/auth/approvals', { token }),

@@ -10,6 +10,7 @@ export const syncServerBridge: Pick<OstiaBridge, 'syncServer'> = {
     recover: (recoveryKey) => ipcRenderer.invoke('syncServer:recover', recoveryKey),
     linkStart: () => ipcRenderer.invoke('syncServer:link-start'),
     linkStop: () => ipcRenderer.invoke('syncServer:link-stop'),
+    linkConfirm: () => ipcRenderer.invoke('syncServer:link-confirm'),
     approveJoin: (deviceId) => ipcRenderer.invoke('syncServer:approve-join', deviceId),
     removeDevice: (deviceId, passphrase, recoveryKey) =>
       ipcRenderer.invoke('syncServer:remove-device', deviceId, passphrase, recoveryKey),

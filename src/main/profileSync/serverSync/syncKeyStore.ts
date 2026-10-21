@@ -10,6 +10,7 @@ export interface SyncKeyFile {
 interface StoredSyncKeys {
   keys: Record<string, string>
   counters: Record<string, number>
+  approved: Record<string, string[]>
 }
 
 export interface SyncKeyStore {
@@ -18,11 +19,13 @@ export interface SyncKeyStore {
   forgetKey: (account: string) => void
   highest: (account: string) => number
   raise: (account: string, counter: number) => void
+  approved: (account: string) => string[]
+  approve: (account: string, deviceId: string) => void
 }
 
 function read(file: SyncKeyFile): StoredSyncKeys {
   const raw = file.load()
-  const out: StoredSyncKeys = { keys: {}, counters: {} }
+  const out: StoredSyncKeys = { keys: {}, counters: {}, approved: {} }
   if (!isRecord(raw)) return out
   if (isRecord(raw.keys)) {
     for (const [id, value] of Object.entries(raw.keys)) {
@@ -34,6 +37,11 @@ function read(file: SyncKeyFile): StoredSyncKeys {
       if (typeof value === 'number' && Number.isSafeInteger(value) && value >= 0) {
         out.counters[id] = value
       }
+    }
+  }
+  if (isRecord(raw.approved)) {
+    for (const [id, value] of Object.entries(raw.approved)) {
+      if (Array.isArray(value)) out.approved[id] = value.filter((v) => typeof v === 'string')
     }
   }
   return out
@@ -72,6 +80,14 @@ export function createSyncKeyStore(file: SyncKeyFile, protect: Protect): SyncKey
       const data = read(file)
       if (counter <= (data.counters[account] ?? 0)) return
       data.counters[account] = counter
+      file.save(data)
+    },
+    approved: (account) => read(file).approved[account] ?? [],
+    approve: (account, deviceId) => {
+      const data = read(file)
+      const list = data.approved[account] ?? []
+      if (list.includes(deviceId)) return
+      data.approved[account] = [...list, deviceId]
       file.save(data)
     },
   }

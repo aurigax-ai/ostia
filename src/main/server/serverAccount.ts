@@ -81,6 +81,7 @@ export class ServerAccount {
   private flow: ActiveFlow | null = null
   private readonly listeners = new Set<() => void>()
   private readonly deviceListeners = new Set<() => void>()
+  private readonly signOutHooks = new Set<() => void>()
 
   constructor(private readonly deps: AccountDeps) {}
 
@@ -95,6 +96,10 @@ export class ServerAccount {
 
   private changed(): void {
     for (const cb of this.listeners) cb()
+  }
+
+  beforeSignOut(cb: () => void): void {
+    this.signOutHooks.add(cb)
   }
 
   onDevicesChanged(cb: () => void): () => void {
@@ -175,7 +180,7 @@ export class ServerAccount {
         name,
         registrationOf(keys),
       )
-      this.finish(registered, keys, name)
+      if (!this.finish(registered, keys, name)) return { ok: false, error: 'unavailable' }
       return { ok: true }
     } catch (error) {
       return { ok: false, error: failureOf(error) }
@@ -248,6 +253,7 @@ export class ServerAccount {
   }
 
   async signOut(): Promise<ServerActionResult> {
+    for (const hook of this.signOutHooks) hook()
     await this.deps.session.end()
     this.deps.config.setIdentity(null)
     this.deps.keyStore.erase()

@@ -9,6 +9,7 @@ const SYNC: ServerSyncStatus = {
   state: 'ready',
   host: 'ostia.example.com',
   linking: false,
+  linkApproved: false,
   linkCodes: [],
   joins: [],
   recoveryStale: false,

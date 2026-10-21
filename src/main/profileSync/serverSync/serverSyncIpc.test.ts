@@ -15,6 +15,7 @@ const STATUS = {
   state: 'ready' as const,
   host: 'h',
   linking: false,
+  linkApproved: false,
   linkCodes: [],
   joins: [],
   recoveryStale: false,

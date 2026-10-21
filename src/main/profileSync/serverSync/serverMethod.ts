@@ -69,7 +69,12 @@ class ServerMethod implements SyncMethod {
       }
     }
     const self = this.ctx.self()
-    const manifest: Manifest = { counter, files: entries, devices: self ? [self] : [] }
+    const known = (this.last.manifest?.devices ?? []).filter((d) => d.id !== self?.id)
+    const manifest: Manifest = {
+      counter,
+      files: entries,
+      devices: self ? [...known, self] : known,
+    }
     try {
       await uploadAll(this.ctx, uploads)
       const sealed = sealManifest(key, manifest).toString('base64url')

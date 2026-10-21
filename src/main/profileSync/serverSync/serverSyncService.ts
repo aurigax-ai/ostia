@@ -9,12 +9,19 @@ import { failureOf, type ServerAccount } from '../../server/serverAccount'
 import { ServerError } from '../../server/serverClient'
 import type { ServerDevices } from '../../server/serverDevices'
 import type { SyncKeyring } from './syncKeyring'
-import { joinRequestsFor, linkCodesFor, wrapFor } from './syncLink'
+import {
+  joinRequestsFor,
+  linkCodesFor,
+  localPublicKeys,
+  serverAgreesWith,
+  wrapFor,
+} from './syncLink'
+import { registerInManifest } from './syncRegister'
 import { collectGarbage, rotateKey, verifySecrets } from './syncRotate'
 
 type ServiceAccount = Pick<
   ServerAccount,
-  'signedIn' | 'identity' | 'baseUrl' | 'authed' | 'deviceKeys' | 'onChange'
+  'signedIn' | 'identity' | 'baseUrl' | 'authed' | 'deviceKeys' | 'beforeSignOut'
 >
 
 export interface ServiceDeps {
@@ -27,6 +34,7 @@ const SIGNED_OUT: ServerSyncStatus = {
   state: 'signed-out',
   host: null,
   linking: false,
+  linkApproved: false,
   linkCodes: [],
   joins: [],
   recoveryStale: false,
@@ -50,15 +58,15 @@ function stateOf(error: unknown): ServerSyncState {
   return 'unreachable'
 }
 
+class UntrustedServer extends Error {}
+
 export class ServerSyncService {
   private linking = false
 
   constructor(private readonly deps: ServiceDeps) {
-    deps.account.onChange(() => {
-      if (!deps.account.signedIn()) {
-        this.linking = false
-        deps.keyring.forget()
-      }
+    deps.account.beforeSignOut(() => {
+      this.linking = false
+      deps.keyring.forget()
     })
   }
 
@@ -71,30 +79,32 @@ export class ServerSyncService {
     const target = keyring.target()
     if (!account.signedIn() || !target) return SIGNED_OUT
     const base = { ...SIGNED_OUT, host: target.host }
+    const keys = account.deviceKeys()
+    if (!keys) return SIGNED_OUT
+    const me = localPublicKeys(keys)
     try {
       const [slots, rows] = await Promise.all([
         keyring.slots(),
         account.authed((token, routes) => routes.devices(token)),
       ])
       const devices = rows.devices
+      if (!serverAgreesWith(devices, me)) return { ...base, state: 'untrusted' }
       if (keyring.key()) {
         return {
           ...base,
           state: 'ready',
-          joins: joinRequestsFor(devices, slots),
+          joins: joinRequestsFor(devices, slots, me),
           recoveryStale: slots.has('passphrase') && !slots.has('recovery'),
         }
       }
-      if (this.linking && (await keyring.adoptOwnDeviceWrap())) {
-        this.linking = false
-        return this.status()
-      }
       if (!slots.has('passphrase')) return { ...base, state: 'needs-setup' }
+      const selfId = account.identity()?.deviceId ?? ''
       return {
         ...base,
         state: 'locked',
         linking: this.linking,
-        linkCodes: linkCodesFor(devices, slots),
+        linkApproved: this.linking && slots.has(`device:${selfId}`),
+        linkCodes: linkCodesFor(devices, slots, me),
       }
     } catch (error) {
       return { ...base, state: stateOf(error) }
@@ -112,20 +122,37 @@ export class ServerSyncService {
     return this.done(res)
   }
 
+  private async joined(): Promise<void> {
+    this.linking = false
+    const identity = this.deps.account.identity()
+    await registerInManifest(
+      this.ctx,
+      identity ? { id: identity.deviceId, name: identity.deviceName } : null,
+    )
+  }
+
   async unlock(passphrase: string): Promise<ServerSyncResult> {
     const res = await this.deps.keyring.unlock(passphrase)
-    if (res.ok) this.linking = false
+    if (res.ok) await this.joined()
     return this.done(res)
   }
 
   async recover(recoveryKey: string): Promise<ServerSyncResult> {
     const res = await this.deps.keyring.recover(recoveryKey)
-    if (res.ok) this.linking = false
+    if (res.ok) await this.joined()
     return this.done(res)
   }
 
   linkStart(): Promise<ServerSyncResult> {
     this.linking = true
+    return this.done({ ok: true })
+  }
+
+  async linkConfirm(): Promise<ServerSyncResult> {
+    if (!this.linking) return this.done({ ok: false, error: 'locked' })
+    if (!(await this.deps.keyring.adoptOwnDeviceWrap()))
+      return this.done({ ok: false, error: 'no-wrap' })
+    await this.joined()
     return this.done({ ok: true })
   }
 
@@ -136,14 +163,17 @@ export class ServerSyncService {
 
   async approveJoin(deviceId: string): Promise<ServerSyncResult> {
     const key = this.deps.keyring.key()
-    if (!key) return this.done({ ok: false, error: 'locked' })
+    const keys = this.deps.account.deviceKeys()
+    if (!key || !keys) return this.done({ ok: false, error: 'locked' })
     try {
       await this.deps.account.authed(async (token, routes) => {
         const { devices } = await routes.devices(token)
+        if (!serverAgreesWith(devices, localPublicKeys(keys))) throw new UntrustedServer()
         const row = devices.find((d) => d.id === deviceId && d.current !== true)
         if (!row) throw new ServerError(404, 'unknown-device')
         await routes.putWrap(token, `device:${row.id}`, wrapFor(row, key))
       })
+      this.deps.keyring.approve(deviceId)
       return this.done({ ok: true })
     } catch (error) {
       return this.done({ ok: false, error: this.errorOf(error) })
@@ -151,12 +181,17 @@ export class ServerSyncService {
   }
 
   private errorOf(error: unknown): ServerSyncError {
+    if (error instanceof UntrustedServer) return 'untrusted'
     return syncErrorOf(failureOf(error))
   }
 
   async rotate(passphrase: string, recoveryKey: string): Promise<ServerSyncResult> {
     const res = await rotateKey(this.ctx, passphrase, recoveryKey)
-    return this.done(res.ok ? { ok: true, rotated: true } : { ok: false, error: res.error })
+    return this.done(
+      res.ok
+        ? { ok: true, rotated: true, unwrapped: res.unwrapped }
+        : { ok: false, error: res.error },
+    )
   }
 
   async removeDevice(
@@ -176,7 +211,7 @@ export class ServerSyncService {
     const res = await rotateKey(this.ctx, passphrase, recoveryKey)
     return this.done(
       res.ok
-        ? { ok: true, removed: true, rotated: true }
+        ? { ok: true, removed: true, rotated: true, unwrapped: res.unwrapped }
         : { ok: false, removed: true, error: 'rotation-failed' },
     )
   }

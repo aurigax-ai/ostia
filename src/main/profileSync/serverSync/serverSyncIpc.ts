@@ -15,6 +15,7 @@ const REFUSED_STATUS: ServerSyncStatus = {
   state: 'signed-out',
   host: null,
   linking: false,
+  linkApproved: false,
   linkCodes: [],
   joins: [],
   recoveryStale: false,
@@ -64,6 +65,7 @@ export function registerServerSyncIpc({ service, run, broadcast }: ServerSyncIpc
   act('syncServer:recover', 1, (key) => service.recover(key ?? ''))
   act('syncServer:link-start', 0, () => service.linkStart(), false)
   act('syncServer:link-stop', 0, () => service.linkStop(), false)
+  act('syncServer:link-confirm', 0, () => service.linkConfirm())
   act('syncServer:new-recovery-key', 0, () => service.newRecoveryKey(), false)
   act('syncServer:gc', 0, () => service.collectGarbage(), false)
   act('syncServer:rotate', 2, (pw, key) => service.rotate(pw ?? '', key ?? ''))

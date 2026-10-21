@@ -2,6 +2,7 @@ export type ServerSyncState =
   | 'signed-out'
   | 'unsupported'
   | 'unreachable'
+  | 'untrusted'
   | 'needs-setup'
   | 'locked'
   | 'ready'
@@ -22,6 +23,7 @@ export interface ServerSyncStatus {
   state: ServerSyncState
   host: string | null
   linking: boolean
+  linkApproved: boolean
   linkCodes: ServerLinkCode[]
   joins: ServerJoinRequest[]
   recoveryStale: boolean
@@ -42,6 +44,7 @@ export type ServerSyncError =
   | 'locked'
   | 'unreachable'
   | 'rotation-failed'
+  | 'untrusted'
   | 'device-too-new'
   | 'requester-too-new'
   | 'no-second-device'
@@ -54,6 +57,7 @@ export interface ServerSyncResult {
   deleted?: number
   removed?: boolean
   rotated?: boolean
+  unwrapped?: string[]
   status: ServerSyncStatus
 }
 
@@ -64,6 +68,7 @@ interface ServerSyncApi {
   recover: (recoveryKey: string) => Promise<ServerSyncResult>
   linkStart: () => Promise<ServerSyncResult>
   linkStop: () => Promise<ServerSyncResult>
+  linkConfirm: () => Promise<ServerSyncResult>
   approveJoin: (deviceId: string) => Promise<ServerSyncResult>
   removeDevice: (
     deviceId: string,

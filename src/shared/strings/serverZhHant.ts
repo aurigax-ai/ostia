@@ -80,6 +80,8 @@ export const serverZhHant: typeof serverEn = {
     removeRecoveryDesc:
       '輸入後舊復原金鑰仍可使用。不輸入的話，舊復原金鑰將無法開啟之後的資料，您可以另外產生新的。',
     removeTitle: '移除 {name}？',
+    removeUnwrapped:
+      '這些裝置沒有拿到新金鑰，因為這台電腦從未看過它們同步，也沒有核准過它們：{names}。請重新核准，或用密語解鎖它們。',
     signOut: '登出',
     signOutDesc: '結束這台電腦的連線並刪除它的金鑰。帳號上的其他裝置維持登入。',
     signedInDesc: '已在 {host} 以 {device} 的身分透過{provider}登入。',
@@ -109,8 +111,10 @@ export const serverZhHant: typeof serverEn = {
     errUnreachable: '無法連線到伺服器。',
     errWrongPassword: '這不是同步密語。',
     errWrongRecoveryKey: '這不是復原金鑰。',
+    linkApproved: '這台裝置已獲核准。只有在上方代碼與核准裝置上的相同時才確認。',
     linkByApproval: '在另一台裝置核准',
     linkCodeFor: '{device}：{code}',
+    linkConfirm: '代碼相同',
     linkStop: '不再等待',
     linkWaiting: '請在已登入的裝置開啟「設定 › 同步」，確認代碼相同後核准。',
     newPassphrase: '新的同步密語',
@@ -134,6 +138,7 @@ export const serverZhHant: typeof serverEn = {
     unlockTitle: '在這台裝置解鎖同步',
     unreachable: '無法連線到伺服器。',
     unsupported: '這個伺服器不提供同步。',
+    untrusted: '伺服器列出的這台裝置金鑰與這台電腦持有的不同，因此已暫停同步。',
     where: '同步位置',
     whereDesc: '您自己的資料夾，或您登入的伺服器。伺服器只儲存它讀不懂的資料。一次只能選一種。',
     whereFolder: '資料夾',

@@ -26,6 +26,7 @@ export interface SyncDevice extends AccountHarness {
   elevation: ServerElevation
   userData: string
   configDir: string
+  storedKeys: () => unknown
   writeSettings: (value: unknown, minute: number) => void
   settings: () => Record<string, unknown>
   writeFile: (rel: string, text: string, minute: number) => void
@@ -93,6 +94,7 @@ function assemble(harness: AccountHarness): SyncDevice {
     ...harness,
     ...local,
     keyring,
+    storedKeys: () => stored,
     target,
     sync,
     devices,

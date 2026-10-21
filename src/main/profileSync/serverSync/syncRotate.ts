@@ -22,7 +22,9 @@ export type RotateError =
   | 'locked'
   | 'rotation-failed'
 
-export type RotateResult = { ok: true; recoveryStale: boolean } | { ok: false; error: RotateError }
+export type RotateResult =
+  | { ok: true; recoveryStale: boolean; unwrapped: string[] }
+  | { ok: false; error: RotateError }
 
 async function resealed(ctx: RemoteContext, remote: Remote, newKey: Buffer) {
   const entries: Manifest['files'] = {}
@@ -59,10 +61,16 @@ async function rotateOnce(
   passphrase: string,
   recoveryKey: string,
 ): Promise<'retry' | RotateResult> {
-  const remote = await readRemote(ctx)
+  const remote = await readRemote(ctx, undefined, true)
   const newKey = newProfileKey()
   const files = await resealed(ctx, remote, newKey)
-  const { devices } = await ctx.account.authed((token, routes) => routes.devices(token))
+  const listed = await ctx.account.authed((token, routes) => routes.devices(token))
+  const trusted = new Set([
+    ...(remote.manifest?.devices ?? []).map((d) => d.id),
+    ...ctx.keyring.approvedDevices(),
+  ])
+  const devices = listed.devices.filter((d) => d.current === true || trusted.has(d.id))
+  const unwrapped = listed.devices.filter((d) => !devices.includes(d)).map((d) => d.name)
   const counter = Math.max(remote.manifest?.counter ?? 0, ctx.keyring.highest()) + 1
   const manifest: Manifest = {
     counter,
@@ -93,7 +101,7 @@ async function rotateOnce(
   }
   ctx.keyring.keep(newKey)
   ctx.keyring.raise(counter)
-  return { ok: true, recoveryStale: !keepRecovery }
+  return { ok: true, recoveryStale: !keepRecovery, unwrapped }
 }
 
 export async function rotateKey(

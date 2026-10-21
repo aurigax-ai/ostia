@@ -25,9 +25,6 @@ const LABEL_DEVICE_WRAP = 'ostia-sync/wrap/device'
 const AAD_BLOB = 'ostia-sync/blob/v1\n'
 const AAD_MANIFEST = 'ostia-sync/manifest/v1'
 const AAD_SECRET_WRAP = 'ostia-sync/wrap/passphrase/v1'
-const ARGON_MEMORY_MAX_KIB = 256 * 1024
-const ARGON_PASSES_MAX = 10
-const ARGON_LANES_MAX = 16
 
 export const PRODUCTION_ARGON: Argon2Cost = { memoryKiB: 64 * 1024, passes: 3, lanes: 4 }
 
@@ -200,11 +197,11 @@ export async function unwrapWithSecret(wrap: Buffer, secret: string): Promise<Bu
   }
   const sane =
     params.memoryKiB >= 8 * params.lanes &&
-    params.memoryKiB <= ARGON_MEMORY_MAX_KIB &&
+    params.memoryKiB <= PRODUCTION_ARGON.memoryKiB &&
     params.passes >= 1 &&
-    params.passes <= ARGON_PASSES_MAX &&
+    params.passes <= PRODUCTION_ARGON.passes &&
     params.lanes >= 1 &&
-    params.lanes <= ARGON_LANES_MAX
+    params.lanes <= PRODUCTION_ARGON.lanes
   if (!sane) return null
   const header = wrap.subarray(0, SECRET_HEADER_BYTES)
   const key = await argon2idKey(secret, header.subarray(7), params)

@@ -19,7 +19,7 @@ export interface AccountHarness {
 export async function accountHarness(
   options: FakeServerOptions & {
     url?: string
-    canEncrypt?: boolean
+    canEncrypt?: boolean | (() => boolean)
     now?: () => number
     server?: FakeServer
   } = {},
@@ -27,7 +27,7 @@ export async function accountHarness(
   const server = options.server ?? (await new FakeServer(options).start())
   let stored: unknown = { url: options.url ?? server.url, identity: null }
   let keys: Record<string, string> | null = null
-  const canEncrypt = options.canEncrypt ?? true
+  const canEncryptOption = options.canEncrypt ?? true
   const config = new ServerConfig({
     load: () => stored,
     save: (data) => {
@@ -41,7 +41,8 @@ export async function accountHarness(
     save: (data) => {
       keys = data
     },
-    canEncrypt: () => canEncrypt,
+    canEncrypt: () =>
+      typeof canEncryptOption === 'function' ? canEncryptOption() : canEncryptOption,
     encrypt: (plain) => Buffer.from(plain).toString('base64'),
     decrypt: (secret) => Buffer.from(secret, 'base64').toString(),
   })

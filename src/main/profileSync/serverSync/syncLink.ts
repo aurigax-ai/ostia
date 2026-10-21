@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto'
 import type { ServerJoinRequest, ServerLinkCode } from '../../../shared/profileSync/serverSync'
+import { type DeviceKeys, publicBytes } from '../../server/deviceKeys'
 import type { DeviceRow } from '../../server/serverRoutes'
 import { wrapForDevice } from './syncCrypto'
 import { deviceSlot } from './syncKeyring'
@@ -31,12 +32,23 @@ function linkCode(joining: PublicKeys, approving: PublicKeys): string {
   return out.match(new RegExp(`.{${GROUP}}`, 'g'))?.join('-') ?? out
 }
 
+export function localPublicKeys(keys: DeviceKeys): PublicKeys {
+  return {
+    signPub: publicBytes(keys.signPrivate).toString('base64url'),
+    boxPub: publicBytes(keys.boxPrivate).toString('base64url'),
+  }
+}
+
+export function serverAgreesWith(rows: readonly DeviceRow[], local: PublicKeys): boolean {
+  const me = rows.find((r) => r.current)
+  return me?.signPub === local.signPub && me?.boxPub === local.boxPub
+}
+
 export function linkCodesFor(
   rows: readonly DeviceRow[],
   slots: ReadonlySet<string>,
+  me: PublicKeys,
 ): ServerLinkCode[] {
-  const me = rows.find((r) => r.current)
-  if (!me) return []
   const others = rows.filter((r) => !r.current)
   const keyed = others.filter((r) => slots.has(deviceSlot(r.id)))
   return (keyed.length > 0 ? keyed : others).map((r) => ({
@@ -48,9 +60,8 @@ export function linkCodesFor(
 export function joinRequestsFor(
   rows: readonly DeviceRow[],
   slots: ReadonlySet<string>,
+  me: PublicKeys,
 ): ServerJoinRequest[] {
-  const me = rows.find((r) => r.current)
-  if (!me) return []
   return rows
     .filter((r) => !r.current && !slots.has(deviceSlot(r.id)))
     .map((r) => ({ deviceId: r.id, name: r.name, code: linkCode(r, me), createdAt: r.createdAt }))

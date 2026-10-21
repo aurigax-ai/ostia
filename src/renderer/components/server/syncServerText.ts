@@ -21,6 +21,8 @@ export function syncServerErrorText(d: Dict, error: ServerSyncError | undefined)
       return t.errUnavailable
     case 'locked':
       return t.errLocked
+    case 'untrusted':
+      return t.untrusted
     case 'unreachable':
       return t.errUnreachable
     case 'rotation-failed':

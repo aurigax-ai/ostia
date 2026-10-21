@@ -170,6 +170,7 @@ test.describe('profile sync through the server end to end', () => {
       expect(await asks.innerText()).toContain(checkCode)
       await firstSettings.getByRole('button', { name: 'It is mine' }).click()
       await firstSettings.getByRole('button', { name: 'Approve', exact: true }).click()
+      await secondSettings.getByRole('button', { name: 'The codes match' }).click()
       await expect(secondSettings.getByText('Sync is on for this device.')).toBeVisible(SLOW)
 
       await changeTheme(first.win, CHANGED_THEME)

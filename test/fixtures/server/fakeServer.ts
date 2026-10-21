@@ -151,6 +151,9 @@ export class FakeServer {
   sessionTtlMs: number
   url = ''
   skewMs = 0
+  rewriteDevices:
+    | ((viewerId: string, rows: Array<Record<string, unknown>>) => Array<Record<string, unknown>>)
+    | null = null
   readonly approverMinAgeMs: number
   readonly elevationTtlMs: number
   private readonly extraHandlers: Array<[string, RegExp, Handler]> = []
@@ -598,7 +601,9 @@ export class FakeServer {
           ...(d.id === mine?.id ? { current: true } : {}),
           ...(mine && this.isUnseen(mine, d) ? { new: true } : {}),
         }))
-        this.reply(res, 200, { devices })
+        this.reply(res, 200, {
+          devices: this.rewriteDevices?.(auth.session.deviceId, devices) ?? devices,
+        })
       },
       'POST /v1/relay/label': (req, res) => {
         const auth = this.sessionOf(req)
@@ -607,7 +612,11 @@ export class FakeServer {
           return
         }
         const label = `lbl${auth.session.deviceId}`
-        this.reply(res, 200, { label, host: `${label}.${RELAY_DOMAIN}`, port: this.options.relayPort ?? 443 })
+        this.reply(res, 200, {
+          label,
+          host: `${label}.${RELAY_DOMAIN}`,
+          port: this.options.relayPort ?? 443,
+        })
       },
     }
   }

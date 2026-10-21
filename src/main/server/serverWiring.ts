@@ -1,5 +1,5 @@
-import { hostname } from 'node:os'
 import { app, safeStorage } from 'electron'
+import { friendlyName } from '../gateway/route'
 import { loadJson, saveJson, storePath } from '../platform/jsonStore'
 import { runningBuild } from '../updates/appVersion'
 import type { WindowSend } from '../windows/windowSend'
@@ -57,7 +57,7 @@ export function startServer({ broadcast, openExternalSafe }: ServerStartDeps): S
     routes,
     session,
     signer,
-    deviceName: () => hostname(),
+    deviceName: () => friendlyName(),
   })
   account.onChange(() => broadcast('server:changed', account.status()))
   account.onDevicesChanged(() => broadcast('server:devices-changed', null))

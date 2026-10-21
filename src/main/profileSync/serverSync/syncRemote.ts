@@ -70,16 +70,26 @@ async function fetchManifest(ctx: RemoteContext) {
   }
 }
 
-export async function readRemote(ctx: RemoteContext, cache?: BlobCache): Promise<Remote> {
+export async function readRemote(
+  ctx: RemoteContext,
+  cache?: BlobCache,
+  every = false,
+): Promise<Remote> {
   let key = ctx.keyring.key()
   if (!key) throw new SyncTargetError('server-locked')
   const view = await fetchManifest(ctx)
   if (!view) return { key, version: 0, manifest: null, files: new Map(), skipped: [] }
   const sealed = Buffer.from(view.blob, 'base64url')
   let manifest = openManifest(key, sealed)
-  if (!manifest && (await ctx.keyring.adoptOwnDeviceWrap())) {
-    key = ctx.keyring.key() ?? key
-    manifest = openManifest(key, sealed)
+  if (!manifest) {
+    const candidate = await ctx.keyring.ownDeviceKey()
+    const rotated = candidate ? openManifest(candidate, sealed) : null
+    if (candidate && rotated) {
+      if (rotated.counter <= ctx.keyring.highest()) throw new SyncTargetError('stale-manifest')
+      ctx.keyring.keep(candidate)
+      key = candidate
+      manifest = rotated
+    }
   }
   if (!manifest) throw new SyncTargetError('server-locked')
   if (manifest.counter < ctx.keyring.highest()) throw new SyncTargetError('stale-manifest')
@@ -87,7 +97,7 @@ export async function readRemote(ctx: RemoteContext, cache?: BlobCache): Promise
   const skipped: string[] = []
   const readKey = key
   const wanted = Object.entries(manifest.files).flatMap(([path, entry]) => {
-    const limit = profileFileLimit(path)
+    const limit = every ? Number.POSITIVE_INFINITY : profileFileLimit(path)
     return limit === null ? [] : [{ path, entry, limit }]
   })
   await inChunks(wanted, async ({ path, entry, limit }) => {

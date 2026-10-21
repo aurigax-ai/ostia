@@ -165,19 +165,33 @@ export class SyncKeyring {
     return this.openWith(RECOVERY_SLOT, normalizeRecoveryKey(recoveryKey), 'wrong-recovery-key')
   }
 
-  async adoptOwnDeviceWrap(): Promise<boolean> {
+  async ownDeviceKey(): Promise<Buffer | null> {
     const identity = this.account.identity()
     const keys = this.account.deviceKeys()
-    if (!identity || !keys) return false
+    if (!identity || !keys) return null
     try {
       const wrap = await this.account.authed((token, routes) =>
         routes.wrap(token, deviceSlot(identity.deviceId)),
       )
-      const key = unwrapForDevice(fromB64(wrap.blob), keys.boxPrivate)
-      return key !== null && this.keep(key)
+      return unwrapForDevice(fromB64(wrap.blob), keys.boxPrivate)
     } catch {
-      return false
+      return null
     }
+  }
+
+  async adoptOwnDeviceWrap(): Promise<boolean> {
+    const key = await this.ownDeviceKey()
+    return key !== null && this.keep(key)
+  }
+
+  approvedDevices(): string[] {
+    const target = this.target()
+    return target ? this.store.approved(target.id) : []
+  }
+
+  approve(deviceId: string): void {
+    const target = this.target()
+    if (target) this.store.approve(target.id, deviceId)
   }
 
   async verifySecret(

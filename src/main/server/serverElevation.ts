@@ -32,9 +32,8 @@ export class ServerElevation {
           verificationUri: flow.verificationUri,
         }
       }
-      const headers = this.account.signer().stamped('elevate')
       const { approvalId } = await this.account.authed((token, routes) =>
-        routes.requestApproval(token, headers),
+        routes.requestApproval(token, this.account.signer().stamped('elevate')),
       )
       this.pending = { kind: 'approval', approvalId }
       return { ok: true, kind: 'approval' }

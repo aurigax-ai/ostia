@@ -87,6 +87,17 @@ describe('sync crypto round trips', () => {
     const greedy = Buffer.from(wrap)
     greedy.writeUInt32BE(1024 * 1024, 1)
     expect(await unwrapWithSecret(greedy, 'a passphrase')).toBeNull()
+    const costly = Buffer.from(wrap)
+    costly.writeUInt32BE(64 * 1024 + 1, 1)
+    expect(await unwrapWithSecret(costly, 'a passphrase')).toBeNull()
+    for (const [at, value] of [
+      [5, 4],
+      [6, 5],
+    ] as const) {
+      const heavier = Buffer.from(wrap)
+      heavier[at] = value
+      expect(await unwrapWithSecret(heavier, 'a passphrase')).toBeNull()
+    }
   })
 
   it('SSY-C16 opens a device wrap only with the matching box key', () => {

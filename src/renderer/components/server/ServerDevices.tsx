@@ -55,7 +55,13 @@ export function ServerDevices(): JSX.Element {
     setSync(res.status)
     if (res.ok || res.removed) {
       setRemoving(null)
-      setNotice(res.rotated ? d.server.removeDoneRotated : d.server.removeDone)
+      const base = res.rotated ? d.server.removeDoneRotated : d.server.removeDone
+      const skipped = res.unwrapped ?? []
+      setNotice(
+        skipped.length > 0
+          ? `${base} ${fmt(d.server.removeUnwrapped, { names: skipped.join(', ') })}`
+          : base,
+      )
     }
     if (!res.ok) setError(syncServerErrorText(d, res.error))
     reload()

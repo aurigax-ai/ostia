@@ -83,6 +83,8 @@ export const serverEn = {
     removeRecoveryDesc:
       'Enter it to keep it working. Without it the old recovery key stops opening new data and you can make a new one.',
     removeTitle: 'Remove {name}?',
+    removeUnwrapped:
+      'These devices did not get the new key, because this computer never saw them sync or approved them: {names}. Approve them again or unlock them with the passphrase.',
     signOut: 'Sign out',
     signOutDesc:
       'Ends this computer’s session and forgets its keys. Other devices on the account stay signed in.',
@@ -115,8 +117,11 @@ export const serverEn = {
     errUnreachable: 'Could not reach the server.',
     errWrongPassword: 'That is not the sync passphrase.',
     errWrongRecoveryKey: 'That is not the recovery key.',
+    linkApproved:
+      'This device was approved. Confirm only if the code above matches the one on the approving device.',
     linkByApproval: 'Approve from another device',
     linkCodeFor: '{device}: {code}',
+    linkConfirm: 'The codes match',
     linkStop: 'Stop waiting',
     linkWaiting:
       'On a device that is already signed in, open Settings › Sync and check that the code matches, then approve.',
@@ -143,6 +148,8 @@ export const serverEn = {
     unlockTitle: 'Unlock sync on this device',
     unreachable: 'Could not reach the server.',
     unsupported: 'This server does not offer sync.',
+    untrusted:
+      'The server lists other keys for this device than this computer holds, so sync is paused.',
     where: 'Where to sync',
     whereDesc:
       'A folder you own, or the server you signed in to. The server only stores data it cannot read. One at a time.',

@@ -8,6 +8,7 @@ import {
   type SyncDevice,
   setUp,
 } from '../../../../test/fixtures/server/syncHarness'
+import { newProfileKey, sealManifest, wrapForDevice } from './syncCrypto'
 import { SyncKeyring } from './syncKeyring'
 import { createSyncKeyStore } from './syncKeyStore'
 import { readRemote } from './syncRemote'
@@ -108,8 +109,15 @@ describe('key lifecycle', () => {
 
   it('SSY-C34 forgets the key when the account signs out', async () => {
     const { first } = await world()
+    first.writeSettings({ locale: 'en' }, 1)
+    await first.sync.run()
+    const target = first.keyring.target()?.id ?? ''
+    const before = first.storedKeys() as { keys: Record<string, string> }
+    expect(Object.keys(before.keys)).toEqual([target])
     await first.account.signOut()
-    expect(first.keyring.key()).toBeNull()
+    const after = first.storedKeys() as { keys: Record<string, string>; counters: object }
+    expect(after.keys).toEqual({})
+    expect(Object.keys(after.counters)).toContain(target)
     expect((await first.service.status()).state).toBe('signed-out')
   })
 })
@@ -129,6 +137,10 @@ describe('linking a device through an approval', () => {
     expect(waiting.linkCodes.map((c) => c.code)).toEqual([asked[0]?.code])
     expect((await first.service.approveJoin(asked[0]?.deviceId ?? '')).ok).toBe(true)
     expect((await first.service.status()).joins).toEqual([])
+    const approved = await fresh.service.status()
+    expect(approved).toMatchObject({ state: 'locked', linkApproved: true })
+    expect(fresh.keyring.key()).toBeNull()
+    expect((await fresh.service.linkConfirm()).ok).toBe(true)
     const done = await fresh.service.status()
     expect(done.state).toBe('ready')
     expect(fresh.keyring.key()?.equals(first.keyring.key() ?? Buffer.alloc(0))).toBe(true)
@@ -142,8 +154,66 @@ describe('linking a device through an approval', () => {
     const before = await fresh.service.status()
     expect(before.state).toBe('locked')
     expect(fresh.keyring.key()).toBeNull()
+    expect(await fresh.service.linkConfirm()).toMatchObject({ ok: false, error: 'locked' })
     await fresh.service.linkStart()
-    expect((await fresh.service.status()).state).toBe('ready')
+    expect((await fresh.service.status()).linkApproved).toBe(true)
+    expect(fresh.keyring.key()).toBeNull()
+  })
+
+  it('SSY-C44 builds each code from the local keys and refuses a server that swaps them', async () => {
+    const { server, first } = await world()
+    const fresh = await join(server, first, false)
+    await fresh.service.linkStart()
+    const honest = (await first.service.status()).joins[0]
+    const freshId = fresh.account.identity()?.deviceId ?? ''
+    const firstId = first.account.identity()?.deviceId ?? ''
+    const swapped = Buffer.alloc(32, 7).toString('base64url')
+    server.rewriteDevices = (viewer, rows) =>
+      rows.map((r) => (r.id === freshId && viewer === firstId ? { ...r, boxPub: swapped } : r))
+    const forged = (await first.service.status()).joins[0]
+    const seen = (await fresh.service.status()).linkCodes[0]
+    expect(forged?.code).not.toBe(seen?.code)
+    expect(seen?.code).toBe(honest?.code)
+    server.rewriteDevices = (viewer, rows) =>
+      rows.map((r) => (r.id === freshId && viewer === freshId ? { ...r, boxPub: swapped } : r))
+    expect((await fresh.service.status()).state).toBe('untrusted')
+    server.rewriteDevices = (viewer, rows) =>
+      rows.map((r) => (r.id === firstId && viewer === firstId ? { ...r, signPub: swapped } : r))
+    expect((await first.service.status()).state).toBe('untrusted')
+    expect(await first.service.approveJoin(freshId)).toMatchObject({
+      ok: false,
+      error: 'untrusted',
+    })
+    const account = server.devices.get(firstId)?.accountId ?? ''
+    expect(server.syncData.get(account)?.wraps.has(`device:${freshId}`)).toBe(false)
+  })
+
+  it('SSY-C45 refuses a rotation the server forged: an attacker key at a counter not above the highest', async () => {
+    const { server, first } = await world()
+    first.writeSettings({ locale: 'en' }, 1)
+    await first.sync.run()
+    const before = first.keyring.key()
+    const account = server.devices.get('device1')?.accountId ?? ''
+    const attacker = newProfileKey()
+    const boxPub = Buffer.from(server.devices.get('device1')?.boxPub ?? '', 'base64url')
+    const data = server.syncData.get(account)
+    data?.wraps.set('device:device1', {
+      blob: wrapForDevice(attacker, boxPub).toString('base64url'),
+      updatedAt: 0,
+    })
+    const forged = sealManifest(attacker, { counter: 1, files: {}, devices: [] }).toString(
+      'base64url',
+    )
+    data?.manifests.push({ version: 99, blob: forged, updatedAt: 0 })
+    const refused = await first.sync.run()
+    expect(refused.status.error).toBe('stale-manifest')
+    expect(first.keyring.key()?.equals(before ?? Buffer.alloc(0))).toBe(true)
+    const higher = sealManifest(attacker, { counter: 500, files: {}, devices: [] }).toString(
+      'base64url',
+    )
+    data?.manifests.push({ version: 100, blob: higher, updatedAt: 0 })
+    expect((await first.sync.run()).status.state).toBe('ok')
+    expect(first.keyring.key()?.equals(attacker)).toBe(true)
   })
 
   it('SSY-C42 a denied device stays without a key and keeps asking', async () => {
@@ -355,5 +425,60 @@ describe('removing a device and rotating the key', () => {
     expect(res.deleted).toBeGreaterThan(0)
     expect(stored()).toBeLessThan(before)
     expect((await first.sync.run()).status.state).toBe('ok')
+  })
+
+  it('SSY-C65 wraps the new key only for devices the manifest lists or this machine approved, and says who was left out', async () => {
+    const { server, first } = await world()
+    const second = await join(server, first)
+    const third = await join(server, first, true, second)
+    const ghost = {
+      id: 'ghost1',
+      name: 'Injected',
+      signPub: Buffer.alloc(32, 1).toString('base64url'),
+      boxPub: Buffer.alloc(32, 9).toString('base64url'),
+      createdAt: 1,
+      lastSeen: 0,
+    }
+    server.rewriteDevices = (_viewer, rows) => [...rows, ghost]
+    await elevate(first, second)
+    const res = await first.service.removeDevice(
+      third.account.identity()?.deviceId ?? '',
+      PASSPHRASE,
+      '',
+    )
+    expect(res).toMatchObject({ ok: true, rotated: true, unwrapped: ['Injected'] })
+    const account = server.devices.get('device1')?.accountId ?? ''
+    const wraps = [...(server.syncData.get(account)?.wraps.keys() ?? [])]
+    expect(wraps).not.toContain('device:ghost1')
+    expect(wraps).toContain(`device:${second.account.identity()?.deviceId}`)
+    expect(wraps).toContain('device:device1')
+  })
+
+  it('SSY-C66 carries files this client does not know through a rotation', async () => {
+    const { server, first } = await world()
+    const second = await join(server, first)
+    const third = await join(server, first, true, second)
+    const method = first.target.method()
+    const read = await method.read()
+    await method.write(
+      new Map([
+        ['settings.json', '{"a":1}\n'],
+        ['future/new.json', '{"from":"a newer client"}\n'],
+      ]),
+      read.version,
+    )
+    await elevate(first, second)
+    const res = await first.service.removeDevice(
+      third.account.identity()?.deviceId ?? '',
+      PASSPHRASE,
+      '',
+    )
+    expect(res).toMatchObject({ ok: true, rotated: true })
+    const after = await readRemote(
+      { account: first.account, keyring: first.keyring },
+      undefined,
+      true,
+    )
+    expect(after.files.get('future/new.json')?.toString()).toBe('{"from":"a newer client"}\n')
   })
 })

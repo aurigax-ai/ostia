@@ -18,6 +18,7 @@ const status = (over: Partial<ServerSyncStatus>): ServerSyncStatus => ({
   state: 'ready',
   host: 'ostia.example.com',
   linking: false,
+  linkApproved: false,
   linkCodes: [],
   joins: [],
   recoveryStale: false,
@@ -129,5 +130,19 @@ describe('Settings › Sync › Server', () => {
     await user.click(screen.getByRole('button', { name: 'Clean up' }))
     expect(await screen.findByText('Removed 4 items.', {}, { timeout: 5000 })).toBeInTheDocument()
     expect(api().collectGarbage).toHaveBeenCalledTimes(2)
+  })
+
+  it('SSY-C96 asks the human to confirm the code once approved, and shows a paused sync for a mismatch', async () => {
+    const user = userEvent.setup()
+    api().status.mockResolvedValue(status({ state: 'locked', linking: true, linkApproved: true }))
+    api().linkConfirm.mockResolvedValue({ ok: true, status: status({}) })
+    const view = render(<SyncServerSection onChanged={() => {}} />)
+    expect(await screen.findByText(/Confirm only if the code above matches/)).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'The codes match' }))
+    expect(api().linkConfirm).toHaveBeenCalled()
+    view.unmount()
+    api().status.mockResolvedValue(status({ state: 'untrusted' }))
+    render(<SyncServerSection onChanged={() => {}} />)
+    expect(await screen.findByText(/lists other keys for this device/)).toBeInTheDocument()
   })
 })
