@@ -37,6 +37,9 @@ const capture: PickCapture = {
   failedRequests: [],
   screenshotPath: null,
   capturedAt: '2026-09-28T00:00:00.000Z',
+  viewport: { width: 1280, height: 800 },
+  hasText: true,
+  table: null,
 }
 
 let blocksInit: ReturnType<typeof useBlocksStore.getState>
@@ -237,7 +240,9 @@ describe('sendRegionToPane', () => {
       note: 'the header overlaps',
     })
     expect(res).toEqual({ ok: true, path: REGION_REPORT, inserted: true })
-    expect(term.paste).toHaveBeenCalledWith(`the header overlaps @${REGION_REPORT} @${REGION_SHOT} `)
+    expect(term.paste).toHaveBeenCalledWith(
+      `the header overlaps @${REGION_REPORT} @${REGION_SHOT} `,
+    )
     expect(window.ostia.pty.write).not.toHaveBeenCalled()
   })
 
