@@ -1,0 +1,12 @@
+{
+  "name": "server-sync",
+  "paths": [
+    "src/main/profileSync/argon2.",
+    "src/main/profileSync/serverSync/",
+    "src/renderer/components/settings/SyncServer",
+    "src/shared/profileSync/serverSync."
+  ],
+  "specs": [
+    "e2e/server-sync.spec.ts"
+  ]
+}

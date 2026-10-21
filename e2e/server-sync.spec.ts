@@ -14,11 +14,11 @@ interface Machine {
   win: Page
 }
 
-async function launchMachine(server: RunningServer): Promise<Machine> {
+async function launchMachine(server: RunningServer, seedsTheme = true): Promise<Machine> {
   const dataHome = freshDataHome()
   seedSettings(dataHome, {
     ...DOM_RENDERER_SETTINGS,
-    appearance: { followSystem: false, theme: SEEDED_THEME },
+    ...(seedsTheme ? { appearance: { followSystem: false, theme: SEEDED_THEME } } : {}),
   })
   const launch = isolatedLaunch(dataHome)
   const app = await electron.launch({
@@ -33,7 +33,7 @@ async function launchMachine(server: RunningServer): Promise<Machine> {
   await app.evaluate(({ safeStorage }) => safeStorage.setUsePlainTextEncryption(true))
   const win = await app.firstWindow()
   await win.waitForLoadState('domcontentloaded')
-  await expect(win.locator('html')).toHaveAttribute('data-theme', SEEDED_THEME)
+  if (seedsTheme) await expect(win.locator('html')).toHaveAttribute('data-theme', SEEDED_THEME)
   return { app, win }
 }
 
@@ -44,7 +44,7 @@ async function openSettingsPage(win: Page, page: 'Server' | 'Sync'): Promise<voi
   if (!(await settings.isVisible())) {
     await win.locator('.topbar').getByRole('button', { name: 'Settings' }).click()
   }
-  await settings.getByRole('button', { name: page, exact: true }).click()
+  await settings.getByLabel('General').getByRole('button', { name: page, exact: true }).click()
 }
 
 async function signIn(win: Page, invite: string): Promise<void> {
@@ -77,6 +77,7 @@ async function setUpSync(win: Page): Promise<void> {
 }
 
 async function syncNow(win: Page): Promise<void> {
+  await openSettingsPage(win, 'Sync')
   await settingsOf(win).getByRole('button', { name: 'Sync now' }).click()
 }
 
@@ -85,6 +86,24 @@ async function expectTheme(win: Page, theme: string): Promise<void> {
     await syncNow(win)
     await expect(win.locator('html')).toHaveAttribute('data-theme', theme, { timeout: 2_000 })
   }).toPass({ timeout: 30_000 })
+}
+
+async function themeOnDisk(win: Page): Promise<string> {
+  return win.evaluate(async () => {
+    const res = await window.ostia.fs.read(await window.ostia.settings.path())
+    return res.ok ? String(JSON.parse(res.text).appearance?.theme) : ''
+  })
+}
+
+async function keepOtherMachineValues(win: Page): Promise<void> {
+  const other = settingsOf(win).getByRole('button', { name: 'Use the other value' })
+  await expect(other.first()).toBeVisible(SLOW)
+  while ((await other.count()) > 0) {
+    await other.first().click()
+    await expect(async () => {
+      await syncNow(win)
+    }).toPass({ timeout: 10_000 })
+  }
 }
 
 async function changeTheme(win: Page, theme: string): Promise<void> {
@@ -101,7 +120,9 @@ async function changeTheme(win: Page, theme: string): Promise<void> {
 async function makeCode(win: Page): Promise<string> {
   const settings = settingsOf(win)
   await settings.getByRole('button', { name: 'Make a code' }).click()
-  const code = settings.getByText('One-time code').locator('xpath=following-sibling::*[1]')
+  const code = settings
+    .getByText('One-time code', { exact: true })
+    .locator('xpath=following-sibling::*[1]')
   await expect(code).toBeVisible(SLOW)
   return (await code.innerText()).trim()
 }
@@ -160,7 +181,7 @@ test.describe('profile sync through the server end to end', () => {
       await approveRequest(second.win)
       const thirdCode = await thirdCodePending
 
-      const third = await launchMachine(server)
+      const third = await launchMachine(server, false)
       machines.push(third)
       await signIn(third.win, thirdCode)
       await chooseServerMethod(third.win)
@@ -168,7 +189,9 @@ test.describe('profile sync through the server end to end', () => {
       await thirdSettings.getByRole('textbox', { name: 'Sync passphrase' }).fill(PASSPHRASE)
       await thirdSettings.getByRole('button', { name: 'Unlock', exact: true }).click()
       await expect(thirdSettings.getByText('Sync is on for this device.')).toBeVisible(SLOW)
-      await expectTheme(third.win, CHANGED_THEME)
+      await syncNow(third.win)
+      await keepOtherMachineValues(third.win)
+      await expect.poll(() => themeOnDisk(third.win), SLOW).toBe(CHANGED_THEME)
 
       await openSettingsPage(first.win, 'Sync')
       await firstSettings.getByRole('button', { name: 'Remove', exact: true }).last().click()
