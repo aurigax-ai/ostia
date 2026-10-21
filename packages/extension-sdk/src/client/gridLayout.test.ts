@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest'
-import { columnName, columnWidths, rowLabelWidth, textWidth } from './gridLayout'
+import {
+  columnName,
+  columnStarts,
+  columnWidths,
+  revealOffset,
+  rowLabelWidth,
+  textWidth,
+} from './gridLayout'
 
 describe('gridLayout', () => {
   it('sizes columns in characters from the header and the first rows, wide characters double', () => {
@@ -24,5 +31,18 @@ describe('gridLayout', () => {
       'AAA',
       'ALL',
     ])
+  })
+
+  it('adds widths into column starts', () => {
+    expect(columnStarts([10, 20, 5])).toEqual([0, 10, 30])
+    expect(columnStarts([])).toEqual([])
+  })
+
+  it('scrolls the least that brings an item into view', () => {
+    expect(revealOffset(100, 20, 0, 200)).toBe(0)
+    expect(revealOffset(100, 20, 150, 200)).toBe(100)
+    expect(revealOffset(400, 20, 0, 200)).toBe(220)
+    expect(revealOffset(10, 20, 0, 5)).toBe(25)
+    expect(revealOffset(0, 20, 0, 0)).toBe(20)
   })
 })

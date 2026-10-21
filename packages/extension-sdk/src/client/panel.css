@@ -117,7 +117,8 @@ button.primary {
 button:focus-visible,
 input:focus-visible,
 textarea:focus-visible,
-.ostia-grid-scroll:focus-visible {
+.ostia-grid-scroll:focus-visible,
+.ostia-grid-cell:focus-visible:not(.ostia-grid-selected) {
   outline: 2px solid var(--brand);
   outline-offset: -1px;
 }
@@ -364,6 +365,7 @@ input[type="radio"]:focus-visible {
   flex: 1 1 auto;
   min-height: 0;
   overflow: auto;
+  user-select: none;
 }
 
 .ostia-grid-canvas {
@@ -433,6 +435,34 @@ input[type="radio"]:focus-visible {
 .ostia-grid-probe {
   position: absolute;
   visibility: hidden;
+}
+
+.ostia-grid-selected {
+  background-image: linear-gradient(var(--brand-glow), var(--brand-glow));
+}
+
+.ostia-grid-edged {
+  box-shadow:
+    inset 0 var(--edge-top, 0px) 0 var(--brand),
+    inset calc(-1 * var(--edge-right, 0px)) 0 0 var(--brand),
+    inset 0 calc(-1 * var(--edge-bottom, 0px)) 0 var(--brand),
+    inset var(--edge-left, 0px) 0 0 var(--brand);
+}
+
+.ostia-grid-edge-top {
+  --edge-top: 1px;
+}
+
+.ostia-grid-edge-right {
+  --edge-right: 1px;
+}
+
+.ostia-grid-edge-bottom {
+  --edge-bottom: 1px;
+}
+
+.ostia-grid-edge-left {
+  --edge-left: 1px;
 }
 
 .ostia-spacer {

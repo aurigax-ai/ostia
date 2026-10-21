@@ -34,3 +34,19 @@ export function columnName(index: number): string {
   }
   return name
 }
+
+export function columnStarts(widths: readonly number[]): number[] {
+  const starts: number[] = []
+  let at = 0
+  for (const width of widths) {
+    starts.push(at)
+    at += width
+  }
+  return starts
+}
+
+export function revealOffset(start: number, size: number, offset: number, view: number): number {
+  if (start < offset) return start
+  if (start + size > offset + view) return Math.max(0, start + size - view)
+  return offset
+}
