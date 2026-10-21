@@ -158,7 +158,7 @@ export const appZhHant: typeof appEn = {
     syncAttention: {
       approval: { body: '{name} 要求你確認。', title: '需要確認' },
       changed: {
-        body: '{names}：金鑰或建立日期已變更。請到「設定 › 同步」查看。',
+        body: '{name}：金鑰已變更。請到「設定 › 伺服器」查看。',
         title: '已同步的裝置有變動',
       },
       join: {

@@ -50,11 +50,11 @@ describe('sync attention', () => {
     state.status = {
       ...STATUS,
       joins: [{ deviceId: 'd3', name: 'Tablet', code: 'AAAAA-BBBBB', createdAt: 7 }],
-      changedDevices: ['Laptop'],
+      changedDevices: [{ id: 'd5', name: 'Laptop', until: 500 }],
     }
     state.approvals = { ok: true, approvals: [ask('a1')] }
     const items = await watch.scan()
-    expect(items.map((i) => i.id)).toEqual(['join:d3', 'changed:Laptop', 'approval:a1'])
+    expect(items.map((i) => i.id)).toEqual(['join:d3', 'changed:d5:500', 'approval:a1'])
     expect(items.at(-1)).toMatchObject({ deviceId: 'dev-a1', createdAt: 9 })
   })
 

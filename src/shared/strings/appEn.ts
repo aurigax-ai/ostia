@@ -158,7 +158,7 @@ export const appEn = {
     syncAttention: {
       approval: { body: '{name} asks you to confirm it.', title: 'Confirmation requested' },
       changed: {
-        body: '{names}: keys or creation date changed. Review them in Settings › Sync.',
+        body: '{name}: keys changed. Review it in Settings › Server.',
         title: 'A synced device changed',
       },
       join: {

@@ -15,6 +15,8 @@ export const serverZhHant: typeof serverEn = {
     cancel: '取消',
     desc: '登入伺服器以使用手機中繼與同步。',
     deviceAdded: '{age}加入',
+    deviceChanged: '金鑰已變更 · 同步金鑰在 {time} 前忽略',
+    deviceChangedBadge: '已變更',
     deviceRemove: '移除',
     deviceThis: '這台電腦',
     devicesEmpty: '沒有裝置。',
@@ -76,8 +78,6 @@ export const serverZhHant: typeof serverEn = {
     title: '伺服器',
   },
   syncServer: {
-    changedDevice: '{devices}：金鑰或建立日期已變更。一天內會忽略它的同步金鑰。',
-    changedDevices: '{devices}：金鑰或建立日期已變更。一天內會忽略它們的同步金鑰。',
     cleanUp: '清理伺服器儲存空間',
     cleanUpDesc: '刪除目前設定檔已不需要的資料。',
     cleanUpRun: '清理',

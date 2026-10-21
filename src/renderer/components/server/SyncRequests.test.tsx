@@ -57,31 +57,25 @@ describe('sync requests on Settings › Sync', () => {
     expect(screen.queryByText('Phone')).toBeNull()
   })
 
-  it('SYA-C132 warns in the singular for one changed device and in the plural for several', () => {
-    show({ kind: 'changed', id: 'changed:Laptop', names: ['Laptop'] })
+  it('SYA-C132 lists the age and the check code on separate detail lines', () => {
+    show(join)
     render(<SyncRequests />)
-    expect(
-      screen.getByText('Laptop: keys or creation date changed. Its sync key is ignored for a day.'),
-    ).toBeInTheDocument()
-    cleanup()
-    show({ kind: 'changed', id: 'changed:Laptop,Phone', names: ['Laptop', 'Phone'] })
-    render(<SyncRequests />)
-    expect(
-      screen.getByText(
-        'Laptop, Phone: keys or creation date changed. Their sync keys are ignored for a day.',
-      ),
-    ).toBeInTheDocument()
+    expect(screen.getByText('Added 1 minute ago')).toBeInTheDocument()
+    expect(screen.getByText('ABCD-EFGH-JKLM')).toBeInTheDocument()
   })
 
-  it('SYA-C133 shows nothing when nothing is pending, and ignores other kinds', () => {
-    show({
-      kind: 'approval',
-      id: 'approval:a1',
-      approvalId: 'a1',
-      deviceId: 'd3',
-      name: 'build-box',
-      createdAt: 0,
-    })
+  it('SYA-C133 shows nothing when only other kinds are pending', () => {
+    show(
+      {
+        kind: 'approval',
+        id: 'approval:a1',
+        approvalId: 'a1',
+        deviceId: 'd3',
+        name: 'build-box',
+        createdAt: 0,
+      },
+      { kind: 'changed', id: 'changed:d3:5', deviceId: 'd3', name: 'build-box', until: 5 },
+    )
     expect(render(<SyncRequests />).container).toBeEmptyDOMElement()
   })
 })

@@ -472,8 +472,12 @@ describe('a device whose keys or creation time change under the same id', () => 
     expect((await second.service.status()).changedDevices).toEqual([])
     const known = second.keyring.trusted().find((d) => d.id === idOf(first))
     if (!known) throw new Error('first is pinned')
+    const before = server.now()
     second.keyring.pin([{ ...known, createdAt: known.createdAt + 1 }])
-    expect((await second.service.status()).changedDevices).toEqual([known.name])
+    const changed = (await second.service.status()).changedDevices
+    expect(changed).toEqual([{ id: known.id, name: known.name, until: expect.any(Number) }])
+    expect(changed[0]?.until).toBeGreaterThanOrEqual(before + DAY)
+    expect(changed[0]?.until).toBeLessThanOrEqual(server.now() + DAY)
     server.advance(DAY + 3_600_000)
     expect((await second.service.status()).changedDevices).toEqual([])
   })

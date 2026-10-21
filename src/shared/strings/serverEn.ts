@@ -14,6 +14,8 @@ export const serverEn = {
     cancel: 'Cancel',
     desc: 'Sign in to a server for the phone relay and sync.',
     deviceAdded: 'Added {age}',
+    deviceChanged: 'Keys changed · sync key ignored until {time}',
+    deviceChangedBadge: 'Changed',
     deviceRemove: 'Remove',
     deviceThis: 'This computer',
     devicesEmpty: 'No devices.',
@@ -77,9 +79,6 @@ export const serverEn = {
     title: 'Server',
   },
   syncServer: {
-    changedDevice: '{devices}: keys or creation date changed. Its sync key is ignored for a day.',
-    changedDevices:
-      '{devices}: keys or creation date changed. Their sync keys are ignored for a day.',
     cleanUp: 'Clean up server storage',
     cleanUpDesc: 'Deletes data your profile no longer needs.',
     cleanUpRun: 'Clean up',

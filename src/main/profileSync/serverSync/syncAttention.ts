@@ -24,11 +24,13 @@ async function gather(deps: SyncAttentionDeps): Promise<SyncAttention[] | null> 
     code: join.code,
     createdAt: join.createdAt,
   }))
-  if (status.changedDevices.length > 0) {
+  for (const device of status.changedDevices) {
     items.push({
       kind: 'changed',
-      id: `changed:${[...status.changedDevices].sort().join(',')}`,
-      names: status.changedDevices,
+      id: `changed:${device.id}:${device.until}`,
+      deviceId: device.id,
+      name: device.name,
+      until: device.until,
     })
   }
   for (const approval of approvals.approvals) {

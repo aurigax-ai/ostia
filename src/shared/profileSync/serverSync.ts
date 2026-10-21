@@ -19,6 +19,12 @@ export interface ServerJoinRequest {
   createdAt: number
 }
 
+export interface ChangedDevice {
+  id: string
+  name: string
+  until: number
+}
+
 export interface WrapRefusal {
   reason: 'untrusted' | 'too-new' | 'unverified'
   after: number | null
@@ -33,7 +39,7 @@ export interface ServerSyncStatus {
   joins: ServerJoinRequest[]
   recoveryStale: boolean
   wrapRefused: WrapRefusal | null
-  changedDevices: string[]
+  changedDevices: ChangedDevice[]
 }
 
 export type SyncAttention =
@@ -46,7 +52,7 @@ export type SyncAttention =
       name: string
       createdAt: number
     }
-  | { kind: 'changed'; id: string; names: string[] }
+  | { kind: 'changed'; id: string; deviceId: string; name: string; until: number }
 
 export type ServerSyncError =
   | 'too-short'

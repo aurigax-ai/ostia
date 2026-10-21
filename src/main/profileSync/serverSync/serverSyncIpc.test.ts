@@ -11,7 +11,11 @@ vi.mock('electron', () => ({
 
 import { registerServerSyncIpc } from './serverSyncIpc'
 
-const attention = { scan: vi.fn(async () => [{ kind: 'changed' as const, id: 'c', names: ['x'] }]) }
+const attention = {
+  scan: vi.fn(async () => [
+    { kind: 'changed' as const, id: 'c', deviceId: 'd', name: 'x', until: 1 },
+  ]),
+}
 
 const STATUS = {
   state: 'ready' as const,
@@ -116,7 +120,7 @@ describe('syncServer owner IPC', () => {
 
   it('SSY-C115 returns the attention list to a window', async () => {
     expect(await call('syncServer:attention', window)).toEqual([
-      { kind: 'changed', id: 'c', names: ['x'] },
+      { kind: 'changed', id: 'c', deviceId: 'd', name: 'x', until: 1 },
     ])
   })
 })

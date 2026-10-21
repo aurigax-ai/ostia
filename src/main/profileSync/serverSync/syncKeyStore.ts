@@ -31,7 +31,7 @@ export interface SyncKeyStore {
   pinned: (account: string) => ManifestDevice[]
   pin: (account: string, devices: ManifestDevice[], now: number) => void
   firstSeen: (account: string, device: ManifestDevice) => number | null
-  changedSince: (account: string, since: number) => string[]
+  changedSince: (account: string, since: number) => { id: string; name: string; at: number }[]
 }
 
 function deviceOf(value: unknown): ManifestDevice | null {
@@ -169,7 +169,9 @@ export function createSyncKeyStore(file: SyncKeyFile, protect: Protect): SyncKey
       const seen = data.seen[account] ?? {}
       return (data.pinned[account] ?? []).flatMap((d) => {
         const entry = seen[d.id]
-        return sameEntry(entry, d) && entry?.changed && entry.at > since ? [d.name] : []
+        return sameEntry(entry, d) && entry?.changed && entry.at > since
+          ? [{ id: d.id, name: d.name, at: entry.at }]
+          : []
       })
     },
     pin: (account, devices, now) => {

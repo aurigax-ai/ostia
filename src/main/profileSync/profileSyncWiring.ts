@@ -45,7 +45,7 @@ function attentionText(
     case 'changed':
       return {
         title: text.changed.title,
-        body: fmt(text.changed.body, { names: item.names.join(', ') }),
+        body: fmt(text.changed.body, { name: item.name }),
       }
   }
 }
@@ -112,10 +112,7 @@ export function startProfileSyncWiring({
           if (win.isMinimized()) win.restore()
           win.show()
           win.focus()
-          win.webContents.send(
-            'syncServer:open',
-            item.kind === 'join' || item.kind === 'changed' ? 'sync' : 'server',
-          )
+          win.webContents.send('syncServer:open', item.kind === 'join' ? 'sync' : 'server')
         },
       ),
     syncKeyFile: {

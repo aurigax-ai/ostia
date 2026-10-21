@@ -5,6 +5,7 @@ import { Notice } from '@/components/common/Notice'
 import { SettingsList } from '@/components/settingsKit/SettingsList'
 import { SettingsListRow } from '@/components/settingsKit/SettingsListRow'
 import { Button } from '@/components/ui/button'
+import { formatDate } from '@/lib/app/localeFormat'
 import { fmt, useDict } from '@/lib/app/useDict'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { refreshSyncAttention, useSyncAttentionStore } from '@/stores/server/syncAttentionStore'
@@ -19,6 +20,7 @@ import { useSyncServerStatus } from './useSyncServerStatus'
 const POLL_MS = 8000
 
 type AskItem = Extract<SyncAttention, { kind: 'approval' }>
+type ChangedItem = Extract<SyncAttention, { kind: 'changed' }>
 
 function useDevices(): [ServerDevice[], () => void] {
   const [devices, setDevices] = useState<ServerDevice[]>([])
@@ -55,6 +57,7 @@ export function ServerDevices(): JSX.Element {
   const asks = items.filter(
     (item): item is AskItem => item.kind === 'approval' && !hidden.has(item.id),
   )
+  const changes = items.filter((item): item is ChangedItem => item.kind === 'changed')
 
   const remove = async (target: RemoveTarget, passphrase: string, recoveryKey: string) => {
     setError(null)
@@ -117,13 +120,24 @@ export function ServerDevices(): JSX.Element {
       <SettingsList label={d.server.devicesLabel} empty={d.server.devicesEmpty}>
         {devices.map((device) => {
           const ask = asks.find((item) => item.deviceId === device.id)
-          const age = ageText(locale, device.createdAt)
+          const changed = changes.find((item) => item.deviceId === device.id)
+          const detail = ask
+            ? fmt(d.server.approvalAsks, { age: ageText(locale, device.createdAt) })
+            : changed
+              ? fmt(d.server.deviceChanged, { time: formatDate(changed.until, locale) })
+              : fmt(d.server.deviceAdded, { age: ageText(locale, device.createdAt) })
           return (
             <SettingsListRow
               key={device.id}
               title={device.name}
-              meta={device.current ? d.server.deviceThis : undefined}
-              detail={fmt(ask ? d.server.approvalAsks : d.server.deviceAdded, { age })}
+              meta={
+                device.current
+                  ? d.server.deviceThis
+                  : changed
+                    ? d.server.deviceChangedBadge
+                    : undefined
+              }
+              detail={detail}
               actions={rowActions(device, ask)}
               below={rowBelow(ask)}
             />

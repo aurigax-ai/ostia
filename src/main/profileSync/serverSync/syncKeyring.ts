@@ -1,4 +1,4 @@
-import type { WrapRefusal } from '../../../shared/profileSync/serverSync'
+import type { ChangedDevice, WrapRefusal } from '../../../shared/profileSync/serverSync'
 import { publicBytes } from '../../server/deviceKeys'
 import type { ServerAccount } from '../../server/serverAccount'
 import { ServerError } from '../../server/serverClient'
@@ -321,9 +321,12 @@ export class SyncKeyring {
     return target ? this.store.pinned(target.id) : []
   }
 
-  changedDevices(): string[] {
+  changedDevices(): ChangedDevice[] {
     const target = this.target()
-    return target ? this.store.changedSince(target.id, this.now() - MIN_APPROVER_AGE_MS) : []
+    if (!target) return []
+    return this.store
+      .changedSince(target.id, this.now() - MIN_APPROVER_AGE_MS)
+      .map(({ id, name, at }) => ({ id, name, until: at + MIN_APPROVER_AGE_MS }))
   }
 
   pin(devices: ManifestDevice[]): void {

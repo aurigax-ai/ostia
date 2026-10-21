@@ -23,7 +23,13 @@ const ITEMS = [
     name: 'Studio laptop',
     createdAt: Date.now() - 5 * 60_000,
   },
-  { kind: 'changed', id: 'changed:Studio laptop', names: ['Studio laptop'] },
+  {
+    kind: 'changed',
+    id: 'changed:d3:1',
+    deviceId: 'd3',
+    name: 'build-box',
+    until: Date.now() + 20 * 3_600_000,
+  },
 ]
 
 async function announce(app: ElectronApplication, items: unknown[]): Promise<void> {
@@ -144,11 +150,7 @@ test('the join request and changed devices show on Settings › Sync, the confir
     const requests = settings.getByRole('list', { name: 'Requests' })
     await expect(requests.getByText('Pixel 9')).toBeVisible()
     await expect(requests.getByText('K7QDM-2XPLA-VTRHE-4WNBC-GJ5FS')).toBeVisible()
-    await expect(
-      settings.getByText(
-        'Studio laptop: keys or creation date changed. Its sync key is ignored for a day.',
-      ),
-    ).toBeVisible()
+    await expect(settings.getByText(/Keys changed/)).toBeHidden()
     await expect(settings.getByText(/Asks to confirm/)).toBeHidden()
     await expect(nav('Sync')).toHaveAttribute('aria-current', 'page')
     await expect(settings.getByText('Where to sync')).toHaveCount(1)
@@ -162,7 +164,8 @@ test('the join request and changed devices show on Settings › Sync, the confir
     await expect(settings.getByRole('heading', { name: 'Server' })).toBeVisible()
     await expect(settings.getByText(/Asks to confirm a change · added 3 hours ago/)).toBeVisible()
     await expect(settings.getByRole('list', { name: 'Requests' })).toBeHidden()
-    await expect(settings.getByText(/keys or creation date changed/)).toBeHidden()
+    await expect(settings.getByText(/^Keys changed · sync key ignored until /)).toBeVisible()
+    await expect(settings.getByText('Changed', { exact: true })).toBeVisible()
     await expect(nav('Server')).toHaveAttribute('aria-current', 'page')
     await shot(win, 'split-server')
 

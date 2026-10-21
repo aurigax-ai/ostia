@@ -56,6 +56,23 @@ describe('shared device list', () => {
     expect(screen.getAllByRole('button', { name: 'Remove' })).toHaveLength(1)
   })
 
+  it('SYA-C124 marks a device whose keys changed on its own row, with Remove and no warning text', async () => {
+    const until = Date.UTC(2026, 9, 22, 14, 30)
+    server().devices.mockResolvedValue({
+      ok: true,
+      devices: [device({}), device({ id: 'd2', name: 'Laptop', current: false })],
+    })
+    useSyncAttentionStore.setState({
+      items: [
+        { kind: 'changed', id: `changed:d2:${until}`, deviceId: 'd2', name: 'Laptop', until },
+      ],
+    })
+    render(<ServerDevices />)
+    expect(await screen.findByText('Changed')).toBeInTheDocument()
+    expect(screen.getByText(/^Keys changed · sync key ignored until /)).toBeInTheDocument()
+    expect(screen.getAllByRole('button', { name: 'Remove' })).toHaveLength(1)
+  })
+
   it('SYA-C122 gives the device asking for a confirmation Approve and Deny in place of Remove', async () => {
     const user = userEvent.setup()
     server().devices.mockResolvedValue({
