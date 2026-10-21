@@ -90,13 +90,13 @@ export function registerParkWiring(deps: ParkWiringDeps): ParkedStore {
 
   ipcMain.handle(
     'park:pane',
-    async (e, workspaceId: unknown, paneId: unknown, note: unknown): Promise<ParkOutcome> => {
+    async (e, workspaceId: unknown, paneId: unknown): Promise<ParkOutcome> => {
       if (typeof workspaceId !== 'string' || typeof paneId !== 'string') {
         return { ok: false, reason: 'unavailable' }
       }
       const senderId = String(e.sender.id)
       if (!panesOwnedBy([paneId], senderId)) return { ok: false, reason: 'unavailable' }
-      return parkPane(act, workspaceId, paneId, typeof note === 'string' ? note : '')
+      return parkPane(act, workspaceId, paneId)
     },
   )
 

@@ -26,14 +26,12 @@ describe('ParkedStore', () => {
       resume: claude('s1'),
       title: 'export',
       summary: 'stopped at the retry test',
-      note: 'after lunch',
     })
     expect(first.ok && again.ok && first.record.id === again.record.id).toBe(true)
     expect(again.ok && again.updated).toBe(true)
     expect(store.list('w1')).toHaveLength(1)
     expect(store.list('w1')[0]).toMatchObject({
       summary: 'stopped at the retry test',
-      note: 'after lunch',
     })
   })
 
@@ -94,11 +92,10 @@ describe('ParkedStore', () => {
   it('writes the file 0600 and reloads it', () => {
     const file = fileIn()
     const store = new ParkedStore(file, () => 9)
-    store.park({ workspaceId: 'w1', resume: claude('s1'), title: 'export', note: 'later' })
+    store.park({ workspaceId: 'w1', resume: claude('s1'), title: 'export' })
     expect(statSync(file).mode & 0o777).toBe(0o600)
     expect(new ParkedStore(file).list('w1')[0]).toMatchObject({
       title: 'export',
-      note: 'later',
       parkedAt: 9,
     })
   })
@@ -139,18 +136,16 @@ describe('ParkedStore', () => {
     expect(seen).toEqual(['w1'])
   })
 
-  it('collapses the note and the summary to one line and cuts them', () => {
+  it('collapses the title and the summary to one line and cuts them', () => {
     const store = new ParkedStore(fileIn())
     const res = store.park({
       workspaceId: 'w1',
       resume: claude('s1'),
       title: 'a\nb',
       summary: `first\nsecond ${'x'.repeat(400)}`,
-      note: 'n'.repeat(400),
     })
     expect(res.ok && res.record.title).toBe('a b')
     expect(res.ok && [...(res.record.summary ?? '')].length).toBe(160)
     expect(res.ok && res.record.summary).not.toContain('\n')
-    expect(res.ok && [...(res.record.note ?? '')].length).toBe(300)
   })
 })

@@ -7,7 +7,7 @@ import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { useParkStore } from '@/stores/workspaces/parkStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import type { WorkspaceKind } from '@/stores/workspaces/workspaceTypes'
-import { confirmPark, parkRefusalOf, requestPark } from './parkTab'
+import { parkRefusalOf, requestPark } from './parkTab'
 
 const agent: PaneNode = {
   type: 'pane',
@@ -43,7 +43,7 @@ const tabs = (...panes: PaneNode[]): LayoutNode => ({
 
 describe('park from the renderer', () => {
   beforeEach(() => {
-    useParkStore.setState({ prompt: null, notice: null })
+    useParkStore.setState({ notice: null })
   })
   afterEach(() => {
     useBlocksStore.setState(useBlocksStore.getInitialState(), true)
@@ -118,22 +118,7 @@ describe('park from the renderer', () => {
     expect(parkRefusalOf('w1', 'nope')).toBe('unavailable')
   })
 
-  it('opens the prompt for a parkable tab and a refusal notice for any other', () => {
-    seed(tabs(agent, shell))
-    runAgent()
-    requestPark('w1', 'p1')
-    expect(useParkStore.getState().prompt).toEqual({
-      workspaceId: 'w1',
-      paneId: 'p1',
-      title: 'export-tests',
-    })
-    useParkStore.setState({ prompt: null })
-    requestPark('w1', 'p2')
-    expect(useParkStore.getState().prompt).toBeNull()
-    expect(useParkStore.getState().notice).toMatchObject({ kind: 'refused', reason: 'no-agent' })
-  })
-
-  it('parks through main, then closes the tab and says so', async () => {
+  it('parks at once through main with no question, then closes the tab and says so', async () => {
     seed(tabs(agent, shell))
     runAgent()
     vi.mocked(window.ostia.park.pane).mockResolvedValue({
@@ -141,31 +126,34 @@ describe('park from the renderer', () => {
       id: 'abcdefghij',
       title: 'export-tests',
     })
-    requestPark('w1', 'p1')
-    await confirmPark('after lunch')
-    expect(window.ostia.park.pane).toHaveBeenCalledWith('w1', 'p1', 'after lunch')
-    expect(useParkStore.getState().prompt).toBeNull()
+    await requestPark('w1', 'p1')
+    expect(window.ostia.park.pane).toHaveBeenCalledTimes(1)
+    expect(window.ostia.park.pane).toHaveBeenCalledWith('w1', 'p1')
     expect(useParkStore.getState().notice).toMatchObject({ kind: 'parked', title: 'export-tests' })
-    const layout = useLayoutStore.getState().byWorkspace.w1
-    expect(JSON.stringify(layout)).not.toContain('"p1"')
+    expect(JSON.stringify(useLayoutStore.getState().byWorkspace.w1)).not.toContain('"p1"')
+  })
+
+  it('keeps the tab, asks main nothing and shows the warn line when the renderer already refuses', async () => {
+    seed(tabs(shell, agent))
+    await requestPark('w1', 'p2')
+    expect(window.ostia.park.pane).not.toHaveBeenCalled()
+    expect(useParkStore.getState().notice).toMatchObject({
+      kind: 'refused',
+      reason: 'no-agent',
+      paneId: 'p2',
+    })
   })
 
   it('keeps the tab and shows main’s reason when main refuses', async () => {
     seed(tabs(agent, shell))
     runAgent()
     vi.mocked(window.ostia.park.pane).mockResolvedValue({ ok: false, reason: 'background-task' })
-    requestPark('w1', 'p1')
-    await confirmPark('')
+    await requestPark('w1', 'p1')
     expect(useParkStore.getState().notice).toMatchObject({
       kind: 'refused',
       reason: 'background-task',
       paneId: 'p1',
     })
     expect(JSON.stringify(useLayoutStore.getState().byWorkspace.w1)).toContain('"p1"')
-  })
-
-  it('does nothing without a prompt', async () => {
-    await confirmPark('x')
-    expect(window.ostia.park.pane).not.toHaveBeenCalled()
   })
 })

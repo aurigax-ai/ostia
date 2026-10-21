@@ -75,7 +75,6 @@ export interface ParkedItem {
   sessionId: string
   title: string
   summary?: string
-  note?: string
   folder?: string
   parkedAt: number
 }

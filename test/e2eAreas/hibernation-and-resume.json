@@ -9,7 +9,7 @@
     "src/main/panes/paneWake.ts",
     "src/main/panes/paneWaking.ts",
     "src/main/terminal/spawnCwd.ts",
-    "src/renderer/components/agents/AgentForkButton.tsx",
+    "src/renderer/components/agents/AgentActionsMenu.tsx",
     "src/renderer/components/panes/ResumePrompts.tsx",
     "src/renderer/components/sidebar/HibernateSkippedDialog.tsx",
     "src/renderer/components/terminal/HibernatedView.tsx",

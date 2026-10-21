@@ -40,15 +40,14 @@ function setup(over: Partial<ParkActDeps> = {}) {
 }
 
 describe('parkPane', () => {
-  it('stores the session with the agent’s closing line and the note, then answers the id', async () => {
+  it('stores the session with the agent’s closing line, then answers the id', async () => {
     const { deps, store } = setup()
-    const res = await parkPane(deps, 'w1', 'p1', 'after lunch')
+    const res = await parkPane(deps, 'w1', 'p1')
     expect(res).toMatchObject({ ok: true, title: 'export-tests' })
     expect(store.list('w1')).toMatchObject([
       {
         title: 'export-tests',
         summary: 'Export test is flaky on CI; next: rerun with --repeat 20',
-        note: 'after lunch',
         resume: { agent: 'claude', id: 's1', cwd: '/home/u/api' },
       },
     ])
@@ -78,48 +77,50 @@ describe('parkPane', () => {
     'refuses %s and stores nothing',
     async (_name, over, reason) => {
       const { deps, store } = setup(over)
-      expect(await parkPane(deps, 'w1', 'p1', '')).toEqual({ ok: false, reason })
+      expect(await parkPane(deps, 'w1', 'p1')).toEqual({ ok: false, reason })
       expect(store.list('w1')).toHaveLength(0)
     },
   )
 
   it('refuses a pane of another workspace and an unknown pane', async () => {
     const { deps } = setup()
-    expect(await parkPane(deps, 'w2', 'p1', '')).toEqual({ ok: false, reason: 'unavailable' })
-    expect(await parkPane(deps, 'w1', 'nope', '')).toEqual({ ok: false, reason: 'unavailable' })
+    expect(await parkPane(deps, 'w2', 'p1')).toEqual({ ok: false, reason: 'unavailable' })
+    expect(await parkPane(deps, 'w1', 'nope')).toEqual({ ok: false, reason: 'unavailable' })
   })
 
-  it('parks without a summary when the secret scan fails, still redacting the note it keeps', async () => {
+  it('parks without a summary when the secret scan fails', async () => {
     const { deps, store } = setup({
       redact: vi.fn(async () => {
         throw new Error('scan failed')
       }),
     })
-    expect(await parkPane(deps, 'w1', 'p1', 'secret')).toMatchObject({ ok: true })
+    expect(await parkPane(deps, 'w1', 'p1')).toMatchObject({ ok: true })
     expect(store.list('w1')[0]).not.toHaveProperty('summary')
-    expect(store.list('w1')[0]).not.toHaveProperty('note')
   })
 
-  it('stores the redacted text, never the original', async () => {
-    const { deps, store } = setup({ redact: async (t) => t.replace('sk-abc', '[redacted]') })
-    await parkPane(deps, 'w1', 'p1', 'use sk-abc')
-    expect(store.list('w1')[0]?.note).toBe('use [redacted]')
+  it('stores the redacted summary, never the original', async () => {
+    const { deps, store } = setup({
+      closing: () => 'key is sk-abc',
+      redact: async (t) => t.replace('sk-abc', '[redacted]'),
+    })
+    await parkPane(deps, 'w1', 'p1')
+    expect(store.list('w1')[0]?.summary).toBe('key is [redacted]')
   })
 
   it('takes the folder from the pane when the agent reported none, and refuses with none at all', async () => {
     const withoutCwd = setup({ resumeOf: async () => ({ agent: 'claude', id: 's1' }) })
-    expect(await parkPane(withoutCwd.deps, 'w1', 'p1', '')).toMatchObject({ ok: true })
+    expect(await parkPane(withoutCwd.deps, 'w1', 'p1')).toMatchObject({ ok: true })
     expect(withoutCwd.store.list('w1')[0]?.resume.cwd).toBe('/home/u/api')
     const none = setup({
       resumeOf: async () => ({ agent: 'claude', id: 's1' }),
       paneCwd: () => undefined,
     })
-    expect(await parkPane(none.deps, 'w1', 'p1', '')).toEqual({ ok: false, reason: 'no-session' })
+    expect(await parkPane(none.deps, 'w1', 'p1')).toEqual({ ok: false, reason: 'no-session' })
   })
 
   it('keeps the agent name as the title when the pane list has none', async () => {
     const { deps } = setup({ title: async () => undefined })
-    expect(await parkPane(deps, 'w1', 'p1', '')).toMatchObject({ ok: true, title: 'claude' })
+    expect(await parkPane(deps, 'w1', 'p1')).toMatchObject({ ok: true, title: 'claude' })
   })
 
   it('refuses when the workspace already holds the most it keeps', async () => {
@@ -131,6 +132,6 @@ describe('parkPane', () => {
         title: 't',
       })
     }
-    expect(await parkPane(deps, 'w1', 'p1', '')).toEqual({ ok: false, reason: 'too-many' })
+    expect(await parkPane(deps, 'w1', 'p1')).toEqual({ ok: false, reason: 'too-many' })
   })
 })

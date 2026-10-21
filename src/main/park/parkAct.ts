@@ -1,12 +1,6 @@
 import { type AgentResume, parseAgentResume } from '../../shared/agents/agentResume'
 import type { AgentBusyReason } from '../../shared/agents/agentWork'
-import {
-  noteLine,
-  PARK_NOTE_MAX,
-  PARK_SUMMARY_MAX,
-  type ParkOutcome,
-  parkRefusal,
-} from '../../shared/park/park'
+import { PARK_SUMMARY_MAX, type ParkOutcome, parkRefusal, singleLine } from '../../shared/park/park'
 import type { PaneIdentity } from '../control/idRegistry'
 import type { ParkedStore } from './parkedStore'
 
@@ -28,10 +22,10 @@ export interface ParkActDeps {
 }
 
 async function redacted(deps: ParkActDeps, text: string | undefined, max: number) {
-  const line = text === undefined ? '' : noteLine(text, max)
+  const line = text === undefined ? '' : singleLine(text, max)
   if (line === '') return undefined
   try {
-    const safe = noteLine(await deps.redact(line), max)
+    const safe = singleLine(await deps.redact(line), max)
     return safe === '' ? undefined : safe
   } catch {
     return undefined
@@ -42,7 +36,6 @@ export async function parkPane(
   deps: ParkActDeps,
   workspaceId: string,
   paneId: string,
-  note: string,
 ): Promise<ParkOutcome> {
   const identity = deps.identityOf(paneId)
   if (!identity || identity.workspaceId !== workspaceId) {
@@ -74,7 +67,6 @@ export async function parkPane(
     resume,
     title,
     summary: await redacted(deps, deps.closing(identity.paneId), PARK_SUMMARY_MAX),
-    note: await redacted(deps, note, PARK_NOTE_MAX),
   })
   if (!result.ok) {
     return { ok: false, reason: result.reason === 'too-many' ? 'too-many' : 'unavailable' }

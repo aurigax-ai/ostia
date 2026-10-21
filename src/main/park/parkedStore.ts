@@ -1,11 +1,6 @@
 import { randomBytes } from 'node:crypto'
 import { type AgentResume, parseAgentResume } from '../../shared/agents/agentResume'
-import {
-  noteLine,
-  PARK_NOTE_MAX,
-  PARK_SUMMARY_MAX,
-  PARKED_PER_WORKSPACE_MAX,
-} from '../../shared/park/park'
+import { PARK_SUMMARY_MAX, PARKED_PER_WORKSPACE_MAX, singleLine } from '../../shared/park/park'
 import { loadJson, saveJson } from '../platform/jsonStore'
 
 const BASE32 = 'abcdefghijklmnopqrstuvwxyz234567'
@@ -20,7 +15,6 @@ export interface ParkedRecord {
   resume: AgentResume
   title: string
   summary?: string
-  note?: string
   parkedAt: number
 }
 
@@ -29,7 +23,6 @@ export interface ParkInput {
   resume: AgentResume
   title: string
   summary?: string
-  note?: string
 }
 
 export type ParkResult =
@@ -47,13 +40,13 @@ function withoutTyped(resume: AgentResume): AgentResume | null {
 function optionalLine(raw: unknown, max: number): string | undefined | null {
   if (raw === undefined) return undefined
   if (typeof raw !== 'string') return null
-  const line = noteLine(raw, max)
+  const line = singleLine(raw, max)
   return line === '' ? undefined : line
 }
 
 function parseRecord(raw: unknown): ParkedRecord | null {
   if (typeof raw !== 'object' || raw === null) return null
-  const { id, workspaceId, resume, title, summary, note, parkedAt } = raw as Record<string, unknown>
+  const { id, workspaceId, resume, title, summary, parkedAt } = raw as Record<string, unknown>
   if (typeof id !== 'string' || !ID_PATTERN.test(id)) return null
   if (
     typeof workspaceId !== 'string' ||
@@ -66,15 +59,13 @@ function parseRecord(raw: unknown): ParkedRecord | null {
   if (typeof title !== 'string' || title === '') return null
   if (typeof parkedAt !== 'number' || !Number.isFinite(parkedAt)) return null
   const summaryLine = optionalLine(summary, PARK_SUMMARY_MAX)
-  const noteText = optionalLine(note, PARK_NOTE_MAX)
-  if (summaryLine === null || noteText === null) return null
+  if (summaryLine === null) return null
   return {
     id,
     workspaceId,
     resume: parsed,
-    title: noteLine(title, TITLE_MAX),
+    title: singleLine(title, TITLE_MAX),
     ...(summaryLine ? { summary: summaryLine } : {}),
-    ...(noteText ? { note: noteText } : {}),
     parkedAt,
   }
 }
@@ -123,10 +114,9 @@ export class ParkedStore {
 
   park(input: ParkInput): ParkResult {
     const resume = withoutTyped(input.resume)
-    const title = noteLine(input.title, TITLE_MAX)
+    const title = singleLine(input.title, TITLE_MAX)
     if (!resume || title === '' || input.workspaceId === '') return { ok: false, reason: 'invalid' }
     const summary = optionalLine(input.summary, PARK_SUMMARY_MAX)
-    const note = optionalLine(input.note, PARK_NOTE_MAX)
     const known = this.items.find((item) => sameSession(item, { ...input, resume }))
     if (!known && this.count(input.workspaceId) >= PARKED_PER_WORKSPACE_MAX) {
       return { ok: false, reason: 'too-many' }
@@ -137,7 +127,6 @@ export class ParkedStore {
       resume,
       title,
       ...(summary ? { summary } : {}),
-      ...(note ? { note } : {}),
       parkedAt: this.now(),
     }
     this.items = known
