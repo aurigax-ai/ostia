@@ -9,7 +9,13 @@ export const MARKETPLACE_FEATURE = 'marketplace'
 export const MARKETPLACE_URL_MAX = 2000
 export const MARKETPLACE_CODE_SHAPE = /^[a-z2-7]{26}$/
 
-export type MarketplaceInstallState = 'available' | 'installed' | 'update' | 'replace' | 'conflict'
+export type MarketplaceInstallState =
+  | 'available'
+  | 'installed'
+  | 'update'
+  | 'replace'
+  | 'conflict'
+  | 'incompatible'
 
 interface MarketplaceAgentHook {
   event: AgentHookEvent
@@ -29,6 +35,8 @@ export interface MarketplaceExtension {
   agentHooks: MarketplaceAgentHook[]
   state: MarketplaceInstallState
   installedVersion?: string
+  installedRevoked?: true
+  needsApi?: string
 }
 
 export interface MarketplaceInfo {
@@ -48,6 +56,8 @@ export interface MarketplaceInfo {
 export interface MarketplaceState {
   marketplaces: MarketplaceInfo[]
   installed: string[]
+  prerelease: string[]
+  dev: Record<string, string>
 }
 
 export type MarketplaceError =
@@ -64,6 +74,8 @@ export type MarketplaceError =
   | 'too-large'
   | 'not-installed'
   | 'official-marketplace'
+  | 'needs-newer-app'
+  | 'invalid-source'
   | 'write-failed'
 
 export type MarketplaceResult =
@@ -74,6 +86,10 @@ export type MarketplaceFound =
   | { ok: true; marketplaceId: string; extension: MarketplaceExtension }
   | { ok: false; error: MarketplaceError; detail?: string }
 
+export type DevSource =
+  | { kind: 'folder'; path: string }
+  | { kind: 'git'; url: string; branch: string; path?: string }
+
 export interface MarketplaceApi {
   list: () => Promise<MarketplaceState>
   add: (url: string) => Promise<MarketplaceResult>
@@ -83,4 +99,6 @@ export interface MarketplaceApi {
   findCode: (code: string) => Promise<MarketplaceFound>
   installCode: (marketplaceId: string, code: string) => Promise<MarketplaceResult>
   uninstall: (extId: string) => Promise<MarketplaceResult>
+  setPrerelease: (extId: string, enabled: boolean) => Promise<MarketplaceResult>
+  installDev: (source: DevSource) => Promise<MarketplaceResult>
 }

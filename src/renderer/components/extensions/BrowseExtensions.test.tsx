@@ -74,7 +74,7 @@ const OTHER = marketplace({
 })
 
 function stateWith(info: MarketplaceInfo, installed: string[] = []): MarketplaceState {
-  return { marketplaces: [info], installed }
+  return { marketplaces: [info], installed, prerelease: [], dev: {} }
 }
 
 function dialog(): HTMLElement {
@@ -120,7 +120,7 @@ describe('BrowseExtensionsDialog', () => {
   })
 
   it('lists a card for every extension of every marketplace and opens the first one', async () => {
-    await browse({ marketplaces: [marketplace(), OTHER], installed: [] })
+    await browse({ marketplaces: [marketplace(), OTHER], installed: [], prerelease: [], dev: {} })
 
     expect(cardNames()).toEqual(['Weather', 'Go language server'])
     const first = within(cards()).getByRole('listitem', { name: 'Weather' })
@@ -138,7 +138,12 @@ describe('BrowseExtensionsDialog', () => {
       agentSkills: ['kit-review'],
       agentHooks: [{ event: 'SessionStart', command: 'Kit: record' }],
     }
-    await browse({ marketplaces: [marketplace({ extensions: [WEATHER, kit] })], installed: [] })
+    await browse({
+      marketplaces: [marketplace({ extensions: [WEATHER, kit] })],
+      installed: [],
+      prerelease: [],
+      dev: {},
+    })
 
     await userEvent.click(within(cards()).getByRole('listitem', { name: 'Kit' }))
 
@@ -168,7 +173,7 @@ describe('BrowseExtensionsDialog', () => {
   })
 
   it('searches every marketplace by name, summary, category and id', async () => {
-    await browse({ marketplaces: [marketplace(), OTHER], installed: [] })
+    await browse({ marketplaces: [marketplace(), OTHER], installed: [], prerelease: [], dev: {} })
     const search = within(dialog()).getByRole('searchbox', { name: 'Search extensions' })
     const searchFor = async (text: string): Promise<void> => {
       await userEvent.clear(search)
@@ -200,6 +205,8 @@ describe('BrowseExtensionsDialog', () => {
     await browse({
       marketplaces: [marketplace({ extensions: [WEATHER, TIDES, update] }), OTHER],
       installed: ['tides', 'radar'],
+      prerelease: [],
+      dev: {},
     })
     const filters = within(dialog()).getByRole('group', { name: 'Show' })
     const pick = async (name: string): Promise<void> => {
@@ -246,6 +253,36 @@ describe('BrowseExtensionsDialog', () => {
     expect(useUIStore.getState().settingsSection).toBe('extensions')
     expect(useUIStore.getState().settingsExtension).toBe('weather')
     expect(useUIStore.getState().browseExtensionsOpen).toBe(false)
+  })
+
+  it('shows an extension that needs a newer app with the API it needs, and offers no install', async () => {
+    await browse(
+      stateWith(
+        marketplace({
+          extensions: [{ ...WEATHER, state: 'incompatible', needsApi: '9.1' }],
+        }),
+      ),
+    )
+    const card = within(cards()).getByRole('listitem', { name: 'Weather' })
+    expect(within(card).getByText('Needs newer Ostia')).toBeVisible()
+    expect(
+      within(page()).getByText('Needs a newer Ostia (extension API 9.1 or later).'),
+    ).toBeVisible()
+    expect(within(page()).queryByRole('button', { name: 'Install' })).toBeNull()
+  })
+
+  it('warns when the installed version was withdrawn', async () => {
+    await browse(
+      stateWith(
+        marketplace({ extensions: [{ ...WEATHER, state: 'installed', installedRevoked: true }] }),
+        ['weather'],
+      ),
+    )
+    expect(
+      within(page()).getByText(
+        'This version was withdrawn by its publisher. Update it or uninstall it.',
+      ),
+    ).toBeVisible()
   })
 
   it('offers an update with the installed and offered versions', async () => {
@@ -312,6 +349,8 @@ describe('BrowseExtensionsDialog', () => {
         marketplace({ ...OTHER, problems: ['extensions/broken: missing name'] }),
       ],
       installed: [],
+      prerelease: [],
+      dev: {},
     })
 
     await userEvent.click(within(dialog()).getByRole('button', { name: '2 not compatible' }))
@@ -331,7 +370,7 @@ describe('BrowseExtensionsDialog', () => {
   })
 
   it('asks to add or download a marketplace when there is nothing to browse', async () => {
-    await browse({ marketplaces: [], installed: [] })
+    await browse({ marketplaces: [], installed: [], prerelease: [], dev: {} })
     expect(
       within(dialog()).getAllByText('Add a marketplace below to browse its extensions.'),
     ).not.toHaveLength(0)
@@ -367,7 +406,7 @@ describe('BrowseExtensionsDialog', () => {
   it('shows the unlisted extension of the marketplace that holds the code, not a listed one with the same id', async () => {
     const mine = marketplace({ extensions: [{ ...TIDES, state: 'available' }] })
     const other = marketplace({ ...OTHER, unlisted: true, extensions: [] })
-    await browse({ marketplaces: [mine, other], installed: [] })
+    await browse({ marketplaces: [mine, other], installed: [], prerelease: [], dev: {} })
     vi.mocked(window.ostia.marketplace.findCode).mockResolvedValue({
       ok: true,
       marketplaceId: 'def456',
@@ -375,7 +414,7 @@ describe('BrowseExtensionsDialog', () => {
     })
     vi.mocked(window.ostia.marketplace.installCode).mockResolvedValue({
       ok: true,
-      state: { marketplaces: [mine, other], installed: ['tides'] },
+      state: { marketplaces: [mine, other], installed: ['tides'], prerelease: [], dev: {} },
     })
 
     await userEvent.type(within(dialog()).getByRole('searchbox'), CODE)
@@ -404,7 +443,12 @@ describe('BrowseExtensionsDialog', () => {
     })
     act(() =>
       useMarketplaceStore.setState({
-        state: { marketplaces: [marketplace(), { ...OTHER, unlisted: true }], installed: [] },
+        state: {
+          marketplaces: [marketplace(), { ...OTHER, unlisted: true }],
+          installed: [],
+          prerelease: [],
+          dev: {},
+        },
       }),
     )
 

@@ -186,6 +186,8 @@ describe('extension wording follows the list main resolved for the language', ()
   it('the marketplace list is read again when main announces a new list', async () => {
     const listing = (name: string): MarketplaceState => ({
       installed: [],
+      prerelease: [],
+      dev: {},
       marketplaces: [
         {
           id: 'm1',

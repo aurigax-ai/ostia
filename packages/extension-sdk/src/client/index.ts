@@ -24,7 +24,7 @@ import type {
   AssistUi,
 } from '../contract/assist'
 import type { Capability } from '../contract/capabilities'
-import { apiProblem, EXTENSION_API_ENV, EXTENSION_API_VERSION } from '../contract/extensionApi'
+import { apiProblem, EXTENSION_API_ENV } from '../contract/extensionApi'
 import type {
   AgentOfferOptions,
   AgentOfferResult,
@@ -56,6 +56,7 @@ import type {
   RemoteWriteResult,
 } from '../contract/remoteFolders'
 import type { BrowseProvider } from './browse'
+import { declaredApi } from './declaredApi'
 import { agentMethods, serviceMethods, windowMethods } from './extensionMethods'
 import { createHostHandlers, listenToHost } from './hostHandlers'
 import { type PhoneScreens, phoneScreenMethods } from './phoneScreens'
@@ -386,7 +387,7 @@ export async function connect(): Promise<OstiaExtension> {
   const token = readEnv('TOKEN')
   if (!socketPath || !token) throw new Error('OSTIA_SOCKET / OSTIA_TOKEN missing')
   const provided = readEnv(EXTENSION_API_ENV)
-  const incompatible = provided ? apiProblem(EXTENSION_API_VERSION, provided) : null
+  const incompatible = provided ? apiProblem(declaredApi(), provided) : null
   if (incompatible) throw new Error(`this extension ${incompatible}`)
   const socket = createConnection(socketPath)
   await once(socket, 'connect')

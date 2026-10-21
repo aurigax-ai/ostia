@@ -24,6 +24,8 @@ describe('parseMarketplaceManifest', () => {
       description: '',
       extensions: ['a', 'tools/b'],
       unlisted: [],
+      history: [],
+      revoked: [],
     })
   })
 
@@ -34,7 +36,36 @@ describe('parseMarketplaceManifest', () => {
       description: '',
       extensions: ['a'],
       unlisted,
+      history: [],
+      revoked: [],
     })
+  })
+
+  it('accepts the folders of older releases and the revoked versions', () => {
+    const history = ['versions/a/1.0.0', 'versions/a/1.0.1', 'versions/a/1.0.0']
+    const revoked = [{ id: 'abc', version: '1.0.1' }]
+    expect(parseMarketplaceManifest({ name: 'Mine', extensions: ['a'], history, revoked })).toEqual(
+      {
+        name: 'Mine',
+        description: '',
+        extensions: ['a'],
+        unlisted: [],
+        history: ['versions/a/1.0.0', 'versions/a/1.0.1'],
+        revoked,
+      },
+    )
+  })
+
+  it('refuses a history path outside the repository and a malformed revoked entry', () => {
+    const base = { name: 'Mine', extensions: ['a'] }
+    expect(parseMarketplaceManifest({ ...base, history: ['../x'] })).toMatch(/history\[0\]/)
+    expect(parseMarketplaceManifest({ ...base, history: 'x' })).toMatch(/history/)
+    expect(parseMarketplaceManifest({ ...base, revoked: [{ id: 'A', version: '1.0.0' }] })).toMatch(
+      /revoked\[0\].id/,
+    )
+    expect(parseMarketplaceManifest({ ...base, revoked: [{ id: 'ab', version: '' }] })).toMatch(
+      /revoked\[0\].version/,
+    )
   })
 
   it('refuses an unlisted entry with a weak, shared or missing code, or a path listed twice', () => {

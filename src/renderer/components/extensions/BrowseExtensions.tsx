@@ -66,6 +66,8 @@ function chipLabel(d: Dict, chip: BrowseChip): string {
       return d.extensionsBrowse.stateUpdate
     case 'problem':
       return d.extensionsBrowse.stateProblem
+    case 'incompatible':
+      return d.extensionsBrowse.stateIncompatible
   }
 }
 
@@ -232,6 +234,7 @@ function PageAction({
       return <UninstallExtensionButton extId={ext.id} name={ext.name} />
     case 'replace':
     case 'conflict':
+    case 'incompatible':
       return null
   }
 }
@@ -290,6 +293,10 @@ function ExtensionPage({
           {d.marketplace.conflict}
         </Notice>
       ) : null}
+      {ext.state === 'incompatible' && ext.needsApi ? (
+        <Notice>{fmt(d.marketplace.needsApp, { api: ext.needsApi })}</Notice>
+      ) : null}
+      {ext.installedRevoked ? <Notice>{d.marketplace.revoked}</Notice> : null}
       {ext.state === 'replace' ? (
         <Notice
           actions={

@@ -1,4 +1,5 @@
 import type {
+  DevSource,
   MarketplaceError,
   MarketplaceResult,
   MarketplaceState,
@@ -22,6 +23,8 @@ interface MarketplaceStoreState {
   install: (marketplaceId: string, extId: string) => Promise<boolean>
   installCode: (marketplaceId: string, code: string) => Promise<boolean>
   uninstall: (extId: string) => Promise<boolean>
+  setPrerelease: (extId: string, enabled: boolean) => Promise<boolean>
+  installDev: (source: DevSource) => Promise<boolean>
 }
 
 export const useMarketplaceStore = create<MarketplaceStoreState>((set) => {
@@ -36,7 +39,7 @@ export const useMarketplaceStore = create<MarketplaceStoreState>((set) => {
     return res.ok
   }
   return {
-    state: { marketplaces: [], installed: [] },
+    state: { marketplaces: [], installed: [], prerelease: [], dev: {} },
     loaded: false,
     busy: false,
     failure: null,
@@ -48,5 +51,8 @@ export const useMarketplaceStore = create<MarketplaceStoreState>((set) => {
     install: (id, extId) => run(() => window.ostia.marketplace.install(id, extId)),
     installCode: (id, code) => run(() => window.ostia.marketplace.installCode(id, code)),
     uninstall: (extId) => run(() => window.ostia.marketplace.uninstall(extId)),
+    setPrerelease: (extId, enabled) =>
+      run(() => window.ostia.marketplace.setPrerelease(extId, enabled)),
+    installDev: (source) => run(() => window.ostia.marketplace.installDev(source)),
   }
 })

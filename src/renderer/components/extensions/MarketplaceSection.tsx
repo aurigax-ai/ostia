@@ -23,6 +23,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { fmt, useDict } from '@/lib/app/useDict'
+import { parseDevSource } from '@/lib/extensions/devSource'
 import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
 import { useMarketplaceStore } from '@/stores/extensions/marketplaceStore'
 
@@ -202,6 +203,39 @@ export function MarketplaceFailureNote(): JSX.Element | null {
   )
 }
 
+function DevInstallRow(): JSX.Element {
+  const d = useDict()
+  const busy = useMarketplaceStore((s) => s.busy)
+  const installDev = useMarketplaceStore((s) => s.installDev)
+  const [text, setText] = useState('')
+  const source = parseDevSource(text)
+  const submit = async (): Promise<void> => {
+    if (!source || busy) return
+    if (await installDev(source)) setText('')
+  }
+  return (
+    <form
+      onSubmit={(e) => {
+        e.preventDefault()
+        void submit()
+      }}
+    >
+      <ControlRow label={d.marketplace.devTitle} desc={d.marketplace.devDesc}>
+        <Input
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          placeholder={d.marketplace.devPlaceholder}
+          aria-label={d.marketplace.devLabel}
+          className="h-7 w-56 font-mono"
+        />
+        <Button type="submit" variant="outline" size="sm" disabled={busy || !source}>
+          {d.marketplace.devInstall}
+        </Button>
+      </ControlRow>
+    </form>
+  )
+}
+
 export function MarketplacesGroup(): JSX.Element {
   const d = useDict()
   const marketplaces = useMarketplaceList()
@@ -235,6 +269,7 @@ export function MarketplacesGroup(): JSX.Element {
           </Button>
         </ControlRow>
       </form>
+      <DevInstallRow />
       <SettingsList label={d.marketplace.title} empty={d.marketplace.none}>
         {marketplaces.map((marketplace) => (
           <MarketplaceRow key={marketplace.id} marketplace={marketplace} />

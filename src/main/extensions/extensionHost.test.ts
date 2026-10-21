@@ -1,13 +1,16 @@
+import { generateKeyPairSync } from 'node:crypto'
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { ALL_CAPABILITIES } from '@aurigax-ai/ostia-extension-sdk/contract/capabilities'
+import { signExtension } from '@aurigax-ai/ostia-extension-sdk/manifest/extensionSignature'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { registerPane } from '../control/idRegistry'
 import { ExtensionHost } from './extensionHost'
 import type { ExtensionHostDeps } from './extensionHostDeps'
 import { ExtensionStore } from './extensionStore'
+import { OfficialRevocations, officialUpdateCheck } from './officialExtensions'
 
 let base: string
 
@@ -701,5 +704,62 @@ describe('ExtensionHost — agent skill problems', () => {
     expect(byId.shelly?.agentSkillProblems).toEqual([
       "agent skill 'review': SKILL.md: line 5: shell injection (!` or a ```! block) is not allowed",
     ])
+  })
+})
+
+describe('ExtensionHost — a built-in updated from the official marketplace', () => {
+  const { privateKey, publicKey } = generateKeyPairSync('ed25519')
+  const publicDer = publicKey.export({ type: 'spki', format: 'der' }).toString('base64')
+  const privatePem = privateKey.export({ type: 'pkcs8', format: 'pem' }).toString()
+
+  function update(version: string, sign: boolean): void {
+    const dir = writeExt(join(base, 'user'), 'board', {
+      version,
+      capabilities: ['notify'],
+      contributes: { panel: { title: 'Board', entry: 'panel.html' } },
+    })
+    if (sign) signExtension(dir, 'board', version, privatePem)
+  }
+
+  function host(key: string | null = publicDer, revoked: string[] = []) {
+    const revocations = new OfficialRevocations(join(base, 'revoked.json'))
+    writeFileSync(join(base, 'revoked.json'), JSON.stringify(revoked))
+    return makeHost({ officialUpdate: officialUpdateCheck(() => key ?? undefined, revocations) })
+      .host
+  }
+
+  const board = (h: ExtensionHost) => h.list().find((e) => e.id === 'board')
+
+  it('runs a signed newer copy with the built-in powers', () => {
+    update('2.0.0', true)
+    expect(board(host())).toMatchObject({
+      builtin: true,
+      version: '2.0.0',
+      enabled: true,
+      unapproved: [],
+    })
+  })
+
+  it('keeps the bundled copy for an unsigned, tampered, downgraded or revoked one', () => {
+    update('2.0.0', false)
+    expect(board(host())).toMatchObject({ builtin: true, version: '1.0.0' })
+
+    update('2.0.0', true)
+    writeFileSync(join(base, 'user/board/panel.html'), '<script>steal()</script>')
+    expect(board(host())).toMatchObject({ builtin: true, version: '1.0.0' })
+
+    update('0.9.0', true)
+    expect(board(host())).toMatchObject({ builtin: true, version: '1.0.0' })
+
+    update('2.0.0', true)
+    expect(board(host(null))).toMatchObject({ version: '1.0.0' })
+    expect(board(host(publicDer, ['board@2.0.0']))).toMatchObject({ version: '1.0.0' })
+  })
+
+  it('refuses a copy signed by another key', () => {
+    update('2.0.0', true)
+    const other = generateKeyPairSync('ed25519').publicKey
+    const otherDer = other.export({ type: 'spki', format: 'der' }).toString('base64')
+    expect(board(host(otherDer))).toMatchObject({ version: '1.0.0' })
   })
 })

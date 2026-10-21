@@ -64,6 +64,7 @@ jobs:
           OSTIA_MAIN_BUILD: ${{ github.run_number }}
           OSTIA_TELEMETRY_KEY: ${{ vars.OSTIA_TELEMETRY_KEY }}
           OSTIA_TELEMETRY_HOST: ${{ vars.OSTIA_TELEMETRY_HOST }}
+          OSTIA_EXTENSION_PUBLIC_KEY: ${{ vars.OSTIA_EXTENSION_PUBLIC_KEY }}
       - name: Release version is the build version without its metadata
         id: version
         run: |

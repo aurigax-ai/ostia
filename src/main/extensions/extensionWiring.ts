@@ -40,6 +40,7 @@ import { sandboxSpawnEnv } from '../sandbox/spawnEnv'
 import type { WorkspaceSandboxes } from '../sandbox/workspaceSandboxes'
 import type { PtyEntry } from '../terminal/pty/ptyRegistry'
 import { setAgentPlugins } from '../terminal/shellIntegration'
+import { runningBuild } from '../updates/appVersion'
 import type { WindowSend } from '../windows/windowSend'
 import type { ScratchFolders } from '../workspaces/scratchFolders'
 import { windowForWorkspace, workDirForWorkspace } from '../workspaces/workspaceRegistry'
@@ -54,6 +55,11 @@ import { registerExtensionMethods } from './extensionMethods'
 import type { PhoneScreenLinks } from './extensionPhoneScreens'
 import { ExtensionStore } from './extensionStore'
 import { answerInboxAction } from './inboxIpc'
+import {
+  OFFICIAL_REVOCATIONS_FILE,
+  OfficialRevocations,
+  officialUpdateCheck,
+} from './officialExtensions'
 import { registerWireRuntime, WireRuntime } from './wireRuntime'
 import { inboxEntriesForWindow, workspaceChipsForWindow } from './workspaceChips'
 
@@ -249,6 +255,10 @@ export function startExtensionHost({
         ? workspaceSandboxes.resolved(workspaceId).domains
         : null,
     roots: extensionRoots(),
+    officialUpdate: officialUpdateCheck(
+      () => runningBuild()?.extensionKey,
+      new OfficialRevocations(join(app.getPath('userData'), OFFICIAL_REVOCATIONS_FILE)),
+    ),
     store: extensionStore,
     launches: new ExtensionLaunches(join(app.getPath('userData'), 'extension-launches.json')),
     socketPath: controlSocketPath,

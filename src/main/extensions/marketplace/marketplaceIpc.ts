@@ -40,6 +40,12 @@ export function createMarketplaceIpc({
       marketplace.installCode(id, code),
     )
     ipcMain.handle('marketplace:uninstall', (_e, extId: unknown) => marketplace.uninstall(extId))
+    ipcMain.handle('marketplace:set-prerelease', (_e, extId: unknown, enabled: unknown) =>
+      marketplace.setPrerelease(extId, enabled),
+    )
+    ipcMain.handle('marketplace:install-dev', (_e, source: unknown) =>
+      marketplace.installDev(source),
+    )
 
     const dismissed = new DismissedSuggestions(
       join(app.getPath('userData'), 'extension-suggestions.json'),

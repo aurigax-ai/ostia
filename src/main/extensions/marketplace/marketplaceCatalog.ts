@@ -1,11 +1,17 @@
 import { lstatSync, readFileSync, realpathSync } from 'node:fs'
 import { join } from 'node:path'
+import { EXTENSION_API_VERSION } from '@aurigax-ai/ostia-extension-sdk/contract/extensionApi'
 import type { ExtensionManifest } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import { agentSkillProblems } from '@aurigax-ai/ostia-extension-sdk/manifest/agentSkills'
 import { readManifest } from '@aurigax-ai/ostia-extension-sdk/manifest/extensionManifest'
 import {
+  lowestApiNeeded,
+  newestCompatible,
+} from '@aurigax-ai/ostia-extension-sdk/manifest/extensionVersions'
+import {
   MARKETPLACE_MANIFEST_FILE,
   parseMarketplaceManifest,
+  type RevokedVersion,
 } from '@aurigax-ai/ostia-extension-sdk/manifest/marketplaceManifest'
 import { isInsidePath } from '../../platform/pathGuard'
 
@@ -15,6 +21,12 @@ export interface CatalogEntry {
   dir: string
   manifest: ExtensionManifest
   code?: string
+  needsApi?: string
+}
+
+export interface CatalogOptions {
+  appApi?: string
+  prerelease: (extId: string) => boolean
 }
 
 interface BrokenUnlisted {
@@ -29,6 +41,7 @@ export interface Catalog {
   entries: CatalogEntry[]
   unlisted: boolean
   brokenUnlisted: BrokenUnlisted[]
+  revoked: RevokedVersion[]
 }
 
 export function isRealDirectory(path: string): boolean {
@@ -39,7 +52,7 @@ export function isRealDirectory(path: string): boolean {
   }
 }
 
-export function readCatalog(clone: string): Catalog | string {
+export function readCatalog(clone: string, options: CatalogOptions): Catalog | string {
   const name = MARKETPLACE_MANIFEST_FILE
   const file = join(clone, name)
   let raw: unknown
@@ -57,33 +70,50 @@ export function readCatalog(clone: string): Catalog | string {
   if (typeof manifest === 'string') return manifest
   const root = realpathSync(clone)
   const problems: string[] = []
-  const entries: CatalogEntry[] = []
   const brokenUnlisted: BrokenUnlisted[] = []
+  const read = (path: string): CatalogEntry | string => {
+    const dir = join(clone, path)
+    if (!isRealDirectory(dir) || !isInsidePath(root, realpathSync(dir))) {
+      return 'not a folder in the repository'
+    }
+    const res = readManifest(dir, { anyApi: true })
+    if (!res.ok) return res.error
+    const skillProblems = agentSkillProblems(dir, res.manifest)
+    return skillProblems.length > 0 ? skillProblems.join('; ') : { dir, manifest: res.manifest }
+  }
+  const current: CatalogEntry[] = []
   const offered: { path: string; code?: string }[] = [
     ...manifest.extensions.map((path) => ({ path })),
     ...manifest.unlisted,
   ]
   for (const { path, code } of offered) {
-    const refuse = (problem: string): void => {
+    const entry = read(path)
+    if (typeof entry === 'string') {
+      if (code) brokenUnlisted.push({ code, problem: entry })
+      else problems.push(`${path}: ${entry}`)
+    } else if (current.some((e) => e.manifest.id === entry.manifest.id)) {
+      const problem = `duplicate extension id '${entry.manifest.id}'`
       if (code) brokenUnlisted.push({ code, problem })
       else problems.push(`${path}: ${problem}`)
-    }
-    const dir = join(clone, path)
-    if (!isRealDirectory(dir) || !isInsidePath(root, realpathSync(dir))) {
-      refuse('not a folder in the repository')
-      continue
-    }
-    const res = readManifest(dir)
-    const skillProblems = res.ok ? agentSkillProblems(dir, res.manifest) : []
-    if (!res.ok) {
-      refuse(res.error)
-    } else if (skillProblems.length > 0) {
-      refuse(skillProblems.join('; '))
-    } else if (entries.some((e) => e.manifest.id === res.manifest.id)) {
-      refuse(`duplicate extension id '${res.manifest.id}'`)
     } else {
-      entries.push({ dir, manifest: res.manifest, ...(code ? { code } : {}) })
+      current.push({ ...entry, ...(code ? { code } : {}) })
     }
+  }
+  const older: CatalogEntry[] = []
+  for (const path of manifest.history) {
+    const entry = read(path)
+    if (typeof entry === 'string') problems.push(`${path}: ${entry}`)
+    else older.push(entry)
+  }
+  const revoked = new Set(manifest.revoked.map(({ id, version }) => `${id}@${version}`))
+  const isRevoked = (entry: CatalogEntry): boolean =>
+    revoked.has(`${entry.manifest.id}@${entry.manifest.version}`)
+  const entries: CatalogEntry[] = []
+  for (const entry of current) {
+    const history = older.filter((e) => e.manifest.id === entry.manifest.id)
+    const resolved = resolveRelease(entry, history, isRevoked, options)
+    if (resolved) entries.push(resolved)
+    else if (!entry.code) problems.push(`${entry.manifest.id}: every release was revoked`)
   }
   return {
     name: manifest.name,
@@ -92,5 +122,26 @@ export function readCatalog(clone: string): Catalog | string {
     entries,
     unlisted: manifest.unlisted.length > 0,
     brokenUnlisted,
+    revoked: manifest.revoked,
   }
+}
+
+function resolveRelease(
+  listed: CatalogEntry,
+  older: CatalogEntry[],
+  isRevoked: (entry: CatalogEntry) => boolean,
+  options: CatalogOptions,
+): CatalogEntry | null {
+  const appApi = options.appApi ?? EXTENSION_API_VERSION
+  const offerable = [listed, ...older].filter((entry) => !isRevoked(entry))
+  const candidates = offerable.map((entry) => ({
+    version: entry.manifest.version,
+    api: entry.manifest.api,
+    entry,
+  }))
+  const chosen = newestCompatible(candidates, appApi, options.prerelease(listed.manifest.id))
+  if (chosen) return { ...chosen.entry, ...(listed.code ? { code: listed.code } : {}) }
+  if (candidates.length === 0) return null
+  const needsApi = lowestApiNeeded(candidates) ?? listed.manifest.api
+  return { ...listed, needsApi }
 }

@@ -218,7 +218,11 @@ export class ExtensionHost {
   }
 
   private discover(): LoadedExtension[] {
-    return discoverExtensions(this.deps.roots, (dir, error) => this.log(dir, error)).map((ext) => ({
+    return discoverExtensions(
+      this.deps.roots,
+      (dir, error) => this.log(dir, error),
+      this.deps.officialUpdate,
+    ).map((ext) => ({
       ...ext,
       catalogs: loadLocaleCatalogs(ext.dir, ext.manifest, (problem) =>
         this.log(ext.manifest.id, problem),

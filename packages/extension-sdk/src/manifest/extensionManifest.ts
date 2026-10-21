@@ -2,7 +2,7 @@ import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 import { AGENT_PLUGIN_CAPABILITY } from '../contract/agentPlugins'
 import { parseEditorLanguages } from '../contract/editorLanguages'
-import { apiProblem } from '../contract/extensionApi'
+import { apiProblem, parseApiVersion } from '../contract/extensionApi'
 import {
   EXTENSION_CATEGORIES,
   EXTENSION_MANIFEST_FILE,
@@ -15,6 +15,7 @@ import { parseLanguageServers } from '../contract/languageServerManifest'
 import { isInsideDir } from './confinedRead'
 import { parseConnectionKinds } from './connectionKinds'
 import { isCoreSource, verbProblem } from './coreNames'
+import { isOlderVersion } from './extensionVersions'
 import {
   parseAgentHooks,
   parseAgentSkills,
@@ -46,7 +47,15 @@ export interface ExtensionRoot {
   builtin: boolean
 }
 
-export function parseManifest(raw: unknown, dir: string): ManifestResult {
+export interface ManifestOptions {
+  anyApi?: boolean
+}
+
+export function parseManifest(
+  raw: unknown,
+  dir: string,
+  options: ManifestOptions = {},
+): ManifestResult {
   if (!isRecord(raw)) return { ok: false, error: 'manifest must be a JSON object' }
   const id = raw.id
   if (typeof id !== 'string' || !EXTENSION_ID_PATTERN.test(id)) {
@@ -58,7 +67,7 @@ export function parseManifest(raw: unknown, dir: string): ManifestResult {
   if (!name) return { ok: false, error: 'missing name' }
   if (!version) return { ok: false, error: 'missing version' }
   if (raw.api === undefined) return { ok: false, error: 'missing api' }
-  const incompatible = apiProblem(raw.api)
+  const incompatible = options.anyApi && parseApiVersion(raw.api) ? null : apiProblem(raw.api)
   if (incompatible) return { ok: false, error: incompatible }
   const description =
     typeof raw.description === 'string' ? raw.description.slice(0, MAX_DESCRIPTION) : ''
@@ -195,7 +204,7 @@ export function parseManifest(raw: unknown, dir: string): ManifestResult {
   return { ok: true, manifest }
 }
 
-export function readManifest(dir: string): ManifestResult {
+export function readManifest(dir: string, options: ManifestOptions = {}): ManifestResult {
   const file = EXTENSION_MANIFEST_FILE
   let raw: unknown
   try {
@@ -203,7 +212,7 @@ export function readManifest(dir: string): ManifestResult {
   } catch (err) {
     return { ok: false, error: `unreadable ${file}: ${(err as Error).message}` }
   }
-  return parseManifest(raw, dir)
+  return parseManifest(raw, dir, options)
 }
 
 function subdirs(root: string): string[] {
@@ -242,9 +251,18 @@ function verbClash(manifest: ExtensionManifest, found: DiscoveredExtension[]): s
   return null
 }
 
+function updateProblem(bundled: ExtensionManifest, update: ExtensionManifest): string | null {
+  return isOlderVersion(update.version, bundled.version)
+    ? `version ${update.version} is below the bundled ${bundled.version}`
+    : null
+}
+
+export type OfficialUpdateCheck = (dir: string, manifest: ExtensionManifest) => string | null
+
 export function discoverExtensions(
   roots: ExtensionRoot[],
   onError: (dir: string, error: string) => void = () => {},
+  officialUpdate: OfficialUpdateCheck = () => 'no official update channel',
 ): DiscoveredExtension[] {
   const found = new Map<string, DiscoveredExtension>()
   const ordered = [...roots].sort((a, b) => Number(b.builtin) - Number(a.builtin))
@@ -255,7 +273,16 @@ export function discoverExtensions(
         onError(dir, res.error)
         continue
       }
-      if (found.has(res.manifest.id)) {
+      const bundled = found.get(res.manifest.id)
+      if (bundled?.builtin && !root.builtin) {
+        const problem =
+          officialUpdate(dir, res.manifest) ?? updateProblem(bundled.manifest, res.manifest)
+        if (problem)
+          onError(dir, `not used in place of the built-in '${bundled.manifest.id}': ${problem}`)
+        else found.set(bundled.manifest.id, { dir, builtin: true, manifest: res.manifest })
+        continue
+      }
+      if (bundled) {
         onError(dir, `duplicate extension id '${res.manifest.id}'`)
         continue
       }

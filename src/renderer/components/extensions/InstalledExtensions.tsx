@@ -81,8 +81,14 @@ function useSourceLabel(ext: ExtensionInfo): string {
   const d = useDict()
   const marketplaces = useMarketplaceStore((s) => s.state.marketplaces)
   const fromMarketplace = useMarketplaceStore((s) => s.state.installed.includes(ext.id))
-  if (ext.builtin) return d.extensions.sourceBuiltin
+  const dev = useMarketplaceStore((s) => s.state.dev[ext.id])
   const owner = marketplaces.find((m) => m.installs.includes(ext.id))
+  if (ext.builtin) {
+    return owner
+      ? fmt(d.extensions.sourceBuiltinUpdated, { name: marketplaceName(d, owner) })
+      : d.extensions.sourceBuiltin
+  }
+  if (dev) return fmt(d.extensions.sourceDev, { source: dev })
   if (owner) return fmt(d.extensions.sourceMarketplace, { name: marketplaceName(d, owner) })
   return fromMarketplace ? d.extensions.sourceOrphaned : d.extensions.sourceManual
 }
@@ -188,6 +194,27 @@ function FileKindRows({ ext }: { ext: ExtensionInfo }): JSX.Element | null {
   )
 }
 
+function PrereleaseRow({ extId }: { extId: string }): JSX.Element | null {
+  const d = useDict()
+  const owned = useMarketplaceStore((s) =>
+    s.state.marketplaces.some((m) => m.installs.includes(extId)),
+  )
+  const enabled = useMarketplaceStore((s) => s.state.prerelease.includes(extId))
+  const busy = useMarketplaceStore((s) => s.busy)
+  const setPrerelease = useMarketplaceStore((s) => s.setPrerelease)
+  if (!owned) return null
+  return (
+    <ControlRow label={d.extensions.prerelease} desc={d.extensions.prereleaseDesc}>
+      <Switch
+        checked={enabled}
+        disabled={busy}
+        onCheckedChange={(v) => void setPrerelease(extId, v)}
+        aria-label={d.extensions.prerelease}
+      />
+    </ControlRow>
+  )
+}
+
 function ExtensionDetails({ ext }: { ext: ExtensionInfo }): JSX.Element {
   const d = useDict()
   const description = withProductName(ext.description)
@@ -201,6 +228,7 @@ function ExtensionDetails({ ext }: { ext: ExtensionInfo }): JSX.Element {
       <ControlRow label={d.extensions.status}>
         <Value>{extensionStatusLabel(d, ext)}</Value>
       </ControlRow>
+      <PrereleaseRow extId={ext.id} />
       <div className="mt-3" />
       <PermissionRows ext={ext} />
       <FileKindRows ext={ext} />

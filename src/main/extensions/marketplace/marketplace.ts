@@ -5,7 +5,12 @@ import {
   type ExtensionManifest,
 } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import { isRecord } from '@aurigax-ai/ostia-extension-sdk/contract/isRecord'
-import { readManifest } from '@aurigax-ai/ostia-extension-sdk/manifest/extensionManifest'
+import { agentSkillProblems } from '@aurigax-ai/ostia-extension-sdk/manifest/agentSkills'
+import {
+  type OfficialUpdateCheck,
+  readManifest,
+} from '@aurigax-ai/ostia-extension-sdk/manifest/extensionManifest'
+import { isNewerVersion } from '@aurigax-ai/ostia-extension-sdk/manifest/extensionVersions'
 import {
   loadLocaleCatalogs,
   manifestIn,
@@ -14,6 +19,7 @@ import { EXTENSION_ID_PATTERN } from '@aurigax-ai/ostia-extension-sdk/manifest/m
 import {
   MARKETPLACE_CODE_PATTERN,
   planCopy,
+  type RevokedVersion,
 } from '@aurigax-ai/ostia-extension-sdk/manifest/marketplaceManifest'
 import {
   MARKETPLACE_FEATURE,
@@ -28,6 +34,7 @@ import {
 import { loadJson, saveJson } from '../../platform/jsonStore'
 import { missingRequirements } from '../../platform/systemRequirements'
 import { type Catalog, type CatalogEntry, isRealDirectory, readCatalog } from './marketplaceCatalog'
+import { stageDevSource } from './marketplaceDev'
 import {
   GitError,
   type GitRunner,
@@ -43,15 +50,24 @@ interface Source {
   url: string
 }
 
+const DEV_OWNER = 'dev'
+
 interface Records {
   sources: Source[]
   installs: Record<string, string>
+  prerelease: string[]
+  dev: Record<string, string>
 }
 
 function sanitizeRecords(raw: unknown): Records {
-  const records: Records = { sources: [], installs: {} }
+  const records: Records = { sources: [], installs: {}, prerelease: [], dev: {} }
   if (typeof raw !== 'object' || raw === null) return records
-  const { sources, installs } = raw as { sources?: unknown; installs?: unknown }
+  const { sources, installs, prerelease, dev } = raw as {
+    sources?: unknown
+    installs?: unknown
+    prerelease?: unknown
+    dev?: unknown
+  }
   if (Array.isArray(sources)) {
     for (const source of sources) {
       const url = normalizeMarketplaceUrl((source as { url?: unknown } | null)?.url)
@@ -68,6 +84,18 @@ function sanitizeRecords(raw: unknown): Records {
       }
     }
   }
+  if (Array.isArray(prerelease)) {
+    records.prerelease = prerelease.filter(
+      (extId): extId is string => typeof extId === 'string' && EXTENSION_ID_PATTERN.test(extId),
+    )
+  }
+  if (isRecord(dev)) {
+    for (const [extId, source] of Object.entries(dev)) {
+      if (records.installs[extId] === DEV_OWNER && typeof source === 'string') {
+        records.dev[extId] = source
+      }
+    }
+  }
   return records
 }
 
@@ -75,7 +103,9 @@ export interface MarketplaceDeps {
   recordsPath: string
   clonesDir: string
   extensionsDir: string
-  builtinIds: () => string[]
+  bundledVersion: (extId: string) => string | undefined
+  officialUpdate: OfficialUpdateCheck
+  saveRevocations: (revoked: readonly RevokedVersion[]) => boolean
   forget: (extId: string) => void
   rescan: () => void
   locale?: () => string | undefined
@@ -131,13 +161,14 @@ export class Marketplace {
     const listed: ExtensionListing[] = []
     for (const source of this.records.sources) {
       const dir = this.cloneDir(source.id)
-      const catalog = existsSync(dir) ? readCatalog(dir) : null
+      const catalog = existsSync(dir) ? this.catalogOf(dir) : null
       if (catalog === null || typeof catalog === 'string') continue
       for (const entry of catalog.entries) {
         if (!this.isShown(source.id, entry)) continue
         const { manifest } = entry
         const languages = (manifest.contributes.languageServers ?? []).flatMap((s) => s.languages)
-        if (this.installState(source.id, manifest) === 'conflict') continue
+        const state = this.installState(source.id, entry)
+        if (state === 'conflict' || state === 'incompatible') continue
         listed.push({
           marketplaceId: source.id,
           extId: manifest.id,
@@ -150,6 +181,10 @@ export class Marketplace {
     }
     this.listed = listed
     return listed
+  }
+
+  private catalogOf(dir: string): Catalog | string {
+    return readCatalog(dir, { prerelease: (extId) => this.records.prerelease.includes(extId) })
   }
 
   private cloneDir(id: string): string {
@@ -165,14 +200,33 @@ export class Marketplace {
     return res.ok ? res.manifest.version : undefined
   }
 
-  private installState(sourceId: string, manifest: ExtensionManifest): MarketplaceInstallState {
-    if (this.deps.builtinIds().includes(manifest.id)) return 'conflict'
+  private installState(sourceId: string, entry: CatalogEntry): MarketplaceInstallState {
+    const { manifest } = entry
+    const bundled = this.deps.bundledVersion(manifest.id)
+    if (bundled !== undefined && !this.canUpdateBuiltin(sourceId, entry, bundled)) return 'conflict'
+    if (entry.needsApi) return 'incompatible'
     if (!existsSync(this.installDir(manifest.id))) return 'available'
     const owner = this.records.installs[manifest.id]
     if (owner === sourceId) {
-      return this.installedVersion(manifest.id) === manifest.version ? 'installed' : 'update'
+      const installed = this.installedVersion(manifest.id)
+      return installed !== undefined && !isNewerVersion(manifest.version, installed)
+        ? 'installed'
+        : 'update'
     }
-    return owner !== undefined && !this.hasSource(owner) ? 'replace' : 'conflict'
+    return owner !== undefined && owner !== DEV_OWNER && !this.hasSource(owner)
+      ? 'replace'
+      : 'conflict'
+  }
+
+  private isBundled(entry: CatalogEntry): boolean {
+    return this.deps.bundledVersion(entry.manifest.id) !== undefined
+  }
+
+  private canUpdateBuiltin(sourceId: string, entry: CatalogEntry, bundled: string): boolean {
+    const source = this.records.sources.find((s) => s.id === sourceId)
+    if (!source || source.url !== this.officialUrl) return false
+    if (!isNewerVersion(entry.manifest.version, bundled)) return false
+    return this.deps.officialUpdate(entry.dir, entry.manifest) === null
   }
 
   private hasSource(id: string): boolean {
@@ -187,11 +241,20 @@ export class Marketplace {
 
   private describe(
     source: Source,
-    { dir, manifest }: CatalogEntry,
+    entry: CatalogEntry,
     locale: string | undefined,
+    catalog: Catalog,
   ): MarketplaceExtension {
-    const state = this.installState(source.id, manifest)
-    const installedVersion = state === 'update' ? this.installedVersion(manifest.id) : undefined
+    const { dir, manifest } = entry
+    const state = this.installState(source.id, entry)
+    const installed =
+      this.records.installs[manifest.id] === source.id
+        ? this.installedVersion(manifest.id)
+        : undefined
+    const installedVersion = state === 'update' ? installed : undefined
+    const installedRevoked = catalog.revoked.some(
+      (r) => r.id === manifest.id && r.version === installed,
+    )
     const shown = manifestIn(manifest, loadLocaleCatalogs(dir, manifest), locale)
     const icon = manifest.contributes.panel?.icon ?? manifest.contributes.settingsPage?.icon
     const commandTitle = (id: string): string =>
@@ -213,6 +276,8 @@ export class Marketplace {
       })),
       state,
       ...(installedVersion ? { installedVersion } : {}),
+      ...(installedRevoked ? { installedRevoked } : {}),
+      ...(entry.needsApi ? { needsApi: entry.needsApi } : {}),
     }
   }
 
@@ -224,7 +289,7 @@ export class Marketplace {
     const official = source.url === this.officialUrl
     const base = { id: source.id, url: source.url, installs, official, downloaded }
     const locale = this.deps.locale?.()
-    const catalog = downloaded ? readCatalog(this.cloneDir(source.id)) : null
+    const catalog = downloaded ? this.catalogOf(this.cloneDir(source.id)) : null
     if (catalog === null || typeof catalog === 'string') {
       return {
         ...base,
@@ -243,7 +308,7 @@ export class Marketplace {
       description: catalog.description,
       problems: catalog.problems,
       unlisted: catalog.unlisted,
-      extensions: offered.map((entry) => this.describe(source, entry, locale)),
+      extensions: offered.map((entry) => this.describe(source, entry, locale, catalog)),
     }
   }
 
@@ -251,6 +316,8 @@ export class Marketplace {
     return {
       marketplaces: this.records.sources.map((source) => this.info(source)),
       installed: Object.keys(this.records.installs).filter((id) => existsSync(this.installDir(id))),
+      prerelease: this.records.prerelease,
+      dev: this.records.dev,
     }
   }
 
@@ -304,7 +371,7 @@ export class Marketplace {
       const code = err instanceof GitError ? err.code : 'clone-failed'
       return this.fail(code, (err as Error).message)
     }
-    const catalog = readCatalog(staging)
+    const catalog = this.catalogOf(staging)
     if (typeof catalog === 'string') {
       rmSync(staging, { recursive: true, force: true })
       return this.fail('invalid-marketplace', catalog)
@@ -312,6 +379,9 @@ export class Marketplace {
     rmSync(target, { recursive: true, force: true })
     renameSync(staging, target)
     this.listed = null
+    if (source.url === this.officialUrl && this.deps.saveRevocations(catalog.revoked)) {
+      this.deps.rescan()
+    }
     return null
   }
 
@@ -335,12 +405,12 @@ export class Marketplace {
     return this.records.sources.find((source) => {
       if (onlyUrl !== null && source.url !== onlyUrl) return false
       const dir = this.cloneDir(source.id)
-      const catalog = existsSync(dir) ? readCatalog(dir) : null
+      const catalog = existsSync(dir) ? this.catalogOf(dir) : null
       if (catalog === null || typeof catalog === 'string') return false
       const entry = catalog.entries.find(
         (e) => e.manifest.id === extId && this.isShown(source.id, e),
       )
-      return entry !== undefined && this.installState(source.id, entry.manifest) !== 'conflict'
+      return entry !== undefined && this.installState(source.id, entry) !== 'conflict'
     })
   }
 
@@ -348,7 +418,7 @@ export class Marketplace {
     return this.records.sources.some((source) => {
       if (onlyUrl !== null && source.url !== onlyUrl) return false
       const dir = this.cloneDir(source.id)
-      const catalog = existsSync(dir) ? readCatalog(dir) : null
+      const catalog = existsSync(dir) ? this.catalogOf(dir) : null
       if (catalog === null || typeof catalog === 'string') return false
       return catalog.entries.some((e) => e.manifest.id === extId && this.isShown(source.id, e))
     })
@@ -421,17 +491,28 @@ export class Marketplace {
   ): Promise<MarketplaceResult> {
     const source = this.records.sources.find((s) => s.id === id)
     if (!source) return this.fail('unknown-marketplace')
-    const catalog = readCatalog(this.cloneDir(source.id))
+    const catalog = this.catalogOf(this.cloneDir(source.id))
     if (typeof catalog === 'string') return this.fail('invalid-marketplace', catalog)
     const entry = pick(source, catalog)
     if ('ok' in entry) return entry
-    const state = this.installState(source.id, entry.manifest)
+    const state = this.installState(source.id, entry)
     if (state === 'conflict') return this.fail('conflict')
+    if (state === 'incompatible') return this.fail('needs-newer-app', entry.needsApi)
+    const fresh = (state === 'available' || state === 'replace') && !this.isBundled(entry)
+    return this.place(entry, source.id, fresh)
+  }
+
+  private place(
+    entry: CatalogEntry,
+    owner: string,
+    fresh: boolean,
+    note?: string,
+  ): MarketplaceResult {
     const plan = planCopy(entry.dir)
     if (!plan.ok) return this.fail(plan.error)
     const target = this.installDir(entry.manifest.id)
     try {
-      if (state === 'available' || state === 'replace') this.deps.forget(entry.manifest.id)
+      if (fresh) this.deps.forget(entry.manifest.id)
       rmSync(target, { recursive: true, force: true })
       const manifestLast = [
         ...plan.files.filter((f) => f !== EXTENSION_MANIFEST_FILE),
@@ -446,13 +527,40 @@ export class Marketplace {
       this.deps.rescan()
       return this.fail('write-failed', (err as Error).message)
     }
+    const { [entry.manifest.id]: _dev, ...dev } = this.records.dev
     this.records = {
       ...this.records,
-      installs: { ...this.records.installs, [entry.manifest.id]: source.id },
+      installs: { ...this.records.installs, [entry.manifest.id]: owner },
+      dev: note ? { ...dev, [entry.manifest.id]: note } : dev,
     }
     this.save()
     this.deps.rescan()
     return this.ok()
+  }
+
+  installDev(input: unknown): Promise<MarketplaceResult> {
+    return this.serialized(async () => {
+      mkdirSync(this.deps.clonesDir, { recursive: true })
+      if (this.gitMissing() && (input as { kind?: unknown } | null)?.kind === 'git') {
+        return this.fail('git-missing')
+      }
+      const staged = await stageDevSource(input, this.deps.clonesDir, this.deps.git)
+      if (!staged.ok) return this.fail(staged.error, staged.detail)
+      try {
+        const res = readManifest(staged.dir)
+        if (!res.ok) return this.fail('invalid-extension', res.error)
+        const problems = agentSkillProblems(staged.dir, res.manifest)
+        if (problems.length > 0) return this.fail('invalid-extension', problems.join('; '))
+        const { id } = res.manifest
+        const owner = this.records.installs[id]
+        const taken = existsSync(this.installDir(id)) && owner !== DEV_OWNER
+        if (this.deps.bundledVersion(id) !== undefined || taken) return this.fail('conflict')
+        const entry = { dir: staged.dir, manifest: res.manifest }
+        return this.place(entry, DEV_OWNER, !existsSync(this.installDir(id)), staged.label)
+      } finally {
+        staged.cleanup()
+      }
+    })
   }
 
   private shownEntry(extId: unknown) {
@@ -470,13 +578,13 @@ export class Marketplace {
     if (!MARKETPLACE_CODE_PATTERN.test(code)) return { ok: false, error: 'unknown-code' }
     for (const source of this.records.sources) {
       const dir = this.cloneDir(source.id)
-      const catalog = existsSync(dir) ? readCatalog(dir) : null
+      const catalog = existsSync(dir) ? this.catalogOf(dir) : null
       if (catalog === null || typeof catalog === 'string') continue
       const broken = catalog.brokenUnlisted.find((b) => b.code === code)
       if (broken) return { ok: false, error: 'invalid-extension', detail: broken.problem }
       const entry = catalog.entries.find((e) => e.code === code)
       if (entry) {
-        const extension = this.describe(source, entry, this.deps.locale?.())
+        const extension = this.describe(source, entry, this.deps.locale?.(), catalog)
         return { ok: true, marketplaceId: source.id, extension }
       }
     }
@@ -493,6 +601,18 @@ export class Marketplace {
         return catalog.entries.find((e) => e.code === code) ?? this.fail('unknown-code')
       }),
     )
+  }
+
+  setPrerelease(extId: unknown, enabled: unknown): Promise<MarketplaceResult> {
+    return this.serialized(async () => {
+      if (typeof extId !== 'string' || !EXTENSION_ID_PATTERN.test(extId)) {
+        return this.fail('unknown-extension')
+      }
+      const others = this.records.prerelease.filter((id) => id !== extId)
+      this.records = { ...this.records, prerelease: enabled === true ? [...others, extId] : others }
+      this.save()
+      return this.ok()
+    })
   }
 
   uninstall(extId: unknown): Promise<MarketplaceResult> {
@@ -517,8 +637,9 @@ export class Marketplace {
       return this.fail('write-failed', (err as Error).message)
     }
     const { [extId]: _removed, ...installs } = this.records.installs
-    this.records = { ...this.records, installs }
-    this.deps.forget(extId)
+    const { [extId]: _dev, ...dev } = this.records.dev
+    this.records = { ...this.records, installs, dev }
+    if (this.deps.bundledVersion(extId) === undefined) this.deps.forget(extId)
     return null
   }
 }

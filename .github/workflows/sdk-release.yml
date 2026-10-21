@@ -1,0 +1,48 @@
+name: SDK release
+
+on:
+  push:
+    tags: ['sdk-v*']
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sdk-release-${{ github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  sdk:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: The tag is on main
+        run: git merge-base --is-ancestor "$GITHUB_SHA" origin/main
+      - uses: ./.github/actions/setup
+        timeout-minutes: 10
+        with:
+          go: 'false'
+          electron: 'false'
+      - name: The tag matches the SDK version
+        id: tag
+        run: node scripts/extensionRelease.mjs check-sdk "$GITHUB_REF_NAME"
+      - run: pnpm build:sdk
+      - name: The SDK package tests
+        timeout-minutes: 15
+        run: pnpm exec vitest run packages/extension-sdk
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+      - name: Publish the extension SDK to npm
+        working-directory: out/sdk
+        env:
+          NPM_TAG: ${{ steps.tag.outputs.npm_tag }}
+        run: npm publish --tag "$NPM_TAG"

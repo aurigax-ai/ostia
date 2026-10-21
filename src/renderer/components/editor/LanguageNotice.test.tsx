@@ -9,7 +9,7 @@ import { useLanguageNoticeStore } from '@/stores/extensions/languageNoticeStore'
 import { useLanguageServersStore } from '@/stores/extensions/languageServersStore'
 import { LanguageNotice, serverNoticeFor } from './LanguageNotice'
 
-const state = { marketplaces: [], installed: [] }
+const state = { marketplaces: [], installed: [], prerelease: [], dev: {} }
 
 function server(extra: Partial<LanguageServerInfo> = {}): LanguageServerInfo {
   return {

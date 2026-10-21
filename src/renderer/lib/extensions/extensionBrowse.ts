@@ -12,7 +12,7 @@ export const BROWSE_FILTERS = ['all', 'installed', 'updates'] as const
 
 export type BrowseFilter = (typeof BROWSE_FILTERS)[number]
 
-export type BrowseChip = 'installed' | 'update' | 'problem'
+export type BrowseChip = 'installed' | 'update' | 'problem' | 'incompatible'
 
 export interface BrowseEntry {
   key: string
@@ -49,6 +49,8 @@ export function browseChip(state: MarketplaceInstallState): BrowseChip | null {
     case 'replace':
     case 'conflict':
       return 'problem'
+    case 'incompatible':
+      return 'incompatible'
     case 'available':
       return null
   }

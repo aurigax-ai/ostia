@@ -13,3 +13,5 @@ export function mainBuildRun(env: Record<string, string | undefined>): string | 
 export function telemetryStamp(
   env: Record<string, string | undefined>,
 ): { key: string; host: string } | null
+
+export function extensionKeyStamp(env: Record<string, string | undefined>): string | null

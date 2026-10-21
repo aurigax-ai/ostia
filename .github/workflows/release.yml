@@ -38,6 +38,7 @@ jobs:
         env:
           OSTIA_TELEMETRY_KEY: ${{ vars.OSTIA_TELEMETRY_KEY }}
           OSTIA_TELEMETRY_HOST: ${{ vars.OSTIA_TELEMETRY_HOST }}
+          OSTIA_EXTENSION_PUBLIC_KEY: ${{ vars.OSTIA_EXTENSION_PUBLIC_KEY }}
       - name: Build version is the plain tag version
         run: test "v$(node -p 'require("./out/build-info.json").version')" = "$GITHUB_REF_NAME"
       - run: pnpm exec electron-builder --linux dir deb --publish never
@@ -68,6 +69,7 @@ jobs:
         env:
           OSTIA_TELEMETRY_KEY: ${{ vars.OSTIA_TELEMETRY_KEY }}
           OSTIA_TELEMETRY_HOST: ${{ vars.OSTIA_TELEMETRY_HOST }}
+          OSTIA_EXTENSION_PUBLIC_KEY: ${{ vars.OSTIA_EXTENSION_PUBLIC_KEY }}
       - name: Build version is the plain tag version
         run: test "v$(node -p 'require("./out/build-info.json").version')" = "$GITHUB_REF_NAME"
       - name: Import the Developer ID certificate into a temporary keychain
@@ -115,26 +117,6 @@ jobs:
           name: packages-macos
           path: dist/*.dmg
           if-no-files-found: error
-
-  sdk:
-    needs: publish
-    runs-on: ubuntu-24.04
-    timeout-minutes: 10
-    permissions:
-      contents: read
-      id-token: write
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-      - uses: ./.github/actions/setup
-        timeout-minutes: 10
-      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
-        with:
-          node-version: 24
-          registry-url: https://registry.npmjs.org
-      - run: pnpm build:sdk
-      - name: Publish the extension SDK to npm
-        working-directory: out/sdk
-        run: npm publish --tag ${{ contains(github.ref_name, '-') && 'next' || 'latest' }}
 
   publish:
     needs: [ci, package, package-macos]

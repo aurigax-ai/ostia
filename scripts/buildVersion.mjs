@@ -33,3 +33,7 @@ export function telemetryStamp(env) {
 export function serverStamp(env) {
   return env.OSTIA_SERVER_STAMP_URL || null
 }
+
+export function extensionKeyStamp(env) {
+  return env.OSTIA_EXTENSION_PUBLIC_KEY || null
+}

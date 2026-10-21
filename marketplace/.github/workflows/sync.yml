@@ -1,4 +1,4 @@
-name: Sync with Ostia
+name: Sync Ostia extension releases
 
 on:
   schedule:
@@ -13,58 +13,58 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  check:
-    runs-on: ubuntu-24.04
-    outputs:
-      tag: ${{ steps.ostia.outputs.tag }}
-      stale: ${{ steps.ostia.outputs.stale }}
-    steps:
-      - uses: actions/checkout@v7
-      - name: Compare with the latest Ostia release
-        id: ostia
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          tag=$(gh api repos/aurigax-ai/ostia/releases/latest --jq .tag_name)
-          have=$(node -p 'require("./package.json").version')
-          echo "tag=$tag" >> "$GITHUB_OUTPUT"
-          if [ "v$have" != "$tag" ]; then echo "stale=true" >> "$GITHUB_OUTPUT"; fi
-
   sync:
-    needs: check
-    if: needs.check.outputs.stale == 'true'
     runs-on: ubuntu-24.04
     permissions:
       contents: write
     steps:
       - uses: actions/checkout@v7
-        with:
-          path: marketplace
-      - uses: actions/checkout@v7
-        with:
-          repository: aurigax-ai/ostia
-          ref: ${{ needs.check.outputs.tag }}
-          path: ostia
+      - name: Download the extension releases this repository does not hold yet
+        id: unseen
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir assets sources
+          gh api repos/aurigax-ai/ostia/releases --paginate \
+            --jq '.[] | select(.tag_name | startswith("ext/")) | .tag_name' |
+          while read -r tag; do
+            id=${tag#ext/}
+            id=${id%%/*}
+            version=${tag##*/v}
+            have=$(node -p "try { require('./extensions/$id/ostia.json').version } catch { '' }")
+            if [ -d "versions/$id/$version" ] || [ "$have" = "$version" ]; then continue; fi
+            gh release download "$tag" -R aurigax-ai/ostia -p "$id-$version.tar.gz" -D assets
+            git clone --quiet --depth 1 --branch "$tag" https://github.com/aurigax-ai/ostia "sources/clone"
+            cp -r "sources/clone/src/extensions/$id" "sources/$id-$version"
+            rm -rf sources/clone
+          done
+          echo "count=$(find assets -name '*.tar.gz' | wc -l)" >> "$GITHUB_OUTPUT"
       - uses: pnpm/action-setup@v6
-        with:
-          package_json_file: ostia/package.json
+        if: steps.unseen.outputs.count != '0'
       - uses: actions/setup-node@v7
+        if: steps.unseen.outputs.count != '0'
         with:
           node-version: 24
+          cache: pnpm
       - run: pnpm install --frozen-lockfile
-        working-directory: ostia
-      - run: pnpm publish:marketplace ../marketplace
-        working-directory: ostia
-      - run: pnpm typecheck && pnpm test && pnpm validate
-        working-directory: marketplace
+        if: steps.unseen.outputs.count != '0'
+      - name: Place the releases
+        if: steps.unseen.outputs.count != '0'
+        run: node sync-releases.mjs . assets sources
+      - name: The source builds what was released
+        if: steps.unseen.outputs.count != '0'
+        run: |
+          git add -A extensions versions src ostia-marketplace.json
+          pnpm typecheck
+          pnpm test
+          pnpm build
+          pnpm validate
+          git diff --exit-code -- extensions
       - name: Commit and push
-        working-directory: marketplace
-        env:
-          TAG: ${{ needs.check.outputs.tag }}
+        if: steps.unseen.outputs.count != '0'
         run: |
           git add -A
-          if git diff --cached --quiet; then exit 0; fi
           git -c user.name='github-actions[bot]' \
             -c user.email='41898282+github-actions[bot]@users.noreply.github.com' \
-            commit -m "Ostia ${TAG#v}"
+            commit -m "Sync extension releases"
           git push

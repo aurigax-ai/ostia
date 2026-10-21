@@ -10,6 +10,8 @@ rules:
   cache-poisoning:
     ignore:
       - release.yml
+      - sdk-release.yml
+      - extension-release.yml
   excessive-permissions:
     ignore:
       - release.yml
