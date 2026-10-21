@@ -271,7 +271,6 @@ export const settingsEn = {
     phoneOpenNew: 'Open new phone sessions there',
     phoneOpenNewDesc:
       'When the phone names no workspace, its new chat starts in the Phone workspace.',
-    phoneOpenNewNeedsFolder: 'Choose a folder first.',
     phoneProblemAboveHome: "A folder above your home folder can't be the Phone workspace.",
     phoneProblemData: "A folder that holds {product}'s own data can't be the Phone workspace.",
     phoneProblemHome: "Your home folder can't be the Phone workspace.",
@@ -286,9 +285,9 @@ export const settingsEn = {
     phoneTrustUnknown: 'Unknown',
     phoneWorkspace: 'Phone workspace',
     phoneWorkspaceChoose: 'Choose…',
-    phoneWorkspaceClear: 'Clear',
-    phoneWorkspaceDesc: 'The folder new phone chats run in. Never your home folder or above.',
-    phoneWorkspaceNone: 'None',
+    phoneWorkspaceDefault: 'Use default',
+    phoneWorkspaceDesc:
+      "The folder new phone chats run in. By default {product}'s own remote-workspace folder; never your home folder or above.",
     previewEditor: 'Editor',
     previewTerminal: 'Terminal',
     primarySelection: 'Primary selection',

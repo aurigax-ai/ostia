@@ -8,22 +8,23 @@ describe('GatewayPhoneWorkspace', () => {
     vi.clearAllMocks()
   })
 
-  it('PHW-C7 chooses a folder through the owner IPC and shows a refusal under the row', async () => {
+  it('PHW-C7 shows the default folder, chooses another through the owner IPC and goes back', async () => {
     const gateway = window.ostia.gateway
     vi.mocked(window.ostia.sync.pickFolder).mockResolvedValueOnce('/home/me')
     vi.mocked(gateway.setPhoneWorkspace).mockResolvedValueOnce({ ok: false, error: 'home' })
     render(<GatewayPhoneWorkspace />)
-    expect(await screen.findByText('None')).toBeTruthy()
+    expect(await screen.findByText('/data/ostia/remote-workspace')).toBeTruthy()
+    expect(screen.queryByRole('button', { name: 'Use default' })).toBeNull()
     expect(
       screen
         .getByRole('switch', { name: 'Open new phone sessions there' })
         .hasAttribute('data-disabled'),
-    ).toBe(true)
+    ).toBe(false)
     fireEvent.click(screen.getByRole('button', { name: 'Choose…' }))
     await waitFor(() =>
       expect(gateway.setPhoneWorkspace).toHaveBeenCalledWith({
         folder: '/home/me',
-        openNew: false,
+        openNew: true,
         agent: 'claude',
       }),
     )
@@ -32,15 +33,36 @@ describe('GatewayPhoneWorkspace', () => {
     vi.mocked(window.ostia.sync.pickFolder).mockResolvedValueOnce('/home/me/jobs')
     vi.mocked(gateway.setPhoneWorkspace).mockResolvedValueOnce({
       ok: true,
-      value: { folder: '/home/me/jobs', openNew: false, agent: 'claude', trust: 'ask' },
+      value: {
+        folder: '/home/me/jobs',
+        isDefault: false,
+        openNew: true,
+        agent: 'claude',
+        trust: 'ask',
+      },
     })
     fireEvent.click(screen.getByRole('button', { name: 'Choose…' }))
     expect(await screen.findByText('/home/me/jobs')).toBeTruthy()
     expect(screen.getByText('Not trusted yet')).toBeTruthy()
-    expect(
-      screen
-        .getByRole('switch', { name: 'Open new phone sessions there' })
-        .hasAttribute('data-disabled'),
-    ).toBe(false)
+
+    vi.mocked(gateway.setPhoneWorkspace).mockResolvedValueOnce({
+      ok: true,
+      value: {
+        folder: '/data/ostia/remote-workspace',
+        isDefault: true,
+        openNew: true,
+        agent: 'claude',
+        trust: 'unknown',
+      },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Use default' }))
+    await waitFor(() =>
+      expect(gateway.setPhoneWorkspace).toHaveBeenLastCalledWith({
+        folder: null,
+        openNew: true,
+        agent: 'claude',
+      }),
+    )
+    expect(await screen.findByText('/data/ostia/remote-workspace')).toBeTruthy()
   })
 })

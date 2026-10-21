@@ -7,6 +7,7 @@ import { folderTrust } from '../agents/claudeFolderTrust'
 import {
   type PhoneWorkspace,
   type PhoneWorkspacePaths,
+  folderOf,
   folderRefusal,
   loadPhoneWorkspace,
   setPhoneWorkspace,
@@ -20,17 +21,18 @@ async function shown(
   phone: PhoneWorkspace,
   paths: PhoneWorkspacePaths,
 ): Promise<GatewayPhoneWorkspace> {
-  if (!phone.folder) return { ...phone, trust: 'unknown' }
-  const problem = folderRefusal(phone.folder, paths)
-  if (problem) return { ...phone, trust: 'unknown', problem }
+  const folder = folderOf(phone, paths)
+  const shownPhone = { ...phone, folder, isDefault: phone.folder === null }
+  const problem = folderRefusal(folder, paths)
+  if (problem) return { ...shownPhone, trust: 'unknown', problem }
   const trust = await folderTrust({
-    folder: phone.folder,
-    workDir: phone.folder,
+    folder,
+    workDir: folder,
     home: paths.home,
     configDir: process.env.CLAUDE_CONFIG_DIR || undefined,
     customOAuth: Boolean(process.env.CLAUDE_CODE_CUSTOM_OAUTH_URL),
   }).catch(() => ({ state: 'unknown' as const }))
-  return { ...phone, trust: trust.state }
+  return { ...shownPhone, trust: trust.state }
 }
 
 export function registerPhoneWorkspaceIpc(deps: PhoneWorkspaceIpcDeps): void {

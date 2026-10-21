@@ -1,9 +1,18 @@
-import { mkdirSync, mkdtempSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
+import {
+  mkdirSync,
+  mkdtempSync,
+  realpathSync,
+  rmSync,
+  statSync,
+  symlinkSync,
+  writeFileSync,
+} from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   type PhoneWorkspacePaths,
+  folderOf,
   folderRefusal,
   loadPhoneWorkspace,
   phoneWorkspaceDefaults,
@@ -28,6 +37,7 @@ describe('the Phone workspace', () => {
       home: join(root, 'home'),
       dataDirs: [join(root, 'data', 'ostia')],
       closedRoots: [join(root, 'scratch'), join(root, 'artifacts')],
+      defaultFolder: join(root, 'data', 'ostia', 'remote-workspace'),
     }
   })
 
@@ -49,7 +59,7 @@ describe('the Phone workspace', () => {
   })
 
   it('PHW-C2 saves only a valid choice, and clearing the folder turns the switch off', () => {
-    expect(loadPhoneWorkspace()).toEqual({ folder: null, openNew: false, agent: 'claude' })
+    expect(loadPhoneWorkspace()).toEqual({ folder: null, openNew: true, agent: 'claude' })
     expect(
       setPhoneWorkspace({ folder: join(root, 'home'), openNew: true, agent: 'codex' }, paths),
     ).toEqual({ ok: false, error: 'home' })
@@ -69,8 +79,56 @@ describe('the Phone workspace', () => {
       value: { folder: jobs, openNew: true, agent: 'codex' },
     })
     expect(loadPhoneWorkspace()).toEqual({ folder: jobs, openNew: true, agent: 'codex' })
-    setPhoneWorkspace({ folder: null, openNew: true, agent: 'codex' }, paths)
+    setPhoneWorkspace({ folder: null, openNew: false, agent: 'codex' }, paths)
     expect(loadPhoneWorkspace()).toEqual({ folder: null, openNew: false, agent: 'codex' })
+  })
+
+  it('PHW-C12 makes the default folder 0700 on first use and exempts only that exact folder', () => {
+    const own = paths.defaultFolder
+    expect(() => statSync(own)).toThrow()
+    expect(folderOf(loadPhoneWorkspace(), paths)).toBe(own)
+    expect(statSync(own).mode & 0o777).toBe(0o700)
+    expect(folderRefusal(own, paths)).toBeNull()
+    expect(folderRefusal(join(own, '..'), paths)).toBe('ostia-data')
+    mkdirSync(join(own, 'sub'))
+    expect(folderRefusal(join(own, 'sub'), paths)).toBe('ostia-data')
+    mkdirSync(`${own}-x`)
+    expect(folderRefusal(`${own}-x`, paths)).toBe('ostia-data')
+    symlinkSync(join(root, 'data', 'ostia'), join(root, 'link'))
+    expect(folderRefusal(join(root, 'link'), paths)).toBe('ostia-data')
+    expect(
+      setPhoneWorkspace({ folder: `${own}-x`, openNew: true, agent: 'claude' }, paths),
+    ).toEqual({ ok: false, error: 'ostia-data' })
+  })
+
+  it('PHW-C13 refuses a default folder that is a symlink into Ostia data', () => {
+    symlinkSync(join(root, 'data', 'ostia'), paths.defaultFolder)
+    expect(folderRefusal(paths.defaultFolder, paths)).toBe('ostia-data')
+  })
+
+  it('PHW-C14 choosing the default folder stores no folder', () => {
+    mkdirSync(paths.defaultFolder, { recursive: true })
+    expect(
+      setPhoneWorkspace({ folder: paths.defaultFolder, openNew: true, agent: 'claude' }, paths),
+    ).toEqual({ ok: true, value: { folder: null, openNew: true, agent: 'claude' } })
+  })
+
+  it('PHW-C15 opens, then reuses, a workspace on the default folder when nothing is saved', async () => {
+    const open = vi.fn(async () => 'default-ws')
+    const workspaces = vi.fn(
+      async () => [] as { workspaceId: string; kind: string; workDir: string }[],
+    )
+    const deps = { paths: () => paths, workspaces, open }
+    expect(await phoneWorkspaceId(deps)).toBe('default-ws')
+    expect(open).toHaveBeenCalledWith(paths.defaultFolder)
+    expect(statSync(paths.defaultFolder).mode & 0o777).toBe(0o700)
+    workspaces.mockResolvedValueOnce([
+      { workspaceId: 'existing', kind: 'agent', workDir: paths.defaultFolder },
+    ])
+    open.mockClear()
+    expect(await phoneWorkspaceId(deps)).toBe('existing')
+    expect(open).not.toHaveBeenCalled()
+    expect(phoneWorkspaceDefaults(paths)).toEqual({ set: true, agent: 'claude' })
   })
 
   it('PHW-C3 reuses an open workspace on the folder, opens one otherwise, and never falls back', async () => {
@@ -84,7 +142,6 @@ describe('the Phone workspace', () => {
       ]),
       open,
     }
-    expect(await phoneWorkspaceId(deps)).toBeNull()
     setPhoneWorkspace({ folder: jobs, openNew: false, agent: 'claude' }, paths)
     expect(await phoneWorkspaceId(deps)).toBeNull()
     setPhoneWorkspace({ folder: jobs, openNew: true, agent: 'claude' }, paths)

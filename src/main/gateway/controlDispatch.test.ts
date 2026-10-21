@@ -717,6 +717,50 @@ describe('dispatchGatewayMethod — fs.list / fs.read', () => {
     }
   })
 
+  it('reads the Phone workspace folder inside Ostia’s data but nothing beside it', async () => {
+    const data = join(root, 'src', 'ostia')
+    const own = join(data, 'remote-workspace')
+    mkdirSync(own, { recursive: true })
+    writeFileSync(join(own, 'note.txt'), 'mine')
+    writeFileSync(join(data, 'settings.json'), 'private')
+    symlinkSync(join(data, 'settings.json'), join(own, 'link'))
+    const deps = fakeDeps({
+      listWorkspaces: vi
+        .fn()
+        .mockResolvedValue([
+          { workspaceId: 'w1', name: 'api', kind: 'terminal', workDir: own, state: 'idle' },
+        ]),
+      fileScope: vi.fn().mockReturnValue({
+        home: '/nonexistent-home',
+        dataDirs: [data],
+        phoneFolder: realpathSync(own),
+        rules: { denyRead: [], allowRead: [] },
+      }),
+    })
+    const read = (path: string) =>
+      dispatchGatewayMethod('fs.read', { sessionId: 'w1', path }, caps, deps)
+    expect(await read('note.txt')).toMatchObject({ ok: true, result: { text: 'mine' } })
+    const outsideWorkspace = { ok: false, code: -32602, message: 'outside-workspace' }
+    expect(await read('../settings.json')).toEqual(outsideWorkspace)
+    expect(await read('link')).toEqual(outsideWorkspace)
+    const sibling = fakeDeps({
+      listWorkspaces: vi
+        .fn()
+        .mockResolvedValue([
+          { workspaceId: 'w1', name: 'api', kind: 'terminal', workDir: data, state: 'idle' },
+        ]),
+      fileScope: deps.fileScope,
+    })
+    expect(
+      await dispatchGatewayMethod(
+        'fs.read',
+        { sessionId: 'w1', path: 'settings.json' },
+        caps,
+        sibling,
+      ),
+    ).toEqual({ ok: false, code: -32602, message: 'workspace-too-broad' })
+  })
+
   it('never lists or reads credential files, even inside the workspace folder', async () => {
     const secrets = [
       '.ssh/id_ed25519',

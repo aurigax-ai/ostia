@@ -91,7 +91,9 @@ export interface GatewayPhoneWorkspaceSave {
   agent: PhoneAgentName
 }
 
-export interface GatewayPhoneWorkspace extends GatewayPhoneWorkspaceSave {
+export interface GatewayPhoneWorkspace extends Omit<GatewayPhoneWorkspaceSave, 'folder'> {
+  folder: string
+  isDefault: boolean
   trust: 'trusted' | 'ask' | 'unknown'
   problem?: string
 }
