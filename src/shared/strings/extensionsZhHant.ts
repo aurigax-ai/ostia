@@ -6,6 +6,7 @@ export const extensionsZhHant: typeof extensionsEn = {
     agentPluginNote:
       '終端機中新的代理工作階段會取得這些內容。每個掛鉤會把代理當下回報的內容傳給擴充功能，例如您的提示或它執行的工具；在工作階段開始與送出提示時，擴充功能可以把文字加入代理的上下文。',
     agentPluginTitle: '加入終端機中的 claude 與 codex',
+    agentSkillRefused: '未加入代理：{problem}',
     agentSkillsList: '代理技能：{list}',
     approve: '核准並啟用',
     approveBody:

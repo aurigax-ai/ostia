@@ -682,6 +682,7 @@ describe('CommandPalette', () => {
       languageServers: [],
       fileKinds: [],
       agentSkills: [],
+      agentSkillProblems: [],
       agentHooks: [],
       iconThemes: [],
       keymaps: [],

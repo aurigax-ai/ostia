@@ -55,6 +55,7 @@ const keymapExtension: ExtensionInfo = {
   languageServers: [],
   fileKinds: [],
   agentSkills: [],
+  agentSkillProblems: [],
   agentHooks: [],
 }
 

@@ -1,5 +1,9 @@
 import { existsSync, readFileSync, readdirSync } from 'node:fs'
 import { dirname, join, normalize } from 'node:path'
+import {
+  skillDirective,
+  skillFrontmatter,
+} from '@aurigax-ai/ostia-extension-sdk/manifest/agentSkills'
 import { describe, expect, it } from 'vitest'
 import { USAGE_TABLE, findNoun } from '../../cli/common/usageTable'
 import { type BundledSkillFile, CORE_SKILL_FILES, MANAGER_SKILL_FILES } from './bundledSkills'
@@ -208,6 +212,15 @@ describe('bundled agent skills', () => {
     expect(description.split(' ')[0], skill.label).toMatch(/^[A-Z][a-z]+s$/)
     expect(description, skill.label).toMatch(/\bUse when\b/)
   })
+
+  it.each(SKILLS)(
+    '$label passes the extension skill rules: name and description only, no injection',
+    (skill) => {
+      const { text } = entry(skill)
+      expect(skillFrontmatter(text), skill.label).toMatchObject({ ok: true })
+      expect(skillDirective(text), skill.label).toBeNull()
+    },
+  )
 
   it.each(SKILLS)('$label keeps SKILL.md within 500 lines', (skill) => {
     expect(body(entry(skill).text).split('\n').length).toBeLessThanOrEqual(SKILL_BODY_MAX_LINES)
