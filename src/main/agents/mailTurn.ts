@@ -1,4 +1,4 @@
-import { busContext } from '../../shared/agents/busMessages'
+import { busTurnContext } from '../../shared/agents/busMessages'
 import { inboxOf, leaseMail } from './busStore'
 import { mailers } from './mailers'
 
@@ -16,7 +16,7 @@ export function takeMailTurn(me: string, agentBusy: boolean): MailTurn {
   const waitMs = mailers.eventsWaitMs(me)
   const queued = inboxOf(me).filter((mail) => mail.state === 'queued' && !mail.quiet)
   const due = queued.filter((mail) => mail.kind !== 'event' || waitMs === 0)
-  const context = busContext(due.map((mail) => ({ ...mail, text: mail.text ?? '' })))
+  const context = busTurnContext(due.map((mail) => ({ ...mail, text: mail.text ?? '' })))
   const held = queued.length - due.length
   if (!context) return held > 0 ? { retryMs: waitMs } : {}
   const shown = new Set(context.shown)

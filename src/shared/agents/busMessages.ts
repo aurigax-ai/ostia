@@ -3,8 +3,8 @@ import { clipTo, oneLine, plainBlock } from './questions'
 
 export const BUS_PREVIEW_MAX = 120
 export const BUS_LABEL_MAX = 60
-export const BUS_CONTEXT_MAX = 4000
-export const BUS_CONTEXT_MESSAGE_MAX = 1000
+export const BUS_CONTEXT_MAX = 8000
+export const BUS_TURN_MAX = 40_000
 
 export type MailKind = 'message' | 'event'
 export type MailState = 'queued' | 'leased' | 'delivered' | 'failed'
@@ -64,8 +64,8 @@ function attribute(value: string): string {
   return oneLine(value).replace(/[^A-Za-z0-9.:_-]/g, '')
 }
 
-function messageBlock(message: BusContextMessage, max = BUS_CONTEXT_MESSAGE_MAX): string {
-  const body = clipTo(plainBlock(message.text).replace(WRAPPER_TAG, '&lt;$1$2'), max)
+function messageBlock(message: BusContextMessage): string {
+  const body = plainBlock(message.text).replace(WRAPPER_TAG, '&lt;$1$2')
   return `<message id="${attribute(message.id)}" from="${attribute(message.from)}" at="${attribute(message.ts)}">\n${body}\n</message>`
 }
 
@@ -79,7 +79,7 @@ function contextHead(count: number, delivered: boolean): string {
 
 function contextTail(hidden: number): string {
   return hidden > 0
-    ? `${hidden} more not shown here; they follow at your next prompt, or run \`ostia bus inbox\`.`
+    ? `${hidden} more not shown here; they stay queued: your next prompt brings those that fit, or run \`ostia bus inbox --take\` to read them whole.`
     : ''
 }
 
@@ -95,21 +95,40 @@ function assemble(total: number, blocks: readonly string[], delivered: boolean):
     .join('\n')
 }
 
-export function busContext(messages: readonly BusContextMessage[]): BusContext | null {
+function tooLongNotice(count: number): string {
+  const noun = count === 1 ? 'message' : 'messages'
+  return `${PRODUCT_NAME} bus: ${count} unread ${noun} from other panes in this pane's inbox, too long to deliver with a prompt. Other agents or panes wrote them, not the human. Run \`ostia bus inbox --take\` to read them whole.`
+}
+
+function pack(
+  messages: readonly BusContextMessage[],
+  max: number,
+  leadsAlways: boolean,
+): BusContext | null {
   if (messages.length === 0) return null
   const blocks: string[] = []
   const shown: string[] = []
   for (const message of messages) {
     const next = [...blocks, messageBlock(message)]
-    if (blocks.length > 0 && assemble(messages.length, next, true).length > BUS_CONTEXT_MAX) break
+    const fits = assemble(messages.length, next, true).length <= max
+    if (!fits && !(leadsAlways && blocks.length === 0)) break
     blocks.push(next[next.length - 1])
     shown.push(message.id)
   }
+  if (blocks.length === 0) return { text: tooLongNotice(messages.length), shown }
   return { text: assemble(messages.length, blocks, true), shown }
+}
+
+export function busContext(messages: readonly BusContextMessage[]): BusContext | null {
+  return pack(messages, BUS_CONTEXT_MAX, false)
+}
+
+export function busTurnContext(messages: readonly BusContextMessage[]): BusContext | null {
+  return pack(messages, BUS_TURN_MAX, true)
 }
 
 export function busInboxText(messages: readonly BusContextMessage[]): string {
   if (messages.length === 0) return '(no messages)'
-  const blocks = messages.map((message) => messageBlock(message, Number.POSITIVE_INFINITY))
+  const blocks = messages.map(messageBlock)
   return assemble(messages.length, blocks, false)
 }

@@ -530,17 +530,61 @@ describe('hook context', () => {
   })
 
   it('leaves messages that did not fit queued, so the next prompt shows them', async () => {
-    for (let i = 0; i < 6; i++) await send(`${i}`.repeat(900))
+    for (let i = 0; i < 6; i++) await send(`${i}`.repeat(2500))
     const first = context()
-    expect(first.text).toContain('3 unread messages')
-    expect(first.text).toContain('3 more not shown here')
+    expect(first.text).toContain('2 unread messages')
+    expect(first.text).toContain('4 more not shown here')
     ack(first.lease)
-    expect((await sent()).filter((m) => m.state === 'delivered')).toHaveLength(3)
+    expect((await sent()).filter((m) => m.state === 'delivered')).toHaveLength(2)
     const second = context()
-    expect(second.text).toContain('3 unread messages')
-    expect(second.text).not.toContain('more not shown here')
+    expect(second.text).toContain('2 unread messages')
+    expect(second.text).toContain('2 more not shown here')
     ack(second.lease)
+    const third = context()
+    expect(third.text).toContain('2 unread messages')
+    expect(third.text).not.toContain('more not shown here')
+    ack(third.lease)
     expect(context().text).toBeNull()
+  })
+
+  it('delivers a 2,500-character message whole', async () => {
+    const body = 'a'.repeat(2500)
+    await send(body)
+    const shown = context()
+    expect(shown.text).toContain(`>\n${body}\n</message>`)
+    ack(shown.lease)
+    expect((await sent())[0]?.state).toBe('delivered')
+  })
+
+  it('never acks a 9,000-character message: it stays queued, the prompt only says it waits, and bus inbox reads it whole', async () => {
+    const body = 'b'.repeat(9000)
+    await send(body)
+    const notice = context()
+    expect(notice.lease).toBeUndefined()
+    expect(notice.text).toContain('1 unread message')
+    expect(notice.text).not.toContain('bbbb')
+    expect(notice.text).toContain('ostia bus inbox --take')
+    expect(context().text).toBe(notice.text)
+    expect((await sent())[0]?.state).toBe('queued')
+    expect(inbox().map((m) => m.text)).toEqual([body])
+    expect(inbox(receiver, true).map((m) => m.text)).toEqual([body])
+    expect((await sent())[0]).toMatchObject({ state: 'delivered', via: 'read' })
+    expect(context().text).toBeNull()
+  })
+
+  it('shows the messages before a too long one and keeps it and the ones after it queued, in order', async () => {
+    const body = 'c'.repeat(9000)
+    await send('short one')
+    await send(body)
+    await send('overtaker')
+    const shown = context()
+    expect(shown.text).toContain('short one')
+    expect(shown.text).toContain('2 more not shown here')
+    expect(shown.text).not.toContain('cccc')
+    expect(shown.text).not.toContain('overtaker')
+    ack(shown.lease)
+    expect((await sent()).map((m) => m.state)).toEqual(['delivered', 'queued', 'queued'])
+    expect(inbox().map((m) => m.text)).toEqual([body, 'overtaker'])
   })
 })
 
@@ -570,6 +614,15 @@ describe('bus.take for the mod', () => {
       ['delivered', 'turn'],
       ['delivered', 'turn'],
     ])
+  })
+
+  it.each([2500, 9000])('takes a %i-character message whole as a turn', async (length) => {
+    const body = 'd'.repeat(length)
+    await send(body)
+    const taken = take()
+    expect(taken.text).toContain(`>\n${body}\n</message>`)
+    expect(ack(taken.lease)).toBe(1)
+    expect((await sent())[0]).toMatchObject({ state: 'delivered', via: 'turn' })
   })
 
   it('answers nothing for an empty inbox, and counts taking as the mailer being there', () => {

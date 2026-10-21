@@ -2,13 +2,14 @@ import { PRODUCT_NAME } from '@aurigax-ai/ostia-extension-sdk/contract/product'
 import { describe, expect, it } from 'vitest'
 import {
   BUS_CONTEXT_MAX,
-  BUS_CONTEXT_MESSAGE_MAX,
   BUS_LABEL_MAX,
   BUS_PREVIEW_MAX,
+  BUS_TURN_MAX,
   busContext,
   busInboxText,
   busLabel,
   busPreview,
+  busTurnContext,
   mailLabel,
 } from './busMessages'
 
@@ -88,28 +89,77 @@ describe('busContext', () => {
     expect(context?.text).toContain('<message id="m1" from="xinjected1" at="2026b">')
   })
 
-  it('counts in the header only the messages it delivers, clipped ones included', () => {
-    const context = busContext([message('m1', 'y'.repeat(5000)), message('m2', 'z'.repeat(5000))])
+  it('delivers a 2,500-character message whole', () => {
+    const body = 'y'.repeat(2500)
+    const context = busContext([message('m1', body)])
+    expect(context?.shown).toEqual(['m1'])
+    expect(context?.text).toContain(`>\n${body}\n</message>`)
+  })
+
+  it('counts in the header only the messages it delivers', () => {
+    const context = busContext([message('m1', 'y'.repeat(3000)), message('m2', 'z'.repeat(3000))])
     expect(context?.shown).toEqual(['m1', 'm2'])
     expect(context?.text).toContain('ostia bus: 2 unread messages from other panes below')
     expect(context?.text.match(/<message /g)).toHaveLength(2)
   })
 
-  it('clips each message', () => {
-    const context = busContext([message('m1', 'y'.repeat(5000))])
-    const body = context?.text.split('\n')[3] ?? ''
-    expect(body).toHaveLength(BUS_CONTEXT_MESSAGE_MAX)
-    expect(body.endsWith('…')).toBe(true)
-  })
-
-  it('stays under the cap, shows what fits and leaves the rest for the next prompt', () => {
+  it('stays under the cap, shows what fits whole and leaves the rest for the next prompt', () => {
     const many = Array.from({ length: 12 }, (_, i) => message(`m${i}`, `${i}`.repeat(900)))
     const context = busContext(many)
     expect(context?.text.length).toBeLessThanOrEqual(BUS_CONTEXT_MAX)
-    expect(context?.shown).toEqual(['m0', 'm1', 'm2'])
-    expect(context?.text).toContain('ostia bus: 3 unread messages from other panes below')
+    expect(context?.shown).toEqual(['m0', 'm1', 'm2', 'm3', 'm4', 'm5', 'm6'])
+    expect(context?.text).toContain('ostia bus: 7 unread messages from other panes below')
     expect(context?.text).not.toContain('12 unread')
-    expect(context?.text).toContain('9 more not shown here')
+    expect(context?.text).toContain('5 more not shown here')
+    expect(context?.text).toContain(`${'6'.repeat(900)}\n</message>`)
+  })
+
+  it('never cuts a message: the first one that does not fit and all after it stay queued, in order', () => {
+    const long = 'y'.repeat(9000)
+    const context = busContext([
+      message('m1', 'before'),
+      message('m2', long),
+      message('m3', 'overtaker'),
+    ])
+    expect(context?.shown).toEqual(['m1'])
+    expect(context?.text).toContain('before')
+    expect(context?.text).not.toContain('yyyy')
+    expect(context?.text).not.toContain('overtaker')
+    expect(context?.text).toContain('2 more not shown here')
+    expect(context?.text).toContain('`ostia bus inbox --take`')
+  })
+
+  it('says only that messages wait when none fits, and shows none', () => {
+    const context = busContext([message('m1', 'y'.repeat(9000)), message('m2', 'z'.repeat(9000))])
+    expect(context?.shown).toEqual([])
+    expect(context?.text).toContain('2 unread messages')
+    expect(context?.text).toContain('too long to deliver with a prompt')
+    expect(context?.text).toContain('`ostia bus inbox --take`')
+    expect(context?.text).not.toContain('yyyy')
+    expect(context?.text).not.toContain('<message ')
+  })
+})
+
+describe('busTurnContext', () => {
+  it('adds nothing for an empty inbox', () => {
+    expect(busTurnContext([])).toBeNull()
+  })
+
+  it('delivers 2,500 and 9,000-character messages whole', () => {
+    const mid = 'm'.repeat(2500)
+    const big = 'b'.repeat(9000)
+    const context = busTurnContext([message('m1', mid), message('m2', big)])
+    expect(context?.shown).toEqual(['m1', 'm2'])
+    expect(context?.text).toContain(`>\n${mid}\n</message>`)
+    expect(context?.text).toContain(`>\n${big}\n</message>`)
+  })
+
+  it('always takes the first message whole, and holds back what would pass the turn cap', () => {
+    const huge = 'h'.repeat(BUS_TURN_MAX + 1)
+    const alone = busTurnContext([message('m1', huge), message('m2', 'next')])
+    expect(alone?.shown).toEqual(['m1'])
+    expect(alone?.text).toContain(`>\n${huge}\n</message>`)
+    expect(alone?.text).toContain('1 more not shown here')
   })
 })
 
@@ -127,7 +177,7 @@ describe('mailLabel', () => {
 
 describe('busInboxText', () => {
   it('prints each message whole, framed as the hook frames them', () => {
-    const long = 'y'.repeat(BUS_CONTEXT_MESSAGE_MAX * 2)
+    const long = 'y'.repeat(BUS_CONTEXT_MAX * 2)
     const text = busInboxText([message('m1', 'first\nsecond'), message('m2', long)])
     expect(text).toBe(
       [

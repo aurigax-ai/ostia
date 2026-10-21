@@ -267,6 +267,7 @@ function registerBusInboxMethods(deps: BusDeps): void {
       const fresh = inboxOf(me).filter((mail) => mail.state === 'queued' && !mail.quiet)
       const context = busContext(fresh.map((mail) => ({ ...mail, text: mail.text ?? '' })))
       if (!context) return { text: null }
+      if (context.shown.length === 0) return { text: context.text }
       const shown = new Set(context.shown)
       const leased = leaseMail(me, event === 'SessionStart' ? 'start' : 'prompt', (mail) =>
         shown.has(mail.id),
