@@ -6,6 +6,7 @@ import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import {
   documentEdit,
+  handleDocumentBeforeCopy,
   handleDocumentClipboardChord,
   handleDocumentCopyEvent,
   isEditableElement,
@@ -234,6 +235,50 @@ describe('the pane copier registry', () => {
     const passed = new Event('copy', { cancelable: true }) as ClipboardEvent
     handleDocumentCopyEvent(passed)
     expect(passed.defaultPrevented).toBe(false)
+    off()
+  })
+
+  it('enables the copy command with beforecopy while the pane has a copier, never in a text field', () => {
+    const off = registerSelectionCopier('p1', () => Promise.resolve())
+    const enabled = new Event('beforecopy', { cancelable: true })
+    handleDocumentBeforeCopy(enabled)
+    expect(enabled.defaultPrevented).toBe(true)
+    const input = document.createElement('input')
+    document.body.append(input)
+    input.focus()
+    const typing = new Event('beforecopy', { cancelable: true })
+    handleDocumentBeforeCopy(typing)
+    expect(typing.defaultPrevented).toBe(false)
+    input.remove()
+    off()
+    const none = new Event('beforecopy', { cancelable: true })
+    handleDocumentBeforeCopy(none)
+    expect(none.defaultPrevented).toBe(false)
+  })
+
+  it('routes the native Cmd+C on macOS to the copier and leaves it native without one', () => {
+    listen(true)
+    const text = document.createElement('p')
+    document.body.append(text)
+    const cmdC = { key: 'c', code: 'KeyC', metaKey: true }
+    expect(press(text, cmdC).defaultPrevented).toBe(false)
+    const copy = vi.fn(() => Promise.resolve())
+    const off = registerSelectionCopier('p1', copy)
+    expect(press(text, cmdC).defaultPrevented).toBe(true)
+    expect(copy).toHaveBeenCalledTimes(1)
+    expect(window.ostia.clipboard.edit).not.toHaveBeenCalled()
+    off()
+  })
+
+  it('leaves Cmd+C in a text field native on macOS even with a copier', () => {
+    listen(true)
+    const copy = vi.fn(() => Promise.resolve())
+    const off = registerSelectionCopier('p1', copy)
+    const input = document.createElement('input')
+    document.body.append(input)
+    input.focus()
+    expect(press(input, { key: 'c', code: 'KeyC', metaKey: true }).defaultPrevented).toBe(false)
+    expect(copy).not.toHaveBeenCalled()
     off()
   })
 })

@@ -29,6 +29,7 @@ import { useMotionAttribute } from '@/lib/app/motion'
 import { wireLinkTabs } from '@/lib/browser/linkTabs'
 import { installDoubleShift, runAppChord } from '@/lib/keyboard/chords'
 import {
+  handleDocumentBeforeCopy,
   handleDocumentClipboardChord,
   handleDocumentCopyEvent,
   syncClipboardChords,
@@ -128,9 +129,11 @@ export function App(): JSX.Element {
     }
     window.addEventListener('keydown', onKey)
     document.addEventListener('copy', handleDocumentCopyEvent, true)
+    document.addEventListener('beforecopy', handleDocumentBeforeCopy, true)
     return () => {
       window.removeEventListener('keydown', onKey)
       document.removeEventListener('copy', handleDocumentCopyEvent, true)
+      document.removeEventListener('beforecopy', handleDocumentBeforeCopy, true)
     }
   }, [])
 

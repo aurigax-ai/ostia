@@ -1,9 +1,10 @@
 import { needsImage, type SelectionCapture } from '@shared/browser/selection'
-import { type ReactNode, useCallback, useState } from 'react'
+import { type ReactNode, useCallback, useEffect, useState } from 'react'
 import { StatusLine } from '@/components/common/StatusLine'
 import type { BarAnchor } from '@/lib/agents/barAnchor'
 import { selectionClipboard } from '@/lib/agents/captureClipboard'
 import type { PickTarget } from '@/lib/agents/pickTargets'
+import { registerSelectionCopier } from '@/lib/agents/selectionCopiers'
 import { sendSelectionToPane } from '@/lib/agents/sendPick'
 import { fmt, useDict } from '@/lib/app/useDict'
 import { useTransientStatus } from '@/lib/app/useTransientStatus'
@@ -42,14 +43,23 @@ export function useSelectionSend(
     [setStatus],
   )
 
-  const copy = async (): Promise<string | null> => {
+  const copy = useCallback(async (): Promise<string | null> => {
     if (!pending) return null
     const clip = selectionClipboard(pending.capture, pending.image)
     if (!clip || !(await window.ostia.clipboard.writeCapture(clip))) {
       throw new Error(d.send.copyFailed)
     }
     return needsImage(pending.capture) ? d.send.copiedImage : d.send.copied
-  }
+  }, [pending, d])
+
+  useEffect(() => {
+    if (!pending || !selectionClipboard(pending.capture, pending.image)) return
+    return registerSelectionCopier(paneId, () =>
+      copy()
+        .then(setStatus, (e: unknown) => setStatus(e instanceof Error ? e.message : String(e)))
+        .finally(() => setPending(null)),
+    )
+  }, [pending, paneId, copy, setStatus])
 
   const send = async (target: PickTarget, note: string): Promise<void> => {
     if (!pending) return

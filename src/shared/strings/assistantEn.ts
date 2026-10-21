@@ -223,6 +223,7 @@ export const assistantEn = {
     noModel: 'No model',
     noProvider: 'No assistant is ready. Add a provider in Settings → Assistant.',
     noSessions: 'No saved chats yet.',
+    notRecordingHint: 'Chat history is off. This chat is kept until the app quits.',
     notices: {
       copiedInstead: 'No idle prompt, so it was copied instead.',
       evicted: 'The oldest saved chats were removed to stay under the storage limit.',
@@ -236,6 +237,8 @@ export const assistantEn = {
     rename: 'Rename',
     renameLabel: 'Chat title',
     saveHistory: 'Save chat history',
+    scratchHint:
+      'This chat started in a scratch workspace, so it is kept only until the app quits.',
     scrollDown: 'Scroll to the latest message',
     searchSessions: 'Search chats',
     sessions: 'Chat sessions',

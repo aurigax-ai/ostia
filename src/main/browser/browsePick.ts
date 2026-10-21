@@ -1,4 +1,5 @@
-import { readdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { readdirSync, writeFileSync } from 'node:fs'
+import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { PRODUCT_NAME } from '@aurigax-ai/ostia-extension-sdk/contract/product'
 import { ClipboardItem, clipboard, ipcMain } from 'electron'
@@ -245,10 +246,10 @@ export async function writePickReport(
   return { ok: true, path, imagePath: stored.capture.screenshotPath }
 }
 
-function readScreenshot(path: string | null): Uint8Array | null {
+async function readScreenshot(path: string | null): Promise<Uint8Array | null> {
   if (!path) return null
   try {
-    const bytes = readFileSync(path)
+    const bytes = await readFile(path)
     return isPng(bytes) ? new Uint8Array(bytes) : null
   } catch {
     return null
@@ -265,7 +266,7 @@ export async function copyPick(
   const stored = captures.get(captureId)
   if (!stored || stored.paneId !== paneId) return { ok: false, error: 'capture-expired' }
   const { capture } = stored
-  const png = capture.hasText || capture.table ? null : readScreenshot(capture.screenshotPath)
+  const png = capture.hasText || capture.table ? null : await readScreenshot(capture.screenshotPath)
   const result: PickCopyResult = capture.table
     ? { ok: true, kind: 'table', rows: capture.table.rows, columns: capture.table.columns }
     : { ok: true, kind: png ? 'image' : 'report' }

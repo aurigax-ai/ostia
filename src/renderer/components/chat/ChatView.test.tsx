@@ -507,7 +507,9 @@ describe('chat', () => {
     await waitFor(() => expect(pending).toHaveLength(1))
     await streamAnswer(pending, chunk)
 
-    expect(await screen.findByRole('button', { name: 'Chat sessions' })).toBeInTheDocument()
+    expect(
+      await screen.findByRole('button', { name: /^Chat sessions\. Chat history is off/ }),
+    ).toBeInTheDocument()
     expect(screen.queryByTestId('chat-recording-dot')).toBeNull()
     expect(window.ostia.chatSessions.save).not.toHaveBeenCalled()
   })
@@ -533,7 +535,11 @@ describe('chat', () => {
     await waitFor(() => expect(pending).toHaveLength(1))
     await streamAnswer(pending, chunk)
 
-    expect(await screen.findByRole('button', { name: 'Chat sessions' })).toBeInTheDocument()
+    expect(
+      await screen.findByRole('button', {
+        name: /^Chat sessions\. This chat started in a scratch workspace/,
+      }),
+    ).toBeInTheDocument()
     expect(screen.queryByTestId('chat-recording-dot')).toBeNull()
     expect(window.ostia.chatSessions.save).not.toHaveBeenCalled()
     expect(window.ostia.chatSessions.list).not.toHaveBeenCalled()
@@ -704,7 +710,7 @@ describe('chat', () => {
       vi.mocked(window.ostia.chatSessions.list).mockResolvedValue(summaries)
       render(<ChatPane workspaceId="w1" paneId="p-chat" />)
       await userEvent.click(
-        await screen.findByRole('button', { name: /^(Chat sessions|Sessions \(recording\))$/ }),
+        await screen.findByRole('button', { name: /^(Chat sessions|Sessions \(recording\))/ }),
       )
       return screen.findByRole('list', { name: 'Chat sessions' })
     }

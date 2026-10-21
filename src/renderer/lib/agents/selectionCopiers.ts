@@ -19,10 +19,19 @@ export function copyPaneSelection(paneId: string): boolean {
   return true
 }
 
-export function copyActivePaneSelection(): boolean {
+function activePaneId(): string | null {
   const workspaceId = useWorkspacesStore.getState().activeWorkspaceId
-  const paneId = workspaceId
-    ? useLayoutStore.getState().byWorkspace[workspaceId]?.activePaneId
+  return workspaceId
+    ? (useLayoutStore.getState().byWorkspace[workspaceId]?.activePaneId ?? null)
     : null
+}
+
+export function hasActivePaneCopier(): boolean {
+  const paneId = activePaneId()
+  return paneId !== null && copiers.has(paneId)
+}
+
+export function copyActivePaneSelection(): boolean {
+  const paneId = activePaneId()
   return paneId ? copyPaneSelection(paneId) : false
 }

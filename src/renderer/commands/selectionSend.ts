@@ -8,6 +8,7 @@ export function registerSelectionSendCommand(): void {
     id: SEND_SELECTION_COMMAND,
     category: 'pane',
     target: 'active',
+    local: true,
     run: (_args, ctx) => {
       if (!ctx.activePaneId || !openSelectionSend(ctx.activePaneId)) {
         throw new Error('the active pane has no selection to send')

@@ -56,6 +56,7 @@ export function RegionActionBar({
   const [note, setNote] = useState('')
   const [noteOpen, setNoteOpen] = useState(false)
   const [busy, setBusy] = useState(false)
+  const [menuOpen, setMenuOpen] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [copied, setCopied] = useState<string | null>(null)
   const [place, setPlace] = useState({ left: anchor.left, top: anchor.bottom + GAP })
@@ -81,11 +82,18 @@ export function RegionActionBar({
   }, [anchor.left, anchor.top, anchor.bottom])
 
   useEffect(() => {
-    const active = document.activeElement
-    if (active instanceof HTMLElement && active.tagName === 'WEBVIEW') {
-      rootRef.current?.focus({ preventScroll: true })
+    if (copied !== null) return
+    const root = rootRef.current
+    const origin = document.activeElement
+    root?.focus({ preventScroll: true })
+    return () => {
+      const active = document.activeElement
+      const free = !active || active === document.body || active === root
+      if (free && origin instanceof HTMLElement && origin.isConnected) {
+        origin.focus({ preventScroll: true })
+      }
     }
-  }, [])
+  }, [copied])
 
   useEffect(() => {
     if (copied !== null) return
@@ -151,9 +159,13 @@ export function RegionActionBar({
     })
 
   const sendToLast = (): void => {
-    const target = targets.find((t) => t.paneId === lastTargetPaneId) ?? targets[0]
+    if (targets.length === 0) {
+      setError(noTargets)
+      return
+    }
+    const target = targets.find((t) => t.paneId === lastTargetPaneId)
     if (target) void send(target)
-    else setError(noTargets)
+    else setMenuOpen(true)
   }
 
   const onNoteKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>): void => {
@@ -185,6 +197,8 @@ export function RegionActionBar({
         </Button>
         <DropdownMenu
           align="start"
+          open={menuOpen}
+          onOpenChange={setMenuOpen}
           trigger={
             <Button size="xs" variant="outline" disabled={busy}>
               <PaperPlaneTiltIcon aria-hidden />

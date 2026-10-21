@@ -14,6 +14,7 @@ export function ChatHeader({
   workspaceId,
   sessionId,
   recording,
+  scratch,
   busy,
   sessionsOpen,
   onSessionsOpenChange,
@@ -22,6 +23,7 @@ export function ChatHeader({
   workspaceId: string | null
   sessionId: string
   recording: boolean
+  scratch: boolean
   busy: boolean
   sessionsOpen: boolean
   onSessionsOpenChange: (open: boolean) => void
@@ -39,6 +41,7 @@ export function ChatHeader({
         workspaceId={workspaceId}
         sessionId={sessionId}
         recording={recording}
+        scratch={scratch}
         open={sessionsOpen}
         onOpenChange={onSessionsOpenChange}
       />
