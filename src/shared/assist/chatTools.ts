@@ -387,6 +387,8 @@ export interface ChatToolsApi {
   restore: (req: ChatRestoreRequest) => Promise<ChatFsResult<ChatRestoreOutput>>
   skills: () => Promise<SkillSummary[]>
   loadSkill: (name: string) => Promise<SkillLoadResult>
+  playbooks: () => Promise<SkillSummary[]>
+  playbookPrompt: (name: string, task: string) => Promise<string | null>
   mcpStatus: () => Promise<McpServerStatus[]>
   mcpRefresh: () => Promise<McpServerStatus[]>
   mcpReconnect: (server: string) => Promise<McpServerStatus[]>

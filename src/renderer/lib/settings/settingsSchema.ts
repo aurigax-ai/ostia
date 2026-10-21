@@ -12,6 +12,7 @@ import {
   assistantSchema,
   capabilitiesSchema,
   managerSchema,
+  playbooksSchema,
   privacySchema,
   trustedActionsSchema,
 } from './agentSchema'
@@ -206,6 +207,7 @@ export const SETTINGS_JSON_SCHEMA = {
     },
     actions: actionsSchema,
     privacy: privacySchema,
+    playbooks: playbooksSchema,
     manager: managerSchema,
     trustedActions: trustedActionsSchema,
     approvals: approvalsSchema,

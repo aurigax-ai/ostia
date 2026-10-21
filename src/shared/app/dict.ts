@@ -17,6 +17,8 @@ import { extensionsEn } from '../strings/extensionsEn'
 import { extensionsZhHant } from '../strings/extensionsZhHant'
 import { filesEn } from '../strings/filesEn'
 import { filesZhHant } from '../strings/filesZhHant'
+import { playbooksEn } from '../strings/playbooksEn'
+import { playbooksZhHant } from '../strings/playbooksZhHant'
 import { securityEn } from '../strings/securityEn'
 import { securityZhHant } from '../strings/securityZhHant'
 import { settingsEn } from '../strings/settingsEn'
@@ -78,6 +80,7 @@ export const en = {
   marketplace: extensionsEn.marketplace,
   git: filesEn.git,
   ports: terminalEn.ports,
+  playbooks: playbooksEn,
   extensions: extensionsEn.extensions,
   extensionsBrowse: extensionsEn.extensionsBrowse,
   workspaceSettings: settingsEn.workspaceSettings,
@@ -162,6 +165,7 @@ export const zhHant: Dict = {
   marketplace: extensionsZhHant.marketplace,
   git: filesZhHant.git,
   ports: terminalZhHant.ports,
+  playbooks: playbooksZhHant,
   extensions: extensionsZhHant.extensions,
   extensionsBrowse: extensionsZhHant.extensionsBrowse,
   workspaceSettings: settingsZhHant.workspaceSettings,

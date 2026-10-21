@@ -8,6 +8,7 @@ import type { SecretStoreDeps } from '../extensions/extensionSecrets'
 import { storePath } from '../platform/jsonStore'
 import { readSettingsFile } from '../platform/settingsFile'
 import type { Redactor } from '../privacy/redaction'
+import { playbooksFolder } from '../terminal/shellIntegration'
 import type { WindowSend } from '../windows/windowSend'
 import { registerAssistIpc } from './assistIpc'
 import { createChatSessionStore } from './chatSessions'
@@ -67,6 +68,7 @@ export function startChat({
   registerChatToolsIpc({
     roots: fileRoots,
     settings: chatToolSettings,
+    playbooksFolder,
     mcp: services.mcpHost,
     secrets: mcpSecrets,
     oauth: services.mcpOAuth,
