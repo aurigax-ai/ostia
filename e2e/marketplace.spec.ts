@@ -46,7 +46,7 @@ function commitAll(repo: string, message: string): void {
 }
 
 async function openSettingsPage(win: Page, page: string): Promise<Locator> {
-  const settings = win.getByRole('region', { name: 'Settings' })
+  const settings = win.getByRole('region', { name: 'Settings', exact: true })
   if (!(await settings.isVisible())) {
     await win.keyboard.press('Control+,')
     await expect(settings).toBeVisible({ timeout: 10_000 })

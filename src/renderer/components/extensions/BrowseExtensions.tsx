@@ -81,6 +81,7 @@ function useUnlistedMatch(
   const code = text.trim()
   const [found, setFound] = useState<{ code: string; result: MarketplaceFound } | null>(null)
   useEffect(() => {
+    void marketplaces
     if (!MARKETPLACE_CODE_SHAPE.test(code)) return
     let live = true
     void window.ostia.marketplace.findCode(code).then((result) => {
