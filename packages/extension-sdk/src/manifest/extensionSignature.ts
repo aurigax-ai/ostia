@@ -6,7 +6,7 @@ import {
   sign,
   verify,
 } from 'node:crypto'
-import { readFileSync, writeFileSync } from 'node:fs'
+import { createReadStream, readFileSync, statSync, writeFileSync } from 'node:fs'
 import { join, sep } from 'node:path'
 import { isRecord } from '../contract/isRecord'
 import { planCopy } from './marketplaceManifest'
@@ -26,14 +26,58 @@ function sha256(data: Buffer | string): string {
   return createHash('sha256').update(data).digest('hex')
 }
 
-export function extensionDigest(dir: string): string | null {
+function signedFiles(dir: string): string[] | null {
   const plan = planCopy(dir)
-  if (!plan.ok) return null
-  const lines = plan.files
-    .filter((file) => file !== EXTENSION_SIGNATURE_FILE)
-    .map((file) => `${file.split(sep).join('/')}\0${sha256(readFileSync(join(dir, file)))}\n`)
-    .sort()
-  return sha256(lines.join(''))
+  return plan.ok ? plan.files.filter((file) => file !== EXTENSION_SIGNATURE_FILE) : null
+}
+
+function digestOf(entries: { file: string; hash: string }[]): string {
+  const lines = entries.map(({ file, hash }) => `${file.split(sep).join('/')}\0${hash}\n`)
+  return sha256(lines.sort().join(''))
+}
+
+export function extensionDigest(dir: string): string | null {
+  const files = signedFiles(dir)
+  if (files === null) return null
+  return digestOf(files.map((file) => ({ file, hash: sha256(readFileSync(join(dir, file))) })))
+}
+
+function hashFile(path: string): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const hash = createHash('sha256')
+    createReadStream(path)
+      .on('data', (chunk) => hash.update(chunk))
+      .on('error', reject)
+      .on('end', () => resolve(hash.digest('hex')))
+  })
+}
+
+export async function extensionDigestAsync(dir: string): Promise<string | null> {
+  const files = signedFiles(dir)
+  if (files === null) return null
+  const entries: { file: string; hash: string }[] = []
+  for (const file of files) entries.push({ file, hash: await hashFile(join(dir, file)) })
+  return digestOf(entries)
+}
+
+export function extensionStamp(dir: string): string | null {
+  const files = signedFiles(dir)
+  if (files === null) return null
+  try {
+    return [...files, EXTENSION_SIGNATURE_FILE]
+      .sort()
+      .map((file) => {
+        try {
+          const stat = statSync(join(dir, file))
+          return `${file}:${stat.size}:${stat.mtimeMs}`
+        } catch {
+          return `${file}:missing`
+        }
+      })
+      .join('\n')
+  } catch {
+    return null
+  }
 }
 
 function message(id: string, version: string, digest: string): Buffer {
@@ -42,7 +86,12 @@ function message(id: string, version: string, digest: string): Buffer {
 
 function publicKeyOf(encoded: string): KeyObject | null {
   try {
-    return createPublicKey({ key: Buffer.from(encoded, 'base64'), format: 'der', type: 'spki' })
+    const key = createPublicKey({
+      key: Buffer.from(encoded, 'base64'),
+      format: 'der',
+      type: 'spki',
+    })
+    return key.asymmetricKeyType === 'ed25519' ? key : null
   } catch {
     return null
   }
@@ -75,17 +124,15 @@ function readSignature(dir: string): ExtensionSignature | null {
   }
 }
 
-export function checkExtensionSignature(
-  dir: string,
+function judge(
+  signed: ExtensionSignature | null,
+  digest: string | null,
   id: string,
   version: string,
-  publicKey: string | undefined,
+  key: KeyObject | null,
 ): SignatureCheck {
-  const key = publicKey ? publicKeyOf(publicKey) : null
   if (!key) return { ok: false, problem: 'this build holds no official key' }
-  const signed = readSignature(dir)
   if (!signed) return { ok: false, problem: `${EXTENSION_SIGNATURE_FILE} is missing or unreadable` }
-  const digest = extensionDigest(dir)
   if (digest !== signed.digest)
     return { ok: false, problem: 'the files differ from what was signed' }
   const genuine = verify(
@@ -95,4 +142,25 @@ export function checkExtensionSignature(
     Buffer.from(signed.signature, 'base64'),
   )
   return genuine ? { ok: true } : { ok: false, problem: 'the signature does not match' }
+}
+
+export function checkExtensionSignature(
+  dir: string,
+  id: string,
+  version: string,
+  publicKey: string | undefined,
+): SignatureCheck {
+  const key = publicKey ? publicKeyOf(publicKey) : null
+  return judge(readSignature(dir), key ? extensionDigest(dir) : null, id, version, key)
+}
+
+export async function checkExtensionSignatureAsync(
+  dir: string,
+  id: string,
+  version: string,
+  publicKey: string | undefined,
+): Promise<SignatureCheck> {
+  const key = publicKey ? publicKeyOf(publicKey) : null
+  const digest = key ? await extensionDigestAsync(dir) : null
+  return judge(readSignature(dir), digest, id, version, key)
 }

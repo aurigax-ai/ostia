@@ -20,7 +20,7 @@ interface MarketplaceStoreState {
   add: (url: string) => Promise<boolean>
   remove: (marketplaceId: string, uninstallExtensions: boolean) => Promise<boolean>
   refresh: (marketplaceId: string) => Promise<boolean>
-  install: (marketplaceId: string, extId: string) => Promise<boolean>
+  install: (marketplaceId: string, extId: string, confirmDowngrade?: boolean) => Promise<boolean>
   installCode: (marketplaceId: string, code: string) => Promise<boolean>
   uninstall: (extId: string) => Promise<boolean>
   setPrerelease: (extId: string, enabled: boolean) => Promise<boolean>
@@ -48,7 +48,12 @@ export const useMarketplaceStore = create<MarketplaceStoreState>((set) => {
     remove: (id, uninstallExtensions) =>
       run(() => window.ostia.marketplace.remove(id, uninstallExtensions)),
     refresh: (id) => run(() => window.ostia.marketplace.refresh(id)),
-    install: (id, extId) => run(() => window.ostia.marketplace.install(id, extId)),
+    install: (id, extId, confirmDowngrade) =>
+      run(() =>
+        confirmDowngrade
+          ? window.ostia.marketplace.install(id, extId, true)
+          : window.ostia.marketplace.install(id, extId),
+      ),
     installCode: (id, code) => run(() => window.ostia.marketplace.installCode(id, code)),
     uninstall: (extId) => run(() => window.ostia.marketplace.uninstall(extId)),
     setPrerelease: (extId, enabled) =>

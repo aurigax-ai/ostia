@@ -2,6 +2,7 @@ import type { ExtensionInfo } from '@aurigax-ai/ostia-extension-sdk/contract/ext
 import type { FileKindInfo } from '@aurigax-ai/ostia-extension-sdk/contract/fileKinds'
 import { GearIcon } from '@phosphor-icons/react'
 import type { Dict } from '@shared/app/dict'
+import type { MarketplaceExtension } from '@shared/extensions/marketplace'
 import { useEffect, useState } from 'react'
 import { isAssistExtension } from '@/components/assist/AssistantSection'
 import { Notice } from '@/components/common/Notice'
@@ -29,7 +30,12 @@ import { useMarketplaceStore } from '@/stores/extensions/marketplaceStore'
 import { ExtensionAgentPlugin } from './ExtensionAgentPlugin'
 import { ExtensionSettingsForm } from './ExtensionSettingsForm'
 import { ExtensionTile } from './ExtensionTile'
-import { marketplaceName, UninstallExtensionButton, useMarketplaceList } from './MarketplaceSection'
+import {
+  marketplaceName,
+  UninstallExtensionButton,
+  UpdateExtensionButton,
+  useMarketplaceList,
+} from './MarketplaceSection'
 
 export interface ExtensionAnchor {
   id: string
@@ -239,11 +245,13 @@ function ExtensionDetails({ ext }: { ext: ExtensionInfo }): JSX.Element {
   )
 }
 
-function useUpdateOffer(extId: string): { marketplaceId: string; version: string } | null {
+function useUpdateOffer(
+  extId: string,
+): { marketplaceId: string; ext: MarketplaceExtension } | null {
   const marketplaces = useMarketplaceStore((s) => s.state.marketplaces)
   for (const marketplace of marketplaces) {
     const offered = marketplace.extensions.find((e) => e.id === extId && e.state === 'update')
-    if (offered) return { marketplaceId: marketplace.id, version: offered.version }
+    if (offered) return { marketplaceId: marketplace.id, ext: offered }
   }
   return null
 }
@@ -260,8 +268,6 @@ function ExtensionListRow({
   const d = useDict()
   const setEnabled = useExtensionsStore((s) => s.setEnabled)
   const review = useExtensionsStore((s) => s.review)
-  const busy = useMarketplaceStore((s) => s.busy)
-  const install = useMarketplaceStore((s) => s.install)
   const reducedMotion = useReducedMotion()
   const source = useSourceLabel(ext)
   const offer = useUpdateOffer(ext.id)
@@ -303,13 +309,7 @@ function ExtensionListRow({
           actions={(toggle) => (
             <>
               {offer ? (
-                <Button
-                  size="sm"
-                  disabled={busy}
-                  onClick={() => void install(offer.marketplaceId, ext.id)}
-                >
-                  {fmt(d.extensions.updateTo, { version: offer.version })}
-                </Button>
+                <UpdateExtensionButton marketplaceId={offer.marketplaceId} ext={offer.ext} />
               ) : null}
               {awaitsApproval(ext) ? (
                 <Button size="sm" onClick={() => review(ext.id)}>

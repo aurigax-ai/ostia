@@ -36,6 +36,7 @@ export interface MarketplaceExtension {
   state: MarketplaceInstallState
   installedVersion?: string
   installedRevoked?: true
+  downgrade?: true
   needsApi?: string
 }
 
@@ -75,6 +76,7 @@ export type MarketplaceError =
   | 'not-installed'
   | 'official-marketplace'
   | 'needs-newer-app'
+  | 'downgrade-unconfirmed'
   | 'invalid-source'
   | 'write-failed'
 
@@ -95,7 +97,11 @@ export interface MarketplaceApi {
   add: (url: string) => Promise<MarketplaceResult>
   remove: (marketplaceId: string, uninstallExtensions: boolean) => Promise<MarketplaceResult>
   refresh: (marketplaceId: string) => Promise<MarketplaceResult>
-  install: (marketplaceId: string, extId: string) => Promise<MarketplaceResult>
+  install: (
+    marketplaceId: string,
+    extId: string,
+    confirmDowngrade?: boolean,
+  ) => Promise<MarketplaceResult>
   findCode: (code: string) => Promise<MarketplaceFound>
   installCode: (marketplaceId: string, code: string) => Promise<MarketplaceResult>
   uninstall: (extId: string) => Promise<MarketplaceResult>

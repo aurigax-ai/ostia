@@ -40,6 +40,7 @@ import {
   MarketplaceFailureNote,
   marketplaceName,
   UninstallExtensionButton,
+  UpdateExtensionButton,
   useMarketplaceList,
 } from './MarketplaceSection'
 
@@ -225,9 +226,7 @@ function PageAction({
       return (
         <>
           <UninstallExtensionButton extId={ext.id} name={ext.name} />
-          <Button size="sm" disabled={busy} onClick={() => void run()}>
-            {fmt(d.extensions.updateTo, { version: ext.version })}
-          </Button>
+          <UpdateExtensionButton marketplaceId={marketplace.id} ext={ext} />
         </>
       )
     case 'installed':

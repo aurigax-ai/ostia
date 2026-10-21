@@ -125,3 +125,19 @@ describe('planCopy', () => {
     expect(planCopy(dir)).toEqual({ ok: false, error: 'too-large' })
   })
 })
+
+describe('planCopy and a top-level .git', () => {
+  it('never copies a .git folder and refuses one that is a file or a link', () => {
+    const dir = tmp()
+    writeFileSync(join(dir, 'ostia.json'), '{}')
+    mkdirSync(join(dir, '.git'))
+    writeFileSync(join(dir, '.git', 'config'), 'x')
+    expect(planCopy(dir)).toEqual({ ok: true, files: ['ostia.json'] })
+    const file = tmp()
+    writeFileSync(join(file, '.git'), 'gitdir: /elsewhere')
+    expect(planCopy(file)).toEqual({ ok: false, error: 'invalid-extension' })
+    const link = tmp()
+    symlinkSync(dir, join(link, '.git'))
+    expect(planCopy(link)).toEqual({ ok: false, error: 'invalid-extension' })
+  })
+})

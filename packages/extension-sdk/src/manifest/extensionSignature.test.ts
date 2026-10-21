@@ -5,8 +5,11 @@ import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
 import {
   checkExtensionSignature,
+  checkExtensionSignatureAsync,
   EXTENSION_SIGNATURE_FILE,
   extensionDigest,
+  extensionDigestAsync,
+  extensionStamp,
   signExtension,
 } from './extensionSignature'
 
@@ -83,5 +86,40 @@ describe('extension signatures', () => {
     expect(extensionDigest(dir)).not.toBeNull()
     writeFileSync(join(dir, EXTENSION_SIGNATURE_FILE), 'garbage')
     expect(extensionDigest(dir)).toBe(before)
+  })
+})
+
+describe('extension signatures, read without blocking', () => {
+  it('judge like the synchronous check and hash the same digest', async () => {
+    const dir = extension()
+    const { privatePem, publicKey } = keys()
+    signExtension(dir, 'csv', '1.1.0', privatePem)
+    expect(await extensionDigestAsync(dir)).toBe(extensionDigest(dir))
+    expect(await checkExtensionSignatureAsync(dir, 'csv', '1.1.0', publicKey)).toEqual({ ok: true })
+    writeFileSync(join(dir, 'main.js'), 'changed')
+    expect(await checkExtensionSignatureAsync(dir, 'csv', '1.1.0', publicKey)).toEqual({
+      ok: false,
+      problem: 'the files differ from what was signed',
+    })
+  })
+
+  it('changes the stamp when a file changes in size or time and not otherwise', () => {
+    const dir = extension()
+    const before = extensionStamp(dir)
+    expect(extensionStamp(dir)).toBe(before)
+    writeFileSync(join(dir, 'main.js'), 'a longer line of code')
+    expect(extensionStamp(dir)).not.toBe(before)
+  })
+
+  it('accepts only an Ed25519 public key', () => {
+    const dir = extension()
+    const { privatePem } = keys()
+    signExtension(dir, 'csv', '1.1.0', privatePem)
+    const rsa = generateKeyPairSync('rsa', { modulusLength: 2048 })
+    const der = rsa.publicKey.export({ type: 'spki', format: 'der' }).toString('base64')
+    expect(checkExtensionSignature(dir, 'csv', '1.1.0', der)).toEqual({
+      ok: false,
+      problem: 'this build holds no official key',
+    })
   })
 })

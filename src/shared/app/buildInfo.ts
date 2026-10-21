@@ -8,7 +8,6 @@ export interface BuildInfo {
   builtAt: string
   telemetry?: TelemetryStamp
   server?: string
-  extensionKey?: string
 }
 
 export function releaseVersion(version: string): string {
@@ -18,7 +17,7 @@ export function releaseVersion(version: string): string {
 
 export function parseBuildInfo(raw: unknown): BuildInfo | null {
   if (typeof raw !== 'object' || raw === null) return null
-  const { version, builtAt, telemetry, server, extensionKey } = raw as Record<string, unknown>
+  const { version, builtAt, telemetry, server } = raw as Record<string, unknown>
   if (typeof version !== 'string' || typeof builtAt !== 'string') return null
   const stamp = parseTelemetryStamp(telemetry)
   return {
@@ -26,7 +25,6 @@ export function parseBuildInfo(raw: unknown): BuildInfo | null {
     builtAt,
     ...(stamp ? { telemetry: stamp } : {}),
     ...(typeof server === 'string' && server !== '' ? { server } : {}),
-    ...(typeof extensionKey === 'string' && extensionKey !== '' ? { extensionKey } : {}),
   }
 }
 

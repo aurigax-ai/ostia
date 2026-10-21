@@ -1,6 +1,10 @@
 import { ArrowsClockwiseIcon, TrashIcon } from '@phosphor-icons/react'
 import type { Dict } from '@shared/app/dict'
-import { MARKETPLACE_FEATURE, type MarketplaceInfo } from '@shared/extensions/marketplace'
+import {
+  MARKETPLACE_FEATURE,
+  type MarketplaceExtension,
+  type MarketplaceInfo,
+} from '@shared/extensions/marketplace'
 import { useEffect, useState } from 'react'
 import { IconButton } from '@/components/common/IconButton'
 import { MachineValue } from '@/components/common/MachineValue'
@@ -76,6 +80,55 @@ export function UninstallExtensionButton({
               }}
             >
               {d.marketplace.uninstall}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
+  )
+}
+
+export function UpdateExtensionButton({
+  marketplaceId,
+  ext,
+}: {
+  marketplaceId: string
+  ext: MarketplaceExtension
+}): JSX.Element {
+  const d = useDict()
+  const busy = useMarketplaceStore((s) => s.busy)
+  const install = useMarketplaceStore((s) => s.install)
+  const [asking, setAsking] = useState(false)
+  if (!ext.downgrade) {
+    return (
+      <Button size="sm" disabled={busy} onClick={() => void install(marketplaceId, ext.id)}>
+        {fmt(d.extensions.updateTo, { version: ext.version })}
+      </Button>
+    )
+  }
+  return (
+    <>
+      <Button size="sm" disabled={busy} onClick={() => setAsking(true)}>
+        {fmt(d.extensions.switchTo, { version: ext.version })}
+      </Button>
+      <AlertDialog open={asking} onOpenChange={setAsking}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {fmt(d.marketplace.downgradeTitle, { name: ext.name, version: ext.version })}
+            </AlertDialogTitle>
+            <AlertDialogDescription>{d.marketplace.downgradeBody}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel size="sm">{d.marketplace.cancel}</AlertDialogCancel>
+            <AlertDialogAction
+              size="sm"
+              onClick={() => {
+                setAsking(false)
+                void install(marketplaceId, ext.id, true)
+              }}
+            >
+              {fmt(d.extensions.switchTo, { version: ext.version })}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

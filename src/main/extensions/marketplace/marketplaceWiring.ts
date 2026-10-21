@@ -8,15 +8,17 @@ import { app } from 'electron'
 import type { ManagedServers } from '../../lsp/managedServers'
 import type { ServerOverrides } from '../../lsp/serverOverrides'
 import { readLocale } from '../../platform/settingsFile'
-import { runningBuild } from '../../updates/appVersion'
 import type { ExtensionConnections } from '../extensionConnections'
 import type { ExtensionHost } from '../extensionHost'
 import type { ExtensionSecretStore } from '../extensionHostDeps'
 import type { ExtensionStore } from '../extensionStore'
 import {
+  AcceptedVersions,
+  OFFICIAL_EXTENSION_PUBLIC_KEY,
   OFFICIAL_REVOCATIONS_FILE,
+  OFFICIAL_VERSIONS_FILE,
   OfficialRevocations,
-  officialUpdateCheck,
+  OfficialVerifier,
 } from '../officialExtensions'
 import { Marketplace } from './marketplace'
 import type { MarketplaceIpc } from './marketplaceIpc'
@@ -55,16 +57,23 @@ export function startMarketplace({
   const revocations = new OfficialRevocations(
     join(app.getPath('userData'), OFFICIAL_REVOCATIONS_FILE),
   )
+  const verifier = new OfficialVerifier({
+    publicKey: () => OFFICIAL_EXTENSION_PUBLIC_KEY,
+    revocations,
+    accepted: new AcceptedVersions(join(app.getPath('userData'), OFFICIAL_VERSIONS_FILE)),
+    onVerified: () => {},
+  })
   const marketplace = new Marketplace({
     recordsPath: join(app.getPath('userData'), 'marketplaces.json'),
     clonesDir: join(app.getPath('userData'), 'marketplaces'),
     extensionsDir: join(configDir(), 'extensions'),
-    bundledVersion: (extId) => {
+    bundled: (extId) => {
       const dir = extensionRoots().find((root) => root.builtin)?.dir
       const bundled = dir ? readManifest(join(dir, extId)) : null
-      return bundled?.ok ? bundled.manifest.version : undefined
+      return bundled?.ok ? bundled.manifest : undefined
     },
-    officialUpdate: officialUpdateCheck(() => runningBuild()?.extensionKey, revocations),
+    officialUpdate: verifier.check,
+    disable: (extId) => services.extensionHost?.processes.setEnabled(extId, false),
     saveRevocations: (revoked) => revocations.replace(revoked),
     forget: (extId) => {
       managedServers.forgetExtension(extId)

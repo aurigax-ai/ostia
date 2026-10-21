@@ -285,6 +285,37 @@ describe('BrowseExtensionsDialog', () => {
     ).toBeVisible()
   })
 
+  it('asks before it switches a pre-release to an older stable version', async () => {
+    await browse(
+      stateWith(
+        marketplace({
+          extensions: [
+            {
+              ...WEATHER,
+              version: '1.0.0',
+              state: 'update',
+              installedVersion: '1.1.0-rc.1',
+              downgrade: true,
+            },
+          ],
+        }),
+        ['weather'],
+      ),
+    )
+    vi.mocked(window.ostia.marketplace.install).mockResolvedValue({
+      ok: true,
+      state: stateWith(marketplace({ extensions: [{ ...WEATHER, state: 'installed' }] }), [
+        'weather',
+      ]),
+    })
+    await userEvent.click(within(page()).getByRole('button', { name: 'Switch to 1.0.0' }))
+    expect(window.ostia.marketplace.install).not.toHaveBeenCalled()
+    const confirm = await screen.findByRole('alertdialog')
+    expect(within(confirm).getByText('Switch “Weather” to 1.0.0?')).toBeVisible()
+    await userEvent.click(within(confirm).getByRole('button', { name: 'Switch to 1.0.0' }))
+    expect(window.ostia.marketplace.install).toHaveBeenCalledWith('abc123', 'weather', true)
+  })
+
   it('offers an update with the installed and offered versions', async () => {
     const offered = stateWith(
       marketplace({ extensions: [{ ...WEATHER, state: 'update', installedVersion: '1.0.0' }] }),

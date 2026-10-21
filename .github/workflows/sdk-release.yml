@@ -15,6 +15,7 @@ jobs:
   sdk:
     runs-on: ubuntu-24.04
     timeout-minutes: 30
+    environment: sdk-release
     permissions:
       contents: read
       id-token: write
@@ -30,6 +31,7 @@ jobs:
         with:
           go: 'false'
           electron: 'false'
+          cache: 'false'
       - name: The tag matches the SDK version
         id: tag
         run: node scripts/extensionRelease.mjs check-sdk "$GITHUB_REF_NAME"
@@ -41,6 +43,7 @@ jobs:
         with:
           node-version: 24
           registry-url: https://registry.npmjs.org
+          package-manager-cache: false
       - name: Publish the extension SDK to npm
         working-directory: out/sdk
         env:

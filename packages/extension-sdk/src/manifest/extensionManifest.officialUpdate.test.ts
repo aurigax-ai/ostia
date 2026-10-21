@@ -56,6 +56,21 @@ describe('a built-in updated from the official marketplace', () => {
     expect(errors[0]).toContain('version 0.9.0 is below the bundled 1.0.0')
   })
 
+  it('refuses a copy that claims more than the bundled one, whatever the check says', () => {
+    const roots = [
+      { dir: root({ csv: manifest('1.0.0') }), builtin: true },
+      { dir: root({ csv: { ...manifest('1.1.0'), capabilities: ['notify'] } }), builtin: false },
+    ]
+    const errors: string[] = []
+    const found = discoverExtensions(
+      roots,
+      (_dir, error) => errors.push(error),
+      () => null,
+    )
+    expect(found[0]?.manifest.version).toBe('1.0.0')
+    expect(errors[0]).toContain('asks for notify')
+  })
+
   it('refuses every other copy by default', () => {
     const roots = [
       { dir: root({ csv: manifest('1.0.0') }), builtin: true },

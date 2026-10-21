@@ -123,13 +123,25 @@ marketplace.
 
 ### Updating a built-in
 
-The official marketplace may offer a newer copy of a built-in extension. Ostia accepts it only when
-the copy is signed with the official Ed25519 key the app carries (`ostia.sig` in the folder, over a
-digest of every file), is not older than the bundled version and is not revoked. Such a copy runs
-as the built-in: approved, with the host methods that answer only built-ins, keyed on the signature
-and the extension's id and not on where the folder is. An unsigned, tampered, revoked or older copy
-is refused and the bundled one keeps running. Any other marketplace's copy of a built-in id is a
-conflict, as before.
+The official marketplace may offer a newer copy of one of a few built-in extensions (`csv`,
+`images`, `keymap-macos`, `markdown`, `office`, `pdf`, `serial`, `ssh`, `system`, `video`; the others
+stay tied to the app). Ostia accepts the copy only when all of this holds, checked on every scan:
+
+- it is signed with the official Ed25519 key compiled into the app (`ostia.sig` in the folder, over
+  a digest of every file and the id and version), verified in the background so the bundled copy
+  keeps running until the check is done;
+- it asks for nothing the bundled one does not: capabilities, file kinds (patterns, roles and viewer
+  priority), commands that need the playbook, agent skills and hooks, assist points, language
+  servers, secrets, connections and a verb are each a subset of the bundled manifest, and it starts
+  no program the bundled one did not;
+- its version is not below the bundled one, nor below the highest version this computer accepted
+  before, nor revoked.
+
+Such a copy runs as the built-in: approved, with the host methods that answer only built-ins, keyed
+on the signature and the extension's id and not on where the folder is. Anything else is refused
+and the bundled one keeps running. Any other marketplace's copy of a built-in id is a conflict, as
+before. Installing or uninstalling an update never forgets the built-in's approval or secrets.
+A marketplace extension that is not a built-in and whose installed version is revoked is stopped.
 
 ## Manifest (`ostia.json`)
 
@@ -1778,17 +1790,21 @@ which tags `ext/<id>/v<version>` after checking the id is in `marketplace/ostia-
 and the version equals the manifest; push the tag. `extension-release.yml` then
 
 1. checks the tag is on `main`, matches the manifest and names a marketplace extension;
-2. applies the API floor: the extension's `api` may not be newer than the extension API of the
-   latest stable app, nor than the API of the SDK the marketplace project pins, and the extension is
-   type-checked against that pinned SDK, so it cannot call what the stable app lacks;
+2. applies the API floor: the extension declares exactly the extension API of the SDK the
+   marketplace project pins, that SDK's API may not be newer than the latest stable app's, and the
+   extension is type-checked against it, so it cannot call what the stable app lacks;
 3. builds, tests and validates only that extension inside the marketplace project (the
-   `aurigax-ai/ostia-extensions` checkout with the extension's source put in);
-4. signs the built folder with the official key and publishes a GitHub release
-   `ext/<id>/v<version>` holding `<id>-<version>.tar.gz`.
+   `aurigax-ai/ostia-extensions` commit it records, with the extension's source put in), in a job
+   that holds no key;
+4. in a second job that holds the key and runs no extension code, signs the built folder with the
+   official key and publishes a GitHub release `ext/<id>/v<version>` (never the latest release of
+   the repository) holding `<id>-<version>.tar.gz`.
 
-The marketplace repository's `sync.yml` pulls those releases every hour, files each under
-`extensions/` (the newest stable) or `versions/<id>/<version>/`, rebuilds from the source at the
-tag to confirm it matches, and commits. No credential for the marketplace repository exists in this
+The marketplace repository's `sync.yml` pulls those releases every hour. It accepts only a valid
+tag, an archive whose folder, manifest id and version match the tag, and a signature that verifies
+against `official-key.json` in that repository; it files the release under `extensions/` (the newest
+stable) or `versions/<id>/<version>/` (every pre-release), rebuilds from the source at the tag to
+confirm it matches, and commits. No credential for the marketplace repository exists in this
 repository. A release is withdrawn by a `revoked` entry in that repository.
 
 An extension that needs a newer API waits for the stable app that has it; the SDK it is typed

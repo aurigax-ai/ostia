@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
   buildVersion,
-  extensionKeyStamp,
   mainBuildRun,
   nextPatch,
   telemetryStamp,
@@ -134,20 +133,5 @@ describe('telemetryStamp', () => {
     })
     expect(parseTelemetryStamp({ key: '', host: 'https://h' })).toBeNull()
     expect(parseTelemetryStamp('x')).toBeNull()
-  })
-})
-
-describe('the official extension key stamp', () => {
-  it('comes from the environment and survives parsing', () => {
-    expect(extensionKeyStamp({ OSTIA_EXTENSION_PUBLIC_KEY: 'MCow' })).toBe('MCow')
-    expect(extensionKeyStamp({})).toBeNull()
-    expect(extensionKeyStamp({ OSTIA_EXTENSION_PUBLIC_KEY: '' })).toBeNull()
-    const base = { version: '0.5.12', builtAt: '2026-10-21T00:00:00Z' }
-    expect(parseBuildInfo({ ...base, extensionKey: 'MCow' })).toEqual({
-      ...base,
-      extensionKey: 'MCow',
-    })
-    expect(parseBuildInfo({ ...base, extensionKey: '' })).toEqual(base)
-    expect(parseBuildInfo({ ...base, extensionKey: 3 })).toEqual(base)
   })
 })

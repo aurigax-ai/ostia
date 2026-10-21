@@ -12,6 +12,7 @@ import {
 import { parseFileKinds } from '../contract/fileKinds'
 import { isRecord } from '../contract/isRecord'
 import { parseLanguageServers } from '../contract/languageServerManifest'
+import { builtinUpdateProblem } from './builtinUpdate'
 import { isInsideDir } from './confinedRead'
 import { parseConnectionKinds } from './connectionKinds'
 import { isCoreSource, verbProblem } from './coreNames'
@@ -252,12 +253,17 @@ function verbClash(manifest: ExtensionManifest, found: DiscoveredExtension[]): s
 }
 
 function updateProblem(bundled: ExtensionManifest, update: ExtensionManifest): string | null {
-  return isOlderVersion(update.version, bundled.version)
-    ? `version ${update.version} is below the bundled ${bundled.version}`
-    : null
+  if (isOlderVersion(update.version, bundled.version)) {
+    return `version ${update.version} is below the bundled ${bundled.version}`
+  }
+  return builtinUpdateProblem(bundled, update)
 }
 
-export type OfficialUpdateCheck = (dir: string, manifest: ExtensionManifest) => string | null
+export type OfficialUpdateCheck = (
+  dir: string,
+  manifest: ExtensionManifest,
+  bundled: ExtensionManifest,
+) => string | null
 
 export function discoverExtensions(
   roots: ExtensionRoot[],
@@ -276,7 +282,8 @@ export function discoverExtensions(
       const bundled = found.get(res.manifest.id)
       if (bundled?.builtin && !root.builtin) {
         const problem =
-          officialUpdate(dir, res.manifest) ?? updateProblem(bundled.manifest, res.manifest)
+          officialUpdate(dir, res.manifest, bundled.manifest) ??
+          updateProblem(bundled.manifest, res.manifest)
         if (problem)
           onError(dir, `not used in place of the built-in '${bundled.manifest.id}': ${problem}`)
         else found.set(bundled.manifest.id, { dir, builtin: true, manifest: res.manifest })

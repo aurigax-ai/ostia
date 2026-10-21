@@ -52,6 +52,7 @@ interface FakeGitHub {
   url: string
   requests: Array<{ url: string | undefined; headers: Record<string, unknown> }>
   reply: { status: number; body: string; location?: string } | 'hang'
+  later: Array<{ status: number; body: string; location?: string }>
   close: () => Promise<void>
 }
 
@@ -60,16 +61,18 @@ async function startFakeGitHub(): Promise<FakeGitHub> {
     url: '',
     requests: [],
     reply: { status: 404, body: '{"message":"Not Found"}' },
+    later: [],
     close: async () => {},
   }
   const server: Server = createServer((req, res) => {
     fake.requests.push({ url: req.url, headers: { ...req.headers } })
     if (fake.reply === 'hang') return
-    res.writeHead(fake.reply.status, {
+    const reply = fake.later.shift() ?? fake.reply
+    res.writeHead(reply.status, {
       'content-type': 'application/json',
-      ...(fake.reply.location ? { location: fake.reply.location } : {}),
+      ...(reply.location ? { location: reply.location } : {}),
     })
-    res.end(fake.reply.body)
+    res.end(reply.body)
   })
   await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve))
   fake.url = `http://127.0.0.1:${(server.address() as AddressInfo).port}`
@@ -368,6 +371,38 @@ describe('fetchLatestRelease', () => {
       '/repos/aurigax-ai/ostia/releases?per_page=30',
     ])
     expect(github.requests[0].headers['user-agent']).toBe('ostia/0.2.0')
+  })
+
+  it('looks past a page full of extension releases for the newest app release', async () => {
+    const extension = (n: number): string =>
+      JSON.stringify({
+        tag_name: `ext/lsp-bash/v1.0.${n}`,
+        html_url: `https://github.com/aurigax-ai/ostia/releases/tag/ext%2Flsp-bash%2Fv1.0.${n}`,
+        draft: false,
+        prerelease: false,
+      })
+    const page = Array.from({ length: 30 }, (_, n) => extension(n)).join(',')
+    const full = { status: 200, body: `[${page}]` }
+    github.later = [full, full, { status: 200, body: `[${extension(31)},${body('0.2.0')}]` }]
+    expect(await fetchFrom(undefined, 'main')).toEqual(found('0.2.0'))
+    expect(github.requests.map((r) => r.url)).toEqual([
+      '/repos/aurigax-ai/ostia/releases?per_page=30',
+      '/repos/aurigax-ai/ostia/releases?per_page=30&page=2',
+      '/repos/aurigax-ai/ostia/releases?per_page=30&page=3',
+    ])
+  })
+
+  it('never lets an extension release stand for the stable app release', async () => {
+    github.reply = {
+      status: 200,
+      body: JSON.stringify({
+        tag_name: 'ext/lsp-bash/v1.0.0',
+        html_url: 'https://github.com/aurigax-ai/ostia/releases/tag/ext%2Flsp-bash%2Fv1.0.0',
+        draft: false,
+        prerelease: false,
+      }),
+    }
+    expect(await fetchFrom()).toEqual({ kind: 'error', error: 'unavailable' })
   })
 
   it('reports no release on the main channel for an empty list and unavailable for a non-list', async () => {

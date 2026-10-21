@@ -40,7 +40,6 @@ import { sandboxSpawnEnv } from '../sandbox/spawnEnv'
 import type { WorkspaceSandboxes } from '../sandbox/workspaceSandboxes'
 import type { PtyEntry } from '../terminal/pty/ptyRegistry'
 import { setAgentPlugins } from '../terminal/shellIntegration'
-import { runningBuild } from '../updates/appVersion'
 import type { WindowSend } from '../windows/windowSend'
 import type { ScratchFolders } from '../workspaces/scratchFolders'
 import { windowForWorkspace, workDirForWorkspace } from '../workspaces/workspaceRegistry'
@@ -56,9 +55,12 @@ import type { PhoneScreenLinks } from './extensionPhoneScreens'
 import { ExtensionStore } from './extensionStore'
 import { answerInboxAction } from './inboxIpc'
 import {
+  AcceptedVersions,
+  OFFICIAL_EXTENSION_PUBLIC_KEY,
   OFFICIAL_REVOCATIONS_FILE,
+  OFFICIAL_VERSIONS_FILE,
   OfficialRevocations,
-  officialUpdateCheck,
+  OfficialVerifier,
 } from './officialExtensions'
 import { registerWireRuntime, WireRuntime } from './wireRuntime'
 import { inboxEntriesForWindow, workspaceChipsForWindow } from './workspaceChips'
@@ -233,6 +235,12 @@ export function startExtensionHost({
   screenLinks,
 }: ExtensionHostStartDeps) {
   const extensionStore = new ExtensionStore(join(app.getPath('userData'), 'extensions.json'))
+  const officialVerifier = new OfficialVerifier({
+    publicKey: () => OFFICIAL_EXTENSION_PUBLIC_KEY,
+    revocations: new OfficialRevocations(join(app.getPath('userData'), OFFICIAL_REVOCATIONS_FILE)),
+    accepted: new AcceptedVersions(join(app.getPath('userData'), OFFICIAL_VERSIONS_FILE)),
+    onVerified: () => services.extensionHost?.processes.rescan(),
+  })
   services.extensionHost = new ExtensionHost({
     onChanged: () => {
       services.languageServers?.refresh()
@@ -255,10 +263,7 @@ export function startExtensionHost({
         ? workspaceSandboxes.resolved(workspaceId).domains
         : null,
     roots: extensionRoots(),
-    officialUpdate: officialUpdateCheck(
-      () => runningBuild()?.extensionKey,
-      new OfficialRevocations(join(app.getPath('userData'), OFFICIAL_REVOCATIONS_FILE)),
-    ),
+    officialUpdate: officialVerifier.check,
     store: extensionStore,
     launches: new ExtensionLaunches(join(app.getPath('userData'), 'extension-launches.json')),
     socketPath: controlSocketPath,

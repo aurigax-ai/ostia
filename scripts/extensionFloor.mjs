@@ -19,22 +19,34 @@ export function exceedsFloor(declared, floor) {
 
 export function floorProblems({ declared, appApi, sdk, sdkApi }) {
   const problems = []
-  if (exceedsFloor(declared, appApi)) {
-    problems.push(
-      `declares extension API ${declared}, newer than ${appApi} of the latest stable app`,
-    )
-  }
   if (exceedsFloor(sdkApi, appApi)) {
     problems.push(
       `is typed against SDK ${sdk} (extension API ${sdkApi}), newer than ${appApi} of the latest stable app`,
     )
   }
-  if (exceedsFloor(declared, sdkApi)) {
+  if (declared !== sdkApi) {
     problems.push(
-      `declares extension API ${declared}, newer than ${sdkApi} of the SDK ${sdk} it is typed against`,
+      `declares extension API ${declared}, but is type-checked against SDK ${sdk}, whose API is ${sdkApi}: declare ${sdkApi}`,
     )
   }
   return problems
+}
+
+const STABLE_APP_TAG = /^v\d+\.\d+\.\d+$/
+
+export function latestStableAppTag(releases) {
+  const key = (tag) => tag.slice(1).split('.').map(Number)
+  const newer = (a, b) => {
+    const [x, y] = [key(a), key(b)]
+    for (let i = 0; i < 3; i++) if (x[i] !== y[i]) return x[i] > y[i]
+    return false
+  }
+  let best = null
+  for (const release of releases) {
+    if (release.draft || release.prerelease || !STABLE_APP_TAG.test(release.tag_name)) continue
+    if (best === null || newer(release.tag_name, best)) best = release.tag_name
+  }
+  return best
 }
 
 function gh(...args) {
@@ -42,7 +54,18 @@ function gh(...args) {
 }
 
 function stableApi() {
-  const tag = gh('api', `repos/${repository}/releases/latest`, '--jq', '.tag_name')
+  const releases = gh(
+    'api',
+    '--paginate',
+    `repos/${repository}/releases?per_page=100`,
+    '--jq',
+    '.[] | {tag_name, draft, prerelease}',
+  )
+    .split('\n')
+    .filter(Boolean)
+    .map((line) => JSON.parse(line))
+  const tag = latestStableAppTag(releases)
+  if (!tag) throw new Error('no stable app release found')
   const lock = gh(
     'api',
     '-H',
@@ -57,7 +80,7 @@ function pinnedSdk() {
     'api',
     '-H',
     'Accept: application/vnd.github.raw',
-    `repos/${marketplaceRepository}/contents/package.json`,
+    `repos/${marketplaceRepository}/contents/package.json?ref=${process.env.MARKETPLACE_SHA ?? 'main'}`,
   )
   return JSON.parse(text).devDependencies[sdkName]
 }

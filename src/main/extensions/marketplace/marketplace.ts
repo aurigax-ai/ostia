@@ -10,7 +10,10 @@ import {
   type OfficialUpdateCheck,
   readManifest,
 } from '@aurigax-ai/ostia-extension-sdk/manifest/extensionManifest'
-import { isNewerVersion } from '@aurigax-ai/ostia-extension-sdk/manifest/extensionVersions'
+import {
+  isNewerVersion,
+  isPrerelease,
+} from '@aurigax-ai/ostia-extension-sdk/manifest/extensionVersions'
 import {
   loadLocaleCatalogs,
   manifestIn,
@@ -103,7 +106,8 @@ export interface MarketplaceDeps {
   recordsPath: string
   clonesDir: string
   extensionsDir: string
-  bundledVersion: (extId: string) => string | undefined
+  bundled: (extId: string) => ExtensionManifest | undefined
+  disable: (extId: string) => void
   officialUpdate: OfficialUpdateCheck
   saveRevocations: (revoked: readonly RevokedVersion[]) => boolean
   forget: (extId: string) => void
@@ -202,16 +206,15 @@ export class Marketplace {
 
   private installState(sourceId: string, entry: CatalogEntry): MarketplaceInstallState {
     const { manifest } = entry
-    const bundled = this.deps.bundledVersion(manifest.id)
+    const bundled = this.deps.bundled(manifest.id)
     if (bundled !== undefined && !this.canUpdateBuiltin(sourceId, entry, bundled)) return 'conflict'
     if (entry.needsApi) return 'incompatible'
     if (!existsSync(this.installDir(manifest.id))) return 'available'
     const owner = this.records.installs[manifest.id]
     if (owner === sourceId) {
       const installed = this.installedVersion(manifest.id)
-      return installed !== undefined && !isNewerVersion(manifest.version, installed)
-        ? 'installed'
-        : 'update'
+      if (installed === undefined || isNewerVersion(manifest.version, installed)) return 'update'
+      return this.leavesPrerelease(manifest, installed) ? 'update' : 'installed'
     }
     return owner !== undefined && owner !== DEV_OWNER && !this.hasSource(owner)
       ? 'replace'
@@ -219,14 +222,32 @@ export class Marketplace {
   }
 
   private isBundled(entry: CatalogEntry): boolean {
-    return this.deps.bundledVersion(entry.manifest.id) !== undefined
+    return this.deps.bundled(entry.manifest.id) !== undefined
   }
 
-  private canUpdateBuiltin(sourceId: string, entry: CatalogEntry, bundled: string): boolean {
+  private leavesPrerelease(manifest: ExtensionManifest, installed: string): boolean {
+    return (
+      manifest.version !== installed &&
+      isPrerelease(installed) &&
+      !isPrerelease(manifest.version) &&
+      !this.records.prerelease.includes(manifest.id)
+    )
+  }
+
+  private isDowngrade(entry: CatalogEntry): boolean {
+    const installed = this.installedVersion(entry.manifest.id)
+    return installed !== undefined && !isNewerVersion(entry.manifest.version, installed)
+  }
+
+  private canUpdateBuiltin(
+    sourceId: string,
+    entry: CatalogEntry,
+    bundled: ExtensionManifest,
+  ): boolean {
     const source = this.records.sources.find((s) => s.id === sourceId)
     if (!source || source.url !== this.officialUrl) return false
-    if (!isNewerVersion(entry.manifest.version, bundled)) return false
-    return this.deps.officialUpdate(entry.dir, entry.manifest) === null
+    if (!isNewerVersion(entry.manifest.version, bundled.version)) return false
+    return this.deps.officialUpdate(entry.dir, entry.manifest, bundled) === null
   }
 
   private hasSource(id: string): boolean {
@@ -252,6 +273,7 @@ export class Marketplace {
         ? this.installedVersion(manifest.id)
         : undefined
     const installedVersion = state === 'update' ? installed : undefined
+    const downgrade = state === 'update' && this.isDowngrade(entry)
     const installedRevoked = catalog.revoked.some(
       (r) => r.id === manifest.id && r.version === installed,
     )
@@ -277,6 +299,7 @@ export class Marketplace {
       state,
       ...(installedVersion ? { installedVersion } : {}),
       ...(installedRevoked ? { installedRevoked } : {}),
+      ...(downgrade ? { downgrade } : {}),
       ...(entry.needsApi ? { needsApi: entry.needsApi } : {}),
     }
   }
@@ -382,7 +405,18 @@ export class Marketplace {
     if (source.url === this.officialUrl && this.deps.saveRevocations(catalog.revoked)) {
       this.deps.rescan()
     }
+    this.stopRevoked(source.id, catalog)
     return null
+  }
+
+  private stopRevoked(sourceId: string, catalog: Catalog): void {
+    for (const [extId, owner] of Object.entries(this.records.installs)) {
+      if (owner !== sourceId || this.deps.bundled(extId) !== undefined) continue
+      const installed = this.installedVersion(extId)
+      if (catalog.revoked.some((r) => r.id === extId && r.version === installed)) {
+        this.deps.disable(extId)
+      }
+    }
   }
 
   private async addSource(input: unknown): Promise<MarketplaceResult> {
@@ -488,6 +522,7 @@ export class Marketplace {
   private async installFrom(
     id: unknown,
     pick: (source: Source, catalog: Catalog) => CatalogEntry | MarketplaceResult,
+    confirmDowngrade = false,
   ): Promise<MarketplaceResult> {
     const source = this.records.sources.find((s) => s.id === id)
     if (!source) return this.fail('unknown-marketplace')
@@ -498,6 +533,9 @@ export class Marketplace {
     const state = this.installState(source.id, entry)
     if (state === 'conflict') return this.fail('conflict')
     if (state === 'incompatible') return this.fail('needs-newer-app', entry.needsApi)
+    if (state === 'update' && !confirmDowngrade && this.isDowngrade(entry)) {
+      return this.fail('downgrade-unconfirmed')
+    }
     const fresh = (state === 'available' || state === 'replace') && !this.isBundled(entry)
     return this.place(entry, source.id, fresh)
   }
@@ -554,9 +592,10 @@ export class Marketplace {
         const { id } = res.manifest
         const owner = this.records.installs[id]
         const taken = existsSync(this.installDir(id)) && owner !== DEV_OWNER
-        if (this.deps.bundledVersion(id) !== undefined || taken) return this.fail('conflict')
+        if (this.deps.bundled(id) !== undefined || taken) return this.fail('conflict')
         const entry = { dir: staged.dir, manifest: res.manifest }
-        return this.place(entry, DEV_OWNER, !existsSync(this.installDir(id)), staged.label)
+        const same = existsSync(this.installDir(id)) && this.records.dev[id] === staged.label
+        return this.place(entry, DEV_OWNER, !same, staged.label)
       } finally {
         staged.cleanup()
       }
@@ -569,8 +608,10 @@ export class Marketplace {
       this.fail('unknown-extension')
   }
 
-  install(id: unknown, extId: unknown): Promise<MarketplaceResult> {
-    return this.serialized(() => this.installFrom(id, this.shownEntry(extId)))
+  install(id: unknown, extId: unknown, confirmDowngrade?: unknown): Promise<MarketplaceResult> {
+    return this.serialized(() =>
+      this.installFrom(id, this.shownEntry(extId), confirmDowngrade === true),
+    )
   }
 
   findCode(input: unknown): MarketplaceFound {
@@ -639,7 +680,7 @@ export class Marketplace {
     const { [extId]: _removed, ...installs } = this.records.installs
     const { [extId]: _dev, ...dev } = this.records.dev
     this.records = { ...this.records, installs, dev }
-    if (this.deps.bundledVersion(extId) === undefined) this.deps.forget(extId)
+    if (this.deps.bundled(extId) === undefined) this.deps.forget(extId)
     return null
   }
 }

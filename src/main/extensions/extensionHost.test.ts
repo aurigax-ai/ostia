@@ -10,7 +10,7 @@ import { registerPane } from '../control/idRegistry'
 import { ExtensionHost } from './extensionHost'
 import type { ExtensionHostDeps } from './extensionHostDeps'
 import { ExtensionStore } from './extensionStore'
-import { OfficialRevocations, officialUpdateCheck } from './officialExtensions'
+import { AcceptedVersions, OfficialRevocations, OfficialVerifier } from './officialExtensions'
 
 let base: string
 
@@ -712,27 +712,39 @@ describe('ExtensionHost — a built-in updated from the official marketplace', (
   const publicDer = publicKey.export({ type: 'spki', format: 'der' }).toString('base64')
   const privatePem = privateKey.export({ type: 'pkcs8', format: 'pem' }).toString()
 
-  function update(version: string, sign: boolean): void {
+  function update(version: string, sign: boolean, caps: string[] = ['notify']): void {
     const dir = writeExt(join(base, 'user'), 'board', {
       version,
-      capabilities: ['notify'],
+      capabilities: caps,
       contributes: { panel: { title: 'Board', entry: 'panel.html' } },
     })
     if (sign) signExtension(dir, 'board', version, privatePem)
   }
 
-  function host(key: string | null = publicDer, revoked: string[] = []) {
-    const revocations = new OfficialRevocations(join(base, 'revoked.json'))
-    writeFileSync(join(base, 'revoked.json'), JSON.stringify(revoked))
-    return makeHost({ officialUpdate: officialUpdateCheck(() => key ?? undefined, revocations) })
-      .host
+  async function host(
+    opts: { key?: string | null; revoked?: string[]; updatable?: string[]; seen?: string } = {},
+  ): Promise<ExtensionHost> {
+    writeFileSync(join(base, 'revoked.json'), JSON.stringify(opts.revoked ?? []))
+    if (opts.seen) writeFileSync(join(base, 'seen.json'), JSON.stringify({ board: opts.seen }))
+    let rescan = (): void => {}
+    const verifier = new OfficialVerifier({
+      publicKey: () => (opts.key === null ? undefined : (opts.key ?? publicDer)),
+      revocations: new OfficialRevocations(join(base, 'revoked.json')),
+      accepted: new AcceptedVersions(join(base, 'seen.json')),
+      onVerified: () => rescan(),
+      updatable: opts.updatable ?? ['board'],
+    })
+    const { host: created } = makeHost({ officialUpdate: verifier.check })
+    rescan = () => created.processes.rescan()
+    await verifier.settled()
+    return created
   }
 
   const board = (h: ExtensionHost) => h.list().find((e) => e.id === 'board')
 
-  it('runs a signed newer copy with the built-in powers', () => {
+  it('runs a signed newer copy with the built-in powers once it is verified', async () => {
     update('2.0.0', true)
-    expect(board(host())).toMatchObject({
+    expect(board(await host())).toMatchObject({
       builtin: true,
       version: '2.0.0',
       enabled: true,
@@ -740,26 +752,58 @@ describe('ExtensionHost — a built-in updated from the official marketplace', (
     })
   })
 
-  it('keeps the bundled copy for an unsigned, tampered, downgraded or revoked one', () => {
+  it('keeps the bundled copy until the copy is verified', () => {
+    update('2.0.0', true)
+    const verifier = new OfficialVerifier({
+      publicKey: () => publicDer,
+      revocations: new OfficialRevocations(join(base, 'revoked.json')),
+      accepted: new AcceptedVersions(join(base, 'seen.json')),
+      onVerified: () => {},
+      updatable: ['board'],
+    })
+    expect(board(makeHost({ officialUpdate: verifier.check }).host)).toMatchObject({
+      builtin: true,
+      version: '1.0.0',
+    })
+  })
+
+  it('keeps the bundled copy for an unsigned, tampered, downgraded or revoked one', async () => {
     update('2.0.0', false)
-    expect(board(host())).toMatchObject({ builtin: true, version: '1.0.0' })
+    expect(board(await host())).toMatchObject({ builtin: true, version: '1.0.0' })
 
     update('2.0.0', true)
     writeFileSync(join(base, 'user/board/panel.html'), '<script>steal()</script>')
-    expect(board(host())).toMatchObject({ builtin: true, version: '1.0.0' })
+    expect(board(await host())).toMatchObject({ builtin: true, version: '1.0.0' })
 
     update('0.9.0', true)
-    expect(board(host())).toMatchObject({ builtin: true, version: '1.0.0' })
+    expect(board(await host())).toMatchObject({ builtin: true, version: '1.0.0' })
 
     update('2.0.0', true)
-    expect(board(host(null))).toMatchObject({ version: '1.0.0' })
-    expect(board(host(publicDer, ['board@2.0.0']))).toMatchObject({ version: '1.0.0' })
+    expect(board(await host({ key: null }))).toMatchObject({ version: '1.0.0' })
+    expect(board(await host({ revoked: ['board@2.0.0'] }))).toMatchObject({ version: '1.0.0' })
   })
 
-  it('refuses a copy signed by another key', () => {
+  it('refuses a copy signed by another key', async () => {
     update('2.0.0', true)
     const other = generateKeyPairSync('ed25519').publicKey
     const otherDer = other.export({ type: 'spki', format: 'der' }).toString('base64')
-    expect(board(host(otherDer))).toMatchObject({ version: '1.0.0' })
+    expect(board(await host({ key: otherDer }))).toMatchObject({ version: '1.0.0' })
+  })
+
+  it('refuses a signed copy that raises a capability, however it is signed', async () => {
+    update('2.0.0', true, ['notify', 'browse'])
+    expect(board(await host())).toMatchObject({ version: '1.0.0' })
+  })
+
+  it('refuses a built-in that is not on the allowlist', async () => {
+    update('2.0.0', true)
+    expect(board(await host({ updatable: ['csv'] }))).toMatchObject({ version: '1.0.0' })
+  })
+
+  it('refuses a version below the highest one accepted before', async () => {
+    update('1.5.0', true)
+    expect(board(await host({ seen: '2.0.0' }))).toMatchObject({ version: '1.0.0' })
+    expect(board(await host({ seen: '1.2.0' }))).toMatchObject({ version: '1.5.0' })
+    expect(JSON.parse(readFileSync(join(base, 'seen.json'), 'utf8')).board).toBe('1.5.0')
   })
 })

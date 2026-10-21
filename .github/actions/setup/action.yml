@@ -1,6 +1,9 @@
 name: Setup
 description: pnpm, Node, Go, the Electron download cache, and the project's dependencies
 inputs:
+  cache:
+    description: Cache the pnpm store (off for a job that publishes or signs)
+    default: 'true'
   go:
     description: Install Go (the tsnet helper's toolchain)
     default: 'true'
@@ -14,7 +17,7 @@ runs:
     - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
       with:
         node-version: 24
-        cache: ${{ runner.environment == 'github-hosted' && 'pnpm' || '' }}
+        cache: ${{ inputs.cache == 'true' && runner.environment == 'github-hosted' && 'pnpm' || '' }}
     - if: inputs.go == 'true'
       uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e
       with:

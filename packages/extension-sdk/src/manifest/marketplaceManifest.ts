@@ -140,7 +140,10 @@ export function planCopy(dir: string): CopyPlan {
     const rel = pending.pop() as string
     for (const entry of readdirSync(join(dir, rel), { withFileTypes: true })) {
       const path = join(rel, entry.name)
-      if (rel === '' && entry.name === '.git') continue
+      if (rel === '' && entry.name === '.git') {
+        if (!entry.isDirectory()) return { ok: false, error: 'invalid-extension' }
+        continue
+      }
       if (entry.isDirectory()) {
         pending.push(path)
         continue

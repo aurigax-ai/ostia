@@ -12,12 +12,17 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  release:
+  build:
     runs-on: ubuntu-24.04
     timeout-minutes: 45
-    environment: extension-release
     permissions:
-      contents: write
+      contents: read
+    outputs:
+      id: ${{ steps.tag.outputs.id }}
+      version: ${{ steps.tag.outputs.version }}
+      prerelease: ${{ steps.tag.outputs.prerelease }}
+      sdk: ${{ steps.floor.outputs.sdk }}
+      marketplace: ${{ steps.pin.outputs.sha }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
@@ -30,18 +35,26 @@ jobs:
         with:
           go: 'false'
           electron: 'false'
+          cache: 'false'
       - name: The tag matches the extension manifest
         id: tag
         run: node scripts/extensionRelease.mjs check "$GITHUB_REF_NAME"
+      - name: The marketplace commit this release is built on
+        id: pin
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: echo "sha=$(gh api repos/aurigax-ai/ostia-extensions/commits/main --jq .sha)" >> "$GITHUB_OUTPUT"
       - name: The API floor
         id: floor
         env:
           GH_TOKEN: ${{ github.token }}
           EXTENSION: ${{ steps.tag.outputs.id }}
+          MARKETPLACE_SHA: ${{ steps.pin.outputs.sha }}
         run: node scripts/extensionFloor.mjs "$EXTENSION"
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           repository: aurigax-ai/ostia-extensions
+          ref: ${{ steps.pin.outputs.sha }}
           path: marketplace-checkout
           persist-credentials: false
       - name: Put the extension into the marketplace project
@@ -72,29 +85,79 @@ jobs:
         run: |
           node build.mjs "$EXTENSION"
           node node_modules/@aurigax-ai/ostia-extension-sdk/dist/cli.cjs validate "extensions/$EXTENSION"
-      - run: pnpm build:sdk
-      - name: Sign the extension with the official key
+      - name: Pack the built folder, unsigned
         env:
           EXTENSION: ${{ steps.tag.outputs.id }}
+        run: tar -czf unsigned.tar.gz -C marketplace-checkout/extensions "$EXTENSION"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: unsigned-extension
+          path: unsigned.tar.gz
+          if-no-files-found: error
+
+  sign:
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    environment: extension-release
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: The tag is on main
+        run: git merge-base --is-ancestor "$GITHUB_SHA" origin/main
+      - uses: ./.github/actions/setup
+        timeout-minutes: 10
+        with:
+          go: 'false'
+          electron: 'false'
+          cache: 'false'
+      - name: The tag matches the extension manifest
+        id: tag
+        run: node scripts/extensionRelease.mjs check "$GITHUB_REF_NAME"
+      - run: pnpm build:sdk
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
+        with:
+          name: unsigned-extension
+          path: unsigned
+      - name: Unpack the folder the build job made
+        env:
+          EXTENSION: ${{ steps.tag.outputs.id }}
+        run: |
+          mkdir folder
+          tar -xzf unsigned/unsigned.tar.gz -C folder
+          test "$(ls folder)" = "$EXTENSION"
+      - name: Sign the folder with the official key
+        env:
+          EXTENSION: ${{ steps.tag.outputs.id }}
+          VERSION: ${{ steps.tag.outputs.version }}
           OSTIA_EXTENSION_SIGNING_KEY: ${{ secrets.OSTIA_EXTENSION_SIGNING_KEY }}
-        run: node out/sdk/dist/cli.cjs sign "marketplace-checkout/extensions/$EXTENSION"
+        run: |
+          test "$(node -p "require('./folder/$EXTENSION/ostia.json').version")" = "$VERSION"
+          node out/sdk/dist/cli.cjs sign "folder/$EXTENSION"
       - name: The signature verifies with the public key the app carries
         env:
           EXTENSION: ${{ steps.tag.outputs.id }}
-          PUBLIC_KEY: ${{ vars.OSTIA_EXTENSION_PUBLIC_KEY }}
-        run: node out/sdk/dist/cli.cjs verify "marketplace-checkout/extensions/$EXTENSION" "$PUBLIC_KEY"
+        run: |
+          key=$(node -p "require('./src/main/extensions/officialKey.json').publicKey")
+          test -n "$key"
+          node out/sdk/dist/cli.cjs verify "folder/$EXTENSION" "$key"
       - name: Publish the release
         env:
           GH_TOKEN: ${{ github.token }}
           EXTENSION: ${{ steps.tag.outputs.id }}
           VERSION: ${{ steps.tag.outputs.version }}
           PRERELEASE: ${{ steps.tag.outputs.prerelease }}
-          SDK: ${{ steps.floor.outputs.sdk }}
+          SDK: ${{ needs.build.outputs.sdk }}
+          MARKETPLACE: ${{ needs.build.outputs.marketplace }}
         run: |
           archive="$EXTENSION-$VERSION.tar.gz"
-          tar -czf "$archive" -C marketplace-checkout/extensions "$EXTENSION"
+          tar -czf "$archive" -C folder "$EXTENSION"
           flag=()
           if [ "$PRERELEASE" = "true" ]; then flag=(--prerelease); fi
-          gh release create "$GITHUB_REF_NAME" "$archive" "${flag[@]}" \
+          gh release create "$GITHUB_REF_NAME" "$archive" "${flag[@]}" --latest=false \
             --verify-tag --title "$EXTENSION $VERSION" \
-            --notes "$EXTENSION $VERSION, built against SDK $SDK and signed with the official key."
+            --notes "$EXTENSION $VERSION, built against SDK $SDK on ostia-extensions commit $MARKETPLACE and signed with the official key."

@@ -132,6 +132,7 @@ export const extensionsEn = {
     statusPending: 'Waiting for your approval',
     statusRunning: 'Running',
     statusStarting: 'Starting',
+    switchTo: 'Switch to {version}',
     unapproved: 'Not approved: {caps}',
     unapprovedKinds: 'Files not approved: {kinds}',
     unitPerMinute: '{range} per minute',
@@ -287,11 +288,15 @@ export const extensionsEn = {
     devLabel: 'Development copy',
     devPlaceholder: '/path/to/extension or owner/repo#branch',
     devTitle: 'Install a development copy',
+    downgradeBody:
+      'This is older than the pre-release installed now, and pre-release versions are off for this extension.',
+    downgradeTitle: 'Switch “{name}” to {version}?',
     download: 'Download',
     errors: {
       'already-added': 'This marketplace is already added.',
       'clone-failed': 'git could not download the repository.',
       conflict: 'An extension with this id is already installed from somewhere else.',
+      'downgrade-unconfirmed': 'Confirm the switch to the older version first.',
       'git-missing': 'git is not installed.',
       'invalid-extension': 'The extension holds links or special files and was not installed.',
       'invalid-marketplace': 'The repository is not a valid marketplace.',

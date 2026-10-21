@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import { exceedsFloor, floorProblems } from '../scripts/extensionFloor.mjs'
+import { parseExtensionTag } from '../marketplace/sync-releases.mjs'
+import { exceedsFloor, floorProblems, latestStableAppTag } from '../scripts/extensionFloor.mjs'
 import {
   extensionTag,
-  parseExtensionTag,
   parseSdkTag,
   releaseProblems,
   sdkReleaseProblems,
@@ -71,18 +71,37 @@ describe('the API floor', () => {
     expect(exceedsFloor('seven', '7.7')).toBe(true)
   })
 
-  it('names each way an extension steps past the floor', () => {
+  it('wants the declared API to be the API of the SDK it is typed against, and that SDK no newer than the stable app', () => {
     const base = { declared: '7.7', appApi: '7.7', sdk: '0.5.11', sdkApi: '7.7' }
     expect(floorProblems(base)).toEqual([])
-    expect(floorProblems({ ...base, declared: '7.6', sdkApi: '7.5' })).toEqual([
-      'declares extension API 7.6, newer than 7.5 of the SDK 0.5.11 it is typed against',
+    expect(floorProblems({ ...base, declared: '7.6' })).toEqual([
+      'declares extension API 7.6, but is type-checked against SDK 0.5.11, whose API is 7.7: declare 7.7',
     ])
-    expect(floorProblems({ ...base, declared: '7.8' })).toEqual([
-      'declares extension API 7.8, newer than 7.7 of the latest stable app',
-      'declares extension API 7.8, newer than 7.7 of the SDK 0.5.11 it is typed against',
-    ])
-    expect(floorProblems({ ...base, sdkApi: '7.8' })).toEqual([
+    expect(floorProblems({ ...base, declared: '7.8' })).toHaveLength(1)
+    expect(floorProblems({ ...base, declared: '7.8', sdkApi: '7.8' })).toEqual([
       'is typed against SDK 0.5.11 (extension API 7.8), newer than 7.7 of the latest stable app',
     ])
+  })
+
+  it('takes the newest stable app release, never an extension, draft or pre-release', () => {
+    const release = (tag_name: string, extra: object = {}) => ({
+      tag_name,
+      draft: false,
+      prerelease: false,
+      ...extra,
+    })
+    expect(
+      latestStableAppTag([
+        release('ext/lsp-bash/v9.9.9'),
+        release('v0.5.12-rc.8', { prerelease: true }),
+        release('v0.5.11'),
+        release('v0.5.10'),
+        release('v0.5.13', { draft: true }),
+        release('v0.5.9'),
+        release('sdk-v9.0.0'),
+      ]),
+    ).toBe('v0.5.11')
+    expect(latestStableAppTag([release('v0.5.9'), release('v0.5.10')])).toBe('v0.5.10')
+    expect(latestStableAppTag([release('ext/a-b/v1.0.0')])).toBeNull()
   })
 })

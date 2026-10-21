@@ -2,9 +2,8 @@ import { execFileSync } from 'node:child_process'
 import { appendFileSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import semver from 'semver'
+import { parseExtensionTag } from '../marketplace/sync-releases.mjs'
 import { marketplaceIds } from './marketplace.mjs'
-
-const TAG_PATTERN = /^ext\/([a-z][a-z0-9-]{1,39})\/v(.+)$/
 
 const SDK_TAG_PATTERN = /^sdk-v(.+)$/
 
@@ -27,14 +26,6 @@ export function sdkReleaseProblems(tag, version) {
 
 export function extensionTag(id, version) {
   return `ext/${id}/v${version}`
-}
-
-export function parseExtensionTag(tag) {
-  const match = TAG_PATTERN.exec(tag)
-  if (!match || !semver.valid(match[2], { loose: false }) || semver.clean(match[2]) !== match[2]) {
-    return null
-  }
-  return { id: match[1], version: match[2] }
 }
 
 export function releaseProblems(tag, { listed, versionOf }) {
