@@ -93,13 +93,28 @@ export function blobId(profileKey: Buffer, path: string, content: Buffer): strin
     .digest('base64url')
 }
 
+function blobNonce(blobKey: Buffer, path: string, content: Buffer): Buffer {
+  return createHmac('sha256', blobKey)
+    .update(path)
+    .update(Buffer.from([0]))
+    .update(createHash('sha256').update(content).digest())
+    .digest()
+    .subarray(0, NONCE_BYTES)
+}
+
 export function sealBlob(
   profileKey: Buffer,
   path: string,
   content: Buffer,
-  nonce = randomBytes(NONCE_BYTES),
+  nonce?: Buffer,
 ): Buffer {
-  return seal(subkey(profileKey, LABEL_BLOB), content, Buffer.from(AAD_BLOB + path), nonce)
+  const blobKey = subkey(profileKey, LABEL_BLOB)
+  return seal(
+    blobKey,
+    content,
+    Buffer.from(AAD_BLOB + path),
+    nonce ?? blobNonce(blobKey, path, content),
+  )
 }
 
 export function openBlob(profileKey: Buffer, path: string, sealed: Buffer): Buffer | null {
@@ -122,7 +137,7 @@ export function manifestJson(manifest: Manifest): string {
 export function sealManifest(
   profileKey: Buffer,
   manifest: Manifest,
-  nonce = randomBytes(NONCE_BYTES),
+  nonce: Buffer = randomBytes(NONCE_BYTES),
 ): Buffer {
   return seal(
     subkey(profileKey, LABEL_MANIFEST),
@@ -185,8 +200,8 @@ export async function wrapWithSecret(
   profileKey: Buffer,
   secret: string,
   params: ArgonParams = PRODUCTION_ARGON,
-  salt = randomBytes(SALT_BYTES),
-  nonce = randomBytes(NONCE_BYTES),
+  salt: Buffer = randomBytes(SALT_BYTES),
+  nonce: Buffer = randomBytes(NONCE_BYTES),
 ): Promise<Buffer> {
   const header = Buffer.alloc(SECRET_HEADER_BYTES)
   header[0] = WRAP_VERSION
@@ -229,7 +244,7 @@ export function wrapForDevice(
   profileKey: Buffer,
   deviceBoxPub: Buffer,
   ephemeral: KeyObject = x25519FromSeed(randomBytes(KEY_BYTES)),
-  nonce = randomBytes(NONCE_BYTES),
+  nonce: Buffer = randomBytes(NONCE_BYTES),
 ): Buffer {
   const ephemeralPub = publicBytes(ephemeral)
   const header = Buffer.concat([Buffer.from([WRAP_VERSION]), ephemeralPub])

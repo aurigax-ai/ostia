@@ -97,7 +97,8 @@ export function createServerClient({
     if (response.status === 204) return undefined as T
     if (options.asBytes) return Buffer.from(await response.arrayBuffer()) as T
     try {
-      return (await response.json()) as T
+      const text = await response.text()
+      return (text === '' ? undefined : JSON.parse(text)) as T
     } catch {
       throw new ServerError(response.status, 'bad-response')
     }

@@ -8,9 +8,10 @@ import type {
   ServerStatus,
 } from '../../shared/server/serverApi'
 import { type DeviceKeys, generateDeviceKeys, registrationOf } from './deviceKeys'
+import type { DeviceSigner } from './deviceSigner'
 import type { KeyStore } from './keyStore'
 import { ServerError } from './serverClient'
-import type { ServerConfig } from './serverConfig'
+import type { ServerConfig, ServerIdentity } from './serverConfig'
 import type { DeviceRegistered, GithubFlow, RelayLabel, ServerRoutes } from './serverRoutes'
 import type { ServerSession } from './serverSession'
 import { hostOf } from './serverUrl'
@@ -23,6 +24,7 @@ export interface AccountDeps {
   keyStore: KeyStore
   routes: ServerRoutes
   session: ServerSession
+  signer: DeviceSigner
   deviceName: () => string
   now?: () => number
 }
@@ -35,6 +37,17 @@ interface ActiveFlow {
   interval: number
 }
 
+const REFUSALS: Record<string, ServerFailure> = {
+  'elevation-required': 'elevation-required',
+  'device-too-new': 'device-too-new',
+  'requester-too-new': 'requester-too-new',
+  'no-second-device': 'no-second-device',
+  'not-a-github-account': 'not-a-github-account',
+  'stale-signature': 'stale-signature',
+}
+
+const refusalOf = (code: string): ServerFailure => REFUSALS[code] ?? 'failed'
+
 export function failureOf(error: unknown): ServerFailure {
   if (!(error instanceof ServerError)) return 'failed'
   if (error.code === 'no-server') return 'no-server'
@@ -44,6 +57,8 @@ export function failureOf(error: unknown): ServerFailure {
   if (error.status === 401) return 'not-signed-in'
   if (error.code === 'invalid-invite') return 'invalid-invite'
   if (error.code === 'device-limit') return 'device-limit'
+  if (error.status === 507 || error.code === 'quota-exceeded') return 'quota'
+  if (error.status === 403 || error.status === 409) return refusalOf(error.code)
   if (error.status === 404 || error.status >= 500) return 'unavailable'
   return 'failed'
 }
@@ -59,6 +74,7 @@ export function cleanDeviceName(raw: string): string {
 export class ServerAccount {
   private flow: ActiveFlow | null = null
   private readonly listeners = new Set<() => void>()
+  private readonly deviceListeners = new Set<() => void>()
 
   constructor(private readonly deps: AccountDeps) {}
 
@@ -73,6 +89,15 @@ export class ServerAccount {
 
   private changed(): void {
     for (const cb of this.listeners) cb()
+  }
+
+  onDevicesChanged(cb: () => void): () => void {
+    this.deviceListeners.add(cb)
+    return () => this.deviceListeners.delete(cb)
+  }
+
+  devicesChanged(): void {
+    for (const cb of this.deviceListeners) cb()
   }
 
   signedIn(): boolean {
@@ -233,11 +258,29 @@ export class ServerAccount {
           name: d.name,
           current: d.current === true,
           lastSeen: d.lastSeen,
+          createdAt: d.createdAt,
+          isNew: d.new === true,
         })),
       }
     } catch (error) {
       return { ok: false, error: failureOf(error) }
     }
+  }
+
+  identity(): ServerIdentity | null {
+    return this.deps.config.identity()
+  }
+
+  deviceKeys(): DeviceKeys | null {
+    return this.signedIn() ? this.deps.keyStore.load() : null
+  }
+
+  signer(): DeviceSigner {
+    return this.deps.signer
+  }
+
+  authed<T>(use: (token: string, routes: ServerRoutes) => Promise<T>): Promise<T> {
+    return this.deps.session.authed((token) => use(token, this.deps.routes))
   }
 
   relayLabel(): Promise<RelayLabel> {

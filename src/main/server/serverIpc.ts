@@ -1,16 +1,27 @@
 import { type IpcMainInvokeEvent, ipcMain } from 'electron'
-import type { ServerActionResult, ServerFailure, ServerStatus } from '../../shared/server/serverApi'
+import type {
+  ElevationStartResult,
+  ServerActionResult,
+  ServerFailure,
+  ServerStatus,
+} from '../../shared/server/serverApi'
 import type { ServerAccount } from './serverAccount'
+import type { ServerDevices } from './serverDevices'
+import type { ServerElevation } from './serverElevation'
 import { parseServerUrl } from './serverUrl'
 
 export interface ServerIpcDeps {
   account: ServerAccount
+  devices: ServerDevices
+  elevation: ServerElevation
   allowInsecure: boolean
   openExternal: (url: string) => boolean
 }
 
+const INVALID: { ok: false; error: ServerFailure } = { ok: false, error: 'failed' }
 const NOT_A_WINDOW: { ok: false; error: ServerFailure } = { ok: false, error: 'not-a-window' }
 const CODE_MAX = 128
+const ID_MAX = 128
 
 function fromWindow(e: IpcMainInvokeEvent): boolean {
   return e.sender.getType() === 'window'
@@ -41,6 +52,18 @@ function setUrl(deps: ServerIpcDeps, value: unknown): ServerActionResult {
 function openVerification(deps: ServerIpcDeps): void {
   const uri = deps.account.verificationUri()
   if (uri) deps.openExternal(uri)
+}
+
+const validId = (value: unknown): value is string =>
+  typeof value === 'string' && value !== '' && value.length <= ID_MAX
+
+async function startElevation(deps: ServerIpcDeps, method: unknown): Promise<ElevationStartResult> {
+  if (method !== 'approval' && method !== 'github') return { ok: false, error: 'failed' }
+  const started = await deps.elevation.start(method)
+  if (started.ok && started.kind === 'github' && started.verificationUri.startsWith('https://')) {
+    deps.openExternal(started.verificationUri)
+  }
+  return started
 }
 
 export function registerServerIpc(deps: ServerIpcDeps): void {
@@ -93,5 +116,44 @@ export function registerServerIpc(deps: ServerIpcDeps): void {
   ipcMain.handle(
     'server:devices',
     guarded(() => account.devices(), Promise.resolve(NOT_A_WINDOW)),
+  )
+  ipcMain.handle(
+    'server:device-seen',
+    guarded(
+      (id: unknown) =>
+        validId(id) ? deps.devices.markSeen(id) : Promise.resolve<ServerActionResult>(INVALID),
+      Promise.resolve(NOT_A_WINDOW),
+    ),
+  )
+  ipcMain.handle(
+    'server:invite-create',
+    guarded(() => deps.devices.createInvite(), Promise.resolve(NOT_A_WINDOW)),
+  )
+  ipcMain.handle(
+    'server:elevation-start',
+    guarded((method: unknown) => startElevation(deps, method), Promise.resolve(NOT_A_WINDOW)),
+  )
+  ipcMain.handle(
+    'server:elevation-poll',
+    guarded(
+      () => deps.elevation.poll(),
+      Promise.resolve({ state: 'error' as const, error: 'not-a-window' as const }),
+    ),
+  )
+  ipcMain.handle(
+    'server:elevation-cancel',
+    guarded(() => deps.elevation.cancel(), Promise.resolve()),
+  )
+  ipcMain.handle(
+    'server:approvals',
+    guarded(() => deps.elevation.approvals(), Promise.resolve(NOT_A_WINDOW)),
+  )
+  ipcMain.handle(
+    'server:approve',
+    guarded(
+      (id: unknown) =>
+        validId(id) ? deps.elevation.approve(id) : Promise.resolve<ServerActionResult>(INVALID),
+      Promise.resolve(NOT_A_WINDOW),
+    ),
   )
 }

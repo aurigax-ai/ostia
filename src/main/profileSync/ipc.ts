@@ -4,10 +4,17 @@ import { isRecord } from '@aurigax-ai/ostia-extension-sdk/contract/isRecord'
 import { app, BrowserWindow, dialog, ipcMain } from 'electron'
 import { debounce, throttle } from 'es-toolkit'
 import type { SecretActionResult, SyncStatus } from '../../shared/profileSync/profileSync'
+import type { ServerAccount } from '../server/serverAccount'
+import { ServerDevices } from '../server/serverDevices'
 import { type DetectSecrets, ProfileSync } from './engine'
 import { FolderMethod } from './folderMethod'
 import { PROFILE_FOLDERS, SECRETS_FILE, SETTINGS_FILE, type SyncedExtension } from './profile'
 import { type Protect, type SecretSource, SecretSync } from './secrets'
+import { createServerTarget } from './serverSync/serverMethod'
+import { registerServerSyncIpc } from './serverSync/serverSyncIpc'
+import { ServerSyncService } from './serverSync/serverSyncService'
+import { SyncKeyring } from './serverSync/syncKeyring'
+import { createSyncKeyStore, type SyncKeyFile } from './serverSync/syncKeyStore'
 import { expandSyncDir } from './syncDir'
 
 const FOCUS_THROTTLE_MS = 2000
@@ -27,6 +34,8 @@ export interface ProfileSyncIpcDeps {
   detectSecrets: DetectSecrets
   secretSources: () => SecretSource[]
   protect: Protect
+  server: ServerAccount
+  syncKeyFile: SyncKeyFile
 }
 
 export interface ProfileSyncHandle {
@@ -35,12 +44,18 @@ export interface ProfileSyncHandle {
 }
 
 export function startProfileSync(deps: ProfileSyncIpcDeps): ProfileSyncHandle {
-  const configuredDir = (): string | null => {
+  const syncSettings = (): Record<string, unknown> | null => {
     const settings = deps.readSettings()
-    const sync = isRecord(settings) && isRecord(settings.sync) ? settings.sync : null
-    return expandSyncDir(sync?.dir)
+    return isRecord(settings) && isRecord(settings.sync) ? settings.sync : null
   }
+  const serverChosen = (): boolean => syncSettings()?.method === 'server'
+  const configuredDir = (): string | null => expandSyncDir(syncSettings()?.dir)
+  const keyring = new SyncKeyring(deps.server, createSyncKeyStore(deps.syncKeyFile, deps.protect))
+  const serverTarget = createServerTarget(deps.server, keyring)
+  const enabled = (): boolean => serverChosen() || configuredDir() !== null
+  const targetLabel = (): string | null => (serverChosen() ? serverTarget.label() : configuredDir())
   const method = () => {
+    if (serverChosen()) return serverTarget.method()
     const dir = configuredDir()
     return dir ? new FolderMethod(dir, [deps.userData, deps.configDir]) : null
   }
@@ -54,7 +69,7 @@ export function startProfileSync(deps: ProfileSyncIpcDeps): ProfileSyncHandle {
     userData: deps.userData,
     configDir: deps.configDir,
     method,
-    targetLabel: configuredDir,
+    targetLabel,
     installedExtensions: deps.installedExtensions,
     builtinIds: deps.builtinIds,
     installExtension: deps.installExtension,
@@ -80,7 +95,7 @@ export function startProfileSync(deps: ProfileSyncIpcDeps): ProfileSyncHandle {
 
   const onFocus = throttle(
     () => {
-      if (configuredDir()) void run()
+      if (enabled()) void run()
     },
     FOCUS_THROTTLE_MS,
     { edges: ['leading'] },
@@ -100,6 +115,19 @@ export function startProfileSync(deps: ProfileSyncIpcDeps): ProfileSyncHandle {
   }
   watchDir(deps.userData, new Set([SETTINGS_FILE, MARKETPLACES_FILE]))
   for (const folder of PROFILE_FOLDERS) watchDir(join(deps.configDir, folder.name), null)
+
+  registerServerSyncIpc({
+    service: new ServerSyncService({
+      account: deps.server,
+      keyring,
+      devices: new ServerDevices(deps.server),
+    }),
+    run,
+    broadcast: deps.broadcast,
+  })
+  deps.server.onChange(() => {
+    if (serverChosen()) void run()
+  })
 
   const announced = async (status: Promise<SyncStatus>): Promise<SyncStatus> => {
     const next = await status
@@ -127,7 +155,7 @@ export function startProfileSync(deps: ProfileSyncIpcDeps): ProfileSyncHandle {
       if (args.length < arity || args.some((a) => a === null)) {
         return { ok: false, error: 'invalid-input', status: sync.status() }
       }
-      if (!configuredDir()) return { ok: false, error: 'no-target', status: sync.status() }
+      if (!enabled()) return { ok: false, error: 'no-target', status: sync.status() }
       const res = await act(...(args as string[]))
       const status = res.ok ? await run() : sync.status()
       return {

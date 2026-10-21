@@ -3,10 +3,13 @@ import { app, safeStorage } from 'electron'
 import { loadJson, saveJson, storePath } from '../platform/jsonStore'
 import { runningBuild } from '../updates/appVersion'
 import type { WindowSend } from '../windows/windowSend'
+import { DeviceSigner } from './deviceSigner'
 import { createKeyStore } from './keyStore'
 import { ServerAccount } from './serverAccount'
 import { createServerClient } from './serverClient'
 import { ServerConfig } from './serverConfig'
+import { ServerDevices } from './serverDevices'
+import { ServerElevation } from './serverElevation'
 import { registerServerIpc } from './serverIpc'
 import { serverRoutes } from './serverRoutes'
 import { ServerSession } from './serverSession'
@@ -44,14 +47,26 @@ export function startServer({ broadcast, openExternalSafe }: ServerStartDeps): S
     keys: () => keyStore.load(),
     deviceId: () => config.identity()?.deviceId ?? null,
   })
+  const signer = new DeviceSigner({
+    keys: () => keyStore.load(),
+    deviceId: () => config.identity()?.deviceId ?? null,
+  })
   const account = new ServerAccount({
     config,
     keyStore,
     routes,
     session,
+    signer,
     deviceName: () => hostname(),
   })
   account.onChange(() => broadcast('server:changed', account.status()))
-  registerServerIpc({ account, allowInsecure, openExternal: openExternalSafe })
+  account.onDevicesChanged(() => broadcast('server:devices-changed', null))
+  registerServerIpc({
+    account,
+    devices: new ServerDevices(account),
+    elevation: new ServerElevation(account),
+    allowInsecure,
+    openExternal: openExternalSafe,
+  })
   return account
 }

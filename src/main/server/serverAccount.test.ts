@@ -179,7 +179,16 @@ describe('the signed-in account', () => {
     const result = await harness.account.devices()
     expect(result).toEqual({
       ok: true,
-      devices: [{ id: 'device1', name: 'Test desktop', current: true, lastSeen: 0 }],
+      devices: [
+        {
+          id: 'device1',
+          name: 'Test desktop',
+          current: true,
+          lastSeen: 0,
+          createdAt: expect.any(Number),
+          isNew: false,
+        },
+      ],
     })
   })
 

@@ -186,11 +186,11 @@ export function boot(wiring: Wiring): void {
     resumeOfPane,
   })
   const { marketplace } = startMarketplace({ ...wiring, extensionStore })
-  startProfileSyncWiring({ ...wiring, marketplace })
+  const server = startServer({ ...wiring })
+  startProfileSyncWiring({ ...wiring, marketplace, server })
   startChat({ ...wiring })
   startAgent({ ...wiring })
   const { viewHost, ownSnippets } = registerContentIpc({ ...wiring })
-  const server = startServer({ ...wiring })
   startGateway({ ...wiring, turnConfirms, startAgentForPhone, ownSnippets, server })
   registerBrowserWiring({ ...wiring })
   startControlServer({ ...wiring })
