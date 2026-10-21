@@ -92,7 +92,7 @@ export function ChangesPage({
           <header className="head">
             <span className="branch">
               <GitBranchIcon />
-              {branchLabel(data.branch, t.detached)}
+              <span className="branch-name">{branchLabel(data.branch, t.detached)}</span>
             </span>
             <Tracking branch={data.branch} />
             <span className="spacer" />

@@ -109,7 +109,7 @@ describe('where the mark shows', () => {
     const layout = useLayoutStore.getState().byWorkspace[workspace.id]
     const paneId = layout.activePaneId
     useMailStore.setState({ byPane: { [paneId]: [queued('a'), queued('b')] } })
-    show(<WorkspaceBadges workspace={workspace} sandboxed={false} locked={false} />)
+    show(<WorkspaceBadges workspace={workspace} />)
     expect(
       screen.getByRole('img', { name: '2 unread messages for this agent' }),
     ).toBeInTheDocument()

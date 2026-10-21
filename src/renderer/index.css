@@ -1253,15 +1253,23 @@
 }
 
 .tab-actions {
-  display: none;
-  flex-shrink: 0;
+  position: absolute;
+  top: 5px;
+  right: 4px;
+  display: flex;
   align-items: center;
   gap: 2px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--motion-fast) var(--ease-out);
 }
 
 .rail-tab:hover .tab-actions,
 .rail-tab:focus-within .tab-actions {
-  display: flex;
+  opacity: 1;
+  pointer-events: auto;
 }
 
 .collapsed .tab-rename,

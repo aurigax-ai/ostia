@@ -1,9 +1,12 @@
+import { WorkspaceBadges } from '@/components/sidebar/WorkspaceBadges'
 import { CommandGroup, CommandItem } from '@/components/ui/command'
 import { useDict } from '@/lib/app/useDict'
 import { revealPane } from '@/lib/attention/workspaceActivity'
 import { allPanes } from '@/lib/layout/tree'
 import type { PaneNode } from '@/lib/layout/types'
 import { symbolOf } from '@/lib/palette/paletteModes'
+import { DASHBOARD_PATH_CHARS } from '@/lib/sidebar/dashboard'
+import { shortenPath } from '@/lib/sidebar/railMeta'
 import { selectWorkspace } from '@/lib/workspaces/selectWorkspace'
 import { type RemoteWorkspace, remoteWorkspacesOf } from '@/lib/workspaces/windowWorkspaces'
 import { workspaceTitle } from '@/lib/workspaces/workspaceTitle'
@@ -53,13 +56,18 @@ export function WorkspaceItems({
         return (
           <CommandItem
             key={w.id}
-            value={`${symbol} ${name} ${w.workDir} ${w.id}`}
+            value={`${symbol} ${name} ${w.projectDir ?? w.workDir} ${w.id}`}
             onSelect={() => {
               selectWorkspace(w.id)
               onDone()
             }}
           >
-            <ItemRow name={name} meta={w.workDir} mono />
+            <ItemRow
+              name={name}
+              meta={shortenPath(w.projectDir ?? w.workDir, DASHBOARD_PATH_CHARS)}
+              mono
+              after={<WorkspaceBadges workspace={w} />}
+            />
           </CommandItem>
         )
       })}

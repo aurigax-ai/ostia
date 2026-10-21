@@ -42,6 +42,7 @@ async function rows(win: Page) {
         sameLine: trailingRect ? Math.abs(trailingRect.top - nameRect.top) < 20 : true,
         inside: (trailingRect ?? nameRect).right <= listRect.right + 0.5,
         metaCut: meta ? meta.scrollWidth > meta.clientWidth : false,
+        hasMeta: meta !== null,
         titleCut: textRect.width > nameRect.width + 0.01,
       }
     })
@@ -54,6 +55,7 @@ async function rows(win: Page) {
       sameLine: measured.every((r) => r.sameLine),
       inside: measured.every((r) => r.inside),
       metaCut: measured.filter((r) => r.metaCut).length,
+      metas: measured.filter((r) => r.hasMeta).length,
       titleCut: measured.filter((r) => r.titleCut).length,
     }
   })
@@ -110,7 +112,7 @@ test.afterAll(async () => {
   await app?.close()
 })
 
-test('a long workspace path is cut short inside its row and the names stay whole', async () => {
+test('a long workspace path stays inside its row and the names stay whole', async () => {
   await win.keyboard.press(chords.palette)
   const palette = win.getByRole('dialog', { name: 'Command palette' })
   await expect(palette.getByRole('combobox')).toHaveValue('>')
@@ -119,13 +121,13 @@ test('a long workspace path is cut short inside its row and the names stay whole
 
   const all = await rows(win)
   expect(all.edges.length).toBeGreaterThan(1)
-  expect(all.metaCut).toBeGreaterThan(0)
+  expect(all.metas).toBeGreaterThan(0)
   expectTrailing(all)
 
   await palette.getByRole('combobox').fill('@deep')
   await expect(palette.getByRole('option', { name: /deep/ }).first()).toBeVisible()
   const workspaces = await rows(win)
-  expect(workspaces.metaCut).toBeGreaterThan(0)
+  expect(workspaces.metas).toBeGreaterThan(0)
   expectTrailing(workspaces)
   await win.keyboard.press('Escape')
   await expect(palette).toBeHidden()

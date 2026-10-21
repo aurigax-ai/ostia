@@ -2,7 +2,9 @@ import { Hint } from '@/components/common/Hint'
 import { MailCount } from '@/components/common/MailCount'
 import { Badge } from '@/components/ui/badge'
 import { useDict } from '@/lib/app/useDict'
+import { hasLockedPane } from '@/lib/layout/paneFields'
 import { paneIds } from '@/lib/layout/tree'
+import { useSandboxStore } from '@/stores/app/sandboxStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import type { Workspace } from '@/stores/workspaces/workspaceTypes'
 import { LockSimpleIcon, PushPinSimpleIcon, ShieldCheckIcon } from '@phosphor-icons/react'
@@ -23,16 +25,18 @@ function WorkspaceMail({ workspaceId }: { workspaceId: string }): JSX.Element | 
   return root ? <MailCount paneIds={paneIds(root)} /> : null
 }
 
-export function WorkspaceBadges({
-  workspace: w,
-  sandboxed,
-  locked,
-}: {
-  workspace: Workspace
-  sandboxed: boolean
-  locked: boolean
-}): JSX.Element {
+export function useWorkspaceFlags(workspaceId: string): { sandboxed: boolean; locked: boolean } {
+  const sandboxed = useSandboxStore((s) => s.enabled[workspaceId] ?? false)
+  const locked = useLayoutStore((s) => {
+    const root = s.byWorkspace[workspaceId]?.root
+    return root ? hasLockedPane(root) : false
+  })
+  return { sandboxed, locked }
+}
+
+export function WorkspaceBadges({ workspace: w }: { workspace: Workspace }): JSX.Element {
   const d = useDict()
+  const { sandboxed, locked } = useWorkspaceFlags(w.id)
   return (
     <>
       {w.kind === 'scratch' ? <ScratchBadge /> : null}

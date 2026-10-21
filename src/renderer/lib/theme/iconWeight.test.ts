@@ -72,3 +72,21 @@ describe('icon weight source', () => {
     expect(small).toEqual([])
   })
 })
+
+const SMALL_ICON_EXCEPTIONS = ['.git-surface .ref svg']
+
+describe('icon size', () => {
+  it('is never set under 16 px in a stylesheet, except the chips of git refs', () => {
+    const offenders = readdirSync(renderer, { recursive: true, encoding: 'utf8' })
+      .filter((f) => f.endsWith('.css'))
+      .flatMap((f) => {
+        const css = readFileSync(join(renderer, f), 'utf8')
+        return [...css.matchAll(/([^{}]*\bsvg\b[^{}]*)\{([^}]*)\}/g)]
+          .filter((m) => /(?:width|height):\s*(?:[0-9]|1[0-5])px/.test(m[2] ?? ''))
+          .map((m) => (m[1] ?? '').trim().replace(/\s+/g, ' '))
+          .filter((selector) => !SMALL_ICON_EXCEPTIONS.includes(selector))
+          .map((selector) => `${f}: ${selector}`)
+      })
+    expect(offenders).toEqual([])
+  })
+})
