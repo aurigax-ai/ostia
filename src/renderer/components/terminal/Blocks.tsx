@@ -192,18 +192,19 @@ function useBlockGeometry({
     recompute()
 
     const throttled = throttle(recompute, RECOMPUTE_MS)
-    const scrolled = frameCoalesce((): void => {
+    const follow = (): void => {
       scroll.current = { ...scroll.current, viewportY: term.buffer.active.viewportY }
       placeTrack()
       throttled()
-    })
+    }
+    const scrolled = frameCoalesce(follow)
     const remeasure = (): void => {
       scrolled.cancel()
       throttled.cancel()
       cells.invalidate()
       recompute()
     }
-    const offRender = term.onRender(throttled)
+    const offRender = term.onRender(follow)
     const offScroll = term.onScroll(scrolled)
     const offResize = term.onResize(remeasure)
     const boxObserver = new ResizeObserver(remeasure)

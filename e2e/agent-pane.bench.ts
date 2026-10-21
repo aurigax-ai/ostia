@@ -19,6 +19,7 @@ const INK_AGENT = resolve(__dirname, '../test/fixtures/agents/ink-agent.mjs')
 const KEYS = Number(process.env.OSTIA_AGENT_KEYS ?? 60)
 const LINES = Number(process.env.OSTIA_AGENT_LINES ?? 50000)
 const FULL = Number(process.env.OSTIA_AGENT_FULL ?? 0)
+const THROTTLE = Number(process.env.OSTIA_AGENT_THROTTLE ?? 1)
 const SYNC = process.env.OSTIA_AGENT_SYNC === '1' ? '1' : '0'
 const ENGINES = (process.env.OSTIA_AGENT_ENGINES ?? '').split(',').filter(Boolean)
 const TERMINALS = '.xterm, .ghostty-host'
@@ -38,6 +39,7 @@ interface ScrollProbe {
   frames: number[]
   wheels: number[]
   moves: number[]
+  longTasks: number[]
 }
 
 for (const engine of BENCH_ENGINES.filter(
@@ -105,6 +107,9 @@ for (const engine of BENCH_ENGINES.filter(
         await win.mouse.move(box.x + box.width / 2, box.y + box.height / 2)
         const cdp = await win.context().newCDPSession(win)
         await cdp.send('Profiler.enable')
+        if (THROTTLE > 1) {
+          await cdp.send('Emulation.setCPUThrottlingRate', { rate: THROTTLE })
+        }
         for (const pattern of PATTERNS) {
           await cdp.send('Profiler.start')
           const result = await scroll(win, pattern)
@@ -125,7 +130,10 @@ for (const engine of BENCH_ENGINES.filter(
 }
 
 function hookScroll(): void {
-  const probe: ScrollProbe = { frames: [], wheels: [], moves: [] }
+  const probe: ScrollProbe = { frames: [], wheels: [], moves: [], longTasks: [] }
+  new PerformanceObserver((list) => {
+    for (const entry of list.getEntries()) probe.longTasks.push(entry.duration)
+  }).observe({ type: 'longtask', buffered: false })
   ;(window as unknown as { __scroll: ScrollProbe }).__scroll = probe
   let last = performance.now()
   const frame = (now: number) => {
@@ -151,6 +159,7 @@ async function scroll(
     p.frames = []
     p.wheels = []
     p.moves = []
+    p.longTasks = []
   })
   for (let i = 0; i < pattern.events; i++) {
     if (i % 20 === 0) await win.mouse.wheel(0, -pattern.delta)
@@ -159,7 +168,7 @@ async function scroll(
   await win.waitForTimeout(500)
   const data = await win.evaluate(() => {
     const p = (window as unknown as { __scroll: ScrollProbe }).__scroll
-    return { frames: p.frames, wheels: p.wheels, moves: p.moves }
+    return { frames: p.frames, wheels: p.wheels, moves: p.moves, longTasks: p.longTasks }
   })
   const lag: number[] = []
   for (const w of data.wheels) {
@@ -177,6 +186,9 @@ async function scroll(
     frameP95: percentile(data.frames, 0.95),
     frameMax: percentile(data.frames, 1),
     over33: data.frames.filter((f) => f > 33).length,
+    slowFrames: data.frames.filter((f) => f > 20).length,
+    longTasks: data.longTasks.length,
+    longTaskMs: Math.round(data.longTasks.reduce((sum, d) => sum + d, 0)),
     inputToScrollP50: percentile(lag, 0.5),
     inputToScrollP95: percentile(lag, 0.95),
   }

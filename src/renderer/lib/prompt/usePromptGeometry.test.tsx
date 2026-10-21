@@ -60,6 +60,7 @@ function fakeTerminal(): {
 describe('usePromptGeometry', () => {
   afterEach(() => {
     cleanup()
+    vi.useRealTimers()
     document.body.replaceChildren()
   })
 
@@ -97,6 +98,5 @@ describe('usePromptGeometry', () => {
 
     act(() => vi.advanceTimersToNextFrame())
     expect(reads()).toBe(settled + 1)
-    vi.useRealTimers()
   })
 })
