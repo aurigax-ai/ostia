@@ -19,8 +19,9 @@ export class ServerDevices {
 
   async revoke(deviceId: string): Promise<ServerActionResult> {
     try {
-      const headers = this.account.signer().revoke(deviceId)
-      await this.account.authed((token, routes) => routes.revokeDevice(token, deviceId, headers))
+      await this.account.authed((token, routes) =>
+        routes.revokeDevice(token, deviceId, this.account.signer().revoke(deviceId)),
+      )
       return { ok: true }
     } catch (error) {
       return { ok: false, error: failureOf(error) }

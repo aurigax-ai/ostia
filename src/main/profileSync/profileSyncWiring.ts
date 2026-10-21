@@ -1,9 +1,8 @@
 import { statSync } from 'node:fs'
 import { app, type BrowserWindow, safeStorage } from 'electron'
-import { type Dict, fmt } from '../../shared/app/dict'
+import type { Dict } from '../../shared/app/dict'
 import { parsePrivacySettings } from '../../shared/privacy/redaction'
-import type { SyncAttention } from '../../shared/profileSync/serverSync'
-import { postActionNotification } from '../attention/notify'
+import { postDesktopNotice } from '../attention/notify'
 import type { NotifyWiring } from '../attention/notifyWiring'
 import { credentials } from '../browser/credentials'
 import type { ExtensionHost } from '../extensions/extensionHost'
@@ -16,6 +15,7 @@ import type { ServerAccount } from '../server/serverAccount'
 import type { WindowSend } from '../windows/windowSend'
 import { type ProfileSyncHandle, startProfileSync } from './ipc'
 import { flatSource, groupedSource, loginsSource } from './secretSources'
+import { attentionPage, attentionText } from './serverSync/syncAttentionNotice'
 
 interface ProfileSyncStartDeps {
   services: {
@@ -31,23 +31,6 @@ interface ProfileSyncStartDeps {
   mainStrings: () => Dict
   notifyDeps: NotifyWiring['notifyDeps']
   windows: Map<string, BrowserWindow>
-}
-
-function attentionText(
-  text: Dict['native']['syncAttention'],
-  item: SyncAttention,
-): { title: string; body: string } {
-  switch (item.kind) {
-    case 'join':
-      return { title: text.join.title, body: fmt(text.join.body, { name: item.name }) }
-    case 'approval':
-      return { title: text.approval.title, body: fmt(text.approval.body, { name: item.name }) }
-    case 'changed':
-      return {
-        title: text.changed.title,
-        body: fmt(text.changed.body, { name: item.name }),
-      }
-  }
 }
 
 export function startProfileSyncWiring({
@@ -103,18 +86,14 @@ export function startProfileSyncWiring({
     },
     server,
     notifyAttention: (item) =>
-      postActionNotification(
-        notifyDeps,
-        { ...attentionText(mainStrings().native.syncAttention, item), from: 'sync' },
-        () => {
-          const win = [...windows.values()].find((w) => !w.isDestroyed())
-          if (!win) return
-          if (win.isMinimized()) win.restore()
-          win.show()
-          win.focus()
-          win.webContents.send('syncServer:open', item.kind === 'join' ? 'sync' : 'server')
-        },
-      ),
+      postDesktopNotice(notifyDeps, attentionText(mainStrings().native.syncAttention, item), () => {
+        const win = [...windows.values()].find((w) => !w.isDestroyed())
+        if (!win) return
+        if (win.isMinimized()) win.restore()
+        win.show()
+        win.focus()
+        win.webContents.send('syncServer:open', attentionPage(item))
+      }),
     syncKeyFile: {
       load: () => loadJson<unknown>(syncKeyPath, {}),
       save: (data) => saveJson(syncKeyPath, data, { secure: true }),

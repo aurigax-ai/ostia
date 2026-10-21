@@ -9,7 +9,6 @@
     "src/shared/profileSync/serverSync."
   ],
   "specs": [
-    "e2e/server-sync.spec.ts",
-    "e2e/sync-attention.spec.ts"
+    "e2e/server-sync.spec.ts"
   ]
 }

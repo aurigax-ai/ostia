@@ -55,6 +55,7 @@ export interface FakeServerOptions {
   quotaBytes?: number
   maxBlobBytes?: number
   gcGraceMs?: number
+  syncGcBound?: boolean
   publish?: boolean
   allowPublic?: boolean
   allowNever?: boolean
@@ -94,7 +95,6 @@ export class FakeServer {
     string,
     { accountId: string; elevated: boolean; expiresAt: number }
   >()
-  readonly acknowledged = new Set<string>()
   readonly devices = new Map<string, FakeDevice>()
   readonly sessions = new Map<string, FakeSession>()
   readonly removed: string[] = []
@@ -258,14 +258,6 @@ export class FakeServer {
     return true
   }
 
-  isUnseen(viewer: FakeDevice, target: FakeDevice): boolean {
-    return (
-      target.order > viewer.order &&
-      target.accountId === viewer.accountId &&
-      !this.acknowledged.has(`${viewer.id}:${target.id}`)
-    )
-  }
-
   verifySignature(device: FakeDevice, message: string, signature: string): boolean {
     return verifyEd25519(device.signPub, message, signature)
   }
@@ -365,6 +357,7 @@ export class FakeServer {
           },
           auth: { invite: true, github: this.options.github === true },
           approverMinAgeSeconds: Math.floor(this.approverMinAgeMs / 1000),
+          ...(this.options.syncGcBound ? { syncGcBound: true } : {}),
           relayDomain: RELAY_DOMAIN,
           shareDomain: 'shares.test',
           limits: {
@@ -449,7 +442,6 @@ export class FakeServer {
           createdAt: d.createdAt,
           lastSeen: 0,
           ...(d.id === mine?.id ? { current: true } : {}),
-          ...(mine && this.isUnseen(mine, d) ? { new: true } : {}),
         }))
         this.reply(res, 200, {
           devices: this.rewriteDevices?.(auth.session.deviceId, devices) ?? devices,

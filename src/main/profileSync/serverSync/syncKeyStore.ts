@@ -21,6 +21,7 @@ interface StoredSyncKeys {
   pinned: Record<string, ManifestDevice[]>
   seen: Record<string, Record<string, SeenDevice>>
   gc: Record<string, number>
+  announced: Record<string, string[]>
 }
 
 export interface SyncKeyStore {
@@ -33,6 +34,8 @@ export interface SyncKeyStore {
   pin: (account: string, devices: ManifestDevice[], now: number) => void
   firstSeen: (account: string, device: ManifestDevice) => number | null
   lastGc: (account: string) => number
+  announced: (account: string) => string[]
+  setAnnounced: (account: string, ids: string[]) => void
   setLastGc: (account: string, at: number) => void
   changedSince: (account: string, since: number) => { id: string; name: string; at: number }[]
 }
@@ -63,7 +66,14 @@ function devicesOf(value: unknown): ManifestDevice[] {
 
 function read(file: SyncKeyFile): StoredSyncKeys {
   const raw = file.load()
-  const out: StoredSyncKeys = { keys: {}, counters: {}, pinned: {}, seen: {}, gc: {} }
+  const out: StoredSyncKeys = {
+    keys: {},
+    counters: {},
+    pinned: {},
+    seen: {},
+    gc: {},
+    announced: {},
+  }
   if (!isRecord(raw)) return out
   if (isRecord(raw.keys)) {
     for (const [id, value] of Object.entries(raw.keys)) {
@@ -79,6 +89,13 @@ function read(file: SyncKeyFile): StoredSyncKeys {
   }
   if (isRecord(raw.pinned)) {
     for (const [id, value] of Object.entries(raw.pinned)) out.pinned[id] = devicesOf(value)
+  }
+  if (isRecord(raw.announced)) {
+    for (const [id, value] of Object.entries(raw.announced)) {
+      if (Array.isArray(value)) {
+        out.announced[id] = value.filter((entry): entry is string => typeof entry === 'string')
+      }
+    }
   }
   if (isRecord(raw.gc)) {
     for (const [id, value] of Object.entries(raw.gc)) {
@@ -171,6 +188,12 @@ export function createSyncKeyStore(file: SyncKeyFile, protect: Protect): SyncKey
     firstSeen: (account, device) => {
       const seen = read(file).seen[account]?.[device.id]
       return sameEntry(seen, device) ? (seen?.at ?? null) : null
+    },
+    announced: (account) => read(file).announced[account] ?? [],
+    setAnnounced: (account, ids) => {
+      const data = read(file)
+      data.announced[account] = ids
+      file.save(data)
     },
     lastGc: (account) => read(file).gc[account] ?? 0,
     setLastGc: (account, at) => {

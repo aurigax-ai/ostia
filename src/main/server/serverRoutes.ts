@@ -6,6 +6,7 @@ export interface ServerInfo {
   modules: { relay: boolean; publish: boolean; sync: boolean; push: boolean }
   auth: { invite: boolean; github: boolean }
   approverMinAgeSeconds?: number
+  syncGcBound?: boolean
   relayDomain: string
   shareDomain: string
   limits?: { shareMaxBytes?: number; allowPublic?: boolean; allowNever?: boolean }
@@ -162,7 +163,11 @@ export function serverRoutes(client: ServerClient) {
         retryRateLimited: false,
       }),
     revokeDevice: (token: string, id: string, headers: Record<string, string>) =>
-      client.request<void>('DELETE', `/v1/devices/${encodeURIComponent(id)}`, { token, headers }),
+      client.request<void>('DELETE', `/v1/devices/${encodeURIComponent(id)}`, {
+        token,
+        headers,
+        retryRateLimited: false,
+      }),
     elevation: (token: string) =>
       client.request<{ elevatedUntil: number }>('GET', '/v1/auth/elevation', { token }),
     requestApproval: (token: string, headers: Record<string, string>) =>
@@ -219,10 +224,10 @@ export function serverRoutes(client: ServerClient) {
       client.request<void>('PUT', `/v1/sync/wraps/${slot}`, { token, body: { blob } }),
     rotate: (token: string, body: RotateBody) =>
       client.request<{ version: number }>('POST', '/v1/sync/rotate', { token, body }),
-    gc: (token: string, keep: string[]) =>
+    gc: (token: string, keep: string[], ifMatch: number) =>
       client.request<{ deleted: number }>('POST', '/v1/sync/gc', {
         token,
-        body: { keep },
+        body: { keep, ifMatch },
         retryRateLimited: false,
       }),
     createShare: (token: string, body: CreateShareBody) =>

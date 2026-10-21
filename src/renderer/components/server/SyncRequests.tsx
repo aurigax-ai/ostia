@@ -41,6 +41,7 @@ export function SyncRequests(): JSX.Element | null {
             detail={
               <>
                 <div>{fmt(d.server.deviceAdded, { age: ageText(locale, join.createdAt) })}</div>
+                <div>{fmt(d.server.joinCheck, { name: join.name })}</div>
                 <div>
                   <MachineValue value={join.code} />
                 </div>

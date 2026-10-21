@@ -268,6 +268,10 @@ export function syncRoutes(server: FakeServer): Array<[string, RegExp, Handler]>
     if (!auth) return
     if (needElevation(auth, res)) return
     const data = dataOf(auth.device.accountId)
+    if (server.options.syncGcBound && body.ifMatch !== current(data)) {
+      server.reply(res, 412, { error: 'version-mismatch', current: current(data) })
+      return
+    }
     const keep = new Set(Array.isArray(body.keep) ? body.keep.map(String) : [])
     let deleted = 0
     for (const [id, blob] of data.blobs) {

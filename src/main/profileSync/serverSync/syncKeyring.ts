@@ -322,6 +322,16 @@ export class SyncKeyring {
     return target ? this.store.pinned(target.id) : []
   }
 
+  announcedItems(): string[] {
+    const target = this.target()
+    return target ? this.store.announced(target.id) : []
+  }
+
+  saveAnnounced(ids: string[]): void {
+    const target = this.target()
+    if (target) this.store.setAnnounced(target.id, ids)
+  }
+
   gcDue(): boolean {
     const target = this.target()
     return target !== null && this.now() - this.store.lastGc(target.id) >= GC_INTERVAL_MS

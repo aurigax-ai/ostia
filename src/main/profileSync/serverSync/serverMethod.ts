@@ -77,6 +77,7 @@ class ServerMethod implements SyncMethod {
       void collectAfterPush(
         this.ctx,
         Object.values(entries).map((entry) => entry.blobId),
+        put.version,
       )
       return { ok: true, version: String(put.version) }
     } catch (error) {

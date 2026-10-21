@@ -22,11 +22,13 @@ const POLL_MS = 8000
 type AskItem = Extract<SyncAttention, { kind: 'approval' }>
 type ChangedItem = Extract<SyncAttention, { kind: 'changed' }>
 
-function useDevices(): [ServerDevice[], () => void] {
+function useDevices(): [ServerDevice[], () => void, boolean] {
   const [devices, setDevices] = useState<ServerDevice[]>([])
+  const [loaded, setLoaded] = useState(false)
   const load = useCallback((): void => {
     void window.ostia.server.devices().then((res) => {
       if (res.ok) setDevices(res.devices)
+      setLoaded(true)
     })
   }, [])
   useEffect(() => {
@@ -38,13 +40,13 @@ function useDevices(): [ServerDevice[], () => void] {
       off()
     }
   }, [load])
-  return [devices, load]
+  return [devices, load, loaded]
 }
 
-export function ServerDevices(): JSX.Element {
+export function ServerDevices({ onLeave }: { onLeave: () => void }): JSX.Element {
   const d = useDict()
   const locale = useSettingsStore((s) => s.locale)
-  const [devices, reload] = useDevices()
+  const [devices, reload, loaded] = useDevices()
   const [sync, setSync] = useSyncServerStatus()
   const elevated = useElevated()
   const [removing, setRemoving] = useState<RemoveTarget | null>(null)
@@ -85,36 +87,35 @@ export function ServerDevices(): JSX.Element {
     void refreshSyncAttention()
   }
 
-  const rowActions = (device: ServerDevice, ask: AskItem | undefined): JSX.Element | null => {
-    if (ask) {
-      return (
-        <>
-          <Button variant="outline" size="sm" onClick={() => void approve(ask)}>
-            {d.server.approvalApprove}
-          </Button>
-          <Button variant="ghost" size="sm" onClick={() => hide(ask.id)}>
-            {d.server.approvalDeny}
-          </Button>
-        </>
-      )
-    }
-    if (device.current) {
-      return (
-        <Button variant="ghost" size="sm" onClick={() => void window.ostia.server.signOut()}>
-          {d.server.deviceRemove}
-        </Button>
-      )
-    }
+  const askActions = (ask: AskItem): JSX.Element => (
+    <>
+      <Button variant="outline" size="sm" onClick={() => void approve(ask)}>
+        {d.server.approvalApprove}
+      </Button>
+      <Button variant="ghost" size="sm" onClick={() => hide(ask.id)}>
+        {d.server.approvalDeny}
+      </Button>
+    </>
+  )
+
+  const rowActions = (device: ServerDevice, ask: AskItem | undefined): JSX.Element => {
+    if (ask) return askActions(ask)
+    const remove = device.current
+      ? onLeave
+      : () => setRemoving({ id: device.id, name: device.name })
     return (
-      <Button
-        variant="ghost"
-        size="sm"
-        onClick={() => setRemoving({ id: device.id, name: device.name })}
-      >
+      <Button variant="ghost" size="sm" onClick={remove}>
         {d.server.deviceRemove}
       </Button>
     )
   }
+
+  const askDetail = (line: string): JSX.Element => (
+    <>
+      <div>{line}</div>
+      <div>{d.server.approvalSafety}</div>
+    </>
+  )
 
   const rowBelow = (ask: AskItem | undefined): JSX.Element | null => {
     const askError = ask ? askErrors[ask.id] : null
@@ -128,7 +129,7 @@ export function ServerDevices(): JSX.Element {
           const ask = asks.find((item) => item.deviceId === device.id)
           const changed = changes.find((item) => item.deviceId === device.id)
           const detail = ask
-            ? fmt(d.server.approvalAsks, { age: ageText(locale, device.createdAt) })
+            ? askDetail(fmt(d.server.approvalAsks, { age: ageText(locale, device.createdAt) }))
             : changed
               ? fmt(d.server.deviceChanged, {
                   time: formatDate(changed.until, locale, SHORT_DATE_TIME),
@@ -151,6 +152,17 @@ export function ServerDevices(): JSX.Element {
             />
           )
         })}
+        {(loaded ? asks : [])
+          .filter((ask) => !devices.some((device) => device.id === ask.deviceId))
+          .map((ask) => (
+            <SettingsListRow
+              key={ask.id}
+              title={ask.name}
+              detail={askDetail(d.server.approvalAsksNow)}
+              actions={askActions(ask)}
+              below={rowBelow(ask)}
+            />
+          ))}
       </SettingsList>
       {notice ? <Notice tone="info">{notice}</Notice> : null}
       {error && removing === null ? <Notice tone="error">{error}</Notice> : null}

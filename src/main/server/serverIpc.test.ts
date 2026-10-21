@@ -20,7 +20,6 @@ const elevation = {
   start: vi.fn(),
   poll: vi.fn(async () => ({ state: 'pending' })),
   cancel: vi.fn(async () => undefined),
-  approvals: vi.fn(async () => ({ ok: true, approvals: [] })),
   approve: vi.fn(async () => ({ ok: true })),
 }
 const openExternal = vi.fn(() => true)
@@ -47,7 +46,6 @@ describe('server device and approval IPC', () => {
       'server:elevation-start',
       'server:elevation-poll',
       'server:elevation-cancel',
-      'server:approvals',
       'server:approve',
     ]) {
       await call(channel, webview, 'approval')
@@ -55,7 +53,6 @@ describe('server device and approval IPC', () => {
     expect(devices.createInvite).not.toHaveBeenCalled()
     expect(elevation.start).not.toHaveBeenCalled()
     expect(elevation.approve).not.toHaveBeenCalled()
-    expect(elevation.approvals).not.toHaveBeenCalled()
   })
 
   it('SSY-C121 rejects an unbounded id and an unknown elevation method', async () => {

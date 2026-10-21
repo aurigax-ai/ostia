@@ -5,6 +5,7 @@ import type {
   ServerDevicesResult,
   ServerFailure,
   ServerInfoResult,
+  ServerSignOutResult,
   ServerStatus,
 } from '../../shared/server/serverApi'
 import { type DeviceKeys, generateDeviceKeys, registrationOf } from './deviceKeys'
@@ -253,21 +254,24 @@ export class ServerAccount {
     }
   }
 
-  private async leaveServer(): Promise<void> {
+  private async leaveServer(): Promise<boolean> {
     const id = this.identity()?.deviceId
-    if (!id) return
+    if (!id) return true
     try {
-      const headers = this.signer().revoke(id)
-      await this.authed((token, routes) => routes.revokeDevice(token, id, headers))
-    } catch {}
+      await this.authed((token, routes) => routes.revokeDevice(token, id, this.signer().revoke(id)))
+      return true
+    } catch {
+      return false
+    }
   }
 
-  async signOut(): Promise<ServerActionResult> {
+  async signOut(): Promise<ServerSignOutResult> {
     let cap: ReturnType<typeof setTimeout> | undefined
+    let left = false
     await Promise.race([
-      Promise.allSettled([...this.signOutHooks].map(async (hook) => hook())).then(() =>
-        this.leaveServer(),
-      ),
+      Promise.allSettled([...this.signOutHooks].map(async (hook) => hook())).then(async () => {
+        left = await this.leaveServer()
+      }),
       new Promise<void>((resolve) => {
         cap = setTimeout(resolve, SIGN_OUT_HOOKS_CAP_MS)
       }),
@@ -279,7 +283,7 @@ export class ServerAccount {
     this.deps.session.forget()
     this.flow = null
     this.changed()
-    return { ok: true }
+    return { ok: true, deviceKept: !left }
   }
 
   async devices(): Promise<ServerDevicesResult> {

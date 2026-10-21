@@ -22,7 +22,6 @@ import { expandSyncDir } from './syncDir'
 
 const FOCUS_THROTTLE_MS = 2000
 const WATCH_DEBOUNCE_MS = 800
-const ATTENTION_SCAN_MS = 8000
 const MARKETPLACES_FILE = 'marketplaces.json'
 const SECRET_INPUT_MAX = 1024
 
@@ -128,7 +127,8 @@ export function startProfileSync(deps: ProfileSyncIpcDeps): ProfileSyncHandle {
   })
   const elevation = new ServerElevation(deps.server)
   const attention = createSyncAttention({
-    signedIn: () => deps.server.signedIn(),
+    active: () => serverChosen() && deps.server.signedIn(),
+    announced: { load: () => keyring.announcedItems(), save: (ids) => keyring.saveAnnounced(ids) },
     syncStatus: () => serverSync.status(),
     approvals: () => elevation.approvals(),
     publish: (items) => deps.broadcast('syncServer:attention', items),
@@ -137,8 +137,16 @@ export function startProfileSync(deps: ProfileSyncIpcDeps): ProfileSyncHandle {
   const scanAttention = (): void => void attention.scan()
   const offDevices = deps.server.onDevicesChanged(scanAttention)
   const offAccount = deps.server.onChange(scanAttention)
-  const attentionTimer = setInterval(scanAttention, ATTENTION_SCAN_MS)
-  attentionTimer.unref()
+  let attentionTimer: NodeJS.Timeout | undefined
+  let attentionStopped = false
+  const scheduleAttention = (): void => {
+    if (attentionStopped) return
+    attentionTimer = setTimeout(() => {
+      void attention.scan().finally(scheduleAttention)
+    }, attention.delay())
+    attentionTimer.unref()
+  }
+  scheduleAttention()
   registerServerSyncIpc({
     service: serverSync,
     attention,
@@ -222,7 +230,8 @@ export function startProfileSync(deps: ProfileSyncIpcDeps): ProfileSyncHandle {
     stop: () => {
       app.off('browser-window-focus', onFocus)
       runSoon.cancel()
-      clearInterval(attentionTimer)
+      attentionStopped = true
+      clearTimeout(attentionTimer)
       offDevices()
       offAccount()
       for (const watcher of watchers) watcher.close()

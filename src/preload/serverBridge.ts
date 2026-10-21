@@ -18,7 +18,6 @@ export const serverBridge: Pick<OstiaBridge, 'server'> = {
     elevationStart: (method) => ipcRenderer.invoke('server:elevation-start', method),
     elevationPoll: () => ipcRenderer.invoke('server:elevation-poll'),
     elevationCancel: () => ipcRenderer.invoke('server:elevation-cancel'),
-    approvals: () => ipcRenderer.invoke('server:approvals'),
     approve: (approvalId) => ipcRenderer.invoke('server:approve', approvalId),
     onChanged: (cb) => listen('server:changed', cb),
     onDevicesChanged: (cb) => listen('server:devices-changed', () => cb()),

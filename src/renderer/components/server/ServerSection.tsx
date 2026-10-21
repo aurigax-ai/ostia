@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button'
 import { fmt, useDict } from '@/lib/app/useDict'
 import { ServerAddressRow } from './ServerAddressRow'
 import { ServerDevices } from './ServerDevices'
+import { ServerLeaveDialog } from './ServerLeaveDialog'
 import { ServerSignIn } from './ServerSignIn'
 import { serverErrorText } from './serverText'
 import { useServerOffer, useServerStatus } from './useServerStatus'
@@ -26,14 +27,20 @@ function providerName(d: Dict, status: ServerStatus): string {
   return status.provider === 'github' ? d.server.providerGithub : d.server.providerInvite
 }
 
-function SignedInRow({ status }: { status: ServerStatus }): JSX.Element {
+function SignedInRow({
+  status,
+  onSignOut,
+}: {
+  status: ServerStatus
+  onSignOut: () => Promise<void>
+}): JSX.Element {
   const d = useDict()
   const [busy, setBusy] = useState(false)
 
   const signOut = async (): Promise<void> => {
     setBusy(true)
     try {
-      await window.ostia.server.signOut()
+      await onSignOut()
     } finally {
       setBusy(false)
     }
@@ -42,10 +49,10 @@ function SignedInRow({ status }: { status: ServerStatus }): JSX.Element {
   return (
     <ControlRow
       label={d.server.signedInLabel}
-      desc={fmt(d.server.signedInDesc, {
+      desc={`${fmt(d.server.signedInDesc, {
         device: status.deviceName ?? '',
         provider: providerName(d, status),
-      })}
+      })} ${d.server.signOutDesc}`}
     >
       <Button variant="outline" size="sm" disabled={busy} onClick={() => void signOut()}>
         {d.server.signOut}
@@ -59,10 +66,18 @@ export function ServerSection(): JSX.Element {
   const status = useServerStatus()
   const offered = useServerOffer(status.url)
   const names = offered.state === 'ready' ? offerNames(d, offered.offer) : []
+  const [leaving, setLeaving] = useState(false)
+  const [kept, setKept] = useState(false)
+
+  const signOut = async (): Promise<void> => {
+    const res = await window.ostia.server.signOut()
+    setKept(res.ok && res.deviceKept)
+  }
 
   return (
     <SettingsPage title={d.server.title}>
       <SettingsGroup title={d.server.accountLabel} desc={d.server.desc}>
+        {kept && !status.signedIn ? <Notice tone="info">{d.server.leaveKept}</Notice> : null}
         <ServerAddressRow status={status} />
         {offered.state === 'error' ? <Notice>{serverErrorText(d, offered.error)}</Notice> : null}
         {offered.state === 'ready' ? (
@@ -71,16 +86,24 @@ export function ServerSection(): JSX.Element {
             desc={names.length > 0 ? names.join(' · ') : d.server.offerNone}
           />
         ) : null}
-        {status.signedIn ? <SignedInRow status={status} /> : null}
+        {status.signedIn ? <SignedInRow status={status} onSignOut={signOut} /> : null}
         {!status.signedIn && offered.state === 'ready' ? (
           <ServerSignIn offer={offered.offer} />
         ) : null}
       </SettingsGroup>
       {status.signedIn ? (
         <SettingsGroup title={d.server.devicesLabel}>
-          <ServerDevices />
+          <ServerDevices onLeave={() => setLeaving(true)} />
         </SettingsGroup>
       ) : null}
+      <ServerLeaveDialog
+        open={leaving}
+        onClose={() => setLeaving(false)}
+        onConfirm={() => {
+          setLeaving(false)
+          void signOut()
+        }}
+      />
     </SettingsPage>
   )
 }

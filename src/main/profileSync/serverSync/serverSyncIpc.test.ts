@@ -12,6 +12,7 @@ vi.mock('electron', () => ({
 import { registerServerSyncIpc } from './serverSyncIpc'
 
 const attention = {
+  delay: vi.fn(() => 1000),
   scan: vi.fn(async () => [
     { kind: 'changed' as const, id: 'c', deviceId: 'd', name: 'x', until: 1 },
   ]),

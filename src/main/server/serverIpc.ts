@@ -138,10 +138,6 @@ export function registerServerIpc(deps: ServerIpcDeps): void {
     guarded(() => deps.elevation.cancel(), Promise.resolve()),
   )
   ipcMain.handle(
-    'server:approvals',
-    guarded(() => deps.elevation.approvals(), Promise.resolve(NOT_A_WINDOW)),
-  )
-  ipcMain.handle(
     'server:approve',
     guarded(
       (id: unknown) =>

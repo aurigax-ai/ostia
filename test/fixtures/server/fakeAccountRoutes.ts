@@ -55,29 +55,6 @@ export function accountRoutes(server: FakeServer): Array<[string, RegExp, Handle
     server.reply(res, 201, { code, expiresAt })
   }
 
-  const seen: Handler = (req, res, body, _raw, [target]) => {
-    const auth = server.authed(req, res)
-    if (!auth) return
-    const { device } = auth
-    const other = lookupDevice(server, device.accountId, target ?? '')
-    if (!other) {
-      server.error(res, 404, 'unknown-device')
-      return
-    }
-    const message = `ostia-server/seen/v1\n${device.id}\n${other.id}`
-    const signature = String(body.sig ?? '')
-    if (!signature) {
-      server.error(res, 403, 'device-signature-required')
-      return
-    }
-    if (!server.verifySignature(device, message, signature)) {
-      server.error(res, 403, 'bad-signature')
-      return
-    }
-    server.acknowledged.add(`${device.id}:${other.id}`)
-    res.writeHead(204).end()
-  }
-
   const revoke: Handler = (req, res, _body, _raw, [target]) => {
     const auth = server.authed(req, res)
     if (!auth) return
@@ -262,7 +239,6 @@ export function accountRoutes(server: FakeServer): Array<[string, RegExp, Handle
 
   return [
     ['POST', /^\/v1\/devices\/invite$/, invite],
-    ['POST', /^\/v1\/devices\/([^/]+)\/seen$/, seen],
     ['DELETE', /^\/v1\/devices\/([^/]+)$/, revoke],
     ['GET', /^\/v1\/auth\/elevation$/, elevation],
     ['POST', /^\/v1\/auth\/elevation\/approval$/, requestApproval],

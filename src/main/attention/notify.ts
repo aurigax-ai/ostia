@@ -175,6 +175,17 @@ export function postActionNotification(
   void record(deps, input)
 }
 
+export function postDesktopNotice(
+  deps: NotifyDeps,
+  input: { title: string; body?: string },
+  onClick: () => void,
+): void {
+  const n = desktopNotification(deps, input.title, input.body)
+  if (!n) return
+  n.on('click', onClick)
+  n.show()
+}
+
 export function postPanelNotification(
   deps: NotifyDeps,
   input: { title: string; body?: string; from: string; extId: string; panelPath?: string },

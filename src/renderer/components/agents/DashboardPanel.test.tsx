@@ -16,6 +16,7 @@ import { useHiddenPromptsStore } from '@/stores/agents/hiddenPromptsStore'
 import { SENT_LINGER_MS, useQuestionsStore } from '@/stores/agents/questionsStore'
 import { useUIStore } from '@/stores/app/uiStore'
 import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
+import { useSyncAttentionStore } from '@/stores/server/syncAttentionStore'
 import { useBlocksStore } from '@/stores/terminal/blocksStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { useWindowsStore } from '@/stores/workspaces/windowsStore'
@@ -154,6 +155,26 @@ describe('DashboardPanel', () => {
     )
     expect(screen.queryByRole('article')).toBeNull()
     expect(screen.getByRole('button', { name: 'Close dashboard' })).toHaveFocus()
+  })
+
+  it('SYA-C181 never lists a sync request or a device notice under Needs you', () => {
+    useSyncAttentionStore.setState({
+      items: [
+        {
+          kind: 'join',
+          id: 'join:d2',
+          deviceId: 'd2',
+          name: 'Pixel 9',
+          code: 'AAAAA-BBBBB',
+          createdAt: 1,
+        },
+      ],
+    })
+    render(<DashboardPanel />)
+    open()
+    expect(screen.getByRole('region', { name: 'Needs you' })).not.toHaveTextContent('Pixel 9')
+    expect(screen.queryByRole('article')).toBeNull()
+    useSyncAttentionStore.setState({ items: [], hidden: new Set() })
   })
 
   it('lists questions and permission requests together, oldest first, with their workspace', () => {
