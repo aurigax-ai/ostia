@@ -1,7 +1,7 @@
 import { h, icon } from '@aurigax-ai/ostia-extension-sdk/panel'
+import musicNote from '@phosphor-icons/core/regular/music-note.svg'
 import type { Controls } from './controls'
 import type { Id3Tags } from './id3'
-import { MEDIA_ICONS } from './mediaIcons'
 
 export function mountAudioCard(
   root: HTMLElement,
@@ -10,7 +10,7 @@ export function mountAudioCard(
   tags: Id3Tags,
 ): void {
   video.hidden = true
-  const cover = h('div', { class: 'ostia-media-cover' }, icon(MEDIA_ICONS.note))
+  const cover = h('div', { class: 'ostia-media-cover' }, icon(musicNote))
   if (tags.cover) {
     const url = URL.createObjectURL(new Blob([tags.cover.data], { type: tags.cover.mime }))
     const image = h('img', { src: url, alt: '' })

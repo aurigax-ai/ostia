@@ -4,6 +4,7 @@
     "controls": "Player controls",
     "loading": "Loading…",
     "unreadable": "Could not read this file.",
+    "captureFailed": "Could not capture this frame.",
     "unplayable": "This file can't be played here.",
     "play": "Play",
     "pause": "Pause",

@@ -1,3 +1,4 @@
+import { VIEWER_IMAGE_MAX } from '@aurigax-ai/ostia-extension-sdk/contract/viewerSelection'
 import {
   clearSelection,
   hasPublishedSelection,
@@ -5,13 +6,21 @@ import {
   publishSelection,
 } from '@aurigax-ai/ostia-extension-sdk/viewer'
 import { type Box, dragBox, fitBox, nativeRegion, type Point } from './frameCrop'
+import {
+  CAPTURE_ATTEMPTS,
+  CAPTURE_SHRINK,
+  captureFactor,
+  type Size,
+  scaledRegion,
+  scaledSize,
+} from './frameScale'
 
 const DRAG_START_PIXELS = 4
 
-async function framePng(video: HTMLVideoElement, region: Box): Promise<Blob | null> {
+async function framePng(video: HTMLVideoElement, region: Box, out: Size): Promise<Blob | null> {
   const canvas = document.createElement('canvas')
-  canvas.width = region.width
-  canvas.height = region.height
+  canvas.width = out.width
+  canvas.height = out.height
   const context = canvas.getContext('2d')
   if (!context) return null
   context.drawImage(
@@ -22,15 +31,28 @@ async function framePng(video: HTMLVideoElement, region: Box): Promise<Blob | nu
     region.height,
     0,
     0,
-    region.width,
-    region.height,
+    out.width,
+    out.height,
   )
   return new Promise((resolve) => canvas.toBlob(resolve, 'image/png'))
 }
 
+async function encodeFrame(
+  video: HTMLVideoElement,
+  region: Box,
+): Promise<{ png: Blob; factor: number } | null> {
+  let factor = captureFactor(region)
+  for (let attempt = 0; attempt < CAPTURE_ATTEMPTS; attempt++) {
+    const png = await framePng(video, region, scaledSize(region, factor)).catch(() => null)
+    if (png && png.size <= VIEWER_IMAGE_MAX) return { png, factor }
+    factor *= CAPTURE_SHRINK
+  }
+  return null
+}
+
 export interface FrameCapture {
   clear: () => void
-  captureWholeFrame: () => void
+  selectWholeFrame: () => void
 }
 
 export function attachFrameCapture(
@@ -38,6 +60,7 @@ export function attachFrameCapture(
   surface: HTMLElement,
   video: HTMLVideoElement,
   onClick: () => void,
+  onFailure: () => void,
 ): FrameCapture {
   const crop = document.createElement('div')
   crop.className = 'ostia-media-crop'
@@ -76,14 +99,26 @@ export function attachFrameCapture(
   })
   const publish = async (selection: Box, region: Box | null): Promise<void> => {
     const ticket = ++generation
-    const { width, height } = media()
-    const png = await framePng(video, region ?? { x: 0, y: 0, width, height })
-    if (!png || ticket !== generation) return
-    await publishSelection({
-      capture: { kind: 'image', imageWidth: width, imageHeight: height, region },
-      rect: selection,
-      png,
-    })
+    const frame = media()
+    const encoded = await encodeFrame(video, region ?? { x: 0, y: 0, ...frame })
+    if (ticket !== generation) return
+    const image = encoded ? scaledSize(frame, encoded.factor) : null
+    const published =
+      encoded && image
+        ? await publishSelection({
+            capture: {
+              kind: 'image',
+              imageWidth: image.width,
+              imageHeight: image.height,
+              region: region ? scaledRegion(region, encoded.factor, image) : null,
+            },
+            rect: selection,
+            png: encoded.png,
+          })
+        : false
+    if (ticket !== generation || published) return
+    clear()
+    onFailure()
   }
 
   let start: Point | null = null
@@ -141,9 +176,12 @@ export function attachFrameCapture(
 
   return {
     clear,
-    captureWholeFrame: () => {
-      if (hasPublishedSelection() || video.videoWidth === 0) return
-      void publish(shown(), null)
+    selectWholeFrame: () => {
+      if (video.videoWidth === 0) return
+      video.pause()
+      const box = shown()
+      draw(box)
+      void publish(box, null)
     },
   }
 }
