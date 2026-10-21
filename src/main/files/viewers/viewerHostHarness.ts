@@ -142,7 +142,7 @@ export async function selectionBody(
   meta: unknown,
   png: Uint8Array | null = null,
 ): Promise<Uint8Array> {
-  const blob = encodeViewerSelection(meta as ViewerSelectionMeta, png)
+  const blob = encodeViewerSelection(meta as ViewerSelectionMeta, png as BlobPart | null)
   return new Uint8Array(await blob.arrayBuffer())
 }
 

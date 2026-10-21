@@ -24,7 +24,7 @@ function escapeHtml(value: string): string {
   return value.replace(/[&<>"]/g, (ch) => HTML_ESCAPES[ch])
 }
 
-export function csvRows(csv: string): string[][] {
+function csvRows(csv: string): string[][] {
   const rows: string[][] = []
   let row: string[] = []
   let cell = ''
@@ -56,7 +56,7 @@ export function csvRows(csv: string): string[][] {
   return rows
 }
 
-export function tableHtml(csv: string): string {
+function tableHtml(csv: string): string {
   const body = csvRows(csv)
     .map((row) => `<tr>${row.map((cell) => `<td>${escapeHtml(cell)}</td>`).join('')}</tr>`)
     .join('')

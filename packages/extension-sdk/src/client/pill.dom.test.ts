@@ -1,7 +1,14 @@
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { createPill, PILL_IDLE_MS, type Pill, type PillControl, type PillFind } from './pill'
+import { afterEach, beforeEach, describe, expect, it, type Mock, vi } from 'vitest'
+import {
+  createPill,
+  type FindOptions,
+  PILL_IDLE_MS,
+  type Pill,
+  type PillControl,
+  type PillFind,
+} from './pill'
 import { clearSelection, publishSelection } from './viewer'
 
 const SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><path d="M0 0"/></svg>'
@@ -18,13 +25,13 @@ const FIND_LABELS = {
 }
 
 interface Spies {
-  click: ReturnType<typeof vi.fn>
-  toggle: ReturnType<typeof vi.fn>
-  pick: ReturnType<typeof vi.fn>
-  go: ReturnType<typeof vi.fn>
-  query: ReturnType<typeof vi.fn>
-  step: ReturnType<typeof vi.fn>
-  closed: ReturnType<typeof vi.fn>
+  click: Mock<() => void>
+  toggle: Mock<(pressed: boolean) => void>
+  pick: Mock<(id: string) => void>
+  go: Mock<(page: number) => void>
+  query: Mock<(query: string, options: FindOptions) => void>
+  step: Mock<(direction: 1 | -1) => void>
+  closed: Mock<() => void>
 }
 
 function build(extra: PillControl[] = []): { pill: Pill; spies: Spies } {
