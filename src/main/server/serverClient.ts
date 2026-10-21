@@ -20,6 +20,7 @@ interface RequestOptions {
   token?: string
   headers?: Record<string, string>
   asBytes?: boolean
+  retryRateLimited?: false
 }
 
 export interface ServerClient {
@@ -86,7 +87,7 @@ export function createServerClient({
     options: RequestOptions = {},
   ): Promise<T> => {
     let response = await send(method, path, options)
-    if (response.status === 429) {
+    if (response.status === 429 && options.retryRateLimited !== false) {
       const wait = retryAfterOf(response)
       if (wait !== null && wait <= RETRY_AFTER_MAX_S) {
         await pause(wait * 1000)

@@ -112,6 +112,11 @@ export interface GithubElevation {
   expiresIn: number
 }
 
+export interface PushTicket {
+  ticket: string
+  expiresAt: number
+}
+
 export interface RelayLabel {
   label: string
   host: string
@@ -218,6 +223,15 @@ export function serverRoutes(client: ServerClient) {
           ? { token: auth.token }
           : { headers: { 'X-Delete-Token': auth.deleteToken } }),
       }),
+    pushTicket: (token: string) =>
+      client.request<PushTicket>('POST', '/v1/push/tickets', { token }),
+    pushPing: (token: string, handle: string) =>
+      client.request<void>('POST', `/v1/push/${encodeURIComponent(handle)}`, {
+        token,
+        retryRateLimited: false,
+      }),
+    pushDelete: (token: string, handle: string) =>
+      client.request<void>('DELETE', `/v1/push/${encodeURIComponent(handle)}`, { token }),
     relayLabel: (token: string) => client.request<RelayLabel>('POST', '/v1/relay/label', { token }),
   }
 }

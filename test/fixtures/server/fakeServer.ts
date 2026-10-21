@@ -4,6 +4,7 @@ import type { AddressInfo } from 'node:net'
 import type { Duplex } from 'node:stream'
 import { type WebSocket, WebSocketServer } from 'ws'
 import { accountRoutes } from './fakeAccountRoutes'
+import { newPushState, type PushState, pushRoutes } from './fakePushRoutes'
 import { type FakeShare, shareRoutes } from './fakeShareRoutes'
 import { type AccountSync, syncRoutes } from './fakeSyncRoutes'
 
@@ -85,6 +86,8 @@ export interface FakeServerOptions {
   allowNever?: boolean
   shareMaxBytes?: number
   maxShares?: number
+  push?: boolean
+  pushMaxHandles?: number
 }
 
 function b64(buffer: Buffer): string {
@@ -136,6 +139,7 @@ export class FakeServer {
   readonly removed: string[] = []
   readonly syncData = new Map<string, AccountSync>()
   readonly shares = new Map<string, FakeShare>()
+  readonly push: PushState = newPushState()
   readonly intercepts = new Map<string, Intercept[]>()
   githubPolls = 0
   githubPendingPolls = 1
@@ -164,6 +168,7 @@ export class FakeServer {
     this.elevationTtlMs = options.elevationTtlMs ?? 300_000
     this.extraHandlers.push(...accountRoutes(this), ...syncRoutes(this))
     if (options.publish !== false) this.extraHandlers.push(...shareRoutes(this))
+    if (options.push === true) this.extraHandlers.push(...pushRoutes(this))
     this.http = createServer((req, res) => void this.route(req, res))
     this.http.on('upgrade', (req, socket, head) => this.upgrade(req, socket, head))
   }
@@ -503,7 +508,7 @@ export class FakeServer {
             relay: true,
             publish: this.options.publish !== false,
             sync: true,
-            push: false,
+            push: this.options.push === true,
           },
           auth: { invite: true, github: this.options.github === true },
           relayDomain: RELAY_DOMAIN,
