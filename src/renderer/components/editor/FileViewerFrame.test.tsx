@@ -3,6 +3,7 @@ import type { ViewerOpenLink, ViewerSelectionEvent } from '@shared/files/filesAp
 import { act, cleanup, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { copyPaneSelection } from '@/lib/agents/selectionCopiers'
+import { openSelectionSend } from '@/lib/agents/selectionSenders'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { FileViewerFrame } from './FileViewerFrame'
 
@@ -15,17 +16,32 @@ vi.mock('@/lib/files/openFile', () => ({
 vi.mock('@/lib/browser/browserProfile', () => ({
   openBrowserTabAs: (...args: unknown[]) => openBrowserTabAs(...args),
 }))
+const paneVisible = { value: true }
+
+vi.mock('@/lib/attention/workspaceActivity', () => ({
+  usePaneVisible: () => paneVisible.value,
+}))
 vi.mock('@/components/agents/RegionActionBar', () => ({
   RegionActionBar: ({
     anchor,
     onCopy,
     onClose,
+    takeFocus,
+    sendRequest,
   }: {
     anchor: { left: number; top: number }
     onCopy: () => Promise<string | null>
     onClose: () => void
+    takeFocus: boolean
+    sendRequest: number
   }) => (
-    <div data-testid="region-bar" data-left={anchor.left} data-top={anchor.top}>
+    <div
+      data-testid="region-bar"
+      data-left={anchor.left}
+      data-top={anchor.top}
+      data-take-focus={String(takeFocus)}
+      data-send-request={sendRequest}
+    >
       <button type="button" onClick={() => void onCopy()}>
         copy
       </button>
@@ -54,6 +70,7 @@ const SELECTION: ViewerSelectionEvent['selection'] = {
   hasImage: true,
   hasText: false,
   anchor: { left: 12, top: 30, bottom: 60 },
+  seq: 1,
 }
 
 function mount(): void {
@@ -87,6 +104,7 @@ beforeEach(() => {
     return () => {}
   })
   vi.mocked(window.ostia.viewers.copySelection).mockClear()
+  paneVisible.value = true
   openFileInWorkspace.mockClear()
   openBrowserTabAs.mockClear()
 })
@@ -140,7 +158,7 @@ describe('FileViewerFrame', () => {
     expect(window.ostia.viewers.clearSelection).toHaveBeenCalledWith('p1')
   })
 
-  it('mounts a fresh bar for a new selection and keeps it while the same one moves', async () => {
+  it('mounts a fresh bar for each numbered selection and keeps it while the same one moves', async () => {
     mount()
     await act(async () => {})
     act(() => onSelection({ paneId: 'p1', selection: SELECTION }))
@@ -153,16 +171,47 @@ describe('FileViewerFrame', () => {
     )
     expect(screen.getByTestId('region-bar')).toBe(first)
     expect(screen.getByTestId('region-bar')).toHaveAttribute('data-left', '40')
-    act(() =>
-      onSelection({
-        paneId: 'p1',
-        selection: SELECTION && {
-          ...SELECTION,
-          capture: { ...SELECTION.capture, kind: 'image', imageWidth: 99 } as never,
-        },
-      }),
-    )
+    act(() => onSelection({ paneId: 'p1', selection: SELECTION && { ...SELECTION, seq: 2 } }))
     expect(screen.getByTestId('region-bar')).not.toBe(first)
+  })
+
+  it('draws the bar only while its pane is shown', async () => {
+    mount()
+    await act(async () => {})
+    paneVisible.value = false
+    act(() => onSelection({ paneId: 'p1', selection: SELECTION }))
+    expect(screen.queryByTestId('region-bar')).toBeNull()
+    paneVisible.value = true
+    act(() => onSelection({ paneId: 'p1', selection: SELECTION && { ...SELECTION, seq: 2 } }))
+    expect(screen.getByTestId('region-bar')).toBeInTheDocument()
+  })
+
+  it('lets the bar take focus only when the page held it as the selection arrived', async () => {
+    mount()
+    await act(async () => {})
+    const webview = document.querySelector('webview')
+    const active = vi.spyOn(document, 'activeElement', 'get')
+    active.mockReturnValue(document.body)
+    act(() => onSelection({ paneId: 'p1', selection: SELECTION }))
+    expect(screen.getByTestId('region-bar')).toHaveAttribute('data-take-focus', 'false')
+    active.mockReturnValue(webview)
+    act(() => onSelection({ paneId: 'p1', selection: SELECTION && { ...SELECTION, seq: 2 } }))
+    expect(screen.getByTestId('region-bar')).toHaveAttribute('data-take-focus', 'true')
+    active.mockRestore()
+  })
+
+  it('answers the pane send chord by asking the bar for its Send menu while a selection exists', async () => {
+    mount()
+    await act(async () => {})
+    expect(openSelectionSend('p1')).toBe(false)
+    act(() => onSelection({ paneId: 'p1', selection: SELECTION }))
+    expect(screen.getByTestId('region-bar')).toHaveAttribute('data-send-request', '0')
+    act(() => {
+      expect(openSelectionSend('p1')).toBe(true)
+    })
+    expect(screen.getByTestId('region-bar')).toHaveAttribute('data-send-request', '1')
+    act(() => onSelection({ paneId: 'p1', selection: null }))
+    expect(openSelectionSend('p1')).toBe(false)
   })
 
   it('opens a web link in a browser tab, a mail link outside and a file in the workspace', async () => {

@@ -6,16 +6,18 @@ import type {
   ViewerSelectionEvent,
   ViewerStopReason,
 } from '@shared/files/filesApi'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { RegionActionBar } from '@/components/agents/RegionActionBar'
 import { EmptyState } from '@/components/common/EmptyState'
 import { StatusLine } from '@/components/common/StatusLine'
 import { Button } from '@/components/ui/button'
 import type { PickTarget } from '@/lib/agents/pickTargets'
 import { registerSelectionCopier } from '@/lib/agents/selectionCopiers'
+import { registerSelectionSender } from '@/lib/agents/selectionSenders'
 import { sendViewerSelectionToPane } from '@/lib/agents/sendPick'
 import { fmt, useDict } from '@/lib/app/useDict'
 import { useTransientStatus } from '@/lib/app/useTransientStatus'
+import { usePaneVisible } from '@/lib/attention/workspaceActivity'
 import { openBrowserTabAs } from '@/lib/browser/browserProfile'
 import { openFileInWorkspace } from '@/lib/files/openFile'
 import type { ViewerOption } from '@/lib/files/viewerChoice'
@@ -56,17 +58,40 @@ function ViewerFrame({
   const readyWebview = useGuestReady(webview)
   useSurfaceFocus(paneId, () => readyWebview)
   useInjectedCss(webview, themeCss)
-  const [selection, setSelection] = useState<ViewerSelectionEvent['selection']>(null)
+  const visible = usePaneVisible(paneId)
+  const webviewRef = useRef<HTMLElement | null>(null)
+  webviewRef.current = webview
+  const [shown, setShown] = useState<{
+    selection: NonNullable<ViewerSelectionEvent['selection']>
+    takeFocus: boolean
+  } | null>(null)
+  const [sendRequest, setSendRequest] = useState(0)
   const [status, setStatus] = useTransientStatus(SEND_STATUS_MS)
+  const selection = shown?.selection ?? null
 
   useEffect(
     () =>
       window.ostia.viewers.onSelection((event) => {
         if (event.paneId !== paneId) return
-        setSelection(event.selection)
+        setShown((current) =>
+          event.selection
+            ? {
+                selection: event.selection,
+                takeFocus:
+                  current?.selection.seq === event.selection.seq
+                    ? current.takeFocus
+                    : document.activeElement === webviewRef.current,
+              }
+            : null,
+        )
       }),
     [paneId],
   )
+
+  useEffect(() => {
+    if (!selection) return
+    return registerSelectionSender(paneId, () => setSendRequest((n) => n + 1))
+  }, [paneId, selection])
 
   useEffect(() => {
     if (!selection) return
@@ -188,11 +213,13 @@ function ViewerFrame({
           <StatusLine onDismiss={() => setStatus(null)}>{status}</StatusLine>
         </div>
       ) : null}
-      {selection ? (
+      {selection && visible ? (
         <RegionActionBar
-          key={JSON.stringify(selection.capture)}
+          key={selection.seq}
           workspaceId={workspaceId}
           anchor={selection.anchor}
+          takeFocus={shown?.takeFocus ?? false}
+          sendRequest={sendRequest}
           onCopy={() => window.ostia.viewers.copySelection(paneId)}
           onSend={sendSelection}
           onClose={() => window.ostia.viewers.clearSelection(paneId)}
