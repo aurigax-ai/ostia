@@ -13,7 +13,7 @@ const PLAIN = String.raw`(?<path>${PATH})(?::(?<line>\d+)(?::(?<col>\d+))?|\((?<
 const PATTERN = new RegExp(`${QUOTED}|${PLAIN}`, 'g')
 
 function looksLikePath(path: string): boolean {
-  if (path.includes('/')) return /[\w@+\-]/.test(path.replace(/[~./]/g, ''))
+  if (path.includes('/')) return /[\w@+-]/.test(path.replace(/[~./]/g, ''))
   return /\.[A-Za-z][\w-]{0,9}$/.test(path) && !/^\d/.test(path) && !path.includes('@')
 }
 

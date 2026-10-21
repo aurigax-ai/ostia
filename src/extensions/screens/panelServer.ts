@@ -1,6 +1,6 @@
 import { randomBytes } from 'node:crypto'
-import { type Dirent, readFileSync, readdirSync } from 'node:fs'
-import { type IncomingMessage, type Server, type ServerResponse, createServer } from 'node:http'
+import { type Dirent, readdirSync, readFileSync } from 'node:fs'
+import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http'
 import { join, relative } from 'node:path'
 import type { Duplex } from 'node:stream'
 import type { ExtensionResult } from '@aurigax-ai/ostia-extension-sdk'

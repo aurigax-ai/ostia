@@ -1,12 +1,12 @@
-import { useUIStore } from '@/stores/app/uiStore'
-import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
-import { useLanguageNoticeStore } from '@/stores/extensions/languageNoticeStore'
-import { useLanguageServersStore } from '@/stores/extensions/languageServersStore'
 import type { LanguageServerInfo } from '@aurigax-ai/ostia-extension-sdk/contract/languageServers'
 import type { ExtensionSuggestion } from '@shared/extensions/extensionSuggestions'
 import { cleanup, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import { useUIStore } from '@/stores/app/uiStore'
+import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
+import { useLanguageNoticeStore } from '@/stores/extensions/languageNoticeStore'
+import { useLanguageServersStore } from '@/stores/extensions/languageServersStore'
 import { LanguageNotice, serverNoticeFor } from './LanguageNotice'
 
 const state = { marketplaces: [], installed: [] }
@@ -196,7 +196,7 @@ describe('LanguageNotice', () => {
     expect(screen.queryByRole('button')).toBeNull()
   })
 
-  it('points at Settings → Languages when the server cannot start', async () => {
+  it('opens the extension’s row on the Extensions page when the server cannot start', async () => {
     suggest(null)
     vi.mocked(window.ostia.lsp.servers).mockResolvedValue([
       server({ status: 'toolchain-missing', name: 'gopls', languages: ['go'], program: 'gopls' }),
@@ -206,7 +206,9 @@ describe('LanguageNotice', () => {
       'gopls cannot start: Go is not installed.',
     )
     await userEvent.setup().click(screen.getByRole('button', { name: 'Open Settings' }))
-    expect(useUIStore.getState().settingsSection).toBe('languageServers')
+    expect(useUIStore.getState().settingsSection).toBe('extensions')
+    expect(useUIStore.getState().settingsExtension).toBe('lsp-rust-analyzer')
+    expect(useUIStore.getState().settingsExtensionRow).toBe(true)
   })
 })
 

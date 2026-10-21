@@ -1,7 +1,7 @@
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import type { PaneNode } from '@/lib/layout/types'
 import { useBlocksStore } from '@/stores/terminal/blocksStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
-import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { startAgentRunningReport } from './agentRunningReport'
 
 let layoutInit: ReturnType<typeof useLayoutStore.getState>

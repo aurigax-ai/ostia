@@ -1,3 +1,5 @@
+import { ArrowClockwiseIcon, ArrowSquareOutIcon, DownloadSimpleIcon } from '@phosphor-icons/react'
+import type { ReleaseCheckError } from '@shared/app/releases'
 import { Notice } from '@/components/common/Notice'
 import { ControlRow, ToggleRow } from '@/components/settingsKit/ControlRow'
 import { Button } from '@/components/ui/button'
@@ -5,8 +7,6 @@ import { replaceLabel } from '@/lib/app/updateProgressLabel'
 import { fmt, useDict } from '@/lib/app/useDict'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { restartReady, updateAction, useUpdateStore } from '@/stores/app/updateStore'
-import { ArrowClockwiseIcon, ArrowSquareOutIcon, DownloadSimpleIcon } from '@phosphor-icons/react'
-import type { ReleaseCheckError } from '@shared/app/releases'
 import { UpdateChannelPicker } from './UpdateChannelPicker'
 
 export function UpdateCheck(): JSX.Element {

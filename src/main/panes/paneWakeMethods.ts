@@ -1,16 +1,16 @@
 import type { ResponseError } from 'vscode-jsonrpc/node'
 import {
-  ChangeSignal,
   actThenConfirm,
   anyOf,
+  ChangeSignal,
   confirmed,
   mismatch,
 } from '../../shared/common/actThenConfirm'
 import type { CommandResult } from '../../shared/control/commands'
 import { type ControlMethodContext, registerControlMethod } from '../control/controlServer'
 import type { PaneIdentity } from '../control/idRegistry'
-import { type PaneEntry, liveSessionHolder } from './paneList'
-import { type PaneReachDeps, ensurePaneReach, fail, paneRefs, record } from './paneReach'
+import { liveSessionHolder, type PaneEntry } from './paneList'
+import { ensurePaneReach, fail, type PaneReachDeps, paneRefs, record } from './paneReach'
 import type { PaneWaking } from './paneWaking'
 
 const WAKE_WAIT_MIN_MS = 1000
@@ -41,6 +41,10 @@ type WakeAnswer =
   | { ok: true; woke: string[]; timedOut: true }
   | { ok: true; woke: string[]; closed: string }
 
+function agentIsLive(entry: PaneEntry | undefined): boolean {
+  return Boolean(entry?.agent) && entry?.running === true
+}
+
 export function notHibernated(to: PaneIdentity): ResponseError<void> {
   return fail(`not-hibernated: ${to.externalId} is not hibernated`)
 }
@@ -49,10 +53,6 @@ function notResumable(to: PaneIdentity): ResponseError<void> {
   return fail(
     `not-resumable: ${to.externalId} has no agent session to resume, or is not at its prompt`,
   )
-}
-
-function alreadyHibernated(to: PaneIdentity): ResponseError<void> {
-  return fail(`hibernated: ${to.externalId} is already asleep; wake it with ostia pane wake`)
 }
 
 export function sessionConflict(to: PaneIdentity, other: string): ResponseError<void> {
@@ -76,7 +76,11 @@ export function checkSessions(targets: PaneIdentity[], panes: PaneEntry[]): void
 
 export function registerPaneWakeMethods(
   deps: PaneWakeDeps & {
-    target: (raw: unknown, ctx: ControlMethodContext) => Promise<PaneIdentity>
+    target: (
+      raw: unknown,
+      ctx: ControlMethodContext,
+      destructive?: boolean,
+    ) => Promise<PaneIdentity>
     ensureManagerInput: (ctx: ControlMethodContext) => void
   },
 ): void {
@@ -92,8 +96,10 @@ export function registerPaneWakeMethods(
       const waited: PaneIdentity[] = []
       const asleepPanes: PaneIdentity[] = []
       const awakePanes: PaneIdentity[] = []
+      const already: string[] = []
+      const listed = await deps.panes()
       for (const ref of refs) {
-        const to = await target(ref, ctx)
+        const to = await target(ref, ctx, true)
         await ensurePaneReach(deps, 'input', to, ctx, {
           ref,
           method: 'pane.wake',
@@ -104,11 +110,15 @@ export function registerPaneWakeMethods(
         } else if (await deps.hibernated(to)) {
           asleepPanes.push(to)
           waited.push(to)
+        } else if (agentIsLive(listed.find((entry) => entry.paneId === to.externalId))) {
+          already.push(to.externalId)
         } else {
           awakePanes.push(to)
         }
       }
-      checkSessions([...asleepPanes, ...awakePanes], await deps.panes())
+      checkSessions([...asleepPanes, ...awakePanes], listed)
+      const answer = <T extends object>(value: T) =>
+        already.length > 0 ? { ...value, already } : value
       const woke: string[] = []
       const marked: PaneIdentity[] = []
       try {
@@ -135,7 +145,7 @@ export function registerPaneWakeMethods(
         for (const to of marked) deps.waking.abandon(to.paneId)
         throw err
       }
-      if (waited.length === 0) return { ok: true, woke }
+      if (waited.length === 0) return answer({ ok: true, woke })
       const began = Date.now()
       const cancelled = new ChangeSignal()
       const closedConn = ctx.conn.onClose(() => cancelled.fire())
@@ -168,7 +178,7 @@ export function registerPaneWakeMethods(
         ? 'timedOut' in seen.value && seen.value.timedOut === true
         : !seen.ok && seen.reason.startsWith('not-started')
       if (notReady) deps.journal?.wakeNotReady(Date.now() - began)
-      if (seen.value) return seen.value
+      if (seen.value) return answer(seen.value)
       throw fail(seen.ok ? 'not-started' : seen.reason)
     },
   })
@@ -179,25 +189,29 @@ export function registerPaneWakeMethods(
       const refs = paneRefs(record(raw).panes)
       const panes: PaneIdentity[] = []
       for (const ref of refs) {
-        const to = await target(ref, ctx)
+        const to = await target(ref, ctx, true)
         await ensurePaneReach(deps, 'close', to, ctx, {
           ref,
           method: 'pane.hibernate',
           detail: `hibernate ${to.externalId}: stop its agent until it is woken`,
         })
-        if (await deps.hibernated(to)) throw alreadyHibernated(to)
         panes.push(to)
       }
       const hibernated: string[] = []
+      const already: string[] = []
       const skipped: Record<string, string> = {}
       for (const to of panes) {
+        if (await deps.hibernated(to)) {
+          already.push(to.externalId)
+          continue
+        }
         const res = await deps.hibernate(to)
         if (!res.ok) throw fail(res.error.message)
         const outcome = (res.result as { outcome?: unknown } | undefined)?.outcome
         if (outcome === 'hibernated') hibernated.push(to.externalId)
         else skipped[to.externalId] = typeof outcome === 'string' ? outcome : 'unknown'
       }
-      return { ok: true, hibernated, skipped }
+      return { ok: true, hibernated, ...(already.length > 0 ? { already } : {}), skipped }
     },
   })
 }

@@ -1,7 +1,7 @@
 import {
-  constants,
   chmodSync,
   closeSync,
+  constants,
   fchmodSync,
   fstatSync,
   lstatSync,

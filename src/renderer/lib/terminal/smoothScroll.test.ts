@@ -1,11 +1,11 @@
-import { useSettingsStore } from '@/stores/app/settingsStore'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { useSettingsStore } from '@/stores/app/settingsStore'
 import {
-  SMOOTH_SCROLL_MS,
-  type WheelSample,
   attachSmoothScroll,
   createWheelClassifier,
+  SMOOTH_SCROLL_MS,
   smoothScrollDuration,
+  type WheelSample,
 } from './smoothScroll'
 
 const PIXEL = WheelEvent.DOM_DELTA_PIXEL

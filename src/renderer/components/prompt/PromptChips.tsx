@@ -1,11 +1,3 @@
-import { Hint } from '@/components/common/Hint'
-import { MenuContent, MenuItem } from '@/components/common/Menu'
-import { ContextMenu, ContextMenuSeparator, ContextMenuTrigger } from '@/components/ui/context-menu'
-import { fmt, useDict } from '@/lib/app/useDict'
-import { type ChipCatalogEntry, chipAction } from '@/lib/extensions/extensionChips'
-import type { ResolvedChip } from '@/lib/prompt/promptChips'
-import { promptLine } from '@/lib/prompt/promptChips'
-import { useUIStore } from '@/stores/app/uiStore'
 import {
   CalendarBlankIcon,
   CheckCircleIcon,
@@ -31,6 +23,14 @@ import {
   type PromptSeparator,
   separatorText,
 } from '@shared/terminal/promptSettings'
+import { Hint } from '@/components/common/Hint'
+import { MenuContent, MenuItem } from '@/components/common/Menu'
+import { ContextMenu, ContextMenuSeparator, ContextMenuTrigger } from '@/components/ui/context-menu'
+import { fmt, useDict } from '@/lib/app/useDict'
+import { type ChipCatalogEntry, chipAction } from '@/lib/extensions/extensionChips'
+import type { ResolvedChip } from '@/lib/prompt/promptChips'
+import { promptLine } from '@/lib/prompt/promptChips'
+import { useUIStore } from '@/stores/app/uiStore'
 
 const CORE_CHIP_ICONS: Record<CoreChipId, Icon> = {
   conda: PackageIcon,

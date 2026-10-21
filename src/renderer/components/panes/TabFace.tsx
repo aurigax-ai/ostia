@@ -1,13 +1,3 @@
-import { Hint } from '@/components/common/Hint'
-import { MailCount } from '@/components/common/MailCount'
-import { viewIcon } from '@/components/views/viewIcons'
-import { useDict } from '@/lib/app/useDict'
-import { needsYou, tabMark } from '@/lib/attention/attention'
-import type { PaneNode, SurfaceKind } from '@/lib/layout/types'
-import { cn } from '@/lib/utils'
-import { useAttentionStore } from '@/stores/agents/attentionStore'
-import { useViewsStore } from '@/stores/extensions/viewsStore'
-import { useEditorStatus } from '@/stores/files/editorStatusStore'
 import {
   BroadcastIcon,
   ChatCircleTextIcon,
@@ -20,6 +10,16 @@ import {
   RobotIcon,
   TerminalWindowIcon,
 } from '@phosphor-icons/react'
+import { Hint } from '@/components/common/Hint'
+import { MailCount } from '@/components/common/MailCount'
+import { viewIcon } from '@/components/views/viewIcons'
+import { useDict } from '@/lib/app/useDict'
+import { needsYou, tabMark } from '@/lib/attention/attention'
+import type { PaneNode, SurfaceKind } from '@/lib/layout/types'
+import { cn } from '@/lib/utils'
+import { useAttentionStore } from '@/stores/agents/attentionStore'
+import { useViewsStore } from '@/stores/extensions/viewsStore'
+import { useEditorStatus } from '@/stores/files/editorStatusStore'
 
 const SURFACE_ICON: Record<SurfaceKind, IconComponent> = {
   terminal: TerminalWindowIcon,

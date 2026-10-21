@@ -1,11 +1,11 @@
+import { type AgentResume, isResumableAgent, type ResumableAgent } from '@shared/agents/agentResume'
+import type { AttentionState } from '@shared/attention/attention'
 import type { AttentionEvent } from '@/lib/attention/attention'
 import { findPane } from '@/lib/layout/tree'
 import { isIdlePrompt } from '@/lib/terminal/blocks'
 import { useAttentionStore } from '@/stores/agents/attentionStore'
 import { type LineAnchor, useBlocksStore } from '@/stores/terminal/blocksStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
-import { type AgentResume, type ResumableAgent, isResumableAgent } from '@shared/agents/agentResume'
-import type { AttentionState } from '@shared/attention/attention'
 
 const FOREGROUND_CHECKS_MS = [800, 3000, 10_000] as const
 

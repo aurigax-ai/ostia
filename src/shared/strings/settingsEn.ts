@@ -359,6 +359,11 @@ export const settingsEn = {
       'Scan the QR code with {product}’s companion app, or pick this computer in the app and type the code. You approve the phone here.',
     remotePairDetails: 'Connection details',
     remotePairExpires: 'New code in {n}s',
+    remotePairKeeps: 'It keeps: {caps}.',
+    remotePairKeepsNone: 'It keeps no extra permissions.',
+    remotePairNeverSeen: 'never connected',
+    remotePairReplaces:
+      'Says it is the same phone as {name} (last seen {when}). Approving replaces it and closes its connection.',
     remotePairRequest: '{name} wants to pair',
     remotePairedOn: 'Paired {date}',
     remotePairing: 'Starting…',

@@ -2,12 +2,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ReferenceInsert, WindowWorkspaceReport } from '../../shared/windows/windowsApi'
 import {
   type OriginRules,
-  REFERENCE_NOTE_MAX,
-  REFERENCE_TEXT_MAX,
-  ReferenceRelay,
   originAgentOwner,
   originAgents,
   parseReferenceRequest,
+  REFERENCE_NOTE_MAX,
+  REFERENCE_TEXT_MAX,
+  ReferenceRelay,
   reachesTarget,
   summaryOf,
   workspaceOfPane,

@@ -1,12 +1,12 @@
 import {
-  constants,
   chmodSync,
+  constants,
   existsSync,
   lstatSync,
   mkdirSync,
   mkdtempSync,
-  readFileSync,
   readdirSync,
+  readFileSync,
   readlinkSync,
   renameSync,
   rmSync,
@@ -20,11 +20,11 @@ import { basename, join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
 import { atTransferFs } from './atTransferFs'
 import { copyExclusive, moveExclusive } from './exclusiveTransfer'
-import { FileOps, copyName, nameProblem, numberedName } from './fileOps'
+import { copyName, FileOps, nameProblem, numberedName } from './fileOps'
 import { openAnchor } from './folderAnchor'
 import { macAt } from './macAt'
 import { procAtFs } from './procAtFs'
-import { type TransferFs, nodeTransferFs } from './transferFs'
+import { nodeTransferFs, type TransferFs } from './transferFs'
 
 const dirs: string[] = []
 

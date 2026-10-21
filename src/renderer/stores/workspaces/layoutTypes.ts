@@ -1,6 +1,3 @@
-import type { CollapseChange } from '@/lib/layout/collapse'
-import type { DropZone } from '@/lib/layout/tree'
-import type { Direction, LayoutNode, SurfaceKind } from '@/lib/layout/types'
 import type { AgentResume } from '@shared/agents/agentResume'
 import type { ShownDiff } from '@shared/boards/git'
 import type { BrowserDevice } from '@shared/browser/browserDevice'
@@ -8,6 +5,9 @@ import type { BrowserProfile } from '@shared/browser/browserProfile'
 import type { SplitTabPlacement } from '@shared/workspaces/splitTabs'
 import type { PanePlacement } from '@shared/workspaces/workspaceApi'
 import type { StoreApi } from 'zustand'
+import type { CollapseChange } from '@/lib/layout/collapse'
+import type { DropZone } from '@/lib/layout/tree'
+import type { Direction, LayoutNode, SurfaceKind } from '@/lib/layout/types'
 
 export interface WorkspaceLayout {
   root: LayoutNode

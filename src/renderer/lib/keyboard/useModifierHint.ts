@@ -1,7 +1,7 @@
-import { useUIStore } from '@/stores/app/uiStore'
 import type { ChordSpec } from '@shared/keyboard/chordSpec'
 import { useEffect } from 'react'
-import { WORKSPACE_GOTO, chordOf } from './chords'
+import { useUIStore } from '@/stores/app/uiStore'
+import { chordOf, WORKSPACE_GOTO } from './chords'
 
 export const MODIFIER_HINT_DELAY_MS = 500
 

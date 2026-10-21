@@ -5,12 +5,12 @@ import type { ActivityEvent, ActivityHost } from './hookEvent'
 import en from './locales/en.json'
 import type { RowEnv } from './rows'
 import {
+  agentLimitKey,
   type Limits,
+  panelModel,
   STREAM_LIMIT_KEY,
   STREAM_PAGE,
   TURN_PAGE,
-  agentLimitKey,
-  panelModel,
 } from './view'
 
 const dom = new JSDOM('<!doctype html><body></body>', { url: 'http://localhost/?locale=en' })

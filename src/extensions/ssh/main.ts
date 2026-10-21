@@ -1,7 +1,13 @@
 import { readFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
-import { booleanSetting, connect, onShutdown, runTool } from '@aurigax-ai/ostia-extension-sdk'
+import {
+  booleanSetting,
+  connect,
+  createTranslator,
+  onShutdown,
+  runTool,
+} from '@aurigax-ai/ostia-extension-sdk'
 import { readEnv } from '@aurigax-ai/ostia-extension-sdk/contract/appEnv'
 import { sshCommands } from './commands'
 import { CONSENT_FILE, HelperConsent } from './consent'
@@ -29,7 +35,9 @@ async function main(): Promise<void> {
   await ext.subscribe(['pane.closed'], (type, payload) => {
     if (type === 'pane.closed' && 'paneId' in payload) sessions.closed(payload.paneId)
   })
+  const translate = createTranslator()
   const helperDeps: HelperDeps = {
+    translate,
     run,
     confirm: (req) => ext.confirm(req),
     enabled: async () => booleanSetting(await ext.getSettings(), 'remoteHelper', true),
@@ -43,6 +51,7 @@ async function main(): Promise<void> {
   }
   await ext.registerCommands({
     ...sshCommands({
+      translate,
       discover: () => discoverHosts(homedir()),
       run,
       confirm: (req) => ext.confirm(req),

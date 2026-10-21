@@ -1,10 +1,10 @@
+import { create } from 'zustand'
 import {
-  type PanelInstance,
   instanceKey,
   keepInstance,
+  type PanelInstance,
   sameInstance,
 } from '@/lib/panes/panelKeepAlive'
-import { create } from 'zustand'
 
 export interface PanelRoute {
   path: string

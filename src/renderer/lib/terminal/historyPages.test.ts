@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import {
-  PAGE_LINES,
-  WINDOW_LINES,
   earlierStart,
   laterStart,
   lineAtRow,
   logicalLinesFrom,
+  PAGE_LINES,
   rowOfLine,
+  WINDOW_LINES,
   windowStart,
 } from './historyPages'
 

@@ -1,11 +1,11 @@
 import {
-  type Settled,
-  type Subscribe,
   actThenConfirm,
   anyOf,
   confirmed,
   mismatch,
   pollEvery,
+  type Settled,
+  type Subscribe,
 } from '../../shared/common/actThenConfirm'
 import type { ProcessEntry, ProcessRegistry, StartOutcome } from './processRegistry'
 
@@ -13,6 +13,7 @@ export interface StartTiming {
   settleMs: number
   processMs: number
   agentMs: number
+  turnMs: number
   pollMs: number
 }
 
@@ -20,11 +21,14 @@ export const START_TIMING: StartTiming = {
   settleMs: 1000,
   processMs: 15_000,
   agentMs: 60_000,
+  turnMs: 20_000,
   pollMs: 200,
 }
 
 export interface StartReport {
   status: StartOutcome
+  turnStarted?: boolean
+  session?: string
   exitCode?: number
   output?: string[]
   reason?: string
@@ -92,6 +96,39 @@ export async function confirmStart(watch: StartWatch): Promise<StartReport> {
     },
   })
   return settled.value ?? { status: 'failed', reason: settled.ok ? undefined : settled.reason }
+}
+
+export interface TurnWatch {
+  entry: ProcessEntry
+  turnState: (paneId: string) => Promise<string | undefined>
+  session: (paneId: string) => Promise<string | undefined>
+  changes: Subscribe
+  timing: StartTiming
+}
+
+const TURN_STATES: ReadonlySet<string | undefined> = new Set([
+  'working',
+  'waiting',
+  'done',
+  'error',
+])
+
+export async function confirmTurn(
+  watch: TurnWatch,
+): Promise<Pick<StartReport, 'turnStarted' | 'session'>> {
+  const { entry, timing } = watch
+  const settled = await actThenConfirm<boolean>({
+    act: () => undefined,
+    observe: async () => {
+      if (entry.status === 'closed' || entry.status === 'exited') return confirmed(false)
+      return TURN_STATES.has(await watch.turnState(entry.paneId)) ? confirmed(true) : undefined
+    },
+    signal: anyOf(watch.changes, pollEvery(timing.pollMs)),
+    timeoutMs: timing.turnMs,
+    onTimeout: () => confirmed(false),
+  })
+  const session = await watch.session(entry.paneId)
+  return { turnStarted: settled.value === true, ...(session ? { session } : {}) }
 }
 
 export function startMessage(name: string, paneId: string, report: StartReport): string {

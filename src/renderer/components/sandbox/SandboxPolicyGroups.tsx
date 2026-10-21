@@ -1,3 +1,13 @@
+import type { SandboxFixedPolicy, SandboxPathKind, SandboxSwitches } from '@shared/sandbox/sandbox'
+import {
+  presetIdOf,
+  presetState,
+  SANDBOX_READ_PRESETS,
+  type SandboxReadPreset,
+  withoutPreset,
+  withPreset,
+} from '@shared/sandbox/sandboxPresets'
+import { useEffect, useState } from 'react'
 import { ListRow } from '@/components/common/ListRow'
 import { Notice } from '@/components/common/Notice'
 import { ControlRow } from '@/components/settingsKit/ControlRow'
@@ -8,16 +18,6 @@ import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
 import { useDict } from '@/lib/app/useDict'
 import { isMac } from '@/platform'
-import type { SandboxFixedPolicy, SandboxPathKind, SandboxSwitches } from '@shared/sandbox/sandbox'
-import {
-  SANDBOX_READ_PRESETS,
-  type SandboxReadPreset,
-  presetIdOf,
-  presetState,
-  withPreset,
-  withoutPreset,
-} from '@shared/sandbox/sandboxPresets'
-import { useEffect, useState } from 'react'
 import { type ListEditResult, SandboxListEditor } from './SandboxListEditor'
 
 export type SandboxListKey = SandboxPathKind | 'domains' | 'deniedDomains'
@@ -235,11 +235,7 @@ function HiddenSockets({ sockets }: { sockets: readonly string[] }): JSX.Element
   )
 }
 
-export function SandboxNetworkGroups({
-  scope,
-}: {
-  scope: SandboxPolicyScope
-}): JSX.Element {
+export function SandboxNetworkGroups({ scope }: { scope: SandboxPolicyScope }): JSX.Element {
   const d = useDict()
   const canBlock = scope.fixed?.socketBlocking ?? true
   return (

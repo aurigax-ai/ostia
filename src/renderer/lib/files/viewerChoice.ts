@@ -1,9 +1,9 @@
 import type { ExtensionInfo } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import {
   type FileKindViewPriority,
-  OWN_VIEW,
   kindMatches,
   matchesFilenamePattern,
+  OWN_VIEW,
 } from '@aurigax-ai/ostia-extension-sdk/contract/fileKinds'
 
 export interface ViewerOption {

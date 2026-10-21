@@ -1,10 +1,12 @@
 import type { ResponseError } from 'vscode-jsonrpc/node'
 import type { CommandResult } from '../../shared/control/commands'
+import { shortId } from '../../shared/panes/paneStatus'
 import type { TerminalStateSnapshot } from '../../shared/terminal/ptyApi'
 import { type ControlMethodContext, registerControlMethod } from '../control/controlServer'
 import type { PaneIdentity } from '../control/idRegistry'
 import { CONFIRM_MAX_MS, createPaneConfirms } from './paneConfirm'
-import { type PaneReach, ensurePaneReach, fail, paneRefs, paneTarget, record } from './paneReach'
+import { ensurePaneReach, fail, type PaneReach, paneRefs, paneTarget, record } from './paneReach'
+import { refFailure, resolvePaneRef } from './paneRef'
 import { type PaneWakeDeps, registerPaneWakeMethods } from './paneWakeMethods'
 
 const READ_LINES_DEFAULT = 200
@@ -132,16 +134,30 @@ export interface PaneIoDeps extends PaneWakeDeps {
 }
 
 function asleep(to: PaneIdentity): ResponseError<void> {
-  return fail(`hibernated: ${to.externalId} is asleep; wake it with ostia pane wake`)
+  const id = shortId(to.externalId)
+  return fail(
+    `hibernated: ${to.externalId} is asleep; wake it with ostia pane wake ${id} (ostia bus send ${id} "<text>" wakes it too if you hold pane wake's reach)`,
+  )
 }
 
 function starting(to: PaneIdentity): ResponseError<void> {
-  return fail(`waking: ${to.externalId} is starting its agent; wait for it with ostia pane wake`)
+  return fail(
+    `waking: ${to.externalId} is starting its agent; wait for it with ostia pane wake ${shortId(to.externalId)}`,
+  )
+}
+
+function noTerminal(to: PaneIdentity, why: string): ResponseError<void> {
+  return fail(
+    `no-terminal: ${to.externalId} ${why}; see it with ostia pane status ${shortId(to.externalId)}`,
+  )
 }
 
 export function registerPaneIoMethods(deps: PaneIoDeps): void {
-  const target = (raw: unknown, ctx: ControlMethodContext): Promise<PaneIdentity> =>
-    paneTarget(deps, raw, ctx)
+  const target = (
+    raw: unknown,
+    ctx: ControlMethodContext,
+    destructive = false,
+  ): Promise<PaneIdentity> => paneTarget(deps, raw, ctx, destructive)
 
   const reach = (
     kind: PaneReach,
@@ -165,7 +181,7 @@ export function registerPaneIoMethods(deps: PaneIoDeps): void {
     scripts: true,
     handler: async (raw, ctx) => {
       const p = record(raw)
-      const to = await target(p.pane, ctx)
+      const to = await target(p.pane, ctx, true)
       const parts = inputParts(p.text, p.keys)
       const paste = optionalFlag(p.paste, 'paste') ?? parts.text.includes('\n')
       const force = optionalFlag(p.force, 'force') === true
@@ -195,12 +211,12 @@ export function registerPaneIoMethods(deps: PaneIoDeps): void {
       const first = text || parts.keys
       const rest = text ? parts.keys : ''
       if (!deps.io.write(to.paneId, first)) {
-        throw fail(`no-terminal: ${to.externalId} has no running terminal`)
+        throw noTerminal(to, 'has no running terminal')
       }
       if (rest) {
         await deps.delay(PASTE_SETTLE_MS)
         if (!deps.io.write(to.paneId, rest)) {
-          throw fail(`no-terminal: ${to.externalId} closed before the keys after the text`)
+          throw noTerminal(to, 'closed before the keys after the text')
         }
       }
       deps.inputSent(to)
@@ -231,8 +247,16 @@ export function registerPaneIoMethods(deps: PaneIoDeps): void {
       const own = given === undefined && ctx.identity.kind === 'pane'
       const refs = own ? [ctx.identity.externalId] : paneRefs(given)
       const panes: PaneIdentity[] = []
+      const already: { paneId: string; closedAt: number; name?: string }[] = []
       for (const ref of refs) {
-        const to = await target(ref, ctx)
+        const resolved = await resolvePaneRef(deps, ref, ctx, true)
+        if ('closed' in resolved) {
+          const { externalId: paneId, closedAt, name } = resolved.closed
+          already.push({ paneId, closedAt, ...(name ? { name } : {}) })
+          continue
+        }
+        if (!('found' in resolved)) throw fail(refFailure(ref, resolved))
+        const to = resolved.found
         await ensurePaneReach(deps, 'close', to, ctx, {
           ref,
           method: 'pane.close',
@@ -248,7 +272,7 @@ export function registerPaneIoMethods(deps: PaneIoDeps): void {
         if (!gone.ok) throw fail(gone.reason)
         closed.push(to.externalId)
       }
-      return { ok: true, closed }
+      return { ok: true, closed, already }
     },
   })
 
@@ -261,7 +285,7 @@ export function registerPaneIoMethods(deps: PaneIoDeps): void {
       await reach('read', to, String(p.pane), ctx, `read the screen of ${to.externalId}`)
       const text = await deps.io.read(to.paneId, lines)
       if (text === null && (await deps.hibernated(to))) throw asleep(to)
-      if (text === null) throw fail(`no-terminal: ${to.externalId} has no running terminal`)
+      if (text === null) throw noTerminal(to, 'has no running terminal')
       const state = deps.state(to.paneId)
       return {
         paneId: to.externalId,

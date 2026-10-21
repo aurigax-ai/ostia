@@ -1,11 +1,11 @@
+import { type RefObject, useEffect, useRef } from 'react'
 import { commands } from '@/commands/registry'
 import { leavePane } from '@/lib/attention/pointerView'
 import { viewPointedPane } from '@/lib/attention/workspaceActivity'
 import type { PaneNode } from '@/lib/layout/types'
-import { HOVER_FOCUS_DELAY_MS, canFocusOnHover } from '@/lib/terminal/hoverFocus'
+import { canFocusOnHover, HOVER_FOCUS_DELAY_MS } from '@/lib/terminal/hoverFocus'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { focusSurface } from '@/stores/workspaces/surfaceSlotsStore'
-import { type RefObject, useEffect, useRef } from 'react'
 
 function cellOf(target: EventTarget | null): string | undefined {
   return target instanceof Element

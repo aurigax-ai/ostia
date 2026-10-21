@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { FakeModel, createFakeMonaco } from '../../../../test/mocks/monaco'
+import { createFakeMonaco, FakeModel } from '../../../../test/mocks/monaco'
 
 const fake = createFakeMonaco()
 vi.mock('@/lib/monaco/setup', () => ({ monaco: fake.monaco }))

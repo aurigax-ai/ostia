@@ -1,11 +1,3 @@
-import { firstPaneId } from '@/lib/layout/tree'
-import { loadGhostty } from '@/lib/terminal/ghosttyEngine'
-import { resetOffscreenStartForTests } from '@/lib/terminal/offscreenStart'
-import { terminalFor } from '@/lib/terminal/terminalHandles'
-import { useSettingsStore } from '@/stores/app/settingsStore'
-import { usePhoneSizeStore } from '@/stores/terminal/phoneSizeStore'
-import { useLayoutStore } from '@/stores/workspaces/layoutStore'
-import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import { act, cleanup, render, waitFor } from '@testing-library/react'
 import { FitAddon } from '@xterm/addon-fit'
 import {
@@ -19,6 +11,14 @@ import {
   onTestFinished,
   vi,
 } from 'vitest'
+import { firstPaneId } from '@/lib/layout/tree'
+import { loadGhostty } from '@/lib/terminal/ghosttyEngine'
+import { resetOffscreenStartForTests } from '@/lib/terminal/offscreenStart'
+import { terminalFor } from '@/lib/terminal/terminalHandles'
+import { useSettingsStore } from '@/stores/app/settingsStore'
+import { usePhoneSizeStore } from '@/stores/terminal/phoneSizeStore'
+import { useLayoutStore } from '@/stores/workspaces/layoutStore'
+import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import { TerminalView } from './Terminal'
 
 vi.mock('@/lib/terminal/softwareGl', () => ({ drawOnGpu: (requested: boolean) => requested }))

@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto'
 import { mkdtempSync, readFileSync, realpathSync, rmSync, statSync } from 'node:fs'
-import { type IncomingHttpHeaders, type Server, createServer } from 'node:http'
+import { createServer, type IncomingHttpHeaders, type Server } from 'node:http'
 import type { AddressInfo } from 'node:net'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'

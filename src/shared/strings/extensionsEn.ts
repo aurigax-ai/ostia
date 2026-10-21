@@ -171,7 +171,6 @@ export const extensionsEn = {
   languageServers: {
     chooseProgram: 'Choose the program for {name}',
     copyCommand: 'Copy command',
-    desc: 'Language servers give the editor diagnostics, completion, hover and navigation. Each comes from an extension and starts when a matching file opens.',
     downloads: 'Downloads {program} {version} from {host} when it is not on your PATH',
     enable: 'Enable {name}',
     fetchNow: 'Fetch {name} now',
@@ -220,7 +219,6 @@ export const extensionsEn = {
       window: 'Stopping: window closed',
     },
     logTitle: 'Log of {name}',
-    none: 'No language servers. Extensions in the Languages category add them.',
     overrideReasons: {
       'bad-arguments': 'the arguments must be short lines without control characters',
       missing: 'nothing is at that path',
@@ -263,7 +261,6 @@ export const extensionsEn = {
     statusRunningOne: 'Running (1 folder)',
     statusSandbox: 'Not available in this sandbox',
     statusToolchain: 'Go is not installed',
-    title: 'Languages',
     usingManaged: 'Using the copy {product} keeps, version {version}.',
     usingOverride: 'Using {path}, the program you chose.',
     usingPath: 'Using {program} from your PATH.',

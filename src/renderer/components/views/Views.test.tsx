@@ -1,4 +1,14 @@
 import '@testing-library/jest-dom/vitest'
+import { parseViewText } from '@shared/views/viewParse'
+import {
+  VIEW_MAX_LIST_ITEMS,
+  type ViewInfo,
+  type ViewListing,
+  type ViewStatus,
+} from '@shared/views/views'
+import { act, cleanup, render, screen, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { registerBuiltinCommands } from '@/commands/builtins'
 import { commands } from '@/commands/registry'
 import { CommandPalette } from '@/components/palette/CommandPalette'
@@ -10,18 +20,8 @@ import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useUIStore } from '@/stores/app/uiStore'
 import { useViewsStore } from '@/stores/extensions/viewsStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
-import type { Workspace } from '@/stores/workspaces/workspaceTypes'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
-import { parseViewText } from '@shared/views/viewParse'
-import {
-  VIEW_MAX_LIST_ITEMS,
-  type ViewInfo,
-  type ViewListing,
-  type ViewStatus,
-} from '@shared/views/views'
-import { act, cleanup, render, screen, within } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
-import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import type { Workspace } from '@/stores/workspaces/workspaceTypes'
 import { ViewSurface } from './ViewSurface'
 import { ViewsRail } from './ViewsRail'
 import { ViewsSection } from './ViewsSection'

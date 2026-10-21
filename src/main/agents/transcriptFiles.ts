@@ -1,11 +1,11 @@
 import {
-  constants,
   closeSync,
+  constants,
   fstatSync,
   lstatSync,
   openSync,
-  readSync,
   readdirSync,
+  readSync,
 } from 'node:fs'
 import { open } from 'node:fs/promises'
 import { homedir } from 'node:os'

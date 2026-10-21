@@ -1,21 +1,21 @@
 import { describe, expect, it } from 'vitest'
 import { FAKE } from '../../../test/fixtures/secrets/samples'
 import {
-  DEFAULT_TELEMETRY_SETTINGS,
-  type ReportContext,
-  TELEMETRY_MESSAGE_MAX,
-  type TelemetrySettings,
   anyTelemetryOn,
   bucketCount,
   buildBatch,
   buildErrorReport,
   buildUsageReport,
+  DEFAULT_TELEMETRY_SETTINGS,
   emptyUsageCounts,
   parseIngest,
   parseTelemetrySettings,
+  type ReportContext,
   reduceStack,
   reportCategories,
   stripPaths,
+  TELEMETRY_MESSAGE_MAX,
+  type TelemetrySettings,
   withoutCategories,
 } from './telemetry'
 

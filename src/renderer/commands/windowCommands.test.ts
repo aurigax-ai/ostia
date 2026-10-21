@@ -1,10 +1,10 @@
+import { DEFAULT_CHORDS } from '@shared/keyboard/defaultChords'
+import type { SnapshotWorkspace } from '@shared/workspaces/workspaceApi'
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { defaultChords } from '@/lib/keyboard/chords'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { resetWorkspaceIds, useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
-import { DEFAULT_CHORDS } from '@shared/keyboard/defaultChords'
-import type { SnapshotWorkspace } from '@shared/workspaces/workspaceApi'
-import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { commands } from './registry'
 import { registerWindowCommands } from './windowCommands'
 

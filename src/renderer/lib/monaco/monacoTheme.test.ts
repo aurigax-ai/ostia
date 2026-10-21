@@ -1,16 +1,16 @@
+import { wcagContrast } from 'culori'
+import { describe, expect, it } from 'vitest'
 import { BUILTIN_COLOR_SCHEMES } from '@/lib/colorSchemes/builtinColorSchemes'
 import { mix } from '@/lib/theme/color'
 import type { ColorScheme } from '@/lib/theme/types'
-import { wcagContrast } from 'culori'
-import { describe, expect, it } from 'vitest'
 import {
   CODE_CONTRAST,
   COMMENT_CONTRAST,
+  codeColors,
   DIFF_CONTRAST_KEEP,
   DIFF_LINE_ALPHA,
   DIFF_MIN_STRENGTH,
   DIFF_TOKEN_CONTRAST,
-  codeColors,
   diffColors,
   diffTintStrength,
   monacoThemeData,
@@ -138,12 +138,8 @@ describe('diffColors', () => {
     }
   })
 
-  it('takes the change hues from the slot that holds them in a scheme with remapped ANSI colors', () => {
-    const oxocarbon = scheme('oxocarbon')
-    const d = diffColors(oxocarbon)
-    expect(d.removed).toBe(oxocarbon.colors.yellow)
-    expect(d.inserted).toBe(oxocarbon.colors.blue)
-    for (const s of BUILTIN_COLOR_SCHEMES.filter((x) => x.id !== 'oxocarbon')) {
+  it('takes the change hues from the red and green slots of every built-in scheme', () => {
+    for (const s of BUILTIN_COLOR_SCHEMES) {
       expect(diffColors(s).removed, s.id).toBe(s.colors.red)
       expect(diffColors(s).inserted, s.id).toBe(s.colors.green)
     }

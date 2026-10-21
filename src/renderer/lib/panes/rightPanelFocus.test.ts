@@ -1,9 +1,9 @@
+import { afterEach, beforeAll, describe, expect, it } from 'vitest'
 import { useSidePanelStore } from '@/stores/app/sidePanelStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { releaseSurfaces, setFocusTarget } from '@/stores/workspaces/surfaceSlotsStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
-import { afterEach, beforeAll, describe, expect, it } from 'vitest'
-import { RIGHT_PANEL_ID, hideRightPanel, rightFocusKey, toggleRightPanel } from './rightPanelFocus'
+import { hideRightPanel, RIGHT_PANEL_ID, rightFocusKey, toggleRightPanel } from './rightPanelFocus'
 
 function focusable(parent: HTMLElement): HTMLElement {
   const el = document.createElement('button')

@@ -1,11 +1,11 @@
-import { monaco } from '@/lib/monaco/setup'
 import type {
   CompletionItem,
   CompletionList,
   CompletionOptions,
 } from 'vscode-languageserver-protocol'
+import { monaco } from '@/lib/monaco/setup'
 import { type LspCompletion, markup, toCompletion, toTextEdits } from './converters'
-import { type ProviderParams, documentPosition } from './providerParams'
+import { documentPosition, type ProviderParams } from './providerParams'
 import type { LspSession } from './session'
 
 const COMPLETION_INVOKED = 1

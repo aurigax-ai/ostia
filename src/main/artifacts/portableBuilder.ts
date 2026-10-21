@@ -5,11 +5,11 @@ import { LRUCache } from 'lru-cache'
 import { RUNTIME_MODULES, runtimePackages } from '../../shared/artifacts/artifactRuntime'
 import type { PreviewTheme } from '../../shared/artifacts/htmlPreview'
 import {
+  documentPage,
   PORTABLE_FORMAT,
   PORTABLE_LIMITS,
   type PortableManifest,
   type PortableMode,
-  documentPage,
   portableType,
   wrapPortable,
 } from '../../shared/artifacts/portable'
@@ -17,8 +17,8 @@ import {
   BuildFailure,
   BuildRun,
   type Bundler,
-  type CompileProblem,
   bundle,
+  type CompileProblem,
   escapeInlineScript,
   problemText,
 } from './portableBundle'

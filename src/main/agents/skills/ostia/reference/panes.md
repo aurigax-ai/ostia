@@ -12,7 +12,12 @@
 | `splitTabId?`, `splitTabName?` | the split tab holding it |
 | `process?` | `{id, status, start}` of the command `process run` or `agent run` started there |
 
-- **status** answers facts, never the screen: `state` (`working`, `waiting`, `done`, `error`,
+- **list** keeps every pane you can see by default; `--here` keeps your workspace, `--workspace
+  <id|name>` another, `--state` (repeat it: `idle`, `running`, `working`, `waiting`, `done`, `error`,
+  `hibernated`, `waking`) and `--kind` narrow it further. Text shows the first 8 characters of each
+  id; `--json` keeps the full ids.
+- **status** with no pane answers the other terminals in your workspace you may read without asking (the tabs you opened, at most 32). Each line
+  starts with the pane's id. It answers facts, never the screen: `state` (`working`, `waiting`, `done`, `error`,
   `idle`, `hibernated`, `waking`, `exited`, `shell`), how long it has been in it, the closing line,
   the last exit code, the branch with changed files and ahead/behind, the pane's queued and failed
   mail, and what changed since you last asked about that pane (`first look` the first time). The
@@ -53,10 +58,12 @@
 - **wake** starts a hibernated agent again with its own resume command, or types that command
   at the prompt of an awake agent pane, and returns once the agent started: exit 0, 3 timed
   out (default 2 minutes), 4 closed, 1 with `not-started: <reason>` when the agent exited or
-  could not be typed before it reported its start. It answers `not-resumable` for a
+  could not be typed before it reported its start. An agent that is running already answers
+  `<id> already awake` and nothing is typed. It answers `not-resumable` for a
   pane with no session to resume. `send` and `key` refuse a pane that is `hibernated:` or
   `waking:`.
-- **hibernate** skips a busy agent and exits 2 with the reason.
+- **hibernate** skips a busy agent and exits 2 with the reason; a pane that is asleep already is
+  listed as hibernated.
 - **move --tab <name>** puts running panes into that split tab (the same name `--tab` uses),
   creating it once two panes share it; `--tab new` puts each back into a tab of its own;
   `--workspace` moves them into another workspace of the same window first. A pane already in
@@ -66,7 +73,9 @@
   a locked pane (`pane-locked:`), a split tab the human made (`human-tab:`, also for `--tab new`
   out of one), scratch and sandboxed workspaces (`scratch:`, `sandboxed:`) and another window
   (`other-window:`), and joins only a split tab whose panes you all reach.
-- **close** closes at once, even while a command runs; unsaved file changes ask the human. A
+- **close** of a pane that closed earlier answers `<id> already closed <age> ago (<name>)`, exit 0.
+  An unknown id of a pane that closed answers `unknown-pane: <id> closed <age> ago (<name>)`.
+  It closes at once, even while a command runs; unsaved file changes ask the human. A
   locked pane answers `pane-locked:`; a pane still listed afterwards answers `still-open:`.
 - **Reach.** A tab you opened with `process run` or `agent run` asks nothing. For another pane the
   human is asked for `type-other-pane` (send, key, wake, move), `read-other-pane` (read, wait,

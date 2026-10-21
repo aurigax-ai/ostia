@@ -1,6 +1,6 @@
 import type * as Monaco from 'monaco-editor'
 import { describe, expect, it } from 'vitest'
-import { LARGE_FILE_CHARS, LARGE_FILE_LINES, fileFeatureOptions, isLargeModel } from './largeFile'
+import { fileFeatureOptions, isLargeModel, LARGE_FILE_CHARS, LARGE_FILE_LINES } from './largeFile'
 
 function sized(length: number, lines: number): Monaco.editor.ITextModel {
   return {

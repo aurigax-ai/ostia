@@ -1,3 +1,5 @@
+import { XIcon } from '@phosphor-icons/react'
+import { useState } from 'react'
 import { IconButton } from '@/components/common/IconButton'
 import { ListRow } from '@/components/common/ListRow'
 import { Notice } from '@/components/common/Notice'
@@ -7,8 +9,6 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { fmt, useDict } from '@/lib/app/useDict'
-import { XIcon } from '@phosphor-icons/react'
-import { useState } from 'react'
 
 export type ListEditResult =
   | { ok: true }

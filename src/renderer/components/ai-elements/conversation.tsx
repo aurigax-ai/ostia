@@ -1,8 +1,8 @@
-import { IconButton } from '@/components/common/IconButton'
-import { cn } from '@/lib/utils'
 import { ArrowDownIcon } from '@phosphor-icons/react'
 import type { ComponentProps, ReactNode } from 'react'
 import { StickToBottom, useStickToBottomContext } from 'use-stick-to-bottom'
+import { IconButton } from '@/components/common/IconButton'
+import { cn } from '@/lib/utils'
 
 export type ConversationProps = ComponentProps<typeof StickToBottom>
 

@@ -1,11 +1,11 @@
 import type { Socket } from 'node:net'
 import { type OwnedScreen, ScreenRegistry, workspaceLabel } from './screenRegistry'
 import {
-  type ListedScreen,
-  type ScreensResult,
   createLeased,
   isOutdated,
+  type ListedScreen,
   runScreens,
+  type ScreensResult,
   serviceVersion,
 } from './screensCli'
 

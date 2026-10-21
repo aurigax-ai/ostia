@@ -4,7 +4,7 @@ import { resolve } from 'node:path'
 import { promisify } from 'node:util'
 import { describe, expect, it } from 'vitest'
 import { FAKE } from '../../../test/fixtures/secrets/samples'
-import { SCAN_CHUNK_MAX, kindOfRule, libraryKinds, scanSecrets, spansOf } from './secretScanner'
+import { kindOfRule, libraryKinds, SCAN_CHUNK_MAX, scanSecrets, spansOf } from './secretScanner'
 
 const run = promisify(execFile)
 const electronBinary = createRequire(__filename)('electron') as unknown as string

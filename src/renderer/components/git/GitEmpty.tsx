@@ -4,7 +4,11 @@ export function GitEmpty({
   title,
   hint,
   tone = 'muted',
-}: { title: string; hint?: string; tone?: 'muted' | 'error' }): JSX.Element {
+}: {
+  title: string
+  hint?: string
+  tone?: 'muted' | 'error'
+}): JSX.Element {
   return (
     <EmptyState
       variant="surface"

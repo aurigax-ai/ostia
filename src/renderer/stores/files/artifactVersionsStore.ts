@@ -1,6 +1,6 @@
-import { useArtifactsStore } from '@/stores/files/artifactsStore'
 import type { ArtifactVersion, ArtifactVersionContent } from '@shared/artifacts/artifacts'
 import { create } from 'zustand'
+import { useArtifactsStore } from '@/stores/files/artifactsStore'
 
 export interface ShownVersion {
   workspaceId: string

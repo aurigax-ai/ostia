@@ -1,12 +1,12 @@
+import { CaretDownIcon, CaretUpIcon } from '@phosphor-icons/react'
+import { useMemo, useState } from 'react'
 import { IconButton } from '@/components/common/IconButton'
 import { Button } from '@/components/ui/button'
 import { fmt, useDict } from '@/lib/app/useDict'
 import { editHunks, hunkCounts } from '@/lib/assist/chatHunks'
-import { type ReviewItem, acceptAll, rejectAll, reviewItems } from '@/lib/assist/chatReview'
+import { acceptAll, type ReviewItem, rejectAll, reviewItems } from '@/lib/assist/chatReview'
 import { baseName } from '@/lib/files/fileTree'
 import { useChatToolsStore } from '@/stores/assist/chatToolsStore'
-import { CaretDownIcon, CaretUpIcon } from '@phosphor-icons/react'
-import { useMemo, useState } from 'react'
 
 const REVIEW_BAR_MIN = 2
 

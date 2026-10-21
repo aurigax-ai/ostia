@@ -1,3 +1,8 @@
+import { ArrowSquareOutIcon, ChatCircleTextIcon, CheckCircleIcon } from '@phosphor-icons/react'
+import type { PermissionChoice } from '@shared/agents/agentPermissions'
+import type { QuestionRequest } from '@shared/agents/questions'
+import type { Dict } from '@shared/app/dict'
+import { type KeyboardEvent, useMemo, useState } from 'react'
 import { Hint } from '@/components/common/Hint'
 import { PromptCard } from '@/components/common/PromptCard'
 import { TextLink } from '@/components/common/TextLink'
@@ -10,15 +15,10 @@ import { useAgoText } from '@/lib/app/localeFormat'
 import { fmt, useDict } from '@/lib/app/useDict'
 import { useNow } from '@/lib/app/useNow'
 import { revealPane } from '@/lib/attention/workspaceActivity'
-import { type PaneWhere, isLongContext } from '@/lib/sidebar/dashboard'
+import { isLongContext, type PaneWhere } from '@/lib/sidebar/dashboard'
 import { questionPromptKey, useHiddenPromptsStore } from '@/stores/agents/hiddenPromptsStore'
 import { EMPTY_DRAFT, type QuestionDraft, useQuestionsStore } from '@/stores/agents/questionsStore'
 import { useSettingsStore } from '@/stores/app/settingsStore'
-import { ArrowSquareOutIcon, ChatCircleTextIcon, CheckCircleIcon } from '@phosphor-icons/react'
-import type { PermissionChoice } from '@shared/agents/agentPermissions'
-import type { QuestionRequest } from '@shared/agents/questions'
-import type { Dict } from '@shared/app/dict'
-import { type KeyboardEvent, useMemo, useState } from 'react'
 
 const AGO_TICK_MS = 30_000
 
@@ -137,6 +137,7 @@ function QuestionContext({ question }: { question: QuestionRequest }): JSX.Eleme
   if (!question.context) return null
   return (
     <div className="flex flex-col items-start gap-1">
+      {/* biome-ignore lint/a11y/useAriaPropsSupportedByRole: the label names the block for screen readers and tests; a role would change how it is announced */}
       <p
         id={`${ids}-context`}
         aria-label={d.dashboard.context}

@@ -1,9 +1,4 @@
 import '@testing-library/jest-dom/vitest'
-import { useSettingsStore } from '@/stores/app/settingsStore'
-import { useUIStore } from '@/stores/app/uiStore'
-import { useAssistStore } from '@/stores/assist/assistStore'
-import { resetChatTools } from '@/stores/assist/chatToolsStore'
-import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
 import type {
   AssistCatalog,
   AssistExtensionState,
@@ -13,6 +8,11 @@ import type { ExtensionInfo } from '@aurigax-ai/ostia-extension-sdk/contract/ext
 import { cleanup, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import { useSettingsStore } from '@/stores/app/settingsStore'
+import { useUIStore } from '@/stores/app/uiStore'
+import { useAssistStore } from '@/stores/assist/assistStore'
+import { resetChatTools } from '@/stores/assist/chatToolsStore'
+import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
 import { renderSettled } from '../../../../test/render'
 import { AssistantSection } from './AssistantSection'
 

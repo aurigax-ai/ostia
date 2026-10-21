@@ -1,10 +1,10 @@
+import type { Dict } from '@shared/app/dict'
+import type { ApprovalKind, ApprovalOutcome, ApprovalRequest } from '@shared/permissions/approvals'
 import { TextLink } from '@/components/common/TextLink'
 import { Button } from '@/components/ui/button'
 import { useDict } from '@/lib/app/useDict'
 import { revealPane } from '@/lib/attention/workspaceActivity'
 import { useApprovalsStore } from '@/stores/agents/approvalsStore'
-import type { Dict } from '@shared/app/dict'
-import type { ApprovalKind, ApprovalOutcome, ApprovalRequest } from '@shared/permissions/approvals'
 import { ApprovalActions } from './ApprovalActions'
 import { capLabel } from './ApprovalCard'
 

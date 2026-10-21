@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
-  PREVIEW_CHARS,
   filesArgv,
+  PREVIEW_CHARS,
   parseMatch,
   preview,
   relativePath,

@@ -1,9 +1,9 @@
+import type { ResumeFailure } from '@shared/agents/agentResume'
+import { newSessionCommand } from '@shared/agents/agentResume'
 import { workspaceOfPane } from '@/lib/attention/workspaceActivity'
 import { findPane } from '@/lib/layout/tree'
 import { runWhenIdle } from '@/lib/terminal/blockActions'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
-import type { ResumeFailure } from '@shared/agents/agentResume'
-import { newSessionCommand } from '@shared/agents/agentResume'
 import { claudeTrustGate } from './folderTrust'
 import { resumeWhenIdle } from './resumeFolder'
 

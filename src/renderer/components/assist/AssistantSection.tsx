@@ -1,3 +1,21 @@
+import {
+  type AssistFeatureId,
+  type AssistFeatureState,
+  type AssistModel,
+  type AssistModelChoice,
+  type AssistModelClass,
+  type AssistModelRef,
+  type AssistModelsResult,
+  type AssistUi,
+  choiceLabel,
+  modelClassOf,
+  modelRefKey,
+  sameModelRef,
+} from '@aurigax-ai/ostia-extension-sdk/contract/assist'
+import type { ExtensionInfo } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
+import { ArrowClockwiseIcon } from '@phosphor-icons/react'
+import type { Dict } from '@shared/app/dict'
+import { useCallback, useEffect, useState } from 'react'
 import { EmptyState } from '@/components/common/EmptyState'
 import { IconButton } from '@/components/common/IconButton'
 import { ExtensionSettingsForm } from '@/components/extensions/ExtensionSettingsForm'
@@ -26,24 +44,6 @@ import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useUIStore } from '@/stores/app/uiStore'
 import { useAssistStore, wakeAssist } from '@/stores/assist/assistStore'
 import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
-import {
-  type AssistFeatureId,
-  type AssistFeatureState,
-  type AssistModel,
-  type AssistModelChoice,
-  type AssistModelClass,
-  type AssistModelRef,
-  type AssistModelsResult,
-  type AssistUi,
-  choiceLabel,
-  modelClassOf,
-  modelRefKey,
-  sameModelRef,
-} from '@aurigax-ai/ostia-extension-sdk/contract/assist'
-import type { ExtensionInfo } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
-import { ArrowClockwiseIcon } from '@phosphor-icons/react'
-import type { Dict } from '@shared/app/dict'
-import { useCallback, useEffect, useState } from 'react'
 import { AssistantProviders } from './AssistantProviders'
 import { ChatToolsSettings } from './ChatToolsSettings'
 

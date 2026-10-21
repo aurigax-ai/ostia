@@ -1,8 +1,8 @@
 import '@testing-library/jest-dom/vitest'
 import {
+  SCROLL_IDLE_MS,
   SCROLLBAR_HOVER_ATTRIBUTE,
   SCROLLING_ATTRIBUTE,
-  SCROLL_IDLE_MS,
   watchScrolling,
 } from '@aurigax-ai/ostia-extension-sdk/contract/scrollbar'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'

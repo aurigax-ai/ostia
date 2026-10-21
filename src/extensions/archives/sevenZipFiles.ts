@@ -2,9 +2,9 @@ import {
   AES_ID,
   type Folder,
   type ParsedHeader,
+  refuse,
   SevenZipRefused,
   type StreamsInfo,
-  refuse,
 } from './sevenZipHeader'
 
 const WINDOWS_UNIX_EXTENSION = 0x8000

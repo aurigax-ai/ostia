@@ -1,5 +1,5 @@
-import { resetIds } from '@/lib/layout/tree'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import { resetIds } from '@/lib/layout/tree'
 import { useLayoutStore } from './layoutStore'
 import { startPaneRecencySync, usePaneRecencyStore } from './paneRecencyStore'
 import { useWorkspacesStore } from './workspacesStore'

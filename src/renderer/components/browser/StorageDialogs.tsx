@@ -1,3 +1,4 @@
+import type { Dispatch, SetStateAction } from 'react'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -9,7 +10,6 @@ import {
 } from '@/components/ui/dialog'
 import { Textarea } from '@/components/ui/textarea'
 import { fmt, useDict } from '@/lib/app/useDict'
-import type { Dispatch, SetStateAction } from 'react'
 import type { Editing } from './useBrowserStorage'
 
 export function StorageEditDialog({

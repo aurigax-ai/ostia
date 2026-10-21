@@ -1,13 +1,3 @@
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
-import { TIME_24H, formatDate } from '@/lib/app/localeFormat'
-import { fmt, useDict } from '@/lib/app/useDict'
-import { useSettingsStore } from '@/stores/app/settingsStore'
 import type {
   LanguageServerInfo,
   LspLog,
@@ -15,6 +5,16 @@ import type {
 } from '@aurigax-ai/ostia-extension-sdk/contract/languageServers'
 import type { Dict } from '@shared/app/dict'
 import { useEffect, useState } from 'react'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import { formatDate, TIME_24H } from '@/lib/app/localeFormat'
+import { fmt, useDict } from '@/lib/app/useDict'
+import { useSettingsStore } from '@/stores/app/settingsStore'
 
 function logLine(d: Dict, entry: LspLogEntry): string {
   const t = d.languageServers
@@ -93,6 +93,7 @@ export function ServerLogDialog({
             className="flex max-h-80 flex-col gap-0.5 overflow-y-auto rounded-sm border border-line bg-bg-sunken px-2 py-1.5 font-mono text-ui-xs"
           >
             {(log?.entries ?? []).map((entry, i) => (
+              // biome-ignore lint/suspicious/noArrayIndexKey: the index tells repeated entries apart and the list is rebuilt, never reordered
               <li key={`${entry.at}-${i}`} className="flex min-w-0 gap-2">
                 <span className="shrink-0 text-fg-muted tabular-nums">
                   {formatDate(entry.at, locale, TIME_24H)}

@@ -1,9 +1,9 @@
 import '@testing-library/jest-dom/vitest'
-import { TooltipProvider } from '@/components/ui/tooltip'
-import { useSettingsStore } from '@/stores/app/settingsStore'
 import { chordText } from '@shared/keyboard/chordSpec'
 import { cleanup, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { TooltipProvider } from '@/components/ui/tooltip'
+import { useSettingsStore } from '@/stores/app/settingsStore'
 import { type LinkHintBox, TerminalLinkHint } from './TerminalLinkHint'
 
 vi.mock('@/platform', () => ({ platform: 'darwin', isMac: true, isLinux: false }))

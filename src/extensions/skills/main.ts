@@ -1,6 +1,6 @@
 import {
-  type CommandHandler,
   booleanSetting,
+  type CommandHandler,
   connect,
   createTranslator,
   failure,

@@ -1,8 +1,8 @@
 import '@testing-library/jest-dom/vitest'
-import { useUIStore } from '@/stores/app/uiStore'
 import { cleanup, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import { useUIStore } from '@/stores/app/uiStore'
 
 const { search, emptyPage } = vi.hoisted(() => {
   const holder = { useSearchLeaf: (_texts: readonly string[]): boolean => false }
@@ -22,7 +22,6 @@ vi.mock('@/components/extensions/ExtensionSettingsPage', () => ({
 }))
 vi.mock('@/components/gateway/GatewaySection', () => ({ GatewaySection: emptyPage }))
 vi.mock('@/components/keyboard/KeyboardSection', () => ({ KeyboardSection: emptyPage }))
-vi.mock('@/components/languageServers/LanguagesSection', () => ({ LanguagesSection: emptyPage }))
 vi.mock('@/components/panes/PanesSection', () => ({ PanesSection: emptyPage }))
 vi.mock('@/components/sandbox/SandboxSection', () => ({ SandboxSection: emptyPage }))
 vi.mock('@/components/sandbox/WorkspaceSandboxPage', () => ({ WorkspaceSandboxPage: emptyPage }))

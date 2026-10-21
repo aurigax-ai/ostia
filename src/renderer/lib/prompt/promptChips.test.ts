@@ -1,12 +1,12 @@
-import type { ShownChip } from '@/lib/extensions/extensionChips'
-import type { CommandBlock } from '@/stores/terminal/blocksStore'
 import { DEFAULT_PROMPT_SETTINGS } from '@shared/terminal/promptSettings'
 import type { PromptContext } from '@shared/terminal/ptyApi'
 import { describe, expect, it } from 'vitest'
+import type { ShownChip } from '@/lib/extensions/extensionChips'
+import type { CommandBlock } from '@/stores/terminal/blocksStore'
 import {
-  type CoreChipInputs,
   abbreviateHome,
   addChip,
+  type CoreChipInputs,
   contextRequest,
   formatDuration,
   lastCommand,

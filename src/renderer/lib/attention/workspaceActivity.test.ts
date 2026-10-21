@@ -1,11 +1,11 @@
+import { act, renderHook } from '@testing-library/react'
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { resetIds } from '@/lib/layout/tree'
 import { useAttentionStore } from '@/stores/agents/attentionStore'
 import { useUIStore } from '@/stores/app/uiStore'
 import { useBlocksStore } from '@/stores/terminal/blocksStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
-import { act, renderHook } from '@testing-library/react'
-import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { POINTER_VIEW_MS, resetPointerView } from './pointerView'
 import {
   isPaneViewed,

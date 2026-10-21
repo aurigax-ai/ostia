@@ -1,5 +1,5 @@
-import geistMono from '@fontsource-variable/geist-mono/files/geist-mono-latin-wght-normal.woff2?inline'
 import geist from '@fontsource-variable/geist/files/geist-latin-wght-normal.woff2?inline'
+import geistMono from '@fontsource-variable/geist-mono/files/geist-mono-latin-wght-normal.woff2?inline'
 import inter from '@fontsource-variable/inter/files/inter-latin-wght-normal.woff2?inline'
 
 const LATIN_RANGE =

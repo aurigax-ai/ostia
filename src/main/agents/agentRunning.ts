@@ -4,7 +4,7 @@ import type {
   SnapshotPaneNode,
   SnapshotWorkspace,
 } from '../../shared/workspaces/workspaceApi'
-import { type PromptOwner, busyProgram } from '../terminal/localPrompt'
+import { busyProgram, type PromptOwner } from '../terminal/localPrompt'
 
 function snapshotWorkspaces(snapshot: AppSnapshot): SnapshotWorkspace[] {
   return [...snapshot.workspaces, ...(snapshot.windows ?? []).flatMap((w) => w.workspaces)]

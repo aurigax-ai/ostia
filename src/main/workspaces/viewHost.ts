@@ -1,11 +1,11 @@
-import { type FSWatcher, lstatSync, mkdirSync, readFileSync, readdirSync, watch } from 'node:fs'
+import { type FSWatcher, lstatSync, mkdirSync, readdirSync, readFileSync, watch } from 'node:fs'
 import { join } from 'node:path'
 import { isRecord } from '@aurigax-ai/ostia-extension-sdk/contract/isRecord'
 import { debounce } from 'es-toolkit'
 import { parseViewText } from '../../shared/views/viewParse'
 import {
-  VIEW_FILES_MAX,
   VIEW_FILE_MAX_BYTES,
+  VIEW_FILES_MAX,
   type ViewDoc,
   type ViewInfo,
   type ViewListing,

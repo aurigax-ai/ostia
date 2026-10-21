@@ -1,3 +1,6 @@
+import { TrashIcon } from '@phosphor-icons/react'
+import type { SecretEntry, SecretGrant, SecretGrantMode } from '@shared/sandbox/secrets'
+import { useCallback, useEffect, useState } from 'react'
 import { IconButton } from '@/components/common/IconButton'
 import { Notice } from '@/components/common/Notice'
 import { SettingsList } from '@/components/settingsKit/SettingsList'
@@ -7,9 +10,6 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/ui/select'
 import { fmt, useDict } from '@/lib/app/useDict'
-import { TrashIcon } from '@phosphor-icons/react'
-import type { SecretEntry, SecretGrant, SecretGrantMode } from '@shared/sandbox/secrets'
-import { useCallback, useEffect, useState } from 'react'
 
 type ModeChoice = SecretGrantMode | 'none'
 

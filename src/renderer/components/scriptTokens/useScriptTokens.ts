@@ -1,4 +1,4 @@
-import type { ScriptTokenUsage, ScriptTokensState } from '@shared/permissions/scriptTokens'
+import type { ScriptTokensState, ScriptTokenUsage } from '@shared/permissions/scriptTokens'
 import { useCallback, useEffect, useState } from 'react'
 
 const EMPTY: ScriptTokensState = { tokens: [], workspaces: [], groups: [] }

@@ -1,16 +1,16 @@
+import {
+  isRemotePath,
+  type RemoteFileError,
+} from '@aurigax-ai/ostia-extension-sdk/contract/remoteFolders'
+import type { MutableRefObject } from 'react'
 import { changedLines, minimalLineEdit } from '@/lib/files/diskReload'
 import { saveFormatted } from '@/lib/files/editorSave'
 import { trackSave } from '@/lib/files/pendingSaves'
-import { type RemoteSaveOutcome, checkRemoteText, saveRemoteText } from '@/lib/files/remoteFileSync'
+import { checkRemoteText, type RemoteSaveOutcome, saveRemoteText } from '@/lib/files/remoteFileSync'
 import { documentSaved } from '@/lib/lsp/client'
 import type { monaco } from '@/lib/monaco/setup'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useEditorStatus } from '@/stores/files/editorStatusStore'
-import {
-  type RemoteFileError,
-  isRemotePath,
-} from '@aurigax-ai/ostia-extension-sdk/contract/remoteFolders'
-import type { MutableRefObject } from 'react'
 import {
   diskBase,
   diskVersions,

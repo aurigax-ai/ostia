@@ -1,17 +1,18 @@
 import {
+  booleanSetting,
   type CommandHandler,
+  connect,
+  createTranslator,
   type ExtensionCaller,
   type ExtensionEventType,
   type ExtensionSettingValues,
-  booleanSetting,
-  connect,
   failure,
   numberSetting,
   ok,
   onShutdown,
   startMessageServer,
 } from '@aurigax-ai/ostia-extension-sdk'
-import { APPROVALS_PATH, FAST_POLL_MS, IDLE_POLL_MS, formatQueue } from './keeper'
+import { APPROVALS_PATH, FAST_POLL_MS, formatQueue, IDLE_POLL_MS } from './keeper'
 import { KeeperService } from './service'
 
 const FOCUS_EVENT = 'focus.changed' as ExtensionEventType
@@ -31,6 +32,7 @@ function serviceSettings(values: ExtensionSettingValues) {
 async function main(): Promise<void> {
   const ext = await connect()
   const service = new KeeperService({
+    translate: createTranslator(),
     host: {
       setSidebarItem: (item) => ext.setSidebarItem(item),
       notifyPanel: (title, body, path) => ext.notifyPanel(title, body, path),
@@ -65,7 +67,7 @@ async function main(): Promise<void> {
         return failure(service.state, service.unavailableMessage())
       }
       const list = service.approvals()
-      const text = formatQueue(list, Date.now(), service.strings.empty)
+      const text = formatQueue(list, Date.now(), service.t('empty'))
       if (caller.kind === 'user') await openPanel(caller, APPROVALS_PATH)
       return ok(text, list)
     },
@@ -75,9 +77,9 @@ async function main(): Promise<void> {
     const base = await service.uiUrl()
     const path = requested ?? (service.approvals().length > 0 ? APPROVALS_PATH : '/')
     if (base) return { url: `${base}${path}` }
-    const s = service.strings
-    const body = service.state === 'ready' ? s.noUi : service.unavailableMessage()
-    return { url: messages.url(s.unavailableTitle, body) }
+    const t = service.t
+    const body = service.state === 'ready' ? t('noUi') : service.unavailableMessage()
+    return { url: messages.url(t('unavailableTitle'), body) }
   })
 
   await ext.registerCommands(handlers)

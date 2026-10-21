@@ -5,13 +5,13 @@ import {
   existsSync,
   mkdirSync,
   mkdtempSync,
-  readFileSync,
   readdirSync,
+  readFileSync,
   rmSync,
   symlinkSync,
   writeFileSync,
 } from 'node:fs'
-import { type Server, createServer } from 'node:http'
+import { createServer, type Server } from 'node:http'
 import type { AddressInfo } from 'node:net'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -20,11 +20,11 @@ import type { ReleaseInfo } from '../../shared/app/releases'
 import { ReplaceError } from './installReplace'
 import {
   type CommandResult,
-  type RunCommand,
   canReplaceBundle,
   designatedRequirement,
   discardStaged,
   oldBundlePath,
+  type RunCommand,
   replaceMacInstall,
   runCommand,
   signaturePolicy,

@@ -1,22 +1,22 @@
 import {
   type ExtensionIcon,
+  runTool,
   type SidebarTone,
   type ToolRun,
-  runTool,
+  type Translate,
 } from '@aurigax-ai/ostia-extension-sdk'
 import {
   APPROVALS_PATH,
   DEFAULT_INTERVALS,
-  type KeeperApproval,
-  type PollIntervals,
   isAllowedKeeperCall,
+  type KeeperApproval,
   newTickets,
   nextPollDelay,
+  type PollIntervals,
   parseApprovals,
   parseDaemonStatus,
   parseUiUrl,
 } from './keeper'
-import { type Strings, stringsFor } from './strings'
 
 interface KeeperHost {
   setSidebarItem: (item: {
@@ -34,6 +34,7 @@ export interface KeeperServiceOptions {
   bin?: string
   now?: () => number
   delayFor?: typeof nextPollDelay
+  translate: (locale: string | undefined) => Translate
 }
 
 export type KeeperState = 'unknown' | 'not-installed' | 'down' | 'ready'
@@ -60,8 +61,8 @@ export class KeeperService {
     this.bin = opts.bin ?? 'keeper'
   }
 
-  get strings(): Strings {
-    return stringsFor(this.locale)
+  get t(): Translate {
+    return this.opts.translate(this.locale)
   }
 
   approvals(): KeeperApproval[] {
@@ -97,7 +98,7 @@ export class KeeperService {
   }
 
   unavailableMessage(): string {
-    return this.state === 'not-installed' ? this.strings.notInstalled : this.strings.daemonDown
+    return this.state === 'not-installed' ? this.t('notInstalled') : this.t('daemonDown')
   }
 
   tick(): Promise<void> {
@@ -132,15 +133,22 @@ export class KeeperService {
     }
   }
 
+  private notifyBody(n: number, first: KeeperApproval | undefined): string {
+    const t = this.t
+    const head = n === 1 ? t('notifyOne') : t('notifyMany', { n })
+    const what = first ? [first.agent, first.intent].filter(Boolean).join(': ') : ''
+    return what ? t('notifyWhat', { head, what }) : head
+  }
+
   private async update(list: KeeperApproval[]): Promise<void> {
     const fresh = newTickets(this.seen, list)
     this.pending = list
     this.seen = new Set(list.map((a) => a.ticket))
-    const s = this.strings
+    const t = this.t
     if (list.length > 0) {
       await this.opts.host.setSidebarItem({
         key: SIDEBAR_KEY,
-        text: s.sidebar(list.length),
+        text: t('sidebar', { n: list.length }),
         icon: 'shield',
         tone: 'warn',
       })
@@ -152,8 +160,8 @@ export class KeeperService {
     if (fresh.length > 0 && this.notifies) {
       const first = list.find((a) => a.ticket === fresh[0])
       await this.opts.host.notifyPanel(
-        s.needsApproval,
-        s.notifyBody(fresh.length, first),
+        t('needsApproval'),
+        this.notifyBody(fresh.length, first),
         APPROVALS_PATH,
       )
     }

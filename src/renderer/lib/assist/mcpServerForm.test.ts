@@ -1,8 +1,8 @@
 import type { McpServerSettings } from '@shared/assist/chatTools'
 import { describe, expect, it } from 'vitest'
 import {
-  type McpServerDraft,
   draftFromServer,
+  type McpServerDraft,
   newRow,
   serverFromDraft,
   skillsInFolder,

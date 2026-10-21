@@ -2,9 +2,9 @@ import type { ExtensionCaller, OstiaExtension } from '@aurigax-ai/ostia-extensio
 import { describe, expect, it, vi } from 'vitest'
 import type { ActivityEvent } from './hookEvent'
 import { Journal } from './journal'
-import { LISTING_TTL_MS, createOpenListing } from './openListing'
+import { createOpenListing, LISTING_TTL_MS } from './openListing'
 import { activityPanelCommands, parseLimits } from './panelCommands'
-import { TURN_PAGE, agentLimitKey } from './view'
+import { agentLimitKey, TURN_PAGE } from './view'
 
 const caller = { workspaceId: 'w1' } as ExtensionCaller
 

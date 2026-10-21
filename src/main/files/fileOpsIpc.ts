@@ -1,4 +1,4 @@
-import { type NativeImage, ipcMain, nativeImage } from 'electron'
+import { ipcMain, type NativeImage, nativeImage } from 'electron'
 import appIcon from '../../../resources/icon.png?asset'
 import { type FileGuardDeps, guardFileOps } from './fileGuard'
 

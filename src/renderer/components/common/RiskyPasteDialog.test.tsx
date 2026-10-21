@@ -1,8 +1,8 @@
 import '@testing-library/jest-dom/vitest'
-import { useSettingsStore } from '@/stores/app/settingsStore'
 import { cleanup, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import { useSettingsStore } from '@/stores/app/settingsStore'
 import { RiskyPasteDialog } from './RiskyPasteDialog'
 
 if (!Element.prototype.getAnimations) {

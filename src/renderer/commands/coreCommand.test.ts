@@ -1,9 +1,9 @@
-import { readFileSync, readdirSync } from 'node:fs'
+import { readdirSync, readFileSync } from 'node:fs'
 import { join, relative, resolve } from 'node:path'
 import { en, mergeCatalog, zhHant } from '@shared/app/dict'
 import { describe, expect, it } from 'vitest'
 import { registerCore } from './coreCommand'
-import { commandWording, commands } from './registry'
+import { commands, commandWording } from './registry'
 
 const ROOT = process.cwd()
 const RENDERER = resolve(ROOT, 'src/renderer')

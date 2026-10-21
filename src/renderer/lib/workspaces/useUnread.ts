@@ -1,8 +1,8 @@
+import { useState } from 'react'
 import { unreadCount } from '@/lib/attention/attention'
 import { paneIds } from '@/lib/layout/tree'
 import { useAttentionStore } from '@/stores/agents/attentionStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
-import { useState } from 'react'
 
 export function useUnread(workspaceIds: string[]): { n: number; generation: number } {
   const byWorkspace = useLayoutStore((s) => s.byWorkspace)

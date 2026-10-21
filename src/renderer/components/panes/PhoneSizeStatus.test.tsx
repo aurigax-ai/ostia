@@ -1,7 +1,7 @@
-import { usePhoneSizeStatus } from '@/components/panes/PhoneSizeStatus'
-import { usePhoneSizeStore } from '@/stores/terminal/phoneSizeStore'
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { usePhoneSizeStatus } from '@/components/panes/PhoneSizeStatus'
+import { usePhoneSizeStore } from '@/stores/terminal/phoneSizeStore'
 
 function Harness({ paneId }: { paneId: string }): JSX.Element {
   const line = usePhoneSizeStatus(paneId)

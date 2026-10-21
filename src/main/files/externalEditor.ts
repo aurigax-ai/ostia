@@ -1,5 +1,5 @@
 import { spawn } from 'node:child_process'
-import { constants, accessSync } from 'node:fs'
+import { accessSync, constants } from 'node:fs'
 import { isAbsolute } from 'node:path'
 import type { ExternalEditorRequest, ExternalEditorResult } from '../../shared/app/appApi'
 import { splitArgs } from '../../shared/terminal/argv'

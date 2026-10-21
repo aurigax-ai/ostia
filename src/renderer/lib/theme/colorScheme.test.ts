@@ -1,7 +1,7 @@
+import { afterEach, describe, expect, it } from 'vitest'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useSystemThemeStore } from '@/stores/app/systemThemeStore'
 import { usePluginsStore } from '@/stores/extensions/pluginsStore'
-import { afterEach, describe, expect, it } from 'vitest'
 import { BUILTIN_PLUGINS } from './builtin'
 import { SELECTION_MIN_DISTANCE, selectionVisibility } from './color'
 import {
@@ -87,6 +87,14 @@ describe('terminalTheme', () => {
         SELECTION_MIN_DISTANCE,
       )
     }
+  })
+})
+
+describe('oxocarbon', () => {
+  it('prints red and bright red in Oxocarbon red', () => {
+    const { red, brightRed } = scheme('oxocarbon').colors
+    expect(red).toBe('#ee5396')
+    expect(brightRed).toBe('#ee5396')
   })
 })
 

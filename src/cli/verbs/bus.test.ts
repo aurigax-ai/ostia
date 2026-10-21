@@ -164,10 +164,11 @@ describe('busSeconds', () => {
 })
 
 describe('sendExitCode', () => {
-  it('exits 0 delivered, 1 failed and 2 for a message still queued after --wait', () => {
-    expect(sendExitCode({ state: 'delivered' }, true)).toBe(0)
+  it('exits 0 with a reply, 1 for a failed message and 3 for no reply after --wait', () => {
+    expect(sendExitCode({ state: 'delivered', reply: {} }, true)).toBe(0)
     expect(sendExitCode({ state: 'failed', reason: 'pane-closed' }, true)).toBe(1)
-    expect(sendExitCode({ state: 'queued', pending: 'working' }, true)).toBe(2)
+    expect(sendExitCode({ state: 'delivered' }, true)).toBe(3)
+    expect(sendExitCode({ state: 'queued', pending: 'working' }, true)).toBe(3)
   })
 
   it('exits 0 for a queued message when the sender did not wait', () => {

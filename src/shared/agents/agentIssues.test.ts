@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import {
   AGENT_VERB_BUDGETS,
-  READBACK_CODES,
   budgetBreach,
   mailExpired,
+  READBACK_CODES,
   verbCode,
 } from './agentIssues'
 

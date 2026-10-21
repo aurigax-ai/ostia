@@ -1,7 +1,7 @@
-import { useLayoutStore } from '@/stores/workspaces/layoutStore'
-import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import type { ExtensionSidebarItem } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import { afterEach, beforeAll, describe, expect, it } from 'vitest'
+import { useLayoutStore } from '@/stores/workspaces/layoutStore'
+import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import { openSidebarUrl, sidebarLines, visibleSidebarItems } from './sidebarItems'
 
 const item = (extId: string, key: string, workspaceId = 's1'): ExtensionSidebarItem => ({

@@ -1,6 +1,6 @@
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import type { PaneNode } from '@/lib/layout/types'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
-import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { isKeptShell, startKeptReattach } from './keptReattach'
 import {
   registerOffscreenStarter,

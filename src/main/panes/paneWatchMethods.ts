@@ -1,12 +1,12 @@
 import { actThenConfirm, confirmed, mismatch } from '../../shared/common/actThenConfirm'
-import { unwatchPanes, watchPane, watchesOf } from '../agents/busStore'
+import { unwatchPanes, watchesOf, watchPane } from '../agents/busStore'
 import { registerControlMethod } from '../control/controlServer'
 import { type PaneIdentity, resolveExternal } from '../control/idRegistry'
 import { WATCH_UNTIL, WATCH_UNTIL_DEFAULT, type WatchUntil } from './paneEvents'
 import {
-  type PaneReachDeps,
   ensurePaneReach,
   fail,
+  type PaneReachDeps,
   paneRefs,
   paneTarget,
   record,

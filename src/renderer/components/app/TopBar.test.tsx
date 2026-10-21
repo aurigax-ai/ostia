@@ -1,4 +1,12 @@
 import '@testing-library/jest-dom/vitest'
+import type {
+  ExtensionInfo,
+  ExtensionResult,
+  WorkspaceChip,
+} from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { extensionCommandId } from '@/commands/extensionBridge'
 import { commands } from '@/commands/registry'
 import { CommandPalette } from '@/components/palette/CommandPalette'
@@ -12,14 +20,6 @@ import { useUIStore } from '@/stores/app/uiStore'
 import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
-import type {
-  ExtensionInfo,
-  ExtensionResult,
-  WorkspaceChip,
-} from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
-import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
-import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { TopBar } from './TopBar'
 
 const git: ExtensionInfo = {

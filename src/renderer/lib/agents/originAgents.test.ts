@@ -1,7 +1,7 @@
-import { useOriginAgentsStore } from '@/stores/agents/originAgentsStore'
-import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import type { OriginAgents } from '@shared/windows/windowsApi'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import { useOriginAgentsStore } from '@/stores/agents/originAgentsStore'
+import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import { originWorkspaceId, refreshOriginAgents, startOriginAgentsSync } from './originAgents'
 
 const HOME: OriginAgents = {

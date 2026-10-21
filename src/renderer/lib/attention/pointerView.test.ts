@@ -1,8 +1,8 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import {
-  POINTER_VIEW_MS,
   isPanePointedAt,
   leavePane,
+  POINTER_VIEW_MS,
   pointAtPane,
   resetPointerView,
 } from './pointerView'

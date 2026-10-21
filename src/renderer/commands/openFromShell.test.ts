@@ -1,3 +1,9 @@
+import {
+  OPEN_DIFF_COMMAND,
+  OPEN_FILES_COMMAND,
+  REVEAL_FOLDER_COMMAND,
+} from '@shared/files/openFiles'
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { tabMark } from '@/lib/attention/attention'
 import { followedFolder, treeRoot } from '@/lib/files/revealFolder'
 import { paneBrowserProfile } from '@/lib/layout/paneFields'
@@ -12,12 +18,6 @@ import { useOpenWaitsStore } from '@/stores/files/openWaitsStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import * as surfaceSlots from '@/stores/workspaces/surfaceSlotsStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
-import {
-  OPEN_DIFF_COMMAND,
-  OPEN_FILES_COMMAND,
-  REVEAL_FOLDER_COMMAND,
-} from '@shared/files/openFiles'
-import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { registerBuiltinCommands } from './builtins'
 import { type CommandContext, commands } from './registry'
 

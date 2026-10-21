@@ -89,7 +89,8 @@ const entries = (): PaneEntry[] => [
 
 beforeAll(() => {
   const reach = {
-    processPane: async () => undefined,
+    processPane: async () => [],
+    visible: async () => () => true,
     inScope: async () => true,
     isChild: () => false,
     isSandboxed: () => false,
@@ -175,7 +176,7 @@ describe('pane events through the real CLI', () => {
   it('delivers one event line to the coordinator’s bus wait when a watched worker finishes', async () => {
     const watching = await run(boss, ['pane', 'watch', worker.externalId, '--until', 'done'])
     expect(watching.code).toBe(0)
-    expect(watching.stdout).toContain(`${worker.externalId}\tuntil done`)
+    expect(watching.stdout).toContain(`${worker.externalId.slice(0, 8)}\tuntil done`)
 
     const waiting = run(boss, ['bus', 'wait', '--timeout', '30', '--json'])
     await new Promise((resolve) => setTimeout(resolve, 1500))
@@ -200,7 +201,7 @@ describe('pane events through the real CLI', () => {
     expect(inbox[0].kind).toBe('event')
 
     const off = await run(boss, ['pane', 'watch', worker.externalId, '--off'])
-    expect(off.stdout).toContain('(watching nothing)')
+    expect(off.stderr).toContain('(watching nothing)')
     await run(boss, ['bus', 'inbox', '--take'])
     await run(worker, ['state', 'working'])
     await run(worker, ['state', 'done'])

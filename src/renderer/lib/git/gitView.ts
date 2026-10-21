@@ -6,7 +6,7 @@ import type {
   GitGraphData,
   GraphCommit,
 } from '@shared/boards/git'
-import { type RelativeStep, formatRelative } from '@shared/common/relativeTime'
+import { formatRelative, type RelativeStep } from '@shared/common/relativeTime'
 import type { TreeNode } from './gitFileTree'
 import { type GraphEdge, type GraphNode, type GraphRow, layoutGraph } from './gitGraph'
 

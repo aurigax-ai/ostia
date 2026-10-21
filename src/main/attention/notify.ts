@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { type BrowserWindow, Notification, app, ipcMain } from 'electron'
+import { app, type BrowserWindow, ipcMain, Notification } from 'electron'
 import {
   type NotificationSettings,
   parseNotificationSettings,

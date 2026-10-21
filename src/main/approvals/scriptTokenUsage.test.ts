@@ -2,7 +2,7 @@ import { existsSync, mkdtempSync, readFileSync, rmSync, statSync } from 'node:fs
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { USAGE_KEEP, createScriptTokenUsage } from './scriptTokenUsage'
+import { createScriptTokenUsage, USAGE_KEEP } from './scriptTokenUsage'
 
 const HOUR = 3_600_000
 let dir = ''

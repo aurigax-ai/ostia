@@ -8,10 +8,10 @@ import {
   type ChatSearchRequest,
   type ChatToolSettings,
   type ChatWriteRequest,
+  isMcpSecretKey,
   type McpSecretResult,
   type McpServerStatus,
   type McpSignInResult,
-  isMcpSecretKey,
   mcpTransportOf,
 } from '../../shared/assist/chatTools'
 import type { ExtensionSecretStore } from '../extensions/extensionHostDeps'

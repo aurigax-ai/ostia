@@ -1,3 +1,6 @@
+import { CHAT_EDIT_TEXT_MAX, type ChatSession } from '@shared/assist/chatSessions'
+import type { ChatRestoreRequest } from '@shared/assist/chatTools'
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { openSession, resetChats, sessionOf, useChatStore } from '@/stores/assist/chatStore'
 import {
   type ChatEditRecord,
@@ -5,9 +8,6 @@ import {
   resetChatTools,
   useChatToolsStore,
 } from '@/stores/assist/chatToolsStore'
-import { CHAT_EDIT_TEXT_MAX, type ChatSession } from '@shared/assist/chatSessions'
-import type { ChatRestoreRequest } from '@shared/assist/chatTools'
-import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { acceptAll, rejectAll, reviewItems } from './chatReview'
 import { decideTool } from './chatToolPermissions'
 

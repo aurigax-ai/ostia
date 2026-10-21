@@ -1,7 +1,7 @@
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { type ToolRun, runTool } from '@aurigax-ai/ostia-extension-sdk'
+import { runTool, type ToolRun } from '@aurigax-ai/ostia-extension-sdk'
 import {
   parseBoard,
   parseBoards,

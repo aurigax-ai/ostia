@@ -1,3 +1,8 @@
+import type {
+  ExtensionPanelContext,
+  ExtensionPanelSource,
+} from '@aurigax-ai/ostia-extension-sdk/contract/extensionsBridge'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { EmptyState } from '@/components/common/EmptyState'
 import { Button } from '@/components/ui/button'
 import { useDict } from '@/lib/app/useDict'
@@ -7,11 +12,6 @@ import { useGuestReady, useSurfaceFocus } from '@/lib/panes/paneFocus'
 import { useInjectedCss, usePanelThemeCss } from '@/lib/theme/panelThemeInjection'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import type { PanelRoute } from '@/stores/app/sidePanelStore'
-import type {
-  ExtensionPanelContext,
-  ExtensionPanelSource,
-} from '@aurigax-ai/ostia-extension-sdk/contract/extensionsBridge'
-import { useCallback, useEffect, useRef, useState } from 'react'
 
 const EXTENSION_PARTITION_PREFIX = 'ostia-ext-'
 
@@ -108,7 +108,10 @@ export function ExtensionSidePanel({
 function PanelMessage({
   text,
   children,
-}: { text: string; children?: React.ReactNode }): JSX.Element {
+}: {
+  text: string
+  children?: React.ReactNode
+}): JSX.Element {
   return (
     <EmptyState
       variant="surface"

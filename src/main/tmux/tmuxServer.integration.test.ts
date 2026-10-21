@@ -8,7 +8,7 @@ import { skipWithoutTmux, tmuxPath } from '../../../test/tmux'
 import { programPath } from '../platform/systemRequirements'
 import { shellIntegrationSpawnOptions } from '../terminal/shellIntegration'
 import type { TmuxPane } from './tmuxPane'
-import { TmuxServer, TmuxSocketDirError, serverEnv } from './tmuxServer'
+import { serverEnv, TmuxServer, TmuxSocketDirError } from './tmuxServer'
 
 const tmux = tmuxPath ?? 'tmux'
 const zsh = programPath('zsh') ?? 'zsh'

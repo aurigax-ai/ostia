@@ -2,5 +2,31 @@
   "manifest": {
     "name": "系統",
     "description": "讓代理程式了解這台電腦（作業系統、核心、shell、套件管理工具），並可請你安裝系統套件。只有在你核准確切的指令後才會安裝，而且會在你看得到的新終端機中執行。"
+  },
+  "messages": {
+    "confirmTitle": "安裝系統套件",
+    "confirmMessage": "代理程式要求以 {manager} 安裝 {packages}。",
+    "confirmDetail": "指令：\n{command}\n\n原因：{reason}\n\n它會在代理程式旁的新終端機中執行，你可以在那裡看到並回應密碼提示。",
+    "aurWarning": "這是 AUR 輔助程式：它會下載並依 PKGBUILD 建置套件，也就是在這台電腦上、沙箱之外執行來自 AUR 的程式碼。",
+    "approve": "核准",
+    "deny": "拒絕",
+    "terminalTitle": "安裝套件",
+    "denied": "使用者拒絕安裝；沒有執行任何指令",
+    "noPackages": "請至少指定一個套件",
+    "invalidPackages": "無效的套件名稱：{names}（僅限字母、數字與 @ . _ + : -，且須以字母或數字開頭）",
+    "tooManyPackages": "每次最多 {max} 個套件",
+    "unknownManager": "未知的套件管理器「{name}」（可用：{known}）",
+    "managerMissing": "{name} 不在 PATH 中",
+    "noManager": "PATH 中找不到支援的套件管理器；請使用 --manager 指定",
+    "noSudo": "這個套件管理器需要 root 權限，但 PATH 中沒有 sudo",
+    "onePackageOnly": "{manager} 每次只能安裝一個套件",
+    "notOpened": "已核准，但無法開啟終端機（{reason}）",
+    "installed": "已安裝：安裝指令結束，結束代碼為 0",
+    "installFailed": "安裝指令失敗（結束代碼 {code}）；請查看它的終端機或詢問使用者",
+    "installClosed": "安裝指令結束前，終端機已被關閉",
+    "installStillRunning": "安裝仍在它的終端機中執行；稍後請用 `command -v` 或套件管理器確認",
+    "listSeparator": "、",
+    "noReason": "未提供",
+    "exitUnknown": "未知"
   }
 }

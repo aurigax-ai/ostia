@@ -9,8 +9,8 @@ import type { CommandDescriptor } from '../../shared/control/commands'
 import type { TerminalStateSnapshot } from '../../shared/terminal/ptyApi'
 import { dropWatchesOf, failPaneMail } from '../agents/busStore'
 import { forgetCodexSocket } from '../agents/codexSockets'
-import { forgetMailFlag } from '../agents/mailFlag'
 import { mailers } from '../agents/mailers'
+import { forgetMailFlag } from '../agents/mailFlag'
 import { approvals } from '../approvals/approvals'
 import { dropIdentity } from '../approvals/capabilityStore'
 import { questions } from '../approvals/questions'
@@ -33,6 +33,7 @@ import { dropRestoredScrollback } from '../workspaces/savedScrollback'
 import type { ScratchFolders } from '../workspaces/scratchFolders'
 import type { WorkspaceLifecycle } from '../workspaces/workspaceLifecycle'
 import { setWorkspaceWorkDir } from '../workspaces/workspaceRegistry'
+import { rememberClosedPane } from './closedPanes'
 import type { PaneJournal } from './paneJournal'
 import type { PaneTurns } from './paneTurns'
 import type { PaneWatch } from './paneWait'
@@ -119,6 +120,15 @@ export function registerPaneLifecycleIpc({
       openWaits.paneClosed(event.paneId)
       const identity = getByPaneId(event.paneId)
       if (identity) {
+        const name = services.processes?.forPane(event.paneId)?.name
+        if (!identity.manager) {
+          rememberClosedPane({
+            externalId: identity.externalId,
+            workspaceId: identity.workspaceId,
+            closedAt: Date.now(),
+            ...(name ? { name } : {}),
+          })
+        }
         dropIdentity(identity.externalId)
         approvals()?.forget(identity.externalId)
         questions()?.forget(identity.externalId)

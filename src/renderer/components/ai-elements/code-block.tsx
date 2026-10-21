@@ -1,8 +1,8 @@
-import { useScheme } from '@/lib/theme/colorScheme'
-import { colorizeCode } from '@/lib/theme/colorize'
-import { cn } from '@/lib/utils'
 import type { ComponentProps, HTMLAttributes, ReactNode } from 'react'
 import { createContext, useEffect, useState } from 'react'
+import { colorizeCode } from '@/lib/theme/colorize'
+import { useScheme } from '@/lib/theme/colorScheme'
+import { cn } from '@/lib/utils'
 
 interface CodeBlockContextType {
   code: string

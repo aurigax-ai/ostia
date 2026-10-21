@@ -1,3 +1,12 @@
+import {
+  DEFAULT_PACKAGE_SETTINGS,
+  type PortsPolicy,
+  resolvePackages,
+  resolveSandbox,
+  type SandboxControls,
+  type WorkspaceSandbox,
+} from '@shared/sandbox/sandbox'
+import { useEffect, useState } from 'react'
 import { SectionTab, SectionTabsList } from '@/components/common/SectionTabs'
 import { ControlRow } from '@/components/settingsKit/ControlRow'
 import { SettingsGroup } from '@/components/settingsKit/SettingsGroup'
@@ -9,15 +18,6 @@ import { Tabs, TabsContent } from '@/components/ui/tabs'
 import { fmt, useDict } from '@/lib/app/useDict'
 import { isMac } from '@/platform'
 import { useSandboxStore } from '@/stores/app/sandboxStore'
-import {
-  DEFAULT_PACKAGE_SETTINGS,
-  type PortsPolicy,
-  type SandboxControls,
-  type WorkspaceSandbox,
-  resolvePackages,
-  resolveSandbox,
-} from '@shared/sandbox/sandbox'
-import { useEffect, useState } from 'react'
 import { PackagesEditor } from './SandboxPackagesTab'
 import {
   SandboxFilesGroups,

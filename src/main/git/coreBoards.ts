@@ -1,5 +1,5 @@
 import { join } from 'node:path'
-import { type BrowserWindow, app } from 'electron'
+import { app, type BrowserWindow } from 'electron'
 import type { Dict } from '../../shared/app/dict'
 import { parseGitSettings } from '../../shared/boards/git'
 import { parsePortsSettings } from '../../shared/boards/ports'

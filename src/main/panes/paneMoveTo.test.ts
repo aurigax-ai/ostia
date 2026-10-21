@@ -4,10 +4,10 @@ import { join } from 'node:path'
 import type { Capability } from '@aurigax-ai/ostia-extension-sdk/contract/capabilities'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
+  createMessageConnection,
   type MessageConnection,
   StreamMessageReader,
   StreamMessageWriter,
-  createMessageConnection,
 } from 'vscode-jsonrpc/node'
 import type { CommandResult } from '../../shared/control/commands'
 import type { ApprovalOutcome } from '../../shared/permissions/approvals'
@@ -53,7 +53,8 @@ const inScope = async (ctx: ReachCaller, workspaceId: string) =>
   ctx.identity.workspaceId === workspaceId || scoped.has(workspaceId)
 
 registerPaneMoveToMethods({
-  processPane: async (ref) => (ref === 'worker' ? 'child-pane' : undefined),
+  processPane: async (ref) => (ref === 'worker' ? ['child-pane'] : []),
+  visible: async () => () => true,
   inScope,
   isChild: (ownerPaneId, paneId) => children.get(paneId) === ownerPaneId,
   isSandboxed: (workspaceId) => workspaceId === 'ws-sbx',

@@ -1,14 +1,14 @@
 import { type BrowserWindow, type IpcMainInvokeEvent, ipcMain } from 'electron'
 import {
   type ScriptTokenSaveResult,
-  type ScriptTokenUsage,
   type ScriptTokensState,
+  type ScriptTokenUsage,
   tokenExpiry,
 } from '../../shared/permissions/scriptTokens'
 import { removeScript } from '../control/idRegistry'
 import { fromAppWindow } from '../platform/appWindowSender'
 import type { ReachListing } from './reach'
-import { type PresenceRequest, checkUserPresence } from './scriptTokenConfirm'
+import { checkUserPresence, type PresenceRequest } from './scriptTokenConfirm'
 import {
   confirmStillNever,
   parseTokenChanges,
@@ -16,7 +16,6 @@ import {
   regenerates,
   resolveScope,
 } from './scriptTokenRequests'
-import type { ScriptTokenUsageLog, UsageLookups } from './scriptTokenUsage'
 import {
   createScriptToken,
   findScriptToken,
@@ -25,6 +24,7 @@ import {
   scriptTokenUsage,
   updateScriptToken,
 } from './scriptTokens'
+import type { ScriptTokenUsageLog, UsageLookups } from './scriptTokenUsage'
 
 export interface ScriptTokenIpcDeps {
   path: () => string

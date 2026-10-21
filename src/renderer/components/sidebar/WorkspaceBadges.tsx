@@ -1,3 +1,5 @@
+import { LockSimpleIcon, PushPinSimpleIcon, ShieldCheckIcon } from '@phosphor-icons/react'
+import { useEffect } from 'react'
 import { Hint } from '@/components/common/Hint'
 import { MailCount } from '@/components/common/MailCount'
 import { Badge } from '@/components/ui/badge'
@@ -7,8 +9,6 @@ import { paneIds } from '@/lib/layout/tree'
 import { useSandboxStore } from '@/stores/app/sandboxStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import type { Workspace } from '@/stores/workspaces/workspaceTypes'
-import { LockSimpleIcon, PushPinSimpleIcon, ShieldCheckIcon } from '@phosphor-icons/react'
-import { useEffect } from 'react'
 
 function ScratchBadge(): JSX.Element {
   const d = useDict()
@@ -38,7 +38,10 @@ export function useWorkspaceFlags(workspaceId: string): { sandboxed: boolean; lo
 export function WorkspaceBadges({
   workspace: w,
   marksOnly = false,
-}: { workspace: Workspace; marksOnly?: boolean }): JSX.Element {
+}: {
+  workspace: Workspace
+  marksOnly?: boolean
+}): JSX.Element {
   const d = useDict()
   const { sandboxed, locked } = useWorkspaceFlags(w.id)
   useEffect(() => {

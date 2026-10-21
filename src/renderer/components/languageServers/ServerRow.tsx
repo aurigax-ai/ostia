@@ -1,13 +1,3 @@
-import { IconButton } from '@/components/common/IconButton'
-import { useRequirements } from '@/components/settings/RequirementsNote'
-import { SettingsListRow } from '@/components/settingsKit/SettingsListRow'
-import { Highlight, useSearchGroup } from '@/components/settingsKit/SettingsSearch'
-import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
-import { Switch } from '@/components/ui/switch'
-import { fmt, useDict } from '@/lib/app/useDict'
-import { useLanguageServersStore } from '@/stores/extensions/languageServersStore'
-import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import type {
   LanguageServerInfo,
   LanguageServerStatus,
@@ -20,6 +10,15 @@ import {
   WrenchIcon,
 } from '@phosphor-icons/react'
 import { useState } from 'react'
+import { IconButton } from '@/components/common/IconButton'
+import { useRequirements } from '@/components/settings/RequirementsNote'
+import { ControlRow } from '@/components/settingsKit/ControlRow'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Switch } from '@/components/ui/switch'
+import { fmt, useDict } from '@/lib/app/useDict'
+import { useLanguageServersStore } from '@/stores/extensions/languageServersStore'
+import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import { ServerLogDialog } from './ServerLogDialog'
 import { ServerProgramDialog } from './ServerProgramDialog'
 import { binaryNote, sandboxReason, statusLabel } from './serverStatusText'
@@ -106,93 +105,96 @@ export function ServerRow({ server }: { server: LanguageServerInfo }): JSX.Eleme
     server.status === 'sandbox-unavailable' ||
     server.status === 'override-invalid' ||
     server.status === 'crashed'
-  const search = useSearchGroup([server.name, server.extName, server.languages.join(', ')])
   return (
-    <SettingsListRow
+    <fieldset
       aria-label={server.name}
-      hidden={search.hidden}
-      data-search-hit={search.hit || undefined}
+      className="min-w-0"
       data-server-key={server.key}
       data-server-status={server.status}
-      lead={<span aria-hidden className={`size-2 rounded-full ${STATUS_DOT[server.status]}`} />}
-      title={<Highlight text={server.name} />}
-      meta={
-        <Badge variant="outline" className="text-ui-xs">
-          {t.kinds[server.kind]}
-        </Badge>
-      }
-      detail={
-        <>
-          <p className="break-words text-ui-xs">
-            {server.extName} · {server.languages.join(', ')} ·{' '}
-            <span className="break-all font-mono">{server.command}</span>
-          </p>
-          <p
-            data-testid="language-server-status"
-            className={`mt-0.5 text-ui-sm ${problem ? 'text-attn-fg' : 'text-fg-muted'}`}
-          >
-            {statusLabel(d, server)}
-          </p>
-          {reason ? <p className="mt-0.5 text-ui-xs">{reason}</p> : null}
-          {note ? <p className="mt-0.5 text-ui-xs">{note}</p> : null}
-          {needsProgram ? <InstallProgram server={server} /> : null}
-          {failed ? (
-            <Button
-              variant="outline"
-              size="sm"
-              className="mt-1"
-              onClick={() => void window.ostia.lsp.fetch(server.key)}
+    >
+      <ControlRow
+        label={server.name}
+        labelHint={
+          <>
+            <span
+              aria-hidden
+              className={`size-2 shrink-0 rounded-full ${STATUS_DOT[server.status]}`}
+            />
+            <Badge variant="outline" className="text-ui-xs">
+              {t.kinds[server.kind]}
+            </Badge>
+          </>
+        }
+        below={
+          <>
+            <p className="break-words text-fg-muted text-ui-xs">
+              {server.languages.join(', ')} ·{' '}
+              <span className="break-all font-mono">{server.command}</span>
+            </p>
+            <p
+              data-testid="language-server-status"
+              className={`mt-0.5 text-ui-sm ${problem ? 'text-attn-fg' : 'text-fg-muted'}`}
             >
-              {t.retry}
-            </Button>
-          ) : null}
-          {showLog ? <ServerLogDialog server={server} onClose={() => setShowLog(false)} /> : null}
-          {choosing ? (
-            <ServerProgramDialog server={server} onClose={() => setChoosing(false)} />
-          ) : null}
-        </>
-      }
-      actions={
-        <>
-          {canFetchNow && !failed ? (
-            <IconButton
-              icon={DownloadSimpleIcon}
-              label={fmt(t.fetchNow, { name: server.name })}
-              onClick={() => void window.ostia.lsp.fetch(server.key)}
-            />
-          ) : null}
-          {server.managedCopy ? (
-            <IconButton
-              icon={TrashIcon}
-              label={fmt(t.removeDownload, { name: server.name })}
-              onClick={() => void window.ostia.lsp.removeDownload(server.key)}
-            />
-          ) : null}
+              {statusLabel(d, server)}
+            </p>
+            {reason ? <p className="mt-0.5 text-fg-muted text-ui-xs">{reason}</p> : null}
+            {note ? <p className="mt-0.5 text-fg-muted text-ui-xs">{note}</p> : null}
+            {needsProgram ? <InstallProgram server={server} /> : null}
+            {failed ? (
+              <Button
+                variant="outline"
+                size="sm"
+                className="mt-1"
+                onClick={() => void window.ostia.lsp.fetch(server.key)}
+              >
+                {t.retry}
+              </Button>
+            ) : null}
+            {showLog ? <ServerLogDialog server={server} onClose={() => setShowLog(false)} /> : null}
+            {choosing ? (
+              <ServerProgramDialog server={server} onClose={() => setChoosing(false)} />
+            ) : null}
+          </>
+        }
+      >
+        {canFetchNow && !failed ? (
           <IconButton
-            icon={WrenchIcon}
-            label={fmt(t.chooseProgram, { name: server.name })}
-            disabled={server.status === 'pending-approval'}
-            onClick={() => setChoosing(true)}
+            icon={DownloadSimpleIcon}
+            label={fmt(t.fetchNow, { name: server.name })}
+            onClick={() => void window.ostia.lsp.fetch(server.key)}
           />
+        ) : null}
+        {server.managedCopy ? (
           <IconButton
-            icon={ListMagnifyingGlassIcon}
-            label={fmt(t.showLog, { name: server.name })}
-            onClick={() => setShowLog(true)}
+            icon={TrashIcon}
+            label={fmt(t.removeDownload, { name: server.name })}
+            onClick={() => void window.ostia.lsp.removeDownload(server.key)}
           />
-          <IconButton
-            icon={ArrowClockwiseIcon}
-            label={fmt(t.restart, { name: server.name })}
-            disabled={!server.enabled}
-            onClick={() => void restart(server.key)}
-          />
-          <Switch
-            checked={server.enabled}
-            disabled={server.status === 'pending-approval'}
-            onCheckedChange={(v) => void setEnabled(server.key, v)}
-            aria-label={fmt(t.enable, { name: server.name })}
-          />
-        </>
-      }
-    />
+        ) : null}
+        <IconButton
+          icon={WrenchIcon}
+          label={fmt(t.chooseProgram, { name: server.name })}
+          disabled={server.status === 'pending-approval'}
+          onClick={() => setChoosing(true)}
+        />
+        <IconButton
+          icon={ListMagnifyingGlassIcon}
+          label={fmt(t.showLog, { name: server.name })}
+          onClick={() => setShowLog(true)}
+        />
+        <IconButton
+          icon={ArrowClockwiseIcon}
+          label={fmt(t.restart, { name: server.name })}
+          disabled={!server.enabled}
+          onClick={() => void restart(server.key)}
+        />
+        <Switch
+          checked={server.enabled}
+          disabled={server.status === 'pending-approval'}
+          onCheckedChange={(v) => void setEnabled(server.key, v)}
+          aria-label={fmt(t.enable, { name: server.name })}
+        />
+      </ControlRow>
+    </fieldset>
   )
 }

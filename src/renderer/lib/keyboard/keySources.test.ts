@@ -1,13 +1,14 @@
 import {
   CHORDS_PER_COMMAND_MAX,
   type ChordSpec,
-  type KeybindingMap,
   formatScopedChord,
+  type KeybindingMap,
   parseScopedChord,
 } from '@shared/keyboard/chordSpec'
 import { DEFAULT_CHORDS } from '@shared/keyboard/defaultChords'
 import { describe, expect, it } from 'vitest'
 import { effectiveBindings } from './chords'
+import { NATURAL_TEXT_EDITING, NO_TERMINAL_KEYMAP, OSTIA_KEYMAP } from './keyboardPresets'
 import {
   COMMAND_GROUPS,
   canAddChord,
@@ -22,7 +23,6 @@ import {
   withChordRemoved,
   withChordReplaced,
 } from './keySources'
-import { NATURAL_TEXT_EDITING, NO_TERMINAL_KEYMAP, OSTIA_KEYMAP } from './keyboardPresets'
 
 const specs = (mac: boolean, ...texts: string[]): ChordSpec[] =>
   texts.map((t) => {

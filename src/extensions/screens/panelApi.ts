@@ -1,19 +1,19 @@
 import {
   type ConfirmRequest,
   type ExtensionResult,
+  failure,
   type OpenTerminalOptions,
   type OpenTerminalResult,
+  ok,
   type SandboxDomainsResult,
   type Translate,
-  failure,
-  ok,
 } from '@aurigax-ai/ostia-extension-sdk'
 import type { CreateGate } from './createGate'
 import { type InstallState, SERVICE_INSTALL } from './install'
 import type { PanelScope } from './panelServer'
 import type { PhoneLinks, PhoneView } from './phoneLinks'
 import type { OwnedScreen } from './screenRegistry'
-import { MIN_SERVICE_VERSION, isOutdated, runScreens, serviceVersion } from './screensCli'
+import { isOutdated, MIN_SERVICE_VERSION, runScreens, serviceVersion } from './screensCli'
 import type { ScreensService, ShownScreen } from './screensService'
 import type { Viewers } from './viewers'
 

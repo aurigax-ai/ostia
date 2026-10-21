@@ -1,3 +1,4 @@
+import type { SplitTabPlacement } from '@shared/workspaces/splitTabs'
 import { joinSplitTab } from '@/lib/layout/tabJoin'
 import {
   addTab,
@@ -10,7 +11,6 @@ import {
   tabIdOf,
 } from '@/lib/layout/tree'
 import type { LayoutNode, PaneNode } from '@/lib/layout/types'
-import type { SplitTabPlacement } from '@shared/workspaces/splitTabs'
 import { isAgentSplitTab, markAgentSplitTab } from './agentSplitTabs'
 import { forgetSplitTabSeeds, splitTabSeed } from './splitTabSeeds'
 import { readableColumns } from './splitTabs'

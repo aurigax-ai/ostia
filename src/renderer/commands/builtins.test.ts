@@ -1,3 +1,11 @@
+import {
+  type Capability,
+  DEFAULT_CAPABILITIES,
+} from '@aurigax-ai/ostia-extension-sdk/contract/capabilities'
+import type { AgentResume } from '@shared/agents/agentResume'
+import { SCRIPT_CAPABILITIES } from '@shared/permissions/scriptTokens'
+import { Terminal } from '@xterm/xterm'
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { resumeAnyway } from '@/lib/agents/folderTrust'
 import * as resumeFolder from '@/lib/agents/resumeFolder'
 import { activeFontZoom, zoomFont } from '@/lib/app/wheelZoom'
@@ -25,14 +33,6 @@ import * as surfaceSlots from '@/stores/workspaces/surfaceSlotsStore'
 import { useTabSleepNoticeStore } from '@/stores/workspaces/tabSleepNoticeStore'
 import { useWindowsStore } from '@/stores/workspaces/windowsStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
-import {
-  type Capability,
-  DEFAULT_CAPABILITIES,
-} from '@aurigax-ai/ostia-extension-sdk/contract/capabilities'
-import type { AgentResume } from '@shared/agents/agentResume'
-import { SCRIPT_CAPABILITIES } from '@shared/permissions/scriptTokens'
-import { Terminal } from '@xterm/xterm'
-import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { SCRIPT_COMMANDS } from '../../main/control/commandArgs'
 import { wireCommandBridge } from './bridge'
 import { registerBuiltinCommands } from './builtins'

@@ -1,5 +1,5 @@
 import type { AgentEvent, AgentHistoryEntry } from '@aurigax-ai/ostia-extension-sdk/contract/agent'
-import { STREAM_TURNS_MAX, type StreamEvent, lastTurns } from '../../shared/agents/agentStream'
+import { lastTurns, STREAM_TURNS_MAX, type StreamEvent } from '../../shared/agents/agentStream'
 import type { TurnStepKind } from '../../shared/agents/turnHook'
 
 const KEPT_EVENTS_MAX = 5000

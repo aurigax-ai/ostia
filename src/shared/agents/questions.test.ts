@@ -1,13 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import {
-  QUESTION_CHOICES_MAX,
+  normalizeQuestion,
+  normalizeReply,
   QUESTION_CHOICE_MAX,
+  QUESTION_CHOICES_MAX,
   QUESTION_CONTEXT_MAX,
   QUESTION_MAX,
   QUESTION_REPLY_MAX,
   QUESTION_TIMEOUT_MAX_S,
-  normalizeQuestion,
-  normalizeReply,
 } from './questions'
 
 function content(raw: unknown) {

@@ -1,4 +1,4 @@
-import { type KeyLike, isNativeClipboardKey } from '@shared/keyboard/chordSpec'
+import { isNativeClipboardKey, type KeyLike } from '@shared/keyboard/chordSpec'
 import type { ClipboardEdit } from '@shared/keyboard/clipboardChords'
 import { chordOf, matchChord, onBindingsChange } from './chords'
 import { isRemappedEvent } from './modifierRemapEvents'

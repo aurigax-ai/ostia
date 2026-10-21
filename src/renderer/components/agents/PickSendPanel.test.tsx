@@ -1,3 +1,7 @@
+import type { OriginAgents } from '@shared/windows/windowsApi'
+import { act, cleanup, render, renderHook, screen, waitFor } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { createPane } from '@/lib/layout/tree'
 import { useAgentGroupsStore } from '@/stores/agents/agentGroupsStore'
 import { useAttentionStore } from '@/stores/agents/attentionStore'
@@ -6,12 +10,8 @@ import { useSandboxStore } from '@/stores/app/sandboxStore'
 import { useBlocksStore } from '@/stores/terminal/blocksStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { usePaneRecencyStore } from '@/stores/workspaces/paneRecencyStore'
-import type { WorkspaceKind } from '@/stores/workspaces/workspaceTypes'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
-import type { OriginAgents } from '@shared/windows/windowsApi'
-import { act, cleanup, render, renderHook, screen, waitFor } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
-import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import type { WorkspaceKind } from '@/stores/workspaces/workspaceTypes'
 import {
   PickSendPanel,
   useAgentTargets,

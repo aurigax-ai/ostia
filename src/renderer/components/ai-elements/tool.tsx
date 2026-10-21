@@ -1,5 +1,3 @@
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
-import { cn } from '@/lib/utils'
 import {
   CaretDownIcon,
   CheckCircleIcon,
@@ -13,6 +11,8 @@ import {
 } from '@phosphor-icons/react'
 import type { DynamicToolUIPart, ToolUIPart } from 'ai'
 import type { ComponentProps, ReactNode } from 'react'
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
+import { cn } from '@/lib/utils'
 
 type ToolPart = ToolUIPart | DynamicToolUIPart
 

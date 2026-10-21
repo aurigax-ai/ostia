@@ -1,22 +1,25 @@
 #!/usr/bin/env node
 import { once } from 'node:events'
-import { type Socket, createConnection } from 'node:net'
+import { createConnection, type Socket } from 'node:net'
+import { join } from 'node:path'
 import { readEnv } from '@aurigax-ai/ostia-extension-sdk/contract/appEnv'
 import {
+  createMessageConnection,
   type MessageConnection,
   StreamMessageReader,
   StreamMessageWriter,
-  createMessageConnection,
 } from 'vscode-jsonrpc/node'
 import { controlInfoPath, readControlSocket } from '../main/control/controlDiscovery'
+import { appDataDir } from '../main/platform/userDirs'
 import { SCRIPT_TOKEN_PREFIX } from '../shared/permissions/scriptTokens'
 import { FlagError } from './common/args'
 import { wantsHelp } from './common/commandHelp'
 import { commandLabel, describeFailure, fail, failVerb } from './common/failure'
 import { paneToken } from './common/paneToken'
 import { readAllStdin } from './common/stdinText'
-import { type UsageAnswer, topUsage, usageGate } from './common/usageTable'
+import { topUsage, type UsageAnswer, usageGate } from './common/usageTable'
 import { buildVersionAt } from './common/version'
+import { skewMarkFile, versionSkewWarning } from './common/versionSkew'
 import { runAgentHook } from './hooks/agentHook'
 import { runClaudeHookVerb, runResumeTokenVerb, runTurnHookVerb } from './hooks/agentReports'
 import { saveAttentionOffline } from './hooks/offlineAttention'
@@ -193,7 +196,16 @@ async function main(): Promise<void> {
   conn.onClose(onLost)
   conn.listen()
   try {
-    await conn.sendRequest('hello', { token, pid: process.ppid })
+    const hello = await conn.sendRequest<{ version?: string }>('hello', {
+      token,
+      pid: process.ppid,
+    })
+    const skew = versionSkewWarning(
+      hello?.version,
+      buildVersionAt(__dirname),
+      skewMarkFile(join(appDataDir(), 'cli-version-skew')),
+    )
+    if (skew) console.error(skew)
     const runner = Object.hasOwn(RUNNERS, cmd) ? RUNNERS[cmd] : undefined
     if (runner) await runner(conn)
     else if (await opensAsTarget(conn, cmd)) await runOpenFiles(conn, argv, workspaceFolderIn)

@@ -1,4 +1,4 @@
-import { type CustomScheme, app, protocol } from 'electron'
+import { app, type CustomScheme, protocol } from 'electron'
 import { PREVIEW_SCHEME } from '../../shared/artifacts/htmlPreview'
 
 const NO_DNS_PREFETCH = ['blink-settings', 'dnsPrefetchingEnabled=false'] as const

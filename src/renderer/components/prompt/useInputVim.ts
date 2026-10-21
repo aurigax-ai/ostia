@@ -1,11 +1,4 @@
 import {
-  type VimBuffer,
-  type VimMode,
-  applyVimCommand,
-  canMoveVertically,
-  parseVimKeys,
-} from '@/lib/prompt/vimMode'
-import {
   type Dispatch,
   type KeyboardEvent,
   type MutableRefObject,
@@ -14,6 +7,13 @@ import {
   useRef,
   useState,
 } from 'react'
+import {
+  applyVimCommand,
+  canMoveVertically,
+  parseVimKeys,
+  type VimBuffer,
+  type VimMode,
+} from '@/lib/prompt/vimMode'
 import type { InputDraft, Menu } from './useInputDraft'
 
 const UNDO_LIMIT = 100

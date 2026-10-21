@@ -1,3 +1,17 @@
+import {
+  type AssistCatalog,
+  type AssistFeatureState,
+  type AssistModelClass,
+  choiceLabel,
+  sameModelRef,
+} from '@aurigax-ai/ostia-extension-sdk/contract/assist'
+import {
+  CaretDownIcon,
+  ChatCircleDotsIcon,
+  GearSixIcon,
+  WarningCircleIcon,
+} from '@phosphor-icons/react'
+import { useState } from 'react'
 import { Hint } from '@/components/common/Hint'
 import { IconButton } from '@/components/common/IconButton'
 import { Button } from '@/components/ui/button'
@@ -13,20 +27,6 @@ import { isMac } from '@/platform'
 import { useUIStore } from '@/stores/app/uiStore'
 import { useAssistStore, wakeAssist } from '@/stores/assist/assistStore'
 import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
-import {
-  type AssistCatalog,
-  type AssistFeatureState,
-  type AssistModelClass,
-  choiceLabel,
-  sameModelRef,
-} from '@aurigax-ai/ostia-extension-sdk/contract/assist'
-import {
-  CaretDownIcon,
-  ChatCircleDotsIcon,
-  GearSixIcon,
-  WarningCircleIcon,
-} from '@phosphor-icons/react'
-import { useState } from 'react'
 
 function useAssistMenuVisible(): boolean {
   return useExtensionsStore((s) => s.list.some((e) => e.enabled && e.assist.length > 0))

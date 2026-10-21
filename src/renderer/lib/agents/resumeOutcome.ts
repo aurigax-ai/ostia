@@ -1,8 +1,8 @@
+import type { AgentResume } from '@shared/agents/agentResume'
 import { workspaceOfPane } from '@/lib/attention/workspaceActivity'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useBlocksStore } from '@/stores/terminal/blocksStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
-import type { AgentResume } from '@shared/agents/agentResume'
 
 const RESUME_START_WAIT_MS = 30_000
 export const RESUME_FAIL_WINDOW_MS = 30_000

@@ -3,8 +3,8 @@ import { PRODUCT_DISPLAY_NAME } from '@aurigax-ai/ostia-extension-sdk/contract/p
 import type {
   ScriptTokenInfo,
   ScriptTokenSaveResult,
-  ScriptTokenUsage,
   ScriptTokensState,
+  ScriptTokenUsage,
 } from '@shared/permissions/scriptTokens'
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'

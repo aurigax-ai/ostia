@@ -1,5 +1,5 @@
 import type { ApprovalOutcome } from '../../shared/permissions/approvals'
-import { type DomainRefusal, checkDomainPattern, hostMatches } from '../../shared/sandbox/sandbox'
+import { checkDomainPattern, type DomainRefusal, hostMatches } from '../../shared/sandbox/sandbox'
 
 const WEB_PORT = 443
 

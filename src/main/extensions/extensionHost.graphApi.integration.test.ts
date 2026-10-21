@@ -5,9 +5,9 @@ import { join, resolve } from 'node:path'
 import type { ExtensionCaller } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
+  createMessageConnection,
   StreamMessageReader,
   StreamMessageWriter,
-  createMessageConnection,
 } from 'vscode-jsonrpc/node'
 import type { QuestionState } from '../../shared/agents/questions'
 import type { CommandResult } from '../../shared/control/commands'
@@ -111,6 +111,8 @@ describe('the extension API a graph host needs', () => {
       announce: () => {},
       pending: async () => 'idle-no-wake',
       reach: {
+        processPane: async () => [],
+        visible: async () => () => true,
         inScope: async () => true,
         isChild: () => false,
         isSandboxed: () => false,

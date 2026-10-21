@@ -1,10 +1,10 @@
-import { useSettingsStore } from '@/stores/app/settingsStore'
-import { useUpdateStore } from '@/stores/app/updateStore'
 import type { InstallMethod } from '@shared/app/installMethod'
 import type { ReleaseCheckResult } from '@shared/app/releases'
 import { act, cleanup, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import { useSettingsStore } from '@/stores/app/settingsStore'
+import { useUpdateStore } from '@/stores/app/updateStore'
 import { UpdateChannelPicker } from './UpdateChannelPicker'
 import { UpdateCheck } from './UpdateCheck'
 

@@ -1,7 +1,7 @@
-import type { OstiaTerminal as Terminal } from '@/lib/terminal/ostiaTerminal'
 import { findFileLinks, resolveLinkPath } from '@shared/files/fileLinks'
 import type { IBufferCellPosition, IBufferRange, ILink, ILinkProvider } from '@xterm/xterm'
 import { LRUCache } from 'lru-cache'
+import type { OstiaTerminal as Terminal } from '@/lib/terminal/ostiaTerminal'
 import type { PathLinkTarget } from './linkModifier'
 
 interface LogicalLine {

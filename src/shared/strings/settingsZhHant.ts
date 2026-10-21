@@ -344,6 +344,11 @@ export const settingsZhHant: typeof settingsEn = {
       '用 {product} 的隨附應用程式掃描 QR 碼，或在應用程式中選擇這台電腦並輸入代碼。手機需在此處核准。',
     remotePairDetails: '連線詳細資料',
     remotePairExpires: '{n} 秒後換新代碼',
+    remotePairKeeps: '會保留：{caps}。',
+    remotePairKeepsNone: '不會保留任何額外權限。',
+    remotePairNeverSeen: '從未連線',
+    remotePairReplaces:
+      '聲稱與 {name} 是同一支手機（上次連線：{when}）。核准後會取代它並中斷其連線。',
     remotePairRequest: '{name} 想要配對',
     remotePairedOn: '配對於 {date}',
     remotePairing: '啟動中…',

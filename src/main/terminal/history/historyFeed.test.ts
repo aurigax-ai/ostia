@@ -7,8 +7,8 @@ import { promisify, stripVTControlCharacters } from 'node:util'
 import { build } from 'esbuild'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
-  HISTORY_WORKER_SCRIPT,
   closeSpillChannels,
+  HISTORY_WORKER_SCRIPT,
   spillInThread,
 } from '../../../../test/historySpill'
 import { ScreenMirror } from '../screenMirror'

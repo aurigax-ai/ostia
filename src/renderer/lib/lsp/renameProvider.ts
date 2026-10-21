@@ -1,8 +1,8 @@
+import type { Range, RenameOptions, WorkspaceEdit } from 'vscode-languageserver-protocol'
 import { currentDict } from '@/lib/app/useDict'
 import { monaco } from '@/lib/monaco/setup'
-import type { Range, RenameOptions, WorkspaceEdit } from 'vscode-languageserver-protocol'
 import { toMonacoRange } from './converters'
-import { type ProviderParams, documentPosition } from './providerParams'
+import { documentPosition, type ProviderParams } from './providerParams'
 import {
   applyClosedFileEdits,
   editsStayInside,

@@ -1,10 +1,12 @@
+import { CHAT_CONTEXT_TEXT_MAX } from '@aurigax-ai/ostia-extension-sdk/contract/assist'
+import { wantsDesktopBanner } from '@shared/app/notificationSettings'
 import { terminalNotification } from '@/lib/agents/paneAgent'
 import { reducedMotionNow } from '@/lib/app/motion'
 import { tail } from '@/lib/assist/askContext'
 import {
   KittyNotificationAssembler,
-  type OscNotification,
   notificationMessage,
+  type OscNotification,
   parseOsc9,
   parseOsc99,
   parseOsc777,
@@ -22,8 +24,6 @@ import { isLinux } from '@/platform'
 import { useAttentionStore } from '@/stores/agents/attentionStore'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useLiveSelectionStore } from '@/stores/terminal/liveSelectionStore'
-import { CHAT_CONTEXT_TEXT_MAX } from '@aurigax-ai/ostia-extension-sdk/contract/assist'
-import { wantsDesktopBanner } from '@shared/app/notificationSettings'
 import type { TerminalSession } from './terminalSession'
 
 export function attachTerminalSignals({

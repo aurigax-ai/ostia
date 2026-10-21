@@ -3,8 +3,8 @@ import { installLocalStorage } from '../../../../test/mocks/memoryStorage'
 import {
   PANEL_SIZES_KEY,
   PANEL_SIZES_WRITE_DELAY_MS,
-  rememberPanelFractions,
   rememberedPanelFraction,
+  rememberPanelFractions,
 } from './panelSizes'
 
 describe('panelSizes', () => {

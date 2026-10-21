@@ -1,4 +1,4 @@
-import { constants, type Stats, lstatSync, realpathSync } from 'node:fs'
+import { constants, lstatSync, realpathSync, type Stats } from 'node:fs'
 import { open, realpath, stat } from 'node:fs/promises'
 import { basename, dirname, join, relative } from 'node:path'
 import { isHiddenFromPhone } from '../gateway/workspaceFiles'

@@ -11,18 +11,18 @@ import { registerAppUpdate } from './appUpdate'
 import { appVersion } from './appVersion'
 import { installAppDir, installMethod } from './installMethod'
 import {
-  type PendingSweep,
   canReplaceInstall,
   createInstallReplacer,
+  type PendingSweep,
   releaseDownloadBase,
   runTar,
   tarballReplace,
 } from './installReplace'
 import { sweepUpdateLeftovers } from './launchSweep'
-import { canReplaceBundle, macReplace, runCommand } from './macReplace'
 import type { SignaturePolicy } from './macReplace'
+import { canReplaceBundle, macReplace, runCommand } from './macReplace'
 import { readUpdateChannel, registerReleaseCheck } from './releaseCheck'
-import { type UpdateRunner, createUpdateRunner } from './updateRun'
+import { createUpdateRunner, type UpdateRunner } from './updateRun'
 
 interface UpdateStartDeps {
   quit: {

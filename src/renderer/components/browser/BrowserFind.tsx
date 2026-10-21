@@ -1,6 +1,6 @@
+import { useState } from 'react'
 import { FindBar, type FindStepRef } from '@/components/common/FindBar'
 import { useDict } from '@/lib/app/useDict'
-import { useState } from 'react'
 
 export interface FindResult {
   active: number

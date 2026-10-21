@@ -1,7 +1,7 @@
-import { relativeTimeText } from '@/lib/app/localeFormat'
-import { fmt } from '@/lib/app/useDict'
 import type { Dict } from '@shared/app/dict'
 import type { ScriptTokenInfo, ScriptTokenSaveResult } from '@shared/permissions/scriptTokens'
+import { relativeTimeText } from '@/lib/app/localeFormat'
+import { fmt } from '@/lib/app/useDict'
 
 export const ENV = 'OSTIA_TOKEN'
 

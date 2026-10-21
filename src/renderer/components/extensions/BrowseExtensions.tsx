@@ -1,3 +1,13 @@
+import type { ExtensionCategory } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
+import { MagnifyingGlassIcon } from '@phosphor-icons/react'
+import type { Dict } from '@shared/app/dict'
+import {
+  MARKETPLACE_CODE_SHAPE,
+  type MarketplaceExtension,
+  type MarketplaceFound,
+  type MarketplaceInfo,
+} from '@shared/extensions/marketplace'
+import { type KeyboardEvent, useEffect, useMemo, useState } from 'react'
 import { EmptyState } from '@/components/common/EmptyState'
 import { Notice } from '@/components/common/Notice'
 import { Segmented } from '@/components/common/Segmented'
@@ -25,21 +35,11 @@ import { cn } from '@/lib/utils'
 import { useUIStore } from '@/stores/app/uiStore'
 import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
 import { useMarketplaceStore } from '@/stores/extensions/marketplaceStore'
-import type { ExtensionCategory } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
-import { MagnifyingGlassIcon } from '@phosphor-icons/react'
-import type { Dict } from '@shared/app/dict'
-import {
-  MARKETPLACE_CODE_SHAPE,
-  type MarketplaceExtension,
-  type MarketplaceFound,
-  type MarketplaceInfo,
-} from '@shared/extensions/marketplace'
-import { type KeyboardEvent, useEffect, useMemo, useState } from 'react'
 import { ExtensionTile } from './ExtensionTile'
 import {
   MarketplaceFailureNote,
-  UninstallExtensionButton,
   marketplaceName,
+  UninstallExtensionButton,
   useMarketplaceList,
 } from './MarketplaceSection'
 

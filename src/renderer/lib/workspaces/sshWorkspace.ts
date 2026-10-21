@@ -1,7 +1,7 @@
+import type { ExtensionInfo } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import { currentDict, fmt } from '@/lib/app/useDict'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
-import type { ExtensionInfo } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import { startNewWorkspace } from './newWorkspace'
 
 const SSH_EXTENSION = 'ssh'

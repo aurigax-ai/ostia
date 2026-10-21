@@ -1,7 +1,12 @@
 import '@testing-library/jest-dom/vitest'
+import type { ArtifactListing, ArtifactVersion } from '@shared/artifacts/artifacts'
+import type { PreviewEvent } from '@shared/artifacts/htmlPreview'
+import { act, cleanup, screen, waitFor } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useSettingsStore } from '@/stores/app/settingsStore'
-import { useArtifactVersionsStore } from '@/stores/files/artifactVersionsStore'
 import { useArtifactsStore } from '@/stores/files/artifactsStore'
+import { useArtifactVersionsStore } from '@/stores/files/artifactVersionsStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import {
   focusSurface,
@@ -10,11 +15,6 @@ import {
   setFocusTarget,
   surfaceHost,
 } from '@/stores/workspaces/surfaceSlotsStore'
-import type { ArtifactListing, ArtifactVersion } from '@shared/artifacts/artifacts'
-import type { PreviewEvent } from '@shared/artifacts/htmlPreview'
-import { act, cleanup, screen, waitFor } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
-import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { renderSettled } from '../../../../test/render'
 import { ArtifactVersionsButton, VersionView } from './ArtifactVersions'
 

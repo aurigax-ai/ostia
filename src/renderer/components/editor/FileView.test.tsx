@@ -1,3 +1,6 @@
+import type { ArtifactVersionContent } from '@shared/artifacts/artifacts'
+import { act, cleanup, render, screen } from '@testing-library/react'
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useArtifactVersionsStore } from '@/stores/files/artifactVersionsStore'
 import {
   focusSurfaceWhenReady,
@@ -6,9 +9,6 @@ import {
   setFocusTarget,
   surfaceHost,
 } from '@/stores/workspaces/surfaceSlotsStore'
-import type { ArtifactVersionContent } from '@shared/artifacts/artifacts'
-import { act, cleanup, render, screen } from '@testing-library/react'
-import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const fake = vi.hoisted(() => {
   const page = {

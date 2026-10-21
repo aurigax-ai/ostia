@@ -4,11 +4,11 @@ import { ErrorCodes, ResponseError } from 'vscode-jsonrpc/node'
 import { resumeFlags } from '../../shared/agents/agentLaunch'
 import { isResumableAgent } from '../../shared/agents/agentResume'
 import { MANAGER_AGENT_NAME } from '../../shared/agents/managerSettings'
-import { type ChangeSignal, type Subscribe, anyOf } from '../../shared/common/actThenConfirm'
+import { anyOf, type ChangeSignal, type Subscribe } from '../../shared/common/actThenConfirm'
 import {
+  normalizeSplitTabName,
   SPLIT_TAB_NAME_MAX,
   type SplitTabPlacement,
-  normalizeSplitTabName,
 } from '../../shared/workspaces/splitTabs'
 import type { Reach } from '../approvals/reach'
 import type { ControlMethodContext } from '../control/controlServer'
@@ -17,10 +17,11 @@ import type { TerminalOpenRequest } from '../extensions/extensionRuns'
 import { SANDBOXED_REFUSAL } from '../sandbox/sandboxedCaller'
 import type { ProcessEntry, ProcessRegistry } from './processRegistry'
 import {
+  confirmStart,
+  confirmTurn,
   START_TIMING,
   type StartReport,
   type StartTiming,
-  confirmStart,
   startMessage,
 } from './startConfirm'
 
@@ -141,6 +142,8 @@ export interface ProcessLaunchDeps {
   ) => Promise<{ name: string | null; human: boolean } | null>
   humanTab: (workspaceId: string, name: string) => Promise<boolean>
   agentStarted: (paneId: string) => boolean
+  turnState: (paneId: string) => Promise<string | undefined>
+  agentSession: (paneId: string) => Promise<string | undefined>
   agentChanges: Subscribe
   tell: (toExternalId: string, text: string) => void
   startTiming?: StartTiming
@@ -189,6 +192,7 @@ export function createProcessLauncher(
     },
     ownerPaneId: string,
     agentHook: boolean,
+    awaitTurn = false,
   ): Promise<{ entry: ProcessEntry; report: StartReport } | null> => {
     const opened = await deps.openTab({ ...req, backgroundTab: true, pinTitle: true })
     const pane = opened ? resolveExternal(opened) : undefined
@@ -203,14 +207,29 @@ export function createProcessLauncher(
       externalPaneId: pane.externalId,
       ...(req.splitTab ? { splitTab: req.splitTab.name } : {}),
     })
-    const report = await confirmStart({
+    const changes = anyOf(registryChanges.subscribe, deps.agentChanges)
+    const timing = deps.startTiming ?? START_TIMING
+    const started = await confirmStart({
       registry,
       entry,
       agentHook,
       agentStarted: deps.agentStarted,
-      changes: anyOf(registryChanges.subscribe, deps.agentChanges),
-      timing: deps.startTiming ?? START_TIMING,
+      changes,
+      timing,
     })
+    const report =
+      awaitTurn && started.status === 'started'
+        ? {
+            ...started,
+            ...(await confirmTurn({
+              entry,
+              turnState: deps.turnState,
+              session: deps.agentSession,
+              changes,
+              timing,
+            })),
+          }
+        : started
     entry.start = report.status
     deps.onChange?.(entry)
     return { entry, report }
@@ -265,6 +284,7 @@ export function createProcessLauncher(
         ...(splitTab ? { splitTab } : {}),
       },
       ctx.identity.paneId,
+      agentHook,
       agentHook,
     )
     if (!started) return NOT_OPENED

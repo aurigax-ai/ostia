@@ -1,4 +1,4 @@
-import { type SandboxControls, hostMatches } from '../../shared/sandbox/sandbox'
+import { hostMatches, type SandboxControls } from '../../shared/sandbox/sandbox'
 
 interface BrowserPolicy {
   browser: SandboxControls['browser']

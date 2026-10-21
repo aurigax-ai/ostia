@@ -25,7 +25,7 @@ import { sandboxedShellCommand, wrapForTerminal } from './ptyWrap'
 import { hiddenHomeNotice, sandboxFailureBanner } from './spawnBanner'
 import { sandboxSpawnEnv } from './spawnEnv'
 import { SandboxStore } from './store'
-import { ViolationLog, recordViolations } from './violations'
+import { recordViolations, ViolationLog } from './violations'
 import { WorkspaceSandboxes } from './workspaceSandboxes'
 
 const repoRoot = process.cwd()

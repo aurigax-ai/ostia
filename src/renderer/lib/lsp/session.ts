@@ -1,14 +1,12 @@
-import { baseName } from '@/lib/files/fileTree'
-import { monaco } from '@/lib/monaco/setup'
 import type { LspSessionInfo } from '@aurigax-ai/ostia-extension-sdk/contract/languageServers'
 import { PRODUCT_NAME } from '@aurigax-ai/ostia-extension-sdk/contract/product'
 import {
   type CancellationToken,
   CancellationTokenSource,
+  createMessageConnection,
   type MessageConnection,
   type MessageReader,
   type MessageWriter,
-  createMessageConnection,
 } from 'vscode-jsonrpc/browser'
 import type {
   Diagnostic,
@@ -17,16 +15,18 @@ import type {
   TextDocumentContentChangeEvent,
   WorkspaceEdit,
 } from 'vscode-languageserver-protocol'
+import { baseName } from '@/lib/files/fileTree'
+import { monaco } from '@/lib/monaco/setup'
 import { CLIENT_CAPABILITIES } from './clientCapabilities'
 import { normalizeUri, toLspRange } from './converters'
 import { type DiagnosticReport, mergeDiagnostics } from './lspDiagnostics'
 import {
   DIAGNOSTIC_METHOD,
   DYNAMIC_METHODS,
-  type Registration,
   overlayCapabilities,
   parseRegistrations,
   parseUnregistrations,
+  type Registration,
   selectorMatches,
 } from './registrations'
 import { applyWorkspaceEdit } from './workspaceEdit'

@@ -1,9 +1,9 @@
 import { mkdirSync } from 'node:fs'
 import { basename } from 'node:path'
-import { type BrowserWindow, type WebContents, app, ipcMain } from 'electron'
+import { app, type BrowserWindow, ipcMain, type WebContents } from 'electron'
 import type { ErrorInput } from '../../shared/privacy/telemetry'
 import type { AppLog } from './appLog'
-import { ReportLimiter, normalizePaneIds, normalizeRendererReport } from './rendererReports'
+import { normalizePaneIds, normalizeRendererReport, ReportLimiter } from './rendererReports'
 
 const CRASH_RELOADS_PER_MINUTE = 3
 

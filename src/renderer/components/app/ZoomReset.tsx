@@ -1,10 +1,10 @@
+import { MagnifyingGlassMinusIcon, MagnifyingGlassPlusIcon } from '@phosphor-icons/react'
 import { Hint } from '@/components/common/Hint'
 import { Button } from '@/components/ui/button'
 import { useDict } from '@/lib/app/useDict'
 import { useExitPresence } from '@/lib/app/useExitPresence'
 import { activeZoom, resetZoom } from '@/lib/app/wheelZoom'
 import { useSettingsStore } from '@/stores/app/settingsStore'
-import { MagnifyingGlassMinusIcon, MagnifyingGlassPlusIcon } from '@phosphor-icons/react'
 
 function ZoomFace({ percent }: { percent: number }): JSX.Element {
   const Icon = percent < 100 ? MagnifyingGlassMinusIcon : MagnifyingGlassPlusIcon

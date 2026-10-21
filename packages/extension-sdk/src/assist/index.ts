@@ -1,13 +1,13 @@
 export type { AssistModel } from '../contract/assist'
 export {
+  baseUrl,
   type Endpoint,
+  endpointFetch,
   type FetchFn,
   HttpError,
-  UNIX_PREFIX,
-  baseUrl,
-  endpointFetch,
   parseEndpoint,
   requestJson,
+  UNIX_PREFIX,
 } from './endpoint'
 export type { Provider, ProviderCatalog } from './provider'
 export { type AssistExtensionOptions, runAssistExtension } from './run'

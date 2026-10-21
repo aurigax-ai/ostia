@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { PRIMARY_SELECTION_MAX_CHARS, acceptsPrimarySelection } from './primarySelection'
+import { acceptsPrimarySelection, PRIMARY_SELECTION_MAX_CHARS } from './primarySelection'
 
 describe('acceptsPrimarySelection', () => {
   it('takes non-empty text up to the cap, only on Linux', () => {

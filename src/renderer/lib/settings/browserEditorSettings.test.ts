@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import {
+  clampZoom,
   DEFAULT_BROWSER_SETTINGS,
   DEFAULT_EDITOR_SETTINGS,
-  clampZoom,
   isValidSearchTemplate,
   parseBrowserSettings,
   parseEditorSettings,

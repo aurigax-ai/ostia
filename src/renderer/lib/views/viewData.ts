@@ -1,8 +1,3 @@
-import { EMPTY_ATTENTION, type PaneAttention, unreadCount } from '@/lib/attention/attention'
-import { allPanes } from '@/lib/layout/tree'
-import { workspaceTitle } from '@/lib/workspaces/workspaceTitle'
-import type { WorkspaceLayout } from '@/stores/workspaces/layoutTypes'
-import type { Workspace } from '@/stores/workspaces/workspaceTypes'
 import type {
   ExtensionSidebarItem,
   WorkspaceChip,
@@ -11,6 +6,11 @@ import { GIT_SOURCE, PORTS_SOURCE } from '@aurigax-ai/ostia-extension-sdk/manife
 import type { NotificationEntry } from '@shared/attention/attention'
 import { PORTS_CHIP } from '@shared/boards/git'
 import type { ViewSource } from '@shared/views/views'
+import { EMPTY_ATTENTION, type PaneAttention, unreadCount } from '@/lib/attention/attention'
+import { allPanes } from '@/lib/layout/tree'
+import { workspaceTitle } from '@/lib/workspaces/workspaceTitle'
+import type { WorkspaceLayout } from '@/stores/workspaces/layoutTypes'
+import type { Workspace } from '@/stores/workspaces/workspaceTypes'
 
 export const VIEW_NOTIFICATIONS_MAX = 50
 

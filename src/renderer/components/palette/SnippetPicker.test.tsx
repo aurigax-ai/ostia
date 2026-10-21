@@ -1,3 +1,10 @@
+import type {
+  SnippetEntry,
+  SnippetListing,
+} from '@aurigax-ai/ostia-extension-sdk/contract/snippets'
+import { act, cleanup, render, screen, waitFor } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { registerBuiltinCommands } from '@/commands/builtins'
 import { commands } from '@/commands/registry'
 import { allPanes } from '@/lib/layout/tree'
@@ -6,13 +13,6 @@ import { useBlocksStore } from '@/stores/terminal/blocksStore'
 import { useSnippetsStore } from '@/stores/terminal/snippetsStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
-import type {
-  SnippetEntry,
-  SnippetListing,
-} from '@aurigax-ai/ostia-extension-sdk/contract/snippets'
-import { act, cleanup, render, screen, waitFor } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
-import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { SnippetPicker } from './SnippetPicker'
 
 const actions = vi.hoisted(() => ({

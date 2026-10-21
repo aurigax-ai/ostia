@@ -1,8 +1,5 @@
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { PANEL_SIZES_KEY, PANEL_SIZES_WRITE_DELAY_MS } from '@/lib/panes/panelSizes'
-import { useSettingsStore } from '@/stores/app/settingsStore'
-import { useGitViewStore } from '@/stores/files/gitViewStore'
 import type {
   BranchRef,
   FileChange,
@@ -14,6 +11,9 @@ import type {
 } from '@shared/boards/git'
 import { act, cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import { PANEL_SIZES_KEY, PANEL_SIZES_WRITE_DELAY_MS } from '@/lib/panes/panelSizes'
+import { useSettingsStore } from '@/stores/app/settingsStore'
+import { useGitViewStore } from '@/stores/files/gitViewStore'
 import { renderSettled } from '../../../../test/render'
 import { GitView } from './GitView'
 

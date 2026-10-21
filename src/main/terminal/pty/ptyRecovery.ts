@@ -1,6 +1,6 @@
 import { getByPaneId } from '../../control/idRegistry'
 import type { AppLog } from '../../diagnostics/appLog'
-import { type ReapReason, RecoveryBook, orphanVerdict, planRecovery } from '../ptyReaper'
+import { orphanVerdict, planRecovery, type ReapReason, RecoveryBook } from '../ptyReaper'
 import type { PtyEntry } from './ptyRegistry'
 
 interface PtyRecoveryDeps {

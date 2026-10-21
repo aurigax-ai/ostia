@@ -1,10 +1,10 @@
-import {
-  type TerminalBufferLine as IBufferLine,
-  type OstiaTerminal as Xterm,
-  terminalScreen,
-} from '@/lib/terminal/ostiaTerminal'
 import { isEqual } from 'es-toolkit'
 import { type RefObject, useEffect, useState } from 'react'
+import {
+  type TerminalBufferLine as IBufferLine,
+  terminalScreen,
+  type OstiaTerminal as Xterm,
+} from '@/lib/terminal/ostiaTerminal'
 import {
   type CellMetrics,
   type PromptPlacement,

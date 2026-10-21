@@ -1,7 +1,7 @@
-import { resolveAddress } from '@/lib/browser/browserAddress'
-import { useSettingsStore } from '@/stores/app/settingsStore'
 import type { WebviewTag } from 'electron'
 import { type KeyboardEvent, useCallback, useEffect, useRef, useState } from 'react'
+import { resolveAddress } from '@/lib/browser/browserAddress'
+import { useSettingsStore } from '@/stores/app/settingsStore'
 
 export const BLANK_PAGE = 'about:blank'
 

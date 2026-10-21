@@ -1,10 +1,10 @@
 import { JsonlLog } from './jsonlLog'
 import {
-  SIGNALS_MAX_BYTES,
+  parseSignalLine,
   SIGNAL_RETENTION_MS,
+  SIGNALS_MAX_BYTES,
   type Signal,
   type SignalDraft,
-  parseSignalLine,
 } from './signal'
 
 export const SIGNALS_FILE = 'signals.jsonl'

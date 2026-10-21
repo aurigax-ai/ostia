@@ -1,8 +1,8 @@
-import { useMarketplaceStore } from '@/stores/extensions/marketplaceStore'
 import type { MarketplaceInfo, MarketplaceState } from '@shared/extensions/marketplace'
 import { cleanup, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import { useMarketplaceStore } from '@/stores/extensions/marketplaceStore'
 import { renderSettled } from '../../../../test/render'
 import { MarketplacesGroup } from './MarketplaceSection'
 

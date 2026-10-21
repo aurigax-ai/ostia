@@ -1,9 +1,9 @@
-import { monaco } from '@/lib/monaco/setup'
 import type {
   SemanticTokens,
   SemanticTokensDelta,
   SemanticTokensOptions,
 } from 'vscode-languageserver-protocol'
+import { monaco } from '@/lib/monaco/setup'
 import type { ProviderParams } from './providerParams'
 
 interface SemanticTokensParams extends ProviderParams {

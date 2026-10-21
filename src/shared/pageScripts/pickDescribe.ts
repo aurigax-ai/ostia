@@ -27,7 +27,10 @@ const STYLE_PROPS = [
 export function createDescribe({
   win,
   selectorFor,
-}: { win: Window & typeof globalThis; selectorFor: (el: Element) => string }) {
+}: {
+  win: Window & typeof globalThis
+  selectorFor: (el: Element) => string
+}) {
   const doc = win.document
 
   const roleOf = (el: Element): string => {

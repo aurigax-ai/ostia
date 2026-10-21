@@ -1,3 +1,4 @@
+import { normalizeSplitTabName } from '@shared/workspaces/splitTabs'
 import {
   allPanes,
   findPane,
@@ -10,7 +11,6 @@ import { splitTabSeed } from '@/lib/panes/splitTabSeeds'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { usePaneRenameStore } from '@/stores/workspaces/paneRenameStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
-import { normalizeSplitTabName } from '@shared/workspaces/splitTabs'
 import { registerCore } from './coreCommand'
 
 interface PaneTabArgs {
@@ -169,7 +169,7 @@ export function registerPaneTabCommands(): void {
 
   function coversWorkspace(workspaceId: string, paneIds: readonly string[], tab: string): boolean {
     const root = useLayoutStore.getState().byWorkspace[workspaceId]?.root
-    if (!root || root.type !== 'split' || findSplitTabByName(root, tab)) return false
+    if (root?.type !== 'split' || findSplitTabByName(root, tab)) return false
     return paneIds.every((id) => findPane(root, id) && !tabsOfPane(root, id))
   }
 

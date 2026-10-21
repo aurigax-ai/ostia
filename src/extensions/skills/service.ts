@@ -1,7 +1,7 @@
 import {
+  cliArgs,
   type ExtensionCaller,
   type ExtensionResult,
-  cliArgs,
   failure,
   namedArgs,
   ok,
@@ -14,7 +14,7 @@ import type { EvalStore } from './evalStore'
 import { type Complete, findRules } from './extract'
 import { importCandidates } from './importLines'
 import { buildInjection } from './inject'
-import { type RuleDraft, isScope } from './rule'
+import { isScope, type RuleDraft } from './rule'
 import { type FolderScope, folderScope, projectScopeOf } from './scope'
 import { scoreboard } from './scoreboard'
 import { type ShapeProblem, shapeGate } from './shapeGate'

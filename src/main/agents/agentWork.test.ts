@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import {
-  type ProcessRow,
-  ReportedAgentWork,
   backgroundWork,
+  type ProcessRow,
   parseProcessTable,
   processWork,
+  ReportedAgentWork,
 } from './agentWork'
 
 const SHELL = 100

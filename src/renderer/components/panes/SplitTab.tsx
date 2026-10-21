@@ -1,17 +1,3 @@
-import { commands } from '@/commands/registry'
-import { IconButton } from '@/components/common/IconButton'
-import { RenameInput } from '@/components/common/RenameInput'
-import { fmt, useDict } from '@/lib/app/useDict'
-import { isPaneVisible } from '@/lib/attention/workspaceActivity'
-import { canCollapse, stripAxis } from '@/lib/layout/collapse'
-import { allPanes } from '@/lib/layout/tree'
-import type { LayoutNode, PaneNode, SplitNode } from '@/lib/layout/types'
-import { PANE_DND, beginPaneDrag, endPaneDrag } from '@/lib/panes/paneDrag'
-import { splitTabLayout } from '@/lib/panes/splitTabs'
-import { cn } from '@/lib/utils'
-import { useLayoutStore } from '@/stores/workspaces/layoutStore'
-import { usePaneRenameStore } from '@/stores/workspaces/paneRenameStore'
-import { focusSurfaceWhenReady } from '@/stores/workspaces/surfaceSlotsStore'
 import {
   ArrowsInLineHorizontalIcon,
   ArrowsInLineVerticalIcon,
@@ -25,6 +11,20 @@ import {
   useEffect,
   useRef,
 } from 'react'
+import { commands } from '@/commands/registry'
+import { IconButton } from '@/components/common/IconButton'
+import { RenameInput } from '@/components/common/RenameInput'
+import { fmt, useDict } from '@/lib/app/useDict'
+import { isPaneVisible } from '@/lib/attention/workspaceActivity'
+import { canCollapse, stripAxis } from '@/lib/layout/collapse'
+import { allPanes } from '@/lib/layout/tree'
+import type { LayoutNode, PaneNode, SplitNode } from '@/lib/layout/types'
+import { beginPaneDrag, endPaneDrag, PANE_DND } from '@/lib/panes/paneDrag'
+import { splitTabLayout } from '@/lib/panes/splitTabs'
+import { cn } from '@/lib/utils'
+import { useLayoutStore } from '@/stores/workspaces/layoutStore'
+import { usePaneRenameStore } from '@/stores/workspaces/paneRenameStore'
+import { focusSurfaceWhenReady } from '@/stores/workspaces/surfaceSlotsStore'
 import { PaneRenameField } from './PaneRenameField'
 import { PaneTabMenu } from './PaneTabMenu'
 import { TabEndAction } from './TabEndAction'

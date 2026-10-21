@@ -1,3 +1,10 @@
+import {
+  ArrowClockwiseIcon,
+  ArrowSquareOutIcon,
+  DownloadSimpleIcon,
+  type Icon as IconComponent,
+  XIcon,
+} from '@phosphor-icons/react'
 import { Hint } from '@/components/common/Hint'
 import { SplitButton } from '@/components/common/SplitButton'
 import { Button } from '@/components/ui/button'
@@ -6,13 +13,6 @@ import { fmt, useDict } from '@/lib/app/useDict'
 import { useFlipped } from '@/lib/app/useFlipped'
 import { cn } from '@/lib/utils'
 import { restartReady, showsUpdate, updateAction, useUpdateStore } from '@/stores/app/updateStore'
-import {
-  ArrowClockwiseIcon,
-  ArrowSquareOutIcon,
-  DownloadSimpleIcon,
-  type Icon as IconComponent,
-  XIcon,
-} from '@phosphor-icons/react'
 
 function NoticeGroup({
   icon: Icon,

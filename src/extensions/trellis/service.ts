@@ -1,23 +1,23 @@
 import { type ChildProcess, spawn } from 'node:child_process'
 import {
   type ExtensionIcon,
-  type SidebarTone,
-  type Translate,
   nextBackoff,
   runTool,
+  type SidebarTone,
+  type Translate,
 } from '@aurigax-ai/ostia-extension-sdk'
 import { TrellisCli } from './cli'
 import { parseEventLine } from './parsers'
 import {
   ALL_NOTIFY_KINDS,
   type CardCounts,
-  type NotifyKinds,
-  type TrellisEvent,
-  type TrellisProject,
   countBoard,
   findProject,
+  type NotifyKinds,
   needsUser,
   projectOfRef,
+  type TrellisEvent,
+  type TrellisProject,
 } from './trellis'
 import { cardPath } from './validate'
 

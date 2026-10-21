@@ -1,4 +1,3 @@
-import { MATCH_OSTIA_THEME, parseThemeChoice } from '@/lib/theme/themeChoice'
 import { isRecord } from '@aurigax-ai/ostia-extension-sdk/contract/isRecord'
 import {
   DEFAULT_PROMPT_SETTINGS,
@@ -7,10 +6,11 @@ import {
 } from '@shared/terminal/promptSettings'
 import {
   DEFAULT_SCROLLBACK_HISTORY,
-  type ScrollbackHistory,
   parseScrollbackHistory,
+  type ScrollbackHistory,
 } from '@shared/terminal/scrollbackHistory'
 import { parseShellSetting } from '@shared/terminal/terminalShell'
+import { MATCH_OSTIA_THEME, parseThemeChoice } from '@/lib/theme/themeChoice'
 
 export interface TerminalSettings {
   scrollSpeed: number

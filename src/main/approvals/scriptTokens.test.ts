@@ -5,10 +5,10 @@ import { join } from 'node:path'
 import { DEFAULT_CAPABILITIES } from '@aurigax-ai/ostia-extension-sdk/contract/capabilities'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
+  createMessageConnection,
   type MessageConnection,
   StreamMessageReader,
   StreamMessageWriter,
-  createMessageConnection,
 } from 'vscode-jsonrpc/node'
 import type { CommandResult } from '../../shared/control/commands'
 import type { ApprovalOutcome } from '../../shared/permissions/approvals'

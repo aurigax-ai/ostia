@@ -89,9 +89,10 @@ beforeAll(() => {
     closing: (paneId, state, message, stop) => journal.report(paneId, state, message, stop),
   })
   registerPaneStatusMethods({
-    processPane: async () => undefined,
+    processPane: async () => [],
+    visible: async () => () => true,
     inScope: async () => true,
-    isChild: () => false,
+    isChild: (owner, paneId) => owner === coordinator.paneId && paneId === worker.paneId,
     isSandboxed: () => false,
     isConfined: () => false,
     panes: async () => [
@@ -148,7 +149,11 @@ describe('ostia pane status through the real CLI', () => {
     expect(hook).toMatchObject({ code: 0, stderr: '' })
 
     const second = await status()
-    expect(second.stdout).toMatch(/^w-3 {2}done \d+s {2}exit 0 {2}feat\/inbox \+2 ↑1 {2}mail 0/)
+    expect(second.stdout).toMatch(
+      new RegExp(
+        `^${worker.externalId.slice(0, 8)} {2}w-3 {2}done \\d+s {2}exit 0 {2}feat/inbox \\+2 ↑1 {2}mail 0`,
+      ),
+    )
     expect(second.stdout).toContain('"PR #1104 open, unit green."')
     expect(second.stdout).toContain('since last: working→done, new closing line')
     expect(second.stdout).not.toContain('Second paragraph')
@@ -190,12 +195,25 @@ describe('ostia pane status through the real CLI', () => {
     expect(written).not.toContain(worker.externalId)
   }, 60_000)
 
-  it('refuses an unknown pane and a call without a pane', async () => {
+  it('takes the first 8 characters of an id and starts each line with them', async () => {
+    const res = await run(coordinator, ['pane', 'status', worker.externalId.slice(0, 8)])
+    expect(res.code).toBe(0)
+    expect(res.stdout.startsWith(`${worker.externalId.slice(0, 8)}  w-3  `)).toBe(true)
+  }, 30_000)
+
+  it('answers the other terminals of the caller’s workspace when it names no pane', async () => {
+    const res = await run(coordinator, ['pane', 'status'])
+    expect(res.code).toBe(0)
+    expect(res.stdout.trim().split('\n')).toHaveLength(1)
+    expect(res.stdout.startsWith(`${worker.externalId.slice(0, 8)}  w-3  `)).toBe(true)
+    const json = JSON.parse((await run(coordinator, ['pane', 'status', '--json'])).stdout)
+    expect(json.panes.map((p: { pane: string }) => p.pane)).toEqual([worker.externalId])
+  }, 30_000)
+
+  it('refuses an unknown pane with the command that lists the panes', async () => {
     const unknown = await run(coordinator, ['pane', 'status', 'not-a-pane'])
     expect(unknown.code).not.toBe(0)
     expect(unknown.stderr).toContain('unknown-pane')
-    const none = await run(coordinator, ['pane', 'status'])
-    expect(none.code).toBe(1)
-    expect(none.stderr).toContain('usage: ostia pane')
+    expect(unknown.stderr).toContain('List the panes you can reach with ostia pane list')
   }, 30_000)
 })

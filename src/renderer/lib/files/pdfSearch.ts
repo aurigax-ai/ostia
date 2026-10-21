@@ -2,7 +2,7 @@ import type { SearchPdf } from '@shared/files/search'
 import { LRUCache } from 'lru-cache'
 import { childPath } from './fileTree'
 import { openPdf } from './pdf'
-import { PDF_MAX_PAGES, itemLines, pageItems } from './pdfText'
+import { itemLines, PDF_MAX_PAGES, pageItems } from './pdfText'
 import type { LineMatcher } from './textMatch'
 
 export const PDF_SEARCH_MAX_BYTES = 25 * 1024 * 1024

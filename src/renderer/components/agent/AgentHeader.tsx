@@ -1,6 +1,6 @@
+import { NotePencilIcon } from '@phosphor-icons/react'
 import { IconButton } from '@/components/common/IconButton'
 import { useDict } from '@/lib/app/useDict'
-import { NotePencilIcon } from '@phosphor-icons/react'
 
 export function AgentHeader({
   title,

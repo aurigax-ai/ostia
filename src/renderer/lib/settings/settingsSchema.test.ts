@@ -1,9 +1,9 @@
+import { ALL_CAPABILITIES } from '@aurigax-ai/ostia-extension-sdk/contract/capabilities'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { commands } from '@/commands/registry'
 import { langFor, setSettingsFile } from '@/lib/monaco/language'
 import { settingsJsonDefaults } from '@/lib/monaco/settingsLanguage'
 import { useSettingsStore } from '@/stores/app/settingsStore'
-import { ALL_CAPABILITIES } from '@aurigax-ai/ostia-extension-sdk/contract/capabilities'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { registerSettingsSchema } from './registerSettingsSchema'
 import { SETTINGS_JSON_SCHEMA, settingsSchemaAt } from './settingsSchema'
 

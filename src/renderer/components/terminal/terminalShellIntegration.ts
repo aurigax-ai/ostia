@@ -1,3 +1,5 @@
+import { wantsDesktopBanner } from '@shared/app/notificationSettings'
+import { decodeCommandLine } from '@shared/terminal/commandLine'
 import { clearTypedLaunchOnNewBlock } from '@/lib/agents/resumeTyped'
 import { currentDict, fmt } from '@/lib/app/useDict'
 import { isPaneViewed, shouldNotifyCommandEnd } from '@/lib/attention/workspaceActivity'
@@ -9,8 +11,6 @@ import { useSettingsStore } from '@/stores/app/settingsStore'
 import { type LineAnchor, useBlocksStore } from '@/stores/terminal/blocksStore'
 import { useRemoteCwdStore } from '@/stores/terminal/remoteCwdStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
-import { wantsDesktopBanner } from '@shared/app/notificationSettings'
-import { decodeCommandLine } from '@shared/terminal/commandLine'
 import type { TerminalSession } from './terminalSession'
 
 interface ReportedCommand {

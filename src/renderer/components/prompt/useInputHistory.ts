@@ -1,14 +1,14 @@
+import { useEffect, useMemo, useState } from 'react'
 import { historyHiddenFrom } from '@/lib/panes/scratchPanes'
 import {
-  type HistoryFacts,
   fileOnlyCommands,
+  type HistoryFacts,
   historyFacts,
   sessionBlocks,
 } from '@/lib/prompt/historyRank'
 import { historyMatches, inputHistory } from '@/lib/prompt/inputEditor'
 import { useFileHistory } from '@/lib/prompt/useFileHistory'
 import type { CommandBlock, LineAnchor } from '@/stores/terminal/blocksStore'
-import { useEffect, useMemo, useState } from 'react'
 import type { InputDraft } from './useInputDraft'
 
 export interface InputHistory {

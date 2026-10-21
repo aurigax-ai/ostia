@@ -1,3 +1,9 @@
+import {
+  ArrowsInIcon,
+  MagnifyingGlassMinusIcon,
+  MagnifyingGlassPlusIcon,
+} from '@phosphor-icons/react'
+import type { ReactNode } from 'react'
 import { IconButton } from '@/components/common/IconButton'
 import { formatBytes } from '@/lib/app/localeFormat'
 import { fmt, useDict } from '@/lib/app/useDict'
@@ -5,12 +11,6 @@ import { stepZoom, zoomPercent } from '@/lib/browser/regionSelect'
 import { archiveProblemText } from '@/lib/files/archiveProblems'
 import type { FileBytes } from '@/lib/files/viewerHooks'
 import { useSettingsStore } from '@/stores/app/settingsStore'
-import {
-  ArrowsInIcon,
-  MagnifyingGlassMinusIcon,
-  MagnifyingGlassPlusIcon,
-} from '@phosphor-icons/react'
-import type { ReactNode } from 'react'
 
 export type Zoom = number | 'fit'
 

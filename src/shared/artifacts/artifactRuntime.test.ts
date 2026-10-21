@@ -3,12 +3,12 @@ import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import {
   ARTIFACT_RUNTIME,
-  RUNTIME_MODULES,
-  RUNTIME_NOTICES,
-  TAILWIND_PACKAGE,
   allowsRuntimeImport,
   importableSpecifiers,
+  RUNTIME_MODULES,
+  RUNTIME_NOTICES,
   runtimePackages,
+  TAILWIND_PACKAGE,
 } from './artifactRuntime'
 
 const built = join(process.cwd(), 'out', 'artifact-runtime')

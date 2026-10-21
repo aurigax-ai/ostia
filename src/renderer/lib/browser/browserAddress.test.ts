@@ -1,5 +1,5 @@
-import { DEFAULT_BROWSER_SETTINGS } from '@/lib/settings/browserEditorSettings'
 import { describe, expect, it } from 'vitest'
+import { DEFAULT_BROWSER_SETTINGS } from '@/lib/settings/browserEditorSettings'
 import { resolveAddress } from './browserAddress'
 
 const settings = DEFAULT_BROWSER_SETTINGS

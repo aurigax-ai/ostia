@@ -1,3 +1,15 @@
+import { ArrowCounterClockwiseIcon, PlusIcon, XIcon } from '@phosphor-icons/react'
+import {
+  type ChordProblem,
+  type ChordSpec,
+  type ChordValue,
+  chordText,
+  chordTexts,
+  DIGIT_RANGE,
+  formatScopedChord,
+  usedByMonaco,
+} from '@shared/keyboard/chordSpec'
+import { useState } from 'react'
 import { IconButton } from '@/components/common/IconButton'
 import { Notice } from '@/components/common/Notice'
 import { Button } from '@/components/ui/button'
@@ -5,7 +17,6 @@ import { Kbd } from '@/components/ui/kbd'
 import { TableCell, TableRow } from '@/components/ui/table'
 import { fmt, useDict } from '@/lib/app/useDict'
 import {
-  WORKSPACE_GOTO,
   baseChords,
   bindingProblem,
   checkBinding,
@@ -13,9 +24,10 @@ import {
   chordsWithout,
   conflictsWith,
   keymapBindings,
+  WORKSPACE_GOTO,
   workspaceDigit,
 } from '@/lib/keyboard/chords'
-import { type TerminalKeyRow, removeTerminalKey, terminalKeyFor } from '@/lib/keyboard/keyPresets'
+import { removeTerminalKey, type TerminalKeyRow, terminalKeyFor } from '@/lib/keyboard/keyPresets'
 import {
   canAddChord,
   commandSources,
@@ -26,23 +38,11 @@ import {
 } from '@/lib/keyboard/keySources'
 import { isMac } from '@/platform'
 import { useSettingsStore } from '@/stores/app/settingsStore'
-import { ArrowCounterClockwiseIcon, PlusIcon, XIcon } from '@phosphor-icons/react'
-import {
-  type ChordProblem,
-  type ChordSpec,
-  type ChordValue,
-  DIGIT_RANGE,
-  chordText,
-  chordTexts,
-  formatScopedChord,
-  usedByMonaco,
-} from '@shared/keyboard/chordSpec'
-import { useState } from 'react'
 import { BindingDetail, RowToggle } from './BindingDetail'
 import { ChordRecorder } from './ChordRecorder'
 import { CustomBar, DesktopNote, SourceLabel, TerminalLosesNote } from './KeyRowNotes'
-import { keepChords, useCollapse } from './keyRows'
 import { commandTitle, problemText, sendText } from './keyboardLabels'
+import { keepChords, useCollapse } from './keyRows'
 
 function firstIgnored(
   id: string,

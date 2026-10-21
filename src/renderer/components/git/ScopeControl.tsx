@@ -1,13 +1,13 @@
+import { CaretDownIcon, GitBranchIcon, MagnifyingGlassIcon } from '@phosphor-icons/react'
+import type { Dict } from '@shared/app/dict'
+import type { BranchRef, GitGraphData, GraphScope } from '@shared/boards/git'
+import { useId, useState } from 'react'
 import { Checkbox } from '@/components/ui/checkbox'
 import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/input-group'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { fmt, useDict } from '@/lib/app/useDict'
 import { matchingBranches, toggledRefs } from '@/lib/git/gitView'
-import { CaretDownIcon, GitBranchIcon, MagnifyingGlassIcon } from '@phosphor-icons/react'
-import type { Dict } from '@shared/app/dict'
-import type { BranchRef, GitGraphData, GraphScope } from '@shared/boards/git'
-import { useId, useState } from 'react'
 
 type ScopeKind = GraphScope['kind']
 
@@ -72,7 +72,11 @@ function BranchPicker({
   data,
   chosen,
   onScope,
-}: { data: GitGraphData; chosen: string[]; onScope: (scope: GraphScope) => void }): JSX.Element {
+}: {
+  data: GitGraphData
+  chosen: string[]
+  onScope: (scope: GraphScope) => void
+}): JSX.Element {
   const t = useDict().git
   const [query, setQuery] = useState('')
   const matches = matchingBranches(data.branches, query)
@@ -119,7 +123,10 @@ function BranchPicker({
 export function ScopeControl({
   data,
   onScope,
-}: { data: GitGraphData; onScope: (scope: GraphScope) => void }): JSX.Element {
+}: {
+  data: GitGraphData
+  onScope: (scope: GraphScope) => void
+}): JSX.Element {
   const t = useDict().git
   const ids = useId()
   const current = data.branches.find((b) => b.current)

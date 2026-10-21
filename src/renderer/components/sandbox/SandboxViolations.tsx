@@ -1,14 +1,14 @@
+import type { SandboxViolation } from '@shared/sandbox/sandbox'
+import { useCallback, useEffect, useState } from 'react'
 import { SettingsGroup } from '@/components/settingsKit/SettingsGroup'
 import { SettingsList } from '@/components/settingsKit/SettingsList'
 import { SettingsListRow } from '@/components/settingsKit/SettingsListRow'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { TIME_ONLY, formatDate } from '@/lib/app/localeFormat'
+import { formatDate, TIME_ONLY } from '@/lib/app/localeFormat'
 import { fmt, useDict } from '@/lib/app/useDict'
 import { isMac } from '@/platform'
 import { useSettingsStore } from '@/stores/app/settingsStore'
-import type { SandboxViolation } from '@shared/sandbox/sandbox'
-import { useCallback, useEffect, useState } from 'react'
 
 const REFRESH_MS = 3000
 

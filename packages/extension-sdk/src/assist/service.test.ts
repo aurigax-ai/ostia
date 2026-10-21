@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { type AssistContext, AssistFailure } from '../client/index'
 import type { AssistProviderEntry } from '../contract/assist'
 import type { Provider, ProviderCatalog } from './provider'
-import { type AssistServiceOptions, AssistantService } from './service'
+import { AssistantService, type AssistServiceOptions } from './service'
 
 const ENV = { XDG_RUNTIME_DIR: '/run/user/1000' }
 

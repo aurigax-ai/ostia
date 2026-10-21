@@ -1,3 +1,5 @@
+import { OWN_VIEW } from '@aurigax-ai/ostia-extension-sdk/contract/fileKinds'
+import { useId, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import {
@@ -10,12 +12,10 @@ import {
 } from '@/components/ui/dialog'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { fmt, useDict } from '@/lib/app/useDict'
-import { type ViewerOption, associationPattern } from '@/lib/files/viewerChoice'
+import { associationPattern, type ViewerOption } from '@/lib/files/viewerChoice'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useOpenWithStore } from '@/stores/files/openWithStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
-import { OWN_VIEW } from '@aurigax-ai/ostia-extension-sdk/contract/fileKinds'
-import { useId, useState } from 'react'
 
 interface OpenWithBodyProps {
   workspaceId: string

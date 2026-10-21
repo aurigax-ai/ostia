@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { CORE_VERBS } from '@aurigax-ai/ostia-extension-sdk/manifest/coreNames'
 import { describe, expect, it } from 'vitest'
-import { USAGE_TABLE, findNoun, nounUsage, topUsage, usageGate } from './usageTable'
+import { findNoun, nounUsage, topUsage, USAGE_TABLE, usageGate } from './usageTable'
 
 const shown = USAGE_TABLE.filter((n) => n.audience !== 'plumbing')
 

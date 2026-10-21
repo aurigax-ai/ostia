@@ -10,8 +10,8 @@ import type { PaneEntry } from '../panes/paneList'
 import { WatchedRefresher } from '../platform/watchedRefresher'
 import { paneChipValues, workspaceChipValues } from './chips'
 import type { ListeningPort } from './procfs'
-import { type TreeInfo, scanTrees } from './scan'
-import { type WorkspaceProcesses, groupByWorkspace, sidebarEntries, terminalPids } from './sidebar'
+import { scanTrees, type TreeInfo } from './scan'
+import { groupByWorkspace, sidebarEntries, terminalPids, type WorkspaceProcesses } from './sidebar'
 
 const REFRESH_DEBOUNCE_MS = 400
 const REFRESH_EVENTS: ReadonlySet<string> = new Set([

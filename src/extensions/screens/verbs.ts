@@ -1,17 +1,17 @@
 import {
   type CommandHandler,
+  cliArgs,
   type ExtensionCaller,
   type ExtensionResult,
+  failure,
+  ok,
   type PhoneScreenReply,
   type SandboxDomainsResult,
   type Translate,
-  cliArgs,
-  failure,
-  ok,
 } from '@aurigax-ai/ostia-extension-sdk'
 import type { CreateGate } from './createGate'
 import type { OwnedScreen } from './screenRegistry'
-import { MIN_SERVICE_VERSION, type ScreensResult, runScreens } from './screensCli'
+import { MIN_SERVICE_VERSION, runScreens, type ScreensResult } from './screensCli'
 import type { ScreensService } from './screensService'
 
 type PhoneAsk = (request: {

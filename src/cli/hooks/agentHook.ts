@@ -1,8 +1,8 @@
 import {
   AGENT_HOOK_INPUT_MAX,
   type AgentHookEvent,
-  type HookAgent,
   agentHookOutput,
+  type HookAgent,
   isAgentHookEvent,
   isHookAgent,
 } from '@aurigax-ai/ostia-extension-sdk/contract/agentPlugins'

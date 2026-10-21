@@ -1,4 +1,4 @@
-import { type StreamEnd, lastTurns, turnsStarted } from '../../shared/agents/agentStream'
+import { lastTurns, type StreamEnd, turnsStarted } from '../../shared/agents/agentStream'
 import { ClaudeStream } from '../../shared/agents/claudeStream'
 import type { StreamSource } from './streamSource'
 import { readNewLines, readTailWindow } from './transcriptFiles'

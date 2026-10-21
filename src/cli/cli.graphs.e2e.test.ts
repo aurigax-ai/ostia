@@ -3,7 +3,7 @@ import { join } from 'node:path'
 import { runCli as headless } from '@aurigax-ai/wire'
 import { WORKED_GRAPHS, workedGraph } from '@aurigax-ai/wire/testing'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
-import { FAKE_TOOL, type Harness, POLL, graphsHarness } from '../../test/graphsHarness'
+import { FAKE_TOOL, graphsHarness, type Harness, POLL } from '../../test/graphsHarness'
 
 vi.mock('electron', () => ({
   ipcMain: { handle: vi.fn() },

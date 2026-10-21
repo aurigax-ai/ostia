@@ -1,3 +1,4 @@
+import type { BrowserTabOpen } from '@shared/browser/linkTabs'
 import { workspaceOfPane } from '@/lib/attention/workspaceActivity'
 import { browserPaneOfGuest } from '@/lib/browser/browserHandles'
 import { markOpenedQuietly } from '@/lib/files/openFile'
@@ -5,7 +6,6 @@ import { paneBrowserProfile } from '@/lib/layout/paneFields'
 import { findPane } from '@/lib/layout/tree'
 import { openKeepingFocus } from '@/lib/panes/callerFocus'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
-import type { BrowserTabOpen } from '@shared/browser/linkTabs'
 
 export function openLinkTab({ guestId, url, background }: BrowserTabOpen): string | null {
   const opener = browserPaneOfGuest(guestId)

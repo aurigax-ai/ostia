@@ -30,7 +30,7 @@ export function registerBrowserGuestIpc({
     const wid = String(e.sender.id)
     if (getByPaneId(paneId)?.windowId !== wid) return
     const gc = webContents.fromId(webContentsId)
-    if (!gc || gc.getType() !== 'webview' || gc.hostWebContents?.id !== e.sender.id) return
+    if (gc?.getType() !== 'webview' || gc.hostWebContents?.id !== e.sender.id) return
     const expected = browserPartition(browserProfiles.profileOf(paneId), paneId)
     if (gc.session !== session.fromPartition(expected)) return
     browserPanes.set(paneId, webContentsId)

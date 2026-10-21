@@ -6,13 +6,13 @@ import type {
 import { ipcMain } from 'electron'
 import { approvals } from '../approvals/approvals'
 import { loadReachMode } from '../approvals/capabilityStore'
-import { type ReachListing, createReach } from '../approvals/reach'
-import { createScriptTokenUsage } from '../approvals/scriptTokenUsage'
+import { createReach, type ReachListing } from '../approvals/reach'
 import {
   listScriptTokens,
   recordCreatedWorkspace,
   scriptTokenScope,
 } from '../approvals/scriptTokens'
+import { createScriptTokenUsage } from '../approvals/scriptTokenUsage'
 import { workspaceHasManager } from '../control/idRegistry'
 import { listWorkspaceGroups, listWorkspaces } from '../panes/paneList'
 import { storePath } from '../platform/jsonStore'

@@ -5,9 +5,9 @@ import type { KeymapContribution } from '@aurigax-ai/ostia-extension-sdk/contrac
 import { readManifest } from '@aurigax-ai/ostia-extension-sdk/manifest/extensionManifest'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
+  describeSkipped,
   type KeymapDeps,
   type KeymapSource,
-  describeSkipped,
   keymapFor,
   loadKeymap,
 } from './keymaps'

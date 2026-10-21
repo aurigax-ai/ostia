@@ -1,3 +1,6 @@
+import { FolderOpenIcon } from '@phosphor-icons/react'
+import type { Dict } from '@shared/app/dict'
+import type { ViewInfo } from '@shared/views/views'
 import { IconButton } from '@/components/common/IconButton'
 import { Notice } from '@/components/common/Notice'
 import { SettingsList } from '@/components/settingsKit/SettingsList'
@@ -8,9 +11,6 @@ import { Badge } from '@/components/ui/badge'
 import { Switch } from '@/components/ui/switch'
 import { fmt, useDict } from '@/lib/app/useDict'
 import { useViewsStore } from '@/stores/extensions/viewsStore'
-import { FolderOpenIcon } from '@phosphor-icons/react'
-import type { Dict } from '@shared/app/dict'
-import type { ViewInfo } from '@shared/views/views'
 import { viewIcon } from './viewIcons'
 
 function placementLabel(d: Dict, view: ViewInfo): string | null {
@@ -31,6 +31,7 @@ function Problems({ view }: { view: ViewInfo }): JSX.Element | null {
       )}
       <ul className="flex flex-col gap-0.5 rounded-sm border border-line bg-bg-sunken px-2 py-1.5 font-mono text-ui-xs">
         {view.problems.map((p, i) => (
+          // biome-ignore lint/suspicious/noArrayIndexKey: the index tells repeated entries apart and the list is rebuilt, never reordered
           <li key={`${p.path}-${i}`} className="flex min-w-0 gap-2">
             <span className="shrink-0 text-fg-muted tabular-nums">
               {p.line ? fmt(d.views.line, { line: p.line }) : ''}

@@ -1,3 +1,7 @@
+import { isResumableAgent } from '@shared/agents/agentResume'
+import type { PaneActivity } from '@shared/terminal/ptyApi'
+import { AGENT_CLOSE_SAVE_WAIT_MS, QUIT_SAVE_WAIT_MS } from '@shared/windows/closeWaits'
+import type { QuitAnswer } from '@shared/windows/windowsApi'
 import { runningAgent, runningAgentOf } from '@/lib/agents/paneAgent'
 import { settleSaves } from '@/lib/files/pendingSaves'
 import { allPanes, findPane, tabIdOf, tabsOfPane } from '@/lib/layout/tree'
@@ -17,12 +21,8 @@ import {
 } from '@/stores/workspaces/closeConfirmStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { isRestorable } from '@/stores/workspaces/persistence'
-import type { Workspace } from '@/stores/workspaces/workspaceTypes'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
-import { isResumableAgent } from '@shared/agents/agentResume'
-import type { PaneActivity } from '@shared/terminal/ptyApi'
-import { AGENT_CLOSE_SAVE_WAIT_MS, QUIT_SAVE_WAIT_MS } from '@shared/windows/closeWaits'
-import type { QuitAnswer } from '@shared/windows/windowsApi'
+import type { Workspace } from '@/stores/workspaces/workspaceTypes'
 
 export function runningCommandsOf(
   panes: readonly string[],

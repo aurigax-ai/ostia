@@ -1,9 +1,3 @@
-import { fmt } from '@/lib/app/useDict'
-import { GRAPH_PAGE, failureText, shortSha } from '@/lib/git/gitView'
-import { useSurfaceFocus } from '@/lib/panes/paneFocus'
-import { useCoreWatch } from '@/lib/workspaces/coreWatch'
-import { useSettingsStore } from '@/stores/app/settingsStore'
-import { type GitPage, useGitViewStore } from '@/stores/files/gitViewStore'
 import type { Dict } from '@shared/app/dict'
 import type {
   GitBlameData,
@@ -14,6 +8,12 @@ import type {
   GraphScope,
 } from '@shared/boards/git'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { fmt } from '@/lib/app/useDict'
+import { failureText, GRAPH_PAGE, shortSha } from '@/lib/git/gitView'
+import { useSurfaceFocus } from '@/lib/panes/paneFocus'
+import { useCoreWatch } from '@/lib/workspaces/coreWatch'
+import { useSettingsStore } from '@/stores/app/settingsStore'
+import { type GitPage, useGitViewStore } from '@/stores/files/gitViewStore'
 import type { ChangeHandlers, FolderState } from './ChangeList'
 
 type Loaded =
@@ -97,7 +97,13 @@ export function useGitView({
   home,
   shown,
   t,
-}: { workspaceId: string; paneId: string; home: GitHome; shown: boolean; t: Dict['git'] }) {
+}: {
+  workspaceId: string
+  paneId: string
+  home: GitHome
+  shown: boolean
+  t: Dict['git']
+}) {
   useSurfaceFocus(paneId, null)
   const nav = useGitViewStore((s) => s.nav[paneId])
   const [page, setPage] = useState<GitPage>(nav?.page ?? (home === 'dock' ? 'changes' : 'graph'))

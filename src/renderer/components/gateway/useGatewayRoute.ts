@@ -1,4 +1,3 @@
-import { fmt, useDict } from '@/lib/app/useDict'
 import type { Dict } from '@shared/app/dict'
 import type {
   GatewayRemoteStatus,
@@ -7,6 +6,7 @@ import type {
 } from '@shared/gateway/gatewayApi'
 import { DEFAULT_GATEWAY_ROUTE, LOOPBACK_ADDRESS } from '@shared/gateway/gatewayRoute'
 import { useState } from 'react'
+import { fmt, useDict } from '@/lib/app/useDict'
 
 function tailnetProblem(d: Dict, node: GatewayTailnetState): string | null {
   if (node.state === 'running' && !node.ip) return d.settings.remoteTailnetNoIpv4

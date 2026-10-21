@@ -1,3 +1,5 @@
+import type { ExtensionInfo } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
+import { Fragment, memo, useEffect, useMemo, useRef } from 'react'
 import { AgentsSection } from '@/components/agents/AgentsSection'
 import { AboutSection } from '@/components/app/AboutSection'
 import { AssistantSection } from '@/components/assist/AssistantSection'
@@ -9,7 +11,6 @@ import {
 import type { ExtensionAnchor } from '@/components/extensions/InstalledExtensions'
 import { GatewaySection } from '@/components/gateway/GatewaySection'
 import { KeyboardSection } from '@/components/keyboard/KeyboardSection'
-import { LanguagesSection } from '@/components/languageServers/LanguagesSection'
 import { PanesSection } from '@/components/panes/PanesSection'
 import { SandboxSection } from '@/components/sandbox/SandboxSection'
 import { WorkspaceSandboxPage } from '@/components/sandbox/WorkspaceSandboxPage'
@@ -22,18 +23,16 @@ import { ViewsSection } from '@/components/views/ViewsSection'
 import { useDict } from '@/lib/app/useDict'
 import { openFileInWorkspace } from '@/lib/files/openFile'
 import {
-  type SectionId,
   extensionPageResultId,
   pageTitle,
+  type SectionId,
   settingsSections,
 } from '@/lib/settings/settingsSections'
 import { workspaceTitle } from '@/lib/workspaces/workspaceTitle'
 import { useUIStore } from '@/stores/app/uiStore'
 import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
-import type { Workspace } from '@/stores/workspaces/workspaceTypes'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
-import type { ExtensionInfo } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
-import { Fragment, memo, useEffect, useMemo, useRef } from 'react'
+import type { Workspace } from '@/stores/workspaces/workspaceTypes'
 import { ActionsSection } from './ActionsSection'
 import { AppearanceSection } from './AppearanceSection'
 import { GitSection, PortsSection } from './BoardSettings'
@@ -46,8 +45,8 @@ import { PrivacySection } from './PrivacySection'
 import { PromptSection } from './PromptSection'
 import { SettingsNav } from './SettingsNav'
 import { SyncSection } from './SyncSection'
-import { WorkspacesSection } from './WorkspacesSection'
 import { useSettingsNavigation } from './useSettingsNavigation'
+import { WorkspacesSection } from './WorkspacesSection'
 
 export function SettingsPanel(): JSX.Element | null {
   const d = useDict()
@@ -200,7 +199,6 @@ const SettingsPages = memo(function SettingsPages({
         <ExtensionSettingsPage key={shownPage.id} ext={shownPage} />
       ) : null}
       {id === 'views' ? <ViewsSection /> : null}
-      {id === 'languageServers' ? <LanguagesSection /> : null}
       {id === 'remote' ? <GatewaySection /> : null}
       {id === 'sync' ? <SyncSection /> : null}
       {id === 'about' ? <AboutSection /> : null}

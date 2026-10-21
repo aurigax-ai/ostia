@@ -1,13 +1,13 @@
 import { existsSync, lstatSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
-import { Server, type Socket, createServer } from 'node:net'
+import { createServer, Server, type Socket } from 'node:net'
 import { tmpdir } from 'node:os'
 import { basename, dirname, join } from 'node:path'
 import { afterAll, describe, expect, it, vi } from 'vitest'
 import {
+  connectHostChannel,
   HostChannelError,
   JsonLines,
   type ListeningChannel,
-  connectHostChannel,
   listenHostChannel,
 } from './hostChannel'
 import { SandboxHost } from './hostClient'

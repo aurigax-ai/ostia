@@ -1,8 +1,8 @@
 import { isRecord } from '@aurigax-ai/ostia-extension-sdk/contract/isRecord'
 import {
   DEFAULT_TELEMETRY_SETTINGS,
-  type TelemetrySettings,
   parseTelemetrySettings,
+  type TelemetrySettings,
 } from './telemetry'
 
 export interface RedactionSettings {

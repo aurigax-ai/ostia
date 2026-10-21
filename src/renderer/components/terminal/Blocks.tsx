@@ -1,3 +1,16 @@
+import { throttle } from 'es-toolkit'
+import {
+  type Dispatch,
+  type MutableRefObject,
+  memo,
+  type RefObject,
+  type SetStateAction,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from 'react'
 import { fmt, useDict } from '@/lib/app/useDict'
 import { useExitPresence } from '@/lib/app/useExitPresence'
 import { blockSpan, commandLine, stickyBlock } from '@/lib/terminal/blocks'
@@ -5,19 +18,6 @@ import { createCellBoxCache } from '@/lib/terminal/cellBox'
 import type { OstiaTerminal as Xterm } from '@/lib/terminal/ostiaTerminal'
 import { terminalScreen } from '@/lib/terminal/ostiaTerminal'
 import { type CommandBlock, useBlocksStore } from '@/stores/terminal/blocksStore'
-import { throttle } from 'es-toolkit'
-import {
-  type Dispatch,
-  type MutableRefObject,
-  type RefObject,
-  type SetStateAction,
-  memo,
-  useCallback,
-  useEffect,
-  useLayoutEffect,
-  useRef,
-  useState,
-} from 'react'
 import { BlockMenu } from './BlockMenu'
 
 interface Bar {

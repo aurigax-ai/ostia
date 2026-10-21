@@ -1,7 +1,7 @@
 import '@testing-library/jest-dom/vitest'
-import { useSettingsStore } from '@/stores/app/settingsStore'
 import { act, cleanup } from '@testing-library/react'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import { useSettingsStore } from '@/stores/app/settingsStore'
 import { renderSettled } from '../../test/render'
 import { App } from './App'
 

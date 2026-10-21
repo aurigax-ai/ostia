@@ -6,8 +6,8 @@ import {
   encodeTrashPath,
   homeTrashPlace,
   topdirTrashPlace,
-  trashInfo,
   trashedName,
+  trashInfo,
 } from './freedesktopTrash'
 import { isSystemInternal, mountAllowsTrash, parseMountInfo, userMountAt } from './trashMounts'
 

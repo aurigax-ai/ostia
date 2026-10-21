@@ -2,7 +2,7 @@ import { PRODUCT_DISPLAY_NAME } from '@aurigax-ai/ostia-extension-sdk/contract/p
 import type { ManagerSettings } from '../../shared/agents/managerSettings'
 import { type ControlMethod, registerControlMethod } from '../control/controlServer'
 import { type PaneIdentity, resolveExternal } from '../control/idRegistry'
-import { type PaneIo, inputBytes, readLineCount } from '../panes/paneIo'
+import { inputBytes, type PaneIo, readLineCount } from '../panes/paneIo'
 import { fail, record } from '../panes/paneReach'
 import { RateWindow } from '../platform/rateWindow'
 

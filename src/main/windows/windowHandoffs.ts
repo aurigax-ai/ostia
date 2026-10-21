@@ -12,14 +12,14 @@ import { questions } from '../approvals/questions'
 import { getByPaneId, panesOwnedBy, rehomePanes } from '../control/idRegistry'
 import { handoffPaneIds, parseHandoff, parsePaneDrop } from '../workspaces/workspaceSnapshot'
 import {
-  Landings,
-  MAIN_SLOT,
-  type WindowBook,
   boundsAt,
   clampBounds,
   crossesSandbox,
+  Landings,
+  MAIN_SLOT,
   parsePoint,
   planReturn,
+  type WindowBook,
   withoutOrigin,
 } from './windowBook'
 

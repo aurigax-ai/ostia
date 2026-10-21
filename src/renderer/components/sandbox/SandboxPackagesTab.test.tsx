@@ -1,14 +1,14 @@
 import '@testing-library/jest-dom/vitest'
-import { useSettingsStore } from '@/stores/app/settingsStore'
 import {
   DEFAULT_CONTROLS,
   DEFAULT_PACKAGE_SETTINGS,
-  type WorkspaceSandbox,
   resolvePackages,
+  type WorkspaceSandbox,
 } from '@shared/sandbox/sandbox'
 import { cleanup, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import { useSettingsStore } from '@/stores/app/settingsStore'
 import { WorkspaceSandboxPage } from './WorkspaceSandboxPage'
 
 let settingsInit: ReturnType<typeof useSettingsStore.getState>

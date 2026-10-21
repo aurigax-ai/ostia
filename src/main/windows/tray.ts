@@ -1,4 +1,4 @@
-import { type BrowserWindow, Menu, Tray, nativeImage } from 'electron'
+import { type BrowserWindow, Menu, nativeImage, Tray } from 'electron'
 import { type Dict, fmt } from '../../shared/app/dict'
 import type { WindowSummary } from '../../shared/windows/windowsApi'
 

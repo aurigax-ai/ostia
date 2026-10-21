@@ -11,7 +11,7 @@ import {
 import { tmpdir } from 'node:os'
 import { basename, dirname, join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { SCRATCH_HISTORY_FILE, ScratchFolders, countScratchFiles } from './scratchFolders'
+import { countScratchFiles, SCRATCH_HISTORY_FILE, ScratchFolders } from './scratchFolders'
 
 const hooks = vi.hoisted(() => ({
   beforeRm: null as ((dir: string, attempt: number) => void) | null,

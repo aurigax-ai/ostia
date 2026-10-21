@@ -1,3 +1,4 @@
+import type { WorkspaceGroupColor } from '@shared/workspaces/workspaceGroups'
 import { registerCore } from '@/commands/coreCommand'
 import { awaitsResume } from '@/lib/agents/autoResume'
 import { type PaneAgentReport, paneAgentReport } from '@/lib/agents/paneAgent'
@@ -5,9 +6,8 @@ import { allPanes, splitTabOfPane } from '@/lib/layout/tree'
 import type { SurfaceKind } from '@/lib/layout/types'
 import { isKeptShell } from '@/lib/terminal/keptReattach'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
-import type { WorkspaceKind, WorkspaceState } from '@/stores/workspaces/workspaceTypes'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
-import type { WorkspaceGroupColor } from '@shared/workspaces/workspaceGroups'
+import type { WorkspaceKind, WorkspaceState } from '@/stores/workspaces/workspaceTypes'
 
 interface PaneListEntry extends PaneAgentReport {
   paneId: string

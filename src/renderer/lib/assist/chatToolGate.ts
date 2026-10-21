@@ -1,10 +1,3 @@
-import {
-  type ApprovalDetail,
-  grantsFor,
-  modeFor,
-  requestApproval,
-  standingGrants,
-} from '@/stores/assist/chatToolsStore'
 import type { ChatToolSpec } from '@aurigax-ai/ostia-extension-sdk/contract/assist'
 import { PRODUCT_DISPLAY_NAME } from '@aurigax-ai/ostia-extension-sdk/contract/productDisplay'
 import type {
@@ -15,10 +8,17 @@ import type {
 } from '@shared/assist/chatTools'
 import { resolveLinkPath } from '@shared/files/fileLinks'
 import {
+  type ApprovalDetail,
+  grantsFor,
+  modeFor,
+  requestApproval,
+  standingGrants,
+} from '@/stores/assist/chatToolsStore'
+import {
   type ApprovalAnswer,
-  type ToolCheck,
   decideTool,
   readsOutsideUnasked,
+  type ToolCheck,
 } from './chatToolPermissions'
 
 export type ToolOutcome =

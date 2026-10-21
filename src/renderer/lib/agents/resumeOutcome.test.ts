@@ -1,3 +1,4 @@
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { buildSnapshot, restoreSnapshot } from '@/lib/layout/snapshot'
 import { findPane } from '@/lib/layout/tree'
 import type { PaneNode } from '@/lib/layout/types'
@@ -5,7 +6,6 @@ import { useFolderTrustStore } from '@/stores/agents/folderTrustStore'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useBlocksStore } from '@/stores/terminal/blocksStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
-import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 
 vi.mock('@/lib/terminal/blockActions', () => ({ runWhenIdle: vi.fn(() => vi.fn()) }))
 

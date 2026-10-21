@@ -1,3 +1,4 @@
+import { createTranslator } from '@aurigax-ai/ostia-extension-sdk'
 import { describe, expect, it } from 'vitest'
 import {
   type InstallContext,
@@ -6,9 +7,8 @@ import {
   parseInstallArgs,
   planInstall,
 } from './install'
-import { stringsFor } from './strings'
 
-const s = stringsFor('en')
+const s = createTranslator(__dirname)('en')
 
 const arch: InstallContext = {
   os: { platform: 'linux', id: 'cachyos', idLike: [], name: 'CachyOS', version: 'rolling' },
@@ -100,12 +100,12 @@ describe('installOutcome', () => {
   it('reports success only for exit code 0', () => {
     expect(installOutcome({ outcome: 'finished', exitCode: 0 }, s)).toEqual({
       ok: true,
-      message: s.installed,
+      message: s('installed'),
     })
     expect(installOutcome({ outcome: 'finished', exitCode: 1 }, s)).toEqual({
       ok: false,
       error: 'install-failed',
-      message: s.installFailed(1),
+      message: s('installFailed', { code: 1 }),
     })
     expect(installOutcome({ outcome: 'finished' }, s)).toMatchObject({ error: 'install-failed' })
   })
@@ -114,7 +114,7 @@ describe('installOutcome', () => {
     expect(installOutcome({ outcome: 'closed' }, s)).toMatchObject({ error: 'terminal-closed' })
     expect(installOutcome({ outcome: 'timeout' }, s)).toEqual({
       ok: true,
-      message: s.installStillRunning,
+      message: s('installStillRunning'),
     })
   })
 })

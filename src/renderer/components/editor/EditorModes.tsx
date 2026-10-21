@@ -1,8 +1,8 @@
+import { CodeIcon, EyeIcon, PaperPlaneTiltIcon, PlayIcon, TableIcon } from '@phosphor-icons/react'
+import type { Dispatch, MutableRefObject, SetStateAction } from 'react'
 import type { SelectionSend } from '@/components/agents/SelectionSend'
 import { IconButton } from '@/components/common/IconButton'
 import { fmt, useDict } from '@/lib/app/useDict'
-import { CodeIcon, EyeIcon, PaperPlaneTiltIcon, PlayIcon, TableIcon } from '@phosphor-icons/react'
-import type { Dispatch, MutableRefObject, SetStateAction } from 'react'
 import { HtmlPreview } from './HtmlPreview'
 import { MarkdownPreview, type PreviewSelection } from './MarkdownPreview'
 

@@ -3,8 +3,8 @@ import {
   chmodSync,
   existsSync,
   mkdirSync,
-  readFileSync,
   readdirSync,
+  readFileSync,
   statSync,
   symlinkSync,
   writeFileSync,
@@ -13,8 +13,8 @@ import { hostname } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
 import {
-  type RemoteHost,
   helperSource,
+  type RemoteHost,
   remoteHost,
   toolPath,
 } from '../../../test/fixtures/ssh/remoteHost'

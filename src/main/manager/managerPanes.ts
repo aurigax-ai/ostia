@@ -1,6 +1,6 @@
 import { tmpdir } from 'node:os'
 import { PRODUCT_DISPLAY_NAME } from '@aurigax-ai/ostia-extension-sdk/contract/productDisplay'
-import { type BrowserWindow, app, ipcMain } from 'electron'
+import { app, type BrowserWindow, ipcMain } from 'electron'
 import { MANAGER_FEATURE } from '../../shared/agents/managerSettings'
 import { portalSocketPath } from '../../shared/agents/portal'
 import { quoteArgv } from '../../shared/terminal/shellQuote'

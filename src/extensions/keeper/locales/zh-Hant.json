@@ -9,5 +9,17 @@
     "settings.pollSeconds.description": "{product} 視窗在前景或有項目等待核准時，每次檢查佇列的間隔時間",
     "settings.idlePollSeconds.title": "背景檢查間隔",
     "settings.idlePollSeconds.description": "在背景且沒有項目等待時，每次檢查佇列的間隔時間"
+  },
+  "messages": {
+    "sidebar": "{n} 筆等待核准",
+    "needsApproval": "Keeper 需要核准",
+    "notifyOne": "1 筆查詢等待核准",
+    "notifyMany": "{n} 筆查詢等待核准",
+    "notifyWhat": "{head}（{what}）",
+    "notInstalled": "尚未安裝 Keeper，或它不在 PATH 中。安裝後請在終端機執行 `keeper daemon start`。",
+    "daemonDown": "Keeper 常駐程式沒有執行。請在終端機執行 `keeper daemon start` 啟動。",
+    "unavailableTitle": "Keeper 無法使用",
+    "noUi": "Keeper 常駐程式正在執行，但沒有提供儀表板。",
+    "empty": "沒有等待核准的項目。"
   }
 }

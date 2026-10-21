@@ -1,3 +1,7 @@
+import type { LanguageServerInfo } from '@aurigax-ai/ostia-extension-sdk/contract/languageServers'
+import type { ExtensionSuggestion } from '@shared/extensions/extensionSuggestions'
+import type { MarketplaceError } from '@shared/extensions/marketplace'
+import { useEffect, useState } from 'react'
 import { StatusAction, StatusLine, useDismissed } from '@/components/common/StatusLine'
 import { fmt, useDict } from '@/lib/app/useDict'
 import { fileLanguage } from '@/lib/monaco/language'
@@ -5,10 +9,6 @@ import { useUIStore } from '@/stores/app/uiStore'
 import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
 import { useLanguageNoticeStore } from '@/stores/extensions/languageNoticeStore'
 import { useLanguageServersStore } from '@/stores/extensions/languageServersStore'
-import type { LanguageServerInfo } from '@aurigax-ai/ostia-extension-sdk/contract/languageServers'
-import type { ExtensionSuggestion } from '@shared/extensions/extensionSuggestions'
-import type { MarketplaceError } from '@shared/extensions/marketplace'
-import { useEffect, useState } from 'react'
 
 const SERVER_NOTICES = [
   'downloading',
@@ -65,7 +65,10 @@ export function LargeFileNotice(): JSX.Element | null {
 function ServerBar({ server }: { server: LanguageServerInfo }): JSX.Element {
   const d = useDict()
   const t = d.languageNotice
-  const openLanguages = (): void => useUIStore.getState().openSettings('languageServers')
+  const openExtension = (): void =>
+    useUIStore
+      .getState()
+      .openSettings('extensions', { extension: server.extId, extensionRow: true })
   if (server.status === 'downloading') {
     return <Bar>{fmt(t.downloading, { name: server.name, percent: server.progress ?? 0 })}</Bar>
   }
@@ -82,7 +85,7 @@ function ServerBar({ server }: { server: LanguageServerInfo }): JSX.Element {
     <Bar
       tone="warn"
       dismissKey={`${server.name}:${server.status}`}
-      actions={<StatusAction onClick={openLanguages}>{t.openSettings}</StatusAction>}
+      actions={<StatusAction onClick={openExtension}>{t.openSettings}</StatusAction>}
     >
       {text}
     </Bar>

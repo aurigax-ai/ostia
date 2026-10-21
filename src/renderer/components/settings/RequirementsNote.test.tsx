@@ -1,9 +1,9 @@
 import '@testing-library/jest-dom/vitest'
-import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import type { RequirementsReport } from '@shared/app/systemRequirements'
 import { act, cleanup, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import { RequirementsNote } from './RequirementsNote'
 
 const BODY = 'tmux 3.2 or newer is needed to keep shells.'

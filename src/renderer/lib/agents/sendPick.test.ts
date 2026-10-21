@@ -1,12 +1,12 @@
-import { registerTerminal } from '@/lib/terminal/terminalHandles'
-import { useAttentionStore } from '@/stores/agents/attentionStore'
-import { useSettingsStore } from '@/stores/app/settingsStore'
-import { useBlocksStore } from '@/stores/terminal/blocksStore'
 import type { PickCapture } from '@shared/browser/pick'
 import type { RegionCapture } from '@shared/browser/regionCapture'
 import type { SelectionCapture } from '@shared/browser/selection'
 import type { Terminal } from '@xterm/xterm'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import { registerTerminal } from '@/lib/terminal/terminalHandles'
+import { useAttentionStore } from '@/stores/agents/attentionStore'
+import { useSettingsStore } from '@/stores/app/settingsStore'
+import { useBlocksStore } from '@/stores/terminal/blocksStore'
 import { ENTER_AFTER_PASTE_MS } from './agentEnter'
 import {
   canInsertReference,

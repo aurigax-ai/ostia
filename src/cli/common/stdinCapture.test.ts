@@ -1,14 +1,14 @@
-import { mkdtempSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs'
+import { mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { Readable } from 'node:stream'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import {
-  NO_ARTIFACT_FOLDER,
-  STDIN_MAX_BYTES,
   captureStdin,
   defaultStdinName,
+  NO_ARTIFACT_FOLDER,
   readCapped,
+  STDIN_MAX_BYTES,
   stdinFileName,
 } from './stdinCapture'
 

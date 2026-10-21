@@ -1,9 +1,9 @@
+import { afterEach, beforeAll, describe, expect, it } from 'vitest'
 import { createPane, findSplitTabByName, paneIds, splitOf, tabsOf } from '@/lib/layout/tree'
 import type { SplitNode } from '@/lib/layout/types'
 import { forgetSplitTabSeeds } from '@/lib/panes/splitTabSeeds'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { releaseSurfaces, setFocusTarget, surfaceHost } from '@/stores/workspaces/surfaceSlotsStore'
-import { afterEach, beforeAll, describe, expect, it } from 'vitest'
 import { registerPaneTabCommands } from './paneTabCommands'
 import { commands } from './registry'
 

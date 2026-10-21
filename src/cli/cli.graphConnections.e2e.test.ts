@@ -1,7 +1,7 @@
-import { type Server, createServer } from 'node:http'
+import { createServer, type Server } from 'node:http'
 import type { AddressInfo } from 'node:net'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
-import { type Harness, POLL, graphsHarness } from '../../test/graphsHarness'
+import { graphsHarness, type Harness, POLL } from '../../test/graphsHarness'
 
 vi.mock('electron', () => ({
   ipcMain: { handle: vi.fn() },

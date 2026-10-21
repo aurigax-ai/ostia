@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import type { FolderReads } from './folderAccess'
-import { FOCUS_PROBE_MIN_MS, createFolderAccessWatch } from './folderAccessWatch'
+import { createFolderAccessWatch, FOCUS_PROBE_MIN_MS } from './folderAccessWatch'
 
 function setup(opts: { fda?: boolean; main?: FolderReads[]; kept?: (FolderReads | null)[] } = {}) {
   let now = 1_000_000

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { en } from '../../../shared/app/dict'
-import { ScreenMirror, restoreSeam } from '../screenMirror'
+import { restoreSeam, ScreenMirror } from '../screenMirror'
 import { feedDisplay, replayRestored } from './ptyRegistry'
 
 const RESTORE_SEAM = restoreSeam(en.native.paneBanner)

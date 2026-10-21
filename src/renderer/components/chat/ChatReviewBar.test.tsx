@@ -1,12 +1,12 @@
 import '@testing-library/jest-dom/vitest'
+import { cleanup, render, screen, waitFor, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   type ChatEditRecord,
   resetChatTools,
   useChatToolsStore,
 } from '@/stores/assist/chatToolsStore'
-import { cleanup, render, screen, waitFor, within } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
-import { afterEach, describe, expect, it, vi } from 'vitest'
 import { ChatReviewBar } from './ChatReviewBar'
 
 function edit(patch: Partial<ChatEditRecord> & Pick<ChatEditRecord, 'toolCallId'>): ChatEditRecord {

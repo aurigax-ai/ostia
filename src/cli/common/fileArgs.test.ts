@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
-  type FileProbe,
   diffRefusalLine,
+  type FileProbe,
   openTarget,
   parseFileArg,
   refusalLine,

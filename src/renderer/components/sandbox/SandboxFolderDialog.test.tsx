@@ -1,9 +1,9 @@
 import { PRODUCT_DISPLAY_NAME } from '@aurigax-ai/ostia-extension-sdk/contract/productDisplay'
 import '@testing-library/jest-dom/vitest'
-import { useSandboxStore } from '@/stores/app/sandboxStore'
 import { act, cleanup, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import { useSandboxStore } from '@/stores/app/sandboxStore'
 import { SandboxFolderDialog } from './SandboxFolderDialog'
 
 let init: ReturnType<typeof useSandboxStore.getState>

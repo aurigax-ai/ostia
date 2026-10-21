@@ -1,8 +1,7 @@
 import type { AppLog } from '../diagnostics/appLog'
 import type { SpawnPlan } from '../terminal/pty/ptySpawnPlan'
 import type { KeptPlumbing } from './keptLaunchers'
-import type { KeptMeta, KeptProgram } from './keptShells'
-import type { KeptShells } from './keptShells'
+import type { KeptMeta, KeptProgram, KeptShells } from './keptShells'
 import type { TmuxPane } from './tmuxPane'
 
 export interface KeptSpawn {

@@ -1,7 +1,7 @@
 import type { MessageConnection } from 'vscode-jsonrpc/node'
 import {
-  type ErrResult,
   describeErrResult,
+  type ErrResult,
   failUsage,
   failVerb,
   failWith,
@@ -60,7 +60,7 @@ export async function runGatewayVerb(conn: MessageConnection): Promise<void> {
   } else if (sub === 'devices') {
     const res = await conn.sendRequest<GatewayDevicesResult>('gateway.devices', {})
     if (res.devices.length === 0) {
-      console.log('(no paired devices)')
+      console.error('(no paired devices)')
       return
     }
     for (const d of res.devices) {

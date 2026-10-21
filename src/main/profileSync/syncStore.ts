@@ -3,7 +3,7 @@ import { join } from 'node:path'
 import { writeFileAtomic } from '@aurigax-ai/ostia-extension-sdk/atomicWrite'
 import { isRecord } from '@aurigax-ai/ostia-extension-sdk/contract/isRecord'
 import type { SecretSyncStatus, SyncOffer } from '../../shared/profileSync/profileSync'
-import { type JsonObject, SETTINGS_FILE, readProfileFolders, readTopFile } from './profile'
+import { type JsonObject, readProfileFolders, readTopFile, SETTINGS_FILE } from './profile'
 
 const STATE_FILE = 'sync-state.json'
 export const BASE_DIR = 'sync-base'

@@ -1,20 +1,19 @@
-import { parseFlags } from '@aurigax-ai/ostia-extension-sdk'
+import { parseFlags, type Translate } from '@aurigax-ai/ostia-extension-sdk'
 import {
   OPEN_TERMINAL_WAIT_MAX_MS,
   type TerminalWait,
 } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import { quoteArgv } from '../../shared/terminal/shellQuote'
 import {
-  MANAGER_NAMES,
-  MAX_PACKAGES,
-  type ManagerName,
   defaultManager,
   installArgv,
   invalidPackages,
   isManagerName,
+  MANAGER_NAMES,
+  MAX_PACKAGES,
+  type ManagerName,
 } from './managers'
 import type { OsIdentity } from './os'
-import type { Strings } from './strings'
 
 const REASON_MAX = 500
 const INSTALL_WAIT_BUDGET_MS = OPEN_TERMINAL_WAIT_MAX_MS - 30_000
@@ -55,14 +54,23 @@ export function parseInstallArgs(argv: string[]): InstallRequest {
   return request
 }
 
-export function planInstall(req: InstallRequest, ctx: InstallContext, s: Strings): PlanResult {
-  if (req.packages.length === 0) return { ok: false, error: 'invalid-args', message: s.noPackages }
+export function planInstall(req: InstallRequest, ctx: InstallContext, t: Translate): PlanResult {
+  if (req.packages.length === 0)
+    return { ok: false, error: 'invalid-args', message: t('noPackages') }
   if (req.packages.length > MAX_PACKAGES) {
-    return { ok: false, error: 'invalid-args', message: s.tooManyPackages(MAX_PACKAGES) }
+    return {
+      ok: false,
+      error: 'invalid-args',
+      message: t('tooManyPackages', { max: MAX_PACKAGES }),
+    }
   }
   const bad = invalidPackages(req.packages)
   if (bad.length > 0) {
-    return { ok: false, error: 'invalid-package', message: s.invalidPackages(bad) }
+    return {
+      ok: false,
+      error: 'invalid-package',
+      message: t('invalidPackages', { names: bad.join(t('listSeparator')) }),
+    }
   }
   let manager: ManagerName
   if (req.manager !== undefined) {
@@ -70,22 +78,26 @@ export function planInstall(req: InstallRequest, ctx: InstallContext, s: Strings
       return {
         ok: false,
         error: 'unknown-manager',
-        message: s.unknownManager(req.manager, [...MANAGER_NAMES]),
+        message: t('unknownManager', { name: req.manager, known: [...MANAGER_NAMES].join(', ') }),
       }
     }
     if (!ctx.available.includes(req.manager)) {
-      return { ok: false, error: 'manager-missing', message: s.managerMissing(req.manager) }
+      return {
+        ok: false,
+        error: 'manager-missing',
+        message: t('managerMissing', { name: req.manager }),
+      }
     }
     manager = req.manager
   } else {
     const found = defaultManager(ctx.os, ctx.available)
-    if (!found) return { ok: false, error: 'no-manager', message: s.noManager }
+    if (!found) return { ok: false, error: 'no-manager', message: t('noManager') }
     manager = found
   }
   const built = installArgv(manager, req.packages, { isRoot: ctx.isRoot })
-  if (!built.ok) return { ok: false, error: built.error, message: s.onePackageOnly(manager) }
+  if (!built.ok) return { ok: false, error: built.error, message: t('onePackageOnly', { manager }) }
   if (built.argv[0] === 'sudo' && !ctx.hasSudo) {
-    return { ok: false, error: 'no-sudo', message: s.noSudo }
+    return { ok: false, error: 'no-sudo', message: t('noSudo') }
   }
   const plan: InstallPlan = {
     manager,
@@ -102,12 +114,16 @@ type InstallOutcome =
   | { ok: true; message: string }
   | { ok: false; error: 'install-failed' | 'terminal-closed'; message: string }
 
-export function installOutcome(wait: TerminalWait, s: Strings): InstallOutcome {
-  if (wait.outcome === 'timeout') return { ok: true, message: s.installStillRunning }
+export function installOutcome(wait: TerminalWait, t: Translate): InstallOutcome {
+  if (wait.outcome === 'timeout') return { ok: true, message: t('installStillRunning') }
   if (wait.outcome === 'closed')
-    return { ok: false, error: 'terminal-closed', message: s.installClosed }
-  if (wait.exitCode === 0) return { ok: true, message: s.installed }
-  return { ok: false, error: 'install-failed', message: s.installFailed(wait.exitCode) }
+    return { ok: false, error: 'terminal-closed', message: t('installClosed') }
+  if (wait.exitCode === 0) return { ok: true, message: t('installed') }
+  return {
+    ok: false,
+    error: 'install-failed',
+    message: t('installFailed', { code: wait.exitCode ?? t('exitUnknown') }),
+  }
 }
 
 export function installWaitMs(startedAt: number, now: number): number {

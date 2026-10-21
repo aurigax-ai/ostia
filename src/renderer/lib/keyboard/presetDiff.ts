@@ -1,7 +1,7 @@
-import { type KeybindingMap, chordText, formatChord, parseChord } from '@shared/keyboard/chordSpec'
+import { chordText, formatChord, type KeybindingMap, parseChord } from '@shared/keyboard/chordSpec'
 import { effectiveBindings } from './chords'
 import type { PresetKeys } from './keyboardPresets'
-import { type TerminalSend, sameSend } from './terminalKeys'
+import { sameSend, type TerminalSend } from './terminalKeys'
 
 export interface TerminalKeyChange {
   keys: string

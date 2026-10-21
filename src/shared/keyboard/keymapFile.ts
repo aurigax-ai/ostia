@@ -3,8 +3,8 @@ import { isDangerousSegment } from '@aurigax-ai/ostia-extension-sdk/contract/pro
 import {
   CHORDS_PER_COMMAND_MAX,
   type ChordProblem,
-  type KeybindingMap,
   checkBinding,
+  type KeybindingMap,
 } from './chordSpec'
 
 export const KEYMAP_FILE_MAX_BYTES = 64 * 1024

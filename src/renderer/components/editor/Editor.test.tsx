@@ -1,7 +1,12 @@
+import { PAD_MAX_BYTES } from '@shared/artifacts/artifacts'
+import { act, cleanup, render, screen, waitFor, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import type { Terminal } from '@xterm/xterm'
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { commands } from '@/commands/registry'
-import { SEND_SELECTION_COMMAND, registerSelectionSendCommand } from '@/commands/selectionSend'
+import { registerSelectionSendCommand, SEND_SELECTION_COMMAND } from '@/commands/selectionSend'
 import { openSelectionSend } from '@/lib/agents/selectionSenders'
-import { LARGE_FILE_LINES, fileFeatureOptions } from '@/lib/monaco/largeFile'
+import { fileFeatureOptions, LARGE_FILE_LINES } from '@/lib/monaco/largeFile'
 import { registerTerminal } from '@/lib/terminal/terminalHandles'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useArtifactsStore } from '@/stores/files/artifactsStore'
@@ -16,12 +21,7 @@ import {
   releaseSurfaces,
   surfaceHost,
 } from '@/stores/workspaces/surfaceSlotsStore'
-import { PAD_MAX_BYTES } from '@shared/artifacts/artifacts'
-import { act, cleanup, render, screen, waitFor, within } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
-import type { Terminal } from '@xterm/xterm'
-import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
-import { TARGET_PANE, seedSendTarget } from '../../../../test/mocks/sendTarget'
+import { seedSendTarget, TARGET_PANE } from '../../../../test/mocks/sendTarget'
 import { EditorSettingsSection } from '../settings/BrowserEditorSettings'
 
 const fake = vi.hoisted(() => {

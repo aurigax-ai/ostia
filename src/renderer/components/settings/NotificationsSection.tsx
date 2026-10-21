@@ -1,10 +1,3 @@
-import { ControlRow, NumberRow, ToggleRow } from '@/components/settingsKit/ControlRow'
-import { SelectField } from '@/components/settingsKit/SelectField'
-import { SettingsGroup } from '@/components/settingsKit/SettingsGroup'
-import { SettingsPage } from '@/components/settingsKit/SettingsPage'
-import { Input } from '@/components/ui/input'
-import { useDict } from '@/lib/app/useDict'
-import { useSettingsStore } from '@/stores/app/settingsStore'
 import {
   BELL_FLASH_EASINGS,
   BELL_FLASH_MAX_MS,
@@ -12,11 +5,18 @@ import {
   BELL_MODES,
   type BellFlashEasing,
   type BellMode,
-  LONG_COMMAND_MAX_SECONDS,
-  LONG_COMMAND_MIN_SECONDS,
   clampBellFlashMs,
   clampLongCommandSeconds,
+  LONG_COMMAND_MAX_SECONDS,
+  LONG_COMMAND_MIN_SECONDS,
 } from '@shared/app/notificationSettings'
+import { ControlRow, NumberRow, ToggleRow } from '@/components/settingsKit/ControlRow'
+import { SelectField } from '@/components/settingsKit/SelectField'
+import { SettingsGroup } from '@/components/settingsKit/SettingsGroup'
+import { SettingsPage } from '@/components/settingsKit/SettingsPage'
+import { Input } from '@/components/ui/input'
+import { useDict } from '@/lib/app/useDict'
+import { useSettingsStore } from '@/stores/app/settingsStore'
 
 export function NotificationsSection(): JSX.Element {
   const d = useDict()

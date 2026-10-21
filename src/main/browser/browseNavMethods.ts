@@ -5,10 +5,10 @@ import { type BrowseState, resolveGuest } from './browseGuests'
 import {
   type BrowseDeps,
   type BrowseMethod,
-  type OpenTab,
-  type Params,
   commandTarget,
   fail,
+  type OpenTab,
+  type Params,
   str,
 } from './browseMethod'
 import { runInBrowseWorld } from './browseWorld'

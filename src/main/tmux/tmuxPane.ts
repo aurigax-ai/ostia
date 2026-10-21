@@ -1,6 +1,6 @@
 import { SCREEN_INFO_FORMAT, screenReplay } from './screenReplay'
 import { ScreenTitleFilter } from './screenTitleFilter'
-import { META_OPTION, encodeMeta, sendKeysCommands, tmuxQuote } from './tmuxCommand'
+import { encodeMeta, META_OPTION, sendKeysCommands, tmuxQuote } from './tmuxCommand'
 
 export const LOST_EXIT_CODE = 1
 

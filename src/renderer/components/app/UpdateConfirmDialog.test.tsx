@@ -1,7 +1,7 @@
 import '@testing-library/jest-dom/vitest'
-import { useUpdateStore } from '@/stores/app/updateStore'
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeAll, describe, expect, it } from 'vitest'
+import { useUpdateStore } from '@/stores/app/updateStore'
 import { UpdateConfirmDialog } from './UpdateConfirmDialog'
 
 const APT_COMMAND = 'sudo apt update && sudo apt install --only-upgrade ostia'

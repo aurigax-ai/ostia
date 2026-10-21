@@ -1,12 +1,12 @@
 import { chmodSync, rmSync } from 'node:fs'
-import { type Server, type Socket, createConnection, createServer } from 'node:net'
+import { createConnection, createServer, type Server, type Socket } from 'node:net'
 import { PRODUCT_DISPLAY_NAME } from '@aurigax-ai/ostia-extension-sdk/contract/productDisplay'
 import {
+  createMessageConnection,
   ErrorCodes,
   ResponseError,
   StreamMessageReader,
   StreamMessageWriter,
-  createMessageConnection,
 } from 'vscode-jsonrpc/node'
 import type { InstallHint, MissingRequirement } from '../../shared/app/systemRequirements'
 import { ManagerError, type ManagerService, parseOpenRequest } from './manager'

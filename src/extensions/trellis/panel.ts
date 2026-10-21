@@ -10,7 +10,7 @@ import { boardView, openNewCard } from './panelBoard'
 import { closeCard } from './panelCard'
 import { refresh } from './panelData'
 import { emptyState, failureState, p, select, show } from './panelDom'
-import { type View, hooks, state } from './panelState'
+import { hooks, state, type View } from './panelState'
 import { vaultView } from './panelVault'
 
 function setView(next: View): void {

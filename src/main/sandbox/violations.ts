@@ -1,8 +1,8 @@
 import {
+  checkDomainPattern,
   type SandboxViolation,
   type SandboxViolationKind,
   type SandboxViolationReason,
-  checkDomainPattern,
 } from '../../shared/sandbox/sandbox'
 
 export const VIOLATIONS_PER_WORKSPACE = 200

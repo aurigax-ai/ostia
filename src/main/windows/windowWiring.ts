@@ -1,4 +1,4 @@
-import { type BrowserWindow, app } from 'electron'
+import { app, type BrowserWindow } from 'electron'
 import { isPreviewPartition } from '../../shared/artifacts/htmlPreview'
 import { SHARED_BROWSER_PARTITION } from '../../shared/browser/browserProfile'
 import type { CommandDescriptor } from '../../shared/control/commands'

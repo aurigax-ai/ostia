@@ -50,10 +50,10 @@ import { listPairRequests, onPairRequestsChanged } from './pairRequests'
 import { phoneScreenLines, withClipboardImage } from './phoneClipboard'
 import {
   DEFAULT_FOLDER_NAME,
-  type PhoneWorkspacePaths,
   isPhoneFolder,
   loadPhoneWorkspace,
   ownFolder,
+  type PhoneWorkspacePaths,
   phoneWorkspaceDefaults,
   phoneWorkspaceId,
 } from './phoneWorkspace'

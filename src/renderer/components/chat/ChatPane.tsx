@@ -1,8 +1,8 @@
+import { useEffect, useRef } from 'react'
 import { useDict } from '@/lib/app/useDict'
 import { useSurfaceFocus } from '@/lib/panes/paneFocus'
 import { chatKey, useChatStore } from '@/stores/assist/chatStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
-import { useEffect, useRef } from 'react'
 import { ChatView } from './ChatView'
 
 export function ChatPane({

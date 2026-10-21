@@ -2,12 +2,12 @@ import { describe, expect, it } from 'vitest'
 import { parseViewText } from './viewParse'
 import { viewJsonSchema } from './viewSchema'
 import {
+  formatViewProblem,
   VIEW_MAX_DEPTH,
   VIEW_MAX_LIST_ITEMS,
   VIEW_MAX_NODES,
   VIEW_NODE_TYPES,
   type ViewDoc,
-  formatViewProblem,
   viewNameOf,
 } from './views'
 

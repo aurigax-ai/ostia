@@ -1,28 +1,3 @@
-import { keyboardPlatform } from '@/lib/keyboard/keyboardPresets'
-import type { TerminalKeyMap, TerminalSend } from '@/lib/keyboard/terminalKeys'
-import type { UserAction } from '@/lib/settings/actions'
-import {
-  type BrowserSettings,
-  DEFAULT_BROWSER_SETTINGS,
-  DEFAULT_EDITOR_SETTINGS,
-  type EditorSettings,
-} from '@/lib/settings/browserEditorSettings'
-import { DEFAULT_FILE_TREE_SETTINGS, type FileTreeSettings } from '@/lib/settings/fileTreeSettings'
-import type {
-  KeyboardElsewhere,
-  KeyboardField,
-  KeyboardFile,
-} from '@/lib/settings/keyboardSettings'
-import {
-  DEFAULT_PANE_SETTINGS,
-  DEFAULT_TERMINAL_SETTINGS,
-  type PaneSettings,
-  type TerminalSettings,
-} from '@/lib/settings/terminalPaneSettings'
-import { DEFAULT_WINDOW_TITLE } from '@/lib/settings/windowTitle'
-import type { GroupRule } from '@/lib/sidebar/workspaceGroups'
-import { isMac } from '@/platform'
-import { platform } from '@/platform'
 import {
   type AssistModelSettings,
   DEFAULT_ASSIST_MODEL_SETTINGS,
@@ -57,6 +32,30 @@ import {
 } from '@shared/privacy/redaction'
 import type { TelemetrySettings } from '@shared/privacy/telemetry'
 import type { SandboxGlobals } from '@shared/sandbox/sandbox'
+import { keyboardPlatform } from '@/lib/keyboard/keyboardPresets'
+import type { TerminalKeyMap, TerminalSend } from '@/lib/keyboard/terminalKeys'
+import type { UserAction } from '@/lib/settings/actions'
+import {
+  type BrowserSettings,
+  DEFAULT_BROWSER_SETTINGS,
+  DEFAULT_EDITOR_SETTINGS,
+  type EditorSettings,
+} from '@/lib/settings/browserEditorSettings'
+import { DEFAULT_FILE_TREE_SETTINGS, type FileTreeSettings } from '@/lib/settings/fileTreeSettings'
+import type {
+  KeyboardElsewhere,
+  KeyboardField,
+  KeyboardFile,
+} from '@/lib/settings/keyboardSettings'
+import {
+  DEFAULT_PANE_SETTINGS,
+  DEFAULT_TERMINAL_SETTINGS,
+  type PaneSettings,
+  type TerminalSettings,
+} from '@/lib/settings/terminalPaneSettings'
+import { DEFAULT_WINDOW_TITLE } from '@/lib/settings/windowTitle'
+import type { GroupRule } from '@/lib/sidebar/workspaceGroups'
+import { isMac, platform } from '@/platform'
 
 type ThemeId = string
 

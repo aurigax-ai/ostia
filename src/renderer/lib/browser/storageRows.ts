@@ -1,5 +1,5 @@
-import { formatDate } from '@/lib/app/localeFormat'
 import type { StorageCookie, StorageEntry } from '@shared/browser/browserStorage'
+import { formatDate } from '@/lib/app/localeFormat'
 
 function matchesQuery(query: string, ...fields: string[]): boolean {
   const q = query.trim().toLowerCase()

@@ -3,14 +3,14 @@ import { join } from 'node:path'
 import { ipcMain } from 'electron'
 import { clip } from '../../shared/browser/pick'
 import {
-  SELECTION_IMAGE_MAX,
-  SELECTION_NOTE_MAX,
-  type SelectionSendRequest,
-  type SelectionSendResult,
   isPng,
   needsImage,
   normalizeSelection,
   renderSelectionReport,
+  SELECTION_IMAGE_MAX,
+  SELECTION_NOTE_MAX,
+  type SelectionSendRequest,
+  type SelectionSendResult,
   selectionBusMessage,
 } from '../../shared/browser/selection'
 import { postBusMessage } from '../agents/busStore'

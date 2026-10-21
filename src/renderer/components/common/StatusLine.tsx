@@ -1,9 +1,9 @@
+import { InfoIcon, WarningCircleIcon, WarningIcon, XIcon } from '@phosphor-icons/react'
+import { useState } from 'react'
 import { IconButton } from '@/components/common/IconButton'
 import { Button } from '@/components/ui/button'
 import { useDict } from '@/lib/app/useDict'
 import { cn } from '@/lib/utils'
-import { InfoIcon, WarningCircleIcon, WarningIcon, XIcon } from '@phosphor-icons/react'
-import { useState } from 'react'
 
 const TONES = {
   muted: { icon: InfoIcon, color: 'text-fg-muted' },

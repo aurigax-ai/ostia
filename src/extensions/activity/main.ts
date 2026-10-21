@@ -1,11 +1,11 @@
 import { join } from 'node:path'
 import {
-  type CommandHandler,
-  type ExtensionSettingValues,
   booleanSetting,
+  type CommandHandler,
   cliArgs,
   connect,
   createTranslator,
+  type ExtensionSettingValues,
   failure,
   numberSetting,
   ok,
@@ -16,8 +16,8 @@ import { BUS_EVENT, HOST_EVENTS, HostRecorder, type HostWorkspace } from './host
 import { ARCHIVE_DAYS, DAY_MS, HOST_DIR, Journal, RETENTION_DAYS, type Retention } from './journal'
 import { createNeedsYou } from './needsYou'
 import { createOpenListing } from './openListing'
-import { type PanelCommand, SHOW_ACTIVITY, activityPanelCommands } from './panelCommands'
-import { PUSH_WINDOW_MS, coalesced } from './panelPush'
+import { activityPanelCommands, type PanelCommand, SHOW_ACTIVITY } from './panelCommands'
+import { coalesced, PUSH_WINDOW_MS } from './panelPush'
 import { Recorder } from './recorder'
 import { activityVerbs } from './verbs'
 import type { OpenWorkspace } from './view'

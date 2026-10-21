@@ -1,5 +1,3 @@
-import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
-import { useMarketplaceStore } from '@/stores/extensions/marketplaceStore'
 import type { ExtensionInfo } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import type {
   MarketplaceExtension,
@@ -9,6 +7,8 @@ import type {
 import { cleanup, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
+import { useMarketplaceStore } from '@/stores/extensions/marketplaceStore'
 import { renderSettled } from '../../../../test/render'
 import { ExtensionsSection } from './InstalledExtensions'
 
@@ -148,6 +148,42 @@ describe('ExtensionsSection rows', () => {
     expect(within(dialog).getByText('Uninstall “Weather”?')).toBeVisible()
     await user.click(within(dialog).getByRole('button', { name: 'Uninstall' }))
     expect(window.ostia.marketplace.uninstall).toHaveBeenCalledWith('weather')
+  })
+
+  it('lists the language servers of an extension in its details and not in the others', async () => {
+    vi.mocked(window.ostia.lsp.servers).mockResolvedValue([
+      {
+        key: 'lsp-go/gopls',
+        extId: 'lsp-go',
+        extName: 'Go',
+        serverId: 'gopls',
+        name: 'gopls',
+        languages: ['go'],
+        kind: 'program',
+        command: 'gopls',
+        enabled: true,
+        status: 'running',
+        folders: 1,
+      },
+    ])
+    await show(
+      [
+        ext('lsp-go', 'Go', {
+          languageServers: [{ id: 'gopls', name: 'gopls', languages: ['go'], command: 'gopls' }],
+        }),
+        ext('manual', 'Manual'),
+      ],
+      stateWith([]),
+    )
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('button', { name: 'Settings of Go' }))
+    const go = screen.getByRole('region', { name: 'Settings of Go' })
+    const server = await within(go).findByRole('group', { name: 'gopls' })
+    expect(within(server).getByRole('switch', { name: 'Enable gopls' })).toBeChecked()
+    expect(within(server).getByRole('button', { name: 'Restart gopls' })).toBeEnabled()
+    await user.click(screen.getByRole('button', { name: 'Settings of Manual' }))
+    const manual = screen.getByRole('region', { name: 'Settings of Manual' })
+    expect(within(manual).queryByText('Language servers')).toBeNull()
   })
 
   it('offers Update to the offered version on the row and installs it', async () => {

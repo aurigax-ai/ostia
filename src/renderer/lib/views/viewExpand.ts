@@ -1,14 +1,15 @@
 import { isRecord } from '@aurigax-ai/ostia-extension-sdk/contract/isRecord'
 import { childPath } from '@shared/common/jsonLocated'
 import {
-  type ViewFormat,
-  type ViewScope,
   resolveArgs,
   resolveText,
   resolveValue,
   truthy,
+  type ViewFormat,
+  type ViewScope,
 } from '@shared/views/viewBindings'
 import {
+  isHttpUrl,
   VIEW_MAX_LIST_ITEMS,
   VIEW_MAX_RENDERED_NODES,
   type ViewButtonVariant,
@@ -21,7 +22,6 @@ import {
   type ViewTextSize,
   type ViewTone,
   type ViewWeight,
-  isHttpUrl,
 } from '@shared/views/views'
 
 export type ViewActionTarget =

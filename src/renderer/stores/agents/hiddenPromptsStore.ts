@@ -1,6 +1,6 @@
+import { create } from 'zustand'
 import { livePaneIds } from '@/lib/panes/livePanes'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
-import { create } from 'zustand'
 
 interface HiddenPromptsState {
   hidden: Record<string, true>

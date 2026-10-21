@@ -1,6 +1,3 @@
-import { useUIStore } from '@/stores/app/uiStore'
-import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
-import { useMarketplaceStore } from '@/stores/extensions/marketplaceStore'
 import type {
   MarketplaceExtension,
   MarketplaceInfo,
@@ -9,6 +6,9 @@ import type {
 import { act, cleanup, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import { useUIStore } from '@/stores/app/uiStore'
+import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
+import { useMarketplaceStore } from '@/stores/extensions/marketplaceStore'
 import { renderSettled } from '../../../../test/render'
 import { BrowseExtensionsDialog } from './BrowseExtensions'
 

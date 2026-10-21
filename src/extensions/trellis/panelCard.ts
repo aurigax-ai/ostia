@@ -1,11 +1,11 @@
 import { call, errorText, h, icon } from '@aurigax-ai/ostia-extension-sdk/panel'
 import userCircle from '@phosphor-icons/core/regular/user-circle.svg'
 import xIcon from '@phosphor-icons/core/regular/x.svg'
-import { type ThreadItem, actorName, claimState, moveCard, threadItems } from './board'
+import { actorName, claimState, moveCard, type ThreadItem, threadItems } from './board'
 import { refresh } from './panelData'
 import {
-  DEFAULT_PRIORITY,
   actorLabel,
+  DEFAULT_PRIORITY,
   emptyState,
   failureState,
   field,

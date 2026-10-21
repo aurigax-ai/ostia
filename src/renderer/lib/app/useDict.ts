@@ -1,7 +1,7 @@
+import type { Dict } from '@shared/app/dict'
 import { BASE_LANGUAGE } from '@/lib/extensions/languagePacks'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { usePluginsStore } from '@/stores/extensions/pluginsStore'
-import type { Dict } from '@shared/app/dict'
 
 export { fmt, withProductName } from '@shared/app/dict'
 

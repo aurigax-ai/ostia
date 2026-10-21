@@ -4,29 +4,29 @@ import { app, ipcMain } from 'electron'
 import { releaseVersion } from '../../shared/app/buildInfo'
 import {
   type InstallMethod,
+  isMacInstall,
   type ReleaseState,
   type ReplaceAvailability,
-  isMacInstall,
   updateChannelFor,
   updateCommandLine,
 } from '../../shared/app/installMethod'
 import {
   type AssetName,
-  type ParsedRelease,
-  RELEASE_API_BASE_URL,
-  RELEASE_REPOSITORY,
-  type ReleaseCheckError,
-  type ReleaseCheckResult,
-  type ReleaseInfo,
-  type UpdateChannel,
   dmgAssetName,
   isNewerVersion,
+  type ParsedRelease,
   parseLatestRelease,
   parseUpdateChannel,
   parseVersion,
   pickBetaRelease,
   pickMainChannelRelease,
+  RELEASE_API_BASE_URL,
+  RELEASE_REPOSITORY,
+  type ReleaseCheckError,
+  type ReleaseCheckResult,
+  type ReleaseInfo,
   tarballAssetName,
+  type UpdateChannel,
 } from '../../shared/app/releases'
 import type { AppLog } from '../diagnostics/appLog'
 import { readCapped } from '../platform/checkedDownload'

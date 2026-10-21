@@ -1,12 +1,12 @@
 import { lstat, readdir } from 'node:fs/promises'
 import { join, sep } from 'node:path'
 import {
-  type WorkspaceFileEntry,
-  type WorkspaceFileOutcome,
-  type WorkspaceFileRead,
   fail,
   isHiddenFromPhone,
   readFileSlice,
+  type WorkspaceFileEntry,
+  type WorkspaceFileOutcome,
+  type WorkspaceFileRead,
 } from './workspaceFiles'
 
 const FOLDER_DEPTH = 1

@@ -6,8 +6,8 @@ import { ipcMain } from 'electron'
 import type { FsEntry } from '../../shared/files/filesApi'
 import { expandHome } from '../platform/pathGuard'
 import {
-  type SandboxReadRules,
   leadsIntoSandbox,
+  type SandboxReadRules,
   sandboxEntries,
   visibleInSandbox,
 } from '../sandbox/visibility'

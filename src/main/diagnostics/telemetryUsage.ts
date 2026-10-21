@@ -1,5 +1,9 @@
 import {
+  anyTelemetryOn,
+  buildUsageReport,
   COUNT_ID_PATTERN,
+  emptyUsageCounts,
+  isUsageCategory,
   TELEMETRY_COUNTS_MAX,
   TELEMETRY_LIST_MAX,
   type TelemetryReport,
@@ -7,10 +11,6 @@ import {
   USAGE_KEYS,
   type UsageCategory,
   VALUE_PATTERN,
-  anyTelemetryOn,
-  buildUsageReport,
-  emptyUsageCounts,
-  isUsageCategory,
 } from '../../shared/privacy/telemetry'
 
 export interface SessionFacts {

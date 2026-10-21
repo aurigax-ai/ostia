@@ -1,4 +1,4 @@
-import { mkdtempSync, readFileSync, readdirSync, rmSync } from 'node:fs'
+import { mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import type {
@@ -11,7 +11,7 @@ import WebSocket from 'ws'
 import { emitPlatformEvent } from '../control/events'
 import { registerPane } from '../control/idRegistry'
 import type { GatewayControlDeps } from './controlDispatch'
-import { registerDevice, revoke } from './devices'
+import { get as getDevice, registerDevice, revoke } from './devices'
 import { type ScreenLinkController, ScreenLinks } from './screenLinks'
 
 const registeredMethods = vi.hoisted(() => [] as string[])
@@ -282,6 +282,17 @@ describe('gateway server over a real WebSocket', () => {
         ws.once('error', () => resolve(0))
       })
     }
+
+    it('PID-C13 hello updates the device name to the one the phone sends now', async () => {
+      const { deviceId, token } = registerDevice({ name: 'Phone', pubkey: 'pk' })
+      const c = await connect(token)
+      await c.call('hello', { deviceToken: token, name: 'Desk phone' })
+      expect(getDevice(deviceId)?.name).toBe('Desk phone')
+      await c.call('hello', { deviceToken: token, name: 'bad\u202Ename' })
+      expect(getDevice(deviceId)?.name).toBe('Desk phone')
+      await c.call('hello', { deviceToken: token })
+      expect(getDevice(deviceId)?.name).toBe('Desk phone')
+    })
 
     it('RDS-C29 hello lists the current addresses, best first', async () => {
       setTailnetNode(NODE)

@@ -1,3 +1,5 @@
+import { ArrowClockwiseIcon } from '@phosphor-icons/react'
+import { useEffect } from 'react'
 import { Hint } from '@/components/common/Hint'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -5,8 +7,6 @@ import { useDict } from '@/lib/app/useDict'
 import type { PaneNode } from '@/lib/layout/types'
 import { needsSandboxRestart, useSandboxStore } from '@/stores/app/sandboxStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
-import { ArrowClockwiseIcon } from '@phosphor-icons/react'
-import { useEffect } from 'react'
 
 export function SandboxRestartButton({ pane }: { pane: PaneNode }): JSX.Element | null {
   const d = useDict()

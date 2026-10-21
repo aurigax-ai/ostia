@@ -1,4 +1,4 @@
-import { type Socket, isIP } from 'node:net'
+import { isIP, type Socket } from 'node:net'
 import { Duplex } from 'node:stream'
 
 const PROXY_HEADER_MAX_BYTES = 107

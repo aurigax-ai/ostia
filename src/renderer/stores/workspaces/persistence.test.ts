@@ -1,9 +1,9 @@
+import type { AppSnapshot } from '@shared/workspaces/workspaceApi'
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { resetIds } from '@/lib/layout/tree'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useSidePanelStore } from '@/stores/app/sidePanelStore'
 import { useUIStore } from '@/stores/app/uiStore'
-import type { AppSnapshot } from '@shared/workspaces/workspaceApi'
-import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useLayoutStore } from './layoutStore'
 import {
   SAVE_DEBOUNCE_MS,

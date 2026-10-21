@@ -1,5 +1,5 @@
-import { useChatStore } from '@/stores/assist/chatStore'
 import { type RefObject, useEffect } from 'react'
+import { useChatStore } from '@/stores/assist/chatStore'
 
 export function focusAtEnd(area: HTMLTextAreaElement | null): void {
   if (!area) return

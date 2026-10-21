@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { type SecretStoreDeps, createSecretStore } from './extensionSecrets'
+import { createSecretStore, type SecretStoreDeps } from './extensionSecrets'
 
 function fakeDeps(canEncrypt = true): SecretStoreDeps & { data: () => unknown } {
   let data: unknown = {}

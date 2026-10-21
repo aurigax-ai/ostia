@@ -1,9 +1,11 @@
+import { CheckIcon, FilePlusIcon, PencilSimpleLineIcon, XIcon } from '@phosphor-icons/react'
+import { useMemo } from 'react'
 import { ToolSection as Section, type ToolState, ToolStatus } from '@/components/ai-elements/tool'
 import { Hint } from '@/components/common/Hint'
 import { IconButton } from '@/components/common/IconButton'
 import { Button } from '@/components/ui/button'
 import { fmt, useDict } from '@/lib/app/useDict'
-import { type EditHunk, type HunkDecisions, editHunks, hunkCounts } from '@/lib/assist/chatHunks'
+import { type EditHunk, editHunks, type HunkDecisions, hunkCounts } from '@/lib/assist/chatHunks'
 import { awaitsReview, canUndo, decideHunk, keepEdit, undoEdit } from '@/lib/assist/chatReview'
 import { workspaceFolder } from '@/lib/assist/chatTools'
 import type { ToolPartLike } from '@/lib/assist/chatTransport'
@@ -15,8 +17,6 @@ import { useUIStore } from '@/stores/app/uiStore'
 import { answerApproval, useChatToolsStore } from '@/stores/assist/chatToolsStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
-import { CheckIcon, FilePlusIcon, PencilSimpleLineIcon, XIcon } from '@phosphor-icons/react'
-import { useMemo } from 'react'
 
 const DIFF_LINES_MAX = 400
 
@@ -73,6 +73,7 @@ function HunkLines({ hunk }: { hunk: EditHunk }): JSX.Element {
   return (
     <>
       {rows.map((line, i) => (
+        // biome-ignore lint/suspicious/noArrayIndexKey: the index tells repeated entries apart and the list is rebuilt, never reordered
         <div key={`${i}-${line.kind}`} className={DIFF_TONES[line.kind]} data-diff={line.kind}>
           {line.text}
         </div>
@@ -108,6 +109,7 @@ function EditHunks({
   const hidden = hunks.slice(shown.length).reduce((sum, hunk) => sum + hunkSize(hunk), 0)
   return (
     <div className="flex flex-col gap-1">
+      {/* biome-ignore lint/a11y/useAriaPropsSupportedByRole: the label names the block for screen readers and tests; a role would change how it is announced */}
       <div
         aria-label={t.changes}
         className="flex max-h-72 flex-col gap-1 overflow-auto rounded-sm bg-bg-sunken p-2 font-mono text-ui-xs"

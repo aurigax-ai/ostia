@@ -2,10 +2,10 @@ import { lstatSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { ipcMain } from 'electron'
 import {
+  parseCompletionSpec,
   SPEC_COMMAND_PATTERN,
   SPEC_FILE_MAX_BYTES,
   type SpecCommand,
-  parseCompletionSpec,
 } from '../../shared/terminal/completionSpec'
 
 export interface CompletionSpecDeps {

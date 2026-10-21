@@ -5,10 +5,10 @@ import { setTimeout as sleep } from 'node:timers/promises'
 import { processAlive } from '../platform/processAlive'
 import { type ControlEvent, ControlModeParser } from './controlMode'
 import {
-  META_OPTION,
-  type NewWindowSpec,
   decodeMeta,
   encodeMeta,
+  META_OPTION,
+  type NewWindowSpec,
   newWindowCommand,
   tmuxQuote,
 } from './tmuxCommand'

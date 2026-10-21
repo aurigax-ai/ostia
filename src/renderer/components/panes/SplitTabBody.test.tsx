@@ -1,4 +1,7 @@
 import '@testing-library/jest-dom/vitest'
+import { act, cleanup, render, screen, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest'
 import { registerPaneLayoutCommands } from '@/commands/core/paneLayoutCommands'
 import { registerPaneTabCommands } from '@/commands/paneTabCommands'
 import { commands } from '@/commands/registry'
@@ -7,9 +10,6 @@ import type { PaneNode } from '@/lib/layout/types'
 import { useAttentionStore } from '@/stores/agents/attentionStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
-import { act, cleanup, render, screen, within } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
-import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest'
 import { PaneTree } from './PaneTree'
 
 let attentionInit: ReturnType<typeof useAttentionStore.getState>

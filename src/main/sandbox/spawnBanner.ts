@@ -1,6 +1,6 @@
 import { PRODUCT_NAME } from '@aurigax-ai/ostia-extension-sdk/contract/product'
 import { fmt } from '../../shared/app/dict'
-import { type PaneBannerText, errorBanner } from '../terminal/paneBanner'
+import { errorBanner, type PaneBannerText } from '../terminal/paneBanner'
 
 const PACKAGE_BY_ERROR: [RegExp, string][] = [
   [/bubblewrap|bwrap/i, 'bubblewrap'],

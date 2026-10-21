@@ -3,10 +3,10 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
+  createMessageConnection,
   type MessageConnection,
   StreamMessageReader,
   StreamMessageWriter,
-  createMessageConnection,
 } from 'vscode-jsonrpc/node'
 import type { CommandResult, CommandTarget } from '../../shared/control/commands'
 import { SCRIPT_CAPABILITIES } from '../../shared/permissions/scriptTokens'
@@ -29,7 +29,13 @@ registerPaneRenameMethods({
     calls.push({ target, id, args })
     return reply
   },
-  reach: { inScope: async (ctx, workspaceId) => ctx.identity.workspaceId === workspaceId },
+  processPane: async () => [],
+  isSandboxed: () => false,
+  isConfined: () => false,
+  reach: {
+    inScope: async (ctx, workspaceId) => ctx.identity.workspaceId === workspaceId,
+    visible: async () => () => false,
+  },
   windowOfWorkspace: (workspaceId) =>
     windowOfWorkspace(workspaceId) ?? (workspaceId === 'ws-no-pane' ? 'w1' : undefined),
 })

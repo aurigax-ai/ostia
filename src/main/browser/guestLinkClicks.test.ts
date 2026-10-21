@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { LINK_CLICK_SCRIPT, clickedLinkOf } from './guestLinkClicks'
+import { clickedLinkOf, LINK_CLICK_SCRIPT } from './guestLinkClicks'
 
 class FakeElement {
   constructor(private readonly link: { href: string } | null) {}

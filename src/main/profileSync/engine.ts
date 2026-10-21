@@ -7,15 +7,15 @@ import type {
   SyncStatus,
 } from '../../shared/profileSync/profileSync'
 import { keyPath, withValueAt } from './merge'
-import { SETTINGS_FILE, type SyncedExtension, removeRegularFile } from './profile'
+import { removeRegularFile, SETTINGS_FILE, type SyncedExtension } from './profile'
 import type { SecretSync } from './secrets'
-import { type Plan, ScanFailed, createSyncPlanner } from './syncPlan'
+import { createSyncPlanner, type Plan, ScanFailed } from './syncPlan'
 import {
+  createSyncStore,
   type Held,
   type StoredConflict,
   type SyncState,
   type SyncStore,
-  createSyncStore,
   stamp,
 } from './syncStore'
 

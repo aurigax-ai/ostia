@@ -1,8 +1,8 @@
+import { useEffect, useState } from 'react'
 import { type CommandChoice, commands } from '@/commands/registry'
 import { CommandEmpty, CommandInput, CommandItem, CommandList } from '@/components/ui/command'
 import { countUsage } from '@/lib/app/usageCounts'
 import { fmt, useDict } from '@/lib/app/useDict'
-import { useEffect, useState } from 'react'
 import { ItemRow } from './PaletteItemRow'
 import { LIST_CLASS } from './paletteClasses'
 

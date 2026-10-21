@@ -1,15 +1,15 @@
 import '@testing-library/jest-dom/vitest'
+import type { ExtensionInfo } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
+import { zhHant } from '@shared/app/dict'
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { wireExtensionBridge } from '@/commands/extensionBridge'
 import { languagesFrom } from '@/lib/extensions/languagePacks'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useUIStore } from '@/stores/app/uiStore'
 import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
 import { usePluginsStore } from '@/stores/extensions/pluginsStore'
-import type { ExtensionInfo } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
-import { zhHant } from '@shared/app/dict'
-import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
-import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { renderSettled } from '../../../../test/render'
 import { SettingsPanel } from './SettingsPanel'
 
@@ -92,7 +92,7 @@ describe('SettingsPanel', () => {
         .map((b) => b.textContent)
     expect(inGroup('General')).toEqual(['Appearance', 'Notifications', 'Sync'])
     expect(inGroup('Terminal')).toEqual(['Terminal', 'Prompt', 'Keyboard', 'Panes'])
-    expect(inGroup('Editor and browser')).toEqual(['Editor', 'Languages', 'Browser'])
+    expect(inGroup('Editor and browser')).toEqual(['Editor', 'Browser'])
   })
 
   it('returns null while Settings is not the active view', () => {

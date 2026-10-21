@@ -1,42 +1,42 @@
-import { commands } from '@/commands/registry'
-import { countUsage } from '@/lib/app/usageCounts'
-import { useKeymapStore } from '@/stores/app/keymapStore'
-import { useSettingsStore } from '@/stores/app/settingsStore'
 import { isDangerousSegment } from '@aurigax-ai/ostia-extension-sdk/contract/protoGuard'
 import {
   BROWSER_CHORD_IDS,
+  bindingProblem,
   CHORDS_PER_COMMAND_MAX,
   type ChordProblem,
   type ChordSpec,
   type ChordValue,
-  DIGIT_RANGE,
-  DOUBLE_SHIFT,
-  type KeyLike,
-  type KeybindingMap,
-  TERMINAL_CHORD_IDS,
-  TERMINAL_COMMAND_CHORD_IDS,
-  WORKSPACE_GOTO,
-  bindingProblem,
   checkBinding,
   chordText,
   chordTexts,
+  DIGIT_RANGE,
+  DOUBLE_SHIFT,
   doubleShiftDetector,
   formatChord,
   formatScopedChord,
+  type KeybindingMap,
+  type KeyLike,
   overlaps,
   parseScopedChord,
   sameChord,
   sameScope,
   specFromEvent,
+  TERMINAL_CHORD_IDS,
+  TERMINAL_COMMAND_CHORD_IDS,
+  WORKSPACE_GOTO,
 } from '@shared/keyboard/chordSpec'
 import {
   type BrowserChord,
   DEFAULT_CHORDS,
   type TerminalChord,
 } from '@shared/keyboard/defaultChords'
+import { commands } from '@/commands/registry'
+import { countUsage } from '@/lib/app/usageCounts'
+import { useKeymapStore } from '@/stores/app/keymapStore'
+import { useSettingsStore } from '@/stores/app/settingsStore'
 
-export type { KeyLike, KeybindingMap } from '@shared/keyboard/chordSpec'
-export { WORKSPACE_GOTO, bindingProblem, checkBinding } from '@shared/keyboard/chordSpec'
+export type { KeybindingMap, KeyLike } from '@shared/keyboard/chordSpec'
+export { bindingProblem, checkBinding, WORKSPACE_GOTO } from '@shared/keyboard/chordSpec'
 
 export const TERMINAL_COMMAND_CHORDS = TERMINAL_COMMAND_CHORD_IDS
 

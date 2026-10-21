@@ -2,24 +2,24 @@ import { join } from 'node:path'
 import { writeFileAtomic } from '@aurigax-ai/ostia-extension-sdk/atomicWrite'
 import type { SecretSpan } from '../../shared/privacy/redaction'
 import {
-  type Merged,
   canonicalJson,
   flatten,
   keyPath,
+  type Merged,
   mergeMaps,
   sameJson,
   unflatten,
 } from './merge'
 import {
+  decodeProfile,
+  encodeProfile,
   type JsonObject,
+  offerable,
   type Profile,
+  removeRegularFile,
   SECRETS_FILE,
   SETTINGS_FILE,
   type SyncedExtension,
-  decodeProfile,
-  encodeProfile,
-  offerable,
-  removeRegularFile,
   syncedSettings,
   withLocalOnly,
 } from './profile'

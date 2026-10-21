@@ -1,8 +1,8 @@
 import {
   type CommandHandler,
+  cliArgs,
   type EventHandler,
   type OstiaExtension,
-  cliArgs,
   ok,
   parseAgentStop,
 } from '@aurigax-ai/ostia-extension-sdk'

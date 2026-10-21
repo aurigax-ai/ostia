@@ -2,17 +2,17 @@ import { randomBytes } from 'node:crypto'
 import { type FSWatcher, realpathSync, watch } from 'node:fs'
 import { dirname, join } from 'node:path'
 import {
+  allowsPreviewRequest,
+  blockedByPolicy,
+  blockedHost,
+  isPreviewPath,
+  normalizePreviewTheme,
   PREVIEW_LIMITS,
   PREVIEW_SCHEME,
   type PreviewError,
   type PreviewOpened,
   type PreviewStopReason,
   type PreviewTheme,
-  allowsPreviewRequest,
-  blockedByPolicy,
-  blockedHost,
-  isPreviewPath,
-  normalizePreviewTheme,
   previewPartition,
 } from '../../shared/artifacts/htmlPreview'
 import {
@@ -23,7 +23,7 @@ import {
 import { lockDownSession, previewHeaders } from './previewAttach'
 import { type PreviewSource, regularFileSize } from './previewFiles'
 import type { PreviewGuest, PreviewHostDeps, PreviewRect, PreviewSession } from './previewHostTypes'
-import { busySince, previewVerdict, previewsOverCap } from './previewLimits'
+import { busySince, previewsOverCap, previewVerdict } from './previewLimits'
 
 const PING_MS = 1_000
 const METRICS_MS = 5_000

@@ -1,4 +1,4 @@
-import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs'
+import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 import { AGENT_PLUGIN_CAPABILITY } from '../contract/agentPlugins'
 import { parseEditorLanguages } from '../contract/editorLanguages'
@@ -14,8 +14,7 @@ import { isRecord } from '../contract/isRecord'
 import { parseLanguageServers } from '../contract/languageServerManifest'
 import { isInsideDir } from './confinedRead'
 import { parseConnectionKinds } from './connectionKinds'
-import { isCoreSource } from './coreNames'
-import { verbProblem } from './coreNames'
+import { isCoreSource, verbProblem } from './coreNames'
 import {
   parseAgentHooks,
   parseAgentSkills,
@@ -29,7 +28,7 @@ import {
   parsePanel,
   parseSnippets,
 } from './manifestContributions'
-import { EXTENSION_ID_PATTERN, MAX_DESCRIPTION, capabilities, text } from './manifestFields'
+import { capabilities, EXTENSION_ID_PATTERN, MAX_DESCRIPTION, text } from './manifestFields'
 import { parseSecrets, parseSettings, parseSettingsPage } from './manifestSettings'
 
 export type ManifestResult =

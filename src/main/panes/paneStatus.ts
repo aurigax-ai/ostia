@@ -1,17 +1,26 @@
 import { STALE_MAIL_MS, WAKE_BUDGET_MS } from '../../shared/agents/agentIssues'
 import { STATUS_MESSAGE_MAX } from '../../shared/agents/closingLine'
 import {
+  ageLabel,
   type PaneStateName,
   type PaneStatus,
   type PaneStatusChanges,
-  ageLabel,
 } from '../../shared/panes/paneStatus'
 import { mailCounts } from '../agents/busStore'
-import { registerControlMethod } from '../control/controlServer'
-import type { PaneIdentity } from '../control/idRegistry'
+import { type ControlMethodContext, registerControlMethod } from '../control/controlServer'
+import { type PaneIdentity, resolveExternal } from '../control/idRegistry'
 import type { PaneJournal, StampedEvent } from './paneJournal'
 import type { PaneEntry } from './paneList'
-import { type PaneReachDeps, ensurePaneReach, paneRefs, paneTarget, record } from './paneReach'
+import {
+  ensurePaneReach,
+  fail,
+  holdsPaneReach,
+  PANE_REFS_MAX,
+  type PaneReachDeps,
+  paneRefs,
+  paneTarget,
+  record,
+} from './paneReach'
 
 export interface GitFacts {
   branch: string | null
@@ -152,13 +161,35 @@ export async function collectStatus(
   })
 }
 
+async function workspacePanes(
+  deps: PaneStatusDeps,
+  ctx: ControlMethodContext,
+): Promise<{ ref: string; to: PaneIdentity }[]> {
+  const me = ctx.identity
+  if (me.kind !== 'pane') throw fail('bad-request: panes')
+  const found: { ref: string; to: PaneIdentity }[] = []
+  for (const entry of await deps.panes()) {
+    const to = resolveExternal(entry.paneId)
+    if (to?.kind !== 'pane' || to.workspaceId !== me.workspaceId || to === me) continue
+    if (entry.kind === 'terminal' && (await holdsPaneReach(deps, 'read', to, ctx))) {
+      found.push({ ref: entry.paneId, to })
+    }
+  }
+  return found.slice(0, PANE_REFS_MAX)
+}
+
 export function registerPaneStatusMethods(deps: PaneStatusDeps): void {
   registerControlMethod('pane.status', {
     scripts: true,
     handler: async (raw, ctx) => {
-      const refs = paneRefs(record(raw).panes)
-      const targets = []
-      for (const ref of refs) targets.push({ ref, to: await paneTarget(deps, ref, ctx) })
+      const given = record(raw).panes
+      const targets: { ref: string; to: PaneIdentity }[] =
+        given === undefined ? await workspacePanes(deps, ctx) : []
+      if (given !== undefined) {
+        for (const ref of paneRefs(given)) {
+          targets.push({ ref, to: await paneTarget(deps, ref, ctx) })
+        }
+      }
       for (const { ref, to } of targets) {
         await ensurePaneReach(deps, 'read', to, ctx, {
           ref,

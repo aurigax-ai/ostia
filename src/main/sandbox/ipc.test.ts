@@ -5,7 +5,7 @@ import { afterAll, describe, expect, it, vi } from 'vitest'
 import { DEFAULT_SANDBOX_GLOBALS } from '../../shared/sandbox/sandbox'
 import type { DomainRequests } from './domainRequests'
 import type { PortRequests } from './ports/portRequests'
-import { ViolationLog, parseViolationLine } from './violations'
+import { parseViolationLine, ViolationLog } from './violations'
 
 const inert = {
   missing: () => [],

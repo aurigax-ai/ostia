@@ -1,10 +1,10 @@
+import { type ChordSpec, chordText, isPaletteF1 } from '@shared/keyboard/chordSpec'
+import { desktopTaking } from '@shared/keyboard/desktopChords'
 import { Notice } from '@/components/common/Notice'
 import { currentDesktops } from '@/lib/app/desktop'
 import { fmt, useDict } from '@/lib/app/useDict'
 import type { KeySource } from '@/lib/keyboard/keySources'
 import { isMac } from '@/platform'
-import { type ChordSpec, chordText, isPaletteF1 } from '@shared/keyboard/chordSpec'
-import { desktopTaking } from '@shared/keyboard/desktopChords'
 
 export function SourceLabel({
   label,

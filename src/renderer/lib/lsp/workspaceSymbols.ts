@@ -1,5 +1,5 @@
-import { monaco } from '@/lib/monaco/setup'
 import type { SymbolInformation, WorkspaceSymbol } from 'vscode-languageserver-protocol'
+import { monaco } from '@/lib/monaco/setup'
 
 const WORKSPACE_SYMBOL_LIMIT = 200
 const NAME_MAX = 200

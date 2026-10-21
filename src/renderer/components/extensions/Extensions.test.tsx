@@ -1,8 +1,3 @@
-import { DeckRail } from '@/components/sidebar/DeckRail'
-import { useUIStore } from '@/stores/app/uiStore'
-import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
-import type { Workspace } from '@/stores/workspaces/workspaceTypes'
-import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import type {
   ExtensionInfo,
   ExtensionSidebarItem,
@@ -10,6 +5,11 @@ import type {
 import { act, cleanup, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import { DeckRail } from '@/components/sidebar/DeckRail'
+import { useUIStore } from '@/stores/app/uiStore'
+import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
+import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
+import type { Workspace } from '@/stores/workspaces/workspaceTypes'
 import { renderSettled } from '../../../../test/render'
 import { ExtensionApprovalDialog } from './ExtensionApprovalDialog'
 import { ExtensionsPage } from './ExtensionSettingsPage'

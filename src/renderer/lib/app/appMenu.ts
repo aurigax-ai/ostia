@@ -1,8 +1,3 @@
-import { type CommandDef, commandWording, commands } from '@/commands/registry'
-import { chordOf, onBindingsChange } from '@/lib/keyboard/chords'
-import { useSettingsStore } from '@/stores/app/settingsStore'
-import { useUIStore } from '@/stores/app/uiStore'
-import { usePluginsStore } from '@/stores/extensions/pluginsStore'
 import {
   APP_MENU_SECTIONS,
   type AppMenuEntry,
@@ -11,6 +6,11 @@ import {
   electronAccelerator,
 } from '@shared/app/appMenu'
 import type { Dict } from '@shared/app/dict'
+import { type CommandDef, commands, commandWording } from '@/commands/registry'
+import { chordOf, onBindingsChange } from '@/lib/keyboard/chords'
+import { useSettingsStore } from '@/stores/app/settingsStore'
+import { useUIStore } from '@/stores/app/uiStore'
+import { usePluginsStore } from '@/stores/extensions/pluginsStore'
 import { currentDict } from './useDict'
 
 export const SSH_CONNECT_ITEM = 'menu.sshConnect'

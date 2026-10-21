@@ -1,3 +1,4 @@
+import type { WorkspaceSandbox } from '@shared/sandbox/sandbox'
 import { allPanes } from '@/lib/layout/tree'
 import { workspaceTitle } from '@/lib/workspaces/workspaceTitle'
 import { useSandboxStore } from '@/stores/app/sandboxStore'
@@ -7,14 +8,13 @@ import { useBlocksStore } from '@/stores/terminal/blocksStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { type MergeSummary, useMergeConfirmStore } from '@/stores/workspaces/mergeConfirmStore'
 import { useWindowsStore } from '@/stores/workspaces/windowsStore'
-import type { Workspace } from '@/stores/workspaces/workspaceTypes'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
-import type { WorkspaceSandbox } from '@shared/sandbox/sandbox'
+import type { Workspace } from '@/stores/workspaces/workspaceTypes'
 import { runningCommandsOf } from './closeConfirm'
 import {
+  inferHome,
   type MergeOption,
   type MergeSide,
-  inferHome,
   mergeOptions,
   mergeRefusal,
 } from './mergeEligibility'

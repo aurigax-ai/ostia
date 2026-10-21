@@ -1,5 +1,5 @@
-import type { PaneNode } from '@/lib/layout/types'
 import { describe, expect, it } from 'vitest'
+import type { PaneNode } from '@/lib/layout/types'
 import { latestAttentionMessage, runningTitle } from './workspaceSummary'
 
 const pane = (id: string, title = 'zsh', kind: PaneNode['kind'] = 'terminal'): PaneNode => ({

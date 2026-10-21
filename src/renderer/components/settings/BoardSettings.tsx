@@ -1,11 +1,11 @@
+import { GIT_POLL_SECONDS } from '@shared/boards/git'
+import { PORTS_INTERVAL_SECONDS, type PortHost } from '@shared/boards/ports'
 import { ControlRow, NumberRow, ToggleRow } from '@/components/settingsKit/ControlRow'
 import { SelectField } from '@/components/settingsKit/SelectField'
 import { SettingsGroup } from '@/components/settingsKit/SettingsGroup'
 import { SettingsPage } from '@/components/settingsKit/SettingsPage'
 import { useDict } from '@/lib/app/useDict'
 import { useSettingsStore } from '@/stores/app/settingsStore'
-import { GIT_POLL_SECONDS } from '@shared/boards/git'
-import { PORTS_INTERVAL_SECONDS, type PortHost } from '@shared/boards/ports'
 
 const PORT_HOSTS: readonly PortHost[] = ['localhost', '127.0.0.1']
 

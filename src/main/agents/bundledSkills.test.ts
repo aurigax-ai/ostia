@@ -1,11 +1,11 @@
-import { existsSync, readFileSync, readdirSync } from 'node:fs'
+import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import { dirname, join, normalize } from 'node:path'
 import {
   skillDirective,
   skillFrontmatter,
 } from '@aurigax-ai/ostia-extension-sdk/manifest/agentSkills'
 import { describe, expect, it } from 'vitest'
-import { USAGE_TABLE, findNoun } from '../../cli/common/usageTable'
+import { findNoun, USAGE_TABLE } from '../../cli/common/usageTable'
 import { type BundledSkillFile, CORE_SKILL_FILES, MANAGER_SKILL_FILES } from './bundledSkills'
 
 const ROOT = join(__dirname, '..', '..', '..')

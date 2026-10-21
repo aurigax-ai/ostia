@@ -33,11 +33,11 @@ import type { ScratchFolders } from '../workspaces/scratchFolders'
 import { registerBusMethods } from './busMethods'
 import { onBusChange, onMailQueued, queuedCounts } from './busStore'
 import { registerCodexMail } from './codexMailWiring'
+import { mailers } from './mailers'
 import { syncMailFlags } from './mailFlag'
 import { registerMailIpc } from './mailIpc'
 import { mailPending } from './mailPending'
 import { createMailWaker } from './mailWake'
-import { mailers } from './mailers'
 
 interface ToolbeltWiringDeps {
   services: {

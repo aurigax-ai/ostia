@@ -1,23 +1,23 @@
 import type { IncomingMessage } from 'node:http'
-import { type Server as HttpsServer, createServer as createHttpsServer } from 'node:https'
+import { createServer as createHttpsServer, type Server as HttpsServer } from 'node:https'
 import {
   type AddressInfo,
+  createServer as createNetServer,
   type Server as NetServer,
   type Socket,
-  createServer as createNetServer,
 } from 'node:net'
-import { TLSSocket, createSecureContext } from 'node:tls'
+import { createSecureContext, TLSSocket } from 'node:tls'
 import { isEqual } from 'es-toolkit'
 import { type WebSocket, WebSocketServer } from 'ws'
 import type { GatewayPhoneAddress } from '../../shared/gateway/gatewayApi'
 import { PLATFORM_EVENT_TYPES, type PlatformEventType, platformEvents } from '../control/events'
 import { getByPaneId } from '../control/idRegistry'
-import { type GatewayAddress, type TailnetNode, gatewayAddresses, isCurrentHost } from './addresses'
+import { type GatewayAddress, gatewayAddresses, isCurrentHost, type TailnetNode } from './addresses'
 import { type GatewayCert, getCert } from './cert'
 import type { GatewayControlDeps } from './controlDispatch'
-import { get as getDevice, list as listDevices } from './devices'
+import { get as getDevice, list as listDevices, touchDevice } from './devices'
 import { createPairHttp } from './pairHttp'
-import { PHONE_FRAME_BYTES, type SocketState, createPhoneSocket } from './phoneSocket'
+import { createPhoneSocket, PHONE_FRAME_BYTES, type SocketState } from './phoneSocket'
 import { closeStreams } from './phoneStream'
 import { readProxyHeader } from './proxyProtocol'
 import type { ScreenLinks } from './screenLinks'
@@ -73,6 +73,7 @@ function trackDeviceSocket(deviceId: string, ws: WebSocket): void {
     socketsByDevice.set(deviceId, set)
   }
   set.add(ws)
+  touchDevice(deviceId)
 }
 
 function untrackDeviceSocket(deviceId: string, ws: WebSocket): void {
@@ -81,6 +82,7 @@ function untrackDeviceSocket(deviceId: string, ws: WebSocket): void {
   set.delete(ws)
   if (set.size > 0) return
   socketsByDevice.delete(deviceId)
+  touchDevice(deviceId)
   screenLinks?.deviceGone(deviceId)
 }
 
@@ -144,7 +146,7 @@ function broadcastEvent(type: PlatformEventType, payload: unknown): void {
   const cap = capForPlatformEvent(type)
   const frame = eventFrame(type, phonePayload(type, payload))
   for (const [ws, state] of sockets) {
-    if (!state.device || !state.device.caps.includes(cap)) continue
+    if (!state.device?.caps.includes(cap)) continue
     if (ws.readyState === ws.OPEN) ws.send(frame)
   }
 }

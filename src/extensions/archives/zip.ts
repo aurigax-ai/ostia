@@ -7,10 +7,10 @@ import {
 } from '@aurigax-ai/ostia-extension-sdk'
 import {
   type Entry,
-  RandomAccessReader,
-  type ZipFile,
   fromRandomAccessReaderPromise,
   getFileNameLowLevel,
+  RandomAccessReader,
+  type ZipFile,
 } from 'yauzl'
 import { shownName } from './names'
 

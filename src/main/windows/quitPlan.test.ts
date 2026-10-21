@@ -1,11 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
-  type QuitState,
   createQuitTrace,
   exitAfterDeadline,
   keepsShellsOnQuit,
   keptOnQuit,
   planQuit,
+  type QuitState,
   summarizeKinds,
 } from './quitPlan'
 

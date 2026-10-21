@@ -1,8 +1,8 @@
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createPane } from '@/lib/layout/tree'
 import { useSandboxStore } from '@/stores/app/sandboxStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
-import { afterEach, describe, expect, it, vi } from 'vitest'
 import { anchorToFocusedPane, startWorkspaceProjects } from './workspaceProjects'
 
 describe('startWorkspaceProjects', () => {

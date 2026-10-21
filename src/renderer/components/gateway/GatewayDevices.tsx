@@ -1,3 +1,7 @@
+import type { Dict } from '@shared/app/dict'
+import type { GatewayDevice } from '@shared/gateway/gatewayApi'
+import { PHONE_GRANTABLE_CAPS, type PhoneGrantableCap } from '@shared/gateway/phoneCapabilities'
+import { useState } from 'react'
 import { ControlRow } from '@/components/settingsKit/ControlRow'
 import { SettingsSubgroup } from '@/components/settingsKit/SettingsGroup'
 import { SettingsList } from '@/components/settingsKit/SettingsList'
@@ -25,16 +29,12 @@ import { Switch } from '@/components/ui/switch'
 import { DATE_ONLY, formatDate } from '@/lib/app/localeFormat'
 import { fmt, useDict } from '@/lib/app/useDict'
 import { useSettingsStore } from '@/stores/app/settingsStore'
-import type { Dict } from '@shared/app/dict'
-import type { GatewayDevice } from '@shared/gateway/gatewayApi'
-import { PHONE_GRANTABLE_CAPS, type PhoneGrantableCap } from '@shared/gateway/phoneCapabilities'
-import { useState } from 'react'
 
 const CAP_NEEDS: Partial<Record<PhoneGrantableCap, PhoneGrantableCap>> = {
   destructive: 'command',
 }
 
-function capText(d: Dict): Record<PhoneGrantableCap, { label: string; desc: string }> {
+export function capText(d: Dict): Record<PhoneGrantableCap, { label: string; desc: string }> {
   return {
     respond: { label: d.settings.remoteCapRespond, desc: d.settings.remoteCapRespondDesc },
     command: { label: d.settings.remoteCapCommand, desc: d.settings.remoteCapCommandDesc },

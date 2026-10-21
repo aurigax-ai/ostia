@@ -1,26 +1,3 @@
-import { formatBytes } from '@/lib/app/localeFormat'
-import { baseName, parentOf } from '@/lib/files/fileTree'
-import { type RestorableWorkspace, workspaceHandoff } from '@/lib/layout/snapshot'
-import {
-  TERMINAL_TITLE,
-  createPane,
-  createTerminalPane,
-  firstPaneId,
-  paneIds,
-  splitOf,
-  tabsOf,
-} from '@/lib/layout/tree'
-import type { LayoutNode, PaneNode } from '@/lib/layout/types'
-import { workspaceTitle } from '@/lib/workspaces/workspaceTitle'
-import { useSandboxStore } from '@/stores/app/sandboxStore'
-import { useCmuxImportStore } from '@/stores/workspaces/cmuxImportStore'
-import { isRestorable } from '@/stores/workspaces/persistence'
-import { useWindowsStore } from '@/stores/workspaces/windowsStore'
-import {
-  nameFromWorkDir,
-  nextWorkspaceId,
-  useWorkspacesStore,
-} from '@/stores/workspaces/workspacesStore'
 import {
   CMUX_SESSION_MAX_BYTES,
   type CmuxImportReport,
@@ -38,6 +15,29 @@ import type { SnapshotWorkspace } from '@shared/workspaces/workspaceApi'
 import type { WorkspaceGroupColor } from '@shared/workspaces/workspaceGroups'
 import { MAX_LAYOUT_DEPTH, MAX_PANES, MAX_WORKSPACES } from '@shared/workspaces/workspaceLimits'
 import { normalizeDescription } from '@shared/workspaces/workspaceText'
+import { formatBytes } from '@/lib/app/localeFormat'
+import { baseName, parentOf } from '@/lib/files/fileTree'
+import { type RestorableWorkspace, workspaceHandoff } from '@/lib/layout/snapshot'
+import {
+  createPane,
+  createTerminalPane,
+  firstPaneId,
+  paneIds,
+  splitOf,
+  TERMINAL_TITLE,
+  tabsOf,
+} from '@/lib/layout/tree'
+import type { LayoutNode, PaneNode } from '@/lib/layout/types'
+import { workspaceTitle } from '@/lib/workspaces/workspaceTitle'
+import { useSandboxStore } from '@/stores/app/sandboxStore'
+import { useCmuxImportStore } from '@/stores/workspaces/cmuxImportStore'
+import { isRestorable } from '@/stores/workspaces/persistence'
+import { useWindowsStore } from '@/stores/workspaces/windowsStore'
+import {
+  nameFromWorkDir,
+  nextWorkspaceId,
+  useWorkspacesStore,
+} from '@/stores/workspaces/workspacesStore'
 
 const NAME_MAX = 120
 const FLATTEN_DEPTH = MAX_LAYOUT_DEPTH - 1

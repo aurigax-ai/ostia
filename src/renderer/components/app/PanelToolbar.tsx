@@ -1,3 +1,6 @@
+import type { ExtensionInfo } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
+import { ArrowLeftIcon, XIcon } from '@phosphor-icons/react'
+import { useEffect, useRef } from 'react'
 import { IconButton } from '@/components/common/IconButton'
 import { SectionTab, SectionTabsList } from '@/components/common/SectionTabs'
 import { extensionIcon } from '@/components/extensions/extensionIcons'
@@ -6,9 +9,6 @@ import { fmt, useDict } from '@/lib/app/useDict'
 import { sendPanelToolbarEvent } from '@/lib/extensions/panelWebviews'
 import { hideRightPanel } from '@/lib/panes/rightPanelFocus'
 import { toolbarStateOf, usePanelToolbarStore } from '@/stores/extensions/panelToolbarStore'
-import type { ExtensionInfo } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
-import { ArrowLeftIcon, XIcon } from '@phosphor-icons/react'
-import { useEffect, useRef } from 'react'
 
 const ENTER_FOCUS_MS = 2000
 

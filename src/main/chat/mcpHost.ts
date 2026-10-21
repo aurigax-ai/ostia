@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import { homedir } from 'node:os'
-import { type MCPClient, type OAuthClientProvider, createMCPClient } from '@ai-sdk/mcp'
+import { createMCPClient, type MCPClient, type OAuthClientProvider } from '@ai-sdk/mcp'
 import { Experimental_StdioMCPTransport as StdioMCPTransport } from '@ai-sdk/mcp/mcp-stdio'
 import {
   CHAT_TOOL_DESCRIPTION_MAX,

@@ -1,6 +1,6 @@
+import { afterEach, beforeAll, describe, expect, it } from 'vitest'
 import { createPane, firstPaneId, splitOf, tabsOfPane } from '@/lib/layout/tree'
 import { tabHistoryOf } from '@/lib/panes/tabHistory'
-import { afterEach, beforeAll, describe, expect, it } from 'vitest'
 import { useLayoutStore } from './layoutStore'
 
 const layoutOf = (ws: string) => useLayoutStore.getState().byWorkspace[ws]

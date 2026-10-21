@@ -1,11 +1,11 @@
 import {
+  applyRedactions,
   EXTRA_KINDS,
-  REDACT_TEXTS_MAX,
+  parsePrivacySettings,
   REDACT_TEXT_MAX,
+  REDACT_TEXTS_MAX,
   type RedactionKindInfo,
   type RedactionResult,
-  applyRedactions,
-  parsePrivacySettings,
   unchanged,
 } from '../../shared/privacy/redaction'
 import type { SecretScan } from './redactionScan'

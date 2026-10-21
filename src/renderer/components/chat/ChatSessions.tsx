@@ -1,3 +1,12 @@
+import {
+  CaretDownIcon,
+  DownloadSimpleIcon,
+  NotePencilIcon,
+  PencilSimpleIcon,
+  TrashIcon,
+} from '@phosphor-icons/react'
+import type { ChatSessionSummary } from '@shared/assist/chatSessions'
+import { useEffect, useMemo, useState } from 'react'
 import { IconButton } from '@/components/common/IconButton'
 import { Button } from '@/components/ui/button'
 import {
@@ -23,15 +32,6 @@ import {
   startNewSession,
   useChatStore,
 } from '@/stores/assist/chatStore'
-import {
-  CaretDownIcon,
-  DownloadSimpleIcon,
-  NotePencilIcon,
-  PencilSimpleIcon,
-  TrashIcon,
-} from '@phosphor-icons/react'
-import type { ChatSessionSummary } from '@shared/assist/chatSessions'
-import { useEffect, useMemo, useState } from 'react'
 
 function filterSessions(list: readonly ChatSessionSummary[], query: string): ChatSessionSummary[] {
   const q = query.trim().toLowerCase()

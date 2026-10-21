@@ -1,16 +1,48 @@
-import { Button } from '@/components/ui/button'
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
-import { Textarea } from '@/components/ui/textarea'
-import { fmt, useDict } from '@/lib/app/useDict'
-import { cn } from '@/lib/utils'
 import { CaretRightIcon, CopyIcon } from '@phosphor-icons/react'
 import type { GatewayPairRequest } from '@shared/gateway/gatewayApi'
 import { formatCode } from '@shared/gateway/pairCode'
+import { PHONE_GRANTABLE_CAPS } from '@shared/gateway/phoneCapabilities'
 import { useState } from 'react'
+import { Button } from '@/components/ui/button'
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
+import { Textarea } from '@/components/ui/textarea'
+import { formatDate } from '@/lib/app/localeFormat'
+import { fmt, useDict } from '@/lib/app/useDict'
+import { cn } from '@/lib/utils'
+import { useSettingsStore } from '@/stores/app/settingsStore'
+import { capText } from './GatewayDevices'
 import type { PairCode } from './usePairCode'
 
 function spacedCheckCode(code: string): string {
   return `${code.slice(0, 3)} ${code.slice(3)}`
+}
+
+function ReplacesNote({
+  replaces,
+}: {
+  replaces: NonNullable<GatewayPairRequest['replaces']>
+}): JSX.Element {
+  const d = useDict()
+  const locale = useSettingsStore((s) => s.locale)
+  const text = capText(d)
+  const kept = PHONE_GRANTABLE_CAPS.filter((cap) => replaces.caps.includes(cap)).map(
+    (cap) => text[cap].label,
+  )
+  const when = replaces.lastSeenAt
+    ? formatDate(Date.parse(replaces.lastSeenAt), locale)
+    : d.settings.remotePairNeverSeen
+  return (
+    <>
+      <p className="mt-0.5 text-fg-muted text-ui-sm">
+        {fmt(d.settings.remotePairReplaces, { name: replaces.name, when })}
+      </p>
+      <p className="mt-0.5 text-fg-muted text-ui-sm">
+        {kept.length > 0
+          ? fmt(d.settings.remotePairKeeps, { caps: kept.join(', ') })
+          : d.settings.remotePairKeepsNone}
+      </p>
+    </>
+  )
 }
 
 export function PairRequests({
@@ -37,6 +69,7 @@ export function PairRequests({
               {spacedCheckCode(r.checkCode)}
             </div>
             <p className="mt-0.5 text-fg-muted text-ui-sm">{d.settings.remotePairCheck}</p>
+            {r.replaces ? <ReplacesNote replaces={r.replaces} /> : null}
           </div>
           <div className="flex shrink-0 gap-2">
             <Button

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { StdinTooLarge, readStdinUpTo } from './stdinText'
+import { readStdinUpTo, StdinTooLarge } from './stdinText'
 
 async function* chunks(...parts: Array<Buffer | string>): AsyncGenerator<Buffer | string> {
   for (const part of parts) yield part

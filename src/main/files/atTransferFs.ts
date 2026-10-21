@@ -1,6 +1,6 @@
 import { close, fstat, read, write, writeFile } from 'node:fs'
 import { promisify } from 'node:util'
-import { type EntryStat, type OpenFile, type TransferFs, nodeTransferFs } from './transferFs'
+import { type EntryStat, nodeTransferFs, type OpenFile, type TransferFs } from './transferFs'
 
 export const FD_DIR = '/dev/fd'
 

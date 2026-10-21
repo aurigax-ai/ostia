@@ -8,7 +8,7 @@ import { PORTS_CHIP, SSH_CHIP } from '../../shared/boards/git'
 import type { PortHost } from '../../shared/boards/ports'
 import type { PaneEntry } from '../panes/paneList'
 import type { TreeInfo } from './scan'
-import { type WorkspaceProcesses, portUrl } from './sidebar'
+import { portUrl, type WorkspaceProcesses } from './sidebar'
 import { sshLabel } from './ssh'
 
 export type PaneChipValue = Omit<PaneChip, 'extId' | 'tone'> & { tone?: SidebarTone }

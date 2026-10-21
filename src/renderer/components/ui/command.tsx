@@ -1,6 +1,6 @@
+import { CheckIcon, MagnifyingGlassIcon } from '@phosphor-icons/react'
 import { Command as CommandPrimitive } from 'cmdk'
 import type * as React from 'react'
-
 import {
   Dialog,
   DialogContent,
@@ -10,7 +10,6 @@ import {
 } from '@/components/ui/dialog'
 import { InputGroup, InputGroupAddon } from '@/components/ui/input-group'
 import { cn } from '@/lib/utils'
-import { CheckIcon, MagnifyingGlassIcon } from '@phosphor-icons/react'
 
 function Command({ className, ...props }: React.ComponentProps<typeof CommandPrimitive>) {
   return (
@@ -159,10 +158,10 @@ function CommandItem({
 export {
   Command,
   CommandDialog,
-  CommandInput,
-  CommandList,
   CommandEmpty,
   CommandGroup,
+  CommandInput,
   CommandItem,
+  CommandList,
   CommandSeparator,
 }

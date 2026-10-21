@@ -1,3 +1,9 @@
+import type { Dict } from '@shared/app/dict'
+import { PASSKEY_NOTICE_PREFIX } from '@shared/browser/passkeyGuard'
+import type { PickBox, PickCapture, PickTheme } from '@shared/browser/pick'
+import type { RegionCapture, RegionView } from '@shared/browser/regionCapture'
+import type { WebviewTag } from 'electron'
+import { type MutableRefObject, useCallback, useEffect, useState } from 'react'
 import { useAgentTargets, useNoAgentsText } from '@/components/agents/PickSendPanel'
 import type { PickTarget } from '@/lib/agents/pickTargets'
 import { sendPickToPane, sendRegionToPane } from '@/lib/agents/sendPick'
@@ -5,12 +11,6 @@ import { fmt } from '@/lib/app/useDict'
 import { useTransientStatus } from '@/lib/app/useTransientStatus'
 import { registerRegionCapture } from '@/lib/browser/regionCaptures'
 import { useSettingsStore } from '@/stores/app/settingsStore'
-import type { Dict } from '@shared/app/dict'
-import { PASSKEY_NOTICE_PREFIX } from '@shared/browser/passkeyGuard'
-import type { PickBox, PickCapture, PickTheme } from '@shared/browser/pick'
-import type { RegionCapture, RegionView } from '@shared/browser/regionCapture'
-import type { WebviewTag } from 'electron'
-import { type MutableRefObject, useCallback, useEffect, useState } from 'react'
 
 const STATUS_MS = 6000
 

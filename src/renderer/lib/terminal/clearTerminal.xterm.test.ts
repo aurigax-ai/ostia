@@ -1,6 +1,6 @@
 import { Terminal } from '@xterm/xterm'
 import { afterEach, describe, expect, it } from 'vitest'
-import { FORM_FEED, clearKeepingScrollback } from './clearTerminal'
+import { clearKeepingScrollback, FORM_FEED } from './clearTerminal'
 
 const terms: Terminal[] = []
 

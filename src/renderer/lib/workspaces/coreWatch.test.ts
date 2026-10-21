@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { resetCoreWatch, watchWorkspace, watchedWorkspaces } from './coreWatch'
+import { resetCoreWatch, watchedWorkspaces, watchWorkspace } from './coreWatch'
 
 const settle = (): Promise<void> => new Promise((r) => queueMicrotask(r))
 

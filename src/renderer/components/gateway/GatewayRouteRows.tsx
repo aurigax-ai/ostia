@@ -1,9 +1,3 @@
-import { Notice } from '@/components/common/Notice'
-import { CommitInput } from '@/components/settingsKit/CommitInput'
-import { ControlRow, ToggleRow } from '@/components/settingsKit/ControlRow'
-import { SelectField } from '@/components/settingsKit/SelectField'
-import { Button } from '@/components/ui/button'
-import { fmt, useDict } from '@/lib/app/useDict'
 import type { Dict } from '@shared/app/dict'
 import type {
   GatewayBindAddress,
@@ -13,6 +7,12 @@ import type {
 } from '@shared/gateway/gatewayApi'
 import { formatPhoneAddress, parsePhoneAddress } from '@shared/gateway/gatewayRoute'
 import { useState } from 'react'
+import { Notice } from '@/components/common/Notice'
+import { CommitInput } from '@/components/settingsKit/CommitInput'
+import { ControlRow, ToggleRow } from '@/components/settingsKit/ControlRow'
+import { SelectField } from '@/components/settingsKit/SelectField'
+import { Button } from '@/components/ui/button'
+import { fmt, useDict } from '@/lib/app/useDict'
 import type { GatewayRouteState } from './useGatewayRoute'
 import type { GatewayStatus } from './useGatewayStatus'
 

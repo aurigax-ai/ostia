@@ -1,14 +1,14 @@
 import { spawn } from 'node:child_process'
-import { type Socket, createConnection } from 'node:net'
+import { createConnection, type Socket } from 'node:net'
 import { tmpdir } from 'node:os'
 import { StringDecoder } from 'node:string_decoder'
 import { setTimeout as sleep } from 'node:timers/promises'
 import { readEnv } from '@aurigax-ai/ostia-extension-sdk/contract/appEnv'
 import {
+  createMessageConnection,
   type MessageConnection,
   StreamMessageReader,
   StreamMessageWriter,
-  createMessageConnection,
 } from 'vscode-jsonrpc/node'
 import { MIRROR_DETACH_KEY, portalSocketPath, portalSupported } from '../../shared/agents/portal'
 

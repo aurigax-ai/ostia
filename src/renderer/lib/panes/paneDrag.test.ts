@@ -1,6 +1,6 @@
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { usePaneDnd } from '@/stores/workspaces/paneDndStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
-import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { reportForeignDrop, startPaneDragTracking } from './paneDrag'
 
 let init: ReturnType<typeof useWorkspacesStore.getState>

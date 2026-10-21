@@ -1,11 +1,3 @@
-import { Hint } from '@/components/common/Hint'
-import {
-  InputGroup,
-  InputGroupAddon,
-  InputGroupButton,
-  InputGroupTextarea,
-} from '@/components/ui/input-group'
-import { cn } from '@/lib/utils'
 import { ArrowUpIcon, StopIcon } from '@phosphor-icons/react'
 import type { ChatStatus } from 'ai'
 import type {
@@ -16,6 +8,14 @@ import type {
   MouseEvent,
 } from 'react'
 import { forwardRef, useCallback, useState } from 'react'
+import { Hint } from '@/components/common/Hint'
+import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupButton,
+  InputGroupTextarea,
+} from '@/components/ui/input-group'
+import { cn } from '@/lib/utils'
 
 interface PromptInputMessage {
   text: string

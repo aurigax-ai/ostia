@@ -1,3 +1,15 @@
+import {
+  CaretDownIcon,
+  FlaskIcon,
+  FolderSimpleIcon,
+  GearSixIcon,
+  MagnifyingGlassIcon,
+  PlugsConnectedIcon,
+  PlusIcon,
+  ShieldCheckIcon,
+  SidebarSimpleIcon,
+} from '@phosphor-icons/react'
+import { useState } from 'react'
 import { DashboardButton } from '@/components/agents/DashboardButton'
 import { NotificationCenter } from '@/components/agents/NotificationCenter'
 import { AssistantMenu } from '@/components/assist/AssistantMenu'
@@ -14,27 +26,15 @@ import { useChordLabel } from '@/lib/keyboard/chords'
 import { COMMANDS_PREFIX } from '@/lib/palette/paletteModes'
 import { startNewWorkspace, startScratchWorkspace } from '@/lib/workspaces/newWorkspace'
 import {
-  type SshHosts,
   listSshHosts,
   openSshWorkspace,
+  type SshHosts,
   sshEnabled,
 } from '@/lib/workspaces/sshWorkspace'
 import { isMac } from '@/platform'
 import { useUIStore } from '@/stores/app/uiStore'
 import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
-import {
-  CaretDownIcon,
-  FlaskIcon,
-  FolderSimpleIcon,
-  GearSixIcon,
-  MagnifyingGlassIcon,
-  PlugsConnectedIcon,
-  PlusIcon,
-  ShieldCheckIcon,
-  SidebarSimpleIcon,
-} from '@phosphor-icons/react'
-import { useState } from 'react'
 import { PanelToggles } from './PanelToggles'
 import { UpdateNotice } from './UpdateNotice'
 import { ZoomReset } from './ZoomReset'

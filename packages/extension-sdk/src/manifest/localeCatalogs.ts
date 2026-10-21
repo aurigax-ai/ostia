@@ -2,11 +2,11 @@ import { readdirSync, realpathSync } from 'node:fs'
 import { join } from 'node:path'
 import type { ExtensionConnectionKind } from '../contract/extensionConnections'
 import {
-  EXTENSION_LOCALES_DIR,
   EXTENSION_LOCALE_FILE_MAX_BYTES,
+  EXTENSION_LOCALES_DIR,
+  extensionLocaleFile,
   type LocaleCatalogs,
   type LocaleStrings,
-  extensionLocaleFile,
   matchLocale,
   parseMessages,
 } from '../contract/extensionLocales'
@@ -20,7 +20,7 @@ import {
 import { FILE_KIND_DISPLAY_NAME_MAX } from '../contract/fileKinds'
 import { isRecord } from '../contract/isRecord'
 import { readConfined } from './confinedRead'
-import { MAX_DESCRIPTION, MAX_TEXT, hasControlCharacter } from './manifestFields'
+import { hasControlCharacter, MAX_DESCRIPTION, MAX_TEXT } from './manifestFields'
 
 export interface LocaleCatalog {
   manifest: LocaleStrings

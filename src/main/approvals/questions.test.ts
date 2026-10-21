@@ -1,8 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
-  QUESTIONS_PER_PANE,
   QUESTION_RATE_LIMIT,
   QUESTION_RATE_WINDOW_MS,
+  QUESTIONS_PER_PANE,
   type QuestionOutcome,
   type QuestionState,
 } from '../../shared/agents/questions'

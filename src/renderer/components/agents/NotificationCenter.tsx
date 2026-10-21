@@ -1,10 +1,21 @@
+import type { ExtensionInfo } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
+import { TrayIcon } from '@phosphor-icons/react'
+import type { NotificationEntry } from '@shared/attention/attention'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { openExtensionPanel } from '@/commands/extensionBridge'
+import { EmptyState } from '@/components/common/EmptyState'
+import { IconButton } from '@/components/common/IconButton'
+import { SectionTab, SectionTabsList } from '@/components/common/SectionTabs'
+import { Button } from '@/components/ui/button'
+import { Item, ItemContent, ItemHeader } from '@/components/ui/item'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { Tabs } from '@/components/ui/tabs'
 import { fmt, useDict } from '@/lib/app/useDict'
 import {
-  NOTIFICATION_TABS,
-  type NotificationTab,
   groupNotifications,
   inTab,
+  NOTIFICATION_TABS,
+  type NotificationTab,
 } from '@/lib/attention/notificationGroups'
 import { revealPane } from '@/lib/attention/workspaceActivity'
 import { findPane } from '@/lib/layout/tree'
@@ -18,18 +29,6 @@ import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { useWindowsStore } from '@/stores/workspaces/windowsStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
-import type { ExtensionInfo } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
-import { TrayIcon } from '@phosphor-icons/react'
-import type { NotificationEntry } from '@shared/attention/attention'
-import { useCallback, useEffect, useMemo, useState } from 'react'
-
-import { EmptyState } from '@/components/common/EmptyState'
-import { IconButton } from '@/components/common/IconButton'
-import { SectionTab, SectionTabsList } from '@/components/common/SectionTabs'
-import { Button } from '@/components/ui/button'
-import { Item, ItemContent, ItemHeader } from '@/components/ui/item'
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
-import { Tabs } from '@/components/ui/tabs'
 import { ApprovalsInbox } from './ApprovalsInbox'
 
 const LIST_LIMIT = 50

@@ -1,4 +1,5 @@
 import { randomBytes, randomUUID } from 'node:crypto'
+import { cleanDeviceName } from '../../shared/gateway/deviceName'
 import type { GatewaySetCapResult } from '../../shared/gateway/gatewayApi'
 import {
   PHONE_BASE_CAPS,
@@ -20,6 +21,8 @@ export interface Device {
   token: string
   caps: string[]
   createdAt: string
+  lastSeenAt?: string
+  installId?: string
 }
 
 type DeviceStore = Record<string, Device>
@@ -46,27 +49,61 @@ function save(store: DeviceStore): void {
 export interface RegisterDeviceInput {
   name: string
   pubkey: string
+  installId?: string
 }
 
 export interface RegisteredDevice {
   deviceId: string
   token: string
   caps: string[]
+  replaced: string[]
 }
 
 export function registerDevice(input: RegisterDeviceInput): RegisteredDevice {
   const store = load()
+  const replaced = input.installId
+    ? Object.values(store).filter((d) => d.installId === input.installId)
+    : []
+  for (const old of replaced) delete store[old.deviceId]
   const device: Device = {
     deviceId: `dev_${randomUUID()}`,
-    name: input.name,
+    name: cleanDeviceName(input.name) ?? 'Phone',
     pubkey: input.pubkey,
     token: randomBytes(32).toString('hex'),
-    caps: [...DEFAULT_PHONE_CAPS],
+    caps: replaced[0] ? [...replaced[0].caps] : [...DEFAULT_PHONE_CAPS],
     createdAt: new Date().toISOString(),
+    ...(input.installId ? { installId: input.installId } : {}),
   }
   store[device.deviceId] = device
   save(store)
-  return { deviceId: device.deviceId, token: device.token, caps: device.caps }
+  return {
+    deviceId: device.deviceId,
+    token: device.token,
+    caps: device.caps,
+    replaced: replaced.map((d) => d.deviceId),
+  }
+}
+
+export function deviceByInstallId(installId: string | undefined): Device | null {
+  if (!installId) return null
+  return list().find((d) => d.installId === installId) ?? null
+}
+
+export function touchDevice(deviceId: string): void {
+  const store = load()
+  if (!Object.hasOwn(store, deviceId)) return
+  store[deviceId].lastSeenAt = new Date().toISOString()
+  save(store)
+}
+
+export function setDeviceName(deviceId: string, name: unknown): boolean {
+  const clean = cleanDeviceName(name)
+  const store = load()
+  if (!clean || !Object.hasOwn(store, deviceId)) return false
+  if (store[deviceId].name === clean) return true
+  store[deviceId].name = clean
+  save(store)
+  return true
 }
 
 export function verifyToken(token: string): Device | null {

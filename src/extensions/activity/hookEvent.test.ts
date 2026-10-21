@@ -2,9 +2,9 @@ import { describe, expect, it } from 'vitest'
 import {
   type HookSource,
   PROMPT_TEXT_MAX,
-  RECAP_TEXT_MAX,
   parseHookEvent,
   parseStoredRecord,
+  RECAP_TEXT_MAX,
   recapOf,
 } from './hookEvent'
 

@@ -1,3 +1,5 @@
+import type { ExtensionSidebarItem } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
+import { AppWindowIcon, ArrowSquareInIcon } from '@phosphor-icons/react'
 import { MenuContent, MenuItem } from '@/components/common/Menu'
 import { ContextMenu, ContextMenuTrigger } from '@/components/ui/context-menu'
 import { Kbd } from '@/components/ui/kbd'
@@ -6,8 +8,6 @@ import { type RemoteWorkspace, remoteWorkspacesOf } from '@/lib/workspaces/windo
 import { stateLabel } from '@/lib/workspaces/workspaceState'
 import { useUIStore } from '@/stores/app/uiStore'
 import { useWindowsStore } from '@/stores/workspaces/windowsStore'
-import type { ExtensionSidebarItem } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
-import { AppWindowIcon, ArrowSquareInIcon } from '@phosphor-icons/react'
 import { LocationLine } from './RailMeta'
 import { RailTab } from './RailTab'
 

@@ -4,7 +4,7 @@ import { join } from 'node:path'
 import { contractFailures } from '@aurigax-ai/wire/testing'
 import { afterEach, describe, expect, it } from 'vitest'
 import { RATE_RETRY_MS } from './agentNode'
-import { type HostHarness, closeHarnesses, fakeExt, hostHarness, settle } from './fakeExt'
+import { closeHarnesses, fakeExt, type HostHarness, hostHarness, settle } from './fakeExt'
 import { GraphsRunner } from './runner'
 
 afterEach(() => closeHarnesses())

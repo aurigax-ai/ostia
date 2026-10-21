@@ -1,5 +1,5 @@
-import { type PanelInstance, instanceKey } from '@/lib/panes/panelKeepAlive'
 import { afterEach, describe, expect, it } from 'vitest'
+import { instanceKey, type PanelInstance } from '@/lib/panes/panelKeepAlive'
 import { useSidePanelStore } from './sidePanelStore'
 
 const state = () => useSidePanelStore.getState()

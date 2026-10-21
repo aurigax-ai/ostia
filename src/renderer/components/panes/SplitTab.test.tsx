@@ -1,4 +1,7 @@
 import '@testing-library/jest-dom/vitest'
+import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { registerPaneTabCommands } from '@/commands/paneTabCommands'
 import { commands } from '@/commands/registry'
 import {
@@ -16,9 +19,6 @@ import { type CommandBlock, useBlocksStore } from '@/stores/terminal/blocksStore
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { usePaneRenameStore } from '@/stores/workspaces/paneRenameStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
-import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
-import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { Pane } from './Pane'
 import { PaneTree } from './PaneTree'
 

@@ -1,13 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import {
-  MAX_PANEL_SIZES,
-  SPLIT_KEY_STEP,
-  SPLIT_PAGE_STEP,
   clampPosition,
   fractionOf,
   keyPosition,
+  MAX_PANEL_SIZES,
   parsePanelSizes,
   percentOf,
+  SPLIT_KEY_STEP,
+  SPLIT_PAGE_STEP,
   splitBounds,
   withPanelSize,
 } from './split'

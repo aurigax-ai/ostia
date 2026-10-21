@@ -1,4 +1,9 @@
 import '@testing-library/jest-dom/vitest'
+import type { PaneActivity } from '@shared/terminal/ptyApi'
+import type { QuitAnswer } from '@shared/windows/windowsApi'
+import { act, cleanup, render, screen, waitFor } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import type { LayoutNode } from '@/lib/layout/types'
 import {
   confirmQuit,
@@ -12,11 +17,6 @@ import { type CommandBlock, useBlocksStore } from '@/stores/terminal/blocksStore
 import { useCloseConfirmStore } from '@/stores/workspaces/closeConfirmStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
-import type { PaneActivity } from '@shared/terminal/ptyApi'
-import type { QuitAnswer } from '@shared/windows/windowsApi'
-import { act, cleanup, render, screen, waitFor } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
-import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { CloseConfirmDialog } from './CloseConfirmDialog'
 
 if (!Element.prototype.getAnimations) {

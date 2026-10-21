@@ -1,10 +1,11 @@
 import { resolve as resolvePath } from 'node:path'
 import type { MessageConnection } from 'vscode-jsonrpc/node'
+import { shortId } from '../../shared/panes/paneStatus'
 import { parseArgs } from '../common/args'
 import { resolveWorkspaceRef } from '../common/crossWorkspace'
 import {
-  type ErrResult,
   describeErrResult,
+  type ErrResult,
   fail,
   failUsage,
   failVerb,
@@ -43,12 +44,29 @@ interface StartAnswer {
   paneId: string
   status?: string
   reason?: string
+  turnStarted?: boolean
+  session?: string
 }
 
-function printStart(verb: string, res: StartAnswer): void {
-  console.log(JSON.stringify(res))
-  if (res.status !== 'failed' && res.status !== 'timed-out') return
-  fail(`ostia ${verb}: ${res.name} (${res.paneId}) ${res.status}: ${res.reason ?? ''}`)
+function agentStartLine(res: StartAnswer): string {
+  if (res.status !== 'started') return `${res.name} ${shortId(res.paneId)} ${res.status}`
+  const turn =
+    res.turnStarted === undefined
+      ? 'started; turn unknown (hooks off)'
+      : res.turnStarted
+        ? 'started a turn'
+        : 'started; no turn yet'
+  const session = res.session ? `; session ${res.session}` : ''
+  return `${res.name} ${shortId(res.paneId)} ${turn}${session}`
+}
+
+function printStart(verb: string, res: StartAnswer, json = true): void {
+  const failed = res.status === 'failed' || res.status === 'timed-out'
+  console.log(json || failed ? JSON.stringify(res) : agentStartLine(res))
+  if (!failed) return
+  fail(
+    `ostia ${verb}: ${res.name} (${shortId(res.paneId)}) ${res.status}: ${res.reason ?? ''}. See what it printed: ostia pane read ${shortId(res.paneId)}`,
+  )
 }
 
 function parseAgentArgs(argv: readonly string[]) {
@@ -60,11 +78,12 @@ function parseAgentArgs(argv: readonly string[]) {
       tab: '--tab',
       model: '--model',
     },
+    booleans: { json: '--json' },
   })
 }
 
 export async function runAgentVerb(conn: MessageConnection): Promise<void> {
-  const { values: flags, positional } = parseAgentArgs(process.argv.slice(4))
+  const { values: flags, positional, booleans } = parseAgentArgs(process.argv.slice(4))
   const [agent, given] = positional
   if (process.argv[3] !== 'run' || !agent || given === undefined) return failUsage('agent')
   const prompt = given === '-' ? await readAllStdin() : given
@@ -81,7 +100,7 @@ export async function runAgentVerb(conn: MessageConnection): Promise<void> {
     failWith(describeErrResult(res))
     return
   }
-  printStart('agent run', res)
+  printStart('agent run', res, booleans.json)
 }
 
 export async function runProcessVerb(conn: MessageConnection): Promise<void> {
@@ -124,7 +143,7 @@ export async function runProcessVerb(conn: MessageConnection): Promise<void> {
       return
     }
     if (list.length === 0) {
-      console.log('(no tracked processes)')
+      console.error('(no tracked processes)')
       return
     }
     for (const p of list) {

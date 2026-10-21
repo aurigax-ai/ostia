@@ -1,6 +1,6 @@
+import { InfoIcon, WarningCircleIcon, WarningIcon } from '@phosphor-icons/react'
 import { Alert, AlertAction, AlertDescription } from '@/components/ui/alert'
 import { cn } from '@/lib/utils'
-import { InfoIcon, WarningCircleIcon, WarningIcon } from '@phosphor-icons/react'
 
 const TONES = {
   warn: { icon: WarningIcon, text: 'text-warn-fg' },

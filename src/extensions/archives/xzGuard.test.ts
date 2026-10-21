@@ -8,7 +8,7 @@ import { tarOf } from '../../../test/fixtures/archives/archives'
 import { archiveDecoders } from '../../../test/fixtures/archives/decoders'
 import { listAll, memoryFile, readEntry } from './memoryFile'
 import { tarProvider } from './tar'
-import { XZ_DICT_MAX, XzGuard, lzma2DictSize } from './xzGuard'
+import { lzma2DictSize, XZ_DICT_MAX, XzGuard } from './xzGuard'
 
 const BLOCK = 12
 async function xz(bytes: Uint8Array): Promise<Buffer> {

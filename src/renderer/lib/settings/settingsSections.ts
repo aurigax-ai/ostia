@@ -1,10 +1,7 @@
-import { withProductName } from '@/lib/app/useDict'
-import { platform } from '@/platform'
 import type { ExtensionInfo } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import {
   ArrowsClockwiseIcon,
   BellIcon,
-  BracketsCurlyIcon,
   BroadcastIcon,
   ChatCircleDotsIcon,
   DeviceMobileIcon,
@@ -14,9 +11,9 @@ import {
   GlobeIcon,
   type Icon as IconComponent,
   InfoIcon,
-  KeyIcon,
   KeyboardIcon,
   KeyholeIcon,
+  KeyIcon,
   LayoutIcon,
   PaletteIcon,
   PlugsIcon,
@@ -31,6 +28,8 @@ import {
   TreeStructureIcon,
 } from '@phosphor-icons/react'
 import type { Dict } from '@shared/app/dict'
+import { withProductName } from '@/lib/app/useDict'
+import { platform } from '@/platform'
 
 export const SETTINGS_GROUPS = [
   'general',
@@ -66,7 +65,6 @@ export type SectionId =
   | 'editor'
   | 'extensions'
   | 'views'
-  | 'languageServers'
   | 'remote'
   | 'sync'
   | 'about'
@@ -124,12 +122,6 @@ export function settingsSections(d: Dict): SettingsSection[] {
         ]
       : []),
     { id: 'editor', group: 'editor', icon: FileCodeIcon, label: d.editorSettings.title },
-    {
-      id: 'languageServers',
-      group: 'editor',
-      icon: BracketsCurlyIcon,
-      label: d.languageServers.title,
-    },
     { id: 'browser', group: 'editor', icon: GlobeIcon, label: d.browserSettings.title },
     { id: 'sandbox', group: 'security', icon: ShieldCheckIcon, label: d.sandbox.title },
     { id: 'privacy', group: 'security', icon: EyeSlashIcon, label: d.privacy.title },

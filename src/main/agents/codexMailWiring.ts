@@ -1,5 +1,5 @@
 import { registerControlMethod } from '../control/controlServer'
-import { type PaneIdentity, getByPaneId, resolveExternal } from '../control/idRegistry'
+import { getByPaneId, type PaneIdentity, resolveExternal } from '../control/idRegistry'
 import type { PaneJournal } from '../panes/paneJournal'
 import type { PaneEntry } from '../panes/paneList'
 import { onBusChange, onMailQueued } from './busStore'

@@ -1,7 +1,7 @@
-import { KEYBOARD_PLATFORMS, type KeyboardPlatform } from '@/lib/keyboard/keyboardPresets'
-import { type TerminalKeyMap, parseTerminalKeys } from '@/lib/keyboard/terminalKeys'
 import { isRecord } from '@aurigax-ai/ostia-extension-sdk/contract/isRecord'
 import { type KeybindingMap, parseKeybindings } from '@shared/keyboard/chordSpec'
+import { KEYBOARD_PLATFORMS, type KeyboardPlatform } from '@/lib/keyboard/keyboardPresets'
+import { parseTerminalKeys, type TerminalKeyMap } from '@/lib/keyboard/terminalKeys'
 import { parseKeymapSetting, parseTerminalKeymapSetting } from './keymapSetting'
 
 export interface PlatformKeyboard {

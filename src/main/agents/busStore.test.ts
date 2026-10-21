@@ -25,6 +25,7 @@ const {
   inboxOf,
   leaseMail,
   releaseMail,
+  sentAfter,
   mailCounts,
   mailViews,
   resetBus,
@@ -39,7 +40,6 @@ const {
   setBusObserver,
   setPending,
   takeMail,
-  whenSettled,
 } = store
 
 const observed = vi.fn()
@@ -422,53 +422,45 @@ describe('waiting', () => {
     expect(second.mock.calls[0][0].messages.map((m: { id: string }) => m.id)).toEqual([next.id])
   })
 
+  it('hands a waiter that picks only the messages it picks, and leaves the rest queued', () => {
+    const got = vi.fn()
+    addWaiter('b', got, (mail) => mail.from === 'c')
+    const other = send('from a')
+    expect(got).not.toHaveBeenCalled()
+    expect(getMail(other.id)).toMatchObject({ state: 'queued' })
+    const wanted = send('from c', 'b', 'c')
+    expect(got).toHaveBeenCalledOnce()
+    expect(got.mock.calls[0][0].messages.map((m: { id: string }) => m.id)).toEqual([wanted.id])
+  })
+
+  it('hands a message to the waiter that picks it before a plain waiter parked earlier', () => {
+    const plain = vi.fn()
+    const picky = vi.fn()
+    addWaiter('b', plain)
+    addWaiter('b', picky, (mail) => mail.from === 'c')
+    send('from c', 'b', 'c')
+    expect(picky).toHaveBeenCalledOnce()
+    expect(plain).not.toHaveBeenCalled()
+    send('from a')
+    expect(plain).toHaveBeenCalledOnce()
+  })
+
+  it('tells a message sent after another by its place in the store, not its clock', () => {
+    const before = send('before')
+    const question = send('question')
+    const after = send('after')
+    const later = sentAfter(question.id, question.ts)
+    expect(later(before)).toBe(false)
+    expect(later(after)).toBe(true)
+    expect(sentAfter('gone', question.ts)(after)).toBe(true)
+  })
+
   it('queues again once a waiter is unregistered', () => {
     const got = vi.fn()
     const off = addWaiter('b', got)
     off()
     expect(send('anyone?').state).toBe('queued')
     expect(got).not.toHaveBeenCalled()
-  })
-
-  it('resolves a send that waits when the mail is delivered, failed or the time runs out', async () => {
-    const abort = new AbortController()
-    const delivered = send('one')
-    const pending = whenSettled(delivered.id, 5000, abort.signal)
-    takeMail('b', 'prompt', all)
-    expect(await pending).toMatchObject({ state: 'delivered', via: 'prompt' })
-
-    const closing = send('two')
-    const failing = whenSettled(closing.id, 5000, abort.signal)
-    failPaneMail('b')
-    expect(await failing).toMatchObject({ state: 'failed', reason: 'pane-closed' })
-
-    const slow = send('three', 'c')
-    const timed = whenSettled(slow.id, 3000, abort.signal)
-    vi.advanceTimersByTime(3000)
-    expect(await timed).toMatchObject({ state: 'queued' })
-  })
-
-  it('resolves at once for mail that is already settled, and for an unknown id', async () => {
-    const abort = new AbortController()
-    const mail = send()
-    takeMail('b', 'read', all)
-    expect(await whenSettled(mail.id, 5000, abort.signal)).toMatchObject({ state: 'delivered' })
-    expect(await whenSettled('missing', 5000, abort.signal)).toBeUndefined()
-  })
-
-  it('does not wait at all for a caller that is already gone', async () => {
-    const abort = new AbortController()
-    abort.abort()
-    const mail = send()
-    expect(await whenSettled(mail.id, 60_000, abort.signal)).toMatchObject({ state: 'queued' })
-  })
-
-  it('stops waiting when the caller goes away', async () => {
-    const abort = new AbortController()
-    const mail = send()
-    const pending = whenSettled(mail.id, 60_000, abort.signal)
-    abort.abort()
-    expect(await pending).toMatchObject({ state: 'queued' })
   })
 })
 

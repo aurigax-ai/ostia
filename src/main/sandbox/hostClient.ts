@@ -3,7 +3,7 @@ import type { Socket } from 'node:net'
 import type { SandboxRuntimeConfig } from '@anthropic-ai/sandbox-runtime'
 import type { PackageBlockReason, PackagePolicy } from '../sandboxPackages/packagePolicy'
 import type { PackageRef } from '../sandboxPackages/packages'
-import { JsonLines, connectHostChannel, writeMessage } from './hostChannel'
+import { connectHostChannel, JsonLines, writeMessage } from './hostChannel'
 import {
   HOST_PROTOCOL_VERSION,
   type HostRequest,

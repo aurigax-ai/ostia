@@ -1,6 +1,6 @@
+import type { ChatContextItem } from '@aurigax-ai/ostia-extension-sdk/contract/assist'
 import type { OstiaChatMessage } from '@/lib/assist/chatTransport'
 import { messageText } from '@/lib/assist/chatTransport'
-import type { ChatContextItem } from '@aurigax-ai/ostia-extension-sdk/contract/assist'
 
 const FENCE = '```'
 

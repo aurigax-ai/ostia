@@ -1,8 +1,8 @@
 import {
+  isPermissionAgent,
   PERMISSION_HOOK_INPUT_MAX,
   type PermissionAskParams,
   type PermissionChoice,
-  isPermissionAgent,
   parsePermissionPayload,
   permissionAskParams,
   permissionHookOutput,

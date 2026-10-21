@@ -1,8 +1,8 @@
 import {
   type ExtensionResult,
-  type OstiaExtension,
   failure,
   namedArgs,
+  type OstiaExtension,
   ok,
 } from '@aurigax-ai/ostia-extension-sdk'
 import { definition, listModel, runModel, runtimeModel } from './panelModel'

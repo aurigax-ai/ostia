@@ -7,8 +7,8 @@ import {
   type ActivityRecord,
   type BusMessageKind,
   type HostKind,
-  type ToolKind,
   isOpenNeedsYou,
+  type ToolKind,
 } from './hookEvent'
 
 const AGENT_STATES = ['working', 'waiting', 'done', 'error'] as const

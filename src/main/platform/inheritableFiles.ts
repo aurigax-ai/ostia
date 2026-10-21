@@ -1,5 +1,5 @@
 import type { StdioOptions } from 'node:child_process'
-import { closeSync, openSync, readFileSync, readdirSync } from 'node:fs'
+import { closeSync, openSync, readdirSync, readFileSync } from 'node:fs'
 
 const O_CLOEXEC = 0o2000000
 const FIRST_SHARED_FD = 3

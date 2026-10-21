@@ -1,3 +1,11 @@
+import {
+  ArrowClockwiseIcon,
+  BookmarkSimpleIcon,
+  ChatCircleTextIcon,
+  CopyIcon,
+  PaperPlaneTiltIcon,
+} from '@phosphor-icons/react'
+import type { ReactElement } from 'react'
 import { MenuContent, MenuItem } from '@/components/common/Menu'
 import { ContextMenu, ContextMenuSeparator, ContextMenuTrigger } from '@/components/ui/context-menu'
 import { addToAgentPane } from '@/lib/agent/agentPane'
@@ -9,14 +17,6 @@ import { isIdlePrompt } from '@/lib/terminal/blocks'
 import { terminalFor } from '@/lib/terminal/terminalHandles'
 import { useBlocksStore } from '@/stores/terminal/blocksStore'
 import { useSnippetsStore } from '@/stores/terminal/snippetsStore'
-import {
-  ArrowClockwiseIcon,
-  BookmarkSimpleIcon,
-  ChatCircleTextIcon,
-  CopyIcon,
-  PaperPlaneTiltIcon,
-} from '@phosphor-icons/react'
-import type { ReactElement } from 'react'
 
 export function BlockMenu({
   paneId,

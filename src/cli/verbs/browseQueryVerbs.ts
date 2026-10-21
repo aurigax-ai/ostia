@@ -1,5 +1,5 @@
 import { resolve as resolvePath } from 'node:path'
-import { type Parser, num, ok, parseFlags, usage } from './browseFlags'
+import { num, ok, type Parser, parseFlags, usage } from './browseFlags'
 
 const FIND_LOCATORS = ['role', 'text', 'label', 'placeholder', 'alt', 'title', 'testid']
 

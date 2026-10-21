@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import { chatMarkdown, normalizeChatSession } from './chatSessions'
 import {
-  MCP_SERVERS_MAX,
   isMcpSecretKey,
+  MCP_SERVERS_MAX,
   mcpToolName,
   parseChatToolSettings,
   parseMcpServer,

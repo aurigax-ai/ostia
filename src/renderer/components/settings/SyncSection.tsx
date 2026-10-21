@@ -1,3 +1,6 @@
+import type { Dict } from '@shared/app/dict'
+import type { SyncConflict, SyncStatus } from '@shared/profileSync/profileSync'
+import { useEffect, useMemo, useState } from 'react'
 import { MachineValue } from '@/components/common/MachineValue'
 import { Notice } from '@/components/common/Notice'
 import { ControlRow } from '@/components/settingsKit/ControlRow'
@@ -6,9 +9,6 @@ import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import { fmt, useDict } from '@/lib/app/useDict'
 import { useSettingsStore } from '@/stores/app/settingsStore'
-import type { Dict } from '@shared/app/dict'
-import type { SyncConflict, SyncStatus } from '@shared/profileSync/profileSync'
-import { useEffect, useMemo, useState } from 'react'
 import { SyncSecretsSection } from './SyncSecretsSection'
 
 const OFF: SyncStatus = {

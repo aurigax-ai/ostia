@@ -1,15 +1,15 @@
 import {
   type ExtensionCaller,
   type ExtensionResult,
-  type OstiaExtension,
   failure,
   namedArgs,
+  type OstiaExtension,
   ok,
 } from '@aurigax-ai/ostia-extension-sdk'
 import { isRecordId } from './hookEvent'
 import type { Journal } from './journal'
 import type { OpenListing } from './openListing'
-import { type Limits, type PanelSnapshot, limitsDigest, panelModel } from './view'
+import { type Limits, limitsDigest, type PanelSnapshot, panelModel } from './view'
 
 export const SHOW_ACTIVITY = 'showActivity'
 

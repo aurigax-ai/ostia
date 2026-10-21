@@ -430,7 +430,7 @@ export function replaceTab(
 ): LayoutNode {
   const tab = tabSource(root, tabId)
   const tabs = tab ? tabsOfPane(root, firstPaneId(tab)) : null
-  if (!tab || !tabs || !tabs.children.includes(tab)) return root
+  if (!tab || !tabs?.children.includes(tab)) return root
   const next = fn(tab)
   if (next === tab) return root
   const children = tabs.children.map((c) => (c === tab ? next : c))

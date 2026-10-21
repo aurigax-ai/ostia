@@ -1,3 +1,14 @@
+import type { AttentionState } from '@shared/attention/attention'
+import type {
+  ScreenPoint,
+  WindowPaneReport,
+  WindowWorkspaceReport,
+} from '@shared/windows/windowsApi'
+import type {
+  SnapshotNode,
+  SnapshotWorkspace,
+  WorkspaceOrigin,
+} from '@shared/workspaces/workspaceApi'
 import { originWorkspaceId, startOriginAgentsSync } from '@/lib/agents/originAgents'
 import { runningAgent } from '@/lib/agents/paneAgent'
 import { receiveReference } from '@/lib/agents/sendPick'
@@ -16,19 +27,8 @@ import { useBlocksStore } from '@/stores/terminal/blocksStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { isMovable, liveAgentPanes } from '@/stores/workspaces/persistence'
 import { useWindowsStore } from '@/stores/workspaces/windowsStore'
-import type { Workspace } from '@/stores/workspaces/workspaceTypes'
 import { nextWorkspaceId, useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
-import type { AttentionState } from '@shared/attention/attention'
-import type {
-  ScreenPoint,
-  WindowPaneReport,
-  WindowWorkspaceReport,
-} from '@shared/windows/windowsApi'
-import type {
-  SnapshotNode,
-  SnapshotWorkspace,
-  WorkspaceOrigin,
-} from '@shared/workspaces/workspaceApi'
+import type { Workspace } from '@/stores/workspaces/workspaceTypes'
 import { confirmMove } from './closeConfirm'
 import { setIdNamespace } from './idNamespace'
 import { selectWorkspace } from './selectWorkspace'

@@ -1,8 +1,8 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
-  LINK_MODIFIER_CLASS,
   attachLinkClaim,
   attachLinkModifier,
+  LINK_MODIFIER_CLASS,
   linkSpan,
   pathLinkTarget,
   terminalLinkTarget,

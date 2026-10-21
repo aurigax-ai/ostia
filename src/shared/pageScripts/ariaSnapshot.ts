@@ -2,20 +2,20 @@
 import type { BrowseOutcome } from '../browser/browseRuntime'
 import type { SnapshotNode } from '../browser/browseSnapshot'
 import {
-  INTERACTIVE_ROLES,
-  NAME_FROM_CONTENT,
   checkedOf,
   disabledOf,
   expandedOf,
+  INTERACTIVE_ROLES,
   inputValueOf,
   isClickableGeneric,
   levelOf,
+  NAME_FROM_CONTENT,
   nameOf,
   roleOf,
 } from './ariaRoles'
 import type { PageLayout } from './pageLayout'
 import type { PageTargets } from './pageTargets'
-import { SKIP_TAGS, clipName, collapse, fail } from './pageText'
+import { clipName, collapse, fail, SKIP_TAGS } from './pageText'
 
 const MAX_NODES = 3000
 

@@ -1,3 +1,6 @@
+import { ArrowLeftIcon } from '@phosphor-icons/react'
+import { type ChordSpec, chordText } from '@shared/keyboard/chordSpec'
+import type { KeyboardEvent as ReactKeyboardEvent, ReactNode } from 'react'
 import { Button } from '@/components/ui/button'
 import { Kbd } from '@/components/ui/kbd'
 import { TableCell, TableRow } from '@/components/ui/table'
@@ -11,9 +14,6 @@ import type {
 } from '@/lib/keyboard/keySources'
 import type { TerminalSend } from '@/lib/keyboard/terminalKeys'
 import { isMac } from '@/platform'
-import { ArrowLeftIcon } from '@phosphor-icons/react'
-import { type ChordSpec, chordText } from '@shared/keyboard/chordSpec'
-import type { KeyboardEvent as ReactKeyboardEvent, ReactNode } from 'react'
 import { sendLabel } from './keyboardLabels'
 
 const ROW_TOGGLE = 'row-toggle'

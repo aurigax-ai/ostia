@@ -1,13 +1,13 @@
 import { en } from '@shared/app/dict'
 import { describe, expect, it } from 'vitest'
 import {
-  DATE_ONLY,
-  TIME_24H,
-  TIME_ONLY,
   agoText,
+  DATE_ONLY,
   formatBytes,
   formatDate,
   relativeTimeText,
+  TIME_24H,
+  TIME_ONLY,
 } from './localeFormat'
 
 const NOW = Date.UTC(2026, 0, 1, 12, 0, 0)

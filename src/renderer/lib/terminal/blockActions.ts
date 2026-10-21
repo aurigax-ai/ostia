@@ -1,13 +1,13 @@
 import { releasePhoneHold } from '@/lib/terminal/phoneHold'
 import { type CommandBlock, useBlocksStore } from '@/stores/terminal/blocksStore'
-import { readBufferText } from './blockText'
 import {
-  type StepDirection,
   blockSpan,
   isIdlePrompt,
+  type StepDirection,
   scrollTargetFor,
   stepSelection,
 } from './blocks'
+import { readBufferText } from './blockText'
 import { isSpilled, showSpilledBlock, spilledBlockOutput } from './historyActions'
 import type { OstiaTerminal as Terminal } from './ostiaTerminal'
 import { inputEditorFor, terminalFor } from './terminalHandles'

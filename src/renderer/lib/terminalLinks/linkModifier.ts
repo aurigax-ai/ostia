@@ -1,6 +1,6 @@
-import type { LinkClick } from '@/lib/settings/terminalPaneSettings'
 import { linkKind } from '@shared/common/externalLinks'
 import type { IBufferRange } from '@xterm/xterm'
+import type { LinkClick } from '@/lib/settings/terminalPaneSettings'
 import type { FileLinkAction } from './terminalFileLinks'
 import type { FileUrlAction } from './terminalFileUrls'
 

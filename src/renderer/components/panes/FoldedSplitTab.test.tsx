@@ -1,11 +1,11 @@
 import '@testing-library/jest-dom/vitest'
+import { cleanup, render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import { afterEach, beforeAll, describe, expect, it } from 'vitest'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { createPane, resetIds, splitOf } from '@/lib/layout/tree'
 import type { SplitNode } from '@/lib/layout/types'
 import { useAttentionStore } from '@/stores/agents/attentionStore'
-import { cleanup, render, screen } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
-import { afterEach, beforeAll, describe, expect, it } from 'vitest'
 import { FoldedSplitTab } from './FoldedSplitTab'
 
 let attentionInit: ReturnType<typeof useAttentionStore.getState>

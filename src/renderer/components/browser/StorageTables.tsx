@@ -1,3 +1,5 @@
+import { CheckIcon, CopyIcon, PencilSimpleIcon, TrashIcon } from '@phosphor-icons/react'
+import type { StorageCookie, StorageEntry, StorageRemoval } from '@shared/browser/browserStorage'
 import { Hint } from '@/components/common/Hint'
 import { IconButton } from '@/components/common/IconButton'
 import {
@@ -10,8 +12,6 @@ import {
 } from '@/components/ui/table'
 import { fmt, useDict } from '@/lib/app/useDict'
 import { cookieRowKey, filterCookies, filterEntries, formatExpiry } from '@/lib/browser/storageRows'
-import { CheckIcon, CopyIcon, PencilSimpleIcon, TrashIcon } from '@phosphor-icons/react'
-import type { StorageCookie, StorageEntry, StorageRemoval } from '@shared/browser/browserStorage'
 import type { Editing } from './useBrowserStorage'
 
 const DENSE_TABLE = 'text-ui-sm [&_td]:px-2 [&_td]:py-0.5 [&_th]:h-7 [&_th]:px-2'
@@ -37,7 +37,12 @@ function EmptyRow({
   total,
   emptyText,
   query,
-}: { columns: number; total: number; emptyText: string; query: string }): JSX.Element {
+}: {
+  columns: number
+  total: number
+  emptyText: string
+  query: string
+}): JSX.Element {
   const t = useDict().browserStorage
   return (
     <TableRow className="hover:bg-transparent">

@@ -1,11 +1,11 @@
 import {
-  constants,
   chmodSync,
   closeSync,
+  constants,
   mkdirSync,
   openSync,
-  readFileSync,
   readdirSync,
+  readFileSync,
   renameSync,
   rmSync,
   writeSync,

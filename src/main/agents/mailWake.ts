@@ -1,7 +1,7 @@
 import { MAIL_WAKES_MAX, MAIL_WAKES_WINDOW_MS } from '../../shared/agents/mailDelivery'
 import { type PaneIdentity, resolveExternal } from '../control/idRegistry'
 import type { PaneEntry } from '../panes/paneList'
-import { type Mail, claimWake } from './busStore'
+import { claimWake, type Mail } from './busStore'
 
 export interface MailWakeDeps {
   panes: () => Promise<PaneEntry[]>

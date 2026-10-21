@@ -3,7 +3,7 @@ import { CONTROL_MESSAGE_ENVELOPE, CONTROL_MESSAGE_MAX } from '../../shared/cont
 import { wantsHelp } from '../common/commandHelp'
 import { fail, failUsage } from '../common/failure'
 import { tsvLine } from '../common/lineField'
-import { StdinTooLarge, readStdinUpTo } from '../common/stdinText'
+import { readStdinUpTo, StdinTooLarge } from '../common/stdinText'
 import { findNoun, topUsage } from '../common/usageTable'
 
 interface ExtCommandInfo {

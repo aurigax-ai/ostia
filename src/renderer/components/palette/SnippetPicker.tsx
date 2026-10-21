@@ -1,3 +1,12 @@
+import {
+  commandParts,
+  defaultValues,
+  renderSnippet,
+  type SnippetArgument,
+  type SnippetEntry,
+  snippetArguments,
+} from '@aurigax-ai/ostia-extension-sdk/contract/snippets'
+import { type FormEvent, useId, useState } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
@@ -24,15 +33,6 @@ import { canTypeInto } from '@/lib/terminal/blockActions'
 import { isIdlePrompt } from '@/lib/terminal/blocks'
 import { useBlocksStore } from '@/stores/terminal/blocksStore'
 import { useSnippetsStore } from '@/stores/terminal/snippetsStore'
-import {
-  type SnippetArgument,
-  type SnippetEntry,
-  commandParts,
-  defaultValues,
-  renderSnippet,
-  snippetArguments,
-} from '@aurigax-ai/ostia-extension-sdk/contract/snippets'
-import { type FormEvent, useId, useState } from 'react'
 
 export function SnippetCommand({
   command,
@@ -92,6 +92,7 @@ export function SnippetPicker(): JSX.Element {
           </CommandEmpty>
           {listing.snippets.map((w, i) => (
             <CommandItem
+              // biome-ignore lint/suspicious/noArrayIndexKey: the index tells repeated entries apart and the list is rebuilt, never reordered
               key={`${w.source}:${w.origin}:${w.name}:${i}`}
               value={`${w.name} ${w.source}:${w.origin}:${i}`}
               keywords={[w.description ?? '', ...w.tags, w.command]}
@@ -176,6 +177,7 @@ function SnippetForm({
             <DialogTitle>{snippet.name}</DialogTitle>
             <DialogDescription>{snippet.description ?? d.snippets.formDesc}</DialogDescription>
           </DialogHeader>
+          {/* biome-ignore lint/a11y/useAriaPropsSupportedByRole: the label names the block for screen readers and tests; a role would change how it is announced */}
           <pre
             aria-label={d.snippets.preview}
             className="snippet-preview max-h-40 overflow-auto whitespace-pre-wrap break-all rounded-sm border border-line bg-surface-1 p-2 font-mono text-fg text-ui-sm"

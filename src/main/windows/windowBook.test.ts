@@ -7,18 +7,18 @@ import {
   parseSnapshot,
 } from '../workspaces/workspaceSnapshot'
 import {
+  boundsAt,
+  clampBounds,
+  crossesSandbox,
   LANDING_CLAIM_MS,
   LANDING_GIVE_MS,
   Landings,
   MAIN_SLOT,
-  WindowBook,
-  boundsAt,
-  clampBounds,
-  crossesSandbox,
   mergeSnapshots,
   parsePoint,
   planReturn,
   splitSnapshot,
+  WindowBook,
 } from './windowBook'
 
 function workspace(

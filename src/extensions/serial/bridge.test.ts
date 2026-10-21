@@ -20,17 +20,17 @@ import type { IPty } from 'node-pty'
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import {
   type BridgeEnv,
-  type DeviceIo,
-  type DeviceStream,
   bridgeCommand,
   connectDevice,
+  type DeviceIo,
+  type DeviceStream,
   nodeDeviceIo,
   openFailure,
   parseBridgeArgs,
   runBridge,
   runStty,
 } from './bridge'
-import { SECRET_ECHO_RECORD, SECRET_SENT_RECORD, prepareLogDir } from './session'
+import { prepareLogDir, SECRET_ECHO_RECORD, SECRET_SENT_RECORD } from './session'
 import { parseFrame, sttyArgs } from './settings'
 import { stringsFor } from './strings'
 

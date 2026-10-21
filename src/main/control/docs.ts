@@ -3,21 +3,23 @@ import type { ExtensionInfo } from '@aurigax-ai/ostia-extension-sdk/contract/ext
 import { ErrorCodes, ResponseError } from 'vscode-jsonrpc/node'
 import {
   type BundledSkillFile,
+  bundledSkillText,
   CORE_SKILL_FILES,
   MANAGER_SKILL_FILES,
-  bundledSkillText,
 } from '../agents/bundledSkills'
 import { registerControlMethod } from './controlServer'
 
-type DocsExtension = Pick<ExtensionInfo, 'id' | 'name' | 'commands' | 'verb'>
+type DocsExtension = Pick<ExtensionInfo, 'id' | 'name' | 'commands' | 'verb' | 'agentHooks'>
 
 function extensionCommands(extensions: DocsExtension[]): string {
   const lines: string[] = []
   for (const ext of extensions) {
-    if (ext.commands.length === 0) continue
+    const hooks = new Set(ext.agentHooks.map((hook) => hook.command))
+    const commands = ext.commands.filter((cmd) => !hooks.has(cmd.id))
+    if (commands.length === 0) continue
     lines.push('', `${ext.name} (extension '${ext.id}'):`)
-    for (const cmd of ext.commands) {
-      lines.push(`  ostia ${ext.verb ?? ext.id} ${cmd.usage ?? cmd.id}`, `      ${cmd.title}`)
+    for (const cmd of commands) {
+      lines.push(`  ostia ${ext.verb ?? ext.id} ${cmd.usage ?? cmd.id}  ${cmd.title}`)
     }
   }
   return lines.length > 0 ? `==> extension commands <==\n${lines.join('\n')}` : ''

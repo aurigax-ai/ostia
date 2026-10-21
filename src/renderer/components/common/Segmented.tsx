@@ -1,7 +1,7 @@
+import type { Icon as IconComponent } from '@phosphor-icons/react'
 import { Hint } from '@/components/common/Hint'
 import { Button } from '@/components/ui/button'
 import { ButtonGroup } from '@/components/ui/button-group'
-import type { Icon as IconComponent } from '@phosphor-icons/react'
 
 export interface SegmentedOption<T extends string> {
   value: T

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest'
-import { type RemoteHost, helperSource, remoteHost } from '../../../test/fixtures/ssh/remoteHost'
+import { helperSource, type RemoteHost, remoteHost } from '../../../test/fixtures/ssh/remoteHost'
 import { HelperFailure } from './channel'
 import { shippedHelper } from './helper'
 import { HelperHosts } from './helperHosts'

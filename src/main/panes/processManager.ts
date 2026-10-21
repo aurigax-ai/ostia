@@ -6,9 +6,8 @@ import { registerControlMethod, registerTargetableMethod } from '../control/cont
 import { getByPaneId } from '../control/idRegistry'
 import { record } from './paneReach'
 import { type PhoneAgent, phoneAgentCommand } from './phoneAgent'
-import { type ProcessControlDeps, createProcessControl } from './processControl'
+import { createProcessControl, type ProcessControlDeps } from './processControl'
 import {
-  type ProcessLaunchDeps,
   agentOf,
   badRequest,
   commandOf,
@@ -17,6 +16,7 @@ import {
   defaultName,
   modelFlags,
   nameOf,
+  type ProcessLaunchDeps,
   promptOf,
   splitTabOf,
   workspaceOf,

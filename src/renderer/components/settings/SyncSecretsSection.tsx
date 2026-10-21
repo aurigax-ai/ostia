@@ -1,3 +1,6 @@
+import type { Dict } from '@shared/app/dict'
+import type { SecretActionResult, SyncStatus } from '@shared/profileSync/profileSync'
+import { useState } from 'react'
 import { Notice } from '@/components/common/Notice'
 import { ControlRow } from '@/components/settingsKit/ControlRow'
 import { SettingsPage } from '@/components/settingsKit/SettingsPage'
@@ -15,9 +18,6 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Switch } from '@/components/ui/switch'
 import { useDict } from '@/lib/app/useDict'
-import type { Dict } from '@shared/app/dict'
-import type { SecretActionResult, SyncStatus } from '@shared/profileSync/profileSync'
-import { useState } from 'react'
 
 type Form = 'unlock' | 'recover' | 'change' | 'reset' | null
 type Confirming = 'remove' | 'reset' | null

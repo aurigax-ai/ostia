@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import {
-  type VimCommand,
   applyVimCommand,
   canMoveVertically,
   clampNormal,
   enterNormal,
   parseVimKeys,
+  type VimCommand,
 } from './vimMode'
 
 function run(keys: string, text: string, caret: number) {

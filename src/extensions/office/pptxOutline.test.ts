@@ -2,16 +2,16 @@ import { translatorFor } from '@aurigax-ai/ostia-extension-sdk/contract/extensio
 import { strToU8 } from 'fflate'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
+  cell,
   PPSX_TYPE,
   PPTM_TYPE,
-  TEMPLATE_TYPES,
-  cell,
   para,
   picture,
   pptx,
   relationship,
   run,
   shape,
+  TEMPLATE_TYPES,
   table,
   titleShape,
 } from '../../../test/fixtures/office/presentations'

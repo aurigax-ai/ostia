@@ -1,8 +1,8 @@
+import { useEffect, useRef } from 'react'
 import { useDict } from '@/lib/app/useDict'
 import { useSurfaceFocus } from '@/lib/panes/paneFocus'
 import { ensureAgentSession, useAgentStore } from '@/stores/agent/agentStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
-import { useEffect, useRef } from 'react'
 import { AgentView } from './AgentView'
 
 export function AgentPane({

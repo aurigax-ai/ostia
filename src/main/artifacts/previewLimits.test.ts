@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { PREVIEW_LIMITS } from '../../shared/artifacts/htmlPreview'
-import { type PreviewVitals, busySince, previewVerdict, previewsOverCap } from './previewLimits'
+import { busySince, type PreviewVitals, previewsOverCap, previewVerdict } from './previewLimits'
 
 const MIB = 1024 * 1024
 

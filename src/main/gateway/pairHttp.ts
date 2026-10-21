@@ -1,6 +1,7 @@
 import type { IncomingMessage, ServerResponse } from 'node:http'
-import { cancelPairRequest, openPairRequest, revealPairRequest } from './pairRequests'
+import { cleanDeviceName } from '../../shared/gateway/deviceName'
 import { auditPairAttempt, checkPairRateLimit, consumeCode, isLiveCode } from './pairing'
+import { cancelPairRequest, openPairRequest, revealPairRequest } from './pairRequests'
 
 export interface PairHttpDeps {
   peerAddress: (socket: object & { remoteAddress?: string }) => string
@@ -43,6 +44,7 @@ function sendJson(res: ServerResponse, status: number, body: unknown): void {
 }
 
 const COMMIT = /^[0-9a-f]{64}$/
+const INSTALL_ID = /^[A-Za-z0-9_-]{16,64}$/
 
 async function handlePair(
   req: IncomingMessage,
@@ -57,7 +59,7 @@ async function handlePair(
   }
   const body = (await readJsonBody(req)) as {
     pairCode?: unknown
-    device?: { name?: unknown; pubkey?: unknown }
+    device?: { name?: unknown; pubkey?: unknown; installId?: unknown }
     commit?: unknown
   } | null
   const pairCode = body?.pairCode
@@ -65,13 +67,15 @@ async function handlePair(
   if (
     typeof pairCode !== 'string' ||
     !device ||
-    typeof device.name !== 'string' ||
-    typeof device.pubkey !== 'string'
+    cleanDeviceName(device.name) === null ||
+    typeof device.pubkey !== 'string' ||
+    (device.installId !== undefined &&
+      (typeof device.installId !== 'string' || !INSTALL_ID.test(device.installId)))
   ) {
     auditPairAttempt(ip, 'bad-request')
     sendJson(res, 400, {
       error: 'bad-request',
-      message: 'expected { pairCode, device: { name, pubkey }, commit }',
+      message: 'expected { pairCode, device: { name, pubkey, installId? }, commit }',
     })
     return
   }
@@ -87,8 +91,9 @@ async function handlePair(
   }
   consumeCode(pairCode)
   const { requestId, desktopNonce } = openPairRequest({
-    name: device.name,
+    name: cleanDeviceName(device.name) ?? '',
     pubkey: device.pubkey,
+    installId: device.installId as string | undefined,
     commit: body.commit,
     peer: ip,
   })

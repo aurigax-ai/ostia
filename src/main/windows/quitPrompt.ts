@@ -1,4 +1,4 @@
-import { type MessageBoxOptions, dialog } from 'electron'
+import { dialog, type MessageBoxOptions } from 'electron'
 import { type Dict, fmt } from '../../shared/app/dict'
 import type { QuitAnswer, RunningGroup } from '../../shared/windows/windowsApi'
 

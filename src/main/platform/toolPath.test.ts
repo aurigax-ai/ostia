@@ -1,8 +1,8 @@
 import { execFileSync } from 'node:child_process'
 import { afterEach, describe, expect, it } from 'vitest'
 import {
-  LOGIN_PATH_TIMEOUT_MS,
   fallbackDirs,
+  LOGIN_PATH_TIMEOUT_MS,
   loginPathSettled,
   mergePaths,
   parseLoginPath,

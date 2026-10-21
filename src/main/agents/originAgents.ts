@@ -1,8 +1,8 @@
 import { isResumableAgent } from '../../shared/agents/agentResume'
 import type { AttentionState } from '../../shared/attention/attention'
 import type {
-  OriginAgentTarget,
   OriginAgents,
+  OriginAgentTarget,
   OriginReferenceRequest,
   PaneAgentKind,
   ReferenceInsert,

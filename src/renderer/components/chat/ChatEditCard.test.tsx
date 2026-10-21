@@ -1,4 +1,7 @@
 import '@testing-library/jest-dom/vitest'
+import { cleanup, render, screen, waitFor, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import type { ApprovalAnswer, WriteAskReason } from '@/lib/assist/chatToolPermissions'
 import { decideTool } from '@/lib/assist/chatToolPermissions'
 import {
@@ -10,9 +13,6 @@ import {
 import { useDiffStore } from '@/stores/files/diffStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
-import { cleanup, render, screen, waitFor, within } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
-import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { ChatEditCard } from './ChatEditCard'
 
 if (!Element.prototype.getAnimations) {

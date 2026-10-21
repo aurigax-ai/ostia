@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { FAKE, HARMLESS } from '../../../test/fixtures/secrets/samples'
 import { REDACTION_WORKER_SCRIPT, testScan } from '../../../test/redactionScan'
 import type { ChatSession } from '../../shared/assist/chatSessions'
-import { REDACT_TEXTS_MAX, REDACT_TEXT_MAX } from '../../shared/privacy/redaction'
+import { REDACT_TEXT_MAX, REDACT_TEXTS_MAX } from '../../shared/privacy/redaction'
 import { createRedactor, createScrollbackRedactor, redactRequestedTexts } from './redaction'
 import { createWorkerScan, redactionWorkerScript, scanDeadline } from './redactionScan'
 import { redactAssistRequest, redactChatSession } from './redactionTargets'
@@ -476,7 +476,7 @@ describe('createScrollbackRedactor', () => {
   })
 
   it('scans a pane again only when its screen or the settings changed', async () => {
-    let privacy: unknown = undefined
+    let privacy: unknown
     const scans: string[] = []
     const counting = createRedactor(
       () => privacy,

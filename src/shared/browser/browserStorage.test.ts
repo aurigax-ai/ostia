@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import {
-  STORAGE_VALUE_MAX,
   cookieUrl,
   entriesOf,
   normalizeStorageEdit,
   normalizeStorageRemoval,
+  STORAGE_VALUE_MAX,
 } from './browserStorage'
 
 const cookie = {

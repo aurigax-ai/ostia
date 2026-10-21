@@ -1,11 +1,12 @@
-import { constants, accessSync, readFileSync, statSync } from 'node:fs'
+import { accessSync, constants, readFileSync, statSync } from 'node:fs'
 import { arch, release } from 'node:os'
 import {
   type CommandHandler,
-  type ExtensionCaller,
-  type ExtensionResult,
   cliArgs,
   connect,
+  createTranslator,
+  type ExtensionCaller,
+  type ExtensionResult,
   failure,
   ok,
   runTool,
@@ -18,9 +19,8 @@ import {
   parseInstallArgs,
   planInstall,
 } from './install'
-import { MANAGER_NAMES, type ManagerName, defaultManager, findOnPath } from './managers'
+import { defaultManager, findOnPath, MANAGER_NAMES, type ManagerName } from './managers'
 import { type OsIdentity, parseOsRelease, parseSwVers, windowsRelease } from './os'
-import { stringsFor } from './strings'
 
 const OS_RELEASE_FILES = ['/etc/os-release', '/usr/lib/os-release']
 const INSTALL_USAGE = 'install <pkg...> [--manager <name>] [--reason <text>] [--wait]'
@@ -77,22 +77,23 @@ function defaultShell(): string | null {
 
 async function main(): Promise<void> {
   const ext = await connect()
+  const translate = createTranslator()
 
   const install = async (args: unknown, caller: ExtensionCaller): Promise<ExtensionResult> => {
     const startedAt = Date.now()
-    const s = stringsFor(caller.locale)
+    const t = translate(caller.locale)
     const parsed = cliArgs(args)
     if (!parsed) return failure('invalid-args', INSTALL_USAGE)
     const request = parseInstallArgs(parsed.argv)
-    const planned = planInstall(request, await installContext(), s)
+    const planned = planInstall(request, await installContext(), t)
     if (!planned.ok) return failure(planned.error, planned.message)
     const { plan } = planned
-    const approved = await ext.confirm(installConfirm(plan, s))
+    const approved = await ext.confirm(installConfirm(plan, t))
     if (!approved) {
       return {
         ok: false,
         error: 'denied',
-        message: s.denied,
+        message: t('denied'),
         data: { approved: false, command: plan.command },
       }
     }
@@ -102,20 +103,20 @@ async function main(): Promise<void> {
       workspaceId: caller.workspaceId,
       afterPaneId: caller.paneId,
       cwd: caller.cwd,
-      title: s.terminalTitle,
+      title: t('terminalTitle'),
       waitMs: request.wait ? installWaitMs(startedAt, Date.now()) : undefined,
     })
     if (!opened.ok) {
       return {
         ok: false,
         error: 'not-opened',
-        message: s.notOpened(opened.message ?? opened.error),
+        message: t('notOpened', { reason: opened.message ?? opened.error }),
         data: { approved: true, command: plan.command },
       }
     }
     const data = { approved: true, command: plan.command, paneId: opened.paneId }
     if (!opened.wait) return ok(undefined, data)
-    const outcome = installOutcome(opened.wait, s)
+    const outcome = installOutcome(opened.wait, t)
     const waited = {
       ...data,
       finished: opened.wait.outcome === 'finished',

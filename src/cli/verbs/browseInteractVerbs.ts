@@ -1,9 +1,9 @@
 import { resolve as resolvePath } from 'node:path'
 import {
-  type Parser,
   keyVerb,
   num,
   ok,
+  type Parser,
   parseFlags,
   plainVerb,
   targetVerb,

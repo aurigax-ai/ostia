@@ -5,8 +5,9 @@ import { basename, dirname, join } from 'node:path'
 import type { ViewerPortableTables } from '@aurigax-ai/ostia-extension-sdk/contract/fileKinds'
 import { ipcMain } from 'electron'
 import { escape as escapeHtml } from 'es-toolkit'
-import { type PreviewTheme, normalizePreviewTheme } from '../../shared/artifacts/htmlPreview'
+import { normalizePreviewTheme, type PreviewTheme } from '../../shared/artifacts/htmlPreview'
 import {
+  documentPage,
   PORTABLE_FORMAT,
   PORTABLE_LIMITS,
   type PortableAction,
@@ -15,7 +16,6 @@ import {
   type PortableRequest,
   type PortableResult,
   type PortableType,
-  documentPage,
   portableFileName,
   portableType,
   runsScripts,

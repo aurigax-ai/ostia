@@ -25,7 +25,7 @@ export function internalPaneArgs(args: unknown): PaneArgs {
   const given = args.paneId
   if (typeof given !== 'string') return { ok: true, args, pane: null }
   const pane = resolveExternal(given)
-  if (!pane || pane.kind !== 'pane') {
+  if (pane?.kind !== 'pane') {
     return { ok: false, error: `unknown-pane: ${given} (use a paneId from ostia pane list)` }
   }
   return { ok: true, args: { ...args, paneId: pane.paneId }, pane }

@@ -1,11 +1,3 @@
-import { parseActions } from '@/lib/settings/actions'
-import { parseBrowserSettings, parseEditorSettings } from '@/lib/settings/browserEditorSettings'
-import { parseFileTreeSettings } from '@/lib/settings/fileTreeSettings'
-import { type KeyboardField, readKeyboard } from '@/lib/settings/keyboardSettings'
-import { parsePaneSettings, parseTerminalSettings } from '@/lib/settings/terminalPaneSettings'
-import { parseWindowTitle } from '@/lib/settings/windowTitle'
-import type { GroupRule } from '@/lib/sidebar/workspaceGroups'
-import { normalizeHex } from '@/lib/theme/color'
 import { parseAssistModelSettings } from '@aurigax-ai/ostia-extension-sdk/contract/assistReports'
 import type { ExtensionSettingValues } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import { isDangerousSegment } from '@aurigax-ai/ostia-extension-sdk/contract/protoGuard'
@@ -24,32 +16,40 @@ import { parseApprovalSettings } from '@shared/permissions/approvals'
 import { parsePrivacySettings } from '@shared/privacy/redaction'
 import { parseSandboxGlobals } from '@shared/sandbox/sandboxParse'
 import { normalizeGroupName } from '@shared/workspaces/workspaceGroups'
+import { parseActions } from '@/lib/settings/actions'
+import { parseBrowserSettings, parseEditorSettings } from '@/lib/settings/browserEditorSettings'
+import { parseFileTreeSettings } from '@/lib/settings/fileTreeSettings'
+import { type KeyboardField, readKeyboard } from '@/lib/settings/keyboardSettings'
+import { parsePaneSettings, parseTerminalSettings } from '@/lib/settings/terminalPaneSettings'
+import { parseWindowTitle } from '@/lib/settings/windowTitle'
+import type { GroupRule } from '@/lib/sidebar/workspaceGroups'
+import { normalizeHex } from '@/lib/theme/color'
 import {
   type Behavior,
   CURSOR_STYLES,
   type CursorStyle,
-  DEFAULTS,
-  DEFAULT_HIBERNATION,
-  DEFAULT_WORKSPACE_SETTINGS,
-  HERE,
-  type HibernationSettings,
-  NEW_WORKSPACE_PLACEMENTS,
-  type NewWorkspacePlacement,
-  type Persisted,
-  type SettingChange,
-  type SettingsState,
-  type SyncSettings,
-  type WorkspaceGroupSettings,
-  type WorkspaceSettings,
   clampIdleSeconds,
   clampLineHeight,
   clampMaxLive,
+  DEFAULT_HIBERNATION,
+  DEFAULT_WORKSPACE_SETTINGS,
+  DEFAULTS,
+  HERE,
+  type HibernationSettings,
   inputMode,
   isPlainObject,
   kindOf,
   mergeFont,
   motionMode,
+  NEW_WORKSPACE_PLACEMENTS,
+  type NewWorkspacePlacement,
+  type Persisted,
   pickBooleans,
+  type SettingChange,
+  type SettingsState,
+  type SyncSettings,
+  type WorkspaceGroupSettings,
+  type WorkspaceSettings,
 } from './settingsModel'
 
 export function parseHibernation(raw: unknown): HibernationSettings {

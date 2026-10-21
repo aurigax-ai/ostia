@@ -4,8 +4,8 @@ import {
   existsSync,
   mkdirSync,
   mkdtempSync,
-  readFileSync,
   readdirSync,
+  readFileSync,
   realpathSync,
   rmSync,
   writeFileSync,
@@ -31,7 +31,7 @@ import {
   writeCodexIntegration,
 } from './codexIntegration'
 import { KubeContextReader, NodeVersionResolver, promptContext } from './promptContext'
-import { type ShellState, parseShellState } from './shellCommands'
+import { parseShellState, type ShellState } from './shellCommands'
 import {
   setAgentPlugins,
   shellIntegrationDir,

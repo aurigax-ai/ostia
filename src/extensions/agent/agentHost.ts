@@ -12,7 +12,7 @@ import {
 } from '@aurigax-ai/ostia-extension-sdk/contract/agent'
 import type { AgentSession } from '@earendil-works/pi-coding-agent'
 import { applyPiEnvironment } from './piEnvironment'
-import { type PiSession, completeOnce, openPiSession } from './piSession'
+import { completeOnce, openPiSession, type PiSession } from './piSession'
 
 export interface AgentHostDeps {
   dataDir: string

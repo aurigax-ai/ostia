@@ -1,3 +1,4 @@
+import type { ExtensionInfo } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
@@ -11,7 +12,6 @@ import {
 import { fmt, useDict, withProductName } from '@/lib/app/useDict'
 import { kindText } from '@/lib/extensions/kindText'
 import { pendingApproval, useExtensionsStore } from '@/stores/extensions/extensionsStore'
-import type { ExtensionInfo } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import { ExtensionAgentPlugin } from './ExtensionAgentPlugin'
 
 export function ExtensionApprovalDialog(): JSX.Element {

@@ -1,9 +1,9 @@
+import type { CommandSuggestion } from '@aurigax-ai/ostia-extension-sdk/contract/assist'
+import type { ReactNode, RefObject } from 'react'
 import { Command, CommandItem, CommandList } from '@/components/ui/command'
 import { useDict } from '@/lib/app/useDict'
 import { completionLabel, markRuns } from '@/lib/prompt/completionMatch'
 import type { CompletionItem } from '@/lib/prompt/inputEditor'
-import type { CommandSuggestion } from '@aurigax-ai/ostia-extension-sdk/contract/assist'
-import type { ReactNode, RefObject } from 'react'
 import type { Menu } from './useInputDraft'
 import type { NaturalCommands } from './useInputSuggestions'
 

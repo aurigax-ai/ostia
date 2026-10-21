@@ -1,10 +1,10 @@
 import '@testing-library/jest-dom/vitest'
-import { useSettingsStore } from '@/stores/app/settingsStore'
-import { useTelemetryConsentStore } from '@/stores/app/telemetryConsentStore'
 import { DEFAULT_TELEMETRY_SETTINGS } from '@shared/privacy/telemetry'
 import { act, cleanup, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import { useSettingsStore } from '@/stores/app/settingsStore'
+import { useTelemetryConsentStore } from '@/stores/app/telemetryConsentStore'
 import { renderSettled } from '../../../../test/render'
 import { TelemetryConsentDialog } from './TelemetryConsentDialog'
 

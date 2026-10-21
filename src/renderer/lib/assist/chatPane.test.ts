@@ -1,7 +1,7 @@
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { chatFor, chatKey, startNewSession, useChatStore } from '@/stores/assist/chatStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
-import { afterEach, describe, expect, it, vi } from 'vitest'
 import { openChatPane } from './chatPane'
 
 describe('openChatPane', () => {

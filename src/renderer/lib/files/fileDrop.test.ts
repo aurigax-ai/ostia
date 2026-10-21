@@ -1,10 +1,10 @@
+import type { OpenFileVerdict } from '@shared/files/openFiles'
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { allPanes, resetIds, tabsOfPane } from '@/lib/layout/tree'
 import { PANE_DND } from '@/lib/panes/paneDrag'
 import { useEditorRevealStore } from '@/stores/files/editorRevealStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
-import type { OpenFileVerdict } from '@shared/files/openFiles'
-import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { FILE_DRAG_ATTRIBUTE, startFileDropTracking } from './fileDrop'
 
 interface DroppedFile {

@@ -1,5 +1,5 @@
-import { useReducedMotion } from '@/lib/app/motion'
 import { type AnimationEvent, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useReducedMotion } from '@/lib/app/motion'
 
 type RailMotionPhase = 'opening' | 'closing'
 

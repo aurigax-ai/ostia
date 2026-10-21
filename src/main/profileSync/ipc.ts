@@ -1,7 +1,7 @@
 import { type FSWatcher, watch } from 'node:fs'
 import { join } from 'node:path'
 import { isRecord } from '@aurigax-ai/ostia-extension-sdk/contract/isRecord'
-import { BrowserWindow, app, dialog, ipcMain } from 'electron'
+import { app, BrowserWindow, dialog, ipcMain } from 'electron'
 import { debounce, throttle } from 'es-toolkit'
 import type { SecretActionResult, SyncStatus } from '../../shared/profileSync/profileSync'
 import { type DetectSecrets, ProfileSync } from './engine'

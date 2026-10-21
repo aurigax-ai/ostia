@@ -5,16 +5,16 @@ import {
 } from '@aurigax-ai/ostia-extension-sdk/contract/agentPlugins'
 import type { MessageConnection } from 'vscode-jsonrpc/node'
 import {
+  busInboxText,
   type MailPending,
   type MailReceipt,
-  busInboxText,
   mailLabel,
 } from '../../shared/agents/busMessages'
 import { parseArgs } from '../common/args'
 import {
-  type ErrResult,
   commandLabel,
   describeErrResult,
+  type ErrResult,
   failUsage,
   failVerb,
   failWith,
@@ -40,7 +40,7 @@ const PENDING_HINTS: Record<MailPending, string> = {
   'no-agent': 'no-agent: no agent runs in that pane; it reads the message with ostia bus inbox',
 }
 
-const BUS_WAIT_EXIT_TIMEOUT = 2
+const BUS_EXIT_TIMEOUT = 3
 
 export function busSeconds(raw: string | undefined, flag: string): number | undefined {
   if (raw === undefined) return undefined
@@ -54,6 +54,7 @@ export function busSeconds(raw: string | undefined, flag: string): number | unde
 interface BusSendOk extends MailReceipt {
   ok: true
   id: string
+  reply?: { messages: BusMessage[]; lease: string }
 }
 
 export interface SentMessage extends MailReceipt {
@@ -63,9 +64,9 @@ export interface SentMessage extends MailReceipt {
   ts: string
 }
 
-export function sendExitCode(res: MailReceipt, waited: boolean): number {
+export function sendExitCode(res: MailReceipt & { reply?: unknown }, waited: boolean): number {
   if (res.state === 'failed') return 1
-  return waited && res.state !== 'delivered' ? BUS_WAIT_EXIT_TIMEOUT : 0
+  return waited && !res.reply ? BUS_EXIT_TIMEOUT : 0
 }
 
 export interface BusHookIo {
@@ -107,6 +108,12 @@ export async function runBusHook(args: readonly string[], io: BusHookIo): Promis
     return 0
   }
   return 0
+}
+
+function replyProblem(to: string, receipt: MailReceipt): string {
+  if (receipt.state === 'failed') return mailLabel(receipt)
+  const hint = receipt.pending ? ` (${PENDING_HINTS[receipt.pending]})` : ''
+  return `timed-out: ${to} sent no reply; the message is ${mailLabel(receipt)}${hint}`
 }
 
 function sentLine(message: SentMessage): string {
@@ -183,20 +190,29 @@ export async function runBusVerb(conn: MessageConnection): Promise<void> {
       text: args.text,
       waitMs,
     })
-    if (res.ok) {
+    if (!res.ok) {
+      failWith(describeErrResult(res))
+      return
+    }
+    if (waitMs !== undefined) console.error(`sent ${res.id}`)
+    if (waitMs === undefined) {
       console.log(JSON.stringify(res))
       if (res.state === 'queued' && res.pending) console.error(PENDING_HINTS[res.pending])
-      process.exitCode = sendExitCode(res, waitMs !== undefined)
+    } else if (res.reply) {
+      console.log(busInboxText(res.reply.messages))
+      await conn.sendRequest('bus.ack', { lease: res.reply.lease })
     } else {
-      failWith(describeErrResult(res))
+      console.error(`${commandLabel()}: ${replyProblem(args.to, res)}`)
     }
+    process.exitCode = sendExitCode(res, waitMs !== undefined)
   } else if (sub === 'inbox') {
     const { take, json } = parseArgs(rawArgs, {
       booleans: { take: '--take', json: '--json' },
     }).booleans
     const res = await conn.sendRequest<BusInboxResult | ErrResult>('bus.inbox', { take })
     if ('messages' in res) {
-      console.log(json ? JSON.stringify(res.messages) : busInboxText(res.messages))
+      if (!json && res.messages.length === 0) console.error(busInboxText([]))
+      else console.log(json ? JSON.stringify(res.messages) : busInboxText(res.messages))
       if (res.lease) await conn.sendRequest('bus.ack', { lease: res.lease })
     } else {
       failWith(describeErrResult(res))
@@ -205,6 +221,7 @@ export async function runBusVerb(conn: MessageConnection): Promise<void> {
     const res = await conn.sendRequest<BusSentResult | ErrResult>('bus.sent')
     if ('messages' in res) {
       if (rawArgs.includes('--json')) console.log(JSON.stringify(res.messages))
+      else if (res.messages.length === 0) console.error(sentLines([])[0])
       else for (const line of sentLines(res.messages)) console.log(line)
     } else {
       failWith(describeErrResult(res))
@@ -230,7 +247,7 @@ export async function runBusVerb(conn: MessageConnection): Promise<void> {
       if (booleans.json) console.log(JSON.stringify(res))
       else if (res.timedOut) console.error(`${commandLabel()}: timed-out: no message arrived`)
       else console.log(busInboxText(res.messages))
-      if (res.timedOut) process.exitCode = BUS_WAIT_EXIT_TIMEOUT
+      if (res.timedOut) process.exitCode = BUS_EXIT_TIMEOUT
       if (res.lease) await conn.sendRequest('bus.ack', { lease: res.lease })
     } else {
       failWith(describeErrResult(res))

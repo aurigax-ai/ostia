@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { parseChord } from './chordSpec'
-import { DESKTOP_CHORDS, desktopTaking, desktopsOf } from './desktopChords'
+import { DESKTOP_CHORDS, desktopsOf, desktopTaking } from './desktopChords'
 
 const chord = (text: string) => {
   const spec = parseChord(text, false)

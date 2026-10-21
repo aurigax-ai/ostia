@@ -1,6 +1,6 @@
-import { DEFAULT_NESTING_PATTERNS } from '@/lib/settings/fileTreeSettings'
 import type { FsEntry } from '@shared/files/filesApi'
 import { describe, expect, it } from 'vitest'
+import { DEFAULT_NESTING_PATTERNS } from '@/lib/settings/fileTreeSettings'
 import {
   baseName,
   childPath,

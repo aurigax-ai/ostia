@@ -5,7 +5,7 @@ import { join, resolve } from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { StreamMessageReader, StreamMessageWriter } from 'vscode-jsonrpc/node'
 import type { Command, Diagnostic } from 'vscode-languageserver-protocol'
-import { FakeModel, createFakeMonaco } from '../../../../test/mocks/monaco'
+import { createFakeMonaco, FakeModel } from '../../../../test/mocks/monaco'
 
 const fake = createFakeMonaco()
 const applyBuiltin = vi.fn()

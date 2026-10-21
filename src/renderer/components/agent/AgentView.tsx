@@ -1,3 +1,6 @@
+import { useChat } from '@ai-sdk/react'
+import type { ChatContextItem } from '@aurigax-ai/ostia-extension-sdk/contract/assist'
+import { type MutableRefObject, useEffect, useMemo, useRef, useState } from 'react'
 import { ChatConversation } from '@/components/chat/ChatConversation'
 import { markdownComponents } from '@/components/chat/ChatMarkdown'
 import { ChatReviewBar } from '@/components/chat/ChatReviewBar'
@@ -15,9 +18,6 @@ import {
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useChatStore } from '@/stores/assist/chatStore'
 import { retryPendingFocus } from '@/stores/workspaces/surfaceSlotsStore'
-import { useChat } from '@ai-sdk/react'
-import type { ChatContextItem } from '@aurigax-ai/ostia-extension-sdk/contract/assist'
-import { type MutableRefObject, useEffect, useMemo, useRef, useState } from 'react'
 import { AgentComposer } from './AgentComposer'
 import { AgentHeader } from './AgentHeader'
 

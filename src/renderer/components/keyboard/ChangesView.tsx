@@ -1,22 +1,22 @@
+import { Fragment, type ReactNode, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Kbd } from '@/components/ui/kbd'
 import { TableBody, TableHead, TableRow } from '@/components/ui/table'
 import { fmt, useDict } from '@/lib/app/useDict'
 import { keymapBindings, useBindings } from '@/lib/keyboard/chords'
+import { OSTIA_KEYMAP } from '@/lib/keyboard/keyboardPresets'
 import {
+  appPresetChanges,
   type CommandChange,
   type TerminalChange,
-  appPresetChanges,
   textPresetChanges,
   userChangeCount,
   userChanges,
 } from '@/lib/keyboard/keyChanges'
-import { OSTIA_KEYMAP } from '@/lib/keyboard/keyboardPresets'
 import { isMac } from '@/platform'
 import { useSettingsStore } from '@/stores/app/settingsStore'
-import { Fragment, type ReactNode, useState } from 'react'
-import { CommandLine, PresetLine, TerminalLine, chordList } from './ChangeLines'
-import { KEY_TABLE_COLUMNS, commandTitle, sendLabel, sendText } from './keyboardLabels'
+import { CommandLine, chordList, PresetLine, TerminalLine } from './ChangeLines'
+import { commandTitle, KEY_TABLE_COLUMNS, sendLabel, sendText } from './keyboardLabels'
 
 export function useChangeTotal(): number {
   const keybindings = useSettingsStore((s) => s.keybindings)
@@ -30,13 +30,7 @@ export function useChangeTotal(): number {
   )
 }
 
-function SectionHead({
-  title,
-  action,
-}: {
-  title: string
-  action?: ReactNode
-}): JSX.Element {
+function SectionHead({ title, action }: { title: string; action?: ReactNode }): JSX.Element {
   return (
     <TableRow className="border-line hover:bg-transparent">
       <TableHead colSpan={3} scope="colgroup" className="h-8 pt-3 pl-3 text-fg-muted text-ui-xs">

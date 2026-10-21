@@ -1,13 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import {
+  aggregateWorkspaceState,
   EMPTY_ATTENTION,
   KittyNotificationAssembler,
-  type PaneAttention,
-  aggregateWorkspaceState,
   latestUnread,
   latestWaitingAt,
   needsYou,
   notificationMessage,
+  type PaneAttention,
   paneLiveState,
   parseOsc9,
   parseOsc99,

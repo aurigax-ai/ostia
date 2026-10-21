@@ -1,4 +1,4 @@
-import { constants, type Stats, close, fstat, open } from 'node:fs'
+import { close, constants, fstat, open, type Stats } from 'node:fs'
 import type { ArchiveEntryProblem } from '../../../shared/files/filesApi'
 
 const READ_FLAGS = constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK

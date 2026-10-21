@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
-import { type ToolRun, darwinForegroundCwd, linuxForegroundCwd } from './foregroundCwd'
+import { darwinForegroundCwd, linuxForegroundCwd, type ToolRun } from './foregroundCwd'
 
 const roots: string[] = []
 

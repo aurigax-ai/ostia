@@ -1,6 +1,6 @@
 /// <reference lib="dom" />
 import type { BrowseOutcome } from '../browser/browseRuntime'
-import { SKIP_TAGS, collapse, describeElement, fail } from './pageText'
+import { collapse, describeElement, fail, SKIP_TAGS } from './pageText'
 
 export function createTargets(topDoc: Document) {
   const refs = new Map<string, Element>()

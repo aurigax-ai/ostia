@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { type ProcEntry, childrenOf, parseProcStat, processTree } from '../platform/procfs'
+import { childrenOf, type ProcEntry, parseProcStat, processTree } from '../platform/procfs'
 import { parseNetTcp, portsForHolders, processName, socketInode } from './procfs'
 
 const fixture = (name: string): string =>

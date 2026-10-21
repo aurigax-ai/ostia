@@ -1,13 +1,13 @@
 import { randomBytes } from 'node:crypto'
-import { type ServerResponse, createServer } from 'node:http'
+import { createServer, type ServerResponse } from 'node:http'
 import type { AddressInfo } from 'node:net'
 import {
+  auth,
+  createMCPClient,
   type OAuthClientInformation,
   type OAuthClientMetadata,
   type OAuthClientProvider,
   type OAuthTokens,
-  auth,
-  createMCPClient,
 } from '@ai-sdk/mcp'
 import { readEnv } from '@aurigax-ai/ostia-extension-sdk/contract/appEnv'
 import { PRODUCT_DISPLAY_NAME } from '@aurigax-ai/ostia-extension-sdk/contract/productDisplay'

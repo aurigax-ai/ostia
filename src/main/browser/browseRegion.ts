@@ -2,19 +2,19 @@ import { readdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { ClipboardItem, clipboard, ipcMain } from 'electron'
 import {
-  PICK_NOTE_MAX,
-  type PickSendResult,
   captureStem,
   clip,
   nextPickReportNumber,
+  PICK_NOTE_MAX,
+  type PickSendResult,
 } from '../../shared/browser/pick'
 import {
+  normalizeRegionRequest,
   REGION_IMAGE_MAX,
   type RegionCapture,
   type RegionCaptureOutcome,
   type RegionCopyResult,
   type RegionSendRequest,
-  normalizeRegionRequest,
   regionBusMessage,
   regionCapture,
   regionCaptureRect,

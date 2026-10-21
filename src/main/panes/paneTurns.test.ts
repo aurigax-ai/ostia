@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { PANE_TURNS_MAX, PaneTurns, TURN_OUTPUTS_MAX, registerPaneTurnMethods } from './paneTurns'
+import { PANE_TURNS_MAX, PaneTurns, registerPaneTurnMethods, TURN_OUTPUTS_MAX } from './paneTurns'
 
 const methods = vi.hoisted(
   () => new Map<string, { cap?: string; handler: (p: unknown, ctx: unknown) => unknown }>(),

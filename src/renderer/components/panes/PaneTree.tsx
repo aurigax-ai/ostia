@@ -1,3 +1,5 @@
+import { GlobeIcon, TerminalWindowIcon } from '@phosphor-icons/react'
+import { Allotment } from 'allotment'
 import { ChordButton } from '@/components/common/ChordButton'
 import { EmptyState } from '@/components/common/EmptyState'
 import { useDict } from '@/lib/app/useDict'
@@ -8,8 +10,6 @@ import type { LayoutNode } from '@/lib/layout/types'
 import { focusActivePaneWhenReady } from '@/lib/panes/paneFocus'
 import { rememberPanelFractions } from '@/lib/panes/panelSizes'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
-import { GlobeIcon, TerminalWindowIcon } from '@phosphor-icons/react'
-import { Allotment } from 'allotment'
 import { Pane } from './Pane'
 
 export function PaneTree({ workspaceId }: { workspaceId: string }): JSX.Element {

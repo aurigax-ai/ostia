@@ -1,7 +1,5 @@
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
-import managerSkill from './skills/ostia-manager/SKILL.md?raw'
-import coreSkill from './skills/ostia/SKILL.md?raw'
 import browserReference from './skills/ostia/reference/browser.md?raw'
 import busReference from './skills/ostia/reference/bus.md?raw'
 import capabilitiesReference from './skills/ostia/reference/capabilities.md?raw'
@@ -15,6 +13,8 @@ import serialReference from './skills/ostia/reference/serial.md?raw'
 import settingsReference from './skills/ostia/reference/settings.md?raw'
 import systemReference from './skills/ostia/reference/system.md?raw'
 import viewsReference from './skills/ostia/reference/views.md?raw'
+import coreSkill from './skills/ostia/SKILL.md?raw'
+import managerSkill from './skills/ostia-manager/SKILL.md?raw'
 
 export interface BundledSkillFile {
   path: string

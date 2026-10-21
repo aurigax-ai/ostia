@@ -1,8 +1,8 @@
 import {
-  type Subscribe,
   actThenConfirm,
   confirmed,
   mismatch,
+  type Subscribe,
 } from '../../shared/common/actThenConfirm'
 import { CLOSE_CONFIRM_MS } from '../../shared/windows/closeWaits'
 import type { PaneIdentity } from '../control/idRegistry'

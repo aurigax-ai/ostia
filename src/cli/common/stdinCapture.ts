@@ -1,4 +1,4 @@
-import { type Stats, lstatSync, writeFileSync } from 'node:fs'
+import { lstatSync, type Stats, writeFileSync } from 'node:fs'
 import { extname, join } from 'node:path'
 
 export const STDIN_MAX_BYTES = 16 * 1024 * 1024

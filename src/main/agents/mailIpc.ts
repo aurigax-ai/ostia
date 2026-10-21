@@ -1,7 +1,7 @@
 import { ipcMain } from 'electron'
 import { busLabel } from '../../shared/agents/busMessages'
 import type { MailItem, MailMap } from '../../shared/agents/mailApi'
-import { type PaneIdentity, getByPaneId, resolveExternal } from '../control/idRegistry'
+import { getByPaneId, type PaneIdentity, resolveExternal } from '../control/idRegistry'
 import { dismissFailed, mailViews, onBusChange } from './busStore'
 
 export function mailMap(owns: (pane: PaneIdentity) => boolean = () => true): MailMap {

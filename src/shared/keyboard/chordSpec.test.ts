@@ -1,13 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import {
+  bindingProblem,
   CHORDS_PER_COMMAND_MAX,
   type ChordSpec,
-  DOUBLE_SHIFT,
-  TERMINAL_CHORD_IDS,
-  type TapKey,
-  bindingProblem,
   checkBinding,
   chordText,
+  DOUBLE_SHIFT,
   doubleShiftDetector,
   formatChord,
   formatScopedChord,
@@ -18,6 +16,8 @@ import {
   sameScope,
   specFromEvent,
   stealsTerminalKey,
+  type TapKey,
+  TERMINAL_CHORD_IDS,
   usedByMonaco,
 } from './chordSpec'
 

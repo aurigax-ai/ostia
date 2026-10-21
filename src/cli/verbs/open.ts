@@ -6,14 +6,14 @@ import {
   type DiffFilesResult,
   type FileTarget,
   type OpenFilesResult,
-  type RevealFolderResult,
   openTargetKind,
+  type RevealFolderResult,
 } from '../../shared/files/openFiles'
 import { FlagError, type ParsedArgs, parseArgs } from '../common/args'
 import { fail, failVerb } from '../common/failure'
 import {
-  type FileProbe,
   diffRefusalLine,
+  type FileProbe,
   openTarget,
   parseFileArg,
   refusalLine,
@@ -21,7 +21,7 @@ import {
 } from '../common/fileArgs'
 import { tsvLine } from '../common/lineField'
 import { confirmFilesOpen, confirmPaneOpen } from '../common/readBack'
-import { TTY_NOTICE, captureStdin } from '../common/stdinCapture'
+import { captureStdin, TTY_NOTICE } from '../common/stdinCapture'
 import { usageOf } from '../common/usageTable'
 
 const FILE_PROBE: FileProbe = {

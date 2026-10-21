@@ -1,3 +1,4 @@
+import { normalizeSplitTabName, SPLIT_TAB_NAME_MAX } from '@shared/workspaces/splitTabs'
 import { changeCollapse, foldSplitTab, isTucked } from '@/lib/layout/collapse'
 import { joinSplitTab, separateFromSplitTab } from '@/lib/layout/tabJoin'
 import { movePane, moveTab } from '@/lib/layout/tabMoves'
@@ -19,7 +20,6 @@ import {
   tabMembership,
 } from '@/lib/panes/splitTabPlacement'
 import { forgetSplitTabSeeds, seedSplitTab } from '@/lib/panes/splitTabSeeds'
-import { SPLIT_TAB_NAME_MAX, normalizeSplitTabName } from '@shared/workspaces/splitTabs'
 import { keepKeyboard } from './keepKeyboard'
 import type { LayoutGet, LayoutSet, LayoutState, WorkspaceLayout } from './layoutTypes'
 import { surfaceHoldsKeyboard } from './surfaceSlotsStore'

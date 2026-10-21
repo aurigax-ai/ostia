@@ -1,6 +1,6 @@
-import type { OstiaTerminal as Xterm } from '@/lib/terminal/ostiaTerminal'
 import { cleanup, renderHook } from '@testing-library/react'
 import { afterEach, describe, expect, it } from 'vitest'
+import type { OstiaTerminal as Xterm } from '@/lib/terminal/ostiaTerminal'
 import { usePromptGeometry } from './usePromptGeometry'
 
 function terminalHost(): HTMLDivElement {

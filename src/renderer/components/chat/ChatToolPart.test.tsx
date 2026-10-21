@@ -1,4 +1,7 @@
 import '@testing-library/jest-dom/vitest'
+import { cleanup, render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import type { ApprovalAnswer } from '@/lib/assist/chatToolPermissions'
 import { decideTool } from '@/lib/assist/chatToolPermissions'
 import { useSettingsStore } from '@/stores/app/settingsStore'
@@ -8,9 +11,6 @@ import {
   resetChatTools,
   useChatToolsStore,
 } from '@/stores/assist/chatToolsStore'
-import { cleanup, render, screen } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
-import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { ChatToolPart } from './ChatToolPart'
 
 if (!Element.prototype.getAnimations) {

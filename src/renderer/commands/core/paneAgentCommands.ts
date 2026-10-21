@@ -1,9 +1,13 @@
+import { type AgentResume, parseAgentResume, resumeCommand } from '@shared/agents/agentResume'
+import { isAgentBusyReason } from '@shared/agents/agentWork'
+import { wantsDesktopBanner } from '@shared/app/notificationSettings'
+import type { AttentionState } from '@shared/attention/attention'
 import { registerCore } from '@/commands/coreCommand'
 import { claudeTrustGate } from '@/lib/agents/folderTrust'
 import { forkConversation } from '@/lib/agents/forkConversation'
 import {
-  type PaneHibernateOutcome,
   hibernateAgentPane,
+  type PaneHibernateOutcome,
   wakePane,
 } from '@/lib/agents/hibernationScheduler'
 import { isStaleAgentReport } from '@/lib/agents/paneAgent'
@@ -33,10 +37,6 @@ import { useBlocksStore } from '@/stores/terminal/blocksStore'
 import { useHibernateSkippedStore } from '@/stores/workspaces/hibernateSkippedStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { useTabSleepNoticeStore } from '@/stores/workspaces/tabSleepNoticeStore'
-import { type AgentResume, parseAgentResume, resumeCommand } from '@shared/agents/agentResume'
-import { isAgentBusyReason } from '@shared/agents/agentWork'
-import { wantsDesktopBanner } from '@shared/app/notificationSettings'
-import type { AttentionState } from '@shared/attention/attention'
 
 function registerAttentionCommands(): void {
   registerCore<{ state: AttentionState; message?: string }>({

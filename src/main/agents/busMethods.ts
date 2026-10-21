@@ -2,39 +2,40 @@ import { randomUUID } from 'node:crypto'
 import { BUS_SEND_TEXT_MAX } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import { ErrorCodes, ResponseError } from 'vscode-jsonrpc/node'
 import { MAIL_INBOX_FULL } from '../../shared/agents/agentIssues'
-import { type MailPending, busContext } from '../../shared/agents/busMessages'
+import { busContext, type MailPending } from '../../shared/agents/busMessages'
 import { actThenConfirm, confirmed, mismatch } from '../../shared/common/actThenConfirm'
 import { ensureCaps } from '../approvals/controlElevation'
 import { type ControlMethodContext, registerControlMethod } from '../control/controlServer'
 import { type PaneIdentity, resolveExternal } from '../control/idRegistry'
 import type { AgentJournal } from '../diagnostics/agentJournal'
-import { type PaneReachDeps, ensurePaneReach, holdsPaneReach } from '../panes/paneReach'
+import { ensurePaneReach, holdsPaneReach, type PaneReachDeps } from '../panes/paneReach'
+import { type PaneRef, refProblem, resolvePaneRef } from '../panes/paneRef'
 import {
+  ackMail,
+  addWaiter,
   type BusObservation,
+  busHandoffs,
+  enqueue,
+  getMail,
   type HandedMail,
   type Handoff,
   type HandoffContext,
   type HandoffState,
-  type Mail,
-  ackMail,
-  addWaiter,
-  busHandoffs,
-  enqueue,
-  getMail,
   inboxFull,
   inboxOf,
   leaseMail,
+  type Mail,
   markBusDirty,
   releaseMail,
+  sentAfter,
   sentBy,
   setBusJournal,
   setBusObserver,
   setPending,
   sweepBus,
-  whenSettled,
 } from './busStore'
-import { takeMailTurn } from './mailTurn'
 import { mailers } from './mailers'
+import { takeMailTurn } from './mailTurn'
 
 const MAX_HANDOFFS = 500
 
@@ -45,9 +46,9 @@ const SWEEP_MS = 5 * 60 * 1000
 
 const NOT_FOUND = { ok: false, error: 'not-found' as const }
 const UNKNOWN_PANE = {
-  ok: false,
+  ok: false as const,
   error: 'unknown-pane' as const,
-  message: 'no open pane has that id (see: ostia pane list)',
+  message: 'no open pane has that id. List the panes you can reach with ostia pane list',
 }
 const INBOX_FULL = {
   ok: false,
@@ -118,7 +119,7 @@ export interface BusDeps {
   sent?: () => void
   announce: (from: PaneIdentity, to: PaneIdentity, text: string) => void
   pending: (pane: PaneIdentity) => Promise<MailPending>
-  reach: Omit<PaneReachDeps, 'processPane'>
+  reach: PaneReachDeps
   observe?: (observation: BusObservation) => void
   journal?: Pick<AgentJournal, 'mail' | 'leaseTimeout'>
   agentBusy: (pane: PaneIdentity) => boolean
@@ -127,6 +128,17 @@ export interface BusDeps {
 function receiverOf(to: unknown): PaneIdentity | undefined {
   const target = typeof to === 'string' ? resolveExternal(to) : undefined
   return target?.kind === 'pane' ? target : undefined
+}
+
+async function receiverFor(
+  deps: BusDeps,
+  to: unknown,
+  ctx: ControlMethodContext,
+): Promise<{ receiver: PaneIdentity } | { ok: false; error: string; message: string }> {
+  if (typeof to !== 'string' || !to) return UNKNOWN_PANE
+  const resolved: PaneRef = await resolvePaneRef(deps.reach, to, ctx, false)
+  if ('found' in resolved) return { receiver: resolved.found }
+  return { ok: false as const, ...refProblem(to, resolved) }
 }
 
 async function queuedWithPending(deps: BusDeps, mail: Mail, to: PaneIdentity): Promise<Mail> {
@@ -177,33 +189,52 @@ function registerBusSendMethods(deps: BusDeps): void {
       if (typeof text !== 'string' || !text) {
         throw new ResponseError(ErrorCodes.InvalidParams, 'bad-request: text')
       }
-      const receiver = receiverOf(to)
-      if (!receiver || (script && receiver.manager)) return UNKNOWN_PANE
+      const found = await receiverFor(deps, to, ctx)
+      if (!('receiver' in found)) return found
+      const { receiver } = found
+      if (script && receiver.manager) return UNKNOWN_PANE
       await ensurePaneReach(deps.reach, 'message', receiver, ctx, {
         ref: to,
         method: 'bus.send',
         detail: `to ${to}`,
       })
       if (inboxFull(receiver.externalId)) return INBOX_FULL
-      const wakes = await holdsPaneReach(deps.reach, 'input', receiver, ctx)
-      const posted = await postAndReadBack({
-        from,
-        to: receiver.externalId,
-        text,
-        ...(wakes ? { wakes: true as const } : {}),
-      })
-      const queued = await queuedWithPending(deps, posted, receiver)
-      const abort = new AbortController()
-      const closed = ctx.conn.onClose(() => abort.abort())
-      const settled =
-        typeof waitMs === 'number' && (queued.state === 'queued' || queued.state === 'leased')
-          ? await whenSettled(queued.id, clampTimeout(waitMs), abort.signal)
-          : queued
-      closed.dispose()
-      const mail = settled ?? queued
-      announceQueued(deps, queued, ctx.identity, receiver, text)
-      deps.sent?.()
-      return { ok: true, ...receiptOf(mail) }
+      const pair = `${from}>${receiver.externalId}`
+      const waits = typeof waitMs === 'number'
+      if (waits && replyWaits.has(pair)) return REPLY_BUSY
+      if (waits) replyWaits.add(pair)
+      try {
+        const wakes = await holdsPaneReach(deps.reach, 'input', receiver, ctx)
+        const posted = await postAndReadBack({
+          from,
+          to: receiver.externalId,
+          text,
+          ...(wakes ? { wakes: true as const } : {}),
+        })
+        const queued = await queuedWithPending(deps, posted, receiver)
+        announceQueued(deps, queued, ctx.identity, receiver, text)
+        deps.sent?.()
+        if (typeof waitMs !== 'number' || queued.state === 'failed') {
+          return { ok: true, ...receiptOf(queued) }
+        }
+        const abort = new AbortController()
+        const closed = ctx.conn.onClose(() => abort.abort())
+        const reply = await awaitReply(
+          from,
+          { from: receiver.externalId, after: queued.ts, sent: queued.id },
+          clampTimeout(waitMs),
+          abort.signal,
+        )
+        closed.dispose()
+        const latest = getMail(queued.id) ?? queued
+        return {
+          ok: true,
+          ...receiptOf(latest),
+          ...(reply ? { reply: handOver(reply, ctx) } : {}),
+        }
+      } finally {
+        if (waits) replyWaits.delete(pair)
+      }
     },
   })
 
@@ -236,6 +267,43 @@ function registerBusSendMethods(deps: BusDeps): void {
       const receipt = receiptOf(queued)
       return { ok: true, ...receipt, ...(receipt.state === 'leased' ? { state: 'delivered' } : {}) }
     },
+  })
+}
+
+const REPLY_WATCH_MS = 200
+const replyWaits = new Set<string>()
+const REPLY_BUSY = {
+  ok: false as const,
+  error: 'busy' as const,
+  message: 'another bus send --wait to that pane is waiting for its reply; wait for it first',
+}
+
+function awaitReply(
+  me: string,
+  of: { from: string; after: string; sent: string },
+  timeoutMs: number,
+  signal: AbortSignal,
+): Promise<HandedMail | undefined> {
+  const later = sentAfter(of.sent, of.after)
+  const isReply = (mail: Mail): boolean =>
+    mail.kind === 'message' && mail.from === of.from && later(mail)
+  const fresh = leaseMail(me, 'read', isReply)
+  if (fresh || signal.aborted) return Promise.resolve(fresh)
+  return new Promise((resolve) => {
+    const finish = (handed?: HandedMail): void => {
+      clearTimeout(timer)
+      clearInterval(watching)
+      unregister()
+      signal.removeEventListener('abort', onAbort)
+      resolve(handed)
+    }
+    const onAbort = (): void => finish()
+    const timer = setTimeout(finish, timeoutMs)
+    const watching = setInterval(() => {
+      if (getMail(of.sent)?.state === 'failed') finish()
+    }, REPLY_WATCH_MS)
+    const unregister = addWaiter(me, finish, isReply)
+    signal.addEventListener('abort', onAbort, { once: true })
   })
 }
 
@@ -358,8 +426,9 @@ function registerBusHandoffMethods(deps: BusDeps): void {
         context?: HandoffContext
       }
       const from = ctx.identity.externalId
-      const receiver = receiverOf(to)
-      if (!receiver) return UNKNOWN_PANE
+      const found = await receiverFor(deps, to, ctx)
+      if (!('receiver' in found)) return found
+      const { receiver } = found
       await ensurePaneReach(deps.reach, 'message', receiver, ctx, {
         ref: to,
         method: 'bus.handoff',

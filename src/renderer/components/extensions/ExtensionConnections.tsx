@@ -1,3 +1,10 @@
+import type {
+  ExtensionConnectionEntry,
+  ExtensionConnectionKind,
+} from '@aurigax-ai/ostia-extension-sdk/contract/extensionConnections'
+import type { ExtensionInfo } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
+import { TrashIcon } from '@phosphor-icons/react'
+import { useCallback, useEffect, useState } from 'react'
 import { IconButton } from '@/components/common/IconButton'
 import { Notice } from '@/components/common/Notice'
 import { ControlRow } from '@/components/settingsKit/ControlRow'
@@ -6,13 +13,6 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { fmt, useDict } from '@/lib/app/useDict'
 import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
-import type {
-  ExtensionConnectionEntry,
-  ExtensionConnectionKind,
-} from '@aurigax-ai/ostia-extension-sdk/contract/extensionConnections'
-import type { ExtensionInfo } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
-import { TrashIcon } from '@phosphor-icons/react'
-import { useCallback, useEffect, useState } from 'react'
 
 interface Draft {
   editing: boolean
@@ -42,11 +42,7 @@ function editDraft(entry: ExtensionConnectionEntry): Draft {
   }
 }
 
-export function ExtensionConnections({
-  ext,
-}: {
-  ext: ExtensionInfo
-}): JSX.Element | null {
+export function ExtensionConnections({ ext }: { ext: ExtensionInfo }): JSX.Element | null {
   const d = useDict()
   const load = useExtensionsStore((s) => s.connections)
   const remove = useExtensionsStore((s) => s.removeConnection)

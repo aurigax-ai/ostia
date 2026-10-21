@@ -1,6 +1,3 @@
-import { IconButton } from '@/components/common/IconButton'
-import { Input } from '@/components/ui/input'
-import { useDict } from '@/lib/app/useDict'
 import {
   ArrowClockwiseIcon,
   ArrowLeftIcon,
@@ -12,6 +9,9 @@ import {
 } from '@phosphor-icons/react'
 import type { WebviewTag } from 'electron'
 import type { Dispatch, KeyboardEvent, MutableRefObject, SetStateAction } from 'react'
+import { IconButton } from '@/components/common/IconButton'
+import { Input } from '@/components/ui/input'
+import { useDict } from '@/lib/app/useDict'
 import { LoginButton } from './LoginButton'
 
 interface BrowserToolbarProps {

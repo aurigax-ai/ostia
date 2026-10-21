@@ -4,13 +4,13 @@ import { join } from 'node:path'
 import { ipcMain } from 'electron'
 import { LRUCache } from 'lru-cache'
 import { findFileLinks, resolveLinkPath } from '../../shared/files/fileLinks'
+import type { FsKind, OpenPathResult } from '../../shared/files/filesApi'
 import {
   type FileUrlTarget,
   fileUrlOpener,
   fileUrlPath,
   isLocalHost,
 } from '../../shared/files/fileUrls'
-import type { FsKind, OpenPathResult } from '../../shared/files/filesApi'
 import type { OpenFileVerdict } from '../../shared/files/openFiles'
 import type { OpenFileGrants } from '../files/openFileGrants'
 import { openUnlessProgram } from '../files/openPath'

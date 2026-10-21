@@ -1,13 +1,14 @@
+import { create } from 'zustand'
 import { releaseFocusForPalette } from '@/lib/palette/paletteFocus'
 import { COMMANDS_PREFIX } from '@/lib/palette/paletteModes'
 import { parseSettingsTarget } from '@/lib/settings/settingsNav'
-import { create } from 'zustand'
 
 type PaletteOpenMode = 'search' | 'everywhere' | 'ask'
 
 interface OpenSettingsOptions {
   previewPaneId?: string
   extension?: string
+  extensionRow?: boolean
   query?: string
 }
 
@@ -20,6 +21,7 @@ interface UIState {
   settingsActive: boolean
   settingsSection: string | null
   settingsExtension: string | null
+  settingsExtensionRow: boolean
   settingsQuery: string | null
   browseExtensionsOpen: boolean
   dashboardActive: boolean
@@ -62,6 +64,7 @@ export const useUIStore = create<UIState>((set, get) => ({
   settingsActive: false,
   settingsSection: null,
   settingsExtension: null,
+  settingsExtensionRow: false,
   settingsQuery: null,
   browseExtensionsOpen: false,
   dashboardActive: false,
@@ -97,6 +100,7 @@ export const useUIStore = create<UIState>((set, get) => ({
       dashboardActive: false,
       settingsSection: target.section,
       settingsExtension: target.extension,
+      settingsExtensionRow: options.extensionRow ?? false,
       settingsQuery: options.query ?? null,
       promptPreviewPaneId: options.previewPaneId ?? null,
     })

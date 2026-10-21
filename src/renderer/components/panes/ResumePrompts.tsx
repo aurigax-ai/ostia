@@ -1,3 +1,12 @@
+import {
+  ArrowClockwiseIcon,
+  PlusIcon,
+  ShieldCheckIcon,
+  WarningIcon,
+  XIcon,
+} from '@phosphor-icons/react'
+import type { AgentResume, ResumeFailure } from '@shared/agents/agentResume'
+import { useEffect, useReducer } from 'react'
 import { commands } from '@/commands/registry'
 import { MenuItem } from '@/components/common/Menu'
 import { PromptCard } from '@/components/common/PromptCard'
@@ -17,15 +26,6 @@ import {
 } from '@/stores/agents/hiddenPromptsStore'
 import { useBlocksStore } from '@/stores/terminal/blocksStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
-import {
-  ArrowClockwiseIcon,
-  PlusIcon,
-  ShieldCheckIcon,
-  WarningIcon,
-  XIcon,
-} from '@phosphor-icons/react'
-import type { AgentResume, ResumeFailure } from '@shared/agents/agentResume'
-import { useEffect, useReducer } from 'react'
 
 export function FolderTrustPrompt({
   paneId,

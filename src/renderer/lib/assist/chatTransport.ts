@@ -1,4 +1,3 @@
-import { assistRequest, chatModel } from '@/stores/assist/assistStore'
 import {
   ASSIST_ERRORS,
   type AssistError,
@@ -14,6 +13,7 @@ import {
 } from '@aurigax-ai/ostia-extension-sdk/contract/assist'
 import type { ChatMessageMetadata } from '@shared/assist/chatSessions'
 import type { ChatTransport, UIMessage, UIMessageChunk } from 'ai'
+import { assistRequest, chatModel } from '@/stores/assist/assistStore'
 import { redactToolOutput } from './chatRedaction'
 import type { ChatToolDef, ToolOutcome, ToolRun } from './chatToolGate'
 import { chatToolDefs } from './chatTools'

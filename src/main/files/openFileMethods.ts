@@ -1,7 +1,7 @@
 import { readFileSync, statSync } from 'node:fs'
 import { basename } from 'node:path'
-import { DIFF_TEXT_MAX } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import type { ExtensionResult } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
+import { DIFF_TEXT_MAX } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import type { ExtensionOpenFileRequest } from '@aurigax-ai/ostia-extension-sdk/contract/extensionsBridge'
 import { filesDiffTitle } from '../../shared/boards/diffTitle'
 import type { CommandResult, CommandTarget } from '../../shared/control/commands'
@@ -12,11 +12,11 @@ import {
   OPEN_FILES_COMMAND,
   OPEN_FILES_MAX,
   type OpenFilesResult,
+  openedPaneIds,
+  parseFileTargets,
   REVEAL_FOLDER_COMMAND,
   type RevealFolderResult,
   type WaitOutcome,
-  openedPaneIds,
-  parseFileTargets,
 } from '../../shared/files/openFiles'
 import { targetOf } from '../attention/attention'
 import { type ControlMethodContext, registerControlMethod } from '../control/controlServer'

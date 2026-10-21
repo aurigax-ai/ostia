@@ -1,12 +1,12 @@
-import { IconButton } from '@/components/common/IconButton'
-import { fmt, useDict } from '@/lib/app/useDict'
-import { redactedCount } from '@/lib/assist/chatRedaction'
 import type {
   AssistProviderInfo,
   AssistResponse,
 } from '@aurigax-ai/ostia-extension-sdk/contract/assist'
 import { ChatCircleDotsIcon, XIcon } from '@phosphor-icons/react'
 import { useEffect, useState } from 'react'
+import { IconButton } from '@/components/common/IconButton'
+import { fmt, useDict } from '@/lib/app/useDict'
+import { redactedCount } from '@/lib/assist/chatRedaction'
 
 const REDACTION_PREVIEW_MS = 300
 export type Status =

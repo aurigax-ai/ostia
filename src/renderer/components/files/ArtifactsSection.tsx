@@ -1,3 +1,6 @@
+import { CaretRightIcon, FolderOpenIcon, NotePencilIcon } from '@phosphor-icons/react'
+import type { ArtifactEntry } from '@shared/artifacts/artifacts'
+import { useEffect, useState } from 'react'
 import { IconButton } from '@/components/common/IconButton'
 import { MenuContent } from '@/components/common/Menu'
 import {
@@ -12,9 +15,6 @@ import { useNow } from '@/lib/app/useNow'
 import { openArtifact, openPad, opensInOstia } from '@/lib/files/artifacts'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useArtifactsStore } from '@/stores/files/artifactsStore'
-import { CaretRightIcon, FolderOpenIcon, NotePencilIcon } from '@phosphor-icons/react'
-import type { ArtifactEntry } from '@shared/artifacts/artifacts'
-import { useEffect, useState } from 'react'
 import { fileIcon } from './fileIcon'
 
 const AGE_TICK_MS = 30_000
@@ -81,7 +81,11 @@ function PadRow({ workspaceId, path }: { workspaceId: string; path?: string }): 
   )
 }
 
-export function ArtifactsSection({ workspaceId }: { workspaceId: string | null }): JSX.Element {
+export function ArtifactsSection({
+  workspaceId,
+}: {
+  workspaceId: string | null
+}): JSX.Element | null {
   const d = useDict()
   const [open, setOpen] = useState(true)
   const listing = useArtifactsStore((s) => (workspaceId ? s.byWorkspace[workspaceId] : undefined))
@@ -92,7 +96,7 @@ export function ArtifactsSection({ workspaceId }: { workspaceId: string | null }
     if (workspaceId) void useArtifactsStore.getState().refresh(workspaceId)
   }, [workspaceId])
 
-  if (!workspaceId) return <></>
+  if (!workspaceId) return null
   const entries = listing?.entries ?? []
   return (
     <section className="artifacts-section" data-testid="artifacts-section">

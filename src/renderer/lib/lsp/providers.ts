@@ -1,5 +1,5 @@
-import type { monaco } from '@/lib/monaco/setup'
 import type { ServerCapabilities } from 'vscode-languageserver-protocol'
+import type { monaco } from '@/lib/monaco/setup'
 import { ensureApplyCommand, registerCodeActions } from './codeActions'
 import { registerCodeLens } from './codeLens'
 import { registerCompletion } from './completionProvider'

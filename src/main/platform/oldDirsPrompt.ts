@@ -3,8 +3,8 @@ import type { MessageBoxOptions } from 'electron'
 import {
   type DirMove,
   type MoveResult,
-  OLD_PRODUCT_NAME,
   moveOldDir,
+  OLD_PRODUCT_NAME,
   oldAppRunning,
   previewOldDir,
 } from './userDirs'

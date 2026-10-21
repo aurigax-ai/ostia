@@ -1,6 +1,6 @@
-import { useSettingsStore } from '@/stores/app/settingsStore'
 import type { NotificationSettings } from '@shared/app/notificationSettings'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { useSettingsStore } from '@/stores/app/settingsStore'
 import { createTerminalSession } from './terminalSession'
 import { attachTerminalSignals } from './terminalSignals'
 

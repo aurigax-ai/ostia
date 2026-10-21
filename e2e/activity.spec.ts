@@ -11,7 +11,7 @@ import {
   shownTerminal,
   waitForPaletteSelection,
 } from './helpers'
-import { type ElectronApplication, type Page, _electron as electron, expect, test } from './test'
+import { type ElectronApplication, _electron as electron, expect, type Page, test } from './test'
 
 test.describe.configure({ timeout: 150_000 })
 

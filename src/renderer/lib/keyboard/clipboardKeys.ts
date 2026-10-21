@@ -1,5 +1,5 @@
-import type { ClipboardKeys } from '@/lib/settings/terminalPaneSettings'
 import type { ClipboardContents } from '@shared/app/appApi'
+import type { ClipboardKeys } from '@/lib/settings/terminalPaneSettings'
 
 interface KeyLike {
   key: string

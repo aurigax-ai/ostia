@@ -1,7 +1,7 @@
+import type { ReactElement, ReactNode } from 'react'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { useChordLabel } from '@/lib/keyboard/chords'
 import { isMac } from '@/platform'
-import type { ReactElement, ReactNode } from 'react'
 
 type Side = 'top' | 'bottom' | 'left' | 'right'
 

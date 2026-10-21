@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { MAX_FIT_PASSES, isPromptRepaint, nextSizeAction, settleFit } from './terminalSizing'
+import { isPromptRepaint, MAX_FIT_PASSES, nextSizeAction, settleFit } from './terminalSizing'
 
 describe('nextSizeAction', () => {
   const last0 = { cols: 0, rows: 0 }

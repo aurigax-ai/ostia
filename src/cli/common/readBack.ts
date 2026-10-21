@@ -1,10 +1,10 @@
 import type { MessageConnection } from 'vscode-jsonrpc/node'
 import {
-  type Settled,
   actThenConfirm,
   confirmed,
   mismatch,
   pollEvery,
+  type Settled,
 } from '../../shared/common/actThenConfirm'
 
 const READ_BACK_MS = 3000

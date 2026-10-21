@@ -1,10 +1,10 @@
-import { SandboxManager } from '@anthropic-ai/sandbox-runtime'
 import type { SandboxRuntimeConfig } from '@anthropic-ai/sandbox-runtime'
+import { SandboxManager } from '@anthropic-ai/sandbox-runtime'
 import { PRODUCT_DISPLAY_NAME } from '@aurigax-ai/ostia-extension-sdk/contract/productDisplay'
 import { cachedLookups } from '../sandboxPackages/packageLookups'
-import { type PackagePolicy, decidePackage } from '../sandboxPackages/packagePolicy'
-import { REGISTRY_HOSTS, parsePackageDownload } from '../sandboxPackages/packages'
-import { type ListeningChannel, type Respond, listenHostChannel } from './hostChannel'
+import { decidePackage, type PackagePolicy } from '../sandboxPackages/packagePolicy'
+import { parsePackageDownload, REGISTRY_HOSTS } from '../sandboxPackages/packages'
+import { type ListeningChannel, listenHostChannel, type Respond } from './hostChannel'
 import type { HostToMain, MainToHost } from './protocol'
 
 const lookups = cachedLookups()

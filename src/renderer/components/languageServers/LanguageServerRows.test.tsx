@@ -1,6 +1,4 @@
-import { TooltipProvider } from '@/components/ui/tooltip'
-import { useLanguageServersStore } from '@/stores/extensions/languageServersStore'
-import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
+import type { ExtensionInfo } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import type {
   LanguageServerInfo,
   LspLog,
@@ -8,7 +6,10 @@ import type {
 import { cleanup, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
-import { LanguagesSection } from './LanguagesSection'
+import { TooltipProvider } from '@/components/ui/tooltip'
+import { useLanguageServersStore } from '@/stores/extensions/languageServersStore'
+import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
+import { LanguageServerRows } from './LanguageServerRows'
 
 function server(extra: Partial<LanguageServerInfo> = {}): LanguageServerInfo {
   return {
@@ -41,16 +42,25 @@ const gopls = server({
   status: 'program-missing',
 })
 
-function show(list: LanguageServerInfo[]): void {
+function extension(id: string, provides: boolean): ExtensionInfo {
+  return {
+    id,
+    languageServers: provides
+      ? [{ id: 'server', name: 'server', languages: ['typescript'], command: 'server' }]
+      : [],
+  } as ExtensionInfo
+}
+
+function show(list: LanguageServerInfo[], provides = true): void {
   vi.mocked(window.ostia.lsp.servers).mockResolvedValue(list)
   render(
     <TooltipProvider>
-      <LanguagesSection />
+      <LanguageServerRows ext={extension(list[0]?.extId ?? 'lsp-typescript', provides)} />
     </TooltipProvider>,
   )
 }
 
-describe('LanguagesSection', () => {
+describe('LanguageServerRows', () => {
   let storeInit: ReturnType<typeof useLanguageServersStore.getState>
   let workspacesInit: ReturnType<typeof useWorkspacesStore.getState>
 
@@ -65,9 +75,17 @@ describe('LanguagesSection', () => {
     useWorkspacesStore.setState(workspacesInit, true)
   })
 
-  it('says so when no extension provides a server', async () => {
-    show([])
-    expect(await screen.findByText(/No language servers/)).toBeInTheDocument()
+  it('renders nothing and loads nothing for an extension without language servers', () => {
+    show([server()], false)
+    expect(screen.queryByText('Language servers')).toBeNull()
+    expect(window.ostia.lsp.servers).not.toHaveBeenCalled()
+  })
+
+  it('lists only the servers of its own extension under a Language servers heading', async () => {
+    show([server(), server({ key: 'lsp-gopls/gopls', extId: 'lsp-gopls', name: 'gopls' })])
+    expect(await screen.findByText('Language servers')).toBeInTheDocument()
+    expect(screen.getByRole('group', { name: 'typescript-language-server' })).toBeInTheDocument()
+    expect(screen.queryByRole('group', { name: 'gopls' })).toBeNull()
   })
 
   it('lists each server with its extension, languages, kind, command and status', async () => {
@@ -83,23 +101,21 @@ describe('LanguagesSection', () => {
         enabled: false,
       }),
     ])
-    const row = await screen.findByRole('listitem', { name: 'typescript-language-server' })
+    const row = await screen.findByRole('group', { name: 'typescript-language-server' })
     expect(within(row).getByText('Bundled')).toBeInTheDocument()
-    expect(
-      within(row).getByText(/TypeScript and JavaScript · typescript, javascript/),
-    ).toBeInTheDocument()
+    expect(within(row).getByText(/typescript, javascript ·/)).toBeInTheDocument()
     expect(within(row).getByText('server/cli.mjs --stdio')).toBeInTheDocument()
     expect(within(row).getByText('Running (2 folders)')).toBeInTheDocument()
     expect(
-      within(screen.getByRole('listitem', { name: 'one' })).getByText('Running (1 folder)'),
+      within(screen.getByRole('group', { name: 'one' })).getByText('Running (1 folder)'),
     ).toBeInTheDocument()
     expect(
-      within(screen.getByRole('listitem', { name: 'off-server' })).getByText('Off'),
+      within(screen.getByRole('group', { name: 'off-server' })).getByText('Off'),
     ).toBeInTheDocument()
     expect(
-      within(screen.getByRole('listitem', { name: 'crashed-server' })).getByText('Crashed'),
+      within(screen.getByRole('group', { name: 'crashed-server' })).getByText('Crashed'),
     ).toBeInTheDocument()
-    const pending = screen.getByRole('listitem', { name: 'pending-server' })
+    const pending = screen.getByRole('group', { name: 'pending-server' })
     expect(within(pending).getByText('Waiting for approval')).toBeInTheDocument()
     expect(within(pending).getByRole('switch')).toHaveAttribute('data-disabled')
   })
@@ -246,7 +262,7 @@ describe('LanguagesSection', () => {
       }),
     ])
     const user = userEvent.setup()
-    const managed = await screen.findByRole('listitem', { name: 'rust-analyzer' })
+    const managed = await screen.findByRole('group', { name: 'rust-analyzer' })
     expect(within(managed).getByText('Download')).toBeInTheDocument()
     expect(
       within(managed).getByText('Using the copy Ostia keeps, version 2026-09-28.'),
@@ -257,7 +273,7 @@ describe('LanguagesSection', () => {
       }),
     )
     expect(window.ostia.lsp.removeDownload).toHaveBeenCalledWith('lsp-rust-analyzer/rust-analyzer')
-    const onPath = screen.getByRole('listitem', { name: 'clangd' })
+    const onPath = screen.getByRole('group', { name: 'clangd' })
     expect(within(onPath).getByText('Using clangd from your PATH.')).toBeInTheDocument()
     expect(within(onPath).queryByRole('button', { name: /Remove the copy/ })).toBeNull()
     expect(within(onPath).queryByRole('button', { name: /Fetch clangd now/ })).toBeNull()
@@ -314,11 +330,11 @@ describe('LanguagesSection', () => {
     ])
     const user = userEvent.setup()
     expect(await screen.findByText('Downloading… 35%')).toBeInTheDocument()
-    const failed = screen.getByRole('listitem', { name: 'failed-server' })
+    const failed = screen.getByRole('group', { name: 'failed-server' })
     expect(within(failed).getByText('Download failed: the server answered 404')).toBeInTheDocument()
     await user.click(within(failed).getByRole('button', { name: 'Retry' }))
     expect(window.ostia.lsp.fetch).toHaveBeenCalledWith('a/failed')
-    const gopls = screen.getByRole('listitem', { name: 'gopls' })
+    const gopls = screen.getByRole('group', { name: 'gopls' })
     expect(within(gopls).getByText('Install failed: it took too long')).toBeInTheDocument()
     expect(
       within(gopls).getByText(
@@ -406,7 +422,7 @@ describe('LanguagesSection', () => {
     show([broken])
     const user = userEvent.setup()
     vi.mocked(window.ostia.lsp.setOverride).mockResolvedValue({ servers: [server()] })
-    const row = await screen.findByRole('listitem', { name: 'typescript-language-server' })
+    const row = await screen.findByRole('group', { name: 'typescript-language-server' })
     expect(within(row).getByTestId('language-server-status')).toHaveTextContent(
       'The program you chose cannot be used: nothing is at that path',
     )

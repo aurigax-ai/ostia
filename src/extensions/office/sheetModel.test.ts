@@ -2,9 +2,9 @@ import { unzipSync } from 'fflate'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import * as XLSX from 'xlsx'
 import {
-  MACRO_MARKER,
   encryptedWorkbook,
   externalLinkWorkbook,
+  MACRO_MARKER,
   macroWorkbook,
   patched,
   rawZip,
@@ -12,7 +12,7 @@ import {
   workbook,
 } from '../../../test/fixtures/office/workbooks'
 import { OFFICE_LIMITS, type OfficeLimits } from './officeLimits'
-import { type Workbook, readWorkbook } from './sheetModel'
+import { readWorkbook, type Workbook } from './sheetModel'
 
 function bookOf(bytes: Uint8Array, limits: OfficeLimits = OFFICE_LIMITS): Workbook {
   const result = readWorkbook(bytes, limits)

@@ -1,6 +1,6 @@
-import { fmt } from '@/lib/app/useDict'
 import type { FileKindInfo } from '@aurigax-ai/ostia-extension-sdk/contract/fileKinds'
 import type { Dict } from '@shared/app/dict'
+import { fmt } from '@/lib/app/useDict'
 
 export function kindText(d: Dict, kind: FileKindInfo): string {
   const values = {

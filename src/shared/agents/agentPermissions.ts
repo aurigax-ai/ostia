@@ -1,11 +1,11 @@
 import { isRecord } from '@aurigax-ai/ostia-extension-sdk/contract/isRecord'
 import {
-  QUESTION_CONTEXT_MAX,
-  QUESTION_MAX,
-  type QuestionContent,
   clipTo,
   oneLine,
   plainBlock,
+  QUESTION_CONTEXT_MAX,
+  QUESTION_MAX,
+  type QuestionContent,
 } from './questions'
 
 const PERMISSION_AGENTS = ['claude', 'codex'] as const

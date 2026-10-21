@@ -18,16 +18,16 @@ import { registerControlMethod } from '../control/controlServer'
 import {
   type Announcement,
   type AnnouncementKey,
-  type Publisher,
   announcementFor,
   lanAnnouncementFor,
+  type Publisher,
 } from './announce'
 import { createBindFollower } from './bindFollower'
 import type { Device } from './devices'
 import { list as listDevices, revoke as revokeDevice, setDeviceCap } from './devices'
 import { listBindAddresses } from './interfaces'
-import { answerPairRequest, listPairRequests } from './pairRequests'
 import { liveCodeCount, newCode, onCodesChanged } from './pairing'
+import { answerPairRequest, listPairRequests } from './pairRequests'
 import {
   checkRoute,
   friendlyName,
@@ -45,7 +45,7 @@ import {
   startGateway,
   stopGateway,
 } from './server'
-import { type Tailnet, isAllowedLoginUrl } from './tailnet'
+import { isAllowedLoginUrl, type Tailnet } from './tailnet'
 
 export interface TailnetDeps {
   openExternal: (url: string) => void
@@ -286,7 +286,10 @@ function answerPair(params: unknown): GatewayActionResult {
   if (typeof requestId !== 'string' || typeof approve !== 'boolean') {
     return { ok: false, error: 'invalid' }
   }
-  return answerPairRequest(requestId, approve) ? { ok: true } : { ok: false, error: 'invalid' }
+  const answer = answerPairRequest(requestId, approve)
+  if (!answer) return { ok: false, error: 'invalid' }
+  for (const deviceId of answer.replaced) closeDeviceSockets(deviceId)
+  return { ok: true }
 }
 
 function tailnetSignIn(): GatewayTailnetActionResult {

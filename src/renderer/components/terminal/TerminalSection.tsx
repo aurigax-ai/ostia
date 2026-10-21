@@ -1,3 +1,9 @@
+import { CaretRightIcon } from '@phosphor-icons/react'
+import { KEEP_SHELLS_FEATURE, TMUX_MIN_VERSION } from '@shared/terminal/keepShells'
+import {
+  SCROLLBACK_HISTORY_MAX_MIB,
+  SCROLLBACK_HISTORY_MIN_MIB,
+} from '@shared/terminal/scrollbackHistory'
 import { Notice } from '@/components/common/Notice'
 import { TextLink } from '@/components/common/TextLink'
 import { DiscreteGpuRow } from '@/components/settings/DiscreteGpuRow'
@@ -18,10 +24,10 @@ import type { ClipboardKeys, TerminalRenderer } from '@/lib/settings/terminalPan
 import {
   CONTRAST_MAX,
   CONTRAST_MIN,
-  SCROLLBACK_MAX,
-  SCROLLBACK_MIN,
   SCROLL_SPEED_MAX,
   SCROLL_SPEED_MIN,
+  SCROLLBACK_MAX,
+  SCROLLBACK_MIN,
   TERMINAL_RENDERERS,
 } from '@/lib/settings/terminalPaneSettings'
 import { ghosttyFailure } from '@/lib/terminal/ghosttyEngine'
@@ -34,12 +40,6 @@ import {
 } from '@/stores/app/settingsModel'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useUIStore } from '@/stores/app/uiStore'
-import { CaretRightIcon } from '@phosphor-icons/react'
-import { KEEP_SHELLS_FEATURE, TMUX_MIN_VERSION } from '@shared/terminal/keepShells'
-import {
-  SCROLLBACK_HISTORY_MAX_MIB,
-  SCROLLBACK_HISTORY_MIN_MIB,
-} from '@shared/terminal/scrollbackHistory'
 
 export function TerminalSection(): JSX.Element {
   const d = useDict()

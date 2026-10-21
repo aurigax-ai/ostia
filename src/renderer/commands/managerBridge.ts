@@ -1,7 +1,7 @@
+import type { ManagerOpenPaneRequest } from '@shared/agents/agentsApi'
 import { currentDict, fmt } from '@/lib/app/useDict'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
-import type { ManagerOpenPaneRequest } from '@shared/agents/agentsApi'
 
 export function openManagerWorkspace(req: ManagerOpenPaneRequest): string | null {
   const store = useWorkspacesStore.getState()

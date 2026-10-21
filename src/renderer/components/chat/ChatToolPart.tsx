@@ -1,3 +1,5 @@
+import { BUILTIN_TOOL_ACCESS, isBuiltinChatTool, mcpToolName } from '@shared/assist/chatTools'
+import { useState } from 'react'
 import {
   Confirmation,
   ConfirmationAction,
@@ -17,15 +19,13 @@ import { SplitButton, SplitButtonMenu } from '@/components/common/SplitButton'
 import { fmt, useDict } from '@/lib/app/useDict'
 import type { ApprovalAnswer } from '@/lib/assist/chatToolPermissions'
 import { workspaceFolder } from '@/lib/assist/chatTools'
-import { type ToolPartLike, outputText, toolNameOf } from '@/lib/assist/chatTransport'
+import { outputText, type ToolPartLike, toolNameOf } from '@/lib/assist/chatTransport'
 import { confirmsGeneratedText } from '@/lib/keyboard/pasteGate'
 import {
-  type PendingApproval,
   answerApproval,
+  type PendingApproval,
   useChatToolsStore,
 } from '@/stores/assist/chatToolsStore'
-import { BUILTIN_TOOL_ACCESS, isBuiltinChatTool, mcpToolName } from '@shared/assist/chatTools'
-import { useState } from 'react'
 import { ChatEditCard } from './ChatEditCard'
 
 const SHOWN_OUTPUT_MAX = 4000

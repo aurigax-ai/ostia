@@ -1,11 +1,11 @@
 import '@testing-library/jest-dom/vitest'
+import { act, cleanup, waitFor } from '@testing-library/react'
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { createPane, findSplitTabByName, firstPaneId, splitOf } from '@/lib/layout/tree'
 import { terminalFor } from '@/lib/terminal/terminalHandles'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { surfaceHost } from '@/stores/workspaces/surfaceSlotsStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
-import { act, cleanup, waitFor } from '@testing-library/react'
-import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { renderSettled } from '../../../../test/render'
 import { SurfacePool } from './SurfacePool'
 

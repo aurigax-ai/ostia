@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { PLATFORM_EVENT_TYPES, emitPlatformEvent, emitSessionState, platformEvents } from './events'
+import { emitPlatformEvent, emitSessionState, PLATFORM_EVENT_TYPES, platformEvents } from './events'
 
 describe('platformEvents bus', () => {
   afterEach(() => {

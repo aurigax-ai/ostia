@@ -1,4 +1,3 @@
-import { BASE_LANGUAGE } from '@/lib/extensions/languagePacks'
 import type { Capability } from '@aurigax-ai/ostia-extension-sdk/contract/capabilities'
 import { DEFAULT_CAPABILITIES } from '@aurigax-ai/ostia-extension-sdk/contract/capabilities'
 import type { Dict } from '@shared/app/dict'
@@ -10,6 +9,7 @@ import type {
   JSONSchema,
   TargetMode,
 } from '@shared/control/commands'
+import { BASE_LANGUAGE } from '@/lib/extensions/languagePacks'
 
 export interface CommandContext {
   activeWorkspaceId: string | null

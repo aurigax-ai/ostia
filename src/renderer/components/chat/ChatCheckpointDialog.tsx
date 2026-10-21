@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -16,7 +17,6 @@ import {
 } from '@/lib/assist/chatCheckpoint'
 import type { OstiaChatMessage } from '@/lib/assist/chatTransport'
 import { sessionEdits } from '@/stores/assist/chatToolsStore'
-import { useEffect, useState } from 'react'
 import { shownPath } from './ChatEditCard'
 
 export function ChatCheckpointDialog({

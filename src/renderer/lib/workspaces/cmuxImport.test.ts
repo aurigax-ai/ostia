@@ -1,13 +1,5 @@
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
-import { registerBuiltinCommands } from '@/commands/builtins'
-import { commands } from '@/commands/registry'
-import { paneIds } from '@/lib/layout/tree'
-import { useSandboxStore } from '@/stores/app/sandboxStore'
-import { useCmuxImportStore } from '@/stores/workspaces/cmuxImportStore'
-import { useLayoutStore } from '@/stores/workspaces/layoutStore'
-import { useWindowsStore } from '@/stores/workspaces/windowsStore'
-import { resetWorkspaceIds, useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import type { WindowSummary } from '@shared/windows/windowsApi'
 import {
   type CmuxImportReport,
@@ -19,6 +11,14 @@ import {
 import type { SnapshotNode, SnapshotWorkspace } from '@shared/workspaces/workspaceApi'
 import { MAX_LAYOUT_DEPTH, MAX_PANES, MAX_WORKSPACES } from '@shared/workspaces/workspaceLimits'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import { registerBuiltinCommands } from '@/commands/builtins'
+import { commands } from '@/commands/registry'
+import { paneIds } from '@/lib/layout/tree'
+import { useSandboxStore } from '@/stores/app/sandboxStore'
+import { useCmuxImportStore } from '@/stores/workspaces/cmuxImportStore'
+import { useLayoutStore } from '@/stores/workspaces/layoutStore'
+import { useWindowsStore } from '@/stores/workspaces/windowsStore'
+import { resetWorkspaceIds, useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import {
   CmuxImportError,
   type ExistingWorkspace,

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { SEND_ACTION_KEYS, actionSend, sendActionKey } from './actionSends'
+import { actionSend, SEND_ACTION_KEYS, sendActionKey } from './actionSends'
 
 describe('sendActionKey', () => {
   it('names the common line editing sends and leaves others unnamed', () => {

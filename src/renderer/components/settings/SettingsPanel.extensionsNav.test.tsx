@@ -1,13 +1,13 @@
 import '@testing-library/jest-dom/vitest'
+import type { ExtensionInfo } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
+import { act, cleanup, screen, waitFor, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { EXTENSIONS_NAV_EXPANDED_KEY } from '@/lib/settings/settingsNav'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useUIStore } from '@/stores/app/uiStore'
 import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
 import { usePluginsStore } from '@/stores/extensions/pluginsStore'
-import type { ExtensionInfo } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
-import { act, cleanup, screen, waitFor, within } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
-import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { installLocalStorage } from '../../../../test/mocks/memoryStorage'
 import { renderSettled } from '../../../../test/render'
 import { SettingsPanel } from './SettingsPanel'
@@ -336,6 +336,17 @@ describe('SettingsPanel extensions nav', () => {
         'aria-current',
         'page',
       )
+    })
+
+    it('opens its row on the Extensions page when the link asks for the row', async () => {
+      await renderSettings()
+      act(() =>
+        useUIStore
+          .getState()
+          .openSettings('extensions', { extension: 'board', extensionRow: true }),
+      )
+      expect(screen.getByRole('heading', { level: 2, name: 'Extensions' })).toBeInTheDocument()
+      expect(screen.queryByRole('heading', { level: 2, name: 'Board sync' })).toBeNull()
     })
 
     it('is found by its page title in the search box', async () => {

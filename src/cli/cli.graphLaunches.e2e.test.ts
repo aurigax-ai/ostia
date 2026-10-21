@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
-import { type Harness, POLL, graphsHarness } from '../../test/graphsHarness'
+import { graphsHarness, type Harness, POLL } from '../../test/graphsHarness'
 
 vi.mock('electron', () => ({
   ipcMain: { handle: vi.fn() },

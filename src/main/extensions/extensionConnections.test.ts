@@ -3,8 +3,8 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import type { ExtensionConnectionKind } from '@aurigax-ai/ostia-extension-sdk/contract/extensionConnections'
 import { describe, expect, it } from 'vitest'
-import { ExtensionConnections, connectionSecretKey } from './extensionConnections'
-import { type SecretStoreDeps, createSecretStore } from './extensionSecrets'
+import { connectionSecretKey, ExtensionConnections } from './extensionConnections'
+import { createSecretStore, type SecretStoreDeps } from './extensionSecrets'
 
 const HTTP: ExtensionConnectionKind = {
   kind: 'http',

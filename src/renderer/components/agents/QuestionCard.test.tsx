@@ -1,12 +1,12 @@
+import type { QuestionRequest } from '@shared/agents/questions'
+import { cleanup, render, screen, waitFor, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { type PaneWhere, sourceWhere } from '@/lib/sidebar/dashboard'
 import { useQuestionsStore } from '@/stores/agents/questionsStore'
 import { useUIStore } from '@/stores/app/uiStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
-import type { QuestionRequest } from '@shared/agents/questions'
-import { cleanup, render, screen, waitFor, within } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
-import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { QuestionCard } from './QuestionCard'
 
 const NOW = Date.UTC(2026, 9, 1, 12, 0, 0)

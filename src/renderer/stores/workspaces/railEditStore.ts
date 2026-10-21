@@ -1,5 +1,5 @@
-import { useUIStore } from '@/stores/app/uiStore'
 import { create } from 'zustand'
+import { useUIStore } from '@/stores/app/uiStore'
 import { useWorkspacesStore } from './workspacesStore'
 
 export type RailEdit =

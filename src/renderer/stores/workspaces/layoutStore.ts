@@ -1,3 +1,4 @@
+import { create } from 'zustand'
 import { setDefaultPaneTitles, setPaneBrowser, setPaneCwd } from '@/lib/layout/paneFields'
 import { setSizes } from '@/lib/layout/panelSize'
 import { focusAfterClose, showAfterClose } from '@/lib/layout/tabFocus'
@@ -12,7 +13,6 @@ import {
 } from '@/lib/layout/tree'
 import { layoutOf, patch, successorOf } from '@/lib/panes/layoutPatch'
 import { forgetTab, noteOpener, tabHistoryOf } from '@/lib/panes/tabHistory'
-import { create } from 'zustand'
 import { keepKeyboard } from './keepKeyboard'
 import { createLayoutFileActions } from './layoutFileActions'
 import { createLayoutOpenActions } from './layoutOpenActions'

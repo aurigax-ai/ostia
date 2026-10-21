@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { type StoredSecrets, createSecretStore } from '../extensions/extensionSecrets'
+import { createSecretStore, type StoredSecrets } from '../extensions/extensionSecrets'
 import {
+  createMcpOAuthStore,
   MCP_OAUTH_KEY,
   MCP_OAUTH_RECORD_MAX,
   type McpOAuthRecord,
-  createMcpOAuthStore,
 } from './mcpOAuthStore'
 
 function file(initial: StoredSecrets = {}) {

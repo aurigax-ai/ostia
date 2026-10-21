@@ -8,7 +8,7 @@ import type { WorkspaceSandboxes } from '../sandbox/workspaceSandboxes'
 import type { PtyEntry } from '../terminal/pty/ptyRegistry'
 import type { ScratchFolders } from '../workspaces/scratchFolders'
 import { workDirForWorkspace } from '../workspaces/workspaceRegistry'
-import { type TrustPlace, folderTrust, trustFolder } from './claudeFolderTrust'
+import { folderTrust, type TrustPlace, trustFolder } from './claudeFolderTrust'
 import { workspaceFolder } from './extensionAgents'
 
 export interface FolderTrustIpcDeps {

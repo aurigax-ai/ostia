@@ -1,8 +1,9 @@
+import type { HumanInputSource } from '@shared/terminal/ptyApi'
 import {
   CLIPBOARD_READ_MS,
+  keyPastePlan,
   NO_CLIPBOARD_CONTENTS,
   PROGRAM_PASTE_KEY,
-  keyPastePlan,
   pasteEventReadsClipboard,
   settleWithin,
 } from '@/lib/keyboard/clipboardKeys'
@@ -13,7 +14,6 @@ import type { OstiaTerminal } from '@/lib/terminal/ostiaTerminal'
 import { inputEditorFor } from '@/lib/terminal/terminalHandles'
 import { isMac } from '@/platform'
 import { useSettingsStore } from '@/stores/app/settingsStore'
-import type { HumanInputSource } from '@shared/terminal/ptyApi'
 import type { TerminalSession } from './terminalSession'
 
 interface TerminalPaste {

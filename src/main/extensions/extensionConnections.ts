@@ -1,9 +1,9 @@
 import {
   type ConnectionInfo,
   type ConnectionValue,
-  EXTENSION_CONNECTIONS_MAX,
   EXTENSION_CONNECTION_NAME_PATTERN,
   EXTENSION_CONNECTION_VALUE_MAX,
+  EXTENSION_CONNECTIONS_MAX,
   type ExtensionConnectionEntry,
   type ExtensionConnectionKind,
   type ExtensionConnectionResult,

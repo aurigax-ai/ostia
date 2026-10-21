@@ -1,12 +1,12 @@
+import type { HistorySearchResult } from '@shared/terminal/scrollbackHistory'
+import type { ISearchOptions } from '@xterm/addon-search'
+import { useEffect, useRef, useState } from 'react'
 import { FindBar, type FindStepRef } from '@/components/common/FindBar'
 import { TextLink } from '@/components/common/TextLink'
 import { fmt, useDict } from '@/lib/app/useDict'
 import type { TerminalSearch } from '@/lib/terminal/ostiaTerminal'
 import type { TerminalColors } from '@/lib/theme/types'
 import type { HistoryFind } from '@/stores/terminal/historyViewStore'
-import type { HistorySearchResult } from '@shared/terminal/scrollbackHistory'
-import type { ISearchOptions } from '@xterm/addon-search'
-import { useEffect, useRef, useState } from 'react'
 
 export function findOptions(palette: TerminalColors): ISearchOptions {
   const match = palette.brightBlack

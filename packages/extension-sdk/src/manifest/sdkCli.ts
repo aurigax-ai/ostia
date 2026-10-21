@@ -4,8 +4,8 @@ import {
   existsSync,
   lstatSync,
   mkdirSync,
-  readFileSync,
   readdirSync,
+  readFileSync,
   writeFileSync,
 } from 'node:fs'
 import { join, normalize, relative, resolve } from 'node:path'

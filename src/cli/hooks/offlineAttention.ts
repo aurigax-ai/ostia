@@ -1,8 +1,8 @@
 import { type EnvSource, readEnv } from '@aurigax-ai/ostia-extension-sdk/contract/appEnv'
 import {
-  type SavedAttention,
   attentionFileFor,
   isKeptAttentionState,
+  type SavedAttention,
   writeSavedAttention,
 } from '../../main/tmux/attentionFile'
 import { claudeAttention, isClaudeAttentionEvent } from '../../shared/agents/claudeAttention'

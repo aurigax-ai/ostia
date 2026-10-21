@@ -1,3 +1,16 @@
+import { XIcon } from '@phosphor-icons/react'
+import {
+  BUILTIN_MANAGER_AGENTS,
+  isManagerArgv,
+  isSkillPath,
+  MANAGER_AGENT_NAME,
+  MANAGER_FEATURE,
+  MANAGER_LIMIT_BOUNDS,
+  type ManagerLimits,
+} from '@shared/agents/managerSettings'
+import { splitArgs } from '@shared/terminal/argv'
+import { quoteArgv } from '@shared/terminal/shellQuote'
+import { useState } from 'react'
 import { IconButton } from '@/components/common/IconButton'
 import { Notice } from '@/components/common/Notice'
 import { CommitInput } from '@/components/settingsKit/CommitInput'
@@ -11,19 +24,6 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { fmt, useDict } from '@/lib/app/useDict'
 import { useSettingsStore } from '@/stores/app/settingsStore'
-import { XIcon } from '@phosphor-icons/react'
-import {
-  BUILTIN_MANAGER_AGENTS,
-  MANAGER_AGENT_NAME,
-  MANAGER_FEATURE,
-  MANAGER_LIMIT_BOUNDS,
-  type ManagerLimits,
-  isManagerArgv,
-  isSkillPath,
-} from '@shared/agents/managerSettings'
-import { splitArgs } from '@shared/terminal/argv'
-import { quoteArgv } from '@shared/terminal/shellQuote'
-import { useState } from 'react'
 import { RequirementsNote } from './RequirementsNote'
 
 function parseCommand(line: string): string[] | null {

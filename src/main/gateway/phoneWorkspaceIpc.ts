@@ -5,9 +5,9 @@ import type {
 } from '../../shared/gateway/gatewayApi'
 import { folderTrust } from '../agents/claudeFolderTrust'
 import {
+  loadPhoneWorkspace,
   type PhoneWorkspace,
   type PhoneWorkspacePaths,
-  loadPhoneWorkspace,
   phoneFolderState,
   setPhoneWorkspace,
 } from './phoneWorkspace'

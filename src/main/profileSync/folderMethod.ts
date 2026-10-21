@@ -4,13 +4,13 @@ import { join, resolve } from 'node:path'
 import { writeFileAtomic } from '@aurigax-ai/ostia-extension-sdk/atomicWrite'
 import { type SyncMethod, type SyncSnapshot, SyncTargetError, type WriteResult } from './engine'
 import {
-  SECRETS_FILE,
-  SECRETS_FILE_MAX_BYTES,
-  TOP_FILES,
-  TOP_FILE_MAX_BYTES,
   readProfileFolders,
   readTopFile,
   removeRegularFile,
+  SECRETS_FILE,
+  SECRETS_FILE_MAX_BYTES,
+  TOP_FILE_MAX_BYTES,
+  TOP_FILES,
 } from './profile'
 
 function versionOf(files: ReadonlyMap<string, string>): string {

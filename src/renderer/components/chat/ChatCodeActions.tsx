@@ -1,3 +1,13 @@
+import {
+  BookmarkSimpleIcon,
+  CheckIcon,
+  CopyIcon,
+  FloppyDiskIcon,
+  PaperPlaneTiltIcon,
+  PlayIcon,
+  TerminalWindowIcon,
+} from '@phosphor-icons/react'
+import { useId, useMemo, useState } from 'react'
 import { useAgentTargets } from '@/components/agents/PickSendPanel'
 import { IconButton } from '@/components/common/IconButton'
 import { DropdownMenu, MenuItem, MenuLabel } from '@/components/common/Menu'
@@ -14,12 +24,12 @@ import {
 import { useCopied } from '@/lib/app/useCopied'
 import { fmt, useDict } from '@/lib/app/useDict'
 import {
-  type TerminalTarget,
   insertInto,
   runConfirmed,
   runInNewTerminal,
   saveCodeAsFile,
   sendToAgent,
+  type TerminalTarget,
   workspaceTerminals,
 } from '@/lib/assist/chatActions'
 import { confirmsGeneratedText } from '@/lib/keyboard/pasteGate'
@@ -27,16 +37,6 @@ import { useBlocksStore } from '@/stores/terminal/blocksStore'
 import { useSnippetsStore } from '@/stores/terminal/snippetsStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
-import {
-  BookmarkSimpleIcon,
-  CheckIcon,
-  CopyIcon,
-  FloppyDiskIcon,
-  PaperPlaneTiltIcon,
-  PlayIcon,
-  TerminalWindowIcon,
-} from '@phosphor-icons/react'
-import { useId, useMemo, useState } from 'react'
 
 export type ChatActionNotice =
   | 'inserted'

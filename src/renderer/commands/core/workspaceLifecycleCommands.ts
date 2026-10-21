@@ -1,3 +1,6 @@
+import { PAD_COMMAND } from '@shared/artifacts/artifacts'
+import type { CmuxImportReport } from '@shared/workspaces/cmuxSession'
+import { normalizeGroupName } from '@shared/workspaces/workspaceGroups'
 import { registerCore } from '@/commands/coreCommand'
 import { hibernateWorkspaces, resumeWorkspaces } from '@/lib/agents/hibernationScheduler'
 import { currentDict } from '@/lib/app/useDict'
@@ -25,9 +28,6 @@ import { useArtifactsStore } from '@/stores/files/artifactsStore'
 import { useHibernateSkippedStore } from '@/stores/workspaces/hibernateSkippedStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
-import { PAD_COMMAND } from '@shared/artifacts/artifacts'
-import type { CmuxImportReport } from '@shared/workspaces/cmuxSession'
-import { normalizeGroupName } from '@shared/workspaces/workspaceGroups'
 
 async function hibernateAgents(workspaceIds: readonly string[]): Promise<string[]> {
   const report = await hibernateWorkspaces(workspaceIds)

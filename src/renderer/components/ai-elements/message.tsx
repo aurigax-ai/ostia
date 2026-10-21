@@ -1,10 +1,10 @@
-import { IconButton, type IconButtonProps } from '@/components/common/IconButton'
-import { cn } from '@/lib/utils'
 import type { UIMessage } from 'ai'
 import type { ComponentProps, HTMLAttributes } from 'react'
 import { memo } from 'react'
 import Markdown, { type Components, type Options } from 'react-markdown'
 import remarkGfm from 'remark-gfm'
+import { IconButton, type IconButtonProps } from '@/components/common/IconButton'
+import { cn } from '@/lib/utils'
 
 export type MessageProps = HTMLAttributes<HTMLDivElement> & {
   from: UIMessage['role']

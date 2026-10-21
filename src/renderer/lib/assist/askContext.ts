@@ -1,3 +1,9 @@
+import {
+  CHAT_CONTEXT_TEXT_MAX,
+  type ChatContextItem,
+  type ChatContextKind,
+} from '@aurigax-ai/ostia-extension-sdk/contract/assist'
+import { isRemotePath } from '@aurigax-ai/ostia-extension-sdk/contract/remoteFolders'
 import { editorPositionOf } from '@/lib/files/editorPositions'
 import { baseName } from '@/lib/files/fileTree'
 import { allPanes, findPane } from '@/lib/layout/tree'
@@ -9,12 +15,6 @@ import { type LiveSelection, useLiveSelectionStore } from '@/stores/terminal/liv
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { usePaneRecencyStore } from '@/stores/workspaces/paneRecencyStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
-import {
-  CHAT_CONTEXT_TEXT_MAX,
-  type ChatContextItem,
-  type ChatContextKind,
-} from '@aurigax-ai/ostia-extension-sdk/contract/assist'
-import { isRemotePath } from '@aurigax-ai/ostia-extension-sdk/contract/remoteFolders'
 
 const OUTPUT_TAIL_MAX = 8000
 

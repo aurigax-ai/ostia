@@ -1,13 +1,3 @@
-import { IconButton } from '@/components/common/IconButton'
-import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/input-group'
-import { fmt, useDict } from '@/lib/app/useDict'
-import { baseName, childPath } from '@/lib/files/fileTree'
-import { openFileAt, openFileInWorkspace } from '@/lib/files/openFile'
-import { type PdfSearchResults, searchPdfs } from '@/lib/files/pdfSearch'
-import { textMatcher } from '@/lib/files/textMatch'
-import { useSettingsStore } from '@/stores/app/settingsStore'
-import { useUIStore } from '@/stores/app/uiStore'
-import { usePdfFindStore } from '@/stores/files/pdfFindStore'
 import {
   AsteriskIcon,
   MagnifyingGlassIcon,
@@ -18,6 +8,16 @@ import {
 import type { FsEntry } from '@shared/files/filesApi'
 import type { SearchNameHit, SearchOutcome } from '@shared/files/search'
 import { type KeyboardEvent, type ReactNode, useEffect, useRef, useState } from 'react'
+import { IconButton } from '@/components/common/IconButton'
+import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/input-group'
+import { fmt, useDict } from '@/lib/app/useDict'
+import { baseName, childPath } from '@/lib/files/fileTree'
+import { openFileAt, openFileInWorkspace } from '@/lib/files/openFile'
+import { type PdfSearchResults, searchPdfs } from '@/lib/files/pdfSearch'
+import { textMatcher } from '@/lib/files/textMatch'
+import { useSettingsStore } from '@/stores/app/settingsStore'
+import { useUIStore } from '@/stores/app/uiStore'
+import { usePdfFindStore } from '@/stores/files/pdfFindStore'
 import { fileIcon } from './fileIcon'
 
 export const SEARCH_DELAY_MS = 200

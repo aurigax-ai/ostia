@@ -2,7 +2,7 @@ import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { HostRecorder, type HostWorkspace, folderWithin } from './hostRecorder'
+import { folderWithin, HostRecorder, type HostWorkspace } from './hostRecorder'
 import { HOST_DIR, JOURNAL_DIR, Journal } from './journal'
 
 describe('HostRecorder', () => {

@@ -1,5 +1,5 @@
-import { usePhoneSizeStore } from '@/stores/terminal/phoneSizeStore'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { usePhoneSizeStore } from '@/stores/terminal/phoneSizeStore'
 import { terminalInputBridge } from './terminalInputBridge'
 
 const actions = vi.hoisted(() => ({ typeable: true }))

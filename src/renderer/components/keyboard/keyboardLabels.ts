@@ -1,8 +1,8 @@
-import { commandWording, commands } from '@/commands/registry'
-import { sendActionKey } from '@/lib/keyboard/actionSends'
-import type { TerminalSend } from '@/lib/keyboard/terminalKeys'
 import type { Dict } from '@shared/app/dict'
 import { type ChordProblem, chordText, parseChord } from '@shared/keyboard/chordSpec'
+import { commands, commandWording } from '@/commands/registry'
+import { sendActionKey } from '@/lib/keyboard/actionSends'
+import type { TerminalSend } from '@/lib/keyboard/terminalKeys'
 
 const TERMINAL_TITLES: Record<string, (d: Dict) => string> = {
   copy: (d) => d.keyboard.copy,

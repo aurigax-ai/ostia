@@ -1,13 +1,13 @@
-import { existsSync, lstatSync, readFileSync, readdirSync } from 'node:fs'
+import { existsSync, lstatSync, readdirSync, readFileSync } from 'node:fs'
 import { createConnection } from 'node:net'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
 import {
+  createMessageConnection,
   type MessageConnection,
   StreamMessageReader,
   StreamMessageWriter,
-  createMessageConnection,
 } from 'vscode-jsonrpc/node'
 import { gitRequest } from '../../cli/verbs/coreBoards'
 import type { CommandDescriptor, CommandResult, CommandTarget } from '../../shared/control/commands'

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
-  EXTENSION_MESSAGES_MAX,
   EXTENSION_MESSAGE_MAX,
+  EXTENSION_MESSAGES_MAX,
   formatMessage,
   localized,
   matchLocale,

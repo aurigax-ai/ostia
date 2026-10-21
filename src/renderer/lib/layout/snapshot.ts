@@ -10,7 +10,7 @@ import type {
 } from '@shared/workspaces/workspaceApi'
 import { settleCollapse } from './collapse'
 import { isRemoteFilePane } from './paneFields'
-import { TERMINAL_TITLE, adoptIds, findPane, firstPaneId, withoutPanes } from './tree'
+import { adoptIds, findPane, firstPaneId, TERMINAL_TITLE, withoutPanes } from './tree'
 import type { LayoutNode, PaneNode, SplitNode } from './types'
 
 export interface RestorableWorkspace {

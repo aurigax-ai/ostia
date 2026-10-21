@@ -1,9 +1,9 @@
 import '@testing-library/jest-dom/vitest'
-import { useSettingsStore } from '@/stores/app/settingsStore'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { MarkdownPreview, isMarkdownPath } from './MarkdownPreview'
+import { useSettingsStore } from '@/stores/app/settingsStore'
+import { isMarkdownPath, MarkdownPreview } from './MarkdownPreview'
 
 const released = vi.hoisted(() => vi.fn())
 const drawn = vi.hoisted(() => vi.fn<(code: string, dark: boolean) => Promise<string>>())

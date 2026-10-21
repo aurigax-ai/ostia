@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
-  DEFAULT_NOTIFICATION_SETTINGS,
   clampBellFlashMs,
+  DEFAULT_NOTIFICATION_SETTINGS,
   parseNotificationSettings,
   wantsDesktopBanner,
 } from './notificationSettings'

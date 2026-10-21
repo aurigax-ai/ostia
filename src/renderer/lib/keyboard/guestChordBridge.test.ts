@@ -1,12 +1,12 @@
+import { DOUBLE_SHIFT, DOUBLE_SHIFT_KEY } from '@shared/keyboard/chordSpec'
+import { guestChordKey } from '@shared/keyboard/guestChords'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { commands } from '@/commands/registry'
 import { registerBrowserHandle } from '@/lib/browser/browserHandles'
 import { createPane } from '@/lib/layout/tree'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
-import { DOUBLE_SHIFT, DOUBLE_SHIFT_KEY } from '@shared/keyboard/chordSpec'
-import { guestChordKey } from '@shared/keyboard/guestChords'
-import { afterEach, describe, expect, it, vi } from 'vitest'
 import { guestChordSignatures, handleGuestChord, syncGuestChords } from './guestChordBridge'
 
 const initialSettings = useSettingsStore.getState()

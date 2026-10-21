@@ -1,3 +1,5 @@
+import { PaperPlaneTiltIcon } from '@phosphor-icons/react'
+import { type KeyboardEvent, useState } from 'react'
 import { Hint } from '@/components/common/Hint'
 import { RiskyPasteDialog } from '@/components/common/RiskyPasteDialog'
 import { Button } from '@/components/ui/button'
@@ -8,8 +10,6 @@ import { planAgentMessage, sendToAgent } from '@/lib/agents/agentMessage'
 import type { PickTarget } from '@/lib/agents/pickTargets'
 import { fmt, useDict } from '@/lib/app/useDict'
 import { useSettingsStore } from '@/stores/app/settingsStore'
-import { PaperPlaneTiltIcon } from '@phosphor-icons/react'
-import { type KeyboardEvent, useState } from 'react'
 
 type Outcome = { kind: 'sent' | 'refused'; agent: string }
 

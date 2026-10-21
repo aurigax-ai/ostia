@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { type KeyLike, applyLineEdit, lineEditOp, shellKeyBytes } from './lineEditing'
+import { applyLineEdit, type KeyLike, lineEditOp, shellKeyBytes } from './lineEditing'
 
 const key = (k: string, mods: Partial<KeyLike> = {}): KeyLike => ({
   key: k,

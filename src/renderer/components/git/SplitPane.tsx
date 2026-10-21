@@ -1,15 +1,4 @@
 import {
-  type SplitBounds,
-  clampPosition,
-  fractionOf,
-  keyPosition,
-  percentOf,
-  splitBasis,
-  splitBounds,
-} from '@/lib/git/gitSplit'
-import { rememberPanelFractions, rememberedPanelFraction } from '@/lib/panes/panelSizes'
-import { cn } from '@/lib/utils'
-import {
   type KeyboardEvent,
   type PointerEvent,
   type ReactNode,
@@ -19,6 +8,17 @@ import {
   useRef,
   useState,
 } from 'react'
+import {
+  clampPosition,
+  fractionOf,
+  keyPosition,
+  percentOf,
+  type SplitBounds,
+  splitBasis,
+  splitBounds,
+} from '@/lib/git/gitSplit'
+import { rememberedPanelFraction, rememberPanelFractions } from '@/lib/panes/panelSizes'
+import { cn } from '@/lib/utils'
 
 const DRAGGING_CLASS = 'ostia-split-dragging'
 
@@ -202,6 +202,7 @@ export function SplitPane({
       </div>
       {split ? (
         <>
+          {/* biome-ignore lint/a11y/useSemanticElements: a focusable resize separator; hr cannot take focus or carry a position */}
           <div
             ref={handle}
             className="ostia-split-handle"

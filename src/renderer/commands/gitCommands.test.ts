@@ -1,7 +1,7 @@
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { commands } from '@/commands/registry'
 import { useDiffStore } from '@/stores/files/diffStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
-import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { registerGitCommands } from './gitCommands'
 
 const CHANGES = {

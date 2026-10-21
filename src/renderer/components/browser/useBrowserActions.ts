@@ -1,10 +1,3 @@
-import {
-  type BrowserAction,
-  browserActionOf,
-  registerBrowserHandle,
-} from '@/lib/browser/browserHandles'
-import { matchChord } from '@/lib/keyboard/chords'
-import { isMac } from '@/platform'
 import type { WebviewTag } from 'electron'
 import {
   type Dispatch,
@@ -14,6 +7,13 @@ import {
   useCallback,
   useEffect,
 } from 'react'
+import {
+  type BrowserAction,
+  browserActionOf,
+  registerBrowserHandle,
+} from '@/lib/browser/browserHandles'
+import { matchChord } from '@/lib/keyboard/chords'
+import { isMac } from '@/platform'
 import type { FindRequest, FindResult } from './BrowserFind'
 
 interface BrowserActionsParams {

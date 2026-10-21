@@ -4,7 +4,7 @@ import {
   type LanguageServerOverrideResult,
   splitLanguageServerKey,
 } from '@aurigax-ai/ostia-extension-sdk/contract/languageServers'
-import { type WebContents, ipcMain } from 'electron'
+import { ipcMain, type WebContents } from 'electron'
 import type { LanguageServers } from './languageServers'
 
 export interface LanguageServersIpcDeps {

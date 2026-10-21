@@ -1,11 +1,11 @@
 import '@testing-library/jest-dom/vitest'
-import { resetChatTools } from '@/stores/assist/chatToolsStore'
 import type { ChatToolMode } from '@aurigax-ai/ostia-extension-sdk/contract/assist'
 import { en } from '@shared/app/dict'
 import { cleanup, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { useState } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { resetChatTools } from '@/stores/assist/chatToolsStore'
 import { ChatToolsMenu } from './ChatToolsMenu'
 
 afterEach(() => {

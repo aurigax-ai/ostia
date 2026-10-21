@@ -1,6 +1,6 @@
-import { useSandboxStore } from '@/stores/app/sandboxStore'
 import type { BrowserProfile } from '@shared/browser/browserProfile'
 import { useEffect, useState } from 'react'
+import { useSandboxStore } from '@/stores/app/sandboxStore'
 
 interface GrantedProfileParams {
   workspaceId: string

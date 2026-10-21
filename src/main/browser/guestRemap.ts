@@ -1,11 +1,11 @@
 import type { KeyboardInputEvent } from 'electron'
 import type { GuestKeyInput } from '../../shared/keyboard/clipboardChords'
 import {
-  type ModifierRemap,
-  type RemapKey,
   isIdentityRemap,
   isRetargeted,
+  type ModifierRemap,
   parseModifierRemap,
+  type RemapKey,
   releaseStale,
   remappedFlags,
   remappedModifierKey,

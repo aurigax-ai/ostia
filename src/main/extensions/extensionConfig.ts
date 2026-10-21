@@ -6,8 +6,8 @@ import {
 import {
   type ExtensionInfo,
   type ExtensionSettingValues,
-  SETTINGS_CHANGED_EVENT,
   effectiveSettingValues,
+  SETTINGS_CHANGED_EVENT,
   validSettingValue,
 } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import type {
@@ -18,7 +18,7 @@ import { isRecord } from '@aurigax-ai/ostia-extension-sdk/contract/isRecord'
 import type { MessageConnection } from 'vscode-jsonrpc/node'
 import type { PaneIdentity } from '../control/idRegistry'
 import type { ExtensionHostDeps } from './extensionHostDeps'
-import { type Runtime, fail } from './extensionRuntime'
+import { fail, type Runtime } from './extensionRuntime'
 
 function storedSettings(raw: unknown): Map<string, ExtensionSettingValues> {
   const out = new Map<string, ExtensionSettingValues>()

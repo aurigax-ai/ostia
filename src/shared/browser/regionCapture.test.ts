@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import {
+  normalizeRegionRequest,
   REGION_MIN,
   REGION_VIEW_MAX,
-  normalizeRegionRequest,
   regionBusMessage,
   regionCapture,
   regionCaptureRect,

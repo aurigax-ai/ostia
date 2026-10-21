@@ -1,5 +1,5 @@
-import type { WorkspaceKind } from '@/stores/workspaces/workspaceTypes'
 import type { AgentGroupPlacement } from '@shared/permissions/reach'
+import type { WorkspaceKind } from '@/stores/workspaces/workspaceTypes'
 
 export interface GroupMember {
   id: string

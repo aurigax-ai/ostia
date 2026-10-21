@@ -1,6 +1,6 @@
 import {
-  type RemoteCwd,
   normalizeRemoteCwd,
+  type RemoteCwd,
 } from '@aurigax-ai/ostia-extension-sdk/contract/remoteFolders'
 import { BrowserWindow } from 'electron'
 import { refreshCapabilitySettings } from '../approvals/capabilityStore'

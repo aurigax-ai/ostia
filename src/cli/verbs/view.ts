@@ -4,11 +4,11 @@ import type { MessageConnection } from 'vscode-jsonrpc/node'
 import { parseViewText } from '../../shared/views/viewParse'
 import { viewJsonSchema } from '../../shared/views/viewSchema'
 import {
+  formatViewProblem,
   VIEW_FILE_MAX_BYTES,
   type ViewPlacement,
   type ViewProblem,
   type ViewStatus,
-  formatViewProblem,
   viewNameOf,
 } from '../../shared/views/views'
 import { parseArgs } from '../common/args'

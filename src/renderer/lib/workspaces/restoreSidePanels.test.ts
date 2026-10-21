@@ -1,7 +1,7 @@
-import { useSidePanelStore } from '@/stores/app/sidePanelStore'
-import { useUIStore } from '@/stores/app/uiStore'
 import type { AppSnapshot } from '@shared/workspaces/workspaceApi'
 import { afterEach, describe, expect, it } from 'vitest'
+import { useSidePanelStore } from '@/stores/app/sidePanelStore'
+import { useUIStore } from '@/stores/app/uiStore'
 import { restoreSidePanels } from './restoreSidePanels'
 
 const snapshot = (panels: Partial<AppSnapshot> = {}): AppSnapshot => ({

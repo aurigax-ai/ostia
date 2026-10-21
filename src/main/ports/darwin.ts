@@ -1,5 +1,5 @@
 import type { ProcEntry } from '../platform/procfs'
-import { type ListeningPort, addOwner, sortedPorts } from './procfs'
+import { addOwner, type ListeningPort, sortedPorts } from './procfs'
 
 export function parsePsTable(text: string): ProcEntry[] {
   const out: ProcEntry[] = []

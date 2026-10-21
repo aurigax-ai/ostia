@@ -1,3 +1,6 @@
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { SaveSnippetDialog } from '@/components/palette/SaveSnippetDialog'
 import { firstPaneOfKind } from '@/lib/layout/paneFields'
 import { createPane } from '@/lib/layout/tree'
@@ -8,9 +11,6 @@ import { useBlocksStore } from '@/stores/terminal/blocksStore'
 import { useSnippetsStore } from '@/stores/terminal/snippetsStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
-import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { BlockMenu } from './BlockMenu'
 
 const actions = vi.hoisted(() => ({

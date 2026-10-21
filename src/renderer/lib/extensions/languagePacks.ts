@@ -1,6 +1,6 @@
-import type { LanguageContribution } from '@/lib/theme/types'
 import type { LanguagePack } from '@aurigax-ai/ostia-extension-sdk/contract/languagePack'
 import { mergeCatalog } from '@shared/app/dict'
+import type { LanguageContribution } from '@/lib/theme/types'
 
 export const BASE_LANGUAGE: LanguageContribution = {
   id: 'en',

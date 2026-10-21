@@ -1,11 +1,3 @@
-import { extensionCommandId } from '@/commands/extensionBridge'
-import { commands } from '@/commands/registry'
-import { currentDict, useDict } from '@/lib/app/useDict'
-import { workspaceOfPane } from '@/lib/attention/workspaceActivity'
-import { openSidebarUrl } from '@/lib/sidebar/sidebarItems'
-import { useCoreWatch } from '@/lib/workspaces/coreWatch'
-import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
-import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import type {
   ExtensionChip,
   ExtensionInfo,
@@ -14,12 +6,20 @@ import type {
 } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import {
   GIT_SOURCE,
-  PORTS_SOURCE,
   isCoreSource,
+  PORTS_SOURCE,
 } from '@aurigax-ai/ostia-extension-sdk/manifest/coreNames'
 import type { Dict } from '@shared/app/dict'
 import { GIT_BRANCH_CHIP, PORTS_CHIP, SSH_CHIP } from '@shared/boards/git'
 import { useEffect, useMemo } from 'react'
+import { extensionCommandId } from '@/commands/extensionBridge'
+import { commands } from '@/commands/registry'
+import { currentDict, useDict } from '@/lib/app/useDict'
+import { workspaceOfPane } from '@/lib/attention/workspaceActivity'
+import { openSidebarUrl } from '@/lib/sidebar/sidebarItems'
+import { useCoreWatch } from '@/lib/workspaces/coreWatch'
+import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
+import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 
 export interface ChipCatalogEntry {
   extId: string

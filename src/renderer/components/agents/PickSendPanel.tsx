@@ -1,3 +1,7 @@
+import { XIcon } from '@phosphor-icons/react'
+import type { ResumableAgent } from '@shared/agents/agentResume'
+import type { Dict } from '@shared/app/dict'
+import { type KeyboardEvent, useEffect, useMemo, useRef, useState } from 'react'
 import { IconButton } from '@/components/common/IconButton'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
@@ -17,10 +21,6 @@ import { useBlocksStore } from '@/stores/terminal/blocksStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { usePaneRecencyStore } from '@/stores/workspaces/paneRecencyStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
-import { XIcon } from '@phosphor-icons/react'
-import type { ResumableAgent } from '@shared/agents/agentResume'
-import type { Dict } from '@shared/app/dict'
-import { type KeyboardEvent, useEffect, useMemo, useRef, useState } from 'react'
 
 function agentLabel(d: Dict, title: string, agent: ResumableAgent | 'other'): string {
   if (agent === 'other') return title

@@ -1,3 +1,4 @@
+import { stepZoom } from '@shared/app/zoom'
 import { registerCore } from '@/commands/coreCommand'
 import { resetZoom } from '@/lib/app/wheelZoom'
 import {
@@ -13,7 +14,6 @@ import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useUIStore } from '@/stores/app/uiStore'
 import { useUpdateStore } from '@/stores/app/updateStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
-import { stepZoom } from '@shared/app/zoom'
 
 function registerViewCommands(): void {
   registerCore({

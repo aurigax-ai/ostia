@@ -1,13 +1,13 @@
-import type { ShownChip } from '@/lib/extensions/extensionChips'
-import type { CommandBlock } from '@/stores/terminal/blocksStore'
 import {
   type CoreChipId,
+  isCoreChipId,
   type PromptSeparator,
   type PromptSettings,
-  isCoreChipId,
   separatorText,
 } from '@shared/terminal/promptSettings'
 import type { PromptContext, PromptContextRequest, PtySpawnOptions } from '@shared/terminal/ptyApi'
+import type { ShownChip } from '@/lib/extensions/extensionChips'
+import type { CommandBlock } from '@/stores/terminal/blocksStore'
 
 type ChipTone = 'default' | 'ok' | 'warn' | 'error'
 

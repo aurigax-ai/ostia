@@ -1,7 +1,5 @@
 import { describe, expect, it } from 'vitest'
 import {
-  REMOTE_ENTRIES_MAX,
-  REMOTE_FILE_MAX_BYTES,
   isInsideRoot,
   isRemotePath,
   normalizeRemoteCwd,
@@ -11,6 +9,8 @@ import {
   normalizeRemoteStat,
   normalizeRemoteWrite,
   parseRemotePath,
+  REMOTE_ENTRIES_MAX,
+  REMOTE_FILE_MAX_BYTES,
   remoteChild,
   remotePath,
   utf8Length,

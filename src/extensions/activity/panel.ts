@@ -9,8 +9,8 @@ import {
 } from '@aurigax-ai/ostia-extension-sdk/panel'
 import en from './locales/en.json'
 import zhHant from './locales/zh-Hant.json'
-import { type ListContent, type RowEnv, ageText, createListView } from './rows'
-import { type NoteView, type PanelModel, type PanelSnapshot, liveKeys, widen } from './view'
+import { ageText, createListView, type ListContent, type RowEnv } from './rows'
+import { liveKeys, type NoteView, type PanelModel, type PanelSnapshot, widen } from './view'
 
 const AGE_REFRESH_MS = 30_000
 const TITLE_POLL_MS = 2000

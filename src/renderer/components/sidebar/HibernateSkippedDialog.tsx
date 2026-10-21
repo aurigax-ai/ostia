@@ -1,3 +1,4 @@
+import { AGENT_BUSY_REASONS } from '@shared/agents/agentWork'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -9,7 +10,6 @@ import {
 } from '@/components/ui/alert-dialog'
 import { fmt, useDict } from '@/lib/app/useDict'
 import { useHibernateSkippedStore } from '@/stores/workspaces/hibernateSkippedStore'
-import { AGENT_BUSY_REASONS } from '@shared/agents/agentWork'
 
 export function HibernateSkippedDialog(): JSX.Element {
   const d = useDict()

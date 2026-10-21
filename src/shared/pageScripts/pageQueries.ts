@@ -4,7 +4,7 @@ import { checkedOf, disabledOf, isClickableGeneric, nameOf, roleOf } from './ari
 import type { PageActions } from './pageActions'
 import type { PageLayout } from './pageLayout'
 import type { PageTargets } from './pageTargets'
-import { SKIP_TAGS, collapse, fail, textOf } from './pageText'
+import { collapse, fail, SKIP_TAGS, textOf } from './pageText'
 
 const STYLE_KEYS = [
   'display',

@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { CancellationTokenSource } from 'vscode-jsonrpc/browser'
-import { type LinkedTransport, createLinkedTransport } from '../../../../test/mocks/lspTransport'
-import { FakeModel, createFakeMonaco } from '../../../../test/mocks/monaco'
+import { createLinkedTransport, type LinkedTransport } from '../../../../test/mocks/lspTransport'
+import { createFakeMonaco, FakeModel } from '../../../../test/mocks/monaco'
 
 const fake = createFakeMonaco()
 vi.mock('@/lib/monaco/setup', () => ({ monaco: fake.monaco }))

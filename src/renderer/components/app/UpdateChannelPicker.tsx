@@ -1,11 +1,11 @@
+import { isMacInstall, offeredChannels, updateCommandLine } from '@shared/app/installMethod'
+import { parseVersion, type UpdateChannel } from '@shared/app/releases'
+import { useEffect, useState } from 'react'
 import { ControlRow, ToggleRow } from '@/components/settingsKit/ControlRow'
 import { SelectField } from '@/components/settingsKit/SelectField'
 import { fmt, useDict } from '@/lib/app/useDict'
 import { saveSettingsNow, useSettingsStore } from '@/stores/app/settingsStore'
 import { useUpdateStore } from '@/stores/app/updateStore'
-import { isMacInstall, offeredChannels, updateCommandLine } from '@shared/app/installMethod'
-import { type UpdateChannel, parseVersion } from '@shared/app/releases'
-import { useEffect, useState } from 'react'
 
 const LINUX_CHANNELS = ['stable', 'beta', 'main'] as const
 

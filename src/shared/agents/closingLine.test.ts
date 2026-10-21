@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { STATUS_MESSAGE_MAX, closingFromStop, closingLine } from './closingLine'
+import { closingFromStop, closingLine, STATUS_MESSAGE_MAX } from './closingLine'
 
 describe('closingLine', () => {
   it('takes the first line with text, on one line, without escape sequences', () => {

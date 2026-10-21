@@ -4,10 +4,10 @@ import { join } from 'node:path'
 import type { Capability } from '@aurigax-ai/ostia-extension-sdk/contract/capabilities'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
+  createMessageConnection,
   type MessageConnection,
   StreamMessageReader,
   StreamMessageWriter,
-  createMessageConnection,
 } from 'vscode-jsonrpc/node'
 import { ownWorkspaceReach } from '../../../test/reach'
 import { ChangeSignal } from '../../shared/common/actThenConfirm'
@@ -16,8 +16,8 @@ import { grant, setCaps } from '../approvals/capabilityStore'
 import { setScriptTokenCheck } from '../control/controlAuth'
 import { registerControlServer, stopControlServer } from '../control/controlServer'
 import {
-  type PaneIdentity,
   getByPaneId,
+  type PaneIdentity,
   registerExtension,
   registerPane,
   removePane,
@@ -55,6 +55,8 @@ const titles = new Map<string, string>()
 const humanTabs = new Set<string>()
 const tabNow = new Map<string, { name: string | null; human: boolean }>()
 const startedAgents = new Set<string>()
+const turnStates = new Map<string, string>()
+const agentSessions = new Map<string, string>()
 const agentSignal = new ChangeSignal()
 const told: { to: string; text: string }[] = []
 let onOpen: ((paneId: string) => void) | null = null
@@ -103,12 +105,14 @@ const { registry, startAgentForPhone } = registerProcessMethods({
   splitTabNow: async (_workspaceId, paneId) => tabNow.get(paneId) ?? null,
   humanTab: async (workspaceId, name) => humanTabs.has(`${workspaceId}/${name}`),
   agentStarted: (paneId) => startedAgents.has(paneId),
+  turnState: async (paneId) => turnStates.get(paneId),
+  agentSession: async (paneId) => agentSessions.get(paneId),
   startsWithHook: (argv) => argv[0] === 'claude' || argv[0] === 'codex',
   agentChanges: agentSignal.subscribe,
   tell: (to, text) => {
     told.push({ to, text })
   },
-  startTiming: { settleMs: 20, processMs: 80, agentMs: 80, pollMs: 5 },
+  startTiming: { settleMs: 20, processMs: 80, agentMs: 80, turnMs: 80, pollMs: 5 },
   hasShell: (paneId) => rings.has(paneId),
   runInPane: (paneId, command) => {
     reruns.push({ paneId, command })
@@ -193,6 +197,8 @@ afterEach(() => {
   humanTabs.clear()
   tabNow.clear()
   startedAgents.clear()
+  turnStates.clear()
+  agentSessions.clear()
   told.length = 0
   onOpen = null
 })

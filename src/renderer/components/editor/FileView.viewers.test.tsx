@@ -1,4 +1,8 @@
 import '@testing-library/jest-dom/vitest'
+import type { ExtensionInfo } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
+import { act, cleanup, render, screen, waitFor } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { PaneNode } from '@/lib/layout/types'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
@@ -10,10 +14,6 @@ import {
   releaseSurfaces,
   surfaceHost,
 } from '@/stores/workspaces/surfaceSlotsStore'
-import type { ExtensionInfo } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
-import { act, cleanup, render, screen, waitFor } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('./Editor', () => ({
   EditorView: ({ filePath }: { filePath?: string }) => (

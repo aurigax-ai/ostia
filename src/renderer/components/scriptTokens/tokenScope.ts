@@ -1,4 +1,3 @@
-import { fmt } from '@/lib/app/useDict'
 import type { Capability } from '@aurigax-ai/ostia-extension-sdk/contract/capabilities'
 import type { Dict } from '@shared/app/dict'
 import {
@@ -6,9 +5,10 @@ import {
   SCRIPT_TOKEN_RUN_CAPS,
   SCRIPT_TOKEN_UI_CAPS,
   type ScriptTokenScope,
-  type ScriptTokenUiCap,
   type ScriptTokensState,
+  type ScriptTokenUiCap,
 } from '@shared/permissions/scriptTokens'
+import { fmt } from '@/lib/app/useDict'
 
 type Preset = keyof typeof SCRIPT_TOKEN_PRESETS | 'custom'
 

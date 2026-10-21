@@ -10,6 +10,12 @@ const PANE_STATES = [
   'shell',
 ] as const
 
+export const SHORT_ID_LENGTH = 8
+
+export function shortId(id: string): string {
+  return id.slice(0, SHORT_ID_LENGTH)
+}
+
 export type PaneStateName = (typeof PANE_STATES)[number]
 
 export interface PaneStatusChanges {
@@ -79,6 +85,7 @@ export function statusLine(status: PaneStatus): string {
     .filter(Boolean)
     .join(' ')
   const parts = [
+    shortId(status.pane),
     status.title,
     stateText,
     status.exitCode === undefined ? '' : `exit ${status.exitCode}`,

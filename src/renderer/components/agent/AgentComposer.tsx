@@ -1,3 +1,6 @@
+import type { UseChatHelpers } from '@ai-sdk/react'
+import type { ChatContextItem } from '@aurigax-ai/ostia-extension-sdk/contract/assist'
+import { type RefObject, useState } from 'react'
 import {
   PromptInput,
   PromptInputBody,
@@ -13,9 +16,6 @@ import type { ChatContext } from '@/components/chat/useChatContext'
 import { useDict } from '@/lib/app/useDict'
 import type { OstiaChatMessage } from '@/lib/assist/chatTransport'
 import { setAgentRules, useAgentStore } from '@/stores/agent/agentStore'
-import type { UseChatHelpers } from '@ai-sdk/react'
-import type { ChatContextItem } from '@aurigax-ai/ostia-extension-sdk/contract/assist'
-import { type RefObject, useState } from 'react'
 import { AgentModelSelect } from './AgentModelSelect'
 
 function opensPicker(text: string, caret: number): boolean {

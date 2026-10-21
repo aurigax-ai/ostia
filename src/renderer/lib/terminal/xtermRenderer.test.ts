@@ -1,5 +1,5 @@
-import { Terminal as Xterm } from '@xterm/xterm'
 import type { Terminal } from '@xterm/xterm'
+import { Terminal as Xterm } from '@xterm/xterm'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 const addons = vi.hoisted(() => [] as FakeWebglAddon[])

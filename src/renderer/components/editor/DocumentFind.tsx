@@ -1,7 +1,7 @@
+import { type RefObject, useEffect, useMemo, useState } from 'react'
 import { FindBar, type FindStepRef, findStatus } from '@/components/common/FindBar'
 import { useDict } from '@/lib/app/useDict'
 import { clearFind, findRanges, paintFind } from '@/lib/files/domFind'
-import { type RefObject, useEffect, useMemo, useState } from 'react'
 
 export function DocumentFind({
   rootRef,

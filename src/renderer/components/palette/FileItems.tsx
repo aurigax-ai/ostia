@@ -1,16 +1,16 @@
+import { useEffect, useState } from 'react'
 import { CommandGroup, CommandItem } from '@/components/ui/command'
 import { useDict } from '@/lib/app/useDict'
 import { childPath, splitPath } from '@/lib/files/fileTree'
 import { openFileAt } from '@/lib/files/openFile'
 import {
   FILE_SEARCH_DELAY_MS,
-  type WorkspaceFileResult,
   findWorkspaceFiles,
   splitFilePosition,
+  type WorkspaceFileResult,
 } from '@/lib/files/workspaceFileSearch'
 import { symbolOf } from '@/lib/palette/paletteModes'
 import { useSettingsStore } from '@/stores/app/settingsStore'
-import { useEffect, useState } from 'react'
 import { ItemRow } from './PaletteItemRow'
 import { GROUP_CLASS } from './paletteClasses'
 

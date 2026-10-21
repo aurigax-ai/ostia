@@ -2,8 +2,8 @@ import { execSync, spawn } from 'node:child_process'
 import {
   mkdirSync,
   mkdtempSync,
-  readFileSync,
   readdirSync,
+  readFileSync,
   realpathSync,
   rmSync,
   symlinkSync,
@@ -14,9 +14,9 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
+  createMessageConnection,
   StreamMessageReader,
   StreamMessageWriter,
-  createMessageConnection,
 } from 'vscode-jsonrpc/node'
 import { ReportedAgentWork, registerAgentWorkMethods } from '../main/agents/agentWork'
 import { grant } from '../main/approvals/capabilityStore'
@@ -30,15 +30,15 @@ import {
 } from '../main/control/controlServer'
 import { registerDocsMethods } from '../main/control/docs'
 import {
-  type PaneIdentity,
   getByPaneId,
   markManager,
+  type PaneIdentity,
   registerPane,
 } from '../main/control/idRegistry'
 import { OpenFileGrants } from '../main/files/openFileGrants'
 import { registerOpenFileMethods } from '../main/files/openFileMethods'
 import { OpenWaits } from '../main/files/openWaits'
-import { type WorkerRequest, registerManagerMethods } from '../main/manager/managerMethods'
+import { registerManagerMethods, type WorkerRequest } from '../main/manager/managerMethods'
 import { registerPaneListMethods } from '../main/panes/paneList'
 import { registerPaneMoveToMethods } from '../main/panes/paneMoveTo'
 import { registerPaneResumeMethods } from '../main/panes/paneResume'
@@ -312,7 +312,8 @@ describe('ostia CLI end-to-end (spawns the real out/cli/index.js against a live 
       agentGroupsChanged: () => {},
     })
     registerPaneMoveToMethods({
-      processPane: async () => undefined,
+      processPane: async () => [],
+      visible: async () => () => true,
       inScope: reach.inScope,
       isChild: () => false,
       isSandboxed: () => false,
@@ -548,7 +549,7 @@ describe('ostia CLI end-to-end (spawns the real out/cli/index.js against a live 
 
     expect(res.stderr).toBe('')
     expect(res.code).toBe(0)
-    expect(res.stdout.trim()).toBe(moving.externalId)
+    expect(res.stdout.trim()).toBe(moving.externalId.slice(0, 8))
     expect(moves).toEqual([{ paneId: 'pMoving', workspaceId: 's2' }])
   })
 

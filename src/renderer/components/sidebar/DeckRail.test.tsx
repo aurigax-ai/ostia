@@ -1,4 +1,16 @@
 import '@testing-library/jest-dom/vitest'
+import { zhHant } from '@shared/app/dict'
+import {
+  act,
+  cleanup,
+  createEvent,
+  fireEvent,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { registerBuiltinCommands } from '@/commands/builtins'
 import { commands } from '@/commands/registry'
 import { SandboxFolderDialog } from '@/components/sandbox/SandboxFolderDialog'
@@ -17,20 +29,8 @@ import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { useMergeConfirmStore } from '@/stores/workspaces/mergeConfirmStore'
 import { startRailEditSync, useRailEditStore } from '@/stores/workspaces/railEditStore'
 import { useWindowsStore } from '@/stores/workspaces/windowsStore'
-import type { Workspace } from '@/stores/workspaces/workspaceTypes'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
-import { zhHant } from '@shared/app/dict'
-import {
-  act,
-  cleanup,
-  createEvent,
-  fireEvent,
-  screen,
-  waitFor,
-  within,
-} from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
-import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import type { Workspace } from '@/stores/workspaces/workspaceTypes'
 import { renderSettled } from '../../../../test/render'
 import { DeckRail } from './DeckRail'
 import { HibernateSkippedDialog } from './HibernateSkippedDialog'

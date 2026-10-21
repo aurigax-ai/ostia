@@ -1,5 +1,5 @@
-import type { SurfaceKind } from '@/lib/layout/types'
 import { isRecord } from '@aurigax-ai/ostia-extension-sdk/contract/isRecord'
+import type { SurfaceKind } from '@/lib/layout/types'
 
 export const ACTION_PLACES = ['paneHeader', 'tabMenu'] as const
 export type ActionPlace = (typeof ACTION_PLACES)[number]

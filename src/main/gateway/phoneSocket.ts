@@ -5,8 +5,8 @@ import type { PreparedStream } from '../agents/agentStreams'
 import { resolveExternal } from '../control/idRegistry'
 import type { PhoneObserver } from '../terminal/pty/ptyIo'
 import type { GatewayAddress } from './addresses'
-import { type GatewayControlDeps, dispatchGatewayMethod } from './controlDispatch'
-import { type Device, get as getDevice, verifyToken } from './devices'
+import { dispatchGatewayMethod, type GatewayControlDeps } from './controlDispatch'
+import { type Device, get as getDevice, setDeviceName, verifyToken } from './devices'
 import { PHONE_IMAGE_FRAME_BYTES } from './phoneImage'
 import { closeStreams, handleStreamClose, handleStreamOpen } from './phoneStream'
 import { rpcError, rpcResult } from './rpcFrames'
@@ -71,13 +71,14 @@ function handleHello(
   controlDeps: GatewayControlDeps | null,
   addresses: GatewayAddress[],
 ): void {
-  const params = (msg.params ?? {}) as { deviceToken?: unknown }
+  const params = (msg.params ?? {}) as { deviceToken?: unknown; name?: unknown }
   const device = typeof params.deviceToken === 'string' ? verifyToken(params.deviceToken) : null
   if (!device) {
     ws.send(rpcError(msg.id, -32001, 'unauthenticated'))
     ws.close(4001, 'unauthenticated')
     return
   }
+  if (params.name !== undefined) setDeviceName(device.deviceId, params.name)
   state.device = device
   const takesImages = device.caps.includes('respond')
   if (takesImages) allowImageFrames(ws)

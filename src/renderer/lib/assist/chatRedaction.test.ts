@@ -2,11 +2,11 @@ import { en } from '@shared/app/dict'
 import { REDACT_TEXTS_MAX } from '@shared/privacy/redaction'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
-  redactOutgoing,
-  redactToolOutput,
   redactedCount,
   redactedCountLabel,
   redactionsIn,
+  redactOutgoing,
+  redactToolOutput,
 } from './chatRedaction'
 
 function fakeRedaction(): void {

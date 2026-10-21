@@ -15,21 +15,21 @@ import {
   LOCALE_CHANGED_EVENT,
 } from '@aurigax-ai/ostia-extension-sdk/contract/extensionLocales'
 import {
-  EXTENSION_REDACT_TEXTS_MAX,
+  commandArgument,
   EXTENSION_REDACT_TEXT_MAX,
+  EXTENSION_REDACT_TEXTS_MAX,
   type ExtensionCaller,
   type ExtensionCommandContribution,
   type ExtensionInfo,
   type ExtensionManifest,
   type ExtensionResult,
   type ExtensionStatus,
-  commandArgument,
 } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import {
   type BrowseCandidate,
+  browseKindFor,
   FILE_CONTENTS_CAPABILITY,
   type KindRoles,
-  browseKindFor,
 } from '@aurigax-ai/ostia-extension-sdk/contract/fileKinds'
 import { isRecord } from '@aurigax-ai/ostia-extension-sdk/contract/isRecord'
 import { languageServerSummary } from '@aurigax-ai/ostia-extension-sdk/contract/languageServers'
@@ -60,18 +60,19 @@ import { ExtensionPhoneScreens } from './extensionPhoneScreens'
 import { ExtensionProcesses } from './extensionProcesses'
 import { ExtensionRuns } from './extensionRuns'
 import {
+  fail,
   type LoadedExtension,
+  newRuntime,
+  normalizeResult,
   REQUEST_TIMEOUT_MS,
   type Runtime,
   type ServingCalls,
-  fail,
-  newRuntime,
-  normalizeResult,
   withTimeout,
 } from './extensionRuntime'
 import { ExtensionSlots } from './extensionSlots'
 import { effectiveRecord, grantedCaps, kindApproved, needsApproval } from './extensionStore'
 import { ExtensionWindowRequests } from './extensionWindowRequests'
+
 const INTERACTIVE_TIMEOUT_MS = 10 * 60_000
 const AGENT_REQUEST_TIMEOUT_MS = 60_000
 
@@ -636,6 +637,7 @@ export class ExtensionHost {
         status: e.status,
         ...(e.verb ? { verb: e.verb } : {}),
         commands: e.commands,
+        agentHooks: e.agentHooks,
       }))
   }
 

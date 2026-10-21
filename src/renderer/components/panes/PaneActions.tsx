@@ -1,3 +1,9 @@
+import {
+  GlobeIcon,
+  SquareSplitHorizontalIcon,
+  SquareSplitVerticalIcon,
+  TerminalWindowIcon,
+} from '@phosphor-icons/react'
 import { commands } from '@/commands/registry'
 import { AgentForkButton } from '@/components/agents/AgentForkButton'
 import { AgentSessionButton } from '@/components/agents/AgentSessionButton'
@@ -6,12 +12,6 @@ import { ArtifactVersionsButton } from '@/components/editor/ArtifactVersions'
 import { PortableActions } from '@/components/editor/PortableActions'
 import { useDict } from '@/lib/app/useDict'
 import type { PaneNode, SurfaceKind } from '@/lib/layout/types'
-import {
-  GlobeIcon,
-  SquareSplitHorizontalIcon,
-  SquareSplitVerticalIcon,
-  TerminalWindowIcon,
-} from '@phosphor-icons/react'
 import { PaneHeaderActions } from './PaneTabMenu'
 
 const SERVICE_SURFACES: ReadonlySet<SurfaceKind> = new Set(['chat', 'agent', 'git', 'view'])

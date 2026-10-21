@@ -1,9 +1,9 @@
+import { SquaresFourIcon } from '@phosphor-icons/react'
 import { IconButton } from '@/components/common/IconButton'
 import { fmt, useDict } from '@/lib/app/useDict'
 import { useApprovalsStore } from '@/stores/agents/approvalsStore'
 import { useQuestionsStore } from '@/stores/agents/questionsStore'
 import { useUIStore } from '@/stores/app/uiStore'
-import { SquaresFourIcon } from '@phosphor-icons/react'
 
 function useNeedsYouCount(): number {
   const questions = useQuestionsStore((s) => s.pending.length)

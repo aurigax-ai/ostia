@@ -1,3 +1,5 @@
+import { WarningIcon, XIcon } from '@phosphor-icons/react'
+import { Component, type ErrorInfo, type ReactNode } from 'react'
 import { commands } from '@/commands/registry'
 import { EmptyState } from '@/components/common/EmptyState'
 import { Button } from '@/components/ui/button'
@@ -8,8 +10,6 @@ import {
   withComponentStack,
 } from '@/lib/app/errorReporting'
 import { useDict } from '@/lib/app/useDict'
-import { WarningIcon, XIcon } from '@phosphor-icons/react'
-import { Component, type ErrorInfo, type ReactNode } from 'react'
 
 function SurfaceError({ paneId, error }: { paneId: string; error: ErrorDetails }): JSX.Element {
   const d = useDict()

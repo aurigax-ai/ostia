@@ -1,8 +1,8 @@
 import { MAIL_REFUSED } from '../../shared/agents/agentIssues'
 import { ackMail, failLeased, releaseMail } from './busStore'
 import type { CodexRpc } from './codexRpc'
-import { takeMailTurn } from './mailTurn'
 import { mailers } from './mailers'
+import { takeMailTurn } from './mailTurn'
 
 export interface CodexMailDeps {
   socketOf: (externalId: string) => string | undefined

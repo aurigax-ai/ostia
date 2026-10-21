@@ -5,13 +5,13 @@ import {
   existsSync,
   mkdirSync,
   mkdtempSync,
-  readFileSync,
   readdirSync,
+  readFileSync,
   rmSync,
   symlinkSync,
   writeFileSync,
 } from 'node:fs'
-import { type Server, createServer } from 'node:http'
+import { createServer, type Server } from 'node:http'
 import type { AddressInfo } from 'node:net'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -19,13 +19,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { tarballAssetName } from '../../shared/app/releases'
 import { bundleFs } from './bundleFs'
 import {
-  ReplaceError,
   allowedHop,
   canReplaceInstall,
   checkArchive,
   checksumFor,
   createInstallReplacer,
   entryProblem,
+  ReplaceError,
   releaseAssetUrl,
   releaseDownloadBase,
   replaceInstall,

@@ -3,6 +3,7 @@ import { isRecord } from './isRecord'
 import {
   DOWNLOAD_URL_MAX,
   GO_MODULE_MAX,
+  hasControlCharacter,
   type JsonObject,
   type JsonValue,
   LANGUAGE_SERVER_ARCHIVES,
@@ -36,7 +37,6 @@ import {
   SERVER_ARG_MAX,
   SERVER_JSON_MAX_BYTES,
   SERVER_NAME_MAX,
-  hasControlCharacter,
 } from './languageServers'
 import { isDangerousSegment } from './protoGuard'
 

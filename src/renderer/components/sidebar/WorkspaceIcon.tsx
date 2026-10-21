@@ -1,3 +1,11 @@
+import {
+  BroadcastIcon,
+  FlaskIcon,
+  type Icon as IconComponent,
+  MoonIcon,
+  RobotIcon,
+  TerminalWindowIcon,
+} from '@phosphor-icons/react'
 import { fmt, useDict } from '@/lib/app/useDict'
 import { latestWaitingAt } from '@/lib/attention/attention'
 import { allPanes, paneIds } from '@/lib/layout/tree'
@@ -8,14 +16,6 @@ import { stateLabel } from '@/lib/workspaces/workspaceState'
 import { useAttentionStore } from '@/stores/agents/attentionStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import type { Workspace, WorkspaceKind } from '@/stores/workspaces/workspaceTypes'
-import {
-  BroadcastIcon,
-  FlaskIcon,
-  type Icon as IconComponent,
-  MoonIcon,
-  RobotIcon,
-  TerminalWindowIcon,
-} from '@phosphor-icons/react'
 
 const KIND_ICON: Record<WorkspaceKind, IconComponent> = {
   agent: RobotIcon,

@@ -1,3 +1,6 @@
+import { normalizeGroupName } from '@shared/workspaces/workspaceGroups'
+import { normalizeDescription } from '@shared/workspaces/workspaceText'
+import { create } from 'zustand'
 import { restoreSnapshot } from '@/lib/layout/snapshot'
 import {
   type Grouping,
@@ -10,9 +13,6 @@ import { namespacedId } from '@/lib/workspaces/idNamespace'
 import { insertIndex } from '@/lib/workspaces/workspaceOrder'
 import type { NewWorkspacePlacement } from '@/stores/app/settingsModel'
 import { useSettingsStore } from '@/stores/app/settingsStore'
-import { normalizeGroupName } from '@shared/workspaces/workspaceGroups'
-import { normalizeDescription } from '@shared/workspaces/workspaceText'
-import { create } from 'zustand'
 import { useLayoutStore } from './layoutStore'
 import { createWorkspaceGroupActions, grouping } from './workspaceGroupActions'
 import { setWorkspaceLookup } from './workspaceLookup'

@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process'
-import { constants, accessSync, statSync } from 'node:fs'
+import { accessSync, constants, statSync } from 'node:fs'
 import { MANAGER_FEATURE } from '../../shared/agents/managerSettings'
 import { DISCRETE_GPU_FEATURE } from '../../shared/app/discreteGpu'
 import type { InstallHint, MissingRequirement } from '../../shared/app/systemRequirements'

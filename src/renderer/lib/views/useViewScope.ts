@@ -1,3 +1,7 @@
+import type { NotificationEntry } from '@shared/attention/attention'
+import type { ViewFormat } from '@shared/views/viewBindings'
+import type { ViewDoc } from '@shared/views/views'
+import { useEffect, useMemo, useState } from 'react'
 import { runningAgentOf } from '@/lib/agents/paneAgent'
 import { useNow } from '@/lib/app/useNow'
 import { useCoreWatchAll } from '@/lib/workspaces/coreWatch'
@@ -8,10 +12,6 @@ import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
 import { useBlocksStore } from '@/stores/terminal/blocksStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
-import type { NotificationEntry } from '@shared/attention/attention'
-import type { ViewFormat } from '@shared/views/viewBindings'
-import type { ViewDoc } from '@shared/views/views'
-import { useEffect, useMemo, useState } from 'react'
 import { buildViewScope } from './viewData'
 
 const VIEW_TICK_MS = 1000

@@ -1,8 +1,8 @@
+import type { FileOpError, FileOpResult, NewEntryKind } from '@shared/files/fileOps'
 import { currentDict, fmt } from '@/lib/app/useDict'
 import { useEditorStatus } from '@/stores/files/editorStatusStore'
 import { useFileTreeStore } from '@/stores/files/fileTreeStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
-import type { FileOpError, FileOpResult, NewEntryKind } from '@shared/files/fileOps'
 import { baseName, parentOf } from './fileTree'
 import { openFileInWorkspace, reportFileProblem } from './openFile'
 

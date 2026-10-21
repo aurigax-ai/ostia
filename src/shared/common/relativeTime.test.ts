@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { type RelativeStep, formatRelative } from './relativeTime'
+import { formatRelative, type RelativeStep } from './relativeTime'
 
 const STEPS: RelativeStep[] = [
   ['year', 31_536_000],

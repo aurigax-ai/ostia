@@ -5,8 +5,8 @@ import { focusActivePaneWhenReady } from '@/lib/panes/paneFocus'
 import { workspaceTitle } from '@/lib/workspaces/workspaceTitle'
 import { useSandboxStore } from '@/stores/app/sandboxStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
-import type { Workspace, WorkspaceKind } from '@/stores/workspaces/workspaceTypes'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
+import type { Workspace, WorkspaceKind } from '@/stores/workspaces/workspaceTypes'
 
 export type TabMoveRefusal = 'same' | 'unknown' | 'manager' | 'scratch' | 'sandbox'
 

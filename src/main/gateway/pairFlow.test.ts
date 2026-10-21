@@ -1,5 +1,5 @@
 import { createHash, randomBytes } from 'node:crypto'
-import { mkdtempSync, rmSync } from 'node:fs'
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import { request } from 'node:https'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -16,11 +16,11 @@ vi.mock('../control/controlServer', () => ({ registerControlMethod: () => {} }))
 
 const { startGateway, stopGateway } = await import('./server')
 const { configureTailnet, gatewayPair } = await import('./gatewayIpc')
-const { newCode, resetCodes, resetPairRateLimit } = await import('./pairing')
+const { newCode, pairAuditLogPath, resetCodes, resetPairRateLimit } = await import('./pairing')
 const { answerPairRequest, listPairRequests, onPairRequestsChanged, resetPairRequests } =
   await import('./pairRequests')
 const { checkCode } = await import('./pairCheck')
-const { list: listDevices } = await import('./devices')
+const { list: listDevices, setDeviceCap, touchDevice, verifyToken } = await import('./devices')
 
 interface Reply {
   status: number
@@ -62,7 +62,7 @@ function post(path: string, body: unknown): { reply: Promise<Reply>; abort: () =
   return { reply, abort }
 }
 
-function phone(name = 'Pixel 9') {
+function phone(name = 'Pixel 9', installId?: string) {
   const nonce = randomBytes(32)
   const pubkey = `pk-${randomBytes(4).toString('hex')}`
   return {
@@ -72,7 +72,7 @@ function phone(name = 'Pixel 9') {
     start: (pairCode: string) =>
       post('/pair', {
         pairCode,
-        device: { name, pubkey },
+        device: { name, pubkey, installId },
         commit: createHash('sha256').update(nonce).digest('hex'),
       }).reply,
     confirm: (requestId: unknown, nonceB64 = nonce.toString('base64')) =>
@@ -89,6 +89,23 @@ function requestsChange(pred: (n: number) => boolean): Promise<void> {
       resolve()
     })
   })
+}
+
+async function pairPhone(
+  p: ReturnType<typeof phone>,
+): Promise<{ replaces: unknown; deviceId: string; token: string; replaced: string[] }> {
+  const started = await p.start(newCode())
+  const confirm = p.confirm(started.body.requestId)
+  await requestsChange((n) => n === 1)
+  const [pending] = listPairRequests()
+  const answer = answerPairRequest(pending.requestId, true)
+  const done = await confirm.reply
+  return {
+    replaces: pending.replaces,
+    deviceId: String(done.body.deviceId),
+    token: String(done.body.deviceToken),
+    replaced: answer?.replaced ?? [],
+  }
 }
 
 describe('pairing requests wait for the human', () => {
@@ -129,7 +146,7 @@ describe('pairing requests wait for the human', () => {
     expect(pending.name).toBe('Pixel 9')
     expect(pending.checkCode).toBe(checkCode(fingerprint, p.pubkey, p.nonce, desktopNonce))
 
-    expect(answerPairRequest(pending.requestId, true)).toBe(true)
+    expect(answerPairRequest(pending.requestId, true)).toEqual({ replaced: [] })
     const done = await confirm.reply
     expect(done.status).toBe(200)
     expect(typeof done.body.deviceToken).toBe('string')
@@ -143,7 +160,7 @@ describe('pairing requests wait for the human', () => {
     const confirm = p.confirm(started.body.requestId)
     await requestsChange((n) => n === 1)
 
-    expect(answerPairRequest(listPairRequests()[0].requestId, false)).toBe(true)
+    expect(answerPairRequest(listPairRequests()[0].requestId, false)).toEqual({ replaced: [] })
     const done = await confirm.reply
     expect(done).toEqual({ status: 403, body: { error: 'declined' } })
     expect(listDevices().some((d) => d.pubkey === p.pubkey)).toBe(false)
@@ -206,5 +223,74 @@ describe('pairing requests wait for the human', () => {
     expect(res.status).toBe(400)
     expect(listPairRequests()).toEqual([])
     expect(listDevices().some((d) => d.pubkey === 'pk-old')).toBe(false)
+  })
+
+  it('PID-C1 replaces the row and the token, keeping the grants and taking the name the phone sends now, when the same install identity pairs again', async () => {
+    const id = randomBytes(16).toString('hex')
+    const first = await pairPhone(phone('Pixel 9', id))
+    expect(first.replaces).toBeNull()
+    setDeviceCap(first.deviceId, 'input', true)
+
+    touchDevice(first.deviceId)
+    const second = await pairPhone(phone('Pixel 9 Pro', id))
+    expect(second.replaces).toMatchObject({
+      name: 'Pixel 9',
+      lastSeenAt: expect.any(String),
+      caps: ['read', 'notify', 'input'],
+    })
+    expect(second.replaced).toEqual([first.deviceId])
+    const rows = listDevices().filter((d) => d.installId === id)
+    expect(rows.map((d) => d.deviceId)).toEqual([second.deviceId])
+    expect(rows[0].name).toBe('Pixel 9 Pro')
+    expect(rows[0].caps).toEqual(['read', 'notify', 'input'])
+    expect(verifyToken(first.token)).toBeNull()
+    expect(verifyToken(second.token)?.deviceId).toBe(second.deviceId)
+  })
+
+  it('PID-C2 keeps two rows for two different install identities', async () => {
+    const a = await pairPhone(phone('Pixel 9', randomBytes(16).toString('hex')))
+    const b = await pairPhone(phone('Pixel 9', randomBytes(16).toString('hex')))
+    expect(b.replaces).toBeNull()
+    expect(b.replaced).toEqual([])
+    expect(listDevices().find((d) => d.deviceId === b.deviceId)?.caps).toEqual(['read', 'notify'])
+    expect(verifyToken(a.token)?.deviceId).toBe(a.deviceId)
+    expect(verifyToken(b.token)?.deviceId).toBe(b.deviceId)
+  })
+
+  it('PID-C3 keeps a phone that sends no identity as its own row each time', async () => {
+    const a = await pairPhone(phone('Pixel 9'))
+    const b = await pairPhone(phone('Pixel 9'))
+    expect(b.replaced).toEqual([])
+    expect(verifyToken(a.token)).not.toBeNull()
+    expect(verifyToken(b.token)).not.toBeNull()
+  })
+
+  it('PID-C4 leaves the old row alone until the human approves', async () => {
+    const id = randomBytes(16).toString('hex')
+    const first = await pairPhone(phone('Pixel 9', id))
+    const p = phone('Pixel 9', id)
+    const started = await p.start(newCode())
+    p.confirm(started.body.requestId)
+    await requestsChange((n) => n === 1)
+    expect(verifyToken(first.token)?.deviceId).toBe(first.deviceId)
+    answerPairRequest(listPairRequests()[0].requestId, false)
+    expect(verifyToken(first.token)?.deviceId).toBe(first.deviceId)
+  })
+
+  it('PID-C5 refuses an install identity that is not a plain id', async () => {
+    const p = phone('Pixel 9', 'short')
+    expect((await p.start(newCode())).status).toBe(400)
+  })
+
+  it('PID-C6 never writes the install identity to the audit log', async () => {
+    const id = randomBytes(16).toString('hex')
+    await pairPhone(phone('Pixel 9', id))
+    expect(readFileSync(pairAuditLogPath(), 'utf8')).not.toContain(id)
+  })
+
+  it('PID-C14 refuses a name with control, bidi or invisible characters', async () => {
+    for (const name of ['Pixel\n9', 'Pixel\u202E9', 'Pixel\u200B9', '   ']) {
+      expect((await phone(name).start(newCode())).status).toBe(400)
+    }
   })
 })

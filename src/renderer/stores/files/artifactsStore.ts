@@ -1,8 +1,8 @@
+import { type ArtifactListing, changedArtifacts } from '@shared/artifacts/artifacts'
+import { create } from 'zustand'
 import { allPanes, findPane } from '@/lib/layout/tree'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
-import { type ArtifactListing, changedArtifacts } from '@shared/artifacts/artifacts'
-import { create } from 'zustand'
 
 interface ArtifactsState {
   byWorkspace: Record<string, ArtifactListing>

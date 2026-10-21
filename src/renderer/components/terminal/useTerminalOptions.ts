@@ -1,11 +1,11 @@
+import type { FontWeight } from '@xterm/xterm'
+import { useEffect } from 'react'
 import type { OstiaTerminal, TerminalOptions } from '@/lib/terminal/ostiaTerminal'
 import { currentScheme, terminalTheme } from '@/lib/theme/colorScheme'
 import type { TerminalColors } from '@/lib/theme/types'
 import { terminalFontStack } from '@/lib/theme/uiFonts'
 import type { SurfaceFont } from '@/stores/app/settingsModel'
 import { useSettingsStore } from '@/stores/app/settingsStore'
-import type { FontWeight } from '@xterm/xterm'
-import { useEffect } from 'react'
 
 export function initialTerminalOptions(): TerminalOptions {
   const initial = useSettingsStore.getState().appearance.terminal

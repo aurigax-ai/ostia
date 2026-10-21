@@ -1,3 +1,7 @@
+import { FolderSimpleIcon, PlusIcon, XIcon } from '@phosphor-icons/react'
+import { isSkillPath } from '@shared/agents/managerSettings'
+import { type McpServerSettings, READ_OUTSIDE_GRANT } from '@shared/assist/chatTools'
+import { useEffect, useState } from 'react'
 import { toolTitle } from '@/components/chat/ChatToolPart'
 import { EmptyState } from '@/components/common/EmptyState'
 import { Hint } from '@/components/common/Hint'
@@ -24,12 +28,8 @@ import {
   removeAlwaysGrant,
   useChatToolsStore,
 } from '@/stores/assist/chatToolsStore'
-import { FolderSimpleIcon, PlusIcon, XIcon } from '@phosphor-icons/react'
-import { isSkillPath } from '@shared/agents/managerSettings'
-import { type McpServerSettings, READ_OUTSIDE_GRANT } from '@shared/assist/chatTools'
-import { useEffect, useState } from 'react'
 import { McpServerDialog } from './McpServerDialog'
-import { ROW, ServerItem, removeServer } from './McpServerItem'
+import { ROW, removeServer, ServerItem } from './McpServerItem'
 
 function AccessRows(): JSX.Element {
   const d = useDict()

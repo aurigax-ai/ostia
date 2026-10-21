@@ -1,10 +1,10 @@
 import '@testing-library/jest-dom/vitest'
-import { resetIds } from '@/lib/layout/tree'
-import { useLayoutStore } from '@/stores/workspaces/layoutStore'
-import { resetWorkspaceIds, useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import { cleanup, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, expect, it, vi } from 'vitest'
+import { resetIds } from '@/lib/layout/tree'
+import { useLayoutStore } from '@/stores/workspaces/layoutStore'
+import { resetWorkspaceIds, useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import { DetachedTitleBar } from './DetachedTitleBar'
 
 let workspacesInit: ReturnType<typeof useWorkspacesStore.getState>

@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { MAX_FILES, MAX_FILE_BYTES, MAX_HOSTS, discoverHosts } from './hosts'
+import { discoverHosts, MAX_FILE_BYTES, MAX_FILES, MAX_HOSTS } from './hosts'
 
 let home: string
 

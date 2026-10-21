@@ -1,12 +1,3 @@
-import {
-  type Point,
-  type Size,
-  type ZoomAnchor,
-  anchoredScroll,
-  dragRegion,
-  pinchZoom,
-  toContentPoint,
-} from '@/lib/browser/regionSelect'
 import type { Region } from '@shared/browser/selection'
 import type { FsBinaryResult } from '@shared/files/filesApi'
 import {
@@ -18,6 +9,15 @@ import {
   useRef,
   useState,
 } from 'react'
+import {
+  anchoredScroll,
+  dragRegion,
+  type Point,
+  pinchZoom,
+  type Size,
+  toContentPoint,
+  type ZoomAnchor,
+} from '@/lib/browser/regionSelect'
 
 export type FileBytes = { status: 'loading' } | FsBinaryResult
 

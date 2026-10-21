@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { PUSH_WINDOW_MS, coalesced } from './panelPush'
+import { coalesced, PUSH_WINDOW_MS } from './panelPush'
 
 function fakeClock() {
   let now = 1_000

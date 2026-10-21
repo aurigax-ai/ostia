@@ -2,8 +2,8 @@ import { basename } from 'node:path'
 import type { BrowserWindow } from 'electron'
 import { parseAgentHooks } from '../../shared/agents/agentHooks'
 import { isResumableAgent } from '../../shared/agents/agentResume'
-import { managerAgents } from '../../shared/agents/managerSettings'
 import type { ManagerSettings } from '../../shared/agents/managerSettings'
+import { managerAgents } from '../../shared/agents/managerSettings'
 import type { ChangeSignal } from '../../shared/common/actThenConfirm'
 import type { CommandTarget } from '../../shared/control/commands'
 import type { TerminalStateSnapshot } from '../../shared/terminal/ptyApi'
@@ -104,7 +104,6 @@ export function registerAgentWiring({
   })
   registerAgentWorkMethods(agentWork)
   registerPaneTurnMethods(paneTurns)
-  registerPaneRenameMethods({ execCommand, reach, windowOfWorkspace: workspaceWindowId })
   registerPaneResumeMethods({
     execCommand,
     foregroundProgram,
@@ -118,6 +117,18 @@ export function registerAgentWiring({
       if (identity.manager) services.managerService?.rememberResume(resume)
     },
   })
+  const listedPane = async (
+    paneId: string,
+  ): Promise<(PaneTitleEntry & { agentSessionId?: string }) | undefined> => {
+    const pane = getByPaneId(paneId)
+    if (!pane) return undefined
+    const res = await execCommand({ ...targetOf(pane), paneId: null }, 'pane.list')
+    const panes =
+      res.ok && Array.isArray(res.result)
+        ? (res.result as (PaneTitleEntry & { agentSessionId?: string })[])
+        : []
+    return panes.find((p) => p.paneId === paneId)
+  }
   const { registry, startAgentForPhone } = registerProcessMethods({
     openTab: openTerminalInWindow,
     onChange: (entry) => {
@@ -159,17 +170,33 @@ export function registerAgentWiring({
       const res = await execCommand(target, 'pane.tabPlan', { paneIds: [], tab: name }, true)
       return res.ok && typeof (res.result as { human?: unknown }).human === 'string'
     },
-    paneTitle: async (paneId) => {
+    paneTitle: async (paneId) => (await listedPane(paneId))?.title,
+    agentSession: async (paneId) => (await listedPane(paneId))?.agentSessionId,
+    turnState: async (paneId) => {
       const pane = getByPaneId(paneId)
       if (!pane) return undefined
-      const res = await execCommand({ ...targetOf(pane), paneId: null }, 'pane.list')
-      const panes = res.ok && Array.isArray(res.result) ? (res.result as PaneTitleEntry[]) : []
-      return panes.find((p) => p.paneId === paneId)?.title
+      const kept = keptAttention.peek(paneId)
+      if (kept) return kept.state
+      const res = await execCommand(targetOf(pane), 'attention.peek')
+      return res.ok && res.result && typeof res.result === 'object'
+        ? (res.result as { state?: string }).state
+        : undefined
     },
     reach,
     interruptGraceMs: INTERRUPT_GRACE_MS,
   })
   services.processes = registry
+  registerPaneRenameMethods({
+    execCommand,
+    reach,
+    windowOfWorkspace: workspaceWindowId,
+    isSandboxed: (workspaceId) => workspaceSandboxes.isEnabled(workspaceId),
+    isConfined: (paneId) => ptys.get(paneId)?.sandboxed === true,
+    processPane: async (ref, ctx) =>
+      registry
+        .livePanes(ref, ctx.identity.workspaceId, await reach.visible(ctx))
+        .map((entry) => entry.paneId),
+  })
 
   return { registry, startAgentForPhone }
 }

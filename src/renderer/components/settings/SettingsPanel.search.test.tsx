@@ -1,15 +1,16 @@
 import '@testing-library/jest-dom/vitest'
-import { languagesFrom } from '@/lib/extensions/languagePacks'
-import { useSettingsStore } from '@/stores/app/settingsStore'
-import { useUIStore } from '@/stores/app/uiStore'
-import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
-import { usePluginsStore } from '@/stores/extensions/pluginsStore'
-import { useViewsStore } from '@/stores/extensions/viewsStore'
 import type { ExtensionInfo } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import { zhHant } from '@shared/app/dict'
 import { cleanup, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import { languagesFrom } from '@/lib/extensions/languagePacks'
+import { useSettingsStore } from '@/stores/app/settingsStore'
+import { useUIStore } from '@/stores/app/uiStore'
+import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
+import { useLanguageServersStore } from '@/stores/extensions/languageServersStore'
+import { usePluginsStore } from '@/stores/extensions/pluginsStore'
+import { useViewsStore } from '@/stores/extensions/viewsStore'
 import { SettingsPanel } from './SettingsPanel'
 
 if (!Element.prototype.getAnimations) {
@@ -95,6 +96,7 @@ describe('SettingsPanel search', () => {
   let pluginsInit: ReturnType<typeof usePluginsStore.getState>
   let extensionsInit: ReturnType<typeof useExtensionsStore.getState>
   let viewsInit: ReturnType<typeof useViewsStore.getState>
+  let serversInit: ReturnType<typeof useLanguageServersStore.getState>
 
   beforeAll(() => {
     Object.assign(window, { queryLocalFonts: async () => [] })
@@ -103,6 +105,7 @@ describe('SettingsPanel search', () => {
     pluginsInit = usePluginsStore.getState()
     extensionsInit = useExtensionsStore.getState()
     viewsInit = useViewsStore.getState()
+    serversInit = useLanguageServersStore.getState()
   })
 
   afterEach(() => {
@@ -112,6 +115,7 @@ describe('SettingsPanel search', () => {
     usePluginsStore.setState(pluginsInit, true)
     useExtensionsStore.setState(extensionsInit, true)
     useViewsStore.setState(viewsInit, true)
+    useLanguageServersStore.setState(serversInit, true)
     vi.restoreAllMocks()
   })
 
@@ -289,6 +293,47 @@ describe('SettingsPanel search', () => {
       within(page).getByText('Column label', { exact: false }).closest('[data-settings-row]'),
     ).not.toBeVisible()
     expect(within(nav()).getByRole('button', { name: 'Board sync' })).toHaveTextContent(/1$/)
+  })
+
+  it('finds an extension row by the name or kind of its language server', async () => {
+    const go: ExtensionInfo = {
+      ...BOARD,
+      id: 'lsp-go',
+      name: 'Go',
+      settings: [],
+      settingValues: {},
+      settingsPage: null,
+      languageServers: [{ id: 'gopls', name: 'gopls', languages: ['go'], command: 'gopls' }],
+    }
+    useExtensionsStore.setState({ list: [BOARD, go] })
+    useLanguageServersStore.setState({
+      watching: true,
+      list: [
+        {
+          key: 'lsp-go/gopls',
+          extId: 'lsp-go',
+          extName: 'Go',
+          serverId: 'gopls',
+          name: 'gopls',
+          languages: ['go'],
+          kind: 'go-install',
+          command: 'gopls',
+          enabled: true,
+          status: 'idle',
+          folders: 0,
+        },
+      ],
+    })
+    renderSettings()
+    const user = userEvent.setup()
+    await user.click(searchBox())
+    await user.paste('gopls')
+    const list = result('extensions')
+    expect(within(list).getByRole('listitem', { name: 'Go' })).toBeVisible()
+    expect(within(list).queryByRole('listitem', { name: 'Board sync' })).toBeNull()
+    await user.clear(searchBox())
+    await user.paste('go install')
+    expect(within(result('extensions')).getByRole('listitem', { name: 'Go' })).toBeVisible()
   })
 
   it('filters a hand-built list by its row titles', async () => {

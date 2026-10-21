@@ -1,10 +1,9 @@
-import { cn } from '@/lib/utils'
 import { mergeProps } from '@base-ui/react/merge-props'
 import { useRender } from '@base-ui/react/use-render'
-import { type VariantProps, cva } from 'class-variance-authority'
+import { cva, type VariantProps } from 'class-variance-authority'
 import * as React from 'react'
-
 import { Separator } from '@/components/ui/separator'
+import { cn } from '@/lib/utils'
 
 function ItemSeparator({ className, ...props }: React.ComponentProps<typeof Separator>) {
   return (
@@ -137,11 +136,11 @@ function ItemFooter({ className, ...props }: React.ComponentProps<'div'>) {
 
 export {
   Item,
-  ItemContent,
   ItemActions,
+  ItemContent,
+  ItemDescription,
+  ItemFooter,
+  ItemHeader,
   ItemSeparator,
   ItemTitle,
-  ItemDescription,
-  ItemHeader,
-  ItemFooter,
 }

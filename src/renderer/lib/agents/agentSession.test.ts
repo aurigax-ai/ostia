@@ -1,6 +1,6 @@
+import { describe, expect, it } from 'vitest'
 import { createPane } from '@/lib/layout/tree'
 import type { CommandBlock } from '@/stores/terminal/blocksStore'
-import { describe, expect, it } from 'vitest'
 import { agentSession, sessionTitle } from './agentSession'
 
 const running = (command: string): CommandBlock => ({

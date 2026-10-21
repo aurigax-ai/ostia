@@ -2,8 +2,8 @@ import type { ChordValue, KeybindingMap } from '@shared/keyboard/chordSpec'
 import { presetKeys, signatureOf } from './keyPresets'
 import {
   type AppKeyChange,
-  type TerminalKeyChange,
   appKeyChanges,
+  type TerminalKeyChange,
   terminalKeyChanges,
 } from './presetDiff'
 import type { TerminalKeyMap, TerminalSend } from './terminalKeys'

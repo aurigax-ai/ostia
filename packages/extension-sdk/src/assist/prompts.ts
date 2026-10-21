@@ -1,10 +1,10 @@
 import type { ModelMessage, ToolResultPart } from 'ai'
 import { z } from 'zod'
 import {
-  COMMAND_SUGGESTIONS_MAX,
   type ChatAssistRequest,
   type ChatContextItem,
   type ChatToolCall,
+  COMMAND_SUGGESTIONS_MAX,
   type CommandAssistRequest,
   type CommandSuggestion,
   type CompletionAssistRequest,

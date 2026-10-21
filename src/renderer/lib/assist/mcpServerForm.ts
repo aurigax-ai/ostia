@@ -1,14 +1,14 @@
 import { isDangerousSegment } from '@aurigax-ai/ostia-extension-sdk/contract/protoGuard'
 import {
+  isMcpArgv,
+  isMcpSecretKey,
+  isMcpUrl,
   MCP_ENV_KEY,
   MCP_ENV_MAX,
   MCP_SECRETS_MAX,
   MCP_SERVER_NAME,
   type McpServerSettings,
   type McpTransportKind,
-  isMcpArgv,
-  isMcpSecretKey,
-  isMcpUrl,
   mcpTransportOf,
 } from '@shared/assist/chatTools'
 import { splitArgs } from '@shared/terminal/argv'

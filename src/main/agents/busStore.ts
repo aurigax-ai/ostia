@@ -5,11 +5,11 @@ import type {
 } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import { MAIL_PANE_CLOSED, mailExpired } from '../../shared/agents/agentIssues'
 import {
+  busPreview,
   type MailKind,
   type MailPending,
   type MailState,
   type MailVia,
-  busPreview,
 } from '../../shared/agents/busMessages'
 import type { AgentJournal } from '../diagnostics/agentJournal'
 import { loadJson, saveJsonAsync, storePath } from '../platform/jsonStore'
@@ -101,13 +101,18 @@ let journal: Pick<AgentJournal, 'mail' | 'leaseTimeout'> | undefined
 let inflight: Promise<void> | undefined
 let dirty = false
 
-const settled = new Map<string, Set<() => void>>()
 export interface HandedMail {
   lease: string
   messages: Mail[]
 }
 
-const waiters = new Map<string, Set<(handed: HandedMail) => void>>()
+interface Waiter {
+  resolve: (handed: HandedMail) => void
+  pick: (mail: Mail) => boolean
+  priority: boolean
+}
+
+const waiters = new Map<string, Set<Waiter>>()
 
 function busPath(): string {
   return storePath('bus', 'global')
@@ -170,7 +175,6 @@ export async function flushBus(): Promise<void> {
 export async function resetBus(): Promise<void> {
   await flushBus()
   data = undefined
-  settled.clear()
   waiters.clear()
 }
 
@@ -207,10 +211,6 @@ function settle(mail: Mail, state: 'delivered' | 'failed'): void {
   mail.lease = undefined
   mail.leasedUntil = undefined
   observe(mail, state)
-  const listeners = settled.get(mail.id)
-  if (!listeners) return
-  settled.delete(mail.id)
-  for (const listener of [...listeners]) listener()
 }
 
 function deliverMail(mail: Mail, via: MailVia, at: string): void {
@@ -294,12 +294,13 @@ export function enqueue(draft: MailDraft): Mail {
   store().mail.push(mail)
   observe(mail, 'queued')
   const parked = waiters.get(draft.to)
-  const first = parked?.values().next().value
+  const matching = parked ? [...parked].filter((waiter) => waiter.pick(mail)) : []
+  const first = matching.find((waiter) => waiter.priority) ?? matching[0]
   if (parked && first) {
     parked.delete(first)
     if (parked.size === 0) waiters.delete(draft.to)
     const handed = leaseMail(draft.to, 'read', (item) => item.id === mail.id)
-    if (handed) first(handed)
+    if (handed) first.resolve(handed)
   }
   markBusDirty()
   announceQueued(mail)
@@ -373,7 +374,7 @@ export function dropWatchesOf(externalId: string): void {
 
 export function setPending(id: string, pending: MailPending): void {
   const mail = store().mail.find((item) => item.id === id)
-  if (!mail || mail.state !== 'queued' || mail.pending === pending) return
+  if (mail?.state !== 'queued' || mail.pending === pending) return
   mail.pending = pending
   markBusDirty()
 }
@@ -559,37 +560,25 @@ export function failPaneMail(to: string): void {
   if (changed) markBusDirty()
 }
 
-export function whenSettled(
-  id: string,
-  timeoutMs: number,
-  signal: AbortSignal,
-): Promise<Mail | undefined> {
-  return new Promise((resolve) => {
-    const current = store().mail.find((item) => item.id === id)
-    if (!current || !undelivered(current) || signal.aborted) {
-      return resolve(current && snapshot(current))
-    }
-    const listeners = settled.get(id) ?? new Set()
-    const finish = (): void => {
-      clearTimeout(timer)
-      signal.removeEventListener('abort', finish)
-      listeners.delete(finish)
-      const latest = store().mail.find((item) => item.id === id)
-      resolve(latest && snapshot(latest))
-    }
-    const timer = setTimeout(finish, timeoutMs)
-    signal.addEventListener('abort', finish, { once: true })
-    listeners.add(finish)
-    settled.set(id, listeners)
-  })
+export function sentAfter(id: string, ts: string): (mail: Mail) => boolean {
+  return (mail) => {
+    const list = store().mail
+    const at = list.findIndex((item) => item.id === id)
+    return at === -1 ? mail.ts >= ts : list.indexOf(mail) > at
+  }
 }
 
-export function addWaiter(to: string, resolve: (handed: HandedMail) => void): () => void {
+export function addWaiter(
+  to: string,
+  resolve: (handed: HandedMail) => void,
+  pick?: (mail: Mail) => boolean,
+): () => void {
   const parked = waiters.get(to) ?? new Set()
-  parked.add(resolve)
+  const waiter: Waiter = { resolve, pick: pick ?? (() => true), priority: pick !== undefined }
+  parked.add(waiter)
   waiters.set(to, parked)
   return () => {
-    parked.delete(resolve)
+    parked.delete(waiter)
     if (parked.size === 0 && waiters.get(to) === parked) waiters.delete(to)
   }
 }

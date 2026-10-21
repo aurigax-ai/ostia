@@ -2,10 +2,10 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { installLocalStorage } from '../../../../test/mocks/memoryStorage'
 import {
   EXTENSIONS_NAV_EXPANDED_KEY,
-  SANDBOX_NAV_EXPANDED_KEY,
   navExpanded,
   parseSettingsTarget,
   rememberNavExpanded,
+  SANDBOX_NAV_EXPANDED_KEY,
 } from './settingsNav'
 
 describe('parseSettingsTarget', () => {

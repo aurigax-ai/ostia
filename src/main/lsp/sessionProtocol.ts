@@ -8,8 +8,8 @@ import {
 } from '@aurigax-ai/ostia-extension-sdk/contract/languageServerConfig'
 import {
   type JsonObject,
-  LSP_LOG_LINE_MAX,
   type LanguageServerContribution,
+  LSP_LOG_LINE_MAX,
   type LspLogEntry,
   type LspStopReason,
 } from '@aurigax-ai/ostia-extension-sdk/contract/languageServers'
@@ -19,8 +19,8 @@ import { type LogFields, redactSecrets } from '../diagnostics/appLog'
 import type { TreeChange } from '../files/fileWatch'
 import {
   type FileWatcher,
-  WATCHED_FILES_METHOD,
   parseFileWatchers,
+  WATCHED_FILES_METHOD,
   watchedFileEvents,
 } from '../files/watchedFiles'
 

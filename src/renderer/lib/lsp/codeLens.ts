@@ -1,5 +1,5 @@
-import { monaco } from '@/lib/monaco/setup'
 import type { CodeLens, CodeLensOptions } from 'vscode-languageserver-protocol'
+import { monaco } from '@/lib/monaco/setup'
 import { APPLY_CODE_ACTION_COMMAND } from './codeActions'
 import { toMonacoRange } from './converters'
 import type { ProviderParams, SessionLookup } from './providerParams'

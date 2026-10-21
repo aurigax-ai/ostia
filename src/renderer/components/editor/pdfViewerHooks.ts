@@ -1,3 +1,13 @@
+import {
+  type Dispatch,
+  type KeyboardEvent,
+  type RefObject,
+  type SetStateAction,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react'
 import type { useSelectionSend } from '@/components/agents/SelectionSend'
 import { registerSelectionSender } from '@/lib/agents/selectionSenders'
 import { cropToPng } from '@/lib/browser/cropImage'
@@ -9,16 +19,6 @@ import type { useRegionDrag } from '@/lib/files/viewerHooks'
 import { findStep, matchChord } from '@/lib/keyboard/chords'
 import { isMac } from '@/platform'
 import { usePdfFindStore } from '@/stores/files/pdfFindStore'
-import {
-  type Dispatch,
-  type KeyboardEvent,
-  type RefObject,
-  type SetStateAction,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from 'react'
 
 function usePageTexts(doc: PdfDocument | null, wanted: boolean): string[][] | null {
   const [texts, setTexts] = useState<string[][] | null>(null)

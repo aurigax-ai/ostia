@@ -1,17 +1,17 @@
 import { describe, expect, it } from 'vitest'
 import type { ActivityEvent, ActivityHost, ActivityNote } from './hookEvent'
 import {
-  STREAM_LIMIT_KEY,
-  STREAM_PAGE,
-  TURN_PAGE,
   actionCategory,
   actionCounts,
-  ageOf,
   agentLimitKey,
+  ageOf,
   groupKey,
   limitsDigest,
   liveKeys,
   panelModel,
+  STREAM_LIMIT_KEY,
+  STREAM_PAGE,
+  TURN_PAGE,
   turnsOf,
   widen,
 } from './view'

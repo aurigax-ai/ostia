@@ -1,13 +1,3 @@
-import { useSelectionSend } from '@/components/agents/SelectionSend'
-import { FindBar, findStatus } from '@/components/common/FindBar'
-import { IconButton } from '@/components/common/IconButton'
-import { fmt, useDict } from '@/lib/app/useDict'
-import { useElementSize } from '@/lib/app/useElementSize'
-import { trackSelection } from '@/lib/browser/domSelection'
-import { type Size, fitWidthScale } from '@/lib/browser/regionSelect'
-import { baseName } from '@/lib/files/fileTree'
-import { type PdfDocument, type PdfPage, loadPdfjs, openPdf } from '@/lib/files/pdf'
-import { useFileBytes, usePinchZoom, useRegionDrag, useSettled } from '@/lib/files/viewerHooks'
 import {
   BoundingBoxIcon,
   CaretLeftIcon,
@@ -23,8 +13,18 @@ import {
   useRef,
   useState,
 } from 'react'
-import { ViewerMessage, type Zoom, ZoomControls, useBytesProblem } from './ViewerChrome'
+import { useSelectionSend } from '@/components/agents/SelectionSend'
+import { FindBar, findStatus } from '@/components/common/FindBar'
+import { IconButton } from '@/components/common/IconButton'
+import { fmt, useDict } from '@/lib/app/useDict'
+import { useElementSize } from '@/lib/app/useElementSize'
+import { trackSelection } from '@/lib/browser/domSelection'
+import { fitWidthScale, type Size } from '@/lib/browser/regionSelect'
+import { baseName } from '@/lib/files/fileTree'
+import { loadPdfjs, openPdf, type PdfDocument, type PdfPage } from '@/lib/files/pdf'
+import { useFileBytes, usePinchZoom, useRegionDrag, useSettled } from '@/lib/files/viewerHooks'
 import { usePdfFind, usePdfSend } from './pdfViewerHooks'
+import { useBytesProblem, ViewerMessage, type Zoom, ZoomControls } from './ViewerChrome'
 
 const STAGE_PADDING = 16
 const RENDER_SETTLE_MS = 120

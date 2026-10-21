@@ -1,4 +1,3 @@
-import { useSettingsStore } from '@/stores/app/settingsStore'
 import {
   BUILTIN_ICON_THEME,
   type IconThemeInfo,
@@ -6,6 +5,7 @@ import {
 } from '@aurigax-ai/ostia-extension-sdk/contract/iconTheme'
 import { useEffect } from 'react'
 import { create } from 'zustand'
+import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useExtensionsStore } from './extensionsStore'
 
 interface IconThemeState {

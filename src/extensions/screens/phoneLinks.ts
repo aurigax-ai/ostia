@@ -9,9 +9,9 @@ import type {
 import { workspaceLabel } from './screenRegistry'
 import {
   type CreatedScreen,
+  isOutdated,
   PHONE_SERVICE_VERSION,
   type ScreensResult,
-  isOutdated,
 } from './screensCli'
 import type { ScreensService } from './screensService'
 

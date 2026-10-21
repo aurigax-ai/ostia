@@ -1,13 +1,13 @@
 import { lstatSync, mkdirSync, readdirSync, realpathSync, writeFileSync } from 'node:fs'
 import { basename, join } from 'node:path'
 import {
+  parseSnippet,
   type Snippet,
   type SnippetEntry,
   type SnippetListing,
   type SnippetProblem,
   type SnippetSaveResult,
   type SnippetSource,
-  parseSnippet,
   snippetDocument,
   snippetFileStem,
 } from '@aurigax-ai/ostia-extension-sdk/contract/snippets'

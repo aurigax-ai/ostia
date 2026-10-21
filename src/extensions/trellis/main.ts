@@ -1,13 +1,13 @@
 import { homedir } from 'node:os'
 import {
-  type CommandHandler,
-  type EventHandler,
-  type ExtensionEventType,
-  type ExtensionSettingValues,
   booleanSetting,
+  type CommandHandler,
   cliArgs,
   connect,
   createTranslator,
+  type EventHandler,
+  type ExtensionEventType,
+  type ExtensionSettingValues,
   failure,
   numberSetting,
   ok,
@@ -19,7 +19,7 @@ import { sessionContext } from './prompt'
 import { TrellisService, type WorkspaceRef } from './service'
 import { AgentTasks } from './tasks'
 import { HUMAN_ACTOR, TRELLIS_IDENTITY } from './trellis'
-import { BOARD_PATH, VAULT_PATH, cardPath, cardRef, panelTarget } from './validate'
+import { BOARD_PATH, cardPath, cardRef, panelTarget, VAULT_PATH } from './validate'
 
 const REFRESH_SECONDS = { min: 10, max: 3600 }
 const EVENTS: ExtensionEventType[] = ['pane.created', 'pane.closed', 'cwd.changed']

@@ -1,3 +1,5 @@
+import { toAccelerator } from '@shared/keyboard/globalHotkey'
+import { useEffect, useState } from 'react'
 import { Notice } from '@/components/common/Notice'
 import { ControlRow, ToggleRow } from '@/components/settingsKit/ControlRow'
 import { SettingsGroup } from '@/components/settingsKit/SettingsGroup'
@@ -7,8 +9,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/u
 import { useDict } from '@/lib/app/useDict'
 import { NEW_WORKSPACE_PLACEMENTS, type NewWorkspacePlacement } from '@/stores/app/settingsModel'
 import { useSettingsStore } from '@/stores/app/settingsStore'
-import { toAccelerator } from '@shared/keyboard/globalHotkey'
-import { useEffect, useState } from 'react'
 
 const FOLDER_CHECK_DELAY_MS = 300
 

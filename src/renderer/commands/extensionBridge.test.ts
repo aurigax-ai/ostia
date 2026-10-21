@@ -1,3 +1,7 @@
+import type { ExtensionInfo, PaneChip } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
+import type { ExtensionSettingsStored } from '@aurigax-ai/ostia-extension-sdk/contract/extensionsBridge'
+import type { Terminal } from '@xterm/xterm'
+import { afterEach, beforeAll, describe, expect, it, onTestFinished, vi } from 'vitest'
 import { findPane, isPaneShown, paneIds, resetIds, tabsOfPane } from '@/lib/layout/tree'
 import { instanceKey } from '@/lib/panes/panelKeepAlive'
 import { registerOffscreenStarter } from '@/lib/terminal/offscreenStart'
@@ -10,10 +14,6 @@ import { useDiffStore } from '@/stores/files/diffStore'
 import { useBlocksStore } from '@/stores/terminal/blocksStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
-import type { ExtensionInfo, PaneChip } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
-import type { ExtensionSettingsStored } from '@aurigax-ai/ostia-extension-sdk/contract/extensionsBridge'
-import type { Terminal } from '@xterm/xterm'
-import { afterEach, beforeAll, describe, expect, it, onTestFinished, vi } from 'vitest'
 import {
   openExtensionDiff,
   openExtensionPanel,

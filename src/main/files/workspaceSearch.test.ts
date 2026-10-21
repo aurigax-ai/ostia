@@ -4,12 +4,12 @@ import { join, resolve } from 'node:path'
 import { beforeAll, describe, expect, it } from 'vitest'
 import { ripgrepPath } from './ripgrep'
 import {
-  LINE_LIMIT,
-  QUERY_MAX,
-  WorkspaceSearch,
   folderPaths,
+  LINE_LIMIT,
   nameHits,
   parseSearchRequest,
+  QUERY_MAX,
+  WorkspaceSearch,
 } from './workspaceSearch'
 
 const RG = ripgrepPath(resolve(__dirname, '../../..'), process.platform, process.arch)

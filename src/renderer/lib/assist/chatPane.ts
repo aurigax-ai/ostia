@@ -1,3 +1,4 @@
+import type { ChatContextItem } from '@aurigax-ai/ostia-extension-sdk/contract/assist'
 import { reportError } from '@/lib/app/errorReporting'
 import { useUIStore } from '@/stores/app/uiStore'
 import {
@@ -9,7 +10,6 @@ import {
 } from '@/stores/assist/chatStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
-import type { ChatContextItem } from '@aurigax-ai/ostia-extension-sdk/contract/assist'
 
 export interface OpenChatOptions {
   workspaceId?: string

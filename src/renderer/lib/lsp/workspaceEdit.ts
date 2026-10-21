@@ -1,5 +1,5 @@
-import { monaco } from '@/lib/monaco/setup'
 import type { TextEdit, WorkspaceEdit } from 'vscode-languageserver-protocol'
+import { monaco } from '@/lib/monaco/setup'
 import { normalizeUri, toMonacoRange } from './converters'
 
 export function textEditsByUri(edit: WorkspaceEdit): Map<string, TextEdit[]> | null {

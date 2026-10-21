@@ -1,3 +1,5 @@
+import type { McpServerSettings } from '@shared/assist/chatTools'
+import { type FormEvent, useEffect, useId, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -9,15 +11,13 @@ import {
 } from '@/components/ui/dialog'
 import { fmt, useDict } from '@/lib/app/useDict'
 import {
+  draftFromServer,
   type McpDraftField,
   type McpServerDraft,
-  draftFromServer,
   serverFromDraft,
 } from '@/lib/assist/mcpServerForm'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { refreshMcp } from '@/stores/assist/chatToolsStore'
-import type { McpServerSettings } from '@shared/assist/chatTools'
-import { type FormEvent, useEffect, useId, useState } from 'react'
 import { SecretRows, ServerFields } from './McpServerFields'
 
 export async function saveMcpServers(servers: McpServerSettings[]): Promise<void> {

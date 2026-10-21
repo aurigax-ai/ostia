@@ -1,6 +1,24 @@
+import {
+  ArrowDownIcon,
+  ArrowUpIcon,
+  DotsSixVerticalIcon,
+  PlusIcon,
+  XIcon,
+} from '@phosphor-icons/react'
+import {
+  CORE_CHIP_IDS,
+  DEFAULT_PROMPT_CHIPS,
+  isCoreChipId,
+  PROMPT_SEPARATORS,
+  PROMPT_STYLES,
+  type PromptSeparator,
+  type PromptSettings,
+  type PromptStyle,
+} from '@shared/terminal/promptSettings'
+import { type KeyboardEvent, useEffect, useRef, useState } from 'react'
 import { IconButton } from '@/components/common/IconButton'
 import { Notice } from '@/components/common/Notice'
-import { PromptChip, chipIcon, chipName } from '@/components/prompt/PromptChips'
+import { chipIcon, chipName, PromptChip } from '@/components/prompt/PromptChips'
 import { ControlRow, ToggleRow } from '@/components/settingsKit/ControlRow'
 import { SelectField } from '@/components/settingsKit/SelectField'
 import { SettingsGroup, SettingsSubgroup } from '@/components/settingsKit/SettingsGroup'
@@ -19,24 +37,6 @@ import { useUIStore } from '@/stores/app/uiStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import type { WorkspaceLayout } from '@/stores/workspaces/layoutTypes'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
-import {
-  ArrowDownIcon,
-  ArrowUpIcon,
-  DotsSixVerticalIcon,
-  PlusIcon,
-  XIcon,
-} from '@phosphor-icons/react'
-import {
-  CORE_CHIP_IDS,
-  DEFAULT_PROMPT_CHIPS,
-  PROMPT_SEPARATORS,
-  PROMPT_STYLES,
-  type PromptSeparator,
-  type PromptSettings,
-  type PromptStyle,
-  isCoreChipId,
-} from '@shared/terminal/promptSettings'
-import { type KeyboardEvent, useEffect, useRef, useState } from 'react'
 
 function findTerminal(
   byWorkspace: Record<string, WorkspaceLayout | undefined>,
@@ -79,6 +79,7 @@ function Preview({ order }: { order: string[] }): JSX.Element {
               if (chip) return <PromptChip key={id} chip={chip} label={name} />
               const Icon = chipIcon(isCoreChipId(id) ? id : null)
               return (
+                // biome-ignore lint/a11y/useAriaPropsSupportedByRole: the label names the block for screen readers and tests; a role would change how it is announced
                 <span
                   key={id}
                   className="prompt-chip"

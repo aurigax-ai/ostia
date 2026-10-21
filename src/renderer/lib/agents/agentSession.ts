@@ -1,8 +1,8 @@
+import type { AgentResume, ResumableAgent } from '@shared/agents/agentResume'
+import type { AttentionState } from '@shared/attention/attention'
 import type { PaneAttention } from '@/lib/attention/attention'
 import type { PaneNode } from '@/lib/layout/types'
 import type { CommandBlock } from '@/stores/terminal/blocksStore'
-import type { AgentResume, ResumableAgent } from '@shared/agents/agentResume'
-import type { AttentionState } from '@shared/attention/attention'
 
 export interface AgentSession {
   agent: ResumableAgent

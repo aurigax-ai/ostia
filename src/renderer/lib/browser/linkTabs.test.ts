@@ -1,10 +1,10 @@
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { tabMark } from '@/lib/attention/attention'
 import { registerBrowserHandle } from '@/lib/browser/browserHandles'
 import { paneBrowserProfile, setPaneBrowser } from '@/lib/layout/paneFields'
 import { createPane, findPane, paneIds, tabsOfPane } from '@/lib/layout/tree'
 import { useAttentionStore } from '@/stores/agents/attentionStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
-import { afterEach, describe, expect, it, vi } from 'vitest'
 import { openLinkTab, wireLinkTabs } from './linkTabs'
 
 const initialLayout = useLayoutStore.getState()
