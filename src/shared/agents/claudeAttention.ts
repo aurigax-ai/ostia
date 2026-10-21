@@ -1,4 +1,5 @@
 import { closingFromStop } from './closingLine'
+import { firstQuestion, parsePayload, text } from './hookPayload'
 
 export const CLAUDE_ATTENTION_EVENTS = [
   'Notification',
@@ -29,33 +30,9 @@ const QUESTION_TOOL_PERMISSION = new RegExp(
   `permission to use (?:${CLAUDE_QUESTION_TOOLS.join('|')})\\b`,
   'i',
 )
-const MESSAGE_MAX = 300
 
 export function isClaudeAttentionEvent(value: unknown): value is ClaudeAttentionEvent {
   return typeof value === 'string' && (CLAUDE_ATTENTION_EVENTS as readonly string[]).includes(value)
-}
-
-function parsePayload(raw: string): Record<string, unknown> {
-  try {
-    const parsed: unknown = JSON.parse(raw)
-    return typeof parsed === 'object' && parsed !== null ? (parsed as Record<string, unknown>) : {}
-  } catch {
-    return {}
-  }
-}
-
-function text(value: unknown): string {
-  return typeof value === 'string' ? value.trim().slice(0, MESSAGE_MAX) : ''
-}
-
-function firstQuestion(input: unknown): string {
-  if (typeof input !== 'object' || input === null) return ''
-  const questions = (input as { questions?: unknown }).questions
-  if (!Array.isArray(questions)) return ''
-  const first: unknown = questions[0]
-  return typeof first === 'object' && first !== null
-    ? text((first as { question?: unknown }).question)
-    : ''
 }
 
 function notificationAttention(payload: Record<string, unknown>): ClaudeAttention | null {

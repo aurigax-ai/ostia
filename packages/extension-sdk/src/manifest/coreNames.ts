@@ -39,6 +39,7 @@ export const CORE_VERBS: readonly string[] = [
   'cmux',
   'resume-token',
   'claude-hook',
+  'codex-hook',
   'turn-hook',
   'codex-server',
   'permission-hook',

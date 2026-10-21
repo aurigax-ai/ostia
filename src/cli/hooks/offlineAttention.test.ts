@@ -26,6 +26,26 @@ describe('attention reported while the app cannot be reached', () => {
     expect(JSON.parse(readFileSync(`${tokenFile}.state`, 'utf8')).state).toBe('done')
   })
 
+  it('writes a Codex question and its answer into the kept pane state file', async () => {
+    const tokenFile = join(root, 'codex-question-token')
+    writeFileSync(`${tokenFile}.state`, '')
+    const env = { OSTIA_TOKEN_FILE: tokenFile }
+    const ask = JSON.stringify({
+      tool_name: 'request_user_input',
+      tool_input: { questions: [{ question: 'Which database?' }] },
+    })
+    expect(await saveAttentionOffline(['codex-hook', 'PreToolUse'], stdin(ask), env)).toBe(true)
+    expect(JSON.parse(readFileSync(`${tokenFile}.state`, 'utf8'))).toEqual({
+      state: 'waiting',
+      message: 'Which database?',
+    })
+    const answered = JSON.stringify({ tool_name: 'request_user_input' })
+    expect(await saveAttentionOffline(['codex-hook', 'PostToolUse'], stdin(answered), env)).toBe(
+      true,
+    )
+    expect(JSON.parse(readFileSync(`${tokenFile}.state`, 'utf8')).state).toBe('working')
+  })
+
   it('KSH-C85 writes what the Codex hooks report through the state verb, and clears on clear', async () => {
     const tokenFile = join(root, 'codex-token')
     const env = { OSTIA_TOKEN_FILE: tokenFile }

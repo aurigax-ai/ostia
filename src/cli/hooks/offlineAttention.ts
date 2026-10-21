@@ -6,6 +6,7 @@ import {
   writeSavedAttention,
 } from '../../main/tmux/attentionFile'
 import { claudeAttention, isClaudeAttentionEvent } from '../../shared/agents/claudeAttention'
+import { codexAttention, isCodexAttentionEvent } from '../../shared/agents/codexAttention'
 import { parseArgs } from '../common/args'
 
 export const STATE_VERBS = ['waiting', 'done', 'working', 'error', 'clear']
@@ -24,6 +25,16 @@ export function messageFromStdin(raw: string): string {
   }
 }
 
+function savedOf(attention: { state: SavedAttention['state']; message: string } | null) {
+  if (!attention) return {}
+  return {
+    save: {
+      state: attention.state,
+      ...(attention.message ? { message: attention.message } : {}),
+    },
+  }
+}
+
 type OfflineAttention = { save?: SavedAttention | null } | null
 
 export async function offlineAttention(
@@ -31,17 +42,13 @@ export async function offlineAttention(
   readStdin: () => Promise<string>,
 ): Promise<OfflineAttention> {
   const [verb, ...rest] = args
-  if (verb === 'claude-hook') {
+  if (verb === 'claude-hook' || verb === 'codex-hook') {
     const event = rest[0]
-    if (!isClaudeAttentionEvent(event)) return null
-    const attention = claudeAttention(event, await readStdin())
-    if (!attention) return {}
-    return {
-      save: {
-        state: attention.state,
-        ...(attention.message ? { message: attention.message } : {}),
-      },
+    const raw = await readStdin()
+    if (verb === 'claude-hook') {
+      return isClaudeAttentionEvent(event) ? savedOf(claudeAttention(event, raw)) : null
     }
+    return isCodexAttentionEvent(event) ? savedOf(codexAttention(event, raw)) : null
   }
   if (verb !== 'state') return null
   const { positional, values } = parseArgs([...rest], {

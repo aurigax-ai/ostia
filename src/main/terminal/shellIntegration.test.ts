@@ -25,6 +25,7 @@ import {
   type CodexHookEvent,
   codexHookArgs,
   codexHookCommands,
+  codexHookGroups,
   codexHookKey,
   codexHookTrustHash,
   codexWrapper,
@@ -1360,6 +1361,29 @@ describe('shellIntegrationSpawnOptions', () => {
       expect(JSON.stringify(claudeHookSettings().hooks.PostToolUse)).toContain(
         '| ELECTRON_RUN_AS_NODE=1',
       )
+    })
+
+    it('hooks only Codex’s question tool for attention, trusted by matcher group', () => {
+      const groups = codexHookGroups(CONTEXT, content.hooks)
+      const pre = groups.PreToolUse ?? []
+      expect(pre).toHaveLength(2)
+      expect(pre[1].matcher).toBe('request_user_input')
+      expect(pre[1].commands).toHaveLength(1)
+      expect(pre[1].commands[0]).toContain('"${OSTIA_CLI}" codex-hook PreToolUse')
+      expect(groups.PostToolUse?.at(-1)?.matcher).toBe('request_user_input')
+      expect(groups.PostToolUse?.at(-1)?.commands[0]).toContain('codex-hook PostToolUse')
+      const args = codexHookArgs(CONTEXT, content.hooks)
+      const toml = args.find((arg) => arg.startsWith('hooks.PreToolUse=')) ?? ''
+      expect(toml).toContain('{matcher="request_user_input",hooks=[')
+      const state = args[args.length - 1] ?? ''
+      const command = pre[1].commands[0]
+      expect(state).toContain(
+        `${JSON.stringify(codexHookKey('PreToolUse', 0, 1))}={trusted_hash=${JSON.stringify(codexHookTrustHash('PreToolUse', command, 'request_user_input'))}}`,
+      )
+      expect(codexHookTrustHash('PreToolUse', command, 'request_user_input')).not.toBe(
+        codexHookTrustHash('PreToolUse', command),
+      )
+      expect(codexHookGroups(CONTEXT).PreToolUse).toHaveLength(1)
     })
 
     it('trusts each extension hook by its own Codex hash and handler index', () => {
