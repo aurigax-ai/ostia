@@ -358,10 +358,14 @@ export class ViewerHost {
     if (![...this.prepared.values()].includes(guest.session as ViewerSession)) return false
     guest.setWindowOpenHandler(() => ({ action: 'deny' }))
     guest.setWebRTCIPHandlingPolicy('disable_non_proxied_udp')
-    guest.on('will-navigate', (event: { preventDefault: () => void }) => event.preventDefault())
+    let shownUrl: string | null = null
+    guest.on('will-navigate', (event: { url?: string; preventDefault: () => void }) => {
+      if (event.url === undefined || event.url !== shownUrl) event.preventDefault()
+    })
     guest.on('will-redirect', (event: { preventDefault: () => void }) => event.preventDefault())
     let token: string | null = null
     guest.on('did-navigate', (_event: unknown, url: string) => {
+      shownUrl = url
       const live = typeof url === 'string' ? this.liveOf(url) : null
       if (token) this.deps.guests.unwatch(token)
       token = live?.token ?? null

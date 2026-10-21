@@ -2,7 +2,7 @@ import { EventEmitter } from 'node:events'
 import { PORTABLE_TABLES_BYTES_MAX } from '@aurigax-ai/ostia-extension-sdk/contract/fileKinds'
 import { describe, expect, it, vi } from 'vitest'
 import { type ViewerGuest, viewerOwner } from './viewerHost'
-import { BYTES, FILE, fakeSession, get, OPEN, setup } from './viewerHostHarness'
+import { adoptGuest, BYTES, FILE, fakeSession, get, OPEN, setup } from './viewerHostHarness'
 import { VIEWER_PAGE_CSP } from './viewerSessions'
 import { VIEWER_LIMITS } from './viewerWatch'
 
@@ -118,6 +118,21 @@ describe('ViewerHost', () => {
     expect(killed).toEqual([9])
     expect(stopped).toEqual([{ windowId: 'w1', paneId: 'p1', reason: 'memory' }])
     expect(unwatched).toEqual([`${viewerOwner('t1')} ${FILE}`])
+  })
+
+  it('lets a viewer page reload itself and refuses every other navigation', () => {
+    const { host, sessions } = setup()
+    const opened = host.open('w1', OPEN)
+    if (!opened.ok) throw new Error('open failed')
+    const guest = adoptGuest(host, sessions.get('ostia-viewer-office'), opened.src)
+    const attempt = (url: string): boolean => {
+      const event = { url, preventDefault: vi.fn() }
+      guest.emit('will-navigate', event)
+      return event.preventDefault.mock.calls.length > 0
+    }
+    expect(attempt(opened.src)).toBe(false)
+    expect(attempt('https://example.com/')).toBe(true)
+    expect(attempt(`${opened.src}#other`)).toBe(true)
   })
 
   it('ends the viewers of a window when its page reloads, not on an in-page navigation', () => {
