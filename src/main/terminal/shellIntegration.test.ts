@@ -105,9 +105,11 @@ describe('writeShellIntegration', () => {
   it('keeps the files a shell wrote into the folder when it rewrites the missing ones', () => {
     const dir = writeShellIntegration(root)
     writeFileSync(join(dir, '.zsh_history'), ': 1:0;make build\n')
+    writeFileSync(join(dir, '.zcompdump'), '#files: 1\n')
     rmSync(join(dir, '.zshrc'))
     expect(writeShellIntegration(root)).toBe(dir)
     expect(readFileSync(join(dir, '.zsh_history'), 'utf8')).toBe(': 1:0;make build\n')
+    expect(readFileSync(join(dir, '.zcompdump'), 'utf8')).toBe('#files: 1\n')
     expect(existsSync(join(dir, '.zshrc'))).toBe(true)
     expect(readdirSync(root).filter((name) => name.startsWith('.staging-'))).toEqual([])
   })
@@ -943,8 +945,13 @@ describe('shellIntegrationSpawnOptions', () => {
     })
 
     it('lists every file the shell integration writes', () => {
-      const dir = shellIntegrationDir()
-      expect(listFiles(dir).sort()).toEqual(Object.keys(shellIntegrationFiles(dir)).sort())
+      const root = mkdtempSync(join(tmpdir(), 'ostia-shells-list-'))
+      try {
+        const dir = writeShellIntegration(root)
+        expect(listFiles(dir).sort()).toEqual(Object.keys(shellIntegrationFiles(dir)).sort())
+      } finally {
+        rmSync(root, { recursive: true, force: true })
+      }
     })
 
     it('rewrites the plugin module and the codex hook args when only those are gone', () => {
