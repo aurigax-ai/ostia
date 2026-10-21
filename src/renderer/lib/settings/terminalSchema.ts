@@ -68,9 +68,9 @@ export const terminalSchema = {
       enum: ['app', 'system'],
       description:
         'Where Ctrl+click (Cmd+click on macOS) opens a web link or a printed file path in a ' +
-        'terminal. "app": in Ostia (a new browser tab, or the editor for a file), and adding ' +
+        `terminal. "app": in ${PRODUCT_DISPLAY_NAME} (a new browser tab, or the editor for a file), and adding ` +
         'Shift opens it in the system\'s default app. "system": in the system\'s default app, ' +
-        'and adding Shift opens it in Ostia. Default: app.',
+        `and adding Shift opens it in ${PRODUCT_DISPLAY_NAME}. Default: app.`,
     },
     warnOnRiskyPaste: {
       type: 'boolean',
