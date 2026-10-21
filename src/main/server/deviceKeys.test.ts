@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import vectors from '../../../test/fixtures/server/auth.json'
-import { generateDeviceKeys, keysFromSeeds, registrationOf, seedsOf, signChallenge } from './deviceKeys'
+import {
+  generateDeviceKeys,
+  keysFromSeeds,
+  registrationOf,
+  seedsOf,
+  signChallenge,
+} from './deviceKeys'
 
 const BOX_SEED_START = 101
 const BOX_SEED_BYTES = 32

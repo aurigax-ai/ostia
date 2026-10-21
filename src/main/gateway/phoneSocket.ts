@@ -45,6 +45,7 @@ export interface PhoneSocketDeps {
   controlDeps: () => GatewayControlDeps | null
   screenLinks: () => ScreenLinks | null
   addresses: () => GatewayAddress[]
+  accepted: (socket: object) => void
 }
 
 export interface SocketState {
@@ -70,6 +71,7 @@ function handleHello(
   trackDeviceSocket: PhoneSocketDeps['trackDeviceSocket'],
   controlDeps: GatewayControlDeps | null,
   addresses: GatewayAddress[],
+  accepted: () => void,
 ): void {
   const params = (msg.params ?? {}) as { deviceToken?: unknown; name?: unknown }
   const device = typeof params.deviceToken === 'string' ? verifyToken(params.deviceToken) : null
@@ -80,6 +82,7 @@ function handleHello(
   }
   if (params.name !== undefined) setDeviceName(device.deviceId, params.name)
   state.device = device
+  accepted()
   const takesImages = device.caps.includes('respond')
   if (takesImages) allowImageFrames(ws)
   trackDeviceSocket(device.deviceId, ws)
@@ -387,7 +390,7 @@ function handleBinaryFrame(
   }
 }
 
-function handleConnection(ws: WebSocket, deps: PhoneSocketDeps): void {
+function handleConnection(ws: WebSocket, peerSocket: object, deps: PhoneSocketDeps): void {
   const { sockets, trackDeviceSocket, untrackDeviceSocket } = deps
   const state: SocketState = {
     device: null,
@@ -421,7 +424,9 @@ function handleConnection(ws: WebSocket, deps: PhoneSocketDeps): void {
       return
     }
     if (msg.method === 'hello') {
-      handleHello(ws, state, msg, trackDeviceSocket, deps.controlDeps(), deps.addresses())
+      handleHello(ws, state, msg, trackDeviceSocket, deps.controlDeps(), deps.addresses(), () =>
+        deps.accepted(peerSocket),
+      )
       return
     }
     if (!state.device) {
@@ -495,5 +500,5 @@ function handleConnection(ws: WebSocket, deps: PhoneSocketDeps): void {
 }
 
 export function createPhoneSocket(deps: PhoneSocketDeps) {
-  return (ws: WebSocket): void => handleConnection(ws, deps)
+  return (ws: WebSocket, peerSocket: object): void => handleConnection(ws, peerSocket, deps)
 }

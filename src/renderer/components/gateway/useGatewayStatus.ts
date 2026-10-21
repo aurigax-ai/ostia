@@ -2,6 +2,7 @@ import type {
   GatewayBindAddress,
   GatewayDevice,
   GatewayPairRequest,
+  GatewayRelayState,
   GatewayRemoteStatus,
   GatewayTailnetState,
 } from '@shared/gateway/gatewayApi'
@@ -10,6 +11,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 export interface GatewayStatus {
   status: GatewayRemoteStatus | null
   tailnet: GatewayTailnetState
+  relay: GatewayRelayState
   devices: GatewayDevice[]
   addresses: GatewayBindAddress[]
   requests: GatewayPairRequest[]
@@ -20,6 +22,7 @@ export interface GatewayStatus {
 export function useGatewayStatus(): GatewayStatus {
   const [status, setStatus] = useState<GatewayRemoteStatus | null>(null)
   const [tailnet, setTailnet] = useState<GatewayTailnetState>({ state: 'off' })
+  const [relay, setRelay] = useState<GatewayRelayState>({ state: 'off' })
   const [devices, setDevices] = useState<GatewayDevice[]>([])
   const [addresses, setAddresses] = useState<GatewayBindAddress[]>([])
   const [requests, setRequests] = useState<GatewayPairRequest[]>([])
@@ -33,6 +36,7 @@ export function useGatewayStatus(): GatewayStatus {
     if (!mounted.current) return
     setStatus(nextStatus)
     setTailnet(nextStatus.tailnet)
+    setRelay(nextStatus.relay)
     setDevices(list)
   }, [])
 
@@ -50,12 +54,14 @@ export function useGatewayStatus(): GatewayStatus {
       void refresh()
     })
     const offTailnet = window.ostia.gateway.onTailnetChanged(setTailnet)
+    const offRelay = window.ostia.gateway.onRelayChanged(setRelay)
     return () => {
       mounted.current = false
       offRequests()
       offTailnet()
+      offRelay()
     }
   }, [refresh])
 
-  return { status, tailnet, devices, addresses, requests, setRequests, refresh }
+  return { status, tailnet, relay, devices, addresses, requests, setRequests, refresh }
 }

@@ -351,6 +351,14 @@ export const settingsZhHant: typeof settingsEn = {
       '選填。配對碼會帶著這個 host:port，而不是接聽位址，供您自己設定的通道或轉送使用。它必須原封不動地轉送 TCP：手機會釘選這台電腦的憑證，所以終止 TLS 的代理無法使用。',
     remotePhoneAddressInvalid: '請輸入主機名稱或 IPv4 位址與連接埠，例如 host.example:8722。',
     remotePhoneAddressPlaceholder: '主機:連接埠',
+    remoteRelay: '透過中繼伺服器',
+    remoteRelayDesc:
+      '透過 {server} 連線到這台電腦，伺服器只轉送位元組。閘道仍以固定的憑證終止 TLS，因此伺服器無法讀取或更改流量。在啟用遠端存取時生效。',
+    remoteRelayDescNoServer:
+      '透過您在「伺服器」設定中指定的中繼伺服器連線到這台電腦，伺服器只轉送位元組。閘道仍以固定的憑證終止 TLS，因此伺服器無法讀取或更改流量。在啟用遠端存取時生效。',
+    remoteRelayError: '中繼尚未連線（{code}），會自動重試。',
+    remoteRelayNeedsSignIn: '中繼需要這台電腦先登入您的伺服器。',
+    remoteRelayOpenServer: '開啟伺服器設定',
     remoteRevoke: '撤銷',
     remoteRevokeBody: '{name} 會立即中斷連線，必須重新配對才能連到這台電腦。',
     remoteRevokeFor: '撤銷 {name}',

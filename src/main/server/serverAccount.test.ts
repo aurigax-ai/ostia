@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest'
-import { accountHarness, type AccountHarness } from '../../../test/fixtures/server/accountHarness'
+import { type AccountHarness, accountHarness } from '../../../test/fixtures/server/accountHarness'
 import { cleanDeviceName } from './serverAccount'
 
 let harness: AccountHarness | null = null
@@ -75,8 +75,14 @@ describe('signing in with an invite code', () => {
       { status: 429, body: { error: 'rate-limited' }, headers: { 'Retry-After': '120' } },
       { status: 503, body: { error: 'busy' } },
     )
-    expect(await harness.account.signInWithInvite('a')).toEqual({ ok: false, error: 'device-limit' })
-    expect(await harness.account.signInWithInvite('a')).toEqual({ ok: false, error: 'rate-limited' })
+    expect(await harness.account.signInWithInvite('a')).toEqual({
+      ok: false,
+      error: 'device-limit',
+    })
+    expect(await harness.account.signInWithInvite('a')).toEqual({
+      ok: false,
+      error: 'rate-limited',
+    })
     expect(await harness.account.signInWithInvite('a')).toEqual({ ok: false, error: 'unavailable' })
   })
 })
@@ -99,7 +105,7 @@ describe('signing in with GitHub', () => {
   })
 
   it('SVA-C33 does not poll the server again before the interval has passed', async () => {
-    let now = 1_000_000
+    const now = 1_000_000
     harness = await accountHarness({ github: true, now: () => now })
     harness.server.intercept('POST /v1/auth/github/device', {
       status: 200,

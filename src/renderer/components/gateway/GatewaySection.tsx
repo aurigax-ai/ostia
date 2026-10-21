@@ -18,6 +18,7 @@ export function GatewaySection(): JSX.Element {
   const routing = useGatewayRoute({
     status: gateway.status,
     tailnet: gateway.tailnet,
+    relay: gateway.relay,
     refresh: gateway.refresh,
     clearPairing: pair.clear,
   })

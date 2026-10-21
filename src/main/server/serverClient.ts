@@ -1,5 +1,5 @@
-import { isRecord } from '@aurigax-ai/ostia-extension-sdk/contract/isRecord'
 import { setTimeout as sleep } from 'node:timers/promises'
+import { isRecord } from '@aurigax-ai/ostia-extension-sdk/contract/isRecord'
 
 const REQUEST_TIMEOUT_MS = 15_000
 const RETRY_AFTER_MAX_S = 5

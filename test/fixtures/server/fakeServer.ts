@@ -144,6 +144,15 @@ export class FakeServer {
     this.listeners.get(deviceId)?.ws.close(code)
   }
 
+  offer(message: Record<string, unknown>): void {
+    const listener = [...this.listeners.values()][0]
+    listener?.ws.send(JSON.stringify(message))
+  }
+
+  pausePhone(id: string): void {
+    this.streams.get(id)?.ws?.pause()
+  }
+
   private pingListeners(): void {
     for (const { ws } of this.listeners.values()) ws.send('{"t":"ping"}')
   }

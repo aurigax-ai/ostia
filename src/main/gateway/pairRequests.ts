@@ -1,7 +1,7 @@
 import { randomBytes, randomUUID } from 'node:crypto'
 import { deviceByInstallId, registerDevice } from './devices'
 import { checkCode, commitOf } from './pairCheck'
-import { auditPairAttempt } from './pairing'
+import { auditPairAttempt, type PairVia } from './pairing'
 
 export const PAIR_REQUEST_TTL_MS = 120_000
 const NONCE_BYTES = 32
@@ -21,6 +21,7 @@ interface PairRequest {
   installId?: string
   commit: string
   peer: string
+  via?: PairVia
   desktopNonce: Buffer
   timer: ReturnType<typeof setTimeout>
   waiting: { checkCode: string; reply: PairReply } | null
@@ -48,6 +49,7 @@ export function openPairRequest(input: {
   installId?: string
   commit: string
   peer: string
+  via?: PairVia
 }): { requestId: string; desktopNonce: string } {
   const requestId = randomUUID()
   const desktopNonce = randomBytes(NONCE_BYTES)
@@ -101,7 +103,7 @@ export function answerPairRequest(requestId: string, approve: boolean): PairAnsw
     pubkey: request.pubkey,
     installId: request.installId,
   })
-  auditPairAttempt(request.peer, 'ok')
+  auditPairAttempt(request.peer, 'ok', request.via)
   waiting.reply(200, { deviceId, deviceToken: token, caps, expiresAt: null })
   return { replaced }
 }

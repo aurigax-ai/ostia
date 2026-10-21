@@ -19,7 +19,7 @@ import { get as getDevice, list as listDevices, touchDevice } from './devices'
 import { createPairHttp } from './pairHttp'
 import { createPhoneSocket, PHONE_FRAME_BYTES, type SocketState } from './phoneSocket'
 import { closeStreams } from './phoneStream'
-import { readProxyHeader } from './proxyProtocol'
+import { type ProxyPeer, readProxyHeader } from './proxyProtocol'
 import type { ScreenLinks } from './screenLinks'
 import type { ScreenRequested } from './screenRequests'
 
@@ -28,6 +28,12 @@ export interface GatewayStartOptions {
   port?: number
   tailnet?: boolean
   phoneAddress?: GatewayPhoneAddress | null
+  relay?: boolean
+}
+
+export interface RelayPeers {
+  owns: (peer: ProxyPeer) => boolean
+  accepted: (peer: ProxyPeer) => void
 }
 
 export interface GatewayStartResult {
@@ -52,8 +58,10 @@ const HEARTBEAT_MS = 15_000
 let httpsServer: HttpsServer | null = null
 let helperServer: NetServer | null = null
 const helperSockets = new Set<Socket>()
-const tailnetPeers = new WeakMap<object, string>()
+const proxyPeers = new WeakMap<object, ProxyPeer>()
 let tailnetNode: TailnetNode | null = null
+let relayHost: string | null = null
+let relayPeers: RelayPeers | null = null
 let phoneAddress: GatewayPhoneAddress | null = null
 let wss: WebSocketServer | null = null
 let heartbeat: ReturnType<typeof setInterval> | null = null
@@ -216,6 +224,7 @@ function currentAddresses(): GatewayAddress[] {
     bindHost: boundHost,
     tailnet: tailnetNode,
     phoneAddress,
+    relayHost,
   })
 }
 
@@ -224,8 +233,20 @@ function isAllowedHostHeader(hostHeader: string | undefined): boolean {
 }
 
 export function setTailnetNode(node: TailnetNode | null): void {
+  changeAddresses(() => {
+    tailnetNode = node
+  })
+}
+
+export function setRelayHost(host: string | null): void {
+  changeAddresses(() => {
+    relayHost = host
+  })
+}
+
+function changeAddresses(change: () => void): void {
   const before = currentAddresses()
-  tailnetNode = node
+  change()
   const after = currentAddresses()
   if (isEqual(before, after)) return
   const frame = eventFrame('addresses.changed', { addresses: after })
@@ -236,7 +257,25 @@ export function setTailnetNode(node: TailnetNode | null): void {
 }
 
 function peerAddress(socket: object & { remoteAddress?: string }): string {
-  return tailnetPeers.get(socket) ?? socket.remoteAddress ?? 'unknown'
+  return proxyPeers.get(socket)?.ip ?? socket.remoteAddress ?? 'unknown'
+}
+
+export function configureRelayPeers(peers: RelayPeers | null): void {
+  relayPeers = peers
+}
+
+function isRelayed(socket: object): boolean {
+  const peer = proxyPeers.get(socket)
+  return peer !== undefined && relayPeers?.owns(peer) === true
+}
+
+function relayVia(socket: object): 'relay' | undefined {
+  return isRelayed(socket) ? 'relay' : undefined
+}
+
+function phoneAccepted(socket: object): void {
+  const peer = proxyPeers.get(socket)
+  if (peer && isRelayed(socket)) relayPeers?.accepted(peer)
 }
 
 function startHeartbeat(): void {
@@ -263,7 +302,7 @@ function listenHelper(server: HttpsServer, cert: GatewayCert): Promise<NetServer
         server,
         secureContext,
       })
-      tailnetPeers.set(tls, peer)
+      proxyPeers.set(tls, peer)
       tls.on('error', () => tls.destroy())
       tls.once('secure', () => server.emit('secureConnection', tls))
     })
@@ -279,6 +318,8 @@ function listenHelper(server: HttpsServer, cert: GatewayCert): Promise<NetServer
 
 const requestHandler = createPairHttp({
   peerAddress,
+  via: relayVia,
+  accepted: phoneAccepted,
   fingerprint: () => currentFingerprint,
   isAllowedHostHeader,
   hasBrowserOrigin,
@@ -291,6 +332,7 @@ const handleConnection = createPhoneSocket({
   controlDeps: () => controlDeps,
   screenLinks: () => screenLinks,
   addresses: currentAddresses,
+  accepted: phoneAccepted,
 })
 
 export async function startGateway(options: GatewayStartOptions = {}): Promise<GatewayStartResult> {
@@ -308,7 +350,7 @@ export async function startGateway(options: GatewayStartOptions = {}): Promise<G
     verifyClient: (info: { origin: string; req: IncomingMessage }) =>
       !hasBrowserOrigin(info.origin) && isAllowedHostHeader(info.req.headers.host),
   })
-  wsServer.on('connection', handleConnection)
+  wsServer.on('connection', (ws, req) => handleConnection(ws, req.socket))
   server.on('error', (err) => console.error('[gateway] server error:', err))
 
   await new Promise<void>((resolve, reject) => {
@@ -318,7 +360,8 @@ export async function startGateway(options: GatewayStartOptions = {}): Promise<G
       resolve()
     })
   })
-  const helper = options.tailnet === false ? null : await listenHelper(server, cert)
+  const helper =
+    options.tailnet === false && options.relay !== true ? null : await listenHelper(server, cert)
 
   httpsServer = server
   helperServer = helper
@@ -362,6 +405,7 @@ export async function stopGateway(): Promise<void> {
   boundHelperPort = null
   currentFingerprint = null
   tailnetNode = null
+  relayHost = null
   phoneAddress = null
 
   if (wssToClose) await new Promise<void>((resolve) => wssToClose.close(() => resolve()))

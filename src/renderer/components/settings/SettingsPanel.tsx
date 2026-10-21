@@ -16,6 +16,7 @@ import { PanesSection } from '@/components/panes/PanesSection'
 import { SandboxSection } from '@/components/sandbox/SandboxSection'
 import { WorkspaceSandboxPage } from '@/components/sandbox/WorkspaceSandboxPage'
 import { ScriptTokensSection } from '@/components/scriptTokens/ScriptTokensSection'
+import { ServerSection } from '@/components/server/ServerSection'
 import { type SearchStore, SettingsSearchSection } from '@/components/settingsKit/SettingsSearch'
 import { SidebarSection } from '@/components/sidebar/SidebarSection'
 import { TerminalSection } from '@/components/terminal/TerminalSection'
@@ -203,6 +204,7 @@ const SettingsPages = memo(function SettingsPages({
       {id === 'views' ? <ViewsSection /> : null}
       {id === 'remote' ? <GatewaySection /> : null}
       {id === 'sync' ? <SyncSection /> : null}
+      {id === 'server' ? <ServerSection /> : null}
       {id === 'about' ? <AboutSection /> : null}
     </>
   )

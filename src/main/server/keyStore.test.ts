@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { registrationOf, generateDeviceKeys } from './deviceKeys'
+import { generateDeviceKeys, registrationOf } from './deviceKeys'
 import { createKeyStore, type KeyStoreDeps } from './keyStore'
 
 function memory(canEncrypt = true): KeyStoreDeps & { saved: () => unknown } {

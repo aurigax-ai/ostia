@@ -100,6 +100,7 @@ async function chooseCard(address: string): Promise<void> {
     bindInterface: 'forged0',
     tailnet: false,
     phoneAddress: null,
+    relay: false,
   })
 }
 

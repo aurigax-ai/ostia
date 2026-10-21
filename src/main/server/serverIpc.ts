@@ -73,7 +73,10 @@ export function registerServerIpc(deps: ServerIpcDeps): void {
   )
   ipcMain.handle(
     'server:github-poll',
-    guarded(() => account.githubPoll(), Promise.resolve({ state: 'error' as const, error: 'not-a-window' as const })),
+    guarded(
+      () => account.githubPoll(),
+      Promise.resolve({ state: 'error' as const, error: 'not-a-window' as const }),
+    ),
   )
   ipcMain.handle(
     'server:github-cancel',

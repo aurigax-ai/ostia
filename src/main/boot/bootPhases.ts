@@ -44,6 +44,7 @@ import { appDataDir } from '../platform/userDirs'
 import { registerPrivacyIpc } from '../privacy/privacyIpc'
 import { startProfileSyncWiring } from '../profileSync/profileSyncWiring'
 import { registerSandboxIpcWiring, registerSandboxWiring } from '../sandbox/sandboxWiring'
+import { startServer } from '../server/serverWiring'
 import { registerHistoryIpc } from '../terminal/history/historyIpc'
 import { appSpillWorker, HISTORY_DIR, PaneHistories } from '../terminal/history/paneHistories'
 import { registerPtyIpc } from '../terminal/pty/ptyIpc'
@@ -189,7 +190,8 @@ export function boot(wiring: Wiring): void {
   startChat({ ...wiring })
   startAgent({ ...wiring })
   const { viewHost, ownSnippets } = registerContentIpc({ ...wiring })
-  startGateway({ ...wiring, turnConfirms, startAgentForPhone, ownSnippets })
+  const server = startServer({ ...wiring })
+  startGateway({ ...wiring, turnConfirms, startAgentForPhone, ownSnippets, server })
   registerBrowserWiring({ ...wiring })
   startControlServer({ ...wiring })
   startManager({ ...wiring })

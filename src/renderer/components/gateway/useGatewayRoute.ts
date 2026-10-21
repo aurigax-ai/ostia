@@ -1,5 +1,6 @@
 import type { Dict } from '@shared/app/dict'
 import type {
+  GatewayRelayState,
   GatewayRemoteStatus,
   GatewayRoute,
   GatewayTailnetState,
@@ -37,11 +38,13 @@ export interface GatewayRouteState {
 export function useGatewayRoute({
   status,
   tailnet,
+  relay,
   refresh,
   clearPairing,
 }: {
   status: GatewayRemoteStatus | null
   tailnet: GatewayTailnetState
+  relay: GatewayRelayState
   refresh: () => Promise<void>
   clearPairing: () => void
 }): GatewayRouteState {
@@ -52,11 +55,12 @@ export function useGatewayRoute({
   const running = status?.running ?? false
   const route: GatewayRoute = status?.route ?? DEFAULT_GATEWAY_ROUTE
   const exposed = route.bindAddress !== LOOPBACK_ADDRESS
-  const unreachable = !route.tailnet && !exposed && route.phoneAddress === null
+  const unreachable = !route.tailnet && !exposed && route.phoneAddress === null && !route.relay
   const viaTailnet = route.tailnet
-  const canPair = viaTailnet
-    ? running && tailnet.state === 'running' && tailnet.ip !== null
-    : running && (route.phoneAddress !== null || (exposed && status?.host === route.bindAddress))
+  const directPair = viaTailnet
+    ? tailnet.state === 'running' && tailnet.ip !== null
+    : route.phoneAddress !== null || (exposed && status?.host === route.bindAddress)
+  const canPair = running && (directPair || (route.relay && relay.state === 'listening'))
   const problem = viaTailnet ? tailnetProblem(d, tailnet) : null
 
   const onRoute = async (next: Partial<GatewayRoute>): Promise<void> => {

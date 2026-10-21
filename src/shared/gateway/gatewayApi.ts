@@ -25,7 +25,13 @@ export interface GatewayRoute {
   bindInterface: string | null
   tailnet: boolean
   phoneAddress: GatewayPhoneAddress | null
+  relay: boolean
 }
+
+export type GatewayRelayState =
+  | { state: 'off' | 'needs-sign-in' | 'connecting' }
+  | { state: 'listening'; host: string }
+  | { state: 'error'; code: string }
 
 export interface GatewayBindAddress {
   address: string
@@ -36,6 +42,7 @@ export interface GatewayBindAddress {
 export interface GatewayRemoteStatus extends GatewayStatus {
   tailnet: GatewayTailnetState
   route: GatewayRoute
+  relay: GatewayRelayState
   discoverable: boolean
 }
 
@@ -121,6 +128,7 @@ interface GatewayApi {
   tailnetSignIn: () => Promise<GatewayTailnetActionResult>
   tailnetSignOut: () => Promise<GatewayTailnetActionResult>
   onTailnetChanged: (cb: (state: GatewayTailnetState) => void) => () => void
+  onRelayChanged: (cb: (state: GatewayRelayState) => void) => () => void
   setDiscoverable: (on: boolean) => Promise<GatewayActionResult>
   pairRequests: () => Promise<GatewayPairRequest[]>
   answerPairRequest: (requestId: string, approve: boolean) => Promise<GatewayActionResult>

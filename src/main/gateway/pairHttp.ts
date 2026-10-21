@@ -1,10 +1,18 @@
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import { cleanDeviceName } from '../../shared/gateway/deviceName'
-import { auditPairAttempt, checkPairRateLimit, consumeCode, isLiveCode } from './pairing'
+import {
+  auditPairAttempt,
+  checkPairRateLimit,
+  consumeCode,
+  isLiveCode,
+  type PairVia,
+} from './pairing'
 import { cancelPairRequest, openPairRequest, revealPairRequest } from './pairRequests'
 
 export interface PairHttpDeps {
   peerAddress: (socket: object & { remoteAddress?: string }) => string
+  via: (socket: object) => PairVia | undefined
+  accepted: (socket: object) => void
   fingerprint: () => string | null
   isAllowedHostHeader: (hostHeader: string | undefined) => boolean
   hasBrowserOrigin: (origin: string | undefined) => boolean
@@ -49,11 +57,12 @@ const INSTALL_ID = /^[A-Za-z0-9_-]{16,64}$/
 async function handlePair(
   req: IncomingMessage,
   res: ServerResponse,
-  peerAddress: PairHttpDeps['peerAddress'],
+  deps: PairHttpDeps,
 ): Promise<void> {
-  const ip = peerAddress(req.socket)
+  const ip = deps.peerAddress(req.socket)
+  const via = deps.via(req.socket)
   if (!checkPairRateLimit(ip)) {
-    auditPairAttempt(ip, 'rate-limited')
+    auditPairAttempt(ip, 'rate-limited', via)
     sendJson(res, 429, { error: 'rate-limited' })
     return
   }
@@ -72,7 +81,7 @@ async function handlePair(
     (device.installId !== undefined &&
       (typeof device.installId !== 'string' || !INSTALL_ID.test(device.installId)))
   ) {
-    auditPairAttempt(ip, 'bad-request')
+    auditPairAttempt(ip, 'bad-request', via)
     sendJson(res, 400, {
       error: 'bad-request',
       message: 'expected { pairCode, device: { name, pubkey, installId? }, commit }',
@@ -80,15 +89,16 @@ async function handlePair(
     return
   }
   if (!isLiveCode(pairCode)) {
-    auditPairAttempt(ip, 'invalid-code')
+    auditPairAttempt(ip, 'invalid-code', via)
     sendJson(res, 401, { error: 'invalid-pair-code' })
     return
   }
   if (typeof body?.commit !== 'string' || !COMMIT.test(body.commit)) {
-    auditPairAttempt(ip, 'bad-request')
+    auditPairAttempt(ip, 'bad-request', via)
     sendJson(res, 400, { error: 'bad-request', message: 'commit must be 64 hex characters' })
     return
   }
+  deps.accepted(req.socket)
   consumeCode(pairCode)
   const { requestId, desktopNonce } = openPairRequest({
     name: cleanDeviceName(device.name) ?? '',
@@ -96,6 +106,7 @@ async function handlePair(
     installId: device.installId as string | undefined,
     commit: body.commit,
     peer: ip,
+    via,
   })
   sendJson(res, 200, { requestId, nonce: desktopNonce })
 }
@@ -137,9 +148,7 @@ function requestHandler(req: IncomingMessage, res: ServerResponse, deps: PairHtt
     return
   }
   if (req.method === 'POST' && req.url === '/pair') {
-    handlePair(req, res, deps.peerAddress).catch(() =>
-      sendJson(res, 500, { error: 'internal-error' }),
-    )
+    handlePair(req, res, deps).catch(() => sendJson(res, 500, { error: 'internal-error' }))
     return
   }
   if (req.method === 'POST' && req.url === '/pair/confirm') {

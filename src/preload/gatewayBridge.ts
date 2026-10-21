@@ -21,6 +21,7 @@ export const gatewayBridge: Pick<OstiaBridge, 'gateway'> = {
     tailnetSignIn: () => ipcRenderer.invoke('gateway:tailnet-sign-in'),
     tailnetSignOut: () => ipcRenderer.invoke('gateway:tailnet-sign-out'),
     onTailnetChanged: (cb) => listen('gateway:tailnet-changed', cb),
+    onRelayChanged: (cb) => listen('gateway:relay-changed', cb),
     setDiscoverable: (on) => ipcRenderer.invoke('gateway:set-discoverable', on),
     pairRequests: () => ipcRenderer.invoke('gateway:pair-requests'),
     answerPairRequest: (requestId, approve) =>

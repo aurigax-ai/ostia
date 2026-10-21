@@ -21,6 +21,8 @@ import { playbooksEn } from '../strings/playbooksEn'
 import { playbooksZhHant } from '../strings/playbooksZhHant'
 import { securityEn } from '../strings/securityEn'
 import { securityZhHant } from '../strings/securityZhHant'
+import { serverEn } from '../strings/serverEn'
+import { serverZhHant } from '../strings/serverZhHant'
 import { settingsEn } from '../strings/settingsEn'
 import { settingsZhHant } from '../strings/settingsZhHant'
 import { terminalEn } from '../strings/terminalEn'
@@ -96,6 +98,7 @@ export const en = {
   tabMove: workspacesEn.tabMove,
   cmuxImport: appEn.cmuxImport,
   sync: appEn.sync,
+  server: serverEn.server,
   browserSettings: settingsEn.browserSettings,
   editorSettings: settingsEn.editorSettings,
   keyboard: commandsEn.keyboard,
@@ -181,6 +184,7 @@ export const zhHant: Dict = {
   tabMove: workspacesZhHant.tabMove,
   cmuxImport: appZhHant.cmuxImport,
   sync: appZhHant.sync,
+  server: serverZhHant.server,
   browserSettings: settingsZhHant.browserSettings,
   editorSettings: settingsZhHant.editorSettings,
   keyboard: commandsZhHant.keyboard,

@@ -10,6 +10,7 @@ import {
   FileCodeIcon,
   GitBranchIcon,
   GlobeIcon,
+  HardDrivesIcon,
   type Icon as IconComponent,
   InfoIcon,
   KeyboardIcon,
@@ -69,6 +70,7 @@ export type SectionId =
   | 'views'
   | 'remote'
   | 'sync'
+  | 'server'
   | 'about'
   | 'sandbox'
   | 'workspace'
@@ -86,6 +88,7 @@ export function settingsSections(d: Dict): SettingsSection[] {
     { id: 'appearance', group: 'general', icon: PaletteIcon, label: d.settings.appearance },
     { id: 'notifications', group: 'general', icon: BellIcon, label: d.settings.notifications },
     { id: 'sync', group: 'general', icon: ArrowsClockwiseIcon, label: d.sync.title },
+    { id: 'server', group: 'general', icon: HardDrivesIcon, label: d.server.title },
     { id: 'terminal', group: 'terminal', icon: TerminalWindowIcon, label: d.settings.terminal },
     { id: 'prompt', group: 'terminal', icon: TerminalIcon, label: d.prompt.title },
     { id: 'keyboard', group: 'terminal', icon: KeyboardIcon, label: d.keyboard.title },

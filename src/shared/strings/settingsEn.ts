@@ -366,6 +366,14 @@ export const settingsEn = {
     remotePhoneAddressInvalid:
       'Enter a host name or IPv4 address and a port, like host.example:8722.',
     remotePhoneAddressPlaceholder: 'host:port',
+    remoteRelay: 'Through a relay server',
+    remoteRelayDesc:
+      'Reach this computer through {server}, which only forwards bytes. The gateway still ends TLS with its pinned certificate, so the server cannot read or change the traffic. Takes effect when remote access is enabled.',
+    remoteRelayDescNoServer:
+      'Reach this computer through the relay server you set up in Server settings. It only forwards bytes. The gateway still ends TLS with its pinned certificate, so the server cannot read or change the traffic. Takes effect when remote access is enabled.',
+    remoteRelayError: 'The relay is not connected ({code}). It retries on its own.',
+    remoteRelayNeedsSignIn: 'The relay needs this computer to be signed in to your server.',
+    remoteRelayOpenServer: 'Open Server settings',
     remoteRevoke: 'Revoke',
     remoteRevokeBody:
       '{name} is disconnected at once and has to pair again to reach this computer.',

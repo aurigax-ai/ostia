@@ -152,6 +152,7 @@ describe('the desktop announces itself only while pairing and discoverable', () 
       bindInterface: 'wlan0',
       tailnet: false,
       phoneAddress: null,
+      relay: false,
     })
     await enableRemote()
     mintCode()
@@ -198,6 +199,7 @@ describe('the desktop announces itself for paired phones on a local bind', () =>
     bindInterface: 'wlan0',
     tailnet: false,
     phoneAddress: null,
+    relay: false,
   }
 
   it('RDS-C1 announces the friendly name with only the version and the port, no code needed', async () => {

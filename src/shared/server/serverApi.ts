@@ -39,7 +39,9 @@ export interface ServerDevice {
 
 export type ServerActionResult = { ok: true } | { ok: false; error: ServerFailure }
 
-export type ServerInfoResult = { ok: true; offer: ServerOffer } | { ok: false; error: ServerFailure }
+export type ServerInfoResult =
+  | { ok: true; offer: ServerOffer }
+  | { ok: false; error: ServerFailure }
 
 export type ServerDevicesResult =
   | { ok: true; devices: ServerDevice[] }

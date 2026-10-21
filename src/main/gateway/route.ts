@@ -23,8 +23,10 @@ export function checkRoute(value: unknown): GatewayRoute | RouteProblem {
     bindInterface?: unknown
     tailnet?: unknown
     phoneAddress?: unknown
+    relay?: unknown
   }
   if (!isBindAddress(v.bindAddress) || typeof v.tailnet !== 'boolean') return 'unknown-address'
+  if (typeof v.relay !== 'boolean') return 'unknown-address'
   if (
     !isBindInterface(v.bindInterface) ||
     (v.bindAddress === LOOPBACK_ADDRESS) !== (v.bindInterface === null)
@@ -38,6 +40,7 @@ export function checkRoute(value: unknown): GatewayRoute | RouteProblem {
     bindInterface: v.bindInterface,
     tailnet: v.tailnet,
     phoneAddress,
+    relay: v.relay,
   }
 }
 

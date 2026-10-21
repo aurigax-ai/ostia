@@ -21,7 +21,10 @@ describe('the server client', () => {
     expect(url).toBe('https://s.example/v1/x')
     expect(init.method).toBe('POST')
     expect(init.body).toBe('{"a":1}')
-    expect(init.headers).toMatchObject({ Authorization: 'Bearer t0', 'Content-Type': 'application/json' })
+    expect(init.headers).toMatchObject({
+      Authorization: 'Bearer t0',
+      'Content-Type': 'application/json',
+    })
     expect(init.redirect).toBe('error')
   })
 
@@ -31,7 +34,8 @@ describe('the server client', () => {
   })
 
   it('SVA-C14 maps an error body to ServerError with status and code', async () => {
-    const { api } = client((async () => answer(403, { error: 'invalid-invite' })) as unknown as typeof fetch)
+    const { api } = client((async () =>
+      answer(403, { error: 'invalid-invite' })) as unknown as typeof fetch)
     await expect(api.request('POST', '/v1/x')).rejects.toMatchObject({
       status: 403,
       code: 'invalid-invite',

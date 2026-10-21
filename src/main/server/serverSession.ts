@@ -39,7 +39,11 @@ export class ServerSession {
     const deviceId = this.deps.deviceId()
     if (!keys || !deviceId) throw new ServerError(0, 'not-signed-in')
     const { nonce } = await this.deps.routes.challenge(deviceId)
-    const grant = await this.deps.routes.verify(deviceId, nonce, signChallenge(keys, deviceId, nonce))
+    const grant = await this.deps.routes.verify(
+      deviceId,
+      nonce,
+      signChallenge(keys, deviceId, nonce),
+    )
     if (this.deps.deviceId() !== deviceId) throw new ServerError(0, 'not-signed-in')
     const session = { token: grant.token, expiresAt: grant.expiresAt }
     this.session = session

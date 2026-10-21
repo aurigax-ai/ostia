@@ -71,8 +71,7 @@ export function serverRoutes(client: ServerClient) {
     endSession: (token: string) => client.request<void>('DELETE', '/v1/auth/session', { token }),
     devices: (token: string) =>
       client.request<{ devices: DeviceRow[] }>('GET', '/v1/devices', { token }),
-    relayLabel: (token: string) =>
-      client.request<RelayLabel>('POST', '/v1/relay/label', { token }),
+    relayLabel: (token: string) => client.request<RelayLabel>('POST', '/v1/relay/label', { token }),
   }
 }
 
