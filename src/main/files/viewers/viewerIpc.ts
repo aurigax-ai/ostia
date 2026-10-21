@@ -11,6 +11,7 @@ import {
 import { appProcessUse } from '../../artifacts/processUse'
 import { getByPaneId } from '../../control/idRegistry'
 import type { ExtensionHost } from '../../extensions/extensionHost'
+import { clipboardItemData } from '../../windows/clipboardEdits'
 import type { FileSources } from '../fileSources'
 import type { FileWatches } from '../fileWatch'
 import { FS_BINARY_MAX } from '../fsBinary'
@@ -78,14 +79,7 @@ export function createViewerHost({
       const channel = VIEWER_CHANNELS[event.type]
       windows.get(windowId)?.webContents.send(channel, event.payload)
     },
-    writeClipboard: ({ text, html, png }) =>
-      clipboard.write([
-        new ClipboardItem({
-          ...(text === undefined ? {} : { 'text/plain': new Blob([text], { type: 'text/plain' }) }),
-          ...(html === undefined ? {} : { 'text/html': new Blob([html], { type: 'text/html' }) }),
-          ...(png ? { 'image/png': new Blob([new Uint8Array(png)], { type: 'image/png' }) } : {}),
-        }),
-      ]),
+    writeClipboard: (copied) => clipboard.write([new ClipboardItem(clipboardItemData(copied))]),
     copyStrings,
   })
 }

@@ -35,13 +35,10 @@ import type {
   ViewerSelectionEvent,
   ViewerStopped,
 } from '../../../shared/files/filesApi'
+import type { ClipboardCapture } from '../../../shared/keyboard/clipboardCapture'
 import type { FsRangeResult } from '../fsRange'
-import {
-  type ClipboardCapture,
-  clipboardOf,
-  copyStatus,
-  type ViewerCopyStrings,
-} from './viewerClipboard'
+import { readBoundedBody } from './viewerBody'
+import { clipboardOf, copyStatus, type ViewerCopyStrings } from './viewerClipboard'
 import { parseByteRange } from './viewerRanges'
 import { acceptGuestSelection, type StoredSelection, selectionState } from './viewerSelection'
 import {
@@ -111,6 +108,7 @@ interface Live {
   streams: Set<ReadableStreamDefaultController<Uint8Array>>
   portable: ViewerPortableTables | 'too-large' | null
   selection: StoredSelection | null
+  selectionSeq: number
   documentText: string | null
   rangeStreams: Set<() => void>
   rangeSlots: number
@@ -208,6 +206,7 @@ export class ViewerHost {
       streams: new Set(),
       portable: null,
       selection: null,
+      selectionSeq: 0,
       documentText: null,
       rangeStreams: new Set(),
       rangeSlots: 0,
@@ -252,16 +251,22 @@ export class ViewerHost {
     }
     live.streams.clear()
     for (const finish of [...live.rangeStreams]) finish()
-    if (live.selection) {
-      live.selection = null
-      this.pushSelection(live)
-    }
+    this.forgetSelection(live)
+  }
+
+  private forgetSelection(live: Live): boolean {
+    if (!live.selection) return false
+    live.selection = null
+    this.pushSelection(live)
+    return true
   }
 
   changed(owner: string): void {
     if (!owner.startsWith(OWNER_PREFIX)) return
     const live = this.byToken.get(owner.slice(OWNER_PREFIX.length))
-    if (live) this.announceChange(live)
+    if (!live) return
+    this.forgetSelection(live)
+    this.announceChange(live)
   }
 
   private announceChange(live: Live): void {
@@ -374,7 +379,10 @@ export class ViewerHost {
       const live = typeof url === 'string' ? this.liveOf(url) : null
       if (token) this.deps.guests.unwatch(token)
       token = live?.token ?? null
-      if (live) this.watchGuest(live, guest)
+      if (live) {
+        this.forgetSelection(live)
+        this.watchGuest(live, guest)
+      }
     })
     guest.on('input-event', (_event: unknown, input: { type?: string } | undefined) => {
       const live = token ? this.byToken.get(token) : undefined
@@ -570,15 +578,14 @@ export class ViewerHost {
   }
 
   private async receivePortable(live: Live, request: Request): Promise<Response> {
-    const length = Number(request.headers.get('content-length') ?? '0')
-    const text = length > PORTABLE_TABLES_BYTES_MAX ? '' : await request.text().catch(() => '')
-    if (length > PORTABLE_TABLES_BYTES_MAX || text.length > PORTABLE_TABLES_BYTES_MAX) {
+    const body = await readBoundedBody(request, PORTABLE_TABLES_BYTES_MAX)
+    if (!body) {
       live.portable = 'too-large'
       return new Response(null, { status: 413 })
     }
     let parsed: unknown
     try {
-      parsed = JSON.parse(text)
+      parsed = JSON.parse(new TextDecoder().decode(body))
     } catch {
       return new Response(null, { status: 400 })
     }
@@ -589,12 +596,12 @@ export class ViewerHost {
   }
 
   private async receiveSelection(live: Live, request: Request): Promise<Response> {
-    const length = Number(request.headers.get('content-length') ?? '0')
-    if (length > VIEWER_SELECTION_BODY_MAX) return new Response(null, { status: 413 })
-    const body = new Uint8Array(await request.arrayBuffer().catch(() => new ArrayBuffer(0)))
-    if (body.byteLength > VIEWER_SELECTION_BODY_MAX) return new Response(null, { status: 413 })
-    const stored = acceptGuestSelection(body, live.path)
+    if (!this.recentInput(live)) return new Response(null, { status: 403 })
+    const body = await readBoundedBody(request, VIEWER_SELECTION_BODY_MAX)
+    if (!body) return new Response(null, { status: 413 })
+    const stored = acceptGuestSelection(body, live.path, live.selectionSeq + 1)
     if (!stored) return new Response(null, { status: 400 })
+    live.selectionSeq = stored.seq
     live.selection = stored
     this.pushSelection(live)
     return new Response(null, { status: 204 })
@@ -602,18 +609,17 @@ export class ViewerHost {
 
   clearSelection(windowId: string, paneId: unknown): void {
     const live = this.liveOfPane(windowId, paneId)
-    if (!live?.selection) return
-    live.selection = null
-    this.pushSelection(live)
-    this.announce(live, VIEWER_SELECTION_CLEARED_EVENT)
+    if (live && this.forgetSelection(live)) this.announce(live, VIEWER_SELECTION_CLEARED_EVENT)
   }
 
   private dropSelection(live: Live): Response {
-    if (live.selection) {
-      live.selection = null
-      this.pushSelection(live)
-    }
+    this.forgetSelection(live)
     return new Response(null, { status: 204 })
+  }
+
+  private recentInput(live: Live): boolean {
+    const now = this.now()
+    return [live.pointerAt, live.keyAt].some((at) => at !== null && now - at <= GESTURE_WINDOW_MS)
   }
 
   private spendGesture(live: Live, inputs: ReadonlyArray<'pointerAt' | 'keyAt'>): boolean {
@@ -645,11 +651,11 @@ export class ViewerHost {
   }
 
   private async receiveOpen(live: Live, request: Request): Promise<Response> {
-    const length = Number(request.headers.get('content-length') ?? '0')
-    const text = length > VIEWER_OPEN_HREF_MAX * 2 ? '' : await request.text().catch(() => '')
+    const body = await readBoundedBody(request, VIEWER_OPEN_HREF_MAX * 2)
+    if (!body) return new Response(null, { status: 400 })
     let href: unknown
     try {
-      href = (JSON.parse(text) as { href?: unknown }).href
+      href = (JSON.parse(new TextDecoder().decode(body)) as { href?: unknown }).href
     } catch {
       return new Response(null, { status: 400 })
     }

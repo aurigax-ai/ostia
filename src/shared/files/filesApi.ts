@@ -41,6 +41,7 @@ export interface ViewerSelectionState {
   hasImage: boolean
   hasText: boolean
   anchor: { left: number; top: number; bottom: number }
+  seq: number
 }
 
 export interface ViewerSelectionEvent {
