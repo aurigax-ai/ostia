@@ -53,17 +53,31 @@ function lineProps(props: Record<string, unknown>): Record<string, unknown> {
   }
 }
 
+interface Activation {
+  key?: string
+  preventDefault: () => void
+}
+
+export function linkHandlers(
+  href: string | undefined,
+  onLink: (href: string) => void,
+): { onClick: (event: Activation) => void; onKeyDown: (event: Activation) => void } {
+  const open = (event: Activation): void => {
+    event.preventDefault()
+    if (href) onLink(href)
+  }
+  return {
+    onClick: open,
+    onKeyDown: (event) => {
+      if (event.key === 'Enter') open(event)
+    },
+  }
+}
+
 function previewComponents({ diagram, onLink }: MarkdownHooks): Components {
   return {
     a: ({ node: _node, href, ...props }) =>
-      createElement('a', {
-        ...props,
-        href,
-        onClick: (event: { preventDefault: () => void }) => {
-          event.preventDefault()
-          if (href) onLink(href)
-        },
-      }),
+      createElement('a', { ...props, href, ...linkHandlers(href, onLink) }),
     pre: ({ node, ...props }) => {
       const code = mermaidSource(node as HastNode | undefined)
       return code === null ? createElement('pre', props) : diagram(code, lineProps(props))

@@ -21,6 +21,7 @@
     "done": "完成",
     "noMatches": "找不到符合項目",
     "matchCount": "第 {index} 筆，共 {total} 筆",
+    "selectionShortened": "選取內容已縮短以符合上限。",
     "editSource": "編輯原始碼",
     "diagram": "圖表",
     "diagramProblem": "無法繪製這張圖表：",

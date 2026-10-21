@@ -17,6 +17,7 @@
     "done": "Done",
     "noMatches": "No matches",
     "matchCount": "{index} of {total}",
+    "selectionShortened": "Selection shortened to fit.",
     "editSource": "Edit source",
     "diagram": "Diagram",
     "diagramProblem": "This diagram could not be drawn:",
