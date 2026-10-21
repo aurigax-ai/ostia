@@ -5,13 +5,13 @@ import {
   EXTENSION_SETTING_UNITS,
   type ExtensionSecretContribution,
   type ExtensionSettingContribution,
+  type ExtensionSettingsPageContribution,
   type ExtensionSettingType,
   type ExtensionSettingUnit,
-  type ExtensionSettingsPageContribution,
   validSettingValue,
 } from '../contract/extensions'
 import { isRecord } from '../contract/isRecord'
-import { MAX_DESCRIPTION, hasControlCharacter, parseIcon, text } from './manifestFields'
+import { hasControlCharacter, MAX_DESCRIPTION, parseIcon, text } from './manifestFields'
 
 const MAX_SETTINGS = 32
 export const MAX_ENUM_VALUES = 32

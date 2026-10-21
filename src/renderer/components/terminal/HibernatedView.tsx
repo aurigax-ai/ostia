@@ -1,12 +1,12 @@
+import { MoonIcon, PlayIcon } from '@phosphor-icons/react'
+import type { AgentResume } from '@shared/agents/agentResume'
+import { useRef } from 'react'
 import { EmptyState } from '@/components/common/EmptyState'
 import { Button } from '@/components/ui/button'
 import { wakePane } from '@/lib/agents/hibernationScheduler'
 import { fmt, useDict } from '@/lib/app/useDict'
 import { useSurfaceFocus } from '@/lib/panes/paneFocus'
 import { useScheme } from '@/lib/theme/colorScheme'
-import { MoonIcon, PlayIcon } from '@phosphor-icons/react'
-import type { AgentResume } from '@shared/agents/agentResume'
-import { useRef } from 'react'
 
 export function HibernatedView({
   paneId,

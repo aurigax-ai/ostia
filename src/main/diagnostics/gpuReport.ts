@@ -1,4 +1,4 @@
-import { type GPUFeatureStatus, app } from 'electron'
+import { app, type GPUFeatureStatus } from 'electron'
 import type { AppLog } from './appLog'
 
 interface GpuDevice {

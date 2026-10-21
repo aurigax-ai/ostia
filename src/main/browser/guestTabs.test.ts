@@ -1,6 +1,6 @@
 import type { Referrer, WebContents } from 'electron'
 import { describe, expect, it, vi } from 'vitest'
-import { TAB_REFERRER_MS, openGuestTab, tabReferrer, tabReferrerOf } from './guestTabs'
+import { openGuestTab, TAB_REFERRER_MS, tabReferrer, tabReferrerOf } from './guestTabs'
 
 const PAGE = 'https://site.example/docs/page?q=1'
 const SAME = 'https://site.example/other'

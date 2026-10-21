@@ -1,11 +1,3 @@
-import { Hint, useShortcutHint } from '@/components/common/Hint'
-import { IconButton } from '@/components/common/IconButton'
-import { useDict } from '@/lib/app/useDict'
-import { isUnderExcluded } from '@/lib/files/fileTree'
-import { useSettingsStore } from '@/stores/app/settingsStore'
-import { useUIStore } from '@/stores/app/uiStore'
-import { useFileTreeStore } from '@/stores/files/fileTreeStore'
-import { useRemoteFoldersStore } from '@/stores/files/remoteFoldersStore'
 import {
   EyeIcon,
   FilePlusIcon,
@@ -14,15 +6,23 @@ import {
   XIcon,
 } from '@phosphor-icons/react'
 import { useEffect, useMemo, useRef } from 'react'
+import { Hint, useShortcutHint } from '@/components/common/Hint'
+import { IconButton } from '@/components/common/IconButton'
+import { useDict } from '@/lib/app/useDict'
+import { isUnderExcluded } from '@/lib/files/fileTree'
+import { useSettingsStore } from '@/stores/app/settingsStore'
+import { useUIStore } from '@/stores/app/uiStore'
+import { useFileTreeStore } from '@/stores/files/fileTreeStore'
+import { useRemoteFoldersStore } from '@/stores/files/remoteFoldersStore'
 import { ArtifactsSection } from './ArtifactsSection'
-import { FileTree } from './FileTree'
-import { FileTrashDialog } from './FileTreeOps'
 import { FilesCrumb } from './FilesCrumb'
 import { FilesSearch } from './FilesSearch'
 import { FilesViewOptions } from './FilesViewOptions'
-import { RemoteFolderSection } from './RemoteFolderSection'
+import { FileTree } from './FileTree'
+import { FileTrashDialog } from './FileTreeOps'
 import { useTreeContext, useTreeFocus } from './fileTreeContext'
 import { useFolderDrop } from './fileTreeRows'
+import { RemoteFolderSection } from './RemoteFolderSection'
 
 export function FilesView(): JSX.Element {
   const d = useDict()

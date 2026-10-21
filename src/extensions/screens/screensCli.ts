@@ -1,7 +1,7 @@
 import { type ChildProcess, spawn } from 'node:child_process'
-import { constants, accessSync, statSync } from 'node:fs'
+import { accessSync, constants, statSync } from 'node:fs'
 import { lstat } from 'node:fs/promises'
-import { type Socket, connect } from 'node:net'
+import { connect, type Socket } from 'node:net'
 import { delimiter, join } from 'node:path'
 import { runTool } from '@aurigax-ai/ostia-extension-sdk'
 

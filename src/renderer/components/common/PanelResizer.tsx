@@ -1,14 +1,14 @@
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import {
-  type PanelWidthSpec,
   applyPanelWidth,
   clampPanelWidth,
+  type PanelWidthSpec,
   panelDragResult,
   panelKeyWidth,
   panelMaxWidth,
-  storePanelWidth,
   storedPanelWidth,
+  storePanelWidth,
 } from '@/lib/panes/panelWidth'
-import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 
 const RESIZING_ATTRIBUTE = 'data-rail-resizing'
 
@@ -77,6 +77,7 @@ export function PanelResizer({
 
   if (collapsed && !drag) return null
   return (
+    // biome-ignore lint/a11y/useSemanticElements: a focusable resize separator; hr cannot take focus or carry a position
     <div
       role="separator"
       tabIndex={0}

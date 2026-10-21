@@ -1,5 +1,5 @@
-import { firstPaneId } from '@/lib/layout/tree'
 import { afterEach, beforeAll, describe, expect, it } from 'vitest'
+import { firstPaneId } from '@/lib/layout/tree'
 import { useLayoutStore } from './layoutStore'
 import { releaseSurfaces, setFocusTarget, surfaceHost } from './surfaceSlotsStore'
 

@@ -1,7 +1,7 @@
+import { afterEach, beforeAll, describe, expect, it } from 'vitest'
 import { useSandboxStore } from '@/stores/app/sandboxStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
-import { afterEach, beforeAll, describe, expect, it } from 'vitest'
 import { historyHiddenFrom } from './scratchPanes'
 
 let layoutInit: ReturnType<typeof useLayoutStore.getState>

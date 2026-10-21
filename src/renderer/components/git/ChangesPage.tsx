@@ -1,10 +1,10 @@
+import { GitBranchIcon } from '@phosphor-icons/react'
+import type { GitChangesData } from '@shared/boards/git'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { fmt, useDict } from '@/lib/app/useDict'
 import { branchLabel } from '@/lib/git/gitView'
 import { isMac } from '@/platform'
-import { GitBranchIcon } from '@phosphor-icons/react'
-import type { GitChangesData } from '@shared/boards/git'
 import {
   type ChangeHandlers,
   ChangeSections,
@@ -92,7 +92,9 @@ export function ChangesPage({
           <header className="head">
             <span className="branch">
               <GitBranchIcon />
-              {branchLabel(data.branch, t.detached)}
+              <span className="branch-name" title={branchLabel(data.branch, t.detached)}>
+                {branchLabel(data.branch, t.detached)}
+              </span>
             </span>
             <Tracking branch={data.branch} />
             <span className="spacer" />

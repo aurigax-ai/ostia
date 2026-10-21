@@ -1,6 +1,5 @@
 import { PRODUCT_DISPLAY_NAME } from '@aurigax-ai/ostia-extension-sdk/contract/productDisplay'
 import '@testing-library/jest-dom/vitest'
-import { useSettingsStore } from '@/stores/app/settingsStore'
 import {
   DEFAULT_CONTROLS,
   type SandboxFixedPolicy,
@@ -9,6 +8,7 @@ import {
 import { act, cleanup, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import { useSettingsStore } from '@/stores/app/settingsStore'
 import { SandboxSection } from './SandboxSection'
 import { WorkspaceSandboxPage } from './WorkspaceSandboxPage'
 

@@ -1,7 +1,7 @@
+import { beforeEach, describe, expect, it } from 'vitest'
 import { newTerminalPane } from '@/stores/workspaces/layoutSeed'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
-import { beforeEach, describe, expect, it } from 'vitest'
 import { paletteReturnFocus, releaseFocusForPalette } from './paletteFocus'
 
 describe('paletteReturnFocus', () => {

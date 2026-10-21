@@ -1,8 +1,13 @@
+import { AppWindowIcon, ArrowSquareOutIcon, ChatTextIcon, XIcon } from '@phosphor-icons/react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { CountBadge } from '@/components/common/CountBadge'
 import { Hint } from '@/components/common/Hint'
 import { IconButton } from '@/components/common/IconButton'
 import { PathText } from '@/components/common/MachineValue'
+import { StateLabel } from '@/components/common/StateLabel'
 import { TextLink } from '@/components/common/TextLink'
 import { WorkspaceChips } from '@/components/extensions/ExtensionChips'
+import { WorkspaceBadges } from '@/components/sidebar/WorkspaceBadges'
 import { Button } from '@/components/ui/button'
 import { fmt, useDict } from '@/lib/app/useDict'
 import { unreadCount } from '@/lib/attention/attention'
@@ -10,8 +15,8 @@ import { markWorkspaceRead, revealPane } from '@/lib/attention/workspaceActivity
 import { allPanes, paneIds } from '@/lib/layout/tree'
 import {
   type NeedsYouItem,
-  type PaneWhere,
   needsYouItems,
+  type PaneWhere,
   paneWhere,
   sourceWhere,
 } from '@/lib/sidebar/dashboard'
@@ -28,10 +33,8 @@ import { useUIStore } from '@/stores/app/uiStore'
 import { useBlocksStore } from '@/stores/terminal/blocksStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { useWindowsStore } from '@/stores/workspaces/windowsStore'
-import type { Workspace, WorkspaceState } from '@/stores/workspaces/workspaceTypes'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
-import { AppWindowIcon, ArrowSquareOutIcon, ChatTextIcon, XIcon } from '@phosphor-icons/react'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import type { Workspace } from '@/stores/workspaces/workspaceTypes'
 import { AgentComposer } from './AgentComposer'
 import { ApprovalCard } from './ApprovalCard'
 import { useLocalAgentTargets } from './PickSendPanel'
@@ -114,9 +117,9 @@ export function DashboardPanel(): JSX.Element | null {
 
 function SectionTitle({ title, count }: { title: string; count?: number }): JSX.Element {
   return (
-    <h3 className="flex items-center gap-2 border-line border-b pb-1 font-medium text-fg-muted text-ui-xs uppercase tracking-caps">
+    <h3 className="flex items-center gap-2 font-medium text-fg-muted text-ui-xs uppercase tracking-caps">
       {title}
-      {count ? <span className="text-attn-fg tabular-nums">{count}</span> : null}
+      {count ? <CountBadge variant="attn" count={count} /> : null}
     </h3>
   )
 }
@@ -170,7 +173,10 @@ function itemPane(item: NeedsYouItem): string {
 function NeedsYouCard({
   item,
   where,
-}: { item: NeedsYouItem; where: PaneWhere | null }): JSX.Element {
+}: {
+  item: NeedsYouItem
+  where: PaneWhere | null
+}): JSX.Element {
   const d = useDict()
   if (item.kind === 'question') {
     return <QuestionCard question={item.question} where={where} sent={item.sent} />
@@ -225,16 +231,6 @@ function WorkspacesList(): JSX.Element {
   )
 }
 
-function StateMark({ state }: { state: WorkspaceState }): JSX.Element {
-  const d = useDict()
-  return (
-    <span className="flex shrink-0 items-center gap-1.5 text-fg-muted text-ui-xs">
-      {state === 'idle' ? null : <span className={`dot ${state}`} aria-hidden="true" />}
-      {stateLabel(d, state)}
-    </span>
-  )
-}
-
 function WorkspaceEntry({ workspace: w }: { workspace: Workspace }): JSX.Element {
   const d = useDict()
   const layout = useLayoutStore((s) => s.byWorkspace[w.id])
@@ -250,10 +246,7 @@ function WorkspaceEntry({ workspace: w }: { workspace: Workspace }): JSX.Element
   const summary = message ?? running
   const open = (): void => selectWorkspace(w.id)
   return (
-    <li
-      data-workspace={w.id}
-      className="flex flex-col gap-1 border-line border-b px-1 py-2 last:border-b-0"
-    >
+    <li data-workspace={w.id} className="flex flex-col gap-1 px-1 py-2">
       <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
         <TextLink
           size="sm"
@@ -263,10 +256,11 @@ function WorkspaceEntry({ workspace: w }: { workspace: Workspace }): JSX.Element
         >
           <span className="truncate">{name}</span>
         </TextLink>
-        <StateMark state={w.state} />
+        <StateLabel state={w.state} label={stateLabel(d, w.state)} />
         {unread > 0 ? (
-          <span className="unread-dot" role="img" aria-label={fmt(d.rail.unread, { n: unread })} />
+          <CountBadge variant="unread" count={unread} label={fmt(d.rail.unread, { n: unread })} />
         ) : null}
+        <WorkspaceBadges workspace={w} />
         <PathText path={w.projectDir ?? w.workDir} />
         <span className="ml-auto flex shrink-0 items-center gap-1">
           <WorkspaceChips workspaceId={w.id} />
@@ -327,7 +321,7 @@ function RemoteEntry({ workspace: w }: { workspace: RemoteWorkspace }): JSX.Elem
   return (
     <li
       data-workspace={w.id}
-      className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 border-line border-b px-1 py-2 last:border-b-0"
+      className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 px-1 py-2"
     >
       <TextLink
         size="sm"
@@ -337,7 +331,7 @@ function RemoteEntry({ workspace: w }: { workspace: RemoteWorkspace }): JSX.Elem
       >
         <span className="truncate">{w.name}</span>
       </TextLink>
-      <StateMark state={w.state} />
+      <StateLabel state={w.state} label={stateLabel(d, w.state)} />
       <PathText path={w.workDir} />
       <span className="ml-auto flex shrink-0 items-center gap-1 text-fg-muted text-ui-xs">
         <AppWindowIcon size={16} aria-hidden />

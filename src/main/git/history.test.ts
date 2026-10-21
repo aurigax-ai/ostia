@@ -2,12 +2,12 @@ import { describe, expect, it } from 'vitest'
 import { isUncommitted } from '../../shared/boards/git'
 import {
   FIELD_SEP,
-  RECORD_SEP,
   parseBlamePorcelain,
   parseDecorations,
   parseGraphLog,
   parseLog,
   parseNameStatus,
+  RECORD_SEP,
 } from './history'
 
 const SHA1 = '96756f7f86aa09fd43994e6c7ea5b835674f9eb3'

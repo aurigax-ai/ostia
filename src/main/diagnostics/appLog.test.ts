@@ -1,8 +1,8 @@
 import {
   existsSync,
   mkdtempSync,
-  readFileSync,
   readdirSync,
+  readFileSync,
   rmSync,
   statSync,
   writeFileSync,
@@ -11,12 +11,12 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
 import {
-  LOG_FIELD_MAX_CHARS,
   createAppLog,
   formatEntry,
+  LOG_FIELD_MAX_CHARS,
   redactSecrets,
-  rotateLogFiles,
   rotatedName,
+  rotateLogFiles,
 } from './appLog'
 
 const dirs: string[] = []

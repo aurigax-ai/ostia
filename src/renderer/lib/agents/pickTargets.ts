@@ -1,7 +1,7 @@
+import type { AttentionState } from '@shared/attention/attention'
 import type { PaneAttention } from '@/lib/attention/attention'
 import { allPanes } from '@/lib/layout/tree'
 import type { LayoutNode } from '@/lib/layout/types'
-import type { AttentionState } from '@shared/attention/attention'
 
 export interface PickTarget {
   paneId: string

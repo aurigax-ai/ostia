@@ -1,12 +1,12 @@
-import type { LayoutNode } from '@/lib/layout/types'
-import type { Workspace } from '@/stores/workspaces/workspaceTypes'
 import type {
   ExtensionSidebarItem,
   WorkspaceChip,
 } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import type { NotificationEntry } from '@shared/attention/attention'
 import { describe, expect, it } from 'vitest'
-import { VIEW_NOTIFICATIONS_MAX, type ViewDataInputs, buildViewScope } from './viewData'
+import type { LayoutNode } from '@/lib/layout/types'
+import type { Workspace } from '@/stores/workspaces/workspaceTypes'
+import { buildViewScope, VIEW_NOTIFICATIONS_MAX, type ViewDataInputs } from './viewData'
 
 const ws = (id: string, name: string, extra: Partial<Workspace> = {}): Workspace => ({
   id,

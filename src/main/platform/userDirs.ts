@@ -3,11 +3,11 @@ import {
   existsSync,
   lstatSync,
   mkdirSync,
-  readFileSync,
   readdirSync,
+  readFileSync,
   renameSync,
-  rmSync,
   rmdirSync,
+  rmSync,
 } from 'node:fs'
 import { homedir } from 'node:os'
 import { join } from 'node:path'

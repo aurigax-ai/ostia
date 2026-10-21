@@ -5,7 +5,7 @@ import { postNotification } from '../attention/notify'
 import type { NotifyWiring } from '../attention/notifyWiring'
 import type { AppLog } from '../diagnostics/appLog'
 import type { ProtectedFolder } from './folderAccess'
-import { PERIODIC_PROBE_MS, createFolderAccessWatch } from './folderAccessWatch'
+import { createFolderAccessWatch, PERIODIC_PROBE_MS } from './folderAccessWatch'
 import {
   hasFullDiskAccess,
   readFoldersInKeptShells,

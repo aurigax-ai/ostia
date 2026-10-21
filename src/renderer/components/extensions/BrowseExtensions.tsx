@@ -1,12 +1,22 @@
+import type { ExtensionCategory } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
+import { MagnifyingGlassIcon } from '@phosphor-icons/react'
+import type { Dict } from '@shared/app/dict'
+import {
+  MARKETPLACE_CODE_SHAPE,
+  type MarketplaceExtension,
+  type MarketplaceFound,
+  type MarketplaceInfo,
+} from '@shared/extensions/marketplace'
+import { type KeyboardEvent, useEffect, useMemo, useState } from 'react'
 import { EmptyState } from '@/components/common/EmptyState'
 import { Notice } from '@/components/common/Notice'
+import { Segmented } from '@/components/common/Segmented'
 import { TextLink } from '@/components/common/TextLink'
 import { SelectField } from '@/components/settingsKit/SelectField'
 import { SettingsList } from '@/components/settingsKit/SettingsList'
 import { SettingsListRow } from '@/components/settingsKit/SettingsListRow'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { ButtonGroup } from '@/components/ui/button-group'
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
 import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/input-group'
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -25,21 +35,11 @@ import { cn } from '@/lib/utils'
 import { useUIStore } from '@/stores/app/uiStore'
 import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
 import { useMarketplaceStore } from '@/stores/extensions/marketplaceStore'
-import type { ExtensionCategory } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
-import { MagnifyingGlassIcon } from '@phosphor-icons/react'
-import type { Dict } from '@shared/app/dict'
-import {
-  MARKETPLACE_CODE_SHAPE,
-  type MarketplaceExtension,
-  type MarketplaceFound,
-  type MarketplaceInfo,
-} from '@shared/extensions/marketplace'
-import { type KeyboardEvent, useEffect, useMemo, useState } from 'react'
 import { ExtensionTile } from './ExtensionTile'
 import {
   MarketplaceFailureNote,
-  UninstallExtensionButton,
   marketplaceName,
+  UninstallExtensionButton,
   useMarketplaceList,
 } from './MarketplaceSection'
 
@@ -436,19 +436,12 @@ export function BrowseExtensionsDialog(): JSX.Element {
             />
           </InputGroup>
           <div className="flex items-center gap-2">
-            <ButtonGroup aria-label={d.extensionsBrowse.filters}>
-              {BROWSE_FILTERS.map((f) => (
-                <Button
-                  key={f}
-                  variant={filter === f ? 'secondary' : 'outline'}
-                  size="sm"
-                  aria-pressed={filter === f}
-                  onClick={() => setFilter(f)}
-                >
-                  {filterLabel(d, f, updates)}
-                </Button>
-              ))}
-            </ButtonGroup>
+            <Segmented
+              label={d.extensionsBrowse.filters}
+              value={filter}
+              options={BROWSE_FILTERS.map((f) => ({ value: f, label: filterLabel(d, f, updates) }))}
+              onChange={setFilter}
+            />
             <SelectField
               value={category}
               onChange={setCategory}

@@ -1,4 +1,16 @@
+import { PlusIcon } from '@phosphor-icons/react'
+import type { Dict } from '@shared/app/dict'
+import { type ChordSpec, chordText, overlaps } from '@shared/keyboard/chordSpec'
+import {
+  isIdentityRemap,
+  REMAP_KEYS,
+  REMAP_TARGETS,
+  type RemapTarget,
+  remapTarget,
+} from '@shared/keyboard/modifierRemap'
+import { Fragment, useState, useSyncExternalStore } from 'react'
 import { commands } from '@/commands/registry'
+import { Segmented } from '@/components/common/Segmented'
 import { ControlRow } from '@/components/settingsKit/ControlRow'
 import { SelectField } from '@/components/settingsKit/SelectField'
 import { SettingsGroup } from '@/components/settingsKit/SettingsGroup'
@@ -16,24 +28,13 @@ import { isMac, platform } from '@/platform'
 import { appKeymap, keymapChoices, useKeymapStore } from '@/stores/app/keymapStore'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
-import { PlusIcon } from '@phosphor-icons/react'
-import type { Dict } from '@shared/app/dict'
-import { type ChordSpec, chordText, overlaps } from '@shared/keyboard/chordSpec'
-import {
-  REMAP_KEYS,
-  REMAP_TARGETS,
-  type RemapTarget,
-  isIdentityRemap,
-  remapTarget,
-} from '@shared/keyboard/modifierRemap'
-import { Fragment, useState, useSyncExternalStore } from 'react'
 import { ChangesView, useChangeTotal } from './ChangesView'
-import { KeySearch, boundTo } from './KeySearch'
 import { KeybindingRow } from './KeybindingRow'
 import { KeymapCombo } from './KeymapCombo'
+import { boundTo, KeySearch } from './KeySearch'
+import { commandTitle, KEY_TABLE_COLUMNS, sendText, terminalKeymapLabel } from './keyboardLabels'
 import { TerminalKeyEditor } from './TerminalKeyEditor'
 import { TerminalKeyLine } from './TerminalKeyLine'
-import { KEY_TABLE_COLUMNS, commandTitle, sendText, terminalKeymapLabel } from './keyboardLabels'
 
 const subscribeCommands = (cb: () => void): (() => void) => commands.subscribe(cb)
 
@@ -105,25 +106,7 @@ function ViewSwitch({
     { value: 'active', label: d.keyboard.viewActive },
     { value: 'changes', label: fmt(d.keyboard.viewChanges, { count: total }) },
   ]
-  return (
-    <fieldset aria-label={d.keyboard.view} className="m-0 flex shrink-0 gap-1 border-0 p-0">
-      {options.map((o) => (
-        <button
-          key={o.value}
-          type="button"
-          aria-pressed={view === o.value}
-          onClick={() => onChange(o.value)}
-          className={`h-7 rounded-md border px-2 text-ui-sm ${
-            view === o.value
-              ? 'border-line-strong bg-surface-3 text-fg'
-              : 'border-line text-fg-muted hover:bg-surface-2'
-          }`}
-        >
-          {o.label}
-        </button>
-      ))}
-    </fieldset>
-  )
+  return <Segmented label={d.keyboard.view} value={view} options={options} onChange={onChange} />
 }
 
 function LinkClickRow(): JSX.Element {

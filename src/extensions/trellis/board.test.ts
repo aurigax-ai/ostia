@@ -2,9 +2,9 @@ import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import {
-  DONE_COLUMN_LIMIT,
   actorName,
   claimState,
+  DONE_COLUMN_LIMIT,
   findCard,
   groupEntries,
   moveCard,

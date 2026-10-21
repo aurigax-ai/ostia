@@ -1,30 +1,30 @@
+import { CHAT_TOOL_DESCRIPTION_MAX } from '@aurigax-ai/ostia-extension-sdk/contract/assist'
+import {
+  BUILTIN_TOOL_ACCESS,
+  type BuiltinChatTool,
+  type McpServerStatus,
+  mcpToolName,
+  type SkillSummary,
+} from '@shared/assist/chatTools'
 import { openFileAt } from '@/lib/files/openFile'
 import { openSidebarUrl } from '@/lib/sidebar/sidebarItems'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { isToolOn, useChatToolsStore } from '@/stores/assist/chatToolsStore'
 import { useBlocksStore } from '@/stores/terminal/blocksStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
-import { CHAT_TOOL_DESCRIPTION_MAX } from '@aurigax-ai/ostia-extension-sdk/contract/assist'
-import {
-  BUILTIN_TOOL_ACCESS,
-  type BuiltinChatTool,
-  type McpServerStatus,
-  type SkillSummary,
-  mcpToolName,
-} from '@shared/assist/chatTools'
 import { workspaceTerminal } from './askContext'
 import { idleTerminals, insertInto, runInNewTerminal } from './chatActions'
 import { isWebUrl } from './chatLinks'
 import {
   type ChatToolDef,
   DENIED,
-  type ToolOutcome,
-  type ToolRun,
   gate,
   int,
   pathOf,
   readGated,
   str,
+  type ToolOutcome,
+  type ToolRun,
 } from './chatToolGate'
 import { BUILTIN_SPECS, skillsDescription } from './chatToolSpecs'
 import { editFile, writeFile } from './chatToolWrites'

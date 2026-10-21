@@ -4,10 +4,10 @@ import {
   AGENT_COMPLETE_SYSTEM_MAX,
   AGENT_PROMPT_MAX,
   AGENT_SESSION_ID_PATTERN,
-  AGENT_TOOLS_MAX,
   AGENT_TOOL_DESCRIPTION_MAX,
   AGENT_TOOL_NAME_PATTERN,
   AGENT_TOOL_SCHEMA_MAX,
+  AGENT_TOOLS_MAX,
   type AgentModelRef,
   type AgentToolSpec,
 } from '@aurigax-ai/ostia-extension-sdk/contract/agent'

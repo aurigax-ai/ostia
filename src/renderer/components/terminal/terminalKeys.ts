@@ -1,3 +1,4 @@
+import { isNativeClipboardKey } from '@shared/keyboard/chordSpec'
 import { commands } from '@/commands/registry'
 import {
   execChord,
@@ -17,7 +18,6 @@ import { inputEditorFor } from '@/lib/terminal/terminalHandles'
 import { isMac } from '@/platform'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useBlocksStore } from '@/stores/terminal/blocksStore'
-import { isNativeClipboardKey } from '@shared/keyboard/chordSpec'
 
 export function attachTerminalKeys({
   host,

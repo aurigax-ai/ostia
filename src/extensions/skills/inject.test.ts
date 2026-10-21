@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { RULES_HEADER, buildInjection } from './inject'
+import { buildInjection, RULES_HEADER } from './inject'
 import { RULES_CONTEXT_MAX, RULES_CONTEXT_MAX_RULES, type Rule } from './rule'
 
 const where = { projectKeys: ['github.com/a/b'], stacks: ['node'] }

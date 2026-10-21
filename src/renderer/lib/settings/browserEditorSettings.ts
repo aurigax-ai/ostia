@@ -1,5 +1,5 @@
-import { MATCH_OSTIA_THEME, parseThemeChoice } from '@/lib/theme/themeChoice'
 import { isRecord } from '@aurigax-ai/ostia-extension-sdk/contract/isRecord'
+import { MATCH_OSTIA_THEME, parseThemeChoice } from '@/lib/theme/themeChoice'
 
 export const SEARCH_ENGINES = ['google', 'duckduckgo', 'bing', 'kagi', 'custom'] as const
 

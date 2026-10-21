@@ -12,7 +12,7 @@ import {
   safeOutPath,
   str,
 } from './browseMethod'
-import { REACT_GRAB_OFF_JS, REACT_GRAB_ON_JS, addInitScript } from './browsePageScripts'
+import { addInitScript, REACT_GRAB_OFF_JS, REACT_GRAB_ON_JS } from './browsePageScripts'
 
 interface PaneDeps extends Pick<BrowseDeps, 'execCommand' | 'screenshotRoots'> {
   method: BrowseMethod

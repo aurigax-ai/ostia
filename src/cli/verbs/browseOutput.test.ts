@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { SHARED_TAB_TEXT, formatText, toResponse } from './browse'
+import { formatText, SHARED_TAB_TEXT, toResponse } from './browse'
 
 describe('toResponse', () => {
   it('wraps a successful result as {success, data, error}', () => {

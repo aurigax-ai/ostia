@@ -1,6 +1,6 @@
 import { JSDOM } from 'jsdom'
 import { describe, expect, it } from 'vitest'
-import { FADE_CLASS, FADE_GAP_MS, type Row, createPatcher, setText } from './listPatch'
+import { createPatcher, FADE_CLASS, FADE_GAP_MS, type Row, setText } from './listPatch'
 
 interface Item {
   text: string

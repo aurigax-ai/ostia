@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import {
   DETACH_GRACE_MS,
-  RECOVERY_GRACE_MS,
-  RecoveryBook,
   orphanVerdict,
   planRecovery,
+  RECOVERY_GRACE_MS,
+  RecoveryBook,
 } from './ptyReaper'
 
 function clock(start = 1_000) {

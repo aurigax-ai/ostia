@@ -2,8 +2,8 @@ import { describe, expect, it } from 'vitest'
 import {
   DEFAULT_PROMPT_CHIPS,
   DEFAULT_PROMPT_SETTINGS,
-  MAX_PROMPT_CHIPS,
   isPromptChipId,
+  MAX_PROMPT_CHIPS,
   parsePromptChips,
   parsePromptSettings,
   separatorText,

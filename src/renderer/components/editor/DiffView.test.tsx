@@ -1,12 +1,12 @@
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { commands } from '@/commands/registry'
 import { editorPositionOf } from '@/lib/files/editorPositions'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useDiffStore } from '@/stores/files/diffStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
-import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
-import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 
 const fake = vi.hoisted(() => {
   interface FakeModel {
@@ -164,16 +164,12 @@ describe('DiffView', () => {
     }
   })
 
-  it('groups the layout buttons in the shared segmented control with the pressed one marked', () => {
+  it('groups the layout buttons in the shared Segmented control with the pressed one marked', () => {
     const css = readFileSync(join(__dirname, '..', '..', 'index.css'), 'utf8')
-    const rule = (selector: string) => css.slice(css.indexOf(`\n${selector} {`)).split('}')[0]
-    expect(rule('.segmented')).toMatch(/border: 1px solid var\(--line-strong\)/)
-    expect(rule('.segmented button[aria-pressed="true"]')).toMatch(/background: var\(--surface-3\)/)
-    expect(readFileSync(join(__dirname, '..', 'git', 'git.css'), 'utf8')).not.toMatch(/\.segmented/)
+    expect(css).not.toMatch(/\.segmented\b/)
     useDiffStore.getState().set('d1', CONTENT)
-    const { container } = render(<DiffView workspaceId="w1" paneId="d1" />)
-    const group = container.querySelector('.diff-toolbar .segmented') as HTMLElement
-    expect(group).toHaveAttribute('role', 'group')
+    render(<DiffView workspaceId="w1" paneId="d1" />)
+    const group = screen.getByRole('group', { name: 'Diff layout' })
     expect(within(group).getAllByRole('button')).toHaveLength(2)
     expect(within(group).getByRole('button', { name: 'Side-by-side view' })).toHaveAttribute(
       'aria-pressed',

@@ -1,3 +1,5 @@
+import { TerminalWindowIcon } from '@phosphor-icons/react'
+import { useId } from 'react'
 import { ListRow } from '@/components/common/ListRow'
 import {
   AlertDialog,
@@ -11,8 +13,6 @@ import {
 } from '@/components/ui/alert-dialog'
 import { fmt, useDict } from '@/lib/app/useDict'
 import { useMergeConfirmStore } from '@/stores/workspaces/mergeConfirmStore'
-import { TerminalWindowIcon } from '@phosphor-icons/react'
-import { useId } from 'react'
 
 export function MergeConfirmDialog(): JSX.Element {
   const d = useDict()

@@ -1,25 +1,3 @@
-import type { ExtensionAnchor } from '@/components/extensions/InstalledExtensions'
-import { extensionIcon } from '@/components/extensions/extensionIcons'
-import { type SearchStore, createSearchStore } from '@/components/settingsKit/SettingsSearch'
-import { countUsage } from '@/lib/app/usageCounts'
-import { extensionMatchesQuery } from '@/lib/extensions/extensionSettingText'
-import {
-  EXTENSIONS_NAV_EXPANDED_KEY,
-  SANDBOX_NAV_EXPANDED_KEY,
-  navExpanded,
-  rememberNavExpanded,
-} from '@/lib/settings/settingsNav'
-import { matchesQuery } from '@/lib/settings/settingsSearch'
-import {
-  type SectionId,
-  type SettingsSection,
-  extensionPageResultId,
-} from '@/lib/settings/settingsSections'
-import { workspaceTitle } from '@/lib/workspaces/workspaceTitle'
-import { useUIStore } from '@/stores/app/uiStore'
-import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
-import type { Workspace } from '@/stores/workspaces/workspaceTypes'
-import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import type { ExtensionInfo } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import type { Icon as IconComponent } from '@phosphor-icons/react'
 import type { Dict } from '@shared/app/dict'
@@ -31,6 +9,28 @@ import {
   useEffect,
   useState,
 } from 'react'
+import { extensionIcon } from '@/components/extensions/extensionIcons'
+import type { ExtensionAnchor } from '@/components/extensions/InstalledExtensions'
+import { createSearchStore, type SearchStore } from '@/components/settingsKit/SettingsSearch'
+import { countUsage } from '@/lib/app/usageCounts'
+import { extensionMatchesQuery } from '@/lib/extensions/extensionSettingText'
+import {
+  EXTENSIONS_NAV_EXPANDED_KEY,
+  navExpanded,
+  rememberNavExpanded,
+  SANDBOX_NAV_EXPANDED_KEY,
+} from '@/lib/settings/settingsNav'
+import { matchesQuery } from '@/lib/settings/settingsSearch'
+import {
+  extensionPageResultId,
+  type SectionId,
+  type SettingsSection,
+} from '@/lib/settings/settingsSections'
+import { workspaceTitle } from '@/lib/workspaces/workspaceTitle'
+import { useUIStore } from '@/stores/app/uiStore'
+import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
+import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
+import type { Workspace } from '@/stores/workspaces/workspaceTypes'
 
 const SANDBOX_DEFAULTS_ITEM = ''
 

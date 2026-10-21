@@ -5,10 +5,10 @@ import {
   ByteQueue,
   HelperChannel,
   HelperFailure,
-  type SpawnSsh,
   parseHeader,
   requestLine,
   runStatus,
+  type SpawnSsh,
 } from './channel'
 
 function scripted(script: string): SpawnSsh {

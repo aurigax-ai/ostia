@@ -1,7 +1,3 @@
-import type { CompletionMatch, CompletionOrigin } from '@/lib/prompt/completionMatch'
-import type { VimMode } from '@/lib/prompt/vimMode'
-import { clampNormal } from '@/lib/prompt/vimMode'
-import { registerInputEditor } from '@/lib/terminal/terminalHandles'
 import {
   type Dispatch,
   type MutableRefObject,
@@ -12,6 +8,10 @@ import {
   useRef,
   useState,
 } from 'react'
+import type { CompletionMatch, CompletionOrigin } from '@/lib/prompt/completionMatch'
+import type { VimMode } from '@/lib/prompt/vimMode'
+import { clampNormal } from '@/lib/prompt/vimMode'
+import { registerInputEditor } from '@/lib/terminal/terminalHandles'
 
 type Tip = 'none' | 'noPaths' | 'noCommands'
 

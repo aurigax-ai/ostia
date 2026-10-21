@@ -1,6 +1,6 @@
-import { countUsage } from '@/lib/app/usageCounts'
 import { WebglAddon } from '@xterm/addon-webgl'
 import type { Terminal } from '@xterm/xterm'
+import { countUsage } from '@/lib/app/usageCounts'
 import { type GpuSlot, gpuBudget } from './gpuBudget'
 import type { PauseTerminal } from './ostiaTerminal'
 

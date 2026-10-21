@@ -1,6 +1,6 @@
-import { writeKeyboard } from '@/lib/settings/keyboardSettings'
 import { isIdentityRemap } from '@shared/keyboard/modifierRemap'
 import { debounce } from 'es-toolkit'
+import { writeKeyboard } from '@/lib/settings/keyboardSettings'
 import {
   type Capabilities,
   HERE,

@@ -1,16 +1,16 @@
-import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
-import { fmt, useDict } from '@/lib/app/useDict'
-import { cn } from '@/lib/utils'
 import { CaretLeftIcon, KeyIcon, PlusIcon } from '@phosphor-icons/react'
 import type { Dict } from '@shared/app/dict'
 import {
   SCRIPT_TOKEN_RUN_CAPS,
   type ScriptTokenCall,
   type ScriptTokenInfo,
-  type ScriptTokenUsage,
   type ScriptTokensState,
+  type ScriptTokenUsage,
 } from '@shared/permissions/scriptTokens'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { fmt, useDict } from '@/lib/app/useDict'
+import { cn } from '@/lib/utils'
 import { ExpiryBadge, GroupDot, Stat } from './TokenSummary'
 import { groupSize, shownCaps } from './tokenScope'
 import { daysUntil, expiryState, lastUsedText, localDate, localTime } from './tokenText'
@@ -71,6 +71,7 @@ function CallLog({ usage, now }: { usage: ScriptTokenUsage | null; now: number }
           </thead>
           <tbody>
             {calls.map((call, i) => (
+              // biome-ignore lint/suspicious/noArrayIndexKey: the index tells repeated entries apart and the list is rebuilt, never reordered
               <tr key={`${call.at}:${i}`} className="border-line border-t">
                 <td className="py-1.5 font-mono text-fg-dim">{callTime(call.at, now)}</td>
                 <td className="truncate py-1.5 font-mono text-fg">

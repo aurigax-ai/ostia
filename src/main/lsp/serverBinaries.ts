@@ -1,5 +1,9 @@
 import type { ExtensionSettingValues } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import {
+  goInstallArgs,
+  isDownloadRun,
+  isGoInstallRun,
+  isNodeRun,
   type LanguageServerContribution,
   type LanguageServerFetchFailure,
   type LanguageServerInfo,
@@ -10,10 +14,6 @@ import {
   type LanguageServerStatus,
   type LspLogEntry,
   type LspStopReason,
-  goInstallArgs,
-  isDownloadRun,
-  isGoInstallRun,
-  isNodeRun,
   languageServerCommand,
   languageServerFeature,
   languageServerKey,

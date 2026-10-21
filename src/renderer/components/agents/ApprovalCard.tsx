@@ -1,10 +1,10 @@
-import { PromptCard, type PromptTone } from '@/components/common/PromptCard'
-import { fmt, useDict } from '@/lib/app/useDict'
-import { approvalPromptKey, useHiddenPromptsStore } from '@/stores/agents/hiddenPromptsStore'
 import { ShieldWarningIcon } from '@phosphor-icons/react'
 import type { Dict } from '@shared/app/dict'
 import type { ApprovalKind, ApprovalRequest } from '@shared/permissions/approvals'
 import type { ReactNode } from 'react'
+import { PromptCard, type PromptTone } from '@/components/common/PromptCard'
+import { fmt, useDict } from '@/lib/app/useDict'
+import { approvalPromptKey, useHiddenPromptsStore } from '@/stores/agents/hiddenPromptsStore'
 import { ApprovalActions } from './ApprovalActions'
 
 export function capLabel(caps: Record<string, string>, cap: string): string {

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { TITLE_COMMIT_MS, createTitleCommitter } from './titleCommit'
+import { createTitleCommitter, TITLE_COMMIT_MS } from './titleCommit'
 
 describe('createTitleCommitter', () => {
   beforeEach(() => {

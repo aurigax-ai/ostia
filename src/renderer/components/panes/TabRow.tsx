@@ -1,3 +1,13 @@
+import { CaretDownIcon } from '@phosphor-icons/react'
+import {
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react'
 import { Hint } from '@/components/common/Hint'
 import { Button } from '@/components/ui/button'
 import {
@@ -14,17 +24,7 @@ import { allPanes, firstPaneId } from '@/lib/layout/tree'
 import type { PaneNode, SplitNode, TabNode } from '@/lib/layout/types'
 import { type HiddenTabs, hiddenTabs, revealScroll } from '@/lib/panes/tabRow'
 import { useAttentionStore } from '@/stores/agents/attentionStore'
-import { CaretDownIcon } from '@phosphor-icons/react'
-import {
-  type ReactNode,
-  useCallback,
-  useEffect,
-  useLayoutEffect,
-  useMemo,
-  useRef,
-  useState,
-} from 'react'
-import { SplitTabGlyph, focusPane } from './SplitTab'
+import { focusPane, SplitTabGlyph } from './SplitTab'
 import { TabFace, usePaneMark } from './TabFace'
 
 const NOTHING_HIDDEN: HiddenTabs = { start: [], end: [] }

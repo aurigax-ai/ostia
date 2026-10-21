@@ -1,8 +1,8 @@
 import '@testing-library/jest-dom/vitest'
-import { useSettingsStore } from '@/stores/app/settingsStore'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import { useSettingsStore } from '@/stores/app/settingsStore'
 import { WorkspacesSection } from './WorkspacesSection'
 
 if (!Element.prototype.getAnimations) {

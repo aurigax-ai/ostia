@@ -1,12 +1,12 @@
-import { readFileSync, readdirSync, statSync } from 'node:fs'
+import { readdirSync, readFileSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 import { readEnv } from '../contract/appEnv'
 import {
-  EXTENSION_LOCALES_DIR,
   EXTENSION_LOCALE_FILE_MAX_BYTES,
+  EXTENSION_LOCALES_DIR,
   type LocaleCatalogs,
-  type Translate,
   parseMessages,
+  type Translate,
   translatorFor,
 } from '../contract/extensionLocales'
 import { LANGUAGE_ID_PATTERN } from '../contract/languagePack'

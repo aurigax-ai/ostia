@@ -4,13 +4,13 @@ import { normalizeSplitTabName } from '../../shared/workspaces/splitTabs'
 import type { PaneMoveError } from '../../shared/workspaces/workspaceApi'
 import type { Reach } from '../approvals/reach'
 import { type ControlMethodContext, registerControlMethod } from '../control/controlServer'
-import { type PaneIdentity, getByPaneId } from '../control/idRegistry'
+import { getByPaneId, type PaneIdentity } from '../control/idRegistry'
 import type { PaneEntry } from './paneList'
-import { type PaneMoveDeps, checkPaneMove } from './paneMove'
+import { checkPaneMove, type PaneMoveDeps } from './paneMove'
 import {
-  type PaneReachDeps,
   ensurePaneReach,
   fail,
+  type PaneReachDeps,
   paneRefs,
   paneTarget,
   record,

@@ -1,3 +1,8 @@
+import {
+  type AgentBusyReason,
+  type HibernateOutcome,
+  isAgentBusyReason,
+} from '@shared/agents/agentWork'
 import { countUsage } from '@/lib/app/usageCounts'
 import { paneActivityAt } from '@/lib/attention/paneActivity'
 import { isPaneVisible, workspaceOfPane } from '@/lib/attention/workspaceActivity'
@@ -5,11 +10,6 @@ import { allPanes, findPane } from '@/lib/layout/tree'
 import { clampIdleSeconds, clampMaxLive } from '@/stores/app/settingsModel'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
-import {
-  type AgentBusyReason,
-  type HibernateOutcome,
-  isAgentBusyReason,
-} from '@shared/agents/agentWork'
 import { type HibernationCandidate, planHibernation } from './hibernation'
 import { runningAgentOf } from './paneAgent'
 import { paneResumeHolder, resumeWhenIdle } from './resumeFolder'

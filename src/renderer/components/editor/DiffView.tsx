@@ -1,6 +1,20 @@
+import { DIFF_TEXT_MAX } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
+import {
+  ArrowSquareOutIcon,
+  CaretDoubleDownIcon,
+  CaretDoubleUpIcon,
+  CaretDownIcon,
+  CaretUpIcon,
+  ColumnsIcon,
+  FileTextIcon,
+  ParagraphIcon,
+  RowsIcon,
+} from '@phosphor-icons/react'
+import { useEffect, useRef } from 'react'
 import { commands } from '@/commands/registry'
 import { Hint } from '@/components/common/Hint'
 import { IconButton } from '@/components/common/IconButton'
+import { Segmented } from '@/components/common/Segmented'
 import { StatusLine, useDismissed } from '@/components/common/StatusLine'
 import { useDict } from '@/lib/app/useDict'
 import { useElementSize } from '@/lib/app/useElementSize'
@@ -17,19 +31,6 @@ import { codeFontStack } from '@/lib/theme/uiFonts'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useDiffStore } from '@/stores/files/diffStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
-import { DIFF_TEXT_MAX } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
-import {
-  ArrowSquareOutIcon,
-  CaretDoubleDownIcon,
-  CaretDoubleUpIcon,
-  CaretDownIcon,
-  CaretUpIcon,
-  ColumnsIcon,
-  FileTextIcon,
-  ParagraphIcon,
-  RowsIcon,
-} from '@phosphor-icons/react'
-import { useEffect, useRef } from 'react'
 import { useExternalEditorAction } from './useEditorView'
 
 const DIFF_COMPUTATION_MS = 2000
@@ -38,7 +39,10 @@ const MB = 1024 * 1024
 export function DiffView({
   workspaceId,
   paneId,
-}: { workspaceId: string; paneId: string }): JSX.Element {
+}: {
+  workspaceId: string
+  paneId: string
+}): JSX.Element {
   const d = useDict()
   const content = useDiffStore((s) => s.byPane[paneId])
   const font = useSettingsStore((s) => s.appearance.editor)
@@ -169,21 +173,16 @@ export function DiffView({
             useSettingsStore.getState().setEditor({ diffIgnoreWhitespace: !ignoreWhitespace })
           }
         />
-        {/* biome-ignore lint/a11y/useSemanticElements: a toolbar group of two toggles, not a form fieldset */}
-        <div className="segmented" role="group" aria-label={d.editorSettings.diffLayout}>
-          <IconButton
-            icon={ColumnsIcon}
-            label={d.diff.sideBySide}
-            aria-pressed={!inline}
-            onClick={() => choose('sideBySide')}
-          />
-          <IconButton
-            icon={RowsIcon}
-            label={d.diff.inline}
-            aria-pressed={inline}
-            onClick={() => choose('inline')}
-          />
-        </div>
+        <Segmented
+          iconOnly
+          label={d.editorSettings.diffLayout}
+          value={inline ? 'inline' : 'sideBySide'}
+          options={[
+            { value: 'sideBySide', label: d.diff.sideBySide, icon: ColumnsIcon },
+            { value: 'inline', label: d.diff.inline, icon: RowsIcon },
+          ]}
+          onChange={choose}
+        />
         {content?.path ? (
           <>
             <IconButton

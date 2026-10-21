@@ -1,6 +1,6 @@
-import type { OstiaTerminal } from '@/lib/terminal/ostiaTerminal'
 import { type ILink, type ILinkProvider, Terminal } from '@xterm/xterm'
 import { describe, expect, it, vi } from 'vitest'
+import type { OstiaTerminal } from '@/lib/terminal/ostiaTerminal'
 import { terminalLinkTarget } from './linkModifier'
 import { createAppLinkProvider, hintedLinkHandler, xtermLinkHandler } from './terminalAppLinks'
 

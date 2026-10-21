@@ -1,3 +1,5 @@
+import { PlusIcon, XIcon } from '@phosphor-icons/react'
+import type { McpServerSettings, McpTransportKind } from '@shared/assist/chatTools'
 import { IconButton } from '@/components/common/IconButton'
 import { SelectField } from '@/components/settingsKit/SelectField'
 import { Button } from '@/components/ui/button'
@@ -8,11 +10,9 @@ import {
   type KeyValueRow,
   type McpDraftField,
   type McpServerDraft,
-  type SecretDraft,
   newRow,
+  type SecretDraft,
 } from '@/lib/assist/mcpServerForm'
-import { PlusIcon, XIcon } from '@phosphor-icons/react'
-import type { McpServerSettings, McpTransportKind } from '@shared/assist/chatTools'
 
 export function ServerFields({
   ids,

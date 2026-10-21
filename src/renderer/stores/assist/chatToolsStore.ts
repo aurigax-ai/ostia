@@ -1,17 +1,17 @@
+import type { ChatSessionEdit } from '@shared/assist/chatSessions'
+import type { ChatFsError, McpServerStatus, SkillSummary } from '@shared/assist/chatTools'
+import { create } from 'zustand'
 import type { HunkDecision } from '@/lib/assist/chatHunks'
 import {
   type ApprovalAnswer,
   type ApprovalKind,
+  alwaysGrantAfter,
   type ChatMode,
   DEFAULT_CHAT_MODE,
+  grantsAfter,
   type ToolDecision,
   type WriteAskReason,
-  alwaysGrantAfter,
-  grantsAfter,
 } from '@/lib/assist/chatToolPermissions'
-import type { ChatSessionEdit } from '@shared/assist/chatSessions'
-import type { ChatFsError, McpServerStatus, SkillSummary } from '@shared/assist/chatTools'
-import { create } from 'zustand'
 
 export interface ApprovalDetail {
   path?: string

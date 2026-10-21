@@ -1,5 +1,6 @@
-import { fmt, useDict } from '@/lib/app/useDict'
 import type { ExtensionInfo } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
+import { Notice } from '@/components/common/Notice'
+import { fmt, useDict } from '@/lib/app/useDict'
 
 export function ExtensionAgentPlugin({
   ext,
@@ -24,6 +25,9 @@ export function ExtensionAgentPlugin({
           {fmt(d.extensions.agentSkillsList, { list: ext.agentSkills.join(', ') })}
         </p>
       ) : null}
+      {ext.agentSkillProblems.map((problem) => (
+        <Notice key={problem}>{fmt(d.extensions.agentSkillRefused, { problem })}</Notice>
+      ))}
       {ext.agentHooks.length > 0 ? (
         <ul className="flex flex-col">
           {ext.agentHooks.map((hook) => (

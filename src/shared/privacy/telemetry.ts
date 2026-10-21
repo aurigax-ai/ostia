@@ -226,7 +226,7 @@ export function reduceStack(
     if (!match) continue
     const [, fn, location, lineno, colno] = match
     const frame: StackFrame = { platform: 'node', in_app: true }
-    if (fn && /^[A-Za-z0-9_$.<>\[\] ]+$/.test(fn)) frame.function = fn
+    if (fn && /^[A-Za-z0-9_$.<>[\] ]+$/.test(fn)) frame.function = fn
     const file = baseName(location)
     if (file && /^[A-Za-z0-9_.-]+$/.test(file)) frame.filename = file
     if (lineno) frame.lineno = Number(lineno)

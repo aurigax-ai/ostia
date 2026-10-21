@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs'
 import { writeFileAtomic } from './atomicWrite'
-import { PANEL_SIZE_KEY, isFraction, parsePanelSizes, withPanelSize } from './split'
+import { isFraction, PANEL_SIZE_KEY, parsePanelSizes, withPanelSize } from './split'
 
 export const PANEL_SIZES_FILE = 'panel-sizes.json'
 

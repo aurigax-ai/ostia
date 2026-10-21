@@ -1,8 +1,8 @@
-import { useDict } from '@/lib/app/useDict'
-import { WORKTREE, branchLabel, buildGraphModel, indexOfKey } from '@/lib/git/gitView'
 import { GitBranchIcon } from '@phosphor-icons/react'
 import type { GitGraphData, GraphScope } from '@shared/boards/git'
 import { useEffect, useMemo, useRef } from 'react'
+import { useDict } from '@/lib/app/useDict'
+import { branchLabel, buildGraphModel, indexOfKey, WORKTREE } from '@/lib/git/gitView'
 import {
   type ChangeHandlers,
   ChangeSections,
@@ -66,7 +66,9 @@ export function GraphPage({
         <ScopeControl data={data} onScope={changeScope} />
         <span className="toolbar-branch">
           <GitBranchIcon />
-          {branchLabel(data.branch, t.detached)}
+          <span className="branch-name" title={branchLabel(data.branch, t.detached)}>
+            {branchLabel(data.branch, t.detached)}
+          </span>
         </span>
         <Tracking branch={data.branch} />
       </div>

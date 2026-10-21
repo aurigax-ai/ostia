@@ -1,3 +1,18 @@
+import { XIcon } from '@phosphor-icons/react'
+import type { Dict } from '@shared/app/dict'
+import {
+  CUSTOM_KIND,
+  type PatternProblem,
+  patternProblem,
+  placeholderFor,
+  REDACTION_PATTERN_MAX,
+  REDACTION_PATTERNS_MAX,
+  REDACTION_REPEAT_MAX,
+  type RedactionKindInfo,
+  type RedactionResult,
+} from '@shared/privacy/redaction'
+import { TELEMETRY_CATEGORIES, type TelemetryCategory } from '@shared/privacy/telemetry'
+import { useEffect, useState } from 'react'
 import { IconButton } from '@/components/common/IconButton'
 import { MachineValue } from '@/components/common/MachineValue'
 import { Notice } from '@/components/common/Notice'
@@ -14,21 +29,6 @@ import { fmt, useDict } from '@/lib/app/useDict'
 import { redactedCountLabel } from '@/lib/assist/chatRedaction'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useTelemetryConsentStore } from '@/stores/app/telemetryConsentStore'
-import { XIcon } from '@phosphor-icons/react'
-import type { Dict } from '@shared/app/dict'
-import {
-  CUSTOM_KIND,
-  type PatternProblem,
-  REDACTION_PATTERNS_MAX,
-  REDACTION_PATTERN_MAX,
-  REDACTION_REPEAT_MAX,
-  type RedactionKindInfo,
-  type RedactionResult,
-  patternProblem,
-  placeholderFor,
-} from '@shared/privacy/redaction'
-import { TELEMETRY_CATEGORIES, type TelemetryCategory } from '@shared/privacy/telemetry'
-import { useEffect, useState } from 'react'
 import { CategoryDetails } from './TelemetryConsentDialog'
 import { TelemetryReportsDialog } from './TelemetryReportsDialog'
 
@@ -213,6 +213,7 @@ function TestBox({ revision }: { revision: number }): JSX.Element {
                   </Badge>
                 ))}
               </p>
+              {/* biome-ignore lint/a11y/useAriaPropsSupportedByRole: the label names the block for screen readers and tests; a role would change how it is announced */}
               <pre
                 aria-label={d.privacy.testOutput}
                 className="max-h-48 overflow-auto whitespace-pre-wrap break-words rounded-md border border-border p-2 font-mono text-fg text-ui-sm"

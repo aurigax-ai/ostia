@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { STARTUP_FAILURE_MS, closesPaneOnExit } from './shellExit'
+import { closesPaneOnExit, STARTUP_FAILURE_MS } from './shellExit'
 
 describe('closesPaneOnExit', () => {
   it('closes the pane when the shell ends by itself, whatever its last command returned', () => {

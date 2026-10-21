@@ -3,7 +3,7 @@ import { passes } from './evalCheck'
 import type { Complete } from './extract'
 import { RULES_HEADER, ruleLine } from './inject'
 import type { Rule } from './rule'
-import { type Pair, bootstrapDifference } from './stats'
+import { bootstrapDifference, type Pair } from './stats'
 
 export const PAIRS_PER_CASE = 5
 

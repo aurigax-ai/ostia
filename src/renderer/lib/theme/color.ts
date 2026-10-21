@@ -1,6 +1,5 @@
 import {
   type Color,
-  type Oklch,
   clampChroma,
   converter,
   differenceEuclidean,
@@ -11,6 +10,7 @@ import {
   modeOklab,
   modeOklch,
   modeRgb,
+  type Oklch,
   parse,
   useMode,
   wcagContrast,

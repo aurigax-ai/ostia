@@ -1,9 +1,9 @@
+import { ArrowSquareInIcon } from '@phosphor-icons/react'
 import { MenuItem, MenuSubContent, MenuSubTrigger } from '@/components/common/Menu'
 import { ContextMenuSub } from '@/components/ui/context-menu'
 import { useDict } from '@/lib/app/useDict'
 import { tabMoveRefusalText } from '@/lib/workspaces/tabMoveRefusalText'
 import { moveTabToWorkspace, tabMoveTargets } from '@/lib/workspaces/tabWorkspaceMove'
-import { ArrowSquareInIcon } from '@phosphor-icons/react'
 
 export function TabMoveMenuItems({
   workspaceId,

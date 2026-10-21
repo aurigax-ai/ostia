@@ -6,6 +6,7 @@ import type {
   RepoStatus,
   StatusSummary,
 } from '../../shared/boards/git'
+
 function splitFields(line: string, count: number): string[] | null {
   const fields: string[] = []
   let rest = line

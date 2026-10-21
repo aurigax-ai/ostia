@@ -1,11 +1,13 @@
 import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { createTranslator } from '@aurigax-ai/ostia-extension-sdk'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { type PollIntervals, type PollState, isAllowedKeeperCall } from './keeper'
+import { isAllowedKeeperCall, type PollIntervals, type PollState } from './keeper'
 import { KeeperService } from './service'
 
 const FIXTURES = join(__dirname, '../../../test/fixtures/tools')
+const translate = createTranslator(__dirname)
 
 describe('KeeperService with a fake keeper on PATH', () => {
   let root: string
@@ -25,6 +27,7 @@ describe('KeeperService with a fake keeper on PATH', () => {
   }
   const make = (): KeeperService => {
     service = new KeeperService({
+      translate,
       host: {
         setSidebarItem: async (item) => {
           sidebar.push(item)

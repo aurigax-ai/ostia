@@ -1,17 +1,17 @@
+import type { PaneChipItem } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
+import { CopyIcon } from '@phosphor-icons/react'
 import { Hint } from '@/components/common/Hint'
 import { IconButton } from '@/components/common/IconButton'
 import { Badge } from '@/components/ui/badge'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { fmt, useDict } from '@/lib/app/useDict'
 import {
-  type ShownChip,
   chipAction,
   openChipUrl,
+  type ShownChip,
   usePaneChips,
   useWorkspaceChips,
 } from '@/lib/extensions/extensionChips'
-import type { PaneChipItem } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
-import { CopyIcon } from '@phosphor-icons/react'
 import { extensionIcon } from './extensionIcons'
 
 export function PaneChips({ paneId }: { paneId: string }): JSX.Element | null {
@@ -21,7 +21,9 @@ export function PaneChips({ paneId }: { paneId: string }): JSX.Element | null {
 
 export function WorkspaceChips({
   workspaceId,
-}: { workspaceId: string | null }): JSX.Element | null {
+}: {
+  workspaceId: string | null
+}): JSX.Element | null {
   const d = useDict()
   return (
     <ChipList
@@ -36,7 +38,11 @@ function ChipList({
   chips,
   label,
   className,
-}: { chips: ShownChip[]; label: string; className?: string }): JSX.Element | null {
+}: {
+  chips: ShownChip[]
+  label: string
+  className?: string
+}): JSX.Element | null {
   if (chips.length === 0) return null
   return (
     <ul className={className ? `pane-chips ${className}` : 'pane-chips'} aria-label={label}>
@@ -95,6 +101,7 @@ function IconChip({ chip }: { chip: ShownChip }): JSX.Element {
         <p className="text-ui-xs text-fg-muted">{chip.tooltip ?? chip.title}</p>
         <ul className="pane-chip-items">
           {items.map((item, i) => (
+            // biome-ignore lint/suspicious/noArrayIndexKey: the index tells repeated entries apart and the list is rebuilt, never reordered
             <li key={`${i}:${item.text}`}>
               <ChipItem chip={chip} item={item} />
             </li>

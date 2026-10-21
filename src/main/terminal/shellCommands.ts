@@ -1,5 +1,5 @@
 import type { Dirent } from 'node:fs'
-import { lstat, readFile, readdir, stat } from 'node:fs/promises'
+import { lstat, readdir, readFile, stat } from 'node:fs/promises'
 import { delimiter, extname, isAbsolute, join } from 'node:path'
 import { ipcMain } from 'electron'
 import { LRUCache } from 'lru-cache'

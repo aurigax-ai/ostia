@@ -1,4 +1,21 @@
 import '@testing-library/jest-dom/vitest'
+import type { ClipboardContents } from '@shared/app/appApi'
+import { PTY_ACK_CHARS } from '@shared/terminal/ptyFlow'
+import {
+  act,
+  cleanup,
+  fireEvent,
+  type RenderResult,
+  render,
+  screen,
+  waitFor,
+} from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import { FitAddon } from '@xterm/addon-fit'
+import type { ILink, ILinkHandler, ILinkProvider, Terminal as Xterm } from '@xterm/xterm'
+import type { ReactElement } from 'react'
+import { createPortal } from 'react-dom'
+import { afterAll, afterEach, beforeAll, describe, expect, it, onTestFinished, vi } from 'vitest'
 import { commands } from '@/commands/registry'
 import { FilesView } from '@/components/files/FilesView'
 import { focusPaneInDirection } from '@/lib/attention/workspaceActivity'
@@ -16,23 +33,6 @@ import { useBlocksStore } from '@/stores/terminal/blocksStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { releaseSurfaces, surfaceHost } from '@/stores/workspaces/surfaceSlotsStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
-import type { ClipboardContents } from '@shared/app/appApi'
-import { PTY_ACK_CHARS } from '@shared/terminal/ptyFlow'
-import {
-  type RenderResult,
-  act,
-  cleanup,
-  fireEvent,
-  render,
-  screen,
-  waitFor,
-} from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
-import { FitAddon } from '@xterm/addon-fit'
-import type { ILink, ILinkHandler, ILinkProvider, Terminal as Xterm } from '@xterm/xterm'
-import type { ReactElement } from 'react'
-import { createPortal } from 'react-dom'
-import { afterAll, afterEach, beforeAll, describe, expect, it, onTestFinished, vi } from 'vitest'
 import { renderSettled } from '../../../../test/render'
 import { TerminalView } from './Terminal'
 

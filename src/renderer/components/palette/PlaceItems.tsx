@@ -1,3 +1,6 @@
+import { AppWindowIcon } from '@phosphor-icons/react'
+import { PathText } from '@/components/common/MachineValue'
+import { WorkspaceBadges } from '@/components/sidebar/WorkspaceBadges'
 import { CommandGroup, CommandItem } from '@/components/ui/command'
 import { useDict } from '@/lib/app/useDict'
 import { revealPane } from '@/lib/attention/workspaceActivity'
@@ -9,9 +12,8 @@ import { type RemoteWorkspace, remoteWorkspacesOf } from '@/lib/workspaces/windo
 import { workspaceTitle } from '@/lib/workspaces/workspaceTitle'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { useWindowsStore } from '@/stores/workspaces/windowsStore'
-import type { Workspace } from '@/stores/workspaces/workspaceTypes'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
-import { AppWindowIcon } from '@phosphor-icons/react'
+import type { Workspace } from '@/stores/workspaces/workspaceTypes'
 import { ItemRow } from './PaletteItemRow'
 import { GROUP_CLASS } from './paletteClasses'
 
@@ -53,13 +55,23 @@ export function WorkspaceItems({
         return (
           <CommandItem
             key={w.id}
-            value={`${symbol} ${name} ${w.workDir} ${w.id}`}
+            value={`${symbol} ${name} ${w.workDir} ${w.projectDir ?? ''} ${w.id}`}
             onSelect={() => {
               selectWorkspace(w.id)
               onDone()
             }}
           >
-            <ItemRow name={name} meta={w.workDir} mono />
+            <ItemRow
+              name={name}
+              meta={
+                <PathText
+                  className="text-inherit"
+                  max={Number.POSITIVE_INFINITY}
+                  path={w.projectDir ?? w.workDir}
+                />
+              }
+              after={<WorkspaceBadges workspace={w} marksOnly />}
+            />
           </CommandItem>
         )
       })}

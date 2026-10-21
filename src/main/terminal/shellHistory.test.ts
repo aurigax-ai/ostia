@@ -7,11 +7,11 @@ import {
   HISTORY_ENTRIES_MAX,
   HISTORY_READ_MAX_BYTES,
   type HistoryPane,
-  ShellHistoryFiles,
   historyShell,
   paneHistory,
   parseBashHistory,
   parseZshHistory,
+  ShellHistoryFiles,
 } from './shellHistory'
 
 const OWNER = '7'

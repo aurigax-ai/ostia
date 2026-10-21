@@ -1,15 +1,15 @@
 import '@testing-library/jest-dom/vitest'
+import type { ExtensionInfo } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
+import { zhHant } from '@shared/app/dict'
+import { cleanup, render, screen, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { languagesFrom } from '@/lib/extensions/languagePacks'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useUIStore } from '@/stores/app/uiStore'
 import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
 import { usePluginsStore } from '@/stores/extensions/pluginsStore'
 import { useViewsStore } from '@/stores/extensions/viewsStore'
-import type { ExtensionInfo } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
-import { zhHant } from '@shared/app/dict'
-import { cleanup, render, screen, within } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
-import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { SettingsPanel } from './SettingsPanel'
 
 if (!Element.prototype.getAnimations) {
@@ -58,6 +58,7 @@ const BOARD: ExtensionInfo = {
   languageServers: [],
   fileKinds: [],
   agentSkills: [],
+  agentSkillProblems: [],
   agentHooks: [],
   iconThemes: [],
   keymaps: [],

@@ -6,17 +6,17 @@ import { platformEvents } from '../control/events'
 import type { ExtensionHost } from '../extensions/extensionHost'
 import { registerIconThemeIpc } from '../extensions/iconThemes'
 import { describeSkipped, registerKeymapIpc } from '../extensions/keymaps'
-import { registerLanguagePackIpc } from '../extensions/languagePacks'
 import type { LanguageSource } from '../extensions/languagePacks'
+import { registerLanguagePackIpc } from '../extensions/languagePacks'
 import { registerEditorLanguageIpc } from '../lsp/editorLanguages'
 import { registerCompletionIpc } from '../terminal/completionSpecs'
 import type { WindowSend } from '../windows/windowSend'
 import { registerSameFolder } from './sameFolder'
 import {
-  type SnippetDeps,
   ownSnippets,
   registerSnippetIpc,
   registerSnippetMethods,
+  type SnippetDeps,
 } from './snippets'
 import { ViewHost, ViewStore } from './viewHost'
 import { registerViewMethods, registerViewsIpc } from './viewsIpc'

@@ -1,18 +1,18 @@
 import {
   type CommandHandler,
+  connect,
+  createTranslator,
   type ExtensionEventType,
   type ExtensionResult,
   type ExtensionSettingValues,
-  connect,
-  createTranslator,
   failure,
   numberSetting,
   ok,
   startPanelServer,
 } from '@aurigax-ai/ostia-extension-sdk'
 import { HOUR_MS, realClock } from '@aurigax-ai/wire'
-import { createPaneSignals } from './paneSignals'
 import { panelHandlers } from './panelHandlers'
+import { createPaneSignals } from './paneSignals'
 import { GraphsRunner, type Workspace } from './runner'
 import { graphVerbs } from './verbs'
 

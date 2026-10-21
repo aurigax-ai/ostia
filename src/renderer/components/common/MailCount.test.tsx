@@ -1,3 +1,7 @@
+import type { MailItem } from '@shared/agents/mailApi'
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { MailCount } from '@/components/common/MailCount'
 import { TabFace } from '@/components/panes/TabFace'
 import { WorkspaceBadges } from '@/components/sidebar/WorkspaceBadges'
@@ -7,10 +11,6 @@ import type { PaneNode } from '@/lib/layout/types'
 import { useMailStore } from '@/stores/agents/mailStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
-import type { MailItem } from '@shared/agents/mailApi'
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const queued = (id: string, over: Partial<MailItem> = {}): MailItem => ({
   id,
@@ -109,7 +109,7 @@ describe('where the mark shows', () => {
     const layout = useLayoutStore.getState().byWorkspace[workspace.id]
     const paneId = layout.activePaneId
     useMailStore.setState({ byPane: { [paneId]: [queued('a'), queued('b')] } })
-    show(<WorkspaceBadges workspace={workspace} sandboxed={false} locked={false} />)
+    show(<WorkspaceBadges workspace={workspace} />)
     expect(
       screen.getByRole('img', { name: '2 unread messages for this agent' }),
     ).toBeInTheDocument()

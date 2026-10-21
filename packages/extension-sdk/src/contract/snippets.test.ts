@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import {
-  type Snippet,
   commandParts,
   defaultValues,
   parseSnippet,
   placeholderNames,
   renderSnippet,
+  type Snippet,
   snippetArguments,
   snippetDocument,
   snippetFileStem,

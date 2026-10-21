@@ -20,9 +20,9 @@ import {
   type ChangeArea,
   type FileChange,
   type LineChanges,
-  type RepoStatus,
   parsePorcelainV2,
   parseShortstat,
+  type RepoStatus,
   textLineCount,
   withUntracked,
 } from './status'

@@ -1,3 +1,5 @@
+import type { ExtensionAgentOffer } from '@aurigax-ai/ostia-extension-sdk/contract/extensionsBridge'
+import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -12,8 +14,6 @@ import { sendReference } from '@/lib/agents/sendPick'
 import { fmt, useDict } from '@/lib/app/useDict'
 import { stateLabel } from '@/lib/workspaces/workspaceState'
 import { useAgentOfferStore } from '@/stores/agents/agentOfferStore'
-import type { ExtensionAgentOffer } from '@aurigax-ai/ostia-extension-sdk/contract/extensionsBridge'
-import { useState } from 'react'
 import { useAgentTargets, useNoAgentsText } from './PickSendPanel'
 
 function OfferBody({ offer }: { offer: ExtensionAgentOffer }): JSX.Element {
@@ -41,6 +41,7 @@ function OfferBody({ offer }: { offer: ExtensionAgentOffer }): JSX.Element {
           {fmt(d.agentOffer.body, { extension: offer.extName })}
         </DialogDescription>
       </DialogHeader>
+      {/* biome-ignore lint/a11y/useAriaPropsSupportedByRole: the label names the block for screen readers and tests; a role would change how it is announced */}
       <pre
         aria-label={d.agentOffer.text}
         className="max-h-48 overflow-auto whitespace-pre-wrap break-words rounded-sm border border-line bg-surface-1 p-3 font-mono text-fg text-ui-sm"

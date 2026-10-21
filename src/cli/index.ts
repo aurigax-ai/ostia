@@ -1,12 +1,12 @@
 #!/usr/bin/env node
 import { once } from 'node:events'
-import { type Socket, createConnection } from 'node:net'
+import { createConnection, type Socket } from 'node:net'
 import { readEnv } from '@aurigax-ai/ostia-extension-sdk/contract/appEnv'
 import {
+  createMessageConnection,
   type MessageConnection,
   StreamMessageReader,
   StreamMessageWriter,
-  createMessageConnection,
 } from 'vscode-jsonrpc/node'
 import { controlInfoPath, readControlSocket } from '../main/control/controlDiscovery'
 import { SCRIPT_TOKEN_PREFIX } from '../shared/permissions/scriptTokens'
@@ -15,7 +15,7 @@ import { wantsHelp } from './common/commandHelp'
 import { commandLabel, describeFailure, fail, failVerb } from './common/failure'
 import { paneToken } from './common/paneToken'
 import { readAllStdin } from './common/stdinText'
-import { type UsageAnswer, topUsage, usageGate } from './common/usageTable'
+import { topUsage, type UsageAnswer, usageGate } from './common/usageTable'
 import { buildVersionAt } from './common/version'
 import { runAgentHook } from './hooks/agentHook'
 import { runClaudeHookVerb, runResumeTokenVerb, runTurnHookVerb } from './hooks/agentReports'

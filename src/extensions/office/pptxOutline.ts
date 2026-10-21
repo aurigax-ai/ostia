@@ -1,11 +1,11 @@
 import { GuardStop, type OfficeLimits } from './officeLimits'
-import { type Block, type Cell, type Figure, type Run, type Slide, runsText } from './outlineHtml'
+import { type Block, type Cell, type Figure, type Run, runsText, type Slide } from './outlineHtml'
 import {
-  type XmlElement,
   childOf,
   childrenOf,
   elementsOf,
   pathOf,
+  type XmlElement,
   xmlPartReader,
 } from './xmlReader'
 

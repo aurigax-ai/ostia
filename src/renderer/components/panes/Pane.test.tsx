@@ -1,4 +1,18 @@
 import '@testing-library/jest-dom/vitest'
+import type { WorkspaceSandbox } from '@shared/sandbox/sandbox'
+import {
+  act,
+  cleanup,
+  createEvent,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import { createPortal } from 'react-dom'
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { registerBuiltinCommands } from '@/commands/builtins'
 import { commands } from '@/commands/registry'
 import { allPanes, tabsOf } from '@/lib/layout/tree'
@@ -18,20 +32,6 @@ import {
   surfaceHost,
 } from '@/stores/workspaces/surfaceSlotsStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
-import type { WorkspaceSandbox } from '@shared/sandbox/sandbox'
-import {
-  act,
-  cleanup,
-  createEvent,
-  fireEvent,
-  render,
-  screen,
-  waitFor,
-  within,
-} from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
-import { createPortal } from 'react-dom'
-import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { Pane } from './Pane'
 import { PaneTree } from './PaneTree'
 

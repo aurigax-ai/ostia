@@ -1,3 +1,6 @@
+import { ArrowRightIcon, CaretRightIcon } from '@phosphor-icons/react'
+import type { KeybindingMap } from '@shared/keyboard/chordSpec'
+import { useEffect, useState } from 'react'
 import { Notice } from '@/components/common/Notice'
 import { useSearchLeaf } from '@/components/settingsKit/SettingsSearch'
 import { Button } from '@/components/ui/button'
@@ -5,29 +8,26 @@ import { Kbd } from '@/components/ui/kbd'
 import { fmt, useDict } from '@/lib/app/useDict'
 import { keymapBindings } from '@/lib/keyboard/chords'
 import {
-  type PresetLayer,
+  keyboardPlatform,
+  NATURAL_TEXT_EDITING,
+  OSTIA_KEYMAP,
+  terminalKeymapsFor,
+} from '@/lib/keyboard/keyboardPresets'
+import {
   appPresetChanges,
   appPreview,
+  type PresetLayer,
   textPresetChanges,
   textPreview,
   userChangeCount,
   userChanges,
 } from '@/lib/keyboard/keyChanges'
 import { terminalKeymapOf } from '@/lib/keyboard/keyPresets'
-import {
-  NATURAL_TEXT_EDITING,
-  OSTIA_KEYMAP,
-  keyboardPlatform,
-  terminalKeymapsFor,
-} from '@/lib/keyboard/keyboardPresets'
 import type { TerminalSend } from '@/lib/keyboard/terminalKeys'
 import { isMac, platform } from '@/platform'
 import { appKeymap, keymapChoices, useKeymapStore } from '@/stores/app/keymapStore'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
-import { ArrowRightIcon, CaretRightIcon } from '@phosphor-icons/react'
-import type { KeybindingMap } from '@shared/keyboard/chordSpec'
-import { useEffect, useState } from 'react'
 import {
   appKeymapLabel,
   commandTitle,
@@ -352,6 +352,7 @@ export function KeymapCombo({ onShowChanges }: { onShowChanges: () => void }): J
           <p>{fmt(d.keyboard.keymapSkipped, { name: loaded.label })}</p>
           <ul className="mt-1 list-disc pl-4">
             {loaded.skipped.map((skip, i) => (
+              // biome-ignore lint/suspicious/noArrayIndexKey: the index tells repeated entries apart and the list is rebuilt, never reordered
               <li key={`${i}:${skip.command}`}>
                 {fmt(d.keyboard.keymapSkippedEntry, {
                   command: skip.command,

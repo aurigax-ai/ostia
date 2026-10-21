@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { type XmlElement, childOf, childrenOf, pathOf, readXml } from './xmlReader'
+import { childOf, childrenOf, pathOf, readXml, type XmlElement } from './xmlReader'
 
 const DEPTH = 256
 

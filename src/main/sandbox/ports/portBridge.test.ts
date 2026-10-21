@@ -5,21 +5,21 @@ import {
   lstatSync,
   mkdirSync,
   mkdtempSync,
-  readFileSync,
   readdirSync,
+  readFileSync,
   rmSync,
   symlinkSync,
   writeFileSync,
 } from 'node:fs'
-import { type AddressInfo, type Server, type Socket, connect, createServer } from 'node:net'
+import { type AddressInfo, connect, createServer, type Server, type Socket } from 'node:net'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
-  PortBridge,
   bridgesPorts,
   controlSocketName,
   dataSocketName,
+  PortBridge,
   portBridgeCommand,
 } from './portBridge'
 

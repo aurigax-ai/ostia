@@ -9,7 +9,7 @@ import {
   rmSync,
   writeFileSync,
 } from 'node:fs'
-import { type Server, createServer as createHttpServer } from 'node:http'
+import { createServer as createHttpServer, type Server } from 'node:http'
 import { type AddressInfo, createConnection, createServer } from 'node:net'
 import { tmpdir } from 'node:os'
 import { basename, dirname, join } from 'node:path'

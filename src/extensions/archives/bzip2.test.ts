@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { TEXT, manyBlocks, mixed, seeded } from '../../../test/fixtures/archives/bzip2Data'
+import { manyBlocks, mixed, seeded, TEXT } from '../../../test/fixtures/archives/bzip2Data'
 import { bz2 } from '../../../test/fixtures/archives/bzip2Fixture'
 import { Bzip2Decoder, Bzip2Error } from './bzip2'
 

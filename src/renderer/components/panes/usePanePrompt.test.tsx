@@ -1,12 +1,12 @@
 import '@testing-library/jest-dom/vitest'
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import * as resumeFolder from '@/lib/agents/resumeFolder'
 import type { PaneNode } from '@/lib/layout/types'
 import { useApprovalsStore } from '@/stores/agents/approvalsStore'
 import { useFolderTrustStore } from '@/stores/agents/folderTrustStore'
 import { useHiddenPromptsStore } from '@/stores/agents/hiddenPromptsStore'
 import { useQuestionsStore } from '@/stores/agents/questionsStore'
-import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
 import { usePanePrompt } from './usePanePrompt'
 
 function Host({ pane }: { pane: PaneNode }): JSX.Element {

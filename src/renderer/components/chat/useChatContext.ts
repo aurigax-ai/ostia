@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import {
   ASK_CONTEXT_ORDER,
   type AskContextKind,
@@ -6,7 +7,6 @@ import {
   useWorkspaceEditorFile,
 } from '@/lib/assist/askContext'
 import { useLiveSelectionStore } from '@/stores/terminal/liveSelectionStore'
-import { useState } from 'react'
 
 interface ChatContextParams {
   workspaceId: string | null

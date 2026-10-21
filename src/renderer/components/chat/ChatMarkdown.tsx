@@ -1,3 +1,7 @@
+import { TerminalWindowIcon } from '@phosphor-icons/react'
+import { resolveLinkPath } from '@shared/files/fileLinks'
+import type { ReactNode } from 'react'
+import type { Components } from 'react-markdown'
 import {
   CodeBlock,
   CodeBlockActions,
@@ -9,16 +13,12 @@ import { IconButton } from '@/components/common/IconButton'
 import { fmt, useDict } from '@/lib/app/useDict'
 import { isShellLanguage } from '@/lib/assist/askContext'
 import { insertInto, looksLikeCommand } from '@/lib/assist/chatActions'
-import { fileLinkOf, isWebUrl, wholeFileLink } from '@/lib/assist/chatLinks'
 import type { FileLinkTarget } from '@/lib/assist/chatLinks'
+import { fileLinkOf, isWebUrl, wholeFileLink } from '@/lib/assist/chatLinks'
 import { openFileAt } from '@/lib/files/openFile'
 import { openSidebarUrl } from '@/lib/sidebar/sidebarItems'
 import { useUIStore } from '@/stores/app/uiStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
-import { TerminalWindowIcon } from '@phosphor-icons/react'
-import { resolveLinkPath } from '@shared/files/fileLinks'
-import type { ReactNode } from 'react'
-import type { Components } from 'react-markdown'
 import {
   type ChatActionNotice,
   ChatCodeActions,

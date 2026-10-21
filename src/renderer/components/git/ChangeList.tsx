@@ -1,10 +1,3 @@
-import { IconButton } from '@/components/common/IconButton'
-import { focusSibling } from '@/lib/app/rowFocus'
-import { fmt, useDict } from '@/lib/app/useDict'
-import { splitPath } from '@/lib/files/fileTree'
-import { type TreeNode, buildFileTree } from '@/lib/git/gitFileTree'
-import { AREA_ORDER, leaves, rowIndent } from '@/lib/git/gitView'
-import { useSettingsStore } from '@/stores/app/settingsStore'
 import {
   ArrowCounterClockwiseIcon,
   ArrowDownIcon,
@@ -31,6 +24,14 @@ import type {
   StatusSummary,
 } from '@shared/boards/git'
 import { Fragment, type KeyboardEvent, type ReactNode, useMemo } from 'react'
+import { IconButton } from '@/components/common/IconButton'
+import { Segmented } from '@/components/common/Segmented'
+import { focusSibling } from '@/lib/app/rowFocus'
+import { fmt, useDict } from '@/lib/app/useDict'
+import { splitPath } from '@/lib/files/fileTree'
+import { buildFileTree, type TreeNode } from '@/lib/git/gitFileTree'
+import { AREA_ORDER, leaves, rowIndent } from '@/lib/git/gitView'
+import { useSettingsStore } from '@/stores/app/settingsStore'
 
 type GitDict = Dict['git']
 
@@ -96,21 +97,16 @@ export function ViewToggle(): JSX.Element {
     if (next !== view) useSettingsStore.getState().setGit({ changesView: next })
   }
   return (
-    // biome-ignore lint/a11y/useSemanticElements: a toolbar group of two toggles, not a form fieldset
-    <div className="segmented" role="group" aria-label={t.viewAs}>
-      <IconButton
-        icon={ListBulletsIcon}
-        label={t.viewList}
-        aria-pressed={view === 'list'}
-        onClick={() => choose('list')}
-      />
-      <IconButton
-        icon={TreeStructureIcon}
-        label={t.viewTree}
-        aria-pressed={view === 'tree'}
-        onClick={() => choose('tree')}
-      />
-    </div>
+    <Segmented
+      iconOnly
+      label={t.viewAs}
+      value={view}
+      options={[
+        { value: 'list', label: t.viewList, icon: ListBulletsIcon },
+        { value: 'tree', label: t.viewTree, icon: TreeStructureIcon },
+      ]}
+      onChange={choose}
+    />
   )
 }
 
@@ -125,7 +121,7 @@ export function Tracking({ branch }: { branch: BranchInfo }): JSX.Element {
     <span className="tracking" title={title}>
       <span className="upstream muted">
         <CloudIcon />
-        {branch.upstream}
+        <span className="upstream-name">{branch.upstream}</span>
       </span>
       {branch.ahead > 0 ? (
         <span className="count ahead">
@@ -342,7 +338,10 @@ function RowActions({
 function AreaActions({
   area,
   handlers,
-}: { area: ChangeArea; handlers: ChangeHandlers }): JSX.Element | null {
+}: {
+  area: ChangeArea
+  handlers: ChangeHandlers
+}): JSX.Element | null {
   const t = useDict().git
   if (area === 'conflicted') return null
   if (area === 'staged') {

@@ -264,6 +264,7 @@ export interface ExtensionInfo {
   languageServers: LanguageServerSummary[]
   fileKinds: FileKindInfo[]
   agentSkills: string[]
+  agentSkillProblems: string[]
   agentHooks: AgentHookSummary[]
 }
 

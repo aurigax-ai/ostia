@@ -2,15 +2,15 @@ import { setTimeout as sleep } from 'node:timers/promises'
 import { PRODUCT_DISPLAY_NAME } from '@aurigax-ai/ostia-extension-sdk/contract/productDisplay'
 import { globMatches } from '../../shared/browser/browseInput'
 import type { BrowseOutcome, ElementState, FindQuery } from '../../shared/browser/browseRuntime'
-import { type SnapshotNode, formatSnapshot } from '../../shared/browser/browseSnapshot'
+import { formatSnapshot, type SnapshotNode } from '../../shared/browser/browseSnapshot'
 import type { BrowseInput } from './browseInput'
 import {
   type BrowseDeps,
   type BrowseMethod,
-  MAX_TIMEOUT_MS,
   clampTimeout,
   debuggerCommand,
   fail,
+  MAX_TIMEOUT_MS,
   num,
   safeOutPath,
   scratchPath,

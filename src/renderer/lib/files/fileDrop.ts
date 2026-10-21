@@ -1,7 +1,7 @@
+import type { OpenFileVerdict } from '@shared/files/openFiles'
 import { currentDict, fmt } from '@/lib/app/useDict'
 import { startNewWorkspace } from '@/lib/workspaces/newWorkspace'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
-import type { OpenFileVerdict } from '@shared/files/openFiles'
 import { openFileTabs, reportFileProblem } from './openFile'
 
 export const FILE_DRAG_ATTRIBUTE = 'data-file-drag'

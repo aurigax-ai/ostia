@@ -1,7 +1,7 @@
 import {
   type BrowserProfile,
-  SHARED_BROWSER_PARTITION,
   isIsolatedBrowserPartition,
+  SHARED_BROWSER_PARTITION,
 } from '../../shared/browser/browserProfile'
 
 export interface BrowserPaneOwner {

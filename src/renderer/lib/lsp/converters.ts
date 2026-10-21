@@ -1,4 +1,3 @@
-import { monaco } from '@/lib/monaco/setup'
 import type {
   CompletionItem,
   Diagnostic,
@@ -17,6 +16,7 @@ import type {
   SymbolInformation,
   TextEdit,
 } from 'vscode-languageserver-protocol'
+import { monaco } from '@/lib/monaco/setup'
 
 const SNIPPET_FORMAT = 2
 const DEPRECATED_TAG = 1

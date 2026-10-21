@@ -1,16 +1,16 @@
+import { useEffect, useMemo, useState } from 'react'
 import { CommandGroup, CommandItem } from '@/components/ui/command'
 import { fmt, useDict } from '@/lib/app/useDict'
 import { childPath, splitPath } from '@/lib/files/fileTree'
 import { openFileAt } from '@/lib/files/openFile'
 import {
+  findWorkspaceLines,
   LINE_SEARCH_DELAY_MS,
   type WorkspaceLineResult,
-  findWorkspaceLines,
 } from '@/lib/files/workspaceFileSearch'
 import { settingsSections } from '@/lib/settings/settingsSections'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useUIStore } from '@/stores/app/uiStore'
-import { useEffect, useMemo, useState } from 'react'
 import { ItemRow } from './PaletteItemRow'
 import { GROUP_CLASS } from './paletteClasses'
 
@@ -69,7 +69,10 @@ export function LineItems({
 export function FilesTextItem({
   query,
   onDone,
-}: { query: string; onDone: () => void }): JSX.Element {
+}: {
+  query: string
+  onDone: () => void
+}): JSX.Element {
   const d = useDict()
   return (
     <CommandItem
@@ -89,7 +92,10 @@ export function FilesTextItem({
 export function SettingsItems({
   query,
   onDone,
-}: { query: string; onDone: () => void }): JSX.Element {
+}: {
+  query: string
+  onDone: () => void
+}): JSX.Element {
   const d = useDict()
   const sections = useMemo(() => settingsSections(d), [d])
   const open = (section: string | undefined, text: string): void => {

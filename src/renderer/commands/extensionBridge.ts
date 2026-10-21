@@ -1,3 +1,7 @@
+import type { ExtensionInfo } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
+import type { ExtensionOpenPanelRequest } from '@aurigax-ai/ostia-extension-sdk/contract/extensionsBridge'
+import type { GitOpenDiffRequest } from '@shared/boards/git'
+import type { ProcessTerminalRequest } from '@shared/workspaces/workspaceApi'
 import { revealPane } from '@/lib/attention/workspaceActivity'
 import { findPane } from '@/lib/layout/tree'
 import { openKeepingFocus } from '@/lib/panes/callerFocus'
@@ -13,10 +17,6 @@ import { usePanelToolbarStore } from '@/stores/extensions/panelToolbarStore'
 import { usePluginsStore } from '@/stores/extensions/pluginsStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
-import type { ExtensionInfo } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
-import type { ExtensionOpenPanelRequest } from '@aurigax-ai/ostia-extension-sdk/contract/extensionsBridge'
-import type { GitOpenDiffRequest } from '@shared/boards/git'
-import type { ProcessTerminalRequest } from '@shared/workspaces/workspaceApi'
 import { commands } from './registry'
 
 const registered = new Map<string, string>()

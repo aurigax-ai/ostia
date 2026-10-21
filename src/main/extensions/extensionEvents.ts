@@ -11,8 +11,8 @@ import { hasCap } from '../approvals/capabilityStore'
 import type { PaneIdentity } from '../control/idRegistry'
 import type { ExtensionHostDeps } from './extensionHostDeps'
 import type { ExtensionRuns } from './extensionRuns'
-import { fail } from './extensionRuntime'
 import type { Runtime } from './extensionRuntime'
+import { fail } from './extensionRuntime'
 
 const EVENT_CAPABILITIES: Partial<Record<ExtensionEventType, Capability>> = {
   notification: 'notify',

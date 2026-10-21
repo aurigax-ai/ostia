@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
-  PHRASING_PROMPTS_MAX,
   PHRASING_PROMPT_CHARS,
+  PHRASING_PROMPTS_MAX,
   parsePhrasing,
   phrasingInput,
 } from './phrasing'

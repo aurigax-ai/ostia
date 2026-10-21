@@ -1,4 +1,5 @@
 import { isRecord } from '@aurigax-ai/ostia-extension-sdk/contract/isRecord'
+
 type SpecTemplate = 'filepaths' | 'folders'
 
 interface SpecSuggestion {

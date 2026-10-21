@@ -1,3 +1,13 @@
+import type {
+  ExtensionInfo,
+  WorkspaceChip,
+} from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
+import type { QuestionRequest } from '@shared/agents/questions'
+import type { ApprovalRequest } from '@shared/permissions/approvals'
+import { act, cleanup, render, screen, waitFor, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import type { Terminal } from '@xterm/xterm'
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { createPane } from '@/lib/layout/tree'
 import { registerTerminal } from '@/lib/terminal/terminalHandles'
 import { useApprovalsStore } from '@/stores/agents/approvalsStore'
@@ -10,16 +20,6 @@ import { useBlocksStore } from '@/stores/terminal/blocksStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { useWindowsStore } from '@/stores/workspaces/windowsStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
-import type {
-  ExtensionInfo,
-  WorkspaceChip,
-} from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
-import type { QuestionRequest } from '@shared/agents/questions'
-import type { ApprovalRequest } from '@shared/permissions/approvals'
-import { act, cleanup, render, screen, waitFor, within } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
-import type { Terminal } from '@xterm/xterm'
-import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { DashboardPanel } from './DashboardPanel'
 import { QuestionPrompt } from './QuestionCard'
 
@@ -50,6 +50,7 @@ const git: ExtensionInfo = {
   languageServers: [],
   fileKinds: [],
   agentSkills: [],
+  agentSkillProblems: [],
   agentHooks: [],
   iconThemes: [],
   keymaps: [],
@@ -272,8 +273,37 @@ describe('DashboardPanel', () => {
     expect(rows[0]).toHaveTextContent('~/work/api')
     expect(rows[0]).toHaveTextContent('Approve the migration plan')
     expect(rows[1]).toHaveTextContent('Storefront')
-    expect(rows[1]).toHaveTextContent('Idle')
+    expect(rows[1]).not.toHaveTextContent('Idle')
     expect(rows[1]).toHaveTextContent('~/work/web')
+  })
+
+  it('shows a badge for a pinned or scratch workspace and a count of unread panes', () => {
+    seed()
+    const store = useWorkspacesStore.getState()
+    useWorkspacesStore.setState({
+      workspaces: store.workspaces.map((w, i) =>
+        i === 1 ? { ...w, kind: 'scratch', pinned: true } : w,
+      ),
+    })
+    useAttentionStore
+      .getState()
+      .dispatch('p-web', { type: 'notify', message: 'Done', waiting: false, at: 9 })
+    render(<DashboardPanel />)
+    open()
+    const row = screen.getByRole('button', { name: 'Open workspace Storefront' }).closest('li')
+    expect(within(row as HTMLElement).getByText('Scratch')).toBeInTheDocument()
+    expect(within(row as HTMLElement).getByLabelText('Pinned')).toBeInTheDocument()
+    expect(within(row as HTMLElement).getByRole('img', { name: /unread/ })).toHaveTextContent('1')
+  })
+
+  it('loads the sandbox state itself and shows the shield on a sandboxed workspace', async () => {
+    seed()
+    vi.mocked(window.ostia.sandbox.get).mockResolvedValue({ enabled: true } as never)
+    vi.mocked(window.ostia.sandbox.stamp).mockResolvedValue('stamp')
+    render(<DashboardPanel />)
+    open()
+    const row = screen.getByRole('button', { name: 'Open workspace Storefront' }).closest('li')
+    expect(await within(row as HTMLElement).findByLabelText('Sandboxed')).toBeInTheDocument()
   })
 
   it('shows the running command when no message is waiting', () => {

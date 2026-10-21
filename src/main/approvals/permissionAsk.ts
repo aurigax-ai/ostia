@@ -1,7 +1,7 @@
 import {
+  normalizePermissionAsk,
   PERMISSION_CHOICES,
   type PermissionChoice,
-  normalizePermissionAsk,
 } from '../../shared/agents/agentPermissions'
 import { type ControlMethodContext, registerControlMethod } from '../control/controlServer'
 import type { Questions } from './questions'

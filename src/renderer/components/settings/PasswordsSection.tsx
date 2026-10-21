@@ -1,3 +1,7 @@
+import { CopyIcon, TrashIcon } from '@phosphor-icons/react'
+import type { Dict } from '@shared/app/dict'
+import type { CredentialImportResult, CredentialSummary } from '@shared/browser/credentials'
+import { type FormEvent, useCallback, useEffect, useState } from 'react'
 import { IconButton } from '@/components/common/IconButton'
 import { SettingsGroup } from '@/components/settingsKit/SettingsGroup'
 import { SettingsList } from '@/components/settingsKit/SettingsList'
@@ -15,10 +19,6 @@ import {
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { fmt, useDict } from '@/lib/app/useDict'
-import { CopyIcon, TrashIcon } from '@phosphor-icons/react'
-import type { Dict } from '@shared/app/dict'
-import type { CredentialImportResult, CredentialSummary } from '@shared/browser/credentials'
-import { type FormEvent, useCallback, useEffect, useState } from 'react'
 
 function importMessage(d: Dict, res: CredentialImportResult): string | null {
   if (res.ok)

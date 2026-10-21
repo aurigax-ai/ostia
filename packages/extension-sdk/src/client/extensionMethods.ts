@@ -27,8 +27,8 @@ import {
   type ExecResult,
   type McpCallReply,
   type McpServersResult,
-  type WakePaneResult,
   rpcFailure,
+  type WakePaneResult,
 } from './workApi'
 
 type Failed = { ok: false; error: string; message?: string }

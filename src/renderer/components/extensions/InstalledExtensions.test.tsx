@@ -1,5 +1,3 @@
-import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
-import { useMarketplaceStore } from '@/stores/extensions/marketplaceStore'
 import type { ExtensionInfo } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import type {
   MarketplaceExtension,
@@ -9,6 +7,8 @@ import type {
 import { cleanup, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
+import { useMarketplaceStore } from '@/stores/extensions/marketplaceStore'
 import { renderSettled } from '../../../../test/render'
 import { ExtensionsSection } from './InstalledExtensions'
 
@@ -44,6 +44,7 @@ function ext(id: string, name: string, over: Partial<ExtensionInfo> = {}): Exten
     languageServers: [],
     fileKinds: [],
     agentSkills: [],
+    agentSkillProblems: [],
     agentHooks: [],
     iconThemes: [],
     keymaps: [],

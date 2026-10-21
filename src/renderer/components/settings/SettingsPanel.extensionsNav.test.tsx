@@ -1,13 +1,13 @@
 import '@testing-library/jest-dom/vitest'
+import type { ExtensionInfo } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
+import { act, cleanup, screen, waitFor, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { EXTENSIONS_NAV_EXPANDED_KEY } from '@/lib/settings/settingsNav'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useUIStore } from '@/stores/app/uiStore'
 import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
 import { usePluginsStore } from '@/stores/extensions/pluginsStore'
-import type { ExtensionInfo } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
-import { act, cleanup, screen, waitFor, within } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
-import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { installLocalStorage } from '../../../../test/mocks/memoryStorage'
 import { renderSettled } from '../../../../test/render'
 import { SettingsPanel } from './SettingsPanel'
@@ -44,6 +44,7 @@ function ext(id: string, name: string, overrides: Partial<ExtensionInfo> = {}): 
     languageServers: [],
     fileKinds: [],
     agentSkills: [],
+    agentSkillProblems: [],
     agentHooks: [],
     iconThemes: [],
     keymaps: [],

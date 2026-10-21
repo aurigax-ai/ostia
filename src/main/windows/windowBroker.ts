@@ -13,19 +13,19 @@ import type { AppSnapshot, WindowBounds } from '../../shared/workspaces/workspac
 import type { AgentRunningPanes } from '../agents/agentRunning'
 import {
   type OriginRules,
-  ReferenceRelay,
   originAgentOwner,
   originAgents,
   parseAttentionState,
   parsePaneAgent,
   parseReferenceRequest,
+  ReferenceRelay,
   reachesTarget,
   summaryOf,
 } from '../agents/originAgents'
 import { getByPaneId } from '../control/idRegistry'
 import { clearPersisted } from '../workspaces/savedScrollback'
 import { loadSnapshot, parseSnapshot, saveSnapshot } from '../workspaces/workspaceSnapshot'
-import { MAIN_SLOT, WindowBook, clampBounds } from './windowBook'
+import { clampBounds, MAIN_SLOT, WindowBook } from './windowBook'
 import { WindowHandoffs, windowIdOf, workAreas } from './windowHandoffs'
 
 export interface WindowBrokerDeps {

@@ -1,7 +1,7 @@
+import { create } from 'zustand'
 import { releaseFocusForPalette } from '@/lib/palette/paletteFocus'
 import { COMMANDS_PREFIX } from '@/lib/palette/paletteModes'
 import { parseSettingsTarget } from '@/lib/settings/settingsNav'
-import { create } from 'zustand'
 
 type PaletteOpenMode = 'search' | 'everywhere' | 'ask'
 

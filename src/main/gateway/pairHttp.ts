@@ -1,7 +1,7 @@
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import { cleanDeviceName } from '../../shared/gateway/deviceName'
-import { cancelPairRequest, openPairRequest, revealPairRequest } from './pairRequests'
 import { auditPairAttempt, checkPairRateLimit, consumeCode, isLiveCode } from './pairing'
+import { cancelPairRequest, openPairRequest, revealPairRequest } from './pairRequests'
 
 export interface PairHttpDeps {
   peerAddress: (socket: object & { remoteAddress?: string }) => string

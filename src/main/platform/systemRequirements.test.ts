@@ -13,12 +13,12 @@ import { afterAll, afterEach, describe, expect, it } from 'vitest'
 import { MANAGER_FEATURE } from '../../shared/agents/managerSettings'
 import { KEEP_SHELLS_FEATURE } from '../../shared/terminal/keepShells'
 import {
-  SANDBOX_FEATURE,
   installHint,
   missingRequirements,
   programPath,
   registerRequirements,
   requirementLabel,
+  SANDBOX_FEATURE,
 } from './systemRequirements'
 import { resetLoginPath, resolveLoginPath } from './toolPath'
 

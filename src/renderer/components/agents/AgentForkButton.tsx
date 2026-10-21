@@ -1,9 +1,9 @@
+import { GitForkIcon } from '@phosphor-icons/react'
 import { IconButton } from '@/components/common/IconButton'
-import { forkConversation, forkableResume } from '@/lib/agents/forkConversation'
+import { forkableResume, forkConversation } from '@/lib/agents/forkConversation'
 import { useDict } from '@/lib/app/useDict'
 import type { PaneNode } from '@/lib/layout/types'
 import { useBlocksStore } from '@/stores/terminal/blocksStore'
-import { GitForkIcon } from '@phosphor-icons/react'
 
 export function AgentForkButton({
   pane,

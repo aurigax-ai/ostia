@@ -1,5 +1,5 @@
-import { currentDict } from '@/lib/app/useDict'
 import type { AgentReply } from '@aurigax-ai/ostia-extension-sdk/contract/agent'
+import { currentDict } from '@/lib/app/useDict'
 
 export function agentProblem(reply: Extract<AgentReply, { ok: false }>): string {
   const d = currentDict().agentPane

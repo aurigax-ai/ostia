@@ -1,8 +1,8 @@
+import { act, cleanup, render, screen } from '@testing-library/react'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { BUILTIN_PLUGINS } from '@/lib/theme/builtin'
 import type { ColorScheme } from '@/lib/theme/types'
 import { useSettingsStore } from '@/stores/app/settingsStore'
-import { act, cleanup, render, screen } from '@testing-library/react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
 import { CodeBlockContent } from './code-block'
 
 const colorizeCode = vi.fn(async () => null)

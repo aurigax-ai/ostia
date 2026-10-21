@@ -1,8 +1,8 @@
 import '@testing-library/jest-dom/vitest'
-import { commands } from '@/commands/registry'
-import { useHiddenPromptsStore } from '@/stores/agents/hiddenPromptsStore'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { commands } from '@/commands/registry'
+import { useHiddenPromptsStore } from '@/stores/agents/hiddenPromptsStore'
 import { ResumeFolderPrompt } from './ResumePrompts'
 
 afterEach(() => {

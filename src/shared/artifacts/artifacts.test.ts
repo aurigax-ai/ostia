@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import {
   type ArtifactEntry,
-  PAD_MAX_BYTES,
   artifactChanges,
   changedArtifacts,
   exceedsPad,
   isInside,
   isPadPath,
+  PAD_MAX_BYTES,
 } from './artifacts'
 
 const entry = (name: string, modified: number): ArtifactEntry => ({

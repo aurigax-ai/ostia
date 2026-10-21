@@ -1,4 +1,3 @@
-import { useSettingsStore } from '@/stores/app/settingsStore'
 import type {
   ExtensionConnectionEntry,
   ExtensionConnectionSave,
@@ -11,6 +10,7 @@ import type {
 } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import { type CoreItems, NO_CORE_ITEMS } from '@shared/boards/git'
 import { create } from 'zustand'
+import { useSettingsStore } from '@/stores/app/settingsStore'
 
 interface Contributed {
   sidebar: ExtensionSidebarItem[]

@@ -1,3 +1,16 @@
+import type { ChatContextItem } from '@aurigax-ai/ostia-extension-sdk/contract/assist'
+import {
+  AtIcon,
+  BrowserIcon,
+  FileIcon,
+  FolderSimpleIcon,
+  SelectionIcon,
+  TagIcon,
+  TextAlignLeftIcon,
+  WarningCircleIcon,
+  XIcon,
+} from '@phosphor-icons/react'
+import { useEffect, useMemo, useState } from 'react'
 import { IconButton } from '@/components/common/IconButton'
 import {
   Command,
@@ -23,19 +36,6 @@ import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useBlocksStore } from '@/stores/terminal/blocksStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
-import type { ChatContextItem } from '@aurigax-ai/ostia-extension-sdk/contract/assist'
-import {
-  AtIcon,
-  BrowserIcon,
-  FileIcon,
-  FolderSimpleIcon,
-  SelectionIcon,
-  TagIcon,
-  TextAlignLeftIcon,
-  WarningCircleIcon,
-  XIcon,
-} from '@phosphor-icons/react'
-import { useEffect, useMemo, useState } from 'react'
 
 const PREVIEW_MAX = 4000
 

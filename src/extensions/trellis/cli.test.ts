@@ -2,7 +2,7 @@ import { existsSync, readdirSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { TEXT_DIR_PREFIX, TrellisCli, failureOf } from './cli'
+import { failureOf, TEXT_DIR_PREFIX, TrellisCli } from './cli'
 import { type FakeTrellis, fakeTrellis } from './testFake'
 
 function textDirs(root: string): string[] {

@@ -1,10 +1,10 @@
 import '@testing-library/jest-dom/vitest'
-import { findPane } from '@/lib/layout/tree'
-import type { PaneNode } from '@/lib/layout/types'
-import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import type { ResumeFailure } from '@shared/agents/agentResume'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeAll, describe, expect, it } from 'vitest'
+import { findPane } from '@/lib/layout/tree'
+import type { PaneNode } from '@/lib/layout/types'
+import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { ResumeFailedPrompt } from './ResumePrompts'
 
 const failure: ResumeFailure = {

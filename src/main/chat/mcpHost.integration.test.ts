@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 import type { McpServerSettings, McpServerStatus } from '../../shared/assist/chatTools'
 import type { ExtensionSecretStore } from '../extensions/extensionHostDeps'
 import { setMcpSecret } from './chatToolsIpc'
-import { McpHost, formatCallResult } from './mcpHost'
+import { formatCallResult, McpHost } from './mcpHost'
 
 const FAKE_SERVER = join(__dirname, '../../../test/fixtures/mcp/fake-server.mjs')
 

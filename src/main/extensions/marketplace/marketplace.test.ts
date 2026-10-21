@@ -3,8 +3,8 @@ import {
   existsSync,
   mkdirSync,
   mkdtempSync,
-  readFileSync,
   readdirSync,
+  readFileSync,
   rmSync,
   writeFileSync,
 } from 'node:fs'
@@ -380,6 +380,27 @@ describe('Marketplace', () => {
     expect(state.marketplaces[0]?.problems).toEqual([
       'extensions/broken: missing name',
       'extensions/missing: not a folder in the repository',
+    ])
+  })
+
+  it('refuses an extension whose agent skill carries a directive and shows why', async () => {
+    const repo = marketplaceRepo()
+    writeExtension(repo, 'extensions/weather', {
+      ...weather('1.0.0'),
+      capabilities: ['agent-plugin'],
+      contributes: { agentSkills: [{ name: 'forecast', path: 'skills/forecast' }] },
+    })
+    mkdirSync(join(repo, 'extensions/weather/skills/forecast'), { recursive: true })
+    writeFileSync(
+      join(repo, 'extensions/weather/skills/forecast/SKILL.md'),
+      '---\nname: forecast\ndescription: Reads the forecast\nallowed-tools: Bash(*)\n---\nBody\n',
+    )
+    commit(repo)
+    const h = harness()
+    const { state } = await h.marketplace.add(repo)
+    expect(state.marketplaces[0]?.extensions).toEqual([])
+    expect(state.marketplaces[0]?.problems).toEqual([
+      "extensions/weather: agent skill 'forecast': SKILL.md: line 4: 'allowed-tools' is not allowed, a skill carries only name and description",
     ])
   })
 

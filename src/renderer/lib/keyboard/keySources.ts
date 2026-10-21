@@ -2,18 +2,18 @@ import {
   CHORDS_PER_COMMAND_MAX,
   type ChordSpec,
   type ChordValue,
-  type KeybindingMap,
   formatScopedChord,
+  type KeybindingMap,
   sameChord,
   sameScope,
 } from '@shared/keyboard/chordSpec'
 import { defaultChords, specsOf } from './chords'
 import {
-  type TerminalKeyRow,
   presetKeys,
   signatureOf,
-  terminalKeyTable,
+  type TerminalKeyRow,
   terminalKeymapOf,
+  terminalKeyTable,
 } from './keyPresets'
 import type { TerminalKeyMap, TerminalSend } from './terminalKeys'
 import { sendData } from './terminalKeys'

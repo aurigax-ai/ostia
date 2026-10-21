@@ -1,7 +1,6 @@
-import { highlightParts, matchesQuery } from '@/lib/settings/settingsSearch'
 import {
-  type ReactNode,
   createContext,
+  type ReactNode,
   useCallback,
   useContext,
   useLayoutEffect,
@@ -10,6 +9,7 @@ import {
   useState,
   useSyncExternalStore,
 } from 'react'
+import { highlightParts, matchesQuery } from '@/lib/settings/settingsSearch'
 
 export interface SearchStore {
   get: () => string

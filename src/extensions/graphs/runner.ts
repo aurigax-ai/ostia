@@ -2,24 +2,24 @@ import { realpathSync } from 'node:fs'
 import type { OstiaExtension } from '@aurigax-ai/ostia-extension-sdk'
 import {
   type Clock,
+  connectorProblems,
   type GraphFile,
   type Host,
+  isEnded,
+  missingKinds,
   type NodeKind,
   type Notice,
   type Output,
   type Problem,
   type RunSummary,
-  type RunView,
   type RuntimeClient,
-  connectorProblems,
-  isEnded,
-  missingKinds,
+  type RunView,
   resultErrors,
   routerNode,
   waitNode,
 } from '@aurigax-ai/wire'
 import { AGENT_LATE, AGENT_STOP, agentNode } from './agentNode'
-import { NATIVE_CONNECTORS, SANDBOXED_CONNECTOR, ostiaConnectorNode } from './connectorHost'
+import { NATIVE_CONNECTORS, ostiaConnectorNode, SANDBOXED_CONNECTOR } from './connectorHost'
 import { type GraphEntry, graphPath, listGraphs, readGraph } from './graphFiles'
 import {
   approvalNode,

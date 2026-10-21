@@ -1,3 +1,5 @@
+import { GearSixIcon } from '@phosphor-icons/react'
+import { useEffect, useState } from 'react'
 import { PanelResizer } from '@/components/common/PanelResizer'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { ViewsRail } from '@/components/views/ViewsRail'
@@ -10,23 +12,21 @@ import { loadMergeTargets, requestMergeWorkspace } from '@/lib/workspaces/worksp
 import { coversWorkspaces, useUIStore } from '@/stores/app/uiStore'
 import { usePaneDnd } from '@/stores/workspaces/paneDndStore'
 import { useRailEditStore } from '@/stores/workspaces/railEditStore'
-import type { Workspace } from '@/stores/workspaces/workspaceTypes'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
-import { GearSixIcon } from '@phosphor-icons/react'
-import { useEffect, useState } from 'react'
+import type { Workspace } from '@/stores/workspaces/workspaceTypes'
 import { GroupBlock } from './GroupBlock'
 import { SidebarFooter } from './RailMeta'
 import { RailCollapsedContext, RailTab } from './RailTab'
 import { RemoteWorkspaces } from './RemoteWorkspaces'
-import { WorkspaceRow } from './WorkspaceRow'
 import {
   type DragHandlers,
-  type RailDrag,
-  type TabDropHandlers,
   draggedTab,
   isRailDrag,
+  type RailDrag,
   sameTarget,
+  type TabDropHandlers,
 } from './railDrag'
+import { WorkspaceRow } from './WorkspaceRow'
 
 const RAIL_ID = 'deck-rail'
 

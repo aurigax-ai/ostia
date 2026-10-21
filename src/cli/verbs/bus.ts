@@ -5,16 +5,16 @@ import {
 } from '@aurigax-ai/ostia-extension-sdk/contract/agentPlugins'
 import type { MessageConnection } from 'vscode-jsonrpc/node'
 import {
+  busInboxText,
   type MailPending,
   type MailReceipt,
-  busInboxText,
   mailLabel,
 } from '../../shared/agents/busMessages'
 import { parseArgs } from '../common/args'
 import {
-  type ErrResult,
   commandLabel,
   describeErrResult,
+  type ErrResult,
   failUsage,
   failVerb,
   failWith,
