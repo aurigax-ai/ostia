@@ -28,10 +28,14 @@ const PAGE = `<!doctype html>
 const sendToAgent = defaultChord('selection.sendToAgent', isMac)
 
 const readClipboard = (app: ElectronApplication) =>
-  app.evaluate(({ clipboard }) => ({
-    text: clipboard.readText(),
-    hasImage: !clipboard.readImage().isEmpty(),
-  }))
+  app.evaluate(async ({ clipboard }) => {
+    const items = await clipboard.read()
+    const plain = items.find((item) => item.types.includes('text/plain'))
+    return {
+      text: plain ? await (await plain.getType('text/plain')).text() : '',
+      hasImage: items.some((item) => item.types.some((type) => type.startsWith('image/'))),
+    }
+  })
 
 test('Monaco opens the capture bar only from the chord, and Copy puts the selection on the clipboard', async () => {
   test.setTimeout(120_000)
