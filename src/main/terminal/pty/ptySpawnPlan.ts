@@ -27,7 +27,7 @@ import { tmuxMissingReason } from '../../tmux/keptSpawn'
 import type { ScratchFolders } from '../../workspaces/scratchFolders'
 import { workDirForWorkspace } from '../../workspaces/workspaceRegistry'
 import { markNonceFileFor, writeMarkNonce } from '../markNonce'
-import type { PaneBannerText } from '../paneBanner'
+import { integrationNotLoadedNotice, type PaneBannerText } from '../paneBanner'
 import { retainAgentDir, sendsMarkNonce, shellIntegrationSpawnOptions } from '../shellIntegration'
 import type { SpawnFolder } from '../spawnCwd'
 import { sandboxCwd, spawnFolder } from '../spawnCwd'
@@ -44,6 +44,7 @@ export interface SpawnPlan {
   markNonceFile: string | null
   env: Record<string, string>
   secretNotice: string
+  integrationNotice: string
   sandboxStamp: string | null
   resizePipe: string | null
   portBridge: PortBridge | null
@@ -138,6 +139,9 @@ export function createSpawnPlanner({
       markNonceFile,
     )
     if (integration.agentDir) retainAgentDir(paneId, integration.agentDir)
+    if (integration.notLoaded) {
+      telemetry()?.count('terminal', 'spawn_failure', 'integration-not-loaded')
+    }
     const cols = opts.cols || 80
     const rows = opts.rows || 24
     const env = paneShellEnv({
@@ -176,6 +180,9 @@ export function createSpawnPlanner({
       markNonceFile,
       env,
       secretNotice: '',
+      integrationNotice: integration.notLoaded
+        ? integrationNotLoadedNotice(bannerText(), integration.notLoaded)
+        : '',
       sandboxStamp: null,
       resizePipe: null,
       portBridge: null,

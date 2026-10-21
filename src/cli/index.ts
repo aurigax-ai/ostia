@@ -9,7 +9,7 @@ import {
   StreamMessageReader,
   StreamMessageWriter,
 } from 'vscode-jsonrpc/node'
-import { controlInfoPath, readControlSocket } from '../main/control/controlDiscovery'
+import { controlInfoPath, paneControlSocket } from '../main/control/controlDiscovery'
 import { appDataDir } from '../main/platform/userDirs'
 import { SCRIPT_TOKEN_PREFIX } from '../shared/permissions/scriptTokens'
 import { FlagError } from './common/args'
@@ -127,9 +127,11 @@ function printUsage(answer: UsageAnswer): void {
 
 async function main(): Promise<void> {
   const token = paneToken()
-  const socketPath =
-    readEnv('SOCKET') ??
-    (token?.startsWith(SCRIPT_TOKEN_PREFIX) ? readControlSocket(controlInfoPath()) : undefined)
+  const socketPath = paneControlSocket(
+    readEnv('SOCKET'),
+    token?.startsWith(SCRIPT_TOKEN_PREFIX) === true,
+    controlInfoPath(),
+  )
   const argv = process.argv.slice(2)
   const [cmd] = argv
   if (cmd === '--version') {

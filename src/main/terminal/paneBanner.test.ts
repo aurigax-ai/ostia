@@ -8,6 +8,7 @@ import type { LanguageSource } from '../extensions/languagePacks'
 import { createMainStrings } from '../extensions/strings'
 import { hiddenHomeNotice, sandboxFailureBanner } from '../sandbox/spawnBanner'
 import { keepShellsNotice, tmuxMissing } from '../tmux/keepShellsBanner'
+import { integrationNotLoadedNotice } from './paneBanner'
 import { hibernateSeam, restoreSeam } from './screenMirror'
 
 vi.mock('electron', () => ({ ipcMain: { handle: vi.fn() } }))
@@ -58,6 +59,15 @@ describe('in-pane banners follow the language', () => {
     expect(notice).toContain('保留 shell：未安裝 tmux 3.2 或更新版本。')
     expect(notice).toContain('這個 shell 無法在重新啟動後保留。')
     expect(notice).not.toContain('Keep shells')
+  })
+
+  it('says the shell integration is not loaded, with the reason, in both languages', () => {
+    expect(integrationNotLoadedNotice(en.native.paneBanner, 'ENOSPC')).toContain(
+      'Shell integration not loaded (ENOSPC)',
+    )
+    const notice = integrationNotLoadedNotice(zh, 'EACCES')
+    expect(notice).toContain('未載入 shell 整合（EACCES）')
+    expect(notice).not.toContain('Shell integration')
   })
 
   it('translates the restore and hibernate seams and still leads with OSC 133;D', () => {

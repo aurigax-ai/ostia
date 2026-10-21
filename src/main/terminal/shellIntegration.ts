@@ -1,21 +1,21 @@
 import { createHash } from 'node:crypto'
-import { mkdirSync, mkdtempSync, renameSync, rmSync, writeFileSync } from 'node:fs'
+import { writeFileSync } from 'node:fs'
 import { basename, join } from 'node:path'
 import { appEnv, envName, shellEnv } from '@aurigax-ai/ostia-extension-sdk/contract/appEnv'
-import { PRODUCT_NAME } from '@aurigax-ai/ostia-extension-sdk/contract/product'
 import {
   type AgentPluginContent,
   NO_AGENT_PLUGINS,
 } from '@aurigax-ai/ostia-extension-sdk/manifest/agentSkills'
 import { isPromptSeparator, type PromptSeparator } from '../../shared/terminal/promptSettings'
 import type { PlaybookFile } from '../agents/playbookFiles'
-import { privateTmpDir } from '../platform/privateTmp'
+import { privateRunDir } from '../platform/privateTmp'
 import { CLI_PATH, CLI_RUN } from './agentHookCommands'
-import { agentPluginFiles, hasFiles, writeAgentPlugin } from './agentPlugin'
+import { agentPluginFiles, writeAgentPlugin } from './agentPlugin'
 import { claudeWrapper } from './claudeIntegration'
 import { codexWrapper, PLAYBOOKS_DIR } from './codexIntegration'
+import { hasFiles, installGenerated, removeGenerated } from './generatedFolder'
 
-export const INTEGRATION_DIR = privateTmpDir(`${PRODUCT_NAME}-shell-integration`)
+export const INTEGRATION_DIR = privateRunDir('shell-integration')
 
 const SHELL_STATE_FILE = shellEnv('SHELL_STATE')
 
@@ -302,7 +302,7 @@ const AGENT_PLUGINS_DIR = join(INTEGRATION_DIR, 'agents')
 let agentContent: AgentPluginContent = NO_AGENT_PLUGINS
 let playbookSource: (taken: readonly string[]) => PlaybookFile[] = () => []
 let built: { dir: string; names: string[] } | null = null
-const generations = new Set<string>()
+const generations = new Map<string, string[]>()
 const inUse = new Map<string, string>()
 
 export function setPlaybookSource(source: (taken: readonly string[]) => PlaybookFile[]): void {
@@ -311,10 +311,10 @@ export function setPlaybookSource(source: (taken: readonly string[]) => Playbook
 
 function sweepGenerations(): void {
   const used = new Set(inUse.values())
-  for (const dir of [...generations]) {
+  for (const [dir, names] of [...generations]) {
     if (dir === built?.dir || used.has(dir)) continue
     generations.delete(dir)
-    rmSync(dir, { recursive: true, force: true })
+    removeGenerated(dir, names)
   }
 }
 
@@ -322,7 +322,7 @@ function rebuildPlugin(): string {
   const playbooks = playbookSource(agentContent.skills.map((skill) => skill.id))
   const dir = writeAgentPlugin(AGENT_PLUGINS_DIR, agentContent, playbooks)
   built = { dir, names: agentPluginFiles(agentContent, playbooks) }
-  generations.add(dir)
+  generations.set(dir, built.names)
   sweepGenerations()
   return dir
 }
@@ -411,22 +411,13 @@ export function writeShellIntegration(
   root: string,
   files: (dir: string) => ShellIntegrationFiles = shellIntegrationFiles,
 ): string {
-  mkdirSync(root, { recursive: true, mode: 0o700 })
   const dir = join(root, shellIntegrationDigest(files))
-  const names = Object.keys(files(dir))
-  if (hasFiles(dir, names)) return dir
-  const staging = mkdtempSync(join(root, '.staging-'))
-  try {
-    for (const [name, text] of Object.entries(files(dir))) {
+  const contents = files(dir)
+  return installGenerated(root, dir, Object.keys(contents), (staging) => {
+    for (const [name, text] of Object.entries(contents)) {
       writeFileSync(join(staging, name), text, 'utf8')
     }
-    rmSync(dir, { recursive: true, force: true })
-    renameSync(staging, dir)
-  } catch (err) {
-    rmSync(staging, { recursive: true, force: true })
-    if (!hasFiles(dir, names)) throw err
-  }
-  return dir
+  })
 }
 
 const SHELLS_DIR = join(INTEGRATION_DIR, 'shells')
@@ -468,19 +459,38 @@ export function sendsMarkNonce(shellPath: string): boolean {
   return name === 'zsh' || name === 'bash'
 }
 
+export interface ShellIntegrationSpawn {
+  args: string[]
+  env: Record<string, string>
+  agentDir: string | null
+  notLoaded?: string
+}
+
+function failureReason(err: unknown): string {
+  const code = (err as NodeJS.ErrnoException | null)?.code
+  if (typeof code === 'string') return code
+  return err instanceof Error ? err.message : String(err)
+}
+
 export function shellIntegrationSpawnOptions(
   shellPath: string,
   baseEnv: NodeJS.ProcessEnv,
   ostiaPrompt: OstiaPromptOption | null = null,
   histFile: string | null = null,
   markNonceFile: string | null = null,
-): { args: string[]; env: Record<string, string>; agentDir: string | null } {
+): ShellIntegrationSpawn {
   const name = basename(shellPath).toLowerCase()
 
   if (name !== 'zsh' && name !== 'bash') return { args: [], env: {}, agentDir: null }
 
-  const dir = shellIntegrationDir()
-  const agentDir = currentAgentDir()
+  let dir: string
+  let agentDir: string
+  try {
+    dir = shellIntegrationDir()
+    agentDir = currentAgentDir()
+  } catch (err) {
+    return { args: [], env: {}, agentDir: null, notLoaded: failureReason(err) }
+  }
   const env = {
     ...appEnv({ AGENT_DIR: agentDir }),
     ...promptEnv(ostiaPrompt),

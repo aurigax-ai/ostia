@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 import {
   clearControlInfo,
   controlInfoPath,
+  paneControlSocket,
   readControlSocket,
   writeControlInfo,
 } from './controlDiscovery'
@@ -55,5 +56,30 @@ describe('control socket discovery', () => {
     expect(readControlSocket(info)).toBe(socket)
     clearControlInfo(info, socket)
     expect(readControlSocket(info)).toBeUndefined()
+  })
+
+  it('sends a pane to the running app when the socket it was started with is gone', () => {
+    const dir = tempDir()
+    const info = join(dir, 'control.json')
+    const current = join(dir, 'ostia-2.sock')
+    const moved = join(dir, 'kept-old.sock')
+    writeFileSync(current, '')
+    writeControlInfo(info, current, 2)
+
+    expect(paneControlSocket(moved, false, info)).toBe(current)
+    writeFileSync(moved, '')
+    expect(paneControlSocket(moved, false, info)).toBe(moved)
+  })
+
+  it('keeps the pane socket when no running app is recorded, and needs a pane or a script', () => {
+    const dir = tempDir()
+    const info = join(dir, 'control.json')
+    const gone = join(dir, 'gone.sock')
+    expect(paneControlSocket(gone, false, info)).toBe(gone)
+    const current = join(dir, 'ostia-3.sock')
+    writeFileSync(current, '')
+    writeControlInfo(info, current, 3)
+    expect(paneControlSocket(undefined, false, info)).toBeUndefined()
+    expect(paneControlSocket(undefined, true, info)).toBe(current)
   })
 })

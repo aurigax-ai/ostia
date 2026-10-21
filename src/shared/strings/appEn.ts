@@ -112,6 +112,8 @@ export const appEn = {
       hiddenHome:
         'Sandbox: your home folder is hidden here. Files written to it, outside the\nworkspace folder, are discarded when this shell exits. Add a writable folder\nin Settings › Sandbox to keep them.',
       install: 'Install them with: {command}',
+      integrationNotLoaded:
+        'Shell integration not loaded ({reason}): this shell runs without prompt marks, the CLI or agent hooks. Open a new pane to try again.',
       keepShells: 'Keep shells: {reason}.',
       keepShellsLost: 'This shell will not survive a restart.',
       missing: 'Missing: {packages}',

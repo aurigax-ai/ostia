@@ -63,6 +63,7 @@ export function createPtyStart({
       markNonce,
       env,
       secretNotice,
+      integrationNotice,
       sandboxStamp,
       resizePipe,
       portBridge,
@@ -118,6 +119,7 @@ export function createPtyStart({
     const seam = woken ? hibernateSeam(bannerText()) : restoreSeam(bannerText())
     if (history) replayRestored(entry, history, seam)
     if (secretNotice) feedDisplay(entry, secretNotice)
+    if (integrationNotice) feedDisplay(entry, integrationNotice)
     if (notKept) feedDisplay(entry, keepShellsNotice(bannerText(), notKept))
     if (sandboxed && workspaceSandboxes.claimHomeNotice(workspaceId)) {
       const notice = hiddenHomeNotice(bannerText())

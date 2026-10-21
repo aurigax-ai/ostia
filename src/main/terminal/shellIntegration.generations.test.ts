@@ -93,8 +93,11 @@ describe('sweeping old generations', () => {
     expect(existsSync(first)).toBe(true)
 
     releaseAgentDir('pane-1')
-    expect(existsSync(first)).toBe(false)
+    expect(existsSync(join(first, 'codex', 'session-context.md'))).toBe(false)
+    expect(existsSync(join(first, 'claude-plugin'))).toBe(false)
+    expect(existsSync(join(first, 'marker.txt'))).toBe(true)
     expect(existsSync(third)).toBe(true)
+    rmSync(first, { recursive: true, force: true })
   })
 
   it('keeps the generation while any pane still runs in it', () => {

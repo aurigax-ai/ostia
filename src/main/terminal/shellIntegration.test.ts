@@ -11,7 +11,7 @@ import {
   writeFileSync,
 } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { dirname, join } from 'node:path'
 import {
   type AgentPluginContent,
   NO_AGENT_PLUGINS,
@@ -101,6 +101,55 @@ describe('writeShellIntegration', () => {
     expect(readFileSync(join(dir, '.zshrc'), 'utf8')).toBe(shellIntegrationFiles(dir)['.zshrc'])
     expect(existsSync(join(dir, 'init.zsh'))).toBe(true)
   })
+
+  it('keeps the files a shell wrote into the folder when it rewrites the missing ones', () => {
+    const dir = writeShellIntegration(root)
+    writeFileSync(join(dir, '.zsh_history'), ': 1:0;make build\n')
+    rmSync(join(dir, '.zshrc'))
+    expect(writeShellIntegration(root)).toBe(dir)
+    expect(readFileSync(join(dir, '.zsh_history'), 'utf8')).toBe(': 1:0;make build\n')
+    expect(existsSync(join(dir, '.zshrc'))).toBe(true)
+    expect(readdirSync(root).filter((name) => name.startsWith('.staging-'))).toEqual([])
+  })
+})
+
+describe('writeAgentPlugin rewriting a cleaned folder', () => {
+  it('rewrites the missing files and keeps the files Ostia did not write', () => {
+    const root = mkdtempSync(join(tmpdir(), 'ostia-agents-'))
+    try {
+      const dir = writeAgentPlugin(root, NO_AGENT_PLUGINS)
+      writeFileSync(join(dir, 'codex', 'notes.md'), 'mine')
+      rmSync(join(dir, 'codex', 'session-context.md'))
+      expect(writeAgentPlugin(root, NO_AGENT_PLUGINS)).toBe(dir)
+      expect(readFileSync(join(dir, 'codex', 'notes.md'), 'utf8')).toBe('mine')
+      expect(existsSync(join(dir, 'codex', 'session-context.md'))).toBe(true)
+    } finally {
+      rmSync(root, { recursive: true, force: true })
+    }
+  })
+})
+
+describe('a shell whose integration files cannot be written', () => {
+  it.skipIf(process.getuid?.() === 0)(
+    'still starts, as a plain shell that says the integration is not loaded',
+    () => {
+      const shells = dirname(INTEGRATION_DIR)
+      rmSync(ZSH_RC)
+      chmodSync(shells, 0o500)
+      try {
+        for (const shell of ['/bin/zsh', '/bin/bash']) {
+          const result = shellIntegrationSpawnOptions(shell, { HOME: '/home/u' })
+          expect(result).toEqual({ args: [], env: {}, agentDir: null, notLoaded: 'EACCES' })
+        }
+      } finally {
+        chmodSync(shells, 0o700)
+      }
+      expect(shellIntegrationSpawnOptions('/bin/zsh', { HOME: '/home/u' }).env.ZDOTDIR).toBe(
+        INTEGRATION_DIR,
+      )
+      expect(existsSync(ZSH_RC)).toBe(true)
+    },
+  )
 })
 
 describe('shellIntegrationSpawnOptions', () => {

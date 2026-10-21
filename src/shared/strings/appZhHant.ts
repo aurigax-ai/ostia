@@ -112,6 +112,8 @@ export const appZhHant: typeof appEn = {
       hiddenHome:
         '沙箱：這裡看不到你的家目錄。寫入家目錄（工作區資料夾以外）的檔案，\n會在這個 shell 結束時捨棄。請在「設定 › 沙箱」新增可寫入的資料夾來保留它們。',
       install: '請用這個指令安裝：{command}',
+      integrationNotLoaded:
+        '未載入 shell 整合（{reason}）：這個 shell 沒有提示字元標記、CLI 與 agent hook。開新的窗格即可重試。',
       keepShells: '保留 shell：{reason}。',
       keepShellsLost: '這個 shell 無法在重新啟動後保留。',
       missing: '缺少：{packages}',
