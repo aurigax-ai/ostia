@@ -1,5 +1,6 @@
 import { request } from 'node:http'
 import { describe, expect, it } from 'vitest'
+import { PANEL_TOOLBAR_PATH } from '../contract/extensionsBridge'
 import { startPanelServer } from './index'
 import { PANEL_SIZES_PATH } from './split'
 
@@ -55,5 +56,26 @@ describe('the SDK panel server', () => {
     expect(JSON.parse(replies[2].body)).toMatchObject({ ok: false, message: 'boom' })
     expect(JSON.parse((await post(base, '/api', '{')).body)).toMatchObject({ ok: false })
     expect((await post(base, PANEL_SIZES_PATH, '{"key":1}')).status).toBe(400)
+  })
+
+  it('hands the page toolbar state to the extension and refuses it without the secret', async () => {
+    const seen: unknown[] = []
+    const server = await startPanelServer({
+      dir: __dirname,
+      files: [],
+      handle: async () => ({ ok: true }),
+      toolbar: async (state) => {
+        seen.push(state)
+        return { ok: true }
+      },
+    })
+    const base = new URL(server.url({}))
+    const reply = await post(base, PANEL_TOOLBAR_PATH, '{"workspaceId":"w1","tab":"vault"}')
+    expect(JSON.parse(reply.body)).toEqual({ ok: true })
+    expect(seen).toEqual([{ workspaceId: 'w1', tab: 'vault' }])
+    const wrong = new URL(base)
+    wrong.searchParams.set('t', 'wrong')
+    expect((await post(wrong, PANEL_TOOLBAR_PATH, '{}')).status).toBe(403)
+    expect(seen).toHaveLength(1)
   })
 })

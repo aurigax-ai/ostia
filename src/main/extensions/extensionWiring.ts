@@ -360,6 +360,7 @@ export function createExtensionIpc({
       host.processes.approve(String(extId)),
     )
     ipcMain.handle('extensions:sidebar', () => host.slots.sidebarItems())
+    ipcMain.handle('extensions:panel-toolbar', () => host.slots.panelToolbarEntries())
     ipcMain.handle('extensions:chips', () => host.slots.paneChips())
     ipcMain.handle('extensions:workspace-chips', (e) =>
       workspaceChipsForWindow(host.slots.workspaceChips(), workspaceWindowId, String(e.sender.id)),

@@ -331,7 +331,11 @@ export class ExtensionHost {
       unapproved: m.capabilities.filter((c) => !granted.includes(c)),
       commands: this.commandsOf(rt, m.contributes.commands),
       panel: m.contributes.panel
-        ? { title: m.contributes.panel.title, icon: m.contributes.panel.icon }
+        ? {
+            title: m.contributes.panel.title,
+            icon: m.contributes.panel.icon,
+            toolbar: m.contributes.panel.toolbar,
+          }
         : null,
       paneChips: m.contributes.paneChips,
       workspaceChips: m.contributes.workspaceChips,

@@ -48,7 +48,7 @@ const MANIFEST = {
   id: 'greeter',
   name: 'Greeter',
   version: '1.0.0',
-  api: '6.0',
+  api: '7.0',
   description: 'Says hello',
   main: 'main.js',
   locales: ['zh-Hant'],

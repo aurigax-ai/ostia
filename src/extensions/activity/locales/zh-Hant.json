@@ -5,6 +5,8 @@
     "commands.open.title": "活動：開啟",
     "commands.open.category": "活動",
     "panel.title": "活動",
+    "panel.toolbar.tabs.recap.title": "摘要",
+    "panel.toolbar.tabs.activity.title": "時間軸",
     "settings.showActivity.title": "顯示活動",
     "settings.showActivity.description": "在活動面板中，以時間軸顯示每個代理程式的各回合，並把每一回合的工具動作收合成一組",
     "settings.retentionDays.title": "即時檢視保留的天數",
@@ -13,9 +15,6 @@
     "settings.archiveDays.description": "超過這個天數的封存項目會被刪除"
   },
   "messages": {
-    "view.label": "顯示內容",
-    "view.recap": "摘要",
-    "view.activity": "時間軸",
     "empty": "還沒有代理程式回報任何內容。",
     "agent.claude": "Claude Code",
     "agent.codex": "Codex",

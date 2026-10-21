@@ -10,6 +10,7 @@ import type {
   ExtensionSettingValues,
   ExtensionSidebarItem,
   PaneChip,
+  PanelToolbarEntry,
   WorkspaceChip,
 } from './extensions'
 
@@ -18,6 +19,12 @@ export const PANEL_VISIBILITY_EVENT = 'ostia-panel-visibility'
 export interface PanelVisibility {
   hidden: boolean
 }
+
+export const PANEL_TOOLBAR_EVENT = 'ostia-panel-toolbar'
+
+export const PANEL_TOOLBAR_PATH = '/toolbar'
+
+export type PanelToolbarEvent = { kind: 'tab' | 'action'; id: string } | { kind: 'back' }
 
 export type ExtensionPanelSource = { ok: true; src: string } | { ok: false; error: string }
 
@@ -92,6 +99,7 @@ export interface ExtensionsApi {
   ) => Promise<ExtensionResult>
   panel: (extId: string, context: ExtensionPanelContext) => Promise<ExtensionPanelSource>
   sidebarItems: () => Promise<ExtensionSidebarItem[]>
+  panelToolbars: () => Promise<PanelToolbarEntry[]>
   paneChips: () => Promise<PaneChip[]>
   workspaceChips: () => Promise<WorkspaceChip[]>
   setSetting: (extId: string, key: string, value: unknown) => Promise<ExtensionSettingResult>
@@ -104,6 +112,7 @@ export interface ExtensionsApi {
   removeConnection: (extId: string, name: string) => Promise<ExtensionConnectionResult>
   onChanged: (cb: (list: ExtensionInfo[]) => void) => () => void
   onSidebar: (cb: (items: ExtensionSidebarItem[]) => void) => () => void
+  onPanelToolbars: (cb: (entries: PanelToolbarEntry[]) => void) => () => void
   onPaneChips: (cb: (chips: PaneChip[]) => void) => () => void
   onWorkspaceChips: (cb: (chips: WorkspaceChip[]) => void) => () => void
   onSettingsStored: (cb: (update: ExtensionSettingsStored) => void) => () => void

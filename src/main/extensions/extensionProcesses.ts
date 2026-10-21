@@ -70,7 +70,10 @@ export interface ExtensionProcessesHost {
   assistant: Pick<ExtensionAssist, 'assistEntries' | 'dropAssistStreams'>
   discover(): LoadedExtension[]
   log(extId: string, line: string): void
-  slots: Pick<ExtensionSlots, 'clearSidebarOf' | 'clearChipsWhere' | 'clearWorkspaceChipsWhere'>
+  slots: Pick<
+    ExtensionSlots,
+    'clearSidebarOf' | 'clearChipsWhere' | 'clearWorkspaceChipsWhere' | 'clearPanelToolbarsWhere'
+  >
   remoteFolders: RemoteFolders | null
   changes: EventEmitter
 }
@@ -258,6 +261,7 @@ export class ExtensionProcesses {
     this.host.slots.clearSidebarOf(id)
     this.host.slots.clearChipsWhere((chip) => chip.extId === id)
     this.host.slots.clearWorkspaceChipsWhere((chip) => chip.extId === id)
+    this.host.slots.clearPanelToolbarsWhere((entry) => entry.extId === id)
     this.host.remoteFolders?.extensionGone(id)
     this.host.deps.exec?.stopFor(id)
     if (rt.stopping || !this.host.active(rt)) {
@@ -308,6 +312,7 @@ export class ExtensionProcesses {
     this.host.slots.clearSidebarOf(id)
     this.host.slots.clearChipsWhere((chip) => chip.extId === id)
     this.host.slots.clearWorkspaceChipsWhere((chip) => chip.extId === id)
+    this.host.slots.clearPanelToolbarsWhere((entry) => entry.extId === id)
     this.host.remoteFolders?.extensionGone(id)
     this.host.deps.exec?.stopFor(id)
   }

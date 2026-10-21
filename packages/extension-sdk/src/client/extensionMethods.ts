@@ -84,6 +84,7 @@ export function windowMethods(
   | 'wireRuntime'
   | 'notify'
   | 'openPanel'
+  | 'setPanelToolbar'
   | 'setPaneChip'
   | 'clearPaneChip'
   | 'setWorkspaceChip'
@@ -122,6 +123,7 @@ export function windowMethods(
     wireRuntime: () => conn.sendRequest('ext.wireRuntime', {}),
     notify: (title, body) => conn.sendRequest('ext.notify', { title, body }),
     openPanel: (workspaceId, path) => conn.sendRequest('ext.openPanel', { workspaceId, path }),
+    setPanelToolbar: (toolbar) => conn.sendRequest('ext.setPanelToolbar', toolbar),
     setPaneChip: (chip) => conn.sendRequest('ext.setPaneChip', chip),
     clearPaneChip: (paneId, id) => conn.sendRequest('ext.clearPaneChip', { paneId, id }),
     setWorkspaceChip: (chip) => conn.sendRequest('ext.setWorkspaceChip', chip),
