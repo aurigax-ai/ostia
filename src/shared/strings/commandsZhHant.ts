@@ -278,9 +278,9 @@ export const commandsZhHant: typeof commandsEn = {
     layerYours: '你的設定',
     layers: '來源',
     linkClick: '在終端機連結上 {click} 時開啟',
-    linkClickApp: '新的瀏覽器分頁',
-    linkClickDesc: '{shiftClick} 則在另一處開啟。',
-    linkClickSystem: '系統瀏覽器',
+    linkClickApp: '在 {product} 中',
+    linkClickDesc: '網頁連結與檔案路徑都依此選擇開啟。{shiftClick} 則在另一處開啟。',
+    linkClickSystem: '在系統預設的應用程式中',
     listSeparator: '、',
     modifierKeyNames: {
       AltLeft: '左 Option',
