@@ -1,6 +1,5 @@
 import {
   existsSync,
-  lstatSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
@@ -14,11 +13,13 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import {
+  acceptedProfileFolders,
+  acceptProfile,
   accountEmail,
   createProfile,
   credentialsPresent,
   removeProfile,
-  sweepProfiles,
+  sweepPendingProfiles,
 } from './accountProfiles'
 
 const WORK = 'a'.repeat(16)
@@ -70,19 +71,43 @@ describe('removeProfile', () => {
   })
 })
 
-describe('sweepProfiles', () => {
-  it('removes profile folders nothing remembers and leaves the rest', async () => {
+describe('sweepPendingProfiles', () => {
+  const OLD = Date.now() + 60 * 60 * 1000
+
+  it('removes only folders still marked pending and older than the wait', async () => {
     createProfile(root, WORK, home)
     createProfile(root, STALE, home)
-    mkdirSync(join(root, 'not-a-profile'))
-    await sweepProfiles(root, new Set([WORK]))
+    await acceptProfile(root, WORK)
+    await sweepPendingProfiles(root, 30 * 60 * 1000, Date.now())
+    expect(existsSync(join(root, STALE))).toBe(true)
+    await sweepPendingProfiles(root, 30 * 60 * 1000, OLD)
     expect(existsSync(join(root, WORK))).toBe(true)
     expect(existsSync(join(root, STALE))).toBe(false)
+  })
+
+  it('never removes a folder without the marker, a stray name or anything else', async () => {
+    createProfile(root, WORK, home)
+    await acceptProfile(root, WORK)
+    mkdirSync(join(root, 'c'.repeat(16)))
+    mkdirSync(join(root, 'not-a-profile'))
+    await sweepPendingProfiles(root, 0, OLD)
+    expect(existsSync(join(root, WORK))).toBe(true)
+    expect(existsSync(join(root, 'c'.repeat(16)))).toBe(true)
     expect(existsSync(join(root, 'not-a-profile'))).toBe(true)
   })
 
   it('does nothing when the folder does not exist', async () => {
-    await expect(sweepProfiles(join(base, 'missing'), new Set())).resolves.toBeUndefined()
+    await expect(sweepPendingProfiles(join(base, 'missing'), 0, OLD)).resolves.toBeUndefined()
+  })
+})
+
+describe('acceptedProfileFolders', () => {
+  it('lists profile folders that are not pending', async () => {
+    createProfile(root, WORK, home)
+    createProfile(root, STALE, home)
+    await acceptProfile(root, WORK)
+    mkdirSync(join(root, 'not-a-profile'))
+    expect(await acceptedProfileFolders(root)).toEqual([WORK])
   })
 })
 
@@ -107,13 +132,12 @@ describe('accountEmail', () => {
     expect(await accountEmail(dir)).toBeNull()
   })
 
-  it('does not follow a config that is a link', async () => {
+  it('reads a config that is a link a dotfile manager made', async () => {
     const dir = createProfile(root, WORK, home)
     const elsewhere = join(base, 'elsewhere.json')
     writeFileSync(elsewhere, '{"oauthAccount":{"emailAddress":"me@example.com"}}')
     symlinkSync(elsewhere, join(dir, '.claude.json'))
-    expect(lstatSync(join(dir, '.claude.json')).isSymbolicLink()).toBe(true)
-    expect(await accountEmail(dir)).toBeNull()
+    expect(await accountEmail(dir)).toBe('me@example.com')
   })
 })
 

@@ -309,7 +309,7 @@ export function makeOstiaMock(overrides?: Partial<OstiaBridge>): OstiaBridge {
       add: vi.fn().mockResolvedValue('opened'),
       remove: vi.fn().mockResolvedValue('removed'),
       use: vi.fn().mockResolvedValue(true),
-      startFresh: vi.fn().mockResolvedValue(true),
+      recover: vi.fn().mockResolvedValue(null),
     },
     agentSession: {
       info: vi.fn().mockResolvedValue(null),

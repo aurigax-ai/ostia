@@ -6,7 +6,7 @@ interface ClaudeAccountsApi {
   add: (workspaceId: string | null) => Promise<AddAccountOutcome>
   remove: (id: string) => Promise<RemoveAccountOutcome>
   use: (id: string) => Promise<boolean>
-  startFresh: () => Promise<boolean>
+  recover: () => Promise<number | null>
 }
 
 export interface ClaudeAccountsBridge {

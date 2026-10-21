@@ -23,6 +23,7 @@ const state = (over: Partial<ClaudeAccountsState> = {}): ClaudeAccountsState => 
   adding: false,
   duplicate: null,
   damaged: false,
+  recoverable: 0,
   ...over,
 })
 
@@ -141,13 +142,27 @@ describe('ClaudeAccountsSection', () => {
     show(state({ damaged: true }))
     render(<ClaudeAccountsSection />)
     expect(await screen.findByRole('button', { name: 'Add' })).toBeDisabled()
+    vi.mocked(window.ostia.claudeAccounts.recover).mockResolvedValueOnce(2)
     await userEvent.click(screen.getByRole('button', { name: 'Start fresh' }))
-    expect(window.ostia.claudeAccounts.startFresh).toHaveBeenCalledTimes(1)
+    expect(window.ostia.claudeAccounts.recover).toHaveBeenCalledTimes(1)
+    expect(
+      await screen.findByText('Brought back 2 accounts that were still signed in.'),
+    ).toBeInTheDocument()
   })
 
-  it('says what the accounts share', async () => {
+  it('offers to bring back sign-ins that are on disk but not in the list, without blocking Add', async () => {
+    show(state({ recoverable: 2 }))
+    render(<ClaudeAccountsSection />)
+    expect(await screen.findByText(/2 signed-in accounts are on this computer/)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Add' })).toBeEnabled()
+    await userEvent.click(screen.getByRole('button', { name: 'Bring back' }))
+    expect(window.ostia.claudeAccounts.recover).toHaveBeenCalledTimes(1)
+  })
+
+  it('says what the accounts share and that other accounts’ changes are replaced', async () => {
     show(state())
     render(<ClaudeAccountsSection />)
     expect(await screen.findByText('What accounts share')).toBeInTheDocument()
+    expect(screen.getByText(/replaced by the Default ones at its next start/)).toBeInTheDocument()
   })
 })

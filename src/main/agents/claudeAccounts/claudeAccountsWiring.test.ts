@@ -119,10 +119,10 @@ describe('account.list', () => {
     ['sandboxed', { workspaceId: 'ws-sandbox' }],
     ['scratch', { workspaceId: 'ws-scratch' }],
     ['manager', { manager: true }],
-  ])('shows no email to a %s pane', async (_name, extra) => {
+  ])('shows no email to a %s pane, and names why', async (name, extra) => {
     expect(await call('account.list', undefined, ctx(extra))).toEqual({
       ok: false,
-      error: 'sandboxed',
+      error: name,
     })
   })
 })
@@ -257,7 +257,7 @@ describe('the window channels', () => {
     expect(await ipc.get('claude-accounts:use')?.(guestEvent, WORK)).toBe(false)
     expect(await ipc.get('claude-accounts:remove')?.(guestEvent, WORK)).toBe('unknown')
     expect(await add('ws-1', guestEvent as never)).toBe('not-opened')
-    expect(await ipc.get('claude-accounts:start-fresh')?.(guestEvent)).toBe(false)
+    expect(await ipc.get('claude-accounts:recover')?.(guestEvent)).toBeNull()
     expect(store.current()).toBe('default')
   })
 
@@ -269,7 +269,7 @@ describe('the window channels', () => {
 })
 
 describe('a damaged store', () => {
-  it('keeps every profile folder, whatever the boot sweep does', async () => {
+  it('keeps every profile folder and answers damaged until the human recovers', async () => {
     const file = join(base, 'damaged.json')
     writeFileSync(file, '{')
     const folder = join(base, 'profiles-kept', 'c'.repeat(16))
@@ -284,6 +284,7 @@ describe('a damaged store', () => {
       agentRunning: () => false,
       openLoginTab: async () => 'pane',
       onChange: () => {},
+      now: () => Date.now() + 24 * 60 * 60 * 1000,
     })
     registered.clear()
     ipc.clear()
@@ -299,6 +300,8 @@ describe('a damaged store', () => {
     await new Promise((resolve) => setTimeout(resolve, 50))
     expect(existsSync(folder)).toBe(true)
     expect(await ipc.get('claude-accounts:add')?.(windowEvent, 'ws-1')).toBe('damaged')
-    expect(await ipc.get('claude-accounts:start-fresh')?.(windowEvent)).toBe(true)
+    expect(await ipc.get('claude-accounts:recover')?.(guestEvent)).toBeNull()
+    expect(await ipc.get('claude-accounts:recover')?.(windowEvent)).toBe(0)
+    expect(existsSync(folder)).toBe(true)
   })
 })

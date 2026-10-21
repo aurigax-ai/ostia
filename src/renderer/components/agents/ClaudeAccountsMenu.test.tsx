@@ -26,6 +26,7 @@ function open() {
     adding: false,
     duplicate: null,
     damaged: false,
+    recoverable: 0,
   })
   render(<ClaudeAccountsMenu />)
   return userEvent.click(screen.getByRole('button', { name: 'Claude accounts' }))

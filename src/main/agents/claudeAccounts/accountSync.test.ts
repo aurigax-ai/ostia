@@ -1,4 +1,12 @@
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs'
+import {
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  statSync,
+  symlinkSync,
+  writeFileSync,
+} from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -37,6 +45,23 @@ describe('syncProfileFromDefault', () => {
     await syncProfileFromDefault(profile, defaultHome)
     expect(readFileSync(join(profile, 'settings.json'), 'utf8')).toBe('{"theme":"dark"}')
     expect(readFileSync(join(defaultHome, 'settings.json'), 'utf8')).toBe('{"theme":"dark"}')
+  })
+
+  it('follows a settings.json that a dotfile manager made a link, and keeps the copy current', async () => {
+    const managed = join(base, 'dotfiles')
+    mkdirSync(managed)
+    writeFileSync(join(managed, 'settings.json'), '{"theme":"dark"}')
+    symlinkSync(join(managed, 'settings.json'), join(defaultHome, 'settings.json'))
+    writeFileSync(join(profile, 'settings.json'), '{"theme":"old"}')
+    await syncProfileFromDefault(profile, defaultHome)
+    expect(readFileSync(join(profile, 'settings.json'), 'utf8')).toBe('{"theme":"dark"}')
+  })
+
+  it('keeps the profile’s copy when the default cannot be read for another reason than being absent', async () => {
+    symlinkSync(join(defaultHome, 'settings.json'), join(defaultHome, 'settings.json'))
+    writeFileSync(join(profile, 'settings.json'), '{"theme":"kept"}')
+    await syncProfileFromDefault(profile, defaultHome)
+    expect(readFileSync(join(profile, 'settings.json'), 'utf8')).toBe('{"theme":"kept"}')
   })
 
   it('removes the profile’s copy when the default has no settings.json', async () => {

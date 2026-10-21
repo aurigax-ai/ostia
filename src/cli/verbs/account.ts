@@ -17,10 +17,16 @@ type SwitchAnswer =
 
 const DEFAULT_LABEL = 'default'
 
+function isolatedText(error: string): string {
+  const kind = { scratch: 'a scratch', manager: 'the manager' }[error] ?? 'a sandboxed'
+  return `${kind} pane has only the default account`
+}
+
 function switchProblem(error: string, target: string): string {
   if (error === 'unknown-account') return `no account '${target}'; run ostia account list`
   if (error === 'not-approved') return 'the human did not approve the switch'
-  if (error === 'sandboxed') return 'a sandboxed pane cannot switch accounts'
+  if (error === 'sandboxed' || error === 'scratch' || error === 'manager')
+    return isolatedText(error)
   return 'the account could not be switched'
 }
 
@@ -30,7 +36,7 @@ export async function runAccountVerb(conn: MessageConnection): Promise<void> {
   if (verb === 'list' && positional.length === 0) {
     const listed = await conn.sendRequest<ListAnswer>('account.list')
     if (!listed.ok) {
-      failWith(`${listed.error}: accounts are not shown to a sandboxed pane`)
+      failWith(`${listed.error}: ${isolatedText(listed.error)}`)
       return
     }
     const { accounts } = listed

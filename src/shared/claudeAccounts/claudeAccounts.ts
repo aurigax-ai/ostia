@@ -19,6 +19,7 @@ export interface ClaudeAccountsState {
   adding: boolean
   duplicate: string | null
   damaged: boolean
+  recoverable: number
 }
 
 export type AddAccountOutcome = 'opened' | 'busy' | 'not-opened' | 'no-workspace' | 'damaged'
@@ -31,6 +32,7 @@ export const NO_ACCOUNTS: ClaudeAccountsState = {
   adding: false,
   duplicate: null,
   damaged: false,
+  recoverable: 0,
 }
 
 export function sessionIdOfArgs(args: readonly string[]): string | null {

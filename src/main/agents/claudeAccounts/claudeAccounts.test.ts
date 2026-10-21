@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ClaudeAccountsState } from '../../../shared/claudeAccounts/claudeAccounts'
+import { createProfile } from './accountProfiles'
 import { ClaudeAccountsStore } from './accountsStore'
 import { ClaudeAccounts } from './claudeAccounts'
 
@@ -90,8 +91,9 @@ describe('adding an account', () => {
     signIn(dir, 'work@example.com')
     await vi.advanceTimersByTimeAsync(1000)
     expect(store.accounts().map((a) => a.email)).toEqual(['work@example.com'])
-    expect(published.at(-1)?.adding).toBe(false)
+    await vi.waitFor(() => expect(published.at(-1)?.adding).toBe(false))
     expect(existsSync(dir)).toBe(true)
+    expect(existsSync(join(dir, '.ostia-pending'))).toBe(false)
   })
 
   it('does not open a second login while one is waiting', async () => {
@@ -220,36 +222,121 @@ describe('removing and choosing an account', () => {
   })
 })
 
-describe('sweeping profile folders', () => {
-  it('removes folders no account owns', async () => {
-    mkdirSync(join(root, 'c'.repeat(16)), { recursive: true })
-    await accounts.sweepOrphans()
-    expect(existsSync(join(root, 'c'.repeat(16)))).toBe(false)
+describe('boot', () => {
+  const OLD = 'c'.repeat(16)
+  const KEPT = 'd'.repeat(16)
+
+  function service(file: string, now = Date.now()): ClaudeAccounts {
+    return new ClaudeAccounts({
+      store: new ClaudeAccountsStore(file),
+      root,
+      defaultHome: () => home,
+      defaultEmail: async () => 'me@example.com',
+      profileEmail: async (dir) => emails.get(dir) ?? null,
+      syncProfile: async () => {},
+      agentRunning: () => false,
+      openLoginTab: async () => 'pane',
+      onChange: (state) => published.push(state),
+      now: () => now,
+    })
+  }
+
+  function folder(id: string, email: string, pending: boolean): string {
+    const dir = createProfile(root, id, home)
+    signIn(dir, email)
+    if (!pending) rmSync(join(dir, '.ostia-pending'))
+    return dir
+  }
+
+  it('removes only a login folder that stayed pending past the wait', async () => {
+    folder(OLD, 'old@example.com', true)
+    folder(KEPT, 'kept@example.com', false)
+    await service(join(base, 'fresh.json'), Date.now() + 61 * 60 * 1000).boot()
+    expect(existsSync(join(root, OLD))).toBe(false)
+    expect(existsSync(join(root, KEPT))).toBe(true)
   })
 
-  it('removes nothing while the store is damaged, so every login survives', async () => {
+  it('keeps a login folder that is still inside the wait', async () => {
+    folder(OLD, 'old@example.com', true)
+    await service(join(base, 'fresh.json')).boot()
+    expect(existsSync(join(root, OLD))).toBe(true)
+  })
+
+  it('keeps every profile across two boots when the store is damaged, then again when it is gone', async () => {
+    const file = join(base, 'accounts-file.json')
+    folder(KEPT, 'kept@example.com', false)
+    writeFileSync(file, '{')
+    const later = Date.now() + 24 * 60 * 60 * 1000
+    await service(file, later).boot()
+    expect(existsSync(join(root, KEPT))).toBe(true)
+    await service(file, later).boot()
+    expect(existsSync(join(root, KEPT))).toBe(true)
+    await service(join(base, 'never-written.json'), later).boot()
+    expect(existsSync(join(root, KEPT))).toBe(true)
+  })
+
+  it('keeps every profile when the store is missing, and offers to bring the sign-ins back', async () => {
+    folder(KEPT, 'kept@example.com', false)
+    const again = service(join(base, 'missing.json'))
+    await again.boot()
+    expect(existsSync(join(root, KEPT))).toBe(true)
+    expect(await again.state()).toMatchObject({ recoverable: 1, damaged: false })
+  })
+
+  it('brings back the signed-in folders when the human starts fresh from a damaged store', async () => {
+    const file = join(base, 'accounts-file.json')
+    folder(KEPT, 'kept@example.com', false)
+    folder(OLD, 'me@example.com', false)
+    mkdirSync(join(root, 'e'.repeat(16)))
+    writeFileSync(file, '{')
+    const damaged = service(file)
+    await damaged.boot()
+    expect(await damaged.recover()).toBe(1)
+    expect(published.at(-1)).toMatchObject({ damaged: false, recoverable: 0 })
+    const listed = await new ClaudeAccountsStore(file).accounts()
+    expect(listed.map((a) => a.email)).toEqual(['kept@example.com'])
+    expect(existsSync(join(root, OLD))).toBe(true)
+    await service(file, Date.now() + 24 * 60 * 60 * 1000).boot()
+    expect(existsSync(join(root, KEPT))).toBe(true)
+  })
+
+  it('has nothing to bring back from a healthy list', async () => {
+    const healthy = service(join(base, 'fresh.json'))
+    await healthy.boot()
+    expect(await healthy.recover()).toBeNull()
+  })
+
+  it('refuses to add, remove or choose while the list is damaged', async () => {
     const file = join(base, 'damaged.json')
     writeFileSync(file, '{')
-    const damaged = new ClaudeAccountsStore(file)
-    mkdirSync(join(root, 'c'.repeat(16)), { recursive: true })
-    const guarded = new ClaudeAccounts({
-      store: damaged,
+    const guarded = service(file)
+    expect((await guarded.state()).damaged).toBe(true)
+    expect(await guarded.add(TARGET)).toBe('damaged')
+    expect(await guarded.remove(KEPT)).toBe('damaged')
+  })
+})
+
+describe('a Claude still running after Ostia restarted', () => {
+  it('still blocks Remove, because the pane’s account is stored with the list', async () => {
+    await accounts.add(TARGET)
+    signIn(dirOf(), 'work@example.com')
+    await vi.advanceTimersByTimeAsync(1000)
+    const id = store.accounts()[0].id
+    store.use(id)
+    await accounts.startDirectory([], 'pane-kept')
+    const restarted = new ClaudeAccounts({
+      store: new ClaudeAccountsStore(join(base, 'claude-accounts.json')),
       root,
       defaultHome: () => home,
       defaultEmail: async () => null,
       profileEmail: async () => null,
       syncProfile: async () => {},
-      agentRunning: () => false,
+      agentRunning: (paneId) => paneId === 'pane-kept',
       openLoginTab: async () => 'pane',
-      onChange: (state) => published.push(state),
+      onChange: () => {},
     })
-    await guarded.sweepOrphans()
-    expect(existsSync(join(root, 'c'.repeat(16)))).toBe(true)
-    expect((await guarded.state()).damaged).toBe(true)
-    expect(await guarded.add(TARGET)).toBe('damaged')
-    expect(await guarded.remove('c'.repeat(16))).toBe('damaged')
-    expect(await guarded.startFresh()).toBe(true)
-    expect(published.at(-1)?.damaged).toBe(false)
+    expect(await restarted.remove(id)).toBe('running')
+    expect(existsSync(join(root, id))).toBe(true)
   })
 })
 

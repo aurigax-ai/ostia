@@ -1,5 +1,4 @@
 import { homedir } from 'node:os'
-import { join } from 'node:path'
 import { ipcMain } from 'electron'
 import type { Dict } from '../../../shared/app/dict'
 import {
@@ -14,12 +13,11 @@ import { type ControlMethodContext, registerControlMethod } from '../../control/
 import { resolveExternal } from '../../control/idRegistry'
 import { listWorkspaces } from '../../panes/paneList'
 import { storePath } from '../../platform/jsonStore'
-import { appDataDir } from '../../platform/userDirs'
 import type { WorkspaceSandboxes } from '../../sandbox/workspaceSandboxes'
 import type { ScratchFolders } from '../../workspaces/scratchFolders'
 import type { AgentResumes } from '../agentResumes'
 import type { AgentRunningPanes } from '../agentRunning'
-import { accountEmail, defaultConfigHome } from './accountProfiles'
+import { accountEmail, accountsRoot, defaultConfigHome } from './accountProfiles'
 import { syncProfileFromDefault } from './accountSync'
 import { ClaudeAccountsStore } from './accountsStore'
 import { ClaudeAccounts, type LoginTarget } from './claudeAccounts'
@@ -36,7 +34,7 @@ interface CreateDeps {
 export function createClaudeAccounts(deps: CreateDeps): ClaudeAccounts {
   return new ClaudeAccounts({
     store: new ClaudeAccountsStore(storePath(ACCOUNTS_DIR, 'global')),
-    root: join(appDataDir(), ACCOUNTS_DIR),
+    root: accountsRoot(),
     defaultHome: () => defaultConfigHome(),
     defaultEmail: () => accountEmail(process.env.CLAUDE_CONFIG_DIR || undefined),
     profileEmail: (dir) => accountEmail(dir),
@@ -68,12 +66,13 @@ const fromWindow = (e: Electron.IpcMainInvokeEvent): boolean => e.sender.getType
 
 export function registerClaudeAccountsWiring(deps: RegisterDeps): void {
   const { claudeAccounts, workspaceSandboxes, scratchFolders } = deps
-  void claudeAccounts.sweepOrphans()
+  void claudeAccounts.boot()
 
-  const defaultOnly = (ctx: ControlMethodContext): boolean =>
-    ctx.identity.manager === true ||
-    workspaceSandboxes.isEnabled(ctx.identity.workspaceId) ||
-    scratchFolders.isScratch(ctx.identity.workspaceId)
+  const defaultOnly = (ctx: ControlMethodContext): 'manager' | 'sandboxed' | 'scratch' | null => {
+    if (ctx.identity.manager === true) return 'manager'
+    if (workspaceSandboxes.isEnabled(ctx.identity.workspaceId)) return 'sandboxed'
+    return scratchFolders.isScratch(ctx.identity.workspaceId) ? 'scratch' : null
+  }
 
   async function loginTarget(
     e: Electron.IpcMainInvokeEvent,
@@ -103,8 +102,8 @@ export function registerClaudeAccountsWiring(deps: RegisterDeps): void {
   ipcMain.handle('claude-accounts:use', (e, id: unknown) =>
     fromWindow(e) && typeof id === 'string' ? claudeAccounts.use(id) : false,
   )
-  ipcMain.handle('claude-accounts:start-fresh', (e) =>
-    fromWindow(e) ? claudeAccounts.startFresh() : false,
+  ipcMain.handle('claude-accounts:recover', (e) =>
+    fromWindow(e) ? claudeAccounts.recover() : null,
   )
 
   registerControlMethod('claudeAccount.start', {
@@ -119,7 +118,8 @@ export function registerClaudeAccountsWiring(deps: RegisterDeps): void {
   registerControlMethod('account.list', {
     cap: 'settings-read',
     handler: async (_params, ctx) => {
-      if (defaultOnly(ctx)) return { ok: false, error: 'sandboxed' }
+      const isolated = defaultOnly(ctx)
+      if (isolated) return { ok: false, error: isolated }
       const { accounts, current } = await claudeAccounts.state()
       return {
         ok: true,
@@ -136,7 +136,8 @@ export function registerClaudeAccountsWiring(deps: RegisterDeps): void {
     handler: async (params, ctx) => {
       const target = (params as { target?: unknown } | null)?.target
       if (typeof target !== 'string') return { ok: false, error: 'invalid-params' }
-      if (defaultOnly(ctx)) return { ok: false, error: 'sandboxed' }
+      const isolated = defaultOnly(ctx)
+      if (isolated) return { ok: false, error: isolated }
       const { accounts } = await claudeAccounts.state()
       const account = accountOfTarget(accounts, target)
       if (!account) return { ok: false, error: 'unknown-account' }

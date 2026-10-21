@@ -4,6 +4,7 @@ import { saveJson } from '../../platform/jsonStore'
 
 const FORMAT = 1
 const SESSIONS_MAX = 500
+const PANES_MAX = 256
 const EMAIL_MAX = 320
 
 export interface StoredAccount {
@@ -16,6 +17,7 @@ interface StoredAccounts {
   accounts: StoredAccount[]
   current: string
   sessions: Record<string, string>
+  panes: Record<string, string>
 }
 
 function parseAccount(raw: unknown): StoredAccount | null {
@@ -41,17 +43,30 @@ function parseStored(raw: unknown): StoredAccounts | null {
     typeof stored.current === 'string' && known.has(stored.current)
       ? stored.current
       : DEFAULT_ACCOUNT
-  const sessions: Record<string, string> = {}
-  if (typeof stored.sessions === 'object' && stored.sessions !== null) {
-    for (const [session, account] of Object.entries(stored.sessions)) {
-      if (typeof account === 'string' && (account === DEFAULT_ACCOUNT || known.has(account)))
-        sessions[session] = account
-    }
+  return {
+    accounts,
+    current,
+    sessions: knownAccounts(stored.sessions, known),
+    panes: knownAccounts(stored.panes, known),
   }
-  return { accounts, current, sessions }
 }
 
-const EMPTY = (): StoredAccounts => ({ accounts: [], current: DEFAULT_ACCOUNT, sessions: {} })
+function knownAccounts(raw: unknown, known: ReadonlySet<string>): Record<string, string> {
+  const out: Record<string, string> = {}
+  if (typeof raw !== 'object' || raw === null) return out
+  for (const [key, account] of Object.entries(raw)) {
+    if (typeof account === 'string' && (account === DEFAULT_ACCOUNT || known.has(account)))
+      out[key] = account
+  }
+  return out
+}
+
+const EMPTY = (): StoredAccounts => ({
+  accounts: [],
+  current: DEFAULT_ACCOUNT,
+  sessions: {},
+  panes: {},
+})
 
 export class ClaudeAccountsStore {
   private data: StoredAccounts = EMPTY()
@@ -67,10 +82,14 @@ export class ClaudeAccountsStore {
       this.data = parsed
       return
     }
-    const aside = `${file}.corrupt-${this.now()}`
-    renameSync(file, aside)
-    chmodSync(aside, 0o600)
     this.damaged = true
+    const aside = `${file}.corrupt-${this.now()}`
+    try {
+      renameSync(file, aside)
+      chmodSync(aside, 0o600)
+    } catch {
+      return
+    }
   }
 
   get isDamaged(): boolean {
@@ -108,9 +127,9 @@ export class ClaudeAccountsStore {
     if (this.damaged || !this.has(id)) return false
     this.data.accounts = this.data.accounts.filter((account) => account.id !== id)
     if (this.data.current === id) this.data.current = DEFAULT_ACCOUNT
-    this.data.sessions = Object.fromEntries(
-      Object.entries(this.data.sessions).filter(([, account]) => account !== id),
-    )
+    const kept = ([, account]: [string, string]) => account !== id
+    this.data.sessions = Object.fromEntries(Object.entries(this.data.sessions).filter(kept))
+    this.data.panes = Object.fromEntries(Object.entries(this.data.panes).filter(kept))
     this.save()
     return true
   }
@@ -124,6 +143,25 @@ export class ClaudeAccountsStore {
 
   accountOfSession(sessionId: string): string | undefined {
     return Object.hasOwn(this.data.sessions, sessionId) ? this.data.sessions[sessionId] : undefined
+  }
+
+  rememberPane(paneId: string, accountId: string): void {
+    if (this.damaged || (accountId !== DEFAULT_ACCOUNT && !this.has(accountId))) return
+    if (this.data.panes[paneId] === accountId) return
+    const panes = Object.entries(this.data.panes).filter(([id]) => id !== paneId)
+    panes.push([paneId, accountId])
+    this.data.panes = Object.fromEntries(panes.slice(-PANES_MAX))
+    this.save()
+  }
+
+  accountOfPane(paneId: string): string | undefined {
+    return Object.hasOwn(this.data.panes, paneId) ? this.data.panes[paneId] : undefined
+  }
+
+  panesOn(accountId: string): string[] {
+    return Object.entries(this.data.panes).flatMap(([id, account]) =>
+      account === accountId ? [id] : [],
+    )
   }
 
   rememberSession(sessionId: string, accountId: string): void {

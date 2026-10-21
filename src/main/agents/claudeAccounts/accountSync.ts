@@ -1,4 +1,4 @@
-import { rm } from 'node:fs/promises'
+import { realpath, rm } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
 import { writeFileAtomicAsync } from '@aurigax-ai/ostia-extension-sdk/atomicWrite'
@@ -11,22 +11,23 @@ const CONFIG_READ_MAX = 32 * 1024 * 1024
 
 async function copySettings(defaultHome: string, profileDir: string): Promise<void> {
   const target = join(profileDir, SETTINGS_FILE)
-  const source = await readRegularFile(join(defaultHome, SETTINGS_FILE), SETTINGS_READ_MAX)
-  if (!source.ok) {
-    if (source.status === 404) await rm(target, { force: true })
+  const resolved = await realpath(join(defaultHome, SETTINGS_FILE)).catch((err: unknown) => err)
+  if (typeof resolved !== 'string') {
+    if ((resolved as NodeJS.ErrnoException).code === 'ENOENT') await rm(target, { force: true })
     return
   }
+  const source = await readRegularFile(resolved, SETTINGS_READ_MAX)
+  if (!source.ok) return
   const current = await readRegularFile(target, SETTINGS_READ_MAX)
   if (current.ok && current.body.equals(source.body)) return
   await writeFileAtomicAsync(target, source.body.toString('utf8'), { mode: 0o600 })
 }
 
 async function defaultMcpServers(): Promise<unknown> {
-  const read = await readRegularFile(
-    await claudeConfigFile(homedir(), process.env.CLAUDE_CONFIG_DIR || undefined),
-    CONFIG_READ_MAX,
-  )
-  if (!read.ok) return undefined
+  const file = await claudeConfigFile(homedir(), process.env.CLAUDE_CONFIG_DIR || undefined)
+  const resolved = await realpath(file).catch(() => null)
+  const read = resolved ? await readRegularFile(resolved, CONFIG_READ_MAX) : null
+  if (!read?.ok) return undefined
   try {
     return (JSON.parse(read.body.toString('utf8')) as { mcpServers?: unknown }).mcpServers ?? null
   } catch {

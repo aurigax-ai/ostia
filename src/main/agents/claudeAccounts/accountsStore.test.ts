@@ -100,6 +100,19 @@ describe('ClaudeAccountsStore', () => {
     },
   )
 
+  it('remembers which pane started on which account, across a restart, and forgets them with the account', () => {
+    const store = new ClaudeAccountsStore(file)
+    store.add(account(WORK, 'work@example.com'))
+    store.rememberPane('p1', WORK)
+    store.rememberPane('p2', 'default')
+    const again = new ClaudeAccountsStore(file)
+    expect(again.accountOfPane('p1')).toBe(WORK)
+    expect(again.panesOn(WORK)).toEqual(['p1'])
+    again.remove(WORK)
+    expect(again.accountOfPane('p1')).toBeUndefined()
+    expect(again.accountOfPane('p2')).toBe('default')
+  })
+
   it('has nothing to start fresh from a healthy file', () => {
     expect(new ClaudeAccountsStore(file).startFresh()).toBe(false)
   })

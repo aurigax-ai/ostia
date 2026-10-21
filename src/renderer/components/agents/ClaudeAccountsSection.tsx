@@ -34,14 +34,18 @@ const accountName = (account: ClaudeAccountView, fallback: string): string =>
 
 export function ClaudeAccountsSection(): JSX.Element {
   const d = useDict().claudeAccounts
-  const { accounts, current, adding, duplicate, damaged } = useClaudeAccounts()
+  const { accounts, current, adding, duplicate, damaged, recoverable } = useClaudeAccounts()
   const { claudeAccounts } = window.ostia
   const [problem, setProblem] = useState<Problem>(null)
+  const [broughtBack, setBroughtBack] = useState(0)
   const [removing, setRemoving] = useState<ClaudeAccountView | null>(null)
 
   const add = async (): Promise<void> => {
     const outcome = await claudeAccounts.add(useWorkspacesStore.getState().activeWorkspaceId)
     setProblem(outcome === 'no-workspace' || outcome === 'not-opened' ? outcome : null)
+  }
+  const recover = async (): Promise<void> => {
+    setBroughtBack((await claudeAccounts.recover()) ?? 0)
   }
   const remove = async (account: ClaudeAccountView): Promise<void> => {
     setRemoving(null)
@@ -65,16 +69,19 @@ export function ClaudeAccountsSection(): JSX.Element {
         </Button>
       }
     >
-      {damaged ? (
+      {damaged || recoverable > 0 ? (
         <Notice
           actions={
-            <Button variant="ghost" size="sm" onClick={() => void claudeAccounts.startFresh()}>
-              {d.damagedFresh}
+            <Button variant="ghost" size="sm" onClick={() => void recover()}>
+              {damaged ? d.damagedFresh : d.recoverBack}
             </Button>
           }
         >
-          {d.damaged}
+          {damaged ? d.damaged : fmt(d.recoverable, { count: recoverable })}
         </Notice>
+      ) : null}
+      {broughtBack > 0 ? (
+        <Notice tone="info">{fmt(d.broughtBack, { count: broughtBack })}</Notice>
       ) : null}
       {adding ? <Notice tone="info">{d.adding}</Notice> : null}
       {duplicate ? <Notice tone="info">{fmt(d.duplicate, { email: duplicate })}</Notice> : null}
