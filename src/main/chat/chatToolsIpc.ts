@@ -32,6 +32,7 @@ import type { McpOAuth } from './mcpOAuth'
 export interface ChatToolsDeps {
   roots: () => string[]
   settings: () => ChatToolSettings
+  playbooksFolder: () => string
   mcp: McpHost
   secrets: ExtensionSecretStore
   oauth: McpOAuth
@@ -112,6 +113,12 @@ export function registerChatToolsIpc(deps: ChatToolsDeps): void {
   ipcMain.handle('chatTools:load-skill', (_e, name: unknown) =>
     loadSkill(deps.settings().skillFolders, name),
   )
+  ipcMain.handle('chatTools:playbooks', () => listSkills([deps.playbooksFolder()]))
+  ipcMain.handle('chatTools:playbook-prompt', (_e, name: unknown, task: unknown) => {
+    const loaded = loadSkill([deps.playbooksFolder()], name)
+    const text = typeof task === 'string' ? task : ''
+    return loaded.ok ? loaded.body.replaceAll('$ARGUMENTS', () => text) : null
+  })
   ipcMain.handle('chatTools:mcp-status', () => deps.mcp.status())
   ipcMain.handle('chatTools:mcp-refresh', () => deps.mcp.refresh())
   ipcMain.handle('chatTools:mcp-reconnect', (_e, server: unknown) =>

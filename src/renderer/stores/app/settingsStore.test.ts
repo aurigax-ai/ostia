@@ -77,6 +77,7 @@ describe('settingsStore', () => {
       privacy: s.privacy,
       git: s.git,
       ports: s.ports,
+      playbooks: s.playbooks,
     })
   })
 
@@ -620,6 +621,7 @@ describe('settingsStore', () => {
         privacy: s.privacy,
         git: s.git,
         ports: s.ports,
+        playbooks: s.playbooks,
       }).toEqual(DEFAULTS)
     })
 
@@ -834,6 +836,7 @@ describe('settingsStore', () => {
         privacy: s.privacy,
         git: s.git,
         ports: s.ports,
+        playbooks: s.playbooks,
       }).toEqual(DEFAULTS)
     })
   })

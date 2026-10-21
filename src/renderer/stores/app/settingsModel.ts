@@ -7,6 +7,11 @@ import type { ExtensionSettingValues } from '@aurigax-ai/ostia-extension-sdk/con
 import { type AgentHostSettings, DEFAULT_AGENT_SETTINGS } from '@shared/agent/agentSettings'
 import { type AgentHooks, DEFAULT_AGENT_HOOKS } from '@shared/agents/agentHooks'
 import { DEFAULT_MANAGER_SETTINGS, type ManagerSettings } from '@shared/agents/managerSettings'
+import {
+  DEFAULT_PLAYBOOKS,
+  type OwnPlaybook,
+  type PlaybooksSettings,
+} from '@shared/agents/playbooks'
 import type { Locale } from '@shared/app/dict'
 import {
   DEFAULT_NOTIFICATION_SETTINGS,
@@ -259,6 +264,7 @@ export interface Persisted {
   privacy: PrivacySettings
   git: GitSettings
   ports: PortsSettings
+  playbooks: PlaybooksSettings
 }
 
 export const DEFAULTS: Persisted = {
@@ -333,6 +339,7 @@ export const DEFAULTS: Persisted = {
   privacy: DEFAULT_PRIVACY_SETTINGS,
   git: DEFAULT_GIT_SETTINGS,
   ports: DEFAULT_PORTS_SETTINGS,
+  playbooks: DEFAULT_PLAYBOOKS,
 }
 
 export interface SettingsState extends Persisted {
@@ -350,6 +357,16 @@ export interface SettingsState extends Persisted {
   setFiles: (patch: Partial<FileTreeSettings>) => void
   setGit: (patch: Partial<GitSettings>) => void
   setPorts: (patch: Partial<PortsSettings>) => void
+  setPlaybookEnabled: (id: string, enabled: boolean) => void
+  setPlaybookText: (id: string, text: string) => void
+  resetPlaybook: (id: string) => void
+  acceptPlaybook: (id: string) => void
+  saveOwnPlaybook: (
+    name: string,
+    fields: Pick<OwnPlaybook, 'description' | 'text'>,
+    replaces?: string,
+  ) => void
+  deleteOwnPlaybook: (name: string) => void
   setTerminal: (patch: Partial<TerminalSettings>) => void
   setPanes: (patch: Partial<PaneSettings>) => void
   setNotifications: (patch: Partial<NotificationSettings>) => void

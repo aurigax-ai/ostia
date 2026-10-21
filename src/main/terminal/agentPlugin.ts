@@ -1,14 +1,19 @@
 import { createHash } from 'node:crypto'
 import { existsSync, mkdirSync, mkdtempSync, renameSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
+import { AGENT_SKILL_ENTRY } from '@aurigax-ai/ostia-extension-sdk/contract/agentPlugins'
 import type { AgentPluginContent } from '@aurigax-ai/ostia-extension-sdk/manifest/agentSkills'
 import { version } from '../../../package.json'
 import { CODEX_HOOK_ARGS_JSON } from '../../shared/agents/agentLaunch'
 import { CORE_SKILL_FILES } from '../agents/bundledSkills'
+import type { PlaybookFile } from '../agents/playbookFiles'
 import { AGENT_SKILL_NAME, CLAUDE_MOD_FILE, writeClaudePlugin } from './claudeIntegration'
-import { CODEX_HOOK_ARGS_FILE, writeCodexIntegration } from './codexIntegration'
+import { CODEX_HOOK_ARGS_FILE, PLAYBOOKS_DIR, writeCodexIntegration } from './codexIntegration'
 
-function agentPluginDigest(content: AgentPluginContent): string {
+function agentPluginDigest(
+  content: AgentPluginContent,
+  playbooks: readonly PlaybookFile[],
+): string {
   const hash = createHash('sha256')
   hash.update(JSON.stringify({ version, hooks: content.hooks }))
   for (const file of CORE_SKILL_FILES) {
@@ -22,10 +27,17 @@ function agentPluginDigest(content: AgentPluginContent): string {
       hash.update(file.data)
     }
   }
+  for (const playbook of playbooks) {
+    hash.update(JSON.stringify({ playbook: playbook.id, size: playbook.skill.length }))
+    hash.update(playbook.skill)
+  }
   return hash.digest('hex').slice(0, 32)
 }
 
-export function agentPluginFiles(content: AgentPluginContent): string[] {
+export function agentPluginFiles(
+  content: AgentPluginContent,
+  playbooks: readonly PlaybookFile[] = [],
+): string[] {
   return [
     join('claude-plugin', '.claude-plugin', 'plugin.json'),
     join('claude-plugin', 'hooks', 'hooks.json'),
@@ -43,6 +55,10 @@ export function agentPluginFiles(content: AgentPluginContent): string[] {
         join('codex', 'skills', skill.id, file.name),
       ]),
     ),
+    ...playbooks.flatMap((playbook) => [
+      join('claude-plugin', 'skills', playbook.id, AGENT_SKILL_ENTRY),
+      join('codex', PLAYBOOKS_DIR, playbook.id, AGENT_SKILL_ENTRY),
+    ]),
   ]
 }
 
@@ -50,15 +66,19 @@ export function hasFiles(dir: string, names: string[]): boolean {
   return names.every((name) => existsSync(join(dir, name)))
 }
 
-export function writeAgentPlugin(root: string, content: AgentPluginContent): string {
+export function writeAgentPlugin(
+  root: string,
+  content: AgentPluginContent,
+  playbooks: readonly PlaybookFile[] = [],
+): string {
   mkdirSync(root, { recursive: true, mode: 0o700 })
-  const dir = join(root, agentPluginDigest(content))
-  const names = agentPluginFiles(content)
+  const dir = join(root, agentPluginDigest(content, playbooks))
+  const names = agentPluginFiles(content, playbooks)
   if (hasFiles(dir, names)) return dir
   const staging = mkdtempSync(join(root, '.staging-'))
   try {
-    writeClaudePlugin(join(staging, 'claude-plugin'), content)
-    writeCodexIntegration(join(staging, 'codex'), content, join(dir, 'codex'))
+    writeClaudePlugin(join(staging, 'claude-plugin'), content, playbooks)
+    writeCodexIntegration(join(staging, 'codex'), content, join(dir, 'codex'), playbooks)
     rmSync(dir, { recursive: true, force: true })
     renameSync(staging, dir)
   } catch (err) {
