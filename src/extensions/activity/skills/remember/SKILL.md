@@ -1,6 +1,6 @@
 ---
 name: remember
-description: Adds a task to this session's Ostia notebook with ostia activity remember. Use when the human types /remember followed by a task, or asks you to remember a task to do later.
+description: Adds a task to this session's Ostia notebook with ostia activity remember. Use when the human types /remember followed by a task, or asks for a task to be remembered for later.
 ---
 
 # Remember a task

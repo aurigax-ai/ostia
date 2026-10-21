@@ -89,24 +89,17 @@ function itemRow(env: RememberEnv, filter: RememberState, days: number): Row<Rem
   const text = h('p', { class: 'note-text' })
   const age = h('time', { class: 'age muted' })
   const actions = h('span', { class: 'item-actions' })
-  const expiry = h('span', { class: 'grow expiry' })
-  const meta = h(
-    'div',
-    { class: 'item-meta', hidden: true },
-    expiry,
-    h('span', { class: 'item-actions' }),
-  )
+  const expiry = h('p', { class: 'item-meta', hidden: true })
   const body = h(
     'div',
     { class: 'item-body' },
     h('div', { class: 'item-line' }, text, age, actions),
-    meta,
+    expiry,
   )
   const el = h('li', { class: 'note-row item' }, icon(listChecks), body)
   let current: RememberRow | null = null
   const button = (state: RememberState, label: string, svg: string, strong: boolean): HTMLElement =>
     iconButton(svg, label, () => current && env.setState(current.id, state), strong)
-  const metaActions = meta.lastElementChild as HTMLElement
   return {
     el,
     update: (row) => {
@@ -120,7 +113,7 @@ function itemRow(env: RememberEnv, filter: RememberState, days: number): Row<Rem
       setAttr(el, 'data-age', filter === 'open' ? fade : null)
       const left = daysLeft(row.start, now, days)
       const expiring = filter === 'open' && fade === 'old'
-      meta.hidden = !expiring
+      expiry.hidden = !expiring
       setText(expiry, expiring ? env.t('remember.expiresIn', { count: left }) : '')
       const buttons =
         filter === 'open'
@@ -129,10 +122,7 @@ function itemRow(env: RememberEnv, filter: RememberState, days: number): Row<Rem
               button('archived', env.t('remember.archive'), archiveBox, false),
             ]
           : [button('open', env.t('remember.restore'), arrowCounterClockwise, true)]
-      const target = expiring ? metaActions : actions
-      const other = expiring ? actions : metaActions
-      other.replaceChildren()
-      target.replaceChildren(...buttons)
+      actions.replaceChildren(...buttons)
       return changed
     },
   }
