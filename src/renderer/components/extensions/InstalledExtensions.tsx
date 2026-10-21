@@ -6,6 +6,7 @@ import { useEffect, useState } from 'react'
 import { isAssistExtension } from '@/components/assist/AssistantSection'
 import { Notice } from '@/components/common/Notice'
 import { TextLink } from '@/components/common/TextLink'
+import { LanguageServerRows } from '@/components/languageServers/LanguageServerRows'
 import { ControlRow } from '@/components/settingsKit/ControlRow'
 import { SettingsGroup, SettingsSubgroup } from '@/components/settingsKit/SettingsGroup'
 import { SettingsList } from '@/components/settingsKit/SettingsList'
@@ -23,6 +24,7 @@ import { extensionAnchorId } from '@/lib/settings/settingsNav'
 import { cn } from '@/lib/utils'
 import { useUIStore } from '@/stores/app/uiStore'
 import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
+import { useLanguageServersStore } from '@/stores/extensions/languageServersStore'
 import { useMarketplaceStore } from '@/stores/extensions/marketplaceStore'
 import { ExtensionAgentPlugin } from './ExtensionAgentPlugin'
 import { ExtensionSettingsForm } from './ExtensionSettingsForm'
@@ -202,6 +204,7 @@ function ExtensionDetails({ ext }: { ext: ExtensionInfo }): JSX.Element {
       <div className="mt-3" />
       <PermissionRows ext={ext} />
       <FileKindRows ext={ext} />
+      <LanguageServerRows ext={ext} />
       <ExtensionAgentPlugin ext={ext} explain={false} />
       <ExtensionSettingsArea ext={ext} />
     </>
@@ -234,6 +237,10 @@ function ExtensionListRow({
   const reducedMotion = useReducedMotion()
   const source = useSourceLabel(ext)
   const offer = useUpdateOffer(ext.id)
+  const servers = useLanguageServersStore((s) => s.list)
+  const serverTexts = servers
+    .filter((server) => server.extId === ext.id)
+    .flatMap((server) => [server.name, d.languageServers.kinds[server.kind]])
   return (
     <SearchGroup
       texts={[
@@ -241,6 +248,7 @@ function ExtensionListRow({
         withProductName(ext.description),
         ...ext.settings.map(entryTitle),
         ...ext.secrets.map(entryTitle),
+        ...serverTexts,
       ]}
     >
       {(search) => (

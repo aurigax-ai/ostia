@@ -171,7 +171,6 @@ export const extensionsZhHant: typeof extensionsEn = {
   languageServers: {
     chooseProgram: '選擇 {name} 的程式',
     copyCommand: '複製指令',
-    desc: '語言伺服器為編輯器提供診斷、自動完成、懸停說明與導覽。每一個都來自擴充功能，並在開啟相符的檔案時啟動。',
     downloads: '不在 PATH 上時，從 {host} 下載 {program} {version}',
     enable: '啟用 {name}',
     fetchNow: '立即取得 {name}',
@@ -220,7 +219,6 @@ export const extensionsZhHant: typeof extensionsEn = {
       window: '停止中：視窗已關閉',
     },
     logTitle: '{name} 的記錄',
-    none: '沒有語言伺服器。「程式語言」類別的擴充功能會加入它們。',
     overrideReasons: {
       'bad-arguments': '引數必須是不含控制字元的短行',
       missing: '該路徑沒有任何東西',
@@ -262,7 +260,6 @@ export const extensionsZhHant: typeof extensionsEn = {
     statusRunningOne: '執行中（1 個資料夾）',
     statusSandbox: '在此沙箱中無法使用',
     statusToolchain: '尚未安裝 Go',
-    title: '程式語言',
     usingManaged: '使用 {product} 保存的副本，版本 {version}。',
     usingOverride: '使用你選擇的程式 {path}。',
     usingPath: '使用 PATH 上的 {program}。',

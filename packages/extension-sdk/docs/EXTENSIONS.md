@@ -491,7 +491,7 @@ registration of text synchronization.
 | Field | Meaning |
 |---|---|
 | `id` | Lowercase letters, digits and dashes, unique in the extension. The server's key is `<extension id>/<id>`. |
-| `name` | 1–200 characters, shown in Settings → Languages and the approval dialog. |
+| `name` | 1–200 characters, shown on the extension’s row in Settings › Extensions and the approval dialog. |
 | `languages` | 1–16 editor (Monaco) language ids, `[a-z][a-z0-9+#-]*`: the files this server is started for. |
 | `documentLanguageIds` | Optional. Maps an editor language id, or a file suffix starting with `.`, to the LSP `languageId` sent in `didOpen` (`"shell": "shellscript"`, `".tsx": "typescriptreact"`). The longest matching suffix wins, then the editor language id; without an entry the editor language id is sent. |
 | `run` | Exactly one of four forms, each with optional `args`: `node`, `program`, `download` or `goInstall`. See [How the server's program gets there](#how-the-servers-program-gets-there). Nothing else is allowed in `run`. |
@@ -500,7 +500,7 @@ registration of text synchronization.
 | `initializationOptions`, `settings` | JSON objects of at most 16 KiB each. String values get the same two replacements. `initializationOptions` goes into `initialize`; `settings` answers the server's `workspace/configuration` requests by section and, when it is not empty, is sent once as `workspace/didChangeConfiguration` right after `initialized`. |
 | `settingPaths` | Maps one of your own `contributes.settings` keys to a dotted path in `settings`. Ostia lays the human's value over `settings` before answering, and sends `workspace/didChangeConfiguration` when it changes. |
 
-The human can give any server their own program in Settings → Languages: an absolute path to an
+The human can give any server their own program on the extension’s row in Settings › Extensions: an absolute path to an
 executable file, with extra arguments. It then runs instead of every `run` form (the program on
 `PATH`, the copy Ostia keeps, or the bundled script), with your `run.args` first and theirs after.
 An extension cannot set or read this choice.
@@ -515,7 +515,7 @@ cannot mix them in one `run`.
 | `{ "node": "server/cli.mjs" }` | A server written in JavaScript | Its files ship inside your extension folder, so installing the extension is the download. Ostia runs the `.js`, `.mjs` or `.cjs` file with its own Electron as Node (`ELECTRON_RUN_AS_NODE=1`); no system Node is needed. The path must be a regular file inside the extension, checked again after symlinks are resolved. |
 | `{ "download": { … } }` | A native server with release binaries | Ostia uses the program on the human's `PATH` when there is one. Otherwise it downloads the pinned asset for the platform, checks its SHA-256, unpacks it into its own data folder and runs that copy. |
 | `{ "goInstall": { … } }` | A Go server without release binaries | Ostia uses the binary on `PATH` when there is one. Otherwise it runs `go install <module>@<version>` with `GOBIN` in its own data folder. Needs Go on `PATH`. |
-| `{ "program": "name", "package": "name" }` | A server Ostia cannot fetch | Looked up on `PATH` only. While it is missing the server is off and Settings → Languages offers to install `package` (default: the program name) through the System extension, which shows the human the exact command first. |
+| `{ "program": "name", "package": "name" }` | A server Ostia cannot fetch | Looked up on `PATH` only. While it is missing the server is off and the extension’s row in Settings › Extensions offers to install `package` (default: the program name) through the System extension, which shows the human the exact command first. |
 
 The `download` form:
 
@@ -571,7 +571,7 @@ What Ostia guarantees for `download` and `goInstall`:
 - **Only after approval, only on demand.** Nothing is fetched for an extension that is merely
   listed, disabled or waiting for approval, and nothing at app start. The fetch happens when a
   file of one of the server's languages opens, or when the human presses the fetch button in
-  Settings → Languages. The approval dialog states what will be downloaded, or the exact
+  its row in Settings › Extensions. The approval dialog states what will be downloaded, or the exact
   `go install` command, before the human approves.
 - **`PATH` first.** A program the human installed themselves is never replaced or shadowed.
 - **Checked before it can run.** A download is limited to 256 MiB, hashed while it is written, and
@@ -581,7 +581,7 @@ What Ostia guarantees for `download` and `goInstall`:
 - **In Ostia's own folder.** The copy lives in `language-servers/<extension id>/<server id>/<version>/`
   under Ostia's data folder (mode 0700), never in the workspace. An older version is removed when a
   new one is in place, and everything of an extension is removed when it is uninstalled. The human
-  can remove a copy in Settings → Languages; Ostia then does not fetch it again until asked.
+  can remove a copy on the extension’s row in Settings › Extensions; Ostia then does not fetch it again until asked.
 - **Little is sent.** The request carries a `User-Agent` with the product name and version and
   nothing else: no cookies, no token.
 - **`go install` runs with a scrubbed environment**: no `OSTIA_*` or `OSTIA_*` variable, `GOFLAGS` cleared, a
@@ -602,7 +602,7 @@ How Ostia runs a server:
 - **Stop.** With no document open for a minute Ostia sends `shutdown` and `exit`. A crash restarts
   it with a growing delay, at most five times; after that it is shown as crashed until the human
   presses Restart.
-- **The human's controls.** Settings → Languages lists every server with its status (including
+- **The human's controls.** The extension’s row in Settings › Extensions lists every server with its status (including
   `Downloading… 40%` and a failed fetch with its reason and Retry), where its program comes from
   (`PATH` or Ostia's copy and its version), an on/off switch, Restart, a way to remove Ostia's copy,
   and a log (start, exit, restarts, fetches, the server's stderr; kept in memory only). There is
@@ -1683,7 +1683,7 @@ Settings → Extensions → Marketplaces to install them.
 | Id | What it does |
 |---|---|
 | `lsp-rust-analyzer`, `lsp-clangd`, `lsp-lua`, `lsp-marksman` | One native language server each, with the `download` form: `rust-analyzer` 2026-09-28 (Linux, macOS and Windows on x64 and arm64), `clangd` 23.1.0 (Linux x64, macOS, Windows x64; other platforms use `PATH`), `lua-language-server` 3.19.1 (Linux and macOS on x64 and arm64, Windows x64) and `marksman` 2026-02-08 for Markdown (Linux x64 and arm64, macOS, Windows x64). Each pins the official GitHub release asset and its SHA-256 |
-| `lsp-gopls` | `gopls` for Go with the `goInstall` form: `go install golang.org/x/tools/gopls@v0.23.0` when no `gopls` is on `PATH`. Needs Go; without it Settings → Languages offers to install Go |
+| `lsp-gopls` | `gopls` for Go with the `goInstall` form: `go install golang.org/x/tools/gopls@v0.23.0` when no `gopls` is on `PATH`. Needs Go; without it the extension’s row in Settings › Extensions offers to install Go |
 | `lsp-typescript` | TypeScript and JavaScript in the editor: `typescript-language-server` 5.3.0 and TypeScript 5.9.3, copied unchanged from their npm packages into `server/` (the extension's `vendor.json` `packages`) and run with Ostia's Electron as Node. A project's own TypeScript is used when it has one. Two settings, off by default, show reference and implementation counts as code lenses. The app itself ships no TypeScript language features: without this extension a `.ts` or `.js` file is only highlighted |
 | `lsp-pyright` | Python in the editor: Pyright 1.1.414, copied the same way (about 5,400 files, mostly type stubs). Setting `typeCheckingMode` |
 | `lsp-yaml` | YAML in the editor: `yaml-language-server` 1.24.0 with its 19 dependencies, copied unchanged into `server/node_modules/` (`vendor.json` `closures`). Setting `schemaStore` (off by default) lets the server fetch schemas from schemastore.org |

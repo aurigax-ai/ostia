@@ -92,7 +92,7 @@ describe('SettingsPanel', () => {
         .map((b) => b.textContent)
     expect(inGroup('General')).toEqual(['Appearance', 'Notifications', 'Sync'])
     expect(inGroup('Terminal')).toEqual(['Terminal', 'Prompt', 'Keyboard', 'Panes'])
-    expect(inGroup('Editor and browser')).toEqual(['Editor', 'Languages', 'Browser'])
+    expect(inGroup('Editor and browser')).toEqual(['Editor', 'Browser'])
   })
 
   it('returns null while Settings is not the active view', () => {

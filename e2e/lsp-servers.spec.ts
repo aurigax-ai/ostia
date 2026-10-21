@@ -6,10 +6,10 @@ import { DOM_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } fr
 import { hoverInEditor, openWorkspace } from './helpers'
 import {
   type ElectronApplication,
-  type Locator,
-  type Page,
   _electron as electron,
   expect,
+  type Locator,
+  type Page,
   test,
 } from './test'
 
@@ -80,11 +80,18 @@ async function hoverOn(
   return hover
 }
 
-async function serverRow(win: Page, name: string): Promise<Locator> {
+async function serverRow(win: Page, extension: string, name: string): Promise<Locator> {
   await win.locator('.topbar').getByRole('button', { name: 'Settings' }).click()
   const settings = win.getByRole('region', { name: 'Settings' })
-  await settings.getByRole('button', { name: 'Languages', exact: true }).click()
-  return settings.getByRole('listitem', { name })
+  await settings.getByRole('button', { name: 'Extensions', exact: true }).click()
+  const installed = settings.getByRole('list', { name: 'Installed extensions' })
+  await installed
+    .getByRole('listitem', { name: extension })
+    .getByRole('button', { name: `Settings of ${extension}` })
+    .click()
+  return settings
+    .getByRole('region', { name: `Settings of ${extension}` })
+    .getByRole('group', { name })
 }
 
 const TS_SOURCE = [
@@ -134,7 +141,7 @@ test('the TypeScript extension’s bundled server checks a .ts file; without it 
     await expect(signature).toContainText('function greet(name: string): string')
     await win.keyboard.press('Escape')
 
-    const row = await serverRow(win, 'typescript-language-server')
+    const row = await serverRow(win, 'TypeScript and JavaScript', 'typescript-language-server')
     await expect(row.getByTestId('language-server-status')).toHaveText('Running (1 folder)')
     await expect(row).toContainText('Bundled')
     await row.getByRole('button', { name: 'Show the log of typescript-language-server' }).click()
@@ -199,7 +206,7 @@ test('the Pyright extension’s bundled server checks a .py file', async () => {
     await win.keyboard.press('Escape')
     await expect(palette).toBeHidden()
 
-    const row = await serverRow(win, 'Pyright')
+    const row = await serverRow(win, 'Python (Pyright)', 'Pyright')
     await expect(row.getByTestId('language-server-status')).toHaveText('Running (1 folder)')
   } finally {
     await app.close()
@@ -217,7 +224,7 @@ test('the YAML extension’s bundled server checks a .yaml file', async () => {
     await openWorkspace(win)
     const editor = await openFile(win, 'config.yaml')
     await expect(editor.locator('.squiggly-error').first()).toBeVisible({ timeout: 60_000 })
-    const row = await serverRow(win, 'yaml-language-server')
+    const row = await serverRow(win, 'YAML', 'yaml-language-server')
     await expect(row.getByTestId('language-server-status')).toHaveText('Running (1 folder)')
     await row.getByRole('button', { name: 'Show the log of yaml-language-server' }).click()
     await expect(win.getByRole('dialog').filter({ hasText: 'Log of' })).toContainText(
@@ -247,7 +254,7 @@ test('the Bash extension’s bundled server describes a function in a .sh file',
       const hover = await hoverOn(win, call, { x: 6, y: 8 })
       await expect(hover).toContainText('Function: greet', { timeout: 3_000 })
     }).toPass({ timeout: 60_000 })
-    const row = await serverRow(win, 'bash-language-server')
+    const row = await serverRow(win, 'Shell scripts (Bash)', 'bash-language-server')
     await expect(row.getByTestId('language-server-status')).toHaveText('Running (1 folder)')
   } finally {
     await app.close()

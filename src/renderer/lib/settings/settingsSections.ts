@@ -2,7 +2,6 @@ import type { ExtensionInfo } from '@aurigax-ai/ostia-extension-sdk/contract/ext
 import {
   ArrowsClockwiseIcon,
   BellIcon,
-  BracketsCurlyIcon,
   BroadcastIcon,
   ChatCircleDotsIcon,
   DeviceMobileIcon,
@@ -66,7 +65,6 @@ export type SectionId =
   | 'editor'
   | 'extensions'
   | 'views'
-  | 'languageServers'
   | 'remote'
   | 'sync'
   | 'about'
@@ -124,12 +122,6 @@ export function settingsSections(d: Dict): SettingsSection[] {
         ]
       : []),
     { id: 'editor', group: 'editor', icon: FileCodeIcon, label: d.editorSettings.title },
-    {
-      id: 'languageServers',
-      group: 'editor',
-      icon: BracketsCurlyIcon,
-      label: d.languageServers.title,
-    },
     { id: 'browser', group: 'editor', icon: GlobeIcon, label: d.browserSettings.title },
     { id: 'sandbox', group: 'security', icon: ShieldCheckIcon, label: d.sandbox.title },
     { id: 'privacy', group: 'security', icon: EyeSlashIcon, label: d.privacy.title },

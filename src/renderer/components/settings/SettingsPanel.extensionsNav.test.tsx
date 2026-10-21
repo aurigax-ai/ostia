@@ -338,6 +338,17 @@ describe('SettingsPanel extensions nav', () => {
       )
     })
 
+    it('opens its row on the Extensions page when the link asks for the row', async () => {
+      await renderSettings()
+      act(() =>
+        useUIStore
+          .getState()
+          .openSettings('extensions', { extension: 'board', extensionRow: true }),
+      )
+      expect(screen.getByRole('heading', { level: 2, name: 'Extensions' })).toBeInTheDocument()
+      expect(screen.queryByRole('heading', { level: 2, name: 'Board sync' })).toBeNull()
+    })
+
     it('is found by its page title in the search box', async () => {
       await renderSettings()
       const user = userEvent.setup()

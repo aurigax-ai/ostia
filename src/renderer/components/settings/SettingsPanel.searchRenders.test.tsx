@@ -22,7 +22,6 @@ vi.mock('@/components/extensions/ExtensionSettingsPage', () => ({
 }))
 vi.mock('@/components/gateway/GatewaySection', () => ({ GatewaySection: emptyPage }))
 vi.mock('@/components/keyboard/KeyboardSection', () => ({ KeyboardSection: emptyPage }))
-vi.mock('@/components/languageServers/LanguagesSection', () => ({ LanguagesSection: emptyPage }))
 vi.mock('@/components/panes/PanesSection', () => ({ PanesSection: emptyPage }))
 vi.mock('@/components/sandbox/SandboxSection', () => ({ SandboxSection: emptyPage }))
 vi.mock('@/components/sandbox/WorkspaceSandboxPage', () => ({ WorkspaceSandboxPage: emptyPage }))
