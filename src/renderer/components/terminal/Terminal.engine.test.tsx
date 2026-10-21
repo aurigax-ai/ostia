@@ -26,6 +26,7 @@ import { allPanes, createPane, findPane, firstPaneId, tabsOf } from '@/lib/layou
 import { loadGhostty } from '@/lib/terminal/ghosttyEngine'
 import { terminalFor } from '@/lib/terminal/terminalHandles'
 import { createFileLinkProvider } from '@/lib/terminalLinks/terminalFileLinks'
+import { useAttentionStore } from '@/stores/agents/attentionStore'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useUIStore } from '@/stores/app/uiStore'
 import { useEditorRevealStore } from '@/stores/files/editorRevealStore'
@@ -353,6 +354,30 @@ describe('TerminalView engines', () => {
     Reflect.deleteProperty(window, 'event')
     terminalFor('p1')?.input('b', true)
     expect(window.ostia.pty.write).toHaveBeenCalledWith('p1', 'b', undefined)
+  })
+
+  it('keeps a waiting pane waiting through focus and query replies, and ends the wait on a key', async () => {
+    const { container } = await renderSettled(<TerminalView workspaceId="w1" paneId="p1" />)
+    await waitFor(() => expect(window.ostia.pty.attach).toHaveBeenCalled())
+    useAttentionStore.setState({
+      byPane: { p1: { state: 'waiting', unread: true, message: 'Allow Bash?', at: 1 } },
+    })
+    for (const reply of ['\x1b[I', '\x1b[O', '\x1b[?1;2c', '\x1b[24;80R']) {
+      terminalFor('p1')?.input(reply, true)
+    }
+    expect(useAttentionStore.getState().byPane.p1.state).toBe('waiting')
+    expect(window.ostia.pty.write).toHaveBeenCalledWith('p1', '\x1b[?1;2c', undefined)
+
+    const textarea = container.querySelector('.xterm-helper-textarea') as HTMLTextAreaElement
+    Object.defineProperty(window, 'event', {
+      value: { isTrusted: true, type: 'keydown', target: textarea },
+      configurable: true,
+    })
+    onTestFinished(() => {
+      Reflect.deleteProperty(window, 'event')
+    })
+    fireEvent.keyDown(textarea, { key: 'a', code: 'KeyA', keyCode: 65 })
+    expect(useAttentionStore.getState().byPane.p1.state).not.toBe('waiting')
   })
 
   it('repaints a held prompt once and acks it once after a resize in xterm.js', async () => {
