@@ -30,6 +30,8 @@ import {
 } from './agentHookCommands'
 import claudeModSource from './claudeMod/register.ts?raw'
 
+export const CLAUDE_MOD_SOURCE = claudeModSource
+
 const CLAUDE_ARGS = envName(AGENT_ARGS_ENV.claude)
 
 const commandHook = (command: string) => ({ type: 'command', command })
@@ -64,6 +66,13 @@ export function claudeHookSettings(extensionHooks: readonly ExtensionAgentHook[]
       hooks: [commandHook(hookCommand('claude-hook PreToolUse'))],
     },
     ...(hooks.PreToolUse ?? []),
+  ]
+  hooks.PostToolUse = [
+    {
+      matcher: CLAUDE_QUESTION_TOOLS.join('|'),
+      hooks: [commandHook(hookCommand('claude-hook PostToolUse'))],
+    },
+    ...(hooks.PostToolUse ?? []),
   ]
   hooks.StopFailure = [{ hooks: [commandHook(hookCommand('claude-hook StopFailure'))] }]
   for (const event of CLAUDE_SUBAGENT_EVENTS) {

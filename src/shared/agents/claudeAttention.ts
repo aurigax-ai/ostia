@@ -3,6 +3,7 @@ import { closingFromStop } from './closingLine'
 export const CLAUDE_ATTENTION_EVENTS = [
   'Notification',
   'PreToolUse',
+  'PostToolUse',
   'Stop',
   'StopFailure',
 ] as const
@@ -11,14 +12,23 @@ export type ClaudeAttentionEvent = (typeof CLAUDE_ATTENTION_EVENTS)[number]
 
 export const CLAUDE_QUESTION_TOOLS = ['AskUserQuestion', 'ExitPlanMode'] as const
 
+export function isClaudeQuestionTool(tool: unknown): boolean {
+  return typeof tool === 'string' && (CLAUDE_QUESTION_TOOLS as readonly string[]).includes(tool)
+}
+
 export interface ClaudeAttention {
-  state: 'waiting' | 'done' | 'error'
+  state: 'waiting' | 'working' | 'done' | 'error'
   message: string
   closing?: string
+  soft?: true
 }
 
 const NOT_WAITING_NOTIFICATIONS: ReadonlySet<string> = new Set(['idle_prompt', 'agent_completed'])
 const IDLE_REMINDER = /waiting for your input/i
+const QUESTION_TOOL_PERMISSION = new RegExp(
+  `permission to use (?:${CLAUDE_QUESTION_TOOLS.join('|')})\\b`,
+  'i',
+)
 const MESSAGE_MAX = 300
 
 export function isClaudeAttentionEvent(value: unknown): value is ClaudeAttentionEvent {
@@ -53,7 +63,8 @@ function notificationAttention(payload: Record<string, unknown>): ClaudeAttentio
   const message = text(payload.message)
   if (NOT_WAITING_NOTIFICATIONS.has(type)) return null
   if (!type && IDLE_REMINDER.test(message)) return null
-  return { state: 'waiting', message }
+  if (QUESTION_TOOL_PERMISSION.test(message)) return null
+  return { state: 'waiting', message, soft: true }
 }
 
 function questionAttention(payload: Record<string, unknown>): ClaudeAttention | null {
@@ -72,6 +83,10 @@ export function claudeAttention(event: ClaudeAttentionEvent, raw: string): Claud
       return notificationAttention(payload)
     case 'PreToolUse':
       return questionAttention(payload)
+    case 'PostToolUse':
+      return isClaudeQuestionTool(text(payload.tool_name))
+        ? { state: 'working', message: '' }
+        : null
     case 'Stop': {
       const closing = closingFromStop(raw)
       return { state: 'done', message: '', ...(closing ? { closing } : {}) }

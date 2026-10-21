@@ -615,7 +615,7 @@ describe('ostia CLI end-to-end (spawns the real out/cli/index.js against a live 
         }),
       ).toBe(0)
       expect(execCalls.map((c) => c.args)).toEqual([
-        { state: 'waiting', message: 'Claude needs your permission to use Bash' },
+        { state: 'waiting', message: 'Claude needs your permission to use Bash', soft: true },
       ])
     })
 

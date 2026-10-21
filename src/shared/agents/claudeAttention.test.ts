@@ -10,7 +10,11 @@ describe('claudeAttention', () => {
         notification_type: 'permission_prompt',
         message: 'Claude needs your permission to use Bash',
       }),
-    ).toEqual({ state: 'waiting', message: 'Claude needs your permission to use Bash' })
+    ).toEqual({
+      state: 'waiting',
+      message: 'Claude needs your permission to use Bash',
+      soft: true,
+    })
   })
 
   it('never turns the idle reminder after a finished turn into waiting', () => {
@@ -33,6 +37,7 @@ describe('claudeAttention', () => {
     expect(notification({ notification_type: 'elicitation_dialog', message: 'Pick one' })).toEqual({
       state: 'waiting',
       message: 'Pick one',
+      soft: true,
     })
   })
 
@@ -50,6 +55,31 @@ describe('claudeAttention', () => {
       message: 'Plan ready for review',
     })
     expect(claudeAttention('PreToolUse', JSON.stringify({ tool_name: 'Bash' }))).toBeNull()
+  })
+
+  it('keeps the question when Claude also announces a permission prompt for the question tool', () => {
+    expect(
+      notification({
+        notification_type: 'permission_prompt',
+        message: 'Claude needs your permission to use AskUserQuestion',
+      }),
+    ).toBeNull()
+    expect(
+      notification({
+        notification_type: 'permission_prompt',
+        message: 'Claude needs your permission to use ExitPlanMode',
+      }),
+    ).toBeNull()
+  })
+
+  it('returns to working once the question or plan is answered, and ignores other tools', () => {
+    for (const tool_name of ['AskUserQuestion', 'ExitPlanMode']) {
+      expect(claudeAttention('PostToolUse', JSON.stringify({ tool_name }))).toEqual({
+        state: 'working',
+        message: '',
+      })
+    }
+    expect(claudeAttention('PostToolUse', JSON.stringify({ tool_name: 'Bash' }))).toBeNull()
   })
 
   it('ends a turn as done, and a failed turn as an error', () => {
@@ -70,7 +100,11 @@ describe('claudeAttention', () => {
   })
 
   it('survives a payload that is not JSON', () => {
-    expect(claudeAttention('Notification', 'not json')).toEqual({ state: 'waiting', message: '' })
+    expect(claudeAttention('Notification', 'not json')).toEqual({
+      state: 'waiting',
+      message: '',
+      soft: true,
+    })
     expect(claudeAttention('PreToolUse', '')).toBeNull()
   })
 })

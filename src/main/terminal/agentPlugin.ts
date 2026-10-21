@@ -7,15 +7,33 @@ import { version } from '../../../package.json'
 import { CODEX_HOOK_ARGS_JSON } from '../../shared/agents/agentLaunch'
 import { CORE_SKILL_FILES } from '../agents/bundledSkills'
 import type { PlaybookFile } from '../agents/playbookFiles'
-import { AGENT_SKILL_NAME, CLAUDE_MOD_FILE, writeClaudePlugin } from './claudeIntegration'
-import { CODEX_HOOK_ARGS_FILE, PLAYBOOKS_DIR, writeCodexIntegration } from './codexIntegration'
+import {
+  AGENT_SKILL_NAME,
+  CLAUDE_MOD_FILE,
+  CLAUDE_MOD_SOURCE,
+  claudeHookSettings,
+  writeClaudePlugin,
+} from './claudeIntegration'
+import {
+  CODEX_HOOK_ARGS_FILE,
+  codexHookArgs,
+  PLAYBOOKS_DIR,
+  writeCodexIntegration,
+} from './codexIntegration'
 
-function agentPluginDigest(
+export function agentPluginDigest(
   content: AgentPluginContent,
   playbooks: readonly PlaybookFile[],
 ): string {
   const hash = createHash('sha256')
-  hash.update(JSON.stringify({ version, hooks: content.hooks }))
+  hash.update(
+    JSON.stringify({
+      version,
+      claudeHooks: claudeHookSettings(content.hooks),
+      claudeMod: CLAUDE_MOD_SOURCE,
+      codexHookArgs: codexHookArgs('', content.hooks),
+    }),
+  )
   for (const file of CORE_SKILL_FILES) {
     hash.update(JSON.stringify({ path: file.path, size: file.text.length }))
     hash.update(file.text)

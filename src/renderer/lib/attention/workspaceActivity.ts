@@ -75,10 +75,13 @@ export function viewPointedPane(paneId: string): void {
   useAttentionStore.getState().dispatch(paneId, { type: 'view', at: Date.now() })
 }
 
-export function signalPane(paneId: string, event: AttentionEvent): void {
+export function signalPane(paneId: string, event: AttentionEvent): boolean {
   const store = useAttentionStore.getState()
+  const before = store.byPane[paneId]
   store.dispatch(paneId, event)
+  const changed = useAttentionStore.getState().byPane[paneId] !== before
   if (isPaneViewed(paneId)) store.dispatch(paneId, { type: 'view', at: event.at })
+  return changed
 }
 
 export function syncWorkspaceState(workspaceId: string): void {

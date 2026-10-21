@@ -39,18 +39,24 @@ import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { useTabSleepNoticeStore } from '@/stores/workspaces/tabSleepNoticeStore'
 
 function registerAttentionCommands(): void {
-  registerCore<{ state: AttentionState; message?: string }>({
+  registerCore<{ state: AttentionState; message?: string; soft?: true }>({
     id: 'attention.set',
     category: 'pane',
     hidden: true,
     capabilities: ['drive-self'],
-    run: ({ state, message }, ctx) => {
+    run: ({ state, message, soft }, ctx) => {
       if (!ctx.activePaneId) throw new Error('no target pane')
       if (isStaleAgentReport(ctx.activePaneId, state)) return
       useAgentTurnStore.getState().report(ctx.activePaneId, state)
       const seen = isPaneViewed(ctx.activePaneId)
-      signalPane(ctx.activePaneId, { type: 'set', state, message, at: Date.now() })
-      if (state === 'waiting' || state === 'done') {
+      const changed = signalPane(ctx.activePaneId, {
+        type: 'set',
+        state,
+        message,
+        soft,
+        at: Date.now(),
+      })
+      if (changed && (state === 'waiting' || state === 'done')) {
         postAgentNotification(ctx.activePaneId, state, message, seen)
       }
     },
