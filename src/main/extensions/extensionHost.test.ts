@@ -439,6 +439,7 @@ describe('ExtensionHost agent plugins', () => {
     expect(host.contributions.agentPlugins()).toEqual([
       {
         extId: 'kit',
+        builtin: false,
         dir: join(base, 'user', 'kit'),
         skills: [{ name: 'review', path: 'skills/review', files: [] }],
         hooks: kit.contributes.agentHooks,

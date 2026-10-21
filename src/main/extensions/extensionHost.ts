@@ -368,7 +368,7 @@ export class ExtensionHost {
         approved: this.kindApproved(rt, kind),
       })),
       agentSkills: (m.contributes.agentSkills ?? []).map((skill) => agentSkillId(m.id, skill.name)),
-      agentSkillProblems: agentSkillProblems(rt.ext.dir, rt.ext.manifest),
+      agentSkillProblems: agentSkillProblems(rt.ext.dir, rt.ext.manifest, rt.ext.builtin),
       agentHooks: (m.contributes.agentHooks ?? []).map((hook) => ({
         ...hook,
         agents: hookAgentsFor(hook.event),

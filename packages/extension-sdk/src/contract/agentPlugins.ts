@@ -1,3 +1,4 @@
+import { PRODUCT_NAME } from './product'
 export const AGENT_PLUGIN_CAPABILITY = 'agent-plugin'
 
 export const HOOK_AGENTS = ['claude', 'codex'] as const
@@ -39,6 +40,7 @@ export interface AgentSkillContribution {
   name: string
   path: string
   files: string[]
+  bare?: boolean
 }
 
 export interface AgentHookContribution {
@@ -61,6 +63,8 @@ export const AGENT_SKILL_MAX_BYTES = 1024 * 1024
 export const AGENT_SKILL_DESCRIPTION_MAX = 1024
 export const AGENT_HOOK_INPUT_MAX = 1024 * 1024
 export const AGENT_HOOK_CONTEXT_MAX = 10_000
+
+export const RESERVED_SKILL_IDS: readonly string[] = [PRODUCT_NAME, `${PRODUCT_NAME}-manager`]
 
 export function agentSkillId(extId: string, name: string): string {
   return `${extId}-${name}`

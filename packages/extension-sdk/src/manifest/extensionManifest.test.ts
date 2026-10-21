@@ -858,6 +858,21 @@ describe('parseManifest — agent skills and hooks', () => {
     ])
   })
 
+  it('reads a bare skill name and refuses one that is not true or false', () => {
+    const ok = parseManifest(
+      agentManifest({ agentSkills: [{ name: 'r', path: 'skills/r', bare: true }] }),
+      DIR,
+    )
+    expect(ok.ok && ok.manifest.contributes.agentSkills).toEqual([
+      { name: 'r', path: 'skills/r', files: [], bare: true },
+    ])
+    const bad = parseManifest(
+      agentManifest({ agentSkills: [{ name: 'r', path: 'skills/r', bare: 'yes' }] }),
+      DIR,
+    )
+    expect(bad).toEqual({ ok: false, error: expect.stringContaining('bare must be true or false') })
+  })
+
   it('needs the agent-plugin capability for skills or hooks', () => {
     for (const contributes of [
       { agentSkills: [{ name: 'r', path: 'skills/r' }] },

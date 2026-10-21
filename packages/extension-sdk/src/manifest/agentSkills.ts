@@ -9,12 +9,14 @@ import {
   type AgentHookEvent,
   type AgentSkillContribution,
   agentSkillId,
+  RESERVED_SKILL_IDS,
 } from '../contract/agentPlugins'
 import type { ExtensionManifest } from '../contract/extensions'
 import { readConfined } from './confinedRead'
 
 export interface AgentPluginSource {
   extId: string
+  builtin?: boolean
   dir: string
   skills: AgentSkillContribution[]
   hooks: AgentHookContribution[]
@@ -160,7 +162,14 @@ export function loadAgentSkill(
   dir: string,
   extId: string,
   skill: AgentSkillContribution,
+  builtin = false,
 ): AgentSkillResult {
+  if (skill.bare && !builtin) {
+    return { ok: false, error: 'only a built-in extension may use a bare skill name' }
+  }
+  const id = skill.bare ? skill.name : agentSkillId(extId, skill.name)
+  if (RESERVED_SKILL_IDS.includes(id))
+    return { ok: false, error: `'${id}' is a reserved skill name` }
   let root: string
   try {
     root = realpathSync(dir)
@@ -185,7 +194,6 @@ export function loadAgentSkill(
     }
     files.push({ name, data: file.data })
   }
-  const id = agentSkillId(extId, skill.name)
   const [entry, ...rest] = files
   const front = entry ? skillFrontmatter(entry.data.toString('utf8')) : null
   if (!entry || !front) {
@@ -230,18 +238,24 @@ export function agentPluginContent(
   const hooks: ExtensionAgentHook[] = []
   for (const source of sources) {
     for (const skill of source.skills) {
-      const res = loadAgentSkill(source.dir, source.extId, skill)
-      if (res.ok) skills.push(res.skill)
-      else onProblem(source.extId, `agent skill '${skill.name}': ${res.error}`)
+      const res = loadAgentSkill(source.dir, source.extId, skill, source.builtin === true)
+      if (!res.ok) onProblem(source.extId, `agent skill '${skill.name}': ${res.error}`)
+      else if (skills.some((known) => known.id === res.skill.id)) {
+        onProblem(source.extId, `agent skill '${skill.name}': '${res.skill.id}' is already taken`)
+      } else skills.push(res.skill)
     }
     for (const hook of source.hooks) hooks.push({ extId: source.extId, ...hook })
   }
   return { skills, hooks }
 }
 
-export function agentSkillProblems(dir: string, manifest: ExtensionManifest): string[] {
+export function agentSkillProblems(
+  dir: string,
+  manifest: ExtensionManifest,
+  builtin = false,
+): string[] {
   return (manifest.contributes.agentSkills ?? []).flatMap((skill) => {
-    const res = loadAgentSkill(dir, manifest.id, skill)
+    const res = loadAgentSkill(dir, manifest.id, skill, builtin)
     return res.ok ? [] : [`agent skill '${skill.name}': ${res.error}`]
   })
 }

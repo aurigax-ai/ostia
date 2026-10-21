@@ -385,6 +385,7 @@ const contributes = z.looseObject({
           )
           .max(MAX_AGENT_SKILL_FILES)
           .optional(),
+        bare: z.boolean().optional(),
       }),
     )
     .max(MAX_AGENT_SKILLS)
