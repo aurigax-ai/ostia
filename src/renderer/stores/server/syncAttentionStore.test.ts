@@ -1,8 +1,8 @@
 import type { SyncAttention } from '@shared/profileSync/serverSync'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { timedAttention, useSyncAttentionStore } from './syncAttentionStore'
+import { useUIStore } from '@/stores/app/uiStore'
+import { startSyncAttention, useSyncAttentionStore } from './syncAttentionStore'
 
-const changed: SyncAttention = { kind: 'changed', id: 'changed:Laptop', names: ['Laptop'] }
 const join: SyncAttention = {
   kind: 'join',
   id: 'join:d2',
@@ -13,29 +13,39 @@ const join: SyncAttention = {
 }
 
 beforeEach(() => {
-  useSyncAttentionStore.setState({ items: [], seenAt: {}, hidden: new Set() })
+  useSyncAttentionStore.setState({ items: [], hidden: new Set() })
 })
 
 describe('sync attention store', () => {
-  it('SYA-C110 keeps the first time an item without a date was seen', () => {
-    vi.spyOn(Date, 'now').mockReturnValueOnce(1000).mockReturnValueOnce(2000)
-    const store = useSyncAttentionStore.getState()
-    store.apply([changed])
-    store.apply([changed])
-    const { items, seenAt, hidden } = useSyncAttentionStore.getState()
-    expect(timedAttention(items, seenAt, hidden)).toEqual([{ item: changed, at: 1000 }])
-    vi.restoreAllMocks()
-  })
-
-  it('SYA-C111 uses the device date and hides a denied item until it goes away', () => {
+  it('SYA-C111 hides a denied item until it goes away', () => {
     const store = useSyncAttentionStore.getState()
     store.apply([join])
     store.hide(join.id)
-    let { items, seenAt, hidden } = useSyncAttentionStore.getState()
-    expect(timedAttention(items, seenAt, hidden)).toEqual([])
-    store.apply([])
+    expect(useSyncAttentionStore.getState().hidden.has(join.id)).toBe(true)
     store.apply([join])
-    ;({ items, seenAt, hidden } = useSyncAttentionStore.getState())
-    expect(timedAttention(items, seenAt, hidden)).toEqual([{ item: join, at: 42 }])
+    expect(useSyncAttentionStore.getState().hidden.has(join.id)).toBe(true)
+    store.apply([])
+    expect(useSyncAttentionStore.getState().hidden.has(join.id)).toBe(false)
+  })
+
+  it('SYA-C112 takes the list main pushes and opens Settings › Server when main asks', () => {
+    const api = vi.mocked(window.ostia.syncServer)
+    let push: (items: SyncAttention[]) => void = () => {}
+    let open: () => void = () => {}
+    api.onAttention.mockImplementation((cb) => {
+      push = cb
+      return () => {}
+    })
+    api.onOpen.mockImplementation((cb) => {
+      open = cb
+      return () => {}
+    })
+    const openSettings = vi.fn()
+    useUIStore.setState({ openSettings })
+    startSyncAttention()
+    push([join])
+    expect(useSyncAttentionStore.getState().items).toEqual([join])
+    open()
+    expect(openSettings).toHaveBeenCalledWith('server')
   })
 })

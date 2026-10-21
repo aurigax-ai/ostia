@@ -15,7 +15,6 @@ export const serverEn = {
       'The device asking joined recently. Wait for it to be older, or approve from an older device.',
     approvalTooNew: 'This device joined recently. Approve from an older device.',
     cancel: 'Cancel',
-    changedLabel: 'A synced device changed',
     desc: 'Sign in to a server to reach this computer from your phone through a relay. Signing in only tells the server who you are; it never lets the server read your files, terminals or settings.',
     deviceAdded: 'Added {age}',
     deviceRemove: 'Remove',
@@ -61,9 +60,7 @@ export const serverEn = {
     linkLabel: 'Add a device',
     linkMake: 'Make a code',
     linkWaiting: 'Waiting for the new device to sign in.',
-    newDeviceLabel: 'New device',
     newDeviceMine: 'It is mine',
-    newDeviceRemove: 'Remove it',
     newDeviceWarning:
       'A new device was added: {name} (added {age}). If it was not you, remove it now.',
     offerLabel: 'What this server offers',

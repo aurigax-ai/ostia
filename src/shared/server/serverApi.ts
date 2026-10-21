@@ -47,7 +47,7 @@ export interface ServerDevice {
   isNew: boolean
 }
 
-export interface ServerApproval {
+interface ServerApproval {
   id: string
   deviceName: string
   deviceCreatedAt: number

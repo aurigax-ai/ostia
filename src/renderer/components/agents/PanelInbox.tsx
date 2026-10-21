@@ -8,7 +8,6 @@ import { paneWhere } from '@/lib/sidebar/dashboard'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import { CardMeta, NeedsYouCard } from './NeedsYouCard'
-import { SyncAttentionCard } from './SyncAttentionCard'
 import { useInboxCards } from './useInboxCards'
 
 const OWN_CONTROLS =
@@ -86,7 +85,6 @@ function CardBody({
   extId: string
   workspaceId: string
 }): JSX.Element {
-  if (card.kind === 'sync') return <SyncAttentionCard item={card.sync} at={card.at} />
   if (card.kind === 'note')
     return <NoteCard note={card.note} extId={extId} workspaceId={workspaceId} />
   const paneId = cardPane(card)

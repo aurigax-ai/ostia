@@ -7,10 +7,7 @@ import { SettingsListRow } from '@/components/settingsKit/SettingsListRow'
 import { Button } from '@/components/ui/button'
 import { fmt, useDict } from '@/lib/app/useDict'
 import { useSettingsStore } from '@/stores/app/settingsStore'
-import { refreshSyncAttention } from '@/stores/server/syncAttentionStore'
 import { ageText } from './deviceAge'
-import { ServerApprovals } from './ServerApprovals'
-import { ServerJoinRequests } from './ServerJoinRequests'
 import { ServerLinkDevice } from './ServerLinkDevice'
 import { type RemoveTarget, ServerRemoveDialog } from './ServerRemoveDialog'
 import { syncServerErrorText } from './syncServerText'
@@ -68,41 +65,8 @@ export function ServerDevices(): JSX.Element {
     reload()
   }
 
-  const markSeen = async (id: string): Promise<void> => {
-    await window.ostia.server.markSeen(id)
-    reload()
-    void refreshSyncAttention()
-  }
-
-  const fresh = devices.filter((device) => device.isNew)
   return (
     <>
-      {fresh.map((device) => (
-        <Notice
-          key={device.id}
-          actions={
-            <>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setRemoving({ id: device.id, name: device.name })}
-              >
-                {d.server.newDeviceRemove}
-              </Button>
-              <Button variant="outline" size="sm" onClick={() => void markSeen(device.id)}>
-                {d.server.newDeviceMine}
-              </Button>
-            </>
-          }
-        >
-          {fmt(d.server.newDeviceWarning, {
-            name: device.name,
-            age: ageText(locale, device.createdAt),
-          })}
-        </Notice>
-      ))}
-      <ServerApprovals />
-      <ServerJoinRequests />
       <ControlRow label={d.server.devicesLabel} desc={d.server.devicesDesc} />
       <SettingsList label={d.server.devicesLabel} empty={d.server.devicesEmpty}>
         {devices.map((device) => (

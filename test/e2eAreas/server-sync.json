@@ -5,7 +5,7 @@
     "src/main/profileSync/serverSync/",
     "src/renderer/components/settings/SyncServer",
     "src/shared/profileSync/serverSync.",
-    "src/renderer/components/agents/SyncAttentionCard.",
+    "src/renderer/components/server/SyncAttentionCards.",
     "src/renderer/stores/server/"
   ],
   "specs": [

@@ -77,6 +77,7 @@ const PUSHED = [
   'settings:changed',
   'sync:status',
   'syncServer:attention',
+  'syncServer:open',
   'syncServer:status',
   'viewers:edit-source',
   'viewers:open-link',

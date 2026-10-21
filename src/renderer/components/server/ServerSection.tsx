@@ -9,6 +9,7 @@ import { fmt, useDict } from '@/lib/app/useDict'
 import { ServerAddressRow } from './ServerAddressRow'
 import { ServerDevices } from './ServerDevices'
 import { ServerSignIn } from './ServerSignIn'
+import { SyncAttentionCards } from './SyncAttentionCards'
 import { serverErrorText } from './serverText'
 import { useServerOffer, useServerStatus } from './useServerStatus'
 
@@ -63,6 +64,7 @@ export function ServerSection(): JSX.Element {
 
   return (
     <SettingsPage title={d.server.title} desc={d.server.desc}>
+      <SyncAttentionCards />
       <ServerAddressRow status={status} />
       {offered.state === 'error' ? <Notice>{serverErrorText(d, offered.error)}</Notice> : null}
       {offered.state === 'ready' ? (
