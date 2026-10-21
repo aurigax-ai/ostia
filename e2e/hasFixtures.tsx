@@ -1,3 +1,5 @@
+import type { ReactElement } from 'react'
+import { renderToStaticMarkup } from 'react-dom/server'
 import { Alert, AlertAction, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -10,8 +12,6 @@ import {
 } from '@/components/ui/input-group'
 import { Table, TableBody, TableCell, TableRow } from '@/components/ui/table'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import type { ReactElement } from 'react'
-import { renderToStaticMarkup } from 'react-dom/server'
 
 const BUTTON_SIZES = ['default', 'xs', 'sm', 'lg'] as const
 

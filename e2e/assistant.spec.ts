@@ -1,7 +1,7 @@
 import { chords } from './chords'
 import { freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
 import { type FakeRequest, fakeAssistantSettings, startFakeProvider } from './fakeProvider'
-import { PROMPT, expectHeld, openWorkspace } from './helpers'
+import { expectHeld, openWorkspace, PROMPT } from './helpers'
 import { _electron as electron, expect, test } from './test'
 
 const SUGGESTED = 'echo ostia-assist-suggested'

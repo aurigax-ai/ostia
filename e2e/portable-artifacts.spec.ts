@@ -1,5 +1,5 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
-import { type AddressInfo, type Server, type Socket, createServer } from 'node:net'
+import { type AddressInfo, createServer, type Server, type Socket } from 'node:net'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { DOM_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
@@ -9,13 +9,13 @@ import {
   type Browser,
   type BrowserContext,
   type BrowserType,
-  type ElectronApplication,
-  type FrameLocator,
-  type Page,
   chromium,
+  type ElectronApplication,
   _electron as electron,
   expect,
+  type FrameLocator,
   firefox,
+  type Page,
   test,
 } from './test'
 import { viewerGuestText } from './viewerGuest'

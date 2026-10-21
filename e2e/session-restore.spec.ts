@@ -4,10 +4,10 @@ import { freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
 import { askToQuit, newTerminalWorkspace, openWorkspace, runInTerminal } from './helpers'
 import {
   type ElectronApplication,
-  type Page,
   _electron as electron,
   exitedWithin,
   expect,
+  type Page,
   stopTrace,
   test,
 } from './test'

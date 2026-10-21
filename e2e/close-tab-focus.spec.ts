@@ -5,7 +5,7 @@ import { join } from 'node:path'
 import { chords } from './chords'
 import { freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
 import { addTab, openWorkspace, quitApp, typeLine } from './helpers'
-import { type ElectronApplication, type Page, _electron as electron, expect, test } from './test'
+import { type ElectronApplication, _electron as electron, expect, type Page, test } from './test'
 
 const SITE = `<!doctype html><title>site</title>
 <style>a { position: fixed; left: 0; width: 300px; height: 50px; display: block }</style>

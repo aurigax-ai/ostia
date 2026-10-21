@@ -6,7 +6,7 @@ import { MARKETPLACE_MANIFEST_FILE } from '@aurigax-ai/ostia-extension-sdk/manif
 import { buildSync } from 'esbuild'
 import { freshDataHome, isolatedLaunch } from './dataHome'
 import { openWorkspace } from './helpers'
-import { type Locator, type Page, _electron as electron, expect, test } from './test'
+import { _electron as electron, expect, type Locator, type Page, test } from './test'
 
 const fixture = join(__dirname, '..', 'test', 'fixtures', 'extensions-e2e', 'hello')
 

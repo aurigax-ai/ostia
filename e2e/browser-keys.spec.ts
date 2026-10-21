@@ -2,7 +2,7 @@ import { createServer } from 'node:http'
 import type { AddressInfo } from 'node:net'
 import { isMac } from './chords'
 import { isolatedLaunch } from './dataHome'
-import { SLOW_FRAME_MS, fastFrames, slowFrames } from './frames'
+import { fastFrames, SLOW_FRAME_MS, slowFrames } from './frames'
 import { openWorkspace } from './helpers'
 import { type ElectronApplication, _electron as electron, expect, test } from './test'
 

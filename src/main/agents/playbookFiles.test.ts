@@ -3,14 +3,14 @@ import { BUILTIN_PLAYBOOKS, PLAYBOOK_TEXT_MAX } from '../../shared/agents/playbo
 import { currentPlaybookFiles, playbookFiles, setPlaybookSettings } from './playbookFiles'
 
 describe('playbookFiles', () => {
-  it('writes only remember on a fresh install', () => {
-    expect(playbookFiles(undefined, []).map((f) => f.id)).toEqual(['remember'])
+  it('writes nothing on a fresh install', () => {
+    expect(playbookFiles(undefined, [])).toEqual([])
   })
 
   it('lists enabled built-ins with the human text', () => {
     const files = playbookFiles(
       {
-        enabled: { coordinator: true, remember: false },
+        enabled: { coordinator: true },
         accepted: { coordinator: 'My coordinator.' },
         edits: { coordinator: { text: 'My coordinator.', from: 'x' } },
       },
@@ -41,7 +41,7 @@ describe('playbookFiles', () => {
         long: { description: 'd', text: 'x'.repeat(PLAYBOOK_TEXT_MAX) },
       },
     }
-    expect(playbookFiles(raw, []).map((f) => f.id)).toEqual(['remember', 'long'])
+    expect(playbookFiles(raw, []).map((f) => f.id)).toEqual(['long'])
   })
 
   it('does not write a synced edit or an own playbook nobody accepted here', () => {
@@ -51,14 +51,14 @@ describe('playbookFiles', () => {
       own: { mine: { description: 'd', text: 'Do it' } },
     }
     const files = playbookFiles(raw, [])
-    expect(files.map((f) => f.id)).toEqual(['coordinator', 'remember'])
+    expect(files.map((f) => f.id)).toEqual(['coordinator'])
     expect(files[0].skill).not.toContain('Pushed from elsewhere.')
     expect(files[0].skill).toContain('You plan, dispatch, review and merge')
   })
 
   it('keeps the current settings the app pushed and lists files from them', () => {
     setPlaybookSettings({ enabled: { review: true } })
-    expect(currentPlaybookFiles([]).map((f) => f.id)).toEqual(['review', 'remember'])
+    expect(currentPlaybookFiles([]).map((f) => f.id)).toEqual(['review'])
     setPlaybookSettings(undefined)
   })
 })

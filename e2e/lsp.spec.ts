@@ -6,10 +6,10 @@ import { DOM_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } fr
 import { openWorkspace } from './helpers'
 import {
   type ElectronApplication,
-  type Locator,
-  type Page,
   _electron as electron,
   expect,
+  type Locator,
+  type Page,
   test,
 } from './test'
 

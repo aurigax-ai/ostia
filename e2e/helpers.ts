@@ -6,10 +6,10 @@ import { isolatedLaunch } from './dataHome'
 import { textPainted } from './pixels'
 import {
   type ElectronApplication,
-  type Locator,
-  type Page,
   _electron as electron,
   expect,
+  type Locator,
+  type Page,
   stopTrace,
   waitForExit,
 } from './test'

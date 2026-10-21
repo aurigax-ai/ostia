@@ -3,7 +3,7 @@ import { join } from 'node:path'
 import { freshDataHome, isolatedLaunch } from './dataHome'
 import { openWorkspace } from './helpers'
 import { textPdf } from './pdfFixture'
-import { type ElectronApplication, type Page, _electron as electron, expect, test } from './test'
+import { type ElectronApplication, _electron as electron, expect, type Page, test } from './test'
 
 async function launchWithHome(
   files: Record<string, string | Buffer>,

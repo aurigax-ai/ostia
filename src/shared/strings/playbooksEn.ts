@@ -15,7 +15,6 @@ export const playbooksEn = {
   descriptions: {
     coordinator: 'Plan, dispatch, review and merge; write no code yourself.',
     handoff: 'Start a clean new session on one topic, beside this one.',
-    remember: 'Note a task to pick up later, even after /clear or a resume.',
     review: 'One focused review of a PR against its issue.',
     worker: 'Scout, build, test and open a PR; report to the coordinator.',
   },

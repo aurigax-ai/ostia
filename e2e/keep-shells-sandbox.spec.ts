@@ -2,9 +2,9 @@ import { mkdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { holdPort } from '../test/heldPort'
 import { DOM_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
-import { PROMPT, openWorkspace, quitApp, restartApp, runInTerminal } from './helpers'
+import { openWorkspace, PROMPT, quitApp, restartApp, runInTerminal } from './helpers'
 import { sandboxedShell } from './sandboxShell'
-import { type ElectronApplication, type Page, _electron as electron, expect, test } from './test'
+import { type ElectronApplication, _electron as electron, expect, type Page, test } from './test'
 
 test.skip(process.platform !== 'linux', 'sandboxed kept shells are exercised on Linux')
 

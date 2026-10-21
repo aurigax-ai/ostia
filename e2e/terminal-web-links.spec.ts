@@ -3,9 +3,9 @@ import { createServer } from 'node:http'
 import type { AddressInfo } from 'node:net'
 import { join } from 'node:path'
 import { freshDataHome, isolatedLaunch } from './dataHome'
-import { PROMPT, newTerminalWorkspace, openWorkspace } from './helpers'
+import { newTerminalWorkspace, openWorkspace, PROMPT } from './helpers'
 import { clickWith, hoverPoint, linkPoint } from './terminalLinks'
-import { type Page, _electron as electron, expect, test } from './test'
+import { _electron as electron, expect, type Page, test } from './test'
 
 async function listen(
   onRequest: (url: string) => void,

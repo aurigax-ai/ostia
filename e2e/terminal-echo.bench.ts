@@ -1,11 +1,11 @@
 import { resolve } from 'node:path'
 import { chords } from './chords'
-import { SOFTWARE_WEBGL, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
+import { freshDataHome, isolatedLaunch, SOFTWARE_WEBGL, seedSettings } from './dataHome'
 import {
-  type MainProbe,
   alignKeys,
   hookTerminal,
   installMainProbe,
+  type MainProbe,
   percentile,
   readProbes,
   startMainProfile,
@@ -15,7 +15,7 @@ import {
 import { fakeAgentBin } from './fakeAgent'
 import { BENCH_ENGINES } from './ghostty'
 import { openWorkspace } from './helpers'
-import { type Page, _electron as electron, expect, test } from './test'
+import { _electron as electron, expect, type Page, test } from './test'
 
 const BUSY_AGENT = resolve(__dirname, '../test/fixtures/agents/busy-agent.mjs')
 const KEYS = Number(process.env.OSTIA_ECHO_KEYS ?? 80)

@@ -1,4 +1,4 @@
-import { SOFTWARE_WEBGL, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
+import { freshDataHome, isolatedLaunch, SOFTWARE_WEBGL, seedSettings } from './dataHome'
 import { addTab, openWorkspace, typeLine } from './helpers'
 import { RED_BLOCKS, redRowGaps } from './pixels'
 import { _electron as electron, expect, test } from './test'

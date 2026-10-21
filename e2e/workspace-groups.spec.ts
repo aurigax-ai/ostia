@@ -1,6 +1,6 @@
 import { freshDataHome } from './dataHome'
-import { PROMPT, launchWindow, newTerminalWorkspace, openWorkspace, quitApp } from './helpers'
-import { type Page, expect, test } from './test'
+import { launchWindow, newTerminalWorkspace, openWorkspace, PROMPT, quitApp } from './helpers'
+import { expect, type Page, test } from './test'
 
 const groupHead = (win: Page) => win.locator('.rail-group-head')
 const groupToggle = (win: Page) => groupHead(win).getByRole('button', { name: /build/ })

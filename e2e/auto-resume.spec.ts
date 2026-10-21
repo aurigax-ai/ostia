@@ -9,20 +9,20 @@ import {
   testHome,
 } from './dataHome'
 import {
-  PROMPT,
   addTab,
   expectHeld,
   newTerminalWorkspace,
   openWorkspace,
+  PROMPT,
   restartApp,
   shownTerminal,
   typeLine,
 } from './helpers'
 import {
   type ElectronApplication,
-  type Page,
   _electron as electron,
   expect,
+  type Page,
   test,
   waitForExit,
 } from './test'

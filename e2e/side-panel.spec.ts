@@ -1,6 +1,6 @@
 import { freshDataHome } from './dataHome'
 import { launchWindow, openWorkspace, quitApp } from './helpers'
-import { type ElectronApplication, type Page, expect, test } from './test'
+import { type ElectronApplication, expect, type Page, test } from './test'
 
 const filesButton = (win: Page) =>
   win.locator('.topbar').getByRole('button', { name: 'Files', exact: true })

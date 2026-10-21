@@ -7,10 +7,10 @@ import { guestKeys, pressInPage } from './guestKeys'
 import { openWorkspace, panelEval, quitApp, waitForPaletteSelection } from './helpers'
 import {
   type ElectronApplication,
-  type Page,
   _electron as electron,
   expect,
   killApp,
+  type Page,
   test,
 } from './test'
 

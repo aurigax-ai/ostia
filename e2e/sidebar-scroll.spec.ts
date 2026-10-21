@@ -1,6 +1,6 @@
 import { freshDataHome, isolatedLaunch } from './dataHome'
 import { quitApp } from './helpers'
-import { type Locator, type Page, _electron as electron, expect, test } from './test'
+import { _electron as electron, expect, type Locator, type Page, test } from './test'
 
 const WORKSPACES = 20
 

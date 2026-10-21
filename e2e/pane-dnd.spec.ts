@@ -1,6 +1,6 @@
 import { freshDataHome } from './dataHome'
 import { launchWindow, openWorkspace } from './helpers'
-import { type Page, expect, test } from './test'
+import { expect, type Page, test } from './test'
 
 interface PaneBox {
   x: number

@@ -10,7 +10,7 @@ import {
   typeLine,
   waitForPaletteSelection,
 } from './helpers'
-import { type ElectronApplication, type Page, _electron as electron, expect, test } from './test'
+import { type ElectronApplication, _electron as electron, expect, type Page, test } from './test'
 
 const LINES = 3000
 const SEAM_WHEEL_PX = 6000

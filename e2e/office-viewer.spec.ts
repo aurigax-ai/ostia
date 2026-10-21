@@ -1,5 +1,5 @@
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
-import { type Server, createServer } from 'node:http'
+import { createServer, type Server } from 'node:http'
 import type { AddressInfo } from 'node:net'
 import { join } from 'node:path'
 import { cfbBomb } from '../test/fixtures/office/cfbBomb'
@@ -29,7 +29,7 @@ import {
 } from '../test/fixtures/office/workbooks'
 import { freshDataHome, isolatedLaunch } from './dataHome'
 import { openWorkspace } from './helpers'
-import { type ElectronApplication, type Page, _electron as electron, expect, test } from './test'
+import { type ElectronApplication, _electron as electron, expect, type Page, test } from './test'
 import { viewerGuestRun, viewerGuestText } from './viewerGuest'
 
 const SHEET = 'office.spreadsheet'
