@@ -80,4 +80,19 @@ describe('the server client', () => {
     const api = createServerClient({ baseUrl: () => null })
     await expect(api.request('GET', '/v1/x')).rejects.toMatchObject({ code: 'no-server' })
   })
+
+  it('PSH-C61 sends nothing twice for a request that opted out of the 429 retry, and an empty ping has no content type', async () => {
+    const fetchFn = vi.fn(async () =>
+      answer(429, { error: 'rate-limited' }, { 'Retry-After': '1' }),
+    )
+    const { api, pause } = client(fetchFn as unknown as typeof fetch)
+    await expect(
+      api.request('POST', '/v1/push/h', { token: 't', retryRateLimited: false }),
+    ).rejects.toMatchObject({ status: 429, retryAfter: 1 })
+    expect(fetchFn).toHaveBeenCalledTimes(1)
+    expect(pause).not.toHaveBeenCalled()
+    const [, init] = fetchFn.mock.calls[0] as unknown as [string, RequestInit]
+    expect(init.body).toBeUndefined()
+    expect(init.headers).not.toHaveProperty('Content-Type')
+  })
 })

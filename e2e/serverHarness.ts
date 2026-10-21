@@ -13,11 +13,16 @@ export interface RunningServer {
   stop: () => Promise<void>
 }
 
+export interface PushConfig {
+  serviceAccountFile: string
+  endpoint: string
+}
+
 function configToml(
   dir: string,
   certPath: string,
   keyPath: string,
-  approverMinAge: string | undefined,
+  options: { approverMinAge?: string; push?: PushConfig },
 ): string {
   return [
     `data_dir = "${join(dir, 'data')}"`,
@@ -37,8 +42,15 @@ function configToml(
     'relay = true',
     'publish = true',
     'sync = true',
-    'push = false',
-    ...(approverMinAge ? ['[auth]', `approver_min_age = "${approverMinAge}"`] : []),
+    `push = ${options.push ? 'true' : 'false'}`,
+    ...(options.approverMinAge ? ['[auth]', `approver_min_age = "${options.approverMinAge}"`] : []),
+    ...(options.push
+      ? [
+          '[push.fcm]',
+          `service_account_file = "${options.push.serviceAccountFile}"`,
+          `endpoint = "${options.push.endpoint}"`,
+        ]
+      : []),
     '',
   ].join('\n')
 }
@@ -74,12 +86,12 @@ function selfSignedCertificate(dir: string): { certPath: string; keyPath: string
 
 export async function startServer(
   binary: string,
-  options: { approverMinAge?: string } = {},
+  options: { approverMinAge?: string; push?: PushConfig } = {},
 ): Promise<RunningServer> {
   const dir = mkdtempSync(join(tmpdir(), 'ostia-server-e2e-'))
   const { certPath, keyPath } = selfSignedCertificate(dir)
   const configPath = join(dir, 'ostia-server.toml')
-  writeFileSync(configPath, configToml(dir, certPath, keyPath, options.approverMinAge), {
+  writeFileSync(configPath, configToml(dir, certPath, keyPath, options), {
     mode: 0o600,
   })
   const child: ChildProcess = spawn(binary, ['-config', configPath], {
