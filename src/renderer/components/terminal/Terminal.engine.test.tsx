@@ -356,18 +356,30 @@ describe('TerminalView engines', () => {
     expect(window.ostia.pty.write).toHaveBeenCalledWith('p1', 'b', undefined)
   })
 
-  it('keeps a waiting pane waiting through focus and query replies, and ends the wait on a key', async () => {
-    const { container } = await renderSettled(<TerminalView workspaceId="w1" paneId="p1" />)
+  it('keeps a waiting pane waiting through focus and query replies', async () => {
+    await renderSettled(<TerminalView workspaceId="w1" paneId="p1" />)
     await waitFor(() => expect(window.ostia.pty.attach).toHaveBeenCalled())
     useAttentionStore.setState({
       byPane: { p1: { state: 'waiting', unread: true, message: 'Allow Bash?', at: 1 } },
     })
     for (const reply of ['\x1b[I', '\x1b[O', '\x1b[?1;2c', '\x1b[24;80R']) {
-      terminalFor('p1')?.input(reply, true)
+      terminalFor('p1')?.input(reply, false)
     }
     expect(useAttentionStore.getState().byPane.p1.state).toBe('waiting')
     expect(window.ostia.pty.write).toHaveBeenCalledWith('p1', '\x1b[?1;2c', undefined)
+  })
 
+  it.each([
+    ['a letter', { key: 'a', code: 'KeyA', keyCode: 65 }, 'a'],
+    ['an arrow', { key: 'ArrowUp', code: 'ArrowUp', keyCode: 38 }, '\x1b[A'],
+    ['F5', { key: 'F5', code: 'F5', keyCode: 116 }, '\x1b[15~'],
+    ['Super+F3', { key: 'F3', code: 'F3', keyCode: 114, metaKey: true }, '\x1b[1;9R'],
+  ])('ends the wait of a pane when the human presses %s', async (_name, event, bytes) => {
+    const { container } = await renderSettled(<TerminalView workspaceId="w1" paneId="p1" />)
+    await waitFor(() => expect(window.ostia.pty.attach).toHaveBeenCalled())
+    useAttentionStore.setState({
+      byPane: { p1: { state: 'waiting', unread: true, message: 'Allow Bash?', at: 1 } },
+    })
     const textarea = container.querySelector('.xterm-helper-textarea') as HTMLTextAreaElement
     Object.defineProperty(window, 'event', {
       value: { isTrusted: true, type: 'keydown', target: textarea },
@@ -376,7 +388,8 @@ describe('TerminalView engines', () => {
     onTestFinished(() => {
       Reflect.deleteProperty(window, 'event')
     })
-    fireEvent.keyDown(textarea, { key: 'a', code: 'KeyA', keyCode: 65 })
+    fireEvent.keyDown(textarea, event)
+    expect(window.ostia.pty.write).toHaveBeenCalledWith('p1', bytes, 'key')
     expect(useAttentionStore.getState().byPane.p1.state).not.toBe('waiting')
   })
 

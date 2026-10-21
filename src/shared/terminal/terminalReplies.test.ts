@@ -15,6 +15,9 @@ describe('isTerminalReply', () => {
     ['keyboard protocol report', '\x1b[?0u'],
     ['colour report', '\x1b]11;rgb:1e1e/1e1e/1e1e\x07'],
     ['colour report with a string terminator', '\x1b]4;1;rgb:cdcd/0000/0000\x1b\\'],
+    ['colour report without rgb', '\x1b]10;?\x07'],
+    ['window title report', '\x1b]lbuild logs\x1b\\'],
+    ['icon label report', '\x1b]Lbuild\x07'],
     ['string report', '\x1bP1+r544e\x1b\\'],
     ['several replies in one frame', '\x1b[I\x1b[?1;2c\x1b[24;80R'],
   ])('treats a %s as a reply', (_name, data) => {
@@ -30,6 +33,7 @@ describe('isTerminalReply', () => {
     ['an arrow', '\x1b[A'],
     ['a function key', '\x1b[15~'],
     ['a modified F3', '\x1b[1;5R'],
+    ['a cursor report at row 1, column 2 (known collision with Shift+F3)', '\x1b[1;2R'],
     ['a paste', '\x1b[200~hello\x1b[201~'],
     ['a reply followed by a key', '\x1b[Ia'],
     ['a key followed by a reply', 'a\x1b[I'],

@@ -22,6 +22,11 @@ function escapeEnd(data: string, at: number): number {
     while (i < data.length && data[i] >= ' ' && data[i] <= '/') i++
     return Math.min(i + 1, data.length)
   }
+  if (kind === ']' || kind === 'P') {
+    let i = at + 2
+    while (i < data.length && data[i] !== '\x07' && !data.startsWith('\x1b\\', i)) i++
+    return Math.min(i + (data[i] === '\x07' ? 1 : 2), data.length)
+  }
   return Math.min(at + (kind === 'O' ? 3 : 2), data.length)
 }
 

@@ -340,13 +340,13 @@ function handleBinaryFrame(
       ws.send(rpcError(null, -32003, 'needs-elevation', { cap: 'input' }))
       return
     }
-    const data = payload.toString('utf8')
-    if (isTerminalReply(data)) {
-      controlDeps.ptyWrite(attachment.rendererPaneId, data)
+    const text = payload.toString('utf8')
+    if (isTerminalReply(text)) {
+      controlDeps.ptyWrite(attachment.rendererPaneId, text)
       return
     }
     controlDeps.phoneInput(attachment.rendererPaneId)
-    controlDeps.ptyWrite(attachment.rendererPaneId, data, 'key')
+    controlDeps.ptyWrite(attachment.rendererPaneId, text, 'key')
   }
 }
 

@@ -140,8 +140,8 @@ export function attachPtySession(deps: PtySessionDeps): () => void {
   host.addEventListener('mousedown', mouse, true)
 
   const input = term.onData((d) => {
-    const reply = isTerminalReply(d)
-    const source = reply ? undefined : humanInputSource(host)
+    const source = humanInputSource(host)
+    const reply = !source && isTerminalReply(d)
     if (!holdInput(d, source)) window.ostia.pty.write(paneId, d, source)
     if (reply) return
     markPaneActivity(paneId)
