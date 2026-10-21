@@ -47,11 +47,16 @@ function registerAttentionCommands(): void {
     run: ({ state, message, soft }, ctx) => {
       if (!ctx.activePaneId) throw new Error('no target pane')
       if (isStaleAgentReport(ctx.activePaneId, state)) return
-      if (soft && useAttentionStore.getState().byPane[ctx.activePaneId]?.state === 'waiting') return
       useAgentTurnStore.getState().report(ctx.activePaneId, state)
       const seen = isPaneViewed(ctx.activePaneId)
-      signalPane(ctx.activePaneId, { type: 'set', state, message, soft, at: Date.now() })
-      if (state === 'waiting' || state === 'done') {
+      const changed = signalPane(ctx.activePaneId, {
+        type: 'set',
+        state,
+        message,
+        soft,
+        at: Date.now(),
+      })
+      if (changed && (state === 'waiting' || state === 'done')) {
         postAgentNotification(ctx.activePaneId, state, message, seen)
       }
     },
