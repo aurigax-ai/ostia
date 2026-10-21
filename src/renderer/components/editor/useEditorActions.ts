@@ -6,6 +6,7 @@ import { registerSelectionSender } from '@/lib/agents/selectionSenders'
 import { registerEditorPosition } from '@/lib/files/editorPositions'
 import { useAskSelectionAction, useAssistCompletionsAction } from '@/lib/monaco/assistAction'
 import { useLiveEditorSelection } from '@/lib/monaco/liveSelection'
+import { editorSelectionAnchor } from '@/lib/monaco/selectionAnchor'
 import type { monaco } from '@/lib/monaco/setup'
 import type { PreviewSelection } from './MarkdownPreview'
 import type { Blocked } from './useEditorFile'
@@ -55,18 +56,22 @@ export function sendSelection({
     selectionSend.notify(d.viewer.noSelection)
     return
   }
-  selectionSend.open({
-    kind: 'text',
-    file,
-    view: 'source',
-    range: {
-      startLine: sel.startLineNumber,
-      startColumn: sel.startColumn,
-      endLine: sel.endLineNumber,
-      endColumn: sel.endColumn,
+  selectionSend.open(
+    {
+      kind: 'text',
+      file,
+      view: 'source',
+      range: {
+        startLine: sel.startLineNumber,
+        startColumn: sel.startColumn,
+        endLine: sel.endLineNumber,
+        endColumn: sel.endColumn,
+      },
+      text: model.getValueInRange(sel),
     },
-    text: model.getValueInRange(sel),
-  })
+    undefined,
+    editor ? editorSelectionAnchor(editor) : undefined,
+  )
 }
 
 interface EditorActionsParams {

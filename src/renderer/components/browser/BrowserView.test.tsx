@@ -1,9 +1,11 @@
 import type { PickCapture, PickOutcome, PickState } from '@shared/browser/pick'
 import type { RegionCapture } from '@shared/browser/regionCapture'
-import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { TooltipProvider } from '@/components/ui/tooltip'
+import { copyPaneSelection } from '@/lib/agents/selectionCopiers'
+import { openSelectionSend } from '@/lib/agents/selectionSenders'
 import { browserPaneOfGuest, runBrowserAction } from '@/lib/browser/browserHandles'
 import { startRegionCapture } from '@/lib/browser/regionCaptures'
 import { resetIds } from '@/lib/layout/tree'
@@ -38,6 +40,9 @@ const capture: PickCapture = {
   styles: {},
   role: 'button',
   name: 'Save',
+  viewport: { width: 800, height: 600 },
+  hasText: true,
+  table: null,
   consoleErrors: [],
   failedRequests: [],
   screenshotPath: null,
@@ -159,63 +164,184 @@ describe('BrowserView pick toggle', () => {
   })
 })
 
-describe('BrowserView send panel', () => {
-  async function capturedPanel() {
+describe('BrowserView capture bar', () => {
+  const bar = () => screen.getByRole('toolbar', { name: /selection actions/i })
+  const noBar = () =>
+    expect(screen.queryByRole('toolbar', { name: /selection actions/i })).toBeNull()
+
+  async function capturedBar() {
     const panes = twoTerminals()
     usePaneRecencyStore.getState().touch(panes.a, 100)
     usePaneRecencyStore.getState().touch(panes.b, 50)
     vi.mocked(window.ostia.browser.pickStart).mockResolvedValue({ ok: true, capture })
     await renderView(panes.workspaceId)
     await userEvent.click(pickButton())
-    await screen.findByRole('region', { name: /send to agent/i })
+    await screen.findByRole('toolbar', { name: /selection actions/i })
     return panes
   }
 
-  it('opens after a capture with the note focused and the most recent terminal selected', async () => {
-    const { a } = await capturedPanel()
-    expect(screen.getByLabelText(/what’s wrong/i)).toHaveFocus()
-    expect(screen.getByText('button#save 80×24')).toBeInTheDocument()
-    const radios = screen.getAllByRole('radio')
-    expect(radios).toHaveLength(2)
-    const selected = screen.getByRole('radio', { checked: true }).closest('label')
-    expect(selected?.htmlFor.endsWith(`-target-${a}`)).toBe(true)
+  async function sendTo(index: number) {
+    await userEvent.click(screen.getByRole('button', { name: /send to agent/i }))
+    const items = await screen.findAllByRole('menuitem')
+    await userEvent.click(items[index])
+  }
+
+  it('opens after a capture with Copy, Send to agent, a note and a close button', async () => {
+    await capturedBar()
+    expect(within(bar()).getByRole('button', { name: 'Copy' })).toBeVisible()
+    expect(within(bar()).getByRole('button', { name: /send to agent/i })).toBeVisible()
+    expect(within(bar()).getByRole('button', { name: /add a note/i })).toBeVisible()
+    expect(within(bar()).getByRole('button', { name: /cancel/i })).toBeVisible()
   })
 
-  it('sends the note to the chosen pane and confirms in the browser pane', async () => {
-    const { b } = await capturedPanel()
+  it('lists the agents of the workspace and sends at once to the one picked', async () => {
+    const { a, b } = await capturedBar()
     vi.mocked(window.ostia.browser.pickSend).mockResolvedValue({
       ok: true,
       path: '/tmp/ostia-reports-1000/capture-1.md',
       imagePath: null,
     })
-    await userEvent.type(screen.getByLabelText(/what’s wrong/i), 'Save overlaps the footer')
-    await userEvent.click(screen.getAllByRole('radio')[1])
-    await userEvent.click(screen.getByRole('button', { name: 'Send' }))
+    await userEvent.click(screen.getByRole('button', { name: /send to agent/i }))
+    expect(await screen.findAllByRole('menuitem')).toHaveLength(2)
+    await userEvent.keyboard('{Escape}')
+    await sendTo(1)
     expect(window.ostia.browser.pickSend).toHaveBeenCalledWith({
       captureId: 'pick-7',
       sourcePaneId: BROWSER,
-      targetPaneId: b,
-      note: 'Save overlaps the footer',
+      targetPaneId: expect.stringMatching(new RegExp(`^(${a}|${b})$`)),
+      note: '',
     })
-    await waitFor(() =>
-      expect(screen.queryByRole('region', { name: /send to agent/i })).not.toBeInTheDocument(),
-    )
+    await waitFor(() => noBar())
     expect(screen.getByText(/^Sent to .*report path is on your clipboard/)).toBeVisible()
   })
 
-  it('keeps the panel and shows why when sending fails', async () => {
-    await capturedPanel()
-    vi.mocked(window.ostia.browser.pickSend).mockResolvedValue({ ok: false, error: 'write-failed' })
-    await userEvent.click(screen.getByRole('button', { name: 'Send' }))
-    expect(await screen.findByText(/could not send the report \(write-failed\)/i)).toBeVisible()
-    expect(screen.getByRole('region', { name: /send to agent/i })).toBeInTheDocument()
+  it('sends the note typed under the bar and pastes it in front of the reference', async () => {
+    await capturedBar()
+    vi.mocked(window.ostia.browser.pickSend).mockResolvedValue({
+      ok: true,
+      path: '/tmp/ostia-reports-1000/capture-1.md',
+      imagePath: null,
+    })
+    await userEvent.click(within(bar()).getByRole('button', { name: /add a note/i }))
+    await userEvent.type(screen.getByRole('textbox', { name: /add a note/i }), 'Save overlaps')
+    expect(within(bar()).getByRole('button', { name: /add a note/i })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    )
+    await sendTo(0)
+    expect(window.ostia.browser.pickSend).toHaveBeenCalledWith(
+      expect.objectContaining({ note: 'Save overlaps' }),
+    )
   })
 
-  it('discards the capture on Escape', async () => {
-    await capturedPanel()
+  it('sends a note to the last-used agent on Ctrl+Enter', async () => {
+    await capturedBar()
+    vi.mocked(window.ostia.browser.pickSend).mockResolvedValue({
+      ok: true,
+      path: '/tmp/ostia-reports-1000/capture-1.md',
+      imagePath: null,
+    })
+    await userEvent.click(within(bar()).getByRole('button', { name: /add a note/i }))
+    await userEvent.type(
+      screen.getByRole('textbox', { name: /add a note/i }),
+      'look{Control>}{Enter}',
+    )
+    await waitFor(() =>
+      expect(window.ostia.browser.pickSend).toHaveBeenCalledWith(
+        expect.objectContaining({ note: 'look' }),
+      ),
+    )
+  })
+
+  it('keeps the bar and shows why when sending fails', async () => {
+    await capturedBar()
+    vi.mocked(window.ostia.browser.pickSend).mockResolvedValue({ ok: false, error: 'write-failed' })
+    await sendTo(0)
+    expect(await screen.findByText(/could not send the report \(write-failed\)/i)).toBeVisible()
+    expect(bar()).toBeInTheDocument()
+  })
+
+  it('copies the element report and says what was copied, then closes', async () => {
+    await capturedBar()
+    vi.mocked(window.ostia.browser.pickCopy).mockResolvedValue({
+      ok: true,
+      kind: 'table',
+      rows: 5,
+      columns: 4,
+    })
+    await userEvent.click(within(bar()).getByRole('button', { name: 'Copy' }))
+    expect(window.ostia.browser.pickCopy).toHaveBeenCalledWith(BROWSER, 'pick-7')
+    expect(await screen.findByText('Copied the table (5 rows × 4 columns) as CSV.')).toBeVisible()
+    noBar()
+  })
+
+  it('answers Ctrl+C from the pane registry while the bar is open', async () => {
+    await capturedBar()
+    vi.mocked(window.ostia.browser.pickCopy).mockResolvedValue({ ok: true, kind: 'image' })
+    act(() => {
+      expect(copyPaneSelection(BROWSER)).toBe(true)
+    })
+    expect(await screen.findByText('Copied the element screenshot.')).toBeVisible()
+    await waitFor(() => noBar())
+    expect(copyPaneSelection(BROWSER)).toBe(false)
+  })
+
+  it('discards the capture on Escape and on its close button', async () => {
+    await capturedBar()
     await userEvent.keyboard('{Escape}')
-    expect(screen.queryByRole('region', { name: /send to agent/i })).not.toBeInTheDocument()
+    noBar()
+    vi.mocked(window.ostia.browser.pickStart).mockResolvedValue({ ok: true, capture })
+    await userEvent.click(pickButton())
+    await screen.findByRole('toolbar', { name: /selection actions/i })
+    await userEvent.click(within(bar()).getByRole('button', { name: /cancel/i }))
+    noBar()
     expect(window.ostia.browser.pickSend).not.toHaveBeenCalled()
+  })
+
+  it('opens on the page selection with Ctrl+Shift+E and sends it as page text', async () => {
+    const panes = twoTerminals()
+    vi.mocked(window.ostia.browser.pageSelection).mockResolvedValue({
+      capture: {
+        kind: 'page-text',
+        url: 'http://localhost/',
+        title: 'App',
+        text: 'Refund pending',
+      },
+      box: { x: 10, y: 20, width: 100, height: 20 },
+      viewport: { width: 800, height: 600 },
+    })
+    vi.mocked(window.ostia.selection.send).mockResolvedValue({
+      ok: true,
+      path: '/tmp/ostia-reports-1000/selection-1.md',
+      imagePath: null,
+    })
+    await renderView(panes.workspaceId)
+    await act(async () => {
+      expect(openSelectionSend(BROWSER)).toBe(true)
+    })
+    await screen.findByRole('toolbar', { name: /selection actions/i })
+    await sendTo(0)
+    expect(window.ostia.selection.send).toHaveBeenCalledWith(
+      expect.objectContaining({
+        capture: {
+          kind: 'page-text',
+          url: 'http://localhost/',
+          title: 'App',
+          text: 'Refund pending',
+        },
+        sourcePaneId: BROWSER,
+      }),
+    )
+  })
+
+  it('says so when the page has no selection', async () => {
+    const { workspaceId } = twoTerminals()
+    await renderView(workspaceId)
+    await act(async () => {
+      expect(openSelectionSend(BROWSER)).toBe(true)
+    })
+    expect(await screen.findByText('Select some text first.')).toBeVisible()
+    noBar()
   })
 })
 
@@ -290,11 +416,11 @@ describe('BrowserView region capture', () => {
       rect: { x: 10, y: 20, width: 120, height: 80 },
       view: { width: 640, height: 480 },
     })
-    const panel = await screen.findByRole('region', { name: /send to agent/i })
-    expect(panel).toHaveTextContent('Region 120 × 80 px · App')
+    await screen.findByRole('toolbar', { name: /selection actions/i })
     expect(screen.queryByRole('application', { name: /region capture/i })).toBeNull()
 
-    await userEvent.click(screen.getByRole('button', { name: 'Send' }))
+    await userEvent.click(screen.getByRole('button', { name: /send to agent/i }))
+    await userEvent.click((await screen.findAllByRole('menuitem'))[0])
     await waitFor(() =>
       expect(window.ostia.browser.regionSend).toHaveBeenCalledWith({
         captureId: 'region-3',
@@ -304,7 +430,7 @@ describe('BrowserView region capture', () => {
       }),
     )
     await waitFor(() =>
-      expect(screen.queryByRole('region', { name: /send to agent/i })).not.toBeInTheDocument(),
+      expect(screen.queryByRole('toolbar', { name: /selection actions/i })).not.toBeInTheDocument(),
     )
   })
 
@@ -314,8 +440,8 @@ describe('BrowserView region capture', () => {
     await renderView(workspaceId)
     await userEvent.click(regionButton())
     drag()
-    await screen.findByRole('region', { name: /send to agent/i })
-    await userEvent.click(screen.getByRole('button', { name: 'Copy image' }))
+    await screen.findByRole('toolbar', { name: /selection actions/i })
+    await userEvent.click(screen.getByRole('button', { name: 'Copy' }))
     expect(window.ostia.browser.regionCopy).toHaveBeenCalledWith(BROWSER, 'region-3')
     expect(window.ostia.browser.regionSend).not.toHaveBeenCalled()
     expect(await screen.findByText('Copied the image to the clipboard.')).toBeVisible()

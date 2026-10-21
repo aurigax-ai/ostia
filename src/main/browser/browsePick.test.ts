@@ -13,6 +13,8 @@ const {
   PICK_WORLD_ID,
   cancelPick,
   clampPickTimeout,
+  copyPick,
+  readPageSelection,
   runPick,
   sanitizeTheme,
   writePickReport,
@@ -36,6 +38,8 @@ const raw: RawPick = {
   styles: { display: 'inline-block' },
   role: 'button',
   name: 'Save',
+  hasText: true,
+  table: null,
 }
 
 type Script = { code: string }
@@ -47,7 +51,12 @@ class FakeGuest extends EventEmitter {
   pickResult: Promise<unknown> = Promise.resolve(raw)
   isDestroyed = (): boolean => this.destroyed
   getZoomFactor = (): number => 1
-  capturePage = vi.fn(async () => ({ isEmpty: () => false, toPNG: () => Buffer.from('png') }))
+  capturePage = vi.fn(
+    async (): Promise<{ isEmpty: () => boolean; toPNG: () => Buffer }> => ({
+      isEmpty: () => false,
+      toPNG: () => Buffer.from('png'),
+    }),
+  )
   executeJavaScriptInIsolatedWorld = vi.fn(async (world: number, scripts: Script[]) => {
     const code = scripts[0].code
     this.scripts.push({ world, code })
@@ -258,6 +267,138 @@ describe('writePickReport', () => {
     expect(refused).toEqual({ ok: false, error: 'not-found' })
     expect(sent.ok).toBe(true)
     expect(asked).toEqual([['w1', 'browser-1', 'agent-9']])
+  })
+})
+
+describe('copyPick', () => {
+  const PNG = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1, 2, 3])
+
+  async function pickOf(over: Partial<RawPick>, png: Buffer = PNG) {
+    const guest = new FakeGuest()
+    guest.pickResult = Promise.resolve({ ...raw, ...over })
+    guest.capturePage = vi.fn(async () => ({ isEmpty: () => false, toPNG: () => png }))
+    const outcome = await runPick(deps(), asGuest(guest), 'browser-1', opts)
+    if (!outcome.ok) throw new Error(outcome.error)
+    return outcome.capture
+  }
+
+  it('copies the report as text when the element has text, without the note or the image', async () => {
+    const capture = await pickOf({})
+    const write = vi.fn(async () => undefined)
+    expect(await copyPick('browser-1', capture.id, 'w1', write)).toEqual({
+      ok: true,
+      kind: 'report',
+    })
+    const written = write.mock.calls[0] as unknown as [{ text?: string; png?: Uint8Array }]
+    expect(written[0].png).toBeUndefined()
+    expect(written[0].text).toContain('`#save`')
+    expect(written[0].text).not.toContain('## Note')
+  })
+
+  it('copies the element screenshot when the element has no text', async () => {
+    const capture = await pickOf({ hasText: false })
+    const write = vi.fn(async () => undefined)
+    expect(await copyPick('browser-1', capture.id, 'w1', write)).toEqual({
+      ok: true,
+      kind: 'image',
+    })
+    const written = write.mock.calls[0] as unknown as [{ text?: string; png?: Uint8Array }]
+    expect(Buffer.from(written[0].png ?? []).equals(PNG)).toBe(true)
+    expect(written[0].text).toBeUndefined()
+  })
+
+  it('falls back to the report when the screenshot is not a png', async () => {
+    const capture = await pickOf({ hasText: false }, Buffer.from('not a png'))
+    const write = vi.fn(async () => undefined)
+    expect(await copyPick('browser-1', capture.id, 'w1', write)).toEqual({
+      ok: true,
+      kind: 'report',
+    })
+  })
+
+  it('copies a table as csv text and says its shape', async () => {
+    const capture = await pickOf({
+      table: [
+        ['Order', 'Total'],
+        ['#1', '1,232.00'],
+      ],
+    })
+    const write = vi.fn(async () => undefined)
+    expect(await copyPick('browser-1', capture.id, 'w1', write)).toEqual({
+      ok: true,
+      kind: 'table',
+      rows: 2,
+      columns: 2,
+    })
+    expect(write).toHaveBeenCalledWith({ text: 'Order,Total\n#1,"1,232.00"' })
+  })
+
+  it('refuses another window, a stranger pane and an unknown capture', async () => {
+    const capture = await pickOf({})
+    const write = vi.fn(async () => undefined)
+    expect(await copyPick('browser-1', capture.id, 'w2', write)).toEqual({
+      ok: false,
+      error: 'not-found',
+    })
+    expect(await copyPick('term-1', capture.id, 'w1', write)).toEqual({
+      ok: false,
+      error: 'capture-expired',
+    })
+    expect(await copyPick('browser-1', 'pick-none', 'w1', write)).toEqual({
+      ok: false,
+      error: 'capture-expired',
+    })
+    expect(write).not.toHaveBeenCalled()
+  })
+
+  it('reports a clipboard that refused the write', async () => {
+    const capture = await pickOf({})
+    expect(
+      await copyPick('browser-1', capture.id, 'w1', async () => {
+        throw new Error('denied')
+      }),
+    ).toEqual({ ok: false, error: 'write-failed' })
+  })
+})
+
+describe('readPageSelection', () => {
+  it('reads the selection in the isolated world and validates what comes back', async () => {
+    const guest = new FakeGuest()
+    guest.executeJavaScriptInIsolatedWorld = vi.fn(async () => ({
+      url: 'https://example.com/a',
+      title: 'A',
+      text: 'Refund pending',
+      box: { x: 4, y: 8, width: 100, height: 20 },
+      viewport: { width: 800, height: 600 },
+    }))
+    expect(await readPageSelection(asGuest(guest))).toEqual({
+      capture: {
+        kind: 'page-text',
+        url: 'https://example.com/a',
+        title: 'A',
+        text: 'Refund pending',
+      },
+      box: { x: 4, y: 8, width: 100, height: 20 },
+      viewport: { width: 800, height: 600 },
+    })
+    expect(guest.executeJavaScriptInIsolatedWorld).toHaveBeenCalledWith(PICK_WORLD_ID, [
+      expect.objectContaining({ code: expect.stringContaining('.selection()') }),
+    ])
+  })
+
+  it('answers null for no selection, a hostile page or a failed script', async () => {
+    const guest = new FakeGuest()
+    guest.executeJavaScriptInIsolatedWorld = vi.fn(async () => null)
+    expect(await readPageSelection(asGuest(guest))).toBeNull()
+    guest.executeJavaScriptInIsolatedWorld = vi.fn(async () => ({
+      url: 'javascript:alert(1)',
+      text: 'x',
+    }))
+    expect(await readPageSelection(asGuest(guest))).toBeNull()
+    guest.executeJavaScriptInIsolatedWorld = vi.fn(async () => {
+      throw new Error('gone')
+    })
+    expect(await readPageSelection(asGuest(guest))).toBeNull()
   })
 })
 

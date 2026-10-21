@@ -1,4 +1,4 @@
-import { CaretDownIcon, CaretRightIcon, WarningIcon } from '@phosphor-icons/react'
+import { CaretDownIcon, CaretRightIcon, CropIcon, WarningIcon } from '@phosphor-icons/react'
 import {
   isWebLink,
   keepErrors,
@@ -7,6 +7,8 @@ import {
   type PreviewStopReason,
   previewErrorLine,
 } from '@shared/artifacts/htmlPreview'
+import type { PickBox } from '@shared/browser/pick'
+import type { RegionView } from '@shared/browser/regionCapture'
 import type { SelectionCapture } from '@shared/browser/selection'
 import {
   type Dispatch,
@@ -16,23 +18,20 @@ import {
   useRef,
   useState,
 } from 'react'
+import { RegionCropOverlay } from '@/components/browser/RegionCropOverlay'
 import { EmptyState } from '@/components/common/EmptyState'
+import { IconButton } from '@/components/common/IconButton'
 import { DropdownMenu, MenuItem } from '@/components/common/Menu'
 import { StatusAction, StatusLine, useDismissed } from '@/components/common/StatusLine'
 import { Button } from '@/components/ui/button'
 import { ButtonGroup, ButtonGroupSeparator } from '@/components/ui/button-group'
+import { anchorWithin, type BarAnchor } from '@/lib/agents/barAnchor'
 import { fmt, useDict } from '@/lib/app/useDict'
 import { openBrowserAs } from '@/lib/browser/browserProfile'
 import { useGuestReady } from '@/lib/panes/paneFocus'
 import { previewTheme } from '@/lib/theme/previewTheme'
 import { useEffectiveThemeId } from '@/lib/theme/theme'
 import { retryPendingFocus } from '@/stores/workspaces/surfaceSlotsStore'
-import {
-  type PickedRegion,
-  PreviewRegionOverlay,
-  PreviewRegionTools,
-  type RegionAction,
-} from './PreviewRegion'
 
 type Stopped = PreviewStopReason | 'failed'
 
@@ -191,36 +190,47 @@ function PreviewBars({
   )
 }
 
+type SendRegion = (capture: SelectionCapture, image: Uint8Array, anchor?: BarAnchor) => void
+
+function regionAnchor(frame: HTMLElement | null, rect: PickBox): BarAnchor | undefined {
+  const container = frame?.closest('.html-preview')?.parentElement
+  if (!frame || !container) return undefined
+  const origin = frame.getBoundingClientRect()
+  return anchorWithin(container, {
+    left: origin.left + rect.x,
+    top: origin.top + rect.y,
+    bottom: origin.top + rect.y + rect.height,
+  })
+}
+
 function usePreviewRegion({
   opened,
   filePath,
+  frame,
   onSendRegion,
 }: {
   opened: PreviewOpened | null
   filePath: string
-  onSendRegion?: (capture: SelectionCapture, image: Uint8Array) => void
+  frame: HTMLElement | null
+  onSendRegion?: SendRegion
 }) {
-  const [picking, setPicking] = useState<RegionAction | null>(null)
-  const region = async (picked: PickedRegion | null): Promise<void> => {
-    const action = picking
-    setPicking(null)
-    if (!picked || !opened || !action) return
-    if (action === 'copy') {
-      await window.ostia.preview.copyRegion(opened.id, picked.region)
-      return
-    }
-    const captured = await window.ostia.preview.capture(opened.id, picked.region)
-    if (!captured || !onSendRegion) return
+  const [picking, setPicking] = useState(false)
+  const region = async (rect: PickBox, view: RegionView): Promise<void> => {
+    setPicking(false)
+    if (!opened || !onSendRegion) return
+    const captured = await window.ostia.preview.capture(opened.id, rect)
+    if (!captured) return
     onSendRegion(
       {
         kind: 'preview-region',
         file: filePath,
-        viewWidth: picked.viewWidth,
-        viewHeight: picked.viewHeight,
+        viewWidth: view.width,
+        viewHeight: view.height,
         region: captured.region,
         version: null,
       },
       captured.image,
+      regionAnchor(frame, rect),
     )
   }
 
@@ -242,7 +252,7 @@ export function HtmlPreview({
   visible: boolean
   focusRef?: MutableRefObject<HTMLElement | null>
   onSendErrors?: (count: number, text: string) => void
-  onSendRegion?: (capture: SelectionCapture, image: Uint8Array) => void
+  onSendRegion?: SendRegion
 }): JSX.Element {
   const d = useDict()
   const [opened, setOpened] = useState<PreviewOpened | null>(null)
@@ -251,8 +261,13 @@ export function HtmlPreview({
   const [expanded, setExpanded] = useState(false)
   const [vitals, setVitals] = useState({ responding: true, busy: false })
   const [link, setLink] = useState<string | null>(null)
-  const { picking, setPicking, region } = usePreviewRegion({ opened, filePath, onSendRegion })
   const [webview, setWebview] = useState<HTMLElement | null>(null)
+  const { picking, setPicking, region } = usePreviewRegion({
+    opened,
+    filePath,
+    frame: webview?.parentElement ?? null,
+    onSendRegion,
+  })
   const readyWebview = useGuestReady(webview)
   useEffect(() => {
     if (!focusRef) return
@@ -368,7 +383,16 @@ export function HtmlPreview({
         />
       ) : opened ? (
         <div className="preview-frame">
-          {onSendRegion ? <PreviewRegionTools onPick={setPicking} /> : null}
+          {onSendRegion ? (
+            <IconButton
+              className="editor-send"
+              icon={CropIcon}
+              label={d.preview.captureRegion}
+              hintSide="left"
+              aria-pressed={picking}
+              onClick={() => setPicking((on) => !on)}
+            />
+          ) : null}
           <webview
             key={opened.url}
             ref={setWebview}
@@ -376,7 +400,13 @@ export function HtmlPreview({
             src={opened.url}
             partition={opened.partition}
           />
-          {picking ? <PreviewRegionOverlay onDone={(picked) => void region(picked)} /> : null}
+          {picking ? (
+            <RegionCropOverlay
+              label={d.preview.regionHint}
+              onDone={(rect, view) => void region(rect, view)}
+              onCancel={() => setPicking(false)}
+            />
+          ) : null}
         </div>
       ) : null}
     </div>

@@ -2463,26 +2463,6 @@
   min-height: 0;
 }
 
-.preview-tools {
-  position: absolute;
-  right: 8px;
-  bottom: 8px;
-  z-index: 2;
-}
-
-.preview-region {
-  position: absolute;
-  inset: 0;
-  z-index: 3;
-  cursor: crosshair;
-}
-
-.preview-region-box {
-  position: absolute;
-  border: 1px solid var(--brand);
-  background: color-mix(in srgb, var(--brand) 12%, transparent);
-}
-
 .portable-problem {
   display: flex;
   align-items: center;

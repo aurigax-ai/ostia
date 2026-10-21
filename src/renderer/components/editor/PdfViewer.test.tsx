@@ -106,9 +106,9 @@ describe('PdfViewer', () => {
 
     const send = screen.getByRole('button', { name: 'Send selected text to agent' })
     await userEvent.click(send)
-    const panel = await screen.findByRole('region', { name: 'Send to agent' })
-    expect(panel).toHaveTextContent('invoice.pdf, page 1')
-    await userEvent.click(screen.getByRole('button', { name: 'Send' }))
+    await screen.findByRole('toolbar', { name: 'Selection actions' })
+    await userEvent.click(screen.getByRole('button', { name: 'Send to agent' }))
+    await userEvent.click((await screen.findAllByRole('menuitem'))[0])
 
     await waitFor(() =>
       expect(window.ostia.selection.send).toHaveBeenCalledWith({
@@ -212,10 +212,11 @@ describe('PdfViewer', () => {
     fireEvent.pointerUp(layer, { clientX: 260, clientY: 150, pointerId: 1 })
 
     await userEvent.click(screen.getByRole('button', { name: 'Send region to agent' }))
-    await screen.findByRole('region', { name: 'Send to agent' })
+    await screen.findByRole('toolbar', { name: 'Selection actions' })
     const canvas = document.querySelector('canvas') as HTMLCanvasElement
     expect(cropToPng).toHaveBeenCalledWith(canvas, { x: 60, y: 100, width: 200, height: 50 })
-    await userEvent.click(screen.getByRole('button', { name: 'Send' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Send to agent' }))
+    await userEvent.click((await screen.findAllByRole('menuitem'))[0])
     await waitFor(() =>
       expect(window.ostia.selection.send).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -334,7 +335,7 @@ describe('PdfViewer', () => {
   it('sends the whole page when nothing is selected', async () => {
     await renderPdf()
     await userEvent.click(screen.getByRole('button', { name: 'Send page to agent' }))
-    await screen.findByRole('region', { name: 'Send to agent' })
+    await screen.findByRole('toolbar', { name: 'Selection actions' })
     const canvas = document.querySelector('canvas') as HTMLCanvasElement
     expect(cropToPng).toHaveBeenCalledWith(canvas, {
       x: 0,

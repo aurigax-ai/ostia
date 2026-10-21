@@ -30,7 +30,6 @@ export const artifactsBridge: Pick<OstiaBridge, 'artifacts' | 'preview'> = {
     stop: (id) => ipcRenderer.send('preview:stop', id),
     close: (id) => ipcRenderer.send('preview:close', id),
     capture: (id, rect) => ipcRenderer.invoke('preview:capture', id, rect),
-    copyRegion: (id, rect) => ipcRenderer.invoke('preview:copy-region', id, rect),
     onEvent: (cb) => listen('preview:event', cb),
   },
 }

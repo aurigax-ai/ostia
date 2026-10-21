@@ -43,8 +43,8 @@ vi.mock('@/lib/agents/sendPick', async (importOriginal) => ({
   canInsertReference: (paneId: string) => paneId === 'agent-pane',
 }))
 
-vi.mock('@/components/agents/PickSendPanel', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('@/components/agents/PickSendPanel')>()),
+vi.mock('@/lib/agents/useAgentTargets', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/agents/useAgentTargets')>()),
   useAgentTargets: () => [
     {
       paneId: 'agent-pane',

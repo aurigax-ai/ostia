@@ -104,9 +104,9 @@ async function deliverReport(
   fallback: string,
   pointedByHuman = true,
 ): Promise<boolean> {
-  const summary = note.trim().replace(/\s+/g, ' ').slice(0, ATTENTION_NOTE_MAX)
-  const inserted = await sendReference(target, references, {
-    note: summary || fallback,
+  const flat = note.trim().replace(/\s+/g, ' ')
+  const inserted = await sendReference(target, flat ? `${flat} ${references}` : references, {
+    note: flat.slice(0, ATTENTION_NOTE_MAX) || fallback,
     pointedByHuman,
   })
   if (!inserted) {

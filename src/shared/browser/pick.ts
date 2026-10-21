@@ -22,6 +22,15 @@ export interface RawPick {
   styles: Record<string, string>
   role: string
   name: string
+  hasText: boolean
+  table: string[][] | null
+}
+
+export interface PickTable {
+  rows: number
+  columns: number
+  truncated: boolean
+  csv: string
 }
 
 interface PickLogEntry {
@@ -47,6 +56,9 @@ export interface PickCapture {
   html: string
   htmlTruncated: boolean
   box: PickBox
+  viewport: { width: number; height: number }
+  hasText: boolean
+  table: PickTable | null
   styles: Record<string, string>
   role: string
   name: string
@@ -78,6 +90,11 @@ export type PickSendResult =
   | { ok: true; path: string; imagePath: string | null }
   | { ok: false; error: 'capture-expired' | 'not-found' | 'write-failed' }
 
+export type PickCopyResult =
+  | { ok: true; kind: 'table'; rows: number; columns: number }
+  | { ok: true; kind: 'report' | 'image' }
+  | { ok: false; error: 'capture-expired' | 'not-found' | 'write-failed' }
+
 export interface PickState {
   paneId: string
   active: boolean
@@ -89,6 +106,9 @@ export const PICK_TEXT_MAX = 300
 export const PICK_URL_MAX = 500
 export const PICK_NOTE_MAX = 4000
 export const PICK_LOG_MAX = 20
+export const PICK_TABLE_CELLS_MAX = 10_000
+export const PICK_TABLE_CSV_MAX = 256 * 1024
+const PICK_CELL_MAX = 2000
 const PICK_STYLE_VALUE_MAX = 200
 
 const PICK_STYLE_PROPS = [
@@ -121,12 +141,58 @@ function finite(n: unknown): number {
   return typeof n === 'number' && Number.isFinite(n) ? Math.round(n * 100) / 100 : 0
 }
 
-function normalizeBox(box: Partial<PickBox> | undefined): PickBox {
+export function normalizeBox(box: Partial<PickBox> | undefined): PickBox {
   return {
     x: finite(box?.x),
     y: finite(box?.y),
     width: finite(box?.width),
     height: finite(box?.height),
+  }
+}
+
+function normalizeViewport(viewport: Partial<PickBox> | undefined): {
+  width: number
+  height: number
+} {
+  return { width: finite(viewport?.width), height: finite(viewport?.height) }
+}
+
+function csvField(cell: string): string {
+  return /[",\r\n]/.test(cell) ? `"${cell.replace(/"/g, '""')}"` : cell
+}
+
+function cleanRows(raw: unknown): string[][] | null {
+  if (!Array.isArray(raw)) return null
+  const rows: string[][] = []
+  for (const row of raw) {
+    if (!Array.isArray(row)) return null
+    rows.push(row.map((cell) => clip(typeof cell === 'string' ? cell : '', PICK_CELL_MAX)))
+  }
+  return rows.length > 0 ? rows : null
+}
+
+export function normalizeTable(raw: unknown): PickTable | null {
+  const cleaned = cleanRows(raw)
+  if (!cleaned) return null
+  const columns = Math.max(...cleaned.map((row) => row.length))
+  if (columns === 0) return null
+  const fitting = Math.max(1, Math.floor(PICK_TABLE_CELLS_MAX / columns))
+  const lines: string[] = []
+  const encoder = new TextEncoder()
+  let bytes = 0
+  for (const row of cleaned.slice(0, fitting)) {
+    const padded = row.concat(Array(columns - row.length).fill(''))
+    const line = padded.map(csvField).join(',')
+    const size = encoder.encode(line).length + 1
+    if (lines.length > 0 && bytes + size > PICK_TABLE_CSV_MAX) break
+    lines.push(size > PICK_TABLE_CSV_MAX ? line.slice(0, PICK_TABLE_CSV_MAX / 4) : line)
+    bytes += size
+  }
+  return {
+    rows: lines.length,
+    columns,
+    truncated: lines.length < cleaned.length,
+    csv: lines.join('\n'),
   }
 }
 
@@ -160,6 +226,9 @@ export function normalizeCapture(raw: Partial<RawPick>, extras: CaptureExtras): 
     html: html.length > PICK_HTML_MAX ? html.slice(0, PICK_HTML_MAX) : html,
     htmlTruncated: html.length > PICK_HTML_MAX,
     box: normalizeBox(raw.box),
+    viewport: normalizeViewport(raw.viewport),
+    hasText: raw.hasText === true,
+    table: normalizeTable(raw.table),
     styles: normalizeStyles(raw.styles),
     role: clip(raw.role, 60),
     name: clip(raw.name, PICK_TEXT_MAX),
@@ -227,24 +296,31 @@ function time(ts: number): string {
   return new Date(ts).toISOString()
 }
 
-export function renderPickReport(capture: PickCapture, note: string): string {
+export function renderPickReport(capture: PickCapture, note: string, forCopy = false): string {
   const lines: string[] = []
   const trimmedNote = clip(note.trim(), PICK_NOTE_MAX)
   lines.push(`# Captured element: ${capture.label || capture.selector}`, '')
-  lines.push('## Note', '', trimmedNote || '(no note)', '')
+  if (!forCopy) lines.push('## Note', '', trimmedNote || '(no note)', '')
   lines.push('## Element', '')
   lines.push(`- Page: ${capture.title ? `${capture.title} — ` : ''}${capture.url}`)
   lines.push(`- Selector: ${inlineCode(capture.selector)}`)
   lines.push(`- Role / name: ${capture.role || '-'} / ${capture.name || '-'}`)
   const b = capture.box
   lines.push(`- Box: x ${b.x}, y ${b.y}, ${b.width} × ${b.height} (CSS px, viewport)`)
-  lines.push(
-    capture.screenshotPath
-      ? `- Screenshot: ${capture.screenshotPath} (the element and up to ${SCREENSHOT_MARGIN} CSS px around it)`
-      : '- Screenshot: (not captured: element off screen)',
-  )
+  if (capture.table) {
+    lines.push(
+      `- Table: ${capture.table.rows} rows × ${capture.table.columns} columns${capture.table.truncated ? ' (truncated)' : ''}`,
+    )
+  }
+  if (!forCopy) {
+    lines.push(
+      capture.screenshotPath
+        ? `- Screenshot: ${capture.screenshotPath} (the element and up to ${SCREENSHOT_MARGIN} CSS px around it)`
+        : '- Screenshot: (not captured: element off screen)',
+    )
+  }
   lines.push(`- Captured: ${capture.capturedAt}`, '')
-  if (capture.screenshotPath) {
+  if (!forCopy && capture.screenshotPath) {
     lines.push('## Screenshot', '', markdownImage('Captured element', capture.screenshotPath), '')
   }
   const styleEntries = Object.entries(capture.styles)
@@ -253,12 +329,16 @@ export function renderPickReport(capture: PickCapture, note: string): string {
     for (const [k, v] of styleEntries) lines.push(`- ${k}: ${v}`)
     lines.push('')
   }
-  lines.push(
-    `## HTML${capture.htmlTruncated ? ' (truncated)' : ''}`,
-    '',
-    fence(capture.html, 'html'),
-    '',
-  )
+  if (capture.table) {
+    lines.push('## Table (CSV)', '', fence(capture.table.csv, 'csv'), '')
+  } else {
+    lines.push(
+      `## HTML${capture.htmlTruncated ? ' (truncated)' : ''}`,
+      '',
+      fence(capture.html, 'html'),
+      '',
+    )
+  }
   lines.push('## Console errors', '')
   if (capture.consoleErrors.length === 0) lines.push('None recorded.')
   else for (const e of capture.consoleErrors) lines.push(`- ${time(e.ts)} ${inlineCode(e.text)}`)

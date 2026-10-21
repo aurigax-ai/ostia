@@ -124,11 +124,20 @@ export const terminalEn = {
     truncated: 'The preview is cut short; the whole text is pasted.',
   },
   send: {
+    addNote: 'Add a note',
+    barLabel: 'Selection actions',
+    cancel: 'Cancel',
+    copied: 'Copied the selection.',
+    copiedImage: 'Copied the image.',
+    copy: 'Copy',
+    copyFailed: 'Could not copy to the clipboard.',
     groupTarget: '{agent} ({workspace})',
     noGroupTargets: 'No agent is running in this workspace or its group.',
     noOriginTargets:
       'No agent is running in this workspace or in {workspace}, where this pane came from.',
     noTargets: 'No agent is running in this workspace.',
+    noteHint: 'Goes into the prompt in front of the reference. Pressing Enter is yours.',
+    notePlaceholder: 'Note for the agent (optional)',
     originGone:
       'No agent is running in this workspace, and the workspace this pane came from is no longer open.',
     originTarget: '{agent} ({workspace}, other window)',

@@ -5,7 +5,7 @@ import { type MutableRefObject, useCallback, useRef, useState } from 'react'
 import { useDict } from '@/lib/app/useDict'
 import { unscaledRegion } from '@/lib/browser/deviceFrame'
 import { useGuestReady, useSurfaceFocus } from '@/lib/panes/paneFocus'
-import { BrowserCaptureBar } from './BrowserCaptureBar'
+import { BrowserCaptureActions, BrowserCaptureBar } from './BrowserCaptureBar'
 import { BrowserFind, type FindResult } from './BrowserFind'
 import { BrowserLoadError } from './BrowserLoadError'
 import { BrowserStoragePanel } from './BrowserStoragePanel'
@@ -29,6 +29,7 @@ function BrowserStage({
   cropping,
   setCropping,
   finishCrop,
+  captureActions,
   partition,
   attachWebview,
   src,
@@ -49,6 +50,7 @@ function BrowserStage({
   cropping: boolean
   setCropping: (on: boolean) => void
   finishCrop: ReturnType<typeof useBrowserCapture>['finishCrop']
+  captureActions: JSX.Element
   partition: string | null
   attachWebview: (el: HTMLElement | null) => void
   src: string
@@ -76,7 +78,7 @@ function BrowserStage({
               label={d.browser.regionLayer}
               onDone={(rect, view) => {
                 const unscaled = unscaledRegion(rect, view, scale)
-                void finishCrop(unscaled.rect, unscaled.view)
+                void finishCrop(unscaled.rect, unscaled.view, rect)
               }}
               onCancel={() => setCropping(false)}
             />
@@ -103,6 +105,7 @@ function BrowserStage({
           stepRef={findStepRef}
         />
       ) : null}
+      {captureActions}
       {loadError ? <BrowserLoadError loadError={loadError} navigate={navigate} /> : null}
     </div>
   )
@@ -224,7 +227,7 @@ export function BrowserView({
     setFindResult,
   })
 
-  const capture = useBrowserCapture({ workspaceId, paneId, partition, webviewRef, withGuest, d })
+  const capture = useBrowserCapture({ paneId, partition, webviewRef, withGuest, d })
 
   return (
     <div className="browser-surface relative" onKeyDown={onSurfaceKeyDown}>
@@ -256,6 +259,7 @@ export function BrowserView({
         cropping={capture.cropping}
         setCropping={capture.setCropping}
         finishCrop={capture.finishCrop}
+        captureActions={<BrowserCaptureActions workspaceId={workspaceId} {...capture} />}
         partition={partition}
         attachWebview={attachWebview}
         src={src}

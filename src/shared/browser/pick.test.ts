@@ -6,8 +6,11 @@ import {
   markdownImage,
   nextPickReportNumber,
   normalizeCapture,
+  normalizeTable,
   PICK_HTML_MAX,
   PICK_LOG_MAX,
+  PICK_TABLE_CELLS_MAX,
+  PICK_TABLE_CSV_MAX,
   type PickCapture,
   pickBusMessage,
   pickReportName,
@@ -31,6 +34,8 @@ const raw: RawPick = {
   styles: { display: 'inline-block', color: 'rgb(0, 0, 0)', 'not-a-prop': 'x' },
   role: 'button',
   name: 'Pay',
+  hasText: true,
+  table: null,
 }
 
 const extras = (over: Partial<CaptureExtras> = {}): CaptureExtras => ({
@@ -92,6 +97,53 @@ describe('normalizeCapture', () => {
     expect(c.styles).toEqual({})
     expect(c.selector).toBe('')
     expect(c.screenshotPath).toBeNull()
+  })
+})
+
+describe('normalizeTable', () => {
+  it('quotes csv fields and keeps the shape', () => {
+    expect(
+      normalizeTable([
+        ['Name', 'Note'],
+        ['a,b', 'say "hi"'],
+        ['line\nbreak', ''],
+      ]),
+    ).toEqual({
+      rows: 3,
+      columns: 2,
+      truncated: false,
+      csv: 'Name,Note\n"a,b","say ""hi"""\n"line\nbreak",',
+    })
+  })
+
+  it('pads short rows so the csv is rectangular', () => {
+    expect(normalizeTable([['a', 'b', 'c'], ['d']])?.csv).toBe('a,b,c\nd,,')
+  })
+
+  it('refuses anything that is not rows of strings', () => {
+    expect(normalizeTable(null)).toBeNull()
+    expect(normalizeTable([])).toBeNull()
+    expect(normalizeTable('a,b')).toBeNull()
+    expect(normalizeTable([['a'], 'b'])).toBeNull()
+    expect(normalizeTable([[]])).toBeNull()
+  })
+
+  it('stops at the cell cap and flags it', () => {
+    const rows = Array.from({ length: 6000 }, () => ['a', 'b'])
+    const table = normalizeTable(rows)
+    expect(table?.rows).toBe(PICK_TABLE_CELLS_MAX / 2)
+    expect(table?.truncated).toBe(true)
+  })
+
+  it('stops at the byte cap and flags it', () => {
+    const cell = 'x'.repeat(1900)
+    const rows = Array.from({ length: 400 }, () => [cell, cell])
+    const table = normalizeTable(rows)
+    expect(new TextEncoder().encode(table?.csv ?? '').length).toBeLessThanOrEqual(
+      PICK_TABLE_CSV_MAX,
+    )
+    expect(table?.truncated).toBe(true)
+    expect(table?.rows).toBeLessThan(400)
   })
 })
 
@@ -163,6 +215,26 @@ describe('renderPickReport', () => {
   it('lengthens the fence when the html itself contains backticks', () => {
     const md = renderPickReport(capture({ html: '<pre>```js</pre>' }), 'x')
     expect(md).toContain('````html\n<pre>```js</pre>\n````')
+  })
+})
+
+describe('renderPickReport for a table and for a copy', () => {
+  const table = { rows: 2, columns: 2, truncated: false, csv: 'a,b\n1,2' }
+
+  it('puts the csv in place of the html', () => {
+    const md = renderPickReport(capture({ table }), 'note')
+    expect(md).toContain('- Table: 2 rows × 2 columns')
+    expect(md).toContain('## Table (CSV)\n\n```csv\na,b\n1,2\n```')
+    expect(md).not.toContain('## HTML')
+  })
+
+  it('leaves the note and the screenshot out of a copy', () => {
+    const md = renderPickReport(capture(), 'secret note', true)
+    expect(md).not.toContain('## Note')
+    expect(md).not.toContain('secret note')
+    expect(md).not.toContain('Screenshot')
+    expect(md).toContain('- Selector:')
+    expect(md).toContain('```html')
   })
 })
 

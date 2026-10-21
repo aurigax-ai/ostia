@@ -1,4 +1,4 @@
-import { ClipboardItem, clipboard, ipcMain } from 'electron'
+import { ipcMain } from 'electron'
 import type { PreviewOpened } from '../../shared/artifacts/htmlPreview'
 import type { AppLog } from '../diagnostics/appLog'
 import type { WorkspaceSandboxes } from '../sandbox/workspaceSandboxes'
@@ -65,9 +65,7 @@ export function registerArtifactViewIpc({
   artifactHistory,
   artifactProducers,
 }: ArtifactViewIpcDeps) {
-  registerPreviewIpc(previews, (png) => {
-    void clipboard.write([new ClipboardItem({ 'image/png': new Blob([new Uint8Array(png)]) })])
-  })
+  registerPreviewIpc(previews)
   registerPortableIpc(portableExport)
   registerArtifactHistoryIpc({
     history: artifactHistory,
@@ -79,21 +77,13 @@ export function registerArtifactViewIpc({
   })
 }
 
-function registerPreviewIpc(
-  host: PreviewHost,
-  copyImage: (png: Uint8Array) => void = () => {},
-): void {
+function registerPreviewIpc(host: PreviewHost): void {
   ipcMain.handle('preview:capture', async (e, id: unknown, rect: unknown) => {
     if (typeof id !== 'string') return null
     const windowId = String(e.sender.id)
     const image = await host.capture(windowId, id, rect)
     const region = host.pageRegion(windowId, rect)
     return image && region ? { image, region } : null
-  })
-  ipcMain.handle('preview:copy-region', async (e, id: unknown, rect: unknown) => {
-    const png = typeof id === 'string' ? await host.capture(String(e.sender.id), id, rect) : null
-    if (png) copyImage(png)
-    return png !== null
   })
   ipcMain.handle(
     'preview:open',

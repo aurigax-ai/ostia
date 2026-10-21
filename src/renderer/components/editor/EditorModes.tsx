@@ -81,7 +81,7 @@ export function EditorModes({
           onSendErrors={(count, text) =>
             selectionSend.open({ kind: 'preview-error', file: filePath, count, text })
           }
-          onSendRegion={(capture, image) => selectionSend.open(capture, image)}
+          onSendRegion={(capture, image, anchor) => selectionSend.open(capture, image, anchor)}
         />
       ) : null}
       {optionViewer && !markdown && !runnable ? (

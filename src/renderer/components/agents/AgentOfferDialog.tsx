@@ -11,10 +11,10 @@ import {
 } from '@/components/ui/dialog'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { sendReference } from '@/lib/agents/sendPick'
+import { useAgentTargets, useNoAgentsText } from '@/lib/agents/useAgentTargets'
 import { fmt, useDict } from '@/lib/app/useDict'
 import { stateLabel } from '@/lib/workspaces/workspaceState'
 import { useAgentOfferStore } from '@/stores/agents/agentOfferStore'
-import { useAgentTargets, useNoAgentsText } from './PickSendPanel'
 
 function OfferBody({ offer }: { offer: ExtensionAgentOffer }): JSX.Element {
   const d = useDict()
