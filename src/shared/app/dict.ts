@@ -25,6 +25,8 @@ import { serverEn } from '../strings/serverEn'
 import { serverZhHant } from '../strings/serverZhHant'
 import { settingsEn } from '../strings/settingsEn'
 import { settingsZhHant } from '../strings/settingsZhHant'
+import { sharesEn } from '../strings/sharesEn'
+import { sharesZhHant } from '../strings/sharesZhHant'
 import { terminalEn } from '../strings/terminalEn'
 import { terminalZhHant } from '../strings/terminalZhHant'
 import { workspacesEn } from '../strings/workspacesEn'
@@ -99,6 +101,7 @@ export const en = {
   cmuxImport: appEn.cmuxImport,
   sync: appEn.sync,
   server: serverEn.server,
+  shares: sharesEn.shares,
   syncServer: serverEn.syncServer,
   browserSettings: settingsEn.browserSettings,
   editorSettings: settingsEn.editorSettings,
@@ -186,6 +189,7 @@ export const zhHant: Dict = {
   cmuxImport: appZhHant.cmuxImport,
   sync: appZhHant.sync,
   server: serverZhHant.server,
+  shares: sharesZhHant.shares,
   syncServer: serverZhHant.syncServer,
   browserSettings: settingsZhHant.browserSettings,
   editorSettings: settingsZhHant.editorSettings,

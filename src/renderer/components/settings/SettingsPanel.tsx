@@ -18,6 +18,7 @@ import { WorkspaceSandboxPage } from '@/components/sandbox/WorkspaceSandboxPage'
 import { ScriptTokensSection } from '@/components/scriptTokens/ScriptTokensSection'
 import { ServerSection } from '@/components/server/ServerSection'
 import { type SearchStore, SettingsSearchSection } from '@/components/settingsKit/SettingsSearch'
+import { SharesSection } from '@/components/shares/SharesSection'
 import { SidebarSection } from '@/components/sidebar/SidebarSection'
 import { TerminalSection } from '@/components/terminal/TerminalSection'
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -205,6 +206,7 @@ const SettingsPages = memo(function SettingsPages({
       {id === 'remote' ? <GatewaySection /> : null}
       {id === 'sync' ? <SyncSection /> : null}
       {id === 'server' ? <ServerSection /> : null}
+      {id === 'shares' ? <SharesSection /> : null}
       {id === 'about' ? <AboutSection /> : null}
     </>
   )

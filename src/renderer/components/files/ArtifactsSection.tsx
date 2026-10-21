@@ -8,6 +8,8 @@ import {
   PortableProblem,
   usePortableFile,
 } from '@/components/editor/PortableActions'
+import { PublishDialog } from '@/components/shares/PublishDialog'
+import { usePublishing } from '@/components/shares/usePublishing'
 import { ContextMenu, ContextMenuTrigger } from '@/components/ui/context-menu'
 import { formatBytes, useAgoText } from '@/lib/app/localeFormat'
 import { useDict } from '@/lib/app/useDict'
@@ -33,6 +35,7 @@ function ArtifactRow({
   const unread = useArtifactsStore((s) => s.unread[entry.path] === true)
   const { Icon, color } = fileIcon({ name: entry.name, dir: false }, false)
   const portable = usePortableFile(workspaceId, entry.path)
+  const publishing = usePublishing(entry.path, portable.run)
   const row = (
     <button
       type="button"
@@ -55,10 +58,11 @@ function ArtifactRow({
       <ContextMenu>
         <ContextMenuTrigger render={row} />
         <MenuContent>
-          <PortableMenuItems run={portable.run} />
+          <PortableMenuItems run={portable.run} publishing={publishing} />
         </MenuContent>
       </ContextMenu>
-      <PortableProblem problem={portable.problem} />
+      <PortableProblem problem={portable.problem ?? publishing.problem} />
+      <PublishDialog publishing={publishing} />
     </>
   )
 }

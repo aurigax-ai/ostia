@@ -193,6 +193,12 @@ export function makeOstiaMock(overrides?: Partial<OstiaBridge>): OstiaBridge {
       restore: vi.fn().mockResolvedValue(null),
       producers: vi.fn().mockResolvedValue({}),
     },
+    shares: {
+      status: vi.fn().mockResolvedValue({ state: 'signed-out' }),
+      list: vi.fn().mockResolvedValue({ ok: false, error: 'signed-out' }),
+      copyLink: vi.fn().mockResolvedValue({ ok: true }),
+      remove: vi.fn().mockResolvedValue({ ok: true }),
+    },
     openWaits: { onEnded: vi.fn(noopUnsub) },
     preview: {
       open: vi.fn().mockResolvedValue(null),
