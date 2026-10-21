@@ -1,4 +1,5 @@
 import type { HumanInputSource } from '@shared/terminal/ptyApi'
+import { isTerminalReply } from '@shared/terminal/terminalReplies'
 import { keptShellReattached } from '@/lib/agents/autoResume'
 import { keptAgentReattached } from '@/lib/agents/paneAgent'
 import { markPaneActivity } from '@/lib/attention/paneActivity'
@@ -23,7 +24,6 @@ import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import type { TerminalSession } from './terminalSession'
 import { isPromptRepaint, nextSizeAction, settleFit } from './terminalSizing'
 
-const FOCUS_REPORTS = new Set(['\x1b[I', '\x1b[O'])
 const UNDRAWN_START_MS = 1000
 
 export interface TerminalFit {
@@ -141,11 +141,11 @@ export function attachPtySession(deps: PtySessionDeps): () => void {
 
   const input = term.onData((d) => {
     const source = humanInputSource(host)
+    const reply = !source && isTerminalReply(d)
     if (!holdInput(d, source)) window.ostia.pty.write(paneId, d, source)
-    if (!FOCUS_REPORTS.has(d)) markPaneActivity(paneId)
-    if (!FOCUS_REPORTS.has(d) && useBlocksStore.getState().selected[paneId]) {
-      useBlocksStore.getState().select(paneId, null)
-    }
+    if (reply) return
+    markPaneActivity(paneId)
+    if (useBlocksStore.getState().selected[paneId]) useBlocksStore.getState().select(paneId, null)
     if (useAttentionStore.getState().byPane[paneId]?.state === 'waiting') {
       useAttentionStore.getState().dispatch(paneId, { type: 'input', at: Date.now() })
     }

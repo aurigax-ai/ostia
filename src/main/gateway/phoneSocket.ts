@@ -1,6 +1,7 @@
 import { PRODUCT_NAME } from '@aurigax-ai/ostia-extension-sdk/contract/product'
 import { app } from 'electron'
 import type { WebSocket } from 'ws'
+import { isTerminalReply } from '../../shared/terminal/terminalReplies'
 import type { PreparedStream } from '../agents/agentStreams'
 import { resolveExternal } from '../control/idRegistry'
 import type { PhoneObserver } from '../terminal/pty/ptyIo'
@@ -339,8 +340,13 @@ function handleBinaryFrame(
       ws.send(rpcError(null, -32003, 'needs-elevation', { cap: 'input' }))
       return
     }
+    const text = payload.toString('utf8')
+    if (isTerminalReply(text)) {
+      controlDeps.ptyWrite(attachment.rendererPaneId, text)
+      return
+    }
     controlDeps.phoneInput(attachment.rendererPaneId)
-    controlDeps.ptyWrite(attachment.rendererPaneId, payload.toString('utf8'), 'key')
+    controlDeps.ptyWrite(attachment.rendererPaneId, text, 'key')
   }
 }
 
