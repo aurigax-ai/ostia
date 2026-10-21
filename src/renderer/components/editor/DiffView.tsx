@@ -12,7 +12,6 @@ import {
 } from '@phosphor-icons/react'
 import { useEffect, useRef } from 'react'
 import { commands } from '@/commands/registry'
-import { Hint } from '@/components/common/Hint'
 import { IconButton } from '@/components/common/IconButton'
 import { Segmented } from '@/components/common/Segmented'
 import { StatusLine, useDismissed } from '@/components/common/StatusLine'
@@ -134,13 +133,7 @@ export function DiffView({
   return (
     <div className="diff-surface">
       <div className="diff-toolbar">
-        {content?.path ? (
-          <Hint label={content.path}>
-            <span className="diff-title">{content.path}</span>
-          </Hint>
-        ) : (
-          <span className="diff-title">{content?.title ?? ''}</span>
-        )}
+        <span className="flex-1" />
         <IconButton
           icon={CaretUpIcon}
           label={d.diff.previousChange}
