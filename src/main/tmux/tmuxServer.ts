@@ -331,7 +331,10 @@ export class TmuxServer {
     this.panes.set(paneId, pane)
     const held = this.pendingOutput.get(paneId)
     this.pendingOutput.delete(paneId)
-    if (held && keepEarlyOutput) pane.holdEarlyOutput(held.join(''))
+    if (held) {
+      if (keepEarlyOutput) pane.holdEarlyOutput(held.join(''))
+      else pane.skipEarlyOutput(held.join(''))
+    }
     return pane
   }
 

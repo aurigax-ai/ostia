@@ -212,6 +212,21 @@ describe.skipIf(skipWithoutTmux)('TmuxServer', () => {
     expect(numbers).toEqual(Array.from({ length: 4000 - first }, (_, i) => first + i))
   })
 
+  it('does not leak the rest of a screen title that began before a kept pane was adopted', async () => {
+    const server = await connect()
+    await spawnSh(
+      server,
+      "sleep 1; printf '\\033kls'; sleep 3; printf -- '-la\\033\\\\after'; sleep 5",
+    )
+    const again = await connect(join(root, 'sock'), basename(server.socketPath))
+    await new Promise((r) => setTimeout(r, 1500))
+    const [kept] = await again.windows()
+    if (!kept) throw new Error('the window is gone')
+    const out = collect(again.adopt(kept))
+    await vi.waitUntil(() => out.text().includes('after'), POLL)
+    expect(out.text()).toBe('after')
+  })
+
   it('hands a new pane the output it printed before tmux reported the window', async () => {
     const server = await connect()
     const panes = await Promise.all(

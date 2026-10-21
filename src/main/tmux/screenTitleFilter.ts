@@ -1,6 +1,7 @@
 const ESC = '\x1b'
 const CAN = '\x18'
 const SUB = '\x1a'
+const DEL = '\x7f'
 
 const Ground = 0
 const Escape = 1
@@ -13,6 +14,7 @@ function isC0(ch: string): boolean {
 
 export class ScreenTitleFilter {
   private state = Ground as number
+  private ignored = ''
 
   push(data: string): string {
     if (this.state === Ground && !data.includes(ESC)) return data
@@ -25,12 +27,18 @@ export class ScreenTitleFilter {
           break
         case Escape:
         case TitleEscape:
-          if (ch === 'k') this.state = Title
-          else if (ch === '\\' && this.state === TitleEscape) this.state = Ground
-          else if (ch === ESC) break
+          if (ch >= DEL) this.ignored += ch
+          else if (ch === 'k') {
+            this.ignored = ''
+            this.state = Title
+          } else if (ch === '\\' && this.state === TitleEscape) {
+            this.ignored = ''
+            this.state = Ground
+          } else if (ch === ESC) this.ignored = ''
           else if (isC0(ch)) out += ch
           else {
-            out += ESC + ch
+            out += ESC + this.ignored + ch
+            this.ignored = ''
             this.state = Ground
           }
           break

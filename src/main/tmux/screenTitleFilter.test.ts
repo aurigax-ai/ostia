@@ -86,6 +86,34 @@ describe('ScreenTitleFilter', () => {
     expect(f.push('a\x1b\nkt\x1b\\b')).toBe('a\nb')
   })
 
+  it('ignores DEL after ESC like tmux and still starts a title', () => {
+    const f = new ScreenTitleFilter()
+    expect(f.push('a\x1b\x7fkt\x1b\\b')).toBe('ab')
+  })
+
+  it('ignores every byte from DEL up after ESC, not only DEL', () => {
+    const f = new ScreenTitleFilter()
+    expect(f.push('a\x1b\x7f\u00e9\u4e2dkt\x1b\\b')).toBe('ab')
+  })
+
+  it('ignores DEL after the ESC that ends a title', () => {
+    const f = new ScreenTitleFilter()
+    expect(f.push('\x1bkt\x1b\x7f\\ok')).toBe('ok')
+  })
+
+  it('swallows an ESC DEL k title split across chunks at every offset', () => {
+    const input = 'a\x1b\x7fkcd /tmp\x1b\x7f\\b'
+    for (let i = 1; i < input.length; i++) {
+      const f = new ScreenTitleFilter()
+      expect(f.push(input.slice(0, i)) + f.push(input.slice(i))).toBe('ab')
+    }
+  })
+
+  it('keeps the DEL of an escape that is not a title', () => {
+    const f = new ScreenTitleFilter()
+    expect(f.push('a\x1b\x7fMb')).toBe('a\x1b\x7fMb')
+  })
+
   it('returns plain text unchanged', () => {
     const f = new ScreenTitleFilter()
     const input = 'plain \u00e9\u4e2d\r\n'
@@ -117,6 +145,23 @@ describe('TmuxPane title filtering', () => {
     const seen: string[] = []
     p.onData((d) => seen.push(d))
     expect(seen.join('')).toBe('ok')
+  })
+
+  it('feeds skipped early output to the filter so a title begun in it does not leak', () => {
+    const p = new TmuxPane(server, '@1', '%1', 1, 80, 24)
+    p.skipEarlyOutput('before\x1bkls')
+    const seen: string[] = []
+    p.onData((d) => seen.push(d))
+    p.deliver('-la\x1b\\after')
+    expect(seen.join('')).toBe('after')
+  })
+
+  it('does not replay skipped early output to the first listener', () => {
+    const p = new TmuxPane(server, '@1', '%1', 1, 80, 24)
+    p.skipEarlyOutput('before')
+    const seen: string[] = []
+    p.onData((d) => seen.push(d))
+    expect(seen).toEqual([])
   })
 
   it('releases output held during a snapshot without filtering it twice', async () => {
