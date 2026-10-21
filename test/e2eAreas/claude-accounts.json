@@ -7,5 +7,7 @@
     "src/renderer/lib/agents/useClaudeAccounts.ts",
     "src/shared/claudeAccounts/"
   ],
-  "specs": ["e2e/claude-accounts.spec.ts"]
+  "specs": [
+    "e2e/claude-accounts.spec.ts"
+  ]
 }
