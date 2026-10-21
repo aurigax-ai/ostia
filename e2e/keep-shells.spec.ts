@@ -1,23 +1,23 @@
 import { execFileSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
-import { chmodSync, existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { chmodSync, existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { KEPT_SHELLS_DIR } from '../src/shared/terminal/keepShells'
 import { chords } from './chords'
 import {
   DOM_RENDERER_SETTINGS,
-  freshDataHome,
   HIBERNATE_FAST,
+  freshDataHome,
   isolatedLaunch,
   seedSettings,
 } from './dataHome'
 import { fakeAgentBin } from './fakeAgent'
 import {
+  PROMPT,
   newTerminal,
   newTerminalWorkspace,
   occurrences,
   openWorkspace,
-  PROMPT,
   pressQuit,
   quitApp,
   restartApp,
@@ -27,10 +27,10 @@ import {
 } from './helpers'
 import {
   type ElectronApplication,
+  type Page,
   _electron as electron,
   expect,
   killApp,
-  type Page,
   test,
   waitForExit,
 } from './test'

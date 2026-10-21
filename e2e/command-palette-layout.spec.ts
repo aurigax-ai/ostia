@@ -3,7 +3,7 @@ import { join } from 'node:path'
 import { chords } from './chords'
 import { freshDataHome, isolatedLaunch } from './dataHome'
 import { closeAllWorkspaces, openWorkspace } from './helpers'
-import { type ElectronApplication, expect, launchShared, type Page, test } from './test'
+import { type ElectronApplication, type Page, expect, launchShared, test } from './test'
 
 const RIGHT_EDGE_MAX = 16
 

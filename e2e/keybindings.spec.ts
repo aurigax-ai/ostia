@@ -1,7 +1,7 @@
 import { isMac } from './chords'
 import { isolatedLaunch } from './dataHome'
 import { openWorkspace } from './helpers'
-import { _electron as electron, expect, type Page, test } from './test'
+import { type Page, _electron as electron, expect, test } from './test'
 
 async function openKeyboardSettings(win: Page) {
   await win.locator('.topbar').getByRole('button', { name: 'Settings' }).click()
@@ -48,27 +48,29 @@ test('scrolling the Keyboard settings never gives the window a scrollbar of its 
   }
 })
 
-test('on macOS Cmd+Backspace deletes the typed line in the shell, as in Terminal and iTerm', {
-  tag: '@core',
-}, async () => {
-  test.skip(!isMac, 'Cmd+Backspace is a macOS line-editing key')
-  const app = await electron.launch(isolatedLaunch())
-  try {
-    const win = await app.firstWindow()
-    await win.waitForLoadState('domcontentloaded')
-    await openWorkspace(win)
-    await focusTerminal(win)
-    const rows = win.locator('.xterm-rows').first()
+test(
+  'on macOS Cmd+Backspace deletes the typed line in the shell, as in Terminal and iTerm',
+  { tag: '@core' },
+  async () => {
+    test.skip(!isMac, 'Cmd+Backspace is a macOS line-editing key')
+    const app = await electron.launch(isolatedLaunch())
+    try {
+      const win = await app.firstWindow()
+      await win.waitForLoadState('domcontentloaded')
+      await openWorkspace(win)
+      await focusTerminal(win)
+      const rows = win.locator('.xterm-rows').first()
 
-    await win.keyboard.type('echo ostia_wrong_line')
-    await expect(rows).toContainText('echo ostia_wrong_line')
-    await win.keyboard.press('Meta+Backspace')
-    await win.keyboard.type('echo ostia_$((40+2))_ok')
-    await win.keyboard.press('Enter')
-    await expect(rows).toContainText('ostia_42_ok')
-    await expect(rows).not.toContainText('ostia_wrong_line')
-    expect(app.windows()).toHaveLength(1)
-  } finally {
-    await app.close()
-  }
-})
+      await win.keyboard.type('echo ostia_wrong_line')
+      await expect(rows).toContainText('echo ostia_wrong_line')
+      await win.keyboard.press('Meta+Backspace')
+      await win.keyboard.type('echo ostia_$((40+2))_ok')
+      await win.keyboard.press('Enter')
+      await expect(rows).toContainText('ostia_42_ok')
+      await expect(rows).not.toContainText('ostia_wrong_line')
+      expect(app.windows()).toHaveLength(1)
+    } finally {
+      await app.close()
+    }
+  },
+)

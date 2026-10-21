@@ -2,7 +2,7 @@ import { mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { DOM_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
 import { openWorkspace } from './helpers'
-import { _electron as electron, expect, type Locator, type Page, test } from './test'
+import { type Locator, type Page, _electron as electron, expect, test } from './test'
 
 async function openFile(win: Page, name: string): Promise<Locator> {
   const files = win.locator('.file-row')

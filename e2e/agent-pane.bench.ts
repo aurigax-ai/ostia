@@ -1,19 +1,19 @@
 import { resolve } from 'node:path'
-import { freshDataHome, isolatedLaunch, SOFTWARE_WEBGL, seedSettings } from './dataHome'
+import { SOFTWARE_WEBGL, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
 import {
+  type MainProbe,
+  type TerminalHandle,
   alignKeys,
   hookTerminal,
   installMainProbe,
-  type MainProbe,
   percentile,
   readProbes,
   summarize,
-  type TerminalHandle,
 } from './echoProbe'
 import { fakeAgentBin } from './fakeAgent'
 import { BENCH_ENGINES } from './ghostty'
 import { openWorkspace } from './helpers'
-import { _electron as electron, expect, type Page, test } from './test'
+import { type Page, _electron as electron, expect, test } from './test'
 
 const INK_AGENT = resolve(__dirname, '../test/fixtures/agents/ink-agent.mjs')
 const KEYS = Number(process.env.OSTIA_AGENT_KEYS ?? 60)

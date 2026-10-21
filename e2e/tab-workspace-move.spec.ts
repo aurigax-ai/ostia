@@ -1,13 +1,13 @@
 import { freshDataHome, isolatedLaunch } from './dataHome'
 import {
+  PROMPT,
   newTerminalWorkspace,
   openWorkspace,
-  PROMPT,
   quitApp,
   runInTerminal,
   shownTerminal,
 } from './helpers'
-import { _electron as electron, expect, type Page, test } from './test'
+import { type Page, _electron as electron, expect, test } from './test'
 
 const visibleTabs = (win: Page) => win.locator('.pane-tab:visible')
 

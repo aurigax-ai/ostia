@@ -1,4 +1,4 @@
-import { copyFileSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { copyFileSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import { chords } from './chords'
 import { freshDataHome, isolatedLaunch } from './dataHome'

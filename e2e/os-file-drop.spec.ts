@@ -1,5 +1,5 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
-import { createServer, type Server } from 'node:http'
+import { type Server, createServer } from 'node:http'
 import type { AddressInfo } from 'node:net'
 import { join } from 'node:path'
 import { freshDataHome, isolatedLaunch } from './dataHome'

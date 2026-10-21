@@ -2,8 +2,8 @@ import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { DOM_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
 import { fakeAgentBin, isolatedHome } from './fakeAgent'
-import { openWorkspace, PROMPT } from './helpers'
-import { type ElectronApplication, _electron as electron, expect, type Page, test } from './test'
+import { PROMPT, openWorkspace } from './helpers'
+import { type ElectronApplication, type Page, _electron as electron, expect, test } from './test'
 
 test.describe.configure({ timeout: 120_000 })
 

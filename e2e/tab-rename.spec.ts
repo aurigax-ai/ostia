@@ -1,6 +1,6 @@
 import { freshDataHome, isolatedLaunch } from './dataHome'
 import { openWorkspace, restartApp } from './helpers'
-import { _electron as electron, expect, type Page, test } from './test'
+import { type Page, _electron as electron, expect, test } from './test'
 
 function frames(win: Page): Promise<void> {
   return win.evaluate(

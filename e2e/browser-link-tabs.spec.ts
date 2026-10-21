@@ -1,8 +1,8 @@
-import { createServer, type Server } from 'node:http'
+import { type Server, createServer } from 'node:http'
 import type { AddressInfo } from 'node:net'
 import { freshDataHome, isolatedLaunch } from './dataHome'
 import { openWorkspace, quitApp } from './helpers'
-import { type ElectronApplication, _electron as electron, expect, type Page, test } from './test'
+import { type ElectronApplication, type Page, _electron as electron, expect, test } from './test'
 
 const ROW = 60
 

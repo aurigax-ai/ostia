@@ -1,11 +1,11 @@
 import type { ChildProcess } from 'node:child_process'
 import { once } from 'node:events'
-import { existsSync, readdirSync, readFileSync, rmSync } from 'node:fs'
+import { existsSync, readFileSync, readdirSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
 import {
-  test as base,
   type Electron,
   type ElectronApplication,
+  test as base,
   _electron as playwrightElectron,
 } from '@playwright/test'
 

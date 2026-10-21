@@ -1,12 +1,12 @@
-import { freshDataHome, isolatedLaunch, SOFTWARE_WEBGL, seedSettings } from './dataHome'
+import { SOFTWARE_WEBGL, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
 import { changeSettings, closeAllWorkspaces, openWorkspace } from './helpers'
 import { type PixelRegion, regionColors } from './pixels'
 import {
   type ElectronApplication,
-  expect,
   type Locator,
-  launchShared,
   type Page,
+  expect,
+  launchShared,
   test,
 } from './test'
 
@@ -80,26 +80,28 @@ test.describe('around the text grid', () => {
 
   for (const engine of ENGINES) {
     for (const scheme of SCHEMES) {
-      test(`the padding around the text grid has the terminal background (${engine.name}, ${scheme.name})`, {
-        tag: engine.renderer === 'ghostty' ? '@experimental' : [],
-      }, async () => {
-        await changeSettings(win, {
-          behavior: { gpuAcceleration: engine.gpu },
-          terminal: { renderer: engine.renderer, theme: scheme.theme },
-        })
-        await openWorkspace(win)
-        const pane = win.locator('.pane-body-term').first()
-        const background = [scheme.background]
-        await expect
-          .poll(() => painted(win, pane, engine.grid))
-          .toEqual({
-            left: background,
-            right: background,
-            top: background,
-            bottom: background,
-            grid: background,
+      test(
+        `the padding around the text grid has the terminal background (${engine.name}, ${scheme.name})`,
+        { tag: engine.renderer === 'ghostty' ? '@experimental' : [] },
+        async () => {
+          await changeSettings(win, {
+            behavior: { gpuAcceleration: engine.gpu },
+            terminal: { renderer: engine.renderer, theme: scheme.theme },
           })
-      })
+          await openWorkspace(win)
+          const pane = win.locator('.pane-body-term').first()
+          const background = [scheme.background]
+          await expect
+            .poll(() => painted(win, pane, engine.grid))
+            .toEqual({
+              left: background,
+              right: background,
+              top: background,
+              bottom: background,
+              grid: background,
+            })
+        },
+      )
     }
   }
 })

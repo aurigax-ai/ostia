@@ -7,7 +7,7 @@ import {
   seedSettings,
   testHome,
 } from './dataHome'
-import { type ElectronApplication, _electron as electron, expect, type Page, test } from './test'
+import { type ElectronApplication, type Page, _electron as electron, expect, test } from './test'
 
 test.describe.configure({ timeout: 90_000 })
 

@@ -1,6 +1,6 @@
 import { freshDataHome } from './dataHome'
 import { launchWindow, openWorkspace, quitApp, typeLine } from './helpers'
-import { expect, type Page, test } from './test'
+import { type Page, expect, test } from './test'
 
 const coordinatorRows = (win: Page) => win.locator('.xterm-rows').first()
 const memberRows = (win: Page) => win.locator('.rail-group-members .rail-row')

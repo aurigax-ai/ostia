@@ -1,7 +1,7 @@
 import { DOM_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
 import { fakeAgentBin, isolatedHome } from './fakeAgent'
-import { emptyWorkspace, openWorkspace, PROMPT } from './helpers'
-import { _electron as electron, expect, type Locator, type Page, test } from './test'
+import { PROMPT, emptyWorkspace, openWorkspace } from './helpers'
+import { type Locator, type Page, _electron as electron, expect, test } from './test'
 
 test.describe.configure({ timeout: 150_000 })
 

@@ -3,7 +3,7 @@ import { mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { freshDataHome } from './dataHome'
 import { launchWindow, openWorkspace, quitApp, runInTerminal, terminalTab } from './helpers'
-import { type ElectronApplication, expect, type Page, test } from './test'
+import { type ElectronApplication, type Page, expect, test } from './test'
 
 async function launch(dataHome: string): Promise<{ app: ElectronApplication; win: Page }> {
   const launched = await launchWindow(dataHome)

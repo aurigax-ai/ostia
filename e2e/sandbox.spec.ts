@@ -1,9 +1,9 @@
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { DOM_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
-import { openWorkspace, PROMPT, runInTerminal } from './helpers'
+import { PROMPT, openWorkspace, runInTerminal } from './helpers'
 import { sandboxedShell, setSandbox } from './sandboxShell'
-import { _electron as electron, expect, type Page, test } from './test'
+import { type Page, _electron as electron, expect, test } from './test'
 
 async function launch() {
   const dataHome = freshDataHome()

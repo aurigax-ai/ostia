@@ -1,4 +1,4 @@
-import { createServer, type Server } from 'node:http'
+import { type Server, createServer } from 'node:http'
 import type { AddressInfo } from 'node:net'
 import { chords } from './chords'
 import { freshDataHome, isolatedLaunch } from './dataHome'

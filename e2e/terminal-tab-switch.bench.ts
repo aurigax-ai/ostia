@@ -1,8 +1,8 @@
 import { chords } from './chords'
-import { freshDataHome, isolatedLaunch, SOFTWARE_WEBGL, seedSettings } from './dataHome'
+import { SOFTWARE_WEBGL, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
 import { BENCH_ENGINES } from './ghostty'
 import { openWorkspace } from './helpers'
-import { type ElectronApplication, _electron as electron, expect, type Page, test } from './test'
+import { type ElectronApplication, type Page, _electron as electron, expect, test } from './test'
 
 const TABS = 10
 const SWITCHES = 20

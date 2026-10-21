@@ -1,11 +1,11 @@
 import { type ChildProcess, spawn } from 'node:child_process'
 import { existsSync, readFileSync } from 'node:fs'
-import { createServer, type Server } from 'node:http'
+import { type Server, createServer } from 'node:http'
 import type { AddressInfo } from 'node:net'
 import { join, resolve } from 'node:path'
 import { DOM_RENDERER_SETTINGS, freshDataHome, seedSettings } from './dataHome'
 import { launchWindow, openWorkspace, quitApp, readPaneEnv } from './helpers'
-import { expect, type Page, test } from './test'
+import { type Page, expect, test } from './test'
 
 const CLI = resolve(__dirname, '../out/cli/index.js')
 const COOKIE = 'ostia_profile=kept'

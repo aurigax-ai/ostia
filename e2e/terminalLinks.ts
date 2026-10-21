@@ -1,5 +1,5 @@
 import { typeLineToEnd } from './helpers'
-import { expect, type Locator, type Page } from './test'
+import { type Locator, type Page, expect } from './test'
 
 export interface Point {
   x: number

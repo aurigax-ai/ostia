@@ -1,8 +1,8 @@
-import { mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import { freshDataHome, isolatedLaunch } from './dataHome'
 import { openWorkspace } from './helpers'
-import { type ElectronApplication, expect, launchShared, type Page, test } from './test'
+import { type ElectronApplication, type Page, expect, launchShared, test } from './test'
 
 const MIN_ICONS = 20
 const MIN_ICON_SIZE = 16

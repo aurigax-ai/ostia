@@ -3,7 +3,7 @@ import { join } from 'node:path'
 import { chords } from './chords'
 import { freshDataHome, isolatedLaunch } from './dataHome'
 import { openWorkspace, quitApp, waitForPaletteSelection } from './helpers'
-import { type ElectronApplication, _electron as electron, expect, type Page, test } from './test'
+import { type ElectronApplication, type Page, _electron as electron, expect, test } from './test'
 
 test.describe.configure({ timeout: 120_000 })
 

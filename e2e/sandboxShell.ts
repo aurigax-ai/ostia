@@ -1,5 +1,5 @@
 import { runInTerminal } from './helpers'
-import { expect, type Page } from './test'
+import { type Page, expect } from './test'
 
 export async function setSandbox(win: Page, on: boolean): Promise<void> {
   await win.locator('.rail-row').first().click({ button: 'right' })

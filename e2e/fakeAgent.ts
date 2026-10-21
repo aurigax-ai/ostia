@@ -1,7 +1,7 @@
 import { chmodSync, mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { PROMPT } from './helpers'
-import { expect, type Page } from './test'
+import { type Page, expect } from './test'
 
 export function isolatedHome(dataHome: string): string {
   const home = join(dataHome, 'home')

@@ -3,10 +3,10 @@ import { isolatedLaunch } from './dataHome'
 import { expectHeld, openWorkspace } from './helpers'
 import {
   type ElectronApplication,
-  expect,
   type Locator,
-  launchShared,
   type Page,
+  expect,
+  launchShared,
   test,
 } from './test'
 

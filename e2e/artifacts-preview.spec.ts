@@ -1,10 +1,10 @@
 import { createSocket } from 'node:dgram'
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
-import { type AddressInfo, createServer, type Server } from 'node:net'
+import { type AddressInfo, type Server, createServer } from 'node:net'
 import { join } from 'node:path'
 import { DOM_RENDERER_SETTINGS, freshDataHome, seedSettings } from './dataHome'
 import { expectHeld, launchWindow, openWorkspace, runInTerminal } from './helpers'
-import { type ElectronApplication, expect, type Page, test } from './test'
+import { type ElectronApplication, type Page, expect, test } from './test'
 
 const PREVIEW_URL = 'ostia-preview://'
 const COPIED = 'copied-by-the-preview-page-7f3a'

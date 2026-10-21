@@ -4,7 +4,7 @@ import { join } from 'node:path'
 import { defaultChord, isMac } from './chords'
 import { freshDataHome, isolatedLaunch } from './dataHome'
 import { openWorkspace, restartApp, typeLine } from './helpers'
-import { _electron as electron, expect, type Locator, type Page, test } from './test'
+import { type Locator, type Page, _electron as electron, expect, test } from './test'
 
 function segment(win: Page, name: string): Locator {
   return win.locator('.split-tab-segment', { hasText: name })

@@ -2,14 +2,14 @@ import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import {
   DOM_RENDERER_SETTINGS,
+  SOFTWARE_WEBGL,
   freshDataHome,
   isolatedLaunch,
-  SOFTWARE_WEBGL,
   seedSettings,
 } from './dataHome'
 import { fakeAgentBin } from './fakeAgent'
-import { newTerminal, PROMPT } from './helpers'
-import { _electron as electron, expect, type Page, test } from './test'
+import { PROMPT, newTerminal } from './helpers'
+import { type Page, _electron as electron, expect, test } from './test'
 
 const AGENT_PANEL = [55, 55, 55]
 

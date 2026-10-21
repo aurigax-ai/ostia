@@ -3,7 +3,7 @@ import { join } from 'node:path'
 import { FAKE } from '../test/fixtures/secrets/samples'
 import { freshDataHome } from './dataHome'
 import { launchWindow, openWorkspace, quitApp } from './helpers'
-import { expect, type Page, test } from './test'
+import { type Page, expect, test } from './test'
 
 const TOKEN = FAKE.githubClassic
 const MARK = '[redacted:github]'

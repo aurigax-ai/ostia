@@ -2,13 +2,13 @@ import { mkdirSync, renameSync } from 'node:fs'
 import { join } from 'node:path'
 import {
   DOM_RENDERER_SETTINGS,
-  freshDataHome,
   HIBERNATE_FAST,
+  freshDataHome,
   isolatedLaunch,
   seedSettings,
 } from './dataHome'
 import { fakeAgentBin } from './fakeAgent'
-import { expectHeld, openWorkspace, PROMPT, runInTerminal, shownTerminal } from './helpers'
+import { PROMPT, expectHeld, openWorkspace, runInTerminal, shownTerminal } from './helpers'
 import { _electron as electron, expect, test } from './test'
 
 test.describe.configure({ timeout: 90_000 })

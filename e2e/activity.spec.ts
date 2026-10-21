@@ -129,9 +129,11 @@ test('the Activity panel shows an agent’s recap, shows its events on the toggl
     await expect(win.locator('.xterm').first()).toBeVisible({ timeout: 30_000 })
     await openActivity(win)
     await expect
-      .poll(() => panelEval(app, `document.querySelector('[data-timeline="true"]').ariaPressed`), {
-        timeout: 30_000,
-      })
+      .poll(
+        () =>
+          panelEval(app, `document.querySelector('[data-timeline="true"]').ariaPressed`),
+        { timeout: 30_000 },
+      )
       .toBe('true')
     await expect.poll(() => text(app, '.turn .markdown'), { timeout: 15_000 }).toBe(RECAP)
     expect(await text(app, '.turn .prompt')).toBe(PROMPT)

@@ -1,10 +1,10 @@
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import { chords } from './chords'
-import { freshDataHome, isolatedLaunch, SOFTWARE_WEBGL, seedSettings } from './dataHome'
+import { SOFTWARE_WEBGL, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
 import { fakeAgentBin } from './fakeAgent'
 import { openWorkspace, typeLine } from './helpers'
-import { type CDPSession, _electron as electron, expect, type Page, test } from './test'
+import { type CDPSession, type Page, _electron as electron, expect, test } from './test'
 
 const BUSY_AGENT = resolve(__dirname, '../test/fixtures/agents/busy-agent.mjs')
 const DOC_LINES = 2_000

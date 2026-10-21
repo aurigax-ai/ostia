@@ -2,11 +2,11 @@ import { existsSync, readdirSync, statSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import type { OstiaBridge } from '../src/shared/types'
 import { chords } from './chords'
-import { freshDataHome, isolatedLaunch, SOFTWARE_WEBGL, seedSettings } from './dataHome'
+import { SOFTWARE_WEBGL, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
 import { fakeAgentBin } from './fakeAgent'
 import { BENCH_ENGINES } from './ghostty'
 import { openWorkspace, waitForPaletteSelection } from './helpers'
-import { type ElectronApplication, _electron as electron, expect, type Page, test } from './test'
+import { type ElectronApplication, type Page, _electron as electron, expect, test } from './test'
 
 const BUSY_AGENT = resolve(__dirname, '../test/fixtures/agents/busy-agent.mjs')
 const WINDOW_MS = 6_000

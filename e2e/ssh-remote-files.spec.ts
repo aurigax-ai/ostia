@@ -2,8 +2,8 @@ import {
   chmodSync,
   mkdirSync,
   mkdtempSync,
-  readdirSync,
   readFileSync,
+  readdirSync,
   statSync,
   writeFileSync,
 } from 'node:fs'
@@ -11,7 +11,7 @@ import { join, resolve } from 'node:path'
 import { chords } from './chords'
 import { freshDataHome, isolatedLaunch } from './dataHome'
 import { openWorkspace, waitForPaletteSelection } from './helpers'
-import { type ElectronApplication, _electron as electron, expect, type Page, test } from './test'
+import { type ElectronApplication, type Page, _electron as electron, expect, test } from './test'
 
 const FAKE_SSH_BIN = resolve(__dirname, '../test/fixtures/ssh/bin')
 const SSH_CAPTURES = resolve(__dirname, '../test/fixtures/ssh')

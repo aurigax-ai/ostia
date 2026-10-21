@@ -3,7 +3,7 @@ import { join } from 'node:path'
 import { chords } from './chords'
 import { freshDataHome, isolatedLaunch } from './dataHome'
 import { openWorkspace, waitForPaletteSelection } from './helpers'
-import { _electron as electron, expect, type Locator, type Page, test } from './test'
+import { type Locator, type Page, _electron as electron, expect, test } from './test'
 
 const BOARD_VIEW = {
   version: 1,

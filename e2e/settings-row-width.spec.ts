@@ -1,6 +1,6 @@
 import { freshDataHome, isolatedLaunch } from './dataHome'
 import { openWorkspace } from './helpers'
-import { _electron as electron, expect, type Page, test } from './test'
+import { type Page, _electron as electron, expect, test } from './test'
 
 const MIN_TEXT_WIDTH = 384
 

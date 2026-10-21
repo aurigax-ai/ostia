@@ -1,13 +1,13 @@
 import { writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { freshDataHome, isolatedLaunch, testHome } from './dataHome'
-import { openWorkspace, PROMPT, quitApp } from './helpers'
+import { PROMPT, openWorkspace, quitApp } from './helpers'
 import {
   type ElectronApplication,
-  _electron as electron,
-  expect,
   type Locator,
   type Page,
+  _electron as electron,
+  expect,
   test,
 } from './test'
 

@@ -5,7 +5,7 @@ import { buildSync } from 'esbuild'
 import { chords } from './chords'
 import { freshDataHome, isolatedLaunch } from './dataHome'
 import { openWorkspace, waitForPaletteSelection } from './helpers'
-import { _electron as electron, expect, type Page, test } from './test'
+import { type Page, _electron as electron, expect, test } from './test'
 
 const fixture = join(__dirname, '..', 'test', 'fixtures', 'extensions-e2e', 'hello')
 

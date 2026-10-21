@@ -1,6 +1,6 @@
 import { isolatedLaunch } from './dataHome'
 import { expectHeld, openWorkspace } from './helpers'
-import { _electron as electron, expect, type Locator, test } from './test'
+import { type Locator, _electron as electron, expect, test } from './test'
 
 async function promptLines(rows: Locator): Promise<number> {
   return (await rows.innerText()).split('\n').filter((l) => l.includes('❯')).length
