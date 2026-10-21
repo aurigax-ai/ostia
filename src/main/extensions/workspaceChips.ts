@@ -1,11 +1,27 @@
-import type { WorkspaceChip } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
+import type { InboxEntry, WorkspaceChip } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
+
+function ownedBy<T extends { workspaceId: string }>(
+  items: readonly T[],
+  ownerOf: (workspaceId: string) => string | undefined,
+  windowId: string,
+): T[] {
+  return items.filter((item) => ownerOf(item.workspaceId) === windowId)
+}
 
 export function workspaceChipsForWindow(
   chips: readonly WorkspaceChip[],
   ownerOf: (workspaceId: string) => string | undefined,
   windowId: string,
 ): WorkspaceChip[] {
-  return chips.filter((chip) => ownerOf(chip.workspaceId) === windowId)
+  return ownedBy(chips, ownerOf, windowId)
+}
+
+export function inboxEntriesForWindow(
+  entries: readonly InboxEntry[],
+  ownerOf: (workspaceId: string) => string | undefined,
+  windowId: string,
+): InboxEntry[] {
+  return ownedBy(entries, ownerOf, windowId)
 }
 
 export type OwnerLookup = (workspaceId: string) => string | undefined

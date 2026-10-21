@@ -85,6 +85,11 @@
       "toolbar": {
         "tabs": [
           {
+            "id": "inbox",
+            "title": "Inbox",
+            "surface": "inbox"
+          },
+          {
             "id": "activity",
             "title": "Activity"
           },

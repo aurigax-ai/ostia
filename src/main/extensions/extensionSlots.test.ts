@@ -41,6 +41,148 @@ function slotsFor(panel: unknown, callers = ['w1', 'w2', 'w3']) {
   return { slots, broadcast, set }
 }
 
+const INBOX_PANEL = {
+  title: 'Demo',
+  entry: 'url',
+  toolbar: { tabs: [{ id: 'inbox', title: 'Inbox', surface: 'inbox' }], actions: [] },
+}
+
+function inboxSlots(options: { builtin?: boolean; panel?: unknown; callers?: string[] } = {}) {
+  const publishInbox = vi.fn()
+  const sendEvent = vi.fn(() => true)
+  const host = {
+    deps: {
+      publishInbox,
+      workDirForWorkspace: (id?: string) => (id === 'w1' || id === 'w2' ? '/work' : undefined),
+    },
+    sendEvent,
+    runtimeOf: () =>
+      ({
+        ext: {
+          builtin: options.builtin ?? true,
+          manifest: { id: 'demo', contributes: { panel: options.panel ?? INBOX_PANEL } },
+        },
+        callerWorkspaces: new Set<string>(options.callers ?? ['w1', 'w2']),
+      }) as unknown as Runtime,
+    commandsOf: (): ExtensionCommandContribution[] => [],
+  } as unknown as ExtensionSlotsHost
+  const slots = new ExtensionSlots(host)
+  const set = (params: unknown) =>
+    slots.setInboxItems({} as PaneIdentity, {} as MessageConnection, params)
+  return { slots, publishInbox, set, sendEvent }
+}
+
+const ITEM = { id: 'abcdefghij', text: 'Set the key', at: 5 }
+
+describe('ExtensionSlots inbox items', () => {
+  it('keeps the items per workspace, tells the renderer and answers whether it holds one', () => {
+    const { slots, publishInbox, set } = inboxSlots()
+    expect(set({ workspaceId: 'w1', items: [ITEM] })).toEqual({ ok: true })
+    expect(slots.inboxEntries()).toEqual([{ extId: 'demo', workspaceId: 'w1', items: [ITEM] }])
+    expect(publishInbox).toHaveBeenLastCalledWith(slots.inboxEntries())
+    expect(slots.holdsInboxItem('demo', 'w1', 'abcdefghij')).toBe(true)
+    expect(slots.holdsInboxItem('demo', 'w2', 'abcdefghij')).toBe(false)
+    expect(slots.holdsInboxItem('other', 'w1', 'abcdefghij')).toBe(false)
+  })
+
+  it('forwards a done action to the extension only for an item it holds in that workspace', () => {
+    const { slots, set, sendEvent } = inboxSlots()
+    set({ workspaceId: 'w1', items: [ITEM] })
+    expect(slots.inboxAction('demo', 'w1', 'abcdefghij')).toBe(true)
+    expect(sendEvent).toHaveBeenCalledWith('demo', 'inbox.action', {
+      workspaceId: 'w1',
+      id: 'abcdefghij',
+      action: 'done',
+    })
+    sendEvent.mockClear()
+    expect(slots.inboxAction('demo', 'w2', 'abcdefghij')).toBe(false)
+    expect(slots.inboxAction('demo', 'w1', 'bcdefghijk')).toBe(false)
+    expect(slots.inboxAction('other', 'w1', 'abcdefghij')).toBe(false)
+    expect(sendEvent).not.toHaveBeenCalled()
+  })
+
+  it('replaces the list on every call and forgets an empty one', () => {
+    const { slots, set } = inboxSlots()
+    set({ workspaceId: 'w1', items: [ITEM] })
+    set({ workspaceId: 'w1', items: [{ ...ITEM, id: 'bcdefghijk' }] })
+    expect(slots.inboxEntries()[0]?.items.map((i) => i.id)).toEqual(['bcdefghijk'])
+    set({ workspaceId: 'w1', items: [] })
+    expect(slots.inboxEntries()).toEqual([])
+  })
+
+  it('collapses the text to one line, cuts it at the limit and drops a pane of another workspace', () => {
+    const { slots, set } = inboxSlots()
+    set({
+      workspaceId: 'w1',
+      items: [{ ...ITEM, text: `  a\n\n b ${'x'.repeat(600)}`, paneId: 'not-a-pane' }],
+    })
+    const item = slots.inboxEntries()[0]?.items[0]
+    expect(item?.text.startsWith('a b xxx')).toBe(true)
+    expect([...(item?.text ?? '')]).toHaveLength(500)
+    expect(item?.paneId).toBeUndefined()
+  })
+
+  it('refuses a workspace the extension has no caller in, however it is open', () => {
+    const { slots, set } = inboxSlots({ callers: ['w2'] })
+    expect(set({ workspaceId: 'w1', items: [ITEM] })).toMatchObject({
+      ok: false,
+      error: 'no-caller',
+    })
+    expect(slots.inboxEntries()).toEqual([])
+    expect(set({ workspaceId: 'w2', items: [ITEM] })).toEqual({ ok: true })
+  })
+
+  it('refuses a caller that is not a built-in extension, a manifest without an inbox tab and a closed workspace', () => {
+    expect(inboxSlots({ builtin: false }).set({ workspaceId: 'w1', items: [ITEM] })).toMatchObject({
+      ok: false,
+      error: 'builtin-only',
+    })
+    const plain = {
+      title: 'Demo',
+      entry: 'url',
+      toolbar: { tabs: [{ id: 'a', title: 'A' }], actions: [] },
+    }
+    expect(inboxSlots({ panel: plain }).set({ workspaceId: 'w1', items: [ITEM] })).toMatchObject({
+      ok: false,
+      error: 'not-contributed',
+    })
+    expect(inboxSlots().set({ workspaceId: 'w9', items: [ITEM] })).toMatchObject({
+      ok: false,
+      error: 'unknown-workspace',
+    })
+  })
+
+  it('refuses malformed items: a bad id, empty text, no time, duplicates and too many', () => {
+    const { slots, set } = inboxSlots()
+    const bad = (items: unknown) => set({ workspaceId: 'w1', items })
+    expect(bad([{ ...ITEM, id: 'short' }])).toMatchObject({ ok: false })
+    expect(bad([{ ...ITEM, text: '   ' }])).toMatchObject({ ok: false })
+    expect(bad([{ ...ITEM, at: 'now' }])).toMatchObject({ ok: false })
+    expect(bad([ITEM, ITEM])).toMatchObject({ ok: false })
+    expect(bad('x')).toMatchObject({ ok: false })
+    expect(
+      bad(
+        Array.from({ length: 51 }, (_, i) => ({
+          ...ITEM,
+          id: `${'a'.repeat(9)}${'abcdefghijklmnopqrstuvwxyz'[i % 26]}`,
+        })),
+      ),
+    ).toMatchObject({ ok: false })
+    expect(slots.inboxEntries()).toEqual([])
+  })
+
+  it('clears the entries of a closed workspace or a stopped extension', () => {
+    const { slots, publishInbox, set } = inboxSlots()
+    set({ workspaceId: 'w1', items: [ITEM] })
+    set({ workspaceId: 'w2', items: [ITEM] })
+    slots.clearInboxWhere((entry) => entry.workspaceId === 'w1')
+    expect(slots.inboxEntries().map((e) => e.workspaceId)).toEqual(['w2'])
+    slots.clearInboxWhere((entry) => entry.extId === 'demo')
+    expect(slots.inboxEntries()).toEqual([])
+    expect(publishInbox).toHaveBeenLastCalledWith([])
+  })
+})
+
 describe('ExtensionSlots panel toolbar', () => {
   it('stores the state per workspace and tells the renderer', () => {
     const { slots, broadcast, set } = slotsFor(TOOLBAR)

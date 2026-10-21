@@ -61,9 +61,14 @@ export const PANEL_TOOLBAR_MAX_ACTIONS = 6
 
 export const PANEL_TOOLBAR_BACK_MAX = 60
 
+export const PANEL_TAB_SURFACES = ['inbox'] as const
+
+export type PanelTabSurface = (typeof PANEL_TAB_SURFACES)[number]
+
 export interface PanelToolbarTab {
   id: string
   title: string
+  surface?: PanelTabSurface
 }
 
 export interface PanelToolbarAction {
@@ -89,6 +94,31 @@ export interface PanelToolbarEntry {
   extId: string
   workspaceId: string
   state: PanelToolbarState
+}
+
+export const INBOX_ITEMS_MAX = 50
+
+export const INBOX_TEXT_MAX = 500
+
+export const INBOX_ACTION_EVENT = 'inbox.action'
+
+export interface InboxItem {
+  id: string
+  text: string
+  paneId?: string
+  at: number
+}
+
+export interface InboxEntry {
+  extId: string
+  workspaceId: string
+  items: InboxItem[]
+}
+
+export interface InboxActionEvent {
+  workspaceId: string
+  id: string
+  action: 'done'
 }
 
 export interface ExtensionPanelContribution {

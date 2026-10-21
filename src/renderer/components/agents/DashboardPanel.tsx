@@ -1,7 +1,6 @@
 import { AppWindowIcon, ArrowSquareOutIcon, ChatTextIcon, XIcon } from '@phosphor-icons/react'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { CountBadge } from '@/components/common/CountBadge'
-import { Hint } from '@/components/common/Hint'
 import { IconButton } from '@/components/common/IconButton'
 import { PathText } from '@/components/common/MachineValue'
 import { StateLabel } from '@/components/common/StateLabel'
@@ -14,13 +13,7 @@ import { fmt, useDict } from '@/lib/app/useDict'
 import { unreadCount } from '@/lib/attention/attention'
 import { markWorkspaceRead, revealPane } from '@/lib/attention/workspaceActivity'
 import { allPanes, paneIds } from '@/lib/layout/tree'
-import {
-  type NeedsYouItem,
-  needsYouItems,
-  type PaneWhere,
-  paneWhere,
-  sourceWhere,
-} from '@/lib/sidebar/dashboard'
+import { needsYouItems } from '@/lib/sidebar/dashboard'
 import { cn } from '@/lib/utils'
 import { selectWorkspace } from '@/lib/workspaces/selectWorkspace'
 import { type RemoteWorkspace, remoteWorkspacesOf } from '@/lib/workspaces/windowWorkspaces'
@@ -37,8 +30,7 @@ import { useWindowsStore } from '@/stores/workspaces/windowsStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import type { Workspace } from '@/stores/workspaces/workspaceTypes'
 import { AgentComposer } from './AgentComposer'
-import { ApprovalCard } from './ApprovalCard'
-import { QuestionCard } from './QuestionCard'
+import { NeedsYouCard, useWhere } from './NeedsYouCard'
 
 const OPEN_POPUP = '[role="dialog"], [role="listbox"], [role="menu"]'
 const FIRST_CONTROL = '[role="radio"], [role="checkbox"], textarea, button'
@@ -128,18 +120,6 @@ function EmptyLine({ children }: { children: string }): JSX.Element {
   return <p className="px-1 py-2 text-fg-muted text-ui-sm">{children}</p>
 }
 
-function useWhere(): (item: NeedsYouItem) => PaneWhere | null {
-  const workspaces = useWorkspacesStore((s) => s.workspaces)
-  const layouts = useLayoutStore((s) => s.byWorkspace)
-  return useMemo(
-    () => (item) =>
-      item.kind === 'question' && item.question.source
-        ? sourceWhere(item.question.source, workspaces)
-        : paneWhere(itemPane(item), workspaces, layouts),
-    [workspaces, layouts],
-  )
-}
-
 function NeedsYou(): JSX.Element {
   const d = useDict()
   const questions = useQuestionsStore((s) => s.pending)
@@ -163,46 +143,6 @@ function NeedsYou(): JSX.Element {
         </ul>
       )}
     </section>
-  )
-}
-
-function itemPane(item: NeedsYouItem): string {
-  return item.kind === 'question' ? item.question.paneId : item.approval.paneId
-}
-
-function NeedsYouCard({
-  item,
-  where,
-}: {
-  item: NeedsYouItem
-  where: PaneWhere | null
-}): JSX.Element {
-  const d = useDict()
-  if (item.kind === 'question') {
-    return <QuestionCard question={item.question} where={where} sent={item.sent} />
-  }
-  return (
-    <ApprovalCard
-      request={item.approval}
-      paneTitle={where?.pane ?? d.attention.closedPane}
-      lead={
-        where ? (
-          <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5 text-fg-muted text-ui-xs">
-            <span className="truncate font-medium text-fg">{where.workspace}</span>
-            <Hint label={where.path}>
-              <span className="truncate font-mono">{where.shortPath}</span>
-            </Hint>
-            <TextLink
-              size="xs"
-              className="ml-auto h-auto p-0 text-ui-xs"
-              onClick={() => revealPane(item.approval.paneId)}
-            >
-              {d.dashboard.goToPane}
-            </TextLink>
-          </div>
-        ) : null
-      }
-    />
   )
 }
 

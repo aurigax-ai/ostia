@@ -15,7 +15,8 @@
     "panel.toolbar.tabs.parked.title": "已暫放",
     "panel.toolbar.tabs.remember.title": "記住",
     "settings.rememberDays.title": "記住的任務保留的天數",
-    "settings.rememberDays.description": "超過這個天數的任務不再回傳給它的代理程式，並會移到封存；絕不會被刪除"
+    "settings.rememberDays.description": "超過這個天數的任務不再回傳給它的代理程式，並會移到封存；絕不會被刪除",
+    "panel.toolbar.tabs.inbox.title": "收件匣"
   },
   "messages": {
     "empty": "還沒有代理程式回報任何內容。",
@@ -43,9 +44,7 @@
     "sidebar.needsYou": "{count} 項需要你",
     "needsYou": "需要你",
     "noteDone": "已完成",
-    "markDone": "標為完成",
     "notes": "備註",
-    "doneFailed": "無法標為完成：{reason}",
     "timeline": "回合，由新到舊",
     "showOlder": "顯示較舊的",
     "bulk.panes": "顯示每個窗格",

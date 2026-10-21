@@ -41,6 +41,7 @@ const PUSHED = [
   'extensions:changed',
   'extensions:chips',
   'extensions:focus-pane',
+  'extensions:inbox',
   'extensions:open-diff',
   'extensions:open-panel',
   'extensions:open-terminal',

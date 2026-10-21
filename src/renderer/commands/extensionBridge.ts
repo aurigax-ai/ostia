@@ -15,6 +15,7 @@ import { useSandboxStore } from '@/stores/app/sandboxStore'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useSidePanelStore } from '@/stores/app/sidePanelStore'
 import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
+import { useInboxStore } from '@/stores/extensions/inboxStore'
 import { usePanelToolbarStore } from '@/stores/extensions/panelToolbarStore'
 import { usePluginsStore } from '@/stores/extensions/pluginsStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
@@ -171,6 +172,8 @@ export function wireExtensionBridge(): void {
   })
   api.onSidebar((items) => store.setSidebar(items))
   api.onPanelToolbars((entries) => usePanelToolbarStore.getState().setEntries(entries))
+  api.onInbox((entries) => useInboxStore.getState().setEntries(entries))
+  void api.inboxEntries().then((entries) => useInboxStore.getState().setEntries(entries))
   api.onPaneChips((chips) => store.setChips(chips))
   api.onWorkspaceChips((chips) => store.setWorkspaceChips(chips))
   api.onSettingsStored(({ extId, stored }) =>

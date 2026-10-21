@@ -9,6 +9,7 @@ import type {
   ExtensionResult,
   ExtensionSettingValues,
   ExtensionSidebarItem,
+  InboxEntry,
   PaneChip,
   PanelToolbarEntry,
   WorkspaceChip,
@@ -102,6 +103,8 @@ export interface ExtensionsApi {
   panel: (extId: string, context: ExtensionPanelContext) => Promise<ExtensionPanelSource>
   sidebarItems: () => Promise<ExtensionSidebarItem[]>
   panelToolbars: () => Promise<PanelToolbarEntry[]>
+  inboxEntries: () => Promise<InboxEntry[]>
+  inboxAction: (extId: string, workspaceId: string, id: string) => Promise<boolean>
   paneChips: () => Promise<PaneChip[]>
   workspaceChips: () => Promise<WorkspaceChip[]>
   setSetting: (extId: string, key: string, value: unknown) => Promise<ExtensionSettingResult>
@@ -115,6 +118,7 @@ export interface ExtensionsApi {
   onChanged: (cb: (list: ExtensionInfo[]) => void) => () => void
   onSidebar: (cb: (items: ExtensionSidebarItem[]) => void) => () => void
   onPanelToolbars: (cb: (entries: PanelToolbarEntry[]) => void) => () => void
+  onInbox: (cb: (entries: InboxEntry[]) => void) => () => void
   onPaneChips: (cb: (chips: PaneChip[]) => void) => () => void
   onWorkspaceChips: (cb: (chips: WorkspaceChip[]) => void) => () => void
   onSettingsStored: (cb: (update: ExtensionSettingsStored) => void) => () => void

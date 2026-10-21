@@ -17,8 +17,10 @@ import {
   type ExtensionChipContribution,
   type ExtensionCommandContribution,
   type ExtensionPanelContribution,
+  PANEL_TAB_SURFACES,
   PANEL_TOOLBAR_MAX_ACTIONS,
   PANEL_TOOLBAR_MAX_TABS,
+  type PanelTabSurface,
   type PanelToolbarContribution,
 } from '../contract/extensions'
 import { ICON_THEME_ID_PATTERN, type IconThemeContribution } from '../contract/iconTheme'
@@ -96,19 +98,26 @@ function parsePanelToolbar(raw: unknown): PanelToolbarContribution | string {
     if (!icon) return `contributes.panel.toolbar.actions[${i}]: missing or unknown icon`
     withIcon.push({ id: action.id, title: action.title, icon })
   }
-  return { tabs: tabs.map(({ id, title }) => ({ id, title })), actions: withIcon }
+  return {
+    tabs: tabs.map(({ id, title, surface }) => ({
+      id,
+      title,
+      ...(surface ? { surface } : {}),
+    })),
+    actions: withIcon,
+  }
 }
 
 function parseToolbarItems(
   raw: unknown,
   field: 'tabs' | 'actions',
   max: number,
-): { id: string; title: string; icon?: unknown }[] | string {
+): { id: string; title: string; icon?: unknown; surface?: PanelTabSurface }[] | string {
   if (raw === undefined) return []
   if (!Array.isArray(raw) || raw.length > max) {
     return `contributes.panel.toolbar.${field} must be an array of at most ${max}`
   }
-  const items: { id: string; title: string; icon?: unknown }[] = []
+  const items: { id: string; title: string; icon?: unknown; surface?: PanelTabSurface }[] = []
   for (const [i, item] of raw.entries()) {
     const where = `contributes.panel.toolbar.${field}[${i}]`
     if (!isRecord(item)) return `${where}: must be an object`
@@ -118,7 +127,17 @@ function parseToolbarItems(
     const title = text(item.title)
     if (!title) return `${where}: missing title`
     if (items.some((x) => x.id === item.id)) return `${where}: duplicate id '${item.id}'`
-    items.push({ id: item.id, title, icon: item.icon })
+    if (item.surface !== undefined) {
+      if (field !== 'tabs' || !PANEL_TAB_SURFACES.includes(item.surface as PanelTabSurface)) {
+        return `${where}: surface must be one of ${PANEL_TAB_SURFACES.join(', ')}`
+      }
+    }
+    items.push({
+      id: item.id,
+      title,
+      icon: item.icon,
+      ...(item.surface ? { surface: item.surface as PanelTabSurface } : {}),
+    })
   }
   return items
 }

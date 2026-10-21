@@ -1,5 +1,6 @@
 import type { ExtensionInfo } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import { useEffect, useLayoutEffect, useRef } from 'react'
+import { PanelInbox } from '@/components/agents/PanelInbox'
 import { PanelToolbar } from '@/components/app/PanelToolbar'
 import { EmptyState } from '@/components/common/EmptyState'
 import { PanelResizer } from '@/components/common/PanelResizer'
@@ -13,8 +14,13 @@ import { rightPanelWidth } from '@/lib/panes/panelWidth'
 import { hideRightPanel, RIGHT_PANEL_ID, rightFocusKey } from '@/lib/panes/rightPanelFocus'
 import { useSandboxStore } from '@/stores/app/sandboxStore'
 import { useSettingsStore } from '@/stores/app/settingsStore'
-import { useSidePanelStore } from '@/stores/app/sidePanelStore'
+import { type PanelRoute, useSidePanelStore } from '@/stores/app/sidePanelStore'
 import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
+import {
+  surfaceKey,
+  toolbarStateOf,
+  usePanelToolbarStore,
+} from '@/stores/extensions/panelToolbarStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 
 function hasPanel(ext: ExtensionInfo): boolean {
@@ -40,6 +46,60 @@ function PanelSlot({
   return (
     <div ref={ref} className="right-panel-slot" data-hidden={shown ? undefined : ''}>
       {children}
+    </div>
+  )
+}
+
+function inboxTabOf(
+  ext: ExtensionInfo,
+  shownTab: string | undefined,
+  chosen: boolean,
+): string | undefined {
+  if (!ext.builtin) return undefined
+  const tabs = ext.panel?.toolbar?.tabs ?? []
+  const inbox = tabs.find((tab) => tab.surface === 'inbox')
+  if (!inbox) return undefined
+  const current = chosen
+    ? inbox.id
+    : (shownTab ?? tabs.find((tab) => tab.id !== inbox.id)?.id ?? tabs[0]?.id)
+  return inbox.id === current ? inbox.id : undefined
+}
+
+function ExtensionBody({
+  ext,
+  workspaceId,
+  focusKey,
+  route,
+  hidden,
+}: {
+  ext: ExtensionInfo
+  workspaceId: string
+  focusKey: string
+  route: PanelRoute | undefined
+  hidden: boolean
+}): JSX.Element {
+  const entries = usePanelToolbarStore((s) => s.entries)
+  const chosen = usePanelToolbarStore(
+    (s) => s.surfaceChosen[surfaceKey(ext.id, workspaceId)] === true,
+  )
+  const inbox = inboxTabOf(ext, toolbarStateOf(entries, ext.id, workspaceId).tab, chosen)
+  const webRef = useInert<HTMLDivElement>(inbox !== undefined)
+  return (
+    <div className="right-panel-content">
+      <div ref={webRef} className="right-panel-web" data-hidden={inbox ? '' : undefined}>
+        <ExtensionSidePanel
+          extId={ext.id}
+          workspaceId={workspaceId}
+          focusKey={focusKey}
+          route={route}
+          hidden={hidden || inbox !== undefined}
+        />
+      </div>
+      {inbox ? (
+        <div className="right-panel-inbox">
+          <PanelInbox extId={ext.id} workspaceId={workspaceId} />
+        </div>
+      ) : null}
     </div>
   )
 }
@@ -150,15 +210,13 @@ export function RightPanel(): JSX.Element {
                     workspaceId={i.workspaceId}
                     focusKey={rightFocusKey(i.extId, i.workspaceId)}
                   />
-                  <div className="right-panel-content">
-                    <ExtensionSidePanel
-                      extId={i.extId}
-                      workspaceId={i.workspaceId}
-                      focusKey={rightFocusKey(i.extId, i.workspaceId)}
-                      route={routes[instanceKey(i)]}
-                      hidden={instance === null || !sameInstance(i, instance)}
-                    />
-                  </div>
+                  <ExtensionBody
+                    ext={list.find((e) => e.id === i.extId) as ExtensionInfo}
+                    workspaceId={i.workspaceId}
+                    focusKey={rightFocusKey(i.extId, i.workspaceId)}
+                    route={routes[instanceKey(i)]}
+                    hidden={instance === null || !sameInstance(i, instance)}
+                  />
                 </>
               )}
             </PanelSlot>

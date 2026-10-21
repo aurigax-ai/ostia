@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 import { isPaneVisible } from '@/lib/attention/workspaceActivity'
 import { keyboardPaneId } from '@/lib/layout/focusDirection'
+import { findPane } from '@/lib/layout/tree'
 import { guestReached } from '@/lib/panes/guestReached'
+import { useAttentionStore } from '@/stores/agents/attentionStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import {
   focusSurfaceWhenReady,
@@ -11,6 +13,19 @@ import {
 
 export function focusPaneWhenReady(paneId: string): void {
   focusSurfaceWhenReady(paneId, () => isPaneVisible(paneId))
+}
+
+export function showPaneWhenReady(workspaceId: string, paneId: string): boolean {
+  const layouts = useLayoutStore.getState()
+  const layout = layouts.byWorkspace[workspaceId]
+  if (!layout || !findPane(layout.root, paneId)) return false
+  if (layout.zoomedPaneId && layout.zoomedPaneId !== paneId) {
+    layouts.zoomPane(workspaceId, layout.zoomedPaneId, false)
+  }
+  layouts.focusPane(workspaceId, paneId)
+  useAttentionStore.getState().dispatch(paneId, { type: 'view', at: Date.now() })
+  focusPaneWhenReady(paneId)
+  return true
 }
 
 export function focusActivePaneWhenReady(workspaceId: string): void {
