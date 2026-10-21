@@ -2,12 +2,13 @@ import {
   copyFileSync,
   cpSync,
   existsSync,
+  lstatSync,
   mkdirSync,
-  readFileSync,
   readdirSync,
+  readFileSync,
   realpathSync,
 } from 'node:fs'
-import { dirname, join, resolve, sep } from 'node:path'
+import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path'
 import { build } from 'esbuild'
 
 const manifestFile = 'ostia.json'
@@ -29,9 +30,60 @@ export function installedPackage(name) {
 
 export function vendoredPackages(src) {
   const list = join(src, vendorList)
-  if (!existsSync(list)) return { packages: {}, closures: {} }
-  const { packages = {}, closures = {} } = JSON.parse(readFileSync(list, 'utf8'))
-  return { packages, closures }
+  if (!existsSync(list)) return { packages: {}, closures: {}, files: {} }
+  const { packages = {}, closures = {}, files = {} } = JSON.parse(readFileSync(list, 'utf8'))
+  return { packages, closures, files }
+}
+
+function packageParts(spec) {
+  const parts = spec.split('/')
+  const length = spec.startsWith('@') ? 2 : 1
+  return { name: parts.slice(0, length).join('/'), path: parts.slice(length) }
+}
+
+function within(root, path) {
+  const step = relative(root, path)
+  return step === '' || (!step.startsWith('..') && !isAbsolute(step))
+}
+
+function copyRegularTree(from, to, label) {
+  const stat = lstatSync(from)
+  if (stat.isDirectory()) {
+    mkdirSync(to, { recursive: true })
+    for (const entry of readdirSync(from))
+      copyRegularTree(join(from, entry), join(to, entry), label)
+  } else if (stat.isFile()) {
+    mkdirSync(dirname(to), { recursive: true })
+    copyFileSync(from, to)
+  } else {
+    throw new Error(
+      `vendor.json files: ${label} holds ${from}, which is not a regular file or folder`,
+    )
+  }
+}
+
+export function copyPackagePath(packageDir, path, outDir, target, label = path.join('/')) {
+  const root = realpathSync(packageDir)
+  const from = resolve(root, ...path)
+  if (!within(root, from) || !existsSync(from)) {
+    throw new Error(`vendor.json files: ${label} is not inside its package`)
+  }
+  if (!within(root, realpathSync(from))) {
+    throw new Error(`vendor.json files: ${label} leaves its package through a link`)
+  }
+  const out = resolve(outDir)
+  const to = resolve(out, target)
+  if (to === out || !within(out, to)) {
+    throw new Error(`vendor.json files: ${label} is copied outside the extension to ${target}`)
+  }
+  copyRegularTree(from, to, label)
+}
+
+export function copyVendoredFiles(src, out) {
+  for (const [spec, target] of Object.entries(vendoredPackages(src).files)) {
+    const { name, path } = packageParts(spec)
+    copyPackagePath(installedPackage(name), path, out, target, spec)
+  }
 }
 
 function withoutNestedModules(from) {
@@ -131,6 +183,7 @@ function browserBundle(entry, outfile, alias = {}) {
     format: 'iife',
     target: 'chrome120',
     loader: { '.svg': 'text' },
+    define: { 'process.env.NODE_ENV': '"production"' },
     alias,
     logLevel: 'warning',
   })
@@ -163,7 +216,7 @@ async function buildFileKinds(src, out, panelBaseCss) {
       await browserBundle(join(src, script), join(out, script.replace(/\.ts$/, '.js')), alias)
     }
   }
-  for (const name of readdirSync(src).filter((file) => file.endsWith('.worker.ts'))) {
+  for (const name of readdirSync(src).filter((file) => /\.(worker|script)\.ts$/.test(file))) {
     await browserBundle(join(src, name), join(out, name.replace(/\.ts$/, '.js')), alias)
   }
 }
@@ -232,6 +285,7 @@ export async function buildExtension(src, out, panelBaseCss) {
     if (existsSync(join(src, dir))) cpSync(join(src, dir), join(out, dir), { recursive: true })
   }
   copyVendoredPackages(src, out)
+  copyVendoredFiles(src, out)
   copyAgentSkills(src, out)
   await buildFileKinds(src, out, panelBaseCss)
   if (existsSync(join(src, 'panel.html'))) copyFileSync(panelBaseCss, join(out, 'base.css'))

@@ -116,7 +116,7 @@ describe('artifact versions', () => {
     expect(bar).toHaveTextContent('Version from')
     expect(screen.getByRole('button', { name: 'Restore' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Compare with latest' })).toBeInTheDocument()
-    expect(screen.getByRole('heading', { name: `Plan from ${VERSIONS[1].id}` })).toBeInTheDocument()
+    expect(screen.getByText(`# Plan from ${VERSIONS[1].id}`)).toBeInTheDocument()
     expect(screen.queryByRole('textbox')).not.toBeInTheDocument()
     await userEvent.click(screen.getByRole('button', { name: 'Back to latest' }))
     expect(screen.queryByTestId('version-bar')).not.toBeInTheDocument()

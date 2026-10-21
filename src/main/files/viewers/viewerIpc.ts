@@ -22,6 +22,8 @@ import { ViewerWatch } from './viewerWatch'
 
 const VIEWER_CHANNELS = {
   selection: 'viewers:selection',
+  'open-link': 'viewers:open-link',
+  'edit-source': 'viewers:edit-source',
 } as const
 
 const EXTENSION_FILE_MAX = 32 * 1024 * 1024
@@ -39,6 +41,7 @@ interface ViewerWiringDeps {
   extensions: () => ExtensionHost | null
   readLocale: () => string | undefined
   copyStrings: () => ViewerCopyStrings
+  fileLinksAllowed: (paneId: string) => boolean
 }
 
 export function createViewerHost({
@@ -48,6 +51,7 @@ export function createViewerHost({
   extensions,
   readLocale,
   copyStrings,
+  fileLinksAllowed,
 }: ViewerWiringDeps): ViewerHost {
   return new ViewerHost({
     sessionOf: (partition) => session.fromPartition(partition) as unknown as ViewerSession,
@@ -79,6 +83,7 @@ export function createViewerHost({
     },
     writeClipboard: (copied) => clipboard.write([new ClipboardItem(clipboardItemData(copied))]),
     copyStrings,
+    fileLinksAllowed,
   })
 }
 
@@ -94,5 +99,8 @@ export function registerViewerIpc({ viewers }: { viewers: ViewerHost }): void {
   )
   ipcMain.on('viewers:clear-selection', (e, paneId: unknown) =>
     viewers.clearSelection(String(e.sender.id), paneId),
+  )
+  ipcMain.on('viewers:document-text', (e, request: unknown) =>
+    viewers.setDocumentText(String(e.sender.id), request),
   )
 }

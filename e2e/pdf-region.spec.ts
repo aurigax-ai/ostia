@@ -1,123 +1,181 @@
-import { mkdirSync, writeFileSync } from 'node:fs'
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { freshDataHome, isolatedLaunch } from './dataHome'
-import { openWorkspace } from './helpers'
+import { fakeAgentBin, startFakeAgent } from './fakeAgent'
+import { expectHeld, openWorkspace, shownTerminal, terminalTab } from './helpers'
 import { textPdf } from './pdfFixture'
-import { type ElectronApplication, type Page, _electron as electron, expect, test } from './test'
+import { type ElectronApplication, _electron as electron, expect, type Page, test } from './test'
+import { viewerGuestRun } from './viewerGuest'
 
-async function launchWithHome(
-  files: Record<string, string | Buffer>,
-): Promise<{ app: ElectronApplication; win: Page }> {
+const PDF = { viewType: 'pdf.pdf' }
+const FIND_KEY = process.platform === 'darwin' ? 'meta' : 'control'
+
+interface Box {
+  x: number
+  y: number
+  width: number
+  height: number
+}
+
+async function launchWithPdf(): Promise<{ app: ElectronApplication; win: Page }> {
   const dataHome = freshDataHome()
   const home = join(dataHome, 'home')
   mkdirSync(home, { recursive: true })
-  for (const [name, body] of Object.entries(files)) writeFileSync(join(home, name), body)
+  writeFileSync(
+    join(home, 'invoice.pdf'),
+    textPdf('Hello needle one', 'Second page with a needle', 'Third page'),
+  )
   const launch = isolatedLaunch(dataHome)
-  const app = await electron.launch({ ...launch, env: { ...launch.env, HOME: home } })
+  const bin = fakeAgentBin(dataHome)
+  const app = await electron.launch({
+    ...launch,
+    env: { ...launch.env, HOME: home, PATH: `${bin}:${launch.env.PATH}` },
+  })
   const win = await app.firstWindow()
   await openWorkspace(win)
+  await startFakeAgent(win)
+  await win.locator('.topbar').getByRole('button', { name: 'Files', exact: true }).click()
+  await win.locator('.file-row').filter({ hasText: 'invoice.pdf' }).click()
+  await expect(win.locator('[data-testid="file-viewer"]:visible')).toHaveAttribute(
+    'data-view-type',
+    'pdf.pdf',
+    { timeout: 15_000 },
+  )
+  await expect
+    .poll(() => viewerGuestRun(app, PDF, 'document.querySelectorAll(".pdf-text span").length'), {
+      timeout: 30_000,
+    })
+    .toBeGreaterThan(0)
   return { app, win }
 }
 
-async function openFromFiles(win: Page, name: string): Promise<void> {
-  await win.locator('.topbar').getByRole('button', { name: 'Files', exact: true }).click()
-  await win.locator('.file-row').filter({ hasText: name }).click()
+async function guestBox(app: ElectronApplication, win: Page, selector: string): Promise<Box> {
+  const inGuest = (await viewerGuestRun(
+    app,
+    PDF,
+    `(() => { const r = document.querySelector(${JSON.stringify(selector)}).getBoundingClientRect(); return { x: r.x, y: r.y, width: r.width, height: r.height } })()`,
+  )) as Box
+  const frame = await win.locator('webview:visible').boundingBox()
+  if (!frame) throw new Error('the viewer has no box')
+  return { ...inGuest, x: inGuest.x + frame.x, y: inGuest.y + frame.y }
 }
 
-async function watchCursor(app: ElectronApplication): Promise<() => Promise<string | null>> {
-  await app.evaluate(({ BrowserWindow }) => {
-    const state = globalThis as { lastCursor?: string | null }
-    state.lastCursor = null
-    BrowserWindow.getAllWindows()[0].webContents.on('cursor-changed', (_event, type) => {
-      state.lastCursor = type
-    })
+async function readClipboard(app: ElectronApplication) {
+  return app.evaluate(async ({ clipboard }) => {
+    const items = await clipboard.read()
+    const plain = items.find((item) => item.types.includes('text/plain'))
+    return {
+      text: plain ? await (await plain.getType('text/plain')).text() : '',
+      hasImage: items.some((item) => item.types.some((type) => type.startsWith('image/'))),
+    }
   })
-  return () => app.evaluate(() => (globalThis as { lastCursor?: string | null }).lastCursor ?? null)
 }
 
-function cursorAt(win: Page, x: number, y: number): Promise<string | null> {
-  return win.evaluate(
-    ([px, py]) => {
-      const el = document.elementFromPoint(px, py)
-      return el ? getComputedStyle(el).cursor : null
-    },
-    [x, y] as const,
-  )
+async function dragOverTextLine(win: Page, app: ElectronApplication, fromEmpty: boolean) {
+  const page = await guestBox(app, win, '.pdf-page')
+  const span = await guestBox(app, win, '.pdf-text span')
+  const y = span.y + span.height / 2
+  const from = fromEmpty ? page.x + 6 : span.x + 2
+  await win.mouse.move(from, y)
+  await win.mouse.down()
+  await win.mouse.move(span.x + span.width - 2, y + (fromEmpty ? 10 : 0), { steps: 6 })
+  await win.mouse.up()
 }
 
-test('a PDF shows the crop cursor only while selecting a region', async () => {
-  test.setTimeout(120_000)
-  const { app, win } = await launchWithHome({ 'invoice.pdf': textPdf('Hello Ostia PDF') })
+const bar = (win: Page) => win.getByRole('toolbar', { name: 'Selection actions' })
+
+test('the PDF viewer selects text, crops text and image together, finds across pages and sends with a note', async () => {
+  test.setTimeout(240_000)
+  const { app, win } = await launchWithPdf()
   try {
-    await openFromFiles(win, 'invoice.pdf')
-    await expect(win.getByText('Page 1 of 1')).toBeVisible({ timeout: 15_000 })
-    const span = win.locator('.pdf-text span').filter({ hasText: 'Hello Ostia PDF' })
-    await expect(span).toHaveCount(1, { timeout: 15_000 })
-    const word = await span.boundingBox()
-    if (!word) throw new Error('pdf text has no box')
-    const wordX = word.x + word.width / 2
-    const wordY = word.y + word.height / 2
-    const cursor = await watchCursor(app)
-    await win.mouse.move(wordX, wordY)
-    await expect.poll(cursor).toBe('text')
+    await test.step('a drag that starts on text selects text and Copy puts only text on the clipboard', async () => {
+      await dragOverTextLine(win, app, false)
+      await expect(bar(win)).toBeVisible({ timeout: 15_000 })
+      await bar(win).getByRole('button', { name: 'Copy' }).click()
+      await expect(bar(win)).toHaveCount(0)
+      await expect.poll(async () => (await readClipboard(app)).text).toContain('Hello')
+      expect((await readClipboard(app)).hasImage).toBe(false)
+    })
 
-    await win.getByRole('button', { name: 'Select a region' }).click()
-    const layer = win.locator('.pdf-region-layer')
-    const box = await layer.boundingBox()
-    if (!box) throw new Error('pdf region layer has no box')
-    expect(await cursorAt(win, wordX, wordY)).toBe('crosshair')
+    await test.step('a drag that starts on empty page space crops a rectangle and Copy puts text and image on the clipboard', async () => {
+      await dragOverTextLine(win, app, true)
+      await expect(bar(win)).toBeVisible({ timeout: 15_000 })
+      await expect(win.locator('webview:visible')).toBeVisible()
+      await bar(win).getByRole('button', { name: 'Copy' }).click()
+      await expect(bar(win)).toHaveCount(0)
+      await expect
+        .poll(async () => {
+          const copied = await readClipboard(app)
+          return copied.hasImage && copied.text.includes('Hello needle one')
+        })
+        .toBe(true)
+    })
 
-    await win.mouse.move(wordX, wordY)
-    await expect.poll(cursor).toBe('crosshair')
-    await win.mouse.move(box.x + 20, box.y + 20)
-    await win.mouse.down()
-    await win.mouse.move(box.x + 80, box.y + 60, { steps: 4 })
-    await win.mouse.move(box.x - 8, box.y + 60, { steps: 4 })
-    expect(await cursorAt(win, box.x - 8, box.y + 60)).not.toBe('crosshair')
-    await expect.poll(cursor).toBe('crosshair')
-    await win.mouse.move(box.x + 120, box.y + 90, { steps: 4 })
-    await win.mouse.up()
-    await expect(win.locator('.viewer-region')).toBeVisible()
-    expect(await cursorAt(win, box.x + 60, box.y + 50)).toBe('crosshair')
+    await test.step('find opens with the find chord, counts matches over every page and steps through them', async () => {
+      await app.evaluate(({ webContents }, modifier) => {
+        const guest = webContents.getAllWebContents().find((w) => w.getType() === 'webview')
+        if (!guest) throw new Error('no page')
+        guest.focus()
+        for (const type of ['keyDown', 'keyUp'] as const) {
+          guest.sendInputEvent({ type, keyCode: 'F', modifiers: [modifier as 'control'] })
+        }
+      }, FIND_KEY)
+      await expect
+        .poll(() => viewerGuestRun(app, PDF, 'document.activeElement?.className ?? ""'))
+        .toContain('ostia-pill-find-field')
+      await viewerGuestRun(
+        app,
+        PDF,
+        `(() => { const f = document.querySelector('.ostia-pill-find-field'); f.value = 'needle'; f.dispatchEvent(new Event('input')) })()`,
+      )
+      const count = () =>
+        viewerGuestRun(
+          app,
+          PDF,
+          `document.querySelector('.ostia-pill-find-count')?.textContent ?? ''`,
+        )
+      await expect.poll(count, { timeout: 20_000 }).toBe('1 of 2')
+      await viewerGuestRun(
+        app,
+        PDF,
+        `document.querySelector('.ostia-pill-find-field').dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }))`,
+      )
+      await expect.poll(count).toBe('2 of 2')
+      await expect
+        .poll(() => viewerGuestRun(app, PDF, `document.querySelector('.ostia-pill-page').value`))
+        .toBe('2')
+    })
 
-    await win.getByRole('button', { name: 'Select a region' }).click()
-    await expect(layer).toHaveCount(0)
-    await win.mouse.move(wordX, wordY)
-    await expect.poll(cursor).toBe('text')
-  } finally {
-    await app.close()
-  }
-})
-
-test('the PDF region hint never moves the page under a drag', async () => {
-  test.setTimeout(120_000)
-  const { app, win } = await launchWithHome({ 'invoice.pdf': textPdf('Hello Ostia PDF') })
-  try {
-    await openFromFiles(win, 'invoice.pdf')
-    await expect(win.getByText('Page 1 of 1')).toBeVisible({ timeout: 15_000 })
-    const page = win.locator('.pdf-page')
-    await expect(page).toBeVisible()
-    const shown = await page.boundingBox()
-    if (!shown) throw new Error('pdf page has no box')
-
-    await win.getByRole('button', { name: 'Select a region' }).click()
-    const hint = win.getByText('Drag across the page to select a region.')
-    await expect(hint).toBeVisible()
-    const box = await page.boundingBox()
-    if (!box) throw new Error('pdf page has no box')
-    expect(box.y).toBe(shown.y)
-
-    await win.mouse.move(box.x + 40, box.y + 60)
-    await win.mouse.down()
-    await win.mouse.move(box.x + 100, box.y + 100, { steps: 4 })
-    await expect(hint).toHaveCount(0)
-    expect((await page.boundingBox())?.y).toBe(box.y)
-    await win.mouse.move(box.x + 140, box.y + 160, { steps: 4 })
-    await win.mouse.up()
-
-    const region = await win.locator('.viewer-region').boundingBox()
-    if (!region) throw new Error('no region drawn')
-    expect(Math.abs(region.y - (box.y + 60))).toBeLessThan(3)
+    await test.step('Send puts the report reference with the note at the agent prompt and presses no Enter', async () => {
+      await viewerGuestRun(
+        app,
+        PDF,
+        `document.querySelector('.ostia-pill-find button[aria-label="Done"]').click()`,
+      )
+      await viewerGuestRun(app, PDF, 'window.scrollTo(0, 0)')
+      await expect
+        .poll(() => viewerGuestRun(app, PDF, `document.querySelector('.ostia-pill-page').value`))
+        .toBe('1')
+      await dragOverTextLine(win, app, true)
+      await expect(bar(win)).toBeVisible({ timeout: 15_000 })
+      await bar(win).getByRole('button', { name: 'Add a note' }).click()
+      await win.getByRole('textbox', { name: 'Add a note' }).fill('check the total')
+      await bar(win).getByRole('button', { name: 'Send to agent' }).click()
+      await win.getByRole('menuitem').first().click()
+      await terminalTab(win).click()
+      const terminal = shownTerminal(win).locator('.xterm-rows')
+      await expect(terminal).toContainText(/@\S+\.md/, { timeout: 15_000 })
+      const text = (await terminal.textContent()) ?? ''
+      const report = /@(\S+\.md)/.exec(text)?.[1] ?? ''
+      const body = readFileSync(report, 'utf8')
+      expect(body).toContain('check the total')
+      expect(body).toContain('Hello needle one')
+      await expectHeld(
+        async () => ((await terminal.textContent()) ?? '').match(/@\S+\.md/g)?.length ?? 0,
+        1,
+        800,
+      )
+    })
   } finally {
     await app.close()
   }

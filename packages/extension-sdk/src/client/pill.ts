@@ -3,7 +3,7 @@ import { buildFindRow, type FindRow } from './pillFind'
 import { buildMenu, type MenuHandle } from './pillMenu'
 import { buildButton, buildPager, iconButton } from './pillParts'
 import type { FindHandle, Pill, PillOptions, Update } from './pillTypes'
-import { hasPublishedSelection, onSelectionPublished } from './viewer'
+import { claimFindKeys, hasPublishedSelection, onSelectionPublished } from './viewer'
 
 export type {
   FindHandle,
@@ -94,6 +94,7 @@ export function createPill(options: PillOptions): Pill {
       updates.set(control.id, built.update)
       controls.append(built.node)
     } else {
+      void claimFindKeys()
       findRow = buildFindRow(control, (open) => {
         state.findOpen = open
         controls.hidden = open

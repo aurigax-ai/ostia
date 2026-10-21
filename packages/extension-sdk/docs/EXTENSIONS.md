@@ -1383,6 +1383,10 @@ doc.onDidChange(() => location.reload())
 - Copy writes `text/plain` and `text/html` first (cells: the CSV, and an html table), the image only when there is no text, and both for a `pdf-region` that holds text. Send writes a report with the same content and pastes its path at the agent's prompt, never followed by Enter.
 - `clearSelection()` withdraws it. Publish again to replace it, and clear it when the human clicks elsewhere or presses Escape. Ostia drops it when the page ends.
 
+**Links and the source, API 7.7.** `openViewerLink(href)` asks Ostia to open a link: it works only right after a real pointer press or an Enter or Space key press on the page (a click, or Enter on a focused link), once per press, for `http:`, `https:` and `mailto:` links and for relative paths that stay inside the folders Ostia already lets the human read (never a path Ostia would have to ask about). A relative path opens only when the document is a plain file on disk, and never in a sandboxed, scratch or remote workspace. It resolves `false` otherwise. `requestEditSource()` asks Ostia to switch the pane to the source text; it works only after a real pointer or key press on the page.
+
+**Find keys, API 7.7.** In a viewer page the find keys (`Ctrl+F` or `Cmd+F`, `F3`, `Ctrl+G` or `Cmd+G`, with Shift for the previous match) reach the page itself and are not forwarded to Ostia, so a viewer with its own find (the pill's `find` control) listens for them; every other Ostia shortcut is still forwarded.
+
 **The pill and the slider, API 7.4.** `createPill` from `@aurigax-ai/ostia-extension-sdk/pill` is the one floating control bar a viewer uses, at the top right of the page; a viewer draws no toolbar of its own. It appears on pointer movement or keyboard focus and hides after 2.5 s unless the pointer or focus is on it, a menu is open or find is open. The first Tab on the page focuses its first button, Escape returns focus to the page, `prefers-reduced-motion` removes the slide, and it hides while the page has a published selection. Pass the strings in the human's language: the pill has none.
 
 ```ts
@@ -1408,11 +1412,16 @@ pill.find.setResult({ index: 2, total: 5 })
 ```
 
 - Controls are `button`, `toggle` (`aria-pressed`), `menu` (groups of items with a check on one id and an optional chord), `pager` (page box, `of`, previous and next) and `find`. Every control has `id`, `label` (the accessible name and tooltip), an optional `chord` (shown in the tooltip) and `disabled`. Icons are SVG strings drawn with `currentColor`.
+- A pill with a `find` control tells Ostia that the page owns find, so Ostia leaves primary+F, primary+G and F3 to the page (it handles them itself: `pill.find.open()`, Enter and Shift+Enter, and your own primary+G and F3 handlers). A viewer page without one keeps the app's find keys.
 - `find` adds a search button. `pill.find.open()` turns the pill into the find row (field, `n of N` through `labels.count`, match case, highlight all, previous, next, Done); Enter and Shift+Enter step, Escape closes. The page does the searching and reports with `pill.find.setResult`.
 - `setState(id, {disabled?, pressed?, text?, checked?, page?, count?})`, `setHidden(hidden)` and `destroy()`.
 - `createSlider({label, min, max, value, step?, format?, onInput})` from `.../slider` returns `{element, setValue, setMax}`: the seek and volume range input, styled by `.ostia-slider` in `panel.css`.
 
 `grid({label, columns, rowCount, cell(row, column), rowLabels?, notes?})` returns `{element, destroy}`: a read-only grid of text that windows rows and columns with `@tanstack/virtual-core`, so a sheet of 100,000 rows and 1,000 columns keeps only the visible cells in the page. `columnName(index)` gives spreadsheet column letters. Its styles are the `.ostia-grid*` rules in `panel.css`.
+
+**Selecting cells, API 7.7.** The grid selects whole cells as a rectangle, and it replaces free text selection inside cells (cells are `user-select: none`). A click selects a cell, a drag extends it, Shift+click and Shift+arrows extend from the anchor, a column or row header selects the whole column or row (Shift extends), the corner and Ctrl+A select everything, arrows move the selection, Home, End, Page Up and Page Down move it (Ctrl for the corners), Space selects the focused cell and Escape clears the selection. One cell is the tab stop (roving `tabindex`), cells carry `aria-selected`, and `describe(range)` gives the text a status region announces. Options `onSelect({range: {r1, c1, r2, c2}, rect} | null)` (called when a gesture ends, after a key, and again with a fresh `rect` once scrolling settles) and `describe`; the result also has `selection()`, `clearSelection()` and `setStatus(text | null)` (one inline status line above the grid). `rangeLabel(range, rowOffset?)` gives `A1:C3`, and `rangeRows` and `rangeColumns` its size. The grid prevents the native `copy` event while a range is selected.
+
+`createCellsPublisher(source, setTooLarge)` from `@aurigax-ai/ostia-extension-sdk/cells` turns that selection into a `cells` selection for `publishSelection`: `source` is `{sheet, rowOffset, text(row, column)}` where `text` returns what the grid shows, the CSV is RFC 4180 quoted with `\n` between rows, and a selection over 10,000 cells or 256 KiB is not published (`setTooLarge(true)` so the page can say so). `update(event)` takes the grid's `onSelect` event, `clear()` withdraws the selection (call it when the sheet changes). Ostia builds the HTML table for Copy from the CSV.
 
 ### Browsing inside a file
 
@@ -1715,7 +1724,7 @@ builds an extension folder for both the app and that project (`buildExtension` i
 `ostia.json`, `locales/`, a bundled `main.js`, a panel's `panel.html`, `panel.css`, bundled
 `panel.js` and the SDK's `panel.css` as `base.css`, and the npm packages an extension's
 `vendor.json` names, copied unchanged (`packages` copies one package to a folder, `closures`
-copies a package and everything it depends on into a `node_modules` folder). An optional `bundle.json` next to `ostia.json` holds an `alias` map (`{ "alias": { "stream": "stream-browserify" } }`) applied to the extension's browser bundles, for a bundled library that imports a Node built-in. The project's
+copies a package and everything it depends on into a `node_modules` folder; `files` copies one file or folder of a package, named `<package>/<path>`, to a path in the extension, so a bundled library can load its data files by URL). An optional `bundle.json` next to `ostia.json` holds an `alias` map (`{ "alias": { "stream": "stream-browserify" } }`) applied to the extension's browser bundles, for a bundled library that imports a Node built-in. The project's
 `package.json` lists every vendored package at the exact version the app pins, so its own
 `pnpm install` and `pnpm build` produce the same `extensions/`. `pnpm publish:marketplace <checkout>`
 copies that into a checkout of the marketplace repository (`aurigax-ai/ostia-extensions`), installs

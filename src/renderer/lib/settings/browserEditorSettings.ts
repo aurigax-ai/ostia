@@ -100,7 +100,6 @@ export interface EditorSettings {
   formatOnSave: boolean
   openFilesIn: OpenFilesIn
   theme: string
-  markdownPreview: boolean
   diffLayout: DiffLayout
   diffIgnoreWhitespace: boolean
 }
@@ -114,7 +113,6 @@ export const DEFAULT_EDITOR_SETTINGS: EditorSettings = {
   formatOnSave: false,
   openFilesIn: 'tab',
   theme: MATCH_OSTIA_THEME,
-  markdownPreview: false,
   diffLayout: 'auto',
   diffIgnoreWhitespace: false,
 }
@@ -131,7 +129,6 @@ export function parseEditorSettings(raw: unknown): EditorSettings {
     formatOnSave: typeof src.formatOnSave === 'boolean' ? src.formatOnSave : false,
     openFilesIn: oneOf(OPEN_FILES_IN, src.openFilesIn, defaults.openFilesIn),
     theme: parseThemeChoice(src.theme),
-    markdownPreview: src.markdownPreview === true,
     diffLayout: oneOf(DIFF_LAYOUTS, src.diffLayout, defaults.diffLayout),
     diffIgnoreWhitespace: src.diffIgnoreWhitespace === true,
   }

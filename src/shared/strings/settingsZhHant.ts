@@ -47,8 +47,6 @@ export const settingsZhHant: typeof settingsEn = {
     lineNumbersOff: '關閉',
     lineNumbersOn: '開啟',
     lineNumbersRelative: '相對',
-    markdownPreview: '以預覽開啟 Markdown',
-    markdownPreviewDesc: 'Markdown 檔案以轉譯後的預覽開啟；眼睛按鈕可切換到原始碼。',
     openFilesIn: '開啟檔案於',
     openFilesInDesc: '從檔案樹、連結或代理程式開啟的檔案顯示的位置。',
     openFilesInSplit: '分割的編輯器窗格',

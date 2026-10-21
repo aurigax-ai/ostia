@@ -12,6 +12,9 @@ import {
 import { watchScrolling } from '../contract/scrollbar'
 import {
   encodeViewerSelection,
+  VIEWER_EDIT_SOURCE_PATH,
+  VIEWER_FIND_KEYS_PATH,
+  VIEWER_OPEN_PATH,
   VIEWER_SELECTION_PATH,
   type ViewerRect,
   type ViewerSelectionCapture,
@@ -222,6 +225,33 @@ export async function clearSelection(): Promise<void> {
   setSelectionPublished(false)
   try {
     await fetch(VIEWER_SELECTION_PATH, { method: 'DELETE' })
+  } catch {}
+}
+
+async function postGesture(path: string, body?: unknown): Promise<boolean> {
+  try {
+    const res = await fetch(path, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(body ?? {}),
+    })
+    return res.ok
+  } catch {
+    return false
+  }
+}
+
+export function openViewerLink(href: string): Promise<boolean> {
+  return postGesture(VIEWER_OPEN_PATH, { href })
+}
+
+export function requestEditSource(): Promise<boolean> {
+  return postGesture(VIEWER_EDIT_SOURCE_PATH)
+}
+
+export async function claimFindKeys(): Promise<void> {
+  try {
+    await fetch(VIEWER_FIND_KEYS_PATH, { method: 'POST' })
   } catch {}
 }
 

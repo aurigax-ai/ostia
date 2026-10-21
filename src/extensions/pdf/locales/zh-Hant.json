@@ -1,0 +1,41 @@
+{
+  "manifest": {
+    "name": "PDF 檢視器",
+    "description": "以唯讀方式逐頁顯示 .pdf 檔案，附有頁面與大綱側邊欄、縮放、旋轉，以及跨整份文件的尋找。在文字上拖曳可選取文字；在空白處拖曳（或按住 Alt、或使用選取區域按鈕）可裁切矩形；複製與傳送給代理程式會同時帶上文字與圖片。它在自己的沙盒中執行 pdf.js，沒有網路，以區段方式讀取你開啟的檔案，因此大型檔案也能立即開啟，且不會把檔案傳送到任何地方。",
+    "fileKinds.pdf.pdf.displayName": "PDF"
+  },
+  "messages": {
+    "loading": "載入中…",
+    "unreadable": "無法讀取這個檔案。",
+    "gone": "這個檔案已經不在了。",
+    "failed": "無法開啟這個 PDF。",
+    "protected": "這個 PDF 有密碼保護。",
+    "controls": "PDF 控制項",
+    "sidebar": "側邊欄",
+    "sidebarTabs": "側邊欄檢視",
+    "pages": "頁面",
+    "outline": "大綱",
+    "thumbnail": "第 {page} 頁",
+    "page": "頁碼",
+    "of": "共 {count} 頁",
+    "previousPage": "上一頁",
+    "nextPage": "下一頁",
+    "zoomOut": "縮小",
+    "zoom": "縮放",
+    "zoomIn": "放大",
+    "fitWidth": "符合寬度",
+    "fitPage": "符合頁面",
+    "actualSize": "實際大小",
+    "rotate": "旋轉",
+    "selectRegion": "選取區域",
+    "find": "尋找",
+    "findPlaceholder": "在文件中尋找",
+    "matchCase": "區分大小寫",
+    "highlightAll": "標示全部",
+    "previousMatch": "上一個符合項目",
+    "nextMatch": "下一個符合項目",
+    "done": "完成",
+    "noMatches": "沒有符合項目",
+    "matchCount": "第 {index} 個，共 {total} 個"
+  }
+}

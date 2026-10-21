@@ -84,10 +84,6 @@ export function stepZoom(current: number, direction: 1 | -1): number {
   return lower ?? ZOOM_STEPS[0]
 }
 
-export function zoomPercent(scale: number): number {
-  return Math.round(scale * 100)
-}
-
 export function pinchZoom(scale: number, deltaY: number): number {
   const delta = clamp(deltaY, -PINCH_DELTA_MAX, PINCH_DELTA_MAX)
   return clamp(scale * Math.exp(-delta * PINCH_RATE), ZOOM_MIN, ZOOM_MAX)

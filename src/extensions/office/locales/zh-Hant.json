@@ -14,6 +14,8 @@
     "empty": "這個工作表是空的。",
     "rowsCut": "只顯示前 {rows} 列。",
     "columnsCut": "只顯示前 {columns} 欄。",
+    "selected": "已選取 {range}：{rows} 列 × {columns} 欄",
+    "selectionTooLarge": "選取範圍太大，無法複製。",
     "uncached": "沒有儲存值的公式：{count} 個。請用試算表程式開啟檔案以計算它們。",
     "hidden": "未顯示的隱藏工作表：{count} 個。",
     "sheetsCut": "只顯示前 {sheets} 個工作表。",

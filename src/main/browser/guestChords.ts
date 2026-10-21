@@ -3,6 +3,7 @@ import { DOUBLE_SHIFT_KEY, doubleShiftDetector } from '../../shared/keyboard/cho
 import {
   guestChordKey,
   guestDoubleShift,
+  isPageFindKey,
   normalizeGuestChords,
 } from '../../shared/keyboard/guestChords'
 import { injectInto } from './guestInject'
@@ -14,6 +15,7 @@ export interface GuestChordsDeps {
   mac: boolean
   remap: GuestRemap
   isHumanBrowser: (guest: WebContents) => boolean
+  viewerOwnsFindKeys: (guest: WebContents) => boolean
 }
 
 export interface GuestChords {
@@ -44,7 +46,12 @@ export function registerGuestChords(deps: GuestChordsDeps): GuestChords {
       guest.on('before-input-event', (event, raw) => {
         const input = deps.remap.remap(guest.id, raw)
         const tapped = guestDoubleShift(input, chords, doubleShift, Date.now())
-        const key = tapped ? DOUBLE_SHIFT_KEY : guestChordKey(input, chords, deps.mac)
+        const pageFind = isPageFindKey(input, deps.mac) && deps.viewerOwnsFindKeys(guest)
+        const key = tapped
+          ? DOUBLE_SHIFT_KEY
+          : pageFind
+            ? null
+            : guestChordKey(input, chords, deps.mac)
         if (!key) return
         const host = guest.hostWebContents
         if (!host || host.isDestroyed()) return

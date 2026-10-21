@@ -9,6 +9,10 @@ const GENERATED = [/src\/renderer\/components\/ui\//, /src\/renderer\/assets\/fo
 
 const RELATIVE_SCALE_FILES = new Map([
   [
+    'src/extensions/markdown/typeset.css',
+    'the Markdown preview page: markdown steps are ems on top of --typeset-size, set to a token',
+  ],
+  [
     'src/renderer/typeset.css',
     'vendored shadcn Typeset: markdown steps are ems on top of --typeset-size, set to a token',
   ],
@@ -60,10 +64,13 @@ const FONT_FACE_FILES = new Map([
 
 const DECLARATION_EXCEPTIONS = new Map([
   [
-    'src/renderer/index.css: font-size: calc(var(--text-scale-factor) * var(--font-height))',
+    'src/extensions/pdf/assets/pdf.css: font-size: calc(var(--text-scale-factor) * var(--font-height))',
     'pdf.js text layer: sized to the glyphs of the PDF page',
   ],
-  ['src/renderer/index.css: line-height: 1', 'pdf.js text layer: one line box per PDF text run'],
+  [
+    'src/extensions/pdf/assets/pdf.css: line-height: 1',
+    'pdf.js text layer: one line box per PDF text run',
+  ],
 ])
 
 type Property = 'font-family' | 'font-size' | 'font-weight' | 'line-height' | 'letter-spacing'

@@ -9,6 +9,8 @@
     "failed": "Could not read this file as a table.",
     "empty": "This file is empty.",
     "rowsCut": "Showing the first {rows} rows.",
-    "columnsCut": "Showing the first {columns} columns."
+    "columnsCut": "Showing the first {columns} columns.",
+    "selected": "Selected {range}: {rows} rows × {columns} columns",
+    "selectionTooLarge": "Selection too large to copy."
   }
 }

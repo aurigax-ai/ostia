@@ -49,6 +49,25 @@ export interface ViewerSelectionEvent {
   selection: ViewerSelectionState | null
 }
 
+export type ViewerLinkTarget =
+  | { kind: 'url'; href: string; shift: boolean }
+  | { kind: 'file'; path: string }
+
+export interface ViewerOpenLink {
+  paneId: string
+  target: ViewerLinkTarget
+}
+
+export interface ViewerEditSource {
+  paneId: string
+}
+
+export interface ViewerDocumentText {
+  paneId: string
+  path: string
+  text: string | null
+}
+
 export interface ViewerSendSelection {
   paneId: string
   targetPaneId: string
@@ -63,6 +82,9 @@ interface ViewersApi {
   copySelection: (paneId: string) => Promise<string>
   sendSelection: (request: ViewerSendSelection) => Promise<SelectionSendResult>
   clearSelection: (paneId: string) => void
+  sendDocumentText: (request: ViewerDocumentText) => void
+  onOpenLink: (cb: (event: ViewerOpenLink) => void) => () => void
+  onEditSource: (cb: (event: ViewerEditSource) => void) => () => void
 }
 
 interface FsApi {

@@ -48,9 +48,6 @@ export const settingsEn = {
     lineNumbersOff: 'Off',
     lineNumbersOn: 'On',
     lineNumbersRelative: 'Relative',
-    markdownPreview: 'Open Markdown as preview',
-    markdownPreviewDesc:
-      'Markdown files open in the rendered preview; the eye button switches to the source.',
     openFilesIn: 'Open files in',
     openFilesInDesc: 'Where a file opened from the tree, a link or an agent shows.',
     openFilesInSplit: 'A split editor pane',

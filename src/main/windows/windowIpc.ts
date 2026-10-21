@@ -127,5 +127,6 @@ export function registerWindowInputGuards({
     mac: process.platform === 'darwin',
     remap,
     isHumanBrowser: isHumanProfile,
+    viewerOwnsFindKeys: (guest) => services.files?.viewers.ownsFindKeys(guest) ?? false,
   })
 }

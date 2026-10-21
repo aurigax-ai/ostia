@@ -1,0 +1,26 @@
+{
+  "id": "pdf",
+  "name": "PDF viewer",
+  "version": "1.0.0",
+  "api": "7.7",
+  "description": "Shows .pdf files page by page with a pages and outline sidebar, zoom, rotation and find across the whole document, read-only. Drag over text to select it, or over empty space (or hold Alt, or use the region button) to crop a rectangle; Copy and Send to agent take the text and the image together. It runs pdf.js inside its own sandbox with no network, reads the file you opened in ranges so large files open at once, and sends it nowhere.",
+  "category": "tools",
+  "locales": ["zh-Hant"],
+  "contributes": {
+    "fileKinds": [
+      {
+        "id": "pdf.pdf",
+        "displayName": "PDF",
+        "selector": [
+          {
+            "filenamePattern": "*.pdf"
+          }
+        ],
+        "view": {
+          "entry": "pdf.html",
+          "priority": "default"
+        }
+      }
+    ]
+  }
+}

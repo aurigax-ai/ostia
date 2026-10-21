@@ -18,11 +18,9 @@ import { useSurfaceFocus } from '@/lib/panes/paneFocus'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useOpenWaitsStore } from '@/stores/files/openWaitsStore'
 import type { DiskBar, ReloadFromDisk } from './editorDiskSync'
-import { isMarkdownPath, type PreviewSelection } from './MarkdownPreview'
 import { sendSelection, useEditorActions } from './useEditorActions'
 import { type Blocked, useEditorFile } from './useEditorFile'
 import { useEditorOptions } from './useEditorOptions'
-import { useModelText } from './useModelText'
 import { useMonacoEditor } from './useMonacoEditor'
 
 function useRunChoice(filePath: string | undefined, runnable: boolean, inArtifacts: boolean) {
@@ -82,10 +80,7 @@ export function useEditorView({ workspaceId, paneId, filePath }: EditorViewParam
   const reloadRef = useRef<ReloadFromDisk>(() => {})
   const checkDiskRef = useRef<() => Promise<void>>(async () => {})
   const releaseShownRef = useRef<() => void>(() => {})
-  const [preview, setPreview] = useState(() => useSettingsStore.getState().editor.markdownPreview)
-  const markdown = isMarkdownPath(filePath) && !blocked
   const [liveEditor, setLiveEditor] = useState<monaco.editor.IStandaloneCodeEditor | null>(null)
-  const previewText = useModelText(liveEditor, markdown && preview)
   const external = useExternalEditorAction(paneId)
   const artifacts = useArtifactListing(workspaceId)
   const pad = isPadPath(artifacts ?? null, filePath)
@@ -97,7 +92,7 @@ export function useEditorView({ workspaceId, paneId, filePath }: EditorViewParam
   const inArtifacts = isInside(artifacts?.dir, filePath)
   const { setRunChoice, running } = useRunChoice(filePath, runnable, inArtifacts)
   const overlayRef = useRef<HTMLElement | null>(null)
-  const overlayUp = (markdown && preview) || running
+  const overlayUp = running
   useSurfaceFocus(
     paneId,
     blocked ? null : () => (overlayUp ? overlayRef.current : editorInput(editorRef.current)),
@@ -108,15 +103,11 @@ export function useEditorView({ workspaceId, paneId, filePath }: EditorViewParam
   const openExternalRef = useRef(external.open)
   openExternalRef.current = external.open
   const selectionSend = useSelectionSend(workspaceId, paneId)
-  const previewSelectionRef = useRef<PreviewSelection | null>(null)
   const sendSelectionRef = useRef<() => void>(() => {})
   sendSelectionRef.current = () =>
     sendSelection({
       pathRef,
       blocked,
-      markdown,
-      preview,
-      previewSelectionRef,
       selectionSend,
       d,
       editorRef,
@@ -176,7 +167,6 @@ export function useEditorView({ workspaceId, paneId, filePath }: EditorViewParam
     pad,
     padHint: d.artifacts.padHint,
     setPadFull,
-    setPreview,
     font,
   })
 
@@ -186,12 +176,6 @@ export function useEditorView({ workspaceId, paneId, filePath }: EditorViewParam
     large,
     remoteProblem,
     visible,
-    markdown,
-    preview,
-    setPreview,
-    previewText,
-    previewSelectionRef,
-    sendSelectionRef,
     selectionSend,
     running,
     runnable,

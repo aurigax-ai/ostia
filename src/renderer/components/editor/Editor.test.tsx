@@ -310,59 +310,6 @@ describe('EditorView', () => {
     useEditorStatus.setState(init, true)
   })
 
-  it('opens a Markdown file in the preview when editor.markdownPreview is on, other files as source', async () => {
-    useSettingsStore.setState({
-      editor: { ...useSettingsStore.getState().editor, markdownPreview: true },
-    })
-    vi.mocked(window.ostia.fs.read).mockResolvedValue({
-      ok: true,
-      version: 'v1',
-      text: '# Title\n\nPreview body',
-    })
-    const md = render(<EditorView workspaceId="w1" paneId="p1" filePath="/w/README.md" />)
-    expect(await screen.findByText('Preview body')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Edit Markdown source' })).toBeInTheDocument()
-    md.unmount()
-    vi.mocked(window.ostia.fs.read).mockResolvedValue({
-      ok: true,
-      version: 'v1',
-      text: 'const a = 1',
-    })
-    render(<EditorView workspaceId="w1" paneId="p2" filePath="/w/a.ts" />)
-    await waitFor(() => expect(fake.state.model).not.toBeNull())
-    expect(screen.queryByRole('button', { name: 'Edit Markdown source' })).toBeNull()
-  })
-
-  it('gives the keyboard to the Markdown preview while it covers the source, and to the source once shown', async () => {
-    useSettingsStore.setState({
-      editor: { ...useSettingsStore.getState().editor, markdownPreview: true },
-    })
-    vi.mocked(window.ostia.fs.read).mockResolvedValue({
-      ok: true,
-      version: 'v1',
-      text: '# Title\n\nPreview body',
-    })
-    const slot = document.createElement('div')
-    document.body.appendChild(slot)
-    mountSurface('p-md', slot)
-    render(<EditorView workspaceId="w1" paneId="p-md" filePath="/w/README.md" />, {
-      container: surfaceHost('p-md'),
-    })
-    await screen.findByText('Preview body')
-    await waitFor(() => expect(fake.state.input).not.toBeNull())
-
-    focusSurface('p-md')
-    expect(document.activeElement).toBe(document.querySelector('.markdown-preview'))
-    expect(document.activeElement).not.toBe(fake.state.input)
-
-    await userEvent.setup().click(screen.getByRole('button', { name: 'Edit Markdown source' }))
-    focusSurface('p-md')
-    expect(document.activeElement).toBe(fake.state.input)
-    cleanup()
-    releaseSurfaces(new Set())
-    slot.remove()
-  })
-
   function editorInSurface(paneId: string, filePath: string): () => void {
     const slot = document.createElement('div')
     document.body.appendChild(slot)
@@ -641,27 +588,6 @@ describe('EditorView', () => {
     await waitFor(() => expect(openDocument).toHaveBeenCalledTimes(1))
     expect(fake.state.optionUpdates.at(-1)).toEqual(fileFeatureOptions(false))
     expect(screen.queryByText(/Large file/)).toBeNull()
-  })
-
-  it('updates the Markdown preview once typing pauses', async () => {
-    useSettingsStore.setState({
-      editor: { ...useSettingsStore.getState().editor, markdownPreview: true },
-    })
-    vi.mocked(window.ostia.fs.read).mockResolvedValue({ ok: true, version: 'v1', text: 'first' })
-    render(<EditorView workspaceId="w1" paneId="p1" filePath="/w/README.md" />)
-    expect(await screen.findByText('first')).toBeInTheDocument()
-    vi.useFakeTimers()
-    try {
-      act(() => fake.state.model?.setValue('second'))
-      act(() => fake.state.model?.setValue('third'))
-      expect(screen.getByText('first')).toBeInTheDocument()
-      await act(async () => {
-        await vi.advanceTimersByTimeAsync(200)
-      })
-      expect(screen.getByText('third')).toBeInTheDocument()
-    } finally {
-      vi.useRealTimers()
-    }
   })
 
   it('keeps the file dirty and shows an error when the write fails', async () => {
@@ -1421,44 +1347,6 @@ describe('EditorView → Send Selection to Agent', () => {
     expect(await screen.findByText('Select some text first.')).toBeInTheDocument()
     expect(screen.queryByRole('toolbar', { name: 'Selection actions' })).toBeNull()
   })
-
-  it('sends the Markdown preview selection with its source lines', async () => {
-    vi.mocked(window.ostia.fs.read).mockResolvedValue({
-      ok: true,
-      version: 'v1',
-      text: '# Title\n\nBody text here',
-    })
-    render(<EditorView workspaceId="w1" paneId="p1" filePath="/w/README.md" />)
-    await waitFor(() => expect(fake.state.model).not.toBeNull())
-    await userEvent.click(screen.getByRole('button', { name: 'Preview Markdown' }))
-    const body = await screen.findByText('Body text here')
-
-    const range = document.createRange()
-    range.setStart(body.firstChild as Node, 0)
-    range.setEnd(body.firstChild as Node, 4)
-    document.getSelection()?.removeAllRanges()
-    document.getSelection()?.addRange(range)
-    act(() => {
-      document.dispatchEvent(new Event('selectionchange'))
-    })
-    await userEvent.click(screen.getByRole('button', { name: 'Send selected text to agent' }))
-    await screen.findByRole('toolbar', { name: 'Selection actions' })
-    await sendToAgentShell()
-
-    await waitFor(() =>
-      expect(window.ostia.selection.send).toHaveBeenCalledWith(
-        expect.objectContaining({
-          capture: {
-            kind: 'text',
-            file: '/w/README.md',
-            view: 'preview',
-            range: { startLine: 3, endLine: 3 },
-            text: 'Body',
-          },
-        }),
-      ),
-    )
-  })
 })
 
 describe('EditorView → Scratch Pad', () => {
@@ -1526,14 +1414,8 @@ describe('EditorView → Scratch Pad', () => {
 
   it('opens the pad as source with the working-note sentence as its placeholder', async () => {
     vi.mocked(window.ostia.fs.read).mockResolvedValue({ ok: true, version: 'v1', text: '' })
-    useSettingsStore.setState({
-      editor: { ...useSettingsStore.getState().editor, markdownPreview: true },
-    })
     render(<EditorView workspaceId="w1" paneId="p1" filePath={PAD} />)
     await waitFor(() => expect(fake.state.model).not.toBeNull())
-    await waitFor(() =>
-      expect(screen.getByRole('button', { name: 'Preview Markdown' })).toBeTruthy(),
-    )
     expect(fake.state.optionUpdates).toContainEqual({
       placeholder: expect.stringContaining('A working note for this workspace'),
     })

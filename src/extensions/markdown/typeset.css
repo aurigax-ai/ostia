@@ -1,0 +1,331 @@
+.markdown-page {
+  padding: 20px 28px 40px;
+}
+
+html[data-contents] .markdown-page {
+  margin-inline-start: 240px;
+}
+
+.typeset {
+  --typeset-size: var(--text-ui-base);
+  --typeset-leading: 1.7;
+  --typeset-flow: 1.1em;
+  --typeset-muted: var(--fg-muted);
+  --typeset-rule: var(--line-strong);
+  max-width: 76ch;
+  margin: 0 auto;
+  color: var(--fg);
+  font-family: var(--font-ui);
+  font-size: var(--typeset-size);
+  line-height: var(--typeset-leading);
+  overflow-wrap: break-word;
+  user-select: text;
+}
+
+.typeset > :first-child {
+  margin-block-start: 0;
+}
+
+.typeset p {
+  margin-block: var(--typeset-flow) 0;
+}
+
+.typeset :is(h1, h2, h3, h4, h5, h6) {
+  margin-block-end: 0;
+  color: var(--fg);
+  font-weight: var(--font-weight-semibold);
+}
+
+.typeset h1 {
+  margin-block-start: var(--typeset-flow);
+  font-size: 1.75em;
+  line-height: 1.3;
+}
+
+.typeset h2 {
+  margin-block-start: calc(var(--typeset-flow) * 1.4);
+  font-size: 1.25em;
+  line-height: 1.4;
+}
+
+.typeset h3 {
+  margin-block-start: var(--typeset-flow);
+  font-size: 1.125em;
+  line-height: 1.45;
+}
+
+.typeset h4 {
+  margin-block-start: var(--typeset-flow);
+  font-size: 1em;
+  line-height: 1.5;
+}
+
+.typeset h5 {
+  margin-block-start: calc(var(--typeset-flow) / 0.875);
+  color: var(--typeset-muted);
+  font-size: 0.875em;
+  font-weight: var(--font-weight-medium);
+  line-height: 1.5;
+}
+
+.typeset h6 {
+  margin-block-start: calc(var(--typeset-flow) / 0.8125);
+  color: var(--typeset-muted);
+  font-size: 0.8125em;
+  font-weight: var(--font-weight-medium);
+  letter-spacing: 0.08em;
+  line-height: 1.5;
+  text-transform: uppercase;
+}
+
+.typeset :is(h1, h2, h3, h4, h5, h6) + * {
+  margin-block-start: 1em;
+}
+
+.typeset a {
+  color: inherit;
+  font-weight: var(--font-weight-medium);
+  text-decoration-line: underline;
+  text-decoration-color: color-mix(in oklab, currentColor 30%, transparent);
+  cursor: pointer;
+}
+
+.typeset a:hover {
+  text-decoration-color: currentColor;
+}
+
+.typeset :is(h1, h2, h3, h4, h5, h6) a {
+  font-weight: inherit;
+}
+
+.typeset :is(strong, b) {
+  font-weight: var(--font-weight-semibold);
+}
+
+.typeset :is(del, s) {
+  color: var(--typeset-muted);
+  text-decoration-line: line-through;
+}
+
+.typeset sup {
+  position: relative;
+  top: -0.5em;
+  font-size: 0.75em;
+  line-height: 0;
+  vertical-align: baseline;
+}
+
+.typeset ul {
+  list-style-type: disc;
+}
+
+.typeset ol {
+  list-style-type: decimal;
+}
+
+.typeset ul ul {
+  list-style-type: circle;
+}
+
+.typeset ul ul ul {
+  list-style-type: square;
+}
+
+.typeset :is(ul, ol) {
+  margin-block: var(--typeset-flow) 0;
+  padding-inline-start: 1.5em;
+}
+
+.typeset li {
+  margin-block-start: 0.5em;
+  padding-inline-start: 0.4em;
+}
+
+.typeset li > :is(p, ul, ol) {
+  margin-block-start: 0.5em;
+}
+
+.typeset li::marker {
+  color: var(--typeset-muted);
+}
+
+.typeset ul.contains-task-list {
+  padding-inline-start: 0.25em;
+  list-style-type: none;
+}
+
+.typeset li.task-list-item > input[type="checkbox"] {
+  margin-inline-end: 0.5em;
+  vertical-align: -0.1em;
+  accent-color: var(--brand);
+}
+
+.typeset :not(pre) > code {
+  padding: 0.125em 0.3em;
+  border-radius: var(--radius-sm);
+  background: var(--surface-3);
+  font-family: var(--font-code);
+  font-size: 0.85em;
+}
+
+.typeset :is(h1, h2, h3, h4) code {
+  font-size: 0.9em;
+}
+
+.typeset pre {
+  margin-block: calc(var(--typeset-flow) / 0.875) 0;
+  padding: 0.75em 1em;
+  overflow-x: auto;
+  border-radius: var(--radius-md);
+  background: var(--bg-sunken);
+  direction: ltr;
+  font-family: var(--font-code);
+  font-size: 0.875em;
+  line-height: 1.5;
+  tab-size: 2;
+}
+
+.typeset pre code {
+  padding: 0;
+  background: transparent;
+  font-family: inherit;
+  font-size: inherit;
+}
+
+.typeset blockquote {
+  margin: var(--typeset-flow) 0 0;
+  padding-inline-start: 1em;
+  border-inline-start: 2px solid var(--typeset-rule);
+}
+
+.typeset hr {
+  margin-block: calc(var(--typeset-flow) * 2.4) 0;
+  border: 0;
+  border-block-start: 1px solid var(--typeset-rule);
+}
+
+.typeset section[data-footnotes] {
+  margin-block-start: calc(var(--typeset-flow) * 2);
+  padding-block-start: var(--typeset-flow);
+  border-block-start: 1px solid var(--typeset-rule);
+  color: var(--typeset-muted);
+  font-size: 0.875em;
+}
+
+.typeset .typeset-scroll {
+  margin-block-start: var(--typeset-flow);
+  overflow-x: auto;
+}
+
+.typeset table {
+  width: max-content;
+  border-collapse: separate;
+  border-spacing: 0;
+  border-block-end: 1px solid var(--typeset-rule);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.5;
+}
+
+.typeset thead th {
+  padding: 0.65em 1em;
+  font-weight: var(--font-weight-medium);
+  text-align: start;
+  white-space: nowrap;
+}
+
+.typeset :is(tbody, tfoot) :is(td, th) {
+  padding: 0.75em 1em;
+  border-block-start: 1px solid var(--typeset-rule);
+  text-align: start;
+  vertical-align: top;
+}
+
+.typeset :is(th, td):first-child {
+  padding-inline-start: 0;
+}
+
+.typeset :is(th, td)[align="center"] {
+  text-align: center;
+}
+
+.typeset :is(th, td)[align="right"] {
+  text-align: end;
+}
+
+.mermaid-diagram {
+  display: block;
+  max-width: 100%;
+  margin: 12px auto;
+}
+
+.mermaid-problem {
+  margin: var(--typeset-flow) 0 0;
+  color: var(--attn-fg);
+}
+
+::highlight(ostia-find) {
+  background-color: color-mix(in srgb, var(--group-orange) 32%, transparent);
+}
+
+::highlight(ostia-find-active) {
+  background-color: var(--group-orange);
+  color: var(--bg);
+}
+
+.markdown-contents {
+  position: fixed;
+  inset: 0 auto 0 0;
+  z-index: 10;
+  width: 240px;
+  padding: 12px 8px;
+  overflow-y: auto;
+  border-inline-end: 1px solid var(--line);
+  background: var(--surface-2);
+}
+
+.markdown-contents-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.markdown-contents-item {
+  display: block;
+  width: 100%;
+  padding: 3px 8px 3px calc(8px + (var(--level, 1) - 1) * 12px);
+  overflow: hidden;
+  border-color: transparent;
+  color: var(--fg-muted);
+  text-align: start;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.markdown-contents-item:hover {
+  color: var(--fg);
+}
+
+.markdown-contents-empty {
+  padding: 3px 8px;
+  color: var(--fg-dim);
+}
+
+.markdown-notice {
+  position: fixed;
+  inset: auto 12px 12px auto;
+  z-index: 20;
+  padding: 4px 8px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+  color: var(--fg-muted);
+  font-size: var(--text-ui-sm);
+  line-height: var(--text-ui-sm--line-height);
+}
+
+.markdown-notice[hidden] {
+  display: none;
+}

@@ -1,13 +1,22 @@
 import '@testing-library/jest-dom/vitest'
-import type { ViewerSelectionEvent } from '@shared/files/filesApi'
+import type { ViewerOpenLink, ViewerSelectionEvent } from '@shared/files/filesApi'
 import { act, cleanup, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { copyPaneSelection } from '@/lib/agents/selectionCopiers'
 import { openSelectionSend } from '@/lib/agents/selectionSenders'
+import { useViewerHintStore } from '@/stores/files/viewerHintStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { FileViewerFrame } from './FileViewerFrame'
 
+const openFile = vi.fn()
+const openBrowserTabAs = vi.fn()
+
+vi.mock('@/lib/browser/browserProfile', () => ({
+  openBrowserTabAs: (...args: unknown[]) => openBrowserTabAs(...args),
+}))
 const paneVisible = { value: true }
+
+vi.mock('./useLiveDocumentText', () => ({ useLiveDocumentText: () => {} }))
 
 vi.mock('@/lib/attention/workspaceActivity', () => ({
   usePaneVisible: () => paneVisible.value,
@@ -47,6 +56,8 @@ const layoutInit = useLayoutStore.getState()
 
 type Listener<T> = (event: T) => void
 let onSelection: Listener<ViewerSelectionEvent>
+let onOpenLink: Listener<ViewerOpenLink>
+let onEditSource: Listener<{ paneId: string }>
 
 const SELECTION: ViewerSelectionEvent['selection'] = {
   capture: {
@@ -84,8 +95,19 @@ beforeEach(() => {
     onSelection = cb
     return () => {}
   })
+  vi.mocked(window.ostia.viewers.onOpenLink).mockImplementation((cb) => {
+    onOpenLink = cb
+    return () => {}
+  })
+  vi.mocked(window.ostia.viewers.onEditSource).mockImplementation((cb) => {
+    onEditSource = cb
+    return () => {}
+  })
   vi.mocked(window.ostia.viewers.copySelection).mockClear()
   paneVisible.value = true
+  openFile.mockClear()
+  useLayoutStore.setState({ openFile } as never)
+  openBrowserTabAs.mockClear()
 })
 
 afterEach(() => {
@@ -94,6 +116,57 @@ afterEach(() => {
 })
 
 describe('FileViewerFrame', () => {
+  it('opens the page with the hint a search left for this file, once', async () => {
+    useViewerHintStore.getState().request('/w/a.png', 'page=3&find=needle')
+    mount()
+    await act(async () => {})
+    expect(document.querySelector('webview')?.getAttribute('src')).toBe(
+      'ostia-viewer://t/#page=3&find=needle&n=0',
+    )
+    expect(useViewerHintStore.getState().pending).toEqual({})
+  })
+
+  it('takes a hint that arrives while the page is open, once, and not again on a reload', async () => {
+    mount()
+    await act(async () => {})
+    const src = (): string | null | undefined =>
+      document.querySelector('webview')?.getAttribute('src')
+    expect(src()).toBe('ostia-viewer://t/')
+    act(() => useViewerHintStore.getState().request('/w/a.png', 'page=4&find=second'))
+    expect(src()).toBe('ostia-viewer://t/#page=4&find=second&n=1')
+    expect(useViewerHintStore.getState().pending).toEqual({})
+    act(() => useViewerHintStore.getState().request('/w/other.png', 'page=9'))
+    expect(src()).toBe('ostia-viewer://t/#page=4&find=second&n=1')
+    expect(useViewerHintStore.getState().pending).toEqual({ '/w/other.png': 'page=9' })
+    useViewerHintStore.setState({ pending: {} })
+    cleanup()
+    mount()
+    await act(async () => {})
+    expect(src()).toBe('ostia-viewer://t/')
+  })
+
+  it('navigates again for the same hint clicked twice', async () => {
+    mount()
+    await act(async () => {})
+    const src = (): string | null | undefined =>
+      document.querySelector('webview')?.getAttribute('src')
+    act(() => useViewerHintStore.getState().request('/w/a.png', 'page=2&find=again'))
+    const first = src()
+    act(() => useViewerHintStore.getState().request('/w/a.png', 'page=2&find=again'))
+    expect(src()).not.toBe(first)
+    expect(src()).toBe('ostia-viewer://t/#page=2&find=again&n=2')
+  })
+
+  it('leaves no hint behind for a later open when it takes one while mounted', async () => {
+    mount()
+    await act(async () => {})
+    act(() => useViewerHintStore.getState().request('/w/a.png', 'page=2'))
+    cleanup()
+    mount()
+    await act(async () => {})
+    expect(document.querySelector('webview')?.getAttribute('src')).toBe('ostia-viewer://t/')
+  })
+
   it('draws no toolbar row, only the page', async () => {
     mount()
     await act(async () => {})
@@ -191,5 +264,41 @@ describe('FileViewerFrame', () => {
     expect(screen.getByTestId('region-bar')).toHaveAttribute('data-send-request', '1')
     act(() => onSelection({ paneId: 'p1', selection: null }))
     expect(openSelectionSend('p1')).toBe(false)
+  })
+
+  it('opens a web link in a browser tab, a mail link outside and a file in the frame’s own workspace', async () => {
+    mount()
+    await act(async () => {})
+    act(() =>
+      onOpenLink({
+        paneId: 'p1',
+        target: { kind: 'url', href: 'https://example.com/', shift: false },
+      }),
+    )
+    expect(openBrowserTabAs).toHaveBeenCalledWith('w', 'https://example.com/', 'human')
+    act(() =>
+      onOpenLink({
+        paneId: 'p1',
+        target: { kind: 'url', href: 'https://example.com/b', shift: true },
+      }),
+    )
+    expect(window.ostia.openPath.openLink).toHaveBeenCalledWith('https://example.com/b')
+    act(() =>
+      onOpenLink({ paneId: 'p1', target: { kind: 'url', href: 'mailto:a@b.c', shift: false } }),
+    )
+    expect(window.ostia.openPath.openLink).toHaveBeenCalledWith('mailto:a@b.c')
+    act(() => onOpenLink({ paneId: 'p1', target: { kind: 'file', path: '/w/notes.md' } }))
+    expect(openFile).toHaveBeenCalledWith('w', '/w/notes.md')
+  })
+
+  it('switches the pane back to the editor on an edit-source request', async () => {
+    const setViewType = vi.fn()
+    useLayoutStore.setState({ setViewType } as never)
+    mount()
+    await act(async () => {})
+    act(() => onEditSource({ paneId: 'p1' }))
+    expect(setViewType).toHaveBeenCalledWith('w', 'p1', 'default')
+    act(() => onEditSource({ paneId: 'p2' }))
+    expect(setViewType).toHaveBeenCalledTimes(1)
   })
 })

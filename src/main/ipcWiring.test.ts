@@ -72,6 +72,8 @@ const PUSHED = [
   'scriptTokens:changed',
   'settings:changed',
   'sync:status',
+  'viewers:edit-source',
+  'viewers:open-link',
   'viewers:selection',
   'viewers:stopped',
   'views:changed',

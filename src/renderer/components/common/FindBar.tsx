@@ -11,17 +11,6 @@ import { findStep, type KeyLike, matchChord } from '@/lib/keyboard/chords'
 import { isMac } from '@/platform'
 import { IconButton } from './IconButton'
 
-export function findStatus(
-  query: string,
-  count: number,
-  active: number,
-  noResults: string,
-): string {
-  if (!query) return ''
-  if (count === 0) return noResults
-  return `${Math.min(active, count - 1) + 1}/${count}`
-}
-
 export type FindStepRef = MutableRefObject<((by: number) => void) | null>
 
 function findStepKey(e: KeyLike): 1 | -1 | null {

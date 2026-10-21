@@ -117,11 +117,6 @@ export const SETTINGS_JSON_SCHEMA = {
             'Format the document before every save with the language server or built-in ' +
             'formatter. Files with no formatter are just saved. Default: false.',
         },
-        markdownPreview: {
-          type: 'boolean',
-          description:
-            'Open Markdown files in the rendered preview instead of the source. Default: false.',
-        },
         diffLayout: {
           type: 'string',
           enum: ['auto', 'sideBySide', 'inline'],

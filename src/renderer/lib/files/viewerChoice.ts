@@ -19,7 +19,6 @@ export interface ViewerChoiceInput {
   options: readonly ViewerOption[]
   chosen?: string
   associations: Readonly<Record<string, string>>
-  ownView: boolean
   inArtifacts: boolean
 }
 
@@ -75,7 +74,6 @@ export function chooseViewer(input: ViewerChoiceInput): ViewerChoice {
   if (input.chosen) return named(input.chosen, input.options)
   const associated = associationFor(input.path, input.associations)
   if (associated) return named(associated, input.options)
-  if (input.ownView) return OWN
   const preferred =
     input.options.find((option) => option.priority === 'default') ??
     (input.inArtifacts ? input.options[0] : undefined)

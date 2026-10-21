@@ -15,13 +15,11 @@ export const terminalZhHant: typeof terminalEn = {
   },
   find: {
     close: '關閉尋找',
-    documentLabel: '在預覽中尋找',
     earlier: '較早 {count} 個',
     earlierHint: '顯示存在磁碟上的較早輸出中的符合項目',
     label: '在終端機中尋找',
     next: '下一個符合項目',
     noResults: '沒有結果',
-    pdfLabel: '在 PDF 中尋找',
     placeholder: '尋找',
     previous: '上一個符合項目',
   },

@@ -17,7 +17,7 @@ import { type PdfSearchResults, searchPdfs } from '@/lib/files/pdfSearch'
 import { textMatcher } from '@/lib/files/textMatch'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useUIStore } from '@/stores/app/uiStore'
-import { usePdfFindStore } from '@/stores/files/pdfFindStore'
+import { useViewerHintStore } from '@/stores/files/viewerHintStore'
 import { fileIcon } from './fileIcon'
 
 export const SEARCH_DELAY_MS = 200
@@ -174,7 +174,12 @@ function SearchResults({
           text: m.text,
           ranges: m.ranges,
           open: () => {
-            usePdfFindStore.getState().request(full, { page: m.page, query: m.query })
+            useViewerHintStore
+              .getState()
+              .request(
+                full,
+                new URLSearchParams({ page: String(m.page), find: m.query }).toString(),
+              )
             openFileInWorkspace(full)
           },
         })),

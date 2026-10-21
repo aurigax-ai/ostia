@@ -24,6 +24,7 @@ interface FileServicesDeps {
   confine: (path: string) => string | null
   extensions: () => ExtensionHost | null
   copyStrings: () => ViewerCopyStrings
+  fileLinksAllowed: (paneId: string) => boolean
 }
 
 export function createFileServices({
@@ -32,6 +33,7 @@ export function createFileServices({
   confine,
   extensions,
   copyStrings,
+  fileLinksAllowed,
 }: FileServicesDeps): FileServices {
   const noProvider = { ok: false as const, error: 'no-provider' }
   const providers: BrowseProviders = {
@@ -64,6 +66,7 @@ export function createFileServices({
     extensions,
     readLocale,
     copyStrings,
+    fileLinksAllowed,
   })
   const kindsChanged = (): void => {
     archives.dropCache()

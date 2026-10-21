@@ -27,8 +27,6 @@ import { type ShownVersion, useArtifactVersionsStore } from '@/stores/files/arti
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { FileViewerFrame } from './FileViewerFrame'
 import { HtmlPreview } from './HtmlPreview'
-import { MarkdownPreview } from './MarkdownPreview'
-import { PdfViewer } from './PdfViewer'
 
 function useTopArtifact(workspaceId: string, filePath: string): boolean {
   const listing = useArtifactListing(workspaceId)
@@ -147,17 +145,6 @@ function VersionBody({
         paneId={paneId}
         filePath={content.file}
         visible={visible}
-      />
-    )
-  }
-  if (content.type === 'markdown') return <MarkdownPreview source={source} />
-  if (content.type === 'pdf') {
-    return (
-      <PdfViewer
-        key={content.file}
-        workspaceId={workspaceId}
-        paneId={paneId}
-        filePath={content.file}
       />
     )
   }

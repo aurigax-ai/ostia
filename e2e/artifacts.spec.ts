@@ -81,17 +81,14 @@ test('a shell writes artifacts that are listed and kept across a restart, and th
   }
 })
 
-test('a CSV artifact opens as a table and a mermaid block in Markdown is drawn as an image', async () => {
+test('a CSV artifact opens as a table and a Markdown artifact opens as a preview', async () => {
   test.setTimeout(120_000)
   const dataHome = freshDataHome()
   const home = join(dataHome, 'home')
   mkdirSync(home, { recursive: true })
   writeFileSync(join(home, 'cities.csv'), 'city,count\nTaipei,3\n"Hsinchu, East",4\n')
-  writeFileSync(
-    join(home, 'plan.md'),
-    '# Plan\n\n```mermaid\ngraph TD\n  Start --> Done\n```\n\n<script>document.title = "ran"</script>\n',
-  )
-  seedSettings(dataHome, { ...DOM_RENDERER_SETTINGS, editor: { markdownPreview: true } })
+  writeFileSync(join(home, 'plan.md'), '# Plan\n')
+  seedSettings(dataHome, DOM_RENDERER_SETTINGS)
   const { app, win } = await launchWindow(dataHome)
   try {
     await openWorkspace(win)
@@ -113,17 +110,9 @@ test('a CSV artifact opens as a table and a mermaid block in Markdown is drawn a
 
     await terminalTab(win).click()
     await run(win, 'ostia "$OSTIA_ARTIFACTS/plan.md"')
-    const diagram = win.getByTestId('mermaid-diagram')
-    await expect(diagram).toBeVisible({ timeout: 30_000 })
-    await expect
-      .poll(() => diagram.evaluate((img: HTMLImageElement) => img.naturalWidth), {
-        timeout: 15_000,
-      })
-      .toBeGreaterThan(20)
-    expect(await diagram.getAttribute('src')).toMatch(/^blob:/)
-    const preview = win.locator('.markdown-preview')
-    expect(await preview.locator('svg, script').count()).toBe(0)
-    expect(await win.title()).not.toBe('ran')
+    await expect(viewer).toHaveAttribute('data-view-type', 'markdown.preview', {
+      timeout: 30_000,
+    })
   } finally {
     await quitApp(app)
   }

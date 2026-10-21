@@ -335,6 +335,24 @@ describe('pill visibility', () => {
   })
 })
 
+describe('pill find keys', () => {
+  it('claims the find keys from the host when it has a find control, and only then', () => {
+    const fetched: string[] = []
+    vi.stubGlobal('fetch', async (url: string, init: RequestInit) => {
+      fetched.push(`${init.method} ${url}`)
+      return { ok: true }
+    })
+    pill = build().pill
+    expect(fetched).toEqual(['POST /~find-keys'])
+    pill.destroy()
+    pill = createPill({
+      label: 'Tools',
+      controls: [{ type: 'button', id: 'fit', label: 'Fit', icon: SVG, onClick: () => {} }],
+    })
+    expect(fetched).toHaveLength(1)
+  })
+})
+
 describe('pill find row', () => {
   function open(): { built: ReturnType<typeof build>; field: HTMLInputElement } {
     const built = build()

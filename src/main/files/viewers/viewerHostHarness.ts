@@ -64,7 +64,7 @@ export function setup(overrides: Partial<ViewerHostDeps> = {}) {
     ownsPane: (windowId, paneId) => windowId === 'w1' && paneId === 'p1',
     viewer: (extId, viewType, path) =>
       enabled && extId === 'office' && viewType === 'office.spreadsheet' && path.endsWith('.xlsx')
-        ? { dir: '/ext/office', entry: 'sheet.html' }
+        ? { dir: '/ext/office', entry: 'sheet.html', builtin: true }
         : null,
     readDocument: async (path) =>
       path === FILE ? { ok: true, body: BYTES } : { ok: false, status: 413 },
@@ -93,7 +93,14 @@ export function setup(overrides: Partial<ViewerHostDeps> = {}) {
     writeClipboard: async (copied) => {
       clipboard.push(copied)
     },
-    copyStrings: () => ({ image: 'img', nothing: 'none', text: 'txt', textAndImage: 'both' }),
+    copyStrings: () => ({
+      cells: 'cells {range} {rows}x{columns}',
+      image: 'img',
+      nothing: 'none',
+      text: 'txt',
+      textAndImage: 'both',
+    }),
+    fileLinksAllowed: () => true,
     now: () => clock.now,
     token: () => `t${++tokens}`,
     ...overrides,

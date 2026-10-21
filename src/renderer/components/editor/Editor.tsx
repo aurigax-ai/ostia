@@ -22,12 +22,6 @@ export function EditorView({
     large,
     remoteProblem,
     visible,
-    markdown,
-    preview,
-    setPreview,
-    previewText,
-    previewSelectionRef,
-    sendSelectionRef,
     selectionSend,
     running,
     runnable,
@@ -84,12 +78,6 @@ export function EditorView({
           paneId={paneId}
           filePath={filePath}
           visible={visible}
-          markdown={markdown}
-          preview={preview}
-          setPreview={setPreview}
-          previewText={previewText}
-          previewSelectionRef={previewSelectionRef}
-          sendSelectionRef={sendSelectionRef}
           selectionSend={selectionSend}
           running={running}
           runnable={runnable}

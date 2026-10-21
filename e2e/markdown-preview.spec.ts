@@ -1,103 +1,171 @@
-import { mkdirSync, writeFileSync } from 'node:fs'
+import { readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { freshDataHome, isolatedLaunch } from './dataHome'
-import { openWorkspace } from './helpers'
+import { fakeAgentBin, isolatedHome, startFakeAgent } from './fakeAgent'
+import { expectHeld, openWorkspace, shownTerminal, terminalTab } from './helpers'
+import type { ElectronApplication, Page } from './test'
 import { _electron as electron, expect, test } from './test'
+import { viewerGuestDrag, viewerGuestRun, viewerGuestText } from './viewerGuest'
 
-function boxesIntersect(
-  a: { x: number; y: number; width: number; height: number },
-  b: { x: number; y: number; width: number; height: number },
-): boolean {
-  return !(
-    a.x + a.width <= b.x ||
-    b.x + b.width <= a.x ||
-    a.y + a.height <= b.y ||
-    b.y + b.height <= a.y
+const MATCH = { viewType: 'markdown.preview' }
+const SOURCE =
+  '# Report\n\nFirst paragraph here.\n\nSecond paragraph here.\n\n## Plan\n\n```mermaid\ngraph TD\n  Start --> Done\n```\n\n<script>document.title = "ran"</script>\n'
+
+async function guestClick(app: ElectronApplication, selector: string): Promise<void> {
+  const point = (await viewerGuestRun(
+    app,
+    MATCH,
+    `(() => { const r = document.querySelector(${JSON.stringify(selector)}).getBoundingClientRect(); return { x: Math.round(r.x + r.width / 2), y: Math.round(r.y + r.height / 2) } })()`,
+  )) as { x: number; y: number } | null
+  if (!point) throw new Error(`no ${selector} in the preview`)
+  await app.evaluate(async ({ webContents }, { x, y }) => {
+    for (const contents of webContents.getAllWebContents()) {
+      if (!contents.getURL().startsWith('ostia-viewer://')) continue
+      const meta = await contents
+        .executeJavaScript('fetch("/~meta").then((r) => r.json())')
+        .catch(() => null)
+      if (meta?.viewType !== 'markdown.preview') continue
+      contents.sendInputEvent({ type: 'mouseMove', x, y })
+      contents.sendInputEvent({ type: 'mouseDown', x, y, button: 'left', clickCount: 1 })
+      contents.sendInputEvent({ type: 'mouseUp', x, y, button: 'left', clickCount: 1 })
+    }
+  }, point)
+}
+
+async function openReadme(win: Page): Promise<void> {
+  await win.locator('.topbar').getByRole('button', { name: 'Files', exact: true }).click()
+  await win.locator('.file-row').filter({ hasText: 'README.md' }).click()
+  await expect(win.locator('.monaco-editor').first()).toBeVisible({ timeout: 15_000 })
+  await expect(win.locator('.monaco-editor .view-lines').first()).toContainText('First paragraph', {
+    timeout: 15_000,
+  })
+}
+
+async function typeUnsaved(win: Page): Promise<void> {
+  await win.locator('.monaco-editor .view-lines').first().click()
+  await win.keyboard.press('ControlOrMeta+End')
+  await win.keyboard.type('\nUnsaved third line')
+  await expect(win.locator('.monaco-editor .view-lines').first()).toContainText(
+    'Unsaved third line',
   )
 }
 
-test('a Markdown file can be previewed and switched back to its source', async () => {
+test('the preview shows unsaved text, draws diagrams, lists headings, sends a selection with its source lines and returns to the source', async () => {
+  test.setTimeout(240_000)
   const dataHome = freshDataHome()
-  const home = join(dataHome, 'home')
-  mkdirSync(home, { recursive: true })
-  writeFileSync(
-    join(home, 'DATABASE.md'),
-    '# Databases\n\n| Field | Value |\n|---|---|\n| Port | 5433 |\n',
-  )
-
+  const home = isolatedHome(dataHome)
+  writeFileSync(join(home, 'README.md'), SOURCE)
+  const bin = fakeAgentBin(dataHome)
   const launch = isolatedLaunch(dataHome)
-  const app = await electron.launch({ ...launch, env: { ...launch.env, HOME: home } })
+  const app = await electron.launch({
+    ...launch,
+    env: { ...launch.env, HOME: home, PATH: `${bin}:${launch.env.PATH}` },
+  })
   try {
     const win = await app.firstWindow()
     await openWorkspace(win)
-    await win.locator('.topbar').getByRole('button', { name: 'Files', exact: true }).click()
-    await win.locator('.file-row').filter({ hasText: 'DATABASE.md' }).click()
-    await expect(win.locator('.monaco-editor').first()).toBeVisible({ timeout: 15_000 })
+    await startFakeAgent(win)
+    await openReadme(win)
+    await typeUnsaved(win)
 
-    await win.getByRole('button', { name: 'Preview Markdown' }).click()
-    const preview = win.locator('.markdown-preview')
-    await expect(preview.getByRole('heading', { name: 'Databases' })).toBeVisible()
-
-    const heading = await preview.getByRole('heading', { name: 'Databases' }).boundingBox()
-    if (!heading) throw new Error('the heading is not laid out')
-    const y = heading.y + heading.height / 2
-    await win.mouse.move(heading.x + 2, y)
-    await win.mouse.down()
-    await win.mouse.move(heading.x + heading.width - 2, y, { steps: 8 })
-    await win.mouse.up()
-    await expect
-      .poll(() => win.evaluate(() => window.getSelection()?.toString() ?? ''))
-      .toContain('Databases')
-
-    await win.getByRole('button', { name: 'Edit Markdown source' }).click()
-    await expect(preview).toHaveCount(0)
-    await expect(win.locator('.monaco-editor').first()).toBeVisible()
-  } finally {
-    await app.close()
-  }
-})
-
-test('Markdown language notice buttons do not overlap preview and send controls', async () => {
-  const dataHome = freshDataHome()
-  const home = join(dataHome, 'home')
-  mkdirSync(home, { recursive: true })
-  writeFileSync(join(home, 'README.md'), '# Hello\n\nMarkdown body\n')
-
-  const launch = isolatedLaunch(dataHome)
-  const app = await electron.launch({ ...launch, env: { ...launch.env, HOME: home } })
-  try {
-    const win = await app.firstWindow()
-    await openWorkspace(win)
-    await win.locator('.topbar').getByRole('button', { name: 'Files', exact: true }).click()
-    await win.locator('.file-row').filter({ hasText: 'README.md' }).click()
-    await expect(win.locator('.monaco-editor').first()).toBeVisible({ timeout: 15_000 })
-
-    const notice = win.getByRole('status', { name: 'Language features' })
-    await expect(notice).toContainText('lsp-marksman adds language features for .md files.', {
-      timeout: 15_000,
+    await test.step('the preview shows the unsaved text', async () => {
+      await win.getByRole('button', { name: 'Open with Preview' }).click()
+      await expect(win.locator('[data-testid="file-viewer"]:visible')).toHaveAttribute(
+        'data-view-type',
+        'markdown.preview',
+        { timeout: 20_000 },
+      )
+      await expect
+        .poll(() => viewerGuestText(app, MATCH), { timeout: 20_000 })
+        .toContain('Unsaved third line')
+      expect(readFileSync(join(home, 'README.md'), 'utf8')).toBe(SOURCE)
     })
 
-    await win.getByRole('button', { name: 'Preview Markdown' }).click()
-    const install = notice.getByRole('button', { name: 'Install' })
-    const no = notice.getByRole('button', { name: 'Dismiss' })
-    const mode = win.locator('.editor-mode:visible')
-    const send = win.locator('.editor-send:visible')
-    await expect(install).toBeVisible()
-    await expect(no).toBeVisible()
-    await expect(mode).toBeVisible()
-    await expect(send).toBeVisible()
+    await test.step('a diagram is an image, raw HTML does not run and the contents list the headings', async () => {
+      await expect
+        .poll(
+          () =>
+            viewerGuestRun(app, MATCH, 'document.querySelectorAll("img.mermaid-diagram").length'),
+          { timeout: 40_000 },
+        )
+        .toBe(1)
+      expect(
+        await viewerGuestRun(
+          app,
+          MATCH,
+          `(() => {
+            const img = document.querySelector('img.mermaid-diagram')
+            return [
+              img.src.startsWith('blob:'),
+              img.naturalWidth > 20,
+              document.querySelectorAll('article svg, article script').length,
+              document.title === 'ran',
+            ]
+          })()`,
+        ),
+      ).toEqual([true, true, 0, false])
+      await guestClick(app, 'main')
+      await guestClick(app, 'button[aria-label="Contents"]')
+      await expect
+        .poll(() =>
+          viewerGuestRun(app, MATCH, 'document.querySelectorAll(".markdown-contents-item").length'),
+        )
+        .toBe(2)
+      await guestClick(app, 'button[aria-label="Contents"]')
+    })
 
-    const installBox = await install.boundingBox()
-    const noBox = await no.boundingBox()
-    const modeBox = await mode.boundingBox()
-    const sendBox = await send.boundingBox()
-    if (!installBox || !noBox || !modeBox || !sendBox) {
-      throw new Error('expected markdown notice and controls to have layout boxes')
-    }
-    expect(boxesIntersect(installBox, modeBox)).toBe(false)
-    expect(boxesIntersect(installBox, sendBox)).toBe(false)
-    expect(boxesIntersect(noBox, modeBox)).toBe(false)
-    expect(boxesIntersect(noBox, sendBox)).toBe(false)
+    await test.step('a selection is sent with its source lines and the note', async () => {
+      const line = (await viewerGuestRun(
+        app,
+        MATCH,
+        `(() => {
+          const p = [...document.querySelectorAll('p')].find((p) => p.textContent.startsWith('Second'))
+          const r = p.getBoundingClientRect()
+          return { x: Math.round(r.x), y: Math.round(r.y + r.height / 2) }
+        })()`,
+      )) as { x: number; y: number }
+      await viewerGuestDrag(app, MATCH, { x: line.x + 1, y: line.y }, { x: line.x + 56, y: line.y })
+      const bar = win.getByRole('toolbar', { name: 'Selection actions' })
+      await expect(bar).toBeVisible({ timeout: 15_000 })
+      await bar.getByRole('button', { name: 'Add a note' }).click()
+      await bar.getByRole('textbox', { name: 'Add a note' }).fill('check this heading')
+      await bar.getByRole('button', { name: 'Send to agent' }).click()
+      await win.getByRole('menuitem').first().click()
+
+      await terminalTab(win).click()
+      const terminal = shownTerminal(win).locator('.xterm-rows')
+      const pasted = /@(\S+\.md)/
+      await expect(terminal).toContainText(pasted, { timeout: 15_000 })
+      const reportPath = (
+        ((await terminal.textContent()) ?? '').match(pasted) as RegExpMatchArray
+      )[1]
+      const report = readFileSync(reportPath, 'utf8')
+      expect(report).toContain('README.md')
+      expect(report).toMatch(/Lines: 5\b/)
+      expect(report).toContain('Second')
+      expect(report).toContain('check this heading')
+      await expectHeld(
+        async () => (((await terminal.textContent()) ?? '').match(/@\S+\.md/g) ?? []).length,
+        1,
+        1_500,
+        'the reference is pasted once and never submitted',
+      )
+    })
+
+    await test.step('Edit source returns to the editor with the text intact', async () => {
+      await win.locator('.pane-tab').filter({ hasText: 'README.md' }).click()
+      await viewerGuestRun(
+        app,
+        MATCH,
+        `getSelection().removeAllRanges(); document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))`,
+      )
+      await guestClick(app, 'main')
+      await guestClick(app, 'button[aria-label="Edit source"]')
+      await expect(win.locator('[data-testid="file-viewer"]')).toHaveCount(0, { timeout: 15_000 })
+      await expect(win.locator('.monaco-editor .view-lines').first()).toContainText(
+        'Unsaved third line',
+      )
+    })
   } finally {
     await app.close()
   }

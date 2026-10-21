@@ -1,3 +1,4 @@
+import { OWN_VIEW } from '@aurigax-ai/ostia-extension-sdk/contract/fileKinds'
 import { WarningIcon } from '@phosphor-icons/react'
 import { selectionLabel } from '@shared/browser/selection'
 import type {
@@ -17,9 +18,16 @@ import { sendViewerSelectionToPane } from '@/lib/agents/sendPick'
 import { fmt, useDict } from '@/lib/app/useDict'
 import { useTransientStatus } from '@/lib/app/useTransientStatus'
 import { usePaneVisible } from '@/lib/attention/workspaceActivity'
+import { openBrowserTabAs } from '@/lib/browser/browserProfile'
 import type { ViewerOption } from '@/lib/files/viewerChoice'
 import { useGuestReady, useSurfaceFocus } from '@/lib/panes/paneFocus'
+import { webLinkTarget } from '@/lib/terminalLinks/linkModifier'
 import { useInjectedCss, usePanelThemeCss } from '@/lib/theme/panelThemeInjection'
+import { isMac } from '@/platform'
+import { useSettingsStore } from '@/stores/app/settingsStore'
+import { useViewerHintStore } from '@/stores/files/viewerHintStore'
+import { useLayoutStore } from '@/stores/workspaces/layoutStore'
+import { useLiveDocumentText } from './useLiveDocumentText'
 import { ViewerMessage } from './ViewerChrome'
 
 const ABORTED = -3
@@ -48,6 +56,7 @@ function ViewerFrame({
 }: FrameProps & { onReload: () => void }): JSX.Element {
   const d = useDict()
   const themeCss = usePanelThemeCss()
+  const linkClick = useSettingsStore((s) => s.terminal.linkClick)
   const [opened, setOpened] = useState<Extract<ViewerOpenResult, { ok: true }> | null>(null)
   const [webview, setWebview] = useState<HTMLElement | null>(null)
   const [stopped, setStopped] = useState<ViewerStopReason | 'crashed' | null>(null)
@@ -63,7 +72,24 @@ function ViewerFrame({
   } | null>(null)
   const [sendRequest, setSendRequest] = useState(0)
   const [status, setStatus] = useTransientStatus(SEND_STATUS_MS)
+  const [hint, setHint] = useState<{ value: string; count: number } | null>(() => {
+    const value = useViewerHintStore.getState().take(filePath)
+    return value === undefined ? null : { value, count: 0 }
+  })
+  useLiveDocumentText(paneId, filePath, opened !== null)
   const selection = shown?.selection ?? null
+
+  useEffect(
+    () =>
+      useViewerHintStore.subscribe((state) => {
+        if (state.pending[filePath] === undefined) return
+        const next = useViewerHintStore.getState().take(filePath)
+        if (next !== undefined) {
+          setHint((current) => ({ value: next, count: (current?.count ?? 0) + 1 }))
+        }
+      }),
+    [filePath],
+  )
 
   useEffect(
     () =>
@@ -95,6 +121,44 @@ function ViewerFrame({
       window.ostia.viewers.copySelection(paneId).then(() => undefined),
     )
   }, [paneId, selection])
+
+  useEffect(
+    () =>
+      window.ostia.viewers.onOpenLink((event) => {
+        if (event.paneId !== paneId) return
+        const { target } = event
+        if (target.kind === 'file') {
+          useLayoutStore.getState().openFile(workspaceId, target.path)
+          return
+        }
+        const click = {
+          ctrlKey: !isMac,
+          metaKey: isMac,
+          shiftKey: target.shift,
+          detail: 1,
+        }
+        const where = webLinkTarget(click, {
+          mac: isMac,
+          hasSelection: false,
+          mouseReporting: false,
+          linkClick,
+        })
+        if (target.href.startsWith('mailto:') || where === 'system') {
+          void window.ostia.openPath.openLink(target.href)
+        } else openBrowserTabAs(workspaceId, target.href, 'human')
+      }),
+    [paneId, workspaceId, linkClick],
+  )
+
+  useEffect(
+    () =>
+      window.ostia.viewers.onEditSource((event) => {
+        if (event.paneId === paneId) {
+          useLayoutStore.getState().setViewType(workspaceId, paneId, OWN_VIEW)
+        }
+      }),
+    [paneId, workspaceId],
+  )
 
   const sendSelection = async (target: PickTarget, note: string): Promise<void> => {
     if (!selection) return
@@ -175,7 +239,7 @@ function ViewerFrame({
           <webview
             ref={setWebview}
             className="extension-webview"
-            src={opened.src}
+            src={hint ? `${opened.src}#${hint.value}&n=${hint.count}` : opened.src}
             partition={opened.partition}
           />
         ) : (

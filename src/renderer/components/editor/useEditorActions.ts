@@ -8,15 +8,11 @@ import { useAskSelectionAction, useAssistCompletionsAction } from '@/lib/monaco/
 import { useLiveEditorSelection } from '@/lib/monaco/liveSelection'
 import { editorSelectionAnchor } from '@/lib/monaco/selectionAnchor'
 import type { monaco } from '@/lib/monaco/setup'
-import type { PreviewSelection } from './MarkdownPreview'
 import type { Blocked } from './useEditorFile'
 
 interface SendSelectionParams {
   pathRef: MutableRefObject<string | undefined>
   blocked: Blocked | null
-  markdown: boolean
-  preview: boolean
-  previewSelectionRef: MutableRefObject<PreviewSelection | null>
   selectionSend: Pick<SelectionSend, 'open' | 'notify'>
   d: Dict
   editorRef: MutableRefObject<monaco.editor.IStandaloneCodeEditor | null>
@@ -25,30 +21,12 @@ interface SendSelectionParams {
 export function sendSelection({
   pathRef,
   blocked,
-  markdown,
-  preview,
-  previewSelectionRef,
   selectionSend,
   d,
   editorRef,
 }: SendSelectionParams): void {
   const file = pathRef.current
   if (!file || blocked) return
-  if (markdown && preview) {
-    const sel = previewSelectionRef.current
-    if (!sel) {
-      selectionSend.notify(d.viewer.noSelection)
-      return
-    }
-    selectionSend.open({
-      kind: 'text',
-      file,
-      view: 'preview',
-      range: { startLine: sel.startLine, endLine: sel.endLine },
-      text: sel.text,
-    })
-    return
-  }
   const editor = editorRef.current
   const model = editor?.getModel()
   const sel = editor?.getSelection()

@@ -3,7 +3,7 @@ import { PORTABLE_TABLES_BYTES_MAX } from '@aurigax-ai/ostia-extension-sdk/contr
 import { describe, expect, it, vi } from 'vitest'
 import { type ViewerGuest, viewerOwner } from './viewerHost'
 import { adoptGuest, BYTES, FILE, fakeSession, get, OPEN, setup } from './viewerHostHarness'
-import { VIEWER_PAGE_CSP } from './viewerSessions'
+import { VIEWER_PAGE_CSP, WASM_VIEWER_CSP } from './viewerSessions'
 import { VIEWER_LIMITS } from './viewerWatch'
 
 describe('ViewerHost', () => {
@@ -133,6 +133,11 @@ describe('ViewerHost', () => {
     expect(attempt(opened.src)).toBe(false)
     expect(attempt('https://example.com/')).toBe(true)
     expect(attempt(`${opened.src}#other`)).toBe(true)
+    guest.emit('did-navigate-in-page', {}, `${opened.src}#page=3`, false)
+    expect(attempt(`${opened.src}#page=3`)).toBe(true)
+    guest.emit('did-navigate-in-page', {}, `${opened.src}#page=3`, true)
+    expect(attempt(`${opened.src}#page=3`)).toBe(false)
+    expect(attempt(opened.src)).toBe(true)
   })
 
   it('ends the viewers of a window when its page reloads, not on an in-page navigation', () => {
@@ -193,6 +198,10 @@ describe('ViewerHost', () => {
     host.open('w1', OPEN)
     const src = 'ostia-viewer://t1/sheet.html'
     expect(host.acceptsAttach('ostia-viewer-office', src, 'w1')).toBe(true)
+    expect(host.acceptsAttach('ostia-viewer-office', `${src}#page=3`, 'w1')).toBe(true)
+    expect(host.acceptsAttach('ostia-viewer-office', 'ostia-viewer://t1/other.html#x', 'w1')).toBe(
+      false,
+    )
     expect(host.acceptsAttach('ostia-viewer-office', src, 'w2')).toBe(false)
     expect(host.acceptsAttach('ostia-viewer-csv', src, 'w1')).toBe(false)
     expect(host.acceptsAttach('ostia-viewer-office', 'ostia-viewer://t1/other.html', 'w1')).toBe(
@@ -227,7 +236,41 @@ describe('ViewerHost', () => {
     expect(VIEWER_PAGE_CSP).toContain("media-src 'self' blob:")
     expect(VIEWER_PAGE_CSP).toContain("script-src 'self'")
     expect(VIEWER_PAGE_CSP).not.toContain('wasm-unsafe-eval')
+    expect(WASM_VIEWER_CSP).toContain("script-src 'self' 'wasm-unsafe-eval'")
     expect(VIEWER_PAGE_CSP).toContain("connect-src 'self'")
     expect(VIEWER_PAGE_CSP).toContain("default-src 'none'")
+  })
+
+  it.each([
+    ['pdf', true],
+    ['office', false],
+    ['markdown', false],
+    ['images', false],
+    ['video', false],
+    ['csv', false],
+    ['market', false],
+  ])('sends the %s extension a CSP %s wasm', async (extId, wasm) => {
+    const { host, sessions } = setup({
+      viewer: () => ({ dir: `/ext/${extId}`, entry: 'page.html', builtin: extId !== 'market' }),
+      readExtensionFile: () => Buffer.from('x'),
+    })
+    host.open('w1', { ...OPEN, viewType: `${extId}.view` })
+    const session = sessions.get(`ostia-viewer-${extId}`)
+    const expected = wasm ? WASM_VIEWER_CSP : VIEWER_PAGE_CSP
+    for (const path of ['page.html', 'pdf.worker.js', '~meta', '~document', '~events']) {
+      const res = await get(session, `ostia-viewer://t1/${path}`)
+      expect(res.headers.get('content-security-policy'), path).toBe(expected)
+    }
+    expect(expected.includes('wasm-unsafe-eval')).toBe(wasm)
+  })
+
+  it('gives no wasm CSP to a non built-in extension even with the id pdf', async () => {
+    const { host, sessions } = setup({
+      viewer: () => ({ dir: '/ext/pdf', entry: 'page.html', builtin: false }),
+      readExtensionFile: () => Buffer.from('x'),
+    })
+    host.open('w1', { ...OPEN, viewType: 'pdf.view' })
+    const res = await get(sessions.get('ostia-viewer-pdf'), 'ostia-viewer://t1/page.html')
+    expect(res.headers.get('content-security-policy')).toBe(VIEWER_PAGE_CSP)
   })
 })
