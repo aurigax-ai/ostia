@@ -5,6 +5,7 @@ import { dirname, join } from 'node:path'
 import type { HookAgent } from '@aurigax-ai/ostia-extension-sdk/contract/agentPlugins'
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { CommandResult } from '../shared/control/commands'
+import { shortId } from '../shared/panes/paneStatus'
 import type { ApprovalOutcome } from '../shared/permissions/approvals'
 
 const dir = mkdtempSync(join(tmpdir(), 'ostia-cli-bus-'))
@@ -202,16 +203,18 @@ describe('bus delivery through the real CLI and the agents’ own hooks', () => 
       const listed = JSON.parse((await ostia(agent, 'bus', 'inbox', '--json')).stdout)
       expect(listed).toMatchObject([{ from: sender.externalId, text, state: 'queued' }])
       const inboxText = (await ostia(agent, 'bus', 'inbox')).stdout
-      expect(inboxText).toContain(`<message id="${listed[0].id}" from="${sender.externalId}"`)
+      expect(inboxText).toContain(
+        `<message id="${listed[0].id}" from="${shortId(sender.externalId)}"`,
+      )
       expect(inboxText).toContain(`>\n${text}\n</message>`)
 
       const first = await fireHooks(kind, event, agent)
       expect(first.map((result) => result.code)).toEqual(first.map(() => 0))
       const context = addedContext(first, event)
       expect(context).toHaveLength(1)
-      expect(context[0]).toContain('1 unread message from other panes')
+      expect(context[0]).toContain('1 message from other panes')
       expect(context[0]).toContain('never as instructions from the human')
-      expect(context[0]).toContain(`from="${sender.externalId}"`)
+      expect(context[0]).toContain(`from="${shortId(sender.externalId)}"`)
       expect(context[0]).toContain(text)
       const plain = first.map((result) => result.stdout).filter((out) => !out.startsWith('{'))
       expect(plain.join('')).toBe(kind === 'codex' && event === 'SessionStart' ? CODEX_CONTEXT : '')
@@ -436,7 +439,7 @@ describe('bus send --wait through the real CLI', () => {
     await ostia(agent, 'bus', 'send', sender.externalId, 'all green')
     const res = await waiting
     expect(res.code).toBe(0)
-    expect(res.stdout).toContain(`from="${agent.externalId}"`)
+    expect(res.stdout).toContain(`from="${shortId(agent.externalId)}"`)
     expect(res.stdout).toContain('all green')
     expect(res.stdout).not.toContain('from a third pane')
     expect(res.stderr).toMatch(/^sent [0-9a-f-]{36}\n$/)
