@@ -1,7 +1,8 @@
 import { act, renderHook } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useEditorStatus } from '@/stores/files/editorStatusStore'
-import { LIVE_TEXT_DEBOUNCE_MS, useLiveDocumentText } from './useLiveDocumentText'
+import { LIVE_TEXT_DEBOUNCE_MS } from './liveDocument'
+import { useLiveDocumentText } from './useLiveDocumentText'
 
 interface FakeModel {
   uri: { toString: () => string }
@@ -72,9 +73,10 @@ afterEach(() => {
 })
 
 describe('useLiveDocumentText', () => {
-  it('sends the dirty text at once, then each change once typing pauses', () => {
+  it('sends the dirty text at once, then each change once typing pauses', async () => {
     const made = model('saved', true)
     renderHook(() => useLiveDocumentText('p1', PATH, true))
+    await act(async () => {})
     expect(window.ostia.viewers.sendDocumentText).toHaveBeenLastCalledWith({
       paneId: 'p1',
       path: PATH,
@@ -96,9 +98,10 @@ describe('useLiveDocumentText', () => {
     })
   })
 
-  it('sends null when the model is clean, when it is saved, and when the preview closes', () => {
+  it('sends null when the model is clean, when it is saved, and when the preview closes', async () => {
     const made = model('saved', false)
     const { unmount } = renderHook(() => useLiveDocumentText('p1', PATH, true))
+    await act(async () => {})
     expect(window.ostia.viewers.sendDocumentText).toHaveBeenLastCalledWith({
       paneId: 'p1',
       path: PATH,
@@ -133,12 +136,13 @@ describe('useLiveDocumentText', () => {
     })
   })
 
-  it('sends nothing before the viewer is open and follows a model created later', () => {
+  it('sends nothing before the viewer is open and follows a model created later', async () => {
     const { rerender } = renderHook(({ on }) => useLiveDocumentText('p1', PATH, on), {
       initialProps: { on: false },
     })
     expect(window.ostia.viewers.sendDocumentText).not.toHaveBeenCalled()
     rerender({ on: true })
+    await act(async () => {})
     const made = model('late', true)
     act(() => {
       for (const listener of created.listeners) listener(made)

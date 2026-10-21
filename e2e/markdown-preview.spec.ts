@@ -5,7 +5,7 @@ import { fakeAgentBin, isolatedHome, startFakeAgent } from './fakeAgent'
 import { openWorkspace, shownTerminal, terminalTab } from './helpers'
 import type { ElectronApplication, Page } from './test'
 import { _electron as electron, expect, test } from './test'
-import { viewerGuestRun, viewerGuestText } from './viewerGuest'
+import { viewerGuestDrag, viewerGuestRun, viewerGuestText } from './viewerGuest'
 
 const MATCH = { viewType: 'markdown.preview' }
 const SOURCE = '# Report\n\nFirst paragraph here.\n\nSecond paragraph here.\n'
@@ -78,19 +78,16 @@ test('the preview shows unsaved text, sends a selection with its source lines an
       .toContain('Unsaved third line')
     expect(readFileSync(join(home, 'README.md'), 'utf8')).toBe(SOURCE)
 
-    await viewerGuestRun(
+    const line = (await viewerGuestRun(
       app,
       MATCH,
       `(() => {
-        const text = [...document.querySelectorAll('p')].find((p) => p.textContent.startsWith('Second')).firstChild
-        const range = document.createRange()
-        range.setStart(text, 0)
-        range.setEnd(text, 6)
-        getSelection().removeAllRanges()
-        getSelection().addRange(range)
-        document.dispatchEvent(new Event('pointerup'))
+        const p = [...document.querySelectorAll('p')].find((p) => p.textContent.startsWith('Second'))
+        const r = p.getBoundingClientRect()
+        return { x: Math.round(r.x), y: Math.round(r.y + r.height / 2) }
       })()`,
-    )
+    )) as { x: number; y: number }
+    await viewerGuestDrag(app, MATCH, { x: line.x + 1, y: line.y }, { x: line.x + 56, y: line.y })
     const bar = win.getByRole('toolbar', { name: 'Selection actions' })
     await expect(bar).toBeVisible({ timeout: 15_000 })
     await bar.getByRole('button', { name: 'Add a note' }).click()

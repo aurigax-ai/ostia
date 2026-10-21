@@ -1,44 +1,16 @@
-import { debounce } from 'es-toolkit'
 import { useEffect } from 'react'
-import { monaco } from '@/lib/monaco/setup'
-import { useEditorStatus } from '@/stores/files/editorStatusStore'
-import { isDirty, uriFor } from './editorModels'
-
-export const LIVE_TEXT_DEBOUNCE_MS = 150
 
 export function useLiveDocumentText(paneId: string, filePath: string, enabled: boolean): void {
   useEffect(() => {
     if (!enabled) return
-    const uri = uriFor(filePath)
-    let model = monaco.editor.getModel(uri)
-    let content: monaco.IDisposable | undefined
-    const send = (text: string | null): void =>
-      window.ostia.viewers.sendDocumentText({ paneId, path: filePath, text })
-    const push = (): void => {
-      send(model && !model.isDisposed() && isDirty(model) ? model.getValue() : null)
-    }
-    const pushLater = debounce(push, LIVE_TEXT_DEBOUNCE_MS)
-    const follow = (next: monaco.editor.ITextModel | null): void => {
-      content?.dispose()
-      model = next
-      content = next?.onDidChangeContent(pushLater)
-    }
-    follow(model)
-    const created = monaco.editor.onDidCreateModel((next) => {
-      if (next.uri.toString() !== uri.toString()) return
-      follow(next)
-      pushLater()
+    let stop = (): void => {}
+    let cancelled = false
+    void import('./liveDocument').then(({ followLiveDocument }) => {
+      if (!cancelled) stop = followLiveDocument(paneId, filePath)
     })
-    const unsubscribe = useEditorStatus.subscribe((state, previous) => {
-      if (state.dirty[filePath] !== previous.dirty[filePath]) pushLater()
-    })
-    push()
     return () => {
-      pushLater.cancel()
-      created.dispose()
-      content?.dispose()
-      unsubscribe()
-      send(null)
+      cancelled = true
+      stop()
     }
   }, [paneId, filePath, enabled])
 }
