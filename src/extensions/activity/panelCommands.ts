@@ -9,7 +9,7 @@ import {
 import { isRecordId } from './hookEvent'
 import type { Journal } from './journal'
 import type { OpenListing } from './openListing'
-import { type PanelSnapshot, panelModel } from './view'
+import { type Limits, limitsDigest, type PanelSnapshot, panelModel } from './view'
 
 export const SHOW_ACTIVITY = 'showActivity'
 
@@ -23,6 +23,17 @@ interface PanelCommandsDeps {
   changed: () => void
 }
 
+const LIMITS_MAX_KEYS = 500
+
+export function parseLimits(raw: unknown): Limits {
+  if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) return {}
+  const limits: Record<string, number> = {}
+  for (const [key, value] of Object.entries(raw).slice(0, LIMITS_MAX_KEYS)) {
+    if (Number.isSafeInteger(value) && (value as number) > 0) limits[key] = value as number
+  }
+  return limits
+}
+
 export type PanelCommand = (args: unknown, caller: ExtensionCaller) => Promise<ExtensionResult>
 
 export function activityPanelCommands(deps: PanelCommandsDeps): Record<string, PanelCommand> {
@@ -30,6 +41,7 @@ export function activityPanelCommands(deps: PanelCommandsDeps): Record<string, P
   const snapshot = async (args: unknown, caller: ExtensionCaller): Promise<ExtensionResult> => {
     await settingsLoaded
     const workspaceId = caller.workspaceId ?? ''
+    const limits = parseLimits(namedArgs(args).limits)
     const listed = await listing.read(workspaceId)
     if (!listed) return failure('unavailable')
     const workspace = listed.workspaces.find((w) => w.workspaceId === workspaceId)
@@ -39,6 +51,7 @@ export function activityPanelCommands(deps: PanelCommandsDeps): Record<string, P
       listed.rev,
       journal.revision(workspaceId),
       hostJournal.revision(workspaceId),
+      limitsDigest(limits),
     ].join('.')
     if (namedArgs(args).rev === rev) {
       const unchanged: PanelSnapshot = { unchanged: true }
@@ -50,6 +63,7 @@ export function activityPanelCommands(deps: PanelCommandsDeps): Record<string, P
         showActivity: state.showActivity,
         workspace,
         panes: listed.panes,
+        limits,
         events: (id) => [...journal.events(id), ...hostJournal.events(id)],
       }),
     }
