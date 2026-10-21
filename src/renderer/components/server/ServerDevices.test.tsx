@@ -13,7 +13,8 @@ const SYNC: ServerSyncStatus = {
   linkCodes: [],
   joins: [],
   recoveryStale: false,
-  wrapRefused: false,
+  wrapRefused: null,
+  changedDevices: [],
 }
 
 const device = (over: Partial<ServerDevice>): ServerDevice => ({
