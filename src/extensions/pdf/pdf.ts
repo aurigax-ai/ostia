@@ -15,7 +15,6 @@ import en from './locales/en.json'
 import zhHant from './locales/zh-Hant.json'
 import { Pages } from './pages'
 import type { PageView } from './pageView'
-import { seedFromHash } from './pdfFind'
 import { PDF_ICONS } from './pdfIcons'
 import { isPasswordError, openPdf, type PdfDocument } from './pdfjs'
 import {
@@ -30,6 +29,7 @@ import {
   type ZoomMode,
   zoomText,
 } from './pdfLayout'
+import { followHash } from './pdfSeed'
 import type { LinkTarget } from './pdfSelection'
 import { createSidebar, type OutlineNode } from './sidebar'
 
@@ -331,22 +331,26 @@ async function start(doc: PdfDocument, t: Translate): Promise<void> {
       const steps = key === 'f3' || (primary && key === 'g')
       if (!opens && !steps) return
       event.preventDefault()
-      if (opens || !pill.find.isOpen()) pill.find.open()
-      else find.step(event.shiftKey ? -1 : 1)
+      if (opens || !pill.find.isOpen()) {
+        capture.clear()
+        pill.find.open()
+      } else find.step(event.shiftKey ? -1 : 1)
     },
     true,
   )
 
-  const seed = seedFromHash(location.hash)
-  if (seed.page) pages.goTo(Math.min(seed.page, pages.views.length))
-  if (seed.find) {
-    pill.find.open()
-    const field = pill.element.querySelector<HTMLInputElement>('.ostia-pill-find-field')
-    if (field) {
-      field.value = seed.find
-      field.dispatchEvent(new Event('input'))
-    }
-  }
+  followHash(window, {
+    goTo: (page) => pages.goTo(Math.min(page, pages.views.length)),
+    find: (query) => {
+      capture.clear()
+      pill.find.open()
+      const field = pill.element.querySelector<HTMLInputElement>('.ostia-pill-find-field')
+      if (field) {
+        field.value = query
+        field.dispatchEvent(new Event('input'))
+      }
+    },
+  })
 }
 
 async function main(): Promise<void> {

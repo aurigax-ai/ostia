@@ -17,10 +17,7 @@ interface Box {
   height: number
 }
 
-async function withPdf(
-  run: (win: Page, app: ElectronApplication) => Promise<void>,
-  agent = false,
-): Promise<void> {
+async function launchWithPdf(): Promise<{ app: ElectronApplication; win: Page }> {
   const dataHome = freshDataHome()
   const home = join(dataHome, 'home')
   mkdirSync(home, { recursive: true })
@@ -34,26 +31,22 @@ async function withPdf(
     ...launch,
     env: { ...launch.env, HOME: home, PATH: `${bin}:${launch.env.PATH}` },
   })
-  try {
-    const win = await app.firstWindow()
-    await openWorkspace(win)
-    if (agent) await startFakeAgent(win)
-    await win.locator('.topbar').getByRole('button', { name: 'Files', exact: true }).click()
-    await win.locator('.file-row').filter({ hasText: 'invoice.pdf' }).click()
-    await expect(win.locator('[data-testid="file-viewer"]:visible')).toHaveAttribute(
-      'data-view-type',
-      'pdf.pdf',
-      { timeout: 15_000 },
-    )
-    await expect
-      .poll(() => viewerGuestRun(app, PDF, 'document.querySelectorAll(".pdf-text span").length'), {
-        timeout: 30_000,
-      })
-      .toBeGreaterThan(0)
-    await run(win, app)
-  } finally {
-    await app.close()
-  }
+  const win = await app.firstWindow()
+  await openWorkspace(win)
+  await startFakeAgent(win)
+  await win.locator('.topbar').getByRole('button', { name: 'Files', exact: true }).click()
+  await win.locator('.file-row').filter({ hasText: 'invoice.pdf' }).click()
+  await expect(win.locator('[data-testid="file-viewer"]:visible')).toHaveAttribute(
+    'data-view-type',
+    'pdf.pdf',
+    { timeout: 15_000 },
+  )
+  await expect
+    .poll(() => viewerGuestRun(app, PDF, 'document.querySelectorAll(".pdf-text span").length'), {
+      timeout: 30_000,
+    })
+    .toBeGreaterThan(0)
+  return { app, win }
 }
 
 async function guestBox(app: ElectronApplication, win: Page, selector: string): Promise<Box> {
@@ -91,93 +84,99 @@ async function dragOverTextLine(win: Page, app: ElectronApplication, fromEmpty: 
 
 const bar = (win: Page) => win.getByRole('toolbar', { name: 'Selection actions' })
 
-test('a drag that starts on text selects text and Copy puts only text on the clipboard', async () => {
-  test.setTimeout(120_000)
-  await withPdf(async (win, app) => {
-    await dragOverTextLine(win, app, false)
-    await expect(bar(win)).toBeVisible({ timeout: 15_000 })
-    await bar(win).getByRole('button', { name: 'Copy' }).click()
-    await expect(bar(win)).toHaveCount(0)
-    await expect.poll(async () => (await readClipboard(app)).text).toContain('Hello')
-    expect((await readClipboard(app)).hasImage).toBe(false)
-  })
-})
+test('the PDF viewer selects text, crops text and image together, finds across pages and sends with a note', async () => {
+  test.setTimeout(240_000)
+  const { app, win } = await launchWithPdf()
+  try {
+    await test.step('a drag that starts on text selects text and Copy puts only text on the clipboard', async () => {
+      await dragOverTextLine(win, app, false)
+      await expect(bar(win)).toBeVisible({ timeout: 15_000 })
+      await bar(win).getByRole('button', { name: 'Copy' }).click()
+      await expect(bar(win)).toHaveCount(0)
+      await expect.poll(async () => (await readClipboard(app)).text).toContain('Hello')
+      expect((await readClipboard(app)).hasImage).toBe(false)
+    })
 
-test('a drag that starts on empty page space crops a rectangle and Copy puts text and image on the clipboard', async () => {
-  test.setTimeout(120_000)
-  await withPdf(async (win, app) => {
-    await dragOverTextLine(win, app, true)
-    await expect(bar(win)).toBeVisible({ timeout: 15_000 })
-    await expect(win.locator('webview:visible')).toBeVisible()
-    await bar(win).getByRole('button', { name: 'Copy' }).click()
-    await expect(bar(win)).toHaveCount(0)
-    await expect
-      .poll(async () => {
-        const copied = await readClipboard(app)
-        return copied.hasImage && copied.text.includes('Hello needle one')
-      })
-      .toBe(true)
-  })
-})
+    await test.step('a drag that starts on empty page space crops a rectangle and Copy puts text and image on the clipboard', async () => {
+      await dragOverTextLine(win, app, true)
+      await expect(bar(win)).toBeVisible({ timeout: 15_000 })
+      await expect(win.locator('webview:visible')).toBeVisible()
+      await bar(win).getByRole('button', { name: 'Copy' }).click()
+      await expect(bar(win)).toHaveCount(0)
+      await expect
+        .poll(async () => {
+          const copied = await readClipboard(app)
+          return copied.hasImage && copied.text.includes('Hello needle one')
+        })
+        .toBe(true)
+    })
 
-test('Send puts the report reference with the note at the agent prompt and presses no Enter', async () => {
-  test.setTimeout(180_000)
-  await withPdf(async (win, app) => {
-    await dragOverTextLine(win, app, true)
-    await expect(bar(win)).toBeVisible({ timeout: 15_000 })
-    await bar(win).getByRole('button', { name: 'Add a note' }).click()
-    await win.getByRole('textbox', { name: 'Add a note' }).fill('check the total')
-    await bar(win).getByRole('button', { name: 'Send to agent' }).click()
-    await win.getByRole('menuitem').first().click()
-    await terminalTab(win).click()
-    const terminal = shownTerminal(win).locator('.xterm-rows')
-    await expect(terminal).toContainText(/@\S+\.md/, { timeout: 15_000 })
-    const text = (await terminal.textContent()) ?? ''
-    const report = /@(\S+\.md)/.exec(text)?.[1] ?? ''
-    const body = readFileSync(report, 'utf8')
-    expect(body).toContain('check the total')
-    expect(body).toContain('Hello needle one')
-    await expectHeld(
-      async () => ((await terminal.textContent()) ?? '').match(/@\S+\.md/g)?.length ?? 0,
-      1,
-      800,
-    )
-  }, true)
-})
-
-test('find opens with the find chord, counts matches over every page and steps through them', async () => {
-  test.setTimeout(120_000)
-  await withPdf(async (_win, app) => {
-    await app.evaluate(({ webContents }, modifier) => {
-      const guest = webContents.getAllWebContents().find((w) => w.getType() === 'webview')
-      if (!guest) throw new Error('no page')
-      for (const type of ['keyDown', 'keyUp'] as const) {
-        guest.sendInputEvent({ type, keyCode: 'F', modifiers: [modifier as 'control'] })
-      }
-    }, FIND_KEY)
-    await expect
-      .poll(() => viewerGuestRun(app, PDF, 'document.activeElement?.className ?? ""'))
-      .toContain('ostia-pill-find-field')
-    await viewerGuestRun(
-      app,
-      PDF,
-      `(() => { const f = document.querySelector('.ostia-pill-find-field'); f.value = 'needle'; f.dispatchEvent(new Event('input')) })()`,
-    )
-    const count = () =>
-      viewerGuestRun(
+    await test.step('find opens with the find chord, counts matches over every page and steps through them', async () => {
+      await app.evaluate(({ webContents }, modifier) => {
+        const guest = webContents.getAllWebContents().find((w) => w.getType() === 'webview')
+        if (!guest) throw new Error('no page')
+        guest.focus()
+        for (const type of ['keyDown', 'keyUp'] as const) {
+          guest.sendInputEvent({ type, keyCode: 'F', modifiers: [modifier as 'control'] })
+        }
+      }, FIND_KEY)
+      await expect
+        .poll(() => viewerGuestRun(app, PDF, 'document.activeElement?.className ?? ""'))
+        .toContain('ostia-pill-find-field')
+      await viewerGuestRun(
         app,
         PDF,
-        `document.querySelector('.ostia-pill-find-count')?.textContent ?? ''`,
+        `(() => { const f = document.querySelector('.ostia-pill-find-field'); f.value = 'needle'; f.dispatchEvent(new Event('input')) })()`,
       )
-    await expect.poll(count, { timeout: 20_000 }).toBe('1 of 2')
-    await viewerGuestRun(
-      app,
-      PDF,
-      `document.querySelector('.ostia-pill-find-field').dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }))`,
-    )
-    await expect.poll(count).toBe('2 of 2')
-    await expect
-      .poll(() => viewerGuestRun(app, PDF, `document.querySelector('.ostia-pill-page').value`))
-      .toBe('2')
-  })
+      const count = () =>
+        viewerGuestRun(
+          app,
+          PDF,
+          `document.querySelector('.ostia-pill-find-count')?.textContent ?? ''`,
+        )
+      await expect.poll(count, { timeout: 20_000 }).toBe('1 of 2')
+      await viewerGuestRun(
+        app,
+        PDF,
+        `document.querySelector('.ostia-pill-find-field').dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }))`,
+      )
+      await expect.poll(count).toBe('2 of 2')
+      await expect
+        .poll(() => viewerGuestRun(app, PDF, `document.querySelector('.ostia-pill-page').value`))
+        .toBe('2')
+    })
+
+    await test.step('Send puts the report reference with the note at the agent prompt and presses no Enter', async () => {
+      await viewerGuestRun(
+        app,
+        PDF,
+        `document.querySelector('.ostia-pill-find button[aria-label="Done"]').click()`,
+      )
+      await viewerGuestRun(app, PDF, 'window.scrollTo(0, 0)')
+      await expect
+        .poll(() => viewerGuestRun(app, PDF, `document.querySelector('.ostia-pill-page').value`))
+        .toBe('1')
+      await dragOverTextLine(win, app, true)
+      await expect(bar(win)).toBeVisible({ timeout: 15_000 })
+      await bar(win).getByRole('button', { name: 'Add a note' }).click()
+      await win.getByRole('textbox', { name: 'Add a note' }).fill('check the total')
+      await bar(win).getByRole('button', { name: 'Send to agent' }).click()
+      await win.getByRole('menuitem').first().click()
+      await terminalTab(win).click()
+      const terminal = shownTerminal(win).locator('.xterm-rows')
+      await expect(terminal).toContainText(/@\S+\.md/, { timeout: 15_000 })
+      const text = (await terminal.textContent()) ?? ''
+      const report = /@(\S+\.md)/.exec(text)?.[1] ?? ''
+      const body = readFileSync(report, 'utf8')
+      expect(body).toContain('check the total')
+      expect(body).toContain('Hello needle one')
+      await expectHeld(
+        async () => ((await terminal.textContent()) ?? '').match(/@\S+\.md/g)?.length ?? 0,
+        1,
+        800,
+      )
+    })
+  } finally {
+    await app.close()
+  }
 })
