@@ -1,6 +1,6 @@
 ---
 name: activity
-description: Records notes and items for the human in the Ostia workspace's activity list (ostia activity add, list, show, done) and reads what other agents reported. Use when an agent leaves the human something that does not block it, such as a decision to review, a manual step or a result to check, or reads other agents' reports.
+description: Records notes and items for the human in the Ostia workspace's activity list (ostia activity add, list, show, done), reads what other agents reported, and keeps the agent's own tasks for later (ostia activity remember). Use when an agent leaves the human something that does not block it, such as a decision to review, a manual step or a result to check, reads other agents' reports, or has a task it must not lose across a compaction, a clear or a resume.
 ---
 
 # Activity: notes and needs-you items
@@ -44,11 +44,15 @@ ostia activity open                    # opens the Activity panel for the human
   `all-workspaces` capability.
 - `--archived` reads entries that moved out of the live view.
 
+## Remember
+
+Keep a task you must do later with `ostia activity remember "<task>"`: one sentence, at most 200 characters. Ostia gives your open tasks back to you after /compact, /clear and a resume. `ostia activity list --remembered` lists yours and `ostia activity done <id>` finishes one. They are yours alone: the human sees them in the Activity panel, and a task older than the keep period stops coming back.
+
 ## Done
 
 ```sh
 ostia activity done <id>
 ```
 
-You can mark only your own needs-you items done, once the thing is resolved. The human marks the
+You can mark only your own needs-you items and remembered tasks done, once the thing is resolved. The human marks the
 others in the Activity panel.

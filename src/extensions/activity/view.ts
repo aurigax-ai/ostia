@@ -101,8 +101,6 @@ export interface PanelModel {
   workspace: WorkspaceView | null
 }
 
-export type PanelSnapshot = { unchanged: true } | (PanelModel & { rev: string })
-
 export interface ViewSources {
   showActivity: boolean
   workspace: OpenWorkspace | undefined

@@ -4,6 +4,7 @@ import type { ActivityEvent } from './hookEvent'
 import { Journal } from './journal'
 import { createOpenListing, LISTING_TTL_MS } from './openListing'
 import { activityPanelCommands } from './panelCommands'
+import { RememberStore } from './remember'
 
 const caller = { workspaceId: 'w1' } as ExtensionCaller
 
@@ -23,7 +24,8 @@ function setup() {
     ext: {} as OstiaExtension,
     journal,
     hostJournal,
-    state: { showActivity: true },
+    remembered: new RememberStore({ dir: null, now: () => now }),
+    state: { showActivity: true, rememberDays: 14 },
     settingsLoaded: Promise.resolve(),
     listing,
     changed,
