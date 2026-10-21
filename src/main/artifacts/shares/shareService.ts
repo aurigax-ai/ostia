@@ -215,7 +215,7 @@ export class ShareService {
   private uploadPath(uploadUrl: string): string {
     const base = this.deps.account.baseUrl()
     const target = new URL(uploadUrl)
-    if (!base || new URL(base).origin !== target.origin) {
+    if (!base || new URL(base).hostname !== target.hostname) {
       throw new ServerError(400, 'bad-upload-url')
     }
     return `${target.pathname}${target.search}`
