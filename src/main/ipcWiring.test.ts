@@ -52,6 +52,7 @@ const PUSHED = [
   'files:kinds-changed',
   'fs:changed',
   'gateway:pair-requests-changed',
+  'gateway:push-changed',
   'gateway:relay-changed',
   'gateway:tailnet-changed',
   'git:changed',
