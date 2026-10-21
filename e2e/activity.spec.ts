@@ -105,10 +105,15 @@ test('the Activity panel shows an agent’s recap, shows its events on the toggl
     await panelEval(app, `document.querySelector('.agent-head').click(); 'ok'`)
     await expect(win.locator('.xterm-helper-textarea').first()).toBeFocused({ timeout: 15_000 })
     expect(await text(app, '.note:not([hidden])')).toBe('')
-    await expect.poll(() => text(app, '.note-text'), { timeout: 15_000 }).toBe(NOTE)
+    expect(await text(app, '.note-text')).toBe('')
+    const panel = win.locator('#right-panel')
+    await panel.getByRole('tab', { name: /Inbox/ }).click()
+    const card = panel.locator('[data-inbox-note]')
+    await expect(card).toContainText(NOTE, { timeout: 15_000 })
     await win.locator('.xterm-helper-textarea').first().blur()
-    await panelEval(app, `document.querySelector('.note-pane').click(); 'ok'`)
+    await card.getByText(NOTE).click()
     await expect(win.locator('.xterm-helper-textarea').first()).toBeFocused({ timeout: 15_000 })
+    await panel.getByRole('tab', { name: 'Activity' }).click()
     await expect
       .poll(
         () => {
@@ -129,11 +134,9 @@ test('the Activity panel shows an agent’s recap, shows its events on the toggl
     await expect(win.locator('.xterm').first()).toBeVisible({ timeout: 30_000 })
     await openActivity(win)
     await expect
-      .poll(
-        () =>
-          panelEval(app, `document.querySelector('[data-timeline="true"]').ariaPressed`),
-        { timeout: 30_000 },
-      )
+      .poll(() => panelEval(app, `document.querySelector('[data-timeline="true"]').ariaPressed`), {
+        timeout: 30_000,
+      })
       .toBe('true')
     await expect.poll(() => text(app, '.turn .markdown'), { timeout: 15_000 }).toBe(RECAP)
     expect(await text(app, '.turn .prompt')).toBe(PROMPT)
@@ -167,13 +170,14 @@ test('a needs-you item an agent adds is counted in the sidebar and marked done b
     await expect(count(win)).toBeVisible({ timeout: 15_000 })
 
     await openActivity(win)
-    await expect
-      .poll(() => panelEval(app, `document.querySelector('.note-row')?.innerText ?? ''`), {
-        timeout: 30_000,
-      })
-      .toContain('Check the staging deploy')
-    await panelEval(app, `document.querySelector('.done-button').click(); 'ok'`)
+    const panel = win.locator('#right-panel')
+    await panel.getByRole('tab', { name: /Inbox/ }).click()
+    const card = panel.locator('[data-inbox-note]')
+    await expect(card).toContainText('Check the staging deploy', { timeout: 30_000 })
+    await card.getByRole('button', { name: 'Mark done' }).click()
     await expect(count(win)).toHaveCount(0, { timeout: 15_000 })
+    await expect(panel.getByText('Nothing waits for you.')).toBeVisible()
+    await panel.getByRole('tab', { name: 'Activity' }).click()
     await expect
       .poll(() => panelEval(app, `document.querySelector('.needs-you')?.innerText ?? ''`))
       .toBe('Done')

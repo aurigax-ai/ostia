@@ -32,6 +32,9 @@ export const extensionsBridge: Pick<
     panel: (extId, context) => ipcRenderer.invoke('extensions:panel', extId, context),
     sidebarItems: () => ipcRenderer.invoke('extensions:sidebar'),
     panelToolbars: () => ipcRenderer.invoke('extensions:panel-toolbar'),
+    inboxEntries: () => ipcRenderer.invoke('extensions:inbox'),
+    inboxAction: (extId, workspaceId, id) =>
+      ipcRenderer.invoke('extensions:inbox-action', extId, workspaceId, id),
     paneChips: () => ipcRenderer.invoke('extensions:chips'),
     workspaceChips: () => ipcRenderer.invoke('extensions:workspace-chips'),
     setSetting: (extId, key, value) =>
@@ -46,6 +49,7 @@ export const extensionsBridge: Pick<
     onChanged: (cb) => listen('extensions:changed', cb),
     onSidebar: (cb) => listen('extensions:sidebar', cb),
     onPanelToolbars: (cb) => listen('extensions:panel-toolbar', cb),
+    onInbox: (cb) => listen('extensions:inbox', cb),
     onPaneChips: (cb) => listen('extensions:chips', cb),
     onWorkspaceChips: (cb) => listen('extensions:workspace-chips', cb),
     onSettingsStored: (cb) => listen('extensions:settings-stored', cb),

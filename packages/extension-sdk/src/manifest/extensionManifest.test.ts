@@ -484,6 +484,22 @@ describe('parseManifest', () => {
     expect(res.ok && res.manifest.contributes.panel?.toolbar).toEqual(toolbar)
   })
 
+  it('reads a tab whose body core draws, and refuses an unknown surface or a surface on an action', () => {
+    const parse = (toolbar: unknown) =>
+      parseManifest(
+        manifest({ contributes: { panel: { title: 'P', entry: 'url', toolbar } } }),
+        DIR,
+      )
+    const ok = parse({ tabs: [{ id: 'inbox', title: 'Inbox', surface: 'inbox' }] })
+    expect(ok.ok && ok.manifest.contributes.panel?.toolbar?.tabs).toEqual([
+      { id: 'inbox', title: 'Inbox', surface: 'inbox' },
+    ])
+    expect(parse({ tabs: [{ id: 'a', title: 'A', surface: 'feed' }] }).ok).toBe(false)
+    expect(
+      parse({ actions: [{ id: 'go', title: 'Go', icon: 'refresh', surface: 'inbox' }] }).ok,
+    ).toBe(false)
+  })
+
   it('rejects a malformed panel toolbar', () => {
     const bad = (toolbar: unknown) =>
       parseManifest(

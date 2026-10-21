@@ -4,10 +4,12 @@ import { act, cleanup, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { resetCoreWatch, watchedWorkspaces } from '@/lib/workspaces/coreWatch'
+import { useApprovalsStore } from '@/stores/agents/approvalsStore'
 import { useSandboxStore } from '@/stores/app/sandboxStore'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useSidePanelStore } from '@/stores/app/sidePanelStore'
 import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
+import { useInboxStore } from '@/stores/extensions/inboxStore'
 import { usePanelToolbarStore } from '@/stores/extensions/panelToolbarStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import { installLocalStorage } from '../../../../test/mocks/memoryStorage'
@@ -27,6 +29,22 @@ const toolbarInfo = (): ExtensionInfo =>
           { id: 'vault', title: 'Vault' },
         ],
         actions: [{ id: 'refresh', icon: 'refresh', title: 'Refresh' }],
+      },
+    },
+  }) as unknown as ExtensionInfo
+
+const inboxInfo = (builtin: boolean): ExtensionInfo =>
+  ({
+    ...panelInfo('activity', 'Activity'),
+    builtin,
+    panel: {
+      title: 'Activity',
+      toolbar: {
+        tabs: [
+          { id: 'inbox', title: 'Inbox', surface: 'inbox' },
+          { id: 'recap', title: 'Recap' },
+        ],
+        actions: [],
       },
     },
   }) as unknown as ExtensionInfo
@@ -87,6 +105,8 @@ describe('RightPanel', () => {
     panel.mockReset()
     useSidePanelStore.setState(sideInit, true)
     usePanelToolbarStore.setState({ entries: [] })
+    useInboxStore.setState({ entries: [] })
+    useApprovalsStore.setState({ pending: [] })
     useExtensionsStore.setState(extInit, true)
     useWorkspacesStore.setState(workspacesInit, true)
     useSandboxStore.setState(sandboxInit, true)
@@ -510,5 +530,50 @@ describe('RightPanel', () => {
 
     expect(await screen.findByRole('button', { name: 'Show Graphs' })).toBeVisible()
     expect(webviews()).toHaveLength(0)
+  })
+
+  it('draws the Inbox of a built-in extension in core for its surface tab, keeps the page mounted and hidden, and shows the loud count', async () => {
+    setup()
+    useExtensionsStore.setState({ list: [inboxInfo(true)] })
+    useApprovalsStore.setState({
+      pending: [
+        { id: 'a1', paneId: 'p1', workspaceId: 'w1', caps: [], action: 'Run', detail: '', at: 1 },
+      ],
+    })
+    useInboxStore.getState().setEntries([
+      {
+        extId: 'activity',
+        workspaceId: 'w1',
+        items: [{ id: 'abcdefghij', text: 'Set the key', at: 2 }],
+      },
+    ])
+    render(<RightPanel />)
+    show('activity')
+    await waitFor(() => expect(webviews()).toHaveLength(1))
+
+    expect(screen.getByRole('list', { name: 'Inbox' })).toBeVisible()
+    expect(screen.getByText('Set the key')).toBeVisible()
+    const web = document.querySelector('.right-panel-web') as HTMLElement
+    expect(web).toHaveAttribute('data-hidden')
+    expect(web.inert).toBe(true)
+    expect(screen.getByRole('tab', { name: /Inbox/ })).toHaveTextContent('2')
+
+    await userEvent.setup().click(screen.getByRole('tab', { name: 'Recap' }))
+
+    expect(screen.queryByRole('list', { name: 'Inbox' })).toBeNull()
+    expect(web).not.toHaveAttribute('data-hidden')
+    expect(webviews()).toHaveLength(1)
+  })
+
+  it('leaves the page of an extension that is not built in alone, whatever its tab declares', async () => {
+    setup()
+    useExtensionsStore.setState({ list: [inboxInfo(false)] })
+    render(<RightPanel />)
+    show('activity')
+    await waitFor(() => expect(webviews()).toHaveLength(1))
+
+    expect(screen.queryByText('Nothing waits for you.')).toBeNull()
+    expect(document.querySelector('.right-panel-inbox')).toBeNull()
+    expect(document.querySelector('.right-panel-web')).not.toHaveAttribute('data-hidden')
   })
 })

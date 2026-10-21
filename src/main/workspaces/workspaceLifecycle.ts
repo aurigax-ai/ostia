@@ -84,6 +84,7 @@ export function createWorkspaceLifecycle({
     clearChips: (id) => {
       services.extensionHost?.slots.clearWorkspaceChips(id)
       services.extensionHost?.slots.clearPanelToolbarsWhere((entry) => entry.workspaceId === id)
+      services.extensionHost?.slots.clearInboxWhere((entry) => entry.workspaceId === id)
     },
     closeRemoteFolders: (id) => services.extensionHost?.remoteFolders?.workspaceClosed(id),
     tellExtensions: (id) => services.extensionHost?.events.workspaceClosed(id),

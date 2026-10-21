@@ -24,7 +24,7 @@ const MORE_MARGIN_PX = 200
 
 const t = panelTranslator({ en: en.messages, 'zh-Hant': zhHant.messages })
 
-type Tab = 'activity' | 'parked' | 'remember'
+type Tab = 'inbox' | 'activity' | 'parked' | 'remember'
 
 const root = document.getElementById('root') as HTMLElement
 const list = h('div', { class: 'list' })
@@ -53,7 +53,6 @@ const env: RowEnv = {
   now: Date.now,
   focusAgent: (paneId) => void focusPane(paneId, paneNotes, paneId),
   focusNote: (note: NoteView) => void focusPane(note.pane, noteFailures, note.id),
-  markDone: (workspaceId, id) => void markDone(workspaceId, id),
   isOpen: (key) => openGroups.has(key),
   setOpen: (key, open) => {
     if (open) openGroups.add(key)
@@ -222,13 +221,6 @@ async function refresh(): Promise<void> {
   }
 }
 
-async function markDone(workspaceId: string, id: string): Promise<void> {
-  const res = await call('done', { workspaceId, id })
-  remember(noteFailures, id, res.ok ? null : t('doneFailed', { reason: errorText(res) }))
-  if (res.ok) await refresh()
-  else render()
-}
-
 function parkedFailure(res: { error: string; message?: string }): string {
   if (res.error === 'folder-gone') return t('parked.folderGone', { path: res.message ?? '' })
   if (res.error === 'running-elsewhere') {
@@ -283,7 +275,12 @@ root.replaceChildren(h('div', { class: 'ostia-page' }, activityPage, parkedPage,
 
 onPanelToolbar((event) => {
   if (event.kind !== 'tab') return
-  if (event.id === 'activity' || event.id === 'parked' || event.id === 'remember') {
+  if (
+    event.id === 'inbox' ||
+    event.id === 'activity' ||
+    event.id === 'parked' ||
+    event.id === 'remember'
+  ) {
     tab = event.id
     render()
   }

@@ -144,6 +144,10 @@ function registerWindowMethods(forExtension: ForExtension): void {
     forExtension((h, id, conn, p) => h.slots.setPanelToolbar(id, conn, p)),
   )
   registerControlMethod(
+    'ext.setInboxItems',
+    forExtension((h, id, conn, p) => h.slots.setInboxItems(id, conn, p)),
+  )
+  registerControlMethod(
     'ext.setPaneChip',
     forExtension((h, id, conn, p) => h.slots.setPaneChip(id, conn, p)),
   )

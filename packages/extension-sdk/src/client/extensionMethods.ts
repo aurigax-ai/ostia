@@ -87,6 +87,8 @@ export function windowMethods(
   | 'notify'
   | 'openPanel'
   | 'setPanelToolbar'
+  | 'setInboxItems'
+  | 'onInboxAction'
   | 'setPaneChip'
   | 'clearPaneChip'
   | 'setWorkspaceChip'
@@ -126,6 +128,11 @@ export function windowMethods(
     notify: (title, body) => conn.sendRequest('ext.notify', { title, body }),
     openPanel: (workspaceId, path) => conn.sendRequest('ext.openPanel', { workspaceId, path }),
     setPanelToolbar: (toolbar) => conn.sendRequest('ext.setPanelToolbar', toolbar),
+    setInboxItems: (workspaceId, items) =>
+      conn.sendRequest('ext.setInboxItems', { workspaceId, items }),
+    onInboxAction: (handler) => {
+      handlers.inboxAction = handler
+    },
     setPaneChip: (chip) => conn.sendRequest('ext.setPaneChip', chip),
     clearPaneChip: (paneId, id) => conn.sendRequest('ext.clearPaneChip', { paneId, id }),
     setWorkspaceChip: (chip) => conn.sendRequest('ext.setWorkspaceChip', chip),

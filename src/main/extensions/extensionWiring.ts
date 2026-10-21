@@ -51,6 +51,7 @@ import { ExtensionLaunches } from './extensionLaunches'
 import { registerExtensionMethods } from './extensionMethods'
 import type { PhoneScreenLinks } from './extensionPhoneScreens'
 import { ExtensionStore } from './extensionStore'
+import { answerInboxAction } from './inboxIpc'
 import { registerWireRuntime, WireRuntime } from './wireRuntime'
 import { workspaceChipsForWindow } from './workspaceChips'
 
@@ -361,6 +362,19 @@ export function createExtensionIpc({
     )
     ipcMain.handle('extensions:sidebar', () => host.slots.sidebarItems())
     ipcMain.handle('extensions:panel-toolbar', () => host.slots.panelToolbarEntries())
+    ipcMain.handle('extensions:inbox', () => host.slots.inboxEntries())
+    ipcMain.handle(
+      'extensions:inbox-action',
+      (e, extId: unknown, workspaceId: unknown, id: unknown): boolean =>
+        answerInboxAction(
+          host.slots,
+          workspaceWindowId,
+          String(e.sender.id),
+          extId,
+          workspaceId,
+          id,
+        ),
+    )
     ipcMain.handle('extensions:chips', () => host.slots.paneChips())
     ipcMain.handle('extensions:workspace-chips', (e) =>
       workspaceChipsForWindow(host.slots.workspaceChips(), workspaceWindowId, String(e.sender.id)),

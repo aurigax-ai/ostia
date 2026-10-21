@@ -132,13 +132,5 @@ export function activityPanelCommands(deps: PanelCommandsDeps): Record<string, P
     },
     parkedResume: (args: unknown, caller: ExtensionCaller) => parkedAct(args, caller, 'resume'),
     parkedForget: (args: unknown, caller: ExtensionCaller) => parkedAct(args, caller, 'forget'),
-    done: async (args: unknown) => {
-      const { workspaceId, id } = namedArgs(args)
-      if (typeof workspaceId !== 'string' || !isRecordId(id)) return failure('invalid-args')
-      const done = journal.markDone(workspaceId, id, Date.now())
-      if (!done) return failure('unknown-entry')
-      changed()
-      return ok()
-    },
   }
 }

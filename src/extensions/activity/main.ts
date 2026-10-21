@@ -12,6 +12,7 @@ import {
   startPanelServer,
 } from '@aurigax-ai/ostia-extension-sdk'
 import { readEnv } from '@aurigax-ai/ostia-extension-sdk/contract/appEnv'
+import { isRecordId } from './hookEvent'
 import { BUS_EVENT, HOST_EVENTS, HostRecorder, type HostWorkspace } from './hostRecorder'
 import { ARCHIVE_DAYS, DAY_MS, HOST_DIR, Journal, RETENTION_DAYS, type Retention } from './journal'
 import { createNeedsYou } from './needsYou'
@@ -244,6 +245,10 @@ async function main(): Promise<void> {
       return ok()
     },
   }
+  ext.onInboxAction(({ workspaceId, id, action }) => {
+    if (action !== 'done' || !isRecordId(id)) return
+    if (journal.markDone(workspaceId, id, Date.now())) changed()
+  })
   await ext.registerCommands(handlers)
 
   const onEvent: Parameters<typeof ext.subscribe>[1] = (type, payload) => {
