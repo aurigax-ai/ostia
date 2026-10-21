@@ -83,6 +83,10 @@ export class Tickets {
     return { ok: true, ticket: entry.ticket }
   }
 
+  isClaimed(id: string): boolean {
+    return this.entries.get(id)?.ticket.claimedBy != null
+  }
+
   claimedBy(paneId: string): Ticket | null {
     return this.claimed.get(paneId) ?? null
   }

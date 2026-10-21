@@ -37,6 +37,12 @@ const AGENT_PANE: PaneInfo = {
   agentSessionId: 'aaaa1111-0000',
 }
 
+const NEW_PANE: PaneInfo = {
+  ...AGENT_PANE,
+  paneId: 'p2abcdef0123',
+  agentSessionId: 'bbbb9999-0000',
+}
+
 describe('ostia handoff verbs', () => {
   let projects: string
   let tickets: Tickets
@@ -76,6 +82,8 @@ describe('ostia handoff verbs', () => {
       >,
       tickets,
       projectsDir: projects,
+      confirmMs: 40,
+      pollMs: 5,
     })
   const run = (verb: string, argv: string[], who = caller()): Promise<ExtensionResult> =>
     Promise.resolve(verbs()[verb]?.({ argv }, who)) as Promise<ExtensionResult>
@@ -99,7 +107,7 @@ describe('ostia handoff verbs', () => {
     projects = mkdtempSync(join(tmpdir(), 'ostia-handoff-verbs-'))
     let n = 0
     tickets = new Tickets({ now: Date.now, newId: () => `t${++n}`, waitMs: 20 })
-    panes = [AGENT_PANE]
+    panes = [AGENT_PANE, NEW_PANE]
     workspaceKind = 'terminal'
     enabled = true
     caps = { ok: true }
@@ -119,7 +127,9 @@ describe('ostia handoff verbs', () => {
     it('opens the new agent right after the caller with a fixed prompt that names only a ticket', async () => {
       const res = await run('start', ['fix the checkout retry; $(rm -rf /)'])
       expect(res.ok).toBe(true)
-      expect(text(res)).toBe('handoff t1 → p2abcdef started; this session is unchanged')
+      expect(text(res)).toBe(
+        'handoff t1 → p2abcdef started (the agent is running); this session is unchanged',
+      )
       expect(runAgent).toHaveBeenCalledWith({
         workspaceId: 'w1',
         agent: 'claude',
@@ -207,6 +217,22 @@ describe('ostia handoff verbs', () => {
       expect(runAgent).not.toHaveBeenCalled()
     })
 
+    it('says not-confirmed when the new tab never starts an agent session, and keeps the ticket', async () => {
+      panes = [AGENT_PANE]
+      const res = await run('start', ['checkout'])
+      expect(error(res)).toBe('not-confirmed')
+      expect((res as { message: string }).message).toContain('t1 → p2abcdef')
+      expect((await tickets.claim('t1', 'p2abcdef0123')).ok).toBe(true)
+    })
+
+    it('confirms from the new session reading its steps', async () => {
+      panes = [AGENT_PANE]
+      const started = run('start', ['checkout'])
+      await new Promise((resolve) => setTimeout(resolve, 10))
+      await run('intake', ['t1'], caller({ paneId: 'p2abcdef0123' }))
+      expect(text(await started)).toContain('(the new session read its steps)')
+    })
+
     it('forgets the ticket when the agent cannot start', async () => {
       runAgent.mockResolvedValue({ ok: false, error: 'rate-limited', message: 'too many' })
       expect(error(await run('start', ['checkout']))).toBe('not-started')
@@ -250,6 +276,12 @@ describe('ostia handoff verbs', () => {
       const first = text(res).split('\n')[0]
       expect(first).toContain('aaaa1111-0000')
       expect(first).toContain('(the session that handed off)')
+    })
+
+    it('does not follow the pane’s reported folder into another project', async () => {
+      const res = await run('find', ['checkout'], caller({ cwd: '/home/u/other' }))
+      expect(text(res)).not.toContain('cccc3333-0000')
+      expect(requireCallerCaps).not.toHaveBeenCalled()
     })
 
     it('searches every project only after the caller’s all-workspaces answer', async () => {
@@ -298,6 +330,14 @@ describe('ostia handoff verbs', () => {
       const res = await run('timeline', ['cccc3333', '--all'])
       expect(requireCallerCaps).toHaveBeenCalledOnce()
       expect(text(res)).toContain('# session cccc3333-0000')
+    })
+
+    it('refuses an id prefix that matches more than one session instead of picking one', async () => {
+      session('/home/u/app', 'aaaa2222-0000', [prompt('another one')])
+      const res = await run('timeline', ['aaaa'])
+      expect(error(res)).toBe('ambiguous-session')
+      expect((res as { message: string }).message).toContain('aaaa1111-0000')
+      expect((await run('timeline', ['aaaa1111'])).ok).toBe(true)
     })
 
     it('stops on a denied card and on an unknown or malformed id', async () => {

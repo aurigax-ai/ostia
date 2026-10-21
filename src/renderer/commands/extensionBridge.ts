@@ -4,7 +4,7 @@ import type { GitOpenDiffRequest } from '@shared/boards/git'
 import type { ProcessTerminalRequest } from '@shared/workspaces/workspaceApi'
 import { revealPane } from '@/lib/attention/workspaceActivity'
 import { findPane } from '@/lib/layout/tree'
-import { openKeepingFocus } from '@/lib/panes/callerFocus'
+import { openKeepingFocus, paneHoldsKeyboard } from '@/lib/panes/callerFocus'
 import { focusPaneWhenReady } from '@/lib/panes/paneFocus'
 import { runWhenIdle } from '@/lib/terminal/blockActions'
 import { startOffscreen } from '@/lib/terminal/offscreenStart'
@@ -109,25 +109,28 @@ export function openExtensionTerminal(req: ProcessTerminalRequest): string | nul
   const workspaces = useWorkspacesStore.getState()
   const workspaceId = req.workspaceId ?? workspaces.activeWorkspaceId
   if (!workspaceId || !workspaces.workspaces.some((w) => w.id === workspaceId)) return null
+  const takesKeyboard =
+    req.asTab === true && (req.humanCall === true || paneHoldsKeyboard(req.afterPaneId))
+  const quiet = req.backgroundTab === true || (req.asTab === true && !takesKeyboard)
   const open = (): string | null =>
     useLayoutStore.getState().openTerminal(workspaceId, {
       afterPaneId: req.afterPaneId,
       openedPaneIds: req.openedPaneIds,
       cwd: req.cwd,
       title: req.title,
-      backgroundTab: req.backgroundTab,
-      asTab: req.asTab,
+      backgroundTab: quiet,
+      asTab: takesKeyboard,
       splitTab: req.splitTab,
     })
-  const paneId = req.backgroundTab ? openKeepingFocus(open) : open()
+  const paneId = quiet ? openKeepingFocus(open) : open()
   if (!paneId) return null
   if (req.pinTitle) pinTitle(paneId)
   if (req.hostToken) useSandboxStore.getState().setHostToken(paneId, req.hostToken)
-  if (!req.backgroundTab && workspaces.activeWorkspaceId !== workspaceId) {
+  if (!quiet && workspaces.activeWorkspaceId !== workspaceId) {
     workspaces.setActive(workspaceId)
   }
   startOffscreen(paneId)
-  if (req.asTab) focusPaneWhenReady(paneId)
+  if (takesKeyboard) focusPaneWhenReady(paneId)
   runWhenShellStarts(paneId, req.command)
   return paneId
 }

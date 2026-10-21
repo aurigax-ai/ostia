@@ -3,7 +3,20 @@ import { cpSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
-import { grant } from '../main/approvals/capabilityStore'
+
+const userData = mkdtempSync(join(tmpdir(), 'ostia-handoff-approvals-'))
+const handlers = new Map<string, (...args: unknown[]) => unknown>()
+
+vi.mock('electron', () => ({
+  app: { getPath: () => userData },
+  ipcMain: {
+    handle: (channel: string, fn: (...args: unknown[]) => unknown) => handlers.set(channel, fn),
+  },
+  webContents: { fromId: () => ({ isDestroyed: () => false, send: () => {} }) },
+}))
+
+const { approvals, registerApprovals } = await import('../main/approvals/approvals')
+
 import { registerControlServer, stopControlServer } from '../main/control/controlServer'
 import { type PaneIdentity, registerPane } from '../main/control/idRegistry'
 import { ExtensionExec } from '../main/extensions/extensionExec'
@@ -139,11 +152,16 @@ describe('ostia handoff (real extension process, real socket, real CLI)', () => 
       agentNames: () => ['claude'],
       playbookEnabled: (id) => id === 'handoff' && enabled,
       exec,
-      requestTimeoutMs: 15_000,
+      requestTimeoutMs: 1500,
       readyTimeoutMs: 8000,
       log: () => {},
     })
     registerExtensionMethods(() => host)
+    registerApprovals(
+      () => {},
+      () => {},
+      { opened: () => {}, settled: () => {} },
+    )
     registerPaneListMethods({
       execCommand: async (_target, id) =>
         ({
@@ -219,13 +237,10 @@ describe('ostia handoff (real extension process, real socket, real CLI)', () => 
   const ticketOf = (stdout: string): string => /^handoff (\w+) →/.exec(stdout)?.[1] ?? ''
 
   it('hands a topic to a new tab beside the caller whose typed line carries only a ticket', async () => {
-    const started = await ostia(caller, ['handoff', 'start', 'fix the checkout retry; $(rm -rf /)'])
-    expect(started.stderr).toBe('')
-    expect(started.code).toBe(0)
-    const ticket = ticketOf(started.stdout)
-    expect(started.stdout).toContain('this session is unchanged')
-    expect(openTerminalIn).toHaveBeenCalledOnce()
+    const starting = ostia(caller, ['handoff', 'start', 'fix the checkout retry; $(rm -rf /)'])
+    await vi.waitFor(() => expect(openTerminalIn).toHaveBeenCalledOnce(), { timeout: 10_000 })
     const req = openTerminalIn.mock.calls[0][0]
+    const ticket = /intake (\w+)/.exec(req.command)?.[1] ?? ''
     expect(req).toMatchObject({ workspaceId: 'w1', afterPaneId: 'pHandoffCaller', asTab: true })
     expect(req.command).toBe(
       `claude 'Run ` +
@@ -246,6 +261,11 @@ describe('ostia handoff (real extension process, real socket, real CLI)', () => 
     expect(intake.stdout).toContain(`claude session ${CALLER_SESSION}`)
     const again = await ostia(opened, ['handoff', 'intake', ticket])
     expect(again.stderr).toContain('claimed-ticket')
+
+    const started = await starting
+    expect(started.stderr).toBe('')
+    expect(started.stdout).toContain(`handoff ${ticket} →`)
+    expect(started.stdout).toContain('the new session read its steps')
   })
 
   it('finds the caller’s session first, reads it and gathers repository facts', async () => {
@@ -264,16 +284,36 @@ describe('ostia handoff (real extension process, real socket, real CLI)', () => 
     expect(gathered.stdout).toContain('cart.ts')
   })
 
-  it('reaches other projects only through the caller’s all-workspaces, never silently', async () => {
-    const refused = await ostia(opened, ['handoff', 'find', 'checkout', '--all'])
-    expect(refused.code).not.toBe(0)
-    expect(refused.stderr).toContain('needs-elevation: all-workspaces')
+  it('reaches other projects only through a card the human answers, even after the command timeout', async () => {
     const elsewhere = await ostia(opened, ['handoff', 'timeline', 'cccc3333'])
     expect(elsewhere.stderr).toContain('other-project')
 
-    grant(opened.externalId, 'all-workspaces')
-    const found = await ostia(opened, ['handoff', 'find', 'checkout', '--all'])
+    const pending = (): number => approvals()?.stateFor('w').pending.length ?? 0
+    const answer = (choice: string): unknown => {
+      const id = approvals()?.stateFor('w').pending[0]?.id
+      return handlers.get('approvals:answer')?.(
+        { sender: { id: 'w', getType: () => 'window' } },
+        id,
+        choice,
+      )
+    }
+
+    const refused = ostia(opened, ['handoff', 'find', 'checkout', '--all'])
+    await vi.waitFor(() => expect(pending()).toBe(1), { timeout: 10_000 })
+    answer('deny')
+    const denied = await refused
+    expect(denied.code).not.toBe(0)
+    expect(denied.stderr).toContain('denied')
+    expect(denied.stdout).not.toContain(OTHER_SESSION)
+
+    const allowed = ostia(opened, ['handoff', 'find', 'checkout', '--all'])
+    await vi.waitFor(() => expect(pending()).toBe(1), { timeout: 10_000 })
+    await new Promise((resolve) => setTimeout(resolve, 2500))
+    answer('once')
+    const found = await allowed
+    expect(found.stderr).toBe('')
     expect(found.stdout).toContain(OTHER_SESSION)
+
     const timeline = await ostia(opened, ['handoff', 'timeline', 'cccc3333', '--all'])
     expect(timeline.stdout).toContain('checkout retry in another project')
   })

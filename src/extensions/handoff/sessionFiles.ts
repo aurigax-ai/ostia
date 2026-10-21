@@ -13,6 +13,7 @@ const READ_FLAGS = constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBL
 const WORKTREE_INFIX = '--claude-worktrees-'
 
 const SESSION_READ_MAX_BYTES = 32 * 1024 * 1024
+export const SCORE_READ_MAX_BYTES = 2 * 1024 * 1024
 export const SESSION_ID_PREFIX = /^[0-9a-f][0-9a-f-]{3,35}$/
 
 export interface SessionFile {

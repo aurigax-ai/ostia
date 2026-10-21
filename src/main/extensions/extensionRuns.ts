@@ -67,6 +67,7 @@ export interface TerminalOpenRequest {
   title?: string
   backgroundTab?: boolean
   asTab?: boolean
+  humanCall?: boolean
   pinTitle?: boolean
 }
 
@@ -311,6 +312,7 @@ export class ExtensionRuns {
 
   async requireCallerCaps(identity: PaneIdentity, conn: MessageConnection, params: unknown) {
     const rt = this.host.runtimeOf(identity, conn)
+    if (!rt.ext.builtin) return fail('not-available', 'only a built-in extension can ask for it')
     const p = isRecord(params) ? params : {}
     const caps = Array.isArray(p.caps) ? p.caps : []
     if (caps.length === 0 || !caps.every((c): c is Capability => CALLER_CAPS.includes(c))) {
@@ -350,7 +352,7 @@ export class ExtensionRuns {
     background: unknown,
     workspaceId: string,
   ):
-    | { afterPaneId: string; windowId: string; asTab: true }
+    | { afterPaneId: string; windowId: string; asTab: true; humanCall?: true }
     | Record<string, never>
     | { error: unknown } {
     if (raw === undefined) return {}
@@ -371,7 +373,13 @@ export class ExtensionRuns {
     if (after?.kind !== 'pane' || after.workspaceId !== workspaceId) {
       return { error: fail('unknown-pane', 'that pane is closed or in another workspace') }
     }
-    return { afterPaneId: after.paneId, windowId: after.windowId, asTab: true }
+    const calls = rt.serving.get(raw)
+    return {
+      afterPaneId: after.paneId,
+      windowId: after.windowId,
+      asTab: true,
+      ...(calls && calls.cli === 0 && calls.user > 0 ? { humanCall: true as const } : {}),
+    }
   }
 
   private markOpened(rt: Runtime, paneId: string): void {

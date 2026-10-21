@@ -56,6 +56,28 @@ describe('handoff find', () => {
     expect(lines[1]).toContain('2 hits, 2/2 words')
   })
 
+  it('searches only the newest sessions within its budget but always the caller’s', () => {
+    const files = ['aaaa0001', 'aaaa0002', 'aaaa0003'].map((id) => file(id, [prompt('checkout')]))
+    const lines = findLines(files, ['checkout'], 'aaaa0003', {
+      maxFiles: 1,
+      deadlineMs: 1000,
+      now: () => 0,
+    })
+    expect(lines.map((l) => l.split(' ')[0])).toEqual(['aaaa0003', 'aaaa0001', '…'])
+    expect(lines.at(-1)).toBe('… 1 older sessions not searched; use more specific words')
+  })
+
+  it('stops searching at its deadline', () => {
+    const files = ['aaaa0001', 'aaaa0002'].map((id) => file(id, [prompt('checkout')]))
+    let clock = 0
+    const lines = findLines(files, ['checkout'], null, {
+      maxFiles: 10,
+      deadlineMs: 5,
+      now: () => (clock += 10),
+    })
+    expect(lines.at(-1)).toContain('not searched')
+  })
+
   it('shows at most fifteen lines and counts the rest', () => {
     const files = Array.from({ length: FIND_LIMIT + 3 }, (_, i) =>
       file(`aaaa${String(i).padStart(4, '0')}`, [prompt('checkout')]),

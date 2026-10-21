@@ -27,6 +27,8 @@ const USAGE = {
 
 const PLAYBOOK_OFF = 'turn on the handoff playbook in Settings › Agents › Playbooks'
 const SESSIONS_FOR_AGENT = 'claude'
+const CONFIRM_MS = 20_000
+const CONFIRM_POLL_MS = 500
 
 export interface HandoffDeps {
   ext: Pick<
@@ -35,6 +37,8 @@ export interface HandoffDeps {
   >
   tickets: Tickets
   projectsDir: string
+  confirmMs?: number
+  pollMs?: number
 }
 
 interface Acting {
@@ -99,7 +103,7 @@ function isActing(value: Acting | ExtensionResult): value is Acting {
 }
 
 function foldersOf(who: Acting): string[] {
-  return [...new Set([who.workDir, who.cwd].filter((f) => f !== ''))]
+  return who.workDir === '' ? [] : [who.workDir]
 }
 
 async function reachAll(deps: HandoffDeps, who: Acting): Promise<ExtensionResult | null> {
@@ -109,6 +113,21 @@ async function reachAll(deps: HandoffDeps, who: Acting): Promise<ExtensionResult
     'read the sessions of every project',
   )
   return res.ok ? null : failure(res.error, res.message)
+}
+
+async function confirmStarted(
+  deps: HandoffDeps,
+  ticketId: string,
+  paneId: string,
+): Promise<'the new session read its steps' | 'the agent is running' | null> {
+  const until = Date.now() + (deps.confirmMs ?? CONFIRM_MS)
+  for (;;) {
+    if (deps.tickets.isClaimed(ticketId)) return 'the new session read its steps'
+    const panes = await deps.ext.listPanes().catch((): PaneInfo[] => [])
+    if (panes.find((p) => p.paneId === paneId)?.agentSessionId) return 'the agent is running'
+    if (Date.now() >= until) return null
+    await new Promise((resolve) => setTimeout(resolve, deps.pollMs ?? CONFIRM_POLL_MS))
+  }
 }
 
 export function handoffVerbs(deps: HandoffDeps): Record<string, CommandHandler> {
@@ -147,9 +166,15 @@ export function handoffVerbs(deps: HandoffDeps): Record<string, CommandHandler> 
       return failure('not-started', started.message ?? started.error)
     }
     deps.tickets.opened(ticket.id, started.paneId)
-    return ok(
-      `handoff ${ticket.id} → ${started.paneId.slice(0, 8)} started; this session is unchanged`,
-    )
+    const seen = await confirmStarted(deps, ticket.id, started.paneId)
+    const where = `${ticket.id} → ${started.paneId.slice(0, 8)}`
+    if (seen === null) {
+      return failure(
+        'not-confirmed',
+        `handoff ${where}: the new tab started no agent session within ${CONFIRM_MS / 1000} s; check that ${pane.agent} runs there and the agent hooks are on. The ticket stays valid for 10 minutes.`,
+      )
+    }
+    return ok(`handoff ${where} started (${seen}); this session is unchanged`)
   }
 
   const intake: CommandHandler = async (args, caller) => {
@@ -173,7 +198,7 @@ export function handoffVerbs(deps: HandoffDeps): Record<string, CommandHandler> 
       const denied = await reachAll(deps, who)
       if (denied) return denied
     }
-    const files = listSessions(deps.projectsDir, parsed.all ? 'all' : foldersOf(who))
+    const files = parsed.all ? listSessions(deps.projectsDir, 'all') : sessionsInScope(deps, who)
     const lines = findLines(files, terms, deps.tickets.claimedBy(who.paneId)?.sessionId ?? null)
     return ok(lines.length > 0 ? lines.join('\n') : 'no session mentions those words')
   }
@@ -210,20 +235,38 @@ const CLAIM_MESSAGES = {
   'wrong-pane': 'this ticket belongs to the session it opened',
 } as const
 
+function sessionsInScope(deps: HandoffDeps, who: Acting): SessionFile[] {
+  const files = listSessions(deps.projectsDir, foldersOf(who))
+  const callerSession = deps.tickets.claimedBy(who.paneId)?.sessionId
+  if (!callerSession || files.some((f) => f.id === callerSession)) return files
+  return [
+    ...files,
+    ...sessionsByPrefix(deps.projectsDir, callerSession).filter((f) => f.id === callerSession),
+  ]
+}
+
 async function resolveSessions(
   deps: HandoffDeps,
   who: Acting,
   prefixes: readonly string[],
   all: boolean,
 ): Promise<SessionFile[] | ExtensionResult> {
-  const inScope = new Set(listSessions(deps.projectsDir, foldersOf(who)).map((s) => s.path))
+  const inScope = new Set(sessionsInScope(deps, who).map((s) => s.path))
   const chosen = new Map<string, SessionFile>()
   let outside = false
   for (const prefix of prefixes) {
     const found = sessionsByPrefix(deps.projectsDir, prefix)
     if (found.length === 0) return failure('unknown-session', `no session ${prefix}`)
+    const exact = found.filter((s) => s.id === prefix)
     const near = found.filter((s) => inScope.has(s.path))
-    const pick = near[0] ?? found[0]
+    const candidates = exact.length === 1 ? exact : near.length > 0 ? near : found
+    if (candidates.length > 1) {
+      return failure(
+        'ambiguous-session',
+        `${prefix} matches ${candidates.map((c) => c.id).join(', ')}; give more characters`,
+      )
+    }
+    const pick = candidates[0]
     if (!inScope.has(pick.path)) outside = true
     chosen.set(pick.path, pick)
   }

@@ -110,7 +110,11 @@ function registerHostMethods(host: () => ExtensionHost | null, forExtension: For
         return fail('invalid-params', 'extId and command are required')
       }
       const release = h.runs.holdCliCall(ctx.identity, ctx.authed)
-      return invokeAsPane(h, ctx.identity, p.extId, p.command, p.args).finally(release)
+      const closed = ctx.conn.onClose(release)
+      return invokeAsPane(h, ctx.identity, p.extId, p.command, p.args).finally(() => {
+        closed.dispose()
+        release()
+      })
     },
   })
   registerControlMethod(

@@ -198,6 +198,7 @@ describe('ExtensionHost agent tasks: ext.agents, ext.runAgent, ext.offerToAgent,
       afterPaneId: 'pane-opened',
       windowId: '7',
       asTab: true,
+      humanCall: true,
     })
   })
 

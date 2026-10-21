@@ -1,5 +1,5 @@
 import { isRecord } from '@aurigax-ai/ostia-extension-sdk/contract/isRecord'
-import { readSessionLines, type SessionFile } from './sessionFiles'
+import { readSessionLines, SCORE_READ_MAX_BYTES, type SessionFile } from './sessionFiles'
 import { clip, textOf } from './timeline'
 
 export const FIND_LIMIT = 15
@@ -49,7 +49,7 @@ function parse(line: string): Json | null {
 export function scoreSession(
   file: SessionFile,
   terms: readonly string[],
-  lines = readSessionLines(file.path),
+  lines = readSessionLines(file.path, SCORE_READ_MAX_BYTES),
 ): SessionScore {
   let hits = 0
   const matched = new Set<string>()
@@ -82,12 +82,28 @@ function stamp(ms: number): string {
   return `${two(d.getMonth() + 1)}-${two(d.getDate())} ${two(d.getHours())}:${two(d.getMinutes())}`
 }
 
+export interface FindBudget {
+  maxFiles: number
+  deadlineMs: number
+  now: () => number
+}
+
+const DEFAULT_BUDGET: FindBudget = { maxFiles: 150, deadlineMs: 10_000, now: Date.now }
+
 export function findLines(
   files: readonly SessionFile[],
   terms: readonly string[],
   callerSession: string | null,
+  budget: FindBudget = DEFAULT_BUDGET,
 ): string[] {
-  const scores = files.map((f) => scoreSession(f, terms))
+  const stopAt = budget.now() + budget.deadlineMs
+  const scores: SessionScore[] = []
+  for (const file of files) {
+    const isCaller = file.id === callerSession
+    if (!isCaller && (scores.length >= budget.maxFiles || budget.now() > stopAt)) continue
+    scores.push(scoreSession(file, terms))
+  }
+  const skipped = files.length - scores.length
   const caller = scores.find((s) => s.file.id === callerSession)
   const ranked = scores
     .filter((s) => s.hits > 0 && s !== caller)
@@ -98,7 +114,11 @@ export function findLines(
     ...ranked.slice(0, room).map((s) => lineOf(s, terms, false)),
   ]
   const more = ranked.length - room
-  return more > 0 ? [...lines, `… ${more} more sessions with fewer hits`] : lines
+  return [
+    ...lines,
+    ...(more > 0 ? [`… ${more} more sessions with fewer hits`] : []),
+    ...(skipped > 0 ? [`… ${skipped} older sessions not searched; use more specific words`] : []),
+  ]
 }
 
 function lineOf(s: SessionScore, terms: readonly string[], caller: boolean): string {

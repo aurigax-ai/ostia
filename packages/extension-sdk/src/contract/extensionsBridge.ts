@@ -85,6 +85,7 @@ export interface ExtensionOpenTerminalRequest {
   title?: string
   backgroundTab?: boolean
   asTab?: boolean
+  humanCall?: boolean
   pinTitle?: boolean
 }
 

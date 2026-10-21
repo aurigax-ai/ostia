@@ -27,13 +27,15 @@
         "id": "find",
         "title": "Rank past sessions by the words they mention",
         "usage": "find \"<words>\" [--all]",
-        "palette": false
+        "palette": false,
+        "interactive": true
       },
       {
         "id": "timeline",
         "title": "Print past sessions as compact timelines",
         "usage": "timeline <session-id>... [--all]",
-        "palette": false
+        "palette": false,
+        "interactive": true
       },
       {
         "id": "gather",
