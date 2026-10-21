@@ -71,7 +71,9 @@ export function EditorView({
         {selectionSend.status}
       </div>
       <div className="relative min-h-0 flex-1">
-        {blocked ? <EditorBlocked blocked={blocked} /> : null}
+        {blocked ? (
+          <EditorBlocked blocked={blocked} workspaceId={workspaceId} filePath={filePath} />
+        ) : null}
         <div
           ref={hostRef}
           className="editor-host"

@@ -156,7 +156,7 @@ export function ScopeControl({
         <CaretDownIcon />
       </PopoverTrigger>
       <PopoverContent
-        align="start"
+        align="end"
         aria-label={t.scope}
         className="scope-menu max-h-[min(420px,70vh)] w-[min(300px,calc(100vw-16px))] gap-0 p-1 text-fg text-ui-sm"
       >

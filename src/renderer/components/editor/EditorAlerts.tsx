@@ -1,5 +1,8 @@
 import { DIFF_TEXT_MAX } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
-import { parseRemotePath } from '@aurigax-ai/ostia-extension-sdk/contract/remoteFolders'
+import {
+  isRemotePath,
+  parseRemotePath,
+} from '@aurigax-ai/ostia-extension-sdk/contract/remoteFolders'
 import { FileDashedIcon } from '@phosphor-icons/react'
 import { PAD_MAX_BYTES } from '@shared/artifacts/artifacts'
 import type { MutableRefObject } from 'react'
@@ -16,6 +19,7 @@ import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import type { DiskBar, ReloadFromDisk } from './editorDiskSync'
 import { remoteVersions, setDiskBase } from './editorModels'
+import { NoPreview } from './NoPreview'
 import type { Blocked } from './useEditorFile'
 
 function shownPath(filePath: string): string {
@@ -37,12 +41,23 @@ interface EditorAlertsProps {
   external: { error: string | null }
 }
 
-export function EditorBlocked({ blocked }: { blocked: Blocked }): JSX.Element {
+export function EditorBlocked({
+  blocked,
+  workspaceId,
+  filePath,
+}: {
+  blocked: Blocked
+  workspaceId: string
+  filePath: string | undefined
+}): JSX.Element {
   const d = useDict()
   const locale = useSettingsStore((s) => s.locale)
+  if (blocked.kind === 'binary' && filePath && !isRemotePath(filePath)) {
+    return <NoPreview workspaceId={workspaceId} filePath={filePath} />
+  }
   const text =
     blocked.kind === 'binary'
-      ? d.editor.binary
+      ? d.editor.noPreview
       : blocked.kind === 'too-large'
         ? fmt(d.editor.tooLarge, { size: formatBytes(blocked.size, locale) })
         : blocked.kind === 'archive'

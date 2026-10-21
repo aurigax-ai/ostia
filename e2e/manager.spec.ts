@@ -2,7 +2,7 @@ import { type ChildProcess, spawn } from 'node:child_process'
 import { mkdirSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import { DOM_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
-import { type Page, _electron as electron, expect, test } from './test'
+import { _electron as electron, expect, type Page, test } from './test'
 
 const CLI = resolve('out/cli/index.js')
 const FAKE_AGENT_BIN = resolve('test/fixtures/manager/bin')
@@ -99,10 +99,10 @@ test('MGR-C21 ostia <agent> from outside mirrors a read-only manager and passes 
     await expect.poll(mirror.output, { timeout: 20_000 }).toContain('agent ready hello-arg')
     await expect(win.locator('.rail-tab', { hasText: 'Manager · fake' })).toBeVisible()
     await expect(managerView(win)).toContainText('agent ready hello-arg')
-    await expect(win.locator('.manager-notice')).toContainText('Read-only')
 
     await win.locator('.manager-host').click()
     await win.keyboard.type('zzz')
+    await expect(win.getByRole('status').filter({ hasText: 'Read-only' })).toBeVisible()
     mirror.type('ping\r')
     await expect.poll(mirror.output).toContain('got ping')
     await expect(managerView(win)).toContainText('got ping')
@@ -110,7 +110,9 @@ test('MGR-C21 ostia <agent> from outside mirrors a read-only manager and passes 
 
     mirror.type('quit\r')
     expect(await mirror.exited).toBe(7)
-    await expect(win.locator('.manager-notice')).toContainText('The manager has ended.')
+    await expect(
+      win.getByRole('status').filter({ hasText: 'The manager has ended.' }),
+    ).toBeVisible()
   } finally {
     mirror.child.kill()
     await app.close().catch(() => {})

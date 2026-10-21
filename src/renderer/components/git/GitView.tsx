@@ -3,12 +3,13 @@ import { IconButton } from '@/components/common/IconButton'
 import { SectionTab, SectionTabsList } from '@/components/common/SectionTabs'
 import { Tabs } from '@/components/ui/tabs'
 import { fmt, useDict } from '@/lib/app/useDict'
-import { failureText } from '@/lib/git/gitView'
+import { failureText, trackingTitle } from '@/lib/git/gitView'
 import type { GitPage } from '@/stores/files/gitViewStore'
 import { BlamePage } from './BlamePage'
 import { ChangesPage } from './ChangesPage'
 import { GitEmpty } from './GitEmpty'
 import { GraphPage } from './GraphPage'
+import { ScopeControl } from './ScopeControl'
 import './git.css'
 import { type GitHome, useGitView } from './useGitView'
 
@@ -58,6 +59,8 @@ export function GitView({
   const pages: GitPage[] =
     home === 'dock' ? ['changes'] : blameFile || page === 'blame' ? ['graph', 'blame'] : ['graph']
   const shown = loaded?.page === page ? loaded : null
+  const branch = shown && shown.page !== 'blame' ? shown.data.branch : null
+  const refreshLabel = branch ? `${t.refresh} · ${trackingTitle(t, branch)}` : t.refresh
 
   return (
     <div className="git-surface" data-page={page}>
@@ -74,9 +77,12 @@ export function GitView({
           ))}
         </SectionTabsList>
         <span className="tabs-end">
+          {shown?.page === 'graph' ? (
+            <ScopeControl data={shown.data} onScope={(scope) => void changeScope(scope)} />
+          ) : null}
           <IconButton
             icon={ArrowClockwiseIcon}
-            label={t.refresh}
+            label={refreshLabel}
             className="refresh"
             onClick={() => void refresh()}
           />
@@ -128,7 +134,6 @@ export function GitView({
             handlers={handlers}
             onSelect={setSelected}
             onLoadMore={loadMore}
-            onScope={(scope) => void changeScope(scope)}
             onOpenFile={openCommitFile}
           />
         ) : (

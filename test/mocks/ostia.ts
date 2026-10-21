@@ -266,6 +266,7 @@ export function makeOstiaMock(overrides?: Partial<OstiaBridge>): OstiaBridge {
     },
     openPath: {
       openDefault: vi.fn().mockResolvedValue({ ok: true }),
+      canOpenDefault: vi.fn().mockResolvedValue(true),
       reveal: vi.fn().mockResolvedValue({ ok: true }),
       openLink: vi.fn().mockResolvedValue(true),
       project: vi.fn().mockResolvedValue(null),

@@ -811,11 +811,12 @@ describe('EditorView', () => {
     await waitFor(() => expect(window.ostia.fs.write).toHaveBeenCalledWith('/w/a.txt', 'changed'))
   })
 
-  it('shows a binary-file message instead of opening a file main reports as binary', async () => {
+  it('shows the no-preview pane instead of opening a file main reports as binary', async () => {
     vi.mocked(window.ostia.fs.read).mockResolvedValue({ ok: false, error: 'binary' })
     render(<EditorView workspaceId="w1" paneId="p1" filePath="/w/blob.bin" />)
 
-    expect(await screen.findByText(/Binary file/)).toBeInTheDocument()
+    expect(await screen.findByText('No preview for this file.')).toBeInTheDocument()
+    expect(screen.queryByText(/blob\.bin/)).toBeNull()
     expect(fake.models.size).toBe(0)
   })
 

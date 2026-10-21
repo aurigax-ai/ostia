@@ -59,6 +59,7 @@ export const filesBridge: Pick<
   },
   openPath: {
     openDefault: (path) => ipcRenderer.invoke('shell:open-default', path),
+    canOpenDefault: (path) => ipcRenderer.invoke('shell:can-open-default', path),
     reveal: (path) => ipcRenderer.invoke('shell:reveal', path),
     openLink: (url) => ipcRenderer.invoke('shell:open-link', url),
     project: (dir, exact) => ipcRenderer.invoke('workspace:project', dir, exact),

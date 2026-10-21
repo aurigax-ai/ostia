@@ -11,7 +11,7 @@ vi.mock('electron', () => ({
   BrowserWindow: { fromWebContents: (wc: unknown) => owners.get(wc) ?? null },
 }))
 
-const { isProgram, openLink, openUnlessProgram } = await import('./openPath')
+const { canOpenDefault, isProgram, openLink, openUnlessProgram } = await import('./openPath')
 
 describe('isProgram', () => {
   it('treats launchers, scripts and executable files as programs', () => {
@@ -109,6 +109,26 @@ describe('openUnlessProgram', () => {
       error: 'not-found',
     })
     expect(openPath).not.toHaveBeenCalled()
+  })
+})
+
+describe('canOpenDefault', () => {
+  let dir: string
+  beforeEach(() => {
+    dir = mkdtempSync(join(tmpdir(), 'ostia-can-open-'))
+  })
+  afterEach(() => rmSync(dir, { recursive: true, force: true }))
+
+  it('agrees with openUnlessProgram and launches nothing', async () => {
+    const doc = join(dir, 'model.blend')
+    writeFileSync(doc, 'BLENDER')
+    const script = join(dir, 'setup.exe')
+    writeFileSync(script, 'MZ')
+    const disguised = join(dir, 'notes.txt')
+    writeFileSync(disguised, '#!/bin/sh\n')
+    expect(await canOpenDefault(doc, statSync(doc))).toBe(true)
+    expect(await canOpenDefault(script, statSync(script))).toBe(false)
+    expect(await canOpenDefault(disguised, statSync(disguised))).toBe(false)
   })
 })
 
