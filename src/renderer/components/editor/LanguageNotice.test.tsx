@@ -196,7 +196,7 @@ describe('LanguageNotice', () => {
     expect(screen.queryByRole('button')).toBeNull()
   })
 
-  it('points at Settings → Languages when the server cannot start', async () => {
+  it('opens the extension’s row on the Extensions page when the server cannot start', async () => {
     suggest(null)
     vi.mocked(window.ostia.lsp.servers).mockResolvedValue([
       server({ status: 'toolchain-missing', name: 'gopls', languages: ['go'], program: 'gopls' }),
@@ -206,7 +206,8 @@ describe('LanguageNotice', () => {
       'gopls cannot start: Go is not installed.',
     )
     await userEvent.setup().click(screen.getByRole('button', { name: 'Open Settings' }))
-    expect(useUIStore.getState().settingsSection).toBe('languageServers')
+    expect(useUIStore.getState().settingsSection).toBe('extensions')
+    expect(useUIStore.getState().settingsExtension).toBe('lsp-rust-analyzer')
   })
 })
 

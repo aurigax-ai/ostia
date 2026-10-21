@@ -9,7 +9,6 @@ import {
 import type { ExtensionAnchor } from '@/components/extensions/InstalledExtensions'
 import { GatewaySection } from '@/components/gateway/GatewaySection'
 import { KeyboardSection } from '@/components/keyboard/KeyboardSection'
-import { LanguagesSection } from '@/components/languageServers/LanguagesSection'
 import { PanesSection } from '@/components/panes/PanesSection'
 import { SandboxSection } from '@/components/sandbox/SandboxSection'
 import { WorkspaceSandboxPage } from '@/components/sandbox/WorkspaceSandboxPage'
@@ -200,7 +199,6 @@ const SettingsPages = memo(function SettingsPages({
         <ExtensionSettingsPage key={shownPage.id} ext={shownPage} />
       ) : null}
       {id === 'views' ? <ViewsSection /> : null}
-      {id === 'languageServers' ? <LanguagesSection /> : null}
       {id === 'remote' ? <GatewaySection /> : null}
       {id === 'sync' ? <SyncSection /> : null}
       {id === 'about' ? <AboutSection /> : null}
