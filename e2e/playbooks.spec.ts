@@ -16,7 +16,7 @@ test.describe.configure({ timeout: 120_000 })
 
 const FAKE_CLAUDE = [
   '#!/bin/sh',
-  'for arg; do [ "$prev" = --plugin-dir ] && plugin=$arg; prev=$arg; done',
+  'for arg; do [ "$prev" = --plugin-dir ] && [ -z "$plugin" ] && plugin=$arg; prev=$arg; done',
   'printf "playbooks:"; for n in coordinator worker review handoff; do [ -f "$plugin/skills/$n/SKILL.md" ] && printf "%s," "$n"; done; echo',
   'echo "edited:$(cat "$plugin/skills/coordinator/SKILL.md" 2>/dev/null | grep -c E2E-EDIT)"',
   'echo "human-only:$(cat "$plugin/skills/coordinator/SKILL.md" 2>/dev/null | grep -c "^disable-model-invocation: true$")"',
