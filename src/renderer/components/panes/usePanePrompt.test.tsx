@@ -1,11 +1,12 @@
 import '@testing-library/jest-dom/vitest'
+import * as resumeFolder from '@/lib/agents/resumeFolder'
 import type { PaneNode } from '@/lib/layout/types'
 import { useApprovalsStore } from '@/stores/agents/approvalsStore'
 import { useFolderTrustStore } from '@/stores/agents/folderTrustStore'
 import { useHiddenPromptsStore } from '@/stores/agents/hiddenPromptsStore'
 import { useQuestionsStore } from '@/stores/agents/questionsStore'
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { usePanePrompt } from './usePanePrompt'
 
 function Host({ pane }: { pane: PaneNode }): JSX.Element {
@@ -15,6 +16,7 @@ function Host({ pane }: { pane: PaneNode }): JSX.Element {
 const pane: PaneNode = { type: 'pane', id: 'p1', title: 'claude', kind: 'terminal' }
 
 afterEach(() => {
+  vi.restoreAllMocks()
   cleanup()
   useApprovalsStore.setState({ pending: [], history: [] })
   useQuestionsStore.setState({ pending: [] })
@@ -98,5 +100,21 @@ describe('usePanePrompt', () => {
 
     rerender(<Host pane={{ ...missing, resumeFolderMissing: '/gone-again' }} />)
     expect(screen.getByRole('region', { name: 'Agent folder missing' })).toBeInTheDocument()
+  })
+
+  it('forgets a hidden conflict once it ends, so the same holder conflicting again shows again', () => {
+    const resuming: PaneNode = { ...pane, resume: { agent: 'claude', id: 's1' } }
+    const holder: PaneNode = { type: 'pane', id: 'p2', title: 'other', kind: 'terminal' }
+    vi.spyOn(resumeFolder, 'resumeConflict').mockReturnValue(holder)
+    const { rerender } = render(<Host pane={resuming} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Hide this message' }))
+    expect(screen.queryByRole('region', { name: 'Agent session open twice' })).toBeNull()
+
+    vi.spyOn(resumeFolder, 'resumeConflict').mockReturnValue(null)
+    rerender(<Host pane={{ ...resuming, title: 'claude 2' }} />)
+    vi.spyOn(resumeFolder, 'resumeConflict').mockReturnValue(holder)
+    rerender(<Host pane={{ ...resuming, title: 'claude 3' }} />)
+
+    expect(screen.getByRole('region', { name: 'Agent session open twice' })).toBeInTheDocument()
   })
 })

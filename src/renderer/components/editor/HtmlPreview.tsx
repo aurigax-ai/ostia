@@ -185,7 +185,9 @@ function PreviewBars({
           onDismiss={() => setLink(null)}
         >
           <Hint label={link}>
-            <span className="select-text font-mono">{link}</span>
+            <span className="select-text font-mono" tabIndex={0}>
+              {link}
+            </span>
           </Hint>
         </StatusLine>
       ) : null}

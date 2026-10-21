@@ -25,7 +25,11 @@ export interface SelectionSend {
   status: ReactNode
 }
 
-export function useSelectionSend(workspaceId: string, paneId: string): SelectionSend {
+export function useSelectionSend(
+  workspaceId: string,
+  paneId: string,
+  overlay = false,
+): SelectionSend {
   const d = useDict()
   const targets = useAgentTargets(workspaceId)
   const noTargets = useNoAgentsText(workspaceId)
@@ -97,5 +101,12 @@ export function useSelectionSend(workspaceId: string, paneId: string): Selection
     <StatusLine onDismiss={() => setStatus(null)}>{status}</StatusLine>
   ) : null
 
-  return { open, notify: setFailure, panel, status: statusLine }
+  const shown =
+    statusLine && overlay ? (
+      <div className="absolute inset-x-0 top-0 z-20">{statusLine}</div>
+    ) : (
+      statusLine
+    )
+
+  return { open, notify: setStatus, panel, status: shown }
 }
