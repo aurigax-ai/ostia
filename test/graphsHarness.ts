@@ -310,6 +310,7 @@ export async function graphsHarness(
   registerExtensionMcp({ mcp: () => mcp })
   if (opts.mcp) host.processes.approve('graphs')
   registerBusMethods({
+    hibernated: () => false,
     managerSendAllowed: () => true,
     agentBusy: () => false,
     announce: () => {},

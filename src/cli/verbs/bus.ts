@@ -20,6 +20,7 @@ import {
   failWith,
 } from '../common/failure'
 import { tsvLine } from '../common/lineField'
+import { readAllStdin } from '../common/stdinText'
 
 export const BUS_HOOK_USAGE = `usage: ostia bus hook <${AGENT_HOOK_CONTEXT_EVENTS.join('|')}|mod-ready|take|ack>`
 
@@ -70,7 +71,11 @@ export function sendExitCode(res: MailReceipt & { reply?: unknown }, waited: boo
 }
 
 export interface BusHookIo {
-  context: (event: AgentHookEvent) => Promise<{ text?: string | null; lease?: string }>
+  context: (
+    event: AgentHookEvent,
+    source: string | undefined,
+  ) => Promise<{ text?: string | null; lease?: string }>
+  source: () => Promise<string | undefined>
   ack: (lease: string) => Promise<unknown>
   take: () => Promise<unknown>
   modReady: (state: string) => Promise<unknown>
@@ -88,6 +93,25 @@ async function modHook(call: () => Promise<unknown>, io: BusHookIo): Promise<num
   return 0
 }
 
+const HOOK_STDIN_MS = 1000
+
+async function hookSource(): Promise<string | undefined> {
+  if (process.stdin.isTTY) return undefined
+  const timer = new Promise<undefined>((resolve) => {
+    setTimeout(() => {
+      process.stdin.destroy()
+      resolve(undefined)
+    }, HOOK_STDIN_MS).unref()
+  })
+  try {
+    const raw = await Promise.race([readAllStdin(), timer])
+    const source = raw ? (JSON.parse(raw) as { source?: unknown }).source : undefined
+    return typeof source === 'string' ? source : undefined
+  } catch {
+    return undefined
+  }
+}
+
 export async function runBusHook(args: readonly string[], io: BusHookIo): Promise<number> {
   const [event, ...rest] = args
   if (event === 'take' && rest.length === 0) return modHook(() => io.take(), io)
@@ -100,7 +124,7 @@ export async function runBusHook(args: readonly string[], io: BusHookIo): Promis
     return 1
   }
   try {
-    const res = await io.context(event)
+    const res = await io.context(event, event === 'SessionStart' ? await io.source() : undefined)
     const output = agentHookOutput(event, res.text ?? undefined)
     if (output) io.out(output)
     if (res.lease) await io.ack(res.lease)
@@ -134,6 +158,7 @@ interface BusSentResult {
 interface BusMessage {
   id: string
   from: string
+  fromName?: string
   to: string
   text: string
   ts: string
@@ -228,8 +253,12 @@ export async function runBusVerb(conn: MessageConnection): Promise<void> {
     }
   } else if (sub === 'hook') {
     process.exitCode = await runBusHook(rawArgs, {
-      context: (event) =>
-        conn.sendRequest<{ text?: string | null; lease?: string }>('bus.context', { event }),
+      context: (event, source) =>
+        conn.sendRequest<{ text?: string | null; lease?: string }>('bus.context', {
+          event,
+          ...(source ? { source } : {}),
+        }),
+      source: hookSource,
       ack: (lease) => conn.sendRequest('bus.ack', { lease }),
       take: () => conn.sendRequest('bus.take'),
       modReady: (state) => conn.sendRequest('bus.modReady', { state }),

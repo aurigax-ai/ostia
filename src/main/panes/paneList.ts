@@ -4,7 +4,8 @@ import type { CommandResult, CommandTarget } from '../../shared/control/commands
 import type { TerminalStateSnapshot } from '../../shared/terminal/ptyApi'
 import type { Reach } from '../approvals/reach'
 import { type ControlMethodContext, registerControlMethod } from '../control/controlServer'
-import { getByPaneId } from '../control/idRegistry'
+import { getByPaneId, resolveExternal } from '../control/idRegistry'
+import { nameOf } from './paneNames'
 
 interface PaneAgentFields {
   agent?: string
@@ -64,6 +65,8 @@ export interface PaneEntry extends PaneAgentFields {
   startError?: string
   agentSessionConflict?: string[]
   process?: PaneProcessStatus
+  name?: string
+  description?: string
 }
 
 interface PaneProcessStatus {
@@ -190,6 +193,14 @@ export async function listWorkspaceGroups(
 
 const READ_BOARD: Capability = 'read-board'
 
+function withBusName(pane: PaneEntry): PaneEntry {
+  const identity = resolveExternal(pane.paneId)
+  const held = identity?.kind === 'pane' ? nameOf(identity.paneId) : undefined
+  return held
+    ? { ...pane, name: held.name, ...(held.desc ? { description: held.desc } : {}) }
+    : pane
+}
+
 export function registerPaneListMethods(deps: PaneListDeps): void {
   const scoped = async (ctx: ControlMethodContext) => (await deps.reach?.scriptReach(ctx)) ?? null
 
@@ -198,7 +209,8 @@ export function registerPaneListMethods(deps: PaneListDeps): void {
     callers: 'all',
     scripts: true,
     handler: async (_params, ctx) => {
-      const [scope, panes] = await Promise.all([scoped(ctx), listPanes(deps)])
+      const [scope, listed] = await Promise.all([scoped(ctx), listPanes(deps)])
+      const panes = ctx.identity.kind === 'extension' ? listed : listed.map(withBusName)
       return scope ? panes.filter((p) => scope.covers(p.workspaceId)) : panes
     },
   })

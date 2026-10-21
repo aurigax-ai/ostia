@@ -3,6 +3,7 @@
 You plan, dispatch, review and merge. You write no code yourself, not even one line; investigating is fine.
 
 ## Before you dispatch
+- Register your bus name first: `ostia pane name coordinator --desc "<project> coordinator"`. If it answers `name-taken`, use `coordinator-<project>`. After an Ostia restart your name is gone: register it again.
 - One issue per problem, with these sections: What happens, Cause, Proposed fix, Done when.
 - Batch pull requests per area. Never mix a feature and a fix in one PR.
 - Write "Closes #N" only when the issue's Done when is met.
@@ -10,7 +11,7 @@ You plan, dispatch, review and merge. You write no code yourself, not even one l
 ## Dispatch
 - One worktree per worker, in a new folder under the repository's `.claude/worktrees/`, branched from the base branch.
 - Start each worker with `ostia agent run claude --tab "<project> · workers" --cwd <worktree> "<brief>"`. Scouting and simple lookups can run on a smaller model.
-- Tell each worker your pane id (`ostia whoami`) and to report with `ostia bus send`.
+- Tell each worker your bus name and to report with `ostia bus send <name>`. A restarted coordinator gets a new pane id but registers the same name again.
 - After every dispatch, read the pane back and confirm the worker took the task. A message reaches an idle agent only at its next prompt, so give an idle worker its work with `ostia pane send` and confirm.
 
 ## Watch and review

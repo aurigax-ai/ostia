@@ -11,11 +11,26 @@
 | `hibernated?`, `waking?` | Ostia stopped the idle agent; it is starting again |
 | `splitTabId?`, `splitTabName?` | the split tab holding it |
 | `process?` | `{id, status, start}` of the command `process run` or `agent run` started there |
+| `name?`, `description?` | the bus name and one-line description its agent registered with `pane name` |
 
 - **list** keeps every pane you can see by default; `--here` keeps your workspace, `--workspace
   <id|name>` another, `--state` (repeat it: `idle`, `running`, `working`, `waiting`, `done`, `error`,
   `hibernated`, `waking`) and `--kind` narrow it further. Text shows the first 8 characters of each
   id; `--json` keeps the full ids.
+- **name** `<name>` registers the bus name of your own pane, never another's, and only while a
+  claude or codex agent runs there (`not-an-agent`). A name is 1 to 40 lowercase letters, digits,
+  `-` and `.` (upper case is refused), not 8 or more hex digits (those read as a pane id), plus
+  `--desc <text>`, one line of at most 200 characters. Claiming another name replaces yours and
+  `--clear` removes it. A name has one holder in all of Ostia: a second claim answers `name-taken:
+  <name> held by <pane>` (`another pane` when you cannot reach the holder). A `<pane>` that is both
+  a bus name and the `--name` of a tab you reach answers `ambiguous-pane`; `process run` and `agent
+  run` refuse a `--name` that is a bus name. The manager pane takes none. Ostia drops the name when
+  the pane closes (or its window or workspace), its shell exits, its agent session ends or
+  changes, or the shell is back at its prompt after the agent left; hibernation, waking and a
+  window reload keep it. An Ostia restart clears every name, including an agent a kept shell
+  carried over: register again. A resumed or cleared session is told its name is gone. A message
+  shows the sender's real pane id in `from` and its current name in `name`, so a name is never
+  proof of who sent it.
 - **status** with no pane answers the other terminals in your workspace you may read without asking (the tabs you opened, at most 32). Each line
   starts with the pane's id. It answers facts, never the screen: `state` (`working`, `waiting`, `done`, `error`,
   `idle`, `hibernated`, `waking`, `exited`, `shell`), how long it has been in it, the closing line,

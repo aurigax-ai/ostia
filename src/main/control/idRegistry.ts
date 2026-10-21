@@ -1,4 +1,5 @@
 import { createHmac, randomBytes, randomUUID } from 'node:crypto'
+import { dropName } from '../panes/paneNames'
 
 type IdentityKind = 'pane' | 'extension' | 'script'
 
@@ -91,6 +92,7 @@ export function removePane(paneId: string): void {
   if (!id) return
   byPane.delete(id.paneId)
   unindex(id)
+  dropName(id.paneId)
 }
 
 export function removeWindow(windowId: string): void {

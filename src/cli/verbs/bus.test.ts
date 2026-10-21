@@ -11,6 +11,7 @@ import {
 
 function io(
   context: BusHookIo['context'],
+  source: string | undefined = undefined,
 ): BusHookIo & { lines: string[]; errors: string[]; acks: string[] } {
   const lines: string[] = []
   const errors: string[] = []
@@ -20,6 +21,7 @@ function io(
     errors,
     acks,
     context: vi.fn(context),
+    source: async () => source,
     ack: async (lease) => {
       acks.push(lease)
     },
@@ -31,12 +33,21 @@ function io(
 }
 
 describe('runBusHook', () => {
+  it('passes the SessionStart source on, and reads none for other events', async () => {
+    const start = io(async () => ({ text: null }), 'resume')
+    await runBusHook(['SessionStart'], start)
+    expect(start.context).toHaveBeenCalledWith('SessionStart', 'resume')
+    const prompt = io(async () => ({ text: null }), 'resume')
+    await runBusHook(['UserPromptSubmit'], prompt)
+    expect(prompt.context).toHaveBeenCalledWith('UserPromptSubmit', undefined)
+  })
+
   it.each(['SessionStart', 'UserPromptSubmit'])(
     'prints the inbox context as %s hook output both agents accept, then acknowledges the lease',
     async (event) => {
       const hook = io(async () => ({ text: 'ostia bus: 1 unread message', lease: 'lease-1' }))
       expect(await runBusHook([event], hook)).toBe(0)
-      expect(hook.context).toHaveBeenCalledWith(event)
+      expect(hook.context).toHaveBeenCalledWith(event, undefined)
       expect(hook.lines.map((line) => JSON.parse(line))).toEqual([
         {
           hookSpecificOutput: {
