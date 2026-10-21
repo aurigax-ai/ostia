@@ -64,6 +64,7 @@ test('PRT-C23 the packaged app builds a component with every runtime library fro
     '@phosphor-icons/react',
     'd3',
     'papaparse',
+    'sql.js',
     'tailwindcss',
   ]) {
     expect(existsSync(join(tree, name, 'package.json')), name).toBe(true)

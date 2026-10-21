@@ -2,8 +2,8 @@ import {
   cpSync,
   existsSync,
   mkdirSync,
-  readFileSync,
   readdirSync,
+  readFileSync,
   realpathSync,
   rmSync,
   writeFileSync,
@@ -15,7 +15,12 @@ import { build } from 'esbuild'
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const outDir = join(root, 'out', 'artifact-runtime')
 const LICENSE_NAMES = ['LICENSE', 'LICENSE.md', 'LICENSE.txt', 'license', 'license.md', 'LICENCE']
-const DROPPED = [/\.map$/, /\.d\.[cm]?ts$/, /\.tsbuildinfo$/, /^(README|CHANGELOG|HISTORY)(\.\w+)?$/i]
+const DROPPED = [
+  /\.map$/,
+  /\.d\.[cm]?ts$/,
+  /\.tsbuildinfo$/,
+  /^(README|CHANGELOG|HISTORY)(\.\w+)?$/i,
+]
 
 async function runtimeList() {
   const result = await build({
@@ -92,7 +97,9 @@ async function usedFiles(specifiers) {
   for (const mode of ['development', 'production']) {
     const result = await build({
       stdin: {
-        contents: specifiers.map((s, i) => `export * as m${i} from ${JSON.stringify(s)}`).join("\n"),
+        contents: specifiers
+          .map((s, i) => `export * as m${i} from ${JSON.stringify(s)}`)
+          .join('\n'),
         resolveDir: outDir,
         loader: 'js',
       },
@@ -102,6 +109,7 @@ async function usedFiles(specifiers) {
       absWorkingDir: outDir,
       format: 'esm',
       platform: 'browser',
+      external: ['node:*'],
       define: { 'process.env.NODE_ENV': JSON.stringify(mode) },
       logLevel: 'error',
     })
@@ -127,7 +135,7 @@ function prune(dir, used, keepAll) {
   }
 }
 
-const { RUNTIME_NOTICES, TAILWIND_PACKAGE, importableSpecifiers, runtimePackages } =
+const { RUNTIME_NOTICES, TAILWIND_PACKAGE, importableSpecifiers, runtimeEntry, runtimePackages } =
   await runtimeList()
 
 rmSync(outDir, { recursive: true, force: true })
@@ -139,5 +147,5 @@ for (const name of runtimePackages()) place(name, packageDir(name, root), outDir
 const sources = [...new Set(placed.values())].sort()
 writeFileSync(join(outDir, RUNTIME_NOTICES), sources.map(notice).join('\n'))
 
-const used = await usedFiles([...importableSpecifiers(), 'react/jsx-runtime'])
+const used = await usedFiles([...importableSpecifiers(), 'react/jsx-runtime'].map(runtimeEntry))
 prune(join(outDir, 'node_modules'), used, [join(outDir, 'node_modules', TAILWIND_PACKAGE)])

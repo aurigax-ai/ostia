@@ -43,6 +43,7 @@
         "lucide-react",
         "pyright",
         "recharts",
+        "sql.js",
         "stream-browserify",
         "typescript-language-server",
         "yaml-language-server"

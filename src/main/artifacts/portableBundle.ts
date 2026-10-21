@@ -13,6 +13,7 @@ import {
   allowsRuntimeImport,
   importableSpecifiers,
   RUNTIME_MODULES,
+  runtimeEntry,
 } from '../../shared/artifacts/artifactRuntime'
 import { PORTABLE_LIMITS, type PortableMode } from '../../shared/artifacts/portable'
 import { isInsidePath } from '../platform/pathGuard'
@@ -81,10 +82,13 @@ const ASSET_EXTENSIONS = new Set([
   '.webm',
 ])
 
+const SEED_EXTENSIONS = new Set(['.sqlite', '.sqlite3', '.db'])
+
 const GUESSED = ['.tsx', '.ts', '.jsx', '.js']
 const ARTIFACT = 'artifact'
 const SHELL = 'ostia-shell'
 const INLINE = 'ostia-inline'
+const NODE_STUB = 'ostia-node-stub'
 const RUNTIME_DATA = { runtime: true }
 
 function isTextInput(path: string): boolean {
@@ -94,7 +98,18 @@ function isTextInput(path: string): boolean {
 function loaderFor(path: string): Loader | null {
   const extension = extname(path).toLowerCase()
   if (extension in CODE_LOADERS) return CODE_LOADERS[extension]
+  if (SEED_EXTENSIONS.has(extension)) return 'binary'
   return ASSET_EXTENSIONS.has(extension) ? 'dataurl' : null
+}
+
+function limitFor(path: string): { bytes: number; over: string } {
+  if (isTextInput(path)) {
+    return { bytes: PORTABLE_LIMITS.sourceFileBytes, over: '1 MiB, the most a source file may be' }
+  }
+  if (SEED_EXTENSIONS.has(extname(path).toLowerCase())) {
+    return { bytes: PORTABLE_LIMITS.seedFileBytes, over: '8 MiB, the most a database may be' }
+  }
+  return { bytes: PORTABLE_LIMITS.fileBytes, over: '16 MiB' }
 }
 
 export interface InputRecord {
@@ -134,8 +149,8 @@ export class BuildRun {
 
   async read(path: string): Promise<Buffer> {
     const text = isTextInput(path)
-    const limit = text ? PORTABLE_LIMITS.sourceFileBytes : PORTABLE_LIMITS.fileBytes
-    const found = await readRegularFile(path, limit)
+    const limit = limitFor(path)
+    const found = await readRegularFile(path, limit.bytes)
     if (!found.ok) {
       throw new BuildFailure([
         {
@@ -144,7 +159,7 @@ export class BuildRun {
           column: 1,
           message:
             found.status === 413
-              ? `is over ${text ? '1 MiB, the most a source file may be' : '16 MiB'}`
+              ? `is over ${limit.over}`
               : 'is not a regular file inside the artifact folder',
         },
       ])
@@ -251,7 +266,7 @@ function artifactPlugin(run: BuildRun, entry: ArtifactEntry): Plugin {
   }
 
   const library = async (build: PluginBuild, args: OnResolveArgs) => {
-    const found = await build.resolve(args.path, {
+    const found = await build.resolve(runtimeEntry(args.path), {
       kind: args.kind,
       resolveDir: run.runtimeDir,
       pluginData: RUNTIME_DATA,
@@ -291,6 +306,13 @@ function artifactPlugin(run: BuildRun, entry: ArtifactEntry): Plugin {
           ? { path: run.source.file, namespace: ARTIFACT }
           : { errors: [{ text: 'no entry' }] },
       )
+      build.onResolve({ filter: /^node:/, namespace: 'file' }, (args) =>
+        insideTree(args.importer) ? { path: args.path, namespace: NODE_STUB } : undefined,
+      )
+      build.onLoad({ filter: /.*/, namespace: NODE_STUB }, () => ({
+        contents: 'module.exports = {}',
+        loader: 'js',
+      }))
       build.onResolve({ filter: /.*/, namespace: ARTIFACT }, (args) =>
         fromArtifact(build, args, args.importer),
       )
@@ -318,7 +340,7 @@ function artifactPlugin(run: BuildRun, entry: ArtifactEntry): Plugin {
         }
         const body = await run.read(args.path)
         return {
-          contents: loader === 'dataurl' ? body : body.toString('utf8'),
+          contents: loader === 'dataurl' || loader === 'binary' ? body : body.toString('utf8'),
           loader,
           resolveDir: dirname(args.path),
         }

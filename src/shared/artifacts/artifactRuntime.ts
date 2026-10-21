@@ -2,6 +2,7 @@ export interface RuntimeModule {
   specifier: string
   package: string
   about: string
+  entry?: string
 }
 
 export const ARTIFACT_RUNTIME: readonly RuntimeModule[] = [
@@ -18,6 +19,12 @@ export const ARTIFACT_RUNTIME: readonly RuntimeModule[] = [
   { specifier: '@phosphor-icons/react', package: '@phosphor-icons/react', about: 'icons' },
   { specifier: 'd3', package: 'd3', about: 'data visualisation' },
   { specifier: 'papaparse', package: 'papaparse', about: 'CSV parsing' },
+  {
+    specifier: 'sql.js',
+    package: 'sql.js',
+    entry: 'sql.js/dist/sql-asm.js',
+    about: 'SQLite, asm.js build (no WASM)',
+  },
 ]
 
 export const TAILWIND_PACKAGE = 'tailwindcss'
@@ -30,6 +37,10 @@ export function runtimePackages(): string[] {
 
 export function allowsRuntimeImport(specifier: string): boolean {
   return ARTIFACT_RUNTIME.some((module) => module.specifier === specifier)
+}
+
+export function runtimeEntry(specifier: string): string {
+  return ARTIFACT_RUNTIME.find((module) => module.specifier === specifier)?.entry ?? specifier
 }
 
 export function importableSpecifiers(): string[] {

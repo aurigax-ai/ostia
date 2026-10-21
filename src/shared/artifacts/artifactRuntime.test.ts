@@ -7,6 +7,7 @@ import {
   importableSpecifiers,
   RUNTIME_MODULES,
   RUNTIME_NOTICES,
+  runtimeEntry,
   runtimePackages,
   TAILWIND_PACKAGE,
 } from './artifactRuntime'
@@ -18,7 +19,7 @@ const manifest = JSON.parse(readFileSync(join(process.cwd(), 'package.json'), 'u
 }
 
 describe('the preview runtime', () => {
-  it('is the approved set: React, recharts, lucide, Phosphor, d3, papaparse and Tailwind', () => {
+  it('is the approved set: React, recharts, lucide, Phosphor, d3, papaparse, sql.js and Tailwind', () => {
     expect(ARTIFACT_RUNTIME.map((module) => module.specifier)).toEqual([
       'react',
       'react/jsx-runtime',
@@ -29,6 +30,7 @@ describe('the preview runtime', () => {
       '@phosphor-icons/react',
       'd3',
       'papaparse',
+      'sql.js',
     ])
     expect(TAILWIND_PACKAGE).toBe('tailwindcss')
     expect(manifest.devDependencies.react).toBe('^18.3.1')
@@ -49,6 +51,15 @@ describe('the preview runtime', () => {
     }
   })
 
+  it('runs sql.js as its asm build, never the WASM one', () => {
+    expect(runtimeEntry('sql.js')).toBe('sql.js/dist/sql-asm.js')
+    expect(runtimeEntry('d3')).toBe('d3')
+    expect(allowsRuntimeImport('sql.js')).toBe(true)
+    expect(allowsRuntimeImport('sql.js/dist/sql-wasm.js')).toBe(false)
+    expect(existsSync(join(built, RUNTIME_MODULES, 'sql.js', 'dist', 'sql-asm.js'))).toBe(true)
+    expect(existsSync(join(built, RUNTIME_MODULES, 'sql.js', 'dist', 'sql-wasm.wasm'))).toBe(false)
+  })
+
   it('is built as a package tree with the licence notices and no whole-library files', () => {
     for (const name of runtimePackages()) {
       expect(existsSync(join(built, RUNTIME_MODULES, name, 'package.json')), name).toBe(true)
@@ -62,6 +73,7 @@ describe('the preview runtime', () => {
       'lucide-react ',
       'd3 ',
       'papaparse ',
+      'sql.js ',
       'tailwindcss ',
     ]) {
       expect(notices, name).toContain(name)
@@ -71,7 +83,7 @@ describe('the preview runtime', () => {
   it('ships the bundler as a dependency and the libraries only as build inputs', () => {
     expect(manifest.dependencies.esbuild).toBeDefined()
     expect(manifest.devDependencies.esbuild).toBeUndefined()
-    for (const name of ['recharts', 'lucide-react', 'd3', 'papaparse', 'tailwindcss']) {
+    for (const name of ['recharts', 'lucide-react', 'd3', 'papaparse', 'sql.js', 'tailwindcss']) {
       expect(manifest.devDependencies[name], name).toBeDefined()
       expect(manifest.dependencies[name], name).toBeUndefined()
     }

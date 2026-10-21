@@ -149,6 +149,52 @@ describe('PortableBuilder', () => {
     expect(Object.keys(manifestOf(built.file).sources as object)).toEqual(['App.jsx'])
   })
 
+  it('PRT-C83 imports a .sqlite, .sqlite3 or .db file as bytes with sql.js and no node module', async () => {
+    const seed = Buffer.concat([Buffer.from('SQLite format 3\0'), randomBytes(200 * 1024)])
+    const dir = folder({
+      'App.jsx':
+        "import initSqlJs from 'sql.js'\nimport a from './a.sqlite'\nimport b from './b.sqlite3'\nimport c from './c.db'\nexport default () => <button onClick={() => initSqlJs().then((SQL) => new SQL.Database(a))}>{a.length + b.length + c.length}</button>\n",
+      'a.sqlite': seed,
+      'b.sqlite3': seed,
+      'c.db': seed,
+    })
+    const built = await builder().build(artifact(dir, 'App.jsx'), LIGHT, 'production')
+    expect(built.ok).toBe(true)
+    if (!built.ok) return
+    expect(built.document).toContain(seed.toString('base64').slice(0, 24))
+    expect(built.document).not.toContain('node:fs')
+    expect(built.document).not.toContain('WebAssembly.instantiate')
+    expect(manifestOf(built.file).libraries).toEqual(
+      expect.arrayContaining([expect.stringMatching(/^sql\.js@/)]),
+    )
+    expect(Object.keys(manifestOf(built.file).sources as object)).toEqual(['App.jsx'])
+  })
+
+  it('PRT-C84 refuses a database over 8 MiB and names the limit', async () => {
+    const dir = folder({
+      'App.jsx': "import seed from './big.sqlite'\nexport default () => <i>{seed.length}</i>\n",
+      'big.sqlite': randomBytes(9 * 1024 * 1024),
+    })
+    const built = await builder().build(artifact(dir, 'App.jsx'), LIGHT, 'production')
+    expect(built.ok).toBe(false)
+    expect(messages(built)).toContain('big.sqlite:1:1: is over 8 MiB, the most a database may be')
+  })
+
+  it('PRT-C85 rebuilds when an imported database changes', async () => {
+    const dir = folder({
+      'App.jsx': "import seed from './data.sqlite'\nexport default () => <i>{seed.length}</i>\n",
+      'data.sqlite': Buffer.from('one'),
+    })
+    const counter = counting()
+    const b = builder(counter.load)
+    const first = await b.build(artifact(dir, 'App.jsx'), LIGHT, 'development')
+    const builds = counter.builds()
+    writeFileSync(join(dir, 'data.sqlite'), Buffer.from('three!'))
+    const changed = await b.build(artifact(dir, 'App.jsx'), LIGHT, 'development')
+    expect(counter.builds()).toBeGreaterThan(builds)
+    expect(first.ok && changed.ok && changed.document !== first.document).toBe(true)
+  })
+
   it('PRT-C10 keeps only the icons a component imports', async () => {
     const dir = folder({
       'App.tsx': "import { Check } from 'lucide-react'\nexport default () => <Check />\n",
