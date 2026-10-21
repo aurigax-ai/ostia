@@ -181,14 +181,14 @@ async function start(doc: PdfDocument, t: Translate): Promise<void> {
   function controls(narrow: boolean): PillControl[] {
     const zoomOut: PillControl = {
       type: 'button',
-      id: 'zoom-out',
+      id: 'zoomOut',
       label: t('zoomOut'),
       icon: PDF_ICONS.zoomOut,
       onClick: () => zoomBy(-1),
     }
     const zoomIn: PillControl = {
       type: 'button',
-      id: 'zoom-in',
+      id: 'zoomIn',
       label: t('zoomIn'),
       icon: PDF_ICONS.zoomIn,
       onClick: () => zoomBy(1),

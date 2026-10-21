@@ -2,7 +2,7 @@ import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { freshDataHome, isolatedLaunch } from './dataHome'
 import { fakeAgentBin, startFakeAgent } from './fakeAgent'
-import { openWorkspace, shownTerminal, terminalTab } from './helpers'
+import { expectHeld, openWorkspace, shownTerminal, terminalTab } from './helpers'
 import { textPdf } from './pdfFixture'
 import { type ElectronApplication, _electron as electron, expect, type Page, test } from './test'
 import { viewerGuestRun } from './viewerGuest'
@@ -137,8 +137,11 @@ test('Send puts the report reference with the note at the agent prompt and press
     const body = readFileSync(report, 'utf8')
     expect(body).toContain('check the total')
     expect(body).toContain('Hello needle one')
-    await win.waitForTimeout(800)
-    expect(((await terminal.textContent()) ?? '').match(/@\S+\.md/g)).toHaveLength(1)
+    await expectHeld(
+      async () => ((await terminal.textContent()) ?? '').match(/@\S+\.md/g)?.length ?? 0,
+      1,
+      800,
+    )
   }, true)
 })
 

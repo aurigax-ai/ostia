@@ -2,6 +2,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { decodeViewerSelection } from '../contract/viewerSelection'
 import { createCellsPublisher } from './cells'
 
+Object.assign(globalThis, {
+  EventSource: class {
+    addEventListener(): void {}
+    close(): void {}
+  },
+})
+
 interface Call {
   url: string
   method: string
