@@ -38,7 +38,6 @@
     "src/renderer/components/settings/FilesSettingsSection.tsx",
     "src/renderer/lib/files/archiveProblems.ts",
     "src/renderer/lib/files/fileDrop.ts",
-    "src/renderer/lib/files/fileKinds.ts",
     "src/renderer/lib/files/fileTree.",
     "src/renderer/lib/files/fileTreeActions.ts",
     "src/renderer/lib/files/openFile.ts",

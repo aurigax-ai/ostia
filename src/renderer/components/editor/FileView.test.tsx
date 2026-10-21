@@ -10,31 +10,6 @@ import {
   surfaceHost,
 } from '@/stores/workspaces/surfaceSlotsStore'
 
-const fake = vi.hoisted(() => {
-  const page = {
-    getViewport: ({ scale }: { scale: number }) => ({ width: 600 * scale, height: 800 * scale }),
-    render: () => ({ promise: Promise.resolve(), cancel: () => {} }),
-    streamTextContent: () => 1,
-  }
-  class TextLayer {
-    render() {
-      return Promise.resolve()
-    }
-    cancel() {}
-  }
-  const doc = {
-    numPages: 1,
-    getPage: () => Promise.resolve(page),
-    loadingTask: { destroy: () => Promise.resolve() },
-  }
-  return { doc, TextLayer }
-})
-
-vi.mock('@/lib/files/pdf', () => ({
-  openPdf: () => Promise.resolve(fake.doc),
-  loadPdfjs: () => Promise.resolve({ TextLayer: fake.TextLayer }),
-}))
-
 const { FileView } = await import('./FileView')
 
 const PANE = 'version-pane'
@@ -80,7 +55,7 @@ describe('FileView keyboard target', () => {
     useArtifactVersionsStore.setState(versionsInit, true)
   })
 
-  it('a pane showing versions keeps taking no keyboard while they switch between an image, a PDF and text', async () => {
+  it('a pane showing versions keeps taking no keyboard while they switch between an image and text', async () => {
     const slot = document.createElement('div')
     document.body.appendChild(slot)
     mountSurface(PANE, slot)
@@ -88,8 +63,6 @@ describe('FileView keyboard target', () => {
     render(<FileView workspaceId="w1" paneId={PANE} filePath={FILE} />, {
       container: surfaceHost(PANE),
     })
-    await settle()
-    showVersion({ file: '/h/v2.pdf', type: 'pdf', sources: {} })
     await settle()
     showVersion({ file: '/h/v3.md', type: 'markdown', sources: { 'report.md': '# Third' } })
     await screen.findByText('Third')

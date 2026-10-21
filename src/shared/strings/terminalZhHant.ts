@@ -21,7 +21,6 @@ export const terminalZhHant: typeof terminalEn = {
     label: '在終端機中尋找',
     next: '下一個符合項目',
     noResults: '沒有結果',
-    pdfLabel: '在 PDF 中尋找',
     placeholder: '尋找',
     previous: '上一個符合項目',
   },

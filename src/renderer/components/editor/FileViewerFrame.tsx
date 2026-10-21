@@ -21,6 +21,7 @@ import { openFileInWorkspace } from '@/lib/files/openFile'
 import type { ViewerOption } from '@/lib/files/viewerChoice'
 import { useGuestReady, useSurfaceFocus } from '@/lib/panes/paneFocus'
 import { useInjectedCss, usePanelThemeCss } from '@/lib/theme/panelThemeInjection'
+import { useViewerHintStore } from '@/stores/files/viewerHintStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { ViewerMessage } from './ViewerChrome'
 
@@ -58,6 +59,7 @@ function ViewerFrame({
   useInjectedCss(webview, themeCss)
   const [selection, setSelection] = useState<ViewerSelectionEvent['selection']>(null)
   const [status, setStatus] = useTransientStatus(SEND_STATUS_MS)
+  const [hint] = useState(() => useViewerHintStore.getState().take(filePath))
 
   useEffect(
     () =>
@@ -176,7 +178,7 @@ function ViewerFrame({
           <webview
             ref={setWebview}
             className="extension-webview"
-            src={opened.src}
+            src={hint ? `${opened.src}#${hint}` : opened.src}
             partition={opened.partition}
           />
         ) : (

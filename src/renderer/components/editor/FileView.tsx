@@ -5,7 +5,6 @@ import { useCallback, useMemo, useState } from 'react'
 import { StatusAction, StatusLine } from '@/components/common/StatusLine'
 import { fmt, useDict } from '@/lib/app/useDict'
 import { useArtifactListing } from '@/lib/files/artifacts'
-import { fileViewKind } from '@/lib/files/fileKinds'
 import { chooseViewer, type ViewerOption, viewerOptions } from '@/lib/files/viewerChoice'
 import { findPane } from '@/lib/layout/tree'
 import { useSurfaceFocus } from '@/lib/panes/paneFocus'
@@ -19,7 +18,6 @@ import { EditorView } from './Editor'
 import { FileViewerFrame } from './FileViewerFrame'
 import { isMarkdownPath } from './MarkdownPreview'
 import { OpenWithDialog } from './OpenWithDialog'
-import { PdfViewer } from './PdfViewer'
 
 const NO_OPTIONS: ViewerOption[] = []
 
@@ -36,7 +34,6 @@ function useViewerChoice(workspaceId: string, paneId: string, filePath: string |
     () => (local ? viewerOptions(filePath, extensions) : NO_OPTIONS),
     [local, filePath, extensions],
   )
-  const kind = local ? fileViewKind(filePath) : 'text'
   const choice =
     filePath && local
       ? chooseViewer({
@@ -44,11 +41,11 @@ function useViewerChoice(workspaceId: string, paneId: string, filePath: string |
           options,
           chosen,
           associations,
-          ownView: kind !== 'text' || isMarkdownPath(filePath),
+          ownView: isMarkdownPath(filePath),
           inArtifacts: isInside(artifacts?.dir, filePath),
         })
       : { viewer: null, unavailable: false }
-  return { kind, options, choice, chosen: chosen ?? null }
+  return { options, choice, chosen: chosen ?? null }
 }
 
 export function FileView({
@@ -67,7 +64,7 @@ export function FileView({
   const versioned = useArtifactVersionsStore((s) =>
     Boolean(filePath && s.byPane[paneId]?.path === filePath),
   )
-  const { kind, options, choice } = useViewerChoice(workspaceId, paneId, filePath)
+  const { options, choice } = useViewerChoice(workspaceId, paneId, filePath)
   const [failed, setFailed] = useState<{ path: string; viewType: string } | null>(null)
   const chosenViewer = choice.viewer
   const failedHere =
@@ -76,7 +73,7 @@ export function FileView({
     failed.path === filePath &&
     failed.viewType === chosenViewer.viewType
   const viewer = failedHere ? null : chosenViewer
-  const viewerOnly = Boolean(filePath && !viewer && (versioned || kind === 'pdf'))
+  const viewerOnly = Boolean(filePath && !viewer && versioned)
   useSurfaceFocus(viewerOnly ? paneId : undefined, null)
   const onFailed = useCallback(() => {
     if (filePath && chosenViewer) setFailed({ path: filePath, viewType: chosenViewer.viewType })
@@ -101,10 +98,6 @@ export function FileView({
         viewer={viewer}
         onFailed={onFailed}
       />
-    )
-  } else if (filePath && kind === 'pdf') {
-    body = (
-      <PdfViewer key={filePath} workspaceId={workspaceId} paneId={paneId} filePath={filePath} />
     )
   } else {
     const option = options.find((candidate) => candidate.priority === 'option')
@@ -147,7 +140,7 @@ export function FileView({
           filePath={filePath}
           options={options}
           current={viewer?.viewType ?? OWN_VIEW}
-          ownLabel={kind === 'text' ? d.viewer.ownText : d.viewer.ownView}
+          ownLabel={d.viewer.ownText}
         />
       ) : null}
     </div>

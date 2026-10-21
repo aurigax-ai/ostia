@@ -7,10 +7,6 @@ interface TextItemLike {
   hasEOL?: unknown
 }
 
-export function itemTexts(items: readonly TextItemLike[]): string[] {
-  return items.map((item) => (typeof item.str === 'string' ? item.str : ''))
-}
-
 export function itemLines(items: readonly TextItemLike[]): string[] {
   const lines: string[] = []
   let line = ''
@@ -34,27 +30,4 @@ export async function pageItems(doc: PdfDocument, maxPages: number): Promise<Tex
     pages.push(content.items as TextItemLike[])
   }
   return pages
-}
-
-export function countIn(text: string, query: string): number {
-  if (!query) return 0
-  const hay = text.toLocaleLowerCase()
-  const needle = query.toLocaleLowerCase()
-  let count = 0
-  for (let at = hay.indexOf(needle); at >= 0; at = hay.indexOf(needle, at + needle.length)) count++
-  return count
-}
-
-export interface PdfMatch {
-  page: number
-  nth: number
-}
-
-export function pdfMatches(pages: readonly string[][], query: string): PdfMatch[] {
-  const matches: PdfMatch[] = []
-  pages.forEach((items, i) => {
-    const total = items.reduce((n, text) => n + countIn(text, query), 0)
-    for (let nth = 0; nth < total; nth++) matches.push({ page: i + 1, nth })
-  })
-  return matches
 }

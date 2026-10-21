@@ -8,7 +8,7 @@ import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useUIStore } from '@/stores/app/uiStore'
 import { useEditorRevealStore } from '@/stores/files/editorRevealStore'
 import { useFileTreeStore } from '@/stores/files/fileTreeStore'
-import { usePdfFindStore } from '@/stores/files/pdfFindStore'
+import { useViewerHintStore } from '@/stores/files/viewerHintStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import type { Workspace } from '@/stores/workspaces/workspaceTypes'
@@ -340,13 +340,12 @@ describe('Files panel search', () => {
     ).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: /about Notes/ }))
     expect(openFile).toHaveBeenCalledWith('s1', `${ROOT}/docs/paper.pdf`)
-    expect(usePdfFindStore.getState().pending[`${ROOT}/docs/paper.pdf`]).toEqual({
-      page: 4,
-      query: 'Notes',
-    })
+    expect(useViewerHintStore.getState().pending[`${ROOT}/docs/paper.pdf`]).toBe(
+      'page=4&find=Notes',
+    )
   })
 
-  it('PDF text is found from the Files panel and with find in the PDF viewer', async () => {
+  it('PDF text is found from the Files panel and and opens the PDF at that page', async () => {
     seed()
     const pdf = textPdf(
       'Introduction',
@@ -381,10 +380,9 @@ describe('Files panel search', () => {
     expect(text).toHaveTextContent('p. 3')
     await user.click(screen.getByRole('button', { name: /Another needle/ }))
     expect(openFile).toHaveBeenCalledWith('s1', `${ROOT}/docs/paper.pdf`)
-    expect(usePdfFindStore.getState().pending[`${ROOT}/docs/paper.pdf`]).toEqual({
-      page: 3,
-      query: 'needle',
-    })
+    expect(useViewerHintStore.getState().pending[`${ROOT}/docs/paper.pdf`]).toBe(
+      'page=3&find=needle',
+    )
   })
 
   it('says when a regular expression is not valid', async () => {

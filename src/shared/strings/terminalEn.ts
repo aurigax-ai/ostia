@@ -19,7 +19,6 @@ export const terminalEn = {
     label: 'Find in terminal',
     next: 'Next match',
     noResults: 'No results',
-    pdfLabel: 'Find in PDF',
     placeholder: 'Find',
     previous: 'Previous match',
   },

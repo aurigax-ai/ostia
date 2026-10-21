@@ -3,6 +3,7 @@ import type { ViewerOpenLink, ViewerSelectionEvent } from '@shared/files/filesAp
 import { act, cleanup, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { copyPaneSelection } from '@/lib/agents/selectionCopiers'
+import { useViewerHintStore } from '@/stores/files/viewerHintStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { FileViewerFrame } from './FileViewerFrame'
 
@@ -97,6 +98,16 @@ afterEach(() => {
 })
 
 describe('FileViewerFrame', () => {
+  it('opens the page with the hint a search left for this file, once', async () => {
+    useViewerHintStore.getState().request('/w/a.png', 'page=3&find=needle')
+    mount()
+    await act(async () => {})
+    expect(document.querySelector('webview')?.getAttribute('src')).toBe(
+      'ostia-viewer://t/#page=3&find=needle',
+    )
+    expect(useViewerHintStore.getState().pending).toEqual({})
+  })
+
   it('draws no toolbar row, only the page', async () => {
     mount()
     await act(async () => {})
