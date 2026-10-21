@@ -1,3 +1,4 @@
+import { claudeAttention } from '@shared/agents/claudeAttention'
 import { describe, expect, it } from 'vitest'
 import {
   aggregateWorkspaceState,
@@ -24,6 +25,60 @@ const pane = (patch: Partial<PaneAttention> = {}): PaneAttention => ({
 })
 
 describe('reduceAttention', () => {
+  it('keeps a wait already showing when a soft wait arrives, and takes it when idle', () => {
+    const question = pane({ state: 'waiting', unread: true, message: 'Which database?', at: 50 })
+    expect(
+      reduceAttention(question, {
+        type: 'set',
+        state: 'waiting',
+        message: 'Needs permission',
+        soft: true,
+        at,
+      }),
+    ).toBe(question)
+    expect(
+      reduceAttention(pane(), {
+        type: 'set',
+        state: 'waiting',
+        message: 'Needs permission',
+        soft: true,
+        at,
+      }),
+    ).toMatchObject({ state: 'waiting', message: 'Needs permission' })
+  })
+
+  it('follows a question through its late permission notification and back to working', () => {
+    const events = [
+      claudeAttention(
+        'PreToolUse',
+        JSON.stringify({
+          tool_name: 'AskUserQuestion',
+          tool_input: { questions: [{ question: 'Which database?' }] },
+        }),
+      ),
+      claudeAttention(
+        'Notification',
+        JSON.stringify({
+          notification_type: 'permission_prompt',
+          message: 'Claude needs your permission',
+        }),
+      ),
+      claudeAttention('PostToolUse', JSON.stringify({ tool_name: 'AskUserQuestion' })),
+    ]
+    const shown: PaneAttention[] = []
+    let current = pane()
+    for (const a of events) {
+      if (!a) continue
+      current = reduceAttention(current, { type: 'set', ...a, message: a.message || undefined, at })
+      shown.push(current)
+    }
+    expect(shown.map((s) => [s.state, s.message])).toEqual([
+      ['waiting', 'Which database?'],
+      ['waiting', 'Which database?'],
+      ['working', undefined],
+    ])
+  })
+
   it('marks a pane unread when set to waiting, done or error, keeping the message', () => {
     for (const state of ['waiting', 'done', 'error'] as const) {
       expect(reduceAttention(pane(), { type: 'set', state, message: 'hi', at })).toEqual({

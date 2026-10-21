@@ -20,6 +20,7 @@ export interface ClaudeAttention {
   state: 'waiting' | 'working' | 'done' | 'error'
   message: string
   closing?: string
+  soft?: true
 }
 
 const NOT_WAITING_NOTIFICATIONS: ReadonlySet<string> = new Set(['idle_prompt', 'agent_completed'])
@@ -63,7 +64,7 @@ function notificationAttention(payload: Record<string, unknown>): ClaudeAttentio
   if (NOT_WAITING_NOTIFICATIONS.has(type)) return null
   if (!type && IDLE_REMINDER.test(message)) return null
   if (QUESTION_TOOL_PERMISSION.test(message)) return null
-  return { state: 'waiting', message }
+  return { state: 'waiting', message, soft: true }
 }
 
 function questionAttention(payload: Record<string, unknown>): ClaudeAttention | null {

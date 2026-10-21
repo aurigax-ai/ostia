@@ -8,7 +8,7 @@ export interface PaneAttention {
 }
 
 export type AttentionEvent =
-  | { type: 'set'; state: AttentionState; message?: string; at: number }
+  | { type: 'set'; state: AttentionState; message?: string; soft?: true; at: number }
   | { type: 'notify'; message: string; waiting: boolean; at: number }
   | { type: 'bell'; at: number }
   | { type: 'commandStart'; at: number }
@@ -28,6 +28,7 @@ function endWait(prev: PaneAttention, at: number): PaneAttention {
 export function reduceAttention(prev: PaneAttention, event: AttentionEvent): PaneAttention {
   switch (event.type) {
     case 'set':
+      if (event.soft && prev.state === 'waiting') return prev
       if (event.state === 'none') return { state: 'none', unread: false, at: event.at }
       return {
         state: event.state,

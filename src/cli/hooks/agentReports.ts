@@ -36,6 +36,7 @@ export async function runClaudeHookVerb(conn: MessageConnection): Promise<void> 
     state: attention.state,
     message: attention.message || undefined,
     closing: attention.closing,
+    soft: attention.soft,
   })
   if (!res.ok) {
     fail(`ostia claude-hook: ${res.error ?? 'failed'}`)

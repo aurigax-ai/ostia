@@ -39,11 +39,12 @@ export function registerAttentionMethods(deps: AttentionDeps): void {
   registerTargetableMethod('pane.setAttention', {
     cap: 'drive-self',
     handler: async (params: unknown, ctx) => {
-      const { state, message, paneId, closing } = (params ?? {}) as {
+      const { state, message, paneId, closing, soft } = (params ?? {}) as {
         state?: unknown
         message?: unknown
         paneId?: unknown
         closing?: unknown
+        soft?: unknown
       }
       if (!isVerb(state)) {
         return { ok: false, error: 'invalid-state', message: ATTENTION_VERBS.join('|') }
@@ -70,6 +71,7 @@ export function registerAttentionMethods(deps: AttentionDeps): void {
       const res = await deps.execCommand(targetOf(target), 'attention.set', {
         state: state === 'clear' ? 'none' : state,
         message: clampMessage(message),
+        ...(soft === true ? { soft } : {}),
       })
       if (!res.ok) return { ok: false, error: res.error.code, message: res.error.message }
       deps.reported?.(target.paneId)

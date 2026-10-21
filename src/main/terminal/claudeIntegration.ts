@@ -30,6 +30,8 @@ import {
 } from './agentHookCommands'
 import claudeModSource from './claudeMod/register.ts?raw'
 
+export const CLAUDE_MOD_SOURCE = claudeModSource
+
 const CLAUDE_ARGS = envName(AGENT_ARGS_ENV.claude)
 
 const commandHook = (command: string) => ({ type: 'command', command })
