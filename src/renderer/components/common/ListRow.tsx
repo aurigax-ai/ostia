@@ -1,6 +1,6 @@
 import { Item, ItemActions, ItemContent } from '@/components/ui/item'
 import { cn } from '@/lib/utils'
-import { CaretDownIcon, CaretRightIcon } from '@phosphor-icons/react'
+import { CaretDownIcon, CaretRightIcon, type Icon as IconComponent } from '@phosphor-icons/react'
 import { useId, useState } from 'react'
 import { IconButton } from './IconButton'
 
@@ -9,7 +9,7 @@ interface ListRowBase extends Omit<React.ComponentProps<'li'>, 'title' | 'childr
   title: React.ReactNode
   meta?: React.ReactNode
   detail?: React.ReactNode
-  actions?: React.ReactNode
+  actions?: React.ReactNode | ((toggle: React.ReactNode) => React.ReactNode)
   below?: React.ReactNode
   density?: 'settings' | 'dense'
 }
@@ -17,12 +17,14 @@ interface ListRowBase extends Omit<React.ComponentProps<'li'>, 'title' | 'childr
 interface Collapsed {
   expanded?: undefined
   expandLabel?: undefined
+  expandIcon?: undefined
   defaultOpen?: undefined
 }
 
 interface Expandable {
   expanded: React.ReactNode
   expandLabel: string
+  expandIcon?: IconComponent
   defaultOpen?: boolean
 }
 
@@ -37,6 +39,7 @@ export function ListRow({
   below,
   expanded,
   expandLabel,
+  expandIcon,
   defaultOpen = false,
   density = 'settings',
   ...props
@@ -44,6 +47,15 @@ export function ListRow({
   const dense = density === 'dense'
   const [open, setOpen] = useState(defaultOpen)
   const regionId = useId()
+  const toggle = expanded ? (
+    <IconButton
+      icon={expandIcon ?? (open ? CaretDownIcon : CaretRightIcon)}
+      label={expandLabel}
+      aria-expanded={open}
+      aria-controls={regionId}
+      onClick={() => setOpen((was) => !was)}
+    />
+  ) : null
   return (
     <li {...props}>
       <Item
@@ -69,16 +81,14 @@ export function ListRow({
         </ItemContent>
         {actions || expanded ? (
           <ItemActions className={cn('shrink-0', dense ? 'min-h-5' : 'min-h-6')}>
-            {actions}
-            {expanded ? (
-              <IconButton
-                icon={open ? CaretDownIcon : CaretRightIcon}
-                label={expandLabel}
-                aria-expanded={open}
-                aria-controls={regionId}
-                onClick={() => setOpen((was) => !was)}
-              />
-            ) : null}
+            {typeof actions === 'function' ? (
+              actions(toggle)
+            ) : (
+              <>
+                {actions}
+                {toggle}
+              </>
+            )}
           </ItemActions>
         ) : null}
       </Item>
@@ -88,7 +98,7 @@ export function ListRow({
           id={regionId}
           aria-label={expandLabel}
           hidden={!open}
-          className="mt-1 mb-2 ml-2 border-line border-l pl-4"
+          className="mt-1 mb-2 ml-2 pl-4"
         >
           {expanded}
         </section>

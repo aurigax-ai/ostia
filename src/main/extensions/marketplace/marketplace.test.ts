@@ -10,8 +10,12 @@ import {
 } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { MARKETPLACE_MANIFEST_FILE } from '@aurigax-ai/ostia-extension-sdk/manifest/marketplaceManifest'
+import {
+  MARKETPLACE_CODE_PATTERN,
+  MARKETPLACE_MANIFEST_FILE,
+} from '@aurigax-ai/ostia-extension-sdk/manifest/marketplaceManifest'
 import { afterEach, describe, expect, it } from 'vitest'
+import { MARKETPLACE_CODE_SHAPE } from '../../../shared/extensions/marketplace'
 import { Marketplace } from './marketplace'
 import {
   GitError,
@@ -822,6 +826,27 @@ describe('Marketplace', () => {
     )
     expect(h.forgotten).toEqual(['tides'])
     expect(res.state.installed).toEqual(['tides'])
+  })
+
+  it('keeps the renderer’s code shape the same as the manifest’s code pattern', () => {
+    expect(MARKETPLACE_CODE_SHAPE.source).toBe(MARKETPLACE_CODE_PATTERN.source)
+  })
+
+  it('finds an unlisted extension by its exact code without installing it', async () => {
+    const h = harness()
+    const { state } = await h.marketplace.add(repoWithUnlisted())
+    const id = state.marketplaces[0]?.id
+    for (const wrong of ['tides', CODE.slice(0, 25), `${CODE.slice(0, 25)}a`, 42, '']) {
+      expect(h.marketplace.findCode(wrong)).toEqual({ ok: false, error: 'unknown-code' })
+    }
+    const found = h.marketplace.findCode(` ${CODE} `)
+    expect(found).toMatchObject({
+      ok: true,
+      marketplaceId: id,
+      extension: { id: 'tides', state: 'available' },
+    })
+    expect(existsSync(join(h.extensionsDir, 'tides'))).toBe(false)
+    expect(h.forgotten).toEqual([])
   })
 
   it('shows an unlisted extension once it is installed, and updates it like any other', async () => {

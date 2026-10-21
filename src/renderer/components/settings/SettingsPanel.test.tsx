@@ -807,7 +807,7 @@ describe('SettingsPanel', () => {
     expect(screen.getByRole('switch', { name: 'Enable Assistant' })).toBeInTheDocument()
     expect(screen.queryByRole('textbox', { name: 'Base url' })).toBeNull()
     expect(screen.queryByText('MCP servers')).toBeNull()
-    await user.click(screen.getByRole('button', { name: 'Details of Assistant' }))
+    await user.click(screen.getByRole('button', { name: 'Settings of Assistant' }))
     await user.click(screen.getByRole('button', { name: 'Configure in Assistant settings' }))
     expect(await screen.findByRole('heading', { level: 2, name: 'Assistant' })).toBeInTheDocument()
     expect(screen.getByRole('textbox', { name: 'Base url' })).toBeInTheDocument()

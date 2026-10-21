@@ -8,7 +8,7 @@ import type {
   MarketplaceInstallState,
 } from '@shared/extensions/marketplace'
 
-export const BROWSE_FILTERS = ['all', 'installed', 'not-installed', 'updates'] as const
+export const BROWSE_FILTERS = ['all', 'installed', 'updates'] as const
 
 export type BrowseFilter = (typeof BROWSE_FILTERS)[number]
 
@@ -60,8 +60,6 @@ function inFilter(state: MarketplaceInstallState, filter: BrowseFilter): boolean
       return true
     case 'installed':
       return state === 'installed' || state === 'update' || state === 'replace'
-    case 'not-installed':
-      return state === 'available' || state === 'conflict'
     case 'updates':
       return state === 'update'
   }

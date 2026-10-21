@@ -17,7 +17,6 @@ vi.mock('@/components/agents/AgentsSection', () => ({ AgentsSection: emptyPage }
 vi.mock('@/components/app/AboutSection', () => ({ AboutSection: emptyPage }))
 vi.mock('@/components/assist/AssistantSection', () => ({ AssistantSection: emptyPage }))
 vi.mock('@/components/extensions/ExtensionSettingsPage', () => ({
-  BrowseExtensionsPage: emptyPage,
   ExtensionSettingsPage: emptyPage,
   ExtensionsPage: emptyPage,
 }))

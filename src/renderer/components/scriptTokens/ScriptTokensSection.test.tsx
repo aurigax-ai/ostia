@@ -170,8 +170,15 @@ describe('ScriptTokensSection', () => {
     await user.type(within(dialog).getByLabelText('Name'), 'ceo')
     await user.click(within(dialog).getByRole('radio', { name: /All workspaces/ }))
     await user.click(within(dialog).getByRole('button', { name: 'Coordinator' }))
-    expect(within(dialog).getByRole('checkbox', { name: /Background processes/ })).toBeChecked()
-    expect(within(dialog).getByRole('checkbox', { name: /Close panes/ })).not.toBeChecked()
+    expect(within(dialog).getByRole('checkbox', { name: /Processes/ })).toBeChecked()
+    expect(within(dialog).getByRole('checkbox', { name: /Panes/ })).not.toBeChecked()
+    const groups = ['Read', 'Change', 'Control'].map((name) =>
+      within(dialog).getByRole('group', { name }),
+    )
+    expect(groups.map((g) => within(g).getAllByRole('checkbox').length)).toEqual([2, 3, 2])
+    const control = within(dialog).getByRole('group', { name: 'Control' })
+    expect(within(control).getAllByText('Runs commands')).toHaveLength(2)
+    expect(within(groups[0]).queryByText('Runs commands')).toBeNull()
     expect(within(dialog).getByText('Can run commands in 3 workspaces')).toBeInTheDocument()
 
     await pickExpiry(user, 'Never expires')

@@ -19,6 +19,7 @@ import {
   MARKETPLACE_FEATURE,
   type MarketplaceError,
   type MarketplaceExtension,
+  type MarketplaceFound,
   type MarketplaceInfo,
   type MarketplaceInstallState,
   type MarketplaceResult,
@@ -184,6 +185,37 @@ export class Marketplace {
     return this.records.installs[id] === sourceId && existsSync(this.installDir(id))
   }
 
+  private describe(
+    source: Source,
+    { dir, manifest }: CatalogEntry,
+    locale: string | undefined,
+  ): MarketplaceExtension {
+    const state = this.installState(source.id, manifest)
+    const installedVersion = state === 'update' ? this.installedVersion(manifest.id) : undefined
+    const shown = manifestIn(manifest, loadLocaleCatalogs(dir, manifest), locale)
+    const icon = manifest.contributes.panel?.icon ?? manifest.contributes.settingsPage?.icon
+    const commandTitle = (id: string): string =>
+      shown.contributes.commands.find((c) => c.id === id)?.title ?? id
+    return {
+      id: manifest.id,
+      name: shown.name,
+      version: manifest.version,
+      description: shown.description,
+      category: manifest.category,
+      ...(icon ? { icon } : {}),
+      capabilities: manifest.capabilities,
+      runsProcess:
+        manifest.main !== undefined || (manifest.contributes.languageServers ?? []).length > 0,
+      agentSkills: (manifest.contributes.agentSkills ?? []).map((skill) => skill.name),
+      agentHooks: (manifest.contributes.agentHooks ?? []).map((hook) => ({
+        event: hook.event,
+        command: commandTitle(hook.command),
+      })),
+      state,
+      ...(installedVersion ? { installedVersion } : {}),
+    }
+  }
+
   private info(source: Source): MarketplaceInfo {
     const installs = Object.entries(this.records.installs)
       .filter(([extId, owner]) => owner === source.id && existsSync(this.installDir(extId)))
@@ -211,32 +243,7 @@ export class Marketplace {
       description: catalog.description,
       problems: catalog.problems,
       unlisted: catalog.unlisted,
-      extensions: offered.map(({ dir, manifest }): MarketplaceExtension => {
-        const state = this.installState(source.id, manifest)
-        const installedVersion = state === 'update' ? this.installedVersion(manifest.id) : undefined
-        const shown = manifestIn(manifest, loadLocaleCatalogs(dir, manifest), locale)
-        const icon = manifest.contributes.panel?.icon ?? manifest.contributes.settingsPage?.icon
-        const commandTitle = (id: string): string =>
-          shown.contributes.commands.find((c) => c.id === id)?.title ?? id
-        return {
-          id: manifest.id,
-          name: shown.name,
-          version: manifest.version,
-          description: shown.description,
-          category: manifest.category,
-          ...(icon ? { icon } : {}),
-          capabilities: manifest.capabilities,
-          runsProcess:
-            manifest.main !== undefined || (manifest.contributes.languageServers ?? []).length > 0,
-          agentSkills: (manifest.contributes.agentSkills ?? []).map((skill) => skill.name),
-          agentHooks: (manifest.contributes.agentHooks ?? []).map((hook) => ({
-            event: hook.event,
-            command: commandTitle(hook.command),
-          })),
-          state,
-          ...(installedVersion ? { installedVersion } : {}),
-        }
-      }),
+      extensions: offered.map((entry) => this.describe(source, entry, locale)),
     }
   }
 
@@ -456,6 +463,24 @@ export class Marketplace {
 
   install(id: unknown, extId: unknown): Promise<MarketplaceResult> {
     return this.serialized(() => this.installFrom(id, this.shownEntry(extId)))
+  }
+
+  findCode(input: unknown): MarketplaceFound {
+    const code = typeof input === 'string' ? input.trim() : ''
+    if (!MARKETPLACE_CODE_PATTERN.test(code)) return { ok: false, error: 'unknown-code' }
+    for (const source of this.records.sources) {
+      const dir = this.cloneDir(source.id)
+      const catalog = existsSync(dir) ? readCatalog(dir) : null
+      if (catalog === null || typeof catalog === 'string') continue
+      const broken = catalog.brokenUnlisted.find((b) => b.code === code)
+      if (broken) return { ok: false, error: 'invalid-extension', detail: broken.problem }
+      const entry = catalog.entries.find((e) => e.code === code)
+      if (entry) {
+        const extension = this.describe(source, entry, this.deps.locale?.())
+        return { ok: true, marketplaceId: source.id, extension }
+      }
+    }
+    return { ok: false, error: 'unknown-code' }
   }
 
   installCode(id: unknown, input: unknown): Promise<MarketplaceResult> {

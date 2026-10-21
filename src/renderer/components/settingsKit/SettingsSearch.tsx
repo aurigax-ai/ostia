@@ -46,7 +46,7 @@ type SearchTexts = readonly (string | null | undefined)[]
 
 const SettingsSearchContext = createContext<SearchScope | null>(null)
 
-export function useSettingsSearch(): SearchScope | null {
+function useSettingsSearch(): SearchScope | null {
   return useContext(SettingsSearchContext)
 }
 

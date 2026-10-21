@@ -26,7 +26,6 @@ import {
   SidebarSimpleIcon,
   SquareSplitHorizontalIcon,
   SquaresFourIcon,
-  StorefrontIcon,
   TerminalIcon,
   TerminalWindowIcon,
   TreeStructureIcon,
@@ -66,7 +65,6 @@ export type SectionId =
   | 'privacy'
   | 'editor'
   | 'extensions'
-  | 'browseExtensions'
   | 'views'
   | 'languageServers'
   | 'remote'
@@ -138,12 +136,6 @@ export function settingsSections(d: Dict): SettingsSection[] {
     { id: 'passwords', group: 'security', icon: KeyIcon, label: d.passwords.title },
     { id: 'scriptTokens', group: 'security', icon: KeyholeIcon, label: d.scriptTokens.title },
     { id: 'extensions', group: 'more', icon: PuzzlePieceIcon, label: d.settings.extensions },
-    {
-      id: 'browseExtensions',
-      group: 'more',
-      icon: StorefrontIcon,
-      label: d.extensionsBrowse.title,
-    },
     { id: 'remote', group: 'more', icon: DeviceMobileIcon, label: d.settings.remote },
     { id: 'about', group: 'more', icon: InfoIcon, label: d.settings.about },
   ]

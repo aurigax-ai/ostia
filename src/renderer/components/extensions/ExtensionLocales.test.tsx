@@ -13,7 +13,7 @@ import { act, cleanup, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { renderSettled } from '../../../../test/render'
-import { BrowseExtensions } from './BrowseExtensions'
+import { BrowseExtensionsDialog } from './BrowseExtensions'
 import { ExtensionApprovalDialog } from './ExtensionApprovalDialog'
 import { ExtensionsSection } from './InstalledExtensions'
 
@@ -214,7 +214,8 @@ describe('extension wording follows the list main resolved for the language', ()
       ],
     })
     vi.mocked(window.ostia.marketplace.list).mockResolvedValue(listing('Weather'))
-    render(<BrowseExtensions />)
+    useUIStore.setState({ browseExtensionsOpen: true })
+    render(<BrowseExtensionsDialog />)
     expect(await screen.findByRole('listitem', { name: 'Weather' })).toBeInTheDocument()
 
     vi.mocked(window.ostia.marketplace.list).mockResolvedValue(listing('天氣'))
