@@ -133,6 +133,11 @@ describe('ViewerHost', () => {
     expect(attempt(opened.src)).toBe(false)
     expect(attempt('https://example.com/')).toBe(true)
     expect(attempt(`${opened.src}#other`)).toBe(true)
+    guest.emit('did-navigate-in-page', {}, `${opened.src}#page=3`, false)
+    expect(attempt(`${opened.src}#page=3`)).toBe(true)
+    guest.emit('did-navigate-in-page', {}, `${opened.src}#page=3`, true)
+    expect(attempt(`${opened.src}#page=3`)).toBe(false)
+    expect(attempt(opened.src)).toBe(true)
   })
 
   it('ends the viewers of a window when its page reloads, not on an in-page navigation', () => {

@@ -386,6 +386,9 @@ export class ViewerHost {
     guest.on('will-navigate', (event: { url?: string; preventDefault: () => void }) => {
       if (event.url === undefined || event.url !== shownUrl) event.preventDefault()
     })
+    guest.on('did-navigate-in-page', (_event: unknown, url: string, isMainFrame: boolean) => {
+      if (isMainFrame) shownUrl = url
+    })
     guest.on('will-redirect', (event: { preventDefault: () => void }) => event.preventDefault())
     let token: string | null = null
     guest.on('did-navigate', (_event: unknown, url: string) => {

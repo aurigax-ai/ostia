@@ -19,7 +19,6 @@ import { fmt, useDict } from '@/lib/app/useDict'
 import { useTransientStatus } from '@/lib/app/useTransientStatus'
 import { usePaneVisible } from '@/lib/attention/workspaceActivity'
 import { openBrowserTabAs } from '@/lib/browser/browserProfile'
-import { openFileInWorkspace } from '@/lib/files/openFile'
 import type { ViewerOption } from '@/lib/files/viewerChoice'
 import { useGuestReady, useSurfaceFocus } from '@/lib/panes/paneFocus'
 import { webLinkTarget } from '@/lib/terminalLinks/linkModifier'
@@ -73,9 +72,19 @@ function ViewerFrame({
   } | null>(null)
   const [sendRequest, setSendRequest] = useState(0)
   const [status, setStatus] = useTransientStatus(SEND_STATUS_MS)
-  const [hint] = useState(() => useViewerHintStore.getState().take(filePath))
+  const [hint, setHint] = useState(() => useViewerHintStore.getState().take(filePath))
   useLiveDocumentText(paneId, filePath, opened !== null)
   const selection = shown?.selection ?? null
+
+  useEffect(
+    () =>
+      useViewerHintStore.subscribe((state) => {
+        if (state.pending[filePath] === undefined) return
+        const next = useViewerHintStore.getState().take(filePath)
+        if (next !== undefined) setHint(next)
+      }),
+    [filePath],
+  )
 
   useEffect(
     () =>
@@ -114,7 +123,7 @@ function ViewerFrame({
         if (event.paneId !== paneId) return
         const { target } = event
         if (target.kind === 'file') {
-          openFileInWorkspace(target.path)
+          useLayoutStore.getState().openFile(workspaceId, target.path)
           return
         }
         const click = {
