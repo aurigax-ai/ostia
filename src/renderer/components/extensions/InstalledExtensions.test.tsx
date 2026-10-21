@@ -44,6 +44,7 @@ function ext(id: string, name: string, over: Partial<ExtensionInfo> = {}): Exten
     languageServers: [],
     fileKinds: [],
     agentSkills: [],
+    agentSkillProblems: [],
     agentHooks: [],
     iconThemes: [],
     keymaps: [],

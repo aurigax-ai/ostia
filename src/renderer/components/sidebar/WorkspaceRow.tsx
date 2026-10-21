@@ -1,24 +1,20 @@
 import { RenameInput } from '@/components/common/RenameInput'
-import { WorkspaceBadges } from '@/components/sidebar/WorkspaceBadges'
+import { WorkspaceBadges, useWorkspaceFlags } from '@/components/sidebar/WorkspaceBadges'
 import { WorkspaceIcon } from '@/components/sidebar/WorkspaceIcon'
 import { ContextMenu, ContextMenuTrigger } from '@/components/ui/context-menu'
 import { Kbd } from '@/components/ui/kbd'
 import { fmt, useDict } from '@/lib/app/useDict'
-import { hasLockedPane } from '@/lib/layout/paneFields'
 import { beginDrag, endWorkspaceDrag, isPaneDrag } from '@/lib/panes/paneDrag'
 import { type RowDropZone, rowDropZone } from '@/lib/sidebar/railDropZone'
 import { requestCloseWorkspace } from '@/lib/workspaces/closeConfirm'
 import { selectWorkspace } from '@/lib/workspaces/selectWorkspace'
 import { workspaceTitle } from '@/lib/workspaces/workspaceTitle'
-import { useSandboxStore } from '@/stores/app/sandboxStore'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useUIStore } from '@/stores/app/uiStore'
-import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { useRailEditStore } from '@/stores/workspaces/railEditStore'
 import type { Workspace } from '@/stores/workspaces/workspaceTypes'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import { ArrowSquareInIcon, ArrowsMergeIcon } from '@phosphor-icons/react'
-import { useEffect } from 'react'
 import { RailTab } from './RailTab'
 import { WorkspaceDetails } from './WorkspaceDetails'
 import { WorkspaceMenu } from './WorkspaceMenu'
@@ -63,14 +59,7 @@ export function WorkspaceRow({
     else if (editing !== null) edit.end({ kind: 'workspace', id: w.id, field: editing })
   }
   const title = workspaceTitle(w)
-  const sandboxed = useSandboxStore((s) => s.enabled[w.id] ?? false)
-  const locked = useLayoutStore((s) => {
-    const root = s.byWorkspace[w.id]?.root
-    return root ? hasLockedPane(root) : false
-  })
-  useEffect(() => {
-    void useSandboxStore.getState().load(w.id)
-  }, [w.id])
+  const { sandboxed, locked } = useWorkspaceFlags(w.id)
   const select = (): void => selectWorkspace(w.id)
   const editor =
     editing === null ? undefined : (
@@ -145,7 +134,7 @@ export function WorkspaceRow({
           icon={<WorkspaceIcon workspace={w} />}
           title={title}
           wrapTitle={wrapTitles}
-          titleAdornment={<WorkspaceBadges workspace={w} sandboxed={sandboxed} locked={locked} />}
+          titleAdornment={<WorkspaceBadges workspace={w} />}
           editor={editor}
           onDoubleClick={() => setEditing('name')}
           after={editing === null ? <WorkspaceDetails workspace={w} onSelect={select} /> : null}

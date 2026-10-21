@@ -53,6 +53,7 @@ function graphs(): ExtensionInfo {
     languageServers: [],
     fileKinds: [],
     agentSkills: [],
+    agentSkillProblems: [],
     agentHooks: [],
   }
 }

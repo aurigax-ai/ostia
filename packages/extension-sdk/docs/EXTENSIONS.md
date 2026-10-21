@@ -732,6 +732,16 @@ collections, anchors, aliases, tags, quoted keys, a space before the colon, dupl
 comments (`#`) and a second frontmatter block are refused, and `ostia-extension validate` reports
 the line.
 
+The frontmatter carries only `name` and `description`. Any other key is refused, because Claude Code
+honours keys such as `allowed-tools`, `model`, `hooks`, `context` and `shell` that pre-approve tools,
+switch the model or run commands, and the approval dialog never shows them. For the same reason a
+`SKILL.md` that holds Claude Code's shell injection, `` !`command` `` or a ` ```! ` block (also with
+a lookalike `!` or backtick), is refused. Control characters and line separators inside the
+frontmatter are refused too. The same rule refuses a command built from the skill's arguments (`` !$ARGUMENTS ``, a fence line
+that starts with `$`). A refused skill is not written for the agent. The marketplace lists its
+extension under "not compatible" with the reason, and the extension's row in Settings → Extensions
+and its approval dialog show it (`ExtensionInfo.agentSkillProblems`, API 6.9).
+
 Ostia writes the copy's `name` as `<extension id>-<name>`, so two extensions' skills never
 collide and none can take the name of Ostia's own `ostia` skill.
 

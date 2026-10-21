@@ -36,6 +36,7 @@ function greeter(overrides: Partial<ExtensionInfo>): ExtensionInfo {
     languageServers: [],
     fileKinds: [],
     agentSkills: [],
+    agentSkillProblems: [],
     agentHooks: [],
     unapproved: [],
     commands: [

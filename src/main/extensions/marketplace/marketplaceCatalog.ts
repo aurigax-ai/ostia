@@ -1,6 +1,7 @@
 import { lstatSync, readFileSync, realpathSync } from 'node:fs'
 import { join } from 'node:path'
 import type { ExtensionManifest } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
+import { agentSkillProblems } from '@aurigax-ai/ostia-extension-sdk/manifest/agentSkills'
 import { readManifest } from '@aurigax-ai/ostia-extension-sdk/manifest/extensionManifest'
 import {
   MARKETPLACE_MANIFEST_FILE,
@@ -73,8 +74,11 @@ export function readCatalog(clone: string): Catalog | string {
       continue
     }
     const res = readManifest(dir)
+    const skillProblems = res.ok ? agentSkillProblems(dir, res.manifest) : []
     if (!res.ok) {
       refuse(res.error)
+    } else if (skillProblems.length > 0) {
+      refuse(skillProblems.join('; '))
     } else if (entries.some((e) => e.manifest.id === res.manifest.id)) {
       refuse(`duplicate extension id '${res.manifest.id}'`)
     } else {

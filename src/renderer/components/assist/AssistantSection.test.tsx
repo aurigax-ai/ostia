@@ -44,6 +44,7 @@ const base = {
   languageServers: [],
   fileKinds: [],
   agentSkills: [],
+  agentSkillProblems: [],
   agentHooks: [],
 } satisfies Partial<ExtensionInfo>
 

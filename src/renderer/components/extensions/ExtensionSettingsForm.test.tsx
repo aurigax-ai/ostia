@@ -37,6 +37,7 @@ function assistant(overrides: Partial<ExtensionInfo> = {}): ExtensionInfo {
     languageServers: [],
     fileKinds: [],
     agentSkills: [],
+    agentSkillProblems: [],
     agentHooks: [],
     ...overrides,
   }

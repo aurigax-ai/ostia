@@ -1,4 +1,5 @@
 import { IconButton } from '@/components/common/IconButton'
+import { Segmented } from '@/components/common/Segmented'
 import { focusSibling } from '@/lib/app/rowFocus'
 import { fmt, useDict } from '@/lib/app/useDict'
 import { splitPath } from '@/lib/files/fileTree'
@@ -96,21 +97,16 @@ export function ViewToggle(): JSX.Element {
     if (next !== view) useSettingsStore.getState().setGit({ changesView: next })
   }
   return (
-    // biome-ignore lint/a11y/useSemanticElements: a toolbar group of two toggles, not a form fieldset
-    <div className="segmented" role="group" aria-label={t.viewAs}>
-      <IconButton
-        icon={ListBulletsIcon}
-        label={t.viewList}
-        aria-pressed={view === 'list'}
-        onClick={() => choose('list')}
-      />
-      <IconButton
-        icon={TreeStructureIcon}
-        label={t.viewTree}
-        aria-pressed={view === 'tree'}
-        onClick={() => choose('tree')}
-      />
-    </div>
+    <Segmented
+      iconOnly
+      label={t.viewAs}
+      value={view}
+      options={[
+        { value: 'list', label: t.viewList, icon: ListBulletsIcon },
+        { value: 'tree', label: t.viewTree, icon: TreeStructureIcon },
+      ]}
+      onChange={choose}
+    />
   )
 }
 
@@ -125,7 +121,7 @@ export function Tracking({ branch }: { branch: BranchInfo }): JSX.Element {
     <span className="tracking" title={title}>
       <span className="upstream muted">
         <CloudIcon />
-        {branch.upstream}
+        <span className="upstream-name">{branch.upstream}</span>
       </span>
       {branch.ahead > 0 ? (
         <span className="count ahead">

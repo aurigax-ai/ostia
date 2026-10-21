@@ -38,6 +38,7 @@ import {
   type RemoteFilesRequest,
   type RemoteFolder,
 } from '@aurigax-ai/ostia-extension-sdk/contract/remoteFolders'
+import { agentSkillProblems } from '@aurigax-ai/ostia-extension-sdk/manifest/agentSkills'
 import { discoverExtensions } from '@aurigax-ai/ostia-extension-sdk/manifest/extensionManifest'
 import {
   loadLocaleCatalogs,
@@ -366,6 +367,7 @@ export class ExtensionHost {
         approved: this.kindApproved(rt, kind),
       })),
       agentSkills: (m.contributes.agentSkills ?? []).map((skill) => agentSkillId(m.id, skill.name)),
+      agentSkillProblems: agentSkillProblems(rt.ext.dir, rt.ext.manifest),
       agentHooks: (m.contributes.agentHooks ?? []).map((hook) => ({
         ...hook,
         agents: hookAgentsFor(hook.event),

@@ -188,6 +188,7 @@ describe('Ostia prompt in the input editor', () => {
           languageServers: [],
           fileKinds: [],
           agentSkills: [],
+          agentSkillProblems: [],
           agentHooks: [],
           iconThemes: [],
           keymaps: [],
