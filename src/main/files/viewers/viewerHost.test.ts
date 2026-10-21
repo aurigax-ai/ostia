@@ -227,10 +227,9 @@ describe('ViewerHost', () => {
     expect(granted).toHaveBeenCalledWith(false)
   })
 
-  it('lets a page decode media and fetch nothing else off the viewer scheme', () => {
+  it('lets a page decode media and wasm and fetch nothing else off the viewer scheme', () => {
     expect(VIEWER_PAGE_CSP).toContain("media-src 'self' blob:")
-    expect(VIEWER_PAGE_CSP).toContain("script-src 'self'")
-    expect(VIEWER_PAGE_CSP).not.toContain('wasm-unsafe-eval')
+    expect(VIEWER_PAGE_CSP).toContain("script-src 'self' 'wasm-unsafe-eval'")
     expect(VIEWER_PAGE_CSP).toContain("connect-src 'self'")
     expect(VIEWER_PAGE_CSP).toContain("default-src 'none'")
   })

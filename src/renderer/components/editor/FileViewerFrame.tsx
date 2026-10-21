@@ -1,3 +1,4 @@
+import { OWN_VIEW } from '@aurigax-ai/ostia-extension-sdk/contract/fileKinds'
 import { WarningIcon } from '@phosphor-icons/react'
 import { selectionLabel } from '@shared/browser/selection'
 import type {
@@ -17,11 +18,14 @@ import { sendViewerSelectionToPane } from '@/lib/agents/sendPick'
 import { fmt, useDict } from '@/lib/app/useDict'
 import { useTransientStatus } from '@/lib/app/useTransientStatus'
 import { usePaneVisible } from '@/lib/attention/workspaceActivity'
+import { openBrowserTabAs } from '@/lib/browser/browserProfile'
+import { openFileInWorkspace } from '@/lib/files/openFile'
 import type { ViewerOption } from '@/lib/files/viewerChoice'
 import { useGuestReady, useSurfaceFocus } from '@/lib/panes/paneFocus'
 import { useInjectedCss, usePanelThemeCss } from '@/lib/theme/panelThemeInjection'
 import { useViewerHintStore } from '@/stores/files/viewerHintStore'
 import { useLiveDocumentText } from './useLiveDocumentText'
+import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { ViewerMessage } from './ViewerChrome'
 
 const ABORTED = -3
@@ -99,6 +103,28 @@ function ViewerFrame({
       window.ostia.viewers.copySelection(paneId).then(() => undefined),
     )
   }, [paneId, selection])
+
+  useEffect(
+    () =>
+      window.ostia.viewers.onOpenLink((event) => {
+        if (event.paneId !== paneId) return
+        if (event.target.kind === 'file') openFileInWorkspace(event.target.path)
+        else if (event.target.href.startsWith('mailto:')) {
+          void window.ostia.openPath.openLink(event.target.href)
+        } else openBrowserTabAs(workspaceId, event.target.href, 'human')
+      }),
+    [paneId, workspaceId],
+  )
+
+  useEffect(
+    () =>
+      window.ostia.viewers.onEditSource((event) => {
+        if (event.paneId === paneId) {
+          useLayoutStore.getState().setViewType(workspaceId, paneId, OWN_VIEW)
+        }
+      }),
+    [paneId, workspaceId],
+  )
 
   const sendSelection = async (target: PickTarget, note: string): Promise<void> => {
     if (!selection) return

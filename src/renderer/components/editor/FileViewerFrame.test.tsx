@@ -1,5 +1,5 @@
 import '@testing-library/jest-dom/vitest'
-import type { ViewerSelectionEvent } from '@shared/files/filesApi'
+import type { ViewerOpenLink, ViewerSelectionEvent } from '@shared/files/filesApi'
 import { act, cleanup, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { copyPaneSelection } from '@/lib/agents/selectionCopiers'
@@ -8,6 +8,15 @@ import { useViewerHintStore } from '@/stores/files/viewerHintStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { FileViewerFrame } from './FileViewerFrame'
 
+const openFileInWorkspace = vi.fn()
+const openBrowserTabAs = vi.fn()
+
+vi.mock('@/lib/files/openFile', () => ({
+  openFileInWorkspace: (path: string) => openFileInWorkspace(path),
+}))
+vi.mock('@/lib/browser/browserProfile', () => ({
+  openBrowserTabAs: (...args: unknown[]) => openBrowserTabAs(...args),
+}))
 const paneVisible = { value: true }
 
 vi.mock('./useLiveDocumentText', () => ({ useLiveDocumentText: () => {} }))
@@ -50,6 +59,8 @@ const layoutInit = useLayoutStore.getState()
 
 type Listener<T> = (event: T) => void
 let onSelection: Listener<ViewerSelectionEvent>
+let onOpenLink: Listener<ViewerOpenLink>
+let onEditSource: Listener<{ paneId: string }>
 
 const SELECTION: ViewerSelectionEvent['selection'] = {
   capture: {
@@ -87,8 +98,18 @@ beforeEach(() => {
     onSelection = cb
     return () => {}
   })
+  vi.mocked(window.ostia.viewers.onOpenLink).mockImplementation((cb) => {
+    onOpenLink = cb
+    return () => {}
+  })
+  vi.mocked(window.ostia.viewers.onEditSource).mockImplementation((cb) => {
+    onEditSource = cb
+    return () => {}
+  })
   vi.mocked(window.ostia.viewers.copySelection).mockClear()
   paneVisible.value = true
+  openFileInWorkspace.mockClear()
+  openBrowserTabAs.mockClear()
 })
 
 afterEach(() => {
@@ -204,5 +225,27 @@ describe('FileViewerFrame', () => {
     expect(screen.getByTestId('region-bar')).toHaveAttribute('data-send-request', '1')
     act(() => onSelection({ paneId: 'p1', selection: null }))
     expect(openSelectionSend('p1')).toBe(false)
+  })
+
+  it('opens a web link in a browser tab, a mail link outside and a file in the workspace', async () => {
+    mount()
+    await act(async () => {})
+    act(() => onOpenLink({ paneId: 'p1', target: { kind: 'url', href: 'https://example.com/' } }))
+    expect(openBrowserTabAs).toHaveBeenCalledWith('w', 'https://example.com/', 'human')
+    act(() => onOpenLink({ paneId: 'p1', target: { kind: 'url', href: 'mailto:a@b.c' } }))
+    expect(window.ostia.openPath.openLink).toHaveBeenCalledWith('mailto:a@b.c')
+    act(() => onOpenLink({ paneId: 'p1', target: { kind: 'file', path: '/w/notes.md' } }))
+    expect(openFileInWorkspace).toHaveBeenCalledWith('/w/notes.md')
+  })
+
+  it('switches the pane back to the editor on an edit-source request', async () => {
+    const setViewType = vi.fn()
+    useLayoutStore.setState({ setViewType } as never)
+    mount()
+    await act(async () => {})
+    act(() => onEditSource({ paneId: 'p1' }))
+    expect(setViewType).toHaveBeenCalledWith('w', 'p1', 'default')
+    act(() => onEditSource({ paneId: 'p2' }))
+    expect(setViewType).toHaveBeenCalledTimes(1)
   })
 })

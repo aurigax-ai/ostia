@@ -22,6 +22,8 @@ import { ViewerWatch } from './viewerWatch'
 
 const VIEWER_CHANNELS = {
   selection: 'viewers:selection',
+  'open-link': 'viewers:open-link',
+  'edit-source': 'viewers:edit-source',
 } as const
 
 const EXTENSION_FILE_MAX = 32 * 1024 * 1024
@@ -94,5 +96,8 @@ export function registerViewerIpc({ viewers }: { viewers: ViewerHost }): void {
   )
   ipcMain.on('viewers:clear-selection', (e, paneId: unknown) =>
     viewers.clearSelection(String(e.sender.id), paneId),
+  )
+  ipcMain.on('viewers:document-text', (e, request: unknown) =>
+    viewers.setDocumentText(String(e.sender.id), request),
   )
 }

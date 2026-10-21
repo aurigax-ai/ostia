@@ -95,6 +95,9 @@ export function makeOstiaMock(overrides?: Partial<OstiaBridge>): OstiaBridge {
       copySelection: vi.fn().mockResolvedValue('Copied text'),
       sendSelection: vi.fn().mockResolvedValue({ ok: true, path: '/tmp/r.md', imagePath: null }),
       clearSelection: vi.fn(),
+      sendDocumentText: vi.fn(),
+      onOpenLink: vi.fn(() => () => {}),
+      onEditSource: vi.fn(() => () => {}),
     },
     fs: {
       list: vi.fn().mockResolvedValue([]),
