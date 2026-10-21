@@ -5,7 +5,7 @@ import { Notice } from '@/components/common/Notice'
 import { SettingsList } from '@/components/settingsKit/SettingsList'
 import { SettingsListRow } from '@/components/settingsKit/SettingsListRow'
 import { Button } from '@/components/ui/button'
-import { formatDate } from '@/lib/app/localeFormat'
+import { formatDate, SHORT_DATE_TIME } from '@/lib/app/localeFormat'
 import { fmt, useDict } from '@/lib/app/useDict'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { refreshSyncAttention, useSyncAttentionStore } from '@/stores/server/syncAttentionStore'
@@ -130,7 +130,9 @@ export function ServerDevices(): JSX.Element {
           const detail = ask
             ? fmt(d.server.approvalAsks, { age: ageText(locale, device.createdAt) })
             : changed
-              ? fmt(d.server.deviceChanged, { time: formatDate(changed.until, locale) })
+              ? fmt(d.server.deviceChanged, {
+                  time: formatDate(changed.until, locale, SHORT_DATE_TIME),
+                })
               : fmt(d.server.deviceAdded, { age: ageText(locale, device.createdAt) })
           return (
             <SettingsListRow

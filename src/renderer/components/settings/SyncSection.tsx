@@ -11,6 +11,7 @@ import { ControlRow } from '@/components/settingsKit/ControlRow'
 import { SelectField } from '@/components/settingsKit/SelectField'
 import { SettingsPage } from '@/components/settingsKit/SettingsPage'
 import { Button } from '@/components/ui/button'
+import { SHORT_DATE_TIME } from '@/lib/app/localeFormat'
 import { fmt, useDict } from '@/lib/app/useDict'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { SyncSecretsSection } from './SyncSecretsSection'
@@ -191,16 +192,7 @@ export function SyncSection(): JSX.Element {
     }
   }, [])
 
-  const time = useMemo(
-    () =>
-      new Intl.DateTimeFormat(locale, {
-        month: 'short',
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-      }),
-    [locale],
-  )
+  const time = useMemo(() => new Intl.DateTimeFormat(locale, SHORT_DATE_TIME), [locale])
 
   const syncNow = async (): Promise<void> => {
     setBusy(true)

@@ -18,6 +18,13 @@ export const DATE_ONLY: Intl.DateTimeFormatOptions = {
   day: 'numeric',
 }
 
+export const SHORT_DATE_TIME: Intl.DateTimeFormatOptions = {
+  month: 'short',
+  day: 'numeric',
+  hour: '2-digit',
+  minute: '2-digit',
+}
+
 export const TIME_ONLY: Intl.DateTimeFormatOptions = { timeStyle: 'medium' }
 
 export const TIME_24H: Intl.DateTimeFormatOptions = {

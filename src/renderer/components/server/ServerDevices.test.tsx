@@ -69,7 +69,16 @@ describe('shared device list', () => {
     })
     render(<ServerDevices />)
     expect(await screen.findByText('Changed')).toBeInTheDocument()
-    expect(screen.getByText(/^Keys changed · sync key ignored until /)).toBeInTheDocument()
+    expect(
+      screen.getByText(
+        `Keys changed · sync key ignored until ${new Intl.DateTimeFormat('en', {
+          month: 'short',
+          day: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
+        }).format(until)}`,
+      ),
+    ).toBeInTheDocument()
     expect(screen.getAllByRole('button', { name: 'Remove' })).toHaveLength(2)
   })
 
