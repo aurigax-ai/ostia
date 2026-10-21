@@ -2,24 +2,40 @@ import { createPublicKey, randomBytes, verify } from 'node:crypto'
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http'
 import type { AddressInfo } from 'node:net'
 import type { Duplex } from 'node:stream'
-import { WebSocket, WebSocketServer } from 'ws'
+import { type WebSocket, WebSocketServer } from 'ws'
+import { accountRoutes } from './fakeAccountRoutes'
+import { type AccountSync, syncRoutes } from './fakeSyncRoutes'
 
 const SPKI_ED25519 = Buffer.from('302a300506032b6570032100', 'hex')
 const REGISTER_CONTEXT = 'ostia-server/register/v1'
 const CHALLENGE_CONTEXT = 'ostia-server/auth/v1'
 const RELAY_DOMAIN = 'relay.test'
 
-interface FakeDevice {
+export interface FakeDevice {
   id: string
   accountId: string
   name: string
   signPub: string
+  boxPub: string
+  provider: string
+  createdAt: number
+  order: number
+  lastStamp: number
 }
 
-interface FakeSession {
+export interface FakeSession {
   deviceId: string
   expiresAt: number
+  elevatedUntil: number
 }
+
+export type Handler = (
+  req: IncomingMessage,
+  res: ServerResponse,
+  body: Record<string, unknown>,
+  raw: Buffer,
+  params: string[],
+) => void
 
 interface Intercept {
   status: number
@@ -58,13 +74,21 @@ export interface FakeServerOptions {
   pingMs?: number
   github?: boolean
   unconfirmedMs?: number
+  approverMinAgeMs?: number
+  elevationTtlMs?: number
+  quotaBytes?: number
+  maxBlobBytes?: number
+  gcGraceMs?: number
 }
 
 function b64(buffer: Buffer): string {
   return buffer.toString('base64url')
 }
 
-function verifyEd25519(signPub: string, message: string, signature: string): boolean {
+const SIGNATURE_SKEW_MS = 120_000
+const DAY_MS = 86_400_000
+
+export function verifyEd25519(signPub: string, message: string, signature: string): boolean {
   try {
     const key = createPublicKey({
       key: Buffer.concat([SPKI_ED25519, Buffer.from(signPub, 'base64url')]),
@@ -77,11 +101,16 @@ function verifyEd25519(signPub: string, message: string, signature: string): boo
   }
 }
 
-async function readBody(req: IncomingMessage): Promise<Record<string, unknown>> {
+async function readRaw(req: IncomingMessage): Promise<Buffer> {
   const chunks: Buffer[] = []
   for await (const chunk of req) chunks.push(chunk as Buffer)
+  return Buffer.concat(chunks)
+}
+
+function parseBody(raw: Buffer): Record<string, unknown> {
   try {
-    return JSON.parse(Buffer.concat(chunks).toString('utf8')) as Record<string, unknown>
+    const parsed: unknown = JSON.parse(raw.toString('utf8'))
+    return parsed !== null && typeof parsed === 'object' ? (parsed as Record<string, unknown>) : {}
   } catch {
     return {}
   }
@@ -91,8 +120,15 @@ export class FakeServer {
   readonly invites = new Set<string>()
   readonly requests: string[] = []
   readonly confirmed: string[] = []
+  readonly deviceInvites = new Map<
+    string,
+    { accountId: string; elevated: boolean; expiresAt: number }
+  >()
+  readonly acknowledged = new Set<string>()
   readonly devices = new Map<string, FakeDevice>()
   readonly sessions = new Map<string, FakeSession>()
+  readonly removed: string[] = []
+  readonly syncData = new Map<string, AccountSync>()
   readonly intercepts = new Map<string, Intercept[]>()
   githubPolls = 0
   githubPendingPolls = 1
@@ -102,6 +138,10 @@ export class FakeServer {
   listenerConnections = 0
   sessionTtlMs: number
   url = ''
+  skewMs = 0
+  readonly approverMinAgeMs: number
+  readonly elevationTtlMs: number
+  private readonly extraHandlers: Array<[string, RegExp, Handler]> = []
   private readonly nonces = new Map<string, string>()
   private readonly http: Server
   private readonly sockets = new WebSocketServer({ noServer: true })
@@ -109,11 +149,23 @@ export class FakeServer {
   private readonly streams = new Map<string, PendingStream>()
   private pingTimer: ReturnType<typeof setInterval> | null = null
   private nextDevice = 1
+  private nextAccount = 1
 
-  constructor(private readonly options: FakeServerOptions = {}) {
+  constructor(readonly options: FakeServerOptions = {}) {
     this.sessionTtlMs = options.sessionTtlMs ?? 3_600_000
+    this.approverMinAgeMs = options.approverMinAgeMs ?? DAY_MS
+    this.elevationTtlMs = options.elevationTtlMs ?? 300_000
+    this.extraHandlers.push(...accountRoutes(this), ...syncRoutes(this))
     this.http = createServer((req, res) => void this.route(req, res))
     this.http.on('upgrade', (req, socket, head) => this.upgrade(req, socket, head))
+  }
+
+  now(): number {
+    return Date.now() + this.skewMs
+  }
+
+  advance(ms: number): void {
+    this.skewMs += ms
   }
 
   async start(): Promise<this> {
@@ -200,7 +252,93 @@ export class FakeServer {
     const header = req.headers.authorization ?? ''
     const token = header.startsWith('Bearer ') ? header.slice(7) : ''
     const session = this.sessions.get(token)
-    return session && session.expiresAt > Date.now() ? { token, session } : null
+    return session && session.expiresAt > this.now() ? { token, session } : null
+  }
+
+  authed(
+    req: IncomingMessage,
+    res: ServerResponse,
+  ): { token: string; session: FakeSession; device: FakeDevice } | null {
+    const auth = this.sessionOf(req)
+    const device = auth ? this.devices.get(auth.session.deviceId) : undefined
+    if (!auth || !device) {
+      this.error(res, 401, 'unauthorized')
+      return null
+    }
+    return { ...auth, device }
+  }
+
+  accountDevices(accountId: string): FakeDevice[] {
+    return [...this.devices.values()].filter((d) => d.accountId === accountId)
+  }
+
+  elevated(session: FakeSession): boolean {
+    return session.elevatedUntil > this.now()
+  }
+
+  elevate(session: FakeSession): number {
+    session.elevatedUntil = this.now() + this.elevationTtlMs
+    return session.elevatedUntil
+  }
+
+  signed(
+    req: IncomingMessage,
+    res: ServerResponse,
+    device: FakeDevice,
+    message: (stamp: number) => string,
+    stamped: boolean,
+  ): boolean {
+    const signature = String(req.headers['x-device-signature'] ?? '')
+    if (!signature) {
+      this.error(res, 403, 'device-signature-required')
+      return false
+    }
+    let stamp = 0
+    if (stamped) {
+      stamp = Number(req.headers['x-device-timestamp'])
+      if (!Number.isFinite(stamp) || stamp <= 0) {
+        this.error(res, 403, 'device-signature-required')
+        return false
+      }
+      if (Math.abs(this.now() - stamp) > SIGNATURE_SKEW_MS) {
+        this.error(res, 403, 'stale-signature')
+        return false
+      }
+    }
+    if (!this.verifySignature(device, message(stamp), signature)) {
+      this.error(res, 403, 'bad-signature')
+      return false
+    }
+    if (stamped) {
+      if (stamp <= device.lastStamp) {
+        this.error(res, 403, 'stale-signature')
+        return false
+      }
+      device.lastStamp = stamp
+    }
+    return true
+  }
+
+  isUnseen(viewer: FakeDevice, target: FakeDevice): boolean {
+    return (
+      target.order > viewer.order &&
+      target.accountId === viewer.accountId &&
+      !this.acknowledged.has(`${viewer.id}:${target.id}`)
+    )
+  }
+
+  verifySignature(device: FakeDevice, message: string, signature: string): boolean {
+    return verifyEd25519(device.signPub, message, signature)
+  }
+
+  removeDevice(device: FakeDevice): void {
+    this.devices.delete(device.id)
+    this.removed.push(device.id)
+    for (const [token, session] of this.sessions) {
+      if (session.deviceId === device.id) this.sessions.delete(token)
+    }
+    this.syncData.get(device.accountId)?.wraps.delete(`device:${device.id}`)
+    this.listeners.get(device.id)?.ws.close(1008)
   }
 
   private upgrade(req: IncomingMessage, socket: Duplex, head: Buffer): void {
@@ -225,6 +363,12 @@ export class FakeServer {
     this.listeners.get(deviceId)?.ws.close(1008)
     const listener = { ws, deviceId }
     this.listeners.set(deviceId, listener)
+    const viewer = this.devices.get(deviceId)
+    if (viewer) {
+      for (const peer of this.accountDevices(viewer.accountId)) {
+        if (this.isUnseen(viewer, peer)) this.notifyAdded(deviceId, peer)
+      }
+    }
     ws.on('message', (data) => {
       const message = JSON.parse(data.toString('utf8')) as { t?: string; stream?: string }
       if (message.t === 'pong') this.pongs += 1
@@ -263,12 +407,12 @@ export class FakeServer {
     stream.accept()
   }
 
-  private reply(res: ServerResponse, status: number, body?: unknown, headers = {}): void {
+  reply(res: ServerResponse, status: number, body?: unknown, headers = {}): void {
     res.writeHead(status, { 'Content-Type': 'application/json', ...headers })
     res.end(body === undefined ? undefined : JSON.stringify(body))
   }
 
-  private error(res: ServerResponse, status: number, code: string, headers = {}): void {
+  error(res: ServerResponse, status: number, code: string, headers = {}): void {
     this.reply(res, status, { error: code }, headers)
   }
 
@@ -280,32 +424,69 @@ export class FakeServer {
       this.reply(res, queued.status, queued.body, queued.headers)
       return
     }
-    const body = await readBody(req)
+    const raw = await readRaw(req)
+    const body = parseBody(raw)
     const handler = this.handlers()[key]
-    if (!handler) {
-      this.error(res, 404, 'not-found')
+    if (handler) {
+      handler(req, res, body, raw, [])
       return
     }
-    handler(req, res, body)
+    const path = (req.url ?? '').split('?')[0] ?? ''
+    for (const [method, pattern, run] of this.extraHandlers) {
+      const match = method === req.method ? pattern.exec(path) : null
+      if (match) {
+        run(req, res, body, raw, match.slice(1))
+        return
+      }
+    }
+    this.error(res, 404, 'not-found')
   }
 
-  private register(res: ServerResponse, body: Record<string, unknown>, provider: string): void {
+  private register(
+    res: ServerResponse,
+    body: Record<string, unknown>,
+    provider: string,
+    accountId = `account${this.nextAccount++}`,
+  ): void {
     const { name, signPub, boxPub, proof } = body as Record<string, string>
     const message = `${REGISTER_CONTEXT}\n${signPub}\n${boxPub}`
     if (!verifyEd25519(signPub, message, proof)) {
       this.error(res, 400, 'bad-proof')
       return
     }
-    const id = `device${this.nextDevice++}`
-    const accountId = `account${this.devices.size + 1}`
-    this.devices.set(id, { id, accountId, name, signPub })
+    const existing = this.accountDevices(accountId)
+    const order = this.nextDevice++
+    const id = `device${order}`
+    const device = {
+      id,
+      accountId,
+      name,
+      signPub,
+      boxPub,
+      provider,
+      createdAt: this.now(),
+      order,
+      lastStamp: 0,
+    }
+    this.devices.set(id, device)
+    if (existing.length > 0) {
+      for (const peer of existing) this.notifyAdded(peer.id, device)
+    }
     this.reply(res, 201, { accountId, deviceId: id, provider })
   }
 
-  private handlers(): Record<
-    string,
-    (req: IncomingMessage, res: ServerResponse, body: Record<string, unknown>) => void
-  > {
+  private notifyAdded(listenerId: string, device: FakeDevice): void {
+    this.listeners.get(listenerId)?.ws.send(
+      JSON.stringify({
+        t: 'device-added',
+        deviceId: device.id,
+        name: device.name,
+        createdAt: device.createdAt,
+      }),
+    )
+  }
+
+  private handlers(): Record<string, Handler> {
     return {
       'GET /v1/info': (_req, res) =>
         this.reply(res, 200, {
@@ -318,11 +499,19 @@ export class FakeServer {
         }),
       'POST /v1/auth/invite': (_req, res, body) => {
         const code = String(body.code ?? '')
-        if (!this.invites.delete(code)) {
+        if (this.invites.delete(code)) {
+          this.register(res, body, 'invite')
+          return
+        }
+        const minted = this.deviceInvites.get(code)
+        this.deviceInvites.delete(code)
+        const grown = minted && this.accountDevices(minted.accountId).length >= 2
+        if (!minted || minted.expiresAt < this.now() || (grown && !minted.elevated)) {
           this.error(res, 403, 'invalid-invite')
           return
         }
-        this.register(res, body, 'invite')
+        const first = this.accountDevices(minted.accountId)[0]
+        this.register(res, body, first?.provider ?? 'invite', minted.accountId)
       },
       'POST /v1/auth/github/device': (_req, res) =>
         this.reply(res, 200, {
@@ -360,8 +549,8 @@ export class FakeServer {
           return
         }
         const token = b64(randomBytes(24))
-        const expiresAt = Date.now() + this.sessionTtlMs
-        this.sessions.set(token, { deviceId, expiresAt })
+        const expiresAt = this.now() + this.sessionTtlMs
+        this.sessions.set(token, { deviceId, expiresAt, elevatedUntil: 0 })
         this.reply(res, 200, { token, expiresAt, accountId: device.accountId })
       },
       'DELETE /v1/auth/session': (req, res) => {
@@ -376,9 +565,16 @@ export class FakeServer {
           return
         }
         const mine = this.devices.get(auth.session.deviceId)
-        const devices = [...this.devices.values()]
-          .filter((d) => d.accountId === mine?.accountId)
-          .map((d) => ({ id: d.id, name: d.name, lastSeen: 0, current: d.id === mine?.id }))
+        const devices = this.accountDevices(mine?.accountId ?? '').map((d) => ({
+          id: d.id,
+          name: d.name,
+          signPub: d.signPub,
+          boxPub: d.boxPub,
+          createdAt: d.createdAt,
+          lastSeen: 0,
+          ...(d.id === mine?.id ? { current: true } : {}),
+          ...(mine && this.isUnseen(mine, d) ? { new: true } : {}),
+        }))
         this.reply(res, 200, { devices })
       },
       'POST /v1/relay/label': (req, res) => {

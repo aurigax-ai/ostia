@@ -16,7 +16,10 @@ export class ServerError extends Error {
 
 interface RequestOptions {
   body?: unknown
+  bytes?: Uint8Array<ArrayBuffer>
   token?: string
+  headers?: Record<string, string>
+  asBytes?: boolean
 }
 
 export interface ServerClient {
@@ -58,15 +61,17 @@ export function createServerClient({
   }
 
   const send = async (method: string, path: string, options: RequestOptions): Promise<Response> => {
-    const headers: Record<string, string> = { Accept: 'application/json' }
+    const headers: Record<string, string> = { Accept: 'application/json', ...options.headers }
     if (options.body !== undefined) headers['Content-Type'] = 'application/json'
+    if (options.bytes !== undefined) headers['Content-Type'] = 'application/octet-stream'
     if (options.token) headers.Authorization = `Bearer ${options.token}`
     const base = origin()
     try {
       return await fetchFn(`${base}${path}`, {
         method,
         headers,
-        body: options.body === undefined ? undefined : JSON.stringify(options.body),
+        body:
+          options.bytes ?? (options.body === undefined ? undefined : JSON.stringify(options.body)),
         redirect: 'error',
         signal: AbortSignal.timeout(timeoutMs),
       })
@@ -90,6 +95,7 @@ export function createServerClient({
     }
     if (!response.ok) throw await failureOf(response)
     if (response.status === 204) return undefined as T
+    if (options.asBytes) return Buffer.from(await response.arrayBuffer()) as T
     try {
       return (await response.json()) as T
     } catch {
