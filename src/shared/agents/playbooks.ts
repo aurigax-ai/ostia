@@ -1,7 +1,7 @@
 import { skillDirective } from '@aurigax-ai/ostia-extension-sdk/contract/agentPlugins'
 import { PRODUCT_NAME } from '@aurigax-ai/ostia-extension-sdk/contract/product'
 import coordinatorText from './playbooks/coordinator.md?raw'
-import rememberText from './playbooks/remember.md?raw'
+import handoffText from './playbooks/handoff.md?raw'
 import reviewText from './playbooks/review.md?raw'
 import workerText from './playbooks/worker.md?raw'
 
@@ -9,7 +9,6 @@ export interface BuiltinPlaybook {
   id: string
   description: string
   text: string
-  defaultOn: boolean
 }
 
 export const BUILTIN_PLAYBOOKS: readonly BuiltinPlaybook[] = [
@@ -17,25 +16,21 @@ export const BUILTIN_PLAYBOOKS: readonly BuiltinPlaybook[] = [
     id: 'coordinator',
     description: 'Plan, dispatch, review and merge; write no code yourself.',
     text: coordinatorText,
-    defaultOn: false,
   },
   {
     id: 'worker',
     description: 'Scout, build, test and open a PR; report to the coordinator.',
     text: workerText,
-    defaultOn: false,
   },
   {
     id: 'review',
     description: 'One focused review of a PR against its issue.',
     text: reviewText,
-    defaultOn: false,
   },
   {
-    id: 'remember',
-    description: 'Note a task to pick up later, even after /clear or a resume.',
-    text: rememberText,
-    defaultOn: true,
+    id: 'handoff',
+    description: 'Start a clean new session on one topic, beside this one.',
+    text: handoffText,
   },
 ]
 
@@ -258,7 +253,7 @@ export function resolvePlaybooks(settings: PlaybooksSettings): ResolvedPlaybook[
       description: p.description,
       text: accepted ? edit.text : p.text,
       defaultText: p.text,
-      enabled: settings.enabled[p.id] ?? p.defaultOn,
+      enabled: settings.enabled[p.id] ?? false,
       edited: accepted,
       defaultChanged: accepted && edit.from !== playbookHash(p.text),
       unaccepted: differs && !accepted ? edit.text : null,
@@ -288,6 +283,10 @@ export function activePlaybooks(settings: PlaybooksSettings): ResolvedPlaybook[]
       playbookTextProblem(p.text) === null &&
       (p.builtin || playbookDescriptionProblem(p.description) === null),
   )
+}
+
+export function isBuiltinPlaybookOn(settings: PlaybooksSettings, id: string): boolean {
+  return activePlaybooks(settings).some((p) => p.builtin && p.id === id)
 }
 
 export function playbookSkillText(playbook: ResolvedPlaybook): string {

@@ -124,6 +124,7 @@ const ADMIN_ONLY_COMMANDS = new Set([
 ])
 const EXTENSIONS_FOR_THE_HUMAN_NO_AGENT_SKILL_COVERS = new Set([
   'assistant',
+  'handoff',
   'keeper',
   'model-runtime',
   'skills',

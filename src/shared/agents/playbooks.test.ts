@@ -37,7 +37,7 @@ describe('playbook names', () => {
   })
 
   it('reserves the built-in names, the product name and Claude Code’s own commands', () => {
-    for (const id of ['coordinator', 'worker', 'review', 'remember', 'ostia']) {
+    for (const id of ['coordinator', 'worker', 'review', 'handoff', 'ostia']) {
       expect(playbookNameProblem(id, [], [])).toBe('reserved')
     }
     for (const id of ['clear', 'init', 'compact', 'help', 'simplify', 'security-review']) {
@@ -152,11 +152,11 @@ describe('parsePlaybooks', () => {
 })
 
 describe('resolvePlaybooks', () => {
-  it('turns only remember on by default', () => {
+  it('turns no built-in on by default', () => {
     const on = resolvePlaybooks(DEFAULT_PLAYBOOKS)
       .filter((p) => p.enabled)
       .map((p) => p.id)
-    expect(on).toEqual(['remember'])
+    expect(on).toEqual([])
   })
 
   it('applies a text the human wrote here, and notices a changed default', () => {
@@ -263,7 +263,7 @@ describe('activePlaybooks and the skill text', () => {
     s = withOwnPlaybook(s, 'shell', { description: 'ok', text: 'run !`id`' })
     s = withOwnPlaybook(s, 'blank', { description: '', text: 'Do it' })
     for (const id of ['good', 'shell', 'blank', 'worker']) s = withPlaybookEnabled(s, id, true)
-    expect(activePlaybooks(s).map((p) => p.id)).toEqual(['worker', 'remember', 'good'])
+    expect(activePlaybooks(s).map((p) => p.id)).toEqual(['worker', 'good'])
   })
 
   it('writes Ostia’s own frontmatter, human-invoked only, with the description quoted', () => {

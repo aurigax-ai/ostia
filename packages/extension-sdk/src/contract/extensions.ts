@@ -51,6 +51,7 @@ export interface ExtensionCommandContribution {
   palette: boolean
   stdin: boolean
   interactive?: true
+  needsPlaybook?: true
   capabilities: Capability[]
 }
 
@@ -530,6 +531,7 @@ export interface RunAgentOptions {
   prompt: string
   background?: boolean
   continueFrom?: string
+  afterPaneId?: string
 }
 
 export const EXEC_TIMEOUT_MAX_MS = 600_000

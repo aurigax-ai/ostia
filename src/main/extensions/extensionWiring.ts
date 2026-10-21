@@ -13,6 +13,8 @@ import type { TerminalStateSnapshot } from '../../shared/terminal/ptyApi'
 import { AGENT_OFFER_RESULT_CHANNEL, type AgentOfferRelay } from '../agents/agentOfferRelay'
 import type { AgentRunningPanes } from '../agents/agentRunning'
 import type { HeldResume } from '../agents/extensionAgents'
+import { playbookEnabled } from '../agents/playbookEnabled'
+import { currentPlaybookSettings } from '../agents/playbookFiles'
 import { targetOf } from '../attention/attention'
 import { postNotification, postPanelNotification } from '../attention/notify'
 import type { NotifyWiring } from '../attention/notifyWiring'
@@ -283,6 +285,7 @@ export function startExtensionHost({
     offerToAgentIn: (offer) => agentOffers.offer(offer),
     focusPaneIn: focusPaneInWindow,
     exec: extensionExec,
+    playbookEnabled: (id) => playbookEnabled(currentPlaybookSettings(), id),
     resumeOf: resumeOfPane,
     screenLinks,
   })
