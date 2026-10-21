@@ -4,7 +4,7 @@ import { homedir, hostname, userInfo } from 'node:os'
 import { basename, delimiter, dirname, join } from 'node:path'
 import { LRUCache } from 'lru-cache'
 import type { PromptContext, PromptContextRequest } from '../../shared/terminal/ptyApi'
-import { type ShellState, pathDirs } from './shellCommands'
+import { pathDirs, type ShellState } from './shellCommands'
 
 const NODE_VERSION = /^v\d+\.\d+\.\d+\S*$/
 const VERSIONED_NODE_PATH = /\/v?(\d+\.\d+\.\d+)(?:\/installation)?\/bin\/node$/

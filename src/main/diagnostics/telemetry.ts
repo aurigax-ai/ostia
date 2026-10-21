@@ -5,9 +5,12 @@ import { readEnv } from '@aurigax-ai/ostia-extension-sdk/contract/appEnv'
 import { app, ipcMain } from 'electron'
 import type { TelemetryStamp } from '../../shared/app/buildInfo'
 import {
+  buildErrorReport,
   DEFAULT_TELEMETRY_SETTINGS,
   type ErrorInput,
   type InstallContext,
+  parseIngest,
+  parseTelemetrySettings,
   TELEMETRY_CATEGORIES,
   TELEMETRY_URL_ENV,
   type TelemetryCategory,
@@ -17,14 +20,11 @@ import {
   type TelemetryState,
   type UsageCategory,
   VALUE_PATTERN,
-  buildErrorReport,
-  parseIngest,
-  parseTelemetrySettings,
 } from '../../shared/privacy/telemetry'
 import { loadJson } from '../platform/jsonStore'
 import { type LogFields, redactSecrets } from './appLog'
 import { createTelemetryQueue, newInstallId, parseStored } from './telemetryQueue'
-import { type SessionFacts, createTelemetryUsage } from './telemetryUsage'
+import { createTelemetryUsage, type SessionFacts } from './telemetryUsage'
 
 export const TELEMETRY_FILE = 'telemetry.json'
 const TELEMETRY_USAGE_INTERVAL_MS = 30 * 60 * 1000

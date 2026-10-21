@@ -1,8 +1,8 @@
+import { type RefObject, useEffect, useState } from 'react'
 import { composerModeOf } from '@/commands/assistCompose'
 import type { ComposerMode } from '@/lib/assist/assistComposer'
 import type { OstiaTerminal as Xterm } from '@/lib/terminal/ostiaTerminal'
 import { useAssistComposerStore } from '@/stores/assist/assistComposerStore'
-import { type RefObject, useEffect, useState } from 'react'
 import { AgentPromptComposer } from './AgentPromptComposer'
 import { ShellComposer } from './ShellComposer'
 

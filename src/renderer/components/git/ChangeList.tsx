@@ -1,11 +1,3 @@
-import { IconButton } from '@/components/common/IconButton'
-import { Segmented } from '@/components/common/Segmented'
-import { focusSibling } from '@/lib/app/rowFocus'
-import { fmt, useDict } from '@/lib/app/useDict'
-import { splitPath } from '@/lib/files/fileTree'
-import { type TreeNode, buildFileTree } from '@/lib/git/gitFileTree'
-import { AREA_ORDER, leaves, rowIndent } from '@/lib/git/gitView'
-import { useSettingsStore } from '@/stores/app/settingsStore'
 import {
   ArrowCounterClockwiseIcon,
   ArrowDownIcon,
@@ -32,6 +24,14 @@ import type {
   StatusSummary,
 } from '@shared/boards/git'
 import { Fragment, type KeyboardEvent, type ReactNode, useMemo } from 'react'
+import { IconButton } from '@/components/common/IconButton'
+import { Segmented } from '@/components/common/Segmented'
+import { focusSibling } from '@/lib/app/rowFocus'
+import { fmt, useDict } from '@/lib/app/useDict'
+import { splitPath } from '@/lib/files/fileTree'
+import { buildFileTree, type TreeNode } from '@/lib/git/gitFileTree'
+import { AREA_ORDER, leaves, rowIndent } from '@/lib/git/gitView'
+import { useSettingsStore } from '@/stores/app/settingsStore'
 
 type GitDict = Dict['git']
 
@@ -338,7 +338,10 @@ function RowActions({
 function AreaActions({
   area,
   handlers,
-}: { area: ChangeArea; handlers: ChangeHandlers }): JSX.Element | null {
+}: {
+  area: ChangeArea
+  handlers: ChangeHandlers
+}): JSX.Element | null {
   const t = useDict().git
   if (area === 'conflicted') return null
   if (area === 'staged') {

@@ -1,7 +1,7 @@
 import {
+  isValidElement,
   type ReactElement,
   type ReactNode,
-  isValidElement,
   useEffect,
   useReducer,
   useRef,

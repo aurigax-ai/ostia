@@ -1,11 +1,11 @@
 import {
   type CommandHandler,
   type ConfirmRequest,
+  cliArgs,
   type ExtensionResult,
+  failure,
   type OpenFolderOptions,
   type OpenFolderResult,
-  cliArgs,
-  failure,
   ok,
 } from '@aurigax-ai/ostia-extension-sdk'
 import type { ExtensionCaller } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
@@ -16,7 +16,7 @@ import { HELPER_PROTOCOL, type HelperBundle, SESSION_FILE } from './helper'
 import type { HelperHosts } from './helperHosts'
 import { type ConnectPlan, hostKey, planConnect } from './plan'
 import { HELPER_INSTALL_USAGE, HELPER_REMOVE_USAGE, type Strings, stringsFor } from './strings'
-import { type RunSsh, type SshTarget, resolveTarget } from './target'
+import { type RunSsh, resolveTarget, type SshTarget } from './target'
 
 export interface HelperDeps {
   run: RunSsh

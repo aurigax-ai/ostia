@@ -3,7 +3,7 @@ import { closingFromStop } from '../../shared/agents/closingLine'
 import { parseArgs } from '../common/args'
 import { fail, failUsage } from '../common/failure'
 import { readAllStdin } from '../common/stdinText'
-import { STATE_VERBS, messageFromStdin } from '../hooks/offlineAttention'
+import { messageFromStdin, STATE_VERBS } from '../hooks/offlineAttention'
 
 export async function runStateVerb(conn: MessageConnection): Promise<void> {
   const { positional, values, booleans } = parseArgs(process.argv.slice(3), {

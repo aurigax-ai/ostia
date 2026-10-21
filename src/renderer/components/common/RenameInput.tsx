@@ -1,5 +1,5 @@
-import { Input } from '@/components/ui/input'
 import { useEffect, useRef, useState } from 'react'
+import { Input } from '@/components/ui/input'
 
 export function RenameInput({
   value,

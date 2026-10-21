@@ -1,3 +1,13 @@
+import {
+  checkDomainPattern,
+  DEFAULT_PACKAGE_SETTINGS,
+  DEFAULT_SWITCHES,
+  type PackageSettings,
+  type SandboxFixedPolicy,
+  type SandboxGlobals,
+} from '@shared/sandbox/sandbox'
+import { parseSandboxGlobals } from '@shared/sandbox/sandboxParse'
+import { useEffect, useState } from 'react'
 import { ControlRow } from '@/components/settingsKit/ControlRow'
 import { SettingsGroup } from '@/components/settingsKit/SettingsGroup'
 import { SettingsPage } from '@/components/settingsKit/SettingsPage'
@@ -6,16 +16,6 @@ import { Switch } from '@/components/ui/switch'
 import { useDict } from '@/lib/app/useDict'
 import { useSandboxStore } from '@/stores/app/sandboxStore'
 import { useSettingsStore } from '@/stores/app/settingsStore'
-import {
-  DEFAULT_PACKAGE_SETTINGS,
-  DEFAULT_SWITCHES,
-  type PackageSettings,
-  type SandboxFixedPolicy,
-  type SandboxGlobals,
-  checkDomainPattern,
-} from '@shared/sandbox/sandbox'
-import { parseSandboxGlobals } from '@shared/sandbox/sandboxParse'
-import { useEffect, useState } from 'react'
 import { PackagesEditor } from './SandboxPackagesTab'
 import {
   SandboxFilesGroups,

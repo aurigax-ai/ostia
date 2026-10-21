@@ -1,3 +1,16 @@
+import { DIFF_TEXT_MAX } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
+import {
+  ArrowSquareOutIcon,
+  CaretDoubleDownIcon,
+  CaretDoubleUpIcon,
+  CaretDownIcon,
+  CaretUpIcon,
+  ColumnsIcon,
+  FileTextIcon,
+  ParagraphIcon,
+  RowsIcon,
+} from '@phosphor-icons/react'
+import { useEffect, useRef } from 'react'
 import { commands } from '@/commands/registry'
 import { Hint } from '@/components/common/Hint'
 import { IconButton } from '@/components/common/IconButton'
@@ -18,19 +31,6 @@ import { codeFontStack } from '@/lib/theme/uiFonts'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useDiffStore } from '@/stores/files/diffStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
-import { DIFF_TEXT_MAX } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
-import {
-  ArrowSquareOutIcon,
-  CaretDoubleDownIcon,
-  CaretDoubleUpIcon,
-  CaretDownIcon,
-  CaretUpIcon,
-  ColumnsIcon,
-  FileTextIcon,
-  ParagraphIcon,
-  RowsIcon,
-} from '@phosphor-icons/react'
-import { useEffect, useRef } from 'react'
 import { useExternalEditorAction } from './useEditorView'
 
 const DIFF_COMPUTATION_MS = 2000
@@ -39,7 +39,10 @@ const MB = 1024 * 1024
 export function DiffView({
   workspaceId,
   paneId,
-}: { workspaceId: string; paneId: string }): JSX.Element {
+}: {
+  workspaceId: string
+  paneId: string
+}): JSX.Element {
   const d = useDict()
   const content = useDiffStore((s) => s.byPane[paneId])
   const font = useSettingsStore((s) => s.appearance.editor)

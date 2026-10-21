@@ -1,37 +1,37 @@
+import { CloudIcon, GitBranchIcon, TagIcon } from '@phosphor-icons/react'
+import type { CommitRef, GitGraphData, StatusSummary } from '@shared/boards/git'
+import {
+  type CSSProperties,
+  type KeyboardEvent,
+  memo,
+  type ReactNode,
+  type RefObject,
+  useEffect,
+  useId,
+  useState,
+} from 'react'
 import { useDict } from '@/lib/app/useDict'
 import { useElementSize } from '@/lib/app/useElementSize'
 import type { GraphRow } from '@/lib/git/gitGraph'
 import {
-  type GraphEntry,
-  type GraphModel,
-  LANE_COLORS,
-  LOAD_MORE_MARGIN,
-  ROW_HEIGHT,
-  SELECTION_KEYS,
   absoluteTime,
   edgePath,
   entryKey,
+  type GraphEntry,
+  type GraphModel,
   indexOfKey,
+  LANE_COLORS,
+  LOAD_MORE_MARGIN,
   laneX,
+  ROW_HEIGHT,
   relativeTime,
+  SELECTION_KEYS,
   scrollTopToShow,
   selectionTarget,
   shortSha,
   visibleRange,
 } from '@/lib/git/gitView'
 import { useSettingsStore } from '@/stores/app/settingsStore'
-import { CloudIcon, GitBranchIcon, TagIcon } from '@phosphor-icons/react'
-import type { CommitRef, GitGraphData, StatusSummary } from '@shared/boards/git'
-import {
-  type CSSProperties,
-  type KeyboardEvent,
-  type ReactNode,
-  type RefObject,
-  memo,
-  useEffect,
-  useId,
-  useState,
-} from 'react'
 import { CountChips } from './ChangeList'
 
 function Lanes({
@@ -39,7 +39,12 @@ function Lanes({
   row,
   isHead,
   width,
-}: { entry: GraphEntry; row: GraphRow; isHead: boolean; width: number }): JSX.Element {
+}: {
+  entry: GraphEntry
+  row: GraphRow
+  isHead: boolean
+  width: number
+}): JSX.Element {
   const mid = ROW_HEIGHT / 2
   const cx = laneX(row.lane)
   const lane = `lane-${row.color % LANE_COLORS}`
@@ -130,7 +135,6 @@ const GraphRowView = memo(function GraphRowView({
     <div
       id={id}
       className={`graph-row${selected ? ' selected' : ''}${entry.kind === 'worktree' ? ' worktree' : ''}`}
-      // biome-ignore lint/a11y/useSemanticElements: a virtualized row with lanes and badges, not a select option
       role="option"
       data-sha={key}
       aria-selected={selected}
@@ -241,7 +245,6 @@ export function GraphList({
     <div
       ref={scroller}
       className="graph-scroll"
-      // biome-ignore lint/a11y/useSemanticElements: a virtualized commit list, not a form select
       role="listbox"
       tabIndex={0}
       aria-label={t.graph}

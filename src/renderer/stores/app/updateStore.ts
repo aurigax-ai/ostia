@@ -1,18 +1,18 @@
-import { currentDict, fmt } from '@/lib/app/useDict'
-import { startNewWorkspace } from '@/lib/workspaces/newWorkspace'
-import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import { type BuildInfo, sameBuild } from '@shared/app/buildInfo'
 import {
   type InstallMethod,
+  managedUpdateMethod,
   type ReleaseState,
   type ReplaceAvailability,
   type ReplaceProgress,
   type ReplaceState,
   type UpdateRunState,
-  managedUpdateMethod,
 } from '@shared/app/installMethod'
 import type { ReleaseCheckResult, ReleaseInfo } from '@shared/app/releases'
 import { create } from 'zustand'
+import { currentDict, fmt } from '@/lib/app/useDict'
+import { startNewWorkspace } from '@/lib/workspaces/newWorkspace'
+import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 
 type ReleaseCheckState = { status: 'idle' } | { status: 'checking' } | ReleaseCheckResult
 

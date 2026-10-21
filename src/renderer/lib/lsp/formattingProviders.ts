@@ -1,5 +1,5 @@
-import { monaco } from '@/lib/monaco/setup'
 import type { TextEdit } from 'vscode-languageserver-protocol'
+import { monaco } from '@/lib/monaco/setup'
 import { toLspRange, toTextEdits } from './converters'
 import type { ProviderParams } from './providerParams'
 

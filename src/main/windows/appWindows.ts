@@ -1,6 +1,6 @@
 import { join } from 'node:path'
 import { PRODUCT_DISPLAY_NAME } from '@aurigax-ai/ostia-extension-sdk/contract/productDisplay'
-import { BrowserWindow, app, nativeTheme } from 'electron'
+import { app, BrowserWindow, nativeTheme } from 'electron'
 import appIcon from '../../../resources/icon.png?asset'
 import { SOFTWARE_WEBGL_ARG } from '../../shared/app/discreteGpu'
 import type { WindowBounds } from '../../shared/workspaces/workspaceApi'

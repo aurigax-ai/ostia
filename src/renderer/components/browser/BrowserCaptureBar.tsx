@@ -1,10 +1,10 @@
+import type { PickCapture } from '@shared/browser/pick'
+import type { RegionCapture } from '@shared/browser/regionCapture'
 import { PickSendPanel } from '@/components/agents/PickSendPanel'
 import { NoticeSlot } from '@/components/common/NoticeSlot'
 import { StatusLine } from '@/components/common/StatusLine'
 import type { PickTarget } from '@/lib/agents/pickTargets'
 import { fmt, useDict } from '@/lib/app/useDict'
-import type { PickCapture } from '@shared/browser/pick'
-import type { RegionCapture } from '@shared/browser/regionCapture'
 
 interface BrowserCaptureBarProps {
   picking: { byAgent: boolean } | null

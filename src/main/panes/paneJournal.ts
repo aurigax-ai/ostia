@@ -1,4 +1,4 @@
-import { STATUS_MESSAGE_MAX, closingLine } from '../../shared/agents/closingLine'
+import { closingLine, STATUS_MESSAGE_MAX } from '../../shared/agents/closingLine'
 
 export const JOURNAL_EVENTS_MAX = 20
 export const JOURNAL_CURSORS_MAX = 1000

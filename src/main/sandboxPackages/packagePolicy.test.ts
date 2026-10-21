@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { type PackageLookups, decidePackage } from './packagePolicy'
+import { decidePackage, type PackageLookups } from './packagePolicy'
 import { parsePackageDownload } from './packages'
 
 const NOW = Date.parse('2026-09-30T12:00:00Z')

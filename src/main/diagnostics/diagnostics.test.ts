@@ -1,6 +1,6 @@
 import type { WebContents } from 'electron'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { RecoveryBook, orphanVerdict, planRecovery } from '../terminal/ptyReaper'
+import { orphanVerdict, planRecovery, RecoveryBook } from '../terminal/ptyReaper'
 
 const handlers = new Map<string, (...args: unknown[]) => unknown>()
 

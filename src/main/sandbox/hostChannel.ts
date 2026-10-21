@@ -1,5 +1,5 @@
 import { chmodSync, lstatSync, renameSync, rmSync } from 'node:fs'
-import { type Socket, connect, createServer } from 'node:net'
+import { connect, createServer, type Socket } from 'node:net'
 import { basename, dirname, join } from 'node:path'
 import {
   HOST_PROTOCOL_VERSION,

@@ -1,8 +1,8 @@
+import type { ResumableAgent } from '@shared/agents/agentResume'
 import { workspaceOfPane } from '@/lib/attention/workspaceActivity'
 import { useFolderTrustStore } from '@/stores/agents/folderTrustStore'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
-import type { ResumableAgent } from '@shared/agents/agentResume'
 
 interface Wait {
   resolve: (go: boolean) => void

@@ -1,10 +1,11 @@
 import { isRecord } from '@aurigax-ai/ostia-extension-sdk/contract/isRecord'
 import {
+  checkPackageKey,
   DEFAULT_PACKAGE_SETTINGS,
   DEFAULT_SANDBOX_GLOBALS,
   DEFAULT_SWITCHES,
-  PORTS_POLICIES,
   type PackageSettings,
+  PORTS_POLICIES,
   type PortsPolicy,
   SANDBOX_SWITCHES,
   type SandboxControls,
@@ -12,7 +13,6 @@ import {
   type SandboxSwitches,
   type WorkspacePackages,
   type WorkspaceSandbox,
-  checkPackageKey,
 } from './sandbox'
 import { SECRET_GRANT_MODES, type SecretGrant, type SecretGrantMode } from './secrets'
 

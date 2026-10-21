@@ -1,10 +1,10 @@
-import { useSettingsStore } from '@/stores/app/settingsStore'
-import { useAssistStore } from '@/stores/assist/assistStore'
-import { useBlocksStore } from '@/stores/terminal/blocksStore'
 import { cleanup, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { Terminal as Xterm } from '@xterm/xterm'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import { useSettingsStore } from '@/stores/app/settingsStore'
+import { useAssistStore } from '@/stores/assist/assistStore'
+import { useBlocksStore } from '@/stores/terminal/blocksStore'
 import { InputEditor, type InputEditorProps } from './InputEditor'
 
 const PANE = 'pane-natural'

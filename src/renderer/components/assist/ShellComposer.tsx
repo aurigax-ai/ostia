@@ -1,3 +1,5 @@
+import type { CommandSuggestion } from '@aurigax-ai/ostia-extension-sdk/contract/assist'
+import { type KeyboardEvent, useEffect, useRef, useState } from 'react'
 import { Command, CommandItem, CommandList } from '@/components/ui/command'
 import { Kbd } from '@/components/ui/kbd'
 import { Textarea } from '@/components/ui/textarea'
@@ -7,9 +9,7 @@ import { insertCommand } from '@/lib/terminal/blockActions'
 import { platform } from '@/platform'
 import { useAssistComposerStore } from '@/stores/assist/assistComposerStore'
 import { assistRequest, useAssistProvider } from '@/stores/assist/assistStore'
-import type { CommandSuggestion } from '@aurigax-ai/ostia-extension-sdk/contract/assist'
-import { type KeyboardEvent, useEffect, useRef, useState } from 'react'
-import { ComposerFrame, RedactedNote, type Status, StatusLine, failureText } from './ComposerFrame'
+import { ComposerFrame, failureText, RedactedNote, type Status, StatusLine } from './ComposerFrame'
 
 const COMMAND_DEBOUNCE_MS = 500
 export function ShellComposer({

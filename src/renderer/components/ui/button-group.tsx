@@ -1,9 +1,8 @@
-import { cn } from '@/lib/utils'
 import { mergeProps } from '@base-ui/react/merge-props'
 import { useRender } from '@base-ui/react/use-render'
-import { type VariantProps, cva } from 'class-variance-authority'
-
+import { cva, type VariantProps } from 'class-variance-authority'
 import { Separator } from '@/components/ui/separator'
+import { cn } from '@/lib/utils'
 
 const buttonGroupVariants = cva(
   "flex w-fit items-stretch *:focus-visible:relative *:focus-visible:z-10 [&>[data-slot=select-trigger]:not([class*='w-'])]:w-fit [&>input]:flex-1",

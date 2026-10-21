@@ -1,4 +1,4 @@
-import { type OstiaExtension, connect } from '../client/index'
+import { connect, type OstiaExtension } from '../client/index'
 import type { AssistProviderEntry } from '../contract/assist'
 import type { ExtensionSettingValues } from '../contract/extensions'
 import type { ProviderCatalog } from './provider'

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { type PaneStatus, ageLabel, statusLine } from './paneStatus'
+import { ageLabel, type PaneStatus, statusLine } from './paneStatus'
 
 const base: PaneStatus = {
   pane: 'p1',

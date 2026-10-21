@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import { DOUBLE_SHIFT, doubleShiftDetector } from './chordSpec'
 import {
-  MAX_GUEST_CHORDS,
   guestChordKey,
   guestDoubleShift,
   isGuestChordFire,
+  MAX_GUEST_CHORDS,
   normalizeGuestChords,
 } from './guestChords'
 

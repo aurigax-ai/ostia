@@ -1,14 +1,14 @@
 import {
+  closeSync,
   type Dirent,
   type FSWatcher,
-  closeSync,
   lstatSync,
   mkdirSync,
   openSync,
   readdirSync,
   renameSync,
-  rmSync,
   rmdirSync,
+  rmSync,
   watch,
 } from 'node:fs'
 import { extname, join } from 'node:path'
@@ -19,8 +19,8 @@ import {
   type ArtifactChange,
   type ArtifactEntry,
   type ArtifactListing,
-  PAD_FILE,
   artifactChanges,
+  PAD_FILE,
 } from '../../shared/artifacts/artifacts'
 import { isInsidePath } from '../platform/pathGuard'
 import { HISTORY_DIR } from './artifactHistory'

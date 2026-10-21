@@ -1,7 +1,7 @@
-import { type OstiaChatMessage, messageText } from '@/lib/assist/chatTransport'
-import { clearSession, saveSession } from '@/stores/assist/chatStore'
 import type { UseChatHelpers } from '@ai-sdk/react'
 import type { Dispatch, RefObject, SetStateAction } from 'react'
+import { messageText, type OstiaChatMessage } from '@/lib/assist/chatTransport'
+import { clearSession, saveSession } from '@/stores/assist/chatStore'
 import { focusAtEnd } from './useChatFocus'
 import type { SlashCard } from './useChatSlash'
 

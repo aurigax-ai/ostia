@@ -1,3 +1,5 @@
+import { type ChordSpec, chordText } from '@shared/keyboard/chordSpec'
+import { useState } from 'react'
 import { Notice } from '@/components/common/Notice'
 import { SelectField } from '@/components/settingsKit/SelectField'
 import { Button } from '@/components/ui/button'
@@ -5,27 +7,25 @@ import { Input } from '@/components/ui/input'
 import { Kbd } from '@/components/ui/kbd'
 import { fmt, useDict } from '@/lib/app/useDict'
 import {
+  actionSend,
   SEND_ACTION_KEYS,
   type SendActionKey,
-  actionSend,
   sendActionKey,
 } from '@/lib/keyboard/actionSends'
 import { chordsWithoutKey, terminalKeyConflicts } from '@/lib/keyboard/chords'
-import { type TerminalKeyRow, saveTerminalKey, terminalKeyFor } from '@/lib/keyboard/keyPresets'
+import { saveTerminalKey, type TerminalKeyRow, terminalKeyFor } from '@/lib/keyboard/keyPresets'
 import {
+  sendChordProblem,
+  sendData,
   TERMINAL_SEND_TYPES,
   type TerminalSend,
   type TerminalSendType,
-  sendChordProblem,
-  sendData,
 } from '@/lib/keyboard/terminalKeys'
 import { isMac } from '@/platform'
 import { useSettingsStore } from '@/stores/app/settingsStore'
-import { type ChordSpec, chordText } from '@shared/keyboard/chordSpec'
-import { useState } from 'react'
 import { ChordRecorder } from './ChordRecorder'
-import { keepChords } from './keyRows'
 import { commandTitle, problemText, sendText } from './keyboardLabels'
+import { keepChords } from './keyRows'
 
 interface Replacing {
   commands: string[]

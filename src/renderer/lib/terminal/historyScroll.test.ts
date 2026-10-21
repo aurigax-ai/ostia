@@ -1,6 +1,6 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useHistoryViewStore } from '@/stores/terminal/historyViewStore'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { OstiaTerminal } from './ostiaTerminal'
 import { registerInputEditor } from './terminalHandles'
 

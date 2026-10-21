@@ -6,22 +6,22 @@ import type { FileOpResult } from '../../shared/files/fileOps'
 import { isInsidePath, resolveSafe } from '../platform/pathGuard'
 import { atTransferFs } from './atTransferFs'
 import {
-  PartialTransferError,
-  type TransferEnd,
   copyExclusive,
   entryUnchanged,
   moveExclusive,
+  PartialTransferError,
+  type TransferEnd,
 } from './exclusiveTransfer'
 import { type FolderAnchor, openAnchor } from './folderAnchor'
 import {
-  NoTrashError,
   homeTrashPlace,
   mountTopdir,
   moveToTrash,
+  NoTrashError,
   topdirTrashPlace,
 } from './freedesktopTrash'
 import { macAt } from './macAt'
-import { type EntryStat, type TransferFs, nodeTransferFs } from './transferFs'
+import { type EntryStat, nodeTransferFs, type TransferFs } from './transferFs'
 
 const FILE_OP_MAX_PATHS = 500
 const NAME_MAX_BYTES = 255

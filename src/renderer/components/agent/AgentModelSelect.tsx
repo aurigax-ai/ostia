@@ -1,3 +1,4 @@
+import { CaretDownIcon, CubeIcon } from '@phosphor-icons/react'
 import { Hint } from '@/components/common/Hint'
 import { DropdownMenu, MenuLabel, MenuRadioItem } from '@/components/common/Menu'
 import { Button } from '@/components/ui/button'
@@ -6,7 +7,6 @@ import { fmt, useDict } from '@/lib/app/useDict'
 import { cn } from '@/lib/utils'
 import { useAgentStore } from '@/stores/agent/agentStore'
 import { useSettingsStore } from '@/stores/app/settingsStore'
-import { CaretDownIcon, CubeIcon } from '@phosphor-icons/react'
 
 const SEPARATOR = '\u0000'
 

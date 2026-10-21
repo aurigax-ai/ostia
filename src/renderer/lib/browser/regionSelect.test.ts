@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest'
 import {
-  ZOOM_STEPS,
   anchoredScroll,
   dragRegion,
   fitScale,
@@ -10,6 +9,7 @@ import {
   scaleRegion,
   stepZoom,
   toContentPoint,
+  ZOOM_STEPS,
 } from './regionSelect'
 
 describe('toContentPoint', () => {

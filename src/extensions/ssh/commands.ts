@@ -1,10 +1,10 @@
 import {
   type CommandHandler,
   type ConfirmRequest,
-  type ExtensionResult,
-  type OpenTerminalResult,
   cliArgs,
+  type ExtensionResult,
   failure,
+  type OpenTerminalResult,
   ok,
 } from '@aurigax-ai/ostia-extension-sdk'
 import type {

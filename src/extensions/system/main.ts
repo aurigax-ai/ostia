@@ -1,11 +1,11 @@
-import { constants, accessSync, readFileSync, statSync } from 'node:fs'
+import { accessSync, constants, readFileSync, statSync } from 'node:fs'
 import { arch, release } from 'node:os'
 import {
   type CommandHandler,
-  type ExtensionCaller,
-  type ExtensionResult,
   cliArgs,
   connect,
+  type ExtensionCaller,
+  type ExtensionResult,
   failure,
   ok,
   runTool,
@@ -18,7 +18,7 @@ import {
   parseInstallArgs,
   planInstall,
 } from './install'
-import { MANAGER_NAMES, type ManagerName, defaultManager, findOnPath } from './managers'
+import { defaultManager, findOnPath, MANAGER_NAMES, type ManagerName } from './managers'
 import { type OsIdentity, parseOsRelease, parseSwVers, windowsRelease } from './os'
 import { stringsFor } from './strings'
 

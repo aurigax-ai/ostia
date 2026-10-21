@@ -5,7 +5,7 @@ import { ensureCaps } from '../approvals/controlElevation'
 import type { Reach } from '../approvals/reach'
 import { connHasCap } from '../control/controlAuth'
 import type { ControlMethodContext } from '../control/controlServer'
-import { type PaneIdentity, getByPaneId, resolveExternal } from '../control/idRegistry'
+import { getByPaneId, type PaneIdentity, resolveExternal } from '../control/idRegistry'
 import { SANDBOXED_REFUSAL } from '../sandbox/sandboxedCaller'
 
 export function fail(message: string): ResponseError<void> {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { type WheelTerminal, attachWheelReports, createWheelRows, wheelRoute } from './wheelReports'
+import { attachWheelReports, createWheelRows, type WheelTerminal, wheelRoute } from './wheelReports'
 
 const CELL = 17
 const scale = { cellHeight: CELL, sensitivity: 1, maxRows: 40, notches: false }

@@ -4,8 +4,8 @@ import {
   PHONE_SCREEN_ASK_REASON_MAX,
   PHONE_SCREEN_INPUT_REQUESTS,
   PHONE_SCREEN_LIMITS_SEC,
-  PHONE_SCREEN_REQUESTS,
   PHONE_SCREEN_REQUEST_MS,
+  PHONE_SCREEN_REQUESTS,
   PHONE_SCREEN_ROTATIONS,
   type PhoneScreenDeclineReason,
   type PhoneScreenEndReason,
@@ -20,7 +20,7 @@ import { resolveExternal } from '../control/idRegistry'
 import type { WorkspaceEntry } from '../panes/paneList'
 import type { RpcOutcome } from './controlDispatch'
 import type { Device } from './devices'
-import { type ScreenRequestTiming, type ScreenRequested, ScreenRequests } from './screenRequests'
+import { type ScreenRequested, ScreenRequests, type ScreenRequestTiming } from './screenRequests'
 
 const FRAME_PHONE_SCREEN = 0x10
 
@@ -350,7 +350,7 @@ export class ScreenLinks {
       return { ok: false, error: 'invalid-params' }
     }
     const asker = resolveExternal(pane)
-    if (!asker || asker.kind !== 'pane' || asker.manager || asker.workspaceId !== sessionId) {
+    if (asker?.kind !== 'pane' || asker.manager || asker.workspaceId !== sessionId) {
       return { ok: false, error: 'unknown-pane' }
     }
     if (!this.deps.agentRunning(asker.paneId)) return { ok: false, error: 'not-an-agent' }

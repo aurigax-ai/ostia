@@ -1,6 +1,3 @@
-import { currentDict, fmt } from '@/lib/app/useDict'
-import { isPaneViewed, signalPane } from '@/lib/attention/workspaceActivity'
-import { useSettingsStore } from '@/stores/app/settingsStore'
 import { wantsDesktopBanner } from '@shared/app/notificationSettings'
 import type {
   ApprovalAnswer,
@@ -9,6 +6,9 @@ import type {
   ApprovalState,
 } from '@shared/permissions/approvals'
 import { create } from 'zustand'
+import { currentDict, fmt } from '@/lib/app/useDict'
+import { isPaneViewed, signalPane } from '@/lib/attention/workspaceActivity'
+import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useAttentionStore } from './attentionStore'
 
 interface ApprovalsState {

@@ -4,15 +4,15 @@ import { claimLine, detailView, labelChips, openCard } from './panelCard'
 import { refresh } from './panelData'
 import {
   DEFAULT_PRIORITY,
-  PRIORITY_VALUES,
   emptyState,
   failureState,
   field,
+  PRIORITY_VALUES,
   p,
   priorityLabel,
   select,
 } from './panelDom'
-import { type NewCardDraft, hooks, root, state } from './panelState'
+import { hooks, type NewCardDraft, root, state } from './panelState'
 import { taskButton } from './panelWork'
 import type { TrellisBoard, TrellisCard } from './trellis'
 

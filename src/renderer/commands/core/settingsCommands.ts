@@ -1,3 +1,4 @@
+import { PROGRAM_SETTINGS } from '@shared/permissions/programSettings'
 import { registerCore } from '@/commands/coreCommand'
 import { setKeybindingSetting } from '@/lib/keyboard/chords'
 import { keymapSettingValue, terminalKeymapSettingValue } from '@/lib/settings/keymapSetting'
@@ -7,7 +8,6 @@ import type { SettingChange } from '@/stores/app/settingsModel'
 import { getByPath } from '@/stores/app/settingsParse'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { saveSnapshotNow } from '@/stores/workspaces/persistence'
-import { PROGRAM_SETTINGS } from '@shared/permissions/programSettings'
 
 const HUMAN_ONLY_ROOTS: readonly string[] = [
   'privacy',

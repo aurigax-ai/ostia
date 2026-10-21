@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import {
@@ -10,9 +11,8 @@ import {
 } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
 import { fmt, useDict } from '@/lib/app/useDict'
-import { type PasteSource, countLines, pastePreview } from '@/lib/keyboard/pasteGate'
+import { countLines, type PasteSource, pastePreview } from '@/lib/keyboard/pasteGate'
 import { useSettingsStore } from '@/stores/app/settingsStore'
-import { useEffect, useRef, useState } from 'react'
 
 export function RiskyPasteDialog({
   text,
@@ -59,6 +59,7 @@ export function RiskyPasteDialog({
             {lines > 1 ? fmt(d.riskyPaste.descLines, { lines }) : d.riskyPaste.descControl}
           </DialogDescription>
         </DialogHeader>
+        {/* biome-ignore lint/a11y/useAriaPropsSupportedByRole: the label names the block for screen readers and tests; a role would change how it is announced */}
         <pre
           aria-label={d.riskyPaste.preview}
           className="max-h-[min(60vh,32rem)] min-h-24 overflow-auto whitespace-pre-wrap break-words rounded-sm border border-line bg-surface-1 p-3 font-mono text-fg text-ui-sm"

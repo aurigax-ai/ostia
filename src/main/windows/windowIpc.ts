@@ -1,7 +1,7 @@
 import { hostname } from 'node:os'
 import { join } from 'node:path'
 import { PRODUCT_DISPLAY_NAME } from '@aurigax-ai/ostia-extension-sdk/contract/productDisplay'
-import { BrowserWindow, Menu, app, clipboard, ipcMain, nativeTheme, shell } from 'electron'
+import { app, BrowserWindow, clipboard, ipcMain, Menu, nativeTheme, shell } from 'electron'
 import type { ExternalEditorRequest } from '../../shared/app/appApi'
 import type { DiscreteGpuInfo } from '../../shared/app/discreteGpu'
 import { clampZoom, zoomFactor } from '../../shared/app/zoom'

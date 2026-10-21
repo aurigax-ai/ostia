@@ -1,4 +1,4 @@
-import { X509Certificate, hash } from 'node:crypto'
+import { hash, X509Certificate } from 'node:crypto'
 import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { app } from 'electron'

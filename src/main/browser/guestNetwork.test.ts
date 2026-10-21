@@ -1,8 +1,8 @@
 import { EventEmitter } from 'node:events'
 import { describe, expect, it } from 'vitest'
 import {
-  MAX_FAILED_REQUESTS,
   createNetworkTracker,
+  MAX_FAILED_REQUESTS,
   requestsFor,
   setGuestRoutes,
   trackNetworkEvent,

@@ -1,3 +1,12 @@
+import type { ChatToolMode } from '@aurigax-ai/ostia-extension-sdk/contract/assist'
+import { WrenchIcon } from '@phosphor-icons/react'
+import {
+  BUILTIN_TOOL_ACCESS,
+  type BuiltinChatTool,
+  type McpServerState,
+  type McpServerStatus,
+} from '@shared/assist/chatTools'
+import { type ReactNode, useEffect, useId } from 'react'
 import { TextLink } from '@/components/common/TextLink'
 import { buttonVariants } from '@/components/ui/button'
 import {
@@ -9,20 +18,11 @@ import {
 } from '@/components/ui/popover'
 import { Switch } from '@/components/ui/switch'
 import { fmt, useDict } from '@/lib/app/useDict'
-import { SKILLS_GROUP, builtinAvailable, groupOf, mcpGroup } from '@/lib/assist/chatTools'
+import { builtinAvailable, groupOf, mcpGroup, SKILLS_GROUP } from '@/lib/assist/chatTools'
 import { cn } from '@/lib/utils'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { refreshMcp, refreshSkills, useChatToolsStore } from '@/stores/assist/chatToolsStore'
 import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
-import type { ChatToolMode } from '@aurigax-ai/ostia-extension-sdk/contract/assist'
-import { WrenchIcon } from '@phosphor-icons/react'
-import {
-  BUILTIN_TOOL_ACCESS,
-  type BuiltinChatTool,
-  type McpServerState,
-  type McpServerStatus,
-} from '@shared/assist/chatTools'
-import { type ReactNode, useEffect, useId } from 'react'
 
 const STATE_DOT: Record<McpServerState, string> = {
   off: 'bg-fg-dim',

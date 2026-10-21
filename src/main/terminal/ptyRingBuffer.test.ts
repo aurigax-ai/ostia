@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { PtyRingBuffer, countCommandStarts } from './ptyRingBuffer'
+import { countCommandStarts, PtyRingBuffer } from './ptyRingBuffer'
 
 describe('PtyRingBuffer', () => {
   it('replays everything from cursor 0 and reports the end position', () => {

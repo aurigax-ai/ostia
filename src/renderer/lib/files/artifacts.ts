@@ -1,11 +1,11 @@
-import { useArtifactsStore } from '@/stores/files/artifactsStore'
-import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import {
   ARTIFACT_FILE_MAX_BYTES,
   type ArtifactEntry,
   type ArtifactListing,
 } from '@shared/artifacts/artifacts'
 import { useEffect } from 'react'
+import { useArtifactsStore } from '@/stores/files/artifactsStore'
+import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 
 export function opensInOstia(entry: Pick<ArtifactEntry, 'size'>): boolean {
   return entry.size <= ARTIFACT_FILE_MAX_BYTES

@@ -1,9 +1,6 @@
 import { en, zhHant } from '@shared/app/dict'
 import { describe, expect, it, vi } from 'vitest'
 import {
-  SLASH_COMMANDS,
-  type SlashActions,
-  type SlashContext,
   activeRow,
   filterChoices,
   filterSlashCommands,
@@ -12,6 +9,9 @@ import {
   pickChoice,
   pickCommand,
   runSlash,
+  SLASH_COMMANDS,
+  type SlashActions,
+  type SlashContext,
   slashMenu,
   slashRows,
   stepRow,

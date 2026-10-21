@@ -1,11 +1,11 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import {
-  STRIP_SIZE,
   canCollapse,
   changeCollapse,
   foldSplitTab,
   isStrip,
   isTucked,
+  STRIP_SIZE,
   settleCollapse,
   stripAxis,
   stripSizes,

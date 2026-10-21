@@ -1,10 +1,14 @@
+import type { LoadedIconTheme } from '@aurigax-ai/ostia-extension-sdk/contract/iconTheme'
+import type { RemoteFileError } from '@aurigax-ai/ostia-extension-sdk/contract/remoteFolders'
+import type { FsEntry } from '@shared/files/filesApi'
+import { useMemo } from 'react'
 import { useDict } from '@/lib/app/useDict'
 import type { IconVariant } from '@/lib/extensions/iconTheme'
 import {
-  type ExcludeMatcher,
-  type NestedEntry,
   childPath,
+  type ExcludeMatcher,
   excludeMatcher,
+  type NestedEntry,
   nestEntries,
   nestingRules,
   sortEntries,
@@ -17,10 +21,6 @@ import { useActiveIconTheme } from '@/stores/extensions/iconThemeStore'
 import { useFileTreeStore } from '@/stores/files/fileTreeStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
-import type { LoadedIconTheme } from '@aurigax-ai/ostia-extension-sdk/contract/iconTheme'
-import type { RemoteFileError } from '@aurigax-ai/ostia-extension-sdk/contract/remoteFolders'
-import type { FsEntry } from '@shared/files/filesApi'
-import { useMemo } from 'react'
 
 export interface TreeFocus {
   workspaceId: string | null

@@ -1,7 +1,10 @@
 import { randomUUID } from 'node:crypto'
 import { PRODUCT_NAME } from '@aurigax-ai/ostia-extension-sdk/contract/product'
 import {
+  buildBatch,
   type InstallContext,
+  isTelemetryCategory,
+  isUsageReport,
   TELEMETRY_BATCH_MAX,
   TELEMETRY_QUEUE_MAX,
   TELEMETRY_SEND_ATTEMPTS,
@@ -10,9 +13,6 @@ import {
   type TelemetryEndpoint,
   type TelemetryReport,
   type TelemetrySettings,
-  buildBatch,
-  isTelemetryCategory,
-  isUsageReport,
   withoutCategories,
 } from '../../shared/privacy/telemetry'
 import { saveJson } from '../platform/jsonStore'

@@ -5,13 +5,13 @@ import {
 } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import { quoteArgv } from '../../shared/terminal/shellQuote'
 import {
-  MANAGER_NAMES,
-  MAX_PACKAGES,
-  type ManagerName,
   defaultManager,
   installArgv,
   invalidPackages,
   isManagerName,
+  MANAGER_NAMES,
+  MAX_PACKAGES,
+  type ManagerName,
 } from './managers'
 import type { OsIdentity } from './os'
 import type { Strings } from './strings'

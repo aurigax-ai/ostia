@@ -1,8 +1,8 @@
 import { hash } from 'node:crypto'
 import {
   type Dirent,
-  type FSWatcher,
   existsSync,
+  type FSWatcher,
   lstatSync,
   readdirSync,
   statSync,

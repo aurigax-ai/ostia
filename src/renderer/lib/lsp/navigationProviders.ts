@@ -1,4 +1,3 @@
-import { monaco } from '@/lib/monaco/setup'
 import type {
   DocumentHighlight,
   DocumentSymbol,
@@ -11,6 +10,7 @@ import type {
   SignatureHelpOptions,
   SymbolInformation,
 } from 'vscode-languageserver-protocol'
+import { monaco } from '@/lib/monaco/setup'
 import {
   toDocumentSymbols,
   toFoldingRanges,
@@ -21,7 +21,7 @@ import {
   toLspRange,
   toSignatureHelp,
 } from './converters'
-import { type ProviderParams, documentPosition } from './providerParams'
+import { documentPosition, type ProviderParams } from './providerParams'
 
 interface SignatureHelpParams extends ProviderParams {
   options: SignatureHelpOptions

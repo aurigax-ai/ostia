@@ -1,8 +1,3 @@
-import { agentProblem } from '@/lib/agent/agentProblem'
-import { createAgentTransport } from '@/lib/agent/agentTransport'
-import { workspaceFolder } from '@/lib/assist/chatTools'
-import { chatToolDefs } from '@/lib/assist/chatTools'
-import type { OstiaChatMessage } from '@/lib/assist/chatTransport'
 import { Chat } from '@ai-sdk/react'
 import type {
   AgentHistoryEntry,
@@ -10,6 +5,10 @@ import type {
   AgentReply,
 } from '@aurigax-ai/ostia-extension-sdk/contract/agent'
 import { create } from 'zustand'
+import { agentProblem } from '@/lib/agent/agentProblem'
+import { createAgentTransport } from '@/lib/agent/agentTransport'
+import { chatToolDefs, workspaceFolder } from '@/lib/assist/chatTools'
+import type { OstiaChatMessage } from '@/lib/assist/chatTransport'
 
 interface AgentRules {
   on: boolean

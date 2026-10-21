@@ -3,7 +3,7 @@ import { wordBinaryBlocks } from './docBinary'
 import { odtOutline } from './odfOutline'
 import { GuardStop, type OfficeLimits, type OfficeProblem, problemOf } from './officeLimits'
 import { isCompoundFile, isOdfPart, odfMimetype, requirePackage, unzipParts } from './officeZip'
-import { type Block, type OutlineWords, documentOutlineHtml } from './outlineHtml'
+import { type Block, documentOutlineHtml, type OutlineWords } from './outlineHtml'
 
 const ODT_MIMETYPES = new Set([
   'application/vnd.oasis.opendocument.text',

@@ -9,19 +9,19 @@ import {
   type BrowseDeps,
   type BrowseMethod,
   type ConsoleEntry,
-  type OpenTab,
-  type Params,
   commandTarget,
   fail,
   num,
+  type OpenTab,
+  type Params,
   safeOutPath,
   str,
   world,
   writeOut,
 } from './browseMethod'
-import { DIALOG_OVERRIDE_JS, addInitScript } from './browsePageScripts'
-import { jsArgs, runInBrowseWorld } from './browseWorld'
+import { addInitScript, DIALOG_OVERRIDE_JS } from './browsePageScripts'
 import { listCookies, readWebStorage, writeCookie } from './browserStorage'
+import { jsArgs, runInBrowseWorld } from './browseWorld'
 
 function tabEntry(rendererPaneId: string, guest: Electron.WebContents, activeId?: string) {
   return {

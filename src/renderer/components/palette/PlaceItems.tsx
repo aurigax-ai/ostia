@@ -1,3 +1,4 @@
+import { AppWindowIcon } from '@phosphor-icons/react'
 import { PathText } from '@/components/common/MachineValue'
 import { WorkspaceBadges } from '@/components/sidebar/WorkspaceBadges'
 import { CommandGroup, CommandItem } from '@/components/ui/command'
@@ -11,9 +12,8 @@ import { type RemoteWorkspace, remoteWorkspacesOf } from '@/lib/workspaces/windo
 import { workspaceTitle } from '@/lib/workspaces/workspaceTitle'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { useWindowsStore } from '@/stores/workspaces/windowsStore'
-import type { Workspace } from '@/stores/workspaces/workspaceTypes'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
-import { AppWindowIcon } from '@phosphor-icons/react'
+import type { Workspace } from '@/stores/workspaces/workspaceTypes'
 import { ItemRow } from './PaletteItemRow'
 import { GROUP_CLASS } from './paletteClasses'
 

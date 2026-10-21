@@ -1,3 +1,7 @@
+import type { RemoteFileError } from '@aurigax-ai/ostia-extension-sdk/contract/remoteFolders'
+import { exceedsPad, PAD_SAVE_DELAY_MS } from '@shared/artifacts/artifacts'
+import { debounce } from 'es-toolkit'
+import { type MutableRefObject, type RefObject, useEffect } from 'react'
 import { attachWheelZoom } from '@/lib/app/wheelZoom'
 import { findStep, matchChord, runAppChord } from '@/lib/keyboard/chords'
 import { fileFeatureOptions } from '@/lib/monaco/largeFile'
@@ -8,15 +12,11 @@ import { AUTO_SAVE_DELAY_MS, type EditorSettings } from '@/lib/settings/browserE
 import { codeFontStack } from '@/lib/theme/uiFonts'
 import { isMac } from '@/platform'
 import { useSettingsStore } from '@/stores/app/settingsStore'
-import type { RemoteFileError } from '@aurigax-ai/ostia-extension-sdk/contract/remoteFolders'
-import { PAD_SAVE_DELAY_MS, exceedsPad } from '@shared/artifacts/artifacts'
-import { debounce } from 'es-toolkit'
-import { type MutableRefObject, type RefObject, useEffect } from 'react'
 import {
-  type DiskBar,
-  type ReloadFromDisk,
   createDiskCheck,
   createEditorSave,
+  type DiskBar,
+  type ReloadFromDisk,
 } from './editorDiskSync'
 import { isDirty } from './editorModels'
 import { behaviorOptions } from './useEditorOptions'

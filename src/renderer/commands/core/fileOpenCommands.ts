@@ -1,3 +1,10 @@
+import {
+  OPEN_DIFF_COMMAND,
+  OPEN_FILES_COMMAND,
+  type OpenedPane,
+  parseFileTargets,
+  REVEAL_FOLDER_COMMAND,
+} from '@shared/files/openFiles'
 import { delegate, registerCore } from '@/commands/coreCommand'
 import { browserProfileIn, openerOf } from '@/lib/browser/browserProfile'
 import {
@@ -13,13 +20,6 @@ import { focusActivePaneWhenReady } from '@/lib/panes/paneFocus'
 import { useSandboxStore } from '@/stores/app/sandboxStore'
 import { useOpenWithStore } from '@/stores/files/openWithStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
-import {
-  OPEN_DIFF_COMMAND,
-  OPEN_FILES_COMMAND,
-  type OpenedPane,
-  REVEAL_FOLDER_COMMAND,
-  parseFileTargets,
-} from '@shared/files/openFiles'
 
 export function registerFileOpenCommands(): void {
   registerCore<{ paneId?: string } | undefined>({

@@ -1,13 +1,13 @@
 import { READ_OUTSIDE_GRANT } from '@shared/assist/chatTools'
 import { describe, expect, it } from 'vitest'
 import {
+  alwaysGrantAfter,
   CHAT_MODES,
   DEFAULT_CHAT_MODE,
-  type ToolCheck,
-  alwaysGrantAfter,
   decideTool,
   grantsAfter,
   readsOutsideUnasked,
+  type ToolCheck,
 } from './chatToolPermissions'
 
 const none = new Set<string>()

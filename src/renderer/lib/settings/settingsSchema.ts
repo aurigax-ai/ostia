@@ -1,9 +1,9 @@
-import { bindableIds } from '@/lib/keyboard/chords'
-import { isKeyboardPlatform, keyboardPlatform } from '@/lib/keyboard/keyboardPresets'
-import { platform } from '@/platform'
 import { PRODUCT_DISPLAY_NAME } from '@aurigax-ai/ostia-extension-sdk/contract/productDisplay'
 import { DEFAULT_CHORDS } from '@shared/keyboard/defaultChords'
 import { REMAP_DEFAULTS, REMAP_KEYS, REMAP_TARGETS } from '@shared/keyboard/modifierRemap'
+import { bindableIds } from '@/lib/keyboard/chords'
+import { isKeyboardPlatform, keyboardPlatform } from '@/lib/keyboard/keyboardPresets'
+import { platform } from '@/platform'
 import {
   actionsSchema,
   agentHostSchema,
@@ -19,10 +19,10 @@ import { appearanceSchema, behaviorSchema, schemeChoice } from './appearanceSche
 import {
   KEYBINDINGS_DESC,
   KEYMAP_VALUE,
-  TERMINAL_KEYMAP_VALUE,
-  TERMINAL_KEYS_VALUE,
   keybindingsSchema,
   perPlatformSchema,
+  TERMINAL_KEYMAP_VALUE,
+  TERMINAL_KEYS_VALUE,
 } from './keyboardSchema'
 import { KEYBOARD_FIELDS } from './keyboardSettings'
 import { notificationsSchema, panesSchema, terminalSchema } from './terminalSchema'

@@ -1,3 +1,18 @@
+import {
+  ArrowSquareOutIcon,
+  ChatCircleTextIcon,
+  CodeIcon,
+  CopyIcon,
+  EyeIcon,
+  EyeSlashIcon,
+  FileIcon,
+  FolderOpenIcon,
+  PaperPlaneTiltIcon,
+  SquareSplitHorizontalIcon,
+  SquaresFourIcon,
+  TerminalWindowIcon,
+} from '@phosphor-icons/react'
+import type { ReactElement } from 'react'
 import { externalEditorError } from '@/commands/externalEditor'
 import { useAgentTargets, useNoAgentsText } from '@/components/agents/PickSendPanel'
 import { MenuContent, MenuItem, MenuSubContent, MenuSubTrigger } from '@/components/common/Menu'
@@ -24,21 +39,6 @@ import { useUIStore } from '@/stores/app/uiStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { focusSurface } from '@/stores/workspaces/surfaceSlotsStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
-import {
-  ArrowSquareOutIcon,
-  ChatCircleTextIcon,
-  CodeIcon,
-  CopyIcon,
-  EyeIcon,
-  EyeSlashIcon,
-  FileIcon,
-  FolderOpenIcon,
-  PaperPlaneTiltIcon,
-  SquareSplitHorizontalIcon,
-  SquaresFourIcon,
-  TerminalWindowIcon,
-} from '@phosphor-icons/react'
-import type { ReactElement } from 'react'
 import { FileOpsMenuItems } from './FileTreeOps'
 
 async function sendPath(target: PickTarget, path: string): Promise<void> {

@@ -1,6 +1,6 @@
-import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import type { BrowserDevice } from '@shared/browser/browserDevice'
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 
 const OFF = 'off'
 

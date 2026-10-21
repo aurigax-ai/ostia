@@ -1,5 +1,5 @@
-import type { CommandAction } from '@/lib/palette/userActions'
 import { create } from 'zustand'
+import type { CommandAction } from '@/lib/palette/userActions'
 
 type ActionConfirmAnswer = 'cancel' | 'once' | 'trust'
 

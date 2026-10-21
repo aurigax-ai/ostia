@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { type TreeNode, buildFileTree } from './gitFileTree'
+import { buildFileTree, type TreeNode } from './gitFileTree'
 
 type Item = { path: string }
 

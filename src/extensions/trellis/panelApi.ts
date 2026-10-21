@@ -4,19 +4,19 @@ import {
   type CommandHandler,
   type ExtensionCaller,
   type ExtensionResult,
-  type OpenTerminalResult,
-  type RunAgentOptions,
-  type Translate,
   failure,
   namedArgs,
+  type OpenTerminalResult,
   ok,
+  type RunAgentOptions,
+  type Translate,
 } from '@aurigax-ai/ostia-extension-sdk'
 import type { CliResult } from './cli'
 import { type DaemonApi, daemonApi, readThread } from './daemon'
 import { reviewColumn, taskLabel, taskLine, taskPrompt } from './prompt'
 import type { TrellisService } from './service'
 import type { AgentTasks } from './tasks'
-import { type CardDetail, HUMAN_ACTOR, type TrellisError, projectOfRef } from './trellis'
+import { type CardDetail, HUMAN_ACTOR, projectOfRef, type TrellisError } from './trellis'
 import {
   boardSlug,
   cardRef,

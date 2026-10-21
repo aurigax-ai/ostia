@@ -2,7 +2,13 @@
   "name": "@aurigax-ai/ostia-extension-sdk",
   "private": true,
   "description": "Write extensions for Ostia: the client library, its types, manifest schemas and a project generator",
-  "keywords": ["ostia", "terminal", "extension", "sdk", "coding-agents"],
+  "keywords": [
+    "ostia",
+    "terminal",
+    "extension",
+    "sdk",
+    "coding-agents"
+  ],
   "license": "MIT",
   "exports": {
     ".": "./src/client/index.ts",
@@ -29,10 +35,18 @@
     "zod": "catalog:"
   },
   "peerDependenciesMeta": {
-    "@ai-sdk-tool/parser": { "optional": true },
-    "ai": { "optional": true },
-    "undici": { "optional": true },
-    "zod": { "optional": true }
+    "@ai-sdk-tool/parser": {
+      "optional": true
+    },
+    "ai": {
+      "optional": true
+    },
+    "undici": {
+      "optional": true
+    },
+    "zod": {
+      "optional": true
+    }
   },
   "devDependencies": {
     "@ai-sdk-tool/parser": "catalog:",

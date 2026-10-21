@@ -1,3 +1,5 @@
+import { AppWindowIcon, ArrowSquareOutIcon, ChatTextIcon, XIcon } from '@phosphor-icons/react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { CountBadge } from '@/components/common/CountBadge'
 import { Hint } from '@/components/common/Hint'
 import { IconButton } from '@/components/common/IconButton'
@@ -13,8 +15,8 @@ import { markWorkspaceRead, revealPane } from '@/lib/attention/workspaceActivity
 import { allPanes, paneIds } from '@/lib/layout/tree'
 import {
   type NeedsYouItem,
-  type PaneWhere,
   needsYouItems,
+  type PaneWhere,
   paneWhere,
   sourceWhere,
 } from '@/lib/sidebar/dashboard'
@@ -31,10 +33,8 @@ import { useUIStore } from '@/stores/app/uiStore'
 import { useBlocksStore } from '@/stores/terminal/blocksStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { useWindowsStore } from '@/stores/workspaces/windowsStore'
-import type { Workspace } from '@/stores/workspaces/workspaceTypes'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
-import { AppWindowIcon, ArrowSquareOutIcon, ChatTextIcon, XIcon } from '@phosphor-icons/react'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import type { Workspace } from '@/stores/workspaces/workspaceTypes'
 import { AgentComposer } from './AgentComposer'
 import { ApprovalCard } from './ApprovalCard'
 import { useLocalAgentTargets } from './PickSendPanel'
@@ -173,7 +173,10 @@ function itemPane(item: NeedsYouItem): string {
 function NeedsYouCard({
   item,
   where,
-}: { item: NeedsYouItem; where: PaneWhere | null }): JSX.Element {
+}: {
+  item: NeedsYouItem
+  where: PaneWhere | null
+}): JSX.Element {
   const d = useDict()
   if (item.kind === 'question') {
     return <QuestionCard question={item.question} where={where} sent={item.sent} />

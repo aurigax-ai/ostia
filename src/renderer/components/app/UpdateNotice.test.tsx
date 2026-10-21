@@ -1,7 +1,7 @@
-import { startUpdateWatch, useUpdateStore } from '@/stores/app/updateStore'
 import type { InstallMethod, ReleaseState } from '@shared/app/installMethod'
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import { startUpdateWatch, useUpdateStore } from '@/stores/app/updateStore'
 import { UpdateCheck } from './UpdateCheck'
 import { UpdateNotice } from './UpdateNotice'
 

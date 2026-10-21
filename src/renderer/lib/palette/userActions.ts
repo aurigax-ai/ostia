@@ -1,13 +1,13 @@
+import { DEFAULT_CAPABILITIES } from '@aurigax-ai/ostia-extension-sdk/contract/capabilities'
 import { type CommandContext, commands, wordedBy } from '@/commands/registry'
 import { currentDict, fmt } from '@/lib/app/useDict'
 import { findPane } from '@/lib/layout/tree'
-import { type UserAction, actionFingerprint, fillArgs } from '@/lib/settings/actions'
+import { actionFingerprint, fillArgs, type UserAction } from '@/lib/settings/actions'
 import { useActionConfirmStore } from '@/stores/agents/actionConfirmStore'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { focusSurface } from '@/stores/workspaces/surfaceSlotsStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
-import { DEFAULT_CAPABILITIES } from '@aurigax-ai/ostia-extension-sdk/contract/capabilities'
 
 const ACTION_COMMAND_PREFIX = 'action.'
 

@@ -1,6 +1,6 @@
-import type { OstiaTerminal as Terminal, WebLinkHandler } from '@/lib/terminal/ostiaTerminal'
 import { findAppLinks, linkKind } from '@shared/common/externalLinks'
 import type { IBufferRange, ILink, ILinkHandler, ILinkProvider } from '@xterm/xterm'
+import type { OstiaTerminal as Terminal, WebLinkHandler } from '@/lib/terminal/ostiaTerminal'
 import { readLogicalLine } from './terminalFileLinks'
 
 export function xtermLinkHandler(links: WebLinkHandler): ILinkHandler {

@@ -6,25 +6,25 @@ import {
   mkdirSync,
   mkdtempSync,
   openSync,
-  readFileSync,
   readdirSync,
+  readFileSync,
   readlinkSync,
   realpathSync,
   statSync,
   writeFileSync,
 } from 'node:fs'
 import { createRequire } from 'node:module'
-import { type Server, connect, createServer } from 'node:net'
+import { connect, createServer, type Server } from 'node:net'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
 import {
+  createMessageConnection,
   ResponseError,
   SocketMessageReader,
   SocketMessageWriter,
-  createMessageConnection,
 } from 'vscode-jsonrpc/node'
-import { WIRE_CLIENT, WIRE_EXTENSION, WireRuntime, answerWireRuntime } from './wireRuntime'
+import { answerWireRuntime, WIRE_CLIENT, WIRE_EXTENSION, WireRuntime } from './wireRuntime'
 
 interface Spawned {
   file: string

@@ -1,14 +1,14 @@
-import { useSettingsStore } from '@/stores/app/settingsStore'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { useSettingsStore } from '@/stores/app/settingsStore'
 import {
-  CODE_FONT_FALLBACK,
-  TERMINAL_FONT_FALLBACK,
-  UI_FONT_FALLBACK,
   applyUiFonts,
+  CODE_FONT_FALLBACK,
   codeFontFallback,
   fontStack,
   preloadFonts,
+  TERMINAL_FONT_FALLBACK,
   terminalFontFallback,
+  UI_FONT_FALLBACK,
   uiFontVariables,
 } from './uiFonts'
 

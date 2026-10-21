@@ -1,10 +1,10 @@
-import type { WorkspaceKind } from '@/stores/workspaces/workspaceTypes'
 import {
-  type SandboxMergeRefusal,
-  type WorkspaceSandbox,
   emptyWorkspaceSandbox,
+  type SandboxMergeRefusal,
   sandboxMergeRefusal,
+  type WorkspaceSandbox,
 } from '@shared/sandbox/sandbox'
+import type { WorkspaceKind } from '@/stores/workspaces/workspaceTypes'
 
 export interface MergeSide {
   id: string

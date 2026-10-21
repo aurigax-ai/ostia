@@ -1,7 +1,7 @@
 import {
   type ChatToolAccess,
-  READ_OUTSIDE_GRANT,
   isStandingChatGrant,
+  READ_OUTSIDE_GRANT,
 } from '@shared/assist/chatTools'
 
 export const CHAT_MODES = ['ask', 'write'] as const

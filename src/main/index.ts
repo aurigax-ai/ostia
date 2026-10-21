@@ -10,9 +10,9 @@ import { VIEWER_SCHEME_PRIVILEGES } from './files/viewers/viewerScheme'
 import { discreteGpu, gpuStartPlan, readSwitcherooGpus } from './platform/discreteGpu'
 import { offerOldDirsMove } from './platform/oldDirsPrompt'
 import {
-  OLD_PRODUCT_NAME,
   appDataDir,
   dataHome,
+  OLD_PRODUCT_NAME,
   oldDirMoves,
   projectDirMoves,
   savedWorkspaceFolders,

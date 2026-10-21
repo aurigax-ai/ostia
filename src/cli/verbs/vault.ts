@@ -1,6 +1,6 @@
 import type { MessageConnection } from 'vscode-jsonrpc/node'
 import { parseArgs } from '../common/args'
-import { type ErrResult, describeErrResult, failUsage, failVerb, failWith } from '../common/failure'
+import { describeErrResult, type ErrResult, failUsage, failVerb, failWith } from '../common/failure'
 import { readSecretFromStdin } from '../common/stdinText'
 
 interface VaultOk {

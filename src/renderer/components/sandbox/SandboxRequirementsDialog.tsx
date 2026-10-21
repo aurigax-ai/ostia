@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -9,7 +10,6 @@ import {
 } from '@/components/ui/dialog'
 import { fmt, useDict } from '@/lib/app/useDict'
 import { SANDBOX_FEATURE, useSandboxStore } from '@/stores/app/sandboxStore'
-import { useEffect } from 'react'
 
 export function SandboxRequirementsDialog(): JSX.Element {
   const d = useDict()

@@ -1,11 +1,3 @@
-import { workspaceFolder } from '@/lib/assist/chatTools'
-import {
-  type OstiaChatMessage,
-  createAssistTransport,
-  messageText,
-} from '@/lib/assist/chatTransport'
-import { useSettingsStore } from '@/stores/app/settingsStore'
-import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import { Chat } from '@ai-sdk/react'
 import {
   type AssistModelRef,
@@ -22,6 +14,14 @@ import {
   chatTitle,
 } from '@shared/assist/chatSessions'
 import { create } from 'zustand'
+import { workspaceFolder } from '@/lib/assist/chatTools'
+import {
+  createAssistTransport,
+  messageText,
+  type OstiaChatMessage,
+} from '@/lib/assist/chatTransport'
+import { useSettingsStore } from '@/stores/app/settingsStore'
+import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import { type ChatEditRecord, sessionEdits, useChatToolsStore } from './chatToolsStore'
 
 export type ChatNotice = 'trimmed' | 'evicted' | 'saveFailed'

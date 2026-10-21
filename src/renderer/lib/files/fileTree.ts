@@ -1,7 +1,7 @@
-import type { FileSortBy, FileSortOrder } from '@/lib/settings/fileTreeSettings'
 import type { FsEntry } from '@shared/files/filesApi'
 import { escapeRegExp } from 'es-toolkit'
 import picomatch from 'picomatch/posix'
+import type { FileSortBy, FileSortOrder } from '@/lib/settings/fileTreeSettings'
 
 export type ExcludeMatcher = (path: string, root: string) => boolean
 

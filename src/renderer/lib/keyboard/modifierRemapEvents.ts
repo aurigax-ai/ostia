@@ -1,8 +1,8 @@
 import {
+  isIdentityRemap,
   type ModifierFlags,
   type ModifierRemap,
   type RemapKey,
-  isIdentityRemap,
   remappedFlags,
   remappedModifierKey,
   sameFlags,

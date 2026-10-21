@@ -1,6 +1,6 @@
+import { type Icon as IconComponent, XIcon } from '@phosphor-icons/react'
 import { IconButton } from '@/components/common/IconButton'
 import { cn } from '@/lib/utils'
-import { type Icon as IconComponent, XIcon } from '@phosphor-icons/react'
 
 const TONES = {
   muted: 'text-fg-muted',

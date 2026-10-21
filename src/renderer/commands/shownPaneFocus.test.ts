@@ -1,7 +1,7 @@
+import { afterEach, beforeAll, describe, expect, it } from 'vitest'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { releaseSurfaces, setFocusTarget, surfaceHost } from '@/stores/workspaces/surfaceSlotsStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
-import { afterEach, beforeAll, describe, expect, it } from 'vitest'
 import { registerBuiltinCommands } from './builtins'
 import { type CommandContext, commands } from './registry'
 

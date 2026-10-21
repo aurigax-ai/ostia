@@ -5,10 +5,10 @@ import type { NotifyWiring } from '../attention/notifyWiring'
 import type { ExtensionHost } from '../extensions/extensionHost'
 import { readLocale } from '../platform/settingsFile'
 import {
-  SANDBOX_FEATURE,
   installHint,
   missingRequirements,
   requirementLabel,
+  SANDBOX_FEATURE,
 } from '../platform/systemRequirements'
 import { registerSystemRequirementsIpc } from '../platform/systemRequirementsIpc'
 import { loginPathSettled } from '../platform/toolPath'

@@ -1,6 +1,3 @@
-import { Badge } from '@/components/ui/badge'
-import { fmt, useDict } from '@/lib/app/useDict'
-import { cn } from '@/lib/utils'
 import type { Capability } from '@aurigax-ai/ostia-extension-sdk/contract/capabilities'
 import type {
   ScriptTokenInfo,
@@ -8,6 +5,9 @@ import type {
   ScriptTokensState,
 } from '@shared/permissions/scriptTokens'
 import { Fragment, type ReactNode } from 'react'
+import { Badge } from '@/components/ui/badge'
+import { fmt, useDict } from '@/lib/app/useDict'
+import { cn } from '@/lib/utils'
 import { shownCaps } from './tokenScope'
 import { expiryState } from './tokenText'
 
@@ -82,7 +82,10 @@ export function Dot(): JSX.Element {
 export function ExpiryBadge({
   token,
   now,
-}: { token: ScriptTokenInfo; now: number }): JSX.Element | null {
+}: {
+  token: ScriptTokenInfo
+  now: number
+}): JSX.Element | null {
   const d = useDict()
   const state = expiryState(token, now)
   if (state !== 'soon' && state !== 'expired') return null

@@ -5,10 +5,10 @@ import { setTimeout as sleep } from 'node:timers/promises'
 import { isAppEnvName } from '@aurigax-ai/ostia-extension-sdk/contract/appEnv'
 import { substitutePlaceholders } from '@aurigax-ai/ostia-extension-sdk/contract/languageServerConfig'
 import {
-  LSP_LOG_LINE_MAX,
-  type LanguageServerSandboxProblem,
-  type LspLogEntry,
   isNodeRun,
+  type LanguageServerSandboxProblem,
+  LSP_LOG_LINE_MAX,
+  type LspLogEntry,
 } from '@aurigax-ai/ostia-extension-sdk/contract/languageServers'
 import { quoteArgv } from '../../shared/terminal/shellQuote'
 import { type LogFields, redactSecrets } from '../diagnostics/appLog'

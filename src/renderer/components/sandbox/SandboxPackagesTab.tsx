@@ -1,14 +1,14 @@
+import {
+  checkPackageKey,
+  type PackageSettings,
+  type WorkspacePackages,
+} from '@shared/sandbox/sandbox'
 import { ControlRow } from '@/components/settingsKit/ControlRow'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Switch } from '@/components/ui/switch'
 import { useDict } from '@/lib/app/useDict'
-import {
-  type PackageSettings,
-  type WorkspacePackages,
-  checkPackageKey,
-} from '@shared/sandbox/sandbox'
 import { type ListEditResult, SandboxListEditor } from './SandboxListEditor'
 
 function packageErrors(next: string[]): ListEditResult {

@@ -1,6 +1,6 @@
-import type { monaco } from '@/lib/monaco/setup'
 import { debounce } from 'es-toolkit'
 import { useEffect, useState } from 'react'
+import type { monaco } from '@/lib/monaco/setup'
 
 const PREVIEW_DEBOUNCE_MS = 150
 

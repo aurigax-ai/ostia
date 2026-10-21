@@ -1,4 +1,4 @@
-import { type Duplex, PassThrough, type Readable, pipeline } from 'node:stream'
+import { type Duplex, PassThrough, pipeline, type Readable } from 'node:stream'
 import type { BrowseFile } from '@aurigax-ai/ostia-extension-sdk'
 import { BcjX86Decoder } from './bcjX86'
 import { Counted, InflateLimit } from './inflate'
@@ -6,12 +6,12 @@ import {
   AES_ID,
   type Coder,
   type Folder,
-  SIGNATURE_HEADER_BYTES,
-  SevenZipRefused,
-  type StreamsInfo,
   refuse,
+  SevenZipRefused,
+  SIGNATURE_HEADER_BYTES,
+  type StreamsInfo,
 } from './sevenZipHeader'
-import { XZ_DICT_MAX, lzma2DictSize } from './xzGuard'
+import { lzma2DictSize, XZ_DICT_MAX } from './xzGuard'
 
 export interface Native {
   lzma: () => Duplex

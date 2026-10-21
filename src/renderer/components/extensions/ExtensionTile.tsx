@@ -1,5 +1,5 @@
-import { cn } from '@/lib/utils'
 import type { ExtensionIcon } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
+import { cn } from '@/lib/utils'
 import { extensionIcon } from './extensionIcons'
 
 export function ExtensionTile({

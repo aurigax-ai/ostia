@@ -1,7 +1,7 @@
 import {
-  ASSIST_PROVIDERS_MAX,
   ASSIST_PROVIDER_ID_PATTERN,
   ASSIST_PROVIDER_MODELS_MAX,
+  ASSIST_PROVIDERS_MAX,
   type AssistProviderConfig,
   type AssistProviderKind,
 } from '@aurigax-ai/ostia-extension-sdk/contract/assist'

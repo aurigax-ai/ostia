@@ -1,3 +1,4 @@
+import Markdown, { type Components } from 'react-markdown'
 import { allPanes } from '@/lib/layout/tree'
 import { sidebarLines } from '@/lib/sidebar/sidebarItems'
 import { useCoreWatch } from '@/lib/workspaces/coreWatch'
@@ -7,7 +8,6 @@ import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useBlocksStore } from '@/stores/terminal/blocksStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import type { Workspace } from '@/stores/workspaces/workspaceTypes'
-import Markdown, { type Components } from 'react-markdown'
 import { LiveLine, LocationLine, useSidebarItems } from './RailMeta'
 
 function WorkspaceMeta({ workspace: w }: { workspace: Workspace }): JSX.Element {

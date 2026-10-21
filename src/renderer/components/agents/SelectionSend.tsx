@@ -1,11 +1,11 @@
+import { type SelectionCapture, selectionLabel } from '@shared/browser/selection'
+import { type ReactNode, useCallback, useState } from 'react'
 import { NoticeSlot } from '@/components/common/NoticeSlot'
 import { StatusLine } from '@/components/common/StatusLine'
 import type { PickTarget } from '@/lib/agents/pickTargets'
 import { sendSelectionToPane } from '@/lib/agents/sendPick'
 import { fmt, useDict } from '@/lib/app/useDict'
 import { useTransientStatus } from '@/lib/app/useTransientStatus'
-import { type SelectionCapture, selectionLabel } from '@shared/browser/selection'
-import { type ReactNode, useCallback, useState } from 'react'
 import { PickSendPanel, useAgentTargets, useNoAgentsText } from './PickSendPanel'
 
 const STATUS_MS = 6000

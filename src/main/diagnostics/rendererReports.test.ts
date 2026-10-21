@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import {
+  normalizePaneIds,
+  normalizeRendererReport,
   REPORT_MESSAGE_MAX,
   REPORT_PANE_IDS_MAX,
   REPORT_STACK_MAX,
   ReportLimiter,
-  normalizePaneIds,
-  normalizeRendererReport,
 } from './rendererReports'
 
 describe('normalizeRendererReport', () => {

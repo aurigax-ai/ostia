@@ -1,7 +1,7 @@
-import type { OstiaTerminal } from '@/lib/terminal/ostiaTerminal'
-import { currentScheme } from '@/lib/theme/colorScheme'
 import { renderHook } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
+import type { OstiaTerminal } from '@/lib/terminal/ostiaTerminal'
+import { currentScheme } from '@/lib/theme/colorScheme'
 import { initialTerminalOptions, useTerminalOptions } from './useTerminalOptions'
 
 describe('useTerminalOptions', () => {

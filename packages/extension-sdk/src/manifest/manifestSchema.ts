@@ -5,8 +5,8 @@ import {
   AGENT_SKILL_FILE_PATTERN,
   AGENT_SKILL_NAME_PATTERN,
   MAX_AGENT_HOOKS,
-  MAX_AGENT_SKILLS,
   MAX_AGENT_SKILL_FILES,
+  MAX_AGENT_SKILLS,
 } from '../contract/agentPlugins'
 import { ASSIST_POINTS } from '../contract/assist'
 import { ALL_CAPABILITIES } from '../contract/capabilities'
@@ -22,10 +22,10 @@ import {
 } from '../contract/editorLanguages'
 import { EXTENSION_API_PATTERN } from '../contract/extensionApi'
 import {
-  EXTENSION_CONNECTION_FIELDS_MAX,
   EXTENSION_CONNECTION_FIELD_TYPES,
-  EXTENSION_CONNECTION_KINDS_MAX,
+  EXTENSION_CONNECTION_FIELDS_MAX,
   EXTENSION_CONNECTION_KIND_PATTERN,
+  EXTENSION_CONNECTION_KINDS_MAX,
   EXTENSION_CONNECTION_SECRETS_MAX,
   EXTENSION_CONNECTION_VALUE_MAX,
 } from '../contract/extensionConnections'
@@ -42,12 +42,12 @@ import {
   PANEL_TOOLBAR_MAX_TABS,
 } from '../contract/extensions'
 import {
-  FILENAME_PATTERN_PATTERN,
-  FILE_KINDS_MAX,
   FILE_KIND_DISPLAY_NAME_MAX,
   FILE_KIND_ID_PATTERN,
   FILE_KIND_SELECTORS_MAX,
   FILE_KIND_VIEW_PRIORITIES,
+  FILE_KINDS_MAX,
+  FILENAME_PATTERN_PATTERN,
 } from '../contract/fileKinds'
 import { ICON_THEME_ID_PATTERN } from '../contract/iconTheme'
 import { KEYMAP_LABEL_MAX, KEYMAP_PLATFORMS } from '../contract/keymap'
@@ -75,8 +75,7 @@ import {
   SERVER_ARG_MAX,
   SERVER_NAME_MAX,
 } from '../contract/languageServers'
-import { isCoreSource } from './coreNames'
-import { verbProblem } from './coreNames'
+import { isCoreSource, verbProblem } from './coreNames'
 import {
   KEYMAP_ID_PATTERN,
   MAX_CHIPS,

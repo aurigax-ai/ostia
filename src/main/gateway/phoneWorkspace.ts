@@ -1,7 +1,7 @@
 import {
-  constants,
   accessSync,
   chmodSync,
+  constants,
   lstatSync,
   mkdirSync,
   realpathSync,

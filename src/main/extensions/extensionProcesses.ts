@@ -18,7 +18,7 @@ import type { RemoteFolders } from '../files/remoteFolders'
 import type { ExtensionAssist } from './extensionAssist'
 import { extensionEnvironment } from './extensionEnv'
 import type { ExtensionHostDeps } from './extensionHostDeps'
-import { type LoadedExtension, type Runtime, newRuntime } from './extensionRuntime'
+import { type LoadedExtension, newRuntime, type Runtime } from './extensionRuntime'
 import type { ExtensionSlots } from './extensionSlots'
 import type { ExtensionRecord } from './extensionStore'
 

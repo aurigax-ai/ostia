@@ -1,17 +1,17 @@
 import { STALE_MAIL_MS, WAKE_BUDGET_MS } from '../../shared/agents/agentIssues'
 import { STATUS_MESSAGE_MAX } from '../../shared/agents/closingLine'
 import {
+  ageLabel,
   type PaneStateName,
   type PaneStatus,
   type PaneStatusChanges,
-  ageLabel,
 } from '../../shared/panes/paneStatus'
 import { mailCounts } from '../agents/busStore'
 import { registerControlMethod } from '../control/controlServer'
 import type { PaneIdentity } from '../control/idRegistry'
 import type { PaneJournal, StampedEvent } from './paneJournal'
 import type { PaneEntry } from './paneList'
-import { type PaneReachDeps, ensurePaneReach, paneRefs, paneTarget, record } from './paneReach'
+import { ensurePaneReach, type PaneReachDeps, paneRefs, paneTarget, record } from './paneReach'
 
 export interface GitFacts {
   branch: string | null

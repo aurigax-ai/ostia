@@ -1,6 +1,6 @@
 import { BrowseError, type BrowseFile, type BrowseProvider } from '@aurigax-ai/ostia-extension-sdk'
 import { Parser, type ReadEntry } from 'tar'
-import { type Decoders, InflateLimit, SNIFF_BYTES, inflate, sniffCompression } from './inflate'
+import { type Decoders, InflateLimit, inflate, SNIFF_BYTES, sniffCompression } from './inflate'
 import { shownLink, shownName } from './names'
 
 const LINK_TYPES = new Set(['SymbolicLink', 'Link'])

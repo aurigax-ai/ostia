@@ -1,10 +1,10 @@
-import { baseName, parentOf } from '@/lib/files/fileTree'
 import { isRemotePath } from '@aurigax-ai/ostia-extension-sdk/contract/remoteFolders'
 import { type AgentResume, sameResume } from '@shared/agents/agentResume'
 import { isArchivePath } from '@shared/archives/archivePaths'
 import type { BrowserDevice } from '@shared/browser/browserDevice'
 import { type BrowserProfile, parseBrowserProfile } from '@shared/browser/browserProfile'
 import { isEqual } from 'es-toolkit'
+import { baseName, parentOf } from '@/lib/files/fileTree'
 import { allPanes, findPane } from './tree'
 import type { LayoutNode, PaneNode, SurfaceKind, TabNode } from './types'
 

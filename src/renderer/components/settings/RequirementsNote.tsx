@@ -1,10 +1,10 @@
-import { Button } from '@/components/ui/button'
-import { fmt, useDict } from '@/lib/app/useDict'
-import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import { InfoIcon } from '@phosphor-icons/react'
 import type { Dict } from '@shared/app/dict'
 import type { MissingRequirement, RequirementsReport } from '@shared/app/systemRequirements'
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { Button } from '@/components/ui/button'
+import { fmt, useDict } from '@/lib/app/useDict'
+import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 
 export interface Requirements {
   report: RequirementsReport | null

@@ -12,10 +12,10 @@ import { ok } from '@aurigax-ai/ostia-extension-sdk'
 import { cliClient } from '@aurigax-ai/wire/testing'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
-  type HarnessOptions,
-  type HostHarness,
   closeHarnesses,
   fakeExt,
+  type HarnessOptions,
+  type HostHarness,
   hostHarness,
   settle,
 } from './fakeExt'

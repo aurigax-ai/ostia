@@ -1,5 +1,5 @@
 import { PRODUCT_DISPLAY_NAME } from '@aurigax-ai/ostia-extension-sdk/contract/productDisplay'
-import { type BrowserWindow, app, globalShortcut } from 'electron'
+import { app, type BrowserWindow, globalShortcut } from 'electron'
 import appIcon from '../../../resources/icon.png?asset'
 import type { Dict } from '../../shared/app/dict'
 import type { AgentRunningPanes } from '../agents/agentRunning'

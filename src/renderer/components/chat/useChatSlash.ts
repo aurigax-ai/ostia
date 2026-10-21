@@ -1,16 +1,30 @@
+import type { UseChatHelpers } from '@ai-sdk/react'
+import type {
+  AssistProviderInfo,
+  ChatContextItem,
+} from '@aurigax-ai/ostia-extension-sdk/contract/assist'
+import type { Dict } from '@shared/app/dict'
+import {
+  type KeyboardEvent,
+  type RefObject,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useState,
+} from 'react'
 import { fmt } from '@/lib/app/useDict'
 import { explainSources } from '@/lib/assist/askContext'
 import { type MenuAnchor, menuAnchor } from '@/lib/assist/caretPoint'
 import {
-  type SlashActions,
-  type SlashContext,
-  type SlashRow,
   activeRow,
   findSlashCommand,
   parseSlash,
   pickChoice,
   pickCommand,
   runSlash,
+  type SlashActions,
+  type SlashContext,
+  type SlashRow,
   slashIndex,
   slashMenu,
   slashRows,
@@ -27,20 +41,6 @@ import {
   useChatStore,
 } from '@/stores/assist/chatStore'
 import { refreshSkills, useChatToolsStore } from '@/stores/assist/chatToolsStore'
-import type { UseChatHelpers } from '@ai-sdk/react'
-import type {
-  AssistProviderInfo,
-  ChatContextItem,
-} from '@aurigax-ai/ostia-extension-sdk/contract/assist'
-import type { Dict } from '@shared/app/dict'
-import {
-  type KeyboardEvent,
-  type RefObject,
-  useEffect,
-  useLayoutEffect,
-  useMemo,
-  useState,
-} from 'react'
 import { SLASH_MENU_WIDTH } from './ChatSlashMenu'
 import { focusAtEnd } from './useChatFocus'
 

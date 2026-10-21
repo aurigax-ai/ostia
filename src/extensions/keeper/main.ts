@@ -1,17 +1,17 @@
 import {
+  booleanSetting,
   type CommandHandler,
+  connect,
   type ExtensionCaller,
   type ExtensionEventType,
   type ExtensionSettingValues,
-  booleanSetting,
-  connect,
   failure,
   numberSetting,
   ok,
   onShutdown,
   startMessageServer,
 } from '@aurigax-ai/ostia-extension-sdk'
-import { APPROVALS_PATH, FAST_POLL_MS, IDLE_POLL_MS, formatQueue } from './keeper'
+import { APPROVALS_PATH, FAST_POLL_MS, formatQueue, IDLE_POLL_MS } from './keeper'
 import { KeeperService } from './service'
 
 const FOCUS_EVENT = 'focus.changed' as ExtensionEventType

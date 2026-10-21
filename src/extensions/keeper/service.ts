@@ -1,17 +1,17 @@
 import {
   type ExtensionIcon,
+  runTool,
   type SidebarTone,
   type ToolRun,
-  runTool,
 } from '@aurigax-ai/ostia-extension-sdk'
 import {
   APPROVALS_PATH,
   DEFAULT_INTERVALS,
-  type KeeperApproval,
-  type PollIntervals,
   isAllowedKeeperCall,
+  type KeeperApproval,
   newTickets,
   nextPollDelay,
+  type PollIntervals,
   parseApprovals,
   parseDaemonStatus,
   parseUiUrl,

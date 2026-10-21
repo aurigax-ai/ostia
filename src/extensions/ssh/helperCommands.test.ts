@@ -9,7 +9,7 @@ import type {
 } from '@aurigax-ai/ostia-extension-sdk'
 import type { ExtensionCaller } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import { afterEach, describe, expect, it } from 'vitest'
-import { type RemoteHost, helperSource, remoteHost } from '../../../test/fixtures/ssh/remoteHost'
+import { helperSource, type RemoteHost, remoteHost } from '../../../test/fixtures/ssh/remoteHost'
 import { HelperConsent } from './consent'
 import { HelperFolders, Sessions } from './folders'
 import { shippedHelper } from './helper'

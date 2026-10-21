@@ -1,6 +1,6 @@
 import { BROWSE_LIMITS } from '@aurigax-ai/ostia-extension-sdk/contract/fileBrowse'
 import { describe, expect, it } from 'vitest'
-import { type RawEntry, buildTree, segmentsOf } from './archiveTree'
+import { buildTree, type RawEntry, segmentsOf } from './archiveTree'
 
 function raw(name: string, index: number, extra: Partial<RawEntry> = {}): RawEntry {
   return { name, index, dir: name.endsWith('/'), size: 1, encrypted: false, link: null, ...extra }

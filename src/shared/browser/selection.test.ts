@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import {
-  SELECTION_TEXT_MAX,
-  type SelectionCapture,
   isPng,
   normalizeSelection,
   renderSelectionReport,
+  SELECTION_TEXT_MAX,
+  type SelectionCapture,
   selectionBusMessage,
   selectionLabel,
 } from './selection'

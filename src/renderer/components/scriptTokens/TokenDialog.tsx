@@ -1,3 +1,13 @@
+import { WarningIcon } from '@phosphor-icons/react'
+import {
+  SCRIPT_TOKEN_PRESETS,
+  SCRIPT_TOKEN_RUN_CAPS,
+  type ScriptTokenInfo,
+  type ScriptTokenSaveResult,
+  type ScriptTokenScope,
+  type ScriptTokensState,
+  type ScriptTokenUiCap,
+} from '@shared/permissions/scriptTokens'
 import { SelectField } from '@/components/settingsKit/SelectField'
 import {
   AlertDialog,
@@ -24,16 +34,6 @@ import { Label } from '@/components/ui/label'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { fmt, useDict } from '@/lib/app/useDict'
 import { cn } from '@/lib/utils'
-import { WarningIcon } from '@phosphor-icons/react'
-import {
-  SCRIPT_TOKEN_PRESETS,
-  SCRIPT_TOKEN_RUN_CAPS,
-  type ScriptTokenInfo,
-  type ScriptTokenSaveResult,
-  type ScriptTokenScope,
-  type ScriptTokenUiCap,
-  type ScriptTokensState,
-} from '@shared/permissions/scriptTokens'
 import { ScopePicker } from './ScopePicker'
 import { DAY_MS, localDate, sentence } from './tokenText'
 import { NAME_PATTERN, type TokenForm, useTokenForm } from './useTokenForm'
@@ -234,7 +234,10 @@ function NameExpiryFields({ form }: { form: TokenForm }): JSX.Element {
 function AccessFieldset({
   form,
   state,
-}: { form: TokenForm; state: ScriptTokensState }): JSX.Element {
+}: {
+  form: TokenForm
+  state: ScriptTokensState
+}): JSX.Element {
   const t = useDict().scriptTokens
   const { kind, setKind, groups, setGroups, workspaces, setWorkspaces, own, setOwn, scopeEmpty } =
     form

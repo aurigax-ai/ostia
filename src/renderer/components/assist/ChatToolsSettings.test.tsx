@@ -1,10 +1,10 @@
 import '@testing-library/jest-dom/vitest'
-import { useSettingsStore } from '@/stores/app/settingsStore'
-import { resetChatTools, useChatToolsStore } from '@/stores/assist/chatToolsStore'
 import type { McpServerSettings, McpServerStatus } from '@shared/assist/chatTools'
 import { act, cleanup, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import { useSettingsStore } from '@/stores/app/settingsStore'
+import { resetChatTools, useChatToolsStore } from '@/stores/assist/chatToolsStore'
 import { renderSettled } from '../../../../test/render'
 import { ChatToolsSettings } from './ChatToolsSettings'
 

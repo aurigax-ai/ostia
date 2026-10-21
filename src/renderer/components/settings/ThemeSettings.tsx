@@ -14,7 +14,7 @@ import { fmt, useDict } from '@/lib/app/useDict'
 import { type CodeColors, codeColors, monacoThemeData } from '@/lib/monaco/monacoTheme'
 import { type SchemeSurface, useScheme } from '@/lib/theme/colorScheme'
 import { useEffectiveTheme } from '@/lib/theme/theme'
-import { MATCH_OSTIA_THEME, isLinkedTheme } from '@/lib/theme/themeChoice'
+import { isLinkedTheme, MATCH_OSTIA_THEME } from '@/lib/theme/themeChoice'
 import { ANSI_NAMES, type ColorScheme } from '@/lib/theme/types'
 import { codeFontStack, terminalFontStack } from '@/lib/theme/uiFonts'
 import { useSettingsStore } from '@/stores/app/settingsStore'
@@ -238,6 +238,7 @@ function EditorSample({ scheme, font }: { scheme: ColorScheme; font: string }): 
           </span>
           <span className="overflow-hidden text-ellipsis whitespace-pre">
             {line.map(([key, text], i) => (
+              // biome-ignore lint/suspicious/noArrayIndexKey: the index tells repeated entries apart and the list is rebuilt, never reordered
               <span key={`${i}-${text}`} style={{ color: code[key] }}>
                 {text}
               </span>

@@ -1,7 +1,7 @@
 import { safeStorage } from 'electron'
 import { ensureCaps } from '../approvals/controlElevation'
 import { registerControlMethod } from '../control/controlServer'
-import { type StoreScope, loadJson, saveJson, storePath } from '../platform/jsonStore'
+import { loadJson, type StoreScope, saveJson, storePath } from '../platform/jsonStore'
 import { workDirForWorkspace } from '../workspaces/workspaceRegistry'
 
 type VaultData = Record<string, string>

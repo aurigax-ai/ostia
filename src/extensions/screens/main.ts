@@ -1,8 +1,8 @@
 import { basename, join } from 'node:path'
 import {
-  type EventHandler,
   connect,
   createTranslator,
+  type EventHandler,
   failure,
   ok,
   onShutdown,
@@ -13,7 +13,7 @@ import { installState } from './install'
 import { type PanelScopeWithSandbox, panelHandlers } from './panelApi'
 import { startPanelServer } from './panelServer'
 import { PhoneLinks } from './phoneLinks'
-import { SCREENS_BIN, createLeased, isOnPath, runScreens, serviceVersion } from './screensCli'
+import { createLeased, isOnPath, runScreens, SCREENS_BIN, serviceVersion } from './screensCli'
 import { ScreensService } from './screensService'
 import { verbHandlers } from './verbs'
 import { Viewers, viewStream } from './viewers'

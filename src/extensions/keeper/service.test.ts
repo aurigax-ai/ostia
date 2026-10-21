@@ -2,7 +2,7 @@ import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync 
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { type PollIntervals, type PollState, isAllowedKeeperCall } from './keeper'
+import { isAllowedKeeperCall, type PollIntervals, type PollState } from './keeper'
 import { KeeperService } from './service'
 
 const FIXTURES = join(__dirname, '../../../test/fixtures/tools')

@@ -4,7 +4,7 @@ import type {
   RemoteWriteResult,
 } from '@aurigax-ai/ostia-extension-sdk/contract/remoteFolders'
 import { describe, expect, it, vi } from 'vitest'
-import { type RemoteTextApi, checkRemoteText, saveRemoteText } from './remoteFileSync'
+import { checkRemoteText, type RemoteTextApi, saveRemoteText } from './remoteFileSync'
 
 const PATH = 'remote://abcdef012345/srv/app/app.conf'
 
@@ -12,11 +12,7 @@ const MISSING: RemoteStatResult & RemoteReadResult = { ok: false, error: 'not-fo
 const WRITTEN: RemoteWriteResult = { ok: true, version: '2-2' }
 
 function api(
-  over: {
-    stat?: RemoteStatResult
-    read?: RemoteReadResult
-    write?: RemoteWriteResult
-  } = {},
+  over: { stat?: RemoteStatResult; read?: RemoteReadResult; write?: RemoteWriteResult } = {},
 ) {
   return {
     stat: vi.fn<RemoteTextApi['stat']>(async () => over.stat ?? MISSING),
