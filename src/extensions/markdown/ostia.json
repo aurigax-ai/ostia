@@ -2,7 +2,7 @@
   "id": "markdown",
   "name": "Markdown preview",
   "version": "1.0.0",
-  "api": "7.6",
+  "api": "7.7",
   "description": "Shows .md, .markdown and .mdx files as a typeset preview of the text in the editor, including changes you have not saved yet. It has a contents panel, find, Mermaid diagrams drawn as images, and links that open in Ostia or a browser tab. It shows no raw HTML and no images, reads only the file you opened, and sends it nowhere.",
   "category": "tools",
   "locales": ["zh-Hant"],
