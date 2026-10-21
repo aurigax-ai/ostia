@@ -120,7 +120,6 @@ function SplitCell({
               ctx.frameActive && !focused && dimInactive && 'dimmed',
             )
       }
-      data-status={phoneStatus && !collapsed && ctx.shown ? '' : undefined}
       data-cell-id={collapsed ? undefined : pane.id}
       data-strip-id={collapsed ? pane.id : undefined}
       data-across={collapsed ? across : undefined}

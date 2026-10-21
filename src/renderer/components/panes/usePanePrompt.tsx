@@ -37,12 +37,17 @@ export function usePanePrompt(pane: PaneNode): JSX.Element | null {
   if (question) return <QuestionPrompt question={question} />
   if (trustFolder) return <FolderTrustPrompt paneId={pane.id} folder={trustFolder} />
   if (pane.resumeFailed) return <ResumeFailedPrompt paneId={pane.id} failure={pane.resumeFailed} />
-  if (pane.resumeFolderMissing && pane.resume && !hidden[folderMissingPromptKey(pane.id)]) {
+  if (
+    pane.resumeFolderMissing &&
+    pane.resume &&
+    !hidden[folderMissingPromptKey(pane.id, pane.resumeFolderMissing)]
+  ) {
     return (
       <ResumeFolderPrompt paneId={pane.id} resume={pane.resume} folder={pane.resumeFolderMissing} />
     )
   }
-  if (resumeConflict(pane) && !hidden[conflictPromptKey(pane.id)]) {
+  const holder = resumeConflict(pane)
+  if (holder && !hidden[conflictPromptKey(pane.id, holder.id)]) {
     return <ResumeConflictPrompt pane={pane} />
   }
   return null

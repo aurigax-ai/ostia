@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 function Harness({ paneId }: { paneId: string }): JSX.Element {
   const line = usePhoneSizeStatus(paneId)
-  return <div data-status={line ? '' : undefined}>{line}</div>
+  return <div>{line}</div>
 }
 
 beforeEach(() => {
@@ -33,10 +33,8 @@ describe('usePhoneSizeStatus', () => {
     usePhoneSizeStore.getState().hold('p-mine', { cols: 44, useDesktop: vi.fn() })
     const { container } = render(<Harness paneId="p-mine" />)
     expect(container.querySelector('[data-phone-sized]')).toBeInTheDocument()
-    expect(container.querySelector('[data-status]')).toBeInTheDocument()
     act(() => usePhoneSizeStore.getState().release('p-mine'))
     expect(container.querySelector('[data-phone-sized]')).toBeNull()
-    expect(container.querySelector('[data-status]')).toBeNull()
   })
 
   it('hides for good with its close button until the phone sizes the pane again', () => {

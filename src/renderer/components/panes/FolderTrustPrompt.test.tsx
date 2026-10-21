@@ -32,7 +32,7 @@ describe('FolderTrustPrompt', () => {
     ).toBeInTheDocument()
   })
 
-  it('the close button does the same as Let Claude ask and lets the resume go on', async () => {
+  it('the close button resumes without trusting, like Let Claude ask', async () => {
     vi.mocked(window.ostia.agentSession.folderTrust).mockResolvedValueOnce({
       state: 'ask',
       folder: '/home/u/Work/repo',
@@ -49,7 +49,7 @@ describe('FolderTrustPrompt', () => {
     const gate = claudeTrustGate('p1', 'claude')
     await vi.waitFor(() => expect(useFolderTrustStore.getState().byPane.p1).toBeDefined())
     render(<FolderTrustPrompt paneId="p1" folder="/home/u/Work/repo" />)
-    fireEvent.click(screen.getAllByRole('button', { name: 'Let Claude ask' })[0])
+    fireEvent.click(screen.getByRole('button', { name: 'Resume without trusting; Claude asks' }))
     expect(await gate).toBe(true)
     expect(window.ostia.agentSession.trustFolder).not.toHaveBeenCalled()
   })

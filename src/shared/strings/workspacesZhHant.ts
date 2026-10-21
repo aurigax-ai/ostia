@@ -226,6 +226,7 @@ export const workspacesZhHant: typeof workspacesEn = {
     folderTrustChoices: '更多信任方式',
     folderTrustLabel: 'Claude 資料夾信任',
     folderTrustOnce: '信任資料夾',
+    folderTrustResume: '不信任直接接回；由 Claude 詢問',
     folderTrustSkip: '讓 Claude 自己詢問',
     folderTrustTitle: '要讓 Claude 信任 {name} 嗎？',
     forkConversation: '將對話分支到新分頁',

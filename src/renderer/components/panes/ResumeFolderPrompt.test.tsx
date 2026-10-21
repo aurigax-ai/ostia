@@ -37,7 +37,7 @@ describe('ResumeFolderPrompt', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Close tab' }))
     expect(exec).toHaveBeenCalledWith('pane.close', { paneId: 'p1' })
     fireEvent.click(screen.getByRole('button', { name: 'Hide this message' }))
-    expect(useHiddenPromptsStore.getState().hidden['folder-missing:p1']).toBe(true)
+    expect(useHiddenPromptsStore.getState().hidden['folder-missing:p1:/work/tree']).toBe(true)
     expect(exec).toHaveBeenCalledTimes(1)
   })
 })

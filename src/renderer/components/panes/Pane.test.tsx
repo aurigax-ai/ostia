@@ -7,6 +7,7 @@ import { PANE_DND, startPaneDragTracking } from '@/lib/panes/paneDrag'
 import { useQuestionsStore } from '@/stores/agents/questionsStore'
 import { useSandboxStore } from '@/stores/app/sandboxStore'
 import { useUIStore } from '@/stores/app/uiStore'
+import { usePhoneSizeStore } from '@/stores/terminal/phoneSizeStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { usePaneDnd } from '@/stores/workspaces/paneDndStore'
 import { startPaneRenameSync, usePaneRenameStore } from '@/stores/workspaces/paneRenameStore'
@@ -129,6 +130,27 @@ describe('Pane', () => {
         useQuestionsStore.setState({ pending: [], focusId: null })
         useUIStore.setState({ dashboardActive: false })
       })
+    }
+  })
+
+  it('shows the phone size line over the pane without moving the terminal, and its close button keeps the hold', async () => {
+    const useDesktop = vi.fn()
+    usePhoneSizeStore.getState().hold(pane.id, { cols: 44, useDesktop })
+    try {
+      const { container } = render(
+        <Pane tabs={[pane]} shownId={pane.id} activePaneId={pane.id} workspaceId="w" />,
+      )
+      expect(container.querySelector('[data-phone-sized]')).toBeInTheDocument()
+      expect(container.querySelector('[data-status]')).toBeNull()
+
+      await userEvent.setup().click(screen.getByRole('button', { name: 'Dismiss' }))
+
+      const line = container.querySelector('[data-phone-sized]')
+      expect(line === null || line.closest('[data-leaving]') !== null).toBe(true)
+      expect(usePhoneSizeStore.getState().byPane[pane.id]).toBeDefined()
+      expect(useDesktop).not.toHaveBeenCalled()
+    } finally {
+      act(() => usePhoneSizeStore.setState({ byPane: {} }))
     }
   })
 

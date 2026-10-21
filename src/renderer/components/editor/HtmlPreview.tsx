@@ -1,4 +1,5 @@
 import { EmptyState } from '@/components/common/EmptyState'
+import { Hint } from '@/components/common/Hint'
 import { DropdownMenu, MenuItem } from '@/components/common/Menu'
 import { StatusAction, StatusLine, useDismissed } from '@/components/common/StatusLine'
 import { Button } from '@/components/ui/button'
@@ -121,6 +122,29 @@ function PreviewErrorStrip({
   )
 }
 
+function VitalsLine({
+  vitals,
+  stop,
+}: {
+  vitals: { responding: boolean; busy: boolean }
+  stop: () => void
+}): JSX.Element | null {
+  const d = useDict()
+  const [dismissed, dismiss] = useDismissed(vitals.responding ? 'busy' : 'stuck')
+  if (dismissed) return null
+  return (
+    <StatusLine
+      role="alert"
+      tone="warn"
+      data-testid={vitals.responding ? 'preview-busy' : 'preview-not-responding'}
+      actions={<StatusAction onClick={stop}>{d.preview.stop}</StatusAction>}
+      onDismiss={dismiss}
+    >
+      {vitals.responding ? d.preview.busy : d.preview.notResponding}
+    </StatusLine>
+  )
+}
+
 function PreviewBars({
   workspaceId,
   opened,
@@ -137,19 +161,10 @@ function PreviewBars({
   stop: () => void
 }): JSX.Element {
   const d = useDict()
-  const [vitalsDismissed, dismissVitals] = useDismissed(vitals.responding ? 'busy' : 'stuck')
   return (
     <>
-      {opened && (!vitals.responding || vitals.busy) && !vitalsDismissed ? (
-        <StatusLine
-          role="alert"
-          tone="warn"
-          data-testid={vitals.responding ? 'preview-busy' : 'preview-not-responding'}
-          actions={<StatusAction onClick={stop}>{d.preview.stop}</StatusAction>}
-          onDismiss={dismissVitals}
-        >
-          {vitals.responding ? d.preview.busy : d.preview.notResponding}
-        </StatusLine>
+      {opened && (!vitals.responding || vitals.busy) ? (
+        <VitalsLine vitals={vitals} stop={stop} />
       ) : null}
       {link ? (
         <StatusLine
@@ -169,7 +184,9 @@ function PreviewBars({
           }
           onDismiss={() => setLink(null)}
         >
-          <span className="font-mono">{link}</span>
+          <Hint label={link}>
+            <span className="select-text font-mono">{link}</span>
+          </Hint>
         </StatusLine>
       ) : null}
     </>

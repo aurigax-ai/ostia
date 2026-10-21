@@ -32,11 +32,13 @@ export function useSelectionSend(workspaceId: string, paneId: string): Selection
   const [pending, setPending] = useState<PendingSelection | null>(null)
   const [sending, setSending] = useState(false)
   const [status, setStatus] = useTransientStatus(STATUS_MS)
+  const [failure, setFailure] = useState<string | null>(null)
 
   const open = useCallback(
     (capture: SelectionCapture, image?: Uint8Array) => {
       pendingCounter += 1
       setStatus(null)
+      setFailure(null)
       setPending({ id: `${paneId}-${pendingCounter}`, capture, image })
     },
     [paneId, setStatus],
@@ -60,7 +62,7 @@ export function useSelectionSend(workspaceId: string, paneId: string): Selection
           fmt(res.inserted ? d.send.sentInserted : d.send.sentCopied, { pane: target.title }),
         )
       } else {
-        setStatus(fmt(d.send.sendFailed, { reason: res.error }))
+        setFailure(fmt(d.send.sendFailed, { reason: res.error }))
       }
     } finally {
       setSending(false)
@@ -87,9 +89,13 @@ export function useSelectionSend(workspaceId: string, paneId: string): Selection
     </NoticeSlot>
   )
 
-  const statusLine = status ? (
+  const statusLine = failure ? (
+    <StatusLine tone="error" onDismiss={() => setFailure(null)}>
+      {failure}
+    </StatusLine>
+  ) : status ? (
     <StatusLine onDismiss={() => setStatus(null)}>{status}</StatusLine>
   ) : null
 
-  return { open, notify: setStatus, panel, status: statusLine }
+  return { open, notify: setFailure, panel, status: statusLine }
 }

@@ -134,7 +134,7 @@ export function Pane({
         <PaneActions pane={shown} workspaceId={workspaceId} />
       </div>
 
-      <div className="pane-body pane-body-term" data-status={phoneStatus ? '' : undefined}>
+      <div className="pane-body pane-body-term">
         {tabs.map((tab) =>
           tab.type === 'pane' ? (
             <TabBody key={tab.id} pane={tab} shown={tab === shownTab} />

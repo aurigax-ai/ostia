@@ -145,6 +145,7 @@ function SuggestionBar({
       role={failure ? 'alert' : undefined}
       actions={action}
       onDismiss={decline}
+      dismissDisabled={busy}
       tone={failure ? 'warn' : 'muted'}
     >
       {`${text}${more}${failed}`}

@@ -95,5 +95,8 @@ describe('usePanePrompt', () => {
     expect(screen.getByRole('region', { name: 'Agent folder missing' })).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Hide this message' }))
     expect(screen.queryByRole('region', { name: 'Agent folder missing' })).toBeNull()
+
+    rerender(<Host pane={{ ...missing, resumeFolderMissing: '/gone-again' }} />)
+    expect(screen.getByRole('region', { name: 'Agent folder missing' })).toBeInTheDocument()
   })
 })

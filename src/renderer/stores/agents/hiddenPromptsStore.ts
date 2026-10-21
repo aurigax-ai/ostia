@@ -12,5 +12,7 @@ export const useHiddenPromptsStore = create<HiddenPromptsState>((set) => ({
 
 export const approvalPromptKey = (id: string): string => `approval:${id}`
 export const questionPromptKey = (id: string): string => `question:${id}`
-export const folderMissingPromptKey = (paneId: string): string => `folder-missing:${paneId}`
-export const conflictPromptKey = (paneId: string): string => `conflict:${paneId}`
+export const folderMissingPromptKey = (paneId: string, folder: string): string =>
+  `folder-missing:${paneId}:${folder}`
+export const conflictPromptKey = (paneId: string, holderId: string): string =>
+  `conflict:${paneId}:${holderId}`

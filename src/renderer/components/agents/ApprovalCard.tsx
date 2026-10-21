@@ -30,6 +30,11 @@ function requestText(d: Dict, request: ApprovalRequest, paneTitle: string): stri
   return fmt(KIND_TEXT[kind](d), { pane: paneTitle, subject: request.subject ?? '' })
 }
 
+function requestTone(kind: ApprovalKind | undefined): PromptTone {
+  if (kind === 'package-malware') return 'error'
+  return kind && kind !== 'capability' ? 'warn' : 'muted'
+}
+
 function RequestDetail({ request }: { request: ApprovalRequest }): JSX.Element {
   return (
     <div className="flex min-w-0 flex-col gap-0.5">
@@ -80,7 +85,7 @@ export function ApprovalPrompt({
 }): JSX.Element {
   const d = useDict()
   const hide = useHiddenPromptsStore((s) => s.hide)
-  const tone: PromptTone = request.kind === 'package-malware' ? 'error' : 'muted'
+  const tone = requestTone(request.kind)
   return (
     <PromptCard
       icon={ShieldWarningIcon}

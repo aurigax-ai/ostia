@@ -229,6 +229,7 @@ export const workspacesEn = {
     folderTrustChoices: 'More ways to trust',
     folderTrustLabel: 'Claude folder trust',
     folderTrustOnce: 'Trust folder',
+    folderTrustResume: 'Resume without trusting; Claude asks',
     folderTrustSkip: 'Let Claude ask',
     folderTrustTitle: 'Trust {name} for Claude?',
     forkConversation: 'Fork conversation into a new tab',

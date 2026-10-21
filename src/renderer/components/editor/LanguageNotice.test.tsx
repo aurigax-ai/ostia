@@ -84,6 +84,23 @@ describe('LanguageNotice', () => {
     expect(window.ostia.suggestions.dismiss).not.toHaveBeenCalled()
   })
 
+  it('keeps the close button off while the install runs', async () => {
+    suggest(install)
+    let finish: (value: { ok: true; state: typeof state }) => void = () => {}
+    vi.mocked(window.ostia.suggestions.install).mockReturnValue(
+      new Promise((resolve) => {
+        finish = resolve
+      }),
+    )
+    render(<LanguageNotice paneId="p1" filePath="/work/main.rs" />)
+
+    await userEvent.setup().click(await screen.findByRole('button', { name: 'Install' }))
+
+    expect(screen.getByRole('button', { name: 'Dismiss' })).toBeDisabled()
+    finish({ ok: true, state })
+    await waitFor(() => expect(screen.queryByRole('status')).toBeNull())
+  })
+
   it('says why an install failed and keeps the offer', async () => {
     suggest(install)
     vi.mocked(window.ostia.suggestions.install).mockResolvedValue({

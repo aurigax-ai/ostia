@@ -4,7 +4,7 @@ import type { ApprovalRequest } from '@shared/permissions/approvals'
 import { fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { ApprovalCard } from './ApprovalCard'
+import { ApprovalCard, ApprovalPrompt } from './ApprovalCard'
 
 const REQUEST: ApprovalRequest = {
   id: 'approval-1',
@@ -133,5 +133,17 @@ describe('newRequests', () => {
     const second = { ...REQUEST, id: 'approval-2' }
     expect(newRequests([REQUEST], [REQUEST, second])).toEqual([second])
     expect(newRequests([REQUEST, second], [second])).toEqual([])
+  })
+
+  it.each([
+    ['capability', 'text-fg-muted'],
+    ['sandbox-domain', 'text-warn-fg'],
+    ['package', 'text-warn-fg'],
+    ['package-malware', 'text-attn-fg'],
+  ] as const)('a %s request in the pane puts its tone on the icon: %s', (kind, tone) => {
+    const { container } = render(
+      <ApprovalPrompt request={{ ...REQUEST, kind, subject: 'x.dev' }} paneTitle="claude" />,
+    )
+    expect(container.querySelector('section > div > svg')).toHaveClass(tone)
   })
 })

@@ -41,7 +41,7 @@ export function FolderTrustPrompt({
       label={d.pane.folderTrustLabel}
       data-folder-trust=""
       title={fmt(d.pane.folderTrustTitle, { name: baseName(folder) })}
-      dismissLabel={d.pane.folderTrustSkip}
+      dismissLabel={d.pane.folderTrustResume}
       onDismiss={() => resumeAnyway(paneId)}
       actions={
         <>
@@ -144,7 +144,7 @@ export function ResumeFolderPrompt({
       data-resume-folder-missing=""
       title={d.pane.resumeFolderMissingTitle}
       dismissLabel={d.pane.hideNotice}
-      onDismiss={() => hide(folderMissingPromptKey(paneId))}
+      onDismiss={() => hide(folderMissingPromptKey(paneId, folder))}
       actions={<CloseTabButton paneId={paneId} />}
     >
       {fmt(d.pane.resumeFolderMissing, { agent: resume.agent, path: folder })}
@@ -176,7 +176,7 @@ export function ResumeConflictPrompt({ pane }: { pane: PaneNode }): JSX.Element 
       data-resume-conflict=""
       title={d.pane.resumeConflictTitle}
       dismissLabel={d.pane.hideNotice}
-      onDismiss={() => hide(conflictPromptKey(pane.id))}
+      onDismiss={() => hide(conflictPromptKey(pane.id, holder.id))}
       actions={<CloseTabButton paneId={pane.id} />}
     >
       {fmt(both ? d.pane.resumeConflictBoth : d.pane.resumeConflict, {

@@ -18,6 +18,7 @@ export function StatusLine({
   children,
   actions,
   onDismiss,
+  dismissDisabled,
   className,
   ...rest
 }: Omit<React.ComponentProps<'output'>, 'children'> & {
@@ -25,6 +26,7 @@ export function StatusLine({
   children: React.ReactNode
   actions?: React.ReactNode
   onDismiss?: () => void
+  dismissDisabled?: boolean
 }): JSX.Element {
   const d = useDict()
   const { icon: Icon, color } = TONES[tone]
@@ -40,7 +42,12 @@ export function StatusLine({
       <span className="min-w-0 flex-1 truncate">{children}</span>
       {actions}
       {onDismiss ? (
-        <IconButton icon={XIcon} label={d.pane.dismissStatus} onClick={onDismiss} />
+        <IconButton
+          icon={XIcon}
+          label={d.pane.dismissStatus}
+          disabled={dismissDisabled}
+          onClick={onDismiss}
+        />
       ) : null}
     </output>
   )
