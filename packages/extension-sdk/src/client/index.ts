@@ -23,6 +23,7 @@ import type {
   AssistResults,
   AssistUi,
 } from '../contract/assist'
+import type { Capability } from '../contract/capabilities'
 import { apiProblem, EXTENSION_API_ENV, EXTENSION_API_VERSION } from '../contract/extensionApi'
 import type {
   AgentOfferOptions,
@@ -64,6 +65,7 @@ import type {
   AskOptions,
   AskResult,
   BusSendResult,
+  CallerCapsResult,
   ConnectionResult,
   ConnectionsResult,
   ExecOptions,
@@ -136,6 +138,7 @@ export type {
   AskOptions,
   AskResult,
   BusSendResult,
+  CallerCapsResult,
   ConnectionResult,
   ConnectionsResult,
   ExecOptions,
@@ -327,6 +330,12 @@ export interface OstiaExtension {
   exec: (opts: ExecOptions, signal?: AbortSignal) => Promise<ExecResult>
   busSend: (to: string, text: string) => Promise<BusSendResult>
   wakePane: (paneId: string, waitMs?: number) => Promise<WakePaneResult>
+  requireCallerCaps: (
+    paneId: string,
+    caps: Capability[],
+    reason: string,
+  ) => Promise<CallerCapsResult>
+  playbookEnabled: () => Promise<boolean>
   ask: (opts: AskOptions, signal?: AbortSignal) => Promise<AskResult>
   mcpCall: (
     server: string,

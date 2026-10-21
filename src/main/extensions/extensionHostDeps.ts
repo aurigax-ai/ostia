@@ -78,6 +78,7 @@ export interface ExtensionHostDeps {
   exec?: ExtensionExec
   resumeOf?: (pane: PaneIdentity) => Promise<HeldResume | null>
   agentTaskClock?: () => number
+  playbookEnabled?: (id: string) => boolean
   remoteCwdForPane?: (paneId: string) => RemoteCwd | undefined
   agentRunning?: (paneId: string) => boolean
   claimHumanPrompt?: (paneId: string, extId: string) => string | null

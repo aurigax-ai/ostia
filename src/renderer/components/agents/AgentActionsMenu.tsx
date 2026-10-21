@@ -1,8 +1,9 @@
-import { BookmarkSimpleIcon, GitForkIcon } from '@phosphor-icons/react'
+import { BookmarkSimpleIcon, GitForkIcon, HandshakeIcon } from '@phosphor-icons/react'
 import { MenuItem } from '@/components/common/Menu'
 import { SplitButtonMenu } from '@/components/common/SplitButton'
 import { forkableResume, forkConversation } from '@/lib/agents/forkConversation'
 import { useDict } from '@/lib/app/useDict'
+import { askForHandoff, canHandOff } from '@/lib/handoff/handoffMenu'
 import type { PaneNode } from '@/lib/layout/types'
 import { parkRefusalOf, requestPark } from '@/lib/park/parkTab'
 import { useAttentionStore } from '@/stores/agents/attentionStore'
@@ -28,6 +29,11 @@ export function AgentActionsMenu({
       {forkableResume(pane) ? (
         <MenuItem icon={GitForkIcon} onClick={() => forkConversation(workspaceId, pane.id)}>
           {d.pane.forkAction}
+        </MenuItem>
+      ) : null}
+      {canHandOff(pane, workspaceId) ? (
+        <MenuItem icon={HandshakeIcon} onClick={askForHandoff}>
+          {d.pane.handoffAction}
         </MenuItem>
       ) : null}
       <MenuItem

@@ -237,6 +237,7 @@ export const workspacesZhHant: typeof workspacesEn = {
     forkAction: '分支',
     forkConversation: '將對話分支到新分頁',
     forkTitle: '{title} 的分支',
+    handoffAction: '交接',
     hibernateTab: '讓分頁休眠',
     hibernated: '已休眠',
     hiddenAttention: '需要你處理的隱藏分頁：{count}',

@@ -436,6 +436,18 @@ describe('the SDK package, used the way an extension author uses it', () => {
         "ostia.json: locales/zh-Hant.json: manifest.commands.wipe.title: not a string this extension's manifest declares",
       ],
     })
+    const gated = join(project, 'gated')
+    cpSync(built, gated, { recursive: true })
+    const gatedManifest = JSON.parse(readFileSync(join(gated, 'ostia.json'), 'utf8'))
+    gatedManifest.contributes.commands[0].needsPlaybook = true
+    writeFileSync(join(gated, 'ostia.json'), JSON.stringify(gatedManifest))
+    expect(runSdkCli(['validate', gated])).toEqual({
+      code: 1,
+      lines: [
+        `ostia.json: commands.${gatedManifest.contributes.commands[0].id}.needsPlaybook is for built-in extensions only`,
+      ],
+    })
+
     rmSync(join(mistranslated, 'locales/zh-Hant.json'))
     expect(runSdkCli(['validate', mistranslated])).toEqual({
       code: 1,

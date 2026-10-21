@@ -109,7 +109,12 @@ function registerHostMethods(host: () => ExtensionHost | null, forExtension: For
       if (typeof p.extId !== 'string' || typeof p.command !== 'string') {
         return fail('invalid-params', 'extId and command are required')
       }
-      return invokeAsPane(h, ctx.identity, p.extId, p.command, p.args)
+      const release = h.runs.holdCliCall(ctx.identity, ctx.authed)
+      const closed = ctx.conn.onClose(release)
+      return invokeAsPane(h, ctx.identity, p.extId, p.command, p.args).finally(() => {
+        closed.dispose()
+        release()
+      })
     },
   })
   registerControlMethod(
@@ -203,6 +208,14 @@ function registerRunMethods(host: () => ExtensionHost | null, forExtension: ForE
     ...forExtension((h, id, conn, p) => h.runs.runAgent(id, conn, p)),
     cap: 'shell',
   })
+  registerControlMethod(
+    'ext.requireCallerCaps',
+    forExtension((h, id, conn, p) => h.runs.requireCallerCaps(id, conn, p)),
+  )
+  registerControlMethod(
+    'ext.playbookEnabled',
+    forExtension((h, id, conn) => h.runs.playbookEnabled(id, conn)),
+  )
   registerControlMethod(
     'ext.offerToAgent',
     forExtension((h, id, conn, p) => h.runs.offerToAgent(id, conn, p)),

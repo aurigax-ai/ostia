@@ -211,6 +211,43 @@ describe('layoutStore', () => {
     })
   })
 
+  describe('openTerminal as a tab after a pane', () => {
+    const openAsTab = (afterPaneId: string) =>
+      useLayoutStore.getState().openTerminal('sess', { afterPaneId, asTab: true }) as string
+
+    it('adds a normal tab right after the pane’s tab and shows it', () => {
+      const first = ensure('sess')
+      const second = openAsTab(first)
+      const third = openAsTab(first)
+      const tabs = tabsOfPane(layoutOf('sess').root, first)
+      expect(tabs?.children.map((c) => firstPaneId(c))).toEqual([first, third, second])
+      expect(tabs?.activeId).toBe(third)
+      expect(layoutOf('sess').activePaneId).toBe(third)
+      expect(splitTabOfPane(layoutOf('sess').root, third)).toBeNull()
+    })
+
+    it('leaves a split tab alone and lands beside it, not inside it', () => {
+      const caller = ensure('sess')
+      const web = useLayoutStore.getState().openTerminal('sess', {
+        afterPaneId: caller,
+        backgroundTab: true,
+        splitTab: { name: 'dev' },
+      }) as string
+      const api = useLayoutStore.getState().openTerminal('sess', {
+        afterPaneId: caller,
+        backgroundTab: true,
+        splitTab: { name: 'dev' },
+      }) as string
+      const handed = openAsTab(api)
+      const root = layoutOf('sess').root
+      expect(splitTabOfPane(root, handed)).toBeNull()
+      const tab = splitTabOfPane(root, api) as SplitNode
+      expect(paneIds(tab)).toEqual([web, api])
+      const order = tabsOfPane(root, caller)?.children.map((c) => firstPaneId(c))
+      expect(order).toEqual([caller, web, handed])
+    })
+  })
+
   describe('joinTab', () => {
     const fourTabs = () => {
       const a = ensure('sess')

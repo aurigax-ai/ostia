@@ -115,6 +115,7 @@ const command = z.looseObject({
   palette: z.boolean().optional(),
   stdin: z.boolean().optional(),
   interactive: z.boolean().optional(),
+  needsPlaybook: z.boolean().optional(),
   capabilities: capabilities.optional(),
 })
 

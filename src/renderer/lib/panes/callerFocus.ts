@@ -6,6 +6,10 @@ function focusedPaneId(): string | undefined {
   return document.activeElement?.closest<HTMLElement>('.surface-host')?.dataset.paneId
 }
 
+export function paneHoldsKeyboard(paneId: string | undefined): boolean {
+  return paneId !== undefined && document.hasFocus() && focusedPaneId() === paneId
+}
+
 export function callerHasFocus(ctx: Pick<CommandContext, 'origin' | 'activePaneId'>): boolean {
   if (ctx.origin !== 'remote') return true
   return ctx.activePaneId !== null && document.hasFocus() && focusedPaneId() === ctx.activePaneId

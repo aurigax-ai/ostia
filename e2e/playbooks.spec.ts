@@ -17,9 +17,9 @@ test.describe.configure({ timeout: 120_000 })
 const FAKE_CLAUDE = [
   '#!/bin/sh',
   'for arg; do [ "$prev" = --plugin-dir ] && plugin=$arg; prev=$arg; done',
-  'printf "playbooks:"; for n in coordinator worker review remember; do [ -f "$plugin/skills/$n/SKILL.md" ] && printf "%s," "$n"; done; echo',
-  'echo "edited:$(grep -c E2E-EDIT "$plugin/skills/coordinator/SKILL.md" 2>/dev/null)"',
-  'echo "human-only:$(grep -c "^disable-model-invocation: true$" "$plugin/skills/remember/SKILL.md")"',
+  'printf "playbooks:"; for n in coordinator worker review handoff; do [ -f "$plugin/skills/$n/SKILL.md" ] && printf "%s," "$n"; done; echo',
+  'echo "edited:$(cat "$plugin/skills/coordinator/SKILL.md" 2>/dev/null | grep -c E2E-EDIT)"',
+  'echo "human-only:$(cat "$plugin/skills/coordinator/SKILL.md" 2>/dev/null | grep -c "^disable-model-invocation: true$")"',
   '',
 ].join('\n')
 
@@ -37,8 +37,8 @@ test('a playbook turned on and edited in Settings reaches the next terminal’s 
     const rows = win.locator('.xterm-rows').first()
 
     await runInTerminal(win, 'claude', shownTerminal(win))
-    await expect(rows).toContainText('human-only:1', { timeout: 30_000 })
-    await expect(rows).toContainText('playbooks:remember,')
+    await expect(rows).toContainText('human-only:0', { timeout: 30_000 })
+    await expect(rows).toContainText('playbooks:edited:0')
 
     await win.locator('.topbar').getByRole('button', { name: 'Settings' }).click()
     const settings = win.getByRole('region', { name: 'Settings' })
@@ -63,15 +63,16 @@ test('a playbook turned on and edited in Settings reaches the next terminal’s 
 
     await runInTerminal(win, 'claude', shownTerminal(win))
     await expect
-      .poll(async () => occurrences((await rows.textContent()) ?? '', 'human-only:1'))
+      .poll(async () => occurrences((await rows.textContent()) ?? '', 'human-only:0'))
       .toBe(2)
-    expect(occurrences((await rows.textContent()) ?? '', 'playbooks:remember,')).toBe(2)
+    expect(occurrences((await rows.textContent()) ?? '', 'playbooks:coordinator,')).toBe(0)
 
     await addTab(win)
     await runInTerminal(win, 'claude', shownTerminal(win))
     const fresh = win.locator('.pane-slot:not([data-hidden]) .xterm-rows').last()
-    await expect(fresh).toContainText('playbooks:coordinator,remember,', { timeout: 30_000 })
+    await expect(fresh).toContainText('playbooks:coordinator,', { timeout: 30_000 })
     await expect(fresh).toContainText('edited:1')
+    await expect(fresh).toContainText('human-only:1')
   } finally {
     await quitApp(app)
   }
