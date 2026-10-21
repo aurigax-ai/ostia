@@ -15,10 +15,31 @@ const AGENT_STATES = ['working', 'waiting', 'done', 'error'] as const
 
 type AgentState = (typeof AGENT_STATES)[number]
 
-export const EARLIER_TURNS_MAX = 20
+export const PAGE_ROWS = 5
+export const STREAM_LIMIT_KEY = 'stream'
 const NOTES_SHOWN_MAX = 20
-const STREAM_ROWS_MAX = 100
 const TURN_EVENTS_MAX = 200
+const BULK_WINDOW_MS = 5000
+
+export type Limits = Readonly<Record<string, number>>
+
+export function agentLimitKey(paneId: string): string {
+  return `agent:${paneId}`
+}
+
+export function widen(limits: Map<string, number>, key: string, loaded: number): boolean {
+  const have = limits.get(key) ?? PAGE_ROWS
+  if (have > loaded) return false
+  limits.set(key, have + PAGE_ROWS)
+  return true
+}
+
+export function limitsDigest(limits: Limits): string {
+  return Object.entries(limits)
+    .sort(([a], [b]) => (a < b ? -1 : 1))
+    .map(([key, value]) => `${key}=${value}`)
+    .join(',')
+}
 
 export interface OpenWorkspace {
   workspaceId: string
@@ -38,9 +59,17 @@ export interface EventView {
   text?: string
 }
 
+type WrapperKind = 'pasted' | 'task' | 'reminder' | 'message'
+
+export interface PromptWrapper {
+  kind: WrapperKind
+  from?: PaneLabel
+}
+
 export interface TurnView {
   start: number
   prompt?: string
+  wrapper?: PromptWrapper
   recap?: string
   events: EventView[]
 }
@@ -53,6 +82,7 @@ export interface AgentView {
   last: number
   current: TurnView
   earlier: TurnView[]
+  more: number
 }
 
 export interface NoteView {
@@ -87,6 +117,7 @@ export interface StreamRow {
   to?: StreamEndpoint
   message?: BusMessageKind
   folder?: string
+  count?: number
 }
 
 export interface WorkspaceView {
@@ -94,6 +125,7 @@ export interface WorkspaceView {
   agents: AgentView[]
   notes: NoteView[]
   stream: StreamRow[]
+  streamMore: number
 }
 
 export interface PanelModel {
@@ -107,6 +139,7 @@ export interface ViewSources {
   showActivity: boolean
   workspace: OpenWorkspace | undefined
   panes: readonly OpenPane[]
+  limits?: Limits
   events: (workspaceId: string) => readonly ActivityRecord[]
 }
 
@@ -152,7 +185,27 @@ function eventView(event: ActivityEvent): EventView {
   return view
 }
 
-export function turnsOf(events: readonly ActivityEvent[]): TurnView[] {
+const WRAPPER_TAGS: readonly { pattern: RegExp; kind: WrapperKind }[] = [
+  { pattern: /^<pasted_content\b/, kind: 'pasted' },
+  { pattern: /^<task-notification\b/, kind: 'task' },
+  { pattern: /^<system-reminder\b/, kind: 'reminder' },
+  { pattern: /^<ostia-bus-messages\b/, kind: 'message' },
+]
+const BUS_MESSAGE_TAG = /^<message\s[^>]*\bfrom="([^"]+)"/
+
+function wrapperOf(text: string, label: (pane: string) => PaneLabel): PromptWrapper | null {
+  const from = BUS_MESSAGE_TAG.exec(text)?.[1]
+  if (from) return { kind: 'message', from: label(from) }
+  const tag = WRAPPER_TAGS.find(({ pattern }) => pattern.test(text))
+  return tag ? { kind: tag.kind } : null
+}
+
+const UNLABELLED = (): PaneLabel => ({ n: 1 })
+
+export function turnsOf(
+  events: readonly ActivityEvent[],
+  label: (pane: string) => PaneLabel = UNLABELLED,
+): TurnView[] {
   const turns: TurnView[] = []
   let open: TurnView | null = null
   for (const event of events) {
@@ -161,7 +214,11 @@ export function turnsOf(events: readonly ActivityEvent[]): TurnView[] {
       turns.push(open)
     }
     open.events.push(eventView(event))
-    if (event.kind === 'prompt' && event.text) open.prompt = event.text
+    if (event.kind === 'prompt' && event.text) {
+      const wrapper = wrapperOf(event.text, label)
+      if (wrapper) open.wrapper = wrapper
+      else open.prompt = event.text
+    }
     if (event.kind === 'stop') {
       if (event.text) open.recap = event.text
       open = null
@@ -174,25 +231,33 @@ function agentState(raw: string | undefined): AgentState | undefined {
   return AGENT_STATES.find((state) => state === raw)
 }
 
+function pageOf(limits: Limits, key: string): number {
+  return limits[key] ?? PAGE_ROWS
+}
+
 function agentView(
   pane: OpenPane,
   events: readonly ActivityEvent[],
-  label: PaneLabel,
+  label: (pane: string) => PaneLabel,
+  limits: Limits,
 ): AgentView | null {
   const latest = events[events.length - 1]
   if (!latest) return null
-  const turns = turnsOf(events)
+  const turns = turnsOf(events, label)
   const current = turns[turns.length - 1]
   const recap = [...turns].reverse().find((turn) => turn.recap)?.recap
   const state = agentState(pane.agentState)
+  const older = turns.slice(0, -1).reverse()
+  const earlier = older.slice(0, pageOf(limits, agentLimitKey(pane.paneId)))
   return {
     paneId: pane.paneId,
-    label,
+    label: label(pane.paneId),
     ...(state ? { state } : {}),
     ...(recap ? { recap } : {}),
     last: latest.t,
     current,
-    earlier: turns.slice(0, -1).reverse().slice(0, EARLIER_TURNS_MAX),
+    earlier,
+    more: older.length - earlier.length,
   }
 }
 
@@ -279,9 +344,19 @@ function endpointView(id: string, label: (pane: string) => PaneLabel): StreamEnd
   return other ? { kind: other } : { kind: 'pane', label: label(id) }
 }
 
-function streamOf(hosts: readonly ActivityHost[], label: (pane: string) => PaneLabel): StreamRow[] {
+function bulkKey(host: ActivityHost): string {
+  if (host.host === 'folder') return `folder:${host.folder}`
+  return host.host === 'state' ? `state:${host.state}` : host.host
+}
+
+function streamOf(
+  hosts: readonly ActivityHost[],
+  label: (pane: string) => PaneLabel,
+  limit: number,
+): { rows: StreamRow[]; more: number } {
   const rows: StreamRow[] = []
   const messages = new Map<string, StreamRow>()
+  const bulks = new Map<string, { row: StreamRow; panes: Set<string> }>()
   for (const host of hosts) {
     const row: StreamRow = { id: host.id, t: host.t, host: host.host, subject: label(host.pane) }
     if (host.state) row.state = host.state
@@ -296,14 +371,25 @@ function streamOf(hosts: readonly ActivityHost[], label: (pane: string) => PaneL
         continue
       }
       if (host.ref) messages.set(host.ref, row)
+    } else {
+      const key = bulkKey(host)
+      const bulk = bulks.get(key)
+      if (bulk && host.t - bulk.row.t <= BULK_WINDOW_MS) {
+        bulk.row.t = host.t
+        bulk.panes.add(host.pane)
+        if (bulk.panes.size > 1) bulk.row.count = bulk.panes.size
+        continue
+      }
+      bulks.set(key, { row, panes: new Set([host.pane]) })
     }
     rows.push(row)
   }
-  return rows.reverse().slice(0, STREAM_ROWS_MAX)
+  const newest = rows.reverse()
+  return { rows: newest.slice(0, limit), more: Math.max(0, newest.length - limit) }
 }
 
 export function panelModel(sources: ViewSources): PanelModel {
-  const { workspace, showActivity } = sources
+  const { workspace, showActivity, limits = {} } = sources
   if (!workspace) return { showActivity, workspace: null }
   const panes = new Map(sources.panes.map((pane) => [pane.paneId, pane]))
   const byPane = new Map<string, ActivityEvent[]>()
@@ -324,15 +410,22 @@ export function panelModel(sources: ViewSources): PanelModel {
   const agents: AgentView[] = []
   for (const [paneId, events] of byPane) {
     const pane = panes.get(paneId)
-    const view = pane ? agentView(pane, events, label(paneId)) : null
+    const view = pane ? agentView(pane, events, label, limits) : null
     if (view) agents.push(view)
   }
   const notes = notesOf(noteRecords, label, panes)
-  const stream = streamOf(hosts, label)
+  const { rows: stream, more: streamMore } = streamOf(
+    hosts,
+    label,
+    pageOf(limits, STREAM_LIMIT_KEY),
+  )
   if (agents.length === 0 && notes.length === 0 && stream.length === 0) {
     return { showActivity, workspace: null }
   }
-  return { showActivity, workspace: { workspaceId: workspace.workspaceId, agents, notes, stream } }
+  return {
+    showActivity,
+    workspace: { workspaceId: workspace.workspaceId, agents, notes, stream, streamMore },
+  }
 }
 
 export function groupKey(paneId: string, turnStart: number): string {
@@ -343,11 +436,18 @@ export function liveKeys(workspace: WorkspaceView | null): {
   panes: Set<string>
   notes: Set<string>
   groups: Set<string>
+  limits: Set<string>
 } {
-  const live = { panes: new Set<string>(), notes: new Set<string>(), groups: new Set<string>() }
+  const live = {
+    panes: new Set<string>(),
+    notes: new Set<string>(),
+    groups: new Set<string>(),
+    limits: new Set<string>([STREAM_LIMIT_KEY]),
+  }
   for (const note of workspace?.notes ?? []) live.notes.add(note.id)
   for (const agent of workspace?.agents ?? []) {
     live.panes.add(agent.paneId)
+    live.limits.add(agentLimitKey(agent.paneId))
     for (const turn of [agent.current, ...agent.earlier]) {
       live.groups.add(groupKey(agent.paneId, turn.start))
     }

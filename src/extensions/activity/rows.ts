@@ -19,12 +19,15 @@ import {
   type EventView,
   type NoteView,
   type PaneLabel,
+  type PromptWrapper,
+  STREAM_LIMIT_KEY,
   type StreamEndpoint,
   type StreamRow,
   type TurnView,
   type WorkspaceView,
   actionCounts,
   ageOf,
+  agentLimitKey,
   groupKey,
 } from './view'
 
@@ -50,6 +53,7 @@ export interface RowEnv {
   setOpen: (key: string, open: boolean) => void
   paneNote: (paneId: string) => string | undefined
   noteFailure: (id: string) => string | undefined
+  watchMore: (el: HTMLElement) => void
 }
 
 export type ListContent =
@@ -65,6 +69,7 @@ interface NotesItem {
 interface StreamItem {
   kind: 'stream'
   rows: StreamRow[]
+  more: number
 }
 
 interface AgentItem {
@@ -146,9 +151,31 @@ function streamText(env: RowEnv, row: StreamRow): string {
       to: endpointText(env, row.to),
     })
   }
-  if (row.host === 'state') return env.t(`stream.state.${row.state}`, { who })
+  const key = row.host === 'state' ? `stream.state.${row.state}` : `stream.${row.host}`
   const folder = row.folder === '.' ? env.t('stream.rootFolder') : (row.folder ?? '')
-  return env.t(`stream.${row.host}`, { who, folder })
+  return env.t(row.count ? `${key}.many` : key, { who, folder, count: row.count ?? 1 })
+}
+
+function wrapperText(env: RowEnv, wrapper: PromptWrapper): string {
+  if (wrapper.kind !== 'message') return env.t(`prompt.${wrapper.kind}`)
+  return wrapper.from
+    ? env.t('prompt.message', { from: labelText(env, wrapper.from) })
+    : env.t('prompt.messageAnonymous')
+}
+
+function moreSentinel(
+  env: RowEnv,
+  key: string,
+): { el: HTMLElement; set: (more: number, loaded: number) => void } {
+  const el = h('div', { class: 'more', 'data-more': key, hidden: true })
+  env.watchMore(el)
+  return {
+    el,
+    set: (more, loaded) => {
+      flag(el, 'hidden', more === 0)
+      if (setAttr(el, 'data-loaded', String(loaded))) env.watchMore(el)
+    },
+  }
 }
 
 function actionSummary(env: RowEnv, events: readonly EventView[]): string {
@@ -248,7 +275,9 @@ function turnRow(env: RowEnv, key: string): Row<TurnItem> {
       age.set(turn.start)
       recap.set(turn.recap)
       const changed = actions.update(turn.events)
-      if (setText(prompt, turn.prompt ?? '')) changed.push(prompt)
+      setAttr(prompt, 'data-wrapper', turn.wrapper?.kind ?? null)
+      const promptText = turn.wrapper ? wrapperText(env, turn.wrapper) : (turn.prompt ?? '')
+      if (setText(prompt, promptText)) changed.push(prompt)
       return changed
     },
   }
@@ -295,7 +324,16 @@ function agentRow(env: RowEnv, paneId: string): Row<AgentItem> {
     (item) => builtRow(turnRow(env, groupKey(paneId, item.turn.start)), item),
     env.now,
   )
-  const el = h('article', { class: 'agent', 'data-pane': paneId }, head, note, recap.el, timeline)
+  const more = moreSentinel(env, agentLimitKey(paneId))
+  const el = h(
+    'article',
+    { class: 'agent', 'data-pane': paneId },
+    head,
+    note,
+    recap.el,
+    timeline,
+    more.el,
+  )
   return {
     el,
     update: ({ agent, showActivity }) => {
@@ -314,6 +352,7 @@ function agentRow(env: RowEnv, paneId: string): Row<AgentItem> {
       recap.set(showActivity ? undefined : agent.recap)
       flag(timeline, 'hidden', !showActivity)
       patchTurns(showActivity ? turnItems(agent) : [])
+      more.set(showActivity ? agent.more : 0, agent.earlier.length)
       return changed
     },
   }
@@ -423,17 +462,20 @@ function streamRowNode(env: RowEnv): Row<StreamRow> {
 
 function streamRow(env: RowEnv): Row<StreamItem> {
   const list = h('ol', { class: 'timeline', 'aria-label': env.t('stream') })
+  const more = moreSentinel(env, STREAM_LIMIT_KEY)
   const el = h(
     'section',
     { class: 'stream' },
     h('h2', { class: 'stream-title muted' }, env.t('stream')),
     list,
+    more.el,
   )
   const patch = createPatcher<StreamRow>(list, (row) => builtRow(streamRowNode(env), row), env.now)
   return {
     el,
-    update: ({ rows }) => {
+    update: ({ rows, more: rest }) => {
       patch(rows.map((row) => ({ key: `host:${row.id}`, sig: JSON.stringify(row), value: row })))
+      more.set(rest, rows.length)
       return []
     },
   }
@@ -455,8 +497,8 @@ function workspaceItems(
   if (showActivity && workspace.stream.length > 0) {
     items.push({
       key: 'stream',
-      sig: JSON.stringify(workspace.stream),
-      value: { kind: 'stream', rows: workspace.stream },
+      sig: JSON.stringify([workspace.stream, workspace.streamMore]),
+      value: { kind: 'stream', rows: workspace.stream, more: workspace.streamMore },
     })
   }
   for (const agent of workspace.agents) {

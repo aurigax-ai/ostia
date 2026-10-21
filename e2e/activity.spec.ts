@@ -92,6 +92,13 @@ test('the Activity panel shows an agent’s recap, shows its events on the toggl
     await expect.poll(() => text(app, '.turn .prompt'), { timeout: 15_000 }).toBe(PROMPT)
     expect(await text(app, '.turn .markdown')).toBe(RECAP)
     expect(await text(app, '.actions-toggle')).toBe('Ran 1 command')
+    expect(await panelEval(app, `document.querySelector('.more').hidden`)).toBe('true')
+    expect(
+      await panelEval(
+        app,
+        `['.agent', '.workspace'].map((s) => getComputedStyle(document.querySelector(s)).borderTopWidth).join()`,
+      ),
+    ).toBe('0px,0px')
     expect(await panelEval(app, `document.querySelector('.action-list').hidden`)).toBe('true')
     await panelEval(app, `document.querySelector('.actions-toggle').click(); 'ok'`)
     await expect
