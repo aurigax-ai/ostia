@@ -343,7 +343,7 @@ function registerBusInboxMethods(deps: BusDeps): void {
       )
       const notice =
         event === 'SessionStart' &&
-        source === 'resume' &&
+        (source === 'resume' || source === 'clear') &&
         !ctx.identity.manager &&
         !nameOf(ctx.identity.paneId)
           ? BUS_NAME_NOTICE

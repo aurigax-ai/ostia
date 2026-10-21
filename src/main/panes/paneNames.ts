@@ -18,7 +18,7 @@ export type Claim =
   | { ok: false; error: 'bad-name' | 'bad-desc'; message: string }
 
 const held = new Map<string, PaneName>()
-const holders = new Map<string, Set<string>>()
+const holders = new Map<string, string>()
 const sessions = new Map<string, string>()
 
 export function parseName(raw: unknown): { name: string } | { message: string } {
@@ -46,22 +46,19 @@ export function parseDesc(raw: unknown): { desc: string | undefined } | { messag
   return { desc: desc || undefined }
 }
 
-export function claimName(
-  paneId: string,
-  rawName: unknown,
-  rawDesc: unknown,
-  reaches: (holderPaneId: string) => boolean,
-): Claim {
+export function claimName(paneId: string, rawName: unknown, rawDesc: unknown): Claim {
   const name = parseName(rawName)
   if ('message' in name) return { ok: false, error: 'bad-name', message: name.message }
   const desc = parseDesc(rawDesc)
   if ('message' in desc) return { ok: false, error: 'bad-desc', message: desc.message }
-  const rival = [...(holders.get(name.name) ?? [])].find((id) => id !== paneId && reaches(id))
-  if (rival !== undefined) return { ok: false, error: 'name-taken', name: name.name, holder: rival }
+  const rival = holders.get(name.name)
+  if (rival !== undefined && rival !== paneId) {
+    return { ok: false, error: 'name-taken', name: name.name, holder: rival }
+  }
   release(paneId)
   const entry: PaneName = { name: name.name, ...(desc.desc ? { desc: desc.desc } : {}) }
   held.set(paneId, entry)
-  holders.set(entry.name, new Set([...(holders.get(entry.name) ?? []), paneId]))
+  holders.set(entry.name, paneId)
   return { ok: true, held: entry }
 }
 
@@ -69,17 +66,15 @@ export function nameOf(paneId: string): PaneName | undefined {
   return held.get(paneId)
 }
 
-export function panesNamed(name: string): string[] {
-  return [...(holders.get(name) ?? [])]
+export function paneNamed(name: string): string | undefined {
+  return holders.get(name)
 }
 
 function release(paneId: string): boolean {
   const entry = held.get(paneId)
   if (!entry) return false
   held.delete(paneId)
-  const rest = holders.get(entry.name)
-  rest?.delete(paneId)
-  if (rest?.size === 0) holders.delete(entry.name)
+  holders.delete(entry.name)
   return true
 }
 

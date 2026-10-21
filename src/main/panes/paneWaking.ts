@@ -54,6 +54,10 @@ export class PaneWaking {
     this.changes.fire()
   }
 
+  subscribe(listener: WakeListener): void {
+    this.listeners.add(listener)
+  }
+
   until(
     paneIds: readonly string[],
     timeoutMs: number,

@@ -8,7 +8,7 @@ vi.mock('../control/controlServer', () => ({
 
 const { markManager, registerPane } = await import('../control/idRegistry')
 const { registerPaneNameMethods } = await import('./paneNameMethods')
-const { forgetNames, nameOf, panesNamed } = await import('./paneNames')
+const { forgetNames, nameOf, paneNamed } = await import('./paneNames')
 
 const sandboxed = new Set<string>()
 const confined = new Set<string>()
@@ -61,7 +61,7 @@ describe('pane.name', () => {
     await name(me, { name: 'boss' })
     await expect(name(me, { clear: true, name: 'x' })).rejects.toThrow('bad-request: clear')
     expect(await name(me, { clear: true })).toEqual({ ok: true, paneId: me.externalId })
-    expect(panesNamed('boss')).toEqual([])
+    expect(paneNamed('boss')).toBeUndefined()
   })
 
   it('refuses a name a pane the caller reaches holds, and names that holder', async () => {
@@ -72,20 +72,21 @@ describe('pane.name', () => {
     expect(nameOf('name-me')).toBeUndefined()
   })
 
-  it('lets a pane outside the caller’s reach hold the same name', async () => {
+  it('refuses a name a pane out of reach holds, without naming that pane', async () => {
     await name(far, { name: 'boss' })
-    expect(await name(me, { name: 'boss' })).toMatchObject({ ok: true, name: 'boss' })
-    expect(panesNamed('boss')).toEqual(['name-far', 'name-me'])
+    await expect(name(me, { name: 'boss' })).rejects.toThrow(
+      'name-taken: boss held by another pane',
+    )
     reached.add('ws9')
-    await expect(name(peer, { name: 'boss' })).rejects.toThrow('name-taken: boss held by')
+    await expect(name(me, { name: 'boss' })).rejects.toThrow(`held by ${far.externalId}`)
   })
 
-  it('ignores a holder a sandboxed caller does not confine', async () => {
+  it('hides a holder a sandboxed caller does not confine', async () => {
     await name(peer, { name: 'boss' })
     sandboxed.add('ws1')
-    expect(await name(me, { name: 'boss' })).toMatchObject({ ok: true })
+    await expect(name(me, { name: 'boss' })).rejects.toThrow('held by another pane')
     confined.add('name-peer')
-    await expect(name(far, { name: 'boss' })).resolves.toMatchObject({ ok: true })
+    await expect(name(me, { name: 'boss' })).rejects.toThrow(`held by ${peer.externalId}`)
   })
 
   it('refuses the --name of a live tab in reach, and keeps the name it had', async () => {

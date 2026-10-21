@@ -25,7 +25,9 @@ export function registerPaneNameMethods(deps: PaneNameDeps): void {
         return { ok: true, paneId: me.externalId }
       }
       if (!deps.agentRunning(me.paneId)) {
-        throw fail('not-an-agent: only a claude or codex agent with its hooks on takes a bus name')
+        throw fail(
+          'not-an-agent: only a claude or codex agent running in this pane takes a bus name',
+        )
       }
       const wanted = parseName(p.name)
       const wantedName = 'name' in wanted ? wanted.name : undefined
@@ -36,14 +38,12 @@ export function registerPaneNameMethods(deps: PaneNameDeps): void {
         const tab = getByPaneId(tabs[0])?.externalId
         throw fail(`name-taken: ${wantedName} is the --name of the tab ${tab}`)
       }
-      const sees = await paneSight(deps, ctx)
-      const claim = claimName(me.paneId, p.name, p.desc, (holderPaneId) => {
-        const holder = getByPaneId(holderPaneId)
-        return holder !== undefined && sees(holder)
-      })
+      const claim = claimName(me.paneId, p.name, p.desc)
       if (!claim.ok && claim.error === 'name-taken') {
         const holder = getByPaneId(claim.holder)
-        throw fail(`name-taken: ${claim.name} held by ${holder?.externalId ?? 'another pane'}`)
+        const sees = await paneSight(deps, ctx)
+        const by = holder && sees(holder) ? holder.externalId : 'another pane'
+        throw fail(`name-taken: ${claim.name} held by ${by}`)
       }
       if (!claim.ok) throw fail(`${claim.error}: ${claim.message}`)
       const { name, desc } = claim.held

@@ -384,7 +384,7 @@ describe('agent.run', () => {
 describe('process.run and bus names', () => {
   it('refuses a tab --name a pane in reach holds as a bus name, for process and agent runs', async () => {
     const holder = registerPane({ windowId: 'w1', workspaceId: 'ws1', paneId: 'bus-holder' })
-    claimName('bus-holder', 'boss', undefined, () => true)
+    claimName('bus-holder', 'boss', undefined)
     const conn = await client(agent)
     await expect(conn.sendRequest('process.run', { cmd: 'echo hi', name: 'boss' })).rejects.toThrow(
       `name-taken: boss is a bus name held by ${holder.externalId}`,

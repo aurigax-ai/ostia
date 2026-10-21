@@ -9,7 +9,7 @@ import {
   registerTargetableMethod,
 } from '../control/controlServer'
 import { getByPaneId } from '../control/idRegistry'
-import { panesNamed } from './paneNames'
+import { paneNamed } from './paneNames'
 import { record } from './paneReach'
 import { paneSight } from './paneRef'
 import { type PhoneAgent, phoneAgentCommand } from './phoneAgent'
@@ -114,14 +114,13 @@ export function registerProcessMethods(deps: ProcessDeps): {
   const tabName = async (raw: unknown, ctx: ControlMethodContext): Promise<string | undefined> => {
     const name = nameOf(raw)
     if (name === undefined) return undefined
-    const sees = await paneSight({ ...deps, visible: deps.reach.visible }, ctx)
-    const holder = panesNamed(name)
-      .flatMap((id) => getByPaneId(id) ?? [])
-      .find(sees)
+    const holder = getByPaneId(paneNamed(name) ?? '')
     if (holder) {
+      const sees = await paneSight({ ...deps, visible: deps.reach.visible }, ctx)
+      const by = sees(holder) ? holder.externalId : 'another pane'
       throw new ResponseError(
         ErrorCodes.InvalidParams,
-        `name-taken: ${name} is a bus name held by ${holder.externalId}`,
+        `name-taken: ${name} is a bus name held by ${by}`,
       )
     }
     return name

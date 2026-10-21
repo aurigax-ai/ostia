@@ -1,4 +1,4 @@
-import { agentLeft } from '../agents/agentLeft'
+import { type AgentLeftDeps, agentLeft } from '../agents/agentLeft'
 import { createManagerPty } from '../manager/managerPty'
 import { createPtyWiring } from '../terminal/pty/ptyWiring'
 import type { AgentContext } from './agentServices'
@@ -98,16 +98,21 @@ export function createPaneServices(ctx: AgentContext) {
     bannerText: () => mainStrings().native.paneBanner,
   })
 
-  agentRunning.whenStopped((paneId) =>
-    agentLeft(
-      {
-        waking: (id) => paneWaking.has(id),
-        sandboxed: (id) => ptys.get(id)?.sandboxed,
-        program: foregroundProgram,
-      },
-      paneId,
-    ),
-  )
+  const leftDeps: AgentLeftDeps = {
+    running: (id) => agentRunning.has(id),
+    waking: (id) => paneWaking.has(id),
+    owner: (id) => {
+      const entry = ptys.get(id)
+      return entry
+        ? { foreground: entry.pty.process, shell: entry.shell, sandboxed: entry.sandboxed }
+        : undefined
+    },
+    recheck: (id, again) => ptys.get(id)?.kept?.afterForeground(again),
+  }
+  agentRunning.whenStopped((id) => agentLeft(leftDeps, id))
+  paneWaking.subscribe((id, how) => {
+    if (how === 'failed' && !hibernatedPanes.has(id)) agentLeft(leftDeps, id)
+  })
 
   const { spawnManagerPty } = createManagerPty({ loadPty, primaryWindowId, trackPty, feedPty })
 

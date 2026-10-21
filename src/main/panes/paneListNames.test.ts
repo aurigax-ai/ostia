@@ -40,7 +40,7 @@ beforeEach(forgetNames)
 
 describe('pane.list names', () => {
   it('shows the bus name and description of a named pane to a pane', async () => {
-    claimName('list-named', 'boss', 'plans', () => true)
+    claimName('list-named', 'boss', 'plans')
     const panes = await list('pane')
     expect(panes.find((p) => p.paneId === named.externalId)).toMatchObject({
       name: 'boss',
@@ -50,7 +50,7 @@ describe('pane.list names', () => {
   })
 
   it('never shows them to an extension', async () => {
-    claimName('list-named', 'boss', 'plans', () => true)
+    claimName('list-named', 'boss', 'plans')
     for (const pane of await list('extension')) {
       expect(pane).not.toHaveProperty('name')
       expect(pane).not.toHaveProperty('description')

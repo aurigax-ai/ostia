@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { claimName, forgetNames, panesNamed } from '../../panes/paneNames'
+import { claimName, forgetNames, paneNamed } from '../../panes/paneNames'
 import type { PtyEntry } from './ptyRegistry'
 import { createPtyStop } from './ptyStop'
 
@@ -36,16 +36,16 @@ describe('a bus name and the pty', () => {
     'is dropped when the pty is stopped for %s',
     (reason) => {
       forgetNames()
-      claimName('p1', 'boss', undefined, () => true)
+      claimName('p1', 'boss', undefined)
       stop('p1').killPty('p1', reason)
-      expect(panesNamed('boss')).toEqual([])
+      expect(paneNamed('boss')).toBeUndefined()
     },
   )
 
   it('is kept when the pane hibernates, so mail to it can wake the agent', () => {
     forgetNames()
-    claimName('p1', 'boss', undefined, () => true)
+    claimName('p1', 'boss', undefined)
     expect(stop('p1').hibernatePty('p1')).toBe(true)
-    expect(panesNamed('boss')).toEqual(['p1'])
+    expect(paneNamed('boss')).toBe('p1')
   })
 })
