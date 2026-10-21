@@ -13,6 +13,7 @@ import en from './locales/en.json'
 import zhHant from './locales/zh-Hant.json'
 import { mediaKeyAction } from './mediaKeys'
 import { mediaKind } from './mediaKind'
+import { mountStatus } from './status'
 
 const root = document.getElementById('root') as HTMLElement
 
@@ -78,7 +79,7 @@ async function main(): Promise<void> {
   video.addEventListener('error', () => showViewerMessage(root, t('unplayable')))
   const controls = createControls(video, t)
   resolveDuration(video)
-  let captureWholeFrame = (): void => {}
+  let selectWholeFrame = (): void => {}
   if (mediaKind(video.videoWidth) === 'video') {
     const stage = document.createElement('div')
     stage.className = 'ostia-media-stage'
@@ -86,10 +87,15 @@ async function main(): Promise<void> {
     surface.className = 'ostia-media-surface'
     stage.append(video, surface)
     root.replaceChildren(stage)
-    const capture = attachFrameCapture(stage, surface, video, () =>
-      controls.perform({ type: 'toggle' }),
+    const showStatus = mountStatus(stage)
+    const capture = attachFrameCapture(
+      stage,
+      surface,
+      video,
+      () => controls.perform({ type: 'toggle' }),
+      () => showStatus(t('captureFailed')),
     )
-    captureWholeFrame = capture.captureWholeFrame
+    selectWholeFrame = capture.selectWholeFrame
     mountHud(stage, video, controls, t('controls'))
   } else {
     mountAudioCard(root, video, controls, await readTags(url, doc.name))
@@ -98,8 +104,9 @@ async function main(): Promise<void> {
     if (document.hidden) video.pause()
   })
   document.addEventListener('keydown', (event) => {
-    if ((event.ctrlKey || event.metaKey) && !event.altKey && event.key.toLowerCase() === 'c') {
-      captureWholeFrame()
+    if ((event.ctrlKey || event.metaKey) && !event.altKey && event.key.toLowerCase() === 'a') {
+      event.preventDefault()
+      selectWholeFrame()
       return
     }
     const action = mediaKeyAction(event)
