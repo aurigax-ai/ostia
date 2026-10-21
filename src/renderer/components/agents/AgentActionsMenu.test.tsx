@@ -1,0 +1,120 @@
+import '@testing-library/jest-dom/vitest'
+import { cleanup, render, screen, waitFor } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import * as forkConversation from '@/lib/agents/forkConversation'
+import type { LayoutNode, PaneNode } from '@/lib/layout/types'
+import * as parkTab from '@/lib/park/parkTab'
+import { useAttentionStore } from '@/stores/agents/attentionStore'
+import { useBlocksStore } from '@/stores/terminal/blocksStore'
+import { useLayoutStore } from '@/stores/workspaces/layoutStore'
+import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
+import { AgentActionsMenu } from './AgentActionsMenu'
+
+const agent: PaneNode = {
+  type: 'pane',
+  id: 'p1',
+  kind: 'terminal',
+  title: 'export-tests',
+  resume: { agent: 'claude', id: 's1', cwd: '/home/u/api' },
+}
+
+function seed(pane: PaneNode, kind: 'terminal' | 'scratch' = 'terminal'): void {
+  useWorkspacesStore.setState({
+    workspaces: [{ id: 'w1', name: 'a', kind, workDir: '/w', state: 'idle' }],
+    activeWorkspaceId: 'w1',
+  })
+  const root: LayoutNode = { type: 'tabs', id: 't', activeId: pane.id, children: [pane] }
+  useLayoutStore.setState({
+    byWorkspace: { w1: { root, activePaneId: pane.id, zoomedPaneId: null } },
+  })
+}
+
+function runAgent(): void {
+  useBlocksStore.getState().promptStart('p1', { line: 0 }, null)
+  useBlocksStore.getState().commandStart('p1', { line: 1 }, 'claude')
+  useBlocksStore.getState().markAgent('p1', 'claude')
+}
+
+async function open(pane: PaneNode = agent) {
+  const user = userEvent.setup()
+  render(<AgentActionsMenu pane={pane} workspaceId="w1" />)
+  const caret = screen.getByRole('button', { name: 'Agent actions' })
+  await user.click(caret)
+  return { user, caret }
+}
+
+describe('AgentActionsMenu', () => {
+  beforeEach(() => {
+    seed(agent)
+    runAgent()
+  })
+  afterEach(() => {
+    cleanup()
+    useBlocksStore.setState(useBlocksStore.getInitialState(), true)
+    useAttentionStore.setState({ byPane: {} })
+    vi.restoreAllMocks()
+  })
+
+  it('lists Fork then Park, with no chord and no hint on an enabled item', async () => {
+    await open()
+    const items = await screen.findAllByRole('menuitem')
+    expect(items.map((i) => i.textContent)).toEqual(['Fork', 'Park'])
+    expect(items[1]).not.toHaveAttribute('aria-disabled', 'true')
+  })
+
+  it('forks from the Fork item', async () => {
+    const fork = vi.spyOn(forkConversation, 'forkConversation').mockReturnValue('x')
+    const { user } = await open()
+    await user.click(await screen.findByRole('menuitem', { name: 'Fork' }))
+    expect(fork).toHaveBeenCalledWith('w1', 'p1')
+  })
+
+  it('parks once, at once, from the Park item', async () => {
+    const park = vi.spyOn(parkTab, 'requestPark').mockResolvedValue()
+    const { user } = await open()
+    await user.click(await screen.findByRole('menuitem', { name: 'Park' }))
+    expect(park).toHaveBeenCalledTimes(1)
+    expect(park).toHaveBeenCalledWith('w1', 'p1')
+  })
+
+  it('hides Fork when the pane has no session, and Park says why it cannot', async () => {
+    const bare: PaneNode = { type: 'pane', id: 'p1', kind: 'terminal', title: 'claude' }
+    seed(bare)
+    await open(bare)
+    const items = await screen.findAllByRole('menuitem')
+    expect(items).toHaveLength(1)
+    expect(items[0]).toHaveAttribute('aria-disabled', 'true')
+    expect(items[0]).toHaveTextContent('Park')
+    expect(items[0]).toHaveTextContent('no agent is running in it')
+  })
+
+  it.each([
+    [
+      'the agent works',
+      () => useAttentionStore.getState().dispatch('p1', { type: 'set', state: 'working', at: 1 }),
+      'the agent is working',
+    ],
+    ['the tab is locked', () => seed({ ...agent, locked: true }), 'the tab is locked'],
+    [
+      'the workspace is a scratch one',
+      () => seed(agent, 'scratch'),
+      'a scratch workspace keeps nothing',
+    ],
+  ])('disables Park with its reason when %s', async (_n, arrange, reason) => {
+    arrange()
+    await open()
+    const park = await screen.findByRole('menuitem', { name: /^Park/ })
+    expect(park).toHaveAttribute('aria-disabled', 'true')
+    expect(park).toHaveTextContent(reason)
+    expect(park).not.toHaveTextContent(/Ctrl|⌘|⌥/)
+  })
+
+  it('closes on Escape and gives the focus back to the caret', async () => {
+    const { user, caret } = await open()
+    await screen.findByRole('menuitem', { name: 'Fork' })
+    await user.keyboard('{Escape}')
+    await waitFor(() => expect(caret).toHaveFocus())
+    expect(caret).toHaveAttribute('aria-expanded', 'false')
+  })
+})

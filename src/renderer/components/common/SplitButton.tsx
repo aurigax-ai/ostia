@@ -4,10 +4,10 @@ import { Button } from '@/components/ui/button'
 import { ButtonGroup, ButtonGroupSeparator } from '@/components/ui/button-group'
 import { DropdownMenu } from './Menu'
 
-const CARET_SIZE = { sm: 'icon-sm', xs: 'icon-xs' } as const
+const CARET_SIZE = { sm: 'icon-sm', xs: 'icon-xs', '2xs': 'icon-2xs' } as const
 
 export type SplitButtonSize = keyof typeof CARET_SIZE
-type SplitButtonVariant = 'default' | 'outline'
+type SplitButtonVariant = 'default' | 'outline' | 'ghost'
 
 export function SplitButton({
   label,
@@ -20,6 +20,15 @@ export function SplitButton({
   children?: ReactNode
   variant?: SplitButtonVariant
 }): JSX.Element {
+  if (variant === 'ghost') {
+    return (
+      // biome-ignore lint/a11y/useSemanticElements: a fieldset draws a border and a legend; this is a bare button group
+      <div role="group" aria-label={label} className="flex items-center">
+        {main}
+        {children}
+      </div>
+    )
+  }
   return (
     <ButtonGroup aria-label={label}>
       {main}
@@ -47,7 +56,13 @@ export function SplitButtonMenu({
   return (
     <DropdownMenu
       trigger={
-        <Button type="button" variant={variant} size={CARET_SIZE[size]} aria-label={label}>
+        <Button
+          type="button"
+          variant={variant}
+          size={CARET_SIZE[size]}
+          className={size === '2xs' ? 'w-3.5!' : undefined}
+          aria-label={label}
+        >
           <CaretDownIcon aria-hidden />
         </Button>
       }

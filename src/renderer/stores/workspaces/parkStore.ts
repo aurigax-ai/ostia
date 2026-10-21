@@ -3,12 +3,6 @@ import { create } from 'zustand'
 
 const PARK_NOTICE_MS = 15_000
 
-interface ParkPromptRequest {
-  workspaceId: string
-  paneId: string
-  title: string
-}
-
 type ParkNotice =
   | { kind: 'parked'; workspaceId: string; title: string; seq: number }
   | {
@@ -25,10 +19,7 @@ type NoticeInput =
   | { kind: 'refused'; workspaceId: string; paneId: string; title: string; reason: ParkRefusal }
 
 interface ParkState {
-  prompt: ParkPromptRequest | null
   notice: ParkNotice | null
-  openPrompt: (request: ParkPromptRequest) => void
-  closePrompt: () => void
   showNotice: (notice: NoticeInput) => void
   dismissNotice: () => void
 }
@@ -37,14 +28,11 @@ let seq = 0
 let timer: ReturnType<typeof setTimeout> | null = null
 
 export const useParkStore = create<ParkState>((set, get) => ({
-  prompt: null,
   notice: null,
-  openPrompt: (request) => set({ prompt: request, notice: null }),
-  closePrompt: () => set({ prompt: null }),
   showNotice: (notice) => {
     const next = { ...notice, seq: ++seq } as ParkNotice
     if (timer) clearTimeout(timer)
-    set({ notice: next, prompt: null })
+    set({ notice: next })
     timer = setTimeout(() => {
       if (get().notice?.seq === next.seq) set({ notice: null })
     }, PARK_NOTICE_MS)

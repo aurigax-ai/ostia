@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { noteLine, type ParkFacts, parkRefusal } from './park'
+import { type ParkFacts, parkRefusal, singleLine } from './park'
 
 const ok: ParkFacts = {
   manager: false,
@@ -39,10 +39,10 @@ describe('parkRefusal', () => {
   })
 })
 
-describe('noteLine', () => {
+describe('singleLine', () => {
   it('joins lines, drops control characters and cuts with an ellipsis', () => {
-    expect(noteLine('a\nb\t c\u0000d', 20)).toBe('a b c d')
-    expect(noteLine('x'.repeat(10), 5)).toBe('xxxx…')
-    expect(noteLine('  ', 5)).toBe('')
+    expect(singleLine('a\nb\t c\u0000d', 20)).toBe('a b c d')
+    expect(singleLine('x'.repeat(10), 5)).toBe('xxxx…')
+    expect(singleLine('  ', 5)).toBe('')
   })
 })

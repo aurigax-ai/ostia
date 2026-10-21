@@ -20,7 +20,6 @@ function setup(over: Partial<ParkResumeDeps> = {}) {
     resume,
     title: 'export-tests',
     summary: 'where it stopped',
-    note: 'after lunch',
   })
   if (!parked.ok) throw new Error('not parked')
   const openTab = vi.fn(async () => true)
@@ -101,7 +100,6 @@ describe('parkedItemOf', () => {
       sessionId: 's1',
       title: 'export-tests',
       summary: 'where it stopped',
-      note: 'after lunch',
       folder: '/home/u/api',
       parkedAt: 7,
     })

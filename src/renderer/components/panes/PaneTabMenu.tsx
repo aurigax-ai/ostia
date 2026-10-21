@@ -78,7 +78,6 @@ interface PaneTabMenuItemsProps {
   splitTabId: string | null
   otherTabs: number
   agentTab: boolean
-  parkKeys: string | null
 }
 
 function PaneTabMenuItems({
@@ -97,7 +96,6 @@ function PaneTabMenuItems({
   splitTabId,
   otherTabs,
   agentTab,
-  parkKeys,
 }: PaneTabMenuItemsProps): JSX.Element {
   const d = useDict()
   return (
@@ -215,16 +213,7 @@ function PaneTabMenuItems({
           {d.pane.forkConversation}
         </MenuItem>
       ) : null}
-      {agentTab && workspaceId ? (
-        <MenuItem
-          icon={BookmarkSimpleIcon}
-          hint={parkKeys}
-          disabled={parkRefusalOf(workspaceId, pane.id) !== null}
-          onClick={() => requestPark(workspaceId, pane.id)}
-        >
-          {d.pane.parkTab}
-        </MenuItem>
-      ) : null}
+      {agentTab && workspaceId ? <TabParkItem workspaceId={workspaceId} pane={pane} /> : null}
       {otherTabs > 0 ? (
         <MenuItem
           icon={XSquareIcon}
@@ -275,7 +264,6 @@ export function PaneTabMenu({
   const splitTabId = splitTab?.id ?? null
   const collapse = splitTab ? collapseOffers(splitTab, pane) : NO_COLLAPSE
   const collapseKeys = useChordLabel('pane.collapse', isMac)
-  const parkKeys = useChordLabel('pane.park', isMac)
   const agentTab = pane.kind === 'terminal' && pane.resume !== undefined
   const renamable = workspaceId !== null
   if (
@@ -311,10 +299,24 @@ export function PaneTabMenu({
           splitTabId={splitTabId}
           otherTabs={otherTabs}
           agentTab={agentTab}
-          parkKeys={parkKeys}
         />
       </MenuContent>
     </ContextMenu>
+  )
+}
+
+function TabParkItem({ workspaceId, pane }: { workspaceId: string; pane: PaneNode }): JSX.Element {
+  const d = useDict()
+  const refusal = parkRefusalOf(workspaceId, pane.id)
+  return (
+    <MenuItem
+      icon={BookmarkSimpleIcon}
+      disabled={refusal !== null}
+      hint={refusal ? d.pane.parkReasons[refusal] : null}
+      onClick={() => void requestPark(workspaceId, pane.id)}
+    >
+      {d.pane.parkTab}
+    </MenuItem>
   )
 }
 

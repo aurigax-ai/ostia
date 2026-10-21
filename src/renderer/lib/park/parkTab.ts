@@ -30,22 +30,15 @@ export function parkRefusalOf(workspaceId: string, paneId: string): ParkRefusal 
   })
 }
 
-export function requestPark(workspaceId: string, paneId: string): void {
-  const pane = paneOf(workspaceId, paneId)
-  const title = pane?.title ?? ''
-  const reason = parkRefusalOf(workspaceId, paneId)
+export async function requestPark(workspaceId: string, paneId: string): Promise<void> {
+  const title = paneOf(workspaceId, paneId)?.title ?? ''
   const park = useParkStore.getState()
-  if (reason) park.showNotice({ kind: 'refused', workspaceId, paneId, title, reason })
-  else park.openPrompt({ workspaceId, paneId, title })
-}
-
-export async function confirmPark(note: string): Promise<void> {
-  const park = useParkStore.getState()
-  const request = park.prompt
-  if (!request) return
-  const { workspaceId, paneId, title } = request
-  park.closePrompt()
-  const outcome = await window.ostia.park.pane(workspaceId, paneId, note)
+  const refusal = parkRefusalOf(workspaceId, paneId)
+  if (refusal) {
+    park.showNotice({ kind: 'refused', workspaceId, paneId, title, reason: refusal })
+    return
+  }
+  const outcome = await window.ostia.park.pane(workspaceId, paneId)
   if (!outcome.ok) {
     useParkStore
       .getState()

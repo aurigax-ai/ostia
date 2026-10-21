@@ -2,7 +2,6 @@ import type { AgentBusyReason } from '../agents/agentWork'
 
 export const PARKED_PANEL_EXTENSION_ID = 'activity'
 export const PARK_SUMMARY_MAX = 160
-export const PARK_NOTE_MAX = 300
 export const PARKED_PER_WORKSPACE_MAX = 25
 
 export type ParkRefusal =
@@ -46,7 +45,7 @@ export type ParkOutcome =
   | { ok: true; id: string; title: string }
   | { ok: false; reason: ParkRefusal }
 
-export function noteLine(text: string, max: number): string {
+export function singleLine(text: string, max: number): string {
   const one = [...text]
     .map((ch) => {
       const code = ch.codePointAt(0) ?? 0

@@ -19,7 +19,7 @@ export interface ParkResumeDeps {
 }
 
 export function parkedItemOf(record: ParkedRecord): ParkedItem {
-  const { id, workspaceId, resume, title, summary, note, parkedAt } = record
+  const { id, workspaceId, resume, title, summary, parkedAt } = record
   return {
     id,
     workspaceId,
@@ -27,7 +27,6 @@ export function parkedItemOf(record: ParkedRecord): ParkedItem {
     sessionId: resume.id,
     title,
     ...(summary ? { summary } : {}),
-    ...(note ? { note } : {}),
     ...(resume.cwd ? { folder: resume.cwd } : {}),
     parkedAt,
   }

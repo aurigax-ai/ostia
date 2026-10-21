@@ -185,7 +185,7 @@ describe('matchChord', () => {
   })
 
   it('never matches when Alt is held or on unbound keys', () => {
-    expect(matchChord(key('Z', { ctrlKey: true, shiftKey: true, altKey: true }), false)).toBeNull()
+    expect(matchChord(key('P', { ctrlKey: true, shiftKey: true, altKey: true }), false)).toBeNull()
     expect(matchChord(key('z', { ctrlKey: true, shiftKey: true }), false)).toBeNull()
     expect(matchChord(key('p', { metaKey: true, ctrlKey: true }), false)).toBeNull()
   })

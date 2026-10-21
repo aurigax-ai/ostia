@@ -17,8 +17,6 @@ import {
 import { useQuestionsStore } from '@/stores/agents/questionsStore'
 import { useBlocksStore } from '@/stores/terminal/blocksStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
-import { useParkStore } from '@/stores/workspaces/parkStore'
-import { ParkPrompt } from './ParkPrompt'
 import {
   FolderTrustPrompt,
   ResumeConflictPrompt,
@@ -36,7 +34,6 @@ export function usePanePrompt(pane: PaneNode): JSX.Element | null {
     s.pending.find((q) => q.paneId === pane.id && !hidden[questionPromptKey(q.id)]),
   )
   const trustFolder = useFolderTrustStore((s) => s.byPane[pane.id])
-  const park = useParkStore((s) => (s.prompt?.paneId === pane.id ? s.prompt : null))
   useBlocksStore((s) => s.running)
   useBlocksStore((s) => s.agentBlocks)
   useLayoutStore((s) => s.byWorkspace)
@@ -46,7 +43,6 @@ export function usePanePrompt(pane: PaneNode): JSX.Element | null {
     if (!holder) forget(conflictPrefix(pane.id))
     if (!folderMissing) forget(folderMissingPrefix(pane.id))
   }, [holder, folderMissing, forget, pane.id])
-  if (park) return <ParkPrompt title={park.title} />
   if (approval) return <ApprovalPrompt request={approval} paneTitle={pane.title} />
   if (question) return <QuestionPrompt question={question} />
   if (trustFolder) return <FolderTrustPrompt paneId={pane.id} folder={trustFolder} />

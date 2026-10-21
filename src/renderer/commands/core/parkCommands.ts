@@ -13,9 +13,9 @@ export function registerParkCommands(): void {
     id: 'pane.park',
     category: 'pane',
     local: true,
-    run: (_args, ctx) => {
+    run: async (_args, ctx) => {
       if (!ctx.activeWorkspaceId || !ctx.activePaneId) return
-      requestPark(ctx.activeWorkspaceId, ctx.activePaneId)
+      await requestPark(ctx.activeWorkspaceId, ctx.activePaneId)
     },
   })
 
