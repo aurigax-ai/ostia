@@ -168,6 +168,26 @@ describe('ViewerHost', () => {
     expect(host.portable('w1', FILE)).toBe('too-large')
   })
 
+  it('stops reading a portable body that has no length and grows past the cap', async () => {
+    const { host, sessions } = setup()
+    host.open('w1', OPEN)
+    const chunk = new Uint8Array(4 * 1024 * 1024)
+    let sent = 0
+    const body = new ReadableStream<Uint8Array>({
+      pull: (controller) => {
+        sent += chunk.byteLength
+        controller.enqueue(chunk)
+      },
+    })
+    const res = await get(sessions.get('ostia-viewer-office'), 'ostia-viewer://t1/~portable', {
+      method: 'POST',
+      body,
+      duplex: 'half',
+    } as RequestInit)
+    expect(res.status).toBe(413)
+    expect(sent).toBeLessThan(PORTABLE_TABLES_BYTES_MAX + 16 * chunk.byteLength)
+  })
+
   it('lets only the exact page of the owner window attach in the viewer partition', () => {
     const { host } = setup()
     host.open('w1', OPEN)
@@ -207,9 +227,10 @@ describe('ViewerHost', () => {
     expect(granted).toHaveBeenCalledWith(false)
   })
 
-  it('lets a page decode media and wasm and fetch nothing else off the viewer scheme', () => {
+  it('lets a page decode media and fetch nothing else off the viewer scheme', () => {
     expect(VIEWER_PAGE_CSP).toContain("media-src 'self' blob:")
-    expect(VIEWER_PAGE_CSP).toContain("script-src 'self' 'wasm-unsafe-eval'")
+    expect(VIEWER_PAGE_CSP).toContain("script-src 'self'")
+    expect(VIEWER_PAGE_CSP).not.toContain('wasm-unsafe-eval')
     expect(VIEWER_PAGE_CSP).toContain("connect-src 'self'")
     expect(VIEWER_PAGE_CSP).toContain("default-src 'none'")
   })

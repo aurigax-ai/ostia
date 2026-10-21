@@ -13,11 +13,14 @@
     "src/shared/**/*",
     "src/cli/**/*",
     "src/extensions/**/*",
+    "packages/extension-sdk/src/client/svg.d.ts",
     "electron.vite.config.ts"
   ],
   "exclude": [
     "src/extensions/**/panel.ts",
     "src/extensions/activity/rows.ts",
+    "src/extensions/activity/rememberRows.ts",
+    "src/extensions/activity/parkedRows.ts",
     "src/extensions/activity/rows.test.ts",
     "src/extensions/trellis/panelState.ts",
     "src/extensions/trellis/panelDom.ts",

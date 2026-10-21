@@ -92,6 +92,22 @@ export function isPng(bytes: Uint8Array): boolean {
   return bytes.length > PNG_SIGNATURE.length && PNG_SIGNATURE.every((b, i) => bytes[i] === b)
 }
 
+export interface PixelSize {
+  width: number
+  height: number
+}
+
+const PNG_HEADER_TAG = [0x49, 0x48, 0x44, 0x52]
+const PNG_HEADER_AT = 12
+const PNG_SIZE_AT = 16
+
+export function pngSize(bytes: Uint8Array): PixelSize | null {
+  if (!isPng(bytes) || bytes.length < PNG_SIZE_AT + 8) return null
+  if (!PNG_HEADER_TAG.every((b, i) => bytes[PNG_HEADER_AT + i] === b)) return null
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength)
+  return { width: view.getUint32(PNG_SIZE_AT), height: view.getUint32(PNG_SIZE_AT + 4) }
+}
+
 export function needsImage(capture: SelectionCapture): boolean {
   return (
     capture.kind === 'image' || capture.kind === 'pdf-region' || capture.kind === 'preview-region'
@@ -329,7 +345,17 @@ function title(capture: SelectionCapture): string {
   }
 }
 
-function sourceLines(capture: SelectionCapture, imagePath: string | null): string[] {
+function sentLine(sent: PixelSize, source: PixelSize): string {
+  const scaled =
+    Math.round(source.width) !== sent.width || Math.round(source.height) !== sent.height
+  return `- Sent image: ${sent.width} × ${sent.height} px${scaled ? ' (scaled down)' : ''}`
+}
+
+function sourceLines(
+  capture: SelectionCapture,
+  imagePath: string | null,
+  sent: PixelSize | null,
+): string[] {
   const snapshot = `- Snapshot: ${imagePath ?? '(none)'}`
   switch (capture.kind) {
     case 'text': {
@@ -343,6 +369,14 @@ function sourceLines(capture: SelectionCapture, imagePath: string | null): strin
       return [
         `- Image size: ${capture.imageWidth} × ${capture.imageHeight} px`,
         `- Region: ${capture.region ? `${regionText(capture.region)} (image px, origin top-left)` : 'whole image'}`,
+        ...(sent
+          ? [
+              sentLine(
+                sent,
+                capture.region ?? { width: capture.imageWidth, height: capture.imageHeight },
+              ),
+            ]
+          : []),
         snapshot,
       ]
     case 'pdf-text':
@@ -388,6 +422,7 @@ export function renderSelectionReport(
   note: string,
   imagePath: string | null,
   capturedAt: Date,
+  sent: PixelSize | null = null,
 ): string {
   const lines: string[] = []
   const trimmedNote = clip(note.trim(), SELECTION_NOTE_MAX)
@@ -397,7 +432,7 @@ export function renderSelectionReport(
   if (capture.kind !== 'terminal' && capture.kind !== 'page-text') {
     lines.push(`- File: ${capture.file}`)
   }
-  lines.push(...sourceLines(capture, imagePath))
+  lines.push(...sourceLines(capture, imagePath, sent))
   lines.push(`- Captured: ${capturedAt.toISOString()}`, '')
   if (capture.kind === 'terminal') {
     lines.push('## Terminal text', '', fence(capture.text), '')

@@ -2,7 +2,7 @@
   "id": "video",
   "name": "Video and audio",
   "version": "1.0.0",
-  "api": "7.3",
+  "api": "7.4",
   "description": "Plays video (.mp4, .m4v, .mov, .webm, .mkv) and audio (.mp3, .wav, .m4a, .ogg, .flac) files in one player with seek, volume, speed and loop controls. Drag across a paused video frame to crop it and send the picture to an agent. It reads only the file you opened, streams it in ranges and sends it nowhere.",
   "category": "tools",
   "locales": ["zh-Hant"],

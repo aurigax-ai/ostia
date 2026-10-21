@@ -6,6 +6,7 @@ import { registerFileOpenCommands } from './core/fileOpenCommands'
 import { registerListCommands } from './core/listCommands'
 import { registerPaneAgentCommands } from './core/paneAgentCommands'
 import { registerPaneLayoutCommands } from './core/paneLayoutCommands'
+import { registerParkCommands } from './core/parkCommands'
 import { registerSettingsCommands } from './core/settingsCommands'
 import { registerTerminalCommands } from './core/terminalCommands'
 import { registerWorkspaceGroupCommands } from './core/workspaceGroupCommands'
@@ -25,6 +26,7 @@ export function registerBuiltinCommands(): void {
   })
   registerPaneLayoutCommands()
   registerPaneAgentCommands()
+  registerParkCommands()
   registerTerminalCommands()
   registerWorkspaceGroupCommands()
   registerWorkspaceLifecycleCommands()

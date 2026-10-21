@@ -1,7 +1,13 @@
 import type { Translate } from '@aurigax-ai/ostia-extension-sdk/contract/extensionLocales'
 import { h, icon } from '@aurigax-ai/ostia-extension-sdk/panel'
 import { createSlider, type Slider } from '@aurigax-ai/ostia-extension-sdk/slider'
-import { MEDIA_ICONS } from './mediaIcons'
+import fastForwardIcon from '@phosphor-icons/core/regular/fast-forward.svg'
+import pauseIcon from '@phosphor-icons/core/regular/pause.svg'
+import playIcon from '@phosphor-icons/core/regular/play.svg'
+import repeatIcon from '@phosphor-icons/core/regular/repeat.svg'
+import rewindIcon from '@phosphor-icons/core/regular/rewind.svg'
+import speakerHighIcon from '@phosphor-icons/core/regular/speaker-high.svg'
+import speakerXIcon from '@phosphor-icons/core/regular/speaker-x.svg'
 import { type MediaAction, nextVolume, SEEK_BUTTON_SECONDS } from './mediaKeys'
 import { clampTime, formatClock, PLAYBACK_RATES } from './mediaTime'
 import { createSpeedMenu, type SpeedMenu } from './speedMenu'
@@ -52,16 +58,16 @@ export function createControls(video: HTMLVideoElement, t: Translate): Controls 
     sync()
   }
 
-  const back = button(t('back', { seconds: SEEK_BUTTON_SECONDS }), MEDIA_ICONS.back, () =>
+  const back = button(t('back', { seconds: SEEK_BUTTON_SECONDS }), rewindIcon, () =>
     seekBy(-SEEK_BUTTON_SECONDS),
   )
-  const forward = button(t('forward', { seconds: SEEK_BUTTON_SECONDS }), MEDIA_ICONS.forward, () =>
+  const forward = button(t('forward', { seconds: SEEK_BUTTON_SECONDS }), fastForwardIcon, () =>
     seekBy(SEEK_BUTTON_SECONDS),
   )
-  const play = button(t('play'), MEDIA_ICONS.play, togglePlay, 'Space')
+  const play = button(t('play'), playIcon, togglePlay, 'Space')
   play.classList.add('ostia-media-play')
-  const mute = button(t('mute'), MEDIA_ICONS.volume, toggleMute, 'M')
-  const loop = button(t('loop'), MEDIA_ICONS.loop, toggleLoop, 'L')
+  const mute = button(t('mute'), speakerHighIcon, toggleMute, 'M')
+  const loop = button(t('loop'), repeatIcon, toggleLoop, 'L')
   let scrubbing = false
   const seek = createSlider({
     label: t('seek'),
@@ -110,12 +116,12 @@ export function createControls(video: HTMLVideoElement, t: Translate): Controls 
     target.replaceChildren(icon(svg))
   }
   function sync(): void {
-    setIcon(play, video.paused ? MEDIA_ICONS.play : MEDIA_ICONS.pause)
+    setIcon(play, video.paused ? playIcon : pauseIcon)
     const playLabel = t(video.paused ? 'play' : 'pause')
     play.title = tip(playLabel, 'Space')
     play.setAttribute('aria-label', playLabel)
     const silent = video.muted || video.volume === 0
-    setIcon(mute, silent ? MEDIA_ICONS.muted : MEDIA_ICONS.volume)
+    setIcon(mute, silent ? speakerXIcon : speakerHighIcon)
     const muteLabel = t(video.muted ? 'unmute' : 'mute')
     mute.title = tip(muteLabel, 'M')
     mute.setAttribute('aria-label', muteLabel)

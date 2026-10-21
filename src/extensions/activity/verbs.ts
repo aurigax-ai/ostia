@@ -19,10 +19,11 @@ import {
 } from './hookEvent'
 import type { Journal } from './journal'
 import { keepsOnDisk } from './recorder'
+import type { RememberVerbs } from './rememberVerbs'
 
 const USAGE = {
   add: 'add "<text>" [--needs-you] [--link <path|url>]',
-  list: 'list [--needs-you] [--open] [--archived] [--since <time>] [--workspace <id>] [--json]',
+  list: 'list [--needs-you] [--open] [--remembered] [--archived] [--since <time>] [--workspace <id>] [--json]',
   show: 'show <id> [--workspace <id>] [--json]',
   done: 'done <id>',
 } as const
@@ -36,6 +37,7 @@ export interface VerbDeps {
   redact: (texts: string[]) => Promise<string[] | null>
   workspaceKind: (workspaceId: string) => Promise<string | null>
   changed: () => void
+  remembered: RememberVerbs
 }
 
 export interface Entry {
@@ -190,10 +192,19 @@ export function activityVerbs(deps: VerbDeps): Record<string, CommandHandler> {
     const { flags, bools, rest } = parseFlags(
       cliArgs(args)?.argv ?? [],
       ['since', 'workspace'],
-      ['needs-you', 'open', 'archived', 'json'],
+      ['needs-you', 'open', 'remembered', 'archived', 'json'],
     )
     const odd = rest[0]
     if (odd) return usage('list', odd.startsWith('--') ? `unknown option ${odd}` : undefined)
+    if (bools.has('remembered')) {
+      if (flags.workspace !== undefined || flags.since !== undefined) {
+        return usage(
+          'list',
+          '--remembered lists your own session and takes no --workspace or --since',
+        )
+      }
+      return deps.remembered.list(caller, bools.has('archived'), bools.has('json'))
+    }
     const target = targetOf(caller, flags.workspace)
     if ('ok' in target) return target
     const since = flags.since === undefined ? null : sinceOf(flags.since, deps.now())
@@ -228,6 +239,8 @@ export function activityVerbs(deps: VerbDeps): Record<string, CommandHandler> {
   const done: CommandHandler = async (args, caller) => {
     const [id, extra] = cliArgs(args)?.argv ?? []
     if (!isRecordId(id) || extra !== undefined) return usage('done')
+    const remembered = await deps.remembered.done(id, caller)
+    if (remembered) return remembered
     if (caller.kind !== 'pane' || !caller.paneId || !caller.workspaceId) {
       return failure('not-available', 'the human marks items done in the Activity panel')
     }

@@ -95,9 +95,6 @@ export function makeOstiaMock(overrides?: Partial<OstiaBridge>): OstiaBridge {
       copySelection: vi.fn().mockResolvedValue('Copied text'),
       sendSelection: vi.fn().mockResolvedValue({ ok: true, path: '/tmp/r.md', imagePath: null }),
       clearSelection: vi.fn(),
-      sendDocumentText: vi.fn(),
-      onOpenLink: vi.fn(() => () => {}),
-      onEditSource: vi.fn(() => () => {}),
     },
     fs: {
       list: vi.fn().mockResolvedValue([]),
@@ -280,6 +277,9 @@ export function makeOstiaMock(overrides?: Partial<OstiaBridge>): OstiaBridge {
       reveal: vi.fn().mockResolvedValue({ ok: true }),
       openLink: vi.fn().mockResolvedValue(true),
       project: vi.fn().mockResolvedValue(null),
+    },
+    park: {
+      pane: vi.fn().mockResolvedValue({ ok: false, reason: 'unavailable' }),
     },
     agentSession: {
       info: vi.fn().mockResolvedValue(null),

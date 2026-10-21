@@ -127,13 +127,13 @@ describe('the trellis extension', () => {
     expect(manifest.contributes.agentHooks).toEqual([
       { event: 'SessionStart', command: 'session-context' },
     ])
-    expect(agentSkillProblems(dir, manifest)).toEqual([])
+    expect(agentSkillProblems(dir, manifest, true)).toEqual([])
   })
 
   it('ships a skill folder that loads as trellis-card and teaches the card commands', () => {
     const [skill] = manifest.contributes.agentSkills ?? []
     if (!skill) throw new Error('no skill')
-    const res = loadAgentSkill(dir, manifest.id, skill)
+    const res = loadAgentSkill(dir, manifest.id, skill, true)
     if (!res.ok) throw new Error(res.error)
     expect(res.skill.id).toBe('trellis-card')
     expect(res.skill.files.map((f) => f.name)).toEqual(['SKILL.md'])

@@ -1,11 +1,6 @@
 import { fmt } from '../../../shared/app/dict'
+import type { ClipboardCapture } from '../../../shared/keyboard/clipboardCapture'
 import type { StoredSelection } from './viewerSelection'
-
-export interface ClipboardCapture {
-  text?: string
-  html?: string
-  png?: Uint8Array
-}
 
 export interface ViewerCopyStrings {
   cells: string

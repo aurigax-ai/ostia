@@ -1,0 +1,178 @@
+import { mkdtempSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import { describe, expect, it, vi } from 'vitest'
+import type { AgentResume } from '../../shared/agents/agentResume'
+import type { PaneIdentity } from '../control/idRegistry'
+import { type ParkActDeps, parkPane } from './parkAct'
+import { ParkedStore } from './parkedStore'
+
+const identity = {
+  kind: 'pane',
+  windowId: '1',
+  workspaceId: 'w1',
+  paneId: 'p1',
+  externalId: 'x1',
+} as unknown as PaneIdentity
+
+const resume: AgentResume = { agent: 'claude', id: 's1', cwd: '/home/u/api' }
+
+function setup(over: Partial<ParkActDeps> = {}) {
+  const store = new ParkedStore(join(mkdtempSync(join(tmpdir(), 'park-')), 'p.json'), () => 5)
+  const deps: ParkActDeps = {
+    store,
+    identityOf: (paneId) => (paneId === 'p1' ? identity : undefined),
+    workspaceKind: async () => 'terminal',
+    isScratch: () => false,
+    isSandboxed: () => false,
+    isRemote: () => false,
+    agentRunning: () => true,
+    resumeOf: async () => resume,
+    paneCwd: () => '/home/u/api',
+    attentionState: async () => 'done',
+    busy: async () => null,
+    closing: () => 'Export test is flaky on CI; next: rerun with --repeat 20',
+    title: async () => 'export-tests',
+    redact: async (text) => text,
+    lockedOf: async () => false,
+    closePane: async () => 'closed',
+    ...over,
+  }
+  return { deps, store }
+}
+
+describe('parkPane', () => {
+  it('stores the session with the agent’s closing line, then answers the id', async () => {
+    const { deps, store } = setup()
+    const res = await parkPane(deps, 'w1', 'p1', false)
+    expect(res).toMatchObject({ ok: true, title: 'export-tests' })
+    expect(store.list('w1')).toMatchObject([
+      {
+        title: 'export-tests',
+        summary: 'Export test is flaky on CI; next: rerun with --repeat 20',
+        resume: { agent: 'claude', id: 's1', cwd: '/home/u/api' },
+      },
+    ])
+  })
+
+  it.each([
+    [
+      'a manager pane',
+      { identityOf: () => ({ ...identity, manager: true }) as PaneIdentity },
+      'manager',
+    ],
+    ['a scratch workspace', { isScratch: () => true }, 'scratch'],
+    ['a sandboxed workspace', { isSandboxed: () => true }, 'sandboxed'],
+    ['a remote pane', { isRemote: () => true }, 'remote'],
+    ['a pane with no agent running', { agentRunning: () => false }, 'no-agent'],
+    ['an agent with no resume token', { resumeOf: async () => null }, 'no-session'],
+    ['a locked pane', { lockedOf: async () => true }, 'locked'],
+    ['an agent working', { attentionState: async () => 'working' }, 'working'],
+    [
+      'an agent with background work',
+      { busy: async () => 'background-task' as const },
+      'background-task',
+    ],
+    ['an agent with a subagent', { busy: async () => 'subagent' as const }, 'subagent'],
+    ['processes it cannot read', { busy: async () => 'unknown' as const }, 'unknown'],
+    ['a closed workspace', { workspaceKind: async () => null }, 'workspace-closed'],
+  ] as [string, Partial<ParkActDeps>, string][])(
+    'refuses %s and stores nothing',
+    async (_name, over, reason) => {
+      const { deps, store } = setup(over)
+      expect(await parkPane(deps, 'w1', 'p1', false)).toEqual({ ok: false, reason })
+      expect(store.list('w1')).toHaveLength(0)
+    },
+  )
+
+  it('refuses a pane of another workspace and an unknown pane', async () => {
+    const { deps } = setup()
+    expect(await parkPane(deps, 'w2', 'p1', false)).toEqual({ ok: false, reason: 'unavailable' })
+    expect(await parkPane(deps, 'w1', 'nope', false)).toEqual({ ok: false, reason: 'unavailable' })
+  })
+
+  it('parks without a summary when the secret scan fails', async () => {
+    const { deps, store } = setup({
+      redact: vi.fn(async () => {
+        throw new Error('scan failed')
+      }),
+    })
+    expect(await parkPane(deps, 'w1', 'p1', false)).toMatchObject({ ok: true })
+    expect(store.list('w1')[0]).not.toHaveProperty('summary')
+  })
+
+  it('stores the redacted summary, never the original', async () => {
+    const { deps, store } = setup({
+      closing: () => 'key is sk-abc',
+      redact: async (t) => t.replace('sk-abc', '[redacted]'),
+    })
+    await parkPane(deps, 'w1', 'p1', false)
+    expect(store.list('w1')[0]?.summary).toBe('key is [redacted]')
+  })
+
+  it('takes the folder from the pane when the agent reported none, and refuses with none at all', async () => {
+    const withoutCwd = setup({ resumeOf: async () => ({ agent: 'claude', id: 's1' }) })
+    expect(await parkPane(withoutCwd.deps, 'w1', 'p1', false)).toMatchObject({ ok: true })
+    expect(withoutCwd.store.list('w1')[0]?.resume.cwd).toBe('/home/u/api')
+    const none = setup({
+      resumeOf: async () => ({ agent: 'claude', id: 's1' }),
+      paneCwd: () => undefined,
+    })
+    expect(await parkPane(none.deps, 'w1', 'p1', false)).toEqual({
+      ok: false,
+      reason: 'no-session',
+    })
+  })
+
+  it('keeps the agent name as the title when the pane list has none', async () => {
+    const { deps } = setup({ title: async () => undefined })
+    expect(await parkPane(deps, 'w1', 'p1', false)).toMatchObject({ ok: true, title: 'claude' })
+  })
+
+  it('refuses when the workspace already holds the most it keeps', async () => {
+    const { deps, store } = setup()
+    for (let i = 0; i < 25; i++) {
+      store.park({
+        workspaceId: 'w1',
+        resume: { agent: 'claude', id: `y${i}`, cwd: '/a' },
+        title: 't',
+      })
+    }
+    expect(await parkPane(deps, 'w1', 'p1', false)).toEqual({ ok: false, reason: 'too-many' })
+  })
+  it('forgets the record and refuses when the tab did not close', async () => {
+    const { deps, store } = setup({ closePane: async () => 'failed' })
+    expect(await parkPane(deps, 'w1', 'p1', false)).toEqual({ ok: false, reason: 'unavailable' })
+    expect(store.list('w1')).toHaveLength(0)
+  })
+
+  it('forgets the record and says locked when the close was refused as locked', async () => {
+    const { deps, store } = setup({ closePane: async () => 'locked' })
+    expect(await parkPane(deps, 'w1', 'p1', false)).toEqual({ ok: false, reason: 'locked' })
+    expect(store.list('w1')).toHaveLength(0)
+  })
+
+  it('closes the tab only after the record is stored', async () => {
+    const seen: number[] = []
+    const { deps, store } = setup({
+      closePane: async () => {
+        seen.push(store.list('w1').length)
+        return 'closed'
+      },
+    })
+    await parkPane(deps, 'w1', 'p1', false)
+    expect(seen).toEqual([1])
+  })
+
+  it('redacts the title and keeps the pin only when the human named the tab', async () => {
+    const { deps, store } = setup({
+      title: async () => 'deploy sk-abc',
+      redact: async (t) => t.replace('sk-abc', '[redacted]'),
+    })
+    await parkPane(deps, 'w1', 'p1', true)
+    expect(store.list('w1')[0]).toMatchObject({ title: 'deploy [redacted]', titlePinned: true })
+    const plain = setup()
+    await parkPane(plain.deps, 'w1', 'p1', false)
+    expect(plain.store.list('w1')[0]).not.toHaveProperty('titlePinned')
+  })
+})

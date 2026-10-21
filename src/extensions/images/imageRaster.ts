@@ -1,23 +1,26 @@
 import type { ViewerRect } from '@aurigax-ai/ostia-extension-sdk/contract/viewerSelection'
+import type { Size } from './imageZoom'
 
-export async function cropToPng(source: HTMLImageElement, rect: ViewerRect): Promise<Blob> {
+export async function rasterizeRegion(
+  source: HTMLImageElement,
+  natural: Size,
+  region: ViewerRect,
+  output: Size,
+): Promise<Blob | null> {
   const canvas = document.createElement('canvas')
-  canvas.width = Math.max(1, Math.round(rect.width))
-  canvas.height = Math.max(1, Math.round(rect.height))
+  canvas.width = output.width
+  canvas.height = output.height
   const context = canvas.getContext('2d')
-  if (!context) throw new Error('no 2d canvas context')
+  if (!context) return null
+  const across = output.width / region.width
+  const down = output.height / region.height
+  context.imageSmoothingQuality = 'high'
   context.drawImage(
     source,
-    rect.x,
-    rect.y,
-    rect.width,
-    rect.height,
-    0,
-    0,
-    canvas.width,
-    canvas.height,
+    -region.x * across,
+    -region.y * down,
+    natural.width * across,
+    natural.height * down,
   )
-  const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/png'))
-  if (!blob) throw new Error('could not encode PNG')
-  return blob
+  return new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/png'))
 }

@@ -8,6 +8,7 @@
     "controls": "播放控制",
     "loading": "載入中…",
     "unreadable": "無法讀取這個檔案。",
+    "captureFailed": "無法擷取這個畫面。",
     "unplayable": "這裡無法播放這個檔案。",
     "play": "播放",
     "pause": "暫停",

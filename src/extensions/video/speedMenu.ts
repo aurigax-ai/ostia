@@ -1,5 +1,6 @@
 import { h, icon } from '@aurigax-ai/ostia-extension-sdk/panel'
-import { MEDIA_ICONS } from './mediaIcons'
+import caretDown from '@phosphor-icons/core/regular/caret-down.svg'
+import check from '@phosphor-icons/core/regular/check.svg'
 import { rateLabel } from './mediaTime'
 
 export interface SpeedMenuOptions {
@@ -29,7 +30,7 @@ export function createSpeedMenu(options: SpeedMenuOptions): SpeedMenu {
       'aria-expanded': 'false',
     },
     text,
-    icon(MEDIA_ICONS.caretDown),
+    icon(caretDown),
   ) as HTMLButtonElement
   const list = h('div', { class: 'ostia-pill-menu', role: 'menu', 'aria-label': options.label })
   list.hidden = true
@@ -38,7 +39,7 @@ export function createSpeedMenu(options: SpeedMenuOptions): SpeedMenu {
     const row = h(
       'button',
       { type: 'button', class: 'ostia-pill-menu-item', role: 'menuitemradio', tabindex: '-1' },
-      h('span', { class: 'ostia-pill-menu-check' }, icon(MEDIA_ICONS.check)),
+      h('span', { class: 'ostia-pill-menu-check' }, icon(check)),
       h('span', { class: 'ostia-pill-menu-label' }, rateLabel(rate)),
     ) as HTMLButtonElement
     row.addEventListener('click', () => {
