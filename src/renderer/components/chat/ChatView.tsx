@@ -141,7 +141,6 @@ function ChatSession({
         workspaceId={workspaceId}
         sessionId={sessionId}
         recording={historyOn && !scratch}
-        scratch={scratch}
         busy={busy}
         sessionsOpen={sessionsOpen}
         onSessionsOpenChange={setSessionsOpen}
