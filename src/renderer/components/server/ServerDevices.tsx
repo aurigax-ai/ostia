@@ -76,12 +76,6 @@ export function ServerDevices(): JSX.Element {
     reload()
   }
 
-  const markSeen = async (id: string): Promise<void> => {
-    await window.ostia.server.markSeen(id)
-    reload()
-    void refreshSyncAttention()
-  }
-
   const approve = async (ask: AskItem): Promise<void> => {
     const res = await window.ostia.server.approve(ask.approvalId)
     setAskErrors((all) => ({ ...all, [ask.id]: res.ok ? null : serverErrorText(d, res.error) }))
@@ -113,21 +107,9 @@ export function ServerDevices(): JSX.Element {
     )
   }
 
-  const rowBelow = (device: ServerDevice, ask: AskItem | undefined): JSX.Element | null => {
+  const rowBelow = (ask: AskItem | undefined): JSX.Element | null => {
     const askError = ask ? askErrors[ask.id] : null
-    if (askError) return <Notice tone="error">{askError}</Notice>
-    if (!device.isNew || device.current) return null
-    return (
-      <Notice
-        actions={
-          <Button variant="outline" size="sm" onClick={() => void markSeen(device.id)}>
-            {d.server.newDeviceMine}
-          </Button>
-        }
-      >
-        {d.server.newDeviceWarning}
-      </Notice>
-    )
+    return askError ? <Notice tone="error">{askError}</Notice> : null
   }
 
   return (
@@ -143,7 +125,7 @@ export function ServerDevices(): JSX.Element {
               meta={device.current ? d.server.deviceThis : undefined}
               detail={fmt(ask ? d.server.approvalAsks : d.server.deviceAdded, { age })}
               actions={rowActions(device, ask)}
-              below={rowBelow(device, ask)}
+              below={rowBelow(ask)}
             />
           )
         })}

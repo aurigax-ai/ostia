@@ -61,8 +61,8 @@ export function ServerSection(): JSX.Element {
   const names = offered.state === 'ready' ? offerNames(d, offered.offer) : []
 
   return (
-    <SettingsPage title={d.server.title} desc={d.server.desc}>
-      <SettingsGroup title={d.server.accountLabel}>
+    <SettingsPage title={d.server.title}>
+      <SettingsGroup title={d.server.accountLabel} desc={d.server.desc}>
         <ServerAddressRow status={status} />
         {offered.state === 'error' ? <Notice>{serverErrorText(d, offered.error)}</Notice> : null}
         {offered.state === 'ready' ? (

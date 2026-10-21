@@ -3,7 +3,6 @@ import {
   type StampedKind,
   signApprove,
   signRevoke,
-  signSeen,
   signStamped,
 } from './deviceKeys'
 import { ServerError } from './serverClient'
@@ -99,10 +98,5 @@ export class DeviceSigner {
   approve(approvalId: string, requesterId: string): SignedHeaders {
     const { keys, id } = this.who()
     return { 'X-Device-Signature': signApprove(keys, id, approvalId, requesterId) }
-  }
-
-  seen(targetId: string): string {
-    const { keys, id } = this.who()
-    return signSeen(keys, id, targetId)
   }
 }

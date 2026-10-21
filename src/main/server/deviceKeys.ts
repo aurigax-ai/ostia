@@ -24,7 +24,6 @@ const STAMPED_CONTEXTS = {
 export type StampedKind = keyof typeof STAMPED_CONTEXTS
 const REVOKE_CONTEXT = 'ostia-server/revoke/v1'
 const APPROVE_CONTEXT = 'ostia-server/approve/v1'
-const SEEN_CONTEXT = 'ostia-server/seen/v1'
 
 export interface DeviceKeys {
   signPrivate: KeyObject
@@ -118,10 +117,6 @@ export function signApprove(
   requesterId: string,
 ): string {
   return signText(keys, `${APPROVE_CONTEXT}\n${approverId}\n${approvalId}\n${requesterId}`)
-}
-
-export function signSeen(keys: DeviceKeys, viewerId: string, targetId: string): string {
-  return signText(keys, `${SEEN_CONTEXT}\n${viewerId}\n${targetId}`)
 }
 
 export function x25519FromSeed(seed: Buffer): KeyObject {

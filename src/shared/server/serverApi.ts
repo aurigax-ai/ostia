@@ -44,7 +44,6 @@ export interface ServerDevice {
   current: boolean
   lastSeen: number
   createdAt: number
-  isNew: boolean
 }
 
 interface ServerApproval {
@@ -106,7 +105,6 @@ interface ServerApi {
   openVerification: () => Promise<void>
   signOut: () => Promise<ServerActionResult>
   devices: () => Promise<ServerDevicesResult>
-  markSeen: (deviceId: string) => Promise<ServerActionResult>
   createInvite: () => Promise<ServerInviteResult>
   elevationStart: (method: ElevationMethod) => Promise<ElevationStartResult>
   elevationPoll: () => Promise<ElevationPollResult>

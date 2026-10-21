@@ -3,13 +3,12 @@ import type {
   ServerSyncStatus,
   WrapRefusal,
 } from '@shared/profileSync/serverSync'
+import type { ServerStatus } from '@shared/server/serverApi'
 import { useState } from 'react'
 import { MachineValue } from '@/components/common/MachineValue'
 import { Notice } from '@/components/common/Notice'
 import { syncServerErrorText } from '@/components/server/syncServerText'
 import { useElevated } from '@/components/server/useElevated'
-import { useServerStatus } from '@/components/server/useServerStatus'
-import { useSyncServerStatus } from '@/components/server/useSyncServerStatus'
 import { ControlRow } from '@/components/settingsKit/ControlRow'
 import { Button } from '@/components/ui/button'
 import { formatDate } from '@/lib/app/localeFormat'
@@ -109,7 +108,6 @@ function Ready({ status, act }: StateProps): JSX.Element {
 
   return (
     <>
-      <output className="block py-1 text-fg-muted text-ui-sm">{t.ready}</output>
       {status.wrapRefused?.reason === 'too-new' ? (
         <PassphraseForm
           label={t.unlockTitle}
@@ -150,11 +148,19 @@ function Ready({ status, act }: StateProps): JSX.Element {
   )
 }
 
-export function SyncServerSection({ onChanged }: { onChanged: () => void }): JSX.Element {
+export function SyncServerSection({
+  account,
+  status,
+  setStatus,
+  onChanged,
+}: {
+  account: ServerStatus
+  status: ServerSyncStatus
+  setStatus: (status: ServerSyncStatus) => void
+  onChanged: () => void
+}): JSX.Element {
   const d = useDict()
   const t = d.syncServer
-  const account = useServerStatus()
-  const [status, setStatus] = useSyncServerStatus(account.signedIn)
   const [error, setError] = useState<string | null>(null)
   const [recoveryKey, setRecoveryKey] = useState<string | null>(null)
   const api = window.ostia.syncServer

@@ -6,16 +6,6 @@ type DevicesAccount = Pick<ServerAccount, 'authed' | 'signer'>
 export class ServerDevices {
   constructor(private readonly account: DevicesAccount) {}
 
-  async markSeen(deviceId: string): Promise<ServerActionResult> {
-    try {
-      const sig = this.account.signer().seen(deviceId)
-      await this.account.authed((token, routes) => routes.markSeen(token, deviceId, sig))
-      return { ok: true }
-    } catch (error) {
-      return { ok: false, error: failureOf(error) }
-    }
-  }
-
   async createInvite(): Promise<ServerInviteResult> {
     try {
       const invite = await this.account.authed((token, routes) =>

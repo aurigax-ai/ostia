@@ -40,8 +40,6 @@ function attentionText(
   switch (item.kind) {
     case 'join':
       return { title: text.join.title, body: fmt(text.join.body, { name: item.name }) }
-    case 'new-device':
-      return { title: text.newDevice.title, body: fmt(text.newDevice.body, { name: item.name }) }
     case 'approval':
       return { title: text.approval.title, body: fmt(text.approval.body, { name: item.name }) }
     case 'changed':

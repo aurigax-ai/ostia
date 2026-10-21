@@ -151,8 +151,6 @@ describe('device signatures', () => {
         signer.approve('approval-9', 'dev-3')['X-Device-Signature'],
       ),
     ).toBe(true)
-    expect(valid('ostia-server/seen/v1\ndev-1\ndev-4', signer.seen('dev-4'))).toBe(true)
-    expect(valid('ostia-server/seen/v1\ndev-1\ndev-5', signer.seen('dev-4'))).toBe(false)
   })
 
   it('SSY-C4 refuses to sign when signed out', () => {

@@ -158,16 +158,12 @@ export const appZhHant: typeof appEn = {
     syncAttention: {
       approval: { body: '{name} 要求你確認。', title: '需要確認' },
       changed: {
-        body: '{names}：金鑰或建立日期已變更。請到「設定 › 伺服器」查看。',
+        body: '{names}：金鑰或建立日期已變更。請到「設定 › 同步」查看。',
         title: '已同步的裝置有變動',
       },
       join: {
         body: '{name} 想加入你的同步資料。請在應用程式中核對它的代碼。',
         title: '有裝置想取得你的同步資料',
-      },
-      newDevice: {
-        body: '{name} 已加入你的帳號。若不是你，請到「設定 › 伺服器」移除它。',
-        title: '你的帳號有新裝置',
       },
     },
     tray: { quit: '結束', show: '顯示', unread: '{count} 則未讀' },

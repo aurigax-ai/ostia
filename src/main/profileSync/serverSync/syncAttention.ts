@@ -1,10 +1,9 @@
 import type { ServerSyncStatus, SyncAttention } from '../../../shared/profileSync/serverSync'
-import type { ServerApprovalsResult, ServerDevicesResult } from '../../../shared/server/serverApi'
+import type { ServerApprovalsResult } from '../../../shared/server/serverApi'
 
 export interface SyncAttentionDeps {
   signedIn: () => boolean
   syncStatus: () => Promise<ServerSyncStatus>
-  devices: () => Promise<ServerDevicesResult>
   approvals: () => Promise<ServerApprovalsResult>
   publish: (items: SyncAttention[]) => void
   notify: (item: SyncAttention) => void
@@ -15,12 +14,8 @@ export interface SyncAttentionWatch {
 }
 
 async function gather(deps: SyncAttentionDeps): Promise<SyncAttention[] | null> {
-  const [status, devices, approvals] = await Promise.all([
-    deps.syncStatus(),
-    deps.devices(),
-    deps.approvals(),
-  ])
-  if (status.state === 'unreachable' || !devices.ok || !approvals.ok) return null
+  const [status, approvals] = await Promise.all([deps.syncStatus(), deps.approvals()])
+  if (status.state === 'unreachable' || !approvals.ok) return null
   const items: SyncAttention[] = status.joins.map((join) => ({
     kind: 'join',
     id: `join:${join.deviceId}`,
@@ -34,16 +29,6 @@ async function gather(deps: SyncAttentionDeps): Promise<SyncAttention[] | null> 
       kind: 'changed',
       id: `changed:${[...status.changedDevices].sort().join(',')}`,
       names: status.changedDevices,
-    })
-  }
-  for (const device of devices.devices) {
-    if (!device.isNew || device.current) continue
-    items.push({
-      kind: 'new-device',
-      id: `new-device:${device.id}`,
-      deviceId: device.id,
-      name: device.name,
-      createdAt: device.createdAt,
     })
   }
   for (const approval of approvals.approvals) {

@@ -52,8 +52,6 @@ export const serverEn = {
     linkLabel: 'Add a device',
     linkMake: 'Make a code',
     linkWaiting: 'Waiting for the new device to sign in.',
-    newDeviceMine: 'It is mine',
-    newDeviceWarning: 'New device. If it is not yours, remove it.',
     offerLabel: 'What this server offers',
     offerNone: 'Nothing is enabled.',
     offerPublish: 'Publishing',

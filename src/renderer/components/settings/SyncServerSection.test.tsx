@@ -3,8 +3,23 @@ import type { ServerStatus } from '@shared/server/serverApi'
 import { cleanup, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { useServerStatus } from '@/components/server/useServerStatus'
+import { useSyncServerStatus } from '@/components/server/useSyncServerStatus'
 import { useUIStore } from '@/stores/app/uiStore'
 import { SyncServerSection } from './SyncServerSection'
+
+function Section({ onChanged = () => {} }: { onChanged?: () => void }): JSX.Element {
+  const account = useServerStatus()
+  const [status, setStatus] = useSyncServerStatus(account.signedIn)
+  return (
+    <SyncServerSection
+      account={account}
+      status={status}
+      setStatus={setStatus}
+      onChanged={onChanged}
+    />
+  )
+}
 
 const SIGNED_IN: ServerStatus = {
   url: 'https://ostia.example.com',
@@ -42,7 +57,7 @@ describe('Settings › Sync › Server', () => {
   it('SSY-C90 sends a signed-out computer to Settings › Server', async () => {
     vi.mocked(window.ostia.server.status).mockResolvedValue({ ...SIGNED_IN, signedIn: false })
     const user = userEvent.setup()
-    render(<SyncServerSection onChanged={() => {}} />)
+    render(<Section />)
     await user.click(await screen.findByRole('button', { name: 'Open Settings › Server' }))
     expect(useUIStore.getState().settingsSection).toBe('server')
   })
@@ -56,7 +71,7 @@ describe('Settings › Sync › Server', () => {
       recoveryKey: 'AAAA-BBBB-CCCC',
       status: status({}),
     })
-    render(<SyncServerSection onChanged={onChanged} />)
+    render(<Section onChanged={onChanged} />)
     await user.type(await screen.findByPlaceholderText('New sync passphrase'), 'a long passphrase')
     await user.type(screen.getByPlaceholderText('Type it again'), 'a long passphrase')
     await user.click(screen.getByRole('button', { name: 'Turn on sync' }))
@@ -75,7 +90,7 @@ describe('Settings › Sync › Server', () => {
       error: 'wrong-password',
       status: status({ state: 'locked' }),
     })
-    render(<SyncServerSection onChanged={() => {}} />)
+    render(<Section />)
     await user.type(await screen.findByPlaceholderText('Sync passphrase'), 'nope{Enter}')
     expect(api().unlock).toHaveBeenCalledWith('nope')
     expect(await screen.findByText('That is not the sync passphrase.')).toBeInTheDocument()
@@ -84,7 +99,7 @@ describe('Settings › Sync › Server', () => {
   it('SSY-C93 unlocks with the recovery key', async () => {
     const user = userEvent.setup()
     api().status.mockResolvedValue(status({ state: 'locked' }))
-    render(<SyncServerSection onChanged={() => {}} />)
+    render(<Section />)
     await user.type(await screen.findByPlaceholderText('Recovery key'), 'AAAA-BBBB{Enter}')
     expect(api().recover).toHaveBeenCalledWith('AAAA-BBBB')
   })
@@ -100,7 +115,7 @@ describe('Settings › Sync › Server', () => {
         linkCodes: [{ deviceName: 'Desk', code: 'ABCD-EFGH-JKLM' }],
       }),
     })
-    render(<SyncServerSection onChanged={() => {}} />)
+    render(<Section />)
     await user.click(await screen.findByRole('button', { name: 'Approve from another device' }))
     expect(await screen.findByText('Desk: ABCD-EFGH-JKLM')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Stop waiting' })).toBeInTheDocument()
@@ -122,7 +137,7 @@ describe('Settings › Sync › Server', () => {
       })
       .mockResolvedValueOnce({ ok: true, deleted: 4, status: status({}) })
     vi.mocked(window.ostia.server.elevationPoll).mockResolvedValue({ state: 'done' })
-    render(<SyncServerSection onChanged={() => {}} />)
+    render(<Section />)
     expect(
       await screen.findByText('The old recovery key no longer opens new data.'),
     ).toBeInTheDocument()
@@ -145,7 +160,7 @@ describe('Settings › Sync › Server', () => {
       }),
     )
     api().linkConfirm.mockResolvedValue({ ok: true, status: status({}) })
-    const view = render(<SyncServerSection onChanged={() => {}} />)
+    const view = render(<Section />)
     expect(await screen.findByText(/Confirm if the code above matches/)).toBeInTheDocument()
     await user.click(
       screen.getByRole('button', { name: 'The code AAAAA-BBBBB-CCCCC-DDDDD-EEEEE matches' }),
@@ -153,7 +168,7 @@ describe('Settings › Sync › Server', () => {
     expect(api().linkConfirm).toHaveBeenCalledWith('AAAAA-BBBBB-CCCCC-DDDDD-EEEEE')
     view.unmount()
     api().status.mockResolvedValue(status({ state: 'untrusted' }))
-    render(<SyncServerSection onChanged={() => {}} />)
+    render(<Section />)
     expect(await screen.findByText(/lists other keys for this device/)).toBeInTheDocument()
   })
 
@@ -161,7 +176,7 @@ describe('Settings › Sync › Server', () => {
     api().status.mockResolvedValue(
       status({ state: 'ready', wrapRefused: { reason: 'untrusted', after: null } }),
     )
-    render(<SyncServerSection onChanged={() => {}} />)
+    render(<Section />)
     expect(await screen.findByText(/from an untrusted device was ignored/)).toBeInTheDocument()
     expect(screen.queryByLabelText('Sync passphrase')).toBeNull()
   })
@@ -171,7 +186,7 @@ describe('Settings › Sync › Server', () => {
     api().status.mockResolvedValue(
       status({ state: 'ready', wrapRefused: { reason: 'too-new', after: Date.UTC(2026, 9, 7) } }),
     )
-    render(<SyncServerSection onChanged={() => {}} />)
+    render(<Section />)
     api().unlock.mockResolvedValue({ ok: true, status: status({ state: 'ready' }) })
     expect(await screen.findByText(/from a device that is too new/)).toBeInTheDocument()
     expect(screen.queryByText(/from an untrusted device was ignored/)).toBeNull()
@@ -195,7 +210,7 @@ describe('Settings › Sync › Server', () => {
       error: 'link-stale',
       status: status({ state: 'locked' }),
     })
-    render(<SyncServerSection onChanged={() => {}} />)
+    render(<Section />)
     await user.click(
       await screen.findByRole('button', { name: 'The code AAAAA-BBBBB-CCCCC-DDDDD-EEEEE matches' }),
     )

@@ -210,7 +210,6 @@ describe('the signed-in account', () => {
           current: true,
           lastSeen: 0,
           createdAt: expect.any(Number),
-          isNew: false,
         },
       ],
     })

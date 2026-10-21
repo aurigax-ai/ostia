@@ -679,7 +679,6 @@ export function makeOstiaMock(overrides?: Partial<OstiaBridge>): OstiaBridge {
       openVerification: vi.fn().mockResolvedValue(undefined),
       signOut: vi.fn().mockResolvedValue({ ok: true }),
       devices: vi.fn().mockResolvedValue({ ok: true, devices: [] }),
-      markSeen: vi.fn().mockResolvedValue({ ok: true }),
       createInvite: vi.fn().mockResolvedValue({ ok: true, code: 'invite-code', expiresAt: 0 }),
       elevationStart: vi.fn().mockResolvedValue({ ok: true, kind: 'approval' }),
       elevationPoll: vi.fn().mockResolvedValue({ state: 'done' }),

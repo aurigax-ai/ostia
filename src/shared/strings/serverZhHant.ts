@@ -52,8 +52,6 @@ export const serverZhHant: typeof serverEn = {
     linkLabel: '新增裝置',
     linkMake: '產生代碼',
     linkWaiting: '正在等新裝置登入。',
-    newDeviceMine: '是我的',
-    newDeviceWarning: '新裝置。如果不是您的，請移除。',
     offerLabel: '此伺服器提供的功能',
     offerNone: '沒有啟用任何功能。',
     offerPublish: '發佈',

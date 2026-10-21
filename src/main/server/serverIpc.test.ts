@@ -14,7 +14,6 @@ const window = { sender: { getType: () => 'window' } }
 const webview = { sender: { getType: () => 'webview' } }
 
 const devices = {
-  markSeen: vi.fn(async () => ({ ok: true })),
   createInvite: vi.fn(async () => ({ ok: true, code: 'c', expiresAt: 1 })),
 }
 const elevation = {
@@ -44,7 +43,6 @@ beforeEach(() => {
 describe('server device and approval IPC', () => {
   it('SSY-C120 refuses the device, invite and approval channels from a non-window sender', async () => {
     for (const channel of [
-      'server:device-seen',
       'server:invite-create',
       'server:elevation-start',
       'server:elevation-poll',
@@ -54,7 +52,6 @@ describe('server device and approval IPC', () => {
     ]) {
       await call(channel, webview, 'approval')
     }
-    expect(devices.markSeen).not.toHaveBeenCalled()
     expect(devices.createInvite).not.toHaveBeenCalled()
     expect(elevation.start).not.toHaveBeenCalled()
     expect(elevation.approve).not.toHaveBeenCalled()
@@ -63,10 +60,8 @@ describe('server device and approval IPC', () => {
 
   it('SSY-C121 rejects an unbounded id and an unknown elevation method', async () => {
     expect(await call('server:approve', window, 'x'.repeat(200))).toMatchObject({ ok: false })
-    expect(await call('server:device-seen', window, 5)).toMatchObject({ ok: false })
     expect(await call('server:elevation-start', window, 'password')).toMatchObject({ ok: false })
     expect(elevation.approve).not.toHaveBeenCalled()
-    expect(devices.markSeen).not.toHaveBeenCalled()
     expect(elevation.start).not.toHaveBeenCalled()
   })
 

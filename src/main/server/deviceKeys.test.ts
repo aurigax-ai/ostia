@@ -9,7 +9,6 @@ import {
   signApprove,
   signChallenge,
   signRevoke,
-  signSeen,
   signStamped,
 } from './deviceKeys'
 
@@ -51,9 +50,6 @@ describe('device keys', () => {
     )
     expect(signApprove(keys, 'dev-1', 'approval-1', 'dev-3')).toBe(
       'U9G2v-ujTM6dXWi5KkoIQBlqI-5s4kXkxyXsyhabwgFQ70yaaqx0imF7Xznhuy8UNGeeLanMnKSfPg6on9ImAg',
-    )
-    expect(signSeen(keys, 'dev-1', 'dev-4')).toBe(
-      'ot1FNAJBDyMc71f1W4rFugE0BuHZ42Rogpi3BK4tpb0lKRYlo8LuvsJ9YLSnhA4v_PnygOsoI_JjQUMgxRAaAg',
     )
   })
 

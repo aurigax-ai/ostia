@@ -24,7 +24,6 @@ const device = (over: Partial<ServerDevice>): ServerDevice => ({
   current: true,
   lastSeen: 0,
   createdAt: Date.now() - 3_600_000,
-  isNew: false,
   ...over,
 })
 
@@ -55,22 +54,6 @@ describe('shared device list', () => {
     expect(await screen.findByText('This computer')).toBeInTheDocument()
     expect(screen.getByText('Added 3 minutes ago')).toBeInTheDocument()
     expect(screen.getAllByRole('button', { name: 'Remove' })).toHaveLength(1)
-  })
-
-  it('SYA-C121 puts a warning under a new device and clears it on "It is mine"', async () => {
-    const user = userEvent.setup()
-    server().devices.mockResolvedValue({
-      ok: true,
-      devices: [device({}), device({ id: 'd2', name: 'Laptop', current: false, isNew: true })],
-    })
-    server().markSeen.mockResolvedValue({ ok: true })
-    render(<ServerDevices />)
-    expect(
-      await screen.findByText('New device. If it is not yours, remove it.'),
-    ).toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: 'It is mine' }))
-    expect(server().markSeen).toHaveBeenCalledWith('d2')
-    await waitFor(() => expect(syncServer().attention).toHaveBeenCalled())
   })
 
   it('SYA-C122 gives the device asking for a confirmation Approve and Deny in place of Remove', async () => {

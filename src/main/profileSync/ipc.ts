@@ -130,7 +130,6 @@ export function startProfileSync(deps: ProfileSyncIpcDeps): ProfileSyncHandle {
   const attention = createSyncAttention({
     signedIn: () => deps.server.signedIn(),
     syncStatus: () => serverSync.status(),
-    devices: () => deps.server.devices(),
     approvals: () => elevation.approvals(),
     publish: (items) => deps.broadcast('syncServer:attention', items),
     notify: deps.notifyAttention,

@@ -38,7 +38,6 @@ export interface ServerSyncStatus {
 
 export type SyncAttention =
   | { kind: 'join'; id: string; deviceId: string; name: string; code: string; createdAt: number }
-  | { kind: 'new-device'; id: string; deviceId: string; name: string; createdAt: number }
   | {
       kind: 'approval'
       id: string

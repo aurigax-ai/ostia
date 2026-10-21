@@ -4,7 +4,6 @@ import { type ElectronApplication, _electron as electron, expect, type Page, tes
 
 test.describe.configure({ timeout: 120_000 })
 
-const HOUR = 3_600_000
 const SHOTS = process.env.SYNC_CARDS_SHOTS
 
 const ITEMS = [
@@ -15,13 +14,6 @@ const ITEMS = [
     name: 'Pixel 9',
     code: 'K7QDM-2XPLA-VTRHE-4WNBC-GJ5FS',
     createdAt: Date.now() - 2 * 60_000,
-  },
-  {
-    kind: 'new-device',
-    id: 'new-device:d3',
-    deviceId: 'd3',
-    name: 'build-box',
-    createdAt: Date.now() - HOUR,
   },
   {
     kind: 'approval',
@@ -75,7 +67,6 @@ async function signedInServer(app: ElectronApplication): Promise<void> {
           current: true,
           lastSeen: now,
           createdAt: now - 40 * day,
-          isNew: false,
         },
         {
           id: 'd1',
@@ -83,7 +74,6 @@ async function signedInServer(app: ElectronApplication): Promise<void> {
           current: false,
           lastSeen: now,
           createdAt: now - 3 * hour,
-          isNew: false,
         },
         {
           id: 'd3',
@@ -91,7 +81,6 @@ async function signedInServer(app: ElectronApplication): Promise<void> {
           current: false,
           lastSeen: now,
           createdAt: now - hour,
-          isNew: true,
         },
         {
           id: 'd2',
@@ -99,7 +88,6 @@ async function signedInServer(app: ElectronApplication): Promise<void> {
           current: false,
           lastSeen: now,
           createdAt: now - 2 * 60_000,
-          isNew: false,
         },
       ],
     })
@@ -161,16 +149,17 @@ test('the join request and changed devices show on Settings › Sync, the confir
         'Studio laptop: keys or creation date changed. Its sync key is ignored for a day.',
       ),
     ).toBeVisible()
-    await expect(settings.getByText(/New device\./)).toBeHidden()
     await expect(settings.getByText(/Asks to confirm/)).toBeHidden()
     await expect(nav('Sync')).toHaveAttribute('aria-current', 'page')
     await expect(settings.getByText('Where to sync')).toHaveCount(1)
+    await expect(settings.locator('[data-settings-row]').first()).toContainText(
+      /Status.*Sync is on for this device\./,
+    )
     await expect(settings.getByText(/not signed in|Sign in to a server first/)).toBeHidden()
     await shot(win, 'split-sync')
 
     await openPage(app, 'server')
     await expect(settings.getByRole('heading', { name: 'Server' })).toBeVisible()
-    await expect(settings.getByText('New device. If it is not yours, remove it.')).toBeVisible()
     await expect(settings.getByText(/Asks to confirm a change · added 3 hours ago/)).toBeVisible()
     await expect(settings.getByRole('list', { name: 'Requests' })).toBeHidden()
     await expect(settings.getByText(/keys or creation date changed/)).toBeHidden()

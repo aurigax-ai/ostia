@@ -75,8 +75,9 @@ describe('sync requests on Settings › Sync', () => {
 
   it('SYA-C133 shows nothing when nothing is pending, and ignores other kinds', () => {
     show({
-      kind: 'new-device',
-      id: 'new-device:d3',
+      kind: 'approval',
+      id: 'approval:a1',
+      approvalId: 'a1',
       deviceId: 'd3',
       name: 'build-box',
       createdAt: 0,

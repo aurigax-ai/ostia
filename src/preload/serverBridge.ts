@@ -14,7 +14,6 @@ export const serverBridge: Pick<OstiaBridge, 'server'> = {
     openVerification: () => ipcRenderer.invoke('server:open-verification'),
     signOut: () => ipcRenderer.invoke('server:sign-out'),
     devices: () => ipcRenderer.invoke('server:devices'),
-    markSeen: (deviceId) => ipcRenderer.invoke('server:device-seen', deviceId),
     createInvite: () => ipcRenderer.invoke('server:invite-create'),
     elevationStart: (method) => ipcRenderer.invoke('server:elevation-start', method),
     elevationPoll: () => ipcRenderer.invoke('server:elevation-poll'),

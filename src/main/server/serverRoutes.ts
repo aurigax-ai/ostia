@@ -70,7 +70,6 @@ export interface DeviceRow {
   createdAt: number
   lastSeen: number
   current?: boolean
-  new?: boolean
 }
 
 export interface ApprovalRow {
@@ -161,11 +160,6 @@ export function serverRoutes(client: ServerClient) {
         token,
         headers,
         retryRateLimited: false,
-      }),
-    markSeen: (token: string, id: string, sig: string) =>
-      client.request<void>('POST', `/v1/devices/${encodeURIComponent(id)}/seen`, {
-        token,
-        body: { sig },
       }),
     revokeDevice: (token: string, id: string, headers: Record<string, string>) =>
       client.request<void>('DELETE', `/v1/devices/${encodeURIComponent(id)}`, { token, headers }),

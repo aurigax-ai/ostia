@@ -230,20 +230,6 @@ describe('elevation, approvals and the age rule', () => {
     expect(own).toEqual({ ok: true, approvals: [] })
   })
 
-  it('SSY-C54 flags a device added after this one until it is acknowledged', async () => {
-    const { server, first } = await world()
-    const second = await join(server, first)
-    const before = await first.account.devices()
-    expect(before.ok && before.devices.find((d) => !d.current)?.isNew).toBe(true)
-    const mine = await second.account.devices()
-    expect(mine.ok && mine.devices.every((d) => !d.isNew)).toBe(true)
-    expect(await first.devices.markSeen(second.account.identity()?.deviceId ?? '')).toEqual({
-      ok: true,
-    })
-    const after = await first.account.devices()
-    expect(after.ok && after.devices.every((d) => !d.isNew)).toBe(true)
-  })
-
   it('SSY-C55 elevates a GitHub account with a fresh sign-in', async () => {
     const server = await new FakeServer({ github: true, approverMinAgeMs: 0 }).start()
     const first = await firstDevice(server)

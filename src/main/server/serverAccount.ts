@@ -283,7 +283,6 @@ export class ServerAccount {
           current: d.current === true,
           lastSeen: d.lastSeen,
           createdAt: d.createdAt,
-          isNew: d.new === true,
         })),
       }
     } catch (error) {
