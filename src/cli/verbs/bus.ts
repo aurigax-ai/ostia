@@ -134,6 +134,7 @@ interface BusSentResult {
 interface BusMessage {
   id: string
   from: string
+  fromName?: string
   to: string
   text: string
   ts: string

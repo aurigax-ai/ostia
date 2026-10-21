@@ -17,6 +17,7 @@ import type { ExtensionHost } from '../extensions/extensionHost'
 import type { OpenWaits } from '../files/openWaits'
 import { createWorkspaceClosed } from '../files/workspaceClosed'
 import { registerPaneMoveIpc } from '../panes/paneMove'
+import { dropNamesWhere } from '../panes/paneNames'
 import type { ProcessRegistry } from '../panes/processRegistry'
 import type { DomainRequests } from '../sandbox/domainRequests'
 import type { PortForwarder } from '../sandbox/ports/portForwarder'
@@ -81,6 +82,7 @@ export function createWorkspaceLifecycle({
     removeWorkspace,
     forgetReach: (id) => reach.forget(id),
     closeProcesses: (id) => services.processes?.workspaceClosed(id),
+    forgetNames: (id) => dropNamesWhere((paneId) => getByPaneId(paneId)?.workspaceId === id),
     clearChips: (id) => {
       services.extensionHost?.slots.clearWorkspaceChips(id)
       services.extensionHost?.slots.clearPanelToolbarsWhere((entry) => entry.workspaceId === id)

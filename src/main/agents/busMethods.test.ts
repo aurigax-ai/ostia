@@ -37,6 +37,8 @@ const { markManager, registerPane, registerScript, removePane } = await import(
   '../control/idRegistry'
 )
 const { rememberClosedPane } = await import('../panes/closedPanes')
+const { claimName, dropName, forgetNames } = await import('../panes/paneNames')
+const { BUS_NAME_NOTICE } = await import('../../shared/agents/busMessages')
 
 const queuedWakes: Array<boolean | undefined> = []
 onMailQueued((mail) => queuedWakes.push(mail.wakes))
@@ -142,6 +144,7 @@ const ack = (lease: string | undefined, identity = receiver) =>
 
 beforeEach(async () => {
   await resetBus()
+  forgetNames()
   rmSync(join(dataHome, 'ostia'), { recursive: true, force: true })
   announce.mockClear()
   queuedWakes.length = 0
@@ -967,5 +970,60 @@ describe('who may wake a hibernated pane by mail', () => {
     held.add('all-workspaces')
     await send('far again', faraway.externalId)
     expect(queuedWakes).toEqual([undefined, true])
+  })
+})
+
+describe('bus names', () => {
+  it('sends to a registered name and queues the mail for the pane that held it', async () => {
+    claimName(receiver.paneId, 'boss', undefined)
+    const res = await send('by name', 'boss')
+    expect(res).toMatchObject({ ok: true, state: 'queued' })
+    expect(inbox().map((m) => m.text)).toEqual(['by name'])
+    expect(ensureCaps).toHaveBeenCalledWith({}, sender, ['send-other-pane'], 'bus.send', 'to boss')
+  })
+
+  it('keeps mail addressed to the pane id when the name moves or goes away', async () => {
+    claimName(receiver.paneId, 'boss', undefined)
+    await send('queued', 'boss')
+    dropName(receiver.paneId)
+    claimName(sender.paneId, 'boss', undefined)
+    expect(inbox().map((m) => m.text)).toEqual(['queued'])
+    expect(inbox(sender)).toEqual([])
+  })
+
+  it('answers unknown-pane for a name that was dropped', async () => {
+    claimName(receiver.paneId, 'boss', undefined)
+    dropName(receiver.paneId)
+    expect(await send('lost', 'boss')).toMatchObject({ ok: false, error: 'unknown-pane' })
+  })
+
+  it('needs all-workspaces for a name held in another workspace and reaches only what the caller sees', async () => {
+    claimName(faraway.paneId, 'far-boss', undefined)
+    expect(await send('x', 'far-boss')).toMatchObject({ ok: false, error: 'unknown-pane' })
+    scopeReaches.add('ws9')
+    expect(await send('y', 'far-boss')).toMatchObject({ ok: true, state: 'queued' })
+    expect(inbox(faraway)).toHaveLength(1)
+  })
+
+  it('shows the sender’s real pane id and its current name, never a claimed identity', async () => {
+    claimName(sender.paneId, 'lead', undefined)
+    await send('who am I', receiver.externalId, sender)
+    const [wire] = inbox()
+    expect(wire).toMatchObject({ from: sender.externalId, fromName: 'lead' })
+    const shown = context().text ?? ''
+    expect(shown).toContain(`from="${sender.externalId}" name="lead"`)
+  })
+
+  it('tells the first session start of a pane that bus names are cleared, once', () => {
+    expect(context(receiver, 'UserPromptSubmit').text).toBeNull()
+    expect(context(receiver, 'SessionStart').text).toBe(BUS_NAME_NOTICE)
+    expect(context(receiver, 'SessionStart').text).toBeNull()
+  })
+
+  it('tells nothing to a pane that already has a name, and again after its agent stopped', () => {
+    claimName(receiver.paneId, 'boss', undefined)
+    expect(context(receiver, 'SessionStart').text).toBeNull()
+    dropName(receiver.paneId)
+    expect(context(receiver, 'SessionStart').text).toBe(BUS_NAME_NOTICE)
   })
 })

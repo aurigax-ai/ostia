@@ -14,6 +14,8 @@ import { getByPaneId } from '../control/idRegistry'
 import type { Telemetry } from '../diagnostics/telemetry'
 import type { ManagerService } from '../manager/manager'
 import type { PaneJournal } from '../panes/paneJournal'
+import { registerPaneNameMethods } from '../panes/paneNameMethods'
+import { noteAgentSession } from '../panes/paneNames'
 import { registerPaneRenameMethods } from '../panes/paneRename'
 import { registerPaneResumeMethods } from '../panes/paneResume'
 import { type PaneTurns, registerPaneTurnMethods } from '../panes/paneTurns'
@@ -113,6 +115,7 @@ export function registerAgentWiring({
       paneWaking.end(identity.paneId, 'started')
       startedAgents.add(identity.paneId)
       agentChanges.fire()
+      noteAgentSession(identity.paneId, resume.agent, resume.id)
       agentResumes.emit(identity.externalId, resume)
       if (identity.manager) services.managerService?.rememberResume(resume)
     },
@@ -186,6 +189,11 @@ export function registerAgentWiring({
     interruptGraceMs: INTERRUPT_GRACE_MS,
   })
   services.processes = registry
+  registerPaneNameMethods({
+    reach,
+    isSandboxed: (workspaceId) => workspaceSandboxes.isEnabled(workspaceId),
+    isConfined: (paneId) => ptys.get(paneId)?.sandboxed === true,
+  })
   registerPaneRenameMethods({
     execCommand,
     reach,

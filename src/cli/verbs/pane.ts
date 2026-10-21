@@ -18,6 +18,7 @@ export type PaneCall =
   | { method: 'pane.input'; params: PaneInputParams; stdin?: true; json: boolean }
   | { method: 'pane.read'; params: { pane: string; lines?: number }; json: boolean }
   | { method: 'pane.rename'; params: { pane: string; title: string } }
+  | { method: 'pane.name'; params: PaneNameParams; json: boolean }
   | { method: 'pane.wait'; params: PaneWaitParams; json: boolean }
   | { method: 'pane.status'; params: { panes?: string[] }; json: boolean }
   | {
@@ -50,6 +51,12 @@ export function inputLine(result: PaneInputResult): string {
   return result.responded
     ? `ok: ${id} showed new output; ${state}`
     : `sent; ${id} showed nothing yet (${state}): read it with ostia pane read ${id}`
+}
+
+interface PaneNameParams {
+  name?: string
+  desc?: string
+  clear?: true
 }
 
 interface PaneMoveParams {
@@ -215,6 +222,23 @@ function parseWatch(argv: string[]): PaneCall {
   }
 }
 
+function parseName(argv: string[]): PaneCall {
+  const { positional, values, booleans } = parseArgs(argv, {
+    values: { desc: '--desc' },
+    booleans: { clear: '--clear', json: '--json' },
+  })
+  if (booleans.clear) {
+    if (positional.length > 0 || values.desc !== undefined) throw new Error(USAGE)
+    return { method: 'pane.name', params: { clear: true }, json: booleans.json }
+  }
+  if (positional.length !== 1) throw new Error(USAGE)
+  return {
+    method: 'pane.name',
+    params: { name: positional[0], ...(values.desc === undefined ? {} : { desc: values.desc }) },
+    json: booleans.json,
+  }
+}
+
 function parseClose(argv: string[]): PaneCall {
   const { positional, booleans } = parseArgs(argv, { booleans: { json: '--json' } })
   return {
@@ -343,11 +367,19 @@ export function waitOutcome(result: PaneWaitResult, json: boolean): { line: stri
   }
 }
 
+export function nameLine(result: { paneId: string; name?: string; desc?: string }): string {
+  return result.name
+    ? tsvLine([shortId(result.paneId), result.name, ...(result.desc ? [result.desc] : [])])
+    : `${shortId(result.paneId)} has no name`
+}
+
 interface ListedPane {
   paneId: string
   workspaceId: string
   kind: string
   title: string
+  name?: string
+  description?: string
   running: boolean
   agentState?: string
   hibernated?: true
@@ -363,7 +395,14 @@ function listedState(pane: ListedPane): string {
 }
 
 export function paneLine(pane: ListedPane): string {
-  return tsvLine([shortId(pane.paneId), pane.workspaceId, pane.kind, listedState(pane), pane.title])
+  return tsvLine([
+    shortId(pane.paneId),
+    pane.workspaceId,
+    pane.kind,
+    listedState(pane),
+    pane.title,
+    ...(pane.name ? [pane.name, ...(pane.description ? [pane.description] : [])] : []),
+  ])
 }
 
 export function filterPanes(
@@ -383,6 +422,7 @@ export function parsePaneArgs(argv: string[]): PaneCall {
   if (sub === 'list') return parseList(argv.slice(1))
   if (sub === 'status') return parseStatus(argv.slice(1))
   if (sub === 'close') return parseClose(argv.slice(1))
+  if (sub === 'name') return parseName(argv.slice(1))
   if (sub === 'watch' && pane === '--off' && rest.length === 0) return parseWatch(argv.slice(1))
   if (!sub || !pane) throw new Error(USAGE)
   if (sub === 'wait') return parseWait([pane, ...rest])
@@ -498,6 +538,14 @@ export async function runPaneVerb(
     if (call.json) console.log(JSON.stringify(panes))
     else if (panes.length === 0) console.error('(no panes match)')
     else console.log(panes.map(paneLine).join('\n'))
+    return 0
+  }
+  if (call.method === 'pane.name') {
+    const result = await conn.sendRequest<{ paneId: string; name?: string; desc?: string }>(
+      call.method,
+      call.params,
+    )
+    console.log(call.json ? JSON.stringify(result) : nameLine(result))
     return 0
   }
   if (call.method === 'pane.transcript') {

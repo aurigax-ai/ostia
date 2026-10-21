@@ -36,6 +36,7 @@ export function mailLabel(receipt: MailReceipt): string {
 export interface BusContextMessage {
   id: string
   from: string
+  fromName?: string
   ts: string
   text: string
 }
@@ -44,6 +45,8 @@ export interface BusContext {
   text: string
   shown: string[]
 }
+
+export const BUS_NAME_NOTICE = `${PRODUCT_NAME} bus names live in memory and are cleared when ${PRODUCT_NAME} restarts. If you had one, register it again with \`ostia pane name <name>\`.`
 
 export function busPreview(text: unknown): string {
   if (typeof text !== 'string') return ''
@@ -66,7 +69,8 @@ function attribute(value: string): string {
 
 function messageBlock(message: BusContextMessage): string {
   const body = plainBlock(message.text).replace(WRAPPER_TAG, '&lt;$1$2')
-  return `<message id="${attribute(message.id)}" from="${attribute(message.from)}" at="${attribute(message.ts)}">\n${body}\n</message>`
+  const name = message.fromName ? ` name="${attribute(message.fromName)}"` : ''
+  return `<message id="${attribute(message.id)}" from="${attribute(message.from)}"${name} at="${attribute(message.ts)}">\n${body}\n</message>`
 }
 
 function contextHead(count: number, delivered: boolean): string {

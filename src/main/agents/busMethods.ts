@@ -2,12 +2,13 @@ import { randomUUID } from 'node:crypto'
 import { BUS_SEND_TEXT_MAX } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import { ErrorCodes, ResponseError } from 'vscode-jsonrpc/node'
 import { MAIL_INBOX_FULL } from '../../shared/agents/agentIssues'
-import { busContext, type MailPending } from '../../shared/agents/busMessages'
+import { BUS_NAME_NOTICE, busContext, type MailPending } from '../../shared/agents/busMessages'
 import { actThenConfirm, confirmed, mismatch } from '../../shared/common/actThenConfirm'
 import { ensureCaps } from '../approvals/controlElevation'
 import { type ControlMethodContext, registerControlMethod } from '../control/controlServer'
 import { type PaneIdentity, resolveExternal } from '../control/idRegistry'
 import type { AgentJournal } from '../diagnostics/agentJournal'
+import { takeNameNotice } from '../panes/paneNames'
 import { ensurePaneReach, holdsPaneReach, type PaneReachDeps } from '../panes/paneReach'
 import { type PaneRef, refProblem, resolvePaneRef } from '../panes/paneRef'
 import {
@@ -35,6 +36,7 @@ import {
   sweepBus,
 } from './busStore'
 import { mailers } from './mailers'
+import { withSenderName } from './mailSender'
 import { takeMailTurn } from './mailTurn'
 
 const MAX_HANDOFFS = 500
@@ -64,10 +66,12 @@ function clampTimeout(timeoutMs: number | undefined): number {
 }
 
 function wireMail(mail: Mail) {
+  const { fromName } = withSenderName(mail)
   return {
     id: mail.id,
     kind: mail.kind,
     from: mail.from,
+    ...(fromName ? { fromName } : {}),
     to: mail.to,
     text: mail.text ?? '',
     ts: mail.ts,
@@ -333,14 +337,22 @@ function registerBusInboxMethods(deps: BusDeps): void {
       const { event } = (params ?? {}) as { event?: string }
       const me = ctx.identity.externalId
       const fresh = inboxOf(me).filter((mail) => mail.state === 'queued' && !mail.quiet)
-      const context = busContext(fresh.map((mail) => ({ ...mail, text: mail.text ?? '' })))
-      if (!context) return { text: null }
-      if (context.shown.length === 0) return { text: context.text }
+      const context = busContext(
+        fresh.map((mail) => ({ ...withSenderName(mail), text: mail.text ?? '' })),
+      )
+      const notice =
+        event === 'SessionStart' && !ctx.identity.manager && takeNameNotice(ctx.identity.paneId)
+          ? BUS_NAME_NOTICE
+          : null
+      const joined = (text: string | null): string | null =>
+        [text, notice].filter(Boolean).join('\n') || null
+      if (!context) return { text: joined(null) }
+      if (context.shown.length === 0) return { text: joined(context.text) }
       const shown = new Set(context.shown)
       const leased = leaseMail(me, event === 'SessionStart' ? 'start' : 'prompt', (mail) =>
         shown.has(mail.id),
       )
-      return leased ? { text: context.text, lease: leased.lease } : { text: null }
+      return leased ? { text: joined(context.text), lease: leased.lease } : { text: joined(null) }
     },
   })
 

@@ -18,6 +18,7 @@ const { registerBusMethods } = await import('../main/agents/busMethods')
 const { failPaneMail, flushBus, postBusMessage, resetBus, sentBy } = await import(
   '../main/agents/busStore'
 )
+const { registerPaneNameMethods } = await import('../main/panes/paneNameMethods')
 const { registerControlServer, stopControlServer } = await import('../main/control/controlServer')
 const { registerPane } = await import('../main/control/idRegistry')
 const { busHookCommand } = await import('../main/terminal/agentHookCommands')
@@ -30,6 +31,7 @@ const contextFile = join(dir, 'session-context.md')
 const CODEX_CONTEXT = 'This Codex session runs in a ostia terminal pane.\n'
 
 const announce = vi.fn()
+const outOfScope = new Set<string>()
 registerBusMethods({
   managerSendAllowed: () => true,
   agentBusy: () => false,
@@ -38,16 +40,23 @@ registerBusMethods({
   reach: {
     processPane: async () => [],
     visible: async () => () => true,
-    inScope: async () => true,
+    inScope: async (_ctx, workspaceId) => !outOfScope.has(workspaceId),
     isChild: () => false,
     isSandboxed: () => false,
     isConfined: () => false,
   },
 })
 
+registerPaneNameMethods({
+  reach: { visible: async () => () => true },
+  isSandboxed: () => false,
+  isConfined: () => false,
+})
+
 const sender = registerPane({ windowId: 'w1', workspaceId: 'ws1', paneId: 'cli-bus-sender' })
 const agent = registerPane({ windowId: 'w1', workspaceId: 'ws1', paneId: 'cli-bus-agent' })
 const other = registerPane({ windowId: 'w1', workspaceId: 'ws1', paneId: 'cli-bus-other' })
+const remote = registerPane({ windowId: 'w1', workspaceId: 'ws2', paneId: 'cli-bus-remote' })
 
 type Pane = typeof sender
 type HookEvent = 'SessionStart' | 'UserPromptSubmit'
@@ -149,6 +158,7 @@ afterAll(async () => {
 
 beforeEach(async () => {
   answer = 'once'
+  outOfScope.clear()
   announce.mockClear()
   request.mockClear()
   await resetBus()
@@ -299,6 +309,35 @@ describe('bus delivery through the real CLI and the agents’ own hooks', () => 
     expect(unknown.code).toBe(1)
     expect(unknown.stderr).toContain('unknown-pane')
   }, 30_000)
+
+  it('sends to a registered name in another workspace once the human allowed all-workspaces', async () => {
+    outOfScope.add('ws2')
+    const named = await ostia(remote, 'pane', 'name', 'Remote-Boss', '--desc', 'plans')
+    expect(named.code).toBe(0)
+    expect(named.stdout).toBe(`${remote.externalId.slice(0, 8)}\tremote-boss\tplans\n`)
+
+    const taken = await ostia(sender, 'pane', 'name', 'remote-boss')
+    expect(taken.code).toBe(1)
+    expect(taken.stderr).toContain(`name-taken: remote-boss held by ${remote.externalId}`)
+
+    request.mockClear()
+    const res = await ostia(sender, 'bus', 'send', 'remote-boss', 'across')
+    expect(res.code).toBe(0)
+    expect(JSON.parse(res.stdout)).toMatchObject({ ok: true, state: 'queued' })
+    expect(JSON.stringify(request.mock.calls)).toContain('all-workspaces')
+    const listed = JSON.parse((await ostia(remote, 'bus', 'inbox', '--json')).stdout)
+    expect(listed).toMatchObject([{ from: sender.externalId, text: 'across' }])
+
+    answer = 'deny'
+    const denied = await ostia(sender, 'bus', 'send', 'remote-boss', 'again')
+    expect(denied.code).toBe(1)
+    expect(denied.stderr).toContain('denied')
+
+    expect((await ostia(remote, 'pane', 'name', '--clear')).code).toBe(0)
+    const gone = await ostia(sender, 'bus', 'send', 'remote-boss', 'late')
+    expect(gone.code).toBe(1)
+    expect(gone.stderr).toContain('unknown-pane')
+  }, 60_000)
 
   it('refuses a pane id nobody holds and a send the human denied', async () => {
     const unknown = await ostia(sender, 'bus', 'send', 'not-a-pane', 'hello')

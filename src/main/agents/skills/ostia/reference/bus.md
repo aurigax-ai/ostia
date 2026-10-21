@@ -12,3 +12,7 @@ A message turns delivered once your command printed it; if that command died fir
 again. `send` and `handoff` read the store back and answer `not-queued:` or `not-recorded:` when
 the message is missing; a receiver with 200 undelivered messages answers `inbox-full`. A sandboxed
 workspace reaches only its own panes.
+
+`send` and `handoff` take a pane id or a bus name (`ostia pane name`); a name resolves only to a pane
+you reach, so a name held outside your reach answers `unknown-pane`. Mail already queued stays
+addressed to the pane that held the name when it was sent.

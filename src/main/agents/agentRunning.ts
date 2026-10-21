@@ -4,6 +4,7 @@ import type {
   SnapshotPaneNode,
   SnapshotWorkspace,
 } from '../../shared/workspaces/workspaceApi'
+import { dropName } from '../panes/paneNames'
 import { busyProgram, type PromptOwner } from '../terminal/localPrompt'
 
 function snapshotWorkspaces(snapshot: AppSnapshot): SnapshotWorkspace[] {
@@ -69,11 +70,15 @@ export class AgentRunningPanes {
   report(paneId: string, running: boolean, attached: boolean): void {
     if (!attached || this.panes.has(paneId) === running) return
     if (running) this.panes.add(paneId)
-    else this.panes.delete(paneId)
+    else {
+      this.panes.delete(paneId)
+      dropName(paneId)
+    }
     this.onChange()
   }
 
   shellEnded(paneId: string): void {
+    dropName(paneId)
     if (this.panes.delete(paneId)) this.onChange()
   }
 

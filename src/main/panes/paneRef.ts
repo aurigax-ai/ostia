@@ -6,6 +6,7 @@ import {
   resolveExternal,
 } from '../control/idRegistry'
 import { type ClosedPane, closedLabel, PREFIX_MIN, recallClosedPane } from './closedPanes'
+import { paneNamed } from './paneNames'
 
 const ID_PREFIX = /^[0-9a-f-]+$/
 
@@ -45,6 +46,11 @@ export async function resolvePaneRef(
   const reaches = sandboxed ? () => false : await deps.visible(ctx)
   const mine = (workspaceId: string): boolean =>
     workspaceId === ctx.identity.workspaceId || reaches(workspaceId)
+  const holder = paneNamed(ref)
+  const registered = holder === undefined ? undefined : asPane(holder)
+  if (registered && !registered.manager && mine(registered.workspaceId) && seen(registered)) {
+    return { found: registered }
+  }
   const prefix = ref.toLowerCase()
   if (prefix.length >= PREFIX_MIN && ID_PREFIX.test(prefix)) {
     const matches = paneIdentities().filter(
