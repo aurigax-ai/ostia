@@ -109,9 +109,16 @@ describe('ScreenTitleFilter', () => {
     }
   })
 
-  it('keeps the DEL of an escape that is not a title', () => {
+  it('drops bytes from DEL up after ESC and keeps the sequence that follows', () => {
     const f = new ScreenTitleFilter()
-    expect(f.push('a\x1b\x7fMb')).toBe('a\x1b\x7fMb')
+    expect(f.push('a\x1b\x7fMb')).toBe('a\x1bMb')
+  })
+
+  it('does not hold CJK text after a stray ESC', () => {
+    const f = new ScreenTitleFilter()
+    expect(f.push('\x1b\u4e2d\u6587\r\n\u4e2d\u6587\r\n')).toBe('\r\n\r\n')
+    for (let i = 0; i < 1000; i++) expect(f.push('\u4e2d\u6587\u4e2d\u6587\r\n')).toBe('\r\n')
+    expect(f.push('x')).toBe('\x1bx')
   })
 
   it('returns plain text unchanged', () => {
