@@ -1,23 +1,47 @@
 import { type AgentResume, parseAgentResume } from '@shared/agents/agentResume'
-import { resumeWhenIdle } from '@/lib/agents/resumeFolder'
+import type { ResumeFailReason } from '@shared/park/park'
+import { resumeFolderMissing, resumeWhenIdle } from '@/lib/agents/resumeFolder'
 import { focusActivePaneWhenReady } from '@/lib/panes/paneFocus'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
+import { useParkStore } from '@/stores/workspaces/parkStore'
+
+function openTab(workspaceId: string): string | null {
+  const layouts = useLayoutStore.getState()
+  const layout = layouts.byWorkspace[workspaceId]
+  if (!layout) {
+    layouts.ensure(workspaceId)
+    return useLayoutStore.getState().byWorkspace[workspaceId]?.activePaneId ?? null
+  }
+  return layout.activePaneId ? layouts.newTab(workspaceId, layout.activePaneId, 'terminal') : null
+}
 
 export function resumeParked(workspaceId: string, raw: unknown, title: string): boolean {
   const resume: AgentResume | null = parseAgentResume(raw)
   const folder = resume?.cwd
-  const layouts = useLayoutStore.getState()
-  const layout = layouts.byWorkspace[workspaceId]
-  if (!resume || !folder || !layout?.activePaneId) return false
-  const tabId = layouts.newTab(workspaceId, layout.activePaneId, 'terminal')
+  if (!resume || !folder) return false
+  const tabId = openTab(workspaceId)
   if (!tabId) return false
+  const layouts = useLayoutStore.getState()
   layouts.setSpawnDir(workspaceId, tabId, folder)
-  layouts.rename(workspaceId, tabId, title)
+  if (title) layouts.rename(workspaceId, tabId, title)
   focusActivePaneWhenReady(workspaceId)
   resumeWhenIdle(
     tabId,
     resume,
-    () => useLayoutStore.getState().closePane(workspaceId, tabId),
+    (held) => {
+      const reason: ResumeFailReason = held
+        ? 'running-elsewhere'
+        : resumeFolderMissing(tabId)
+          ? 'folder-missing'
+          : 'not-started'
+      useParkStore.getState().showNotice({
+        kind: 'resumeFailed',
+        workspaceId,
+        paneId: tabId,
+        title: title || resume.agent,
+        reason,
+      })
+    },
     undefined,
     undefined,
     true,

@@ -108,6 +108,7 @@ export const commandsEn = {
       'pane.hibernated': 'Read Whether a Pane Is Hibernated',
       'pane.joinTab': 'Move Panes to Split Tab',
       'pane.list': 'List Panes',
+      'pane.locked': 'Read Whether a Pane Is Locked',
       'pane.move': 'Move Pane',
       'pane.moveTab': 'Move Tab',
       'pane.moveToNewWindow': 'Move Pane to New Window',

@@ -14,6 +14,7 @@ export interface ParkedRecord {
   workspaceId: string
   resume: AgentResume
   title: string
+  titlePinned?: true
   summary?: string
   parkedAt: number
 }
@@ -22,6 +23,7 @@ export interface ParkInput {
   workspaceId: string
   resume: AgentResume
   title: string
+  titlePinned?: true
   summary?: string
 }
 
@@ -46,7 +48,10 @@ function optionalLine(raw: unknown, max: number): string | undefined | null {
 
 function parseRecord(raw: unknown): ParkedRecord | null {
   if (typeof raw !== 'object' || raw === null) return null
-  const { id, workspaceId, resume, title, summary, parkedAt } = raw as Record<string, unknown>
+  const { id, workspaceId, resume, title, titlePinned, summary, parkedAt } = raw as Record<
+    string,
+    unknown
+  >
   if (typeof id !== 'string' || !ID_PATTERN.test(id)) return null
   if (
     typeof workspaceId !== 'string' ||
@@ -65,6 +70,7 @@ function parseRecord(raw: unknown): ParkedRecord | null {
     workspaceId,
     resume: parsed,
     title: singleLine(title, TITLE_MAX),
+    ...(titlePinned === true ? { titlePinned: true as const } : {}),
     ...(summaryLine ? { summary: summaryLine } : {}),
     parkedAt,
   }
@@ -126,6 +132,7 @@ export class ParkedStore {
       workspaceId: input.workspaceId,
       resume,
       title,
+      ...(input.titlePinned ? { titlePinned: true as const } : {}),
       ...(summary ? { summary } : {}),
       parkedAt: this.now(),
     }

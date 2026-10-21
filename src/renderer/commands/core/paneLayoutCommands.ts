@@ -169,6 +169,18 @@ function registerOpenAndCloseCommands(): void {
     },
   })
 
+  registerCore<{ paneId?: string } | undefined, { locked: boolean }>({
+    id: 'pane.locked',
+    category: 'pane',
+    hidden: true,
+    capabilities: ['read-board'],
+    run: (args, ctx) => {
+      const target = args?.paneId ?? ctx.activePaneId
+      if (!ctx.activeWorkspaceId || !target) throw new Error('no target pane')
+      return { locked: useLayoutStore.getState().isLocked(ctx.activeWorkspaceId, target) }
+    },
+  })
+
   registerCore<{ paneId?: string } | undefined>({
     id: 'pane.toggleLock',
     category: 'pane',

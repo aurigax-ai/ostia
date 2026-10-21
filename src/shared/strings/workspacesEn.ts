@@ -268,6 +268,12 @@ export const workspacesEn = {
       'workspace-closed': 'the workspace is closed',
     },
     parkRefused: 'Can’t park “{title}”: {reason}.',
+    parkResumeFailed: 'Could not resume “{title}”: {reason}. It stays in Parked.',
+    parkResumeReasons: {
+      'folder-missing': 'its folder no longer exists',
+      'not-started': 'the shell never reached a prompt, or folder trust was declined',
+      'running-elsewhere': 'its session is already running in another tab',
+    },
     parkShow: 'Show',
     parkTab: 'Park',
     parked: 'Parked “{title}”. Resume it from Activity › Parked.',

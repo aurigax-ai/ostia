@@ -1,10 +1,18 @@
-import type { ParkRefusal } from '@shared/park/park'
+import type { ParkRefusal, ResumeFailReason } from '@shared/park/park'
 import { create } from 'zustand'
 
 const PARK_NOTICE_MS = 15_000
 
 type ParkNotice =
   | { kind: 'parked'; workspaceId: string; title: string; seq: number }
+  | {
+      kind: 'resumeFailed'
+      workspaceId: string
+      paneId: string
+      title: string
+      reason: ResumeFailReason
+      seq: number
+    }
   | {
       kind: 'refused'
       workspaceId: string
@@ -16,6 +24,13 @@ type ParkNotice =
 
 type NoticeInput =
   | { kind: 'parked'; workspaceId: string; title: string }
+  | {
+      kind: 'resumeFailed'
+      workspaceId: string
+      paneId: string
+      title: string
+      reason: ResumeFailReason
+    }
   | { kind: 'refused'; workspaceId: string; paneId: string; title: string; reason: ParkRefusal }
 
 interface ParkState {

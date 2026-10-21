@@ -265,6 +265,12 @@ export const workspacesZhHant: typeof workspacesEn = {
       'workspace-closed': '工作區已關閉',
     },
     parkRefused: '無法暫放「{title}」：{reason}。',
+    parkResumeFailed: '無法恢復「{title}」：{reason}。它仍在「已暫放」中。',
+    parkResumeReasons: {
+      'folder-missing': '它的資料夾已不存在',
+      'not-started': 'shell 未進入提示符號，或已拒絕資料夾信任',
+      'running-elsewhere': '它的工作階段已在另一個分頁執行',
+    },
     parkShow: '顯示',
     parkTab: '暫放',
     parked: '已暫放「{title}」。可從「活動 › 已暫放」恢復。',
