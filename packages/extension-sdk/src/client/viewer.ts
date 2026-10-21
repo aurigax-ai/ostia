@@ -13,6 +13,7 @@ import { watchScrolling } from '../contract/scrollbar'
 import {
   encodeViewerSelection,
   VIEWER_EDIT_SOURCE_PATH,
+  VIEWER_FIND_KEYS_PATH,
   VIEWER_OPEN_PATH,
   VIEWER_SELECTION_PATH,
   type ViewerRect,
@@ -246,6 +247,12 @@ export function openViewerLink(href: string): Promise<boolean> {
 
 export function requestEditSource(): Promise<boolean> {
   return postGesture(VIEWER_EDIT_SOURCE_PATH)
+}
+
+export async function claimFindKeys(): Promise<void> {
+  try {
+    await fetch(VIEWER_FIND_KEYS_PATH, { method: 'POST' })
+  } catch {}
 }
 
 export function viewerDocumentUrl(): string {

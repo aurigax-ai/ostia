@@ -18,6 +18,7 @@ import {
 } from '@aurigax-ai/ostia-extension-sdk/contract/fileKinds'
 import {
   VIEWER_EDIT_SOURCE_PATH,
+  VIEWER_FIND_KEYS_PATH,
   VIEWER_OPEN_HREF_MAX,
   VIEWER_OPEN_PATH,
   VIEWER_SELECTION_BODY_MAX,
@@ -118,6 +119,7 @@ interface Live {
   pointerShift: boolean
   keyAt: number | null
   keyShift: boolean
+  ownsFindKeys: boolean
 }
 
 export const RANGE_STREAMS_MAX = 8
@@ -217,6 +219,7 @@ export class ViewerHost {
       pointerAt: null,
       pointerShift: false,
       keyShift: false,
+      ownsFindKeys: false,
       keyAt: null,
     }
     this.byToken.set(token, live)
@@ -333,8 +336,8 @@ export class ViewerHost {
     return stored ? this.copyStored(stored) : this.deps.copyStrings().nothing
   }
 
-  isViewerGuest(guest: { getURL: () => string }): boolean {
-    return this.liveOf(guest.getURL()) !== null
+  ownsFindKeys(guest: { getURL: () => string }): boolean {
+    return this.liveOf(guest.getURL())?.ownsFindKeys === true
   }
 
   copyForGuest(guest: { getURL: () => string }): boolean {
@@ -398,6 +401,7 @@ export class ViewerHost {
       token = live?.token ?? null
       if (live) {
         this.forgetSelection(live)
+        live.ownsFindKeys = false
         this.watchGuest(live, guest)
       }
     })
@@ -469,6 +473,10 @@ export class ViewerHost {
     }
     if (pathname === VIEWER_EDIT_SOURCE_PATH && request.method === 'POST') {
       return this.receiveEditSource(live)
+    }
+    if (pathname === VIEWER_FIND_KEYS_PATH && request.method === 'POST') {
+      live.ownsFindKeys = true
+      return new Response(null, { status: 204 })
     }
     if (request.method !== 'GET') return new Response(null, { status: 405 })
     if (pathname === VIEWER_META_PATH) return this.meta(live)

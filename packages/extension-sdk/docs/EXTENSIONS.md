@@ -1409,6 +1409,7 @@ pill.find.setResult({ index: 2, total: 5 })
 ```
 
 - Controls are `button`, `toggle` (`aria-pressed`), `menu` (groups of items with a check on one id and an optional chord), `pager` (page box, `of`, previous and next) and `find`. Every control has `id`, `label` (the accessible name and tooltip), an optional `chord` (shown in the tooltip) and `disabled`. Icons are SVG strings drawn with `currentColor`.
+- A pill with a `find` control tells Ostia that the page owns find, so Ostia leaves primary+F, primary+G and F3 to the page (it handles them itself: `pill.find.open()`, Enter and Shift+Enter, and your own primary+G and F3 handlers). A viewer page without one keeps the app's find keys.
 - `find` adds a search button. `pill.find.open()` turns the pill into the find row (field, `n of N` through `labels.count`, match case, highlight all, previous, next, Done); Enter and Shift+Enter step, Escape closes. The page does the searching and reports with `pill.find.setResult`.
 - `setState(id, {disabled?, pressed?, text?, checked?, page?, count?})`, `setHidden(hidden)` and `destroy()`.
 - `createSlider({label, min, max, value, step?, format?, onInput})` from `.../slider` returns `{element, setValue, setMax}`: the seek and volume range input, styled by `.ostia-slider` in `panel.css`.

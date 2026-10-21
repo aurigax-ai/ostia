@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { decodeViewerSelection } from '../contract/viewerSelection'
 import {
+  claimFindKeys,
   clearSelection,
   hasPublishedSelection,
   onSelectionPublished,
@@ -125,5 +126,13 @@ describe('viewer host requests', () => {
 
   it('builds an absolute document url for media elements and pdf.js', () => {
     expect(viewerDocumentUrl()).toBe(new URL('/~document', location.href).href)
+  })
+
+  it('claims the find keys with a plain post and survives an unreachable host', async () => {
+    const calls = stubFetch()
+    await claimFindKeys()
+    expect(calls[0]).toMatchObject({ url: '/~find-keys', init: { method: 'POST' } })
+    vi.stubGlobal('fetch', () => Promise.reject(new Error('down')))
+    await expect(claimFindKeys()).resolves.toBeUndefined()
   })
 })

@@ -182,6 +182,22 @@ describe('/~edit-source', () => {
   })
 })
 
+describe('/~find-keys', () => {
+  it('marks the page as owning the find keys without a gesture, until it reloads', async () => {
+    const { host, post, guest, session } = opened()
+    const src = 'ostia-viewer://t1/sheet.html'
+    const owns = () => host.ownsFindKeys({ getURL: () => src })
+    expect(owns()).toBe(false)
+    expect((await post('~find-keys', {})).status).toBe(204)
+    expect(owns()).toBe(true)
+    expect(host.ownsFindKeys({ getURL: () => 'https://example.com/' })).toBe(false)
+    expect(host.ownsFindKeys({ getURL: () => 'ostia-viewer://other/x' })).toBe(false)
+    guest.emit('did-navigate', {}, src)
+    expect(owns()).toBe(false)
+    expect((await get(session, 'ostia-viewer://t1/~find-keys')).status).toBe(404)
+  })
+})
+
 describe('live document text', () => {
   const text = (value: string | null, overrides = {}) => ({
     paneId: 'p1',

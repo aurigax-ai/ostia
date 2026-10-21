@@ -1,6 +1,7 @@
 export const VIEWER_SELECTION_PATH = '/~selection'
 export const VIEWER_OPEN_PATH = '/~open'
 export const VIEWER_EDIT_SOURCE_PATH = '/~edit-source'
+export const VIEWER_FIND_KEYS_PATH = '/~find-keys'
 
 export const VIEWER_TEXT_MAX = 256 * 1024
 export const VIEWER_CSV_MAX = 256 * 1024

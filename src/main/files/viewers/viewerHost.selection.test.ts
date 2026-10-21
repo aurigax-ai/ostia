@@ -253,8 +253,6 @@ describe('guest selection channel', () => {
     })
     expect(host.copyForGuest({ getURL: () => src })).toBe(true)
     expect(host.copyForGuest({ getURL: () => 'https://example.com/' })).toBe(false)
-    expect(host.isViewerGuest({ getURL: () => src })).toBe(true)
-    expect(host.isViewerGuest({ getURL: () => 'https://example.com/' })).toBe(false)
     await Promise.resolve()
     expect(clipboard).toHaveLength(1)
   })
