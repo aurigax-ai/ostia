@@ -16,6 +16,7 @@ const HUMAN_ONLY_ROOTS: readonly string[] = [
   'capabilities',
   'workspaceGroups',
   'agent',
+  'playbooks',
 ]
 
 function launchesProgram(key: string, value: unknown): string | null {

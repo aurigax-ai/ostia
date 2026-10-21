@@ -138,6 +138,7 @@ export function makeOstiaMock(overrides?: Partial<OstiaBridge>): OstiaBridge {
     settings: {
       path: vi.fn().mockResolvedValue('/tmp/ostia-test/settings.json'),
       onChanged: vi.fn(noopUnsub),
+      setPlaybooks: vi.fn(),
     },
     sync: {
       status: vi.fn().mockResolvedValue(SYNC_OFF),
@@ -501,6 +502,8 @@ export function makeOstiaMock(overrides?: Partial<OstiaBridge>): OstiaBridge {
       restore: vi.fn().mockResolvedValue({ ok: false, error: 'failed' }),
       skills: vi.fn().mockResolvedValue([]),
       loadSkill: vi.fn().mockResolvedValue({ ok: false, error: 'unknown-skill' }),
+      playbooks: vi.fn().mockResolvedValue([]),
+      playbookPrompt: vi.fn().mockResolvedValue(null),
       mcpStatus: vi.fn().mockResolvedValue([]),
       mcpRefresh: vi.fn().mockResolvedValue([]),
       mcpReconnect: vi.fn().mockResolvedValue([]),

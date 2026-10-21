@@ -28,7 +28,7 @@ import type { ScratchFolders } from '../../workspaces/scratchFolders'
 import { workDirForWorkspace } from '../../workspaces/workspaceRegistry'
 import { markNonceFileFor, writeMarkNonce } from '../markNonce'
 import type { PaneBannerText } from '../paneBanner'
-import { sendsMarkNonce, shellIntegrationSpawnOptions } from '../shellIntegration'
+import { retainAgentDir, sendsMarkNonce, shellIntegrationSpawnOptions } from '../shellIntegration'
 import type { SpawnFolder } from '../spawnCwd'
 import { sandboxCwd, spawnFolder } from '../spawnCwd'
 import { paneShellEnv } from '../terminalType'
@@ -137,6 +137,7 @@ export function createSpawnPlanner({
       scratchFolders.historyFile(workspaceId),
       markNonceFile,
     )
+    if (integration.agentDir) retainAgentDir(paneId, integration.agentDir)
     const cols = opts.cols || 80
     const rows = opts.rows || 24
     const env = paneShellEnv({

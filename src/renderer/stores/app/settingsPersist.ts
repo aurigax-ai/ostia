@@ -65,6 +65,7 @@ export async function writeSettings(s: SettingsState): Promise<void> {
     privacy: s.privacy,
     git: s.git,
     ports: s.ports,
+    playbooks: s.playbooks,
   }
   const text = `${JSON.stringify(snapshot, null, 2)}\n`
   lastWritten = text
