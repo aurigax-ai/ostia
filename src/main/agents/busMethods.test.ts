@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { MailPending } from '../../shared/agents/busMessages'
+import { shortId } from '../../shared/panes/paneStatus'
 import type { ControlMethod, ControlMethodContext } from '../control/controlServer'
 
 const dataHome = mkdtempSync(join(tmpdir(), 'ostia-bus-'))
@@ -622,7 +623,7 @@ describe('hook context', () => {
     await send('first')
     await send('second')
     const shown = context()
-    expect(shown.text).toContain('2 unread messages')
+    expect(shown.text).toContain('2 messages from other panes')
     expect(shown.text).toContain('first')
     expect(shown.text).toContain('second')
     expect(shown.text).toMatch(/<message id="[A-Za-z0-9-]+" from=/)
@@ -658,16 +659,16 @@ describe('hook context', () => {
   it('leaves messages that did not fit queued, so the next prompt shows them', async () => {
     for (let i = 0; i < 6; i++) await send(`${i}`.repeat(2500))
     const first = context()
-    expect(first.text).toContain('2 unread messages')
+    expect(first.text).toContain('2 messages from other panes')
     expect(first.text).toContain('4 more not shown here')
     ack(first.lease)
     expect((await sent()).filter((m) => m.state === 'delivered')).toHaveLength(2)
     const second = context()
-    expect(second.text).toContain('2 unread messages')
+    expect(second.text).toContain('2 messages from other panes')
     expect(second.text).toContain('2 more not shown here')
     ack(second.lease)
     const third = context()
-    expect(third.text).toContain('2 unread messages')
+    expect(third.text).toContain('2 messages from other panes')
     expect(third.text).not.toContain('more not shown here')
     ack(third.lease)
     expect(context().text).toBeNull()
@@ -730,7 +731,7 @@ describe('bus.take for the mod', () => {
     await send('first')
     await send('second')
     const taken = take()
-    expect(taken.text).toContain('2 unread messages')
+    expect(taken.text).toContain('2 messages from other panes')
     expect(taken.text).toContain('first')
     expect(taken.lease).toBeTruthy()
     expect((await sent()).map((m) => m.state)).toEqual(['leased', 'leased'])
@@ -1020,7 +1021,7 @@ describe('bus names', () => {
     const [wire] = inbox()
     expect(wire).toMatchObject({ from: sender.externalId, fromName: 'lead' })
     const shown = context().text ?? ''
-    expect(shown).toContain(`from="${sender.externalId}" name="lead"`)
+    expect(shown).toContain(`from="${shortId(sender.externalId)}" name="lead"`)
   })
 
   it('tells a resumed or cleared session without a name that names are dropped, and nobody else', () => {
