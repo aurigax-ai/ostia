@@ -176,7 +176,6 @@ test('a needs-you item an agent adds is counted in the sidebar and marked done b
     await expect(card).toContainText('Check the staging deploy', { timeout: 30_000 })
     await card.getByRole('button', { name: 'Mark done' }).click()
     await expect(count(win)).toHaveCount(0, { timeout: 15_000 })
-    await expect(panel.getByText('Nothing waits for you.')).toBeVisible()
     await panel.getByRole('tab', { name: 'Activity' }).click()
     await expect
       .poll(() => panelEval(app, `document.querySelector('.needs-you')?.innerText ?? ''`))

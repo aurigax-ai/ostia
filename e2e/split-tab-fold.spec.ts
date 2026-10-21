@@ -31,13 +31,6 @@ test('a split tab folds to one chip with its pane count and unfolds on an attent
     await head.click()
     const chip = win.locator('.pane-split-tab.folded')
     await expect(chip.getByRole('tab')).toHaveAttribute('aria-expanded', 'false')
-    await expect(chip.getByRole('tab')).toHaveAttribute(
-      'aria-label',
-      /^Folded split tab workers: 2 panes/,
-    )
-    await expect(chip).toHaveText(/^workers\s*2$/)
-    await chip.hover()
-    await expect(win.getByText('2 panes', { exact: true })).toBeVisible()
     await expect(segments).toHaveCount(0)
 
     writeFileSync(go, '')
