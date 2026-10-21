@@ -15,6 +15,7 @@ import { signExtension } from '@aurigax-ai/ostia-extension-sdk/manifest/extensio
 import { afterEach, describe, expect, it } from 'vitest'
 import {
   historyFolders,
+  placeAll,
   placement,
   signatureProblem,
   syncRelease,
@@ -218,5 +219,27 @@ describe('signatureProblem', () => {
       .publicKey.export({ type: 'spki', format: 'der' })
       .toString('base64')
     expect(signatureProblem(dir, 'csv', '1.0.0', rsa)).toContain('does not hold an Ed25519 key')
+  })
+})
+
+describe('placeAll', () => {
+  it('places the good releases and reports each bad one instead of stopping at it', () => {
+    const root = marketplace('1.0.0')
+    const assets = tmp()
+    const sources = tmp()
+    const put = (made: Made, base: string): void => {
+      execFileSync('cp', [made.archive, join(assets, `${base}.tar.gz`)])
+      execFileSync('cp', ['-r', made.source, join(sources, base)])
+    }
+    put(release('1.0.1', { sign: false }), 'lsp-bash-1.0.1')
+    put(release('1.0.2'), 'lsp-bash-1.0.2')
+    put(release('1.0.3', { folder: 'lsp-lua' }), 'lsp-bash-1.0.3')
+    writeFileSync(join(assets, 'nonsense.tar.gz'), 'x')
+    const { placed, failures } = placeAll(root, assets, sources, publicKey)
+    expect(placed).toEqual(['lsp-bash 1.0.2 -> extensions'])
+    expect(failures).toHaveLength(3)
+    expect(failures.join('\n')).toMatch(/lsp-bash-1.0.1: .*ostia.sig is missing/)
+    expect(failures.join('\n')).toMatch(/lsp-bash-1.0.3: .*holds lsp-lua/)
+    expect(readFileSync(join(root, 'extensions/lsp-bash/main.js'), 'utf8')).toBe('// 1.0.2')
   })
 })

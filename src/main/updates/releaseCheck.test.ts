@@ -368,7 +368,7 @@ describe('fetchLatestRelease', () => {
     expect(await fetchFrom(undefined, 'main')).toEqual(found('0.2.1-main.12'))
 
     expect(github.requests.map((r) => r.url)).toEqual([
-      '/repos/aurigax-ai/ostia/releases?per_page=30',
+      '/repos/aurigax-ai/ostia/releases?per_page=100',
     ])
     expect(github.requests[0].headers['user-agent']).toBe('ostia/0.2.0')
   })
@@ -381,14 +381,14 @@ describe('fetchLatestRelease', () => {
         draft: false,
         prerelease: false,
       })
-    const page = Array.from({ length: 30 }, (_, n) => extension(n)).join(',')
+    const page = Array.from({ length: 100 }, (_, n) => extension(n)).join(',')
     const full = { status: 200, body: `[${page}]` }
     github.later = [full, full, { status: 200, body: `[${extension(31)},${body('0.2.0')}]` }]
     expect(await fetchFrom(undefined, 'main')).toEqual(found('0.2.0'))
     expect(github.requests.map((r) => r.url)).toEqual([
-      '/repos/aurigax-ai/ostia/releases?per_page=30',
-      '/repos/aurigax-ai/ostia/releases?per_page=30&page=2',
-      '/repos/aurigax-ai/ostia/releases?per_page=30&page=3',
+      '/repos/aurigax-ai/ostia/releases?per_page=100',
+      '/repos/aurigax-ai/ostia/releases?per_page=100&page=2',
+      '/repos/aurigax-ai/ostia/releases?per_page=100&page=3',
     ])
   })
 
@@ -721,7 +721,7 @@ describe('registerReleaseCheck', () => {
       release: release('0.3.1-main.5'),
     })
     expect(github.requests.map((r) => r.url)).toEqual([
-      '/repos/aurigax-ai/ostia/releases?per_page=30',
+      '/repos/aurigax-ai/ostia/releases?per_page=100',
     ])
 
     settings.behavior.updateChannel = 'stable'
@@ -754,7 +754,7 @@ describe('registerReleaseCheck', () => {
         release: { ...release('0.3.1-rc.2'), dmgSha256: 'ab'.repeat(32) },
       })
       expect(github.requests.map((r) => r.url)).toEqual([
-        '/repos/aurigax-ai/ostia/releases?per_page=30',
+        '/repos/aurigax-ai/ostia/releases?per_page=100',
       ])
     }
   })
@@ -773,7 +773,7 @@ describe('registerReleaseCheck', () => {
       release: release('0.3.1-rc.2'),
     })
     expect(github.requests.map((r) => r.url)).toEqual([
-      '/repos/aurigax-ai/ostia/releases?per_page=30',
+      '/repos/aurigax-ai/ostia/releases?per_page=100',
     ])
   })
 

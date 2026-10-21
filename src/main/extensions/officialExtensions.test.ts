@@ -3,6 +3,7 @@ import { mkdirSync, mkdtempSync, rmSync, statSync, writeFileSync } from 'node:fs
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import type { ExtensionManifest } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
+import { OFFICIAL_UPDATE_PENDING } from '@aurigax-ai/ostia-extension-sdk/manifest/extensionManifest'
 import { signExtension } from '@aurigax-ai/ostia-extension-sdk/manifest/extensionSignature'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
@@ -29,7 +30,15 @@ const manifest = (version: string): ExtensionManifest =>
     id: 'csv',
     version,
     capabilities: [],
-    contributes: { commands: [], secrets: [], assist: [] },
+    contributes: {
+      commands: [],
+      secrets: [],
+      assist: [],
+      settings: [],
+      paneChips: [],
+      workspaceChips: [],
+      sidebarItems: false,
+    },
   }) as unknown as ExtensionManifest
 
 describe('the official key and the updatable built-ins', () => {
@@ -66,7 +75,7 @@ describe('AcceptedVersions', () => {
 describe('OfficialVerifier', () => {
   const { privateKey, publicKey } = generateKeyPairSync('ed25519')
 
-  function setup() {
+  function setup(recordAccepted = true) {
     const root = tmp()
     const folder = join(root, 'csv')
     mkdirSync(folder)
@@ -84,13 +93,16 @@ describe('OfficialVerifier', () => {
       revocations: new OfficialRevocations(join(root, 'revoked.json')),
       accepted: new AcceptedVersions(join(root, 'seen.json')),
       onVerified,
+      recordAccepted,
     })
-    return { folder, onVerified, verifier }
+    return { folder, onVerified, verifier, accepted: new AcceptedVersions(join(root, 'seen.json')) }
   }
 
   it('answers at once, verifies off the call and then answers from its cache until the files change', async () => {
     const { folder, onVerified, verifier } = setup()
-    expect(verifier.check(folder, manifest('1.1.0'), manifest('1.0.0'))).toBe('is being verified')
+    expect(verifier.check(folder, manifest('1.1.0'), manifest('1.0.0'))).toBe(
+      OFFICIAL_UPDATE_PENDING,
+    )
     expect(onVerified).not.toHaveBeenCalled()
     await verifier.settled()
     expect(onVerified).toHaveBeenCalledTimes(1)
@@ -99,11 +111,25 @@ describe('OfficialVerifier', () => {
     expect(onVerified).toHaveBeenCalledTimes(1)
 
     writeFileSync(join(folder, 'main.js'), 'two, and longer')
-    expect(verifier.check(folder, manifest('1.1.0'), manifest('1.0.0'))).toBe('is being verified')
+    expect(verifier.check(folder, manifest('1.1.0'), manifest('1.0.0'))).toBe(
+      OFFICIAL_UPDATE_PENDING,
+    )
     await verifier.settled()
     expect(verifier.check(folder, manifest('1.1.0'), manifest('1.0.0'))).toBe(
       'the files differ from what was signed',
     )
+  })
+
+  it('records an accepted version only when it is the one that runs, never from browsing', async () => {
+    const browsing = setup(false)
+    browsing.verifier.check(browsing.folder, manifest('1.1.0'), manifest('1.0.0'))
+    await browsing.verifier.settled()
+    expect(browsing.accepted.highest('csv')).toBeUndefined()
+
+    const running = setup(true)
+    running.verifier.check(running.folder, manifest('1.1.0'), manifest('1.0.0'))
+    await running.verifier.settled()
+    expect(running.accepted.highest('csv')).toBe('1.1.0')
   })
 
   it('refuses an id that stays tied to the app before it reads a file', () => {

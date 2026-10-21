@@ -99,4 +99,11 @@ describe('the marketplace workflows', () => {
     expect(text).not.toMatch(/node -p/)
     expect(text).toContain('sync-releases.mjs unseen')
   })
+
+  it('sync.yml pushes what it placed before it fails on what it could not', () => {
+    const { text } = workflow('marketplace/.github/workflows/sync.yml')
+    expect(text.indexOf('git push')).toBeGreaterThan(-1)
+    expect(text.indexOf('git push')).toBeLessThan(text.indexOf('Fail on the releases'))
+    expect(text).toContain('test ! -s failures.txt')
+  })
 })

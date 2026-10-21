@@ -69,7 +69,7 @@ export function extensionStamp(dir: string): string | null {
       .map((file) => {
         try {
           const stat = statSync(join(dir, file))
-          return `${file}:${stat.size}:${stat.mtimeMs}`
+          return `${file}:${stat.ino}:${stat.size}:${stat.mtimeMs}:${stat.ctimeMs}`
         } catch {
           return `${file}:missing`
         }

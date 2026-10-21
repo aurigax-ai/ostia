@@ -26,6 +26,50 @@ function kindProblem(update: FileKindContribution, bundled: FileKindContribution
   return null
 }
 
+function surfaceProblem(
+  a: ExtensionManifest['contributes'],
+  u: ExtensionManifest['contributes'],
+): string | null {
+  if (u.panel) {
+    if (!a.panel) return 'adds a panel'
+    const tabs = a.panel.toolbar?.tabs ?? []
+    for (const tab of u.panel.toolbar?.tabs ?? []) {
+      const known = tabs.find((t) => t.id === tab.id)
+      if (!known) return `adds the toolbar tab ${tab.id}`
+      if (tab.surface !== undefined && tab.surface !== known.surface) {
+        return `gives the toolbar tab ${tab.id} the ${tab.surface} surface`
+      }
+    }
+    const actions = missing(
+      (u.panel.toolbar?.actions ?? []).map((x) => x.id),
+      (a.panel.toolbar?.actions ?? []).map((x) => x.id),
+    )
+    if (actions) return `adds the toolbar action ${actions}`
+  }
+  if (u.sidebarItems && !a.sidebarItems) return 'adds sidebar items'
+  if (u.settingsPage && !a.settingsPage) return 'adds a settings page'
+  if (u.completions !== undefined && u.completions !== a.completions)
+    return 'changes its completions'
+  const lists: [string, string[], string[]][] = [
+    ['a pane chip', u.paneChips.map((c) => c.id), a.paneChips.map((c) => c.id)],
+    ['a workspace chip', u.workspaceChips.map((c) => c.id), a.workspaceChips.map((c) => c.id)],
+    ['a keymap', (u.keymaps ?? []).map((k) => k.id), (a.keymaps ?? []).map((k) => k.id)],
+    ['a language', (u.languages ?? []).map((l) => l.id), (a.languages ?? []).map((l) => l.id)],
+    ['an icon theme', (u.iconThemes ?? []).map((t) => t.id), (a.iconThemes ?? []).map((t) => t.id)],
+    [
+      'an editor language',
+      (u.editorLanguages ?? []).map((l) => l.id),
+      (a.editorLanguages ?? []).map((l) => l.id),
+    ],
+    ['a setting', u.settings.map((x) => x.key), a.settings.map((x) => x.key)],
+  ]
+  for (const [label, update, bundled] of lists) {
+    const extra = missing(update, bundled)
+    if (extra) return `adds ${label} (${extra})`
+  }
+  return null
+}
+
 export function builtinUpdateProblem(
   bundled: ExtensionManifest,
   update: ExtensionManifest,
@@ -76,5 +120,5 @@ export function builtinUpdateProblem(
     if (extra) return `adds ${label} (${extra})`
   }
   if (u.verb !== undefined && u.verb !== a.verb) return 'changes its verb'
-  return null
+  return surfaceProblem(a, u)
 }

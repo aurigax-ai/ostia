@@ -1,5 +1,5 @@
 import { generateKeyPairSync } from 'node:crypto'
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
@@ -10,7 +10,12 @@ import { registerPane } from '../control/idRegistry'
 import { ExtensionHost } from './extensionHost'
 import type { ExtensionHostDeps } from './extensionHostDeps'
 import { ExtensionStore } from './extensionStore'
-import { AcceptedVersions, OfficialRevocations, OfficialVerifier } from './officialExtensions'
+import {
+  AcceptedVersions,
+  OfficialRevocations,
+  OfficialVerifier,
+  VerdictStore,
+} from './officialExtensions'
 
 let base: string
 
@@ -722,7 +727,13 @@ describe('ExtensionHost — a built-in updated from the official marketplace', (
   }
 
   async function host(
-    opts: { key?: string | null; revoked?: string[]; updatable?: string[]; seen?: string } = {},
+    opts: {
+      key?: string | null
+      revoked?: string[]
+      updatable?: string[]
+      seen?: string
+      verdicts?: VerdictStore
+    } = {},
   ): Promise<ExtensionHost> {
     writeFileSync(join(base, 'revoked.json'), JSON.stringify(opts.revoked ?? []))
     if (opts.seen) writeFileSync(join(base, 'seen.json'), JSON.stringify({ board: opts.seen }))
@@ -732,6 +743,8 @@ describe('ExtensionHost — a built-in updated from the official marketplace', (
       revocations: new OfficialRevocations(join(base, 'revoked.json')),
       accepted: new AcceptedVersions(join(base, 'seen.json')),
       onVerified: () => rescan(),
+      recordAccepted: true,
+      ...(opts.verdicts ? { verdicts: opts.verdicts } : {}),
       updatable: opts.updatable ?? ['board'],
     })
     const { host: created } = makeHost({ officialUpdate: verifier.check })
@@ -752,19 +765,35 @@ describe('ExtensionHost — a built-in updated from the official marketplace', (
     })
   })
 
-  it('keeps the bundled copy until the copy is verified', () => {
+  it('does not start the bundled copy while the update is being verified, and remembers the verdict', async () => {
     update('2.0.0', true)
-    const verifier = new OfficialVerifier({
-      publicKey: () => publicDer,
-      revocations: new OfficialRevocations(join(base, 'revoked.json')),
-      accepted: new AcceptedVersions(join(base, 'seen.json')),
-      onVerified: () => {},
-      updatable: ['board'],
-    })
-    expect(board(makeHost({ officialUpdate: verifier.check }).host)).toMatchObject({
+    const verdicts = new VerdictStore(join(base, 'verdicts.json'))
+    const make = (store: VerdictStore) =>
+      new OfficialVerifier({
+        publicKey: () => publicDer,
+        revocations: new OfficialRevocations(join(base, 'revoked.json')),
+        accepted: new AcceptedVersions(join(base, 'seen.json')),
+        onVerified: () => {},
+        recordAccepted: true,
+        verdicts: store,
+        updatable: ['board'],
+      })
+    const first = make(verdicts)
+    expect(board(makeHost({ officialUpdate: first.check }).host)).toBeUndefined()
+    await first.settled()
+    expect(statSync(join(base, 'verdicts.json')).mode & 0o777).toBe(0o600)
+    expect(board(makeHost({ officialUpdate: make(verdicts).check }).host)).toMatchObject({
       builtin: true,
-      version: '1.0.0',
+      version: '2.0.0',
     })
+  })
+
+  it('verifies again when the folder changes, even to the same size', async () => {
+    update('2.0.0', true)
+    const verdicts = new VerdictStore(join(base, 'verdicts.json'))
+    expect(board(await host({ verdicts }))).toMatchObject({ version: '2.0.0' })
+    writeFileSync(join(base, 'user/board/panel.html'), '<p>tampered</p>')
+    expect(board(await host({ verdicts }))).toMatchObject({ version: '1.0.0' })
   })
 
   it('keeps the bundled copy for an unsigned, tampered, downgraded or revoked one', async () => {

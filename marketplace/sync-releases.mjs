@@ -175,6 +175,35 @@ export function writeHistory(root) {
   writeFileSync(file, `${JSON.stringify(manifest, null, 2)}\n`)
 }
 
+export function placeAll(root, assets, sources, key) {
+  const placed = []
+  const failures = []
+  const ordered = readdirSync(assets)
+    .filter((name) => name.endsWith('.tar.gz'))
+    .map((name) => name.replace(/\.tar\.gz$/, ''))
+    .sort()
+  for (const base of ordered) {
+    try {
+      const at = base.search(/-\d+\.\d+\.\d+/)
+      const parsed = at > 0 && parseExtensionTag(`ext/${base.slice(0, at)}/v${base.slice(at + 1)}`)
+      if (!parsed) throw new Error(`${base} is not <id>-<version>`)
+      const done = syncRelease(
+        root,
+        join(assets, `${base}.tar.gz`),
+        join(sources, base),
+        parsed,
+        key,
+      )
+      if (done)
+        placed.push(`${done.id} ${done.version} -> ${done.newest ? 'extensions' : 'versions'}`)
+    } catch (err) {
+      failures.push(`${base}: ${err.message}`)
+    }
+  }
+  writeHistory(root)
+  return { placed, failures }
+}
+
 function officialKey(root) {
   return JSON.parse(readFileSync(join(root, keyFile), 'utf8')).publicKey
 }
@@ -185,28 +214,10 @@ if (process.argv[1] === import.meta.filename) {
     const tags = readFileSync(0, 'utf8').split('\n').filter(Boolean)
     for (const { tag, id, version } of unseen(root, tags)) console.log(`${tag}\t${id}\t${version}`)
   } else if (verb === 'place' && root && assets && sources) {
-    const key = officialKey(root)
-    const ordered = readdirSync(assets)
-      .filter((name) => name.endsWith('.tar.gz'))
-      .map((name) => name.replace(/\.tar\.gz$/, ''))
-      .sort()
-    for (const base of ordered) {
-      const at = base.search(/-\d+\.\d+\.\d+/)
-      const parsed = at > 0 && parseExtensionTag(`ext/${base.slice(0, at)}/v${base.slice(at + 1)}`)
-      if (!parsed) throw new Error(`${base} is not <id>-<version>`)
-      const placed = syncRelease(
-        root,
-        join(assets, `${base}.tar.gz`),
-        join(sources, base),
-        parsed,
-        key,
-      )
-      if (placed)
-        console.log(
-          `${placed.id} ${placed.version} -> ${placed.newest ? 'extensions' : 'versions'}`,
-        )
-    }
-    writeHistory(root)
+    const { placed, failures } = placeAll(root, assets, sources, officialKey(root))
+    for (const line of placed) console.log(line)
+    for (const line of failures) console.error(line)
+    writeFileSync('failures.txt', failures.map((line) => `${line}\n`).join(''))
   } else {
     console.error('usage: node sync-releases.mjs unseen <marketplace>   (release tags on stdin)')
     console.error(

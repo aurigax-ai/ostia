@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { discoverExtensions, parseManifest } from './extensionManifest'
+import { discoverExtensions, OFFICIAL_UPDATE_PENDING, parseManifest } from './extensionManifest'
 
 function manifest(version: string, api = '7.0'): Record<string, unknown> {
   return { id: 'csv', name: 'csv', version, api, main: 'main.js' }
@@ -48,6 +48,21 @@ describe('a built-in updated from the official marketplace', () => {
         "not used in place of the built-in 'csv': the signature does not match",
       ),
     ])
+  })
+
+  it('leaves the built-in out of the scan while the check is still verifying the copy', () => {
+    const roots = [
+      { dir: root({ csv: manifest('1.0.0') }), builtin: true },
+      { dir: root({ csv: manifest('1.2.0') }), builtin: false },
+    ]
+    const errors: string[] = []
+    const found = discoverExtensions(
+      roots,
+      (_dir, error) => errors.push(error),
+      () => OFFICIAL_UPDATE_PENDING,
+    )
+    expect(found).toEqual([])
+    expect(errors).toEqual([])
   })
 
   it('refuses a copy below the bundled version even when it is trusted', () => {

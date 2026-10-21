@@ -7,6 +7,7 @@ import {
 import { isRecord } from '@aurigax-ai/ostia-extension-sdk/contract/isRecord'
 import { agentSkillProblems } from '@aurigax-ai/ostia-extension-sdk/manifest/agentSkills'
 import {
+  OFFICIAL_UPDATE_PENDING,
   type OfficialUpdateCheck,
   readManifest,
 } from '@aurigax-ai/ostia-extension-sdk/manifest/extensionManifest'
@@ -60,16 +61,24 @@ interface Records {
   installs: Record<string, string>
   prerelease: string[]
   dev: Record<string, string>
+  revokedApplied: string[]
 }
 
 function sanitizeRecords(raw: unknown): Records {
-  const records: Records = { sources: [], installs: {}, prerelease: [], dev: {} }
+  const records: Records = {
+    sources: [],
+    installs: {},
+    prerelease: [],
+    dev: {},
+    revokedApplied: [],
+  }
   if (typeof raw !== 'object' || raw === null) return records
-  const { sources, installs, prerelease, dev } = raw as {
+  const { sources, installs, prerelease, dev, revokedApplied } = raw as {
     sources?: unknown
     installs?: unknown
     prerelease?: unknown
     dev?: unknown
+    revokedApplied?: unknown
   }
   if (Array.isArray(sources)) {
     for (const source of sources) {
@@ -92,6 +101,9 @@ function sanitizeRecords(raw: unknown): Records {
       (extId): extId is string => typeof extId === 'string' && EXTENSION_ID_PATTERN.test(extId),
     )
   }
+  if (Array.isArray(revokedApplied)) {
+    records.revokedApplied = revokedApplied.filter((key): key is string => typeof key === 'string')
+  }
   if (isRecord(dev)) {
     for (const [extId, source] of Object.entries(dev)) {
       if (records.installs[extId] === DEV_OWNER && typeof source === 'string') {
@@ -108,6 +120,7 @@ export interface MarketplaceDeps {
   extensionsDir: string
   bundled: (extId: string) => ExtensionManifest | undefined
   disable: (extId: string) => void
+  verified: () => Promise<void>
   officialUpdate: OfficialUpdateCheck
   saveRevocations: (revoked: readonly RevokedVersion[]) => boolean
   forget: (extId: string) => void
@@ -227,6 +240,7 @@ export class Marketplace {
 
   private leavesPrerelease(manifest: ExtensionManifest, installed: string): boolean {
     return (
+      this.deps.bundled(manifest.id) === undefined &&
       manifest.version !== installed &&
       isPrerelease(installed) &&
       !isPrerelease(manifest.version) &&
@@ -247,7 +261,8 @@ export class Marketplace {
     const source = this.records.sources.find((s) => s.id === sourceId)
     if (!source || source.url !== this.officialUrl) return false
     if (!isNewerVersion(entry.manifest.version, bundled.version)) return false
-    return this.deps.officialUpdate(entry.dir, entry.manifest, bundled) === null
+    const verdict = this.deps.officialUpdate(entry.dir, entry.manifest, bundled)
+    return verdict === null || verdict === OFFICIAL_UPDATE_PENDING
   }
 
   private hasSource(id: string): boolean {
@@ -413,8 +428,12 @@ export class Marketplace {
     for (const [extId, owner] of Object.entries(this.records.installs)) {
       if (owner !== sourceId || this.deps.bundled(extId) !== undefined) continue
       const installed = this.installedVersion(extId)
+      const key = `${extId}@${installed}`
+      if (this.records.revokedApplied.includes(key)) continue
       if (catalog.revoked.some((r) => r.id === extId && r.version === installed)) {
         this.deps.disable(extId)
+        this.records = { ...this.records, revokedApplied: [...this.records.revokedApplied, key] }
+        this.save()
       }
     }
   }
@@ -530,6 +549,10 @@ export class Marketplace {
     if (typeof catalog === 'string') return this.fail('invalid-marketplace', catalog)
     const entry = pick(source, catalog)
     if ('ok' in entry) return entry
+    if (this.isBundled(entry)) {
+      this.installState(source.id, entry)
+      await this.deps.verified()
+    }
     const state = this.installState(source.id, entry)
     if (state === 'conflict') return this.fail('conflict')
     if (state === 'incompatible') return this.fail('needs-newer-app', entry.needsApi)

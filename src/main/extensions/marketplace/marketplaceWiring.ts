@@ -61,7 +61,8 @@ export function startMarketplace({
     publicKey: () => OFFICIAL_EXTENSION_PUBLIC_KEY,
     revocations,
     accepted: new AcceptedVersions(join(app.getPath('userData'), OFFICIAL_VERSIONS_FILE)),
-    onVerified: () => {},
+    onVerified: () => services.extensionHost?.announce(),
+    recordAccepted: false,
   })
   const marketplace = new Marketplace({
     recordsPath: join(app.getPath('userData'), 'marketplaces.json'),
@@ -73,6 +74,7 @@ export function startMarketplace({
       return bundled?.ok ? bundled.manifest : undefined
     },
     officialUpdate: verifier.check,
+    verified: () => verifier.settled(),
     disable: (extId) => services.extensionHost?.processes.setEnabled(extId, false),
     saveRevocations: (revoked) => revocations.replace(revoked),
     forget: (extId) => {

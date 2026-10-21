@@ -58,9 +58,11 @@ import {
   AcceptedVersions,
   OFFICIAL_EXTENSION_PUBLIC_KEY,
   OFFICIAL_REVOCATIONS_FILE,
+  OFFICIAL_VERDICTS_FILE,
   OFFICIAL_VERSIONS_FILE,
   OfficialRevocations,
   OfficialVerifier,
+  VerdictStore,
 } from './officialExtensions'
 import { registerWireRuntime, WireRuntime } from './wireRuntime'
 import { inboxEntriesForWindow, workspaceChipsForWindow } from './workspaceChips'
@@ -240,6 +242,8 @@ export function startExtensionHost({
     revocations: new OfficialRevocations(join(app.getPath('userData'), OFFICIAL_REVOCATIONS_FILE)),
     accepted: new AcceptedVersions(join(app.getPath('userData'), OFFICIAL_VERSIONS_FILE)),
     onVerified: () => services.extensionHost?.processes.rescan(),
+    recordAccepted: true,
+    verdicts: new VerdictStore(join(app.getPath('userData'), OFFICIAL_VERDICTS_FILE)),
   })
   services.extensionHost = new ExtensionHost({
     onChanged: () => {

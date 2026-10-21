@@ -35,16 +35,28 @@ jobs:
           mkdir assets sources
           gh api repos/aurigax-ai/ostia/releases --paginate --jq '.[].tag_name' |
             node sync-releases.mjs unseen . > unseen.tsv
+          : > failures.txt
           while IFS=$'\t' read -r tag id version; do
-            gh release download "$tag" -R aurigax-ai/ostia -p "$id-$version.tar.gz" -D assets
-            git clone --quiet --depth 1 --branch "$tag" https://github.com/aurigax-ai/ostia clone
-            cp -r "clone/src/extensions/$id" "sources/$id-$version"
+            if ! gh release download "$tag" -R aurigax-ai/ostia -p "$id-$version.tar.gz" -D assets; then
+              echo "$tag: no archive to download" >> failures.txt
+              continue
+            fi
+            rm -rf clone
+            if ! git clone --quiet --depth 1 --branch "$tag" https://github.com/aurigax-ai/ostia clone ||
+              ! cp -r "clone/src/extensions/$id" "sources/$id-$version"; then
+              rm -f "assets/$id-$version.tar.gz"
+              echo "$tag: no source to copy" >> failures.txt
+            fi
             rm -rf clone
           done < unseen.tsv
-          echo "count=$(wc -l < unseen.tsv)" >> "$GITHUB_OUTPUT"
+          echo "count=$(find assets -name '*.tar.gz' | wc -l)" >> "$GITHUB_OUTPUT"
       - name: Verify and place the releases
         if: steps.unseen.outputs.count != '0'
-        run: node sync-releases.mjs place . assets sources
+        run: |
+          cp failures.txt downloads-failed.txt
+          node sync-releases.mjs place . assets sources
+          cat downloads-failed.txt >> failures.txt
+          rm downloads-failed.txt
       - name: The source builds what was released
         if: steps.unseen.outputs.count != '0'
         run: |
@@ -64,3 +76,8 @@ jobs:
             -c user.email='41898282+github-actions[bot]@users.noreply.github.com' \
             commit -m "Sync extension releases"
           git push "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" HEAD:main
+      - name: Fail on the releases that could not be placed
+        if: always()
+        run: |
+          cat failures.txt
+          test ! -s failures.txt

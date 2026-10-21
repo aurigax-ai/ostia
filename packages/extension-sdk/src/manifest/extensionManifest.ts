@@ -259,6 +259,8 @@ function updateProblem(bundled: ExtensionManifest, update: ExtensionManifest): s
   return builtinUpdateProblem(bundled, update)
 }
 
+export const OFFICIAL_UPDATE_PENDING = 'being verified'
+
 export type OfficialUpdateCheck = (
   dir: string,
   manifest: ExtensionManifest,
@@ -284,6 +286,10 @@ export function discoverExtensions(
         const problem =
           officialUpdate(dir, res.manifest, bundled.manifest) ??
           updateProblem(bundled.manifest, res.manifest)
+        if (problem === OFFICIAL_UPDATE_PENDING) {
+          found.delete(bundled.manifest.id)
+          continue
+        }
         if (problem)
           onError(dir, `not used in place of the built-in '${bundled.manifest.id}': ${problem}`)
         else found.set(bundled.manifest.id, { dir, builtin: true, manifest: res.manifest })

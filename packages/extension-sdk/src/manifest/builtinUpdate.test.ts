@@ -150,4 +150,75 @@ describe('builtinUpdateProblem', () => {
       'changes its verb',
     )
   })
+
+  it('refuses a panel, toolbar tab, inbox surface, sidebar item, chip, keymap, language, icon theme or setting the bundled one lacks', () => {
+    const panel = { title: 'P', entry: 'p.html' }
+    const withPanel = manifest({
+      contributes: {
+        panel: { ...panel, toolbar: { tabs: [{ id: 'all', title: 'All' }], actions: [] } },
+      },
+    })
+    const refused: [string, Override][] = [
+      ['adds a panel', { contributes: { panel } }],
+      ['adds sidebar items', { contributes: { sidebarItems: true } }],
+      ['adds a pane chip (c)', { contributes: { paneChips: [{ id: 'c', title: 'C' }] } }],
+      ['adds a workspace chip (w)', { contributes: { workspaceChips: [{ id: 'w', title: 'W' }] } }],
+      [
+        'adds a keymap (k)',
+        { contributes: { keymaps: [{ id: 'k', label: 'K', path: 'k.json' }] } },
+      ],
+      [
+        'adds a language (fr)',
+        { contributes: { languages: [{ id: 'fr', label: 'F', path: 'f.json' }] } },
+      ],
+      [
+        'adds an icon theme (t)',
+        { contributes: { iconThemes: [{ id: 't', label: 'T', path: 't.json' }] } },
+      ],
+      [
+        'adds a setting (x)',
+        {
+          contributes: {
+            settings: [{ key: 'x', type: 'string', default: '', description: 'x' }],
+          },
+        },
+      ],
+    ]
+    for (const [problem, change] of refused) {
+      expect(builtinUpdateProblem(bundled, manifest(change))).toBe(problem)
+    }
+    expect(
+      builtinUpdateProblem(
+        manifest({ contributes: { panel } }),
+        manifest({
+          contributes: {
+            panel: { ...panel, toolbar: { tabs: [{ id: 'inbox', title: 'I' }], actions: [] } },
+          },
+        }),
+      ),
+    ).toBe('adds the toolbar tab inbox')
+    expect(
+      builtinUpdateProblem(
+        withPanel,
+        manifest({
+          contributes: {
+            panel: {
+              ...panel,
+              toolbar: { tabs: [{ id: 'all', title: 'All', surface: 'inbox' }], actions: [] },
+            },
+          },
+        }),
+      ),
+    ).toBe('gives the toolbar tab all the inbox surface')
+    expect(
+      builtinUpdateProblem(
+        withPanel,
+        manifest({
+          contributes: {
+            panel: { ...panel, toolbar: { tabs: [{ id: 'all', title: 'All' }], actions: [] } },
+          },
+        }),
+      ),
+    ).toBeNull()
+  })
 })

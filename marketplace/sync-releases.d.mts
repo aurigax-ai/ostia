@@ -22,3 +22,10 @@ export function syncRelease(
 ): { id: string; version: string; newest: boolean } | null
 
 export function writeHistory(root: string): void
+
+export function placeAll(
+  root: string,
+  assets: string,
+  sources: string,
+  key: string,
+): { placed: string[]; failures: string[] }

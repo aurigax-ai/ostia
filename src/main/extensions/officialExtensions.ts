@@ -1,5 +1,8 @@
 import { builtinUpdateProblem } from '@aurigax-ai/ostia-extension-sdk/manifest/builtinUpdate'
-import type { OfficialUpdateCheck } from '@aurigax-ai/ostia-extension-sdk/manifest/extensionManifest'
+import {
+  OFFICIAL_UPDATE_PENDING,
+  type OfficialUpdateCheck,
+} from '@aurigax-ai/ostia-extension-sdk/manifest/extensionManifest'
 import {
   checkExtensionSignatureAsync,
   extensionStamp,
@@ -14,6 +17,7 @@ import officialKey from './officialKey.json'
 
 export const OFFICIAL_REVOCATIONS_FILE = 'official-revocations.json'
 export const OFFICIAL_VERSIONS_FILE = 'official-versions.json'
+export const OFFICIAL_VERDICTS_FILE = 'official-verdicts.json'
 
 export const UPDATABLE_BUILTINS: readonly string[] = [
   'csv',
@@ -81,19 +85,44 @@ interface Verdict {
   problem: string | null
 }
 
+export class VerdictStore {
+  constructor(private readonly path: string) {}
+
+  read(): Map<string, Verdict> {
+    const stored = loadJson<unknown>(this.path, {})
+    const verdicts = new Map<string, Verdict>()
+    if (typeof stored !== 'object' || stored === null) return verdicts
+    for (const [key, value] of Object.entries(stored)) {
+      const { stamp, problem } = (value ?? {}) as Record<string, unknown>
+      if (typeof stamp === 'string' && (problem === null || typeof problem === 'string')) {
+        verdicts.set(key, { stamp, problem })
+      }
+    }
+    return verdicts
+  }
+
+  write(verdicts: Map<string, Verdict>): void {
+    saveJson(this.path, Object.fromEntries(verdicts), { secure: true })
+  }
+}
+
 export interface OfficialVerifierDeps {
   publicKey: () => string | undefined
   revocations: OfficialRevocations
   accepted: AcceptedVersions
   onVerified: () => void
+  recordAccepted: boolean
+  verdicts?: VerdictStore
   updatable?: readonly string[]
 }
 
 export class OfficialVerifier {
-  private readonly verdicts = new Map<string, Verdict>()
+  private readonly verdicts: Map<string, Verdict>
   private readonly pending = new Map<string, Promise<void>>()
 
-  constructor(private readonly deps: OfficialVerifierDeps) {}
+  constructor(private readonly deps: OfficialVerifierDeps) {
+    this.verdicts = deps.verdicts?.read() ?? new Map()
+  }
 
   readonly check: OfficialUpdateCheck = (dir, manifest, bundled) => {
     const { id, version } = manifest
@@ -114,7 +143,7 @@ export class OfficialVerifier {
     const verdict = this.verdicts.get(key)
     if (verdict?.stamp === stamp) return verdict.problem
     this.verify(key, dir, id, version, stamp)
-    return 'is being verified'
+    return OFFICIAL_UPDATE_PENDING
   }
 
   private verify(key: string, dir: string, id: string, version: string, stamp: string): void {
@@ -122,7 +151,8 @@ export class OfficialVerifier {
     const run = checkExtensionSignatureAsync(dir, id, version, this.deps.publicKey())
       .then((res) => {
         this.verdicts.set(key, { stamp, problem: res.ok ? null : res.problem })
-        if (res.ok) this.deps.accepted.record(id, version)
+        this.deps.verdicts?.write(this.verdicts)
+        if (res.ok && this.deps.recordAccepted) this.deps.accepted.record(id, version)
       })
       .catch((err: unknown) => {
         this.verdicts.set(key, { stamp, problem: (err as Error).message })

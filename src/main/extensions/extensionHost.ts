@@ -417,6 +417,10 @@ export class ExtensionHost {
     return { ok: true, locale: this.currentLocale() }
   }
 
+  announce(): void {
+    this.changed()
+  }
+
   private changed(rt?: Runtime): void {
     if (rt) this.changes.emit(rt.ext.manifest.id)
     this.phoneScreens.recheck()

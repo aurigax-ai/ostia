@@ -11,7 +11,10 @@ import {
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import type { ExtensionManifest } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
-import type { OfficialUpdateCheck } from '@aurigax-ai/ostia-extension-sdk/manifest/extensionManifest'
+import {
+  OFFICIAL_UPDATE_PENDING,
+  type OfficialUpdateCheck,
+} from '@aurigax-ai/ostia-extension-sdk/manifest/extensionManifest'
 import {
   MARKETPLACE_CODE_PATTERN,
   MARKETPLACE_MANIFEST_FILE,
@@ -123,6 +126,7 @@ function harness(
   opts: {
     bundled?: Record<string, string>
     officialUpdate?: OfficialUpdateCheck
+    verified?: () => Promise<void>
     git?: GitRunner
     locale?: () => string
     official?: string
@@ -146,6 +150,7 @@ function harness(
       bundled: (id) =>
         opts.bundled?.[id] ? ({ id, version: opts.bundled[id] } as ExtensionManifest) : undefined,
       disable: (id) => disabled.push(id),
+      verified: opts.verified ?? (async () => {}),
       officialUpdate: opts.officialUpdate ?? (() => 'unsigned'),
       saveRevocations: (revoked) => {
         saved.push([...revoked])
@@ -1229,6 +1234,11 @@ describe('Marketplace revocation and pre-release stickiness', () => {
     publish(repo, { revoked: [{ id: 'weather', version: '1.0.0' }] })
     await h.marketplace.refresh(id)
     expect(h.disabled).toEqual(['weather'])
+    await h.marketplace.refresh(id)
+    expect(h.disabled).toEqual(['weather'])
+    expect(h.reopen().state().marketplaces).toHaveLength(1)
+    await h.reopen().refresh(id)
+    expect(h.disabled).toEqual(['weather'])
 
     const builtin = harness({ bundled: { weather: '0.9.0' } })
     const again = await offered(builtin, repo)
@@ -1285,5 +1295,73 @@ describe('Marketplace revocation and pre-release stickiness', () => {
     expect(entry).toMatchObject({ version: '1.1.0', state: 'update' })
     expect(entry?.downgrade).toBeUndefined()
     expect(await h.marketplace.install(id, 'weather')).toMatchObject({ ok: true })
+  })
+})
+
+describe('Marketplace and a built-in that is being verified', () => {
+  function repoWith(version: string): string {
+    const repo = marketplaceRepo()
+    release(repo, 'extensions/weather', version)
+    publish(repo)
+    return repo
+  }
+
+  it('shows the update as available, not as a problem, until the verdict says otherwise', async () => {
+    const repo = repoWith('1.2.0')
+    const h = harness({
+      official: repo,
+      bundled: { weather: '1.0.0' },
+      officialUpdate: () => OFFICIAL_UPDATE_PENDING,
+    })
+    expect((await offered(h, repo)).extension?.state).toBe('available')
+  })
+
+  it('waits for the verification before it installs, and refuses what fails it', async () => {
+    const repo = repoWith('1.2.0')
+    let verdict: string | null = OFFICIAL_UPDATE_PENDING
+    let waited = false
+    const make = (final: string | null) => {
+      verdict = OFFICIAL_UPDATE_PENDING
+      return harness({
+        official: repo,
+        bundled: { weather: '1.0.0' },
+        officialUpdate: () => verdict,
+        verified: async () => {
+          waited = true
+          verdict = final
+        },
+      })
+    }
+    const good = make(null)
+    const { id } = await offered(good, repo)
+    expect(await good.marketplace.install(id, 'weather')).toMatchObject({ ok: true })
+    expect(waited).toBe(true)
+
+    const bad = make('the signature does not match')
+    const again = await offered(bad, repo)
+    expect(await bad.marketplace.install(again.id, 'weather')).toMatchObject({
+      ok: false,
+      error: 'conflict',
+    })
+    expect(existsSync(join(bad.extensionsDir, 'weather'))).toBe(false)
+  })
+
+  it('does not offer a built-in a way back from a pre-release it never asked for', async () => {
+    const repo = marketplaceRepo()
+    release(repo, 'extensions/weather', '1.3.0-rc.1')
+    release(repo, 'versions/weather/1.2.0', '1.2.0')
+    publish(repo, { history: ['versions/weather/1.2.0'] })
+    const h = harness({
+      official: repo,
+      bundled: { weather: '1.0.0' },
+      officialUpdate: () => null,
+    })
+    const { id } = await offered(h, repo)
+    await h.marketplace.setPrerelease('weather', true)
+    await h.marketplace.install(id, 'weather')
+    const off = await h.marketplace.setPrerelease('weather', false)
+    const entry = off.state.marketplaces[0]?.extensions[0]
+    expect(entry).toMatchObject({ version: '1.2.0' })
+    expect(entry?.downgrade).toBeUndefined()
   })
 })
