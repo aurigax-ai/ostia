@@ -1,0 +1,265 @@
+html,
+body {
+  margin: 0;
+  min-height: 100%;
+  background: var(--bg-sunken);
+  color: var(--fg);
+  font-family: var(--font-ui);
+  font-size: var(--text-ui-base);
+}
+
+body.pdf-sidebar-open .pdf-pages {
+  margin-left: 176px;
+}
+
+.pdf-pages {
+  position: relative;
+  padding: 12px 16px;
+  box-sizing: border-box;
+}
+
+.pdf-page {
+  position: relative;
+  margin: 0 auto 12px;
+  background: #fff;
+  outline: 1px solid var(--line-strong);
+  cursor: crosshair;
+  user-select: none;
+  overflow-anchor: auto;
+}
+
+.pdf-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.pdf-text {
+  --min-font-size: 1;
+  --text-scale-factor: calc(var(--total-scale-factor) * var(--min-font-size));
+  --min-font-size-inv: calc(1 / var(--min-font-size));
+  position: absolute;
+  inset: 0;
+  overflow: clip;
+  line-height: 1;
+  text-align: initial;
+  letter-spacing: normal;
+  word-spacing: normal;
+  text-size-adjust: none;
+  forced-color-adjust: none;
+  transform-origin: 0 0;
+  caret-color: transparent;
+  user-select: text;
+  z-index: 0;
+}
+
+.pdf-text :is(span, br) {
+  position: absolute;
+  color: transparent;
+  white-space: pre;
+  transform-origin: 0% 0%;
+  user-select: text;
+}
+
+.pdf-text > :not(.markedContent),
+.pdf-text .markedContent span:not(.markedContent) {
+  --font-height: 0;
+  --scale-x: 1;
+  --rotate: 0deg;
+  z-index: 1;
+  font-size: calc(var(--text-scale-factor) * var(--font-height));
+  transform: rotate(var(--rotate)) scaleX(var(--scale-x)) scale(var(--min-font-size-inv));
+  cursor: text;
+}
+
+.pdf-text .markedContent {
+  display: contents;
+}
+
+.pdf-text ::selection {
+  background: var(--brand-glow);
+  color: transparent;
+}
+
+.pdf-text br::selection {
+  background: transparent;
+}
+
+.pdf-text .endOfContent {
+  display: block;
+  position: absolute;
+  inset: 100% 0 0;
+  z-index: 0;
+  user-select: none;
+}
+
+.pdf-text.selecting .endOfContent {
+  top: 0;
+}
+
+body.pdf-crop-mode .pdf-text,
+body.pdf-crop-mode .pdf-text span {
+  user-select: none;
+  cursor: crosshair;
+}
+
+body.pdf-over-link .pdf-page {
+  cursor: pointer;
+}
+
+.pdf-crop {
+  position: absolute;
+  z-index: 3;
+  border: 1px solid var(--brand);
+  background: var(--brand-glow);
+  pointer-events: none;
+}
+
+.pdf-crop-size {
+  position: absolute;
+  left: -1px;
+  bottom: 100%;
+  margin-bottom: 4px;
+  padding: 1px 6px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-3);
+  color: var(--fg);
+  font-family: var(--font-code);
+  font-size: var(--text-ui-xs);
+  line-height: var(--text-ui-xs--line-height);
+  white-space: nowrap;
+}
+
+::highlight(ostia-find) {
+  background-color: color-mix(in srgb, var(--group-orange) 38%, transparent);
+}
+
+::highlight(ostia-find-active) {
+  background-color: var(--group-orange);
+}
+
+.pdf-sidebar {
+  position: fixed;
+  inset: 0 auto 0 0;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  width: 176px;
+  border-right: 1px solid var(--line);
+  background: var(--surface-1);
+}
+
+.pdf-sidebar[hidden] {
+  display: none;
+}
+
+.pdf-sidebar-tabs {
+  display: flex;
+  gap: 4px;
+  padding: 8px;
+}
+
+.pdf-sidebar-tab {
+  flex: 1;
+  padding: 4px 8px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--fg-muted);
+  font: inherit;
+  font-size: var(--text-ui-sm);
+  cursor: pointer;
+}
+
+.pdf-sidebar-tab[aria-selected="true"] {
+  background: var(--surface-3);
+  color: var(--fg);
+}
+
+.pdf-sidebar-tab:focus-visible,
+.pdf-thumb:focus-visible,
+.pdf-outline-row:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 1px;
+}
+
+.pdf-sidebar-panel {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 8px;
+}
+
+.pdf-sidebar-panel[hidden] {
+  display: none;
+}
+
+.pdf-thumbs {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.pdf-thumb {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--fg-muted);
+  font: inherit;
+  font-size: var(--text-ui-xs);
+  cursor: pointer;
+}
+
+.pdf-thumb-canvas {
+  display: block;
+  background: #fff;
+  outline: 1px solid var(--line-strong);
+}
+
+.pdf-thumb[aria-current="true"] .pdf-thumb-canvas {
+  outline: 2px solid var(--brand);
+}
+
+.pdf-thumb[aria-current="true"] {
+  color: var(--fg);
+}
+
+.pdf-outline {
+  margin: 0;
+  padding: 0 0 0 12px;
+  list-style: none;
+}
+
+.pdf-sidebar-panel > .pdf-outline {
+  padding-left: 0;
+}
+
+.pdf-outline-row {
+  display: block;
+  width: 100%;
+  padding: 4px 6px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--fg-muted);
+  font: inherit;
+  font-size: var(--text-ui-sm);
+  text-align: left;
+  cursor: pointer;
+}
+
+.pdf-outline-row:hover {
+  background: var(--surface-3);
+  color: var(--fg);
+}
+
+@media (max-width: 480px) {
+  body.pdf-sidebar-open .pdf-pages {
+    margin-left: 0;
+  }
+}

@@ -9,6 +9,7 @@
     "src/extensions/images/",
     "src/extensions/office/",
     "src/extensions/video/",
+    "src/extensions/pdf/",
     "src/main/files/fsBinary.ts",
     "src/main/files/fsText.ts",
     "src/main/files/viewers/",
@@ -21,11 +22,9 @@
     "src/renderer/components/editor/FileViewerFrame.tsx",
     "src/renderer/components/editor/MarkdownPreview.tsx",
     "src/renderer/components/editor/OpenWithDialog.tsx",
-    "src/renderer/components/editor/PdfViewer.tsx",
     "src/renderer/components/editor/ViewerChrome.tsx",
     "src/renderer/components/editor/editorDiskSync.ts",
     "src/renderer/components/editor/editorModels.ts",
-    "src/renderer/components/editor/pdfViewerHooks.ts",
     "src/renderer/components/editor/useEditorActions.ts",
     "src/renderer/components/editor/useEditorFile.ts",
     "src/renderer/components/editor/useEditorOptions.ts",
@@ -47,7 +46,7 @@
     "src/renderer/stores/files/editorRevealStore.",
     "src/renderer/stores/files/editorStatusStore.",
     "src/renderer/stores/files/openWithStore.ts",
-    "src/renderer/stores/files/pdfFindStore.ts",
+    "src/renderer/stores/files/viewerHintStore.ts",
     "test/fixtures/office/"
   ],
   "specs": [

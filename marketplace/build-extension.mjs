@@ -29,9 +29,21 @@ export function installedPackage(name) {
 
 export function vendoredPackages(src) {
   const list = join(src, vendorList)
-  if (!existsSync(list)) return { packages: {}, closures: {} }
-  const { packages = {}, closures = {} } = JSON.parse(readFileSync(list, 'utf8'))
-  return { packages, closures }
+  if (!existsSync(list)) return { packages: {}, closures: {}, files: {} }
+  const { packages = {}, closures = {}, files = {} } = JSON.parse(readFileSync(list, 'utf8'))
+  return { packages, closures, files }
+}
+
+function packageFile(spec) {
+  const parts = spec.split('/')
+  const name = parts.slice(0, spec.startsWith('@') ? 2 : 1).join('/')
+  return join(installedPackage(name), ...parts.slice(name.split('/').length))
+}
+
+function copyVendoredFiles(src, out) {
+  for (const [spec, target] of Object.entries(vendoredPackages(src).files)) {
+    cpSync(packageFile(spec), join(out, target), { recursive: true, dereference: true })
+  }
 }
 
 function withoutNestedModules(from) {
@@ -232,6 +244,7 @@ export async function buildExtension(src, out, panelBaseCss) {
     if (existsSync(join(src, dir))) cpSync(join(src, dir), join(out, dir), { recursive: true })
   }
   copyVendoredPackages(src, out)
+  copyVendoredFiles(src, out)
   copyAgentSkills(src, out)
   await buildFileKinds(src, out, panelBaseCss)
   if (existsSync(join(src, 'panel.html'))) copyFileSync(panelBaseCss, join(out, 'base.css'))

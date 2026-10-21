@@ -1378,6 +1378,8 @@ doc.onDidChange(() => location.reload())
 
 **Links and the source, API 7.2.** `openViewerLink(href)` asks Ostia to open a link: it works only right after a real pointer press on the page, once per press, for `http:`, `https:` and `mailto:` links and for relative paths that stay inside the folders Ostia already lets the human read (never a path Ostia would have to ask about). It resolves `false` otherwise. `requestEditSource()` asks Ostia to switch the pane to the source text; it works only after a real pointer or key press on the page.
 
+**Find keys, API 7.2.** In a viewer page the find keys (`Ctrl+F` or `Cmd+F`, `F3`, `Ctrl+G` or `Cmd+G`, with Shift for the previous match) reach the page itself and are not forwarded to Ostia, so a viewer with its own find (the pill's `find` control) listens for them; every other Ostia shortcut is still forwarded.
+
 **The pill and the slider, API 7.2.** `createPill` from `@aurigax-ai/ostia-extension-sdk/pill` is the one floating control bar a viewer uses, at the top right of the page; a viewer draws no toolbar of its own. It appears on pointer movement or keyboard focus and hides after 2.5 s unless the pointer or focus is on it, a menu is open or find is open. The first Tab on the page focuses its first button, Escape returns focus to the page, `prefers-reduced-motion` removes the slide, and it hides while the page has a published selection. Pass the strings in the human's language: the pill has none.
 
 ```ts
@@ -1710,7 +1712,7 @@ builds an extension folder for both the app and that project (`buildExtension` i
 `ostia.json`, `locales/`, a bundled `main.js`, a panel's `panel.html`, `panel.css`, bundled
 `panel.js` and the SDK's `panel.css` as `base.css`, and the npm packages an extension's
 `vendor.json` names, copied unchanged (`packages` copies one package to a folder, `closures`
-copies a package and everything it depends on into a `node_modules` folder). An optional `bundle.json` next to `ostia.json` holds an `alias` map (`{ "alias": { "stream": "stream-browserify" } }`) applied to the extension's browser bundles, for a bundled library that imports a Node built-in. The project's
+copies a package and everything it depends on into a `node_modules` folder; `files` copies one file or folder of a package, named `<package>/<path>`, to a path in the extension, so a bundled library can load its data files by URL). An optional `bundle.json` next to `ostia.json` holds an `alias` map (`{ "alias": { "stream": "stream-browserify" } }`) applied to the extension's browser bundles, for a bundled library that imports a Node built-in. The project's
 `package.json` lists every vendored package at the exact version the app pins, so its own
 `pnpm install` and `pnpm build` produce the same `extensions/`. `pnpm publish:marketplace <checkout>`
 copies that into a checkout of the marketplace repository (`aurigax-ai/ostia-extensions`), installs

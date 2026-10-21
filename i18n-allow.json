@@ -73,6 +73,9 @@
     "office:zh-Hant": {
       "spreadsheet keywords Excel shows untranslated": ["messages.true", "messages.false"]
     },
+    "pdf:zh-Hant": {
+      "the file format name stays PDF": ["manifest.fileKinds.pdf.pdf.displayName"]
+    },
     "screens:zh-Hant": {
       "product and brand names": [
         "manifest.name",

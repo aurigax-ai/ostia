@@ -11,6 +11,8 @@
         "src/extensions/images/image.ts",
         "src/extensions/video/player.ts",
         "src/extensions/office/{sheet,document}.ts",
+        "src/extensions/pdf/pdf.ts",
+        "src/extensions/pdf/assets/pdf.css",
         "src/extensions/*/panel.css",
         "scripts/*.mjs",
         "marketplace/*.mjs",
