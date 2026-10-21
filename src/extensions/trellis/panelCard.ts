@@ -172,7 +172,7 @@ function commentForm(): HTMLElement {
       'div',
       { class: 'field-row' },
       h('span', { class: 'muted hint' }, p('comment.hint', { keys: SEND_KEYS })),
-      h('span', { class: 'ostia-spacer' }),
+      h('span', { class: 'spacer' }),
       h(
         'button',
         { type: 'submit', class: 'primary', 'data-key': 'comment-send' },
@@ -208,7 +208,7 @@ function claimControls(card: CardDetail): HTMLElement {
             : p('claim.other', { actor: actorName(card.claimedBy ?? '') }),
         ),
     until,
-    h('span', { class: 'ostia-spacer' }),
+    h('span', { class: 'spacer' }),
     claim === 'none' ? button('claim', 'claim') : null,
     claim === 'mine' ? button('renew', 'renew') : null,
     claim === 'mine' ? button('release', 'release') : null,
@@ -256,7 +256,7 @@ export function detailView(ref: string): HTMLElement {
     'header',
     { class: 'detail-head' },
     h('span', { class: 'card-ref' }, ref),
-    h('span', { class: 'ostia-spacer' }),
+    h('span', { class: 'spacer' }),
     iconButton(p('card.close'), xIcon, closeCard, { 'data-key': 'card-close' }),
   )
   const attrs = { class: 'detail', 'aria-label': ref, 'data-scroll': 'detail' }
@@ -286,7 +286,7 @@ export function detailView(ref: string): HTMLElement {
         ),
       ),
       labelChips(card),
-      h('span', { class: 'ostia-spacer' }),
+      h('span', { class: 'spacer' }),
       h('span', { class: 'muted' }, p('card.updated', { time: relativeTime(card.updatedAt) })),
     ),
     claimControls(card),

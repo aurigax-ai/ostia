@@ -17,6 +17,9 @@ import {
   type ExtensionChipContribution,
   type ExtensionCommandContribution,
   type ExtensionPanelContribution,
+  PANEL_TOOLBAR_MAX_ACTIONS,
+  PANEL_TOOLBAR_MAX_TABS,
+  type PanelToolbarContribution,
 } from '../contract/extensions'
 import { ICON_THEME_ID_PATTERN, type IconThemeContribution } from '../contract/iconTheme'
 import { isRecord } from '../contract/isRecord'
@@ -80,6 +83,45 @@ export function parseCommands(raw: unknown): ExtensionCommandContribution[] | st
   return commands
 }
 
+function parsePanelToolbar(raw: unknown): PanelToolbarContribution | string {
+  if (!isRecord(raw)) return 'contributes.panel.toolbar: must be an object'
+  const tabs = parseToolbarItems(raw.tabs, 'tabs', PANEL_TOOLBAR_MAX_TABS)
+  if (typeof tabs === 'string') return tabs
+  const actions = parseToolbarItems(raw.actions, 'actions', PANEL_TOOLBAR_MAX_ACTIONS)
+  if (typeof actions === 'string') return actions
+  const withIcon: PanelToolbarContribution['actions'] = []
+  for (const [i, action] of actions.entries()) {
+    const icon = parseIcon(action.icon)
+    if (!icon) return `contributes.panel.toolbar.actions[${i}]: missing or unknown icon`
+    withIcon.push({ id: action.id, title: action.title, icon })
+  }
+  return { tabs: tabs.map(({ id, title }) => ({ id, title })), actions: withIcon }
+}
+
+function parseToolbarItems(
+  raw: unknown,
+  field: 'tabs' | 'actions',
+  max: number,
+): { id: string; title: string; icon?: unknown }[] | string {
+  if (raw === undefined) return []
+  if (!Array.isArray(raw) || raw.length > max) {
+    return `contributes.panel.toolbar.${field} must be an array of at most ${max}`
+  }
+  const items: { id: string; title: string; icon?: unknown }[] = []
+  for (const [i, item] of raw.entries()) {
+    const where = `contributes.panel.toolbar.${field}[${i}]`
+    if (!isRecord(item)) return `${where}: must be an object`
+    if (typeof item.id !== 'string' || !COMMAND_ID_PATTERN.test(item.id)) {
+      return `${where}: invalid id`
+    }
+    const title = text(item.title)
+    if (!title) return `${where}: missing title`
+    if (items.some((x) => x.id === item.id)) return `${where}: duplicate id '${item.id}'`
+    items.push({ id: item.id, title, icon: item.icon })
+  }
+  return items
+}
+
 export function parsePanel(
   raw: unknown,
   dir: string,
@@ -96,6 +138,11 @@ export function parsePanel(
   const panel: ExtensionPanelContribution = { title, entry }
   const icon = parseIcon(raw.icon)
   if (icon) panel.icon = icon
+  if (raw.toolbar !== undefined) {
+    const toolbar = parsePanelToolbar(raw.toolbar)
+    if (typeof toolbar === 'string') return toolbar
+    panel.toolbar = toolbar
+  }
   return panel
 }
 

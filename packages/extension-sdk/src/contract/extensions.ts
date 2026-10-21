@@ -36,6 +36,8 @@ export const EXTENSION_ICONS = [
   'magnifying-glass',
   'graph',
   'toolbox',
+  'plus',
+  'refresh',
 ] as const
 
 export type ExtensionIcon = (typeof EXTENSION_ICONS)[number]
@@ -52,10 +54,47 @@ export interface ExtensionCommandContribution {
   capabilities: Capability[]
 }
 
+export const PANEL_TOOLBAR_MAX_TABS = 6
+
+export const PANEL_TOOLBAR_MAX_ACTIONS = 6
+
+export const PANEL_TOOLBAR_BACK_MAX = 60
+
+export interface PanelToolbarTab {
+  id: string
+  title: string
+}
+
+export interface PanelToolbarAction {
+  id: string
+  icon: ExtensionIcon
+  title: string
+}
+
+export interface PanelToolbarContribution {
+  tabs: PanelToolbarTab[]
+  actions: PanelToolbarAction[]
+}
+
+export interface PanelToolbarState {
+  tab?: string
+  back?: string
+  badges?: Record<string, number>
+  disabled?: string[]
+  hidden?: string[]
+}
+
+export interface PanelToolbarEntry {
+  extId: string
+  workspaceId: string
+  state: PanelToolbarState
+}
+
 export interface ExtensionPanelContribution {
   title: string
   icon?: ExtensionIcon
   entry: string
+  toolbar?: PanelToolbarContribution
 }
 
 export interface ExtensionSettingsPageContribution {

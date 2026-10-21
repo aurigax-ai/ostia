@@ -74,6 +74,17 @@ select:focus-visible,
   min-height: 0;
 }
 
+.spacer {
+  flex: 1;
+}
+
+.scope-row {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 6px;
+  padding: 8px 12px 0;
+}
+
 .filter-row {
   flex: 0 0 auto;
   padding: 8px 12px 0;

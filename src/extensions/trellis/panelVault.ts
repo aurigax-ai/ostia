@@ -47,7 +47,7 @@ function entryView(slug: string): HTMLElement {
     'header',
     { class: 'detail-head' },
     h('span', { class: 'card-ref' }, slug),
-    h('span', { class: 'ostia-spacer' }),
+    h('span', { class: 'spacer' }),
     iconButton(
       p('vault.close'),
       xIcon,
@@ -77,7 +77,7 @@ function entryView(slug: string): HTMLElement {
       entry.template ? h('span', { class: 'chip' }, entry.template) : null,
       entry.private ? h('span', { class: 'chip' }, icon(lockSimple), p('vault.private')) : null,
       ...entry.tags.map((tag) => h('span', { class: 'chip' }, tag)),
-      h('span', { class: 'ostia-spacer' }),
+      h('span', { class: 'spacer' }),
       h('span', { class: 'muted' }, p('card.updated', { time: relativeTime(entry.updatedAt) })),
     ),
     entry.summary ? h('p', { class: 'summary' }, entry.summary) : null,

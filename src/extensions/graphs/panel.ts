@@ -6,8 +6,9 @@ import {
   h,
   listRow,
   onChange,
-  panelToolbar,
+  onPanelToolbar,
   panelTranslator,
+  setPanelToolbar,
 } from '@aurigax-ai/ostia-extension-sdk/panel'
 import en from './locales/en.json'
 import zhHant from './locales/zh-Hant.json'
@@ -387,14 +388,13 @@ async function render(): Promise<void> {
           : await runView(shown.runId)
   const note = await runtimeNote()
   if (!gate.mayPaint(mine, shown, view)) return
-  const back = shown.kind !== 'list'
+  setPanelToolbar(
+    shown.kind === 'list' ? {} : { back: shown.kind === 'run' ? shown.runId : shown.name },
+  )
   root.replaceChildren(
     h(
       'div',
       { class: 'ostia-page' },
-      panelToolbar(
-        back ? { back: { label: t('action.back'), onClick: () => go({ kind: 'list' }) } } : {},
-      ),
       h(
         'main',
         { class: 'body' },
@@ -405,6 +405,10 @@ async function render(): Promise<void> {
     ),
   )
 }
+
+onPanelToolbar((event) => {
+  if (event.kind === 'back') go({ kind: 'list' })
+})
 
 onChange(() => void render())
 void render()

@@ -173,7 +173,7 @@ function newCardForm(board: TrellisBoard, draft: NewCardDraft): HTMLElement {
           },
         ),
       ),
-      h('span', { class: 'ostia-spacer' }),
+      h('span', { class: 'spacer' }),
       h(
         'button',
         {

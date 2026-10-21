@@ -4,6 +4,7 @@ import { useSandboxStore } from '@/stores/app/sandboxStore'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useSidePanelStore } from '@/stores/app/sidePanelStore'
 import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
+import { usePanelToolbarStore } from '@/stores/extensions/panelToolbarStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import type { ExtensionInfo } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import { act, cleanup, render, screen, waitFor } from '@testing-library/react'
@@ -14,6 +15,21 @@ import { RightPanel } from './RightPanel'
 
 const panelInfo = (id: string, title: string, enabled = true): ExtensionInfo =>
   ({ id, name: title, enabled, assist: [], panel: { title } }) as unknown as ExtensionInfo
+
+const toolbarInfo = (): ExtensionInfo =>
+  ({
+    ...panelInfo('trellis', 'Trellis'),
+    panel: {
+      title: 'Trellis',
+      toolbar: {
+        tabs: [
+          { id: 'board', title: 'Board' },
+          { id: 'vault', title: 'Vault' },
+        ],
+        actions: [{ id: 'refresh', icon: 'refresh', title: 'Refresh' }],
+      },
+    },
+  }) as unknown as ExtensionInfo
 
 const PANELS = [
   panelInfo('graphs', 'Graphs'),
@@ -70,6 +86,7 @@ describe('RightPanel', () => {
     resetCoreWatch()
     panel.mockReset()
     useSidePanelStore.setState(sideInit, true)
+    usePanelToolbarStore.setState({ entries: [] })
     useExtensionsStore.setState(extInit, true)
     useWorkspacesStore.setState(workspacesInit, true)
     useSandboxStore.setState(sandboxInit, true)
@@ -299,6 +316,9 @@ describe('RightPanel', () => {
     await waitFor(() => expect(document.querySelector('#right-panel .git-surface')).not.toBeNull())
     expect(screen.getByRole('complementary', { name: 'Git' })).toBe(dock())
     expect(screen.getAllByRole('tab').map((tab) => tab.textContent)).toEqual(['Changes'])
+    expect(
+      document.querySelector('#right-panel .git-surface .tabs-end [data-panel-close]'),
+    ).not.toBeNull()
     expect(screen.queryByText('Closed in a sandboxed workspace.')).toBeNull()
     const surface = document.querySelector('#right-panel .git-surface')
 
@@ -307,6 +327,77 @@ describe('RightPanel', () => {
     show('git')
 
     expect(document.querySelector('#right-panel .git-surface')).toBe(surface)
+  })
+
+  it('draws the core toolbar row above every panel slot with the close last, outside the webview', async () => {
+    setup()
+    render(<RightPanel />)
+    show('graphs')
+    await waitFor(() => expect(webviews()).toHaveLength(1))
+    show('activity')
+    await waitFor(() => expect(webviews()).toHaveLength(2))
+
+    const slots = [...document.querySelectorAll<HTMLElement>('.right-panel-slot')]
+    expect(slots).toHaveLength(2)
+    for (const slot of slots) {
+      const row = slot.querySelector('.panel-toolbar') as HTMLElement
+      expect(row).not.toBeNull()
+      expect(row.querySelector('webview')).toBeNull()
+      expect(row.nextElementSibling?.querySelector('webview')).not.toBeNull()
+      expect(row.querySelector('.panel-toolbar-actions')?.lastElementChild).toHaveAttribute(
+        'data-panel-close',
+      )
+    }
+    expect(screen.getByRole('button', { name: 'Close Activity' })).toBeVisible()
+  })
+
+  it('closes the panel from the core row and returns the keyboard to the pane only from inside it', async () => {
+    setup()
+    render(<RightPanel />)
+    show('graphs')
+    await waitFor(() => expect(webviews()).toHaveLength(1))
+
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Close Graphs' }))
+
+    expect(useSidePanelStore.getState().right).toBeNull()
+    expect(dock()).toHaveAttribute('data-hidden')
+  })
+
+  it('shows the declared tabs and actions in the core row and switches tabs from it', async () => {
+    setup()
+    useExtensionsStore.setState({ list: [toolbarInfo()] })
+    render(<RightPanel />)
+    show('trellis')
+    await waitFor(() => expect(webviews()).toHaveLength(1))
+
+    expect(screen.getAllByRole('tab').map((tab) => tab.textContent)).toEqual(['Board', 'Vault'])
+    expect(screen.getByRole('button', { name: 'Refresh' })).toBeVisible()
+    await userEvent.setup().click(screen.getByRole('tab', { name: 'Vault' }))
+
+    expect(usePanelToolbarStore.getState().entries).toEqual([
+      { extId: 'trellis', workspaceId: 'w1', state: { tab: 'vault' } },
+    ])
+    expect(screen.getByRole('tab', { name: 'Vault' })).toHaveAttribute('aria-selected', 'true')
+  })
+
+  it('replaces the tabs and actions with Back and the sub-screen title the page asks for', async () => {
+    setup()
+    useExtensionsStore.setState({ list: [toolbarInfo()] })
+    render(<RightPanel />)
+    show('trellis')
+    await waitFor(() => expect(webviews()).toHaveLength(1))
+
+    act(() =>
+      usePanelToolbarStore
+        .getState()
+        .setEntries([{ extId: 'trellis', workspaceId: 'w1', state: { back: 'ACME-41' } }]),
+    )
+
+    expect(screen.getByText('ACME-41')).toBeVisible()
+    expect(screen.getByRole('button', { name: 'Back' })).toBeVisible()
+    expect(screen.queryByRole('tab')).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Refresh' })).toBeNull()
+    expect(screen.getByRole('button', { name: 'Close Trellis' })).toBeVisible()
   })
 
   it('has no Git panel when Git is switched off', async () => {

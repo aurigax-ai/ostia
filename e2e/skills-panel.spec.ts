@@ -96,25 +96,16 @@ test('the human approves a proposed rule only after resolving its conflict', asy
       .toBe('active')
     const stored = JSON.parse(readFileSync(join(dir, 'rules.json'), 'utf8')).rules
     expect(stored.find((r: { id: string }) => r.id === 'r2').state).toBe('proposed')
-    await panelEval(
-      app,
-      `const add = document.querySelector('[data-focus="add"]'); add.focus(); add.click(); 'ok'`,
-    )
+    const toolbar = win.locator('#right-panel')
+    await toolbar.getByRole('button', { name: 'Add a rule' }).click()
     await expect
-      .poll(() =>
-        panelEval(
-          app,
-          `document.querySelector('[data-pane="form"]') ? document.activeElement?.textContent : 'none'`,
-        ),
-      )
-      .toBe('Back')
-    await panelEval(
-      app,
-      `[...document.querySelectorAll('button')].find((b) => b.textContent === 'Back')?.click(); 'ok'`,
-    )
+      .poll(() => panelEval(app, `document.querySelector('[data-pane="form"]') ? 'form' : 'none'`))
+      .toBe('form')
+    await toolbar.getByRole('button', { name: 'Back' }).click()
     await expect
-      .poll(() => panelEval(app, `document.activeElement?.getAttribute('data-focus') ?? 'none'`))
-      .toBe('add')
+      .poll(() => panelEval(app, `document.querySelector('[data-pane="form"]') ? 'form' : 'none'`))
+      .toBe('none')
+    await expect(toolbar.getByRole('button', { name: 'Add a rule' })).toBeVisible()
   } finally {
     await quitApp(app)
   }

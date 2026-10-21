@@ -469,6 +469,45 @@ describe('parseManifest', () => {
     expect(panel('panel.html')).toBe(true)
   })
 
+  it('parses a declared panel toolbar of tabs and icon actions', () => {
+    const toolbar = {
+      tabs: [
+        { id: 'board', title: 'Board' },
+        { id: 'vault', title: 'Vault' },
+      ],
+      actions: [{ id: 'refresh', title: 'Refresh', icon: 'refresh' }],
+    }
+    const res = parseManifest(
+      manifest({ contributes: { panel: { title: 'P', entry: 'url', toolbar } } }),
+      DIR,
+    )
+    expect(res.ok && res.manifest.contributes.panel?.toolbar).toEqual(toolbar)
+  })
+
+  it('rejects a malformed panel toolbar', () => {
+    const bad = (toolbar: unknown) =>
+      parseManifest(
+        manifest({ contributes: { panel: { title: 'P', entry: 'url', toolbar } } }),
+        DIR,
+      ).ok
+    expect(bad('x')).toBe(false)
+    expect(bad({ tabs: [{ id: 'Bad Id', title: 'A' }] })).toBe(false)
+    expect(
+      bad({
+        tabs: [
+          { id: 'a', title: 'A' },
+          { id: 'a', title: 'B' },
+        ],
+      }),
+    ).toBe(false)
+    expect(bad({ actions: [{ id: 'go', title: 'Go' }] })).toBe(false)
+    expect(bad({ actions: [{ id: 'go', title: 'Go', icon: 'nope' }] })).toBe(false)
+    expect(bad({ tabs: Array.from({ length: 7 }, (_, i) => ({ id: `t${i}`, title: 'T' })) })).toBe(
+      false,
+    )
+    expect(bad({ tabs: [{ id: 'a', title: 'A' }] })).toBe(true)
+  })
+
   it('rejects duplicate command ids and commands without a process', () => {
     const dup = {
       commands: [

@@ -1,8 +1,5 @@
 {
   "messages": {
-    "view.label": "What to show",
-    "view.recap": "Recap",
-    "view.activity": "Timeline",
     "empty": "No agent has reported anything yet.",
     "agent.claude": "Claude Code",
     "agent.codex": "Codex",

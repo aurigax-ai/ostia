@@ -284,6 +284,33 @@ describe('localizeManifest', () => {
     'secrets.token.description': '這個權杖',
   }
 
+  it('translates the panel toolbar tabs and actions by id', () => {
+    const withToolbar = {
+      ...demo,
+      contributes: {
+        ...demo.contributes,
+        panel: {
+          title: 'Demo panel',
+          entry: 'url',
+          toolbar: {
+            tabs: [{ id: 'board', title: 'Board' }],
+            actions: [{ id: 'refresh', icon: 'refresh' as const, title: 'Refresh' }],
+          },
+        },
+      },
+    }
+    expect(manifestSlots(withToolbar).has('panel.toolbar.tabs.board.title')).toBe(true)
+    expect(manifestSlots(withToolbar).has('panel.toolbar.actions.refresh.title')).toBe(true)
+    const shown = localizeManifest(withToolbar, {
+      'panel.toolbar.tabs.board.title': '看板',
+      'panel.toolbar.actions.refresh.title': '重新整理',
+    })
+    expect(shown.contributes.panel?.toolbar).toEqual({
+      tabs: [{ id: 'board', title: '看板' }],
+      actions: [{ id: 'refresh', icon: 'refresh', title: '重新整理' }],
+    })
+  })
+
   it('replaces every translated string and keeps everything else', () => {
     const shown = localizeManifest(demo, strings)
     expect(shown.name).toBe('示範')

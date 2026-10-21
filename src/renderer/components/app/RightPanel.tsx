@@ -1,3 +1,4 @@
+import { PanelToolbar } from '@/components/app/PanelToolbar'
 import { EmptyState } from '@/components/common/EmptyState'
 import { PanelResizer } from '@/components/common/PanelResizer'
 import { ExtensionSidePanel } from '@/components/extensions/ExtensionSidePanel'
@@ -7,7 +8,7 @@ import { fmt, useDict } from '@/lib/app/useDict'
 import { GIT_PANEL_ID } from '@/lib/git/gitPanel'
 import { type PanelInstance, instanceKey, sameInstance } from '@/lib/panes/panelKeepAlive'
 import { rightPanelWidth } from '@/lib/panes/panelWidth'
-import { RIGHT_PANEL_ID, rightFocusKey } from '@/lib/panes/rightPanelFocus'
+import { RIGHT_PANEL_ID, hideRightPanel, rightFocusKey } from '@/lib/panes/rightPanelFocus'
 import { useSandboxStore } from '@/stores/app/sandboxStore'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useSidePanelStore } from '@/stores/app/sidePanelStore'
@@ -137,15 +138,25 @@ export function RightPanel(): JSX.Element {
                   paneId={rightFocusKey(i.extId, i.workspaceId)}
                   home="dock"
                   active={instance !== null && sameInstance(i, instance)}
+                  onClose={hideRightPanel}
                 />
               ) : (
-                <ExtensionSidePanel
-                  extId={i.extId}
-                  workspaceId={i.workspaceId}
-                  focusKey={rightFocusKey(i.extId, i.workspaceId)}
-                  route={routes[instanceKey(i)]}
-                  hidden={instance === null || !sameInstance(i, instance)}
-                />
+                <>
+                  <PanelToolbar
+                    ext={list.find((e) => e.id === i.extId) as ExtensionInfo}
+                    workspaceId={i.workspaceId}
+                    focusKey={rightFocusKey(i.extId, i.workspaceId)}
+                  />
+                  <div className="right-panel-content">
+                    <ExtensionSidePanel
+                      extId={i.extId}
+                      workspaceId={i.workspaceId}
+                      focusKey={rightFocusKey(i.extId, i.workspaceId)}
+                      route={routes[instanceKey(i)]}
+                      hidden={instance === null || !sameInstance(i, instance)}
+                    />
+                  </div>
+                </>
               )}
             </PanelSlot>
           ))}

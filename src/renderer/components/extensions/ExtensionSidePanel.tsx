@@ -2,6 +2,7 @@ import { EmptyState } from '@/components/common/EmptyState'
 import { Button } from '@/components/ui/button'
 import { useDict } from '@/lib/app/useDict'
 import { usePanelVisibility } from '@/lib/extensions/panelVisibility'
+import { registerPanelWebview } from '@/lib/extensions/panelWebviews'
 import { useGuestReady, useSurfaceFocus } from '@/lib/panes/paneFocus'
 import { useInjectedCss, usePanelThemeCss } from '@/lib/theme/panelThemeInjection'
 import { useSettingsStore } from '@/stores/app/settingsStore'
@@ -67,6 +68,7 @@ export function ExtensionSidePanel({
 
   useInjectedCss(webview, themeCss)
   usePanelVisibility(webview, hidden)
+  useEffect(() => registerPanelWebview(focusKey, webview), [focusKey, webview])
 
   useEffect(() => {
     const el = webview
