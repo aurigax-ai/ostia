@@ -163,6 +163,7 @@ export function registerPaneLifecycleIpc({
       setWorkspaceWorkDir(event.workspaceId, event.workDir, windowId)
       scratchFolders.bind(event.workspaceId, event.workDir, windowId)
       services.extensionHost?.slots.publishWorkspaceChips()
+      services.extensionHost?.slots.publishInbox()
       services.extensionHost?.remoteFolders?.ownerChanged(event.workspaceId)
     } else if (event.type === 'workspace-closed') {
       workspaceClosed(event.workspaceId)

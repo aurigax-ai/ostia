@@ -133,7 +133,7 @@ export class ExtensionSlots {
     return this.host.sendEvent(extId, INBOX_ACTION_EVENT, payload)
   }
 
-  private inboxChanged(): void {
+  publishInbox(): void {
     this.host.deps.publishInbox?.(this.inboxEntries())
   }
 
@@ -145,7 +145,7 @@ export class ExtensionSlots {
         removed = true
       }
     }
-    if (removed) this.inboxChanged()
+    if (removed) this.publishInbox()
   }
 
   setInboxItems(identity: PaneIdentity, conn: MessageConnection, params: unknown) {
@@ -183,13 +183,13 @@ export class ExtensionSlots {
     }
     const slot = `${extId}\u0000${workspaceId}`
     if (items.length === 0) {
-      if (this.inbox.delete(slot)) this.inboxChanged()
+      if (this.inbox.delete(slot)) this.publishInbox()
       return { ok: true }
     }
     const count = [...this.inbox.values()].filter((e) => e.extId === extId).length
     if (!this.inbox.has(slot) && count >= MAX_INBOX_ENTRIES) return fail('too-many-items')
     this.inbox.set(slot, { extId, workspaceId, items })
-    this.inboxChanged()
+    this.publishInbox()
     return { ok: true }
   }
 
