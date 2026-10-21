@@ -27,7 +27,16 @@ const TABLE = {
   approved: true,
 }
 
+const IMAGE = {
+  id: 'images.image',
+  displayName: 'Image',
+  selector: [{ filenamePattern: '*.png' }],
+  view: { priority: 'default' as const },
+  approved: true,
+}
+
 const EXTENSIONS = [
+  ext('images', true, [IMAGE]),
   ext('acme', false, [RIVAL]),
   ext('office', true, [SHEET]),
   ext('csv', true, [TABLE]),
@@ -73,6 +82,15 @@ describe('viewerChoice', () => {
     expect(choose('/w/a.xlsx').viewer?.viewType).toBe('office.spreadsheet')
     expect(choose('/w/a.csv').viewer).toBeNull()
     expect(choose('/w/a.csv', { inArtifacts: true }).viewer?.viewType).toBe('csv.table')
+  })
+
+  it('opens an image in the images viewer, and in no viewer once that extension is off', () => {
+    expect(choose('/w/a.png').viewer?.viewType).toBe('images.image')
+    const without = EXTENSIONS.filter((extension) => extension.id !== 'images')
+    expect(choose('/w/a.png', { options: viewerOptions('/w/a.png', without) })).toEqual({
+      viewer: null,
+      unavailable: false,
+    })
   })
 
   it('lets the pane choice and then an association win, and keeps core views', () => {

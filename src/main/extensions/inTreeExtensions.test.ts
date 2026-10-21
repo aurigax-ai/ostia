@@ -48,6 +48,7 @@ describe('the manifests in this repository', () => {
       'assistant',
       'completions',
       'csv',
+      'images',
       'keeper',
       'keymap-macos',
       'langpack-zh-hant',

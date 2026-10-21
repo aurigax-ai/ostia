@@ -111,7 +111,11 @@
       "csv:timeout",
       "office:loading",
       "office:unreadable",
-      "office:gone"
+      "office:gone",
+      "images:loading",
+      "images:unreadable",
+      "images:gone",
+      "images:tooLarge"
     ]
   },
   "literals": {

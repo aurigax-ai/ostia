@@ -1,9 +1,10 @@
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { freshDataHome, isolatedLaunch } from './dataHome'
-import { PROMPT, openWorkspace, shownTerminal, terminalTab } from './helpers'
+import { openWorkspace, PROMPT, shownTerminal, terminalTab } from './helpers'
 import { centerOf, dragFiles, dropFiles } from './osDrag'
-import { type Page, _electron as electron, expect, test } from './test'
+import { _electron as electron, expect, type Page, test } from './test'
+import { viewerGuestRun } from './viewerGuest'
 
 const PIXEL_PNG = Buffer.from(
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
@@ -91,7 +92,17 @@ test('ostia <file> shows a text file and an image from outside the home folder, 
       ok: false,
       error: 'denied',
     })
-    await expect(win.locator('.viewer-meta:visible')).toHaveText('1 × 1', { timeout: 15_000 })
+    await expect
+      .poll(
+        () =>
+          viewerGuestRun(
+            app,
+            { viewType: 'images.image', name: 'shot.png' },
+            'document.querySelector(".canvas img")?.naturalWidth ?? 0',
+          ),
+        { timeout: 20_000 },
+      )
+      .toBe(1)
 
     await tab(win, 'app.log').getByRole('tab').click()
     await expect(win.locator('.monaco-editor:visible .view-lines')).toContainText(

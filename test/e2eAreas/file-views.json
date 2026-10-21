@@ -6,6 +6,7 @@
     "packages/extension-sdk/src/client/viewer.ts",
     "packages/extension-sdk/src/contract/fileKinds.ts",
     "src/extensions/csv/",
+    "src/extensions/images/",
     "src/extensions/office/",
     "src/main/files/fsBinary.ts",
     "src/main/files/fsText.ts",
@@ -17,7 +18,6 @@
     "src/renderer/components/editor/EditorModes.tsx",
     "src/renderer/components/editor/FileView.tsx",
     "src/renderer/components/editor/FileViewerFrame.tsx",
-    "src/renderer/components/editor/ImageViewer.tsx",
     "src/renderer/components/editor/MarkdownPreview.tsx",
     "src/renderer/components/editor/OpenWithDialog.tsx",
     "src/renderer/components/editor/PdfViewer.tsx",
@@ -51,6 +51,7 @@
   ],
   "specs": [
     "e2e/capture-bar.spec.ts",
+    "e2e/image-viewer.spec.ts",
     "e2e/markdown-preview.spec.ts",
     "e2e/office-viewer.spec.ts",
     "e2e/open-any-file.spec.ts",

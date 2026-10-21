@@ -8,6 +8,7 @@
         "src/extensions/*/*.worker.ts",
         "src/extensions/*/*.thread.ts",
         "src/extensions/csv/table.ts",
+        "src/extensions/images/image.ts",
         "src/extensions/office/{sheet,document}.ts",
         "src/extensions/*/panel.css",
         "scripts/*.mjs",
@@ -24,9 +25,7 @@
         "test/**/*.{ts,tsx,mjs}",
         "e2e/**/*.ts"
       ],
-      "ignore": [
-        "src/renderer/components/ui/**"
-      ],
+      "ignore": ["src/renderer/components/ui/**"],
       "ignoreDependencies": [
         "@novnc/novnc",
         "@withfig/autocomplete",
@@ -48,19 +47,11 @@
         "src/manifest/{sdkCliEntry,manifestSchema}.ts",
         "src/contract/*.ts"
       ],
-      "project": [
-        "src/**/*.ts",
-        "scripts/*.mjs"
-      ],
+      "project": ["src/**/*.ts", "scripts/*.mjs"],
       "includeEntryExports": true,
       "ignoreIssues": {
-        "src/{client,assist,contract}/*.ts": [
-          "exports",
-          "types"
-        ],
-        "src/manifest/manifestSchema.ts": [
-          "exports"
-        ]
+        "src/{client,assist,contract}/*.ts": ["exports", "types"],
+        "src/manifest/manifestSchema.ts": ["exports"]
       }
     }
   },

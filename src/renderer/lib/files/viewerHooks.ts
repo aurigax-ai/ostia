@@ -92,36 +92,6 @@ export function useRegionDrag(opts: { scale: number; bounds: Size; enabled: bool
   }
 }
 
-export function useDragPan(stageRef: RefObject<HTMLElement>): RegionDrag['handlers'] {
-  const startRef = useRef<{ client: Point; scroll: Point } | null>(null)
-
-  const track = (e: ReactPointerEvent<HTMLElement>): void => {
-    const start = startRef.current
-    const stage = stageRef.current
-    if (!start || !stage) return
-    stage.scrollLeft = start.scroll.x - (e.clientX - start.client.x)
-    stage.scrollTop = start.scroll.y - (e.clientY - start.client.y)
-  }
-
-  return {
-    onPointerDown: (e) => {
-      const stage = stageRef.current
-      if (!stage || e.button !== 0) return
-      e.preventDefault()
-      e.currentTarget.setPointerCapture?.(e.pointerId)
-      startRef.current = {
-        client: { x: e.clientX, y: e.clientY },
-        scroll: { x: stage.scrollLeft, y: stage.scrollTop },
-      }
-    },
-    onPointerMove: track,
-    onPointerUp: (e) => {
-      track(e)
-      startRef.current = null
-    },
-  }
-}
-
 export function usePinchZoom(opts: {
   stageRef: RefObject<HTMLElement>
   contentRef: RefObject<HTMLElement>

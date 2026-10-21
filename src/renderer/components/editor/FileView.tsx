@@ -17,7 +17,6 @@ import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { VersionView } from './ArtifactVersions'
 import { EditorView } from './Editor'
 import { FileViewerFrame } from './FileViewerFrame'
-import { ImageViewer } from './ImageViewer'
 import { isMarkdownPath } from './MarkdownPreview'
 import { OpenWithDialog } from './OpenWithDialog'
 import { PdfViewer } from './PdfViewer'
@@ -77,9 +76,7 @@ export function FileView({
     failed.path === filePath &&
     failed.viewType === chosenViewer.viewType
   const viewer = failedHere ? null : chosenViewer
-  const viewerOnly = Boolean(
-    filePath && !viewer && (versioned || kind === 'image' || kind === 'pdf'),
-  )
+  const viewerOnly = Boolean(filePath && !viewer && (versioned || kind === 'pdf'))
   useSurfaceFocus(viewerOnly ? paneId : undefined, null)
   const onFailed = useCallback(() => {
     if (filePath && chosenViewer) setFailed({ path: filePath, viewType: chosenViewer.viewType })
@@ -104,10 +101,6 @@ export function FileView({
         viewer={viewer}
         onFailed={onFailed}
       />
-    )
-  } else if (filePath && kind === 'image') {
-    body = (
-      <ImageViewer key={filePath} workspaceId={workspaceId} paneId={paneId} filePath={filePath} />
     )
   } else if (filePath && kind === 'pdf') {
     body = (
