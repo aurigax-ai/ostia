@@ -1,5 +1,5 @@
 import { PAD_MAX_BYTES } from '@shared/artifacts/artifacts'
-import { act, cleanup, render, screen, waitFor, within } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { Terminal } from '@xterm/xterm'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -229,6 +229,8 @@ const fake = vi.hoisted(() => {
       state.layouts += 1
     },
     getDomNode: () => state.input?.parentElement ?? null,
+    getContainerDomNode: () => document.createElement('div'),
+    getScrolledVisiblePosition: () => null,
     dispose: () => {},
   }
   const monaco = {
@@ -1204,6 +1206,11 @@ describe('EditorView → Send Selection to Agent', () => {
     }
   }
 
+  const sendToAgentShell = async () => {
+    await userEvent.click(screen.getByRole('button', { name: 'Send to agent' }))
+    await userEvent.click(await screen.findByRole('menuitem', { name: /agent shell/ }))
+  }
+
   it('reports the selected lines for the workspace’s chat, and clears them when the selection ends', async () => {
     vi.mocked(window.ostia.fs.read).mockResolvedValue({
       ok: true,
@@ -1257,11 +1264,11 @@ describe('EditorView → Send Selection to Agent', () => {
     expect(action?.label).toBe('Send Selection to Agent')
     act(() => action?.run())
 
-    const panel = await screen.findByRole('region', { name: 'Send to agent' })
-    expect(panel).toHaveTextContent('a.ts:2:1-3:6')
-    expect(panel).toHaveTextContent('agent shell')
-    await userEvent.type(screen.getByLabelText('Note for the agent'), 'why two?')
-    await userEvent.click(screen.getByRole('button', { name: 'Send' }))
+    const bar = await screen.findByRole('toolbar', { name: 'Selection actions' })
+    expect(within(bar).getByRole('button', { name: 'Copy' })).toBeInTheDocument()
+    await userEvent.click(within(bar).getByRole('button', { name: 'Add a note' }))
+    await userEvent.type(screen.getByRole('textbox', { name: 'Add a note' }), 'why two?')
+    await sendToAgentShell()
 
     await waitFor(() =>
       expect(window.ostia.selection.send).toHaveBeenCalledWith({
@@ -1278,7 +1285,44 @@ describe('EditorView → Send Selection to Agent', () => {
       }),
     )
     expect(await screen.findByText(/Sent to agent shell/)).toBeInTheDocument()
-    expect(screen.queryByRole('region', { name: 'Send to agent' })).toBeNull()
+    expect(screen.queryByRole('toolbar', { name: 'Selection actions' })).toBeNull()
+  })
+
+  it('copies the selected text from the bar and closes with one status line', async () => {
+    vi.mocked(window.ostia.fs.read).mockResolvedValue({
+      ok: true,
+      version: 'v1',
+      text: 'one\ntwo\nthree',
+    })
+    render(<EditorView workspaceId="w1" paneId="p1" filePath="/w/src/a.ts" />)
+    await waitFor(() => expect(fake.state.model).not.toBeNull())
+    select(2, 1, 3, 6)
+    act(() => fake.state.actions.find((a) => a.id === 'ostia.sendSelection')?.run())
+
+    await userEvent.click(
+      within(await screen.findByRole('toolbar', { name: 'Selection actions' })).getByRole(
+        'button',
+        { name: 'Copy' },
+      ),
+    )
+
+    expect(window.ostia.clipboard.writeCapture).toHaveBeenCalledWith({ text: 'two\nthree' })
+    expect(await screen.findByText('Copied the selection.')).toBeInTheDocument()
+    expect(screen.queryByRole('toolbar', { name: 'Selection actions' })).toBeNull()
+  })
+
+  it('opens no bar for a mouse selection, only for the chord or the menu', async () => {
+    vi.mocked(window.ostia.fs.read).mockResolvedValue({
+      ok: true,
+      version: 'v1',
+      text: 'one\ntwo\nthree',
+    })
+    render(<EditorView workspaceId="w1" paneId="p1" filePath="/w/src/a.ts" />)
+    await waitFor(() => expect(fake.state.model).not.toBeNull())
+    select(2, 1, 3, 6)
+    for (const listener of fake.state.selectionListeners) listener()
+    fireEvent.mouseUp(document.body)
+    expect(screen.queryByRole('toolbar', { name: 'Selection actions' })).toBeNull()
   })
 
   it('select text in a file and send it to a terminal pane', async () => {
@@ -1332,10 +1376,13 @@ describe('EditorView → Send Selection to Agent', () => {
           listener({ browserEvent, stopPropagation() {} })
       })
 
-      const panel = await screen.findByRole('region', { name: 'Send to agent' })
-      expect(within(panel).getAllByRole('radio')).toHaveLength(1)
-      await userEvent.type(screen.getByLabelText('Note for the agent'), 'is this tax rate right?')
-      await userEvent.click(screen.getByRole('button', { name: 'Send' }))
+      const bar = await screen.findByRole('toolbar', { name: 'Selection actions' })
+      await userEvent.click(within(bar).getByRole('button', { name: 'Add a note' }))
+      await userEvent.type(
+        screen.getByRole('textbox', { name: 'Add a note' }),
+        'is this tax rate right?',
+      )
+      await sendToAgentShell()
 
       await waitFor(() =>
         expect(window.ostia.selection.send).toHaveBeenCalledWith({
@@ -1352,7 +1399,9 @@ describe('EditorView → Send Selection to Agent', () => {
         }),
       )
       expect(await screen.findByText(/The report is at its prompt/)).toBeInTheDocument()
-      expect(term.paste).toHaveBeenCalledWith('@/tmp/ostia-reports-1/selection-1.md ')
+      expect(term.paste).toHaveBeenCalledWith(
+        'is this tax rate right? @/tmp/ostia-reports-1/selection-1.md ',
+      )
     } finally {
       unregister()
       commands.setContextProvider(() => ({ activeWorkspaceId: null, activePaneId: null }))
@@ -1370,7 +1419,7 @@ describe('EditorView → Send Selection to Agent', () => {
     })
 
     expect(await screen.findByText('Select some text first.')).toBeInTheDocument()
-    expect(screen.queryByRole('region', { name: 'Send to agent' })).toBeNull()
+    expect(screen.queryByRole('toolbar', { name: 'Selection actions' })).toBeNull()
   })
 
   it('sends the Markdown preview selection with its source lines', async () => {
@@ -1393,7 +1442,8 @@ describe('EditorView → Send Selection to Agent', () => {
       document.dispatchEvent(new Event('selectionchange'))
     })
     await userEvent.click(screen.getByRole('button', { name: 'Send selected text to agent' }))
-    await userEvent.click(await screen.findByRole('button', { name: 'Send' }))
+    await screen.findByRole('toolbar', { name: 'Selection actions' })
+    await sendToAgentShell()
 
     await waitFor(() =>
       expect(window.ostia.selection.send).toHaveBeenCalledWith(

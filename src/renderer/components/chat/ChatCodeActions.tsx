@@ -8,7 +8,6 @@ import {
   TerminalWindowIcon,
 } from '@phosphor-icons/react'
 import { useId, useMemo, useState } from 'react'
-import { useAgentTargets } from '@/components/agents/PickSendPanel'
 import { IconButton } from '@/components/common/IconButton'
 import { DropdownMenu, MenuItem, MenuLabel } from '@/components/common/Menu'
 import { RiskyPasteDialog } from '@/components/common/RiskyPasteDialog'
@@ -21,6 +20,7 @@ import {
   PopoverTitle,
   PopoverTrigger,
 } from '@/components/ui/popover'
+import { useAgentTargets } from '@/lib/agents/useAgentTargets'
 import { useCopied } from '@/lib/app/useCopied'
 import { fmt, useDict } from '@/lib/app/useDict'
 import {

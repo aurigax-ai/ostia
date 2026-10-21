@@ -1,8 +1,10 @@
 /// <reference lib="dom" />
 import type { RawPick } from '../browser/pick'
 import { tagOf } from './pickSelectors'
+import { createTableReader } from './pickTable'
 
 const HTML_LIMIT = 4096
+const MEDIA_TAGS = new Set(['img', 'picture', 'canvas', 'video', 'audio', 'svg'])
 const STYLE_PROPS = [
   'display',
   'position',
@@ -32,6 +34,7 @@ export function createDescribe({
   selectorFor: (el: Element) => string
 }) {
   const doc = win.document
+  const { tableOf, rowsOf } = createTableReader(win)
 
   const roleOf = (el: Element): string => {
     const explicit = el.getAttribute('role')
@@ -94,6 +97,7 @@ export function createDescribe({
     const styles: Record<string, string> = {}
     for (const prop of STYLE_PROPS) styles[prop] = computed.getPropertyValue(prop)
     const html = el.outerHTML
+    const tag = tagOf(el)
     return {
       url: win.location.href,
       title: doc.title,
@@ -105,8 +109,12 @@ export function createDescribe({
       styles,
       role: roleOf(el),
       name: nameOf(el),
+      hasText: !MEDIA_TAGS.has(tag) && (el.textContent ?? '').trim() !== '',
+      table: tag === 'table' ? rowsOf(el as HTMLTableElement) : null,
     }
   }
 
-  return { roleOf, nameOf, labelFor, describe }
+  const resolve = (el: Element, single: boolean): Element => (single ? el : (tableOf(el) ?? el))
+
+  return { roleOf, nameOf, labelFor, describe, resolve }
 }

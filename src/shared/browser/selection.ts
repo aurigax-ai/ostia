@@ -2,7 +2,7 @@ import {
   VIEWER_CELLS_MAX,
   VIEWER_CSV_MAX,
 } from '@aurigax-ai/ostia-extension-sdk/contract/viewerSelection'
-import { clip, fence } from './pick'
+import { clip, fence, normalizeBox, PICK_TEXT_MAX, PICK_URL_MAX, type PickBox } from './pick'
 
 interface TextRange {
   startLine: number
@@ -41,6 +41,7 @@ export type SelectionCapture =
       csv: string
     }
   | { kind: 'terminal'; cwd: string | null; command: string | null; text: string }
+  | { kind: 'page-text'; url: string; title: string; text: string }
   | { kind: 'preview-error'; file: string; count: number; text: string }
   | {
       kind: 'preview-region'
@@ -50,6 +51,12 @@ export type SelectionCapture =
       region: Region
       version: string | null
     }
+
+export interface PageSelection {
+  capture: Extract<SelectionCapture, { kind: 'page-text' }>
+  box: PickBox
+  viewport: { width: number; height: number }
+}
 
 const SELECTION_COMMAND_MAX = 2000
 
@@ -76,6 +83,7 @@ const PREVIEW_ERROR_MAX = 8 * 1024
 const SHEET_NAME_MAX = 200
 const CELL_RANGE = /^[A-Z]{1,3}[0-9]{1,7}(:[A-Z]{1,3}[0-9]{1,7})?$/
 
+const WEB_ADDRESS = /^(https?|file):/i
 const ABSOLUTE_PATH = /^(\/|[A-Za-z]:[\\/])/
 
 const PNG_SIGNATURE = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]
@@ -153,10 +161,31 @@ function normalizeCells(c: Record<string, unknown>, file: string): SelectionCapt
   return { kind: 'cells', file, sheet, range: c.range, rows, columns, csv: c.csv }
 }
 
+function normalizePageText(c: Record<string, unknown>): SelectionCapture | null {
+  const body = text(c.text)
+  if (body === null || typeof c.url !== 'string' || !WEB_ADDRESS.test(c.url)) return null
+  const title = typeof c.title === 'string' ? clip(c.title, PICK_TEXT_MAX) : ''
+  return { kind: 'page-text', url: clip(c.url, PICK_URL_MAX), title, text: body }
+}
+
+export function normalizePageSelection(value: unknown): PageSelection | null {
+  if (!value || typeof value !== 'object') return null
+  const raw = value as Record<string, unknown>
+  const capture = normalizeSelection({ ...raw, kind: 'page-text' })
+  if (capture?.kind !== 'page-text') return null
+  const viewport = normalizeBox(raw.viewport as Partial<PickBox> | undefined)
+  return {
+    capture,
+    box: normalizeBox(raw.box as Partial<PickBox> | undefined),
+    viewport: { width: viewport.width, height: viewport.height },
+  }
+}
+
 export function normalizeSelection(value: unknown): SelectionCapture | null {
   if (!value || typeof value !== 'object') return null
   const c = value as Record<string, unknown>
   if (c.kind === 'terminal') return normalizeTerminal(c)
+  if (c.kind === 'page-text') return normalizePageText(c)
   if (typeof c.file !== 'string' || !ABSOLUTE_PATH.test(c.file)) return null
   const file = clip(c.file, SELECTION_PATH_MAX)
   switch (c.kind) {
@@ -252,6 +281,7 @@ export function selectionLabel(capture: SelectionCapture): string {
   if (capture.kind === 'terminal') {
     return capture.command ? `$ ${firstLine(capture.command)}` : 'Terminal selection'
   }
+  if (capture.kind === 'page-text') return capture.title || capture.url
   const name = baseName(capture.file)
   switch (capture.kind) {
     case 'text':
@@ -290,6 +320,8 @@ function title(capture: SelectionCapture): string {
       return 'Selected cells'
     case 'terminal':
       return capture.command ? 'Terminal output' : 'Terminal text'
+    case 'page-text':
+      return 'Page text selection'
     case 'preview-error':
       return 'Preview error'
     case 'preview-region':
@@ -329,6 +361,8 @@ function sourceLines(capture: SelectionCapture, imagePath: string | null): strin
         `- Range: ${capture.range}`,
         `- Size: ${capture.rows} rows × ${capture.columns} columns`,
       ]
+    case 'page-text':
+      return [`- Page: ${capture.title ? `${capture.title} — ` : ''}${capture.url}`]
     case 'terminal':
       return [
         `- Directory: ${capture.cwd ?? '(unknown)'}`,
@@ -360,7 +394,9 @@ export function renderSelectionReport(
   lines.push(`# ${title(capture)}: ${selectionLabel(capture)}`, '')
   lines.push('## Note', '', trimmedNote || '(no note)', '')
   lines.push('## Source', '')
-  if (capture.kind !== 'terminal') lines.push(`- File: ${capture.file}`)
+  if (capture.kind !== 'terminal' && capture.kind !== 'page-text') {
+    lines.push(`- File: ${capture.file}`)
+  }
   lines.push(...sourceLines(capture, imagePath))
   lines.push(`- Captured: ${capturedAt.toISOString()}`, '')
   if (capture.kind === 'terminal') {
@@ -370,6 +406,8 @@ export function renderSelectionReport(
   } else if (capture.kind === 'cells') {
     lines.push('## Selected cells', '', fence(capture.csv, 'csv'), '')
   } else if (capture.kind === 'pdf-region' && capture.text) {
+    lines.push('## Selected text', '', fence(capture.text), '')
+  } else if (capture.kind === 'page-text') {
     lines.push('## Selected text', '', fence(capture.text), '')
   } else if (capture.kind === 'text' || capture.kind === 'pdf-text') {
     const lang = capture.kind === 'text' && capture.view === 'source' ? fenceLang(capture.file) : ''
@@ -395,7 +433,7 @@ export function selectionBusMessage(
   const message: SelectionBusMessage = {
     kind: 'selection',
     report,
-    file: capture.kind === 'terminal' ? null : capture.file,
+    file: capture.kind === 'terminal' || capture.kind === 'page-text' ? null : capture.file,
     image: imagePath,
     note: clip(note.trim(), SELECTION_NOTE_MAX),
   }

@@ -1,7 +1,16 @@
 import { hostname } from 'node:os'
 import { join } from 'node:path'
 import { PRODUCT_DISPLAY_NAME } from '@aurigax-ai/ostia-extension-sdk/contract/productDisplay'
-import { app, BrowserWindow, clipboard, ipcMain, Menu, nativeTheme, shell } from 'electron'
+import {
+  app,
+  BrowserWindow,
+  ClipboardItem,
+  clipboard,
+  ipcMain,
+  Menu,
+  nativeTheme,
+  shell,
+} from 'electron'
 import type { ExternalEditorRequest } from '../../shared/app/appApi'
 import type { DiscreteGpuInfo } from '../../shared/app/discreteGpu'
 import { clampZoom, zoomFactor } from '../../shared/app/zoom'
@@ -15,7 +24,7 @@ import type { FileServices } from '../files/filesWiring'
 import { discreteGpu, gpuStartPlan, querySwitcherooGpus } from '../platform/discreteGpu'
 import { appVersion } from '../updates/appVersion'
 import type { AppQuit } from './appQuit'
-import { type ClipboardEdits, registerClipboardEdits } from './clipboardEdits'
+import { type ClipboardEdits, clipboardItemData, registerClipboardEdits } from './clipboardEdits'
 import { registerCloseGuard } from './closeGuard'
 import { acceptsPrimarySelection } from './primarySelection'
 
@@ -107,6 +116,7 @@ export function registerWindowInputGuards({
         uriList: listed ? await (await listed.getType('text/uri-list')).text() : '',
       }
     },
+    write: (capture) => clipboard.write([new ClipboardItem(clipboardItemData(capture))]),
     mac: process.platform === 'darwin',
     remap,
     copyViewerSelection: (guest) => services.files?.viewers.copyForGuest(guest) ?? false,

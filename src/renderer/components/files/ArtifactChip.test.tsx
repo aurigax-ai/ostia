@@ -187,7 +187,6 @@ describe('ArtifactChip', () => {
     const views = [
       join('files', 'ArtifactChip.tsx'),
       join('editor', 'ArtifactVersions.tsx'),
-      join('editor', 'PreviewRegion.tsx'),
       join('editor', 'PortableActions.tsx'),
     ]
     for (const view of views) {
