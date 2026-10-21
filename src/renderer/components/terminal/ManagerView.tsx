@@ -26,8 +26,8 @@ export function ManagerView({ paneId }: { paneId: string }): JSX.Element {
     const onKey = (event: KeyboardEvent): void => {
       if (!MODIFIER_KEYS.has(event.key)) setHint((now) => (now === 'idle' ? 'shown' : now))
     }
-    surface.addEventListener('keydown', onKey)
-    return () => surface.removeEventListener('keydown', onKey)
+    surface.addEventListener('keydown', onKey, true)
+    return () => surface.removeEventListener('keydown', onKey, true)
   }, [])
 
   useEffect(() => {
