@@ -9,6 +9,8 @@ import { ShareService } from './shareService'
 import { ShareStore } from './shareStore'
 import { registerSharesIpc } from './sharesIpc'
 
+const PROBE_TIMEOUT_MS = 10_000
+
 interface SharesStartDeps {
   portableExport: PortableExport
   server: ServerAccount
@@ -29,6 +31,17 @@ export function startShares({ portableExport, server, redactionScan }: SharesSta
     store,
     scan: (text) =>
       redactionScan.scan(text, parsePrivacySettings(readSettingsFile().privacy).redaction.patterns),
+    probe: async (url) => {
+      try {
+        const response = await fetch(url, {
+          redirect: 'error',
+          signal: AbortSignal.timeout(PROBE_TIMEOUT_MS),
+        })
+        return response.status
+      } catch {
+        return null
+      }
+    },
     writeClipboard: (text) => clipboard.writeText(text),
   })
   portableExport.useShares(shares)

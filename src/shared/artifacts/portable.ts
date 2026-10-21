@@ -102,6 +102,7 @@ export type PortableResult =
         | 'unavailable'
       message?: string
       findings?: ShareFinding[]
+      findingsDigest?: string
     }
 
 function escapeAttribute(text: string): string {

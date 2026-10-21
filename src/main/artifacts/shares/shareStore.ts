@@ -10,6 +10,8 @@ export interface ShareRecord {
   url: string
   deleteToken: string
   linkKey: string | null
+  origin: string
+  accountId: string
   createdAt: number
   expiresAt: number
 }
@@ -26,7 +28,20 @@ const MODES: readonly string[] = ['link', 'password', 'public']
 
 function parseRecord(value: unknown): ShareRecord | null {
   if (!isRecord(value)) return null
-  const { id, mode, source, name, size, url, deleteToken, linkKey, createdAt, expiresAt } = value
+  const {
+    id,
+    mode,
+    source,
+    name,
+    size,
+    url,
+    deleteToken,
+    linkKey,
+    origin,
+    accountId,
+    createdAt,
+    expiresAt,
+  } = value
   if (
     typeof id !== 'string' ||
     typeof mode !== 'string' ||
@@ -37,6 +52,8 @@ function parseRecord(value: unknown): ShareRecord | null {
     typeof url !== 'string' ||
     typeof deleteToken !== 'string' ||
     (linkKey !== null && typeof linkKey !== 'string') ||
+    typeof origin !== 'string' ||
+    typeof accountId !== 'string' ||
     typeof createdAt !== 'number' ||
     typeof expiresAt !== 'number'
   ) {
@@ -51,6 +68,8 @@ function parseRecord(value: unknown): ShareRecord | null {
     url,
     deleteToken,
     linkKey,
+    origin,
+    accountId,
     createdAt,
     expiresAt,
   }

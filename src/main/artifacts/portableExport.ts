@@ -85,6 +85,7 @@ function normalizePortableRequest(value: unknown): PortableRequest | null {
   }
 }
 
+const DIGEST_MAX = 128
 const SHARE_MODES: readonly unknown[] = ['link', 'password', 'public']
 
 function normalizePublish(value: unknown): PublishOptions | null {
@@ -92,14 +93,15 @@ function normalizePublish(value: unknown): PublishOptions | null {
   if (!raw || typeof raw !== 'object') return null
   if (!SHARE_MODES.includes(raw.mode)) return null
   if (typeof raw.password !== 'string' || raw.password.length > SHARE_PASSWORD_MAX * 4) return null
-  if (typeof raw.withLinkKey !== 'boolean' || typeof raw.acceptFindings !== 'boolean') return null
+  if (typeof raw.withLinkKey !== 'boolean') return null
+  if (typeof raw.acceptedDigest !== 'string' || raw.acceptedDigest.length > DIGEST_MAX) return null
   if (!Number.isSafeInteger(raw.expiresInSeconds)) return null
   return {
     mode: raw.mode as PublishOptions['mode'],
     password: raw.password,
     withLinkKey: raw.withLinkKey,
     expiresInSeconds: raw.expiresInSeconds as number,
-    acceptFindings: raw.acceptFindings,
+    acceptedDigest: raw.acceptedDigest,
   }
 }
 

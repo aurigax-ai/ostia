@@ -103,9 +103,9 @@ describe('signing in with GitHub', () => {
     expect(started).toEqual({
       ok: true,
       userCode: 'ABCD-1234',
-      verificationUri: 'https://github.test/login/device',
+      verificationUri: 'https://github.com/login/device',
     })
-    expect(account.verificationUri()).toBe('https://github.test/login/device')
+    expect(account.verificationUri()).toBe('https://github.com/login/device')
     expect(await account.githubPoll()).toEqual({ state: 'pending' })
     expect(await account.githubPoll()).toEqual({ state: 'done' })
     expect(account.status()).toMatchObject({ signedIn: true, provider: 'github' })
@@ -120,7 +120,7 @@ describe('signing in with GitHub', () => {
       body: {
         flowId: 'f',
         userCode: 'WXYZ-0000',
-        verificationUri: 'https://github.test/login/device',
+        verificationUri: 'https://github.com/login/device',
         interval: 5,
         expiresIn: 900,
       },
@@ -165,6 +165,22 @@ describe('signing in with GitHub', () => {
         flowId: 'f',
         userCode: 'A',
         verificationUri: 'file:///etc/passwd',
+        interval: 0,
+        expiresIn: 1,
+      },
+    })
+    await harness.account.githubStart()
+    expect(harness.account.verificationUri()).toBeNull()
+  })
+
+  it('SHR-C91 never offers a link on another host than GitHub', async () => {
+    harness = await accountHarness({ github: true })
+    harness.server.intercept('POST /v1/auth/github/device', {
+      status: 200,
+      body: {
+        flowId: 'f',
+        userCode: 'A',
+        verificationUri: 'https://phish.example/login/device',
         interval: 0,
         expiresIn: 1,
       },

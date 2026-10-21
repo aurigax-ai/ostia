@@ -75,15 +75,22 @@ describe('server device and approval IPC', () => {
       ok: true,
       kind: 'github',
       userCode: 'AB-12',
-      verificationUri: 'https://github.test/login/device',
+      verificationUri: 'https://github.com/login/device',
     })
     await call('server:elevation-start', window, 'github')
-    expect(openExternal).toHaveBeenCalledWith('https://github.test/login/device')
+    expect(openExternal).toHaveBeenCalledWith('https://github.com/login/device')
     elevation.start.mockResolvedValueOnce({
       ok: true,
       kind: 'github',
       userCode: 'AB-12',
       verificationUri: 'javascript:alert(1)',
+    })
+    await call('server:elevation-start', window, 'github')
+    elevation.start.mockResolvedValueOnce({
+      ok: true,
+      kind: 'github',
+      userCode: 'AB-12',
+      verificationUri: 'https://phish.example/login/device',
     })
     await call('server:elevation-start', window, 'github')
     expect(openExternal).toHaveBeenCalledTimes(1)

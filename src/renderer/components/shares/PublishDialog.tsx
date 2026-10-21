@@ -35,7 +35,7 @@ import type { Publishing } from './usePublishing'
 type Stage =
   | { kind: 'form'; problem: string | null }
   | { kind: 'busy' }
-  | { kind: 'findings'; findings: ShareFinding[] }
+  | { kind: 'findings'; findings: ShareFinding[]; digest: string }
   | { kind: 'done'; share: ShareView; password: boolean }
 
 function expiryLabels(d: ReturnType<typeof useDict>): Record<number, string> {
@@ -126,8 +126,8 @@ function Form({
 }: {
   allowPublic: boolean
   allowNever: boolean
-  options: Omit<PublishOptions, 'acceptFindings'>
-  onChange: (next: Omit<PublishOptions, 'acceptFindings'>) => void
+  options: Omit<PublishOptions, 'acceptedDigest'>
+  onChange: (next: Omit<PublishOptions, 'acceptedDigest'>) => void
   problem: string | null
 }): JSX.Element {
   const d = useDict()
@@ -225,7 +225,7 @@ function PublishBody({ publishing }: { publishing: Publishing }): JSX.Element {
   const availability = useSharesStore((s) => s.availability)
   const ready = availability?.state === 'ready' ? availability : null
   const [stage, setStage] = useState<Stage>({ kind: 'form', problem: null })
-  const [options, setOptions] = useState<Omit<PublishOptions, 'acceptFindings'>>({
+  const [options, setOptions] = useState<Omit<PublishOptions, 'acceptedDigest'>>({
     mode: 'link',
     password: '',
     withLinkKey: false,
@@ -234,16 +234,20 @@ function PublishBody({ publishing }: { publishing: Publishing }): JSX.Element {
   const weak =
     options.mode === 'password' && Array.from(options.password).length < SHARE_PASSWORD_MIN
 
-  const submit = async (acceptFindings: boolean): Promise<void> => {
+  const submit = async (acceptedDigest: string): Promise<void> => {
     setStage({ kind: 'busy' })
-    const result = await publishing.publish({ ...options, acceptFindings })
+    const result = await publishing.publish({ ...options, acceptedDigest })
     if (result?.ok && result.share) {
       useSharesStore.getState().added(result.share)
       setStage({ kind: 'done', share: result.share, password: options.mode === 'password' })
       return
     }
     if (result && !result.ok && result.reason === 'findings' && result.findings) {
-      setStage({ kind: 'findings', findings: result.findings })
+      setStage({
+        kind: 'findings',
+        findings: result.findings,
+        digest: result.findingsDigest ?? '',
+      })
       return
     }
     setStage({
@@ -280,7 +284,7 @@ function PublishBody({ publishing }: { publishing: Publishing }): JSX.Element {
           {stage.kind === 'done' ? d.shares.close : d.shares.cancel}
         </Button>
         {stage.kind === 'findings' ? (
-          <Button variant="destructive" size="sm" onClick={() => void submit(true)}>
+          <Button variant="destructive" size="sm" onClick={() => void submit(stage.digest)}>
             {d.shares.publishAnyway}
           </Button>
         ) : null}
@@ -288,7 +292,7 @@ function PublishBody({ publishing }: { publishing: Publishing }): JSX.Element {
           <Button
             size="sm"
             disabled={stage.kind === 'busy' || weak || ready === null}
-            onClick={() => void submit(false)}
+            onClick={() => void submit('')}
           >
             {stage.kind === 'busy' ? d.shares.publishing : d.shares.publish}
           </Button>

@@ -21,6 +21,21 @@ export function parseServerUrl(text: string, allowInsecure: boolean): string | n
   return null
 }
 
+const GITHUB_HOST = 'github.com'
+const GITHUB_DEVICE_PATH = '/login/device'
+
+export function githubDeviceUri(text: string): string | null {
+  let url: URL
+  try {
+    url = new URL(text)
+  } catch {
+    return null
+  }
+  const plain = url.protocol === 'https:' && url.port === '' && !url.username && !url.password
+  const device = url.hostname === GITHUB_HOST && url.pathname === GITHUB_DEVICE_PATH
+  return plain && device ? url.href : null
+}
+
 export function socketOrigin(origin: string): string {
   return origin.replace(/^http/, 'ws')
 }

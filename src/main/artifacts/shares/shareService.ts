@@ -1,3 +1,4 @@
+import { createHmac, randomBytes } from 'node:crypto'
 import type { PortableResult } from '../../../shared/artifacts/portable'
 import {
   type PublishOptions,
@@ -31,7 +32,11 @@ const MASK_REVEALED = 3
 const MASK_MIN_LENGTH = 9
 
 export interface ShareServiceDeps {
-  account: Pick<ServerAccount, 'signedIn' | 'authed' | 'unauthed' | 'fetchInfo' | 'baseUrl'>
+  account: Pick<
+    ServerAccount,
+    'signedIn' | 'authed' | 'unauthed' | 'fetchInfo' | 'baseUrl' | 'identity'
+  >
+  probe: (url: string) => Promise<number | null>
   store: ShareStore
   scan: (text: string) => Promise<SecretSpan[]>
   writeClipboard: (text: string) => void
@@ -103,8 +108,45 @@ function listFailure(error: unknown): ShareFailure {
   return failure === 'unreachable' ? 'unreachable' : 'failed'
 }
 
+interface ShareScope {
+  origin: string
+  accountId: string
+}
+
+const GONE_STATUSES: readonly number[] = [404, 410]
+
 export class ShareService {
+  private readonly digestKey = randomBytes(32)
+
   constructor(private readonly deps: ShareServiceDeps) {}
+
+  private origin(): string | null {
+    const base = this.deps.account.baseUrl()
+    return base ? new URL(base).origin : null
+  }
+
+  private scope(): ShareScope | null {
+    const origin = this.origin()
+    const identity = this.deps.account.identity()
+    return origin && identity ? { origin, accountId: identity.accountId } : null
+  }
+
+  private scoped(record: ShareRecord | null): ShareRecord | null {
+    const scope = this.scope()
+    const inScope =
+      record && scope && record.origin === scope.origin && record.accountId === scope.accountId
+    return inScope ? record : null
+  }
+
+  private digestOf(file: string, spans: readonly SecretSpan[]): string {
+    const hmac = createHmac('sha256', this.digestKey)
+    for (const span of [...spans].sort((a, b) => a.start - b.start)) {
+      hmac.update(
+        JSON.stringify([span.kind, span.start, span.end, file.slice(span.start, span.end)]),
+      )
+    }
+    return hmac.digest('hex')
+  }
 
   private now(): number {
     return (this.deps.now ?? Date.now)()
@@ -139,24 +181,28 @@ export class ShareService {
     const plain = Buffer.from(file, 'utf8')
     const size = options.mode === 'public' ? plain.length : plain.length + SHARE_OVERHEAD
     if (size > available.maxBytes) return { ok: false, reason: 'too-large' }
-    const scanned = await this.scanned(file)
-    if (!Array.isArray(scanned)) return scanned
-    if (scanned.length > 0 && !options.acceptFindings) {
-      return { ok: false, reason: 'findings', findings: scanned }
-    }
-    return this.upload({ source, name }, options, plain, size)
-  }
-
-  private async scanned(file: string): Promise<ShareFinding[] | PortableResult> {
+    const scope = this.scope()
+    if (!scope) return { ok: false, reason: 'signed-out' }
+    let spans: SecretSpan[]
     try {
-      return findingsOf(file, await this.deps.scan(file))
+      spans = await this.deps.scan(file)
     } catch {
       return { ok: false, reason: 'scan-failed' }
     }
+    const digest = this.digestOf(file, spans)
+    if (spans.length > 0 && options.acceptedDigest !== digest) {
+      return {
+        ok: false,
+        reason: 'findings',
+        findings: findingsOf(file, spans),
+        findingsDigest: digest,
+      }
+    }
+    return this.upload({ source, name, scope }, options, plain, size)
   }
 
   private async upload(
-    meta: { source: string; name: string },
+    meta: { source: string; name: string; scope: ShareScope },
     options: PublishOptions,
     plain: Buffer,
     size: number,
@@ -205,6 +251,8 @@ export class ShareService {
       url: created.url,
       deleteToken: created.deleteToken,
       linkKey: fragment ? fragment.toString('base64url') : null,
+      origin: meta.scope.origin,
+      accountId: meta.scope.accountId,
       createdAt: this.now(),
       expiresAt: created.expiresAt,
     }
@@ -231,9 +279,10 @@ export class ShareService {
     if (!this.deps.account.signedIn()) return { ok: false, error: 'signed-out' }
     try {
       const { shares } = await this.deps.account.authed((token, routes) => routes.shares(token))
-      const records = new Map(this.deps.store.list().map((record) => [record.id, record]))
+      const mine = this.deps.store.list().filter((record) => this.scoped(record))
+      const records = new Map(mine.map((record) => [record.id, record]))
       const listed = new Set(shares.map((row) => row.id))
-      for (const id of records.keys()) if (!listed.has(id)) this.deps.store.remove(id)
+      await this.prune(mine.filter((record) => !listed.has(record.id)))
       const views = [...shares]
         .sort((a, b) => b.createdAt - a.createdAt)
         .map((row) => viewOf(records.get(row.id) ?? null, row))
@@ -243,8 +292,17 @@ export class ShareService {
     }
   }
 
+  private async prune(unlisted: ShareRecord[]): Promise<void> {
+    await Promise.all(
+      unlisted.map(async (record) => {
+        const status = await this.deps.probe(`${record.url}meta`)
+        if (status !== null && GONE_STATUSES.includes(status)) this.deps.store.remove(record.id)
+      }),
+    )
+  }
+
   copyLink(id: string): ShareActionResult {
-    const record = this.deps.store.get(id)
+    const record = this.scoped(this.deps.store.get(id))
     if (!record) return { ok: false, error: 'unknown' }
     const key = record.linkKey ? Buffer.from(record.linkKey, 'base64url') : null
     this.deps.writeClipboard(shareLink(record.url, key))
@@ -254,6 +312,7 @@ export class ShareService {
   async remove(id: string): Promise<ShareActionResult> {
     const record = this.deps.store.get(id)
     if (record) {
+      if (record.origin !== this.origin()) return { ok: false, error: 'failed' }
       const byToken = await this.removeWith(id, { deleteToken: record.deleteToken })
       if (byToken === 'unreachable') return { ok: false, error: 'unreachable' }
       if (byToken === 'done') {
@@ -263,11 +322,11 @@ export class ShareService {
     }
     if (!this.deps.account.signedIn()) return { ok: false, error: 'signed-out' }
     const bySession = await this.removeWith(id, 'session')
-    if (bySession === 'done') {
-      this.deps.store.remove(id)
-      return { ok: true }
+    if (bySession !== 'done') {
+      return { ok: false, error: bySession === 'unreachable' ? 'unreachable' : 'failed' }
     }
-    return { ok: false, error: bySession === 'unreachable' ? 'unreachable' : 'failed' }
+    if (record) this.deps.store.remove(id)
+    return { ok: true }
   }
 
   private async removeWith(

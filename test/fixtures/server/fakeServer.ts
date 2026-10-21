@@ -543,7 +543,7 @@ export class FakeServer {
         this.reply(res, 200, {
           flowId: 'flow1',
           userCode: 'ABCD-1234',
-          verificationUri: 'https://github.test/login/device',
+          verificationUri: 'https://github.com/login/device',
           interval: 0,
           expiresIn: 900,
         }),

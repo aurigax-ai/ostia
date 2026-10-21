@@ -37,7 +37,7 @@ const PUBLISH: PublishOptions = {
   password: '',
   withLinkKey: false,
   expiresInSeconds: 2_592_000,
-  acceptFindings: false,
+  acceptedDigest: '',
 }
 
 const THEME: PreviewTheme = { dark: false, vars: { '--ostia-bg': '#fff' } }
@@ -383,7 +383,7 @@ describe('PortableExport', () => {
       { ...PUBLISH, mode: 'everyone' },
       { ...PUBLISH, password: 7 },
       { ...PUBLISH, expiresInSeconds: 1.5 },
-      { ...PUBLISH, acceptFindings: 'yes' },
+      { ...PUBLISH, acceptedDigest: true },
       'link',
     ]) {
       expect(await handler?.({ sender: { id: 1 } }, { ...base, publish: bad })).toEqual({

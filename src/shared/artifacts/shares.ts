@@ -11,7 +11,7 @@ export interface PublishOptions {
   password: string
   withLinkKey: boolean
   expiresInSeconds: number
-  acceptFindings: boolean
+  acceptedDigest: string
 }
 
 export interface ShareFinding {

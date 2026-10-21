@@ -20,7 +20,7 @@ import type {
   ServerRoutes,
 } from './serverRoutes'
 import type { ServerSession } from './serverSession'
-import { hostOf } from './serverUrl'
+import { githubDeviceUri, hostOf } from './serverUrl'
 
 const NAME_MAX = 64
 const MS = 1000
@@ -206,7 +206,7 @@ export class ServerAccount {
 
   verificationUri(): string | null {
     const uri = this.flow?.flow.verificationUri
-    return uri?.startsWith('https://') ? uri : null
+    return uri ? githubDeviceUri(uri) : null
   }
 
   githubCancel(): void {

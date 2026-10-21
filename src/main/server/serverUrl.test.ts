@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { defaultServerUrl, hostOf, parseServerUrl, socketOrigin } from './serverUrl'
+import {
+  defaultServerUrl,
+  githubDeviceUri,
+  hostOf,
+  parseServerUrl,
+  socketOrigin,
+} from './serverUrl'
 
 describe('the server address', () => {
   it('SVA-C8 takes a bare host as https and keeps only the origin', () => {
@@ -57,5 +63,26 @@ describe('the default server', () => {
   it('SVA-C58 refuses a stamp that is not a valid address', () => {
     expect(defaultServerUrl(true, {}, 'http://example.com')).toBeNull()
     expect(defaultServerUrl(true, {}, 'https://example.com/path')).toBeNull()
+  })
+})
+
+describe('the GitHub device-flow link', () => {
+  it('SHR-C90 opens only https://github.com/login/device', () => {
+    expect(githubDeviceUri('https://github.com/login/device')).toBe(
+      'https://github.com/login/device',
+    )
+    for (const bad of [
+      'http://github.com/login/device',
+      'https://github.com.evil.test/login/device',
+      'https://evil.test/login/device',
+      'https://github.com:8443/login/device',
+      'https://user@github.com/login/device',
+      'https://github.com/login/oauth',
+      'https://gist.github.com/login/device',
+      'file:///etc/passwd',
+      'not a url',
+    ]) {
+      expect(githubDeviceUri(bad), bad).toBeNull()
+    }
   })
 })

@@ -8,7 +8,7 @@ import type {
 import type { ServerAccount } from './serverAccount'
 import type { ServerDevices } from './serverDevices'
 import type { ServerElevation } from './serverElevation'
-import { parseServerUrl } from './serverUrl'
+import { githubDeviceUri, parseServerUrl } from './serverUrl'
 
 export interface ServerIpcDeps {
   account: ServerAccount
@@ -60,8 +60,9 @@ const validId = (value: unknown): value is string =>
 async function startElevation(deps: ServerIpcDeps, method: unknown): Promise<ElevationStartResult> {
   if (method !== 'approval' && method !== 'github') return { ok: false, error: 'failed' }
   const started = await deps.elevation.start(method)
-  if (started.ok && started.kind === 'github' && started.verificationUri.startsWith('https://')) {
-    deps.openExternal(started.verificationUri)
+  if (started.ok && started.kind === 'github') {
+    const uri = githubDeviceUri(started.verificationUri)
+    if (uri) deps.openExternal(uri)
   }
   return started
 }

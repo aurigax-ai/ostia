@@ -133,7 +133,7 @@ describe('publishing from the artifact menu', () => {
             password: '',
             withLinkKey: false,
             expiresInSeconds: 2_592_000,
-            acceptFindings: false,
+            acceptedDigest: '',
           },
         }),
       ),
@@ -179,6 +179,7 @@ describe('publishing from the artifact menu', () => {
       ok: false,
       reason: 'findings',
       findings: [{ kind: 'stripe', line: 4, masked: 'sk_…' }],
+      findingsDigest: 'seen-digest',
     }
     portable().mockResolvedValueOnce(findings).mockResolvedValueOnce({ ok: true, share: SHARE })
     await renderSettled(<PortableActions workspaceId="s1" filePath={FILE} />)
@@ -189,7 +190,9 @@ describe('publishing from the artifact menu', () => {
     expect(portable()).toHaveBeenCalledTimes(1)
     await userEvent.click(screen.getByRole('button', { name: 'Publish anyway' }))
     await waitFor(() => expect(portable()).toHaveBeenCalledTimes(2))
-    expect(portable().mock.calls[1]?.[1]).toMatchObject({ publish: { acceptFindings: true } })
+    expect(portable().mock.calls[1]?.[1]).toMatchObject({
+      publish: { acceptedDigest: 'seen-digest' },
+    })
     expect(await screen.findByText('Published')).toBeInTheDocument()
   })
 

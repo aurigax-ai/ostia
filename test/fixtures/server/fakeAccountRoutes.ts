@@ -238,7 +238,7 @@ export function accountRoutes(server: FakeServer): Array<[string, RegExp, Handle
     server.reply(res, 200, {
       flowId,
       userCode: 'ELEV-1234',
-      verificationUri: 'https://github.test/login/device',
+      verificationUri: 'https://github.com/login/device',
       interval: 0,
       expiresIn: 900,
     })
