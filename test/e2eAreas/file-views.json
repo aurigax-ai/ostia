@@ -16,7 +16,6 @@
     "src/main/files/fsRange.ts",
     "src/main/files/fsText.ts",
     "src/main/files/viewers/",
-    "src/main/files/viewers/viewerClipboard.ts",
     "src/main/files/watchedFiles.ts",
     "src/renderer/components/editor/DocumentFind.tsx",
     "src/renderer/components/editor/Editor.tsx",

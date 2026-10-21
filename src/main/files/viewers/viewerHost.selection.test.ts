@@ -324,7 +324,8 @@ describe('guest selection channel', () => {
     expect(await send(pngOf(16_385, 10))).toBe(400)
     expect(await send(pngOf(10, 16_385))).toBe(400)
     expect(await send(pngOf(20_000, 20_000))).toBe(400)
-    expect(await send(pngOf(16_384, 16_384))).toBe(204)
+    expect(await send(pngOf(12_000, 9_000))).toBe(400)
+    expect(await send(pngOf(10_000, 9_999))).toBe(204)
     expect(events).toHaveLength(1)
   })
 

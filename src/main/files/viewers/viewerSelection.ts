@@ -27,7 +27,7 @@ const GUEST_KINDS = new Set(['image', 'pdf-text', 'pdf-region', 'text', 'cells']
 const PNG_HEADER_TYPE_AT = 12
 const PNG_DIMENSIONS_AT = 16
 const PNG_SIDE_MAX = 16_384
-const PNG_PIXELS_MAX = PNG_SIDE_MAX * PNG_SIDE_MAX
+const PNG_PIXELS_MAX = 100_000_000
 const PNG_HEADER_TYPE = [0x49, 0x48, 0x44, 0x52]
 
 function isRecord(value: unknown): value is Record<string, unknown> {
