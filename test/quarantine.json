@@ -1,1 +1,8 @@
-[]
+[
+  {
+    "file": "src/main/sandboxPackages/packageFirewall.integration.test.ts",
+    "name": "package firewall > SBX-C80 lets an old, clean package download through the terminated TLS",
+    "issue": 1337,
+    "until": "2026-11-18"
+  }
+]
