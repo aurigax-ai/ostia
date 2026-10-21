@@ -2,10 +2,7 @@ import { ipcRenderer } from 'electron'
 import type { OstiaBridge } from '../shared/types'
 import { answer, listen } from './listen'
 
-export const agentsBridge: Pick<
-  OstiaBridge,
-  'manager' | 'agentSession' | 'mail' | 'park'
-> = {
+export const agentsBridge: Pick<OstiaBridge, 'manager' | 'agentSession' | 'mail' | 'park'> = {
   manager: {
     onOpen: (cb) => {
       const off = answer('manager:open', 'manager:open-result', cb)

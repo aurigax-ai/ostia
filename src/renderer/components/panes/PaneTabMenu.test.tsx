@@ -9,10 +9,12 @@ import { paneIds, tabsOf } from '@/lib/layout/tree'
 import type { LayoutNode, PaneNode, SplitNode } from '@/lib/layout/types'
 import * as blockActions from '@/lib/terminal/blockActions'
 import { useActionConfirmStore } from '@/stores/agents/actionConfirmStore'
+import { useAttentionStore } from '@/stores/agents/attentionStore'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useBlocksStore } from '@/stores/terminal/blocksStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { usePaneRenameStore } from '@/stores/workspaces/paneRenameStore'
+import { useParkStore } from '@/stores/workspaces/parkStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import { PaneHeaderActions, PaneTabMenu } from './PaneTabMenu'
 
@@ -156,6 +158,34 @@ describe('PaneTabMenu close others and hibernation', () => {
     openMenu(shell, [shell, agentTab])
     expect(await screen.findByRole('menuitem', { name: 'Lock tab' })).toBeInTheDocument()
     expect(screen.queryByRole('menuitem', { name: /Hibernate tab|Wake tab/ })).toBeNull()
+  })
+
+  it('offers Park tab for an idle running agent, opens the park prompt, and disables it for a plain shell or a working agent', async () => {
+    useWorkspacesStore.setState({
+      workspaces: [{ id: 'w', name: 'w', kind: 'terminal', workDir: '/w', state: 'idle' }],
+    })
+    useBlocksStore.getState().promptStart('b', { line: 0 }, null)
+    useBlocksStore.getState().commandStart('b', { line: 1 }, 'claude')
+    useBlocksStore.getState().markAgent('b', 'claude')
+    openMenu(agentTab, [shell, agentTab])
+    const item = await screen.findByRole('menuitem', { name: /Park tab/ })
+    expect(item).not.toHaveAttribute('aria-disabled', 'true')
+    await userEvent.setup().click(item)
+    expect(useParkStore.getState().prompt).toMatchObject({ workspaceId: 'w', paneId: 'b' })
+    useParkStore.setState({ prompt: null })
+    cleanup()
+    useAttentionStore.getState().dispatch('b', { type: 'set', state: 'working', at: 1 })
+    openMenu(agentTab, [shell, agentTab])
+    expect(await screen.findByRole('menuitem', { name: /Park tab/ })).toHaveAttribute(
+      'aria-disabled',
+      'true',
+    )
+    cleanup()
+    openMenu(shell, [shell, agentTab])
+    expect(await screen.findByRole('menuitem', { name: 'Lock tab' })).toBeInTheDocument()
+    expect(screen.queryByRole('menuitem', { name: /Park tab/ })).toBeNull()
+    useAttentionStore.setState({ byPane: {} })
+    useWorkspacesStore.setState({ workspaces: [] })
   })
 
   it('wakes a hibernated agent tab instead', async () => {

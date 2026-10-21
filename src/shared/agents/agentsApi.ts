@@ -1,6 +1,6 @@
+import type { ParkBridge } from '../park/parkApi'
 import type { AgentResume } from './agentResume'
 import type { AgentSessionInfo } from './agentSessionInfo'
-import type { ParkBridge } from '../park/parkApi'
 import type { MailApi } from './mailApi'
 
 export interface ManagerOpenPaneRequest {
