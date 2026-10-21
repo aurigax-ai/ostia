@@ -11,7 +11,7 @@ import { createGuestRemap } from './guestRemap'
 
 type Handler = (event: { sender: WebContents }, ...args: unknown[]) => unknown
 
-function setup(mac = false, humanBrowser = true) {
+function setup(mac = false, humanBrowser = true, viewer = false) {
   const handlers = new Map<string, Handler>()
   const ipc = {
     on: (channel: string, fn: Handler) => handlers.set(channel, fn),
@@ -29,6 +29,7 @@ function setup(mac = false, humanBrowser = true) {
     mac,
     remap: createGuestRemap({ nativeMenuKey: (input) => input.key === 'q' && input.meta }),
     isHumanBrowser: () => humanBrowser,
+    isViewerGuest: () => viewer,
   })
   chords.guardGuest(guest)
   const set = (sender: WebContents, value: unknown) =>
@@ -67,6 +68,24 @@ describe('registerGuestChords', () => {
       guestId: 9,
       key: { key: 'p', code: 'KeyP', ctrlKey: true, shiftKey: true, altKey: false, metaKey: false },
     })
+  })
+
+  it('leaves the find keys to a viewer page and still forwards its other app chords', () => {
+    const { app, host, set, press } = setup(false, true, true)
+    set(app, ['Ctrl+F', 'Ctrl+G', 'Ctrl+Shift+P'])
+    const find = press({ key: 'f', code: 'KeyF', shift: false })
+    expect(find.preventDefault).not.toHaveBeenCalled()
+    expect(press({ key: 'g', code: 'KeyG', shift: true }).preventDefault).not.toHaveBeenCalled()
+    expect(host.send).not.toHaveBeenCalled()
+    expect(press({}).preventDefault).toHaveBeenCalled()
+    expect(host.send).toHaveBeenCalledTimes(1)
+  })
+
+  it('forwards the find keys of any other guest to the host window', () => {
+    const { app, host, set, press } = setup()
+    set(app, ['Ctrl+F'])
+    expect(press({ key: 'f', code: 'KeyF', shift: false }).preventDefault).toHaveBeenCalled()
+    expect(host.send).toHaveBeenCalledTimes(1)
   })
 
   it('lets other keys reach the page', () => {

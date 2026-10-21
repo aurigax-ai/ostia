@@ -322,6 +322,10 @@ export class ViewerHost {
     return stored ? this.copyStored(stored) : this.deps.copyStrings().nothing
   }
 
+  isViewerGuest(guest: { getURL: () => string }): boolean {
+    return this.liveOf(guest.getURL()) !== null
+  }
+
   copyForGuest(guest: { getURL: () => string }): boolean {
     const stored = this.liveOf(guest.getURL())?.selection
     if (!stored) return false
@@ -355,7 +359,7 @@ export class ViewerHost {
       live &&
         live.extId === extId &&
         live.windowId === windowId &&
-        src === `${VIEWER_SCHEME}://${live.token}/${live.source.entry}`,
+        src.split('#', 1)[0] === `${VIEWER_SCHEME}://${live.token}/${live.source.entry}`,
     )
   }
 

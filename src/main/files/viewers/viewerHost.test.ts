@@ -173,6 +173,10 @@ describe('ViewerHost', () => {
     host.open('w1', OPEN)
     const src = 'ostia-viewer://t1/sheet.html'
     expect(host.acceptsAttach('ostia-viewer-office', src, 'w1')).toBe(true)
+    expect(host.acceptsAttach('ostia-viewer-office', `${src}#page=3`, 'w1')).toBe(true)
+    expect(host.acceptsAttach('ostia-viewer-office', 'ostia-viewer://t1/other.html#x', 'w1')).toBe(
+      false,
+    )
     expect(host.acceptsAttach('ostia-viewer-office', src, 'w2')).toBe(false)
     expect(host.acceptsAttach('ostia-viewer-csv', src, 'w1')).toBe(false)
     expect(host.acceptsAttach('ostia-viewer-office', 'ostia-viewer://t1/other.html', 'w1')).toBe(

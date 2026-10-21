@@ -4,6 +4,7 @@ import {
   guestChordKey,
   guestDoubleShift,
   isGuestChordFire,
+  isPageFindKey,
   MAX_GUEST_CHORDS,
   normalizeGuestChords,
 } from './guestChords'
@@ -113,5 +114,25 @@ describe('isGuestChordFire', () => {
     expect(isGuestChordFire({ guestId: '4', key })).toBe(false)
     expect(isGuestChordFire({ guestId: 4, key: { ...key, metaKey: 'yes' } })).toBe(false)
     expect(isGuestChordFire(null)).toBe(false)
+  })
+})
+
+describe('isPageFindKey', () => {
+  const press = (over: Record<string, unknown>) => input({ shift: false, ...over })
+
+  it('takes the primary modifier with F and G, and F3', () => {
+    expect(isPageFindKey(press({ key: 'f' }), false)).toBe(true)
+    expect(isPageFindKey(press({ key: 'g', shift: true }), false)).toBe(true)
+    expect(isPageFindKey(press({ key: 'F3', control: false }), false)).toBe(true)
+    expect(isPageFindKey(press({ key: 'f', control: false, meta: true }), true)).toBe(true)
+  })
+
+  it('leaves everything else to the app', () => {
+    expect(isPageFindKey(press({ key: 'f', shift: true }), false)).toBe(false)
+    expect(isPageFindKey(press({ key: 'f', alt: true }), false)).toBe(false)
+    expect(isPageFindKey(press({ key: 'f', control: false, meta: true }), false)).toBe(false)
+    expect(isPageFindKey(press({ key: 'f' }), true)).toBe(false)
+    expect(isPageFindKey(press({ key: 'f', type: 'keyUp' }), false)).toBe(false)
+    expect(isPageFindKey(press({ key: 'p' }), false)).toBe(false)
   })
 })

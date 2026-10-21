@@ -55,6 +55,14 @@ export function guestChordKey(
   return digit && chords.has(formatChord({ ...spec, key: DIGIT_RANGE }, mac)) ? key : null
 }
 
+export function isPageFindKey(input: GuestKeyInput, mac: boolean): boolean {
+  if (input.type !== 'keyDown' || input.alt) return false
+  const primary = mac ? input.meta && !input.control : input.control && !input.meta
+  const key = input.key.toLowerCase()
+  if (primary) return key === 'g' || (key === 'f' && !input.shift)
+  return key === 'f3' && !input.control && !input.meta
+}
+
 export function guestDoubleShift(
   input: GuestKeyInput,
   chords: ReadonlySet<string>,
