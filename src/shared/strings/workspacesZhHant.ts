@@ -231,6 +231,7 @@ export const workspacesZhHant: typeof workspacesEn = {
     folderTrustSkip: '讓 Claude 自己詢問',
     folderTrustTitle: '要讓 Claude 信任 {name} 嗎？',
     forkAction: '分支',
+    handoffAction: '交接',
     forkConversation: '將對話分支到新分頁',
     forkTitle: '{title} 的分支',
     hibernateTab: '讓分頁休眠',

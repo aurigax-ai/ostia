@@ -234,6 +234,7 @@ export const workspacesEn = {
     folderTrustSkip: 'Let Claude ask',
     folderTrustTitle: 'Trust {name} for Claude?',
     forkAction: 'Fork',
+    handoffAction: 'Hand off',
     forkConversation: 'Fork conversation into a new tab',
     forkTitle: 'Fork of {title}',
     hibernateTab: 'Hibernate tab',
