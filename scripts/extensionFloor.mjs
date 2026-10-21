@@ -64,7 +64,7 @@ function pinnedSdk() {
 
 async function sdkApiOf(version) {
   const response = await fetch(
-    `https://registry.npmjs.org/${sdkName.replace('/', '%2F')}/${version}`,
+    `https://registry.npmjs.org/${sdkName.replaceAll('/', '%2F')}/${version}`,
   )
   if (!response.ok) throw new Error(`npm answered ${response.status} for ${sdkName}@${version}`)
   return (await response.json()).ostiaExtensionApi
