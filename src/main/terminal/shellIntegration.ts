@@ -8,11 +8,12 @@ import {
   NO_AGENT_PLUGINS,
 } from '@aurigax-ai/ostia-extension-sdk/manifest/agentSkills'
 import { isPromptSeparator, type PromptSeparator } from '../../shared/terminal/promptSettings'
+import type { PlaybookFile } from '../agents/playbookFiles'
 import { privateTmpDir } from '../platform/privateTmp'
 import { CLI_PATH, CLI_RUN } from './agentHookCommands'
-import { agentPluginFiles, hasFiles, writeAgentPlugin } from './agentPlugin'
+import { hasFiles, writeAgentPlugin } from './agentPlugin'
 import { claudeWrapper } from './claudeIntegration'
-import { codexWrapper } from './codexIntegration'
+import { codexWrapper, PLAYBOOKS_DIR } from './codexIntegration'
 
 export const INTEGRATION_DIR = privateTmpDir(`${PRODUCT_NAME}-shell-integration`)
 
@@ -299,19 +300,28 @@ fi
 const AGENT_PLUGINS_DIR = join(INTEGRATION_DIR, 'agents')
 
 let agentContent: AgentPluginContent = NO_AGENT_PLUGINS
-let agentDir: string | null = null
-let agentNames: string[] = []
+let playbookSource: (taken: readonly string[]) => PlaybookFile[] = () => []
+
+export function setPlaybookSource(source: (taken: readonly string[]) => PlaybookFile[]): void {
+  playbookSource = source
+}
+
+function writeCurrentPlugin(): string {
+  const taken = agentContent.skills.map((skill) => skill.id)
+  return writeAgentPlugin(AGENT_PLUGINS_DIR, agentContent, playbookSource(taken))
+}
 
 export function setAgentPlugins(content: AgentPluginContent): string {
   agentContent = content
-  agentDir = writeAgentPlugin(AGENT_PLUGINS_DIR, content)
-  agentNames = agentPluginFiles(content)
-  return agentDir
+  return writeCurrentPlugin()
 }
 
 function currentAgentDir(): string {
-  if (agentDir !== null && hasFiles(agentDir, agentNames)) return agentDir
-  return setAgentPlugins(agentContent)
+  return writeCurrentPlugin()
+}
+
+export function playbooksFolder(): string {
+  return join(currentAgentDir(), 'codex', PLAYBOOKS_DIR)
 }
 
 export type ShellIntegrationFiles = Record<string, string>

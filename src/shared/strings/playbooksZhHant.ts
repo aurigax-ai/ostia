@@ -1,0 +1,46 @@
+import type { playbooksEn } from './playbooksEn'
+
+export const playbooksZhHant: typeof playbooksEn = {
+  command: '指令',
+  defaultChanged: '{product} 的預設內容已更新，你的修改仍保留。',
+  delete: '刪除',
+  desc: '你輸入的斜線指令，用來為代理設定角色。變更會套用到之後開啟的終端機；執行中的代理維持啟動時的內容。',
+  description: '說明',
+  descriptionPlaceholder: '顯示在清單中的一行說明',
+  descriptionProblems: {
+    control: '只能有一行。',
+    empty: '請寫一行說明。',
+    long: '最多 120 個字元。',
+  },
+  descriptions: {
+    coordinator: '規劃、派工、審查並合併；自己不寫程式碼。',
+    remember: '記下稍後要做的事，即使在 /clear 或恢復之後也能接續。',
+    review: '依據議題對 PR 做一次聚焦審查。',
+    worker: '勘查、實作、測試並開 PR；向協調者回報。',
+  },
+  discardDraft: '捨棄',
+  edited: '已修改',
+  hideDefault: '隱藏',
+  listLabel: '劇本',
+  nameProblems: {
+    invalid: '請用小寫字母、數字與連字號，以字母開頭，最長 32 個字元。',
+    reserved: '/{name} 是內建名稱。',
+    taken: '/{name} 已經存在。',
+  },
+  newPlaybook: '新增劇本',
+  noPlaybooks: '沒有劇本。',
+  promptLabel: '{command} 的提示內容',
+  promptPlaceholder: '輸入指令時，代理該做什麼',
+  reset: '還原',
+  resetDefault: '還原為預設',
+  showDefault: '檢視',
+  textProblems: {
+    control: '內容含有控制字元。',
+    empty: '請寫提示內容。',
+    long: '最多 8,000 個字元。',
+    shell: '有一行會執行指令（!` 或 ```! 區塊），劇本不允許。',
+  },
+  title: '劇本',
+  tokens: '約 {count} 個 token',
+  yours: '你的',
+}

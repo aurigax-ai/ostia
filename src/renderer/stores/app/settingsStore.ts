@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { createPlaybookActions } from './playbookActions'
 import {
   createAppearanceActions,
   createKeyboardActions,
@@ -44,4 +45,5 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
   ...createWorkspaceActions(set, get),
   ...createKeyboardActions(set, get),
   ...createTrustActions(set, get),
+  ...createPlaybookActions(set, get),
 }))

@@ -1,6 +1,7 @@
 import type { ExtensionInfo } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import { Fragment, memo, useEffect, useMemo, useRef } from 'react'
 import { AgentsSection } from '@/components/agents/AgentsSection'
+import { PlaybooksSection } from '@/components/agents/PlaybooksSection'
 import { AboutSection } from '@/components/app/AboutSection'
 import { AssistantSection } from '@/components/assist/AssistantSection'
 import { BrowseExtensionsDialog } from '@/components/extensions/BrowseExtensions'
@@ -182,6 +183,7 @@ const SettingsPages = memo(function SettingsPages({
         />
       ) : null}
       {id === 'agents' ? <AgentsSection /> : null}
+      {id === 'playbooks' ? <PlaybooksSection /> : null}
       {id === 'assistant' ? <AssistantSection /> : null}
       {id === 'manager' ? <ManagerSection /> : null}
       {id === 'files' ? <FilesSection /> : null}

@@ -1,4 +1,9 @@
 import { PRODUCT_DISPLAY_NAME } from '@aurigax-ai/ostia-extension-sdk/contract/productDisplay'
+import {
+  OWN_PLAYBOOKS_MAX,
+  PLAYBOOK_DESCRIPTION_MAX,
+  PLAYBOOK_TEXT_MAX,
+} from '@shared/agents/playbooks'
 import { REDACTION_PATTERN_MAX, REDACTION_PATTERNS_MAX } from '@shared/privacy/redaction'
 import { ACTION_ICONS, ACTION_ID, ACTION_PLACES, ACTION_TITLE_MAX, ACTIONS_MAX } from './actions'
 
@@ -303,6 +308,44 @@ export const privacySchema = {
             'lookaround or backreferences, no repeated group that itself repeats or ' +
             'branches, at most one open-ended repeat (* + {n,}). A pattern that breaks a ' +
             'rule is ignored.',
+        },
+      },
+    },
+  },
+}
+
+export const playbooksSchema = {
+  type: 'object',
+  additionalProperties: false,
+  description: `Slash commands you turn on for agents (Settings → Playbooks). A change reaches agents started afterwards. Synced with your other settings. Only you can change this, in Settings; agents cannot.`,
+  properties: {
+    enabled: {
+      type: 'object',
+      description: 'Playbook name → on or off. A playbook not listed uses its default.',
+      additionalProperties: { type: 'boolean' },
+    },
+    edits: {
+      type: 'object',
+      description: 'Built-in playbook name → your edited text and the default it started from.',
+      additionalProperties: {
+        type: 'object',
+        additionalProperties: false,
+        properties: {
+          text: { type: 'string', maxLength: PLAYBOOK_TEXT_MAX },
+          from: { type: 'string', description: 'Hash of the default text you edited.' },
+        },
+      },
+    },
+    own: {
+      type: 'object',
+      description: `Your own playbooks by command name, at most ${OWN_PLAYBOOKS_MAX}.`,
+      additionalProperties: {
+        type: 'object',
+        additionalProperties: false,
+        properties: {
+          description: { type: 'string', maxLength: PLAYBOOK_DESCRIPTION_MAX },
+          text: { type: 'string', maxLength: PLAYBOOK_TEXT_MAX },
+          enabled: { type: 'boolean' },
         },
       },
     },

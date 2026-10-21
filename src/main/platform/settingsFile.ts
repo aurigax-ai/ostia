@@ -12,6 +12,7 @@ export interface SettingsFile {
   manager?: unknown
   assistant?: unknown
   agent?: unknown
+  playbooks?: unknown
   privacy?: unknown
   terminal?: { shell?: unknown; keepShells?: unknown; scrollbackHistory?: unknown }
   agents?: { hooks?: unknown; trustWorkspaceFolders?: unknown }

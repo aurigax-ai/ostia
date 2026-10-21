@@ -4,6 +4,7 @@ import { isDangerousSegment } from '@aurigax-ai/ostia-extension-sdk/contract/pro
 import { parseAgentSettings } from '@shared/agent/agentSettings'
 import { parseAgentHooks } from '@shared/agents/agentHooks'
 import { parseManagerSettings } from '@shared/agents/managerSettings'
+import { parsePlaybooks } from '@shared/agents/playbooks'
 import { parseNotificationSettings } from '@shared/app/notificationSettings'
 import { parseUpdateChannel } from '@shared/app/releases'
 import { clampZoom } from '@shared/app/zoom'
@@ -191,6 +192,7 @@ export function parsePersisted(p: Partial<Persisted>): Persisted {
     privacy: parsePrivacySettings(p.privacy),
     git: parseGitSettings(p.git),
     ports: parsePortsSettings(p.ports),
+    playbooks: parsePlaybooks(p.playbooks),
   }
 }
 
