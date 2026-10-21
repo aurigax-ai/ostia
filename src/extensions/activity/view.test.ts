@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import type { ActivityEvent, ActivityHost, ActivityNote } from './hookEvent'
 import {
-  PAGE_ROWS,
   STREAM_LIMIT_KEY,
+  STREAM_PAGE,
+  TURN_PAGE,
   actionCategory,
   actionCounts,
   ageOf,
@@ -158,7 +159,7 @@ describe('panelModel', () => {
 
   it('carries the toggle and sends only a page of earlier turns, newest first, counting the rest', () => {
     expect(panelModel({ ...sources, showActivity: false }).showActivity).toBe(false)
-    const total = PAGE_ROWS * 3 + 2
+    const total = TURN_PAGE * 3 + 2
     const many = Array.from({ length: total }, (_, i) => [
       ev('p', 'prompt', `turn ${i}`),
       ev('p', 'stop', `recap ${i}`),
@@ -172,14 +173,14 @@ describe('panelModel', () => {
         events: () => many,
       }).workspace?.agents[0]
     const first = agentWith({})
-    expect(first?.earlier).toHaveLength(PAGE_ROWS)
+    expect(first?.earlier).toHaveLength(TURN_PAGE)
     expect(first?.earlier[0].prompt).toBe(`turn ${total - 2}`)
-    expect(first?.more).toBe(total - 1 - PAGE_ROWS)
+    expect(first?.more).toBe(total - 1 - TURN_PAGE)
     expect(first?.recap).toBe(`recap ${total - 1}`)
-    const wider = agentWith({ [agentLimitKey('p')]: PAGE_ROWS * 2 })
-    expect(wider?.earlier).toHaveLength(PAGE_ROWS * 2)
-    expect(wider?.earlier.slice(0, PAGE_ROWS)).toEqual(first?.earlier)
-    expect(wider?.more).toBe(total - 1 - PAGE_ROWS * 2)
+    const wider = agentWith({ [agentLimitKey('p')]: TURN_PAGE * 2 })
+    expect(wider?.earlier).toHaveLength(TURN_PAGE * 2)
+    expect(wider?.earlier.slice(0, TURN_PAGE)).toEqual(first?.earlier)
+    expect(wider?.more).toBe(total - 1 - TURN_PAGE * 2)
     const all = agentWith({ [agentLimitKey('p')]: total * 2 })
     expect(all?.earlier).toHaveLength(total - 1)
     expect(all?.more).toBe(0)
@@ -274,21 +275,21 @@ describe('the workspace stream', () => {
   })
 
   it('sends one page of rows, newest first, and more of them when the panel asks', () => {
-    const spread = Array.from({ length: PAGE_ROWS * 3 }, (_, i) =>
+    const spread = Array.from({ length: STREAM_PAGE * 3 }, (_, i) =>
       host('a', (i + 1) * 60_000, { host: i % 2 === 0 ? 'started' : 'closed' }),
     )
     const page = model(spread)
-    expect(page?.stream).toHaveLength(PAGE_ROWS)
-    expect(page?.stream[0].t).toBe(PAGE_ROWS * 3 * 60_000)
-    expect(page?.streamMore).toBe(PAGE_ROWS * 2)
+    expect(page?.stream).toHaveLength(STREAM_PAGE)
+    expect(page?.stream[0].t).toBe(STREAM_PAGE * 3 * 60_000)
+    expect(page?.streamMore).toBe(STREAM_PAGE * 2)
     const wider = panelModel({
       showActivity: true,
       workspace: { workspaceId: 'w', name: 'w' },
       panes: [],
-      limits: { [STREAM_LIMIT_KEY]: PAGE_ROWS * 3 },
+      limits: { [STREAM_LIMIT_KEY]: STREAM_PAGE * 3 },
       events: () => spread,
     }).workspace
-    expect(wider?.stream).toHaveLength(PAGE_ROWS * 3)
+    expect(wider?.stream).toHaveLength(STREAM_PAGE * 3)
     expect(wider?.streamMore).toBe(0)
   })
 
@@ -298,32 +299,55 @@ describe('the workspace stream', () => {
     )
     const rows = model(moved)?.stream
     expect(rows).toHaveLength(1)
-    expect(rows?.[0]).toMatchObject({ host: 'folder', folder: '…/r2', count: 12, t: 2100 })
+    expect(rows?.[0]).toMatchObject({ host: 'folder', folder: '…/r2', t: 2100 })
+    expect(rows?.[0].panes).toHaveLength(12)
     expect(rows?.[0].id).toBe('host1000')
   })
 
-  it('keeps one pane, other folders, other kinds and a later burst as rows of their own', () => {
+  it('merges only a contiguous run, so the rows keep the order the events happened in', () => {
     const rows = more([
-      host('a', 1000, { host: 'folder', folder: 'x' }),
-      host('b', 1100, { host: 'folder', folder: 'y' }),
-      host('c', 1200, { host: 'started' }),
-      host('d', 1300, { host: 'folder', folder: 'x' }),
-      host('e', 1400, { host: 'state', state: 'working' }),
-      host('f', 1500, { host: 'state', state: 'done' }),
-      host('g', 1600, { host: 'folder', folder: 'x' }),
-      host('h', 60_000, { host: 'folder', folder: 'x' }),
+      host('a', 1000, { host: 'folder', folder: 'r2' }),
+      host('a', 1100, { host: 'folder', folder: 'r3' }),
+      host('b', 1200, { host: 'folder', folder: 'r2' }),
     ])?.stream
-    expect(rows?.map((r) => [r.host, r.folder ?? r.state, r.count])).toEqual([
-      ['folder', 'x', undefined],
-      ['state', 'done', undefined],
-      ['state', 'working', undefined],
-      ['started', undefined, undefined],
-      ['folder', 'y', undefined],
-      ['folder', 'x', 3],
+    expect(rows?.map((r) => [r.folder, r.t, r.panes?.length])).toEqual([
+      ['r2', 1200, undefined],
+      ['r3', 1100, undefined],
+      ['r2', 1000, undefined],
     ])
   })
 
-  it('does not count a pane twice and never merges bus messages', () => {
+  it('keeps other kinds, other folders and a burst after the window as rows of their own', () => {
+    const rows = more([
+      host('a', 1000, { host: 'folder', folder: 'x' }),
+      host('b', 1100, { host: 'folder', folder: 'x' }),
+      host('c', 1200, { host: 'folder', folder: 'y' }),
+      host('d', 1300, { host: 'state', state: 'working' }),
+      host('e', 1400, { host: 'state', state: 'done' }),
+      host('f', 60_000, { host: 'folder', folder: 'x' }),
+      host('g', 60_100, { host: 'folder', folder: 'x' }),
+    ])?.stream
+    expect(rows?.map((r) => [r.host, r.folder ?? r.state, r.panes?.length])).toEqual([
+      ['folder', 'x', 2],
+      ['state', 'done', undefined],
+      ['state', 'working', undefined],
+      ['folder', 'y', undefined],
+      ['folder', 'x', 2],
+    ])
+  })
+
+  it('measures the window from the first event of the run, so a slow trickle is not one row for ever', () => {
+    const rows = more([0, 1, 2, 3, 4].map((i) => host(`p${i}`, 1000 + i * 4000)))?.stream
+    expect(rows?.map((r) => r.panes?.length)).toEqual([undefined, 2, 2])
+  })
+
+  it('lists every pane of a collapsed row in order, with the labels the rows use', () => {
+    const rows = more([host('a', 1000), host('b', 1100), host('c', 1200)])?.stream
+    expect(rows).toHaveLength(1)
+    expect(rows?.[0].panes).toEqual([{ n: 1 }, { n: 2 }, { n: 3 }])
+  })
+
+  it('starts a new row when a pane repeats, and never merges bus messages', () => {
     const bus = (ref: string, t: number) =>
       host('a', t, { host: 'bus', from: 'a', to: 'b', message: 'message', state: 'queued', ref })
     const rows = model([
@@ -332,9 +356,10 @@ describe('the workspace stream', () => {
       bus('m1', 1300),
       bus('m2', 1400),
     ])
-    expect(rows?.stream.map((r) => [r.host, r.count])).toEqual([
+    expect(rows?.stream.map((r) => [r.host, r.panes?.length])).toEqual([
       ['bus', undefined],
       ['bus', undefined],
+      ['started', undefined],
       ['started', undefined],
     ])
   })
@@ -572,11 +597,35 @@ describe('wrapper-only prompts', () => {
     expect(current?.wrapper).toEqual({ kind: 'message', from: { agent: 'claude', n: 2 } })
   })
 
-  it('keeps an ordinary prompt, even one that mentions a tag, as it is', () => {
-    expect(agentOf([ev('p', 'prompt', 'explain <pasted_content> tags')])?.current).toMatchObject({
-      prompt: 'explain <pasted_content> tags',
+  it('labels a wrapper with its closing tag and nothing else, and ignores surrounding blanks', () => {
+    expect(
+      agentOf([ev('p', 'prompt', '<system-reminder></system-reminder>')])?.current.wrapper,
+    ).toEqual({
+      kind: 'reminder',
     })
-    expect(agentOf([ev('p', 'prompt', '<div>fix it</div>')])?.current.wrapper).toBeUndefined()
+    expect(
+      agentOf([ev('p', 'prompt', '  <pasted_content id="a1"> </pasted_content>  ')])?.current
+        .wrapper,
+    ).toEqual({
+      kind: 'pasted',
+    })
+    expect(agentOf([ev('p', 'prompt', '\t<task-notification>')])?.current.wrapper).toEqual({
+      kind: 'task',
+    })
+  })
+
+  it.each([
+    '<task-notification> why did the build fail',
+    '<pasted_content id="a1">log</pasted_content> fix this',
+    '<system-reminder>be brief</system-reminder>',
+    'explain <pasted_content> tags',
+    '<div>fix it</div>',
+    '<pasted_content-x>',
+    '<message id="m1" at="t">hello',
+  ])('keeps %s as the human wrote it', (text) => {
+    const current = agentOf([ev('p', 'prompt', text)])?.current
+    expect(current?.prompt).toBe(text)
+    expect(current?.wrapper).toBeUndefined()
   })
 
   it('leaves the stored event text untouched', () => {
@@ -597,11 +646,20 @@ describe('limitsDigest', () => {
 describe('widen', () => {
   it('asks for one more page when the sentinel shows all that is loaded, and not twice for the same page', () => {
     const limits = new Map<string, number>()
-    expect(widen(limits, 'agent:p', PAGE_ROWS)).toBe(true)
-    expect(limits.get('agent:p')).toBe(PAGE_ROWS * 2)
-    expect(widen(limits, 'agent:p', PAGE_ROWS)).toBe(false)
-    expect(limits.get('agent:p')).toBe(PAGE_ROWS * 2)
-    expect(widen(limits, 'agent:p', PAGE_ROWS * 2)).toBe(true)
-    expect(limits.get('agent:p')).toBe(PAGE_ROWS * 3)
+    expect(widen(limits, 'agent:p', TURN_PAGE)).toBe(true)
+    expect(limits.get('agent:p')).toBe(TURN_PAGE * 2)
+    expect(widen(limits, 'agent:p', TURN_PAGE)).toBe(false)
+    expect(limits.get('agent:p')).toBe(TURN_PAGE * 2)
+    expect(widen(limits, 'agent:p', TURN_PAGE * 2)).toBe(true)
+    expect(limits.get('agent:p')).toBe(TURN_PAGE * 3)
+  })
+})
+
+describe('widen for the workspace events', () => {
+  it('asks for a page of events, which is larger than a page of turns', () => {
+    const limits = new Map<string, number>()
+    expect(widen(limits, STREAM_LIMIT_KEY, STREAM_PAGE)).toBe(true)
+    expect(limits.get(STREAM_LIMIT_KEY)).toBe(STREAM_PAGE * 2)
+    expect(STREAM_PAGE).toBeGreaterThan(TURN_PAGE)
   })
 })

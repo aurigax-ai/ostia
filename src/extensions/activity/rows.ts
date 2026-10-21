@@ -29,6 +29,7 @@ import {
   ageOf,
   agentLimitKey,
   groupKey,
+  streamRowKey,
 } from './view'
 
 const TOOL_ICONS: Record<ToolKind, string> = {
@@ -54,6 +55,7 @@ export interface RowEnv {
   paneNote: (paneId: string) => string | undefined
   noteFailure: (id: string) => string | undefined
   watchMore: (el: HTMLElement) => void
+  loadMore: (el: HTMLElement) => void
 }
 
 export type ListContent =
@@ -153,7 +155,8 @@ function streamText(env: RowEnv, row: StreamRow): string {
   }
   const key = row.host === 'state' ? `stream.state.${row.state}` : `stream.${row.host}`
   const folder = row.folder === '.' ? env.t('stream.rootFolder') : (row.folder ?? '')
-  return env.t(row.count ? `${key}.many` : key, { who, folder, count: row.count ?? 1 })
+  const count = row.panes?.length
+  return env.t(count ? `${key}.many` : key, { who, folder, count: count ?? 1 })
 }
 
 function wrapperText(env: RowEnv, wrapper: PromptWrapper): string {
@@ -167,7 +170,17 @@ function moreSentinel(
   env: RowEnv,
   key: string,
 ): { el: HTMLElement; set: (more: number, loaded: number) => void } {
-  const el = h('div', { class: 'more', 'data-more': key, hidden: true })
+  const el: HTMLElement = h(
+    'button',
+    {
+      class: 'quiet more',
+      type: 'button',
+      'data-more': key,
+      hidden: true,
+      onClick: () => env.loadMore(el),
+    },
+    env.t('showOlder'),
+  )
   env.watchMore(el)
   return {
     el,
@@ -434,19 +447,59 @@ function notesRow(env: RowEnv): Row<NotesItem> {
   }
 }
 
+function paneRow(env: RowEnv, label: PaneLabel): Row<PaneLabel> {
+  const el = h('li', { class: 'bulk-pane' })
+  setText(el, labelText(env, label))
+  return { el, update: (next) => (setText(el, labelText(env, next)) ? [el] : []) }
+}
+
 function streamRowNode(env: RowEnv): Row<StreamRow> {
   const text = h('p', { class: 'stream-text' })
   const phase = h('span', { class: 'phase muted', hidden: true })
   const age = ageNode(env)
+  const toggle = h(
+    'button',
+    {
+      class: 'quiet bulk-toggle',
+      type: 'button',
+      'aria-expanded': 'false',
+      'aria-label': env.t('bulk.panes'),
+      hidden: true,
+    },
+    icon(caretRight),
+  )
+  const panesList = h('ul', { class: 'bulk-list', 'aria-label': env.t('bulk.panes'), hidden: true })
+  const patchPanes = createPatcher<PaneLabel>(panesList, (label) => paneRow(env, label), env.now)
   const el = h(
     'li',
     { class: 'turn stream-row' },
     h('span', { class: 'node', 'aria-hidden': 'true' }),
-    h('div', { class: 'turn-head' }, text, phase, age.el),
+    h('div', { class: 'turn-head' }, toggle, text, phase, age.el),
+    panesList,
   )
+  let current: StreamRow | null = null
+  const showPanes = (): void => {
+    const panes = current?.panes ?? []
+    const open = current !== null && panes.length > 0 && env.isOpen(streamRowKey(current))
+    flag(toggle, 'hidden', panes.length === 0)
+    setAttr(toggle, 'aria-expanded', String(open))
+    flag(panesList, 'hidden', !open)
+    patchPanes(
+      open
+        ? panes.map((label, i) => ({ key: String(i), sig: JSON.stringify(label), value: label }))
+        : [],
+    )
+  }
+  toggle.addEventListener('click', () => {
+    if (!current) return
+    const key = streamRowKey(current)
+    env.setOpen(key, !env.isOpen(key))
+    showPanes()
+  })
   return {
     el,
     update: (next) => {
+      current = next
       setAttr(el, 'data-host', next.host)
       setAttr(el, 'data-state', next.host === 'state' && next.state ? next.state : 'past')
       const changed: HTMLElement[] = []
@@ -455,6 +508,7 @@ function streamRowNode(env: RowEnv): Row<StreamRow> {
       flag(phase, 'hidden', phaseText === '')
       if (setText(phase, phaseText)) changed.push(phase)
       age.set(next.t)
+      showPanes()
       return changed
     },
   }
@@ -474,7 +528,7 @@ function streamRow(env: RowEnv): Row<StreamItem> {
   return {
     el,
     update: ({ rows, more: rest }) => {
-      patch(rows.map((row) => ({ key: `host:${row.id}`, sig: JSON.stringify(row), value: row })))
+      patch(rows.map((row) => ({ key: streamRowKey(row), sig: JSON.stringify(row), value: row })))
       more.set(rest, rows.length)
       return []
     },

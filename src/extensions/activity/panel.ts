@@ -47,6 +47,7 @@ const env: RowEnv = {
     moreObserver.unobserve(el)
     moreObserver.observe(el)
   },
+  loadMore,
 }
 
 function loadMore(el: HTMLElement): void {

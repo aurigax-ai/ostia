@@ -4,7 +4,7 @@ import type { ActivityEvent } from './hookEvent'
 import { Journal } from './journal'
 import { LISTING_TTL_MS, createOpenListing } from './openListing'
 import { activityPanelCommands, parseLimits } from './panelCommands'
-import { PAGE_ROWS, agentLimitKey } from './view'
+import { TURN_PAGE, agentLimitKey } from './view'
 
 const caller = { workspaceId: 'w1' } as ExtensionCaller
 
@@ -131,18 +131,18 @@ describe('snapshot', () => {
 
   it('sends a page of earlier turns and, when the panel asks for more, a new revision with more of them', async () => {
     const s = setup()
-    for (let i = 0; i < PAGE_ROWS * 3; i++) s.journal.append('w1', s.record(`turn ${i}`), false)
+    for (let i = 0; i < TURN_PAGE * 3; i++) s.journal.append('w1', s.record(`turn ${i}`), false)
     const first = await s.snapshot()
     const agent = first.data.workspace?.agents[0]
-    expect(agent?.earlier).toHaveLength(PAGE_ROWS)
-    expect(agent?.more).toBe(PAGE_ROWS * 3 - 1 - PAGE_ROWS)
+    expect(agent?.earlier).toHaveLength(TURN_PAGE)
+    expect(agent?.more).toBe(TURN_PAGE * 3 - 1 - TURN_PAGE)
     expect((await s.snapshot(first.data.rev)).data.unchanged).toBe(true)
-    const wider = await s.snapshot(first.data.rev, { [agentLimitKey('p1')]: PAGE_ROWS * 2 })
+    const wider = await s.snapshot(first.data.rev, { [agentLimitKey('p1')]: TURN_PAGE * 2 })
     expect(wider.data.unchanged).toBeUndefined()
     expect(wider.data.rev).not.toBe(first.data.rev)
-    expect(wider.data.workspace?.agents[0].earlier).toHaveLength(PAGE_ROWS * 2)
+    expect(wider.data.workspace?.agents[0].earlier).toHaveLength(TURN_PAGE * 2)
     expect(
-      (await s.snapshot(wider.data.rev, { [agentLimitKey('p1')]: PAGE_ROWS * 2 })).data,
+      (await s.snapshot(wider.data.rev, { [agentLimitKey('p1')]: TURN_PAGE * 2 })).data,
     ).toEqual({
       unchanged: true,
     })

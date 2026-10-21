@@ -44,6 +44,8 @@
     "notes": "備註",
     "doneFailed": "無法標為完成：{reason}",
     "timeline": "回合，由新到舊",
+    "showOlder": "顯示較舊的",
+    "bulk.panes": "顯示每個窗格",
     "prompt.pasted": "貼上的文字",
     "prompt.task": "任務通知",
     "prompt.reminder": "系統提醒",

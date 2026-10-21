@@ -15,7 +15,8 @@ const AGENT_STATES = ['working', 'waiting', 'done', 'error'] as const
 
 type AgentState = (typeof AGENT_STATES)[number]
 
-export const PAGE_ROWS = 5
+export const TURN_PAGE = 20
+export const STREAM_PAGE = 40
 export const STREAM_LIMIT_KEY = 'stream'
 const NOTES_SHOWN_MAX = 20
 const TURN_EVENTS_MAX = 200
@@ -27,10 +28,14 @@ export function agentLimitKey(paneId: string): string {
   return `agent:${paneId}`
 }
 
+function pageSize(key: string): number {
+  return key === STREAM_LIMIT_KEY ? STREAM_PAGE : TURN_PAGE
+}
+
 export function widen(limits: Map<string, number>, key: string, loaded: number): boolean {
-  const have = limits.get(key) ?? PAGE_ROWS
+  const have = limits.get(key) ?? pageSize(key)
   if (have > loaded) return false
-  limits.set(key, have + PAGE_ROWS)
+  limits.set(key, have + pageSize(key))
   return true
 }
 
@@ -117,7 +122,7 @@ export interface StreamRow {
   to?: StreamEndpoint
   message?: BusMessageKind
   folder?: string
-  count?: number
+  panes?: PaneLabel[]
 }
 
 export interface WorkspaceView {
@@ -185,18 +190,28 @@ function eventView(event: ActivityEvent): EventView {
   return view
 }
 
-const WRAPPER_TAGS: readonly { pattern: RegExp; kind: WrapperKind }[] = [
-  { pattern: /^<pasted_content\b/, kind: 'pasted' },
-  { pattern: /^<task-notification\b/, kind: 'task' },
-  { pattern: /^<system-reminder\b/, kind: 'reminder' },
-  { pattern: /^<ostia-bus-messages\b/, kind: 'message' },
+const WRAPPER_TAGS: readonly { name: string; kind: WrapperKind }[] = [
+  { name: 'pasted_content', kind: 'pasted' },
+  { name: 'task-notification', kind: 'task' },
+  { name: 'system-reminder', kind: 'reminder' },
+  { name: 'ostia-bus-messages', kind: 'message' },
 ]
-const BUS_MESSAGE_TAG = /^<message\s[^>]*\bfrom="([^"]+)"/
+
+function wrapperPattern(name: string): RegExp {
+  return new RegExp(`^<${name}(?:\\s[^<>]*)?>(?:\\s*</${name}\\s*>)?$`)
+}
+
+const WRAPPER_PATTERNS = WRAPPER_TAGS.map(({ name, kind }) => ({
+  pattern: wrapperPattern(name),
+  kind,
+}))
+const BUS_MESSAGE_TAG = /^<message\s[^<>]*\bfrom="([^"]+)"[^<>]*>(?:\s*<\/message\s*>)?$/
 
 function wrapperOf(text: string, label: (pane: string) => PaneLabel): PromptWrapper | null {
-  const from = BUS_MESSAGE_TAG.exec(text)?.[1]
+  const line = text.trim()
+  const from = BUS_MESSAGE_TAG.exec(line)?.[1]
   if (from) return { kind: 'message', from: label(from) }
-  const tag = WRAPPER_TAGS.find(({ pattern }) => pattern.test(text))
+  const tag = WRAPPER_PATTERNS.find(({ pattern }) => pattern.test(line))
   return tag ? { kind: tag.kind } : null
 }
 
@@ -232,7 +247,7 @@ function agentState(raw: string | undefined): AgentState | undefined {
 }
 
 function pageOf(limits: Limits, key: string): number {
-  return limits[key] ?? PAGE_ROWS
+  return limits[key] ?? pageSize(key)
 }
 
 function agentView(
@@ -349,6 +364,13 @@ function bulkKey(host: ActivityHost): string {
   return host.host === 'state' ? `state:${host.state}` : host.host
 }
 
+interface Bulk {
+  key: string
+  row: StreamRow
+  panes: Set<string>
+  start: number
+}
+
 function streamOf(
   hosts: readonly ActivityHost[],
   label: (pane: string) => PaneLabel,
@@ -356,7 +378,7 @@ function streamOf(
 ): { rows: StreamRow[]; more: number } {
   const rows: StreamRow[] = []
   const messages = new Map<string, StreamRow>()
-  const bulks = new Map<string, { row: StreamRow; panes: Set<string> }>()
+  let bulk = null as Bulk | null
   for (const host of hosts) {
     const row: StreamRow = { id: host.id, t: host.t, host: host.host, subject: label(host.pane) }
     if (host.state) row.state = host.state
@@ -373,14 +395,18 @@ function streamOf(
       if (host.ref) messages.set(host.ref, row)
     } else {
       const key = bulkKey(host)
-      const bulk = bulks.get(key)
-      if (bulk && host.t - bulk.row.t <= BULK_WINDOW_MS) {
+      if (
+        bulk?.key === key &&
+        rows[rows.length - 1] === bulk.row &&
+        !bulk.panes.has(host.pane) &&
+        host.t - bulk.start <= BULK_WINDOW_MS
+      ) {
         bulk.row.t = host.t
+        bulk.row.panes = [...(bulk.row.panes ?? [bulk.row.subject]), label(host.pane)]
         bulk.panes.add(host.pane)
-        if (bulk.panes.size > 1) bulk.row.count = bulk.panes.size
         continue
       }
-      bulks.set(key, { row, panes: new Set([host.pane]) })
+      bulk = { key, row, panes: new Set([host.pane]), start: host.t }
     }
     rows.push(row)
   }
@@ -428,6 +454,10 @@ export function panelModel(sources: ViewSources): PanelModel {
   }
 }
 
+export function streamRowKey(row: StreamRow): string {
+  return `host:${row.id}`
+}
+
 export function groupKey(paneId: string, turnStart: number): string {
   return `${paneId}:${turnStart}`
 }
@@ -445,6 +475,7 @@ export function liveKeys(workspace: WorkspaceView | null): {
     limits: new Set<string>([STREAM_LIMIT_KEY]),
   }
   for (const note of workspace?.notes ?? []) live.notes.add(note.id)
+  for (const row of workspace?.stream ?? []) if (row.panes) live.groups.add(streamRowKey(row))
   for (const agent of workspace?.agents ?? []) {
     live.panes.add(agent.paneId)
     live.limits.add(agentLimitKey(agent.paneId))

@@ -29,6 +29,8 @@
     "notes": "Notes",
     "doneFailed": "Could not mark it done: {reason}",
     "timeline": "Turns, newest first",
+    "showOlder": "Show older",
+    "bulk.panes": "Show each pane",
     "prompt.pasted": "Pasted text",
     "prompt.task": "Task notification",
     "prompt.reminder": "System reminder",
