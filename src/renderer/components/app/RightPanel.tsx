@@ -161,7 +161,15 @@ export function RightPanel(): JSX.Element {
             </PanelSlot>
           ))}
         {gated && instance && shownExt ? (
-          <SandboxedLine ext={shownExt} instance={instance} />
+          <div className="right-panel-sandboxed">
+            <PanelToolbar
+              bare
+              ext={shownExt}
+              workspaceId={instance.workspaceId}
+              focusKey={rightFocusKey(instance.extId, instance.workspaceId)}
+            />
+            <SandboxedLine ext={shownExt} instance={instance} />
+          </div>
         ) : null}
       </div>
       {open && right ? (

@@ -390,14 +390,58 @@ describe('RightPanel', () => {
     act(() =>
       usePanelToolbarStore
         .getState()
-        .setEntries([{ extId: 'trellis', workspaceId: 'w1', state: { back: 'ACME-41' } }]),
+        .setEntries([{ extId: 'trellis', workspaceId: 'w1', state: { back: 'Add a rule' } }]),
     )
 
-    expect(screen.getByText('ACME-41')).toBeVisible()
+    expect(screen.getByText('Add a rule')).toBeVisible()
     expect(screen.getByRole('button', { name: 'Back' })).toBeVisible()
     expect(screen.queryByRole('tab')).toBeNull()
     expect(screen.queryByRole('button', { name: 'Refresh' })).toBeNull()
     expect(screen.getByRole('button', { name: 'Close Trellis' })).toBeVisible()
+  })
+
+  it('moves focus to Back when an action opens a sub-screen and back to the action when it closes', async () => {
+    setup()
+    useExtensionsStore.setState({
+      list: [
+        {
+          ...toolbarInfo(),
+          panel: {
+            title: 'Trellis',
+            toolbar: {
+              tabs: [{ id: 'board', title: 'Board' }],
+              actions: [{ id: 'add', icon: 'plus', title: 'Add a rule' }],
+            },
+          },
+        } as unknown as ExtensionInfo,
+      ],
+    })
+    render(<RightPanel />)
+    show('trellis')
+    await waitFor(() => expect(webviews()).toHaveLength(1))
+    const entry = (state: object) => [{ extId: 'trellis', workspaceId: 'w1', state }]
+
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Add a rule' }))
+    act(() => usePanelToolbarStore.getState().setEntries(entry({ back: 'Add a rule' })))
+    expect(screen.getByRole('button', { name: 'Back' })).toHaveFocus()
+
+    act(() => usePanelToolbarStore.getState().setEntries(entry({ tab: 'board' })))
+    expect(screen.getByRole('button', { name: 'Add a rule' })).toHaveFocus()
+  })
+
+  it('draws the same core row with the close above the sandboxed Show step', async () => {
+    setup()
+    useSandboxStore.setState({ enabled: { w1: true } })
+    render(<RightPanel />)
+    show('graphs')
+
+    expect(await screen.findByRole('button', { name: 'Show Graphs' })).toBeVisible()
+    const close = screen.getByRole('button', { name: 'Close Graphs' })
+    expect(close).toBeVisible()
+    expect(close.closest('.right-panel-sandboxed')).not.toBeNull()
+    await userEvent.setup().click(close)
+
+    expect(useSidePanelStore.getState().right).toBeNull()
   })
 
   it('has no Git panel when Git is switched off', async () => {

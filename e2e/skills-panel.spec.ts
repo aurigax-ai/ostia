@@ -101,11 +101,12 @@ test('the human approves a proposed rule only after resolving its conflict', asy
     await expect
       .poll(() => panelEval(app, `document.querySelector('[data-pane="form"]') ? 'form' : 'none'`))
       .toBe('form')
+    await expect(toolbar.getByRole('button', { name: 'Back' })).toBeFocused()
     await toolbar.getByRole('button', { name: 'Back' }).click()
     await expect
       .poll(() => panelEval(app, `document.querySelector('[data-pane="form"]') ? 'form' : 'none'`))
       .toBe('none')
-    await expect(toolbar.getByRole('button', { name: 'Add a rule' })).toBeVisible()
+    await expect(toolbar.getByRole('button', { name: 'Add a rule' })).toBeFocused()
   } finally {
     await quitApp(app)
   }

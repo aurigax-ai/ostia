@@ -22,12 +22,15 @@ import {
   paneChipItems,
   sidebarItemUrl,
 } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
+import { isRecord } from '@aurigax-ai/ostia-extension-sdk/contract/isRecord'
 import type { MessageConnection } from 'vscode-jsonrpc/node'
 import { type PaneIdentity, resolveExternal } from '../control/idRegistry'
 import type { ExtensionHostDeps } from './extensionHostDeps'
 import { type Runtime, fail } from './extensionRuntime'
 
 const MAX_SIDEBAR_ITEMS = 32
+
+const MAX_PANEL_TOOLBARS = 32
 
 const SIDEBAR_TEXT_MAX = 80
 
@@ -125,8 +128,12 @@ export class ExtensionSlots {
       return fail('not-contributed', 'manifest does not contribute a panel')
     }
     const p = (params ?? {}) as Record<string, unknown>
-    if (typeof p.workspaceId !== 'string' || !p.workspaceId) {
-      return fail('invalid-params', 'workspaceId is required')
+    const workspaceId = typeof p.workspaceId === 'string' ? p.workspaceId : ''
+    if (!workspaceId || this.host.deps.workDirForWorkspace(workspaceId) === undefined) {
+      return fail('unknown-workspace', 'workspaceId is not an open workspace')
+    }
+    if (!rt.callerWorkspaces.has(workspaceId)) {
+      return fail('no-caller', 'your panel has not been opened in that workspace')
     }
     const tabs = new Set((toolbar?.tabs ?? []).map((t) => t.id))
     const actions = new Set((toolbar?.actions ?? []).map((a) => a.id))
@@ -143,7 +150,8 @@ export class ExtensionSlots {
       state.back = back
     }
     if (p.badges !== undefined) {
-      const entries = Object.entries(p.badges as Record<string, unknown>)
+      if (!isRecord(p.badges)) return fail('invalid-params', 'badges must be an object')
+      const entries = Object.entries(p.badges)
       const ok = entries.every(
         ([id, n]) => (tabs.has(id) || actions.has(id)) && Number.isInteger(n) && (n as number) > 0,
       )
@@ -159,12 +167,14 @@ export class ExtensionSlots {
       }
       state[field] = ids as string[]
     }
-    const slot = `${extId}\u0000${p.workspaceId}`
+    const slot = `${extId}\u0000${workspaceId}`
     if (Object.keys(state).length === 0) {
       if (this.panelToolbars.delete(slot)) this.panelToolbarsChanged()
       return { ok: true }
     }
-    this.panelToolbars.set(slot, { extId, workspaceId: p.workspaceId, state })
+    const count = [...this.panelToolbars.values()].filter((e) => e.extId === extId).length
+    if (!this.panelToolbars.has(slot) && count >= MAX_PANEL_TOOLBARS) return fail('too-many-items')
+    this.panelToolbars.set(slot, { extId, workspaceId, state })
     this.panelToolbarsChanged()
     return { ok: true }
   }

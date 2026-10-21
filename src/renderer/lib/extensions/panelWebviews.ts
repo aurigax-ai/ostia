@@ -19,6 +19,7 @@ export function sendPanelToolbarEvent(key: string, event: PanelToolbarEvent): vo
   if (!webview) return
   const script = `window.dispatchEvent(new CustomEvent(${JSON.stringify(PANEL_TOOLBAR_EVENT)}, { detail: ${JSON.stringify(event)} }))`
   try {
+    if (event.kind !== 'back') webview.focus()
     webview.executeJavaScript(script).catch(() => undefined)
   } catch {}
 }

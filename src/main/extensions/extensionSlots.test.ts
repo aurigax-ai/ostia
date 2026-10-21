@@ -5,9 +5,10 @@ import type { PaneIdentity } from '../control/idRegistry'
 import type { Runtime } from './extensionRuntime'
 import { ExtensionSlots, type ExtensionSlotsHost } from './extensionSlots'
 
-function runtimeWith(panel: unknown): Runtime {
+function runtimeWith(panel: unknown, callers: string[]): Runtime {
   return {
     ext: { manifest: { id: 'demo', contributes: { panel } } },
+    callerWorkspaces: new Set(callers),
   } as unknown as Runtime
 }
 
@@ -23,11 +24,15 @@ const TOOLBAR = {
   },
 }
 
-function slotsFor(panel: unknown) {
+function slotsFor(panel: unknown, callers = ['w1', 'w2', 'w3']) {
+  const open = new Set([...callers, 'w4'])
   const broadcast = vi.fn()
   const host = {
-    deps: { broadcast },
-    runtimeOf: () => runtimeWith(panel),
+    deps: {
+      broadcast,
+      workDirForWorkspace: (id?: string) => (id && open.has(id) ? '/work' : undefined),
+    },
+    runtimeOf: () => runtimeWith(panel, callers),
     commandsOf: (): ExtensionCommandContribution[] => [],
   } as unknown as ExtensionSlotsHost
   const slots = new ExtensionSlots(host)
@@ -75,6 +80,31 @@ describe('ExtensionSlots panel toolbar', () => {
     expect(set({ workspaceId: 'w1', back: '  ' })).toMatchObject({ ok: false })
     expect(set({ tab: 'board' })).toMatchObject({ ok: false })
     expect(slots.panelToolbarEntries()).toEqual([])
+  })
+
+  it('refuses a workspace that is not open or has no caller of the extension, and a null badge map', () => {
+    const { slots, set } = slotsFor(TOOLBAR)
+    expect(set({ workspaceId: 'gone', tab: 'board' })).toMatchObject({
+      ok: false,
+      error: 'unknown-workspace',
+    })
+    expect(set({ workspaceId: 'w4', tab: 'board' })).toMatchObject({
+      ok: false,
+      error: 'no-caller',
+    })
+    expect(set({ workspaceId: 'w1', badges: null })).toMatchObject({
+      ok: false,
+      error: 'invalid-params',
+    })
+    expect(slots.panelToolbarEntries()).toEqual([])
+  })
+
+  it('bounds the entries one extension can keep', () => {
+    const ids = Array.from({ length: 40 }, (_, i) => `x${i}`)
+    const { slots, set } = slotsFor(TOOLBAR, ids)
+    const replies = ids.map((workspaceId) => set({ workspaceId, tab: 'board' }))
+    expect(slots.panelToolbarEntries()).toHaveLength(32)
+    expect(replies.filter((r) => 'error' in r && r.error === 'too-many-items')).toHaveLength(8)
   })
 
   it('refuses an extension without a panel', () => {
