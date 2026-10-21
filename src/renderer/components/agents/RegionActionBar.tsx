@@ -24,6 +24,8 @@ export interface RegionActionBarProps {
   onCopy: () => Promise<string | null>
   onSend: (target: PickTarget, note: string) => Promise<void>
   onClose: () => void
+  takeFocus?: boolean
+  sendRequest?: number
 }
 
 const GAP = 6
@@ -46,6 +48,8 @@ export function RegionActionBar({
   onCopy,
   onSend,
   onClose,
+  takeFocus = true,
+  sendRequest = 0,
 }: RegionActionBarProps): JSX.Element {
   const d = useDict()
   const targets = useAgentTargets(workspaceId)
@@ -89,8 +93,10 @@ export function RegionActionBar({
     const onKeyDown = (e: globalThis.KeyboardEvent): void => {
       if (e.key === 'Escape') {
         if (inMenu(e.target)) return
-        e.preventDefault()
-        e.stopPropagation()
+        if (inside(e.target)) {
+          e.preventDefault()
+          e.stopPropagation()
+        }
         close()
         return
       }
@@ -113,7 +119,7 @@ export function RegionActionBar({
   }, [copied])
 
   useEffect(() => {
-    if (copied !== null) return
+    if (copied !== null || !takeFocus) return
     const root = rootRef.current
     const origin = document.activeElement
     root?.focus({ preventScroll: true })
@@ -124,7 +130,15 @@ export function RegionActionBar({
         origin.focus({ preventScroll: true })
       }
     }
-  }, [copied])
+  }, [copied, takeFocus])
+
+  const seenSendRequest = useRef(sendRequest)
+  useEffect(() => {
+    if (sendRequest === seenSendRequest.current) return
+    seenSendRequest.current = sendRequest
+    rootRef.current?.focus({ preventScroll: true })
+    setMenuOpen(true)
+  }, [sendRequest])
 
   useEffect(() => {
     if (copied === null) return

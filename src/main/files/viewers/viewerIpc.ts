@@ -11,6 +11,7 @@ import {
 import { appProcessUse } from '../../artifacts/processUse'
 import { getByPaneId } from '../../control/idRegistry'
 import type { ExtensionHost } from '../../extensions/extensionHost'
+import { clipboardItemData } from '../../windows/clipboardEdits'
 import type { FileSources } from '../fileSources'
 import type { FileWatches } from '../fileWatch'
 import { FS_BINARY_MAX } from '../fsBinary'
@@ -21,8 +22,6 @@ import { ViewerWatch } from './viewerWatch'
 
 const VIEWER_CHANNELS = {
   selection: 'viewers:selection',
-  'open-link': 'viewers:open-link',
-  'edit-source': 'viewers:edit-source',
 } as const
 
 const EXTENSION_FILE_MAX = 32 * 1024 * 1024
@@ -78,14 +77,7 @@ export function createViewerHost({
       const channel = VIEWER_CHANNELS[event.type]
       windows.get(windowId)?.webContents.send(channel, event.payload)
     },
-    writeClipboard: ({ text, html, png }) =>
-      clipboard.write([
-        new ClipboardItem({
-          ...(text === undefined ? {} : { 'text/plain': new Blob([text], { type: 'text/plain' }) }),
-          ...(html === undefined ? {} : { 'text/html': new Blob([html], { type: 'text/html' }) }),
-          ...(png ? { 'image/png': new Blob([new Uint8Array(png)], { type: 'image/png' }) } : {}),
-        }),
-      ]),
+    writeClipboard: (copied) => clipboard.write([new ClipboardItem(clipboardItemData(copied))]),
     copyStrings,
   })
 }
@@ -102,8 +94,5 @@ export function registerViewerIpc({ viewers }: { viewers: ViewerHost }): void {
   )
   ipcMain.on('viewers:clear-selection', (e, paneId: unknown) =>
     viewers.clearSelection(String(e.sender.id), paneId),
-  )
-  ipcMain.on('viewers:document-text', (e, request: unknown) =>
-    viewers.setDocumentText(String(e.sender.id), request),
   )
 }

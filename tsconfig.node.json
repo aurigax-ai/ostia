@@ -13,6 +13,7 @@
     "src/shared/**/*",
     "src/cli/**/*",
     "src/extensions/**/*",
+    "packages/extension-sdk/src/client/svg.d.ts",
     "electron.vite.config.ts"
   ],
   "exclude": [

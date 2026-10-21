@@ -1,10 +1,25 @@
 import { execFileSync } from 'node:child_process'
 import { cpSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { createRequire } from 'node:module'
 import { dirname, join, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { build } from 'esbuild'
 import { parse } from 'yaml'
 import { apiVersion, contractDigest, packageDir } from './api-contract.mjs'
+
+const requireFromPackage = createRequire(join(packageDir, 'package.json'))
+const inlineSvg = {
+  name: 'inline-svg',
+  setup(builder) {
+    builder.onResolve({ filter: /\.svg$/ }, (args) => ({
+      path: requireFromPackage.resolve(args.path),
+    }))
+    builder.onLoad({ filter: /\.svg$/ }, (args) => ({
+      contents: readFileSync(args.path, 'utf8'),
+      loader: 'text',
+    }))
+  },
+}
 
 const repoRoot = resolve(packageDir, '../..')
 const out = join(repoRoot, 'out/sdk')
@@ -48,6 +63,7 @@ const library = await build({
   platform: 'node',
   format: 'esm',
   target: 'es2022',
+  plugins: [inlineSvg],
 })
 
 const cli = await build({

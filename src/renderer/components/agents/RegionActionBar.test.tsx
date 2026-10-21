@@ -252,5 +252,65 @@ describe('RegionActionBar', () => {
       expect(props.onClose).toHaveBeenCalled()
       expect(other).toHaveFocus()
     })
+
+    it('leaves the focus where it is when it was opened without taking it', () => {
+      const from = origin()
+      setup({ takeFocus: false })
+      expect(from).toHaveFocus()
+    })
+  })
+
+  describe('Escape', () => {
+    function escapeFrom(target: Element): { prevented: boolean; reached: boolean } {
+      let reached = false
+      const listener = (): void => {
+        reached = true
+      }
+      window.addEventListener('keydown', listener)
+      const event = new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true })
+      target.dispatchEvent(event)
+      window.removeEventListener('keydown', listener)
+      return { prevented: event.defaultPrevented, reached }
+    }
+
+    it('is swallowed only while the bar itself has the focus', () => {
+      const props = setup()
+      expect(escapeFrom(bar())).toEqual({ prevented: true, reached: false })
+      expect(props.onClose).toHaveBeenCalledTimes(1)
+    })
+
+    it('reaches what has the focus when the bar does not, and still closes the bar', () => {
+      const other = document.createElement('textarea')
+      document.body.append(other)
+      other.focus()
+      const props = setup({ takeFocus: false })
+      expect(escapeFrom(other)).toEqual({ prevented: false, reached: true })
+      expect(props.onClose).toHaveBeenCalledTimes(1)
+    })
+  })
+
+  describe('send request', () => {
+    it('opens the agent menu and takes the focus when asked again, not when it mounts', async () => {
+      const props: RegionActionBarProps = {
+        workspaceId: 'w1',
+        anchor: { left: 0, top: 0, bottom: 10 },
+        onCopy: vi.fn(),
+        onSend: vi.fn(),
+        onClose: vi.fn(),
+        takeFocus: false,
+        sendRequest: 3,
+      }
+      const view = (request: number) => (
+        <TooltipProvider>
+          <div className="relative">
+            <RegionActionBar {...props} sendRequest={request} />
+          </div>
+        </TooltipProvider>
+      )
+      const { rerender } = render(view(3))
+      expect(screen.queryAllByRole('menuitem')).toHaveLength(0)
+      rerender(view(4))
+      expect(await screen.findAllByRole('menuitem')).toHaveLength(2)
+    })
   })
 })

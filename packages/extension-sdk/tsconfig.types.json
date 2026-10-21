@@ -9,10 +9,15 @@
     "outDir": "../../out/sdk/types"
   },
   "files": [
+    "src/client/svg.d.ts",
     "src/client/index.ts",
     "src/assist/index.ts",
     "src/client/panel.ts",
     "src/client/splitter.ts",
+    "src/client/viewer.ts",
+    "src/client/grid.ts",
+    "src/client/pill.ts",
+    "src/client/slider.ts",
     "src/client/atomicWrite.ts"
   ]
 }

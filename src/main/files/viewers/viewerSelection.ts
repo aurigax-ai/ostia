@@ -20,11 +20,15 @@ export interface StoredSelection {
   csv: string | null
   png: Uint8Array | null
   anchor: ViewerSelectionState['anchor']
+  seq: number
 }
 
 const GUEST_KINDS = new Set(['image', 'pdf-text', 'pdf-region', 'text', 'cells'])
+const PNG_HEADER_TYPE_AT = 12
 const PNG_DIMENSIONS_AT = 16
-const PNG_SIDE_MAX = 32_768
+const PNG_SIDE_MAX = 16_384
+const PNG_PIXELS_MAX = PNG_SIDE_MAX * PNG_SIDE_MAX
+const PNG_HEADER_TYPE = [0x49, 0x48, 0x44, 0x52]
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
@@ -73,13 +77,24 @@ function pngIsSane(png: Uint8Array): boolean {
   if (!isPng(png) || png.byteLength > VIEWER_IMAGE_MAX || png.byteLength < PNG_DIMENSIONS_AT + 8) {
     return false
   }
+  if (!PNG_HEADER_TYPE.every((byte, i) => png[PNG_HEADER_TYPE_AT + i] === byte)) return false
   const view = new DataView(png.buffer, png.byteOffset, png.byteLength)
   const width = view.getUint32(PNG_DIMENSIONS_AT)
   const height = view.getUint32(PNG_DIMENSIONS_AT + 4)
-  return width > 0 && height > 0 && width <= PNG_SIDE_MAX && height <= PNG_SIDE_MAX
+  return (
+    width > 0 &&
+    height > 0 &&
+    width <= PNG_SIDE_MAX &&
+    height <= PNG_SIDE_MAX &&
+    width * height <= PNG_PIXELS_MAX
+  )
 }
 
-export function acceptGuestSelection(body: Uint8Array, file: string): StoredSelection | null {
+export function acceptGuestSelection(
+  body: Uint8Array,
+  file: string,
+  seq: number,
+): StoredSelection | null {
   const decoded = decodeViewerSelection(body)
   if (!decoded || !isRecord(decoded.meta) || !isRecord(decoded.meta.capture)) return null
   const { meta } = decoded
@@ -103,7 +118,7 @@ export function acceptGuestSelection(body: Uint8Array, file: string): StoredSele
     if (!decoded.png || !pngIsSane(decoded.png)) return null
     png = decoded.png.slice()
   }
-  return { capture, text, html, csv, png, anchor }
+  return { capture, text, html, csv, png, anchor, seq }
 }
 
 export function selectionState(stored: StoredSelection): ViewerSelectionState {
@@ -112,5 +127,6 @@ export function selectionState(stored: StoredSelection): ViewerSelectionState {
     hasImage: stored.png !== null,
     hasText: stored.text !== null || stored.csv !== null,
     anchor: stored.anchor,
+    seq: stored.seq,
   }
 }

@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
+import { GESTURE_WINDOW_MS, viewerOwner } from './viewerHost'
 import {
+  adoptGuest,
   FILE,
   FRAME,
   get,
@@ -23,7 +25,11 @@ async function opened(overrides = {}) {
   const harness = setup(overrides)
   const result = harness.host.open('w1', OPEN)
   if (!result.ok) throw new Error('not opened')
-  return { ...harness, session: harness.sessions.get(SESSION), src: result.src }
+  const session = harness.sessions.get(SESSION)
+  const guest = adoptGuest(harness.host, session, result.src)
+  const click = (): boolean => guest.emit('input-event', {}, { type: 'mouseDown' })
+  click()
+  return { ...harness, session, src: result.src, guest, click }
 }
 
 describe('guest selection channel', () => {
@@ -45,6 +51,7 @@ describe('guest selection channel', () => {
             hasImage: true,
             hasText: false,
             anchor: { left: 10, top: 20, bottom: 60 },
+            seq: 1,
           },
         },
       },
@@ -248,5 +255,95 @@ describe('guest selection channel', () => {
     expect(host.copyForGuest({ getURL: () => 'https://example.com/' })).toBe(false)
     await Promise.resolve()
     expect(clipboard).toHaveLength(1)
+  })
+
+  it('takes a selection only within a moment of a trusted pointer or key input, without spending it', async () => {
+    const harness = setup()
+    const result = harness.host.open('w1', OPEN)
+    if (!result.ok) throw new Error('not opened')
+    const session = harness.sessions.get(SESSION)
+    const guest = adoptGuest(harness.host, session, result.src)
+    const body = await selectionBody({ capture: IMAGE, rect: RECT, frame: FRAME }, pngOf(4, 4))
+    expect((await postSelection(session, body)).status).toBe(403)
+    expect(harness.events).toEqual([])
+    guest.emit('input-event', {}, { type: 'mouseDown' })
+    expect((await postSelection(session, body)).status).toBe(204)
+    expect((await postSelection(session, body)).status).toBe(204)
+    harness.clock.now += GESTURE_WINDOW_MS + 1
+    expect((await postSelection(session, body)).status).toBe(403)
+    guest.emit('before-input-event', {}, { type: 'keyDown' })
+    expect((await postSelection(session, body)).status).toBe(204)
+    harness.clock.now += GESTURE_WINDOW_MS + 1
+    guest.emit('input-event', {}, { type: 'mouseMove' })
+    guest.emit('before-input-event', {}, { type: 'keyUp' })
+    expect((await postSelection(session, body)).status).toBe(403)
+  })
+
+  it('numbers every accepted selection', async () => {
+    const { session, events } = await opened()
+    const body = await selectionBody({ capture: IMAGE, rect: RECT, frame: FRAME }, pngOf(4, 4))
+    await postSelection(session, body)
+    await postSelection(session, body)
+    await postSelection(session, new Uint8Array([1]))
+    await postSelection(session, body)
+    const seqs = events.map((e) => (e.payload as { selection: { seq: number } }).selection.seq)
+    expect(seqs).toEqual([1, 2, 3])
+  })
+
+  it('forgets the selection when the page reloads and when the file changes', async () => {
+    const { host, session, events, guest, src, click } = await opened()
+    const body = await selectionBody({ capture: IMAGE, rect: RECT, frame: FRAME }, pngOf(4, 4))
+    await postSelection(session, body)
+    expect(host.selectionForSend('w1', 'p1')).not.toBeNull()
+    guest.emit('did-navigate', {}, src)
+    expect(host.selectionForSend('w1', 'p1')).toBeNull()
+    expect(events.at(-1)).toMatchObject({ payload: { paneId: 'p1', selection: null } })
+    click()
+    await postSelection(session, body)
+    expect(host.selectionForSend('w1', 'p1')).not.toBeNull()
+    host.changed(viewerOwner('t1'))
+    expect(host.selectionForSend('w1', 'p1')).toBeNull()
+    expect(events.at(-1)).toMatchObject({ payload: { selection: null } })
+    const count = events.length
+    host.changed(viewerOwner('t1'))
+    expect(events).toHaveLength(count)
+  })
+
+  it('refuses a png whose header is wrong or whose pixels could be a bomb', async () => {
+    const { session, events } = await opened()
+    const send = async (png: Uint8Array): Promise<number> =>
+      (
+        await postSelection(
+          session,
+          await selectionBody({ capture: IMAGE, rect: RECT, frame: FRAME }, png),
+        )
+      ).status
+    const notHeader = pngOf(5, 5)
+    notHeader.set([0x49, 0x44, 0x41, 0x54], 12)
+    expect(await send(notHeader)).toBe(400)
+    expect(await send(pngOf(16_385, 10))).toBe(400)
+    expect(await send(pngOf(10, 16_385))).toBe(400)
+    expect(await send(pngOf(20_000, 20_000))).toBe(400)
+    expect(await send(pngOf(16_384, 16_384))).toBe(204)
+    expect(events).toHaveLength(1)
+  })
+
+  it('stops reading a body that has no length and grows past the cap', async () => {
+    const { session } = await opened()
+    const chunk = new Uint8Array(10 * 1024 * 1024)
+    let sent = 0
+    const body = new ReadableStream<Uint8Array>({
+      pull: (controller) => {
+        sent += chunk.byteLength
+        controller.enqueue(chunk)
+      },
+    })
+    const res = await get(session, 'ostia-viewer://t1/~selection', {
+      method: 'POST',
+      body,
+      duplex: 'half',
+    } as RequestInit)
+    expect(res.status).toBe(413)
+    expect(sent).toBeLessThan(80 * 1024 * 1024)
   })
 })
