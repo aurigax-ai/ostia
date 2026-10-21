@@ -91,6 +91,12 @@ export function makeOstiaMock(overrides?: Partial<OstiaBridge>): OstiaBridge {
       open: vi.fn().mockResolvedValue({ ok: false, error: 'unknown-viewer' }),
       close: vi.fn(),
       onStopped: vi.fn(() => () => {}),
+      onSelection: vi.fn(() => () => {}),
+      copySelection: vi.fn().mockResolvedValue('Copied text'),
+      sendSelection: vi.fn().mockResolvedValue({ ok: true, path: '/tmp/r.md', imagePath: null }),
+      sendDocumentText: vi.fn(),
+      onOpenLink: vi.fn(() => () => {}),
+      onEditSource: vi.fn(() => () => {}),
     },
     fs: {
       list: vi.fn().mockResolvedValue([]),

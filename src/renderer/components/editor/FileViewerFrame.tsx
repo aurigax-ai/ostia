@@ -1,12 +1,26 @@
+import { OWN_VIEW } from '@aurigax-ai/ostia-extension-sdk/contract/fileKinds'
 import { WarningIcon } from '@phosphor-icons/react'
-import type { ViewerOpenResult, ViewerStopReason } from '@shared/files/filesApi'
+import { selectionLabel } from '@shared/browser/selection'
+import type {
+  ViewerOpenResult,
+  ViewerSelectionEvent,
+  ViewerStopReason,
+} from '@shared/files/filesApi'
 import { useEffect, useState } from 'react'
+import { RegionActionBar } from '@/components/agents/RegionActionBar'
 import { EmptyState } from '@/components/common/EmptyState'
 import { Button } from '@/components/ui/button'
-import { useDict } from '@/lib/app/useDict'
+import type { PickTarget } from '@/lib/agents/pickTargets'
+import { registerSelectionCopier } from '@/lib/agents/selectionCopiers'
+import { registerSelectionSender } from '@/lib/agents/selectionSenders'
+import { sendViewerSelectionToPane } from '@/lib/agents/sendPick'
+import { fmt, useDict } from '@/lib/app/useDict'
+import { openBrowserTabAs } from '@/lib/browser/browserProfile'
+import { openFileInWorkspace } from '@/lib/files/openFile'
 import type { ViewerOption } from '@/lib/files/viewerChoice'
 import { useGuestReady, useSurfaceFocus } from '@/lib/panes/paneFocus'
 import { useInjectedCss, usePanelThemeCss } from '@/lib/theme/panelThemeInjection'
+import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { ViewerMessage } from './ViewerChrome'
 
 const ABORTED = -3
@@ -40,6 +54,64 @@ function ViewerFrame({
   const readyWebview = useGuestReady(webview)
   useSurfaceFocus(paneId, () => readyWebview)
   useInjectedCss(webview, themeCss)
+  const [selection, setSelection] = useState<ViewerSelectionEvent['selection']>(null)
+  const [barShown, setBarShown] = useState(true)
+
+  useEffect(
+    () =>
+      window.ostia.viewers.onSelection((event) => {
+        if (event.paneId !== paneId) return
+        setSelection(event.selection)
+        setBarShown(true)
+      }),
+    [paneId],
+  )
+
+  useEffect(() => {
+    if (!selection) return
+    const unregisterSender = registerSelectionSender(paneId, () => setBarShown(true))
+    const unregisterCopier = registerSelectionCopier(paneId, () =>
+      window.ostia.viewers.copySelection(paneId).then(() => undefined),
+    )
+    return () => {
+      unregisterSender()
+      unregisterCopier()
+    }
+  }, [paneId, selection])
+
+  useEffect(
+    () =>
+      window.ostia.viewers.onOpenLink((event) => {
+        if (event.paneId !== paneId) return
+        if (event.target.kind === 'file') openFileInWorkspace(event.target.path)
+        else if (event.target.href.startsWith('mailto:')) {
+          void window.ostia.openPath.openLink(event.target.href)
+        } else openBrowserTabAs(workspaceId, event.target.href, 'human')
+      }),
+    [paneId, workspaceId],
+  )
+
+  useEffect(
+    () =>
+      window.ostia.viewers.onEditSource((event) => {
+        if (event.paneId === paneId) {
+          useLayoutStore.getState().setViewType(workspaceId, paneId, OWN_VIEW)
+        }
+      }),
+    [paneId, workspaceId],
+  )
+
+  const sendSelection = async (target: PickTarget, note: string): Promise<void> => {
+    if (!selection) return
+    const res = await sendViewerSelectionToPane({
+      paneId,
+      targetPaneId: target.paneId,
+      via: target.via,
+      note,
+      label: selectionLabel(selection.capture),
+    })
+    if (!res.ok) throw new Error(fmt(d.send.sendFailed, { reason: res.error }))
+  }
 
   useEffect(
     () =>
@@ -114,6 +186,15 @@ function ViewerFrame({
           <ViewerMessage>{d.viewer.loading}</ViewerMessage>
         )}
       </div>
+      {selection && barShown ? (
+        <RegionActionBar
+          workspaceId={workspaceId}
+          anchor={selection.anchor}
+          onCopy={() => window.ostia.viewers.copySelection(paneId)}
+          onSend={sendSelection}
+          onClose={() => setBarShown(false)}
+        />
+      ) : null}
     </div>
   )
 }
