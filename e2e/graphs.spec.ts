@@ -82,7 +82,7 @@ test('GRF-C140 GRF-C141 GRF-C142 GRF-C58 the Graphs panel lists, enables, runs a
     expect(await text(app, '[data-edge="build>ask"]')).toContain('when state.exit == 0')
     await click(app, 'button', 'Enable')
     await expect.poll(() => text(app, '.actions button'), { timeout: 15_000 }).toContain('Disable')
-    await click(app, 'button', 'Back')
+    await win.locator('#right-panel').getByRole('button', { name: 'Back' }).click()
     await expect
       .poll(() => attr(app, '[data-graph="ready"]', 'data-state'), { timeout: 15_000 })
       .toBe('enabled')
@@ -91,7 +91,7 @@ test('GRF-C140 GRF-C141 GRF-C142 GRF-C58 the Graphs panel lists, enables, runs a
     await expect
       .poll(() => attr(app, '[data-empty]', 'data-empty'), { timeout: 15_000 })
       .toBe('runs')
-    await click(app, 'button', 'Back')
+    await win.locator('#right-panel').getByRole('button', { name: 'Back' }).click()
     await expect
       .poll(() => text(app, '[data-graph="ready"] button'), { timeout: 15_000 })
       .toContain('Run now')
@@ -141,7 +141,7 @@ test('GRF-C140 a workspace with no graphs says just No graphs, with no title row
       .poll(() => attr(app, '[data-empty]', 'data-empty'), { timeout: 30_000 })
       .toBe('folder')
     expect(await text(app, '.ostia-empty')).toBe('No graphs.')
-    expect(await text(app, '.ostia-toolbar, h1, .empty-path, .empty-media, svg')).toBe('')
+    expect(await text(app, 'h1, .empty-path, .empty-media, svg')).toBe('')
     expect(await text(app, '.note')).toBe('')
   } finally {
     await quitApp(app)

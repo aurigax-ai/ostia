@@ -1,10 +1,10 @@
 import { IconButton } from '@/components/common/IconButton'
 import { SectionTab, SectionTabsList } from '@/components/common/SectionTabs'
 import { Tabs } from '@/components/ui/tabs'
-import { useDict } from '@/lib/app/useDict'
+import { fmt, useDict } from '@/lib/app/useDict'
 import { failureText } from '@/lib/git/gitView'
 import type { GitPage } from '@/stores/files/gitViewStore'
-import { ArrowClockwiseIcon } from '@phosphor-icons/react'
+import { ArrowClockwiseIcon, XIcon } from '@phosphor-icons/react'
 import { BlamePage } from './BlamePage'
 import { ChangesPage } from './ChangesPage'
 import { GitEmpty } from './GitEmpty'
@@ -19,8 +19,16 @@ export function GitView({
   paneId,
   home,
   active = true,
-}: { workspaceId: string; paneId: string; home: GitHome; active?: boolean }): JSX.Element {
-  const t = useDict().git
+  onClose,
+}: {
+  workspaceId: string
+  paneId: string
+  home: GitHome
+  active?: boolean
+  onClose?: () => void
+}): JSX.Element {
+  const d = useDict()
+  const t = d.git
   const {
     page,
     blameFile,
@@ -72,6 +80,14 @@ export function GitView({
             className="refresh"
             onClick={() => void refresh()}
           />
+          {onClose ? (
+            <IconButton
+              icon={XIcon}
+              label={fmt(d.extensions.closePanel, { name: t.title })}
+              data-panel-close=""
+              onClick={onClose}
+            />
+          ) : null}
         </span>
       </Tabs>
       {banner ? (

@@ -2,7 +2,7 @@
   "id": "bare",
   "name": "Bare",
   "version": "0.1.0",
-  "api": "6.0",
+  "api": "7.0",
   "description": "Test fixture: holds neither mcp nor read-board",
   "capabilities": [],
   "main": "main.js",

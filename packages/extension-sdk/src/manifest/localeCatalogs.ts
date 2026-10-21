@@ -15,6 +15,7 @@ import {
   EXTENSION_SETTING_TITLE_MAX,
   type ExtensionChipContribution,
   type ExtensionManifest,
+  type ExtensionPanelContribution,
 } from '../contract/extensions'
 import { FILE_KIND_DISPLAY_NAME_MAX } from '../contract/fileKinds'
 import { isRecord } from '../contract/isRecord'
@@ -54,6 +55,12 @@ export function manifestSlots(manifest: ExtensionManifest): Map<string, Manifest
     }
   }
   if (c.panel) slot('panel.title', MAX_TEXT, c.panel.title)
+  for (const tab of c.panel?.toolbar?.tabs ?? []) {
+    slot(`panel.toolbar.tabs.${tab.id}.title`, MAX_TEXT, tab.title)
+  }
+  for (const action of c.panel?.toolbar?.actions ?? []) {
+    slot(`panel.toolbar.actions.${action.id}.title`, MAX_TEXT, action.title)
+  }
   for (const kind of c.fileKinds ?? []) {
     slot(`fileKinds.${kind.id}.displayName`, FILE_KIND_DISPLAY_NAME_MAX, kind.displayName)
   }
@@ -87,6 +94,31 @@ export function manifestSlots(manifest: ExtensionManifest): Map<string, Manifest
     }
   }
   return slots
+}
+
+function localizePanel(
+  panel: ExtensionPanelContribution,
+  t: (key: string, fallback: string) => string,
+): ExtensionPanelContribution {
+  const { toolbar } = panel
+  return {
+    ...panel,
+    title: t('panel.title', panel.title),
+    ...(toolbar
+      ? {
+          toolbar: {
+            tabs: toolbar.tabs.map((tab) => ({
+              ...tab,
+              title: t(`panel.toolbar.tabs.${tab.id}.title`, tab.title),
+            })),
+            actions: toolbar.actions.map((action) => ({
+              ...action,
+              title: t(`panel.toolbar.actions.${action.id}.title`, action.title),
+            })),
+          },
+        }
+      : {}),
+  }
 }
 
 function parseManifestStrings(
@@ -232,7 +264,7 @@ export function localizeManifest(
           ? { argument: t(`commands.${command.id}.argument`, command.argument) }
           : {}),
       })),
-      ...(c.panel ? { panel: { ...c.panel, title: t('panel.title', c.panel.title) } } : {}),
+      ...(c.panel ? { panel: localizePanel(c.panel, t) } : {}),
       ...(c.settingsPage
         ? {
             settingsPage: {

@@ -81,7 +81,10 @@ export function createWorkspaceLifecycle({
     removeWorkspace,
     forgetReach: (id) => reach.forget(id),
     closeProcesses: (id) => services.processes?.workspaceClosed(id),
-    clearChips: (id) => services.extensionHost?.slots.clearWorkspaceChips(id),
+    clearChips: (id) => {
+      services.extensionHost?.slots.clearWorkspaceChips(id)
+      services.extensionHost?.slots.clearPanelToolbarsWhere((entry) => entry.workspaceId === id)
+    },
     closeRemoteFolders: (id) => services.extensionHost?.remoteFolders?.workspaceClosed(id),
     tellExtensions: (id) => services.extensionHost?.events.workspaceClosed(id),
     closeArtifacts: (id) => artifactHistory.close(id, artifactFolders.close(id)),

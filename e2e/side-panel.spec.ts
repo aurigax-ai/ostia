@@ -81,6 +81,11 @@ test('the right side panel switches in place without reloading a panel, hides, a
   await toggle(win, 'Graphs').click()
   await expect(dock).not.toHaveAttribute('data-hidden')
   expect(await guestIds(app)).toEqual(both)
+  await dock.getByRole('button', { name: 'Close Graphs' }).click()
+  await expect(dock).toHaveAttribute('data-hidden', '')
+  expect(await guestIds(app)).toEqual(both)
+  await toggle(win, 'Graphs').click()
+  await expect(dock).not.toHaveAttribute('data-hidden')
   await quitApp(app)
 
   session = await launchWindow(dataHome)

@@ -434,16 +434,6 @@ input[type="radio"]:focus-visible {
   visibility: hidden;
 }
 
-.ostia-toolbar {
-  display: flex;
-  flex: 0 0 auto;
-  align-items: center;
-  gap: 8px;
-  padding: 4px 8px;
-  background: var(--surface-2);
-  border-bottom: 1px solid var(--line);
-}
-
 .ostia-spacer {
   flex: 1;
 }
@@ -453,28 +443,6 @@ input[type="radio"]:focus-visible {
   flex-direction: column;
   height: 100vh;
   min-height: 0;
-}
-
-.ostia-toolbar-tabs {
-  gap: 2px;
-  padding: 3px 6px;
-  border-bottom: 0;
-}
-
-.ostia-tabs {
-  display: flex;
-  gap: 4px;
-}
-
-button.ostia-tab {
-  border: 0;
-  color: var(--fg-muted);
-  font-weight: var(--font-weight-medium);
-}
-
-button.ostia-tab[aria-selected="true"] {
-  color: var(--fg);
-  background: var(--surface-3);
 }
 
 button.quiet {

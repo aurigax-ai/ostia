@@ -2,7 +2,7 @@
   "id": "tally",
   "name": "Tally",
   "version": "0.1.0",
-  "api": "6.0",
+  "api": "7.0",
   "description": "Test fixture: a built-in with sidebar items only, which asks to start with the window",
   "capabilities": [],
   "main": "main.js",

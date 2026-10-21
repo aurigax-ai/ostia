@@ -140,6 +140,10 @@ function registerWindowMethods(forExtension: ForExtension): void {
     forExtension((h, id, conn, p) => h.windowRequests.openPanel(id, conn, p)),
   )
   registerControlMethod(
+    'ext.setPanelToolbar',
+    forExtension((h, id, conn, p) => h.slots.setPanelToolbar(id, conn, p)),
+  )
+  registerControlMethod(
     'ext.setPaneChip',
     forExtension((h, id, conn, p) => h.slots.setPaneChip(id, conn, p)),
   )

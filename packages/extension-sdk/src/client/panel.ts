@@ -4,8 +4,14 @@ import {
   localized,
   translatorFor,
 } from '../contract/extensionLocales'
-import type { ExtensionResult } from '../contract/extensions'
-import { PANEL_VISIBILITY_EVENT, type PanelVisibility } from '../contract/extensionsBridge'
+import type { ExtensionResult, PanelToolbarState } from '../contract/extensions'
+import {
+  PANEL_TOOLBAR_EVENT,
+  PANEL_TOOLBAR_PATH,
+  PANEL_VISIBILITY_EVENT,
+  type PanelToolbarEvent,
+  type PanelVisibility,
+} from '../contract/extensionsBridge'
 import { watchScrolling } from '../contract/scrollbar'
 import { errorMessage, failure } from './results'
 import { PANEL_SIZES_PATH, parsePanelSizes, withPanelSize } from './split'
@@ -114,71 +120,33 @@ export function errorText(res: ExtensionResult): string {
   return res.message ? `${res.error}: ${res.message}` : res.error
 }
 
-export function panelToolbar({
-  back,
-  tabs = [],
-  actions = [],
-}: {
-  back?: { label: string; onClick: () => void }
-  tabs?: Node[]
-  actions?: Node[]
-}): HTMLElement | null {
-  if (!back && tabs.length === 0 && actions.length === 0) return null
-  return h(
-    'header',
-    { class: tabs.length > 0 ? 'ostia-toolbar ostia-toolbar-tabs' : 'ostia-toolbar' },
-    back ? h('button', { type: 'button', onClick: back.onClick }, back.label) : null,
-    tabs.length > 0 ? tablist(tabs) : null,
-    h('div', { class: 'ostia-spacer' }),
-    ...actions,
-  )
-}
-
-const TAB_KEYS: Record<string, (at: number, count: number) => number> = {
-  ArrowRight: (at, count) => (at + 1) % count,
-  ArrowLeft: (at, count) => (at - 1 + count) % count,
-  Home: () => 0,
-  End: (_at, count) => count - 1,
-}
-
-function tablist(tabs: Node[]): HTMLElement {
-  const list = h('div', { class: 'ostia-tabs', role: 'tablist' }, ...tabs)
-  list.addEventListener('keydown', (e) => {
-    const move = TAB_KEYS[e.key]
-    const items = [...list.querySelectorAll<HTMLElement>('[role="tab"]')]
-    const at = items.indexOf(document.activeElement as HTMLElement)
-    if (!move || at < 0) return
-    e.preventDefault()
-    const next = move(at, items.length)
-    items.forEach((item, i) => {
-      item.tabIndex = i === next ? 0 : -1
-    })
-    items[next]?.focus()
-  })
-  return list
-}
-
-export function panelTab(label: string, current: boolean, onClick: () => void): HTMLElement {
-  return h(
-    'button',
-    {
-      type: 'button',
-      class: 'ostia-tab',
-      role: 'tab',
-      'aria-selected': String(current),
-      tabindex: current ? '0' : '-1',
-      onClick,
-    },
-    label,
-  )
-}
-
 export function quietButton(
   label: string,
   onClick: (e: Event) => void,
   strong = false,
 ): HTMLElement {
   return h('button', { type: 'button', class: strong ? 'quiet strong' : 'quiet', onClick }, label)
+}
+
+let sentToolbar = ''
+
+export function setPanelToolbar(state: PanelToolbarState): void {
+  const body = JSON.stringify({ workspaceId: context.workspaceId, ...state })
+  if (body === sentToolbar) return
+  sentToolbar = body
+  void fetch(PANEL_TOOLBAR_PATH, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', 'x-ostia-panel': secret },
+    body,
+  }).catch(() => {
+    sentToolbar = ''
+  })
+}
+
+export function onPanelToolbar(cb: (event: PanelToolbarEvent) => void): void {
+  window.addEventListener(PANEL_TOOLBAR_EVENT, (event) => {
+    cb((event as CustomEvent<PanelToolbarEvent>).detail)
+  })
 }
 
 export function emptyState(

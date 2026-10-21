@@ -36,6 +36,7 @@ async function main(): Promise<void> {
   const panelStarting = startPanelServer({
     dir: __dirname,
     files: PANEL_FILES,
+    toolbar: (state) => ext.setPanelToolbar(state),
     handle: async (command, args, caller) => {
       const handler = panelHandlers[command]
       return handler ? handler(args, caller) : failure('unknown-command', command)

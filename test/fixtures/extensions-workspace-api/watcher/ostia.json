@@ -2,7 +2,7 @@
   "id": "watcher",
   "name": "Watcher",
   "version": "0.1.0",
-  "api": "6.0",
+  "api": "7.0",
   "description": "Test fixture: records workspace events and calls workspace methods",
   "capabilities": ["read-board"],
   "main": "main.js",
