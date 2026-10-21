@@ -1,7 +1,7 @@
 import '@testing-library/jest-dom/vitest'
 import type { QuestionRequest } from '@shared/agents/questions'
 import type { ApprovalRequest } from '@shared/permissions/approvals'
-import { cleanup, render, screen, within } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { createPane } from '@/lib/layout/tree'
@@ -14,9 +14,9 @@ import { PanelInbox } from './PanelInbox'
 
 const reveal = vi.hoisted(() => vi.fn(() => true))
 
-vi.mock('@/lib/attention/workspaceActivity', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('@/lib/attention/workspaceActivity')>()),
-  revealPane: reveal,
+vi.mock('@/lib/panes/paneFocus', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/panes/paneFocus')>()),
+  showPaneWhenReady: reveal,
 }))
 
 const question = (id: string, paneId: string, text: string, at: number): QuestionRequest => ({
@@ -137,7 +137,7 @@ describe('PanelInbox', () => {
     render(<PanelInbox extId="activity" workspaceId="w-api" />)
     const permission = screen.getByRole('region', { name: 'Agent permission request' })
     await user.click(within(permission).getByText('Resume Agent'))
-    expect(reveal).toHaveBeenCalledWith('p-api')
+    expect(reveal).toHaveBeenCalledWith('w-api', 'p-api')
     reveal.mockClear()
     await user.click(within(permission).getByRole('button', { name: 'Allow once' }))
     expect(window.ostia.approvals.answer).toHaveBeenCalledWith('a-mid', 'once')
@@ -163,7 +163,7 @@ describe('PanelInbox', () => {
     render(<PanelInbox extId="activity" workspaceId="w-api" />)
     const card = screen.getByRole('article', { name: 'Note from claude' })
     await user.click(within(card).getByText('Set STRIPE_KEY in .env.local'))
-    expect(reveal).toHaveBeenCalledWith('p-api')
+    expect(reveal).toHaveBeenCalledWith('w-api', 'p-api')
     reveal.mockClear()
     await user.click(within(card).getByRole('button', { name: 'Mark done' }))
     expect(window.ostia.extensions.inboxAction).toHaveBeenCalledWith(
@@ -174,7 +174,38 @@ describe('PanelInbox', () => {
     expect(reveal).not.toHaveBeenCalled()
   })
 
-  it('names a note whose pane is gone as a closed pane', () => {
+  it('keeps a keyboard-reachable Go to pane link on the approval and the note card that shows the pane', async () => {
+    seed()
+    fill()
+    const user = userEvent.setup()
+    render(<PanelInbox extId="activity" workspaceId="w-api" />)
+    const permission = screen.getByRole('region', { name: 'Agent permission request' })
+    await user.click(within(permission).getByRole('button', { name: 'Go to pane' }))
+    expect(reveal).toHaveBeenLastCalledWith('w-api', 'p-api')
+    const noteCard = screen.getByRole('article', { name: 'Note from claude' })
+    const link = within(noteCard).getByRole('button', { name: 'Go to pane' })
+    link.focus()
+    await user.keyboard('{Enter}')
+    expect(reveal).toHaveBeenCalledTimes(2)
+  })
+
+  it('does not show the pane when the click ends a text selection inside the card', () => {
+    seed()
+    fill()
+    render(<PanelInbox extId="activity" workspaceId="w-api" />)
+    const text = screen.getByText('Set STRIPE_KEY in .env.local')
+    const range = document.createRange()
+    range.selectNodeContents(text)
+    window.getSelection()?.removeAllRanges()
+    window.getSelection()?.addRange(range)
+    fireEvent.click(text)
+    expect(reveal).not.toHaveBeenCalled()
+    window.getSelection()?.removeAllRanges()
+    fireEvent.click(text)
+    expect(reveal).toHaveBeenCalledWith('w-api', 'p-api')
+  })
+
+  it('names a note whose pane is gone as a closed pane and offers no Go to pane', () => {
     seed()
     useInboxStore
       .getState()
@@ -185,5 +216,6 @@ describe('PanelInbox', () => {
     const card = screen.getByRole('article')
     expect(card).toHaveTextContent('Set STRIPE_KEY in .env.local')
     expect(card).toHaveTextContent('Closed pane')
+    expect(within(card).queryByRole('button', { name: 'Go to pane' })).toBeNull()
   })
 })

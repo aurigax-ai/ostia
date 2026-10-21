@@ -29,7 +29,16 @@ function itemPane(item: NeedsYouItem): string {
 
 const AGO_TICK_MS = 30_000
 
-export function CardMeta({ pane, at }: { pane: string; at: number }): JSX.Element {
+export function CardMeta({
+  pane,
+  at,
+  onShow,
+}: {
+  pane: string
+  at: number
+  onShow?: () => void
+}): JSX.Element {
+  const d = useDict()
   const now = useNow(AGO_TICK_MS)
   const ago = useAgoText()
   return (
@@ -38,6 +47,11 @@ export function CardMeta({ pane, at }: { pane: string; at: number }): JSX.Elemen
       <time dateTime={new Date(at).toISOString()} className="tabular-nums">
         {ago(now - at)}
       </time>
+      {onShow ? (
+        <TextLink size="xs" className="ml-auto h-auto p-0 text-ui-xs" onClick={onShow}>
+          {d.dashboard.goToPane}
+        </TextLink>
+      ) : null}
     </div>
   )
 }
@@ -46,10 +60,12 @@ export function NeedsYouCard({
   item,
   where,
   compact = false,
+  onShowPane,
 }: {
   item: NeedsYouItem
   where: PaneWhere | null
   compact?: boolean
+  onShowPane?: () => void
 }): JSX.Element {
   const d = useDict()
   if (item.kind === 'question') {
@@ -64,7 +80,11 @@ export function NeedsYouCard({
       paneTitle={where?.pane ?? closed}
       lead={
         compact ? (
-          <CardMeta pane={where?.pane ?? closed} at={item.approval.at} />
+          <CardMeta
+            pane={where?.pane ?? closed}
+            at={item.approval.at}
+            onShow={where ? onShowPane : undefined}
+          />
         ) : where ? (
           <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5 text-fg-muted text-ui-xs">
             <span className="truncate font-medium text-fg">{where.workspace}</span>

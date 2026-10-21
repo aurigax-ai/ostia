@@ -3,7 +3,7 @@ import { EmptyState } from '@/components/common/EmptyState'
 import { Button } from '@/components/ui/button'
 import { cardPane, type InboxCard, type InboxNote } from '@/lib/agents/panelInbox'
 import { fmt, useDict } from '@/lib/app/useDict'
-import { revealPane } from '@/lib/attention/workspaceActivity'
+import { showPaneWhenReady } from '@/lib/panes/paneFocus'
 import { paneWhere } from '@/lib/sidebar/dashboard'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
@@ -13,10 +13,21 @@ import { useInboxCards } from './useInboxCards'
 const OWN_CONTROLS =
   'button, a, input, textarea, select, label, [role="radio"], [role="checkbox"], [role="button"]'
 
-function focusOnCardClick(event: MouseEvent<HTMLElement>, paneId: string | undefined): void {
+function endsSelection(card: HTMLElement): boolean {
+  const selection = window.getSelection()
+  if (!selection || selection.isCollapsed) return false
+  return card.contains(selection.anchorNode) || card.contains(selection.focusNode)
+}
+
+function focusOnCardClick(
+  event: MouseEvent<HTMLElement>,
+  workspaceId: string,
+  paneId: string | undefined,
+): void {
   if (!paneId) return
   if ((event.target as HTMLElement).closest(OWN_CONTROLS)) return
-  revealPane(paneId)
+  if (endsSelection(event.currentTarget)) return
+  showPaneWhenReady(workspaceId, paneId)
 }
 
 function NoteCard({
@@ -42,7 +53,15 @@ function NoteCard({
       data-inbox-note={note.id}
       className="dashboard-card flex flex-col gap-2 rounded-md border border-line bg-surface-1 p-3 text-fg text-ui-sm"
     >
-      <CardMeta pane={title} at={note.at} />
+      <CardMeta
+        pane={title}
+        at={note.at}
+        onShow={
+          pane && note.paneId
+            ? () => showPaneWhenReady(workspaceId, note.paneId as string)
+            : undefined
+        }
+      />
       <p className="whitespace-pre-line [overflow-wrap:anywhere]">{note.text}</p>
       <div className="flex justify-end">
         <Button
@@ -68,7 +87,15 @@ function CardBody({
 }): JSX.Element {
   if (card.kind === 'note')
     return <NoteCard note={card.note} extId={extId} workspaceId={workspaceId} />
-  return <NeedsYouCard item={card.item} where={card.where} compact />
+  const paneId = cardPane(card)
+  return (
+    <NeedsYouCard
+      item={card.item}
+      where={card.where}
+      compact
+      onShowPane={paneId ? () => showPaneWhenReady(workspaceId, paneId) : undefined}
+    />
+  )
 }
 
 export function PanelInbox({
@@ -93,7 +120,7 @@ export function PanelInbox({
         // biome-ignore lint/a11y/useKeyWithClickEvents: the card's own controls and its Go to pane button are the keyboard path; a click elsewhere on it only shows its pane
         <li
           key={card.id}
-          onClick={(event) => focusOnCardClick(event, cardPane(card))}
+          onClick={(event) => focusOnCardClick(event, workspaceId, cardPane(card))}
           className="cursor-default"
         >
           <CardBody card={card} extId={extId} workspaceId={workspaceId} />

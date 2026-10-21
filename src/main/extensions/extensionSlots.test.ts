@@ -47,12 +47,12 @@ const INBOX_PANEL = {
   toolbar: { tabs: [{ id: 'inbox', title: 'Inbox', surface: 'inbox' }], actions: [] },
 }
 
-function inboxSlots(options: { builtin?: boolean; panel?: unknown } = {}) {
-  const broadcast = vi.fn()
+function inboxSlots(options: { builtin?: boolean; panel?: unknown; callers?: string[] } = {}) {
+  const publishInbox = vi.fn()
   const sendEvent = vi.fn(() => true)
   const host = {
     deps: {
-      broadcast,
+      publishInbox,
       workDirForWorkspace: (id?: string) => (id === 'w1' || id === 'w2' ? '/work' : undefined),
     },
     sendEvent,
@@ -62,24 +62,24 @@ function inboxSlots(options: { builtin?: boolean; panel?: unknown } = {}) {
           builtin: options.builtin ?? true,
           manifest: { id: 'demo', contributes: { panel: options.panel ?? INBOX_PANEL } },
         },
-        callerWorkspaces: new Set<string>(),
+        callerWorkspaces: new Set<string>(options.callers ?? ['w1', 'w2']),
       }) as unknown as Runtime,
     commandsOf: (): ExtensionCommandContribution[] => [],
   } as unknown as ExtensionSlotsHost
   const slots = new ExtensionSlots(host)
   const set = (params: unknown) =>
     slots.setInboxItems({} as PaneIdentity, {} as MessageConnection, params)
-  return { slots, broadcast, set, sendEvent }
+  return { slots, publishInbox, set, sendEvent }
 }
 
 const ITEM = { id: 'abcdefghij', text: 'Set the key', at: 5 }
 
 describe('ExtensionSlots inbox items', () => {
   it('keeps the items per workspace, tells the renderer and answers whether it holds one', () => {
-    const { slots, broadcast, set } = inboxSlots()
+    const { slots, publishInbox, set } = inboxSlots()
     expect(set({ workspaceId: 'w1', items: [ITEM] })).toEqual({ ok: true })
     expect(slots.inboxEntries()).toEqual([{ extId: 'demo', workspaceId: 'w1', items: [ITEM] }])
-    expect(broadcast).toHaveBeenLastCalledWith('extensions:inbox', slots.inboxEntries())
+    expect(publishInbox).toHaveBeenLastCalledWith(slots.inboxEntries())
     expect(slots.holdsInboxItem('demo', 'w1', 'abcdefghij')).toBe(true)
     expect(slots.holdsInboxItem('demo', 'w2', 'abcdefghij')).toBe(false)
     expect(slots.holdsInboxItem('other', 'w1', 'abcdefghij')).toBe(false)
@@ -122,6 +122,16 @@ describe('ExtensionSlots inbox items', () => {
     expect(item?.paneId).toBeUndefined()
   })
 
+  it('refuses a workspace the extension has no caller in, however it is open', () => {
+    const { slots, set } = inboxSlots({ callers: ['w2'] })
+    expect(set({ workspaceId: 'w1', items: [ITEM] })).toMatchObject({
+      ok: false,
+      error: 'no-caller',
+    })
+    expect(slots.inboxEntries()).toEqual([])
+    expect(set({ workspaceId: 'w2', items: [ITEM] })).toEqual({ ok: true })
+  })
+
   it('refuses a caller that is not a built-in extension, a manifest without an inbox tab and a closed workspace', () => {
     expect(inboxSlots({ builtin: false }).set({ workspaceId: 'w1', items: [ITEM] })).toMatchObject({
       ok: false,
@@ -162,14 +172,14 @@ describe('ExtensionSlots inbox items', () => {
   })
 
   it('clears the entries of a closed workspace or a stopped extension', () => {
-    const { slots, broadcast, set } = inboxSlots()
+    const { slots, publishInbox, set } = inboxSlots()
     set({ workspaceId: 'w1', items: [ITEM] })
     set({ workspaceId: 'w2', items: [ITEM] })
     slots.clearInboxWhere((entry) => entry.workspaceId === 'w1')
     expect(slots.inboxEntries().map((e) => e.workspaceId)).toEqual(['w2'])
     slots.clearInboxWhere((entry) => entry.extId === 'demo')
     expect(slots.inboxEntries()).toEqual([])
-    expect(broadcast).toHaveBeenLastCalledWith('extensions:inbox', [])
+    expect(publishInbox).toHaveBeenLastCalledWith([])
   })
 })
 
