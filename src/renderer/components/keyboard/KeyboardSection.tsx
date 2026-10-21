@@ -1,4 +1,5 @@
 import { commands } from '@/commands/registry'
+import { Segmented } from '@/components/common/Segmented'
 import { ControlRow } from '@/components/settingsKit/ControlRow'
 import { SelectField } from '@/components/settingsKit/SelectField'
 import { SettingsGroup } from '@/components/settingsKit/SettingsGroup'
@@ -105,25 +106,7 @@ function ViewSwitch({
     { value: 'active', label: d.keyboard.viewActive },
     { value: 'changes', label: fmt(d.keyboard.viewChanges, { count: total }) },
   ]
-  return (
-    <fieldset aria-label={d.keyboard.view} className="m-0 flex shrink-0 gap-1 border-0 p-0">
-      {options.map((o) => (
-        <button
-          key={o.value}
-          type="button"
-          aria-pressed={view === o.value}
-          onClick={() => onChange(o.value)}
-          className={`h-7 rounded-md border px-2 text-ui-sm ${
-            view === o.value
-              ? 'border-line-strong bg-surface-3 text-fg'
-              : 'border-line text-fg-muted hover:bg-surface-2'
-          }`}
-        >
-          {o.label}
-        </button>
-      ))}
-    </fieldset>
-  )
+  return <Segmented label={d.keyboard.view} value={view} options={options} onChange={onChange} />
 }
 
 function LinkClickRow(): JSX.Element {

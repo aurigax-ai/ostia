@@ -81,6 +81,7 @@ function iconThemeExtension(): ExtensionInfo {
     languageServers: [],
     fileKinds: [],
     agentSkills: [],
+    agentSkillProblems: [],
     agentHooks: [],
     iconThemes: [{ id: 'fixture-icons', label: 'Fixture Icons' }],
     keymaps: [],

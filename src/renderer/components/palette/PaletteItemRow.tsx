@@ -10,13 +10,15 @@ export function ItemRow({
   detail,
   mono,
   nameMono,
+  after,
 }: {
   name: string
-  meta?: string
+  meta?: React.ReactNode
   keys?: string | null
   detail?: string
   mono?: boolean
   nameMono?: boolean
+  after?: React.ReactNode
 }): JSX.Element {
   return (
     <span data-slot="palette-row" className="flex min-w-0 flex-1 items-center gap-x-3 tabular-nums">
@@ -24,6 +26,7 @@ export function ItemRow({
         <span data-slot="palette-name" className={cn('min-w-0 truncate', nameMono && 'font-mono')}>
           {name}
         </span>
+        {after ? <span className="ml-2 flex shrink-0 items-center gap-1.5">{after}</span> : null}
       </span>
       {detail ? (
         <span data-slot="palette-detail" className={SECONDARY_CLASS}>

@@ -17,7 +17,7 @@ import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import type { ExtensionInfo } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import { zhHant } from '@shared/app/dict'
 import type { SearchOutcome, SearchRequest } from '@shared/files/search'
-import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest'
 import { CommandPalette } from './CommandPalette'
@@ -236,9 +236,39 @@ describe('CommandPalette', () => {
       render(<CommandPalette />)
       const option = await screen.findByRole('option', { name: /payments/ })
 
-      expect(slots(option)).toEqual(WITHOUT_KEYS)
+      expect(slots(option)).toEqual([...WITHOUT_KEYS, 'tooltip-trigger'])
       expect(part(option, 'name')).toHaveTextContent('payments')
       expect(part(option, 'meta')).toHaveTextContent('/src/api')
+    })
+
+    it('marks a pinned or scratch workspace, names its project folder and still finds it by its worktree folder', async () => {
+      seedPlaces()
+      act(() =>
+        useWorkspacesStore.setState({
+          workspaces: [
+            {
+              id: 'w1',
+              name: 'payments',
+              kind: 'scratch',
+              pinned: true,
+              workDir: '/src/api-wt/refunds',
+              projectDir: '/src/api',
+              state: 'idle',
+            },
+          ],
+          activeWorkspaceId: 'w1',
+        }),
+      )
+      useUIStore.setState({ paletteOpen: true, paletteSeed: '@api-wt' })
+      render(<CommandPalette />)
+      const option = await screen.findByRole('option', { name: /payments/ })
+
+      expect(part(option, 'meta')).toHaveTextContent('/src/api')
+      expect(part(option, 'meta')).not.toHaveTextContent('api-wt')
+      expect(within(option).getByText('Scratch')).toBeInTheDocument()
+      expect(within(option).getByLabelText('Pinned')).toBeInTheDocument()
+      expect(within(option).queryByLabelText('Sandboxed')).toBeNull()
+      expect(within(option).queryByLabelText('Locked')).toBeNull()
     })
 
     it('puts a tab’s workspace after its title', async () => {
@@ -682,6 +712,7 @@ describe('CommandPalette', () => {
       languageServers: [],
       fileKinds: [],
       agentSkills: [],
+      agentSkillProblems: [],
       agentHooks: [],
       iconThemes: [],
       keymaps: [],

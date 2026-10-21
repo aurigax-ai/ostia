@@ -1,12 +1,12 @@
 import { EmptyState } from '@/components/common/EmptyState'
 import { Notice } from '@/components/common/Notice'
+import { Segmented } from '@/components/common/Segmented'
 import { TextLink } from '@/components/common/TextLink'
 import { SelectField } from '@/components/settingsKit/SelectField'
 import { SettingsList } from '@/components/settingsKit/SettingsList'
 import { SettingsListRow } from '@/components/settingsKit/SettingsListRow'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { ButtonGroup } from '@/components/ui/button-group'
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
 import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/input-group'
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -436,19 +436,12 @@ export function BrowseExtensionsDialog(): JSX.Element {
             />
           </InputGroup>
           <div className="flex items-center gap-2">
-            <ButtonGroup aria-label={d.extensionsBrowse.filters}>
-              {BROWSE_FILTERS.map((f) => (
-                <Button
-                  key={f}
-                  variant={filter === f ? 'secondary' : 'outline'}
-                  size="sm"
-                  aria-pressed={filter === f}
-                  onClick={() => setFilter(f)}
-                >
-                  {filterLabel(d, f, updates)}
-                </Button>
-              ))}
-            </ButtonGroup>
+            <Segmented
+              label={d.extensionsBrowse.filters}
+              value={filter}
+              options={BROWSE_FILTERS.map((f) => ({ value: f, label: filterLabel(d, f, updates) }))}
+              onChange={setFilter}
+            />
             <SelectField
               value={category}
               onChange={setCategory}

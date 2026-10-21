@@ -107,8 +107,8 @@
 
 .git-surface :is(.branch, .toolbar-branch, .tracking, .scope-trigger, .caret, .folder-icon) svg {
   flex: 0 0 auto;
-  width: 14px;
-  height: 14px;
+  width: 16px;
+  height: 16px;
 }
 
 .git-surface .ostia-split {
@@ -213,12 +213,21 @@
 .git-surface .branch,
 .git-surface .toolbar-branch {
   display: inline-flex;
+  flex: 0 1 auto;
   align-items: center;
   gap: 6px;
   min-width: 0;
+  max-width: 100%;
   font-family: var(--font-code);
   font-weight: var(--font-weight-medium);
   white-space: nowrap;
+}
+
+.git-surface .branch-name,
+.git-surface .upstream-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .git-surface .branch svg,
@@ -228,9 +237,12 @@
 
 .git-surface .tracking {
   display: inline-flex;
+  flex: 0 1 auto;
   align-items: center;
   gap: 8px;
   min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
   font-size: var(--text-ui-xs);
   line-height: var(--text-ui-xs--line-height);
   font-variant-numeric: tabular-nums;
@@ -245,9 +257,13 @@
 }
 
 .git-surface .tracking .upstream {
+  min-width: 0;
   font-family: var(--font-code);
   overflow: hidden;
-  text-overflow: ellipsis;
+}
+
+.git-surface .tracking .count {
+  flex: none;
 }
 
 .git-surface .tracking .ahead,
@@ -444,8 +460,9 @@
 .git-surface .graph-toolbar {
   display: flex;
   flex: 0 0 auto;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 12px;
+  gap: 4px 12px;
   min-width: 0;
   padding: 6px 8px;
   border-bottom: 1px solid var(--line);
