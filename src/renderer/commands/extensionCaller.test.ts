@@ -107,7 +107,7 @@ Object.assign(host as object, {
     ['probe', runtime(probe)],
   ]),
   active: () => true,
-  runs: { reachHookCaller, declaresHook: () => false },
+  runs: { reachHookCaller, declaresHook: () => false, holdCliCall: () => () => {} },
   processes: {
     connected: async (rt: { ext: { manifest: typeof manifest } }) => ({
       sendRequest: async (

@@ -2,10 +2,12 @@ import '@testing-library/jest-dom/vitest'
 import { cleanup, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { commands } from '@/commands/registry'
 import * as forkConversation from '@/lib/agents/forkConversation'
 import type { LayoutNode, PaneNode } from '@/lib/layout/types'
 import * as parkTab from '@/lib/park/parkTab'
 import { useAttentionStore } from '@/stores/agents/attentionStore'
+import { useUIStore } from '@/stores/app/uiStore'
 import { useBlocksStore } from '@/stores/terminal/blocksStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
@@ -116,5 +118,51 @@ describe('AgentActionsMenu', () => {
     await user.keyboard('{Escape}')
     await waitFor(() => expect(caret).toHaveFocus())
     expect(caret).toHaveAttribute('aria-expanded', 'false')
+  })
+
+  describe('Hand off', () => {
+    let on = true
+    beforeEach(() => {
+      on = true
+      commands.register({
+        id: 'handoff.start',
+        title: 'Hand off…',
+        listed: () => on,
+        run: () => {},
+      })
+    })
+    afterEach(() => {
+      commands.unregister('handoff.start')
+    })
+
+    it('sits between Fork and Park and asks for the topic in the palette', async () => {
+      const openPalette = vi.spyOn(useUIStore.getState(), 'openPalette')
+      const { user } = await open()
+      const items = await screen.findAllByRole('menuitem')
+      expect(items.map((i) => i.textContent)).toEqual(['Fork', 'Hand off', 'Park'])
+      await user.click(items[1])
+      expect(openPalette).toHaveBeenCalledWith('search', 'Hand off…')
+    })
+
+    it('is not there while the playbook is off', async () => {
+      on = false
+      await open()
+      const items = await screen.findAllByRole('menuitem')
+      expect(items.map((i) => i.textContent)).toEqual(['Fork', 'Park'])
+    })
+
+    it('is not there for a scratch workspace or a pane that is not a Claude session', async () => {
+      seed(agent, 'scratch')
+      await open()
+      expect((await screen.findAllByRole('menuitem')).map((i) => i.textContent)).not.toContain(
+        'Hand off',
+      )
+      cleanup()
+      seed(agent)
+      await open({ ...agent, resume: { agent: 'codex', id: 's1', cwd: '/w' } })
+      expect((await screen.findAllByRole('menuitem')).map((i) => i.textContent)).not.toContain(
+        'Hand off',
+      )
+    })
   })
 })

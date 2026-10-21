@@ -41,10 +41,20 @@ export function newInstallCode(): string {
 
 type ExtensionCheck = { ok: true; manifest: ExtensionManifest } | { ok: false; problem: string }
 
+function playbookCommandProblems(manifest: ExtensionManifest): string[] {
+  return manifest.contributes.commands
+    .filter((command) => command.needsPlaybook)
+    .map((command) => `commands.${command.id}.needsPlaybook is for built-in extensions only`)
+}
+
 function checkExtension(dir: string): ExtensionCheck {
   const res = readManifest(dir)
   if (!res.ok) return { ok: false, problem: res.error }
-  const problems = [...localeProblems(dir, res.manifest), ...agentSkillProblems(dir, res.manifest)]
+  const problems = [
+    ...localeProblems(dir, res.manifest),
+    ...agentSkillProblems(dir, res.manifest),
+    ...playbookCommandProblems(res.manifest),
+  ]
   if (problems.length > 0) return { ok: false, problem: problems.join('; ') }
   const plan = planCopy(dir)
   if (plan.ok) return { ok: true, manifest: res.manifest }

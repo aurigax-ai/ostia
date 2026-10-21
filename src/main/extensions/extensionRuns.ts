@@ -18,7 +18,7 @@ import {
   type TerminalWait,
 } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import { isRecord } from '@aurigax-ai/ostia-extension-sdk/contract/isRecord'
-import type { CancellationToken, MessageConnection } from 'vscode-jsonrpc/node'
+import { type CancellationToken, type MessageConnection, ResponseError } from 'vscode-jsonrpc/node'
 import { quoteArgv } from '../../shared/terminal/shellQuote'
 import {
   agentName,
@@ -31,6 +31,8 @@ import {
   workspaceFolder,
   workspaceIdOf,
 } from '../agents/extensionAgents'
+import { ensureCaps } from '../approvals/controlElevation'
+import type { AuthedConn } from '../control/controlAuth'
 import { type PaneIdentity, resolveExternal } from '../control/idRegistry'
 import { spawnFolder } from '../terminal/spawnCwd'
 import type { ExtensionHostDeps } from './extensionHostDeps'
@@ -44,6 +46,15 @@ function hasControlChar(text: string): boolean {
   return false
 }
 
+const CALLER_CAPS: readonly Capability[] = ['all-workspaces']
+
+const CALLER_REASON_MAX = 160
+
+interface HeldCliCall {
+  identity: PaneIdentity
+  authed: AuthedConn
+}
+
 const HOST_TERMINAL_NOTE = 'Runs outside the sandbox, in a terminal you can watch:'
 
 export interface TerminalOpenRequest {
@@ -55,6 +66,8 @@ export interface TerminalOpenRequest {
   cwd?: string
   title?: string
   backgroundTab?: boolean
+  asTab?: boolean
+  humanCall?: boolean
   pinTitle?: boolean
 }
 
@@ -113,6 +126,7 @@ export interface ExtensionRunsHost {
     | 'isSandboxed'
     | 'offerToAgentIn'
     | 'openTerminalIn'
+    | 'playbookEnabled'
     | 'resumeOf'
     | 'workDirForWorkspace'
   >
@@ -129,6 +143,8 @@ export class ExtensionRuns {
   }
 
   private terminalWaits = new Map<string, (wait: TerminalWait) => void>()
+
+  private readonly cliCalls = new Map<string, HeldCliCall[]>()
 
   private readonly agentTasks: ReturnType<typeof agentTaskLimiter>
 
@@ -254,6 +270,8 @@ export class ExtensionRuns {
         `prompt must be 1-${AGENT_PROMPT_MAX} characters without control characters other than newlines and tabs`,
       )
     }
+    const placed = this.tabAfter(rt, p.afterPaneId, p.background, workspaceId)
+    if ('error' in placed) return placed.error
     const planned =
       p.continueFrom === undefined
         ? this.startCommand(p.agent, prompt, workspaceId)
@@ -266,11 +284,102 @@ export class ExtensionRuns {
       workspaceId,
       ...(planned.cwd ? { cwd: planned.cwd } : {}),
       ...(p.background === true ? { backgroundTab: true } : {}),
+      ...placed,
     })
     if (!paneId) return fail('not-opened', 'no workspace to open it in')
     this.reach(rt, paneId)
     this.markOpened(rt, paneId)
     return { ok: true, paneId }
+  }
+
+  playbookEnabled(identity: PaneIdentity, conn: MessageConnection) {
+    const rt = this.host.runtimeOf(identity, conn)
+    const id = rt.ext.manifest.id
+    return { ok: true, enabled: rt.ext.builtin && this.host.deps.playbookEnabled?.(id) === true }
+  }
+
+  holdCliCall(identity: PaneIdentity, authed: AuthedConn): () => void {
+    if (identity.kind !== 'pane') return () => {}
+    const held: HeldCliCall = { identity, authed }
+    const key = identity.externalId
+    this.cliCalls.set(key, [...(this.cliCalls.get(key) ?? []), held])
+    return () => {
+      const rest = (this.cliCalls.get(key) ?? []).filter((h) => h !== held)
+      if (rest.length > 0) this.cliCalls.set(key, rest)
+      else this.cliCalls.delete(key)
+    }
+  }
+
+  async requireCallerCaps(identity: PaneIdentity, conn: MessageConnection, params: unknown) {
+    const rt = this.host.runtimeOf(identity, conn)
+    if (!rt.ext.builtin) return fail('not-available', 'only a built-in extension can ask for it')
+    const p = isRecord(params) ? params : {}
+    const caps = Array.isArray(p.caps) ? p.caps : []
+    if (caps.length === 0 || !caps.every((c): c is Capability => CALLER_CAPS.includes(c))) {
+      return fail('invalid-params', `caps is a non-empty list of ${CALLER_CAPS.join(', ')}`)
+    }
+    const reason = typeof p.reason === 'string' ? p.reason.replace(/\s+/g, ' ').trim() : ''
+    if (!reason || reason.length > CALLER_REASON_MAX || hasControlChar(reason)) {
+      return fail('invalid-params', `reason is one line of 1-${CALLER_REASON_MAX} characters`)
+    }
+    const paneId = typeof p.paneId === 'string' ? p.paneId : ''
+    const calling = rt.serving.get(paneId)
+    const held = this.cliCalls.get(paneId)?.at(-1)
+    if (!calling || calling.cli === 0 || !held) {
+      return fail('not-reached', 'only the pane whose command line call this extension is serving')
+    }
+    try {
+      await ensureCaps(
+        held.authed,
+        held.identity,
+        caps,
+        `${this.host.shownName(rt)}: ${reason}`,
+        '',
+      )
+    } catch (err) {
+      if (!(err instanceof ResponseError)) throw err
+      const hint =
+        isRecord(err.data) && typeof err.data.hint === 'string' ? ` ${err.data.hint}` : ''
+      const code = /^([a-z][a-z-]*):/.exec(err.message)?.[1] ?? 'not-approved'
+      return fail(code, `${err.message}.${hint}`)
+    }
+    return { ok: true }
+  }
+
+  private tabAfter(
+    rt: Runtime,
+    raw: unknown,
+    background: unknown,
+    workspaceId: string,
+  ):
+    | { afterPaneId: string; windowId: string; asTab: true; humanCall?: true }
+    | Record<string, never>
+    | { error: unknown } {
+    if (raw === undefined) return {}
+    if (background === true) {
+      return {
+        error: fail('invalid-params', 'afterPaneId opens a tab you see, not a background one'),
+      }
+    }
+    if (typeof raw !== 'string' || !rt.serving.has(raw)) {
+      return {
+        error: fail(
+          'not-reached',
+          'afterPaneId is only the pane whose command this extension is serving',
+        ),
+      }
+    }
+    const after = resolveExternal(raw)
+    if (after?.kind !== 'pane' || after.workspaceId !== workspaceId) {
+      return { error: fail('unknown-pane', 'that pane is closed or in another workspace') }
+    }
+    const calls = rt.serving.get(raw)
+    return {
+      afterPaneId: after.paneId,
+      windowId: after.windowId,
+      asTab: true,
+      ...(calls && calls.cli === 0 && calls.user > 0 ? { humanCall: true as const } : {}),
+    }
   }
 
   private markOpened(rt: Runtime, paneId: string): void {

@@ -1,0 +1,9 @@
+{
+  "name": "handoff",
+  "paths": [
+    "src/extensions/handoff/"
+  ],
+  "specs": [
+    "e2e/handoff.spec.ts"
+  ]
+}

@@ -16,7 +16,7 @@ export const playbooksZhHant: typeof playbooksEn = {
   },
   descriptions: {
     coordinator: '規劃、派工、審查並合併；自己不寫程式碼。',
-    remember: '記下稍後要做的事，即使在 /clear 或恢復之後也能接續。',
+    handoff: '在這個工作階段旁，針對單一主題開啟一個乾淨的新工作階段。',
     review: '依據議題對 PR 做一次聚焦審查。',
     worker: '勘查、實作、測試並開 PR；向協調者回報。',
   },

@@ -13,6 +13,10 @@ export function setPlaybookSettings(raw: unknown): void {
   current = raw
 }
 
+export function currentPlaybookSettings(): unknown {
+  return current
+}
+
 export function currentPlaybookFiles(takenIds: readonly string[]): PlaybookFile[] {
   return playbookFiles(current, takenIds)
 }

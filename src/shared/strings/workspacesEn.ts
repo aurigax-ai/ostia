@@ -236,6 +236,7 @@ export const workspacesEn = {
     forkAction: 'Fork',
     forkConversation: 'Fork conversation into a new tab',
     forkTitle: 'Fork of {title}',
+    handoffAction: 'Hand off',
     hibernateTab: 'Hibernate tab',
     hibernated: 'Hibernated',
     hiddenAttention: 'Hidden tabs that need you: {count}',

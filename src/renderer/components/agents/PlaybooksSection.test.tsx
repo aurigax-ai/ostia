@@ -42,12 +42,12 @@ describe('PlaybooksSection', () => {
     vi.mocked(window.ostia.fs.write).mockClear()
   })
 
-  it('lists the built-ins with only /remember on, and shows the selected prompt', () => {
+  it('lists the built-ins, all off, and shows the selected prompt', () => {
     render(<PlaybooksSection />)
     for (const p of BUILTIN_PLAYBOOKS) {
       expect(screen.getByRole('switch', { name: `/${p.id}` })).toHaveProperty(
         'ariaChecked',
-        p.defaultOn ? 'true' : 'false',
+        'false',
       )
     }
     const prompt = screen.getByRole('textbox', { name: '/coordinator prompt' })
@@ -209,7 +209,10 @@ describe('PlaybooksSection', () => {
 
   it('refuses a command an installed extension’s skill already has, and a Claude Code command', async () => {
     useExtensionsStore.setState({
-      list: [{ id: 'changelog', agentSkills: ['changelog-draft'] } as never],
+      list: [
+        { id: 'changelog', agentSkills: ['changelog-draft'] } as never,
+        { id: 'activity', agentSkills: ['activity', 'remember'] } as never,
+      ],
     })
     render(<PlaybooksSection />)
     await userEvent.click(screen.getByRole('button', { name: en.playbooks.newPlaybook }))
@@ -217,6 +220,10 @@ describe('PlaybooksSection', () => {
     await typeInto(command(), '/changelog-draft')
     expect(screen.getByRole('alert')).toHaveTextContent(
       '/changelog-draft is a skill of an installed extension.',
+    )
+    await typeInto(command(), '/remember')
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      '/remember is a skill of an installed extension.',
     )
     await typeInto(command(), '/compact')
     expect(screen.getByRole('alert')).toHaveTextContent('/compact is a built-in name.')
