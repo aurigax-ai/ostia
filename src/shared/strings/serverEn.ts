@@ -3,7 +3,7 @@ export const serverEn = {
     addressDesc:
       'The server this computer signs in to. Sign out before you change it. Nothing is sent until you sign in.',
     addressInvalid:
-      'Enter a web address such as ostia.example.com. Plain http works only for this computer.',
+      'Enter a web address such as server.example.com. Plain http works only for this computer.',
     addressLabel: 'Server address',
     addressPlaceholder: "Enter your server's address",
     cancel: 'Cancel',

@@ -3,7 +3,7 @@ import type { serverEn } from './serverEn'
 export const serverZhHant: typeof serverEn = {
   server: {
     addressDesc: '這台電腦要登入的伺服器。若要更改，請先登出。登入之前不會傳送任何資料。',
-    addressInvalid: '請輸入網址，例如 ostia.example.com。純 http 只適用於本機。',
+    addressInvalid: '請輸入網址，例如 server.example.com。純 http 只適用於本機。',
     addressLabel: '伺服器位址',
     addressPlaceholder: '輸入您的伺服器位址',
     cancel: '取消',

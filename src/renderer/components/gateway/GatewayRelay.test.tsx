@@ -83,7 +83,7 @@ describe('Settings › Remote through a relay server', () => {
     render(<GatewaySection />)
     await screen.findByRole('switch', { name: 'Through a relay server' })
     const toggle = (): HTMLElement => screen.getByRole('switch', { name: 'Through a relay server' })
-    await waitFor(() => expect(toggle()).toBeDisabled())
+    await waitFor(() => expect(toggle()).toHaveAttribute('aria-disabled', 'true'))
     expect(toggle()).toBeChecked()
   })
 
