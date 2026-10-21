@@ -6,6 +6,7 @@ import {
   isPng,
   needsImage,
   normalizeSelection,
+  pngSize,
   renderSelectionReport,
   SELECTION_IMAGE_MAX,
   SELECTION_NOTE_MAX,
@@ -70,7 +71,9 @@ export async function writeSelectionReport(
       writeFileSync(imagePath, image, { mode: 0o600, flag: 'wx' })
     }
     path = `${stem}.md`
-    const report = await redact(renderSelectionReport(capture, note, imagePath, now))
+    const report = await redact(
+      renderSelectionReport(capture, note, imagePath, now, image ? pngSize(image) : null),
+    )
     message = selectionBusMessage(capture, await redact(note), path, imagePath)
     writeFileSync(path, report, { mode: 0o600, flag: 'wx' })
   } catch {
