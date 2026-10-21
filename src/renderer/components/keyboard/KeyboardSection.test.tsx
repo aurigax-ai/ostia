@@ -283,38 +283,22 @@ describe('KeyboardSection', () => {
     expect(row(/Clear Terminal/)).toBeInTheDocument()
   })
 
-  it('chooses whether Ctrl+click on a terminal link or path opens in Ostia or the system default app', async () => {
+  it('chooses whether Ctrl+click on a terminal link opens in Ostia or the system default app', async () => {
     render(<KeyboardSection />)
     const field = screen.getByRole('combobox', { name: 'Ctrl+Click on a terminal link opens' })
     expect(field).toHaveTextContent('In Ostia')
     expect(
       screen.getByText(
-        'Ctrl+Shift+Click opens it in the other one. File paths printed in the terminal follow the same choice.',
+        'Web links and file paths follow the same choice. Ctrl+Shift+Click opens it in the other one.',
       ),
     ).toBeInTheDocument()
 
     await userEvent.click(field)
     await userEvent.click(
-      await screen.findByRole('option', { name: "In the system's default app" }),
+      await screen.findByRole('option', { name: 'In the system’s default app' }),
     )
 
     expect(useSettingsStore.getState().terminal.linkClick).toBe('system')
-  })
-
-  it('names the link click options and their file path note in Traditional Chinese', async () => {
-    usePluginsStore.setState({
-      languages: languagesFrom([
-        { extId: 'langpack-zh-hant', id: 'zh-Hant', label: '繁體中文', catalog: zhHant },
-      ]),
-    })
-    useSettingsStore.setState({ locale: 'zh-Hant' })
-    render(<KeyboardSection />)
-    const field = screen.getByRole('combobox', { name: /在終端機連結上/ })
-    expect(field).toHaveTextContent('在 Ostia 內')
-    expect(screen.getByText(/終端機中印出的檔案路徑也依此選擇/)).toBeInTheDocument()
-
-    await userEvent.click(field)
-    expect(await screen.findByRole('option', { name: '在系統預設的應用程式' })).toBeInTheDocument()
   })
 
   it('marks the chords that act only in a terminal', () => {

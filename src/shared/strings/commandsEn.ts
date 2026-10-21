@@ -280,8 +280,8 @@ export const commandsEn = {
     linkClick: '{click} on a terminal link opens',
     linkClickApp: 'In {product}',
     linkClickDesc:
-      '{shiftClick} opens it in the other one. File paths printed in the terminal follow the same choice.',
-    linkClickSystem: "In the system's default app",
+      'Web links and file paths follow the same choice. {shiftClick} opens it in the other one.',
+    linkClickSystem: 'In the system’s default app',
     listSeparator: ', ',
     modifierKeyNames: {
       AltLeft: 'Left Option',

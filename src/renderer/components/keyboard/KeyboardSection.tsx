@@ -1,3 +1,4 @@
+import { PRODUCT_DISPLAY_NAME } from '@aurigax-ai/ostia-extension-sdk/contract/productDisplay'
 import { PlusIcon } from '@phosphor-icons/react'
 import type { Dict } from '@shared/app/dict'
 import { type ChordSpec, chordText, overlaps } from '@shared/keyboard/chordSpec'
@@ -123,7 +124,7 @@ function LinkClickRow(): JSX.Element {
         onChange={(v) => setTerminal({ linkClick: v })}
         label={label}
         options={[
-          { value: 'app', label: d.keyboard.linkClickApp },
+          { value: 'app', label: fmt(d.keyboard.linkClickApp, { product: PRODUCT_DISPLAY_NAME }) },
           { value: 'system', label: d.keyboard.linkClickSystem },
         ]}
       />
