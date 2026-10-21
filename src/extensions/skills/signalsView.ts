@@ -1,6 +1,6 @@
-import { emptyState, h, listRow } from '@aurigax-ai/ostia-extension-sdk/panel'
+import { emptyState, h, listRow, quietButton } from '@aurigax-ai/ostia-extension-sdk/panel'
 import { splitter } from '@aurigax-ai/ostia-extension-sdk/splitter'
-import { button, field, longDate, shortDate, t, tail } from './panelKit'
+import { button, longDate, shortDate, t, tail } from './panelKit'
 import type { Signal } from './signal'
 
 export interface SignalsContext {
@@ -8,6 +8,7 @@ export interface SignalsContext {
   selected: string | null
   select: (id: string) => void
   remove: (id: string) => void
+  forget: () => void
 }
 
 function projectName(signal: Signal): string {
@@ -17,13 +18,20 @@ function projectName(signal: Signal): string {
 function signalRow(signal: Signal, selected: boolean): HTMLElement {
   return listRow({
     title: signal.text,
-    meta: [
-      h('span', {}, t(`agent.${signal.agent}`)),
-      h('span', {}, projectName(signal)),
-      h('span', {}, shortDate(signal.at)),
+    detail: [
+      h(
+        'div',
+        { class: 'subline' },
+        h(
+          'span',
+          { class: 'sub' },
+          [t(`agent.${signal.agent}`), projectName(signal), shortDate(signal.at)].join(' · '),
+        ),
+      ),
     ],
     attrs: {
       'data-signal': signal.id,
+      'data-focus': `signal-${signal.id}`,
       'aria-selected': String(selected),
       tabindex: '0',
     },
@@ -37,12 +45,13 @@ function details(ctx: SignalsContext): HTMLElement {
     'div',
     { class: 'details', 'data-pane': 'signal' },
     h('pre', {}, signal.text),
-    field(t('field.agent'), h('div', {}, t(`agent.${signal.agent}`))),
-    field(t('field.project'), h('div', {}, projectName(signal))),
-    signal.stacks.length > 0
-      ? field(t('field.stacks'), h('div', {}, signal.stacks.join(', ')))
-      : null,
-    field(t('field.typed'), h('div', {}, longDate(signal.at))),
+    h(
+      'div',
+      { class: 'muted' },
+      [t(`agent.${signal.agent}`), projectName(signal), ...signal.stacks, longDate(signal.at)].join(
+        ' · ',
+      ),
+    ),
     h(
       'div',
       { class: 'buttons' },
@@ -61,15 +70,23 @@ export function signalsBody(ctx: SignalsContext): HTMLElement {
     })
     return row
   })
+  const list = h(
+    'div',
+    { class: 'list' },
+    h('div', { class: 'muted pad' }, t('signals.privacy')),
+    h('ul', { class: 'rows' }, ...rows),
+    h('div', { class: 'more' }, quietButton(t('forget'), ctx.forget)),
+  )
+  if (!ctx.signals.some((s) => s.id === ctx.selected)) return h('div', { class: 'body' }, list)
   return h(
     'div',
     { class: 'body' },
     splitter({
       key: 'signals-details',
       label: t('resizeDetails'),
-      first: h('div', { class: 'list' }, h('ul', { class: 'rows' }, ...rows)),
+      first: list,
       second: details(ctx),
-      defaultFraction: 0.5,
+      defaultFraction: 0.45,
       minFirst: 96,
       minSecond: 96,
       collapseSecond: true,

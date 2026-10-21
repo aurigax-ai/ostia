@@ -29,7 +29,6 @@ import {
   StorefrontIcon,
   TerminalIcon,
   TerminalWindowIcon,
-  TranslateIcon,
   TreeStructureIcon,
 } from '@phosphor-icons/react'
 import type { Dict } from '@shared/app/dict'
@@ -72,7 +71,6 @@ export type SectionId =
   | 'languageServers'
   | 'remote'
   | 'sync'
-  | 'language'
   | 'about'
   | 'sandbox'
   | 'workspace'
@@ -88,7 +86,6 @@ export interface SettingsSection {
 export function settingsSections(d: Dict): SettingsSection[] {
   return [
     { id: 'appearance', group: 'general', icon: PaletteIcon, label: d.settings.appearance },
-    { id: 'language', group: 'general', icon: TranslateIcon, label: d.settings.language },
     { id: 'notifications', group: 'general', icon: BellIcon, label: d.settings.notifications },
     { id: 'sync', group: 'general', icon: ArrowsClockwiseIcon, label: d.sync.title },
     { id: 'terminal', group: 'terminal', icon: TerminalWindowIcon, label: d.settings.terminal },

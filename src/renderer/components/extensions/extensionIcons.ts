@@ -16,6 +16,7 @@ import {
   PuzzlePieceIcon,
   ShieldCheckIcon,
   TerminalWindowIcon,
+  ToolboxIcon,
   WarningIcon,
 } from '@phosphor-icons/react'
 
@@ -36,6 +37,7 @@ const ICONS: Record<ExtensionIcon, IconComponent> = {
   plugs: PlugsIcon,
   'magnifying-glass': MagnifyingGlassIcon,
   graph: GraphIcon,
+  toolbox: ToolboxIcon,
 }
 
 export function extensionIcon(icon: ExtensionIcon | undefined): IconComponent {

@@ -160,6 +160,25 @@ describe('SettingsPanel search', () => {
     expect(within(nav()).queryByRole('button', { name: 'Notifications' })).toBeNull()
   })
 
+  it('finds a font line by the label of one of its fields', async () => {
+    renderSettings()
+    const user = userEvent.setup()
+    await user.click(searchBox())
+    await user.paste('line height')
+
+    const appearance = result('appearance')
+    const lineHeight = within(appearance).getByRole('spinbutton', { name: 'Terminal line height' })
+    expect(rowOf(lineHeight)).toBeVisible()
+    expect(
+      within(rowOf(lineHeight)).getAllByText('Line height', { selector: 'mark' }).length,
+    ).toBeGreaterThan(0)
+    expect(
+      rowOf(
+        within(appearance).getByRole('spinbutton', { name: 'Interface font, Size', hidden: true }),
+      ),
+    ).not.toBeVisible()
+  })
+
   it('finds a row by one of its option labels', async () => {
     renderSettings()
     const user = userEvent.setup()

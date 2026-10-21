@@ -35,6 +35,7 @@ export const EXTENSION_ICONS = [
   'plugs',
   'magnifying-glass',
   'graph',
+  'toolbox',
 ] as const
 
 export type ExtensionIcon = (typeof EXTENSION_ICONS)[number]

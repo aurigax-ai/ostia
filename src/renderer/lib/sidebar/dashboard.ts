@@ -1,5 +1,6 @@
 import { findPane } from '@/lib/layout/tree'
 import type { LayoutNode } from '@/lib/layout/types'
+import { workspaceTitle } from '@/lib/workspaces/workspaceTitle'
 import type { QuestionRequest } from '@shared/agents/questions'
 import type { ApprovalRequest } from '@shared/permissions/approvals'
 import { shortenPath } from './railMeta'
@@ -81,7 +82,7 @@ export function paneWhere(
     const path = workspace.projectDir ?? workspace.workDir
     return {
       workspaceId: workspace.id,
-      workspace: workspace.customName ?? workspace.name,
+      workspace: workspaceTitle(workspace),
       path,
       shortPath: shortenPath(path, DASHBOARD_PATH_CHARS),
       pane: pane.title,
@@ -105,7 +106,7 @@ export function sourceWhere(
   const path = workspace.projectDir ?? workspace.workDir
   return {
     workspaceId: workspace.id,
-    workspace: workspace.customName ?? workspace.name,
+    workspace: workspaceTitle(workspace),
     path,
     shortPath: shortenPath(path, DASHBOARD_PATH_CHARS),
     pane: source.extension,

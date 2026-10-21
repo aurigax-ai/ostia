@@ -1,4 +1,6 @@
 import { RenameInput } from '@/components/common/RenameInput'
+import { WorkspaceBadges } from '@/components/sidebar/WorkspaceBadges'
+import { WorkspaceIcon } from '@/components/sidebar/WorkspaceIcon'
 import { ContextMenu, ContextMenuTrigger } from '@/components/ui/context-menu'
 import { Kbd } from '@/components/ui/kbd'
 import { fmt, useDict } from '@/lib/app/useDict'
@@ -7,6 +9,7 @@ import { beginDrag, endWorkspaceDrag, isPaneDrag } from '@/lib/panes/paneDrag'
 import { type RowDropZone, rowDropZone } from '@/lib/sidebar/railDropZone'
 import { requestCloseWorkspace } from '@/lib/workspaces/closeConfirm'
 import { selectWorkspace } from '@/lib/workspaces/selectWorkspace'
+import { workspaceTitle } from '@/lib/workspaces/workspaceTitle'
 import { useSandboxStore } from '@/stores/app/sandboxStore'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useUIStore } from '@/stores/app/uiStore'
@@ -19,7 +22,6 @@ import { useEffect } from 'react'
 import { RailTab } from './RailTab'
 import { WorkspaceDetails } from './WorkspaceDetails'
 import { WorkspaceMenu } from './WorkspaceMenu'
-import { WorkspaceBadges, WorkspaceIcon } from './WorkspaceStatus'
 import {
   type DragHandlers,
   type TabDropHandlers,
@@ -60,7 +62,7 @@ export function WorkspaceRow({
     if (field !== null) edit.begin({ kind: 'workspace', id: w.id, field })
     else if (editing !== null) edit.end({ kind: 'workspace', id: w.id, field: editing })
   }
-  const title = w.customName ?? w.name
+  const title = workspaceTitle(w)
   const sandboxed = useSandboxStore((s) => s.enabled[w.id] ?? false)
   const locked = useLayoutStore((s) => {
     const root = s.byWorkspace[w.id]?.root

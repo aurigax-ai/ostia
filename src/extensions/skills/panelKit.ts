@@ -18,6 +18,24 @@ export function button(
   return h('button', { type: 'button', class: primary ? 'primary' : '', disabled, onClick }, label)
 }
 
+export function section(
+  title: string,
+  count: number,
+  open: boolean,
+  ...children: (Node | null)[]
+): HTMLElement {
+  return h(
+    'details',
+    { class: 'group', ...(open ? { open: true } : {}) },
+    h('summary', {}, title, h('span', { class: 'count' }, String(count))),
+    ...children,
+  )
+}
+
+export function heading(title: string, count: number): HTMLElement {
+  return h('h3', { class: 'heading' }, title, h('span', { class: 'count' }, String(count)))
+}
+
 export function field(label: string, control: Node): HTMLElement {
   return h('div', { class: 'field' }, h('span', { class: 'label' }, label), control)
 }

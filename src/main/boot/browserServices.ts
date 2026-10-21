@@ -32,6 +32,7 @@ export function createBrowserServices(ctx: ConfinedContext) {
     attachBrowserMenu,
     allowHumanPopups,
     hardenExtensionGuest,
+    isHumanProfile,
   } = createBrowserGuests({
     contextMenuText: () => mainStrings().native.contextMenu,
     consoleBuffers,
@@ -58,6 +59,7 @@ export function createBrowserServices(ctx: ConfinedContext) {
     attachBrowserMenu,
     allowHumanPopups,
     hardenExtensionGuest,
+    isHumanProfile,
   }
 }
 

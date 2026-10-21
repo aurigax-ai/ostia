@@ -38,7 +38,6 @@ vi.mock('./BrowserEditorSettings', () => ({
   EditorSettingsSection: emptyPage,
 }))
 vi.mock('./FilesSettingsSection', () => ({ FilesSection: emptyPage }))
-vi.mock('./LanguageSection', () => ({ LanguageSection: emptyPage }))
 vi.mock('./ManagerSection', () => ({ ManagerSection: emptyPage }))
 vi.mock('./NotificationsSection', () => ({ NotificationsSection: emptyPage }))
 vi.mock('./PasswordsSection', () => ({ PasswordsSection: emptyPage }))

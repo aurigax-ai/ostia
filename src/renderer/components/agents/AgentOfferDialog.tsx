@@ -10,10 +10,11 @@ import {
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { sendReference } from '@/lib/agents/sendPick'
 import { fmt, useDict } from '@/lib/app/useDict'
+import { stateLabel } from '@/lib/workspaces/workspaceState'
 import { useAgentOfferStore } from '@/stores/agents/agentOfferStore'
 import type { ExtensionAgentOffer } from '@aurigax-ai/ostia-extension-sdk/contract/extensionsBridge'
 import { useState } from 'react'
-import { stateLabel, useAgentTargets, useNoAgentsText } from './PickSendPanel'
+import { useAgentTargets, useNoAgentsText } from './PickSendPanel'
 
 function OfferBody({ offer }: { offer: ExtensionAgentOffer }): JSX.Element {
   const d = useDict()

@@ -7,7 +7,7 @@ const MIN_TEXT_WIDTH = 384
 const ROWS = [
   { section: 'Privacy', label: 'Install id' },
   { section: 'Remote', label: 'Bind address' },
-  { section: 'Appearance', label: 'UI font' },
+  { section: 'Appearance', label: 'Window title' },
   { section: 'About', label: 'Check for updates automatically' },
 ]
 

@@ -138,7 +138,7 @@ jobs:
           else
             shards='[1,2,3,4]'
             macos_matrix=$(jq -cn '{include: [
-              {group: "keys", specs: "e2e/keybindings.spec.ts e2e/clipboard-surfaces.spec.ts e2e/settings-gap.spec.ts e2e/tray.spec.ts"},
+              {group: "keys", specs: "e2e/keybindings.spec.ts e2e/clipboard-surfaces.spec.ts e2e/modifier-remap.spec.ts e2e/settings-gap.spec.ts e2e/tray.spec.ts"},
               {group: "terminal", specs: "e2e/terminal-basics.spec.ts e2e/blocks.spec.ts e2e/input-editor.spec.ts"},
               {group: "sandbox", specs: "e2e/sandbox.spec.ts"},
               {group: "ssh", specs: "e2e/ssh.spec.ts e2e/ssh-remote-files.spec.ts"},

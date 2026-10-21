@@ -4,10 +4,12 @@ import {
   h,
   loadPanelSizes,
   onChange,
+  panelTab,
   panelToolbar,
 } from '@aurigax-ai/ostia-extension-sdk/panel'
 import { caseFormBody } from './caseForm'
 import type { EvalCase, EvalRun } from './evalCase'
+import { type FindOutcome, findStatus } from './findStatus'
 import { button, t } from './panelKit'
 import { type Candidate, type Mode, type RulesContext, type Snapshot, rulesBody } from './rulesView'
 import type { ScoreRow } from './score'
@@ -37,6 +39,7 @@ let caseRule = ''
 let mode: Mode = { kind: 'view' }
 let problem = ''
 let previewState = { text: '', cut: 0 }
+let status = ''
 
 async function load(): Promise<void> {
   const res = await call('snapshot')
@@ -60,6 +63,7 @@ async function load(): Promise<void> {
 }
 
 async function act(command: string, args: Record<string, unknown>): Promise<boolean> {
+  status = ''
   const res = await call(command, args)
   problem = res.ok ? '' : t('error', { error: errorText(res) })
   await load()
@@ -70,6 +74,7 @@ function go(next: View): void {
   view = next
   mode = { kind: 'view' }
   problem = ''
+  status = ''
   void load()
 }
 
@@ -80,8 +85,14 @@ function rulesContext(): RulesContext {
     selected,
     mode,
     problem,
+    status,
+    add: addRule,
+    find: () => void findRules(),
+    previewOpen: () => void showPreview(),
+    importFile: pickImport,
+    exportRules: () => void exportRules(),
     select: (id) => {
-      selected = id
+      selected = selected === id ? null : id
       mode = { kind: 'view' }
       problem = ''
       render()
@@ -109,6 +120,7 @@ async function showPreview(): Promise<void> {
   previewState = { text: data.text, cut: data.cut.length }
   view = 'preview'
   mode = { kind: 'view' }
+  status = ''
   render()
 }
 
@@ -155,50 +167,50 @@ async function exportRules(): Promise<void> {
     JSON.stringify((res.data as { rules: unknown }).rules, null, 2),
   )
   problem = ''
+  status = t('exported')
+  render()
+}
+
+function addRule(): void {
+  mode = { kind: 'form', id: null, group: null }
+  problem = ''
+  render()
 }
 
 async function findRules(): Promise<void> {
-  await act('find-rules', {})
+  const res = await call('find-rules', {})
+  problem = res.ok ? '' : t('error', { error: errorText(res) })
+  status = res.ok ? findStatus(res.data as FindOutcome) : ''
+  await load()
 }
 
 const NAV: { view: View; label: string }[] = [
   { view: 'rules', label: 'rules' },
-  { view: 'preview', label: 'preview' },
   { view: 'signals', label: 'signals' },
   { view: 'scoreboard', label: 'scoreboard' },
 ]
 
-function navigation(): HTMLElement | null {
-  const current = view === 'case' ? 'scoreboard' : view
-  return panelToolbar({
-    actions: NAV.map(({ view: target, label }) =>
-      button(
-        t(`nav.${label}`),
-        () => (target === 'preview' ? void showPreview() : go(target)),
-        target === current,
-      ),
-    ),
-  })
+function addButton(): HTMLElement {
+  const add = button(t('add'), addRule, true)
+  add.dataset.focus = 'add'
+  return add
 }
 
-function actionBar(): HTMLElement | null {
-  if (view === 'signals') {
-    return signals.length > 0
-      ? panelToolbar({ actions: [button(t('forget'), () => void act('forget-signals', {}))] })
-      : null
+function leaveForm(): void {
+  go(view === 'case' ? 'scoreboard' : 'rules')
+}
+
+function navigation(): HTMLElement | null {
+  if (isSub()) {
+    return panelToolbar({ back: { label: t('back'), onClick: leaveForm } })
   }
-  if (view !== 'rules') return null
   return panelToolbar({
-    actions: [
-      button(t('findRules'), () => void findRules(), true),
-      button(t('add'), () => {
-        mode = { kind: 'form', id: null, group: null }
-        problem = ''
-        render()
-      }),
-      button(t('import'), pickImport),
-      ...(snap.rules.length > 0 ? [button(t('export'), () => void exportRules())] : []),
-    ],
+    tabs: NAV.map(({ view: target, label }) => {
+      const tab = panelTab(t(`nav.${label}`), target === view, () => go(target))
+      tab.dataset.focus = `tab-${target}`
+      return tab
+    }),
+    actions: view === 'rules' ? [addButton()] : [],
   })
 }
 
@@ -218,9 +230,10 @@ function body(): HTMLElement {
       signals,
       selected: selectedSignal,
       select: (id) => {
-        selectedSignal = id
+        selectedSignal = selectedSignal === id ? null : id
         render()
       },
+      forget: () => void act('forget-signals', {}),
       remove: (id) => void act('delete-signal', { id }),
     })
   }
@@ -234,7 +247,7 @@ function body(): HTMLElement {
       failed: evals.failed,
       selected,
       select: (id) => {
-        selected = id
+        selected = selected === id ? null : id
         render()
       },
       addCase: (rule) => {
@@ -257,15 +270,43 @@ function body(): HTMLElement {
         render()
       },
       saved: async () => go('scoreboard'),
-      cancel: () => go('scoreboard'),
     })
   }
   if (view === 'preview') return previewBody()
   return rulesBody(rulesContext())
 }
 
+let wasSub = false
+let returnTo: string | null = null
+
+function isSub(): boolean {
+  return view === 'case' || view === 'preview' || mode.kind !== 'view'
+}
+
+function focused(): string | null {
+  const active = document.activeElement as HTMLElement | null
+  return active?.closest('[data-focus]')?.getAttribute('data-focus') ?? null
+}
+
+function refocus(key: string | null): boolean {
+  const target = key ? root.querySelector<HTMLElement>(`[data-focus="${key}"]`) : null
+  target?.focus()
+  return target !== null
+}
+
 function render(): void {
-  root.replaceChildren(h('div', { class: 'page' }, navigation(), actionBar(), notice(), body()))
+  const was = focused()
+  const sub = isSub()
+  if (sub && !wasSub) returnTo = was
+  root.replaceChildren(h('div', { class: 'ostia-page' }, navigation(), notice(), body()))
+  if (sub) {
+    if (!wasSub) root.querySelector<HTMLElement>('.ostia-toolbar button')?.focus()
+  } else if (wasSub) {
+    if (!refocus(returnTo)) refocus(`tab-${view}`)
+    returnTo = null
+  } else if (was?.startsWith('tab-')) refocus(`tab-${view}`)
+  else refocus(was)
+  wasSub = sub
 }
 
 void loadPanelSizes().then(load)

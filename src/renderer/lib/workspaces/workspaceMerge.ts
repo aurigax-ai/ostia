@@ -1,4 +1,5 @@
 import { allPanes } from '@/lib/layout/tree'
+import { workspaceTitle } from '@/lib/workspaces/workspaceTitle'
 import { useSandboxStore } from '@/stores/app/sandboxStore'
 import { useUIStore } from '@/stores/app/uiStore'
 import { chatReplacedByMerge, mergeChatWorkspace } from '@/stores/assist/chatStore'
@@ -29,10 +30,6 @@ interface Evaluation {
   source: Workspace
   sourceSandbox: WorkspaceSandbox | null
   targets: MergeTarget[]
-}
-
-function nameOf(w: Pick<Workspace, 'name' | 'customName'>): string {
-  return w.customName ?? w.name
 }
 
 async function sandboxOf(workspaceId: string): Promise<WorkspaceSandbox | null> {
@@ -83,7 +80,7 @@ async function evaluate(sourceId: string): Promise<Evaluation | null> {
     ),
   ]
   const names = new Map<string, string>([
-    ...local.map((w): [string, string] => [w.id, nameOf(w)]),
+    ...local.map((w): [string, string] => [w.id, workspaceTitle(w)]),
     ...remote.map((w): [string, string] => [w.id, w.name]),
   ])
   const targets = mergeOptions(sideOf(source, windowId, sourceSandbox), candidates, home).map(
@@ -108,8 +105,8 @@ function mergeSummary(source: Workspace, target: Workspace, sandbox: boolean): M
     panes.filter((p) => kinds.includes(p.kind)).length
   const terminals = panes.filter((p) => p.kind === 'terminal')
   return {
-    source: nameOf(source),
-    target: nameOf(target),
+    source: workspaceTitle(source),
+    target: workspaceTitle(target),
     terminals: terminals.length,
     editors: count(['editor']),
     browsers: count(['browser']),

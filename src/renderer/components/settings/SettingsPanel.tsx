@@ -27,6 +27,7 @@ import {
   pageTitle,
   settingsSections,
 } from '@/lib/settings/settingsSections'
+import { workspaceTitle } from '@/lib/workspaces/workspaceTitle'
 import { useUIStore } from '@/stores/app/uiStore'
 import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
 import type { Workspace } from '@/stores/workspaces/workspaceTypes'
@@ -38,7 +39,6 @@ import { AppearanceSection } from './AppearanceSection'
 import { GitSection, PortsSection } from './BoardSettings'
 import { BrowserSettingsSection, EditorSettingsSection } from './BrowserEditorSettings'
 import { FilesSection } from './FilesSettingsSection'
-import { LanguageSection } from './LanguageSection'
 import { ManagerSection } from './ManagerSection'
 import { NotificationsSection } from './NotificationsSection'
 import { PasswordsSection } from './PasswordsSection'
@@ -172,7 +172,7 @@ const SettingsPages = memo(function SettingsPages({
         <WorkspaceSandboxPage
           key={targetWorkspace.id}
           workspaceId={targetWorkspace.id}
-          workspaceName={targetWorkspace.customName ?? targetWorkspace.name}
+          workspaceName={workspaceTitle(targetWorkspace)}
         />
       ) : null}
       {id === 'agents' ? <AgentsSection /> : null}
@@ -197,7 +197,6 @@ const SettingsPages = memo(function SettingsPages({
       {id === 'languageServers' ? <LanguagesSection /> : null}
       {id === 'remote' ? <GatewaySection /> : null}
       {id === 'sync' ? <SyncSection /> : null}
-      {id === 'language' ? <LanguageSection /> : null}
       {id === 'about' ? <AboutSection /> : null}
     </>
   )

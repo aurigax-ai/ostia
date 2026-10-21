@@ -1,8 +1,8 @@
 import { usePaneAgentSession } from '@/components/agents/AgentSessionButton'
-import { stateLabel } from '@/components/agents/PickSendPanel'
 import { Hint } from '@/components/common/Hint'
 import { useDict } from '@/lib/app/useDict'
 import type { PaneNode } from '@/lib/layout/types'
+import { stateLabel } from '@/lib/workspaces/workspaceState'
 import { useDiffStore } from '@/stores/files/diffStore'
 import type { ReactElement } from 'react'
 

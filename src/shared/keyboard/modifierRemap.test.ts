@@ -3,7 +3,9 @@ import {
   type ModifierRemap,
   type RemapKey,
   isIdentityRemap,
+  isRetargeted,
   parseModifierRemap,
+  releaseStale,
   remappedFlags,
   remappedModifierKey,
   trackModifierKey,
@@ -104,5 +106,22 @@ describe('trackModifierKey and remappedModifierKey', () => {
     expect(remappedModifierKey({ ControlLeft: 'command' }, 'ControlLeft')).toBe('Meta')
     expect(remappedModifierKey({}, 'AltRight')).toBe('Alt')
     expect(remappedModifierKey({}, 'KeyA')).toBeNull()
+  })
+})
+
+describe('isRetargeted', () => {
+  it('is true only for a modifier key the table sends somewhere else', () => {
+    const table: ModifierRemap = { ControlRight: 'command' }
+    expect(isRetargeted(table, 'ControlRight')).toBe(true)
+    expect(isRetargeted(table, 'ControlLeft')).toBe(false)
+    expect(isRetargeted(table, 'KeyK')).toBe(false)
+  })
+})
+
+describe('releaseStale', () => {
+  it('drops the held keys of a modifier family the event no longer reports', () => {
+    const down = new Set<RemapKey>(['ControlRight', 'AltLeft', 'MetaLeft'])
+    releaseStale(down, { ctrl: false, alt: true, meta: true })
+    expect([...down]).toEqual(['AltLeft', 'MetaLeft'])
   })
 })

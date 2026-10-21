@@ -1,6 +1,7 @@
 import { IconButton } from '@/components/common/IconButton'
+import { MachineValue } from '@/components/common/MachineValue'
 import { Notice } from '@/components/common/Notice'
-import { ControlRow, MachineValue, ToggleRow } from '@/components/settingsKit/ControlRow'
+import { ControlRow, ToggleRow } from '@/components/settingsKit/ControlRow'
 import { SettingsGroup } from '@/components/settingsKit/SettingsGroup'
 import { SettingsList } from '@/components/settingsKit/SettingsList'
 import { SettingsListRow } from '@/components/settingsKit/SettingsListRow'

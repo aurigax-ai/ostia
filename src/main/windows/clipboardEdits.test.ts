@@ -38,7 +38,7 @@ const linuxChords = {
 function setup(formats: string[] = [], mac = false, uriList = '') {
   const app = fakeContents()
   const { ipc, call } = fakeIpc()
-  const remap = createGuestRemap()
+  const remap = createGuestRemap({ nativeMenuKey: () => false })
   const edits = registerClipboardEdits({
     ipc,
     isAppWindow: (sender) => sender === app,

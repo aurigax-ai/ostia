@@ -56,7 +56,7 @@ test("an extension's own catalog translates its command, panel and settings row,
     await win.keyboard.press('Control+,')
     const settings = win.getByRole('region', { name: 'Settings' })
     await expect(settings).toBeVisible({ timeout: 10_000 })
-    await settings.getByRole('button', { name: 'Language', exact: true }).click()
+    await settings.getByRole('button', { name: 'Appearance', exact: true }).click()
     await settings.getByRole('combobox', { name: 'Display language' }).click()
     await win.getByRole('option', { name: '繁體中文' }).click()
 
@@ -76,7 +76,7 @@ test("an extension's own catalog translates its command, panel and settings row,
     await win.keyboard.press('Escape')
     await expect(dock).toHaveAttribute('aria-label', '哈囉面板')
 
-    await translated.getByRole('button', { name: '語言', exact: true }).click()
+    await translated.getByRole('button', { name: '外觀', exact: true }).click()
     await translated.getByRole('combobox', { name: '顯示語言' }).click()
     await win.getByRole('option', { name: 'English' }).click()
 

@@ -4,7 +4,7 @@ body {
   height: 100vh;
 }
 
-.page {
+.list {
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -37,10 +37,6 @@ body {
 
 .screen .id {
   font-family: var(--font-code);
-}
-
-.spacer {
-  flex: 1;
 }
 
 .view {

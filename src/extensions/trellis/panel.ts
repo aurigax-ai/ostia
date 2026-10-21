@@ -35,15 +35,15 @@ function toolbar(): HTMLElement {
   const boards = state.boardData?.boards ?? []
   return h(
     'nav',
-    { class: 'toolbar' },
+    { class: 'ostia-toolbar' },
     h(
       'div',
-      { class: 'tabs', role: 'tablist' },
+      { class: 'ostia-tabs', role: 'tablist' },
       ...views.map((v) =>
         h(
           'button',
           {
-            class: 'tab',
+            class: 'ostia-tab',
             role: 'tab',
             'data-key': `tab-${v}`,
             'aria-selected': v === state.view ? 'true' : 'false',
@@ -85,7 +85,7 @@ function toolbar(): HTMLElement {
           },
         )
       : null,
-    h('span', { class: 'spacer' }),
+    h('span', { class: 'ostia-spacer' }),
     state.view === 'board' && state.boardData
       ? h(
           'button',
@@ -125,7 +125,7 @@ function body(): HTMLElement {
 }
 
 function render(): void {
-  show(h('main', { class: 'page' }, toolbar(), bannerView(), body()))
+  show(h('main', { class: 'ostia-page' }, toolbar(), bannerView(), body()))
 }
 
 document.addEventListener('keydown', (e) => {

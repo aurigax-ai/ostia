@@ -1,4 +1,3 @@
-import { stateLabel } from '@/components/agents/PickSendPanel'
 import { NoticeSlot } from '@/components/common/NoticeSlot'
 import { fmt, useDict } from '@/lib/app/useDict'
 import { useFlipped } from '@/lib/app/useFlipped'
@@ -7,6 +6,7 @@ import type { Direction, LayoutNode, PaneNode, SplitNode } from '@/lib/layout/ty
 import { cellDropTarget, dropZoneAt } from '@/lib/panes/dropZone'
 import { PANE_DND, dropPaneOn, isPaneDrag } from '@/lib/panes/paneDrag'
 import { cn } from '@/lib/utils'
+import { stateLabel } from '@/lib/workspaces/workspaceState'
 import { useAttentionStore } from '@/stores/agents/attentionStore'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'

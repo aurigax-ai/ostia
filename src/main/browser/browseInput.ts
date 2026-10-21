@@ -4,6 +4,7 @@ import type { BrowseOutcome } from '../../shared/browser/browseRuntime'
 import type { BrowseState } from './browseGuests'
 import { fail, world } from './browseMethod'
 import { jsArgs } from './browseWorld'
+import { injectInto } from './guestInject'
 
 const INPUT_SETTLE_MS = 30
 
@@ -56,15 +57,21 @@ export function createBrowseInput({ mousePositions }: Pick<BrowseState, 'mousePo
   }
 
   function sendCombo(guest: Electron.WebContents, combo: KeyCombo, phase: 'down' | 'up' | 'press') {
-    if (phase !== 'up') {
-      guest.sendInputEvent({ type: 'keyDown', keyCode: combo.keyCode, modifiers: combo.modifiers })
-      if (combo.printable) {
-        guest.sendInputEvent({ type: 'char', keyCode: combo.keyCode, modifiers: combo.modifiers })
+    injectInto(guest.id, () => {
+      if (phase !== 'up') {
+        guest.sendInputEvent({
+          type: 'keyDown',
+          keyCode: combo.keyCode,
+          modifiers: combo.modifiers,
+        })
+        if (combo.printable) {
+          guest.sendInputEvent({ type: 'char', keyCode: combo.keyCode, modifiers: combo.modifiers })
+        }
       }
-    }
-    if (phase !== 'down') {
-      guest.sendInputEvent({ type: 'keyUp', keyCode: combo.keyCode, modifiers: combo.modifiers })
-    }
+      if (phase !== 'down') {
+        guest.sendInputEvent({ type: 'keyUp', keyCode: combo.keyCode, modifiers: combo.modifiers })
+      }
+    })
   }
 
   function typeText(guest: Electron.WebContents, text: string): void {
@@ -75,9 +82,11 @@ export function createBrowseInput({ mousePositions }: Pick<BrowseState, 'mousePo
       }
       const keyCode = ch === ' ' ? 'Space' : ch
       const hasKey = ch === ' ' || TYPEABLE_KEY.test(ch)
-      if (hasKey) guest.sendInputEvent({ type: 'keyDown', keyCode })
-      guest.sendInputEvent({ type: 'char', keyCode: ch })
-      if (hasKey) guest.sendInputEvent({ type: 'keyUp', keyCode })
+      injectInto(guest.id, () => {
+        if (hasKey) guest.sendInputEvent({ type: 'keyDown', keyCode })
+        guest.sendInputEvent({ type: 'char', keyCode: ch })
+        if (hasKey) guest.sendInputEvent({ type: 'keyUp', keyCode })
+      })
     }
   }
 

@@ -13,10 +13,7 @@ export function SettingsGroup({
 }): JSX.Element {
   const search = useSearchGroup([title, desc])
   return (
-    <section
-      hidden={search.hidden}
-      className="mt-5 border-line border-t pt-5 first-of-type:mt-3 first-of-type:border-t-0 first-of-type:pt-0"
-    >
+    <section hidden={search.hidden} className="mt-7 first-of-type:mt-3">
       <div className="mb-2 flex items-start justify-between gap-6">
         <div className="min-w-0">
           <h3 className="font-semibold text-fg text-ui-emphasis">
