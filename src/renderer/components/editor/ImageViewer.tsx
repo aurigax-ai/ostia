@@ -106,6 +106,7 @@ export function ImageViewer({
 
   return (
     <div className="viewer-surface">
+      {selectionSend.status}
       <div className="viewer-toolbar" onKeyDown={onCropKeyDown}>
         <span className="viewer-title">{baseName(filePath)}</span>
         {natural ? (
@@ -173,7 +174,6 @@ export function ImageViewer({
         ) : null}
       </div>
       {selectionSend.panel}
-      {selectionSend.status}
     </div>
   )
 }

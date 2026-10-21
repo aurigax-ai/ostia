@@ -79,7 +79,7 @@ test('Markdown language notice buttons do not overlap preview and send controls'
 
     await win.getByRole('button', { name: 'Preview Markdown' }).click()
     const install = notice.getByRole('button', { name: 'Install' })
-    const no = notice.getByRole('button', { name: 'No' })
+    const no = notice.getByRole('button', { name: 'Dismiss' })
     const mode = win.locator('.editor-mode:visible')
     const send = win.locator('.editor-send:visible')
     await expect(install).toBeVisible()

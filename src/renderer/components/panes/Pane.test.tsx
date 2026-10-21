@@ -7,6 +7,7 @@ import { PANE_DND, startPaneDragTracking } from '@/lib/panes/paneDrag'
 import { useQuestionsStore } from '@/stores/agents/questionsStore'
 import { useSandboxStore } from '@/stores/app/sandboxStore'
 import { useUIStore } from '@/stores/app/uiStore'
+import { usePhoneSizeStore } from '@/stores/terminal/phoneSizeStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { usePaneDnd } from '@/stores/workspaces/paneDndStore'
 import { startPaneRenameSync, usePaneRenameStore } from '@/stores/workspaces/paneRenameStore'
@@ -98,7 +99,7 @@ describe('Pane', () => {
     expect(frame).not.toHaveClass('dimmed')
   })
 
-  it('shows an open question on its pane and opens the dashboard at it', async () => {
+  it('shows an open question on its pane and answers it there', async () => {
     useQuestionsStore.setState({
       pending: [
         {
@@ -116,14 +117,40 @@ describe('Pane', () => {
       render(<Pane tabs={[pane]} shownId={pane.id} activePaneId={pane.id} workspaceId="w" />)
       const notice = screen.getByRole('region', { name: 'Agent asks' })
       expect(notice).toHaveTextContent('Which database?')
-      await userEvent.setup().click(within(notice).getByRole('button', { name: 'Answer' }))
-      expect(useUIStore.getState().dashboardActive).toBe(true)
-      expect(useQuestionsStore.getState().focusId).toBe('question-4')
+      const user = userEvent.setup()
+      await user.type(within(notice).getByLabelText('Reply'), 'Postgres')
+      await user.click(within(notice).getByRole('button', { name: 'Send' }))
+      expect(window.ostia.questions.answer).toHaveBeenCalledWith('question-4', {
+        choices: [],
+        text: 'Postgres',
+      })
+      expect(useUIStore.getState().dashboardActive).toBe(false)
     } finally {
       act(() => {
         useQuestionsStore.setState({ pending: [], focusId: null })
         useUIStore.setState({ dashboardActive: false })
       })
+    }
+  })
+
+  it('shows the phone size line over the pane without moving the terminal, and its close button keeps the hold', async () => {
+    const useDesktop = vi.fn()
+    usePhoneSizeStore.getState().hold(pane.id, { cols: 44, useDesktop })
+    try {
+      const { container } = render(
+        <Pane tabs={[pane]} shownId={pane.id} activePaneId={pane.id} workspaceId="w" />,
+      )
+      expect(container.querySelector('[data-phone-sized]')).toBeInTheDocument()
+      expect(container.querySelector('[data-status]')).toBeNull()
+
+      await userEvent.setup().click(screen.getByRole('button', { name: 'Dismiss' }))
+
+      const line = container.querySelector('[data-phone-sized]')
+      expect(line === null || line.closest('[data-leaving]') !== null).toBe(true)
+      expect(usePhoneSizeStore.getState().byPane[pane.id]).toBeDefined()
+      expect(useDesktop).not.toHaveBeenCalled()
+    } finally {
+      act(() => usePhoneSizeStore.setState({ byPane: {} }))
     }
   })
 

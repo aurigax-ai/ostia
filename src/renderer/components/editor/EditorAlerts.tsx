@@ -1,5 +1,5 @@
-import { NoticeBar } from '@/components/common/Notice'
-import { Button } from '@/components/ui/button'
+import { EmptyState } from '@/components/common/EmptyState'
+import { StatusAction, StatusLine, useDismissed } from '@/components/common/StatusLine'
 import { formatBytes } from '@/lib/app/localeFormat'
 import { fmt, useDict } from '@/lib/app/useDict'
 import { archiveProblemText } from '@/lib/files/archiveProblems'
@@ -11,6 +11,7 @@ import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { DIFF_TEXT_MAX } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import { parseRemotePath } from '@aurigax-ai/ostia-extension-sdk/contract/remoteFolders'
+import { FileDashedIcon } from '@phosphor-icons/react'
 import { PAD_MAX_BYTES } from '@shared/artifacts/artifacts'
 import type { MutableRefObject } from 'react'
 import type { DiskBar, ReloadFromDisk } from './editorDiskSync'
@@ -24,7 +25,6 @@ function shownPath(filePath: string): string {
 interface EditorAlertsProps {
   workspaceId: string
   paneId: string
-  blocked: Blocked | null
   diskBar: DiskBar | null
   setDiskBar: (bar: DiskBar | null) => void
   editorRef: MutableRefObject<monaco.editor.IStandaloneCodeEditor | null>
@@ -37,10 +37,53 @@ interface EditorAlertsProps {
   external: { error: string | null }
 }
 
+export function EditorBlocked({ blocked }: { blocked: Blocked }): JSX.Element {
+  const d = useDict()
+  const locale = useSettingsStore((s) => s.locale)
+  const text =
+    blocked.kind === 'binary'
+      ? d.editor.binary
+      : blocked.kind === 'too-large'
+        ? fmt(d.editor.tooLarge, { size: formatBytes(blocked.size, locale) })
+        : blocked.kind === 'archive'
+          ? archiveProblemText(d, blocked.reason)
+          : d.editor.unreadable
+  return (
+    <EmptyState
+      variant="surface"
+      size="sm"
+      className="absolute inset-0"
+      icon={<FileDashedIcon aria-hidden />}
+      title={text}
+    />
+  )
+}
+
+function DismissibleLine({
+  id,
+  tone,
+  actions,
+  testId,
+  children,
+}: {
+  id: string
+  tone?: 'muted' | 'warn' | 'error'
+  actions?: React.ReactNode
+  testId?: string
+  children: React.ReactNode
+}): JSX.Element | null {
+  const [dismissed, dismiss] = useDismissed(id)
+  if (dismissed) return null
+  return (
+    <StatusLine role="alert" tone={tone} data-testid={testId} actions={actions} onDismiss={dismiss}>
+      {children}
+    </StatusLine>
+  )
+}
+
 export function EditorAlerts({
   workspaceId,
   paneId,
-  blocked,
   diskBar,
   setDiskBar,
   editorRef,
@@ -53,7 +96,6 @@ export function EditorAlerts({
   external,
 }: EditorAlertsProps): JSX.Element {
   const d = useDict()
-  const locale = useSettingsStore((s) => s.locale)
   const comparable = (disk: string): boolean =>
     disk.length <= DIFF_TEXT_MAX &&
     (editorRef.current?.getModel()?.getValueLength() ?? 0) <= DIFF_TEXT_MAX
@@ -73,35 +115,23 @@ export function EditorAlerts({
 
   const compareButton =
     diskBar && diskBar.kind !== 'deleted' && comparable(diskBar.disk) ? (
-      <Button variant="outline" size="xs" onClick={() => compareWithDisk(diskBar.disk)}>
+      <StatusAction onClick={() => compareWithDisk(diskBar.disk)}>
         {d.editor.diskCompare}
-      </Button>
+      </StatusAction>
     ) : null
   return (
     <>
-      {blocked ? (
-        <div className="pane-body editor-binary">
-          <span className="ghost">
-            {blocked.kind === 'binary'
-              ? d.editor.binary
-              : blocked.kind === 'too-large'
-                ? fmt(d.editor.tooLarge, { size: formatBytes(blocked.size, locale) })
-                : blocked.kind === 'archive'
-                  ? archiveProblemText(d, blocked.reason)
-                  : d.editor.unreadable}
-          </span>
-        </div>
-      ) : null}
       {diskBar ? (
-        <NoticeBar
-          className="editor-disk-bar"
+        <StatusLine
+          role="alert"
+          tone="warn"
+          data-testid="editor-disk-bar"
+          onDismiss={() => setDiskBar(null)}
           actions={
             diskBar.kind === 'changed' ? (
               <>
                 {compareButton}
-                <Button
-                  variant="outline"
-                  size="xs"
+                <StatusAction
                   onClick={() => {
                     const model = editorRef.current?.getModel()
                     if (model) reloadRef.current(model, diskBar.disk, diskBar.version)
@@ -109,9 +139,8 @@ export function EditorAlerts({
                   }}
                 >
                   {d.editor.diskReload}
-                </Button>
-                <Button
-                  size="xs"
+                </StatusAction>
+                <StatusAction
                   onClick={() => {
                     const model = editorRef.current?.getModel()
                     if (model) {
@@ -124,17 +153,14 @@ export function EditorAlerts({
                   }}
                 >
                   {d.editor.diskKeepMine}
-                </Button>
+                </StatusAction>
               </>
             ) : diskBar.kind === 'conflict' ? (
               <>
                 {compareButton}
-                <Button variant="outline" size="xs" onClick={() => setDiskBar(null)}>
-                  {d.editor.diskCancel}
-                </Button>
-                <Button size="xs" onClick={() => void saveRef.current(true)}>
+                <StatusAction onClick={() => void saveRef.current(true)}>
                   {d.editor.diskOverwrite}
-                </Button>
+                </StatusAction>
               </>
             ) : null
           }
@@ -144,41 +170,36 @@ export function EditorAlerts({
             : diskBar.kind === 'conflict'
               ? d.editor.diskConflict
               : d.editor.diskDeleted}
-        </NoticeBar>
+        </StatusLine>
       ) : null}
       {waitedBy ? (
-        <NoticeBar
-          tone="info"
-          className="editor-waited"
-          data-testid="editor-waited"
+        <DismissibleLine
+          id={`waited:${waitedBy.from}:${waitedBy.command}`}
+          testId="editor-waited"
           actions={
-            <Button
-              variant="outline"
-              size="xs"
-              onClick={() => void requestClosePane(workspaceId, paneId)}
-            >
+            <StatusAction onClick={() => void requestClosePane(workspaceId, paneId)}>
               {d.viewer.waitedClose}
-            </Button>
+            </StatusAction>
           }
         >
           {waitedBy.command
             ? fmt(d.viewer.waitedBy, { command: waitedBy.command, pane: waitedBy.from })
             : fmt(d.viewer.waitedByShell, { pane: waitedBy.from })}
-        </NoticeBar>
+        </DismissibleLine>
       ) : null}
       {padFull ? (
-        <NoticeBar className="editor-pad-full" data-testid="pad-full">
+        <DismissibleLine id="pad-full" tone="warn" testId="pad-full">
           {fmt(d.artifacts.padFull, { limit: PAD_MAX_BYTES / 1024 })}
-        </NoticeBar>
+        </DismissibleLine>
       ) : null}
       {unsavedPath ? (
-        <NoticeBar tone="error" className="editor-save-error">
+        <DismissibleLine id={`save:${unsavedPath}`} tone="error">
           {fmt(d.editor.saveError, { path: shownPath(unsavedPath) })}
-        </NoticeBar>
+        </DismissibleLine>
       ) : external.error ? (
-        <NoticeBar tone="error" className="editor-save-error">
+        <DismissibleLine id={`save:${external.error}`} tone="error">
           {external.error}
-        </NoticeBar>
+        </DismissibleLine>
       ) : null}
     </>
   )

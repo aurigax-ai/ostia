@@ -16,7 +16,7 @@ export function useTerminalSelectionSend({
   cwd: string | undefined
   termRef: { current: OstiaTerminal | null }
 }): ReturnType<typeof useSelectionSend> {
-  const selectionSend = useSelectionSend(workspaceId, paneId)
+  const selectionSend = useSelectionSend(workspaceId, paneId, true)
   const sendSelectionRef = useRef<() => void>(() => {})
   sendSelectionRef.current = () => {
     const selected = termRef.current?.getSelection() ?? ''

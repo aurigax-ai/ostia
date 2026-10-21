@@ -1,6 +1,4 @@
 import { commands } from '@/commands/registry'
-import { ApprovalCard } from '@/components/agents/ApprovalCard'
-import { QuestionNotice } from '@/components/agents/QuestionNotice'
 import { NoticeSlot } from '@/components/common/NoticeSlot'
 import { PaneChips } from '@/components/extensions/ExtensionChips'
 import { ArtifactChip } from '@/components/files/ArtifactChip'
@@ -10,24 +8,21 @@ import { useFlipped } from '@/lib/app/useFlipped'
 import { allPanes, findPane } from '@/lib/layout/tree'
 import type { TabNode } from '@/lib/layout/types'
 import { cn } from '@/lib/utils'
-import { useApprovalsStore } from '@/stores/agents/approvalsStore'
 import { useAttentionStore } from '@/stores/agents/attentionStore'
-import { useFolderTrustStore } from '@/stores/agents/folderTrustStore'
-import { useQuestionsStore } from '@/stores/agents/questionsStore'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { usePaneDnd } from '@/stores/workspaces/paneDndStore'
 import { FileDropCover } from './FileDropCover'
 import { FoldedSplitTab } from './FoldedSplitTab'
 import { PaneActions } from './PaneActions'
-import { PaneAgentNotices } from './PaneAgentNotices'
 import { PaneTab } from './PaneTab'
-import { FolderTrustNotice, ResumeFailedNotice, ResumeFolderNotice } from './ResumeFolderNotice'
+import { usePhoneSizeStatus } from './PhoneSizeStatus'
 import { SplitTabPill } from './SplitTab'
 import { SplitTabBody } from './SplitTabBody'
 import { TabBody } from './TabBody'
 import { TabRow } from './TabRow'
 import { paneDropHandlers } from './paneDropHandlers'
 import { usePaneFrame } from './usePaneFrame'
+import { usePanePrompt } from './usePanePrompt'
 
 interface PaneProps {
   tabs: TabNode[]
@@ -60,9 +55,8 @@ export function Pane({
   const over = usePaneDnd((s) => (s.overId === shown.id ? s.zone : null))
   const tabDrop = usePaneDnd((s) => (s.overId === shown.id ? s.tab : null))
   const attention = useAttentionStore((s) => s.byPane[shown.id])
-  const approval = useApprovalsStore((s) => s.pending.find((r) => r.paneId === shown.id))
-  const question = useQuestionsStore((s) => s.pending.find((q) => q.paneId === shown.id))
-  const trustFolder = useFolderTrustStore((s) => s.byPane[shown.id])
+  const prompt = usePanePrompt(shown)
+  const phoneStatus = usePhoneSizeStatus(shown.id)
   const unread = attention?.unread ?? false
   const dimInactive = useSettingsStore((s) => s.panes.dimInactive)
   const hideTabClose = useSettingsStore((s) => s.panes.hideTabClose)
@@ -156,24 +150,9 @@ export function Pane({
             />
           ),
         )}
-        <NoticeSlot key={shown.id}>
-          {shownTab.type !== 'pane' ? null : approval ? (
-            <ApprovalCard request={approval} paneTitle={shown.title} />
-          ) : question ? (
-            <QuestionNotice question={question} />
-          ) : trustFolder ? (
-            <FolderTrustNotice paneId={shown.id} folder={trustFolder} />
-          ) : shown.resumeFailed ? (
-            <ResumeFailedNotice paneId={shown.id} failure={shown.resumeFailed} />
-          ) : shown.resumeFolderMissing && shown.resume ? (
-            <ResumeFolderNotice
-              paneId={shown.id}
-              resume={shown.resume}
-              folder={shown.resumeFolderMissing}
-            />
-          ) : (
-            <PaneAgentNotices pane={shown} />
-          )}
+        <NoticeSlot key={shown.id}>{shownTab.type === 'pane' ? phoneStatus : null}</NoticeSlot>
+        <NoticeSlot key={`${shown.id}:prompt`}>
+          {shownTab.type === 'pane' ? prompt : null}
         </NoticeSlot>
       </div>
 

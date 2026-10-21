@@ -1,4 +1,5 @@
 import { Hint } from '@/components/common/Hint'
+import { PromptCard } from '@/components/common/PromptCard'
 import { TextLink } from '@/components/common/TextLink'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -10,6 +11,7 @@ import { fmt, useDict } from '@/lib/app/useDict'
 import { useNow } from '@/lib/app/useNow'
 import { revealPane } from '@/lib/attention/workspaceActivity'
 import { type PaneWhere, isLongContext } from '@/lib/sidebar/dashboard'
+import { questionPromptKey, useHiddenPromptsStore } from '@/stores/agents/hiddenPromptsStore'
 import { EMPTY_DRAFT, type QuestionDraft, useQuestionsStore } from '@/stores/agents/questionsStore'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { ArrowSquareOutIcon, ChatCircleTextIcon, CheckCircleIcon } from '@phosphor-icons/react'
@@ -25,7 +27,7 @@ function toggled(choices: readonly number[], index: number, on: boolean): number
   return on ? [...rest, index].sort((a, b) => a - b) : rest
 }
 
-export function questionTitle(d: Dict, question: QuestionRequest): string {
+function questionTitle(d: Dict, question: QuestionRequest): string {
   if (!question.permission) return question.question
   return fmt(d.dashboard.permissionTitle, {
     agent: d.agentSession[question.permission.agent],
@@ -318,5 +320,29 @@ export function QuestionCard({
         <AnswerForm question={question} where={where} />
       )}
     </article>
+  )
+}
+
+export function QuestionPrompt({ question }: { question: QuestionRequest }): JSX.Element {
+  const d = useDict()
+  const hide = useHiddenPromptsStore((s) => s.hide)
+  return (
+    <PromptCard
+      icon={ChatCircleTextIcon}
+      label={d.dashboard.questionNotice}
+      data-question={question.id}
+      title={questionTitle(d, question)}
+      dismissLabel={d.dashboard.decideLater}
+      onDismiss={() => hide(questionPromptKey(question.id))}
+    >
+      <div className="flex flex-col gap-2 text-fg">
+        <QuestionContext question={question} />
+        {question.permission ? (
+          <PermissionActions question={question} where={null} />
+        ) : (
+          <AnswerForm question={question} where={null} />
+        )}
+      </div>
+    </PromptCard>
   )
 }

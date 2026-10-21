@@ -63,22 +63,6 @@ describe('LanguageNotice', () => {
     useUIStore.setState(ui, true)
   })
 
-  it('fades in only a notice that appears after the first render, never one already there', async () => {
-    useLanguageServersStore.setState({
-      list: [server({ status: 'downloading', progress: 10 })],
-      load: vi.fn(async () => {}),
-    })
-    suggest(null)
-    const { unmount } = render(<LanguageNotice paneId="p1" filePath="/work/main.rs" />)
-    expect(await screen.findByRole('status')).not.toHaveClass('motion-fade')
-    unmount()
-
-    useLanguageServersStore.setState({ list: [], load: vi.fn(async () => {}) })
-    suggest(install)
-    render(<LanguageNotice paneId="p2" filePath="/work/main.rs" />)
-    expect(await screen.findByRole('status')).toHaveClass('motion-fade')
-  })
-
   it('shows nothing when main has no suggestion for the file', async () => {
     suggest(null)
     render(<LanguageNotice paneId="p1" filePath="/work/notes.txt" />)
@@ -100,6 +84,23 @@ describe('LanguageNotice', () => {
     expect(window.ostia.suggestions.dismiss).not.toHaveBeenCalled()
   })
 
+  it('keeps the close button off while the install runs', async () => {
+    suggest(install)
+    let finish: (value: { ok: true; state: typeof state }) => void = () => {}
+    vi.mocked(window.ostia.suggestions.install).mockReturnValue(
+      new Promise((resolve) => {
+        finish = resolve
+      }),
+    )
+    render(<LanguageNotice paneId="p1" filePath="/work/main.rs" />)
+
+    await userEvent.setup().click(await screen.findByRole('button', { name: 'Install' }))
+
+    expect(screen.getByRole('button', { name: 'Dismiss' })).toBeDisabled()
+    finish({ ok: true, state })
+    await waitFor(() => expect(screen.queryByRole('status')).toBeNull())
+  })
+
   it('says why an install failed and keeps the offer', async () => {
     suggest(install)
     vi.mocked(window.ostia.suggestions.install).mockResolvedValue({
@@ -115,13 +116,13 @@ describe('LanguageNotice', () => {
     expect(screen.getByRole('button', { name: 'Install' })).toBeEnabled()
   })
 
-  it('remembers No for that extension and hides the notice', async () => {
+  it('remembers the close button as No for that extension and hides the notice', async () => {
     suggest({ ...install, others: 2 })
     render(<LanguageNotice paneId="p1" filePath="/work/main.rs" />)
     expect(await screen.findByRole('status')).toHaveTextContent(
       'Settings → Extensions lists 2 more.',
     )
-    await userEvent.setup().click(screen.getByRole('button', { name: 'No' }))
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Dismiss' }))
     expect(window.ostia.suggestions.dismiss).toHaveBeenCalledWith('lsp-rust-analyzer')
     expect(screen.queryByRole('status')).toBeNull()
     expect(window.ostia.suggestions.install).not.toHaveBeenCalled()

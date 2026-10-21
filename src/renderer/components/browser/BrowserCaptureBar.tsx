@@ -1,5 +1,6 @@
 import { PickSendPanel } from '@/components/agents/PickSendPanel'
 import { NoticeSlot } from '@/components/common/NoticeSlot'
+import { StatusLine } from '@/components/common/StatusLine'
 import type { PickTarget } from '@/lib/agents/pickTargets'
 import { fmt, useDict } from '@/lib/app/useDict'
 import type { PickCapture } from '@shared/browser/pick'
@@ -38,7 +39,7 @@ export function BrowserCaptureBar({
   return (
     <>
       {picking || cropping || status ? (
-        <output className="block flex-none border-line border-b bg-surface-2 px-3 py-1 text-fg-muted text-ui-sm">
+        <StatusLine>
           {picking
             ? picking.byAgent
               ? d.browser.pickHintAgent
@@ -46,7 +47,7 @@ export function BrowserCaptureBar({
             : cropping
               ? d.browser.regionHint
               : status}
-        </output>
+        </StatusLine>
       ) : null}
       <NoticeSlot>
         {capture ? (

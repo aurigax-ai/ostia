@@ -1,4 +1,5 @@
 import { NoticeSlot } from '@/components/common/NoticeSlot'
+import { StatusLine } from '@/components/common/StatusLine'
 import type { PickTarget } from '@/lib/agents/pickTargets'
 import { sendSelectionToPane } from '@/lib/agents/sendPick'
 import { fmt, useDict } from '@/lib/app/useDict'
@@ -24,18 +25,24 @@ export interface SelectionSend {
   status: ReactNode
 }
 
-export function useSelectionSend(workspaceId: string, paneId: string): SelectionSend {
+export function useSelectionSend(
+  workspaceId: string,
+  paneId: string,
+  overlay = false,
+): SelectionSend {
   const d = useDict()
   const targets = useAgentTargets(workspaceId)
   const noTargets = useNoAgentsText(workspaceId)
   const [pending, setPending] = useState<PendingSelection | null>(null)
   const [sending, setSending] = useState(false)
   const [status, setStatus] = useTransientStatus(STATUS_MS)
+  const [failure, setFailure] = useState<string | null>(null)
 
   const open = useCallback(
     (capture: SelectionCapture, image?: Uint8Array) => {
       pendingCounter += 1
       setStatus(null)
+      setFailure(null)
       setPending({ id: `${paneId}-${pendingCounter}`, capture, image })
     },
     [paneId, setStatus],
@@ -59,7 +66,7 @@ export function useSelectionSend(workspaceId: string, paneId: string): Selection
           fmt(res.inserted ? d.send.sentInserted : d.send.sentCopied, { pane: target.title }),
         )
       } else {
-        setStatus(fmt(d.send.sendFailed, { reason: res.error }))
+        setFailure(fmt(d.send.sendFailed, { reason: res.error }))
       }
     } finally {
       setSending(false)
@@ -86,7 +93,20 @@ export function useSelectionSend(workspaceId: string, paneId: string): Selection
     </NoticeSlot>
   )
 
-  const statusLine = status ? <output className="viewer-status">{status}</output> : null
+  const statusLine = failure ? (
+    <StatusLine tone="error" onDismiss={() => setFailure(null)}>
+      {failure}
+    </StatusLine>
+  ) : status ? (
+    <StatusLine onDismiss={() => setStatus(null)}>{status}</StatusLine>
+  ) : null
 
-  return { open, notify: setStatus, panel, status: statusLine }
+  const shown =
+    statusLine && overlay ? (
+      <div className="absolute inset-x-0 top-0 z-20">{statusLine}</div>
+    ) : (
+      statusLine
+    )
+
+  return { open, notify: setStatus, panel, status: shown }
 }

@@ -1,6 +1,6 @@
-import { IconButton } from '@/components/common/IconButton'
+import { EmptyState } from '@/components/common/EmptyState'
 import { DropdownMenu, MenuItem } from '@/components/common/Menu'
-import { NoticeBar } from '@/components/common/Notice'
+import { StatusAction, StatusLine, useDismissed } from '@/components/common/StatusLine'
 import { Button } from '@/components/ui/button'
 import { ButtonGroup, ButtonGroupSeparator } from '@/components/ui/button-group'
 import { fmt, useDict } from '@/lib/app/useDict'
@@ -9,7 +9,7 @@ import { useGuestReady } from '@/lib/panes/paneFocus'
 import { previewTheme } from '@/lib/theme/previewTheme'
 import { useEffectiveThemeId } from '@/lib/theme/theme'
 import { retryPendingFocus } from '@/stores/workspaces/surfaceSlotsStore'
-import { CaretDownIcon, CaretRightIcon, WarningIcon, XIcon } from '@phosphor-icons/react'
+import { CaretDownIcon, CaretRightIcon, WarningIcon } from '@phosphor-icons/react'
 import {
   type PreviewError,
   type PreviewOpened,
@@ -121,6 +121,29 @@ function PreviewErrorStrip({
   )
 }
 
+function VitalsLine({
+  vitals,
+  stop,
+}: {
+  vitals: { responding: boolean; busy: boolean }
+  stop: () => void
+}): JSX.Element | null {
+  const d = useDict()
+  const [dismissed, dismiss] = useDismissed(vitals.responding ? 'busy' : 'stuck')
+  if (dismissed) return null
+  return (
+    <StatusLine
+      role="alert"
+      tone="warn"
+      data-testid={vitals.responding ? 'preview-busy' : 'preview-not-responding'}
+      actions={<StatusAction onClick={stop}>{d.preview.stop}</StatusAction>}
+      onDismiss={dismiss}
+    >
+      {vitals.responding ? d.preview.busy : d.preview.notResponding}
+    </StatusLine>
+  )
+}
+
 function PreviewBars({
   workspaceId,
   opened,
@@ -140,43 +163,29 @@ function PreviewBars({
   return (
     <>
       {opened && (!vitals.responding || vitals.busy) ? (
-        <NoticeBar
-          className="preview-bar"
-          data-testid={vitals.responding ? 'preview-busy' : 'preview-not-responding'}
-          actions={
-            <Button variant="outline" size="xs" onClick={stop}>
-              {d.preview.stop}
-            </Button>
-          }
-        >
-          {vitals.responding ? d.preview.busy : d.preview.notResponding}
-        </NoticeBar>
+        <VitalsLine vitals={vitals} stop={stop} />
       ) : null}
       {link ? (
-        <NoticeBar
-          tone="info"
-          className="preview-bar"
+        <StatusLine
+          wrap
+          role="alert"
           data-testid="preview-link"
           actions={
-            <>
-              {isWebLink(link) ? (
-                <Button
-                  variant="outline"
-                  size="xs"
-                  onClick={() => {
-                    openBrowserAs(workspaceId, link, 'agent')
-                    setLink(null)
-                  }}
-                >
-                  {d.preview.openInBrowser}
-                </Button>
-              ) : null}
-              <IconButton icon={XIcon} label={d.preview.dismiss} onClick={() => setLink(null)} />
-            </>
+            isWebLink(link) ? (
+              <StatusAction
+                onClick={() => {
+                  openBrowserAs(workspaceId, link, 'agent')
+                  setLink(null)
+                }}
+              >
+                {d.preview.openInBrowser}
+              </StatusAction>
+            ) : null
           }
+          onDismiss={() => setLink(null)}
         >
-          <span className="preview-link-url">{link}</span>
-        </NoticeBar>
+          <span className="select-text font-mono">{link}</span>
+        </StatusLine>
       ) : null}
     </>
   )
@@ -344,12 +353,19 @@ export function HtmlPreview({
         stop={stop}
       />
       {stopped ? (
-        <div className="preview-stopped" data-testid="preview-stopped">
-          <span>{d.preview.stopped[stopped]}</span>
-          <Button variant="outline" size="xs" onClick={reload}>
-            {d.preview.reload}
-          </Button>
-        </div>
+        <EmptyState
+          variant="surface"
+          size="sm"
+          className="flex-1"
+          data-testid="preview-stopped"
+          icon={<WarningIcon aria-hidden />}
+          title={d.preview.stopped[stopped]}
+          actions={
+            <Button variant="outline" size="sm" onClick={reload}>
+              {d.preview.reload}
+            </Button>
+          }
+        />
       ) : opened ? (
         <div className="preview-frame">
           {onSendRegion ? <PreviewRegionTools onPick={setPicking} /> : null}

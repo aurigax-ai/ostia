@@ -1,5 +1,3 @@
-import { ApprovalCard } from '@/components/agents/ApprovalCard'
-import { QuestionNotice } from '@/components/agents/QuestionNotice'
 import { NoticeSlot } from '@/components/common/NoticeSlot'
 import { fmt, useDict } from '@/lib/app/useDict'
 import { useFlipped } from '@/lib/app/useFlipped'
@@ -9,22 +7,19 @@ import { cellDropTarget, dropZoneAt } from '@/lib/panes/dropZone'
 import { PANE_DND, dropPaneOn, isPaneDrag } from '@/lib/panes/paneDrag'
 import { cn } from '@/lib/utils'
 import { stateLabel } from '@/lib/workspaces/workspaceState'
-import { useApprovalsStore } from '@/stores/agents/approvalsStore'
 import { useAttentionStore } from '@/stores/agents/attentionStore'
-import { useFolderTrustStore } from '@/stores/agents/folderTrustStore'
-import { useQuestionsStore } from '@/stores/agents/questionsStore'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { usePaneDnd } from '@/stores/workspaces/paneDndStore'
 import { Allotment, type AllotmentHandle } from 'allotment'
 import { type DragEvent, useLayoutEffect, useRef } from 'react'
 import { FileDropCover } from './FileDropCover'
-import { PaneAgentNotices } from './PaneAgentNotices'
 import { PaneTabMenu } from './PaneTabMenu'
-import { FolderTrustNotice, ResumeFailedNotice } from './ResumeFolderNotice'
+import { usePhoneSizeStatus } from './PhoneSizeStatus'
 import { focusPane } from './SplitTab'
 import { TabBody } from './TabBody'
 import { TabFace, usePaneMark } from './TabFace'
+import { usePanePrompt } from './usePanePrompt'
 
 interface CellContext {
   workspaceId: string
@@ -74,13 +69,8 @@ function SplitCell({
   const cellRef = useRef<HTMLDivElement>(null)
   const dragging = usePaneDnd((s) => s.dragging)
   const over = usePaneDnd((s) => (s.overId === pane.id ? s.zone : null))
-  const approval = useApprovalsStore((s) =>
-    ctx.shown ? s.pending.find((r) => r.paneId === pane.id) : undefined,
-  )
-  const question = useQuestionsStore((s) =>
-    ctx.shown ? s.pending.find((q) => q.paneId === pane.id) : undefined,
-  )
-  const trustFolder = useFolderTrustStore((s) => (ctx.shown ? s.byPane[pane.id] : undefined))
+  const prompt = usePanePrompt(pane)
+  const phoneStatus = usePhoneSizeStatus(pane.id)
   const dimInactive = useSettingsStore((s) => s.panes.dimInactive)
   const mark = usePaneMark(pane)
   const focused = pane.id === ctx.focusedId
@@ -139,19 +129,8 @@ function SplitCell({
         <StripFace pane={pane} workspaceId={ctx.workspaceId} entering={folding} />
       ) : null}
       <TabBody pane={pane} shown={!collapsed} />
-      <NoticeSlot>
-        {collapsed ? null : approval ? (
-          <ApprovalCard request={approval} paneTitle={pane.title} />
-        ) : question ? (
-          <QuestionNotice question={question} />
-        ) : trustFolder ? (
-          <FolderTrustNotice paneId={pane.id} folder={trustFolder} />
-        ) : ctx.shown && pane.resumeFailed ? (
-          <ResumeFailedNotice paneId={pane.id} failure={pane.resumeFailed} />
-        ) : ctx.shown ? (
-          <PaneAgentNotices pane={pane} />
-        ) : null}
-      </NoticeSlot>
+      <NoticeSlot>{collapsed || !ctx.shown ? null : phoneStatus}</NoticeSlot>
+      <NoticeSlot>{collapsed || !ctx.shown ? null : prompt}</NoticeSlot>
       {collapsed ? null : <FileDropCover kind={pane.kind} workspaceId={ctx.workspaceId} />}
       {dragging && !collapsed ? (
         <div

@@ -1,7 +1,7 @@
 import { commands } from '@/commands/registry'
 import { Hint } from '@/components/common/Hint'
 import { IconButton } from '@/components/common/IconButton'
-import { NoticeBar } from '@/components/common/Notice'
+import { StatusLine, useDismissed } from '@/components/common/StatusLine'
 import { useDict } from '@/lib/app/useDict'
 import { useElementSize } from '@/lib/app/useElementSize'
 import { registerEditorPosition } from '@/lib/files/editorPositions'
@@ -123,6 +123,7 @@ export function DiffView({
     })
   }, [font.family, font.size, font.weight])
 
+  const [errorDismissed, dismissError] = useDismissed(external.error ?? '')
   const choose = (next: DiffLayout): void =>
     useSettingsStore.getState().setEditor({ diffLayout: next })
 
@@ -198,6 +199,11 @@ export function DiffView({
           </>
         ) : null}
       </div>
+      {external.error && !errorDismissed ? (
+        <StatusLine role="alert" tone="error" onDismiss={dismissError}>
+          {external.error}
+        </StatusLine>
+      ) : null}
       <div className="diff-body" ref={bodyRef}>
         <div
           ref={hostRef}
@@ -209,11 +215,6 @@ export function DiffView({
             <span className="ghost">{d.diff.missing}</span>
           </div>
         )}
-        {external.error ? (
-          <NoticeBar tone="error" className="editor-save-error">
-            {external.error}
-          </NoticeBar>
-        ) : null}
       </div>
     </div>
   )

@@ -76,7 +76,6 @@ export const appZhHant: typeof appEn = {
     installingServer: '正在安裝 {name}…',
     label: '語言功能',
     more: '「設定 → 擴充功能」還列出 {count} 個。',
-    no: '不用',
     openSettings: '開啟設定',
     pending: '{name} 正在等待你的核准。',
     programMissing: '{name} 無法啟動：尚未安裝 {program}。',

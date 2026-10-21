@@ -1,5 +1,5 @@
 import { Hint } from '@/components/common/Hint'
-import { NoticeBar } from '@/components/common/Notice'
+import { Notice } from '@/components/common/Notice'
 import { TextLink } from '@/components/common/TextLink'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -254,7 +254,7 @@ function Node({ node, ctx }: { node: RenderNode; ctx: RenderContext }): JSX.Elem
 }
 
 function ViewStatusNote({ children }: { children: React.ReactNode }): JSX.Element {
-  return <NoticeBar>{children}</NoticeBar>
+  return <Notice>{children}</Notice>
 }
 
 export function DeclarativeView({

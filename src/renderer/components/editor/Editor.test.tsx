@@ -1041,7 +1041,7 @@ describe('EditorView', () => {
         await new Promise((r) => setTimeout(r, 0))
       })
       expect(window.ostia.fs.write).not.toHaveBeenCalled()
-      for (const name of ['Overwrite', 'Compare', 'Cancel']) {
+      for (const name of ['Overwrite', 'Compare', 'Dismiss']) {
         expect(await screen.findByRole('button', { name })).toBeInTheDocument()
       }
       await userEvent.click(screen.getByRole('button', { name: 'Overwrite' }))

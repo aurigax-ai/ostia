@@ -52,6 +52,7 @@ export const assistantEn = {
       shell: 'type commands into terminals',
       'type-other-pane': 'type into other terminal panes',
     } as Record<string, string>,
+    decideLater: 'Decide later. The request waits in the dashboard.',
     deny: 'Deny',
     history: 'Recent decisions',
     inbox: 'Permission requests',
