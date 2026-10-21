@@ -3,13 +3,13 @@ import type { ServerOffer, ServerStatus } from '@shared/server/serverApi'
 import { useState } from 'react'
 import { Notice } from '@/components/common/Notice'
 import { ControlRow } from '@/components/settingsKit/ControlRow'
+import { SettingsGroup } from '@/components/settingsKit/SettingsGroup'
 import { SettingsPage } from '@/components/settingsKit/SettingsPage'
 import { Button } from '@/components/ui/button'
 import { fmt, useDict } from '@/lib/app/useDict'
 import { ServerAddressRow } from './ServerAddressRow'
 import { ServerDevices } from './ServerDevices'
 import { ServerSignIn } from './ServerSignIn'
-import { SyncAttentionCards } from './SyncAttentionCards'
 import { serverErrorText } from './serverText'
 import { useServerOffer, useServerStatus } from './useServerStatus'
 
@@ -44,10 +44,8 @@ function SignedInRow({ status }: { status: ServerStatus }): JSX.Element {
       label={d.server.signedInLabel}
       desc={fmt(d.server.signedInDesc, {
         device: status.deviceName ?? '',
-        host: status.host ?? '',
         provider: providerName(d, status),
       })}
-      below={<span className="text-fg-muted text-ui-sm">{d.server.signOutDesc}</span>}
     >
       <Button variant="outline" size="sm" disabled={busy} onClick={() => void signOut()}>
         {d.server.signOut}
@@ -64,19 +62,24 @@ export function ServerSection(): JSX.Element {
 
   return (
     <SettingsPage title={d.server.title} desc={d.server.desc}>
-      <SyncAttentionCards kinds={['approval', 'new-device']} />
-      <ServerAddressRow status={status} />
-      {offered.state === 'error' ? <Notice>{serverErrorText(d, offered.error)}</Notice> : null}
-      {offered.state === 'ready' ? (
-        <ControlRow
-          label={d.server.offerLabel}
-          desc={names.length > 0 ? names.join(' · ') : d.server.offerNone}
-        />
-      ) : null}
-      {status.signedIn ? <SignedInRow status={status} /> : null}
-      {status.signedIn ? <ServerDevices /> : null}
-      {!status.signedIn && offered.state === 'ready' ? (
-        <ServerSignIn offer={offered.offer} />
+      <SettingsGroup title={d.server.accountLabel}>
+        <ServerAddressRow status={status} />
+        {offered.state === 'error' ? <Notice>{serverErrorText(d, offered.error)}</Notice> : null}
+        {offered.state === 'ready' ? (
+          <ControlRow
+            label={d.server.offerLabel}
+            desc={names.length > 0 ? names.join(' · ') : d.server.offerNone}
+          />
+        ) : null}
+        {status.signedIn ? <SignedInRow status={status} /> : null}
+        {!status.signedIn && offered.state === 'ready' ? (
+          <ServerSignIn offer={offered.offer} />
+        ) : null}
+      </SettingsGroup>
+      {status.signedIn ? (
+        <SettingsGroup title={d.server.devicesLabel}>
+          <ServerDevices />
+        </SettingsGroup>
       ) : null}
     </SettingsPage>
   )

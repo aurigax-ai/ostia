@@ -6,7 +6,6 @@ import type {
 import { useState } from 'react'
 import { MachineValue } from '@/components/common/MachineValue'
 import { Notice } from '@/components/common/Notice'
-import { ServerDevices } from '@/components/server/ServerDevices'
 import { syncServerErrorText } from '@/components/server/syncServerText'
 import { useElevated } from '@/components/server/useElevated'
 import { useServerStatus } from '@/components/server/useServerStatus'
@@ -170,7 +169,7 @@ export function SyncServerSection({ onChanged }: { onChanged: () => void }): JSX
 
   if (!account.signedIn) {
     return (
-      <ControlRow label={t.where} desc={t.notSignedIn}>
+      <ControlRow label={t.whereServer} desc={t.notSignedIn}>
         <Button
           variant="outline"
           size="sm"
@@ -202,7 +201,6 @@ export function SyncServerSection({ onChanged }: { onChanged: () => void }): JSX
       {status.state === 'locked' ? <Locked status={status} act={act} /> : null}
       {status.state === 'ready' ? <Ready status={status} act={act} /> : null}
       {error ? <Notice>{error}</Notice> : null}
-      <ServerDevices />
       <RecoveryKeyDialog recoveryKey={recoveryKey} onClose={() => setRecoveryKey(null)} />
     </>
   )

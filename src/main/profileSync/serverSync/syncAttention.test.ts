@@ -64,7 +64,14 @@ describe('sync attention', () => {
     state.approvals = {
       ok: true,
       approvals: [
-        { id: 'a1', deviceName: 'Watch', deviceCreatedAt: 1, createdAt: 9, expiresAt: 99 },
+        {
+          id: 'a1',
+          deviceId: 'd7',
+          deviceName: 'Watch',
+          deviceCreatedAt: 1,
+          createdAt: 9,
+          expiresAt: 99,
+        },
       ] as never[],
     }
     const items = await watch.scan()
@@ -74,7 +81,7 @@ describe('sync attention', () => {
       'new-device:d2',
       'approval:a1',
     ])
-    expect(items.at(-1)).toMatchObject({ deviceCreatedAt: 1, createdAt: 9 })
+    expect(items.at(-1)).toMatchObject({ deviceId: 'd7', createdAt: 9 })
   })
 
   it('SYA-C101 notifies once per item and again only after it went away', async () => {

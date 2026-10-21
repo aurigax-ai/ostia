@@ -49,6 +49,7 @@ export interface ServerDevice {
 
 interface ServerApproval {
   id: string
+  deviceId: string
   deviceName: string
   deviceCreatedAt: number
   createdAt: number

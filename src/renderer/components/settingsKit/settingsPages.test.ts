@@ -32,7 +32,6 @@ const KNOWN_OFFENDERS: Record<string, Rule[]> = {
   'components/scriptTokens/TokenDialog.tsx': ['negativeMargin', 'handRow'],
   'components/settings/PrivacySection.tsx': ['handHeading'],
   'components/settings/PromptSection.tsx': ['handSection'],
-  'components/settings/SyncSection.tsx': ['separator'],
   'components/settings/TelemetryConsentDialog.tsx': ['handHeading'],
   'components/settings/TelemetryReportsDialog.tsx': ['handHeading', 'handSection'],
 }

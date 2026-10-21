@@ -27,8 +27,8 @@ const ITEMS = [
     kind: 'approval',
     id: 'approval:a1',
     approvalId: 'a1',
+    deviceId: 'd1',
     name: 'Studio laptop',
-    deviceCreatedAt: Date.now() - 3 * HOUR,
     createdAt: Date.now() - 5 * 60_000,
   },
   { kind: 'changed', id: 'changed:Studio laptop', names: ['Studio laptop'] },
@@ -153,32 +153,32 @@ test('the join request and changed devices show on Settings › Sync, the confir
 
     await openPage(app, 'sync')
     await expect(settings.getByRole('heading', { name: 'Sync' })).toBeVisible({ timeout: 15_000 })
-    await expect(
-      settings.getByText(/Pixel 9 wants to join.*K7QDM-2XPLA-VTRHE-4WNBC-GJ5FS/),
-    ).toBeVisible()
+    const requests = settings.getByRole('list', { name: 'Requests' })
+    await expect(requests.getByText('Pixel 9')).toBeVisible()
+    await expect(requests.getByText('K7QDM-2XPLA-VTRHE-4WNBC-GJ5FS')).toBeVisible()
     await expect(
       settings.getByText(
-        /Studio laptop: keys or creation date changed, so it counts as a new device/,
+        'Studio laptop: keys or creation date changed. Its sync key is ignored for a day.',
       ),
     ).toBeVisible()
-    await expect(settings.getByText(/A new device was added/)).toBeHidden()
-    await expect(settings.getByText(/asks you to confirm/)).toBeHidden()
+    await expect(settings.getByText(/New device\./)).toBeHidden()
+    await expect(settings.getByText(/Asks to confirm/)).toBeHidden()
     await expect(nav('Sync')).toHaveAttribute('aria-current', 'page')
     await expect(settings.getByText('Where to sync')).toHaveCount(1)
-    await expect(settings.getByText(/not signed in/)).toBeHidden()
+    await expect(settings.getByText(/not signed in|Sign in to a server first/)).toBeHidden()
     await shot(win, 'split-sync')
 
     await openPage(app, 'server')
     await expect(settings.getByRole('heading', { name: 'Server' })).toBeVisible()
-    await expect(settings.getByText(/A new device was added: build-box/)).toBeVisible()
-    await expect(settings.getByText(/Studio laptop asks you to confirm/)).toBeVisible()
-    await expect(settings.getByText(/Pixel 9 wants to join/)).toBeHidden()
+    await expect(settings.getByText('New device. If it is not yours, remove it.')).toBeVisible()
+    await expect(settings.getByText(/Asks to confirm a change · added 3 hours ago/)).toBeVisible()
+    await expect(settings.getByRole('list', { name: 'Requests' })).toBeHidden()
     await expect(settings.getByText(/keys or creation date changed/)).toBeHidden()
     await expect(nav('Server')).toHaveAttribute('aria-current', 'page')
     await shot(win, 'split-server')
 
     await announce(app, [])
-    await expect(settings.getByText(/A new device was added/)).toBeHidden()
+    await expect(settings.getByText(/Asks to confirm/)).toBeHidden()
   } finally {
     await quitApp(app)
   }

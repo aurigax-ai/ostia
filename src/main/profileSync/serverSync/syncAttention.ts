@@ -51,8 +51,8 @@ async function gather(deps: SyncAttentionDeps): Promise<SyncAttention[] | null> 
       kind: 'approval',
       id: `approval:${approval.id}`,
       approvalId: approval.id,
+      deviceId: approval.deviceId,
       name: approval.deviceName,
-      deviceCreatedAt: approval.deviceCreatedAt,
       createdAt: approval.createdAt,
     })
   }

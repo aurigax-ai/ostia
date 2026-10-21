@@ -83,6 +83,7 @@ export class ServerElevation {
         ok: true,
         approvals: approvals.map((a) => ({
           id: a.id,
+          deviceId: a.deviceId,
           deviceName: a.deviceName,
           deviceCreatedAt: a.deviceCreatedAt,
           createdAt: a.createdAt,

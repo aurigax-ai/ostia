@@ -1,5 +1,6 @@
 import type { ServerStatus } from '@shared/server/serverApi'
 import { useState } from 'react'
+import { MachineValue } from '@/components/common/MachineValue'
 import { CommitInput } from '@/components/settingsKit/CommitInput'
 import { ControlRow } from '@/components/settingsKit/ControlRow'
 import { useDict } from '@/lib/app/useDict'
@@ -14,10 +15,17 @@ export function ServerAddressRow({ status }: { status: ServerStatus }): JSX.Elem
     setError(result.ok ? null : result.error)
   }
 
+  if (status.signedIn) {
+    return (
+      <ControlRow label={d.server.addressLabel}>
+        <MachineValue value={status.url ?? ''} />
+      </ControlRow>
+    )
+  }
+
   return (
     <ControlRow
       label={d.server.addressLabel}
-      desc={d.server.addressDesc}
       error={error ? serverErrorText(d, error) : null}
       errorId="server-address-error"
     >
@@ -25,7 +33,6 @@ export function ServerAddressRow({ status }: { status: ServerStatus }): JSX.Elem
         value={status.url ?? ''}
         spellCheck={false}
         placeholder={d.server.addressPlaceholder}
-        disabled={status.signedIn}
         aria-label={d.server.addressLabel}
         aria-invalid={error ? true : undefined}
         aria-describedby={error ? 'server-address-error' : undefined}

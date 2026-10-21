@@ -95,11 +95,10 @@ describe('Settings › Server', () => {
     const user = userEvent.setup()
     serverReturns({ ...SIGNED_OUT, signedIn: true, provider: 'github', deviceName: 'Desk' })
     render(<ServerSection />)
-    expect(
-      await screen.findByText('Signed in as Desk on ostia.example.com with GitHub.'),
-    ).toBeInTheDocument()
+    expect(await screen.findByText('Signed in as Desk with GitHub.')).toBeInTheDocument()
     expect(screen.queryByRole('textbox', { name: 'Invite code' })).toBeNull()
-    expect(screen.getByRole('textbox', { name: 'Server address' })).toBeDisabled()
+    expect(screen.queryByRole('textbox', { name: 'Server address' })).toBeNull()
+    expect(screen.getByText('https://ostia.example.com')).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Sign out' }))
     expect(server().signOut).toHaveBeenCalled()
   })

@@ -239,10 +239,9 @@ export const appEn = {
     conflictDeleted: 'deleted',
     conflictEdited: 'edited',
     conflictValues: 'Kept: {kept} · Other: {other}',
-    conflictsDesc:
-      'The most recent change was kept. Use the other value to keep it everywhere instead.',
+    conflictsDesc: 'The latest change was kept. Pick the other value to keep it instead.',
     conflictsTitle: 'Changed on both machines',
-    desc: 'Keep your profile (settings, keybindings, snippets, completion specs, views and the list of marketplace extensions) in a folder you own, such as a Syncthing, iCloud Drive or Dropbox folder, or end to end encrypted on a server you signed in to. Secrets, approvals, capability grants and settings that run programs stay on this machine.',
+    desc: 'Keep your profile in a folder you own or on a server you signed in to.',
     errBusy: 'The sync folder kept changing while syncing. Sync again.',
     errInvalid: 'A synced file is not valid JSON ({files}). Fix or delete it, then sync again.',
     errMissing: 'The sync folder does not exist.',
@@ -253,8 +252,7 @@ export const appEn = {
     errUnreachable:
       'The sync folder could not be read or written. Nothing on this machine changed.',
     folder: 'Sync folder',
-    folderDesc:
-      '{product} keeps your profile here and picks up changes on startup, when its window gets focus and when you change something.',
+    folderDesc: 'Your profile is kept here and synced on start, focus and change.',
     heldBack: 'Not synced because the value looks like a secret: {keys}.',
     hide: 'Hide',
     install: 'Install',
@@ -263,8 +261,7 @@ export const appEn = {
     notSet: 'Not set',
     now: 'Sync now',
     off: 'Off',
-    offersDesc:
-      'Extensions installed on another machine. An installed extension waits for your approval before it runs.',
+    offersDesc: 'Extensions installed on another machine. Each waits for your approval.',
     offersTitle: 'From your other machines',
     reveal: 'Reveal',
     secretChanged: 'Changed here {here} · on the other machine {there}',
@@ -274,7 +271,7 @@ export const appEn = {
       changeTitle: 'Change the master password',
       confirmPassword: 'Type it again',
       damaged: 'The synced secrets cannot be read. They may be damaged or from a newer version.',
-      desc: 'Carry the vault, extension secrets, assistant keys and MCP tokens to your other machines, encrypted with a master password only you know. The sync folder only ever holds encrypted data.',
+      desc: 'Vault, extension secrets, assistant keys and MCP tokens, encrypted with a master password.',
       errors: {
         damaged: 'The synced secrets cannot be read.',
         exists: 'Another machine already set up secret sync. Enter its master password instead.',
@@ -287,7 +284,7 @@ export const appEn = {
       },
       locked: 'Enter the master password to sync secrets on this machine.',
       logins: 'Browser logins',
-      loginsDesc: 'Also sync passwords saved in the browser. Off by default.',
+      loginsDesc: 'Passwords saved in the browser. Off by default.',
       newPassword: 'New master password',
       password: 'Master password',
       passwordRow: 'Master password',

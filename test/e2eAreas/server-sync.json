@@ -3,10 +3,10 @@
   "paths": [
     "src/main/profileSync/argon2.",
     "src/main/profileSync/serverSync/",
+    "src/renderer/components/server/SyncRequests.",
     "src/renderer/components/settings/SyncServer",
-    "src/shared/profileSync/serverSync.",
-    "src/renderer/components/server/SyncAttentionCards.",
-    "src/renderer/stores/server/"
+    "src/renderer/stores/server/",
+    "src/shared/profileSync/serverSync."
   ],
   "specs": [
     "e2e/server-sync.spec.ts",

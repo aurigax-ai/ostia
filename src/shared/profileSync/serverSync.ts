@@ -43,8 +43,8 @@ export type SyncAttention =
       kind: 'approval'
       id: string
       approvalId: string
+      deviceId: string
       name: string
-      deviceCreatedAt: number
       createdAt: number
     }
   | { kind: 'changed'; id: string; names: string[] }

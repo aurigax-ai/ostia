@@ -146,7 +146,7 @@ describe('Settings › Sync › Server', () => {
     )
     api().linkConfirm.mockResolvedValue({ ok: true, status: status({}) })
     const view = render(<SyncServerSection onChanged={() => {}} />)
-    expect(await screen.findByText(/Confirm only if the code above matches/)).toBeInTheDocument()
+    expect(await screen.findByText(/Confirm if the code above matches/)).toBeInTheDocument()
     await user.click(
       screen.getByRole('button', { name: 'The code AAAAA-BBBBB-CCCCC-DDDDD-EEEEE matches' }),
     )
@@ -162,7 +162,7 @@ describe('Settings › Sync › Server', () => {
       status({ state: 'ready', wrapRefused: { reason: 'untrusted', after: null } }),
     )
     render(<SyncServerSection onChanged={() => {}} />)
-    expect(await screen.findByText(/was not signed by a device you trust/)).toBeInTheDocument()
+    expect(await screen.findByText(/from an untrusted device was ignored/)).toBeInTheDocument()
     expect(screen.queryByLabelText('Sync passphrase')).toBeNull()
   })
 
@@ -173,8 +173,8 @@ describe('Settings › Sync › Server', () => {
     )
     render(<SyncServerSection onChanged={() => {}} />)
     api().unlock.mockResolvedValue({ ok: true, status: status({ state: 'ready' }) })
-    expect(await screen.findByText(/too new to trust yet/)).toBeInTheDocument()
-    expect(screen.queryByText(/was not signed by a device you trust/)).toBeNull()
+    expect(await screen.findByText(/from a device that is too new/)).toBeInTheDocument()
+    expect(screen.queryByText(/from an untrusted device was ignored/)).toBeNull()
     await user.type(screen.getByLabelText('Sync passphrase'), 'a long passphrase')
     await user.click(screen.getByRole('button', { name: 'Unlock' }))
     expect(api().unlock).toHaveBeenCalledWith('a long passphrase')
