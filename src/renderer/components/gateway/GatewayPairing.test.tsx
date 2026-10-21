@@ -103,14 +103,24 @@ describe('GatewaySection pairing', () => {
 
   it('PID-C11 says which paired phone an approval replaces', async () => {
     vi.mocked(window.ostia.gateway.pairRequests).mockResolvedValue([
-      { requestId: 'r1', name: 'Pixel 9', checkCode: '396848', replaces: 'Desk phone' },
+      {
+        requestId: 'r1',
+        name: 'Pixel 9',
+        checkCode: '396848',
+        replaces: {
+          name: 'Desk phone',
+          lastSeenAt: null,
+          caps: ['read', 'notify', 'input', 'command'],
+        },
+      },
     ])
     render(<GatewaySection />)
     expect(
       await screen.findByText(
-        'Same phone as Desk phone. Approving replaces it and closes its connection.',
+        'Replaces Desk phone (last seen never connected) and closes its connection. Approve only if this is the same phone.',
       ),
     ).toBeInTheDocument()
+    expect(screen.getByText('It keeps: Run commands, Type into panes.')).toBeInTheDocument()
   })
 
   it('turns Discoverable on from its switch', async () => {

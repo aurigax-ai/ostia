@@ -20,7 +20,13 @@ const { newCode, pairAuditLogPath, resetCodes, resetPairRateLimit } = await impo
 const { answerPairRequest, listPairRequests, onPairRequestsChanged, resetPairRequests } =
   await import('./pairRequests')
 const { checkCode } = await import('./pairCheck')
-const { list: listDevices, renameDevice, verifyToken } = await import('./devices')
+const {
+  list: listDevices,
+  renameDevice,
+  setDeviceCap,
+  touchDevice,
+  verifyToken,
+} = await import('./devices')
 
 interface Reply {
   status: number
@@ -93,7 +99,7 @@ function requestsChange(pred: (n: number) => boolean): Promise<void> {
 
 async function pairPhone(
   p: ReturnType<typeof phone>,
-): Promise<{ replaces: string | null; deviceId: string; token: string; replaced: string[] }> {
+): Promise<{ replaces: unknown; deviceId: string; token: string; replaced: string[] }> {
   const started = await p.start(newCode())
   const confirm = p.confirm(started.body.requestId)
   await requestsChange((n) => n === 1)
@@ -225,19 +231,25 @@ describe('pairing requests wait for the human', () => {
     expect(listDevices().some((d) => d.pubkey === 'pk-old')).toBe(false)
   })
 
-  it('PID-C1 replaces the row and the token when the same install identity pairs again', async () => {
+  it('PID-C1 replaces the row and the token, keeping the name and the grants, when the same install identity pairs again', async () => {
     const id = randomBytes(16).toString('hex')
     const first = await pairPhone(phone('Pixel 9', id))
     expect(first.replaces).toBeNull()
     renameDevice(first.deviceId, 'Desk phone')
+    setDeviceCap(first.deviceId, 'input', true)
 
+    touchDevice(first.deviceId)
     const second = await pairPhone(phone('Pixel 9', id))
-    expect(second.replaces).toBe('Desk phone')
+    expect(second.replaces).toMatchObject({
+      name: 'Desk phone',
+      lastSeenAt: expect.any(String),
+      caps: ['read', 'notify', 'input'],
+    })
     expect(second.replaced).toEqual([first.deviceId])
     const rows = listDevices().filter((d) => d.installId === id)
     expect(rows.map((d) => d.deviceId)).toEqual([second.deviceId])
     expect(rows[0].name).toBe('Desk phone')
-    expect(rows[0].caps).toEqual(['read', 'notify'])
+    expect(rows[0].caps).toEqual(['read', 'notify', 'input'])
     expect(verifyToken(first.token)).toBeNull()
     expect(verifyToken(second.token)?.deviceId).toBe(second.deviceId)
   })
@@ -247,6 +259,7 @@ describe('pairing requests wait for the human', () => {
     const b = await pairPhone(phone('Pixel 9', randomBytes(16).toString('hex')))
     expect(b.replaces).toBeNull()
     expect(b.replaced).toEqual([])
+    expect(listDevices().find((d) => d.deviceId === b.deviceId)?.caps).toEqual(['read', 'notify'])
     expect(verifyToken(a.token)?.deviceId).toBe(a.deviceId)
     expect(verifyToken(b.token)?.deviceId).toBe(b.deviceId)
   })

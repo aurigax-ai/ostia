@@ -15,7 +15,7 @@ import { getByPaneId } from '../control/idRegistry'
 import { type GatewayAddress, type TailnetNode, gatewayAddresses, isCurrentHost } from './addresses'
 import { type GatewayCert, getCert } from './cert'
 import type { GatewayControlDeps } from './controlDispatch'
-import { get as getDevice, list as listDevices } from './devices'
+import { get as getDevice, list as listDevices, touchDevice } from './devices'
 import { createPairHttp } from './pairHttp'
 import { PHONE_FRAME_BYTES, type SocketState, createPhoneSocket } from './phoneSocket'
 import { closeStreams } from './phoneStream'
@@ -73,6 +73,7 @@ function trackDeviceSocket(deviceId: string, ws: WebSocket): void {
     socketsByDevice.set(deviceId, set)
   }
   set.add(ws)
+  touchDevice(deviceId)
 }
 
 function untrackDeviceSocket(deviceId: string, ws: WebSocket): void {
@@ -81,6 +82,7 @@ function untrackDeviceSocket(deviceId: string, ws: WebSocket): void {
   set.delete(ws)
   if (set.size > 0) return
   socketsByDevice.delete(deviceId)
+  touchDevice(deviceId)
   screenLinks?.deviceGone(deviceId)
 }
 

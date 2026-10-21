@@ -171,7 +171,9 @@ describe('gateway/devices', () => {
 
   it('PID-C9 replaces every row of one install identity and revokes their tokens', () => {
     const old = registerDevice({ name: 'Pixel', pubkey: 'pk1', installId: 'i'.repeat(20) })
+    setDeviceCap(old.deviceId, 'input', true)
     const next = registerDevice({ name: 'Pixel', pubkey: 'pk2', installId: 'i'.repeat(20) })
+    expect(get(next.deviceId)?.caps).toEqual(['read', 'notify', 'input'])
     expect(next.replaced).toEqual([old.deviceId])
     expect(list().map((d) => d.deviceId)).toEqual([next.deviceId])
     expect(verifyToken(old.token)).toBeNull()

@@ -43,7 +43,7 @@ export interface GatewayPairRequest {
   requestId: string
   name: string
   checkCode: string
-  replaces: string | null
+  replaces: { name: string; lastSeenAt: string | null; caps: string[] } | null
 }
 
 export type GatewayActionResult = { ok: true } | { ok: false; error: 'not-a-window' | 'invalid' }

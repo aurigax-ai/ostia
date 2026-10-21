@@ -36,7 +36,7 @@ const CAP_NEEDS: Partial<Record<PhoneGrantableCap, PhoneGrantableCap>> = {
   destructive: 'command',
 }
 
-function capText(d: Dict): Record<PhoneGrantableCap, { label: string; desc: string }> {
+export function capText(d: Dict): Record<PhoneGrantableCap, { label: string; desc: string }> {
   return {
     respond: { label: d.settings.remoteCapRespond, desc: d.settings.remoteCapRespondDesc },
     command: { label: d.settings.remoteCapCommand, desc: d.settings.remoteCapCommandDesc },

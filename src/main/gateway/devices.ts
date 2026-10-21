@@ -21,6 +21,7 @@ export interface Device {
   token: string
   caps: string[]
   createdAt: string
+  lastSeenAt?: string
   installId?: string
 }
 
@@ -69,7 +70,7 @@ export function registerDevice(input: RegisterDeviceInput): RegisteredDevice {
     name: replaced[0]?.name ?? cleanDeviceName(input.name) ?? 'Phone',
     pubkey: input.pubkey,
     token: randomBytes(32).toString('hex'),
-    caps: [...DEFAULT_PHONE_CAPS],
+    caps: replaced[0] ? [...replaced[0].caps] : [...DEFAULT_PHONE_CAPS],
     createdAt: new Date().toISOString(),
     ...(input.installId ? { installId: input.installId } : {}),
   }
@@ -83,9 +84,16 @@ export function registerDevice(input: RegisterDeviceInput): RegisteredDevice {
   }
 }
 
-export function deviceNameFor(installId: string | undefined): string | null {
+export function deviceByInstallId(installId: string | undefined): Device | null {
   if (!installId) return null
-  return list().find((d) => d.installId === installId)?.name ?? null
+  return list().find((d) => d.installId === installId) ?? null
+}
+
+export function touchDevice(deviceId: string): void {
+  const store = load()
+  if (!Object.hasOwn(store, deviceId)) return
+  store[deviceId].lastSeenAt = new Date().toISOString()
+  save(store)
 }
 
 export function renameDevice(deviceId: string, name: unknown): boolean {

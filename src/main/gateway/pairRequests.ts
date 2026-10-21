@@ -1,5 +1,5 @@
 import { randomBytes, randomUUID } from 'node:crypto'
-import { deviceNameFor, registerDevice } from './devices'
+import { deviceByInstallId, registerDevice } from './devices'
 import { checkCode, commitOf } from './pairCheck'
 import { auditPairAttempt } from './pairing'
 
@@ -12,7 +12,7 @@ export interface PairRequestView {
   requestId: string
   name: string
   checkCode: string
-  replaces: string | null
+  replaces: { name: string; lastSeenAt: string | null; caps: string[] } | null
 }
 
 interface PairRequest {
@@ -106,6 +106,12 @@ export function answerPairRequest(requestId: string, approve: boolean): PairAnsw
   return { replaced }
 }
 
+function replacesView(installId: string | undefined): PairRequestView['replaces'] {
+  const device = deviceByInstallId(installId)
+  if (!device) return null
+  return { name: device.name, lastSeenAt: device.lastSeenAt ?? null, caps: device.caps }
+}
+
 export function listPairRequests(): PairRequestView[] {
   const views: PairRequestView[] = []
   for (const [requestId, request] of requests) {
@@ -114,7 +120,7 @@ export function listPairRequests(): PairRequestView[] {
         requestId,
         name: request.name,
         checkCode: request.waiting.checkCode,
-        replaces: deviceNameFor(request.installId),
+        replaces: replacesView(request.installId),
       })
     }
   }
