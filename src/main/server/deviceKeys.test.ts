@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import vectors from '../../../test/fixtures/server/auth.json'
+import vectors from '../../../test/fixtures/server/vectors/auth.json'
 import {
+  digestOf,
   generateDeviceKeys,
   keysFromSeeds,
   registrationOf,
@@ -54,6 +55,43 @@ describe('device keys', () => {
     expect(signSeen(keys, 'dev-1', 'dev-4')).toBe(
       'ot1FNAJBDyMc71f1W4rFugE0BuHZ42Rogpi3BK4tpb0lKRYlo8LuvsJ9YLSnhA4v_PnygOsoI_JjQUMgxRAaAg',
     )
+  })
+
+  it('SVA-C60 signs the slot-bound wrap read and the version and body-bound manifest push exactly as the vector', () => {
+    const keys = vectorKeys()
+    expect(vectors.wrapReadMessage).toBe(
+      `ostia-server/wrap-read/v1\n${vectors.deviceId}\n${vectors.timestamp}\n${vectors.wrapSlot}`,
+    )
+    expect(
+      signStamped(keys, 'wrapRead', vectors.deviceId, vectors.timestamp, [vectors.wrapSlot]),
+    ).toBe(vectors.wrapReadSignature)
+    expect(digestOf(vectors.manifestBody)).toBe(vectors.manifestBodyHash)
+    expect(vectors.manifestPutMessage).toBe(
+      `ostia-server/manifest-put/v1\n${vectors.deviceId}\n${vectors.timestamp}\n${vectors.ifMatch}\n${vectors.manifestBodyHash}`,
+    )
+    expect(
+      signStamped(keys, 'manifestPut', vectors.deviceId, vectors.timestamp, [
+        String(vectors.ifMatch),
+        digestOf(vectors.manifestBody),
+      ]),
+    ).toBe(vectors.manifestPutSignature)
+  })
+
+  it('SVA-C61 signs a different message for another slot, version, body, device or time', () => {
+    const keys = vectorKeys()
+    const wrap = (id: string, stamp: number, slot: string) =>
+      signStamped(keys, 'wrapRead', id, stamp, [slot])
+    const put = (id: string, stamp: number, ifMatch: string, body: string) =>
+      signStamped(keys, 'manifestPut', id, stamp, [ifMatch, digestOf(body)])
+    const { deviceId, timestamp, manifestBody } = vectors
+    expect(wrap(deviceId, timestamp, 'recovery')).not.toBe(vectors.wrapReadSignature)
+    expect(wrap(deviceId, timestamp + 1, 'passphrase')).not.toBe(vectors.wrapReadSignature)
+    expect(wrap('other', timestamp, 'passphrase')).not.toBe(vectors.wrapReadSignature)
+    expect(put(deviceId, timestamp, '4', manifestBody)).not.toBe(vectors.manifestPutSignature)
+    expect(put(deviceId, timestamp, '3', `${manifestBody} `)).not.toBe(vectors.manifestPutSignature)
+    expect(put(deviceId, timestamp + 1, '3', manifestBody)).not.toBe(vectors.manifestPutSignature)
+    expect(put('other', timestamp, '3', manifestBody)).not.toBe(vectors.manifestPutSignature)
+    expect(put(deviceId, timestamp, '3', manifestBody)).not.toBe(vectors.wrapReadSignature)
   })
 
   it('SVA-C3 keeps a generated pair across a seed round trip', () => {

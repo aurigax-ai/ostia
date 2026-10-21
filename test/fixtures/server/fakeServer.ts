@@ -281,7 +281,11 @@ export class FakeServer {
   }
 
   reply(res: ServerResponse, status: number, body?: unknown, headers = {}): void {
-    res.writeHead(status, { 'Content-Type': 'application/json', ...headers })
+    res.writeHead(status, {
+      'Content-Type': 'application/json',
+      Date: new Date(this.now()).toUTCString(),
+      ...headers,
+    })
     res.end(body === undefined ? undefined : JSON.stringify(body))
   }
 

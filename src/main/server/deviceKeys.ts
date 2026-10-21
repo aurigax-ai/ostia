@@ -1,4 +1,5 @@
 import {
+  createHash,
   createPrivateKey,
   createPublicKey,
   diffieHellman,
@@ -17,7 +18,10 @@ const CHALLENGE_CONTEXT = 'ostia-server/auth/v1'
 const STAMPED_CONTEXTS = {
   invite: 'ostia-server/invite/v1',
   elevate: 'ostia-server/elevate/v1',
+  wrapRead: 'ostia-server/wrap-read/v1',
+  manifestPut: 'ostia-server/manifest-put/v1',
 }
+export type StampedKind = keyof typeof STAMPED_CONTEXTS
 const REVOKE_CONTEXT = 'ostia-server/revoke/v1'
 const APPROVE_CONTEXT = 'ostia-server/approve/v1'
 const SEEN_CONTEXT = 'ostia-server/seen/v1'
@@ -85,17 +89,22 @@ function signText(keys: DeviceKeys, message: string): string {
   return sign(null, Buffer.from(message, 'utf8'), keys.signPrivate).toString('base64url')
 }
 
+export function digestOf(body: string): string {
+  return createHash('sha256').update(body, 'utf8').digest('base64url')
+}
+
 export function signChallenge(keys: DeviceKeys, deviceId: string, nonce: string): string {
   return signText(keys, `${CHALLENGE_CONTEXT}\n${deviceId}\n${nonce}`)
 }
 
 export function signStamped(
   keys: DeviceKeys,
-  kind: keyof typeof STAMPED_CONTEXTS,
+  kind: StampedKind,
   deviceId: string,
   stamp: number,
+  bound: readonly string[] = [],
 ): string {
-  return signText(keys, `${STAMPED_CONTEXTS[kind]}\n${deviceId}\n${stamp}`)
+  return signText(keys, [STAMPED_CONTEXTS[kind], deviceId, String(stamp), ...bound].join('\n'))
 }
 
 export function signRevoke(keys: DeviceKeys, signerId: string, targetId: string): string {

@@ -26,7 +26,7 @@ const MIN_APPROVER_AGE_MS = 24 * 60 * 60 * 1000
 
 export type KeyringAccount = Pick<
   ServerAccount,
-  'signedIn' | 'identity' | 'baseUrl' | 'authed' | 'deviceKeys'
+  'signedIn' | 'identity' | 'baseUrl' | 'authed' | 'deviceKeys' | 'signer'
 >
 
 export type KeyringError =
@@ -51,7 +51,7 @@ export interface SyncTarget {
   accountId: string
 }
 
-export const deviceSlot = (deviceId: string): string => `device:${deviceId}`
+export const deviceSlot = (deviceId: string): `device:${string}` => `device:${deviceId}`
 
 const fromB64 = (text: string): Buffer => Buffer.from(text, 'base64url')
 
@@ -165,15 +165,25 @@ export class SyncKeyring {
     }
   }
 
-  private async openWith(slot: string, secret: string, wrong: KeyringError): Promise<UnlockResult> {
+  private secretWrap(slot: 'passphrase' | 'recovery') {
+    return this.account.authed((token, routes) =>
+      this.account
+        .signer()
+        .signed('wrapRead', (headers) => routes.secretWrap(token, slot, headers), [slot]),
+    )
+  }
+
+  private async openWith(
+    slot: 'passphrase' | 'recovery',
+    secret: string,
+    wrong: KeyringError,
+  ): Promise<UnlockResult> {
     if (!this.account.signedIn()) return { ok: false, error: 'not-signed-in' }
     try {
-      const wrap = await this.account
-        .authed((token, routes) => routes.wrap(token, slot))
-        .catch((error: unknown) => {
-          if (error instanceof ServerError && error.status === 404) return null
-          throw error
-        })
+      const wrap = await this.secretWrap(slot).catch((error: unknown) => {
+        if (error instanceof ServerError && error.status === 404) return null
+        throw error
+      })
       if (!wrap) return { ok: false, error: 'no-wrap' }
       const key = await unwrapWithSecret(fromB64(wrap.blob), secret)
       if (!key) return { ok: false, error: wrong }
@@ -200,7 +210,7 @@ export class SyncKeyring {
     if (!identity) return null
     const slot = deviceSlot(identity.deviceId)
     try {
-      const found = await this.account.authed((token, routes) => routes.wrap(token, slot))
+      const found = await this.account.authed((token, routes) => routes.deviceWrap(token, slot))
       return { slot, wrap: fromB64(found.blob) }
     } catch {
       return null
@@ -295,7 +305,7 @@ export class SyncKeyring {
     key: Buffer,
   ): Promise<boolean> {
     try {
-      const wrap = await this.account.authed((token, routes) => routes.wrap(token, slot))
+      const wrap = await this.secretWrap(slot)
       const opened = await unwrapWithSecret(fromB64(wrap.blob), secret)
       return opened?.equals(key) === true
     } catch {

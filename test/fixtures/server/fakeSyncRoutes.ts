@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto'
 import type { ServerResponse } from 'node:http'
 import type { FakeDevice, FakeServer, Handler } from './fakeServer'
 import { checkDeviceWrap } from './fakeWraps'
@@ -75,21 +76,38 @@ export function syncRoutes(server: FakeServer): Array<[string, RegExp, Handler]>
     return version
   }
 
-  const putManifest: Handler = (req, res, body) => {
+  const putManifest: Handler = (req, res, body, raw) => {
     const auth = server.authed(req, res)
     if (!auth) return
-    const data = dataOf(auth.device.accountId)
     const match = req.headers['if-match']
     if (match === undefined) {
       server.error(res, 428, 'precondition-required')
       return
     }
+    const version = Number(match.replace(/"/g, '').trim())
+    if (!Number.isInteger(version)) {
+      server.error(res, 400, 'bad-request')
+      return
+    }
+    if (
+      !server.signed(
+        req,
+        res,
+        auth.device,
+        (s) =>
+          `ostia-server/manifest-put/v1\n${auth.device.id}\n${s}\n${version}\n${createHash('sha256').update(raw).digest('base64url')}`,
+        true,
+      )
+    ) {
+      return
+    }
+    const data = dataOf(auth.device.accountId)
     const blob = stored(body.blob)
     if (!blob) {
       server.error(res, 400, 'bad-request')
       return
     }
-    if (Number(match) !== current(data)) {
+    if (version !== current(data)) {
       server.reply(res, 412, { error: 'version-mismatch', current: current(data) })
       return
     }
@@ -155,6 +173,18 @@ export function syncRoutes(server: FakeServer): Array<[string, RegExp, Handler]>
   const getWrap: Handler = (req, res, _body, _raw, [slot]) => {
     const auth = server.authed(req, res)
     if (!auth) return
+    if (
+      (slot === 'passphrase' || slot === 'recovery') &&
+      !server.signed(
+        req,
+        res,
+        auth.device,
+        (s) => `ostia-server/wrap-read/v1\n${auth.device.id}\n${s}\n${slot}`,
+        true,
+      )
+    ) {
+      return
+    }
     const found = dataOf(auth.device.accountId).wraps.get(slot ?? '')
     if (!found) server.error(res, 404, 'not-found')
     else server.reply(res, 200, { slot, blob: found.blob, updatedAt: found.updatedAt })

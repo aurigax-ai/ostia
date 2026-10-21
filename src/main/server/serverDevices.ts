@@ -19,7 +19,7 @@ export class ServerDevices {
   async createInvite(): Promise<ServerInviteResult> {
     try {
       const invite = await this.account.authed((token, routes) =>
-        routes.createInvite(token, this.account.signer().stamped('invite')),
+        this.account.signer().signed('invite', (headers) => routes.createInvite(token, headers)),
       )
       return { ok: true, ...invite }
     } catch (error) {
