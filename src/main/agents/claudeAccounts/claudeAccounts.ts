@@ -35,6 +35,7 @@ export interface ClaudeAccountsDeps {
   syncProfile: (dir: string) => Promise<void>
   openLoginTab: (dir: string, target: LoginTarget) => Promise<string | null>
   agentRunning: (paneId: string) => boolean
+  paneOf: (externalPaneId: string) => string | undefined
   onChange: (state: ClaudeAccountsState) => void
   now?: () => number
   pollMs?: number
@@ -75,7 +76,13 @@ export class ClaudeAccounts {
 
   async boot(): Promise<void> {
     const now = (this.deps.now ?? Date.now)()
-    await sweepPendingProfiles(this.deps.root, this.deps.timeoutMs ?? LOGIN_TIMEOUT_MS, now)
+    await sweepPendingProfiles(
+      this.deps.root,
+      this.deps.timeoutMs ?? LOGIN_TIMEOUT_MS,
+      now,
+      new Set(this.deps.store.accounts().map((account) => account.id)),
+      async (dir) => credentialsPresent(dir) && (await this.deps.profileEmail(dir)) !== null,
+    )
     this.recoverable = await this.unlistedLogins()
     if (this.recoverable.length > 0) await this.publish()
   }
@@ -188,8 +195,11 @@ export class ClaudeAccounts {
     const added =
       !known.some((other) => other?.toLowerCase() === email.toLowerCase()) &&
       this.deps.store.add({ id: pending.id, email, addedAt: (this.deps.now ?? Date.now)() })
-    if (added) await acceptProfile(this.deps.root, pending.id)
-    else {
+    if (added) {
+      await acceptProfile(this.deps.root, pending.id)
+      const pane = this.deps.paneOf(pending.paneId)
+      if (pane) this.deps.store.rememberPane(pane, pending.id)
+    } else {
       await removeProfile(this.deps.root, pending.id)
       this.showDuplicate(email)
     }

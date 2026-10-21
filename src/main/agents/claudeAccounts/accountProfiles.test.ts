@@ -73,14 +73,16 @@ describe('removeProfile', () => {
 
 describe('sweepPendingProfiles', () => {
   const OLD = Date.now() + 60 * 60 * 1000
+  const NONE: ReadonlySet<string> = new Set()
+  const NO_LOGIN = async () => false
 
   it('removes only folders still marked pending and older than the wait', async () => {
     createProfile(root, WORK, home)
     createProfile(root, STALE, home)
     await acceptProfile(root, WORK)
-    await sweepPendingProfiles(root, 30 * 60 * 1000, Date.now())
+    await sweepPendingProfiles(root, 30 * 60 * 1000, Date.now(), NONE, NO_LOGIN)
     expect(existsSync(join(root, STALE))).toBe(true)
-    await sweepPendingProfiles(root, 30 * 60 * 1000, OLD)
+    await sweepPendingProfiles(root, 30 * 60 * 1000, OLD, NONE, NO_LOGIN)
     expect(existsSync(join(root, WORK))).toBe(true)
     expect(existsSync(join(root, STALE))).toBe(false)
   })
@@ -90,14 +92,23 @@ describe('sweepPendingProfiles', () => {
     await acceptProfile(root, WORK)
     mkdirSync(join(root, 'c'.repeat(16)))
     mkdirSync(join(root, 'not-a-profile'))
-    await sweepPendingProfiles(root, 0, OLD)
+    await sweepPendingProfiles(root, 0, OLD, NONE, NO_LOGIN)
     expect(existsSync(join(root, WORK))).toBe(true)
     expect(existsSync(join(root, 'c'.repeat(16)))).toBe(true)
     expect(existsSync(join(root, 'not-a-profile'))).toBe(true)
   })
 
+  it('keeps and accepts a pending folder that is listed or holds a login', async () => {
+    createProfile(root, WORK, home)
+    createProfile(root, STALE, home)
+    await sweepPendingProfiles(root, 0, OLD, new Set([WORK]), async (dir) => dir.endsWith(STALE))
+    expect(await acceptedProfileFolders(root)).toEqual([WORK, STALE].sort())
+  })
+
   it('does nothing when the folder does not exist', async () => {
-    await expect(sweepPendingProfiles(join(base, 'missing'), 0, OLD)).resolves.toBeUndefined()
+    await expect(
+      sweepPendingProfiles(join(base, 'missing'), 0, OLD, NONE, NO_LOGIN),
+    ).resolves.toBeUndefined()
   })
 })
 

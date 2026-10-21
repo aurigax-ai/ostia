@@ -41,7 +41,8 @@ function present(path: string): boolean {
 
 export function createProfile(root: string, id: string, defaultHome: string): string {
   const dir = join(root, id)
-  mkdirSync(dir, { recursive: true, mode: PROFILE_MODE })
+  mkdirSync(root, { recursive: true, mode: PROFILE_MODE })
+  mkdirSync(dir, { mode: PROFILE_MODE })
   writeFileSync(join(dir, PENDING_MARKER), '', { mode: 0o600 })
   for (const name of SHARED_FOLDERS) {
     mkdirSync(join(defaultHome, name), { recursive: true })
@@ -65,12 +66,16 @@ export async function sweepPendingProfiles(
   root: string,
   olderThanMs: number,
   now: number,
+  listed: ReadonlySet<string>,
+  hasLogin: (dir: string) => Promise<boolean>,
 ): Promise<void> {
   const ids = await readdir(root).catch(() => [])
   for (const id of ids) {
     if (!isProfileId(id)) continue
     const marker = await stat(join(root, id, PENDING_MARKER)).catch(() => null)
-    if (marker && now - marker.mtimeMs > olderThanMs) await removeProfile(root, id)
+    if (!marker || now - marker.mtimeMs <= olderThanMs) continue
+    if (listed.has(id) || (await hasLogin(join(root, id)))) await acceptProfile(root, id)
+    else await removeProfile(root, id)
   }
 }
 

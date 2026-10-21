@@ -83,6 +83,7 @@ beforeEach(() => {
     profileEmail: async () => null,
     syncProfile: async () => {},
     agentRunning: () => false,
+    paneOf: (id) => id,
     openLoginTab: async (_dir, target) => {
       opened.push(target)
       return 'login-pane'
@@ -282,6 +283,7 @@ describe('a damaged store', () => {
       profileEmail: async () => null,
       syncProfile: async () => {},
       agentRunning: () => false,
+      paneOf: (id) => id,
       openLoginTab: async () => 'pane',
       onChange: () => {},
       now: () => Date.now() + 24 * 60 * 60 * 1000,

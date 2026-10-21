@@ -55,6 +55,7 @@ beforeAll(() => {
       profileEmail: async () => null,
       syncProfile: async () => {},
       agentRunning: () => false,
+      paneOf: (id) => id,
       openLoginTab: async () => null,
       onChange: () => {},
     }),

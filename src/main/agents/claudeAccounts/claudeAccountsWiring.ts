@@ -48,6 +48,10 @@ export function createClaudeAccounts(deps: CreateDeps): ClaudeAccounts {
         cwd: homedir(),
       }),
     agentRunning: (paneId) => deps.agentRunning.has(paneId),
+    paneOf: (externalId) => {
+      const pane = resolveExternal(externalId)
+      return pane?.kind === 'pane' ? pane.paneId : undefined
+    },
     onChange: (state) => deps.broadcast('claude-accounts:changed', state),
   })
 }

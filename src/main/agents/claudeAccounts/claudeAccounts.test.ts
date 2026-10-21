@@ -54,6 +54,7 @@ beforeEach(() => {
       synced.push(dir)
     },
     agentRunning: (paneId) => running.has(paneId),
+    paneOf: (id) => id,
     openLoginTab: async (dir) => {
       opened.push(`CLAUDE_CONFIG_DIR=${dir}`)
       return openResult
@@ -127,6 +128,7 @@ describe('adding an account', () => {
       profileEmail: async () => null,
       syncProfile: async () => {},
       agentRunning: () => false,
+      paneOf: (id) => id,
       openLoginTab: open,
       onChange: () => {},
     })
@@ -235,6 +237,7 @@ describe('boot', () => {
       profileEmail: async (dir) => emails.get(dir) ?? null,
       syncProfile: async () => {},
       agentRunning: () => false,
+      paneOf: (id) => id,
       openLoginTab: async () => 'pane',
       onChange: (state) => published.push(state),
       now: () => now,
@@ -248,12 +251,35 @@ describe('boot', () => {
     return dir
   }
 
-  it('removes only a login folder that stayed pending past the wait', async () => {
-    folder(OLD, 'old@example.com', true)
+  it('removes a pending folder past the wait only when it holds no login', async () => {
+    mkdirSync(join(root, OLD), { recursive: true })
+    createProfile(root, 'f'.repeat(16), home)
     folder(KEPT, 'kept@example.com', false)
-    await service(join(base, 'fresh.json'), Date.now() + 61 * 60 * 1000).boot()
-    expect(existsSync(join(root, OLD))).toBe(false)
+    const later = Date.now() + 61 * 60 * 1000
+    await service(join(base, 'fresh.json'), later).boot()
+    expect(existsSync(join(root, 'f'.repeat(16)))).toBe(false)
     expect(existsSync(join(root, KEPT))).toBe(true)
+  })
+
+  it('keeps a pending folder that holds a finished sign-in and offers it back', async () => {
+    const dir = folder(OLD, 'old@example.com', true)
+    const again = service(join(base, 'fresh.json'), Date.now() + 61 * 60 * 1000)
+    await again.boot()
+    expect(existsSync(dir)).toBe(true)
+    expect(existsSync(join(dir, '.ostia-pending'))).toBe(false)
+    expect(await again.state()).toMatchObject({ recoverable: 1 })
+    expect(await again.recover()).toBe(1)
+  })
+
+  it('keeps a listed account whose marker was never removed, and drops the marker', async () => {
+    const file = join(base, 'listed.json')
+    const dir = folder(OLD, 'old@example.com', true)
+    const seeded = new ClaudeAccountsStore(file)
+    seeded.add({ id: OLD, email: 'old@example.com', addedAt: 1 })
+    await service(file, Date.now() + 61 * 60 * 1000).boot()
+    expect(existsSync(dir)).toBe(true)
+    expect(existsSync(join(dir, '.ostia-pending'))).toBe(false)
+    expect(new ClaudeAccountsStore(file).accounts()).toHaveLength(1)
   })
 
   it('keeps a login folder that is still inside the wait', async () => {
@@ -316,6 +342,20 @@ describe('boot', () => {
   })
 })
 
+describe('a Claude running in the login tab', () => {
+  it('blocks Remove of the account it just signed in', async () => {
+    await accounts.add(TARGET)
+    signIn(dirOf(), 'work@example.com')
+    await vi.advanceTimersByTimeAsync(1000)
+    await vi.waitFor(() => expect(store.accounts()).toHaveLength(1))
+    const id = store.accounts()[0].id
+    await vi.waitFor(() => expect(store.accountOfPane('pane-ext-1')).toBe(id))
+    running.add('pane-ext-1')
+    expect(await accounts.remove(id)).toBe('running')
+    expect(existsSync(join(root, id))).toBe(true)
+  })
+})
+
 describe('a Claude still running after Ostia restarted', () => {
   it('still blocks Remove, because the pane’s account is stored with the list', async () => {
     await accounts.add(TARGET)
@@ -332,6 +372,7 @@ describe('a Claude still running after Ostia restarted', () => {
       profileEmail: async () => null,
       syncProfile: async () => {},
       agentRunning: (paneId) => paneId === 'pane-kept',
+      paneOf: (id) => id,
       openLoginTab: async () => 'pane',
       onChange: () => {},
     })
