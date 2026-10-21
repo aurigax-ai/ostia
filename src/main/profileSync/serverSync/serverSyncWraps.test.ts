@@ -293,13 +293,67 @@ describe('rotation wraps the new key only to the pinned keys', () => {
     await fresh.service.linkStart()
     const asked = (await first.service.status()).joins[0]
     await first.service.approveJoin(idOf(fresh), asked?.code ?? '')
-    const target = first.keyring.target()?.id ?? ''
-    const approved = () =>
-      (first.storedKeys() as { approved: Record<string, Array<{ id: string }>> }).approved[target]
-    expect(approved()?.map((d) => d.id)).toEqual([idOf(fresh)])
+    expect(first.keyring.trusted().map((d) => d.id)).toContain(idOf(fresh))
     await elevate(first, second)
     expect((await first.service.removeDevice(idOf(fresh), PASSPHRASE, '')).ok).toBe(true)
-    expect(approved()).toEqual([])
     expect(first.keyring.trusted().map((d) => d.id)).not.toContain(idOf(fresh))
+  })
+
+  it('SSY-C159 does not wrap the new key to a removed device the server keeps listing', async () => {
+    const { server, first } = await world()
+    const second = await join(server, first)
+    const fresh = await join(server, first, false, second)
+    await fresh.service.linkStart()
+    const asked = (await first.service.status()).joins[0]
+    await first.service.approveJoin(idOf(fresh), asked?.code ?? '')
+    const listed = await first.account.authed((token, routes) => routes.devices(token))
+    const revoked = listed.devices.filter((d) => d.id === idOf(fresh)).map((d) => ({ ...d }))
+    expect(revoked).toHaveLength(1)
+    server.rewriteDevices = (_viewer, rows) => [...rows, ...revoked]
+    await elevate(first, second)
+    const res = await first.service.removeDevice(idOf(fresh), PASSPHRASE, '')
+    expect(res).toMatchObject({ ok: true, rotated: true, unwrapped: [] })
+    const account = server.devices.get(idOf(first))?.accountId ?? ''
+    const slots = [...(server.syncData.get(account)?.wraps.keys() ?? [])]
+    expect(slots).not.toContain(`device:${idOf(fresh)}`)
+    const remote = await readRemote({ account: first.account, keyring: first.keyring })
+    expect(remote.manifest?.devices.map((d) => d.id).sort()).toEqual(
+      [idOf(first), idOf(second)].sort(),
+    )
+    expect(first.keyring.trusted().map((d) => d.id)).not.toContain(idOf(fresh))
+  })
+})
+
+describe('adoption trusts only the last opened manifest', () => {
+  it('SSY-C160 refuses a wrap signed by a device another machine removed', async () => {
+    const { server, first } = await world()
+    const second = await join(server, first)
+    const fresh = await join(server, first, false, second)
+    await fresh.service.linkStart()
+    const asked = (await first.service.status()).joins[0]
+    await first.service.approveJoin(idOf(fresh), asked?.code ?? '')
+    server.advance(2 * DAY)
+    await second.sync.run()
+    await elevate(second, first)
+    expect((await second.service.removeDevice(idOf(fresh), PASSPHRASE, '')).ok).toBe(true)
+    expect((await first.sync.run()).status.state).toBe('ok')
+    expect(first.keyring.trusted().map((d) => d.id)).not.toContain(idOf(fresh))
+    const adopted = first.keyring.key() ?? Buffer.alloc(0)
+    const attacker = newProfileKey()
+    const boxPub = Buffer.from(server.devices.get(idOf(first))?.boxPub ?? '', 'base64url')
+    const ahead = first.keyring.highest() + 100
+    const wrap = wrapForDevice(
+      attacker,
+      boxPub,
+      `device:${idOf(first)}`,
+      { id: idOf(fresh), signPrivate: signKey(fresh) },
+      ahead,
+    )
+    plant(server, first, attacker, wrap, ahead)
+    const uploads = server.requests.length
+    expect((await first.sync.run()).status.state).toBe('error')
+    expect(first.keyring.key()?.equals(adopted)).toBe(true)
+    expect(server.requests.slice(uploads).some((q) => q.startsWith('PUT'))).toBe(false)
+    expect((await first.service.status()).wrapRefused).toBe(true)
   })
 })

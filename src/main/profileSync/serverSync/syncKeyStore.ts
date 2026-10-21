@@ -17,7 +17,6 @@ interface SeenDevice {
 interface StoredSyncKeys {
   keys: Record<string, string>
   counters: Record<string, number>
-  approved: Record<string, ManifestDevice[]>
   pinned: Record<string, ManifestDevice[]>
   seen: Record<string, Record<string, SeenDevice>>
 }
@@ -28,9 +27,6 @@ export interface SyncKeyStore {
   forgetKey: (account: string) => void
   highest: (account: string) => number
   raise: (account: string, counter: number) => void
-  approved: (account: string) => ManifestDevice[]
-  approve: (account: string, device: ManifestDevice, now: number) => void
-  unapprove: (account: string, deviceId: string) => void
   pinned: (account: string) => ManifestDevice[]
   pin: (account: string, devices: ManifestDevice[], now: number) => void
   firstSeen: (account: string, device: ManifestDevice) => number | null
@@ -62,7 +58,7 @@ function devicesOf(value: unknown): ManifestDevice[] {
 
 function read(file: SyncKeyFile): StoredSyncKeys {
   const raw = file.load()
-  const out: StoredSyncKeys = { keys: {}, counters: {}, approved: {}, pinned: {}, seen: {} }
+  const out: StoredSyncKeys = { keys: {}, counters: {}, pinned: {}, seen: {} }
   if (!isRecord(raw)) return out
   if (isRecord(raw.keys)) {
     for (const [id, value] of Object.entries(raw.keys)) {
@@ -76,10 +72,8 @@ function read(file: SyncKeyFile): StoredSyncKeys {
       }
     }
   }
-  for (const field of ['approved', 'pinned'] as const) {
-    const source = raw[field]
-    if (!isRecord(source)) continue
-    for (const [id, value] of Object.entries(source)) out[field][id] = devicesOf(value)
+  if (isRecord(raw.pinned)) {
+    for (const [id, value] of Object.entries(raw.pinned)) out.pinned[id] = devicesOf(value)
   }
   if (isRecord(raw.seen)) {
     for (const [account, byId] of Object.entries(raw.seen)) {
@@ -154,23 +148,6 @@ export function createSyncKeyStore(file: SyncKeyFile, protect: Protect): SyncKey
       const data = read(file)
       if (counter <= (data.counters[account] ?? 0)) return
       data.counters[account] = counter
-      file.save(data)
-    },
-    approved: (account) => read(file).approved[account] ?? [],
-    approve: (account, device, now) => {
-      const data = read(file)
-      markSeen(data, account, [device], now)
-      data.approved[account] = [
-        ...(data.approved[account] ?? []).filter((d) => d.id !== device.id),
-        device,
-      ]
-      file.save(data)
-    },
-    unapprove: (account, deviceId) => {
-      const data = read(file)
-      const list = data.approved[account] ?? []
-      if (!list.some((d) => d.id === deviceId)) return
-      data.approved[account] = list.filter((d) => d.id !== deviceId)
       file.save(data)
     },
     pinned: (account) => read(file).pinned[account] ?? [],

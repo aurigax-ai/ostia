@@ -281,22 +281,12 @@ export class SyncKeyring {
 
   trusted(): ManifestDevice[] {
     const target = this.target()
-    return target ? [...this.store.pinned(target.id), ...this.store.approved(target.id)] : []
+    return target ? this.store.pinned(target.id) : []
   }
 
   pin(devices: ManifestDevice[]): void {
     const target = this.target()
     if (target) this.store.pin(target.id, devices, this.now())
-  }
-
-  approve(device: ManifestDevice): void {
-    const target = this.target()
-    if (target) this.store.approve(target.id, device, this.now())
-  }
-
-  unapprove(deviceId: string): void {
-    const target = this.target()
-    if (target) this.store.unapprove(target.id, deviceId)
   }
 
   async verifySecret(

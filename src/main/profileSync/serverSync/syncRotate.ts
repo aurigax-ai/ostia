@@ -62,6 +62,7 @@ async function rotateOnce(
   ctx: RemoteContext,
   passphrase: string,
   recoveryKey: string,
+  removedId: string | null,
 ): Promise<'retry' | RotateResult> {
   const remote = await readRemote(ctx, undefined, true)
   const newKey = newProfileKey()
@@ -86,7 +87,7 @@ async function rotateOnce(
   ]
   const unwrapped: string[] = []
   for (const row of listed.devices) {
-    if (row.current === true) continue
+    if (row.current === true || row.id === removedId) continue
     const pinned = trusted.find(
       (d) => d.id === row.id && d.signPub === row.signPub && d.boxPub === row.boxPub,
     )
@@ -131,12 +132,13 @@ export async function rotateKey(
   ctx: RemoteContext,
   passphrase: string,
   recoveryKey: string,
+  removedId: string | null = null,
 ): Promise<RotateResult> {
   const refused = await verifySecrets(ctx, passphrase, recoveryKey)
   if (refused) return { ok: false, error: refused }
   try {
     for (let attempt = 0; attempt < ROTATE_ATTEMPTS; attempt++) {
-      const done = await rotateOnce(ctx, passphrase, recoveryKey)
+      const done = await rotateOnce(ctx, passphrase, recoveryKey, removedId)
       if (done !== 'retry') return done
     }
   } catch (error) {

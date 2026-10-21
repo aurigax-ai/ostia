@@ -215,7 +215,6 @@ export class ServerSyncService {
       await this.deps.account.authed((token, routes) =>
         routes.putWrap(token, `device:${row.id}`, blob),
       )
-      this.deps.keyring.approve(joiner)
       return this.done({ ok: true })
     } catch (error) {
       return this.done({ ok: false, error: this.errorOf(error) })
@@ -248,10 +247,9 @@ export class ServerSyncService {
       if (refused) return this.done({ ok: false, error: refused })
     }
     const revoked = await devices.revoke(deviceId)
-    if (revoked.ok) keyring.unapprove(deviceId)
     if (!revoked.ok) return this.done({ ok: false, error: syncErrorOf(revoked.error) })
     if (!syncing) return this.done({ ok: true, removed: true, rotated: false })
-    const res = await rotateKey(this.ctx, passphrase, recoveryKey)
+    const res = await rotateKey(this.ctx, passphrase, recoveryKey, deviceId)
     return this.done(
       res.ok
         ? { ok: true, removed: true, rotated: true, unwrapped: res.unwrapped }
