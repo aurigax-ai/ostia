@@ -1,13 +1,10 @@
 export const VIEWER_SELECTION_PATH = '/~selection'
-export const VIEWER_OPEN_PATH = '/~open'
-export const VIEWER_EDIT_SOURCE_PATH = '/~edit-source'
 
 export const VIEWER_TEXT_MAX = 256 * 1024
 export const VIEWER_CSV_MAX = 256 * 1024
 export const VIEWER_CELLS_MAX = 10_000
 export const VIEWER_IMAGE_MAX = 25 * 1024 * 1024
 export const VIEWER_FRAME_MAX = 16_384
-export const VIEWER_OPEN_HREF_MAX = 4096
 export const VIEWER_SELECTION_BODY_MAX = VIEWER_IMAGE_MAX + 4 * VIEWER_TEXT_MAX
 
 export interface ViewerRect {

@@ -4,9 +4,7 @@ import {
   clearSelection,
   hasPublishedSelection,
   onSelectionPublished,
-  openViewerLink,
   publishSelection,
-  requestEditSource,
   viewerDocumentUrl,
 } from './viewer'
 
@@ -112,17 +110,6 @@ describe('a selection the host cleared', () => {
 })
 
 describe('viewer host requests', () => {
-  it('asks to open a link and to edit the source through gesture-gated posts', async () => {
-    const calls = stubFetch()
-    expect(await openViewerLink('https://example.com/')).toBe(true)
-    expect(await requestEditSource()).toBe(true)
-    expect(calls[0]).toMatchObject({ url: '/~open', init: { method: 'POST' } })
-    expect(JSON.parse(calls[0].init.body as string)).toEqual({ href: 'https://example.com/' })
-    expect(calls[1]).toMatchObject({ url: '/~edit-source', init: { method: 'POST' } })
-    stubFetch(false)
-    expect(await requestEditSource()).toBe(false)
-  })
-
   it('builds an absolute document url for media elements and pdf.js', () => {
     expect(viewerDocumentUrl()).toBe(new URL('/~document', location.href).href)
   })

@@ -1,5 +1,5 @@
 import { randomBytes } from 'node:crypto'
-import { dirname, isAbsolute, join, resolve } from 'node:path'
+import { join } from 'node:path'
 import {
   PORTABLE_TABLE_COLUMNS_MAX,
   PORTABLE_TABLE_ROWS_MAX,
@@ -17,19 +17,11 @@ import {
   type ViewerPortableTables,
 } from '@aurigax-ai/ostia-extension-sdk/contract/fileKinds'
 import {
-  VIEWER_EDIT_SOURCE_PATH,
-  VIEWER_OPEN_HREF_MAX,
-  VIEWER_OPEN_PATH,
   VIEWER_SELECTION_BODY_MAX,
   VIEWER_SELECTION_PATH,
 } from '@aurigax-ai/ostia-extension-sdk/contract/viewerSelection'
 import type { SelectionCapture } from '../../../shared/browser/selection'
-import { externalHref } from '../../../shared/common/externalLinks'
 import type {
-  ViewerDocumentText,
-  ViewerEditSource,
-  ViewerLinkTarget,
-  ViewerOpenLink,
   ViewerOpenRequest,
   ViewerOpenResult,
   ViewerSelectionEvent,
@@ -63,10 +55,7 @@ interface ViewerStat {
   modified: number
 }
 
-export type ViewerEvent =
-  | { type: 'selection'; payload: ViewerSelectionEvent }
-  | { type: 'open-link'; payload: ViewerOpenLink }
-  | { type: 'edit-source'; payload: ViewerEditSource }
+export type ViewerEvent = { type: 'selection'; payload: ViewerSelectionEvent }
 
 export interface ViewerGuest extends WatchedGuest {
   session: unknown
@@ -109,7 +98,6 @@ interface Live {
   portable: ViewerPortableTables | 'too-large' | null
   selection: StoredSelection | null
   selectionSeq: number
-  documentText: string | null
   rangeStreams: Set<() => void>
   rangeSlots: number
   pointerAt: number | null
@@ -118,7 +106,6 @@ interface Live {
 
 export const RANGE_STREAMS_MAX = 8
 export const GESTURE_WINDOW_MS = 3000
-export const DOCUMENT_TEXT_MAX = 4 * 1024 * 1024
 
 const POINTER_INPUTS = new Set(['mouseDown', 'mouseUp', 'touchStart', 'touchEnd'])
 const OWNER_PREFIX = 'viewer:'
@@ -207,7 +194,6 @@ export class ViewerHost {
       portable: null,
       selection: null,
       selectionSeq: 0,
-      documentText: null,
       rangeStreams: new Set(),
       rangeSlots: 0,
       pointerAt: null,
@@ -342,16 +328,6 @@ export class ViewerHost {
     return stored ? { capture: stored.capture, image: stored.png } : null
   }
 
-  setDocumentText(windowId: string, request: unknown): void {
-    const { paneId, path, text } = (request ?? {}) as Partial<ViewerDocumentText>
-    const live = this.liveOfPane(windowId, paneId)
-    if (!live || typeof path !== 'string' || this.deps.confine(path) !== live.path) return
-    if (text !== null && (typeof text !== 'string' || text.length > DOCUMENT_TEXT_MAX)) return
-    if (live.documentText === text) return
-    live.documentText = text
-    this.announceChange(live)
-  }
-
   acceptsAttach(partition: string | undefined, src: string | undefined, windowId: string): boolean {
     const extId = extensionOfViewerPartition(partition)
     if (!extId || !src) return false
@@ -435,12 +411,6 @@ export class ViewerHost {
     if (pathname === VIEWER_SELECTION_PATH && request.method === 'DELETE') {
       return this.dropSelection(live)
     }
-    if (pathname === VIEWER_OPEN_PATH && request.method === 'POST') {
-      return this.receiveOpen(live, request)
-    }
-    if (pathname === VIEWER_EDIT_SOURCE_PATH && request.method === 'POST') {
-      return this.receiveEditSource(live)
-    }
     if (request.method !== 'GET') return new Response(null, { status: 405 })
     if (pathname === VIEWER_META_PATH) return this.meta(live)
     if (pathname === VIEWER_DOCUMENT_PATH) return this.document(live, request)
@@ -453,7 +423,7 @@ export class ViewerHost {
     if (!stat) return new Response(null, { status: 404, headers: viewerHeaders('text/plain') })
     const meta: ViewerDocumentMeta = {
       name: live.path.slice(live.path.lastIndexOf('/') + 1),
-      size: live.documentText === null ? stat.size : Buffer.byteLength(live.documentText),
+      size: stat.size,
       modified: stat.modified,
       locale: this.deps.locale(),
       viewType: live.viewType,
@@ -464,11 +434,6 @@ export class ViewerHost {
   }
 
   private async document(live: Live, request: Request): Promise<Response> {
-    if (live.documentText !== null) {
-      return new Response(Buffer.from(live.documentText), {
-        headers: viewerHeaders('application/octet-stream', { 'accept-ranges': 'none' }),
-      })
-    }
     const range = request.headers.get('range')
     if (range !== null) {
       const ranged = await this.rangedDocument(live, range)
@@ -620,59 +585,6 @@ export class ViewerHost {
   private recentInput(live: Live): boolean {
     const now = this.now()
     return [live.pointerAt, live.keyAt].some((at) => at !== null && now - at <= GESTURE_WINDOW_MS)
-  }
-
-  private spendGesture(live: Live, inputs: ReadonlyArray<'pointerAt' | 'keyAt'>): boolean {
-    const now = this.now()
-    const fresh = inputs.some((input) => {
-      const at = live[input]
-      return at !== null && now - at <= GESTURE_WINDOW_MS
-    })
-    live.pointerAt = null
-    live.keyAt = null
-    return fresh
-  }
-
-  private linkTarget(live: Live, href: string): ViewerLinkTarget | null {
-    if (/^[a-z][a-z0-9+.-]*:/i.test(href)) {
-      const external = externalHref(href, { apps: false })
-      return external ? { kind: 'url', href: external } : null
-    }
-    if (href.startsWith('//') || href.includes('\\')) return null
-    let relative: string
-    try {
-      relative = decodeURIComponent(href.replace(/[?#].*$/, ''))
-    } catch {
-      return null
-    }
-    if (relative === '' || isAbsolute(relative)) return null
-    const path = this.deps.confine(resolve(dirname(live.path), relative))
-    return path ? { kind: 'file', path } : null
-  }
-
-  private async receiveOpen(live: Live, request: Request): Promise<Response> {
-    const body = await readBoundedBody(request, VIEWER_OPEN_HREF_MAX * 2)
-    if (!body) return new Response(null, { status: 400 })
-    let href: unknown
-    try {
-      href = (JSON.parse(new TextDecoder().decode(body)) as { href?: unknown }).href
-    } catch {
-      return new Response(null, { status: 400 })
-    }
-    if (typeof href !== 'string' || href.length === 0 || href.length > VIEWER_OPEN_HREF_MAX) {
-      return new Response(null, { status: 400 })
-    }
-    if (!this.spendGesture(live, ['pointerAt'])) return new Response(null, { status: 403 })
-    const target = this.linkTarget(live, href)
-    if (!target) return new Response(null, { status: 403 })
-    this.deps.emit(live.windowId, { type: 'open-link', payload: { paneId: live.paneId, target } })
-    return new Response(null, { status: 204 })
-  }
-
-  private receiveEditSource(live: Live): Response {
-    if (!this.spendGesture(live, ['pointerAt', 'keyAt'])) return new Response(null, { status: 403 })
-    this.deps.emit(live.windowId, { type: 'edit-source', payload: { paneId: live.paneId } })
-    return new Response(null, { status: 204 })
   }
 
   private extensionFile(live: Live, pathname: string): Response {
