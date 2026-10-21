@@ -56,6 +56,8 @@ vi.mock('./server', () => ({
 const { configureTailnet, registerGatewayIpc, registerGatewayMethods, remoteStatus } = await import(
   './gatewayIpc'
 )
+const { closeDeviceSockets } = await import('./server')
+const { registerDevice } = await import('./devices')
 const { listPairRequests, openPairRequest, resetPairRequests, revealPairRequest } = await import(
   './pairRequests'
 )
@@ -98,11 +100,15 @@ beforeEach(() => {
   registerGatewayIpc()
 })
 
-function pendingRequest(): { requestId: string; reply: ReturnType<typeof vi.fn> } {
+function pendingRequest(installId?: string): {
+  requestId: string
+  reply: ReturnType<typeof vi.fn>
+} {
   const nonce = randomBytes(32)
   const { requestId } = openPairRequest({
     name: 'Pixel 9',
     pubkey: 'pk',
+    installId,
     commit: createHash('sha256').update(nonce).digest('hex'),
     peer: '100.64.0.2',
   })
@@ -157,5 +163,22 @@ describe("Discoverable and pairing approval are the human's", () => {
     })
     expect(reply).toHaveBeenCalledWith(403, { error: 'declined' })
     expect(listPairRequests()).toEqual([])
+  })
+
+  it('PID-C10 closes the sockets of the device an approval replaces, and shows no identity in the device list', async () => {
+    const installId = 'a'.repeat(24)
+    const old = registerDevice({ name: 'Pixel', pubkey: 'pk0', installId })
+    expect(JSON.stringify(await invoke('gateway:devices'))).not.toContain(installId)
+    const { requestId } = pendingRequest(installId)
+    expect(JSON.stringify(listPairRequests())).not.toContain(installId)
+    expect(await invoke('gateway:pair-answer', 'window', { requestId, approve: true })).toEqual({
+      ok: true,
+    })
+    expect(closeDeviceSockets).toHaveBeenCalledWith(old.deviceId)
+    expect(JSON.stringify(await invoke('gateway:devices'))).not.toContain(installId)
+    registeredMethods.length = 0
+    registerGatewayMethods()
+    expect(registeredMethods.filter((m) => /rename/i.test(m))).toEqual([])
+    expect(handlers.has('gateway:rename')).toBe(false)
   })
 })

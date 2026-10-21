@@ -10,6 +10,7 @@ import {
   registerDevice,
   revoke,
   setDeviceCap,
+  setDeviceName,
   verifyToken,
 } from './devices'
 
@@ -151,5 +152,43 @@ describe('gateway/devices', () => {
     it('is not-found for an unknown device', () => {
       expect(setDeviceCap('dev_nope', 'input', true)).toEqual({ ok: false, error: 'not-found' })
     })
+  })
+
+  it('PID-C7 updates a device name from the phone, trimmed, and keeps the old one for a bad name', () => {
+    const { deviceId } = registerDevice({ name: 'Pixel', pubkey: 'pk' })
+    expect(setDeviceName(deviceId, '  Desk phone  ')).toBe(true)
+    expect(get(deviceId)?.name).toBe('Desk phone')
+    for (const bad of [
+      '   ',
+      7,
+      'a\nb',
+      'a\u202Eb',
+      'a\u200Bb',
+      'a\u2028b',
+      'a\u0000b',
+      'a\ud800b',
+    ]) {
+      expect(setDeviceName(deviceId, bad)).toBe(false)
+    }
+    expect(setDeviceName('dev_missing', 'x')).toBe(false)
+    expect(get(deviceId)?.name).toBe('Desk phone')
+  })
+
+  it('PID-C8 cuts a long name at 64 characters without splitting an emoji', () => {
+    const { deviceId } = registerDevice({ name: 'a'.repeat(200), pubkey: 'pk' })
+    expect(get(deviceId)?.name).toHaveLength(64)
+    const emoji = registerDevice({ name: '\u{1F600}'.repeat(70), pubkey: 'pk' })
+    expect(Array.from(get(emoji.deviceId)?.name ?? '')).toHaveLength(64)
+    expect(() => encodeURIComponent(get(emoji.deviceId)?.name ?? '')).not.toThrow()
+  })
+
+  it('PID-C9 replaces every row of one install identity and revokes their tokens', () => {
+    const old = registerDevice({ name: 'Pixel', pubkey: 'pk1', installId: 'i'.repeat(20) })
+    setDeviceCap(old.deviceId, 'input', true)
+    const next = registerDevice({ name: 'Pixel', pubkey: 'pk2', installId: 'i'.repeat(20) })
+    expect(get(next.deviceId)?.caps).toEqual(['read', 'notify', 'input'])
+    expect(next.replaced).toEqual([old.deviceId])
+    expect(list().map((d) => d.deviceId)).toEqual([next.deviceId])
+    expect(verifyToken(old.token)).toBeNull()
   })
 })

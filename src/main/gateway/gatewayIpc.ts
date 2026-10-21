@@ -286,7 +286,10 @@ function answerPair(params: unknown): GatewayActionResult {
   if (typeof requestId !== 'string' || typeof approve !== 'boolean') {
     return { ok: false, error: 'invalid' }
   }
-  return answerPairRequest(requestId, approve) ? { ok: true } : { ok: false, error: 'invalid' }
+  const answer = answerPairRequest(requestId, approve)
+  if (!answer) return { ok: false, error: 'invalid' }
+  for (const deviceId of answer.replaced) closeDeviceSockets(deviceId)
+  return { ok: true }
 }
 
 function tailnetSignIn(): GatewayTailnetActionResult {
