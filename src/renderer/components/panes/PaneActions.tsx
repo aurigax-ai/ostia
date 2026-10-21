@@ -5,9 +5,10 @@ import {
   TerminalWindowIcon,
 } from '@phosphor-icons/react'
 import { commands } from '@/commands/registry'
-import { AgentForkButton } from '@/components/agents/AgentForkButton'
-import { AgentSessionButton } from '@/components/agents/AgentSessionButton'
+import { AgentActionsMenu } from '@/components/agents/AgentActionsMenu'
+import { AgentSessionButton, usePaneAgentSession } from '@/components/agents/AgentSessionButton'
 import { IconButton } from '@/components/common/IconButton'
+import { SplitButton } from '@/components/common/SplitButton'
 import { ArtifactVersionsButton } from '@/components/editor/ArtifactVersions'
 import { PortableActions } from '@/components/editor/PortableActions'
 import { useDict } from '@/lib/app/useDict'
@@ -24,6 +25,7 @@ export function PaneActions({
   workspaceId: string
 }): JSX.Element {
   const d = useDict()
+  const session = usePaneAgentSession(shown)
   return (
     <div className="pane-actions">
       {shown.kind === 'editor' && shown.filePath ? (
@@ -36,8 +38,15 @@ export function PaneActions({
           <PortableActions workspaceId={workspaceId} filePath={shown.filePath} />
         </>
       ) : null}
-      <AgentSessionButton pane={shown} />
-      <AgentForkButton pane={shown} workspaceId={workspaceId} />
+      {session ? (
+        <SplitButton
+          label={d.pane.agentActions}
+          variant="ghost"
+          main={<AgentSessionButton pane={shown} />}
+        >
+          <AgentActionsMenu pane={shown} workspaceId={workspaceId} />
+        </SplitButton>
+      ) : null}
       <PaneHeaderActions pane={shown} />
       {SERVICE_SURFACES.has(shown.kind) ? null : (
         <>

@@ -2,8 +2,8 @@
   "id": "activity",
   "name": "Activity",
   "version": "1.0.0",
-  "api": "7.2",
-  "description": "One panel for what each agent did and what needs you: its latest closing message as a running recap, notes agents leave with ostia activity add, and items that need you with a count in the sidebar until you mark them done. On request it shows the prompt, tool calls and stops of each turn as a timeline, with the workspace's events beside them: panes started, closed, hibernated or woken, agent status, folder changes and, once you grant read-bus, which pane sent a bus message to which, never what it says. It keeps everything on this computer, moves old entries to a compressed archive, and never types into a terminal.",
+  "api": "7.3",
+  "description": "One panel for what each agent did and what needs you: its latest closing message as a running recap, notes agents leave with ostia activity add, and items that need you with a count in the sidebar until you mark them done. Agents keep a short list of tasks for later with ostia activity remember, and Ostia gives it back to the session after a compaction, a clear or a resume. You can park an agent's session and resume it from here. On request it shows the prompt, tool calls and stops of each turn as a timeline, with the workspace's events beside them: panes started, closed, hibernated or woken, agent status, folder changes and, once you grant read-bus, which pane sent a bus message to which, never what it says. It keeps everything on this computer, moves old entries to a compressed archive, and never types into a terminal.",
   "category": "tools",
   "capabilities": ["agent-plugin", "read-board", "read-bus"],
   "main": "main.js",
@@ -25,9 +25,9 @@
       },
       {
         "id": "list",
-        "title": "List this workspace's notes, needs-you items and recaps",
+        "title": "List this workspace's notes, needs-you items and recaps, or your remembered tasks",
         "palette": false,
-        "usage": "list [--needs-you] [--open] [--archived] [--since <time>] [--workspace <id>] [--json]"
+        "usage": "list [--needs-you] [--open] [--remembered] [--archived] [--since <time>] [--workspace <id>] [--json]"
       },
       {
         "id": "show",
@@ -37,18 +37,34 @@
       },
       {
         "id": "done",
-        "title": "Mark your own needs-you item done",
+        "title": "Mark your own needs-you item or remembered task done",
         "palette": false,
         "usage": "done <id>"
+      },
+      {
+        "id": "remember",
+        "title": "Remember a task for this session",
+        "palette": false,
+        "usage": "remember \"<task>\""
       },
       {
         "id": "on-hook",
         "title": "Record one agent hook event",
         "palette": false,
         "stdin": true
+      },
+      {
+        "id": "on-session",
+        "title": "Give a session its remembered tasks",
+        "palette": false,
+        "stdin": true
       }
     ],
     "agentHooks": [
+      {
+        "event": "SessionStart",
+        "command": "on-session"
+      },
       {
         "event": "UserPromptSubmit",
         "command": "on-hook"
@@ -67,7 +83,20 @@
       "icon": "chat",
       "entry": "url",
       "toolbar": {
-        "tabs": [{ "id": "recap", "title": "Recap" }, { "id": "activity", "title": "Timeline" }]
+        "tabs": [
+          {
+            "id": "activity",
+            "title": "Activity"
+          },
+          {
+            "id": "parked",
+            "title": "Parked"
+          },
+          {
+            "id": "remember",
+            "title": "Remember"
+          }
+        ]
       }
     },
     "settings": {
@@ -92,12 +121,25 @@
         "minimum": 1,
         "maximum": 3650,
         "description": "Archived entries older than this are deleted"
+      },
+      "rememberDays": {
+        "type": "number",
+        "title": "Days a remembered task is kept",
+        "default": 14,
+        "minimum": 1,
+        "maximum": 365,
+        "description": "A remembered task older than this stops being given back to its agent and moves to the archive; it is never deleted"
       }
     },
     "agentSkills": [
       {
         "name": "activity",
         "path": "skills/activity"
+      },
+      {
+        "name": "remember",
+        "path": "skills/remember",
+        "bare": true
       }
     ]
   }

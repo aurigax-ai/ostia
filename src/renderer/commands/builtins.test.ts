@@ -2196,6 +2196,28 @@ describe('agent.forkConversation', () => {
   })
 })
 
+describe('pane.locked', () => {
+  it('reads the real lock of a pane, for main to ask before it parks', async () => {
+    const free = createPane('terminal')
+    const held = { ...createPane('terminal'), locked: true as const }
+    useLayoutStore.setState({
+      byWorkspace: {
+        s1: { root: splitOf('horizontal', free, held), activePaneId: free.id, zoomedPaneId: null },
+      },
+    })
+    expect(
+      await commands.execWith(ctx('s1', free.id), 'pane.locked', { paneId: held.id }),
+    ).toMatchObject({
+      ok: true,
+      result: { locked: true },
+    })
+    expect(await commands.execWith(ctx('s1', free.id), 'pane.locked')).toMatchObject({
+      ok: true,
+      result: { locked: false },
+    })
+  })
+})
+
 describe('agent.newSession', () => {
   it('is listed only while an agent pane is active and starts a session unless the agent is busy', async () => {
     registerAgentCommand()
@@ -3106,6 +3128,14 @@ describe('commands open to script tokens', () => {
   ])('%s is the human’s: local only, never a socket command', (id) => {
     expect(commands.isLocal(id)).toBe(true)
   })
+
+  it.each(['pane.park', 'agent.resumeParked'])(
+    '%s is the human’s: local only, never a socket command',
+    (id) => {
+      expect(commands.isLocal(id)).toBe(true)
+      expect(SCRIPT_COMMANDS).not.toContain(id)
+    },
+  )
 
   it('SCRIPT_COMMANDS matches the relaxed-capability allowlist', () => {
     expect(

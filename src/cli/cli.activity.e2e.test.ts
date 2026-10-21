@@ -250,6 +250,7 @@ describe('the Activity extension records two fake agents and shows them in its p
                     kind: 'terminal',
                     title: 'claude',
                     agent: 'claude',
+                    agentSessionId: 'sess-claude-1',
                     agentState: 'done',
                   },
                   {
@@ -258,6 +259,7 @@ describe('the Activity extension records two fake agents and shows them in its p
                     kind: 'terminal',
                     title: 'codex',
                     agent: 'codex',
+                    agentSessionId: 'sess-codex-1',
                     agentState: 'working',
                   },
                   { paneId: 'pActivityQuiet', workspaceId: 'w1', kind: 'terminal', title: 'bash' },
@@ -494,5 +496,54 @@ describe('the Activity extension records two fake agents and shows them in its p
 
     const shown = await ostia(claudePane, `ostia activity show ${id} --json`)
     expect(JSON.parse(shown.stdout)).toMatchObject({ id, needsYou: true, done: true })
+  }, 60_000)
+
+  it('lets an agent remember a task, gives it back after a compaction and a resume but not at a start, and the human archive and restore it', async () => {
+    const bashInit = join(shellIntegrationDir(), 'init.bash')
+    const ostia = (identity: PaneIdentity, command: string): Promise<RunResult> =>
+      run('bash', ['--norc', '-c', `source '${bashInit}'; ${command}`], paneEnv(identity, []))
+    const sessionStart = async (source: string): Promise<string> => {
+      const out = await runAgent('claude', claudePane, [
+        ['SessionStart', { session_id: 'sess-claude-1', source }],
+      ])
+      return out.stdout
+    }
+
+    const added = await ostia(
+      claudePane,
+      `ostia activity remember "Bisect ${FAKE.githubClassic} fixtures"`,
+    )
+    expect(added.stderr).toBe('')
+    expect(added.code).toBe(0)
+    const id = /^remembered ([a-z2-7]{10})$/.exec(added.stdout.trim())?.[1] ?? ''
+    expect(id).not.toBe('')
+    const stored = readFileSync(join(dataDir, 'activity', 'remember', 'w1.json'), 'utf8')
+    expect(stored).not.toContain(FAKE.githubClassic)
+    expect(statSync(join(dataDir, 'activity', 'remember', 'w1.json')).mode & 0o777).toBe(0o600)
+
+    const mine = await ostia(claudePane, 'ostia activity list --remembered')
+    expect(mine.stdout).toContain(`${id}\t`)
+    const other = await ostia(codexPane, 'ostia activity list --remembered')
+    expect(other.stdout.trim()).toBe('no entries')
+
+    expect(await sessionStart('compact')).toContain(`[${id}]`)
+    expect(await sessionStart('resume')).toContain(`[${id}]`)
+    expect(await sessionStart('startup')).not.toContain(id)
+
+    expect(await panel('rememberState', { id, state: 'archived' })).toEqual({ ok: true })
+    expect(await sessionStart('compact')).not.toContain(id)
+    const view = (await snapshot()) as unknown as {
+      remember: { counts: Record<string, number> }
+    }
+    expect(view.remember.counts).toMatchObject({ open: 0, archived: 1 })
+    expect(await panel('rememberState', { id, state: 'open' })).toEqual({ ok: true })
+    expect(await sessionStart('clear')).toContain(`[${id}]`)
+
+    const notYours = await ostia(codexPane, `ostia activity done ${id}`)
+    expect(notYours.code).toBe(1)
+    expect(notYours.stderr).toContain('finishes only its own')
+    const done = await ostia(claudePane, `ostia activity done ${id}`)
+    expect(done.stdout.trim()).toBe(`${id} done`)
+    expect(await sessionStart('resume')).not.toContain(id)
   }, 60_000)
 })

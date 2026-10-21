@@ -8,8 +8,10 @@
     "src/main/panes/paneResume.ts",
     "src/main/panes/paneWake.ts",
     "src/main/panes/paneWaking.ts",
+    "src/main/park/",
     "src/main/terminal/spawnCwd.ts",
-    "src/renderer/components/agents/AgentForkButton.tsx",
+    "src/renderer/components/agents/AgentActionsMenu.tsx",
+    "src/renderer/components/panes/ParkStatus.tsx",
     "src/renderer/components/panes/ResumePrompts.tsx",
     "src/renderer/components/sidebar/HibernateSkippedDialog.tsx",
     "src/renderer/components/terminal/HibernatedView.tsx",
@@ -20,6 +22,7 @@
     "src/renderer/lib/agents/hibernation.",
     "src/renderer/lib/agents/hibernationScheduler.",
     "src/renderer/lib/agents/resumeFolder.ts",
+    "src/renderer/lib/park/",
     "src/shared/agents/agentResume.ts",
     "src/shared/agents/agentWork.ts"
   ],
@@ -28,6 +31,7 @@
     "e2e/claude-folder-trust.spec.ts",
     "e2e/hibernate-background-work.spec.ts",
     "e2e/hibernate-group.spec.ts",
+    "e2e/park.spec.ts",
     "e2e/resume-folder.spec.ts"
   ]
 }

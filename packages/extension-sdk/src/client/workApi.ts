@@ -68,6 +68,23 @@ export type AgentCompleteResult =
   | { ok: true; text: string }
   | { ok: false; error: string; message?: string }
 
+export interface ParkedItem {
+  id: string
+  workspaceId: string
+  agent: 'claude' | 'codex'
+  sessionId: string
+  title: string
+  summary?: string
+  folder?: string
+  parkedAt: number
+}
+
+export type ParkedListResult =
+  | { ok: true; items: ParkedItem[] }
+  | { ok: false; error: string; message?: string }
+
+export type ParkedActResult = { ok: true } | { ok: false; error: string; message?: string }
+
 export type McpCallReply =
   | { ok: true; text: string; structured?: Record<string, unknown> }
   | { ok: false; error: string; message?: string }
