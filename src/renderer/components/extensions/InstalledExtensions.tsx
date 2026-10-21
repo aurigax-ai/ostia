@@ -1,6 +1,7 @@
 import { isAssistExtension } from '@/components/assist/AssistantSection'
 import { Notice } from '@/components/common/Notice'
 import { TextLink } from '@/components/common/TextLink'
+import { LanguageServerRows } from '@/components/languageServers/LanguageServerRows'
 import { ControlRow } from '@/components/settingsKit/ControlRow'
 import { SettingsGroup, SettingsSubgroup } from '@/components/settingsKit/SettingsGroup'
 import { SettingsList } from '@/components/settingsKit/SettingsList'
@@ -202,6 +203,7 @@ function ExtensionDetails({ ext }: { ext: ExtensionInfo }): JSX.Element {
       <div className="mt-3" />
       <PermissionRows ext={ext} />
       <FileKindRows ext={ext} />
+      <LanguageServerRows ext={ext} />
       <ExtensionAgentPlugin ext={ext} explain={false} />
       <ExtensionSettingsArea ext={ext} />
     </>

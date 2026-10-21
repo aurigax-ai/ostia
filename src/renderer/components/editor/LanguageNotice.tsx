@@ -65,7 +65,8 @@ export function LargeFileNotice(): JSX.Element | null {
 function ServerBar({ server }: { server: LanguageServerInfo }): JSX.Element {
   const d = useDict()
   const t = d.languageNotice
-  const openLanguages = (): void => useUIStore.getState().openSettings('languageServers')
+  const openExtension = (): void =>
+    useUIStore.getState().openSettings('extensions', { extension: server.extId })
   if (server.status === 'downloading') {
     return <Bar>{fmt(t.downloading, { name: server.name, percent: server.progress ?? 0 })}</Bar>
   }
@@ -82,7 +83,7 @@ function ServerBar({ server }: { server: LanguageServerInfo }): JSX.Element {
     <Bar
       tone="warn"
       dismissKey={`${server.name}:${server.status}`}
-      actions={<StatusAction onClick={openLanguages}>{t.openSettings}</StatusAction>}
+      actions={<StatusAction onClick={openExtension}>{t.openSettings}</StatusAction>}
     >
       {text}
     </Bar>
