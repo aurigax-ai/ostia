@@ -140,7 +140,7 @@
       "name": "only-graphs-imports-wire",
       "severity": "error",
       "from": {
-        "pathNot": "^src/extensions/graphs/|^src/main/extensions/wireRuntime\\.ts$|^src/cli/cli\\.graph[A-Za-z]*\\.e2e\\.test\\.ts$"
+        "pathNot": "^src/extensions/graphs/|^src/main/extensions/wireRuntime\\.ts$|^test/graphsHarness\\.ts$|^src/cli/cli\\.graph[A-Za-z]*\\.e2e\\.test\\.ts$"
       },
       "to": { "path": "node_modules/@aurigax-ai/wire/" }
     },
