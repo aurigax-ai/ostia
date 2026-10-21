@@ -107,7 +107,7 @@ test('a browser pane moved to its own window sends a picked element to the agent
       timeout: 15_000,
     })
     const terminal = win.locator('.xterm-rows').first()
-    await expect(terminal).toContainText(/agent-read: @\S*capture-\d+\S*\.md/, { timeout: 15_000 })
+    await expect(terminal).toContainText(/agent-read: [^@]*@\S*capture-\d+\S*\.md/, { timeout: 15_000 })
     await win.locator('.xterm').first().click()
     await win.keyboard.type('flush_marker')
     await win.keyboard.press('Enter')
@@ -115,13 +115,13 @@ test('a browser pane moved to its own window sends a picked element to the agent
     const reports = async (): Promise<{ lines: number; files: number }> => {
       const text = (await terminal.textContent()) ?? ''
       return {
-        lines: text.match(/agent-read: @\S*capture-\d+\S*\.md/g)?.length ?? 0,
+        lines: text.match(/agent-read: [^@]*@\S*capture-\d+\S*\.md/g)?.length ?? 0,
         files: new Set(text.match(/capture-\d+\S*\.md/g)).size,
       }
     }
     await expectHeld(reports, { lines: 1, files: 1 }, 2_000)
     const text = (await terminal.textContent()) ?? ''
-    const match = text.match(/agent-read: @(\S*capture-\d+\S*\.md)/)
+    const match = text.match(/agent-read: [^@]*@(\S*capture-\d+\S*\.md)/)
     const report = readFileSync((match as RegExpMatchArray)[1], 'utf8')
     expect(report).toContain('[data-testid="broken-button"]')
     expect(report).toContain('Checkout button is misaligned')
