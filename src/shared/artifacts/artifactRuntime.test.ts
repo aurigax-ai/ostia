@@ -1,4 +1,5 @@
 import { existsSync, readFileSync } from 'node:fs'
+import { createRequire } from 'node:module'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import {
@@ -52,13 +53,41 @@ describe('the preview runtime', () => {
   })
 
   it('runs sql.js as its asm build, never the WASM one', () => {
-    expect(runtimeEntry('sql.js')).toBe('sql.js/dist/sql-asm.js')
+    expect(runtimeEntry('sql.js')).toBe('sql.js/dist/sql-asm-memory-growth.js')
     expect(runtimeEntry('d3')).toBe('d3')
     expect(allowsRuntimeImport('sql.js')).toBe(true)
     expect(allowsRuntimeImport('sql.js/dist/sql-wasm.js')).toBe(false)
-    expect(existsSync(join(built, RUNTIME_MODULES, 'sql.js', 'dist', 'sql-asm.js'))).toBe(true)
+    expect(
+      existsSync(join(built, RUNTIME_MODULES, 'sql.js', 'dist', 'sql-asm-memory-growth.js')),
+    ).toBe(true)
     expect(existsSync(join(built, RUNTIME_MODULES, 'sql.js', 'dist', 'sql-wasm.wasm'))).toBe(false)
   })
+
+  it('groups a seed of several MiB with the shipped sql.js build', async () => {
+    const dist = join(built, RUNTIME_MODULES, 'sql.js', 'dist')
+    const init = createRequire(join(dist, 'x.js'))('./sql-asm-memory-growth.js') as () => Promise<{
+      Database: new (
+        bytes?: Uint8Array,
+      ) => {
+        run: (sql: string) => void
+        export: () => Uint8Array
+        exec: (sql: string) => { values: unknown[][] }[]
+      }
+    }>
+    const SQL = await init()
+    const source = new SQL.Database()
+    source.run('create table t(k integer, v text)')
+    source.run(
+      "with recursive n(i) as (select 1 union all select i + 1 from n where i < 150000) insert into t select i % 50000, printf('%020d', i) from n",
+    )
+    const seed = source.export()
+    expect(seed.length).toBeGreaterThan(2 * 1024 * 1024)
+    expect(seed.length).toBeLessThan(8 * 1024 * 1024)
+    const grouped = new SQL.Database(seed).exec(
+      'select count(*), sum(c) from (select k, count(*) c from t group by k order by count(*) desc, k)',
+    )
+    expect(grouped[0].values[0]).toEqual([50000, 150000])
+  }, 120_000)
 
   it('is built as a package tree with the licence notices and no whole-library files', () => {
     for (const name of runtimePackages()) {

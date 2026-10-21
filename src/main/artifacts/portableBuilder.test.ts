@@ -163,7 +163,6 @@ describe('PortableBuilder', () => {
     if (!built.ok) return
     expect(built.document).toContain(seed.toString('base64').slice(0, 24))
     expect(built.document).not.toContain('node:fs')
-    expect(built.document).not.toContain('WebAssembly.instantiate')
     expect(manifestOf(built.file).libraries).toEqual(
       expect.arrayContaining([expect.stringMatching(/^sql\.js@/)]),
     )

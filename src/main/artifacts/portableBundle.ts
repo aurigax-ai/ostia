@@ -248,6 +248,7 @@ function notAllowed(specifier: string): string {
 function artifactPlugin(run: BuildRun, entry: ArtifactEntry): Plugin {
   const tree = join(run.runtimeDir, RUNTIME_MODULES)
   const insideTree = (path: string): boolean => isInsidePath(tree, path)
+  const sqlJsTree = join(tree, 'sql.js')
 
   const insideRuntime = async (
     build: PluginBuild,
@@ -307,7 +308,9 @@ function artifactPlugin(run: BuildRun, entry: ArtifactEntry): Plugin {
           : { errors: [{ text: 'no entry' }] },
       )
       build.onResolve({ filter: /^node:/, namespace: 'file' }, (args) =>
-        insideTree(args.importer) ? { path: args.path, namespace: NODE_STUB } : undefined,
+        isInsidePath(sqlJsTree, args.importer)
+          ? { path: args.path, namespace: NODE_STUB }
+          : undefined,
       )
       build.onLoad({ filter: /.*/, namespace: NODE_STUB }, () => ({
         contents: 'module.exports = {}',

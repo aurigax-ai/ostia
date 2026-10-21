@@ -22,8 +22,8 @@ export const ARTIFACT_RUNTIME: readonly RuntimeModule[] = [
   {
     specifier: 'sql.js',
     package: 'sql.js',
-    entry: 'sql.js/dist/sql-asm.js',
-    about: 'SQLite, asm.js build (no WASM)',
+    entry: 'sql.js/dist/sql-asm-memory-growth.js',
+    about: 'SQLite, asm.js build with a growing heap (no WASM)',
   },
 ]
 

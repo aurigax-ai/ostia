@@ -2,8 +2,8 @@ import {
   cpSync,
   existsSync,
   mkdirSync,
-  readdirSync,
   readFileSync,
+  readdirSync,
   realpathSync,
   rmSync,
   writeFileSync,
@@ -15,12 +15,7 @@ import { build } from 'esbuild'
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const outDir = join(root, 'out', 'artifact-runtime')
 const LICENSE_NAMES = ['LICENSE', 'LICENSE.md', 'LICENSE.txt', 'license', 'license.md', 'LICENCE']
-const DROPPED = [
-  /\.map$/,
-  /\.d\.[cm]?ts$/,
-  /\.tsbuildinfo$/,
-  /^(README|CHANGELOG|HISTORY)(\.\w+)?$/i,
-]
+const DROPPED = [/\.map$/, /\.d\.[cm]?ts$/, /\.tsbuildinfo$/, /^(README|CHANGELOG|HISTORY)(\.\w+)?$/i]
 
 async function runtimeList() {
   const result = await build({
@@ -97,9 +92,7 @@ async function usedFiles(specifiers) {
   for (const mode of ['development', 'production']) {
     const result = await build({
       stdin: {
-        contents: specifiers
-          .map((s, i) => `export * as m${i} from ${JSON.stringify(s)}`)
-          .join('\n'),
+        contents: specifiers.map((s, i) => `export * as m${i} from ${JSON.stringify(s)}`).join("\n"),
         resolveDir: outDir,
         loader: 'js',
       },

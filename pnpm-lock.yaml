@@ -378,7 +378,7 @@ importers:
         specifier: ^4.16.1
         version: 4.16.1(supports-color@7.2.0)(typescript@5.9.3)
       sql.js:
-        specifier: ^1.15.1
+        specifier: 1.15.1
         version: 1.15.1
       stream-browserify:
         specifier: ^3.0.0
