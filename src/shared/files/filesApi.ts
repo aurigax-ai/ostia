@@ -106,6 +106,7 @@ interface TerminalLinksApi {
 
 interface OpenPathApi {
   openDefault: (path: string) => Promise<OpenPathResult>
+  canOpenDefault: (path: string) => Promise<boolean>
   reveal: (path: string) => Promise<OpenPathResult>
   openLink: (url: string) => Promise<boolean>
   project: (dir: string, exact?: boolean) => Promise<WorkspaceProject | null>

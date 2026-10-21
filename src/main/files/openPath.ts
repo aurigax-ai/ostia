@@ -122,6 +122,10 @@ async function unchangedSince(path: string, before: Stats): Promise<boolean> {
   }
 }
 
+export async function canOpenDefault(path: string, info: Stats): Promise<boolean> {
+  return !(await launchesProgram(path, info))
+}
+
 export async function openUnlessProgram(
   path: string,
   info: Stats,
@@ -168,6 +172,10 @@ export function registerOpenPathIpc(
     const found = locate(raw, roots)
     if (!found) return { ok: false, error: 'not-found' }
     return openUnlessProgram(found.path, found.info, (path) => shell.openPath(path))
+  })
+  ipcMain.handle('shell:can-open-default', async (_e, raw: unknown): Promise<boolean> => {
+    const found = locate(raw, roots)
+    return found !== null && canOpenDefault(found.path, found.info)
   })
   ipcMain.handle('shell:open-link', (e, raw: unknown) => openLink(appWindows, e, raw))
   ipcMain.handle('shell:reveal', (_e, raw: unknown): OpenPathResult => {

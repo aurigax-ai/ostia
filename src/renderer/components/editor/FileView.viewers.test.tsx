@@ -172,7 +172,7 @@ describe('FileView', () => {
     seed([OFFICE])
     show()
     await screen.findByTestId('file-viewer')
-    await userEvent.click(screen.getByRole('button', { name: 'Open With…' }))
+    act(() => useOpenWithStore.getState().open('p1'))
     await userEvent.click(await screen.findByRole('radio', { name: 'Text editor' }))
     await userEvent.click(screen.getByRole('checkbox', { name: 'Always use for *.xlsx files' }))
     await userEvent.click(screen.getByRole('button', { name: 'Open' }))
