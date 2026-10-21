@@ -43,6 +43,22 @@ const OFFICE = {
   ],
 } as unknown as ExtensionInfo
 
+const IMAGES = {
+  id: 'images',
+  name: 'Images',
+  builtin: true,
+  enabled: true,
+  fileKinds: [
+    {
+      id: 'images.image',
+      displayName: 'Image',
+      selector: [{ filenamePattern: '*.png' }],
+      view: { priority: 'default' },
+      approved: true,
+    },
+  ],
+} as unknown as ExtensionInfo
+
 const PANE: PaneNode = {
   type: 'pane',
   id: 'p1',
@@ -132,6 +148,19 @@ describe('FileView', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Reload' }))
     await waitFor(() => expect(window.ostia.viewers.open).toHaveBeenCalledTimes(2))
     expect(screen.queryByTestId('viewer-stopped')).toBeNull()
+  })
+
+  it('opens an image in the images viewer, and hands it to the editor when that extension is off', async () => {
+    seed([IMAGES])
+    const view = show('/w/pic.png')
+    expect(await screen.findByTestId('file-viewer')).toHaveAttribute(
+      'data-view-type',
+      'images.image',
+    )
+    view.unmount()
+    seed([{ ...IMAGES, enabled: false }])
+    show('/w/pic.png')
+    expect(screen.getByTestId('editor-view')).toHaveTextContent('/w/pic.png')
   })
 
   it('shows the source when no viewer matches or the extension is disabled', () => {

@@ -90,7 +90,7 @@
     "@napi-rs/lzma": "1.5.1",
     "@novnc/novnc": "1.7.0",
     "@openrouter/ai-sdk-provider": "^3.1.0",
-    "@phosphor-icons/core": "^2.1.1",
+    "@phosphor-icons/core": "catalog:",
     "@phosphor-icons/react": "^2.1.10",
     "@playwright/test": "^1.62.1",
     "@secretlint/core": "^13.0.6",

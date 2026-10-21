@@ -2,7 +2,7 @@
   "id": "serial",
   "name": "Serial",
   "version": "1.0.0",
-  "api": "7.4",
+  "api": "7.5",
   "description": "Opens a serial console (a switch or router console port over a USB serial adapter) in a new terminal. You pick the device, the speed and the frame, or an agent opens one directly with ostia serial connect; you and agents then type into the same connection, and closing the terminal releases the device. Only serial devices can be opened, and never from a sandboxed workspace.",
   "category": "tools",
   "capabilities": ["shell"],

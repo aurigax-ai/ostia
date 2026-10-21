@@ -21,6 +21,7 @@ export const VIEWER_META_PATH = '/~meta'
 export const VIEWER_EVENTS_PATH = '/~events'
 export const VIEWER_PORTABLE_PATH = '/~portable'
 export const VIEWER_CHANGED_EVENT = 'changed'
+export const VIEWER_SELECTION_CLEARED_EVENT = 'selection-cleared'
 
 export const PORTABLE_TABLES_MAX = 256
 export const PORTABLE_TABLE_ROWS_MAX = 5_000

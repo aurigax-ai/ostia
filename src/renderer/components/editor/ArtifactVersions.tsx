@@ -27,7 +27,6 @@ import { type ShownVersion, useArtifactVersionsStore } from '@/stores/files/arti
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { FileViewerFrame } from './FileViewerFrame'
 import { HtmlPreview } from './HtmlPreview'
-import { ImageViewer } from './ImageViewer'
 import { MarkdownPreview } from './MarkdownPreview'
 import { PdfViewer } from './PdfViewer'
 
@@ -171,16 +170,6 @@ function VersionBody({
         filePath={content.file}
         viewer={viewer}
         onFailed={IGNORE_FAILURE}
-      />
-    )
-  }
-  if (content.type === 'svg' || Object.keys(content.sources).length === 0) {
-    return (
-      <ImageViewer
-        key={content.file}
-        workspaceId={workspaceId}
-        paneId={paneId}
-        filePath={content.file}
       />
     )
   }

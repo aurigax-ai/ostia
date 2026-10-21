@@ -170,6 +170,12 @@ export const appZhHant: typeof appEn = {
       title: '確認是你本人',
       typeName: '輸入「{name}」才能允許',
     },
+    viewerCopy: {
+      image: '已複製圖片',
+      nothing: '沒有可複製的內容',
+      text: '已複製文字',
+      textAndImage: '已複製文字和圖片',
+    },
   },
   portable: {
     allArtifacts: '所有產出物',

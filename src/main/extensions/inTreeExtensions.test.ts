@@ -48,6 +48,7 @@ describe('the manifests in this repository', () => {
       'assistant',
       'completions',
       'csv',
+      'images',
       'keeper',
       'keymap-macos',
       'langpack-zh-hant',
@@ -65,6 +66,7 @@ describe('the manifests in this repository', () => {
       'serial',
       'system',
       'trellis',
+      'video',
     ]) {
       const dir = join(extensions, id)
       const raw: unknown = JSON.parse(readFileSync(join(dir, 'ostia.json'), 'utf8'))

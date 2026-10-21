@@ -63,6 +63,12 @@ export function normalizeClipboardChords(raw: unknown, mac: boolean): ClipboardC
   return { copy: copySpec, paste: pasteSpec }
 }
 
+export function isPlainCopyKey(input: GuestKeyInput, mac: boolean): boolean {
+  if (input.type !== 'keyDown' || input.shift || input.alt || input.isComposing) return false
+  const modifier = mac ? input.meta && !input.control : input.control && !input.meta
+  return modifier && (input.code === 'KeyC' || input.key.toLowerCase() === 'c')
+}
+
 export function guestClipboardEdit(
   input: GuestKeyInput,
   chords: ClipboardChords,

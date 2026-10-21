@@ -1,10 +1,25 @@
 import { execFileSync } from 'node:child_process'
 import { cpSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { createRequire } from 'node:module'
 import { dirname, join, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { build } from 'esbuild'
 import { parse } from 'yaml'
 import { apiVersion, contractDigest, packageDir } from './api-contract.mjs'
+
+const requireFromPackage = createRequire(join(packageDir, 'package.json'))
+const inlineSvg = {
+  name: 'inline-svg',
+  setup(builder) {
+    builder.onResolve({ filter: /\.svg$/ }, (args) => ({
+      path: requireFromPackage.resolve(args.path),
+    }))
+    builder.onLoad({ filter: /\.svg$/ }, (args) => ({
+      contents: readFileSync(args.path, 'utf8'),
+      loader: 'text',
+    }))
+  },
+}
 
 const repoRoot = resolve(packageDir, '../..')
 const out = join(repoRoot, 'out/sdk')
@@ -38,6 +53,8 @@ const library = await build({
     splitter: 'src/client/splitter.ts',
     viewer: 'src/client/viewer.ts',
     grid: 'src/client/grid.ts',
+    pill: 'src/client/pill.ts',
+    slider: 'src/client/slider.ts',
     atomicWrite: 'src/client/atomicWrite.ts',
   },
   outdir: join(out, 'dist'),
@@ -46,6 +63,7 @@ const library = await build({
   platform: 'node',
   format: 'esm',
   target: 'es2022',
+  plugins: [inlineSvg],
 })
 
 const cli = await build({
@@ -121,6 +139,8 @@ writeJson('package.json', {
     './splitter': { types: types('client/splitter'), default: './dist/splitter.js' },
     './viewer': { types: types('client/viewer'), default: './dist/viewer.js' },
     './grid': { types: types('client/grid'), default: './dist/grid.js' },
+    './pill': { types: types('client/pill'), default: './dist/pill.js' },
+    './slider': { types: types('client/slider'), default: './dist/slider.js' },
     './atomicWrite': { types: types('client/atomicWrite'), default: './dist/atomicWrite.js' },
     './panel.css': './panel.css',
     './schemas/ostia.schema.json': './schemas/ostia.schema.json',
