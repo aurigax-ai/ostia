@@ -10,6 +10,7 @@ import {
   StreamMessageReader,
   StreamMessageWriter,
 } from 'vscode-jsonrpc/node'
+import { launchThroughSystemd } from '../../main/platform/systemdLaunch'
 import { MIRROR_DETACH_KEY, portalSocketPath, portalSupported } from '../../shared/agents/portal'
 
 const PORTAL_USAGE = `usage: ostia <agent> [args…]
@@ -41,7 +42,9 @@ function connectOnce(path: string): Promise<Socket | null> {
 
 function launchOstia(appBin: string, env: NodeJS.ProcessEnv): void {
   const { ELECTRON_RUN_AS_NODE: _node, ...rest } = env
-  spawn(appBin, ['--hidden'], { detached: true, stdio: 'ignore', env: rest }).unref()
+  const args = ['--hidden']
+  if (launchThroughSystemd({ exe: appBin, args, env: rest })) return
+  spawn(appBin, args, { detached: true, stdio: 'ignore', env: rest }).unref()
 }
 
 export async function connectPortal(

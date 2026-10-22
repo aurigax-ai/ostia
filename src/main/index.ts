@@ -9,6 +9,7 @@ import { keepTestCrashDumps } from './diagnostics/testCrashDumps'
 import { VIEWER_SCHEME_PRIVILEGES } from './files/viewers/viewerScheme'
 import { discreteGpu, gpuStartPlan, readSwitcherooGpus } from './platform/discreteGpu'
 import { offerOldDirsMove } from './platform/oldDirsPrompt'
+import { relaunchApp } from './platform/relaunch'
 import {
   appDataDir,
   dataHome,
@@ -43,7 +44,7 @@ function relaunchedOnDiscreteGpu(): boolean {
   const plan = gpuStartPlan(process.env, gpu)
   if (plan.kind === 'relaunch') {
     Object.assign(process.env, plan.env)
-    app.relaunch()
+    relaunchApp()
     app.exit(0)
     return true
   }
