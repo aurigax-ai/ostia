@@ -1,6 +1,9 @@
 import { readdirSync, readFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
-import { EXTENSION_API_VERSION } from '@aurigax-ai/ostia-extension-sdk/contract/extensionApi'
+import {
+  apiProblem,
+  EXTENSION_API_VERSION,
+} from '@aurigax-ai/ostia-extension-sdk/contract/extensionApi'
 import { overlaySettings } from '@aurigax-ai/ostia-extension-sdk/contract/languageServerConfig'
 import {
   agentSkillProblems,
@@ -12,9 +15,21 @@ import {
 } from '@aurigax-ai/ostia-extension-sdk/manifest/extensionManifest'
 import { localeProblems } from '@aurigax-ai/ostia-extension-sdk/manifest/localeCatalogs'
 import { extensionManifestSchema } from '@aurigax-ai/ostia-extension-sdk/manifest/manifestSchema'
+import semver from 'semver'
 import { describe, expect, it } from 'vitest'
 
 const repoRoot = resolve(__dirname, '../../..')
+
+function releasedIds(): string[] {
+  const catalog = JSON.parse(
+    readFileSync(join(repoRoot, 'marketplace/ostia-marketplace.json'), 'utf8'),
+  )
+  const folders = [
+    ...catalog.extensions,
+    ...catalog.unlisted.map((entry: { path: string }) => entry.path),
+  ]
+  return folders.map((folder: string) => folder.replace(/^extensions\//, ''))
+}
 const extensions = join(repoRoot, 'src/extensions')
 const manifestFiles = [
   ...readdirSync(extensions).map((id) => join(extensions, id, 'ostia.json')),
@@ -36,10 +51,16 @@ describe('the manifests in this repository', () => {
     }
   })
 
-  it('declare the current API, since each extension here bundles this SDK', () => {
+  it('declare the current API when built in, and an API this SDK provides when released apart', () => {
+    const released = releasedIds()
     for (const id of readdirSync(extensions)) {
       const manifest = JSON.parse(readFileSync(join(extensions, id, 'ostia.json'), 'utf8'))
-      expect(manifest.api, id).toBe(EXTENSION_API_VERSION)
+      if (released.includes(id)) {
+        expect(apiProblem(manifest.api), id).toBeNull()
+        expect(semver.valid(manifest.version), `${id} version`).not.toBeNull()
+      } else {
+        expect(manifest.api, id).toBe(EXTENSION_API_VERSION)
+      }
     }
   })
 

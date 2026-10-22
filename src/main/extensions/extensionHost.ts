@@ -218,7 +218,11 @@ export class ExtensionHost {
   }
 
   private discover(): LoadedExtension[] {
-    return discoverExtensions(this.deps.roots, (dir, error) => this.log(dir, error)).map((ext) => ({
+    return discoverExtensions(
+      this.deps.roots,
+      (dir, error) => this.log(dir, error),
+      this.deps.officialUpdate,
+    ).map((ext) => ({
       ...ext,
       catalogs: loadLocaleCatalogs(ext.dir, ext.manifest, (problem) =>
         this.log(ext.manifest.id, problem),
@@ -411,6 +415,10 @@ export class ExtensionHost {
   getLocale(identity: PaneIdentity, conn: MessageConnection) {
     this.runtimeOf(identity, conn)
     return { ok: true, locale: this.currentLocale() }
+  }
+
+  announce(): void {
+    this.changed()
   }
 
   private changed(rt?: Runtime): void {

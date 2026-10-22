@@ -41,7 +41,8 @@ const RELEASE_CHECK_TICK_MS = 60 * 1000
 const RELEASE_REQUEST_TIMEOUT_MS = 10_000
 const RELEASE_RESPONSE_MAX_BYTES = 1024 * 1024
 export const RELEASE_API_URL_ENV = 'RELEASE_API_URL'
-const RELEASE_LIST_PAGE_SIZE = 30
+const RELEASE_LIST_PAGE_SIZE = 100
+const RELEASE_LIST_MAX_PAGES = 4
 
 export type LatestRelease =
   | { kind: 'release'; release: ReleaseInfo }
@@ -112,6 +113,42 @@ function releaseQuery(
   return { path: 'releases/latest', parse: parseLatestRelease }
 }
 
+type PageText = { kind: 'text'; text: string } | { kind: 'done'; result: LatestRelease }
+
+async function fetchPage(
+  opts: { baseUrl: string; userAgent: string; timeoutMs?: number },
+  path: string,
+): Promise<PageText> {
+  const { owner, name } = RELEASE_REPOSITORY
+  try {
+    const response = await fetch(`${opts.baseUrl}/repos/${owner}/${name}/${path}`, {
+      headers: { 'User-Agent': opts.userAgent, Accept: 'application/vnd.github+json' },
+      redirect: 'manual',
+      signal: AbortSignal.timeout(opts.timeoutMs ?? RELEASE_REQUEST_TIMEOUT_MS),
+    })
+    if (response.status === 404) return { kind: 'done', result: { kind: 'none' } }
+    if (response.status === 403 || response.status === 429) {
+      return { kind: 'done', result: { kind: 'error', error: 'rate-limited' } }
+    }
+    if (response.status !== 200 || !response.body) {
+      return { kind: 'done', result: { kind: 'error', error: 'unavailable' } }
+    }
+    const text = await readCapped(response.body, RELEASE_RESPONSE_MAX_BYTES)
+    return { kind: 'text', text: text ?? '' }
+  } catch {
+    return { kind: 'done', result: { kind: 'error', error: 'offline' } }
+  }
+}
+
+function isFullPage(text: string): boolean {
+  try {
+    const list: unknown = JSON.parse(text)
+    return Array.isArray(list) && list.length >= RELEASE_LIST_PAGE_SIZE
+  } catch {
+    return false
+  }
+}
+
 export async function fetchLatestRelease(opts: {
   baseUrl: string
   userAgent: string
@@ -119,24 +156,17 @@ export async function fetchLatestRelease(opts: {
   betaAsset?: AssetName
   timeoutMs?: number
 }): Promise<LatestRelease> {
-  const { owner, name } = RELEASE_REPOSITORY
   const query = releaseQuery(opts.channel, opts.betaAsset ?? dmgAssetName)
-  try {
-    const response = await fetch(`${opts.baseUrl}/repos/${owner}/${name}/${query.path}`, {
-      headers: { 'User-Agent': opts.userAgent, Accept: 'application/vnd.github+json' },
-      redirect: 'manual',
-      signal: AbortSignal.timeout(opts.timeoutMs ?? RELEASE_REQUEST_TIMEOUT_MS),
-    })
-    if (response.status === 404) return { kind: 'none' }
-    if (response.status === 403 || response.status === 429) {
-      return { kind: 'error', error: 'rate-limited' }
-    }
-    if (response.status !== 200) return { kind: 'error', error: 'unavailable' }
-    if (!response.body) return { kind: 'error', error: 'unavailable' }
-    return readRelease(await readCapped(response.body, RELEASE_RESPONSE_MAX_BYTES), query.parse)
-  } catch {
-    return { kind: 'error', error: 'offline' }
+  const paged = query.path !== 'releases/latest'
+  let result: LatestRelease = { kind: 'none' }
+  for (let page = 1; page <= (paged ? RELEASE_LIST_MAX_PAGES : 1); page++) {
+    const path = page === 1 ? query.path : `${query.path}&page=${page}`
+    const fetched = await fetchPage(opts, path)
+    if (fetched.kind === 'done') return fetched.result
+    result = readRelease(fetched.text, query.parse)
+    if (result.kind === 'release' || !isFullPage(fetched.text)) return result
   }
+  return result
 }
 
 export interface ReleaseChecker {

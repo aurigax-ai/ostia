@@ -19,7 +19,7 @@ import {
   serverAgreesWith,
 } from './syncLink'
 import { registerInManifest } from './syncRegister'
-import { collectGarbage, rotateKey, verifySecrets } from './syncRotate'
+import { rotateKey, verifySecrets } from './syncRotate'
 
 type ServiceAccount = Pick<
   ServerAccount,
@@ -40,7 +40,8 @@ const SIGNED_OUT: ServerSyncStatus = {
   linkCodes: [],
   joins: [],
   recoveryStale: false,
-  wrapRefused: false,
+  wrapRefused: null,
+  changedDevices: [],
 }
 
 const PASSED_THROUGH: readonly ServerFailure[] = [
@@ -81,7 +82,12 @@ export class ServerSyncService {
     const { account, keyring } = this.deps
     const target = keyring.target()
     if (!account.signedIn() || !target) return SIGNED_OUT
-    const base = { ...SIGNED_OUT, host: target.host, wrapRefused: keyring.wrapRefused }
+    const base = {
+      ...SIGNED_OUT,
+      host: target.host,
+      wrapRefused: keyring.wrapRefused,
+      changedDevices: keyring.changedDevices(),
+    }
     const keys = account.deviceKeys()
     if (!keys) return SIGNED_OUT
     const me = localPublicKeys(keys)
@@ -172,9 +178,12 @@ export class ServerSyncService {
         ? approverForCode(devices, me, code)
         : undefined
       if (!approver) return this.done({ ok: false, error: 'untrusted' })
-      if (!(await this.deps.keyring.adoptLinkWrap(approver))) {
-        return this.done({ ok: false, error: 'no-wrap' })
+      const adopted = await this.deps.keyring.adoptLinkWrap(approver)
+      if (adopted === 'stale') {
+        this.linking = false
+        return this.done({ ok: false, error: 'link-stale' })
       }
+      if (adopted === 'refused') return this.done({ ok: false, error: 'no-wrap' })
       this.linking = false
       return this.done({ ok: true })
     } catch (error) {
@@ -260,14 +269,5 @@ export class ServerSyncService {
   async newRecoveryKey(): Promise<ServerSyncResult> {
     const res = await this.deps.keyring.newRecovery()
     return this.done(res)
-  }
-
-  async collectGarbage(): Promise<ServerSyncResult> {
-    const res = await collectGarbage(this.ctx)
-    return this.done(
-      res.ok
-        ? { ok: true, deleted: res.deleted }
-        : { ok: false, error: res.error as ServerSyncError },
-    )
   }
 }

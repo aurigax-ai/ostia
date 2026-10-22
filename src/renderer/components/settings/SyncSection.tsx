@@ -3,12 +3,15 @@ import type { SyncConflict, SyncStatus } from '@shared/profileSync/profileSync'
 import { useEffect, useMemo, useState } from 'react'
 import { MachineValue } from '@/components/common/MachineValue'
 import { Notice } from '@/components/common/Notice'
-import { Segmented } from '@/components/common/Segmented'
+import { SyncRequests } from '@/components/server/SyncRequests'
 import { syncServerStatusError } from '@/components/server/syncServerText'
+import { useServerStatus } from '@/components/server/useServerStatus'
+import { useSyncServerStatus } from '@/components/server/useSyncServerStatus'
 import { ControlRow } from '@/components/settingsKit/ControlRow'
+import { SelectField } from '@/components/settingsKit/SelectField'
 import { SettingsPage } from '@/components/settingsKit/SettingsPage'
 import { Button } from '@/components/ui/button'
-import { Separator } from '@/components/ui/separator'
+import { SHORT_DATE_TIME } from '@/lib/app/localeFormat'
 import { fmt, useDict } from '@/lib/app/useDict'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { SyncSecretsSection } from './SyncSecretsSection'
@@ -173,6 +176,8 @@ export function SyncSection(): JSX.Element {
   const server = method === 'server'
   const active = server || dir !== ''
   const [status, setStatus] = useState<SyncStatus>(OFF)
+  const account = useServerStatus()
+  const [serverStatus, setServerStatus] = useSyncServerStatus(server && account.signedIn)
   const [busy, setBusy] = useState(false)
 
   useEffect(() => {
@@ -187,16 +192,7 @@ export function SyncSection(): JSX.Element {
     }
   }, [])
 
-  const time = useMemo(
-    () =>
-      new Intl.DateTimeFormat(locale, {
-        month: 'short',
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-      }),
-    [locale],
-  )
+  const time = useMemo(() => new Intl.DateTimeFormat(locale, SHORT_DATE_TIME), [locale])
 
   const syncNow = async (): Promise<void> => {
     setBusy(true)
@@ -225,6 +221,7 @@ export function SyncSection(): JSX.Element {
     else setStatus(await window.ostia.sync.status())
   }
 
+  const failed = active && status.state === 'error'
   const statusText = !active
     ? d.sync.off
     : status.state === 'error'
@@ -233,11 +230,27 @@ export function SyncSection(): JSX.Element {
         ? fmt(d.sync.lastSync, { time: time.format(new Date(status.lastSync)) })
         : d.sync.never
 
+  const syncText =
+    server && serverStatus.state === 'ready' ? `${d.syncServer.ready} ${statusText}` : statusText
+
   return (
     <SettingsPage title={d.sync.title} desc={d.sync.desc}>
-      <Separator className="mb-2" />
+      <ControlRow
+        label={d.sync.status}
+        desc={failed ? undefined : syncText}
+        error={failed ? statusText : undefined}
+      >
+        <Button
+          variant="outline"
+          size="sm"
+          disabled={!active || busy}
+          onClick={() => void syncNow()}
+        >
+          {d.sync.now}
+        </Button>
+      </ControlRow>
       <ControlRow label={d.syncServer.where} desc={d.syncServer.whereDesc}>
-        <Segmented
+        <SelectField
           label={d.syncServer.where}
           value={method}
           options={[
@@ -264,22 +277,15 @@ export function SyncSection(): JSX.Element {
           ) : null}
         </ControlRow>
       )}
-      {server ? <SyncServerSection onChanged={() => void syncNow()} /> : null}
-      <ControlRow label={d.sync.status}>
-        <output
-          className={`text-ui-sm ${status.state === 'error' && active ? 'text-attn-fg' : 'text-fg-muted'}`}
-        >
-          {statusText}
-        </output>
-        <Button
-          variant="outline"
-          size="sm"
-          disabled={!active || busy}
-          onClick={() => void syncNow()}
-        >
-          {d.sync.now}
-        </Button>
-      </ControlRow>
+      {server ? <SyncRequests /> : null}
+      {server ? (
+        <SyncServerSection
+          account={account}
+          status={serverStatus}
+          setStatus={setServerStatus}
+          onChanged={() => void syncNow()}
+        />
+      ) : null}
       {active && status.skipped.length > 0 ? (
         <Notice>{fmt(d.sync.skipped, { files: status.skipped.join(', ') })}</Notice>
       ) : null}

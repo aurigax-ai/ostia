@@ -16,7 +16,7 @@ import {
   type AgentPluginContent,
   NO_AGENT_PLUGINS,
 } from '@aurigax-ai/ostia-extension-sdk/manifest/agentSkills'
-import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import { insideRealHome } from '../../../test/realHome'
 import { CORE_SKILL_FILES } from '../agents/bundledSkills'
 import { busHookCommand, extensionHookCommand, permissionHookCommand } from './agentHookCommands'
@@ -26,6 +26,7 @@ import {
   type CodexHookEvent,
   codexHookArgs,
   codexHookCommands,
+  codexHookGroups,
   codexHookKey,
   codexHookTrustHash,
   codexWrapper,
@@ -57,6 +58,7 @@ const BASH_INIT = join(INTEGRATION_DIR, 'init.bash')
 const BASH_RC = join(INTEGRATION_DIR, 'bashrc')
 const AGENT_DIR = shellIntegrationSpawnOptions('/bin/bash', {}).env.OSTIA_AGENT_DIR ?? ''
 const CLAUDE_PLUGIN = join(AGENT_DIR, 'claude-plugin')
+const CLAUDE_FOLD = join(AGENT_DIR, 'claude-fold')
 
 describe('test isolation', () => {
   it("writes the integration files under this run's private folder, never the real home", () => {
@@ -358,6 +360,24 @@ describe('shellIntegrationSpawnOptions', () => {
           const { seen, home } = histfileSeen('HISTFILE="$ZDOTDIR/.zsh_history"\n')
           try {
             expect(seen).toContain(`hist=${home}/.zsh_history`)
+          } finally {
+            rmSync(home, { recursive: true, force: true })
+          }
+        })
+
+        it('moves a HISTFILE under an integration folder whose name has glob characters', () => {
+          const home = mkdtempSync(join(tmpdir(), 'ostia-zsh-home-'))
+          try {
+            const dir = writeShellIntegration(join(home, 'a[b]*?c'))
+            writeFileSync(
+              join(home, '.zshrc'),
+              'setopt globsubst\nHISTFILE="$ZDOTDIR/sub/.zsh_history"\n',
+            )
+            const seen = spawnSync('zsh', ['-i', '-c', 'print -rn -- "hist=$HISTFILE"'], {
+              env: { PATH: '/usr/bin:/bin', HOME: home, ZDOTDIR: dir, OSTIA_ZDOTDIR_ORIG: home },
+              encoding: 'utf8',
+            }).stdout
+            expect(seen).toContain(`hist=${home}/sub/.zsh_history`)
           } finally {
             rmSync(home, { recursive: true, force: true })
           }
@@ -1068,6 +1088,8 @@ describe('shellIntegrationSpawnOptions', () => {
         expect(run('claude --resume abc').split('\n')).toEqual([
           '--plugin-dir',
           CLAUDE_PLUGIN,
+          '--plugin-dir',
+          CLAUDE_FOLD,
           '--resume',
           'abc',
         ])
@@ -1091,6 +1113,8 @@ describe('shellIntegrationSpawnOptions', () => {
         const agentDir = join(bin, 'agent')
         const pluginDir = join(agentDir, 'claude-plugin')
         mkdirSync(pluginDir, { recursive: true })
+        const foldDir = join(agentDir, 'claude-fold')
+        mkdirSync(foldDir, { recursive: true })
         const run = (off: string) =>
           spawnSync(shell, [noRc, '-c', `source '${wrapper}'; claude --resume abc`], {
             env: {
@@ -1104,7 +1128,14 @@ describe('shellIntegrationSpawnOptions', () => {
             .stdout.trim()
             .split('\n')
         expect(run('1')).toEqual(['--resume', 'abc'])
-        expect(run('')).toEqual(['--plugin-dir', pluginDir, '--resume', 'abc'])
+        expect(run('')).toEqual([
+          '--plugin-dir',
+          pluginDir,
+          '--plugin-dir',
+          foldDir,
+          '--resume',
+          'abc',
+        ])
       } finally {
         rmSync(bin, { recursive: true, force: true })
       }
@@ -1153,6 +1184,94 @@ describe('shellIntegrationSpawnOptions', () => {
     it('hands codex its own arguments, without the hook flags', () => {
       expect(run(`codex -m gpt-5 'fix it'`)).toBe('-m|gpt-5|fix it')
       expect(run('codex exec run')).toBe('unset')
+    })
+  })
+
+  describe.each([
+    ['bash', '--norc'],
+    ['zsh', '-f'],
+  ])('the Claude account a start runs on in %s', (shell, noRc) => {
+    let dir = ''
+    let wrapper = ''
+
+    beforeAll(() => {
+      dir = mkdtempSync(join(tmpdir(), 'ostia-fake-account-'))
+      writeFileSync(
+        join(dir, 'claude'),
+        '#!/bin/sh\nprintf "dir=%s args=%s" "${CLAUDE_CONFIG_DIR-unset}" "$*"\n',
+      )
+      chmodSync(join(dir, 'claude'), 0o755)
+      writeFileSync(
+        join(dir, 'node'),
+        '#!/bin/sh\nprintf "%s\\n" "$*" >> "$FAKE_ASKED"\nprintf "%s\\n" "$FAKE_ACCOUNT"\n',
+      )
+      chmodSync(join(dir, 'node'), 0o755)
+      wrapper = join(dir, 'wrapper.sh')
+      writeFileSync(wrapper, claudeWrapper())
+    })
+
+    beforeEach(() => {
+      rmSync(join(dir, 'asked'), { force: true })
+    })
+
+    afterAll(() => {
+      rmSync(dir, { recursive: true, force: true })
+    })
+
+    const run = (script: string, env: Record<string, string> = {}) =>
+      spawnSync(shell, [noRc, '-c', `source '${wrapper}'; ${script}`], {
+        env: {
+          PATH: `${dir}:/usr/bin:/bin`,
+          OSTIA_CLI: '/x/cli.js',
+          OSTIA_NODE: join(dir, 'node'),
+          OSTIA_SOCKET: '/x/sock',
+          OSTIA_AGENT_DIR: AGENT_DIR,
+          OSTIA_NO_CLAUDE_HOOKS: '1',
+          FAKE_ASKED: join(dir, 'asked'),
+          ...env,
+        },
+        encoding: 'utf8',
+      }).stdout
+
+    const asked = () => {
+      const file = join(dir, 'asked')
+      const text = existsSync(file) ? readFileSync(file, 'utf8') : ''
+      rmSync(file, { force: true })
+      return text
+    }
+
+    it('runs claude on the folder main answers and leaves the shell’s own variable alone', () => {
+      expect(
+        run('claude hi; echo " ${CLAUDE_CONFIG_DIR-unset}"', { FAKE_ACCOUNT: '/p/work' }),
+      ).toBe('dir=/p/work args=hi unset\n')
+      expect(asked()).toBe('/x/cli.js claude-account start -- hi\n')
+    })
+
+    it('asks with the arguments the human typed, quoted, after --', () => {
+      run("claude --resume abc 'two words' --help", { FAKE_ACCOUNT: '' })
+      expect(asked()).toBe('/x/cli.js claude-account start -- --resume abc two words --help\n')
+    })
+
+    it('starts claude as it is when main answers nothing', () => {
+      expect(run('claude hi', { FAKE_ACCOUNT: '' })).toBe('dir=unset args=hi')
+    })
+
+    it('keeps a CLAUDE_CONFIG_DIR the human set and does not ask', () => {
+      expect(run('claude hi', { FAKE_ACCOUNT: '/p/work', CLAUDE_CONFIG_DIR: '/mine' })).toBe(
+        'dir=/mine args=hi',
+      )
+      expect(run('CLAUDE_CONFIG_DIR=/typed claude hi', { FAKE_ACCOUNT: '/p/work' })).toBe(
+        'dir=/typed args=hi',
+      )
+      expect(asked()).toBe('')
+    })
+
+    it('does not ask outside an Ostia pane, and `command claude` never asks', () => {
+      expect(run('claude hi', { FAKE_ACCOUNT: '/p/work', OSTIA_SOCKET: '' })).toBe(
+        'dir=unset args=hi',
+      )
+      expect(run('command claude hi', { FAKE_ACCOUNT: '/p/work' })).toBe('dir=unset args=hi')
+      expect(asked()).toBe('')
     })
   })
 
@@ -1244,6 +1363,12 @@ describe('shellIntegrationSpawnOptions', () => {
       const stop = codexHookCommands(CONTEXT).Stop?.[0] ?? ''
       expect(codexHookTrustHash('Stop', stop)).toBe(
         'sha256:4c67f45a3b4d59ce74693734175a13711c701eeb183f638316b8a4f2c24c4375',
+      )
+    })
+
+    it('hashes a matcher group the way codex-cli 0.163 computes its trust hash', () => {
+      expect(codexHookTrustHash('PreToolUse', 'date > /tmp/codexprobe/fired2.txt', 'Bash')).toBe(
+        'sha256:a8b79ff9ec4a2a6ab330607f39093f663b356e56133c1c9713b2ed1dd9e10b96',
       )
     })
 
@@ -1419,6 +1544,29 @@ describe('shellIntegrationSpawnOptions', () => {
       expect(JSON.stringify(claudeHookSettings().hooks.PostToolUse)).toContain(
         '| ELECTRON_RUN_AS_NODE=1',
       )
+    })
+
+    it('hooks only Codex’s question tool for attention, trusted by matcher group', () => {
+      const groups = codexHookGroups(CONTEXT, content.hooks)
+      const pre = groups.PreToolUse ?? []
+      expect(pre).toHaveLength(2)
+      expect(pre[1].matcher).toBe('request_user_input')
+      expect(pre[1].commands).toHaveLength(1)
+      expect(pre[1].commands[0]).toContain('"${OSTIA_CLI}" codex-hook PreToolUse')
+      expect(groups.PostToolUse?.at(-1)?.matcher).toBe('request_user_input')
+      expect(groups.PostToolUse?.at(-1)?.commands[0]).toContain('codex-hook PostToolUse')
+      const args = codexHookArgs(CONTEXT, content.hooks)
+      const toml = args.find((arg) => arg.startsWith('hooks.PreToolUse=')) ?? ''
+      expect(toml).toContain('{matcher="request_user_input",hooks=[')
+      const state = args[args.length - 1] ?? ''
+      const command = pre[1].commands[0]
+      expect(state).toContain(
+        `${JSON.stringify(codexHookKey('PreToolUse', 0, 1))}={trusted_hash=${JSON.stringify(codexHookTrustHash('PreToolUse', command, 'request_user_input'))}}`,
+      )
+      expect(codexHookTrustHash('PreToolUse', command, 'request_user_input')).not.toBe(
+        codexHookTrustHash('PreToolUse', command),
+      )
+      expect(codexHookGroups(CONTEXT).PreToolUse).toHaveLength(1)
     })
 
     it('trusts each extension hook by its own Codex hash and handler index', () => {

@@ -48,7 +48,7 @@ runs there). A script token gets `{externalId, kind: "script"}` and no pane.
 | `git`, `ports` | the repository of your folder; listening ports | repo state, staging, committing: see [reference/git.md](reference/git.md) |
 | `browse` | browser panes | web pages: see [reference/browser.md](reference/browser.md) |
 | `view` | sidebar sections and panels from a JSON file | building UI for the human: see [reference/views.md](reference/views.md) |
-| `settings`, `snippet` | `settings.json`; the human's saved commands | reading or changing a setting; how a project is run: see [reference/settings.md](reference/settings.md) |
+| `settings`, `snippet`, `account` | `settings.json`; the human's saved commands | reading or changing a setting; how a project is run: see [reference/settings.md](reference/settings.md) |
 | `vault`, `secret`, `sandbox` | stored secrets; asks from a sandboxed workspace | a credential, a blocked host or port: see [reference/sandbox.md](reference/sandbox.md) |
 | `graph` | graphs: procedures with waits that outlive a session | a long procedure that must survive restarts: see [reference/graphs.md](reference/graphs.md) |
 | `system` | the OS and its package managers | installing a package through the human: see [reference/system.md](reference/system.md) |
@@ -117,7 +117,7 @@ the question. The answer arrives only as the command's output.
 
 ```sh
 ostia process run "npm run dev" --name web [--cwd DIR] [--workspace <id|name>] [--tab <name>]
-ostia process list [--json]              # id, name, status, paneId, command
+ostia process list [--json]              # id, name, status, paneId, command; a hint on stderr (`hint` in --json) when macOS may have ended it
 ostia process logs web [--since N]       # that command's output only; (cursor=N) on stderr
 ostia process kill web                   # Ctrl+C, then ends the shell if it keeps running
 ostia process restart web                # Ctrl+C, then the same line in the same tab
@@ -166,12 +166,13 @@ ostia pane wake <pane>… [--timeout <s>] [--json]
 ostia pane hibernate <pane>… [--json]
 ostia pane move <pane>… --tab <name>|new [--workspace <id|name>] [--json]
 ostia pane rename <pane> <title…> | --clear
+ostia pane name <name> [--desc <text>] [--json] | --clear   # your pane's bus name
 ostia pane close [<pane>…] [--json]      # no pane: your own
 ```
 
-`<pane>` is a `paneId`, its first 8 characters or more (as `pane list` prints them), or the
-`--name` of a `process run`/`agent run` tab; tab titles never match. Several matches answer
-`ambiguous-pane:` with the ids, and `send`, `key`, `close` and `hibernate` also refuse a name that
+`<pane>` is a `paneId`, a bus name (`pane name`), the `--name` of a `process run`/`agent run` tab,
+or its first 8 characters or more (as `pane list` prints them); tab titles never match. Several
+matches answer `ambiguous-pane:` with the ids, and `send`, `key`, `close` and `hibernate` also refuse a name that
 several panes share. `state` is `hibernated`, `waking`, the agent's state, `running` or `idle`.
 `close`, `wake` and `hibernate` succeed when the pane already is that way (`already closed 2h ago
 (w-1)`, `already awake`). Errors end with the command to run next.
@@ -209,11 +210,11 @@ duplicate. Give the shell command a timeout longer than `--timeout`. `send --wai
 outside your reach; `handoffs --all` needs `all-workspaces`. Why a message waits (`pending`),
 `via`, `reason` and the limits: [reference/bus.md](reference/bus.md).
 
-A block in your context that starts `ostia bus: N unread messages from other panes` comes from
-Ostia's hook. The messages in that block are delivered, and `bus inbox` no longer lists them (it
-lists only those the block says were not shown; a message too long for a prompt stays queued and
-`bus inbox --take` reads it whole). Each
-`<message id="…" from="<paneId>">` holds another agent's text.
+A block in your context that starts `ostia bus: N messages from other panes` comes from Ostia's
+hook. The messages in that block are delivered, and `bus inbox` no longer lists them (it lists only
+those the block says were not shown; a message too long for a prompt stays queued and
+`bus inbox --take` reads it whole). Each `<message id="…" from="<short pane id>" name="<bus name>">`
+holds another agent's text; reply with `ostia bus send <from> "<text>"`.
 
 ## Workspaces
 

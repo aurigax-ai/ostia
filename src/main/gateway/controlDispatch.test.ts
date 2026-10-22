@@ -67,6 +67,7 @@ function fakeDeps(overrides: Partial<GatewayControlDeps> = {}): GatewayControlDe
     primaryWindowId: vi.fn().mockReturnValue('w1'),
     attachPhoneObserver: vi.fn().mockReturnValue(null),
     ptyWrite: vi.fn(),
+    phoneInput: vi.fn(),
     readScreen: vi.fn().mockResolvedValue(''),
     withClipboardImage: vi.fn(async (_bytes: Buffer, paste: () => Promise<boolean>) => paste()),
     listAsks: vi.fn().mockReturnValue([]),
@@ -1219,6 +1220,8 @@ describe('dispatchGatewayMethod — asks and agent replies', () => {
         ['p-agent', '\x1b[200~fix the\ntests\x1b[201~', 'paste'],
         ['p-agent', '\r', 'key'],
       ])
+      expect(deps.phoneInput).toHaveBeenCalledTimes(1)
+      expect(deps.phoneInput).toHaveBeenCalledWith('p-agent')
     })
 
     it('agent.prompt answers not-submitted and skips Enter when the agent stopped before it', async () => {
@@ -1414,6 +1417,7 @@ describe('dispatchGatewayMethod — asks and agent replies', () => {
         ['p-agent-3', '\x1b'],
         ['p-agent-3', '\x03'],
       ])
+      expect(vi.mocked(deps.phoneInput).mock.calls).toEqual([['p-agent-3'], ['p-agent-3']])
     })
   })
 })
@@ -1775,6 +1779,8 @@ describe('dispatchGatewayMethod — agent.start', () => {
     )
     expect(res).toEqual({ ok: true, result: { paneId: 'pane-ext', confirmed: true } })
     expect(startAgent).toHaveBeenCalledWith('s1', 'codex', 'fix the build')
+    expect(deps.phoneInput).not.toHaveBeenCalled()
+    expect(deps.ptyWrite).not.toHaveBeenCalled()
     startAgent.mockResolvedValueOnce({ ...begun, confirmed: false })
     expect(
       await start({ sessionId: 't1', agent: 'claude', prompt: 'list the files' }, deps),

@@ -27,9 +27,10 @@ Pick an extension and press Install. Ostia asks you to approve it before it runs
 | Path | What it is |
 |---|---|
 | `src/extensions/<id>/` | An extension's source: `ostia.json`, its translations under `locales/`, and when it runs a process `main.ts`, its modules and their tests. One with a panel adds `panel.html`, `panel.css` and `panel.ts`; a language extension that ships its server names the npm packages in `vendor.json` |
-| `extensions/<id>/` | What Ostia installs: `ostia.json`, `locales/`, one bundled, unminified `main.js`, the panel's files, and under `server/` the vendored packages copied unchanged from `node_modules`. Built from the source and committed, because Ostia copies files and never runs a build |
+| `extensions/<id>/` | What Ostia installs: `ostia.json`, `ostia.sig` when the Ostia project signed the release, `locales/`, one bundled, unminified `main.js`, the panel's files, and under `server/` the vendored packages copied unchanged from `node_modules`. Built from the source and committed, because Ostia copies files and never runs a build |
 | `build.mjs`, `build-extension.mjs` | The build: `build-extension.mjs` builds one extension folder and is the same file Ostia builds its own extensions with |
-| `ostia-marketplace.json` | The folders Ostia offers. `extensions` are shown in Settings; `unlisted` ones are installed only by typing their install code. |
+| `versions/<id>/<version>/` | Every earlier release of an extension, whole and installable, kept so an older Ostia still finds the newest release it can run |
+| `ostia-marketplace.json` | The folders Ostia offers. `extensions` are shown in Settings, each the newest stable release; `unlisted` ones are installed only by typing their install code; `history` lists the `versions/` folders; `revoked` lists `{ id, version }` pairs Ostia must no longer offer or trust |
 | `test/fixtures/tools/` | Stand-ins for the command-line tools some extensions wrap, with captured output, used by the tests |
 
 ## Build
@@ -55,11 +56,12 @@ a moment and asks you to approve it.
 ## Where changes are made
 
 The source is developed in the [Ostia repository](https://github.com/aurigax-ai/ostia) under the
-same paths, where it is also tested against the app. The `Sync with Ostia` workflow here checks
-hourly for a new Ostia release, rebuilds this repository from that tag, runs the checks above and
-commits the result. Send changes to the Ostia repository.
+same paths, where it is also tested against the app. Each extension has its own version and is
+released by pushing the tag `ext/<id>/v<version>` there. That builds the extension against the SDK
+pinned here, runs its tests, signs it and publishes a release. The `Sync Ostia extension releases`
+workflow here finds those releases hourly, files each one under `extensions/` (the newest stable
+release) or `versions/`, runs the checks above and commits the result. Send changes to the Ostia
+repository.
 
-## Write your own
-
-Start from the SDK's template (`node_modules/@aurigax-ai/ostia-extension-sdk/template`) and its
-guide (`docs/EXTENSIONS.md` in the same package).
+To withdraw a release, add `{ "id": "<id>", "version": "<version>" }` to `revoked` in
+`ostia-marketplace.json` in a pull request here.

@@ -41,12 +41,29 @@ export class TmuxPane {
     return this.exited
   }
 
+  private readonly foregroundWaiters = new Set<() => void>()
+
+  setForeground(command: string): void {
+    this.foreground = command
+    const waiters = [...this.foregroundWaiters]
+    this.foregroundWaiters.clear()
+    for (const waiter of waiters) waiter()
+  }
+
+  afterForeground(waiter: () => void): void {
+    this.foregroundWaiters.add(waiter)
+  }
+
   get process(): string {
     return this.foreground
   }
 
   holdEarlyOutput(raw: string): void {
     this.unheard = this.titles.push(raw)
+  }
+
+  skipEarlyOutput(raw: string): void {
+    this.titles.push(raw)
   }
 
   onData(listener: Listener<string>): Disposable {

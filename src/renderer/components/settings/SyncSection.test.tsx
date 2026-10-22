@@ -33,7 +33,7 @@ describe('SyncSection', () => {
   it('shows sync as off with no folder and disables Sync now', async () => {
     await renderSettled(<SyncSection />)
     expect(screen.getByText('Not set')).toBeInTheDocument()
-    expect(screen.getByRole('status')).toHaveTextContent('Off')
+    expect(screen.getByText('Off')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Sync now' })).toBeDisabled()
     expect(screen.queryByRole('button', { name: 'Stop syncing' })).toBeNull()
   })
@@ -52,7 +52,7 @@ describe('SyncSection', () => {
     expect(written?.[0]).toBe('/tmp/ostia-test/settings.json')
     expect(JSON.parse(String(written?.[1]))).toMatchObject({ sync: { dir: '/home/me/Sync/ostia' } })
     expect(screen.getByText('/home/me/Sync/ostia')).toBeInTheDocument()
-    expect(screen.getByRole('status')).toHaveTextContent(/^Last synced /)
+    expect(screen.getByText(/^Last synced /)).toBeInTheDocument()
   })
 
   it('SSY-C96 switches to the server method, keeps the folder default, and explains server errors', async () => {
@@ -61,15 +61,20 @@ describe('SyncSection', () => {
       status({ dir: 'ostia.example.com', state: 'error', error: 'server-locked' }),
     )
     render(<SyncSection />)
-    expect(screen.getByRole('button', { name: 'Folder' })).toHaveAttribute('aria-pressed', 'true')
-    await userEvent.click(screen.getByRole('button', { name: 'Server' }))
+    const where = screen.getByRole('combobox', { name: 'Where to sync' })
+    expect(where).toHaveTextContent('Folder')
+    await userEvent.click(where)
+    await userEvent.click(screen.getByRole('option', { name: 'Server' }))
     await waitFor(() => expect(ostia.sync.run).toHaveBeenCalled())
     expect(useSettingsStore.getState().sync).toEqual({ dir: '', method: 'server' })
     const written = vi.mocked(ostia.fs.write).mock.calls.at(-1)
     expect(JSON.parse(String(written?.[1]))).toMatchObject({ sync: { method: 'server' } })
     expect(screen.queryByRole('button', { name: 'Choose folder…' })).toBeNull()
-    expect(screen.getByRole('status')).toHaveTextContent('Unlock sync on this device to continue.')
-    await userEvent.click(screen.getByRole('button', { name: 'Folder' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Unlock sync on this device to continue.',
+    )
+    await userEvent.click(screen.getByRole('combobox', { name: 'Where to sync' }))
+    await userEvent.click(await screen.findByRole('option', { name: 'Folder' }))
     expect(useSettingsStore.getState().sync).toBeUndefined()
     expect(screen.getByRole('button', { name: 'Choose folder…' })).toBeInTheDocument()
   })
@@ -90,7 +95,7 @@ describe('SyncSection', () => {
     })
     await renderSettled(<SyncSection />)
     act(() => push(status({ dir: '/mnt/gone', state: 'error', error: 'missing' })))
-    expect(screen.getByRole('status')).toHaveTextContent('The sync folder does not exist.')
+    expect(screen.getByRole('alert')).toHaveTextContent('The sync folder does not exist.')
   })
 
   it('lists a clashed setting with both values and uses the other one on click', async () => {

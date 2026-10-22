@@ -102,6 +102,7 @@ async function usedFiles(specifiers) {
       absWorkingDir: outDir,
       format: 'esm',
       platform: 'browser',
+      external: ['node:*'],
       define: { 'process.env.NODE_ENV': JSON.stringify(mode) },
       logLevel: 'error',
     })
@@ -127,7 +128,7 @@ function prune(dir, used, keepAll) {
   }
 }
 
-const { RUNTIME_NOTICES, TAILWIND_PACKAGE, importableSpecifiers, runtimePackages } =
+const { RUNTIME_NOTICES, TAILWIND_PACKAGE, importableSpecifiers, runtimeEntry, runtimePackages } =
   await runtimeList()
 
 rmSync(outDir, { recursive: true, force: true })
@@ -139,5 +140,5 @@ for (const name of runtimePackages()) place(name, packageDir(name, root), outDir
 const sources = [...new Set(placed.values())].sort()
 writeFileSync(join(outDir, RUNTIME_NOTICES), sources.map(notice).join('\n'))
 
-const used = await usedFiles([...importableSpecifiers(), 'react/jsx-runtime'])
+const used = await usedFiles([...importableSpecifiers(), 'react/jsx-runtime'].map(runtimeEntry))
 prune(join(outDir, 'node_modules'), used, [join(outDir, 'node_modules', TAILWIND_PACKAGE)])

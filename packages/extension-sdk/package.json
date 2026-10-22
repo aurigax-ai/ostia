@@ -1,6 +1,7 @@
 {
   "name": "@aurigax-ai/ostia-extension-sdk",
   "private": true,
+  "version": "0.5.12",
   "description": "Write extensions for Ostia: the client library, its types, manifest schemas and a project generator",
   "keywords": [
     "ostia",
@@ -29,6 +30,7 @@
   },
   "dependencies": {
     "@tanstack/virtual-core": "3.19.4",
+    "semver": "catalog:",
     "vscode-jsonrpc": "catalog:"
   },
   "peerDependencies": {
@@ -55,6 +57,7 @@
     "@ai-sdk-tool/parser": "catalog:",
     "@phosphor-icons/core": "catalog:",
     "@types/node": "catalog:",
+    "@types/semver": "catalog:",
     "ai": "catalog:",
     "esbuild": "catalog:",
     "typescript": "catalog:",

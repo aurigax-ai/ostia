@@ -263,11 +263,40 @@ export function syncRoutes(server: FakeServer): Array<[string, RegExp, Handler]>
     server.reply(res, 200, { version: commitManifest(data, manifest) })
   }
 
-  const gc: Handler = (req, res, body) => {
+  const gc: Handler = (req, res, body, raw) => {
     const auth = server.authed(req, res)
     if (!auth) return
-    if (needElevation(auth, res)) return
+    const match = req.headers['if-match']
+    if (match === undefined) {
+      server.error(res, 428, 'precondition-required')
+      return
+    }
+    const version = Number(match.replace(/"/g, '').trim())
+    if (!Number.isInteger(version)) {
+      server.error(res, 400, 'bad-request')
+      return
+    }
+    if (
+      !server.signed(
+        req,
+        res,
+        auth.device,
+        (s) =>
+          `ostia-server/sync-gc/v1\n${auth.device.id}\n${s}\n${version}\n${createHash('sha256').update(raw).digest('base64url')}`,
+        true,
+      )
+    ) {
+      return
+    }
+    if (server.now() - auth.device.createdAt < server.approverMinAgeMs) {
+      server.error(res, 403, 'device-too-new')
+      return
+    }
     const data = dataOf(auth.device.accountId)
+    if (version !== current(data)) {
+      server.reply(res, 412, { error: 'version-mismatch', current: current(data) })
+      return
+    }
     const keep = new Set(Array.isArray(body.keep) ? body.keep.map(String) : [])
     let deleted = 0
     for (const [id, blob] of data.blobs) {

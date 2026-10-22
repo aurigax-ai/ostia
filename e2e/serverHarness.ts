@@ -9,6 +9,7 @@ export const RELAY_DOMAIN = 'r.localhost'
 export interface RunningServer {
   port: number
   caPath: string
+  log: () => string
   invite: () => string
   stop: () => Promise<void>
 }
@@ -29,7 +30,6 @@ function configToml(
     'log_level = "debug"',
     '[domains]',
     `api = "${API_HOST}"`,
-    'share = "shares.test"',
     `relay = "${RELAY_DOMAIN}"`,
     '[listen]',
     'https = "127.0.0.1:0"',
@@ -77,7 +77,7 @@ function selfSignedCertificate(dir: string): { certPath: string; keyPath: string
       '-subj',
       `/CN=${API_HOST}`,
       '-addext',
-      `subjectAltName=DNS:${API_HOST},DNS:*.shares.test`,
+      `subjectAltName=DNS:${API_HOST}`,
     ],
     { stdio: 'ignore' },
   )
@@ -111,6 +111,7 @@ export async function startServer(
   return {
     port,
     caPath: certPath,
+    log: () => log,
     invite: () =>
       execFileSync(binary, ['admin', '-config', configPath, 'invite'], { encoding: 'utf8' })
         .split('\n')[0]

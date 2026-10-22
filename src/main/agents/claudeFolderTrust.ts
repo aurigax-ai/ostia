@@ -14,7 +14,7 @@ export interface TrustPlace {
   customOAuth?: boolean
 }
 
-type ClaudeConfig = Record<string, unknown> & {
+export type ClaudeConfig = Record<string, unknown> & {
   projects?: Record<string, Record<string, unknown> | undefined>
 }
 
@@ -141,10 +141,10 @@ export async function folderTrust(place: TrustPlace): Promise<FolderTrust> {
   return resolved.key ? { state: 'ask', folder: resolved.key } : { state: 'unknown' }
 }
 
-export async function trustFolder(place: TrustPlace, shown?: string): Promise<boolean> {
-  const resolved = await resolve(place)
-  if (!resolved?.key || (shown !== undefined && shown !== resolved.key)) return false
-  const path = await claudeConfigFile(place.home, place.configDir, place.customOAuth)
+export async function editClaudeConfig(
+  path: string,
+  edit: (config: ClaudeConfig) => ClaudeConfig | null,
+): Promise<boolean> {
   if (!(await readConfig(path))) return false
   let compromised = false
   const release = await lock(path, {
@@ -160,15 +160,8 @@ export async function trustFolder(place: TrustPlace, shown?: string): Promise<bo
     const read = await readConfig(path)
     if (!read) return false
     const { config, text, target, mode } = read
-    if (acceptedIn(config, resolved)) return true
-    const project = config.projects?.[resolved.key]
-    const next: ClaudeConfig = {
-      ...config,
-      projects: {
-        ...config.projects,
-        [resolved.key]: { ...project, hasTrustDialogAccepted: true },
-      },
-    }
+    const next = edit(config)
+    if (next === null) return true
     const out = `${JSON.stringify(next, null, 2)}${text.endsWith('\n') ? '\n' : ''}`
     if (compromised) return false
     await writeFileAtomicAsync(target, out, { mode })
@@ -176,4 +169,22 @@ export async function trustFolder(place: TrustPlace, shown?: string): Promise<bo
   } finally {
     await release().catch(() => undefined)
   }
+}
+
+export async function trustFolder(place: TrustPlace, shown?: string): Promise<boolean> {
+  const resolved = await resolve(place)
+  if (!resolved?.key || (shown !== undefined && shown !== resolved.key)) return false
+  const key = resolved.key
+  const path = await claudeConfigFile(place.home, place.configDir, place.customOAuth)
+  return editClaudeConfig(path, (config) =>
+    acceptedIn(config, resolved)
+      ? null
+      : {
+          ...config,
+          projects: {
+            ...config.projects,
+            [key]: { ...config.projects?.[key], hasTrustDialogAccepted: true },
+          },
+        },
+  )
 }

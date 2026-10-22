@@ -106,6 +106,7 @@ beforeAll(() => {
   chmodSync(join(bin, 'codex'), 0o755)
   registerCodexSocket(worker.externalId, codexSock)
   registerBusMethods({
+    hibernated: () => false,
     managerSendAllowed: () => true,
     agentBusy: () => false,
     announce: () => {},

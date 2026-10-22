@@ -13,10 +13,14 @@ export const extensionsBridge: Pick<
     remove: (id, uninstallExtensions) =>
       ipcRenderer.invoke('marketplace:remove', id, uninstallExtensions),
     refresh: (id) => ipcRenderer.invoke('marketplace:refresh', id),
-    install: (id, extId) => ipcRenderer.invoke('marketplace:install', id, extId),
+    install: (id, extId, confirmDowngrade) =>
+      ipcRenderer.invoke('marketplace:install', id, extId, confirmDowngrade),
     findCode: (code) => ipcRenderer.invoke('marketplace:find-code', code),
     installCode: (id, code) => ipcRenderer.invoke('marketplace:install-code', id, code),
     uninstall: (extId) => ipcRenderer.invoke('marketplace:uninstall', extId),
+    setPrerelease: (extId, enabled) =>
+      ipcRenderer.invoke('marketplace:set-prerelease', extId, enabled),
+    installDev: (source) => ipcRenderer.invoke('marketplace:install-dev', source),
   },
   suggestions: {
     forFile: (paneId, path) => ipcRenderer.invoke('suggestions:for-file', paneId, path),

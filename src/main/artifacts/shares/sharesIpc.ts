@@ -28,9 +28,9 @@ export function registerSharesIpc(shares: ShareService): void {
     (e): Promise<SharesListResult> =>
       fromWindow(e) ? shares.list() : Promise.resolve(NOT_A_WINDOW),
   )
-  ipcMain.handle('shares:copy-link', (e, id: unknown): ShareActionResult => {
+  ipcMain.handle('shares:copy-link', async (e, id: unknown): Promise<ShareActionResult> => {
     if (!fromWindow(e)) return NOT_A_WINDOW
-    return validId(id) ? shares.copyLink(id) : { ok: false, error: 'unknown' }
+    return validId(id) ? await shares.copyLink(id) : { ok: false, error: 'unknown' }
   })
   ipcMain.handle('shares:delete', (e, id: unknown): Promise<ShareActionResult> => {
     if (!fromWindow(e)) return Promise.resolve(NOT_A_WINDOW)

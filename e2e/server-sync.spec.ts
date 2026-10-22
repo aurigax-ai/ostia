@@ -47,22 +47,22 @@ async function openSettingsPage(win: Page, page: 'Server' | 'Sync'): Promise<voi
   await settings.getByLabel('General').getByRole('button', { name: page, exact: true }).click()
 }
 
-async function signIn(win: Page, invite: string): Promise<void> {
+async function signIn(win: Page, invite: string): Promise<string> {
   await openSettingsPage(win, 'Server')
   const settings = settingsOf(win)
   await settings.getByRole('textbox', { name: 'Invite code' }).fill(invite)
   await settings.getByRole('button', { name: 'Sign in' }).click()
-  await expect(settings.getByText(/^Signed in as .* with an invite code\.$/)).toBeVisible(SLOW)
+  const signedIn = settings.getByText(/^Signed in as .* with an invite code\./)
+  await expect(signedIn).toBeVisible(SLOW)
+  return /^Signed in as (.*) with an invite code\./.exec(await signedIn.innerText())?.[1] ?? ''
 }
 
 async function chooseServerMethod(win: Page): Promise<void> {
   await openSettingsPage(win, 'Sync')
-  const where = settingsOf(win).getByRole('group', { name: 'Where to sync' })
-  await where.getByRole('button', { name: 'Server' }).click()
-  await expect(where.getByRole('button', { name: 'Server' })).toHaveAttribute(
-    'aria-pressed',
-    'true',
-  )
+  const where = settingsOf(win).getByRole('combobox', { name: 'Where to sync' })
+  await where.click()
+  await win.getByRole('option', { name: 'Server' }).click()
+  await expect(where).toContainText('Server')
 }
 
 async function setUpSync(win: Page): Promise<void> {
@@ -73,7 +73,7 @@ async function setUpSync(win: Page): Promise<void> {
   const dialog = win.getByRole('alertdialog')
   await expect(dialog.getByText(/^([A-Z2-7]{4}-){7}[A-Z2-7]{4}$/)).toBeVisible(SLOW)
   await dialog.getByRole('button', { name: 'I saved it' }).click()
-  await expect(settings.getByText('Sync is on for this device.')).toBeVisible(SLOW)
+  await expect(settings.getByText(/Sync is on for this device\./)).toBeVisible(SLOW)
 }
 
 async function syncNow(win: Page): Promise<void> {
@@ -129,7 +129,7 @@ async function makeCode(win: Page): Promise<string> {
 
 async function approveRequest(win: Page): Promise<void> {
   const settings = settingsOf(win)
-  await expect(settings.getByText('Confirmation requested')).toBeVisible(SLOW)
+  await expect(settings.getByText(/Asks to confirm a change/)).toBeVisible(SLOW)
   await settings.getByRole('button', { name: 'Approve', exact: true }).click()
 }
 
@@ -162,16 +162,12 @@ test.describe('profile sync through the server end to end', () => {
 
       await openSettingsPage(first.win, 'Sync')
       const firstSettings = settingsOf(first.win)
-      await expect(firstSettings.getByText('A new device was added', { exact: false })).toBeVisible(
-        SLOW,
-      )
-      const asks = firstSettings.getByText(/wants to join your synced data/)
-      await expect(asks).toBeVisible(SLOW)
-      expect(await asks.innerText()).toContain(checkCode)
-      await firstSettings.getByRole('button', { name: 'It is mine' }).click()
-      await firstSettings.getByRole('button', { name: 'Approve', exact: true }).click()
+      const requests = firstSettings.getByRole('list', { name: 'Requests' })
+      await expect(requests.getByText(/^Check this code matches the one on /)).toBeVisible(SLOW)
+      await expect(requests.getByText(checkCode)).toBeVisible()
+      await requests.getByRole('button', { name: 'Approve', exact: true }).click()
       await secondSettings.getByRole('button', { name: `The code ${checkCode} matches` }).click()
-      await expect(secondSettings.getByText('Sync is on for this device.')).toBeVisible(SLOW)
+      await expect(secondSettings.getByText(/Sync is on for this device\./)).toBeVisible(SLOW)
 
       await changeTheme(first.win, CHANGED_THEME)
       await expectTheme(second.win, CHANGED_THEME)
@@ -184,26 +180,28 @@ test.describe('profile sync through the server end to end', () => {
 
       const third = await launchMachine(server, false)
       machines.push(third)
-      await signIn(third.win, thirdCode)
+      const thirdName = await signIn(third.win, thirdCode)
       await chooseServerMethod(third.win)
       const thirdSettings = settingsOf(third.win)
       await thirdSettings.getByRole('textbox', { name: 'Sync passphrase' }).fill(PASSPHRASE)
       await thirdSettings.getByRole('button', { name: 'Unlock', exact: true }).click()
-      await expect(thirdSettings.getByText('Sync is on for this device.')).toBeVisible(SLOW)
+      await expect(thirdSettings.getByText(/Sync is on for this device\./)).toBeVisible(SLOW)
       await syncNow(third.win)
       await keepOtherMachineValues(third.win)
       await expect.poll(() => themeOnDisk(third.win), SLOW).toBe(CHANGED_THEME)
 
-      await openSettingsPage(first.win, 'Sync')
-      await firstSettings.getByRole('button', { name: 'Remove', exact: true }).last().click()
+      await openSettingsPage(first.win, 'Server')
+      await firstSettings
+        .getByRole('listitem')
+        .filter({ hasText: thirdName })
+        .getByRole('button', { name: 'Remove', exact: true })
+        .click()
       await first.win.getByLabel('Sync passphrase').fill(PASSPHRASE)
       await first.win.getByRole('button', { name: 'Remove device' }).click()
       const removed = firstSettings.getByText(
         'The device was removed and the sync key was changed.',
       )
-      const waiting = firstSettings.getByText(
-        'Waiting for you to approve this on another of your devices.',
-      )
+      const waiting = firstSettings.getByText('Approve this on another of your devices.')
       await expect(removed.or(waiting)).toBeVisible(SLOW)
       if (await waiting.isVisible()) {
         await approveRequest(second.win)
@@ -216,18 +214,31 @@ test.describe('profile sync through the server end to end', () => {
         await openSettingsPage(second.win, 'Server')
         await openSettingsPage(second.win, 'Sync')
         await expect(
-          settingsOf(second.win).getByText(
-            'Another device sent a new sync key that was not signed by a device you trust, so it was ignored.',
-          ),
+          secondSettings.getByText(/from a device that is too new is ignored until/),
         ).toBeVisible({ timeout: 2_000 })
       }).toPass({ timeout: 30_000 })
+      await secondSettings.getByRole('textbox', { name: 'Sync passphrase' }).fill(PASSPHRASE)
+      await secondSettings.getByRole('button', { name: 'Unlock', exact: true }).click()
+      await expect(secondSettings.getByText(/from a device that is too new/)).toBeHidden(SLOW)
+      await expectTheme(second.win, SEEDED_THEME)
 
       await openSettingsPage(third.win, 'Sync')
       await syncNow(third.win)
-      await expect(thirdSettings.getByRole('status')).toContainText(
-        'This computer is not signed in to the server.',
-        SLOW,
-      )
+      await expect(
+        thirdSettings.getByText('This computer is not signed in to the server.').first(),
+      ).toBeVisible(SLOW)
+
+      await openSettingsPage(first.win, 'Server')
+      const devices = firstSettings.getByRole('list', { name: 'Devices' }).getByRole('listitem')
+      await expect(devices).toHaveCount(2, SLOW)
+      await openSettingsPage(second.win, 'Server')
+      await secondSettings.getByRole('button', { name: 'Sign out', exact: true }).click()
+      await second.win
+        .getByRole('alertdialog')
+        .getByRole('button', { name: 'Sign out', exact: true })
+        .click()
+      await expect(secondSettings.getByText(/^Signed in as /)).toBeHidden(SLOW)
+      await expect(devices).toHaveCount(1, { timeout: 40_000 })
     } finally {
       for (const machine of machines) await machine.app.close()
       await server.stop()

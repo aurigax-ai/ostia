@@ -121,6 +121,7 @@ beforeAll(() => {
     closing: (paneId, state, message, stop) => journal.report(paneId, state, message, stop),
   })
   registerBusMethods({
+    hibernated: () => false,
     managerSendAllowed: () => true,
     agentBusy: () => false,
     announce: () => {},

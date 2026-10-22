@@ -119,14 +119,6 @@ export function registerServerIpc(deps: ServerIpcDeps): void {
     guarded(() => account.devices(), Promise.resolve(NOT_A_WINDOW)),
   )
   ipcMain.handle(
-    'server:device-seen',
-    guarded(
-      (id: unknown) =>
-        validId(id) ? deps.devices.markSeen(id) : Promise.resolve<ServerActionResult>(INVALID),
-      Promise.resolve(NOT_A_WINDOW),
-    ),
-  )
-  ipcMain.handle(
     'server:invite-create',
     guarded(() => deps.devices.createInvite(), Promise.resolve(NOT_A_WINDOW)),
   )
@@ -144,10 +136,6 @@ export function registerServerIpc(deps: ServerIpcDeps): void {
   ipcMain.handle(
     'server:elevation-cancel',
     guarded(() => deps.elevation.cancel(), Promise.resolve()),
-  )
-  ipcMain.handle(
-    'server:approvals',
-    guarded(() => deps.elevation.approvals(), Promise.resolve(NOT_A_WINDOW)),
   )
   ipcMain.handle(
     'server:approve',

@@ -56,31 +56,38 @@ async function rig() {
 }
 
 describe('a linked device adopts a new key only from a trusted signed wrap', () => {
-  const cases: Array<[string, (r: Awaited<ReturnType<typeof rig>>) => Buffer]> = [
-    ['unsigned', () => Buffer.concat([Buffer.from([1]), randomBytes(48)])],
+  const cases: Array<
+    [string, 'untrusted' | 'too-new', (r: Awaited<ReturnType<typeof rig>>) => Buffer]
+  > = [
+    ['unsigned', 'untrusted', () => Buffer.concat([Buffer.from([1]), randomBytes(48)])],
     [
       'wrongly signed',
+      'untrusted',
       (r) => r.forge({ id: idOf(r.first), signPrivate: generateDeviceKeys().signPrivate }, r.ahead),
     ],
     [
       'signed by a device the manifest does not list',
+      'untrusted',
       (r) => r.forge({ id: 'ghost', signPrivate: generateDeviceKeys().signPrivate }, r.ahead),
     ],
     [
       'naming one trusted signer but signed with another one key',
+      'untrusted',
       (r) => r.forge({ id: idOf(r.third), signPrivate: signKey(r.first) }, r.ahead),
     ],
     [
       'signed by a device younger than the age bound',
+      'too-new',
       (r) => r.forge({ id: idOf(r.third), signPrivate: signKey(r.third) }, r.ahead),
     ],
     [
       'replaying a counter that is not above the highest',
+      'untrusted',
       (r) => r.forge({ id: idOf(r.first), signPrivate: signKey(r.first) }, r.highest),
     ],
   ]
 
-  for (const [index, [name, build]] of cases.entries()) {
+  for (const [index, [name, reason, build]] of cases.entries()) {
     it(`SSY-C${140 + index} ignores a wrap that is ${name}, keeps its key, uploads nothing and warns`, async () => {
       const r = await rig()
       plant(r.server, r.second, r.attacker, build(r), r.ahead)
@@ -90,7 +97,7 @@ describe('a linked device adopts a new key only from a trusted signed wrap', () 
       expect(r.second.keyring.key()?.equals(r.victimKey)).toBe(true)
       expect(r.second.keyring.highest()).toBe(r.highest)
       expect(r.server.requests.slice(uploads).some((q) => q.startsWith('PUT'))).toBe(false)
-      expect((await r.second.service.status()).wrapRefused).toBe(true)
+      expect((await r.second.service.status()).wrapRefused).toMatchObject({ reason })
     })
   }
 
@@ -103,7 +110,7 @@ describe('a linked device adopts a new key only from a trusted signed wrap', () 
     plant(r.server, r.second, r.attacker, r.forge(signer, r.ahead), r.ahead)
     expect((await r.second.sync.run()).status.state).toBe('ok')
     expect(r.second.keyring.key()?.equals(r.attacker)).toBe(true)
-    expect((await r.second.service.status()).wrapRefused).toBe(false)
+    expect((await r.second.service.status()).wrapRefused).toBeNull()
   })
 })
 
@@ -135,7 +142,7 @@ describe('the age of a signer counts from when this client first saw it', () => 
     plant(server, second, attacker, wrap, ahead)
     expect((await second.sync.run()).status.state).toBe('error')
     expect(second.keyring.key()?.equals(kept ?? Buffer.alloc(0))).toBe(true)
-    expect((await second.service.status()).wrapRefused).toBe(true)
+    expect((await second.service.status()).wrapRefused).toMatchObject({ reason: 'too-new' })
     server.advance(DAY + 3_600_000)
     expect((await second.sync.run()).status.state).toBe('ok')
     expect(second.keyring.key()?.equals(attacker)).toBe(true)
@@ -161,7 +168,7 @@ describe('the age of a signer counts from when this client first saw it', () => 
     )
     plant(server, second, attacker, wrap, ahead)
     expect((await second.sync.run()).status.state).toBe('error')
-    expect((await second.service.status()).wrapRefused).toBe(true)
+    expect((await second.service.status()).wrapRefused).toMatchObject({ reason: 'too-new' })
   })
 })
 
@@ -258,7 +265,8 @@ describe('rotation wraps the new key only to the pinned keys', () => {
         signPub: 'a',
         boxPub: 'b',
         createdAt: 1,
-        lastSeen: 0,
+        lastSeenAt: 0,
+        removeAt: 0,
         current: true,
       },
     ]
@@ -354,6 +362,133 @@ describe('adoption trusts only the last opened manifest', () => {
     expect((await first.sync.run()).status.state).toBe('error')
     expect(first.keyring.key()?.equals(adopted)).toBe(true)
     expect(server.requests.slice(uploads).some((q) => q.startsWith('PUT'))).toBe(false)
-    expect((await first.service.status()).wrapRefused).toBe(true)
+    expect((await first.service.status()).wrapRefused).toMatchObject({ reason: 'untrusted' })
+  })
+})
+
+describe('what the human is told and can do after a refused rotation', () => {
+  it('SSY-C161 tells a trusted but young signer apart, names the time and lets the passphrase unlock', async () => {
+    const { server, first } = await world()
+    const second = await join(server, first)
+    const third = await join(server, first, true, second)
+    await elevate(first, second)
+    expect((await first.service.removeDevice(idOf(third), PASSPHRASE, '')).ok).toBe(true)
+    expect((await second.sync.run()).status.state).toBe('error')
+    const held = (await second.service.status()).wrapRefused
+    expect(held?.reason).toBe('too-new')
+    expect(held?.after).toBeGreaterThan(server.now())
+    expect((await second.service.status()).state).toBe('ready')
+    expect((await second.service.unlock(PASSPHRASE)).ok).toBe(true)
+    expect((await second.service.status()).wrapRefused).toBeNull()
+    expect((await second.sync.run()).status.state).toBe('ok')
+    expect(second.keyring.key()?.equals(first.keyring.key() ?? Buffer.alloc(0))).toBe(true)
+  })
+})
+
+describe('the passphrase unlock after a refused rotation cannot roll the key back', () => {
+  async function removedThird() {
+    const { server, first } = await world()
+    const second = await join(server, first)
+    const third = await join(server, first, true, second)
+    const account = server.devices.get(idOf(first))?.accountId ?? ''
+    const old = server.syncData.get(account)?.wraps.get('passphrase')
+    if (!old) throw new Error('no passphrase wrap')
+    await elevate(first, second)
+    expect((await first.service.removeDevice(idOf(third), PASSPHRASE, '')).ok).toBe(true)
+    const replay = (): void => {
+      server.syncData.get(account)?.wraps.set('passphrase', { ...old })
+    }
+    return { server, first, second, replay }
+  }
+
+  it('SSY-C168 refuses an old passphrase wrap replayed by the server and keeps the key', async () => {
+    const { second, replay } = await removedThird()
+    expect((await second.sync.run()).status.state).toBe('error')
+    expect((await second.service.status()).wrapRefused?.reason).toBe('too-new')
+    const kept = second.keyring.key() ?? Buffer.alloc(0)
+    replay()
+    expect(await second.service.unlock(PASSPHRASE)).toMatchObject({
+      ok: false,
+      error: 'key-differs',
+    })
+    expect(second.keyring.key()?.equals(kept)).toBe(true)
+    expect((await second.service.status()).wrapRefused?.reason).toBe('too-new')
+  })
+
+  it('SSY-C169 refuses any ready-state unlock while the refusal is untrusted', async () => {
+    const r = await rig()
+    plant(
+      r.server,
+      r.second,
+      r.attacker,
+      r.forge({ id: 'ghost', signPrivate: signKey(r.first) }, r.ahead),
+      r.ahead,
+    )
+    expect((await r.second.sync.run()).status.state).toBe('error')
+    expect((await r.second.service.status()).wrapRefused?.reason).toBe('untrusted')
+    expect(await r.second.service.unlock(PASSPHRASE)).toMatchObject({
+      ok: false,
+      error: 'key-differs',
+    })
+    expect(r.second.keyring.key()?.equals(r.victimKey)).toBe(true)
+  })
+})
+
+describe('a check that cannot be made is not called untrusted', () => {
+  it('SSY-C170 reports an unverified signer when the listing lacks its row, then adopts once it is back', async () => {
+    const r = await rig()
+    const signer = { id: idOf(r.first), signPrivate: signKey(r.first) }
+    plant(r.server, r.second, r.attacker, r.forge(signer, r.ahead), r.ahead)
+    r.server.rewriteDevices = (_viewer, rows) => rows.filter((d) => d.id !== idOf(r.first))
+    expect((await r.second.sync.run()).status.state).toBe('error')
+    expect((await r.second.service.status()).wrapRefused?.reason).toBe('unverified')
+    r.server.rewriteDevices = null
+    expect((await r.second.sync.run()).status.state).toBe('ok')
+    expect(r.second.keyring.key()?.equals(r.attacker)).toBe(true)
+  })
+})
+
+describe('a join that another device overtakes', () => {
+  it('SSY-C162 reports a stale link in its own words, keeps the device locked and stops waiting', async () => {
+    const { server, first } = await world()
+    const fresh = await join(server, first, false)
+    await fresh.service.linkStart()
+    const asked = (await first.service.status()).joins[0]
+    await first.service.approveJoin(idOf(fresh), asked?.code ?? '')
+    first.writeSettings({ locale: 'en' }, 1)
+    await first.sync.run()
+    const code = (await fresh.service.status()).linkCodes[0]?.code ?? ''
+    const res = await fresh.service.linkConfirm(code)
+    expect(res).toMatchObject({ ok: false, error: 'link-stale' })
+    expect(fresh.keyring.key()).toBeNull()
+    expect(res.status).toMatchObject({ state: 'locked', linking: false, linkApproved: false })
+    expect((await fresh.service.unlock(PASSPHRASE)).ok).toBe(true)
+  })
+})
+
+describe('a device whose keys or creation time change under the same id', () => {
+  it('SSY-C163 is named in the status for a day after the change and then forgotten', async () => {
+    const { server, first } = await world()
+    const second = await join(server, first)
+    expect((await second.service.status()).changedDevices).toEqual([])
+    const known = second.keyring.trusted().find((d) => d.id === idOf(first))
+    if (!known) throw new Error('first is pinned')
+    const before = server.now()
+    second.keyring.pin([{ ...known, createdAt: known.createdAt + 1 }])
+    const changed = (await second.service.status()).changedDevices
+    expect(changed).toEqual([{ id: known.id, name: known.name, until: expect.any(Number) }])
+    expect(changed[0]?.until).toBeGreaterThanOrEqual(before + DAY)
+    expect(changed[0]?.until).toBeLessThanOrEqual(server.now() + DAY)
+    server.advance(DAY + 3_600_000)
+    expect((await second.service.status()).changedDevices).toEqual([])
+  })
+
+  it('SSY-C164 does not warn for a device that is seen for the first time or unchanged', async () => {
+    const { server, first } = await world()
+    const second = await join(server, first)
+    await second.sync.run()
+    await first.sync.run()
+    expect((await first.service.status()).changedDevices).toEqual([])
+    expect((await second.service.status()).changedDevices).toEqual([])
   })
 })

@@ -212,6 +212,29 @@ describe.skipIf(skipWithoutTmux)('TmuxServer', () => {
     expect(numbers).toEqual(Array.from({ length: 4000 - first }, (_, i) => first + i))
   })
 
+  it('does not leak the rest of a screen title that began before a kept pane was adopted', async () => {
+    const server = await connect()
+    const gate = mkdtempSync(join(root, 'gate-'))
+    const pane = await spawnSh(
+      server,
+      `while [ ! -e ${gate}/1 ]; do sleep 0.02; done; printf 'mark\\033kls'; ` +
+        `while [ ! -e ${gate}/2 ]; do sleep 0.02; done; printf -- '-la\\033\\\\after'; sleep 5`,
+    )
+    const again = await connect(join(root, 'sock'), basename(server.socketPath))
+    writeFileSync(join(gate, '1'), '')
+    await vi.waitUntil(
+      async () =>
+        (await again.command(`capture-pane -p -t ${pane.paneId}`)).join('').includes('mark'),
+      POLL,
+    )
+    const [kept] = await again.windows()
+    if (!kept) throw new Error('the window is gone')
+    const out = collect(again.adopt(kept))
+    writeFileSync(join(gate, '2'), '')
+    await vi.waitUntil(() => out.text().includes('after'), POLL)
+    expect(out.text()).toBe('after')
+  })
+
   it('hands a new pane the output it printed before tmux reported the window', async () => {
     const server = await connect()
     const panes = await Promise.all(

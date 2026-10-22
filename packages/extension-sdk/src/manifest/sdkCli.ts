@@ -13,6 +13,8 @@ import { EXTENSION_MANIFEST_FILE, type ExtensionManifest } from '../contract/ext
 import { PRODUCT_NAME } from '../contract/product'
 import { agentSkillProblems } from './agentSkills'
 import { readManifest } from './extensionManifest'
+import { checkExtensionSignature, signExtension } from './extensionSignature'
+import { isOlderVersion } from './extensionVersions'
 import { localeProblems } from './localeCatalogs'
 import { EXTENSION_ID_PATTERN } from './manifestFields'
 import {
@@ -26,10 +28,14 @@ export interface SdkCliResult {
   lines: string[]
 }
 
+const SIGNING_KEY_ENV = 'OSTIA_EXTENSION_SIGNING_KEY'
+
 export const SDK_CLI_USAGE = [
   `usage: ${PRODUCT_NAME}-extension create <id> [folder]`,
   `       ${PRODUCT_NAME}-extension validate [folder]`,
   `       ${PRODUCT_NAME}-extension unlist <extension folder> [marketplace folder]`,
+  `       ${PRODUCT_NAME}-extension sign <extension folder>   (private key in ${SIGNING_KEY_ENV})`,
+  `       ${PRODUCT_NAME}-extension verify <extension folder> <public key>`,
 ].join('\n')
 
 const CODE_ALPHABET = 'abcdefghijklmnopqrstuvwxyz234567'
@@ -75,6 +81,34 @@ function isDirectory(path: string): boolean {
   }
 }
 
+function historyProblems(dir: string, history: string[], current: Map<string, string>): string[] {
+  const problems: string[] = []
+  const seen = new Set<string>()
+  for (const path of history) {
+    const extDir = join(dir, path)
+    if (!isDirectory(extDir)) {
+      problems.push(`${path}: not a folder in the repository`)
+      continue
+    }
+    const check = checkExtension(extDir)
+    if (!check.ok) {
+      problems.push(`${path}: ${check.problem}`)
+      continue
+    }
+    const { id, version } = check.manifest
+    const newest = current.get(id)
+    const latest = newest ? readManifest(join(dir, newest)) : null
+    if (!latest?.ok) {
+      problems.push(`${path}: '${id}' is not an extension of this marketplace`)
+    } else if (!isOlderVersion(version, latest.manifest.version)) {
+      problems.push(`${path}: ${version} is not older than the listed ${latest.manifest.version}`)
+    }
+    if (seen.has(`${id}@${version}`)) problems.push(`${path}: ${id} ${version} is kept twice`)
+    seen.add(`${id}@${version}`)
+  }
+  return problems
+}
+
 function validateMarketplace(dir: string): SdkCliResult {
   let raw: unknown
   try {
@@ -104,6 +138,7 @@ function validateMarketplace(dir: string): SdkCliResult {
       problems.push(`${path}: duplicate extension id '${check.manifest.id}' (${earlier})`)
     else ids.set(check.manifest.id, path)
   }
+  problems.push(...historyProblems(dir, manifest.history, ids))
   if (problems.length > 0) return { code: 1, lines: problems }
   const hidden = manifest.unlisted.length > 0 ? `, ${manifest.unlisted.length} unlisted` : ''
   return {
@@ -223,6 +258,26 @@ function create(id: string, target: string, templateDir: string): SdkCliResult {
   }
 }
 
+function signFolder(dir: string): SdkCliResult {
+  const key = process.env[SIGNING_KEY_ENV]
+  if (!key) return { code: 1, lines: [`${SIGNING_KEY_ENV} holds no private key`] }
+  const check = checkExtension(dir)
+  if (!check.ok) return { code: 1, lines: [`${EXTENSION_MANIFEST_FILE}: ${check.problem}`] }
+  const { id, version } = check.manifest
+  const { digest } = signExtension(dir, id, version, key)
+  return { code: 0, lines: [`signed ${id} ${version}: ${digest}`] }
+}
+
+function verifyFolder(dir: string, publicKey: string): SdkCliResult {
+  const res = readManifest(dir)
+  if (!res.ok) return { code: 1, lines: [`${EXTENSION_MANIFEST_FILE}: ${res.error}`] }
+  const { id, version } = res.manifest
+  const verdict = checkExtensionSignature(dir, id, version, publicKey)
+  return verdict.ok
+    ? { code: 0, lines: [`ok: ${id} ${version} is signed by the official key`] }
+    : { code: 1, lines: [`${id} ${version}: ${verdict.problem}`] }
+}
+
 export function runSdkCli(
   argv: string[],
   templateDir: string = join(__dirname, '../template'),
@@ -233,6 +288,10 @@ export function runSdkCli(
   }
   if (verb === 'unlist' && (args.length === 1 || args.length === 2)) {
     return unlist(resolve(args[1] ?? '.'), args[0] as string)
+  }
+  if (verb === 'sign' && args.length === 1) return signFolder(resolve(args[0] as string))
+  if (verb === 'verify' && args.length === 2) {
+    return verifyFolder(resolve(args[0] as string), args[1] as string)
   }
   if (verb !== 'validate' || args.length > 1) return { code: 2, lines: [SDK_CLI_USAGE] }
   const dir = resolve(args[0] ?? '.')

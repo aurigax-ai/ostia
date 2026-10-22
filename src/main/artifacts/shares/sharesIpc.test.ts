@@ -15,7 +15,7 @@ const guest = { sender: { getType: () => 'webview' } }
 const service = {
   availability: vi.fn(async () => ({ state: 'off' })),
   list: vi.fn(async () => ({ ok: true, shares: [] })),
-  copyLink: vi.fn(() => ({ ok: true })),
+  copyLink: vi.fn(async () => ({ ok: true })),
   remove: vi.fn(async () => ({ ok: true })),
 }
 
@@ -35,7 +35,7 @@ describe('shares IPC', () => {
     ])
     expect(await handlers.get('shares:status')?.(guest)).toEqual({ state: 'unavailable' })
     expect(await handlers.get('shares:list')?.(guest)).toEqual({ ok: false, error: 'not-a-window' })
-    expect(handlers.get('shares:copy-link')?.(guest, 'id')).toEqual({
+    expect(await handlers.get('shares:copy-link')?.(guest, 'id')).toEqual({
       ok: false,
       error: 'not-a-window',
     })
@@ -50,12 +50,12 @@ describe('shares IPC', () => {
   })
 
   it('SHR-C51 passes a share id to the service and refuses anything else', async () => {
-    expect(handlers.get('shares:copy-link')?.(window, 'abc')).toEqual({ ok: true })
+    expect(await handlers.get('shares:copy-link')?.(window, 'abc')).toEqual({ ok: true })
     expect(await handlers.get('shares:delete')?.(window, 'abc')).toEqual({ ok: true })
     expect(service.copyLink).toHaveBeenCalledWith('abc')
     expect(service.remove).toHaveBeenCalledWith('abc')
     for (const bad of [undefined, 7, '', 'x'.repeat(200)]) {
-      expect(handlers.get('shares:copy-link')?.(window, bad)).toEqual({
+      expect(await handlers.get('shares:copy-link')?.(window, bad)).toEqual({
         ok: false,
         error: 'unknown',
       })

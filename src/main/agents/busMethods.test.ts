@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { MailPending } from '../../shared/agents/busMessages'
+import { shortId } from '../../shared/panes/paneStatus'
 import type { ControlMethod, ControlMethodContext } from '../control/controlServer'
 
 const dataHome = mkdtempSync(join(tmpdir(), 'ostia-bus-'))
@@ -37,6 +38,8 @@ const { markManager, registerPane, registerScript, removePane } = await import(
   '../control/idRegistry'
 )
 const { rememberClosedPane } = await import('../panes/closedPanes')
+const { claimName, dropName, forgetNames, nameOf } = await import('../panes/paneNames')
+const { BUS_NAME_NOTICE } = await import('../../shared/agents/busMessages')
 
 const queuedWakes: Array<boolean | undefined> = []
 onMailQueued((mail) => queuedWakes.push(mail.wakes))
@@ -51,7 +54,9 @@ const sandboxed = new Set<string>()
 const confined = new Set<string>()
 const owned = new Set<string>()
 const named = new Map<string, string[]>()
+const hibernating = new Set<string>()
 registerBusMethods({
+  hibernated: (paneId) => hibernating.has(paneId),
   managerSendAllowed: () => managerMaySend,
   agentBusy: (pane) => busyPanes.has(pane.paneId),
   announce,
@@ -135,13 +140,14 @@ const sent = (identity = sender) =>
   call<Promise<{ messages: Sent[] }>>('bus.sent', identity).then((res) => res.messages)
 const send = (text: string, to = receiver.externalId, from = sender, extra = {}) =>
   call<Promise<Answer>>('bus.send', from, { to, text, ...extra })
-const context = (identity = receiver, event = 'UserPromptSubmit') =>
-  call<{ text: string | null; lease?: string }>('bus.context', identity, { event })
+const context = (identity = receiver, event = 'UserPromptSubmit', source?: string) =>
+  call<{ text: string | null; lease?: string }>('bus.context', identity, { event, source })
 const ack = (lease: string | undefined, identity = receiver) =>
   call<{ acked: number }>('bus.ack', identity, { lease }).acked
 
 beforeEach(async () => {
   await resetBus()
+  forgetNames()
   rmSync(join(dataHome, 'ostia'), { recursive: true, force: true })
   announce.mockClear()
   queuedWakes.length = 0
@@ -617,7 +623,7 @@ describe('hook context', () => {
     await send('first')
     await send('second')
     const shown = context()
-    expect(shown.text).toContain('2 unread messages')
+    expect(shown.text).toContain('2 messages from other panes')
     expect(shown.text).toContain('first')
     expect(shown.text).toContain('second')
     expect(shown.text).toMatch(/<message id="[A-Za-z0-9-]+" from=/)
@@ -653,16 +659,16 @@ describe('hook context', () => {
   it('leaves messages that did not fit queued, so the next prompt shows them', async () => {
     for (let i = 0; i < 6; i++) await send(`${i}`.repeat(2500))
     const first = context()
-    expect(first.text).toContain('2 unread messages')
+    expect(first.text).toContain('2 messages from other panes')
     expect(first.text).toContain('4 more not shown here')
     ack(first.lease)
     expect((await sent()).filter((m) => m.state === 'delivered')).toHaveLength(2)
     const second = context()
-    expect(second.text).toContain('2 unread messages')
+    expect(second.text).toContain('2 messages from other panes')
     expect(second.text).toContain('2 more not shown here')
     ack(second.lease)
     const third = context()
-    expect(third.text).toContain('2 unread messages')
+    expect(third.text).toContain('2 messages from other panes')
     expect(third.text).not.toContain('more not shown here')
     ack(third.lease)
     expect(context().text).toBeNull()
@@ -725,7 +731,7 @@ describe('bus.take for the mod', () => {
     await send('first')
     await send('second')
     const taken = take()
-    expect(taken.text).toContain('2 unread messages')
+    expect(taken.text).toContain('2 messages from other panes')
     expect(taken.text).toContain('first')
     expect(taken.lease).toBeTruthy()
     expect((await sent()).map((m) => m.state)).toEqual(['leased', 'leased'])
@@ -967,5 +973,74 @@ describe('who may wake a hibernated pane by mail', () => {
     held.add('all-workspaces')
     await send('far again', faraway.externalId)
     expect(queuedWakes).toEqual([undefined, true])
+  })
+})
+
+describe('bus names', () => {
+  it('sends to a registered name and queues the mail for the pane that held it', async () => {
+    claimName(receiver.paneId, 'boss', undefined)
+    const res = await send('by name', 'boss')
+    expect(res).toMatchObject({ ok: true, state: 'queued' })
+    expect(inbox().map((m) => m.text)).toEqual(['by name'])
+    expect(ensureCaps).toHaveBeenCalledWith({}, sender, ['send-other-pane'], 'bus.send', 'to boss')
+  })
+
+  it('keeps mail addressed to the pane id when the name moves or goes away', async () => {
+    claimName(receiver.paneId, 'boss', undefined)
+    await send('queued', 'boss')
+    dropName(receiver.paneId)
+    claimName(sender.paneId, 'boss', undefined)
+    expect(inbox().map((m) => m.text)).toEqual(['queued'])
+    expect(inbox(sender)).toEqual([])
+  })
+
+  it('answers unknown-pane for a name that was dropped', async () => {
+    claimName(receiver.paneId, 'boss', undefined)
+    dropName(receiver.paneId)
+    expect(await send('lost', 'boss')).toMatchObject({ ok: false, error: 'unknown-pane' })
+  })
+
+  it('needs all-workspaces for a name held in another workspace and reaches only what the caller sees', async () => {
+    claimName(faraway.paneId, 'far-boss', undefined)
+    expect(await send('x', 'far-boss')).toMatchObject({ ok: false, error: 'unknown-pane' })
+    scopeReaches.add('ws9')
+    expect(await send('y', 'far-boss')).toMatchObject({ ok: true, state: 'queued' })
+    expect(inbox(faraway)).toHaveLength(1)
+  })
+
+  it('refuses to choose between a bus name and a tab --name in reach', async () => {
+    claimName(receiver.paneId, 'boss', undefined)
+    named.set('boss', [sender.paneId])
+    scopeReaches.add('ws1')
+    expect(await send('who', 'boss', faraway)).toMatchObject({ ok: false, error: 'ambiguous-pane' })
+  })
+
+  it('shows the sender’s real pane id and its current name, never a claimed identity', async () => {
+    claimName(sender.paneId, 'lead', undefined)
+    await send('who am I', receiver.externalId, sender)
+    const [wire] = inbox()
+    expect(wire).toMatchObject({ from: sender.externalId, fromName: 'lead' })
+    const shown = context().text ?? ''
+    expect(shown).toContain(`from="${shortId(sender.externalId)}" name="lead"`)
+  })
+
+  it('tells a resumed or cleared session without a name that names are dropped, and nobody else', () => {
+    expect(context(receiver, 'SessionStart', 'resume').text).toBe(BUS_NAME_NOTICE)
+    expect(context(receiver, 'SessionStart', 'clear').text).toBe(BUS_NAME_NOTICE)
+    expect(context(receiver, 'SessionStart', 'startup').text).toBeNull()
+    expect(context(receiver, 'SessionStart').text).toBeNull()
+    expect(context(receiver, 'UserPromptSubmit', 'resume').text).toBeNull()
+    claimName(receiver.paneId, 'boss', undefined)
+    expect(context(receiver, 'SessionStart', 'resume').text).toBeNull()
+  })
+
+  it('drops the name when the agent’s session ends, but not when the pane is hibernating', () => {
+    claimName(receiver.paneId, 'boss', undefined)
+    hibernating.add(receiver.paneId)
+    call('bus.modReady', receiver, { state: 'gone' })
+    expect(nameOf(receiver.paneId)?.name).toBe('boss')
+    hibernating.clear()
+    call('bus.modReady', receiver, { state: 'gone' })
+    expect(nameOf(receiver.paneId)).toBeUndefined()
   })
 })

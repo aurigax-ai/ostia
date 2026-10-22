@@ -1,3 +1,5 @@
+import { PRODUCT_DISPLAY_NAME } from '@aurigax-ai/ostia-extension-sdk/contract/productDisplay'
+import { gatekeeperHint, maybeEndedByGatekeeper } from '../../shared/panes/gatekeeperKill'
 import { PromptMarkScanner, plainTerminalText } from '../terminal/terminalText'
 
 const COMMAND_START = 'C'
@@ -27,6 +29,8 @@ export interface ProcessEntry {
   startedAt: string
   status: ProcessStatus
   exitCode?: number
+  runningAt?: number
+  ranMs?: number
   outputStart?: number
   outputEnd?: number
   splitTab?: string
@@ -40,6 +44,7 @@ export interface ProcessInfo {
   cwd: string | undefined
   status: ProcessStatus
   exitCode: number | undefined
+  hint?: string
   paneId: string
   startedAt: string
   splitTab?: string
@@ -67,6 +72,8 @@ export interface RegistryDeps {
   ring: (paneId: string) => RingReader | undefined
   workspaceOfPane: (paneId: string) => string | undefined
   now: () => Date
+  platform?: NodeJS.Platform
+  monotonicMs?: () => number
   onChange?: (entry: ProcessEntry) => void
 }
 
@@ -163,6 +170,7 @@ export class ProcessRegistry {
     for (const mark of tracking.scanner.scan(data, endCursor)) {
       if (mark.kind === COMMAND_START && entry.status === 'starting') {
         entry.status = 'running'
+        entry.runningAt = this.monotonicMs()
         entry.outputStart = mark.end
         this.deps.onChange?.(entry)
       } else if (mark.kind === COMMAND_END && entry.status === 'running') {
@@ -230,6 +238,8 @@ export class ProcessRegistry {
     this.frozen.delete(entry.id)
     entry.status = 'starting'
     entry.exitCode = undefined
+    entry.runningAt = undefined
+    entry.ranMs = undefined
     entry.outputStart = undefined
     entry.outputEnd = undefined
     entry.startedAt = this.deps.now().toISOString()
@@ -340,11 +350,27 @@ export class ProcessRegistry {
       cwd: entry.cwd,
       status: entry.status,
       exitCode: entry.exitCode,
+      ...(this.gatekeeperSuspected(entry) ? { hint: gatekeeperHint(PRODUCT_DISPLAY_NAME) } : {}),
       paneId: entry.externalPaneId,
       startedAt: entry.startedAt,
       ...(entry.splitTab ? { splitTab: entry.splitTab } : {}),
       ...(entry.start ? { start: entry.start } : {}),
     }
+  }
+
+  private monotonicMs(): number {
+    return (this.deps.monotonicMs ?? (() => performance.now()))()
+  }
+
+  private gatekeeperSuspected(entry: ProcessEntry): boolean {
+    return (
+      entry.status === 'exited' &&
+      maybeEndedByGatekeeper({
+        platform: this.deps.platform ?? process.platform,
+        exitCode: entry.exitCode,
+        ranMs: entry.ranMs,
+      })
+    )
   }
 
   private track(entry: ProcessEntry): void {
@@ -361,6 +387,9 @@ export class ProcessRegistry {
   private finish(entry: ProcessEntry, end: number, exitCode: number | undefined): void {
     entry.status = 'exited'
     entry.exitCode = exitCode
+    if (entry.runningAt !== undefined) {
+      entry.ranMs = this.monotonicMs() - entry.runningAt
+    }
     if (entry.outputStart !== undefined) entry.outputEnd = Math.max(end, entry.outputStart)
     this.release(entry)
     this.deps.onChange?.(entry)

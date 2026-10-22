@@ -309,12 +309,20 @@ export class ShareService {
     )
   }
 
-  copyLink(id: string): ShareActionResult {
+  async copyLink(id: string): Promise<ShareActionResult> {
     const record = this.scoped(this.deps.store.get(id))
     if (!record) return { ok: false, error: 'unknown' }
-    const key = record.linkKey ? Buffer.from(record.linkKey, 'base64url') : null
-    this.deps.writeClipboard(shareLink(record.url, key))
-    return { ok: true }
+    if (!this.deps.account.signedIn()) return { ok: false, error: 'signed-out' }
+    try {
+      const { shares } = await this.deps.account.authed((token, routes) => routes.shares(token))
+      const row = shares.find((share) => share.id === id)
+      if (!row) return { ok: false, error: 'unknown' }
+      const key = record.linkKey ? Buffer.from(record.linkKey, 'base64url') : null
+      this.deps.writeClipboard(shareLink(row.url, key))
+      return { ok: true }
+    } catch (error) {
+      return { ok: false, error: listFailure(error) }
+    }
   }
 
   async remove(id: string): Promise<ShareActionResult> {

@@ -12,6 +12,19 @@ function pane(): { input: PaneInput; advance: (ms: number) => void } {
 }
 
 describe('PaneInput', () => {
+  it.each([
+    ['an OSC colour reply ended by BEL', '\x1b]11;rgb:1e1e/1e1e/1e1e\x07'],
+    ['an OSC reply ended by ST', '\x1b]4;1;rgb:cdcd/0000/0000\x1b\\'],
+    ['a DCS reply', '\x1bP1+r544e\x1b\\'],
+  ])('ignores %s while the human types a line', (_name, reply) => {
+    const { input } = pane()
+    input.note('fix ', 'key')
+    input.note(reply, null)
+    input.note('the cart', 'key')
+    input.note('\r', 'key')
+    expect(input.claimHumanPrompt('x')).toBe('fix the cart')
+  })
+
   it('counts a line the human typed and submitted', () => {
     const { input } = pane()
     input.note('fix the cart', 'key')

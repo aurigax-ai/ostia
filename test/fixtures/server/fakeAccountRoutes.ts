@@ -55,29 +55,6 @@ export function accountRoutes(server: FakeServer): Array<[string, RegExp, Handle
     server.reply(res, 201, { code, expiresAt })
   }
 
-  const seen: Handler = (req, res, body, _raw, [target]) => {
-    const auth = server.authed(req, res)
-    if (!auth) return
-    const { device } = auth
-    const other = lookupDevice(server, device.accountId, target ?? '')
-    if (!other) {
-      server.error(res, 404, 'unknown-device')
-      return
-    }
-    const message = `ostia-server/seen/v1\n${device.id}\n${other.id}`
-    const signature = String(body.sig ?? '')
-    if (!signature) {
-      server.error(res, 403, 'device-signature-required')
-      return
-    }
-    if (!server.verifySignature(device, message, signature)) {
-      server.error(res, 403, 'bad-signature')
-      return
-    }
-    server.acknowledged.add(`${device.id}:${other.id}`)
-    res.writeHead(204).end()
-  }
-
   const revoke: Handler = (req, res, _body, _raw, [target]) => {
     const auth = server.authed(req, res)
     if (!auth) return
@@ -92,17 +69,14 @@ export function accountRoutes(server: FakeServer): Array<[string, RegExp, Handle
         req,
         res,
         device,
-        () => `ostia-server/revoke/v1\n${device.id}\n${other.id}`,
-        false,
+        (s) => `ostia-server/revoke/v2\n${device.id}\n${s}\n${other.id}`,
+        true,
       )
     ) {
       return
     }
     const probation = !old(other) && other.order > device.order && other.id !== device.id
-    const older = server
-      .accountDevices(device.accountId)
-      .some((d) => d.id !== device.id && d.order < device.order)
-    const free = other.id === device.id ? older : probation
+    const free = other.id === device.id || probation
     if (!free && !server.elevated(session)) {
       server.error(res, 403, 'elevation-required')
       return
@@ -262,7 +236,6 @@ export function accountRoutes(server: FakeServer): Array<[string, RegExp, Handle
 
   return [
     ['POST', /^\/v1\/devices\/invite$/, invite],
-    ['POST', /^\/v1\/devices\/([^/]+)\/seen$/, seen],
     ['DELETE', /^\/v1\/devices\/([^/]+)$/, revoke],
     ['GET', /^\/v1\/auth\/elevation$/, elevation],
     ['POST', /^\/v1\/auth\/elevation\/approval$/, requestApproval],

@@ -1,0 +1,13 @@
+{
+  "name": "claude accounts",
+  "paths": [
+    "src/main/agents/claudeAccounts/",
+    "src/renderer/components/agents/ClaudeAccountsMenu.tsx",
+    "src/renderer/components/agents/ClaudeAccountsSection.tsx",
+    "src/renderer/lib/agents/useClaudeAccounts.ts",
+    "src/shared/claudeAccounts/"
+  ],
+  "specs": [
+    "e2e/claude-accounts.spec.ts"
+  ]
+}

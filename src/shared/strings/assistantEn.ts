@@ -27,6 +27,7 @@ export const assistantEn = {
     version: 'Version',
   },
   approvals: {
+    accountSwitch: '{pane} wants new Claude sessions to start on {subject}',
     allowAlways: 'Always allow',
     allowChoices: 'More ways to allow',
     allowOnce: 'Allow once',

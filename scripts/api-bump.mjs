@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process'
-import { readFileSync, readdirSync, writeFileSync } from 'node:fs'
+import { readdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import {
   apiVersion,
@@ -7,10 +7,12 @@ import {
   writeApiVersion,
   writeLock,
 } from '@aurigax-ai/ostia-extension-sdk/api-contract'
+import { marketplaceIds } from './marketplace.mjs'
 
 function inTreeManifests() {
+  const released = new Set(marketplaceIds())
   const extensions = readdirSync('src/extensions', { withFileTypes: true })
-    .filter((entry) => entry.isDirectory())
+    .filter((entry) => entry.isDirectory() && !released.has(entry.name))
     .map((entry) => join('src/extensions', entry.name, 'ostia.json'))
   return [...extensions, 'packages/extension-sdk/template/ostia.json']
 }

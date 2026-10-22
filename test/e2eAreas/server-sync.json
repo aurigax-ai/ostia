@@ -3,7 +3,9 @@
   "paths": [
     "src/main/profileSync/argon2.",
     "src/main/profileSync/serverSync/",
+    "src/renderer/components/server/SyncRequests.",
     "src/renderer/components/settings/SyncServer",
+    "src/renderer/stores/server/",
     "src/shared/profileSync/serverSync."
   ],
   "specs": [

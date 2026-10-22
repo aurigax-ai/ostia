@@ -342,7 +342,12 @@ function paneLabels(
       n: title ? byTitle : byAgent,
     })
   }
-  return (pane) => labels.get(pane) ?? { n: 1 }
+  return (pane) => {
+    const exact = labels.get(pane)
+    if (exact) return exact
+    const matches = ordered.filter((id) => id.startsWith(pane))
+    return (matches.length === 1 && labels.get(matches[0])) || { n: 1 }
+  }
 }
 
 const OTHER_ENDPOINTS: Record<string, 'ostia' | 'extension' | 'elsewhere'> = {

@@ -25,7 +25,7 @@ const repoRoot = resolve(packageDir, '../..')
 const out = join(repoRoot, 'out/sdk')
 const repository = 'https://github.com/aurigax-ai/ostia'
 const source = JSON.parse(readFileSync(join(packageDir, 'package.json'), 'utf8'))
-const { version } = JSON.parse(readFileSync(join(repoRoot, 'package.json'), 'utf8'))
+const { version } = source
 const { catalog } = parse(readFileSync(join(repoRoot, 'pnpm-workspace.yaml'), 'utf8'))
 const ranges = (dependencies) =>
   Object.fromEntries(

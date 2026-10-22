@@ -8,9 +8,12 @@ import { CORE_SKILL_FILES } from '../agents/bundledSkills'
 import type { PlaybookFile } from '../agents/playbookFiles'
 import {
   AGENT_SKILL_NAME,
+  CLAUDE_FOLD_DIR,
+  CLAUDE_FOLD_SOURCE,
   CLAUDE_MOD_FILE,
   CLAUDE_MOD_SOURCE,
   claudeHookSettings,
+  writeClaudeFoldPlugin,
   writeClaudePlugin,
 } from './claudeIntegration'
 import {
@@ -31,6 +34,7 @@ export function agentPluginDigest(
       version,
       claudeHooks: claudeHookSettings(content.hooks),
       claudeMod: CLAUDE_MOD_SOURCE,
+      claudeFold: CLAUDE_FOLD_SOURCE,
       codexHookArgs: codexHookArgs('', content.hooks),
     }),
   )
@@ -60,6 +64,9 @@ export function agentPluginFiles(
     join('claude-plugin', '.claude-plugin', 'plugin.json'),
     join('claude-plugin', 'hooks', 'hooks.json'),
     join('claude-plugin', 'hooks', CLAUDE_MOD_FILE),
+    join(CLAUDE_FOLD_DIR, '.claude-plugin', 'plugin.json'),
+    join(CLAUDE_FOLD_DIR, 'hooks', 'hooks.json'),
+    join(CLAUDE_FOLD_DIR, 'hooks', CLAUDE_MOD_FILE),
     ...CORE_SKILL_FILES.flatMap((file) => [
       join('claude-plugin', 'skills', AGENT_SKILL_NAME, file.path),
       join('codex', file.path),
@@ -88,6 +95,7 @@ export function writeAgentPlugin(
   const dir = join(root, agentPluginDigest(content, playbooks))
   return installGenerated(root, dir, agentPluginFiles(content, playbooks), (staging) => {
     writeClaudePlugin(join(staging, 'claude-plugin'), content, playbooks)
+    writeClaudeFoldPlugin(join(staging, CLAUDE_FOLD_DIR))
     writeCodexIntegration(join(staging, 'codex'), content, join(dir, 'codex'), playbooks)
   })
 }

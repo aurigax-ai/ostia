@@ -1,9 +1,11 @@
 import { type IpcMainInvokeEvent, ipcMain } from 'electron'
 import type { ServerSyncResult, ServerSyncStatus } from '../../../shared/profileSync/serverSync'
 import type { ServerSyncService } from './serverSyncService'
+import type { SyncAttentionWatch } from './syncAttention'
 
 export interface ServerSyncIpcDeps {
   service: ServerSyncService
+  attention: SyncAttentionWatch
   run: () => Promise<unknown>
   broadcast: (channel: string, payload?: unknown) => void
 }
@@ -19,7 +21,8 @@ const REFUSED_STATUS: ServerSyncStatus = {
   linkCodes: [],
   joins: [],
   recoveryStale: false,
-  wrapRefused: false,
+  wrapRefused: null,
+  changedDevices: [],
 }
 
 const refused = (error: 'not-a-window' | 'invalid-input'): ServerSyncResult => ({
@@ -40,7 +43,12 @@ function fromWindow(e: IpcMainInvokeEvent): boolean {
   return e.sender.getType() === 'window'
 }
 
-export function registerServerSyncIpc({ service, run, broadcast }: ServerSyncIpcDeps): void {
+export function registerServerSyncIpc({
+  service,
+  attention,
+  run,
+  broadcast,
+}: ServerSyncIpcDeps): void {
   const act = (
     channel: string,
     arity: number,
@@ -58,8 +66,13 @@ export function registerServerSyncIpc({ service, run, broadcast }: ServerSyncIpc
     })
   }
 
-  ipcMain.handle('syncServer:status', (e) =>
-    fromWindow(e) ? service.status() : Promise.resolve(REFUSED_STATUS),
+  ipcMain.handle('syncServer:status', (e) => {
+    if (!fromWindow(e)) return Promise.resolve(REFUSED_STATUS)
+    attention.touch()
+    return service.status()
+  })
+  ipcMain.handle('syncServer:attention', (e) =>
+    fromWindow(e) ? attention.scan() : Promise.resolve([]),
   )
   act('syncServer:setup', 2, (pw, confirm) => service.setup(pw ?? '', confirm ?? ''))
   act('syncServer:unlock', 1, (pw) => service.unlock(pw ?? ''))
@@ -68,7 +81,6 @@ export function registerServerSyncIpc({ service, run, broadcast }: ServerSyncIpc
   act('syncServer:link-stop', 0, () => service.linkStop(), false)
   act('syncServer:link-confirm', 1, (code) => service.linkConfirm(code ?? ''))
   act('syncServer:new-recovery-key', 0, () => service.newRecoveryKey(), false)
-  act('syncServer:gc', 0, () => service.collectGarbage(), false)
   act('syncServer:rotate', 2, (pw, key) => service.rotate(pw ?? '', key ?? ''))
   act(
     'syncServer:approve-join',

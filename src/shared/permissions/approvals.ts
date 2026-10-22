@@ -21,6 +21,7 @@ const APPROVAL_KINDS = [
   'secret',
   'package',
   'package-malware',
+  'account-switch',
   'reach-group',
   'reach-project',
 ] as const
@@ -30,7 +31,7 @@ function answersFor(kind: ApprovalKind = 'capability'): readonly ApprovalAnswer[
   if (kind === 'capability') return ['once', 'session', 'always', 'deny']
   if (kind === 'secret') return ['once', 'session', 'deny']
   if (kind === 'package') return ['once', 'workspace', 'deny']
-  if (kind === 'package-malware') return ['once', 'deny']
+  if (kind === 'package-malware' || kind === 'account-switch') return ['once', 'deny']
   if (kind === 'reach-group' || kind === 'reach-project') return ['workspace', 'deny']
   return ['workspace', 'session', 'deny']
 }

@@ -10,6 +10,7 @@ import {
   SidebarSimpleIcon,
 } from '@phosphor-icons/react'
 import { useState } from 'react'
+import { ClaudeAccountsMenu } from '@/components/agents/ClaudeAccountsMenu'
 import { DashboardButton } from '@/components/agents/DashboardButton'
 import { NotificationCenter } from '@/components/agents/NotificationCenter'
 import { AssistantMenu } from '@/components/assist/AssistantMenu'
@@ -82,6 +83,7 @@ export function TopBar(): JSX.Element {
           aria-pressed={filesOpen}
           onClick={toggleFiles}
         />
+        <ClaudeAccountsMenu />
         <PanelToggles />
         <DashboardButton />
       </div>

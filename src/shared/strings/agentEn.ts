@@ -12,4 +12,41 @@ export const agentEn = {
     rulesOn: 'Your Skill Workshop rules are in this session. Click to leave them out.',
     sandboxed: 'The Agent is not available in a sandboxed workspace.',
   },
+  claudeAccounts: {
+    actionsFor: 'Actions for {account}',
+    active: 'Active',
+    add: 'Add',
+    addNoWorkspace:
+      'Open a terminal workspace that is not sandboxed or scratch, then add the account.',
+    addNotOpened: 'Could not open a terminal tab to sign in.',
+    adding:
+      'Sign in to the account in the new terminal tab. It is added here when the sign-in is done.',
+    broughtBack: 'Brought back {count} accounts that were still signed in.',
+    cancel: 'Cancel',
+    damaged:
+      'The list of Claude accounts could not be read, so nothing was changed and every sign-in is kept. The old file is kept beside it. Start fresh to add accounts again; the accounts that are still signed in come back.',
+    damagedFresh: 'Start fresh',
+    defaultAccount: 'Default account',
+    defaultLabel: 'Default',
+    duplicate: '{email} is already added.',
+    listLabel: 'Claude accounts',
+    loginTitle: 'Add Claude account',
+    manage: 'Manage accounts…',
+    menuLabel: 'Claude accounts',
+    recoverBack: 'Bring back',
+    recoverable:
+      '{count} signed-in accounts are on this computer but not in the list. Bring them back to use them again.',
+    remove: 'Remove',
+    removeBody:
+      '{product} forgets this account and deletes its sign-in from this computer. It does not sign you out of Claude anywhere else.',
+    removeRunning:
+      'A Claude session is still running on this account. Close it, then remove the account.',
+    removeTitle: 'Remove {account}?',
+    sharedDesc:
+      'Settings, MCP servers, keybindings, CLAUDE.md, skills, commands, agents, history and sessions come from the Default account; settings and MCP servers are copied each time a session starts, so changes made under another account are replaced by the Default ones at its next start. Plugins and the sign-in belong to each account.',
+    sharedTitle: 'What accounts share',
+    switchTo: 'Switch to',
+    title: 'Claude accounts',
+    titleDesc: 'Sign in with more than one Claude account and choose which one new sessions use.',
+  },
 }

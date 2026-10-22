@@ -21,10 +21,17 @@ import { topUsage, type UsageAnswer, usageGate } from './common/usageTable'
 import { buildVersionAt } from './common/version'
 import { skewMarkFile, versionSkewWarning } from './common/versionSkew'
 import { runAgentHook } from './hooks/agentHook'
-import { runClaudeHookVerb, runResumeTokenVerb, runTurnHookVerb } from './hooks/agentReports'
+import {
+  runClaudeHookVerb,
+  runCodexHookVerb,
+  runResumeTokenVerb,
+  runTurnHookVerb,
+} from './hooks/agentReports'
+import { runClaudeAccountVerb } from './hooks/claudeAccount'
 import { saveAttentionOffline } from './hooks/offlineAttention'
 import { runPermissionHook } from './hooks/permissionHook'
 import { runTokenVerb } from './hooks/token'
+import { runAccountVerb } from './verbs/account'
 import { runAskVerb } from './verbs/ask'
 import { runNotify, runStateVerb } from './verbs/attention'
 import { runBrowse } from './verbs/browse'
@@ -40,7 +47,7 @@ import { runDocs, runWhoami } from './verbs/introspection'
 import { runManagerVerb } from './verbs/manager'
 import { opensAsTarget, opensOffline, runDiffFiles, runOpenFiles } from './verbs/open'
 import { runPaneVerb } from './verbs/pane'
-import { runPortalCommand } from './verbs/portal'
+import { runPortalCommand, verbIn } from './verbs/portal'
 import { runAgentVerb, runProcessVerb } from './verbs/process'
 import { runSandboxVerb, runSecretVerb } from './verbs/sandbox'
 import { runSettingsVerb } from './verbs/settings'
@@ -71,6 +78,9 @@ const RUNNERS: Readonly<Record<string, Runner>> = {
   workspace: runWorkspaceVerb,
   'resume-token': runResumeTokenVerb,
   'claude-hook': runClaudeHookVerb,
+  'claude-account': runClaudeAccountVerb,
+  account: runAccountVerb,
+  'codex-hook': runCodexHookVerb,
   'turn-hook': runTurnHookVerb,
   'codex-server': runCodexServerVerb,
   'permission-hook': async (conn) => {
@@ -118,6 +128,8 @@ const RUNNERS: Readonly<Record<string, Runner>> = {
   browse: (conn) => runBrowse(conn, argvFrom3()),
   gateway: runGatewayVerb,
 }
+
+const isVerb = verbIn(RUNNERS)
 
 function printUsage(answer: UsageAnswer): void {
   if (answer.code === 0) console.log(answer.text)
@@ -167,7 +179,7 @@ async function main(): Promise<void> {
         env: process.env,
         cwd: process.cwd(),
       },
-      { platform: process.platform, isVerb: (name) => Object.hasOwn(RUNNERS, name) },
+      { platform: process.platform, isVerb },
     )
     return
   }
@@ -208,7 +220,7 @@ async function main(): Promise<void> {
       skewMarkFile(join(appDataDir(), 'cli-version-skew')),
     )
     if (skew) console.error(skew)
-    const runner = Object.hasOwn(RUNNERS, cmd) ? RUNNERS[cmd] : undefined
+    const runner = isVerb(cmd) ? RUNNERS[cmd] : undefined
     if (runner) await runner(conn)
     else if (await opensAsTarget(conn, cmd)) await runOpenFiles(conn, argv, workspaceFolderIn)
     else if (cmd.includes('.')) await runRawCommand(conn, cmd)

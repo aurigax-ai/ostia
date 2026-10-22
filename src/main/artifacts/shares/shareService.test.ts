@@ -102,7 +102,7 @@ describe('publishing a share', () => {
     expect(stored?.size).toBe(Buffer.byteLength(FILE) + 29)
     expect(share.size).toBe(Buffer.byteLength(FILE) + 29)
     expect(uploadedBlob(r, share.id).toString('utf8')).not.toContain('portable artifact')
-    expect(r.service.copyLink(share.id)).toEqual({ ok: true })
+    expect(await r.service.copyLink(share.id)).toEqual({ ok: true })
     const link = r.clipboard[0] ?? ''
     expect(link.startsWith(share.url)).toBe(true)
     const plain = decryptShare(share.id, linkKey(link), uploadedBlob(r, share.id))
@@ -120,7 +120,7 @@ describe('publishing a share', () => {
     expect(decryptShare(result.share.id, key, uploadedBlob(r, result.share.id)).toString()).toBe(
       FILE,
     )
-    r.service.copyLink(result.share.id)
+    await r.service.copyLink(result.share.id)
     expect(r.clipboard[0]).toBe(result.share.url)
   })
 
@@ -132,7 +132,7 @@ describe('publishing a share', () => {
       withLinkKey: true,
     })
     if (!result.ok || !result.share) throw new Error('published')
-    r.service.copyLink(result.share.id)
+    await r.service.copyLink(result.share.id)
     const salt = Buffer.from(r.harness.server.shares.get(result.share.id)?.salt ?? '', 'base64url')
     const key = await deriveShareKey({
       mode: 'password',
@@ -433,9 +433,31 @@ describe('deleting a share', () => {
     expect(r.store.get(result.share.id)).not.toBeNull()
   })
 
+  it('SHR-C93 copies the address the server lists, not the one stored before shares moved to /s/<id>', async () => {
+    const r = await rig()
+    const result = await publish(r)
+    if (!result.ok || !result.share) throw new Error('published')
+    const record = r.store.get(result.share.id)
+    if (!record) throw new Error('recorded')
+    r.store.remove(record.id)
+    r.store.add({ ...record, url: `https://${record.id}.share.example.test/` })
+    expect(await r.service.copyLink(record.id)).toEqual({ ok: true })
+    expect(r.clipboard).toHaveLength(1)
+    expect(r.clipboard[0]?.startsWith(`${r.harness.server.url}/s/${record.id}#k=`)).toBe(true)
+  })
+
+  it('SHR-C94 says so when the server cannot be reached and copies nothing', async () => {
+    const r = await rig()
+    const result = await publish(r)
+    if (!result.ok || !result.share) throw new Error('published')
+    await r.harness.server.close()
+    expect(await r.service.copyLink(result.share.id)).toEqual({ ok: false, error: 'unreachable' })
+    expect(r.clipboard).toEqual([])
+  })
+
   it('SHR-C44 answers unknown for a link nobody published', async () => {
     const r = await rig()
-    expect(r.service.copyLink('nothing')).toEqual({ ok: false, error: 'unknown' })
+    expect(await r.service.copyLink('nothing')).toEqual({ ok: false, error: 'unknown' })
     expect(r.clipboard).toEqual([])
   })
 })
@@ -473,7 +495,7 @@ describe('records of other servers and accounts', () => {
     const listed = await service.list()
     expect(listed).toEqual({ ok: true, shares: [] })
     expect(first.store.get(id)).not.toBeNull()
-    expect(service.copyLink(id)).toEqual({ ok: false, error: 'unknown' })
+    expect(await service.copyLink(id)).toEqual({ ok: false, error: 'unknown' })
     expect(await service.remove(id)).toEqual({ ok: false, error: 'failed' })
     expect(second.server.requests.filter((q) => q.startsWith('DELETE'))).toEqual([])
     expect(JSON.stringify(second.server.requests)).not.toContain(token)
@@ -492,7 +514,7 @@ describe('records of other servers and accounts', () => {
     expect(await first.service.list()).toEqual({ ok: true, shares: [] })
     expect(first.probe.urls).toEqual([])
     expect(first.store.get(made.share.id)).not.toBeNull()
-    expect(first.service.copyLink(made.share.id)).toEqual({ ok: false, error: 'unknown' })
+    expect(await first.service.copyLink(made.share.id)).toEqual({ ok: false, error: 'unknown' })
   })
 
   it('SHR-C82 drops records written without an origin or account', async () => {
@@ -530,7 +552,7 @@ describe('pruning the records of the current account', () => {
     r.harness.server.shares.clear()
     r.probe.status = 410
     await r.service.list()
-    expect(r.probe.urls).toEqual([`${made.share.url}meta`])
+    expect(r.probe.urls).toEqual([`${made.share.url}/meta`])
     expect(r.store.get(made.share.id)).toBeNull()
   })
 

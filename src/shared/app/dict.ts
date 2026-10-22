@@ -37,6 +37,7 @@ export type Locale = string
 export const en = {
   formats: appEn.formats,
   agentPane: agentEn.agentPane,
+  claudeAccounts: agentEn.claudeAccounts,
   commands: commandsEn.commands,
   assistMenu: assistantEn.assistMenu,
   search: commandsEn.search,
@@ -125,6 +126,7 @@ export type Dict = typeof en
 export const zhHant: Dict = {
   formats: appZhHant.formats,
   agentPane: agentZhHant.agentPane,
+  claudeAccounts: agentZhHant.claudeAccounts,
   commands: commandsZhHant.commands,
   assistMenu: assistantZhHant.assistMenu,
   search: commandsZhHant.search,

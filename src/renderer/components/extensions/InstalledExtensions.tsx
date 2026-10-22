@@ -2,6 +2,7 @@ import type { ExtensionInfo } from '@aurigax-ai/ostia-extension-sdk/contract/ext
 import type { FileKindInfo } from '@aurigax-ai/ostia-extension-sdk/contract/fileKinds'
 import { GearIcon } from '@phosphor-icons/react'
 import type { Dict } from '@shared/app/dict'
+import type { MarketplaceExtension } from '@shared/extensions/marketplace'
 import { useEffect, useState } from 'react'
 import { isAssistExtension } from '@/components/assist/AssistantSection'
 import { Notice } from '@/components/common/Notice'
@@ -29,7 +30,12 @@ import { useMarketplaceStore } from '@/stores/extensions/marketplaceStore'
 import { ExtensionAgentPlugin } from './ExtensionAgentPlugin'
 import { ExtensionSettingsForm } from './ExtensionSettingsForm'
 import { ExtensionTile } from './ExtensionTile'
-import { marketplaceName, UninstallExtensionButton, useMarketplaceList } from './MarketplaceSection'
+import {
+  marketplaceName,
+  UninstallExtensionButton,
+  UpdateExtensionButton,
+  useMarketplaceList,
+} from './MarketplaceSection'
 
 export interface ExtensionAnchor {
   id: string
@@ -81,8 +87,14 @@ function useSourceLabel(ext: ExtensionInfo): string {
   const d = useDict()
   const marketplaces = useMarketplaceStore((s) => s.state.marketplaces)
   const fromMarketplace = useMarketplaceStore((s) => s.state.installed.includes(ext.id))
-  if (ext.builtin) return d.extensions.sourceBuiltin
+  const dev = useMarketplaceStore((s) => s.state.dev[ext.id])
   const owner = marketplaces.find((m) => m.installs.includes(ext.id))
+  if (ext.builtin) {
+    return owner
+      ? fmt(d.extensions.sourceBuiltinUpdated, { name: marketplaceName(d, owner) })
+      : d.extensions.sourceBuiltin
+  }
+  if (dev) return fmt(d.extensions.sourceDev, { source: dev })
   if (owner) return fmt(d.extensions.sourceMarketplace, { name: marketplaceName(d, owner) })
   return fromMarketplace ? d.extensions.sourceOrphaned : d.extensions.sourceManual
 }
@@ -188,6 +200,27 @@ function FileKindRows({ ext }: { ext: ExtensionInfo }): JSX.Element | null {
   )
 }
 
+function PrereleaseRow({ extId }: { extId: string }): JSX.Element | null {
+  const d = useDict()
+  const owned = useMarketplaceStore((s) =>
+    s.state.marketplaces.some((m) => m.installs.includes(extId)),
+  )
+  const enabled = useMarketplaceStore((s) => s.state.prerelease.includes(extId))
+  const busy = useMarketplaceStore((s) => s.busy)
+  const setPrerelease = useMarketplaceStore((s) => s.setPrerelease)
+  if (!owned) return null
+  return (
+    <ControlRow label={d.extensions.prerelease} desc={d.extensions.prereleaseDesc}>
+      <Switch
+        checked={enabled}
+        disabled={busy}
+        onCheckedChange={(v) => void setPrerelease(extId, v)}
+        aria-label={d.extensions.prerelease}
+      />
+    </ControlRow>
+  )
+}
+
 function ExtensionDetails({ ext }: { ext: ExtensionInfo }): JSX.Element {
   const d = useDict()
   const description = withProductName(ext.description)
@@ -201,6 +234,7 @@ function ExtensionDetails({ ext }: { ext: ExtensionInfo }): JSX.Element {
       <ControlRow label={d.extensions.status}>
         <Value>{extensionStatusLabel(d, ext)}</Value>
       </ControlRow>
+      <PrereleaseRow extId={ext.id} />
       <div className="mt-3" />
       <PermissionRows ext={ext} />
       <FileKindRows ext={ext} />
@@ -211,11 +245,13 @@ function ExtensionDetails({ ext }: { ext: ExtensionInfo }): JSX.Element {
   )
 }
 
-function useUpdateOffer(extId: string): { marketplaceId: string; version: string } | null {
+function useUpdateOffer(
+  extId: string,
+): { marketplaceId: string; ext: MarketplaceExtension } | null {
   const marketplaces = useMarketplaceStore((s) => s.state.marketplaces)
   for (const marketplace of marketplaces) {
     const offered = marketplace.extensions.find((e) => e.id === extId && e.state === 'update')
-    if (offered) return { marketplaceId: marketplace.id, version: offered.version }
+    if (offered) return { marketplaceId: marketplace.id, ext: offered }
   }
   return null
 }
@@ -232,8 +268,6 @@ function ExtensionListRow({
   const d = useDict()
   const setEnabled = useExtensionsStore((s) => s.setEnabled)
   const review = useExtensionsStore((s) => s.review)
-  const busy = useMarketplaceStore((s) => s.busy)
-  const install = useMarketplaceStore((s) => s.install)
   const reducedMotion = useReducedMotion()
   const source = useSourceLabel(ext)
   const offer = useUpdateOffer(ext.id)
@@ -275,13 +309,7 @@ function ExtensionListRow({
           actions={(toggle) => (
             <>
               {offer ? (
-                <Button
-                  size="sm"
-                  disabled={busy}
-                  onClick={() => void install(offer.marketplaceId, ext.id)}
-                >
-                  {fmt(d.extensions.updateTo, { version: offer.version })}
-                </Button>
+                <UpdateExtensionButton marketplaceId={offer.marketplaceId} ext={offer.ext} />
               ) : null}
               {awaitsApproval(ext) ? (
                 <Button size="sm" onClick={() => review(ext.id)}>

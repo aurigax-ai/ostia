@@ -78,6 +78,10 @@ export interface PortalGate {
   isVerb: (cmd: string) => boolean
 }
 
+export function verbIn(table: object): (cmd: string) => boolean {
+  return (cmd) => Object.hasOwn(table, cmd)
+}
+
 export function outsidePaneRefusal(argv: string[], gate: PortalGate): string | null {
   const [cmd] = argv
   if (cmd === undefined) return portalSupported(gate.platform) ? null : NOT_IN_PANE_MESSAGE

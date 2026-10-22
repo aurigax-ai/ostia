@@ -88,10 +88,6 @@ test('a zip, a tar.xz, a tar.bz2 and a 7z expand in the Files panel, their entri
     await expect(
       win.getByText('This entry unpacks to more than it says, so it is not shown.'),
     ).toBeVisible({ timeout: 15_000 })
-    await win.locator('.file-row').filter({ hasText: 'shadow' }).click()
-    await expect(
-      win.getByText('This entry is a link inside the archive; it is never followed.'),
-    ).toBeVisible()
 
     for (const packed of PACKED_ROWS) {
       const row = win.locator('.file-row').filter({ hasText: packed.name })

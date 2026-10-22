@@ -22,10 +22,10 @@ function marketplace(overrides: Partial<MarketplaceInfo> = {}): MarketplaceInfo 
   }
 }
 
-const EMPTY: MarketplaceState = { marketplaces: [], installed: [] }
+const EMPTY: MarketplaceState = { marketplaces: [], installed: [], prerelease: [], dev: {} }
 
 function stateWith(info: MarketplaceInfo, installed: string[] = []): MarketplaceState {
-  return { marketplaces: [info], installed }
+  return { marketplaces: [info], installed, prerelease: [], dev: {} }
 }
 
 function marketplaceList(): HTMLElement {
@@ -70,6 +70,34 @@ describe('MarketplacesGroup', () => {
     expect(screen.getByLabelText('Marketplace repository')).toHaveValue('')
   })
 
+  it('installs a development copy from a folder or a git branch, enabled only for a source it can read', async () => {
+    await show(EMPTY)
+    vi.mocked(window.ostia.marketplace.installDev).mockResolvedValue({ ok: true, state: EMPTY })
+    const field = screen.getByLabelText('Development copy')
+    const install = screen.getAllByRole('button', { name: 'Install' })[0] as HTMLElement
+    expect(install).toBeDisabled()
+
+    await userEvent.type(field, 'not a source')
+    expect(install).toBeDisabled()
+    await userEvent.clear(field)
+    await userEvent.type(field, '/home/me/ext')
+    await userEvent.click(install)
+    expect(window.ostia.marketplace.installDev).toHaveBeenLastCalledWith({
+      kind: 'folder',
+      path: '/home/me/ext',
+    })
+    expect(field).toHaveValue('')
+
+    await userEvent.type(field, 'acme/ext#fix/x:src')
+    await userEvent.click(install)
+    expect(window.ostia.marketplace.installDev).toHaveBeenLastCalledWith({
+      kind: 'git',
+      url: 'acme/ext',
+      branch: 'fix/x',
+      path: 'src',
+    })
+  })
+
   it('keeps the typed text and shows why when adding fails', async () => {
     await show(EMPTY)
     vi.mocked(window.ostia.marketplace.add).mockResolvedValue({
@@ -97,7 +125,7 @@ describe('MarketplacesGroup', () => {
       official: true,
       downloaded: false,
     })
-    await show({ marketplaces: [pending, marketplace()], installed: [] })
+    await show({ marketplaces: [pending, marketplace()], installed: [], prerelease: [], dev: {} })
 
     const names = within(marketplaceList())
       .getAllByRole('listitem')
@@ -129,6 +157,8 @@ describe('MarketplacesGroup', () => {
         marketplace(),
       ],
       installed: [],
+      prerelease: [],
+      dev: {},
     })
     const panel = marketplaceList()
     expect(within(panel).getByRole('button', { name: 'Remove Acme extensions' })).toBeVisible()

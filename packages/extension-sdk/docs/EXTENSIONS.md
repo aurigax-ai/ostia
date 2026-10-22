@@ -53,6 +53,22 @@ The repository has a `ostia-marketplace.json` at its root:
 | `description` | Optional |
 | `extensions` | Folder paths inside the repository. Each folder is one extension with its own `ostia.json` |
 | `unlisted` | Optional. `{ "path", "code" }` entries: extensions the marketplace holds but Settings does not show. `code` is 26 characters of `a-z` and `2-7`, unique in the file. `extensions` and `unlisted` together hold at most 200 |
+| `history` | Optional. Folder paths of every earlier release of a listed or unlisted extension, each a whole installable folder with its own `ostia.json` and an older `version` than the entry in `extensions`. See "Versions" |
+| `revoked` | Optional. `{ "id", "version" }` entries Ostia no longer offers; see "Versions" |
+
+### Versions
+
+An extension has its own semver `version`. The folder in `extensions` is its newest stable release
+and `history` lists the folders of the earlier ones (and of pre-releases such as `1.4.0-rc.1`), so
+a marketplace keeps every version. Ostia installs the newest release whose `api` this Ostia
+provides: when the newest needs a newer API, an older one that fits is offered instead. A release
+no listed version of fits is still shown, marked "Needs newer Ostia" with the API it needs, and
+cannot be installed. "Update to X" appears only for a version higher than the installed one, never
+for a downgrade. A pre-release is offered only to a human who switched on "Pre-release versions" for
+that extension in Settings → Extensions. A `revoked` version is never offered, and an installed one
+is marked as withdrawn.
+
+Older Ostia versions read only `extensions`, so what they see is the newest stable release.
 
 ### Unlisted extensions
 
@@ -85,8 +101,8 @@ Rules for a listed extension:
 
 Install copies the folder to `~/.config/ostia/extensions/<id>/`, where it is an ordinary user
 extension: it waits for the approval dialog before anything runs, and any approval an earlier
-extension with that id had is dropped first. Refresh re-downloads the marketplace; when the listed
-version differs from the installed one the row offers Update, which replaces the files and keeps
+extension with that id had is dropped first. Refresh re-downloads the marketplace; when it offers
+a higher version than the installed one the row offers Update, which replaces the files and keeps
 the approval (new capabilities still wait for review). Uninstall, on the installed extension's row,
 deletes the folder, its approval and its saved secrets; its settings stay in `settings.json`. An id
 that a built-in uses, or that you installed by hand or from another marketplace, is never
@@ -94,6 +110,38 @@ overwritten. Removing a marketplace leaves its installed extensions in place.
 
 There is no `ostia` CLI verb or socket method for any of this: only the human adds marketplaces and
 installs, updates or uninstalls, from Settings.
+
+### Installing a development copy
+
+Settings → Extensions → Marketplaces has a field for a development copy: an absolute folder path,
+or `owner/repo#branch` (also `url#branch`, and `#branch:folder` for a folder inside the repository).
+Ostia copies the folder the way a marketplace install does (regular files only, no build) and the
+extension is listed with `dev ·` and its source. It is an ordinary user extension: it waits for the
+human's approval and its capabilities, and nothing about it is trusted or approved for you. It
+replaces an earlier development copy of the same id, never a built-in or an extension from a
+marketplace.
+
+### Updating a built-in
+
+The official marketplace may offer a newer copy of one of a few built-in extensions (`csv`,
+`images`, `keymap-macos`, `markdown`, `office`, `pdf`, `serial`, `ssh`, `system`, `video`; the others
+stay tied to the app). Ostia accepts the copy only when all of this holds, checked on every scan:
+
+- it is signed with the official Ed25519 key compiled into the app (`ostia.sig` in the folder, over
+  a digest of every file and the id and version), verified in the background so the bundled copy
+  keeps running until the check is done;
+- it asks for nothing the bundled one does not: capabilities, file kinds (patterns, roles and viewer
+  priority), commands that need the playbook, agent skills and hooks, assist points, language
+  servers, secrets, connections and a verb are each a subset of the bundled manifest, and it starts
+  no program the bundled one did not;
+- its version is not below the bundled one, nor below the highest version this computer accepted
+  before, nor revoked.
+
+Such a copy runs as the built-in: approved, with the host methods that answer only built-ins, keyed
+on the signature and the extension's id and not on where the folder is. Anything else is refused
+and the bundled one keeps running. Any other marketplace's copy of a built-in id is a conflict, as
+before. Installing or uninstalling an update never forgets the built-in's approval or secrets.
+A marketplace extension that is not a built-in and whose installed version is revoked is stopped.
 
 ## Manifest (`ostia.json`)
 
@@ -1498,10 +1546,13 @@ Three places check it:
 |---|---|
 | `ostia.json` `api` | Checked when the manifest is read (startup, hot reload, a marketplace catalog, `ostia-extension validate`). A newer minor or another major refuses the extension before anything runs |
 | `OSTIA_EXTENSION_API` | Ostia puts the version it provides in the environment of every extension process, next to `OSTIA_SOCKET` and `OSTIA_TOKEN`, for extensions that speak the protocol without the SDK |
-| SDK `connect()` | The SDK is built for one API version (`EXTENSION_API_VERSION`, also `ostiaExtensionApi` in its `package.json` and `api.json`). `connect()` throws when the app provides an older one, so an extension built with a newer SDK fails with a clear message instead of calling methods that aren't there |
+| SDK `connect()` | `connect()` reads the `api` in the extension's own `ostia.json` and throws when the app provides an older one, so an extension fails with a clear message instead of calling methods that aren't there. The SDK's own version (`EXTENSION_API_VERSION`, also `ostiaExtensionApi` in its `package.json` and `api.json`) is not checked: an extension built with a newer SDK still runs on an older app when it declares an older `api` |
 
-Set `api` to the version of the SDK you build with. Raise it only when you start using something
-newer; an extension that declares `1.0` keeps loading in every `1.x`.
+Set `api` to the lowest version that has everything you call, and raise it only when you start
+using something newer; an extension that declares `1.0` keeps loading in every `1.x`. Type-check
+against the SDK whose API is the one you declare: a call to a method the app lacks is then a
+compile error and not an `unknown-method` at run time. `pnpm api:bump` changes the `api` of the
+built-in extensions and the template only; a marketplace extension keeps the `api` it declares.
 
 For people changing Ostia: `packages/extension-sdk/api-lock.json` holds the version and a digest of the
 published contract (the SDK's type declarations and the two manifest schemas). A change to any of
@@ -1530,7 +1581,8 @@ pnpm add -D @aurigax-ai/ostia-extension-sdk
 | `ostia-extension create <id> [folder]` | Writes a new extension project from `template/`: a `ostia.json` with that id, TypeScript source, a build that bundles it into one `main.js`, English and Traditional Chinese catalogs under `locales/`, `pnpm validate` |
 
 It is generated from this repository by `pnpm build:sdk` (`packages/extension-sdk/scripts/build.mjs`) and published
-to npm by `release.yml` on every `v*` tag; its version is the app's version. The JSON
+to npm by `sdk-release.yml` on an `sdk-v<version>` tag with npm trusted publishing; its version is
+the `version` in `packages/extension-sdk/package.json`, independent of the app's. The JSON
 Schemas come from `packages/extension-sdk/src/manifest/manifestSchema.ts`; the loader (`parseManifest`) stays the authority,
 and `validate` runs that loader.
 
@@ -1728,10 +1780,36 @@ copies a package and everything it depends on into a `node_modules` folder; `fil
 `package.json` lists every vendored package at the exact version the app pins, so its own
 `pnpm install` and `pnpm build` produce the same `extensions/`. `pnpm publish:marketplace <checkout>`
 copies that into a checkout of the marketplace repository (`aurigax-ai/ostia-extensions`), installs
-its dependencies there (the SDK from npm) and rebuilds `extensions/`. That repository's own
-`sync.yml` workflow does this every hour: when Ostia's latest release is newer than its `package.json` version it checks that tag out, runs the command,
-its checks, and commits. It needs no credentials from this repository. Add that repository in
-Settings → Extensions → Marketplaces to install them.
+its dependencies there (the SDK from npm) and rebuilds `extensions/`. Add that repository in Settings → Extensions → Marketplaces to install them.
+
+#### Releasing a marketplace extension
+
+An extension is released on its own, not with the app. Raise `version` in its `ostia.json` (a
+patch by default; `-rc.N` for a pre-release), merge, and run `pnpm ext:release <id>` on `main`,
+which tags `ext/<id>/v<version>` after checking the id is in `marketplace/ostia-marketplace.json`
+and the version equals the manifest; push the tag. `extension-release.yml` then
+
+1. checks the tag is on `main`, matches the manifest and names a marketplace extension;
+2. applies the API floor: the extension declares exactly the extension API of the SDK the
+   marketplace project pins, that SDK's API may not be newer than the latest stable app's, and the
+   extension is type-checked against it, so it cannot call what the stable app lacks;
+3. builds, tests and validates only that extension inside the marketplace project (the
+   `aurigax-ai/ostia-extensions` commit it records, with the extension's source put in), in a job
+   that holds no key;
+4. in a second job that holds the key and runs no extension code, signs the built folder with the
+   official key and publishes a GitHub release `ext/<id>/v<version>` (never the latest release of
+   the repository) holding `<id>-<version>.tar.gz`.
+
+The marketplace repository's `sync.yml` pulls those releases every hour. It accepts only a valid
+tag, an archive whose folder, manifest id and version match the tag, and a signature that verifies
+against `official-key.json` in that repository; it files the release under `extensions/` (the newest
+stable) or `versions/<id>/<version>/` (every pre-release), rebuilds from the source at the tag to
+confirm it matches, and commits. No credential for the marketplace repository exists in this
+repository. A release is withdrawn by a `revoked` entry in that repository.
+
+An extension that needs a newer API waits for the stable app that has it; the SDK it is typed
+against is bumped in the marketplace project's `package.json` once that SDK is published
+(`sdk-v<version>` tag).
 
 | Id | What it does |
 |---|---|

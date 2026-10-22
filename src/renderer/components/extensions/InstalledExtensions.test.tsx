@@ -81,7 +81,12 @@ function marketplace(extensions: MarketplaceExtension[]): MarketplaceInfo {
 }
 
 function stateWith(extensions: MarketplaceExtension[]): MarketplaceState {
-  return { marketplaces: [marketplace(extensions)], installed: extensions.map((e) => e.id) }
+  return {
+    marketplaces: [marketplace(extensions)],
+    installed: extensions.map((e) => e.id),
+    prerelease: [],
+    dev: {},
+  }
 }
 
 describe('ExtensionsSection rows', () => {
@@ -126,6 +131,38 @@ describe('ExtensionsSection rows', () => {
     expect(
       within(screen.getByRole('listitem', { name: 'Notes' })).getByText('1.0.0 · Built in'),
     ).toBeVisible()
+  })
+
+  it('labels a development copy dev and a built-in updated from a marketplace', async () => {
+    const state = {
+      ...stateWith([{ ...WEATHER, id: 'notes' }]),
+      dev: { manual: 'folder /home/me/ext' },
+    }
+    await show([ext('manual', 'Manual'), ext('notes', 'Notes', { builtin: true })], state)
+    expect(
+      within(screen.getByRole('listitem', { name: 'Manual' })).getByText(
+        '1.0.0 · dev · folder /home/me/ext',
+      ),
+    ).toBeVisible()
+    expect(
+      within(screen.getByRole('listitem', { name: 'Notes' })).getByText(
+        '1.0.0 · Built in, updated from Acme extensions',
+      ),
+    ).toBeVisible()
+  })
+
+  it('lets the human opt a marketplace extension in to pre-release versions', async () => {
+    await show([ext('manual', 'Manual'), ext('weather', 'Weather')], stateWith([WEATHER]))
+    vi.mocked(window.ostia.marketplace.setPrerelease).mockResolvedValue({
+      ok: true,
+      state: { ...stateWith([WEATHER]), prerelease: ['weather'] },
+    })
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('button', { name: 'Settings of Manual' }))
+    expect(screen.queryByRole('switch', { name: 'Pre-release versions' })).toBeNull()
+    await user.click(screen.getByRole('button', { name: 'Settings of Weather' }))
+    await user.click(await screen.findByRole('switch', { name: 'Pre-release versions' }))
+    expect(window.ostia.marketplace.setPrerelease).toHaveBeenCalledWith('weather', true)
   })
 
   it('opens an extension’s details from its gear and offers Uninstall only for marketplace installs', async () => {

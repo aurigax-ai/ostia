@@ -1,5 +1,6 @@
 import { isEqual } from 'es-toolkit'
 import { type RefObject, useEffect, useState } from 'react'
+import { frameCoalesce } from '@/lib/terminal/frameCoalesce'
 import {
   type TerminalBufferLine as IBufferLine,
   terminalScreen,
@@ -90,8 +91,10 @@ export function usePromptGeometry(
     recompute()
     const resize = term.onResize(recompute)
     const render = term.onRender(recompute)
-    const scroll = term.onScroll(recompute)
+    const scrolled = frameCoalesce(recompute)
+    const scroll = term.onScroll(scrolled)
     return () => {
+      scrolled.cancel()
       resize.dispose()
       render.dispose()
       scroll.dispose()

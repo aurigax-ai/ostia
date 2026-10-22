@@ -19,6 +19,17 @@ export interface ServerJoinRequest {
   createdAt: number
 }
 
+export interface ChangedDevice {
+  id: string
+  name: string
+  until: number
+}
+
+export interface WrapRefusal {
+  reason: 'untrusted' | 'too-new' | 'unverified'
+  after: number | null
+}
+
 export interface ServerSyncStatus {
   state: ServerSyncState
   host: string | null
@@ -27,8 +38,21 @@ export interface ServerSyncStatus {
   linkCodes: ServerLinkCode[]
   joins: ServerJoinRequest[]
   recoveryStale: boolean
-  wrapRefused: boolean
+  wrapRefused: WrapRefusal | null
+  changedDevices: ChangedDevice[]
 }
+
+export type SyncAttention =
+  | { kind: 'join'; id: string; deviceId: string; name: string; code: string; createdAt: number }
+  | {
+      kind: 'approval'
+      id: string
+      approvalId: string
+      deviceId: string
+      name: string
+      createdAt: number
+    }
+  | { kind: 'changed'; id: string; deviceId: string; name: string; until: number }
 
 export type ServerSyncError =
   | 'too-short'
@@ -37,6 +61,8 @@ export type ServerSyncError =
   | 'wrong-recovery-key'
   | 'exists'
   | 'no-wrap'
+  | 'key-differs'
+  | 'link-stale'
   | 'unavailable'
   | 'elevation-required'
   | 'not-signed-in'
@@ -55,7 +81,6 @@ export interface ServerSyncResult {
   ok: boolean
   error?: ServerSyncError
   recoveryKey?: string
-  deleted?: number
   removed?: boolean
   rotated?: boolean
   unwrapped?: string[]
@@ -78,8 +103,10 @@ interface ServerSyncApi {
   ) => Promise<ServerSyncResult>
   rotate: (passphrase: string, recoveryKey: string) => Promise<ServerSyncResult>
   newRecoveryKey: () => Promise<ServerSyncResult>
-  collectGarbage: () => Promise<ServerSyncResult>
   onStatus: (cb: (status: ServerSyncStatus) => void) => () => void
+  attention: () => Promise<SyncAttention[]>
+  onAttention: (cb: (items: SyncAttention[]) => void) => () => void
+  onOpen: (cb: (page: 'server' | 'sync') => void) => () => void
 }
 
 export interface ServerSyncBridge {

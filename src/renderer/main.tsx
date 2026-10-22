@@ -57,6 +57,7 @@ import { wireArtifacts } from '@/stores/files/artifactsStore'
 import { useFileTreeStore } from '@/stores/files/fileTreeStore'
 import { wireOpenWaits } from '@/stores/files/openWaitsStore'
 import { wireRemoteFolders } from '@/stores/files/remoteFoldersStore'
+import { startSyncAttention } from '@/stores/server/syncAttentionStore'
 import { startPaneRecencySync } from '@/stores/workspaces/paneRecencyStore'
 import { startPaneRenameSync } from '@/stores/workspaces/paneRenameStore'
 import { startSnapshotAutosave } from '@/stores/workspaces/persistence'
@@ -167,6 +168,7 @@ async function boot(): Promise<void> {
   startApprovals()
   startAgentGroupsSync()
   startQuestions()
+  startSyncAttention()
   startMail()
   startUserActions()
   startViews()

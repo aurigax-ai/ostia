@@ -30,7 +30,7 @@ function fakeClaude(dataHome: string, promptFile: string, skillFile: string): st
     claude,
     [
       '#!/bin/sh',
-      'for arg; do [ "$prev" = --plugin-dir ] && plugin=$arg; prev=$arg; last=$arg; done',
+      'for arg; do [ "$prev" = --plugin-dir ] && [ -z "$plugin" ] && plugin=$arg; prev=$arg; last=$arg; done',
       `head -n 2 "$plugin/skills/trellis-card/SKILL.md" > '${skillFile}'`,
       `printf '%s' "$last" > '${promptFile}'`,
       REPORT_SESSION,

@@ -1,5 +1,5 @@
 import type { ServerOffer, ServerStatus } from '@shared/server/serverApi'
-import { act, cleanup, render, screen, waitFor } from '@testing-library/react'
+import { act, cleanup, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ServerSection } from './ServerSection'
@@ -95,12 +95,14 @@ describe('Settings › Server', () => {
     const user = userEvent.setup()
     serverReturns({ ...SIGNED_OUT, signedIn: true, provider: 'github', deviceName: 'Desk' })
     render(<ServerSection />)
-    expect(
-      await screen.findByText('Signed in as Desk on ostia.example.com with GitHub.'),
-    ).toBeInTheDocument()
+    expect(await screen.findByText(/^Signed in as Desk with GitHub\./)).toBeInTheDocument()
     expect(screen.queryByRole('textbox', { name: 'Invite code' })).toBeNull()
-    expect(screen.getByRole('textbox', { name: 'Server address' })).toBeDisabled()
+    expect(screen.queryByRole('textbox', { name: 'Server address' })).toBeNull()
+    expect(screen.getByText('https://ostia.example.com')).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Sign out' }))
+    await user.click(
+      within(await screen.findByRole('alertdialog')).getByRole('button', { name: 'Sign out' }),
+    )
     expect(server().signOut).toHaveBeenCalled()
   })
 
@@ -173,5 +175,101 @@ describe('signing in with GitHub', () => {
     await user.click(await screen.findByRole('button', { name: 'Cancel' }))
     expect(server().githubCancel).toHaveBeenCalled()
     expect(screen.queryByText('ABCD-1234')).toBeNull()
+  })
+})
+
+describe('leaving the server', () => {
+  beforeEach(() => {
+    serverReturns(SIGNED_OUT)
+  })
+
+  afterEach(() => {
+    cleanup()
+    vi.clearAllMocks()
+  })
+
+  it('SYA-C127 asks before leaving, from the Sign out button or this computer’s row, and tells whether others stay', async () => {
+    const user = userEvent.setup()
+    serverReturns({ ...SIGNED_OUT, signedIn: true, provider: 'github', deviceName: 'Desk' })
+    const mine = {
+      id: 'me',
+      name: 'Desk',
+      current: true,
+      lastSeenAt: 0,
+      removeAt: 0,
+      createdAt: Date.now(),
+    }
+    server().devices.mockResolvedValue({
+      ok: true,
+      devices: [mine, { ...mine, id: 'd2', name: 'Phone', current: false }],
+    })
+    render(<ServerSection />)
+    await screen.findByText('Phone')
+    await user.click(screen.getByRole('button', { name: 'Sign out' }))
+    expect(
+      await screen.findByText(
+        'Signs this computer out of the server. Other devices stay signed in.',
+      ),
+    ).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Cancel' }))
+    expect(server().signOut).not.toHaveBeenCalled()
+    await user.click(screen.getAllByRole('button', { name: 'Remove' })[0] as HTMLElement)
+    await user.click(
+      within(await screen.findByRole('alertdialog')).getByRole('button', { name: 'Sign out' }),
+    )
+    expect(server().signOut).toHaveBeenCalledTimes(1)
+  })
+
+  it('SYA-C129 warns that signing out the only device deletes the synced profile', async () => {
+    const user = userEvent.setup()
+    serverReturns({ ...SIGNED_OUT, signedIn: true, provider: 'github', deviceName: 'Desk' })
+    server().devices.mockResolvedValue({
+      ok: true,
+      devices: [
+        {
+          id: 'me',
+          name: 'Desk',
+          current: true,
+          lastSeenAt: 0,
+          removeAt: 0,
+          createdAt: Date.now(),
+        },
+      ],
+    })
+    render(<ServerSection />)
+    await screen.findByText('Desk')
+    await user.click(screen.getByRole('button', { name: 'Remove' }))
+    expect(
+      await screen.findByText(
+        'This is the only device on this account. Signing out deletes your synced profile from the server.',
+      ),
+    ).toBeInTheDocument()
+    expect(server().signOut).not.toHaveBeenCalled()
+  })
+
+  it('SYA-C128 says the server still lists this computer when it could not delete the device', async () => {
+    const user = userEvent.setup()
+    serverReturns({ ...SIGNED_OUT, signedIn: true, provider: 'github', deviceName: 'Desk' })
+    const listeners: Array<(status: ServerStatus) => void> = []
+    server().onChanged.mockImplementation((cb) => {
+      listeners.push(cb)
+      return () => {}
+    })
+    server().signOut.mockImplementation(async () => {
+      act(() => {
+        for (const listener of listeners) listener(SIGNED_OUT)
+      })
+      return { ok: true, deviceKept: true }
+    })
+    render(<ServerSection />)
+    await user.click(await screen.findByRole('button', { name: 'Sign out' }))
+    await user.click(
+      within(await screen.findByRole('alertdialog')).getByRole('button', { name: 'Sign out' }),
+    )
+    expect(
+      await screen.findByText(
+        /the server could not delete this computer’s entry|could not delete this computer's entry/,
+      ),
+    ).toBeInTheDocument()
   })
 })

@@ -3,6 +3,7 @@ import type { ReportedAgentWork } from '../../agents/agentWork'
 import type { AppLog } from '../../diagnostics/appLog'
 import type { Telemetry } from '../../diagnostics/telemetry'
 import type { PaneLifecycleEvents } from '../../extensions/paneLifecycleEvents'
+import { dropName } from '../../panes/paneNames'
 import type { PaneWaking } from '../../panes/paneWaking'
 import type { KeptShells } from '../../tmux/keptShells'
 import { stashScrollback } from '../../workspaces/savedScrollback'
@@ -57,6 +58,7 @@ export function createPtyStop({
     keptShells.removeToken(paneId)
     ptys.delete(paneId)
     agentWork.clear(paneId)
+    if (reason !== 'hibernated') dropName(paneId)
   }
 
   function hibernatePty(paneId: string): boolean {

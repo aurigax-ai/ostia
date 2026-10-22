@@ -2,6 +2,7 @@ import type { ServerAccount } from '../../server/serverAccount'
 import { ServerError } from '../../server/serverClient'
 import { type SyncMethod, type SyncSnapshot, SyncTargetError, type WriteResult } from '../engine'
 import { blobId, contentHash, type Manifest, sealBlob, sealManifest } from './syncCrypto'
+import { collectAfterPush } from './syncGc'
 import type { SyncKeyring } from './syncKeyring'
 import {
   pushManifest,
@@ -73,6 +74,11 @@ class ServerMethod implements SyncMethod {
       const sealed = sealManifest(key, manifest).toString('base64url')
       const put = await pushManifest(this.ctx, sealed, expected)
       this.keyring.raise(counter)
+      void collectAfterPush(
+        this.ctx,
+        Object.values(entries).map((entry) => entry.blobId),
+        put.version,
+      )
       return { ok: true, version: String(put.version) }
     } catch (error) {
       if (error instanceof ServerError && error.status === 412) return { ok: false }

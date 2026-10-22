@@ -5,6 +5,7 @@ import type {
   ServerDevicesResult,
   ServerFailure,
   ServerInfoResult,
+  ServerSignOutResult,
   ServerStatus,
 } from '../../shared/server/serverApi'
 import { type DeviceKeys, generateDeviceKeys, registrationOf } from './deviceKeys'
@@ -253,10 +254,26 @@ export class ServerAccount {
     }
   }
 
-  async signOut(): Promise<ServerActionResult> {
+  private async leaveServer(): Promise<boolean> {
+    const id = this.identity()?.deviceId
+    if (!id) return true
+    try {
+      await this.authed((token, routes) =>
+        this.signer().signed('revoke', (headers) => routes.revokeDevice(token, id, headers), [id]),
+      )
+      return true
+    } catch {
+      return false
+    }
+  }
+
+  async signOut(): Promise<ServerSignOutResult> {
     let cap: ReturnType<typeof setTimeout> | undefined
+    let left = false
     await Promise.race([
-      Promise.allSettled([...this.signOutHooks].map(async (hook) => hook())),
+      Promise.allSettled([...this.signOutHooks].map(async (hook) => hook())).then(async () => {
+        left = await this.leaveServer()
+      }),
       new Promise<void>((resolve) => {
         cap = setTimeout(resolve, SIGN_OUT_HOOKS_CAP_MS)
       }),
@@ -268,7 +285,7 @@ export class ServerAccount {
     this.deps.session.forget()
     this.flow = null
     this.changed()
-    return { ok: true }
+    return { ok: true, deviceKept: !left }
   }
 
   async devices(): Promise<ServerDevicesResult> {
@@ -281,9 +298,9 @@ export class ServerAccount {
           id: d.id,
           name: d.name,
           current: d.current === true,
-          lastSeen: d.lastSeen,
+          lastSeenAt: d.lastSeenAt,
+          removeAt: d.removeAt,
           createdAt: d.createdAt,
-          isNew: d.new === true,
         })),
       }
     } catch (error) {

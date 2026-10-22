@@ -1,10 +1,11 @@
 import { createSocket } from 'node:dgram'
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
-import { type AddressInfo, type Server, createServer } from 'node:net'
+import { type AddressInfo, createServer, type Server } from 'node:net'
 import { join } from 'node:path'
+import { DatabaseSync } from 'node:sqlite'
 import { DOM_RENDERER_SETTINGS, freshDataHome, seedSettings } from './dataHome'
 import { expectHeld, launchWindow, openWorkspace, runInTerminal } from './helpers'
-import { type ElectronApplication, type Page, expect, test } from './test'
+import { type ElectronApplication, expect, type Page, test } from './test'
 
 const PREVIEW_URL = 'ostia-preview://'
 const COPIED = 'copied-by-the-preview-page-7f3a'
@@ -483,22 +484,41 @@ test('a page outside the artifact folder previews only when asked, reloads on a 
   }
 })
 
+function writeSeed(path: string, groups: number): void {
+  const db = new DatabaseSync(path)
+  db.exec('create table t(k integer, v text)')
+  db.exec(
+    `with recursive n(i) as (select 1 union all select i + 1 from n where i < ${groups * 1000}) insert into t select i % ${groups}, printf('%040d', i) from n`,
+  )
+  db.close()
+}
+
 const WIDGET = `import { useEffect, useState } from 'react'
 import { Line, LineChart, XAxis } from 'recharts'
 import { Rocket } from 'lucide-react'
 import { HeartIcon } from '@phosphor-icons/react'
 import * as d3 from 'd3'
 import Papa from 'papaparse'
+import initSqlJs from 'sql.js'
 import Part from './Part'
 import data from './data.json'
+import seed from './data.sqlite'
 
 const points = Papa.parse('x,y\\n1,2\\n2,5\\n3,3', { header: true, dynamicTyping: true }).data
 
 export default function Widget() {
   const [count, setCount] = useState<number>(0)
   const [loaded, setLoaded] = useState('')
+  const [rows, setRows] = useState('loading')
   useEffect(() => {
     setLoaded(data.ok)
+  }, [])
+  useEffect(() => {
+    initSqlJs().then((SQL) => {
+      const db = new SQL.Database(seed)
+      const [count, groups] = db.exec('select count(*), (select count(*) from (select k from t group by k)) from t')[0].values[0]
+      setRows(count + ' rows ' + groups + ' groups')
+    })
   }, [])
   useEffect(() => {
     document.title = 'count ' + count + ' ' + loaded + ' max ' + d3.max(points, (p) => p.y)
@@ -535,7 +555,7 @@ export default function Widget() {
       <button id="spin" style={{ position: 'fixed', left: 260, top: 0, width: 120, height: 40 }} onClick={() => { while (true) {} }}>
         spin
       </button>
-      <Rocket /> <HeartIcon /> <Part label="part" />
+      <Rocket /> <HeartIcon /> <Part label="part" /> <i id="rows">{rows}</i>
       <LineChart width={300} height={120} data={points}>
         <XAxis dataKey="x" />
         <Line dataKey="y" isAnimationActive={false} />
@@ -560,6 +580,8 @@ test('PRT-C30 a .tsx component runs with the bundled libraries, no eval, no netw
     'export default function Part({ label }: { label: string }) { return <span id="part">{label}</span> }\n',
   )
   writeFileSync(join(home, 'widget', 'data.json'), '{"ok":"sibling"}')
+  writeSeed(join(home, 'widget', 'data.sqlite'), 3)
+  writeSeed(join(home, 'next.sqlite'), 5)
   const { app, win } = await launch(dataHome)
   try {
     await runInTerminal(
@@ -595,6 +617,17 @@ test('PRT-C30 a .tsx component runs with the bundled libraries, no eval, no netw
       external: 0,
     })
     await expect(win.getByTestId('preview-errors')).toHaveCount(0)
+    await expect
+      .poll(() => inGuest<string>(app, "document.getElementById('rows').textContent"), {
+        timeout: 30_000,
+      })
+      .toBe('3000 rows 3 groups')
+    await runInTerminal(win, 'cp ~/next.sqlite "$OSTIA_ARTIFACTS/widget/data.sqlite"')
+    await expect
+      .poll(() => inGuest<string>(app, "document.getElementById('rows').textContent"), {
+        timeout: 30_000,
+      })
+      .toBe('5000 rows 5 groups')
 
     await clickInGuest(app, 20, 20)
     await clickInGuest(app, 20, 20)

@@ -21,6 +21,7 @@ export const PORTABLE_CSP = [
 export const PORTABLE_LIMITS = {
   sourceFileBytes: 1024 * 1024,
   sourceBytes: 4 * 1024 * 1024,
+  seedFileBytes: 8 * 1024 * 1024,
   fileBytes: 16 * 1024 * 1024,
   buildMs: 10_000,
 } as const

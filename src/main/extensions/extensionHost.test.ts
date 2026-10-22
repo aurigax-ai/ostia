@@ -1,13 +1,21 @@
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { generateKeyPairSync } from 'node:crypto'
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { ALL_CAPABILITIES } from '@aurigax-ai/ostia-extension-sdk/contract/capabilities'
+import { signExtension } from '@aurigax-ai/ostia-extension-sdk/manifest/extensionSignature'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { registerPane } from '../control/idRegistry'
 import { ExtensionHost } from './extensionHost'
 import type { ExtensionHostDeps } from './extensionHostDeps'
 import { ExtensionStore } from './extensionStore'
+import {
+  AcceptedVersions,
+  OfficialRevocations,
+  OfficialVerifier,
+  VerdictStore,
+} from './officialExtensions'
 
 let base: string
 
@@ -701,5 +709,130 @@ describe('ExtensionHost — agent skill problems', () => {
     expect(byId.shelly?.agentSkillProblems).toEqual([
       "agent skill 'review': SKILL.md: line 5: shell injection (!` or a ```! block) is not allowed",
     ])
+  })
+})
+
+describe('ExtensionHost — a built-in updated from the official marketplace', () => {
+  const { privateKey, publicKey } = generateKeyPairSync('ed25519')
+  const publicDer = publicKey.export({ type: 'spki', format: 'der' }).toString('base64')
+  const privatePem = privateKey.export({ type: 'pkcs8', format: 'pem' }).toString()
+
+  function update(version: string, sign: boolean, caps: string[] = ['notify']): void {
+    const dir = writeExt(join(base, 'user'), 'board', {
+      version,
+      capabilities: caps,
+      contributes: { panel: { title: 'Board', entry: 'panel.html' } },
+    })
+    if (sign) signExtension(dir, 'board', version, privatePem)
+  }
+
+  async function host(
+    opts: {
+      key?: string | null
+      revoked?: string[]
+      updatable?: string[]
+      seen?: string
+      verdicts?: VerdictStore
+    } = {},
+  ): Promise<ExtensionHost> {
+    writeFileSync(join(base, 'revoked.json'), JSON.stringify(opts.revoked ?? []))
+    if (opts.seen) writeFileSync(join(base, 'seen.json'), JSON.stringify({ board: opts.seen }))
+    let rescan = (): void => {}
+    const verifier = new OfficialVerifier({
+      publicKey: () => (opts.key === null ? undefined : (opts.key ?? publicDer)),
+      revocations: new OfficialRevocations(join(base, 'revoked.json')),
+      accepted: new AcceptedVersions(join(base, 'seen.json')),
+      onVerified: () => rescan(),
+      recordAccepted: true,
+      ...(opts.verdicts ? { verdicts: opts.verdicts } : {}),
+      updatable: opts.updatable ?? ['board'],
+    })
+    const { host: created } = makeHost({ officialUpdate: verifier.check })
+    rescan = () => created.processes.rescan()
+    await verifier.settled()
+    return created
+  }
+
+  const board = (h: ExtensionHost) => h.list().find((e) => e.id === 'board')
+
+  it('runs a signed newer copy with the built-in powers once it is verified', async () => {
+    update('2.0.0', true)
+    expect(board(await host())).toMatchObject({
+      builtin: true,
+      version: '2.0.0',
+      enabled: true,
+      unapproved: [],
+    })
+  })
+
+  it('does not start the bundled copy while the update is being verified, and remembers the verdict', async () => {
+    update('2.0.0', true)
+    const verdicts = new VerdictStore(join(base, 'verdicts.json'))
+    const make = (store: VerdictStore) =>
+      new OfficialVerifier({
+        publicKey: () => publicDer,
+        revocations: new OfficialRevocations(join(base, 'revoked.json')),
+        accepted: new AcceptedVersions(join(base, 'seen.json')),
+        onVerified: () => {},
+        recordAccepted: true,
+        verdicts: store,
+        updatable: ['board'],
+      })
+    const first = make(verdicts)
+    expect(board(makeHost({ officialUpdate: first.check }).host)).toBeUndefined()
+    await first.settled()
+    expect(statSync(join(base, 'verdicts.json')).mode & 0o777).toBe(0o600)
+    expect(board(makeHost({ officialUpdate: make(verdicts).check }).host)).toMatchObject({
+      builtin: true,
+      version: '2.0.0',
+    })
+  })
+
+  it('verifies again when the folder changes, even to the same size', async () => {
+    update('2.0.0', true)
+    const verdicts = new VerdictStore(join(base, 'verdicts.json'))
+    expect(board(await host({ verdicts }))).toMatchObject({ version: '2.0.0' })
+    writeFileSync(join(base, 'user/board/panel.html'), '<p>tampered</p>')
+    expect(board(await host({ verdicts }))).toMatchObject({ version: '1.0.0' })
+  })
+
+  it('keeps the bundled copy for an unsigned, tampered, downgraded or revoked one', async () => {
+    update('2.0.0', false)
+    expect(board(await host())).toMatchObject({ builtin: true, version: '1.0.0' })
+
+    update('2.0.0', true)
+    writeFileSync(join(base, 'user/board/panel.html'), '<script>steal()</script>')
+    expect(board(await host())).toMatchObject({ builtin: true, version: '1.0.0' })
+
+    update('0.9.0', true)
+    expect(board(await host())).toMatchObject({ builtin: true, version: '1.0.0' })
+
+    update('2.0.0', true)
+    expect(board(await host({ key: null }))).toMatchObject({ version: '1.0.0' })
+    expect(board(await host({ revoked: ['board@2.0.0'] }))).toMatchObject({ version: '1.0.0' })
+  })
+
+  it('refuses a copy signed by another key', async () => {
+    update('2.0.0', true)
+    const other = generateKeyPairSync('ed25519').publicKey
+    const otherDer = other.export({ type: 'spki', format: 'der' }).toString('base64')
+    expect(board(await host({ key: otherDer }))).toMatchObject({ version: '1.0.0' })
+  })
+
+  it('refuses a signed copy that raises a capability, however it is signed', async () => {
+    update('2.0.0', true, ['notify', 'browse'])
+    expect(board(await host())).toMatchObject({ version: '1.0.0' })
+  })
+
+  it('refuses a built-in that is not on the allowlist', async () => {
+    update('2.0.0', true)
+    expect(board(await host({ updatable: ['csv'] }))).toMatchObject({ version: '1.0.0' })
+  })
+
+  it('refuses a version below the highest one accepted before', async () => {
+    update('1.5.0', true)
+    expect(board(await host({ seen: '2.0.0' }))).toMatchObject({ version: '1.0.0' })
+    expect(board(await host({ seen: '1.2.0' }))).toMatchObject({ version: '1.5.0' })
+    expect(JSON.parse(readFileSync(join(base, 'seen.json'), 'utf8')).board).toBe('1.5.0')
   })
 })

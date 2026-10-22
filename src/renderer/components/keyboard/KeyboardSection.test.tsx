@@ -283,14 +283,20 @@ describe('KeyboardSection', () => {
     expect(row(/Clear Terminal/)).toBeInTheDocument()
   })
 
-  it('chooses whether Ctrl+click on a terminal link opens a browser tab or the system browser', async () => {
+  it('chooses whether Ctrl+click on a terminal link opens in Ostia or the system default app', async () => {
     render(<KeyboardSection />)
     const field = screen.getByRole('combobox', { name: 'Ctrl+Click on a terminal link opens' })
-    expect(field).toHaveTextContent('A new browser tab')
-    expect(screen.getByText('Ctrl+Shift+Click opens it in the other one.')).toBeInTheDocument()
+    expect(field).toHaveTextContent('In Ostia')
+    expect(
+      screen.getByText(
+        'Web links and file paths follow the same choice. Ctrl+Shift+Click opens it in the other one.',
+      ),
+    ).toBeInTheDocument()
 
     await userEvent.click(field)
-    await userEvent.click(await screen.findByRole('option', { name: 'The system browser' }))
+    await userEvent.click(
+      await screen.findByRole('option', { name: 'In the system’s default app' }),
+    )
 
     expect(useSettingsStore.getState().terminal.linkClick).toBe('system')
   })

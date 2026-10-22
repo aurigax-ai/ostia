@@ -1,0 +1,111 @@
+import { lstatSync, mkdirSync, symlinkSync, writeFileSync } from 'node:fs'
+import { readdir, realpath, rm, stat } from 'node:fs/promises'
+import { homedir } from 'node:os'
+import { join } from 'node:path'
+import { isProfileId } from '../../../shared/claudeAccounts/claudeAccounts'
+import { readRegularFile } from '../../artifacts/previewFiles'
+import { appDataDir } from '../../platform/userDirs'
+import { claudeConfigFile } from '../claudeFolderTrust'
+
+const CONFIG_READ_MAX = 32 * 1024 * 1024
+const PROFILE_MODE = 0o700
+const CREDENTIAL_FILE = '.credentials.json'
+const PENDING_MARKER = '.ostia-pending'
+const ACCOUNTS_DIR = 'claude-accounts'
+const SHARED_FOLDERS = ['projects']
+const SHARED_WHEN_PRESENT = [
+  'keybindings.json',
+  'CLAUDE.md',
+  'skills',
+  'commands',
+  'agents',
+  'history.jsonl',
+]
+
+export function accountsRoot(): string {
+  return join(appDataDir(), ACCOUNTS_DIR)
+}
+
+export function defaultConfigHome(env: NodeJS.ProcessEnv = process.env): string {
+  return env.CLAUDE_CONFIG_DIR || join(homedir(), '.claude')
+}
+
+function present(path: string): boolean {
+  try {
+    lstatSync(path)
+    return true
+  } catch {
+    return false
+  }
+}
+
+export function createProfile(root: string, id: string, defaultHome: string): string {
+  const dir = join(root, id)
+  mkdirSync(root, { recursive: true, mode: PROFILE_MODE })
+  mkdirSync(dir, { mode: PROFILE_MODE })
+  writeFileSync(join(dir, PENDING_MARKER), '', { mode: 0o600 })
+  for (const name of SHARED_FOLDERS) {
+    mkdirSync(join(defaultHome, name), { recursive: true })
+    symlinkSync(join(defaultHome, name), join(dir, name))
+  }
+  for (const name of SHARED_WHEN_PRESENT) {
+    if (present(join(defaultHome, name))) symlinkSync(join(defaultHome, name), join(dir, name))
+  }
+  return dir
+}
+
+export async function removeProfile(root: string, id: string): Promise<void> {
+  await rm(join(root, id), { recursive: true, force: true })
+}
+
+export async function acceptProfile(root: string, id: string): Promise<void> {
+  await rm(join(root, id, PENDING_MARKER), { force: true })
+}
+
+export async function sweepPendingProfiles(
+  root: string,
+  olderThanMs: number,
+  now: number,
+  listed: ReadonlySet<string>,
+  hasLogin: (dir: string) => Promise<boolean>,
+): Promise<void> {
+  const ids = await readdir(root).catch(() => [])
+  for (const id of ids) {
+    if (!isProfileId(id)) continue
+    const marker = await stat(join(root, id, PENDING_MARKER)).catch(() => null)
+    if (!marker || now - marker.mtimeMs <= olderThanMs) continue
+    if (listed.has(id) || (await hasLogin(join(root, id)))) await acceptProfile(root, id)
+    else await removeProfile(root, id)
+  }
+}
+
+export async function acceptedProfileFolders(root: string): Promise<string[]> {
+  const ids = await readdir(root).catch(() => [])
+  const accepted: string[] = []
+  for (const id of ids) {
+    if (isProfileId(id) && !(await stat(join(root, id, PENDING_MARKER)).catch(() => null))) {
+      accepted.push(id)
+    }
+  }
+  return accepted
+}
+
+export async function accountEmail(configDir?: string): Promise<string | null> {
+  const file = await realpath(await claudeConfigFile(homedir(), configDir)).catch(() => null)
+  const read = file ? await readRegularFile(file, CONFIG_READ_MAX) : null
+  if (!read?.ok) return null
+  try {
+    const { oauthAccount } = JSON.parse(read.body.toString('utf8')) as { oauthAccount?: unknown }
+    const address = (oauthAccount as { emailAddress?: unknown } | undefined)?.emailAddress
+    return typeof address === 'string' && address !== '' ? address : null
+  } catch {
+    return null
+  }
+}
+
+export function credentialsPresent(
+  dir: string,
+  platform: NodeJS.Platform = process.platform,
+): boolean {
+  return platform === 'darwin' || present(join(dir, CREDENTIAL_FILE))
+}

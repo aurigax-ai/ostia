@@ -32,14 +32,22 @@ export function createMarketplaceIpc({
       marketplace.remove(id, uninstallExtensions),
     )
     ipcMain.handle('marketplace:refresh', (_e, id: unknown) => marketplace.refresh(id))
-    ipcMain.handle('marketplace:install', (_e, id: unknown, extId: unknown) =>
-      marketplace.install(id, extId),
+    ipcMain.handle(
+      'marketplace:install',
+      (_e, id: unknown, extId: unknown, confirmDowngrade: unknown) =>
+        marketplace.install(id, extId, confirmDowngrade),
     )
     ipcMain.handle('marketplace:find-code', (_e, code: unknown) => marketplace.findCode(code))
     ipcMain.handle('marketplace:install-code', (_e, id: unknown, code: unknown) =>
       marketplace.installCode(id, code),
     )
     ipcMain.handle('marketplace:uninstall', (_e, extId: unknown) => marketplace.uninstall(extId))
+    ipcMain.handle('marketplace:set-prerelease', (_e, extId: unknown, enabled: unknown) =>
+      marketplace.setPrerelease(extId, enabled),
+    )
+    ipcMain.handle('marketplace:install-dev', (_e, source: unknown) =>
+      marketplace.installDev(source),
+    )
 
     const dismissed = new DismissedSuggestions(
       join(app.getPath('userData'), 'extension-suggestions.json'),

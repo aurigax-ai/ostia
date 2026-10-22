@@ -4,8 +4,10 @@ catalog:
   '@ai-sdk-tool/parser': ^5.1.6
   '@phosphor-icons/core': ^2.1.1
   '@types/node': ^24.19.1
+  '@types/semver': ^7.7.1
   ai: ^7.0.122
   esbuild: ^0.28.2
+  semver: ^7.8.5
   typescript: 5.9.3
   undici: ^6.29.0
   vitest: ^5.0.4

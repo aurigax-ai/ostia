@@ -331,7 +331,10 @@ export class TmuxServer {
     this.panes.set(paneId, pane)
     const held = this.pendingOutput.get(paneId)
     this.pendingOutput.delete(paneId)
-    if (held && keepEarlyOutput) pane.holdEarlyOutput(held.join(''))
+    if (held) {
+      if (keepEarlyOutput) pane.holdEarlyOutput(held.join(''))
+      else pane.skipEarlyOutput(held.join(''))
+    }
     return pane
   }
 
@@ -349,7 +352,7 @@ export class TmuxServer {
     } else if (event.type === 'subscription') {
       const pane = this.panes.get(event.pane)
       if (!pane) return
-      if (event.name === COMMAND_SUBSCRIPTION) pane.foreground = event.value
+      if (event.name === COMMAND_SUBSCRIPTION) pane.setForeground(event.value)
       else if (event.name === DEAD_SUBSCRIPTION) {
         const code = parseExit(event.value)
         if (code !== null) pane.died(code)

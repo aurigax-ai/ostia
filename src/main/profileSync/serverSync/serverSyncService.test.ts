@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { FakeServer } from '../../../../test/fixtures/server/fakeServer'
 import { elevate, firstDevice, PASSPHRASE } from '../../../../test/fixtures/server/syncHarness'
 import { syncWorld } from '../../../../test/fixtures/server/syncWorld'
@@ -230,20 +230,6 @@ describe('elevation, approvals and the age rule', () => {
     expect(own).toEqual({ ok: true, approvals: [] })
   })
 
-  it('SSY-C54 flags a device added after this one until it is acknowledged', async () => {
-    const { server, first } = await world()
-    const second = await join(server, first)
-    const before = await first.account.devices()
-    expect(before.ok && before.devices.find((d) => !d.current)?.isNew).toBe(true)
-    const mine = await second.account.devices()
-    expect(mine.ok && mine.devices.every((d) => !d.isNew)).toBe(true)
-    expect(await first.devices.markSeen(second.account.identity()?.deviceId ?? '')).toEqual({
-      ok: true,
-    })
-    const after = await first.account.devices()
-    expect(after.ok && after.devices.every((d) => !d.isNew)).toBe(true)
-  })
-
   it('SSY-C55 elevates a GitHub account with a fresh sign-in', async () => {
     const server = await new FakeServer({ github: true, approverMinAgeMs: 0 }).start()
     const first = await firstDevice(server)
@@ -343,26 +329,114 @@ describe('removing a device and rotating the key', () => {
     expect(fourth.keyring.key()?.equals(first.keyring.key() ?? Buffer.alloc(0))).toBe(true)
   })
 
-  it('SSY-C64 clean-up removes unlisted blobs after an approval', async () => {
-    const { server, first } = await world()
-    const second = await join(server, first)
-    first.writeSettings({ appearance: { theme: 'dark' } }, 1)
-    await first.sync.run()
-    first.writeSettings({ appearance: { theme: 'light' } }, 2)
-    await first.sync.run()
+  it('SSY-C64 cleans up unlisted blobs after a push, once a day, on a server that binds it to the manifest', async () => {
+    const { server, first } = await world({ syncGCBound: true, approverMinAgeMs: 0 })
     const account = server.devices.get('device1')?.accountId ?? ''
     const stored = () => server.syncData.get(account)?.blobs.size ?? 0
-    const before = stored()
-    expect(await first.service.collectGarbage()).toMatchObject({
-      ok: false,
-      error: 'elevation-required',
-    })
-    await elevate(first, second)
-    const res = await first.service.collectGarbage()
-    expect(res).toMatchObject({ ok: true })
-    expect(res.deleted).toBeGreaterThan(0)
-    expect(stored()).toBeLessThan(before)
+    const edit = async (theme: string): Promise<void> => {
+      first.writeSettings({ appearance: { theme } }, server.now() / 60_000)
+      await first.sync.run()
+    }
+    await edit('dark')
+    await vi.waitFor(() =>
+      expect(server.requests.some((r) => r.includes('/v1/sync/gc'))).toBe(true),
+    )
+    const cleaned = stored()
+    await edit('light')
+    await edit('dim')
+    expect(stored()).toBeGreaterThan(cleaned)
+    server.advance(25 * 3_600_000)
+    const beforeNext = stored()
+    await edit('blue')
+    await vi.waitFor(() => expect(stored()).toBeLessThan(beforeNext + 1))
+    expect(stored()).toBeLessThanOrEqual(cleaned)
     expect((await first.sync.run()).status.state).toBe('ok')
+  })
+
+  it('SSY-C74 counts a refusal for a device that is still too new as the day', async () => {
+    const { server, first } = await world({ syncGCBound: true, approverMinAgeMs: 3_600_000 })
+    const gcCalls = () => server.requests.filter((r) => r.includes('/v1/sync/gc')).length
+    const edit = async (theme: string): Promise<void> => {
+      first.writeSettings({ appearance: { theme } }, server.now() / 60_000)
+      await first.sync.run()
+    }
+    await edit('dark')
+    await vi.waitFor(() => expect(gcCalls()).toBe(1))
+    server.advance(2 * 3_600_000)
+    await edit('light')
+    await new Promise((resolve) => setTimeout(resolve, 100))
+    expect(gcCalls()).toBe(1)
+  })
+
+  it('SSY-C75 never cleans up on a server that does not offer the bound route', async () => {
+    const { server, first } = await world({ approverMinAgeMs: 0 })
+    const account = server.devices.get('device1')?.accountId ?? ''
+    const stored = () => server.syncData.get(account)?.blobs.size ?? 0
+    const edit = async (theme: string): Promise<void> => {
+      first.writeSettings({ appearance: { theme } }, server.now() / 60_000)
+      await first.sync.run()
+    }
+    await edit('dark')
+    await edit('light')
+    server.advance(25 * 3_600_000)
+    const before = stored()
+    await edit('blue')
+    expect(stored()).toBeGreaterThan(before)
+    expect(server.requests.some((r) => r.includes('/v1/sync/gc'))).toBe(false)
+  })
+
+  it('SSY-C71 deletes its own device and wrap from the server when a newer device signs out', async () => {
+    const { server, first } = await world()
+    const second = await join(server, first)
+    const id = second.account.identity()?.deviceId ?? ''
+    const account = server.devices.get(id)?.accountId ?? ''
+    expect(server.devices.has(id)).toBe(true)
+    expect(server.syncData.get(account)?.wraps.has(`device:${id}`)).toBe(true)
+    expect(await second.account.signOut()).toEqual({ ok: true, deviceKept: false })
+    expect(server.devices.has(id)).toBe(false)
+    expect(server.syncData.get(account)?.wraps.has(`device:${id}`)).toBe(false)
+    expect(second.account.signedIn()).toBe(false)
+  })
+
+  it('SSY-C76 deletes the synced profile from the server when its last device signs out', async () => {
+    const { server, first } = await world()
+    first.writeSettings({ appearance: { theme: 'dark' } }, 1)
+    await first.sync.run()
+    const id = first.account.identity()?.deviceId ?? ''
+    const account = server.devices.get(id)?.accountId ?? ''
+    expect(server.syncData.get(account)?.manifests.length).toBeGreaterThan(0)
+    expect(await first.account.signOut()).toEqual({ ok: true, deviceKept: false })
+    expect(server.devices.has(id)).toBe(false)
+    expect(server.syncData.has(account)).toBe(false)
+  })
+
+  it('SSY-C73 waits for the sign-out hooks, then deletes the device row, then ends the session', async () => {
+    const { server, first } = await world()
+    const second = await join(server, first)
+    const id = second.account.identity()?.deviceId ?? ''
+    const seen: string[] = []
+    second.account.beforeSignOut(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 80))
+      seen.push(`hook sees the device row: ${server.devices.has(id)}`)
+    })
+    vi.spyOn(second.session, 'end').mockImplementation(async () => {
+      seen.push(`session ends after the row left: ${!server.devices.has(id)}`)
+    })
+    await second.account.signOut()
+    expect(seen).toEqual([
+      'hook sees the device row: true',
+      'session ends after the row left: true',
+    ])
+    expect(server.removed).toContain(id)
+  })
+
+  it('SSY-C72 lets the oldest device delete itself too, without an elevated session', async () => {
+    const { server, first } = await world()
+    await join(server, first)
+    const id = first.account.identity()?.deviceId ?? ''
+    expect(await first.account.signOut()).toEqual({ ok: true, deviceKept: false })
+    expect(first.account.signedIn()).toBe(false)
+    expect(server.devices.has(id)).toBe(false)
   })
 
   it('SSY-C65 wraps the new key only for devices the manifest lists or this machine approved, and says who was left out', async () => {
@@ -375,7 +449,8 @@ describe('removing a device and rotating the key', () => {
       signPub: Buffer.alloc(32, 1).toString('base64url'),
       boxPub: Buffer.alloc(32, 9).toString('base64url'),
       createdAt: 1,
-      lastSeen: 0,
+      lastSeenAt: 0,
+      removeAt: 0,
     }
     server.rewriteDevices = (_viewer, rows) => [...rows, ghost]
     await elevate(first, second)

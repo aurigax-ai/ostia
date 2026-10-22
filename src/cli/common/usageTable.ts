@@ -80,7 +80,7 @@ export const USAGE_TABLE: readonly NounUsage[] = [
       {
         verb: 'list',
         args: '[--here | --workspace <id|name>] [--state <state>]… [--kind <kind>] [--json]',
-        about: 'the panes you can see: id, workspace, kind, state, title',
+        about: 'the panes you can see: id, workspace, kind, state, title, bus name and description',
       },
       {
         verb: 'send',
@@ -127,6 +127,12 @@ export const USAGE_TABLE: readonly NounUsage[] = [
         about: 'put running panes into a split tab, their own tabs or another workspace',
       },
       { verb: 'rename', args: `${PANE} <title…> | --clear`, about: "name a pane's tab" },
+      {
+        verb: 'name',
+        args: '<name> [--desc <text>] [--json] | --clear',
+        about:
+          'give your own pane a bus name other agents send to in place of its id; one holder per name, dropped when the pane or its agent ends',
+      },
     ],
   },
   {
@@ -219,7 +225,7 @@ export const USAGE_TABLE: readonly NounUsage[] = [
         verb: 'send',
         args: `[--wait <s>] ${PANE} "<msg>"`,
         about:
-          'send a message to an agent pane; --wait blocks until that pane replies (exit 3 timed out)',
+          'send a message to an agent pane, by id or bus name; --wait blocks until that pane replies (exit 3 timed out)',
       },
       {
         verb: 'inbox',
@@ -405,6 +411,19 @@ export const USAGE_TABLE: readonly NounUsage[] = [
     ],
   },
   {
+    noun: 'account',
+    audience: 'admin',
+    about: 'the Claude accounts new sessions can use',
+    verbs: [
+      {
+        verb: 'list',
+        args: '[--json]',
+        about: 'every account: number, email, which one is current',
+      },
+      { verb: 'switch', args: '<email|number>', about: 'the account new Claude sessions start on' },
+    ],
+  },
+  {
     noun: 'gateway',
     audience: 'admin',
     about: 'the phone gateway',
@@ -435,6 +454,8 @@ export const USAGE_TABLE: readonly NounUsage[] = [
   },
   { noun: 'resume-token', audience: 'plumbing', needsArgs: true, about: 'agent hook' },
   { noun: 'claude-hook', audience: 'plumbing', needsArgs: true, about: 'agent hook' },
+  { noun: 'claude-account', audience: 'plumbing', needsArgs: true, about: 'claude launcher' },
+  { noun: 'codex-hook', audience: 'plumbing', needsArgs: true, about: 'agent hook' },
   { noun: 'turn-hook', audience: 'plumbing', needsArgs: true, about: 'agent hook' },
   { noun: 'codex-server', audience: 'plumbing', needsArgs: true, about: 'codex launcher' },
   { noun: 'permission-hook', audience: 'plumbing', needsArgs: true, about: 'agent hook' },

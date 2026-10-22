@@ -29,6 +29,7 @@ export const assistantZhHant: typeof assistantEn = {
     version: '版本',
   },
   approvals: {
+    accountSwitch: '{pane} 想讓新的 Claude 工作階段改用 {subject}',
     allowAlways: '一律允許',
     allowChoices: '更多允許方式',
     allowOnce: '允許一次',

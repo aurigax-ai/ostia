@@ -15,6 +15,7 @@ import { fmt, useDict } from '@/lib/app/useDict'
 import { useExitPresence } from '@/lib/app/useExitPresence'
 import { blockSpan, commandLine, stickyBlock } from '@/lib/terminal/blocks'
 import { createCellBoxCache } from '@/lib/terminal/cellBox'
+import { frameCoalesce } from '@/lib/terminal/frameCoalesce'
 import type { OstiaTerminal as Xterm } from '@/lib/terminal/ostiaTerminal'
 import { terminalScreen } from '@/lib/terminal/ostiaTerminal'
 import { type CommandBlock, useBlocksStore } from '@/stores/terminal/blocksStore'
@@ -191,17 +192,19 @@ function useBlockGeometry({
     recompute()
 
     const throttled = throttle(recompute, RECOMPUTE_MS)
-    const scrolled = (): void => {
+    const follow = (): void => {
       scroll.current = { ...scroll.current, viewportY: term.buffer.active.viewportY }
       placeTrack()
       throttled()
     }
+    const scrolled = frameCoalesce(follow)
     const remeasure = (): void => {
+      scrolled.cancel()
       throttled.cancel()
       cells.invalidate()
       recompute()
     }
-    const offRender = term.onRender(throttled)
+    const offRender = term.onRender(follow)
     const offScroll = term.onScroll(scrolled)
     const offResize = term.onResize(remeasure)
     const boxObserver = new ResizeObserver(remeasure)
@@ -209,6 +212,7 @@ function useBlockGeometry({
     const screen = terminalScreen(host)
     if (screen) boxObserver.observe(screen)
     return () => {
+      scrolled.cancel()
       throttled.cancel()
       offRender.dispose()
       offScroll.dispose()

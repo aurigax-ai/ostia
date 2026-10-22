@@ -1,4 +1,5 @@
 import type { BrowserProfile } from '@shared/browser/browserProfile'
+import { NO_ACCOUNTS } from '@shared/claudeAccounts/claudeAccounts'
 import type { SyncStatus } from '@shared/profileSync/profileSync'
 import type { ServerSyncStatus } from '@shared/profileSync/serverSync'
 import type { OstiaBridge } from '@shared/types'
@@ -12,7 +13,8 @@ const SYNC_SERVER_OFF: ServerSyncStatus = {
   linkCodes: [],
   joins: [],
   recoveryStale: false,
-  wrapRefused: false,
+  wrapRefused: null,
+  changedDevices: [],
 }
 
 const SYNC_OFF: SyncStatus = {
@@ -302,6 +304,14 @@ export function makeOstiaMock(overrides?: Partial<OstiaBridge>): OstiaBridge {
     park: {
       pane: vi.fn().mockResolvedValue({ ok: false, reason: 'unavailable' }),
     },
+    claudeAccounts: {
+      state: vi.fn().mockResolvedValue(NO_ACCOUNTS),
+      onChange: vi.fn(noopUnsub),
+      add: vi.fn().mockResolvedValue('opened'),
+      remove: vi.fn().mockResolvedValue('removed'),
+      use: vi.fn().mockResolvedValue(true),
+      recover: vi.fn().mockResolvedValue(null),
+    },
     agentSession: {
       info: vi.fn().mockResolvedValue(null),
       claimResume: vi.fn().mockResolvedValue({ ok: true }),
@@ -410,24 +420,60 @@ export function makeOstiaMock(overrides?: Partial<OstiaBridge>): OstiaBridge {
       startDrag: vi.fn(),
     },
     marketplace: {
-      list: vi.fn().mockResolvedValue({ marketplaces: [], installed: [] }),
-      add: vi.fn().mockResolvedValue({ ok: true, state: { marketplaces: [], installed: [] } }),
-      remove: vi.fn().mockResolvedValue({ ok: true, state: { marketplaces: [], installed: [] } }),
-      refresh: vi.fn().mockResolvedValue({ ok: true, state: { marketplaces: [], installed: [] } }),
-      install: vi.fn().mockResolvedValue({ ok: true, state: { marketplaces: [], installed: [] } }),
+      list: vi.fn().mockResolvedValue({ marketplaces: [], installed: [], prerelease: [], dev: {} }),
+      add: vi
+        .fn()
+        .mockResolvedValue({
+          ok: true,
+          state: { marketplaces: [], installed: [], prerelease: [], dev: {} },
+        }),
+      remove: vi
+        .fn()
+        .mockResolvedValue({
+          ok: true,
+          state: { marketplaces: [], installed: [], prerelease: [], dev: {} },
+        }),
+      refresh: vi
+        .fn()
+        .mockResolvedValue({
+          ok: true,
+          state: { marketplaces: [], installed: [], prerelease: [], dev: {} },
+        }),
+      install: vi
+        .fn()
+        .mockResolvedValue({
+          ok: true,
+          state: { marketplaces: [], installed: [], prerelease: [], dev: {} },
+        }),
       findCode: vi.fn().mockResolvedValue({ ok: false, error: 'unknown-code' }),
       installCode: vi
         .fn()
-        .mockResolvedValue({ ok: true, state: { marketplaces: [], installed: [] } }),
+        .mockResolvedValue({
+          ok: true,
+          state: { marketplaces: [], installed: [], prerelease: [], dev: {} },
+        }),
       uninstall: vi.fn().mockResolvedValue({
         ok: true,
-        state: { marketplaces: [], installed: [] },
+        state: { marketplaces: [], installed: [], prerelease: [], dev: {} },
+      }),
+      setPrerelease: vi.fn().mockResolvedValue({
+        ok: true,
+        state: { marketplaces: [], installed: [], prerelease: [], dev: {} },
+      }),
+      installDev: vi.fn().mockResolvedValue({
+        ok: true,
+        state: { marketplaces: [], installed: [], prerelease: [], dev: {} },
       }),
     },
     suggestions: {
       forFile: vi.fn().mockResolvedValue(null),
       dismiss: vi.fn().mockResolvedValue(undefined),
-      install: vi.fn().mockResolvedValue({ ok: true, state: { marketplaces: [], installed: [] } }),
+      install: vi
+        .fn()
+        .mockResolvedValue({
+          ok: true,
+          state: { marketplaces: [], installed: [], prerelease: [], dev: {} },
+        }),
     },
     extensions: {
       list: vi.fn().mockResolvedValue([]),
@@ -676,14 +722,12 @@ export function makeOstiaMock(overrides?: Partial<OstiaBridge>): OstiaBridge {
       githubPoll: vi.fn().mockResolvedValue({ state: 'pending' }),
       githubCancel: vi.fn().mockResolvedValue(undefined),
       openVerification: vi.fn().mockResolvedValue(undefined),
-      signOut: vi.fn().mockResolvedValue({ ok: true }),
+      signOut: vi.fn().mockResolvedValue({ ok: true, deviceKept: false }),
       devices: vi.fn().mockResolvedValue({ ok: true, devices: [] }),
-      markSeen: vi.fn().mockResolvedValue({ ok: true }),
       createInvite: vi.fn().mockResolvedValue({ ok: true, code: 'invite-code', expiresAt: 0 }),
       elevationStart: vi.fn().mockResolvedValue({ ok: true, kind: 'approval' }),
       elevationPoll: vi.fn().mockResolvedValue({ state: 'done' }),
       elevationCancel: vi.fn().mockResolvedValue(undefined),
-      approvals: vi.fn().mockResolvedValue({ ok: true, approvals: [] }),
       approve: vi.fn().mockResolvedValue({ ok: true }),
       onChanged: vi.fn(noopUnsub),
       onDevicesChanged: vi.fn(noopUnsub),
@@ -700,8 +744,10 @@ export function makeOstiaMock(overrides?: Partial<OstiaBridge>): OstiaBridge {
       removeDevice: vi.fn().mockResolvedValue({ ok: true, status: SYNC_SERVER_OFF }),
       rotate: vi.fn().mockResolvedValue({ ok: true, status: SYNC_SERVER_OFF }),
       newRecoveryKey: vi.fn().mockResolvedValue({ ok: true, status: SYNC_SERVER_OFF }),
-      collectGarbage: vi.fn().mockResolvedValue({ ok: true, status: SYNC_SERVER_OFF }),
       onStatus: vi.fn(noopUnsub),
+      attention: vi.fn().mockResolvedValue([]),
+      onAttention: vi.fn(noopUnsub),
+      onOpen: vi.fn(noopUnsub),
     },
     views: {
       list: vi.fn().mockResolvedValue({ dir: '/home/u/.config/ostia/views', views: [] }),

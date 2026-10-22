@@ -13,9 +13,10 @@ import { transcriptPath } from '../agents/transcriptFiles'
 import type { AskHub } from '../approvals/asks'
 import type { Reach } from '../approvals/reach'
 import type { ArtifactFolders } from '../artifacts/artifactFolders'
+import { targetOf } from '../attention/attention'
 import type { CommandBridge } from '../control/commandBridge'
 import { type PlatformEventPayloads, platformEvents } from '../control/events'
-import { resolveExternal } from '../control/idRegistry'
+import { getByPaneId, resolveExternal } from '../control/idRegistry'
 import type { AppLog } from '../diagnostics/appLog'
 import type { PaneConfirms } from '../panes/paneConfirm'
 import type { PaneJournal } from '../panes/paneJournal'
@@ -61,6 +62,7 @@ import {
   phoneWorkspaceId,
 } from './phone/phoneWorkspace'
 import { registerPhoneWorkspaceIpc } from './phone/phoneWorkspaceIpc'
+import { phoneInputNoter } from './phoneInput'
 import { startPhonePush } from './push/pushWiring'
 import { RelayClient } from './relayClient'
 import { ScreenLinks } from './screenLinks'
@@ -285,6 +287,10 @@ export function startGateway({
     primaryWindowId,
     attachPhoneObserver,
     ptyWrite,
+    phoneInput: phoneInputNoter(waitingSince.ofPane, (paneId) => {
+      const pane = getByPaneId(paneId)
+      if (pane) void execCommand(targetOf(pane), 'attention.typed')
+    }),
     readScreen: async (paneId) =>
       (await ptys.get(paneId)?.mirror.screenText(phoneScreenLines)) ?? '',
     withClipboardImage,

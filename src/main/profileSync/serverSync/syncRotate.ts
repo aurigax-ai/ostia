@@ -146,19 +146,3 @@ export async function rotateKey(
   }
   return { ok: false, error: 'rotation-failed' }
 }
-
-export async function collectGarbage(
-  ctx: RemoteContext,
-): Promise<{ ok: true; deleted: number } | { ok: false; error: RotateError }> {
-  try {
-    const remote = await readRemote(ctx)
-    const keep = Object.values(remote.manifest?.files ?? {}).map((f) => f.blobId)
-    const { deleted } = await ctx.account.authed((token, routes) => routes.gc(token, keep))
-    return { ok: true, deleted }
-  } catch (error) {
-    return {
-      ok: false,
-      error: failureOf(error) === 'elevation-required' ? 'elevation-required' : 'rotation-failed',
-    }
-  }
-}
