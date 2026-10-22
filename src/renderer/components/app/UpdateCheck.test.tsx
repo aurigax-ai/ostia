@@ -117,6 +117,25 @@ describe('UpdateCheck', () => {
     stop()
   })
 
+  it('shows a release the automatic check finds after a manual check said latest', async () => {
+    let announce: (state: ReleaseState) => void = () => {}
+    vi.mocked(window.ostia.update.onRelease).mockImplementation((cb) => {
+      announce = cb
+      return () => {}
+    })
+    answer({ status: 'latest', version: '1.0.0' })
+    render(<UpdateCheck />)
+    const stop = startUpdateWatch()
+    await check()
+    expect(screen.getByRole('status')).toHaveTextContent('latest')
+
+    act(() => announce(state(RELEASE)))
+
+    expect(screen.getByRole('status')).toHaveTextContent('Version 1.1.0 is available')
+    expect(screen.getByRole('button', { name: 'View release' })).toBeInTheDocument()
+    stop()
+  })
+
   it('follows releases main announces and stops when the watch ends', () => {
     let announce: (state: ReleaseState) => void = () => {}
     const unsubscribe = vi.fn()
