@@ -62,6 +62,10 @@ export class TmuxPane {
     this.unheard = this.titles.push(raw)
   }
 
+  skipEarlyOutput(raw: string): void {
+    this.titles.push(raw)
+  }
+
   onData(listener: Listener<string>): Disposable {
     this.dataListeners.add(listener)
     const unheard = this.unheard

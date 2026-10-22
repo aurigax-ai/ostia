@@ -383,7 +383,7 @@ export function shellIntegrationFiles(dir: string): ShellIntegrationFiles {
       '[ "$HISTFILE" = "$ZDOTDIR/.zsh_history" ] && HISTFILE="${OSTIA_ZDOTDIR_ORIG:-$HOME}/.zsh_history"',
       '[ -n "$OSTIA_ZDOTDIR_ORIG" ] && [ -f "$OSTIA_ZDOTDIR_ORIG/.zshrc" ] && source "$OSTIA_ZDOTDIR_ORIG/.zshrc"',
       `source "${zshInit}"`,
-      '[[ "$HISTFILE" == "$ZDOTDIR"/* ]] && HISTFILE="${OSTIA_ZDOTDIR_ORIG:-$HOME}${HISTFILE#$ZDOTDIR}"',
+      '[[ "$HISTFILE" == "$ZDOTDIR"/* ]] && HISTFILE="${OSTIA_ZDOTDIR_ORIG:-$HOME}${HISTFILE#"$ZDOTDIR"}"',
       'ZDOTDIR="$OSTIA_ZDOTDIR_ORIG"',
       'unset OSTIA_ZDOTDIR_ORIG',
       '',

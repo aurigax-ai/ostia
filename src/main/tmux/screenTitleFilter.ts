@@ -1,6 +1,7 @@
 const ESC = '\x1b'
 const CAN = '\x18'
 const SUB = '\x1a'
+const DEL = '\x7f'
 
 const Ground = 0
 const Escape = 1
@@ -25,7 +26,8 @@ export class ScreenTitleFilter {
           break
         case Escape:
         case TitleEscape:
-          if (ch === 'k') this.state = Title
+          if (ch >= DEL) break
+          else if (ch === 'k') this.state = Title
           else if (ch === '\\' && this.state === TitleEscape) this.state = Ground
           else if (ch === ESC) break
           else if (isC0(ch)) out += ch
