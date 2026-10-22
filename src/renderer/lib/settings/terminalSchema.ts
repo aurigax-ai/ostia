@@ -67,9 +67,10 @@ export const terminalSchema = {
       type: 'string',
       enum: ['app', 'system'],
       description:
-        'Where Ctrl+click (Cmd+click on macOS) opens a web link in a terminal. "app": a new ' +
-        'browser tab in the app, and adding Shift opens the system browser. "system": the ' +
-        'system browser, and adding Shift opens a new browser tab in the app. Default: app.',
+        'Where Ctrl+click (Cmd+click on macOS) opens a web link or a printed file path in a ' +
+        `terminal. "app": in ${PRODUCT_DISPLAY_NAME} (a new browser tab, or the editor for a file), and adding ` +
+        'Shift opens it in the system\'s default app. "system": in the system\'s default app, ' +
+        `and adding Shift opens it in ${PRODUCT_DISPLAY_NAME}. Default: app.`,
     },
     warnOnRiskyPaste: {
       type: 'boolean',
