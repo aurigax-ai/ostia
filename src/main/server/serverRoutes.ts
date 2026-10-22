@@ -6,8 +6,9 @@ export interface ServerInfo {
   modules: { relay: boolean; publish: boolean; sync: boolean; push: boolean }
   auth: { invite: boolean; github: boolean }
   approverMinAgeSeconds?: number
+  syncGCBound?: boolean
+  deviceInactiveAfterSeconds?: number
   relayDomain: string
-  shareDomain: string
   limits?: { shareMaxBytes?: number; allowPublic?: boolean; allowNever?: boolean }
 }
 
@@ -68,9 +69,9 @@ export interface DeviceRow {
   signPub: string
   boxPub: string
   createdAt: number
-  lastSeen: number
+  lastSeenAt: number
+  removeAt: number
   current?: boolean
-  new?: boolean
 }
 
 export interface ApprovalRow {
@@ -156,19 +157,20 @@ export function serverRoutes(client: ServerClient) {
     endSession: (token: string) => client.request<void>('DELETE', '/v1/auth/session', { token }),
     devices: (token: string) =>
       client.request<{ devices: DeviceRow[] }>('GET', '/v1/devices', { token }),
+    heartbeat: (token: string) =>
+      client.request<void>('POST', '/v1/devices/heartbeat', { token, retryRateLimited: false }),
     createInvite: (token: string, headers: Record<string, string>) =>
       client.request<{ code: string; expiresAt: number }>('POST', '/v1/devices/invite', {
         token,
         headers,
         retryRateLimited: false,
       }),
-    markSeen: (token: string, id: string, sig: string) =>
-      client.request<void>('POST', `/v1/devices/${encodeURIComponent(id)}/seen`, {
-        token,
-        body: { sig },
-      }),
     revokeDevice: (token: string, id: string, headers: Record<string, string>) =>
-      client.request<void>('DELETE', `/v1/devices/${encodeURIComponent(id)}`, { token, headers }),
+      client.request<void>('DELETE', `/v1/devices/${encodeURIComponent(id)}`, {
+        token,
+        headers,
+        retryRateLimited: false,
+      }),
     elevation: (token: string) =>
       client.request<{ elevatedUntil: number }>('GET', '/v1/auth/elevation', { token }),
     requestApproval: (token: string, headers: Record<string, string>) =>
@@ -225,8 +227,13 @@ export function serverRoutes(client: ServerClient) {
       client.request<void>('PUT', `/v1/sync/wraps/${slot}`, { token, body: { blob } }),
     rotate: (token: string, body: RotateBody) =>
       client.request<{ version: number }>('POST', '/v1/sync/rotate', { token, body }),
-    gc: (token: string, keep: string[]) =>
-      client.request<{ deleted: number }>('POST', '/v1/sync/gc', { token, body: { keep } }),
+    gc: (token: string, json: string, ifMatch: string, signed: Record<string, string>) =>
+      client.request<{ deleted: number }>('POST', '/v1/sync/gc', {
+        token,
+        json,
+        headers: { 'If-Match': ifMatch, ...signed },
+        retryRateLimited: false,
+      }),
     createShare: (token: string, body: CreateShareBody) =>
       client.request<ShareCreated>('POST', '/v1/shares', { token, body }),
     uploadShare: (token: string, path: string, bytes: Uint8Array<ArrayBuffer>) =>

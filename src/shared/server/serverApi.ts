@@ -42,13 +42,14 @@ export interface ServerDevice {
   id: string
   name: string
   current: boolean
-  lastSeen: number
+  lastSeenAt: number
+  removeAt: number
   createdAt: number
-  isNew: boolean
 }
 
-export interface ServerApproval {
+interface ServerApproval {
   id: string
+  deviceId: string
   deviceName: string
   deviceCreatedAt: number
   createdAt: number
@@ -73,6 +74,10 @@ export type ServerInviteResult =
 
 export type ServerApprovalsResult =
   | { ok: true; approvals: ServerApproval[] }
+  | { ok: false; error: ServerFailure }
+
+export type ServerSignOutResult =
+  | { ok: true; deviceKept: boolean }
   | { ok: false; error: ServerFailure }
 
 export type ServerActionResult = { ok: true } | { ok: false; error: ServerFailure }
@@ -103,14 +108,12 @@ interface ServerApi {
   githubPoll: () => Promise<GithubPollResult>
   githubCancel: () => Promise<void>
   openVerification: () => Promise<void>
-  signOut: () => Promise<ServerActionResult>
+  signOut: () => Promise<ServerSignOutResult>
   devices: () => Promise<ServerDevicesResult>
-  markSeen: (deviceId: string) => Promise<ServerActionResult>
   createInvite: () => Promise<ServerInviteResult>
   elevationStart: (method: ElevationMethod) => Promise<ElevationStartResult>
   elevationPoll: () => Promise<ElevationPollResult>
   elevationCancel: () => Promise<void>
-  approvals: () => Promise<ServerApprovalsResult>
   approve: (approvalId: string) => Promise<ServerActionResult>
   onChanged: (cb: (status: ServerStatus) => void) => () => void
   onDevicesChanged: (cb: () => void) => () => void

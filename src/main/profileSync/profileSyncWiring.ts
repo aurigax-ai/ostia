@@ -1,6 +1,9 @@
 import { statSync } from 'node:fs'
-import { app, safeStorage } from 'electron'
+import { app, type BrowserWindow, safeStorage } from 'electron'
+import type { Dict } from '../../shared/app/dict'
 import { parsePrivacySettings } from '../../shared/privacy/redaction'
+import { postDesktopNotice } from '../attention/notify'
+import type { NotifyWiring } from '../attention/notifyWiring'
 import { credentials } from '../browser/credentials'
 import type { ExtensionHost } from '../extensions/extensionHost'
 import type { SecretStoreDeps } from '../extensions/extensionSecrets'
@@ -12,6 +15,7 @@ import type { ServerAccount } from '../server/serverAccount'
 import type { WindowSend } from '../windows/windowSend'
 import { type ProfileSyncHandle, startProfileSync } from './ipc'
 import { flatSource, groupedSource, loginsSource } from './secretSources'
+import { attentionPage, attentionText } from './serverSync/syncAttentionNotice'
 
 interface ProfileSyncStartDeps {
   services: {
@@ -24,6 +28,9 @@ interface ProfileSyncStartDeps {
   encryptedFile: (path: string) => SecretStoreDeps
   redactionScan: WorkerScan
   server: ServerAccount
+  mainStrings: () => Dict
+  notifyDeps: NotifyWiring['notifyDeps']
+  windows: Map<string, BrowserWindow>
 }
 
 export function startProfileSyncWiring({
@@ -34,6 +41,9 @@ export function startProfileSyncWiring({
   encryptedFile,
   redactionScan,
   server,
+  mainStrings,
+  notifyDeps,
+  windows,
 }: ProfileSyncStartDeps) {
   const syncKeyPath = storePath('sync-server', 'global')
   services.profileSync = startProfileSync({
@@ -75,6 +85,15 @@ export function startProfileSyncWiring({
       decrypt: (kept) => safeStorage.decryptString(Buffer.from(kept, 'base64')),
     },
     server,
+    notifyAttention: (item) =>
+      postDesktopNotice(notifyDeps, attentionText(mainStrings().native.syncAttention, item), () => {
+        const win = [...windows.values()].find((w) => !w.isDestroyed())
+        if (!win) return
+        if (win.isMinimized()) win.restore()
+        win.show()
+        win.focus()
+        win.webContents.send('syncServer:open', attentionPage(item))
+      }),
     syncKeyFile: {
       load: () => loadJson<unknown>(syncKeyPath, {}),
       save: (data) => saveJson(syncKeyPath, data, { secure: true }),

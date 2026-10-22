@@ -20,6 +20,8 @@ interface StoredSyncKeys {
   counters: Record<string, number>
   pinned: Record<string, ManifestDevice[]>
   seen: Record<string, Record<string, SeenDevice>>
+  gc: Record<string, number>
+  announced: Record<string, string[]>
 }
 
 export interface SyncKeyStore {
@@ -31,7 +33,11 @@ export interface SyncKeyStore {
   pinned: (account: string) => ManifestDevice[]
   pin: (account: string, devices: ManifestDevice[], now: number) => void
   firstSeen: (account: string, device: ManifestDevice) => number | null
-  changedSince: (account: string, since: number) => string[]
+  lastGc: (account: string) => number
+  announced: (account: string) => string[]
+  setAnnounced: (account: string, ids: string[]) => void
+  setLastGc: (account: string, at: number) => void
+  changedSince: (account: string, since: number) => { id: string; name: string; at: number }[]
 }
 
 function deviceOf(value: unknown): ManifestDevice | null {
@@ -60,7 +66,14 @@ function devicesOf(value: unknown): ManifestDevice[] {
 
 function read(file: SyncKeyFile): StoredSyncKeys {
   const raw = file.load()
-  const out: StoredSyncKeys = { keys: {}, counters: {}, pinned: {}, seen: {} }
+  const out: StoredSyncKeys = {
+    keys: {},
+    counters: {},
+    pinned: {},
+    seen: {},
+    gc: {},
+    announced: {},
+  }
   if (!isRecord(raw)) return out
   if (isRecord(raw.keys)) {
     for (const [id, value] of Object.entries(raw.keys)) {
@@ -76,6 +89,18 @@ function read(file: SyncKeyFile): StoredSyncKeys {
   }
   if (isRecord(raw.pinned)) {
     for (const [id, value] of Object.entries(raw.pinned)) out.pinned[id] = devicesOf(value)
+  }
+  if (isRecord(raw.announced)) {
+    for (const [id, value] of Object.entries(raw.announced)) {
+      if (Array.isArray(value)) {
+        out.announced[id] = value.filter((entry): entry is string => typeof entry === 'string')
+      }
+    }
+  }
+  if (isRecord(raw.gc)) {
+    for (const [id, value] of Object.entries(raw.gc)) {
+      if (typeof value === 'number' && Number.isFinite(value)) out.gc[id] = value
+    }
   }
   if (isRecord(raw.seen)) {
     for (const [account, byId] of Object.entries(raw.seen)) {
@@ -164,12 +189,26 @@ export function createSyncKeyStore(file: SyncKeyFile, protect: Protect): SyncKey
       const seen = read(file).seen[account]?.[device.id]
       return sameEntry(seen, device) ? (seen?.at ?? null) : null
     },
+    announced: (account) => read(file).announced[account] ?? [],
+    setAnnounced: (account, ids) => {
+      const data = read(file)
+      data.announced[account] = ids
+      file.save(data)
+    },
+    lastGc: (account) => read(file).gc[account] ?? 0,
+    setLastGc: (account, at) => {
+      const data = read(file)
+      data.gc[account] = at
+      file.save(data)
+    },
     changedSince: (account, since) => {
       const data = read(file)
       const seen = data.seen[account] ?? {}
       return (data.pinned[account] ?? []).flatMap((d) => {
         const entry = seen[d.id]
-        return sameEntry(entry, d) && entry?.changed && entry.at > since ? [d.name] : []
+        return sameEntry(entry, d) && entry?.changed && entry.at > since
+          ? [{ id: d.id, name: d.name, at: entry.at }]
+          : []
       })
     },
     pin: (account, devices, now) => {

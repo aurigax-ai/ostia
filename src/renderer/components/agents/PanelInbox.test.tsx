@@ -8,6 +8,7 @@ import { createPane } from '@/lib/layout/tree'
 import { useApprovalsStore } from '@/stores/agents/approvalsStore'
 import { useQuestionsStore } from '@/stores/agents/questionsStore'
 import { useInboxStore } from '@/stores/extensions/inboxStore'
+import { useSyncAttentionStore } from '@/stores/server/syncAttentionStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import { PanelInbox } from './PanelInbox'
@@ -112,6 +113,26 @@ describe('PanelInbox', () => {
     render(<PanelInbox extId="activity" workspaceId="w-api" />)
     expect(screen.getByText('Nothing waits for you.')).toBeInTheDocument()
     expect(screen.queryByRole('list')).toBeNull()
+  })
+
+  it('SYA-C180 never lists a sync request or a device notice', () => {
+    seed()
+    useSyncAttentionStore.setState({
+      items: [
+        {
+          kind: 'join',
+          id: 'join:d2',
+          deviceId: 'd2',
+          name: 'Pixel 9',
+          code: 'AAAAA-BBBBB',
+          createdAt: 1,
+        },
+      ],
+    })
+    render(<PanelInbox extId="activity" workspaceId="w-api" />)
+    expect(screen.getByText('Nothing waits for you.')).toBeInTheDocument()
+    expect(screen.queryByText('Pixel 9')).toBeNull()
+    useSyncAttentionStore.setState({ items: [], hidden: new Set() })
   })
 
   it('lists this workspace’s cards in one flat list, oldest first, with the tab and the age and no heading', () => {

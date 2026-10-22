@@ -3,14 +3,11 @@ import type {
   ServerSyncStatus,
   WrapRefusal,
 } from '@shared/profileSync/serverSync'
+import type { ServerStatus } from '@shared/server/serverApi'
 import { useState } from 'react'
 import { MachineValue } from '@/components/common/MachineValue'
 import { Notice } from '@/components/common/Notice'
-import { ServerDevices } from '@/components/server/ServerDevices'
 import { syncServerErrorText } from '@/components/server/syncServerText'
-import { useElevated } from '@/components/server/useElevated'
-import { useServerStatus } from '@/components/server/useServerStatus'
-import { useSyncServerStatus } from '@/components/server/useSyncServerStatus'
 import { ControlRow } from '@/components/settingsKit/ControlRow'
 import { Button } from '@/components/ui/button'
 import { formatDate } from '@/lib/app/localeFormat'
@@ -96,21 +93,8 @@ function Locked({ status, act }: StateProps): JSX.Element {
 function Ready({ status, act }: StateProps): JSX.Element {
   const t = useDict().syncServer
   const api = window.ostia.syncServer
-  const elevated = useElevated()
-  const [cleaned, setCleaned] = useState<number | null>(null)
-  const [error, setError] = useState<string | null>(null)
-  const d = useDict()
-
-  const cleanUp = async (): Promise<void> => {
-    setError(null)
-    const res = await elevated.run(() => api.collectGarbage())
-    if (res.ok) setCleaned(res.deleted ?? 0)
-    else setError(syncServerErrorText(d, res.error))
-  }
-
   return (
     <>
-      <output className="block py-1 text-fg-muted text-ui-sm">{t.ready}</output>
       {status.wrapRefused?.reason === 'too-new' ? (
         <PassphraseForm
           label={t.unlockTitle}
@@ -130,32 +114,23 @@ function Ready({ status, act }: StateProps): JSX.Element {
           {t.recoveryStale}
         </Notice>
       ) : null}
-      <ControlRow
-        label={t.cleanUp}
-        desc={t.cleanUpDesc}
-        error={error}
-        below={
-          cleaned !== null ? (
-            <output className="text-fg-muted text-ui-sm">
-              {fmt(t.cleanedUp, { count: String(cleaned) })}
-            </output>
-          ) : null
-        }
-      >
-        <Button variant="outline" size="sm" onClick={() => void cleanUp()}>
-          {t.cleanUpRun}
-        </Button>
-      </ControlRow>
-      {elevated.prompt}
     </>
   )
 }
 
-export function SyncServerSection({ onChanged }: { onChanged: () => void }): JSX.Element {
+export function SyncServerSection({
+  account,
+  status,
+  setStatus,
+  onChanged,
+}: {
+  account: ServerStatus
+  status: ServerSyncStatus
+  setStatus: (status: ServerSyncStatus) => void
+  onChanged: () => void
+}): JSX.Element {
   const d = useDict()
   const t = d.syncServer
-  const account = useServerStatus()
-  const [status, setStatus] = useSyncServerStatus(account.signedIn)
   const [error, setError] = useState<string | null>(null)
   const [recoveryKey, setRecoveryKey] = useState<string | null>(null)
   const api = window.ostia.syncServer
@@ -170,7 +145,7 @@ export function SyncServerSection({ onChanged }: { onChanged: () => void }): JSX
 
   if (!account.signedIn) {
     return (
-      <ControlRow label={t.where} desc={t.notSignedIn}>
+      <ControlRow label={t.whereServer} desc={t.notSignedIn}>
         <Button
           variant="outline"
           size="sm"
@@ -187,9 +162,6 @@ export function SyncServerSection({ onChanged }: { onChanged: () => void }): JSX
       {status.state === 'unreachable' ? <Notice>{t.unreachable}</Notice> : null}
       {status.state === 'untrusted' ? <Notice tone="error">{t.untrusted}</Notice> : null}
       {status.wrapRefused ? <WrapRefusedNotice refusal={status.wrapRefused} /> : null}
-      {status.changedDevices.length > 0 ? (
-        <Notice>{fmt(t.changedDevices, { devices: status.changedDevices.join(', ') })}</Notice>
-      ) : null}
       {status.state === 'needs-setup' ? (
         <>
           <ControlRow label={t.setupTitle} desc={t.setupDesc} />
@@ -205,7 +177,6 @@ export function SyncServerSection({ onChanged }: { onChanged: () => void }): JSX
       {status.state === 'locked' ? <Locked status={status} act={act} /> : null}
       {status.state === 'ready' ? <Ready status={status} act={act} /> : null}
       {error ? <Notice>{error}</Notice> : null}
-      <ServerDevices />
       <RecoveryKeyDialog recoveryKey={recoveryKey} onClose={() => setRecoveryKey(null)} />
     </>
   )

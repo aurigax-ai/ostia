@@ -1,4 +1,4 @@
-import type { WrapRefusal } from '../../../shared/profileSync/serverSync'
+import type { ChangedDevice, WrapRefusal } from '../../../shared/profileSync/serverSync'
 import { publicBytes } from '../../server/deviceKeys'
 import type { ServerAccount } from '../../server/serverAccount'
 import { ServerError } from '../../server/serverClient'
@@ -24,6 +24,7 @@ const PASSPHRASE_MIN = 12
 const PASSPHRASE_SLOT = 'passphrase'
 const RECOVERY_SLOT = 'recovery'
 const MIN_APPROVER_AGE_MS = 24 * 60 * 60 * 1000
+const GC_INTERVAL_MS = 24 * 60 * 60 * 1000
 
 export type KeyringAccount = Pick<
   ServerAccount,
@@ -321,9 +322,32 @@ export class SyncKeyring {
     return target ? this.store.pinned(target.id) : []
   }
 
-  changedDevices(): string[] {
+  announcedItems(): string[] {
     const target = this.target()
-    return target ? this.store.changedSince(target.id, this.now() - MIN_APPROVER_AGE_MS) : []
+    return target ? this.store.announced(target.id) : []
+  }
+
+  saveAnnounced(ids: string[]): void {
+    const target = this.target()
+    if (target) this.store.setAnnounced(target.id, ids)
+  }
+
+  gcDue(): boolean {
+    const target = this.target()
+    return target !== null && this.now() - this.store.lastGc(target.id) >= GC_INTERVAL_MS
+  }
+
+  gcDone(): void {
+    const target = this.target()
+    if (target) this.store.setLastGc(target.id, this.now())
+  }
+
+  changedDevices(): ChangedDevice[] {
+    const target = this.target()
+    if (!target) return []
+    return this.store
+      .changedSince(target.id, this.now() - MIN_APPROVER_AGE_MS)
+      .map(({ id, name, at }) => ({ id, name, until: at + MIN_APPROVER_AGE_MS }))
   }
 
   pin(devices: ManifestDevice[]): void {

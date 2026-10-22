@@ -122,7 +122,7 @@ export class FakeRelay {
     const viewer = this.server.devices.get(deviceId)
     if (viewer) {
       for (const peer of this.server.accountDevices(viewer.accountId)) {
-        if (this.server.isUnseen(viewer, peer)) this.notifyAdded(deviceId, peer)
+        if (peer.order > viewer.order) this.notifyAdded(deviceId, peer)
       }
     }
     ws.on('message', (data) => {

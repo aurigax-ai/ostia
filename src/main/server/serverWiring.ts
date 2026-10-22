@@ -10,6 +10,7 @@ import { createServerClient } from './serverClient'
 import { ServerConfig } from './serverConfig'
 import { ServerDevices } from './serverDevices'
 import { ServerElevation } from './serverElevation'
+import { startServerHeartbeat } from './serverHeartbeat'
 import { registerServerIpc } from './serverIpc'
 import { serverRoutes } from './serverRoutes'
 import { ServerSession } from './serverSession'
@@ -73,5 +74,6 @@ export function startServer({ broadcast, openExternalSafe }: ServerStartDeps): S
     allowInsecure,
     openExternal: openExternalSafe,
   })
+  startServerHeartbeat(account)
   return account
 }

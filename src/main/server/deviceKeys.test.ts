@@ -8,8 +8,6 @@ import {
   seedsOf,
   signApprove,
   signChallenge,
-  signRevoke,
-  signSeen,
   signStamped,
 } from './deviceKeys'
 
@@ -37,7 +35,7 @@ describe('device keys', () => {
     )
   })
 
-  it('SSY-C5 signs the invite, elevation, revoke, approve and seen messages like the Go reference', () => {
+  it('SSY-C5 signs the invite, elevation, revoke and approve messages like the Go reference', () => {
     const keys = vectorKeys()
     const stamp = 1_700_000_000_000
     expect(signStamped(keys, 'invite', 'dev-1', stamp)).toBe(
@@ -46,15 +44,29 @@ describe('device keys', () => {
     expect(signStamped(keys, 'elevate', 'dev-1', stamp)).toBe(
       '_ctgJmpYSbzz6JDdTDHzrUawUzukamSbzhqGowEKIWv1FK8c6ZWNL8LN7q5hsyhXxhp0V65CSPRM2G_zz_FhDQ',
     )
-    expect(signRevoke(keys, 'dev-1', 'dev-2')).toBe(
-      'uIo_7LVGcPsAwnX8n-LO-rAKtyrw9CAYrfqWCnRok11ZEvDn2W6qKaeszI7ClORQ7qecOgWSiasgeu2FWiAHDQ',
-    )
     expect(signApprove(keys, 'dev-1', 'approval-1', 'dev-3')).toBe(
       'U9G2v-ujTM6dXWi5KkoIQBlqI-5s4kXkxyXsyhabwgFQ70yaaqx0imF7Xznhuy8UNGeeLanMnKSfPg6on9ImAg',
     )
-    expect(signSeen(keys, 'dev-1', 'dev-4')).toBe(
-      'ot1FNAJBDyMc71f1W4rFugE0BuHZ42Rogpi3BK4tpb0lKRYlo8LuvsJ9YLSnhA4v_PnygOsoI_JjQUMgxRAaAg',
+  })
+
+  it('SYA-C190 signs the stamped revoke and the manifest-bound clean-up exactly as the vectors', () => {
+    const keys = vectorKeys()
+    expect(vectors.revokeMessage).toBe(
+      `ostia-server/revoke/v2\n${vectors.deviceId}\n${vectors.timestamp}\n${vectors.revokeTarget}`,
     )
+    expect(
+      signStamped(keys, 'revoke', vectors.deviceId, vectors.timestamp, [vectors.revokeTarget]),
+    ).toBe(vectors.revokeSignature)
+    expect(digestOf(vectors.syncGcBody)).toBe(vectors.syncGcBodyHash)
+    expect(vectors.syncGcMessage).toBe(
+      `ostia-server/sync-gc/v1\n${vectors.deviceId}\n${vectors.timestamp}\n${vectors.ifMatch}\n${vectors.syncGcBodyHash}`,
+    )
+    expect(
+      signStamped(keys, 'syncGc', vectors.deviceId, vectors.timestamp, [
+        String(vectors.ifMatch),
+        vectors.syncGcBodyHash,
+      ]),
+    ).toBe(vectors.syncGcSignature)
   })
 
   it('SVA-C60 signs the slot-bound wrap read and the version and body-bound manifest push exactly as the vector', () => {
