@@ -3,9 +3,11 @@ import { PRODUCT_DISPLAY_NAME } from '@aurigax-ai/ostia-extension-sdk/contract/p
 import { app, BrowserWindow, nativeTheme } from 'electron'
 import appIcon from '../../../resources/icon.png?asset'
 import { SOFTWARE_WEBGL_ARG } from '../../shared/app/discreteGpu'
+import { NO_NEW_PRIVS_ARG } from '../../shared/app/noNewPrivs'
 import type { WindowBounds } from '../../shared/workspaces/workspaceApi'
 import type { ExtensionHost } from '../extensions/extensionHost'
 import type { GitService } from '../git/service'
+import { readNoNewPrivs } from '../platform/noNewPrivs'
 import type { SettingsFile } from '../platform/settingsFile'
 import type { PortsService } from '../ports/service'
 import { type GlobalHotkey, toggleWindows } from './globalHotkey'
@@ -52,9 +54,10 @@ export function createAppWindows({
       sandbox: true,
       nodeIntegration: false,
       webviewTag: true,
-      additionalArguments: app.commandLine.hasSwitch('enable-unsafe-swiftshader')
-        ? [SOFTWARE_WEBGL_ARG]
-        : [],
+      additionalArguments: [
+        ...(app.commandLine.hasSwitch('enable-unsafe-swiftshader') ? [SOFTWARE_WEBGL_ARG] : []),
+        ...(readNoNewPrivs() ? [NO_NEW_PRIVS_ARG] : []),
+      ],
     }
   }
 

@@ -2,6 +2,7 @@ import { PlusIcon, TerminalWindowIcon } from '@phosphor-icons/react'
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { commands } from '@/commands/registry'
 import { DashboardPanel } from '@/components/agents/DashboardPanel'
+import { NoNewPrivsStatus } from '@/components/app/NoNewPrivsStatus'
 import { ChordButton } from '@/components/common/ChordButton'
 import { EmptyState } from '@/components/common/EmptyState'
 import { PaneTree } from '@/components/panes/PaneTree'
@@ -53,6 +54,7 @@ export function WorkZone(): JSX.Element {
         .map((id) => (
           <WorkspaceLayer key={id} workspaceId={id} active={id === activeWorkspaceId && !covered} />
         ))}
+      <NoNewPrivsStatus />
       <SurfacePool />
       <SettingsPanel />
       <DashboardPanel />

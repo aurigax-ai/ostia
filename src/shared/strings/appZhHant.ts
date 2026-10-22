@@ -191,6 +191,10 @@ export const appZhHant: typeof appEn = {
       textAndImage: '已複製文字和圖片',
     },
   },
+  noNewPrivs: {
+    message:
+      '終端機中無法使用 sudo：{product} 繼承了啟動它的程式的「禁止取得新權限」設定。請結束 {product}，再從桌面啟動即可修正。',
+  },
   portable: {
     allArtifacts: '所有產出物',
     back: '回到最新版本',
