@@ -12,6 +12,7 @@ import type { PaneBannerText } from '../terminal/paneBanner'
 import { feedDisplay, type PtyEntry, type PtyRegistry } from '../terminal/pty/ptyRegistry'
 import type { Subscriber } from '../terminal/ptySession'
 import { restoreSeam } from '../terminal/screenMirror'
+import { retainAgentDir } from '../terminal/shellIntegration'
 import { takeRestoredScrollback } from '../workspaces/savedScrollback'
 import type { SavedAttention } from './attentionFile'
 import type { KeptAttention } from './keptAttention'
@@ -111,6 +112,7 @@ export function createKeptReattach({
       portRequests.keep(workspaceId, keptHost?.exposed ?? [])
       void workspaceSandboxes.hosts.connect(workspaceId).catch(() => undefined)
     }
+    retainAgentDir(paneId, meta.agentDir)
     pane.onData((d) => feedPty(entry, d))
     pane.onExit(({ exitCode }) => entry.session.exit(exitCode))
     let screen = ''

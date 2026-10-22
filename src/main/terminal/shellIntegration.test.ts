@@ -32,6 +32,7 @@ import {
   codexWrapper,
   writeCodexIntegration,
 } from './codexIntegration'
+import { GENERATED_LIST } from './generatedFolder'
 import { KubeContextReader, NodeVersionResolver, promptContext } from './promptContext'
 import { parseShellState, type ShellState } from './shellCommands'
 import {
@@ -962,16 +963,20 @@ describe('shellIntegrationSpawnOptions', () => {
 
     it('lists every file the agent plugin writes', () => {
       const dir = setAgentPlugins(content)
-      expect(listFiles(dir).sort()).toEqual([...agentPluginFiles(content)].sort())
+      expect(listFiles(dir).sort()).toEqual([...agentPluginFiles(content), GENERATED_LIST].sort())
       const empty = setAgentPlugins(NO_AGENT_PLUGINS)
-      expect(listFiles(empty).sort()).toEqual([...agentPluginFiles(NO_AGENT_PLUGINS)].sort())
+      expect(listFiles(empty).sort()).toEqual(
+        [...agentPluginFiles(NO_AGENT_PLUGINS), GENERATED_LIST].sort(),
+      )
     })
 
     it('lists every file the shell integration writes', () => {
       const root = mkdtempSync(join(tmpdir(), 'ostia-shells-list-'))
       try {
         const dir = writeShellIntegration(root)
-        expect(listFiles(dir).sort()).toEqual(Object.keys(shellIntegrationFiles(dir)).sort())
+        expect(listFiles(dir).sort()).toEqual(
+          [...Object.keys(shellIntegrationFiles(dir)), GENERATED_LIST].sort(),
+        )
       } finally {
         rmSync(root, { recursive: true, force: true })
       }

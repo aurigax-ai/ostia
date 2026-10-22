@@ -1,9 +1,11 @@
-import { existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, rmSync, statSync, utimesSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { NO_AGENT_PLUGINS } from '@aurigax-ai/ostia-extension-sdk/manifest/agentSkills'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { PlaybookFile } from '../agents/playbookFiles'
+import { installGenerated } from './generatedFolder'
 import {
+  cleanOldGenerations,
   playbooksFolder,
   refreshAgentPlugin,
   releaseAgentDir,
@@ -122,5 +124,108 @@ describe('sweeping old generations', () => {
     refreshAgentPlugin()
     expect(existsSync(earlier)).toBe(true)
     rmSync(earlier, { recursive: true, force: true })
+  })
+})
+
+const DAY = 24 * 60 * 60 * 1000
+
+function age(dir: string, days: number): void {
+  const when = new Date(Date.now() - days * DAY)
+  utimesSync(dir, when, when)
+}
+
+const shellsDir = (): string => dirname(shellIntegrationSpawnOptions('/bin/bash', {}).args[1] ?? '')
+
+function earlierGeneration(root: string, digest: string, days: number): string {
+  const dir = installGenerated(root, join(root, digest), ['init.txt'], (staging) =>
+    writeFileSync(join(staging, 'init.txt'), 'older build'),
+  )
+  age(dir, days)
+  return dir
+}
+
+describe('cleaning generations of earlier builds', () => {
+  const made: string[] = []
+  const earlier = (root: string, digest: string, days: number): string => {
+    const dir = earlierGeneration(root, digest, days)
+    made.push(dir)
+    return dir
+  }
+
+  afterEach(() => {
+    for (const pane of ['kept-1', 'kept-2']) releaseAgentDir(pane)
+    for (const dir of made.splice(0)) rmSync(dir, { recursive: true, force: true })
+  })
+
+  it('removes generations untouched for more than 30 days and keeps the current and recent ones', () => {
+    const currentShells = shellsDir()
+    const currentAgents = spawnDir()
+    age(currentShells, 60)
+    age(currentAgents, 60)
+    const oldShells = earlier(dirname(currentShells), 'e'.repeat(32), 31)
+    const oldAgents = earlier(dirname(currentAgents), 'e'.repeat(32), 31)
+    const recentAgents = earlier(dirname(currentAgents), 'd'.repeat(32), 29)
+    expect(cleanOldGenerations([], Date.now(), 'darwin').sort()).toEqual(
+      [oldAgents, oldShells].sort(),
+    )
+    expect(existsSync(oldShells)).toBe(false)
+    expect(existsSync(oldAgents)).toBe(false)
+    expect(existsSync(join(recentAgents, 'init.txt'))).toBe(true)
+    expect(existsSync(join(currentShells, 'bashrc'))).toBe(true)
+    expect(existsSync(join(currentAgents, 'codex', 'session-context.md'))).toBe(true)
+  })
+
+  it('keeps the generation of a kept shell from an older build for as long as the shell lives', () => {
+    const older = earlier(dirname(spawnDir()), 'a'.repeat(32), 45)
+    cleanOldGenerations([older], Date.now(), 'darwin')
+    expect(existsSync(join(older, 'init.txt'))).toBe(true)
+
+    retainAgentDir('kept-1', older)
+    age(older, 45)
+    cleanOldGenerations([], Date.now(), 'darwin')
+    expect(existsSync(join(older, 'init.txt'))).toBe(true)
+
+    releaseAgentDir('kept-1')
+    age(older, 45)
+    cleanOldGenerations([], Date.now(), 'darwin')
+    expect(existsSync(older)).toBe(false)
+  })
+
+  it('touches the generation it keeps, so another build counts it as in use', () => {
+    const older = earlier(dirname(spawnDir()), 'b'.repeat(32), 45)
+    cleanOldGenerations([older], Date.now(), 'darwin')
+    cleanOldGenerations([], Date.now(), 'darwin')
+    expect(existsSync(join(older, 'init.txt'))).toBe(true)
+  })
+
+  it('leaves every agent generation while a kept shell does not record which one it uses', () => {
+    const older = earlier(dirname(spawnDir()), 'c'.repeat(32), 45)
+    cleanOldGenerations([undefined], Date.now(), 'darwin')
+    expect(existsSync(join(older, 'init.txt'))).toBe(true)
+
+    retainAgentDir('kept-2', undefined)
+    cleanOldGenerations([], Date.now(), 'darwin')
+    expect(existsSync(join(older, 'init.txt'))).toBe(true)
+
+    releaseAgentDir('kept-2')
+    cleanOldGenerations([null], Date.now(), 'darwin')
+    expect(existsSync(older)).toBe(false)
+  })
+
+  it('removes nothing on Linux', () => {
+    const older = earlier(dirname(spawnDir()), '0'.repeat(32), 45)
+    expect(cleanOldGenerations([], Date.now(), 'linux')).toEqual([])
+    expect(existsSync(join(older, 'init.txt'))).toBe(true)
+  })
+
+  it.runIf(process.platform === 'darwin')('touches the generations a spawn runs in', () => {
+    const agents = spawnDir()
+    const shells = shellsDir()
+    age(agents, 45)
+    age(shells, 45)
+    const before = Date.now() - DAY
+    spawnDir()
+    expect(statSync(agents).mtimeMs).toBeGreaterThan(before)
+    expect(statSync(shells).mtimeMs).toBeGreaterThan(before)
   })
 })

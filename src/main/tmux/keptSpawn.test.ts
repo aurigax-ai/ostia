@@ -46,6 +46,7 @@ describe('spawnKept', () => {
     cwd: '/',
     sandboxed: false,
     notKept: '',
+    agentDir: '/run/agents/older',
   }
 
   function spawner(spawn: () => Promise<unknown>) {
@@ -81,5 +82,15 @@ describe('spawnKept', () => {
     expect(spawned.kept).toBe(pane)
     expect(spawned.keptMeta).toMatchObject({ paneId: 'p1', workspaceId: 'w1' })
     expect(spawned.notKept).toBe('')
+  })
+
+  it('records the agent generation the shell runs in, so a later build keeps it', async () => {
+    const spawn = vi.fn(async () => ({ pid: 1 }))
+    const { spawnKept } = spawner(spawn)
+    const spawned = await spawnKept('p1', plan as never)
+    expect(spawned.keptMeta?.agentDir).toBe('/run/agents/older')
+    expect(spawn).toHaveBeenCalledWith(
+      expect.objectContaining({ meta: expect.objectContaining({ agentDir: '/run/agents/older' }) }),
+    )
   })
 })
