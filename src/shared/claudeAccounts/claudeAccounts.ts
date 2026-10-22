@@ -11,12 +11,17 @@ export function isProfileId(value: unknown): value is string {
 export interface ClaudeAccountView {
   id: string
   email: string | null
+  signedOut: boolean
 }
+
+export type SignInStatus = 'idle' | 'waiting' | 'working' | 'failed' | 'mismatch'
 
 export interface ClaudeAccountsState {
   accounts: ClaudeAccountView[]
   current: string
   adding: boolean
+  signInAvailable: boolean
+  signIn: SignInStatus
   duplicate: string | null
   damaged: boolean
   recoverable: number
@@ -24,12 +29,18 @@ export interface ClaudeAccountsState {
 
 export type AddAccountOutcome = 'opened' | 'busy' | 'not-opened' | 'no-workspace' | 'damaged'
 
+export type BeginSignInOutcome = 'started' | 'busy' | 'unknown' | 'damaged' | 'unavailable'
+
+export type SubmitCodeOutcome = 'accepted' | 'invalid' | 'idle'
+
 export type RemoveAccountOutcome = 'removed' | 'unknown' | 'running' | 'damaged'
 
 export const NO_ACCOUNTS: ClaudeAccountsState = {
-  accounts: [{ id: DEFAULT_ACCOUNT, email: null }],
+  accounts: [{ id: DEFAULT_ACCOUNT, email: null, signedOut: false }],
   current: DEFAULT_ACCOUNT,
   adding: false,
+  signInAvailable: false,
+  signIn: 'idle',
   duplicate: null,
   damaged: false,
   recoverable: 0,

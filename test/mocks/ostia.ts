@@ -311,6 +311,10 @@ export function makeOstiaMock(overrides?: Partial<OstiaBridge>): OstiaBridge {
       remove: vi.fn().mockResolvedValue('removed'),
       use: vi.fn().mockResolvedValue(true),
       recover: vi.fn().mockResolvedValue(null),
+      beginSignIn: vi.fn().mockResolvedValue('started'),
+      openSignIn: vi.fn().mockResolvedValue(true),
+      submitSignInCode: vi.fn().mockResolvedValue('accepted'),
+      cancelSignIn: vi.fn().mockResolvedValue(undefined),
     },
     agentSession: {
       info: vi.fn().mockResolvedValue(null),
@@ -421,37 +425,27 @@ export function makeOstiaMock(overrides?: Partial<OstiaBridge>): OstiaBridge {
     },
     marketplace: {
       list: vi.fn().mockResolvedValue({ marketplaces: [], installed: [], prerelease: [], dev: {} }),
-      add: vi
-        .fn()
-        .mockResolvedValue({
-          ok: true,
-          state: { marketplaces: [], installed: [], prerelease: [], dev: {} },
-        }),
-      remove: vi
-        .fn()
-        .mockResolvedValue({
-          ok: true,
-          state: { marketplaces: [], installed: [], prerelease: [], dev: {} },
-        }),
-      refresh: vi
-        .fn()
-        .mockResolvedValue({
-          ok: true,
-          state: { marketplaces: [], installed: [], prerelease: [], dev: {} },
-        }),
-      install: vi
-        .fn()
-        .mockResolvedValue({
-          ok: true,
-          state: { marketplaces: [], installed: [], prerelease: [], dev: {} },
-        }),
+      add: vi.fn().mockResolvedValue({
+        ok: true,
+        state: { marketplaces: [], installed: [], prerelease: [], dev: {} },
+      }),
+      remove: vi.fn().mockResolvedValue({
+        ok: true,
+        state: { marketplaces: [], installed: [], prerelease: [], dev: {} },
+      }),
+      refresh: vi.fn().mockResolvedValue({
+        ok: true,
+        state: { marketplaces: [], installed: [], prerelease: [], dev: {} },
+      }),
+      install: vi.fn().mockResolvedValue({
+        ok: true,
+        state: { marketplaces: [], installed: [], prerelease: [], dev: {} },
+      }),
       findCode: vi.fn().mockResolvedValue({ ok: false, error: 'unknown-code' }),
-      installCode: vi
-        .fn()
-        .mockResolvedValue({
-          ok: true,
-          state: { marketplaces: [], installed: [], prerelease: [], dev: {} },
-        }),
+      installCode: vi.fn().mockResolvedValue({
+        ok: true,
+        state: { marketplaces: [], installed: [], prerelease: [], dev: {} },
+      }),
       uninstall: vi.fn().mockResolvedValue({
         ok: true,
         state: { marketplaces: [], installed: [], prerelease: [], dev: {} },
@@ -468,12 +462,10 @@ export function makeOstiaMock(overrides?: Partial<OstiaBridge>): OstiaBridge {
     suggestions: {
       forFile: vi.fn().mockResolvedValue(null),
       dismiss: vi.fn().mockResolvedValue(undefined),
-      install: vi
-        .fn()
-        .mockResolvedValue({
-          ok: true,
-          state: { marketplaces: [], installed: [], prerelease: [], dev: {} },
-        }),
+      install: vi.fn().mockResolvedValue({
+        ok: true,
+        state: { marketplaces: [], installed: [], prerelease: [], dev: {} },
+      }),
     },
     extensions: {
       list: vi.fn().mockResolvedValue([]),

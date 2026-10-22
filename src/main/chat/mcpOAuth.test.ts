@@ -1,3 +1,4 @@
+import { request } from 'node:http'
 import { envName } from '@aurigax-ai/ostia-extension-sdk/contract/appEnv'
 import { describe, expect, it } from 'vitest'
 import { en } from '../../shared/app/dict'
@@ -12,6 +13,17 @@ const pages = en.native.signIn
 
 async function listen(timeoutMs = 5_000) {
   return openCallbackListener({ state: 'expected-state', timeoutMs, pages })
+}
+
+function statusWithHost(port: number, path: string, host: string): Promise<number | undefined> {
+  return new Promise((resolve, reject) => {
+    const req = request({ host: '127.0.0.1', port, path, headers: { host } }, (res) => {
+      res.resume()
+      resolve(res.statusCode)
+    })
+    req.on('error', reject)
+    req.end()
+  })
 }
 
 function callback(redirectUrl: string, params: Record<string, string>): URL {
@@ -32,6 +44,25 @@ describe('mcpOAuthBrowser', () => {
 })
 
 describe('openCallbackListener', () => {
+  it('answers to the loopback name it was asked to redirect to, and to no other', async () => {
+    const listener = await openCallbackListener({
+      state: 'expected-state',
+      timeoutMs: 5_000,
+      pages,
+      redirectName: 'localhost',
+    })
+    try {
+      expect(listener.redirectUrl).toMatch(/^http:\/\/localhost:\d+\/callback$/)
+      const port = Number(new URL(listener.redirectUrl).port)
+      const path = '/callback?code=c-1&state=expected-state'
+      expect(await statusWithHost(port, path, `evil.example:${port}`)).toBe(404)
+      expect(await statusWithHost(port, path, `localhost:${port}`)).toBe(200)
+      expect(await listener.result).toEqual({ code: 'c-1', issuer: undefined })
+    } finally {
+      listener.close()
+    }
+  })
+
   it('listens on a loopback port of its own and hands over the code sent with its state', async () => {
     const listener = await listen()
     const other = await listen()

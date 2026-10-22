@@ -8,6 +8,7 @@ import {
 } from '../../../shared/claudeAccounts/claudeAccounts'
 import { quoteArg } from '../../../shared/terminal/shellQuote'
 import { approvals } from '../../approvals/approvals'
+import { openCallbackListener } from '../../chat/mcpOAuth'
 import type { CommandBridge } from '../../control/commandBridge'
 import { type ControlMethodContext, registerControlMethod } from '../../control/controlServer'
 import { resolveExternal } from '../../control/idRegistry'
@@ -17,15 +18,23 @@ import type { WorkspaceSandboxes } from '../../sandbox/workspaceSandboxes'
 import type { ScratchFolders } from '../../workspaces/scratchFolders'
 import type { AgentResumes } from '../agentResumes'
 import type { AgentRunningPanes } from '../agentRunning'
-import { accountEmail, accountsRoot, defaultConfigHome } from './accountProfiles'
+import {
+  accountEmail,
+  accountsRoot,
+  defaultConfigHome,
+  loginState,
+  writeLogin,
+} from './accountProfiles'
 import { syncProfileFromDefault } from './accountSync'
 import { ClaudeAccountsStore } from './accountsStore'
 import { ClaudeAccounts, type LoginTarget } from './claudeAccounts'
+import { createPkce, exchangeCode, fetchProfile } from './signIn/anthropicOAuth'
 
 const ACCOUNTS_DIR = 'claude-accounts'
 
 interface CreateDeps {
   openTerminalInWindow: CommandBridge['openTerminalInWindow']
+  openExternalSafe: (url: string) => boolean
   mainStrings: () => Dict
   broadcast: (channel: string, payload: unknown) => void
   agentRunning: Pick<AgentRunningPanes, 'has'>
@@ -39,6 +48,28 @@ export function createClaudeAccounts(deps: CreateDeps): ClaudeAccounts {
     defaultEmail: () => accountEmail(process.env.CLAUDE_CONFIG_DIR || undefined),
     profileEmail: (dir) => accountEmail(dir),
     syncProfile: (dir) => syncProfileFromDefault(dir, defaultConfigHome()),
+    loginState: (dir) => loginState(dir, Date.now()),
+    writeLogin,
+    signIn:
+      process.platform === 'darwin'
+        ? null
+        : {
+            listen: ({ state, timeoutMs }) =>
+              openCallbackListener({
+                state,
+                timeoutMs,
+                redirectName: 'localhost',
+                pages: {
+                  done: deps.mainStrings().claudeAccounts.signInPageDone,
+                  failed: deps.mainStrings().claudeAccounts.signInPageFailed,
+                },
+              }),
+            openExternal: deps.openExternalSafe,
+            createPkce,
+            exchange: (code, redirectUri, pkce) =>
+              exchangeCode(code, redirectUri, pkce, Date.now()),
+            profile: (accessToken) => fetchProfile(accessToken),
+          },
     openLoginTab: (dir, target) =>
       deps.openTerminalInWindow({
         command: `CLAUDE_CONFIG_DIR=${quoteArg(dir)} 'claude'`,
@@ -99,6 +130,20 @@ export function registerClaudeAccountsWiring(deps: RegisterDeps): void {
     if (!fromWindow(e)) return 'not-opened'
     const target = await loginTarget(e, workspaceId)
     return target ? claudeAccounts.add(target) : 'no-workspace'
+  })
+  ipcMain.handle('claude-accounts:begin-sign-in', (e, id: unknown) =>
+    fromWindow(e) && (id === null || typeof id === 'string')
+      ? claudeAccounts.beginSignIn(id)
+      : 'unavailable',
+  )
+  ipcMain.handle('claude-accounts:open-sign-in', (e) =>
+    fromWindow(e) ? claudeAccounts.openSignIn() : false,
+  )
+  ipcMain.handle('claude-accounts:submit-code', (e, code: unknown) =>
+    fromWindow(e) && typeof code === 'string' ? claudeAccounts.submitSignIn(code) : 'idle',
+  )
+  ipcMain.handle('claude-accounts:cancel-sign-in', (e) => {
+    if (fromWindow(e)) claudeAccounts.cancelSignIn()
   })
   ipcMain.handle('claude-accounts:remove', (e, id: unknown) =>
     fromWindow(e) && typeof id === 'string' ? claudeAccounts.remove(id) : 'unknown',

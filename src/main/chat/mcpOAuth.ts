@@ -77,13 +77,15 @@ export async function openCallbackListener(opts: {
   state: string
   timeoutMs: number
   pages: { done: string; failed: string }
+  redirectName?: string
 }): Promise<CallbackListener> {
   const server = createServer()
   await new Promise<void>((resolve, reject) => {
     server.once('error', reject)
     server.listen(0, '127.0.0.1', resolve)
   })
-  const host = `127.0.0.1:${(server.address() as AddressInfo).port}`
+  const port = (server.address() as AddressInfo).port
+  const hosts = new Set([`127.0.0.1:${port}`, `${opts.redirectName ?? '127.0.0.1'}:${port}`])
   let settle: (outcome: CallbackResult | SignInFailure) => void = () => {}
   const result = new Promise<CallbackResult>((resolve, reject) => {
     settle = (outcome) => (outcome instanceof SignInFailure ? reject(outcome) : resolve(outcome))
@@ -91,10 +93,10 @@ export async function openCallbackListener(opts: {
   result.catch(() => undefined)
   const timer = setTimeout(() => settle(new SignInFailure('timeout')), opts.timeoutMs)
   server.on('request', (req, res) => {
-    const url = new URL(req.url ?? '/', `http://${host}`)
+    const url = new URL(req.url ?? '/', `http://127.0.0.1:${port}`)
     if (
       req.method !== 'GET' ||
-      req.headers.host !== host ||
+      !hosts.has(req.headers.host ?? '') ||
       url.pathname !== MCP_OAUTH_CALLBACK_PATH
     ) {
       respond(res, 404, opts.pages.failed)
@@ -122,7 +124,7 @@ export async function openCallbackListener(opts: {
     settle({ code, issuer: url.searchParams.get('iss') ?? undefined })
   })
   return {
-    redirectUrl: `http://${host}${MCP_OAUTH_CALLBACK_PATH}`,
+    redirectUrl: `http://${opts.redirectName ?? '127.0.0.1'}:${port}${MCP_OAUTH_CALLBACK_PATH}`,
     result,
     close: () => {
       clearTimeout(timer)

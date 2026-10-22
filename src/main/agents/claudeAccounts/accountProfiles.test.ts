@@ -18,9 +18,12 @@ import {
   accountEmail,
   createProfile,
   credentialsPresent,
+  loginState,
   removeProfile,
   sweepPendingProfiles,
+  writeLogin,
 } from './accountProfiles'
+import type { OAuthProfile, OAuthTokens } from './signIn/anthropicOAuth'
 
 const WORK = 'a'.repeat(16)
 const STALE = 'c'.repeat(16)
@@ -159,5 +162,109 @@ describe('credentialsPresent', () => {
     expect(credentialsPresent(dir, 'darwin')).toBe(true)
     writeFileSync(join(dir, '.credentials.json'), 'x')
     expect(credentialsPresent(dir, 'linux')).toBe(true)
+  })
+})
+
+const TOKENS: OAuthTokens = {
+  accessToken: 'access-1',
+  refreshToken: 'refresh-1',
+  expiresAt: 5_000,
+  scopes: ['user:inference'],
+}
+const PROFILE: OAuthProfile = {
+  accountUuid: 'uuid-1',
+  emailAddress: 'work@example.com',
+  displayName: 'Work',
+  organizationUuid: 'org-1',
+  organizationName: 'Org',
+  subscriptionType: 'max',
+  rateLimitTier: 'tier-1',
+}
+const onLinuxOrWindows = it.skipIf(process.platform === 'darwin')
+
+describe('writeLogin', () => {
+  onLinuxOrWindows('writes the login 0600 into the profile and records the account', async () => {
+    const dir = createProfile(root, WORK, home)
+    expect(await writeLogin(dir, TOKENS, PROFILE)).toBe(true)
+    const file = join(dir, '.credentials.json')
+    expect(statSync(file).mode & 0o777).toBe(0o600)
+    expect(JSON.parse(readFileSync(file, 'utf8'))).toEqual({
+      claudeAiOauth: {
+        accessToken: 'access-1',
+        refreshToken: 'refresh-1',
+        expiresAt: 5_000,
+        scopes: ['user:inference'],
+        subscriptionType: 'max',
+        rateLimitTier: 'tier-1',
+      },
+    })
+    expect(credentialsPresent(dir)).toBe(true)
+    expect(await accountEmail(dir)).toBe('work@example.com')
+    const config = JSON.parse(readFileSync(join(dir, '.claude.json'), 'utf8'))
+    expect(config.hasCompletedOnboarding).toBe(true)
+    expect(config.oauthAccount.accountUuid).toBe('uuid-1')
+    expect(statSync(join(dir, '.claude.json')).mode & 0o777).toBe(0o600)
+  })
+
+  onLinuxOrWindows('keeps what the profile already holds beside the login', async () => {
+    const dir = createProfile(root, WORK, home)
+    writeFileSync(join(dir, '.credentials.json'), JSON.stringify({ mcpOAuth: { server: 1 } }))
+    writeFileSync(join(dir, '.claude.json'), JSON.stringify({ projects: { '/a': { x: 1 } } }))
+    expect(await writeLogin(dir, TOKENS, PROFILE)).toBe(true)
+    expect(JSON.parse(readFileSync(join(dir, '.credentials.json'), 'utf8')).mcpOAuth).toEqual({
+      server: 1,
+    })
+    expect(JSON.parse(readFileSync(join(dir, '.claude.json'), 'utf8')).projects).toEqual({
+      '/a': { x: 1 },
+    })
+  })
+
+  onLinuxOrWindows('refuses to replace a credentials file it cannot read as JSON', async () => {
+    const dir = createProfile(root, WORK, home)
+    writeFileSync(join(dir, '.credentials.json'), 'not json')
+    expect(await writeLogin(dir, TOKENS, PROFILE)).toBe(false)
+    expect(readFileSync(join(dir, '.credentials.json'), 'utf8')).toBe('not json')
+  })
+
+  onLinuxOrWindows('leaves no lock behind', async () => {
+    const dir = createProfile(root, WORK, home)
+    await writeLogin(dir, TOKENS, PROFILE)
+    expect(existsSync(join(dir, '.storage-write.lock'))).toBe(false)
+  })
+})
+
+describe('loginState', () => {
+  const NOW = 10_000
+  let count = 0
+  const write = (oauth: unknown): string => {
+    count += 1
+    const dir = createProfile(root, String(count).padStart(16, '0'), home)
+    writeFileSync(join(dir, '.credentials.json'), JSON.stringify({ claudeAiOauth: oauth }))
+    return dir
+  }
+
+  it('is signed in with a refresh token that has not lapsed', async () => {
+    expect(await loginState(write({ refreshToken: 'r' }), NOW, 'linux')).toBe('signed-in')
+    expect(
+      await loginState(write({ refreshToken: 'r', refreshTokenExpiresAt: NOW + 1 }), NOW, 'linux'),
+    ).toBe('signed-in')
+  })
+
+  it('is signed out without a refresh token, with a lapsed one, or without the file', async () => {
+    expect(await loginState(write({ accessToken: 'a' }), NOW, 'linux')).toBe('signed-out')
+    expect(
+      await loginState(write({ refreshToken: 'r', refreshTokenExpiresAt: NOW }), NOW, 'linux'),
+    ).toBe('signed-out')
+    expect(await loginState(join(root, STALE), NOW, 'linux')).toBe('signed-out')
+  })
+
+  it('is signed out for a file that is not JSON', async () => {
+    const dir = createProfile(root, WORK, home)
+    writeFileSync(join(dir, '.credentials.json'), 'x')
+    expect(await loginState(dir, NOW, 'linux')).toBe('signed-out')
+  })
+
+  it('cannot tell on macOS, where the login is in the Keychain', async () => {
+    expect(await loginState(join(root, STALE), NOW, 'darwin')).toBe('signed-in')
   })
 })

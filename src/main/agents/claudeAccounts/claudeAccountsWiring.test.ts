@@ -81,6 +81,9 @@ beforeEach(() => {
     defaultHome: () => join(base, 'home'),
     defaultEmail: async () => 'me@example.com',
     profileEmail: async () => null,
+    loginState: async () => 'signed-in',
+    writeLogin: async () => true,
+    signIn: null,
     syncProfile: async () => {},
     agentRunning: () => false,
     paneOf: (id) => id,
@@ -281,6 +284,9 @@ describe('a damaged store', () => {
       defaultHome: () => join(base, 'home'),
       defaultEmail: async () => null,
       profileEmail: async () => null,
+      loginState: async () => 'signed-in',
+      writeLogin: async () => true,
+      signIn: null,
       syncProfile: async () => {},
       agentRunning: () => false,
       paneOf: (id) => id,
@@ -305,5 +311,32 @@ describe('a damaged store', () => {
     expect(await ipc.get('claude-accounts:recover')?.(guestEvent)).toBeNull()
     expect(await ipc.get('claude-accounts:recover')?.(windowEvent)).toBe(0)
     expect(existsSync(folder)).toBe(true)
+  })
+})
+
+describe('sign-in IPC', () => {
+  const channels = [
+    ['claude-accounts:begin-sign-in', [null], 'unavailable'],
+    ['claude-accounts:open-sign-in', [], false],
+    ['claude-accounts:submit-code', ['abcdefghijklmnop0123'], 'idle'],
+  ] as const
+
+  it.each(channels)('%s answers a guest page with nothing', async (channel, args, nothing) => {
+    expect(await ipc.get(channel)?.(guestEvent, ...args)).toBe(nothing)
+  })
+
+  it('refuses a begin whose target is neither null nor an id', async () => {
+    expect(await ipc.get('claude-accounts:begin-sign-in')?.(windowEvent, 5)).toBe('unavailable')
+    expect(await ipc.get('claude-accounts:begin-sign-in')?.(windowEvent, { id: 'x' })).toBe(
+      'unavailable',
+    )
+  })
+
+  it('is unavailable where the service has no sign-in', async () => {
+    expect(await ipc.get('claude-accounts:begin-sign-in')?.(windowEvent, null)).toBe('unavailable')
+  })
+
+  it('is not reachable from a socket method, the CLI or an agent', () => {
+    expect([...registered.keys()].filter((name) => /sign/i.test(name))).toEqual([])
   })
 })

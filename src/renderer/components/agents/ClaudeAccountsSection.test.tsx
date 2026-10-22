@@ -15,12 +15,14 @@ const SPARE = 'b'.repeat(16)
 
 const state = (over: Partial<ClaudeAccountsState> = {}): ClaudeAccountsState => ({
   accounts: [
-    { id: 'default', email: 'me@example.com' },
-    { id: WORK, email: 'work@example.com' },
-    { id: SPARE, email: 'spare@example.com' },
+    { id: 'default', email: 'me@example.com', signedOut: false },
+    { id: WORK, email: 'work@example.com', signedOut: false },
+    { id: SPARE, email: 'spare@example.com', signedOut: false },
   ],
   current: WORK,
   adding: false,
+  signInAvailable: false,
+  signIn: 'idle',
   duplicate: null,
   damaged: false,
   recoverable: 0,
@@ -55,7 +57,9 @@ describe('ClaudeAccountsSection', () => {
   })
 
   it('names a default account without a known login', async () => {
-    show(state({ accounts: [{ id: 'default', email: null }], current: 'default' }))
+    show(
+      state({ accounts: [{ id: 'default', email: null, signedOut: false }], current: 'default' }),
+    )
     render(<ClaudeAccountsSection />)
     expect(await screen.findByText('Default account')).toBeInTheDocument()
   })
@@ -164,5 +168,67 @@ describe('ClaudeAccountsSection', () => {
     render(<ClaudeAccountsSection />)
     expect(await screen.findByText('What accounts share')).toBeInTheDocument()
     expect(screen.getByText(/replaced by the Default ones at its next start/)).toBeInTheDocument()
+  })
+  describe('sign-in', () => {
+    const available = (over: Partial<ClaudeAccountsState> = {}) =>
+      state({ signInAvailable: true, ...over })
+
+    it('Add opens the sign-in dialog instead of a terminal tab where sign-in is available', async () => {
+      const user = userEvent.setup()
+      show(available({ signIn: 'waiting' }))
+      render(<ClaudeAccountsSection />)
+      await screen.findByText('work@example.com')
+      await user.click(screen.getByRole('button', { name: 'Add' }))
+      expect(window.ostia.claudeAccounts.beginSignIn).toHaveBeenCalledWith(null)
+      expect(window.ostia.claudeAccounts.add).not.toHaveBeenCalled()
+      expect(await screen.findByText('Sign in to Claude in your browser')).toBeInTheDocument()
+    })
+
+    it('Add still opens a terminal tab where sign-in is not available', async () => {
+      const user = userEvent.setup()
+      show(state())
+      render(<ClaudeAccountsSection />)
+      await screen.findByText('work@example.com')
+      await user.click(screen.getByRole('button', { name: 'Add' }))
+      expect(window.ostia.claudeAccounts.add).toHaveBeenCalled()
+      expect(window.ostia.claudeAccounts.beginSignIn).not.toHaveBeenCalled()
+    })
+
+    it('offers Sign in again on a signed-out account and signs that account in', async () => {
+      const user = userEvent.setup()
+      show(
+        available({
+          signIn: 'waiting',
+          accounts: [
+            { id: 'default', email: 'me@example.com', signedOut: false },
+            { id: SPARE, email: 'spare@example.com', signedOut: true },
+          ],
+          current: 'default',
+        }),
+      )
+      render(<ClaudeAccountsSection />)
+      const row = (await screen.findByText('spare@example.com')).closest('li') as HTMLElement
+      expect(row).toHaveTextContent('Signed out')
+      await user.click(within(row).getByRole('button', { name: 'Sign in again' }))
+      expect(window.ostia.claudeAccounts.beginSignIn).toHaveBeenCalledWith(SPARE)
+    })
+
+    it('shows no Sign in again on an account that is signed in', async () => {
+      show(available())
+      render(<ClaudeAccountsSection />)
+      await screen.findByText('work@example.com')
+      expect(screen.queryByRole('button', { name: 'Sign in again' })).toBeNull()
+    })
+
+    it('does not open the dialog when another sign-in is open', async () => {
+      const user = userEvent.setup()
+      vi.mocked(window.ostia.claudeAccounts.beginSignIn).mockResolvedValueOnce('busy')
+      show(available())
+      render(<ClaudeAccountsSection />)
+      await screen.findByText('work@example.com')
+      await user.click(screen.getByRole('button', { name: 'Add' }))
+      expect(await screen.findByText('Another sign-in is still open.')).toBeInTheDocument()
+      expect(screen.queryByText('Sign in to Claude in your browser')).toBeNull()
+    })
   })
 })

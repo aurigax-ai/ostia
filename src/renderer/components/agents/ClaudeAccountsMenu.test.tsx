@@ -19,11 +19,13 @@ afterEach(() => {
 function open() {
   vi.mocked(window.ostia.claudeAccounts.state).mockResolvedValue({
     accounts: [
-      { id: 'default', email: 'me@example.com' },
-      { id: WORK, email: 'work@example.com' },
+      { id: 'default', email: 'me@example.com', signedOut: false },
+      { id: WORK, email: 'work@example.com', signedOut: false },
     ],
     current: WORK,
     adding: false,
+    signInAvailable: false,
+    signIn: 'idle',
     duplicate: null,
     damaged: false,
     recoverable: 0,
