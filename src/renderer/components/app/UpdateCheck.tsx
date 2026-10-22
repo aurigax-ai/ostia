@@ -29,8 +29,7 @@ export function UpdateCheck(): JSX.Element {
     'rate-limited': d.update.rateLimited,
     unavailable: d.update.unavailable,
   }
-  const release =
-    check.status === 'available' ? check.release : check.status === 'idle' ? pending : null
+  const release = pending ?? (check.status === 'available' ? check.release : null)
   const action = updateAction({ release, method, replace })
   const replacing = replaceRun.status === 'downloading' || replaceRun.status === 'installing'
   const message = release
