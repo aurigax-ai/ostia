@@ -11,6 +11,7 @@ import {
 } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { lock } from 'proper-lockfile'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import {
   acceptedProfileFolders,
@@ -225,6 +226,44 @@ describe('writeLogin', () => {
     expect(await writeLogin(dir, TOKENS, PROFILE)).toBe(false)
     expect(readFileSync(join(dir, '.credentials.json'), 'utf8')).toBe('not json')
   })
+
+  onLinuxOrWindows(
+    'refuses a credentials file that is a symlink and leaves its target alone',
+    async () => {
+      const dir = createProfile(root, WORK, home)
+      const target = join(base, 'elsewhere.json')
+      writeFileSync(target, '{"keep":true}')
+      symlinkSync(target, join(dir, '.credentials.json'))
+      expect(await writeLogin(dir, TOKENS, PROFILE)).toBe(false)
+      expect(readFileSync(target, 'utf8')).toBe('{"keep":true}')
+    },
+  )
+
+  onLinuxOrWindows('writes no login when the account cannot be recorded first', async () => {
+    const dir = createProfile(root, WORK, home)
+    writeFileSync(join(dir, '.claude.json'), 'not json')
+    expect(await writeLogin(dir, TOKENS, PROFILE)).toBe(false)
+    expect(existsSync(join(dir, '.credentials.json'))).toBe(false)
+  })
+
+  onLinuxOrWindows(
+    'honours a lock another holder has, and writes once it is released',
+    async () => {
+      const dir = createProfile(root, WORK, home)
+      const release = await lock(join(dir, '.storage-write'), { realpath: false })
+      const fast = { retries: 2, minTimeout: 10, maxTimeout: 10 }
+      expect(await writeLogin(dir, TOKENS, PROFILE, fast)).toBe(false)
+      expect(existsSync(join(dir, '.credentials.json'))).toBe(false)
+      const waiting = writeLogin(dir, TOKENS, PROFILE, {
+        retries: 20,
+        minTimeout: 20,
+        maxTimeout: 20,
+      })
+      setTimeout(() => void release(), 60)
+      expect(await waiting).toBe(true)
+      expect(existsSync(join(dir, '.credentials.json'))).toBe(true)
+    },
+  )
 
   onLinuxOrWindows('leaves no lock behind', async () => {
     const dir = createProfile(root, WORK, home)

@@ -108,7 +108,7 @@ export function ClaudeSignInDialog({ account, onClose }: Props): JSX.Element {
                   {d.signInSubmit}
                 </Button>
               </div>
-              {invalid ? <span className="text-attn-fg text-ui-xs">{d.signInInvalid}</span> : null}
+              {invalid ? <Notice tone="error">{d.signInInvalid}</Notice> : null}
             </div>
           </>
         )}

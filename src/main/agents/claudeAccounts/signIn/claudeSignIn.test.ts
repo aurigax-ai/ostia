@@ -78,7 +78,17 @@ describe('ClaudeSignIn', () => {
     expect(deps.exchange).toHaveBeenCalledTimes(1)
   })
 
-  it.each(['short', `${CODE}#state`, `http://localhost:7/callback?code=${CODE}`, ''])(
+  it.each([`${CODE}#s`, `http://localhost:7/callback?code=${CODE}&state=s`, CODE])(
+    'accepts %j',
+    async (input) => {
+      const { flow } = setup()
+      await flow.begin(null)
+      expect(flow.submit(input)).toBe('accepted')
+      await vi.waitFor(() => expect(flow.status).toBe('idle'))
+    },
+  )
+
+  it.each(['short', `${CODE}#other`, `http://localhost:7/callback?code=${CODE}&state=other`, ''])(
     'refuses %j as a code and keeps waiting',
     async (input) => {
       const { flow, deps } = setup()
@@ -113,6 +123,14 @@ describe('ClaudeSignIn', () => {
     expect(await flow.begin(null)).toBe('started')
     expect(flow.status).toBe('waiting')
     expect(deps.listen).toHaveBeenCalledTimes(2)
+  })
+
+  it('closes the listener when it times out or the browser reports an error', async () => {
+    const { flow, lapse, listener } = setup()
+    await flow.begin(null)
+    lapse(new Error('failed'))
+    await vi.waitFor(() => expect(flow.status).toBe('failed'))
+    expect(listener.close).toHaveBeenCalledTimes(1)
   })
 
   it('fails when the listener cannot open', async () => {

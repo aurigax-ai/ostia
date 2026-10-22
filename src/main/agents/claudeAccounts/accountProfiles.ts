@@ -3,7 +3,7 @@ import { readdir, realpath, rm, stat, writeFile } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
 import { writeFileAtomicAsync } from '@aurigax-ai/ostia-extension-sdk/atomicWrite'
-import { lock } from 'proper-lockfile'
+import { type LockOptions, lock } from 'proper-lockfile'
 import { isProfileId } from '../../../shared/claudeAccounts/claudeAccounts'
 import { readRegularFile } from '../../artifacts/previewFiles'
 import { appDataDir } from '../../platform/userDirs'
@@ -159,9 +159,27 @@ export async function writeLogin(
   dir: string,
   tokens: OAuthTokens,
   profile: OAuthProfile,
+  retries: LockOptions['retries'] = CREDENTIAL_LOCK_OPTIONS.retries,
 ): Promise<boolean> {
   if (process.platform === 'darwin') return false
-  const release = await lock(join(dir, CREDENTIAL_LOCK), CREDENTIAL_LOCK_OPTIONS).catch(() => null)
+  const config = await claudeConfigFile(homedir(), dir)
+  await writeFile(config, '{}\n', { flag: 'wx', mode: 0o600 }).catch(() => undefined)
+  const recorded = await editClaudeConfig(config, (current) => ({
+    ...current,
+    hasCompletedOnboarding: true,
+    oauthAccount: {
+      accountUuid: profile.accountUuid,
+      emailAddress: profile.emailAddress,
+      displayName: profile.displayName,
+      organizationUuid: profile.organizationUuid,
+      organizationName: profile.organizationName,
+    },
+  }))
+  if (!recorded) return false
+  const release = await lock(join(dir, CREDENTIAL_LOCK), {
+    ...CREDENTIAL_LOCK_OPTIONS,
+    retries,
+  }).catch(() => null)
   if (!release) return false
   try {
     const file = join(dir, CREDENTIAL_FILE)
@@ -186,20 +204,10 @@ export async function writeLogin(
       )}\n`,
       { mode: 0o600 },
     )
+    return true
+  } catch {
+    return false
   } finally {
     await release().catch(() => undefined)
   }
-  const config = await claudeConfigFile(homedir(), dir)
-  await writeFile(config, '{}\n', { flag: 'wx', mode: 0o600 }).catch(() => undefined)
-  return editClaudeConfig(config, (current) => ({
-    ...current,
-    hasCompletedOnboarding: true,
-    oauthAccount: {
-      accountUuid: profile.accountUuid,
-      emailAddress: profile.emailAddress,
-      displayName: profile.displayName,
-      organizationUuid: profile.organizationUuid,
-      organizationName: profile.organizationName,
-    },
-  }))
 }

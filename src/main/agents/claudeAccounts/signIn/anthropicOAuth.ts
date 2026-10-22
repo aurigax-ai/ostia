@@ -1,4 +1,5 @@
 import { createHash, randomBytes } from 'node:crypto'
+import { sameBytes } from '../../../platform/sameBytes'
 
 const CLIENT_ID = '9d1c250a-e61b-44d9-88ed-5944d1962f5e'
 const AUTHORIZE_URL = 'https://claude.ai/oauth/authorize'
@@ -14,7 +15,14 @@ const SCOPES = [
 ]
 const REQUEST_TIMEOUT_MS = 30_000
 const CODE_SHAPE = /^[A-Za-z0-9_-]{16,512}$/
-const DEFAULT_LIFETIME_S = 3600
+const BODY_MAX = 64 * 1024
+const TOKEN_MAX = 4096
+const FIELD_MAX = 512
+const LIFETIME_MIN_S = 60
+const LIFETIME_MAX_S = 365 * 24 * 3600
+const TOKEN_SHAPE = /^[\x21-\x7e]+$/
+const CALLBACK_PATH = '/callback'
+const LOOPBACK = new Set(['localhost', '127.0.0.1'])
 
 export interface Pkce {
   verifier: string
@@ -67,13 +75,73 @@ export function authorizeUrl(redirectUri: string, pkce: Pkce): string {
   return url.toString()
 }
 
-export function validCode(input: string): string | null {
-  const code = input.trim()
-  return CODE_SHAPE.test(code) ? code : null
+function sameState(given: string, expected: string): boolean {
+  return sameBytes(Buffer.from(given), Buffer.from(expected))
 }
 
-function text(value: unknown): string | null {
-  return typeof value === 'string' && value !== '' ? value : null
+function codeFromUrl(input: string): { code: string; state: string | null } | null {
+  let url: URL
+  try {
+    url = new URL(input)
+  } catch {
+    return null
+  }
+  if (url.protocol !== 'http:' || !LOOPBACK.has(url.hostname) || url.pathname !== CALLBACK_PATH) {
+    return null
+  }
+  const code = url.searchParams.get('code')
+  return code ? { code, state: url.searchParams.get('state') } : null
+}
+
+export function parseCode(input: string, expectedState: string): string | null {
+  const trimmed = input.trim()
+  const fromUrl = codeFromUrl(trimmed)
+  const [code, state] = fromUrl
+    ? [fromUrl.code, fromUrl.state]
+    : (trimmed.split('#', 2) as [string, string | undefined])
+  if (!CODE_SHAPE.test(code)) return null
+  if (state !== undefined && state !== null && !sameState(state, expectedState)) return null
+  return code
+}
+
+function text(value: unknown, max = FIELD_MAX): string | null {
+  return typeof value === 'string' && value !== '' && value.length <= max ? value : null
+}
+
+function token(value: unknown): string | null {
+  const found = text(value, TOKEN_MAX)
+  return found && TOKEN_SHAPE.test(found) ? found : null
+}
+
+async function readJson(res: Response): Promise<Record<string, unknown> | null> {
+  const reader = res.body?.getReader()
+  if (!reader) return null
+  const chunks: Uint8Array[] = []
+  let size = 0
+  for (;;) {
+    const { done, value } = await reader.read().catch(() => ({ done: true, value: undefined }))
+    if (done || !value) break
+    size += value.length
+    if (size > BODY_MAX) {
+      await reader.cancel().catch(() => undefined)
+      return null
+    }
+    chunks.push(value)
+  }
+  try {
+    const parsed: unknown = JSON.parse(Buffer.concat(chunks).toString('utf8'))
+    return parsed !== null && typeof parsed === 'object' && !Array.isArray(parsed)
+      ? (parsed as Record<string, unknown>)
+      : null
+  } catch {
+    return null
+  }
+}
+
+function grantedScopes(value: unknown): string[] | null {
+  if (value === undefined) return SCOPES
+  const given = typeof value === 'string' ? value.split(' ').filter(Boolean) : null
+  return given && given.length > 0 && given.every((scope) => SCOPES.includes(scope)) ? given : null
 }
 
 export async function exchangeCode(
@@ -94,21 +162,19 @@ export async function exchangeCode(
       redirect_uri: redirectUri,
       code_verifier: pkce.verifier,
     }),
+    redirect: 'error',
     signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
   }).catch(() => null)
   if (!res?.ok) return null
-  const body = (await res.json().catch(() => null)) as Record<string, unknown> | null
-  const accessToken = text(body?.access_token)
-  const refreshToken = text(body?.refresh_token)
-  if (!accessToken || !refreshToken) return null
-  const seconds = Number(body?.expires_in)
-  const lifetime = Number.isFinite(seconds) && seconds > 0 ? seconds : DEFAULT_LIFETIME_S
-  return {
-    accessToken,
-    refreshToken,
-    expiresAt: now + lifetime * 1000,
-    scopes: (text(body?.scope) ?? SCOPES.join(' ')).split(' '),
-  }
+  const body = await readJson(res)
+  const accessToken = token(body?.access_token)
+  const refreshToken = token(body?.refresh_token)
+  const seconds = body?.expires_in
+  const scopes = grantedScopes(body?.scope)
+  if (!accessToken || !refreshToken || !scopes) return null
+  if (typeof seconds !== 'number' || !Number.isFinite(seconds) || seconds <= 0) return null
+  const lifetime = Math.min(Math.max(seconds, LIFETIME_MIN_S), LIFETIME_MAX_S)
+  return { accessToken, refreshToken, expiresAt: now + lifetime * 1000, scopes }
 }
 
 export async function fetchProfile(
@@ -117,10 +183,11 @@ export async function fetchProfile(
 ): Promise<OAuthProfile | null> {
   const res = await request(PROFILE_URL, {
     headers: { authorization: `Bearer ${accessToken}` },
+    redirect: 'error',
     signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
   }).catch(() => null)
   if (!res?.ok) return null
-  const body = (await res.json().catch(() => null)) as {
+  const body = (await readJson(res)) as {
     account?: Record<string, unknown>
     organization?: Record<string, unknown>
   } | null

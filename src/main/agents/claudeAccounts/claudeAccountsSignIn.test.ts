@@ -244,4 +244,26 @@ describe('through the real loopback listener', () => {
     await vi.waitFor(async () => expect((await accounts.state()).signIn).toBe('idle'))
     await expect(fetch(back)).rejects.toThrow()
   })
+
+  it('closes the port when the browser reports an error', async () => {
+    const urls: string[] = []
+    accounts = new ClaudeAccounts(
+      deps({
+        signIn: {
+          ...signInDeps(),
+          openExternal: (url) => urls.push(url) > 0,
+          listen: ({ state, timeoutMs }) =>
+            openCallbackListener({ state, timeoutMs, pages, redirectName: 'localhost' }),
+        },
+      }),
+    )
+    await accounts.beginSignIn(null)
+    accounts.openSignIn()
+    const redirect = new URL(new URL(urls[0]).searchParams.get('redirect_uri') as string)
+    const back = new URL(`http://127.0.0.1:${redirect.port}/callback?error=access_denied&state=s`)
+    expect((await fetch(back)).status).toBe(400)
+    await vi.waitFor(async () => expect((await accounts.state()).signIn).toBe('failed'))
+    await expect(fetch(back)).rejects.toThrow()
+    expect(store.accounts()).toEqual([])
+  })
 })

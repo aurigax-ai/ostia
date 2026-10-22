@@ -9,7 +9,7 @@ import {
   type OAuthProfile,
   type OAuthTokens,
   type Pkce,
-  validCode,
+  parseCode,
 } from './anthropicOAuth'
 
 const SIGN_IN_TIMEOUT_MS = 10 * 60 * 1000
@@ -89,7 +89,7 @@ export class ClaudeSignIn {
   submit(input: string): SubmitCodeOutcome {
     const { attempt } = this
     if (this.current !== 'waiting' || !attempt) return 'idle'
-    const code = validCode(input)
+    const code = parseCode(input, attempt.pkce.state)
     if (!code) return 'invalid'
     void this.finish(attempt, code)
     return 'accepted'
@@ -109,6 +109,7 @@ export class ClaudeSignIn {
 
   private lapse(attempt: Attempt): void {
     if (this.attempt !== attempt || this.current !== 'waiting') return
+    attempt.listener.close()
     this.attempt = null
     this.current = 'failed'
     this.deps.onChange()

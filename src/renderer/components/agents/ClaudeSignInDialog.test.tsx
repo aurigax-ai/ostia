@@ -44,7 +44,9 @@ describe('ClaudeSignInDialog', () => {
     render(<ClaudeSignInDialog account={null} onClose={() => {}} />)
     expect(await screen.findByText('Sign in to Claude in your browser')).toBeInTheDocument()
     expect(screen.getByText('Waiting for the browser…')).toBeInTheDocument()
-    expect(screen.getByLabelText('Paste the code from the page')).toBeInTheDocument()
+    expect(
+      screen.getByLabelText('Paste the code, or the address the browser was sent to'),
+    ).toBeInTheDocument()
   })
 
   it('opens the sign-in page through main on request', async () => {
@@ -61,7 +63,10 @@ describe('ClaudeSignInDialog', () => {
     render(<ClaudeSignInDialog account={null} onClose={() => {}} />)
     const submit = await screen.findByRole('button', { name: 'Submit' })
     expect(submit).toBeDisabled()
-    await user.type(screen.getByLabelText('Paste the code from the page'), ' abcdefghijklmnop0123 ')
+    await user.type(
+      screen.getByLabelText('Paste the code, or the address the browser was sent to'),
+      ' abcdefghijklmnop0123 ',
+    )
     await user.click(submit)
     expect(window.ostia.claudeAccounts.submitSignInCode).toHaveBeenCalledWith(
       ' abcdefghijklmnop0123 ',
@@ -73,12 +78,16 @@ describe('ClaudeSignInDialog', () => {
     vi.mocked(window.ostia.claudeAccounts.submitSignInCode).mockResolvedValueOnce('invalid')
     show('waiting')
     render(<ClaudeSignInDialog account={null} onClose={() => {}} />)
-    const field = await screen.findByLabelText('Paste the code from the page')
+    const field = await screen.findByLabelText(
+      'Paste the code, or the address the browser was sent to',
+    )
     await user.type(field, 'nope')
     await user.click(screen.getByRole('button', { name: 'Submit' }))
-    expect(await screen.findByText('That is not a sign-in code.')).toBeInTheDocument()
+    expect(
+      await screen.findByText('That is not a sign-in code for this sign-in.'),
+    ).toBeInTheDocument()
     await user.type(field, 'x')
-    expect(screen.queryByText('That is not a sign-in code.')).toBeNull()
+    expect(screen.queryByText('That is not a sign-in code for this sign-in.')).toBeNull()
   })
 
   it('cannot be cancelled or submitted while the account is being signed in', async () => {
