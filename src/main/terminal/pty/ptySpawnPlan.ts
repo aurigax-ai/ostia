@@ -63,6 +63,7 @@ export interface SpawnPlan {
   wantsKeep: boolean
   notKept: string
   tokenFile: string | null
+  agentDir: string | null
 }
 
 interface ShellFiles {
@@ -224,6 +225,7 @@ export function createSpawnPlanner({
       wantsKeep,
       notKept,
       tokenFile: null,
+      agentDir: integration.agentDir,
     }
   }
 

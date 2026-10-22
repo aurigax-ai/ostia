@@ -56,6 +56,7 @@ export function createKeptSpawner({
       args,
       cwd,
       sandboxed,
+      agentDir,
     } = plan
     let { notKept } = plan
     let kept: TmuxPane | null = null
@@ -67,6 +68,7 @@ export function createKeptSpawner({
       shell,
       stateFile,
       spawnPath: env.PATH ?? '',
+      agentDir,
       ...(markNonce ? { markNonce } : {}),
       ...(sandboxed
         ? { sandbox: { stamp: sandboxStamp, bridgeId: portBridge?.id ?? null, resizePipe } }

@@ -53,6 +53,7 @@ export interface KeptMeta {
   shell: string
   stateFile: string | null
   spawnPath: string
+  agentDir?: string | null
   markNonce?: string
   process?: KeptProcessMeta
   sandbox?: KeptSandboxMeta
@@ -160,9 +161,11 @@ function parseKeptMeta(raw: unknown): KeptMeta | null {
   if (r.stateFile !== null && stateFile === null) return null
   const keptProcess = parseProcess(r.process)
   const sandbox = parseSandbox(r.sandbox)
+  const agentDir = r.agentDir === null ? null : text(r.agentDir)
   return {
     ...(fields as KeptMeta),
     stateFile,
+    ...(agentDir !== null || r.agentDir === null ? { agentDir } : {}),
     ...(isMarkNonce(r.markNonce) ? { markNonce: r.markNonce } : {}),
     ...(keptProcess ? { process: keptProcess } : {}),
     ...(sandbox ? { sandbox } : {}),
@@ -239,6 +242,10 @@ export class KeptShells {
 
   waitingPaneIds(): string[] {
     return [...this.waiting.keys()]
+  }
+
+  waitingAgentDirs(): (string | null | undefined)[] {
+    return [...this.waiting.values()].map(({ meta }) => meta.agentDir)
   }
 
   async spawn(spec: KeptSpawnSpec): Promise<TmuxPane> {

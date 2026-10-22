@@ -11,6 +11,7 @@ import { missingRequirements, programPath } from '../platform/systemRequirements
 import type { WorkspaceSandboxes } from '../sandbox/workspaceSandboxes'
 import { writeOstiaLauncher } from '../terminal/paneLauncher'
 import type { PtyEntry } from '../terminal/pty/ptyRegistry'
+import { startGenerationCleanup } from '../terminal/shellIntegration'
 import { handoffPaneIds, loadSnapshot } from '../workspaces/workspaceSnapshot'
 import { KeptPlumbing, keptLauncherPaths } from './keptLaunchers'
 import { keptShellsDir, keptShellsName } from './keptPaths'
@@ -169,6 +170,7 @@ export function startKeptShells({
         if (host) workspaceSandboxes.tmp.adoptKeptTmp(workspaceId, host.tmpDir)
       }
       workspaceSandboxes.tmp.sweepKeptTmp(kept)
+      startGenerationCleanup(() => keptShells.waitingAgentDirs())
     })
   try {
     writeOstiaLauncher(paneLauncherDir())

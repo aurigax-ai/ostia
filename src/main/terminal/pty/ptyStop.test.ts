@@ -1,10 +1,12 @@
 import { describe, expect, it, vi } from 'vitest'
 import { claimName, forgetNames, paneNamed } from '../../panes/paneNames'
+import { releaseAgentDir } from '../shellIntegration'
 import type { PtyEntry } from './ptyRegistry'
 import { createPtyStop } from './ptyStop'
 
 vi.mock('../../workspaces/savedScrollback', () => ({ stashScrollback: vi.fn() }))
 vi.mock('./ptyRegistry', () => ({ removeStateFile: vi.fn() }))
+vi.mock('../shellIntegration', () => ({ releaseAgentDir: vi.fn() }))
 
 function stop(paneId: string) {
   const entry = {
@@ -48,4 +50,15 @@ describe('a bus name and the pty', () => {
     expect(stop('p1').hibernatePty('p1')).toBe(true)
     expect(paneNamed('boss')).toBe('p1')
   })
+})
+
+describe('the agent generation of a stopped pty', () => {
+  it.each(['closed', 'restart', 'hibernated'] as const)(
+    'is released when the pty is stopped for %s',
+    (reason) => {
+      vi.mocked(releaseAgentDir).mockClear()
+      stop('p1').killPty('p1', reason)
+      expect(releaseAgentDir).toHaveBeenCalledWith('p1')
+    },
+  )
 })

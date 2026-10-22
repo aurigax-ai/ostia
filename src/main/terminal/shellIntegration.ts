@@ -13,7 +13,13 @@ import { CLI_PATH, CLI_RUN } from './agentHookCommands'
 import { agentPluginFiles, writeAgentPlugin } from './agentPlugin'
 import { claudeWrapper } from './claudeIntegration'
 import { codexWrapper, PLAYBOOKS_DIR } from './codexIntegration'
-import { hasFiles, installGenerated, removeGenerated } from './generatedFolder'
+import {
+  hasFiles,
+  installGenerated,
+  removeGenerated,
+  removeUntouchedGenerations,
+  touchGenerated,
+} from './generatedFolder'
 
 export const INTEGRATION_DIR = privateRunDir('shell-integration')
 
@@ -304,12 +310,14 @@ let playbookSource: (taken: readonly string[]) => PlaybookFile[] = () => []
 let built: { dir: string; names: string[] } | null = null
 const generations = new Map<string, string[]>()
 const inUse = new Map<string, string>()
+const unknownInUse = new Set<string>()
 
 export function setPlaybookSource(source: (taken: readonly string[]) => PlaybookFile[]): void {
   playbookSource = source
 }
 
 function sweepGenerations(): void {
+  if (cleansGenerations()) return
   const used = new Set(inUse.values())
   for (const [dir, names] of [...generations]) {
     if (dir === built?.dir || used.has(dir)) continue
@@ -336,11 +344,18 @@ export function refreshAgentPlugin(): void {
   rebuildPlugin()
 }
 
-export function retainAgentDir(paneId: string, dir: string): void {
+export function retainAgentDir(paneId: string, dir: string | null | undefined): void {
+  if (dir === undefined) {
+    unknownInUse.add(paneId)
+    return
+  }
+  if (dir === null) return
   inUse.set(paneId, dir)
+  if (cleansGenerations()) touchGenerated(dir)
 }
 
 export function releaseAgentDir(paneId: string): void {
+  unknownInUse.delete(paneId)
   if (inUse.delete(paneId)) sweepGenerations()
 }
 
@@ -432,6 +447,52 @@ export function shellIntegrationDir(): string {
   return cachedDir
 }
 
+const GENERATION_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000
+
+const GENERATION_CHECK_MS = 24 * 60 * 60 * 1000
+
+function cleansGenerations(platform: NodeJS.Platform = process.platform): boolean {
+  return platform === 'darwin'
+}
+
+export function cleanOldGenerations(
+  keptAgentDirs: readonly (string | null | undefined)[],
+  now: number = Date.now(),
+  platform: NodeJS.Platform = process.platform,
+): string[] {
+  if (!cleansGenerations(platform)) return []
+  const keep = new Set<string>(inUse.values())
+  if (built !== null) keep.add(built.dir)
+  if (cachedDir !== null) keep.add(cachedDir)
+  for (const dir of keptAgentDirs) if (dir) keep.add(dir)
+  const stamp = new Date(now)
+  for (const dir of keep) touchGenerated(dir, stamp)
+  const untouchedSince = now - GENERATION_MAX_AGE_MS
+  const removed = removeUntouchedGenerations(SHELLS_DIR, keep, untouchedSince)
+  const unknown = unknownInUse.size > 0 || keptAgentDirs.some((dir) => dir === undefined)
+  if (unknown) return removed
+  for (const dir of removeUntouchedGenerations(AGENT_PLUGINS_DIR, keep, untouchedSince)) {
+    generations.delete(dir)
+    removed.push(dir)
+  }
+  return removed
+}
+
+export function startGenerationCleanup(
+  keptAgentDirs: () => readonly (string | null | undefined)[],
+): void {
+  if (!cleansGenerations()) return
+  const run = (): void => {
+    try {
+      cleanOldGenerations(keptAgentDirs())
+    } catch (err) {
+      console.error('[terminal] old shell integration generations stay:', err)
+    }
+  }
+  run()
+  setInterval(run, GENERATION_CHECK_MS).unref()
+}
+
 export interface OstiaPromptOption {
   separator: PromptSeparator
   sameLine: boolean
@@ -490,6 +551,10 @@ export function shellIntegrationSpawnOptions(
     agentDir = currentAgentDir()
   } catch (err) {
     return { args: [], env: {}, agentDir: null, notLoaded: integrationFailure(err) }
+  }
+  if (cleansGenerations()) {
+    touchGenerated(dir)
+    touchGenerated(agentDir)
   }
   const env = {
     ...appEnv({ AGENT_DIR: agentDir }),

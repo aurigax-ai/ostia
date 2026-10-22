@@ -59,7 +59,7 @@ function meta(paneId: string): KeptMeta {
   }
 }
 
-function spawn(kept: KeptShells, paneId: string): Promise<TmuxPane> {
+function spawn(kept: KeptShells, paneId: string, extra: Partial<KeptMeta> = {}): Promise<TmuxPane> {
   return kept.spawn({
     file: '/bin/sh',
     args: ['-c', 'sleep 60'],
@@ -67,7 +67,7 @@ function spawn(kept: KeptShells, paneId: string): Promise<TmuxPane> {
     env: { PATH: process.env.PATH ?? '/usr/bin:/bin' },
     cols: 80,
     rows: 24,
-    meta: meta(paneId),
+    meta: { ...meta(paneId), ...extra },
   })
 }
 
@@ -126,6 +126,20 @@ describe.skipIf(skipWithoutTmux)('KeptShells', () => {
     await ended(pid)
     expect(() => process.kill(pid, 0)).not.toThrow()
     parent.kill()
+  })
+
+  it('tells which agent generation each waiting shell runs in, and which shells never said', async () => {
+    const name = `k${names++}`
+    const first = instance(name)
+    await spawn(first.kept, 'p1', { agentDir: '/run/agents/older' })
+    await spawn(first.kept, 'p2', { agentDir: null })
+    await spawn(first.kept, 'p3')
+    first.kept.release()
+    const second = await restart(name, new Set(['p1', 'p2', 'p3']))
+    const dirs = new Map(
+      second.kept.waitingPaneIds().map((id, i) => [id, second.kept.waitingAgentDirs()[i]]),
+    )
+    expect(Object.fromEntries(dirs)).toEqual({ p1: '/run/agents/older', p2: null, p3: undefined })
   })
 
   it('KSH-C15 ends a kept shell the restored layout does not name and logs it', async () => {

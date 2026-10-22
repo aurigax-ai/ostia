@@ -1,10 +1,16 @@
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { en } from '../../shared/app/dict'
 import { ScreenMirror } from '../terminal/screenMirror'
+import { retainAgentDir } from '../terminal/shellIntegration'
 import { pendingRestoredScrollback, stashScrollback } from '../workspaces/savedScrollback'
 import { createKeptReattach } from './keptReattach'
 
-function setup() {
+vi.mock('../terminal/shellIntegration', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../terminal/shellIntegration')>()),
+  retainAgentDir: vi.fn(),
+}))
+
+function setup(agentDir?: string | null) {
   const writeToken = vi.fn()
   const shown: string[] = []
   const mirror = new ScreenMirror(80, 24)
@@ -52,7 +58,14 @@ function setup() {
       currentCommand: async () => '',
       live: vi.fn(),
     },
-    meta: { workspaceId: 'w1', externalId: 'x', shell: '/bin/bash', spawnPath: '', stateFile: '' },
+    meta: {
+      workspaceId: 'w1',
+      externalId: 'x',
+      shell: '/bin/bash',
+      spawnPath: '',
+      stateFile: '',
+      ...(agentDir === undefined ? {} : { agentDir }),
+    },
   }
   return {
     writeToken,
@@ -70,6 +83,19 @@ function setup() {
 }
 
 describe('reattaching a kept shell', () => {
+  beforeEach(() => {
+    vi.mocked(retainAgentDir).mockClear()
+  })
+
+  it('holds the agent generation the shell runs in, and marks it unknown when the shell did not record one', async () => {
+    await setup('/run/agents/older').run()
+    expect(retainAgentDir).toHaveBeenLastCalledWith('p1', '/run/agents/older')
+    await setup().run()
+    expect(retainAgentDir).toHaveBeenLastCalledWith('p1', undefined)
+    await setup(null).run()
+    expect(retainAgentDir).toHaveBeenLastCalledWith('p1', null)
+  })
+
   it('RSM-C19 shows the restore seam without saving it', async () => {
     const { shown, mirror, run } = setup()
     await run()
