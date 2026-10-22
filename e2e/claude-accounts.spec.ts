@@ -1,4 +1,4 @@
-import { chmodSync, mkdirSync, readdirSync, writeFileSync } from 'node:fs'
+import { chmodSync, mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { freshDataHome, isolatedLaunch } from './dataHome'
 import { openWorkspace, typeLine } from './helpers'
@@ -10,24 +10,35 @@ const EMAIL = 'work@e2e.test'
 
 const FAKE_CLAUDE = [
   '#!/bin/sh',
-  'if [ -z "$CLAUDE_CONFIG_DIR" ]; then echo "fake-claude dir=unset"; exec cat; fi',
-  'if [ ! -f "$CLAUDE_CONFIG_DIR/.credentials.json" ]; then',
-  `  printf '%s' '{"oauthAccount":{"emailAddress":"${EMAIL}"}}' > "$CLAUDE_CONFIG_DIR/.claude.json"`,
-  '  printf x > "$CLAUDE_CONFIG_DIR/.credentials.json"',
-  '  echo "fake-claude signed-in dir=$CLAUDE_CONFIG_DIR"',
-  'else',
-  '  echo "fake-claude dir=$CLAUDE_CONFIG_DIR"',
-  'fi',
+  'echo "fake-claude dir=${CLAUDE_CONFIG_DIR:-unset}"',
   'exec cat',
   '',
 ].join('\n')
 
-test('CLA-E1 Add signs in on a new profile in a terminal tab, lists the account, a new Claude starts on it, and a switch from a pane asks the human every time', async () => {
+const PROFILE_ID = '0123456789abcdef'
+
+function seedSignedInProfile(dataHome: string): string {
+  const profile = join(dataHome, 'ostia', 'claude-accounts', PROFILE_ID)
+  mkdirSync(profile, { recursive: true, mode: 0o700 })
+  writeFileSync(
+    join(profile, '.claude.json'),
+    JSON.stringify({ oauthAccount: { emailAddress: EMAIL } }),
+  )
+  writeFileSync(
+    join(profile, '.credentials.json'),
+    JSON.stringify({ claudeAiOauth: { accessToken: 'x', refreshToken: 'y', expiresAt: 1 } }),
+    { mode: 0o600 },
+  )
+  return profile
+}
+
+test('CLA-E1 Add opens the in-app sign-in, a signed-in profile on disk comes back as an account, a new Claude starts on it, and a switch from a pane asks the human every time', async () => {
   const dataHome = freshDataHome()
   const bin = join(dataHome, 'bin')
   mkdirSync(bin, { recursive: true })
   writeFileSync(join(bin, 'claude'), FAKE_CLAUDE)
   chmodSync(join(bin, 'claude'), 0o755)
+  const profile = seedSignedInProfile(dataHome)
   const launch = isolatedLaunch(dataHome)
   const app = await electron.launch({
     ...launch,
@@ -49,13 +60,15 @@ test('CLA-E1 Add signs in on a new profile in a terminal tab, lists the account,
     const list = settings.getByRole('list', { name: 'Claude accounts' })
     await expect(list.getByRole('listitem')).toHaveCount(1)
     await settings.getByRole('button', { name: 'Add' }).click()
+    const dialog = win.getByRole('dialog')
+    await expect(dialog.getByText('Sign in to Claude in your browser')).toBeVisible()
+    await dialog.getByRole('button', { name: 'Cancel' }).click()
+    await expect(dialog).toBeHidden()
 
+    await settings.getByRole('button', { name: 'Bring back' }).click()
     await expect(list.getByRole('listitem').filter({ hasText: EMAIL })).toBeVisible({
       timeout: 30_000,
     })
-    const profiles = join(dataHome, 'ostia', 'claude-accounts')
-    const [id] = readdirSync(profiles)
-    const profile = join(profiles, id)
 
     const row = list.getByRole('listitem').filter({ hasText: EMAIL })
     await row.getByRole('button', { name: `Actions for ${EMAIL}` }).click()
