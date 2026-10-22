@@ -1,4 +1,10 @@
-import type { AddAccountOutcome, ClaudeAccountsState, RemoveAccountOutcome } from './claudeAccounts'
+import type {
+  AddAccountOutcome,
+  BeginSignInOutcome,
+  ClaudeAccountsState,
+  RemoveAccountOutcome,
+  SubmitCodeOutcome,
+} from './claudeAccounts'
 
 interface ClaudeAccountsApi {
   state: () => Promise<ClaudeAccountsState>
@@ -7,6 +13,10 @@ interface ClaudeAccountsApi {
   remove: (id: string) => Promise<RemoveAccountOutcome>
   use: (id: string) => Promise<boolean>
   recover: () => Promise<number | null>
+  beginSignIn: (id: string | null) => Promise<BeginSignInOutcome>
+  openSignIn: () => Promise<boolean>
+  submitSignInCode: (code: string) => Promise<SubmitCodeOutcome>
+  cancelSignIn: () => Promise<void>
 }
 
 export interface ClaudeAccountsBridge {

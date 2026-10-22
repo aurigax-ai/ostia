@@ -26,6 +26,7 @@ export function createAgentServices(ctx: WorkspaceContext) {
     emitPaneEvent,
     execCommand,
     mainStrings,
+    openExternalSafe,
     openTerminalInWindow,
     services,
     terminalState,
@@ -40,6 +41,7 @@ export function createAgentServices(ctx: WorkspaceContext) {
   })
   const claudeAccounts = createClaudeAccounts({
     openTerminalInWindow,
+    openExternalSafe,
     mainStrings,
     broadcast,
     agentRunning,

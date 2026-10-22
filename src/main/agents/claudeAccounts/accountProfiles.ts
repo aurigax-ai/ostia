@@ -1,15 +1,25 @@
 import { lstatSync, mkdirSync, symlinkSync, writeFileSync } from 'node:fs'
-import { readdir, realpath, rm, stat } from 'node:fs/promises'
+import { readdir, realpath, rm, stat, writeFile } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
+import { writeFileAtomicAsync } from '@aurigax-ai/ostia-extension-sdk/atomicWrite'
+import { type LockOptions, lock } from 'proper-lockfile'
 import { isProfileId } from '../../../shared/claudeAccounts/claudeAccounts'
 import { readRegularFile } from '../../artifacts/previewFiles'
 import { appDataDir } from '../../platform/userDirs'
-import { claudeConfigFile } from '../claudeFolderTrust'
+import { claudeConfigFile, editClaudeConfig } from '../claudeFolderTrust'
+import type { OAuthProfile, OAuthTokens } from './signIn/anthropicOAuth'
 
 const CONFIG_READ_MAX = 32 * 1024 * 1024
 const PROFILE_MODE = 0o700
 const CREDENTIAL_FILE = '.credentials.json'
+const CREDENTIAL_LOCK = '.storage-write'
+const CREDENTIAL_READ_MAX = 1024 * 1024
+const CREDENTIAL_LOCK_OPTIONS = {
+  realpath: false,
+  stale: 15_000,
+  retries: { retries: 10, minTimeout: 100, maxTimeout: 1000 },
+}
 const PENDING_MARKER = '.ostia-pending'
 const ACCOUNTS_DIR = 'claude-accounts'
 const SHARED_FOLDERS = ['projects']
@@ -108,4 +118,96 @@ export function credentialsPresent(
   platform: NodeJS.Platform = process.platform,
 ): boolean {
   return platform === 'darwin' || present(join(dir, CREDENTIAL_FILE))
+}
+
+export type LoginState = 'signed-in' | 'signed-out'
+
+export async function loginState(
+  dir: string,
+  now: number,
+  platform: NodeJS.Platform = process.platform,
+): Promise<LoginState> {
+  if (platform === 'darwin') return 'signed-in'
+  const read = await readRegularFile(join(dir, CREDENTIAL_FILE), CREDENTIAL_READ_MAX)
+  if (!read.ok) return 'signed-out'
+  try {
+    const oauth = (JSON.parse(read.body.toString('utf8')) as { claudeAiOauth?: unknown })
+      .claudeAiOauth as { refreshToken?: unknown; refreshTokenExpiresAt?: unknown } | undefined
+    if (typeof oauth?.refreshToken !== 'string' || oauth.refreshToken === '') return 'signed-out'
+    const lapse = oauth.refreshTokenExpiresAt
+    return typeof lapse === 'number' && lapse <= now ? 'signed-out' : 'signed-in'
+  } catch {
+    return 'signed-out'
+  }
+}
+
+async function readCredentials(file: string): Promise<Record<string, unknown> | null> {
+  if (!present(file)) return {}
+  const read = await readRegularFile(file, CREDENTIAL_READ_MAX)
+  if (!read.ok) return null
+  try {
+    const parsed: unknown = JSON.parse(read.body.toString('utf8'))
+    return parsed !== null && typeof parsed === 'object' && !Array.isArray(parsed)
+      ? (parsed as Record<string, unknown>)
+      : null
+  } catch {
+    return null
+  }
+}
+
+export async function writeLogin(
+  dir: string,
+  tokens: OAuthTokens,
+  profile: OAuthProfile,
+  retries: LockOptions['retries'] = CREDENTIAL_LOCK_OPTIONS.retries,
+): Promise<boolean> {
+  if (process.platform === 'darwin') return false
+  const config = await claudeConfigFile(homedir(), dir)
+  await writeFile(config, '{}\n', { flag: 'wx', mode: 0o600 }).catch(() => undefined)
+  const recorded = await editClaudeConfig(config, (current) => ({
+    ...current,
+    hasCompletedOnboarding: true,
+    oauthAccount: {
+      accountUuid: profile.accountUuid,
+      emailAddress: profile.emailAddress,
+      displayName: profile.displayName,
+      organizationUuid: profile.organizationUuid,
+      organizationName: profile.organizationName,
+    },
+  }))
+  if (!recorded) return false
+  const release = await lock(join(dir, CREDENTIAL_LOCK), {
+    ...CREDENTIAL_LOCK_OPTIONS,
+    retries,
+  }).catch(() => null)
+  if (!release) return false
+  try {
+    const file = join(dir, CREDENTIAL_FILE)
+    const existing = await readCredentials(file)
+    if (!existing) return false
+    await writeFileAtomicAsync(
+      file,
+      `${JSON.stringify(
+        {
+          ...existing,
+          claudeAiOauth: {
+            accessToken: tokens.accessToken,
+            refreshToken: tokens.refreshToken,
+            expiresAt: tokens.expiresAt,
+            scopes: tokens.scopes,
+            subscriptionType: profile.subscriptionType,
+            rateLimitTier: profile.rateLimitTier,
+          },
+        },
+        null,
+        2,
+      )}\n`,
+      { mode: 0o600 },
+    )
+    return true
+  } catch {
+    return false
+  } finally {
+    await release().catch(() => undefined)
+  }
 }

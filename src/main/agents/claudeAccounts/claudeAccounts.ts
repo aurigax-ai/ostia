@@ -2,9 +2,11 @@ import { randomBytes } from 'node:crypto'
 import { join } from 'node:path'
 import {
   type AddAccountOutcome,
+  type BeginSignInOutcome,
   type ClaudeAccountsState,
   DEFAULT_ACCOUNT,
   type RemoveAccountOutcome,
+  type SubmitCodeOutcome,
   sessionIdOfArgs,
 } from '../../../shared/claudeAccounts/claudeAccounts'
 import {
@@ -12,10 +14,13 @@ import {
   acceptProfile,
   createProfile,
   credentialsPresent,
+  type LoginState,
   removeProfile,
   sweepPendingProfiles,
 } from './accountProfiles'
 import type { ClaudeAccountsStore } from './accountsStore'
+import type { OAuthProfile, OAuthTokens } from './signIn/anthropicOAuth'
+import { ClaudeSignIn, type CompleteOutcome, type SignInDeps } from './signIn/claudeSignIn'
 
 const LOGIN_POLL_MS = 2000
 const LOGIN_TIMEOUT_MS = 30 * 60 * 1000
@@ -33,6 +38,9 @@ export interface ClaudeAccountsDeps {
   defaultEmail: () => Promise<string | null>
   profileEmail: (dir: string) => Promise<string | null>
   syncProfile: (dir: string) => Promise<void>
+  loginState: (dir: string) => Promise<LoginState>
+  writeLogin: (dir: string, tokens: OAuthTokens, profile: OAuthProfile) => Promise<boolean>
+  signIn: Omit<SignInDeps, 'complete' | 'onChange'> | null
   openLoginTab: (dir: string, target: LoginTarget) => Promise<string | null>
   agentRunning: (paneId: string) => boolean
   paneOf: (externalPaneId: string) => string | undefined
@@ -57,17 +65,36 @@ export class ClaudeAccounts {
   private duplicateTimer: NodeJS.Timeout | null = null
   private recoverable: { id: string; email: string }[] = []
 
-  constructor(private readonly deps: ClaudeAccountsDeps) {}
+  private readonly signIn: ClaudeSignIn | null
+
+  constructor(private readonly deps: ClaudeAccountsDeps) {
+    this.signIn = deps.signIn
+      ? new ClaudeSignIn({
+          ...deps.signIn,
+          complete: (target, tokens, profile) => this.completeSignIn(target, tokens, profile),
+          onChange: () => void this.publish(),
+        })
+      : null
+  }
 
   async state(): Promise<ClaudeAccountsState> {
     const { store } = this.deps
+    const profiles = await Promise.all(
+      store.accounts().map(async ({ id, email }) => ({
+        id,
+        email,
+        signedOut: (await this.deps.loginState(join(this.deps.root, id))) === 'signed-out',
+      })),
+    )
     return {
       accounts: [
-        { id: DEFAULT_ACCOUNT, email: await this.deps.defaultEmail() },
-        ...store.accounts().map(({ id, email }) => ({ id, email })),
+        { id: DEFAULT_ACCOUNT, email: await this.deps.defaultEmail(), signedOut: false },
+        ...profiles,
       ],
       current: store.current(),
       adding: this.pending !== null,
+      signInAvailable: this.signIn !== null,
+      signIn: this.signIn?.status ?? 'idle',
       duplicate: this.duplicate,
       damaged: store.isDamaged,
       recoverable: this.recoverable.length,
@@ -102,7 +129,7 @@ export class ClaudeAccounts {
 
   async add(target: LoginTarget): Promise<AddAccountOutcome> {
     if (this.deps.store.isDamaged) return 'damaged'
-    if (this.pending) return 'busy'
+    if (this.pending || this.signIn?.busy) return 'busy'
     const id = randomBytes(8).toString('hex')
     const dir = createProfile(this.deps.root, id, this.deps.defaultHome())
     const paneId = await this.deps.openLoginTab(dir, target)
@@ -116,6 +143,28 @@ export class ClaudeAccounts {
     this.pending = { id, dir, paneId, startedAt: (this.deps.now ?? Date.now)(), timer }
     await this.publish()
     return 'opened'
+  }
+
+  async beginSignIn(id: string | null): Promise<BeginSignInOutcome> {
+    const { store } = this.deps
+    if (!this.signIn) return 'unavailable'
+    if (store.isDamaged) return 'damaged'
+    if (id !== null && !store.has(id)) return 'unknown'
+    if (this.pending) return 'busy'
+    this.clearDuplicate()
+    return this.signIn.begin(id)
+  }
+
+  openSignIn(): boolean {
+    return this.signIn?.open() ?? false
+  }
+
+  submitSignIn(code: string): SubmitCodeOutcome {
+    return this.signIn?.submit(code) ?? 'idle'
+  }
+
+  cancelSignIn(): void {
+    this.signIn?.cancel()
   }
 
   async paneClosed(externalPaneId: string): Promise<void> {
@@ -188,12 +237,8 @@ export class ClaudeAccounts {
   private async finish(pending: PendingLogin, email: string): Promise<void> {
     clearInterval(pending.timer)
     this.pending = null
-    const known = [
-      await this.deps.defaultEmail(),
-      ...this.deps.store.accounts().map((account) => account.email),
-    ]
     const added =
-      !known.some((other) => other?.toLowerCase() === email.toLowerCase()) &&
+      !(await this.knownEmail(email)) &&
       this.deps.store.add({ id: pending.id, email, addedAt: (this.deps.now ?? Date.now)() })
     if (added) {
       await acceptProfile(this.deps.root, pending.id)
@@ -204,6 +249,42 @@ export class ClaudeAccounts {
       this.showDuplicate(email)
     }
     await this.publish()
+  }
+
+  private async knownEmail(email: string): Promise<boolean> {
+    const known = [
+      await this.deps.defaultEmail(),
+      ...this.deps.store.accounts().map((account) => account.email),
+    ]
+    return known.some((other) => other?.toLowerCase() === email.toLowerCase())
+  }
+
+  private async completeSignIn(
+    target: string | null,
+    tokens: OAuthTokens,
+    profile: OAuthProfile,
+  ): Promise<CompleteOutcome> {
+    const { store, root } = this.deps
+    const email = profile.emailAddress
+    if (target !== null) {
+      const account = store.accounts().find((entry) => entry.id === target)
+      if (!account) return 'failed'
+      if (account.email?.toLowerCase() !== email.toLowerCase()) return 'mismatch'
+      return (await this.deps.writeLogin(join(root, target), tokens, profile)) ? 'done' : 'failed'
+    }
+    if (await this.knownEmail(email)) {
+      this.showDuplicate(email)
+      return 'done'
+    }
+    const id = randomBytes(8).toString('hex')
+    const dir = createProfile(root, id, this.deps.defaultHome())
+    const written = await this.deps.writeLogin(dir, tokens, profile)
+    if (!written || !store.add({ id, email, addedAt: (this.deps.now ?? Date.now)() })) {
+      await removeProfile(root, id)
+      return 'failed'
+    }
+    await acceptProfile(root, id)
+    return 'done'
   }
 
   private showDuplicate(email: string): void {

@@ -8,6 +8,7 @@ import { useState } from 'react'
 import { IconButton } from '@/components/common/IconButton'
 import { DropdownMenu, MenuItem } from '@/components/common/Menu'
 import { Notice } from '@/components/common/Notice'
+import { TextLink } from '@/components/common/TextLink'
 import { SettingsSubgroup } from '@/components/settingsKit/SettingsGroup'
 import { SettingsList } from '@/components/settingsKit/SettingsList'
 import { SettingsListRow } from '@/components/settingsKit/SettingsListRow'
@@ -26,21 +27,34 @@ import { Button } from '@/components/ui/button'
 import { useClaudeAccounts } from '@/lib/agents/useClaudeAccounts'
 import { fmt, useDict } from '@/lib/app/useDict'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
+import { ClaudeSignInDialog } from './ClaudeSignInDialog'
 
-type Problem = 'no-workspace' | 'not-opened' | 'running' | null
+type Problem = 'no-workspace' | 'not-opened' | 'running' | 'busy' | null
+
+interface SigningIn {
+  account: ClaudeAccountView | null
+}
 
 const accountName = (account: ClaudeAccountView, fallback: string): string =>
   account.email ?? fallback
 
 export function ClaudeAccountsSection(): JSX.Element {
   const d = useDict().claudeAccounts
-  const { accounts, current, adding, duplicate, damaged, recoverable } = useClaudeAccounts()
+  const { accounts, current, adding, signInAvailable, duplicate, damaged, recoverable } =
+    useClaudeAccounts()
   const { claudeAccounts } = window.ostia
   const [problem, setProblem] = useState<Problem>(null)
   const [broughtBack, setBroughtBack] = useState(0)
   const [removing, setRemoving] = useState<ClaudeAccountView | null>(null)
+  const [signingIn, setSigningIn] = useState<SigningIn | null>(null)
 
+  const signIn = async (account: ClaudeAccountView | null): Promise<void> => {
+    const outcome = await claudeAccounts.beginSignIn(account?.id ?? null)
+    setProblem(outcome === 'busy' ? 'busy' : null)
+    if (outcome === 'started') setSigningIn({ account })
+  }
   const add = async (): Promise<void> => {
+    if (signInAvailable) return signIn(null)
     const outcome = await claudeAccounts.add(useWorkspacesStore.getState().activeWorkspaceId)
     setProblem(outcome === 'no-workspace' || outcome === 'not-opened' ? outcome : null)
   }
@@ -56,6 +70,7 @@ export function ClaudeAccountsSection(): JSX.Element {
     'no-workspace': d.addNoWorkspace,
     'not-opened': d.addNotOpened,
     running: d.removeRunning,
+    busy: d.signInBusy,
   }
 
   return (
@@ -93,12 +108,16 @@ export function ClaudeAccountsSection(): JSX.Element {
             account={account}
             active={account.id === current}
             onRemove={() => setRemoving(account)}
+            onSignIn={() => void signIn(account)}
           />
         ))}
       </SettingsList>
       <div className="mt-4">
         <SettingsSubgroup title={d.sharedTitle} desc={d.sharedDesc} />
       </div>
+      {signingIn ? (
+        <ClaudeSignInDialog account={signingIn.account} onClose={() => setSigningIn(null)} />
+      ) : null}
       <AlertDialog open={removing !== null} onOpenChange={(open) => !open && setRemoving(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -129,10 +148,12 @@ function AccountRow({
   account,
   active,
   onRemove,
+  onSignIn,
 }: {
   account: ClaudeAccountView
   active: boolean
   onRemove: () => void
+  onSignIn: () => void
 }): JSX.Element {
   const d = useDict().claudeAccounts
   const name = accountName(account, d.defaultAccount)
@@ -162,6 +183,16 @@ function AccountRow({
       lead={<UserCircleIcon aria-hidden className="size-4" />}
       title={name}
       meta={meta.filter(Boolean).join(' · ') || undefined}
+      detail={
+        account.signedOut ? (
+          <>
+            {d.signedOut} ·{' '}
+            <TextLink className="h-auto px-0 text-ui-sm" onClick={onSignIn}>
+              {d.signInAgain}
+            </TextLink>
+          </>
+        ) : undefined
+      }
       actions={actions}
     />
   )
