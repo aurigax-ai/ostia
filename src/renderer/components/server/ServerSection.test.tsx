@@ -191,7 +191,14 @@ describe('leaving the server', () => {
   it('SYA-C127 asks before leaving, from the Sign out button or this computer’s row, and tells whether others stay', async () => {
     const user = userEvent.setup()
     serverReturns({ ...SIGNED_OUT, signedIn: true, provider: 'github', deviceName: 'Desk' })
-    const mine = { id: 'me', name: 'Desk', current: true, lastSeen: 0, createdAt: Date.now() }
+    const mine = {
+      id: 'me',
+      name: 'Desk',
+      current: true,
+      lastSeenAt: 0,
+      removeAt: 0,
+      createdAt: Date.now(),
+    }
     server().devices.mockResolvedValue({
       ok: true,
       devices: [mine, { ...mine, id: 'd2', name: 'Phone', current: false }],
@@ -218,7 +225,16 @@ describe('leaving the server', () => {
     serverReturns({ ...SIGNED_OUT, signedIn: true, provider: 'github', deviceName: 'Desk' })
     server().devices.mockResolvedValue({
       ok: true,
-      devices: [{ id: 'me', name: 'Desk', current: true, lastSeen: 0, createdAt: Date.now() }],
+      devices: [
+        {
+          id: 'me',
+          name: 'Desk',
+          current: true,
+          lastSeenAt: 0,
+          removeAt: 0,
+          createdAt: Date.now(),
+        },
+      ],
     })
     render(<ServerSection />)
     await screen.findByText('Desk')

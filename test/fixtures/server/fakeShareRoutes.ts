@@ -2,8 +2,6 @@ import { randomBytes } from 'node:crypto'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import type { FakeServer, Handler } from './fakeServer'
 
-export const SHARE_DOMAIN = 'shares.test'
-
 const SALT_BYTES = 16
 const DAY_S = 86_400
 const MIN_EXPIRY_S = 60
@@ -28,12 +26,6 @@ export interface FakeShare {
 
 function newId(): string {
   return Array.from(randomBytes(26), (b) => ID_ALPHABET[b % ID_ALPHABET.length]).join('')
-}
-
-function shareIdOf(req: IncomingMessage): string | null {
-  const host = String(req.headers.host ?? '').split(':')[0] ?? ''
-  const suffix = `.${SHARE_DOMAIN}`
-  return host.endsWith(suffix) ? host.slice(0, -suffix.length) : null
 }
 
 export function shareRoutes(server: FakeServer): Array<[string, RegExp, Handler]> {
@@ -101,7 +93,7 @@ export function shareRoutes(server: FakeServer): Array<[string, RegExp, Handler]
     server.shares.set(share.id, share)
     server.reply(res, 201, {
       id: share.id,
-      url: `http://${share.id}.${SHARE_DOMAIN}/`,
+      url: `${server.url}/s/${share.id}`,
       uploadUrl: `${server.url}/v1/shares/${share.id}/blob`,
       deleteToken: share.deleteToken,
       expiresAt: share.expiresAt,
@@ -115,7 +107,7 @@ export function shareRoutes(server: FakeServer): Array<[string, RegExp, Handler]
       .filter((s) => s.accountId === accountId)
       .map((s) => ({
         id: s.id,
-        url: `http://${s.id}.${SHARE_DOMAIN}/`,
+        url: `${server.url}/s/${s.id}`,
         mode: s.mode,
         size: s.size,
         views: s.views,
@@ -165,8 +157,8 @@ export function shareRoutes(server: FakeServer): Array<[string, RegExp, Handler]
     res.writeHead(204).end()
   }
 
-  const hosted = (req: IncomingMessage, res: ServerResponse): FakeShare | null => {
-    const share = server.shares.get(shareIdOf(req) ?? '')
+  const hosted = (res: ServerResponse, id: string | undefined): FakeShare | null => {
+    const share = server.shares.get(id ?? '')
     if (!share?.blob) {
       server.error(res, 404, 'not-found')
       return null
@@ -178,8 +170,8 @@ export function shareRoutes(server: FakeServer): Array<[string, RegExp, Handler]
     return share
   }
 
-  const meta: Handler = (req, res) => {
-    const share = hosted(req, res)
+  const meta: Handler = (_req, res, _body, _raw, [id]) => {
+    const share = hosted(res, id)
     if (!share) return
     server.reply(res, 200, {
       v: 1,
@@ -190,16 +182,16 @@ export function shareRoutes(server: FakeServer): Array<[string, RegExp, Handler]
     })
   }
 
-  const blob: Handler = (req, res) => {
-    const share = hosted(req, res)
+  const blob: Handler = (_req, res, _body, _raw, [id]) => {
+    const share = hosted(res, id)
     if (!share?.blob) return
     share.views += 1
     res.writeHead(200, { 'Content-Type': 'application/octet-stream', 'Cache-Control': 'no-store' })
     res.end(share.blob)
   }
 
-  const page: Handler = (req, res) => {
-    const share = hosted(req, res)
+  const page: Handler = (_req, res, _body, _raw, [id]) => {
+    const share = hosted(res, id)
     if (!share?.blob) return
     if (share.mode === 'public') {
       share.views += 1
@@ -219,8 +211,8 @@ export function shareRoutes(server: FakeServer): Array<[string, RegExp, Handler]
     ['GET', /^\/v1\/shares$/, list],
     ['PUT', /^\/v1\/shares\/([a-z2-7]+)\/blob$/, upload],
     ['DELETE', /^\/v1\/shares\/([a-z2-7]+)$/, remove],
-    ['GET', /^\/meta$/, meta],
-    ['GET', /^\/blob$/, blob],
-    ['GET', /^\/$/, page],
+    ['GET', /^\/s\/([a-z2-7]+)\/meta$/, meta],
+    ['GET', /^\/s\/([a-z2-7]+)\/blob$/, blob],
+    ['GET', /^\/s\/([a-z2-7]+)\/?$/, page],
   ]
 }

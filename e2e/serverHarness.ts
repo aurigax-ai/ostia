@@ -77,7 +77,7 @@ function selfSignedCertificate(dir: string): { certPath: string; keyPath: string
       '-subj',
       `/CN=${API_HOST}`,
       '-addext',
-      `subjectAltName=DNS:${API_HOST},DNS:*.shares.test`,
+      `subjectAltName=DNS:${API_HOST}`,
     ],
     { stdio: 'ignore' },
   )

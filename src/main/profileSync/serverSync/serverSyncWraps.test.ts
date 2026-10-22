@@ -265,7 +265,8 @@ describe('rotation wraps the new key only to the pinned keys', () => {
         signPub: 'a',
         boxPub: 'b',
         createdAt: 1,
-        lastSeen: 0,
+        lastSeenAt: 0,
+        removeAt: 0,
         current: true,
       },
     ]

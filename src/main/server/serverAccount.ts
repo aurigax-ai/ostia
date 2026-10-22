@@ -298,7 +298,8 @@ export class ServerAccount {
           id: d.id,
           name: d.name,
           current: d.current === true,
-          lastSeen: d.lastSeen,
+          lastSeenAt: d.lastSeenAt,
+          removeAt: d.removeAt,
           createdAt: d.createdAt,
         })),
       }

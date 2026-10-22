@@ -20,6 +20,7 @@ export const serverZhHant: typeof serverEn = {
     deviceChanged: '金鑰已變更 · 同步金鑰在 {time} 前忽略',
     deviceChangedBadge: '已變更',
     deviceRemove: '移除',
+    deviceRemoveAt: '除非它回報，否則將於 {time} 移除',
     deviceThis: '這台電腦',
     devicesEmpty: '沒有裝置。',
     devicesLabel: '裝置',

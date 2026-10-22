@@ -9,7 +9,6 @@ import { type ElectronApplication, _electron as electron, expect, type Page, tes
 
 const SERVER_BIN = process.env.OSTIA_SERVER_BIN
 const SLOW = { timeout: 30_000 }
-const SHARE_DOMAIN = 'shares.test'
 const NONCE_BYTES = 12
 const TAG_BYTES = 16
 const ARTIFACT = 'plan.md'
@@ -19,15 +18,16 @@ interface Answer {
   body: Buffer
 }
 
-function fromShareHost(server: RunningServer, id: string, path: string): Promise<Answer> {
+function fromApiHost(server: RunningServer, path: string, method = 'GET'): Promise<Answer> {
   return new Promise((resolve, reject) => {
     const req = request(
       {
         host: '127.0.0.1',
         port: server.port,
         path,
-        servername: `${id}.${SHARE_DOMAIN}`,
-        headers: { Host: `${id}.${SHARE_DOMAIN}` },
+        method,
+        servername: API_HOST,
+        headers: { Host: `${API_HOST}:${server.port}` },
         ca: readFileSync(server.caPath),
       },
       (res) => {
@@ -78,7 +78,7 @@ async function signIn(win: Page, invite: string): Promise<void> {
   await settings.getByRole('button', { name: 'Server', exact: true }).click()
   await settings.getByRole('textbox', { name: 'Invite code' }).fill(invite)
   await settings.getByRole('button', { name: 'Sign in' }).click()
-  await expect(settings.getByText(/^Signed in as .* with an invite code\.$/)).toBeVisible(SLOW)
+  await expect(settings.getByText(/^Signed in as .* with an invite code\./)).toBeVisible(SLOW)
 }
 
 async function openArtifact(win: Page): Promise<void> {
@@ -135,15 +135,18 @@ test.describe('publishing an artifact to the real server', () => {
       const link = new URL(await app.evaluate(({ clipboard }) => clipboard.readText()))
       await dialog.getByRole('button', { name: 'Close' }).click()
 
-      const id = link.hostname.slice(0, -`.${SHARE_DOMAIN}`.length)
+      expect(link.hostname).toBe(API_HOST)
+      const id = /^\/s\/([a-z2-7]+)$/.exec(link.pathname)?.[1] ?? ''
+      expect(id).not.toBe('')
       const key = Buffer.from(link.hash.replace(/^#k=/, ''), 'base64url')
       expect(key.length).toBe(32)
 
-      const meta = await fromShareHost(server, id, '/meta')
+      const meta = await fromApiHost(server, `/s/${id}/meta`)
       expect(meta.status).toBe(200)
       expect(JSON.parse(meta.body.toString())).toMatchObject({ v: 1, mode: 'link' })
-      const blob = await fromShareHost(server, id, '/blob')
+      const blob = await fromApiHost(server, `/s/${id}/blob`)
       expect(blob.status).toBe(200)
+      expect((await fromApiHost(server, `/s/${id}/view`, 'POST')).status).toBe(204)
       const opened = openShare(id, key, blob.body)
       expect(blob.body.toString('utf8')).not.toContain('ship it on friday')
 
@@ -164,9 +167,9 @@ test.describe('publishing an artifact to the real server', () => {
       await expect(settings.getByText(/Nothing published yet/)).toBeVisible(SLOW)
 
       await expect
-        .poll(async () => (await fromShareHost(server, id, '/meta')).status, SLOW)
+        .poll(async () => (await fromApiHost(server, `/s/${id}/meta`)).status, SLOW)
         .toBeGreaterThanOrEqual(404)
-      expect([404, 410]).toContain((await fromShareHost(server, id, '/blob')).status)
+      expect([404, 410]).toContain((await fromApiHost(server, `/s/${id}/blob`)).status)
     } finally {
       await app.close()
       await server.stop()

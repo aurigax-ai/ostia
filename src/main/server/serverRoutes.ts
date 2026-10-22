@@ -7,8 +7,8 @@ export interface ServerInfo {
   auth: { invite: boolean; github: boolean }
   approverMinAgeSeconds?: number
   syncGCBound?: boolean
+  deviceInactiveAfterSeconds?: number
   relayDomain: string
-  shareDomain: string
   limits?: { shareMaxBytes?: number; allowPublic?: boolean; allowNever?: boolean }
 }
 
@@ -69,7 +69,8 @@ export interface DeviceRow {
   signPub: string
   boxPub: string
   createdAt: number
-  lastSeen: number
+  lastSeenAt: number
+  removeAt: number
   current?: boolean
 }
 
@@ -156,6 +157,8 @@ export function serverRoutes(client: ServerClient) {
     endSession: (token: string) => client.request<void>('DELETE', '/v1/auth/session', { token }),
     devices: (token: string) =>
       client.request<{ devices: DeviceRow[] }>('GET', '/v1/devices', { token }),
+    heartbeat: (token: string) =>
+      client.request<void>('POST', '/v1/devices/heartbeat', { token, retryRateLimited: false }),
     createInvite: (token: string, headers: Record<string, string>) =>
       client.request<{ code: string; expiresAt: number }>('POST', '/v1/devices/invite', {
         token,

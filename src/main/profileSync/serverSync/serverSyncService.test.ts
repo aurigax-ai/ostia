@@ -449,7 +449,8 @@ describe('removing a device and rotating the key', () => {
       signPub: Buffer.alloc(32, 1).toString('base64url'),
       boxPub: Buffer.alloc(32, 9).toString('base64url'),
       createdAt: 1,
-      lastSeen: 0,
+      lastSeenAt: 0,
+      removeAt: 0,
     }
     server.rewriteDevices = (_viewer, rows) => [...rows, ghost]
     await elevate(first, second)

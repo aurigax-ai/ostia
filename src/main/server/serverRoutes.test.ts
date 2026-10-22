@@ -31,4 +31,14 @@ describe('routes that must not be retried on a rate limit', () => {
       }),
     )
   })
+
+  it('SYA-C152 checks in once without retrying a rate limit', async () => {
+    const { request, routes: r } = routes()
+    await r.heartbeat('token')
+    expect(request).toHaveBeenCalledWith(
+      'POST',
+      '/v1/devices/heartbeat',
+      expect.objectContaining({ retryRateLimited: false }),
+    )
+  })
 })

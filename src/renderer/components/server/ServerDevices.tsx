@@ -18,6 +18,11 @@ import { useElevated } from './useElevated'
 import type { ServerDevicesState } from './useServerDevices'
 import { useSyncServerStatus } from './useSyncServerStatus'
 
+const REMOVAL_NOTICE_MS = 14 * 24 * 60 * 60 * 1000
+
+const removalSoon = (device: ServerDevice): boolean =>
+  !device.current && device.removeAt > 0 && device.removeAt - Date.now() <= REMOVAL_NOTICE_MS
+
 type AskItem = Extract<SyncAttention, { kind: 'approval' }>
 type ChangedItem = Extract<SyncAttention, { kind: 'changed' }>
 
@@ -117,7 +122,11 @@ export function ServerDevices({
               ? fmt(d.server.deviceChanged, {
                   time: formatDate(changed.until, locale, SHORT_DATE_TIME),
                 })
-              : fmt(d.server.deviceAdded, { age: ageText(locale, device.createdAt) })
+              : removalSoon(device)
+                ? fmt(d.server.deviceRemoveAt, {
+                    time: formatDate(device.removeAt, locale, SHORT_DATE_TIME),
+                  })
+                : fmt(d.server.deviceAdded, { age: ageText(locale, device.createdAt) })
           return (
             <SettingsListRow
               key={device.id}

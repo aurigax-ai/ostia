@@ -42,7 +42,8 @@ export interface ServerDevice {
   id: string
   name: string
   current: boolean
-  lastSeen: number
+  lastSeenAt: number
+  removeAt: number
   createdAt: number
 }
 

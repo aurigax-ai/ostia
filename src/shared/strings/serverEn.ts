@@ -19,6 +19,7 @@ export const serverEn = {
     deviceChanged: 'Keys changed · sync key ignored until {time}',
     deviceChangedBadge: 'Changed',
     deviceRemove: 'Remove',
+    deviceRemoveAt: 'Removed {time} unless it checks in',
     deviceThis: 'This computer',
     devicesEmpty: 'No devices.',
     devicesLabel: 'Devices',

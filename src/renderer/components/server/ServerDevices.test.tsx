@@ -27,7 +27,8 @@ const device = (over: Partial<ServerDevice>): ServerDevice => ({
   id: 'd1',
   name: 'Desk',
   current: true,
-  lastSeen: 0,
+  lastSeenAt: 0,
+  removeAt: 0,
   createdAt: Date.now() - 3_600_000,
   ...over,
 })
@@ -115,6 +116,28 @@ describe('shared device list', () => {
     expect(screen.getByText('Asks to confirm a change')).toBeInTheDocument()
     expect(screen.getByText('Approve only if you made this change.')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Approve' })).toBeInTheDocument()
+  })
+
+  it('SYA-C127 says when a silent device is removed once that is within 14 days, and never for this computer', async () => {
+    const day = 86_400_000
+    const removeAt = Date.now() + 5 * day
+    server().devices.mockResolvedValue({
+      ok: true,
+      devices: [
+        device({ removeAt }),
+        device({ id: 'd2', name: 'Laptop', current: false, removeAt }),
+        device({ id: 'd3', name: 'Tablet', current: false, removeAt: Date.now() + 60 * day }),
+      ],
+    })
+    render(<Devices onLeave={() => {}} />)
+    const when = new Intl.DateTimeFormat('en', {
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    }).format(removeAt)
+    expect(await screen.findByText(`Removed ${when} unless it checks in`)).toBeInTheDocument()
+    expect(screen.getAllByText(/unless it checks in/)).toHaveLength(1)
   })
 
   it('SYA-C122 gives the device asking for a confirmation Approve and Deny in place of Remove', async () => {

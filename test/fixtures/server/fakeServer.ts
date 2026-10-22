@@ -22,6 +22,7 @@ export interface FakeDevice {
   createdAt: number
   order: number
   lastStamp: number
+  lastSeenAt: number
 }
 
 export interface FakeSession {
@@ -51,6 +52,7 @@ export interface FakeServerOptions {
   unconfirmedMs?: number
   relayPort?: number
   approverMinAgeMs?: number
+  deviceInactiveAfterMs?: number
   elevationTtlMs?: number
   quotaBytes?: number
   maxBlobBytes?: number
@@ -70,6 +72,7 @@ function b64(buffer: Buffer): string {
 }
 
 const SIGNATURE_SKEW_MS = 120_000
+const TOUCH_MS = 3_600_000
 const DAY_MS = 86_400_000
 
 async function readRaw(req: IncomingMessage): Promise<Buffer> {
@@ -115,6 +118,8 @@ export class FakeServer {
     | ((viewerId: string, rows: Array<Record<string, unknown>>) => Array<Record<string, unknown>>)
     | null = null
   readonly approverMinAgeMs: number
+  readonly deviceInactiveAfterMs: number
+  heartbeats = 0
   readonly elevationTtlMs: number
   private readonly extraHandlers: Array<[string, RegExp, Handler]> = []
   private readonly nonces = new Map<string, string>()
@@ -127,6 +132,7 @@ export class FakeServer {
   constructor(readonly options: FakeServerOptions = {}) {
     this.sessionTtlMs = options.sessionTtlMs ?? 3_600_000
     this.approverMinAgeMs = options.approverMinAgeMs ?? DAY_MS
+    this.deviceInactiveAfterMs = options.deviceInactiveAfterMs ?? 90 * DAY_MS
     this.elevationTtlMs = options.elevationTtlMs ?? 300_000
     this.extraHandlers.push(...accountRoutes(this), ...syncRoutes(this))
     if (options.publish !== false) this.extraHandlers.push(...shareRoutes(this))
@@ -204,6 +210,7 @@ export class FakeServer {
       this.error(res, 401, 'unauthorized')
       return null
     }
+    if (this.now() - device.lastSeenAt >= TOUCH_MS) device.lastSeenAt = this.now()
     return { ...auth, device }
   }
 
@@ -337,6 +344,7 @@ export class FakeServer {
       createdAt: this.now(),
       order,
       lastStamp: 0,
+      lastSeenAt: this.now(),
     }
     this.devices.set(id, device)
     if (existing.length > 0) {
@@ -358,9 +366,9 @@ export class FakeServer {
           },
           auth: { invite: true, github: this.options.github === true },
           approverMinAgeSeconds: Math.floor(this.approverMinAgeMs / 1000),
+          deviceInactiveAfterSeconds: Math.floor(this.deviceInactiveAfterMs / 1000),
           ...(this.options.syncGCBound ? { syncGCBound: true } : {}),
           relayDomain: RELAY_DOMAIN,
-          shareDomain: 'shares.test',
           limits: {
             shareMaxBytes: this.options.shareMaxBytes ?? 16 * 1024 * 1024,
             allowPublic: this.options.allowPublic === true,
@@ -441,12 +449,20 @@ export class FakeServer {
           signPub: d.signPub,
           boxPub: d.boxPub,
           createdAt: d.createdAt,
-          lastSeen: 0,
+          lastSeenAt: d.lastSeenAt,
+          removeAt: d.lastSeenAt + this.deviceInactiveAfterMs,
           ...(d.id === mine?.id ? { current: true } : {}),
         }))
         this.reply(res, 200, {
           devices: this.rewriteDevices?.(auth.session.deviceId, devices) ?? devices,
         })
+      },
+      'POST /v1/devices/heartbeat': (req, res) => {
+        const auth = this.authed(req, res)
+        if (!auth) return
+        auth.device.lastSeenAt = this.now()
+        this.heartbeats += 1
+        res.writeHead(204).end()
       },
       'POST /v1/relay/label': (req, res) => {
         const auth = this.sessionOf(req)
