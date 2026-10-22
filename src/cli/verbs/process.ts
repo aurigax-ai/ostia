@@ -22,12 +22,17 @@ interface ProcInfo {
   cwd?: string
   status: 'starting' | 'running' | 'exited' | 'closed'
   exitCode?: number
+  hint?: string
   paneId: string
   startedAt: string
 }
 
 function processStatus(p: ProcInfo): string {
   return p.status === 'exited' && p.exitCode !== undefined ? `exited(${p.exitCode})` : p.status
+}
+
+export function processHintLine(p: Pick<ProcInfo, 'name' | 'hint'>): string | null {
+  return p.hint ? `${p.name}: ${p.hint}` : null
 }
 
 function numberFlag(raw: string | undefined, name: string): number | undefined {
@@ -148,6 +153,8 @@ export async function runProcessVerb(conn: MessageConnection): Promise<void> {
     }
     for (const p of list) {
       console.log(tsvLine([p.id, p.name, processStatus(p), p.paneId, p.cmd]))
+      const hint = processHintLine(p)
+      if (hint) console.error(hint)
     }
   } else if (sub === 'logs') {
     const { values, positional } = parseArgs(rawArgs, { values: { since: '--since' } })
