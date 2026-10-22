@@ -1,8 +1,9 @@
 import { hash } from 'node:crypto'
 import { chmodSync, lstatSync, mkdirSync } from 'node:fs'
-import { tmpdir } from 'node:os'
+import { homedir, tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { PRODUCT_NAME } from '@aurigax-ai/ostia-extension-sdk/contract/product'
+import { appDataDir, type EnvSource } from './userDirs'
 
 export function socketPathLimit(platform: NodeJS.Platform): number {
   return platform === 'darwin' ? 103 : 107
@@ -28,6 +29,22 @@ export function privateTmpDir(name: string): string {
   }
   const uid = process.getuid?.() ?? 0
   return ownedPrivateDir(join(tmpdir(), `${name}-${uid}`), uid)
+}
+
+export function privateRunDir(
+  name: string,
+  platform: NodeJS.Platform = process.platform,
+  env: EnvSource = process.env,
+  home: string = homedir(),
+): string {
+  if (platform === 'darwin') {
+    try {
+      return ownedPrivateDir(join(appDataDir(env, home), 'run', name), process.getuid?.() ?? 0)
+    } catch (err) {
+      console.error(`[platform] ${name} stays in the temp folder:`, err)
+    }
+  }
+  return privateTmpDir(`${PRODUCT_NAME}-${name}`)
 }
 
 export function socketPath(

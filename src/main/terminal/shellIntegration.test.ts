@@ -11,12 +11,13 @@ import {
   writeFileSync,
 } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { dirname, join } from 'node:path'
 import {
   type AgentPluginContent,
   NO_AGENT_PLUGINS,
 } from '@aurigax-ai/ostia-extension-sdk/manifest/agentSkills'
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
+import { insideRealHome } from '../../../test/realHome'
 import { CORE_SKILL_FILES } from '../agents/bundledSkills'
 import { busHookCommand, extensionHookCommand, permissionHookCommand } from './agentHookCommands'
 import { agentPluginFiles, writeAgentPlugin } from './agentPlugin'
@@ -60,9 +61,11 @@ const CLAUDE_PLUGIN = join(AGENT_DIR, 'claude-plugin')
 const CLAUDE_FOLD = join(AGENT_DIR, 'claude-fold')
 
 describe('test isolation', () => {
-  it("writes the integration files under this run's private temp folder", () => {
+  it("writes the integration files under this run's private folder, never the real home", () => {
     expect(process.env.TMPDIR).toMatch(process.platform === 'darwin' ? /\/pv-/ : /ostia-vitest-/)
-    expect(INTEGRATION_DIR.startsWith(`${process.env.TMPDIR}/`)).toBe(true)
+    const runRoot = process.platform === 'darwin' ? process.env.XDG_DATA_HOME : process.env.TMPDIR
+    expect(INTEGRATION_DIR.startsWith(`${runRoot}/`)).toBe(true)
+    expect(insideRealHome(INTEGRATION_DIR)).toBe(false)
   })
 })
 
@@ -103,6 +106,57 @@ describe('writeShellIntegration', () => {
     expect(readFileSync(join(dir, '.zshrc'), 'utf8')).toBe(shellIntegrationFiles(dir)['.zshrc'])
     expect(existsSync(join(dir, 'init.zsh'))).toBe(true)
   })
+
+  it('keeps the files a shell wrote into the folder when it rewrites the missing ones', () => {
+    const dir = writeShellIntegration(root)
+    writeFileSync(join(dir, '.zsh_history'), ': 1:0;make build\n')
+    writeFileSync(join(dir, '.zcompdump'), '#files: 1\n')
+    rmSync(join(dir, '.zshrc'))
+    expect(writeShellIntegration(root)).toBe(dir)
+    expect(readFileSync(join(dir, '.zsh_history'), 'utf8')).toBe(': 1:0;make build\n')
+    expect(readFileSync(join(dir, '.zcompdump'), 'utf8')).toBe('#files: 1\n')
+    expect(existsSync(join(dir, '.zshrc'))).toBe(true)
+    expect(readdirSync(root).filter((name) => name.startsWith('.staging-'))).toEqual([])
+  })
+})
+
+describe('writeAgentPlugin rewriting a cleaned folder', () => {
+  it('rewrites the missing files and keeps the files Ostia did not write', () => {
+    const root = mkdtempSync(join(tmpdir(), 'ostia-agents-'))
+    try {
+      const dir = writeAgentPlugin(root, NO_AGENT_PLUGINS)
+      writeFileSync(join(dir, 'codex', 'notes.md'), 'mine')
+      rmSync(join(dir, 'codex', 'session-context.md'))
+      expect(writeAgentPlugin(root, NO_AGENT_PLUGINS)).toBe(dir)
+      expect(readFileSync(join(dir, 'codex', 'notes.md'), 'utf8')).toBe('mine')
+      expect(existsSync(join(dir, 'codex', 'session-context.md'))).toBe(true)
+    } finally {
+      rmSync(root, { recursive: true, force: true })
+    }
+  })
+})
+
+describe('a shell whose integration files cannot be written', () => {
+  it.skipIf(process.getuid?.() === 0)(
+    'still starts, as a plain shell that says the integration is not loaded',
+    () => {
+      const shells = dirname(INTEGRATION_DIR)
+      rmSync(ZSH_RC)
+      chmodSync(shells, 0o500)
+      try {
+        for (const shell of ['/bin/zsh', '/bin/bash']) {
+          const result = shellIntegrationSpawnOptions(shell, { HOME: '/home/u' })
+          expect(result).toEqual({ args: [], env: {}, agentDir: null, notLoaded: 'EACCES' })
+        }
+      } finally {
+        chmodSync(shells, 0o700)
+      }
+      expect(shellIntegrationSpawnOptions('/bin/zsh', { HOME: '/home/u' }).env.ZDOTDIR).toBe(
+        INTEGRATION_DIR,
+      )
+      expect(existsSync(ZSH_RC)).toBe(true)
+    },
+  )
 })
 
 describe('shellIntegrationSpawnOptions', () => {
@@ -914,8 +968,13 @@ describe('shellIntegrationSpawnOptions', () => {
     })
 
     it('lists every file the shell integration writes', () => {
-      const dir = shellIntegrationDir()
-      expect(listFiles(dir).sort()).toEqual(Object.keys(shellIntegrationFiles(dir)).sort())
+      const root = mkdtempSync(join(tmpdir(), 'ostia-shells-list-'))
+      try {
+        const dir = writeShellIntegration(root)
+        expect(listFiles(dir).sort()).toEqual(Object.keys(shellIntegrationFiles(dir)).sort())
+      } finally {
+        rmSync(root, { recursive: true, force: true })
+      }
     })
 
     it('rewrites the plugin module and the codex hook args when only those are gone', () => {

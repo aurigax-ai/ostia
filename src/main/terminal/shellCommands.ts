@@ -32,7 +32,8 @@ export function parseShellState(text: string): ShellState | null {
   }
 }
 
-export async function readShellState(file: string): Promise<ShellState | null> {
+export async function readShellState(file: string | null): Promise<ShellState | null> {
+  if (!file) return null
   try {
     const info = await lstat(file)
     if (!info.isFile() || info.size > SHELL_STATE_CAP_BYTES) return null
@@ -124,7 +125,7 @@ export async function commandNames(
 export interface CommandsPane {
   owners: { has: (senderId: string) => boolean }
   localPrompt: boolean
-  stateFile: string
+  stateFile: string | null
   spawnPath: string
   rules: SandboxReadRules | null
 }

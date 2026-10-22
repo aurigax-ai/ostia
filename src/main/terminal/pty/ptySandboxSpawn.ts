@@ -40,9 +40,10 @@ export function createSandboxSpawn({
   ): Promise<SpawnPlan | PtyAttachResult> {
     const { identity, workspaceId, shell, stateFile, markNonceFile, wantsKeep } = plan
     const markFiles = markNonceFile ? [markNonceFile] : []
+    const stateFiles = stateFile ? [stateFile] : []
     let { portBridge, tokenFile, notKept } = plan
     try {
-      writeFileSync(stateFile, '', { mode: 0o600 })
+      if (stateFile) writeFileSync(stateFile, '', { mode: 0o600 })
       const secrets = await injectSecrets(workspaceId)
       const resizePipe = needsPtyRelay(relayForced(app.isPackaged, process.env))
         ? join(workspaceSandboxes.tmp.tmpDir(workspaceId), `resize-${randomUUID()}`)
@@ -68,8 +69,8 @@ export function createSandboxSpawn({
         ),
         'bash',
         tokenFile
-          ? [stateFile, keptShells.attentionFile(paneId), ...markFiles]
-          : [stateFile, ...markFiles],
+          ? [...stateFiles, keptShells.attentionFile(paneId), ...markFiles]
+          : [...stateFiles, ...markFiles],
         tokenFile ? [tokenFile, keptShells.attentionFile(paneId), ...markFiles] : markFiles,
       )
       const env = {

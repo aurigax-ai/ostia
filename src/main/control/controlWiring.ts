@@ -18,7 +18,7 @@ import type { WindowSend } from '../windows/windowSend'
 import type { CommandBridge } from './commandBridge'
 import { setScriptTokenCheck } from './controlAuth'
 import { controlInfoPath, writeControlInfo } from './controlDiscovery'
-import { controlSocketPath, registerControlServer } from './controlServer'
+import { controlSocketPath, registerControlServer, sweepStaleControlSockets } from './controlServer'
 
 interface ControlStartDeps {
   mainStrings: () => Dict
@@ -99,6 +99,7 @@ export function startControlServer({
     journal: services.agentJournal ?? undefined,
     version: () => runningBuild()?.version ?? null,
   })
+  sweepStaleControlSockets()
   writeControlInfo(controlInfoPath(), controlSocketPath(), process.pid)
   keptPlumbing.start(keepShellsOn())
 }

@@ -31,3 +31,12 @@ export function readControlSocket(path: string): string | undefined {
   const socket = loadJson<ControlInfo>(path, {}).socket
   return typeof socket === 'string' && socket && existsSync(socket) ? socket : undefined
 }
+
+export function paneControlSocket(
+  envSocket: string | undefined,
+  scriptToken: boolean,
+  infoPath: string,
+): string | undefined {
+  if (envSocket) return envSocket
+  return scriptToken ? readControlSocket(infoPath) : undefined
+}

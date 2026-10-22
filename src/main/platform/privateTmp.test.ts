@@ -1,7 +1,9 @@
-import { statSync } from 'node:fs'
-import { dirname } from 'node:path'
-import { describe, expect, it } from 'vitest'
-import { privateTmpDir, socketPath } from './privateTmp'
+import { mkdirSync, mkdtempSync, rmSync, statSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { dirname, join } from 'node:path'
+import { describe, expect, it, vi } from 'vitest'
+import { insideRealHome } from '../../../test/realHome'
+import { privateRunDir, privateTmpDir, socketPath } from './privateTmp'
 
 describe('privateTmpDir', () => {
   it('creates a per-user directory only the owner can access', () => {
@@ -17,6 +19,48 @@ describe('privateTmpDir', () => {
   it('is idempotent', () => {
     const name = `ostia-test-idem-${process.pid}`
     expect(privateTmpDir(name)).toBe(privateTmpDir(name))
+  })
+})
+
+describe('privateRunDir', () => {
+  it('resolves outside the real home folder while tests run', () => {
+    expect(insideRealHome(privateRunDir('isolation-check'))).toBe(false)
+  })
+
+  it('is a private folder in the app data folder on macOS, which dirhelper does not clean', () => {
+    const home = mkdtempSync(join(tmpdir(), 'run-home-'))
+    try {
+      const dir = privateRunDir('shell-integration', 'darwin', {}, home)
+      expect(dir).toBe(join(home, '.local', 'share', 'ostia', 'run', 'shell-integration'))
+      expect(statSync(dir).mode & 0o777).toBe(0o700)
+      expect(privateRunDir('kept', 'darwin', { XDG_DATA_HOME: join(home, 'd') }, home)).toBe(
+        join(home, 'd', 'ostia', 'run', 'kept'),
+      )
+    } finally {
+      rmSync(home, { recursive: true, force: true })
+    }
+  })
+
+  it('falls back to the private temp folder when the app data folder cannot hold it', () => {
+    const home = mkdtempSync(join(tmpdir(), 'run-home-'))
+    const error = vi.spyOn(console, 'error').mockImplementation(() => {})
+    try {
+      mkdirSync(join(home, 'd', 'ostia'), { recursive: true })
+      writeFileSync(join(home, 'd', 'ostia', 'run'), '')
+      expect(privateRunDir('kept', 'darwin', { XDG_DATA_HOME: join(home, 'd') }, home)).toBe(
+        privateTmpDir('ostia-kept'),
+      )
+      expect(error).toHaveBeenCalledTimes(1)
+    } finally {
+      error.mockRestore()
+      rmSync(home, { recursive: true, force: true })
+    }
+  })
+
+  it('stays in the private temp folder on Linux', () => {
+    expect(privateRunDir('shell-integration', 'linux')).toBe(
+      privateTmpDir('ostia-shell-integration'),
+    )
   })
 })
 

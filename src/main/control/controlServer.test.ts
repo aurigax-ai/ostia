@@ -1,4 +1,12 @@
-import { existsSync, lstatSync, readdirSync, readFileSync } from 'node:fs'
+import {
+  existsSync,
+  lstatSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs'
 import { createConnection } from 'node:net'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
@@ -15,9 +23,12 @@ import type { TerminalStateSnapshot } from '../../shared/terminal/ptyApi'
 import { grant } from '../approvals/capabilityStore'
 import {
   type ControlServerDeps,
+  controlSocketPathFor,
   keptControlSocketPath,
+  listenKeptControlSocket,
   registerControlServer,
   stopControlServer,
+  sweepStaleControlSockets,
 } from './controlServer'
 import { registerPane } from './idRegistry'
 
@@ -335,6 +346,22 @@ describe('controlServer (socket auth, end-to-end)', () => {
     await expect(client.conn.sendRequest('whoami')).rejects.toThrow()
   })
 
+  it('serves kept shells on the kept path', async () => {
+    socketPath = nextSocketPath()
+    const id = registerPane({ windowId: 'w1', workspaceId: 's1', paneId: 'pTest1' })
+    registerControlServer(fakeDeps, socketPath)
+    const moved = nextSocketPath()
+    listenKeptControlSocket(moved)
+    await expect.poll(() => existsSync(moved)).toBe(true)
+    const kept = connectClient(moved)
+    await expect(kept.conn.sendRequest('hello', { token: id.token })).resolves.toEqual({
+      externalId: id.externalId,
+    })
+    kept.destroy()
+    stopControlServer()
+    expect(existsSync(moved)).toBe(false)
+  })
+
   it('removes the socket file after stopControlServer', async () => {
     socketPath = nextSocketPath()
     const id = registerPane({ windowId: 'w1', workspaceId: 's1', paneId: 'pTest1' })
@@ -347,6 +374,51 @@ describe('controlServer (socket auth, end-to-end)', () => {
     client = null
     stopControlServer()
     expect(existsSync(socketPath)).toBe(false)
+  })
+})
+
+const runDirs: string[] = []
+afterEach(() => {
+  for (const dir of runDirs.splice(0)) rmSync(dir, { recursive: true, force: true })
+})
+
+function dataHome(): string {
+  const dir = mkdtempSync(join(tmpdir(), 'run-'))
+  runDirs.push(dir)
+  return dir
+}
+
+describe('the control socket on macOS', () => {
+  it('lives in the app data folder, outside TMPDIR, under the sun_path limit', () => {
+    const data = dataHome()
+    const path = controlSocketPathFor(99999, 'darwin', { XDG_DATA_HOME: data })
+    expect(path).toBe(join(data, 'ostia', 'run', 'control', 'ostia-99999.sock'))
+    expect(Buffer.byteLength(path)).toBeLessThanOrEqual(103)
+    const folder = lstatSync(dirname(path))
+    expect(folder.mode & 0o777).toBe(0o700)
+    expect(folder.uid).toBe(process.getuid?.())
+  })
+
+  it('stays in XDG_RUNTIME_DIR on Linux', () => {
+    expect(controlSocketPathFor(42, 'linux', { XDG_RUNTIME_DIR: '/run/user/1000' })).toBe(
+      '/run/user/1000/ostia-42.sock',
+    )
+  })
+
+  it('puts the kept socket next to it', () => {
+    const data = dataHome()
+    const kept = keptControlSocketPath('/data/ostia-a', 'darwin', { XDG_DATA_HOME: data })
+    expect(dirname(kept)).toBe(join(data, 'ostia', 'run', 'kept'))
+  })
+
+  it('removes the sockets of Ostia processes that are gone, and nothing else', () => {
+    const data = dataHome()
+    const dir = dirname(controlSocketPathFor(1, 'darwin', { XDG_DATA_HOME: data }))
+    for (const name of ['ostia-111.sock', 'ostia-222.sock', 'notes.txt', 'ostia-x.sock']) {
+      writeFileSync(join(dir, name), '')
+    }
+    sweepStaleControlSockets('darwin', { XDG_DATA_HOME: data }, (pid) => pid === 222)
+    expect(readdirSync(dir).sort()).toEqual(['notes.txt', 'ostia-222.sock', 'ostia-x.sock'])
   })
 })
 

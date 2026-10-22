@@ -1,5 +1,4 @@
 import { createHash } from 'node:crypto'
-import { existsSync, mkdirSync, mkdtempSync, renameSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
 import { AGENT_SKILL_ENTRY } from '@aurigax-ai/ostia-extension-sdk/contract/agentPlugins'
 import type { AgentPluginContent } from '@aurigax-ai/ostia-extension-sdk/manifest/agentSkills'
@@ -23,6 +22,7 @@ import {
   PLAYBOOKS_DIR,
   writeCodexIntegration,
 } from './codexIntegration'
+import { installGenerated } from './generatedFolder'
 
 export function agentPluginDigest(
   content: AgentPluginContent,
@@ -87,29 +87,15 @@ export function agentPluginFiles(
   ]
 }
 
-export function hasFiles(dir: string, names: string[]): boolean {
-  return names.every((name) => existsSync(join(dir, name)))
-}
-
 export function writeAgentPlugin(
   root: string,
   content: AgentPluginContent,
   playbooks: readonly PlaybookFile[] = [],
 ): string {
-  mkdirSync(root, { recursive: true, mode: 0o700 })
   const dir = join(root, agentPluginDigest(content, playbooks))
-  const names = agentPluginFiles(content, playbooks)
-  if (hasFiles(dir, names)) return dir
-  const staging = mkdtempSync(join(root, '.staging-'))
-  try {
+  return installGenerated(root, dir, agentPluginFiles(content, playbooks), (staging) => {
     writeClaudePlugin(join(staging, 'claude-plugin'), content, playbooks)
     writeClaudeFoldPlugin(join(staging, CLAUDE_FOLD_DIR))
     writeCodexIntegration(join(staging, 'codex'), content, join(dir, 'codex'), playbooks)
-    rmSync(dir, { recursive: true, force: true })
-    renameSync(staging, dir)
-  } catch (err) {
-    rmSync(staging, { recursive: true, force: true })
-    if (!hasFiles(dir, names)) throw err
-  }
-  return dir
+  })
 }

@@ -44,6 +44,7 @@ export default defineConfig({
           setupFiles: [
             './test/hostEnv.ts',
             './test/privateTmp.ts',
+            './test/runDir.ts',
             './test/appEnv.ts',
             './test/quarantineSetup.ts',
           ],
@@ -66,6 +67,7 @@ export default defineConfig({
           globals: true,
           setupFiles: [
             './test/hostEnv.ts',
+            './test/runDir.ts',
             './test/domEvents.ts',
             './test/setup.ts',
             './test/quarantineSetup.ts',
@@ -89,7 +91,12 @@ export default defineConfig({
               test: {
                 name: 'agent-tokens',
                 environment: 'node',
-                setupFiles: ['./test/hostEnv.ts', './test/privateTmp.ts', './test/appEnv.ts'],
+                setupFiles: [
+                  './test/hostEnv.ts',
+                  './test/privateTmp.ts',
+                  './test/runDir.ts',
+                  './test/appEnv.ts',
+                ],
                 include: ['test/agentTokens.bench.ts'],
               },
             },

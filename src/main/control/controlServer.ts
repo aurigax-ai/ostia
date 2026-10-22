@@ -1,7 +1,8 @@
 import { hash } from 'node:crypto'
-import { chmodSync, rmSync } from 'node:fs'
+import { chmodSync, readdirSync, rmSync } from 'node:fs'
 import { createServer, type Server, type Socket } from 'node:net'
 import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import {
   type Capability,
   DEFAULT_CAPABILITIES,
@@ -29,7 +30,7 @@ import { ensureCaps, needsElevation } from '../approvals/controlElevation'
 import type { Reach, ScriptReach } from '../approvals/reach'
 import type { ScriptTokenUsageLog } from '../approvals/scriptTokenUsage'
 import type { AgentJournal } from '../diagnostics/agentJournal'
-import { privateTmpDir, socketPath } from '../platform/privateTmp'
+import { privateRunDir, socketPath } from '../platform/privateTmp'
 import { SANDBOXED_REFUSAL } from '../sandbox/sandboxedCaller'
 import { externalPaneMessage, internalPaneArgs, SCRIPT_COMMANDS } from './commandArgs'
 import { type AuthedConn, authenticate, connHasCap, scriptExpired } from './controlAuth'
@@ -37,13 +38,66 @@ import { type PaneIdentity, resolveExternal } from './idRegistry'
 import { capIncomingMessages } from './messageCap'
 import { calledMethod, calledTarget, errorOutcome, resultOutcome } from './scriptCallUsage'
 
-export function controlSocketPath(): string {
-  return socketPath(process.env.XDG_RUNTIME_DIR || tmpdir(), `${PRODUCT_NAME}-${process.pid}.sock`)
+const CONTROL_SOCKET = new RegExp(`^${PRODUCT_NAME}-(\\d+)\\.sock$`)
+
+function controlSocketDir(platform: NodeJS.Platform, env: NodeJS.ProcessEnv): string {
+  if (platform === 'darwin') return privateRunDir('control', platform, env)
+  return env.XDG_RUNTIME_DIR || tmpdir()
 }
 
-export function keptControlSocketPath(userData: string): string {
-  const digest = hash('sha256', userData).slice(0, 16)
-  return socketPath(privateTmpDir(`${PRODUCT_NAME}-kept`), `${digest}.sock`)
+export function controlSocketPathFor(
+  pid: number,
+  platform: NodeJS.Platform = process.platform,
+  env: NodeJS.ProcessEnv = process.env,
+): string {
+  return socketPath(controlSocketDir(platform, env), `${PRODUCT_NAME}-${pid}.sock`, platform)
+}
+
+export function controlSocketPath(): string {
+  return controlSocketPathFor(process.pid)
+}
+
+function isRunning(pid: number): boolean {
+  try {
+    process.kill(pid, 0)
+    return true
+  } catch (err) {
+    return (err as NodeJS.ErrnoException).code === 'EPERM'
+  }
+}
+
+export function sweepStaleControlSockets(
+  platform: NodeJS.Platform = process.platform,
+  env: NodeJS.ProcessEnv = process.env,
+  running: (pid: number) => boolean = isRunning,
+): void {
+  if (platform !== 'darwin') return
+  const dir = controlSocketDir(platform, env)
+  let names: string[]
+  try {
+    names = readdirSync(dir)
+  } catch {
+    return
+  }
+  for (const name of names) {
+    const pid = Number(CONTROL_SOCKET.exec(name)?.[1])
+    if (!pid || pid === process.pid || running(pid)) continue
+    try {
+      rmSync(join(dir, name), { force: true })
+    } catch {}
+  }
+}
+
+function keptSocketName(userData: string): string {
+  return `${hash('sha256', userData).slice(0, 16)}.sock`
+}
+
+export function keptControlSocketPath(
+  userData: string,
+  platform: NodeJS.Platform = process.platform,
+  env: NodeJS.ProcessEnv = process.env,
+): string {
+  return socketPath(privateRunDir('kept', platform, env), keptSocketName(userData), platform)
 }
 
 function unauthenticatedError(message: string): ResponseError<void> {
@@ -178,8 +232,8 @@ export interface ControlServerDeps {
 }
 
 let server: Server | null = null
-let keptServer: Server | null = null
-let keptPath: string | null = null
+let keptServers: Server[] = []
+let keptPaths: string[] = []
 let handleConnection: ((socket: Socket) => void) | null = null
 
 interface ConnectionSession {
@@ -503,27 +557,30 @@ export function registerControlServer(deps: ControlServerDeps, socketPathOverrid
 }
 
 export function listenKeptControlSocket(path: string): void {
-  if (!handleConnection || keptServer) return
+  const handle = handleConnection
+  if (!handle || keptServers.length > 0) return
   try {
     rmSync(path, { force: true })
   } catch {}
-  keptPath = path
-  keptServer = createServer(handleConnection)
-  keptServer.on('error', (err) => console.error('[control] kept socket error:', err))
-  keptServer.listen(path, () => {
+  keptPaths.push(path)
+  const kept = createServer(handle)
+  kept.on('error', (err) => console.error('[control] kept socket error:', err))
+  kept.listen(path, () => {
     try {
       chmodSync(path, 0o600)
     } catch {}
   })
+  keptServers.push(kept)
 }
 
 export function stopControlServer(): void {
   server?.close()
   server = null
-  keptServer?.close()
-  keptServer = null
+  for (const kept of keptServers) kept.close()
+  keptServers = []
   try {
     rmSync(controlSocketPath(), { force: true })
-    if (keptPath) rmSync(keptPath, { force: true })
+    for (const path of keptPaths) rmSync(path, { force: true })
   } catch {}
+  keptPaths = []
 }
