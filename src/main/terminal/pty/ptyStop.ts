@@ -8,6 +8,7 @@ import type { PaneWaking } from '../../panes/paneWaking'
 import type { KeptShells } from '../../tmux/keptShells'
 import { stashScrollback } from '../../workspaces/savedScrollback'
 import type { ReapReason } from '../ptyReaper'
+import { releaseAgentDir } from '../shellIntegration'
 import { type PtyEntry, removeStateFile } from './ptyRegistry'
 
 interface PtyStopDeps {
@@ -57,6 +58,7 @@ export function createPtyStop({
     removeStateFile(entry)
     keptShells.removeToken(paneId)
     ptys.delete(paneId)
+    releaseAgentDir(paneId)
     agentWork.clear(paneId)
     if (reason !== 'hibernated') dropName(paneId)
   }

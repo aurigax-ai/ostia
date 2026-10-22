@@ -76,7 +76,7 @@ describe('the agent plugin generation', () => {
   })
 })
 
-describe('sweeping old generations', () => {
+describe.skipIf(process.platform === 'darwin')('sweeping old generations', () => {
   it('removes a generation nothing runs in and never rewrites one that is in use', () => {
     const first = spawnDir()
     retainAgentDir('pane-1', first)
@@ -227,5 +227,29 @@ describe('cleaning generations of earlier builds', () => {
     spawnDir()
     expect(statSync(agents).mtimeMs).toBeGreaterThan(before)
     expect(statSync(shells).mtimeMs).toBeGreaterThan(before)
+  })
+})
+
+describe.runIf(process.platform === 'darwin')('rebuilding the agent plugin on macOS', () => {
+  afterEach(() => {
+    releaseAgentDir('own-pane')
+  })
+
+  it('keeps the generation a waiting kept shell of another build runs in', () => {
+    const shared = spawnDir()
+    cleanOldGenerations([shared])
+    files = [playbook('coordinator')]
+    refreshAgentPlugin()
+    expect(spawnDir()).not.toBe(shared)
+    expect(existsSync(join(shared, 'codex', 'session-context.md'))).toBe(true)
+  })
+
+  it('keeps a generation after the last pane of this build that used it closes', () => {
+    const first = spawnDir()
+    retainAgentDir('own-pane', first)
+    files = [playbook('review')]
+    refreshAgentPlugin()
+    releaseAgentDir('own-pane')
+    expect(existsSync(join(first, 'codex', 'session-context.md'))).toBe(true)
   })
 })

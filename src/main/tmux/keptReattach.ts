@@ -67,6 +67,7 @@ export function createKeptReattach({
     if (identity.externalId !== meta.externalId) {
       appLog()?.info('kept-pane-id-changed', { pane: paneId })
     }
+    retainAgentDir(paneId, meta.agentDir)
     keptPlumbing.ensure()
     const savedAttention = keptShells.savedAttention(paneId)
     keptShells.writeToken(paneId, identity.token)
@@ -112,7 +113,6 @@ export function createKeptReattach({
       portRequests.keep(workspaceId, keptHost?.exposed ?? [])
       void workspaceSandboxes.hosts.connect(workspaceId).catch(() => undefined)
     }
-    retainAgentDir(paneId, meta.agentDir)
     pane.onData((d) => feedPty(entry, d))
     pane.onExit(({ exitCode }) => entry.session.exit(exitCode))
     let screen = ''

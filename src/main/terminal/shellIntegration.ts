@@ -317,6 +317,7 @@ export function setPlaybookSource(source: (taken: readonly string[]) => Playbook
 }
 
 function sweepGenerations(): void {
+  if (cleansGenerations()) return
   const used = new Set(inUse.values())
   for (const [dir, names] of [...generations]) {
     if (dir === built?.dir || used.has(dir)) continue
@@ -446,7 +447,7 @@ export function shellIntegrationDir(): string {
   return cachedDir
 }
 
-export const GENERATION_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000
+const GENERATION_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000
 
 const GENERATION_CHECK_MS = 24 * 60 * 60 * 1000
 
