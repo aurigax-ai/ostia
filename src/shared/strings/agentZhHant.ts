@@ -14,7 +14,6 @@ export const agentZhHant: typeof agentEn = {
     sandboxed: '沙盒工作區中無法使用代理。',
   },
   claudeAccounts: {
-    actionsFor: '{account} 的動作',
     active: '使用中',
     add: '新增',
     addNoWorkspace: '請先開啟一個沒有沙箱、也不是暫存的終端機工作區，再新增帳號。',
@@ -32,10 +31,12 @@ export const agentZhHant: typeof agentEn = {
     loginTitle: '新增 Claude 帳號',
     manage: '管理帳號…',
     menuLabel: 'Claude 帳號',
+    noAccounts: '沒有 Claude 帳號。',
     recoverBack: '找回',
     recoverable: '這台電腦上有 {count} 個已登入的帳號不在清單裡。找回後就能再使用它們。',
     remove: '移除',
     removeBody: '{product} 會忘記這個帳號，並從這台電腦刪除它的登入。不會登出其他地方的 Claude。',
+    removeFor: '移除 {account}',
     removeRunning: '這個帳號仍有 Claude 工作階段在執行。請先關閉，再移除帳號。',
     removeTitle: '要移除 {account} 嗎？',
     sharedDesc:

@@ -9,7 +9,7 @@ export function SettingsGroup({
   title: string
   desc?: string
   action?: React.ReactNode
-  children: React.ReactNode
+  children?: React.ReactNode
 }): JSX.Element {
   const search = useSearchGroup([title, desc])
   return (

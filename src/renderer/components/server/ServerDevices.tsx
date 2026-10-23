@@ -2,6 +2,7 @@ import type { SyncAttention } from '@shared/profileSync/serverSync'
 import type { ServerDevice } from '@shared/server/serverApi'
 import { useState } from 'react'
 import { Notice } from '@/components/common/Notice'
+import { RowRemoveButton } from '@/components/settingsKit/RowRemoveButton'
 import { SettingsList } from '@/components/settingsKit/SettingsList'
 import { SettingsListRow } from '@/components/settingsKit/SettingsListRow'
 import { Button } from '@/components/ui/button'
@@ -91,11 +92,7 @@ export function ServerDevices({
     const remove = device.current
       ? onLeave
       : () => setRemoving({ id: device.id, name: device.name })
-    return (
-      <Button variant="ghost" size="sm" onClick={remove}>
-        {d.server.deviceRemove}
-      </Button>
-    )
+    return <RowRemoveButton label={d.server.deviceRemove} onClick={remove} />
   }
 
   const askDetail = (line: string): JSX.Element => (

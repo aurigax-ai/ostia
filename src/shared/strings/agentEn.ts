@@ -13,7 +13,6 @@ export const agentEn = {
     sandboxed: 'The Agent is not available in a sandboxed workspace.',
   },
   claudeAccounts: {
-    actionsFor: 'Actions for {account}',
     active: 'Active',
     add: 'Add',
     addNoWorkspace:
@@ -33,12 +32,14 @@ export const agentEn = {
     loginTitle: 'Add Claude account',
     manage: 'Manage accounts…',
     menuLabel: 'Claude accounts',
+    noAccounts: 'No Claude accounts.',
     recoverBack: 'Bring back',
     recoverable:
       '{count} signed-in accounts are on this computer but not in the list. Bring them back to use them again.',
     remove: 'Remove',
     removeBody:
       '{product} forgets this account and deletes its sign-in from this computer. It does not sign you out of Claude anywhere else.',
+    removeFor: 'Remove {account}',
     removeRunning:
       'A Claude session is still running on this account. Close it, then remove the account.',
     removeTitle: 'Remove {account}?',

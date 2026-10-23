@@ -1,4 +1,4 @@
-import { ArrowsClockwiseIcon, TrashIcon } from '@phosphor-icons/react'
+import { ArrowsClockwiseIcon } from '@phosphor-icons/react'
 import type { Dict } from '@shared/app/dict'
 import {
   MARKETPLACE_FEATURE,
@@ -11,6 +11,7 @@ import { MachineValue } from '@/components/common/MachineValue'
 import { Notice } from '@/components/common/Notice'
 import { RequirementsNote } from '@/components/settings/RequirementsNote'
 import { ControlRow } from '@/components/settingsKit/ControlRow'
+import { RowRemoveButton } from '@/components/settingsKit/RowRemoveButton'
 import { SettingsGroup } from '@/components/settingsKit/SettingsGroup'
 import { SettingsList } from '@/components/settingsKit/SettingsList'
 import { SettingsListRow } from '@/components/settingsKit/SettingsListRow'
@@ -53,8 +54,7 @@ export function UninstallExtensionButton({
   return (
     <>
       {icon ? (
-        <IconButton
-          icon={TrashIcon}
+        <RowRemoveButton
           label={fmt(d.marketplace.uninstallLabel, { name })}
           disabled={busy}
           onClick={() => setAsking(true)}
@@ -74,6 +74,7 @@ export function UninstallExtensionButton({
             <AlertDialogCancel size="sm">{d.marketplace.cancel}</AlertDialogCancel>
             <AlertDialogAction
               size="sm"
+              variant="destructive"
               onClick={() => {
                 setAsking(false)
                 void uninstall(extId)
@@ -123,6 +124,7 @@ export function UpdateExtensionButton({
             <AlertDialogCancel size="sm">{d.marketplace.cancel}</AlertDialogCancel>
             <AlertDialogAction
               size="sm"
+              variant="destructive"
               onClick={() => {
                 setAsking(false)
                 void install(marketplaceId, ext.id, true)
@@ -148,8 +150,7 @@ function RemoveMarketplaceButton({ marketplace }: { marketplace: MarketplaceInfo
   }
   return (
     <>
-      <IconButton
-        icon={TrashIcon}
+      <RowRemoveButton
         label={fmt(d.marketplace.remove, { name: marketplaceName(d, marketplace) })}
         disabled={busy}
         onClick={() => {
@@ -172,7 +173,7 @@ function RemoveMarketplaceButton({ marketplace }: { marketplace: MarketplaceInfo
             <Button variant="outline" size="sm" onClick={() => removeWith(false)}>
               {d.marketplace.keepExtensions}
             </Button>
-            <AlertDialogAction size="sm" onClick={() => removeWith(true)}>
+            <AlertDialogAction size="sm" variant="destructive" onClick={() => removeWith(true)}>
               {d.marketplace.uninstallExtensions}
             </AlertDialogAction>
           </AlertDialogFooter>
