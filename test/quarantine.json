@@ -1,1 +1,32 @@
-[]
+[
+  {
+    "file": "src/renderer/components/chat/ChatView.test.tsx",
+    "name": "chat > carries only the typed text to Ask when the palette was opened on the commands prefix",
+    "issue": 1436,
+    "until": "2026-11-22"
+  },
+  {
+    "file": "src/renderer/components/chat/ChatView.test.tsx",
+    "name": "chat > switches the palette to Ask on Tab, carrying the typed text and naming the model",
+    "issue": 1436,
+    "until": "2026-11-22"
+  },
+  {
+    "file": "src/renderer/components/keyboard/KeyboardSection.test.tsx",
+    "name": "KeyboardSection > has no modifier key remap off macOS",
+    "issue": 1436,
+    "until": "2026-11-22"
+  },
+  {
+    "file": "src/renderer/components/keyboard/KeyboardSection.test.tsx",
+    "name": "KeyboardSection > filters the list to the commands bound to a pressed chord, conflicts included",
+    "issue": 1436,
+    "until": "2026-11-22"
+  },
+  {
+    "file": "src/renderer/components/keyboard/KeyboardSection.test.tsx",
+    "name": "KeyboardSection > leaves chord recording on Escape and never takes a key outside it",
+    "issue": 1436,
+    "until": "2026-11-22"
+  }
+]
