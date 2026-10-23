@@ -25,6 +25,7 @@ const METRICS_MS = 5_000
 const GESTURE_MS = 5_000
 const MESSAGE_MAX = 2_000
 const WATCHED_DIRS_MAX = 16
+const ACTIVITY_MS = 1000
 const GESTURE_INPUTS = new Set(['mouseDown', 'keyDown', 'touchStart'])
 const CLIPBOARD_WRITE = 'clipboard-sanitized-write'
 const DEBUGGER_PROTOCOL = '1.3'
@@ -56,6 +57,7 @@ interface Live {
   memoryBytes: number
   busySince: number | null
   gestureAt: number
+  activityAt: number
   frozen: boolean
   stale: boolean
   reported: { responding: boolean; busy: boolean }
@@ -118,6 +120,7 @@ export class PreviewHost {
       memoryBytes: 0,
       busySince: null,
       gestureAt: 0,
+      activityAt: 0,
       frozen: false,
       stale: false,
       reported: { responding: true, busy: false },
@@ -217,7 +220,13 @@ export class PreviewHost {
       },
     )
     guest.on('input-event', (_event: unknown, input: { type?: string }) => {
-      if (input?.type && GESTURE_INPUTS.has(input.type)) live.gestureAt = this.now()
+      if (!input?.type) return
+      const now = this.now()
+      if (GESTURE_INPUTS.has(input.type)) live.gestureAt = now
+      if (current() && now - live.activityAt >= ACTIVITY_MS) {
+        live.activityAt = now
+        this.deps.send(live.windowId, { id: live.id, type: 'activity' })
+      }
     })
     guest.on('unresponsive', () => {
       if (current() && live.waitingSince === null) live.waitingSince = this.now()

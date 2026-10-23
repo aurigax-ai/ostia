@@ -28,6 +28,7 @@ import { useBrowserCapture } from '@/components/browser/useBrowserCapture'
 import { CaptureHighlight } from '@/components/capture/CaptureHighlight'
 import { RegionCropOverlay } from '@/components/capture/RegionCropOverlay'
 import { EmptyState } from '@/components/common/EmptyState'
+import { IconButton } from '@/components/common/IconButton'
 import { DropdownMenu, MenuItem } from '@/components/common/Menu'
 import { StatusAction, StatusLine, useDismissed } from '@/components/common/StatusLine'
 import { Button } from '@/components/ui/button'
@@ -38,7 +39,7 @@ import { useGuestReady } from '@/lib/panes/paneFocus'
 import { previewTheme } from '@/lib/theme/previewTheme'
 import { useEffectiveThemeId } from '@/lib/theme/theme'
 import { retryPendingFocus } from '@/stores/workspaces/surfaceSlotsStore'
-import { FloatPill, FloatPillButton } from './FloatPill'
+import { FloatPill } from './FloatPill'
 
 type Stopped = PreviewStopReason | 'failed'
 
@@ -219,6 +220,7 @@ export function HtmlPreview({
   const [expanded, setExpanded] = useState(false)
   const [vitals, setVitals] = useState({ responding: true, busy: false })
   const [link, setLink] = useState<string | null>(null)
+  const [activity, setActivity] = useState(0)
   const [webview, setWebview] = useState<HTMLElement | null>(null)
   const webviewRef = useRef<HTMLElement | null>(null)
   const attachWebview = useCallback((el: HTMLElement | null): void => {
@@ -297,6 +299,8 @@ export function HtmlPreview({
           setLink(null)
         } else if (event.type === 'error') {
           setErrors((kept) => keepErrors(kept, event.error))
+        } else if (event.type === 'activity') {
+          setActivity((n) => n + 1)
         } else if (event.type === 'vitals') {
           setVitals({ responding: event.responding, busy: event.busy })
         } else if (event.type === 'link') {
@@ -323,14 +327,18 @@ export function HtmlPreview({
 
   const capturing = opened && !stopped
   const pill = capturing ? (
-    <FloatPill label={d.preview.controls}>
-      <FloatPillButton
+    <FloatPill
+      label={d.preview.controls}
+      held={capture.picking !== null || capture.cropping}
+      activity={activity}
+    >
+      <IconButton
         icon={CursorClickIcon}
         label={capture.picking ? d.browser.pickStop : d.browser.pick}
         aria-pressed={capture.picking !== null}
         onClick={() => void capture.togglePick()}
       />
-      <FloatPillButton
+      <IconButton
         icon={CropIcon}
         label={capture.cropping ? d.browser.regionStop : d.browser.region}
         aria-pressed={capture.cropping}

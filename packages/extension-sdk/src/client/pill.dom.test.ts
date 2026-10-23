@@ -232,21 +232,20 @@ describe('pill controls', () => {
 })
 
 describe('pill visibility', () => {
-  it('shows at first, hides when idle and shows again on pointer movement', () => {
+  it('shows at first, dims when idle and shows again on pointer movement', () => {
     pill = build().pill
     expect(state()).toBe('visible')
     vi.advanceTimersByTime(PILL_IDLE_MS + 1)
-    expect(state()).toBe('hidden')
-    expect(pill.element.hasAttribute('inert')).toBe(true)
+    expect(state()).toBe('idle')
+    expect(pill.element.hasAttribute('inert')).toBe(false)
     document.dispatchEvent(new MouseEvent('pointermove'))
     expect(state()).toBe('visible')
-    expect(pill.element.hasAttribute('inert')).toBe(false)
     vi.advanceTimersByTime(PILL_IDLE_MS - 100)
     document.dispatchEvent(new MouseEvent('pointermove'))
     vi.advanceTimersByTime(PILL_IDLE_MS - 100)
     expect(state()).toBe('visible')
     vi.advanceTimersByTime(200)
-    expect(state()).toBe('hidden')
+    expect(state()).toBe('idle')
   })
 
   it('stays while the pointer is on it or focus is inside it, then goes idle', () => {
@@ -256,7 +255,7 @@ describe('pill visibility', () => {
     expect(state()).toBe('visible')
     pill.element.dispatchEvent(new MouseEvent('pointerleave'))
     vi.advanceTimersByTime(PILL_IDLE_MS + 1)
-    expect(state()).toBe('hidden')
+    expect(state()).toBe('idle')
     document.dispatchEvent(new MouseEvent('pointermove'))
     button(pill, 'Fit').focus()
     vi.advanceTimersByTime(PILL_IDLE_MS * 3)
@@ -273,7 +272,7 @@ describe('pill visibility', () => {
   it('focuses its first button on the first Tab in the page and keeps it visible', () => {
     pill = build().pill
     vi.advanceTimersByTime(PILL_IDLE_MS + 1)
-    expect(state()).toBe('hidden')
+    expect(state()).toBe('idle')
     const tab = key(document.body, 'Tab')
     expect(tab.defaultPrevented).toBe(true)
     expect(document.activeElement).toBe(button(pill, 'Fit'))
@@ -304,7 +303,7 @@ describe('pill visibility', () => {
     expect(pill.element.contains(document.activeElement)).toBe(false)
     expect(document.activeElement).toBe(document.body)
     vi.advanceTimersByTime(PILL_IDLE_MS + 1)
-    expect(state()).toBe('hidden')
+    expect(state()).toBe('idle')
   })
 
   it('hides while the guest has a published selection and when the host hides it', async () => {
@@ -326,11 +325,18 @@ describe('pill visibility', () => {
     expect(state()).toBe('visible')
   })
 
-  it('does not slide for reduced motion', () => {
+  it('keeps its buttons reachable by Tab while idle', () => {
+    pill = build().pill
+    vi.advanceTimersByTime(PILL_IDLE_MS + 1)
+    expect(state()).toBe('idle')
+    expect(pill.element.hasAttribute('inert')).toBe(false)
+    expect(button(pill, 'Fit').tabIndex).toBe(0)
+  })
+
+  it('does not animate for reduced motion', () => {
     const css = readFileSync(join(__dirname, 'panel.css'), 'utf8')
     const block = /@media \(prefers-reduced-motion: reduce\) \{([^@]*?)\n\}/.exec(css)?.[1] ?? ''
     expect(block).toContain('.ostia-pill')
-    expect(block).toContain('transform: none')
     expect(block).toContain('transition: none')
   })
 })

@@ -2,7 +2,7 @@
   "id": "graphs",
   "name": "Graphs",
   "version": "1.0.0",
-  "api": "7.9",
+  "api": "7.10",
   "description": "Run a procedure written as a graph of agents, commands, questions and waits, kept on disk after every step so it survives a restart. A graph does nothing until you enable its exact definition in the Graphs panel, and it runs while Ostia is open.",
   "category": "tools",
   "capabilities": [
