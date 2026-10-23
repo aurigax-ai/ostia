@@ -1,6 +1,6 @@
 import { hash } from 'node:crypto'
 import { readdirSync, rmSync } from 'node:fs'
-import { join } from 'node:path'
+import { basename, dirname, join } from 'node:path'
 import { processAlive } from '../platform/processAlive'
 import type { KeptSandboxHosts } from './sandboxHosts'
 import { SSH_AGENT_SOCKET_NAME } from './srtConfig'
@@ -42,6 +42,15 @@ export class SandboxTmpDirs {
     return dir
   }
 
+  pluginsDir(workspaceId: string): string {
+    const tmpDir = this.tmpDir(workspaceId)
+    return join(dirname(tmpDir), `${basename(tmpDir)}-plugins`)
+  }
+
+  pluginsData(workspaceId: string): string {
+    return join(this.tmpDir(workspaceId), 'plugin-data')
+  }
+
   adoptKeptTmp(workspaceId: string, dir: string): void {
     this.tmpDirs.set(workspaceId, dir)
   }
@@ -52,6 +61,7 @@ export class SandboxTmpDirs {
 
   remove(workspaceId: string): void {
     rmSync(this.tmpDir(workspaceId), { recursive: true, force: true })
+    rmSync(this.pluginsDir(workspaceId), { recursive: true, force: true })
     this.tmpDirs.delete(workspaceId)
   }
 
@@ -65,7 +75,7 @@ export class SandboxTmpDirs {
   sweepKeptTmp(liveWorkspaceIds: readonly string[]): string[] {
     const kept = this.deps.kept
     if (!kept) return []
-    const live = new Set(liveWorkspaceIds.map((id) => this.tmpDir(id)))
+    const live = new Set(liveWorkspaceIds.flatMap((id) => [this.tmpDir(id), this.pluginsDir(id)]))
     const removed: string[] = []
     let names: string[] = []
     try {
