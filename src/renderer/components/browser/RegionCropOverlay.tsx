@@ -25,15 +25,23 @@ function pointOf(e: ReactPointerEvent<HTMLElement>): Point {
   return { x: e.clientX - box.left, y: e.clientY - box.top }
 }
 
-export function RegionCropBox({ rect }: { rect: PickBox }): JSX.Element {
+export function RegionCropBox({
+  rect,
+  sized = true,
+}: {
+  rect: PickBox
+  sized?: boolean
+}): JSX.Element {
   return (
     <div
       className="region-crop-box"
       style={{ left: rect.x, top: rect.y, width: rect.width, height: rect.height }}
     >
-      <output className="region-crop-size">
-        {rect.width} × {rect.height}
-      </output>
+      {sized ? (
+        <output className="region-crop-size">
+          {rect.width} × {rect.height}
+        </output>
+      ) : null}
     </div>
   )
 }

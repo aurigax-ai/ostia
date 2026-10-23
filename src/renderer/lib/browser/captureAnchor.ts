@@ -3,6 +3,25 @@ import { anchorWithin, type BarAnchor } from '@/lib/agents/barAnchor'
 
 const STAGE = '.browser-stage, .html-preview'
 
+function pageScale(webview: HTMLElement, viewport: { width: number }): number | null {
+  return viewport.width > 0 ? webview.getBoundingClientRect().width / viewport.width : null
+}
+
+export function pageBoxToLayer(
+  webview: HTMLElement,
+  box: PickBox,
+  viewport: { width: number },
+): PickBox | null {
+  const scale = pageScale(webview, viewport)
+  if (scale === null) return null
+  return {
+    x: box.x * scale,
+    y: box.y * scale,
+    width: box.width * scale,
+    height: box.height * scale,
+  }
+}
+
 export function pageBoxAnchor(
   webview: HTMLElement,
   box: PickBox,

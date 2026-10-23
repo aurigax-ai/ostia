@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest'
-import { layerRectAnchor, pageBoxAnchor } from './captureAnchor'
+import { layerRectAnchor, pageBoxAnchor, pageBoxToLayer } from './captureAnchor'
 
 function rectOf(left: number, top: number, width: number, height: number): DOMRect {
   return {
@@ -47,6 +47,20 @@ describe('pageBoxAnchor', () => {
     expect(
       pageBoxAnchor(webview, { x: 0, y: 0, width: 1, height: 1 }, { width: 0, height: 0 }),
     ).toBeNull()
+  })
+})
+
+describe('pageBoxToLayer', () => {
+  it('scales a page box to the layer drawn over the shown page', () => {
+    const webview = stageWith(rectOf(0, 0, 0, 0), rectOf(120, 80, 400, 300))
+    expect(
+      pageBoxToLayer(webview, { x: 10, y: 20, width: 100, height: 40 }, { width: 800 }),
+    ).toEqual({ x: 5, y: 10, width: 50, height: 20 })
+  })
+
+  it('has no box for an empty viewport', () => {
+    const webview = stageWith(rectOf(0, 0, 0, 0), rectOf(0, 0, 400, 300))
+    expect(pageBoxToLayer(webview, { x: 0, y: 0, width: 1, height: 1 }, { width: 0 })).toBeNull()
   })
 })
 

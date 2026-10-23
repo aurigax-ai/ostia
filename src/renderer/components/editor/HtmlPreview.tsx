@@ -387,7 +387,9 @@ export function HtmlPreview({
             src={opened.url}
             partition={opened.partition}
           />
-          {capture.heldBox ? <RegionCropBox rect={capture.heldBox} /> : null}
+          {capture.held ? (
+            <RegionCropBox rect={capture.held.rect} sized={capture.held.sized} />
+          ) : null}
           {capture.cropping ? (
             <RegionCropOverlay
               label={d.preview.regionHint}
