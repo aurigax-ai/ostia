@@ -34,6 +34,7 @@ vi.mock('../../panes/paneList', () => ({
   ],
 }))
 
+import type { AccountUsage } from '../../../shared/claudeAccounts/claudeAccounts'
 import { resolveExternal } from '../../control/idRegistry'
 import { ClaudeAccountsStore } from './accountsStore'
 import { ClaudeAccounts, type LoginTarget } from './claudeAccounts'
@@ -48,6 +49,8 @@ let sandboxed: Set<string>
 let scratch: Set<string>
 let store: ClaudeAccountsStore
 let opened: LoginTarget[]
+let usage: Map<string, AccountUsage>
+let usageRuns: boolean[]
 
 const ctx = (extra: Record<string, unknown> = {}) =>
   ({
@@ -72,6 +75,8 @@ beforeEach(() => {
   sandboxed = new Set(['ws-sandbox'])
   scratch = new Set(['ws-scratch'])
   opened = []
+  usage = new Map()
+  usageRuns = []
   base = mkdtempSync(join(tmpdir(), 'ostia-accounts-wiring-'))
   store = new ClaudeAccountsStore(join(base, 'accounts.json'))
   store.add({ id: WORK, email: 'work@example.com', addedAt: 1 })
@@ -84,6 +89,10 @@ beforeEach(() => {
     loginState: async () => 'signed-in',
     writeLogin: async () => true,
     signIn: null,
+    usage: {
+      run: (on) => usageRuns.push(on),
+      usageOf: (id) => usage.get(id) ?? null,
+    },
     syncProfile: async () => {},
     agentRunning: () => false,
     paneOf: (id) => id,
@@ -112,11 +121,40 @@ describe('account.list', () => {
     expect(await call('account.list', undefined)).toEqual({
       ok: true,
       accounts: [
-        { number: 1, email: 'me@example.com', current: false },
-        { number: 2, email: 'work@example.com', current: true },
+        {
+          number: 1,
+          email: 'me@example.com',
+          current: false,
+          enabled: true,
+          session: null,
+          weekly: null,
+        },
+        {
+          number: 2,
+          email: 'work@example.com',
+          current: true,
+          enabled: true,
+          session: null,
+          weekly: null,
+        },
       ],
     })
     expect(registered.get('account.list')?.cap).toBe('settings-read')
+  })
+
+  it('adds the session and weekly percent once usage was checked, a reset window at 0', async () => {
+    const later = Date.now() + 3_600_000
+    usage.set(WORK, {
+      session: { percent: 41.6, resetsAt: Date.now() - 1 },
+      weekly: { percent: 18.2, resetsAt: later },
+      checkedAt: 1,
+    })
+    expect(await call('account.list', undefined)).toMatchObject({
+      accounts: [
+        { number: 1, session: null, weekly: null },
+        { number: 2, session: 0, weekly: 18 },
+      ],
+    })
   })
 
   it.each([
@@ -142,6 +180,16 @@ describe('account.switch', () => {
       expect.objectContaining({ kind: 'account-switch', caps: [], subject: 'work@example.com' }),
     )
     expect(store.current()).toBe(WORK)
+  })
+
+  it('refuses an account that is turned off without asking the human', async () => {
+    store.setEnabled(WORK, false)
+    expect(await call('account.switch', { target: 'work@example.com' })).toEqual({
+      ok: false,
+      error: 'account-off',
+    })
+    expect(request).not.toHaveBeenCalled()
+    expect(store.current()).toBe('default')
   })
 
   it('does not switch when the human denies or does not answer', async () => {
@@ -262,13 +310,33 @@ describe('the window channels', () => {
     expect(await ipc.get('claude-accounts:remove')?.(guestEvent, WORK)).toBe('unknown')
     expect(await add('ws-1', guestEvent as never)).toBe('not-opened')
     expect(await ipc.get('claude-accounts:recover')?.(guestEvent)).toBeNull()
+    expect(await ipc.get('claude-accounts:set-check-usage')?.(guestEvent, true)).toBe(false)
+    expect(await ipc.get('claude-accounts:set-enabled')?.(guestEvent, WORK, false)).toBe('unknown')
+    expect(store.isEnabled(WORK)).toBe(true)
     expect(store.current()).toBe('default')
+    expect(store.checkUsage()).toBe(false)
   })
 
   it('use, remove and answer what happened', async () => {
     expect(await ipc.get('claude-accounts:use')?.(windowEvent, WORK)).toBe(true)
     expect(await ipc.get('claude-accounts:remove')?.(windowEvent, 7)).toBe('unknown')
     expect(await ipc.get('claude-accounts:remove')?.(windowEvent, WORK)).toBe('removed')
+  })
+
+  it('turns an account off and on from a window, never with a value that is not a boolean', async () => {
+    expect(await ipc.get('claude-accounts:set-enabled')?.(windowEvent, WORK, 'no')).toBe('unknown')
+    expect(await ipc.get('claude-accounts:set-enabled')?.(windowEvent, WORK, false)).toBe('done')
+    expect(store.isEnabled(WORK)).toBe(false)
+    expect(await ipc.get('claude-accounts:use')?.(windowEvent, WORK)).toBe(false)
+  })
+
+  it('turns the usage check on and off only for a boolean from a window', async () => {
+    expect(await ipc.get('claude-accounts:set-check-usage')?.(windowEvent, 'yes')).toBe(false)
+    expect(await ipc.get('claude-accounts:set-check-usage')?.(windowEvent, true)).toBe(true)
+    expect(store.checkUsage()).toBe(true)
+    expect(usageRuns.at(-1)).toBe(true)
+    expect(await ipc.get('claude-accounts:set-check-usage')?.(windowEvent, false)).toBe(true)
+    expect(usageRuns.at(-1)).toBe(false)
   })
 })
 
@@ -287,6 +355,7 @@ describe('a damaged store', () => {
       loginState: async () => 'signed-in',
       writeLogin: async () => true,
       signIn: null,
+      usage: null,
       syncProfile: async () => {},
       agentRunning: () => false,
       paneOf: (id) => id,

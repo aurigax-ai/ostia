@@ -53,6 +53,7 @@ beforeEach(() => {
     loginState: async () => 'signed-in',
     writeLogin: async () => true,
     signIn: null,
+    usage: null,
     syncProfile: async (dir) => {
       synced.push(dir)
     },
@@ -81,6 +82,110 @@ describe('state', () => {
     expect(state.accounts.map((a) => a.email)).toEqual(['me@example.com', 'work@example.com'])
     expect(state.current).toBe('default')
     expect(state.adding).toBe(false)
+  })
+})
+
+describe('usage', () => {
+  const WORK_ID = 'a'.repeat(16)
+  const OUT_ID = 'b'.repeat(16)
+  const checked = {
+    session: { percent: 42, resetsAt: 2 },
+    weekly: { percent: 18, resetsAt: 3 },
+    checkedAt: 1,
+  }
+
+  function withUsage() {
+    const runs: boolean[] = []
+    const usage = {
+      run: (on: boolean) => runs.push(on),
+      usageOf: (id: string) => (id === WORK_ID ? checked : null),
+    }
+    const withPoller = new ClaudeAccounts({
+      store,
+      root,
+      defaultHome: () => home,
+      defaultEmail: async () => defaultEmail,
+      profileEmail: async () => null,
+      loginState: async (dir) => (dir.endsWith(OUT_ID) ? 'signed-out' : 'signed-in'),
+      writeLogin: async () => true,
+      signIn: null,
+      usage,
+      syncProfile: async () => {},
+      agentRunning: () => false,
+      paneOf: (id) => id,
+      openLoginTab: async () => null,
+      onChange: (state) => published.push(state),
+    })
+    return { withPoller, runs }
+  }
+
+  it('is unavailable without a poller, as on macOS, and cannot be turned on', async () => {
+    expect(await accounts.setCheckUsage(true)).toBe(false)
+    expect(await accounts.state()).toMatchObject({ checkUsage: false, usageAvailable: false })
+  })
+
+  it('starts the poller at boot only when the human left the check on', async () => {
+    const { withPoller, runs } = withUsage()
+    await withPoller.boot()
+    expect(runs).toEqual([false])
+    store.setCheckUsage(true)
+    await withPoller.boot()
+    expect(runs).toEqual([false, true])
+  })
+
+  it('turns the check on, publishes it and shows each account’s last answer', async () => {
+    store.add({ id: WORK_ID, email: 'work@example.com', addedAt: 1 })
+    const { withPoller, runs } = withUsage()
+    expect(await withPoller.setCheckUsage(true)).toBe(true)
+    expect(runs).toEqual([true])
+    const state = published.at(-1)
+    expect(state).toMatchObject({ checkUsage: true, usageAvailable: true })
+    expect(state?.accounts.map((a) => a.usage)).toEqual([null, checked])
+  })
+
+  it('checks the default and every signed-in account, never a signed-out one', async () => {
+    store.add({ id: WORK_ID, email: 'work@example.com', addedAt: 1 })
+    store.add({ id: OUT_ID, email: 'out@example.com', addedAt: 1 })
+    const { withPoller } = withUsage()
+    expect(await withPoller.usageTargets()).toEqual([
+      { id: 'default', dir: home },
+      { id: WORK_ID, dir: join(root, WORK_ID) },
+    ])
+  })
+
+  it('never checks an account that is turned off, and shows no usage for it', async () => {
+    store.add({ id: WORK_ID, email: 'work@example.com', addedAt: 1 })
+    const { withPoller } = withUsage()
+    expect(await withPoller.setEnabled(WORK_ID, false)).toBe('done')
+    expect(await withPoller.usageTargets()).toEqual([{ id: 'default', dir: home }])
+    const work = (await withPoller.state()).accounts[1]
+    expect(work).toMatchObject({ enabled: false, usage: null })
+  })
+})
+
+describe('turning an account off', () => {
+  const WORK_ID = 'a'.repeat(16)
+
+  beforeEach(() => {
+    store.add({ id: WORK_ID, email: 'work@example.com', addedAt: 1 })
+  })
+
+  it('keeps the account listed and signed in, and publishes it off', async () => {
+    expect(await accounts.setEnabled(WORK_ID, false)).toBe('done')
+    expect(published.at(-1)?.accounts.map((a) => [a.email, a.enabled, a.signedOut])).toEqual([
+      ['me@example.com', true, false],
+      ['work@example.com', false, false],
+    ])
+    expect(await accounts.use(WORK_ID)).toBe(false)
+    expect(await accounts.setEnabled(WORK_ID, true)).toBe('done')
+    expect(await accounts.use(WORK_ID)).toBe(true)
+  })
+
+  it('refuses the default account, the current one and an unknown id', async () => {
+    expect(await accounts.setEnabled('default', false)).toBe('default')
+    await accounts.use(WORK_ID)
+    expect(await accounts.setEnabled(WORK_ID, false)).toBe('current')
+    expect(await accounts.setEnabled('c'.repeat(16), false)).toBe('unknown')
   })
 })
 
@@ -132,6 +237,7 @@ describe('adding an account', () => {
       loginState: async () => 'signed-in',
       writeLogin: async () => true,
       signIn: null,
+      usage: null,
       syncProfile: async () => {},
       agentRunning: () => false,
       paneOf: (id) => id,
@@ -244,6 +350,7 @@ describe('boot', () => {
       loginState: async () => 'signed-in',
       writeLogin: async () => true,
       signIn: null,
+      usage: null,
       syncProfile: async () => {},
       agentRunning: () => false,
       paneOf: (id) => id,
@@ -382,6 +489,7 @@ describe('a Claude still running after Ostia restarted', () => {
       loginState: async () => 'signed-in',
       writeLogin: async () => true,
       signIn: null,
+      usage: null,
       syncProfile: async () => {},
       agentRunning: (paneId) => paneId === 'pane-kept',
       paneOf: (id) => id,

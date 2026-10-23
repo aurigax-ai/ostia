@@ -1,4 +1,5 @@
 import '@testing-library/jest-dom/vitest'
+import type { ClaudeAccountsState } from '@shared/claudeAccounts/claudeAccounts'
 import { cleanup, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -16,11 +17,11 @@ afterEach(() => {
   vi.clearAllMocks()
 })
 
-function open() {
+function open(over: Partial<ClaudeAccountsState> = {}) {
   vi.mocked(window.ostia.claudeAccounts.state).mockResolvedValue({
     accounts: [
-      { id: 'default', email: 'me@example.com', signedOut: false },
-      { id: WORK, email: 'work@example.com', signedOut: false },
+      { id: 'default', email: 'me@example.com', signedOut: false, enabled: true, usage: null },
+      { id: WORK, email: 'work@example.com', signedOut: false, enabled: true, usage: null },
     ],
     current: WORK,
     adding: false,
@@ -29,6 +30,9 @@ function open() {
     duplicate: null,
     damaged: false,
     recoverable: 0,
+    checkUsage: false,
+    usageAvailable: true,
+    ...over,
   })
   render(<ClaudeAccountsMenu />)
   return userEvent.click(screen.getByRole('button', { name: 'Claude accounts' }))
@@ -55,6 +59,44 @@ describe('ClaudeAccountsMenu', () => {
     await screen.findByRole('menuitemradio', { name: /work@example.com/ })
     expect(screen.queryByText('Rotation')).toBeNull()
     expect(screen.queryByRole('button', { name: 'Manual' })).toBeNull()
+  })
+
+  it('adds each account’s usage under it and when it was checked, while the check is on', async () => {
+    const now = Date.now()
+    const usage = {
+      session: { percent: 42, resetsAt: now + 3_600_000 },
+      weekly: { percent: 18, resetsAt: now + 3 * 86_400_000 },
+      checkedAt: now - 3 * 60_000,
+    }
+    await open({
+      checkUsage: true,
+      accounts: [
+        { id: 'default', email: 'me@example.com', signedOut: false, enabled: true, usage: null },
+        { id: WORK, email: 'work@example.com', signedOut: false, enabled: true, usage },
+      ],
+    })
+    const work = await screen.findByRole('menuitemradio', { name: /work@example.com/ })
+    expect(work).toHaveTextContent(/Session 42% · Weekly 18% · pace 57% · resets \w+/)
+    expect(screen.getByText(/^Usage checked 3 min/)).toBeInTheDocument()
+  })
+
+  it('leaves out an account that is turned off', async () => {
+    await open({
+      current: 'default',
+      accounts: [
+        { id: 'default', email: 'me@example.com', signedOut: false, enabled: true, usage: null },
+        { id: WORK, email: 'work@example.com', signedOut: false, enabled: false, usage: null },
+      ],
+    })
+    await screen.findByRole('menuitemradio', { name: /me@example.com/ })
+    expect(screen.queryByRole('menuitemradio', { name: /work@example.com/ })).toBeNull()
+  })
+
+  it('shows no usage and no checked line while the check is off', async () => {
+    await open()
+    await screen.findByRole('menuitemradio', { name: /work@example.com/ })
+    expect(screen.queryByText(/Session/)).toBeNull()
+    expect(screen.queryByText(/Usage checked/)).toBeNull()
   })
 
   it('opens the Claude accounts settings page', async () => {

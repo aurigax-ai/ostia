@@ -10,13 +10,19 @@ import {
 import { useClaudeAccounts } from '@/lib/agents/useClaudeAccounts'
 import { useDict } from '@/lib/app/useDict'
 import { useUIStore } from '@/stores/app/uiStore'
+import { useUsageText } from './useUsageText'
 
 const SECTION = 'claudeAccounts'
 
 function AccountMenuRow({ account }: { account: ClaudeAccountView }): JSX.Element {
   const d = useDict().claudeAccounts
+  const usage = useUsageText()
   return (
-    <MenuRadioItem value={account.id} closeOnClick>
+    <MenuRadioItem
+      value={account.id}
+      closeOnClick
+      detail={account.signedOut ? d.signedOut : usage.line(account.usage)}
+    >
       <span className="flex min-w-0 items-center gap-2">
         <span className="min-w-0 truncate">{account.email ?? d.defaultAccount}</span>
         {account.id === DEFAULT_ACCOUNT ? (
@@ -29,11 +35,13 @@ function AccountMenuRow({ account }: { account: ClaudeAccountView }): JSX.Elemen
 
 export function ClaudeAccountsMenu(): JSX.Element {
   const d = useDict().claudeAccounts
-  const { accounts, current } = useClaudeAccounts()
+  const { accounts, current, checkUsage } = useClaudeAccounts()
   const openSettings = useUIStore((s) => s.openSettings)
+  const checked = useUsageText().checked(accounts)
   return (
     <DropdownMenu
       align="start"
+      className={checkUsage ? 'min-w-96' : undefined}
       trigger={<IconButton size="bar" icon={UserSwitchIcon} label={d.menuLabel} />}
     >
       <ContextMenuGroup>
@@ -42,10 +50,13 @@ export function ClaudeAccountsMenu(): JSX.Element {
           value={current}
           onValueChange={(id) => void window.ostia.claudeAccounts.use(String(id))}
         >
-          {accounts.map((account) => (
-            <AccountMenuRow key={account.id} account={account} />
-          ))}
+          {accounts
+            .filter((account) => account.enabled)
+            .map((account) => (
+              <AccountMenuRow key={account.id} account={account} />
+            ))}
         </ContextMenuRadioGroup>
+        {checkUsage && checked ? <MenuLabel>{checked}</MenuLabel> : null}
       </ContextMenuGroup>
       <ContextMenuSeparator />
       <MenuItem icon={GearIcon} onClick={() => openSettings(SECTION)}>

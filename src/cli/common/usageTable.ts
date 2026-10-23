@@ -418,7 +418,7 @@ export const USAGE_TABLE: readonly NounUsage[] = [
       {
         verb: 'list',
         args: '[--json]',
-        about: 'every account: number, email, which one is current',
+        about: 'every account: number, email, which one is current, session and weekly use',
       },
       { verb: 'switch', args: '<email|number>', about: 'the account new Claude sessions start on' },
     ],

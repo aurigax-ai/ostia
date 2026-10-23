@@ -113,7 +113,7 @@ function token(value: unknown): string | null {
   return found && TOKEN_SHAPE.test(found) ? found : null
 }
 
-async function readJson(res: Response): Promise<Record<string, unknown> | null> {
+export async function readJson(res: Response): Promise<Record<string, unknown> | null> {
   const reader = res.body?.getReader()
   if (!reader) return null
   const chunks: Uint8Array[] = []

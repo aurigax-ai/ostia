@@ -8,10 +8,28 @@ export function isProfileId(value: unknown): value is string {
   return typeof value === 'string' && ACCOUNT_ID.test(value)
 }
 
+export interface UsageWindow {
+  percent: number
+  resetsAt: number
+}
+
+export interface AccountUsage {
+  session: UsageWindow | null
+  weekly: UsageWindow | null
+  checkedAt: number
+}
+
+export function percentNow(window: UsageWindow | null, now: number): number | null {
+  if (!window) return null
+  return window.resetsAt <= now ? 0 : Math.round(window.percent)
+}
+
 export interface ClaudeAccountView {
   id: string
   email: string | null
   signedOut: boolean
+  enabled: boolean
+  usage: AccountUsage | null
 }
 
 export type SignInStatus = 'idle' | 'waiting' | 'working' | 'failed' | 'mismatch'
@@ -25,6 +43,8 @@ export interface ClaudeAccountsState {
   duplicate: string | null
   damaged: boolean
   recoverable: number
+  checkUsage: boolean
+  usageAvailable: boolean
 }
 
 export type AddAccountOutcome = 'opened' | 'busy' | 'not-opened' | 'no-workspace' | 'damaged'
@@ -33,10 +53,12 @@ export type BeginSignInOutcome = 'started' | 'busy' | 'unknown' | 'damaged' | 'u
 
 export type SubmitCodeOutcome = 'accepted' | 'invalid' | 'idle'
 
+export type SetEnabledOutcome = 'done' | 'unknown' | 'default' | 'current' | 'damaged'
+
 export type RemoveAccountOutcome = 'removed' | 'unknown' | 'running' | 'damaged'
 
 export const NO_ACCOUNTS: ClaudeAccountsState = {
-  accounts: [{ id: DEFAULT_ACCOUNT, email: null, signedOut: false }],
+  accounts: [{ id: DEFAULT_ACCOUNT, email: null, signedOut: false, enabled: true, usage: null }],
   current: DEFAULT_ACCOUNT,
   adding: false,
   signInAvailable: false,
@@ -44,6 +66,8 @@ export const NO_ACCOUNTS: ClaudeAccountsState = {
   duplicate: null,
   damaged: false,
   recoverable: 0,
+  checkUsage: false,
+  usageAvailable: false,
 }
 
 export function sessionIdOfArgs(args: readonly string[]): string | null {
