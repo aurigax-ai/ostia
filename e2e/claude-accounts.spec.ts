@@ -1,4 +1,4 @@
-import { chmodSync, mkdirSync, writeFileSync } from 'node:fs'
+import { chmodSync, existsSync, mkdirSync, readdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { freshDataHome, isolatedLaunch } from './dataHome'
 import { openWorkspace, typeLine } from './helpers'
@@ -7,6 +7,7 @@ import { _electron as electron, expect, test } from './test'
 test.describe.configure({ timeout: 120_000 })
 
 const EMAIL = 'work@e2e.test'
+const ADDED_EMAIL = 'added@e2e.test'
 
 const FAKE_CLAUDE = [
   '#!/bin/sh',
@@ -16,6 +17,15 @@ const FAKE_CLAUDE = [
 ].join('\n')
 
 const PROFILE_ID = '0123456789abcdef'
+
+function pendingProfile(dataHome: string): string | null {
+  const root = join(dataHome, 'ostia', 'claude-accounts')
+  if (!existsSync(root)) return null
+  const id = readdirSync(root).find(
+    (name) => name !== PROFILE_ID && existsSync(join(root, name, '.ostia-pending')),
+  )
+  return id ? join(root, id) : null
+}
 
 function seedSignedInProfile(dataHome: string): string {
   const profile = join(dataHome, 'ostia', 'claude-accounts', PROFILE_ID)
@@ -32,7 +42,7 @@ function seedSignedInProfile(dataHome: string): string {
   return profile
 }
 
-test('CLA-E1 Add opens the in-app sign-in, a signed-in profile on disk comes back as an account, a new Claude starts on it, and a switch from a pane asks the human every time', async () => {
+test('CLA-E1 Add opens the sign-in this platform uses (a dialog on Linux, a login tab on macOS), a signed-in profile on disk comes back as an account, a new Claude starts on it, and a switch from a pane asks the human every time', async () => {
   const dataHome = freshDataHome()
   const bin = join(dataHome, 'bin')
   mkdirSync(bin, { recursive: true })
@@ -60,10 +70,33 @@ test('CLA-E1 Add opens the in-app sign-in, a signed-in profile on disk comes bac
     const list = settings.getByRole('list', { name: 'Claude accounts' })
     await expect(list.getByRole('listitem')).toHaveCount(1)
     await settings.getByRole('button', { name: 'Add' }).click()
-    const dialog = win.getByRole('dialog')
-    await expect(dialog.getByText('Sign in to Claude in your browser')).toBeVisible()
-    await dialog.getByRole('button', { name: 'Cancel' }).click()
-    await expect(dialog).toBeHidden()
+    if (process.platform === 'darwin') {
+      await expect(
+        settings.getByText('Sign in to the account in the new terminal tab.'),
+      ).toBeVisible()
+      await expect(win.getByRole('dialog')).toHaveCount(0)
+      await expect.poll(() => pendingProfile(dataHome), { timeout: 15_000 }).not.toBeNull()
+      const added = pendingProfile(dataHome) as string
+      await expect(
+        win
+          .locator('.pane-slot:not([data-hidden]) .xterm-rows')
+          .filter({ hasText: `fake-claude dir=${added}` }),
+      ).toHaveCount(1, { timeout: 15_000 })
+      await expect(win.getByText('Add Claude account').first()).toBeVisible()
+      writeFileSync(
+        join(added, '.claude.json'),
+        JSON.stringify({ oauthAccount: { emailAddress: ADDED_EMAIL } }),
+      )
+      await expect(list.getByRole('listitem').filter({ hasText: ADDED_EMAIL })).toBeVisible({
+        timeout: 30_000,
+      })
+      expect(existsSync(join(added, '.ostia-pending'))).toBe(false)
+    } else {
+      const dialog = win.getByRole('dialog')
+      await expect(dialog.getByText('Sign in to Claude in your browser')).toBeVisible()
+      await dialog.getByRole('button', { name: 'Cancel' }).click()
+      await expect(dialog).toBeHidden()
+    }
 
     await settings.getByRole('button', { name: 'Bring back' }).click()
     await expect(list.getByRole('listitem').filter({ hasText: EMAIL })).toBeVisible({
