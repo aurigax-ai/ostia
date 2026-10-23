@@ -19,6 +19,7 @@ import type { PackageBlockReason, PackagePolicy } from '../sandboxPackages/packa
 import type { PackageRef } from '../sandboxPackages/packages'
 import { SandboxUnavailableError } from './hostClient'
 import type { SandboxPathEnv } from './pathChecks'
+import { ensurePluginsFarm, linkPluginsFarm } from './pluginsFarm'
 import { type KeptSandboxHosts, SandboxHosts } from './sandboxHosts'
 import { SandboxTmpDirs } from './sandboxTmp'
 import {
@@ -152,6 +153,10 @@ export class WorkspaceSandboxes {
     return { ...this.deps.basePaths(), tmpRoot: this.deps.tmpRoot }
   }
 
+  private pluginsSource(): string {
+    return join(this.deps.basePaths().home, '.claude', 'plugins')
+  }
+
   folderProblem(workspaceId: string): SandboxFolderProblem | null {
     const folder = this.workDir(workspaceId)
     if (!folder) return null
@@ -177,7 +182,13 @@ export class WorkspaceSandboxes {
       : resolveSandbox(this.deps.globals(), emptyWorkspaceSandbox()).switches
     return fixedPolicy(
       this.basePaths(),
-      workspaceId && workDir ? { workDir, tmpDir: this.tmp.tmpDir(workspaceId) } : null,
+      workspaceId && workDir
+        ? {
+            workDir,
+            tmpDir: this.tmp.tmpDir(workspaceId),
+            pluginsDir: this.tmp.pluginsDir(workspaceId),
+          }
+        : null,
       switches,
     )
   }
@@ -210,6 +221,7 @@ export class WorkspaceSandboxes {
   private plumbingPaths(workspaceId: string): string[] {
     const base = this.basePaths()
     const tmpDir = this.tmp.tmpDir(workspaceId)
+    const pluginsDir = this.tmp.pluginsDir(workspaceId)
     return [
       base.socketPath,
       ...(base.keptSocketPath ? [base.keptSocketPath] : []),
@@ -219,6 +231,7 @@ export class WorkspaceSandboxes {
       ...(base.runtimeDir ? [base.runtimeDir] : []),
       ...(base.tmpRoot ? [base.tmpRoot] : []),
       tmpDir,
+      pluginsDir,
       join(tmpDir, SSH_AGENT_SOCKET_NAME),
     ]
   }
@@ -286,7 +299,14 @@ export class WorkspaceSandboxes {
     if (problem) throw new SandboxUnavailableError(folderProblemMessage(problem))
     const tmpDir = this.tmp.tmpDir(workspaceId)
     mkdirSync(tmpDir, { recursive: true, mode: 0o700 })
-    return buildSrtConfig(this.resolved(workspaceId), { ...this.basePaths(), workDir, tmpDir })
+    const pluginsDir = this.tmp.pluginsDir(workspaceId)
+    ensurePluginsFarm(pluginsDir, this.tmp.pluginsData(workspaceId))
+    return buildSrtConfig(this.resolved(workspaceId), {
+      ...this.basePaths(),
+      workDir,
+      tmpDir,
+      pluginsDir,
+    })
   }
 
   readRules(workspaceId: string): SandboxReadRules {
@@ -312,6 +332,11 @@ export class WorkspaceSandboxes {
     }
     const problem = this.folderProblem(workspaceId)
     if (problem) throw new SandboxUnavailableError(folderProblemMessage(problem))
+    linkPluginsFarm(
+      this.tmp.pluginsDir(workspaceId),
+      this.tmp.pluginsData(workspaceId),
+      this.pluginsSource(),
+    )
     const host = await this.hosts.host(workspaceId)
     try {
       if (extraWrites.length === 0 && extraReads.length === 0) {

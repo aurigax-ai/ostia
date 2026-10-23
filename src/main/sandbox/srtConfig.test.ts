@@ -425,6 +425,34 @@ describe('fixedPolicy', () => {
   })
 })
 
+describe('buildSrtConfig plugin data', () => {
+  const withPlugins = { ...paths, pluginsDir: '/tmp/sbx/w1-plugins' }
+
+  it('reads the private plugins folder and never writes it', () => {
+    const { filesystem } = buildSrtConfig(
+      { allowRead: [], domains: [] },
+      withPlugins,
+      'linux',
+      'x64',
+    )
+    expect(filesystem.allowRead).toContain('/tmp/sbx/w1-plugins')
+    expect(filesystem.allowWrite).not.toContain('/tmp/sbx/w1-plugins')
+    expect(filesystem.denyWrite).toContain('/tmp/sbx/w1-plugins')
+    expect(filesystem.denyWrite).toContain('/home/u/.claude/plugins')
+  })
+
+  it('lists the same folders as the fixed policy', () => {
+    const fixed = fixedPolicy(
+      withPlugins,
+      { workDir: '/home/u/app', tmpDir: '/tmp/sbx/w1', pluginsDir: '/tmp/sbx/w1-plugins' },
+      { gitConfig: false },
+      'linux',
+      'x64',
+    )
+    expect(fixed.readable).toContain('/tmp/sbx/w1-plugins')
+  })
+})
+
 describe('folderProblem', () => {
   const base = realpathSync(mkdtempSync(join(tmpdir(), 'ostia-folder-problem-')))
   const home = join(base, 'u')

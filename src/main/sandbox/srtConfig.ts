@@ -22,12 +22,13 @@ export interface SandboxPaths {
   agentSockets?: string[]
   containerSockets?: string[]
   tmpRoot?: string
+  pluginsDir?: string
   codexDir?: string
   srtVendorDir?: string
   keptSocketPath?: string
 }
 
-export type SandboxBasePaths = Omit<SandboxPaths, 'workDir' | 'tmpDir'>
+export type SandboxBasePaths = Omit<SandboxPaths, 'workDir' | 'tmpDir' | 'pluginsDir'>
 
 export const SSH_AGENT_SOCKET_NAME = 'a.sock'
 
@@ -164,7 +165,7 @@ export function canBlockSockets(platform: NodeJS.Platform, arch: string): boolea
 
 export function fixedPolicy(
   paths: SandboxBasePaths,
-  workspace: { workDir: string; tmpDir: string } | null,
+  workspace: { workDir: string; tmpDir: string; pluginsDir?: string } | null,
   switches: Pick<SandboxSwitches, 'gitConfig'>,
   platform: NodeJS.Platform = process.platform,
   arch: string = process.arch,
@@ -194,12 +195,14 @@ export function fixedPolicy(
       ...(workspace ? [workspace.workDir, workspace.tmpDir] : []),
       paths.socketPath,
       ...agentDirs,
+      ...(workspace?.pluginsDir ? [workspace.pluginsDir] : []),
       ...paths.runtimeReads,
     ],
     writable: [...(workspace ? [workspace.workDir, workspace.tmpDir] : []), ...agentDirs],
     readOnly: [
       ...AGENT_PROTECTED_FILES.map((f) => join(home, f)),
       ...(workspace ? guardedInWorkDir.map((f) => join(workspace.workDir, f)) : []),
+      ...(workspace?.pluginsDir ? [workspace.pluginsDir] : []),
       ...hiddenFiles,
     ],
     hiddenSockets,
@@ -223,9 +226,9 @@ export function buildSrtConfig(
   platform: NodeJS.Platform = process.platform,
   arch: string = process.arch,
 ): SrtConfig {
-  const { home, workDir, tmpDir } = paths
+  const { home, workDir, tmpDir, pluginsDir } = paths
   const switches = { ...DEFAULT_SWITCHES, ...policy.switches }
-  const fixed = fixedPolicy(paths, { workDir, tmpDir }, switches, platform, arch)
+  const fixed = fixedPolicy(paths, { workDir, tmpDir, pluginsDir }, switches, platform, arch)
   const guarded = protectedPaths(paths)
   const expand = (list: readonly string[] = []): string[] => list.map((p) => expandHome(p, home))
   const denyRead = expand(policy.denyRead)
@@ -264,6 +267,7 @@ export function buildSrtConfig(
           paths.socketPath,
           ...(paths.keptSocketPath ? [paths.keptSocketPath] : []),
           ...agentDirs,
+          ...(pluginsDir ? [pluginsDir] : []),
           ...paths.runtimeReads,
           ...opened(policy.allowRead),
           ...allowWrite,

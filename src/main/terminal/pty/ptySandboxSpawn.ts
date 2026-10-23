@@ -81,6 +81,7 @@ export function createSandboxSpawn({
         ),
         ...secrets.env,
         TMPDIR: workspaceSandboxes.tmp.tmpDir(workspaceId),
+        CLAUDE_CODE_PLUGIN_CACHE_DIR: workspaceSandboxes.tmp.pluginsDir(workspaceId),
       }
       return {
         ...plan,
