@@ -30,7 +30,7 @@ describe('PromptCard', () => {
     expect(onDismiss).toHaveBeenCalledTimes(1)
   })
 
-  it('floats at the bottom left and never grows past 560 px', () => {
+  it('floats at the bottom right and never grows past 560 px', () => {
     render(
       <PromptCard
         icon={ShieldWarningIcon}
@@ -42,6 +42,12 @@ describe('PromptCard', () => {
     )
 
     const card = screen.getByRole('region', { name: 'Card' })
-    expect(card).toHaveClass('absolute', 'bottom-3', 'left-3', 'max-w-[560px]')
+    expect(card).toHaveClass(
+      'absolute',
+      'bottom-3',
+      'right-3',
+      'origin-bottom-right',
+      'max-w-[560px]',
+    )
   })
 })
