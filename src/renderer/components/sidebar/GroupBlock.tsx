@@ -92,7 +92,6 @@ export function GroupBlock({
           }}
           onDragOver={(e) => {
             if (!isRailDrag(e)) return
-            e.preventDefault()
             const top = upperHalf(e)
             const groupDrag = e.dataTransfer.types.includes(GROUP_DND)
             drag.over({
@@ -100,11 +99,6 @@ export function GroupBlock({
               id: group.id,
               place: top ? 'before' : groupDrag ? 'after' : 'inside',
             })
-          }}
-          onDrop={(e) => {
-            if (!isRailDrag(e)) return
-            e.preventDefault()
-            drag.drop()
           }}
           onDragEnd={drag.end}
         >

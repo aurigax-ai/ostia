@@ -98,8 +98,6 @@ export function WorkspaceRow({
             return
           }
           if (!isRailDrag(e)) return
-          e.preventDefault()
-          e.stopPropagation()
           const zone = rowDropZone('workspace', dragFraction(e), mergeable)
           if (zone === 'merge') drag.over({ kind: 'merge', id: w.id })
           else if (zone === 'before' || zone === 'after') {
@@ -114,12 +112,7 @@ export function WorkspaceRow({
             if (!takesDraggedTab(w.id)) return
             e.preventDefault()
             tabDrop.drop(w.id)
-            return
           }
-          if (!isRailDrag(e)) return
-          e.preventDefault()
-          e.stopPropagation()
-          drag.drop()
         }}
         onDragEnd={(e) => {
           drag.end()
