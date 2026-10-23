@@ -447,7 +447,7 @@ export const settingsZhHant: typeof settingsEn = {
     title: '設定',
     trustWorkspaceFolders: '為 Claude 信任工作區資料夾',
     trustWorkspaceFoldersDesc:
-      '當 {product} 在工作區資料夾接回或啟動 Claude 時，在 Claude 自己的設定檔（~/.claude.json）將該資料夾標為信任，Claude 便不會詢問。這也會讓 Claude 在 {product} 之外信任此資料夾。絕不包含你的家目錄、暫存或沙箱工作區。關閉此設定不會移除已給予的信任。',
+      '當 {product} 在工作區資料夾接回或啟動 Claude 時，在 Claude 自己的設定檔（~/.claude.json）將該資料夾標為信任，Claude 便不會詢問。這也會讓 Claude 在 {product} 之外信任此資料夾。暫存工作區也包含在內。絕不包含你的家目錄或沙箱工作區。關閉此設定不會移除已給予的信任。',
     uiFont: '介面字型',
     uiFontDesc: '大小與粗細決定內文；標籤與標題依此縮放。',
     warnRiskyPaste: '確認多行貼上',

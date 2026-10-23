@@ -17,13 +17,14 @@ export interface TrustPlaceDeps {
 export function trustPlaceOf(
   deps: TrustPlaceDeps,
   identity: Pick<PaneIdentity, 'paneId' | 'workspaceId' | 'manager'>,
+  scratchDir: string | null = null,
 ): Omit<TrustPlace, 'configDir' | 'customOAuth'> | null {
   if (identity.manager) return null
   const { workspaceId } = identity
-  if (deps.scratchFolders.isScratch(workspaceId) || deps.workspaceSandboxes.isEnabled(workspaceId))
-    return null
+  if (deps.workspaceSandboxes.isEnabled(workspaceId)) return null
+  if (deps.scratchFolders.isScratch(workspaceId) && !scratchDir) return null
   const home = homedir()
-  const workDir = workspaceFolder(workDirForWorkspace(workspaceId), home)
+  const workDir = scratchDir ?? workspaceFolder(workDirForWorkspace(workspaceId), home)
   const report = deps.ptys.get(identity.paneId)?.mirror.cwdReport
   if (!workDir || !report || !isHostNamed(report.host, hostname())) return null
   return { folder: report.path, workDir, home }

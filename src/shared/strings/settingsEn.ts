@@ -467,7 +467,7 @@ export const settingsEn = {
     title: 'Settings',
     trustWorkspaceFolders: 'Trust workspace folders for Claude',
     trustWorkspaceFoldersDesc:
-      'When {product} resumes or starts Claude in a workspace folder, mark that folder trusted in Claude’s own config (~/.claude.json) so Claude doesn’t ask. This trusts the folder for Claude outside {product} too. Never your home folder, scratch or sandboxed workspaces. Turning this off doesn’t remove trust already given.',
+      'When {product} resumes or starts Claude in a workspace folder, mark that folder trusted in Claude’s own config (~/.claude.json) so Claude doesn’t ask. This trusts the folder for Claude outside {product} too. Scratch workspaces count too. Never your home folder or sandboxed workspaces. Turning this off doesn’t remove trust already given.',
     uiFont: 'Interface font',
     uiFontDesc: 'Size and weight set the body text; labels and headings scale from them.',
     warnRiskyPaste: 'Confirm multi-line paste',

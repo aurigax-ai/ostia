@@ -108,7 +108,7 @@ interface RegisterDeps {
   scratchFolders: Pick<ScratchFolders, 'isScratch'>
   workspaceWindowId: (workspaceId: string) => string | undefined
   execCommand: CommandBridge['execCommand']
-  carryTrust: (profileDir: string, identity: PaneIdentity) => Promise<boolean>
+  trustForStart: (profileDir: string, identity: PaneIdentity) => Promise<boolean>
   windowIds: () => string[]
 }
 
@@ -180,11 +180,12 @@ export function registerClaudeAccountsWiring(deps: RegisterDeps): void {
 
   registerControlMethod('claudeAccount.start', {
     handler: async (params, ctx) => {
-      if (defaultOnly(ctx)) return { dir: '' }
       const args = (params as { args?: unknown } | null)?.args
       const argv = Array.isArray(args) ? args.filter((a): a is string => typeof a === 'string') : []
-      const dir = await claudeAccounts.startDirectory(argv, ctx.identity.paneId)
-      if (dir) await deps.carryTrust(dir, ctx.identity)
+      const dir = defaultOnly(ctx)
+        ? ''
+        : await claudeAccounts.startDirectory(argv, ctx.identity.paneId)
+      await deps.trustForStart(dir, ctx.identity)
       return { dir }
     },
   })
