@@ -20,8 +20,8 @@ afterEach(() => {
 function open(over: Partial<ClaudeAccountsState> = {}) {
   vi.mocked(window.ostia.claudeAccounts.state).mockResolvedValue({
     accounts: [
-      { id: 'default', email: 'me@example.com', signedOut: false, usage: null },
-      { id: WORK, email: 'work@example.com', signedOut: false, usage: null },
+      { id: 'default', email: 'me@example.com', signedOut: false, enabled: true, usage: null },
+      { id: WORK, email: 'work@example.com', signedOut: false, enabled: true, usage: null },
     ],
     current: WORK,
     adding: false,
@@ -71,13 +71,25 @@ describe('ClaudeAccountsMenu', () => {
     await open({
       checkUsage: true,
       accounts: [
-        { id: 'default', email: 'me@example.com', signedOut: false, usage: null },
-        { id: WORK, email: 'work@example.com', signedOut: false, usage },
+        { id: 'default', email: 'me@example.com', signedOut: false, enabled: true, usage: null },
+        { id: WORK, email: 'work@example.com', signedOut: false, enabled: true, usage },
       ],
     })
     const work = await screen.findByRole('menuitemradio', { name: /work@example.com/ })
     expect(work).toHaveTextContent(/Session 42% · Weekly 18% · pace 57% · resets \w+/)
     expect(screen.getByText(/^Usage checked 3 min/)).toBeInTheDocument()
+  })
+
+  it('leaves out an account that is turned off', async () => {
+    await open({
+      current: 'default',
+      accounts: [
+        { id: 'default', email: 'me@example.com', signedOut: false, enabled: true, usage: null },
+        { id: WORK, email: 'work@example.com', signedOut: false, enabled: false, usage: null },
+      ],
+    })
+    await screen.findByRole('menuitemradio', { name: /me@example.com/ })
+    expect(screen.queryByRole('menuitemradio', { name: /work@example.com/ })).toBeNull()
   })
 
   it('shows no usage and no checked line while the check is off', async () => {

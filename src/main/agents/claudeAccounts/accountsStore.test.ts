@@ -47,6 +47,22 @@ describe('ClaudeAccountsStore', () => {
     expect(new ClaudeAccountsStore(file).checkUsage()).toBe(true)
   })
 
+  it('turns an account off across a restart, never the current one, and forgets it with the account', () => {
+    const store = new ClaudeAccountsStore(file)
+    store.add(account(WORK, 'work@example.com'))
+    expect(store.setEnabled(WORK, false)).toBe(true)
+    expect(new ClaudeAccountsStore(file).isEnabled(WORK)).toBe(false)
+    expect(store.use(WORK)).toBe(false)
+    expect(store.setEnabled(WORK, true)).toBe(true)
+    expect(store.use(WORK)).toBe(true)
+    expect(store.setEnabled(WORK, false)).toBe(false)
+    store.use('default')
+    store.setEnabled(WORK, false)
+    store.remove(WORK)
+    store.add(account(WORK, 'work@example.com'))
+    expect(store.isEnabled(WORK)).toBe(true)
+  })
+
   it('refuses to use or remember an account it does not know', () => {
     const store = new ClaudeAccountsStore(file)
     expect(store.use(WORK)).toBe(false)

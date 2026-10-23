@@ -50,9 +50,11 @@ export function ClaudeAccountsMenu(): JSX.Element {
           value={current}
           onValueChange={(id) => void window.ostia.claudeAccounts.use(String(id))}
         >
-          {accounts.map((account) => (
-            <AccountMenuRow key={account.id} account={account} />
-          ))}
+          {accounts
+            .filter((account) => account.enabled)
+            .map((account) => (
+              <AccountMenuRow key={account.id} account={account} />
+            ))}
         </ContextMenuRadioGroup>
         {checkUsage && checked ? <MenuLabel>{checked}</MenuLabel> : null}
       </ContextMenuGroup>

@@ -7,7 +7,7 @@ ostia settings set appearance.terminal.size 14 [--dry-run]   # value parsed as J
 ostia settings unset appearance.terminal.size
 ostia settings set keybindings.palette.toggle '"Ctrl+Shift+Y"'   # null unbinds
 ostia snippet list [--json] | snippet show <name> [--json]
-ostia account list [--json]              # number, email, current, session % and weekly % of each Claude account
+ostia account list [--json]              # number, email, current or off, session % and weekly % of each Claude account
 ostia account switch <email|number>     # the account new Claude sessions start on; the human is asked every time
 ```
 
@@ -26,3 +26,4 @@ arrows, Escape, Tab) is refused for a keybinding. Snippets come from
 no verb that runs one. `account switch` changes only the account new Claude sessions start on, never
 a running one; the human approves it on a card each time, and nothing here adds, removes or signs out an account.
 The two usage columns stay empty until the human turns on Check usage in Settings, and on macOS.
+An account the human turned off in Settings is listed as `off`; `account switch` to it fails with `account-off`.

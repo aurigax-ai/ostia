@@ -10,10 +10,13 @@ if (!Element.prototype.getAnimations) {
 }
 
 const WORK = 'a'.repeat(16)
-const ACCOUNT = { id: WORK, email: 'work@example.com', signedOut: true, usage: null }
+const ACCOUNT = { id: WORK, email: 'work@example.com', signedOut: true, enabled: true, usage: null }
 
 const state = (signIn: ClaudeAccountsState['signIn']): ClaudeAccountsState => ({
-  accounts: [{ id: 'default', email: 'me@example.com', signedOut: false, usage: null }, ACCOUNT],
+  accounts: [
+    { id: 'default', email: 'me@example.com', signedOut: false, enabled: true, usage: null },
+    ACCOUNT,
+  ],
   current: 'default',
   adding: false,
   signInAvailable: true,

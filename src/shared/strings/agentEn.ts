@@ -32,11 +32,16 @@ export const agentEn = {
     defaultAccount: 'Default account',
     defaultLabel: 'Default',
     duplicate: '{email} is already added.',
+    enabledCurrent:
+      'New sessions use this account, so it stays on. Switch to another account first.',
+    enabledDefault: 'The Default account is always on.',
+    enabledFor: 'Use {account}',
     listLabel: 'Claude accounts',
     loginTitle: 'Add Claude account',
     manage: 'Manage accounts…',
     menuLabel: 'Claude accounts',
     noAccounts: 'No Claude accounts.',
+    off: 'Off',
     recoverBack: 'Bring back',
     recoverableMany:
       '{count} signed-in accounts are on this computer but not in the list. Bring them back to use them again.',

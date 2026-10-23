@@ -312,6 +312,7 @@ export function makeOstiaMock(overrides?: Partial<OstiaBridge>): OstiaBridge {
       use: vi.fn().mockResolvedValue(true),
       recover: vi.fn().mockResolvedValue(null),
       setCheckUsage: vi.fn().mockResolvedValue(true),
+      setEnabled: vi.fn().mockResolvedValue('done'),
       beginSignIn: vi.fn().mockResolvedValue('started'),
       openSignIn: vi.fn().mockResolvedValue(true),
       submitSignInCode: vi.fn().mockResolvedValue('accepted'),

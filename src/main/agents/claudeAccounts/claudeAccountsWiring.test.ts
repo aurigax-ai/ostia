@@ -121,8 +121,22 @@ describe('account.list', () => {
     expect(await call('account.list', undefined)).toEqual({
       ok: true,
       accounts: [
-        { number: 1, email: 'me@example.com', current: false, session: null, weekly: null },
-        { number: 2, email: 'work@example.com', current: true, session: null, weekly: null },
+        {
+          number: 1,
+          email: 'me@example.com',
+          current: false,
+          enabled: true,
+          session: null,
+          weekly: null,
+        },
+        {
+          number: 2,
+          email: 'work@example.com',
+          current: true,
+          enabled: true,
+          session: null,
+          weekly: null,
+        },
       ],
     })
     expect(registered.get('account.list')?.cap).toBe('settings-read')
@@ -166,6 +180,16 @@ describe('account.switch', () => {
       expect.objectContaining({ kind: 'account-switch', caps: [], subject: 'work@example.com' }),
     )
     expect(store.current()).toBe(WORK)
+  })
+
+  it('refuses an account that is turned off without asking the human', async () => {
+    store.setEnabled(WORK, false)
+    expect(await call('account.switch', { target: 'work@example.com' })).toEqual({
+      ok: false,
+      error: 'account-off',
+    })
+    expect(request).not.toHaveBeenCalled()
+    expect(store.current()).toBe('default')
   })
 
   it('does not switch when the human denies or does not answer', async () => {
@@ -287,6 +311,8 @@ describe('the window channels', () => {
     expect(await add('ws-1', guestEvent as never)).toBe('not-opened')
     expect(await ipc.get('claude-accounts:recover')?.(guestEvent)).toBeNull()
     expect(await ipc.get('claude-accounts:set-check-usage')?.(guestEvent, true)).toBe(false)
+    expect(await ipc.get('claude-accounts:set-enabled')?.(guestEvent, WORK, false)).toBe('unknown')
+    expect(store.isEnabled(WORK)).toBe(true)
     expect(store.current()).toBe('default')
     expect(store.checkUsage()).toBe(false)
   })
@@ -295,6 +321,13 @@ describe('the window channels', () => {
     expect(await ipc.get('claude-accounts:use')?.(windowEvent, WORK)).toBe(true)
     expect(await ipc.get('claude-accounts:remove')?.(windowEvent, 7)).toBe('unknown')
     expect(await ipc.get('claude-accounts:remove')?.(windowEvent, WORK)).toBe('removed')
+  })
+
+  it('turns an account off and on from a window, never with a value that is not a boolean', async () => {
+    expect(await ipc.get('claude-accounts:set-enabled')?.(windowEvent, WORK, 'no')).toBe('unknown')
+    expect(await ipc.get('claude-accounts:set-enabled')?.(windowEvent, WORK, false)).toBe('done')
+    expect(store.isEnabled(WORK)).toBe(false)
+    expect(await ipc.get('claude-accounts:use')?.(windowEvent, WORK)).toBe(false)
   })
 
   it('turns the usage check on and off only for a boolean from a window', async () => {

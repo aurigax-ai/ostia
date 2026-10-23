@@ -152,6 +152,41 @@ describe('usage', () => {
       { id: WORK_ID, dir: join(root, WORK_ID) },
     ])
   })
+
+  it('never checks an account that is turned off, and shows no usage for it', async () => {
+    store.add({ id: WORK_ID, email: 'work@example.com', addedAt: 1 })
+    const { withPoller } = withUsage()
+    expect(await withPoller.setEnabled(WORK_ID, false)).toBe('done')
+    expect(await withPoller.usageTargets()).toEqual([{ id: 'default', dir: home }])
+    const work = (await withPoller.state()).accounts[1]
+    expect(work).toMatchObject({ enabled: false, usage: null })
+  })
+})
+
+describe('turning an account off', () => {
+  const WORK_ID = 'a'.repeat(16)
+
+  beforeEach(() => {
+    store.add({ id: WORK_ID, email: 'work@example.com', addedAt: 1 })
+  })
+
+  it('keeps the account listed and signed in, and publishes it off', async () => {
+    expect(await accounts.setEnabled(WORK_ID, false)).toBe('done')
+    expect(published.at(-1)?.accounts.map((a) => [a.email, a.enabled, a.signedOut])).toEqual([
+      ['me@example.com', true, false],
+      ['work@example.com', false, false],
+    ])
+    expect(await accounts.use(WORK_ID)).toBe(false)
+    expect(await accounts.setEnabled(WORK_ID, true)).toBe('done')
+    expect(await accounts.use(WORK_ID)).toBe(true)
+  })
+
+  it('refuses the default account, the current one and an unknown id', async () => {
+    expect(await accounts.setEnabled('default', false)).toBe('default')
+    await accounts.use(WORK_ID)
+    expect(await accounts.setEnabled(WORK_ID, false)).toBe('current')
+    expect(await accounts.setEnabled('c'.repeat(16), false)).toBe('unknown')
+  })
 })
 
 describe('adding an account', () => {

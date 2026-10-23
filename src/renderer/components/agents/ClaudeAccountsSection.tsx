@@ -5,6 +5,7 @@ import {
   type RemoveAccountOutcome,
 } from '@shared/claudeAccounts/claudeAccounts'
 import { useState } from 'react'
+import { Hint } from '@/components/common/Hint'
 import { Notice } from '@/components/common/Notice'
 import { TextLink } from '@/components/common/TextLink'
 import { ToggleRow } from '@/components/settingsKit/ControlRow'
@@ -24,6 +25,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { Button } from '@/components/ui/button'
+import { Switch } from '@/components/ui/switch'
 import { useClaudeAccounts } from '@/lib/agents/useClaudeAccounts'
 import { fmt, useDict } from '@/lib/app/useDict'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
@@ -183,10 +185,25 @@ function AccountRow({
   const usage = useUsageText()
   const name = accountName(account, d.defaultAccount)
   const removable = account.id !== DEFAULT_ACCOUNT
-  const meta = [account.id === DEFAULT_ACCOUNT ? d.defaultLabel : null, active ? d.active : null]
+  const meta = [
+    account.id === DEFAULT_ACCOUNT ? d.defaultLabel : null,
+    active ? d.active : null,
+    account.enabled ? null : d.off,
+  ]
+  let locked: string | null = null
+  if (!removable) locked = d.enabledDefault
+  else if (active) locked = d.enabledCurrent
+  const toggle = (
+    <Switch
+      checked={account.enabled}
+      disabled={locked !== null}
+      aria-label={fmt(d.enabledFor, { account: name })}
+      onCheckedChange={(on) => void window.ostia.claudeAccounts.setEnabled(account.id, on)}
+    />
+  )
   const actions = (
     <>
-      {active ? null : (
+      {active || !account.enabled ? null : (
         <Button
           variant="ghost"
           size="sm"
@@ -194,6 +211,13 @@ function AccountRow({
         >
           {d.switchTo}
         </Button>
+      )}
+      {locked ? (
+        <Hint label={locked}>
+          <span className="inline-flex">{toggle}</span>
+        </Hint>
+      ) : (
+        toggle
       )}
       {removable ? (
         <RowRemoveButton label={fmt(d.removeFor, { account: name })} onClick={onRemove} />

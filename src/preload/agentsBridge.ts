@@ -30,6 +30,7 @@ export const agentsBridge: Pick<
     use: (id) => ipcRenderer.invoke('claude-accounts:use', id),
     recover: () => ipcRenderer.invoke('claude-accounts:recover'),
     setCheckUsage: (on) => ipcRenderer.invoke('claude-accounts:set-check-usage', on),
+    setEnabled: (id, enabled) => ipcRenderer.invoke('claude-accounts:set-enabled', id, enabled),
     beginSignIn: (id) => ipcRenderer.invoke('claude-accounts:begin-sign-in', id),
     openSignIn: () => ipcRenderer.invoke('claude-accounts:open-sign-in'),
     submitSignInCode: (code) => ipcRenderer.invoke('claude-accounts:submit-code', code),

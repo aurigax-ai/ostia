@@ -6,6 +6,7 @@ import {
   type ClaudeAccountsState,
   DEFAULT_ACCOUNT,
   type RemoveAccountOutcome,
+  type SetEnabledOutcome,
   type SubmitCodeOutcome,
   sessionIdOfArgs,
 } from '../../../shared/claudeAccounts/claudeAccounts'
@@ -87,7 +88,8 @@ export class ClaudeAccounts {
         id,
         email,
         signedOut: (await this.deps.loginState(join(this.deps.root, id))) === 'signed-out',
-        usage: usageOf(id),
+        enabled: store.isEnabled(id),
+        usage: store.isEnabled(id) ? usageOf(id) : null,
       })),
     )
     return {
@@ -96,6 +98,7 @@ export class ClaudeAccounts {
           id: DEFAULT_ACCOUNT,
           email: await this.deps.defaultEmail(),
           signedOut: false,
+          enabled: true,
           usage: usageOf(DEFAULT_ACCOUNT),
         },
         ...profiles,
@@ -137,11 +140,14 @@ export class ClaudeAccounts {
   async usageTargets(): Promise<UsageTarget[]> {
     const { store, root } = this.deps
     const profiles = await Promise.all(
-      store.accounts().map(async ({ id }) => ({
-        id,
-        dir: join(root, id),
-        signedOut: (await this.deps.loginState(join(root, id))) === 'signed-out',
-      })),
+      store
+        .accounts()
+        .filter(({ id }) => store.isEnabled(id))
+        .map(async ({ id }) => ({
+          id,
+          dir: join(root, id),
+          signedOut: (await this.deps.loginState(join(root, id))) === 'signed-out',
+        })),
     )
     return [
       { id: DEFAULT_ACCOUNT, dir: this.deps.defaultHome() },
@@ -220,6 +226,17 @@ export class ClaudeAccounts {
     await removeProfile(this.deps.root, id)
     await this.publish()
     return 'removed'
+  }
+
+  async setEnabled(id: string, enabled: boolean): Promise<SetEnabledOutcome> {
+    const { store } = this.deps
+    if (store.isDamaged) return 'damaged'
+    if (id === DEFAULT_ACCOUNT) return 'default'
+    if (!store.has(id)) return 'unknown'
+    if (!enabled && store.current() === id) return 'current'
+    store.setEnabled(id, enabled)
+    await this.publish()
+    return 'done'
   }
 
   async use(id: string): Promise<boolean> {

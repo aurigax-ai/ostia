@@ -19,6 +19,7 @@ interface StoredAccounts {
   sessions: Record<string, string>
   panes: Record<string, string>
   checkUsage: boolean
+  disabled: string[]
 }
 
 function parseAccount(raw: unknown): StoredAccount | null {
@@ -50,6 +51,11 @@ function parseStored(raw: unknown): StoredAccounts | null {
     sessions: knownAccounts(stored.sessions, known),
     panes: knownAccounts(stored.panes, known),
     checkUsage: stored.checkUsage === true,
+    disabled: Array.isArray(stored.disabled)
+      ? stored.disabled.filter(
+          (id): id is string => typeof id === 'string' && known.has(id) && id !== current,
+        )
+      : [],
   }
 }
 
@@ -69,6 +75,7 @@ const EMPTY = (): StoredAccounts => ({
   sessions: {},
   panes: {},
   checkUsage: false,
+  disabled: [],
 })
 
 export class ClaudeAccountsStore {
@@ -132,6 +139,19 @@ export class ClaudeAccountsStore {
     return true
   }
 
+  isEnabled(id: string): boolean {
+    return !this.data.disabled.includes(id)
+  }
+
+  setEnabled(id: string, enabled: boolean): boolean {
+    if (this.damaged || !this.has(id)) return false
+    if (!enabled && this.data.current === id) return false
+    const others = this.data.disabled.filter((other) => other !== id)
+    this.data.disabled = enabled ? others : [...others, id]
+    this.save()
+    return true
+  }
+
   add(account: StoredAccount): boolean {
     if (this.damaged) return false
     this.data.accounts = [...this.data.accounts, account]
@@ -142,6 +162,7 @@ export class ClaudeAccountsStore {
   remove(id: string): boolean {
     if (this.damaged || !this.has(id)) return false
     this.data.accounts = this.data.accounts.filter((account) => account.id !== id)
+    this.data.disabled = this.data.disabled.filter((other) => other !== id)
     if (this.data.current === id) this.data.current = DEFAULT_ACCOUNT
     const kept = ([, account]: [string, string]) => account !== id
     this.data.sessions = Object.fromEntries(Object.entries(this.data.sessions).filter(kept))
@@ -151,7 +172,9 @@ export class ClaudeAccountsStore {
   }
 
   use(id: string): boolean {
-    if (this.damaged || (id !== DEFAULT_ACCOUNT && !this.has(id))) return false
+    if (this.damaged || (id !== DEFAULT_ACCOUNT && !this.has(id)) || !this.isEnabled(id)) {
+      return false
+    }
     this.data.current = id
     this.save()
     return true

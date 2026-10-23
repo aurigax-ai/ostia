@@ -3,6 +3,7 @@ import type {
   BeginSignInOutcome,
   ClaudeAccountsState,
   RemoveAccountOutcome,
+  SetEnabledOutcome,
   SubmitCodeOutcome,
 } from './claudeAccounts'
 
@@ -14,6 +15,7 @@ interface ClaudeAccountsApi {
   use: (id: string) => Promise<boolean>
   recover: () => Promise<number | null>
   setCheckUsage: (on: boolean) => Promise<boolean>
+  setEnabled: (id: string, enabled: boolean) => Promise<SetEnabledOutcome>
   beginSignIn: (id: string | null) => Promise<BeginSignInOutcome>
   openSignIn: () => Promise<boolean>
   submitSignInCode: (code: string) => Promise<SubmitCodeOutcome>

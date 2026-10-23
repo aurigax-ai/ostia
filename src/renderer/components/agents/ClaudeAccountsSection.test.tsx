@@ -15,9 +15,9 @@ const SPARE = 'b'.repeat(16)
 
 const state = (over: Partial<ClaudeAccountsState> = {}): ClaudeAccountsState => ({
   accounts: [
-    { id: 'default', email: 'me@example.com', signedOut: false, usage: null },
-    { id: WORK, email: 'work@example.com', signedOut: false, usage: null },
-    { id: SPARE, email: 'spare@example.com', signedOut: false, usage: null },
+    { id: 'default', email: 'me@example.com', signedOut: false, enabled: true, usage: null },
+    { id: WORK, email: 'work@example.com', signedOut: false, enabled: true, usage: null },
+    { id: SPARE, email: 'spare@example.com', signedOut: false, enabled: true, usage: null },
   ],
   current: WORK,
   adding: false,
@@ -61,7 +61,7 @@ describe('ClaudeAccountsSection', () => {
   it('names a default account without a known login', async () => {
     show(
       state({
-        accounts: [{ id: 'default', email: null, signedOut: false, usage: null }],
+        accounts: [{ id: 'default', email: null, signedOut: false, enabled: true, usage: null }],
         current: 'default',
       }),
     )
@@ -179,11 +179,12 @@ describe('ClaudeAccountsSection', () => {
       state({
         checkUsage: true,
         accounts: [
-          { id: 'default', email: 'me@example.com', signedOut: false, usage: null },
+          { id: 'default', email: 'me@example.com', signedOut: false, enabled: true, usage: null },
           {
             id: WORK,
             email: 'work@example.com',
             signedOut: false,
+            enabled: true,
             usage: {
               session: { percent: 91, resetsAt: now + 1_800_000 },
               weekly: { percent: 67, resetsAt: now + 2 * 86_400_000 },
@@ -205,6 +206,42 @@ describe('ClaudeAccountsSection', () => {
     render(<ClaudeAccountsSection />)
     await screen.findByText('work@example.com')
     expect(screen.queryByRole('switch', { name: 'Check usage' })).toBeNull()
+  })
+
+  it('turns an account off and on from its switch; an off account has no Switch to', async () => {
+    show(
+      state({
+        accounts: [
+          { id: 'default', email: 'me@example.com', signedOut: false, enabled: true, usage: null },
+          { id: WORK, email: 'work@example.com', signedOut: false, enabled: true, usage: null },
+          { id: SPARE, email: 'spare@example.com', signedOut: false, enabled: false, usage: null },
+        ],
+      }),
+    )
+    render(<ClaudeAccountsSection />)
+    const spare = (await screen.findByText('spare@example.com')).closest('li') as HTMLElement
+    expect(spare).toHaveTextContent('Off')
+    expect(within(spare).queryByRole('button', { name: 'Switch to' })).toBeNull()
+    await userEvent.click(within(spare).getByRole('switch', { name: 'Use spare@example.com' }))
+    expect(window.ostia.claudeAccounts.setEnabled).toHaveBeenCalledWith(SPARE, true)
+  })
+
+  it('keeps the Default and the current account on, with the switch disabled', async () => {
+    show(state())
+    render(<ClaudeAccountsSection />)
+    await screen.findByText('work@example.com')
+    expect(screen.getByRole('switch', { name: 'Use me@example.com' })).toHaveAttribute(
+      'aria-disabled',
+      'true',
+    )
+    expect(screen.getByRole('switch', { name: 'Use work@example.com' })).toHaveAttribute(
+      'aria-disabled',
+      'true',
+    )
+    expect(screen.getByRole('switch', { name: 'Use spare@example.com' })).not.toHaveAttribute(
+      'aria-disabled',
+      'true',
+    )
   })
 
   it('says what the accounts share and that other accounts’ changes are replaced', async () => {
@@ -244,8 +281,14 @@ describe('ClaudeAccountsSection', () => {
         available({
           signIn: 'waiting',
           accounts: [
-            { id: 'default', email: 'me@example.com', signedOut: false, usage: null },
-            { id: SPARE, email: 'spare@example.com', signedOut: true, usage: null },
+            {
+              id: 'default',
+              email: 'me@example.com',
+              signedOut: false,
+              enabled: true,
+              usage: null,
+            },
+            { id: SPARE, email: 'spare@example.com', signedOut: true, enabled: true, usage: null },
           ],
           current: 'default',
         }),

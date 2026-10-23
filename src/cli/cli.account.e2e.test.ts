@@ -112,8 +112,22 @@ describe('ostia account (the real CLI against a live control server)', () => {
     expect(res.stdout).toBe('1\tme@example.com\tcurrent\t\t\n2\twork@example.com\t\t42%\t18%\n')
     const json = JSON.parse((await ostia(['account', 'list', '--json'])).stdout)
     expect(json.accounts).toEqual([
-      { number: 1, email: 'me@example.com', current: true, session: null, weekly: null },
-      { number: 2, email: 'work@example.com', current: false, session: 42, weekly: 18 },
+      {
+        number: 1,
+        email: 'me@example.com',
+        current: true,
+        enabled: true,
+        session: null,
+        weekly: null,
+      },
+      {
+        number: 2,
+        email: 'work@example.com',
+        current: false,
+        enabled: true,
+        session: 42,
+        weekly: 18,
+      },
     ])
   })
 
@@ -126,6 +140,19 @@ describe('ostia account (the real CLI against a live control server)', () => {
     expect(granted.code).not.toBe(0)
     expect(granted.stderr).toContain('not-approved')
     expect(store.current()).toBe('default')
+  })
+
+  it('marks an account that is turned off and refuses to switch to it', async () => {
+    store.setEnabled(WORK, false)
+    try {
+      expect((await ostia(['account', 'list'])).stdout).toContain('2\twork@example.com\toff\t')
+      const res = await ostia(['account', 'switch', '2'])
+      expect(res.code).not.toBe(0)
+      expect(res.stderr).toContain('ostia account switch: account-off')
+      expect(res.stderr).toContain('Settings › Claude accounts')
+    } finally {
+      store.setEnabled(WORK, true)
+    }
   })
 
   it('names an unknown account and the command to list them', async () => {

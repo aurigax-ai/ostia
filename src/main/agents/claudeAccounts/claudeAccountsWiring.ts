@@ -165,6 +165,11 @@ export function registerClaudeAccountsWiring(deps: RegisterDeps): void {
   ipcMain.handle('claude-accounts:use', (e, id: unknown) =>
     fromWindow(e) && typeof id === 'string' ? claudeAccounts.use(id) : false,
   )
+  ipcMain.handle('claude-accounts:set-enabled', (e, id: unknown, enabled: unknown) =>
+    fromWindow(e) && typeof id === 'string' && typeof enabled === 'boolean'
+      ? claudeAccounts.setEnabled(id, enabled)
+      : 'unknown',
+  )
   ipcMain.handle('claude-accounts:set-check-usage', (e, on: unknown) =>
     fromWindow(e) && typeof on === 'boolean' ? claudeAccounts.setCheckUsage(on) : false,
   )
@@ -190,10 +195,11 @@ export function registerClaudeAccountsWiring(deps: RegisterDeps): void {
       const now = Date.now()
       return {
         ok: true,
-        accounts: accounts.map(({ id, email, usage }, i) => ({
+        accounts: accounts.map(({ id, email, enabled, usage }, i) => ({
           number: i + 1,
           email,
           current: id === current,
+          enabled,
           session: percentNow(usage?.session ?? null, now),
           weekly: percentNow(usage?.weekly ?? null, now),
         })),
@@ -210,6 +216,7 @@ export function registerClaudeAccountsWiring(deps: RegisterDeps): void {
       const { accounts } = await claudeAccounts.state()
       const account = accountOfTarget(accounts, target)
       if (!account) return { ok: false, error: 'unknown-account' }
+      if (!account.enabled) return { ok: false, error: 'account-off' }
       if (!(await humanApproves(ctx, account))) return { ok: false, error: 'not-approved' }
       if (!(await claudeAccounts.use(account.id))) return { ok: false, error: 'unavailable' }
       return { ok: true, number: accounts.indexOf(account) + 1, email: account.email }
