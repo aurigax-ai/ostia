@@ -274,6 +274,7 @@ export const filesEn = {
     blocked: 'This page tried to reach {host}; previews have no network',
     busy: 'This page has kept a processor core busy for a while.',
     captureRegion: 'Capture region',
+    controls: 'File actions',
     copyErrors: 'Copy errors',
     editSource: 'Edit page source',
     errorActions: 'Error actions',
