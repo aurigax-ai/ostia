@@ -3031,7 +3031,7 @@ button.prompt-chip:hover {
   flex: 0 0 auto;
   align-items: center;
   gap: 8px;
-  padding: 4px 52px 4px 6px;
+  padding: 4px 88px 4px 6px;
   border-bottom: 1px solid var(--line);
   color: var(--attn-fg);
   font-size: var(--text-ui-sm);
@@ -4526,20 +4526,6 @@ button.prompt-chip:hover {
 
 .typeset {
   user-select: text;
-}
-
-.editor-mode {
-  position: absolute;
-  top: 6px;
-  right: 18px;
-  z-index: 3;
-}
-
-.editor-send {
-  position: absolute;
-  top: 6px;
-  right: 46px;
-  z-index: 3;
 }
 
 .viewer-surface {

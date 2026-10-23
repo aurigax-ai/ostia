@@ -13,6 +13,7 @@ import type { SelectionCapture } from '@shared/browser/selection'
 import {
   type Dispatch,
   type MutableRefObject,
+  type ReactNode,
   type SetStateAction,
   useEffect,
   useRef,
@@ -20,7 +21,6 @@ import {
 } from 'react'
 import { RegionCropOverlay } from '@/components/browser/RegionCropOverlay'
 import { EmptyState } from '@/components/common/EmptyState'
-import { IconButton } from '@/components/common/IconButton'
 import { DropdownMenu, MenuItem } from '@/components/common/Menu'
 import { StatusAction, StatusLine, useDismissed } from '@/components/common/StatusLine'
 import { Button } from '@/components/ui/button'
@@ -32,6 +32,7 @@ import { useGuestReady } from '@/lib/panes/paneFocus'
 import { previewTheme } from '@/lib/theme/previewTheme'
 import { useEffectiveThemeId } from '@/lib/theme/theme'
 import { retryPendingFocus } from '@/stores/workspaces/surfaceSlotsStore'
+import { FloatPill, FloatPillButton } from './FloatPill'
 
 type Stopped = PreviewStopReason | 'failed'
 
@@ -245,12 +246,14 @@ export function HtmlPreview({
   onSendErrors,
   onSendRegion,
   focusRef,
+  mode,
 }: {
   workspaceId: string
   paneId: string
   filePath: string
   visible: boolean
   focusRef?: MutableRefObject<HTMLElement | null>
+  mode?: ReactNode
   onSendErrors?: (count: number, text: string) => void
   onSendRegion?: SendRegion
 }): JSX.Element {
@@ -351,6 +354,22 @@ export function HtmlPreview({
     setStopped(null)
   }
 
+  const capture = onSendRegion && opened && !stopped
+  const pill =
+    capture || mode ? (
+      <FloatPill label={d.preview.controls}>
+        {capture ? (
+          <FloatPillButton
+            icon={CropIcon}
+            label={d.preview.captureRegion}
+            aria-pressed={picking}
+            onClick={() => setPicking((on) => !on)}
+          />
+        ) : null}
+        {mode}
+      </FloatPill>
+    ) : null
+
   return (
     <div className="html-preview" data-testid="html-preview" data-live={opened ? 'true' : 'false'}>
       <PreviewErrorStrip
@@ -383,16 +402,6 @@ export function HtmlPreview({
         />
       ) : opened ? (
         <div className="preview-frame">
-          {onSendRegion ? (
-            <IconButton
-              className="editor-send"
-              icon={CropIcon}
-              label={d.preview.captureRegion}
-              hintSide="left"
-              aria-pressed={picking}
-              onClick={() => setPicking((on) => !on)}
-            />
-          ) : null}
           <webview
             key={opened.url}
             ref={setWebview}
@@ -409,6 +418,7 @@ export function HtmlPreview({
           ) : null}
         </div>
       ) : null}
+      {pill}
     </div>
   )
 }

@@ -1,8 +1,8 @@
 import { CodeIcon, EyeIcon, PlayIcon } from '@phosphor-icons/react'
 import type { MutableRefObject } from 'react'
 import type { SelectionSend } from '@/components/agents/SelectionSend'
-import { IconButton } from '@/components/common/IconButton'
 import { fmt, useDict } from '@/lib/app/useDict'
+import { FloatPill, FloatPillButton } from './FloatPill'
 import { HtmlPreview } from './HtmlPreview'
 
 export interface OptionViewer {
@@ -34,42 +34,38 @@ export function EditorModes({
   optionViewer,
   setRunChoice,
   overlayRef,
-}: EditorModesProps): JSX.Element {
+}: EditorModesProps): JSX.Element | null {
   const d = useDict()
-  return (
-    <>
-      {running && filePath ? (
-        <HtmlPreview
-          key={filePath}
-          workspaceId={workspaceId}
-          paneId={paneId}
-          filePath={filePath}
-          visible={visible}
-          focusRef={overlayRef}
-          onSendErrors={(count, text) =>
-            selectionSend.open({ kind: 'preview-error', file: filePath, count, text })
-          }
-          onSendRegion={(capture, image, anchor) => selectionSend.open(capture, image, anchor)}
-        />
-      ) : null}
-      {optionViewer && !runnable ? (
-        <IconButton
-          className="editor-mode"
-          icon={EyeIcon}
-          label={fmt(d.viewer.showWith, { name: optionViewer.name })}
-          hintSide="left"
-          onClick={optionViewer.show}
-        />
-      ) : null}
-      {runnable && filePath ? (
-        <IconButton
-          className="editor-mode"
-          icon={running ? CodeIcon : PlayIcon}
-          label={running ? d.preview.editSource : d.preview.run}
-          hintSide="left"
-          onClick={() => setRunChoice({ file: filePath, on: !running })}
-        />
-      ) : null}
-    </>
-  )
+  const mode =
+    optionViewer && !runnable ? (
+      <FloatPillButton
+        icon={EyeIcon}
+        label={fmt(d.viewer.showWith, { name: optionViewer.name })}
+        onClick={optionViewer.show}
+      />
+    ) : runnable && filePath ? (
+      <FloatPillButton
+        icon={running ? CodeIcon : PlayIcon}
+        label={running ? d.preview.editSource : d.preview.run}
+        onClick={() => setRunChoice({ file: filePath, on: !running })}
+      />
+    ) : null
+  if (running && filePath) {
+    return (
+      <HtmlPreview
+        key={filePath}
+        workspaceId={workspaceId}
+        paneId={paneId}
+        filePath={filePath}
+        visible={visible}
+        focusRef={overlayRef}
+        mode={mode}
+        onSendErrors={(count, text) =>
+          selectionSend.open({ kind: 'preview-error', file: filePath, count, text })
+        }
+        onSendRegion={(capture, image, anchor) => selectionSend.open(capture, image, anchor)}
+      />
+    )
+  }
+  return mode ? <FloatPill label={d.preview.controls}>{mode}</FloatPill> : null
 }
