@@ -1,11 +1,11 @@
 import { useMemo } from 'react'
 import { Hint } from '@/components/common/Hint'
 import { TextLink } from '@/components/common/TextLink'
+import { type NeedsYouItem, type PaneWhere, paneWhere, sourceWhere } from '@/lib/agents/needsYou'
 import { useAgoText } from '@/lib/app/localeFormat'
 import { useDict } from '@/lib/app/useDict'
 import { useNow } from '@/lib/app/useNow'
 import { revealPane } from '@/lib/attention/workspaceActivity'
-import { type NeedsYouItem, type PaneWhere, paneWhere, sourceWhere } from '@/lib/sidebar/dashboard'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import { ApprovalCard } from './ApprovalCard'
@@ -49,7 +49,7 @@ export function CardMeta({
       </time>
       {onShow ? (
         <TextLink size="xs" className="ml-auto h-auto p-0 text-ui-xs" onClick={onShow}>
-          {d.dashboard.goToPane}
+          {d.inbox.goToPane}
         </TextLink>
       ) : null}
     </div>
@@ -96,7 +96,7 @@ export function NeedsYouCard({
               className="ml-auto h-auto p-0 text-ui-xs"
               onClick={() => revealPane(item.approval.paneId)}
             >
-              {d.dashboard.goToPane}
+              {d.inbox.goToPane}
             </TextLink>
           </div>
         ) : null

@@ -79,7 +79,6 @@ export const commandsZhHant: typeof commandsEn = {
       'browser.new': '新增瀏覽器',
       'browser.open': '開啟瀏覽器',
       'browser.reload': '重新載入網頁',
-      'dashboard.toggle': '切換儀表板',
       'developer.openLogFolder': '開啟記錄檔資料夾',
       'developer.toggleDevTools': '切換開發人員工具',
       'diff.openFiles': '比較兩個檔案',

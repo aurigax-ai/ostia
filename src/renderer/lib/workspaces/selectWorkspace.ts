@@ -1,5 +1,5 @@
 import { focusActivePaneWhenReady } from '@/lib/panes/paneFocus'
-import { coversWorkspaces, useUIStore } from '@/stores/app/uiStore'
+import { useUIStore } from '@/stores/app/uiStore'
 import { useWindowsStore } from '@/stores/workspaces/windowsStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import { globalWorkspaceOrder } from './windowWorkspaces'
@@ -7,7 +7,7 @@ import { globalWorkspaceOrder } from './windowWorkspaces'
 export function selectWorkspace(workspaceId: string): void {
   const shown =
     useWorkspacesStore.getState().activeWorkspaceId === workspaceId &&
-    !coversWorkspaces(useUIStore.getState())
+    !useUIStore.getState().settingsActive
   useUIStore.getState().showWorkspaces()
   useWorkspacesStore.getState().setActive(workspaceId)
   if (!shown) focusActivePaneWhenReady(workspaceId)

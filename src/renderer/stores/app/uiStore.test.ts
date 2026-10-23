@@ -1,6 +1,6 @@
 import { afterEach, beforeAll, describe, expect, it } from 'vitest'
 import { paletteReturnFocus } from '@/lib/palette/paletteFocus'
-import { coversWorkspaces, useUIStore } from './uiStore'
+import { useUIStore } from './uiStore'
 
 const state = () => useUIStore.getState()
 
@@ -68,40 +68,6 @@ describe('uiStore', () => {
 
       state().togglePalette()
       expect(state()).toMatchObject({ paletteOpen: false, paletteSeed: '' })
-    })
-  })
-
-  describe('dashboard', () => {
-    it('opens and toggles the dashboard', () => {
-      state().openDashboard()
-      expect(state().dashboardActive).toBe(true)
-      state().toggleDashboard()
-      expect(state().dashboardActive).toBe(false)
-      state().toggleDashboard()
-      expect(state().dashboardActive).toBe(true)
-    })
-
-    it('shows the dashboard or Settings, never both', () => {
-      state().openSettings()
-      state().openDashboard()
-      expect(state().settingsActive).toBe(false)
-      expect(state().settingsTabOpen).toBe(true)
-      state().openSettings()
-      expect(state().dashboardActive).toBe(false)
-      state().openDashboard()
-      state().openWorkspaceSettings('w1')
-      expect(state().dashboardActive).toBe(false)
-    })
-
-    it('showWorkspaces leaves the dashboard, and either one covers the workspaces', () => {
-      expect(coversWorkspaces(state())).toBe(false)
-      state().openDashboard()
-      expect(coversWorkspaces(state())).toBe(true)
-      state().showWorkspaces()
-      expect(state().dashboardActive).toBe(false)
-      expect(coversWorkspaces(state())).toBe(false)
-      state().openSettings()
-      expect(coversWorkspaces(state())).toBe(true)
     })
   })
 

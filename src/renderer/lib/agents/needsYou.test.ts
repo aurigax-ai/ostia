@@ -2,7 +2,7 @@ import type { QuestionRequest } from '@shared/agents/questions'
 import type { ApprovalRequest } from '@shared/permissions/approvals'
 import { describe, expect, it } from 'vitest'
 import { createPane } from '@/lib/layout/tree'
-import { CONTEXT_FOLD_CHARS, isLongContext, needsYouItems, paneWhere } from './dashboard'
+import { CONTEXT_FOLD_CHARS, isLongContext, needsYouItems, paneWhere } from './needsYou'
 
 function question(id: string, at: number): QuestionRequest {
   return { id, paneId: 'p1', question: id, context: '', choices: [], mode: 'text', at }

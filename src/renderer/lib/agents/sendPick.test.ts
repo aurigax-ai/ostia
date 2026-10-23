@@ -6,7 +6,6 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vite
 import { registerTerminal } from '@/lib/terminal/terminalHandles'
 import { useAttentionStore } from '@/stores/agents/attentionStore'
 import { useBlocksStore } from '@/stores/terminal/blocksStore'
-import { ENTER_AFTER_PASTE_MS } from './agentEnter'
 import {
   canInsertReference,
   insertPathReference,
@@ -423,7 +422,7 @@ describe('a reference is never followed by Enter', () => {
     vi.useFakeTimers()
   })
 
-  const settle = () => vi.advanceTimersByTimeAsync(ENTER_AFTER_PASTE_MS * 10)
+  const settle = () => vi.advanceTimersByTimeAsync(600)
 
   const region: RegionCapture = {
     id: 'region-1',

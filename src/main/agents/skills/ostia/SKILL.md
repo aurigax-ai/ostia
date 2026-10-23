@@ -107,8 +107,8 @@ git diff --stat | ostia ask "Ship this?" --context - --choice yes --choice no --
 ostia ask "Continue?" --choice yes --choice no --timeout 600
 ```
 
-`ask` shows the question on Ostia's dashboard and the paired phone, marks the pane waiting, and
-waits. It prints the chosen labels one per line, then any text the human typed (`--json`:
+`ask` shows the question on the pane, in the Inbox tab and on the paired phone, marks the pane
+waiting, and waits. It prints the chosen labels one per line, then any text the human typed (`--json`:
 `{"answered":true,"choices":[…],"text":"…"}`). Exit 0 answered, 2 dismissed, 3 timed out, 4 the
 pane closed. At most 12 choices and 3 open questions per pane; stopping the command withdraws
 the question. The answer arrives only as the command's output.

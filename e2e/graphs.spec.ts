@@ -3,8 +3,8 @@ import { join } from 'node:path'
 import { chords } from './chords'
 import { freshDataHome, isolatedLaunch } from './dataHome'
 import { fakeAgentBin } from './fakeAgent'
-import { openWorkspace, panelEval, quitApp, waitForPaletteSelection } from './helpers'
-import { type ElectronApplication, type Page, _electron as electron, expect, test } from './test'
+import { openWorkspace, panelEval, quitApp, showInbox, waitForPaletteSelection } from './helpers'
+import { type ElectronApplication, _electron as electron, expect, type Page, test } from './test'
 
 test.describe.configure({ timeout: 180_000 })
 
@@ -101,14 +101,16 @@ test('GRF-C140 GRF-C141 GRF-C142 GRF-C58 the Graphs panel lists, enables, runs a
       .toBe('waiting')
     expect(await attr(app, '[data-node="build"]', 'data-status')).toBe('done')
 
-    await win.keyboard.press('Control+Shift+D')
-    const card = win.locator('article[data-question]', {
+    await win.keyboard.press(chords.palette)
+    const inbox = await showInbox(win)
+    const card = inbox.locator('article[data-question]', {
       hasText: 'Start the agent on the cart total?',
     })
     await expect(card).toBeVisible({ timeout: 15_000 })
     await expect(card).toContainText('Graphs')
     await card.getByRole('radio', { name: 'Approve' }).check()
     await card.getByRole('button', { name: 'Send' }).click()
+    await win.locator('.topbar').getByRole('button', { name: 'Graphs', exact: true }).click()
 
     await expect
       .poll(() => attr(app, '[data-node="work"]', 'data-status'), { timeout: 30_000 })

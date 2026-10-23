@@ -122,13 +122,6 @@ function registerAppCommands(): void {
   })
 
   registerCore({
-    id: 'dashboard.toggle',
-    category: 'view',
-    target: 'none',
-    run: () => useUIStore.getState().toggleDashboard(),
-  })
-
-  registerCore({
     id: 'assist.settings',
     category: 'assistant',
     target: 'none',

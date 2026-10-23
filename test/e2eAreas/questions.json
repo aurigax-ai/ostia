@@ -1,15 +1,12 @@
 {
-  "name": "dashboard and questions",
+  "name": "questions",
   "paths": [
     "src/cli/verbs/ask.ts",
     "src/main/approvals/asks.ts",
     "src/main/approvals/questions.ts",
-    "src/renderer/components/agents/AgentComposer.tsx",
-    "src/renderer/components/agents/DashboardButton.tsx",
-    "src/renderer/components/agents/DashboardPanel.",
     "src/renderer/components/agents/QuestionCard.",
     "src/renderer/components/panes/usePanePrompt.tsx",
-    "src/renderer/lib/sidebar/dashboard.ts",
+    "src/renderer/lib/agents/needsYou.ts",
     "src/renderer/stores/agents/questionsStore.ts",
     "src/renderer/stores/terminal/agentTurnStore.ts",
     "src/shared/agents/questions.ts"

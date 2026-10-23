@@ -138,10 +138,6 @@ function registerOpenAndCloseCommands(): void {
           ui.closeSettings()
           return
         }
-        if (ui.dashboardActive) {
-          ui.showWorkspaces()
-          return
-        }
       }
       if (!ctx.activeWorkspaceId) {
         if (args?.paneId !== undefined) throw new Error(`unknown-pane: ${args.paneId}`)

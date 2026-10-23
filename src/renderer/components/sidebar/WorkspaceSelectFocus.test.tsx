@@ -268,20 +268,6 @@ describe('selecting a workspace gives the keyboard to its shown pane', () => {
     await waitFor(() => expect(input(seeded, seeded.beta.id)).toHaveFocus())
   })
 
-  it('opening a workspace from the dashboard focuses its active pane', async () => {
-    const seeded = seed()
-    await renderApp()
-    await visitBetaAndReturn(seeded)
-    act(() => useUIStore.getState().openDashboard())
-
-    await userEvent
-      .setup()
-      .click(await screen.findByRole('button', { name: 'Open workspace beta' }))
-
-    expect(useWorkspacesStore.getState().activeWorkspaceId).toBe('b')
-    await waitFor(() => expect(input(seeded, seeded.beta.id)).toHaveFocus())
-  })
-
   it('a second selection before the first pane is ready wins, and the first never lands', async () => {
     const seeded = seed()
     const alphaInput = input(seeded, seeded.alpha.id)

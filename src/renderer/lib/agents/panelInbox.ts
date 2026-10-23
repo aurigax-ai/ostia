@@ -1,6 +1,6 @@
 import type { QuestionRequest } from '@shared/agents/questions'
 import type { ApprovalRequest } from '@shared/permissions/approvals'
-import { type NeedsYouItem, needsYouItems, type PaneWhere } from '@/lib/sidebar/dashboard'
+import { type NeedsYouItem, needsYouItems, type PaneWhere } from '@/lib/agents/needsYou'
 
 export interface InboxNote {
   id: string

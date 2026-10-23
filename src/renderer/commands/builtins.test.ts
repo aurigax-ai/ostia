@@ -865,16 +865,6 @@ describe('builtins route to store actions', () => {
     expect(closePane).not.toHaveBeenCalled()
   })
 
-  it('returns from the dashboard instead of closing a pane', async () => {
-    const ask = vi.spyOn(closeConfirm, 'requestClosePane').mockResolvedValue()
-    useUIStore.getState().openDashboard()
-
-    await commands.execWith(ctx('s1', 'pA'), 'pane.close')
-
-    expect(useUIStore.getState().dashboardActive).toBe(false)
-    expect(ask).not.toHaveBeenCalled()
-  })
-
   it('still closes the named pane while settings is showing', async () => {
     const ask = vi.spyOn(closeConfirm, 'requestClosePane').mockResolvedValue()
     useLayoutStore.setState({
@@ -1680,15 +1670,6 @@ describe('builtins route to store actions', () => {
     expect(useUIStore.getState().settingsActive).toBe(true)
     expect(useUIStore.getState().settingsSection).toBe('extensions')
     expect(useUIStore.getState().browseExtensionsOpen).toBe(true)
-  })
-
-  it('toggles the dashboard from dashboard.toggle without a target', async () => {
-    const byId = Object.fromEntries(commands.describe().map((c) => [c.id, c]))
-    expect(byId['dashboard.toggle'].target).toBe('none')
-    await commands.execWith(ctx(null, null), 'dashboard.toggle')
-    expect(useUIStore.getState().dashboardActive).toBe(true)
-    await commands.execWith(ctx(null, null), 'dashboard.toggle')
-    expect(useUIStore.getState().dashboardActive).toBe(false)
   })
 
   it('MGR-C43 quits through the window bridge and needs destructive', async () => {

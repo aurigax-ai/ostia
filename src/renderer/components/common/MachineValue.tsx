@@ -1,5 +1,5 @@
 import { Hint } from '@/components/common/Hint'
-import { DASHBOARD_PATH_CHARS } from '@/lib/sidebar/dashboard'
+import { WHERE_PATH_CHARS } from '@/lib/agents/needsYou'
 import { shortenPath } from '@/lib/sidebar/railMeta'
 import { cn } from '@/lib/utils'
 
@@ -15,7 +15,7 @@ export function MachineValue({ value, label }: { value: string; label?: string }
 
 export function PathText({
   path,
-  max = DASHBOARD_PATH_CHARS,
+  max = WHERE_PATH_CHARS,
   className,
 }: {
   path: string

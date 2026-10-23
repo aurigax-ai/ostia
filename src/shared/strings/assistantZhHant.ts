@@ -54,7 +54,7 @@ export const assistantZhHant: typeof assistantEn = {
       shell: '在終端機輸入指令',
       'type-other-pane': '在其他終端機窗格輸入',
     } as Record<string, string>,
-    decideLater: '稍後再決定。請求會留在儀表板。',
+    decideLater: '稍後再決定。請求會留在收件匣。',
     deny: '拒絕',
     history: '最近的決定',
     inbox: '權限請求',

@@ -13,7 +13,6 @@
     "pane.focusUp": "terminal:Cmd+Alt+Up",
     "pane.focusDown": "terminal:Cmd+Alt+Down",
     "pane.zoom": "terminal:Cmd+Shift+Enter",
-    "dashboard.toggle": "Cmd+Alt+D",
     "terminal.clear": ["terminal:Cmd+K", "terminal:Cmd+Shift+K"]
   }
 }

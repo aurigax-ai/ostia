@@ -41,8 +41,6 @@
     "src/main/terminal/claudeMod/",
     "src/main/terminal/paneLauncher.ts",
     "src/renderer/components/common/MailCount.tsx",
-    "src/renderer/lib/agents/agentEnter.ts",
-    "src/renderer/lib/agents/agentMessage.",
     "src/renderer/lib/agents/agentRunningReport.",
     "src/renderer/lib/agents/agentSession.",
     "src/renderer/lib/agents/paneAgent.ts",

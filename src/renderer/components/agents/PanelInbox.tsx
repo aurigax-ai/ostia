@@ -1,10 +1,10 @@
 import { type MouseEvent, useMemo } from 'react'
 import { EmptyState } from '@/components/common/EmptyState'
 import { Button } from '@/components/ui/button'
+import { paneWhere } from '@/lib/agents/needsYou'
 import { cardPane, type InboxCard, type InboxNote } from '@/lib/agents/panelInbox'
 import { fmt, useDict } from '@/lib/app/useDict'
 import { showPaneWhenReady } from '@/lib/panes/paneFocus'
-import { paneWhere } from '@/lib/sidebar/dashboard'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import { CardMeta, NeedsYouCard } from './NeedsYouCard'
@@ -49,9 +49,9 @@ function NoteCard({
   const title = pane ?? d.attention.closedPane
   return (
     <article
-      aria-label={fmt(d.dashboard.inboxNote, { pane: title })}
+      aria-label={fmt(d.inbox.note, { pane: title })}
       data-inbox-note={note.id}
-      className="dashboard-card flex flex-col gap-2 rounded-md border border-line bg-surface-1 p-3 text-fg text-ui-sm"
+      className="flex flex-col gap-2 rounded-md border border-line bg-surface-1 p-3 text-fg text-ui-sm"
     >
       <CardMeta
         pane={title}
@@ -69,7 +69,7 @@ function NoteCard({
           variant="outline"
           onClick={() => void window.ostia.extensions.inboxAction(extId, workspaceId, note.id)}
         >
-          {d.dashboard.inboxMarkDone}
+          {d.inbox.markDone}
         </Button>
       </div>
     </article>
@@ -110,12 +110,12 @@ export function PanelInbox({
   if (cards.length === 0) {
     return (
       <div className="px-2">
-        <EmptyState variant="block" title={d.dashboard.inboxEmpty} />
+        <EmptyState variant="block" title={d.inbox.empty} />
       </div>
     )
   }
   return (
-    <ul aria-label={d.dashboard.inboxTab} className="flex flex-col gap-2 p-2">
+    <ul aria-label={d.inbox.tab} className="flex flex-col gap-2 p-2">
       {cards.map((card) => (
         // biome-ignore lint/a11y/useKeyWithClickEvents: the card's own controls and its Go to pane button are the keyboard path; a click elsewhere on it only shows its pane
         <li

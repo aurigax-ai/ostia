@@ -6,10 +6,10 @@ import { isolatedLaunch } from './dataHome'
 import { textPainted } from './pixels'
 import {
   type ElectronApplication,
-  type Locator,
-  type Page,
   _electron as electron,
   expect,
+  type Locator,
+  type Page,
   stopTrace,
   waitForExit,
 } from './test'
@@ -31,10 +31,16 @@ export function installApproved(dataHome: string, configHome: string, id: string
 
 export function panelEval(app: ElectronApplication, script: string): Promise<string> {
   return app.evaluate(async ({ webContents }, code) => {
-    const guest = webContents
+    const guests = webContents
       .getAllWebContents()
-      .find((wc) => wc.getType() === 'webview' && wc.getURL().startsWith('http://127.0.0.1'))
-    return guest ? String(await guest.executeJavaScript(code)) : ''
+      .filter((wc) => wc.getType() === 'webview' && wc.getURL().startsWith('http://127.0.0.1'))
+    for (const guest of guests) {
+      const shown = await guest.hostWebContents?.executeJavaScript(
+        `[...document.querySelectorAll('webview')].some((w) => w.getWebContentsId() === ${guest.id} && !w.closest('[data-hidden]'))`,
+      )
+      if (shown) return String(await guest.executeJavaScript(code))
+    }
+    return ''
   }, script)
 }
 
@@ -232,6 +238,15 @@ export function openedExternally(app: ElectronApplication): Promise<string[]> {
 
 export function occurrences(text: string, part: string): number {
   return text.split(part).length - 1
+}
+
+export async function showInbox(win: Page): Promise<Locator> {
+  await win.locator('[data-slot="command-input"]').fill('Activity: Open')
+  await waitForPaletteSelection(win, 'Activity: Open')
+  await win.keyboard.press('Enter')
+  const panel = win.locator('#right-panel')
+  await panel.getByRole('tab', { name: /^Inbox/ }).click()
+  return panel
 }
 
 export async function waitForPaletteSelection(win: Page, title: string): Promise<void> {
