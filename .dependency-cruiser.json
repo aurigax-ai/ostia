@@ -145,6 +145,14 @@
       "to": { "path": "node_modules/@aurigax-ai/wire/" }
     },
     {
+      "name": "only-capture-renders-the-bar",
+      "severity": "error",
+      "from": {
+        "pathNot": "^src/renderer/components/capture/"
+      },
+      "to": { "path": "^src/renderer/components/capture/CaptureBar\\.tsx$" }
+    },
+    {
       "name": "only-agent-imports-pi",
       "severity": "error",
       "from": {
