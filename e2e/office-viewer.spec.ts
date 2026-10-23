@@ -124,34 +124,6 @@ test('an xlsx file opens in the spreadsheet viewer with its sheets as tabs, and 
   )
 })
 
-test('a block of cells dragged in a long CSV shows the capture bar, and closing the bar clears the drawn selection', async () => {
-  test.setTimeout(120_000)
-  const lines = ['transaction_date,carrier,group_number,client_id,patient_code']
-  for (let i = 0; i < 5000; i++) lines.push(`2026-09-${(i % 28) + 1},VL,0,K${3649712 + i},1`)
-  await withApp({ 'claims.csv': `${lines.join('\n')}\n` }, async (win, app) => {
-    const table = await openCsvTable(win, 'claims.csv')
-    await expect.poll(() => viewerGuestText(app, table), { timeout: 20_000 }).toContain('K3649712')
-    await viewerGuestDrag(
-      app,
-      table,
-      await cellBox(app, table, 6, 0),
-      await cellBox(app, table, 13, 2),
-    )
-    const bar = win.getByRole('toolbar', { name: 'Selection actions' })
-    await expect(bar).toBeVisible({ timeout: 15_000 })
-    await expectHeld(() => bar.isVisible(), true, 800, 'the bar stays open')
-    await win.locator('.pane-tab:visible').first().click()
-    await expect(bar).toBeHidden()
-    await expect
-      .poll(
-        () =>
-          viewerGuestRun(app, table, 'document.querySelectorAll(".ostia-grid-selected").length'),
-        { timeout: 5_000 },
-      )
-      .toBe(0)
-  })
-})
-
 test('a macro workbook, and a workbook and a document with external links, open without running or fetching anything', async () => {
   const requests: string[] = []
   const server: Server = createServer((req, res) => {

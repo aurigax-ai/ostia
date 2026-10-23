@@ -80,6 +80,7 @@ const PUSHED = [
   'syncServer:attention',
   'syncServer:open',
   'syncServer:status',
+  'viewers:copied',
   'viewers:edit-source',
   'viewers:open-link',
   'viewers:selection',

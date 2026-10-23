@@ -7,7 +7,6 @@ import { isInside, isPadPath } from '@shared/artifacts/artifacts'
 import { isPreviewPath } from '@shared/artifacts/htmlPreview'
 import { useEffect, useRef, useState } from 'react'
 import { externalEditorError, openPaneInExternalEditor } from '@/commands/externalEditor'
-import { useSelectionSend } from '@/components/agents/SelectionSend'
 import { useReducedMotion } from '@/lib/app/motion'
 import { fmt, useDict } from '@/lib/app/useDict'
 import { usePaneVisible } from '@/lib/attention/workspaceActivity'
@@ -102,13 +101,12 @@ export function useEditorView({ workspaceId, paneId, filePath }: EditorViewParam
   const missedCheckRef = useRef(false)
   const openExternalRef = useRef(external.open)
   openExternalRef.current = external.open
-  const selectionSend = useSelectionSend(workspaceId, paneId)
   const sendSelectionRef = useRef<() => void>(() => {})
   sendSelectionRef.current = () =>
     sendSelection({
       pathRef,
       blocked,
-      selectionSend,
+      paneId,
       d,
       editorRef,
     })
@@ -176,7 +174,6 @@ export function useEditorView({ workspaceId, paneId, filePath }: EditorViewParam
     large,
     remoteProblem,
     visible,
-    selectionSend,
     running,
     runnable,
     overlayRef,

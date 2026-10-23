@@ -2,13 +2,12 @@
   "name": "selection reports",
   "paths": [
     "src/main/terminal/selectionReport.ts",
-    "src/renderer/components/agents/RegionActionBar.tsx",
-    "src/renderer/components/agents/SelectionSend.tsx",
+    "src/renderer/components/capture/CaptureBar.tsx",
+    "src/renderer/components/capture/CaptureLayer.tsx",
     "src/renderer/lib/agents/captureClipboard.ts",
     "src/renderer/lib/agents/fileReference.ts",
-    "src/renderer/lib/agents/selectionCopiers.ts",
-    "src/renderer/lib/agents/selectionSenders.ts",
     "src/renderer/lib/agents/useAgentTargets.ts",
+    "src/renderer/lib/capture/captureSession.ts",
     "src/shared/browser/selection.ts",
     "src/shared/keyboard/clipboardCapture.ts"
   ],

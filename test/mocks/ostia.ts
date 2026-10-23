@@ -106,6 +106,7 @@ export function makeOstiaMock(overrides?: Partial<OstiaBridge>): OstiaBridge {
       close: vi.fn(),
       onStopped: vi.fn(() => () => {}),
       onSelection: vi.fn(() => () => {}),
+      onCopied: vi.fn(() => () => {}),
       copySelection: vi.fn().mockResolvedValue('Copied text'),
       sendSelection: vi.fn().mockResolvedValue({ ok: true, path: '/tmp/r.md', imagePath: null }),
       clearSelection: vi.fn(),

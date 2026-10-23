@@ -1,6 +1,7 @@
 import { type MutableRefObject, useEffect, useRef } from 'react'
-import type { SelectionSend } from '@/components/agents/SelectionSend'
 import { fmt, useDict } from '@/lib/app/useDict'
+import { openCapture } from '@/lib/capture/captureSession'
+import { selectionAdapter } from '@/lib/capture/selectionAdapter'
 import { useViewModeStore, type ViewMode } from '@/stores/files/viewModeStore'
 import { HtmlPreview } from './HtmlPreview'
 
@@ -14,7 +15,6 @@ interface EditorModesProps {
   paneId: string
   filePath?: string
   visible: boolean
-  selectionSend: Pick<SelectionSend, 'open'>
   running: boolean
   runnable: boolean
   optionViewer?: OptionViewer
@@ -27,7 +27,6 @@ export function EditorModes({
   paneId,
   filePath,
   visible,
-  selectionSend,
   running,
   runnable,
   optionViewer,
@@ -68,7 +67,14 @@ export function EditorModes({
       visible={visible}
       focusRef={overlayRef}
       onSendErrors={(count, text) =>
-        selectionSend.open({ kind: 'preview-error', file: filePath, count, text })
+        openCapture(
+          paneId,
+          selectionAdapter({
+            paneId,
+            capture: { kind: 'preview-error', file: filePath, count, text },
+            anchor: null,
+          }),
+        )
       }
     />
   )

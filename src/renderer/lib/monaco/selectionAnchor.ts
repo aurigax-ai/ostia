@@ -1,4 +1,4 @@
-import { anchorWithin, type BarAnchor } from '@/lib/agents/barAnchor'
+import { anchorWithin, type BarAnchor } from '@/lib/capture/barAnchor'
 import type { monaco } from './setup'
 
 export function editorSelectionAnchor(

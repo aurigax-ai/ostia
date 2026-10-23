@@ -8,6 +8,7 @@ import { silenceQueryReplies } from '@/lib/terminal/tmuxQueries'
 import '@xterm/xterm/css/xterm.css'
 import { type HTMLAttributes, useEffect, useMemo, useRef, useState } from 'react'
 import { AssistComposer } from '@/components/assist/AssistComposer'
+import { CaptureLayer } from '@/components/capture/CaptureLayer'
 import { RiskyPasteDialog } from '@/components/common/RiskyPasteDialog'
 import { InputEditor } from '@/components/prompt/InputEditor'
 import { attachWheelZoom } from '@/lib/app/wheelZoom'
@@ -52,8 +53,8 @@ import { attachPtySession, type TerminalFit } from './terminalPtySession'
 import { createTerminalSession } from './terminalSession'
 import { createShellIntegration } from './terminalShellIntegration'
 import { attachTerminalSignals } from './terminalSignals'
+import { useTerminalCapture } from './useTerminalCapture'
 import { initialTerminalOptions, useTerminalOptions } from './useTerminalOptions'
-import { useTerminalSelectionSend } from './useTerminalSelectionSend'
 
 interface TerminalViewProps {
   workspaceId: string
@@ -180,7 +181,7 @@ function TerminalSurface({
   }, [shown])
   const [suppressedPrompt, setSuppressedPrompt] = useState<LineAnchor | null>(null)
   const searchOptions = useMemo(() => findOptions(palette), [palette])
-  const selectionSend = useTerminalSelectionSend({ workspaceId, paneId, cwd, termRef })
+  useTerminalCapture({ paneId, cwd, termRef, surfaceRef })
 
   useEffect(() => {
     const host = hostRef.current
@@ -275,8 +276,7 @@ function TerminalSurface({
         }}
         onCancel={closePasteDialog}
       />
-      {selectionSend.panel}
-      {selectionSend.status}
+      <CaptureLayer workspaceId={workspaceId} paneId={paneId} visible={shown} />
     </div>
   )
 }

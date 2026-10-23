@@ -22,6 +22,7 @@ import { ViewerWatch } from './viewerWatch'
 
 const VIEWER_CHANNELS = {
   selection: 'viewers:selection',
+  copied: 'viewers:copied',
   'open-link': 'viewers:open-link',
   'edit-source': 'viewers:edit-source',
 } as const

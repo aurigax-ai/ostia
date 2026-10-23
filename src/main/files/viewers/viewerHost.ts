@@ -28,6 +28,7 @@ import {
 import type { SelectionCapture } from '../../../shared/browser/selection'
 import { externalHref } from '../../../shared/common/externalLinks'
 import type {
+  ViewerCopied,
   ViewerDocumentText,
   ViewerEditSource,
   ViewerLinkTarget,
@@ -69,6 +70,7 @@ interface ViewerStat {
 
 export type ViewerEvent =
   | { type: 'selection'; payload: ViewerSelectionEvent }
+  | { type: 'copied'; payload: ViewerCopied }
   | { type: 'open-link'; payload: ViewerOpenLink }
   | { type: 'edit-source'; payload: ViewerEditSource }
 
@@ -345,9 +347,17 @@ export class ViewerHost {
   }
 
   copyForGuest(guest: { getURL: () => string }): boolean {
-    const stored = this.liveOf(guest.getURL())?.selection
-    if (!stored) return false
-    void this.copyStored(stored).catch(() => undefined)
+    const live = this.liveOf(guest.getURL())
+    const stored = live?.selection
+    if (!live || !stored) return false
+    void this.copyStored(stored).then(
+      (status) =>
+        this.deps.emit(live.windowId, {
+          type: 'copied',
+          payload: { paneId: live.paneId, status },
+        }),
+      () => undefined,
+    )
     return true
   }
 

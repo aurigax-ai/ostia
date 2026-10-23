@@ -1,4 +1,5 @@
 import { isRemotePath } from '@aurigax-ai/ostia-extension-sdk/contract/remoteFolders'
+import { CaptureLayer } from '@/components/capture/CaptureLayer'
 import { EditorAlerts, EditorBlocked } from './EditorAlerts'
 import { EditorModes, type OptionViewer } from './EditorModes'
 import { LanguageNotice, LargeFileNotice } from './LanguageNotice'
@@ -22,7 +23,6 @@ export function EditorView({
     large,
     remoteProblem,
     visible,
-    selectionSend,
     running,
     runnable,
     overlayRef,
@@ -62,7 +62,6 @@ export function EditorView({
           unsavedPath={unsavedPath}
           external={external}
         />
-        {selectionSend.status}
       </div>
       <div className="relative min-h-0 flex-1">
         {blocked ? (
@@ -78,14 +77,13 @@ export function EditorView({
           paneId={paneId}
           filePath={filePath}
           visible={visible}
-          selectionSend={selectionSend}
           running={running}
           runnable={runnable}
           optionViewer={blocked ? undefined : optionViewer}
           overlayRef={overlayRef}
           setRunChoice={setRunChoice}
         />
-        {selectionSend.panel}
+        <CaptureLayer workspaceId={workspaceId} paneId={paneId} visible={visible} />
       </div>
     </div>
   )

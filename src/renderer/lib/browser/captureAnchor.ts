@@ -1,5 +1,5 @@
 import type { PickBox } from '@shared/browser/pick'
-import { anchorWithin, type BarAnchor } from '@/lib/agents/barAnchor'
+import { anchorWithin, type BarAnchor } from '@/lib/capture/barAnchor'
 
 const STAGE = '.browser-stage, .html-preview'
 
