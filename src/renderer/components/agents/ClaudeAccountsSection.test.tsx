@@ -67,14 +67,14 @@ describe('ClaudeAccountsSection', () => {
   it('asks before removing the active account, and removes it only on the confirm', async () => {
     show(state())
     render(<ClaudeAccountsSection />)
-    await userEvent.click(await screen.findByRole('button', { name: 'Remove' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Remove work@example.com' }))
     expect(window.ostia.claudeAccounts.remove).not.toHaveBeenCalled()
     const dialog = await screen.findByRole('alertdialog')
     expect(dialog).toHaveTextContent('Remove work@example.com?')
     await userEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }))
     expect(window.ostia.claudeAccounts.remove).not.toHaveBeenCalled()
     await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull())
-    await userEvent.click(screen.getByRole('button', { name: 'Remove' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Remove work@example.com' }))
     await userEvent.click(
       within(await screen.findByRole('alertdialog')).getByRole('button', { name: 'Remove' }),
     )
@@ -85,35 +85,29 @@ describe('ClaudeAccountsSection', () => {
     show(state())
     vi.mocked(window.ostia.claudeAccounts.remove).mockResolvedValueOnce('running')
     render(<ClaudeAccountsSection />)
-    await userEvent.click(await screen.findByRole('button', { name: 'Remove' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Remove work@example.com' }))
     await userEvent.click(
       within(await screen.findByRole('alertdialog')).getByRole('button', { name: 'Remove' }),
     )
     expect(await screen.findByText(/still running on this account/)).toBeInTheDocument()
   })
 
-  it('switches to or removes another account from its menu', async () => {
+  it('gives every account the same actions: switch unless active, remove unless default', async () => {
     show(state())
     render(<ClaudeAccountsSection />)
-    await userEvent.click(
-      await screen.findByRole('button', { name: 'Actions for spare@example.com' }),
-    )
-    await userEvent.click(await screen.findByRole('menuitem', { name: 'Switch to' }))
+    await screen.findByText('spare@example.com')
+    const [first, active, spare] = screen.getAllByRole('listitem')
+    expect(within(first).getByRole('button', { name: 'Switch to' })).toBeInTheDocument()
+    expect(within(first).queryByRole('button', { name: /^Remove/ })).toBeNull()
+    expect(within(active).queryByRole('button', { name: 'Switch to' })).toBeNull()
+    expect(within(active).getByRole('button', { name: 'Remove work@example.com' })).toBeVisible()
+    await userEvent.click(within(spare).getByRole('button', { name: 'Switch to' }))
     expect(window.ostia.claudeAccounts.use).toHaveBeenCalledWith(SPARE)
-    await userEvent.click(screen.getByRole('button', { name: 'Actions for spare@example.com' }))
-    await userEvent.click(await screen.findByRole('menuitem', { name: 'Remove' }))
+    await userEvent.click(within(spare).getByRole('button', { name: 'Remove spare@example.com' }))
     await userEvent.click(
       within(await screen.findByRole('alertdialog')).getByRole('button', { name: 'Remove' }),
     )
     expect(window.ostia.claudeAccounts.remove).toHaveBeenCalledWith(SPARE)
-  })
-
-  it('cannot remove the default account', async () => {
-    show(state())
-    render(<ClaudeAccountsSection />)
-    await userEvent.click(await screen.findByRole('button', { name: 'Actions for me@example.com' }))
-    expect(await screen.findByRole('menuitem', { name: 'Switch to' })).toBeInTheDocument()
-    expect(screen.queryByRole('menuitem', { name: 'Remove' })).toBeNull()
   })
 
   it('adds in the active workspace, and waits while a sign-in is open', async () => {
@@ -161,6 +155,17 @@ describe('ClaudeAccountsSection', () => {
     expect(screen.getByRole('button', { name: 'Add' })).toBeEnabled()
     await userEvent.click(screen.getByRole('button', { name: 'Bring back' }))
     expect(window.ostia.claudeAccounts.recover).toHaveBeenCalledTimes(1)
+  })
+
+  it('uses the singular for one account to bring back and one brought back', async () => {
+    show(state({ recoverable: 1 }))
+    vi.mocked(window.ostia.claudeAccounts.recover).mockResolvedValueOnce(1)
+    render(<ClaudeAccountsSection />)
+    expect(await screen.findByText(/^1 signed-in account is on this computer/)).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Bring back' }))
+    expect(
+      await screen.findByText('Brought back 1 account that was still signed in.'),
+    ).toBeInTheDocument()
   })
 
   it('says what the accounts share and that other accounts’ changes are replaced', async () => {

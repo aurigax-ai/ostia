@@ -1,6 +1,7 @@
 import { PlusIcon } from '@phosphor-icons/react'
 import type { ScriptTokenInfo, ScriptTokenSaveResult } from '@shared/permissions/scriptTokens'
 import { useMemo, useState } from 'react'
+import { Notice } from '@/components/common/Notice'
 import { SettingsGroup } from '@/components/settingsKit/SettingsGroup'
 import { SettingsList } from '@/components/settingsKit/SettingsList'
 import { SettingsPage } from '@/components/settingsKit/SettingsPage'
@@ -108,14 +109,10 @@ export function ScriptTokensSection(): JSX.Element {
               />
             ))}
           </SettingsList>
-          {status ? (
-            <output className="mt-2 block text-fg-muted text-ui-sm">{status}</output>
-          ) : null}
-          <div className="mt-6">
-            <SettingsGroup title={t.outsideTitle} desc={t.outsideDesc}>
-              <CodeBlock lines={[`export ${ENV}=ostia_…`, EXAMPLE]} />
-            </SettingsGroup>
-          </div>
+          {status ? <Notice tone="info">{status}</Notice> : null}
+          <SettingsGroup title={t.outsideTitle} desc={t.outsideDesc}>
+            <CodeBlock lines={[`export ${ENV}=ostia_…`, EXAMPLE]} />
+          </SettingsGroup>
         </SettingsPage>
       )}
       {editing !== undefined ? (

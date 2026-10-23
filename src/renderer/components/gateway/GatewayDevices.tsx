@@ -3,6 +3,7 @@ import type { GatewayDevice, GatewayPushAvailability } from '@shared/gateway/gat
 import { PHONE_GRANTABLE_CAPS, type PhoneGrantableCap } from '@shared/gateway/phoneCapabilities'
 import { useState } from 'react'
 import { ControlRow } from '@/components/settingsKit/ControlRow'
+import { RowRemoveButton } from '@/components/settingsKit/RowRemoveButton'
 import { SettingsSubgroup } from '@/components/settingsKit/SettingsGroup'
 import { SettingsList } from '@/components/settingsKit/SettingsList'
 import { SettingsListRow } from '@/components/settingsKit/SettingsListRow'
@@ -16,15 +17,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import { Button } from '@/components/ui/button'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
 import { Switch } from '@/components/ui/switch'
 import { DATE_ONLY, formatDate } from '@/lib/app/localeFormat'
 import { fmt, useDict } from '@/lib/app/useDict'
@@ -75,15 +67,10 @@ function DeviceRow({
         </span>
       }
       actions={
-        <Button
-          variant="ghost"
-          size="sm"
-          className="text-attn-fg hover:text-attn-fg"
+        <RowRemoveButton
+          label={fmt(d.settings.remoteRevokeFor, { name: device.name })}
           onClick={() => setAsking(true)}
-          aria-label={fmt(d.settings.remoteRevokeFor, { name: device.name })}
-        >
-          {d.settings.remoteRevoke}
-        </Button>
+        />
       }
       below={
         <>
@@ -196,29 +183,31 @@ export function DeviceList({
         ))}
       </SettingsList>
 
-      <Dialog
+      <AlertDialog
         open={confirmDevice !== null}
         onOpenChange={(open) => {
           if (!open) setConfirmDevice(null)
         }}
       >
-        <DialogContent showCloseButton={false}>
-          <DialogHeader>
-            <DialogTitle>{d.settings.remoteDestructiveTitle}</DialogTitle>
-            <DialogDescription>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{d.settings.remoteDestructiveTitle}</AlertDialogTitle>
+            <AlertDialogDescription>
               {fmt(d.settings.remoteDestructiveBody, { name: confirmDevice?.name ?? '' })}
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" size="sm" onClick={() => setConfirmDevice(null)}>
-              {d.settings.remoteCancel}
-            </Button>
-            <Button variant="destructive" size="sm" onClick={() => void onConfirmDestructive()}>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel size="sm">{d.settings.remoteCancel}</AlertDialogCancel>
+            <AlertDialogAction
+              variant="destructive"
+              size="sm"
+              onClick={() => void onConfirmDestructive()}
+            >
               {d.settings.remoteDestructiveConfirm}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   )
 }

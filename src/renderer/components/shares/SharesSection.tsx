@@ -2,6 +2,7 @@ import type { ShareView } from '@shared/artifacts/shares'
 import { useEffect, useState } from 'react'
 import { Notice } from '@/components/common/Notice'
 import { ControlRow } from '@/components/settingsKit/ControlRow'
+import { RowRemoveButton } from '@/components/settingsKit/RowRemoveButton'
 import { SettingsList } from '@/components/settingsKit/SettingsList'
 import { SettingsListRow } from '@/components/settingsKit/SettingsListRow'
 import { SettingsPage } from '@/components/settingsKit/SettingsPage'
@@ -54,9 +55,7 @@ function ShareRow({ share }: { share: ShareView }): JSX.Element {
               {copied ? d.shares.copied : d.shares.copyLink}
             </Button>
           ) : null}
-          <Button variant="outline" size="xs" onClick={() => void remove()}>
-            {d.shares.delete}
-          </Button>
+          <RowRemoveButton label={d.shares.delete} onClick={() => void remove()} />
         </>
       }
     />

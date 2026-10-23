@@ -1,21 +1,25 @@
-import { CopyIcon, TrashIcon } from '@phosphor-icons/react'
+import { CopyIcon } from '@phosphor-icons/react'
 import type { Dict } from '@shared/app/dict'
 import type { CredentialImportResult, CredentialSummary } from '@shared/browser/credentials'
 import { type FormEvent, useCallback, useEffect, useState } from 'react'
 import { IconButton } from '@/components/common/IconButton'
+import { Notice } from '@/components/common/Notice'
+import { RowRemoveButton } from '@/components/settingsKit/RowRemoveButton'
 import { SettingsGroup } from '@/components/settingsKit/SettingsGroup'
 import { SettingsList } from '@/components/settingsKit/SettingsList'
 import { SettingsListRow } from '@/components/settingsKit/SettingsListRow'
 import { SettingsPage } from '@/components/settingsKit/SettingsPage'
-import { Button } from '@/components/ui/button'
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
+import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { fmt, useDict } from '@/lib/app/useDict'
@@ -66,10 +70,8 @@ function SavedPasswords({
                       )
                   }
                 />
-                <IconButton
-                  icon={TrashIcon}
+                <RowRemoveButton
                   label={fmt(d.passwords.remove, { origin: c.origin })}
-                  className="hover:text-attn-fg"
                   onClick={() => onRemove(c)}
                 />
               </>
@@ -189,27 +191,25 @@ function RemovePasswordDialog({
 }): JSX.Element {
   const d = useDict()
   return (
-    <Dialog open={removing !== null} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent showCloseButton={false}>
-        <DialogHeader>
-          <DialogTitle>{d.passwords.removeTitle}</DialogTitle>
-          <DialogDescription>
+    <AlertDialog open={removing !== null} onOpenChange={(open) => !open && onClose()}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>{d.passwords.removeTitle}</AlertDialogTitle>
+          <AlertDialogDescription>
             {fmt(d.passwords.removeBody, {
               origin: removing?.origin ?? '',
               username: removing?.username || d.passwords.noUsername,
             })}
-          </DialogDescription>
-        </DialogHeader>
-        <DialogFooter>
-          <Button variant="outline" size="sm" onClick={() => onClose()}>
-            {d.passwords.cancel}
-          </Button>
-          <Button variant="destructive" size="sm" onClick={onConfirm}>
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel size="sm">{d.passwords.cancel}</AlertDialogCancel>
+          <AlertDialogAction size="sm" variant="destructive" onClick={onConfirm}>
             {d.passwords.removeConfirm}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   )
 }
 
@@ -228,9 +228,7 @@ export function PasswordsSection(): JSX.Element {
     <SettingsPage title={d.passwords.title} desc={d.passwords.desc}>
       <SavedPasswords list={list} onStatus={setStatus} onReload={reload} onRemove={setRemoving} />
       <AddPasswordForm onStatus={setStatus} onSaved={reload} />
-      {status ? (
-        <output className="mt-2 block px-3 text-fg-muted text-ui-sm">{status}</output>
-      ) : null}
+      {status ? <Notice tone="info">{status}</Notice> : null}
       <RemovePasswordDialog
         removing={removing}
         onClose={() => setRemoving(null)}

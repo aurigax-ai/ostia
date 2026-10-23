@@ -35,26 +35,24 @@ function open() {
 }
 
 describe('ClaudeAccountsMenu', () => {
-  it('lists the accounts with a check on the one new sessions use', async () => {
+  it('lists the accounts as one choice with the current one checked', async () => {
     await open()
-    const work = await screen.findByRole('menuitem', { name: /work@example.com/ })
-    expect(work.querySelector('[aria-label="Active"]')).not.toBeNull()
-    expect(
-      screen
-        .getByRole('menuitem', { name: /me@example.com/ })
-        .querySelector('[aria-label="Active"]'),
-    ).toBeNull()
+    const work = await screen.findByRole('menuitemradio', { name: /work@example.com/ })
+    expect(work).toHaveAttribute('aria-checked', 'true')
+    const first = screen.getByRole('menuitemradio', { name: /me@example.com/ })
+    expect(first).toHaveAttribute('aria-checked', 'false')
+    expect(first).toHaveTextContent('Default')
   })
 
   it('switches the account on a click', async () => {
     await open()
-    await userEvent.click(await screen.findByRole('menuitem', { name: /me@example.com/ }))
+    await userEvent.click(await screen.findByRole('menuitemradio', { name: /me@example.com/ }))
     expect(window.ostia.claudeAccounts.use).toHaveBeenCalledWith('default')
   })
 
   it('shows no rotation control until it does something', async () => {
     await open()
-    await screen.findByRole('menuitem', { name: /work@example.com/ })
+    await screen.findByRole('menuitemradio', { name: /work@example.com/ })
     expect(screen.queryByText('Rotation')).toBeNull()
     expect(screen.queryByRole('button', { name: 'Manual' })).toBeNull()
   })
@@ -63,7 +61,7 @@ describe('ClaudeAccountsMenu', () => {
     const openSettings = vi.fn()
     useUIStore.setState({ openSettings })
     await open()
-    await userEvent.click(await screen.findByText('Manage accounts…'))
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Manage accounts…' }))
     expect(openSettings).toHaveBeenCalledWith('claudeAccounts')
   })
 })
