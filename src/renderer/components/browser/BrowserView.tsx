@@ -1,7 +1,6 @@
 import { type BrowserDevice, DEFAULT_DEVICE } from '@shared/browser/browserDevice'
 import { type BrowserProfile, browserPartition } from '@shared/browser/browserProfile'
 import type { DeviceTouch } from '@shared/browser/deviceTouch'
-import type { PickBox } from '@shared/browser/pick'
 import { type MutableRefObject, useCallback, useRef, useState } from 'react'
 import { useDict } from '@/lib/app/useDict'
 import { unscaledRegion } from '@/lib/browser/deviceFrame'
@@ -15,7 +14,7 @@ import { DeviceBar } from './DeviceBar'
 import { DeviceStage } from './DeviceStage'
 import { RegionCropBox, RegionCropOverlay } from './RegionCropOverlay'
 import { useBrowserActions } from './useBrowserActions'
-import { useBrowserCapture } from './useBrowserCapture'
+import { type HeldBox, useBrowserCapture } from './useBrowserCapture'
 import { useBrowserDevice } from './useBrowserDevice'
 import { BLANK_PAGE, useBrowserNavigation } from './useBrowserNavigation'
 import { useGrantedProfile } from './useGrantedProfile'
@@ -28,7 +27,7 @@ function BrowserStage({
   sendTouch,
   focusPage,
   cropping,
-  heldBox,
+  held,
   setCropping,
   finishCrop,
   captureActions,
@@ -50,7 +49,7 @@ function BrowserStage({
   sendTouch: (input: DeviceTouch) => void
   focusPage: () => void
   cropping: boolean
-  heldBox: PickBox | null
+  held: HeldBox | null
   setCropping: (on: boolean) => void
   finishCrop: ReturnType<typeof useBrowserCapture>['finishCrop']
   captureActions: JSX.Element
@@ -85,8 +84,8 @@ function BrowserStage({
               }}
               onCancel={() => setCropping(false)}
             />
-          ) : heldBox ? (
-            <RegionCropBox rect={heldBox} />
+          ) : held ? (
+            <RegionCropBox rect={held.rect} sized={held.sized} />
           ) : null
         }
       >
@@ -262,7 +261,7 @@ export function BrowserView({
         sendTouch={sendTouch}
         focusPage={focusPage}
         cropping={capture.cropping}
-        heldBox={capture.heldBox}
+        held={capture.held}
         setCropping={capture.setCropping}
         finishCrop={capture.finishCrop}
         captureActions={<BrowserCaptureActions workspaceId={workspaceId} {...capture} />}

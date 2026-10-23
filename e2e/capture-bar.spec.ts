@@ -164,15 +164,20 @@ test('a browser pane copies a table as CSV, an element without text as an image,
     }
     const bar = win.getByRole('toolbar', { name: 'Selection actions' })
 
+    const outline = win.locator('.browser-stage .region-crop-box')
     await pointAt('[data-testid=first-cell]')
     await expect(bar).toBeVisible({ timeout: 15_000 })
+    await expect(outline).toBeVisible()
+    await expect(outline.locator('.region-crop-size')).toHaveCount(0)
     await bar.getByRole('button', { name: 'Copy' }).click()
     await expect(win.getByText('Copied the table (3 rows × 3 columns) as CSV.')).toBeVisible()
+    await expect(outline).toBeVisible()
     const table = await readClipboard(app)
     expect(table.text).toBe(
       'Order,Customer,Customer\n#4821,"Northwind, Ltd",EU\n#4822,"Fabrikam ""Home""",US',
     )
     expect(table.hasImage).toBe(false)
+    await expect(outline).toHaveCount(0)
 
     await pointAt('#swatch')
     await expect(bar).toBeVisible({ timeout: 15_000 })
@@ -266,11 +271,16 @@ test('a running HTML preview points at an element, sends selected text and crops
       }, at)
     }
 
+    const outline = frame.locator('.region-crop-box')
     await pointAt('#cell')
     await expect(bar).toBeVisible({ timeout: 15_000 })
+    await expect(outline).toBeVisible()
+    await expect(outline.locator('.region-crop-size')).toHaveCount(0)
     await bar.getByRole('button', { name: 'Copy' }).click()
     await expect(win.getByText('Copied the table (3 rows × 2 columns) as CSV.')).toBeVisible()
+    await expect(outline).toBeVisible()
     expect((await readClipboard(app)).text).toBe('Order,Customer\n#4821,Northwind\n#4822,Fabrikam')
+    await expect(outline).toHaveCount(0)
 
     const area = await frame.boundingBox()
     if (!area) throw new Error('preview frame has no box')

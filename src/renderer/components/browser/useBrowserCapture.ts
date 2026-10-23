@@ -12,7 +12,7 @@ import { registerSelectionSender } from '@/lib/agents/selectionSenders'
 import { sendPickToPane, sendRegionToPane, sendSelectionToPane } from '@/lib/agents/sendPick'
 import { fmt } from '@/lib/app/useDict'
 import { useTransientStatus } from '@/lib/app/useTransientStatus'
-import { layerRectAnchor, pageBoxAnchor } from '@/lib/browser/captureAnchor'
+import { layerRectAnchor, pageBoxAnchor, pageBoxToLayer } from '@/lib/browser/captureAnchor'
 import { registerRegionCapture } from '@/lib/browser/regionCaptures'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 
@@ -45,11 +45,16 @@ interface BrowserCaptureParams {
   d: Dict
 }
 
+export interface HeldBox {
+  rect: PickBox
+  sized: boolean
+}
+
 interface CaptureBarState {
   key: number
   open: OpenCapture
   anchor: BarAnchor
-  box: PickBox | null
+  held: HeldBox | null
 }
 
 let barCounter = 0
@@ -57,10 +62,10 @@ let barCounter = 0
 function barOf(
   open: OpenCapture,
   anchor: BarAnchor | null,
-  box: PickBox | null = null,
+  held: HeldBox | null = null,
 ): CaptureBarState {
   barCounter += 1
-  return { key: barCounter, open, anchor: anchor ?? FALLBACK_ANCHOR, box }
+  return { key: barCounter, open, anchor: anchor ?? FALLBACK_ANCHOR, held }
 }
 
 const FALLBACK_ANCHOR: BarAnchor = { left: 12, top: 12, bottom: 12 }
@@ -121,11 +126,10 @@ export function useBrowserCapture({
     }
     const wv = webviewRef.current
     setBar(
-      barOf(
-        { kind: 'region', capture: outcome.capture },
-        wv && layerRectAnchor(wv, layerRect),
-        layerRect,
-      ),
+      barOf({ kind: 'region', capture: outcome.capture }, wv && layerRectAnchor(wv, layerRect), {
+        rect: layerRect,
+        sized: true,
+      }),
     )
   }
 
@@ -144,8 +148,13 @@ export function useBrowserCapture({
     if (outcome.ok) {
       const wv = webviewRef.current
       const { capture } = outcome
+      const rect = wv && pageBoxToLayer(wv, capture.box, capture.viewport)
       setBar(
-        barOf({ kind: 'pick', capture }, wv && pageBoxAnchor(wv, capture.box, capture.viewport)),
+        barOf(
+          { kind: 'pick', capture },
+          wv && pageBoxAnchor(wv, capture.box, capture.viewport),
+          rect ? { rect, sized: false } : null,
+        ),
       )
     } else if (outcome.error !== 'cancelled' && outcome.error !== 'busy') {
       setStatus(fmt(d.browser.pickFailed, { reason: outcome.error }))
@@ -223,7 +232,7 @@ export function useBrowserCapture({
   return {
     picking,
     cropping,
-    heldBox: bar?.box ?? null,
+    held: bar?.held ?? null,
     setCropping,
     status,
     setStatus,
