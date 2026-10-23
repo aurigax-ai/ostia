@@ -10,7 +10,6 @@ import {
   type SandboxSwitches,
 } from '../../shared/sandbox/sandbox'
 import { expandHome, isInsidePath } from '../platform/pathGuard'
-import { OLD_PRODUCT_NAME } from '../platform/userDirs'
 
 export interface SandboxPaths {
   home: string
@@ -47,10 +46,7 @@ const AGENT_PROTECTED_FILES = [
 
 const GIT_CONFIG_FILE = '.git/config'
 const WORKDIR_PROTECTED_FILES = ['.envrc', '.git/hooks', GIT_CONFIG_FILE]
-export const WORKDIR_HIDDEN_FILES = [
-  `.${PRODUCT_NAME}/vault.json`,
-  `.${OLD_PRODUCT_NAME}/vault.json`,
-]
+export const WORKDIR_HIDDEN_FILES = [`.${PRODUCT_NAME}/vault.json`]
 export const HOME_HIDDEN_FILES = ['.cargo/credentials.toml', '.cargo/credentials']
 
 const CONTAINER_SOCKETS = [

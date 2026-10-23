@@ -356,7 +356,6 @@ describe('fixedPolicy', () => {
       '/home/u/.cargo/credentials.toml',
       '/home/u/.cargo/credentials',
       '/home/u/app/.ostia/vault.json',
-      '/home/u/app/.pine/vault.json',
       '/tmp/ssh-abc',
       '/run/docker.sock',
       '/run/user/1000',
