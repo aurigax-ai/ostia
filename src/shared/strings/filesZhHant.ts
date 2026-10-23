@@ -271,6 +271,7 @@ export const filesZhHant: typeof filesEn = {
     editSource: '編輯頁面原始碼',
     errorActions: '錯誤動作',
     errors: '{count} 個錯誤',
+    noTextSend: '執行中的預覽無法傳送選取的文字。請擷取區域，或編輯原始碼。',
     notResponding: '這個頁面沒有回應。',
     oneError: '{count} 個錯誤',
     openInBrowser: '在瀏覽器窗格中開啟',

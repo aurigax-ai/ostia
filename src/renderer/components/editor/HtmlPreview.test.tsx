@@ -317,7 +317,9 @@ describe('HtmlPreview', () => {
         clientY: from[1],
         pointerId: 1,
       })
-      fireEvent.pointerUp(overlay, { clientX: to[0], clientY: to[1], pointerId: 1 })
+      await act(async () => {
+        fireEvent.pointerUp(overlay, { clientX: to[0], clientY: to[1], pointerId: 1 })
+      })
     }
     expect(crop()).toHaveAttribute('aria-pressed', 'false')
     await drag([10, 10], [12, 12])
@@ -329,6 +331,11 @@ describe('HtmlPreview', () => {
     await drag([10, 20], [110, 70])
     await vi.waitFor(() => expect(sendRegion).toHaveBeenCalledTimes(1))
     expect(layer()).toBeNull()
+    const held = () => document.querySelector('.region-crop-box') as HTMLElement | null
+    expect(held()?.style.width).toBe('100px')
+    expect(held()?.style.height).toBe('50px')
+    act(() => sendRegion.mock.calls[0][3]())
+    expect(held()).toBeNull()
     expect(window.ostia.preview.capture).toHaveBeenCalledWith('load1', {
       x: 10,
       y: 20,

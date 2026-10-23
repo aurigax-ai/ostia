@@ -279,6 +279,8 @@ export const filesEn = {
     editSource: 'Edit page source',
     errorActions: 'Error actions',
     errors: '{count} errors',
+    noTextSend:
+      'A running preview cannot send selected text. Capture a region, or edit the source.',
     notResponding: 'This page is not responding.',
     oneError: '{count} error',
     openInBrowser: 'Open in Browser Pane',

@@ -25,6 +25,19 @@ function pointOf(e: ReactPointerEvent<HTMLElement>): Point {
   return { x: e.clientX - box.left, y: e.clientY - box.top }
 }
 
+export function RegionCropBox({ rect }: { rect: PickBox }): JSX.Element {
+  return (
+    <div
+      className="region-crop-box"
+      style={{ left: rect.x, top: rect.y, width: rect.width, height: rect.height }}
+    >
+      <output className="region-crop-size">
+        {rect.width} × {rect.height}
+      </output>
+    </div>
+  )
+}
+
 export function RegionCropOverlay({
   label,
   onDone,
@@ -80,16 +93,7 @@ export function RegionCropOverlay({
         }
       }}
     >
-      {rect ? (
-        <div
-          className="region-crop-box"
-          style={{ left: rect.x, top: rect.y, width: rect.width, height: rect.height }}
-        >
-          <output className="region-crop-size">
-            {rect.width} × {rect.height}
-          </output>
-        </div>
-      ) : null}
+      {rect ? <RegionCropBox rect={rect} /> : null}
     </div>
   )
 }
