@@ -12,6 +12,7 @@ import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useArtifactsStore } from '@/stores/files/artifactsStore'
 import { useEditorStatus } from '@/stores/files/editorStatusStore'
 import { useRemoteFoldersStore } from '@/stores/files/remoteFoldersStore'
+import { useViewModeStore } from '@/stores/files/viewModeStore'
 import { useLiveSelectionStore } from '@/stores/terminal/liveSelectionStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import {
@@ -351,7 +352,7 @@ describe('EditorView', () => {
     const done = editorInSurface('p-html', '/w/page.html')
     await waitFor(() => expect(fake.state.input).not.toBeNull())
 
-    await userEvent.setup().click(screen.getByRole('button', { name: 'Run page in preview' }))
+    act(() => useViewModeStore.getState().byPane['p-html']?.act())
     const webview = await waitFor(() => {
       const found = surfaceHost('p-html').querySelector<HTMLElement>('webview')
       if (!found) throw new Error('no webview yet')

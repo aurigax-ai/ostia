@@ -1,8 +1,7 @@
-import { CodeIcon, EyeIcon, PlayIcon } from '@phosphor-icons/react'
-import type { MutableRefObject } from 'react'
+import { type MutableRefObject, useEffect, useRef } from 'react'
 import type { SelectionSend } from '@/components/agents/SelectionSend'
 import { fmt, useDict } from '@/lib/app/useDict'
-import { FloatPill, FloatPillButton } from './FloatPill'
+import { useViewModeStore, type ViewMode } from '@/stores/files/viewModeStore'
 import { HtmlPreview } from './HtmlPreview'
 
 export interface OptionViewer {
@@ -36,35 +35,41 @@ export function EditorModes({
   overlayRef,
 }: EditorModesProps): JSX.Element | null {
   const d = useDict()
-  const mode =
-    optionViewer && !runnable ? (
-      <FloatPillButton
-        icon={EyeIcon}
-        label={fmt(d.viewer.showWith, { name: optionViewer.name })}
-        onClick={optionViewer.show}
-      />
-    ) : runnable && filePath ? (
-      <FloatPillButton
-        icon={running ? CodeIcon : PlayIcon}
-        label={running ? d.preview.editSource : d.preview.run}
-        onClick={() => setRunChoice({ file: filePath, on: !running })}
-      />
-    ) : null
-  if (running && filePath) {
-    return (
-      <HtmlPreview
-        key={filePath}
-        workspaceId={workspaceId}
-        paneId={paneId}
-        filePath={filePath}
-        visible={visible}
-        focusRef={overlayRef}
-        mode={mode}
-        onSendErrors={(count, text) =>
-          selectionSend.open({ kind: 'preview-error', file: filePath, count, text })
+  const publish = useViewModeStore((s) => s.publish)
+  const mode: ViewMode | null =
+    optionViewer && !runnable
+      ? {
+          icon: 'viewer',
+          label: fmt(d.viewer.showWith, { name: optionViewer.name }),
+          act: optionViewer.show,
         }
-      />
-    )
-  }
-  return mode ? <FloatPill label={d.preview.controls}>{mode}</FloatPill> : null
+      : runnable && filePath
+        ? {
+            icon: running ? 'source' : 'run',
+            label: running ? d.preview.editSource : d.preview.run,
+            act: () => setRunChoice({ file: filePath, on: !running }),
+          }
+        : null
+  const actRef = useRef(mode?.act)
+  actRef.current = mode?.act
+  const icon = mode?.icon
+  const label = mode?.label
+  useEffect(() => {
+    if (!icon || !label) return
+    return publish(paneId, { icon, label, act: () => actRef.current?.() })
+  }, [publish, paneId, icon, label])
+  if (!running || !filePath) return null
+  return (
+    <HtmlPreview
+      key={filePath}
+      workspaceId={workspaceId}
+      paneId={paneId}
+      filePath={filePath}
+      visible={visible}
+      focusRef={overlayRef}
+      onSendErrors={(count, text) =>
+        selectionSend.open({ kind: 'preview-error', file: filePath, count, text })
+      }
+    />
+  )
 }

@@ -1,7 +1,9 @@
 import '@testing-library/jest-dom/vitest'
 import { cleanup, render, screen } from '@testing-library/react'
-import { afterEach, describe, expect, it } from 'vitest'
+import userEvent from '@testing-library/user-event'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { PaneNode } from '@/lib/layout/types'
+import { useViewModeStore } from '@/stores/files/viewModeStore'
 import { useBlocksStore } from '@/stores/terminal/blocksStore'
 import { PaneActions } from './PaneActions'
 
@@ -23,6 +25,7 @@ function runAgent(id: string): void {
 afterEach(() => {
   cleanup()
   useBlocksStore.setState(useBlocksStore.getInitialState(), true)
+  useViewModeStore.setState(useViewModeStore.getInitialState(), true)
 })
 
 describe('PaneActions agent split button', () => {
@@ -39,5 +42,36 @@ describe('PaneActions agent split button', () => {
     render(<PaneActions pane={shell} workspaceId="w1" />)
     expect(screen.queryByRole('group', { name: 'Agent actions' })).toBeNull()
     expect(screen.queryByRole('button', { name: 'Agent actions' })).toBeNull()
+  })
+})
+
+describe('PaneActions view mode button', () => {
+  const file: PaneNode = {
+    type: 'pane',
+    id: 'p3',
+    kind: 'editor',
+    title: 'data.csv',
+    filePath: '/w/data.csv',
+  }
+
+  it('shows the published button of an editor pane and runs it', async () => {
+    const act = vi.fn()
+    useViewModeStore.getState().publish('p3', { icon: 'viewer', label: 'Open with Table', act })
+    render(<PaneActions pane={file} workspaceId="w1" />)
+    await userEvent.click(screen.getByRole('button', { name: 'Open with Table' }))
+    expect(act).toHaveBeenCalledTimes(1)
+  })
+
+  it('shows nothing when the file offers no view mode', () => {
+    render(<PaneActions pane={file} workspaceId="w1" />)
+    expect(screen.queryByRole('button', { name: /Open with|Run page|Edit page/ })).toBeNull()
+  })
+
+  it('shows only the button of its own pane', () => {
+    useViewModeStore
+      .getState()
+      .publish('other', { icon: 'run', label: 'Run page in preview', act: vi.fn() })
+    render(<PaneActions pane={file} workspaceId="w1" />)
+    expect(screen.queryByRole('button', { name: 'Run page in preview' })).toBeNull()
   })
 })

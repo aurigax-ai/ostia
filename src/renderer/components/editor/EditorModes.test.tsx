@@ -1,7 +1,7 @@
 import '@testing-library/jest-dom/vitest'
-import { cleanup, render, screen, within } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
+import { cleanup, render } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { useViewModeStore } from '@/stores/files/viewModeStore'
 import { EditorModes } from './EditorModes'
 
 const baseProps = {
@@ -17,26 +17,40 @@ const baseProps = {
 }
 
 describe('EditorModes', () => {
-  afterEach(cleanup)
-
-  it('floats the option viewer button in the file actions pill', async () => {
-    const show = vi.fn()
-    render(<EditorModes {...baseProps} optionViewer={{ name: 'Table', show }} />)
-    const pill = screen.getByRole('toolbar', { name: 'File actions' })
-    await userEvent.click(within(pill).getByRole('button', { name: 'Open with Table' }))
-    expect(show).toHaveBeenCalledTimes(1)
+  afterEach(() => {
+    cleanup()
+    useViewModeStore.setState(useViewModeStore.getInitialState(), true)
   })
 
-  it('floats the run toggle in the same pill', async () => {
+  it('publishes the option viewer button for the tab row and draws nothing over the text', () => {
+    const show = vi.fn()
+    const { container } = render(
+      <EditorModes {...baseProps} optionViewer={{ name: 'Table', show }} />,
+    )
+    const mode = useViewModeStore.getState().byPane.p
+    expect(mode).toMatchObject({ icon: 'viewer', label: 'Open with Table' })
+    mode?.act()
+    expect(show).toHaveBeenCalledTimes(1)
+    expect(container).toBeEmptyDOMElement()
+  })
+
+  it('publishes the run toggle', () => {
     const setRunChoice = vi.fn()
     render(<EditorModes {...baseProps} filePath="/w/a.html" runnable setRunChoice={setRunChoice} />)
-    const pill = screen.getByRole('toolbar', { name: 'File actions' })
-    await userEvent.click(within(pill).getByRole('button', { name: 'Run page in preview' }))
+    const mode = useViewModeStore.getState().byPane.p
+    expect(mode).toMatchObject({ icon: 'run', label: 'Run page in preview' })
+    mode?.act()
     expect(setRunChoice).toHaveBeenCalledWith({ file: '/w/a.html', on: true })
   })
 
-  it('draws no pill with nothing to offer', () => {
-    render(<EditorModes {...baseProps} />)
-    expect(screen.queryByRole('toolbar')).toBeNull()
+  it('publishes nothing with nothing to offer, and withdraws on unmount', () => {
+    const { unmount } = render(<EditorModes {...baseProps} />)
+    expect(useViewModeStore.getState().byPane.p).toBeUndefined()
+    cleanup()
+    render(<EditorModes {...baseProps} optionViewer={{ name: 'Table', show: vi.fn() }} />)
+    expect(useViewModeStore.getState().byPane.p).toBeDefined()
+    cleanup()
+    expect(useViewModeStore.getState().byPane.p).toBeUndefined()
+    unmount()
   })
 })

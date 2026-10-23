@@ -1,5 +1,8 @@
 import {
+  CodeIcon,
+  EyeIcon,
   GlobeIcon,
+  PlayIcon,
   SquareSplitHorizontalIcon,
   SquareSplitVerticalIcon,
   TerminalWindowIcon,
@@ -13,7 +16,10 @@ import { ArtifactVersionsButton } from '@/components/editor/ArtifactVersions'
 import { PortableActions } from '@/components/editor/PortableActions'
 import { useDict } from '@/lib/app/useDict'
 import type { PaneNode, SurfaceKind } from '@/lib/layout/types'
+import { useViewModeStore } from '@/stores/files/viewModeStore'
 import { PaneHeaderActions } from './PaneTabMenu'
+
+const VIEW_MODE_ICONS = { viewer: EyeIcon, run: PlayIcon, source: CodeIcon } as const
 
 const SERVICE_SURFACES: ReadonlySet<SurfaceKind> = new Set(['chat', 'agent', 'git', 'view'])
 
@@ -26,8 +32,16 @@ export function PaneActions({
 }): JSX.Element {
   const d = useDict()
   const session = usePaneAgentSession(shown)
+  const viewMode = useViewModeStore((s) => s.byPane[shown.id])
   return (
     <div className="pane-actions">
+      {shown.kind === 'editor' && viewMode ? (
+        <IconButton
+          icon={VIEW_MODE_ICONS[viewMode.icon]}
+          label={viewMode.label}
+          onClick={viewMode.act}
+        />
+      ) : null}
       {shown.kind === 'editor' && shown.filePath ? (
         <>
           <ArtifactVersionsButton
