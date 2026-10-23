@@ -15,14 +15,9 @@ import {
   type PreviewTheme,
   previewPartition,
 } from '../../shared/artifacts/htmlPreview'
-import {
-  REGION_IMAGE_MAX,
-  regionCaptureRect,
-  regionPageRect,
-} from '../../shared/browser/regionCapture'
 import { lockDownSession, previewHeaders } from './previewAttach'
 import { type PreviewSource, regularFileSize } from './previewFiles'
-import type { PreviewGuest, PreviewHostDeps, PreviewRect, PreviewSession } from './previewHostTypes'
+import type { PreviewGuest, PreviewHostDeps, PreviewSession } from './previewHostTypes'
 import { busySince, previewsOverCap, previewVerdict } from './previewLimits'
 
 const PING_MS = 1_000
@@ -34,19 +29,6 @@ const GESTURE_INPUTS = new Set(['mouseDown', 'keyDown', 'touchStart'])
 const CLIPBOARD_WRITE = 'clipboard-sanitized-write'
 const DEBUGGER_PROTOCOL = '1.3'
 const PAUSE_SCRIPTS = 'Emulation.setScriptExecutionDisabled'
-
-const REGION_MIN = 4
-
-function regionOf(value: unknown): PreviewRect | null {
-  const raw = value as Partial<PreviewRect> | null
-  if (!raw || typeof raw !== 'object') return null
-  const [x, y, width, height] = [raw.x, raw.y, raw.width, raw.height].map((n) =>
-    typeof n === 'number' && Number.isFinite(n) ? Math.round(n) : Number.NaN,
-  )
-  if ([x, y, width, height].some(Number.isNaN) || x < 0 || y < 0) return null
-  if (width < REGION_MIN || height < REGION_MIN) return null
-  return { x, y, width, height }
-}
 
 interface Slot {
   nonce: string
@@ -361,26 +343,10 @@ export class PreviewHost {
     this.thaw(live)
   }
 
-  async capture(windowId: string, id: string, rect: unknown): Promise<Uint8Array | null> {
-    const live = this.live.get(id)
-    const region = regionOf(rect)
-    if (!live || live.windowId !== windowId || !region) return null
-    const guest = live.guest
-    if (!guest || guest.isDestroyed()) return null
-    const zoom = this.deps.hostZoom?.(windowId) ?? 1
-    try {
-      const image = await guest.capturePage(regionCaptureRect(region, zoom))
-      if (image.isEmpty()) return null
-      const png = image.toPNG()
-      return png.byteLength > REGION_IMAGE_MAX ? null : new Uint8Array(png)
-    } catch {
-      return null
-    }
-  }
-
-  pageRegion(windowId: string, rect: unknown): PreviewRect | null {
-    const region = regionOf(rect)
-    return region ? regionPageRect(region, this.deps.hostZoom?.(windowId) ?? 1, 1) : null
+  captureGuestId(windowId: string, paneId: string): number | null {
+    const live = this.byPane.get(paneId)?.live
+    const guest = live?.guest
+    return live && guest && live.windowId === windowId && !guest.isDestroyed() ? guest.id : null
   }
 
   stopByHuman(windowId: string, id: string): void {

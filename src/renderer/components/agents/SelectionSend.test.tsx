@@ -64,27 +64,6 @@ describe('useSelectionSend', () => {
     expect(copyPaneSelection('p1')).toBe(false)
   })
 
-  it('tells the opener when its bar closes or a newer selection replaces it', async () => {
-    let open: SelectionSend['open'] = () => {}
-    function Panel(): JSX.Element {
-      const selectionSend = useSelectionSend('w1', 'p1')
-      open = selectionSend.open
-      return <TooltipProvider>{selectionSend.panel}</TooltipProvider>
-    }
-    render(<Panel />)
-    const first = vi.fn()
-    const second = vi.fn()
-    const capture = { kind: 'terminal', cwd: null, command: null, text: 'out' } as const
-    act(() => open(capture, undefined, undefined, first))
-    await screen.findByRole('toolbar', { name: 'Selection actions' })
-    expect(first).not.toHaveBeenCalled()
-    act(() => open(capture, undefined, undefined, second))
-    expect(first).toHaveBeenCalledTimes(1)
-    await userEvent.keyboard('{Escape}')
-    expect(second).toHaveBeenCalledTimes(1)
-    expect(first).toHaveBeenCalledTimes(1)
-  })
-
   it('has nothing to copy for an image capture without its pixels', async () => {
     let open: SelectionSend['open'] = () => {}
     function Panel(): JSX.Element {

@@ -63,9 +63,6 @@ export function EditorModes({
         onSendErrors={(count, text) =>
           selectionSend.open({ kind: 'preview-error', file: filePath, count, text })
         }
-        onSendRegion={(capture, image, anchor, onClose) =>
-          selectionSend.open(capture, image, anchor, onClose)
-        }
       />
     )
   }

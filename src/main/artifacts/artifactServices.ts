@@ -83,7 +83,6 @@ export function createArtifactServices({
     processes: appProcessUse,
     build: (source, theme) =>
       previewBuild(artifactHistory, (s, t) => portableBuilder.preview(s, t))(source, theme),
-    hostZoom: (windowId) => windows.get(windowId)?.webContents.getZoomFactor() ?? 1,
   })
 
   const portableExport = new PortableExport({

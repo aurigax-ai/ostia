@@ -3,11 +3,12 @@ import { app, session } from 'electron'
 import { SHARED_BROWSER_PARTITION } from '../../shared/browser/browserProfile'
 import type { OriginReach } from '../agents/originAgents'
 import type { Reach } from '../approvals/reach'
+import type { PreviewHost } from '../artifacts/htmlPreview'
 import type { CommandBridge } from '../control/commandBridge'
 import type { Redactor } from '../privacy/redaction'
 import type { WindowSend } from '../windows/windowSend'
 import { registerBrowseMethods } from './browse'
-import { ownedGuest } from './browseGuests'
+import { captureGuestOf, ownedGuest } from './browseGuests'
 import type { ConsoleEntry } from './browseMethod'
 import { registerPickIpc, registerPickMethods } from './browsePick'
 import { registerRegionIpc } from './browseRegion'
@@ -29,6 +30,7 @@ interface BrowserWiringDeps {
   broadcast: WindowSend['broadcast']
   reachesPane: OriginReach
   redactor: Redactor
+  previews: Pick<PreviewHost, 'captureGuestId'>
 }
 
 export function registerBrowserWiring({
@@ -43,7 +45,11 @@ export function registerBrowserWiring({
   broadcast,
   reachesPane,
   redactor,
+  previews,
 }: BrowserWiringDeps) {
+  const guestOf = captureGuestOf(browserPanes, (windowId, paneId) =>
+    previews.captureGuestId(windowId, paneId),
+  )
   const sharedBrowser = session.fromPartition(SHARED_BROWSER_PARTITION)
   const sharedAgents = browserAgentsOf(sharedBrowser)
   const isSharedPane = (paneId: string): boolean => browserProfiles.isShared(paneId)
@@ -60,10 +66,11 @@ export function registerBrowserWiring({
   registerPickMethods({ browserPanes, isSharedPane, errorBuffers, broadcast, reach })
   registerPickIpc(
     { browserPanes, isSharedPane, errorBuffers, broadcast, reach },
+    guestOf,
     reachesPane,
     redactor.text,
   )
-  registerRegionIpc(browserPanes, reachesPane, redactor.text)
+  registerRegionIpc(guestOf, reachesPane, redactor.text)
   registerDeviceIpc(browserPanes, sharedAgents.metadata)
   registerBrowserStorageIpc((paneId, senderWindowId) =>
     ownedGuest(browserPanes, paneId, senderWindowId),

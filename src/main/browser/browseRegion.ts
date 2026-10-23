@@ -26,7 +26,7 @@ import type { OriginReach } from '../agents/originAgents'
 import { getByPaneId } from '../control/idRegistry'
 import { privateTmpDir } from '../platform/privateTmp'
 import type { RedactText } from '../privacy/redactionTargets'
-import { ownedGuest } from './browseGuests'
+import type { CaptureGuestOf } from './browseGuests'
 import { REPORT_DIR_NAME } from './browsePick'
 
 const MAX_STORED_REGIONS = 5
@@ -146,12 +146,12 @@ export async function copyRegionImage(
 }
 
 export function registerRegionIpc(
-  browserPanes: Map<string, number>,
+  guestOf: CaptureGuestOf,
   reaches: OriginReach,
   redact: RedactText,
 ): void {
   ipcMain.handle('browser:region-capture', (e, paneId: string, req: unknown) => {
-    const guest = ownedGuest(browserPanes, paneId, String(e.sender.id))
+    const guest = guestOf(paneId, String(e.sender.id))
     if (!guest) return { ok: false, error: 'browser-not-ready' } satisfies RegionCaptureOutcome
     return captureRegion(guest, e.sender.getZoomFactor(), paneId, req)
   })

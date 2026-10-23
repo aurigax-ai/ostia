@@ -273,14 +273,11 @@ export const filesEn = {
   preview: {
     blocked: 'This page tried to reach {host}; previews have no network',
     busy: 'This page has kept a processor core busy for a while.',
-    captureRegion: 'Capture region',
     controls: 'File actions',
     copyErrors: 'Copy errors',
     editSource: 'Edit page source',
     errorActions: 'Error actions',
     errors: '{count} errors',
-    noTextSend:
-      'A running preview cannot send selected text. Capture a region, or edit the source.',
     notResponding: 'This page is not responding.',
     oneError: '{count} error',
     openInBrowser: 'Open in Browser Pane',

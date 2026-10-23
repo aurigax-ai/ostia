@@ -196,10 +196,16 @@ test('a browser pane copies a table as CSV, an element without text as an image,
 })
 
 const PREVIEW_PAGE = `<!doctype html><title>preview</title>
-<body style="margin:0"><p style="margin:40px;font:24px sans-serif">Selectable preview words</p></body>`
+<body style="margin:0">
+  <p id="note" style="margin:40px;font:24px sans-serif">Selectable preview words</p>
+  <table id="orders" style="margin:0 40px;border-collapse:collapse;font:18px sans-serif">
+    <thead><tr><th>Order</th><th>Customer</th></tr></thead>
+    <tbody><tr><td id="cell">#4821</td><td>Northwind</td></tr><tr><td>#4822</td><td>Fabrikam</td></tr></tbody>
+  </table>
+</body>`
 
-test('the HTML preview selects its text, never sends the hidden source for the chord, and keeps the crop box while the bar is open', async () => {
-  test.setTimeout(120_000)
+test('a running HTML preview points at an element, sends selected text and crops, through the browser capture bar', async () => {
+  test.setTimeout(150_000)
   const dataHome = freshDataHome()
   const home = join(dataHome, 'home')
   mkdirSync(home, { recursive: true })
@@ -210,46 +216,76 @@ test('the HTML preview selects its text, never sends the hidden source for the c
     await openWorkspace(win)
     await runInTerminal(win, 'ostia open ~/page.html')
     await expect(win.locator('.monaco-editor').first()).toBeVisible({ timeout: 20_000 })
-    const editor = win.locator('.monaco-editor').first()
-    const lines = await editor.locator('.view-lines').first().boundingBox()
-    if (!lines) throw new Error('editor lines have no box')
-    await win.mouse.move(lines.x + 8, lines.y + 8)
-    await win.mouse.down()
-    await win.mouse.move(lines.x + 160, lines.y + 8, { steps: 5 })
-    await win.mouse.up()
     await win.getByRole('button', { name: 'Run page in preview' }).click()
     const frame = win.locator('.preview-frame')
     await expect(frame).toBeVisible({ timeout: 20_000 })
 
-    const inPreview = (code: string): Promise<string> =>
+    const inPreview = <T>(code: string): Promise<T | null> =>
       app.evaluate(async ({ webContents }, js) => {
         const guest = webContents
           .getAllWebContents()
           .find((wc) => wc.getURL().startsWith('ostia-preview://'))
-        if (!guest) return ''
-        const texts = await Promise.all(
-          guest.mainFrame.framesInSubtree.map((f) => f.executeJavaScript(js)),
-        )
-        return texts.join('')
-      }, code)
+        return guest ? await guest.executeJavaScript(js) : null
+      }, code) as Promise<T | null>
     await expect
-      .poll(() => inPreview('document.body.innerText'), { timeout: 20_000 })
+      .poll(() => inPreview<string>('document.body.innerText'), { timeout: 20_000 })
       .toContain('Selectable preview words')
+    expect(
+      await app.evaluate(({ webContents }) => {
+        const guest = webContents
+          .getAllWebContents()
+          .find((wc) => wc.getURL().startsWith('ostia-preview://'))
+        return guest ? guest.mainFrame.frames.length : -1
+      }),
+    ).toBe(0)
+    expect(await inPreview<string>('window.origin')).toBe('null')
+    expect(
+      await inPreview<string>(
+        '(() => { try { localStorage.setItem("k", "v"); return "open" } catch (e) { return e.name } })()',
+      ),
+    ).toBe('SecurityError')
+
+    const bar = win.getByRole('toolbar', { name: 'Selection actions' })
+    const pointAt = async (selector: string): Promise<void> => {
+      await win.getByRole('button', { name: 'Point at element' }).click()
+      await expect
+        .poll(() => inPreview<boolean>('!!document.querySelector("[data-ostia-pick]")'))
+        .toBe(true)
+      const at = await inPreview<{ x: number; y: number }>(
+        `(() => { const r = document.querySelector(${JSON.stringify(selector)}).getBoundingClientRect(); return { x: Math.round(r.x + r.width / 2), y: Math.round(r.y + r.height / 2) } })()`,
+      )
+      if (!at) throw new Error('no point')
+      await app.evaluate(({ webContents }, { x, y }) => {
+        const guest = webContents
+          .getAllWebContents()
+          .find((wc) => wc.getURL().startsWith('ostia-preview://'))
+        if (!guest) throw new Error('no preview guest')
+        guest.sendInputEvent({ type: 'mouseMove', x, y })
+        guest.sendInputEvent({ type: 'mouseDown', x, y, button: 'left', clickCount: 1 })
+        guest.sendInputEvent({ type: 'mouseUp', x, y, button: 'left', clickCount: 1 })
+      }, at)
+    }
+
+    await pointAt('#cell')
+    await expect(bar).toBeVisible({ timeout: 15_000 })
+    await bar.getByRole('button', { name: 'Copy' }).click()
+    await expect(win.getByText('Copied the table (3 rows × 2 columns) as CSV.')).toBeVisible()
+    expect((await readClipboard(app)).text).toBe('Order,Customer\n#4821,Northwind\n#4822,Fabrikam')
 
     const area = await frame.boundingBox()
     if (!area) throw new Error('preview frame has no box')
     await win.mouse.move(area.x + 42, area.y + 55)
     await win.mouse.down()
-    await win.mouse.move(area.x + 200, area.y + 55, { steps: 8 })
+    await win.mouse.move(area.x + 300, area.y + 55, { steps: 8 })
     await win.mouse.up()
     await expect
-      .poll(() => inPreview('String(getSelection())'), { timeout: 10_000 })
+      .poll(() => inPreview<string>('String(getSelection())'), { timeout: 10_000 })
       .toContain('Selectable')
-
-    const bar = win.getByRole('toolbar', { name: 'Selection actions' })
     await pressInPage(app, guestKeys.sendToAgent)
-    await expect(win.getByText('A running preview cannot send selected text.')).toBeVisible()
-    await expect(bar).toHaveCount(0)
+    await expect(bar).toBeVisible({ timeout: 15_000 })
+    await bar.getByRole('button', { name: 'Copy' }).click()
+    await expect(win.getByText('Copied the selection.')).toBeVisible()
+    expect((await readClipboard(app)).text).toContain('Selectable')
 
     await win.getByRole('button', { name: 'Capture region' }).click()
     const box = await frame.boundingBox()
@@ -260,6 +296,10 @@ test('the HTML preview selects its text, never sends the hidden source for the c
     await win.mouse.up()
     await expect(bar).toBeVisible({ timeout: 15_000 })
     await expect(win.locator('.region-crop-box')).toBeVisible()
+    await bar.getByRole('button', { name: 'Copy' }).click()
+    await expect(win.getByText('Copied the image to the clipboard.')).toBeVisible()
+    expect((await readClipboard(app)).hasImage).toBe(true)
+    await expect(win.locator('.region-crop-box')).toHaveCount(0)
   } finally {
     await app.close()
   }

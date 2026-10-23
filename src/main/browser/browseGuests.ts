@@ -129,3 +129,14 @@ export function ownedGuest(
   if (typeof paneId !== 'string' || getByPaneId(paneId)?.windowId !== senderWindowId) return null
   return liveGuest(browserPanes.get(paneId))
 }
+
+export type CaptureGuestOf = (paneId: string, senderWindowId: string) => Electron.WebContents | null
+
+export function captureGuestOf(
+  browserPanes: Map<string, number>,
+  previewGuestId: (senderWindowId: string, paneId: string) => number | null,
+): CaptureGuestOf {
+  return (paneId, senderWindowId) =>
+    ownedGuest(browserPanes, paneId, senderWindowId) ??
+    liveGuest(previewGuestId(senderWindowId, paneId) ?? undefined)
+}
