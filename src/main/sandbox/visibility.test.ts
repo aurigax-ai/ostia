@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { sandboxEntries, sandboxPath, visibleInSandbox } from './visibility'
 
 const rules = {
-  denyRead: ['/home/u', '/home/u/app/.pine/vault.json'],
+  denyRead: ['/home/u', '/home/u/app/.ostia/vault.json'],
   allowRead: ['/home/u/app', '/home/u/.zshrc', '/home/u/.cargo', '/home/u/.config/vivid'],
 }
 
@@ -11,7 +11,7 @@ describe('visibleInSandbox', () => {
     expect(visibleInSandbox('/usr/bin', rules)).toBe(true)
     expect(visibleInSandbox('/home/u/.ssh/id_ed25519', rules)).toBe(false)
     expect(visibleInSandbox('/home/u/app/src/a.ts', rules)).toBe(true)
-    expect(visibleInSandbox('/home/u/app/.pine/vault.json', rules)).toBe(false)
+    expect(visibleInSandbox('/home/u/app/.ostia/vault.json', rules)).toBe(false)
     expect(visibleInSandbox('/home/u/application', rules)).toBe(false)
   })
 
