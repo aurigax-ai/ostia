@@ -202,6 +202,7 @@ export function fixedPolicy(
     readOnly: [
       ...AGENT_PROTECTED_FILES.map((f) => join(home, f)),
       ...(workspace ? guardedInWorkDir.map((f) => join(workspace.workDir, f)) : []),
+      ...(workspace?.pluginsDir ? [workspace.pluginsDir] : []),
       ...hiddenFiles,
     ],
     hiddenSockets,

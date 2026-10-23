@@ -5,6 +5,7 @@ import {
   mkdtempSync,
   readdirSync,
   readFileSync,
+  readlinkSync,
   realpathSync,
   rmSync,
   writeFileSync,
@@ -63,6 +64,7 @@ beforeAll(async () => {
   mkdirSync(workDir, { recursive: true })
   mkdirSync(join(realPlugins, 'data/codex/state'), { recursive: true })
   mkdirSync(join(realPlugins, 'cache'), { recursive: true })
+  mkdirSync(join(realPlugins, 'marketplaces'), { recursive: true })
   writeFileSync(join(realPlugins, 'installed_plugins.json'), '{"plugins":[]}')
   linkPluginsFarm(farm, data, realPlugins)
   host = new SandboxHost({ nodePath: process.execPath, hostScript, onAsk: async () => false })
@@ -92,16 +94,24 @@ describe('plugin data in a sandbox', () => {
   it('lets a plugin write its state into the sandbox own data folder and nowhere else', async () => {
     const state = join(data, 'codex/state/ws/jobs')
     const out = await run(
-      `mkdir -p ${farm}/data/codex/state/ws/jobs && echo job > ${farm}/data/codex/state/ws/jobs/1.json; echo own=$?; mkdir ${realPlugins}/data/codex/state/ws; echo real=$?; touch ${farm}/evil; echo farmroot=$?; touch ${farm}/cache/evil; echo code=$?; cat ${farm}/installed_plugins.json`,
+      `mkdir -p ${farm}/data/codex/state/ws/jobs && echo job > ${farm}/data/codex/state/ws/jobs/1.json; echo own=$?; mkdir ${realPlugins}/data/codex/state/ws; echo real=$?; touch ${farm}/evil; echo farmroot=$?; touch ${farm}/cache/evil; echo code=$?; rm -f ${farm}/installed_plugins.json; echo rm=$?; ln -sfn /tmp ${farm}/cache; echo swap=$?; mv ${farm}/marketplaces ${farm}/m2 2>&1; echo mv=$?; cat ${farm}/installed_plugins.json`,
     )
     expect(out).toContain('own=0')
     expect(out).toContain('real=1')
     expect(out).toContain('farmroot=1')
     expect(out).toContain('code=1')
+    expect(out).toContain('rm=1')
+    expect(out).toContain('swap=1')
+    expect(out).toContain('mv=1')
     expect(out).toContain('{"plugins":[]}')
     expect(readFileSync(join(state, '1.json'), 'utf8')).toBe('job\n')
     expect(readdirSync(join(realPlugins, 'data/codex/state'))).toEqual([])
     expect(readdirSync(join(realPlugins, 'cache'))).toEqual([])
     expect(existsSync(join(farm, 'evil'))).toBe(false)
+    expect(readlinkSync(join(farm, 'cache'))).toBe(join(realPlugins, 'cache'))
+    expect(readlinkSync(join(farm, 'marketplaces'))).toBe(join(realPlugins, 'marketplaces'))
+    expect(readlinkSync(join(farm, 'installed_plugins.json'))).toBe(
+      join(realPlugins, 'installed_plugins.json'),
+    )
   })
 })

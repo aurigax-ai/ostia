@@ -437,6 +437,7 @@ describe('buildSrtConfig plugin data', () => {
     )
     expect(filesystem.allowRead).toContain('/tmp/sbx/w1-plugins')
     expect(filesystem.allowWrite).not.toContain('/tmp/sbx/w1-plugins')
+    expect(filesystem.denyWrite).toContain('/tmp/sbx/w1-plugins')
     expect(filesystem.denyWrite).toContain('/home/u/.claude/plugins')
   })
 
