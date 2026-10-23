@@ -400,35 +400,12 @@ describe('what the page reports and says', () => {
 })
 
 describe('a selection the host cleared', () => {
-  const clearHost = (): void => {
-    for (const clear of hostClears) clear()
-  }
-
   it('is dropped from the grid, and the page is told it is gone', async () => {
-    const now = vi.spyOn(performance, 'now').mockReturnValue(0)
     const { onSelect } = await mount()
     click(cell(1, 1))
-    now.mockReturnValue(10_000)
-    clearHost()
+    for (const clear of hostClears) clear()
     expect(selectedCells()).toEqual([])
     expect(onSelect).toHaveBeenLastCalledWith(null)
-  })
-
-  it('is ignored while a newer selection is being dragged or has only just been made', async () => {
-    const now = vi.spyOn(performance, 'now').mockReturnValue(0)
-    await mount()
-    click(cell(1, 1))
-    now.mockReturnValue(10_000)
-    press(cell(2, 2))
-    clearHost()
-    expect(selectedCells()).toEqual(['2,2'])
-    lift()
-    now.mockReturnValue(10_100)
-    clearHost()
-    expect(selectedCells()).toEqual(['2,2'])
-    now.mockReturnValue(11_000)
-    clearHost()
-    expect(selectedCells()).toEqual([])
   })
 
   it('stops listening once the grid is destroyed', async () => {

@@ -182,8 +182,9 @@ describe('RegionActionBar', () => {
     expect(props.onClose).toHaveBeenCalledTimes(5)
   })
 
-  it('stays open for modifier keys, copy chords and typing inside it', async () => {
+  it('stays open for modifier keys, copy chords, typing inside it and the window losing focus', async () => {
     const props = setup()
+    fireEvent.blur(window)
     fireEvent.keyDown(document.body, { key: 'Control', ctrlKey: true })
     fireEvent.keyDown(document.body, { key: 'c', ctrlKey: true })
     fireEvent.pointerDown(within(bar()).getByRole('button', { name: 'Copy' }))

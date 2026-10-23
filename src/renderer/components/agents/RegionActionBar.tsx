@@ -109,12 +109,10 @@ export function RegionActionBar({
     document.addEventListener('keydown', onKeyDown, true)
     document.addEventListener('pointerdown', onOutside, true)
     document.addEventListener('scroll', onOutside, true)
-    window.addEventListener('blur', close)
     return () => {
       document.removeEventListener('keydown', onKeyDown, true)
       document.removeEventListener('pointerdown', onOutside, true)
       document.removeEventListener('scroll', onOutside, true)
-      window.removeEventListener('blur', close)
     }
   }, [copied])
 

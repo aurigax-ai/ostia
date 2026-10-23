@@ -54,7 +54,6 @@ export interface Grid {
 
 const OVERSCAN = 8
 const SCROLL_SETTLE_MS = 150
-const HOST_CLEAR_SETTLE_MS = 500
 const FALLBACK_CH = 8
 const FALLBACK_ROW = 24
 
@@ -116,7 +115,6 @@ export function grid(options: GridOptions): Grid {
   let selection: GridSelection | null = null
   let active: GridCell = { row: 0, column: 0 }
   let pressed = false
-  let committedAt = Number.NEGATIVE_INFINITY
   let settleTimer: ReturnType<typeof setTimeout> | undefined
   const rows = new Virtualizer<HTMLDivElement, HTMLDivElement>({
     count: options.rowCount,
@@ -259,7 +257,6 @@ export function grid(options: GridOptions): Grid {
   }
 
   function commit(): void {
-    committedAt = performance.now()
     announce()
     const range = currentRange()
     options.onSelect?.(range ? { range, rect: rectOf(range) } : null)
@@ -361,8 +358,7 @@ export function grid(options: GridOptions): Grid {
   }
 
   const stopCleared = onSelectionCleared(() => {
-    if (!selection || pressed || performance.now() - committedAt < HOST_CLEAR_SETTLE_MS) return
-    select(null, { reveal: false })
+    if (selection) select(null, { reveal: false })
   })
   scroller.addEventListener('mousedown', press)
   document.addEventListener('mousemove', drag)
