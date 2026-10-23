@@ -95,6 +95,7 @@ test('the PDF viewer selects text, crops text and image together, finds across p
       await expect(bar(win)).toHaveCount(0)
       await expect.poll(async () => (await readClipboard(app)).text).toContain('Hello')
       expect((await readClipboard(app)).hasImage).toBe(false)
+      await expect.poll(() => viewerGuestRun(app, PDF, 'getSelection().toString()')).toBe('')
     })
 
     await test.step('a drag that starts on empty page space crops a rectangle and Copy puts text and image on the clipboard', async () => {

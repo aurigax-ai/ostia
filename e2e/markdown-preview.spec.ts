@@ -150,6 +150,7 @@ test('the preview shows unsaved text, draws diagrams, lists headings, sends a se
         1_500,
         'the reference is pasted once and never submitted',
       )
+      await expect.poll(() => viewerGuestRun(app, MATCH, 'getSelection().toString()')).toBe('')
     })
 
     await test.step('Edit source returns to the editor with the text intact', async () => {
