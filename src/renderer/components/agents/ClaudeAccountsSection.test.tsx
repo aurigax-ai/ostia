@@ -102,11 +102,15 @@ describe('ClaudeAccountsSection', () => {
     render(<ClaudeAccountsSection />)
     await screen.findByText('spare@example.com')
     const [first, active, spare] = screen.getAllByRole('listitem')
-    expect(within(first).getByRole('button', { name: 'Switch to' })).toBeInTheDocument()
+    expect(
+      within(first).getByRole('button', { name: 'Switch to me@example.com' }),
+    ).toBeInTheDocument()
     expect(within(first).queryByRole('button', { name: /^Remove/ })).toBeNull()
-    expect(within(active).queryByRole('button', { name: 'Switch to' })).toBeNull()
+    expect(within(active).queryByRole('button', { name: /^Switch to/ })).toBeNull()
     expect(within(active).getByRole('button', { name: 'Remove work@example.com' })).toBeVisible()
-    await userEvent.click(within(spare).getByRole('button', { name: 'Switch to' }))
+    await userEvent.click(
+      within(spare).getByRole('button', { name: 'Switch to spare@example.com' }),
+    )
     expect(window.ostia.claudeAccounts.use).toHaveBeenCalledWith(SPARE)
     await userEvent.click(within(spare).getByRole('button', { name: 'Remove spare@example.com' }))
     await userEvent.click(
@@ -221,7 +225,7 @@ describe('ClaudeAccountsSection', () => {
     render(<ClaudeAccountsSection />)
     const spare = (await screen.findByText('spare@example.com')).closest('li') as HTMLElement
     expect(spare).toHaveTextContent('Off')
-    expect(within(spare).queryByRole('button', { name: 'Switch to' })).toBeNull()
+    expect(within(spare).queryByRole('button', { name: /^Switch to/ })).toBeNull()
     await userEvent.click(within(spare).getByRole('switch', { name: 'Use spare@example.com' }))
     expect(window.ostia.claudeAccounts.setEnabled).toHaveBeenCalledWith(SPARE, true)
   })

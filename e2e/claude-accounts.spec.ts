@@ -71,7 +71,7 @@ test('CLA-E1 Add opens the in-app sign-in, a signed-in profile on disk comes bac
     })
 
     const row = list.getByRole('listitem').filter({ hasText: EMAIL })
-    await row.getByRole('button', { name: 'Switch to' }).click()
+    await row.getByRole('button', { name: `Switch to ${EMAIL}` }).click()
     await expect(row).toContainText('Active')
 
     await win.locator('.rail-tab').filter({ hasText: 'home' }).click()

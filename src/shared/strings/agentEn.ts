@@ -74,7 +74,7 @@ export const agentEn = {
     signInWaiting: 'Waiting for the browser…',
     signInWorking: 'Signing in…',
     signedOut: 'Signed out',
-    switchTo: 'Switch to',
+    switchTo: 'Switch to {account}',
     title: 'Claude accounts',
     titleDesc: 'Sign in with more than one Claude account and choose which one new sessions use.',
     usageChecked: 'Usage checked {ago}',

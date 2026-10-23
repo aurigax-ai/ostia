@@ -1,4 +1,4 @@
-import { PlusIcon, UserCircleIcon } from '@phosphor-icons/react'
+import { PlusIcon, UserCircleIcon, UserSwitchIcon } from '@phosphor-icons/react'
 import {
   type ClaudeAccountView,
   DEFAULT_ACCOUNT,
@@ -6,6 +6,7 @@ import {
 } from '@shared/claudeAccounts/claudeAccounts'
 import { useState } from 'react'
 import { Hint } from '@/components/common/Hint'
+import { IconButton } from '@/components/common/IconButton'
 import { Notice } from '@/components/common/Notice'
 import { TextLink } from '@/components/common/TextLink'
 import { ToggleRow } from '@/components/settingsKit/ControlRow'
@@ -170,6 +171,10 @@ export function ClaudeAccountsSection(): JSX.Element {
   )
 }
 
+function EmptySlot(): JSX.Element {
+  return <span aria-hidden className="size-5.5 shrink-0" />
+}
+
 function AccountRow({
   account,
   active,
@@ -203,14 +208,14 @@ function AccountRow({
   )
   const actions = (
     <>
-      {active || !account.enabled ? null : (
-        <Button
-          variant="ghost"
-          size="sm"
+      {active || !account.enabled ? (
+        <EmptySlot />
+      ) : (
+        <IconButton
+          icon={UserSwitchIcon}
+          label={fmt(d.switchTo, { account: name })}
           onClick={() => void window.ostia.claudeAccounts.use(account.id)}
-        >
-          {d.switchTo}
-        </Button>
+        />
       )}
       {locked ? (
         <Hint label={locked}>
@@ -221,7 +226,9 @@ function AccountRow({
       )}
       {removable ? (
         <RowRemoveButton label={fmt(d.removeFor, { account: name })} onClick={onRemove} />
-      ) : null}
+      ) : (
+        <EmptySlot />
+      )}
     </>
   )
   return (

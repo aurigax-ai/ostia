@@ -68,7 +68,7 @@ export const agentZhHant: typeof agentEn = {
     signInWaiting: '等待瀏覽器…',
     signInWorking: '登入中…',
     signedOut: '已登出',
-    switchTo: '切換到',
+    switchTo: '切換到 {account}',
     title: 'Claude 帳號',
     titleDesc: '可登入多個 Claude 帳號，並選擇新工作階段使用哪一個。',
     usageChecked: '用量檢查於{ago}',
