@@ -11,6 +11,7 @@ import { moveTabToWorkspace } from '@/lib/workspaces/tabWorkspaceMove'
 import { loadMergeTargets, requestMergeWorkspace } from '@/lib/workspaces/workspaceMerge'
 import { useUIStore } from '@/stores/app/uiStore'
 import { usePaneDnd } from '@/stores/workspaces/paneDndStore'
+import { useRailDragStore } from '@/stores/workspaces/railDragStore'
 import { useRailEditStore } from '@/stores/workspaces/railEditStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import type { Workspace } from '@/stores/workspaces/workspaceTypes'
@@ -18,14 +19,7 @@ import { GroupBlock } from './GroupBlock'
 import { SidebarFooter } from './RailMeta'
 import { RailCollapsedContext, RailTab } from './RailTab'
 import { RemoteWorkspaces } from './RemoteWorkspaces'
-import {
-  type DragHandlers,
-  draggedTab,
-  isRailDrag,
-  type RailDrag,
-  sameTarget,
-  type TabDropHandlers,
-} from './railDrag'
+import { type DragHandlers, draggedTab, isRailDrag, type TabDropHandlers } from './railDrag'
 import { WorkspaceRow } from './WorkspaceRow'
 
 const RAIL_ID = 'deck-rail'
@@ -64,7 +58,9 @@ function WorkspacesView(): JSX.Element {
   const workspaces = useWorkspacesStore((s) => s.workspaces)
   const groups = useWorkspacesStore((s) => s.groups)
   const activeId = useWorkspacesStore((s) => s.activeWorkspaceId)
-  const [drag, setDrag] = useState<RailDrag | null>(null)
+  const dragging = useRailDragStore((s) => s.source !== null)
+  const target = useRailDragStore((s) => s.target)
+  const mergeable = useRailDragStore((s) => s.mergeable)
   const [tabOver, setTabOver] = useState<string | null>(null)
   const paneDragging = usePaneDnd((s) => s.dragging)
   useEffect(() => {
@@ -81,25 +77,24 @@ function WorkspacesView(): JSX.Element {
   const openSettings = useUIStore((s) => s.openSettings)
   const closeSettings = useUIStore((s) => s.closeSettings)
 
+  const railDrag = useRailDragStore.getState
   const handlers: DragHandlers = {
     start: (source) => {
-      setDrag({ source, target: null, mergeable: new Set() })
+      railDrag().start(source)
       if (source.kind !== 'workspace') return
       void loadMergeTargets(source.id).then((targets) => {
-        const mergeable = new Set(targets.filter((t) => t.refusal === null).map((t) => t.id))
-        setDrag((cur) => (cur?.source === source ? { ...cur, mergeable } : cur))
+        const ids = targets.filter((t) => t.refusal === null).map((t) => t.id)
+        railDrag().offerMerges(source, ids)
       })
     },
-    over: (target) =>
-      setDrag((cur) => (cur && !sameTarget(cur.target, target) ? { ...cur, target } : cur)),
-    drop: () => {
-      const target = drag?.target
-      setDrag(null)
-      if (!drag || !target) return
-      if (target.kind === 'merge') void requestMergeWorkspace(drag.source.id, target.id)
-      else useWorkspacesStore.getState().drop(drag.source, target)
-    },
-    end: () => setDrag(null),
+    over: (next) => railDrag().aim(next),
+    end: () => railDrag().end(),
+  }
+  const dropOnRail = (): void => {
+    const taken = railDrag().take()
+    if (!taken) return
+    if (taken.target.kind === 'merge') void requestMergeWorkspace(taken.source.id, taken.target.id)
+    else useWorkspacesStore.getState().drop(taken.source, taken.target)
   }
   const tabDrop: TabDropHandlers = {
     over: (workspaceId) => setTabOver(workspaceId),
@@ -111,7 +106,6 @@ function WorkspacesView(): JSX.Element {
       if (dragged) void moveTabToWorkspace(dragged.sourceId, dragged.tabId, workspaceId)
     },
   }
-  const target = drag?.target ?? null
   const tabTarget = paneDragging ? tabOver : null
 
   const row = (w: Workspace): JSX.Element => (
@@ -129,7 +123,7 @@ function WorkspacesView(): JSX.Element {
               ? target.place
               : null
       }
-      mergeable={drag?.mergeable.has(w.id) ?? false}
+      mergeable={mergeable.has(w.id)}
       drag={handlers}
       tabDrop={tabDrop}
       onGroupCreated={setRenamingGroup}
@@ -139,7 +133,21 @@ function WorkspacesView(): JSX.Element {
   return (
     <>
       <ScrollArea className="scroll-quiet rail-scroll">
-        <div className="workspaces">
+        <div
+          className="workspaces"
+          onDragOver={(e) => {
+            if (isRailDrag(e) && railDrag().target !== null) e.preventDefault()
+          }}
+          onDragLeave={(e) => {
+            if (!isRailDrag(e) || e.currentTarget.contains(e.relatedTarget as Node | null)) return
+            railDrag().leave()
+          }}
+          onDrop={(e) => {
+            if (!isRailDrag(e)) return
+            e.preventDefault()
+            dropOnRail()
+          }}
+        >
           {settingsTabOpen ? (
             <RailTab
               active={settingsActive}
@@ -174,19 +182,12 @@ function WorkspacesView(): JSX.Element {
 
           <RemoteWorkspaces offset={workspaces.length} />
 
-          {drag ? (
+          {dragging ? (
             <div
               className="rail-drop-end"
               data-drop={target?.kind === 'end' ? 'before' : undefined}
               onDragOver={(e) => {
-                if (!isRailDrag(e)) return
-                e.preventDefault()
-                handlers.over({ kind: 'end' })
-              }}
-              onDrop={(e) => {
-                if (!isRailDrag(e)) return
-                e.preventDefault()
-                handlers.drop()
+                if (isRailDrag(e)) handlers.over({ kind: 'end' })
               }}
             />
           ) : null}

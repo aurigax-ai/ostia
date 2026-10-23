@@ -895,6 +895,12 @@
   border-radius: 1px;
   background: var(--brand);
   pointer-events: none;
+  z-index: 1;
+}
+
+.rail-group-members .rail-row[data-drop]::before,
+.rail-group-members .rail-row[data-drop]::after {
+  left: 32px;
 }
 
 .rail-row[data-drop="before"]::before {
@@ -1136,6 +1142,7 @@
   border-radius: 1px;
   background: var(--brand);
   pointer-events: none;
+  z-index: 1;
 }
 
 .rail-group[data-drop="before"]::before,
@@ -1189,6 +1196,11 @@
 
 .collapsed .rail-group-members .rail-tab {
   margin-left: 0;
+}
+
+.collapsed .rail-group-members .rail-row[data-drop]::before,
+.collapsed .rail-group-members .rail-row[data-drop]::after {
+  left: 10px;
 }
 
 .collapsed .rail-group-members::before {
