@@ -20,7 +20,8 @@ export const agentEn = {
     addNotOpened: 'Could not open a terminal tab to sign in.',
     adding:
       'Sign in to the account in the new terminal tab. It is added here when the sign-in is done.',
-    broughtBack: 'Brought back {count} accounts that were still signed in.',
+    broughtBackMany: 'Brought back {count} accounts that were still signed in.',
+    broughtBackOne: 'Brought back 1 account that was still signed in.',
     cancel: 'Cancel',
     damaged:
       'The list of Claude accounts could not be read, so nothing was changed and every sign-in is kept. The old file is kept beside it. Start fresh to add accounts again; the accounts that are still signed in come back.',
@@ -34,8 +35,10 @@ export const agentEn = {
     menuLabel: 'Claude accounts',
     noAccounts: 'No Claude accounts.',
     recoverBack: 'Bring back',
-    recoverable:
+    recoverableMany:
       '{count} signed-in accounts are on this computer but not in the list. Bring them back to use them again.',
+    recoverableOne:
+      '1 signed-in account is on this computer but not in the list. Bring it back to use it again.',
     remove: 'Remove',
     removeBody:
       '{product} forgets this account and deletes its sign-in from this computer. It does not sign you out of Claude anywhere else.',

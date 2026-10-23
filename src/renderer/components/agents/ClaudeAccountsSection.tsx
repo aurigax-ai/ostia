@@ -91,11 +91,17 @@ export function ClaudeAccountsSection(): JSX.Element {
             </Button>
           }
         >
-          {damaged ? d.damaged : fmt(d.recoverable, { count: recoverable })}
+          {damaged
+            ? d.damaged
+            : recoverable === 1
+              ? d.recoverableOne
+              : fmt(d.recoverableMany, { count: recoverable })}
         </Notice>
       ) : null}
       {broughtBack > 0 ? (
-        <Notice tone="info">{fmt(d.broughtBack, { count: broughtBack })}</Notice>
+        <Notice tone="info">
+          {broughtBack === 1 ? d.broughtBackOne : fmt(d.broughtBackMany, { count: broughtBack })}
+        </Notice>
       ) : null}
       {adding ? <Notice tone="info">{d.adding}</Notice> : null}
       {duplicate ? <Notice tone="info">{fmt(d.duplicate, { email: duplicate })}</Notice> : null}

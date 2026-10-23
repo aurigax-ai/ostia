@@ -157,6 +157,17 @@ describe('ClaudeAccountsSection', () => {
     expect(window.ostia.claudeAccounts.recover).toHaveBeenCalledTimes(1)
   })
 
+  it('uses the singular for one account to bring back and one brought back', async () => {
+    show(state({ recoverable: 1 }))
+    vi.mocked(window.ostia.claudeAccounts.recover).mockResolvedValueOnce(1)
+    render(<ClaudeAccountsSection />)
+    expect(await screen.findByText(/^1 signed-in account is on this computer/)).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Bring back' }))
+    expect(
+      await screen.findByText('Brought back 1 account that was still signed in.'),
+    ).toBeInTheDocument()
+  })
+
   it('says what the accounts share and that other accounts’ changes are replaced', async () => {
     show(state())
     render(<ClaudeAccountsSection />)
