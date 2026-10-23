@@ -1,7 +1,7 @@
 import type { PickBox } from '@shared/browser/pick'
 import { anchorWithin, type BarAnchor } from '@/lib/agents/barAnchor'
 
-const STAGE = '.browser-stage'
+const STAGE = '.browser-stage, .html-preview'
 
 export function pageBoxAnchor(
   webview: HTMLElement,

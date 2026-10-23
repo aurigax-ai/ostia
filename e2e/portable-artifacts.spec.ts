@@ -1,5 +1,5 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
-import { type AddressInfo, type Server, type Socket, createServer } from 'node:net'
+import { type AddressInfo, createServer, type Server, type Socket } from 'node:net'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { DOM_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
@@ -9,13 +9,13 @@ import {
   type Browser,
   type BrowserContext,
   type BrowserType,
-  type ElectronApplication,
-  type FrameLocator,
-  type Page,
   chromium,
+  type ElectronApplication,
   _electron as electron,
   expect,
+  type FrameLocator,
   firefox,
+  type Page,
   test,
 } from './test'
 import { viewerGuestText } from './viewerGuest'
@@ -534,7 +534,7 @@ fetch('./data.json').then(() => { out.textContent = 'reached' }, () => { out.tex
   }
 })
 
-const REPORT_REF = /@(\S*selection-\d+\.md)/g
+const REPORT_REF = /@(\S*capture-\d+\.md)/g
 
 test('PRT-C54 a region of a running preview goes to the agent as a report with its picture', async () => {
   test.setTimeout(240_000)
@@ -571,13 +571,13 @@ test('PRT-C54 a region of a running preview goes to the agent as a report with i
     await bar.getByRole('button', { name: 'Send to agent' }).click()
     await win.getByRole('menuitem').first().click()
     const terminal = win.locator('.xterm-rows').first()
-    await expect(terminal).toContainText(/@\S*selection-\d+\.md/, { timeout: 15_000 })
+    await expect(terminal).toContainText(/@\S*capture-\d+\.md/, { timeout: 15_000 })
     const refs = [...((await terminal.textContent()) ?? '').matchAll(REPORT_REF)]
     expect(refs).toHaveLength(1)
     const report = readFileSync(refs[0][1], 'utf8')
-    expect(report).toContain('# Preview region: chart.tsx')
+    expect(report).toContain('# Captured region:')
     expect(report).toMatch(/- Region: x 10, y 10, 150 × 80/)
-    const png = /- Snapshot: (\S+\.png)/.exec(report)?.[1] ?? ''
+    const png = /- Screenshot: (\S+\.png)/.exec(report)?.[1] ?? ''
     expect(readFileSync(png).subarray(0, 4).toString('hex')).toBe('89504e47')
   } finally {
     await app.close()

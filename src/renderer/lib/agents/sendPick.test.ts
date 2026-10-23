@@ -446,17 +446,6 @@ describe('a reference is never followed by Enter', () => {
       },
     ],
     ['preview-error', { kind: 'preview-error', file: '/a/page.html', count: 1, text: 'boom' }],
-    [
-      'preview-region',
-      {
-        kind: 'preview-region',
-        file: '/a/chart.tsx',
-        viewWidth: 400,
-        viewHeight: 300,
-        region: { x: 10, y: 10, width: 150, height: 80 },
-        version: null,
-      },
-    ],
   ]
 
   const targets: [string, () => void][] = [

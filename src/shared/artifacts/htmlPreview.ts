@@ -1,5 +1,3 @@
-import type { Region } from '../browser/selection'
-
 export const PREVIEW_SCHEME = 'ostia-preview'
 const PREVIEW_PARTITION_PREFIX = 'ostia-preview-'
 
@@ -45,7 +43,6 @@ export interface PreviewApi {
   stop: (id: string) => void
   close: (id: string) => void
   onEvent: (cb: (event: PreviewEvent) => void) => () => void
-  capture: (id: string, rect: Region) => Promise<{ image: Uint8Array; region: Region } | null>
 }
 
 export function isComponentPath(path: string | undefined): boolean {

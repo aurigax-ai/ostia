@@ -78,13 +78,6 @@ export function registerArtifactViewIpc({
 }
 
 function registerPreviewIpc(host: PreviewHost): void {
-  ipcMain.handle('preview:capture', async (e, id: unknown, rect: unknown) => {
-    if (typeof id !== 'string') return null
-    const windowId = String(e.sender.id)
-    const image = await host.capture(windowId, id, rect)
-    const region = host.pageRegion(windowId, rect)
-    return image && region ? { image, region } : null
-  })
   ipcMain.handle(
     'preview:open',
     (e, paneId: unknown, path: unknown, theme: unknown): PreviewOpened | null =>

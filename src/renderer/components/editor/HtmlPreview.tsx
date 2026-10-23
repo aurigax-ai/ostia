@@ -1,4 +1,10 @@
-import { CaretDownIcon, CaretRightIcon, CropIcon, WarningIcon } from '@phosphor-icons/react'
+import {
+  CaretDownIcon,
+  CaretRightIcon,
+  CropIcon,
+  CursorClickIcon,
+  WarningIcon,
+} from '@phosphor-icons/react'
 import {
   isWebLink,
   keepErrors,
@@ -7,25 +13,25 @@ import {
   type PreviewStopReason,
   previewErrorLine,
 } from '@shared/artifacts/htmlPreview'
-import type { PickBox } from '@shared/browser/pick'
-import type { RegionView } from '@shared/browser/regionCapture'
-import type { SelectionCapture } from '@shared/browser/selection'
+import type { WebviewTag } from 'electron'
 import {
   type Dispatch,
   type MutableRefObject,
   type ReactNode,
   type SetStateAction,
+  useCallback,
   useEffect,
   useRef,
   useState,
 } from 'react'
+import { BrowserCaptureActions, BrowserCaptureBar } from '@/components/browser/BrowserCaptureBar'
 import { RegionCropBox, RegionCropOverlay } from '@/components/browser/RegionCropOverlay'
+import { useBrowserCapture } from '@/components/browser/useBrowserCapture'
 import { EmptyState } from '@/components/common/EmptyState'
 import { DropdownMenu, MenuItem } from '@/components/common/Menu'
 import { StatusAction, StatusLine, useDismissed } from '@/components/common/StatusLine'
 import { Button } from '@/components/ui/button'
 import { ButtonGroup, ButtonGroupSeparator } from '@/components/ui/button-group'
-import { anchorWithin, type BarAnchor } from '@/lib/agents/barAnchor'
 import { fmt, useDict } from '@/lib/app/useDict'
 import { openBrowserAs } from '@/lib/browser/browserProfile'
 import { useGuestReady } from '@/lib/panes/paneFocus'
@@ -191,68 +197,12 @@ function PreviewBars({
   )
 }
 
-type SendRegion = (
-  capture: SelectionCapture,
-  image: Uint8Array,
-  anchor?: BarAnchor,
-  onClose?: () => void,
-) => void
-
-function regionAnchor(frame: HTMLElement | null, rect: PickBox): BarAnchor | undefined {
-  const container = frame?.closest('.html-preview')?.parentElement
-  if (!frame || !container) return undefined
-  const origin = frame.getBoundingClientRect()
-  return anchorWithin(container, {
-    left: origin.left + rect.x,
-    top: origin.top + rect.y,
-    bottom: origin.top + rect.y + rect.height,
-  })
-}
-
-function usePreviewRegion({
-  opened,
-  filePath,
-  frame,
-  onSendRegion,
-}: {
-  opened: PreviewOpened | null
-  filePath: string
-  frame: HTMLElement | null
-  onSendRegion?: SendRegion
-}) {
-  const [picking, setPicking] = useState(false)
-  const [held, setHeld] = useState<PickBox | null>(null)
-  const region = async (rect: PickBox, view: RegionView): Promise<void> => {
-    setPicking(false)
-    if (!opened || !onSendRegion) return
-    const captured = await window.ostia.preview.capture(opened.id, rect)
-    if (!captured) return
-    onSendRegion(
-      {
-        kind: 'preview-region',
-        file: filePath,
-        viewWidth: view.width,
-        viewHeight: view.height,
-        region: captured.region,
-        version: null,
-      },
-      captured.image,
-      regionAnchor(frame, rect),
-      () => setHeld((current) => (current === rect ? null : current)),
-    )
-    setHeld(rect)
-  }
-
-  return { picking, setPicking, region, held }
-}
-
 export function HtmlPreview({
   workspaceId,
   paneId,
   filePath,
   visible,
   onSendErrors,
-  onSendRegion,
   focusRef,
   mode,
 }: {
@@ -263,7 +213,6 @@ export function HtmlPreview({
   focusRef?: MutableRefObject<HTMLElement | null>
   mode?: ReactNode
   onSendErrors?: (count: number, text: string) => void
-  onSendRegion?: SendRegion
 }): JSX.Element {
   const d = useDict()
   const [opened, setOpened] = useState<PreviewOpened | null>(null)
@@ -273,11 +222,23 @@ export function HtmlPreview({
   const [vitals, setVitals] = useState({ responding: true, busy: false })
   const [link, setLink] = useState<string | null>(null)
   const [webview, setWebview] = useState<HTMLElement | null>(null)
-  const { picking, setPicking, region, held } = usePreviewRegion({
-    opened,
-    filePath,
-    frame: webview?.parentElement ?? null,
-    onSendRegion,
+  const webviewRef = useRef<HTMLElement | null>(null)
+  const attachWebview = useCallback((el: HTMLElement | null): void => {
+    webviewRef.current = el
+    setWebview(el)
+  }, [])
+  const withGuest = useCallback((fn: (wv: WebviewTag) => void): boolean => {
+    const wv = webviewRef.current as WebviewTag | null
+    if (!wv) return false
+    fn(wv)
+    return true
+  }, [])
+  const capture = useBrowserCapture({
+    paneId,
+    partition: opened?.partition ?? null,
+    webviewRef,
+    withGuest,
+    d,
   })
   const readyWebview = useGuestReady(webview)
   useEffect(() => {
@@ -362,17 +323,25 @@ export function HtmlPreview({
     setStopped(null)
   }
 
-  const capture = onSendRegion && opened && !stopped
+  const capturing = opened && !stopped
   const pill =
-    capture || mode ? (
+    capturing || mode ? (
       <FloatPill label={d.preview.controls}>
-        {capture ? (
-          <FloatPillButton
-            icon={CropIcon}
-            label={d.preview.captureRegion}
-            aria-pressed={picking}
-            onClick={() => setPicking((on) => !on)}
-          />
+        {capturing ? (
+          <>
+            <FloatPillButton
+              icon={CursorClickIcon}
+              label={capture.picking ? d.browser.pickStop : d.browser.pick}
+              aria-pressed={capture.picking !== null}
+              onClick={() => void capture.togglePick()}
+            />
+            <FloatPillButton
+              icon={CropIcon}
+              label={capture.cropping ? d.browser.regionStop : d.browser.region}
+              aria-pressed={capture.cropping}
+              onClick={() => (capture.cropping ? capture.setCropping(false) : capture.startCrop())}
+            />
+          </>
         ) : null}
         {mode}
       </FloatPill>
@@ -394,6 +363,7 @@ export function HtmlPreview({
         setLink={setLink}
         stop={stop}
       />
+      <BrowserCaptureBar {...capture} />
       {stopped ? (
         <EmptyState
           variant="surface"
@@ -412,22 +382,23 @@ export function HtmlPreview({
         <div className="preview-frame">
           <webview
             key={opened.url}
-            ref={setWebview}
+            ref={attachWebview}
             className="preview-webview"
             src={opened.url}
             partition={opened.partition}
           />
-          {held ? <RegionCropBox rect={held} /> : null}
-          {picking ? (
+          {capture.heldBox ? <RegionCropBox rect={capture.heldBox} /> : null}
+          {capture.cropping ? (
             <RegionCropOverlay
               label={d.preview.regionHint}
-              onDone={(rect, view) => void region(rect, view)}
-              onCancel={() => setPicking(false)}
+              onDone={(rect, view) => void capture.finishCrop(rect, view, rect)}
+              onCancel={() => capture.setCropping(false)}
             />
           ) : null}
         </div>
       ) : null}
       {pill}
+      <BrowserCaptureActions workspaceId={workspaceId} {...capture} />
     </div>
   )
 }

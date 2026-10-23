@@ -24,11 +24,6 @@ import {
   type PreviewOpened,
 } from '../../shared/artifacts/htmlPreview'
 import { PORTABLE_CSP } from '../../shared/artifacts/portable'
-import {
-  REGION_IMAGE_MAX,
-  regionCaptureRect,
-  regionPageRect,
-} from '../../shared/browser/regionCapture'
 import { PreviewHost } from './htmlPreview'
 import { hardenPreviewAttach, previewHeaders } from './previewAttach'
 import type { PreviewSource } from './previewFiles'
@@ -181,14 +176,6 @@ class FakeGuest implements PreviewGuest {
   throttled: boolean | null = null
   attached = false
   lifecycle: string[] = []
-  captured: { x: number; y: number; width: number; height: number }[] = []
-  pngBytes = 10
-  capturePage = async (rect: { x: number; y: number; width: number; height: number }) => {
-    this.captured.push(rect)
-    const png = Buffer.alloc(this.pngBytes)
-    Buffer.from('89504e470d0a1a0a', 'hex').copy(png)
-    return { toPNG: () => png, isEmpty: () => false }
-  }
   debugger = {
     isAttached: (): boolean => this.attached,
     attach: (): void => {
@@ -233,8 +220,6 @@ class FakeGuest implements PreviewGuest {
 
 const builds: PreviewSource[] = []
 let inputsOf = (source: PreviewSource): string[] => [source.file]
-
-const hostZoom = { value: 1 }
 
 function watcherOf(dir: string): FSWatcher {
   const { calls, results } = vi.mocked(watch).mock
@@ -286,7 +271,6 @@ function rig(): Rig {
     ownsPane: (windowId, paneId) => paneId.startsWith(`${windowId}:`),
     send: (_windowId, event) => events.push(event),
     processes: () => processes,
-    hostZoom: () => hostZoom.value,
     now: () => clock.now,
   })
   const open = (paneId = '1:p1', path = page, windowId = '1'): PreviewOpened => {
@@ -723,21 +707,14 @@ describe('PreviewHost', () => {
     expect(r.host.acceptsAttach(first.partition, first.url, '1')).toBe(false)
   })
 
-  it('PRT-C55 captures a region of a live preview of its own window, and nothing for a tiny or stopped one', async () => {
+  it('PRT-C55 names the live guest of a preview only to its own window, and to no one once it stopped', () => {
     const opened = r.open()
     const guest = r.attach(opened)
-    const png = await r.host.capture('1', opened.id, { x: 10, y: 20, width: 100, height: 50 })
-    expect(png && Buffer.from(png).subarray(0, 4).toString('hex')).toBe('89504e47')
-    expect(guest.captured).toEqual([{ x: 10, y: 20, width: 100, height: 50 }])
-    expect(await r.host.capture('1', opened.id, { x: 10, y: 20, width: 3, height: 50 })).toBeNull()
-    expect(
-      await r.host.capture('2', opened.id, { x: 10, y: 20, width: 100, height: 50 }),
-    ).toBeNull()
+    expect(r.host.captureGuestId('1', '1:p1')).toBe(guest.id)
+    expect(r.host.captureGuestId('2', '1:p1')).toBeNull()
+    expect(r.host.captureGuestId('1', '1:other')).toBeNull()
     r.host.stopByHuman('1', opened.id)
-    expect(
-      await r.host.capture('1', opened.id, { x: 10, y: 20, width: 100, height: 50 }),
-    ).toBeNull()
-    expect(guest.captured).toHaveLength(1)
+    expect(r.host.captureGuestId('1', '1:p1')).toBeNull()
   })
 
   it('PRT-C79 remembers the theme each window previews with', () => {
@@ -748,21 +725,5 @@ describe('PreviewHost', () => {
     expect(r.host.themeOf('1')).toEqual(dark)
     expect(r.host.themeOf('2')).toEqual(light)
     expect(r.host.themeOf('3')).toEqual({ dark: false, vars: {} })
-  })
-
-  it('PRT-C77 scales a region by the host window’s zoom and refuses a picture over the cap', async () => {
-    hostZoom.value = 1.25
-    try {
-      const opened = r.open()
-      const guest = r.attach(opened)
-      const rect = { x: 10, y: 20, width: 100, height: 50 }
-      expect(await r.host.capture('1', opened.id, rect)).not.toBeNull()
-      expect(guest.captured).toEqual([regionCaptureRect(rect, 1.25)])
-      expect(r.host.pageRegion('1', rect)).toEqual(regionPageRect(rect, 1.25, 1))
-      guest.pngBytes = REGION_IMAGE_MAX + 1
-      expect(await r.host.capture('1', opened.id, rect)).toBeNull()
-    } finally {
-      hostZoom.value = 1
-    }
   })
 })

@@ -11,14 +11,9 @@ vi.mock('electron', () => ({
     constructor(readonly items: Record<string, Blob>) {}
   },
 }))
-vi.mock('./browseGuests', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('./browseGuests')>()),
-  ownedGuest: vi.fn(),
-}))
 vi.mock('../agents/busStore', () => ({ postBusMessage: vi.fn(() => 'msg-1') }))
 
 const { clipboard, ipcMain } = await import('electron')
-const { ownedGuest } = await import('./browseGuests')
 const { postBusMessage } = await import('../agents/busStore')
 const { captureRegion, copyRegionImage, registerRegionIpc, writeRegionReport } = await import(
   './browseRegion'
@@ -261,21 +256,22 @@ describe('registerRegionIpc', () => {
   const sender = (id: number) => ({ sender: { id, getZoomFactor: () => 1 } })
 
   it('captures only through a guest the sending window owns', async () => {
-    registerRegionIpc(new Map([['browser-1', 7]]), sameWindow, async (text) => text)
+    const guestOf = vi.fn()
+    registerRegionIpc(guestOf, sameWindow, async (text) => text)
     const guest = fakeGuest()
-    vi.mocked(ownedGuest).mockReturnValueOnce(null)
+    guestOf.mockReturnValueOnce(null)
     expect(await handler('browser:region-capture')(sender(2), 'browser-1', request)).toEqual({
       ok: false,
       error: 'browser-not-ready',
     })
     expect(guest.capturePage).not.toHaveBeenCalled()
-    vi.mocked(ownedGuest).mockReturnValueOnce(asGuest(guest))
+    guestOf.mockReturnValueOnce(asGuest(guest))
     const outcome = (await handler('browser:region-capture')(sender(1), 'browser-1', request)) as {
       ok: boolean
     }
     expect(outcome.ok).toBe(true)
     expect(guest.capturePage).toHaveBeenCalledTimes(1)
-    expect(vi.mocked(ownedGuest).mock.calls.map((c) => [c[1], c[2]])).toEqual([
+    expect(guestOf.mock.calls).toEqual([
       ['browser-1', '2'],
       ['browser-1', '1'],
     ])

@@ -46,6 +46,22 @@ describe('normalizeSelection', () => {
     expect(res?.kind === 'pdf-text' && res.text.length).toBe(SELECTION_TEXT_MAX)
   })
 
+  it('takes page text from a web, file or preview page and from nothing else', () => {
+    const page = (url: string) =>
+      normalizeSelection({ kind: 'page-text', url, title: 't', text: 'x' })
+    for (const url of [
+      'https://a.test/',
+      'http://a.test/',
+      'file:///a.html',
+      'ostia-preview://abc/',
+    ]) {
+      expect(page(url)?.kind).toBe('page-text')
+    }
+    for (const url of ['javascript:alert(1)', 'data:text/html,x', 'chrome://gpu', '/etc/passwd']) {
+      expect(page(url)).toBeNull()
+    }
+  })
+
   it('rejects relative paths, empty text, inverted ranges and unknown kinds', () => {
     const range = { startLine: 1, endLine: 1 }
     expect(

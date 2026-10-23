@@ -265,13 +265,11 @@ export const filesZhHant: typeof filesEn = {
   preview: {
     blocked: '這個頁面嘗試連線到 {host}；預覽沒有網路',
     busy: '這個頁面已經佔用一個處理器核心一段時間。',
-    captureRegion: '擷取區域',
     controls: '檔案動作',
     copyErrors: '複製錯誤',
     editSource: '編輯頁面原始碼',
     errorActions: '錯誤動作',
     errors: '{count} 個錯誤',
-    noTextSend: '執行中的預覽無法傳送選取的文字。請擷取區域，或編輯原始碼。',
     notResponding: '這個頁面沒有回應。',
     oneError: '{count} 個錯誤',
     openInBrowser: '在瀏覽器窗格中開啟',
