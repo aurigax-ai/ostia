@@ -59,6 +59,7 @@ test('CLA-E1 Add opens the sign-in this platform uses (a dialog on Linux, a logi
     await win.waitForLoadState('domcontentloaded')
     await openWorkspace(win)
     const terminal = win.locator('.pane-slot:not([data-hidden]) .xterm-rows').first()
+    let loginProfile: string | null = null
 
     await typeLine(win, 'claude')
     await expect(terminal).toContainText('fake-claude dir=unset', { timeout: 15_000 })
@@ -77,12 +78,7 @@ test('CLA-E1 Add opens the sign-in this platform uses (a dialog on Linux, a logi
       await expect(win.getByRole('dialog')).toHaveCount(0)
       await expect.poll(() => pendingProfile(dataHome), { timeout: 15_000 }).not.toBeNull()
       const added = pendingProfile(dataHome) as string
-      await expect(
-        win
-          .locator('.pane-slot:not([data-hidden]) .xterm-rows')
-          .filter({ hasText: `fake-claude dir=${added}` }),
-      ).toHaveCount(1, { timeout: 15_000 })
-      await expect(win.getByText('Add Claude account').first()).toBeVisible()
+      loginProfile = added
       writeFileSync(
         join(added, '.claude.json'),
         JSON.stringify({ oauthAccount: { emailAddress: ADDED_EMAIL } }),
@@ -109,6 +105,14 @@ test('CLA-E1 Add opens the sign-in this platform uses (a dialog on Linux, a logi
     await expect(row).toContainText('Active')
 
     await win.locator('.rail-tab').filter({ hasText: 'home' }).click()
+    if (loginProfile) {
+      await expect(win.getByText('Add Claude account').first()).toBeVisible()
+      await expect(
+        win
+          .locator('.pane-slot:not([data-hidden]) .xterm-rows')
+          .filter({ hasText: `fake-claude dir=${loginProfile}` }),
+      ).toHaveCount(1, { timeout: 15_000 })
+    }
     await win.locator('.xterm').first().click()
     await typeLine(win, 'claude')
     await expect(terminal).toContainText(`fake-claude dir=${profile}`, { timeout: 15_000 })
