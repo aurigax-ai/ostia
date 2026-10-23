@@ -4,13 +4,13 @@ import { chords } from './chords'
 import { freshDataHome, isolatedLaunch } from './dataHome'
 import { extensionHosts } from './extensionHosts'
 import { guestKeys, pressInPage } from './guestKeys'
-import { openWorkspace, panelEval, quitApp, waitForPaletteSelection } from './helpers'
+import { openWorkspace, panelEval, quitApp, showInbox, waitForPaletteSelection } from './helpers'
 import {
   type ElectronApplication,
-  type Page,
   _electron as electron,
   expect,
   killApp,
+  type Page,
   test,
 } from './test'
 
@@ -97,10 +97,12 @@ edges:
   await openWorkspace(win)
   await openPanel(win)
   await enableAndRun(app, win, 'asked')
-  await win.keyboard.press('Control+Shift+D')
+  await win.keyboard.press(chords.palette)
+  const inbox = await showInbox(win)
   await expect(
-    win.locator('article[data-question]', { hasText: 'Keep going after the restart?' }),
+    inbox.locator('article[data-question]', { hasText: 'Keep going after the restart?' }),
   ).toBeVisible({ timeout: 30_000 })
+  await win.locator('.topbar').getByRole('button', { name: 'Graphs', exact: true }).click()
   await enableAndRun(app, win, 'cut')
   await expect
     .poll(() => lines().filter((l) => l.startsWith('slow')).length, { timeout: 30_000 })
@@ -117,8 +119,9 @@ edges:
       .toBe('complete')
     await pressInPage(app, guestKeys.palette)
     await choosePanel(again)
-    await pressInPage(app, guestKeys.dashboard)
-    const card = again.locator('article[data-question]', {
+    await pressInPage(app, guestKeys.palette)
+    const inbox = await showInbox(again)
+    const card = inbox.locator('article[data-question]', {
       hasText: 'Keep going after the restart?',
     })
     await expect(card).toBeVisible({ timeout: 30_000 })
@@ -165,9 +168,10 @@ edges: []
     await enableAndRun(app, win, 'held')
     await win.locator('.topbar').getByRole('button', { name: 'Graphs', exact: true }).click()
     await expect(win.locator('#right-panel')).toHaveAttribute('data-hidden', '')
-    await win.keyboard.press('Control+Shift+D')
+    await win.keyboard.press(chords.palette)
+    const inbox = await showInbox(win)
     await expect(
-      win.locator('article[data-question]', { hasText: 'Still waiting after the restart?' }),
+      inbox.locator('article[data-question]', { hasText: 'Still waiting after the restart?' }),
     ).toBeVisible({ timeout: 30_000 })
   } finally {
     await quitApp(app)
@@ -179,8 +183,9 @@ edges: []
     await win.waitForLoadState('domcontentloaded')
     await expect(win.locator('.xterm').first()).toBeVisible({ timeout: 30_000 })
     await expect.poll(() => extensionHosts(app), { timeout: 30_000 }).toContain('graphs')
-    await win.keyboard.press('Control+Shift+D')
-    const card = win.locator('article[data-question]', {
+    await win.keyboard.press(chords.palette)
+    const inbox = await showInbox(win)
+    const card = inbox.locator('article[data-question]', {
       hasText: 'Still waiting after the restart?',
     })
     await expect(card).toBeVisible({ timeout: 30_000 })

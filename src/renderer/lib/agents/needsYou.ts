@@ -2,10 +2,10 @@ import type { QuestionRequest } from '@shared/agents/questions'
 import type { ApprovalRequest } from '@shared/permissions/approvals'
 import { findPane } from '@/lib/layout/tree'
 import type { LayoutNode } from '@/lib/layout/types'
+import { shortenPath } from '@/lib/sidebar/railMeta'
 import { workspaceTitle } from '@/lib/workspaces/workspaceTitle'
-import { shortenPath } from './railMeta'
 
-export const DASHBOARD_PATH_CHARS = 44
+export const WHERE_PATH_CHARS = 44
 export const CONTEXT_FOLD_CHARS = 320
 const CONTEXT_FOLD_LINES = 4
 
@@ -84,7 +84,7 @@ export function paneWhere(
       workspaceId: workspace.id,
       workspace: workspaceTitle(workspace),
       path,
-      shortPath: shortenPath(path, DASHBOARD_PATH_CHARS),
+      shortPath: shortenPath(path, WHERE_PATH_CHARS),
       pane: pane.title,
     }
   }
@@ -108,7 +108,7 @@ export function sourceWhere(
     workspaceId: workspace.id,
     workspace: workspaceTitle(workspace),
     path,
-    shortPath: shortenPath(path, DASHBOARD_PATH_CHARS),
+    shortPath: shortenPath(path, WHERE_PATH_CHARS),
     pane: source.extension,
   }
 }

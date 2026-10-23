@@ -9,7 +9,7 @@ import { useRailMotion } from '@/lib/sidebar/railMotion'
 import { toBlocks } from '@/lib/sidebar/workspaceGroups'
 import { moveTabToWorkspace } from '@/lib/workspaces/tabWorkspaceMove'
 import { loadMergeTargets, requestMergeWorkspace } from '@/lib/workspaces/workspaceMerge'
-import { coversWorkspaces, useUIStore } from '@/stores/app/uiStore'
+import { useUIStore } from '@/stores/app/uiStore'
 import { usePaneDnd } from '@/stores/workspaces/paneDndStore'
 import { useRailEditStore } from '@/stores/workspaces/railEditStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
@@ -78,7 +78,6 @@ function WorkspacesView(): JSX.Element {
   }
   const settingsTabOpen = useUIStore((s) => s.settingsTabOpen)
   const settingsActive = useUIStore((s) => s.settingsActive)
-  const covered = useUIStore(coversWorkspaces)
   const openSettings = useUIStore((s) => s.openSettings)
   const closeSettings = useUIStore((s) => s.closeSettings)
 
@@ -120,7 +119,7 @@ function WorkspacesView(): JSX.Element {
       key={w.id}
       workspace={w}
       index={workspaces.indexOf(w)}
-      active={!covered && w.id === activeId}
+      active={!settingsActive && w.id === activeId}
       drop={
         tabTarget === w.id
           ? 'tab'
@@ -158,7 +157,7 @@ function WorkspacesView(): JSX.Element {
                 key={block.group.id}
                 group={block.group}
                 members={block.workspaces}
-                containsActive={!covered && block.workspaces.some((w) => w.id === activeId)}
+                containsActive={!settingsActive && block.workspaces.some((w) => w.id === activeId)}
                 drop={
                   target?.kind === 'group' && target.id === block.group.id ? target.place : null
                 }

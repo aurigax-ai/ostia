@@ -4,7 +4,7 @@ import { type FocusDirection, paneInDirection } from '@/lib/layout/focusDirectio
 import { adjacentTab, findPane, isPaneShown, paneIds } from '@/lib/layout/tree'
 import { latestRemoteUnread } from '@/lib/workspaces/windowWorkspaces'
 import { useAttentionStore } from '@/stores/agents/attentionStore'
-import { coversWorkspaces, useUIStore } from '@/stores/app/uiStore'
+import { useUIStore } from '@/stores/app/uiStore'
 import { useBlocksStore } from '@/stores/terminal/blocksStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { focusSurface } from '@/stores/workspaces/surfaceSlotsStore'
@@ -37,7 +37,7 @@ export function workspaceOfPane(paneId: string): string | null {
 export function isPaneVisible(paneId: string): boolean {
   const workspaceId = workspaceOfPane(paneId)
   if (!workspaceId || workspaceId !== useWorkspacesStore.getState().activeWorkspaceId) return false
-  if (coversWorkspaces(useUIStore.getState())) return false
+  if (useUIStore.getState().settingsActive) return false
   const layout = useLayoutStore.getState().byWorkspace[workspaceId]
   if (!layout) return false
   if (layout.zoomedPaneId) return layout.zoomedPaneId === paneId
@@ -101,7 +101,7 @@ function syncAllWorkspaceStates(): void {
 }
 
 function viewActivePane(): void {
-  if (!document.hasFocus() || coversWorkspaces(useUIStore.getState())) return
+  if (!document.hasFocus() || useUIStore.getState().settingsActive) return
   const workspaceId = useWorkspacesStore.getState().activeWorkspaceId
   if (!workspaceId) return
   const paneId = useLayoutStore.getState().byWorkspace[workspaceId]?.activePaneId
@@ -236,7 +236,7 @@ export function startAttentionSync(): () => void {
     if (s.activeWorkspaceId !== prev.activeWorkspaceId) viewActivePane()
   })
   const offUi = useUIStore.subscribe((s, prev) => {
-    if (coversWorkspaces(s) !== coversWorkspaces(prev)) viewActivePane()
+    if (s.settingsActive !== prev.settingsActive) viewActivePane()
   })
   window.addEventListener('focus', viewActivePane)
   syncAllWorkspaceStates()

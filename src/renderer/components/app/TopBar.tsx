@@ -11,7 +11,6 @@ import {
 } from '@phosphor-icons/react'
 import { useState } from 'react'
 import { ClaudeAccountsMenu } from '@/components/agents/ClaudeAccountsMenu'
-import { DashboardButton } from '@/components/agents/DashboardButton'
 import { NotificationCenter } from '@/components/agents/NotificationCenter'
 import { AssistantMenu } from '@/components/assist/AssistantMenu'
 import { Hint } from '@/components/common/Hint'
@@ -50,7 +49,6 @@ export function TopBar(): JSX.Element {
   const toggleFiles = useUIStore((s) => s.toggleFiles)
   const paletteKeys = useChordLabel('palette.toggle', isMac)
   const activeWorkspaceId = useWorkspacesStore((s) => s.activeWorkspaceId)
-  const dashboardActive = useUIStore((s) => s.dashboardActive)
 
   return (
     <header className="topbar drag-region">
@@ -85,7 +83,6 @@ export function TopBar(): JSX.Element {
         />
         <ClaudeAccountsMenu />
         <PanelToggles />
-        <DashboardButton />
       </div>
 
       <div className="topbar-center">
@@ -104,7 +101,7 @@ export function TopBar(): JSX.Element {
       </div>
 
       <div className="topbar-right">
-        <WorkspaceChips workspaceId={dashboardActive ? null : activeWorkspaceId} />
+        <WorkspaceChips workspaceId={activeWorkspaceId} />
         <ZoomReset />
         <UpdateNotice />
         <IconButton

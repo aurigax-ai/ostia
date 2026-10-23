@@ -12,8 +12,6 @@ import { commands } from '@/commands/registry'
 import { CommandPalette } from '@/components/palette/CommandPalette'
 import { allPanes, createPane } from '@/lib/layout/tree'
 import { COMMANDS_PREFIX } from '@/lib/palette/paletteModes'
-import { useApprovalsStore } from '@/stores/agents/approvalsStore'
-import { useQuestionsStore } from '@/stores/agents/questionsStore'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useSidePanelStore } from '@/stores/app/sidePanelStore'
 import { useUIStore } from '@/stores/app/uiStore'
@@ -302,73 +300,11 @@ describe('TopBar', () => {
       Array.from(container.querySelector(selector)?.querySelectorAll('button') ?? []).map((b) =>
         b.getAttribute('aria-label'),
       )
-    expect(names('.topbar-left').slice(-4)).toEqual([
-      'Files',
-      'Claude accounts',
-      'Activity',
-      'Dashboard',
-    ])
+    expect(names('.topbar-left').slice(-3)).toEqual(['Files', 'Claude accounts', 'Activity'])
     expect(names('.topbar-right')).not.toContain('Activity')
     expect(container.querySelector('.topbar-right')).toContainElement(
       screen.getByRole('list', { name: 'Workspace status' }),
     )
-  })
-
-  it('opens and closes the dashboard from its button, pressed while open', async () => {
-    render(<TopBar />)
-    const user = userEvent.setup()
-    const button = screen.getByRole('button', { name: 'Dashboard' })
-    expect(button).toHaveAttribute('aria-pressed', 'false')
-    await user.click(button)
-    expect(useUIStore.getState().dashboardActive).toBe(true)
-    expect(button).toHaveAttribute('aria-pressed', 'true')
-    await user.click(button)
-    expect(useUIStore.getState().dashboardActive).toBe(false)
-  })
-
-  it('counts open questions and permission requests on the dashboard button, only when any wait', () => {
-    const { container } = render(<TopBar />)
-    const left = () => container.querySelector('.topbar-left') as HTMLElement
-    expect(left().querySelector('.count-dot')).toBeNull()
-
-    act(() => {
-      useQuestionsStore.setState({
-        pending: [
-          {
-            id: 'q1',
-            paneId: 'p1',
-            question: 'Ship?',
-            context: '',
-            choices: [],
-            mode: 'text',
-            at: 1,
-          },
-        ],
-      })
-      useApprovalsStore.setState({
-        pending: [
-          {
-            id: 'a1',
-            paneId: 'p1',
-            workspaceId: 's1',
-            caps: ['shell'],
-            action: 'Resume Agent',
-            detail: '',
-            at: 2,
-          },
-        ],
-      })
-    })
-    expect(left().querySelector('.count-dot')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Dashboard, 2 waiting for you' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Notifications' })).toBeInTheDocument()
-
-    act(() => {
-      useQuestionsStore.setState({ pending: [] })
-      useApprovalsStore.setState({ pending: [] })
-    })
-    expect(left().querySelector('.count-dot')).toBeNull()
-    expect(screen.getByRole('button', { name: 'Dashboard' })).toBeInTheDocument()
   })
 
   it('toggles an extension panel in the right side panel', async () => {
@@ -468,11 +404,6 @@ describe('TopBar', () => {
           .getAllByRole('listitem')
           .map((li) => li.textContent),
       ).toEqual(['dev'])
-
-      act(() => useUIStore.getState().openDashboard())
-      expect(screen.queryByRole('list', { name: 'Workspace status' })).toBeNull()
-      act(() => useUIStore.getState().showWorkspaces())
-      expect(chips()).toHaveTextContent('dev')
 
       act(() => useWorkspacesStore.setState({ activeWorkspaceId: null }))
       expect(screen.queryByRole('list', { name: 'Workspace status' })).toBeNull()

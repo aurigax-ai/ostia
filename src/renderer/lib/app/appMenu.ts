@@ -37,7 +37,6 @@ const LAYOUT: Layout = {
     SEPARATOR,
     'view.toggleRail',
     'view.searchFiles',
-    'dashboard.toggle',
     SEPARATOR,
     'pane.splitRight',
     'pane.splitDown',

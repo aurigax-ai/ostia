@@ -149,18 +149,6 @@ describe('matchChord', () => {
     expect(chordLabel('attention.jumpToLatest', true)).toBe('⌘⇧U')
   })
 
-  it('maps the dashboard to Ctrl+Shift+D, and to ⌥⌘D with ⇧⌘D kept on macOS, leaving Ctrl+D to the shell', () => {
-    const ctrlShiftD = matchChord(key('D', { ctrlKey: true, shiftKey: true }), false)
-    const cmdAltD = matchChord({ ...key('∂', { metaKey: true, altKey: true }), code: 'KeyD' }, true)
-    expect(ctrlShiftD).toBe('dashboard.toggle')
-    expect(cmdAltD).toBe('dashboard.toggle')
-    expect(matchChord(key('d', { metaKey: true, shiftKey: true }), true)).toBe('dashboard.toggle')
-    expect(isAppChord(ctrlShiftD)).toBe(true)
-    expect(matchChord(key('d', { ctrlKey: true }), false)).toBeNull()
-    expect(chordLabel('dashboard.toggle', false)).toBe('Ctrl+Shift+D')
-    expect(chordLabel('dashboard.toggle', true)).toBe('⌥⌘D')
-  })
-
   it('maps send selection to Ctrl+Shift+E and Cmd+Shift+E, leaving Ctrl+E to the shell', () => {
     const ctrlShiftE = matchChord(key('E', { ctrlKey: true, shiftKey: true }), false)
     const cmdShiftE = matchChord(key('e', { metaKey: true, shiftKey: true }), true)
@@ -470,7 +458,6 @@ describe('the macOS keymap that follows cmux', () => {
     expect(matchChordInTerminal(key('ArrowDown', cmdAlt), true)).toBe('pane.focusDown')
     const cmdShiftEnter = { ...key('Enter', cmdShift), code: 'Enter' }
     expect(matchChordInTerminal(cmdShiftEnter, true)).toBe('pane.zoom')
-    expect(matchChord({ ...key('∂', cmdAlt), code: 'KeyD' }, true)).toBe('dashboard.toggle')
     expect(matchChord(key('D', cmdShift), true)).toBeNull()
     expect(matchChord(key('k', cmd), true)).toBeNull()
     expect(matchTerminalChord(key('k', cmd), true)).toBe('terminal.clear')
@@ -590,7 +577,6 @@ describe('commands with several chords', () => {
       'palette.toggle',
       'view.toggleRail',
       'view.zoomIn',
-      'dashboard.toggle',
       'pane.splitRight',
       'pane.splitDown',
       'pane.focusLeft',
@@ -778,7 +764,6 @@ describe('setKeybindingSetting', () => {
 })
 
 describe('DEFAULT_CHORDS', () => {
-  const MAC_SHADOWED = ['terminal:Shift+Cmd+D pane.splitDown over dashboard.toggle']
   const PANE_WORK = [
     'pane.splitRight',
     'pane.splitDown',
@@ -819,7 +804,7 @@ describe('DEFAULT_CHORDS', () => {
         const outside = scope ? seen.get(signature.slice(TERMINAL_SCOPE.length)) : undefined
         if (outside) shadowed.push(`${signature} ${id} over ${outside}`)
       }
-      expect(shadowed).toEqual(mac ? MAC_SHADOWED : [])
+      expect(shadowed).toEqual([])
     }
   })
 

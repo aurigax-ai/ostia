@@ -73,7 +73,7 @@ describe('usePanePrompt', () => {
     render(<Host pane={pane} />)
 
     fireEvent.click(
-      screen.getByRole('button', { name: 'Decide later. The request waits in the dashboard.' }),
+      screen.getByRole('button', { name: 'Decide later. The request waits in the Inbox.' }),
     )
 
     expect(screen.queryByRole('region', { name: 'Agent permission request' })).toBeNull()

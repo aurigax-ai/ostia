@@ -63,7 +63,7 @@ export function ApprovalCard({
     <section
       aria-label={d.approvals.title}
       data-approval={request.id}
-      className="dashboard-card flex flex-col gap-2 rounded-md border border-line bg-surface-1 p-3 text-fg text-ui-sm"
+      className="flex flex-col gap-2 rounded-md border border-line bg-surface-1 p-3 text-fg text-ui-sm"
     >
       {lead}
       <div className="flex items-center gap-2">

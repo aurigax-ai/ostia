@@ -1,7 +1,7 @@
 import type { QuestionRequest } from '@shared/agents/questions'
 import type { ApprovalRequest } from '@shared/permissions/approvals'
 import { describe, expect, it } from 'vitest'
-import type { NeedsYouItem, PaneWhere } from '@/lib/sidebar/dashboard'
+import type { NeedsYouItem, PaneWhere } from '@/lib/agents/needsYou'
 import { cardPane, inboxCards, waitingCount } from './panelInbox'
 
 const question = (id: string, paneId: string, at: number): QuestionRequest => ({

@@ -15,7 +15,6 @@ const IDENTIFIERS = [
   'the ostia command',
   'ostia settings set',
   'ostia view schema',
-  'ostia ask',
   'ostia <agent>',
   'ostia <name>',
   'ostia <名稱>',

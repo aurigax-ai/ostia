@@ -180,7 +180,6 @@ const GROUP_BY_ID: Readonly<Record<string, CommandGroup>> = {
   'agent.resume': 'app',
   'selection.sendToAgent': 'app',
   'assist.compose': 'app',
-  'dashboard.toggle': 'view',
   copy: 'terminal',
   paste: 'terminal',
   find: 'terminal',

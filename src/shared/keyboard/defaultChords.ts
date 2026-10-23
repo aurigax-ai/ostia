@@ -29,7 +29,6 @@ type AppChord =
   | 'view.zoomOut'
   | 'view.zoomReset'
   | 'assist.compose'
-  | 'dashboard.toggle'
   | 'pane.splitRight'
   | 'pane.splitDown'
   | 'pane.focusLeft'
@@ -76,7 +75,6 @@ export const DEFAULT_CHORDS: Readonly<
   'view.zoomOut': ['Cmd+-', 'Ctrl+Shift+-'],
   'view.zoomReset': ['Cmd+0', 'Ctrl+0'],
   'assist.compose': ['Cmd+J', 'Ctrl+Shift+J'],
-  'dashboard.toggle': [['Cmd+Alt+D', 'Cmd+Shift+D'], 'Ctrl+Shift+D'],
   'pane.splitRight': [['terminal:Cmd+D', 'Cmd+Alt+\\'], 'Ctrl+Alt+\\'],
   'pane.splitDown': [['terminal:Shift+Cmd+D', 'Cmd+Alt+-'], 'Ctrl+Alt+-'],
   'pane.focusLeft': [['terminal:Cmd+Alt+Left', 'Cmd+Ctrl+Left'], 'Ctrl+Shift+Alt+H'],

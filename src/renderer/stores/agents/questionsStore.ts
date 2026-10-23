@@ -99,7 +99,7 @@ function announce(question: QuestionRequest): void {
   window.ostia.notifications.post({
     paneId: question.paneId,
     kind: 'waiting',
-    title: currentDict().dashboard.questionNotice,
+    title: currentDict().inbox.questionNotice,
     body: question.question,
     desktop: wantsDesktopBanner(
       useSettingsStore.getState().notifications,

@@ -77,7 +77,6 @@ export const commandsEn = {
       'browser.new': 'New Browser',
       'browser.open': 'Open Browser',
       'browser.reload': 'Reload Page',
-      'dashboard.toggle': 'Toggle Dashboard',
       'developer.openLogFolder': 'Open Log Folder',
       'developer.toggleDevTools': 'Toggle Developer Tools',
       'diff.openFiles': 'Compare Two Files',
