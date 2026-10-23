@@ -56,6 +56,17 @@ beforeAll(() => {
       loginState: async () => 'signed-in',
       writeLogin: async () => true,
       signIn: null,
+      usage: {
+        run: () => {},
+        usageOf: (id) =>
+          id === WORK
+            ? {
+                session: { percent: 42.4, resetsAt: Date.now() + 3_600_000 },
+                weekly: { percent: 18, resetsAt: Date.now() + 86_400_000 * 3 },
+                checkedAt: Date.now(),
+              }
+            : null,
+      },
       syncProfile: async () => {},
       agentRunning: () => false,
       paneOf: (id) => id,
@@ -95,14 +106,14 @@ afterAll(() => {
 })
 
 describe('ostia account (the real CLI against a live control server)', () => {
-  it('lists every account with its number, email and the current one', async () => {
+  it('lists every account with its number, email, the current one and its checked usage', async () => {
     const res = await ostia(['account', 'list'])
     expect(res.code).toBe(0)
-    expect(res.stdout).toBe('1\tme@example.com\tcurrent\n2\twork@example.com\t\n')
+    expect(res.stdout).toBe('1\tme@example.com\tcurrent\t\t\n2\twork@example.com\t\t42%\t18%\n')
     const json = JSON.parse((await ostia(['account', 'list', '--json'])).stdout)
     expect(json.accounts).toEqual([
-      { number: 1, email: 'me@example.com', current: true },
-      { number: 2, email: 'work@example.com', current: false },
+      { number: 1, email: 'me@example.com', current: true, session: null, weekly: null },
+      { number: 2, email: 'work@example.com', current: false, session: 42, weekly: 18 },
     ])
   })
 

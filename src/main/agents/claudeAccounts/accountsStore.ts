@@ -18,6 +18,7 @@ interface StoredAccounts {
   current: string
   sessions: Record<string, string>
   panes: Record<string, string>
+  checkUsage: boolean
 }
 
 function parseAccount(raw: unknown): StoredAccount | null {
@@ -48,6 +49,7 @@ function parseStored(raw: unknown): StoredAccounts | null {
     current,
     sessions: knownAccounts(stored.sessions, known),
     panes: knownAccounts(stored.panes, known),
+    checkUsage: stored.checkUsage === true,
   }
 }
 
@@ -66,6 +68,7 @@ const EMPTY = (): StoredAccounts => ({
   current: DEFAULT_ACCOUNT,
   sessions: {},
   panes: {},
+  checkUsage: false,
 })
 
 export class ClaudeAccountsStore {
@@ -114,6 +117,19 @@ export class ClaudeAccountsStore {
 
   current(): string {
     return this.data.current
+  }
+
+  checkUsage(): boolean {
+    return this.data.checkUsage
+  }
+
+  setCheckUsage(on: boolean): boolean {
+    if (this.damaged) return false
+    if (this.data.checkUsage !== on) {
+      this.data.checkUsage = on
+      this.save()
+    }
+    return true
   }
 
   add(account: StoredAccount): boolean {

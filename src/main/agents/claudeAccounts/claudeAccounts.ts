@@ -21,6 +21,7 @@ import {
 import type { ClaudeAccountsStore } from './accountsStore'
 import type { OAuthProfile, OAuthTokens } from './signIn/anthropicOAuth'
 import { ClaudeSignIn, type CompleteOutcome, type SignInDeps } from './signIn/claudeSignIn'
+import type { UsagePoller, UsageTarget } from './usagePoller'
 
 const LOGIN_POLL_MS = 2000
 const LOGIN_TIMEOUT_MS = 30 * 60 * 1000
@@ -41,6 +42,7 @@ export interface ClaudeAccountsDeps {
   loginState: (dir: string) => Promise<LoginState>
   writeLogin: (dir: string, tokens: OAuthTokens, profile: OAuthProfile) => Promise<boolean>
   signIn: Omit<SignInDeps, 'complete' | 'onChange'> | null
+  usage: Pick<UsagePoller, 'run' | 'usageOf'> | null
   openLoginTab: (dir: string, target: LoginTarget) => Promise<string | null>
   agentRunning: (paneId: string) => boolean
   paneOf: (externalPaneId: string) => string | undefined
@@ -79,16 +81,23 @@ export class ClaudeAccounts {
 
   async state(): Promise<ClaudeAccountsState> {
     const { store } = this.deps
+    const usageOf = (id: string) => this.deps.usage?.usageOf(id) ?? null
     const profiles = await Promise.all(
       store.accounts().map(async ({ id, email }) => ({
         id,
         email,
         signedOut: (await this.deps.loginState(join(this.deps.root, id))) === 'signed-out',
+        usage: usageOf(id),
       })),
     )
     return {
       accounts: [
-        { id: DEFAULT_ACCOUNT, email: await this.deps.defaultEmail(), signedOut: false },
+        {
+          id: DEFAULT_ACCOUNT,
+          email: await this.deps.defaultEmail(),
+          signedOut: false,
+          usage: usageOf(DEFAULT_ACCOUNT),
+        },
         ...profiles,
       ],
       current: store.current(),
@@ -98,6 +107,8 @@ export class ClaudeAccounts {
       duplicate: this.duplicate,
       damaged: store.isDamaged,
       recoverable: this.recoverable.length,
+      checkUsage: this.deps.usage !== null && store.checkUsage(),
+      usageAvailable: this.deps.usage !== null,
     }
   }
 
@@ -112,6 +123,34 @@ export class ClaudeAccounts {
     )
     this.recoverable = await this.unlistedLogins()
     if (this.recoverable.length > 0) await this.publish()
+    this.deps.usage?.run(this.deps.store.checkUsage())
+  }
+
+  async setCheckUsage(on: boolean): Promise<boolean> {
+    const { usage } = this.deps
+    if (!usage || !this.deps.store.setCheckUsage(on)) return false
+    usage.run(on)
+    await this.publish()
+    return true
+  }
+
+  async usageTargets(): Promise<UsageTarget[]> {
+    const { store, root } = this.deps
+    const profiles = await Promise.all(
+      store.accounts().map(async ({ id }) => ({
+        id,
+        dir: join(root, id),
+        signedOut: (await this.deps.loginState(join(root, id))) === 'signed-out',
+      })),
+    )
+    return [
+      { id: DEFAULT_ACCOUNT, dir: this.deps.defaultHome() },
+      ...profiles.filter((profile) => !profile.signedOut).map(({ id, dir }) => ({ id, dir })),
+    ]
+  }
+
+  async usageChanged(): Promise<void> {
+    await this.publish()
   }
 
   async recover(): Promise<number | null> {

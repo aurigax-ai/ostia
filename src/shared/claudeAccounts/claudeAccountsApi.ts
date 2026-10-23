@@ -13,6 +13,7 @@ interface ClaudeAccountsApi {
   remove: (id: string) => Promise<RemoveAccountOutcome>
   use: (id: string) => Promise<boolean>
   recover: () => Promise<number | null>
+  setCheckUsage: (on: boolean) => Promise<boolean>
   beginSignIn: (id: string | null) => Promise<BeginSignInOutcome>
   openSignIn: () => Promise<boolean>
   submitSignInCode: (code: string) => Promise<SubmitCodeOutcome>

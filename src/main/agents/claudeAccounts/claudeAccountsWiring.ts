@@ -5,6 +5,7 @@ import {
   accountOfTarget,
   type ClaudeAccountView,
   NO_ACCOUNTS,
+  percentNow,
 } from '../../../shared/claudeAccounts/claudeAccounts'
 import { quoteArg } from '../../../shared/terminal/shellQuote'
 import { approvals } from '../../approvals/approvals'
@@ -21,14 +22,18 @@ import type { AgentRunningPanes } from '../agentRunning'
 import {
   accountEmail,
   accountsRoot,
+  credentialsStamp,
   defaultConfigHome,
   loginState,
+  usageToken,
   writeLogin,
 } from './accountProfiles'
 import { syncProfileFromDefault } from './accountSync'
 import { ClaudeAccountsStore } from './accountsStore'
 import { ClaudeAccounts, type LoginTarget } from './claudeAccounts'
 import { createPkce, exchangeCode, fetchProfile } from './signIn/anthropicOAuth'
+import { fetchUsage } from './usageApi'
+import { UsagePoller } from './usagePoller'
 
 const ACCOUNTS_DIR = 'claude-accounts'
 
@@ -41,7 +46,15 @@ interface CreateDeps {
 }
 
 export function createClaudeAccounts(deps: CreateDeps): ClaudeAccounts {
-  return new ClaudeAccounts({
+  const usage = new UsagePoller({
+    targets: () => accounts.usageTargets(),
+    token: (dir) => usageToken(dir, Date.now()),
+    stamp: credentialsStamp,
+    fetch: (accessToken) => fetchUsage(accessToken),
+    onChange: () => void accounts.usageChanged(),
+  })
+  const accounts: ClaudeAccounts = new ClaudeAccounts({
+    usage: process.platform === 'darwin' ? null : usage,
     store: new ClaudeAccountsStore(storePath(ACCOUNTS_DIR, 'global')),
     root: accountsRoot(),
     defaultHome: () => defaultConfigHome(),
@@ -85,6 +98,7 @@ export function createClaudeAccounts(deps: CreateDeps): ClaudeAccounts {
     },
     onChange: (state) => deps.broadcast('claude-accounts:changed', state),
   })
+  return accounts
 }
 
 interface RegisterDeps {
@@ -151,6 +165,9 @@ export function registerClaudeAccountsWiring(deps: RegisterDeps): void {
   ipcMain.handle('claude-accounts:use', (e, id: unknown) =>
     fromWindow(e) && typeof id === 'string' ? claudeAccounts.use(id) : false,
   )
+  ipcMain.handle('claude-accounts:set-check-usage', (e, on: unknown) =>
+    fromWindow(e) && typeof on === 'boolean' ? claudeAccounts.setCheckUsage(on) : false,
+  )
   ipcMain.handle('claude-accounts:recover', (e) =>
     fromWindow(e) ? claudeAccounts.recover() : null,
   )
@@ -170,12 +187,15 @@ export function registerClaudeAccountsWiring(deps: RegisterDeps): void {
       const isolated = defaultOnly(ctx)
       if (isolated) return { ok: false, error: isolated }
       const { accounts, current } = await claudeAccounts.state()
+      const now = Date.now()
       return {
         ok: true,
-        accounts: accounts.map(({ id, email }, i) => ({
+        accounts: accounts.map(({ id, email, usage }, i) => ({
           number: i + 1,
           email,
           current: id === current,
+          session: percentNow(usage?.session ?? null, now),
+          weekly: percentNow(usage?.weekly ?? null, now),
         })),
       }
     },

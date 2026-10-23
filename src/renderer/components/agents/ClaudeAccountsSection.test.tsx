@@ -15,9 +15,9 @@ const SPARE = 'b'.repeat(16)
 
 const state = (over: Partial<ClaudeAccountsState> = {}): ClaudeAccountsState => ({
   accounts: [
-    { id: 'default', email: 'me@example.com', signedOut: false },
-    { id: WORK, email: 'work@example.com', signedOut: false },
-    { id: SPARE, email: 'spare@example.com', signedOut: false },
+    { id: 'default', email: 'me@example.com', signedOut: false, usage: null },
+    { id: WORK, email: 'work@example.com', signedOut: false, usage: null },
+    { id: SPARE, email: 'spare@example.com', signedOut: false, usage: null },
   ],
   current: WORK,
   adding: false,
@@ -26,6 +26,8 @@ const state = (over: Partial<ClaudeAccountsState> = {}): ClaudeAccountsState => 
   duplicate: null,
   damaged: false,
   recoverable: 0,
+  checkUsage: false,
+  usageAvailable: true,
   ...over,
 })
 
@@ -58,7 +60,10 @@ describe('ClaudeAccountsSection', () => {
 
   it('names a default account without a known login', async () => {
     show(
-      state({ accounts: [{ id: 'default', email: null, signedOut: false }], current: 'default' }),
+      state({
+        accounts: [{ id: 'default', email: null, signedOut: false, usage: null }],
+        current: 'default',
+      }),
     )
     render(<ClaudeAccountsSection />)
     expect(await screen.findByText('Default account')).toBeInTheDocument()
@@ -168,6 +173,40 @@ describe('ClaudeAccountsSection', () => {
     ).toBeInTheDocument()
   })
 
+  it('turns the usage check on from its switch and shows each account’s usage', async () => {
+    const now = Date.now()
+    show(
+      state({
+        checkUsage: true,
+        accounts: [
+          { id: 'default', email: 'me@example.com', signedOut: false, usage: null },
+          {
+            id: WORK,
+            email: 'work@example.com',
+            signedOut: false,
+            usage: {
+              session: { percent: 91, resetsAt: now + 1_800_000 },
+              weekly: { percent: 67, resetsAt: now + 2 * 86_400_000 },
+              checkedAt: now - 9 * 3_600_000,
+            },
+          },
+        ],
+      }),
+    )
+    render(<ClaudeAccountsSection />)
+    const row = (await screen.findByText('work@example.com')).closest('li') as HTMLElement
+    expect(row).toHaveTextContent(/Session 91% · Weekly 67% · pace 71% · resets \w+ · 9 hr\. ago/)
+    await userEvent.click(screen.getByRole('switch', { name: 'Check usage' }))
+    expect(window.ostia.claudeAccounts.setCheckUsage).toHaveBeenCalledWith(false)
+  })
+
+  it('has no usage switch where usage cannot be checked', async () => {
+    show(state({ usageAvailable: false }))
+    render(<ClaudeAccountsSection />)
+    await screen.findByText('work@example.com')
+    expect(screen.queryByRole('switch', { name: 'Check usage' })).toBeNull()
+  })
+
   it('says what the accounts share and that other accounts’ changes are replaced', async () => {
     show(state())
     render(<ClaudeAccountsSection />)
@@ -205,8 +244,8 @@ describe('ClaudeAccountsSection', () => {
         available({
           signIn: 'waiting',
           accounts: [
-            { id: 'default', email: 'me@example.com', signedOut: false },
-            { id: SPARE, email: 'spare@example.com', signedOut: true },
+            { id: 'default', email: 'me@example.com', signedOut: false, usage: null },
+            { id: SPARE, email: 'spare@example.com', signedOut: true, usage: null },
           ],
           current: 'default',
         }),

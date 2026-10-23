@@ -7,6 +7,7 @@ import {
 import { useState } from 'react'
 import { Notice } from '@/components/common/Notice'
 import { TextLink } from '@/components/common/TextLink'
+import { ToggleRow } from '@/components/settingsKit/ControlRow'
 import { RowRemoveButton } from '@/components/settingsKit/RowRemoveButton'
 import { SettingsGroup } from '@/components/settingsKit/SettingsGroup'
 import { SettingsList } from '@/components/settingsKit/SettingsList'
@@ -27,6 +28,7 @@ import { useClaudeAccounts } from '@/lib/agents/useClaudeAccounts'
 import { fmt, useDict } from '@/lib/app/useDict'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import { ClaudeSignInDialog } from './ClaudeSignInDialog'
+import { useUsageText } from './useUsageText'
 
 type Problem = 'no-workspace' | 'not-opened' | 'running' | 'busy' | null
 
@@ -39,8 +41,17 @@ const accountName = (account: ClaudeAccountView, fallback: string): string =>
 
 export function ClaudeAccountsSection(): JSX.Element {
   const d = useDict().claudeAccounts
-  const { accounts, current, adding, signInAvailable, duplicate, damaged, recoverable } =
-    useClaudeAccounts()
+  const {
+    accounts,
+    current,
+    adding,
+    signInAvailable,
+    duplicate,
+    damaged,
+    recoverable,
+    checkUsage,
+    usageAvailable,
+  } = useClaudeAccounts()
   const { claudeAccounts } = window.ostia
   const [problem, setProblem] = useState<Problem>(null)
   const [broughtBack, setBroughtBack] = useState(0)
@@ -117,6 +128,16 @@ export function ClaudeAccountsSection(): JSX.Element {
           />
         ))}
       </SettingsList>
+      {usageAvailable ? (
+        <SettingsGroup title={d.usageTitle}>
+          <ToggleRow
+            label={d.checkUsage}
+            desc={d.checkUsageDesc}
+            checked={checkUsage}
+            onChange={(on) => void claudeAccounts.setCheckUsage(on)}
+          />
+        </SettingsGroup>
+      ) : null}
       <SettingsGroup title={d.sharedTitle} desc={d.sharedDesc} />
       {signingIn ? (
         <ClaudeSignInDialog account={signingIn.account} onClose={() => setSigningIn(null)} />
@@ -159,6 +180,7 @@ function AccountRow({
   onSignIn: () => void
 }): JSX.Element {
   const d = useDict().claudeAccounts
+  const usage = useUsageText()
   const name = accountName(account, d.defaultAccount)
   const removable = account.id !== DEFAULT_ACCOUNT
   const meta = [account.id === DEFAULT_ACCOUNT ? d.defaultLabel : null, active ? d.active : null]
@@ -191,7 +213,9 @@ function AccountRow({
               {d.signInAgain}
             </TextLink>
           </>
-        ) : undefined
+        ) : (
+          usage.line(account.usage)
+        )
       }
       actions={actions}
     />

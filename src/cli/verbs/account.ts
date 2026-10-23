@@ -7,6 +7,8 @@ interface AccountRow {
   number: number
   email: string | null
   current: boolean
+  session: number | null
+  weekly: number | null
 }
 
 type ListAnswer = { ok: true; accounts: AccountRow[] } | { ok: false; error: string }
@@ -16,6 +18,10 @@ type SwitchAnswer =
   | { ok: false; error: string }
 
 const DEFAULT_LABEL = 'default'
+
+function percentText(percent: number | null): string {
+  return percent === null ? '' : `${percent}%`
+}
 
 function isolatedText(error: string): string {
   const kind = { scratch: 'a scratch', manager: 'the manager' }[error] ?? 'a sandboxed'
@@ -46,7 +52,13 @@ export async function runAccountVerb(conn: MessageConnection): Promise<void> {
     }
     for (const row of accounts) {
       console.log(
-        tsvLine([String(row.number), row.email ?? DEFAULT_LABEL, row.current ? 'current' : '']),
+        tsvLine([
+          String(row.number),
+          row.email ?? DEFAULT_LABEL,
+          row.current ? 'current' : '',
+          percentText(row.session),
+          percentText(row.weekly),
+        ]),
       )
     }
     return

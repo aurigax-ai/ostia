@@ -82,14 +82,28 @@ export function MenuSubTrigger({
 
 export function MenuRadioItem({
   leading,
+  detail,
   children,
   className,
   ...props
-}: ComponentProps<typeof ContextMenuRadioItem> & { leading?: ReactNode }): JSX.Element {
+}: ComponentProps<typeof ContextMenuRadioItem> & {
+  leading?: ReactNode
+  detail?: ReactNode
+}): JSX.Element {
   return (
-    <ContextMenuRadioItem className={cn(ROW, 'pr-8', className)} {...props}>
+    <ContextMenuRadioItem
+      className={cn(ROW, 'pr-8', detail ? 'h-auto py-1' : null, className)}
+      {...props}
+    >
       <Leading leading={leading} />
-      <span className="min-w-0 flex-1 truncate">{children}</span>
+      {detail ? (
+        <span className="flex min-w-0 flex-1 flex-col">
+          <span className="min-w-0 truncate">{children}</span>
+          <span className="truncate text-fg-muted text-ui-xs">{detail}</span>
+        </span>
+      ) : (
+        <span className="min-w-0 flex-1 truncate">{children}</span>
+      )}
     </ContextMenuRadioItem>
   )
 }

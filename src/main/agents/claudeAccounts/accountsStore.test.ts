@@ -40,6 +40,13 @@ describe('ClaudeAccountsStore', () => {
     expect(statSync(file).mode & 0o777).toBe(0o600)
   })
 
+  it('keeps the usage check off until it is turned on, across a restart', () => {
+    const store = new ClaudeAccountsStore(file)
+    expect(store.checkUsage()).toBe(false)
+    expect(store.setCheckUsage(true)).toBe(true)
+    expect(new ClaudeAccountsStore(file).checkUsage()).toBe(true)
+  })
+
   it('refuses to use or remember an account it does not know', () => {
     const store = new ClaudeAccountsStore(file)
     expect(store.use(WORK)).toBe(false)

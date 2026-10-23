@@ -23,6 +23,9 @@ export const agentEn = {
     broughtBackMany: 'Brought back {count} accounts that were still signed in.',
     broughtBackOne: 'Brought back 1 account that was still signed in.',
     cancel: 'Cancel',
+    checkUsage: 'Check usage',
+    checkUsageDesc:
+      "Ask Anthropic for each account's session and weekly usage, at most every 10 minutes per account, with the sign-in Claude saved. {product} never renews a sign-in.",
     damaged:
       'The list of Claude accounts could not be read, so nothing was changed and every sign-in is kept. The old file is kept beside it. Start fresh to add accounts again; the accounts that are still signed in come back.',
     damagedFresh: 'Start fresh',
@@ -69,5 +72,11 @@ export const agentEn = {
     switchTo: 'Switch to',
     title: 'Claude accounts',
     titleDesc: 'Sign in with more than one Claude account and choose which one new sessions use.',
+    usageChecked: 'Usage checked {ago}',
+    usagePace: 'pace {percent}%',
+    usageResets: 'resets {when}',
+    usageSession: 'Session {percent}%',
+    usageTitle: 'Usage',
+    usageWeekly: 'Weekly {percent}%',
   },
 }

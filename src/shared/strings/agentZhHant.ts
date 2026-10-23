@@ -22,6 +22,9 @@ export const agentZhHant: typeof agentEn = {
     broughtBackMany: '已找回 {count} 個仍在登入中的帳號。',
     broughtBackOne: '已找回 1 個仍在登入中的帳號。',
     cancel: '取消',
+    checkUsage: '檢查用量',
+    checkUsageDesc:
+      '使用 Claude 儲存的登入，向 Anthropic 查詢每個帳號的工作階段與每週用量，每個帳號最多每 10 分鐘一次。{product} 從不更新登入。',
     damaged:
       '無法讀取 Claude 帳號清單，所以沒有做任何更動，所有登入都保留著。舊檔案保留在旁邊。按「重新開始」才能再次新增帳號；仍在登入中的帳號會回來。',
     damagedFresh: '重新開始',
@@ -64,5 +67,11 @@ export const agentZhHant: typeof agentEn = {
     switchTo: '切換到',
     title: 'Claude 帳號',
     titleDesc: '可登入多個 Claude 帳號，並選擇新工作階段使用哪一個。',
+    usageChecked: '用量檢查於{ago}',
+    usagePace: '進度 {percent}%',
+    usageResets: '{when}重設',
+    usageSession: '工作階段 {percent}%',
+    usageTitle: '用量',
+    usageWeekly: '每週 {percent}%',
   },
 }

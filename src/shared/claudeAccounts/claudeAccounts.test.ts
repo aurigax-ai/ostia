@@ -24,8 +24,8 @@ describe('sessionIdOfArgs', () => {
 
 describe('accountOfTarget', () => {
   const accounts = [
-    { id: DEFAULT_ACCOUNT, email: null, signedOut: false },
-    { id: 'a'.repeat(16), email: 'Work@Example.com', signedOut: false },
+    { id: DEFAULT_ACCOUNT, email: null, signedOut: false, usage: null },
+    { id: 'a'.repeat(16), email: 'Work@Example.com', signedOut: false, usage: null },
   ]
 
   it('picks by 1-based number', () => {
