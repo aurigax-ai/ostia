@@ -17,7 +17,6 @@ import type { WebviewTag } from 'electron'
 import {
   type Dispatch,
   type MutableRefObject,
-  type ReactNode,
   type SetStateAction,
   useCallback,
   useEffect,
@@ -204,14 +203,12 @@ export function HtmlPreview({
   visible,
   onSendErrors,
   focusRef,
-  mode,
 }: {
   workspaceId: string
   paneId: string
   filePath: string
   visible: boolean
   focusRef?: MutableRefObject<HTMLElement | null>
-  mode?: ReactNode
   onSendErrors?: (count: number, text: string) => void
 }): JSX.Element {
   const d = useDict()
@@ -324,28 +321,22 @@ export function HtmlPreview({
   }
 
   const capturing = opened && !stopped
-  const pill =
-    capturing || mode ? (
-      <FloatPill label={d.preview.controls}>
-        {capturing ? (
-          <>
-            <FloatPillButton
-              icon={CursorClickIcon}
-              label={capture.picking ? d.browser.pickStop : d.browser.pick}
-              aria-pressed={capture.picking !== null}
-              onClick={() => void capture.togglePick()}
-            />
-            <FloatPillButton
-              icon={CropIcon}
-              label={capture.cropping ? d.browser.regionStop : d.browser.region}
-              aria-pressed={capture.cropping}
-              onClick={() => (capture.cropping ? capture.setCropping(false) : capture.startCrop())}
-            />
-          </>
-        ) : null}
-        {mode}
-      </FloatPill>
-    ) : null
+  const pill = capturing ? (
+    <FloatPill label={d.preview.controls}>
+      <FloatPillButton
+        icon={CursorClickIcon}
+        label={capture.picking ? d.browser.pickStop : d.browser.pick}
+        aria-pressed={capture.picking !== null}
+        onClick={() => void capture.togglePick()}
+      />
+      <FloatPillButton
+        icon={CropIcon}
+        label={capture.cropping ? d.browser.regionStop : d.browser.region}
+        aria-pressed={capture.cropping}
+        onClick={() => (capture.cropping ? capture.setCropping(false) : capture.startCrop())}
+      />
+    </FloatPill>
+  ) : null
 
   return (
     <div className="html-preview" data-testid="html-preview" data-live={opened ? 'true' : 'false'}>
