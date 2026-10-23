@@ -19,7 +19,7 @@ import {
   useRef,
   useState,
 } from 'react'
-import { RegionCropOverlay } from '@/components/browser/RegionCropOverlay'
+import { RegionCropBox, RegionCropOverlay } from '@/components/browser/RegionCropOverlay'
 import { EmptyState } from '@/components/common/EmptyState'
 import { DropdownMenu, MenuItem } from '@/components/common/Menu'
 import { StatusAction, StatusLine, useDismissed } from '@/components/common/StatusLine'
@@ -191,7 +191,12 @@ function PreviewBars({
   )
 }
 
-type SendRegion = (capture: SelectionCapture, image: Uint8Array, anchor?: BarAnchor) => void
+type SendRegion = (
+  capture: SelectionCapture,
+  image: Uint8Array,
+  anchor?: BarAnchor,
+  onClose?: () => void,
+) => void
 
 function regionAnchor(frame: HTMLElement | null, rect: PickBox): BarAnchor | undefined {
   const container = frame?.closest('.html-preview')?.parentElement
@@ -216,6 +221,7 @@ function usePreviewRegion({
   onSendRegion?: SendRegion
 }) {
   const [picking, setPicking] = useState(false)
+  const [held, setHeld] = useState<PickBox | null>(null)
   const region = async (rect: PickBox, view: RegionView): Promise<void> => {
     setPicking(false)
     if (!opened || !onSendRegion) return
@@ -232,10 +238,12 @@ function usePreviewRegion({
       },
       captured.image,
       regionAnchor(frame, rect),
+      () => setHeld((current) => (current === rect ? null : current)),
     )
+    setHeld(rect)
   }
 
-  return { picking, setPicking, region }
+  return { picking, setPicking, region, held }
 }
 
 export function HtmlPreview({
@@ -265,7 +273,7 @@ export function HtmlPreview({
   const [vitals, setVitals] = useState({ responding: true, busy: false })
   const [link, setLink] = useState<string | null>(null)
   const [webview, setWebview] = useState<HTMLElement | null>(null)
-  const { picking, setPicking, region } = usePreviewRegion({
+  const { picking, setPicking, region, held } = usePreviewRegion({
     opened,
     filePath,
     frame: webview?.parentElement ?? null,
@@ -409,6 +417,7 @@ export function HtmlPreview({
             src={opened.url}
             partition={opened.partition}
           />
+          {held ? <RegionCropBox rect={held} /> : null}
           {picking ? (
             <RegionCropOverlay
               label={d.preview.regionHint}

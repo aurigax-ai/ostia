@@ -71,6 +71,7 @@ test('crop a region of a browser page and send it to an agent pane', async () =>
 
     const bar = win.getByRole('toolbar', { name: 'Selection actions' })
     await expect(bar).toBeVisible({ timeout: 15_000 })
+    await expect(win.locator('.region-crop-box')).toBeVisible()
     await bar.getByRole('button', { name: 'Send to agent' }).click()
     await win.getByRole('menuitem').first().click()
 

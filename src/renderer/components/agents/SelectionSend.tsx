@@ -1,5 +1,5 @@
 import { needsImage, type SelectionCapture } from '@shared/browser/selection'
-import { type ReactNode, useCallback, useEffect, useState } from 'react'
+import { type ReactNode, useCallback, useEffect, useRef, useState } from 'react'
 import { StatusLine } from '@/components/common/StatusLine'
 import type { BarAnchor } from '@/lib/agents/barAnchor'
 import { selectionClipboard } from '@/lib/agents/captureClipboard'
@@ -20,10 +20,16 @@ interface PendingSelection {
   capture: SelectionCapture
   image?: Uint8Array
   anchor: BarAnchor
+  onClose?: () => void
 }
 
 export interface SelectionSend {
-  open: (capture: SelectionCapture, image?: Uint8Array, anchor?: BarAnchor) => void
+  open: (
+    capture: SelectionCapture,
+    image?: Uint8Array,
+    anchor?: BarAnchor,
+    onClose?: () => void,
+  ) => void
   notify: (message: string) => void
   panel: ReactNode
   status: ReactNode
@@ -38,11 +44,25 @@ export function useSelectionSend(
   const [pending, setPending] = useState<PendingSelection | null>(null)
   const [status, setStatus] = useTransientStatus(STATUS_MS)
 
+  const pendingRef = useRef(pending)
+  pendingRef.current = pending
+
+  const dismiss = useCallback((): void => {
+    pendingRef.current?.onClose?.()
+    setPending(null)
+  }, [])
+
   const open = useCallback(
-    (capture: SelectionCapture, image?: Uint8Array, anchor: BarAnchor = DEFAULT_ANCHOR) => {
+    (
+      capture: SelectionCapture,
+      image?: Uint8Array,
+      anchor: BarAnchor = DEFAULT_ANCHOR,
+      onClose?: () => void,
+    ) => {
       setStatus(null)
       barCounter += 1
-      setPending({ key: barCounter, capture, image, anchor })
+      pendingRef.current?.onClose?.()
+      setPending({ key: barCounter, capture, image, anchor, onClose })
     },
     [setStatus],
   )
@@ -61,9 +81,9 @@ export function useSelectionSend(
     return registerSelectionCopier(paneId, () =>
       copy()
         .then(setStatus, (e: unknown) => setStatus(e instanceof Error ? e.message : String(e)))
-        .finally(() => setPending(null)),
+        .finally(dismiss),
     )
-  }, [pending, paneId, copy, setStatus])
+  }, [pending, paneId, copy, setStatus, dismiss])
 
   const send = async (target: PickTarget, note: string): Promise<void> => {
     if (!pending) return
@@ -86,7 +106,7 @@ export function useSelectionSend(
       anchor={pending.anchor}
       onCopy={copy}
       onSend={send}
-      onClose={() => setPending(null)}
+      onClose={dismiss}
     />
   ) : null
 

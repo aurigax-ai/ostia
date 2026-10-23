@@ -1,6 +1,7 @@
 import { type BrowserDevice, DEFAULT_DEVICE } from '@shared/browser/browserDevice'
 import { type BrowserProfile, browserPartition } from '@shared/browser/browserProfile'
 import type { DeviceTouch } from '@shared/browser/deviceTouch'
+import type { PickBox } from '@shared/browser/pick'
 import { type MutableRefObject, useCallback, useRef, useState } from 'react'
 import { useDict } from '@/lib/app/useDict'
 import { unscaledRegion } from '@/lib/browser/deviceFrame'
@@ -12,7 +13,7 @@ import { BrowserStoragePanel } from './BrowserStoragePanel'
 import { BrowserToolbar } from './BrowserToolbar'
 import { DeviceBar } from './DeviceBar'
 import { DeviceStage } from './DeviceStage'
-import { RegionCropOverlay } from './RegionCropOverlay'
+import { RegionCropBox, RegionCropOverlay } from './RegionCropOverlay'
 import { useBrowserActions } from './useBrowserActions'
 import { useBrowserCapture } from './useBrowserCapture'
 import { useBrowserDevice } from './useBrowserDevice'
@@ -27,6 +28,7 @@ function BrowserStage({
   sendTouch,
   focusPage,
   cropping,
+  heldBox,
   setCropping,
   finishCrop,
   captureActions,
@@ -48,6 +50,7 @@ function BrowserStage({
   sendTouch: (input: DeviceTouch) => void
   focusPage: () => void
   cropping: boolean
+  heldBox: PickBox | null
   setCropping: (on: boolean) => void
   finishCrop: ReturnType<typeof useBrowserCapture>['finishCrop']
   captureActions: JSX.Element
@@ -82,6 +85,8 @@ function BrowserStage({
               }}
               onCancel={() => setCropping(false)}
             />
+          ) : heldBox ? (
+            <RegionCropBox rect={heldBox} />
           ) : null
         }
       >
@@ -257,6 +262,7 @@ export function BrowserView({
         sendTouch={sendTouch}
         focusPage={focusPage}
         cropping={capture.cropping}
+        heldBox={capture.heldBox}
         setCropping={capture.setCropping}
         finishCrop={capture.finishCrop}
         captureActions={<BrowserCaptureActions workspaceId={workspaceId} {...capture} />}

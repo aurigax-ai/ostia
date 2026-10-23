@@ -49,13 +49,18 @@ interface CaptureBarState {
   key: number
   open: OpenCapture
   anchor: BarAnchor
+  box: PickBox | null
 }
 
 let barCounter = 0
 
-function barOf(open: OpenCapture, anchor: BarAnchor | null): CaptureBarState {
+function barOf(
+  open: OpenCapture,
+  anchor: BarAnchor | null,
+  box: PickBox | null = null,
+): CaptureBarState {
   barCounter += 1
-  return { key: barCounter, open, anchor: anchor ?? FALLBACK_ANCHOR }
+  return { key: barCounter, open, anchor: anchor ?? FALLBACK_ANCHOR, box }
 }
 
 const FALLBACK_ANCHOR: BarAnchor = { left: 12, top: 12, bottom: 12 }
@@ -116,7 +121,11 @@ export function useBrowserCapture({
     }
     const wv = webviewRef.current
     setBar(
-      barOf({ kind: 'region', capture: outcome.capture }, wv && layerRectAnchor(wv, layerRect)),
+      barOf(
+        { kind: 'region', capture: outcome.capture },
+        wv && layerRectAnchor(wv, layerRect),
+        layerRect,
+      ),
     )
   }
 
@@ -214,6 +223,7 @@ export function useBrowserCapture({
   return {
     picking,
     cropping,
+    heldBox: bar?.box ?? null,
     setCropping,
     status,
     setStatus,

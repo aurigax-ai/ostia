@@ -2,9 +2,9 @@ import { mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { chords, defaultChord, isMac } from './chords'
-import { freshDataHome, isolatedLaunch } from './dataHome'
+import { DOM_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
 import { guestKeys, pressInPage } from './guestKeys'
-import { openWorkspace, waitForPaletteSelection } from './helpers'
+import { launchWindow, openWorkspace, runInTerminal, waitForPaletteSelection } from './helpers'
 import { type ElectronApplication, _electron as electron, expect, test } from './test'
 
 const SOURCE = `export function total(items: number[]): number {
@@ -163,7 +163,6 @@ test('a browser pane copies a table as CSV, an element without text as an image,
       )
     }
     const bar = win.getByRole('toolbar', { name: 'Selection actions' })
-
     await pointAt('[data-testid=first-cell]')
     await expect(bar).toBeVisible({ timeout: 15_000 })
     await bar.getByRole('button', { name: 'Copy' }).click()
@@ -190,6 +189,88 @@ test('a browser pane copies a table as CSV, an element without text as an image,
     await bar.getByRole('button', { name: 'Copy' }).click()
     await expect(win.getByText('Copied the selection.')).toBeVisible()
     expect((await readClipboard(app)).text).toBe('Refund pending for order 4823')
+  } finally {
+    await app.close()
+  }
+})
+
+const PREVIEW_PAGE = `<!doctype html><title>preview</title>
+<body style="margin:0"><p style="margin:40px;font:24px sans-serif">Selectable preview words</p></body>`
+
+test('the HTML preview selects its text and keeps the crop box while the bar is open', async () => {
+  test.setTimeout(120_000)
+  const dataHome = freshDataHome()
+  const home = join(dataHome, 'home')
+  mkdirSync(home, { recursive: true })
+  writeFileSync(join(home, 'page.html'), PREVIEW_PAGE)
+  seedSettings(dataHome, { ...DOM_RENDERER_SETTINGS, editor: { openFilesIn: 'split' } })
+  const { app, win } = await launchWindow(dataHome)
+  try {
+    await openWorkspace(win)
+    await runInTerminal(win, 'ostia open ~/page.html')
+    await expect(win.locator('.monaco-editor').first()).toBeVisible({ timeout: 20_000 })
+    await win.getByRole('button', { name: 'Run page in preview' }).click()
+    const frame = win.locator('.preview-frame')
+    await expect(frame).toBeVisible({ timeout: 20_000 })
+
+    const inPreview = (code: string): Promise<string> =>
+      app.evaluate(async ({ webContents }, js) => {
+        const guest = webContents
+          .getAllWebContents()
+          .find((wc) => wc.getURL().startsWith('ostia-preview://'))
+        if (!guest) return ''
+        const texts = await Promise.all(
+          guest.mainFrame.framesInSubtree.map((f) => f.executeJavaScript(js)),
+        )
+        return texts.join('')
+      }, code)
+    await expect
+      .poll(() => inPreview('document.body.innerText'), { timeout: 20_000 })
+      .toContain('Selectable preview words')
+
+    const area = await frame.boundingBox()
+    if (!area) throw new Error('preview frame has no box')
+    await win.mouse.move(area.x + 42, area.y + 55)
+    await win.mouse.down()
+    await win.mouse.move(area.x + 200, area.y + 55, { steps: 8 })
+    await win.mouse.up()
+    await expect
+      .poll(() => inPreview('String(getSelection())'), { timeout: 10_000 })
+      .toContain('Selectable')
+
+    const bar = win.getByRole('toolbar', { name: 'Selection actions' })
+    await win.getByRole('button', { name: 'Capture region' }).click()
+    const box = await frame.boundingBox()
+    if (!box) throw new Error('preview frame has no box')
+    await win.mouse.move(box.x + 40, box.y + 40)
+    await win.mouse.down()
+    await win.mouse.move(box.x + 260, box.y + 120, { steps: 6 })
+    await win.mouse.up()
+    await expect(bar).toBeVisible({ timeout: 15_000 })
+    await expect(win.locator('.region-crop-box')).toBeVisible()
+  } finally {
+    await app.close()
+  }
+})
+
+test('a terminal selection opens the capture bar from the chord, and Copy puts it on the clipboard', async () => {
+  test.setTimeout(120_000)
+  const { app, win } = await launchWindow(freshDataHome())
+  try {
+    await openWorkspace(win)
+    await runInTerminal(win, 'printf "\\n%.0s" 1 2 3 4 5 6 7 8 9; echo terminal-capture-4821')
+    const output = win.locator('.xterm-rows > div').filter({ hasText: /^terminal-capture-4821$/ })
+    await expect(output).toBeVisible({ timeout: 15_000 })
+    const at = await output.boundingBox()
+    if (!at) throw new Error('terminal output row has no box')
+    await win.mouse.dblclick(at.x + 30, at.y + at.height / 2)
+    const bar = win.getByRole('toolbar', { name: 'Selection actions' })
+    await win.keyboard.press(sendToAgent)
+    await expect(bar).toBeVisible()
+    await bar.getByRole('button', { name: 'Copy' }).click()
+    await expect(win.getByText('Copied the selection.')).toBeVisible()
+    await expect(bar).toHaveCount(0)
+    expect((await readClipboard(app)).text).toContain('terminal-capture-4821')
   } finally {
     await app.close()
   }
