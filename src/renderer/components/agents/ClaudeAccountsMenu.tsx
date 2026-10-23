@@ -1,14 +1,31 @@
-import { CheckIcon, UserSwitchIcon } from '@phosphor-icons/react'
-import { DEFAULT_ACCOUNT } from '@shared/claudeAccounts/claudeAccounts'
+import { GearIcon, UserSwitchIcon } from '@phosphor-icons/react'
+import { type ClaudeAccountView, DEFAULT_ACCOUNT } from '@shared/claudeAccounts/claudeAccounts'
 import { IconButton } from '@/components/common/IconButton'
-import { DropdownMenu, MenuItem, MenuLabel } from '@/components/common/Menu'
-import { TextLink } from '@/components/common/TextLink'
-import { ContextMenuGroup, ContextMenuSeparator } from '@/components/ui/context-menu'
+import { DropdownMenu, MenuItem, MenuLabel, MenuRadioItem } from '@/components/common/Menu'
+import {
+  ContextMenuGroup,
+  ContextMenuRadioGroup,
+  ContextMenuSeparator,
+} from '@/components/ui/context-menu'
 import { useClaudeAccounts } from '@/lib/agents/useClaudeAccounts'
 import { useDict } from '@/lib/app/useDict'
 import { useUIStore } from '@/stores/app/uiStore'
 
 const SECTION = 'claudeAccounts'
+
+function AccountMenuRow({ account }: { account: ClaudeAccountView }): JSX.Element {
+  const d = useDict().claudeAccounts
+  return (
+    <MenuRadioItem value={account.id} closeOnClick>
+      <span className="flex min-w-0 items-center gap-2">
+        <span className="min-w-0 truncate">{account.email ?? d.defaultAccount}</span>
+        {account.id === DEFAULT_ACCOUNT ? (
+          <span className="shrink-0 text-fg-muted text-ui-xs">{d.defaultLabel}</span>
+        ) : null}
+      </span>
+    </MenuRadioItem>
+  )
+}
 
 export function ClaudeAccountsMenu(): JSX.Element {
   const d = useDict().claudeAccounts
@@ -17,32 +34,23 @@ export function ClaudeAccountsMenu(): JSX.Element {
   return (
     <DropdownMenu
       align="start"
-      className="w-80"
       trigger={<IconButton size="bar" icon={UserSwitchIcon} label={d.menuLabel} />}
     >
       <ContextMenuGroup>
         <MenuLabel>{d.title}</MenuLabel>
-        {accounts.map((account) => (
-          <MenuItem
-            key={account.id}
-            leading={
-              account.id === current ? (
-                <CheckIcon aria-label={d.active} className="size-4 text-fg" />
-              ) : undefined
-            }
-            hint={account.id === DEFAULT_ACCOUNT ? d.defaultLabel : undefined}
-            onClick={() => void window.ostia.claudeAccounts.use(account.id)}
-          >
-            {account.email ?? d.defaultAccount}
-          </MenuItem>
-        ))}
+        <ContextMenuRadioGroup
+          value={current}
+          onValueChange={(id) => void window.ostia.claudeAccounts.use(String(id))}
+        >
+          {accounts.map((account) => (
+            <AccountMenuRow key={account.id} account={account} />
+          ))}
+        </ContextMenuRadioGroup>
       </ContextMenuGroup>
       <ContextMenuSeparator />
-      <div className="flex items-center justify-end px-2 py-1.5 text-ui-xs">
-        <TextLink size="xs" onClick={() => openSettings(SECTION)}>
-          {d.manage}
-        </TextLink>
-      </div>
+      <MenuItem icon={GearIcon} onClick={() => openSettings(SECTION)}>
+        {d.manage}
+      </MenuItem>
     </DropdownMenu>
   )
 }
