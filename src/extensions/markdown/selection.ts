@@ -1,4 +1,5 @@
 import { VIEWER_TEXT_MAX } from '@aurigax-ai/ostia-extension-sdk/contract/viewerSelection'
+import { onSelectionCleared } from '@aurigax-ai/ostia-extension-sdk/viewer'
 
 export interface SourceLines {
   startLine: number
@@ -100,6 +101,11 @@ export function trackSelection(article: HTMLElement, sink: SelectionSink): Selec
     forget()
   }
 
+  const stopCleared = onSelectionCleared(() => {
+    if (published === null) return
+    doc.getSelection()?.removeAllRanges()
+    forget()
+  })
   doc.addEventListener('pointerdown', forget, true)
   doc.addEventListener('pointerup', settle, true)
   doc.addEventListener('keyup', settle, true)
@@ -108,6 +114,7 @@ export function trackSelection(article: HTMLElement, sink: SelectionSink): Selec
   return {
     sync,
     destroy: () => {
+      stopCleared()
       doc.removeEventListener('pointerdown', forget, true)
       doc.removeEventListener('pointerup', settle, true)
       doc.removeEventListener('keyup', settle, true)

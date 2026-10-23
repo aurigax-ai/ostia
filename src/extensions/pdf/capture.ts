@@ -1,6 +1,10 @@
 import { VIEWER_TEXT_MAX } from '@aurigax-ai/ostia-extension-sdk/contract/viewerSelection'
 import { h } from '@aurigax-ai/ostia-extension-sdk/panel'
-import { clearSelection, publishSelection } from '@aurigax-ai/ostia-extension-sdk/viewer'
+import {
+  clearSelection,
+  onSelectionCleared,
+  publishSelection,
+} from '@aurigax-ai/ostia-extension-sdk/viewer'
 import type { PageView } from './pageView'
 import {
   dragIntent,
@@ -225,6 +229,7 @@ export function attachCapture(options: CaptureOptions): Capture {
     if (drag?.kind === 'crop') event.preventDefault()
   }
 
+  const stopCleared = onSelectionCleared(clear)
   document.addEventListener('pointerdown', onDown, true)
   document.addEventListener('mousedown', onMouseDown, true)
   document.addEventListener('pointermove', onMove, true)
@@ -243,6 +248,7 @@ export function attachCapture(options: CaptureOptions): Capture {
       }
     },
     destroy: () => {
+      stopCleared()
       document.removeEventListener('pointerdown', onDown, true)
       document.removeEventListener('mousedown', onMouseDown, true)
       document.removeEventListener('pointermove', onMove, true)

@@ -23,6 +23,7 @@ import {
   selectHeader,
   selectionRange,
 } from './gridSelection'
+import { onSelectionCleared } from './viewer'
 
 export { columnName } from './gridLayout'
 export { type GridRange, rangeColumns, rangeLabel, rangeRows } from './gridSelection'
@@ -356,6 +357,9 @@ export function grid(options: GridOptions): Grid {
     return Math.max(1, Math.floor((scroller.clientHeight - unit.row) / unit.row))
   }
 
+  const stopCleared = onSelectionCleared(() => {
+    if (selection) select(null, { reveal: false })
+  })
   scroller.addEventListener('mousedown', press)
   document.addEventListener('mousemove', drag)
   document.addEventListener('mouseup', release)
@@ -417,6 +421,7 @@ export function grid(options: GridOptions): Grid {
     },
     destroy: () => {
       clearTimeout(settleTimer)
+      stopCleared()
       document.removeEventListener('mousemove', drag)
       document.removeEventListener('mouseup', release)
       document.removeEventListener('mousedown', pressOutside)

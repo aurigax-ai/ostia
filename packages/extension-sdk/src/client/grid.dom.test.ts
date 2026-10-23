@@ -1,6 +1,15 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { type Grid, type GridSelectEvent, grid } from './grid'
 
+const hostClears = vi.hoisted(() => new Set<() => void>())
+
+vi.mock('./viewer', () => ({
+  onSelectionCleared: (listener: () => void) => {
+    hostClears.add(listener)
+    return () => hostClears.delete(listener)
+  },
+}))
+
 const ROWS = 20
 const COLUMNS = 6
 const SCROLL_BOX = { width: 800, height: 240 }
@@ -387,5 +396,22 @@ describe('what the page reports and says', () => {
     const empty = await mount({ rowCount: 0 })
     empty.view.element.dispatchEvent(new KeyboardEvent('keydown', { key: 'a', ctrlKey: true }))
     expect(empty.onSelect).not.toHaveBeenCalled()
+  })
+})
+
+describe('a selection the host cleared', () => {
+  it('is dropped from the grid, and the page is told it is gone', async () => {
+    const { onSelect } = await mount()
+    click(cell(1, 1))
+    for (const clear of hostClears) clear()
+    expect(selectedCells()).toEqual([])
+    expect(onSelect).toHaveBeenLastCalledWith(null)
+  })
+
+  it('stops listening once the grid is destroyed', async () => {
+    await mount()
+    expect(hostClears.size).toBe(1)
+    mounted?.destroy()
+    expect(hostClears.size).toBe(0)
   })
 })
