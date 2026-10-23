@@ -9,6 +9,7 @@ import { registerClaudeAccountsWiring } from '../agents/claudeAccounts/claudeAcc
 import { registerFolderTrustIpc } from '../agents/folderTrustIpc'
 import { currentPlaybookFiles, setPlaybookSettings } from '../agents/playbookFiles'
 import { createResumeClaimer, registerResumeClaimIpc } from '../agents/resumeClaims'
+import { createStartTrust } from '../agents/startTrust'
 import { registerToolbeltWiring } from '../agents/toolbeltWiring'
 import { registerApprovalsWiring } from '../approvals/approvalsWiring'
 import { registerArtifactViewIpc, startArtifacts } from '../artifacts/artifactWiring'
@@ -170,7 +171,10 @@ export function boot(wiring: Wiring): void {
     ),
   )
   registerFolderTrustIpc({ ...wiring, readSettingsFile })
-  registerClaudeAccountsWiring({ ...wiring })
+  registerClaudeAccountsWiring({
+    ...wiring,
+    trustForStart: createStartTrust({ ...wiring, readSettingsFile }),
+  })
   const { notifyDeps } = registerNotifyWiring({ ...wiring })
   registerSandboxWiring({ ...wiring, notifyDeps })
   startFolderAccessWatch({ ...wiring, notifyDeps })

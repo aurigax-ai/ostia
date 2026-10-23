@@ -78,6 +78,7 @@ beforeAll(() => {
     scratchFolders: { isScratch: () => false },
     workspaceWindowId: () => '7',
     execCommand: async () => ({ ok: true }) as CommandResult,
+    trustForStart: async () => false,
     windowIds: () => ['7'],
   })
 })

@@ -51,6 +51,7 @@ let store: ClaudeAccountsStore
 let opened: LoginTarget[]
 let usage: Map<string, AccountUsage>
 let usageRuns: boolean[]
+let trusted: { dir: string; paneId: string }[]
 
 const ctx = (extra: Record<string, unknown> = {}) =>
   ({
@@ -77,6 +78,7 @@ beforeEach(() => {
   opened = []
   usage = new Map()
   usageRuns = []
+  trusted = []
   base = mkdtempSync(join(tmpdir(), 'ostia-accounts-wiring-'))
   store = new ClaudeAccountsStore(join(base, 'accounts.json'))
   store.add({ id: WORK, email: 'work@example.com', addedAt: 1 })
@@ -110,6 +112,10 @@ beforeEach(() => {
     workspaceWindowId: (id: string) => (id === 'ws-other' ? '2' : '1'),
     execCommand: vi.fn() as never,
     windowIds: () => ['1'],
+    trustForStart: async (dir, identity) => {
+      trusted.push({ dir, paneId: identity.paneId })
+      return true
+    },
   })
 })
 
@@ -247,6 +253,27 @@ describe('claudeAccount.start', () => {
     expect(await call('claudeAccount.start', { args: [] }, ctx(extra))).toEqual({ dir: '' })
   })
 
+  it('prepares trust for the profile folder it answers', async () => {
+    store.use(WORK)
+    await call('claudeAccount.start', { args: [] })
+    expect(trusted).toEqual([{ dir: join(base, 'profiles', WORK), paneId: 'p1' }])
+  })
+
+  it('prepares trust in the Default account’s config while it is current', async () => {
+    await call('claudeAccount.start', { args: [] })
+    expect(trusted).toEqual([{ dir: '', paneId: 'p1' }])
+  })
+
+  it.each([
+    ['sandboxed', { workspaceId: 'ws-sandbox' }],
+    ['scratch', { workspaceId: 'ws-scratch' }],
+    ['manager', { manager: true }],
+  ])('prepares trust for a %s pane against the Default account only', async (_name, extra) => {
+    store.use(WORK)
+    await call('claudeAccount.start', { args: [] }, ctx(extra))
+    expect(trusted).toEqual([{ dir: '', paneId: 'p1' }])
+  })
+
   it('needs no capability, so a Claude start is never held by an approval', () => {
     expect(registered.get('claudeAccount.start')?.cap).toBeUndefined()
   })
@@ -372,6 +399,7 @@ describe('a damaged store', () => {
       scratchFolders: { isScratch: () => false },
       workspaceWindowId: () => '1',
       execCommand: vi.fn() as never,
+      trustForStart: async () => false,
       windowIds: () => ['1'],
     })
     await new Promise((resolve) => setTimeout(resolve, 50))
