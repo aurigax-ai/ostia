@@ -189,12 +189,22 @@ export function onSelectionPublished(listener: (published: boolean) => void): ()
   return () => selectionListeners.delete(listener)
 }
 
+const clearedListeners = new Set<() => void>()
+
+export function onSelectionCleared(listener: () => void): () => void {
+  clearedListeners.add(listener)
+  return () => clearedListeners.delete(listener)
+}
+
 let clearedEvents: EventSource | null = null
 
 function listenForClearedSelection(): void {
   if (clearedEvents) return
   clearedEvents = new EventSource(VIEWER_EVENTS_PATH)
-  clearedEvents.addEventListener(VIEWER_SELECTION_CLEARED_EVENT, () => setSelectionPublished(false))
+  clearedEvents.addEventListener(VIEWER_SELECTION_CLEARED_EVENT, () => {
+    setSelectionPublished(false)
+    for (const listener of clearedListeners) listener()
+  })
 }
 
 export async function publishSelection(selection: ViewerSelection): Promise<boolean> {

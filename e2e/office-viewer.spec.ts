@@ -124,6 +124,34 @@ test('an xlsx file opens in the spreadsheet viewer with its sheets as tabs, and 
   )
 })
 
+test('a block of cells dragged in a long CSV shows the capture bar, and closing the bar clears the drawn selection', async () => {
+  test.setTimeout(120_000)
+  const lines = ['transaction_date,carrier,group_number,client_id,patient_code']
+  for (let i = 0; i < 5000; i++) lines.push(`2026-09-${(i % 28) + 1},VL,0,K${3649712 + i},1`)
+  await withApp({ 'claims.csv': `${lines.join('\n')}\n` }, async (win, app) => {
+    const table = await openCsvTable(win, 'claims.csv')
+    await expect.poll(() => viewerGuestText(app, table), { timeout: 20_000 }).toContain('K3649712')
+    await viewerGuestDrag(
+      app,
+      table,
+      await cellBox(app, table, 6, 0),
+      await cellBox(app, table, 13, 2),
+    )
+    const bar = win.getByRole('toolbar', { name: 'Selection actions' })
+    await expect(bar).toBeVisible({ timeout: 15_000 })
+    await expectHeld(() => bar.isVisible(), true, 800, 'the bar stays open')
+    await win.locator('.pane-tab:visible').first().click()
+    await expect(bar).toBeHidden()
+    await expect
+      .poll(
+        () =>
+          viewerGuestRun(app, table, 'document.querySelectorAll(".ostia-grid-selected").length'),
+        { timeout: 5_000 },
+      )
+      .toBe(0)
+  })
+})
+
 test('a macro workbook, and a workbook and a document with external links, open without running or fetching anything', async () => {
   const requests: string[] = []
   const server: Server = createServer((req, res) => {
@@ -350,6 +378,26 @@ async function cellBox(
   )) as { x: number; y: number; left: number; right: number; bottom: number }
 }
 
+async function openCsvTable(win: Page, name: string) {
+  await win.locator('.file-row').filter({ hasText: name }).click()
+  for (const dismiss of await win
+    .locator('output')
+    .getByRole('button', { name: 'Dismiss' })
+    .all()) {
+    await dismiss.click()
+  }
+  await win.locator('.pane-tab:visible').last().click({ button: 'right' })
+  await win.getByRole('menuitem', { name: 'Open With…' }).click()
+  await win.getByRole('radio', { name: 'Table' }).click()
+  await win.getByRole('button', { name: 'Open', exact: true }).click()
+  await expect(win.locator('[data-testid="file-viewer"]:visible')).toHaveAttribute(
+    'data-view-type',
+    'csv.table',
+    { timeout: 15_000 },
+  )
+  return { viewType: 'csv.table', name }
+}
+
 async function cellsAreCopiedAndSent(win: Page, app: ElectronApplication): Promise<void> {
   const bar = win.getByRole('toolbar', { name: 'Selection actions' })
   const webview = win.locator('[data-testid="file-viewer"]:visible webview')
@@ -407,17 +455,7 @@ async function cellsAreCopiedAndSent(win: Page, app: ElectronApplication): Promi
     'the reference is pasted and never submitted',
   )
 
-  await win.locator('.file-row').filter({ hasText: 'orders.csv' }).click()
-  await win.locator('.pane-tab:visible').last().click({ button: 'right' })
-  await win.getByRole('menuitem', { name: 'Open With…' }).click()
-  await win.getByRole('radio', { name: 'Table' }).click()
-  await win.getByRole('button', { name: 'Open', exact: true }).click()
-  const table = { viewType: 'csv.table', name: 'orders.csv' }
-  await expect(win.locator('[data-testid="file-viewer"]:visible')).toHaveAttribute(
-    'data-view-type',
-    'csv.table',
-    { timeout: 15_000 },
-  )
+  const table = await openCsvTable(win, 'orders.csv')
   await expect
     .poll(() => viewerGuestText(app, table), { timeout: 20_000 })
     .toContain('Hsinchu, East')

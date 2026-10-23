@@ -4,6 +4,7 @@ import {
   claimFindKeys,
   clearSelection,
   hasPublishedSelection,
+  onSelectionCleared,
   onSelectionPublished,
   openViewerLink,
   publishSelection,
@@ -109,6 +110,28 @@ describe('a selection the host cleared', () => {
     expect(hasPublishedSelection()).toBe(false)
     expect(seen).toEqual([false])
     stop()
+  })
+
+  it('is announced to clear listeners only when the host cleared it, never when the page withdraws it', async () => {
+    stubFetch()
+    const selection = {
+      capture: { kind: 'image' as const, imageWidth: 2, imageHeight: 2, region: null },
+      rect: { x: 0, y: 0, width: 1, height: 1 },
+      png: new Uint8Array([0x89, 0x50, 1]),
+    }
+    await publishSelection(selection)
+    let cleared = 0
+    const stop = onSelectionCleared(() => {
+      cleared++
+    })
+    await clearSelection()
+    expect(cleared).toBe(0)
+    await publishSelection(selection)
+    eventSources[0].listeners.get('selection-cleared')?.()
+    expect(cleared).toBe(1)
+    stop()
+    eventSources[0].listeners.get('selection-cleared')?.()
+    expect(cleared).toBe(1)
   })
 })
 
