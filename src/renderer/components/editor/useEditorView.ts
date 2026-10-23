@@ -105,13 +105,15 @@ export function useEditorView({ workspaceId, paneId, filePath }: EditorViewParam
   const selectionSend = useSelectionSend(workspaceId, paneId)
   const sendSelectionRef = useRef<() => void>(() => {})
   sendSelectionRef.current = () =>
-    sendSelection({
-      pathRef,
-      blocked,
-      selectionSend,
-      d,
-      editorRef,
-    })
+    running
+      ? selectionSend.notify(d.preview.noTextSend)
+      : sendSelection({
+          pathRef,
+          blocked,
+          selectionSend,
+          d,
+          editorRef,
+        })
 
   useMonacoEditor({
     hostRef,

@@ -163,6 +163,7 @@ test('a browser pane copies a table as CSV, an element without text as an image,
       )
     }
     const bar = win.getByRole('toolbar', { name: 'Selection actions' })
+
     await pointAt('[data-testid=first-cell]')
     await expect(bar).toBeVisible({ timeout: 15_000 })
     await bar.getByRole('button', { name: 'Copy' }).click()
@@ -197,7 +198,7 @@ test('a browser pane copies a table as CSV, an element without text as an image,
 const PREVIEW_PAGE = `<!doctype html><title>preview</title>
 <body style="margin:0"><p style="margin:40px;font:24px sans-serif">Selectable preview words</p></body>`
 
-test('the HTML preview selects its text and keeps the crop box while the bar is open', async () => {
+test('the HTML preview selects its text, never sends the hidden source for the chord, and keeps the crop box while the bar is open', async () => {
   test.setTimeout(120_000)
   const dataHome = freshDataHome()
   const home = join(dataHome, 'home')
@@ -209,6 +210,13 @@ test('the HTML preview selects its text and keeps the crop box while the bar is 
     await openWorkspace(win)
     await runInTerminal(win, 'ostia open ~/page.html')
     await expect(win.locator('.monaco-editor').first()).toBeVisible({ timeout: 20_000 })
+    const editor = win.locator('.monaco-editor').first()
+    const lines = await editor.locator('.view-lines').first().boundingBox()
+    if (!lines) throw new Error('editor lines have no box')
+    await win.mouse.move(lines.x + 8, lines.y + 8)
+    await win.mouse.down()
+    await win.mouse.move(lines.x + 160, lines.y + 8, { steps: 5 })
+    await win.mouse.up()
     await win.getByRole('button', { name: 'Run page in preview' }).click()
     const frame = win.locator('.preview-frame')
     await expect(frame).toBeVisible({ timeout: 20_000 })
@@ -239,6 +247,10 @@ test('the HTML preview selects its text and keeps the crop box while the bar is 
       .toContain('Selectable')
 
     const bar = win.getByRole('toolbar', { name: 'Selection actions' })
+    await pressInPage(app, guestKeys.sendToAgent)
+    await expect(win.getByText('A running preview cannot send selected text.')).toBeVisible()
+    await expect(bar).toHaveCount(0)
+
     await win.getByRole('button', { name: 'Capture region' }).click()
     const box = await frame.boundingBox()
     if (!box) throw new Error('preview frame has no box')
