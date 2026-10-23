@@ -171,20 +171,37 @@ export async function editClaudeConfig(
   }
 }
 
+function withTrust(config: ClaudeConfig, resolved: Resolved, key: string): ClaudeConfig | null {
+  return acceptedIn(config, resolved)
+    ? null
+    : {
+        ...config,
+        projects: {
+          ...config.projects,
+          [key]: { ...config.projects?.[key], hasTrustDialogAccepted: true },
+        },
+      }
+}
+
 export async function trustFolder(place: TrustPlace, shown?: string): Promise<boolean> {
   const resolved = await resolve(place)
   if (!resolved?.key || (shown !== undefined && shown !== resolved.key)) return false
   const key = resolved.key
   const path = await claudeConfigFile(place.home, place.configDir, place.customOAuth)
-  return editClaudeConfig(path, (config) =>
-    acceptedIn(config, resolved)
-      ? null
-      : {
-          ...config,
-          projects: {
-            ...config.projects,
-            [key]: { ...config.projects?.[key], hasTrustDialogAccepted: true },
-          },
-        },
+  return editClaudeConfig(path, (config) => withTrust(config, resolved, key))
+}
+
+export async function carryTrust(
+  place: TrustPlace,
+  defaultConfigDir: string | undefined,
+): Promise<boolean> {
+  const resolved = await resolve(place)
+  if (!resolved?.key || !place.configDir) return false
+  const key = resolved.key
+  const source = await readConfig(
+    await claudeConfigFile(place.home, defaultConfigDir, place.customOAuth),
   )
+  if (!source || !accepted(source.config, key)) return false
+  const path = await claudeConfigFile(place.home, place.configDir, place.customOAuth)
+  return editClaudeConfig(path, (config) => withTrust(config, resolved, key))
 }

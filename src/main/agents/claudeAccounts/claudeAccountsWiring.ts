@@ -12,7 +12,7 @@ import { approvals } from '../../approvals/approvals'
 import { openCallbackListener } from '../../chat/mcpOAuth'
 import type { CommandBridge } from '../../control/commandBridge'
 import { type ControlMethodContext, registerControlMethod } from '../../control/controlServer'
-import { resolveExternal } from '../../control/idRegistry'
+import { type PaneIdentity, resolveExternal } from '../../control/idRegistry'
 import { listWorkspaces } from '../../panes/paneList'
 import { storePath } from '../../platform/jsonStore'
 import type { WorkspaceSandboxes } from '../../sandbox/workspaceSandboxes'
@@ -108,6 +108,7 @@ interface RegisterDeps {
   scratchFolders: Pick<ScratchFolders, 'isScratch'>
   workspaceWindowId: (workspaceId: string) => string | undefined
   execCommand: CommandBridge['execCommand']
+  carryTrust: (profileDir: string, identity: PaneIdentity) => Promise<boolean>
   windowIds: () => string[]
 }
 
@@ -182,7 +183,9 @@ export function registerClaudeAccountsWiring(deps: RegisterDeps): void {
       if (defaultOnly(ctx)) return { dir: '' }
       const args = (params as { args?: unknown } | null)?.args
       const argv = Array.isArray(args) ? args.filter((a): a is string => typeof a === 'string') : []
-      return { dir: await claudeAccounts.startDirectory(argv, ctx.identity.paneId) }
+      const dir = await claudeAccounts.startDirectory(argv, ctx.identity.paneId)
+      if (dir) await deps.carryTrust(dir, ctx.identity)
+      return { dir }
     },
   })
 
