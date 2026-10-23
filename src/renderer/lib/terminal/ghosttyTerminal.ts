@@ -350,6 +350,7 @@ export function createGhosttyTerminal(
     resize: (cols, rows) => t.resize(cols, rows),
     focus: () => t.focus(),
     getSelection: () => t.getSelection(),
+    getSelectionPosition: () => t.getSelectionPosition(),
     hasSelection: () => t.hasSelection(),
     clearSelection: () => t.clearSelection(),
     select: (column, row, length) => t.select(column, row, length),

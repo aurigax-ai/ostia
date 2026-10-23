@@ -3,6 +3,7 @@ import type { PreviewEvent, PreviewOpened } from '@shared/artifacts/htmlPreview'
 import { act, cleanup, fireEvent, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import { CaptureLayer } from '@/components/capture/CaptureLayer'
 import { paneBrowserProfile } from '@/lib/layout/paneFields'
 import { findPane } from '@/lib/layout/tree'
 import { useSettingsStore } from '@/stores/app/settingsStore'
@@ -299,13 +300,16 @@ describe('HtmlPreview', () => {
       },
     })
     const view = await renderSettled(
-      <HtmlPreview
-        workspaceId="s1"
-        paneId="p1"
-        filePath={FILE}
-        visible
-        onSendErrors={sendErrors}
-      />,
+      <>
+        <HtmlPreview
+          workspaceId="s1"
+          paneId="p1"
+          filePath={FILE}
+          visible
+          onSendErrors={sendErrors}
+        />
+        <CaptureLayer workspaceId="s1" paneId="p1" />
+      </>,
     )
     const box = { left: 0, top: 0, right: 400, bottom: 300, width: 400, height: 300, x: 0, y: 0 }
     const crop = () => screen.getByRole('button', { name: /^(Capture|Stop capturing) region/ })

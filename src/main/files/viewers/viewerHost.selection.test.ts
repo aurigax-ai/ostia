@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { GESTURE_WINDOW_MS, viewerOwner } from './viewerHost'
 import {
   adoptGuest,
@@ -238,7 +238,7 @@ describe('guest selection channel', () => {
   })
 
   it('answers the owner window only and says nothing to copy otherwise', async () => {
-    const { host, session, clipboard, src } = await opened()
+    const { host, session, clipboard, src, events } = await opened()
     expect(await host.copySelection('w1', 'p1')).toBe('none')
     await postSelection(
       session,
@@ -253,8 +253,13 @@ describe('guest selection channel', () => {
     })
     expect(host.copyForGuest({ getURL: () => src })).toBe(true)
     expect(host.copyForGuest({ getURL: () => 'https://example.com/' })).toBe(false)
-    await Promise.resolve()
+    await vi.waitFor(() => expect(events.at(-1)?.type).toBe('copied'))
     expect(clipboard).toHaveLength(1)
+    expect(events.at(-1)).toEqual({
+      windowId: 'w1',
+      type: 'copied',
+      payload: { paneId: 'p1', status: expect.any(String) },
+    })
   })
 
   it('takes a selection only within a moment of a trusted pointer or key input, without spending it', async () => {

@@ -12,6 +12,7 @@ import type { Dispatch, KeyboardEvent, MutableRefObject, SetStateAction } from '
 import { IconButton } from '@/components/common/IconButton'
 import { Input } from '@/components/ui/input'
 import { useDict } from '@/lib/app/useDict'
+import { setCaptureStatus } from '@/lib/capture/captureSession'
 import { LoginButton } from './LoginButton'
 
 interface BrowserToolbarProps {
@@ -30,7 +31,6 @@ interface BrowserToolbarProps {
   setCropping: (next: boolean) => void
   startCrop: () => void
   navCount: number
-  setStatus: (next: string | null) => void
   storageOpen: boolean
   setStorageOpen: Dispatch<SetStateAction<boolean>>
   deviceOn: boolean
@@ -53,7 +53,6 @@ export function BrowserToolbar({
   setCropping,
   startCrop,
   navCount,
-  setStatus,
   storageOpen,
   setStorageOpen,
   deviceOn,
@@ -116,7 +115,11 @@ export function BrowserToolbar({
         aria-pressed={cropping}
         onClick={() => (cropping ? setCropping(false) : startCrop())}
       />
-      <LoginButton paneId={paneId} pageKey={navCount} onStatus={setStatus} />
+      <LoginButton
+        paneId={paneId}
+        pageKey={navCount}
+        onStatus={(text) => setCaptureStatus(paneId, text)}
+      />
       <IconButton
         icon={DatabaseIcon}
         label={storageOpen ? d.browser.storageHide : d.browser.storageShow}

@@ -5,7 +5,7 @@ import type { Terminal } from '@xterm/xterm'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { commands } from '@/commands/registry'
 import { registerSelectionSendCommand, SEND_SELECTION_COMMAND } from '@/commands/selectionSend'
-import { openSelectionSend } from '@/lib/agents/selectionSenders'
+import { triggerCapture } from '@/lib/capture/captureSession'
 import { fileFeatureOptions, LARGE_FILE_LINES } from '@/lib/monaco/largeFile'
 import { registerTerminal } from '@/lib/terminal/terminalHandles'
 import { useSettingsStore } from '@/stores/app/settingsStore'
@@ -133,6 +133,7 @@ const fake = vi.hoisted(() => {
     blurListeners: Listener[]
     keyListeners: ((e: unknown) => void)[]
     modelListeners: Listener[]
+    scrollListeners: Listener[]
     formatRuns: (() => void) | null
     decorations: {
       range: { startLineNumber: number; endLineNumber: number }
@@ -164,6 +165,7 @@ const fake = vi.hoisted(() => {
     blurListeners: [],
     keyListeners: [],
     modelListeners: [],
+    scrollListeners: [],
     formatRuns: null,
     decorations: [],
   }
@@ -226,6 +228,7 @@ const fake = vi.hoisted(() => {
       }
     },
     onDidChangeModel: (l: Listener) => listen(state.modelListeners, l),
+    onDidScrollChange: (l: Listener) => listen(state.scrollListeners, l),
     layout: () => {
       state.layouts += 1
     },
@@ -1215,6 +1218,23 @@ describe('EditorView → Send Selection to Agent', () => {
     expect(screen.queryByRole('toolbar', { name: 'Selection actions' })).toBeNull()
   })
 
+  it('closes the capture when the editor scrolls', async () => {
+    vi.mocked(window.ostia.fs.read).mockResolvedValue({
+      ok: true,
+      version: 'v1',
+      text: 'one\ntwo\nthree',
+    })
+    render(<EditorView workspaceId="w1" paneId="p1" filePath="/w/src/a.ts" />)
+    await waitFor(() => expect(fake.state.model).not.toBeNull())
+    select(2, 1, 3, 6)
+    act(() => fake.state.actions.find((a) => a.id === 'ostia.sendSelection')?.run())
+    await screen.findByRole('toolbar', { name: 'Selection actions' })
+    act(() => {
+      for (const l of [...fake.state.scrollListeners]) l()
+    })
+    expect(screen.queryByRole('toolbar', { name: 'Selection actions' })).toBeNull()
+  })
+
   it('copies the selected text from the bar and closes with one status line', async () => {
     vi.mocked(window.ostia.fs.read).mockResolvedValue({
       ok: true,
@@ -1342,7 +1362,7 @@ describe('EditorView → Send Selection to Agent', () => {
     await waitFor(() => expect(fake.state.model).not.toBeNull())
 
     act(() => {
-      expect(openSelectionSend('p1')).toBe(true)
+      expect(triggerCapture('p1')).toBe(true)
     })
 
     expect(await screen.findByText('Select some text first.')).toBeInTheDocument()

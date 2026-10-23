@@ -1,16 +1,13 @@
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
-import { chords, defaultChord, isMac } from './chords'
+import { plainCopy, readClipboard, runCaptureMatrix } from './captureMatrix'
+import { csvViewerSurface, monacoSurface, terminalSurface } from './captureSurfaces'
+import { chords } from './chords'
 import { DOM_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
 import { guestKeys, pressInPage } from './guestKeys'
 import { launchWindow, openWorkspace, runInTerminal, waitForPaletteSelection } from './helpers'
-import { type ElectronApplication, _electron as electron, expect, test } from './test'
-
-const SOURCE = `export function total(items: number[]): number {
-  return items.reduce((sum, item) => sum + item, 0)
-}
-`
+import { _electron as electron, expect, test } from './test'
 
 const PAGE = `<!doctype html>
 <html><head><title>Capture fixture</title></head>
@@ -25,86 +22,6 @@ const PAGE = `<!doctype html>
   </table>
   <div id="swatch" style="margin:16px;width:120px;height:60px;background:#ff0000"></div>
 </body></html>`
-
-const sendToAgent = defaultChord('selection.sendToAgent', isMac)
-const plainCopy = isMac ? 'Meta+c' : 'Control+c'
-
-const readClipboard = (app: ElectronApplication) =>
-  app.evaluate(async ({ clipboard }) => {
-    const items = await clipboard.read()
-    const plain = items.find((item) => item.types.includes('text/plain'))
-    return {
-      text: plain ? await (await plain.getType('text/plain')).text() : '',
-      hasImage: items.some((item) => item.types.some((type) => type.startsWith('image/'))),
-    }
-  })
-
-test('Monaco opens the capture bar only from the chord, and Copy puts the selection on the clipboard', async () => {
-  test.setTimeout(120_000)
-  const dataHome = freshDataHome()
-  const home = join(dataHome, 'home')
-  mkdirSync(home, { recursive: true })
-  writeFileSync(join(home, 'total.ts'), SOURCE)
-  const launch = isolatedLaunch(dataHome)
-  const app = await electron.launch({ ...launch, env: { ...launch.env, HOME: home } })
-  try {
-    const win = await app.firstWindow()
-    await openWorkspace(win)
-    await win.locator('.topbar').getByRole('button', { name: 'Files', exact: true }).click()
-    await win.locator('.file-row').filter({ hasText: 'total.ts' }).click()
-    const editor = win.locator('.monaco-editor').first()
-    await expect(editor).toBeVisible({ timeout: 15_000 })
-
-    await expect(editor).toContainText('items.reduce', { timeout: 15_000 })
-    const lines = await editor.locator('.view-lines').first().boundingBox()
-    if (!lines) throw new Error('editor lines have no box')
-    const y = lines.y + 27
-    await win.mouse.move(lines.x + 8, y)
-    await win.mouse.down()
-    await win.mouse.move(lines.x + 240, y, { steps: 5 })
-    await win.mouse.up()
-    const bar = win.getByRole('toolbar', { name: 'Selection actions' })
-    await win.waitForTimeout(600)
-    await expect(bar).toHaveCount(0)
-
-    const editorFocused = () =>
-      win.evaluate(() => document.activeElement?.closest('.monaco-editor') != null)
-
-    await win.keyboard.press(sendToAgent)
-    await expect(bar).toBeVisible()
-    await expect(bar).toBeFocused()
-    await win.keyboard.press('Tab')
-    await expect(bar.getByRole('button', { name: 'Copy' })).toBeFocused()
-    await win.keyboard.press('Tab')
-    await expect(bar.getByRole('button', { name: 'Send to agent' })).toBeFocused()
-    await win.keyboard.press('Tab')
-    await expect(bar.getByRole('button', { name: 'Add a note' })).toBeFocused()
-    await win.keyboard.press('Escape')
-    await expect(bar).toHaveCount(0)
-    await expect.poll(editorFocused).toBe(true)
-
-    await win.keyboard.press(sendToAgent)
-    await expect(bar).toBeVisible()
-    await bar.getByRole('button', { name: 'Copy' }).click()
-    await expect(win.getByText('Copied the selection.')).toBeVisible()
-    await expect(bar).toHaveCount(0)
-    const copied = await readClipboard(app)
-    expect(copied.text.length).toBeGreaterThan(4)
-    expect(SOURCE).toContain(copied.text)
-    expect(copied.hasImage).toBe(false)
-
-    await app.evaluate(({ clipboard }) => clipboard.writeText('marker'))
-    await expect.poll(editorFocused).toBe(true)
-    await win.keyboard.press(sendToAgent)
-    await expect(bar).toBeVisible()
-    await win.keyboard.press(plainCopy)
-    await expect(win.getByText('Copied the selection.')).toBeVisible()
-    await expect(bar).toHaveCount(0)
-    expect((await readClipboard(app)).text).toBe(copied.text)
-  } finally {
-    await app.close()
-  }
-})
 
 test('a browser pane copies a table as CSV, an element without text as an image, and page text with the chord', async () => {
   test.setTimeout(180_000)
@@ -171,7 +88,6 @@ test('a browser pane copies a table as CSV, an element without text as an image,
     await expect(outline.locator('.region-crop-size')).toHaveCount(0)
     await bar.getByRole('button', { name: 'Copy' }).click()
     await expect(win.getByText('Copied the table (3 rows × 3 columns) as CSV.')).toBeVisible()
-    await expect(outline).toBeVisible()
     const table = await readClipboard(app)
     expect(table.text).toBe(
       'Order,Customer,Customer\n#4821,"Northwind, Ltd",EU\n#4822,"Fabrikam ""Home""",US',
@@ -278,7 +194,6 @@ test('a running HTML preview points at an element, sends selected text and crops
     await expect(outline.locator('.region-crop-size')).toHaveCount(0)
     await bar.getByRole('button', { name: 'Copy' }).click()
     await expect(win.getByText('Copied the table (3 rows × 2 columns) as CSV.')).toBeVisible()
-    await expect(outline).toBeVisible()
     expect((await readClipboard(app)).text).toBe('Order,Customer\n#4821,Northwind\n#4822,Fabrikam')
     await expect(outline).toHaveCount(0)
 
@@ -315,25 +230,9 @@ test('a running HTML preview points at an element, sends selected text and crops
   }
 })
 
-test('a terminal selection opens the capture bar from the chord, and Copy puts it on the clipboard', async () => {
-  test.setTimeout(120_000)
-  const { app, win } = await launchWindow(freshDataHome())
-  try {
-    await openWorkspace(win)
-    await runInTerminal(win, 'printf "\\n%.0s" 1 2 3 4 5 6 7 8 9; echo terminal-capture-4821')
-    const output = win.locator('.xterm-rows > div').filter({ hasText: /^terminal-capture-4821$/ })
-    await expect(output).toBeVisible({ timeout: 15_000 })
-    const at = await output.boundingBox()
-    if (!at) throw new Error('terminal output row has no box')
-    await win.mouse.dblclick(at.x + 30, at.y + at.height / 2)
-    const bar = win.getByRole('toolbar', { name: 'Selection actions' })
-    await win.keyboard.press(sendToAgent)
-    await expect(bar).toBeVisible()
-    await bar.getByRole('button', { name: 'Copy' }).click()
-    await expect(win.getByText('Copied the selection.')).toBeVisible()
-    await expect(bar).toHaveCount(0)
-    expect((await readClipboard(app)).text).toContain('terminal-capture-4821')
-  } finally {
-    await app.close()
-  }
-})
+for (const surface of [terminalSurface, monacoSurface, csvViewerSurface]) {
+  test(`${surface.name} follows the capture bar behaviour table`, async () => {
+    test.setTimeout(180_000)
+    await runCaptureMatrix(surface)
+  })
+}

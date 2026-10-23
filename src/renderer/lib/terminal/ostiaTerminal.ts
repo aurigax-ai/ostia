@@ -100,6 +100,7 @@ export interface OstiaTerminal {
   resize(cols: number, rows: number): void
   focus(): void
   getSelection(): string
+  getSelectionPosition(): IBufferRange | undefined
   hasSelection(): boolean
   clearSelection(): void
   select(column: number, row: number, length: number): void

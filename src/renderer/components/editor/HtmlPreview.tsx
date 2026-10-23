@@ -23,9 +23,10 @@ import {
   useRef,
   useState,
 } from 'react'
-import { BrowserCaptureActions, BrowserCaptureBar } from '@/components/browser/BrowserCaptureBar'
-import { RegionCropBox, RegionCropOverlay } from '@/components/browser/RegionCropOverlay'
+import { BrowserCaptureBar } from '@/components/browser/BrowserCaptureBar'
 import { useBrowserCapture } from '@/components/browser/useBrowserCapture'
+import { CaptureHighlight } from '@/components/capture/CaptureHighlight'
+import { RegionCropOverlay } from '@/components/capture/RegionCropOverlay'
 import { EmptyState } from '@/components/common/EmptyState'
 import { DropdownMenu, MenuItem } from '@/components/common/Menu'
 import { StatusAction, StatusLine, useDismissed } from '@/components/common/StatusLine'
@@ -378,9 +379,7 @@ export function HtmlPreview({
             src={opened.url}
             partition={opened.partition}
           />
-          {capture.held ? (
-            <RegionCropBox rect={capture.held.rect} sized={capture.held.sized} />
-          ) : null}
+          <CaptureHighlight paneId={paneId} />
           {capture.cropping ? (
             <RegionCropOverlay
               label={d.preview.regionHint}
@@ -391,7 +390,6 @@ export function HtmlPreview({
         </div>
       ) : null}
       {pill}
-      <BrowserCaptureActions workspaceId={workspaceId} {...capture} />
     </div>
   )
 }
