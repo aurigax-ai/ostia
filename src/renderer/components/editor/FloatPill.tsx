@@ -1,34 +1,28 @@
 import type { ReactNode } from 'react'
-import { IconButton, type IconButtonProps } from '@/components/common/IconButton'
+import { usePillIdle } from './usePillIdle'
 
 export function FloatPill({
   label,
+  held = false,
+  activity = 0,
   children,
 }: {
   label: string
+  held?: boolean
+  activity?: number
   children: ReactNode
 }): JSX.Element {
+  const idle = usePillIdle(held, activity)
   return (
     <div
+      ref={idle.ref}
       role="toolbar"
       aria-label={label}
-      className="absolute top-3 right-3 z-20 flex max-w-[calc(100%-24px)] items-center gap-0.5 rounded-[calc(var(--radius-md)+4px)] border border-line-strong bg-surface-2 p-1 text-fg-muted shadow-[0_8px_24px_-12px_var(--bg-sunken)]"
+      data-state={idle.state}
+      className="absolute top-2 right-2 z-20 flex max-w-[calc(100%-16px)] items-center gap-0.5 rounded-md border border-line-strong bg-surface-2 p-0.5 text-fg-muted opacity-100 shadow-[0_2px_8px_-4px_var(--bg-sunken)] transition-opacity data-[state=idle]:opacity-(--pill-idle-opacity)"
+      {...idle.handlers}
     >
       {children}
     </div>
-  )
-}
-
-export function FloatPillButton({
-  className,
-  ...props
-}: Omit<IconButtonProps, 'size' | 'hintSide'>): JSX.Element {
-  return (
-    <IconButton
-      size="bar"
-      hintSide="bottom"
-      className={`min-w-7 [&_svg]:size-4 ${className ?? ''}`}
-      {...props}
-    />
   )
 }

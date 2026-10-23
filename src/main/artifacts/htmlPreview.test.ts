@@ -390,6 +390,17 @@ describe('PreviewHost', () => {
     expect(session.grants('clipboard-sanitized-write')).toBe(false)
   })
 
+  it('tells the window about guest input at most once a second', () => {
+    const guest = r.attach(r.open())
+    const activity = (): number => r.events.filter((event) => event.type === 'activity').length
+    guest.emit('input-event', {}, { type: 'mouseMove' })
+    guest.emit('input-event', {}, { type: 'mouseMove' })
+    expect(activity()).toBe(1)
+    r.clock.now += 1_001
+    guest.emit('input-event', {}, { type: 'keyDown' })
+    expect(activity()).toBe(2)
+  })
+
   it('cancels downloads', () => {
     const prevented = vi.fn()
     r.sessionOf(r.open()).download?.({ preventDefault: prevented })
@@ -438,7 +449,9 @@ describe('PreviewHost', () => {
     expect(navigate.preventDefault).toHaveBeenCalledOnce()
     expect(local.preventDefault).toHaveBeenCalledOnce()
     expect(redirect.preventDefault).toHaveBeenCalledOnce()
-    expect(r.events).toEqual([{ id: opened.id, type: 'link', url: 'https://example.com/next' }])
+    expect(r.events.filter((event) => event.type !== 'activity')).toEqual([
+      { id: opened.id, type: 'link', url: 'https://example.com/next' },
+    ])
   })
 
   it('passes on console errors only, named after the previewed file', () => {

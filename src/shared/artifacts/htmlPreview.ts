@@ -35,6 +35,7 @@ export type PreviewEvent =
   | { id: string; type: 'error'; error: PreviewError }
   | { id: string; type: 'vitals'; responding: boolean; busy: boolean }
   | { id: string; type: 'link'; url: string }
+  | { id: string; type: 'activity' }
   | { id: string; type: 'stopped'; reason: PreviewStopReason }
 
 export interface PreviewApi {
