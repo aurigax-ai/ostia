@@ -3,14 +3,32 @@ description: Playwright's own Chromium and Firefox, which the portable-file spec
 runs:
   using: composite
   steps:
-    - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
+    - id: cache
+      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
       with:
         path: ${{ runner.os == 'macOS' && '~/Library/Caches/ms-playwright' || '~/.cache/ms-playwright' }}
         key: playwright-browsers-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('pnpm-lock.yaml') }}
+    - if: runner.os == 'Linux' && runner.environment == 'github-hosted'
+      shell: bash
+      env:
+        RETRY_ATTEMPTS: 2
+        RETRY_TIMEOUT: 240
+      run: |
+        start=$SECONDS
+        if ! scripts/retry.sh pnpm exec playwright install-deps chromium firefox; then
+          echo "::error::playwright install-deps did not finish: the apt mirror is slow or down. The browser cache is unrelated."
+          exit 1
+        fi
+        echo "playwright-browsers: system packages ready in $((SECONDS - start))s" | tee -a "$GITHUB_STEP_SUMMARY"
     - shell: bash
       env:
-        WITH_DEPS: ${{ runner.os == 'Linux' && runner.environment == 'github-hosted' }}
+        CACHE_HIT: ${{ steps.cache.outputs.cache-hit }}
+        RETRY_ATTEMPTS: 2
+        RETRY_TIMEOUT: 300
       run: |
-        args=(chromium firefox)
-        if [ "$WITH_DEPS" = true ]; then args=(--with-deps "${args[@]}"); fi
-        pnpm exec playwright install "${args[@]}"
+        start=$SECONDS
+        if ! scripts/retry.sh pnpm exec playwright install chromium firefox; then
+          echo "::error::playwright install did not finish (browser cache hit: ${CACHE_HIT:-false}): the browser download is slow or blocked."
+          exit 1
+        fi
+        echo "playwright-browsers: cache hit ${CACHE_HIT:-false}, install took $((SECONDS - start))s" | tee -a "$GITHUB_STEP_SUMMARY"
