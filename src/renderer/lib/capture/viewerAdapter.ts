@@ -1,7 +1,9 @@
 import { selectionLabel } from '@shared/browser/selection'
 import type { ViewerSelectionState } from '@shared/files/filesApi'
 import { sendViewerSelectionToPane } from '@/lib/agents/sendPick'
-import type { CaptureAdapter } from './captureSession'
+import type { CaptureAdapter, CloseReason } from './captureSession'
+
+const GUEST_OWNS = new Set<CloseReason>(['source-gone', 'replaced', 'guest-focus'])
 
 export function viewerAdapter(
   paneId: string,
@@ -24,8 +26,7 @@ export function viewerAdapter(
       return res.ok ? { ok: true, inserted: res.inserted } : { ok: false, error: res.error }
     },
     clear: (reason) => {
-      if (reason !== 'source-gone' && reason !== 'replaced')
-        window.ostia.viewers.clearSelection(paneId)
+      if (!GUEST_OWNS.has(reason)) window.ostia.viewers.clearSelection(paneId)
     },
   }
 }

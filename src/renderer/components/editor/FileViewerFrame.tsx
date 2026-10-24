@@ -14,6 +14,7 @@ import {
   setCaptureStatus,
   updateCapture,
 } from '@/lib/capture/captureSession'
+import { closeOnGuestFocus } from '@/lib/capture/guestFocus'
 import { viewerAdapter } from '@/lib/capture/viewerAdapter'
 import type { ViewerOption } from '@/lib/files/viewerChoice'
 import { useGuestReady, useSurfaceFocus } from '@/lib/panes/paneFocus'
@@ -174,6 +175,10 @@ function ViewerFrame({
       window.ostia.viewers.close(paneId)
     }
   }, [workspaceId, paneId, filePath, viewer.viewType, onFailed])
+
+  useEffect(() => {
+    if (webview) return closeOnGuestFocus(paneId, webview)
+  }, [paneId, webview])
 
   useEffect(() => {
     const el = webview

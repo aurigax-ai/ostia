@@ -3,9 +3,9 @@ import { expectHeld } from './helpers'
 import { type ElectronApplication, expect, type Page, test } from './test'
 
 export const sendToAgent = defaultChord('selection.sendToAgent', isMac)
-export const plainCopy = isMac ? 'Meta+c' : 'Control+c'
+const plainCopy = isMac ? 'Meta+c' : 'Control+c'
 
-export const readClipboard = (app: ElectronApplication) =>
+const readClipboard = (app: ElectronApplication) =>
   app.evaluate(async ({ clipboard }) => {
     const items = await clipboard.read()
     const plain = items.find((item) => item.types.includes('text/plain'))
@@ -20,9 +20,11 @@ interface LaunchedSurface {
   win: Page
   open: () => Promise<void>
   status: RegExp | string
-  copied: RegExp
+  copied: RegExp | 'image'
   cleared: () => Promise<void>
   close: () => Promise<void>
+  highlight?: { selector: string; sized: boolean }
+  clickGuest?: () => Promise<void>
 }
 
 export interface CaptureSurface {
@@ -31,7 +33,8 @@ export interface CaptureSurface {
 }
 
 export async function runCaptureMatrix(surface: CaptureSurface): Promise<void> {
-  const { app, win, open, status, copied, cleared, close } = await surface.launch()
+  const { app, win, open, status, copied, cleared, close, highlight, clickGuest } =
+    await surface.launch()
   try {
     const bar = win.getByRole('toolbar', { name: 'Selection actions' })
     const line = win.getByText(status)
@@ -42,7 +45,19 @@ export async function runCaptureMatrix(surface: CaptureSurface): Promise<void> {
     const marker = (): Promise<void> =>
       app.evaluate(({ clipboard }) => clipboard.writeText('marker'))
 
-    await test.step('opens the bar at the selection', shown)
+    const expectCopied = async (): Promise<void> => {
+      const clip = await readClipboard(app)
+      if (copied === 'image') expect(clip.hasImage).toBe(true)
+      else expect(clip.text).toMatch(copied)
+    }
+
+    await test.step('opens the bar at the selection and draws its highlight', async () => {
+      await shown()
+      if (!highlight) return
+      const drawn = win.locator(highlight.selector)
+      await expect(drawn).toBeVisible()
+      await expect(drawn.locator('.region-crop-size')).toHaveCount(highlight.sized ? 1 : 0)
+    })
 
     await test.step('Escape closes the bar and clears what it drew', async () => {
       await win.keyboard.press('Escape')
@@ -57,13 +72,22 @@ export async function runCaptureMatrix(surface: CaptureSurface): Promise<void> {
       await cleared()
     })
 
+    if (clickGuest) {
+      await test.step('a click inside the page closes the bar and clears what it drew', async () => {
+        await shown()
+        await clickGuest()
+        await expect(bar).toBeHidden()
+        await cleared()
+      })
+    }
+
     await test.step('the Copy button copies, closes the bar and shows the pane status', async () => {
       await shown()
       await marker()
       await bar.getByRole('button', { name: 'Copy' }).click()
       await expect(line).toBeVisible()
       await expect(bar).toBeHidden()
-      expect((await readClipboard(app)).text).toMatch(copied)
+      await expectCopied()
       await cleared()
     })
 
@@ -73,7 +97,7 @@ export async function runCaptureMatrix(surface: CaptureSurface): Promise<void> {
       await win.keyboard.press(plainCopy)
       await expect(line).toBeVisible()
       await expect(bar).toBeHidden()
-      expect((await readClipboard(app)).text).toMatch(copied)
+      await expectCopied()
       await cleared()
     })
 
