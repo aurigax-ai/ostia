@@ -16,8 +16,9 @@ function run(over: { noNewPrivs?: boolean; env?: NodeJS.ProcessEnv; launched?: b
 
 describe('relaunchWithoutNoNewPrivs', () => {
   it('relaunches once with the loop marker when the flag is set', () => {
-    const { result, launch, warn } = run({})
+    const { result, env, launch, warn } = run({})
     expect(result).toBe(true)
+    expect(env.OSTIA_NO_NEW_PRIVS_RELAUNCHED).toBeUndefined()
     expect(launch).toHaveBeenCalledWith({ PATH: '/usr/bin', OSTIA_NO_NEW_PRIVS_RELAUNCHED: '1' })
     expect(warn).not.toHaveBeenCalled()
   })
