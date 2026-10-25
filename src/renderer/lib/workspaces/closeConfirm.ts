@@ -4,7 +4,7 @@ import { AGENT_CLOSE_SAVE_WAIT_MS, QUIT_SAVE_WAIT_MS } from '@shared/windows/clo
 import type { QuitAnswer } from '@shared/windows/windowsApi'
 import { runningAgent, runningAgentOf } from '@/lib/agents/paneAgent'
 import { settleSaves } from '@/lib/files/pendingSaves'
-import { allPanes, findPane, tabIdOf, tabsOfPane } from '@/lib/layout/tree'
+import { allPanes, findPane, findSplitTab, tabIdOf, tabsOfPane } from '@/lib/layout/tree'
 import type { PaneNode } from '@/lib/layout/types'
 import { workspaceTitle } from '@/lib/workspaces/workspaceTitle'
 import { useApprovalsStore } from '@/stores/agents/approvalsStore'
@@ -281,6 +281,8 @@ export async function requestCloseOthers(id: string): Promise<void> {
   }
 }
 
+const closable = (pane: PaneNode): boolean => pane.kind !== 'manager' && !pane.locked
+
 export function closableOtherTabPanes(workspaceId: string, paneId: string): PaneNode[] {
   const layout = useLayoutStore.getState().byWorkspace[workspaceId]
   const tabs = layout ? tabsOfPane(layout.root, paneId) : null
@@ -289,12 +291,17 @@ export function closableOtherTabPanes(workspaceId: string, paneId: string): Pane
   return tabs.children
     .filter((tab) => tab.id !== keep)
     .flatMap((tab) => allPanes(tab))
-    .filter((pane) => pane.kind !== 'manager' && !pane.locked)
+    .filter(closable)
 }
 
-export async function requestCloseOtherTabs(workspaceId: string, paneId: string): Promise<void> {
+function closableSplitTabPanes(workspaceId: string, tabId: string): PaneNode[] {
+  const layout = useLayoutStore.getState().byWorkspace[workspaceId]
+  const tab = layout ? findSplitTab(layout.root, tabId) : null
+  return tab ? allPanes(tab).filter(closable) : []
+}
+
+async function requestClosePanes(workspaceId: string, panes: PaneNode[]): Promise<void> {
   const workspace = useWorkspacesStore.getState().workspaces.find((w) => w.id === workspaceId)
-  const panes = closableOtherTabPanes(workspaceId, paneId)
   if (!workspace || panes.length === 0) return
   const { confirmClose } = useSettingsStore.getState().workspaces
   const group = confirmClose
@@ -303,6 +310,14 @@ export async function requestCloseOtherTabs(workspaceId: string, paneId: string)
   if (await confirmGroups('pane', group ? [group] : [])) {
     for (const pane of panes) useLayoutStore.getState().closePane(workspaceId, pane.id)
   }
+}
+
+export function requestCloseOtherTabs(workspaceId: string, paneId: string): Promise<void> {
+  return requestClosePanes(workspaceId, closableOtherTabPanes(workspaceId, paneId))
+}
+
+export function requestCloseSplitTab(workspaceId: string, tabId: string): Promise<void> {
+  return requestClosePanes(workspaceId, closableSplitTabPanes(workspaceId, tabId))
 }
 
 function isManagerPane(workspaceId: string, paneId: string): boolean {

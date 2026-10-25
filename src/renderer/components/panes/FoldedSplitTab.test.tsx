@@ -1,22 +1,30 @@
 import '@testing-library/jest-dom/vitest'
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { afterEach, beforeAll, describe, expect, it } from 'vitest'
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { TooltipProvider } from '@/components/ui/tooltip'
-import { createPane, resetIds, splitOf } from '@/lib/layout/tree'
+import { createPane, paneIds, resetIds, splitOf } from '@/lib/layout/tree'
 import type { SplitNode } from '@/lib/layout/types'
 import { useAttentionStore } from '@/stores/agents/attentionStore'
+import { useLayoutStore } from '@/stores/workspaces/layoutStore'
+import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import { FoldedSplitTab } from './FoldedSplitTab'
 
 let attentionInit: ReturnType<typeof useAttentionStore.getState>
+let layoutInit: ReturnType<typeof useLayoutStore.getState>
+let workspacesInit: ReturnType<typeof useWorkspacesStore.getState>
 
 beforeAll(() => {
   attentionInit = useAttentionStore.getState()
+  layoutInit = useLayoutStore.getState()
+  workspacesInit = useWorkspacesStore.getState()
 })
 
 afterEach(() => {
   cleanup()
   useAttentionStore.setState(attentionInit, true)
+  useLayoutStore.setState(layoutInit, true)
+  useWorkspacesStore.setState(workspacesInit, true)
   resetIds()
 })
 
@@ -90,5 +98,37 @@ describe('FoldedSplitTab', () => {
     setStates(tab, ['done', 'error', 'working'])
     renderChip(tab)
     expect(document.querySelector('.pane-split-tab')).toHaveAttribute('data-attention', 'error')
+  })
+
+  it('shows the grid icon, not the layout drawing', () => {
+    renderChip(folded(3))
+    const chip = document.querySelector('.pane-split-tab') as HTMLElement
+    expect(chip.querySelector('svg.pane-kind')).toBeInTheDocument()
+    expect(chip.querySelector('.split-tab-glyph')).toBeNull()
+  })
+
+  it('closes every pane of the split tab on a middle click', async () => {
+    const tab = folded(3)
+    const other = createPane('terminal', 'other')
+    useWorkspacesStore.setState({
+      workspaces: [{ id: 'w', name: 'w', kind: 'terminal', workDir: '/w', state: 'idle' }],
+      activeWorkspaceId: 'w',
+    })
+    useLayoutStore.setState({
+      byWorkspace: {
+        w: {
+          root: { type: 'tabs', id: 'tabs', activeId: other.id, children: [tab, other] },
+          activePaneId: other.id,
+          zoomedPaneId: null,
+        },
+      },
+    })
+    renderChip(tab)
+    const chip = document.querySelector('.pane-split-tab') as HTMLElement
+    fireEvent(chip, new MouseEvent('auxclick', { button: 1, bubbles: true }))
+    await vi.waitFor(() => {
+      const root = useLayoutStore.getState().byWorkspace.w?.root
+      expect(root ? paneIds(root) : []).toEqual([other.id])
+    })
   })
 })

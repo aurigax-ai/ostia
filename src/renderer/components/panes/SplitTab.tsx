@@ -22,6 +22,7 @@ import type { LayoutNode, PaneNode, SplitNode } from '@/lib/layout/types'
 import { beginPaneDrag, endPaneDrag, PANE_DND } from '@/lib/panes/paneDrag'
 import { splitTabLayout } from '@/lib/panes/splitTabs'
 import { cn } from '@/lib/utils'
+import { requestCloseSplitTab } from '@/lib/workspaces/closeConfirm'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { usePaneRenameStore } from '@/stores/workspaces/paneRenameStore'
 import { focusSurfaceWhenReady } from '@/stores/workspaces/surfaceSlotsStore'
@@ -40,6 +41,23 @@ export function focusPane(paneId: string): void {
 }
 
 const DOUBLE_CLICK_MS = 250
+
+export function closeSplitTabOnMiddleClick(
+  tabId: string,
+  workspaceId: string | null,
+): Pick<HTMLAttributes<HTMLElement>, 'onMouseDown' | 'onAuxClick'> {
+  return {
+    onMouseDown: (e) => {
+      if (e.button === 1) e.preventDefault()
+    },
+    onAuxClick: (e) => {
+      if (e.button !== 1) return
+      e.preventDefault()
+      e.stopPropagation()
+      if (workspaceId) void requestCloseSplitTab(workspaceId, tabId)
+    },
+  }
+}
 
 function GlyphNode({ node, focusedId }: { node: LayoutNode; focusedId: string | null }) {
   if (node.type === 'pane') {
@@ -244,6 +262,7 @@ function SplitTabHead({
       aria-label={
         tab.name ? fmt(d.pane.foldNamedSplitTab, { name: tab.name }) : d.pane.foldSplitTab
       }
+      {...closeSplitTabOnMiddleClick(tab.id, workspaceId)}
       onClick={(e) => {
         if (e.detail > 1) return
         if (e.detail === 0) fold()
