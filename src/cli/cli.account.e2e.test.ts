@@ -73,7 +73,7 @@ beforeAll(() => {
       openLoginTab: async () => null,
       onChange: () => {},
     }),
-    agentResumes: { subscribe: () => {} } as never,
+    accountMoves: { switched: async () => {} },
     workspaceSandboxes: { isEnabled: () => false },
     scratchFolders: { isScratch: () => false },
     workspaceWindowId: () => '7',
@@ -164,9 +164,9 @@ describe('ostia account (the real CLI against a live control server)', () => {
   })
 
   it('answers a Claude start with the profile folder of the current account, and nothing for the default', async () => {
-    expect((await ostia(['claude-account', 'start', '--', '--help'])).stdout).toBe('')
+    expect((await ostia(['claude-account', 'start'])).stdout).toBe('')
     store.use(WORK)
-    const res = await ostia(['claude-account', 'start', '--', '--model', 'opus'])
+    const res = await ostia(['claude-account', 'start'])
     expect(res.stdout).toBe(`${join(base, 'profiles', WORK)}\n`)
     store.use('default')
   })

@@ -26,17 +26,13 @@ describe('ClaudeAccountsStore', () => {
     expect(store.current()).toBe('default')
   })
 
-  it('keeps accounts, the current one and remembered sessions across a restart, in a 0600 file', () => {
+  it('keeps accounts and the current one across a restart, in a 0600 file', () => {
     const store = new ClaudeAccountsStore(file)
     store.add(account(WORK, 'work@example.com'))
     store.use(WORK)
-    store.rememberSession('session-1', WORK)
-    store.rememberSession('session-2', 'default')
     const again = new ClaudeAccountsStore(file)
     expect(again.accounts()).toEqual([account(WORK, 'work@example.com')])
     expect(again.current()).toBe(WORK)
-    expect(again.accountOfSession('session-1')).toBe(WORK)
-    expect(again.accountOfSession('session-2')).toBe('default')
     expect(statSync(file).mode & 0o777).toBe(0o600)
   })
 
@@ -66,32 +62,23 @@ describe('ClaudeAccountsStore', () => {
   it('refuses to use or remember an account it does not know', () => {
     const store = new ClaudeAccountsStore(file)
     expect(store.use(WORK)).toBe(false)
-    store.rememberSession('session-1', WORK)
-    expect(store.accountOfSession('session-1')).toBeUndefined()
+    store.rememberPane('p1', WORK)
+    expect(store.accountOfPane('p1')).toBeUndefined()
     expect(store.use('default')).toBe(true)
   })
 
-  it('forgets an account with its sessions and falls back to the default when it was current', () => {
+  it('forgets an account with its panes and falls back to the default when it was current', () => {
     const store = new ClaudeAccountsStore(file)
     store.add(account(WORK, 'work@example.com'))
     store.add(account(SPARE, 'spare@example.com'))
     store.use(WORK)
-    store.rememberSession('on-work', WORK)
-    store.rememberSession('on-spare', SPARE)
+    store.rememberPane('on-work', WORK)
+    store.rememberPane('on-spare', SPARE)
     expect(store.remove(WORK)).toBe(true)
     expect(store.current()).toBe('default')
-    expect(store.accountOfSession('on-work')).toBeUndefined()
-    expect(store.accountOfSession('on-spare')).toBe(SPARE)
+    expect(store.accountOfPane('on-work')).toBeUndefined()
+    expect(store.accountOfPane('on-spare')).toBe(SPARE)
     expect(store.remove(WORK)).toBe(false)
-  })
-
-  it('keeps only the newest 500 sessions', () => {
-    const store = new ClaudeAccountsStore(file)
-    for (let i = 0; i < 502; i++) store.rememberSession(`s${i}`, 'default')
-    expect(store.accountOfSession('s0')).toBeUndefined()
-    expect(store.accountOfSession('s1')).toBeUndefined()
-    expect(store.accountOfSession('s2')).toBe('default')
-    expect(store.accountOfSession('s501')).toBe('default')
   })
 
   it.each([
@@ -113,8 +100,8 @@ describe('ClaudeAccountsStore', () => {
       expect(statSync(`${file}.corrupt-42`).mode & 0o777).toBe(0o600)
       expect(store.add(account(WORK, 'work@example.com'))).toBe(false)
       expect(store.use('default')).toBe(false)
-      store.rememberSession('s', 'default')
-      expect(store.accountOfSession('s')).toBeUndefined()
+      store.rememberPane('p', 'default')
+      expect(store.accountOfPane('p')).toBeUndefined()
       expect(existsSync(file)).toBe(false)
       expect(store.startFresh()).toBe(true)
       expect(store.isDamaged).toBe(false)
@@ -140,21 +127,34 @@ describe('ClaudeAccountsStore', () => {
     expect(new ClaudeAccountsStore(file).startFresh()).toBe(false)
   })
 
-  it('drops a session or the current account that points at an unknown account', () => {
+  it('drops a pane or the current account that points at an unknown account', () => {
     writeFileSync(
       file,
       JSON.stringify({
         v: 1,
         accounts: [account(WORK, 'work@example.com')],
         current: SPARE,
-        sessions: { good: WORK, bad: SPARE, worse: 3 },
+        panes: { good: WORK, bad: SPARE, worse: 3 },
       }),
     )
     const store = new ClaudeAccountsStore(file)
     expect(store.isDamaged).toBe(false)
     expect(store.current()).toBe('default')
-    expect(store.accountOfSession('good')).toBe(WORK)
-    expect(store.accountOfSession('bad')).toBeUndefined()
+    expect(store.accountOfPane('good')).toBe(WORK)
+    expect(store.accountOfPane('bad')).toBeUndefined()
+  })
+
+  it('keeps no account per session: an older file loses that list at the next write', () => {
+    writeFileSync(
+      file,
+      JSON.stringify({
+        v: 1,
+        accounts: [account(WORK, 'work@example.com')],
+        sessions: { s: WORK },
+      }),
+    )
+    new ClaudeAccountsStore(file).use(WORK)
+    expect(JSON.parse(readFileSync(file, 'utf8'))).not.toHaveProperty('sessions')
   })
 
   it('writes the file as JSON', () => {

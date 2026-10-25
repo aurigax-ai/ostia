@@ -308,6 +308,7 @@ export function makeOstiaMock(overrides?: Partial<OstiaBridge>): OstiaBridge {
     claudeAccounts: {
       state: vi.fn().mockResolvedValue(NO_ACCOUNTS),
       onChange: vi.fn(noopUnsub),
+      onSessionStays: vi.fn(noopUnsub),
       add: vi.fn().mockResolvedValue('opened'),
       remove: vi.fn().mockResolvedValue('removed'),
       use: vi.fn().mockResolvedValue(true),

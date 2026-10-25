@@ -1,26 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { accountOfTarget, DEFAULT_ACCOUNT, sessionIdOfArgs } from './claudeAccounts'
-
-describe('sessionIdOfArgs', () => {
-  it.each([
-    [['--resume', 'abc-123'], 'abc-123'],
-    [['--resume=abc-123'], 'abc-123'],
-    [['-r', 'abc-123', '-p', 'hi'], 'abc-123'],
-    [['--model', 'opus', '--resume', 'abc-123', '--fork-session'], 'abc-123'],
-  ])('finds the session in %j', (args, id) => {
-    expect(sessionIdOfArgs(args)).toBe(id)
-  })
-
-  it.each([
-    [[]],
-    [['--resume']],
-    [['--resume', '--fork-session']],
-    [['-p', 'hello']],
-    [['--resume=']],
-  ])('finds none in %j', (args) => {
-    expect(sessionIdOfArgs(args)).toBeNull()
-  })
-})
+import { accountOfTarget, DEFAULT_ACCOUNT } from './claudeAccounts'
 
 describe('accountOfTarget', () => {
   const accounts = [

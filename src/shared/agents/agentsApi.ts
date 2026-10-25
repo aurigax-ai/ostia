@@ -23,7 +23,7 @@ export type FolderTrust =
 interface AgentSessionApi {
   info: (resume: AgentResume) => Promise<AgentSessionInfo | null>
   claimResume: (paneId: string, resume: AgentResume) => Promise<ResumeVerdict>
-  folderTrust: (paneId: string, sessionId?: string) => Promise<FolderTrust>
+  folderTrust: (paneId: string) => Promise<FolderTrust>
   trustFolder: (paneId: string, folder: string) => Promise<boolean>
 }
 

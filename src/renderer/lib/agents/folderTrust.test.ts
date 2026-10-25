@@ -118,16 +118,14 @@ describe('claudeTrustGate', () => {
     const asking = vi.mocked(runWhenIdle).mock.calls[1]?.[3]
     void asking?.()
     await vi.waitFor(() => expect(useFolderTrustStore.getState().byPane).toEqual({ p1: '/w/repo' }))
-    expect(folderTrust()).toHaveBeenCalledWith('p1', 'abc')
+    expect(folderTrust()).toHaveBeenCalledWith('p1')
     resumeAnyway('p1')
   })
 
-  it('CFT-C36 asks main about the profile of the session it is about to resume, and of none for a new one', async () => {
+  it('CFT-C36 asks main about the pane alone: the current account is the one every start uses', async () => {
     folderTrust().mockResolvedValue({ state: 'trusted' })
-    await claudeTrustGate('p3', 'claude', undefined, 'session-7')
-    expect(folderTrust()).toHaveBeenLastCalledWith('p3', 'session-7')
     await claudeTrustGate('p3', 'claude')
-    expect(folderTrust()).toHaveBeenLastCalledWith('p3', undefined)
+    expect(folderTrust()).toHaveBeenLastCalledWith('p3')
   })
 
   it('CFT-C30 a pane closed while its note waits stops the resume and leaves nothing behind', async () => {

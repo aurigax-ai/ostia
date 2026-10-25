@@ -1249,12 +1249,12 @@ describe('shellIntegrationSpawnOptions', () => {
       expect(
         run('claude hi; echo " ${CLAUDE_CONFIG_DIR-unset}"', { FAKE_ACCOUNT: '/p/work' }),
       ).toBe('dir=/p/work args=hi unset\n')
-      expect(asked()).toBe('/x/cli.js claude-account start -- hi\n')
+      expect(asked()).toBe('/x/cli.js claude-account start\n')
     })
 
-    it('asks with the arguments the human typed, quoted, after --', () => {
+    it('asks without the arguments the human typed: a resume starts on the current account too', () => {
       run("claude --resume abc 'two words' --help", { FAKE_ACCOUNT: '' })
-      expect(asked()).toBe('/x/cli.js claude-account start -- --resume abc two words --help\n')
+      expect(asked()).toBe('/x/cli.js claude-account start\n')
     })
 
     it('starts claude as it is when main answers nothing', () => {

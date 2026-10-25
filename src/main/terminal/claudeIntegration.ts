@@ -174,7 +174,7 @@ export function claudeWrapper(): string {
     '  claude() {',
     "    local IFS=$'\\037' account=",
     `    if [ -z "\${CLAUDE_CONFIG_DIR-}" ] && ${IN_PANE}; then`,
-    `      account=$(${CLI_RUN} claude-account start -- "$@" 2>/dev/null)`,
+    `      account=$(${CLI_RUN} claude-account start 2>/dev/null)`,
     '    fi',
     '    if [ -n "$account" ]; then',
     '      CLAUDE_CONFIG_DIR="$account" __ostia_claude "$@"',

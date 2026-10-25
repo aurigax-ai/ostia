@@ -168,6 +168,31 @@ describe('PaneInput', () => {
   })
 })
 
+describe('PaneInput drafts and writes', () => {
+  it('counts every write to the pane, whoever sent it', () => {
+    const { input } = pane()
+    expect(input.writes).toBe(0)
+    input.note('a', 'key')
+    input.note('b\r', null)
+    expect(input.writes).toBe(2)
+  })
+
+  it('holds a draft from typed or inserted text until it is submitted or cleared', () => {
+    const { input } = pane()
+    expect(input.drafting()).toBe(false)
+    input.note('fix the', 'key')
+    expect(input.drafting()).toBe(true)
+    input.note('\r', 'key')
+    expect(input.drafting()).toBe(false)
+    input.note('@notes.md', null)
+    expect(input.drafting()).toBe(true)
+    input.note('\x15', 'key')
+    expect(input.drafting()).toBe(false)
+    input.note('\x1b[A', 'key')
+    expect(input.drafting()).toBe(true)
+  })
+})
+
 describe('humanInputSource', () => {
   it('accepts only the two sources the renderer names', () => {
     expect(humanInputSource('key')).toBe('key')

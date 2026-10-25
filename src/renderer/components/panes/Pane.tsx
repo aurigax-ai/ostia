@@ -1,4 +1,5 @@
 import { commands } from '@/commands/registry'
+import { useSessionStaysStatus } from '@/components/agents/SessionStaysStatus'
 import { NoticeSlot } from '@/components/common/NoticeSlot'
 import { PaneChips } from '@/components/extensions/ExtensionChips'
 import { ArtifactChip } from '@/components/files/ArtifactChip'
@@ -59,6 +60,7 @@ export function Pane({
   const prompt = usePanePrompt(shown)
   const phoneStatus = usePhoneSizeStatus(shown.id)
   const parkStatus = useParkStatus(shown.id, workspaceId, activePaneId)
+  const staysStatus = useSessionStaysStatus(shown.id)
   const unread = attention?.unread ?? false
   const dimInactive = useSettingsStore((s) => s.panes.dimInactive)
   const hideTabClose = useSettingsStore((s) => s.panes.hideTabClose)
@@ -153,7 +155,7 @@ export function Pane({
           ),
         )}
         <NoticeSlot key={shown.id}>
-          {shownTab.type === 'pane' ? (parkStatus ?? phoneStatus) : null}
+          {shownTab.type === 'pane' ? (parkStatus ?? staysStatus ?? phoneStatus) : null}
         </NoticeSlot>
         <NoticeSlot key={`${shown.id}:prompt`}>
           {shownTab.type === 'pane' ? prompt : null}

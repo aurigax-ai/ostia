@@ -286,6 +286,9 @@ export const workspacesEn = {
     sandboxRestart: 'Restart to apply',
     sandboxRestartHint: 'The sandbox setting changed. Restart this shell to apply it.',
     searchTabs: 'Search tabs',
+    sessionStays:
+      'This Claude session stays on the account it started on: it has no session to resume. Quit Claude and start it again to use the account you switched to.',
+    sessionStaysLabel: 'Claude account not changed',
     splitDown: 'Split down',
     splitRight: 'Split right',
     splitTab: 'Split tab, {layout}: {panes}',

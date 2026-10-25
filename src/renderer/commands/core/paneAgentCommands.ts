@@ -136,8 +136,7 @@ function registerAgentSessionCommands(): void {
       if (pane.hibernated) return { resumed: wakePane(pane.id, undefined, !ctx.target) }
       if (pane.resumeFolderMissing) return { resumed: false }
       if (!ctx.target) {
-        if (!(await claudeTrustGate(pane.id, resume.agent, undefined, resume.id)))
-          return { resumed: false }
+        if (!(await claudeTrustGate(pane.id, resume.agent))) return { resumed: false }
         await refuseHeld()
       }
       const resumed = insertCommand(pane.id, resumeCommand(resume), true)

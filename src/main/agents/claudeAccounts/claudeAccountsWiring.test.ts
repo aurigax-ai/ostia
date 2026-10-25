@@ -35,7 +35,6 @@ vi.mock('../../panes/paneList', () => ({
 }))
 
 import type { AccountUsage } from '../../../shared/claudeAccounts/claudeAccounts'
-import { resolveExternal } from '../../control/idRegistry'
 import { ClaudeAccountsStore } from './accountsStore'
 import { ClaudeAccounts, type LoginTarget } from './claudeAccounts'
 import { registerClaudeAccountsWiring } from './claudeAccountsWiring'
@@ -44,7 +43,7 @@ const WORK = 'a'.repeat(16)
 const windowEvent = { sender: { getType: () => 'window', id: 1 } }
 const guestEvent = { sender: { getType: () => 'webview', id: 1 } }
 
-let resumeListener: ((pane: string, resume: unknown) => void) | undefined
+let switched: ReturnType<typeof vi.fn<() => Promise<void>>>
 let sandboxed: Set<string>
 let scratch: Set<string>
 let store: ClaudeAccountsStore
@@ -79,6 +78,7 @@ beforeEach(() => {
   usage = new Map()
   usageRuns = []
   trusted = []
+  switched = vi.fn<() => Promise<void>>(async () => {})
   base = mkdtempSync(join(tmpdir(), 'ostia-accounts-wiring-'))
   store = new ClaudeAccountsStore(join(base, 'accounts.json'))
   store.add({ id: WORK, email: 'work@example.com', addedAt: 1 })
@@ -106,7 +106,7 @@ beforeEach(() => {
   })
   registerClaudeAccountsWiring({
     claudeAccounts,
-    agentResumes: { subscribe: (fn: typeof resumeListener) => (resumeListener = fn) } as never,
+    accountMoves: { switched },
     workspaceSandboxes: { isEnabled: (id: string) => sandboxed.has(id) },
     scratchFolders: { isScratch: (id: string) => scratch.has(id) },
     workspaceWindowId: (id: string) => (id === 'ws-other' ? '2' : '1'),
@@ -239,7 +239,7 @@ describe('account.switch', () => {
 describe('claudeAccount.start', () => {
   it('answers the current profile folder to a plain pane', async () => {
     store.use(WORK)
-    expect(await call('claudeAccount.start', { args: [] })).toEqual({
+    expect(await call('claudeAccount.start', {})).toEqual({
       dir: join(base, 'profiles', WORK),
     })
   })
@@ -250,17 +250,17 @@ describe('claudeAccount.start', () => {
     ['manager', { manager: true }],
   ])('answers nothing to a %s pane', async (_name, extra) => {
     store.use(WORK)
-    expect(await call('claudeAccount.start', { args: [] }, ctx(extra))).toEqual({ dir: '' })
+    expect(await call('claudeAccount.start', {}, ctx(extra))).toEqual({ dir: '' })
   })
 
   it('prepares trust for the profile folder it answers', async () => {
     store.use(WORK)
-    await call('claudeAccount.start', { args: [] })
+    await call('claudeAccount.start', {})
     expect(trusted).toEqual([{ dir: join(base, 'profiles', WORK), paneId: 'p1' }])
   })
 
   it('prepares trust in the Default account’s config while it is current', async () => {
-    await call('claudeAccount.start', { args: [] })
+    await call('claudeAccount.start', {})
     expect(trusted).toEqual([{ dir: '', paneId: 'p1' }])
   })
 
@@ -270,7 +270,7 @@ describe('claudeAccount.start', () => {
     ['manager', { manager: true }],
   ])('prepares trust for a %s pane against the Default account only', async (_name, extra) => {
     store.use(WORK)
-    await call('claudeAccount.start', { args: [] }, ctx(extra))
+    await call('claudeAccount.start', {}, ctx(extra))
     expect(trusted).toEqual([{ dir: '', paneId: 'p1' }])
   })
 
@@ -278,32 +278,33 @@ describe('claudeAccount.start', () => {
     expect(registered.get('claudeAccount.start')?.cap).toBeUndefined()
   })
 
-  it('ignores arguments that are not strings', async () => {
-    expect(await call('claudeAccount.start', { args: [1, null, '--resume', 'x'] })).toEqual({
-      dir: '',
+  it('answers the current account to a resume too, whatever the arguments say', async () => {
+    store.use(WORK)
+    expect(await call('claudeAccount.start', { args: ['--resume', 'x'] })).toEqual({
+      dir: join(base, 'profiles', WORK),
     })
-    expect(await call('claudeAccount.start', { args: 'nope' })).toEqual({ dir: '' })
   })
 })
 
-describe('remembering the account of a session', () => {
-  it('stores the account the pane started on when the agent reports its session', async () => {
-    store.use(WORK)
-    await call('claudeAccount.start', { args: [] })
-    store.use('default')
-    vi.mocked(resolveExternal).mockReturnValue({ kind: 'pane', paneId: 'p1' } as never)
-    resumeListener?.('ext-p1', { agent: 'claude', id: 'session-1' })
-    expect(store.accountOfSession('session-1')).toBe(WORK)
+describe('moving sessions on a switch', () => {
+  it('CLA-M6 moves the running sessions after a switch from a window', async () => {
+    expect(await ipc.get('claude-accounts:use')?.(windowEvent, WORK)).toBe(true)
+    expect(switched).toHaveBeenCalledTimes(1)
   })
 
-  it('ignores another agent’s session and a pane it cannot resolve', async () => {
-    await call('claudeAccount.start', { args: [] })
-    vi.mocked(resolveExternal).mockReturnValue({ kind: 'pane', paneId: 'p1' } as never)
-    resumeListener?.('ext-p1', { agent: 'codex', id: 'session-2' })
-    vi.mocked(resolveExternal).mockReturnValue(undefined)
-    resumeListener?.('ext-p1', { agent: 'claude', id: 'session-3' })
-    expect(store.accountOfSession('session-2')).toBeUndefined()
-    expect(store.accountOfSession('session-3')).toBeUndefined()
+  it('moves them after a switch the human allowed on the card', async () => {
+    await call('account.switch', { target: '2' })
+    expect(switched).toHaveBeenCalledTimes(1)
+  })
+
+  it('moves nothing when no switch happened', async () => {
+    await ipc.get('claude-accounts:use')?.(guestEvent, WORK)
+    request.mockResolvedValueOnce('deny')
+    await call('account.switch', { target: '2' })
+    store.setEnabled(WORK, false)
+    await ipc.get('claude-accounts:use')?.(windowEvent, WORK)
+    await call('account.switch', { target: '2' })
+    expect(switched).not.toHaveBeenCalled()
   })
 })
 
@@ -394,7 +395,7 @@ describe('a damaged store', () => {
     ipc.clear()
     registerClaudeAccountsWiring({
       claudeAccounts: damaged,
-      agentResumes: { subscribe: () => {} } as never,
+      accountMoves: { switched: async () => {} },
       workspaceSandboxes: { isEnabled: () => false },
       scratchFolders: { isScratch: () => false },
       workspaceWindowId: () => '1',
