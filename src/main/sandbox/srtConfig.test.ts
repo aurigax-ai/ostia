@@ -479,3 +479,28 @@ describe('folderProblem', () => {
     expect(folderProblem('/srv/project', guardedPaths)).toBeNull()
   })
 })
+
+describe('hook link targets', () => {
+  const config = (hookLinks: string[], denyRead: string[] = []) =>
+    buildSrtConfig(
+      { allowRead: [], denyRead, domains: [], controls: DEFAULT_CONTROLS },
+      { ...paths, dataDirs: ['/home/u/.local/share/ostia'], hookLinks },
+    ).filesystem
+
+  it('opens a target for reading and never for writing', () => {
+    const fs = config(['/home/u/tools/hook.sh'])
+    expect(fs.allowRead).toContain('/home/u/tools/hook.sh')
+    expect(fs.denyWrite).toContain('/home/u/tools/hook.sh')
+    expect(fs.allowWrite).not.toContain('/home/u/tools/hook.sh')
+  })
+
+  it('leaves out a target in Ostia data or one the human hid', () => {
+    const fs = config(
+      ['/home/u/.local/share/ostia/vault.json', '/home/u/tools/hook.sh'],
+      ['/home/u/tools'],
+    )
+    expect(fs.allowRead).not.toContain('/home/u/.local/share/ostia/vault.json')
+    expect(fs.allowRead).not.toContain('/home/u/tools/hook.sh')
+    expect(fs.denyWrite).not.toContain('/home/u/.local/share/ostia/vault.json')
+  })
+})
