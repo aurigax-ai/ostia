@@ -1,3 +1,4 @@
+import { GridFourIcon } from '@phosphor-icons/react'
 import type { AttentionState } from '@shared/attention/attention'
 import { Hint } from '@/components/common/Hint'
 import { fmt, useDict } from '@/lib/app/useDict'
@@ -6,7 +7,7 @@ import { allPanes } from '@/lib/layout/tree'
 import type { SplitNode } from '@/lib/layout/types'
 import { cn } from '@/lib/utils'
 import { useAttentionStore } from '@/stores/agents/attentionStore'
-import { focusPane, SplitTabGlyph, tabDragProps } from './SplitTab'
+import { closeSplitTabOnMiddleClick, focusPane, tabDragProps } from './SplitTab'
 
 const COUNTED = ['waiting', 'error', 'working', 'done'] as const
 
@@ -69,6 +70,7 @@ export function FoldedSplitTab({
       data-tab-id={tab.id}
       data-attention={mark ?? undefined}
       {...tabDragProps(tab.id, workspaceId, true)}
+      {...closeSplitTabOnMiddleClick(tab.id, workspaceId)}
     >
       <Hint label={parts.join(', ')} side="bottom">
         <button
@@ -80,7 +82,7 @@ export function FoldedSplitTab({
           className="split-tab-fold-main"
           onClick={() => focusPane(open.id)}
         >
-          <SplitTabGlyph tab={tab} focusedId={null} />
+          <GridFourIcon size={16} className="pane-kind" aria-hidden />
           {mark ? <span className="pane-attn-mark" aria-hidden /> : null}
           <span className="split-tab-name">{name}</span>
           <span className="split-tab-fold-count text-ui-xs">{panes.length}</span>
