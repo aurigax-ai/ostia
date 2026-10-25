@@ -8,8 +8,10 @@ import { registerPreviewScheme } from './artifacts/previewScheme'
 import { keepTestCrashDumps } from './diagnostics/testCrashDumps'
 import { VIEWER_SCHEME_PRIVILEGES } from './files/viewers/viewerScheme'
 import { discreteGpu, gpuStartPlan, readSwitcherooGpus } from './platform/discreteGpu'
+import { readNoNewPrivs } from './platform/noNewPrivs'
+import { relaunchWithoutNoNewPrivs } from './platform/noNewPrivsRelaunch'
 import { offerOldDirsMove } from './platform/oldDirsPrompt'
-import { relaunchApp } from './platform/relaunch'
+import { launchSelf, relaunchApp } from './platform/relaunch'
 import {
   appDataDir,
   dataHome,
@@ -52,8 +54,19 @@ function relaunchedOnDiscreteGpu(): boolean {
   return false
 }
 
+function relaunchedWithoutNoNewPrivs(): boolean {
+  const relaunched = relaunchWithoutNoNewPrivs({
+    noNewPrivs: readNoNewPrivs(),
+    env: process.env,
+    launch: launchSelf,
+    warn: (line) => console.error(line),
+  })
+  if (relaunched) app.exit(0)
+  return relaunched
+}
+
 async function start(): Promise<void> {
-  if (relaunchedOnDiscreteGpu()) return
+  if (relaunchedWithoutNoNewPrivs() || relaunchedOnDiscreteGpu()) return
   registerPreviewScheme([VIEWER_SCHEME_PRIVILEGES])
   await app.whenReady()
   const preset = presetAnswer()

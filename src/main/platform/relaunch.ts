@@ -1,12 +1,15 @@
 import { app } from 'electron'
 import { launchThroughSystemd } from './systemdLaunch'
 
-export function relaunchApp(): void {
-  const launched = launchThroughSystemd({
+export function launchSelf(env: NodeJS.ProcessEnv): boolean {
+  return launchThroughSystemd({
     exe: process.env.APPIMAGE ?? process.execPath,
     args: process.argv.slice(1),
-    env: process.env,
+    env,
     waitForPid: process.pid,
   })
-  if (!launched) app.relaunch()
+}
+
+export function relaunchApp(): void {
+  if (!launchSelf(process.env)) app.relaunch()
 }

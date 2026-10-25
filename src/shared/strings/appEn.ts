@@ -192,10 +192,6 @@ export const appEn = {
       textAndImage: 'Copied text and image',
     },
   },
-  noNewPrivs: {
-    message:
-      'sudo will not work in terminals: {product} was started with “no new privileges” inherited from the program that launched it. Quit {product} and start it from the desktop to fix this.',
-  },
   portable: {
     allArtifacts: 'All artifacts',
     back: 'Back to latest',
