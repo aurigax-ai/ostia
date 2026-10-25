@@ -10,6 +10,7 @@ import type {
 interface ClaudeAccountsApi {
   state: () => Promise<ClaudeAccountsState>
   onChange: (cb: (state: ClaudeAccountsState) => void) => () => void
+  onSessionStays: (cb: (paneId: string) => void) => () => void
   add: (workspaceId: string | null) => Promise<AddAccountOutcome>
   remove: (id: string) => Promise<RemoveAccountOutcome>
   use: (id: string) => Promise<boolean>

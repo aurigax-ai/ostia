@@ -35,6 +35,7 @@ const PUSHED = [
   'chatTools:always-grants',
   'chatTools:mcp-status',
   'claude-accounts:changed',
+  'claude-accounts:session-stays',
   'command:invoke',
   'diagnostics:test-crash',
   'extensions:agent-offer',

@@ -5,6 +5,7 @@ import { parseScrollbackHistory } from '../../shared/terminal/scrollbackHistory'
 import { startAgent } from '../agent/agentWiring'
 import { registerAgentTranscriptIpc } from '../agents/agentTranscript'
 import { registerAgentWiring } from '../agents/agentWiring'
+import { createAccountMoves } from '../agents/claudeAccounts/accountMovesWiring'
 import { registerClaudeAccountsWiring } from '../agents/claudeAccounts/claudeAccountsWiring'
 import { registerFolderTrustIpc } from '../agents/folderTrustIpc'
 import { currentPlaybookFiles, setPlaybookSettings } from '../agents/playbookFiles'
@@ -156,7 +157,11 @@ export function boot(wiring: Wiring): void {
   registerBrowserGuestIpc({ ...wiring })
   registerWorkspaceIpc()
   registerSandboxIpcWiring({ ...wiring })
-  registerPtyIpc({ ...wiring })
+  const accountMoves = createAccountMoves({ ...wiring })
+  registerPtyIpc({
+    ...wiring,
+    hibernateHeld: (paneId, writes) => accountMoves.holds(paneId, writes),
+  })
   registerHistoryIpc({ ...wiring })
   registerFsIpc({ ...wiring })
   registerSelectionIpc(reachesPane, redactor.text, () => services.files?.viewers ?? null)
@@ -173,6 +178,7 @@ export function boot(wiring: Wiring): void {
   registerFolderTrustIpc({ ...wiring, readSettingsFile })
   registerClaudeAccountsWiring({
     ...wiring,
+    accountMoves,
     trustForStart: createStartTrust({ ...wiring, readSettingsFile }),
   })
   const { notifyDeps } = registerNotifyWiring({ ...wiring })

@@ -1,5 +1,5 @@
 import { app, ipcMain } from 'electron'
-import type { HibernateOutcome } from '../../../shared/agents/agentWork'
+import { HIBERNATE_HELD, type HibernateOutcome } from '../../../shared/agents/agentWork'
 import type {
   PaneActivity,
   PromptContext,
@@ -39,6 +39,7 @@ interface PtyIpcDeps {
   paneWaking: PaneWaking
   paneStartErrors: Map<string, string>
   hibernatePty: PtyStop['hibernatePty']
+  hibernateHeld: (paneId: string, writes: number) => boolean
   killPty: PtyStop['killPty']
   releasePtyFlow: PtyIo['releasePtyFlow']
   paneActivity: PtyQueries['paneActivity']
@@ -59,6 +60,7 @@ function registerPtyLifecycleIpc({
   keptShells,
   agentWork,
   hibernatePty,
+  hibernateHeld,
   killPty,
   windowOfPane,
   paneStartErrors,
@@ -97,7 +99,9 @@ function registerPtyLifecycleIpc({
     if (!entry) return 'no-terminal'
     const busy = backgroundWork(agentWork.reason(paneId), await readProcessTable(), entry.pty.pid)
     if (busy) return busy
-    return ptys.get(paneId) === entry && hibernatePty(paneId) ? 'hibernated' : 'no-terminal'
+    if (ptys.get(paneId) !== entry) return 'no-terminal'
+    if (hibernateHeld(paneId, entry.input.writes)) return HIBERNATE_HELD
+    return hibernatePty(paneId) ? 'hibernated' : 'no-terminal'
   })
 
   ipcMain.handle('pty:kept-waiting', async (): Promise<string[]> => {

@@ -25,6 +25,7 @@ export const agentsBridge: Pick<
   claudeAccounts: {
     state: () => ipcRenderer.invoke('claude-accounts:state'),
     onChange: (cb) => listen('claude-accounts:changed', cb),
+    onSessionStays: (cb) => listen('claude-accounts:session-stays', cb),
     add: (workspaceId) => ipcRenderer.invoke('claude-accounts:add', workspaceId),
     remove: (id) => ipcRenderer.invoke('claude-accounts:remove', id),
     use: (id) => ipcRenderer.invoke('claude-accounts:use', id),
@@ -39,7 +40,7 @@ export const agentsBridge: Pick<
   agentSession: {
     info: (resume) => ipcRenderer.invoke('agent:session-info', resume),
     claimResume: (paneId, resume) => ipcRenderer.invoke('agent:claim-resume', paneId, resume),
-    folderTrust: (paneId, sessionId) => ipcRenderer.invoke('agent:folder-trust', paneId, sessionId),
+    folderTrust: (paneId) => ipcRenderer.invoke('agent:folder-trust', paneId),
     trustFolder: (paneId, folder) => ipcRenderer.invoke('agent:trust-folder', paneId, folder),
   },
 }

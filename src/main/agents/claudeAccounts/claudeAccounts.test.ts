@@ -312,7 +312,7 @@ describe('removing and choosing an account', () => {
   it('refuses while a pane runs Claude on the account, and removes it once that ends', async () => {
     const id = await addWork()
     store.use(id)
-    await accounts.startDirectory([], 'pane-1')
+    await accounts.startDirectory('pane-1')
     running.add('pane-1')
     expect(await accounts.remove(id)).toBe('running')
     expect(existsSync(join(root, id))).toBe(true)
@@ -323,7 +323,7 @@ describe('removing and choosing an account', () => {
 
   it('ignores a running pane that is on another account', async () => {
     const id = await addWork()
-    await accounts.startDirectory([], 'pane-1')
+    await accounts.startDirectory('pane-1')
     running.add('pane-1')
     expect(await accounts.remove(id)).toBe('removed')
   })
@@ -479,7 +479,7 @@ describe('a Claude still running after Ostia restarted', () => {
     await vi.advanceTimersByTimeAsync(1000)
     const id = store.accounts()[0].id
     store.use(id)
-    await accounts.startDirectory([], 'pane-kept')
+    await accounts.startDirectory('pane-kept')
     const restarted = new ClaudeAccounts({
       store: new ClaudeAccountsStore(join(base, 'claude-accounts.json')),
       root,
@@ -509,46 +509,30 @@ describe('which profile a Claude starts on', () => {
   })
 
   it('answers no folder while the default account is current, and syncs nothing', async () => {
-    expect(await accounts.startDirectory([], 'pane-1')).toBe('')
-    expect(accounts.configDirFor(null)).toBeUndefined()
+    expect(await accounts.startDirectory('pane-1')).toBe('')
+    expect(accounts.configDir()).toBeUndefined()
     expect(synced).toEqual([])
   })
 
-  it('answers the current account’s folder for a new session, after copying the default’s settings into it', async () => {
+  it('answers the current account’s folder, after copying the default’s settings into it', async () => {
     store.use(WORK)
-    expect(await accounts.startDirectory(['--model', 'opus'], 'pane-1')).toBe(join(root, WORK))
+    expect(await accounts.startDirectory('pane-1')).toBe(join(root, WORK))
     expect(synced).toEqual([join(root, WORK)])
-    expect(accounts.configDirFor(null)).toBe(join(root, WORK))
+    expect(accounts.configDir()).toBe(join(root, WORK))
   })
 
-  it('starts a resumed or forked session on the account it ran on, whatever is current now', async () => {
-    store.rememberSession('old-session', WORK)
-    store.rememberSession('default-session', 'default')
+  it('CLA-M5 starts a resumed or woken session on the current account, whatever it ran on before', async () => {
     store.use(WORK)
-    expect(await accounts.startDirectory(['--resume', 'default-session'], 'pane-1')).toBe('')
+    expect(await accounts.startDirectory('pane-1')).toBe(join(root, WORK))
     store.use('default')
-    expect(
-      await accounts.startDirectory(['--resume', 'old-session', '--fork-session'], 'pane-1'),
-    ).toBe(join(root, WORK))
-    expect(accounts.configDirFor('old-session')).toBe(join(root, WORK))
+    expect(await accounts.startDirectory('pane-1')).toBe('')
+    expect(store.accountOfPane('pane-1')).toBe('default')
   })
 
-  it('falls back to the current account when the remembered one was removed', async () => {
-    store.rememberSession('old-session', WORK)
-    await accounts.remove(WORK)
-    expect(await accounts.startDirectory(['--resume', 'old-session'], 'pane-1')).toBe('')
-  })
-
-  it('remembers the account a pane started on with the session id it then reports', async () => {
+  it('remembers the account each pane started on', async () => {
     store.use(WORK)
-    await accounts.startDirectory([], 'pane-1')
+    await accounts.startDirectory('pane-1')
     store.use('default')
-    accounts.sessionStarted('pane-1', 'fresh-session')
-    expect(store.accountOfSession('fresh-session')).toBe(WORK)
-  })
-
-  it('remembers nothing for a pane Ostia never chose an account for', () => {
-    accounts.sessionStarted('pane-unknown', 'typed-by-hand')
-    expect(store.accountOfSession('typed-by-hand')).toBeUndefined()
+    expect(store.accountOfPane('pane-1')).toBe(WORK)
   })
 })

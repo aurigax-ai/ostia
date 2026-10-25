@@ -283,6 +283,9 @@ export const workspacesZhHant: typeof workspacesEn = {
     sandboxRestart: '重新啟動以套用',
     sandboxRestartHint: '沙箱設定已變更。重新啟動此 shell 以套用。',
     searchTabs: '搜尋分頁',
+    sessionStays:
+      '這個 Claude session 仍使用它啟動時的帳號：它沒有可以接回的 session。結束 Claude 再重新啟動，才會使用你切換的帳號。',
+    sessionStaysLabel: 'Claude 帳號未變更',
     splitDown: '向下分割',
     splitRight: '向右分割',
     splitTab: '分割分頁，{layout}：{panes}',

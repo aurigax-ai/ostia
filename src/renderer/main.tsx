@@ -45,6 +45,7 @@ import { startAgentGroupsSync } from '@/stores/agents/agentGroupsStore'
 import { startApprovals } from '@/stores/agents/approvalsStore'
 import { startMail } from '@/stores/agents/mailStore'
 import { startQuestions } from '@/stores/agents/questionsStore'
+import { startSessionStays } from '@/stores/agents/sessionStaysStore'
 import { startKeymapSync } from '@/stores/app/keymapStore'
 import { startPlaybookPush } from '@/stores/app/playbookPush'
 import { useSettingsStore } from '@/stores/app/settingsStore'
@@ -170,6 +171,7 @@ async function boot(): Promise<void> {
   startQuestions()
   startSyncAttention()
   startMail()
+  startSessionStays()
   startUserActions()
   startViews()
   startUpdateWatch()

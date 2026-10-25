@@ -17,8 +17,8 @@ import { listWorkspaces } from '../../panes/paneList'
 import { storePath } from '../../platform/jsonStore'
 import type { WorkspaceSandboxes } from '../../sandbox/workspaceSandboxes'
 import type { ScratchFolders } from '../../workspaces/scratchFolders'
-import type { AgentResumes } from '../agentResumes'
 import type { AgentRunningPanes } from '../agentRunning'
+import type { AccountMoves } from './accountMoves'
 import {
   accountEmail,
   accountsRoot,
@@ -103,7 +103,7 @@ export function createClaudeAccounts(deps: CreateDeps): ClaudeAccounts {
 
 interface RegisterDeps {
   claudeAccounts: ClaudeAccounts
-  agentResumes: AgentResumes
+  accountMoves: Pick<AccountMoves, 'switched'>
   workspaceSandboxes: Pick<WorkspaceSandboxes, 'isEnabled'>
   scratchFolders: Pick<ScratchFolders, 'isScratch'>
   workspaceWindowId: (workspaceId: string) => string | undefined
@@ -163,8 +163,14 @@ export function registerClaudeAccountsWiring(deps: RegisterDeps): void {
   ipcMain.handle('claude-accounts:remove', (e, id: unknown) =>
     fromWindow(e) && typeof id === 'string' ? claudeAccounts.remove(id) : 'unknown',
   )
+  const use = async (id: string): Promise<boolean> => {
+    if (!(await claudeAccounts.use(id))) return false
+    void deps.accountMoves.switched()
+    return true
+  }
+
   ipcMain.handle('claude-accounts:use', (e, id: unknown) =>
-    fromWindow(e) && typeof id === 'string' ? claudeAccounts.use(id) : false,
+    fromWindow(e) && typeof id === 'string' ? use(id) : false,
   )
   ipcMain.handle('claude-accounts:set-enabled', (e, id: unknown, enabled: unknown) =>
     fromWindow(e) && typeof id === 'string' && typeof enabled === 'boolean'
@@ -179,12 +185,8 @@ export function registerClaudeAccountsWiring(deps: RegisterDeps): void {
   )
 
   registerControlMethod('claudeAccount.start', {
-    handler: async (params, ctx) => {
-      const args = (params as { args?: unknown } | null)?.args
-      const argv = Array.isArray(args) ? args.filter((a): a is string => typeof a === 'string') : []
-      const dir = defaultOnly(ctx)
-        ? ''
-        : await claudeAccounts.startDirectory(argv, ctx.identity.paneId)
+    handler: async (_params, ctx) => {
+      const dir = defaultOnly(ctx) ? '' : await claudeAccounts.startDirectory(ctx.identity.paneId)
       await deps.trustForStart(dir, ctx.identity)
       return { dir }
     },
@@ -222,15 +224,9 @@ export function registerClaudeAccountsWiring(deps: RegisterDeps): void {
       if (!account) return { ok: false, error: 'unknown-account' }
       if (!account.enabled) return { ok: false, error: 'account-off' }
       if (!(await humanApproves(ctx, account))) return { ok: false, error: 'not-approved' }
-      if (!(await claudeAccounts.use(account.id))) return { ok: false, error: 'unavailable' }
+      if (!(await use(account.id))) return { ok: false, error: 'unavailable' }
       return { ok: true, number: accounts.indexOf(account) + 1, email: account.email }
     },
-  })
-
-  deps.agentResumes.subscribe((externalPaneId, resume) => {
-    if (resume.agent !== 'claude') return
-    const pane = resolveExternal(externalPaneId)
-    if (pane?.kind === 'pane') claudeAccounts.sessionStarted(pane.paneId, resume.id)
   })
 }
 

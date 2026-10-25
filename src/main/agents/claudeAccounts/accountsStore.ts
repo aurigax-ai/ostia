@@ -3,7 +3,6 @@ import { DEFAULT_ACCOUNT, isProfileId } from '../../../shared/claudeAccounts/cla
 import { saveJson } from '../../platform/jsonStore'
 
 const FORMAT = 1
-const SESSIONS_MAX = 500
 const PANES_MAX = 256
 const EMAIL_MAX = 320
 
@@ -16,7 +15,6 @@ export interface StoredAccount {
 interface StoredAccounts {
   accounts: StoredAccount[]
   current: string
-  sessions: Record<string, string>
   panes: Record<string, string>
   checkUsage: boolean
   disabled: string[]
@@ -48,7 +46,6 @@ function parseStored(raw: unknown): StoredAccounts | null {
   return {
     accounts,
     current,
-    sessions: knownAccounts(stored.sessions, known),
     panes: knownAccounts(stored.panes, known),
     checkUsage: stored.checkUsage === true,
     disabled: Array.isArray(stored.disabled)
@@ -72,7 +69,6 @@ function knownAccounts(raw: unknown, known: ReadonlySet<string>): Record<string,
 const EMPTY = (): StoredAccounts => ({
   accounts: [],
   current: DEFAULT_ACCOUNT,
-  sessions: {},
   panes: {},
   checkUsage: false,
   disabled: [],
@@ -165,7 +161,6 @@ export class ClaudeAccountsStore {
     this.data.disabled = this.data.disabled.filter((other) => other !== id)
     if (this.data.current === id) this.data.current = DEFAULT_ACCOUNT
     const kept = ([, account]: [string, string]) => account !== id
-    this.data.sessions = Object.fromEntries(Object.entries(this.data.sessions).filter(kept))
     this.data.panes = Object.fromEntries(Object.entries(this.data.panes).filter(kept))
     this.save()
     return true
@@ -178,10 +173,6 @@ export class ClaudeAccountsStore {
     this.data.current = id
     this.save()
     return true
-  }
-
-  accountOfSession(sessionId: string): string | undefined {
-    return Object.hasOwn(this.data.sessions, sessionId) ? this.data.sessions[sessionId] : undefined
   }
 
   rememberPane(paneId: string, accountId: string): void {
@@ -201,15 +192,6 @@ export class ClaudeAccountsStore {
     return Object.entries(this.data.panes).flatMap(([id, account]) =>
       account === accountId ? [id] : [],
     )
-  }
-
-  rememberSession(sessionId: string, accountId: string): void {
-    if (this.damaged || (accountId !== DEFAULT_ACCOUNT && !this.has(accountId))) return
-    if (this.data.sessions[sessionId] === accountId) return
-    const sessions = Object.entries(this.data.sessions).filter(([id]) => id !== sessionId)
-    sessions.push([sessionId, accountId])
-    this.data.sessions = Object.fromEntries(sessions.slice(-SESSIONS_MAX))
-    this.save()
   }
 
   private read(): StoredAccounts | null {

@@ -8,7 +8,6 @@ import {
   type RemoveAccountOutcome,
   type SetEnabledOutcome,
   type SubmitCodeOutcome,
-  sessionIdOfArgs,
 } from '../../../shared/claudeAccounts/claudeAccounts'
 import {
   acceptedProfileFolders,
@@ -245,8 +244,8 @@ export class ClaudeAccounts {
     return true
   }
 
-  async startDirectory(args: readonly string[], paneId: string): Promise<string> {
-    const account = this.accountFor(sessionIdOfArgs(args))
+  async startDirectory(paneId: string): Promise<string> {
+    const account = this.deps.store.current()
     this.deps.store.rememberPane(paneId, account)
     if (account === DEFAULT_ACCOUNT) return ''
     const dir = join(this.deps.root, account)
@@ -254,26 +253,21 @@ export class ClaudeAccounts {
     return dir
   }
 
-  configDirFor(sessionId: string | null): string | undefined {
-    const account = this.accountFor(sessionId)
-    return account === DEFAULT_ACCOUNT ? undefined : join(this.deps.root, account)
+  current(): string {
+    return this.deps.store.current()
   }
 
-  sessionStarted(paneId: string, sessionId: string): void {
-    const account = this.deps.store.accountOfPane(paneId)
-    if (account) this.deps.store.rememberSession(sessionId, account)
+  accountOfPane(paneId: string): string | undefined {
+    return this.deps.store.accountOfPane(paneId)
+  }
+
+  configDir(): string | undefined {
+    const account = this.deps.store.current()
+    return account === DEFAULT_ACCOUNT ? undefined : join(this.deps.root, account)
   }
 
   private runningOn(id: string): boolean {
     return this.deps.store.panesOn(id).some((paneId) => this.deps.agentRunning(paneId))
-  }
-
-  private accountFor(sessionId: string | null): string {
-    const { store } = this.deps
-    const remembered = sessionId ? store.accountOfSession(sessionId) : undefined
-    return remembered && (remembered === DEFAULT_ACCOUNT || store.has(remembered))
-      ? remembered
-      : store.current()
   }
 
   private async check(): Promise<boolean> {

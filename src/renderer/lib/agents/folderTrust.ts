@@ -23,10 +23,9 @@ export async function claudeTrustGate(
   paneId: string,
   agent: ResumableAgent,
   onHold?: () => void,
-  sessionId?: string,
 ): Promise<boolean> {
   if (agent !== 'claude') return true
-  const verdict = await window.ostia.agentSession.folderTrust(paneId, sessionId).catch(() => null)
+  const verdict = await window.ostia.agentSession.folderTrust(paneId).catch(() => null)
   if (verdict?.state !== 'ask') return true
   if (!workspaceOfPane(paneId)) return false
   settle(paneId, false)

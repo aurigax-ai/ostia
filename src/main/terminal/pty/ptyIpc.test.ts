@@ -12,6 +12,11 @@ vi.mock('electron', () => ({
   shell: {},
 }))
 
+vi.mock('../../agents/agentWork', () => ({
+  backgroundWork: (reported: string | null) => reported,
+  readProcessTable: async () => [],
+}))
+
 import type { PtyAttachResult } from '../../../shared/terminal/ptyApi'
 import { PaneInput } from '../../panes/paneInput'
 import { registerPtyIpc } from './ptyIpc'
@@ -246,5 +251,47 @@ describe('pty:write', () => {
     send('p1', 'fix the cart\r', 'key')
     expect(write).not.toHaveBeenCalled()
     expect(blocked.input.claimHumanPrompt('x')).toBeNull()
+  })
+})
+
+describe('pty:hibernate', () => {
+  const ptys = new Map<string, unknown>()
+  const hibernatePty = vi.fn(() => true)
+  let reported: string | null
+  let held: (paneId: string, writes: number) => boolean
+
+  beforeEach(() => {
+    handlers.clear()
+    ptys.clear()
+    hibernatePty.mockClear()
+    reported = null
+    held = () => false
+    registerPtyIpc({
+      ptys,
+      hibernatePty,
+      hibernateHeld: (paneId: string, writes: number) => held(paneId, writes),
+      agentWork: { reason: () => reported },
+      keptShells: {},
+    } as unknown as Parameters<typeof registerPtyIpc>[0])
+  })
+
+  const hibernate = (paneId: string) => handlers.get('pty:hibernate')?.(event, paneId)
+
+  it('stops an idle pane and refuses one with reported work', async () => {
+    ptys.set('p1', { pty: { pid: 1 }, input: new PaneInput(Date.now) })
+    reported = 'subagent'
+    expect(await hibernate('p1')).toBe('subagent')
+    reported = null
+    expect(await hibernate('p1')).toBe('hibernated')
+    expect(hibernatePty).toHaveBeenCalledTimes(1)
+  })
+
+  it('CLA-M4 answers typed and stops nothing when input reached the pane during an account move', async () => {
+    const input = new PaneInput(Date.now)
+    ptys.set('p1', { pty: { pid: 1 }, input })
+    held = (paneId, writes) => paneId === 'p1' && writes > 0
+    input.note('x', 'key')
+    expect(await hibernate('p1')).toBe('typed')
+    expect(hibernatePty).not.toHaveBeenCalled()
   })
 })

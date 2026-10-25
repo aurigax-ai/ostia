@@ -1,5 +1,3 @@
-import { resumeFromHookPayload } from '../agents/agentResume'
-
 export const DEFAULT_ACCOUNT = 'default'
 
 const ACCOUNT_ID = /^[0-9a-f]{16}$/
@@ -68,15 +66,6 @@ export const NO_ACCOUNTS: ClaudeAccountsState = {
   recoverable: 0,
   checkUsage: false,
   usageAvailable: false,
-}
-
-export function sessionIdOfArgs(args: readonly string[]): string | null {
-  for (let i = 0; i < args.length; i++) {
-    const arg = args[i]
-    if (arg === '--resume' || arg === '-r') return resumeFromHookPayload(args[i + 1] ?? '')
-    if (arg.startsWith('--resume=')) return resumeFromHookPayload(arg.slice('--resume='.length))
-  }
-  return null
 }
 
 export function accountOfTarget(
