@@ -2,6 +2,7 @@ import type { GatewayPairRequest, GatewayRemoteStatus } from '@shared/gateway/ga
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { PairRequests } from './GatewayPairing'
 import { GatewaySection } from './GatewaySection'
 
 const STATUS: GatewayRemoteStatus = {
@@ -137,5 +138,17 @@ describe('GatewaySection pairing', () => {
     await user.click(await screen.findByRole('switch', { name: 'Discoverable' }))
     expect(window.ostia.gateway.setDiscoverable).toHaveBeenCalledWith(true)
     await waitFor(() => expect(window.ostia.gateway.status).toHaveBeenCalledTimes(2))
+  })
+})
+
+describe('PairRequests', () => {
+  it('names the check code the phone must show', () => {
+    render(
+      <PairRequests
+        requests={[{ requestId: 'r1', name: 'Pixel', checkCode: '482913', replaces: null }]}
+        onAnswer={() => undefined}
+      />,
+    )
+    expect(screen.getByText('Approve only if the phone shows 482 913.')).toBeInTheDocument()
   })
 })
