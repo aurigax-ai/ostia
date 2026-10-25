@@ -87,13 +87,3 @@ export function unflatten(leaves: ReadonlyMap<string, unknown>): JsonObject {
   }
   return root
 }
-
-export function withValueAt(value: JsonObject, path: readonly string[], next: unknown): JsonObject {
-  const leaves = flatten(value)
-  const prefix = pathKey(path).slice(0, -1)
-  for (const key of [...leaves.keys()]) {
-    if (key === pathKey(path) || key.startsWith(`${prefix},`)) leaves.delete(key)
-  }
-  if (next !== undefined) leaves.set(pathKey(path), next)
-  return unflatten(leaves)
-}

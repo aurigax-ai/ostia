@@ -12,12 +12,10 @@ import { useDict } from '@/lib/app/useDict'
 
 export function ServerLeaveDialog({
   open,
-  last,
   onClose,
   onConfirm,
 }: {
   open: boolean
-  last: boolean
   onClose: () => void
   onConfirm: () => void
 }): JSX.Element {
@@ -32,9 +30,7 @@ export function ServerLeaveDialog({
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle>{d.server.leaveTitle}</AlertDialogTitle>
-          <AlertDialogDescription>
-            {last ? d.server.leaveBodyLast : d.server.leaveBody}
-          </AlertDialogDescription>
+          <AlertDialogDescription>{d.server.leaveBody}</AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel size="sm">{d.server.cancel}</AlertDialogCancel>

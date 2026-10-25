@@ -8,8 +8,6 @@ import { createKeyStore } from './keyStore'
 import { ServerAccount } from './serverAccount'
 import { createServerClient } from './serverClient'
 import { ServerConfig } from './serverConfig'
-import { ServerDevices } from './serverDevices'
-import { ServerElevation } from './serverElevation'
 import { startServerHeartbeat } from './serverHeartbeat'
 import { registerServerIpc } from './serverIpc'
 import { serverRoutes } from './serverRoutes'
@@ -66,11 +64,8 @@ export function startServer({ broadcast, openExternalSafe }: ServerStartDeps): S
     deviceName: () => friendlyName(),
   })
   account.onChange(() => broadcast('server:changed', account.status()))
-  account.onDevicesChanged(() => broadcast('server:devices-changed', null))
   registerServerIpc({
     account,
-    devices: new ServerDevices(account),
-    elevation: new ServerElevation(account),
     allowInsecure,
     openExternal: openExternalSafe,
   })

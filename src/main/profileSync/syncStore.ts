@@ -2,33 +2,17 @@ import { readFileSync, utimesSync } from 'node:fs'
 import { join } from 'node:path'
 import { writeFileAtomic } from '@aurigax-ai/ostia-extension-sdk/atomicWrite'
 import { isRecord } from '@aurigax-ai/ostia-extension-sdk/contract/isRecord'
-import type { SecretSyncStatus, SyncOffer } from '../../shared/profileSync/profileSync'
+import type { SecretSyncStatus } from '../../shared/profileSync/profileSync'
 import { type JsonObject, readProfileFolders, readTopFile, SETTINGS_FILE } from './profile'
 
 const STATE_FILE = 'sync-state.json'
 export const BASE_DIR = 'sync-base'
 const BASE_FILE = 'base.json'
 
-export type Held = { value: unknown } | null
-
-export interface StoredConflict {
-  id: string
-  kind: 'setting' | 'file' | 'secret'
-  key: string
-  local: Held
-  remote: Held
-  winner: 'local' | 'remote'
-  localAt?: number
-  remoteAt?: number
-}
-
 export interface SyncState {
   target: string
   version: string | null
   lastSync: string | null
-  conflicts: StoredConflict[]
-  offers: SyncOffer[]
-  installedAtSync: string[]
   skipped: string[]
   heldBack: string[]
   secrets: SecretSyncStatus | null
@@ -65,9 +49,6 @@ export function createSyncStore(deps: SyncStoreDeps) {
       target,
       version: null,
       lastSync: null,
-      conflicts: [],
-      offers: [],
-      installedAtSync: [],
       skipped: [],
       heldBack: [],
       secrets: null,
@@ -79,9 +60,6 @@ export function createSyncStore(deps: SyncStoreDeps) {
         target,
         version: typeof raw.version === 'string' ? raw.version : null,
         lastSync: typeof raw.lastSync === 'string' ? raw.lastSync : null,
-        conflicts: Array.isArray(raw.conflicts) ? raw.conflicts : [],
-        offers: Array.isArray(raw.offers) ? raw.offers : [],
-        installedAtSync: Array.isArray(raw.installedAtSync) ? raw.installedAtSync : [],
         skipped: Array.isArray(raw.skipped) ? raw.skipped : [],
         heldBack: Array.isArray(raw.heldBack) ? raw.heldBack : [],
         secrets: isRecord(raw.secrets) ? raw.secrets : null,

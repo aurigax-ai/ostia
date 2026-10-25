@@ -14,24 +14,15 @@ import {
   decodeProfile,
   encodeProfile,
   type JsonObject,
-  offerable,
   type Profile,
   removeRegularFile,
   SECRETS_FILE,
   SETTINGS_FILE,
-  type SyncedExtension,
   syncedSettings,
   withLocalOnly,
 } from './profile'
 import type { SecretPlan, SecretSync } from './secrets'
-import {
-  type Held,
-  type LocalProfile,
-  type StoredConflict,
-  type SyncState,
-  type SyncStore,
-  stamp,
-} from './syncStore'
+import { type LocalProfile, type SyncState, type SyncStore, stamp } from './syncStore'
 
 export interface Plan {
   write: boolean
@@ -46,8 +37,6 @@ export class ScanFailed extends Error {}
 
 export interface SyncPlanDeps {
   configDir: string
-  installedExtensions: () => SyncedExtension[]
-  builtinIds: () => string[]
   detectSecrets: (text: string) => Promise<SecretSpan[]>
   secrets?: SecretSync
 }
@@ -63,7 +52,6 @@ interface PlanInputs {
   local: LocalProfile
   theirs: Profile
   base: Profile | null
-  builtin: string[]
   remoteTime: (path: string) => number
   secretPlan: SecretPlan | null
 }
@@ -79,13 +67,6 @@ interface FilesOutcome {
   merge: Merged<string>
   outgoing: Map<string, string>
 }
-
-interface ExtensionsOutcome {
-  extensions: { id: string; marketplace: string }[]
-  installedIds: Set<string>
-}
-
-const held = (value: unknown): Held => (value === undefined ? null : { value })
 
 const sameFiles = (a: ReadonlyMap<string, string>, b: ReadonlyMap<string, string>): boolean =>
   a.size === b.size && [...a].every(([path, text]) => b.get(path) === text)
@@ -179,36 +160,10 @@ function mergeFiles(inputs: PlanInputs): FilesOutcome {
   return { merge, outgoing }
 }
 
-function mergeExtensions(deps: SyncPlanDeps, inputs: PlanInputs): ExtensionsOutcome {
-  const { state, theirs, base, builtin } = inputs
-  const installed = deps.installedExtensions().filter((e) => !builtin.includes(e.id))
-  const installedIds = new Set(installed.map((e) => e.id))
-  const localExt = new Map(installed.map((e) => [e.id, e.marketplace]))
-  for (const e of base?.extensions ?? []) {
-    if (!installedIds.has(e.id) && !state.installedAtSync.includes(e.id)) {
-      localExt.set(e.id, e.marketplace)
-    }
-  }
-  const remoteExt = new Map(
-    theirs.extensions.filter((e) => !builtin.includes(e.id)).map((e) => [e.id, e.marketplace]),
-  )
-  const baseExt = base ? new Map(base.extensions.map((e) => [e.id, e.marketplace])) : null
-  const extMerge = mergeMaps(
-    baseExt,
-    localExt,
-    remoteExt,
-    (a, b) => a === b,
-    () => 'remote',
-  )
-  const extensions = [...extMerge.merged].map(([id, marketplace]) => ({ id, marketplace }))
-  return { extensions, installedIds }
-}
-
 function outgoingProfile(
   inputs: PlanInputs,
   settings: SettingsOutcome,
   files: FilesOutcome,
-  extensions: ExtensionsOutcome['extensions'],
 ): Map<string, string> {
   const { remote, local, theirs, remoteTime, secretPlan } = inputs
   const times: Record<string, number> = {}
@@ -221,7 +176,6 @@ function outgoingProfile(
   }
   const outgoing = encodeProfile({
     settings: settings.outgoing,
-    extensions,
     files: files.outgoing,
     times,
   })
@@ -236,65 +190,6 @@ function outgoingProfile(
     if (remoteSecrets !== undefined) outgoing.set(SECRETS_FILE, remoteSecrets)
   } else if (secretsOut !== null) outgoing.set(SECRETS_FILE, secretsOut)
   return outgoing
-}
-
-function currentConflicts(
-  inputs: PlanInputs,
-  settings: SettingsOutcome,
-  files: FilesOutcome,
-): StoredConflict[] {
-  const { state, secretPlan } = inputs
-  const mergedSettingsLeaves = settings.merge.merged
-  const mergedFiles = files.merge.merged
-  const stillCurrent = (c: StoredConflict): boolean => {
-    const winner = c.winner === 'local' ? c.local : c.remote
-    const now =
-      c.kind === 'setting'
-        ? mergedSettingsLeaves.get(c.id.slice('setting:'.length))
-        : mergedFiles.get(c.id.slice('file:'.length))
-    return winner === null ? now === undefined : sameJson(now, winner.value)
-  }
-  const fresh: StoredConflict[] = [
-    ...settings.merge.conflicts.map(
-      (c): StoredConflict => ({
-        id: `setting:${c.key}`,
-        kind: 'setting',
-        key: keyPath(c.key).join('.'),
-        local: held(c.local),
-        remote: held(c.remote),
-        winner: c.winner,
-      }),
-    ),
-    ...files.merge.conflicts.map(
-      (c): StoredConflict => ({
-        id: `file:${c.key}`,
-        kind: 'file',
-        key: c.key,
-        local: held(c.local),
-        remote: held(c.remote),
-        winner: c.winner,
-      }),
-    ),
-  ]
-  const secretConflicts: StoredConflict[] = secretPlan?.conflicts
-    ? secretPlan.conflicts.map((c) => ({
-        id: c.id,
-        kind: 'secret',
-        key: c.key,
-        local: null,
-        remote: null,
-        winner: c.winner,
-        localAt: c.localAt,
-        remoteAt: c.remoteAt,
-      }))
-    : state.conflicts.filter((c) => c.kind === 'secret')
-  return [
-    ...state.conflicts.filter(
-      (c) => c.kind !== 'secret' && !fresh.some((f) => f.id === c.id) && stillCurrent(c),
-    ),
-    ...fresh,
-    ...secretConflicts,
-  ]
 }
 
 function planApply(
@@ -350,7 +245,6 @@ async function plan(
   const theirs = decodeProfile(remote.files)
   const baseFiles = store.loadBase(state.target)
   const base: Profile | null = baseFiles ? decodeProfile(baseFiles) : null
-  const builtin = deps.builtinIds()
   const invalid: string[] = []
   const remoteTime = (path: string): number => theirs.times[path] ?? 0
   const inputs: PlanInputs = {
@@ -359,19 +253,15 @@ async function plan(
     local,
     theirs,
     base,
-    builtin,
     remoteTime,
     secretPlan,
   }
 
   const settings = await mergeSettings(deps, inputs, invalid)
   const files = mergeFiles(inputs)
-  const { extensions, installedIds } = mergeExtensions(deps, inputs)
-  const outgoing = outgoingProfile(inputs, settings, files, extensions)
-  const conflicts = currentConflicts(inputs, settings, files)
+  const outgoing = outgoingProfile(inputs, settings, files)
   const apply = planApply(deps, store, inputs, settings, files)
 
-  const offers = extensions.filter((e) => !installedIds.has(e.id) && offerable(e, builtin))
   return {
     write: !sameFiles(outgoing, remote.files),
     outgoing,
@@ -382,9 +272,6 @@ async function plan(
       target: state.target,
       version,
       lastSync: now().toISOString(),
-      conflicts,
-      offers,
-      installedAtSync: extensions.filter((e) => installedIds.has(e.id)).map((e) => e.id),
       skipped: [...new Set([...local.skipped, ...remote.skipped])].sort(),
       heldBack: [...settings.heldKeys].map((key) => keyPath(key).join('.')).sort(),
       secrets: secretPlan?.status ?? null,

@@ -90,13 +90,7 @@ describe('SettingsPanel', () => {
       within(screen.getByRole('list', { name: group }))
         .getAllByRole('button')
         .map((b) => b.textContent)
-    expect(inGroup('General')).toEqual([
-      'Appearance',
-      'Notifications',
-      'Sync',
-      'Server',
-      'Shared artifacts',
-    ])
+    expect(inGroup('General')).toEqual(['Appearance', 'Notifications', 'Sync', 'Shared artifacts'])
     expect(inGroup('Terminal')).toEqual(['Terminal', 'Prompt', 'Keyboard', 'Panes'])
     expect(inGroup('Editor and browser')).toEqual(['Editor', 'Browser'])
   })

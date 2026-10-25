@@ -4,21 +4,14 @@ import { isRecord } from '@aurigax-ai/ostia-extension-sdk/contract/isRecord'
 import { PROGRAM_SETTINGS } from '../../shared/permissions/programSettings'
 import { SPEC_COMMAND_PATTERN, SPEC_FILE_MAX_BYTES } from '../../shared/terminal/completionSpec'
 import { VIEW_FILE_MAX_BYTES, VIEW_FILES_MAX, VIEW_NAME } from '../../shared/views/views'
-import { normalizeMarketplaceUrl } from '../extensions/marketplace/marketplaceSources'
 import { SNIPPET_FILE_MAX_BYTES, SNIPPET_FILES_MAX } from '../workspaces/snippets'
 
 export type JsonObject = Record<string, unknown>
 
-export interface SyncedExtension {
-  id: string
-  marketplace: string
-}
-
 export const SETTINGS_FILE = 'settings.json'
-const EXTENSIONS_FILE = 'extensions.json'
 const META_FILE = 'profile.json'
 export const SECRETS_FILE = 'secrets.enc'
-export const TOP_FILES = [SETTINGS_FILE, EXTENSIONS_FILE, META_FILE, SECRETS_FILE] as const
+export const TOP_FILES = [SETTINGS_FILE, META_FILE, SECRETS_FILE] as const
 export const TOP_FILE_MAX_BYTES = 1024 * 1024
 export const SECRETS_FILE_MAX_BYTES = 16 * 1024 * 1024
 const COMPLETION_FILES_MAX = 500
@@ -104,28 +97,9 @@ export function withLocalOnly(merged: JsonObject, local: JsonObject): JsonObject
   return out
 }
 
-function parseSyncedExtensions(raw: unknown): SyncedExtension[] {
-  const list = isRecord(raw) && Array.isArray(raw.extensions) ? raw.extensions : []
-  const out: SyncedExtension[] = []
-  for (const item of list) {
-    if (!isRecord(item) || typeof item.id !== 'string' || typeof item.marketplace !== 'string') {
-      continue
-    }
-    if (out.some((e) => e.id === item.id)) continue
-    out.push({ id: item.id, marketplace: item.marketplace })
-  }
-  return out
-}
-
-export function offerable(entry: SyncedExtension, builtinIds: readonly string[]): boolean {
-  if (builtinIds.includes(entry.id)) return false
-  return normalizeMarketplaceUrl(entry.marketplace) === entry.marketplace
-}
-
 export interface Profile {
   settings: JsonObject | null
   settingsInvalid: boolean
-  extensions: SyncedExtension[]
   files: Map<string, string>
   times: Record<string, number>
 }
@@ -154,7 +128,6 @@ export function decodeProfile(files: ReadonlyMap<string, string>): Profile {
   return {
     settings: settingsInvalid ? null : (settings.value as JsonObject | null),
     settingsInvalid,
-    extensions: parseSyncedExtensions(parseJson(files.get(EXTENSIONS_FILE)).value),
     files: profileFiles,
     times,
   }
@@ -162,17 +135,12 @@ export function decodeProfile(files: ReadonlyMap<string, string>): Profile {
 
 export function encodeProfile(profile: {
   settings: JsonObject | null
-  extensions: readonly SyncedExtension[]
   files: ReadonlyMap<string, string>
   times: Record<string, number>
 }): Map<string, string> {
   const out = new Map<string, string>()
   if (profile.settings) {
     out.set(SETTINGS_FILE, `${JSON.stringify(profile.settings, null, 2)}\n`)
-  }
-  if (profile.extensions.length > 0) {
-    const extensions = [...profile.extensions].sort((a, b) => a.id.localeCompare(b.id))
-    out.set(EXTENSIONS_FILE, `${JSON.stringify({ extensions }, null, 2)}\n`)
   }
   for (const [path, text] of [...profile.files].sort(([a], [b]) => a.localeCompare(b))) {
     out.set(path, text)

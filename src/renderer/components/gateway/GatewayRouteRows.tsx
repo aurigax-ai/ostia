@@ -14,9 +14,9 @@ import { useServerStatus } from '@/components/server/useServerStatus'
 import { CommitInput } from '@/components/settingsKit/CommitInput'
 import { ControlRow, ToggleRow } from '@/components/settingsKit/ControlRow'
 import { SelectField } from '@/components/settingsKit/SelectField'
+import { StatusText } from '@/components/settingsKit/StatusText'
 import { Button } from '@/components/ui/button'
 import { fmt, useDict } from '@/lib/app/useDict'
-import { cn } from '@/lib/utils'
 import { useUIStore } from '@/stores/app/uiStore'
 import type { GatewayMethod, GatewayRouteState } from './useGatewayRoute'
 import type { GatewayStatus } from './useGatewayStatus'
@@ -98,15 +98,6 @@ function tailnetSummary(d: Dict, node: GatewayTailnetState): string {
 function methodName(d: Dict, method: GatewayMethod): string {
   if (method === 'relay') return d.settings.remoteMethodRelay
   return method === 'tailscale' ? d.settings.remoteMethodTailscale : d.settings.remoteMethodNetwork
-}
-
-function StatusText({ text, ok }: { text: string; ok: boolean }): JSX.Element {
-  return (
-    <span className="flex min-w-0 items-center gap-2 text-fg-muted text-ui-sm">
-      <span className={cn('dot', ok && 'done')} />
-      <span className="min-w-0 truncate">{text}</span>
-    </span>
-  )
 }
 
 const openAccount = (): void => useUIStore.getState().openSettings('sync')

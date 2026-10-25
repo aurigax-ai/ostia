@@ -64,11 +64,7 @@ class ServerMethod implements SyncMethod {
         uploads.push({ id, sealed: sealBlob(key, path, content) })
       }
     }
-    const manifest: Manifest = {
-      counter,
-      files: entries,
-      devices: this.last.manifest?.devices ?? [],
-    }
+    const manifest: Manifest = { counter, files: entries }
     try {
       await uploadAll(this.ctx, uploads)
       const sealed = sealManifest(key, manifest).toString('base64url')

@@ -1,7 +1,5 @@
 import { createHash } from 'node:crypto'
-import type { ServerResponse } from 'node:http'
-import type { FakeDevice, FakeServer, Handler } from './fakeServer'
-import { checkDeviceWrap } from './fakeWraps'
+import type { FakeServer, Handler } from './fakeServer'
 
 const BLOB_ID = /^[A-Za-z0-9_-]{43}$/
 const DEFAULT_QUOTA = 64 * 1024 * 1024
@@ -22,14 +20,10 @@ export interface AccountSync {
   manifests: StoredManifest[]
   blobs: Map<string, { bytes: Buffer; at: number }>
   wraps: Map<string, StoredWrap>
+  keyVersion: number
 }
 
-function validSlot(server: FakeServer, accountId: string, slot: string): boolean {
-  if (slot === 'passphrase' || slot === 'recovery') return true
-  if (!slot.startsWith('device:')) return false
-  const device = server.devices.get(slot.slice('device:'.length))
-  return device !== undefined && device.accountId === accountId
-}
+const validSlot = (slot: string): boolean => slot === 'passphrase' || slot === 'recovery'
 
 function stored(value: unknown): string | null {
   return typeof value === 'string' && /^[A-Za-z0-9_-]+={0,2}$/.test(value) ? value : null
@@ -39,7 +33,7 @@ export function syncRoutes(server: FakeServer): Array<[string, RegExp, Handler]>
   const dataOf = (accountId: string): AccountSync => {
     let data = server.syncData.get(accountId)
     if (!data) {
-      data = { manifests: [], blobs: new Map(), wraps: new Map() }
+      data = { manifests: [], blobs: new Map(), wraps: new Map(), keyVersion: 0 }
       server.syncData.set(accountId, data)
     }
     return data
@@ -48,15 +42,6 @@ export function syncRoutes(server: FakeServer): Array<[string, RegExp, Handler]>
     [...data.blobs.values()].reduce((sum, b) => sum + b.bytes.length, 0)
   const current = (data: AccountSync): number => data.manifests.at(-1)?.version ?? 0
   const quota = server.options.quotaBytes ?? DEFAULT_QUOTA
-
-  const needElevation = (
-    auth: NonNullable<ReturnType<FakeServer['authed']>>,
-    res: ServerResponse,
-  ): boolean => {
-    if (server.elevated(auth.session)) return false
-    server.error(res, 403, 'elevation-required')
-    return true
-  }
 
   const getManifest: Handler = (req, res) => {
     const auth = server.authed(req, res)
@@ -166,6 +151,7 @@ export function syncRoutes(server: FakeServer): Array<[string, RegExp, Handler]>
     if (!auth) return
     const data = dataOf(auth.device.accountId)
     server.reply(res, 200, {
+      keyVersion: data.keyVersion,
       wraps: [...data.wraps].map(([slot, w]) => ({ slot, updatedAt: w.updatedAt })),
     })
   }
@@ -190,18 +176,6 @@ export function syncRoutes(server: FakeServer): Array<[string, RegExp, Handler]>
     else server.reply(res, 200, { slot, blob: found.blob, updatedAt: found.updatedAt })
   }
 
-  const refuseWrap = (
-    res: ServerResponse,
-    signer: FakeDevice,
-    slot: string,
-    blob: string,
-  ): boolean => {
-    const verdict = checkDeviceWrap(server, signer, slot, blob)
-    if (verdict === 'ok') return false
-    server.error(res, verdict === 'wrong-signer' ? 403 : 400, verdict)
-    return true
-  }
-
   const putWrap: Handler = (req, res, body, _raw, [slot]) => {
     const auth = server.authed(req, res)
     if (!auth) return
@@ -209,34 +183,23 @@ export function syncRoutes(server: FakeServer): Array<[string, RegExp, Handler]>
     const data = dataOf(device.accountId)
     const name = slot ?? ''
     const blob = stored(body.blob)
-    if (!validSlot(server, device.accountId, name) || !blob) {
+    if (!validSlot(name) || !blob) {
       server.error(res, 400, 'bad-slot')
       return
     }
-    if (name.startsWith('device:') && refuseWrap(res, device, name, blob)) return
-    const own = name === `device:${device.id}`
-    if (data.wraps.has(name) && !own && needElevation(auth, res)) return
     data.wraps.set(name, { blob, updatedAt: server.now() })
-    res.writeHead(204).end()
-  }
-
-  const deleteWrap: Handler = (req, res, _body, _raw, [slot]) => {
-    const auth = server.authed(req, res)
-    if (!auth) return
-    if (needElevation(auth, res)) return
-    dataOf(auth.device.accountId).wraps.delete(slot ?? '')
     res.writeHead(204).end()
   }
 
   const rotate: Handler = (req, res, body) => {
     const auth = server.authed(req, res)
     if (!auth) return
-    if (needElevation(auth, res)) return
     const data = dataOf(auth.device.accountId)
     const manifest = stored(body.manifest)
-    const wraps = body.wraps
-    const deleteSlots = body.deleteSlots
-    if (!manifest || typeof wraps !== 'object' || wraps === null) {
+    const wraps = (body.wraps ?? {}) as Record<string, unknown>
+    const passphrase = stored(wraps.passphrase)
+    const recovery = stored(wraps.recovery)
+    if (!manifest || !passphrase || !recovery || Object.keys(wraps).length !== 2) {
       server.error(res, 400, 'bad-request')
       return
     }
@@ -244,23 +207,10 @@ export function syncRoutes(server: FakeServer): Array<[string, RegExp, Handler]>
       server.reply(res, 412, { error: 'version-mismatch', current: current(data) })
       return
     }
-    const entries = Object.entries(wraps as Record<string, unknown>)
-    const accountId = auth.device.accountId
-    if (entries.some(([slot, blob]) => !validSlot(server, accountId, slot) || !stored(blob))) {
-      server.error(res, 400, 'bad-slot')
-      return
-    }
-    const refused = entries.some(
-      ([slot, blob]) =>
-        slot.startsWith('device:') && refuseWrap(res, auth.device, slot, String(blob)),
-    )
-    if (refused) return
-    for (const [slot, blob] of entries) {
-      data.wraps.set(slot, { blob: String(blob), updatedAt: server.now() })
-    }
-    for (const slot of Array.isArray(deleteSlots) ? deleteSlots : [])
-      data.wraps.delete(String(slot))
-    server.reply(res, 200, { version: commitManifest(data, manifest) })
+    data.wraps.set('passphrase', { blob: passphrase, updatedAt: server.now() })
+    data.wraps.set('recovery', { blob: recovery, updatedAt: server.now() })
+    data.keyVersion += 1
+    server.reply(res, 200, { version: commitManifest(data, manifest), keyVersion: data.keyVersion })
   }
 
   const gc: Handler = (req, res, body, raw) => {
@@ -286,10 +236,6 @@ export function syncRoutes(server: FakeServer): Array<[string, RegExp, Handler]>
         true,
       )
     ) {
-      return
-    }
-    if (server.now() - auth.device.createdAt < server.approverMinAgeMs) {
-      server.error(res, 403, 'device-too-new')
       return
     }
     const data = dataOf(auth.device.accountId)
@@ -324,7 +270,6 @@ export function syncRoutes(server: FakeServer): Array<[string, RegExp, Handler]>
     ['GET', /^\/v1\/sync\/wraps$/, listWraps],
     ['GET', /^\/v1\/sync\/wraps\/([^/]+)$/, getWrap],
     ['PUT', /^\/v1\/sync\/wraps\/([^/]+)$/, putWrap],
-    ['DELETE', /^\/v1\/sync\/wraps\/([^/]+)$/, deleteWrap],
     ['POST', /^\/v1\/sync\/rotate$/, rotate],
     ['POST', /^\/v1\/sync\/gc$/, gc],
     ['GET', /^\/v1\/sync\/usage$/, usage],

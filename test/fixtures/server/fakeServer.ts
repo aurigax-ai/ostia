@@ -28,7 +28,6 @@ export interface FakeDevice {
 export interface FakeSession {
   deviceId: string
   expiresAt: number
-  elevatedUntil: number
 }
 
 export type Handler = (
@@ -51,9 +50,7 @@ export interface FakeServerOptions {
   github?: boolean
   unconfirmedMs?: number
   relayPort?: number
-  approverMinAgeMs?: number
   deviceInactiveAfterMs?: number
-  elevationTtlMs?: number
   quotaBytes?: number
   maxBlobBytes?: number
   gcGraceMs?: number
@@ -94,10 +91,7 @@ export class FakeServer {
   readonly invites = new Set<string>()
   readonly requests: string[] = []
   readonly confirmed: string[] = []
-  readonly deviceInvites = new Map<
-    string,
-    { accountId: string; elevated: boolean; expiresAt: number }
-  >()
+  readonly accountInvites = new Map<string, string>()
   readonly devices = new Map<string, FakeDevice>()
   readonly sessions = new Map<string, FakeSession>()
   readonly removed: string[] = []
@@ -114,13 +108,8 @@ export class FakeServer {
   sessionTtlMs: number
   url = ''
   skewMs = 0
-  rewriteDevices:
-    | ((viewerId: string, rows: Array<Record<string, unknown>>) => Array<Record<string, unknown>>)
-    | null = null
-  readonly approverMinAgeMs: number
   readonly deviceInactiveAfterMs: number
   heartbeats = 0
-  readonly elevationTtlMs: number
   private readonly extraHandlers: Array<[string, RegExp, Handler]> = []
   private readonly nonces = new Map<string, string>()
   private readonly http: Server
@@ -131,9 +120,7 @@ export class FakeServer {
 
   constructor(readonly options: FakeServerOptions = {}) {
     this.sessionTtlMs = options.sessionTtlMs ?? 3_600_000
-    this.approverMinAgeMs = options.approverMinAgeMs ?? DAY_MS
     this.deviceInactiveAfterMs = options.deviceInactiveAfterMs ?? 90 * DAY_MS
-    this.elevationTtlMs = options.elevationTtlMs ?? 300_000
     this.extraHandlers.push(...accountRoutes(this), ...syncRoutes(this))
     if (options.publish !== false) this.extraHandlers.push(...shareRoutes(this))
     if (options.push === true) this.extraHandlers.push(...pushRoutes(this))
@@ -216,15 +203,6 @@ export class FakeServer {
 
   accountDevices(accountId: string): FakeDevice[] {
     return [...this.devices.values()].filter((d) => d.accountId === accountId)
-  }
-
-  elevated(session: FakeSession): boolean {
-    return session.elevatedUntil > this.now()
-  }
-
-  elevate(session: FakeSession): number {
-    session.elevatedUntil = this.now() + this.elevationTtlMs
-    return session.elevatedUntil
   }
 
   signed(
@@ -365,7 +343,6 @@ export class FakeServer {
             push: this.options.push === true,
           },
           auth: { invite: true, github: this.options.github === true },
-          approverMinAgeSeconds: Math.floor(this.approverMinAgeMs / 1000),
           deviceInactiveAfterSeconds: Math.floor(this.deviceInactiveAfterMs / 1000),
           ...(this.options.syncGCBound ? { syncGCBound: true } : {}),
           relayDomain: RELAY_DOMAIN,
@@ -381,15 +358,14 @@ export class FakeServer {
           this.register(res, body, 'invite')
           return
         }
-        const minted = this.deviceInvites.get(code)
-        this.deviceInvites.delete(code)
-        const grown = minted && this.accountDevices(minted.accountId).length >= 2
-        if (!minted || minted.expiresAt < this.now() || (grown && !minted.elevated)) {
+        const accountId = this.accountInvites.get(code)
+        this.accountInvites.delete(code)
+        if (!accountId) {
           this.error(res, 403, 'invalid-invite')
           return
         }
-        const first = this.accountDevices(minted.accountId)[0]
-        this.register(res, body, first?.provider ?? 'invite', minted.accountId)
+        const first = this.accountDevices(accountId)[0]
+        this.register(res, body, first?.provider ?? 'invite', accountId)
       },
       'POST /v1/auth/github/device': (_req, res) =>
         this.reply(res, 200, {
@@ -428,34 +404,13 @@ export class FakeServer {
         }
         const token = b64(randomBytes(24))
         const expiresAt = this.now() + this.sessionTtlMs
-        this.sessions.set(token, { deviceId, expiresAt, elevatedUntil: 0 })
+        this.sessions.set(token, { deviceId, expiresAt })
         this.reply(res, 200, { token, expiresAt, accountId: device.accountId })
       },
       'DELETE /v1/auth/session': (req, res) => {
         const auth = this.sessionOf(req)
         if (auth) this.sessions.delete(auth.token)
         res.writeHead(204).end()
-      },
-      'GET /v1/devices': (req, res) => {
-        const auth = this.sessionOf(req)
-        if (!auth) {
-          this.error(res, 401, 'unauthorized')
-          return
-        }
-        const mine = this.devices.get(auth.session.deviceId)
-        const devices = this.accountDevices(mine?.accountId ?? '').map((d) => ({
-          id: d.id,
-          name: d.name,
-          signPub: d.signPub,
-          boxPub: d.boxPub,
-          createdAt: d.createdAt,
-          lastSeenAt: d.lastSeenAt,
-          removeAt: d.lastSeenAt + this.deviceInactiveAfterMs,
-          ...(d.id === mine?.id ? { current: true } : {}),
-        }))
-        this.reply(res, 200, {
-          devices: this.rewriteDevices?.(auth.session.deviceId, devices) ?? devices,
-        })
       },
       'POST /v1/devices/heartbeat': (req, res) => {
         const auth = this.authed(req, res)

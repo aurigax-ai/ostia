@@ -4,18 +4,15 @@ import { isRecord } from '@aurigax-ai/ostia-extension-sdk/contract/isRecord'
 import { app, BrowserWindow, dialog, ipcMain } from 'electron'
 import { debounce, throttle } from 'es-toolkit'
 import type { SecretActionResult, SyncStatus } from '../../shared/profileSync/profileSync'
-import type { SyncAttention } from '../../shared/profileSync/serverSync'
 import type { ServerAccount } from '../server/serverAccount'
-import { ServerDevices } from '../server/serverDevices'
-import { ServerElevation } from '../server/serverElevation'
 import { type DetectSecrets, ProfileSync } from './engine'
 import { FolderMethod } from './folderMethod'
-import { PROFILE_FOLDERS, SECRETS_FILE, SETTINGS_FILE, type SyncedExtension } from './profile'
+import { PROFILE_FOLDERS, SECRETS_FILE, SETTINGS_FILE } from './profile'
+import { rekeyBundle } from './secretCrypto'
 import { type Protect, type SecretSource, SecretSync } from './secrets'
 import { createServerTarget } from './serverSync/serverMethod'
 import { registerServerSyncIpc } from './serverSync/serverSyncIpc'
 import { ServerSyncService } from './serverSync/serverSyncService'
-import { createSyncAttention } from './serverSync/syncAttention'
 import { SyncKeyring } from './serverSync/syncKeyring'
 import { createSyncKeyStore, type SyncKeyFile } from './serverSync/syncKeyStore'
 import { expandSyncDir } from './syncDir'
@@ -31,15 +28,11 @@ export interface ProfileSyncIpcDeps {
   readSettings: () => unknown
   broadcast: (channel: string, payload?: unknown) => void
   onSettingsPulled: () => void
-  installedExtensions: () => SyncedExtension[]
-  builtinIds: () => string[]
-  installExtension: (id: string, marketplace: string) => Promise<boolean>
   detectSecrets: DetectSecrets
   secretSources: () => SecretSource[]
   protect: Protect
   server: ServerAccount
   syncKeyFile: SyncKeyFile
-  notifyAttention: (item: SyncAttention) => void
 }
 
 export interface ProfileSyncHandle {
@@ -68,15 +61,13 @@ export function startProfileSync(deps: ProfileSyncIpcDeps): ProfileSyncHandle {
     protect: deps.protect,
     sources: deps.secretSources,
     readRemote: async () => (await method()?.read())?.files.get(SECRETS_FILE),
+    syncKey: () => (serverChosen() ? keyring.key() : null),
   })
   const sync = new ProfileSync({
     userData: deps.userData,
     configDir: deps.configDir,
     method,
     targetLabel,
-    installedExtensions: deps.installedExtensions,
-    builtinIds: deps.builtinIds,
-    installExtension: deps.installExtension,
     detectSecrets: deps.detectSecrets,
     secrets,
   })
@@ -123,34 +114,13 @@ export function startProfileSync(deps: ProfileSyncIpcDeps): ProfileSyncHandle {
   const serverSync = new ServerSyncService({
     account: deps.server,
     keyring,
-    devices: new ServerDevices(deps.server),
+    rekey: (path, content, from, to) =>
+      path === SECRETS_FILE
+        ? Buffer.from(rekeyBundle(content.toString('utf8'), from, to), 'utf8')
+        : content,
   })
-  const elevation = new ServerElevation(deps.server)
-  const attention = createSyncAttention({
-    active: () => serverChosen() && deps.server.signedIn(),
-    account: () => keyring.target()?.id ?? null,
-    announced: { load: () => keyring.announcedItems(), save: (ids) => keyring.saveAnnounced(ids) },
-    syncStatus: () => serverSync.status(),
-    approvals: () => elevation.approvals(),
-    publish: (items) => deps.broadcast('syncServer:attention', items),
-    notify: deps.notifyAttention,
-  })
-  const scanAttention = (): void => void attention.scan()
-  const offDevices = deps.server.onDevicesChanged(scanAttention)
-  const offAccount = deps.server.onChange(scanAttention)
-  let attentionTimer: NodeJS.Timeout | undefined
-  let attentionStopped = false
-  const scheduleAttention = (): void => {
-    if (attentionStopped) return
-    attentionTimer = setTimeout(() => {
-      void attention.scan().finally(scheduleAttention)
-    }, attention.delay())
-    attentionTimer.unref()
-  }
-  scheduleAttention()
   registerServerSyncIpc({
     service: serverSync,
-    attention,
     run,
     broadcast: deps.broadcast,
   })
@@ -158,20 +128,8 @@ export function startProfileSync(deps: ProfileSyncIpcDeps): ProfileSyncHandle {
     if (serverChosen()) void run()
   })
 
-  const announced = async (status: Promise<SyncStatus>): Promise<SyncStatus> => {
-    const next = await status
-    deps.broadcast('sync:status', next)
-    return next
-  }
-
   ipcMain.handle('sync:status', () => sync.status())
   ipcMain.handle('sync:run', () => run())
-  ipcMain.handle('sync:resolve', (_e, id: unknown) =>
-    typeof id === 'string' ? announced(sync.resolve(id)) : sync.status(),
-  )
-  ipcMain.handle('sync:install', (_e, id: unknown) =>
-    typeof id === 'string' ? announced(sync.install(id)) : sync.status(),
-  )
   const text = (value: unknown): string | null =>
     typeof value === 'string' && value.length <= SECRET_INPUT_MAX ? value : null
   const secretAction = (
@@ -199,12 +157,9 @@ export function startProfileSync(deps: ProfileSyncIpcDeps): ProfileSyncHandle {
     await work
     return { ok: true }
   }
-  ipcMain.handle('sync:secrets-reveal', (_e, id: unknown) =>
-    typeof id === 'string' && id.length <= SECRET_INPUT_MAX ? secrets.reveal(id) : { ok: false },
-  )
   secretAction('sync:secrets-enable', () => done(secrets.enable()), 0)
   secretAction('sync:secrets-disable', () => done(secrets.disable()), 0)
-  secretAction('sync:secrets-remove', () => done(secrets.remove()), 0)
+  secretAction('sync:secrets-use-sync-key', () => secrets.useSyncKey(), 0)
   secretAction('sync:secrets-logins', (on) => done(secrets.setLogins(on === 'on')), 1)
   secretAction('sync:secrets-setup', (pw, confirm) => secrets.setup(pw, confirm), 2)
   secretAction('sync:secrets-reset', (pw, confirm) => secrets.reset(pw, confirm), 2)
@@ -231,10 +186,6 @@ export function startProfileSync(deps: ProfileSyncIpcDeps): ProfileSyncHandle {
     stop: () => {
       app.off('browser-window-focus', onFocus)
       runSoon.cancel()
-      attentionStopped = true
-      clearTimeout(attentionTimer)
-      offDevices()
-      offAccount()
       for (const watcher of watchers) watcher.close()
     },
   }

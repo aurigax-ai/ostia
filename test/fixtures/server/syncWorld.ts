@@ -6,7 +6,7 @@ export function syncWorld() {
   const servers: FakeServer[] = []
   const devices: SyncDevice[] = []
   return {
-    async world(options: FakeServerOptions = { approverMinAgeMs: 0 }) {
+    async world(options: FakeServerOptions = {}) {
       const server = await new FakeServer(options).start()
       servers.push(server)
       const first = await firstDevice(server)
@@ -14,13 +14,8 @@ export function syncWorld() {
       const recoveryKey = await setUp(first)
       return { server, first, recoveryKey }
     },
-    async join(
-      server: FakeServer,
-      via: SyncDevice,
-      unlock = true,
-      approver?: SyncDevice,
-    ): Promise<SyncDevice> {
-      const device = await joinedDevice(server, via, approver)
+    async join(server: FakeServer, via: SyncDevice, unlock = true): Promise<SyncDevice> {
+      const device = await joinedDevice(server, via)
       devices.push(device)
       if (unlock) expect((await device.service.unlock(PASSPHRASE)).ok).toBe(true)
       return device

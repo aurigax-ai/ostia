@@ -1,5 +1,7 @@
 import type { SyncStatus } from '@shared/profileSync/profileSync'
-import { act, cleanup, render, screen, waitFor } from '@testing-library/react'
+import type { ServerSyncStatus } from '@shared/profileSync/serverSync'
+import type { ServerStatus } from '@shared/server/serverApi'
+import { act, cleanup, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { useSettingsStore } from '@/stores/app/settingsStore'
@@ -10,15 +12,36 @@ const status = (s: Partial<SyncStatus>): SyncStatus => ({
   dir: null,
   state: 'off',
   lastSync: null,
-  conflicts: [],
   skipped: [],
   heldBack: [],
-  offers: [],
-  secrets: { state: 'off', logins: false },
+  secrets: { state: 'off', mode: 'password', logins: false },
   ...s,
 })
 
-describe('SyncSection', () => {
+const SIGNED_IN: ServerStatus = {
+  url: 'https://ostia.example.com',
+  host: 'ostia.example.com',
+  signedIn: true,
+  provider: 'github',
+  deviceName: 'desk',
+}
+
+const serverSync = (state: ServerSyncStatus['state']): ServerSyncStatus => ({
+  state,
+  host: 'ostia.example.com',
+})
+
+function onServer(account: ServerStatus, state: ServerSyncStatus['state'] = 'ready'): void {
+  useSettingsStore.setState({ sync: { dir: '', method: 'server' } })
+  vi.mocked(window.ostia.server.status).mockResolvedValue(account)
+  vi.mocked(window.ostia.server.info).mockResolvedValue({
+    ok: true,
+    offer: { relay: true, publish: true, sync: true, push: true, invite: true, github: true },
+  })
+  vi.mocked(window.ostia.syncServer.status).mockResolvedValue(serverSync(state))
+}
+
+describe('Settings › Sync', () => {
   let settingsInit: ReturnType<typeof useSettingsStore.getState>
 
   beforeAll(() => {
@@ -30,63 +53,147 @@ describe('SyncSection', () => {
     useSettingsStore.setState(settingsInit, true)
   })
 
-  it('shows sync as off with no folder and disables Sync now', async () => {
+  it('SYV-C1 shows only the sync method while sync is off', async () => {
     await renderSettled(<SyncSection />)
-    expect(screen.getByText('Not set')).toBeInTheDocument()
-    expect(screen.getByText('Off')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Sync now' })).toBeDisabled()
-    expect(screen.queryByRole('button', { name: 'Stop syncing' })).toBeNull()
+    expect(screen.getByRole('combobox', { name: 'Sync method' })).toHaveTextContent('Off')
+    expect(screen.queryByText('Status')).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Sync now' })).toBeNull()
+    expect(screen.queryByText('Ostia account')).toBeNull()
   })
 
-  it('saves the picked folder into settings.json and syncs right away', async () => {
+  it('SYV-C2 picks a folder when Folder is chosen and stays off when the picker is cancelled', async () => {
     const ostia = window.ostia
+    const user = userEvent.setup()
+    render(<SyncSection />)
+    await user.click(screen.getByRole('combobox', { name: 'Sync method' }))
+    await user.click(await screen.findByRole('option', { name: 'Folder' }))
+    expect(ostia.sync.pickFolder).toHaveBeenCalledTimes(1)
+    expect(ostia.sync.run).not.toHaveBeenCalled()
+    expect(screen.getByRole('combobox', { name: 'Sync method' })).toHaveTextContent('Off')
+
     vi.mocked(ostia.sync.pickFolder).mockResolvedValue('/home/me/Sync/ostia')
     vi.mocked(ostia.sync.run).mockResolvedValue(
       status({ dir: '/home/me/Sync/ostia', state: 'ok', lastSync: '2026-09-28T10:00:00.000Z' }),
     )
-    render(<SyncSection />)
-    await userEvent.click(screen.getByRole('button', { name: 'Choose folder…' }))
+    await user.click(screen.getByRole('combobox', { name: 'Sync method' }))
+    await user.click(await screen.findByRole('option', { name: 'Folder' }))
     await waitFor(() => expect(ostia.sync.run).toHaveBeenCalled())
     expect(useSettingsStore.getState().sync).toEqual({ dir: '/home/me/Sync/ostia' })
-    const written = vi.mocked(ostia.fs.write).mock.calls.at(-1)
-    expect(written?.[0]).toBe('/tmp/ostia-test/settings.json')
-    expect(JSON.parse(String(written?.[1]))).toMatchObject({ sync: { dir: '/home/me/Sync/ostia' } })
     expect(screen.getByText('/home/me/Sync/ostia')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Change' })).toBeInTheDocument()
     expect(screen.getByText(/^Last synced /)).toBeInTheDocument()
   })
 
-  it('SSY-C96 switches to the server method, keeps the folder default, and explains server errors', async () => {
-    const ostia = window.ostia
-    vi.mocked(ostia.sync.run).mockResolvedValue(
-      status({ dir: 'ostia.example.com', state: 'error', error: 'server-locked' }),
-    )
-    render(<SyncSection />)
-    const where = screen.getByRole('combobox', { name: 'Where to sync' })
-    expect(where).toHaveTextContent('Folder')
-    await userEvent.click(where)
-    await userEvent.click(screen.getByRole('option', { name: 'Server' }))
-    await waitFor(() => expect(ostia.sync.run).toHaveBeenCalled())
-    expect(useSettingsStore.getState().sync).toEqual({ dir: '', method: 'server' })
-    const written = vi.mocked(ostia.fs.write).mock.calls.at(-1)
-    expect(JSON.parse(String(written?.[1]))).toMatchObject({ sync: { method: 'server' } })
-    expect(screen.queryByRole('button', { name: 'Choose folder…' })).toBeNull()
-    expect(await screen.findByRole('alert')).toHaveTextContent(
-      'Unlock sync on this device to continue.',
-    )
-    await userEvent.click(screen.getByRole('combobox', { name: 'Where to sync' }))
-    await userEvent.click(await screen.findByRole('option', { name: 'Folder' }))
-    expect(useSettingsStore.getState().sync).toBeUndefined()
-    expect(screen.getByRole('button', { name: 'Choose folder…' })).toBeInTheDocument()
+  it('SYV-C3 signed out offers GitHub, with the invite code and server address behind links', async () => {
+    onServer({ ...SIGNED_IN, signedIn: false, provider: null, deviceName: null })
+    const user = userEvent.setup()
+    await renderSettled(<SyncSection />)
+    expect(screen.getByText('Sign in to sync through ostia.example.com.')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Sign in with GitHub' })).toBeInTheDocument()
+    expect(screen.queryByRole('textbox', { name: 'Invite code' })).toBeNull()
+    expect(screen.queryByRole('textbox', { name: 'Server address' })).toBeNull()
+    await user.click(screen.getByRole('button', { name: 'Use an invite code' }))
+    expect(screen.getByRole('textbox', { name: 'Invite code' })).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Change server' }))
+    expect(screen.getByRole('textbox', { name: 'Server address' })).toBeInTheDocument()
+    expect(screen.queryByText('Status')).toBeNull()
   })
 
-  it('does nothing when the folder picker is cancelled', async () => {
-    render(<SyncSection />)
-    await userEvent.click(screen.getByRole('button', { name: 'Choose folder…' }))
-    expect(window.ostia.sync.run).not.toHaveBeenCalled()
-    expect(window.ostia.fs.write).not.toHaveBeenCalled()
+  it('SYV-C4 asks for a new passphrase on its own on a new account and shows the recovery key once', async () => {
+    onServer(SIGNED_IN, 'needs-setup')
+    vi.mocked(window.ostia.syncServer.setup).mockResolvedValue({
+      ok: true,
+      recoveryKey: 'ABCD-EFGH-IJKL-MNOP',
+      status: serverSync('ready'),
+    })
+    const user = userEvent.setup()
+    await renderSettled(<SyncSection />)
+    const dialog = await screen.findByRole('dialog', { name: 'Create a sync passphrase' })
+    await user.type(within(dialog).getByLabelText('Sync passphrase'), 'a long sync passphrase')
+    await user.type(within(dialog).getByLabelText('Type it again'), 'a long sync passphrase')
+    await user.click(within(dialog).getByRole('button', { name: 'Continue' }))
+    expect(window.ostia.syncServer.setup).toHaveBeenCalledWith(
+      'a long sync passphrase',
+      'a long sync passphrase',
+    )
+    const saved = await screen.findByRole('dialog', { name: 'Save your recovery key' })
+    expect(within(saved).getByText('ABCD-EFGH-IJKL-MNOP')).toBeInTheDocument()
+    await user.click(within(saved).getByRole('button', { name: 'I saved it' }))
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+    expect(screen.getByRole('button', { name: 'Sync now' })).toBeInTheDocument()
   })
 
-  it('explains a missing folder from live status updates', async () => {
+  it('SYV-C5 asks once for the passphrase on a joining computer, with the recovery key as a way out', async () => {
+    onServer(SIGNED_IN, 'locked')
+    const user = userEvent.setup()
+    await renderSettled(<SyncSection />)
+    const dialog = await screen.findByRole('dialog', { name: 'Enter your sync passphrase' })
+    await user.click(within(dialog).getByRole('button', { name: 'Later' }))
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+    expect(screen.getByText('Waiting for the sync passphrase')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Enter passphrase' }))
+    const again = await screen.findByRole('dialog', { name: 'Enter your sync passphrase' })
+    await user.click(within(again).getByRole('button', { name: 'Use recovery key' }))
+    const recover = await screen.findByRole('dialog', { name: 'Use your recovery key' })
+    await user.type(within(recover).getByLabelText('Recovery key'), 'ABCD-EFGH')
+    await user.type(within(recover).getByLabelText('New sync passphrase'), 'a new sync passphrase')
+    await user.type(within(recover).getByLabelText('Type it again'), 'a new sync passphrase')
+    await user.click(within(recover).getByRole('button', { name: 'Continue' }))
+    expect(window.ostia.syncServer.recover).toHaveBeenCalledWith(
+      'ABCD-EFGH',
+      'a new sync passphrase',
+      'a new sync passphrase',
+    )
+  })
+
+  it('SYV-C6 shows a wrong passphrase inside the popup', async () => {
+    onServer(SIGNED_IN, 'locked')
+    vi.mocked(window.ostia.syncServer.unlock).mockResolvedValue({
+      ok: false,
+      error: 'wrong-password',
+      status: serverSync('locked'),
+    })
+    const user = userEvent.setup()
+    await renderSettled(<SyncSection />)
+    const dialog = await screen.findByRole('dialog', { name: 'Enter your sync passphrase' })
+    await user.type(within(dialog).getByLabelText('Sync passphrase'), 'not it at all')
+    await user.click(within(dialog).getByRole('button', { name: 'Continue' }))
+    expect(await within(dialog).findByRole('alert')).toHaveTextContent(
+      'That is not the sync passphrase.',
+    )
+  })
+
+  it('SYV-C7 shows the account, the server address and Change passphrase, and nothing about devices', async () => {
+    onServer(SIGNED_IN)
+    vi.mocked(window.ostia.syncServer.changePassphrase).mockResolvedValue({
+      ok: true,
+      recoveryKey: 'WXYZ-2345',
+      status: serverSync('ready'),
+    })
+    const user = userEvent.setup()
+    await renderSettled(<SyncSection />)
+    expect(await screen.findByText('Signed in as desk with GitHub.')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Sign out' })).toBeInTheDocument()
+    expect(screen.getByText('https://ostia.example.com')).toBeInTheDocument()
+    for (const gone of [/Devices/, /Add device/, /Changed on both/, /other machines/]) {
+      expect(screen.queryByText(gone)).toBeNull()
+    }
+    await user.click(screen.getByRole('button', { name: 'Change passphrase' }))
+    const dialog = await screen.findByRole('dialog', { name: 'Change sync passphrase' })
+    await user.type(within(dialog).getByLabelText('Current passphrase'), 'the old passphrase')
+    await user.type(within(dialog).getByLabelText('New sync passphrase'), 'the new passphrase')
+    await user.type(within(dialog).getByLabelText('Type it again'), 'the new passphrase')
+    await user.click(within(dialog).getByRole('button', { name: 'Change passphrase' }))
+    expect(window.ostia.syncServer.changePassphrase).toHaveBeenCalledWith(
+      'the old passphrase',
+      'the new passphrase',
+      'the new passphrase',
+    )
+    expect(await screen.findByText('WXYZ-2345')).toBeInTheDocument()
+  })
+
+  it('SYV-C8 explains a missing folder from live status updates', async () => {
     useSettingsStore.setState({ sync: { dir: '/mnt/gone' } })
     let push: (s: SyncStatus) => void = () => {}
     vi.mocked(window.ostia.sync.onStatus).mockImplementation((cb) => {
@@ -96,104 +203,5 @@ describe('SyncSection', () => {
     await renderSettled(<SyncSection />)
     act(() => push(status({ dir: '/mnt/gone', state: 'error', error: 'missing' })))
     expect(screen.getByRole('alert')).toHaveTextContent('The sync folder does not exist.')
-  })
-
-  it('lists a clashed setting with both values and uses the other one on click', async () => {
-    useSettingsStore.setState({ sync: { dir: '/home/me/Sync/ostia' } })
-    const conflict = {
-      id: 'setting:["terminal","fontSize"]',
-      kind: 'setting' as const,
-      key: 'terminal.fontSize',
-      local: '16',
-      remote: '14',
-      winner: 'local' as const,
-    }
-    vi.mocked(window.ostia.sync.status).mockResolvedValue(
-      status({ dir: '/home/me/Sync/ostia', state: 'ok', conflicts: [conflict] }),
-    )
-    vi.mocked(window.ostia.sync.resolve).mockResolvedValue(
-      status({ dir: '/home/me/Sync/ostia', state: 'ok' }),
-    )
-    render(<SyncSection />)
-    const list = await screen.findByRole('region', { name: 'Changed on both machines' })
-    expect(list).toHaveTextContent('terminal.fontSize')
-    expect(list).toHaveTextContent('Kept: 16 · Other: 14')
-    await userEvent.click(screen.getByRole('button', { name: 'Use the other value' }))
-    expect(window.ostia.sync.resolve).toHaveBeenCalledWith(conflict.id)
-    await waitFor(() =>
-      expect(screen.queryByRole('region', { name: 'Changed on both machines' })).toBeNull(),
-    )
-  })
-
-  it('shows a secret conflict without values until the human reveals it', async () => {
-    useSettingsStore.setState({ sync: { dir: '/home/me/Sync/ostia' } })
-    const conflict = {
-      id: 'secret:logins\u0000["https://example.com","me"]',
-      kind: 'secret' as const,
-      key: 'https://example.com (me)',
-      local: null,
-      remote: null,
-      winner: 'local' as const,
-      localAt: Date.UTC(2026, 9, 6, 12),
-      remoteAt: Date.UTC(2026, 9, 6, 11),
-    }
-    vi.mocked(window.ostia.sync.status).mockResolvedValue(
-      status({ dir: '/home/me/Sync/ostia', state: 'ok', conflicts: [conflict] }),
-    )
-    vi.mocked(window.ostia.sync.secrets.reveal).mockResolvedValue({
-      ok: true,
-      local: 'from-b-pass',
-      remote: 'from-a-pass',
-      winner: 'local',
-    })
-    render(<SyncSection />)
-    const list = await screen.findByRole('region', { name: 'Changed on both machines' })
-    expect(list).toHaveTextContent('https://example.com (me)')
-    expect(list).toHaveTextContent(/Changed here .* on the other machine /)
-    expect(list).not.toHaveTextContent('from-a-pass')
-    await userEvent.click(screen.getByRole('button', { name: 'Reveal' }))
-    expect(window.ostia.sync.secrets.reveal).toHaveBeenCalledWith(conflict.id)
-    expect(list).toHaveTextContent('Kept: from-b-pass · Other: from-a-pass')
-    await userEvent.click(screen.getByRole('button', { name: 'Hide' }))
-    expect(list).not.toHaveTextContent('from-a-pass')
-    await userEvent.click(screen.getByRole('button', { name: 'Use the other value' }))
-    expect(window.ostia.sync.resolve).toHaveBeenCalledWith(conflict.id)
-  })
-
-  it('offers an extension from another machine and installs it only on click', async () => {
-    useSettingsStore.setState({ sync: { dir: '/home/me/Sync/ostia' } })
-    const offer = { id: 'trellis', marketplace: 'https://github.com/aurigax-ai/ostia-extensions' }
-    vi.mocked(window.ostia.sync.status).mockResolvedValue(
-      status({ dir: '/home/me/Sync/ostia', state: 'ok', offers: [offer] }),
-    )
-    render(<SyncSection />)
-    const list = await screen.findByRole('region', { name: 'From your other machines' })
-    expect(list).toHaveTextContent('trellis')
-    expect(window.ostia.sync.install).not.toHaveBeenCalled()
-    await userEvent.click(screen.getByRole('button', { name: 'Install' }))
-    expect(window.ostia.sync.install).toHaveBeenCalledWith('trellis')
-  })
-
-  it('names settings held back as secrets and files left out', async () => {
-    useSettingsStore.setState({ sync: { dir: '/home/me/Sync/ostia' } })
-    vi.mocked(window.ostia.sync.status).mockResolvedValue(
-      status({
-        dir: '/home/me/Sync/ostia',
-        state: 'ok',
-        heldBack: ['browser.homepage'],
-        skipped: ['views/linked.json'],
-      }),
-    )
-    render(<SyncSection />)
-    expect(await screen.findByText(/looks like a secret: browser\.homepage/)).toBeInTheDocument()
-    expect(screen.getByText(/Not synced: views\/linked\.json/)).toBeInTheDocument()
-  })
-
-  it('stops syncing by clearing the folder', async () => {
-    useSettingsStore.setState({ sync: { dir: '/home/me/Sync/ostia' } })
-    render(<SyncSection />)
-    await userEvent.click(screen.getByRole('button', { name: 'Stop syncing' }))
-    await waitFor(() => expect(useSettingsStore.getState().sync).toBeUndefined())
-    expect(screen.getByText('Not set')).toBeInTheDocument()
   })
 })

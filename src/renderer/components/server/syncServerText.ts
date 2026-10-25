@@ -19,22 +19,14 @@ export function syncServerErrorText(d: Dict, error: ServerSyncError | undefined)
       return t.errNoWrap
     case 'key-differs':
       return t.errKeyDiffers
-    case 'link-stale':
-      return t.errLinkStale
     case 'unavailable':
       return t.errUnavailable
     case 'locked':
       return t.errLocked
-    case 'untrusted':
-      return t.untrusted
     case 'unreachable':
       return t.errUnreachable
-    case 'rotation-failed':
-      return t.errRotation
-    case 'elevation-required':
-    case 'device-too-new':
-    case 'requester-too-new':
-    case 'no-second-device':
+    case 'changed-elsewhere':
+      return t.errChangedElsewhere
     case 'not-signed-in':
       return serverErrorText(d, error)
     default:

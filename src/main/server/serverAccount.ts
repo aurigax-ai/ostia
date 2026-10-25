@@ -2,7 +2,6 @@ import type {
   GithubPollResult,
   GithubStartResult,
   ServerActionResult,
-  ServerDevicesResult,
   ServerFailure,
   ServerInfoResult,
   ServerSignOutResult,
@@ -46,10 +45,6 @@ interface ActiveFlow {
 }
 
 const REFUSALS: Record<string, ServerFailure> = {
-  'elevation-required': 'elevation-required',
-  'device-too-new': 'device-too-new',
-  'requester-too-new': 'requester-too-new',
-  'no-second-device': 'no-second-device',
   'not-a-github-account': 'not-a-github-account',
   'stale-signature': 'stale-signature',
 }
@@ -82,7 +77,6 @@ export function cleanDeviceName(raw: string): string {
 export class ServerAccount {
   private flow: ActiveFlow | null = null
   private readonly listeners = new Set<() => void>()
-  private readonly deviceListeners = new Set<() => void>()
   private readonly signOutHooks = new Set<() => void | Promise<void>>()
 
   constructor(private readonly deps: AccountDeps) {}
@@ -102,15 +96,6 @@ export class ServerAccount {
 
   beforeSignOut(cb: () => void | Promise<void>): void {
     this.signOutHooks.add(cb)
-  }
-
-  onDevicesChanged(cb: () => void): () => void {
-    this.deviceListeners.add(cb)
-    return () => this.deviceListeners.delete(cb)
-  }
-
-  devicesChanged(): void {
-    for (const cb of this.deviceListeners) cb()
   }
 
   signedIn(): boolean {
@@ -286,26 +271,6 @@ export class ServerAccount {
     this.flow = null
     this.changed()
     return { ok: true, deviceKept: !left }
-  }
-
-  async devices(): Promise<ServerDevicesResult> {
-    if (!this.signedIn()) return { ok: false, error: 'not-signed-in' }
-    try {
-      const { devices } = await this.deps.session.authed((token) => this.deps.routes.devices(token))
-      return {
-        ok: true,
-        devices: devices.map((d) => ({
-          id: d.id,
-          name: d.name,
-          current: d.current === true,
-          lastSeenAt: d.lastSeenAt,
-          removeAt: d.removeAt,
-          createdAt: d.createdAt,
-        })),
-      }
-    } catch (error) {
-      return { ok: false, error: failureOf(error) }
-    }
   }
 
   identity(): ServerIdentity | null {

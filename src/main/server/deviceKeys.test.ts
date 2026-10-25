@@ -6,7 +6,6 @@ import {
   keysFromSeeds,
   registrationOf,
   seedsOf,
-  signApprove,
   signChallenge,
   signStamped,
 } from './deviceKeys'
@@ -32,20 +31,6 @@ describe('device keys', () => {
   it('SVA-C2 signs the challenge exactly as the vector', () => {
     expect(signChallenge(vectorKeys(), vectors.deviceId, vectors.nonce)).toBe(
       vectors.challengeSignature,
-    )
-  })
-
-  it('SSY-C5 signs the invite, elevation, revoke and approve messages like the Go reference', () => {
-    const keys = vectorKeys()
-    const stamp = 1_700_000_000_000
-    expect(signStamped(keys, 'invite', 'dev-1', stamp)).toBe(
-      '_jGFCG04Bmi2bafTgYEAPlY7Ec1k3lrwWIuGD_lMQp6Cs_E5J3pMCfxGVvjNkaZV0vKncIPXsWHpXUKInCXjDA',
-    )
-    expect(signStamped(keys, 'elevate', 'dev-1', stamp)).toBe(
-      '_ctgJmpYSbzz6JDdTDHzrUawUzukamSbzhqGowEKIWv1FK8c6ZWNL8LN7q5hsyhXxhp0V65CSPRM2G_zz_FhDQ',
-    )
-    expect(signApprove(keys, 'dev-1', 'approval-1', 'dev-3')).toBe(
-      'U9G2v-ujTM6dXWi5KkoIQBlqI-5s4kXkxyXsyhabwgFQ70yaaqx0imF7Xznhuy8UNGeeLanMnKSfPg6on9ImAg',
     )
   })
 

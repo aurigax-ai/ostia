@@ -1,31 +1,34 @@
 import type { Dict } from '@shared/app/dict'
-import type { SyncConflict, SyncStatus } from '@shared/profileSync/profileSync'
+import type { SyncStatus } from '@shared/profileSync/profileSync'
+import type { ServerSyncStatus } from '@shared/profileSync/serverSync'
 import { useEffect, useMemo, useState } from 'react'
 import { MachineValue } from '@/components/common/MachineValue'
 import { Notice } from '@/components/common/Notice'
-import { SyncRequests } from '@/components/server/SyncRequests'
+import { SignedInRows, SignedOutRows } from '@/components/server/SyncAccountRows'
 import { syncServerStatusError } from '@/components/server/syncServerText'
 import { useServerStatus } from '@/components/server/useServerStatus'
 import { useSyncServerStatus } from '@/components/server/useSyncServerStatus'
 import { ControlRow } from '@/components/settingsKit/ControlRow'
 import { SelectField } from '@/components/settingsKit/SelectField'
 import { SettingsPage } from '@/components/settingsKit/SettingsPage'
+import { StatusText } from '@/components/settingsKit/StatusText'
 import { Button } from '@/components/ui/button'
 import { SHORT_DATE_TIME } from '@/lib/app/localeFormat'
 import { fmt, useDict } from '@/lib/app/useDict'
 import { useSettingsStore } from '@/stores/app/settingsStore'
+import { SecretFormDialog } from './SecretFormDialog'
 import { SyncSecretsSection } from './SyncSecretsSection'
-import { SyncServerSection } from './SyncServerSection'
+import { type PassphraseStep, passphraseStep } from './syncPassphraseSteps'
+
+type Method = 'off' | 'folder' | 'server'
 
 const OFF: SyncStatus = {
   dir: null,
   state: 'off',
   lastSync: null,
-  conflicts: [],
   skipped: [],
   heldBack: [],
-  offers: [],
-  secrets: { state: 'off', logins: false },
+  secrets: { state: 'off', mode: 'password', logins: false },
 }
 
 function syncErrorText(d: Dict, error: string | undefined): string {
@@ -43,143 +46,18 @@ function syncErrorText(d: Dict, error: string | undefined): string {
   return fmt(d.sync.errUnknown, { error: error ?? '' })
 }
 
-function conflictValue(d: Dict, conflict: SyncConflict, value: string | null): string {
-  if (conflict.kind === 'secret') return value ?? d.sync.conflictDeleted
-  if (conflict.kind === 'file')
-    return value === null ? d.sync.conflictDeleted : d.sync.conflictEdited
-  return value ?? d.sync.conflictDeleted
+function neededStep(server: ServerSyncStatus): PassphraseStep | null {
+  if (server.state === 'needs-setup') return 'create'
+  return server.state === 'locked' ? 'enter' : null
 }
 
-function SyncConflicts({
-  active,
-  status,
-  time,
-  onStatus,
-}: {
-  active: boolean
-  status: SyncStatus
-  time: Intl.DateTimeFormat
-  onStatus: (status: SyncStatus) => void
-}): JSX.Element | null {
-  const d = useDict()
-  const [revealed, setRevealed] = useState<
-    Record<string, { local: string | null; remote: string | null }>
-  >({})
-
-  const resolve = async (id: string): Promise<void> => {
-    setRevealed(({ [id]: _gone, ...rest }) => rest)
-    onStatus(await window.ostia.sync.resolve(id))
-  }
-
-  const toggleReveal = async (id: string): Promise<void> => {
-    if (revealed[id]) {
-      setRevealed(({ [id]: _gone, ...rest }) => rest)
-      return
-    }
-    const res = await window.ostia.sync.secrets.reveal(id)
-    if (res.ok) setRevealed((all) => ({ ...all, [id]: { local: res.local, remote: res.remote } }))
-  }
-
-  if (!active || status.conflicts.length === 0) return null
-  return (
-    <div className="mt-4">
-      <SettingsPage title={d.sync.conflictsTitle} desc={d.sync.conflictsDesc}>
-        {status.conflicts.map((conflict) => {
-          const shownValues = conflict.kind === 'secret' ? revealed[conflict.id] : conflict
-          const kept = shownValues
-            ? conflict.winner === 'local'
-              ? shownValues.local
-              : shownValues.remote
-            : null
-          const other = shownValues
-            ? conflict.winner === 'local'
-              ? shownValues.remote
-              : shownValues.local
-            : null
-          const desc =
-            conflict.kind === 'secret' && !shownValues
-              ? fmt(d.sync.secretChanged, {
-                  here: time.format(new Date(conflict.localAt ?? 0)),
-                  there: time.format(new Date(conflict.remoteAt ?? 0)),
-                })
-              : fmt(d.sync.conflictValues, {
-                  kept: conflictValue(d, conflict, kept),
-                  other: conflictValue(d, conflict, other),
-                })
-          return (
-            <ControlRow key={conflict.id} label={conflict.key} desc={desc}>
-              {conflict.kind === 'secret' ? (
-                <Button variant="ghost" size="sm" onClick={() => void toggleReveal(conflict.id)}>
-                  {shownValues ? d.sync.hide : d.sync.reveal}
-                </Button>
-              ) : null}
-              <Button variant="outline" size="sm" onClick={() => void resolve(conflict.id)}>
-                {d.sync.useOther}
-              </Button>
-            </ControlRow>
-          )
-        })}
-      </SettingsPage>
-    </div>
-  )
+function serverProblem(d: Dict, server: ServerSyncStatus): string | null {
+  if (server.state === 'unsupported') return d.syncServer.unsupported
+  return server.state === 'unreachable' ? d.syncServer.unreachable : null
 }
 
-function SyncOffers({
-  active,
-  status,
-  onStatus,
-}: {
-  active: boolean
-  status: SyncStatus
-  onStatus: (status: SyncStatus) => void
-}): JSX.Element | null {
-  const d = useDict()
-  const [installing, setInstalling] = useState<string | null>(null)
-
-  const install = async (id: string): Promise<void> => {
-    setInstalling(id)
-    try {
-      onStatus(await window.ostia.sync.install(id))
-    } finally {
-      setInstalling(null)
-    }
-  }
-
-  if (!active || status.offers.length === 0) return null
-  return (
-    <div className="mt-4">
-      <SettingsPage title={d.sync.offersTitle} desc={d.sync.offersDesc}>
-        {status.offers.map((offer) => (
-          <ControlRow key={offer.id} label={offer.id} desc={offer.marketplace}>
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={installing === offer.id}
-              onClick={() => void install(offer.id)}
-            >
-              {d.sync.install}
-            </Button>
-          </ControlRow>
-        ))}
-      </SettingsPage>
-    </div>
-  )
-}
-
-export function SyncSection(): JSX.Element {
-  const d = useDict()
-  const locale = useSettingsStore((s) => s.locale)
-  const dir = useSettingsStore((s) => s.sync?.dir ?? '')
-  const method = useSettingsStore((s) => s.sync?.method ?? 'folder')
-  const setSyncDir = useSettingsStore((s) => s.setSyncDir)
-  const setSyncMethod = useSettingsStore((s) => s.setSyncMethod)
-  const server = method === 'server'
-  const active = server || dir !== ''
+function useSyncStatus(): [SyncStatus, (status: SyncStatus) => void] {
   const [status, setStatus] = useState<SyncStatus>(OFF)
-  const account = useServerStatus()
-  const [serverStatus, setServerStatus] = useSyncServerStatus(server && account.signedIn)
-  const [busy, setBusy] = useState(false)
-
   useEffect(() => {
     let live = true
     void window.ostia.sync.status().then((s) => {
@@ -191,8 +69,41 @@ export function SyncSection(): JSX.Element {
       off()
     }
   }, [])
+  return [status, setStatus]
+}
 
+function usePassphrasePrompt(
+  needed: PassphraseStep | null,
+): [PassphraseStep | null, (step: PassphraseStep | null) => void] {
+  const [step, setStep] = useState<PassphraseStep | null>(null)
+  const [prompted, setPrompted] = useState<PassphraseStep | null>(null)
+  useEffect(() => {
+    if (needed === prompted) return
+    setPrompted(needed)
+    if (needed) setStep(needed)
+  }, [needed, prompted])
+  return [step, setStep]
+}
+
+export function SyncSection(): JSX.Element {
+  const d = useDict()
+  const locale = useSettingsStore((s) => s.locale)
+  const dir = useSettingsStore((s) => s.sync?.dir ?? '')
+  const chosen = useSettingsStore((s) => s.sync?.method ?? 'folder')
+  const setSyncDir = useSettingsStore((s) => s.setSyncDir)
+  const setSyncMethod = useSettingsStore((s) => s.setSyncMethod)
+  const method: Method = chosen === 'server' ? 'server' : dir ? 'folder' : 'off'
+  const server = method === 'server'
+  const account = useServerStatus()
+  const [status, setStatus] = useSyncStatus()
+  const [serverStatus, setServerStatus] = useSyncServerStatus(server && account.signedIn)
+  const ready = !server || serverStatus.state === 'ready'
+  const needed = server && account.signedIn ? neededStep(serverStatus) : null
+  const [step, setStep] = usePassphrasePrompt(needed)
+  const [busy, setBusy] = useState(false)
+  const [kept, setKept] = useState(false)
   const time = useMemo(() => new Intl.DateTimeFormat(locale, SHORT_DATE_TIME), [locale])
+  const active = method === 'folder' || (server && account.signedIn)
 
   const syncNow = async (): Promise<void> => {
     setBusy(true)
@@ -203,88 +114,98 @@ export function SyncSection(): JSX.Element {
     }
   }
 
-  const choose = async (): Promise<void> => {
+  const pickMethod = async (next: Method): Promise<void> => {
+    if (next === 'off') {
+      await setSyncMethod('folder')
+      await setSyncDir('')
+      setStatus(OFF)
+      return
+    }
+    if (next === 'server') {
+      setKept(false)
+      await setSyncMethod('server')
+      await syncNow()
+      return
+    }
+    const picked = await window.ostia.sync.pickFolder()
+    if (!picked) return
+    await setSyncMethod('folder')
+    await setSyncDir(picked)
+    await syncNow()
+  }
+
+  const chooseFolder = async (): Promise<void> => {
     const picked = await window.ostia.sync.pickFolder()
     if (!picked) return
     await setSyncDir(picked)
     await syncNow()
   }
 
-  const stop = async (): Promise<void> => {
-    await setSyncDir('')
-    setStatus(OFF)
-  }
-
-  const pickMethod = async (next: 'folder' | 'server'): Promise<void> => {
-    await setSyncMethod(next)
-    if (next === 'server') await syncNow()
-    else setStatus(await window.ostia.sync.status())
-  }
-
-  const failed = active && status.state === 'error'
-  const statusText = !active
-    ? d.sync.off
-    : status.state === 'error'
+  const problem = server ? serverProblem(d, serverStatus) : null
+  const failed = ready && status.state === 'error'
+  const statusText = needed
+    ? d.syncServer.waiting
+    : failed
       ? syncErrorText(d, status.error)
       : status.lastSync
         ? fmt(d.sync.lastSync, { time: time.format(new Date(status.lastSync)) })
         : d.sync.never
 
-  const syncText =
-    server && serverStatus.state === 'ready' ? `${d.syncServer.ready} ${statusText}` : statusText
-
   return (
     <SettingsPage title={d.sync.title} desc={d.sync.desc}>
-      <ControlRow
-        label={d.sync.status}
-        desc={failed ? undefined : syncText}
-        error={failed ? statusText : undefined}
-      >
-        <Button
-          variant="outline"
-          size="sm"
-          disabled={!active || busy}
-          onClick={() => void syncNow()}
-        >
-          {d.sync.now}
-        </Button>
-      </ControlRow>
-      <ControlRow label={d.syncServer.where} desc={d.syncServer.whereDesc}>
-        <SelectField
-          label={d.syncServer.where}
+      <ControlRow label={d.sync.method} desc={method === 'off' ? d.sync.methodDesc : undefined}>
+        <SelectField<Method>
+          label={d.sync.method}
           value={method}
           options={[
-            { value: 'folder', label: d.syncServer.whereFolder },
-            { value: 'server', label: d.syncServer.whereServer },
+            { value: 'off', label: d.sync.off },
+            { value: 'folder', label: d.sync.methodFolder },
+            { value: 'server', label: d.sync.methodServer },
           ]}
           onChange={(next) => void pickMethod(next)}
+          width="w-48"
         />
       </ControlRow>
-      {server ? null : (
-        <ControlRow label={d.sync.folder} desc={d.sync.folderDesc}>
-          {dir ? (
-            <MachineValue value={dir} />
-          ) : (
-            <span className="text-fg-muted text-ui-sm">{d.sync.notSet}</span>
-          )}
-          <Button variant="outline" size="sm" onClick={() => void choose()}>
-            {d.sync.choose}
-          </Button>
-          {dir ? (
-            <Button variant="ghost" size="sm" onClick={() => void stop()}>
-              {d.sync.stop}
+      {active ? (
+        <ControlRow
+          label={d.sync.status}
+          error={problem ?? (failed ? statusText : null)}
+          below={problem || failed ? null : <StatusText text={statusText} ok={!needed} />}
+        >
+          {needed ? (
+            <Button variant="outline" size="sm" onClick={() => setStep(needed)}>
+              {needed === 'create' ? d.syncServer.createButton : d.syncServer.enterButton}
             </Button>
-          ) : null}
+          ) : (
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={busy || !ready}
+              onClick={() => void syncNow()}
+            >
+              {d.sync.now}
+            </Button>
+          )}
         </ControlRow>
-      )}
-      {server ? <SyncRequests /> : null}
-      {server ? (
-        <SyncServerSection
-          account={account}
-          status={serverStatus}
-          setStatus={setServerStatus}
-          onChanged={() => void syncNow()}
+      ) : null}
+      {method === 'folder' ? (
+        <ControlRow label={d.sync.folder} desc={d.sync.folderDesc}>
+          <MachineValue value={dir} />
+          <Button variant="outline" size="sm" onClick={() => void chooseFolder()}>
+            {d.sync.change}
+          </Button>
+        </ControlRow>
+      ) : null}
+      {server && account.signedIn ? (
+        <SignedInRows
+          status={account}
+          onChangePassphrase={serverStatus.state === 'ready' ? () => setStep('change') : null}
+          onLeft={setKept}
         />
+      ) : null}
+      {server && !account.signedIn ? <SignedOutRows status={account} /> : null}
+      {server && kept && !account.signedIn ? (
+        <Notice tone="info">{d.server.leaveKept}</Notice>
       ) : null}
       {active && status.skipped.length > 0 ? (
         <Notice>{fmt(d.sync.skipped, { files: status.skipped.join(', ') })}</Notice>
@@ -292,9 +213,22 @@ export function SyncSection(): JSX.Element {
       {active && status.heldBack.length > 0 ? (
         <Notice>{fmt(d.sync.heldBack, { keys: status.heldBack.join(', ') })}</Notice>
       ) : null}
-      <SyncConflicts active={active} status={status} time={time} onStatus={setStatus} />
-      {active ? <SyncSecretsSection status={status} onStatus={setStatus} /> : null}
-      <SyncOffers active={active} status={status} onStatus={setStatus} />
+      {active && ready ? (
+        <SyncSecretsSection status={status} server={server} onStatus={setStatus} />
+      ) : null}
+      <SecretFormDialog
+        step={
+          step
+            ? passphraseStep(step, {
+                d,
+                onStatus: setServerStatus,
+                show: (next) => setStep(next),
+              })
+            : null
+        }
+        recovery={{ title: d.syncServer.recoveryTitle, desc: d.syncServer.recoveryBody }}
+        onClose={() => setStep(null)}
+      />
     </SettingsPage>
   )
 }

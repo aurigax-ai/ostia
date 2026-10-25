@@ -20,17 +20,20 @@ function setup(now = () => 1_700_000_000_000) {
 }
 
 describe('device signatures', () => {
-  it('SSY-C1 signs the invite and elevation messages with a timestamp header', async () => {
+  it('SSY-C1 signs the wrap read and the revoke messages with a timestamp header', async () => {
     const { signer, valid } = setup()
-    const invite = await signer.signed('invite', async (headers) => headers)
-    expect(invite['X-Device-Timestamp']).toBe('1700000000000')
+    const read = await signer.signed('wrapRead', async (headers) => headers, ['passphrase'])
+    expect(read['X-Device-Timestamp']).toBe('1700000000000')
     expect(
-      valid('ostia-server/invite/v1\ndev-1\n1700000000000', invite['X-Device-Signature']),
+      valid(
+        'ostia-server/wrap-read/v1\ndev-1\n1700000000000\npassphrase',
+        read['X-Device-Signature'],
+      ),
     ).toBe(true)
-    const elevate = await signer.signed('elevate', async (headers) => headers)
-    expect(elevate['X-Device-Timestamp']).toBe('1700000000001')
+    const revoke = await signer.signed('revoke', async (headers) => headers, ['dev-1'])
+    expect(revoke['X-Device-Timestamp']).toBe('1700000000001')
     expect(
-      valid('ostia-server/elevate/v1\ndev-1\n1700000000001', elevate['X-Device-Signature']),
+      valid('ostia-server/revoke/v2\ndev-1\n1700000000001\ndev-1', revoke['X-Device-Signature']),
     ).toBe(true)
   })
 
@@ -38,7 +41,7 @@ describe('device signatures', () => {
     const { signer } = setup()
     const stamps: number[] = []
     for (let i = 0; i < 3; i += 1) {
-      stamps.push(Number((await signer.signed('invite', async (h) => h))['X-Device-Timestamp']))
+      stamps.push(Number((await signer.signed('wrapRead', async (h) => h))['X-Device-Timestamp']))
     }
     expect(stamps).toEqual([1_700_000_000_000, 1_700_000_000_001, 1_700_000_000_002])
   })
@@ -103,9 +106,9 @@ describe('device signatures', () => {
         ? Promise.reject(new ServerError(403, 'stale-signature', null, now))
         : Promise.resolve(headers)
     }
-    await signer.signed('invite', refuseFirst)
+    await signer.signed('wrapRead', refuseFirst)
     expect(sent).toEqual([now + 10 * 60_000, now])
-    const next = await signer.signed('invite', async (h) => h)
+    const next = await signer.signed('wrapRead', async (h) => h)
     expect(next['X-Device-Timestamp']).toBe(String(now + 1))
   })
 
@@ -154,12 +157,6 @@ describe('device signatures', () => {
       valid(
         `ostia-server/sync-gc/v1\ndev-1\n${gc['X-Device-Timestamp']}\n3\nhash`,
         gc['X-Device-Signature'],
-      ),
-    ).toBe(true)
-    expect(
-      valid(
-        'ostia-server/approve/v1\ndev-1\napproval-9\ndev-3',
-        signer.approve('approval-9', 'dev-3')['X-Device-Signature'],
       ),
     ).toBe(true)
   })

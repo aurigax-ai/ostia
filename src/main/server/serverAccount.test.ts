@@ -198,24 +198,6 @@ describe('the signed-in account', () => {
     return made
   }
 
-  it('SVA-C38 lists the account devices and marks this one', async () => {
-    harness = await signedInAccount()
-    const result = await harness.account.devices()
-    expect(result).toEqual({
-      ok: true,
-      devices: [
-        {
-          id: 'device1',
-          name: 'Test desktop',
-          current: true,
-          lastSeenAt: expect.any(Number),
-          removeAt: expect.any(Number),
-          createdAt: expect.any(Number),
-        },
-      ],
-    })
-  })
-
   it('SVA-C39 signs out: ends the session, forgets identity and keys, and tells listeners', async () => {
     harness = await signedInAccount()
     const { token } = await harness.session.ensure()
@@ -228,7 +210,6 @@ describe('the signed-in account', () => {
     expect(harness.account.status().signedIn).toBe(false)
     expect(harness.saved().identity).toBeNull()
     expect(changes).toBe(1)
-    expect(await harness.account.devices()).toEqual({ ok: false, error: 'not-signed-in' })
   })
 
   it('SVA-C59 stops waiting for a sign-out hook after five seconds and still signs out', async () => {

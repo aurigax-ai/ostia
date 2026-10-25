@@ -10,15 +10,12 @@ import {
 } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it } from 'vitest'
 import { FAKE } from '../../../test/fixtures/secrets/samples'
 import { scanSecrets } from '../privacy/secretScanner'
 import { type DetectSecrets, ProfileSync, type SyncMethod } from './engine'
 import { FolderMethod } from './folderMethod'
-import type { SyncedExtension } from './profile'
 
-const MARKET = 'https://github.com/aurigax-ai/ostia-extensions'
-const TRELLIS: SyncedExtension = { id: 'trellis', marketplace: MARKET }
 const noSecrets: DetectSecrets = async () => []
 
 const roots: string[] = []
@@ -38,7 +35,6 @@ interface Machine {
   userData: string
   configDir: string
   sync: ProfileSync
-  installed: SyncedExtension[]
   clock: { now: Date }
   useMethod: (method: SyncMethod | null) => void
   useTarget: (dir: string) => void
@@ -48,17 +44,12 @@ interface Machine {
   file: (rel: string) => string | null
 }
 
-function machine(
-  target: string,
-  detectSecrets: DetectSecrets = noSecrets,
-  install: (id: string, marketplace: string) => Promise<boolean> = async () => true,
-): Machine {
+function machine(target: string, detectSecrets: DetectSecrets = noSecrets): Machine {
   const root = temp()
   const userData = join(root, 'data')
   const configDir = join(root, 'config')
   mkdirSync(userData, { recursive: true })
   mkdirSync(configDir, { recursive: true })
-  const installed: SyncedExtension[] = []
   const clock = { now: at(0) }
   let dir = target
   let custom: SyncMethod | null | undefined
@@ -68,9 +59,6 @@ function machine(
     now: () => clock.now,
     method: () => (custom !== undefined ? custom : new FolderMethod(dir, [userData, configDir])),
     targetLabel: () => dir,
-    installedExtensions: () => installed,
-    builtinIds: () => ['git'],
-    installExtension: install,
     detectSecrets,
   })
   const stamp = (path: string, minute: number): void => {
@@ -81,7 +69,6 @@ function machine(
     userData,
     configDir,
     sync,
-    installed,
     clock,
     useMethod: (method) => {
       custom = method
@@ -206,7 +193,7 @@ describe('ProfileSync', () => {
     expect(a.settings()).toEqual({ appearance: { theme: 'dusk' }, terminal: { fontSize: 15 } })
   })
 
-  it('PSY-C4 carries settings, extensions, snippets, completion specs and views to another machine', async () => {
+  it('PSY-C4 carries settings, snippets, completion specs and views to another machine', async () => {
     const target = temp()
     const a = machine(target)
     const b = machine(target)
@@ -214,12 +201,11 @@ describe('ProfileSync', () => {
       { appearance: { theme: 'dusk' }, keybindings: { 'workspace.new': 'Ctrl+N' } },
       1,
     )
-    a.installed.push(TRELLIS)
     a.writeFile('snippets/deploy.yaml', 'name: deploy\ncommand: make deploy\n', 1)
     a.writeFile('completions/mytool.json', '{"name":"mytool"}', 1)
     a.writeFile('views/board.json', '{"title":"Board"}', 1)
     await a.sync.run()
-    const res = await b.sync.run()
+    await b.sync.run()
     expect(b.settings()).toEqual({
       appearance: { theme: 'dusk' },
       keybindings: { 'workspace.new': 'Ctrl+N' },
@@ -227,7 +213,7 @@ describe('ProfileSync', () => {
     expect(b.file('snippets/deploy.yaml')).toBe('name: deploy\ncommand: make deploy\n')
     expect(b.file('completions/mytool.json')).toBe('{"name":"mytool"}')
     expect(b.file('views/board.json')).toBe('{"title":"Board"}')
-    expect(res.status.offers).toEqual([TRELLIS])
+    expect(targetFile(target, 'extensions.json')).toBeNull()
   })
 
   it('PSY-C5 leaves a project snippet out of the target', async () => {
@@ -252,12 +238,11 @@ describe('ProfileSync', () => {
     a.writeSettings({ appearance: { theme: 'dawn' }, terminal: { fontSize: 13 } }, 2)
     b.writeSettings({ appearance: { theme: 'dusk' }, terminal: { fontSize: 15 } }, 3)
     await a.sync.run()
-    const res = await b.sync.run()
+    await b.sync.run()
     await a.sync.run()
     const both = { appearance: { theme: 'dawn' }, terminal: { fontSize: 15 } }
     expect(a.settings()).toEqual(both)
     expect(b.settings()).toEqual(both)
-    expect(res.status.conflicts).toEqual([])
   })
 
   it('PSY-C7 merges as a first sync when the stored base is missing or broken', async () => {
@@ -307,104 +292,17 @@ describe('ProfileSync', () => {
       return { target, a, b }
     }
 
-    it('PSY-C9 keeps the most recent change and lists the key with both values', async () => {
+    it('PSY-C9 keeps the most recent change on both machines and asks nothing', async () => {
       const { a, b } = await clash()
       await a.sync.run()
       expect(a.settings()).toEqual({ terminal: { fontSize: 16 } })
       expect(b.settings()).toEqual({ terminal: { fontSize: 16 } })
-      expect(b.sync.status().conflicts).toEqual([
-        {
-          id: 'setting:["terminal","fontSize"]',
-          kind: 'setting',
-          key: 'terminal.fontSize',
-          local: '16',
-          remote: '14',
-          winner: 'local',
-        },
-      ])
-    })
-
-    it('PSY-C10 applies and pushes the other value when the human picks it', async () => {
-      const { a, b } = await clash()
-      b.clock.now = at(6)
-      const status = await b.sync.resolve('setting:["terminal","fontSize"]')
-      expect(b.settings()).toEqual({ terminal: { fontSize: 14 } })
-      expect(status.conflicts).toEqual([])
-      await a.sync.run()
-      expect(a.settings()).toEqual({ terminal: { fontSize: 14 } })
-    })
-
-    it('PSY-C11 drops a listed conflict once the key changes again', async () => {
-      const { a, b } = await clash()
-      await a.sync.run()
-      a.writeSettings({ terminal: { fontSize: 18 } }, 10)
-      a.clock.now = at(11)
-      await a.sync.run()
-      const res = await b.sync.run()
-      expect(b.settings()).toEqual({ terminal: { fontSize: 18 } })
-      expect(res.status.conflicts).toEqual([])
+      expect(b.sync.status()).not.toHaveProperty('conflicts')
     })
   })
 
   describe('extensions', () => {
-    it('PSY-C12 offers an extension another machine has and installs nothing', async () => {
-      const target = temp()
-      const install = vi.fn(async () => true)
-      const a = machine(target)
-      const b = machine(target, noSecrets, install)
-      a.installed.push(TRELLIS)
-      await a.sync.run()
-      const res = await b.sync.run()
-      expect(res.status.offers).toEqual([TRELLIS])
-      expect(install).not.toHaveBeenCalled()
-      expect(existsSync(join(b.userData, 'extensions.json'))).toBe(false)
-    })
-
-    it('PSY-C13 installs an offered extension from its marketplace on the human click', async () => {
-      const target = temp()
-      const install = vi.fn(async () => {
-        b.installed.push(TRELLIS)
-        return true
-      })
-      const a = machine(target)
-      const b = machine(target, noSecrets, install)
-      a.installed.push(TRELLIS)
-      await a.sync.run()
-      await b.sync.run()
-      const status = await b.sync.install('trellis')
-      expect(install).toHaveBeenCalledWith('trellis', MARKET)
-      expect(status.offers).toEqual([])
-      expect(await b.sync.install('keeper')).toMatchObject({ offers: [] })
-      expect(install).toHaveBeenCalledTimes(1)
-    })
-
-    it('PSY-C14 does not offer an entry with a bad marketplace URL or a built-in id', async () => {
-      const target = temp()
-      const b = machine(target)
-      writeFileSync(
-        join(target, 'extensions.json'),
-        JSON.stringify({
-          extensions: [
-            { id: 'evil', marketplace: 'file:///etc' },
-            { id: 'git', marketplace: MARKET },
-            { id: 'odd', marketplace: 'ext::sh -c id' },
-            TRELLIS,
-          ],
-        }),
-      )
-      const res = await b.sync.run()
-      expect(res.status.offers).toEqual([TRELLIS])
-    })
-
-    it('PSY-C15 leaves built-in extensions out of the synced list', async () => {
-      const target = temp()
-      const a = machine(target)
-      a.installed.push({ id: 'git', marketplace: MARKET }, TRELLIS)
-      await a.sync.run()
-      expect(targetJson(target, 'extensions.json')).toEqual({ extensions: [TRELLIS] })
-    })
-
-    it('PSY-C23 never syncs approval or enabled state', async () => {
+    it('PSY-C23 never syncs the extension list, approval or enabled state', async () => {
       const target = temp()
       const a = machine(target)
       const b = machine(target)
@@ -412,24 +310,10 @@ describe('ProfileSync', () => {
       writeFileSync(join(a.userData, 'extensions.json'), approvals)
       const pending = JSON.stringify({ trellis: { enabled: false, approved: null } })
       writeFileSync(join(b.userData, 'extensions.json'), pending)
-      a.installed.push(TRELLIS)
-      b.installed.push(TRELLIS)
       await a.sync.run()
       await b.sync.run()
       expect(readFileSync(join(b.userData, 'extensions.json'), 'utf8')).toBe(pending)
-      expect(targetFile(target, 'extensions.json')).not.toContain('approved')
-    })
-
-    it('PSY-C24 ignores approval fields hand-written into the target', async () => {
-      const target = temp()
-      const b = machine(target)
-      writeFileSync(
-        join(target, 'extensions.json'),
-        JSON.stringify({ extensions: [{ ...TRELLIS, approved: ['shell'], enabled: true }] }),
-      )
-      const res = await b.sync.run()
-      expect(res.status.offers).toEqual([TRELLIS])
-      expect(existsSync(join(b.userData, 'extensions.json'))).toBe(false)
+      expect(targetFile(target, 'extensions.json')).toBeNull()
     })
   })
 
@@ -519,17 +403,14 @@ describe('ProfileSync', () => {
       a.clock.now = at(9)
       await a.sync.run()
       b.writeFile('snippets/deploy.yaml', 'name: deploy\ncommand: make all\n', 3)
-      const res = await b.sync.run()
+      await b.sync.run()
       expect(b.file('snippets/deploy.yaml')).toBe('name: deploy\ncommand: make all\n')
       expect(targetFile(target, 'snippets/deploy.yaml')).toBe('name: deploy\ncommand: make all\n')
-      expect(res.status.conflicts).toMatchObject([
-        { id: 'file:snippets/deploy.yaml', kind: 'file', winner: 'local', remote: null },
-      ])
     })
   })
 
   describe('first sync', () => {
-    it('PSY-C21 keeps keys from both sides and lists the ones that differ', async () => {
+    it('PSY-C21 keeps keys from both sides, the newer value winning where they differ', async () => {
       const target = temp()
       const a = machine(target)
       const b = machine(target)
@@ -537,7 +418,7 @@ describe('ProfileSync', () => {
       await a.sync.run()
       b.writeSettings({ sidebar: { width: 300 }, terminal: { fontSize: 15 } }, 2)
       b.clock.now = at(3)
-      const res = await b.sync.run()
+      await b.sync.run()
       const merged = {
         appearance: { theme: 'dusk' },
         sidebar: { width: 300 },
@@ -545,7 +426,6 @@ describe('ProfileSync', () => {
       }
       expect(b.settings()).toEqual(merged)
       expect(targetJson(target, 'settings.json')).toEqual(merged)
-      expect(res.status.conflicts.map((c) => c.key)).toEqual(['terminal.fontSize'])
     })
 
     it('PSY-C22 wipes neither profile when the folder is switched to one holding another', async () => {

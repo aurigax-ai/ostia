@@ -1,29 +1,16 @@
 import { type IpcMainInvokeEvent, ipcMain } from 'electron'
 import type { ServerSyncResult, ServerSyncStatus } from '../../../shared/profileSync/serverSync'
 import type { ServerSyncService } from './serverSyncService'
-import type { SyncAttentionWatch } from './syncAttention'
 
 export interface ServerSyncIpcDeps {
   service: ServerSyncService
-  attention: SyncAttentionWatch
   run: () => Promise<unknown>
   broadcast: (channel: string, payload?: unknown) => void
 }
 
 const SECRET_INPUT_MAX = 1024
-const ID_MAX = 128
 
-const REFUSED_STATUS: ServerSyncStatus = {
-  state: 'signed-out',
-  host: null,
-  linking: false,
-  linkApproved: false,
-  linkCodes: [],
-  joins: [],
-  recoveryStale: false,
-  wrapRefused: null,
-  changedDevices: [],
-}
+const REFUSED_STATUS: ServerSyncStatus = { state: 'signed-out', host: null }
 
 const refused = (error: 'not-a-window' | 'invalid-input'): ServerSyncResult => ({
   ok: false,
@@ -31,72 +18,39 @@ const refused = (error: 'not-a-window' | 'invalid-input'): ServerSyncResult => (
   status: REFUSED_STATUS,
 })
 
-const text = (value: unknown, max = SECRET_INPUT_MAX): string | null =>
-  typeof value === 'string' && value.length <= max ? value : null
-
-const id = (value: unknown): string | null => {
-  const checked = text(value, ID_MAX)
-  return checked ? checked : null
-}
+const text = (value: unknown): string | null =>
+  typeof value === 'string' && value.length <= SECRET_INPUT_MAX ? value : null
 
 function fromWindow(e: IpcMainInvokeEvent): boolean {
   return e.sender.getType() === 'window'
 }
 
-export function registerServerSyncIpc({
-  service,
-  attention,
-  run,
-  broadcast,
-}: ServerSyncIpcDeps): void {
+export function registerServerSyncIpc({ service, run, broadcast }: ServerSyncIpcDeps): void {
   const act = (
     channel: string,
     arity: number,
     perform: (...args: string[]) => Promise<ServerSyncResult>,
-    syncAfter = true,
   ): void => {
     ipcMain.handle(channel, async (e, ...raw: unknown[]): Promise<ServerSyncResult> => {
       if (!fromWindow(e)) return refused('not-a-window')
-      const args = raw.slice(0, arity).map((value) => text(value))
+      const args = raw.slice(0, arity).map(text)
       if (args.length < arity || args.some((a) => a === null)) return refused('invalid-input')
       const result = await perform(...(args as string[]))
-      if (result.ok && syncAfter) void run()
+      if (result.ok) void run()
       broadcast('syncServer:status', result.status)
       return result
     })
   }
 
-  ipcMain.handle('syncServer:status', (e) => {
-    if (!fromWindow(e)) return Promise.resolve(REFUSED_STATUS)
-    attention.touch()
-    return service.status()
-  })
-  ipcMain.handle('syncServer:attention', (e) =>
-    fromWindow(e) ? attention.scan() : Promise.resolve([]),
+  ipcMain.handle('syncServer:status', (e) =>
+    fromWindow(e) ? service.status() : Promise.resolve(REFUSED_STATUS),
   )
-  act('syncServer:setup', 2, (pw, confirm) => service.setup(pw ?? '', confirm ?? ''))
-  act('syncServer:unlock', 1, (pw) => service.unlock(pw ?? ''))
-  act('syncServer:recover', 1, (key) => service.recover(key ?? ''))
-  act('syncServer:link-start', 0, () => service.linkStart(), false)
-  act('syncServer:link-stop', 0, () => service.linkStop(), false)
-  act('syncServer:link-confirm', 1, (code) => service.linkConfirm(code ?? ''))
-  act('syncServer:new-recovery-key', 0, () => service.newRecoveryKey(), false)
-  act('syncServer:rotate', 2, (pw, key) => service.rotate(pw ?? '', key ?? ''))
-  act(
-    'syncServer:approve-join',
-    2,
-    (deviceId, code) => {
-      const checked = id(deviceId)
-      return checked
-        ? service.approveJoin(checked, code ?? '')
-        : Promise.resolve(refused('invalid-input'))
-    },
-    false,
+  act('syncServer:setup', 2, (pw = '', confirm = '') => service.setup(pw, confirm))
+  act('syncServer:unlock', 1, (pw = '') => service.unlock(pw))
+  act('syncServer:recover', 3, (key = '', pw = '', confirm = '') =>
+    service.recover(key, pw, confirm),
   )
-  act('syncServer:remove-device', 3, (deviceId, pw, key) => {
-    const checked = id(deviceId)
-    return checked
-      ? service.removeDevice(checked, pw ?? '', key ?? '')
-      : Promise.resolve(refused('invalid-input'))
-  })
+  act('syncServer:change-passphrase', 3, (current = '', next = '', confirm = '') =>
+    service.changePassphrase(current, next, confirm),
+  )
 }

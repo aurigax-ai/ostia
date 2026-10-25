@@ -16,7 +16,7 @@ import { createCredentialStore } from '../browser/credentials'
 import { ProfileSync } from './engine'
 import { FolderMethod } from './folderMethod'
 import { SECRETS_FILE } from './profile'
-import { openBundle } from './secretCrypto'
+import { openBundle, rekeyBundle, unwrapKey, usesSyncKey } from './secretCrypto'
 import { loginsSource } from './secretSources'
 import { type SecretEntry, type SecretSource, type SecretSourceName, SecretSync } from './secrets'
 
@@ -77,10 +77,15 @@ interface Machine {
   assistant: MemorySource
   mcp: MemorySource
   logins: ReturnType<typeof createCredentialStore>
+  syncKey: { current: Buffer | null }
   restart: () => Machine
 }
 
-function machine(target: string, existing?: { userData: string; configDir: string }): Machine {
+function machine(
+  target: string,
+  existing?: { userData: string; configDir: string },
+  syncKey: { current: Buffer | null } = { current: null },
+): Machine {
   const root = existing ? null : temp()
   const userData = existing?.userData ?? join(root as string, 'data')
   const configDir = existing?.configDir ?? join(root as string, 'config')
@@ -116,6 +121,7 @@ function machine(target: string, existing?: { userData: string; configDir: strin
     protect,
     sources: () => [vault, extensions, assistant, mcp, loginsSource(logins)],
     readRemote: async () => (await method().read()).files.get(SECRETS_FILE),
+    syncKey: () => syncKey.current,
   })
   const sync = new ProfileSync({
     userData,
@@ -123,9 +129,6 @@ function machine(target: string, existing?: { userData: string; configDir: strin
     now: () => new Date(clock.ms),
     method,
     targetLabel: () => target,
-    installedExtensions: () => [],
-    builtinIds: () => [],
-    installExtension: async () => false,
     detectSecrets: async () => [],
     secrets,
   })
@@ -139,8 +142,9 @@ function machine(target: string, existing?: { userData: string; configDir: strin
     assistant,
     mcp,
     logins,
+    syncKey,
     restart: () => {
-      const next = machine(target, { userData, configDir })
+      const next = machine(target, { userData, configDir }, syncKey)
       for (const name of ['vault', 'extensions', 'assistant', 'mcp'] as const) {
         next[name].data = self[name].data
       }
@@ -162,8 +166,9 @@ async function setUp(a: Machine): Promise<string> {
 async function bundleEntries(target: string, password: string): Promise<Map<string, string>> {
   const text = readFileSync(join(target, SECRETS_FILE), 'utf8')
   const bundle = openBundle(text)
-  if (!bundle) throw new Error('no bundle')
-  const opened = await bundle.openWithPassword(password)
+  if (!bundle || usesSyncKey(bundle.header)) throw new Error('no password bundle')
+  const dataKey = await unwrapKey(bundle.header.password, password, bundle.header.kdf)
+  const opened = dataKey ? bundle.open(dataKey) : null
   if (opened === null) throw new Error('wrong password')
   const parsed = JSON.parse(opened) as { entries: Record<string, { value: string }> }
   return new Map(Object.entries(parsed.entries).map(([k, v]) => [k, v.value]))
@@ -174,27 +179,6 @@ function filesUnder(dir: string): string[] {
   return readdirSync(dir, { recursive: true, encoding: 'utf8' })
     .map((name) => join(dir, name))
     .filter((path) => statSync(path).isFile())
-}
-
-async function loginClash(): Promise<{ target: string; a: Machine; b: Machine; id: string }> {
-  const target = temp()
-  const a = machine(target)
-  const b = machine(target)
-  a.logins.save({ origin: 'https://example.com', username: 'me', password: 'first-password' })
-  await setUp(a)
-  await a.secrets.setLogins(true)
-  await a.sync.run()
-  await b.secrets.unlock(PASSWORD)
-  await b.secrets.setLogins(true)
-  await b.sync.run()
-  a.clock.ms += 1000
-  a.logins.save({ origin: 'https://example.com', username: 'me', password: 'from-a-pass' })
-  b.clock.ms += 2000
-  b.logins.save({ origin: 'https://example.com', username: 'me', password: 'from-b-pass' })
-  await a.sync.run()
-  const res = await b.sync.run()
-  const id = res.status.conflicts.find((c) => c.kind === 'secret')?.id ?? ''
-  return { target, a, b, id }
 }
 
 describe('secret sync', () => {
@@ -464,7 +448,7 @@ describe('secret sync', () => {
     expect(b.vault.data.get('FROM_A')?.value).toBe('a-value')
   })
 
-  it('PSY-C46 keeps the newest login and lists it without the password', async () => {
+  it('PSY-C46 keeps the newest login on both machines and asks nothing', async () => {
     const target = temp()
     const a = machine(target)
     const b = machine(target)
@@ -484,10 +468,6 @@ describe('secret sync', () => {
     await a.sync.run()
     expect(a.logins.forOrigin('https://example.com')[0]?.password).toBe('from-b-pass')
     expect(b.logins.forOrigin('https://example.com')[0]?.password).toBe('from-b-pass')
-    const listed = res.status.conflicts.filter((c) => c.kind === 'secret')
-    expect(listed).toEqual([
-      expect.objectContaining({ key: 'https://example.com (me)', local: null, remote: null }),
-    ])
     expect(JSON.stringify(res.status)).not.toMatch(/from-a-pass|from-b-pass|first-password/)
   })
 
@@ -565,45 +545,64 @@ describe('secret sync', () => {
     expect(a.vault.data.get('FROM_B')?.value).toBe('b-value')
   })
 
-  it('PSY-C51 reveals both values of one conflict only when asked', async () => {
-    const { b, id } = await loginClash()
-    expect(id).not.toBe('')
-    expect(await b.secrets.reveal(id)).toEqual({
-      ok: true,
-      local: 'from-b-pass',
-      remote: 'from-a-pass',
-      winner: 'local',
+  it('PSY-C60 uses the sync key without a password and another machine with the key adopts it', async () => {
+    const target = temp()
+    const key = { current: Buffer.alloc(32, 7) }
+    const a = machine(target, undefined, key)
+    const b = machine(target, undefined, { current: Buffer.alloc(32, 7) })
+    const locked = machine(target)
+    a.vault.data.set('K', entry('vault-value'))
+    await a.secrets.enable()
+    expect((await a.sync.run()).status.secrets).toMatchObject({
+      state: 'unlocked',
+      mode: 'sync-key',
     })
-    expect(JSON.stringify(b.sync.status())).not.toMatch(/from-a-pass|from-b-pass/)
+    const bundle = openBundle(readFileSync(join(target, SECRETS_FILE), 'utf8'))
+    expect(bundle && usesSyncKey(bundle.header)).toBe(true)
+    await b.secrets.enable()
+    await b.sync.run()
+    expect(b.vault.data.get('K')?.value).toBe('vault-value')
+    await locked.secrets.enable()
+    expect((await locked.sync.run()).status.secrets.state).toBe('locked')
+    expect(locked.vault.data.size).toBe(0)
   })
 
-  it('PSY-C52 applies and pushes the other secret when the human picks it', async () => {
-    const { a, b, id } = await loginClash()
-    b.clock.ms += 1000
-    const status = await b.sync.resolve(id)
-    expect(b.logins.forOrigin('https://example.com')[0]?.password).toBe('from-a-pass')
-    expect(status.conflicts.filter((c) => c.kind === 'secret')).toEqual([])
+  it('PSY-C61 moves a sync-key bundle to a new sync key and leaves a password bundle alone', async () => {
+    const target = temp()
+    const oldKey = Buffer.alloc(32, 7)
+    const newKey = Buffer.alloc(32, 8)
+    const a = machine(target, undefined, { current: oldKey })
+    a.vault.data.set('K', entry('vault-value'))
+    await a.secrets.enable()
     await a.sync.run()
-    expect(a.logins.forOrigin('https://example.com')[0]?.password).toBe('from-a-pass')
+    const text = readFileSync(join(target, SECRETS_FILE), 'utf8')
+    const moved = rekeyBundle(text, oldKey, newKey)
+    expect(moved).not.toBe(text)
+    writeFileSync(join(target, SECRETS_FILE), moved)
+    const b = machine(target, undefined, { current: newKey })
+    await b.secrets.enable()
+    await b.sync.run()
+    expect(b.vault.data.get('K')?.value).toBe('vault-value')
+    a.syncKey.current = newKey
+    expect((await a.sync.run()).status.secrets.state).toBe('unlocked')
+    const passwordTarget = temp()
+    const p = machine(passwordTarget)
+    await setUp(p)
+    const sealed = readFileSync(join(passwordTarget, SECRETS_FILE), 'utf8')
+    expect(rekeyBundle(sealed, oldKey, newKey)).toBe(sealed)
   })
 
-  it('PSY-C53 keeps the losing secret only encrypted, and reveals it after a restart', async () => {
-    const { target, b, id } = await loginClash()
-    for (const path of [...filesUnder(b.userData), ...filesUnder(target)]) {
-      expect(readFileSync(path, 'utf8')).not.toContain('from-a-pass')
-    }
-    const again = b.restart()
-    expect(await again.secrets.reveal(id)).toMatchObject({ ok: true, remote: 'from-a-pass' })
-  })
-
-  it('PSY-C54 returns and changes nothing for an unknown or resolved conflict', async () => {
-    const { b, id } = await loginClash()
-    expect(await b.secrets.reveal('secret:vault\0NOPE')).toEqual({ ok: false })
-    await b.sync.resolve('secret:vault\0NOPE')
-    expect(b.logins.forOrigin('https://example.com')[0]?.password).toBe('from-b-pass')
-    await b.sync.resolve(id)
-    expect(await b.secrets.reveal(id)).toEqual({ ok: false })
-    await b.sync.resolve(id)
-    expect(b.logins.forOrigin('https://example.com')[0]?.password).toBe('from-a-pass')
+  it('PSY-C62 switches from the sync key to a separate password and back', async () => {
+    const target = temp()
+    const a = machine(target, undefined, { current: Buffer.alloc(32, 7) })
+    a.vault.data.set('K', entry('vault-value'))
+    await a.secrets.enable()
+    await a.sync.run()
+    const res = await a.secrets.reset(PASSWORD, PASSWORD)
+    expect(res.ok).toBe(true)
+    expect((await a.sync.run()).status.secrets).toMatchObject({ mode: 'password' })
+    expect((await bundleEntries(target, PASSWORD)).get('vault\0K')).toBe('vault-value')
+    expect((await a.secrets.useSyncKey()).ok).toBe(true)
+    expect((await a.sync.run()).status.secrets).toMatchObject({ mode: 'sync-key' })
   })
 })

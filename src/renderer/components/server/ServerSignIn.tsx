@@ -1,13 +1,11 @@
-import type { ServerOffer } from '@shared/server/serverApi'
 import { useState } from 'react'
 import { ControlRow } from '@/components/settingsKit/ControlRow'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { useDict } from '@/lib/app/useDict'
-import { ServerGithub } from './ServerGithub'
 import { type ServerErrorCode, serverErrorText } from './serverText'
 
-function InviteRow(): JSX.Element {
+export function InviteRow(): JSX.Element {
   const d = useDict()
   const [code, setCode] = useState('')
   const [busy, setBusy] = useState(false)
@@ -54,14 +52,5 @@ function InviteRow(): JSX.Element {
         {d.server.inviteSignIn}
       </Button>
     </ControlRow>
-  )
-}
-
-export function ServerSignIn({ offer }: { offer: ServerOffer }): JSX.Element {
-  return (
-    <>
-      {offer.invite ? <InviteRow /> : null}
-      {offer.github ? <ServerGithub /> : null}
-    </>
   )
 }

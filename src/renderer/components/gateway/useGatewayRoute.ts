@@ -20,7 +20,7 @@ function tailnetProblem(d: Dict, node: GatewayTailnetState): string | null {
 
 export type GatewayMethod = 'relay' | 'tailscale' | 'network'
 
-export function methodOf(route: GatewayRoute): GatewayMethod {
+function methodOf(route: GatewayRoute): GatewayMethod {
   if (route.relay) return 'relay'
   return route.tailnet ? 'tailscale' : 'network'
 }
