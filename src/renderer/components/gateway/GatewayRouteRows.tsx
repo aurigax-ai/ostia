@@ -9,14 +9,16 @@ import type {
 import { formatPhoneAddress, parsePhoneAddress } from '@shared/gateway/gatewayRoute'
 import { useState } from 'react'
 import { Notice } from '@/components/common/Notice'
+import { SignInNotice } from '@/components/server/SignInNotice'
 import { useServerStatus } from '@/components/server/useServerStatus'
 import { CommitInput } from '@/components/settingsKit/CommitInput'
 import { ControlRow, ToggleRow } from '@/components/settingsKit/ControlRow'
 import { SelectField } from '@/components/settingsKit/SelectField'
 import { Button } from '@/components/ui/button'
 import { fmt, useDict } from '@/lib/app/useDict'
+import { cn } from '@/lib/utils'
 import { useUIStore } from '@/stores/app/uiStore'
-import type { GatewayRouteState } from './useGatewayRoute'
+import type { GatewayMethod, GatewayRouteState } from './useGatewayRoute'
 import type { GatewayStatus } from './useGatewayStatus'
 
 function bindOptions(
@@ -93,49 +95,116 @@ function tailnetSummary(d: Dict, node: GatewayTailnetState): string {
   return d.settings.remoteTailnetOff
 }
 
-function RelayRows({
-  route,
-  relay,
-  running,
-  onRoute,
-}: {
-  route: GatewayRoute
-  relay: GatewayRelayState
-  running: boolean
-  onRoute: (next: Partial<GatewayRoute>) => Promise<void>
-}): JSX.Element {
+function methodName(d: Dict, method: GatewayMethod): string {
+  if (method === 'relay') return d.settings.remoteMethodRelay
+  return method === 'tailscale' ? d.settings.remoteMethodTailscale : d.settings.remoteMethodNetwork
+}
+
+function StatusText({ text, ok }: { text: string; ok: boolean }): JSX.Element {
+  return (
+    <span className="flex min-w-0 items-center gap-2 text-fg-muted text-ui-sm">
+      <span className={cn('dot', ok && 'done')} />
+      <span className="min-w-0 truncate">{text}</span>
+    </span>
+  )
+}
+
+const openAccount = (): void => useUIStore.getState().openSettings('sync')
+
+function relayStatusText(d: Dict, relay: GatewayRelayState): string {
+  if (relay.state === 'listening') return d.settings.remoteRelayConnected
+  if (relay.state === 'error') return fmt(d.settings.remoteRelayError, { code: relay.code })
+  if (relay.state === 'connecting') return d.settings.remoteRelayConnecting
+  return d.settings.remoteStateOff
+}
+
+function RelayRows({ relay }: { relay: GatewayRelayState }): JSX.Element {
   const d = useDict()
   const server = useServerStatus()
+  if (!server.signedIn) {
+    return <SignInNotice text={d.settings.remoteRelaySignedOut} />
+  }
+  return (
+    <ControlRow
+      label={d.settings.remoteRelayServer}
+      desc={fmt(d.settings.remoteRelayDesc, { server: server.host ?? '' })}
+      below={<StatusText text={relayStatusText(d, relay)} ok={relay.state === 'listening'} />}
+    >
+      <Button variant="outline" size="sm" onClick={openAccount}>
+        {d.settings.remoteRelayManage}
+      </Button>
+    </ControlRow>
+  )
+}
+
+function TailscaleRows({
+  tailnet,
+  running,
+  onSignIn,
+  onSignOut,
+}: {
+  tailnet: GatewayTailnetState
+  running: boolean
+  onSignIn: () => Promise<void>
+  onSignOut: () => Promise<void>
+}): JSX.Element {
+  const d = useDict()
+  return (
+    <ControlRow
+      label={d.settings.remoteTailscale}
+      desc={d.settings.remoteTailscaleDesc}
+      below={<StatusText text={tailnetSummary(d, tailnet)} ok={tailnet.state === 'running'} />}
+    >
+      {running && tailnet.state === 'needs-login' ? (
+        <Button variant="outline" size="sm" onClick={() => void onSignIn()}>
+          {d.settings.remoteTailnetSignIn}
+        </Button>
+      ) : null}
+      {tailnet.state === 'running' ? (
+        <Button variant="outline" size="sm" onClick={() => void onSignOut()}>
+          {d.settings.remoteTailnetSignOut}
+        </Button>
+      ) : null}
+    </ControlRow>
+  )
+}
+
+function NetworkRows({
+  gateway,
+  routing,
+}: {
+  gateway: GatewayStatus
+  routing: GatewayRouteState
+}): JSX.Element {
+  const d = useDict()
+  const { status, addresses } = gateway
+  const { running, route, exposed, unreachable, onRoute, onDiscoverable } = routing
   return (
     <>
-      <ToggleRow
-        label={d.settings.remoteRelay}
-        desc={
-          server.host
-            ? fmt(d.settings.remoteRelayDesc, { server: server.host })
-            : d.settings.remoteRelayDescNoServer
-        }
-        checked={route.relay}
-        onChange={(v) => void onRoute({ relay: v })}
+      <ControlRow label={d.settings.remoteBind} desc={d.settings.remoteBindDesc}>
+        <SelectField
+          value={route.bindAddress}
+          onChange={(v) => void onRoute({ bindAddress: v })}
+          options={bindOptions(d, addresses, route.bindAddress)}
+          label={d.settings.remoteBind}
+          width="w-fit min-w-64 max-w-80"
+          disabled={running}
+        />
+      </ControlRow>
+      <PhoneAddressRow
+        route={route}
         disabled={running}
+        onSave={(phoneAddress) => onRoute({ phoneAddress })}
       />
-      {route.relay && relay.state === 'needs-sign-in' ? (
-        <Notice
-          actions={
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => useUIStore.getState().openSettings('server')}
-            >
-              {d.settings.remoteRelayOpenServer}
-            </Button>
-          }
-        >
-          {d.settings.remoteRelayNeedsSignIn}
-        </Notice>
-      ) : null}
-      {route.relay && relay.state === 'error' ? (
-        <Notice>{fmt(d.settings.remoteRelayError, { code: relay.code })}</Notice>
+      <ToggleRow
+        label={d.settings.remoteDiscoverable}
+        desc={d.settings.remoteDiscoverableDesc}
+        checked={status?.discoverable ?? false}
+        onChange={(v) => void onDiscoverable(v)}
+      />
+      {unreachable ? <Notice>{d.settings.remoteLoopbackOnly}</Notice> : null}
+      {exposed ? (
+        <Notice>{fmt(d.settings.remoteAddressWarning, { address: route.bindAddress })}</Notice>
       ) : null}
     </>
   )
@@ -149,97 +218,52 @@ export function GatewayRouteRows({
   routing: GatewayRouteState
 }): JSX.Element {
   const d = useDict()
-  const { status, tailnet, relay, addresses } = gateway
-  const {
-    running,
-    route,
-    exposed,
-    unreachable,
-    viaTailnet,
-    problem,
-    signInError,
-    routeError,
-    onRoute,
-    onToggle,
-    onSignIn,
-    onSignOut,
-    onDiscoverable,
-  } = routing
+  const server = useServerStatus()
+  const { tailnet, relay } = gateway
+  const { running, method, problem, signInError, routeError, onToggle, onMethod } = routing
+  const blocked = !running && method === 'relay' && !server.signedIn
   return (
     <>
       <ToggleRow
         label={d.settings.remoteEnable}
         desc={d.settings.remoteEnableDesc}
         checked={running}
+        disabled={blocked}
         onChange={(v) => void onToggle(v)}
+        below={
+          <StatusText
+            text={
+              running
+                ? fmt(d.settings.remoteRunning, { method: methodName(d, method) })
+                : d.settings.remoteStateOff
+            }
+            ok={running}
+          />
+        }
       />
-
-      <ControlRow label={d.settings.remoteBind} desc={d.settings.remoteBindDesc}>
-        <SelectField
-          value={route.bindAddress}
-          onChange={(v) => void onRoute({ bindAddress: v })}
-          options={bindOptions(d, addresses, route.bindAddress)}
-          label={d.settings.remoteBind}
-          width="w-fit min-w-64 max-w-80"
+      <ControlRow label={d.settings.remoteMethod} desc={d.settings.remoteMethodDesc}>
+        <SelectField<GatewayMethod>
+          value={method}
+          onChange={(next) => void onMethod(next)}
+          options={(['relay', 'tailscale', 'network'] as const).map((value) => ({
+            value,
+            label: methodName(d, value),
+          }))}
+          label={d.settings.remoteMethod}
+          width="w-56"
           disabled={running}
         />
       </ControlRow>
-
-      <ToggleRow
-        label={d.settings.remoteTailnetNode}
-        desc={d.settings.remoteTailnetNodeDesc}
-        checked={route.tailnet}
-        onChange={(v) => void onRoute({ tailnet: v })}
-        disabled={running}
-      />
-
-      {viaTailnet ? (
-        <ControlRow
-          label={d.settings.remoteTailscale}
-          desc={d.settings.remoteTailscaleDesc}
-          below={
-            <span className="flex min-w-0 items-center gap-2 text-fg-muted text-ui-sm">
-              <span className={`dot ${tailnet.state === 'running' ? 'done' : ''}`} />
-              <span className="min-w-0 truncate">{tailnetSummary(d, tailnet)}</span>
-              {running && tailnet.state === 'needs-login' ? (
-                <Button variant="outline" size="sm" onClick={() => void onSignIn()}>
-                  {d.settings.remoteTailnetSignIn}
-                </Button>
-              ) : null}
-              {tailnet.state === 'running' ? (
-                <Button variant="ghost" size="sm" onClick={() => void onSignOut()}>
-                  {d.settings.remoteTailnetSignOut}
-                </Button>
-              ) : null}
-            </span>
-          }
+      {method === 'relay' ? <RelayRows relay={relay} /> : null}
+      {method === 'tailscale' ? (
+        <TailscaleRows
+          tailnet={tailnet}
+          running={running}
+          onSignIn={routing.onSignIn}
+          onSignOut={routing.onSignOut}
         />
-      ) : (
-        <PhoneAddressRow
-          route={route}
-          disabled={running}
-          onSave={(phoneAddress) => onRoute({ phoneAddress })}
-        />
-      )}
-
-      <RelayRows route={route} relay={relay} running={running} onRoute={onRoute} />
-
-      {unreachable ? <Notice>{d.settings.remoteLoopbackOnly}</Notice> : null}
-
-      {exposed ? (
-        <>
-          <Notice>{fmt(d.settings.remoteAddressWarning, { address: route.bindAddress })}</Notice>
-          <Notice tone="info">{d.settings.remoteLanOnlyInfo}</Notice>
-        </>
       ) : null}
-
-      <ToggleRow
-        label={d.settings.remoteDiscoverable}
-        desc={d.settings.remoteDiscoverableDesc}
-        checked={status?.discoverable ?? false}
-        onChange={(v) => void onDiscoverable(v)}
-      />
-
+      {method === 'network' ? <NetworkRows gateway={gateway} routing={routing} /> : null}
       {problem ? <Notice>{problem}</Notice> : null}
       {signInError ? <Notice>{signInError}</Notice> : null}
       {routeError ? <Notice>{routeError}</Notice> : null}

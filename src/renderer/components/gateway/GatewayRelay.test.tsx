@@ -17,11 +17,13 @@ const LOOPBACK_ROUTE: GatewayRoute = {
   relay: false,
 }
 
+const RELAY_ROUTE: GatewayRoute = { ...LOOPBACK_ROUTE, relay: true }
+
 function remote(
   route: GatewayRoute,
   relay: GatewayRelayState,
   running = false,
-  host: string | null = 'ostia.example.com',
+  signedIn = true,
 ): void {
   const status: GatewayRemoteStatus = {
     running,
@@ -37,89 +39,77 @@ function remote(
   }
   vi.mocked(window.ostia.gateway.status).mockResolvedValue(status)
   vi.mocked(window.ostia.server.status).mockResolvedValue({
-    url: host ? `https://${host}` : null,
-    host,
-    signedIn: true,
+    url: signedIn ? 'https://ostia.example.com' : null,
+    host: signedIn ? 'ostia.example.com' : null,
+    signedIn,
     provider: 'invite',
     deviceName: 'Desk',
   })
 }
 
-const pairButton = (): Promise<HTMLElement> =>
-  screen.findByRole('button', { name: 'Show pairing code' })
+const pairButton = (): Promise<HTMLElement> => screen.findByRole('button', { name: 'Show QR' })
 
 afterEach(() => {
   cleanup()
 })
 
-describe('Settings › Remote through a relay server', () => {
-  it('RLY-C47 names the configured server and says it only forwards bytes', async () => {
-    remote(LOOPBACK_ROUTE, { state: 'off' })
+describe('Settings › Remote through Ostia Relay', () => {
+  it('RLY-C47 names the server and says it only forwards bytes', async () => {
+    remote(RELAY_ROUTE, { state: 'listening', host: 'lblabc.relay.test', port: 443 }, true)
     render(<GatewaySection />)
-    const toggle = await screen.findByRole('switch', { name: 'Through a relay server' })
-    expect(toggle).not.toBeChecked()
-    expect(
-      await screen.findByText(/through ostia\.example\.com, which only forwards bytes/),
-    ).toHaveTextContent(/still ends TLS with its pinned certificate/)
+    expect(await screen.findByText(/ostia\.example\.com only forwards bytes/)).toHaveTextContent(
+      /ends TLS with its pinned certificate/,
+    )
+    expect(screen.getByText('Connected')).toBeInTheDocument()
+    expect(screen.getByText('Running · Ostia Relay')).toBeInTheDocument()
   })
 
-  it('RLY-C48 points at Server settings when no server is set, and never mentions Tailscale', async () => {
-    remote(LOOPBACK_ROUTE, { state: 'off' }, false, null)
+  it('RLY-C48 signed out shows one line with a Sign in link to Sync and blocks the switch', async () => {
+    remote(RELAY_ROUTE, { state: 'needs-sign-in' }, false, false)
     render(<GatewaySection />)
-    const desc = await screen.findByText(/relay server you set up in Server settings/)
-    expect(desc).not.toHaveTextContent(/Tailscale/i)
-  })
-
-  it('RLY-C49 saves the relay choice in the route while the gateway is off', async () => {
-    remote(LOOPBACK_ROUTE, { state: 'off' })
-    render(<GatewaySection />)
-    await userEvent
-      .setup()
-      .click(await screen.findByRole('switch', { name: 'Through a relay server' }))
-    expect(window.ostia.gateway.setRoute).toHaveBeenCalledWith({ ...LOOPBACK_ROUTE, relay: true })
-  })
-
-  it('RLY-C50 locks the relay switch while the gateway runs', async () => {
-    remote({ ...LOOPBACK_ROUTE, relay: true }, { state: 'connecting' }, true)
-    render(<GatewaySection />)
-    await screen.findByRole('switch', { name: 'Through a relay server' })
-    const toggle = (): HTMLElement => screen.getByRole('switch', { name: 'Through a relay server' })
-    await waitFor(() => expect(toggle()).toHaveAttribute('aria-disabled', 'true'))
-    expect(toggle()).toBeChecked()
-  })
-
-  it('RLY-C51 asks to sign in to the server and links to Settings › Server', async () => {
-    remote({ ...LOOPBACK_ROUTE, relay: true }, { state: 'needs-sign-in' })
-    render(<GatewaySection />)
-    expect(await screen.findByText(/needs this computer to be signed in/)).toBeInTheDocument()
+    expect(await screen.findByText('The relay needs an Ostia account.')).toBeInTheDocument()
+    expect(screen.queryByText('Relay server')).toBeNull()
+    expect(screen.getByRole('switch', { name: 'Enable remote access' })).toHaveAttribute(
+      'aria-disabled',
+      'true',
+    )
     const openSettings = vi.spyOn(useUIStore.getState(), 'openSettings')
-    await userEvent.setup().click(screen.getByRole('button', { name: 'Open Server settings' }))
-    expect(openSettings).toHaveBeenCalledWith('server')
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Sign in' }))
+    expect(openSettings).toHaveBeenCalledWith('sync')
   })
 
-  it('RLY-C52 shows no sign-in notice when the relay is off', async () => {
-    remote(LOOPBACK_ROUTE, { state: 'needs-sign-in' })
+  it('RLY-C49 choosing Ostia Relay turns every other method off', async () => {
+    remote(
+      { ...LOOPBACK_ROUTE, bindAddress: '192.168.2.108', bindInterface: 'wlan0' },
+      { state: 'off' },
+    )
+    const user = userEvent.setup()
     render(<GatewaySection />)
-    await screen.findByRole('switch', { name: 'Through a relay server' })
-    expect(screen.queryByText(/needs this computer to be signed in/)).toBeNull()
+    await user.click(await screen.findByRole('combobox', { name: 'Connection method' }))
+    await user.click(await screen.findByRole('option', { name: 'Ostia Relay' }))
+    expect(window.ostia.gateway.setRoute).toHaveBeenCalledWith(RELAY_ROUTE)
+  })
+
+  it('RLY-C50 locks the method while the gateway runs', async () => {
+    remote(RELAY_ROUTE, { state: 'connecting' }, true)
+    render(<GatewaySection />)
+    const method = await screen.findByRole('combobox', { name: 'Connection method' })
+    await waitFor(() => expect(method).toBeDisabled())
+    expect(method).toHaveTextContent('Ostia Relay')
   })
 
   it('RLY-C53 says when the relay cannot connect and that it retries', async () => {
-    remote({ ...LOOPBACK_ROUTE, relay: true }, { state: 'error', code: 'unreachable' }, true)
+    remote(RELAY_ROUTE, { state: 'error', code: 'unreachable' }, true)
     render(<GatewaySection />)
     expect(await screen.findByText(/relay is not connected \(unreachable\)/)).toBeInTheDocument()
   })
 
   it('RLY-C54 enables pairing on 127.0.0.1 only once the relay is listening', async () => {
-    remote({ ...LOOPBACK_ROUTE, relay: true }, { state: 'connecting' }, true)
+    remote(RELAY_ROUTE, { state: 'connecting' }, true)
     const first = render(<GatewaySection />)
     expect(await pairButton()).toBeDisabled()
     first.unmount()
-    remote(
-      { ...LOOPBACK_ROUTE, relay: true },
-      { state: 'listening', host: 'lblabc.relay.test', port: 443 },
-      true,
-    )
+    remote(RELAY_ROUTE, { state: 'listening', host: 'lblabc.relay.test', port: 443 }, true)
     render(<GatewaySection />)
     expect(await pairButton()).toBeEnabled()
     expect(screen.queryByText(/A phone cannot reach 127\.0\.0\.1/)).toBeNull()
@@ -131,14 +121,14 @@ describe('Settings › Remote through a relay server', () => {
       push = cb
       return () => {}
     })
-    remote({ ...LOOPBACK_ROUTE, relay: true }, { state: 'connecting' }, true)
+    remote(RELAY_ROUTE, { state: 'connecting' }, true)
     render(<GatewaySection />)
     expect(await pairButton()).toBeDisabled()
     act(() => push({ state: 'listening', host: 'lblabc.relay.test', port: 443 }))
     expect(await pairButton()).toBeEnabled()
   })
 
-  it('RLY-C56 still warns that 127.0.0.1 is unreachable when no route reaches a phone', async () => {
+  it('RLY-C56 warns that 127.0.0.1 is unreachable on Network address with no public address', async () => {
     remote(LOOPBACK_ROUTE, { state: 'off' })
     render(<GatewaySection />)
     expect(await screen.findByText(/A phone cannot reach 127\.0\.0\.1/)).toBeInTheDocument()

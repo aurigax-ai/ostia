@@ -284,31 +284,25 @@ describe('gateway IPC and socket surface for the tailnet', () => {
     expect(await invoke('gateway:pair')).toEqual({ error: 'not-running' })
   })
 
-  it('TSN-C46 ignores the phone address while the node is on', async () => {
+  it('TSN-C46 refuses a phone address while the node is on', async () => {
     const route = {
       bindAddress: '127.0.0.1',
       tailnet: true,
       phoneAddress: { host: 'desk.example.ts.net', port: 443 },
       relay: false,
     }
-    await invoke('gateway:set-route', 'window', route)
-    await invoke('gateway:enable')
-    expect(startGateway).toHaveBeenCalledWith({
-      host: '127.0.0.1',
-      tailnet: true,
-      phoneAddress: null,
-      relay: false,
+    expect(await invoke('gateway:set-route', 'window', route)).toEqual({
+      ok: false,
+      error: 'two-methods',
     })
-    tailnetState = { state: 'running', ip: '100.64.0.9', dnsName: 'ostia-x.example.ts.net' }
-    expect(await invoke('gateway:pair')).toMatchObject({ host: '100.64.0.9', port: 8722 })
   })
 
   it('TSN-C45 turning the node back on starts the helper on the next enable', async () => {
     await invoke('gateway:set-route', 'window', LAN_ROUTE)
-    await invoke('gateway:set-route', 'window', { ...LAN_ROUTE, tailnet: true })
+    await invoke('gateway:set-route', 'window', DEFAULT_ROUTE)
     await invoke('gateway:enable')
     expect(startGateway).toHaveBeenCalledWith({
-      host: LAN_ADDRESS,
+      host: '127.0.0.1',
       tailnet: true,
       phoneAddress: null,
       relay: false,
@@ -321,7 +315,7 @@ describe('gateway IPC and socket surface for the tailnet', () => {
       route: {
         bindAddress: '10.1.2.3',
         bindInterface: 'eth9',
-        tailnet: true,
+        tailnet: false,
         phoneAddress: null,
         relay: false,
       },

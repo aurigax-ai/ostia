@@ -16,16 +16,10 @@ describe('GatewayPhoneWorkspace', () => {
     expect(await screen.findByText('/data/ostia/remote-workspace')).toBeTruthy()
     expect(screen.getByText('Made when a phone first starts a session.')).toBeTruthy()
     expect(screen.queryByRole('button', { name: 'Use default' })).toBeNull()
-    expect(
-      screen
-        .getByRole('switch', { name: 'Open new phone sessions there' })
-        .hasAttribute('data-disabled'),
-    ).toBe(false)
     fireEvent.click(screen.getByRole('button', { name: 'Choose…' }))
     await waitFor(() =>
       expect(gateway.setPhoneWorkspace).toHaveBeenCalledWith({
         folder: '/home/me',
-        openNew: true,
         agent: 'claude',
       }),
     )
@@ -38,14 +32,12 @@ describe('GatewayPhoneWorkspace', () => {
         folder: '/home/me/jobs',
         isDefault: false,
         absent: false,
-        openNew: true,
         agent: 'claude',
-        trust: 'ask',
       },
     })
     fireEvent.click(screen.getByRole('button', { name: 'Choose…' }))
     expect(await screen.findByText('/home/me/jobs')).toBeTruthy()
-    expect(screen.getByText('Not trusted yet')).toBeTruthy()
+    expect(screen.queryByText(/folder trust/i)).toBeNull()
 
     vi.mocked(gateway.setPhoneWorkspace).mockResolvedValueOnce({
       ok: true,
@@ -53,16 +45,13 @@ describe('GatewayPhoneWorkspace', () => {
         folder: '/data/ostia/remote-workspace',
         isDefault: true,
         absent: false,
-        openNew: true,
         agent: 'claude',
-        trust: 'unknown',
       },
     })
     fireEvent.click(screen.getByRole('button', { name: 'Use default' }))
     await waitFor(() =>
       expect(gateway.setPhoneWorkspace).toHaveBeenLastCalledWith({
         folder: null,
-        openNew: true,
         agent: 'claude',
       }),
     )

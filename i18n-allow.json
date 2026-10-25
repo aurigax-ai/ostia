@@ -16,7 +16,9 @@
         "settings.rendererGhostty",
         "settings.remoteTailscale",
         "git.title",
-        "server.providerGithub"
+        "server.providerGithub",
+        "settings.remoteMethodRelay",
+        "settings.remoteMethodTailscale"
       ],
       "protocol and key names": [
         "keyboard.modifierTargets.*",

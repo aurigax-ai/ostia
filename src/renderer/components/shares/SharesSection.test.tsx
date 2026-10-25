@@ -70,12 +70,17 @@ describe('Settings › Shared artifacts', () => {
     expect(await screen.findByText(/Nothing published yet/)).toBeInTheDocument()
   })
 
-  it('SHR-C72 sends the signed-out human to Settings › Server', async () => {
+  it('SHR-C72 sends the signed-out human to the account in Settings › Sync', async () => {
     shares().status.mockResolvedValue({ state: 'signed-out' })
     shares().list.mockResolvedValue({ ok: false, error: 'signed-out' })
     await renderSettled(<SharesSection />)
-    await userEvent.click(await screen.findByRole('button', { name: 'Open Server settings' }))
-    expect(useUIStore.getState().settingsSection).toBe('server')
+    expect(
+      await screen.findByText(
+        'Sign in to your Ostia account to publish files and manage what you shared.',
+      ),
+    ).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Sign in' }))
+    expect(useUIStore.getState().settingsSection).toBe('sync')
     expect(screen.queryByRole('list')).toBeNull()
   })
 

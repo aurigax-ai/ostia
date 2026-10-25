@@ -1,5 +1,5 @@
 import type { ExtensionInfo } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
-import { Fragment, memo, useEffect, useMemo, useRef } from 'react'
+import { Fragment, memo, useEffect, useMemo, useRef, useState } from 'react'
 import { AgentsSection } from '@/components/agents/AgentsSection'
 import { ClaudeAccountsSection } from '@/components/agents/ClaudeAccountsSection'
 import { PlaybooksSection } from '@/components/agents/PlaybooksSection'
@@ -22,6 +22,7 @@ import { type SearchStore, SettingsSearchSection } from '@/components/settingsKi
 import { SharesSection } from '@/components/shares/SharesSection'
 import { SidebarSection } from '@/components/sidebar/SidebarSection'
 import { TerminalSection } from '@/components/terminal/TerminalSection'
+import { DialogContainer } from '@/components/ui/dialog'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { ViewsSection } from '@/components/views/ViewsSection'
 import { useDict } from '@/lib/app/useDict'
@@ -71,6 +72,7 @@ export function SettingsPanel(): JSX.Element | null {
     [extensions],
   )
   const nav = useSettingsNavigation({ d, open, sections, settingsPageExtensions, contentRef })
+  const [dialogHost, setDialogHost] = useState<HTMLDivElement | null>(null)
 
   useEffect(() => {
     if (!open) closeBrowse()
@@ -113,28 +115,33 @@ export function SettingsPanel(): JSX.Element | null {
           openSettingsFile={openSettingsFile}
         />
 
-        <ScrollArea className="min-h-0">
-          <div
-            ref={contentRef}
-            data-slot="settings-content"
-            className="mx-auto max-w-3xl select-text px-8 py-5 [&_[data-slot=kbd]]:pointer-events-auto [&_[data-slot=kbd]]:select-text [&_[data-slot=label]]:select-text"
-          >
-            {nav.q && nav.visible.length === 0 ? (
-              <p className="text-fg-muted text-ui-sm">{d.settings.noMatches}</p>
-            ) : null}
-            <SettingsPages
-              searching={nav.q !== ''}
-              active={nav.active}
-              sections={sections}
-              settingsPageExtensions={settingsPageExtensions}
-              shownPage={nav.shownPage}
-              anchor={nav.anchor}
-              targetWorkspace={targetWorkspace}
-              store={nav.searchStore}
-              onHits={nav.onSearchHits}
-            />
-          </div>
-        </ScrollArea>
+        <div className="relative flex min-h-0 flex-col [contain:layout]">
+          <DialogContainer.Provider value={dialogHost}>
+            <ScrollArea className="min-h-0 flex-1">
+              <div
+                ref={contentRef}
+                data-slot="settings-content"
+                className="mx-auto max-w-3xl select-text px-8 py-5 [&_[data-slot=kbd]]:pointer-events-auto [&_[data-slot=kbd]]:select-text [&_[data-slot=label]]:select-text"
+              >
+                {nav.q && nav.visible.length === 0 ? (
+                  <p className="text-fg-muted text-ui-sm">{d.settings.noMatches}</p>
+                ) : null}
+                <SettingsPages
+                  searching={nav.q !== ''}
+                  active={nav.active}
+                  sections={sections}
+                  settingsPageExtensions={settingsPageExtensions}
+                  shownPage={nav.shownPage}
+                  anchor={nav.anchor}
+                  targetWorkspace={targetWorkspace}
+                  store={nav.searchStore}
+                  onHits={nav.onSearchHits}
+                />
+              </div>
+            </ScrollArea>
+          </DialogContainer.Provider>
+          <div ref={setDialogHost} />
+        </div>
       </div>
       {browsing ? <BrowseExtensionsDialog /> : null}
     </section>

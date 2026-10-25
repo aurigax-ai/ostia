@@ -110,9 +110,9 @@ const LAN_ROUTE = {
   bindInterface: 'wlan0',
   tailnet: false,
   phoneAddress: null,
-  relay: true,
+  relay: false,
 }
-const LOOPBACK_ROUTE = { ...LAN_ROUTE, bindAddress: '127.0.0.1', bindInterface: null }
+const LOOPBACK_ROUTE = { ...LAN_ROUTE, bindAddress: '127.0.0.1', bindInterface: null, relay: true }
 
 beforeEach(() => {
   vi.clearAllMocks()
@@ -137,10 +137,13 @@ function pairTarget(): { host: string; port: number } | string {
 
 describe('the relay route', () => {
   it('RLY-C32 is chosen over the owner IPC while the gateway is off, never while it runs', async () => {
-    expect(await invoke('gateway:set-route', LAN_ROUTE)).toEqual({ ok: true, route: LAN_ROUTE })
+    expect(await invoke('gateway:set-route', LOOPBACK_ROUTE)).toEqual({
+      ok: true,
+      route: LOOPBACK_ROUTE,
+    })
     expect(remoteStatus().route.relay).toBe(true)
     await enableRemote()
-    expect(await invoke('gateway:set-route', { ...LAN_ROUTE, relay: false })).toEqual({
+    expect(await invoke('gateway:set-route', { ...LOOPBACK_ROUTE, relay: false })).toEqual({
       ok: false,
       error: 'running',
     })
@@ -148,12 +151,12 @@ describe('the relay route', () => {
   })
 
   it('RLY-C33 starts the relay client with the gateway when the route is on, and only then', async () => {
-    saveRoute({ ...LAN_ROUTE, relay: false })
+    saveRoute(LAN_ROUTE)
     await enableRemote()
     expect(relay.start).not.toHaveBeenCalled()
     expect(server.started.at(-1)).toMatchObject({ relay: false })
     await disableRemote()
-    saveRoute(LAN_ROUTE)
+    saveRoute(LOOPBACK_ROUTE)
     await enableRemote()
     expect(server.started.at(-1)).toMatchObject({ relay: true })
     expect(relay.start).toHaveBeenCalledTimes(1)
@@ -162,9 +165,9 @@ describe('the relay route', () => {
   })
 
   it('RLY-C34 reports the relay state: off, needs a sign-in, or the client state', async () => {
-    saveRoute({ ...LAN_ROUTE, relay: false })
-    expect(remoteStatus().relay).toEqual({ state: 'off' })
     saveRoute(LAN_ROUTE)
+    expect(remoteStatus().relay).toEqual({ state: 'off' })
+    saveRoute(LOOPBACK_ROUTE)
     signedIn = false
     expect(remoteStatus().relay).toEqual({ state: 'needs-sign-in' })
     signedIn = true
@@ -174,15 +177,19 @@ describe('the relay route', () => {
 })
 
 describe('where a new pairing points', () => {
-  it('RLY-C35 prefers the running tailnet over the relay', async () => {
-    saveRoute({ ...LOOPBACK_ROUTE, tailnet: true })
+  it('RLY-C35 points at the running tailnet on the Tailscale method', async () => {
+    saveRoute({ ...LOOPBACK_ROUTE, relay: false, tailnet: true })
     await enableRemote()
     tailnetState = { state: 'running', ip: '100.64.1.2', dnsName: 'box.example.ts.net' }
     expect(pairTarget()).toEqual({ host: '100.64.1.2', port: 8722 })
   })
 
-  it('RLY-C36 prefers the phone address, then the LAN bind, over the relay', async () => {
-    saveRoute({ ...LOOPBACK_ROUTE, phoneAddress: { host: 'desk.example.org', port: 443 } })
+  it('RLY-C36 points at the phone address, else the LAN bind, on the network method', async () => {
+    saveRoute({
+      ...LOOPBACK_ROUTE,
+      relay: false,
+      phoneAddress: { host: 'desk.example.org', port: 443 },
+    })
     await enableRemote()
     expect(pairTarget()).toEqual({ host: 'desk.example.org', port: 443 })
     await disableRemote()
@@ -191,12 +198,8 @@ describe('where a new pairing points', () => {
     expect(pairTarget()).toEqual({ host: LAN_ADDRESS, port: 8722 })
   })
 
-  it('RLY-C37 falls back to the relay host on 443 when nothing better exists', async () => {
+  it('RLY-C37 points at the relay host on 443 on the relay method', async () => {
     saveRoute(LOOPBACK_ROUTE)
-    await enableRemote()
-    expect(pairTarget()).toEqual({ host: RELAY_HOST, port: 443 })
-    saveRoute({ ...LOOPBACK_ROUTE, tailnet: true })
-    await disableRemote()
     await enableRemote()
     expect(pairTarget()).toEqual({ host: RELAY_HOST, port: 443 })
   })

@@ -84,6 +84,7 @@ export const serverEn = {
     removeTitle: 'Remove {name}?',
     removeUnwrapped:
       'These devices did not get the new key: {names}. Approve them again or unlock them with the passphrase.',
+    signIn: 'Sign in',
     signOut: 'Sign out',
     signOutDesc: 'Removes this computer from the server and forgets its keys.',
     signedInDesc: 'Signed in as {device} with {provider}.',

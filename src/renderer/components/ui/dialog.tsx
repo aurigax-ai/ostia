@@ -1,8 +1,10 @@
 import { Dialog as DialogPrimitive } from '@base-ui/react/dialog'
 import { XIcon } from '@phosphor-icons/react'
-import type * as React from 'react'
+import * as React from 'react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
+
+const DialogContainer = React.createContext<HTMLElement | null>(null)
 
 function Dialog({ ...props }: DialogPrimitive.Root.Props) {
   return <DialogPrimitive.Root data-slot="dialog" {...props} />
@@ -41,8 +43,9 @@ function DialogContent({
 }: DialogPrimitive.Popup.Props & {
   showCloseButton?: boolean
 }) {
+  const container = React.useContext(DialogContainer)
   return (
-    <DialogPortal>
+    <DialogPortal container={container ?? undefined}>
       <DialogOverlay />
       <DialogPrimitive.Popup
         data-slot="dialog-content"
@@ -124,6 +127,7 @@ function DialogDescription({ className, ...props }: DialogPrimitive.Description.
 export {
   Dialog,
   DialogClose,
+  DialogContainer,
   DialogContent,
   DialogDescription,
   DialogFooter,

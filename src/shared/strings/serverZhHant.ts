@@ -81,6 +81,7 @@ export const serverZhHant: typeof serverEn = {
     removeRecoveryDesc: '不輸入的話，舊復原金鑰將無法開啟之後的資料。',
     removeTitle: '移除 {name}？',
     removeUnwrapped: '這些裝置沒有拿到新金鑰：{names}。請重新核准，或用密語解鎖它們。',
+    signIn: '登入',
     signOut: '登出',
     signOutDesc: '從伺服器移除這台電腦並刪除它的金鑰。',
     signedInDesc: '以 {device} 的身分透過{provider}登入。',

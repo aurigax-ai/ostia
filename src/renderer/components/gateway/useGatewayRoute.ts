@@ -18,17 +18,36 @@ function tailnetProblem(d: Dict, node: GatewayTailnetState): string | null {
   return fmt(d.settings.remoteTailnetError, { code: node.code })
 }
 
+export type GatewayMethod = 'relay' | 'tailscale' | 'network'
+
+export function methodOf(route: GatewayRoute): GatewayMethod {
+  if (route.relay) return 'relay'
+  return route.tailnet ? 'tailscale' : 'network'
+}
+
+function routeFor(method: GatewayMethod, route: GatewayRoute): GatewayRoute {
+  if (method === 'network') return { ...route, relay: false, tailnet: false }
+  return {
+    bindAddress: LOOPBACK_ADDRESS,
+    bindInterface: null,
+    phoneAddress: null,
+    relay: method === 'relay',
+    tailnet: method === 'tailscale',
+  }
+}
+
 export interface GatewayRouteState {
   running: boolean
   route: GatewayRoute
+  method: GatewayMethod
   exposed: boolean
   unreachable: boolean
-  viaTailnet: boolean
   canPair: boolean
   problem: string | null
   signInError: string | null
   routeError: string | null
   onRoute: (next: Partial<GatewayRoute>) => Promise<void>
+  onMethod: (next: GatewayMethod) => Promise<void>
   onToggle: (checked: boolean) => Promise<void>
   onSignIn: () => Promise<void>
   onSignOut: () => Promise<void>
@@ -54,18 +73,24 @@ export function useGatewayRoute({
 
   const running = status?.running ?? false
   const route: GatewayRoute = status?.route ?? DEFAULT_GATEWAY_ROUTE
+  const method = methodOf(route)
   const exposed = route.bindAddress !== LOOPBACK_ADDRESS
-  const unreachable = !route.tailnet && !exposed && route.phoneAddress === null && !route.relay
-  const viaTailnet = route.tailnet
-  const directPair = viaTailnet
+  const unreachable = method === 'network' && !exposed && route.phoneAddress === null
+  const directPair = route.tailnet
     ? tailnet.state === 'running' && tailnet.ip !== null
     : route.phoneAddress !== null || (exposed && status?.host === route.bindAddress)
   const canPair = running && (directPair || (route.relay && relay.state === 'listening'))
-  const problem = viaTailnet ? tailnetProblem(d, tailnet) : null
+  const problem = route.tailnet ? tailnetProblem(d, tailnet) : null
 
   const onRoute = async (next: Partial<GatewayRoute>): Promise<void> => {
     setRouteError(null)
     await window.ostia.gateway.setRoute({ ...route, ...next })
+    await refresh()
+  }
+
+  const onMethod = async (next: GatewayMethod): Promise<void> => {
+    setRouteError(null)
+    await window.ostia.gateway.setRoute(routeFor(next, route))
     await refresh()
   }
 
@@ -107,14 +132,15 @@ export function useGatewayRoute({
   return {
     running,
     route,
+    method,
     exposed,
     unreachable,
-    viaTailnet,
     canPair,
     problem,
     signInError,
     routeError,
     onRoute,
+    onMethod,
     onToggle,
     onSignIn,
     onSignOut,

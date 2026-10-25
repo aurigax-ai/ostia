@@ -15,6 +15,11 @@ function device(caps: string[]): GatewayDevice {
   }
 }
 
+async function openDevice(user: ReturnType<typeof userEvent.setup>): Promise<HTMLElement> {
+  await user.click(await screen.findByRole('button', { name: 'Manage Pixel' }))
+  return screen.findByRole('dialog', { name: 'Pixel' })
+}
+
 describe('GatewaySection', () => {
   let caps: string[]
 
@@ -32,6 +37,7 @@ describe('GatewaySection', () => {
   it('grants and removes input for a paired device from its switch', async () => {
     const user = userEvent.setup()
     render(<GatewaySection />)
+    await openDevice(user)
 
     const input = await screen.findByRole('switch', { name: 'Type into panes, Pixel' })
     expect(input).not.toBeChecked()
@@ -57,6 +63,7 @@ describe('GatewaySection', () => {
   it('grants answering agents on its own switch, apart from typing and commands', async () => {
     const user = userEvent.setup()
     render(<GatewaySection />)
+    await openDevice(user)
     const respond = await screen.findByRole('switch', { name: 'Answer agents, Pixel' })
     expect(respond).not.toBeChecked()
     await user.click(respond)
@@ -66,6 +73,7 @@ describe('GatewaySection', () => {
 
   it('draws one row per permission in a single column, each with its description', async () => {
     render(<GatewaySection />)
+    await openDevice(userEvent.setup())
     const grants = await screen.findByRole('group', { name: 'Permissions, Pixel' })
     const rows = grants.querySelectorAll(':scope > [data-settings-row]')
     expect(
@@ -75,6 +83,7 @@ describe('GatewaySection', () => {
       'Run commands, Pixel',
       'Type into panes, Pixel',
       'Destructive commands, Pixel',
+      'Notify through the server, Pixel',
     ])
     expect(
       within(grants).getByText('Type text and keys into a terminal the phone has open.'),
@@ -84,6 +93,7 @@ describe('GatewaySection', () => {
   it('keeps destructive disabled until commands are allowed and says why', async () => {
     const user = userEvent.setup()
     render(<GatewaySection />)
+    await openDevice(user)
     const destructive = await screen.findByRole('switch', {
       name: 'Destructive commands, Pixel',
     })
@@ -102,28 +112,31 @@ describe('GatewaySection', () => {
     )
   })
 
-  it('asks before revoking, and revokes only after the confirm', async () => {
+  it('opens a device card as a popup and asks before unpairing', async () => {
     const user = userEvent.setup()
     render(<GatewaySection />)
+    const popup = await openDevice(user)
 
-    await user.click(await screen.findByRole('button', { name: 'Revoke Pixel' }))
-    const dialog = await screen.findByRole('alertdialog', { name: 'Revoke Pixel?' })
+    await user.click(within(popup).getByRole('button', { name: 'Unpair' }))
+    const dialog = await screen.findByRole('alertdialog', { name: 'Unpair Pixel?' })
     expect(window.ostia.gateway.revoke).not.toHaveBeenCalled()
 
     await user.click(within(dialog).getByRole('button', { name: 'Cancel' }))
     await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument())
     expect(window.ostia.gateway.revoke).not.toHaveBeenCalled()
 
-    await user.click(screen.getByRole('button', { name: 'Revoke Pixel' }))
-    const again = await screen.findByRole('alertdialog', { name: 'Revoke Pixel?' })
-    await user.click(within(again).getByRole('button', { name: 'Revoke' }))
+    await user.click(within(popup).getByRole('button', { name: 'Unpair' }))
+    const again = await screen.findByRole('alertdialog', { name: 'Unpair Pixel?' })
+    await user.click(within(again).getByRole('button', { name: 'Unpair' }))
     expect(window.ostia.gateway.revoke).toHaveBeenCalledWith('dev_1')
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
   })
 
   it('asks for confirmation before granting destructive, and cancel grants nothing', async () => {
     caps = ['read', 'notify', 'command']
     const user = userEvent.setup()
     render(<GatewaySection />)
+    await openDevice(user)
 
     await user.click(await screen.findByRole('switch', { name: 'Destructive commands, Pixel' }))
     expect(await screen.findByText('Allow destructive commands?')).toBeInTheDocument()
@@ -140,6 +153,7 @@ describe('GatewaySection', () => {
     caps = ['read', 'notify', 'command']
     const user = userEvent.setup()
     render(<GatewaySection />)
+    await openDevice(user)
 
     await user.click(await screen.findByRole('switch', { name: 'Destructive commands, Pixel' }))
     await user.click(await screen.findByRole('button', { name: 'Allow destructive' }))

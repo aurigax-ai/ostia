@@ -5,7 +5,7 @@ import type {
 } from '@shared/gateway/gatewayApi'
 import { useCallback, useEffect, useState } from 'react'
 import { MachineValue } from '@/components/common/MachineValue'
-import { ControlRow, ToggleRow } from '@/components/settingsKit/ControlRow'
+import { ControlRow } from '@/components/settingsKit/ControlRow'
 import { SelectField } from '@/components/settingsKit/SelectField'
 import { SettingsGroup } from '@/components/settingsKit/SettingsGroup'
 import { Button } from '@/components/ui/button'
@@ -28,11 +28,6 @@ function problemText(d: Dict, problem: string): string {
     default:
       return d.settings.phoneProblemOther
   }
-}
-
-function trustText(d: Dict, trust: PhoneWorkspace['trust']): string {
-  if (trust === 'trusted') return d.settings.phoneTrustTrusted
-  return trust === 'ask' ? d.settings.phoneTrustAsk : d.settings.phoneTrustUnknown
 }
 
 export function GatewayPhoneWorkspace(): JSX.Element {
@@ -66,7 +61,6 @@ export function GatewayPhoneWorkspace(): JSX.Element {
   if (!phone) return <SettingsGroup title={d.settings.phoneGroup}>{null}</SettingsGroup>
   const current: GatewayPhoneWorkspaceSave = {
     folder: phone.isDefault ? null : phone.folder,
-    openNew: phone.openNew,
     agent: phone.agent,
   }
   const choose = async (): Promise<void> => {
@@ -76,7 +70,7 @@ export function GatewayPhoneWorkspace(): JSX.Element {
   const shownError = error ?? (phone.problem ? problemText(d, phone.problem) : null)
 
   return (
-    <SettingsGroup title={d.settings.phoneGroup} desc={d.settings.phoneGroupDesc}>
+    <SettingsGroup title={d.settings.phoneGroup}>
       <ControlRow
         label={d.settings.phoneWorkspace}
         desc={phone.absent ? d.settings.phoneWorkspaceAbsent : d.settings.phoneWorkspaceDesc}
@@ -98,12 +92,6 @@ export function GatewayPhoneWorkspace(): JSX.Element {
           )}
         </div>
       </ControlRow>
-      <ToggleRow
-        label={d.settings.phoneOpenNew}
-        desc={d.settings.phoneOpenNewDesc}
-        checked={phone.openNew}
-        onChange={(openNew) => void save({ ...current, openNew })}
-      />
       <ControlRow label={d.settings.phoneAgent} desc={d.settings.phoneAgentDesc}>
         <SelectField<PhoneAgentName>
           value={phone.agent}
@@ -114,9 +102,6 @@ export function GatewayPhoneWorkspace(): JSX.Element {
           ]}
           onChange={(agent) => void save({ ...current, agent })}
         />
-      </ControlRow>
-      <ControlRow label={d.settings.phoneTrust} desc={d.settings.phoneTrustDesc}>
-        <span className="text-fg-muted text-ui-sm">{trustText(d, phone.trust)}</span>
       </ControlRow>
     </SettingsGroup>
   )

@@ -38,7 +38,7 @@ function qr(pairCode: string) {
 }
 
 async function showCode(): Promise<void> {
-  const button = await screen.findByRole('button', { name: 'Show pairing code' })
+  const button = await screen.findByRole('button', { name: 'Show QR' })
   await waitFor(() => expect(button).toBeEnabled())
   await act(async () => {
     fireEvent.click(button)
@@ -132,10 +132,14 @@ describe('GatewaySection pairing', () => {
     expect(screen.getByText('It keeps: Run commands, Type into panes.')).toBeInTheDocument()
   })
 
-  it('turns Discoverable on from its switch', async () => {
+  it('turns Local network discovery on from its switch on the network method', async () => {
+    vi.mocked(window.ostia.gateway.status).mockResolvedValue({
+      ...STATUS,
+      route: { ...STATUS.route, tailnet: false },
+    })
     const user = userEvent.setup()
     render(<GatewaySection />)
-    await user.click(await screen.findByRole('switch', { name: 'Discoverable' }))
+    await user.click(await screen.findByRole('switch', { name: 'Local network discovery' }))
     expect(window.ostia.gateway.setDiscoverable).toHaveBeenCalledWith(true)
     await waitFor(() => expect(window.ostia.gateway.status).toHaveBeenCalledTimes(2))
   })

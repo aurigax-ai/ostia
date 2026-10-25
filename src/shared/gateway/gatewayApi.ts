@@ -68,7 +68,12 @@ export type GatewaySetRouteResult =
   | { ok: true; route: GatewayRoute }
   | {
       ok: false
-      error: 'not-a-window' | 'running' | 'unknown-address' | 'invalid-phone-address'
+      error:
+        | 'not-a-window'
+        | 'running'
+        | 'unknown-address'
+        | 'invalid-phone-address'
+        | 'two-methods'
     }
 
 export interface GatewayPairResult {
@@ -115,7 +120,6 @@ export type PhoneAgentName = 'claude' | 'codex'
 
 export interface GatewayPhoneWorkspaceSave {
   folder: string | null
-  openNew: boolean
   agent: PhoneAgentName
 }
 
@@ -123,7 +127,6 @@ export interface GatewayPhoneWorkspace extends Omit<GatewayPhoneWorkspaceSave, '
   folder: string
   isDefault: boolean
   absent: boolean
-  trust: 'trusted' | 'ask' | 'unknown'
   problem?: string
 }
 
