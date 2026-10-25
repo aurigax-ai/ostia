@@ -68,7 +68,9 @@ export function PairRequests({
             <div className="mt-1 font-mono font-semibold text-fg text-ui-lg tabular-nums">
               {spacedCheckCode(r.checkCode)}
             </div>
-            <p className="mt-0.5 text-fg-muted text-ui-sm">{d.settings.remotePairCheck}</p>
+            <p className="mt-0.5 text-fg-muted text-ui-sm">
+              {fmt(d.settings.remotePairCheck, { code: spacedCheckCode(r.checkCode) })}
+            </p>
             {r.replaces ? <ReplacesNote replaces={r.replaces} /> : null}
           </div>
           <div className="flex shrink-0 gap-2">
