@@ -1,7 +1,6 @@
 import { PlusIcon, TerminalWindowIcon } from '@phosphor-icons/react'
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { commands } from '@/commands/registry'
-import { NoNewPrivsStatus } from '@/components/app/NoNewPrivsStatus'
 import { ChordButton } from '@/components/common/ChordButton'
 import { EmptyState } from '@/components/common/EmptyState'
 import { PaneTree } from '@/components/panes/PaneTree'
@@ -57,7 +56,6 @@ export function WorkZone(): JSX.Element {
             active={id === activeWorkspaceId && !settingsActive}
           />
         ))}
-      <NoNewPrivsStatus />
       <SurfacePool />
       <SettingsPanel />
     </section>
