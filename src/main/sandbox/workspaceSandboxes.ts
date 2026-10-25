@@ -17,6 +17,7 @@ import {
 import { expandHome, isInsidePath } from '../platform/pathGuard'
 import type { PackageBlockReason, PackagePolicy } from '../sandboxPackages/packagePolicy'
 import type { PackageRef } from '../sandboxPackages/packages'
+import { hookLinkTargets } from './hookLinks'
 import { SandboxUnavailableError } from './hostClient'
 import type { SandboxPathEnv } from './pathChecks'
 import { ensurePluginsFarm, linkPluginsFarm } from './pluginsFarm'
@@ -301,11 +302,13 @@ export class WorkspaceSandboxes {
     mkdirSync(tmpDir, { recursive: true, mode: 0o700 })
     const pluginsDir = this.tmp.pluginsDir(workspaceId)
     ensurePluginsFarm(pluginsDir, this.tmp.pluginsData(workspaceId))
+    const base = this.basePaths()
     return buildSrtConfig(this.resolved(workspaceId), {
-      ...this.basePaths(),
+      ...base,
       workDir,
       tmpDir,
       pluginsDir,
+      hookLinks: hookLinkTargets(base.home),
     })
   }
 

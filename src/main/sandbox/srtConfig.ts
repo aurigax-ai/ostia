@@ -23,12 +23,13 @@ export interface SandboxPaths {
   containerSockets?: string[]
   tmpRoot?: string
   pluginsDir?: string
+  hookLinks?: string[]
   codexDir?: string
   srtVendorDir?: string
   keptSocketPath?: string
 }
 
-export type SandboxBasePaths = Omit<SandboxPaths, 'workDir' | 'tmpDir' | 'pluginsDir'>
+export type SandboxBasePaths = Omit<SandboxPaths, 'workDir' | 'tmpDir' | 'pluginsDir' | 'hookLinks'>
 
 export const SSH_AGENT_SOCKET_NAME = 'a.sock'
 
@@ -237,6 +238,7 @@ export function buildSrtConfig(
     expand(list).filter((p) => !touches(p, guarded) && !hiddenByHuman(p))
   const agentDirs = AGENT_DATA_DIRS.map((d) => join(home, d)).filter((d) => !hiddenByHuman(d))
   const allowWrite = opened(policy.allowWrite)
+  const hookLinks = (paths.hookLinks ?? []).filter((p) => !touches(p, guarded) && !hiddenByHuman(p))
   const isMac = platform === 'darwin'
   const sockets = switches.unixSockets
   return {
@@ -269,12 +271,13 @@ export function buildSrtConfig(
           ...agentDirs,
           ...(pluginsDir ? [pluginsDir] : []),
           ...paths.runtimeReads,
+          ...hookLinks,
           ...opened(policy.allowRead),
           ...allowWrite,
         ]),
       ],
       allowWrite: [...new Set([workDir, tmpDir, ...agentDirs, ...allowWrite])],
-      denyWrite: [...new Set([...fixed.readOnly, ...expand(policy.denyWrite)])],
+      denyWrite: [...new Set([...fixed.readOnly, ...hookLinks, ...expand(policy.denyWrite)])],
       allowGitConfig: switches.gitConfig,
     },
     ...(isMac ? { allowPty: true } : {}),
