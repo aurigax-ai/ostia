@@ -2,7 +2,13 @@ import { execFileSync } from 'node:child_process'
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { buildVersion, mainBuildRun, serverStamp, telemetryStamp } from './buildVersion.mjs'
+import {
+  buildVersion,
+  isLocalInstall,
+  mainBuildRun,
+  serverStamp,
+  telemetryStamp,
+} from './buildVersion.mjs'
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..')
 const { version: base } = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'))
@@ -21,7 +27,12 @@ function gitState() {
   }
 }
 
-const version = buildVersion(base, gitState(), mainBuildRun(process.env))
+const version = buildVersion(
+  base,
+  gitState(),
+  mainBuildRun(process.env),
+  isLocalInstall(process.env),
+)
 const telemetry = telemetryStamp(process.env)
 const server = serverStamp(process.env)
 const info = {

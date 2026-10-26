@@ -30,7 +30,7 @@
     "start": "electron-vite preview",
     "package": "pnpm build && electron-builder",
     "icons": "bash scripts/icons.sh",
-    "install:local": "pnpm package && bash scripts/install-linux.sh",
+    "install:local": "OSTIA_LOCAL_INSTALL=1 pnpm package && bash scripts/install-linux.sh",
     "bump": "bash -c 'case \"$*\" in patch|minor|major) exec pnpm version --no-git-tag-version --no-git-checks \"$1\" ;; *) echo \"usage: pnpm bump <patch|minor|major>\" >&2; exit 1 ;; esac' bump",
     "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.e2e.json && tsc --noEmit -p packages/extension-sdk",
     "rebuild": "electron-rebuild -f -w node-pty",
