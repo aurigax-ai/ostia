@@ -1235,7 +1235,7 @@ describe('EditorView → Send Selection to Agent', () => {
     expect(screen.queryByRole('toolbar', { name: 'Selection actions' })).toBeNull()
   })
 
-  it('copies the selected text from the bar and closes with one status line', async () => {
+  it('copies the selected text from the bar and closes with the chip', async () => {
     vi.mocked(window.ostia.fs.read).mockResolvedValue({
       ok: true,
       version: 'v1',
@@ -1254,7 +1254,7 @@ describe('EditorView → Send Selection to Agent', () => {
     )
 
     expect(window.ostia.clipboard.writeCapture).toHaveBeenCalledWith({ text: 'two\nthree' })
-    expect(await screen.findByText('Copied the selection.')).toBeInTheDocument()
+    expect(await screen.findByTestId('capture-chip')).toHaveTextContent('Copied')
     expect(screen.queryByRole('toolbar', { name: 'Selection actions' })).toBeNull()
   })
 
@@ -1345,7 +1345,7 @@ describe('EditorView → Send Selection to Agent', () => {
           note: 'is this tax rate right?',
         }),
       )
-      expect(await screen.findByText(/The report is at its prompt/)).toBeInTheDocument()
+      expect(await screen.findByText(/^Sent to /)).toBeInTheDocument()
       expect(term.paste).toHaveBeenCalledWith(
         'is this tax rate right? @/tmp/ostia-reports-1/selection-1.md ',
       )

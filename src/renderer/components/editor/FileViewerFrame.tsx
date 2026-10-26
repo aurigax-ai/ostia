@@ -10,8 +10,8 @@ import { usePaneVisible } from '@/lib/attention/workspaceActivity'
 import { openBrowserTabAs } from '@/lib/browser/browserProfile'
 import {
   closeCapture,
+  confirmCapture,
   openCapture,
-  setCaptureStatus,
   updateCapture,
 } from '@/lib/capture/captureSession'
 import { closeOnGuestFocus } from '@/lib/capture/guestFocus'
@@ -100,8 +100,7 @@ function ViewerFrame({
     })
     const stopCopied = window.ostia.viewers.onCopied((event) => {
       if (event.paneId !== paneId) return
-      setCaptureStatus(paneId, event.status)
-      closeCapture(paneId, 'copied')
+      confirmCapture(paneId, event.label, 'copied')
     })
     return () => {
       stopSelection()

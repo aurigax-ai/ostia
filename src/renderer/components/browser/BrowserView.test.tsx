@@ -216,7 +216,7 @@ describe('BrowserView capture bar', () => {
       note: '',
     })
     await waitFor(() => noBar())
-    expect(screen.getByText(/^Sent to .*report path is on your clipboard/)).toBeVisible()
+    expect(screen.getByText(/^Sent to .*path on clipboard/)).toBeVisible()
   })
 
   it('sends the note typed under the bar and pastes it in front of the reference', async () => {
@@ -275,7 +275,7 @@ describe('BrowserView capture bar', () => {
     })
     await userEvent.click(within(bar()).getByRole('button', { name: 'Copy' }))
     expect(window.ostia.browser.pickCopy).toHaveBeenCalledWith(BROWSER, 'pick-7')
-    expect(await screen.findByText('Copied the table (5 rows × 4 columns) as CSV.')).toBeVisible()
+    expect(await screen.findByText('Copied table')).toBeVisible()
     noBar()
   })
 
@@ -285,7 +285,7 @@ describe('BrowserView capture bar', () => {
     act(() => {
       expect(copyCapture(BROWSER)).not.toBeNull()
     })
-    expect(await screen.findByText('Copied the element screenshot.')).toBeVisible()
+    expect(await screen.findByText('Copied image')).toBeVisible()
     await waitFor(() => noBar())
     expect(copyCapture(BROWSER)).toBeNull()
   })
@@ -448,7 +448,7 @@ describe('BrowserView region capture', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Copy' }))
     expect(window.ostia.browser.regionCopy).toHaveBeenCalledWith(BROWSER, 'region-3')
     expect(window.ostia.browser.regionSend).not.toHaveBeenCalled()
-    expect(await screen.findByText('Copied the image to the clipboard.')).toBeVisible()
+    expect(await screen.findByText('Copied image')).toBeVisible()
   })
 
   it('says why when main refuses the capture', async () => {

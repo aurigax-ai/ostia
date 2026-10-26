@@ -75,7 +75,7 @@ test('crop a region of a browser page and send it to an agent pane', async () =>
     await bar.getByRole('button', { name: 'Send to agent' }).click()
     await win.getByRole('menuitem').first().click()
 
-    await expect(win.getByText(/The report is at its prompt/)).toBeVisible({ timeout: 15_000 })
+    await expect(win.getByTestId('capture-chip')).toHaveText(/^Sent to /, { timeout: 15_000 })
     await terminalTab(win).click()
     const terminal = shownTerminal(win).locator('.xterm-rows')
     const inserted = /@(\S*capture-(\d+)\S*)\.md @(\S*capture-\2\S*)\.png/

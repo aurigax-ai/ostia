@@ -9,7 +9,7 @@ export interface CaptureHighlight {
   sized: boolean
 }
 
-export type CaptureResult = { ok: true; status: string } | { ok: false; error: string }
+export type CaptureResult = { ok: true; label: string } | { ok: false; error: string }
 
 type CaptureSendOutcome = { ok: true; inserted: boolean } | { ok: false; error: string }
 
@@ -43,17 +43,25 @@ export interface OpenCapture {
   error: string | null
 }
 
+export interface CaptureChipState {
+  id: number
+  label: string
+}
+
 interface CaptureState {
   open: Record<string, OpenCapture>
   status: Record<string, string>
+  chip: Record<string, CaptureChipState>
 }
 
 const STATUS_MS = 6000
+export const CHIP_MS = 2000
 
-export const useCaptureStore = create<CaptureState>(() => ({ open: {}, status: {} }))
+export const useCaptureStore = create<CaptureState>(() => ({ open: {}, status: {}, chip: {} }))
 
 const openers = new Map<string, Array<() => void>>()
 const timers = new Map<string, ReturnType<typeof setTimeout>>()
+const chipTimers = new Map<string, ReturnType<typeof setTimeout>>()
 let counter = 0
 
 function messageOf(error: unknown): string {
@@ -85,6 +93,21 @@ export function setCaptureStatus(paneId: string, text: string | null): void {
     )
 }
 
+function setCaptureChip(paneId: string, label: string | null): void {
+  clearTimeout(chipTimers.get(paneId))
+  chipTimers.delete(paneId)
+  counter += 1
+  const id = counter
+  useCaptureStore.setState((state) => ({
+    chip: label === null ? without(state.chip, paneId) : { ...state.chip, [paneId]: { id, label } },
+  }))
+  if (label !== null)
+    chipTimers.set(
+      paneId,
+      setTimeout(() => setCaptureChip(paneId, null), CHIP_MS),
+    )
+}
+
 export function closeCapture(paneId: string, reason: CloseReason): void {
   const current = useCaptureStore.getState().open[paneId]
   if (!current) return
@@ -92,9 +115,15 @@ export function closeCapture(paneId: string, reason: CloseReason): void {
   current.adapter.clear(reason)
 }
 
+export function confirmCapture(paneId: string, label: string, reason: 'copied' | 'sent'): void {
+  setCaptureChip(paneId, label)
+  closeCapture(paneId, reason)
+}
+
 export function openCapture(paneId: string, adapter: CaptureAdapter): void {
   closeCapture(paneId, 'replaced')
   setCaptureStatus(paneId, null)
+  setCaptureChip(paneId, null)
   counter += 1
   useCaptureStore.setState((state) => ({
     open: {
@@ -128,10 +157,8 @@ export function copyCapture(paneId: string): Promise<void> | null {
   if (!useCaptureStore.getState().open[paneId]) return null
   return settle(paneId, (current) => current.adapter.copy()).then((result) => {
     if (!result) return
-    if (result.ok) {
-      setCaptureStatus(paneId, result.status)
-      closeCapture(paneId, 'copied')
-    } else patch(paneId, { pending: false, error: result.error })
+    if (result.ok) confirmCapture(paneId, result.label, 'copied')
+    else patch(paneId, { pending: false, error: result.error })
   })
 }
 
@@ -140,11 +167,8 @@ export function sendCapture(paneId: string, target: PickTarget, note: string): P
     if (!result) return
     const d = currentDict()
     if (result.ok) {
-      setCaptureStatus(
-        paneId,
-        fmt(result.inserted ? d.send.sentInserted : d.send.sentCopied, { pane: target.title }),
-      )
-      closeCapture(paneId, 'sent')
+      const sent = result.inserted ? d.send.sentInserted : d.send.sentCopied
+      confirmCapture(paneId, fmt(sent, { pane: target.title }), 'sent')
     } else
       patch(paneId, { pending: false, error: fmt(d.send.sendFailed, { reason: result.error }) })
   })

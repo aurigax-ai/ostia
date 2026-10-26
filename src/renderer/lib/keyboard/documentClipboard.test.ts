@@ -202,7 +202,7 @@ describe('the pane copier registry', () => {
       highlight: null,
       copy: async () => {
         copy()
-        return { ok: true, status: 'Copied.' }
+        return { ok: true, label: 'Copied' }
       },
       send: async () => ({ ok: true, inserted: true }),
       clear: () => undefined,

@@ -99,7 +99,7 @@ test('pick an element in a browser pane and send it to a terminal pane', async (
     await expect(win.getByRole('menuitem')).toHaveCount(1)
     await win.getByRole('menuitem').click()
 
-    await expect(win.getByText(/The report is at its prompt/)).toBeVisible({ timeout: 15_000 })
+    await expect(win.getByTestId('capture-chip')).toHaveText(/^Sent to /, { timeout: 15_000 })
     await terminalTab(win).click()
     const terminal = shownTerminal(win).locator('.xterm-rows')
     await expect(terminal).toContainText(/@\S*capture-\d+\S*\.md @\S*pick-\S*\.png/, {

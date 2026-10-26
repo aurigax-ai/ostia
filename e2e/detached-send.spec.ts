@@ -105,7 +105,7 @@ test('a browser pane moved to its own window sends a picked element to the agent
     await expect(targets).toContainText('other window')
     await targets.click()
 
-    await expect(detached.getByText(/The report is at its prompt/)).toBeVisible({
+    await expect(detached.getByTestId('capture-chip')).toHaveText(/^Sent to /, {
       timeout: 15_000,
     })
     const terminal = win.locator('.xterm-rows').first()

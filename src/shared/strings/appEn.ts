@@ -174,10 +174,9 @@ export const appEn = {
       typeName: 'Type "{name}" to allow it',
     },
     viewerCopy: {
-      cells: 'Copied {range} ({rows} rows × {columns} columns) as CSV.',
+      cells: 'Copied table',
       image: 'Copied image',
-      nothing: 'Nothing to copy',
-      text: 'Copied text',
+      text: 'Copied',
       textAndImage: 'Copied text and image',
     },
   },

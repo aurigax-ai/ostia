@@ -81,7 +81,7 @@ export const pdfViewerSurface: CaptureSurface = {
         await win.mouse.move(span.x + span.width - 2, y, { steps: 6 })
         await win.mouse.up()
       },
-      status: /^Copied /,
+      chip: 'Copied',
       copied: /Hello/,
       cleared: async () => {
         await expect.poll(() => viewerGuestRun(app, PDF, 'getSelection().toString()')).toBe('')
@@ -128,7 +128,7 @@ export const imageViewerSurface: CaptureSurface = {
           { x: Math.round(box.left + box.width * 0.6), y: Math.round(box.top + box.height * 0.7) },
         )
       },
-      status: /^Copied /,
+      chip: 'Copied image',
       copied: 'image',
       cleared: async () => {
         await expect
@@ -188,7 +188,7 @@ export const markdownViewerSurface: CaptureSurface = {
           { x: line.x + 56, y: line.y },
         )
       },
-      status: /^Copied /,
+      chip: 'Copied',
       copied: /Second/,
       cleared: async () => {
         await expect.poll(() => viewerGuestRun(app, MARKDOWN, 'getSelection().toString()')).toBe('')

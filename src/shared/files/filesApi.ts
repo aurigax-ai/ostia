@@ -46,7 +46,7 @@ export interface ViewerSelectionState {
 
 export interface ViewerCopied {
   paneId: string
-  status: string
+  label: string
 }
 
 export interface ViewerSelectionEvent {
@@ -85,7 +85,7 @@ interface ViewersApi {
   onStopped: (cb: (event: ViewerStopped) => void) => () => void
   onSelection: (cb: (event: ViewerSelectionEvent) => void) => () => void
   onCopied: (cb: (event: ViewerCopied) => void) => () => void
-  copySelection: (paneId: string) => Promise<string>
+  copySelection: (paneId: string) => Promise<string | null>
   sendSelection: (request: ViewerSendSelection) => Promise<SelectionSendResult>
   clearSelection: (paneId: string) => void
   sendDocumentText: (request: ViewerDocumentText) => void
