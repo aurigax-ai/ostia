@@ -4,6 +4,7 @@ import { parsePrivacySettings } from '../../shared/privacy/redaction'
 import { credentials } from '../browser/credentials'
 import type { ExtensionHost } from '../extensions/extensionHost'
 import type { SecretStoreDeps } from '../extensions/extensionSecrets'
+import type { Marketplace } from '../extensions/marketplace/marketplace'
 import { loadJson, saveJson, storePath } from '../platform/jsonStore'
 import { readSettingsFile } from '../platform/settingsFile'
 import type { WorkerScan } from '../privacy/redactionScan'
@@ -19,6 +20,7 @@ interface ProfileSyncStartDeps {
   }
   configDir: () => string
   broadcast: WindowSend['broadcast']
+  marketplace: Marketplace
   encryptedFile: (path: string) => SecretStoreDeps
   redactionScan: WorkerScan
   server: ServerAccount
@@ -28,6 +30,7 @@ export function startProfileSyncWiring({
   services,
   configDir,
   broadcast,
+  marketplace,
   encryptedFile,
   redactionScan,
   server,
@@ -42,6 +45,13 @@ export function startProfileSyncWiring({
       services.extensionHost?.config.reloadSettings()
       services.extensionHost?.refreshLocale()
     },
+    installedExtensions: () => marketplace.syncedInstalls(),
+    builtinIds: () =>
+      services.extensionHost
+        ?.list()
+        .filter((ext) => ext.builtin)
+        .map((ext) => ext.id) ?? [],
+    installExtension: async (id, url) => (await marketplace.installSuggested(id, url, true)).ok,
     secretSources: () => {
       const store = (name: string) => {
         const path = storePath(name, 'global')

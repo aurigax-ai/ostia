@@ -10,12 +10,16 @@ import {
 } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { FAKE } from '../../../test/fixtures/secrets/samples'
+import { parseSyncKinds, type SyncKinds } from '../../shared/profileSync/syncKinds'
 import { scanSecrets } from '../privacy/secretScanner'
 import { type DetectSecrets, ProfileSync, type SyncMethod } from './engine'
 import { FolderMethod } from './folderMethod'
+import type { SyncedExtension } from './profile'
 
+const MARKET = 'https://github.com/aurigax-ai/ostia-extensions'
+const TRELLIS: SyncedExtension = { id: 'trellis', marketplace: MARKET }
 const noSecrets: DetectSecrets = async () => []
 
 const roots: string[] = []
@@ -35,6 +39,8 @@ interface Machine {
   userData: string
   configDir: string
   sync: ProfileSync
+  installed: SyncedExtension[]
+  kinds: { current: SyncKinds }
   clock: { now: Date }
   useMethod: (method: SyncMethod | null) => void
   useTarget: (dir: string) => void
@@ -44,12 +50,18 @@ interface Machine {
   file: (rel: string) => string | null
 }
 
-function machine(target: string, detectSecrets: DetectSecrets = noSecrets): Machine {
+function machine(
+  target: string,
+  detectSecrets: DetectSecrets = noSecrets,
+  install: (id: string, marketplace: string) => Promise<boolean> = async () => true,
+): Machine {
   const root = temp()
   const userData = join(root, 'data')
   const configDir = join(root, 'config')
   mkdirSync(userData, { recursive: true })
   mkdirSync(configDir, { recursive: true })
+  const installed: SyncedExtension[] = []
+  const kinds = { current: parseSyncKinds(undefined) }
   const clock = { now: at(0) }
   let dir = target
   let custom: SyncMethod | null | undefined
@@ -59,6 +71,10 @@ function machine(target: string, detectSecrets: DetectSecrets = noSecrets): Mach
     now: () => clock.now,
     method: () => (custom !== undefined ? custom : new FolderMethod(dir, [userData, configDir])),
     targetLabel: () => dir,
+    kinds: () => kinds.current,
+    installedExtensions: () => installed,
+    builtinIds: () => ['git'],
+    installExtension: install,
     detectSecrets,
   })
   const stamp = (path: string, minute: number): void => {
@@ -69,6 +85,8 @@ function machine(target: string, detectSecrets: DetectSecrets = noSecrets): Mach
     userData,
     configDir,
     sync,
+    installed,
+    kinds,
     clock,
     useMethod: (method) => {
       custom = method
@@ -302,7 +320,64 @@ describe('ProfileSync', () => {
   })
 
   describe('extensions', () => {
-    it('PSY-C23 never syncs the extension list, approval or enabled state', async () => {
+    it('PSY-C12 offers an extension another machine has and installs nothing', async () => {
+      const target = temp()
+      const install = vi.fn(async () => true)
+      const a = machine(target)
+      const b = machine(target, noSecrets, install)
+      a.installed.push(TRELLIS)
+      await a.sync.run()
+      const res = await b.sync.run()
+      expect(res.status.offers).toEqual([TRELLIS])
+      expect(install).not.toHaveBeenCalled()
+      expect(existsSync(join(b.userData, 'extensions.json'))).toBe(false)
+    })
+
+    it('PSY-C13 installs an offered extension from its marketplace on the human click', async () => {
+      const target = temp()
+      const install = vi.fn(async () => {
+        b.installed.push(TRELLIS)
+        return true
+      })
+      const a = machine(target)
+      const b = machine(target, noSecrets, install)
+      a.installed.push(TRELLIS)
+      await a.sync.run()
+      await b.sync.run()
+      const status = await b.sync.install('trellis')
+      expect(install).toHaveBeenCalledWith('trellis', MARKET)
+      expect(status.offers).toEqual([])
+      expect(await b.sync.install('keeper')).toMatchObject({ offers: [] })
+      expect(install).toHaveBeenCalledTimes(1)
+    })
+
+    it('PSY-C14 does not offer an entry with a bad marketplace URL or a built-in id', async () => {
+      const target = temp()
+      const b = machine(target)
+      writeFileSync(
+        join(target, 'extensions.json'),
+        JSON.stringify({
+          extensions: [
+            { id: 'evil', marketplace: 'file:///etc' },
+            { id: 'git', marketplace: MARKET },
+            { id: 'odd', marketplace: 'ext::sh -c id' },
+            TRELLIS,
+          ],
+        }),
+      )
+      const res = await b.sync.run()
+      expect(res.status.offers).toEqual([TRELLIS])
+    })
+
+    it('PSY-C15 leaves built-in extensions out of the synced list', async () => {
+      const target = temp()
+      const a = machine(target)
+      a.installed.push({ id: 'git', marketplace: MARKET }, TRELLIS)
+      await a.sync.run()
+      expect(targetJson(target, 'extensions.json')).toEqual({ extensions: [TRELLIS] })
+    })
+
+    it('PSY-C23 never syncs approval or enabled state', async () => {
       const target = temp()
       const a = machine(target)
       const b = machine(target)
@@ -310,10 +385,84 @@ describe('ProfileSync', () => {
       writeFileSync(join(a.userData, 'extensions.json'), approvals)
       const pending = JSON.stringify({ trellis: { enabled: false, approved: null } })
       writeFileSync(join(b.userData, 'extensions.json'), pending)
+      a.installed.push(TRELLIS)
+      b.installed.push(TRELLIS)
       await a.sync.run()
       await b.sync.run()
       expect(readFileSync(join(b.userData, 'extensions.json'), 'utf8')).toBe(pending)
-      expect(targetFile(target, 'extensions.json')).toBeNull()
+      expect(targetFile(target, 'extensions.json')).not.toContain('approved')
+    })
+
+    it('PSY-C24 ignores approval fields hand-written into the target', async () => {
+      const target = temp()
+      const b = machine(target)
+      writeFileSync(
+        join(target, 'extensions.json'),
+        JSON.stringify({ extensions: [{ ...TRELLIS, approved: ['shell'], enabled: true }] }),
+      )
+      const res = await b.sync.run()
+      expect(res.status.offers).toEqual([TRELLIS])
+      expect(existsSync(join(b.userData, 'extensions.json'))).toBe(false)
+    })
+
+    it('PSY-C40 leaves the extension list alone while Installed extensions is off', async () => {
+      const target = temp()
+      const a = machine(target)
+      const b = machine(target)
+      a.installed.push(TRELLIS)
+      await a.sync.run()
+      b.kinds.current = { ...b.kinds.current, extensions: false }
+      const res = await b.sync.run()
+      expect(res.status.offers).toEqual([])
+      expect(targetJson(target, 'extensions.json')).toEqual({ extensions: [TRELLIS] })
+    })
+  })
+
+  describe('what to sync', () => {
+    it('PSY-C41 keeps a folder out of both directions while its switch is off', async () => {
+      const target = temp()
+      const a = machine(target)
+      const b = machine(target)
+      a.writeFile('snippets/deploy.yaml', 'name: deploy\ncommand: make deploy\n', 1)
+      a.writeFile('views/board.json', '{"title":"Board"}', 1)
+      b.kinds.current = { ...b.kinds.current, snippets: false }
+      await a.sync.run()
+      await b.sync.run()
+      expect(b.file('snippets/deploy.yaml')).toBeNull()
+      expect(b.file('views/board.json')).toBe('{"title":"Board"}')
+      b.writeFile('snippets/own.yaml', 'name: own\ncommand: ls\n', 2)
+      await b.sync.run()
+      expect(targetFile(target, 'snippets/own.yaml')).toBeNull()
+      expect(targetFile(target, 'snippets/deploy.yaml')).toBe(
+        'name: deploy\ncommand: make deploy\n',
+      )
+    })
+
+    it('PSY-C42 neither pulls nor pushes settings while Settings is off', async () => {
+      const target = temp()
+      const a = machine(target)
+      const b = machine(target)
+      a.writeSettings({ appearance: { theme: 'dusk' } }, 1)
+      await a.sync.run()
+      b.kinds.current = { ...b.kinds.current, settings: false }
+      b.writeSettings({ appearance: { theme: 'paper' } }, 2)
+      await b.sync.run()
+      expect(b.settings()).toEqual({ appearance: { theme: 'paper' } })
+      expect(targetJson(target, 'settings.json')).toEqual({ appearance: { theme: 'dusk' } })
+    })
+
+    it('PSY-C43 picks the kind up again from where it stopped when its switch is turned on', async () => {
+      const target = temp()
+      const a = machine(target)
+      const b = machine(target)
+      a.writeFile('views/board.json', '{"title":"Board"}', 1)
+      b.kinds.current = { ...b.kinds.current, views: false }
+      await a.sync.run()
+      await b.sync.run()
+      expect(b.file('views/board.json')).toBeNull()
+      b.kinds.current = { ...b.kinds.current, views: true }
+      await b.sync.run()
+      expect(b.file('views/board.json')).toBe('{"title":"Board"}')
     })
   })
 

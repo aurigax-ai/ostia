@@ -10,6 +10,7 @@ import { useServerStatus } from '@/components/server/useServerStatus'
 import { useSyncServerStatus } from '@/components/server/useSyncServerStatus'
 import { ControlRow } from '@/components/settingsKit/ControlRow'
 import { SelectField } from '@/components/settingsKit/SelectField'
+import { SettingsGroup } from '@/components/settingsKit/SettingsGroup'
 import { SettingsPage } from '@/components/settingsKit/SettingsPage'
 import { StatusText } from '@/components/settingsKit/StatusText'
 import { Button } from '@/components/ui/button'
@@ -17,6 +18,7 @@ import { SHORT_DATE_TIME } from '@/lib/app/localeFormat'
 import { fmt, useDict } from '@/lib/app/useDict'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { SecretFormDialog } from './SecretFormDialog'
+import { SyncKindRows } from './SyncKindRows'
 import { SyncSecretsSection } from './SyncSecretsSection'
 import { type PassphraseStep, passphraseStep } from './syncPassphraseSteps'
 
@@ -28,6 +30,7 @@ const OFF: SyncStatus = {
   lastSync: null,
   skipped: [],
   heldBack: [],
+  offers: [],
   secrets: { state: 'off', mode: 'password', logins: false },
 }
 
@@ -208,8 +211,13 @@ export function SyncSection(): JSX.Element {
       {active && status.heldBack.length > 0 ? (
         <Notice>{fmt(d.sync.heldBack, { keys: status.heldBack.join(', ') })}</Notice>
       ) : null}
-      {active && ready ? (
-        <SyncSecretsSection status={status} server={server} onStatus={setStatus} />
+      {active ? (
+        <SettingsGroup title={d.sync.kinds.title} desc={d.sync.kinds.desc}>
+          <SyncKindRows status={status} onStatus={setStatus} />
+          {ready ? (
+            <SyncSecretsSection status={status} server={server} onStatus={setStatus} />
+          ) : null}
+        </SettingsGroup>
       ) : null}
       <SecretFormDialog
         step={

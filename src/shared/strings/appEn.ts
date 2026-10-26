@@ -239,6 +239,21 @@ export const appEn = {
     folder: 'Sync folder',
     folderDesc: 'Your profile is kept here and synced on start, focus and change.',
     heldBack: 'Not synced because the value looks like a secret: {keys}.',
+    install: 'Install',
+    kinds: {
+      completions: { desc: 'Command completion specs.', label: 'Completion specs' },
+      desc: 'Choose what this computer shares. Turning one off leaves what is already synced.',
+      extensions: {
+        desc: 'The list of installed extensions. Installing one stays your click.',
+        label: 'Installed extensions',
+      },
+      offersDesc: 'Extensions installed on another computer. Each waits for your approval.',
+      offersTitle: 'From your other computers',
+      settings: { desc: 'Includes keybindings and themes.', label: 'Settings' },
+      snippets: { desc: 'Your saved snippets.', label: 'Snippets' },
+      title: 'What to sync',
+      views: { desc: 'Views you made.', label: 'Views' },
+    },
     lastSync: 'Last synced {time}',
     later: 'Later',
     method: 'Sync method',
@@ -268,6 +283,8 @@ export const appEn = {
         wrongRecoveryKey: 'That is not the recovery key.',
       },
       locked: 'Enter the secrets password to sync secrets on this computer.',
+      logins: 'Saved browser passwords',
+      loginsDesc: 'Passwords saved in the browser pane. Needs Secrets on.',
       newPassword: 'New secrets password',
       password: 'Secrets password',
       recoverDesc: 'Enter the recovery key for your secrets, then choose a new secrets password.',
@@ -287,7 +304,7 @@ export const appEn = {
       setupDesc:
         'At least 12 characters. You need it on every other computer. {product} never stores it.',
       setupTitle: 'Set a secrets password',
-      toggle: 'Sync secrets',
+      toggle: 'Secrets',
       toggleDescPassword:
         'Vault, extension secrets, assistant keys and MCP tokens. Encrypted with a secrets password.',
       toggleDescSyncKey:

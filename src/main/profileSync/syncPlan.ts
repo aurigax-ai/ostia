@@ -1,6 +1,7 @@
 import { join } from 'node:path'
 import { writeFileAtomic } from '@aurigax-ai/ostia-extension-sdk/atomicWrite'
 import type { SecretSpan } from '../../shared/privacy/redaction'
+import type { SyncKinds } from '../../shared/profileSync/syncKinds'
 import {
   canonicalJson,
   flatten,
@@ -14,10 +15,13 @@ import {
   decodeProfile,
   encodeProfile,
   type JsonObject,
+  kindOfPath,
+  offerable,
   type Profile,
   removeRegularFile,
   SECRETS_FILE,
   SETTINGS_FILE,
+  type SyncedExtension,
   syncedSettings,
   withLocalOnly,
 } from './profile'
@@ -27,6 +31,7 @@ import { type LocalProfile, type SyncState, type SyncStore, stamp } from './sync
 export interface Plan {
   write: boolean
   outgoing: Map<string, string>
+  baseline: Map<string, string>
   apply: () => boolean
   saveSecretBase: () => void
   state: (version: string) => SyncState
@@ -37,6 +42,9 @@ export class ScanFailed extends Error {}
 
 export interface SyncPlanDeps {
   configDir: string
+  kinds: () => SyncKinds
+  installedExtensions: () => SyncedExtension[]
+  builtinIds: () => string[]
   detectSecrets: (text: string) => Promise<SecretSpan[]>
   secrets?: SecretSync
 }
@@ -52,6 +60,9 @@ interface PlanInputs {
   local: LocalProfile
   theirs: Profile
   base: Profile | null
+  kinds: SyncKinds
+  builtin: string[]
+  untouched: ReadonlyMap<string, string>
   remoteTime: (path: string) => number
   secretPlan: SecretPlan | null
 }
@@ -66,6 +77,25 @@ interface SettingsOutcome {
 interface FilesOutcome {
   merge: Merged<string>
   outgoing: Map<string, string>
+}
+
+interface ExtensionsOutcome {
+  extensions: SyncedExtension[]
+  installedIds: Set<string>
+}
+
+function scopeOf(kinds: SyncKinds) {
+  const has = (path: string): boolean => {
+    const kind = kindOfPath(path)
+    return kind === null || kinds[kind]
+  }
+  return {
+    has,
+    only: <V>(map: ReadonlyMap<string, V>): Map<string, V> =>
+      new Map([...map].filter(([path]) => has(path))),
+    rest: <V>(map: ReadonlyMap<string, V>): Map<string, V> =>
+      new Map([...map].filter(([path]) => !has(path))),
+  }
 }
 
 const sameFiles = (a: ReadonlyMap<string, string>, b: ReadonlyMap<string, string>): boolean =>
@@ -106,9 +136,10 @@ async function mergeSettings(
   inputs: PlanInputs,
   invalid: string[],
 ): Promise<SettingsOutcome> {
-  const { remote, local, theirs, base, remoteTime } = inputs
-  const stopped = local.settingsInvalid || theirs.settingsInvalid
-  if (stopped) invalid.push(SETTINGS_FILE)
+  const { remote, local, theirs, base, remoteTime, kinds } = inputs
+  const unreadable = local.settingsInvalid || theirs.settingsInvalid
+  if (unreadable && kinds.settings) invalid.push(SETTINGS_FILE)
+  const stopped = unreadable || !kinds.settings
   const localSettings = flatten(syncedSettings(local.settings ?? {}))
   const remoteSettings = flatten(syncedSettings(theirs.settings ?? {}))
   const baseSettings = base ? flatten(syncedSettings(base.settings ?? {})) : null
@@ -160,12 +191,39 @@ function mergeFiles(inputs: PlanInputs): FilesOutcome {
   return { merge, outgoing }
 }
 
+function mergeExtensions(deps: SyncPlanDeps, inputs: PlanInputs): ExtensionsOutcome {
+  const { state, theirs, base, builtin, kinds } = inputs
+  const installed = deps.installedExtensions().filter((e) => !builtin.includes(e.id))
+  const installedIds = new Set(installed.map((e) => e.id))
+  if (!kinds.extensions) return { extensions: theirs.extensions, installedIds }
+  const localExt = new Map(installed.map((e) => [e.id, e.marketplace]))
+  for (const e of base?.extensions ?? []) {
+    if (!installedIds.has(e.id) && !state.installedAtSync.includes(e.id)) {
+      localExt.set(e.id, e.marketplace)
+    }
+  }
+  const remoteExt = new Map(
+    theirs.extensions.filter((e) => !builtin.includes(e.id)).map((e) => [e.id, e.marketplace]),
+  )
+  const baseExt = base ? new Map(base.extensions.map((e) => [e.id, e.marketplace])) : null
+  const extMerge = mergeMaps(
+    baseExt,
+    localExt,
+    remoteExt,
+    (a, b) => a === b,
+    () => 'remote',
+  )
+  const extensions = [...extMerge.merged].map(([id, marketplace]) => ({ id, marketplace }))
+  return { extensions, installedIds }
+}
+
 function outgoingProfile(
   inputs: PlanInputs,
   settings: SettingsOutcome,
   files: FilesOutcome,
+  extensions: SyncedExtension[],
 ): Map<string, string> {
-  const { remote, local, theirs, remoteTime, secretPlan } = inputs
+  const { remote, local, theirs, remoteTime, secretPlan, untouched } = inputs
   const times: Record<string, number> = {}
   const settingsSame = sameJson(settings.outgoing ?? {}, syncedSettings(theirs.settings ?? {}))
   times[SETTINGS_FILE] = settingsSame
@@ -174,9 +232,11 @@ function outgoingProfile(
   for (const [path, text] of files.outgoing) {
     times[path] = theirs.files.get(path) === text ? remoteTime(path) : (local.times.get(path) ?? 0)
   }
+  for (const path of untouched.keys()) times[path] = remoteTime(path)
   const outgoing = encodeProfile({
     settings: settings.outgoing,
-    files: files.outgoing,
+    extensions,
+    files: new Map([...files.outgoing, ...untouched]),
     times,
   })
   if (settings.stopped) {
@@ -241,30 +301,53 @@ async function plan(
   state: SyncState,
 ): Promise<Plan> {
   const secretPlan = deps.secrets ? await deps.secrets.plan(remote.files.get(SECRETS_FILE)) : null
-  const local = store.readLocal()
-  const theirs = decodeProfile(remote.files)
+  const kinds = deps.kinds()
+  const scope = scopeOf(kinds)
+  const decoded = decodeProfile(remote.files)
+  const theirs: Profile = { ...decoded, files: scope.only(decoded.files) }
+  const untouched = scope.rest(decoded.files)
+  const stored = store.readLocal()
+  const local: LocalProfile = {
+    ...stored,
+    files: scope.only(stored.files),
+    times: scope.only(stored.times),
+    skipped: stored.skipped.filter(scope.has),
+  }
   const baseFiles = store.loadBase(state.target)
-  const base: Profile | null = baseFiles ? decodeProfile(baseFiles) : null
+  const decodedBase = baseFiles ? decodeProfile(baseFiles) : null
+  const base: Profile | null = decodedBase
+    ? { ...decodedBase, files: scope.only(decodedBase.files) }
+    : null
+  const scoped: PlanRemote = { files: remote.files, skipped: remote.skipped.filter(scope.has) }
+  const builtin = deps.builtinIds()
   const invalid: string[] = []
   const remoteTime = (path: string): number => theirs.times[path] ?? 0
   const inputs: PlanInputs = {
-    remote,
+    remote: scoped,
     state,
     local,
     theirs,
     base,
+    kinds,
+    builtin,
+    untouched,
     remoteTime,
     secretPlan,
   }
 
   const settings = await mergeSettings(deps, inputs, invalid)
   const files = mergeFiles(inputs)
-  const outgoing = outgoingProfile(inputs, settings, files)
+  const { extensions, installedIds } = mergeExtensions(deps, inputs)
+  const outgoing = outgoingProfile(inputs, settings, files, extensions)
   const apply = planApply(deps, store, inputs, settings, files)
 
+  const offers = kinds.extensions
+    ? extensions.filter((e) => !installedIds.has(e.id) && offerable(e, builtin))
+    : []
   return {
     write: !sameFiles(outgoing, remote.files),
     outgoing,
+    baseline: scope.only(outgoing),
     apply,
     saveSecretBase: () => secretPlan?.saveBase(),
     invalid,
@@ -272,7 +355,9 @@ async function plan(
       target: state.target,
       version,
       lastSync: now().toISOString(),
-      skipped: [...new Set([...local.skipped, ...remote.skipped])].sort(),
+      offers,
+      installedAtSync: extensions.filter((e) => installedIds.has(e.id)).map((e) => e.id),
+      skipped: [...new Set([...local.skipped, ...scoped.skipped])].sort(),
       heldBack: [...settings.heldKeys].map((key) => keyPath(key).join('.')).sort(),
       secrets: secretPlan?.status ?? null,
     }),

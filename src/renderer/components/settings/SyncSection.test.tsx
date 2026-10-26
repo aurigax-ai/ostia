@@ -14,6 +14,7 @@ const status = (s: Partial<SyncStatus>): SyncStatus => ({
   lastSync: null,
   skipped: [],
   heldBack: [],
+  offers: [],
   secrets: { state: 'off', mode: 'password', logins: false },
   ...s,
 })
@@ -210,6 +211,57 @@ describe('Settings › Sync', () => {
     expect(screen.getByRole('combobox', { name: 'Sync method' })).toHaveTextContent('Off')
     expect(screen.queryByRole('button', { name: 'Sign in' })).toBeNull()
     expect(window.ostia.sync.run).not.toHaveBeenCalled()
+  })
+
+  it('SYV-C15 shows What to sync on the folder method and keeps a switch local', async () => {
+    useSettingsStore.setState({ sync: { dir: '/home/me/Sync' } })
+    const user = userEvent.setup()
+    await renderSettled(<SyncSection />)
+    for (const name of [
+      'Settings',
+      'Snippets',
+      'Completion specs',
+      'Views',
+      'Installed extensions',
+      'Secrets',
+      'Saved browser passwords',
+    ]) {
+      expect(screen.getByRole('switch', { name })).toBeInTheDocument()
+    }
+    expect(screen.getByRole('switch', { name: 'Snippets' })).toBeChecked()
+    expect(screen.getByRole('switch', { name: 'Secrets' })).not.toBeChecked()
+    expect(screen.getByRole('switch', { name: 'Saved browser passwords' })).toHaveAttribute(
+      'aria-disabled',
+      'true',
+    )
+    await user.click(screen.getByRole('switch', { name: 'Snippets' }))
+    expect(useSettingsStore.getState().sync).toEqual({
+      dir: '/home/me/Sync',
+      kinds: { snippets: false },
+    })
+    expect(screen.getByRole('switch', { name: 'Snippets' })).not.toBeChecked()
+  })
+
+  it('SYV-C16 shows What to sync on the server method once signed in, not before', async () => {
+    onServer({ ...SIGNED_IN, signedIn: false, provider: null, deviceName: null })
+    await renderSettled(<SyncSection />)
+    expect(screen.queryByRole('switch', { name: 'Snippets' })).toBeNull()
+    cleanup()
+    onServer(SIGNED_IN)
+    await renderSettled(<SyncSection />)
+    expect(screen.getByRole('switch', { name: 'Snippets' })).toBeInTheDocument()
+    expect(screen.getByRole('switch', { name: 'Secrets' })).toBeInTheDocument()
+  })
+
+  it('SYV-C17 offers an extension from another computer and installs it on the click', async () => {
+    useSettingsStore.setState({ sync: { dir: '/home/me/Sync' } })
+    vi.mocked(window.ostia.sync.status).mockResolvedValue(
+      status({ dir: '/home/me/Sync', offers: [{ id: 'trellis', marketplace: 'https://m.test' }] }),
+    )
+    const user = userEvent.setup()
+    await renderSettled(<SyncSection />)
+    await user.click(screen.getByRole('button', { name: 'Install' }))
+    expect(window.ostia.sync.install).toHaveBeenCalledWith('trellis')
   })
 
   it('SYV-C8 explains a missing folder from live status updates', async () => {

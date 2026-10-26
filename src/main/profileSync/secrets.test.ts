@@ -12,6 +12,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { FAKE } from '../../../test/fixtures/secrets/samples'
+import { parseSyncKinds } from '../../shared/profileSync/syncKinds'
 import { createCredentialStore } from '../browser/credentials'
 import { ProfileSync } from './engine'
 import { FolderMethod } from './folderMethod'
@@ -129,6 +130,10 @@ function machine(
     now: () => new Date(clock.ms),
     method,
     targetLabel: () => target,
+    kinds: () => parseSyncKinds(undefined),
+    installedExtensions: () => [],
+    builtinIds: () => [],
+    installExtension: async () => true,
     detectSecrets: async () => [],
     secrets,
   })

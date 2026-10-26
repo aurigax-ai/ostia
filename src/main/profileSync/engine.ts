@@ -1,5 +1,7 @@
 import type { SecretSpan } from '../../shared/privacy/redaction'
 import type { SecretSyncStatus, SyncStatus } from '../../shared/profileSync/profileSync'
+import type { SyncKinds } from '../../shared/profileSync/syncKinds'
+import type { SyncedExtension } from './profile'
 import type { SecretSync } from './secrets'
 import { createSyncPlanner, type Plan, ScanFailed } from './syncPlan'
 import { createSyncStore, type SyncState, type SyncStore } from './syncStore'
@@ -32,6 +34,10 @@ export interface ProfileSyncDeps {
   now?: () => Date
   method: () => SyncMethod | null
   targetLabel: () => string | null
+  kinds: () => SyncKinds
+  installedExtensions: () => SyncedExtension[]
+  builtinIds: () => string[]
+  installExtension: (id: string, marketplace: string) => Promise<boolean>
   detectSecrets: DetectSecrets
   secrets?: SecretSync
 }
@@ -51,6 +57,7 @@ const OFF: SyncStatus = {
   lastSync: null,
   skipped: [],
   heldBack: [],
+  offers: [],
   secrets: SECRETS_OFF,
 }
 
@@ -77,6 +84,7 @@ export class ProfileSync {
       lastSync: state.lastSync,
       skipped: state.skipped,
       heldBack: state.heldBack,
+      offers: state.offers,
       secrets: this.deps.secrets
         ? state.secrets?.state === 'damaged'
           ? state.secrets
@@ -139,7 +147,7 @@ export class ProfileSync {
         version = res.version
       }
       const pulledSettings = plan.apply()
-      this.store.saveBase(method.id, plan.outgoing)
+      this.store.saveBase(method.id, plan.baseline)
       plan.saveSecretBase()
       const next = plan.state(version)
       this.store.saveState(next)
@@ -148,5 +156,14 @@ export class ProfileSync {
       return { status: this.last, pulledSettings }
     }
     return this.fail(state, 'busy')
+  }
+
+  async install(id: string): Promise<SyncStatus> {
+    const method = this.deps.method()
+    if (!method) return OFF
+    const offer = this.store.loadState(method.id).offers.find((o) => o.id === id)
+    if (!offer) return this.status()
+    await this.deps.installExtension(offer.id, offer.marketplace)
+    return (await this.run()).status
   }
 }

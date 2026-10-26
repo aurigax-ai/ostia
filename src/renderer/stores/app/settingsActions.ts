@@ -7,6 +7,7 @@ import { parsePortsSettings } from '@shared/boards/ports'
 import { parseModifierRemap } from '@shared/keyboard/modifierRemap'
 import { parseRedactionSettings } from '@shared/privacy/redaction'
 import { parseTelemetrySettings } from '@shared/privacy/telemetry'
+import { offKinds } from '@shared/profileSync/syncKinds'
 import { parsePromptSettings } from '@shared/terminal/promptSettings'
 import { parseScrollbackHistory } from '@shared/terminal/scrollbackHistory'
 import type { StoreApi } from 'zustand'
@@ -21,7 +22,7 @@ import {
 import { parseWindowTitle } from '@/lib/settings/windowTitle'
 import { normalizeHex } from '@/lib/theme/color'
 import { clampLineHeight, type SettingsState, withBaseSize } from './settingsModel'
-import { parseHibernation } from './settingsParse'
+import { parseHibernation, syncSettingsOf } from './settingsParse'
 import { scheduleSave, writeSettings } from './settingsPersist'
 
 type SetSettings = StoreApi<SettingsState>['setState']
@@ -290,6 +291,7 @@ export function createTrustActions(
   | 'setApprovalMode'
   | 'setSyncDir'
   | 'setSyncMethod'
+  | 'setSyncKinds'
 > {
   return {
     setSandbox: async (next) => {
@@ -397,17 +399,22 @@ export function createTrustActions(
 
     setSyncDir: async (dir) => {
       scheduleSave.cancel()
-      const method = get().sync?.method
-      set({ sync: dir || method ? { dir, ...(method ? { method } : {}) } : undefined })
+      const { method, kinds } = get().sync ?? {}
+      set({ sync: syncSettingsOf(dir, method, kinds) })
       await writeSettings(get())
     },
 
     setSyncMethod: async (method) => {
       scheduleSave.cancel()
-      const dir = get().sync?.dir ?? ''
-      set({
-        sync: method === 'server' ? { dir, method } : dir ? { dir } : undefined,
-      })
+      const { dir = '', kinds } = get().sync ?? {}
+      set({ sync: syncSettingsOf(dir, method === 'server' ? 'server' : undefined, kinds) })
+      await writeSettings(get())
+    },
+
+    setSyncKinds: async (kinds) => {
+      scheduleSave.cancel()
+      const { dir = '', method } = get().sync ?? {}
+      set({ sync: syncSettingsOf(dir, method, offKinds(kinds)) })
       await writeSettings(get())
     },
   }

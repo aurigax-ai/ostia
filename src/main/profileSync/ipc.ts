@@ -4,10 +4,11 @@ import { isRecord } from '@aurigax-ai/ostia-extension-sdk/contract/isRecord'
 import { app, BrowserWindow, dialog, ipcMain } from 'electron'
 import { debounce, throttle } from 'es-toolkit'
 import type { SecretActionResult, SyncStatus } from '../../shared/profileSync/profileSync'
+import { parseSyncKinds } from '../../shared/profileSync/syncKinds'
 import type { ServerAccount } from '../server/serverAccount'
 import { type DetectSecrets, ProfileSync } from './engine'
 import { FolderMethod } from './folderMethod'
-import { PROFILE_FOLDERS, SECRETS_FILE, SETTINGS_FILE } from './profile'
+import { PROFILE_FOLDERS, SECRETS_FILE, SETTINGS_FILE, type SyncedExtension } from './profile'
 import { rekeyBundle } from './secretCrypto'
 import { type Protect, type SecretSource, SecretSync } from './secrets'
 import { createServerTarget } from './serverSync/serverMethod'
@@ -28,6 +29,9 @@ export interface ProfileSyncIpcDeps {
   readSettings: () => unknown
   broadcast: (channel: string, payload?: unknown) => void
   onSettingsPulled: () => void
+  installedExtensions: () => SyncedExtension[]
+  builtinIds: () => string[]
+  installExtension: (id: string, marketplace: string) => Promise<boolean>
   detectSecrets: DetectSecrets
   secretSources: () => SecretSource[]
   protect: Protect
@@ -68,6 +72,10 @@ export function startProfileSync(deps: ProfileSyncIpcDeps): ProfileSyncHandle {
     configDir: deps.configDir,
     method,
     targetLabel,
+    kinds: () => parseSyncKinds(syncSettings()?.kinds),
+    installedExtensions: deps.installedExtensions,
+    builtinIds: deps.builtinIds,
+    installExtension: deps.installExtension,
     detectSecrets: deps.detectSecrets,
     secrets,
   })
@@ -130,6 +138,12 @@ export function startProfileSync(deps: ProfileSyncIpcDeps): ProfileSyncHandle {
 
   ipcMain.handle('sync:status', () => sync.status())
   ipcMain.handle('sync:run', () => run())
+  ipcMain.handle('sync:install', async (_e, id: unknown) => {
+    if (typeof id !== 'string') return sync.status()
+    const next = await sync.install(id)
+    deps.broadcast('sync:status', next)
+    return next
+  })
   const text = (value: unknown): string | null =>
     typeof value === 'string' && value.length <= SECRET_INPUT_MAX ? value : null
   const secretAction = (

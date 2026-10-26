@@ -8,6 +8,7 @@ import { createServerTarget } from '../../../src/main/profileSync/serverSync/ser
 import { ServerSyncService } from '../../../src/main/profileSync/serverSync/serverSyncService'
 import { SyncKeyring } from '../../../src/main/profileSync/serverSync/syncKeyring'
 import { createSyncKeyStore } from '../../../src/main/profileSync/serverSync/syncKeyStore'
+import { parseSyncKinds } from '../../../src/shared/profileSync/syncKinds'
 import { type AccountHarness, accountHarness, signedIn } from './accountHarness'
 import type { FakeServer } from './fakeServer'
 
@@ -82,6 +83,10 @@ function assemble(harness: AccountHarness): SyncDevice {
     now: () => clock.now,
     method: () => target.method(),
     targetLabel: () => target.label(),
+    kinds: () => parseSyncKinds(undefined),
+    installedExtensions: () => [],
+    builtinIds: () => [],
+    installExtension: async () => true,
     detectSecrets: async () => [],
   })
   return {

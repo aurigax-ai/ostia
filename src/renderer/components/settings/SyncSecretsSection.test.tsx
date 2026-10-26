@@ -13,6 +13,7 @@ const status = (
   lastSync: null,
   skipped: [],
   heldBack: [],
+  offers: [],
   secrets: { state, mode, logins: false },
 })
 
@@ -25,7 +26,7 @@ describe('SyncSecretsSection', () => {
     })
     render(<SyncSecretsSection status={status('off', 'sync-key')} server onStatus={onStatus} />)
     expect(screen.getByText(/Encrypted with your sync passphrase\./)).toBeInTheDocument()
-    await userEvent.click(screen.getByRole('switch', { name: 'Sync secrets' }))
+    await userEvent.click(screen.getByRole('switch', { name: 'Secrets' }))
     expect(window.ostia.sync.secrets.enable).toHaveBeenCalled()
     await waitFor(() => expect(onStatus).toHaveBeenCalledWith(status('unlocked', 'sync-key')))
     expect(screen.queryByRole('dialog')).toBeNull()
@@ -66,7 +67,7 @@ describe('SyncSecretsSection', () => {
     })
     render(<SyncSecretsSection status={status('off')} server={false} onStatus={() => {}} />)
     expect(screen.getByText(/Encrypted with a secrets password\./)).toBeInTheDocument()
-    await userEvent.click(screen.getByRole('switch', { name: 'Sync secrets' }))
+    await userEvent.click(screen.getByRole('switch', { name: 'Secrets' }))
     expect(
       await screen.findByRole('dialog', { name: 'Set a secrets password' }),
     ).toBeInTheDocument()

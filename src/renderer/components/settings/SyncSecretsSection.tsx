@@ -71,6 +71,13 @@ export function SyncSecretsSection({
         onChange={(on) => void turn(on)}
         below={shown.length > 0 ? <span className="flex items-center gap-4">{shown}</span> : null}
       />
+      <ToggleRow
+        label={t.logins}
+        desc={t.loginsDesc}
+        checked={status.secrets.logins}
+        disabled={state === 'off'}
+        onChange={(on) => void act(api.setLogins(on))}
+      />
       {state === 'damaged' ? (
         <Notice tone="error" actions={link(t.reset, () => setStep('reset'))}>
           {t.damaged}

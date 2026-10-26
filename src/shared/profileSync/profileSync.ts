@@ -1,3 +1,8 @@
+export interface SyncOffer {
+  id: string
+  marketplace: string
+}
+
 export interface SyncStatus {
   dir: string | null
   state: 'off' | 'ok' | 'error'
@@ -5,6 +10,7 @@ export interface SyncStatus {
   lastSync: string | null
   skipped: string[]
   heldBack: string[]
+  offers: SyncOffer[]
   secrets: SecretSyncStatus
 }
 
@@ -36,6 +42,7 @@ interface SecretSyncApi {
 interface SyncApi {
   status: () => Promise<SyncStatus>
   run: () => Promise<SyncStatus>
+  install: (extId: string) => Promise<SyncStatus>
   secrets: SecretSyncApi
   pickFolder: () => Promise<string | null>
   onStatus: (cb: (status: SyncStatus) => void) => () => void

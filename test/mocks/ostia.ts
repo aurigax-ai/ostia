@@ -13,6 +13,7 @@ const SYNC_OFF: SyncStatus = {
   lastSync: null,
   skipped: [],
   heldBack: [],
+  offers: [],
   secrets: { state: 'off', mode: 'password', logins: false },
 }
 
@@ -146,6 +147,7 @@ export function makeOstiaMock(overrides?: Partial<OstiaBridge>): OstiaBridge {
     sync: {
       status: vi.fn().mockResolvedValue(SYNC_OFF),
       run: vi.fn().mockResolvedValue(SYNC_OFF),
+      install: vi.fn().mockResolvedValue(SYNC_OFF),
       secrets: {
         enable: vi.fn().mockResolvedValue({ ok: true, status: SYNC_OFF }),
         disable: vi.fn().mockResolvedValue({ ok: true, status: SYNC_OFF }),
