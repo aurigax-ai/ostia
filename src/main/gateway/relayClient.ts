@@ -19,7 +19,7 @@ const STREAM_ID = /^[A-Za-z0-9_-]{1,64}$/
 
 type RelayAccount = Pick<
   ServerAccount,
-  'signedIn' | 'onChange' | 'baseUrl' | 'relayLabel' | 'session' | 'devicesChanged'
+  'signedIn' | 'onChange' | 'baseUrl' | 'relayLabel' | 'session'
 >
 
 export interface RelayDeps {
@@ -319,10 +319,6 @@ export class RelayClient {
     }
     if (message.t === 'ping') {
       ws.send('{"t":"pong"}')
-      return
-    }
-    if (message.t === 'device-added') {
-      this.deps.account.devicesChanged()
       return
     }
     if (message.t !== 'incoming') return

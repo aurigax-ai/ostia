@@ -21,7 +21,7 @@ const devices: SyncDevice[] = []
 const roots: string[] = []
 
 async function world(options: ConstructorParameters<typeof FakeServer>[0] = {}) {
-  const server = await new FakeServer({ approverMinAgeMs: 0, ...options }).start()
+  const server = await new FakeServer(options).start()
   servers.push(server)
   const first = await firstDevice(server)
   devices.push(first)
@@ -102,7 +102,7 @@ describe('ServerMethod through the profile sync engine', () => {
     expect(first.settings().playbooks).toEqual({ enabled: ['a'], shared: ['one'] })
   })
 
-  it('SSY-C23 merges after a 412 and shows the conflict', async () => {
+  it('SSY-C23 merges after a 412, newest change winning without asking', async () => {
     const { server, first } = await world()
     const other = await second(server, first)
     first.writeSettings({ appearance: { theme: 'dark' }, locale: 'en' }, 1)
@@ -113,7 +113,7 @@ describe('ServerMethod through the profile sync engine', () => {
     await first.sync.run()
     const result = await other.sync.run()
     expect(result.status.state).toBe('ok')
-    expect(result.status.conflicts.map((c) => c.key)).toContain('appearance.theme')
+    expect(other.settings().appearance).toEqual({ theme: 'solar' })
     await first.sync.run()
     expect(first.settings().locale).toBe('fr')
   })

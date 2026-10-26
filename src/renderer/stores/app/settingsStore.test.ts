@@ -767,6 +767,35 @@ describe('settingsStore', () => {
       expect(useSettingsStore.getState().sync).toBeUndefined()
     })
 
+    it('PSY-C44 keeps the What to sync choices across method and folder changes', async () => {
+      await store().setSyncKinds({
+        settings: true,
+        snippets: false,
+        completions: true,
+        views: true,
+        extensions: true,
+      })
+      expect(useSettingsStore.getState().sync).toEqual({ dir: '', kinds: { snippets: false } })
+      await store().setSyncDir('/home/me/Sync')
+      await store().setSyncMethod('server')
+      expect(useSettingsStore.getState().sync).toEqual({
+        dir: '/home/me/Sync',
+        method: 'server',
+        kinds: { snippets: false },
+      })
+      await store().setSyncKinds({
+        settings: true,
+        snippets: true,
+        completions: true,
+        views: true,
+        extensions: true,
+      })
+      expect(useSettingsStore.getState().sync).toEqual({ dir: '/home/me/Sync', method: 'server' })
+      expect(() => store().setByPath('sync.kinds', { snippets: true })).toThrow(
+        /unknown settings key/,
+      )
+    })
+
     it('PSY-C32 refuses an agent turning secret sync on', () => {
       useSettingsStore.setState({ sync: { dir: '/home/me/Sync' } })
       expect(() => store().setByPath('sync.secrets', true)).toThrow(/unknown settings key/)

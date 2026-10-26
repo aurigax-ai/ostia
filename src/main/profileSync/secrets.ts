@@ -1,20 +1,23 @@
-import { createHmac } from 'node:crypto'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { writeFileAtomic } from '@aurigax-ai/ostia-extension-sdk/atomicWrite'
 import { isRecord } from '@aurigax-ai/ostia-extension-sdk/contract/isRecord'
-import type { SecretReveal, SecretSyncStatus } from '../../shared/profileSync/profileSync'
+import type { SecretSyncStatus } from '../../shared/profileSync/profileSync'
 import { mergeMaps } from './merge'
 import {
   type BundleHeader,
   newDataKey,
   newHeader,
   newRecoveryKey,
+  newSyncKeyHeader,
   normalizeRecoveryKey,
+  type OpenedBundle,
   openBundle,
   parseHeader,
   sealBundle,
+  syncKeyDataKey,
   unwrapKey,
+  usesSyncKey,
   withPassword,
 } from './secretCrypto'
 import { BASE_DIR } from './syncStore'
@@ -43,38 +46,24 @@ export interface SecretSyncDeps {
   protect: Protect
   sources: () => SecretSource[]
   readRemote: () => Promise<string | undefined>
+  syncKey: () => Buffer | null
 }
 
 export type SecretResult = { ok: true } | { ok: false; error: string }
 export type SetupResult = { ok: true; recoveryKey: string } | { ok: false; error: string }
-
-interface SecretConflict {
-  id: string
-  key: string
-  winner: 'local' | 'remote'
-  localAt: number
-  remoteAt: number
-}
 
 export interface SecretPlan {
   outgoing: string | null | undefined
   apply: () => void
   saveBase: () => void
   status: SecretSyncStatus
-  conflicts: SecretConflict[] | null
 }
 
 const SECRET_STATE_FILE = 'secret-sync.json'
 const SECRET_BASE_FILE = 'secrets.bin'
 const PASSWORD_MIN = 12
 
-type Pending = 'create' | 'rewrap' | 'reset' | 'remove' | null
-
-interface StoredSecretConflict extends SecretConflict {
-  winnerMac: string
-  local: string | null
-  remote: string | null
-}
+type Pending = 'create' | 'rewrap' | 'reset' | null
 
 interface LocalState {
   enabled: boolean
@@ -82,7 +71,6 @@ interface LocalState {
   header: BundleHeader | null
   key: string | null
   pending: Pending
-  conflicts: StoredSecretConflict[]
 }
 
 const OFF_STATE: LocalState = {
@@ -91,7 +79,6 @@ const OFF_STATE: LocalState = {
   header: null,
   key: null,
   pending: null,
-  conflicts: [],
 }
 
 const SEP = '\0'
@@ -149,7 +136,7 @@ export class SecretSync {
     try {
       const raw = JSON.parse(readFileSync(this.statePath(), 'utf8')) as unknown
       if (!isRecord(raw)) return { ...OFF_STATE }
-      const pending = ['create', 'rewrap', 'reset', 'remove'].includes(raw.pending as string)
+      const pending = ['create', 'rewrap', 'reset'].includes(raw.pending as string)
         ? (raw.pending as Pending)
         : null
       return {
@@ -158,7 +145,6 @@ export class SecretSync {
         header: parseHeader(raw.header),
         key: typeof raw.key === 'string' ? raw.key : null,
         pending,
-        conflicts: Array.isArray(raw.conflicts) ? (raw.conflicts as StoredSecretConflict[]) : [],
       }
     } catch {
       return { ...OFF_STATE }
@@ -222,14 +208,34 @@ export class SecretSync {
     const recoveryKey = newRecoveryKey()
     const header = await newHeader(dataKey, password, recoveryKey)
     const state = this.load()
-    this.save({ ...state, enabled: true, header, key: this.keep(dataKey), pending, conflicts: [] })
+    this.save({ ...state, enabled: true, header, key: this.keep(dataKey), pending })
     return { ok: true, recoveryKey }
+  }
+
+  private syncKeyState(pending: 'create' | 'reset'): LocalState | null {
+    const syncKey = this.deps.syncKey()
+    if (!syncKey) return null
+    return {
+      ...this.load(),
+      enabled: true,
+      header: newSyncKeyHeader(),
+      key: this.keep(syncKeyDataKey(syncKey)),
+      pending,
+    }
+  }
+
+  async useSyncKey(): Promise<SecretResult> {
+    const next = this.syncKeyState('reset')
+    if (!next) return { ok: false, error: 'locked' }
+    this.save(next)
+    return { ok: true }
   }
 
   async unlock(password: string): Promise<SecretResult> {
     const remote = await this.remote()
     if (remote === undefined) return { ok: false, error: 'no-bundle' }
     if (remote === null) return { ok: false, error: 'damaged' }
+    if (usesSyncKey(remote.header)) return { ok: false, error: 'failed' }
     const dataKey = await unwrapKey(remote.header.password, password, remote.header.kdf)
     if (!dataKey) return { ok: false, error: 'wrong-password' }
     const state = this.load()
@@ -249,6 +255,7 @@ export class SecretSync {
     const remote = await this.remote()
     if (remote === undefined) return { ok: false, error: 'no-bundle' }
     if (remote === null) return { ok: false, error: 'damaged' }
+    if (usesSyncKey(remote.header)) return { ok: false, error: 'failed' }
     const dataKey = await unwrapKey(
       remote.header.recovery,
       normalizeRecoveryKey(recoveryKey),
@@ -266,55 +273,25 @@ export class SecretSync {
     if (problem) return { ok: false, error: problem }
     const state = this.load()
     const dataKey = this.dataKey(state)
-    if (!state.enabled || !state.header || !dataKey) return { ok: false, error: 'locked' }
+    if (!state.enabled || !state.header || usesSyncKey(state.header) || !dataKey) {
+      return { ok: false, error: 'locked' }
+    }
     const header = await withPassword(state.header, dataKey, password)
     this.save({ ...state, header, pending: 'rewrap' })
     return { ok: true }
-  }
-
-  async enable(): Promise<void> {
-    this.save({ ...this.load(), enabled: true })
   }
 
   async setLogins(on: boolean): Promise<void> {
     this.save({ ...this.load(), logins: on })
   }
 
-  private opened(kept: string | null): string | null {
-    return kept === null ? null : this.deps.protect.decrypt(kept)
-  }
-
-  async reveal(id: string): Promise<SecretReveal> {
-    const conflict = this.load().conflicts.find((c) => c.id === id)
-    if (!conflict) return { ok: false }
-    try {
-      return {
-        ok: true,
-        local: this.opened(conflict.local),
-        remote: this.opened(conflict.remote),
-        winner: conflict.winner,
-      }
-    } catch {
-      return { ok: false }
-    }
-  }
-
-  async resolve(id: string): Promise<boolean> {
+  async enable(): Promise<void> {
     const state = this.load()
-    const conflict = state.conflicts.find((c) => c.id === id)
-    if (!conflict) return false
-    const entry = id.slice('secret:'.length)
-    const source = this.deps.sources().find((s) => s.name === sourceOf(entry))
-    if (!source) return false
-    let other: string | null
-    try {
-      other = this.opened(conflict.winner === 'local' ? conflict.remote : conflict.local)
-    } catch {
-      return false
-    }
-    source.write(new Map([[keyOf(entry), other]]))
-    this.save({ ...state, conflicts: state.conflicts.filter((c) => c.id !== id) })
-    return true
+    this.save(
+      state.header
+        ? { ...state, enabled: true }
+        : (this.syncKeyState('create') ?? { ...state, enabled: true }),
+    )
   }
 
   async disable(): Promise<void> {
@@ -322,15 +299,30 @@ export class SecretSync {
     this.save({ ...OFF_STATE, logins: state.logins })
   }
 
-  async remove(): Promise<void> {
-    this.save({ ...this.load(), enabled: true, pending: 'remove' })
+  private modeOf(header: BundleHeader | null | undefined): SecretSyncStatus['mode'] {
+    if (header) return usesSyncKey(header) ? 'sync-key' : 'password'
+    return this.deps.syncKey() ? 'sync-key' : 'password'
   }
 
   statusOf(state = this.load(), damaged = false): SecretSyncStatus {
-    if (!state.enabled) return { state: 'off', logins: state.logins }
-    if (damaged) return { state: 'damaged', logins: state.logins }
-    if (!state.header || !this.dataKey(state)) return { state: 'locked', logins: state.logins }
-    return { state: 'unlocked', logins: state.logins }
+    const base = { mode: this.modeOf(state.header), logins: state.logins }
+    if (!state.enabled) return { state: 'off', ...base }
+    if (damaged) return { state: 'damaged', ...base }
+    if (!state.header || !this.dataKey(state)) return { state: 'locked', ...base }
+    return { state: 'unlocked', ...base }
+  }
+
+  private adopted(state: LocalState, remote: OpenedBundle | undefined): LocalState | 'damaged' {
+    const syncKey = this.deps.syncKey()
+    if (!remote || !usesSyncKey(remote.header) || !syncKey || state.pending === 'reset') {
+      return state
+    }
+    if (state.header?.keyId === remote.header.keyId) return state
+    const dataKey = syncKeyDataKey(syncKey)
+    if (remote.open(dataKey) === null) return 'damaged'
+    const next = { ...state, header: remote.header, key: this.keep(dataKey), pending: null }
+    this.save(next)
+    return next
   }
 
   status(): SecretSyncStatus {
@@ -338,34 +330,28 @@ export class SecretSync {
   }
 
   async plan(remoteText: string | undefined): Promise<SecretPlan> {
-    const state = this.load()
+    const loaded = this.load()
     const carry = (status: SecretSyncStatus): SecretPlan => ({
       outgoing: undefined,
       apply: () => {},
       saveBase: () => {},
       status,
-      conflicts: null,
     })
-    if (!state.enabled) return carry(this.statusOf(state))
-    if (state.pending === 'remove') {
-      return {
-        outgoing: null,
-        apply: () => this.save({ ...OFF_STATE, logins: state.logins }),
-        saveBase: () => {},
-        status: { state: 'off', logins: state.logins },
-        conflicts: [],
-      }
-    }
+    if (!loaded.enabled) return carry(this.statusOf(loaded))
     const remote = remoteText === undefined ? undefined : openBundle(remoteText)
-    if (remote === null) return carry(this.statusOf(state, true))
+    if (remote === null) return carry(this.statusOf(loaded, true))
+    const state = this.adopted(loaded, remote)
+    if (state === 'damaged') return carry(this.statusOf(loaded, true))
+    const waiting = (): SecretSyncStatus => ({
+      state: remote ? 'locked' : 'needs-setup',
+      mode: this.modeOf(remote?.header),
+      logins: state.logins,
+    })
     const dataKey = this.dataKey(state)
-    if (!dataKey || !state.header) {
-      return carry({ state: remote ? 'locked' : 'needs-setup', logins: state.logins })
-    }
+    if (!dataKey || !state.header) return carry(waiting())
     const lock = (): SecretPlan => {
-      const next = { ...state, header: null, key: null, pending: null }
-      this.save(next)
-      return carry({ state: remote ? 'locked' : 'needs-setup', logins: state.logins })
+      this.save({ ...state, header: null, key: null, pending: null })
+      return carry(waiting())
     }
     const header = state.header
     let remoteEntries = new Map<string, SecretEntry>()
@@ -407,33 +393,6 @@ export class SecretSync {
       outgoing.set(id, { value, at: from?.at ?? 0 })
     }
 
-    const mac = (value: string | undefined): string =>
-      createHmac('sha256', dataKey)
-        .update(value ?? '')
-        .digest('base64')
-    const describe = (id: string): string =>
-      included.find((s) => s.name === sourceOf(id))?.describe(keyOf(id)) ?? keyOf(id)
-    const kept = (value: string | undefined): string | null =>
-      value === undefined ? null : this.deps.protect.encrypt(value)
-    const fresh: StoredSecretConflict[] = merge.conflicts.map((c) => ({
-      id: `secret:${c.key}`,
-      key: describe(c.key),
-      winner: c.winner,
-      localAt: local.get(c.key)?.at ?? 0,
-      remoteAt: remoteIncluded.get(c.key)?.at ?? 0,
-      winnerMac: mac(merge.merged.get(c.key)),
-      local: kept(c.local),
-      remote: kept(c.remote),
-    }))
-    const conflicts = [
-      ...state.conflicts.filter(
-        (c) =>
-          !fresh.some((f) => f.id === c.id) &&
-          c.winnerMac === mac(merge.merged.get(c.id.slice('secret:'.length))),
-      ),
-      ...fresh,
-    ]
-
     const unchanged =
       remote !== undefined &&
       state.pending === null &&
@@ -453,7 +412,7 @@ export class SecretSync {
           }
           if (changes.size > 0) source.write(changes)
         }
-        this.save({ ...state, pending: null, conflicts })
+        this.save({ ...state, pending: null })
       },
       saveBase: () => {
         const body = JSON.stringify({
@@ -462,14 +421,7 @@ export class SecretSync {
         })
         writeFileAtomic(this.basePath(), this.deps.protect.encrypt(body), { mode: 0o600 })
       },
-      status: { state: 'unlocked', logins: state.logins },
-      conflicts: conflicts.map(({ id, key, winner, localAt, remoteAt }) => ({
-        id,
-        key,
-        winner,
-        localAt,
-        remoteAt,
-      })),
+      status: { state: 'unlocked', mode: this.modeOf(header), logins: state.logins },
     }
   }
 }

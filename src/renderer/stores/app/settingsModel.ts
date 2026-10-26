@@ -36,6 +36,7 @@ import {
   type RedactionSettings,
 } from '@shared/privacy/redaction'
 import type { TelemetrySettings } from '@shared/privacy/telemetry'
+import type { SyncKinds } from '@shared/profileSync/syncKinds'
 import type { SandboxGlobals } from '@shared/sandbox/sandbox'
 import { keyboardPlatform } from '@/lib/keyboard/keyboardPresets'
 import type { TerminalKeyMap, TerminalSend } from '@/lib/keyboard/terminalKeys'
@@ -232,6 +233,7 @@ type SyncMethodChoice = 'folder' | 'server'
 export interface SyncSettings {
   dir: string
   method?: 'server'
+  kinds?: Partial<SyncKinds>
 }
 
 export interface Persisted {
@@ -394,6 +396,7 @@ export interface SettingsState extends Persisted {
   unsetByPath: (path: string) => SettingChange
   setSyncDir: (dir: string) => Promise<void>
   setSyncMethod: (method: SyncMethodChoice) => Promise<void>
+  setSyncKinds: (kinds: SyncKinds) => Promise<void>
   setApprovalMode: (mode: ApprovalMode) => void
   setWindowTitle: (template: string) => void
   trustAction: (fingerprint: string) => void

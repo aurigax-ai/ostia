@@ -1,12 +1,12 @@
 import { freshDataHome, isolatedLaunch } from './dataHome'
 import { openWorkspace } from './helpers'
-import { type Page, _electron as electron, expect, test } from './test'
+import { _electron as electron, expect, type Page, test } from './test'
 
 const MIN_TEXT_WIDTH = 384
 
 const ROWS = [
   { section: 'Privacy', label: 'Install id' },
-  { section: 'Remote', label: 'Bind address' },
+  { section: 'Remote', label: 'Connection method' },
   { section: 'Appearance', label: 'Window title' },
   { section: 'About', label: 'Check for updates automatically' },
 ]

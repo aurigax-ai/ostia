@@ -168,20 +168,6 @@ describe('the relay listener', () => {
     await vi.waitFor(() => expect(harness.server.pongs).toBeGreaterThanOrEqual(2))
   })
 
-  it('SSY-C100 tells the device list at once when the server reports a new device', async () => {
-    const r = await boot()
-    await listening(r)
-    const seen = vi.fn()
-    r.harness.account.onDevicesChanged(seen)
-    r.harness.server.offer({
-      t: 'device-added',
-      deviceId: 'device9',
-      name: 'Intruder',
-      createdAt: 1,
-    })
-    await vi.waitFor(() => expect(seen).toHaveBeenCalledTimes(1))
-  })
-
   it('RLY-C3 dials nothing while it is not started', async () => {
     const r = await boot({ start: false })
     await new Promise((resolve) => setTimeout(resolve, 100))

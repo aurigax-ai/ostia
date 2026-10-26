@@ -1,322 +1,96 @@
-import type { Dict } from '@shared/app/dict'
 import type { SecretActionResult, SyncStatus } from '@shared/profileSync/profileSync'
 import { useState } from 'react'
 import { Notice } from '@/components/common/Notice'
-import { ControlRow } from '@/components/settingsKit/ControlRow'
-import { SettingsPage } from '@/components/settingsKit/SettingsPage'
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Switch } from '@/components/ui/switch'
+import { TextLink } from '@/components/common/TextLink'
+import { ToggleRow } from '@/components/settingsKit/ControlRow'
 import { useDict } from '@/lib/app/useDict'
+import { SecretFormDialog } from './SecretFormDialog'
+import { type SecretPasswordStep, secretErrorText, secretPasswordStep } from './secretPasswordSteps'
 
-type Form = 'unlock' | 'recover' | 'change' | 'reset' | null
-type Confirming = 'remove' | 'reset' | null
-
-function secretErrorText(d: Dict, error: string | undefined): string {
-  const t = d.sync.secrets.errors
-  switch (error) {
-    case 'too-short':
-      return t.tooShort
-    case 'mismatch':
-      return t.mismatch
-    case 'wrong-password':
-      return t.wrongPassword
-    case 'wrong-recovery-key':
-      return t.wrongRecoveryKey
-    case 'exists':
-      return t.exists
-    case 'damaged':
-      return t.damaged
-    case 'no-bundle':
-      return t.noBundle
-    default:
-      return t.failed
-  }
-}
-
-function PasswordFields({
-  d,
-  label,
-  withConfirm,
-  withRecoveryKey,
-  submit,
-  onSubmit,
-}: {
-  d: Dict
-  label: string
-  withConfirm: boolean
-  withRecoveryKey?: boolean
-  submit: string
-  onSubmit: (fields: { recoveryKey: string; password: string; confirm: string }) => void
-}): JSX.Element {
-  const t = d.sync.secrets
-  const [recoveryKey, setRecoveryKey] = useState('')
-  const [password, setPassword] = useState('')
-  const [confirm, setConfirm] = useState('')
-  return (
-    <form
-      aria-label={label}
-      className="flex flex-col gap-2 py-2"
-      onSubmit={(e) => {
-        e.preventDefault()
-        onSubmit({ recoveryKey, password, confirm })
-      }}
-    >
-      {withRecoveryKey ? (
-        <Input
-          aria-label={t.recoveryKey}
-          placeholder={t.recoveryKey}
-          value={recoveryKey}
-          autoComplete="off"
-          spellCheck={false}
-          onChange={(e) => setRecoveryKey(e.target.value)}
-          className="h-7 font-mono text-ui-sm"
-        />
-      ) : null}
-      <Input
-        type="password"
-        aria-label={withConfirm ? t.newPassword : t.password}
-        placeholder={withConfirm ? t.newPassword : t.password}
-        value={password}
-        autoComplete={withConfirm ? 'new-password' : 'current-password'}
-        onChange={(e) => setPassword(e.target.value)}
-        className="h-7 text-ui-sm"
-      />
-      {withConfirm ? (
-        <Input
-          type="password"
-          aria-label={t.confirmPassword}
-          placeholder={t.confirmPassword}
-          value={confirm}
-          autoComplete="new-password"
-          onChange={(e) => setConfirm(e.target.value)}
-          className="h-7 text-ui-sm"
-        />
-      ) : null}
-      <div className="flex justify-end">
-        <Button type="submit" size="sm" disabled={!password}>
-          {submit}
-        </Button>
-      </div>
-    </form>
-  )
-}
-
-function SecretsConfirmDialog({
-  confirming,
-  onClose,
-  onConfirm,
-}: {
-  confirming: Confirming
-  onClose: () => void
-  onConfirm: () => void
-}): JSX.Element {
-  const t = useDict().sync.secrets
-  return (
-    <AlertDialog
-      open={confirming !== null}
-      onOpenChange={(open) => {
-        if (!open) onClose()
-      }}
-    >
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle>
-            {confirming === 'remove' ? t.removeTitle : t.resetTitle}
-          </AlertDialogTitle>
-          <AlertDialogDescription>
-            {confirming === 'remove' ? t.removeBody : t.resetBody}
-          </AlertDialogDescription>
-        </AlertDialogHeader>
-        <AlertDialogFooter>
-          <AlertDialogCancel size="sm">{t.cancel}</AlertDialogCancel>
-          <AlertDialogAction size="sm" variant="destructive" onClick={onConfirm}>
-            {confirming === 'remove' ? t.remove : t.reset}
-          </AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
-  )
-}
-
-function RecoveryKeyDialog({
-  recoveryKey,
-  onClose,
-}: {
-  recoveryKey: string | null
-  onClose: () => void
-}): JSX.Element {
-  const t = useDict().sync.secrets
-  return (
-    <AlertDialog
-      open={recoveryKey !== null}
-      onOpenChange={(open) => {
-        if (!open) onClose()
-      }}
-    >
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle>{t.recoveryTitle}</AlertDialogTitle>
-          <AlertDialogDescription>{t.recoveryBody}</AlertDialogDescription>
-        </AlertDialogHeader>
-        <output className="select-text break-all font-mono text-fg text-ui-base">
-          {recoveryKey}
-        </output>
-        <AlertDialogFooter>
-          <AlertDialogAction size="sm" onClick={() => onClose()}>
-            {t.recoverySaved}
-          </AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
-  )
-}
+const LINK = 'h-auto px-0'
 
 export function SyncSecretsSection({
   status,
+  server,
   onStatus,
 }: {
   status: SyncStatus
+  server: boolean
   onStatus: (status: SyncStatus) => void
 }): JSX.Element {
   const d = useDict()
   const t = d.sync.secrets
   const api = window.ostia.sync.secrets
-  const state = status.secrets.state
-  const [form, setForm] = useState<Form>(null)
-  const [confirming, setConfirming] = useState<Confirming>(null)
+  const { state, mode } = status.secrets
+  const [step, setStep] = useState<SecretPasswordStep | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [recoveryKey, setRecoveryKey] = useState<string | null>(null)
 
-  const act = async (work: Promise<SecretActionResult>): Promise<boolean> => {
+  const act = async (work: Promise<SecretActionResult>): Promise<SyncStatus> => {
     const res = await work
     onStatus(res.status)
     setError(res.ok ? null : secretErrorText(d, res.error))
-    if (res.recoveryKey) setRecoveryKey(res.recoveryKey)
-    if (res.ok) setForm(null)
-    return res.ok
+    return res.status
   }
 
-  const shownForm: Form = state === 'locked' && form === null ? 'unlock' : form
+  const turn = async (on: boolean): Promise<void> => {
+    if (!on) {
+      await act(api.disable())
+      return
+    }
+    const next = (await act(api.enable())).secrets.state
+    if (next === 'needs-setup') setStep('create')
+    if (next === 'locked') setStep('enter')
+  }
 
+  const link = (label: string, onClick: () => void): JSX.Element => (
+    <TextLink key={label} size="sm" className={LINK} onClick={onClick}>
+      {label}
+    </TextLink>
+  )
+
+  const links = (): JSX.Element[] => {
+    if (state === 'locked') return [link(t.enterPassword, () => setStep('enter'))]
+    if (state === 'needs-setup') return [link(t.setPassword, () => setStep('create'))]
+    if (state !== 'unlocked') return []
+    if (mode === 'sync-key') {
+      return server ? [link(t.useSeparate, () => setStep('separate'))] : []
+    }
+    return [
+      link(t.change, () => setStep('change')),
+      ...(server ? [link(t.useSyncKey, () => void act(api.useSyncKey()))] : []),
+    ]
+  }
+
+  const shown = links()
   return (
-    <div className="mt-4">
-      <SettingsPage title={t.title} desc={t.desc}>
-        <ControlRow label={t.toggle} desc={t.toggleDesc}>
-          <Switch
-            aria-label={t.toggle}
-            checked={state !== 'off'}
-            onCheckedChange={(on) => void act(on ? api.enable() : api.disable())}
-          />
-        </ControlRow>
-        {state === 'needs-setup' ? (
-          <ControlRow label={t.setupTitle} desc={t.setupDesc}>
-            <PasswordFields
-              d={d}
-              label={t.setupTitle}
-              withConfirm
-              submit={t.setup}
-              onSubmit={(f) => void act(api.setup(f.password, f.confirm))}
-            />
-          </ControlRow>
-        ) : null}
-        {state === 'locked' || state === 'damaged' ? (
-          <Notice
-            actions={
-              <>
-                {state === 'locked' ? (
-                  <Button variant="ghost" size="sm" onClick={() => setForm('recover')}>
-                    {t.useRecoveryKey}
-                  </Button>
-                ) : null}
-                <Button variant="ghost" size="sm" onClick={() => setConfirming('reset')}>
-                  {t.reset}
-                </Button>
-              </>
-            }
-          >
-            {state === 'locked' ? t.locked : t.damaged}
-          </Notice>
-        ) : null}
-        {shownForm === 'unlock' && state === 'locked' ? (
-          <PasswordFields
-            d={d}
-            label={t.unlockTitle}
-            withConfirm={false}
-            submit={t.unlock}
-            onSubmit={(f) => void act(api.unlock(f.password))}
-          />
-        ) : null}
-        {shownForm === 'recover' ? (
-          <PasswordFields
-            d={d}
-            label={t.recoverTitle}
-            withConfirm
-            withRecoveryKey
-            submit={t.recover}
-            onSubmit={(f) => void act(api.recover(f.recoveryKey, f.password, f.confirm))}
-          />
-        ) : null}
-        {shownForm === 'reset' ? (
-          <PasswordFields
-            d={d}
-            label={t.resetTitle}
-            withConfirm
-            submit={t.reset}
-            onSubmit={(f) => void act(api.reset(f.password, f.confirm))}
-          />
-        ) : null}
-        {state === 'unlocked' ? (
-          <>
-            <ControlRow label={t.logins} desc={t.loginsDesc}>
-              <Switch
-                aria-label={t.logins}
-                checked={status.secrets.logins}
-                onCheckedChange={(on) => void act(api.setLogins(on))}
-              />
-            </ControlRow>
-            <ControlRow label={t.passwordRow}>
-              <Button variant="outline" size="sm" onClick={() => setForm('change')}>
-                {t.change}
-              </Button>
-              <Button variant="ghost" size="sm" onClick={() => setConfirming('remove')}>
-                {t.remove}
-              </Button>
-            </ControlRow>
-          </>
-        ) : null}
-        {shownForm === 'change' && state === 'unlocked' ? (
-          <PasswordFields
-            d={d}
-            label={t.changeTitle}
-            withConfirm
-            submit={t.change}
-            onSubmit={(f) => void act(api.changePassword(f.password, f.confirm))}
-          />
-        ) : null}
-        {error ? <Notice>{error}</Notice> : null}
-        <SecretsConfirmDialog
-          confirming={confirming}
-          onClose={() => setConfirming(null)}
-          onConfirm={() => {
-            const which = confirming
-            setConfirming(null)
-            if (which === 'remove') void act(api.remove())
-            else setForm('reset')
-          }}
-        />
-        <RecoveryKeyDialog recoveryKey={recoveryKey} onClose={() => setRecoveryKey(null)} />
-      </SettingsPage>
-    </div>
+    <>
+      <ToggleRow
+        label={t.toggle}
+        desc={mode === 'sync-key' ? t.toggleDescSyncKey : t.toggleDescPassword}
+        checked={state !== 'off'}
+        onChange={(on) => void turn(on)}
+        below={shown.length > 0 ? <span className="flex items-center gap-4">{shown}</span> : null}
+      />
+      <ToggleRow
+        label={t.logins}
+        desc={t.loginsDesc}
+        checked={status.secrets.logins}
+        disabled={state === 'off'}
+        onChange={(on) => void act(api.setLogins(on))}
+      />
+      {state === 'damaged' ? (
+        <Notice tone="error" actions={link(t.reset, () => setStep('reset'))}>
+          {t.damaged}
+        </Notice>
+      ) : null}
+      {error ? <Notice tone="error">{error}</Notice> : null}
+      <SecretFormDialog
+        step={
+          step ? secretPasswordStep(step, { d, onStatus, show: (next) => setStep(next) }) : null
+        }
+        recovery={{ title: t.recoveryTitle, desc: t.recoveryBody }}
+        onClose={() => setStep(null)}
+      />
+    </>
   )
 }

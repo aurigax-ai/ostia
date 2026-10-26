@@ -1,16 +1,21 @@
 import { useEffect, useState } from 'react'
 import { MachineValue } from '@/components/common/MachineValue'
 import { TextLink } from '@/components/common/TextLink'
-import { ControlRow } from '@/components/settingsKit/ControlRow'
-import { Button } from '@/components/ui/button'
 import { fmt, useDict } from '@/lib/app/useDict'
-import { type ServerErrorCode, serverErrorText } from './serverText'
+import type { ServerErrorCode } from './serverText'
 
 const POLL_MS = 2000
 
 interface Flow {
   userCode: string
   verificationUri: string
+}
+
+export interface GithubSignIn {
+  flow: Flow | null
+  error: ServerErrorCode | null
+  start: () => Promise<void>
+  cancel: () => void
 }
 
 function linkText(uri: string): string {
@@ -22,8 +27,7 @@ function linkText(uri: string): string {
   }
 }
 
-export function ServerGithub(): JSX.Element {
-  const d = useDict()
+export function useGithubSignIn(): GithubSignIn {
   const [flow, setFlow] = useState<Flow | null>(null)
   const [error, setError] = useState<ServerErrorCode | null>(null)
 
@@ -42,11 +46,8 @@ export function ServerGithub(): JSX.Element {
   const start = async (): Promise<void> => {
     setError(null)
     const result = await window.ostia.server.githubStart()
-    if (result.ok) {
-      setFlow({ userCode: result.userCode, verificationUri: result.verificationUri })
-    } else {
-      setError(result.error)
-    }
+    if (result.ok) setFlow({ userCode: result.userCode, verificationUri: result.verificationUri })
+    else setError(result.error)
   }
 
   const cancel = (): void => {
@@ -54,33 +55,19 @@ export function ServerGithub(): JSX.Element {
     void window.ostia.server.githubCancel()
   }
 
+  return { flow, error, start, cancel }
+}
+
+export function GithubWaitLine({ flow }: { flow: Flow }): JSX.Element {
+  const d = useDict()
   return (
-    <ControlRow
-      label={d.server.githubLabel}
-      error={error ? serverErrorText(d, error) : null}
-      errorId="server-github-error"
-      below={
-        flow ? (
-          <span className="flex min-w-0 flex-wrap items-center gap-2 text-fg-muted text-ui-sm">
-            <span>{d.server.githubCode}</span>
-            <MachineValue value={flow.userCode} />
-            <TextLink onClick={() => void window.ostia.server.openVerification()}>
-              {fmt(d.server.githubOpen, { link: linkText(flow.verificationUri) })}
-            </TextLink>
-            <output>{d.server.githubWaiting}</output>
-          </span>
-        ) : null
-      }
-    >
-      {flow ? (
-        <Button variant="ghost" size="sm" onClick={cancel}>
-          {d.server.cancel}
-        </Button>
-      ) : (
-        <Button variant="outline" size="sm" onClick={() => void start()}>
-          {d.server.githubStart}
-        </Button>
-      )}
-    </ControlRow>
+    <span className="flex min-w-0 flex-wrap items-center gap-2 text-fg-muted text-ui-sm">
+      <span>{d.server.githubCode}</span>
+      <MachineValue value={flow.userCode} />
+      <TextLink onClick={() => void window.ostia.server.openVerification()}>
+        {fmt(d.server.githubOpen, { link: linkText(flow.verificationUri) })}
+      </TextLink>
+      <output>{d.server.githubWaiting}</output>
+    </span>
   )
 }

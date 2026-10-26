@@ -9,7 +9,7 @@ import type { SyncKeyring } from './syncKeyring'
 const FETCH_PARALLEL = 8
 const SEALED_OVERHEAD = 28
 
-type RemoteAccount = Pick<ServerAccount, 'authed' | 'deviceKeys' | 'signer'>
+type RemoteAccount = Pick<ServerAccount, 'authed' | 'signer'>
 
 export interface RemoteContext {
   account: RemoteAccount
@@ -92,25 +92,18 @@ export async function readRemote(
   cache?: BlobCache,
   every = false,
 ): Promise<Remote> {
-  let key = ctx.keyring.key()
+  const key = ctx.keyring.key()
   if (!key) throw new SyncTargetError('server-locked')
   const view = await fetchManifest(ctx)
   if (!view) return { key, version: 0, manifest: null, files: new Map(), skipped: [] }
-  const sealed = Buffer.from(view.blob, 'base64url')
-  let manifest = openManifest(key, sealed)
-  if (manifest) ctx.keyring.clearRefusal()
-  else {
-    const adopted = await ctx.keyring.adoptRotation(sealed)
-    if (adopted) {
-      key = adopted.key
-      manifest = adopted.manifest
-    }
+  const manifest = openManifest(key, Buffer.from(view.blob, 'base64url'))
+  if (!manifest) {
+    ctx.keyring.forget()
+    throw new SyncTargetError('server-locked')
   }
-  if (!manifest) throw new SyncTargetError('server-locked')
   if (manifest.counter < ctx.keyring.highest()) throw new SyncTargetError('stale-manifest')
   const files = new Map<string, Buffer>()
   const skipped: string[] = []
-  const readKey = key
   const wanted = Object.entries(manifest.files).flatMap(([path, entry]) => {
     const limit = every ? Number.POSITIVE_INFINITY : profileFileLimit(path)
     return limit === null ? [] : [{ path, entry, limit }]
@@ -126,7 +119,7 @@ export async function readRemote(
       skipped.push(path)
       return
     }
-    const content = openBlob(readKey, path, bytes)
+    const content = openBlob(key, path, bytes)
     if (!content || contentHash(content) !== entry.hash) {
       throw new SyncTargetError('server-corrupt')
     }
@@ -134,6 +127,5 @@ export async function readRemote(
     files.set(path, content)
   })
   ctx.keyring.raise(manifest.counter)
-  ctx.keyring.pin(manifest.devices)
   return { key, version: view.version, manifest, files, skipped: skipped.sort() }
 }

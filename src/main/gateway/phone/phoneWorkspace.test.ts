@@ -59,29 +59,28 @@ describe('the Phone workspace', () => {
     expect(folderRefusal(join(root, 'artifacts'), paths)).toBe('scratch-or-artifacts')
   })
 
-  it('PHW-C2 saves only a valid choice, and clearing the folder turns the switch off', () => {
-    expect(loadPhoneWorkspace()).toEqual({ folder: null, openNew: true, agent: 'claude' })
-    expect(
-      setPhoneWorkspace({ folder: join(root, 'home'), openNew: true, agent: 'codex' }, paths),
-    ).toEqual({ ok: false, error: 'home' })
-    expect(setPhoneWorkspace({ folder: 'relative', openNew: true, agent: 'codex' }, paths)).toEqual(
-      {
-        ok: false,
-        error: 'invalid',
-      },
-    )
-    expect(setPhoneWorkspace({ folder: null, openNew: true, agent: 'bash' }, paths)).toEqual({
+  it('PHW-C2 saves only a valid choice', () => {
+    expect(loadPhoneWorkspace()).toEqual({ folder: null, agent: 'claude' })
+    expect(setPhoneWorkspace({ folder: join(root, 'home'), agent: 'codex' }, paths)).toEqual({
+      ok: false,
+      error: 'home',
+    })
+    expect(setPhoneWorkspace({ folder: 'relative', agent: 'codex' }, paths)).toEqual({
+      ok: false,
+      error: 'invalid',
+    })
+    expect(setPhoneWorkspace({ folder: null, agent: 'bash' }, paths)).toEqual({
       ok: false,
       error: 'invalid',
     })
     const jobs = join(root, 'home', 'jobs')
-    expect(setPhoneWorkspace({ folder: jobs, openNew: true, agent: 'codex' }, paths)).toEqual({
+    expect(setPhoneWorkspace({ folder: jobs, agent: 'codex' }, paths)).toEqual({
       ok: true,
-      value: { folder: jobs, openNew: true, agent: 'codex' },
+      value: { folder: jobs, agent: 'codex' },
     })
-    expect(loadPhoneWorkspace()).toEqual({ folder: jobs, openNew: true, agent: 'codex' })
-    setPhoneWorkspace({ folder: null, openNew: false, agent: 'codex' }, paths)
-    expect(loadPhoneWorkspace()).toEqual({ folder: null, openNew: false, agent: 'codex' })
+    expect(loadPhoneWorkspace()).toEqual({ folder: jobs, agent: 'codex' })
+    setPhoneWorkspace({ folder: null, agent: 'codex' }, paths)
+    expect(loadPhoneWorkspace()).toEqual({ folder: null, agent: 'codex' })
   })
 
   it('PHW-C12 makes the default folder 0700 on first use and exempts only that exact folder', () => {
@@ -95,9 +94,10 @@ describe('the Phone workspace', () => {
     expect(folderRefusal(`${own}-x`, paths)).toBe('ostia-data')
     symlinkSync(join(root, 'data', 'ostia'), join(root, 'link'))
     expect(folderRefusal(join(root, 'link'), paths)).toBe('ostia-data')
-    expect(
-      setPhoneWorkspace({ folder: `${own}-x`, openNew: true, agent: 'claude' }, paths),
-    ).toEqual({ ok: false, error: 'ostia-data' })
+    expect(setPhoneWorkspace({ folder: `${own}-x`, agent: 'claude' }, paths)).toEqual({
+      ok: false,
+      error: 'ostia-data',
+    })
   })
 
   it('PHW-C13 refuses a default folder that is a symlink into Ostia data', () => {
@@ -107,9 +107,10 @@ describe('the Phone workspace', () => {
 
   it('PHW-C14 choosing the default folder stores no folder', () => {
     mkdirSync(paths.defaultFolder, { recursive: true })
-    expect(
-      setPhoneWorkspace({ folder: paths.defaultFolder, openNew: true, agent: 'claude' }, paths),
-    ).toEqual({ ok: true, value: { folder: null, openNew: true, agent: 'claude' } })
+    expect(setPhoneWorkspace({ folder: paths.defaultFolder, agent: 'claude' }, paths)).toEqual({
+      ok: true,
+      value: { folder: null, agent: 'claude' },
+    })
   })
 
   it('PHW-C15 opens, then reuses, a workspace on the default folder when nothing is saved', async () => {
@@ -189,9 +190,7 @@ describe('the Phone workspace', () => {
       ]),
       open,
     }
-    setPhoneWorkspace({ folder: jobs, openNew: false, agent: 'claude' }, paths)
-    expect(await phoneWorkspaceId(deps)).toBeNull()
-    setPhoneWorkspace({ folder: jobs, openNew: true, agent: 'claude' }, paths)
+    setPhoneWorkspace({ folder: jobs, agent: 'claude' }, paths)
     expect(await phoneWorkspaceId(deps)).toBe('opened')
     expect(open).toHaveBeenCalledWith(jobs)
     deps.workspaces.mockResolvedValueOnce([
@@ -206,7 +205,7 @@ describe('the Phone workspace', () => {
 
   it('PHW-C10 shares one open between concurrent calls and opens the folder it checked', async () => {
     const jobs = join(root, 'home', 'jobs')
-    setPhoneWorkspace({ folder: jobs, openNew: true, agent: 'claude' }, paths)
+    setPhoneWorkspace({ folder: jobs, agent: 'claude' }, paths)
     let finish: (id: string) => void = () => {}
     const open = vi.fn(
       () =>
@@ -229,7 +228,7 @@ describe('the Phone workspace', () => {
 
   it('PHW-C11 the phone hears set only while the folder is usable', () => {
     const jobs = join(root, 'home', 'jobs')
-    setPhoneWorkspace({ folder: jobs, openNew: true, agent: 'codex' }, paths)
+    setPhoneWorkspace({ folder: jobs, agent: 'codex' }, paths)
     expect(phoneWorkspaceDefaults(paths)).toEqual({ set: true, agent: 'codex' })
     rmSync(jobs, { recursive: true })
     expect(phoneWorkspaceDefaults(paths)).toEqual({ set: false, agent: 'codex' })

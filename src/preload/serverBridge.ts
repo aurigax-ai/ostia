@@ -13,13 +13,6 @@ export const serverBridge: Pick<OstiaBridge, 'server'> = {
     githubCancel: () => ipcRenderer.invoke('server:github-cancel'),
     openVerification: () => ipcRenderer.invoke('server:open-verification'),
     signOut: () => ipcRenderer.invoke('server:sign-out'),
-    devices: () => ipcRenderer.invoke('server:devices'),
-    createInvite: () => ipcRenderer.invoke('server:invite-create'),
-    elevationStart: (method) => ipcRenderer.invoke('server:elevation-start', method),
-    elevationPoll: () => ipcRenderer.invoke('server:elevation-poll'),
-    elevationCancel: () => ipcRenderer.invoke('server:elevation-cancel'),
-    approve: (approvalId) => ipcRenderer.invoke('server:approve', approvalId),
     onChanged: (cb) => listen('server:changed', cb),
-    onDevicesChanged: (cb) => listen('server:devices-changed', () => cb()),
   },
 }

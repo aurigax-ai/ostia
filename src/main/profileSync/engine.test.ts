@@ -12,6 +12,7 @@ import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { FAKE } from '../../../test/fixtures/secrets/samples'
+import { parseSyncKinds, type SyncKinds } from '../../shared/profileSync/syncKinds'
 import { scanSecrets } from '../privacy/secretScanner'
 import { type DetectSecrets, ProfileSync, type SyncMethod } from './engine'
 import { FolderMethod } from './folderMethod'
@@ -39,6 +40,7 @@ interface Machine {
   configDir: string
   sync: ProfileSync
   installed: SyncedExtension[]
+  kinds: { current: SyncKinds }
   clock: { now: Date }
   useMethod: (method: SyncMethod | null) => void
   useTarget: (dir: string) => void
@@ -59,6 +61,7 @@ function machine(
   mkdirSync(userData, { recursive: true })
   mkdirSync(configDir, { recursive: true })
   const installed: SyncedExtension[] = []
+  const kinds = { current: parseSyncKinds(undefined) }
   const clock = { now: at(0) }
   let dir = target
   let custom: SyncMethod | null | undefined
@@ -68,6 +71,7 @@ function machine(
     now: () => clock.now,
     method: () => (custom !== undefined ? custom : new FolderMethod(dir, [userData, configDir])),
     targetLabel: () => dir,
+    kinds: () => kinds.current,
     installedExtensions: () => installed,
     builtinIds: () => ['git'],
     installExtension: install,
@@ -82,6 +86,7 @@ function machine(
     configDir,
     sync,
     installed,
+    kinds,
     clock,
     useMethod: (method) => {
       custom = method
@@ -206,7 +211,7 @@ describe('ProfileSync', () => {
     expect(a.settings()).toEqual({ appearance: { theme: 'dusk' }, terminal: { fontSize: 15 } })
   })
 
-  it('PSY-C4 carries settings, extensions, snippets, completion specs and views to another machine', async () => {
+  it('PSY-C4 carries settings, snippets, completion specs and views to another machine', async () => {
     const target = temp()
     const a = machine(target)
     const b = machine(target)
@@ -214,12 +219,11 @@ describe('ProfileSync', () => {
       { appearance: { theme: 'dusk' }, keybindings: { 'workspace.new': 'Ctrl+N' } },
       1,
     )
-    a.installed.push(TRELLIS)
     a.writeFile('snippets/deploy.yaml', 'name: deploy\ncommand: make deploy\n', 1)
     a.writeFile('completions/mytool.json', '{"name":"mytool"}', 1)
     a.writeFile('views/board.json', '{"title":"Board"}', 1)
     await a.sync.run()
-    const res = await b.sync.run()
+    await b.sync.run()
     expect(b.settings()).toEqual({
       appearance: { theme: 'dusk' },
       keybindings: { 'workspace.new': 'Ctrl+N' },
@@ -227,7 +231,7 @@ describe('ProfileSync', () => {
     expect(b.file('snippets/deploy.yaml')).toBe('name: deploy\ncommand: make deploy\n')
     expect(b.file('completions/mytool.json')).toBe('{"name":"mytool"}')
     expect(b.file('views/board.json')).toBe('{"title":"Board"}')
-    expect(res.status.offers).toEqual([TRELLIS])
+    expect(targetFile(target, 'extensions.json')).toBeNull()
   })
 
   it('PSY-C5 leaves a project snippet out of the target', async () => {
@@ -252,12 +256,11 @@ describe('ProfileSync', () => {
     a.writeSettings({ appearance: { theme: 'dawn' }, terminal: { fontSize: 13 } }, 2)
     b.writeSettings({ appearance: { theme: 'dusk' }, terminal: { fontSize: 15 } }, 3)
     await a.sync.run()
-    const res = await b.sync.run()
+    await b.sync.run()
     await a.sync.run()
     const both = { appearance: { theme: 'dawn' }, terminal: { fontSize: 15 } }
     expect(a.settings()).toEqual(both)
     expect(b.settings()).toEqual(both)
-    expect(res.status.conflicts).toEqual([])
   })
 
   it('PSY-C7 merges as a first sync when the stored base is missing or broken', async () => {
@@ -307,42 +310,12 @@ describe('ProfileSync', () => {
       return { target, a, b }
     }
 
-    it('PSY-C9 keeps the most recent change and lists the key with both values', async () => {
+    it('PSY-C9 keeps the most recent change on both machines and asks nothing', async () => {
       const { a, b } = await clash()
       await a.sync.run()
       expect(a.settings()).toEqual({ terminal: { fontSize: 16 } })
       expect(b.settings()).toEqual({ terminal: { fontSize: 16 } })
-      expect(b.sync.status().conflicts).toEqual([
-        {
-          id: 'setting:["terminal","fontSize"]',
-          kind: 'setting',
-          key: 'terminal.fontSize',
-          local: '16',
-          remote: '14',
-          winner: 'local',
-        },
-      ])
-    })
-
-    it('PSY-C10 applies and pushes the other value when the human picks it', async () => {
-      const { a, b } = await clash()
-      b.clock.now = at(6)
-      const status = await b.sync.resolve('setting:["terminal","fontSize"]')
-      expect(b.settings()).toEqual({ terminal: { fontSize: 14 } })
-      expect(status.conflicts).toEqual([])
-      await a.sync.run()
-      expect(a.settings()).toEqual({ terminal: { fontSize: 14 } })
-    })
-
-    it('PSY-C11 drops a listed conflict once the key changes again', async () => {
-      const { a, b } = await clash()
-      await a.sync.run()
-      a.writeSettings({ terminal: { fontSize: 18 } }, 10)
-      a.clock.now = at(11)
-      await a.sync.run()
-      const res = await b.sync.run()
-      expect(b.settings()).toEqual({ terminal: { fontSize: 18 } })
-      expect(res.status.conflicts).toEqual([])
+      expect(b.sync.status()).not.toHaveProperty('conflicts')
     })
   })
 
@@ -430,6 +403,66 @@ describe('ProfileSync', () => {
       const res = await b.sync.run()
       expect(res.status.offers).toEqual([TRELLIS])
       expect(existsSync(join(b.userData, 'extensions.json'))).toBe(false)
+    })
+
+    it('PSY-C40 leaves the extension list alone while Installed extensions is off', async () => {
+      const target = temp()
+      const a = machine(target)
+      const b = machine(target)
+      a.installed.push(TRELLIS)
+      await a.sync.run()
+      b.kinds.current = { ...b.kinds.current, extensions: false }
+      const res = await b.sync.run()
+      expect(res.status.offers).toEqual([])
+      expect(targetJson(target, 'extensions.json')).toEqual({ extensions: [TRELLIS] })
+    })
+  })
+
+  describe('what to sync', () => {
+    it('PSY-C41 keeps a folder out of both directions while its switch is off', async () => {
+      const target = temp()
+      const a = machine(target)
+      const b = machine(target)
+      a.writeFile('snippets/deploy.yaml', 'name: deploy\ncommand: make deploy\n', 1)
+      a.writeFile('views/board.json', '{"title":"Board"}', 1)
+      b.kinds.current = { ...b.kinds.current, snippets: false }
+      await a.sync.run()
+      await b.sync.run()
+      expect(b.file('snippets/deploy.yaml')).toBeNull()
+      expect(b.file('views/board.json')).toBe('{"title":"Board"}')
+      b.writeFile('snippets/own.yaml', 'name: own\ncommand: ls\n', 2)
+      await b.sync.run()
+      expect(targetFile(target, 'snippets/own.yaml')).toBeNull()
+      expect(targetFile(target, 'snippets/deploy.yaml')).toBe(
+        'name: deploy\ncommand: make deploy\n',
+      )
+    })
+
+    it('PSY-C42 neither pulls nor pushes settings while Settings is off', async () => {
+      const target = temp()
+      const a = machine(target)
+      const b = machine(target)
+      a.writeSettings({ appearance: { theme: 'dusk' } }, 1)
+      await a.sync.run()
+      b.kinds.current = { ...b.kinds.current, settings: false }
+      b.writeSettings({ appearance: { theme: 'paper' } }, 2)
+      await b.sync.run()
+      expect(b.settings()).toEqual({ appearance: { theme: 'paper' } })
+      expect(targetJson(target, 'settings.json')).toEqual({ appearance: { theme: 'dusk' } })
+    })
+
+    it('PSY-C43 picks the kind up again from where it stopped when its switch is turned on', async () => {
+      const target = temp()
+      const a = machine(target)
+      const b = machine(target)
+      a.writeFile('views/board.json', '{"title":"Board"}', 1)
+      b.kinds.current = { ...b.kinds.current, views: false }
+      await a.sync.run()
+      await b.sync.run()
+      expect(b.file('views/board.json')).toBeNull()
+      b.kinds.current = { ...b.kinds.current, views: true }
+      await b.sync.run()
+      expect(b.file('views/board.json')).toBe('{"title":"Board"}')
     })
   })
 
@@ -519,17 +552,14 @@ describe('ProfileSync', () => {
       a.clock.now = at(9)
       await a.sync.run()
       b.writeFile('snippets/deploy.yaml', 'name: deploy\ncommand: make all\n', 3)
-      const res = await b.sync.run()
+      await b.sync.run()
       expect(b.file('snippets/deploy.yaml')).toBe('name: deploy\ncommand: make all\n')
       expect(targetFile(target, 'snippets/deploy.yaml')).toBe('name: deploy\ncommand: make all\n')
-      expect(res.status.conflicts).toMatchObject([
-        { id: 'file:snippets/deploy.yaml', kind: 'file', winner: 'local', remote: null },
-      ])
     })
   })
 
   describe('first sync', () => {
-    it('PSY-C21 keeps keys from both sides and lists the ones that differ', async () => {
+    it('PSY-C21 keeps keys from both sides, the newer value winning where they differ', async () => {
       const target = temp()
       const a = machine(target)
       const b = machine(target)
@@ -537,7 +567,7 @@ describe('ProfileSync', () => {
       await a.sync.run()
       b.writeSettings({ sidebar: { width: 300 }, terminal: { fontSize: 15 } }, 2)
       b.clock.now = at(3)
-      const res = await b.sync.run()
+      await b.sync.run()
       const merged = {
         appearance: { theme: 'dusk' },
         sidebar: { width: 300 },
@@ -545,7 +575,6 @@ describe('ProfileSync', () => {
       }
       expect(b.settings()).toEqual(merged)
       expect(targetJson(target, 'settings.json')).toEqual(merged)
-      expect(res.status.conflicts.map((c) => c.key)).toEqual(['terminal.fontSize'])
     })
 
     it('PSY-C22 wipes neither profile when the folder is switched to one holding another', async () => {

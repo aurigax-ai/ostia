@@ -9,24 +9,10 @@ const STATE_FILE = 'sync-state.json'
 export const BASE_DIR = 'sync-base'
 const BASE_FILE = 'base.json'
 
-export type Held = { value: unknown } | null
-
-export interface StoredConflict {
-  id: string
-  kind: 'setting' | 'file' | 'secret'
-  key: string
-  local: Held
-  remote: Held
-  winner: 'local' | 'remote'
-  localAt?: number
-  remoteAt?: number
-}
-
 export interface SyncState {
   target: string
   version: string | null
   lastSync: string | null
-  conflicts: StoredConflict[]
   offers: SyncOffer[]
   installedAtSync: string[]
   skipped: string[]
@@ -65,7 +51,6 @@ export function createSyncStore(deps: SyncStoreDeps) {
       target,
       version: null,
       lastSync: null,
-      conflicts: [],
       offers: [],
       installedAtSync: [],
       skipped: [],
@@ -79,7 +64,6 @@ export function createSyncStore(deps: SyncStoreDeps) {
         target,
         version: typeof raw.version === 'string' ? raw.version : null,
         lastSync: typeof raw.lastSync === 'string' ? raw.lastSync : null,
-        conflicts: Array.isArray(raw.conflicts) ? raw.conflicts : [],
         offers: Array.isArray(raw.offers) ? raw.offers : [],
         installedAtSync: Array.isArray(raw.installedAtSync) ? raw.installedAtSync : [],
         skipped: Array.isArray(raw.skipped) ? raw.skipped : [],

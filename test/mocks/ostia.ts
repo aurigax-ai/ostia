@@ -5,27 +5,16 @@ import type { ServerSyncStatus } from '@shared/profileSync/serverSync'
 import type { OstiaBridge } from '@shared/types'
 import { vi } from 'vitest'
 
-const SYNC_SERVER_OFF: ServerSyncStatus = {
-  state: 'signed-out',
-  host: null,
-  linking: false,
-  linkApproved: false,
-  linkCodes: [],
-  joins: [],
-  recoveryStale: false,
-  wrapRefused: null,
-  changedDevices: [],
-}
+const SYNC_SERVER_OFF: ServerSyncStatus = { state: 'signed-out', host: null }
 
 const SYNC_OFF: SyncStatus = {
   dir: null,
   state: 'off',
   lastSync: null,
-  conflicts: [],
   skipped: [],
   heldBack: [],
   offers: [],
-  secrets: { state: 'off', logins: false },
+  secrets: { state: 'off', mode: 'password', logins: false },
 }
 
 export function makeOstiaMock(overrides?: Partial<OstiaBridge>): OstiaBridge {
@@ -158,13 +147,11 @@ export function makeOstiaMock(overrides?: Partial<OstiaBridge>): OstiaBridge {
     sync: {
       status: vi.fn().mockResolvedValue(SYNC_OFF),
       run: vi.fn().mockResolvedValue(SYNC_OFF),
-      resolve: vi.fn().mockResolvedValue(SYNC_OFF),
       install: vi.fn().mockResolvedValue(SYNC_OFF),
       secrets: {
-        reveal: vi.fn().mockResolvedValue({ ok: false }),
         enable: vi.fn().mockResolvedValue({ ok: true, status: SYNC_OFF }),
         disable: vi.fn().mockResolvedValue({ ok: true, status: SYNC_OFF }),
-        remove: vi.fn().mockResolvedValue({ ok: true, status: SYNC_OFF }),
+        useSyncKey: vi.fn().mockResolvedValue({ ok: true, status: SYNC_OFF }),
         setLogins: vi.fn().mockResolvedValue({ ok: true, status: SYNC_OFF }),
         setup: vi.fn().mockResolvedValue({ ok: true, status: SYNC_OFF }),
         reset: vi.fn().mockResolvedValue({ ok: true, status: SYNC_OFF }),
@@ -650,9 +637,7 @@ export function makeOstiaMock(overrides?: Partial<OstiaBridge>): OstiaBridge {
         folder: '/data/ostia/remote-workspace',
         isDefault: true,
         absent: true,
-        openNew: true,
         agent: 'claude',
-        trust: 'unknown',
       }),
       setPhoneWorkspace: vi.fn().mockResolvedValue({ ok: false, error: 'invalid' }),
     },
@@ -719,32 +704,16 @@ export function makeOstiaMock(overrides?: Partial<OstiaBridge>): OstiaBridge {
       githubPoll: vi.fn().mockResolvedValue({ state: 'pending' }),
       githubCancel: vi.fn().mockResolvedValue(undefined),
       openVerification: vi.fn().mockResolvedValue(undefined),
-      signOut: vi.fn().mockResolvedValue({ ok: true, deviceKept: false }),
-      devices: vi.fn().mockResolvedValue({ ok: true, devices: [] }),
-      createInvite: vi.fn().mockResolvedValue({ ok: true, code: 'invite-code', expiresAt: 0 }),
-      elevationStart: vi.fn().mockResolvedValue({ ok: true, kind: 'approval' }),
-      elevationPoll: vi.fn().mockResolvedValue({ state: 'done' }),
-      elevationCancel: vi.fn().mockResolvedValue(undefined),
-      approve: vi.fn().mockResolvedValue({ ok: true }),
+      signOut: vi.fn().mockResolvedValue({ ok: true }),
       onChanged: vi.fn(noopUnsub),
-      onDevicesChanged: vi.fn(noopUnsub),
     },
     syncServer: {
       status: vi.fn().mockResolvedValue(SYNC_SERVER_OFF),
       setup: vi.fn().mockResolvedValue({ ok: true, status: SYNC_SERVER_OFF }),
       unlock: vi.fn().mockResolvedValue({ ok: true, status: SYNC_SERVER_OFF }),
       recover: vi.fn().mockResolvedValue({ ok: true, status: SYNC_SERVER_OFF }),
-      linkStart: vi.fn().mockResolvedValue({ ok: true, status: SYNC_SERVER_OFF }),
-      linkStop: vi.fn().mockResolvedValue({ ok: true, status: SYNC_SERVER_OFF }),
-      linkConfirm: vi.fn().mockResolvedValue({ ok: true, status: SYNC_SERVER_OFF }),
-      approveJoin: vi.fn().mockResolvedValue({ ok: true, status: SYNC_SERVER_OFF }),
-      removeDevice: vi.fn().mockResolvedValue({ ok: true, status: SYNC_SERVER_OFF }),
-      rotate: vi.fn().mockResolvedValue({ ok: true, status: SYNC_SERVER_OFF }),
-      newRecoveryKey: vi.fn().mockResolvedValue({ ok: true, status: SYNC_SERVER_OFF }),
+      changePassphrase: vi.fn().mockResolvedValue({ ok: true, status: SYNC_SERVER_OFF }),
       onStatus: vi.fn(noopUnsub),
-      attention: vi.fn().mockResolvedValue([]),
-      onAttention: vi.fn(noopUnsub),
-      onOpen: vi.fn(noopUnsub),
     },
     views: {
       list: vi.fn().mockResolvedValue({ dir: '/home/u/.config/ostia/views', views: [] }),

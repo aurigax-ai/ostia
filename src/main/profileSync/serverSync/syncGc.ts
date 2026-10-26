@@ -10,8 +10,6 @@ export async function collectAfterPush(
   ctx.keyring.gcDone()
   try {
     await ctx.account.authed(async (token, routes) => {
-      const info = await routes.info()
-      if (info.syncGCBound !== true) return
       const json = JSON.stringify({ keep })
       const ifMatch = String(version)
       await ctx.account

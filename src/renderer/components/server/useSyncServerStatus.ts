@@ -3,17 +3,7 @@ import { useEffect, useState } from 'react'
 
 const POLL_MS = 4000
 
-const SYNC_SERVER_OFF: ServerSyncStatus = {
-  state: 'signed-out',
-  host: null,
-  linking: false,
-  linkApproved: false,
-  linkCodes: [],
-  joins: [],
-  recoveryStale: false,
-  wrapRefused: null,
-  changedDevices: [],
-}
+const SYNC_SERVER_OFF: ServerSyncStatus = { state: 'signed-out', host: null }
 
 export function useSyncServerStatus(
   active = true,

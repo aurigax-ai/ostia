@@ -1,12 +1,11 @@
+import { CaretRightIcon } from '@phosphor-icons/react'
 import type { Dict } from '@shared/app/dict'
 import type { GatewayDevice, GatewayPushAvailability } from '@shared/gateway/gatewayApi'
 import { PHONE_GRANTABLE_CAPS, type PhoneGrantableCap } from '@shared/gateway/phoneCapabilities'
 import { useState } from 'react'
 import { ControlRow } from '@/components/settingsKit/ControlRow'
-import { RowRemoveButton } from '@/components/settingsKit/RowRemoveButton'
-import { SettingsSubgroup } from '@/components/settingsKit/SettingsGroup'
+import { SettingsGroup } from '@/components/settingsKit/SettingsGroup'
 import { SettingsList } from '@/components/settingsKit/SettingsList'
-import { SettingsListRow } from '@/components/settingsKit/SettingsListRow'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -17,6 +16,16 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
+import { Button } from '@/components/ui/button'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import { Item, ItemActions, ItemContent, ItemDescription, ItemTitle } from '@/components/ui/item'
 import { Switch } from '@/components/ui/switch'
 import { DATE_ONLY, formatDate } from '@/lib/app/localeFormat'
 import { fmt, useDict } from '@/lib/app/useDict'
@@ -39,92 +48,148 @@ export function capText(d: Dict): Record<PhoneGrantableCap, { label: string; des
   }
 }
 
-function DeviceRow({
+function useDeviceMeta(device: GatewayDevice): string {
+  const d = useDict()
+  const locale = useSettingsStore((s) => s.locale)
+  return fmt(d.settings.remotePairedOn, {
+    date: formatDate(Date.parse(device.createdAt), locale, DATE_ONLY),
+  })
+}
+
+function DeviceCard({ device, onOpen }: { device: GatewayDevice; onOpen: () => void }) {
+  const d = useDict()
+  const text = capText(d)
+  const meta = useDeviceMeta(device)
+  const granted = PHONE_GRANTABLE_CAPS.filter((cap) => device.caps.includes(cap)).map(
+    (cap) => text[cap].label,
+  )
+  const summary = device.push.enabled ? [...granted, d.settings.remotePush] : granted
+  return (
+    <li className="pb-2">
+      <Item
+        variant="outline"
+        size="sm"
+        render={<button type="button" />}
+        aria-label={fmt(d.settings.remoteManageFor, { name: device.name })}
+        className="rounded-md border-line px-3 py-2 text-left hover:bg-surface-2"
+        onClick={onOpen}
+      >
+        <ItemContent className="min-w-0 gap-0.5">
+          <ItemTitle className="text-fg text-ui-base">
+            {device.name}
+            <span className="font-normal text-fg-muted text-ui-xs tabular-nums">{meta}</span>
+          </ItemTitle>
+          {summary.length > 0 ? (
+            <ItemDescription className="text-fg-muted text-ui-sm">
+              {summary.join(' · ')}
+            </ItemDescription>
+          ) : null}
+        </ItemContent>
+        <ItemActions>
+          <CaretRightIcon className="text-fg-muted" />
+        </ItemActions>
+      </Item>
+    </li>
+  )
+}
+
+function DeviceDialog({
   device,
   push,
   refresh,
-  onChange,
-  onRevoke,
+  onCap,
+  onClose,
+  onUnpair,
 }: {
   device: GatewayDevice
   push: GatewayPushAvailability
   refresh: () => Promise<void>
-  onChange: (cap: PhoneGrantableCap, granted: boolean) => void
-  onRevoke: () => void
+  onCap: (cap: PhoneGrantableCap, granted: boolean) => void
+  onClose: () => void
+  onUnpair: () => void
 }): JSX.Element {
   const d = useDict()
-  const locale = useSettingsStore((s) => s.locale)
-  const [asking, setAsking] = useState(false)
   const text = capText(d)
+  const meta = useDeviceMeta(device)
+  const [asking, setAsking] = useState(false)
   return (
-    <SettingsListRow
-      title={<span className="font-medium">{device.name}</span>}
-      meta={
-        <span className="tabular-nums">
-          {fmt(d.settings.remotePairedOn, {
-            date: formatDate(Date.parse(device.createdAt), locale, DATE_ONLY),
+    <Dialog
+      open
+      onOpenChange={(open) => {
+        if (!open) onClose()
+      }}
+    >
+      <DialogContent className="sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle>{device.name}</DialogTitle>
+          <DialogDescription>
+            <span className="block">{meta}</span>
+            <span className="block">{d.settings.remoteGrantsDesc}</span>
+          </DialogDescription>
+        </DialogHeader>
+        <fieldset aria-label={fmt(d.settings.remoteGrantsFor, { name: device.name })}>
+          {PHONE_GRANTABLE_CAPS.map((cap) => {
+            const needs = CAP_NEEDS[cap]
+            const { label, desc } = text[cap]
+            return (
+              <ControlRow
+                key={cap}
+                label={label}
+                desc={
+                  needs ? fmt(d.settings.remoteCapNeeds, { desc, cap: text[needs].label }) : desc
+                }
+              >
+                <Switch
+                  checked={device.caps.includes(cap)}
+                  disabled={needs !== undefined && !device.caps.includes(needs)}
+                  onCheckedChange={(v) => onCap(cap, v)}
+                  aria-label={fmt(d.settings.remoteCapFor, { cap: label, name: device.name })}
+                />
+              </ControlRow>
+            )
           })}
-        </span>
-      }
-      actions={
-        <RowRemoveButton
-          label={fmt(d.settings.remoteRevokeFor, { name: device.name })}
-          onClick={() => setAsking(true)}
-        />
-      }
-      below={
-        <>
-          <fieldset aria-label={fmt(d.settings.remoteGrantsFor, { name: device.name })}>
-            {PHONE_GRANTABLE_CAPS.map((cap) => {
-              const needs = CAP_NEEDS[cap]
-              const { label, desc } = text[cap]
-              return (
-                <ControlRow
-                  key={cap}
-                  label={label}
-                  desc={
-                    needs ? fmt(d.settings.remoteCapNeeds, { desc, cap: text[needs].label }) : desc
-                  }
-                >
-                  <Switch
-                    checked={device.caps.includes(cap)}
-                    disabled={needs !== undefined && !device.caps.includes(needs)}
-                    onCheckedChange={(v) => onChange(cap, v)}
-                    aria-label={fmt(d.settings.remoteCapFor, { cap: label, name: device.name })}
-                  />
-                </ControlRow>
-              )
-            })}
-          </fieldset>
           <DevicePushRow device={device} availability={push} refresh={refresh} />
-          <AlertDialog open={asking} onOpenChange={setAsking}>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>
-                  {fmt(d.settings.remoteRevokeTitle, { name: device.name })}
-                </AlertDialogTitle>
-                <AlertDialogDescription>
-                  {fmt(d.settings.remoteRevokeBody, { name: device.name })}
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel size="sm">{d.settings.remoteCancel}</AlertDialogCancel>
-                <AlertDialogAction
-                  variant="destructive"
-                  size="sm"
-                  onClick={() => {
-                    setAsking(false)
-                    onRevoke()
-                  }}
-                >
-                  {d.settings.remoteRevoke}
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
-        </>
-      }
-    />
+        </fieldset>
+        <DialogFooter>
+          <Button
+            variant="destructive"
+            size="sm"
+            className="sm:mr-auto"
+            onClick={() => setAsking(true)}
+          >
+            {d.settings.remoteUnpair}
+          </Button>
+          <Button size="sm" onClick={onClose}>
+            {d.settings.remoteDone}
+          </Button>
+        </DialogFooter>
+        <AlertDialog open={asking} onOpenChange={setAsking}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>
+                {fmt(d.settings.remoteUnpairTitle, { name: device.name })}
+              </AlertDialogTitle>
+              <AlertDialogDescription>
+                {fmt(d.settings.remoteUnpairBody, { name: device.name })}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel size="sm">{d.settings.remoteCancel}</AlertDialogCancel>
+              <AlertDialogAction
+                variant="destructive"
+                size="sm"
+                onClick={() => {
+                  setAsking(false)
+                  onUnpair()
+                }}
+              >
+                {d.settings.remoteUnpair}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      </DialogContent>
+    </Dialog>
   )
 }
 
@@ -138,9 +203,12 @@ export function DeviceList({
   refresh: () => Promise<void>
 }): JSX.Element {
   const d = useDict()
+  const [openId, setOpenId] = useState<string | null>(null)
   const [confirmDevice, setConfirmDevice] = useState<GatewayDevice | null>(null)
+  const opened = devices.find((dev) => dev.deviceId === openId) ?? null
 
-  const onRevoke = async (deviceId: string): Promise<void> => {
+  const unpair = async (deviceId: string): Promise<void> => {
+    setOpenId(null)
     await window.ostia.gateway.revoke(deviceId)
     await refresh()
   }
@@ -165,24 +233,22 @@ export function DeviceList({
   }
 
   return (
-    <>
-      <SettingsSubgroup
-        title={d.settings.remoteDevices}
-        desc={devices.length > 0 ? d.settings.remoteGrantsDesc : undefined}
-      />
+    <SettingsGroup title={d.settings.remoteDevices} desc={d.settings.remoteDevicesDesc}>
       <SettingsList label={d.settings.remoteDevices} empty={d.settings.remoteNoDevices}>
         {devices.map((dev) => (
-          <DeviceRow
-            key={dev.deviceId}
-            device={dev}
-            push={push}
-            refresh={refresh}
-            onChange={(cap, v) => onCapChange(dev, cap, v)}
-            onRevoke={() => void onRevoke(dev.deviceId)}
-          />
+          <DeviceCard key={dev.deviceId} device={dev} onOpen={() => setOpenId(dev.deviceId)} />
         ))}
       </SettingsList>
-
+      {opened ? (
+        <DeviceDialog
+          device={opened}
+          push={push}
+          refresh={refresh}
+          onCap={(cap, v) => onCapChange(opened, cap, v)}
+          onClose={() => setOpenId(null)}
+          onUnpair={() => void unpair(opened.deviceId)}
+        />
+      ) : null}
       <AlertDialog
         open={confirmDevice !== null}
         onOpenChange={(open) => {
@@ -208,6 +274,6 @@ export function DeviceList({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </>
+    </SettingsGroup>
   )
 }

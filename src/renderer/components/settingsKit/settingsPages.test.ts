@@ -23,7 +23,6 @@ const KNOWN_OFFENDERS: Record<string, Rule[]> = {
   'components/extensions/ExtensionAgentPlugin.tsx': ['handSection'],
   'components/extensions/ExtensionConnections.tsx': ['handSection'],
   'components/gateway/GatewayPairing.tsx': ['handRow'],
-  'components/gateway/GatewaySection.tsx': ['separator'],
   'components/keyboard/BindingDetail.tsx': ['handSection'],
   'components/keyboard/ChangesView.tsx': ['handRow'],
   'components/keyboard/KeymapCombo.tsx': ['handHeading', 'handSection'],

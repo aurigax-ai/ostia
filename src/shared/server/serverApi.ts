@@ -11,10 +11,6 @@ export type ServerFailure =
   | 'invalid-invite'
   | 'device-limit'
   | 'unavailable'
-  | 'elevation-required'
-  | 'device-too-new'
-  | 'requester-too-new'
-  | 'no-second-device'
   | 'not-a-github-account'
   | 'stale-signature'
   | 'expired'
@@ -38,56 +34,10 @@ export interface ServerOffer {
   github: boolean
 }
 
-export interface ServerDevice {
-  id: string
-  name: string
-  current: boolean
-  lastSeenAt: number
-  removeAt: number
-  createdAt: number
-}
-
-interface ServerApproval {
-  id: string
-  deviceId: string
-  deviceName: string
-  deviceCreatedAt: number
-  createdAt: number
-  expiresAt: number
-}
-
-export type ElevationMethod = 'approval' | 'github'
-
-export type ElevationStartResult =
-  | { ok: true; kind: 'approval' }
-  | { ok: true; kind: 'github'; userCode: string; verificationUri: string }
-  | { ok: false; error: ServerFailure }
-
-export type ElevationPollResult =
-  | { state: 'pending' }
-  | { state: 'done' }
-  | { state: 'error'; error: ServerFailure }
-
-export type ServerInviteResult =
-  | { ok: true; code: string; expiresAt: number }
-  | { ok: false; error: ServerFailure }
-
-export type ServerApprovalsResult =
-  | { ok: true; approvals: ServerApproval[] }
-  | { ok: false; error: ServerFailure }
-
-export type ServerSignOutResult =
-  | { ok: true; deviceKept: boolean }
-  | { ok: false; error: ServerFailure }
-
 export type ServerActionResult = { ok: true } | { ok: false; error: ServerFailure }
 
 export type ServerInfoResult =
   | { ok: true; offer: ServerOffer }
-  | { ok: false; error: ServerFailure }
-
-export type ServerDevicesResult =
-  | { ok: true; devices: ServerDevice[] }
   | { ok: false; error: ServerFailure }
 
 export type GithubStartResult =
@@ -108,15 +58,8 @@ interface ServerApi {
   githubPoll: () => Promise<GithubPollResult>
   githubCancel: () => Promise<void>
   openVerification: () => Promise<void>
-  signOut: () => Promise<ServerSignOutResult>
-  devices: () => Promise<ServerDevicesResult>
-  createInvite: () => Promise<ServerInviteResult>
-  elevationStart: (method: ElevationMethod) => Promise<ElevationStartResult>
-  elevationPoll: () => Promise<ElevationPollResult>
-  elevationCancel: () => Promise<void>
-  approve: (approvalId: string) => Promise<ServerActionResult>
+  signOut: () => Promise<ServerActionResult>
   onChanged: (cb: (status: ServerStatus) => void) => () => void
-  onDevicesChanged: (cb: () => void) => () => void
 }
 
 export interface ServerBridge {
