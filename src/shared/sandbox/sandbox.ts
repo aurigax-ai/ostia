@@ -163,6 +163,12 @@ export interface SandboxViolation {
   allowHost?: string
 }
 
+export interface SandboxLeftBehind {
+  workspaceId: string
+  workDir: string
+  paths: string[]
+}
+
 export const DEFAULT_CONTROLS: SandboxControls = { allWorkspaces: false, browser: 'allowlist' }
 
 export const DEFAULT_ALLOW_READ = [

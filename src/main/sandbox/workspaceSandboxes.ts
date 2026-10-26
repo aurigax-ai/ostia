@@ -19,6 +19,7 @@ import type { PackageBlockReason, PackagePolicy } from '../sandboxPackages/packa
 import type { PackageRef } from '../sandboxPackages/packages'
 import { hookLinkTargets } from './hookLinks'
 import { SandboxUnavailableError } from './hostClient'
+import { watchLeftBehind } from './leftBehind'
 import type { SandboxPathEnv } from './pathChecks'
 import { ensurePluginsFarm, linkPluginsFarm } from './pluginsFarm'
 import { type KeptSandboxHosts, SandboxHosts } from './sandboxHosts'
@@ -80,6 +81,7 @@ export class WorkspaceSandboxes {
   private readonly toldAboutHome = new Set<string>()
   readonly tmp: SandboxTmpDirs
   readonly hosts: SandboxHosts
+  onLeftBehind: ((workspaceId: string, workDir: string, paths: string[]) => void) | null = null
 
   constructor(private readonly deps: WorkspaceSandboxesDeps) {
     this.tmp = new SandboxTmpDirs({
@@ -103,6 +105,11 @@ export class WorkspaceSandboxes {
       config: (workspaceId) => this.config(workspaceId),
       packagePolicy: (workspaceId) => this.packagePolicy(workspaceId),
       folderProblem: (workspaceId) => this.folderProblem(workspaceId),
+      watchLeftBehind: (workspaceId) => {
+        const workDir = this.workDir(workspaceId)
+        if (!workDir) return () => undefined
+        return watchLeftBehind(workDir, (paths) => this.onLeftBehind?.(workspaceId, workDir, paths))
+      },
     })
   }
 

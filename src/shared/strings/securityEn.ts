@@ -208,6 +208,12 @@ export const securityEn = {
       'Files and folders sandboxed shells cannot read, even inside a readable folder. A hidden socket cannot be connected to.',
     inherited: 'Inherited',
     install: 'Install',
+    leftBehindBody:
+      'These files appeared or changed during the session. Read them before you run direnv or git here: {files}',
+    leftBehindLabel: 'Files left by the sandbox',
+    leftBehindMore: '{count} more',
+    leftBehindShow: 'Show in Files',
+    leftBehindTitle: 'The sandbox left files that can run code',
     listEmpty: 'Nothing added.',
     malware: 'Block known malware',
     malwareDesc: 'Check every package download against the OSV malicious-package database.',

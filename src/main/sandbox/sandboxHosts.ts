@@ -58,11 +58,13 @@ export interface SandboxHostsDeps {
   config: (workspaceId: string) => SrtConfig
   packagePolicy: (workspaceId: string) => PackagePolicy
   folderProblem: (workspaceId: string) => SandboxFolderProblem | null
+  watchLeftBehind?: (workspaceId: string) => () => void
 }
 
 export class SandboxHosts {
   private readonly hosts = new Map<string, Promise<SandboxHost>>()
   private readonly keptHosts = new Set<string>()
+  private readonly released = new Set<string>()
 
   constructor(private readonly deps: SandboxHostsDeps) {}
 
@@ -108,6 +110,7 @@ export class SandboxHosts {
     for (const [id, pending] of [...this.hosts]) {
       this.hosts.delete(id)
       const kept = this.keptHosts.has(id)
+      if (kept) this.released.add(id)
       void pending.then((host) => (kept ? host.release() : host.stop())).catch(() => undefined)
     }
   }
@@ -145,6 +148,7 @@ export class SandboxHosts {
   host(workspaceId: string): Promise<SandboxHost> {
     const existing = this.hosts.get(workspaceId)
     if (existing) return existing
+    const endWatch = this.deps.watchLeftBehind?.(workspaceId)
     const host = new SandboxHost({
       nodePath: this.deps.nodePath,
       hostScript: this.deps.hostScript,
@@ -158,6 +162,7 @@ export class SandboxHosts {
       onExit: () => {
         if (this.hosts.get(workspaceId) === started) this.hosts.delete(workspaceId)
         this.keptHosts.delete(workspaceId)
+        if (!this.released.has(workspaceId)) endWatch?.()
       },
     })
     const started = (async () => {
