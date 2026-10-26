@@ -1,4 +1,4 @@
-import { accessSync, constants, realpathSync } from 'node:fs'
+import { accessSync, constants, existsSync, realpathSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import type { SandboxRuntimeConfig } from '@anthropic-ai/sandbox-runtime'
 import { PRODUCT_NAME } from '@aurigax-ai/ostia-extension-sdk/contract/product'
@@ -47,7 +47,8 @@ const AGENT_PROTECTED_FILES = [
 ]
 
 const GIT_CONFIG_FILE = '.git/config'
-const WORKDIR_PROTECTED_FILES = ['.envrc', '.git/hooks', GIT_CONFIG_FILE]
+const ENVRC_FILE = '.envrc'
+const WORKDIR_PROTECTED_FILES = ['.git/hooks', GIT_CONFIG_FILE]
 export const WORKDIR_HIDDEN_FILES = [`.${PRODUCT_NAME}/vault.json`]
 export const HOME_HIDDEN_FILES = ['.cargo/credentials.toml', '.cargo/credentials']
 
@@ -143,7 +144,9 @@ export function protectedFiles(paths: SandboxBasePaths, workDir?: string): strin
   return [
     ...AGENT_PROTECTED_FILES.map((f) => join(paths.home, f)),
     ...(workDir
-      ? [...WORKDIR_PROTECTED_FILES, ...WORKDIR_HIDDEN_FILES].map((f) => join(workDir, f))
+      ? [ENVRC_FILE, ...WORKDIR_PROTECTED_FILES, ...WORKDIR_HIDDEN_FILES].map((f) =>
+          join(workDir, f),
+        )
       : []),
   ]
 }
@@ -178,9 +181,10 @@ export function fixedPolicy(
     ...(paths.agentSockets ?? []).map((sock) => dirname(sock)),
     ...(paths.containerSockets ?? []),
   ]
-  const guardedInWorkDir = WORKDIR_PROTECTED_FILES.filter(
-    (f) => !(switches.gitConfig && f === GIT_CONFIG_FILE),
-  )
+  const guardedInWorkDir = [
+    ...(workspace && existsSync(join(workspace.workDir, ENVRC_FILE)) ? [ENVRC_FILE] : []),
+    ...WORKDIR_PROTECTED_FILES.filter((f) => !(switches.gitConfig && f === GIT_CONFIG_FILE)),
+  ]
   return {
     hidden: [
       home,

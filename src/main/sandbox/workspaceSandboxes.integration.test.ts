@@ -14,7 +14,7 @@ import { type AddressInfo, createServer } from 'node:net'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { build } from 'esbuild'
-import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import { en } from '../../shared/app/dict'
 import { DEFAULT_SANDBOX_GLOBALS } from '../../shared/sandbox/sandbox'
 import { quoteArgv } from '../../shared/terminal/shellQuote'
@@ -445,4 +445,22 @@ describe('WorkspaceSandboxes', () => {
     },
     30_000,
   )
+})
+
+describe('WorkspaceSandboxes left-behind notice', () => {
+  it('SBX-C108 reports a planted .envrc and nested repository once when the sandbox stops', async () => {
+    const store = new SandboxStore(join(root, 'c108.json'))
+    store.set('ws', { enabled: true, allowRead: [], domains: [], controls: {} })
+    const manager = sandboxes(store)
+    const reports: { workspaceId: string; workDir: string; paths: string[] }[] = []
+    manager.onLeftBehind = (workspaceId, dir, paths) =>
+      reports.push({ workspaceId, workDir: dir, paths })
+    await shellIn(manager, 'ws', 'echo evil > .envrc; mkdir -p tool && git init -q tool')
+    expect(reports).toEqual([])
+    manager.hosts.stopAll()
+    await vi.waitFor(() => expect(reports).toHaveLength(1), { timeout: 10_000 })
+    expect(reports[0]).toEqual({ workspaceId: 'ws', workDir, paths: ['.envrc', 'tool/.git'] })
+    rmSync(join(workDir, '.envrc'), { force: true })
+    rmSync(join(workDir, 'tool'), { recursive: true, force: true })
+  }, 60_000)
 })

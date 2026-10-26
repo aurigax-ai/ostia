@@ -359,6 +359,7 @@ export function makeOstiaMock(overrides?: Partial<OstiaBridge>): OstiaBridge {
     },
     sandbox: {
       onBlocked: vi.fn(() => () => {}),
+      onLeftBehind: vi.fn(() => () => {}),
       get: vi.fn().mockResolvedValue(null),
       setEnabled: vi.fn().mockResolvedValue({ ok: false, reason: 'not-owned' }),
       setPaths: vi.fn().mockResolvedValue({ ok: false, errors: [] }),

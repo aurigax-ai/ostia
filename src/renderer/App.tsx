@@ -17,6 +17,7 @@ import { HistorySearch } from '@/components/palette/HistorySearch'
 import { SaveSnippetDialog } from '@/components/palette/SaveSnippetDialog'
 import { SnippetPicker } from '@/components/palette/SnippetPicker'
 import { SandboxFolderDialog } from '@/components/sandbox/SandboxFolderDialog'
+import { SandboxLeftBehindNotice } from '@/components/sandbox/SandboxLeftBehindNotice'
 import { SandboxRequirementsDialog } from '@/components/sandbox/SandboxRequirementsDialog'
 import { ActionConfirmDialog } from '@/components/settings/ActionConfirmDialog'
 import { TelemetryConsentDialog } from '@/components/settings/TelemetryConsentDialog'
@@ -160,6 +161,7 @@ export function App(): JSX.Element {
           <AgentOfferDialog />
           <SandboxRequirementsDialog />
           <SandboxFolderDialog />
+          <SandboxLeftBehindNotice />
           <HistorySearch />
           <SnippetPicker />
           <SaveSnippetDialog />

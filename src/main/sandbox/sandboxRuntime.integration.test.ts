@@ -174,10 +174,9 @@ describe('sandbox runtime', () => {
 
   it('SBX-C32 protects git hooks right after git init inside the sandbox', async () => {
     const res = await run(
-      `cd ${workDir} && git init -q . ; echo evil > .git/hooks/pre-commit; echo evil > .envrc; ls -la .git .git/hooks; true`,
+      `cd ${workDir} && git init -q . ; echo evil > .git/hooks/pre-commit; ls -la .git .git/hooks; true`,
     )
     expect(contents(join(workDir, '.git/hooks/pre-commit'))).not.toContain('evil')
-    expect(contents(join(workDir, '.envrc'))).not.toContain('evil')
     expect(res.code).toBe(0)
   })
 

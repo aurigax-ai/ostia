@@ -73,6 +73,7 @@ const PUSHED = [
   'remote-files:confirm',
   'remote-files:folders-changed',
   'sandbox:blocked',
+  'sandbox:left-behind',
   'scriptTokens:changed',
   'server:changed',
   'server:devices-changed',
