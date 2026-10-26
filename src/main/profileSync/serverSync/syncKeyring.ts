@@ -37,10 +37,10 @@ export interface SyncTarget {
   accountId: string
 }
 
-export interface SecretWraps {
-  passphrase: string
-  recovery: string
-  recoveryKey: string
+export interface SealedWraps {
+  primary: string
+  backup: string
+  backupSecret: string
 }
 
 const fromB64 = (text: string): Buffer => Buffer.from(text, 'base64url')
@@ -107,16 +107,16 @@ export class SyncKeyring {
     }
   }
 
-  async wraps(key: Buffer, passphrase: string): Promise<SecretWraps> {
-    const recoveryKey = newRecoveryKey()
-    const [forPassphrase, forRecovery] = await Promise.all([
-      wrapWithSecret(key, passphrase, this.cost),
-      wrapWithSecret(key, normalizeRecoveryKey(recoveryKey), this.cost),
+  async wraps(key: Buffer, secret: string): Promise<SealedWraps> {
+    const backupSecret = newRecoveryKey()
+    const [primary, backup] = await Promise.all([
+      wrapWithSecret(key, secret, this.cost),
+      wrapWithSecret(key, normalizeRecoveryKey(backupSecret), this.cost),
     ])
     return {
-      passphrase: forPassphrase.toString('base64url'),
-      recovery: forRecovery.toString('base64url'),
-      recoveryKey,
+      primary: primary.toString('base64url'),
+      backup: backup.toString('base64url'),
+      backupSecret,
     }
   }
 

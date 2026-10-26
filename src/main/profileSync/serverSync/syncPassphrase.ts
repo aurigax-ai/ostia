@@ -9,7 +9,12 @@ import {
   sealBlob,
   sealManifest,
 } from './syncCrypto'
-import { type KeyringError, keyringErrorOf, passphraseProblem } from './syncKeyring'
+import {
+  type KeyringError,
+  keyringErrorOf,
+  passphraseProblem,
+  type SealedWraps,
+} from './syncKeyring'
 import { type RemoteContext, readRemote, uploadAll } from './syncRemote'
 
 const REPLACE_ATTEMPTS = 3
@@ -22,19 +27,23 @@ export type ReplaceResult = { ok: true; recoveryKey: string } | { ok: false; err
 
 class VersionMoved extends Error {}
 
+function rotateBody(sealedManifest: Buffer, sealed: SealedWraps): string {
+  return JSON.stringify({
+    manifest: sealedManifest.toString('base64url'),
+    passphrase: sealed.primary,
+    recovery: sealed.backup,
+  })
+}
+
 async function pushKey(
   ctx: RemoteContext,
   key: Buffer,
-  passphrase: string,
+  secret: string,
   manifest: Manifest,
   ifMatch: number,
 ): Promise<ReplaceResult> {
-  const wraps = await ctx.keyring.wraps(key, passphrase)
-  const json = JSON.stringify({
-    manifest: sealManifest(key, manifest).toString('base64url'),
-    passphrase: wraps.passphrase,
-    recovery: wraps.recovery,
-  })
+  const sealed = await ctx.keyring.wraps(key, secret)
+  const json = rotateBody(sealManifest(key, manifest), sealed)
   const match = String(ifMatch)
   try {
     await ctx.account.authed((token, routes) =>
@@ -51,7 +60,7 @@ async function pushKey(
   }
   if (!ctx.keyring.keep(key)) return { ok: false, error: 'unavailable' }
   ctx.keyring.raise(manifest.counter)
-  return { ok: true, recoveryKey: wraps.recoveryKey }
+  return { ok: true, recoveryKey: sealed.backupSecret }
 }
 
 async function replaceOnce(
