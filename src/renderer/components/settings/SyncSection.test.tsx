@@ -135,7 +135,9 @@ describe('Settings › Sync', () => {
 
     await user.click(screen.getByRole('button', { name: 'Enter passphrase' }))
     const again = await screen.findByRole('dialog', { name: 'Enter your sync passphrase' })
+    await user.type(within(again).getByLabelText('Sync passphrase'), 'typed then gave up')
     await user.click(within(again).getByRole('button', { name: 'Use recovery key' }))
+    expect(window.ostia.syncServer.unlock).not.toHaveBeenCalled()
     const recover = await screen.findByRole('dialog', { name: 'Use your recovery key' })
     await user.type(within(recover).getByLabelText('Recovery key'), 'ABCD-EFGH')
     await user.type(within(recover).getByLabelText('New sync passphrase'), 'a new sync passphrase')
