@@ -5,11 +5,7 @@ import { expect, type Page } from './test'
 
 const PTY_OUTPUT_FRAME = 0x01
 
-function pinnedSocket(
-  serverPort: number,
-  host: string,
-  fingerprint: string,
-): Promise<TLSSocket> {
+function pinnedSocket(serverPort: number, host: string, fingerprint: string): Promise<TLSSocket> {
   return new Promise((resolve, reject) => {
     const socket = connect({
       host: '127.0.0.1',

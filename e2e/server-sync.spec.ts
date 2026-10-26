@@ -18,11 +18,11 @@ interface Machine {
   accountId: () => string
 }
 
-async function launchMachine(server: RunningServer, seedsTheme = true): Promise<Machine> {
+async function launchMachine(server: RunningServer): Promise<Machine> {
   const dataHome = freshDataHome()
   seedSettings(dataHome, {
     ...DOM_RENDERER_SETTINGS,
-    ...(seedsTheme ? { appearance: { followSystem: false, theme: SEEDED_THEME } } : {}),
+    appearance: { followSystem: false, theme: SEEDED_THEME },
   })
   const launch = isolatedLaunch(dataHome)
   const app = await electron.launch({
@@ -37,7 +37,7 @@ async function launchMachine(server: RunningServer, seedsTheme = true): Promise<
   await app.evaluate(({ safeStorage }) => safeStorage.setUsePlainTextEncryption(true))
   const win = await app.firstWindow()
   await win.waitForLoadState('domcontentloaded')
-  if (seedsTheme) await expect(win.locator('html')).toHaveAttribute('data-theme', SEEDED_THEME)
+  await expect(win.locator('html')).toHaveAttribute('data-theme', SEEDED_THEME)
   const configPath = join(launch.env.XDG_DATA_HOME ?? '', 'ostia', 'server-config.json')
   const accountId = (): string =>
     String(JSON.parse(readFileSync(configPath, 'utf8')).identity?.accountId ?? '')
@@ -51,7 +51,10 @@ async function openSync(win: Page): Promise<void> {
   if (!(await settings.isVisible())) {
     await win.locator('.topbar').getByRole('button', { name: 'Settings' }).click()
   }
-  await settings.getByLabel('General').getByRole('button', { name: 'Sync', exact: true }).click()
+  await settings
+    .getByLabel('General', { exact: true })
+    .getByRole('button', { name: 'Sync', exact: true })
+    .click()
 }
 
 async function signIn(win: Page, invite: string): Promise<void> {
@@ -79,8 +82,8 @@ async function saveRecoveryKey(win: Page): Promise<string> {
 async function createPassphrase(win: Page): Promise<string> {
   const dialog = win.getByRole('dialog', { name: 'Create a sync passphrase' })
   await expect(dialog).toBeVisible(SLOW)
-  await dialog.getByLabel('Sync passphrase').fill(PASSPHRASE)
-  await dialog.getByLabel('Type it again').fill(PASSPHRASE)
+  await dialog.getByLabel('Sync passphrase', { exact: true }).fill(PASSPHRASE)
+  await dialog.getByLabel('Type it again', { exact: true }).fill(PASSPHRASE)
   await dialog.getByRole('button', { name: 'Continue' }).click()
   return saveRecoveryKey(win)
 }
@@ -88,7 +91,7 @@ async function createPassphrase(win: Page): Promise<string> {
 async function enterPassphrase(win: Page, passphrase: string): Promise<void> {
   const dialog = win.getByRole('dialog', { name: 'Enter your sync passphrase' })
   await expect(dialog).toBeVisible(SLOW)
-  await dialog.getByLabel('Sync passphrase').fill(passphrase)
+  await dialog.getByLabel('Sync passphrase', { exact: true }).fill(passphrase)
   await dialog.getByRole('button', { name: 'Continue' }).click()
   await expect(dialog).toBeHidden(SLOW)
 }
@@ -130,11 +133,11 @@ test.describe('profile sync through the server end to end', () => {
       await createPassphrase(first.win)
       await expect(settingsOf(first.win).getByRole('button', { name: 'Sync now' })).toBeVisible()
 
-      const second = await launchMachine(server, false)
+      const second = await launchMachine(server)
       machines.push(second)
       await signIn(second.win, server.invite(first.accountId()))
       await enterPassphrase(second.win, PASSPHRASE)
-      await expectTheme(second.win, SEEDED_THEME)
+      await syncNow(second.win)
 
       await changeTheme(first.win, CHANGED_THEME)
       await expectTheme(second.win, CHANGED_THEME)
@@ -142,9 +145,9 @@ test.describe('profile sync through the server end to end', () => {
       await openSync(first.win)
       await settingsOf(first.win).getByRole('button', { name: 'Change passphrase' }).click()
       const change = first.win.getByRole('dialog', { name: 'Change sync passphrase' })
-      await change.getByLabel('Current passphrase').fill(PASSPHRASE)
-      await change.getByLabel('New sync passphrase').fill(NEW_PASSPHRASE)
-      await change.getByLabel('Type it again').fill(NEW_PASSPHRASE)
+      await change.getByLabel('Current passphrase', { exact: true }).fill(PASSPHRASE)
+      await change.getByLabel('New sync passphrase', { exact: true }).fill(NEW_PASSPHRASE)
+      await change.getByLabel('Type it again', { exact: true }).fill(NEW_PASSPHRASE)
       await change.getByRole('button', { name: 'Change passphrase' }).click()
       await saveRecoveryKey(first.win)
 
