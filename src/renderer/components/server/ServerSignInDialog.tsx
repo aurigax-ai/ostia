@@ -30,6 +30,7 @@ function SignInBody({ onClose }: { onClose: () => void }): JSX.Element {
   const inviteField = offer?.invite === true && (inviteShown || !withGithub)
   const addressField = addressShown || status.url === null
   const error = github.error ?? (offered.state === 'error' ? offered.error : null)
+  const body = github.flow !== null || inviteField || addressField || error !== null
 
   useEffect(() => {
     if (status.signedIn) onClose()
@@ -43,16 +44,18 @@ function SignInBody({ onClose }: { onClose: () => void }): JSX.Element {
           {status.host ? fmt(d.server.signInDesc, { host: status.host }) : d.server.noServerDesc}
         </DialogDescription>
       </DialogHeader>
-      <div className="flex flex-col gap-3">
-        {github.flow ? <GithubWaitLine flow={github.flow} /> : null}
-        {inviteField ? <ServerInviteField /> : null}
-        {addressField ? <ServerAddressField url={status.url} /> : null}
-        {error ? (
-          <p role="alert" className="text-attn-fg text-ui-sm">
-            {serverErrorText(d, error)}
-          </p>
-        ) : null}
-      </div>
+      {body ? (
+        <div className="flex flex-col gap-3">
+          {github.flow ? <GithubWaitLine flow={github.flow} /> : null}
+          {inviteField ? <ServerInviteField /> : null}
+          {addressField ? <ServerAddressField url={status.url} /> : null}
+          {error ? (
+            <p role="alert" className="text-attn-fg text-ui-sm">
+              {serverErrorText(d, error)}
+            </p>
+          ) : null}
+        </div>
+      ) : null}
       <DialogFooter>
         <span className="flex items-center gap-4 sm:mr-auto">
           {withGithub && offer?.invite && !inviteShown ? (

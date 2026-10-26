@@ -134,6 +134,7 @@ test.describe('profile sync through the server end to end', () => {
       await signIn(first.win, server.invite())
       await createPassphrase(first.win)
       await expect(settingsOf(first.win).getByRole('button', { name: 'Sync now' })).toBeVisible()
+      await expect(settingsOf(first.win).getByRole('switch', { name: 'Snippets' })).toBeChecked()
 
       const second = await launchMachine(server)
       machines.push(second)
