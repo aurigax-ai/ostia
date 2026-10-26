@@ -41,7 +41,7 @@ import type {
 import type { ClipboardCapture } from '../../../shared/keyboard/clipboardCapture'
 import type { FsRangeResult } from '../fsRange'
 import { readBoundedBody } from './viewerBody'
-import { clipboardOf, copyStatus, type ViewerCopyStrings } from './viewerClipboard'
+import { clipboardOf, copyLabel, type ViewerCopyStrings } from './viewerClipboard'
 import { parseByteRange } from './viewerRanges'
 import { acceptGuestSelection, type StoredSelection, selectionState } from './viewerSelection'
 import {
@@ -327,19 +327,16 @@ export class ViewerHost {
     })
   }
 
-  private async copyStored(stored: StoredSelection): Promise<string> {
+  private async copyStored(stored: StoredSelection): Promise<string | null> {
     const copied = clipboardOf(stored)
-    const strings = this.deps.copyStrings()
-    if (copied.text === undefined && copied.html === undefined && !copied.png) {
-      return strings.nothing
-    }
+    if (copied.text === undefined && copied.html === undefined && !copied.png) return null
     await this.deps.writeClipboard(copied)
-    return copyStatus(copied, strings, stored.capture)
+    return copyLabel(copied, this.deps.copyStrings(), stored.capture)
   }
 
-  async copySelection(windowId: string, paneId: unknown): Promise<string> {
+  async copySelection(windowId: string, paneId: unknown): Promise<string | null> {
     const stored = this.liveOfPane(windowId, paneId)?.selection
-    return stored ? this.copyStored(stored) : this.deps.copyStrings().nothing
+    return stored ? this.copyStored(stored) : null
   }
 
   ownsFindKeys(guest: { getURL: () => string }): boolean {
@@ -351,10 +348,11 @@ export class ViewerHost {
     const stored = live?.selection
     if (!live || !stored) return false
     void this.copyStored(stored).then(
-      (status) =>
+      (label) =>
+        label &&
         this.deps.emit(live.windowId, {
           type: 'copied',
-          payload: { paneId: live.paneId, status },
+          payload: { paneId: live.paneId, label },
         }),
       () => undefined,
     )

@@ -389,7 +389,7 @@ async function cellsAreCopiedAndSent(win: Page, app: ElectronApplication): Promi
   expect(barBox.x).toBeLessThanOrEqual(frame.x + to.right)
 
   await bar.getByRole('button', { name: 'Copy' }).click()
-  await expect(win.getByText('Copied Q4!A1:C3 (3 rows × 3 columns) as CSV.')).toBeVisible()
+  await expect(win.getByTestId('capture-chip')).toHaveText('Copied table')
   const copied = await readClipboard(app)
   expect(copied.text).toBe('Region,Orders,Revenue\nNorth,412,48210\nSouth,305,36120')
   expect(copied.html).toContain('<table>')
@@ -439,6 +439,6 @@ async function cellsAreCopiedAndSent(win: Page, app: ElectronApplication): Promi
   )
   await expect(bar).toBeVisible({ timeout: 15_000 })
   await bar.getByRole('button', { name: 'Copy' }).click()
-  await expect(win.getByText('Copied A2:B3 (2 rows × 2 columns) as CSV.')).toBeVisible()
+  await expect(win.getByTestId('capture-chip')).toHaveText('Copied table')
   expect((await readClipboard(app)).text).toBe('Taipei,3\n"Hsinchu, East",4')
 }

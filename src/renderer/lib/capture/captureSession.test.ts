@@ -42,7 +42,7 @@ function adapter(over: Partial<CaptureAdapter> = {}): CaptureAdapter {
     anchor: null,
     takeFocus: true,
     highlight: null,
-    copy: vi.fn().mockResolvedValue({ ok: true, status: 'Copied the selection.' }),
+    copy: vi.fn().mockResolvedValue({ ok: true, label: 'Copied' }),
     send: vi.fn().mockResolvedValue({ ok: true, inserted: true }),
     clear: vi.fn(),
     ...over,
@@ -85,12 +85,13 @@ describe('captureSession', () => {
     },
   )
 
-  it('copies, shows the status for the pane, closes and clears', async () => {
+  it('copies, shows the chip for the pane, closes and clears', async () => {
     const held = adapter()
     openCapture('p1', held)
     await copyCapture('p1')
     expect(held.copy).toHaveBeenCalledTimes(1)
-    expect(state().status.p1).toBe('Copied the selection.')
+    expect(state().chip.p1?.label).toBe('Copied')
+    expect(state().status.p1).toBeUndefined()
     expect(state().open.p1).toBeUndefined()
     expect(held.clear).toHaveBeenCalledExactlyOnceWith('copied')
   })
@@ -102,6 +103,16 @@ describe('captureSession', () => {
     expect(state().status.p1).toBe('Copied the selection.')
     vi.advanceTimersByTime(1)
     expect(state().status.p1).toBeUndefined()
+  })
+
+  it('drops the chip after two seconds', async () => {
+    vi.useFakeTimers()
+    openCapture('p1', adapter())
+    await copyCapture('p1')
+    vi.advanceTimersByTime(1999)
+    expect(state().chip.p1?.label).toBe('Copied')
+    vi.advanceTimersByTime(1)
+    expect(state().chip.p1).toBeUndefined()
   })
 
   it('keeps the capture open with the reason when copying fails or throws', async () => {
@@ -119,12 +130,12 @@ describe('captureSession', () => {
     expect(state().open.p2.error).toBe('Boom.')
   })
 
-  it('sends with the note, shows the status for the pane, closes and clears', async () => {
+  it('sends with the note, shows the chip for the pane, closes and clears', async () => {
     const held = adapter()
     openCapture('p1', held)
     await sendCapture('p1', target, 'Check the sum')
     expect(held.send).toHaveBeenCalledWith(target, 'Check the sum')
-    expect(state().status.p1).toContain('Claude Code · api')
+    expect(state().chip.p1?.label).toContain('Claude Code · api')
     expect(state().open.p1).toBeUndefined()
     expect(held.clear).toHaveBeenCalledExactlyOnceWith('sent')
   })
@@ -138,14 +149,14 @@ describe('captureSession', () => {
   })
 
   it('ignores the result of a copy whose capture was closed meanwhile', async () => {
-    let finish: (value: { ok: true; status: string }) => void = () => undefined
+    let finish: (value: { ok: true; label: string }) => void = () => undefined
     const held = adapter({ copy: () => new Promise((resolve) => (finish = resolve)) })
     openCapture('p1', held)
     const copying = copyCapture('p1')
     closeCapture('p1', 'escape')
-    finish({ ok: true, status: 'Copied the selection.' })
+    finish({ ok: true, label: 'Copied' })
     await copying
-    expect(state().status.p1).toBeUndefined()
+    expect(state().chip.p1).toBeUndefined()
     expect(held.clear).toHaveBeenCalledExactlyOnceWith('escape')
   })
 
@@ -156,10 +167,13 @@ describe('captureSession', () => {
     expect(held.copy).toHaveBeenCalledTimes(1)
   })
 
-  it('opens a new capture without the old status', () => {
-    setCaptureStatus('p1', 'Copied the selection.')
+  it('opens a new capture without the old status or chip', async () => {
+    setCaptureStatus('p1', 'Nothing selected.')
+    openCapture('p1', adapter())
+    await copyCapture('p1')
     openCapture('p1', adapter())
     expect(state().status.p1).toBeUndefined()
+    expect(state().chip.p1).toBeUndefined()
   })
 
   describe('the open chord', () => {

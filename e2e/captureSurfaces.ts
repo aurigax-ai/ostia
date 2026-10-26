@@ -30,7 +30,7 @@ export const terminalSurface: CaptureSurface = {
       app,
       win,
       open: () => win.keyboard.press(sendToAgent),
-      status: 'Copied the selection.',
+      chip: 'Copied',
       copied: /terminal-capture-4821/,
       cleared: noHighlight,
       close: () => app.close(),
@@ -64,7 +64,7 @@ export const monacoSurface: CaptureSurface = {
       app,
       win,
       open: () => win.keyboard.press(sendToAgent),
-      status: 'Copied the selection.',
+      chip: 'Copied',
       copied: /items\.reduce|return|function/,
       cleared: noHighlight,
       close: () => app.close(),
@@ -121,7 +121,7 @@ export const csvViewerSurface: CaptureSurface = {
       open: async () => {
         await viewerGuestDrag(app, TABLE, await cellBox(app, 0, 0), await cellBox(app, 2, 1))
       },
-      status: /^Copied /,
+      chip: 'Copied table',
       copied: /Taipei/,
       cleared: async () => {
         await expect

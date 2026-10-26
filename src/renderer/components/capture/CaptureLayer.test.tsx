@@ -6,6 +6,7 @@ import { TooltipProvider } from '@/components/ui/tooltip'
 import {
   type CaptureAdapter,
   closeCapture,
+  copyCapture,
   openCapture,
   setCaptureStatus,
   useCaptureStore,
@@ -21,6 +22,7 @@ afterEach(() => {
   cleanup()
   closeCapture('p1', 'source-gone')
   setCaptureStatus('p1', null)
+  useCaptureStore.setState({ chip: {} })
 })
 
 function adapterOf(over: Partial<CaptureAdapter> = {}): CaptureAdapter {
@@ -28,7 +30,7 @@ function adapterOf(over: Partial<CaptureAdapter> = {}): CaptureAdapter {
     anchor: { left: 0, top: 0, bottom: 10 },
     takeFocus: true,
     highlight: null,
-    copy: vi.fn().mockResolvedValue({ ok: true, status: 'Copied the selection.' }),
+    copy: vi.fn().mockResolvedValue({ ok: true, label: 'Copied' }),
     send: vi.fn().mockResolvedValue({ ok: true, inserted: true }),
     clear: vi.fn(),
     ...over,
@@ -104,12 +106,25 @@ describe('CaptureLayer', () => {
     expect(useCaptureStore.getState().open.p1).toBeUndefined()
   })
 
+  it('shows the copied chip at the bottom of the pane without a button or focus', async () => {
+    render(view(true))
+    act(() => openCapture('p1', adapterOf()))
+    await act(async () => {
+      await copyCapture('p1')
+    })
+    const chip = screen.getByTestId('capture-chip')
+    expect(chip).toHaveTextContent('Copied')
+    expect(chip).toHaveClass('absolute', 'bottom-4', 'pointer-events-none')
+    expect(chip.querySelector('button')).toBeNull()
+    expect(screen.queryByRole('toolbar')).toBeNull()
+  })
+
   it('shows the pane status line over the pane and drops it on its dismiss button', async () => {
     render(view(true))
-    act(() => setCaptureStatus('p1', 'Copied the selection.'))
+    act(() => setCaptureStatus('p1', 'Nothing selected.'))
     const line = screen.getByRole('status')
     expect(line.parentElement).toHaveClass('absolute', 'top-0')
-    expect(line).toHaveTextContent('Copied the selection.')
+    expect(line).toHaveTextContent('Nothing selected.')
     await userEvent.click(within(line).getByRole('button'))
     expect(screen.queryByRole('status')).toBeNull()
   })

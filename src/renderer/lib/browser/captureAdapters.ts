@@ -17,14 +17,11 @@ interface AdapterOptions {
 function pickCopied(d: Dict, res: PickCopyResult): CaptureResult {
   if (!res.ok) return { ok: false, error: fmt(d.browser.pickCopyFailed, { reason: res.error }) }
   if (res.kind === 'table') {
-    return {
-      ok: true,
-      status: fmt(d.browser.pickCopiedTable, { rows: res.rows, columns: res.columns }),
-    }
+    return { ok: true, label: d.browser.pickCopiedTable }
   }
   return {
     ok: true,
-    status: res.kind === 'image' ? d.browser.pickCopiedImage : d.browser.pickCopiedReport,
+    label: res.kind === 'image' ? d.browser.pickCopiedImage : d.browser.pickCopiedReport,
   }
 }
 
@@ -69,7 +66,7 @@ export function regionAdapter(
     copy: async () => {
       const res = await window.ostia.browser.regionCopy(paneId, capture.id)
       return res.ok
-        ? { ok: true, status: d.browser.imageCopied }
+        ? { ok: true, label: d.browser.imageCopied }
         : failed(fmt(d.browser.imageCopyFailed, { reason: res.error }))
     },
     send: async (target, note) => {
@@ -97,7 +94,7 @@ export function pageTextAdapter(
     highlight: null,
     copy: async () =>
       (await window.ostia.clipboard.writeCapture({ text: selection.capture.text }))
-        ? { ok: true, status: d.send.copied }
+        ? { ok: true, label: d.send.copied }
         : failed(d.send.copyFailed),
     send: async (target, note) => {
       const res = await sendSelectionToPane({

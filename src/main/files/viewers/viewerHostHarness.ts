@@ -94,9 +94,8 @@ export function setup(overrides: Partial<ViewerHostDeps> = {}) {
       clipboard.push(copied)
     },
     copyStrings: () => ({
-      cells: 'cells {range} {rows}x{columns}',
+      cells: 'cells',
       image: 'img',
-      nothing: 'none',
       text: 'txt',
       textAndImage: 'both',
     }),

@@ -49,7 +49,7 @@ function adapterOf(over: Partial<CaptureAdapter> = {}): CaptureAdapter {
     anchor: { left: 40, top: 20, bottom: 60 },
     takeFocus: true,
     highlight: null,
-    copy: vi.fn().mockResolvedValue({ ok: true, status: 'Copied the selection.' }),
+    copy: vi.fn().mockResolvedValue({ ok: true, label: 'Copied' }),
     send: vi.fn().mockResolvedValue({ ok: true, inserted: true }),
     clear: vi.fn(),
     ...over,
@@ -87,11 +87,11 @@ describe('CaptureBar', () => {
     expect(bar()).toHaveStyle({ left: '12px', top: '18px' })
   })
 
-  it('copies, closes the bar and shows the status line', async () => {
+  it('copies, closes the bar and shows the chip', async () => {
     const adapter = setup()
     await userEvent.click(within(bar()).getByRole('button', { name: 'Copy' }))
     expect(adapter.copy).toHaveBeenCalledTimes(1)
-    expect(await screen.findByText('Copied the selection.')).toBeVisible()
+    expect(await screen.findByText('Copied')).toBeVisible()
     expect(screen.queryByRole('toolbar')).toBeNull()
     expect(adapter.clear).toHaveBeenCalledExactlyOnceWith('copied')
   })

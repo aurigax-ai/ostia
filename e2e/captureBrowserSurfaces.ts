@@ -119,12 +119,12 @@ function browserSurface(name: string, gesture: Gesture): CaptureSurface {
         app,
         win,
         open,
-        status:
+        chip:
           gesture === 'pick-table'
-            ? /^Copied the table/
+            ? 'Copied table'
             : gesture === 'page-text'
-              ? 'Copied the selection.'
-              : /^Copied the (element screenshot|image)/,
+              ? 'Copied'
+              : 'Copied image',
         copied:
           gesture === 'pick-table'
             ? /^Order,Customer,Customer\n#4821,"Northwind, Ltd",EU\n#4822,"Fabrikam ""Home""",US$/
@@ -213,7 +213,7 @@ function previewSurface(name: string, gesture: 'pick-table' | 'region'): Capture
         app,
         win,
         open,
-        status: gesture === 'pick-table' ? /^Copied the table/ : /^Copied the image/,
+        chip: gesture === 'pick-table' ? 'Copied table' : 'Copied image',
         copied:
           gesture === 'pick-table' ? /^Order,Customer\n#4821,Northwind\n#4822,Fabrikam$/ : 'image',
         highlight: {

@@ -19,7 +19,7 @@ interface LaunchedSurface {
   app: ElectronApplication
   win: Page
   open: () => Promise<void>
-  status: RegExp | string
+  chip: string
   copied: RegExp | 'image'
   cleared: () => Promise<void>
   close: () => Promise<void>
@@ -33,11 +33,20 @@ export interface CaptureSurface {
 }
 
 export async function runCaptureMatrix(surface: CaptureSurface): Promise<void> {
-  const { app, win, open, status, copied, cleared, close, highlight, clickGuest } =
-    await surface.launch()
+  const {
+    app,
+    win,
+    open,
+    chip: label,
+    copied,
+    cleared,
+    close,
+    highlight,
+    clickGuest,
+  } = await surface.launch()
   try {
     const bar = win.getByRole('toolbar', { name: 'Selection actions' })
-    const line = win.getByText(status)
+    const chip = win.getByTestId('capture-chip')
     const shown = async (): Promise<void> => {
       await open()
       await expect(bar).toBeVisible({ timeout: 15_000 })
@@ -81,21 +90,22 @@ export async function runCaptureMatrix(surface: CaptureSurface): Promise<void> {
       })
     }
 
-    await test.step('the Copy button copies, closes the bar and shows the pane status', async () => {
+    await test.step('the Copy button copies, closes the bar and shows the chip, which fades after two seconds', async () => {
       await shown()
       await marker()
       await bar.getByRole('button', { name: 'Copy' }).click()
-      await expect(line).toBeVisible()
+      await expect(chip).toHaveText(label)
       await expect(bar).toBeHidden()
       await expectCopied()
       await cleared()
+      await expect(chip).toBeHidden({ timeout: 5_000 })
     })
 
     await test.step('the copy chord does the same as the button', async () => {
       await shown()
       await marker()
       await win.keyboard.press(plainCopy)
-      await expect(line).toBeVisible()
+      await expect(chip).toHaveText(label)
       await expect(bar).toBeHidden()
       await expectCopied()
       await cleared()

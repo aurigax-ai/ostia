@@ -1,8 +1,9 @@
 import { useEffect, useRef } from 'react'
 import { StatusLine } from '@/components/common/StatusLine'
 import { closeCapture, setCaptureStatus } from '@/lib/capture/captureSession'
-import { useCaptureStatus, useOpenCapture } from '@/lib/capture/useCapture'
+import { useCaptureChip, useCaptureStatus, useOpenCapture } from '@/lib/capture/useCapture'
 import { CaptureBar } from './CaptureBar'
+import { CaptureChip } from './CaptureChip'
 import { useCaptureDismissal } from './useCaptureDismissal'
 
 interface CaptureLayerProps {
@@ -18,6 +19,7 @@ export function CaptureLayer({
 }: CaptureLayerProps): JSX.Element {
   const capture = useOpenCapture(paneId)
   const status = useCaptureStatus(paneId)
+  const chip = useCaptureChip(paneId)
   const rootRef = useRef<HTMLDivElement>(null)
   useCaptureDismissal(paneId, rootRef, capture !== null)
 
@@ -35,6 +37,7 @@ export function CaptureLayer({
           <StatusLine onDismiss={() => setCaptureStatus(paneId, null)}>{status}</StatusLine>
         </div>
       ) : null}
+      {chip ? <CaptureChip key={chip.id} label={chip.label} /> : null}
       {capture ? (
         <CaptureBar key={capture.key} workspaceId={workspaceId} paneId={paneId} capture={capture} />
       ) : null}

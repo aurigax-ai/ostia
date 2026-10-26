@@ -230,7 +230,7 @@ describe('guest selection channel', () => {
         csv: 'a,"b <1>"\n"x ""y""",2',
       }),
     )
-    expect(await host.copySelection('w1', 'p1')).toBe('cells S!A1:B2 2x2')
+    expect(await host.copySelection('w1', 'p1')).toBe('cells')
     expect(clipboard.at(-1)).toEqual({
       text: 'a,"b <1>"\n"x ""y""",2',
       html: '<table><tbody><tr><td>a</td><td>b &lt;1&gt;</td></tr><tr><td>x &quot;y&quot;</td><td>2</td></tr></tbody></table>',
@@ -239,13 +239,13 @@ describe('guest selection channel', () => {
 
   it('answers the owner window only and says nothing to copy otherwise', async () => {
     const { host, session, clipboard, src, events } = await opened()
-    expect(await host.copySelection('w1', 'p1')).toBe('none')
+    expect(await host.copySelection('w1', 'p1')).toBeNull()
     await postSelection(
       session,
       await selectionBody({ capture: IMAGE, rect: RECT, frame: FRAME }, pngOf(4, 4)),
     )
-    expect(await host.copySelection('w2', 'p1')).toBe('none')
-    expect(await host.copySelection('w1', 'other')).toBe('none')
+    expect(await host.copySelection('w2', 'p1')).toBeNull()
+    expect(await host.copySelection('w1', 'other')).toBeNull()
     expect(clipboard).toEqual([])
     expect(host.selectionForSend('w2', 'p1')).toBeNull()
     expect(host.selectionForSend('w1', 'p1')).toMatchObject({
@@ -258,7 +258,7 @@ describe('guest selection channel', () => {
     expect(events.at(-1)).toEqual({
       windowId: 'w1',
       type: 'copied',
-      payload: { paneId: 'p1', status: expect.any(String) },
+      payload: { paneId: 'p1', label: expect.any(String) },
     })
   })
 

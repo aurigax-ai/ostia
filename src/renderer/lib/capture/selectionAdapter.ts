@@ -28,7 +28,7 @@ export function selectionAdapter({
       if (!clip || !(await window.ostia.clipboard.writeCapture(clip))) {
         return { ok: false, error: d.send.copyFailed }
       }
-      return { ok: true, status: needsImage(capture) ? d.send.copiedImage : d.send.copied }
+      return { ok: true, label: needsImage(capture) ? d.send.copiedImage : d.send.copied }
     },
     send: async (target, note) => {
       const res = await sendSelectionToPane({

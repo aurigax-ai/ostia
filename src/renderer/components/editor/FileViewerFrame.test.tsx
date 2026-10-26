@@ -181,20 +181,20 @@ describe('FileViewerFrame', () => {
       await copyCapture('p1')
     })
     expect(window.ostia.viewers.copySelection).toHaveBeenCalledWith('p1')
-    expect(useCaptureStore.getState().status.p1).toBe('Copied text')
+    expect(useCaptureStore.getState().chip.p1?.label).toBe('Copied text')
     expect(held()).toBeUndefined()
     expect(window.ostia.viewers.clearSelection).toHaveBeenCalledWith('p1')
   })
 
-  it('closes with the status main pushes when a copy chord reached the page', async () => {
+  it('closes with the label main pushes when a copy chord reached the page', async () => {
     mount()
     await act(async () => {})
     act(() => onSelection({ paneId: 'p1', selection: SELECTION }))
-    act(() => onCopied({ paneId: 'p2', status: 'Copied other' }))
+    act(() => onCopied({ paneId: 'p2', label: 'Copied other' }))
     expect(held()).toBeDefined()
-    act(() => onCopied({ paneId: 'p1', status: 'Copied the selection.' }))
+    act(() => onCopied({ paneId: 'p1', label: 'Copied' }))
     expect(held()).toBeUndefined()
-    expect(useCaptureStore.getState().status.p1).toBe('Copied the selection.')
+    expect(useCaptureStore.getState().chip.p1?.label).toBe('Copied')
     expect(window.ostia.viewers.copySelection).not.toHaveBeenCalled()
   })
 

@@ -173,10 +173,9 @@ export const appZhHant: typeof appEn = {
       typeName: '輸入「{name}」才能允許',
     },
     viewerCopy: {
-      cells: '已將 {range}（{rows} 列 × {columns} 欄）複製為 CSV。',
+      cells: '已複製表格',
       image: '已複製圖片',
-      nothing: '沒有可複製的內容',
-      text: '已複製文字',
+      text: '已複製',
       textAndImage: '已複製文字和圖片',
     },
   },
