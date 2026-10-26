@@ -70,7 +70,7 @@ describe('Settings › Shared artifacts', () => {
     expect(await screen.findByText(/Nothing published yet/)).toBeInTheDocument()
   })
 
-  it('SHR-C72 sends the signed-out human to the account in Settings › Sync', async () => {
+  it('SHR-C72 opens the sign-in dialog without leaving Shared artifacts', async () => {
     shares().status.mockResolvedValue({ state: 'signed-out' })
     shares().list.mockResolvedValue({ ok: false, error: 'signed-out' })
     await renderSettled(<SharesSection />)
@@ -80,7 +80,8 @@ describe('Settings › Shared artifacts', () => {
       ),
     ).toBeInTheDocument()
     await userEvent.click(screen.getByRole('button', { name: 'Sign in' }))
-    expect(useUIStore.getState().settingsSection).toBe('sync')
+    expect(await screen.findByRole('dialog', { name: 'Sign in' })).toBeInTheDocument()
+    expect(useUIStore.getState().settingsSection).not.toBe('sync')
     expect(screen.queryByRole('list')).toBeNull()
   })
 

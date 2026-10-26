@@ -16,7 +16,6 @@ import { Button } from '@/components/ui/button'
 import { SHORT_DATE_TIME } from '@/lib/app/localeFormat'
 import { fmt, useDict } from '@/lib/app/useDict'
 import { useSettingsStore } from '@/stores/app/settingsStore'
-import { useUIStore } from '@/stores/app/uiStore'
 import { SecretFormDialog } from './SecretFormDialog'
 import { SyncSecretsSection } from './SyncSecretsSection'
 import { type PassphraseStep, passphraseStep } from './syncPassphraseSteps'
@@ -96,8 +95,7 @@ export function SyncSection(): JSX.Element {
   const method: Method = chosen === 'server' ? 'server' : dir ? 'folder' : 'off'
   const server = method === 'server'
   const account = useServerStatus()
-  const signInAsked = useUIStore((s) => s.settingsSignIn)
-  const accountShown = server || account.signedIn || signInAsked
+  const accountShown = server || account.signedIn
   const [status, setStatus] = useSyncStatus()
   const [serverStatus, setServerStatus] = useSyncServerStatus(server && account.signedIn)
   const ready = !server || serverStatus.state === 'ready'

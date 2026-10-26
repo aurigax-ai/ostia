@@ -67,11 +67,10 @@ export async function signInThroughSettings(win: Page, invite: string): Promise<
   await win.getByRole('option', { name: 'Ostia Relay' }).click()
   await expect(method).toContainText('Ostia Relay')
   await settings.getByRole('button', { name: 'Sign in', exact: true }).click()
-  await settings.getByRole('textbox', { name: 'Invite code' }).fill(invite)
-  await settings.getByRole('button', { name: 'Sign in', exact: true }).click()
-  await expect(settings.getByText(/^Signed in as .* with an invite code\.$/)).toBeVisible({
-    timeout: 20_000,
-  })
+  const dialog = win.getByRole('dialog', { name: 'Sign in' })
+  await dialog.getByRole('textbox', { name: 'Invite code' }).fill(invite)
+  await dialog.getByRole('button', { name: 'Sign in', exact: true }).click()
+  await expect(dialog).toBeHidden({ timeout: 20_000 })
 }
 
 export interface Pairing {

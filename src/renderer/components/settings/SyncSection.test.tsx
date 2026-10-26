@@ -5,7 +5,6 @@ import { act, cleanup, render, screen, waitFor, within } from '@testing-library/
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { useSettingsStore } from '@/stores/app/settingsStore'
-import { useUIStore } from '@/stores/app/uiStore'
 import { renderSettled } from '../../../../test/render'
 import { SyncSection } from './SyncSection'
 
@@ -85,19 +84,23 @@ describe('Settings › Sync', () => {
     expect(screen.getByText(/^Last synced /)).toBeInTheDocument()
   })
 
-  it('SYV-C3 signed out offers GitHub, with the invite code and server address behind links', async () => {
+  it('SYV-C3 signed out, Sign in opens a dialog with GitHub, an invite code and the server address', async () => {
+    useSettingsStore.setState({ sync: { dir: '', method: 'server' } })
     onServer({ ...SIGNED_IN, signedIn: false, provider: null, deviceName: null })
     const user = userEvent.setup()
     await renderSettled(<SyncSection />)
     expect(screen.getByText('Sign in to sync through ostia.example.com.')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Sign in with GitHub' })).toBeInTheDocument()
-    expect(screen.queryByRole('textbox', { name: 'Invite code' })).toBeNull()
-    expect(screen.queryByRole('textbox', { name: 'Server address' })).toBeNull()
-    await user.click(screen.getByRole('button', { name: 'Use an invite code' }))
-    expect(screen.getByRole('textbox', { name: 'Invite code' })).toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: 'Change server' }))
-    expect(screen.getByRole('textbox', { name: 'Server address' })).toBeInTheDocument()
     expect(screen.queryByText('Status')).toBeNull()
+    await user.click(screen.getByRole('button', { name: 'Sign in' }))
+    const dialog = await screen.findByRole('dialog', { name: 'Sign in' })
+    expect(within(dialog).getByRole('button', { name: 'Sign in with GitHub' })).toBeInTheDocument()
+    expect(within(dialog).queryByRole('textbox', { name: 'Invite code' })).toBeNull()
+    expect(within(dialog).queryByRole('textbox', { name: 'Server address' })).toBeNull()
+    await user.click(within(dialog).getByRole('button', { name: 'Use an invite code' }))
+    expect(within(dialog).getByRole('textbox', { name: 'Invite code' })).toBeInTheDocument()
+    await user.click(within(dialog).getByRole('button', { name: 'Change server' }))
+    expect(within(dialog).getByRole('textbox', { name: 'Server address' })).toBeInTheDocument()
+    expect(window.ostia.sync.run).not.toHaveBeenCalled()
   })
 
   it('SYV-C4 asks for a new passphrase on its own on a new account and shows the recovery key once', async () => {
@@ -196,26 +199,17 @@ describe('Settings › Sync', () => {
     expect(await screen.findByText('WXYZ-2345')).toBeInTheDocument()
   })
 
-  it('SYV-C9 a Sign in link shows the account without turning sync on', async () => {
+  it('SYV-C9 the account rows stay hidden while Off and signed out', async () => {
     vi.mocked(window.ostia.server.status).mockResolvedValue({
       ...SIGNED_IN,
       signedIn: false,
       provider: null,
       deviceName: null,
     })
-    vi.mocked(window.ostia.server.info).mockResolvedValue({
-      ok: true,
-      offer: { relay: true, publish: true, sync: true, push: true, invite: true, github: true },
-    })
-    useUIStore.getState().openSettings('sync', { signIn: true })
     await renderSettled(<SyncSection />)
     expect(screen.getByRole('combobox', { name: 'Sync method' })).toHaveTextContent('Off')
-    expect(screen.getByRole('button', { name: 'Sign in with GitHub' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Sign in' })).toBeNull()
     expect(window.ostia.sync.run).not.toHaveBeenCalled()
-    act(() => useUIStore.getState().openSettings('sync'))
-    await waitFor(() =>
-      expect(screen.queryByRole('button', { name: 'Sign in with GitHub' })).toBeNull(),
-    )
   })
 
   it('SYV-C8 explains a missing folder from live status updates', async () => {
