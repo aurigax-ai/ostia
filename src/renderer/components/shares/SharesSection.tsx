@@ -2,6 +2,7 @@ import type { ShareView } from '@shared/artifacts/shares'
 import { useEffect, useState } from 'react'
 import { Notice } from '@/components/common/Notice'
 import { SignInNotice } from '@/components/server/SignInNotice'
+import { useServerStatus } from '@/components/server/useServerStatus'
 import { RowRemoveButton } from '@/components/settingsKit/RowRemoveButton'
 import { SettingsList } from '@/components/settingsKit/SettingsList'
 import { SettingsListRow } from '@/components/settingsKit/SettingsListRow'
@@ -64,9 +65,11 @@ function ShareRow({ share }: { share: ShareView }): JSX.Element {
 export function SharesSection(): JSX.Element {
   const d = useDict()
   const { availability, shares, error, loaded } = useSharesStore()
+  const { signedIn } = useServerStatus()
+  // biome-ignore lint/correctness/useExhaustiveDependencies: the list reloads when the account signs in or out
   useEffect(() => {
     void useSharesStore.getState().refresh()
-  }, [])
+  }, [signedIn])
 
   const signedOut = availability?.state === 'signed-out' || error === 'signed-out'
   return (

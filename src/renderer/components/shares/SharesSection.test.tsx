@@ -1,6 +1,7 @@
 import '@testing-library/jest-dom/vitest'
 import type { ShareView } from '@shared/artifacts/shares'
-import { cleanup, screen, within } from '@testing-library/react'
+import type { ServerStatus } from '@shared/server/serverApi'
+import { act, cleanup, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useUIStore } from '@/stores/app/uiStore'
@@ -83,6 +84,33 @@ describe('Settings › Shared artifacts', () => {
     expect(await screen.findByRole('dialog', { name: 'Sign in' })).toBeInTheDocument()
     expect(useUIStore.getState().settingsSection).not.toBe('sync')
     expect(screen.queryByRole('list')).toBeNull()
+  })
+
+  it('SHR-C74 lists the shares as soon as the sign-in dialog signs the human in', async () => {
+    let push: (status: ServerStatus) => void = () => {}
+    vi.mocked(window.ostia.server.onChanged).mockImplementation((cb) => {
+      push = cb
+      return () => {}
+    })
+    shares().status.mockResolvedValue({ state: 'signed-out' })
+    shares().list.mockResolvedValue({ ok: false, error: 'signed-out' })
+    await renderSettled(<SharesSection />)
+    expect(
+      await screen.findByText(
+        'Sign in to your Ostia account to publish files and manage what you shared.',
+      ),
+    ).toBeInTheDocument()
+    listReturns([BASE])
+    act(() =>
+      push({
+        url: 'https://ostia.example.com',
+        host: 'ostia.example.com',
+        signedIn: true,
+        provider: 'github',
+        deviceName: 'desk',
+      }),
+    )
+    expect(await screen.findByText('plan.html')).toBeInTheDocument()
   })
 
   it('SHR-C73 copies the link through main and never shows it', async () => {
