@@ -701,7 +701,7 @@ export function makeOstiaMock(overrides?: Partial<OstiaBridge>): OstiaBridge {
       githubPoll: vi.fn().mockResolvedValue({ state: 'pending' }),
       githubCancel: vi.fn().mockResolvedValue(undefined),
       openVerification: vi.fn().mockResolvedValue(undefined),
-      signOut: vi.fn().mockResolvedValue({ ok: true, deviceKept: false }),
+      signOut: vi.fn().mockResolvedValue({ ok: true }),
       onChanged: vi.fn(noopUnsub),
     },
     syncServer: {

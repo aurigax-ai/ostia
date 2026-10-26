@@ -8,13 +8,17 @@ function routes() {
 }
 
 describe('routes that must not be retried on a rate limit', () => {
-  it('SYA-C150 asks once to delete a device', async () => {
+  it('SYA-C150 asks once to replace the key, with the version read in If-Match and the signed headers', async () => {
     const { request, routes: r } = routes()
-    await r.revokeDevice('token', 'dev-2', { 'X-Device-Signature': 'sig' })
+    await r.rotate('token', '{"manifest":"m"}', '3', { 'X-Device-Signature': 'sig' })
     expect(request).toHaveBeenCalledWith(
-      'DELETE',
-      '/v1/devices/dev-2',
-      expect.objectContaining({ retryRateLimited: false }),
+      'POST',
+      '/v1/sync/rotate',
+      expect.objectContaining({
+        json: '{"manifest":"m"}',
+        headers: { 'If-Match': '3', 'X-Device-Signature': 'sig' },
+        retryRateLimited: false,
+      }),
     )
   })
 

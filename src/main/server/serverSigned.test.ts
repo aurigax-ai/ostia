@@ -33,7 +33,7 @@ describe('signed requests with a timestamp', () => {
     expect(stamps).toEqual(['1000', '1001'])
   })
 
-  it('SSY-C131 does not resend a signed wrap read or device removal after a 429', async () => {
+  it('SSY-C131 does not resend a signed wrap read or key replacement after a 429', async () => {
     const fetchFn = vi.fn(
       async () =>
         new Response('{"error":"rate-limited"}', { status: 429, headers: { 'Retry-After': '1' } }),
@@ -48,7 +48,7 @@ describe('signed requests with a timestamp', () => {
       routes.secretWrap('t', 'passphrase', { 'X-Device-Signature': 's' }),
     ).rejects.toMatchObject({ status: 429 })
     await expect(
-      routes.revokeDevice('t', 'dev-1', { 'X-Device-Signature': 's' }),
+      routes.rotate('t', '{}', '1', { 'X-Device-Signature': 's' }),
     ).rejects.toMatchObject({ status: 429 })
     expect(fetchFn).toHaveBeenCalledTimes(2)
   })

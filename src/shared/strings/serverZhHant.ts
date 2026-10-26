@@ -31,7 +31,6 @@ export const serverZhHant: typeof serverEn = {
     inviteSignIn: '登入',
     leaveBody: '會將這台電腦登出並忘記它的同步金鑰。其他電腦會保持登入。',
     leaveConfirm: '登出',
-    leaveKept: '這台電腦已登出，但伺服器無法移除它。',
     leaveTitle: '要登出你的 {product} 帳號嗎？',
     noServerDesc: '輸入你的 {product} 伺服器位址以登入。',
     providerGithub: 'GitHub',
@@ -78,7 +77,8 @@ export const serverZhHant: typeof serverEn = {
     errWrongRecoveryKey: '這不是復原金鑰。',
     newPassphrase: '新的同步密語',
     passphrase: '同步密語',
-    recoverDesc: '輸入你保存的復原金鑰，然後選擇新的同步密語。其他電腦會繼續同步。',
+    recoverDesc:
+      '輸入你保存的復原金鑰，然後選擇新的同步密語。你會取得新的復原金鑰，其他每台電腦會要求輸入一次新密語。',
     recoverTitle: '使用你的復原金鑰',
     recoveryBody:
       '忘記密語時，它可以開啟你同步的資料。這是唯一一次顯示。請把它保存在安全的地方，不要放在這台電腦上。',

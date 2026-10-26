@@ -1,10 +1,13 @@
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import { DOM_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
 import { API_HOST, type RunningServer, startServer } from './serverHarness'
 import { type ElectronApplication, _electron as electron, expect, type Page, test } from './test'
 
 const SERVER_BIN = process.env.OSTIA_SERVER_BIN
 const PASSPHRASE = 'an e2e passphrase for sync'
-const CHECK_CODE = /([A-Z2-7]{5}(?:-[A-Z2-7]{5}){4})/
+const NEW_PASSPHRASE = 'a changed e2e passphrase'
+const RECOVERY_KEY = /^([A-Z2-7]{4}-){7}[A-Z2-7]{4}$/
 const SEEDED_THEME = 'dracula'
 const CHANGED_THEME = 'ostia-light'
 const SLOW = { timeout: 30_000 }
@@ -12,6 +15,7 @@ const SLOW = { timeout: 30_000 }
 interface Machine {
   app: ElectronApplication
   win: Page
+  accountId: () => string
 }
 
 async function launchMachine(server: RunningServer, seedsTheme = true): Promise<Machine> {
@@ -34,50 +38,63 @@ async function launchMachine(server: RunningServer, seedsTheme = true): Promise<
   const win = await app.firstWindow()
   await win.waitForLoadState('domcontentloaded')
   if (seedsTheme) await expect(win.locator('html')).toHaveAttribute('data-theme', SEEDED_THEME)
-  return { app, win }
+  const configPath = join(launch.env.XDG_DATA_HOME ?? '', 'ostia', 'server-config.json')
+  const accountId = (): string =>
+    String(JSON.parse(readFileSync(configPath, 'utf8')).identity?.accountId ?? '')
+  return { app, win, accountId }
 }
 
 const settingsOf = (win: Page) => win.getByRole('region', { name: 'Settings' })
 
-async function openSettingsPage(win: Page, page: 'Server' | 'Sync'): Promise<void> {
+async function openSync(win: Page): Promise<void> {
   const settings = settingsOf(win)
   if (!(await settings.isVisible())) {
     await win.locator('.topbar').getByRole('button', { name: 'Settings' }).click()
   }
-  await settings.getByLabel('General').getByRole('button', { name: page, exact: true }).click()
+  await settings.getByLabel('General').getByRole('button', { name: 'Sync', exact: true }).click()
 }
 
-async function signIn(win: Page, invite: string): Promise<string> {
-  await openSettingsPage(win, 'Server')
+async function signIn(win: Page, invite: string): Promise<void> {
+  await openSync(win)
   const settings = settingsOf(win)
+  const method = settings.getByRole('combobox', { name: 'Sync method' })
+  await method.click()
+  await win.getByRole('option', { name: 'Ostia server' }).click()
+  await expect(method).toContainText('Ostia server')
   await settings.getByRole('textbox', { name: 'Invite code' }).fill(invite)
-  await settings.getByRole('button', { name: 'Sign in' }).click()
-  const signedIn = settings.getByText(/^Signed in as .* with an invite code\./)
-  await expect(signedIn).toBeVisible(SLOW)
-  return /^Signed in as (.*) with an invite code\./.exec(await signedIn.innerText())?.[1] ?? ''
+  await settings.getByRole('button', { name: 'Sign in', exact: true }).click()
+  await expect(settings.getByText(/^Signed in as .* with an invite code\./)).toBeVisible(SLOW)
 }
 
-async function chooseServerMethod(win: Page): Promise<void> {
-  await openSettingsPage(win, 'Sync')
-  const where = settingsOf(win).getByRole('combobox', { name: 'Where to sync' })
-  await where.click()
-  await win.getByRole('option', { name: 'Server' }).click()
-  await expect(where).toContainText('Server')
+async function saveRecoveryKey(win: Page): Promise<string> {
+  const saved = win.getByRole('dialog', { name: 'Save your recovery key' })
+  const key = saved.getByText(RECOVERY_KEY)
+  await expect(key).toBeVisible(SLOW)
+  const text = (await key.innerText()).trim()
+  await saved.getByRole('button', { name: 'I saved it' }).click()
+  await expect(saved).toBeHidden()
+  return text
 }
 
-async function setUpSync(win: Page): Promise<void> {
-  const settings = settingsOf(win)
-  await settings.getByRole('textbox', { name: 'New sync passphrase' }).fill(PASSPHRASE)
-  await settings.getByRole('textbox', { name: 'Type it again' }).fill(PASSPHRASE)
-  await settings.getByRole('button', { name: 'Turn on sync' }).click()
-  const dialog = win.getByRole('alertdialog')
-  await expect(dialog.getByText(/^([A-Z2-7]{4}-){7}[A-Z2-7]{4}$/)).toBeVisible(SLOW)
-  await dialog.getByRole('button', { name: 'I saved it' }).click()
-  await expect(settings.getByText(/Sync is on for this device\./)).toBeVisible(SLOW)
+async function createPassphrase(win: Page): Promise<string> {
+  const dialog = win.getByRole('dialog', { name: 'Create a sync passphrase' })
+  await expect(dialog).toBeVisible(SLOW)
+  await dialog.getByLabel('Sync passphrase').fill(PASSPHRASE)
+  await dialog.getByLabel('Type it again').fill(PASSPHRASE)
+  await dialog.getByRole('button', { name: 'Continue' }).click()
+  return saveRecoveryKey(win)
+}
+
+async function enterPassphrase(win: Page, passphrase: string): Promise<void> {
+  const dialog = win.getByRole('dialog', { name: 'Enter your sync passphrase' })
+  await expect(dialog).toBeVisible(SLOW)
+  await dialog.getByLabel('Sync passphrase').fill(passphrase)
+  await dialog.getByRole('button', { name: 'Continue' }).click()
+  await expect(dialog).toBeHidden(SLOW)
 }
 
 async function syncNow(win: Page): Promise<void> {
-  await openSettingsPage(win, 'Sync')
+  await openSync(win)
   await settingsOf(win).getByRole('button', { name: 'Sync now' }).click()
 }
 
@@ -86,24 +103,6 @@ async function expectTheme(win: Page, theme: string): Promise<void> {
     await syncNow(win)
     await expect(win.locator('html')).toHaveAttribute('data-theme', theme, { timeout: 2_000 })
   }).toPass({ timeout: 30_000 })
-}
-
-async function themeOnDisk(win: Page): Promise<string> {
-  return win.evaluate(async () => {
-    const res = await window.ostia.fs.read(await window.ostia.settings.path())
-    return res.ok ? String(JSON.parse(res.text).appearance?.theme) : ''
-  })
-}
-
-async function keepOtherMachineValues(win: Page): Promise<void> {
-  const other = settingsOf(win).getByRole('button', { name: 'Use the other value' })
-  await expect(other.first()).toBeVisible(SLOW)
-  while ((await other.count()) > 0) {
-    await other.first().click()
-    await expect(async () => {
-      await syncNow(win)
-    }).toPass({ timeout: 10_000 })
-  }
 }
 
 async function changeTheme(win: Page, theme: string): Promise<void> {
@@ -117,128 +116,44 @@ async function changeTheme(win: Page, theme: string): Promise<void> {
   await expect(win.locator('html')).toHaveAttribute('data-theme', theme)
 }
 
-async function makeCode(win: Page): Promise<string> {
-  const settings = settingsOf(win)
-  await settings.getByRole('button', { name: 'Make a code' }).click()
-  const code = settings
-    .getByText('One-time code', { exact: true })
-    .locator('xpath=following-sibling::*[1]')
-  await expect(code).toBeVisible(SLOW)
-  return (await code.innerText()).trim()
-}
-
-async function approveRequest(win: Page): Promise<void> {
-  const settings = settingsOf(win)
-  await expect(settings.getByText(/Asks to confirm a change/)).toBeVisible(SLOW)
-  await settings.getByRole('button', { name: 'Approve', exact: true }).click()
-}
-
 test.describe('profile sync through the server end to end', () => {
   test.skip(!SERVER_BIN, 'set OSTIA_SERVER_BIN to a built ostia-server')
 
-  test('two machines converge, a device is linked by approval, and removing one rotates the key', async () => {
-    test.setTimeout(420_000)
-    const server = await startServer(SERVER_BIN ?? '', { approverMinAge: '0s' })
+  test('sets up once, a second computer enters the passphrase once, and a passphrase change asks again once', async () => {
+    test.setTimeout(300_000)
+    const server = await startServer(SERVER_BIN ?? '')
     const machines: Machine[] = []
     try {
       const first = await launchMachine(server)
       machines.push(first)
       await signIn(first.win, server.invite())
-      await chooseServerMethod(first.win)
-      await setUpSync(first.win)
+      await createPassphrase(first.win)
+      await expect(settingsOf(first.win).getByRole('button', { name: 'Sync now' })).toBeVisible()
 
-      await openSettingsPage(first.win, 'Server')
-      const linkCode = await makeCode(first.win)
-
-      const second = await launchMachine(server)
+      const second = await launchMachine(server, false)
       machines.push(second)
-      await signIn(second.win, linkCode)
-      await chooseServerMethod(second.win)
-      const secondSettings = settingsOf(second.win)
-      await secondSettings.getByRole('button', { name: 'Approve from another device' }).click()
-      const shown = secondSettings.getByText(CHECK_CODE)
-      await expect(shown).toBeVisible(SLOW)
-      const checkCode = CHECK_CODE.exec(await shown.innerText())?.[1] ?? ''
-
-      await openSettingsPage(first.win, 'Sync')
-      const firstSettings = settingsOf(first.win)
-      const requests = firstSettings.getByRole('list', { name: 'Requests' })
-      await expect(requests.getByText(/^Check this code matches the one on /)).toBeVisible(SLOW)
-      await expect(requests.getByText(checkCode)).toBeVisible()
-      await requests.getByRole('button', { name: 'Approve', exact: true }).click()
-      await secondSettings.getByRole('button', { name: `The code ${checkCode} matches` }).click()
-      await expect(secondSettings.getByText(/Sync is on for this device\./)).toBeVisible(SLOW)
+      await signIn(second.win, server.invite(first.accountId()))
+      await enterPassphrase(second.win, PASSPHRASE)
+      await expectTheme(second.win, SEEDED_THEME)
 
       await changeTheme(first.win, CHANGED_THEME)
       await expectTheme(second.win, CHANGED_THEME)
 
-      await openSettingsPage(first.win, 'Server')
-      const thirdCodePending = makeCode(first.win)
-      await openSettingsPage(second.win, 'Server')
-      await approveRequest(second.win)
-      const thirdCode = await thirdCodePending
-
-      const third = await launchMachine(server, false)
-      machines.push(third)
-      const thirdName = await signIn(third.win, thirdCode)
-      await chooseServerMethod(third.win)
-      const thirdSettings = settingsOf(third.win)
-      await thirdSettings.getByRole('textbox', { name: 'Sync passphrase' }).fill(PASSPHRASE)
-      await thirdSettings.getByRole('button', { name: 'Unlock', exact: true }).click()
-      await expect(thirdSettings.getByText(/Sync is on for this device\./)).toBeVisible(SLOW)
-      await syncNow(third.win)
-      await keepOtherMachineValues(third.win)
-      await expect.poll(() => themeOnDisk(third.win), SLOW).toBe(CHANGED_THEME)
-
-      await openSettingsPage(first.win, 'Server')
-      await firstSettings
-        .getByRole('listitem')
-        .filter({ hasText: thirdName })
-        .getByRole('button', { name: 'Remove', exact: true })
-        .click()
-      await first.win.getByLabel('Sync passphrase').fill(PASSPHRASE)
-      await first.win.getByRole('button', { name: 'Remove device' }).click()
-      const removed = firstSettings.getByText(
-        'The device was removed and the sync key was changed.',
-      )
-      const waiting = firstSettings.getByText('Approve this on another of your devices.')
-      await expect(removed.or(waiting)).toBeVisible(SLOW)
-      if (await waiting.isVisible()) {
-        await approveRequest(second.win)
-      }
-      await expect(removed).toBeVisible(SLOW)
+      await openSync(first.win)
+      await settingsOf(first.win).getByRole('button', { name: 'Change passphrase' }).click()
+      const change = first.win.getByRole('dialog', { name: 'Change sync passphrase' })
+      await change.getByLabel('Current passphrase').fill(PASSPHRASE)
+      await change.getByLabel('New sync passphrase').fill(NEW_PASSPHRASE)
+      await change.getByLabel('Type it again').fill(NEW_PASSPHRASE)
+      await change.getByRole('button', { name: 'Change passphrase' }).click()
+      await saveRecoveryKey(first.win)
 
       await changeTheme(first.win, SEEDED_THEME)
-      await expect(async () => {
-        await syncNow(second.win)
-        await openSettingsPage(second.win, 'Server')
-        await openSettingsPage(second.win, 'Sync')
-        await expect(
-          secondSettings.getByText(/from a device that is too new is ignored until/),
-        ).toBeVisible({ timeout: 2_000 })
-      }).toPass({ timeout: 30_000 })
-      await secondSettings.getByRole('textbox', { name: 'Sync passphrase' }).fill(PASSPHRASE)
-      await secondSettings.getByRole('button', { name: 'Unlock', exact: true }).click()
-      await expect(secondSettings.getByText(/from a device that is too new/)).toBeHidden(SLOW)
+      await syncNow(first.win)
+      await syncNow(second.win)
+      await enterPassphrase(second.win, NEW_PASSPHRASE)
       await expectTheme(second.win, SEEDED_THEME)
-
-      await openSettingsPage(third.win, 'Sync')
-      await syncNow(third.win)
-      await expect(
-        thirdSettings.getByText('This computer is not signed in to the server.').first(),
-      ).toBeVisible(SLOW)
-
-      await openSettingsPage(first.win, 'Server')
-      const devices = firstSettings.getByRole('list', { name: 'Devices' }).getByRole('listitem')
-      await expect(devices).toHaveCount(2, SLOW)
-      await openSettingsPage(second.win, 'Server')
-      await secondSettings.getByRole('button', { name: 'Sign out', exact: true }).click()
-      await second.win
-        .getByRole('alertdialog')
-        .getByRole('button', { name: 'Sign out', exact: true })
-        .click()
-      await expect(secondSettings.getByText(/^Signed in as /)).toBeHidden(SLOW)
-      await expect(devices).toHaveCount(1, { timeout: 40_000 })
+      await expect(second.win.getByRole('dialog')).toBeHidden()
     } finally {
       for (const machine of machines) await machine.app.close()
       await server.stop()

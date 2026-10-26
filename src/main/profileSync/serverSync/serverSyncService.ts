@@ -1,12 +1,7 @@
-import type {
-  ServerSyncResult,
-  ServerSyncState,
-  ServerSyncStatus,
-} from '../../../shared/profileSync/serverSync'
+import type { ServerSyncResult, ServerSyncStatus } from '../../../shared/profileSync/serverSync'
 import type { ServerAccount } from '../../server/serverAccount'
-import { ServerError } from '../../server/serverClient'
 import type { SyncKeyring } from './syncKeyring'
-import { changePassphrase, type Rekey } from './syncPassphrase'
+import { changePassphrase, type Rekey, recoverWithKey, setupKey } from './syncPassphrase'
 
 type ServiceAccount = Pick<
   ServerAccount,
@@ -21,14 +16,13 @@ export interface ServiceDeps {
 
 const SIGNED_OUT: ServerSyncStatus = { state: 'signed-out', host: null }
 
-function stateOf(error: unknown): ServerSyncState {
-  if (error instanceof ServerError && error.status === 404) return 'unsupported'
-  return 'unreachable'
-}
-
 export class ServerSyncService {
   constructor(private readonly deps: ServiceDeps) {
     deps.account.beforeSignOut(() => deps.keyring.forget())
+  }
+
+  private get ctx() {
+    return { account: this.deps.account, keyring: this.deps.keyring }
   }
 
   async status(): Promise<ServerSyncStatus> {
@@ -38,10 +32,11 @@ export class ServerSyncService {
     const host = target.host
     if (keyring.key()) return { state: 'ready', host }
     try {
-      const slots = await keyring.slots()
-      return { state: slots.has('passphrase') ? 'locked' : 'needs-setup', host }
-    } catch (error) {
-      return { state: stateOf(error), host }
+      const served = await keyring.served()
+      if (served === 'unsupported') return { state: 'unsupported', host }
+      return { state: served === 'set' ? 'locked' : 'needs-setup', host }
+    } catch {
+      return { state: 'unreachable', host }
     }
   }
 
@@ -50,7 +45,7 @@ export class ServerSyncService {
   }
 
   async setup(passphrase: string, confirm: string): Promise<ServerSyncResult> {
-    return this.done(await this.deps.keyring.setup(passphrase, confirm))
+    return this.done(await setupKey(this.ctx, passphrase, confirm))
   }
 
   async unlock(passphrase: string): Promise<ServerSyncResult> {
@@ -62,7 +57,8 @@ export class ServerSyncService {
     passphrase: string,
     confirm: string,
   ): Promise<ServerSyncResult> {
-    return this.done(await this.deps.keyring.recover(recoveryKey, passphrase, confirm))
+    const { rekey } = this.deps
+    return this.done(await recoverWithKey(this.ctx, recoveryKey, passphrase, confirm, rekey))
   }
 
   async changePassphrase(
@@ -70,7 +66,7 @@ export class ServerSyncService {
     next: string,
     confirm: string,
   ): Promise<ServerSyncResult> {
-    const { account, keyring, rekey } = this.deps
-    return this.done(await changePassphrase({ account, keyring }, current, next, confirm, rekey))
+    const { rekey } = this.deps
+    return this.done(await changePassphrase(this.ctx, current, next, confirm, rekey))
   }
 }

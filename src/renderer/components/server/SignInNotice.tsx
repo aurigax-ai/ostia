@@ -9,7 +9,10 @@ export function SignInNotice({ text }: { text: string }): JSX.Element {
     <Notice
       tone="info"
       actions={
-        <TextLink size="sm" onClick={() => useUIStore.getState().openSettings('sync')}>
+        <TextLink
+          size="sm"
+          onClick={() => useUIStore.getState().openSettings('sync', { signIn: true })}
+        >
           {d.server.signIn}
         </TextLink>
       }

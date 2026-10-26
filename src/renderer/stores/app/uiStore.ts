@@ -10,6 +10,7 @@ interface OpenSettingsOptions {
   extension?: string
   extensionRow?: boolean
   query?: string
+  signIn?: boolean
 }
 
 interface UIState {
@@ -23,6 +24,7 @@ interface UIState {
   settingsExtension: string | null
   settingsExtensionRow: boolean
   settingsQuery: string | null
+  settingsSignIn: boolean
   browseExtensionsOpen: boolean
   filesOpen: boolean
   filesSearchOpen: boolean
@@ -63,6 +65,7 @@ export const useUIStore = create<UIState>((set, get) => ({
   settingsExtension: null,
   settingsExtensionRow: false,
   settingsQuery: null,
+  settingsSignIn: false,
   browseExtensionsOpen: false,
   filesOpen: false,
   filesSearchOpen: false,
@@ -97,6 +100,7 @@ export const useUIStore = create<UIState>((set, get) => ({
       settingsExtension: target.extension,
       settingsExtensionRow: options.extensionRow ?? false,
       settingsQuery: options.query ?? null,
+      settingsSignIn: options.signIn ?? false,
       promptPreviewPaneId: options.previewPaneId ?? null,
     })
   },

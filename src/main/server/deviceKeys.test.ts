@@ -34,14 +34,18 @@ describe('device keys', () => {
     )
   })
 
-  it('SYA-C190 signs the stamped revoke and the manifest-bound clean-up exactly as the vectors', () => {
+  it('SYA-C190 signs the key replacement and the manifest-bound clean-up exactly as the vectors', () => {
     const keys = vectorKeys()
-    expect(vectors.revokeMessage).toBe(
-      `ostia-server/revoke/v2\n${vectors.deviceId}\n${vectors.timestamp}\n${vectors.revokeTarget}`,
+    expect(digestOf(vectors.syncRotateBody)).toBe(vectors.syncRotateBodyHash)
+    expect(vectors.syncRotateMessage).toBe(
+      `ostia-server/sync-rotate/v1\n${vectors.deviceId}\n${vectors.timestamp}\n${vectors.ifMatch}\n${vectors.syncRotateBodyHash}`,
     )
     expect(
-      signStamped(keys, 'revoke', vectors.deviceId, vectors.timestamp, [vectors.revokeTarget]),
-    ).toBe(vectors.revokeSignature)
+      signStamped(keys, 'syncRotate', vectors.deviceId, vectors.timestamp, [
+        String(vectors.ifMatch),
+        vectors.syncRotateBodyHash,
+      ]),
+    ).toBe(vectors.syncRotateSignature)
     expect(digestOf(vectors.syncGcBody)).toBe(vectors.syncGcBodyHash)
     expect(vectors.syncGcMessage).toBe(
       `ostia-server/sync-gc/v1\n${vectors.deviceId}\n${vectors.timestamp}\n${vectors.ifMatch}\n${vectors.syncGcBodyHash}`,

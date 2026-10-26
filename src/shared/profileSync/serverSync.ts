@@ -1,4 +1,4 @@
-export type ServerSyncState =
+type ServerSyncState =
   | 'signed-out'
   | 'unsupported'
   | 'unreachable'

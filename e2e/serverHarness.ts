@@ -10,7 +10,7 @@ export interface RunningServer {
   port: number
   caPath: string
   log: () => string
-  invite: () => string
+  invite: (accountId?: string) => string
   stop: () => Promise<void>
 }
 
@@ -23,7 +23,7 @@ function configToml(
   dir: string,
   certPath: string,
   keyPath: string,
-  options: { approverMinAge?: string; push?: PushConfig },
+  options: { push?: PushConfig },
 ): string {
   return [
     `data_dir = "${join(dir, 'data')}"`,
@@ -43,7 +43,6 @@ function configToml(
     'publish = true',
     'sync = true',
     `push = ${options.push ? 'true' : 'false'}`,
-    ...(options.approverMinAge ? ['[auth]', `approver_min_age = "${options.approverMinAge}"`] : []),
     ...(options.push
       ? [
           '[push.fcm]',
@@ -86,7 +85,7 @@ function selfSignedCertificate(dir: string): { certPath: string; keyPath: string
 
 export async function startServer(
   binary: string,
-  options: { approverMinAge?: string; push?: PushConfig } = {},
+  options: { push?: PushConfig } = {},
 ): Promise<RunningServer> {
   const dir = mkdtempSync(join(tmpdir(), 'ostia-server-e2e-'))
   const { certPath, keyPath } = selfSignedCertificate(dir)
@@ -112,8 +111,12 @@ export async function startServer(
     port,
     caPath: certPath,
     log: () => log,
-    invite: () =>
-      execFileSync(binary, ['admin', '-config', configPath, 'invite'], { encoding: 'utf8' })
+    invite: (accountId) =>
+      execFileSync(
+        binary,
+        ['admin', '-config', configPath, 'invite', ...(accountId ? ['-account', accountId] : [])],
+        { encoding: 'utf8' },
+      )
         .split('\n')[0]
         ?.trim() ?? '',
     stop: async () => {

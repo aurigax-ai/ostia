@@ -65,9 +65,14 @@ function exchange(
 export async function signInThroughSettings(win: Page, invite: string): Promise<void> {
   await win.locator('.topbar').getByRole('button', { name: 'Settings' }).click()
   const settings = win.getByRole('region', { name: 'Settings' })
-  await settings.getByRole('button', { name: 'Server' }).click()
+  await settings.getByRole('button', { name: 'Remote' }).click()
+  const method = settings.getByRole('combobox', { name: 'Connection method' })
+  await method.click()
+  await win.getByRole('option', { name: 'Ostia Relay' }).click()
+  await expect(method).toContainText('Ostia Relay')
+  await settings.getByRole('button', { name: 'Sign in', exact: true }).click()
   await settings.getByRole('textbox', { name: 'Invite code' }).fill(invite)
-  await settings.getByRole('button', { name: 'Sign in' }).click()
+  await settings.getByRole('button', { name: 'Sign in', exact: true }).click()
   await expect(settings.getByText(/^Signed in as .* with an invite code\.$/)).toBeVisible({
     timeout: 20_000,
   })
@@ -83,10 +88,11 @@ export interface Pairing {
 export async function startRelayedRemote(win: Page): Promise<Pairing> {
   const settings = win.getByRole('region', { name: 'Settings' })
   await settings.getByRole('button', { name: 'Remote' }).click()
-  await settings.getByRole('switch', { name: 'Through a relay server' }).click()
-  await expect(settings.getByRole('switch', { name: 'Through a relay server' })).toBeChecked()
+  await expect(settings.getByRole('combobox', { name: 'Connection method' })).toContainText(
+    'Ostia Relay',
+  )
   await settings.getByRole('switch', { name: 'Enable remote access' }).click()
-  const pairButton = settings.getByRole('button', { name: 'Show pairing code' })
+  const pairButton = settings.getByRole('button', { name: 'Show QR' })
   await expect(pairButton).toBeEnabled({ timeout: 20_000 })
   await pairButton.click()
   await settings.getByRole('button', { name: 'Connection details' }).click()

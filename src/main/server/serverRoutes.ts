@@ -5,7 +5,6 @@ export interface ServerInfo {
   api: number
   modules: { relay: boolean; publish: boolean; sync: boolean; push: boolean }
   auth: { invite: boolean; github: boolean }
-  syncGCBound?: boolean
   deviceInactiveAfterSeconds?: number
   relayDomain: string
   limits?: { shareMaxBytes?: number; allowPublic?: boolean; allowNever?: boolean }
@@ -64,19 +63,9 @@ export interface SessionGrant {
 
 export interface ManifestView {
   version: number
+  keyVersion: number
   blob: string
   updatedAt: number
-}
-
-export interface WrapSlot {
-  slot: string
-  updatedAt: number
-}
-
-export interface RotateBody {
-  ifMatch: number
-  manifest: string
-  wraps: { passphrase: string; recovery: string }
 }
 
 export interface PushTicket {
@@ -122,12 +111,6 @@ export function serverRoutes(client: ServerClient) {
     endSession: (token: string) => client.request<void>('DELETE', '/v1/auth/session', { token }),
     heartbeat: (token: string) =>
       client.request<void>('POST', '/v1/devices/heartbeat', { token, retryRateLimited: false }),
-    revokeDevice: (token: string, id: string, headers: Record<string, string>) =>
-      client.request<void>('DELETE', `/v1/devices/${encodeURIComponent(id)}`, {
-        token,
-        headers,
-        retryRateLimited: false,
-      }),
     manifest: (token: string) =>
       client.request<ManifestView>('GET', '/v1/sync/manifest', { token }),
     putManifest: (token: string, json: string, ifMatch: string, signed: Record<string, string>) =>
@@ -141,18 +124,19 @@ export function serverRoutes(client: ServerClient) {
       client.request<Buffer>('GET', `/v1/sync/blobs/${id}`, { token, asBytes: true }),
     putBlob: (token: string, id: string, bytes: Uint8Array<ArrayBuffer>) =>
       client.request<void>('PUT', `/v1/sync/blobs/${id}`, { token, bytes }),
-    wraps: (token: string) =>
-      client.request<{ wraps: WrapSlot[] }>('GET', '/v1/sync/wraps', { token }),
     secretWrap: (token: string, slot: 'passphrase' | 'recovery', headers: Record<string, string>) =>
       client.request<{ slot: string; blob: string }>('GET', `/v1/sync/wraps/${slot}`, {
         token,
         headers,
         retryRateLimited: false,
       }),
-    putWrap: (token: string, slot: string, blob: string) =>
-      client.request<void>('PUT', `/v1/sync/wraps/${slot}`, { token, body: { blob } }),
-    rotate: (token: string, body: RotateBody) =>
-      client.request<{ version: number }>('POST', '/v1/sync/rotate', { token, body }),
+    rotate: (token: string, json: string, ifMatch: string, signed: Record<string, string>) =>
+      client.request<{ version: number; keyVersion: number }>('POST', '/v1/sync/rotate', {
+        token,
+        json,
+        headers: { 'If-Match': ifMatch, ...signed },
+        retryRateLimited: false,
+      }),
     gc: (token: string, json: string, ifMatch: string, signed: Record<string, string>) =>
       client.request<{ deleted: number }>('POST', '/v1/sync/gc', {
         token,

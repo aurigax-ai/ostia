@@ -16,6 +16,7 @@ import { Button } from '@/components/ui/button'
 import { SHORT_DATE_TIME } from '@/lib/app/localeFormat'
 import { fmt, useDict } from '@/lib/app/useDict'
 import { useSettingsStore } from '@/stores/app/settingsStore'
+import { useUIStore } from '@/stores/app/uiStore'
 import { SecretFormDialog } from './SecretFormDialog'
 import { SyncSecretsSection } from './SyncSecretsSection'
 import { type PassphraseStep, passphraseStep } from './syncPassphraseSteps'
@@ -95,13 +96,14 @@ export function SyncSection(): JSX.Element {
   const method: Method = chosen === 'server' ? 'server' : dir ? 'folder' : 'off'
   const server = method === 'server'
   const account = useServerStatus()
+  const signInAsked = useUIStore((s) => s.settingsSignIn)
+  const accountShown = server || account.signedIn || signInAsked
   const [status, setStatus] = useSyncStatus()
   const [serverStatus, setServerStatus] = useSyncServerStatus(server && account.signedIn)
   const ready = !server || serverStatus.state === 'ready'
   const needed = server && account.signedIn ? neededStep(serverStatus) : null
   const [step, setStep] = usePassphrasePrompt(needed)
   const [busy, setBusy] = useState(false)
-  const [kept, setKept] = useState(false)
   const time = useMemo(() => new Intl.DateTimeFormat(locale, SHORT_DATE_TIME), [locale])
   const active = method === 'folder' || (server && account.signedIn)
 
@@ -122,7 +124,6 @@ export function SyncSection(): JSX.Element {
       return
     }
     if (next === 'server') {
-      setKept(false)
       await setSyncMethod('server')
       await syncNow()
       return
@@ -196,17 +197,13 @@ export function SyncSection(): JSX.Element {
           </Button>
         </ControlRow>
       ) : null}
-      {server && account.signedIn ? (
+      {accountShown && account.signedIn ? (
         <SignedInRows
           status={account}
           onChangePassphrase={serverStatus.state === 'ready' ? () => setStep('change') : null}
-          onLeft={setKept}
         />
       ) : null}
-      {server && !account.signedIn ? <SignedOutRows status={account} /> : null}
-      {server && kept && !account.signedIn ? (
-        <Notice tone="info">{d.server.leaveKept}</Notice>
-      ) : null}
+      {accountShown && !account.signedIn ? <SignedOutRows status={account} /> : null}
       {active && status.skipped.length > 0 ? (
         <Notice>{fmt(d.sync.skipped, { files: status.skipped.join(', ') })}</Notice>
       ) : null}

@@ -9,5 +9,7 @@
     "src/renderer/components/settings/syncPassphraseSteps.",
     "src/shared/profileSync/serverSync."
   ],
-  "specs": ["e2e/server-sync.spec.ts"]
+  "specs": [
+    "e2e/server-sync.spec.ts"
+  ]
 }

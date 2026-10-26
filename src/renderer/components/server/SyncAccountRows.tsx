@@ -75,19 +75,16 @@ export function SignedOutRows({ status }: { status: ServerStatus }): JSX.Element
 export function SignedInRows({
   status,
   onChangePassphrase,
-  onLeft,
 }: {
   status: ServerStatus
   onChangePassphrase: (() => void) | null
-  onLeft: (kept: boolean) => void
 }): JSX.Element {
   const d = useDict()
   const [leaving, setLeaving] = useState(false)
 
   const signOut = async (): Promise<void> => {
     setLeaving(false)
-    const res = await window.ostia.server.signOut()
-    onLeft(res.ok && res.deviceKept)
+    await window.ostia.server.signOut()
   }
 
   return (

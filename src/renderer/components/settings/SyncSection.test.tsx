@@ -5,6 +5,7 @@ import { act, cleanup, render, screen, waitFor, within } from '@testing-library/
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { useSettingsStore } from '@/stores/app/settingsStore'
+import { useUIStore } from '@/stores/app/uiStore'
 import { renderSettled } from '../../../../test/render'
 import { SyncSection } from './SyncSection'
 
@@ -191,6 +192,28 @@ describe('Settings › Sync', () => {
       'the new passphrase',
     )
     expect(await screen.findByText('WXYZ-2345')).toBeInTheDocument()
+  })
+
+  it('SYV-C9 a Sign in link shows the account without turning sync on', async () => {
+    vi.mocked(window.ostia.server.status).mockResolvedValue({
+      ...SIGNED_IN,
+      signedIn: false,
+      provider: null,
+      deviceName: null,
+    })
+    vi.mocked(window.ostia.server.info).mockResolvedValue({
+      ok: true,
+      offer: { relay: true, publish: true, sync: true, push: true, invite: true, github: true },
+    })
+    useUIStore.getState().openSettings('sync', { signIn: true })
+    await renderSettled(<SyncSection />)
+    expect(screen.getByRole('combobox', { name: 'Sync method' })).toHaveTextContent('Off')
+    expect(screen.getByRole('button', { name: 'Sign in with GitHub' })).toBeInTheDocument()
+    expect(window.ostia.sync.run).not.toHaveBeenCalled()
+    act(() => useUIStore.getState().openSettings('sync'))
+    await waitFor(() =>
+      expect(screen.queryByRole('button', { name: 'Sign in with GitHub' })).toBeNull(),
+    )
   })
 
   it('SYV-C8 explains a missing folder from live status updates', async () => {

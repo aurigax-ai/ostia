@@ -75,9 +75,10 @@ async function launchApp(server: RunningServer, dataHome: string) {
 async function signIn(win: Page, invite: string): Promise<void> {
   await win.locator('.topbar').getByRole('button', { name: 'Settings' }).click()
   const settings = settingsOf(win)
-  await settings.getByRole('button', { name: 'Server', exact: true }).click()
+  await settings.getByRole('button', { name: 'Shared artifacts', exact: true }).click()
+  await settings.getByRole('button', { name: 'Sign in', exact: true }).click()
   await settings.getByRole('textbox', { name: 'Invite code' }).fill(invite)
-  await settings.getByRole('button', { name: 'Sign in' }).click()
+  await settings.getByRole('button', { name: 'Sign in', exact: true }).click()
   await expect(settings.getByText(/^Signed in as .* with an invite code\./)).toBeVisible(SLOW)
 }
 

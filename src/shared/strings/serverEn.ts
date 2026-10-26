@@ -31,7 +31,6 @@ export const serverEn = {
     inviteSignIn: 'Sign in',
     leaveBody: 'Signs this computer out and forgets its sync key. Other computers stay signed in.',
     leaveConfirm: 'Sign out',
-    leaveKept: 'Signed out here, but the server could not remove this computer.',
     leaveTitle: 'Sign out of your {product} account?',
     noServerDesc: 'Enter the address of your {product} server to sign in.',
     providerGithub: 'GitHub',
@@ -81,7 +80,7 @@ export const serverEn = {
     newPassphrase: 'New sync passphrase',
     passphrase: 'Sync passphrase',
     recoverDesc:
-      'Enter the recovery key you saved, then choose a new sync passphrase. Other computers keep syncing.',
+      'Enter the recovery key you saved, then choose a new sync passphrase. You get a new recovery key, and every other computer asks for the new passphrase once.',
     recoverTitle: 'Use your recovery key',
     recoveryBody:
       'It opens your synced data if you forget the passphrase. This is the only time it is shown. Keep it somewhere safe, away from this computer.',

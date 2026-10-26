@@ -47,7 +47,7 @@ describe('key lifecycle', () => {
     expect(other.keyring.key()?.equals(first.keyring.key() ?? Buffer.alloc(0))).toBe(true)
   })
 
-  it('SSY-C33 sets a new passphrase with the recovery key in any spacing, and others keep syncing', async () => {
+  it('SSY-C33 sets a new passphrase and key with the recovery key in any spacing, and asks others once', async () => {
     const { server, first, recoveryKey } = await world()
     const other = await join(server, first, false)
     expect(await other.service.recover('AAAA-BBBB', NEW_PASSPHRASE, NEW_PASSPHRASE)).toMatchObject({
@@ -55,12 +55,14 @@ describe('key lifecycle', () => {
       error: 'wrong-recovery-key',
     })
     const loose = recoveryKey.toLowerCase().replaceAll('-', ' ')
-    expect((await other.service.recover(loose, NEW_PASSPHRASE, NEW_PASSPHRASE)).ok).toBe(true)
+    const res = await other.service.recover(loose, NEW_PASSPHRASE, NEW_PASSPHRASE)
+    expect(res.ok).toBe(true)
+    expect(res.recoveryKey).toMatch(/^([A-Z2-7]{4}-){7}[A-Z2-7]{4}$/)
     expect((await other.service.status()).state).toBe('ready')
-    expect((await first.service.status()).state).toBe('ready')
-    const third = await join(server, first, false)
-    expect((await third.service.unlock(PASSPHRASE)).ok).toBe(false)
-    expect((await third.service.unlock(NEW_PASSPHRASE)).ok).toBe(true)
+    expect((await first.sync.run()).status.error).toBe('server-locked')
+    expect((await first.service.status()).state).toBe('locked')
+    expect((await first.service.unlock(PASSPHRASE)).ok).toBe(false)
+    expect((await first.service.unlock(NEW_PASSPHRASE)).ok).toBe(true)
   })
 
   it('SSY-C35 wraps with 64 MiB, 3 passes and 4 lanes unless a test asks for less', async () => {
@@ -130,7 +132,7 @@ describe('changing the passphrase', () => {
       error: 'too-short',
     })
     expect(server.syncData.get(account)?.manifests.length).toBe(before)
-    expect(server.syncData.get(account)?.keyVersion).toBe(0)
+    expect(server.syncData.get(account)?.keyVersion).toBe(1)
   })
 
   it('SSY-C82 a key from a wrap must open the manifest the server serves', async () => {
@@ -173,7 +175,7 @@ describe('changing the passphrase', () => {
 
 describe('cleaning up and signing out', () => {
   it('SSY-C64 cleans up unlisted blobs after a push, once a day, on a server that binds it to the manifest', async () => {
-    const { server, first } = await world({ syncGCBound: true })
+    const { server, first } = await world()
     const account = server.devices.get('device1')?.accountId ?? ''
     const stored = () => server.syncData.get(account)?.blobs.size ?? 0
     const edit = async (theme: string): Promise<void> => {
@@ -196,71 +198,21 @@ describe('cleaning up and signing out', () => {
     expect((await first.sync.run()).status.state).toBe('ok')
   })
 
-  it('SSY-C75 never cleans up on a server that does not offer the bound route', async () => {
-    const { server, first } = await world()
-    const account = server.devices.get('device1')?.accountId ?? ''
-    const stored = () => server.syncData.get(account)?.blobs.size ?? 0
-    const edit = async (theme: string): Promise<void> => {
-      first.writeSettings({ appearance: { theme } }, server.now() / 60_000)
-      await first.sync.run()
-    }
-    await edit('dark')
-    await edit('light')
-    server.advance(25 * 3_600_000)
-    const before = stored()
-    await edit('blue')
-    expect(stored()).toBeGreaterThan(before)
-    expect(server.requests.some((r) => r.includes('/v1/sync/gc'))).toBe(false)
-  })
-
-  it('SSY-C71 deletes its own device from the server when it signs out', async () => {
-    const { server, first } = await world()
-    const second = await join(server, first)
-    const id = second.account.identity()?.deviceId ?? ''
-    expect(server.devices.has(id)).toBe(true)
-    expect(await second.account.signOut()).toEqual({ ok: true, deviceKept: false })
-    expect(server.devices.has(id)).toBe(false)
-    expect(second.account.signedIn()).toBe(false)
-  })
-
-  it('SSY-C76 deletes the synced profile from the server when its last device signs out', async () => {
-    const { server, first } = await world()
-    first.writeSettings({ appearance: { theme: 'dark' } }, 1)
-    await first.sync.run()
-    const id = first.account.identity()?.deviceId ?? ''
-    const account = server.devices.get(id)?.accountId ?? ''
-    expect(server.syncData.get(account)?.manifests.length).toBeGreaterThan(0)
-    expect(await first.account.signOut()).toEqual({ ok: true, deviceKept: false })
-    expect(server.devices.has(id)).toBe(false)
-    expect(server.syncData.has(account)).toBe(false)
-  })
-
-  it('SSY-C73 waits for the sign-out hooks, then deletes the device row, then ends the session', async () => {
+  it('SSY-C71 signs out by ending the session, forgetting the key and leaving the row to the server', async () => {
     const { server, first } = await world()
     const second = await join(server, first)
     const id = second.account.identity()?.deviceId ?? ''
     const seen: string[] = []
     second.account.beforeSignOut(async () => {
       await new Promise((resolve) => setTimeout(resolve, 80))
-      seen.push(`hook sees the device row: ${server.devices.has(id)}`)
+      seen.push(`hook sees the key: ${second.keyring.key() !== null}`)
     })
     vi.spyOn(second.session, 'end').mockImplementation(async () => {
-      seen.push(`session ends after the row left: ${!server.devices.has(id)}`)
+      seen.push('session ends after the hooks')
     })
-    await second.account.signOut()
-    expect(seen).toEqual([
-      'hook sees the device row: true',
-      'session ends after the row left: true',
-    ])
-    expect(server.removed).toContain(id)
-  })
-
-  it('SSY-C72 lets the first device delete itself too', async () => {
-    const { server, first } = await world()
-    await join(server, first)
-    const id = first.account.identity()?.deviceId ?? ''
-    expect(await first.account.signOut()).toEqual({ ok: true, deviceKept: false })
-    expect(first.account.signedIn()).toBe(false)
-    expect(server.devices.has(id)).toBe(false)
+    expect(await second.account.signOut()).toEqual({ ok: true })
+    expect(seen).toEqual(['hook sees the key: false', 'session ends after the hooks'])
+    expect(second.account.signedIn()).toBe(false)
+    expect(server.devices.has(id)).toBe(true)
   })
 })

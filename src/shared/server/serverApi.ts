@@ -34,10 +34,6 @@ export interface ServerOffer {
   github: boolean
 }
 
-export type ServerSignOutResult =
-  | { ok: true; deviceKept: boolean }
-  | { ok: false; error: ServerFailure }
-
 export type ServerActionResult = { ok: true } | { ok: false; error: ServerFailure }
 
 export type ServerInfoResult =
@@ -62,7 +58,7 @@ interface ServerApi {
   githubPoll: () => Promise<GithubPollResult>
   githubCancel: () => Promise<void>
   openVerification: () => Promise<void>
-  signOut: () => Promise<ServerSignOutResult>
+  signOut: () => Promise<ServerActionResult>
   onChanged: (cb: (status: ServerStatus) => void) => () => void
 }
 

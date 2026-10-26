@@ -16,7 +16,7 @@ const CHALLENGE_CONTEXT = 'ostia-server/auth/v1'
 const STAMPED_CONTEXTS = {
   wrapRead: 'ostia-server/wrap-read/v1',
   manifestPut: 'ostia-server/manifest-put/v1',
-  revoke: 'ostia-server/revoke/v2',
+  syncRotate: 'ostia-server/sync-rotate/v1',
   syncGc: 'ostia-server/sync-gc/v1',
 }
 export type StampedKind = keyof typeof STAMPED_CONTEXTS

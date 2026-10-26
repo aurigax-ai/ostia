@@ -75,7 +75,7 @@ describe('Settings › Remote through Ostia Relay', () => {
     )
     const openSettings = vi.spyOn(useUIStore.getState(), 'openSettings')
     await userEvent.setup().click(screen.getByRole('button', { name: 'Sign in' }))
-    expect(openSettings).toHaveBeenCalledWith('sync')
+    expect(openSettings).toHaveBeenCalledWith('sync', { signIn: true })
   })
 
   it('RLY-C49 choosing Ostia Relay turns every other method off', async () => {

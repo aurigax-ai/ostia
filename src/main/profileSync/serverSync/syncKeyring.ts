@@ -3,18 +3,10 @@ import { ServerError } from '../../server/serverClient'
 import { hostOf } from '../../server/serverUrl'
 import type { Argon2Cost } from '../argon2'
 import { newRecoveryKey, normalizeRecoveryKey } from '../secretCrypto'
-import {
-  newProfileKey,
-  openManifest,
-  PRODUCTION_ARGON,
-  unwrapWithSecret,
-  wrapWithSecret,
-} from './syncCrypto'
+import { openManifest, PRODUCTION_ARGON, unwrapWithSecret, wrapWithSecret } from './syncCrypto'
 import type { SyncKeyStore } from './syncKeyStore'
 
 const PASSPHRASE_MIN = 12
-const PASSPHRASE_SLOT = 'passphrase'
-const RECOVERY_SLOT = 'recovery'
 const GC_INTERVAL_MS = 24 * 60 * 60 * 1000
 
 export type KeyringAccount = Pick<
@@ -35,8 +27,9 @@ export type KeyringError =
   | 'unreachable'
   | 'failed'
 
-export type SetupResult = { ok: true; recoveryKey: string } | { ok: false; error: KeyringError }
 export type UnlockResult = { ok: true } | { ok: false; error: KeyringError }
+
+export type ServedKey = 'none' | 'set' | 'unsupported'
 
 export interface SyncTarget {
   id: string
@@ -45,7 +38,6 @@ export interface SyncTarget {
 }
 
 export interface SecretWraps {
-  key: Buffer
   passphrase: string
   recovery: string
   recoveryKey: string
@@ -105,11 +97,14 @@ export class SyncKeyring {
     if (target) this.store.forgetKey(target.id)
   }
 
-  slots(): Promise<Set<string>> {
-    return this.account.authed(async (token, routes) => {
-      const { wraps } = await routes.wraps(token)
-      return new Set(wraps.map((w) => w.slot))
-    })
+  async served(): Promise<ServedKey> {
+    try {
+      await this.account.authed((token, routes) => routes.manifest(token))
+      return 'set'
+    } catch (error) {
+      if (!(error instanceof ServerError) || error.status !== 404) throw error
+      return error.code === 'no-manifest' ? 'none' : 'unsupported'
+    }
   }
 
   async wraps(key: Buffer, passphrase: string): Promise<SecretWraps> {
@@ -119,41 +114,18 @@ export class SyncKeyring {
       wrapWithSecret(key, normalizeRecoveryKey(recoveryKey), this.cost),
     ])
     return {
-      key,
       passphrase: forPassphrase.toString('base64url'),
       recovery: forRecovery.toString('base64url'),
       recoveryKey,
     }
   }
 
-  async setup(passphrase: string, confirm: string): Promise<SetupResult> {
-    if (!this.account.signedIn()) return { ok: false, error: 'not-signed-in' }
-    const problem = passphraseProblem(passphrase, confirm)
-    if (problem) return { ok: false, error: problem }
-    try {
-      if ((await this.slots()).has(PASSPHRASE_SLOT)) return { ok: false, error: 'exists' }
-      const made = await this.wraps(newProfileKey(), passphrase)
-      await this.account.authed(async (token, routes) => {
-        await routes.putWrap(token, PASSPHRASE_SLOT, made.passphrase)
-        await routes.putWrap(token, RECOVERY_SLOT, made.recovery)
-      })
-      if (!this.keep(made.key)) return { ok: false, error: 'unavailable' }
-      return { ok: true, recoveryKey: made.recoveryKey }
-    } catch (error) {
-      return { ok: false, error: keyringErrorOf(error) }
-    }
-  }
-
-  private secretWrap(slot: 'passphrase' | 'recovery') {
-    return this.account.authed((token, routes) =>
+  async openWrap(slot: 'passphrase' | 'recovery', secret: string): Promise<Buffer | null> {
+    const wrap = await this.account.authed((token, routes) =>
       this.account
         .signer()
         .signed('wrapRead', (headers) => routes.secretWrap(token, slot, headers), [slot]),
     )
-  }
-
-  async openWrap(slot: 'passphrase' | 'recovery', secret: string): Promise<Buffer | null> {
-    const wrap = await this.secretWrap(slot)
     return unwrapWithSecret(fromB64(wrap.blob), secret)
   }
 
@@ -167,12 +139,11 @@ export class SyncKeyring {
     }
   }
 
-  private async openWith(
+  async opened(
     slot: 'passphrase' | 'recovery',
     secret: string,
     wrong: KeyringError,
-    newPassphrase: string | null,
-  ): Promise<UnlockResult> {
+  ): Promise<{ ok: true; key: Buffer } | { ok: false; error: KeyringError }> {
     if (!this.account.signedIn()) return { ok: false, error: 'not-signed-in' }
     try {
       const key = await this.openWrap(slot, secret).catch((error: unknown) => {
@@ -182,32 +153,16 @@ export class SyncKeyring {
       if (key === undefined) return { ok: false, error: 'no-wrap' }
       if (!key) return { ok: false, error: wrong }
       if (!(await this.opensServedManifest(key))) return { ok: false, error: 'key-differs' }
-      if (newPassphrase !== null) {
-        const wrap = await wrapWithSecret(key, newPassphrase, this.cost)
-        await this.account.authed((token, routes) =>
-          routes.putWrap(token, PASSPHRASE_SLOT, wrap.toString('base64url')),
-        )
-      }
-      if (!this.keep(key)) return { ok: false, error: 'unavailable' }
-      return { ok: true }
+      return { ok: true, key }
     } catch (error) {
       return { ok: false, error: keyringErrorOf(error) }
     }
   }
 
-  unlock(passphrase: string): Promise<UnlockResult> {
-    return this.openWith(PASSPHRASE_SLOT, passphrase, 'wrong-password', null)
-  }
-
-  recover(recoveryKey: string, passphrase: string, confirm: string): Promise<UnlockResult> {
-    const problem = passphraseProblem(passphrase, confirm)
-    if (problem) return Promise.resolve({ ok: false, error: problem })
-    return this.openWith(
-      RECOVERY_SLOT,
-      normalizeRecoveryKey(recoveryKey),
-      'wrong-recovery-key',
-      passphrase,
-    )
+  async unlock(passphrase: string): Promise<UnlockResult> {
+    const res = await this.opened('passphrase', passphrase, 'wrong-password')
+    if (!res.ok) return res
+    return this.keep(res.key) ? { ok: true } : { ok: false, error: 'unavailable' }
   }
 
   gcDue(): boolean {

@@ -1,7 +1,6 @@
 import { randomBytes } from 'node:crypto'
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http'
 import type { AddressInfo } from 'node:net'
-import { accountRoutes } from './fakeAccountRoutes'
 import { verifyEd25519 } from './fakeCrypto'
 import { newPushState, type PushState, pushRoutes } from './fakePushRoutes'
 import { FakeRelay, type PhoneStream } from './fakeRelay'
@@ -54,7 +53,6 @@ export interface FakeServerOptions {
   quotaBytes?: number
   maxBlobBytes?: number
   gcGraceMs?: number
-  syncGCBound?: boolean
   publish?: boolean
   allowPublic?: boolean
   allowNever?: boolean
@@ -121,7 +119,7 @@ export class FakeServer {
   constructor(readonly options: FakeServerOptions = {}) {
     this.sessionTtlMs = options.sessionTtlMs ?? 3_600_000
     this.deviceInactiveAfterMs = options.deviceInactiveAfterMs ?? 90 * DAY_MS
-    this.extraHandlers.push(...accountRoutes(this), ...syncRoutes(this))
+    this.extraHandlers.push(...syncRoutes(this))
     if (options.publish !== false) this.extraHandlers.push(...shareRoutes(this))
     if (options.push === true) this.extraHandlers.push(...pushRoutes(this))
     this.http = createServer((req, res) => void this.route(req, res))
@@ -344,7 +342,6 @@ export class FakeServer {
           },
           auth: { invite: true, github: this.options.github === true },
           deviceInactiveAfterSeconds: Math.floor(this.deviceInactiveAfterMs / 1000),
-          ...(this.options.syncGCBound ? { syncGCBound: true } : {}),
           relayDomain: RELAY_DOMAIN,
           limits: {
             shareMaxBytes: this.options.shareMaxBytes ?? 16 * 1024 * 1024,
