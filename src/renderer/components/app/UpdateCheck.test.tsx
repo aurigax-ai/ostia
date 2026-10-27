@@ -129,7 +129,7 @@ describe('UpdateCheck', () => {
     await check()
     expect(screen.getByRole('status')).toHaveTextContent('latest')
 
-    act(() => announce(state(RELEASE)))
+    await act(async () => announce(state(RELEASE)))
 
     expect(screen.getByRole('status')).toHaveTextContent('Version 1.1.0 is available')
     expect(screen.getByRole('button', { name: 'View release' })).toBeInTheDocument()
