@@ -6,7 +6,7 @@ import {
   nextPatch,
   telemetryStamp,
 } from '../../../scripts/buildVersion.mjs'
-import { parseBuildInfo, parseTelemetryStamp, releaseVersion } from './buildInfo'
+import { isDirtyBuild, parseBuildInfo, parseTelemetryStamp, releaseVersion } from './buildInfo'
 import { isMainChannelVersion, isNewerVersion, parseVersion } from './releases'
 
 describe('buildVersion', () => {
@@ -169,5 +169,14 @@ describe('telemetryStamp', () => {
     })
     expect(parseTelemetryStamp({ key: '', host: 'https://h' })).toBeNull()
     expect(parseTelemetryStamp('x')).toBeNull()
+  })
+})
+
+describe('isDirtyBuild', () => {
+  it('is true only for a version ending with .dirty', () => {
+    expect(isDirtyBuild('0.5.13-rc.2+sha.b7a0e3.dirty')).toBe(true)
+    expect(isDirtyBuild('0.5.13-rc.2+sha.b7a0e3')).toBe(false)
+    expect(isDirtyBuild('0.5.13')).toBe(false)
+    expect(isDirtyBuild('')).toBe(false)
   })
 })

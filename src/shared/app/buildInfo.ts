@@ -15,6 +15,10 @@ export function releaseVersion(version: string): string {
   return plus === -1 ? version : version.slice(0, plus)
 }
 
+export function isDirtyBuild(version: string): boolean {
+  return version.endsWith('.dirty')
+}
+
 export function parseBuildInfo(raw: unknown): BuildInfo | null {
   if (typeof raw !== 'object' || raw === null) return null
   const { version, builtAt, telemetry, server } = raw as Record<string, unknown>
