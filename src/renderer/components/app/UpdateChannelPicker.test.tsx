@@ -79,6 +79,27 @@ describe('UpdateChannelPicker', () => {
     },
   )
 
+  it('leaves Main out for a .dirty build and shows a saved Main pick as Stable', async () => {
+    const user = userEvent.setup()
+    vi.mocked(window.ostia.info).mockResolvedValueOnce({
+      ...(await window.ostia.info()),
+      version: '0.5.13-rc.2+sha.b7a0e3.dirty',
+    })
+    installedWith('local')
+    useSettingsStore.setState({
+      behavior: { ...useSettingsStore.getState().behavior, updateChannel: 'main' },
+    })
+    render(<UpdateChannelPicker />)
+
+    const picker = screen.getByRole('combobox', { name: 'Update channel' })
+    await waitFor(() => expect(picker).toHaveTextContent('Stable'))
+    await user.click(picker)
+    expect((await screen.findAllByRole('option')).map((option) => option.textContent)).toEqual([
+      'Stable',
+      'Beta',
+    ])
+  })
+
   it('keeps an apt install on Stable and says why', () => {
     installedWith('apt')
     useSettingsStore.setState({

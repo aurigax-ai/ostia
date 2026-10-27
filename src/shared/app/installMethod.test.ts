@@ -48,6 +48,17 @@ describe('updateChannelFor', () => {
   })
 })
 
+describe('a .dirty build', () => {
+  it('is never offered the Main channel, and keeps Stable and Beta', () => {
+    for (const method of ['tarball', 'local'] as const) {
+      expect(offeredChannels(method, true)).toEqual(['stable', 'beta'])
+      expect(updateChannelFor(method, 'main', true)).toBe('stable')
+      expect(updateChannelFor(method, 'beta', true)).toBe('beta')
+    }
+    expect(offeredChannels('dmg', true)).toEqual(['stable', 'beta'])
+  })
+})
+
 describe('replacesInApp', () => {
   it('replaces a dmg, tarball or local install on any channel, and a brew install only on beta', () => {
     for (const picked of UPDATE_CHANNELS) {

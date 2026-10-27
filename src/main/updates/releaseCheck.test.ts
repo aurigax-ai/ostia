@@ -737,6 +737,31 @@ describe('registerReleaseCheck', () => {
     expect(github.requests.at(-1)?.url).toBe('/repos/aurigax-ai/ostia/releases/latest')
   })
 
+  it('a .dirty tarball build on the Main channel is offered only the newest release, and a clean +sha build still gets the main build', async () => {
+    const list = `[${body('0.3.1-main.5', { prerelease: true })},${body('0.3.0')}]`
+    const settings = { behavior: { checkForUpdates: false, updateChannel: 'main' } }
+
+    register(settings, '0.2.0+sha.abc123.dirty', 'tarball')
+    github.reply = { status: 200, body: body('0.3.0') }
+    expect(await invoke('app:release-check')).toEqual({
+      status: 'available',
+      release: release('0.3.0'),
+    })
+    expect(github.requests.map((r) => r.url)).toEqual(['/repos/aurigax-ai/ostia/releases/latest'])
+
+    handlers.clear()
+    github.requests.length = 0
+    register(settings, '0.2.0+sha.abc123', 'tarball')
+    github.reply = { status: 200, body: list }
+    expect(await invoke('app:release-check')).toEqual({
+      status: 'available',
+      release: release('0.3.1-main.5'),
+    })
+    expect(github.requests.map((r) => r.url)).toEqual([
+      '/repos/aurigax-ai/ostia/releases?per_page=100',
+    ])
+  })
+
   it('a dmg or brew install with Beta on is offered the newest release candidate that has a dmg', async () => {
     const dmg = (version: string) => ({
       assets: [{ name: `ostia-${version}-arm64.dmg`, digest: `sha256:${'ab'.repeat(32)}` }],

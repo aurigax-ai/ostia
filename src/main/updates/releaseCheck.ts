@@ -1,7 +1,7 @@
 import { readEnv } from '@aurigax-ai/ostia-extension-sdk/contract/appEnv'
 import { PRODUCT_NAME } from '@aurigax-ai/ostia-extension-sdk/contract/product'
 import { app, ipcMain } from 'electron'
-import { releaseVersion } from '../../shared/app/buildInfo'
+import { isDirtyBuild, releaseVersion } from '../../shared/app/buildInfo'
 import {
   type InstallMethod,
   isMacInstall,
@@ -306,7 +306,12 @@ export function registerReleaseCheck(deps: {
       }),
     now: Date.now,
     enabled: () => readCheckForUpdates(deps.readSettings()),
-    channel: () => updateChannelFor(deps.method(), readUpdateChannel(deps.readSettings())),
+    channel: () =>
+      updateChannelFor(
+        deps.method(),
+        readUpdateChannel(deps.readSettings()),
+        isDirtyBuild(deps.version),
+      ),
     loadDismissed,
     saveDismissed: (version) => {
       try {
