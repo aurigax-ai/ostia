@@ -736,4 +736,40 @@ describe('AgentSessions prompt mail', () => {
     await sessions.prompt(win, 's1', 'x'.repeat(AGENT_PROMPT_MAX - 100))
     expect(state.promptMailCalls).toBe(0)
   })
+
+  describe('a capability card raised for the session pane', () => {
+    it('reports waiting true then false, only as booleans', async () => {
+      const { sessions, win, input } = await bridge(() => 'ok')
+      await sessions.open(win, input)
+      const seen: unknown[] = []
+      sessions.watchWaiting('s1', (waiting) => seen.push(waiting))
+      sessions.approvalOpened('p1', 'approval-1')
+      expect(seen).toEqual([true])
+      sessions.approvalSettled('approval-1')
+      expect(seen).toEqual([true, false])
+    })
+
+    it('stays waiting until every card of the session is answered', async () => {
+      const { sessions, win, input } = await bridge(() => 'ok')
+      await sessions.open(win, input)
+      const seen: boolean[] = []
+      sessions.watchWaiting('s1', (waiting) => seen.push(waiting))
+      sessions.approvalOpened('p1', 'approval-1')
+      sessions.approvalOpened('p1', 'approval-2')
+      sessions.approvalSettled('approval-1')
+      sessions.approvalSettled('approval-2')
+      expect(seen).toEqual([true, false])
+    })
+
+    it('does not touch a session for a card of another pane or an unknown card', async () => {
+      const { sessions, win, input } = await bridge(() => 'ok')
+      await sessions.open(win, input)
+      const seen: boolean[] = []
+      sessions.watchWaiting('s1', (waiting) => seen.push(waiting))
+      sessions.approvalOpened('other-pane', 'approval-1')
+      sessions.approvalSettled('approval-1')
+      sessions.approvalSettled('approval-9')
+      expect(seen).toEqual([])
+    })
+  })
 })
