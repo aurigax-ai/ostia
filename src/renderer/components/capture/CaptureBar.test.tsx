@@ -77,6 +77,13 @@ async function sendTo(index: number) {
 }
 
 describe('CaptureBar', () => {
+  it('fades in with the hint fade: starting style first, dropped after one frame', async () => {
+    setup()
+    expect(bar()).toHaveClass('motion-hint')
+    expect(bar()).toHaveAttribute('data-starting-style')
+    await waitFor(() => expect(bar()).not.toHaveAttribute('data-starting-style'))
+  })
+
   it('sits under the anchor', () => {
     setup()
     expect(bar()).toHaveStyle({ left: '40px', top: '66px' })

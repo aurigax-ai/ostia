@@ -40,6 +40,12 @@ export function CaptureBar({ workspaceId, paneId, capture }: CaptureBarProps): J
   const [menuOpen, setMenuOpen] = useState(false)
   const [notice, setNotice] = useState<string | null>(null)
   const [place, setPlace] = useState({ left: anchor.left, top: anchor.bottom + GAP })
+  const [entered, setEntered] = useState(false)
+
+  useEffect(() => {
+    const frame = requestAnimationFrame(() => setEntered(true))
+    return () => cancelAnimationFrame(frame)
+  }, [])
 
   useLayoutEffect(() => {
     const root = rootRef.current
@@ -113,7 +119,8 @@ export function CaptureBar({ workspaceId, paneId, capture }: CaptureBarProps): J
       tabIndex={-1}
       role="toolbar"
       aria-label={d.send.barLabel}
-      className="motion-enter absolute z-20 flex origin-top-left flex-col gap-1 rounded-md border border-line bg-surface-3 p-1 text-fg text-ui-sm shadow-md outline-none"
+      data-starting-style={entered ? undefined : ''}
+      className="motion-hint absolute z-20 flex flex-col gap-1 rounded-md border border-line bg-surface-3 p-1 text-fg text-ui-sm shadow-md outline-none"
       style={{ left: place.left, top: place.top }}
     >
       <div className="flex items-center gap-1">
