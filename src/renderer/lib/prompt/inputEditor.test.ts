@@ -8,6 +8,7 @@ import {
   commandCandidates,
   completionScope,
   completionToken,
+  escapeAtCaret,
   escapeShellWord,
   inputHistory,
   isCommandWord,
@@ -88,6 +89,13 @@ describe('completionToken', () => {
     expect(completionToken('ls my\\ fi', 9)).toEqual({ start: 3, word: 'my fi' })
     expect(completionToken('ls ', 3)).toEqual({ start: 3, word: '' })
   })
+
+  it('keeps a quoted word with spaces whole and drops its quotes', () => {
+    expect(completionToken('ls "my dir/fi', 13)).toEqual({ start: 3, word: 'my dir/fi' })
+    expect(completionToken("ls 'my dir/fi", 13)).toEqual({ start: 3, word: 'my dir/fi' })
+    expect(completionToken('ls "a b" c', 10)).toEqual({ start: 9, word: 'c' })
+    expect(completionToken('ls "a\\"b c', 10)).toEqual({ start: 3, word: 'a"b c' })
+  })
 })
 
 describe('completionScope', () => {
@@ -118,6 +126,46 @@ describe('argumentCandidates', () => {
     const pool = await argumentCandidates('cd src/re', 9, '/home/u/proj', { ...noSpec, list })
     expect(list).toHaveBeenCalledWith('/home/u/proj/src')
     expect(pool).toEqual(entries)
+  })
+
+  it('completes a lone ~ to the home folder without listing the cwd', async () => {
+    const list = vi.fn().mockResolvedValue([{ name: '~notes', dir: false }])
+    expect(await argumentCandidates('ls ~', 4, '/w', { ...noSpec, list })).toEqual([
+      { name: '~', dir: true },
+    ])
+    expect(await argumentCandidates('ls ~gem', 7, '/w', { ...noSpec, list })).toEqual([])
+    expect(list).not.toHaveBeenCalled()
+  })
+
+  it('lists the home folder, its parent and $HOME for their typed forms', async () => {
+    const list = vi.fn().mockResolvedValue([])
+    await argumentCandidates('ls ~/', 5, '/w', { ...noSpec, list })
+    await argumentCandidates('ls ~/../', 8, '/w', { ...noSpec, list })
+    await argumentCandidates('ls $HOME/.c', 11, '/w', { ...noSpec, list })
+    await argumentCandidates('ls ${HOME}/', 11, '/w', { ...noSpec, list })
+    expect(list.mock.calls.map((c) => c[0])).toEqual(['~/', '~/..', '~/', '~/'])
+  })
+
+  it('offers .. for a word made only of dots', async () => {
+    const list = vi.fn().mockResolvedValue([{ name: '.git', dir: true }])
+    expect(await argumentCandidates('cd ..', 5, '/w/a', { ...noSpec, list })).toEqual([
+      { name: '..', dir: true },
+      { name: '.git', dir: true },
+    ])
+    expect(await argumentCandidates('cd ../.', 7, '/w/a', { ...noSpec, list })).toEqual([
+      { name: '..', dir: true },
+      { name: '.git', dir: true },
+    ])
+    expect(list.mock.calls.map((c) => c[0])).toEqual(['/w/a', '/w'])
+    expect(await argumentCandidates('cd .g', 5, '/w/a', { ...noSpec, list })).toEqual([
+      { name: '.git', dir: true },
+    ])
+  })
+
+  it('lists the folder named inside an open quote', async () => {
+    const list = vi.fn().mockResolvedValue([])
+    await argumentCandidates('cat "my dir/fi', 14, '/w', { ...noSpec, list })
+    expect(list).toHaveBeenCalledWith('/w/my dir')
   })
 
   it('lists the cwd itself for a bare word and absolute or home paths as given', async () => {
@@ -200,12 +248,21 @@ describe('commandCandidates', () => {
   })
 })
 
+describe('escapeAtCaret', () => {
+  it('escapes for the quote that is open at the caret', () => {
+    expect(escapeAtCaret('ls ', 3, 'a b')).toBe('a\\ b')
+    expect(escapeAtCaret('ls "', 4, 'a "b" $c')).toBe('a \\"b\\" \\$c')
+    expect(escapeAtCaret("ls '", 4, "it's")).toBe("it'\\''s")
+  })
+})
+
 describe('isCommandWord', () => {
   it('is true only for a command-position word without a slash', () => {
     expect(isCommandWord('gi', 2)).toBe(true)
     expect(isCommandWord('ls && ca', 8)).toBe(true)
     expect(isCommandWord('cat pa', 6)).toBe(false)
     expect(isCommandWord('./scr', 5)).toBe(false)
+    expect(isCommandWord('~', 1)).toBe(false)
   })
 })
 
@@ -222,6 +279,32 @@ describe('applyCompletionItem', () => {
     expect(applyCompletionItem('cat my\\ f', 9, { name: 'my file', dir: false })).toEqual({
       text: 'cat my\\ file ',
       caret: 13,
+    })
+  })
+
+  it('completes a lone ~ to ~/', () => {
+    expect(applyCompletionItem('ls ~', 4, { name: '~', dir: true })).toEqual({
+      text: 'ls ~/',
+      caret: 5,
+    })
+  })
+
+  it('stays inside an open quote and closes it after a file', () => {
+    expect(applyCompletionItem('cat "my dir/fi', 14, { name: 'file one', dir: false })).toEqual({
+      text: 'cat "my dir/file one" ',
+      caret: 22,
+    })
+    expect(applyCompletionItem("cd 'my d", 8, { name: 'my dir', dir: true })).toEqual({
+      text: "cd 'my dir/",
+      caret: 11,
+    })
+    expect(applyCompletionItem("cd a/'my d", 10, { name: 'my dir', dir: true })).toEqual({
+      text: "cd a/'my dir/",
+      caret: 13,
+    })
+    expect(applyCompletionItem('cat my\\ dir/"fi', 15, { name: 'a b', dir: false })).toEqual({
+      text: 'cat my\\ dir/"a b" ',
+      caret: 18,
     })
   })
 })
