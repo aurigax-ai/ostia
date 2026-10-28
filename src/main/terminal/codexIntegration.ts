@@ -131,15 +131,10 @@ export function codexHookCommands(
       hookCommand('state working'),
       busHookCommand('UserPromptSubmit'),
       turnHookCommand('UserPromptSubmit'),
-      hookCommand('resume-token codex - folder'),
     ],
     PostToolUse: [turnHookCommand('PostToolUse')],
     PermissionRequest: [hookCommand('state waiting -'), permissionHookCommand('codex')],
-    Stop: [
-      hookCommand('state done --stop'),
-      turnHookCommand('Stop'),
-      hookCommand('resume-token codex - folder'),
-    ],
+    Stop: [hookCommand('state done --stop'), turnHookCommand('Stop')],
   }
   const commands: Partial<Record<CodexHookEvent, string[]>> = {}
   for (const event of Object.keys(CODEX_HOOK_EVENTS) as CodexHookEvent[]) {

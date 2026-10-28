@@ -4,6 +4,7 @@ import {
   type TurnStepKind,
 } from '../../shared/agents/turnHook'
 import { registerControlMethod } from '../control/controlServer'
+import type { PaneIdentity } from '../control/idRegistry'
 
 export const PANE_TURNS_MAX = 50
 const TURN_STEPS_MAX = 200
@@ -135,7 +136,10 @@ export class PaneTurns {
   }
 }
 
-export function registerPaneTurnMethods(turns: PaneTurns): void {
+export function registerPaneTurnMethods(
+  turns: PaneTurns,
+  onBoundary: (identity: PaneIdentity) => void,
+): void {
   registerControlMethod('pane.reportTurn', {
     cap: 'drive-self',
     handler: async (params: unknown, ctx) => {
@@ -144,6 +148,7 @@ export function registerPaneTurnMethods(turns: PaneTurns): void {
       }
       const report = normalizeTurnReport(params)
       if (report) turns.report(ctx.identity.paneId, report)
+      if (report?.kind === 'prompt' || report?.kind === 'stop') onBoundary(ctx.identity)
       return { ok: true }
     },
   })

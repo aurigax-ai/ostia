@@ -47,6 +47,17 @@ async function agentFolder(
   return deps.sessionFolder(resume) ?? (await deps.agentCwd(identity.paneId))
 }
 
+export async function refreshResumeFolder(
+  deps: PaneResumeDeps,
+  identity: PaneIdentity,
+): Promise<void> {
+  const stored = await storedResume(deps, identity)
+  if (!stored) return
+  const cwd = await agentFolder(deps, identity, stored)
+  if (!cwd || cwd === stored.cwd) return
+  await deps.execCommand(targetOf(identity), 'resume.set', { ...stored, cwd }, true)
+}
+
 export function registerPaneResumeMethods(deps: PaneResumeDeps): void {
   registerControlMethod('pane.setResume', {
     cap: 'drive-self',
@@ -63,23 +74,6 @@ export function registerPaneResumeMethods(deps: PaneResumeDeps): void {
       if (agent !== null && agent !== resume.agent) return { ok: false, error: 'agent-mismatch' }
       deps.onResume(ctx.identity, resume)
       const res = await deps.execCommand(targetOf(ctx.identity), 'resume.set', resume, true)
-      return res.ok
-        ? { ok: true }
-        : { ok: false, error: res.error.code, message: res.error.message }
-    },
-  })
-
-  registerControlMethod('pane.setResumeFolder', {
-    cap: 'drive-self',
-    handler: async (params: unknown, ctx) => {
-      const reported = parseAgentResume(params)
-      if (!reported) return { ok: false, error: 'invalid-resume' }
-      const stored = await storedResume(deps, ctx.identity)
-      if (stored?.agent !== reported.agent || stored.id !== reported.id) return { ok: true }
-      const cwd = await agentFolder(deps, ctx.identity, stored)
-      if (!cwd || cwd === stored.cwd) return { ok: true }
-      const next = { ...stored, cwd }
-      const res = await deps.execCommand(targetOf(ctx.identity), 'resume.set', next, true)
       return res.ok
         ? { ok: true }
         : { ok: false, error: res.error.code, message: res.error.message }

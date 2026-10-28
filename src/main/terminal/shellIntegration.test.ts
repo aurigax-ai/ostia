@@ -1051,9 +1051,7 @@ describe('shellIntegrationSpawnOptions', () => {
         expect.stringContaining('state working'),
         busHookCommand('UserPromptSubmit'),
         expect.stringContaining('turn-hook UserPromptSubmit'),
-        expect.stringContaining('resume-token claude - folder'),
       ])
-      expect(commands('Stop').at(-1)).toContain('resume-token claude - folder')
       expect(busHookCommand('UserPromptSubmit')).toBe(
         '[ -n "${OSTIA_SOCKET}" ] && ELECTRON_RUN_AS_NODE=1 "${OSTIA_NODE}" "${OSTIA_CLI}" bus hook UserPromptSubmit 2>/dev/null || true',
       )
@@ -1353,9 +1351,7 @@ describe('shellIntegrationSpawnOptions', () => {
         commands.UserPromptSubmit?.[0],
         busHookCommand('UserPromptSubmit'),
         expect.stringContaining('turn-hook UserPromptSubmit'),
-        expect.stringContaining('"${OSTIA_CLI}" resume-token codex - folder'),
       ])
-      expect(commands.Stop?.at(-1)).toContain('"${OSTIA_CLI}" resume-token codex - folder')
       expect(commands.PermissionRequest?.[0]).toContain('state waiting -')
       expect(commands.Stop?.[0]).toContain('state done')
       for (const command of Object.values(commands).flat()) {

@@ -18,7 +18,11 @@ import { registerPaneKeepAwakeMethods } from '../panes/paneKeepAwake'
 import { registerPaneNameMethods } from '../panes/paneNameMethods'
 import { noteAgentSession } from '../panes/paneNames'
 import { registerPaneRenameMethods } from '../panes/paneRename'
-import { registerPaneResumeMethods } from '../panes/paneResume'
+import {
+  type PaneResumeDeps,
+  refreshResumeFolder,
+  registerPaneResumeMethods,
+} from '../panes/paneResume'
 import { type PaneTurns, registerPaneTurnMethods } from '../panes/paneTurns'
 import type { PaneWatch } from '../panes/paneWait'
 import type { PaneWaking } from '../panes/paneWaking'
@@ -107,8 +111,7 @@ export function registerAgentWiring({
     closing: (paneId, state, message, stop) => paneJournal.report(paneId, state, message, stop),
   })
   registerAgentWorkMethods(agentWork)
-  registerPaneTurnMethods(paneTurns)
-  registerPaneResumeMethods({
+  const resumeDeps: PaneResumeDeps = {
     execCommand,
     foregroundProgram,
     agentCwd,
@@ -122,6 +125,10 @@ export function registerAgentWiring({
       agentResumes.emit(identity.externalId, resume)
       if (identity.manager) services.managerService?.rememberResume(resume)
     },
+  }
+  registerPaneResumeMethods(resumeDeps)
+  registerPaneTurnMethods(paneTurns, (identity) => {
+    void refreshResumeFolder(resumeDeps, identity).catch(() => {})
   })
   const listedPane = async (
     paneId: string,
