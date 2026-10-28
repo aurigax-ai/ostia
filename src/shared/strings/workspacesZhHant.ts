@@ -139,6 +139,8 @@ export const workspacesZhHant: typeof workspacesEn = {
     groupLimits: '限制',
     groupPermissions: '權限',
     groupSkills: '技能',
+    hintContext: '加入內容',
+    hintSend: '傳送',
     maxWorkers: '同時執行的工作者',
     maxWorkersDesc: '管理員同時執行的工作者上限。',
     noSkills: '沒有額外的技能。',
@@ -149,8 +151,10 @@ export const workspacesZhHant: typeof workspacesEn = {
     removeSkill: '移除 {path}',
     requirementsBody:
       '需要 {packages} 才能確認 ostia <agent> 來自 {product} 之外。在安裝之前，所有 ostia <agent> 都會被拒絕。',
+    sessionEmpty: '在下方輸入提示，即可在 {folder} 開始管理員工作階段',
+    sessionLabel: '管理員工作階段',
     settingsDesc:
-      '在 {product} 以外的終端機執行 ostia <agent>，即可啟動一個能查看並操作所有工作區的管理員代理。只有你能變更這些設定。',
+      '在 {product} 以外的終端機執行 ostia 指令，即可開啟管理員：一個能查看並操作所有工作區的 pi 工作階段。ostia <agent> 則改用下列其中一個程式作為管理員。只有你能變更這些設定。',
     settingsTitle: '管理員',
     skillPath: '技能資料夾的絕對路徑',
     skillsDesc:

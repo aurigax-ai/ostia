@@ -26,6 +26,7 @@ export interface PaneNode {
   url?: string
   chatSessionId?: string
   agentSessionId?: string
+  managerSession?: true
   viewName?: string
   browserProfile?: BrowserProfile
   browserDevice?: BrowserDevice

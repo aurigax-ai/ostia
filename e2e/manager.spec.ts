@@ -2,6 +2,7 @@ import { type ChildProcess, spawn } from 'node:child_process'
 import { mkdirSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import { DOM_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
+import { startFakeProvider } from './fakeProvider'
 import { _electron as electron, expect, type Page, test } from './test'
 
 const CLI = resolve('out/cli/index.js')
@@ -116,6 +117,47 @@ test('MGR-C21 ostia <agent> from outside mirrors a read-only manager and passes 
   } finally {
     mirror.child.kill()
     await app.close().catch(() => {})
+  }
+})
+
+test('PIM-C18 bare ostia from outside prompts the pi manager pane and the reply streams back', async () => {
+  test.setTimeout(90_000)
+  let seen = 0
+  const provider = await startFakeProvider(() =>
+    seen++ === 0
+      ? { toolCalls: [{ name: 'ostia_workspaces', args: {} }] }
+      : 'You have 1 workspace and nothing else is running.',
+  )
+  const { app, win, home, portal } = await launchOstia(
+    {},
+    {
+      agent: {
+        providers: [{ id: 'fake', name: 'Fake', baseUrl: provider.url, models: ['fake-model'] }],
+      },
+    },
+  )
+  const client = runMirror(portal, home, [])
+  try {
+    await expect
+      .poll(client.output, { timeout: 20_000 })
+      .toContain('connected to the manager session')
+    await expect(win.locator('.rail-tab', { hasText: 'Manager · pi' })).toBeVisible()
+    const pane = win.locator('.manager-agent')
+    await expect(pane.getByRole('textbox', { name: 'Your question' })).toBeVisible()
+
+    client.type('what is running?\r')
+    await expect(pane.getByText('what is running?')).toBeVisible({ timeout: 20_000 })
+    await expect(pane.getByText('ostia_workspaces')).toBeVisible()
+    await expect(pane.getByText('You have 1 workspace and nothing else is running.')).toBeVisible()
+    await expect.poll(client.output).toContain('You have 1 workspace and nothing else is running.')
+
+    client.type('\x1c')
+    expect(await client.exited).toBe(0)
+    await expect(pane.getByRole('textbox', { name: 'Your question' })).toBeVisible()
+  } finally {
+    client.child.kill()
+    await app.close().catch(() => {})
+    provider.close()
   }
 })
 

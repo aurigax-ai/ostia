@@ -1,5 +1,6 @@
 import { useChat } from '@ai-sdk/react'
 import type { ChatContextItem } from '@aurigax-ai/ostia-extension-sdk/contract/assist'
+import { PI_MANAGER_AGENT } from '@shared/agents/managerSettings'
 import { type MutableRefObject, useEffect, useMemo, useRef, useState } from 'react'
 import { ChatConversation } from '@/components/chat/ChatConversation'
 import { markdownComponents } from '@/components/chat/ChatMarkdown'
@@ -8,6 +9,7 @@ import { useChatAsk } from '@/components/chat/useChatAsk'
 import { useChatContext } from '@/components/chat/useChatContext'
 import { focusAtEnd } from '@/components/chat/useChatFocus'
 import { fmt, useDict } from '@/lib/app/useDict'
+import { workspaceFolder } from '@/lib/assist/chatTools'
 import { decodeChatError } from '@/lib/assist/chatTransport'
 import { agentAttachmentKey, agentChatFor, useAgentStore } from '@/stores/agent/agentStore'
 import { useSettingsStore } from '@/stores/app/settingsStore'
@@ -23,10 +25,12 @@ export function AgentView({
   workspaceId,
   sessionId,
   focusRef,
+  manager = false,
 }: {
   workspaceId: string
   sessionId: string
   focusRef: MutableRefObject<HTMLElement | null>
+  manager?: boolean
 }): JSX.Element {
   const d = useDict()
   const chat = useMemo(() => agentChatFor(sessionId), [sessionId])
@@ -109,12 +113,14 @@ export function AgentView({
         last={last}
         provider={null}
         empty={{
-          title: d.agentPane.paneTitle,
-          description: modelName
-            ? fmt(d.agentPane.emptyBody, {
-                model: provider ? `${provider.name} · ${modelName}` : modelName,
-              })
-            : d.agentPane.noProvider,
+          title: manager ? PI_MANAGER_AGENT : d.agentPane.paneTitle,
+          description: manager
+            ? fmt(d.manager.sessionEmpty, { folder: workspaceFolder(workspaceId) })
+            : modelName
+              ? fmt(d.agentPane.emptyBody, {
+                  model: provider ? `${provider.name} · ${modelName}` : modelName,
+                })
+              : d.agentPane.noProvider,
         }}
         options={{}}
         markdown={markdown}
@@ -147,6 +153,7 @@ export function AgentView({
         context={context}
         ask={ask}
         onStop={() => void helpers.stop()}
+        hints={manager}
       />
     </div>
   )

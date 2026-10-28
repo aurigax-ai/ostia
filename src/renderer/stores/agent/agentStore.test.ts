@@ -6,7 +6,13 @@ vi.mock('@/lib/assist/chatTools', () => ({
 }))
 
 import { modeFor, useChatToolsStore } from '@/stores/assist/chatToolsStore'
-import { ensureAgentSession, setAgentRules, useAgentStore } from './agentStore'
+import {
+  agentChatFor,
+  ensureAgentSession,
+  setAgentRules,
+  useAgentStore,
+  wirePortalPrompts,
+} from './agentStore'
 
 describe('the Agent session and its rules chip', () => {
   let open: ReturnType<typeof vi.mocked<typeof window.ostia.agentSessions.open>>
@@ -83,5 +89,31 @@ describe('the Agent session and its rules chip', () => {
     useChatToolsStore.getState().setMode('a-mode', 'write')
     await ensureAgentSession('w1', 'p1', 'a-mode')
     expect(modeFor('a-mode')).toBe('write')
+  })
+
+  it('PIM-C11 starts a manager session in Allow mode', async () => {
+    await ensureAgentSession('w9', 'p9', 'a-manager', 'manager')
+    expect(modeFor('a-manager')).toBe('write')
+  })
+
+  it('PIM-C12 sends a prompt that main pushes through the same chat the human types in', async () => {
+    let pushed: (notice: { sessionId: string; text: string }) => void = () => undefined
+    vi.mocked(window.ostia.agentSessions.onPrompted).mockImplementation((cb) => {
+      pushed = cb
+      return () => undefined
+    })
+    wirePortalPrompts()
+    await ensureAgentSession('w8', 'p8', 'a-pushed', 'manager')
+    pushed({ sessionId: 'a-pushed', text: 'what is running?' })
+    await vi.waitFor(() => expect(agentChatFor('a-pushed').messages).toHaveLength(1))
+    const [message] = agentChatFor('a-pushed').messages
+    expect(message?.role).toBe('user')
+    expect(message?.parts).toEqual([{ type: 'text', text: 'what is running?' }])
+    await vi.waitFor(() =>
+      expect(window.ostia.agentSessions.prompt).toHaveBeenCalledWith(
+        'a-pushed',
+        'what is running?',
+      ),
+    )
   })
 })

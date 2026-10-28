@@ -2,7 +2,7 @@ export const agentEn = {
   agentPane: {
     addToPane: 'Add to Agent pane',
     emptyBody:
-      'Runs on {model}. Only what you add here is sent. Every file edit and command waits for your OK.',
+      'Runs on {model}. Only what you add here is sent. The mode below decides what waits for your OK.',
     modeAllow: 'Allow',
     modeAllowDesc:
       'Acts without asking, except the actions on the always-ask list in Settings › Agents.',
