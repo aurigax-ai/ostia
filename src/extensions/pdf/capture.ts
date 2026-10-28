@@ -74,10 +74,10 @@ export function attachCapture(options: CaptureOptions): Capture {
   const clear = (): void => {
     token++
     removeOverlay()
+    window.getSelection()?.removeAllRanges()
     if (!published) return
     published = false
     publishedKind = null
-    window.getSelection()?.removeAllRanges()
     void clearSelection()
   }
 

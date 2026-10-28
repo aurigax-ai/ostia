@@ -192,6 +192,7 @@ export function onSelectionPublished(listener: (published: boolean) => void): ()
 const clearedListeners = new Set<() => void>()
 
 export function onSelectionCleared(listener: () => void): () => void {
+  listenForClearedSelection()
   clearedListeners.add(listener)
   return () => clearedListeners.delete(listener)
 }
