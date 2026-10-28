@@ -139,6 +139,22 @@ export const behaviorSchema = {
         '(h j k l w b e 0 $ x dd dw cw u, with counts); i a A I o O return to insert mode. ' +
         'Enter runs the command from either mode. Default: false.',
     },
+    inputEscape: {
+      type: 'string',
+      enum: ['clear', 'menus'],
+      description:
+        'What Esc does in the input editor when the Ostia prompt holds a draft. "clear": the ' +
+        'first Esc closes a menu or suggestion, then Esc twice within a second clears the ' +
+        'draft and Ctrl+Z right after restores it. "menus": Esc only closes menus and ' +
+        'suggestions. Vim keys keep Esc for normal mode. Default: clear.',
+    },
+    liveFileSuggestions: {
+      type: 'boolean',
+      description:
+        'Open the input editor’s file menu by itself while you type a path (a word with a ' +
+        '/, or starting with ~ or .), after a short pause. Tab or Right arrow takes the ' +
+        'selected entry; Enter always runs the line. Default: true.',
+    },
     historySuggestions: {
       type: 'boolean',
       description:

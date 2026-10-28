@@ -22,6 +22,13 @@ function select(from: Node, start: number, to: Node, end: number): void {
 
 beforeEach(() => {
   vi.useFakeTimers()
+  vi.stubGlobal(
+    'EventSource',
+    class {
+      addEventListener(): void {}
+      close(): void {}
+    },
+  )
   const dom = new JSDOM(`<body>${SOURCE_HTML}<button>outside</button></body>`)
   window = dom.window
   window.Range.prototype.getBoundingClientRect = () =>
@@ -31,6 +38,7 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.useRealTimers()
+  vi.unstubAllGlobals()
 })
 
 describe('sourceLinesOf', () => {

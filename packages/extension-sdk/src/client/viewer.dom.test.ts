@@ -158,6 +158,17 @@ describe('a document that changes', () => {
   })
 })
 
+describe('onSelectionCleared', () => {
+  it('listens for the host before anything is published, so an early close is never missed', async () => {
+    vi.resetModules()
+    const before = eventSources.length
+    const fresh = await import('./viewer')
+    const stop = fresh.onSelectionCleared(() => {})
+    expect(eventSources.length).toBe(before + 1)
+    stop()
+  })
+})
+
 describe('viewer host requests', () => {
   it('asks to open a link and to edit the source through gesture-gated posts', async () => {
     const calls = stubFetch()

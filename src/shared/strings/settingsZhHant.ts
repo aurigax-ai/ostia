@@ -199,6 +199,10 @@ export const settingsZhHant: typeof settingsEn = {
     inputEditorVim: '輸入編輯器使用 Vim 按鍵',
     inputEditorVimDesc:
       'Esc 切換到一般模式（h j k l w b e 0 $ x dd dw cw u，可加次數）；i a A I o O 回到插入模式。兩種模式下按 Enter 都會執行指令。',
+    inputEscape: '{product} 提示字元中的 Esc',
+    inputEscapeClear: '按兩次清除草稿',
+    inputEscapeDesc: '提示字元有草稿時，再按一次 Esc 的作用。',
+    inputEscapeMenus: '只關閉選單',
     inputMode: '輸入模式',
     inputModeDesc:
       '輸入編輯器會在 shell 等待提示字元時，以多行編輯器取代 shell 的輸入列。執行中的程式仍直接接收按鍵。',
@@ -210,6 +214,8 @@ export const settingsZhHant: typeof settingsEn = {
     keepShellsRequirementsBody: '需要 tmux {version} 或更新版本才能保留 shell。',
     lightTheme: '淺色主題',
     lineHeight: '終端機行高',
+    liveFileSuggestions: '輸入時顯示檔案建議',
+    liveFileSuggestionsDesc: '輸入路徑時自動開啟檔案選單，不必按 Tab。',
     log: '記錄檔',
     logDesc: '{product} 寫入記錄檔的資料夾。',
     longCommandSeconds: '視為長指令的秒數',

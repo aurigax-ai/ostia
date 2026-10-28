@@ -204,6 +204,10 @@ export const settingsEn = {
     inputEditorVim: 'Vim keys in the input editor',
     inputEditorVimDesc:
       'Esc switches to normal mode (h j k l w b e 0 $ x dd dw cw u, with counts); i a A I o O return to insert mode. Enter runs the command from either mode.',
+    inputEscape: 'Esc in the {product} prompt',
+    inputEscapeClear: 'Twice clears the draft',
+    inputEscapeDesc: 'What a second Esc does while the prompt holds a draft.',
+    inputEscapeMenus: 'Closes menus only',
     inputMode: 'Input mode',
     inputModeDesc:
       'Input editor replaces the shell’s input line with a multi-line editor while the shell waits at a prompt. Running programs still get your keys.',
@@ -215,6 +219,8 @@ export const settingsEn = {
     keepShellsRequirementsBody: 'tmux {version} or newer is needed to keep shells.',
     lightTheme: 'Light theme',
     lineHeight: 'Terminal line height',
+    liveFileSuggestions: 'Show file suggestions while typing',
+    liveFileSuggestionsDesc: 'Open the file menu as you type a path, without pressing Tab.',
     log: 'Log',
     logDesc: 'The folder where {product} writes its log files.',
     longCommandSeconds: 'Long command after (seconds)',

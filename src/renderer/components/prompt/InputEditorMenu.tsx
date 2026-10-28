@@ -26,6 +26,7 @@ export function InputEditorMenu({
   menuShown,
   naturalOpen,
   tipText,
+  fileHint,
   setMenu,
   setNatural,
   pick,
@@ -37,6 +38,7 @@ export function InputEditorMenu({
   menuShown: Menu | null
   naturalOpen: NaturalCommands | null
   tipText: string | null
+  fileHint: string | null
   setMenu: (next: Menu | null) => void
   setNatural: (next: NaturalCommands | null) => void
   pick: (item: CompletionItem) => void
@@ -77,6 +79,11 @@ export function InputEditorMenu({
               </CommandItem>
             ))}
           </CommandList>
+          {fileHint ? (
+            <p className="input-editor-tip m-1" aria-live="polite">
+              {fileHint}
+            </p>
+          ) : null}
         </Command>
       ) : naturalOpen ? (
         <Command

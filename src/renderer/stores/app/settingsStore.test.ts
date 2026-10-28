@@ -323,6 +323,26 @@ describe('settingsStore', () => {
       expect(store().behavior.inputMode).toBe('terminal')
     })
 
+    it('reads the Esc mode and the live file suggestions switch with their defaults', async () => {
+      vi.mocked(window.ostia.fs.read).mockResolvedValue({
+        ok: true,
+        version: 'v1',
+        text: JSON.stringify({ behavior: { inputEscape: 'menus', liveFileSuggestions: false } }),
+      })
+      await store().init()
+      expect(store().behavior.inputEscape).toBe('menus')
+      expect(store().behavior.liveFileSuggestions).toBe(false)
+
+      vi.mocked(window.ostia.fs.read).mockResolvedValue({
+        ok: true,
+        version: 'v1',
+        text: JSON.stringify({ behavior: { inputEscape: 'wipe' } }),
+      })
+      await store().init()
+      expect(store().behavior.inputEscape).toBe('clear')
+      expect(store().behavior.liveFileSuggestions).toBe(true)
+    })
+
     it('reads workspace settings, dropping bad values and blank folders', async () => {
       vi.mocked(window.ostia.fs.read).mockResolvedValue({
         ok: true,
