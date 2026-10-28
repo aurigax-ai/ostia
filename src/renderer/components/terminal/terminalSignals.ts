@@ -14,6 +14,7 @@ import {
 import { bellActions, createBellThrottle } from '@/lib/attention/bell'
 import { createBellFlash } from '@/lib/attention/bellFlash'
 import { isPaneViewed, isPaneVisible, signalPane } from '@/lib/attention/workspaceActivity'
+import { confirmNativeCopy } from '@/lib/capture/copyConfirm'
 import { registerOsc52 } from '@/lib/terminal/osc52'
 import type { OstiaTerminal } from '@/lib/terminal/ostiaTerminal'
 import { commitProgramTitle } from '@/lib/terminal/paneTitle'
@@ -75,6 +76,8 @@ export function attachTerminalSignals({
     replaying: () => session.replaying,
     write: (text) => navigator.clipboard.writeText(text),
   })
+  let pressed = false
+  let selectionCopied = false
   const copySelection = term.onSelectionChange(() => {
     useLiveSelectionStore
       .getState()
@@ -85,8 +88,19 @@ export function attachTerminalSignals({
         tail(term.getSelection(), CHAT_CONTEXT_TEXT_MAX),
       )
     if (!useSettingsStore.getState().behavior.copyOnSelect || !term.hasSelection()) return
+    selectionCopied = pressed
     void navigator.clipboard.writeText(term.getSelection())
   })
+  const onPress = (): void => {
+    pressed = true
+  }
+  const onRelease = (): void => {
+    if (pressed && selectionCopied) confirmNativeCopy(paneId)
+    pressed = false
+    selectionCopied = false
+  }
+  host.addEventListener('mousedown', onPress)
+  host.ownerDocument.addEventListener('mouseup', onRelease)
   const titles = createTitleCommitter((title) =>
     commitProgramTitle(workspaceIdRef.current, paneId, title),
   )
@@ -122,6 +136,8 @@ export function attachTerminalSignals({
     bell.dispose()
     bellFlash.dispose()
     copySelection.dispose()
+    host.removeEventListener('mousedown', onPress)
+    host.ownerDocument.removeEventListener('mouseup', onRelease)
     useLiveSelectionStore.getState().clear(paneId)
     titleChange.dispose()
     titles.cancel()
