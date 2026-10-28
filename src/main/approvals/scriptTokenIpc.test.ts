@@ -20,7 +20,7 @@ vi.mock('./approvals', () => ({ approvals: () => null }))
 
 const { registerScriptTokenIpc } = await import('./scriptTokenIpc')
 const { setUserPresenceCheck } = await import('./scriptTokenConfirm')
-const { verifyScriptToken } = await import('./scriptTokens')
+const { checkScriptToken } = await import('./scriptTokens')
 const { createScriptTokenUsage } = await import('./scriptTokenUsage')
 
 const LISTING: ReachListing = {
@@ -141,7 +141,7 @@ describe('script token IPC', () => {
       await expect(callAs(event, channel, arg)).rejects.toThrow(/^forbidden/)
     }
     expect(presence).not.toHaveBeenCalled()
-    expect(verifyScriptToken(path, value)?.caps).toEqual(token.caps)
+    expect(checkScriptToken({ path }, value)?.caps).toEqual(token.caps)
     expect((await list()).tokens).toHaveLength(1)
   })
 
@@ -167,7 +167,7 @@ describe('script token IPC', () => {
     const { token, value } = await created()
     expect(presence).toHaveBeenCalledWith({ action: 'generate', name: 'ceo' })
     expect(token).toMatchObject({ name: 'ceo', source: 'settings', scope: LIMITED })
-    expect(verifyScriptToken(path, value)?.id).toBe(token.id)
+    expect(checkScriptToken({ path }, value)?.id).toBe(token.id)
     expect(readFileSync(path, 'utf8')).not.toContain(value)
     const { tokens } = await list()
     expect(tokens).toHaveLength(1)
@@ -243,7 +243,7 @@ describe('script token IPC', () => {
     expect(res).toMatchObject({ ok: true, token: { name: 'ceo-2' } })
     expect(res).not.toHaveProperty('value')
     expect(presence).not.toHaveBeenCalled()
-    expect(verifyScriptToken(path, value)?.name).toBe('ceo-2')
+    expect(checkScriptToken({ path }, value)?.id).toBe(token.id)
   })
 
   it('regenerates after presence when permissions, scope or expiry change', async () => {
@@ -257,8 +257,8 @@ describe('script token IPC', () => {
       const res = await update({ id: token.id, ifUpdatedAt: token.updatedAt, ...change })
       expect(presence).toHaveBeenCalledWith({ action: 'regenerate', name: 'ceo' })
       if (!res.ok || !res.value) throw new Error(JSON.stringify(res))
-      expect(verifyScriptToken(path, value)).toBeUndefined()
-      expect(verifyScriptToken(path, res.value)?.id).toBe(token.id)
+      expect(checkScriptToken({ path }, value)).toBeUndefined()
+      expect(checkScriptToken({ path }, res.value)?.id).toBe(token.id)
     }
   })
 
@@ -270,7 +270,7 @@ describe('script token IPC', () => {
       expect(res).toMatchObject({ ok: false, error: expect.stringMatching(/confirmNeverExpires/) })
     }
     expect(presence).not.toHaveBeenCalled()
-    expect(verifyScriptToken(path, value)?.id).toBe(token.id)
+    expect(checkScriptToken({ path }, value)?.id).toBe(token.id)
 
     const res = await update({
       id: token.id,
@@ -279,7 +279,7 @@ describe('script token IPC', () => {
       confirmNeverExpires: true,
     })
     expect(res).toMatchObject({ ok: true, token: { expiresAt: null } })
-    expect(verifyScriptToken(path, value)).toBeUndefined()
+    expect(checkScriptToken({ path }, value)).toBeUndefined()
   })
 
   it('does not ask again once the regenerated token gets an expiry', async () => {
@@ -293,7 +293,7 @@ describe('script token IPC', () => {
     presence.mockResolvedValueOnce({ ok: false, code: 'cancelled', detail: 'dismissed' })
     const res = await update({ id: token.id, ifUpdatedAt: token.updatedAt, caps: ['read-board'] })
     expect(res).toMatchObject({ ok: false, presence: 'cancelled' })
-    expect(verifyScriptToken(path, value)?.caps).toEqual(token.caps)
+    expect(checkScriptToken({ path }, value)?.caps).toEqual(token.caps)
   })
 
   it('refuses a stale edit or a name in place of the id before asking for presence', async () => {
@@ -310,7 +310,7 @@ describe('script token IPC', () => {
     const { token, value } = await created()
     changed.mockClear()
     await expect(call('scriptTokens:revoke', token.id)).resolves.toBe(true)
-    expect(verifyScriptToken(path, value)).toBeUndefined()
+    expect(checkScriptToken({ path }, value)).toBeUndefined()
     expect(changed).toHaveBeenCalledTimes(1)
     await expect(call('scriptTokens:revoke', token.id)).resolves.toBe(false)
     await expect(call('scriptTokens:revoke', { id: token.id })).resolves.toBe(false)

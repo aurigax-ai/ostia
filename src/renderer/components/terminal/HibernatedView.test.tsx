@@ -77,7 +77,6 @@ describe('hibernated terminal pane', () => {
     expect(within(host).getByRole('button', { name: 'Resume claude' })).toBeInTheDocument()
     expect(within(host).queryByTestId('terminal-h1')).toBeNull()
     expect(host.querySelector('.xterm, .hibernated-screen')).toBeNull()
-    expect(window.ostia.pty.stashed).not.toHaveBeenCalled()
     expect(window.ostia.pty.attach).not.toHaveBeenCalled()
     expect(window.ostia.pty.write).not.toHaveBeenCalled()
     host.remove()

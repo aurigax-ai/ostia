@@ -1,0 +1,32 @@
+{
+  "$schema": "./node_modules/dependency-cruiser/src/schema/configuration.schema.json",
+  "forbidden": [
+    {
+      "name": "monaco-setup-off-the-launch-path",
+      "severity": "error",
+      "from": {
+        "path": "^src/renderer/main\\.tsx$"
+      },
+      "to": {
+        "path": "^src/renderer/lib/monaco/setup\\.ts$",
+        "reachable": true
+      }
+    }
+  ],
+  "options": {
+    "exclude": {
+      "dynamic": true
+    },
+    "doNotFollow": {
+      "path": "node_modules"
+    },
+    "tsPreCompilationDeps": false,
+    "tsConfig": {
+      "fileName": "tsconfig.e2e.json"
+    },
+    "enhancedResolveOptions": {
+      "exportsFields": ["exports"],
+      "conditionNames": ["import", "require", "node", "default", "types"]
+    }
+  }
+}

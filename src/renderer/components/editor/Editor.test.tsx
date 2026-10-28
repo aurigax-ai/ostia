@@ -143,13 +143,9 @@ const fake = vi.hoisted(() => {
     optionUpdates: Record<string, unknown>[]
     visible: boolean
     layouts: number
-    themed: boolean
-    themedAtCreate: boolean
     input: HTMLElement | null
   } = {
     input: null,
-    themed: false,
-    themedAtCreate: false,
     visible: true,
     layouts: 0,
     createOptions: null,
@@ -248,9 +244,7 @@ const fake = vi.hoisted(() => {
       }),
     },
     editor: {
-      setTheme: vi.fn(() => {
-        state.themed = true
-      }),
+      setTheme: vi.fn(),
       defineTheme: vi.fn(),
       create: (host: HTMLElement, options: Record<string, unknown>) => {
         const input = document.createElement('div')
@@ -259,7 +253,6 @@ const fake = vi.hoisted(() => {
         host.appendChild(input)
         state.input = input
         state.createOptions = options
-        state.themedAtCreate = state.themed
         return editor
       },
       getModel: (uri: { toString(): string }) => models.get(uri.toString()) ?? null,
@@ -563,11 +556,10 @@ describe('EditorView', () => {
     }
   })
 
-  it('creates the editor once the scheme theme is set, without a theme of its own', async () => {
+  it('creates the editor without a theme of its own', async () => {
     vi.mocked(window.ostia.fs.read).mockResolvedValue({ ok: true, version: 'v1', text: 'text' })
     render(<EditorView workspaceId="w1" paneId="p1" filePath="/w/a.txt" />)
     await waitFor(() => expect(fake.state.model).not.toBeNull())
-    expect(fake.state.themedAtCreate).toBe(true)
     expect(fake.state.createOptions?.theme).toBeUndefined()
   })
 

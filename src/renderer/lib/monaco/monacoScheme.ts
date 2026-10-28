@@ -1,4 +1,3 @@
-import { currentScheme } from '@/lib/theme/colorScheme'
 import type { ColorScheme } from '@/lib/theme/types'
 import { monacoThemeData, monacoThemeId } from './monacoTheme'
 import { monaco } from './setup'
@@ -13,8 +12,4 @@ export function applyMonacoScheme(scheme: ColorScheme): void {
   applied = key
   monaco.editor.defineTheme(id, data)
   monaco.editor.setTheme(id)
-}
-
-export function ensureMonacoTheme(): void {
-  if (applied === null) applyMonacoScheme(currentScheme('editor'))
 }

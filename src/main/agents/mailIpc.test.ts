@@ -15,7 +15,7 @@ vi.mock('electron', () => ({
 }))
 
 const { mailMap, registerMailIpc } = await import('./mailIpc')
-const { enqueue, failPaneMail, flushBus, resetBus, setPending, takeMail } = await import(
+const { ackMail, enqueue, failPaneMail, flushBus, leaseMail, resetBus, setPending } = await import(
   './busStore'
 )
 const { registerPane } = await import('../control/idRegistry')
@@ -93,7 +93,7 @@ describe('registerMailIpc', () => {
     expect(Object.keys(pushed['1'][1])).toEqual([worker.paneId])
     expect(Object.keys(pushed['2'][1])).toEqual([stranger.paneId])
     sendToWindow.mockClear()
-    takeMail(worker.externalId, 'read', () => true)
+    ackMail(worker.externalId, leaseMail(worker.externalId, 'read', () => true)?.lease ?? '')
     await Promise.resolve()
     expect(sendToWindow.mock.calls.find(([windowId]) => windowId === '1')?.[2]).toEqual({})
   })

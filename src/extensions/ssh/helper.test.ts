@@ -2,7 +2,7 @@ import { spawnSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import { describe, expect, it } from 'vitest'
 import { helperSource } from '../../../test/fixtures/ssh/remoteHost'
-import { helperBundle, posixCksum, shippedHelper, versionToken } from './helper'
+import { helperBundle, posixCksum, shippedHelper } from './helper'
 import { hostKey, planConnect, planHelper, withShellIntegration } from './plan'
 import { REMOTE_BOOTSTRAP, REMOTE_COMMAND } from './remote'
 
@@ -20,9 +20,6 @@ describe('posixCksum', () => {
     for (const sample of samples) {
       expect(`${posixCksum(sample)} ${sample.length}`).toBe(systemCksum(sample))
     }
-    expect(versionToken(Buffer.from('hello\n'))).toBe(
-      systemCksum(Buffer.from('hello\n')).replace(' ', '-'),
-    )
   })
 })
 

@@ -21,7 +21,6 @@ import { registerEditorPosition } from '@/lib/files/editorPositions'
 import { isInlineDiff } from '@/lib/monaco/diffLayout'
 import { editorInput } from '@/lib/monaco/editorInput'
 import { langFor } from '@/lib/monaco/language'
-import { ensureMonacoTheme } from '@/lib/monaco/monacoScheme'
 import { EDITOR_SCROLLBAR } from '@/lib/monaco/scrollbarOptions'
 import { monaco } from '@/lib/monaco/setup'
 import { useSurfaceFocus } from '@/lib/panes/paneFocus'
@@ -62,7 +61,6 @@ export function DiffView({
     if (!host) return
     const initial = useSettingsStore.getState().appearance.editor
     const initialIgnoreWhitespace = useSettingsStore.getState().editor.diffIgnoreWhitespace
-    ensureMonacoTheme()
     const diff = monaco.editor.createDiffEditor(host, {
       automaticLayout: true,
       readOnly: true,

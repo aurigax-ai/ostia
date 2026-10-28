@@ -16,7 +16,6 @@ import { humanInputSource } from '../../panes/paneInput'
 import type { PaneWaking } from '../../panes/paneWaking'
 import { wakeReason } from '../../panes/wakeReason'
 import type { KeptShells } from '../../tmux/keptShells'
-import { stashedScreen } from '../../workspaces/savedScrollback'
 import { registerPathCompletionIpc } from '../pathCompletion'
 import { KubeContextReader, NodeVersionResolver, promptContext } from '../promptContext'
 import { ExecutableIndex, readShellState, registerCommandNamesIpc } from '../shellCommands'
@@ -44,7 +43,6 @@ interface PtyIpcDeps {
   releasePtyFlow: PtyIo['releasePtyFlow']
   paneActivity: PtyQueries['paneActivity']
   sandboxReadRules: PtyQueries['sandboxReadRules']
-  windowOfPane: (paneId: string) => string | undefined
   readSettingsFile: () => { behavior?: { historySuggestions?: unknown } }
 }
 
@@ -62,7 +60,6 @@ function registerPtyLifecycleIpc({
   hibernatePty,
   hibernateHeld,
   killPty,
-  windowOfPane,
   paneStartErrors,
 }: PtyIpcDeps): void {
   const attaching = new Map<string, Promise<PtyAttachResult>>()
@@ -108,10 +105,6 @@ function registerPtyLifecycleIpc({
     await keptShells.ready
     return keptShells.waitingPaneIds()
   })
-
-  ipcMain.handle('pty:stashed', (e, paneId: string): string | null =>
-    stashedScreen(String(paneId), String(e.sender.id), windowOfPane(String(paneId))),
-  )
 
   ipcMain.handle('pty:restart', (e, paneId: string): boolean => {
     const entry = ptys.get(String(paneId))

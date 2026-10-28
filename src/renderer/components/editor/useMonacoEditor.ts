@@ -5,7 +5,6 @@ import { type MutableRefObject, type RefObject, useEffect } from 'react'
 import { attachWheelZoom } from '@/lib/app/wheelZoom'
 import { findStep, matchChord, runAppChord } from '@/lib/keyboard/chords'
 import { fileFeatureOptions } from '@/lib/monaco/largeFile'
-import { ensureMonacoTheme } from '@/lib/monaco/monacoScheme'
 import { EDITOR_SCROLLBAR } from '@/lib/monaco/scrollbarOptions'
 import { monaco } from '@/lib/monaco/setup'
 import { AUTO_SAVE_DELAY_MS, type EditorSettings } from '@/lib/settings/browserEditorSettings'
@@ -66,7 +65,6 @@ export function useMonacoEditor({
     if (!host) return
 
     const initial = useSettingsStore.getState().appearance.editor
-    ensureMonacoTheme()
     const editor = monaco.editor.create(host, {
       automaticLayout: false,
       fontFamily: codeFontStack(initial.family),

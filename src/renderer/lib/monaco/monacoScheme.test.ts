@@ -19,14 +19,6 @@ describe('Monaco scheme', () => {
     fake.monaco.editor.setTheme.mockClear()
   })
 
-  it('sets the editor scheme before the first editor and only once for many editors', async () => {
-    const { ensureMonacoTheme } = await freshTheme()
-    ensureMonacoTheme()
-    ensureMonacoTheme()
-    expect(fake.monaco.editor.defineTheme).toHaveBeenCalledTimes(1)
-    expect(fake.monaco.editor.setTheme).toHaveBeenCalledTimes(1)
-  })
-
   it('defines the theme once per scheme change', async () => {
     const { applyMonacoScheme } = await freshTheme()
     const [first, second] = BUILTIN_COLOR_SCHEMES

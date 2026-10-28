@@ -43,10 +43,6 @@ export function posixCksum(data: Uint8Array): number {
   return ~crc >>> 0
 }
 
-export function versionToken(data: Uint8Array): string {
-  return `${posixCksum(data)}-${data.length}`
-}
-
 export interface HelperBundle {
   source: Buffer
   session: Buffer

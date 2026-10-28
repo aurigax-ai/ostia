@@ -35,7 +35,7 @@
     "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.e2e.json && tsc --noEmit -p packages/extension-sdk",
     "rebuild": "electron-rebuild -f -w node-pty",
     "lint": "biome check src packages && node scripts/comments.mjs --check",
-    "quality": "knip && depcruise src e2e test scripts packages marketplace --config .dependency-cruiser.json --ignore-known && jscpd && node scripts/i18n.mjs check",
+    "quality": "knip && depcruise src e2e test scripts packages marketplace --config .dependency-cruiser.json --ignore-known && depcruise src/renderer --config .dependency-cruiser-launch.json && jscpd && node scripts/i18n.mjs check",
     "i18n:coverage": "node scripts/i18n.mjs coverage",
     "format": "biome format --write src packages",
     "test": "vitest run --project node --project dom",

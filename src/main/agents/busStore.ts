@@ -478,19 +478,6 @@ export function dismissFailed(to: string): void {
   if (changed) markBusDirty()
 }
 
-export function takeMail(to: string, via: MailVia, pick: (mail: Mail) => boolean): Mail[] {
-  sweepBus()
-  const at = new Date().toISOString()
-  const taken: Mail[] = []
-  for (const mail of store().mail) {
-    if (mail.to !== to || mail.state !== 'queued' || !pick(mail)) continue
-    taken.push(snapshot(mail))
-    deliverMail(mail, via, at)
-  }
-  if (taken.length > 0) markBusDirty()
-  return taken
-}
-
 export function leaseMail(
   to: string,
   via: MailVia,

@@ -8,8 +8,14 @@ process.env.XDG_DATA_HOME = dataHome
 
 const { PaneEvents } = await import('./paneEvents')
 const { PaneJournal } = await import('./paneJournal')
-const { flushBus, inboxOf, resetBus, takeMail, watchPane } = await import('../agents/busStore')
+const { ackMail, flushBus, inboxOf, leaseMail, resetBus, watchPane } = await import(
+  '../agents/busStore'
+)
 const { registerPane } = await import('../control/idRegistry')
+
+const readAll = (to: string): void => {
+  ackMail(to, leaseMail(to, 'read', () => true)?.lease ?? '')
+}
 
 const boss = registerPane({ windowId: 'w1', workspaceId: 'ws1', paneId: 'ev-boss' })
 const worker = registerPane({ windowId: 'w1', workspaceId: 'ws1', paneId: 'ev-worker' })
@@ -102,7 +108,7 @@ describe('PaneEvents', () => {
     watchPane(boss.externalId, worker.externalId, ['done', 'waiting'])
     attention(worker.paneId, 'waiting')
     await settle()
-    takeMail(boss.externalId, 'read', () => true)
+    readAll(boss.externalId)
     attention(worker.paneId, 'done')
     await settle()
     expect(inboxOf(boss.externalId)).toHaveLength(1)
@@ -116,14 +122,14 @@ describe('PaneEvents', () => {
     journal.onChange(worker.paneId, { kind: 'state' })
     await settle()
     expect(inboxOf(boss.externalId)).toHaveLength(1)
-    takeMail(boss.externalId, 'read', () => true)
+    readAll(boss.externalId)
 
     exited.add(worker.paneId)
     events.onChange(worker.paneId, { kind: 'state' })
     events.onChange(worker.paneId, { kind: 'state' })
     await settle()
     expect(inboxOf(boss.externalId)).toHaveLength(1)
-    takeMail(boss.externalId, 'read', () => true)
+    readAll(boss.externalId)
 
     exited.delete(worker.paneId)
     events.onChange(worker.paneId, { kind: 'state' })

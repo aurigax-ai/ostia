@@ -64,13 +64,3 @@ export function fuzzyMatch(rawQuery: string, path: string): FuzzyHit | null {
   }
   return best
 }
-
-export function rankFiles(query: string, paths: string[], limit: number): FuzzyHit[] {
-  const hits: FuzzyHit[] = []
-  for (const path of paths) {
-    const hit = fuzzyMatch(query, path)
-    if (hit) hits.push(hit)
-  }
-  hits.sort((a, b) => b.score - a.score || a.path.length - b.path.length)
-  return hits.slice(0, limit)
-}

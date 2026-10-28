@@ -10,7 +10,6 @@ export const terminalBridge: Pick<
     attach: (paneId, opts) => ipcRenderer.invoke('pty:attach', paneId, opts),
     detach: (paneId) => ipcRenderer.send('pty:detach', paneId),
     hibernate: (paneId) => ipcRenderer.invoke('pty:hibernate', paneId),
-    stashed: (paneId) => ipcRenderer.invoke('pty:stashed', paneId),
     historyRead: (paneId, from, count) =>
       ipcRenderer.invoke('pty:history-read', paneId, from, count),
     historySearch: (paneId, query, options, liveLines) =>
