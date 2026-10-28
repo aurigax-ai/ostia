@@ -14,6 +14,7 @@ import { getByPaneId } from '../control/idRegistry'
 import type { Telemetry } from '../diagnostics/telemetry'
 import type { ManagerService } from '../manager/manager'
 import type { PaneJournal } from '../panes/paneJournal'
+import { registerPaneKeepAwakeMethods } from '../panes/paneKeepAwake'
 import { registerPaneNameMethods } from '../panes/paneNameMethods'
 import { noteAgentSession } from '../panes/paneNames'
 import { registerPaneRenameMethods } from '../panes/paneRename'
@@ -199,6 +200,10 @@ export function registerAgentWiring({
     isSandboxed: (workspaceId) => workspaceSandboxes.isEnabled(workspaceId),
     isConfined: (paneId) => ptys.get(paneId)?.sandboxed === true,
     processPane,
+    agentRunning: (paneId) => agentRunning.has(paneId),
+  })
+  registerPaneKeepAwakeMethods({
+    execCommand,
     agentRunning: (paneId) => agentRunning.has(paneId),
   })
   registerPaneRenameMethods({

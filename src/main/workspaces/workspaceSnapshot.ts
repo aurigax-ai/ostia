@@ -122,6 +122,7 @@ function parseNode(
     if (resume) pane.resume = resume
     if (resume && raw.agentRunning === true && raw.hibernated !== true) pane.agentRunning = true
     if (resume && raw.hibernated === true) pane.hibernated = true
+    if (resume && raw.keepAwake === true) pane.keepAwake = true
     const failure = resume ? null : parseResumeFailure(raw.resumeFailed)
     if (failure) pane.resumeFailed = failure
     if (raw.locked === true) pane.locked = true

@@ -128,6 +128,12 @@ export const USAGE_TABLE: readonly NounUsage[] = [
       },
       { verb: 'rename', args: `${PANE} <title…> | --clear`, about: "name a pane's tab" },
       {
+        verb: 'keep-awake',
+        args: '[--off] [--json]',
+        about:
+          'keep your own agent pane awake: automatic hibernation and pane hibernate skip it; --off ends it',
+      },
+      {
         verb: 'name',
         args: '<name> [--desc <text>] [--json] | --clear',
         about:

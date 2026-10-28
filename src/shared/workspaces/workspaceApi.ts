@@ -39,6 +39,7 @@ export interface SnapshotPaneNode {
   resumeFailed?: ResumeFailure
   agentRunning?: true
   hibernated?: true
+  keepAwake?: true
   locked?: true
   defaultTitle?: true
   titlePinned?: true

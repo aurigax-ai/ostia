@@ -5,6 +5,7 @@ import { resolveWorkspaceRef } from '../common/crossWorkspace'
 import { commandLabel } from '../common/failure'
 import { tsvLine } from '../common/lineField'
 import { usageOf, verbUsageOf } from '../common/usageTable'
+import { type PaneKeepAwakeCall, parseKeepAwake, runPaneKeepAwake } from './paneKeepAwake'
 import { type PaneListCall, parseList, runPaneList } from './paneListVerb'
 import { type PaneNameCall, parseName, runPaneName } from './paneName'
 
@@ -21,6 +22,7 @@ export type PaneCall =
   | { method: 'pane.read'; params: { pane: string; lines?: number }; json: boolean }
   | { method: 'pane.rename'; params: { pane: string; title: string } }
   | PaneNameCall
+  | PaneKeepAwakeCall
   | { method: 'pane.wait'; params: PaneWaitParams; json: boolean }
   | { method: 'pane.status'; params: { panes?: string[] }; json: boolean }
   | {
@@ -311,6 +313,7 @@ export function parsePaneArgs(argv: string[]): PaneCall {
   if (sub === 'status') return parseStatus(argv.slice(1))
   if (sub === 'close') return parseClose(argv.slice(1))
   if (sub === 'name') return parseName(argv.slice(1))
+  if (sub === 'keep-awake') return parseKeepAwake(argv.slice(1))
   if (sub === 'watch' && pane === '--off' && rest.length === 0) return parseWatch(argv.slice(1))
   if (!sub || !pane) throw new Error(USAGE)
   if (sub === 'wait') return parseWait([pane, ...rest])
@@ -410,6 +413,7 @@ export async function runPaneVerb(
   }
   if (call.method === 'pane.list') return runPaneList(conn, call)
   if (call.method === 'pane.name') return runPaneName(conn, call)
+  if (call.method === 'pane.keepAwake') return runPaneKeepAwake(conn, call)
   if (call.method === 'pane.transcript') {
     const result = await conn.sendRequest<{
       agent: string

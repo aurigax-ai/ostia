@@ -46,6 +46,10 @@ describe('statusLine', () => {
     )
   })
 
+  it('marks a kept-awake pane after its state', () => {
+    expect(statusLine({ ...base, keepAwake: true })).toContain('exit 0  keep-awake  feat/inbox')
+  })
+
   it('says first look the first time, and no change when nothing happened', () => {
     expect(statusLine({ ...base, changes: { ...base.changes, first: true } })).toContain(
       '(first look)',

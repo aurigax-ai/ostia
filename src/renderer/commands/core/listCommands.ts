@@ -19,6 +19,7 @@ interface PaneListEntry extends PaneAgentReport {
   splitTabId?: string
   splitTabName?: string
   hibernated?: true
+  keepAwake?: true
   awaitingActivation?: true
 }
 
@@ -74,6 +75,7 @@ export function registerListCommands(): void {
             ...(splitTab ? { splitTabId: splitTab.id } : {}),
             ...(splitTab?.name ? { splitTabName: splitTab.name } : {}),
             ...(pane.hibernated ? { hibernated: true } : {}),
+            ...(pane.keepAwake ? { keepAwake: true } : {}),
             ...(pane.kind === 'terminal' && awaitsResume(pane) && !isKeptShell(pane.id)
               ? { awaitingActivation: true }
               : {}),

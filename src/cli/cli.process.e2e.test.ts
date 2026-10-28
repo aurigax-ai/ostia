@@ -209,6 +209,7 @@ registerPaneIoMethods({
   hibernated: async (pane) => asleep.has(pane.paneId),
   wake: async (pane) => ({ woke: asleep.delete(pane.paneId) }),
   hibernate: async () => ({ ok: true, result: { hibernated: true, outcome: 'hibernated' } }),
+  keptAwake: async () => false,
   panes: async () =>
     livePanes.map((p) => ({
       ...p,

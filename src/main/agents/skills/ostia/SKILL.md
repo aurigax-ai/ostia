@@ -167,6 +167,7 @@ ostia pane hibernate <pane>… [--json]
 ostia pane move <pane>… --tab <name>|new [--workspace <id|name>] [--json]
 ostia pane rename <pane> <title…> | --clear
 ostia pane name <name> [--desc <text>] [--json] | --clear   # your pane's bus name
+ostia pane keep-awake [--off]
 ostia pane close [<pane>…] [--json]      # no pane: your own
 ```
 
@@ -181,8 +182,8 @@ several panes share. `state` is `hibernated`, `waking`, the agent's state, `runn
 status line, so neither a sleep loop nor a `pane read` is needed. `bus wait` blocks for the next
 message, `pane watch` delivers a pane's state changes as mail, and `process run`/`agent run`
 return once the start is known. `pane status` answers facts without the screen; `pane read`
-returns its output. Details of every verb, the `pane list --json` fields and which capability each
-verb asks for: [reference/panes.md](reference/panes.md).
+returns its output. Verb details, `pane list --json` fields and capabilities:
+[reference/panes.md](reference/panes.md).
 
 A tab you opened with `process run` or `agent run` needs no question. Any other pane asks the
 human (`type-other-pane`, `read-other-pane`, `kill-pane`, plus `all-workspaces` outside your

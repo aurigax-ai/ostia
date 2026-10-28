@@ -171,6 +171,37 @@ function registerAgentSessionCommands(): void {
     },
   })
 
+  registerCore<undefined, { keepAwake: boolean }>({
+    id: 'pane.keptAwake',
+    category: 'pane',
+    hidden: true,
+    capabilities: ['read-board'],
+    run: (_args, ctx) => {
+      if (!ctx.activeWorkspaceId || !ctx.activePaneId) throw new Error('no target pane')
+      const layout = useLayoutStore.getState().byWorkspace[ctx.activeWorkspaceId]
+      const pane = layout ? findPane(layout.root, ctx.activePaneId) : null
+      return { keepAwake: pane?.keepAwake === true }
+    },
+  })
+
+  registerCore<{ paneId?: string; on?: boolean } | undefined, { keepAwake: boolean }>({
+    id: 'pane.keepAwake',
+    category: 'pane',
+    hidden: true,
+    local: true,
+    capabilities: ['drive-self'],
+    run: (args, ctx) => {
+      const paneId = args?.paneId ?? ctx.activePaneId
+      if (!ctx.activeWorkspaceId || !paneId) throw new Error('no target pane')
+      const layout = useLayoutStore.getState()
+      const root = layout.byWorkspace[ctx.activeWorkspaceId]?.root
+      const kept = root ? findPane(root, paneId)?.keepAwake === true : false
+      layout.setKeepAwake(ctx.activeWorkspaceId, paneId, args?.on ?? !kept)
+      const after = useLayoutStore.getState().byWorkspace[ctx.activeWorkspaceId]
+      return { keepAwake: after ? findPane(after.root, paneId)?.keepAwake === true : false }
+    },
+  })
+
   registerCore<undefined, { resume: AgentResume | null }>({
     id: 'pane.resumeToken',
     category: 'pane',

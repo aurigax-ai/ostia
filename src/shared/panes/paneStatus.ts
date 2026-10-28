@@ -33,6 +33,7 @@ export interface PaneStatus {
   state: PaneStateName
   sinceMs?: number
   closing?: string
+  keepAwake?: true
   exitCode?: number
   process?: { id: string; status: string }
   git?: { branch: string | null; ahead: number; behind: number; changed: number }
@@ -89,6 +90,7 @@ export function statusLine(status: PaneStatus): string {
     status.title,
     stateText,
     status.exitCode === undefined ? '' : `exit ${status.exitCode}`,
+    status.keepAwake ? 'keep-awake' : '',
     status.process ? `process ${status.process.id} ${status.process.status}` : '',
     status.git ? gitPart(status.git) : '',
     mailText,

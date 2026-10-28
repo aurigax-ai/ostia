@@ -30,6 +30,7 @@ export interface PaneWakeDeps extends PaneReachDeps {
   hibernated: (pane: PaneIdentity) => Promise<boolean>
   wake: (pane: PaneIdentity) => Promise<{ woke: boolean; conflict?: string }>
   hibernate: (pane: PaneIdentity) => Promise<CommandResult>
+  keptAwake: (pane: PaneIdentity) => Promise<boolean>
   panes: () => Promise<PaneEntry[]>
   waking: PaneWaking
   resume: (pane: PaneIdentity) => Promise<CommandResult>
@@ -47,6 +48,12 @@ function agentIsLive(entry: PaneEntry | undefined): boolean {
 
 export function notHibernated(to: PaneIdentity): ResponseError<void> {
   return fail(`not-hibernated: ${to.externalId} is not hibernated`)
+}
+
+function keptAwake(to: PaneIdentity): ResponseError<void> {
+  return fail(
+    `keep-awake: ${to.externalId} is kept awake and only its human can hibernate it; ask its agent to run ostia pane keep-awake --off`,
+  )
 }
 
 function notResumable(to: PaneIdentity): ResponseError<void> {
@@ -195,6 +202,7 @@ export function registerPaneWakeMethods(
           method: 'pane.hibernate',
           detail: `hibernate ${to.externalId}: stop its agent until it is woken`,
         })
+        if (await deps.keptAwake(to)) throw keptAwake(to)
         panes.push(to)
       }
       const hibernated: string[] = []

@@ -51,6 +51,7 @@ const failsWhileWaking = new Map<string, string>()
 const rejectsWake = new Set<string>()
 const hibernateOutcomes = new Map<string, string>()
 const hibernateCalls: string[] = []
+const keptAwakePanes = new Set<string>()
 const closed: string[] = []
 const resumed: string[] = []
 const lockedPanes = new Set<string>()
@@ -127,6 +128,7 @@ registerPaneIoMethods({
     if (outcome === 'hibernated') asleepPanes.add(pane.paneId)
     return { ok: true, result: { hibernated: outcome === 'hibernated', outcome } }
   },
+  keptAwake: async (pane) => keptAwakePanes.has(pane.paneId),
   panes: async () => listed,
   waking,
   close: async (pane) => {
@@ -226,6 +228,7 @@ beforeEach(() => {
   woken.length = 0
   hibernateOutcomes.clear()
   hibernateCalls.length = 0
+  keptAwakePanes.clear()
   closed.length = 0
   resumed.length = 0
   lockedPanes.clear()
@@ -600,6 +603,16 @@ describe('pane.hibernate', () => {
     })
     expect(hibernateCalls).toEqual(['child-pane'])
     expect(request).not.toHaveBeenCalled()
+  })
+
+  it('refuses a kept-awake pane with keep-awake: and hibernates nothing', async () => {
+    keptAwakePanes.add('sibling-pane')
+    answer = 'once'
+    const conn = await client(agent)
+    await expect(
+      conn.sendRequest('pane.hibernate', { panes: ['echo', sibling.externalId] }),
+    ).rejects.toThrow(/^keep-awake: .*ostia pane keep-awake --off$/)
+    expect(hibernateCalls).toEqual([])
   })
 
   it('lists a busy agent as skipped with its reason and still stops the others', async () => {

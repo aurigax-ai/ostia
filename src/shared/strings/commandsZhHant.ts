@@ -109,6 +109,8 @@ export const commandsZhHant: typeof commandsEn = {
       'pane.hibernate': '讓分頁休眠',
       'pane.hibernated': '讀取窗格是否休眠中',
       'pane.joinTab': '將窗格移到分割分頁',
+      'pane.keepAwake': '讓窗格保持清醒',
+      'pane.keptAwake': '讀取窗格是否保持清醒',
       'pane.list': '列出窗格',
       'pane.locked': '讀取窗格是否已鎖定',
       'pane.move': '移動窗格',

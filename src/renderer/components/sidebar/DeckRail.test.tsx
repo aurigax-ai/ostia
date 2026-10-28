@@ -240,6 +240,39 @@ describe('DeckRail', () => {
     expect(within(rowFor(/beta/)).getByRole('button', { name: 'Close' })).toBeInTheDocument()
   })
 
+  it('marks a workspace row while a tab is kept awake, naming the tab or counting many', async () => {
+    seedWorkspaces()
+    const one = { ...createPane('terminal'), title: 'boss', keepAwake: true as const }
+    useLayoutStore.setState({
+      byWorkspace: { s1: { root: one, activePaneId: one.id, zoomedPaneId: null } },
+    })
+    await renderSettled(<DeckRail />)
+    expect(
+      within(rowFor(/alpha/)).getByRole('img', { name: 'Kept awake: boss' }),
+    ).toBeInTheDocument()
+    expect(within(rowFor(/beta/)).queryByRole('img', { name: /Kept awake/ })).toBeNull()
+    cleanup()
+    const many = ['a', 'b', 'c', 'd'].map((title) => ({
+      ...createPane('terminal'),
+      title,
+      keepAwake: true as const,
+    }))
+    const root = {
+      type: 'split' as const,
+      id: 'many',
+      direction: 'horizontal' as const,
+      sizes: many.map(() => 1),
+      children: many,
+    }
+    useLayoutStore.setState({
+      byWorkspace: { s1: { root, activePaneId: many[0].id, zoomedPaneId: null } },
+    })
+    await renderSettled(<DeckRail />)
+    expect(
+      within(rowFor(/alpha/)).getByRole('img', { name: '4 tabs kept awake' }),
+    ).toBeInTheDocument()
+  })
+
   it('marks a sandboxed workspace row, and no other row', async () => {
     seedWorkspaces()
     vi.mocked(window.ostia.sandbox.get).mockImplementation(async (id) => ({
