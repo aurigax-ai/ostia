@@ -31,6 +31,7 @@ export interface PaneNode {
   browserDevice?: BrowserDevice
   resume?: AgentResume
   hibernated?: true
+  keepAwake?: true
   resumePending?: true
   spawnDir?: string
   resumeFolderMissing?: string

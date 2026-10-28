@@ -405,6 +405,20 @@ describe('agent running at save', () => {
     expect(restored).not.toHaveProperty('resumePending')
   })
 
+  it('keeps a kept-awake mark through a save and a restore', () => {
+    const kept = { ...createPane('terminal'), resume, keepAwake: true as const }
+    const snap = buildSnapshot({
+      workspaces: [workspace],
+      groups: [],
+      activeWorkspaceId: 'w1',
+      layouts: { w1: { root: kept, activePaneId: kept.id } },
+      savedAt: 'now',
+      liveAgentPanes: new Set([kept.id]),
+    })
+    expect(snap.workspaces[0].root).toMatchObject({ keepAwake: true })
+    expect(restoreSnapshot(snap).layouts.w1.root).toMatchObject({ id: kept.id, keepAwake: true })
+  })
+
   it('drops the hibernated mark of a pane that has nothing to resume', () => {
     const plain = { ...createPane('terminal'), hibernated: true as const }
     const snap = buildSnapshot({

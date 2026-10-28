@@ -45,6 +45,7 @@ export interface LayoutState {
   failResume: (workspaceId: string, paneId: string, resume: AgentResume, exitCode: number) => void
   clearResumeFailure: (workspaceId: string, paneId: string) => void
   setHibernated: (workspaceId: string, paneId: string, hibernated: boolean) => void
+  setKeepAwake: (workspaceId: string, paneId: string, keepAwake: boolean) => void
   setSpawnDir: (workspaceId: string, paneId: string, spawnDir: string) => void
   settleSpawnDir: (workspaceId: string, paneId: string, missing: boolean) => void
   setLocked: (workspaceId: string, paneId: string, locked: boolean) => void

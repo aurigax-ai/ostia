@@ -11,7 +11,9 @@ import {
   setPaneDiff,
   setPaneEditor,
   setPaneHibernated,
+  setPaneKeepAwake,
   setPaneLocked,
+  setPaneResume,
   setPaneSpawnDir,
   setPaneTitle,
   setPaneUrl,
@@ -256,6 +258,28 @@ describe('setPaneLocked', () => {
     const open = setPaneLocked(locked, b.id, false)
     expect(findPane(open, b.id)).not.toHaveProperty('locked')
     expect(hasLockedPane(open)).toBe(false)
+  })
+})
+
+describe('setPaneKeepAwake', () => {
+  it('marks and clears a pane, returning the same tree when nothing changes', () => {
+    const root = createPane()
+    const kept = setPaneKeepAwake(root, root.id, true)
+    expect(kept).toMatchObject({ keepAwake: true })
+    expect(setPaneKeepAwake(kept, root.id, true)).toBe(kept)
+    const open = setPaneKeepAwake(kept, root.id, false)
+    expect(open).not.toHaveProperty('keepAwake')
+    expect(setPaneKeepAwake(open, root.id, false)).toBe(open)
+  })
+
+  it('stays when the same agent stores a new session and drops when another agent starts', () => {
+    const root = { ...createPane(), resume: { agent: 'claude' as const, id: 'a' } }
+    const kept = setPaneKeepAwake(root, root.id, true)
+    const sameAgent = setPaneResume(kept, root.id, { agent: 'claude', id: 'b' })
+    expect(sameAgent).toMatchObject({ keepAwake: true, resume: { id: 'b' } })
+    const otherAgent = setPaneResume(kept, root.id, { agent: 'codex', id: 'c' })
+    expect(otherAgent).not.toHaveProperty('keepAwake')
+    expect(otherAgent).toMatchObject({ resume: { agent: 'codex', id: 'c' } })
   })
 })
 

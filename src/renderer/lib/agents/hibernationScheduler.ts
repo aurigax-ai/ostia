@@ -22,7 +22,7 @@ function hibernationCandidates(now: number): HibernationCandidate[] {
   for (const [workspaceId, layout] of Object.entries(useLayoutStore.getState().byWorkspace)) {
     if (!layout) continue
     for (const pane of allPanes(layout.root)) {
-      if (pane.kind !== 'terminal' || !pane.resume || pane.hibernated) continue
+      if (pane.kind !== 'terminal' || !pane.resume || pane.hibernated || pane.keepAwake) continue
       const lastActive = paneActivityAt(pane.id)
       out.push({
         paneId: pane.id,

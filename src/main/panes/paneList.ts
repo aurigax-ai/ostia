@@ -24,6 +24,7 @@ interface RendererPaneEntry extends PaneAgentFields {
   splitTabId?: string
   splitTabName?: string
   hibernated?: unknown
+  keepAwake?: unknown
   awaitingActivation?: unknown
 }
 
@@ -60,6 +61,7 @@ export interface PaneEntry extends PaneAgentFields {
   splitTabId?: string
   splitTabName?: string
   hibernated?: true
+  keepAwake?: true
   waking?: true
   awaitingActivation?: true
   startError?: string
@@ -160,6 +162,7 @@ export async function listPanes(deps: PaneListDeps): Promise<PaneEntry[]> {
       lastExitCode: state?.lastExitCode,
       ...(pid ? { pid } : {}),
       ...(p.hibernated === true ? { hibernated: true } : {}),
+      ...(p.keepAwake === true ? { keepAwake: true } : {}),
       ...(deps.waking(p.paneId) ? { waking: true } : {}),
       ...(p.awaitingActivation === true ? { awaitingActivation: true } : {}),
       ...(startError ? { startError } : {}),

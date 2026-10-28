@@ -8,6 +8,7 @@ import {
   setPaneBrowserDevice,
   setPaneCwd,
   setPaneHibernated,
+  setPaneKeepAwake,
   setPaneLocked,
   setPaneResume,
   setPaneSpawnDir,
@@ -40,6 +41,7 @@ type LayoutPaneResumeActions = Pick<
   | 'failResume'
   | 'clearResumeFailure'
   | 'setHibernated'
+  | 'setKeepAwake'
   | 'setSpawnDir'
   | 'settleSpawnDir'
 >
@@ -184,6 +186,17 @@ function createPaneResumeActions(set: LayoutSet): LayoutPaneResumeActions {
         const root = hibernated
           ? setDefaultPaneTitle(asleep, paneId, neutralTerminalTitle())
           : asleep
+        return root === layout.root
+          ? s
+          : { byWorkspace: { ...s.byWorkspace, [workspaceId]: { ...layout, root } } }
+      }),
+
+    setKeepAwake: (workspaceId, paneId, keepAwake) =>
+      set((s) => {
+        const layout = s.byWorkspace[workspaceId]
+        const pane = layout ? findPane(layout.root, paneId) : null
+        if (!layout || pane?.kind !== 'terminal' || (keepAwake && !pane.resume)) return s
+        const root = setPaneKeepAwake(layout.root, paneId, keepAwake)
         return root === layout.root
           ? s
           : { byWorkspace: { ...s.byWorkspace, [workspaceId]: { ...layout, root } } }

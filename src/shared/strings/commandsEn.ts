@@ -107,6 +107,8 @@ export const commandsEn = {
       'pane.hibernate': 'Hibernate Tab',
       'pane.hibernated': 'Read Whether a Pane Is Hibernated',
       'pane.joinTab': 'Move Panes to Split Tab',
+      'pane.keepAwake': 'Keep Pane Awake',
+      'pane.keptAwake': 'Read Whether a Pane Is Kept Awake',
       'pane.list': 'List Panes',
       'pane.locked': 'Read Whether a Pane Is Locked',
       'pane.move': 'Move Pane',

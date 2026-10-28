@@ -111,6 +111,7 @@ export function statusOf(
     state,
     ...(facts.sinceMs === undefined ? {} : { sinceMs: facts.sinceMs }),
     ...(facts.closing ? { closing: facts.closing.slice(0, STATUS_MESSAGE_MAX) } : {}),
+    ...(entry.keepAwake ? { keepAwake: true as const } : {}),
     ...(idle ? { exitCode: entry.lastExitCode } : {}),
     ...(entry.process ? { process: { id: entry.process.id, status: entry.process.status } } : {}),
     ...(facts.git ? { git: facts.git } : {}),

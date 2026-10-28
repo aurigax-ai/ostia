@@ -1,6 +1,12 @@
 # Panes: verb details
 
-`pane list --json` fields:
+## Contents
+
+- The `pane list --json` fields
+- Verbs
+- Reach
+
+## The `pane list --json` fields
 
 | Field | Meaning |
 |---|---|
@@ -9,9 +15,12 @@
 | `agent?`, `agentState?`, `agentMessage?` | the agent running there and what it reported (`working`, `waiting`, `done`, `error`) |
 | `agentSessionId?`, `agentSessionConflict?` | its session; other panes running the same session |
 | `hibernated?`, `waking?` | Ostia stopped the idle agent; it is starting again |
+| `keepAwake?` | the pane's agent ran `pane keep-awake` (text shows `keep-awake` as the last field) |
 | `splitTabId?`, `splitTabName?` | the split tab holding it |
 | `process?` | `{id, status, start}` of the command `process run` or `agent run` started there |
 | `name?`, `description?` | the bus name and one-line description its agent registered with `pane name` |
+
+## Verbs
 
 - **list** keeps every pane you can see by default; `--here` keeps your workspace, `--workspace
   <id|name>` another, `--state` (repeat it: `idle`, `running`, `working`, `waiting`, `done`, `error`,
@@ -77,6 +86,12 @@
   `<id> already awake` and nothing is typed. It answers `not-resumable` for a
   pane with no session to resume. `send` and `key` refuse a pane that is `hibernated:` or
   `waking:`.
+- **keep-awake** keeps your own agent pane out of automatic hibernation and does not count it toward
+  the live-terminal limit; `--off` ends it. An agent that must stay live to receive other agents'
+  reports (a coordinator) runs `ostia pane keep-awake` once. Another agent's `pane hibernate` on it
+  answers `keep-awake:`; only the human can still hibernate it. It lasts until the pane closes or
+  another agent starts in it; `pane status` shows `keep-awake`. A pane without a running claude or
+  codex agent answers `not-an-agent:`.
 - **hibernate** skips a busy agent and exits 2 with the reason; a pane that is asleep already is
   listed as hibernated.
 - **move --tab <name>** puts running panes into that split tab (the same name `--tab` uses),
@@ -92,7 +107,9 @@
   An unknown id of a pane that closed answers `unknown-pane: <id> closed <age> ago (<name>)`.
   It closes at once, even while a command runs; unsaved file changes ask the human. A
   locked pane answers `pane-locked:`; a pane still listed afterwards answers `still-open:`.
-- **Reach.** A tab you opened with `process run` or `agent run` asks nothing. For another pane the
+## Reach
+
+A tab you opened with `process run` or `agent run` asks nothing. For another pane the
   human is asked for `type-other-pane` (send, key, wake, move), `read-other-pane` (read, wait,
   status, transcript, watch) or `kill-pane` (close, hibernate), plus `all-workspaces` outside your
   reach. From a sandboxed workspace only sandboxed terminals of the same workspace are reachable.

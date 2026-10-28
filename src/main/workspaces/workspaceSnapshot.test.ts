@@ -304,6 +304,21 @@ describe('parseSnapshot', () => {
     ).not.toHaveProperty('agentRunning')
   })
 
+  it('keeps a kept-awake mark only on a pane that has a resume token', () => {
+    const pane = snap().workspaces[0].root
+    const rootOf = (extra: object) =>
+      parseSnapshot(
+        snap({ workspaces: [{ ...snap().workspaces[0], root: { ...pane, ...extra } as never }] }),
+      )?.workspaces[0].root
+    expect(rootOf({ resume: { agent: 'claude', id: 'abc-1' }, keepAwake: true })).toMatchObject({
+      keepAwake: true,
+    })
+    expect(rootOf({ keepAwake: true })).not.toHaveProperty('keepAwake')
+    expect(
+      rootOf({ resume: { agent: 'claude', id: 'abc-1' }, keepAwake: 'yes' }),
+    ).not.toHaveProperty('keepAwake')
+  })
+
   it('RSM-C17 keeps a failed resume token as data, never running and only without a live token', () => {
     const pane = snap().workspaces[0].root
     const rootOf = (extra: object) =>

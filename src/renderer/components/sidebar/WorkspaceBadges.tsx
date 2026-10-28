@@ -1,11 +1,16 @@
-import { LockSimpleIcon, PushPinSimpleIcon, ShieldCheckIcon } from '@phosphor-icons/react'
+import {
+  CoffeeIcon,
+  LockSimpleIcon,
+  PushPinSimpleIcon,
+  ShieldCheckIcon,
+} from '@phosphor-icons/react'
 import { useEffect } from 'react'
 import { Hint } from '@/components/common/Hint'
 import { MailCount } from '@/components/common/MailCount'
 import { Badge } from '@/components/ui/badge'
-import { useDict } from '@/lib/app/useDict'
+import { fmt, useDict } from '@/lib/app/useDict'
 import { hasLockedPane } from '@/lib/layout/paneFields'
-import { paneIds } from '@/lib/layout/tree'
+import { allPanes, paneIds } from '@/lib/layout/tree'
 import { useSandboxStore } from '@/stores/app/sandboxStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import type { Workspace } from '@/stores/workspaces/workspaceTypes'
@@ -24,6 +29,28 @@ function ScratchBadge(): JSX.Element {
 function WorkspaceMail({ workspaceId }: { workspaceId: string }): JSX.Element | null {
   const root = useLayoutStore((s) => s.byWorkspace[workspaceId]?.root)
   return root ? <MailCount paneIds={paneIds(root)} /> : null
+}
+
+const KEPT_AWAKE_NAMED_MAX = 3
+
+function WorkspaceKeptAwake({ workspaceId }: { workspaceId: string }): JSX.Element | null {
+  const d = useDict()
+  const root = useLayoutStore((s) => s.byWorkspace[workspaceId]?.root)
+  const titles = root
+    ? allPanes(root)
+        .filter((pane) => pane.keepAwake)
+        .map((pane) => pane.title)
+    : []
+  if (titles.length === 0) return null
+  const label =
+    titles.length > KEPT_AWAKE_NAMED_MAX
+      ? fmt(d.rail.keptAwakeMany, { count: titles.length })
+      : fmt(d.rail.keptAwake, { names: titles.join(', ') })
+  return (
+    <Hint label={label}>
+      <CoffeeIcon size={16} className="tab-pin" role="img" aria-label={label} />
+    </Hint>
+  )
 }
 
 export function useWorkspaceFlags(workspaceId: string): { sandboxed: boolean; locked: boolean } {
@@ -54,6 +81,7 @@ export function WorkspaceBadges({
       {w.pinned ? (
         <PushPinSimpleIcon size={16} className="tab-pin" aria-label={d.rail.pinned} />
       ) : null}
+      {marksOnly ? null : <WorkspaceKeptAwake workspaceId={w.id} />}
       {sandboxed && !marksOnly ? (
         <ShieldCheckIcon size={16} className="tab-pin" role="img" aria-label={d.rail.sandboxed} />
       ) : null}
