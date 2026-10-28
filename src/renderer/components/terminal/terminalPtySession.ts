@@ -19,6 +19,7 @@ import { useAttentionStore } from '@/stores/agents/attentionStore'
 import { useSandboxStore } from '@/stores/app/sandboxStore'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { type LineAnchor, useBlocksStore } from '@/stores/terminal/blocksStore'
+import { useKeptLinkStore } from '@/stores/terminal/keptLinkStore'
 import { usePhoneSizeStore } from '@/stores/terminal/phoneSizeStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import type { TerminalSession } from './terminalSession'
@@ -117,6 +118,10 @@ export function attachPtySession(deps: PtySessionDeps): () => void {
     }
   })
 
+  const offLink = window.ostia.pty.onLink(paneId, (link) =>
+    useKeptLinkStore.getState().set(paneId, link),
+  )
+
   const io: PtyIo = { flow, pending, writeOutput, writeLive, neighbour }
   const phoneSize = usePhoneSizeStore.getState()
   const applyHeld = (cols: number, rows: number, held: boolean): void => {
@@ -210,6 +215,8 @@ export function attachPtySession(deps: PtySessionDeps): () => void {
     phoneSize.release(paneId)
     offData()
     offExit()
+    offLink()
+    useKeptLinkStore.getState().set(paneId, 'up')
     neighbour.dispose()
   }
 }
@@ -272,6 +279,7 @@ function createPtyAttach(
           .getState()
           .settleSpawnDir(workspaceIdRef.current, paneId, cwdMissing === true)
         if (kept && !flow.querySilencer) flow.querySilencer = silenceReplies()
+        useKeptLinkStore.getState().set(paneId, result.link ?? 'up')
         if (reattached) keptShellReattached(workspaceIdRef.current, paneId)
         commitShellTitle(workspaceIdRef.current, paneId, shell)
         useSandboxStore.getState().notePane(paneId, sandboxed ?? false, sandboxStamp)

@@ -1,23 +1,23 @@
 import { execFileSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
-import { chmodSync, existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs'
+import { chmodSync, existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { KEPT_SHELLS_DIR } from '../src/shared/terminal/keepShells'
 import { chords } from './chords'
 import {
   DOM_RENDERER_SETTINGS,
-  HIBERNATE_FAST,
   freshDataHome,
+  HIBERNATE_FAST,
   isolatedLaunch,
   seedSettings,
 } from './dataHome'
 import { fakeAgentBin } from './fakeAgent'
 import {
-  PROMPT,
   newTerminal,
   newTerminalWorkspace,
   occurrences,
   openWorkspace,
+  PROMPT,
   pressQuit,
   quitApp,
   restartApp,
@@ -27,10 +27,10 @@ import {
 } from './helpers'
 import {
   type ElectronApplication,
-  type Page,
   _electron as electron,
   expect,
   killApp,
+  type Page,
   test,
   waitForExit,
 } from './test'
@@ -564,5 +564,32 @@ test('KSH-C102 Quit and keep shells leaves a running command alive, and the next
     await expect(screen(second.win)).toContainText(PROMPT)
   } finally {
     await endUnattended(second.app)
+  }
+})
+
+test('KSH-C110 a kept pane stays open and keeps printing when tmux ends its control client', async () => {
+  test.setTimeout(60_000)
+  const { app, win } = await launch(dataHome)
+  try {
+    await openWorkspace(win)
+    await runInTerminal(win, 'i=0; while :; do echo wake-$i; i=$((i+1)); sleep 0.2; done')
+    await expect(screen(win)).toContainText('wake-3', { timeout: 15_000 })
+    const tmux = execFileSync('sh', ['-c', 'command -v tmux'], { encoding: 'utf8' }).trim()
+    const pids = execFileSync(
+      tmux,
+      ['-u', '-S', keptSocket(), 'list-clients', '-F', '#{client_pid}'],
+      { encoding: 'utf8' },
+    )
+      .split('\n')
+      .filter(Boolean)
+    expect(pids.length).toBe(1)
+    process.kill(Number(pids[0]), 'SIGKILL')
+    await expect(screen(win)).toContainText('wake-', { timeout: 15_000 })
+    const seen = (await screen(win).textContent()) ?? ''
+    const last = Math.max(...[...seen.matchAll(/wake-(\d+)/g)].map((m) => Number(m[1])))
+    await expect(screen(win)).toContainText(`wake-${last + 10}`, { timeout: 15_000 })
+    await expect(screen(win)).not.toContainText('[process exited]')
+  } finally {
+    await quitApp(app)
   }
 })

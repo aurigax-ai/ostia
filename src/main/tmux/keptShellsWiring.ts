@@ -1,7 +1,7 @@
 import { execFileSync } from 'node:child_process'
 import { join } from 'node:path'
 import { appEnv } from '@aurigax-ai/ostia-extension-sdk/contract/appEnv'
-import { app } from 'electron'
+import { app, powerMonitor } from 'electron'
 import { KEEP_SHELLS_FEATURE, parseKeepShells } from '../../shared/terminal/keepShells'
 import { keptControlSocketPath, listenKeptControlSocket } from '../control/controlServer'
 import type { AppLog } from '../diagnostics/appLog'
@@ -15,6 +15,7 @@ import { startGenerationCleanup } from '../terminal/shellIntegration'
 import { handoffPaneIds, loadSnapshot } from '../workspaces/workspaceSnapshot'
 import { KeptPlumbing, keptLauncherPaths } from './keptLaunchers'
 import { keptShellsDir, keptShellsName } from './keptPaths'
+import { watchPower } from './keptPower'
 import { type KeptMeta, type KeptProcessMeta, type KeptProgram, KeptShells } from './keptShells'
 
 interface KeptShellsWiringDeps {
@@ -161,6 +162,7 @@ export function startKeptShells({
   paneLauncherDir,
   services,
 }: KeptShellsStartDeps) {
+  watchPower(powerMonitor, keptShells)
   void keptShells
     .start(parseKeepShells(readSettingsFile().terminal?.keepShells), savedPaneIds())
     .then(() => {
