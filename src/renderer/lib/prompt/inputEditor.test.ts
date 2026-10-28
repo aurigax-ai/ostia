@@ -169,6 +169,14 @@ describe('argumentCandidates', () => {
     expect(list).toHaveBeenCalledWith('/w/my dir')
   })
 
+  it('lists the folder a ./ or a/../ word names and the root for a top-level absolute word', async () => {
+    const list = vi.fn().mockResolvedValue([])
+    await argumentCandidates('ls ./ostia_b', 12, '/w', { ...noSpec, list })
+    await argumentCandidates('ls a/b/../c', 11, '/w', { ...noSpec, list })
+    await argumentCandidates('ls /us', 6, '/w', { ...noSpec, list })
+    expect(list.mock.calls.map((c) => c[0])).toEqual(['/w', '/w/a', '/'])
+  })
+
   it('lists the cwd itself for a bare word and absolute or home paths as given', async () => {
     const list = vi.fn().mockResolvedValue([])
     await argumentCandidates('ls ', 3, '/w', { ...noSpec, list })
@@ -280,6 +288,21 @@ describe('applyCompletionItem', () => {
     expect(applyCompletionItem('cat my\\ f', 9, { name: 'my file', dir: false })).toEqual({
       text: 'cat my\\ file ',
       caret: 13,
+    })
+  })
+
+  it('completes .. to ../ and a dotfile with a trailing space', () => {
+    expect(applyCompletionItem('cd ..', 5, { name: '..', dir: true })).toEqual({
+      text: 'cd ../',
+      caret: 6,
+    })
+    expect(applyCompletionItem('ls .ostia', 9, { name: '.ostia_hidden', dir: false })).toEqual({
+      text: 'ls .ostia_hidden ',
+      caret: 17,
+    })
+    expect(applyCompletionItem('cat my\\ d', 9, { name: 'my dir', dir: true })).toEqual({
+      text: 'cat my\\ dir/',
+      caret: 12,
     })
   })
 

@@ -1,6 +1,7 @@
 import type { CommandInvokeRequest } from '@shared/control/commands'
 import { describe, expect, it, vi } from 'vitest'
 import { wireCommandBridge } from './bridge'
+import { registerPaneAgentCommands } from './core/paneAgentCommands'
 import { registerPaneTabCommands } from './paneTabCommands'
 import type { CommandContext } from './registry'
 import { commands } from './registry'
@@ -122,5 +123,23 @@ describe('wireCommandBridge', () => {
       fromMain: true,
     })
     expect(fromMain.ok ? '' : fromMain.error.message).not.toContain('unknown command')
+  })
+
+  it('runs pane.hibernate only for main itself, never for command.exec', async () => {
+    registerPaneAgentCommands()
+    wireCommandBridge()
+
+    expect(commands.describe().map((d) => d.id)).not.toContain('pane.hibernate')
+    const handler = vi.mocked(window.ostia.commands.onInvoke).mock.calls[0][0]
+    const target = { workspaceId: 's1', paneId: 'p1' }
+    const viaSocket = await handler({ id: 'pane.hibernate', args: { paneId: 'p2' }, target })
+    expect(viaSocket.ok ? '' : viaSocket.error.code).toBe('unknown-command')
+    const fromMain = await handler({
+      id: 'pane.hibernate',
+      args: { paneId: 'p2' },
+      target,
+      fromMain: true,
+    })
+    expect(fromMain.ok ? '' : fromMain.error.code).not.toBe('unknown-command')
   })
 })

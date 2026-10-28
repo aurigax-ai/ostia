@@ -118,6 +118,7 @@ interface Live {
   portable: ViewerPortableTables | 'too-large' | null
   selection: StoredSelection | null
   selectionSeq: number
+  selectionBase: DocumentFingerprint | null
   documentText: string | null
   served: DocumentFingerprint | null
   followsAppends: boolean
@@ -223,6 +224,7 @@ export class ViewerHost {
       portable: null,
       selection: null,
       selectionSeq: 0,
+      selectionBase: null,
       documentText: null,
       served: null,
       followsAppends: false,
@@ -280,6 +282,7 @@ export class ViewerHost {
   private forgetSelection(live: Live): boolean {
     if (!live.selection) return false
     live.selection = null
+    live.selectionBase = null
     this.pushSelection(live)
     return true
   }
@@ -300,7 +303,7 @@ export class ViewerHost {
   }
 
   private async onlyAppended(live: Live): Promise<boolean> {
-    const { served } = live
+    const served = live.selection ? live.selectionBase : live.served
     if (!live.followsAppends || !served || live.documentText !== null) return false
     try {
       const read = await this.deps.readDocument(live.path)
@@ -681,6 +684,7 @@ export class ViewerHost {
     if (!stored) return new Response(null, { status: 400 })
     live.selectionSeq = stored.seq
     live.selection = stored
+    live.selectionBase = live.served
     this.pushSelection(live)
     return new Response(null, { status: 204 })
   }

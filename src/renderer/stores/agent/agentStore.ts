@@ -45,6 +45,7 @@ export const useAgentStore = create<AgentStoreState>((set) => ({
 }))
 
 interface Opened {
+  workspaceId: string
   paneId: string
   specsKey: string
   model: string
@@ -79,10 +80,17 @@ async function openSession(sessionId: string): Promise<AgentReply> {
   const specs = agentToolDefs(sessionId).map((def) => def.spec)
   const model = useAgentStore.getState().models[sessionId]
   const rules = useAgentStore.getState().rules[sessionId]?.on ?? true
-  const next: Opened = { paneId, specsKey: JSON.stringify(specs), model: modelKey(model), rules }
+  const next: Opened = {
+    workspaceId,
+    paneId,
+    specsKey: JSON.stringify(specs),
+    model: modelKey(model),
+    rules,
+  }
   const known = opened.get(sessionId)
   if (
     known &&
+    known.workspaceId === next.workspaceId &&
     known.paneId === next.paneId &&
     known.specsKey === next.specsKey &&
     known.model === next.model &&
@@ -153,7 +161,9 @@ export async function ensureAgentSession(
   if (useChatToolsStore.getState().mode[id] === undefined) {
     useChatToolsStore.getState().setMode(id, initialMode('agent'))
   }
-  const moved = paneOf.has(id) && paneOf.get(id) !== paneId
+  const moved =
+    (paneOf.has(id) && paneOf.get(id) !== paneId) ||
+    (workspaceOf.has(id) && workspaceOf.get(id) !== workspaceId)
   workspaceOf.set(id, workspaceId)
   paneOf.set(id, paneId)
   if (!chats.has(id)) {

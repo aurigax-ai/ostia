@@ -2351,6 +2351,39 @@ describe('tab sleep notices', () => {
   })
 })
 
+describe('pane.keepAwake', () => {
+  function seedAgent(resume?: AgentResume) {
+    const pane = { ...createPane('terminal'), ...(resume ? { resume } : {}) }
+    useLayoutStore.setState({
+      byWorkspace: { s1: { root: pane, activePaneId: pane.id, zoomedPaneId: null } },
+    })
+    return pane
+  }
+  const kept = (id: string) => {
+    const root = useLayoutStore.getState().byWorkspace.s1.root
+    return root.type === 'pane' && root.id === id ? root.keepAwake === true : null
+  }
+
+  it('turns keep awake on, off and back by toggling, for a tab with a session', async () => {
+    const pane = seedAgent({ agent: 'claude', id: 't' })
+    const run = (args?: { on?: boolean }) =>
+      commands.execWith(ctx('s1', pane.id), 'pane.keepAwake', args)
+    expect(await run({ on: true })).toMatchObject({ ok: true, result: { keepAwake: true } })
+    expect(kept(pane.id)).toBe(true)
+    expect(await run()).toMatchObject({ ok: true, result: { keepAwake: false } })
+    expect(kept(pane.id)).toBe(false)
+    expect(await run()).toMatchObject({ ok: true, result: { keepAwake: true } })
+    expect(await run({ on: false })).toMatchObject({ ok: true, result: { keepAwake: false } })
+  })
+
+  it('keeps nothing awake for a tab with no session', async () => {
+    const pane = seedAgent()
+    const result = await commands.execWith(ctx('s1', pane.id), 'pane.keepAwake', { on: true })
+    expect(result).toMatchObject({ ok: true, result: { keepAwake: false } })
+    expect(kept(pane.id)).toBe(false)
+  })
+})
+
 describe('agent resume', () => {
   function seedPane(resume?: AgentResume) {
     const pane = { ...createPane('terminal'), ...(resume ? { resume } : {}) }

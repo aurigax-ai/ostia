@@ -40,10 +40,15 @@ describe('AppLinkPrompt', () => {
     expect(useSettingsStore.getState().terminal.allowedAppSchemes).toEqual([])
   })
 
-  it('Cancel and the close button open nothing', async () => {
+  it.each([
+    ['the Cancel button', 'last'],
+    ['the close button', 'first'],
+  ] as const)('%s opens nothing', async (_name, which) => {
     useAppLinkStore.getState().show('p1', ask)
     render(<AppLinkPrompt paneId="p1" prompt={ask} />)
-    await userEvent.setup().click(screen.getAllByRole('button', { name: 'Cancel' })[0])
+    const cancels = screen.getAllByRole('button', { name: 'Cancel' })
+    expect(cancels).toHaveLength(2)
+    await userEvent.setup().click(which === 'first' ? cancels[0] : cancels[1])
     expect(window.ostia.openPath.openLink).not.toHaveBeenCalled()
     expect(useAppLinkStore.getState().byPane.p1).toBeUndefined()
   })

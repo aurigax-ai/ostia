@@ -1,7 +1,7 @@
 import { isAbsolute } from 'node:path'
 import { PRODUCT_DISPLAY_NAME } from '@aurigax-ai/ostia-extension-sdk/contract/productDisplay'
 import { ErrorCodes, ResponseError } from 'vscode-jsonrpc/node'
-import { resumeFlags } from '../../shared/agents/agentLaunch'
+import { leadsWithFlag, resumeFlags } from '../../shared/agents/agentLaunch'
 import { isResumableAgent } from '../../shared/agents/agentResume'
 import { MANAGER_AGENT_NAME } from '../../shared/agents/managerSettings'
 import { anyOf, type ChangeSignal, type Subscribe } from '../../shared/common/actThenConfirm'
@@ -84,7 +84,7 @@ export function modelFlags(argv: readonly string[], raw: unknown): string[] {
 }
 
 export function promptOf(raw: unknown): string {
-  if (typeof raw !== 'string' || !raw.trim()) throw badRequest('prompt')
+  if (typeof raw !== 'string' || !raw.trim() || leadsWithFlag(raw)) throw badRequest('prompt')
   return raw.trim()
 }
 
