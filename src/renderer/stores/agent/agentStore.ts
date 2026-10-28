@@ -8,7 +8,7 @@ import { create } from 'zustand'
 import { agentCoreToolDefs } from '@/lib/agent/agentCoreTools'
 import { agentProblem } from '@/lib/agent/agentProblem'
 import { createAgentTransport } from '@/lib/agent/agentTransport'
-import type { ChatToolDef } from '@/lib/assist/chatToolGate'
+import type { AgentToolRun, ChatToolDef } from '@/lib/assist/chatToolGate'
 import { initialMode, type PaneRole } from '@/lib/assist/chatToolPermissions'
 import { chatToolDefs, workspaceFolder } from '@/lib/assist/chatTools'
 import type { OstiaChatMessage } from '@/lib/assist/chatTransport'
@@ -57,7 +57,7 @@ const opened = new Map<string, Opened>()
 const workspaceOf = new Map<string, string>()
 const paneOf = new Map<string, string>()
 
-function agentToolDefs(sessionId: string): ChatToolDef[] {
+function agentToolDefs(sessionId: string): ChatToolDef<AgentToolRun>[] {
   return [...chatToolDefs(sessionId), ...agentCoreToolDefs()]
 }
 

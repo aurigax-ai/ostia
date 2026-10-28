@@ -31,17 +31,20 @@ export interface ToolRun {
   sessionId: string
   workspaceId: string | null
   root: string
-  callId?: string
   toolCallId: string
   signal: AbortSignal
   onApproval: (approvalId: string) => void
   onAnswer: (approvalId: string, approved: boolean) => void
 }
 
-export interface ChatToolDef {
+export interface AgentToolRun extends ToolRun {
+  callId: string
+}
+
+export interface ChatToolDef<R extends ToolRun = ToolRun> {
   spec: ChatToolSpec
   group: string
-  run: (input: Record<string, unknown>, run: ToolRun) => Promise<ToolOutcome>
+  run: (input: Record<string, unknown>, run: R) => Promise<ToolOutcome>
 }
 export function str(v: unknown): string {
   return typeof v === 'string' ? v : ''
