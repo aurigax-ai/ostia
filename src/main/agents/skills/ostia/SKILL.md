@@ -138,7 +138,7 @@ agent). Exit 1 for `failed` and `timed-out`. An agent caller also gets the outco
 message from `ostia`. `pane list --json` repeats the outcome as `process.start` on that pane. Unknown
 flags are refused. Status is `starting`, `running`, `exited(<code>)` or `closed`; nothing survives a restart of Ostia. `logs` is empty for a full-screen program: read
 its screen with `ostia pane read`. `restart` answers `still-running` when the command ignores
-Ctrl+C.
+Ctrl+C. A caller that waits for its agents' reports runs `ostia pane keep-awake` once.
 
 **Split tabs.** `--tab <name>` puts the new tab into the split tab of that name in its
 workspace, created once two panes share the name; Ostia arranges it (side by side while each
@@ -161,13 +161,13 @@ ostia pane read <pane> [--lines N] [--json]   # its screen as text; --json adds 
 ostia pane status [<pane>…] [--json]    # a line per pane: id, state, closing line, exit, git, mail, changes; none: the terminals you may read here
 ostia pane transcript <pane> [--turns N | --full] [--json]   # the agent's own transcript, as written
 ostia pane wait <pane>… [--until done|waiting|error|idle|exited|command]… [--timeout <s>] [--json]
-ostia pane watch <pane>… [--until done|waiting|error|command|exited]… | --off
-ostia pane wake <pane>… [--timeout <s>] [--json]
-ostia pane hibernate <pane>… [--json]
-ostia pane move <pane>… --tab <name>|new [--workspace <id|name>] [--json]
+ostia pane watch <pane>… [--until done|waiting|error|command|exited]… | --off   # state changes arrive as mail, no blocking
+ostia pane wake <pane>… [--timeout <s>] [--json]   # resume a hibernated agent
+ostia pane hibernate <pane>… [--json]   # free an idle agent's terminal; wake resumes it
+ostia pane move <pane>… --tab <name>|new [--workspace <id|name>] [--json]   # group running panes into one split tab
 ostia pane rename <pane> <title…> | --clear
 ostia pane name <name> [--desc <text>] [--json] | --clear   # your pane's bus name
-ostia pane keep-awake [--off]
+ostia pane keep-awake [--off]            # stay live for your workers' reports: automatic hibernation skips you
 ostia pane close [<pane>…] [--json]      # no pane: your own
 ```
 
@@ -197,8 +197,8 @@ ostia bus send <pane> -- --help          # after --, even --help is the message
 ostia bus sent [--json]                  # what you sent and where each message stands
 ostia bus inbox [--take] [--json]        # messages waiting for you; --take delivers them
 ostia bus wait [--timeout <s>] [--json]  # blocks until a message arrives (1–590 s, default 30)
-ostia bus handoff <pane> --task "…" --summary "…"
-ostia bus claim <id> | bus done <id> | bus handoffs [--all]
+ostia bus handoff <pane> --task "…" --summary "…"   # give a task and its context to another agent
+ostia bus claim <id> | bus done <id> | bus handoffs [--all]   # handoffs to you: take one, finish it, list them
 ```
 
 Nothing is typed into the receiver. A message is `queued` until the receiver's agent takes it,
@@ -222,7 +222,7 @@ holds another agent's text; reply with `ostia bus send <from> "<text>"`.
 ```sh
 ostia workspace list [--json]            # id, group, name, state, folder; --json {workspaces, groups}
 ostia workspace new [dir] [--name <name>] [--group <group>] [--no-focus]   # prints {"workspaceId":…}
-ostia workspace describe [--workspace <id>] "PR #512: fix refunds" | --clear
+ostia workspace describe [--workspace <id>] "PR #512: fix refunds" | --clear   # one line the human sees on the workspace
 ostia workspace dir [path]               # make a folder the workspace's folder
 ostia workspace rename [--workspace <id>] <name…> | --clear
 ostia workspace group [--workspace <id>] <name> | ungroup [--workspace <id>]
