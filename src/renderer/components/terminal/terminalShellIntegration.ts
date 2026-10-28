@@ -13,6 +13,7 @@ import { useSettingsStore } from '@/stores/app/settingsStore'
 import { type LineAnchor, useBlocksStore } from '@/stores/terminal/blocksStore'
 import { useRemoteCwdStore } from '@/stores/terminal/remoteCwdStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
+import { shellLineHoldsText } from './shellLineText'
 import type { TerminalSession } from './terminalSession'
 
 interface ReportedCommand {
@@ -127,8 +128,7 @@ export function createShellIntegration({
   })
   const shellLine = term.onRender(() => {
     if (!watchingShellLine || session.replaying || !inputAnchor) return
-    const buf = term.buffer.active
-    if (buf.baseY + buf.cursorY === inputAnchor.line && buf.cursorX === inputCol) return
+    if (!shellLineHoldsText(term, { line: inputAnchor.line, col: inputCol })) return
     watchingShellLine = false
     const prompt = useBlocksStore.getState().drafts[paneId]?.promptLine
     if (!prompt) return
