@@ -77,6 +77,11 @@ async function sendTo(index: number) {
 }
 
 describe('CaptureBar', () => {
+  it('fades in with the fast fade', () => {
+    setup()
+    expect(bar()).toHaveClass('motion-fade')
+  })
+
   it('sits under the anchor', () => {
     setup()
     expect(bar()).toHaveStyle({ left: '40px', top: '66px' })

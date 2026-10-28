@@ -113,7 +113,7 @@ export function CaptureBar({ workspaceId, paneId, capture }: CaptureBarProps): J
       tabIndex={-1}
       role="toolbar"
       aria-label={d.send.barLabel}
-      className="motion-enter absolute z-20 flex origin-top-left flex-col gap-1 rounded-md border border-line bg-surface-3 p-1 text-fg text-ui-sm shadow-md outline-none"
+      className="motion-fade absolute z-20 flex flex-col gap-1 rounded-md border border-line bg-surface-3 p-1 text-fg text-ui-sm shadow-md outline-none"
       style={{ left: place.left, top: place.top }}
     >
       <div className="flex items-center gap-1">
