@@ -101,6 +101,8 @@ test('the input editor runs commands, walks history and steps aside for interact
 
     await win.keyboard.type('echo ostia_dir')
     await win.keyboard.press('Escape')
+    await expect(input).toHaveValue('echo ostia_dir')
+    await win.keyboard.press('Alt+j')
     await expect(input).toBeHidden()
     await win.keyboard.type('ect')
     await win.keyboard.press('Enter')

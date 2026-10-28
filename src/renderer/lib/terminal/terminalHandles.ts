@@ -18,6 +18,7 @@ export interface InputEditorHandle {
   insert: (text: string) => void
   type: (text: string) => void
   focus: () => void
+  take: () => string
 }
 
 const inputEditors = new Map<string, InputEditorHandle>()

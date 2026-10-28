@@ -276,7 +276,7 @@ describe('InputEditor', () => {
     }
   })
 
-  it('clears the draft on Ctrl+C and hands the draft to the shell line on Escape', async () => {
+  it('clears the draft on Ctrl+C and keeps the draft and the editor on Escape', async () => {
     setMode('editor')
     idlePrompt(PANE, '/w')
     const { props } = renderEditor()
@@ -287,8 +287,27 @@ describe('InputEditor', () => {
     expect(props.onSubmit).not.toHaveBeenCalled()
     await user.type(editor() as HTMLElement, 'git st')
     await user.keyboard('{Escape}')
-    expect(props.onHandOff).toHaveBeenCalledTimes(1)
-    expect(props.onHandOff).toHaveBeenCalledWith('git st', '')
+    expect(props.onHandOff).not.toHaveBeenCalled()
+    expect(editor()).toHaveValue('git st')
+    expect(editor()).toHaveFocus()
+  })
+
+  it('gives its draft to the shell line once and empties the editor when the shell already holds text', async () => {
+    setMode('editor')
+    idlePrompt(PANE, '/w')
+    renderEditor()
+    const user = userEvent.setup()
+    await user.type(editor() as HTMLElement, 'git st')
+    let taken: string | undefined
+    act(() => {
+      taken = inputEditorFor(PANE)?.take()
+    })
+    expect(taken).toBe('git st')
+    expect(editor()).toHaveValue('')
+    act(() => {
+      taken = inputEditorFor(PANE)?.take()
+    })
+    expect(taken).toBe('')
   })
 
   it.each(['search', 'everywhere'] as const)(
@@ -1236,7 +1255,7 @@ describe('InputEditor', () => {
 
     const mode = () => screen.queryByLabelText('Vim mode')?.textContent ?? null
 
-    it('is off by default, so Escape still hands off to the shell line', async () => {
+    it('is off by default, and Escape keeps the draft in the editor', async () => {
       setMode('editor')
       idlePrompt(PANE, '/w')
       const { props } = renderEditor()
@@ -1244,7 +1263,21 @@ describe('InputEditor', () => {
       const user = userEvent.setup()
       await user.type(editor() as HTMLElement, 'ls')
       await user.keyboard('{Escape}')
-      expect(props.onHandOff).toHaveBeenCalledWith('ls', '')
+      expect(props.onHandOff).not.toHaveBeenCalled()
+      expect(editor()).toHaveValue('ls')
+    })
+
+    it('keeps the draft and the editor on Escape in normal mode', async () => {
+      setMode('editor')
+      setVim(true)
+      idlePrompt(PANE, '/w')
+      const { props } = renderEditor()
+      const user = userEvent.setup()
+      await user.type(editor() as HTMLElement, 'ls')
+      await user.keyboard('{Escape}{Escape}{Escape}')
+      expect(mode()).toBe('NORMAL')
+      expect(props.onHandOff).not.toHaveBeenCalled()
+      expect(editor()).toHaveValue('ls')
     })
 
     it('edits with motions, operators, counts and undo, then submits from normal mode', async () => {

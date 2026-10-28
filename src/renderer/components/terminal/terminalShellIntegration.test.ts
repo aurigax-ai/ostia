@@ -28,6 +28,7 @@ function attach(markNonce: string | null): void {
     paneId: PANE,
     workspaceIdRef: { current: 'w' },
     session,
+    suppressPrompt: vi.fn(),
   })
   dispose = integration.dispose
 }

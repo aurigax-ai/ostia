@@ -363,7 +363,13 @@ function startTerminal(deps: StartTerminalDeps): () => void {
   const bufferChange = term.buffer.onBufferChange((buffer) =>
     setAlternateScreen(buffer.type === 'alternate'),
   )
-  const shell = createShellIntegration({ term, paneId, workspaceIdRef, session })
+  const shell = createShellIntegration({
+    term,
+    paneId,
+    workspaceIdRef,
+    session,
+    suppressPrompt: deps.setSuppressedPrompt,
+  })
   const detachSignals = attachTerminalSignals({ host, term, paneId, workspaceIdRef, session })
   const unregisterLinks = links.registerProviders()
   const detachPty = attachPtySession({
