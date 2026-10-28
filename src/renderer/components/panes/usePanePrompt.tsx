@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { ApprovalPrompt } from '@/components/agents/ApprovalCard'
 import { QuestionPrompt } from '@/components/agents/QuestionCard'
+import { AppLinkPrompt } from '@/components/terminal/AppLinkPrompt'
 import { resumeConflict } from '@/lib/agents/resumeFolder'
 import type { PaneNode } from '@/lib/layout/types'
 import { useApprovalsStore } from '@/stores/agents/approvalsStore'
@@ -15,6 +16,7 @@ import {
   useHiddenPromptsStore,
 } from '@/stores/agents/hiddenPromptsStore'
 import { useQuestionsStore } from '@/stores/agents/questionsStore'
+import { useAppLinkStore } from '@/stores/terminal/appLinkStore'
 import { useBlocksStore } from '@/stores/terminal/blocksStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import {
@@ -33,6 +35,7 @@ export function usePanePrompt(pane: PaneNode): JSX.Element | null {
   const question = useQuestionsStore((s) =>
     s.pending.find((q) => q.paneId === pane.id && !hidden[questionPromptKey(q.id)]),
   )
+  const appLink = useAppLinkStore((s) => s.byPane[pane.id])
   const trustFolder = useFolderTrustStore((s) => s.byPane[pane.id])
   useBlocksStore((s) => s.running)
   useBlocksStore((s) => s.agentBlocks)
@@ -43,6 +46,7 @@ export function usePanePrompt(pane: PaneNode): JSX.Element | null {
     if (!holder) forget(conflictPrefix(pane.id))
     if (!folderMissing) forget(folderMissingPrefix(pane.id))
   }, [holder, folderMissing, forget, pane.id])
+  if (appLink) return <AppLinkPrompt paneId={pane.id} prompt={appLink} />
   if (approval) return <ApprovalPrompt request={approval} paneTitle={pane.title} />
   if (question) return <QuestionPrompt question={question} />
   if (trustFolder) return <FolderTrustPrompt paneId={pane.id} folder={trustFolder} />

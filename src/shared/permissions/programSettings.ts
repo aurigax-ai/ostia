@@ -12,6 +12,8 @@ export const PROGRAM_SETTINGS: readonly { group: ProgramSettingGroup; field: str
   { group: 'terminal', field: 'warnOnRiskyPaste' },
   { group: 'terminal', field: 'shell' },
   { group: 'terminal', field: 'osc52Write' },
+  { group: 'terminal', field: 'askBeforeOpeningApps' },
+  { group: 'terminal', field: 'allowedAppSchemes' },
   { group: 'terminal', field: 'keepShells' },
   { group: 'terminal', field: 'scrollbackHistory' },
   { group: 'workspaces', field: 'globalHotkey' },
