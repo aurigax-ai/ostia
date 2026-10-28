@@ -64,14 +64,12 @@ export function onNormalKey(
     vimModeRef,
     draft: { text, walk, replaceText },
     submit,
-    handOff,
     stepHistory,
   }: {
     vim: InputVim
     vimModeRef: MutableRefObject<VimMode>
     draft: InputDraft
     submit: () => void
-    handOff: (keys: string) => void
     stepHistory: (dir: 'older' | 'newer') => boolean
   },
 ): boolean {
@@ -85,7 +83,6 @@ export function onNormalKey(
   if (e.key === 'Escape') {
     e.preventDefault()
     if (vimPending) setVimPending('')
-    else handOff('')
     return true
   }
   if (e.key === 'Backspace' || e.key === 'Delete') {

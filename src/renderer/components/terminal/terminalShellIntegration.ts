@@ -1,11 +1,13 @@
 import { wantsDesktopBanner } from '@shared/app/notificationSettings'
 import { decodeCommandLine } from '@shared/terminal/commandLine'
+import { flushSync } from 'react-dom'
 import { clearTypedLaunchOnNewBlock } from '@/lib/agents/resumeTyped'
 import { currentDict, fmt } from '@/lib/app/useDict'
 import { isPaneViewed, shouldNotifyCommandEnd } from '@/lib/attention/workspaceActivity'
 import { readCommandText } from '@/lib/terminal/blockText'
 import { isLocalHost, parseOsc7 } from '@/lib/terminal/osc7'
 import type { OstiaTerminal, TerminalMarker } from '@/lib/terminal/ostiaTerminal'
+import { inputEditorFor } from '@/lib/terminal/terminalHandles'
 import { useAttentionStore } from '@/stores/agents/attentionStore'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { type LineAnchor, useBlocksStore } from '@/stores/terminal/blocksStore'
@@ -37,11 +39,13 @@ export function createShellIntegration({
   paneId,
   workspaceIdRef,
   session,
+  suppressPrompt,
 }: {
   term: OstiaTerminal
   paneId: string
   workspaceIdRef: { current: string }
   session: TerminalSession
+  suppressPrompt: (prompt: LineAnchor) => void
 }): ShellIntegration {
   const markers = new Set<TerminalMarker>()
   const anchor = (): LineAnchor => {
@@ -56,6 +60,7 @@ export function createShellIntegration({
   }
   let inputAnchor: LineAnchor | null = null
   let inputCol = 0
+  let watchingShellLine = false
   let runningCommand = ''
   const onCommandEnd = (exitCode: number, whole: ReportedCommand | null): void => {
     const blocks = useBlocksStore.getState()
@@ -120,6 +125,19 @@ export function createShellIntegration({
     }
     return true
   })
+  const shellLine = term.onRender(() => {
+    if (!watchingShellLine || session.replaying || !inputAnchor) return
+    const buf = term.buffer.active
+    if (buf.baseY + buf.cursorY === inputAnchor.line && buf.cursorX === inputCol) return
+    watchingShellLine = false
+    const prompt = useBlocksStore.getState().drafts[paneId]?.promptLine
+    if (!prompt) return
+    const draft = inputEditorFor(paneId)?.take() ?? ''
+    flushSync(() => suppressPrompt(prompt))
+    if (!draft) return
+    term.focus()
+    term.paste(draft)
+  })
   let reportedCommand: ReportedCommand | null = null
   const oscCommandLine = term.parser.registerOscHandler(633, (data) => {
     if (data.startsWith('E;')) reportedCommand = readCommandMark(data.slice(2), session.markNonce)
@@ -132,13 +150,16 @@ export function createShellIntegration({
       session.promptMarker?.dispose()
       session.promptMarker = term.registerMarker(0)
       inputAnchor = null
+      watchingShellLine = false
       reportedCommand = null
       blocks.promptStart(paneId, anchor(), session.remote ? null : session.cwd, session.remote)
     } else if (kind === 'B') {
       inputAnchor = anchor()
       inputCol = term.buffer.active.cursorX
+      watchingShellLine = true
       blocks.promptEnd(paneId, inputAnchor)
     } else if (kind === 'C') {
+      watchingShellLine = false
       const start = anchor()
       const typed = reportedCommand?.typed ? reportedCommand.command : undefined
       runningCommand =
@@ -177,6 +198,7 @@ export function createShellIntegration({
       oscCwd.dispose()
       useRemoteCwdStore.getState().report(paneId, null)
       oscBlocks.dispose()
+      shellLine.dispose()
       oscCommandLine.dispose()
       session.promptMarker?.dispose()
       disposeMarkers()

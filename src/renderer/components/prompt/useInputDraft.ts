@@ -130,6 +130,16 @@ export function useInputDraft({
         area?.focus()
       },
       focus: () => areaRef.current?.focus(),
+      take: () => {
+        const taken = textRef.current
+        setText('')
+        setSelection({ start: 0, end: 0 })
+        walk.current = null
+        setTip('none')
+        liveMenu.current = null
+        setMenuState(null)
+        return taken
+      },
     })
   }, [paneId, visible])
 

@@ -249,7 +249,12 @@ describe('history scroll', () => {
     panes[0]?.el.dispatchEvent(new FocusEvent('focusin', { bubbles: true }))
     await vi.waitFor(() => expect(term.focus).toHaveBeenCalled())
     const focus = vi.fn()
-    const unregister = registerInputEditor('p1', { insert: vi.fn(), type: vi.fn(), focus })
+    const unregister = registerInputEditor('p1', {
+      insert: vi.fn(),
+      type: vi.fn(),
+      focus,
+      take: vi.fn(),
+    })
     panes[0]?.el.dispatchEvent(new FocusEvent('focusin', { bubbles: true }))
     await vi.waitFor(() => expect(focus).toHaveBeenCalled())
     unregister()
