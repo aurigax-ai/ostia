@@ -3,6 +3,7 @@ import {
   existsSync,
   mkdirSync,
   mkdtempSync,
+  readdirSync,
   readFileSync,
   realpathSync,
   rmSync,
@@ -65,6 +66,21 @@ async function startHost(dir: string, tmp: string): Promise<SandboxHost> {
     ),
   )
   return host
+}
+
+async function listedWhileRunning(host: SandboxHost, cwd: string, tmp: string): Promise<string[]> {
+  const started = join(tmp, 'started')
+  const release = join(tmp, 'release')
+  const running = run(
+    host,
+    cwd,
+    `ls -A > ${started}; while [ ! -e ${release} ]; do sleep 0.05; done`,
+  )
+  for (let i = 0; i < 200 && !existsSync(started); i++) await new Promise((r) => setTimeout(r, 50))
+  const listed = readdirSync(cwd).sort()
+  writeFileSync(release, '')
+  await running
+  return listed
 }
 
 beforeAll(async () => {
@@ -132,5 +148,38 @@ describe('files a sandbox leaves behind', () => {
     host.stop()
     await new Promise((resolve) => setTimeout(resolve, 500))
     expect(await leftBehindSince(dir, baseline)).toEqual([])
+  }, 60_000)
+
+  it('SBX-C109 leaves an empty folder empty while the shell runs and after it', async () => {
+    const dir = join(home, 'empty')
+    mkdirSync(dir)
+    const tmp = join(root, 'tmp-e')
+    const host = await startHost(dir, tmp)
+    expect(await listedWhileRunning(host, dir, tmp)).toEqual([])
+    expect(readFileSync(join(tmp, 'started'), 'utf8')).toBe('')
+    expect(readdirSync(dir)).toEqual([])
+  }, 60_000)
+
+  it('SBX-C110 hides an existing project vault and makes no .git or .envrc beside it', async () => {
+    const dir = join(home, 'vaulted')
+    mkdirSync(join(dir, '.ostia'), { recursive: true })
+    writeFileSync(join(dir, '.ostia/vault.json'), '{"K":"VAULT-CIPHER"}')
+    const tmp = join(root, 'tmp-f')
+    const host = await startHost(dir, tmp)
+    const res = await run(host, dir, 'cat .ostia/vault.json; rm -f .ostia/vault.json; true')
+    expect(res.out).not.toContain('VAULT-CIPHER')
+    expect(readFileSync(join(dir, '.ostia/vault.json'), 'utf8')).toContain('VAULT-CIPHER')
+    expect(await listedWhileRunning(host, dir, tmp)).toEqual(['.ostia'])
+  }, 60_000)
+
+  it('SBX-C111 lists a repository created in the folder root of a folder that had none', async () => {
+    const dir = join(home, 'fresh')
+    mkdirSync(dir)
+    const host = await startHost(dir, join(root, 'tmp-g'))
+    const baseline = await leftBehindBaseline(dir)
+    await run(host, dir, 'git init -q . && echo evil > .git/hooks/pre-commit; true')
+    host.stop()
+    await new Promise((resolve) => setTimeout(resolve, 500))
+    expect(await leftBehindSince(dir, baseline)).toEqual(['.git'])
   }, 60_000)
 })
