@@ -241,6 +241,7 @@ describe('claudeAccount.start', () => {
     store.use(WORK)
     expect(await call('claudeAccount.start', {})).toEqual({
       dir: join(base, 'profiles', WORK),
+      memoryHome: join(base, 'home'),
     })
   })
 
@@ -250,7 +251,7 @@ describe('claudeAccount.start', () => {
     ['manager', { manager: true }],
   ])('answers nothing to a %s pane', async (_name, extra) => {
     store.use(WORK)
-    expect(await call('claudeAccount.start', {}, ctx(extra))).toEqual({ dir: '' })
+    expect(await call('claudeAccount.start', {}, ctx(extra))).toEqual({ dir: '', memoryHome: '' })
   })
 
   it('prepares trust for the profile folder it answers', async () => {
@@ -282,6 +283,7 @@ describe('claudeAccount.start', () => {
     store.use(WORK)
     expect(await call('claudeAccount.start', { args: ['--resume', 'x'] })).toEqual({
       dir: join(base, 'profiles', WORK),
+      memoryHome: join(base, 'home'),
     })
   })
 })

@@ -163,11 +163,11 @@ describe('ostia account (the real CLI against a live control server)', () => {
     expect(res.stderr).toContain('ostia account list')
   })
 
-  it('answers a Claude start with the profile folder of the current account, and nothing for the default', async () => {
+  it('answers a Claude start with the profile folder of the current account and the Default home, and nothing for the default', async () => {
     expect((await ostia(['claude-account', 'start'])).stdout).toBe('')
     store.use(WORK)
     const res = await ostia(['claude-account', 'start'])
-    expect(res.stdout).toBe(`${join(base, 'profiles', WORK)}\n`)
+    expect(res.stdout).toBe(`${join(base, 'profiles', WORK)}\n${join(base, 'home')}\n`)
     store.use('default')
   })
 })

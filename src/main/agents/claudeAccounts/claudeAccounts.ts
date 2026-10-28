@@ -253,6 +253,10 @@ export class ClaudeAccounts {
     return dir
   }
 
+  defaultHome(): string {
+    return this.deps.defaultHome()
+  }
+
   current(): string {
     return this.deps.store.current()
   }
