@@ -240,6 +240,7 @@ function registerAgentSessionCommands(): void {
   registerCore<{ paneId?: string } | undefined, { hibernated: boolean; outcome: string }>({
     id: 'pane.hibernate',
     category: 'pane',
+    local: true,
     capabilities: ['kill-pane'],
     argsSchema: { type: 'object', properties: { paneId: { type: 'string' } } },
     run: async (args, ctx) => {

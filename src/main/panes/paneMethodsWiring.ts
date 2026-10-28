@@ -135,7 +135,7 @@ export function registerPaneMethodsWiring({
     inputSent: (to) => void execCommand(targetOf(to), 'attention.typed'),
     hibernated: paneHibernated,
     wake: (to) => wakeHibernatedPane(execCommand, to),
-    hibernate: (to) => execCommand(targetOf(to), 'pane.hibernate'),
+    hibernate: (to) => execCommand(targetOf(to), 'pane.hibernate', undefined, true),
     keptAwake: paneKeptAwake,
     waking: paneWaking,
     close: (to) => execCommand(targetOf(to), 'pane.close'),
