@@ -70,6 +70,9 @@ test('viewer-csv keeps its selection while the file grows and drops it when a ro
     await app.evaluate(({ clipboard }) => clipboard.writeText('marker'))
     await bar.getByRole('button', { name: 'Copy' }).click()
     await expect(win.getByTestId('capture-chip')).toHaveText('Copied table')
+    expect(await app.evaluate(({ clipboard }) => clipboard.readText())).toBe(
+      'Taipei,3\n"Hsinchu, East",4\nTainan,5',
+    )
     await open()
     await expect(bar).toBeVisible({ timeout: 15_000 })
     file.editMiddleRow()

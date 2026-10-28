@@ -295,18 +295,26 @@ describe('createAgentCoreCall', () => {
     })
   })
 
-  it('never lets a tool call a method its table row does not list', async () => {
-    const { calls } = rig()
-    const seen: string[] = []
-    AGENT_CORE_TOOLS.ostia_panes.run(
-      {},
-      async (method) => {
-        seen.push(method)
+  it.each(Object.keys(AGENT_CORE_TOOLS))(
+    'refuses %s a method its table row does not list',
+    async (name) => {
+      const row = AGENT_CORE_TOOLS[name as keyof typeof AGENT_CORE_TOOLS]
+      const outside = ['pane.input', 'manager.open', 'pane.close'].filter(
+        (method) => !row.methods.includes(method as never),
+      )
+      const attempts: unknown[] = []
+      const spy = vi.spyOn(row, 'run').mockImplementation(async (_input, call) => {
+        for (const method of outside) {
+          attempts.push(await call(method as never, {}).catch((err: Error) => err.message))
+        }
         return null
-      },
-      { paneId: 'p', ownsChild: () => false },
-    )
-    expect(seen).toEqual(['pane.list'])
-    expect(calls).toEqual([])
-  })
+      })
+      const { ask, calls } = rig()
+      const answer = await ask(name)
+      spy.mockRestore()
+      expect(attempts).toEqual(outside.map((method) => `${name} cannot call ${method}`))
+      expect(answer).toEqual({ ok: true, output: 'null' })
+      expect(calls).toEqual([])
+    },
+  )
 })
