@@ -211,6 +211,22 @@ describe('PaneTabMenu close others and hibernation', () => {
     expect(exec).toHaveBeenCalledWith('pane.wake', { paneId: 'b' })
   })
 
+  it('keeps an agent tab awake from a checkbox that shows its state, and offers none for a plain shell', async () => {
+    const exec = vi.spyOn(commands, 'exec').mockResolvedValue({ ok: true, result: undefined })
+    openMenu(agentTab, [shell, agentTab])
+    const item = await screen.findByRole('menuitemcheckbox', { name: 'Keep awake' })
+    expect(item).not.toBeChecked()
+    await userEvent.setup().click(item)
+    expect(exec).toHaveBeenCalledWith('pane.keepAwake', { paneId: 'b', on: true })
+    cleanup()
+    openMenu({ ...agentTab, keepAwake: true }, [shell, agentTab])
+    expect(await screen.findByRole('menuitemcheckbox', { name: 'Keep awake' })).toBeChecked()
+    cleanup()
+    openMenu(shell, [shell, agentTab])
+    expect(await screen.findByRole('menuitem', { name: 'Lock tab' })).toBeInTheDocument()
+    expect(screen.queryByRole('menuitemcheckbox', { name: 'Keep awake' })).toBeNull()
+  })
+
   it('forks a hibernated agent tab into a new tab, and offers no fork for a plain shell', async () => {
     const run = vi.spyOn(blockActions, 'runWhenIdle').mockReturnValue(() => {})
     const asleep: PaneNode = { ...agentTab, hibernated: true }

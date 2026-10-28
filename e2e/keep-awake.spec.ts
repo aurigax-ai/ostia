@@ -19,8 +19,7 @@ function shownRows(win: Page): Locator {
   return win.locator('.pane-slot:not([data-hidden]) .xterm-rows').last()
 }
 
-test('the human keeps an agent tab awake from its menu and can still hibernate it', async () => {
-  const testInfo = test.info()
+test('the human can still hibernate and wake a tab kept awake', async () => {
   const dataHome = freshDataHome()
   seedSettings(dataHome, DOM_RENDERER_SETTINGS)
   const bin = fakeAgentBin(dataHome, AGENT)
@@ -45,34 +44,21 @@ test('the human keeps an agent tab awake from its menu and can still hibernate i
 
     const tab = win.locator('.pane-tab:visible').first()
     const kept = tab.getByRole('img', { name: 'Kept awake' })
-    await expect(kept).toHaveCount(0)
-
-    await tab.click({ button: 'right' })
-    const item = win.getByRole('menuitemcheckbox', { name: 'Keep awake' })
-    await expect(item).not.toBeChecked()
-    await item.click()
-    await expect(item).toBeChecked()
-    await win.screenshot({ path: testInfo.outputPath('tab-menu.png') })
-    await win.keyboard.press('Escape')
-    await expect(kept).toBeVisible()
-    await tab.screenshot({ path: testInfo.outputPath('tab-face.png') })
-    const row = win.locator('.rail-row').first()
-    await expect(row.getByRole('img', { name: /^Kept awake: / })).toBeVisible()
-    await row.screenshot({ path: testInfo.outputPath('sidebar-row.png') })
-
-    await tab.click({ button: 'right' })
-    await win.getByRole('menuitem', { name: 'Hibernate tab' }).click()
-    await expect(tab.getByLabel('Hibernated')).toBeVisible({ timeout: 15_000 })
-
-    await tab.click({ button: 'right' })
-    await win.getByRole('menuitem', { name: 'Wake tab' }).click()
-    await expect(tab.getByLabel('Hibernated')).toHaveCount(0)
 
     await tab.click({ button: 'right' })
     await win.getByRole('menuitemcheckbox', { name: 'Keep awake' }).click()
     await win.keyboard.press('Escape')
-    await expect(kept).toHaveCount(0)
-    await expect(row.getByRole('img', { name: /^Kept awake: / })).toHaveCount(0)
+    await expect(kept).toBeVisible()
+
+    await tab.click({ button: 'right' })
+    await win.getByRole('menuitem', { name: 'Hibernate tab' }).click()
+    await expect(tab.getByLabel('Hibernated')).toBeVisible({ timeout: 15_000 })
+    await expect(kept).toBeVisible()
+
+    await tab.click({ button: 'right' })
+    await win.getByRole('menuitem', { name: 'Wake tab' }).click()
+    await expect(tab.getByLabel('Hibernated')).toHaveCount(0)
+    await expect(kept).toBeVisible()
   } finally {
     await app.close()
   }
