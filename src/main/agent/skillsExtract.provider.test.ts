@@ -48,6 +48,7 @@ describe('Find rules against an OpenAI-compatible server, through the Agent exte
       }),
       sandboxed: () => false,
       coreCall: async () => ({ ok: false, error: 'unavailable' }),
+      promptMail: async () => null,
       redact: async (text) => text.replaceAll('sk-SECRET', '[redacted]'),
       rulesContext: async () => ({ text: '', count: 0 }),
     })

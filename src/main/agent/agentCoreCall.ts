@@ -7,7 +7,7 @@ import { initCaps } from '../approvals/capabilityStore'
 import type { ControlConn, ControlMethodContext } from '../control/controlServer'
 import type { PaneIdentity } from '../control/idRegistry'
 
-interface CoreScope {
+export interface CoreScope {
   paneId: string
   windowId: string
   workspaceId: string
@@ -190,14 +190,20 @@ function reachable(identity: PaneIdentity | undefined, scope: CoreScope): identi
   )
 }
 
-export function createAgentCoreCall(deps: AgentCoreDeps) {
-  return async ({ scope, name, input, lifecycle }: CoreCallRequest): Promise<AgentToolReply> => {
-    if (!isAgentCoreTool(name)) return BAD_TOOL
-    const identity = deps.identityOf(scope.paneId)
-    if (!reachable(identity, scope)) return REFUSED
-    if (deps.sandboxed(scope.workspaceId)) return SANDBOXED
-    initCaps(identity.externalId)
-    const ctx: ControlMethodContext = {
+type CoreContext = { ok: true; ctx: ControlMethodContext } | { ok: false; reply: AgentToolReply }
+
+export function coreContext(
+  deps: Pick<AgentCoreDeps, 'identityOf' | 'sandboxed'>,
+  scope: CoreScope,
+  lifecycle: CoreLifecycle,
+): CoreContext {
+  const identity = deps.identityOf(scope.paneId)
+  if (!reachable(identity, scope)) return { ok: false, reply: REFUSED }
+  if (deps.sandboxed(scope.workspaceId)) return { ok: false, reply: SANDBOXED }
+  initCaps(identity.externalId)
+  return {
+    ok: true,
+    ctx: {
       identity,
       authed: {
         externalId: identity.externalId,
@@ -206,7 +212,16 @@ export function createAgentCoreCall(deps: AgentCoreDeps) {
       },
       conn: lifecycle.conn,
       token: lifecycle.token,
-    }
+    },
+  }
+}
+
+export function createAgentCoreCall(deps: AgentCoreDeps) {
+  return async ({ scope, name, input, lifecycle }: CoreCallRequest): Promise<AgentToolReply> => {
+    if (!isAgentCoreTool(name)) return BAD_TOOL
+    const resolved = coreContext(deps, scope, lifecycle)
+    if (!resolved.ok) return resolved.reply
+    const { ctx } = resolved
     const tool = AGENT_CORE_TOOLS[name]
     const call: Call = (method, params) => {
       if (!tool.methods.includes(method)) {
@@ -216,7 +231,7 @@ export function createAgentCoreCall(deps: AgentCoreDeps) {
     }
     try {
       const result = await tool.run(input, call, {
-        paneId: identity.paneId,
+        paneId: ctx.identity.paneId,
         ownsChild: deps.ownsChild,
       })
       return { ok: true, output: outputOf(result) }
