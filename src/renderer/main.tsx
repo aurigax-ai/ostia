@@ -27,8 +27,8 @@ import { revealPane, startAttentionSync } from '@/lib/attention/workspaceActivit
 import { startFileDropTracking } from '@/lib/files/fileDrop'
 import { loadHomeDir } from '@/lib/files/homeDir'
 import { startModifierRemap } from '@/lib/keyboard/modifierRemapSync'
-import { loadEditorLanguages } from '@/lib/monaco/contributedLanguages'
 import { setSettingsFile } from '@/lib/monaco/language'
+import { loadEditorLanguages, loadMonaco } from '@/lib/monaco/monacoLoader'
 import { startUserActions } from '@/lib/palette/userActions'
 import { livePaneIds } from '@/lib/panes/livePanes'
 import { startPaneDragTracking } from '@/lib/panes/paneDrag'
@@ -195,6 +195,7 @@ async function boot(): Promise<void> {
     </StrictMode>,
   )
   window.ostia.diagnostics.ready(livePaneIds())
+  requestIdleCallback(() => void loadMonaco(), { timeout: 2000 })
 }
 
 boot().catch((err: unknown) => {

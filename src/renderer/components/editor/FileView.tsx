@@ -1,12 +1,13 @@
 import { OWN_VIEW } from '@aurigax-ai/ostia-extension-sdk/contract/fileKinds'
 import { isRemotePath } from '@aurigax-ai/ostia-extension-sdk/contract/remoteFolders'
 import { isInside, isPadPath } from '@shared/artifacts/artifacts'
-import { useCallback, useMemo, useState } from 'react'
+import { lazy, Suspense, useCallback, useMemo, useState } from 'react'
 import { StatusAction, StatusLine } from '@/components/common/StatusLine'
 import { fmt, useDict } from '@/lib/app/useDict'
 import { useArtifactListing } from '@/lib/files/artifacts'
 import { chooseViewer, type ViewerOption, viewerOptions } from '@/lib/files/viewerChoice'
 import { findPane } from '@/lib/layout/tree'
+import { loadMonaco } from '@/lib/monaco/monacoLoader'
 import { useSurfaceFocus } from '@/lib/panes/paneFocus'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
@@ -14,9 +15,13 @@ import { useArtifactVersionsStore } from '@/stores/files/artifactVersionsStore'
 import { useOpenWithStore } from '@/stores/files/openWithStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { VersionView } from './ArtifactVersions'
-import { EditorView } from './Editor'
 import { FileViewerFrame } from './FileViewerFrame'
 import { OpenWithDialog } from './OpenWithDialog'
+
+const EditorView = lazy(async () => {
+  await loadMonaco()
+  return { default: (await import('./Editor')).EditorView }
+})
 
 const NO_OPTIONS: ViewerOption[] = []
 
@@ -101,19 +106,21 @@ export function FileView({
   } else {
     const option = options.find((candidate) => candidate.priority === 'option')
     body = (
-      <EditorView
-        workspaceId={workspaceId}
-        paneId={paneId}
-        filePath={filePath}
-        optionViewer={
-          option
-            ? {
-                name: option.displayName,
-                show: () => setViewType(workspaceId, paneId, option.viewType),
-              }
-            : undefined
-        }
-      />
+      <Suspense fallback={null}>
+        <EditorView
+          workspaceId={workspaceId}
+          paneId={paneId}
+          filePath={filePath}
+          optionViewer={
+            option
+              ? {
+                  name: option.displayName,
+                  show: () => setViewType(workspaceId, paneId, option.viewType),
+                }
+              : undefined
+          }
+        />
+      </Suspense>
     )
   }
 

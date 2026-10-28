@@ -1,12 +1,11 @@
 import type { AgentResume } from '@shared/agents/agentResume'
 import type { BrowserDevice } from '@shared/browser/browserDevice'
 import type { BrowserProfile } from '@shared/browser/browserProfile'
-import { useEffect, useMemo, useRef } from 'react'
+import { lazy, Suspense, useEffect, useMemo, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { AgentPane } from '@/components/agent/AgentPane'
 import { BrowserView } from '@/components/browser/BrowserView'
 import { ChatPane } from '@/components/chat/ChatPane'
-import { DiffView } from '@/components/editor/DiffView'
 import { FileView } from '@/components/editor/FileView'
 import { GitView } from '@/components/git/GitView'
 import { HibernatedView } from '@/components/terminal/HibernatedView'
@@ -17,11 +16,17 @@ import { countUsage } from '@/lib/app/usageCounts'
 import { paneBrowserProfile } from '@/lib/layout/paneFields'
 import { allPanes } from '@/lib/layout/tree'
 import type { LayoutNode, SurfaceKind } from '@/lib/layout/types'
+import { loadMonaco } from '@/lib/monaco/monacoLoader'
 import { useSandboxStore } from '@/stores/app/sandboxStore'
 import { useDiffStore } from '@/stores/files/diffStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { releaseSurfaces, surfaceHost } from '@/stores/workspaces/surfaceSlotsStore'
 import { SurfaceErrorBoundary } from './SurfaceErrorBoundary'
+
+const DiffView = lazy(async () => {
+  await loadMonaco()
+  return { default: (await import('@/components/editor/DiffView')).DiffView }
+})
 
 interface SurfaceRef {
   paneId: string
@@ -121,7 +126,9 @@ function Surface({
   return s.kind === 'editor' ? (
     <FileView workspaceId={s.workspaceId} paneId={s.paneId} filePath={s.filePath} />
   ) : s.kind === 'diff' ? (
-    <DiffView workspaceId={s.workspaceId} paneId={s.paneId} />
+    <Suspense fallback={null}>
+      <DiffView workspaceId={s.workspaceId} paneId={s.paneId} />
+    </Suspense>
   ) : s.kind === 'chat' ? (
     <ChatPane workspaceId={s.workspaceId} paneId={s.paneId} sessionId={s.chatSessionId} />
   ) : s.kind === 'agent' ? (
