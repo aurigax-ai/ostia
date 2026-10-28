@@ -17,7 +17,8 @@ Settings`: the roots `capabilities`, `privacy`, `terminalKeys`, `modifierRemap`,
 `behavior.externalEditor`, `behavior.checkForUpdates`, `behavior.updateChannel`,
 `behavior.discreteGpu`, `notifications.command`, `agents.autoResume`,
 `agents.hooks`, `agents.trustWorkspaceFolders`,
-`terminal.warnOnRiskyPaste`, `terminal.shell`, `terminal.osc52Write`, `terminal.keepShells`,
+`terminal.warnOnRiskyPaste`, `terminal.shell`, `terminal.osc52Write`,
+`terminal.askBeforeOpeningApps`, `terminal.allowedAppSchemes`, `terminal.keepShells`,
 `terminal.scrollbackHistory`, `workspaces.globalHotkey`. Any other root that is not a settings
 group (`approvals`, `sync`, `sandbox`, `manager`, `assistant`, …) answers `unknown settings key`.
 A chord the shell needs (plain Ctrl+letter,

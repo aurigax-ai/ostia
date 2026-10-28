@@ -61,6 +61,7 @@ export function createCellsPublisher(
   setTooLarge: (tooLarge: boolean) => void,
 ): CellsPublisher {
   let timer: ReturnType<typeof setTimeout> | undefined
+  let pending: GridSelectEvent | undefined
   let published: string | null = null
   let queue: Promise<unknown> = Promise.resolve()
 
@@ -95,8 +96,19 @@ export function createCellsPublisher(
     )
   }
 
+  const settle = (): void => {
+    timer = undefined
+    const next = pending
+    pending = undefined
+    if (!next) return
+    flush(next)
+    timer = setTimeout(settle, PUBLISH_DELAY_MS)
+  }
+
   const clear = (): void => {
     clearTimeout(timer)
+    timer = undefined
+    pending = undefined
     flush(null)
   }
 
@@ -106,8 +118,12 @@ export function createCellsPublisher(
         clear()
         return
       }
-      clearTimeout(timer)
-      timer = setTimeout(() => flush(event), PUBLISH_DELAY_MS)
+      if (timer) {
+        pending = event
+        return
+      }
+      flush(event)
+      timer = setTimeout(settle, PUBLISH_DELAY_MS)
     },
     clear,
   }

@@ -1,6 +1,7 @@
 {
   "name": "terminal",
   "paths": [
+    "src/main/links/",
     "src/main/terminal/localPrompt.ts",
     "src/main/terminal/ptyFlow.ts",
     "src/main/terminal/ptyReaper.ts",
@@ -53,6 +54,7 @@
     "e2e/pty-flow.spec.ts",
     "e2e/resize-hold.spec.ts",
     "e2e/resize-prompt.spec.ts",
+    "e2e/terminal-app-links.spec.ts",
     "e2e/terminal-basics.spec.ts",
     "e2e/terminal-file-links.spec.ts",
     "e2e/terminal-ghostty-gpu.spec.ts",

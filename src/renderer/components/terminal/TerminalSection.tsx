@@ -42,6 +42,7 @@ import {
 } from '@/stores/app/settingsModel'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useUIStore } from '@/stores/app/uiStore'
+import { TerminalLinksGroup } from './TerminalLinksGroup'
 
 export function TerminalSection(): JSX.Element {
   const d = useDict()
@@ -53,6 +54,7 @@ export function TerminalSection(): JSX.Element {
       <TerminalSelectionGroup />
       <TerminalScrollingGroup />
       <TerminalPasteGroup />
+      <TerminalLinksGroup />
       <TerminalColorsGroup />
       <TerminalRenderingGroup />
       <TerminalSessionGroup />

@@ -1,4 +1,5 @@
 import { isRecord } from '@aurigax-ai/ostia-extension-sdk/contract/isRecord'
+import { parseAllowedAppSchemes } from '@shared/terminal/appLinkSettings'
 import {
   DEFAULT_PROMPT_SETTINGS,
   type PromptSettings,
@@ -21,6 +22,8 @@ export interface TerminalSettings {
   prompt: PromptSettings
   clipboardKeys: ClipboardKeys
   linkClick: LinkClick
+  askBeforeOpeningApps: boolean
+  allowedAppSchemes: string[]
   theme: string
   shell: string
   osc52Write: boolean
@@ -62,6 +65,8 @@ export const DEFAULT_TERMINAL_SETTINGS: TerminalSettings = {
   prompt: DEFAULT_PROMPT_SETTINGS,
   clipboardKeys: 'shift',
   linkClick: 'app',
+  askBeforeOpeningApps: true,
+  allowedAppSchemes: [],
   theme: MATCH_OSTIA_THEME,
   shell: '',
   osc52Write: true,
@@ -117,6 +122,7 @@ export function parseTerminalSettings(raw: unknown): TerminalSettings {
     linkClick: LINK_CLICKS.includes(source.linkClick as LinkClick)
       ? (source.linkClick as LinkClick)
       : DEFAULT_TERMINAL_SETTINGS.linkClick,
+    allowedAppSchemes: parseAllowedAppSchemes(source.allowedAppSchemes),
     theme: parseThemeChoice(source.theme),
     shell: parseShellSetting(source.shell),
     renderer: TERMINAL_RENDERERS.includes(source.renderer as TerminalRenderer)
