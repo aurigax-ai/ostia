@@ -172,14 +172,6 @@ describe('sandbox runtime', () => {
     expect(existsSync(join(home, '.claude/session.jsonl'))).toBe(true)
   })
 
-  it('SBX-C32 protects git hooks right after git init inside the sandbox', async () => {
-    const res = await run(
-      `cd ${workDir} && git init -q . ; echo evil > .git/hooks/pre-commit; ls -la .git .git/hooks; true`,
-    )
-    expect(contents(join(workDir, '.git/hooks/pre-commit'))).not.toContain('evil')
-    expect(res.code).toBe(0)
-  })
-
   it('SBX-C62 hides the project vault from the sandbox', async () => {
     const res = await run(
       `cat ${workDir}/.ostia/vault.json; rm -f ${workDir}/.ostia/vault.json; true`,

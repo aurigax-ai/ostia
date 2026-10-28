@@ -176,15 +176,19 @@ export function fixedPolicy(
 ): SandboxFixedPolicy {
   const { home } = paths
   const agentDirs = AGENT_DATA_DIRS.map((d) => join(home, d))
-  const hiddenFiles = workspace ? WORKDIR_HIDDEN_FILES.map((f) => join(workspace.workDir, f)) : []
+  const existingInWorkDir = (files: readonly string[]): string[] =>
+    workspace ? files.filter((f) => existsSync(join(workspace.workDir, f))) : []
+  const hiddenFiles = existingInWorkDir(WORKDIR_HIDDEN_FILES).map((f) =>
+    join(workspace?.workDir ?? '', f),
+  )
   const hiddenSockets = [
     ...(paths.agentSockets ?? []).map((sock) => dirname(sock)),
     ...(paths.containerSockets ?? []),
   ]
-  const guardedInWorkDir = [
-    ...(workspace && existsSync(join(workspace.workDir, ENVRC_FILE)) ? [ENVRC_FILE] : []),
+  const guardedInWorkDir = existingInWorkDir([
+    ENVRC_FILE,
     ...WORKDIR_PROTECTED_FILES.filter((f) => !(switches.gitConfig && f === GIT_CONFIG_FILE)),
-  ]
+  ])
   return {
     hidden: [
       home,

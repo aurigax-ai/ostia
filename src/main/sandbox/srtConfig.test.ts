@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, realpathSync, rmSync, symlinkSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, describe, expect, it } from 'vitest'
@@ -17,9 +17,17 @@ const PACKAGED = '/opt/ostia/resources/app.asar'
 const VENDOR =
   '/opt/ostia/resources/app.asar.unpacked/node_modules/@anthropic-ai/sandbox-runtime/vendor'
 
+const APP = realpathSync(mkdtempSync(join(tmpdir(), 'ostia-srtconfig-app-')))
+mkdirSync(join(APP, '.git/hooks'), { recursive: true })
+mkdirSync(join(APP, '.ostia'))
+writeFileSync(join(APP, '.git/config'), '')
+writeFileSync(join(APP, '.envrc'), '')
+writeFileSync(join(APP, '.ostia/vault.json'), '')
+afterAll(() => rmSync(APP, { recursive: true, force: true }))
+
 const paths = {
   home: '/home/u',
-  workDir: '/home/u/app',
+  workDir: `${APP}`,
   tmpDir: '/tmp/sbx/w1',
   dataDirs: [],
   socketPath: '/run/ostia.sock',
@@ -114,7 +122,7 @@ describe('buildSrtConfig filesystem limits', () => {
     const policy = { allowRead: [], domains: [], allowWrite: ['~/builds', '/srv/out'] }
     const { filesystem } = buildSrtConfig(policy, guardedPaths, 'linux', 'x64')
     expect(filesystem.allowWrite).toEqual([
-      '/home/u/app',
+      `${APP}`,
       '/tmp/sbx/w1',
       '/home/u/.claude',
       '/home/u/.codex',
@@ -128,15 +136,15 @@ describe('buildSrtConfig filesystem limits', () => {
     const policy = {
       allowRead: ['~/.cargo', '~/.cargo/registry', '~/notes'],
       allowWrite: ['~/.cargo/target'],
-      denyRead: ['~/.cargo', '/home/u/app/secrets'],
+      denyRead: ['~/.cargo', `${APP}/secrets`],
       domains: [],
     }
     const { filesystem } = buildSrtConfig(policy, guardedPaths, 'linux', 'x64')
     expect(filesystem.denyRead).toEqual(
-      expect.arrayContaining(['/home/u', '/home/u/.cargo', '/home/u/app/secrets']),
+      expect.arrayContaining(['/home/u', '/home/u/.cargo', `${APP}/secrets`]),
     )
     expect(filesystem.allowRead).toContain('/home/u/notes')
-    expect(filesystem.allowRead).toContain('/home/u/app')
+    expect(filesystem.allowRead).toContain(`${APP}`)
     expect(filesystem.allowRead?.some((p) => p.startsWith('/home/u/.cargo'))).toBe(false)
     expect(filesystem.allowWrite.some((p) => p.startsWith('/home/u/.cargo'))).toBe(false)
   })
@@ -162,13 +170,13 @@ describe('buildSrtConfig filesystem limits', () => {
   })
 
   it('adds read-only paths after the fixed ones, which the runtime puts above every writable path', () => {
-    const policy = { allowRead: [], domains: [], denyWrite: ['~/app/dist', '/srv/out/keep'] }
+    const policy = { allowRead: [], domains: [], denyWrite: [`${APP}/dist`, '/srv/out/keep'] }
     const { filesystem } = buildSrtConfig(policy, guardedPaths, 'linux', 'x64')
     expect(filesystem.denyWrite).toEqual(
       expect.arrayContaining([
         '/home/u/.claude/settings.json',
-        '/home/u/app/.git/hooks',
-        '/home/u/app/dist',
+        `${APP}/.git/hooks`,
+        `${APP}/dist`,
         '/srv/out/keep',
       ]),
     )
@@ -214,11 +222,11 @@ describe('buildSrtConfig filesystem limits', () => {
     const policy = {
       allowRead: [],
       domains: [],
-      allowWrite: ['~/.claude/settings.json', '/home/u/app/.git/hooks'],
+      allowWrite: ['~/.claude/settings.json', `${APP}/.git/hooks`],
     }
     const { filesystem } = buildSrtConfig(policy, guardedPaths, 'linux', 'x64')
     expect(filesystem.denyWrite).toEqual(
-      expect.arrayContaining(['/home/u/.claude/settings.json', '/home/u/app/.git/hooks']),
+      expect.arrayContaining(['/home/u/.claude/settings.json', `${APP}/.git/hooks`]),
     )
   })
 })
@@ -329,12 +337,12 @@ describe('buildSrtConfig network and git options', () => {
   it('keeps .git/config read-only until the human lets git change it, and hooks read-only always', () => {
     const closed = buildSrtConfig(base, paths, 'linux', 'x64').filesystem
     expect(closed.allowGitConfig).toBe(false)
-    expect(closed.denyWrite).toContain('/home/u/app/.git/config')
+    expect(closed.denyWrite).toContain(`${APP}/.git/config`)
     const git = { unixSockets: true, gitConfig: true, strictDomains: false }
     const open = buildSrtConfig({ ...base, switches: git }, paths, 'linux', 'x64').filesystem
     expect(open.allowGitConfig).toBe(true)
-    expect(open.denyWrite).not.toContain('/home/u/app/.git/config')
-    expect(open.denyWrite).toContain('/home/u/app/.git/hooks')
+    expect(open.denyWrite).not.toContain(`${APP}/.git/config`)
+    expect(open.denyWrite).toContain(`${APP}/.git/hooks`)
   })
 })
 
@@ -344,7 +352,7 @@ describe('fixedPolicy', () => {
   it('lists what Ostia always hides, opens and protects for a workspace', () => {
     const fixed = fixedPolicy(
       guardedPaths,
-      { workDir: '/home/u/app', tmpDir: '/tmp/sbx/w1' },
+      { workDir: `${APP}`, tmpDir: '/tmp/sbx/w1' },
       git,
       'linux',
       'x64',
@@ -355,26 +363,21 @@ describe('fixedPolicy', () => {
       '/home/u/.config/ostia',
       '/home/u/.cargo/credentials.toml',
       '/home/u/.cargo/credentials',
-      '/home/u/app/.ostia/vault.json',
+      `${APP}/.ostia/vault.json`,
       '/tmp/ssh-abc',
       '/run/docker.sock',
       '/run/user/1000',
       '/tmp/ostia-sandbox',
     ])
     expect(fixed.readable).toEqual([
-      '/home/u/app',
+      `${APP}`,
       '/tmp/sbx/w1',
       '/run/user/1000/ostia-1.sock',
       '/home/u/.claude',
       '/home/u/.codex',
     ])
-    expect(fixed.writable).toEqual([
-      '/home/u/app',
-      '/tmp/sbx/w1',
-      '/home/u/.claude',
-      '/home/u/.codex',
-    ])
-    expect(fixed.readOnly).toContain('/home/u/app/.git/config')
+    expect(fixed.writable).toEqual([`${APP}`, '/tmp/sbx/w1', '/home/u/.claude', '/home/u/.codex'])
+    expect(fixed.readOnly).toContain(`${APP}/.git/config`)
     expect(fixed.hiddenSockets).toEqual(['/tmp/ssh-abc', '/run/docker.sock'])
     expect(fixed.socketBlocking).toBe(true)
   })
@@ -382,7 +385,7 @@ describe('fixedPolicy', () => {
   it('matches what buildSrtConfig hands the runtime when the human added nothing', () => {
     const fixed = fixedPolicy(
       guardedPaths,
-      { workDir: '/home/u/app', tmpDir: '/tmp/sbx/w1' },
+      { workDir: `${APP}`, tmpDir: '/tmp/sbx/w1' },
       git,
       'linux',
       'x64',
@@ -411,6 +414,29 @@ describe('fixedPolicy', () => {
       expect.arrayContaining(['/home/u/.cargo/credentials.toml', '/home/u/.cargo/credentials']),
     )
     expect(HOME_HIDDEN_FILES).toEqual(['.cargo/credentials.toml', '.cargo/credentials'])
+  })
+
+  it('names no workspace guard whose file is missing, so the runtime makes no placeholder for it', () => {
+    const empty = realpathSync(mkdtempSync(join(tmpdir(), 'ostia-srtconfig-empty-')))
+    try {
+      const fixed = fixedPolicy(
+        guardedPaths,
+        { workDir: empty, tmpDir: '/tmp/sbx/w1' },
+        git,
+        'linux',
+        'x64',
+      )
+      const { filesystem } = buildSrtConfig(
+        { allowRead: [], domains: [] },
+        { ...guardedPaths, workDir: empty },
+        'linux',
+        'x64',
+      )
+      for (const list of [fixed.hidden, fixed.readOnly, filesystem.denyRead, filesystem.denyWrite])
+        expect(list.filter((p) => p.startsWith(empty) && p !== empty)).toEqual([])
+    } finally {
+      rmSync(empty, { recursive: true, force: true })
+    }
   })
 
   it('leaves out the workspace paths when no workspace is named', () => {
@@ -444,7 +470,7 @@ describe('buildSrtConfig plugin data', () => {
   it('lists the same folders as the fixed policy', () => {
     const fixed = fixedPolicy(
       withPlugins,
-      { workDir: '/home/u/app', tmpDir: '/tmp/sbx/w1', pluginsDir: '/tmp/sbx/w1-plugins' },
+      { workDir: `${APP}`, tmpDir: '/tmp/sbx/w1', pluginsDir: '/tmp/sbx/w1-plugins' },
       { gitConfig: false },
       'linux',
       'x64',
@@ -475,7 +501,7 @@ describe('folderProblem', () => {
   })
 
   it('accepts a project folder inside or outside home', () => {
-    expect(folderProblem('/home/u/app', guardedPaths)).toBeNull()
+    expect(folderProblem(`${APP}`, guardedPaths)).toBeNull()
     expect(folderProblem('/srv/project', guardedPaths)).toBeNull()
   })
 })
