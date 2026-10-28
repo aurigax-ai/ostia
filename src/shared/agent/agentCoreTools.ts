@@ -3,6 +3,8 @@ export const AGENT_READ_TOOLS = [
   'ostia_panes',
   'ostia_managed',
   'ostia_bus_inbox',
+  'ostia_pane_read',
+  'ostia_pane_wait',
 ] as const
 
 export const AGENT_ACT_TOOLS = ['ostia_agent_run', 'ostia_bus_send'] as const

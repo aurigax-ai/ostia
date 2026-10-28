@@ -1,7 +1,11 @@
-import type { AgentEvent, AgentToolReply } from '@aurigax-ai/ostia-extension-sdk/contract/agent'
-import { afterEach, describe, expect, it } from 'vitest'
+import {
+  AGENT_PROMPT_MAX,
+  type AgentEvent,
+  type AgentToolReply,
+} from '@aurigax-ai/ostia-extension-sdk/contract/agent'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { type AgentRig, startAgentRig } from '../../../test/agentHarness'
-import type { CoreCallRequest } from './agentCoreCall'
+import type { CoreCallRequest, CoreLifecycle } from './agentCoreCall'
 import { openInputOf } from './agentRequests'
 import { type AgentRenderer, AgentSessions } from './agentSessions'
 
@@ -49,17 +53,36 @@ async function bridge(
     core: [] as CoreCallRequest[],
     coreHook: undefined as ((request: CoreCallRequest) => void) | undefined,
     coreReply: { ok: true, output: 'core output' } as AgentToolReply,
+    mail: null as string | null,
+    acked: 0,
+    mailLifecycles: [] as CoreLifecycle[],
+    failPrompt: false,
+    promptMailCalls: 0,
   }
   const rig = await startAgentRig(answer)
   rigs.push(rig)
   const sessions = new AgentSessions({
-    request: (request) => rig.handle(request),
+    request: (request) =>
+      state.failPrompt && request.op === 'prompt'
+        ? Promise.resolve({ ok: false, error: 'boom' })
+        : rig.handle(request),
     settings: () => ({
       providers: [{ id: 'fake', name: 'Fake', baseUrl: rig.provider.url, models: ['fake-model'] }],
       alwaysAsk: [],
     }),
     sandboxed: () => state.sandboxed,
     redact,
+    promptMail: async (_scope, lifecycle) => {
+      state.promptMailCalls++
+      state.mailLifecycles.push(lifecycle)
+      if (state.mail === null) return null
+      return {
+        text: state.mail,
+        ack: async () => {
+          state.acked++
+        },
+      }
+    },
     coreCall: async (request) => {
       state.core.push(request)
       state.coreHook?.(request)
@@ -261,6 +284,7 @@ describe('AgentSessions', () => {
       sandboxed: () => false,
       redact: async (t) => t,
       coreCall: async () => ({ ok: true, output: '' }),
+      promptMail: async () => null,
       rulesContext: async () => ({ text: '', count: 0 }),
     })
     expect(await none.complete({ system: 's', input: 'i' })).toEqual({
@@ -599,5 +623,117 @@ describe('AgentSessions', () => {
       expect(openInputOf('s1', { ...withoutPane, paneId: '' })).toBeNull()
       expect(openInputOf('s1', { ...withoutPane, paneId: 'p1' })).toMatchObject({ paneId: 'p1' })
     })
+  })
+})
+
+describe('AgentSessions prompt mail', () => {
+  const MAIL =
+    '<ostia-bus-messages>\n<message id="m1" from="ab12">build is green</message>\n</ostia-bus-messages>'
+  const ended = (lifecycle: CoreLifecycle | undefined) =>
+    lifecycle?.token?.isCancellationRequested === true
+
+  it('starts no turn and takes no mail until the human sends a prompt', async () => {
+    const { rig, sessions, win, input, state } = await bridge(() => 'ok')
+    state.mail = MAIL
+    await sessions.open(win, input)
+    expect(state.promptMailCalls).toBe(0)
+    expect(rig.provider.requests).toEqual([])
+  })
+
+  it('adds the wrapped mail ahead of the human’s prompt and acknowledges it once after pi accepted it', async () => {
+    const { rig, sessions, win, input, state } = await bridge(() => 'ok')
+    state.mail = MAIL
+    await sessions.open(win, input)
+    const done = rig.settled()
+    expect((await sessions.prompt(win, 's1', 'what now?')).ok).toBe(true)
+    await done
+    expect(rig.provider.requests.map((r) => r.last)).toEqual([`${MAIL}\n\nwhat now?`])
+    expect(state.acked).toBe(1)
+    expect(state.mailLifecycles.every(ended)).toBe(true)
+  })
+
+  it('sends the prompt alone and acknowledges nothing when no mail waits', async () => {
+    const { rig, sessions, win, input, state } = await bridge(() => 'ok')
+    await sessions.open(win, input)
+    const done = rig.settled()
+    await sessions.prompt(win, 's1', 'plain')
+    await done
+    expect(rig.provider.requests.map((r) => r.last)).toEqual(['plain'])
+    expect(state.acked).toBe(0)
+  })
+
+  it('leaves the mail queued when pi refuses the prompt', async () => {
+    const { rig, sessions, win, input, state } = await bridge(() => 'ok')
+    state.mail = MAIL
+    state.failPrompt = true
+    await sessions.open(win, input)
+    expect(await sessions.prompt(win, 's1', 'hi')).toEqual({ ok: false, error: 'boom' })
+    expect(state.acked).toBe(0)
+    expect(state.mailLifecycles.every(ended)).toBe(true)
+    expect(rig.provider.requests).toEqual([])
+  })
+
+  it('leaves the mail queued and sends nothing when the mail cannot be checked for secrets', async () => {
+    const { rig, sessions, win, input, state } = await bridge(
+      () => 'ok',
+      async (text) => (text === MAIL ? null : text),
+    )
+    state.mail = MAIL
+    await sessions.open(win, input)
+    expect(await sessions.prompt(win, 's1', 'hi')).toEqual({
+      ok: false,
+      error: 'redaction-failed',
+    })
+    expect(state.acked).toBe(0)
+    expect(state.mailLifecycles.every(ended)).toBe(true)
+    expect(rig.provider.requests).toEqual([])
+  })
+
+  it('redacts the mail like the prompt before pi sees it', async () => {
+    const { rig, sessions, win, input, state } = await bridge(
+      () => 'ok',
+      async (text) => text.replaceAll('sk-SECRET', '[redacted]'),
+    )
+    state.mail = 'key sk-SECRET'
+    await sessions.open(win, input)
+    const done = rig.settled()
+    await sessions.prompt(win, 's1', 'go')
+    await done
+    expect(rig.provider.requests.map((r) => r.last)).toEqual(['key [redacted]\n\ngo'])
+  })
+
+  it.each(['abort', 'close'] as const)(
+    'releases the lease at once when %s arrives before pi took the prompt',
+    async (way) => {
+      let open!: () => void
+      const gate = new Promise<void>((resolve) => {
+        open = resolve
+      })
+      const { rig, sessions, win, input, state } = await bridge(
+        () => 'ok',
+        async (text) => {
+          if (text === MAIL) await gate
+          return text
+        },
+      )
+      state.mail = MAIL
+      await sessions.open(win, input)
+      const prompted = sessions.prompt(win, 's1', 'hi')
+      await vi.waitFor(() => expect(state.promptMailCalls).toBe(1))
+      await sessions[way](win, 's1')
+      expect(state.mailLifecycles.every(ended)).toBe(true)
+      open()
+      expect(await prompted).toEqual({ ok: false, error: 'cancelled' })
+      expect(state.acked).toBe(0)
+      expect(rig.provider.requests).toEqual([])
+    },
+  )
+
+  it('keeps the mail queued for a prompt too long to carry it', async () => {
+    const { sessions, win, input, state } = await bridge(() => 'ok')
+    state.mail = MAIL
+    await sessions.open(win, input)
+    await sessions.prompt(win, 's1', 'x'.repeat(AGENT_PROMPT_MAX - 100))
+    expect(state.promptMailCalls).toBe(0)
   })
 })

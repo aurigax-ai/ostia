@@ -1,5 +1,6 @@
 import {
   AGENT_CONTEXT_MAX,
+  AGENT_PROMPT_MAX,
   AGENT_TOOL_CALL_ID_MAX,
   AGENT_TOOL_OUTPUT_MAX,
   type AgentEvent,
@@ -10,7 +11,9 @@ import {
 } from '@aurigax-ai/ostia-extension-sdk/contract/agent'
 import { isRecord } from '@aurigax-ai/ostia-extension-sdk/contract/isRecord'
 import type { AgentHostSettings } from '../../shared/agent/agentSettings'
+import { BUS_CONTEXT_MAX } from '../../shared/agents/busMessages'
 import { type CoreCallRequest, type CoreLifecycle, coreLifecycle } from './agentCoreCall'
+import type { PromptMail, TakePromptMail } from './agentMail'
 import { type AgentOpenInput, completeOf, promptOf, sessionIdOf } from './agentRequests'
 import { PiStream } from './piStream'
 import { type PortalPromptResult, PortalPrompts } from './portalPrompts'
@@ -28,6 +31,7 @@ export interface AgentSessionsDeps {
   sandboxed: (workspaceId: string) => boolean
   redact: (text: string) => Promise<string | null>
   coreCall: (request: CoreCallRequest) => Promise<AgentToolReply>
+  promptMail: TakePromptMail
   rulesContext: (
     workspaceId: string,
     cwd: string,
@@ -50,6 +54,12 @@ interface PendingTool {
   settle: (reply: AgentToolReply) => void
 }
 
+interface MailHold {
+  lifecycle: CoreLifecycle
+  released: boolean
+}
+
+const MAIL_SEPARATOR = '\n\n'
 const UNAVAILABLE: AgentReply = { ok: false, error: 'unavailable' }
 const INVALID_CALL: AgentToolReply = { ok: false, error: 'invalid' }
 const CANCELLED: AgentToolReply = { ok: false, error: 'Cancelled.' }
@@ -77,6 +87,7 @@ export class AgentSessions {
     },
     stream: (sessionId) => this.streams.get(sessionId),
   })
+  private readonly holds = new Map<string, Set<MailHold>>()
   private toolSeq = 0
 
   constructor(private readonly deps: AgentSessionsDeps) {}
@@ -128,14 +139,70 @@ export class AgentSessions {
 
   async prompt(renderer: AgentRenderer, sessionId: unknown, text: unknown): Promise<AgentReply> {
     const id = this.ownedId(renderer, sessionId)
+    const owner = id ? this.owned.get(id) : undefined
     const clean = promptOf(text)
-    if (!id || clean === null) return { ok: false, error: 'invalid' }
+    if (!id || !owner || clean === null) return { ok: false, error: 'invalid' }
     if (this.sandboxedSession(id)) return { ok: false, error: 'sandboxed' }
     const redacted = await this.deps.redact(clean).catch(() => null)
     if (redacted === null) return { ok: false, error: 'redaction-failed' }
-    const reply = await this.deps.request({ op: 'prompt', sessionId: id, text: redacted })
-    if (reply.ok) this.streams.get(id)?.prompt(clean)
-    return reply
+    const hold = this.hold(id)
+    try {
+      const mail = await this.mailFor(owner, renderer, hold, redacted.length)
+      const body = await this.withMail(redacted, mail?.text)
+      if (body === null) return { ok: false, error: 'redaction-failed' }
+      if (hold.released) return { ok: false, error: 'cancelled' }
+      const reply = await this.deps.request({ op: 'prompt', sessionId: id, text: body })
+      if (!reply.ok) return reply
+      this.streams.get(id)?.prompt(clean)
+      await mail?.ack().catch(() => undefined)
+      return reply
+    } finally {
+      this.unhold(id, hold)
+    }
+  }
+
+  private async mailFor(
+    owner: Owned,
+    renderer: AgentRenderer,
+    hold: MailHold,
+    promptLength: number,
+  ): Promise<PromptMail | null> {
+    if (promptLength + BUS_CONTEXT_MAX + MAIL_SEPARATOR.length > AGENT_PROMPT_MAX) return null
+    return this.deps.promptMail(
+      { paneId: owner.paneId, windowId: String(renderer.id), workspaceId: owner.workspaceId },
+      hold.lifecycle,
+    )
+  }
+
+  private async withMail(prompt: string, mail: string | undefined): Promise<string | null> {
+    if (!mail) return prompt
+    const clean = await this.deps.redact(mail).catch(() => null)
+    return clean === null ? null : `${clean}${MAIL_SEPARATOR}${prompt}`
+  }
+
+  private hold(sessionId: string): MailHold {
+    const hold: MailHold = { lifecycle: coreLifecycle(), released: false }
+    const holds = this.holds.get(sessionId) ?? new Set<MailHold>()
+    holds.add(hold)
+    this.holds.set(sessionId, holds)
+    return hold
+  }
+
+  private unhold(sessionId: string, hold: MailHold): void {
+    this.release(hold)
+    const holds = this.holds.get(sessionId)
+    holds?.delete(hold)
+    if (holds?.size === 0) this.holds.delete(sessionId)
+  }
+
+  private release(hold: MailHold): void {
+    if (hold.released) return
+    hold.released = true
+    hold.lifecycle.end()
+  }
+
+  private releaseHolds(sessionId: string): void {
+    for (const hold of this.holds.get(sessionId) ?? []) this.release(hold)
   }
 
   async complete(params: unknown): Promise<AgentReply> {
@@ -153,6 +220,7 @@ export class AgentSessions {
     const id = this.ownedId(renderer, sessionId)
     if (!id) return { ok: false, error: 'invalid' }
     this.cancelTools(id)
+    this.releaseHolds(id)
     return this.deps.request({ op: 'abort', sessionId: id })
   }
 
@@ -160,6 +228,7 @@ export class AgentSessions {
     const id = this.ownedId(renderer, sessionId)
     if (!id) return { ok: false, error: 'invalid' }
     this.cancelTools(id)
+    this.releaseHolds(id)
     this.forget(id)
     return this.deps.request({ op: 'close', sessionId: id })
   }
@@ -336,6 +405,7 @@ export class AgentSessions {
       }
       for (const [sessionId, owner] of this.owned) {
         if (owner.renderer.id !== renderer.id) continue
+        this.releaseHolds(sessionId)
         this.forget(sessionId)
         void this.deps.request({ op: 'close', sessionId })
       }

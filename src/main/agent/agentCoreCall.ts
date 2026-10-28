@@ -3,11 +3,12 @@ import { isRecord } from '@aurigax-ai/ostia-extension-sdk/contract/isRecord'
 import { CancellationTokenSource, Emitter } from 'vscode-jsonrpc/node'
 import { type AgentCoreToolName, isAgentCoreTool } from '../../shared/agent/agentCoreTools'
 import { busInboxText } from '../../shared/agents/busMessages'
+import { otherPaneText } from '../../shared/agents/paneText'
 import { initCaps } from '../approvals/capabilityStore'
 import type { ControlConn, ControlMethodContext } from '../control/controlServer'
 import type { PaneIdentity } from '../control/idRegistry'
 
-interface CoreScope {
+export interface CoreScope {
   paneId: string
   windowId: string
   workspaceId: string
@@ -144,6 +145,24 @@ async function managed(call: Call, facts: Facts): Promise<unknown> {
   }
 }
 
+function wrapped(paneId: unknown, text: unknown): string {
+  return otherPaneText(String(paneId ?? ''), typeof text === 'string' ? text : '')
+}
+
+function paneRead(value: unknown): unknown {
+  if (!isRecord(value)) return value
+  return { ...value, text: wrapped(value.paneId, value.text) }
+}
+
+function paneWait(value: unknown): unknown {
+  if (!isRecord(value) || typeof value.message !== 'string') return value
+  return { ...value, message: wrapped(value.paneId, value.message) }
+}
+
+function names(value: unknown): string[] {
+  return Array.isArray(value) ? value.filter((v): v is string => typeof v === 'string') : []
+}
+
 const SECOND_MS = 1000
 
 export const AGENT_CORE_TOOLS: Readonly<Record<AgentCoreToolName, CoreTool>> = {
@@ -176,6 +195,29 @@ export const AGENT_CORE_TOOLS: Readonly<Record<AgentCoreToolName, CoreTool>> = {
     methods: ['bus.inbox', 'bus.ack'],
     run: async (_input, call) => takeAndAck(call, await call('bus.inbox', { take: true })),
   },
+  ostia_pane_read: {
+    methods: ['pane.read'],
+    run: async (input, call) =>
+      paneRead(
+        await call('pane.read', {
+          ...strings(input, ['pane']),
+          ...(typeof input.lines === 'number' ? { lines: input.lines } : {}),
+        }),
+      ),
+  },
+  ostia_pane_wait: {
+    methods: ['pane.wait'],
+    run: async (input, call) =>
+      paneWait(
+        await call('pane.wait', {
+          panes: names(input.panes),
+          ...(names(input.until).length > 0 ? { until: names(input.until) } : {}),
+          ...(typeof input.timeoutSeconds === 'number'
+            ? { timeoutMs: input.timeoutSeconds * SECOND_MS }
+            : {}),
+        }),
+      ),
+  },
 }
 
 function outputOf(result: unknown): string {
@@ -195,14 +237,20 @@ function reachable(
   )
 }
 
-export function createAgentCoreCall(deps: AgentCoreDeps) {
-  return async ({ scope, name, input, lifecycle }: CoreCallRequest): Promise<AgentToolReply> => {
-    if (!isAgentCoreTool(name)) return BAD_TOOL
-    const identity = deps.identityOf(scope.paneId)
-    if (!reachable(identity, scope, deps.isManagerSession)) return REFUSED
-    if (deps.sandboxed(scope.workspaceId)) return SANDBOXED
-    initCaps(identity.externalId)
-    const ctx: ControlMethodContext = {
+type CoreContext = { ok: true; ctx: ControlMethodContext } | { ok: false; reply: AgentToolReply }
+
+export function coreContext(
+  deps: Pick<AgentCoreDeps, 'identityOf' | 'sandboxed' | 'isManagerSession'>,
+  scope: CoreScope,
+  lifecycle: CoreLifecycle,
+): CoreContext {
+  const identity = deps.identityOf(scope.paneId)
+  if (!reachable(identity, scope, deps.isManagerSession)) return { ok: false, reply: REFUSED }
+  if (deps.sandboxed(scope.workspaceId)) return { ok: false, reply: SANDBOXED }
+  initCaps(identity.externalId)
+  return {
+    ok: true,
+    ctx: {
       identity,
       authed: {
         externalId: identity.externalId,
@@ -211,7 +259,16 @@ export function createAgentCoreCall(deps: AgentCoreDeps) {
       },
       conn: lifecycle.conn,
       token: lifecycle.token,
-    }
+    },
+  }
+}
+
+export function createAgentCoreCall(deps: AgentCoreDeps) {
+  return async ({ scope, name, input, lifecycle }: CoreCallRequest): Promise<AgentToolReply> => {
+    if (!isAgentCoreTool(name)) return BAD_TOOL
+    const resolved = coreContext(deps, scope, lifecycle)
+    if (!resolved.ok) return resolved.reply
+    const { ctx } = resolved
     const tool = AGENT_CORE_TOOLS[name]
     const call: Call = (method, params) => {
       if (!tool.methods.includes(method)) {
@@ -221,7 +278,7 @@ export function createAgentCoreCall(deps: AgentCoreDeps) {
     }
     try {
       const result = await tool.run(input, call, {
-        paneId: identity.paneId,
+        paneId: ctx.identity.paneId,
         ownsChild: deps.ownsChild,
       })
       return { ok: true, output: outputOf(result) }
