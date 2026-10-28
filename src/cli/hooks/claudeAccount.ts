@@ -7,6 +7,9 @@ export async function runClaudeAccountVerb(conn: MessageConnection): Promise<voi
     fail('ostia claude-account: usage: claude-account start')
     return
   }
-  const { dir } = await conn.sendRequest<{ dir: string }>('claudeAccount.start', {})
-  if (dir.startsWith('/')) console.log(dir)
+  const { dir, memoryHome } = await conn.sendRequest<{ dir: string; memoryHome: string }>(
+    'claudeAccount.start',
+    {},
+  )
+  if (dir.startsWith('/') && memoryHome.startsWith('/')) console.log(`${dir}\n${memoryHome}`)
 }
