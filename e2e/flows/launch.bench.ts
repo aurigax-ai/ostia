@@ -140,3 +140,48 @@ test('bench restore: saved workspace with a split tab and two more tabs to shown
   }
   samples.flush()
 })
+
+test('bench restore: saved editor tab to text in the editor', async () => {
+  test.setTimeout(300_000)
+  const dataHome = freshDataHome()
+  seedSettings(dataHome, SETTINGS)
+  writeFileSync(join(testHome(dataHome), 'flow-open.txt'), 'flow-editor-text\n'.repeat(200))
+  const seed = await launchPlain(dataHome)
+  try {
+    await openWorkspace(seed.win)
+    const toggle = seed.win.locator('.topbar').getByRole('button', { name: 'Files' })
+    if ((await toggle.getAttribute('aria-pressed')) !== 'true') await toggle.click()
+    await seed.win.locator('.file-tree').getByRole('button', { name: 'flow-open.txt' }).click()
+    await expect(seed.win.locator('.monaco-editor .view-lines')).toContainText('flow-editor-text', {
+      timeout: 15_000,
+    })
+    await seed.win.waitForTimeout(1_500)
+  } finally {
+    await quitApp(seed.app)
+  }
+  const snapshot = `${dataHome}-snapshot`
+  cpSync(dataHome, snapshot, { recursive: true })
+  const samples = new Samples()
+  for (let i = 0; i < LAUNCHES + WARMUP; i++) {
+    replaceContents(dataHome, snapshot)
+    const { app, win } = await launchProbed(dataHome, {
+      editorText: [{ sel: '.monaco-editor .view-lines', text: 'flow-editor-text', shown: true }],
+    })
+    try {
+      await expect
+        .poll(async () => 'editorText' in (await readPageMarks(win)), { timeout: 30_000 })
+        .toBe(true)
+      const page = await readPageMarks(win)
+      const marks = await readLaunchMarks(app)
+      if (i < WARMUP) continue
+      samples.add('restore.editor-text', page.editorText - marks.processStart)
+      samples.add(
+        'restore.editor-first-paint',
+        (await firstContentfulPaint(win)) - marks.processStart,
+      )
+    } finally {
+      await quitApp(app)
+    }
+  }
+  samples.flush()
+})

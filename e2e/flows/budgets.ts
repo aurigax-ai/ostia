@@ -9,6 +9,7 @@ export const BUDGETS: Record<string, Budget> = {
   'restore.first-paint': { p50: 1600, p95: 1900 },
   'restore.shown-prompt': { p50: 1700, p95: 2000 },
   'restore.all-panes': { p50: 1800, p95: 2200 },
+  'restore.editor-text': { p50: 1900, p95: 2300 },
   'restore.focus': { p50: 1700, p95: 2000 },
   'tab.new-shown': { p50: 50, p95: 100 },
   'tab.new-prompt': { p50: 300, p95: 500 },
