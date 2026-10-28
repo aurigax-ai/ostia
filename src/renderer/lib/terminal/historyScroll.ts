@@ -1,4 +1,5 @@
 import type { HistoryMatch } from '@shared/terminal/scrollbackHistory'
+import { copyTextConfirmed } from '@/lib/capture/copyConfirm'
 import { terminalKeyData } from '@/lib/keyboard/keyPresets'
 import type { TerminalRenderer } from '@/lib/settings/terminalPaneSettings'
 import { isMac } from '@/platform'
@@ -149,7 +150,7 @@ export function createHistoryScroll(deps: HistoryScrollDeps): HistoryScroll {
     if (!pane?.term.hasSelection() || !readOnlyCopyKey(e, true)) return false
     e.preventDefault()
     e.stopPropagation()
-    void navigator.clipboard.writeText(pane.term.getSelection())
+    void copyTextConfirmed(paneId, pane.term.getSelection())
     return true
   }
 

@@ -1,4 +1,5 @@
 import { type KeyboardEvent, type MutableRefObject, type RefObject, useRef } from 'react'
+import { copyTextConfirmed } from '@/lib/capture/copyConfirm'
 import { execChord, isAppChord, matchTerminalChord } from '@/lib/keyboard/chords'
 import { smartClipboardAction } from '@/lib/keyboard/clipboardKeys'
 import { clipboardChordOf } from '@/lib/keyboard/documentClipboard'
@@ -127,6 +128,7 @@ export function useInputEditorKeys({
   history: { stepHistory },
   composing,
   termRef,
+  paneId,
   onSubmit,
   onHandOffRef,
   onShellKeys,
@@ -141,6 +143,7 @@ export function useInputEditorKeys({
   history: InputHistory
   composing: boolean
   termRef: RefObject<Xterm | null>
+  paneId: string
   onSubmit: (text: string) => boolean
   onHandOffRef: MutableRefObject<(draft: string, keys: string) => void>
   onShellKeys: (keys: string) => void
@@ -225,9 +228,9 @@ export function useInputEditorKeys({
     if (smart === 'paste') return
     if (smart === 'copy' || clipboardChordOf(e, isMac) === 'copy') {
       e.preventDefault()
-      if (draftSelection) void navigator.clipboard.writeText(draftSelection)
+      if (draftSelection) void copyTextConfirmed(paneId, draftSelection)
       else if (term?.hasSelection()) {
-        void navigator.clipboard.writeText(term.getSelection())
+        void copyTextConfirmed(paneId, term.getSelection())
         if (smart) term.clearSelection()
       }
       return

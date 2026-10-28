@@ -2,6 +2,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { Terminal as Xterm } from '@xterm/xterm'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { useCaptureStore } from '@/lib/capture/captureSession'
 import * as clearTerminal from '@/lib/terminal/clearTerminal'
 import { useBlocksStore } from '@/stores/terminal/blocksStore'
 import { TerminalMenu } from './TerminalMenu'
@@ -10,6 +11,7 @@ afterEach(() => {
   vi.restoreAllMocks()
   vi.unstubAllGlobals()
   useBlocksStore.setState({ running: {} })
+  useCaptureStore.setState({ open: {}, status: {}, chip: {} })
 })
 
 function setup(selection: string) {
@@ -39,6 +41,7 @@ describe('TerminalMenu', () => {
     setup('npm test')
     await userEvent.click(await screen.findByRole('menuitem', { name: 'Copy' }))
     expect(write).toHaveBeenCalledWith('npm test')
+    await waitFor(() => expect(useCaptureStore.getState().chip.p1?.label).toBe('Copied'))
   })
 
   it('disables Copy without a selection, and pastes and selects all', async () => {

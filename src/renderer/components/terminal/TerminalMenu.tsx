@@ -3,6 +3,7 @@ import { type MutableRefObject, type ReactElement, useState } from 'react'
 import { MenuContent, MenuItem } from '@/components/common/Menu'
 import { ContextMenu, ContextMenuSeparator, ContextMenuTrigger } from '@/components/ui/context-menu'
 import { useDict } from '@/lib/app/useDict'
+import { copyTextConfirmed } from '@/lib/capture/copyConfirm'
 import { clearKeepingScrollback } from '@/lib/terminal/clearTerminal'
 import type { OstiaTerminal as Xterm } from '@/lib/terminal/ostiaTerminal'
 import { useBlocksStore } from '@/stores/terminal/blocksStore'
@@ -41,7 +42,7 @@ export function TerminalMenu({
           disabled={!hasSelection}
           onClick={() => {
             const term = termRef.current
-            if (term?.hasSelection()) void navigator.clipboard.writeText(term.getSelection())
+            if (term?.hasSelection()) void copyTextConfirmed(paneId, term.getSelection())
           }}
         >
           {d.terminalMenu.copy}

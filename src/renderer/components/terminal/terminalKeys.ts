@@ -1,5 +1,6 @@
 import { isNativeClipboardKey } from '@shared/keyboard/chordSpec'
 import { commands } from '@/commands/registry'
+import { confirmNativeCopy, copyTextConfirmed } from '@/lib/capture/copyConfirm'
 import {
   execChord,
   findStep,
@@ -39,6 +40,10 @@ export function attachTerminalKeys({
     inputEditorFor(paneId)?.focus()
   }
   host.addEventListener('mouseup', focusEditorOnClick)
+  const confirmNativeSelectionCopy = (): void => {
+    if (term.hasSelection()) confirmNativeCopy(paneId)
+  }
+  host.addEventListener('copy', confirmNativeSelectionCopy)
 
   term.attachCustomKeyEventHandler((e) => {
     if (e.key === 'Escape' && !e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey) {
@@ -57,7 +62,7 @@ export function attachTerminalKeys({
       if (e.type !== 'keydown') return false
       e.preventDefault()
       if (smart === 'copy') {
-        void navigator.clipboard.writeText(term.getSelection())
+        void copyTextConfirmed(paneId, term.getSelection())
         term.clearSelection()
       } else {
         pasteFromClipboard()
@@ -107,12 +112,15 @@ export function attachTerminalKeys({
     else if (isTerminalCommandChord(chord)) void commands.exec(chord)
     else if (chord === 'copy') {
       const selection = term.getSelection()
-      if (selection) void navigator.clipboard.writeText(selection)
+      if (selection) void copyTextConfirmed(paneId, selection)
     } else {
       pasteFromClipboard()
     }
     return false
   })
 
-  return () => host.removeEventListener('mouseup', focusEditorOnClick)
+  return () => {
+    host.removeEventListener('mouseup', focusEditorOnClick)
+    host.removeEventListener('copy', confirmNativeSelectionCopy)
+  }
 }
