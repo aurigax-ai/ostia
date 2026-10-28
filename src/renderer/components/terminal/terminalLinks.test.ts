@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { openBrowserAs, openBrowserTabAs } from '@/lib/browser/browserProfile'
 import type { OstiaTerminal } from '@/lib/terminal/ostiaTerminal'
+import { useAppLinkStore } from '@/stores/terminal/appLinkStore'
 import { createTerminalLinks } from './terminalLinks'
 import type { TerminalSession } from './terminalSession'
 
@@ -19,11 +20,12 @@ describe('a link of another scheme in the terminal', () => {
   afterEach(() => {
     vi.useRealTimers()
     vi.mocked(window.ostia.openPath.openLink).mockClear()
+    useAppLinkStore.setState({ byPane: {} })
     vi.mocked(openBrowserAs).mockClear()
     vi.mocked(openBrowserTabAs).mockClear()
   })
 
-  it('shows its target on hover and hands it to its app on a plain click, opening no browser tab', () => {
+  it('shows its target on hover and asks before it hands the link to its app on a plain click, opening no browser tab', async () => {
     vi.useFakeTimers()
     const setLinkHint = vi.fn()
     const links = createTerminalLinks({
@@ -50,12 +52,15 @@ describe('a link of another scheme in the terminal', () => {
         expect.objectContaining({ kind: 'web', url: uri, plainClick: true }),
       )
       links.webLinks.activate(new MouseEvent('click', { detail: 1 }), uri, RANGE)
+      await vi.advanceTimersByTimeAsync(0)
+      expect(useAppLinkStore.getState().byPane['pane-links']).toEqual({
+        kind: 'ask',
+        url: uri,
+        app: 'Obsidian',
+      })
     }
 
-    expect(vi.mocked(window.ostia.openPath.openLink).mock.calls).toEqual([
-      ['slack://channel?id=1'],
-      ['zed://file/tmp/a'],
-    ])
+    expect(window.ostia.openPath.openLink).not.toHaveBeenCalled()
     expect(openBrowserAs).not.toHaveBeenCalled()
     expect(openBrowserTabAs).not.toHaveBeenCalled()
     detach()

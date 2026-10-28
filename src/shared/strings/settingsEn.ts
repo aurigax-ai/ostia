@@ -68,7 +68,13 @@ export const settingsEn = {
     accentPreset: 'Accent {color}',
     accentReset: 'Use theme color',
     agents: 'Agents',
+    allowedAppLinks: 'Apps links may open without asking',
+    allowedAppLinksEmpty:
+      'No app is allowed yet. The question offers "Don\'t ask again" for a scheme.',
     appearance: 'Appearance',
+    askAppLinks: 'Ask before opening apps from links',
+    askAppLinksDesc:
+      'Ask before a link in a terminal opens another app, such as obsidian:// or vscode://, or a chrome:// page in Chrome. Agents cannot change this.',
     autoResume: 'Resume agents after a restart',
     autoResumeDesc:
       'An agent session that was running when {product} quit resumes at its pane’s first idle prompt once the pane is visible. Background tabs and other workspaces resume when you open them. Only you can change this.',
@@ -163,6 +169,7 @@ export const settingsEn = {
     groupEvents: 'Events',
     groupInput: 'Input',
     groupKeyboard: 'Keyboard',
+    groupLinks: 'Links',
     groupPaneFocus: 'Focus',
     groupPaneLayout: 'Layout',
     groupPaneTabs: 'Tabs',
@@ -414,6 +421,7 @@ export const settingsEn = {
     remoteUnpairBody:
       '{name} is disconnected at once and has to pair again to reach this computer.',
     remoteUnpairTitle: 'Unpair {name}?',
+    removeAppLink: 'Remove {scheme}',
     rendererGhostty: 'Ghostty',
     rendererXterm: 'xterm.js',
     resetFor: 'Reset {label} to {value}',

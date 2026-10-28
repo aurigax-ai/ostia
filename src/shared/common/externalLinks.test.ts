@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { externalHref, findAppLinks, linkKind } from './externalLinks'
+import { appLinkScheme, browserPageOf, externalHref, findAppLinks, linkKind } from './externalLinks'
 
 const VAULT =
   'obsidian://advanced-uri?vault=Interdisciplinary Nexus&filepath=05 Projects/中文.md&newpane=true'
@@ -53,7 +53,6 @@ describe('externalHref', () => {
       'data://x',
       'blob://x',
       'about://blank',
-      'chrome://settings',
       'chrome-extension://abc/x',
       'devtools://devtools/bundled/x.html',
       'view-source://https://a.b',
@@ -67,6 +66,29 @@ describe('externalHref', () => {
       expect(externalHref(url, { apps: true })).toBeNull()
       expect(linkKind(url)).toBeNull()
     }
+  })
+
+  it('treats chrome, edge and brave pages as app links that name their browser', () => {
+    for (const [url, page] of [
+      ['chrome://inspect/#remote-debugging', 'chrome'],
+      ['edge://settings', 'edge'],
+      ['brave://settings', 'brave'],
+    ] as const) {
+      expect(linkKind(url)).toBe('external')
+      expect(externalHref(url, { apps: false })).toBeNull()
+      expect(externalHref(url, { apps: true })).toBe(new URL(url).href)
+      expect(browserPageOf(url)).toBe(page)
+      expect(appLinkScheme(url)).toBe(page)
+    }
+    expect(browserPageOf('obsidian://open')).toBeNull()
+    expect(browserPageOf('chrome:settings')).toBeNull()
+  })
+
+  it('names the scheme of an app link, never of a web or mail link', () => {
+    expect(appLinkScheme('obsidian://open?vault=a')).toBe('obsidian')
+    expect(appLinkScheme('https://a.b')).toBeNull()
+    expect(appLinkScheme('mailto:a@b.c')).toBeNull()
+    expect(appLinkScheme('javascript:alert(1)')).toBeNull()
   })
 
   it('refuses schemes that mount remote folders or reach Windows handlers', () => {

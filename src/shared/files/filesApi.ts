@@ -139,6 +139,12 @@ export interface WorkspaceProject {
   repo: boolean
 }
 
+export type AppLinkInfo = { ok: true; app: string } | { ok: false; error: 'blocked' | 'no-handler' }
+
+export type OpenLinkResult =
+  | { ok: true }
+  | { ok: false; error: 'blocked' | 'no-handler' | 'not-allowed' | 'failed' }
+
 export type OpenPathResult = { ok: true } | { ok: false; error: 'not-found' | 'program' | 'failed' }
 
 interface FilesApi {
@@ -160,7 +166,8 @@ interface OpenPathApi {
   openDefault: (path: string) => Promise<OpenPathResult>
   canOpenDefault: (path: string) => Promise<boolean>
   reveal: (path: string) => Promise<OpenPathResult>
-  openLink: (url: string) => Promise<boolean>
+  openLink: (url: string, confirmed?: boolean) => Promise<OpenLinkResult>
+  linkInfo: (url: string) => Promise<AppLinkInfo>
   project: (dir: string, exact?: boolean) => Promise<WorkspaceProject | null>
 }
 

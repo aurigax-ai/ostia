@@ -1,0 +1,2 @@
+#!/bin/sh
+if [ "$3" = "x-scheme-handler/fakeapp" ]; then echo fake-app.desktop; fi
