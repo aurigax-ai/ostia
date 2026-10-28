@@ -53,7 +53,7 @@ export function createFileServices({
     debounceMs: FILE_WATCH_DEBOUNCE_MS,
     onChange: ({ path, exists, owners }) => {
       for (const owner of owners) {
-        viewers.changed(owner)
+        void viewers.changed(owner)
         const win = windows.get(owner)
         if (win && !win.isDestroyed()) win.webContents.send('fs:changed', { path, exists })
       }

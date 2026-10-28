@@ -415,3 +415,30 @@ describe('a selection the host cleared', () => {
     expect(hostClears.size).toBe(0)
   })
 })
+
+describe('rows added to the end', () => {
+  it('keeps the drawn range, tells the page nothing and shows the new rows', async () => {
+    const { view, onSelect } = await mount()
+    click(cell(1, 1))
+    press(cell(1, 1))
+    hover(cell(3, 2))
+    lift()
+    const before = selectedCells()
+    const reports = onSelect.mock.calls.length
+    view.setRows(ROWS + 5, (row, column) => `r${row}c${column}`)
+    expect(selectedCells()).toEqual(before)
+    expect(onSelect.mock.calls).toHaveLength(reports)
+    expect(cell(0, 0).textContent).toBe('r0c0')
+    expect(view.element.querySelector('[role="grid"]')?.getAttribute('aria-rowcount')).toBe(
+      String(ROWS + 6),
+    )
+  })
+
+  it('freezes a whole-column selection so it does not grow with the rows', async () => {
+    const { view } = await mount()
+    click(header('column', 1))
+    expect(view.selection()).toMatchObject({ r1: 0, r2: ROWS - 1, c1: 1, c2: 1 })
+    view.setRows(ROWS + 5, () => '')
+    expect(view.selection()).toMatchObject({ r1: 0, r2: ROWS - 1, c1: 1, c2: 1 })
+  })
+})
