@@ -76,7 +76,7 @@ export function createAccountMoves(deps: AccountMovesWiringDeps): AccountMoves {
     hibernate: async (paneId) => {
       const to = getByPaneId(paneId)
       if (!to) return 'no-terminal'
-      const res = await execCommand(targetOf(to), 'pane.hibernate')
+      const res = await execCommand(targetOf(to), 'pane.hibernate', undefined, true)
       const outcome = res.ok ? (res.result as { outcome?: unknown } | undefined)?.outcome : null
       return typeof outcome === 'string' ? outcome : 'no-terminal'
     },

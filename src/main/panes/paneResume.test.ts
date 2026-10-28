@@ -75,4 +75,48 @@ describe('refreshResumeFolder', () => {
       expect(setCalls(calls)).toEqual([])
     }
   })
+
+  it('keeps a session id that a new report stored while the folder was being read', async () => {
+    let stored: AgentResume | null = { agent: 'claude', id: 'old', cwd: '/w/repo' }
+    const calls: { id: string; args: unknown }[] = []
+    const deps: PaneResumeDeps = {
+      execCommand: async (_target, id, args) => {
+        calls.push({ id, args })
+        return (
+          id === 'pane.resumeToken' ? { ok: true, result: { resume: stored } } : { ok: true }
+        ) as CommandResult
+      },
+      foregroundProgram: () => null,
+      agentCwd: async () => {
+        stored = { agent: 'claude', id: 'new', cwd: '/w/repo' }
+        return '/w/repo/wt'
+      },
+      sessionFolder: () => null,
+      onResume: () => {},
+    }
+    await refreshResumeFolder(deps, identity)
+    expect(setCalls(calls)).toEqual([])
+  })
+
+  it('runs one refresh per pane at a time and repeats once for the reports that came meanwhile', async () => {
+    let active = 0
+    let peak = 0
+    let reads = 0
+    const { deps } = setup({ stored: { agent: 'claude', id: 'a', cwd: '/w/x' } })
+    deps.agentCwd = async () => {
+      reads += 1
+      active += 1
+      peak = Math.max(peak, active)
+      await new Promise((resolve) => setTimeout(resolve, 5))
+      active -= 1
+      return '/w/x'
+    }
+    await Promise.all([
+      refreshResumeFolder(deps, identity),
+      refreshResumeFolder(deps, identity),
+      refreshResumeFolder(deps, identity),
+    ])
+    expect(peak).toBe(1)
+    expect(reads).toBe(2)
+  })
 })

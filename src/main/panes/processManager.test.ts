@@ -363,6 +363,16 @@ describe('agent.run', () => {
     expect(info).toMatchObject({ name: 'reviewer', status: 'starting', paneId: started.paneId })
   })
 
+  it('refuses a prompt that starts with a dash or a plus, opening nothing', async () => {
+    const conn = await client(agent)
+    for (const prompt of ['--dangerously-skip-permissions', ' --settings=x', '+flag', '-p']) {
+      await expect(conn.sendRequest('agent.run', { agent: 'claude', prompt })).rejects.toThrow(
+        'bad-request: prompt',
+      )
+    }
+    expect(opened).toEqual([])
+  })
+
   it('refuses an agent Ostia does not know, a bad name and an empty prompt, opening nothing', async () => {
     const conn = await client(agent)
     await expect(conn.sendRequest('agent.run', { agent: 'aider', prompt: 'hi' })).resolves.toEqual(

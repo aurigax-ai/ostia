@@ -176,6 +176,10 @@ const SECRET_TEXT = [
   /[A-Za-z0-9_+=-]{40,}/,
 ]
 
+export function leadsWithFlag(text: string): boolean {
+  return /^[-+]/.test(text.trimStart())
+}
+
 export function looksSecret(text: string): boolean {
   return SECRET_TEXT.some((pattern) => pattern.test(text))
 }

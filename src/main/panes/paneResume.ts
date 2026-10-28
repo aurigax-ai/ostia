@@ -47,15 +47,37 @@ async function agentFolder(
   return deps.sessionFolder(resume) ?? (await deps.agentCwd(identity.paneId))
 }
 
-export async function refreshResumeFolder(
-  deps: PaneResumeDeps,
-  identity: PaneIdentity,
-): Promise<void> {
+const refreshing = new Map<string, { again: boolean }>()
+
+async function refreshOnce(deps: PaneResumeDeps, identity: PaneIdentity): Promise<void> {
   const stored = await storedResume(deps, identity)
   if (!stored) return
   const cwd = await agentFolder(deps, identity, stored)
   if (!cwd || cwd === stored.cwd) return
-  await deps.execCommand(targetOf(identity), 'resume.set', { ...stored, cwd }, true)
+  const current = await storedResume(deps, identity)
+  if (current?.agent !== stored.agent || current.id !== stored.id) return
+  await deps.execCommand(targetOf(identity), 'resume.set', { ...current, cwd }, true)
+}
+
+export async function refreshResumeFolder(
+  deps: PaneResumeDeps,
+  identity: PaneIdentity,
+): Promise<void> {
+  const running = refreshing.get(identity.paneId)
+  if (running) {
+    running.again = true
+    return
+  }
+  const mine = { again: true }
+  refreshing.set(identity.paneId, mine)
+  try {
+    while (mine.again) {
+      mine.again = false
+      await refreshOnce(deps, identity)
+    }
+  } finally {
+    refreshing.delete(identity.paneId)
+  }
 }
 
 export function registerPaneResumeMethods(deps: PaneResumeDeps): void {

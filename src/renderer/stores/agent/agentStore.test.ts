@@ -58,6 +58,16 @@ describe('the Agent session and its rules chip', () => {
     ])
   })
 
+  it('opens the session again with the new workspace when the pane moves to another workspace', async () => {
+    await ensureAgentSession('w1', 'p1', 'a-ws-moved')
+    await ensureAgentSession('w2', 'p1', 'a-ws-moved')
+    expect(open).toHaveBeenCalledTimes(2)
+    expect(open).toHaveBeenLastCalledWith(
+      'a-ws-moved',
+      expect.objectContaining({ workspaceId: 'w2', paneId: 'p1' }),
+    )
+  })
+
   it('opens the session again when the pane that holds it changes', async () => {
     await ensureAgentSession('w1', 'p1', 'a-moved')
     await ensureAgentSession('w1', 'p2', 'a-moved')
