@@ -80,6 +80,7 @@ export class AgentSessions {
   private readonly streams = new Map<string, PiStream>()
   private readonly waiting = new Map<string, Set<string>>()
   private readonly waitListeners = new Map<string, Set<(waiting: boolean) => void>>()
+  private readonly approvalSessions = new Map<string, string>()
   private readonly portal = new PortalPrompts({
     renderer: (sessionId) => {
       const renderer = this.owned.get(sessionId)?.renderer
@@ -306,6 +307,20 @@ export class AgentSessions {
     return () => listeners.delete(listener)
   }
 
+  approvalOpened(paneId: string, approvalId: string): void {
+    const sessionId = this.sessionOfPane(paneId)
+    if (!sessionId) return
+    this.approvalSessions.set(approvalId, sessionId)
+    this.setWaiting(sessionId, approvalKey(approvalId), true)
+  }
+
+  approvalSettled(approvalId: string): void {
+    const sessionId = this.approvalSessions.get(approvalId)
+    if (!sessionId) return
+    this.approvalSessions.delete(approvalId)
+    if (this.owned.has(sessionId)) this.setWaiting(sessionId, approvalKey(approvalId), false)
+  }
+
   private setWaiting(sessionId: string, callId: string, on: boolean): void {
     const calls = this.waiting.get(sessionId) ?? new Set<string>()
     this.waiting.set(sessionId, calls)
@@ -411,6 +426,10 @@ export class AgentSessions {
       }
     })
   }
+}
+
+function approvalKey(approvalId: string): string {
+  return `approval:${approvalId}`
 }
 
 function toolCallOf(fromAgent: boolean, params: unknown): AgentToolCall | null {
