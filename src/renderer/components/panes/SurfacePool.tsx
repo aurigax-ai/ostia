@@ -4,6 +4,7 @@ import type { BrowserProfile } from '@shared/browser/browserProfile'
 import { lazy, Suspense, useEffect, useMemo, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { AgentPane } from '@/components/agent/AgentPane'
+import { ManagerAgentPane } from '@/components/agent/ManagerAgentPane'
 import { BrowserView } from '@/components/browser/BrowserView'
 import { ChatPane } from '@/components/chat/ChatPane'
 import { FileView } from '@/components/editor/FileView'
@@ -37,6 +38,7 @@ interface SurfaceRef {
   url?: string
   chatSessionId?: string
   agentSessionId?: string
+  managerSession?: true
   viewName?: string
   browserProfile: BrowserProfile
   browserDevice?: BrowserDevice
@@ -66,6 +68,7 @@ function collect(node: LayoutNode, workspaceId: string, out: SurfaceRef[]): void
         url: pane.url,
         chatSessionId: pane.chatSessionId,
         agentSessionId: pane.agentSessionId,
+        managerSession: pane.managerSession,
         viewName: pane.viewName,
         browserProfile: paneBrowserProfile(pane),
         browserDevice: pane.browserDevice,
@@ -136,7 +139,11 @@ function Surface({
   ) : s.kind === 'git' ? (
     <GitView workspaceId={s.workspaceId} paneId={s.paneId} home="pane" />
   ) : s.kind === 'manager' ? (
-    <ManagerView paneId={s.paneId} />
+    s.managerSession ? (
+      <ManagerAgentPane workspaceId={s.workspaceId} paneId={s.paneId} />
+    ) : (
+      <ManagerView paneId={s.paneId} />
+    )
   ) : s.kind === 'browser' ? (
     <BrowserView
       workspaceId={s.workspaceId}

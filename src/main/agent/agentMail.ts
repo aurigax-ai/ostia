@@ -17,7 +17,7 @@ export type TakePromptMail = (
 ) => Promise<PromptMail | null>
 
 export function createPromptMail(
-  deps: Pick<AgentCoreDeps, 'identityOf' | 'sandboxed' | 'call'>,
+  deps: Pick<AgentCoreDeps, 'identityOf' | 'sandboxed' | 'isManagerSession' | 'call'>,
 ): TakePromptMail {
   return async (scope, lifecycle) => {
     const resolved = coreContext(deps, scope, lifecycle)

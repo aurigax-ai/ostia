@@ -14,6 +14,7 @@ const SENT_BY_TESTS_ONLY = ['diagnostics:test-crash']
 
 const PUSHED = [
   'agent:event',
+  'agent:prompted',
   'agent:tool-call',
   'agent:tool-cancel',
   'app-menu:run',

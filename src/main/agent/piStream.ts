@@ -25,6 +25,10 @@ export class PiStream {
   private text: string | null = null
   private readonly resulted = new Set<string>()
 
+  get busy(): boolean {
+    return this.turn !== null
+  }
+
   seed(history: readonly AgentHistoryEntry[]): void {
     for (const entry of history) {
       if (entry.role === 'user') this.prompt(entry.text)

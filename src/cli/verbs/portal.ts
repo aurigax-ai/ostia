@@ -11,13 +11,10 @@ import {
   StreamMessageWriter,
 } from 'vscode-jsonrpc/node'
 import { launchThroughSystemd } from '../../main/platform/systemdLaunch'
+import type { StreamEvent } from '../../shared/agents/agentStream'
+import { PI_MANAGER_AGENT } from '../../shared/agents/managerSettings'
 import { MIRROR_DETACH_KEY, portalSocketPath, portalSupported } from '../../shared/agents/portal'
-
-const PORTAL_USAGE = `usage: ostia <agent> [args…]
-
-Run from a terminal outside Ostia. Opens Ostia's manager workspace running <agent>
-(a preset such as claude or codex) and shows it here. Starts Ostia in the tray if it
-isn't running. Ctrl+\\ detaches and leaves the manager running.`
+import { readLine, SessionPrinter } from './portalSession'
 
 const START_TIMEOUT_MS = 20_000
 const START_POLL_MS = 250
@@ -106,18 +103,16 @@ export async function runPortalCommand(
     io.stderr.write(`${NOT_IN_PANE_MESSAGE}\n`)
     return 1
   }
-  const [agent, ...args] = argv
-  if (!agent) {
-    io.stdout.write(`${PORTAL_USAGE}\n`)
-    return 1
-  }
+  const [agent = PI_MANAGER_AGENT, ...args] = argv
   const path = portalSocketPath(true, io.env, tmpdir())
   const connected = await connectPortal(path, io.env)
   if (typeof connected === 'string') {
     io.stderr.write(`ostia: ${connected}\n`)
     return 1
   }
-  return mirror(connected, agent, args, io)
+  return agent === PI_MANAGER_AGENT
+    ? session(connected, args, io)
+    : mirror(connected, agent, args, io)
 }
 
 function mirror(socket: Socket, agent: string, args: string[], io: PortalIo): Promise<number> {
@@ -190,6 +185,91 @@ function mirror(socket: Socket, agent: string, args: string[], io: PortalIo): Pr
         attached = true
         if (early.length > 0) void conn.sendNotification('mirror.input', { data: early.join('') })
         early.length = 0
+      })
+      .catch((err: unknown) => {
+        finish(1, `ostia: ${err instanceof Error ? err.message : String(err)}`)
+      })
+  })
+}
+
+function session(socket: Socket, args: string[], io: PortalIo): Promise<number> {
+  const conn: MessageConnection = createMessageConnection(
+    new StreamMessageReader(socket),
+    new StreamMessageWriter(socket),
+  )
+  const decoder = new StringDecoder('utf8')
+  const printer = new SessionPrinter((text) => io.stdout.write(text))
+  let attached = false
+  let buffer = ''
+  const early: string[] = []
+
+  return new Promise((resolve) => {
+    let finished = false
+    const finish = (code: number, message?: string): void => {
+      if (finished) return
+      finished = true
+      io.stdin.off('data', onInput)
+      if (io.stdin.isTTY) io.stdin.setRawMode(false)
+      io.stdin.pause()
+      if (message) io.stderr.write(`${message}\n`)
+      conn.dispose()
+      socket.destroy()
+      resolve(code)
+    }
+
+    const send = (text: string): void => {
+      printer.typed(text)
+      conn.sendRequest('portal.prompt', { text }).catch((err: unknown) => {
+        printer.failed(err instanceof Error ? err.message : String(err))
+      })
+    }
+
+    const onInput = (chunk: Buffer): void => {
+      const read = readLine(buffer, decoder.write(chunk))
+      buffer = read.buffer
+      if (read.input.detach) {
+        finish(0, 'ostia: detached; the manager session keeps running')
+        return
+      }
+      if (!attached) {
+        early.push(...read.input.submitted.filter((line) => line.trim() !== ''))
+        return
+      }
+      io.stdout.write(read.input.edit)
+      for (const line of read.input.submitted) {
+        if (line.trim() === '') io.stdout.write('\n> ')
+        else send(line.trim())
+      }
+    }
+
+    conn.onNotification('session.events', (params: { events?: unknown }) => {
+      if (Array.isArray(params?.events)) printer.events(params.events as StreamEvent[])
+    })
+    conn.onNotification('session.waiting', (params: { waiting?: unknown }) => {
+      if (params?.waiting === true) printer.waiting()
+    })
+    conn.onNotification('session.ended', () => finish(1, 'ostia: the manager session ended'))
+    socket.on('close', () => finish(1, 'ostia: the connection to Ostia closed'))
+    socket.on('error', () => finish(1, 'ostia: the connection to Ostia failed'))
+    conn.listen()
+
+    io.stdin.setRawMode(true)
+    io.stdin.resume()
+    io.stdin.on('data', onInput)
+
+    conn
+      .sendRequest('portal.open', {
+        agent: PI_MANAGER_AGENT,
+        args,
+        cwd: io.cwd,
+        cols: io.stdout.columns,
+        rows: io.stdout.rows,
+        ...(io.env.PATH ? { path: io.env.PATH } : {}),
+      })
+      .then(() => {
+        attached = true
+        printer.banner()
+        for (const line of early.splice(0)) send(line.trim())
       })
       .catch((err: unknown) => {
         finish(1, `ostia: ${err instanceof Error ? err.message : String(err)}`)

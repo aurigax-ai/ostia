@@ -25,6 +25,7 @@ function service(initialResume: unknown = null) {
     },
     agents: () => managerAgents(parseManagerSettings({ agents: { aider: ['aider', '--yes'] } })),
     createPane: async () => `p${++next}`,
+    adopt: () => true,
     spawn: (req) => {
       spawned.push(req)
       return true
@@ -146,5 +147,83 @@ describe('managerWindowId', () => {
     expect(managerWindowId('main', new Set(['detached', 'main']))).toBe('main')
     expect(managerWindowId('main', new Set(['detached']))).toBeNull()
     expect(managerWindowId(undefined, new Set(['detached']))).toBeNull()
+  })
+})
+
+describe('ManagerService pi session', () => {
+  function sessionService() {
+    const panes: { agent: string; session: boolean }[] = []
+    const adopted: string[] = []
+    const spawned: string[] = []
+    const svc = new ManagerService({
+      loadResume: () => null,
+      saveResume: () => {},
+      agents: () => managerAgents(parseManagerSettings(undefined)),
+      createPane: async (pane) => {
+        panes.push({ agent: pane.agent, session: pane.session })
+        return `p${panes.length}`
+      },
+      adopt: (paneId) => {
+        adopted.push(paneId)
+        return true
+      },
+      spawn: (spawn) => {
+        spawned.push(spawn.paneId)
+        return true
+      },
+    })
+    return { svc, panes, adopted, spawned }
+  }
+
+  it('opens an Agent pane for pi, marks it manager and spawns nothing', async () => {
+    const { svc, panes, adopted, spawned } = sessionService()
+    const { info, created } = await svc.open(req('pi'))
+    expect(created).toBe(true)
+    expect(info).toEqual({ paneId: 'p1', agent: 'pi', session: true })
+    expect(panes).toEqual([{ agent: 'pi', session: true }])
+    expect(adopted).toEqual(['p1'])
+    expect(spawned).toEqual([])
+    expect(svc.isManagerPane('p1')).toBe(true)
+  })
+
+  it('shares the one session: a second open attaches, another agent is busy', async () => {
+    const { svc, panes } = sessionService()
+    await svc.open(req('pi'))
+    expect((await svc.open(req('pi'))).created).toBe(false)
+    expect(panes).toHaveLength(1)
+    await expect(svc.open(req('claude'))).rejects.toThrow('manager-busy')
+  })
+
+  it('refuses args for pi and does not let settings replace the reserved name', async () => {
+    const { svc } = sessionService()
+    await expect(svc.open(req('pi', ['--yolo']))).rejects.toThrow('bad-request: args')
+    expect(managerAgents(parseManagerSettings({ agents: { pi: ['pi'] } })).pi).toBeUndefined()
+  })
+
+  it('ends when its pane closes and tells the listeners once', async () => {
+    const { svc } = sessionService()
+    const ended: string[] = []
+    svc.onEnd((paneId) => ended.push(paneId))
+    await svc.open(req('pi'))
+    svc.paneClosed('other')
+    expect(svc.live).not.toBeNull()
+    svc.paneClosed('p1')
+    svc.paneClosed('p1')
+    expect(ended).toEqual(['p1'])
+    expect(svc.live).toBeNull()
+    expect((await svc.open(req('pi'))).created).toBe(true)
+  })
+
+  it('fails when the pane cannot be marked', async () => {
+    const svc = new ManagerService({
+      loadResume: () => null,
+      saveResume: () => {},
+      agents: () => ({}),
+      createPane: async () => 'p1',
+      adopt: () => false,
+      spawn: () => true,
+    })
+    await expect(svc.open(req('pi'))).rejects.toThrow('spawn-failed')
+    expect(svc.live).toBeNull()
   })
 })

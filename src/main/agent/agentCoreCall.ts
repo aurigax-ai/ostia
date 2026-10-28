@@ -42,6 +42,7 @@ export interface AgentCoreDeps {
   identityOf: (paneId: string) => PaneIdentity | undefined
   sandboxed: (workspaceId: string) => boolean
   ownsChild: (ownerPaneId: string, externalPaneId: string) => boolean
+  isManagerSession: (paneId: string) => boolean
   call: (name: string, params: unknown, ctx: ControlMethodContext) => Promise<unknown>
 }
 
@@ -223,10 +224,14 @@ function outputOf(result: unknown): string {
   return typeof result === 'string' ? result : JSON.stringify(result ?? null)
 }
 
-function reachable(identity: PaneIdentity | undefined, scope: CoreScope): identity is PaneIdentity {
+function reachable(
+  identity: PaneIdentity | undefined,
+  scope: CoreScope,
+  isManagerSession: AgentCoreDeps['isManagerSession'],
+): identity is PaneIdentity {
   return (
     identity?.kind === 'pane' &&
-    identity.manager !== true &&
+    (identity.manager !== true || isManagerSession(identity.paneId)) &&
     identity.windowId === scope.windowId &&
     identity.workspaceId === scope.workspaceId
   )
@@ -235,12 +240,12 @@ function reachable(identity: PaneIdentity | undefined, scope: CoreScope): identi
 type CoreContext = { ok: true; ctx: ControlMethodContext } | { ok: false; reply: AgentToolReply }
 
 export function coreContext(
-  deps: Pick<AgentCoreDeps, 'identityOf' | 'sandboxed'>,
+  deps: Pick<AgentCoreDeps, 'identityOf' | 'sandboxed' | 'isManagerSession'>,
   scope: CoreScope,
   lifecycle: CoreLifecycle,
 ): CoreContext {
   const identity = deps.identityOf(scope.paneId)
-  if (!reachable(identity, scope)) return { ok: false, reply: REFUSED }
+  if (!reachable(identity, scope, deps.isManagerSession)) return { ok: false, reply: REFUSED }
   if (deps.sandboxed(scope.workspaceId)) return { ok: false, reply: SANDBOXED }
   initCaps(identity.externalId)
   return {

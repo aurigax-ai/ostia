@@ -9,7 +9,7 @@ import { agentCoreToolDefs } from '@/lib/agent/agentCoreTools'
 import { agentProblem } from '@/lib/agent/agentProblem'
 import { createAgentTransport } from '@/lib/agent/agentTransport'
 import type { ChatToolDef } from '@/lib/assist/chatToolGate'
-import { initialMode } from '@/lib/assist/chatToolPermissions'
+import { initialMode, type PaneRole } from '@/lib/assist/chatToolPermissions'
 import { chatToolDefs, workspaceFolder } from '@/lib/assist/chatTools'
 import type { OstiaChatMessage } from '@/lib/assist/chatTransport'
 import { useChatToolsStore } from '@/stores/assist/chatToolsStore'
@@ -147,6 +147,12 @@ export function agentChatFor(sessionId: string): Chat<OstiaChatMessage> {
   return chats.get(sessionId) ?? createChat(sessionId, [])
 }
 
+export function wirePortalPrompts(): void {
+  window.ostia.agentSessions.onPrompted(({ sessionId, text }) => {
+    void agentChatFor(sessionId).sendMessage({ text, metadata: { createdAt: Date.now() } })
+  })
+}
+
 export async function setAgentRules(sessionId: string, on: boolean): Promise<AgentReply> {
   useAgentStore.getState().setRules(sessionId, { on })
   return openSession(sessionId)
@@ -156,10 +162,11 @@ export async function ensureAgentSession(
   workspaceId: string,
   paneId: string,
   preferred?: string,
+  role: PaneRole = 'agent',
 ): Promise<string> {
   const id = preferred ?? useAgentStore.getState().current[workspaceId] ?? newSessionId()
   if (useChatToolsStore.getState().mode[id] === undefined) {
-    useChatToolsStore.getState().setMode(id, initialMode('agent'))
+    useChatToolsStore.getState().setMode(id, initialMode(role))
   }
   const moved =
     (paneOf.has(id) && paneOf.get(id) !== paneId) ||

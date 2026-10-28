@@ -28,6 +28,7 @@ function rig(
   const take = createPromptMail({
     identityOf: () => pi,
     sandboxed: () => false,
+    isManagerSession: () => false,
     call: vi.fn(async (name: string, params: unknown, ctx: ControlMethodContext) => {
       calls.push({ name, params, ctx })
       const answer = answers[name]

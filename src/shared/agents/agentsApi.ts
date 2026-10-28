@@ -7,10 +7,13 @@ import type { MailApi } from './mailApi'
 export interface ManagerOpenPaneRequest {
   agent: string
   cwd: string
+  session: boolean
 }
 
 interface ManagerApi {
-  onOpen: (cb: (req: ManagerOpenPaneRequest) => string | null) => () => void
+  onOpen: (
+    cb: (req: ManagerOpenPaneRequest) => string | null | Promise<string | null>,
+  ) => () => void
 }
 
 export type ResumeVerdict = { ok: true } | { ok: false; holder: string }

@@ -39,6 +39,7 @@ function rig(answers: Record<string, unknown> = {}, overrides: Partial<AgentCore
     identityOf: () => pi,
     sandboxed: () => false,
     ownsChild: () => false,
+    isManagerSession: () => false,
     call,
     ...overrides,
   })
@@ -84,7 +85,6 @@ describe('createAgentCoreCall', () => {
       undefined,
       { ...pi, kind: 'extension' },
       { ...pi, kind: 'script' },
-      { ...pi, manager: true },
       { ...pi, windowId: '2' },
       { ...pi, workspaceId: 'w2' },
     ]
@@ -93,6 +93,25 @@ describe('createAgentCoreCall', () => {
       expect(await ask('ostia_panes')).toMatchObject({ ok: false })
       expect(calls).toEqual([])
     }
+  })
+
+  it('lets a manager identity through only for the manager session itself', async () => {
+    const manager: PaneIdentity = { ...pi, manager: true }
+    const own = rig(
+      {},
+      { identityOf: () => manager, isManagerSession: (id) => id === manager.paneId },
+    )
+    expect(await own.ask('ostia_panes')).toMatchObject({ ok: true })
+    expect(own.calls).toHaveLength(1)
+    expect(own.calls[0].ctx.identity).toBe(manager)
+    const other = rig({}, { identityOf: () => manager, isManagerSession: () => false })
+    expect(await other.ask('ostia_panes')).toMatchObject({ ok: false })
+    expect(other.calls).toEqual([])
+    const moved = rig(
+      {},
+      { identityOf: () => ({ ...manager, workspaceId: 'w2' }), isManagerSession: () => true },
+    )
+    expect(await moved.ask('ostia_panes')).toMatchObject({ ok: false })
   })
 
   it('does not keep the identity: a pane that moved to another workspace is refused on the next call', async () => {

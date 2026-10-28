@@ -140,6 +140,8 @@ export const workspacesEn = {
     groupLimits: 'Limits',
     groupPermissions: 'Permissions',
     groupSkills: 'Skills',
+    hintContext: 'add context',
+    hintSend: 'send',
     maxWorkers: 'Live workers',
     maxWorkersDesc: 'Most workers the manager can have running at once.',
     noSkills: 'No extra skills.',
@@ -150,8 +152,10 @@ export const workspacesEn = {
     removeSkill: 'Remove {path}',
     requirementsBody:
       '{packages} is needed to check that ostia <agent> comes from outside {product}. Until it is installed, every ostia <agent> is refused.',
+    sessionEmpty: 'Send a prompt below to start the manager session in {folder}',
+    sessionLabel: 'Manager session',
     settingsDesc:
-      'Run ostia <agent> in a terminal outside {product} to start one manager agent that sees and drives every workspace. Only you can change these settings.',
+      'Run the ostia command in a terminal outside {product} to open the manager, a pi session that sees and drives every workspace. ostia <agent> starts one of the programs below as manager instead. Only you can change these settings.',
     settingsTitle: 'Manager',
     skillPath: 'Absolute path of a skill folder',
     skillsDesc:

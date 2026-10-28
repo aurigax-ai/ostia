@@ -80,7 +80,10 @@ export interface LayoutState {
   setAgentSession: (workspaceId: string, paneId: string, sessionId: string, title: string) => void
   setChatSession: (workspaceId: string, paneId: string, sessionId: string, title: string) => void
   openTerminal: (workspaceId: string, opts: OpenTerminalPlacement) => string | null
-  openManager: (workspaceId: string, opts: { cwd: string; title: string }) => string | null
+  openManager: (
+    workspaceId: string,
+    opts: { cwd: string; title: string; session?: boolean },
+  ) => string | null
   removeWorkspace: (workspaceId: string) => void
   release: (workspaceId: string) => void
   releasePane: (workspaceId: string, paneId: string) => void

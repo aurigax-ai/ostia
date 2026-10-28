@@ -1,6 +1,8 @@
 import { isRecord } from '@aurigax-ai/ostia-extension-sdk/contract/isRecord'
 export const MANAGER_FEATURE = 'manager'
 
+export const PI_MANAGER_AGENT = 'pi'
+
 export const MANAGER_AGENT_NAME = /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/
 export const MANAGER_MAX_ARGS = 64
 export const MANAGER_MAX_ARG_LENGTH = 4096
@@ -76,7 +78,9 @@ export function parseManagerSettings(raw: unknown): ManagerSettings {
   const agents: Record<string, string[]> = {}
   if (isRecord(raw.agents)) {
     for (const [name, argv] of Object.entries(raw.agents)) {
-      if (MANAGER_AGENT_NAME.test(name) && isManagerArgv(argv)) agents[name] = [...argv]
+      if (name !== PI_MANAGER_AGENT && MANAGER_AGENT_NAME.test(name) && isManagerArgv(argv)) {
+        agents[name] = [...argv]
+      }
     }
   }
   const skills = Array.isArray(raw.skills)
