@@ -14,7 +14,13 @@ export interface SettingsFile {
   agent?: unknown
   playbooks?: unknown
   privacy?: unknown
-  terminal?: { shell?: unknown; keepShells?: unknown; scrollbackHistory?: unknown }
+  terminal?: {
+    shell?: unknown
+    keepShells?: unknown
+    scrollbackHistory?: unknown
+    askBeforeOpeningApps?: unknown
+    allowedAppSchemes?: unknown
+  }
   agents?: { hooks?: unknown; trustWorkspaceFolders?: unknown }
   behavior?: { historySuggestions?: unknown }
 }

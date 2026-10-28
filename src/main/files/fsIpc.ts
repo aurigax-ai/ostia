@@ -6,6 +6,7 @@ import type { FsEntry, FsKind } from '../../shared/files/filesApi'
 import { OPEN_FILES_MAX } from '../../shared/files/openFiles'
 import { getByPaneId } from '../control/idRegistry'
 import type { ExtensionHost } from '../extensions/extensionHost'
+import { registerAppLinkIpc, systemAppLinkDeps } from '../links/appLinks'
 import type { WorkspaceSandboxes } from '../sandbox/workspaceSandboxes'
 import type { PaneOutput } from '../terminal/terminalPathLinks'
 import { registerTerminalPathLinkIpc, TerminalPathLinks } from '../terminal/terminalPathLinks'
@@ -51,7 +52,8 @@ export function registerFsIpc({
 }: FsIpcDeps): void {
   const allowedRoots = fileRoots()
   const settingsFile = join(app.getPath('userData'), 'settings.json')
-  registerOpenPathIpc(allowedRoots, () => windows.values())
+  registerOpenPathIpc(allowedRoots)
+  registerAppLinkIpc(systemAppLinkDeps(() => windows.values()))
   registerTerminalPathLinkIpc(
     new TerminalPathLinks({
       grants: openFileGrants,

@@ -67,7 +67,12 @@ export const settingsZhHant: typeof settingsEn = {
     accentPreset: '強調色 {color}',
     accentReset: '使用主題顏色',
     agents: '代理程式',
+    allowedAppLinks: '連結可不經詢問開啟的應用程式',
+    allowedAppLinksEmpty: '尚未允許任何應用程式。詢問視窗會提供「不再詢問」此協定。',
     appearance: '外觀',
+    askAppLinks: '從連結開啟應用程式前先詢問',
+    askAppLinksDesc:
+      '終端機中的連結要開啟其他應用程式前先詢問，例如 obsidian:// 或 vscode://，或在 Chrome 中開啟 chrome:// 頁面。代理程式無法變更此設定。',
     autoResume: '重新啟動後自動恢復代理程式',
     autoResumeDesc:
       '結束 {product} 時仍在執行的代理程式工作階段，會在其窗格顯示後、於第一個閒置提示字元自動恢復。背景分頁與其他工作區會在你開啟時才恢復。只有你能變更此設定。',
@@ -158,6 +163,7 @@ export const settingsZhHant: typeof settingsEn = {
     groupEvents: '事件',
     groupInput: '輸入',
     groupKeyboard: '鍵盤',
+    groupLinks: '連結',
     groupPaneFocus: '焦點',
     groupPaneLayout: '版面',
     groupPaneTabs: '分頁',
@@ -396,6 +402,7 @@ export const settingsZhHant: typeof settingsEn = {
     remoteUnpair: '取消配對',
     remoteUnpairBody: '{name} 會立即中斷連線，必須重新配對才能連到這台電腦。',
     remoteUnpairTitle: '取消配對 {name}？',
+    removeAppLink: '移除 {scheme}',
     rendererGhostty: 'Ghostty',
     rendererXterm: 'xterm.js',
     resetFor: '將{label}重設為 {value}',
