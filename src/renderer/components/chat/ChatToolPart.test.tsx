@@ -31,7 +31,10 @@ afterEach(() => {
 
 function ask(request: PendingApproval): Promise<ApprovalAnswer> {
   const access =
-    request.kind === 'write' || request.kind === 'command' || request.kind === 'mcp'
+    request.kind === 'write' ||
+    request.kind === 'command' ||
+    request.kind === 'mcp' ||
+    request.kind === 'ostia'
       ? request.kind
       : 'act'
   return requestApproval(
@@ -42,6 +45,7 @@ function ask(request: PendingApproval): Promise<ApprovalAnswer> {
       mode: 'ask',
       grants: new Set(),
       standing: new Set(),
+      alwaysAsk: new Set(),
     }),
     new AbortController().signal,
   )
@@ -65,6 +69,26 @@ describe('ChatToolPart', () => {
     input: { text: 'hi' },
     detail: { server: 'fake', tool: 'echo' },
   }
+
+  it('asks in words about an acting ostia tool and offers only Allow once, never a chat or always grant', async () => {
+    const answer = ask({
+      toolCallId: 't1',
+      sessionId: 's1',
+      toolName: 'ostia_agent_run',
+      kind: 'ostia',
+      grantable: false,
+      input: { agent: 'claude', prompt: 'fix the build' },
+      detail: { tool: 'ostia_agent_run' },
+    })
+    render(<ChatToolPart part={part('ostia_agent_run')} workspaceId={null} busy />)
+    expect(screen.getByText('Allow the Agent to start an agent?')).toBeInTheDocument()
+    expect(screen.getByText(/fix the build/)).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Allow for this chat' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Always allow this tool' })).toBeNull()
+    await userEvent.click(screen.getByRole('button', { name: 'Allow once' }))
+    expect(await answer).toEqual({ approved: true, scope: 'once' })
+    expect(useChatToolsStore.getState().grants.s1).toEqual([])
+  })
 
   it('offers Allow once as the main action of a split button on an MCP call', async () => {
     const answer = ask(mcpRequest)

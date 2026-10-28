@@ -10,6 +10,7 @@ import {
 } from '@aurigax-ai/ostia-extension-sdk/contract/agent'
 import { isRecord } from '@aurigax-ai/ostia-extension-sdk/contract/isRecord'
 import type { AgentHostSettings } from '../../shared/agent/agentSettings'
+import { type CoreCallRequest, type CoreLifecycle, coreLifecycle } from './agentCoreCall'
 import { type AgentOpenInput, completeOf, promptOf, sessionIdOf } from './agentRequests'
 import { PiStream } from './piStream'
 
@@ -25,6 +26,7 @@ export interface AgentSessionsDeps {
   settings: () => AgentHostSettings
   sandboxed: (workspaceId: string) => boolean
   redact: (text: string) => Promise<string | null>
+  coreCall: (request: CoreCallRequest) => Promise<AgentToolReply>
   rulesContext: (
     workspaceId: string,
     cwd: string,
@@ -35,14 +37,21 @@ export interface AgentSessionsDeps {
 interface Owned {
   renderer: AgentRenderer
   workspaceId: string
+  paneId: string
 }
 
 interface PendingTool {
   rendererId: number
+  sessionId: string
+  name: string
+  input: Record<string, unknown>
+  core: CoreLifecycle | null
   settle: (reply: AgentToolReply) => void
 }
 
 const UNAVAILABLE: AgentReply = { ok: false, error: 'unavailable' }
+const INVALID_CALL: AgentToolReply = { ok: false, error: 'invalid' }
+const CANCELLED: AgentToolReply = { ok: false, error: 'Cancelled.' }
 const DENIED_GONE: AgentToolReply = { ok: false, error: 'The window that owns this chat closed.' }
 const SANDBOXED: AgentToolReply = {
   ok: false,
@@ -84,7 +93,11 @@ export class AgentSessions {
       ...(context ? { context } : {}),
     })
     if (!reply.ok) return reply
-    this.owned.set(input.sessionId, { renderer, workspaceId: input.workspaceId })
+    this.owned.set(input.sessionId, {
+      renderer,
+      workspaceId: input.workspaceId,
+      paneId: input.paneId,
+    })
     if (!this.streams.has(input.sessionId)) {
       const stream = new PiStream()
       stream.seed(reply.history ?? [])
@@ -136,9 +149,9 @@ export class AgentSessions {
   async close(renderer: AgentRenderer, sessionId: unknown): Promise<AgentReply> {
     const id = this.ownedId(renderer, sessionId)
     if (!id) return { ok: false, error: 'invalid' }
+    this.cancelTools(id)
     this.owned.delete(id)
     this.streams.delete(id)
-    this.cancelTools(id)
     return this.deps.request({ op: 'close', sessionId: id })
   }
 
@@ -171,6 +184,10 @@ export class AgentSessions {
       })
       this.pending.set(callId, {
         rendererId: owner.renderer.id,
+        sessionId: call.sessionId,
+        name: call.name,
+        input: call.input,
+        core: null,
         settle: (answer) => {
           subscription?.dispose()
           resolve(answer)
@@ -195,6 +212,32 @@ export class AgentSessions {
     this.settle(callId, toolReplyOf(reply))
   }
 
+  async coreCall(
+    renderer: AgentRenderer,
+    sessionId: unknown,
+    callId: unknown,
+  ): Promise<AgentToolReply> {
+    const id = this.ownedId(renderer, sessionId)
+    const owner = id ? this.owned.get(id) : undefined
+    if (typeof callId !== 'string' || !id || !owner) return INVALID_CALL
+    const pending = this.pending.get(callId)
+    if (!pending || pending.sessionId !== id) return INVALID_CALL
+    if (pending.rendererId !== renderer.id || pending.core) return INVALID_CALL
+    const lifecycle = coreLifecycle()
+    pending.core = lifecycle
+    const reply = await this.deps.coreCall({
+      scope: {
+        paneId: owner.paneId,
+        windowId: String(renderer.id),
+        workspaceId: owner.workspaceId,
+      },
+      name: pending.name,
+      input: pending.input,
+      lifecycle,
+    })
+    return this.pending.get(callId) === pending ? reply : CANCELLED
+  }
+
   private async checked(reply: AgentToolReply): Promise<AgentToolReply> {
     const text = reply.ok ? reply.output : reply.error
     const clean = await this.deps.redact(text.slice(0, AGENT_TOOL_OUTPUT_MAX)).catch(() => null)
@@ -207,6 +250,7 @@ export class AgentSessions {
     const pending = this.pending.get(callId)
     if (!pending) return
     this.pending.delete(callId)
+    pending.core?.end()
     pending.settle(reply)
   }
 
@@ -214,7 +258,7 @@ export class AgentSessions {
     const owner = this.owned.get(sessionId)
     if (!owner) return
     for (const [callId, pending] of this.pending) {
-      if (pending.rendererId !== owner.renderer.id) continue
+      if (pending.sessionId !== sessionId) continue
       owner.renderer.send('agent:tool-cancel', { callId })
       this.settle(callId, { ok: false, error: 'Cancelled.' })
     }

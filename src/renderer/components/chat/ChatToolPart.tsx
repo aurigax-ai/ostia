@@ -53,6 +53,10 @@ function approvalTitle(
       return fmt(t.askCommand, { folder: workspaceFolder(workspaceId) })
     case 'mcp':
       return fmt(t.askMcp, { tool: detail.tool ?? '', server: detail.server ?? '' })
+    case 'ostia':
+      return fmt(t.askOstia, {
+        action: t.ostiaActions[detail.tool as keyof typeof t.ostiaActions] ?? detail.tool ?? '',
+      })
     default:
       return detail.url
         ? fmt(t.askOpenUrl, { url: detail.url })
@@ -80,7 +84,7 @@ function ToolApprovalCard({
           {detail.command}
         </pre>
       ) : null}
-      {pending.kind === 'mcp' ? (
+      {pending.kind === 'mcp' || pending.kind === 'ostia' ? (
         <Section label={t.input} code={JSON.stringify(pending.input, null, 2)} />
       ) : null}
       <ConfirmationActions>

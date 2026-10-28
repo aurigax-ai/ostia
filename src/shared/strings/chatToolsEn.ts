@@ -140,6 +140,7 @@ export const chatToolsEn = {
     askMcp: 'Call {tool} on the {server} MCP server?',
     askOpenFile: 'Open {path} in the editor?',
     askOpenUrl: 'Open {url} in the browser pane?',
+    askOstia: 'Allow the Agent to {action}?',
     askReadOutside: 'Read outside the workspace folder: {path}?',
     authStates: {
       expired: 'Sign-in expired',
@@ -276,6 +277,10 @@ export const chatToolsEn = {
     noServersDesc: 'Add a server to give the chat more tools.',
     noSkills: 'No skill folders. Add one in Settings → Assistant.',
     noSkillsInFolder: 'No skills found',
+    ostiaActions: {
+      ostia_agent_run: 'start an agent',
+      ostia_bus_send: 'send a message to another agent',
+    },
     output: 'Result',
     prompted:
       'This model has no native tool calling, so the tools are described in its prompt. Small models may call them wrongly or not at all.',

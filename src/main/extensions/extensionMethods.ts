@@ -12,7 +12,11 @@ import {
 } from '@aurigax-ai/ostia-extension-sdk/contract/phoneScreens'
 import type { MessageConnection } from 'vscode-jsonrpc/node'
 import type { CommandDescriptor, CommandResult } from '../../shared/control/commands'
-import { type ExtensionCommandRun, registerControlMethod } from '../control/controlServer'
+import {
+  type ExtensionCommandRun,
+  type ExtensionMethodContext,
+  registerControlMethod,
+} from '../control/controlServer'
 import type { PaneIdentity } from '../control/idRegistry'
 import type { ExtensionHost } from './extensionHost'
 import { fail } from './extensionRuntime'
@@ -27,7 +31,7 @@ function extensionHandler(host: () => ExtensionHost | null) {
     ) => unknown,
   ) => ({
     callers: 'extensions' as const,
-    handler: (params: unknown, ctx: { identity: PaneIdentity; conn: MessageConnection }) => {
+    handler: (params: unknown, ctx: ExtensionMethodContext) => {
       const h = host()
       if (!h) return fail('no-extension-host')
       return fn(h, ctx.identity, ctx.conn, params)
@@ -198,7 +202,7 @@ function registerRunMethods(host: () => ExtensionHost | null, forExtension: ForE
   registerControlMethod('ext.exec', {
     callers: 'extensions',
     cap: 'process',
-    handler: (params: unknown, ctx) => {
+    handler: (params: unknown, ctx: ExtensionMethodContext) => {
       const h = host()
       if (!h) return fail('no-extension-host')
       return h.runs.exec(ctx.identity, ctx.conn, params, ctx.token)

@@ -3,6 +3,9 @@ export const agentEn = {
     addToPane: 'Add to Agent pane',
     emptyBody:
       'Runs on {model}. Only what you add here is sent. Every file edit and command waits for your OK.',
+    modeAllow: 'Allow',
+    modeAllowDesc:
+      'Acts without asking, except the actions on the always-ask list in Settings › Agents.',
     newSession: 'New session',
     noProvider: 'Add a model server under agent.providers in settings.json to use the Agent.',
     paneTitle: 'Agent',

@@ -1,4 +1,5 @@
 import type { Capability } from '@aurigax-ai/ostia-extension-sdk/contract/capabilities'
+import type { AgentActTool } from '@shared/agent/agentCoreTools'
 import type { ApprovalMode } from '@shared/permissions/approvals'
 import { parseReachMode, REACH_MODES, type ReachMode } from '@shared/permissions/reach'
 import { Notice } from '@/components/common/Notice'
@@ -38,6 +39,37 @@ function AlwaysAllowedGroup(): JSX.Element {
           </ControlRow>
         ))
       )}
+    </SettingsGroup>
+  )
+}
+
+function AskFirstGroup(): JSX.Element {
+  const d = useDict()
+  const alwaysAsk = useSettingsStore((s) => s.agent.alwaysAsk)
+  const set = useSettingsStore((s) => s.setAgentAlwaysAsk)
+  const rows: { tool: AgentActTool; label: string; desc: string }[] = [
+    {
+      tool: 'ostia_agent_run',
+      label: d.settings.askFirstAgentRun,
+      desc: d.settings.askFirstAgentRunDesc,
+    },
+    {
+      tool: 'ostia_bus_send',
+      label: d.settings.askFirstBusSend,
+      desc: d.settings.askFirstBusSendDesc,
+    },
+  ]
+  return (
+    <SettingsGroup title={d.settings.groupAskFirst} desc={d.settings.askFirstDesc}>
+      {rows.map(({ tool, label, desc }) => (
+        <ToggleRow
+          key={tool}
+          label={label}
+          desc={desc}
+          checked={alwaysAsk.includes(tool)}
+          onChange={(ask) => set(tool, ask)}
+        />
+      ))}
     </SettingsGroup>
   )
 }
@@ -98,6 +130,7 @@ export function AgentsSection(): JSX.Element {
       </SettingsGroup>
       <ReachGroup />
       <AlwaysAllowedGroup />
+      <AskFirstGroup />
       <SettingsGroup title={d.settings.groupResume}>
         <ToggleRow
           label={d.settings.autoResume}

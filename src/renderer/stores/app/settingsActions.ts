@@ -1,4 +1,5 @@
 import { parseAssistModelSettings } from '@aurigax-ai/ostia-extension-sdk/contract/assistReports'
+import { AGENT_ACT_TOOLS } from '@shared/agent/agentCoreTools'
 import { parseManagerSettings } from '@shared/agents/managerSettings'
 import { clampZoom } from '@shared/app/zoom'
 import { parseChatToolSettings } from '@shared/assist/chatTools'
@@ -285,6 +286,7 @@ export function createTrustActions(
   | 'setAutoResume'
   | 'setTrustWorkspaceFolders'
   | 'setAgentHooks'
+  | 'setAgentAlwaysAsk'
   | 'setHibernation'
   | 'trustAction'
   | 'removeAction'
@@ -365,6 +367,18 @@ export function createTrustActions(
 
     setAgentHooks: (patch) => {
       set((s) => ({ agents: { ...s.agents, hooks: { ...s.agents.hooks, ...patch } } }))
+      scheduleSave(get)
+    },
+
+    setAgentAlwaysAsk: (tool, ask) => {
+      set((s) => ({
+        agent: {
+          ...s.agent,
+          alwaysAsk: AGENT_ACT_TOOLS.filter((name) =>
+            name === tool ? ask : s.agent.alwaysAsk.includes(name),
+          ),
+        },
+      }))
       scheduleSave(get)
     },
 

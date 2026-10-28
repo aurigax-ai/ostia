@@ -108,7 +108,10 @@ export function AgentComposer({
         />
         <PromptInputTools className="flex-1 overflow-hidden" />
         <div className="chat-composer-controls flex min-w-0 shrink items-center gap-1">
-          <ChatModeSelect sessionId={sessionId} />
+          <ChatModeSelect
+            sessionId={sessionId}
+            write={{ name: d.agentPane.modeAllow, desc: d.agentPane.modeAllowDesc }}
+          />
           <AgentModelSelect sessionId={sessionId} />
           <PromptInputSubmit
             className="shrink-0"

@@ -1,6 +1,8 @@
-import type { AgentEvent } from '@aurigax-ai/ostia-extension-sdk/contract/agent'
+import type { AgentEvent, AgentToolReply } from '@aurigax-ai/ostia-extension-sdk/contract/agent'
 import { afterEach, describe, expect, it } from 'vitest'
 import { type AgentRig, startAgentRig } from '../../../test/agentHarness'
+import type { CoreCallRequest } from './agentCoreCall'
+import { openInputOf } from './agentRequests'
 import { type AgentRenderer, AgentSessions } from './agentSessions'
 
 interface FakeRenderer extends AgentRenderer {
@@ -44,6 +46,9 @@ async function bridge(
     rules: { text: '', count: 0 } as { text: string; count: number },
     asked: [] as string[][],
     throws: false,
+    core: [] as CoreCallRequest[],
+    coreHook: undefined as ((request: CoreCallRequest) => void) | undefined,
+    coreReply: { ok: true, output: 'core output' } as AgentToolReply,
   }
   const rig = await startAgentRig(answer)
   rigs.push(rig)
@@ -51,9 +56,22 @@ async function bridge(
     request: (request) => rig.handle(request),
     settings: () => ({
       providers: [{ id: 'fake', name: 'Fake', baseUrl: rig.provider.url, models: ['fake-model'] }],
+      alwaysAsk: [],
     }),
     sandboxed: () => state.sandboxed,
     redact,
+    coreCall: async (request) => {
+      state.core.push(request)
+      state.coreHook?.(request)
+      if (state.coreHook) {
+        return new Promise<AgentToolReply>((resolve) =>
+          request.lifecycle.token?.onCancellationRequested(() =>
+            resolve({ ok: true, output: 'late' }),
+          ),
+        )
+      }
+      return state.coreReply
+    },
     rulesContext: async (...asked) => {
       state.asked.push(asked)
       if (state.throws) throw new Error('hook failed')
@@ -71,6 +89,7 @@ async function bridge(
   const input = {
     sessionId: 's1',
     workspaceId: 'w1',
+    paneId: 'p1',
     cwd: rig.cwd,
     rules: true,
     tools: [
@@ -238,9 +257,10 @@ describe('AgentSessions', () => {
     expect(rig.provider.requests).toEqual([])
     const none = new AgentSessions({
       request: (request) => rig.handle(request),
-      settings: () => ({ providers: [] }),
+      settings: () => ({ providers: [], alwaysAsk: [] }),
       sandboxed: () => false,
       redact: async (t) => t,
+      coreCall: async () => ({ ok: true, output: '' }),
       rulesContext: async () => ({ text: '', count: 0 }),
     })
     expect(await none.complete({ system: 's', input: 'i' })).toEqual({
@@ -436,6 +456,148 @@ describe('AgentSessions', () => {
       await sessions.open(win, input)
       win.destroy()
       expect(sessions.stream('s1')).toBeUndefined()
+    })
+  })
+
+  describe('core calls from the owning window', () => {
+    interface Pending {
+      callId: string
+    }
+
+    async function pendingCall(ctx: Ctx, sessionId = 's1', name = 'ostia_panes', input = {}) {
+      const reply = ctx.sessions.tool(
+        true,
+        { sessionId, toolCallId: `tc-${sessionId}`, name, input },
+        () => undefined,
+      )
+      await expect
+        .poll(() => ctx.win.sent.filter((s) => s.channel === 'agent:tool-call').length)
+        .toBeGreaterThan(0)
+      const sent = ctx.win.sent.filter((s) => s.channel === 'agent:tool-call')
+      const { callId } = sent[sent.length - 1].payload as Pending
+      return { callId, reply }
+    }
+
+    it('runs the tool the model asked for with the model’s own input, as the pane the session was opened for', async () => {
+      const ctx = await bridge(() => 'ok')
+      await ctx.sessions.open(ctx.win, ctx.input)
+      const { callId } = await pendingCall(ctx, 's1', 'ostia_agent_run', { agent: 'claude' })
+      expect(await ctx.sessions.coreCall(ctx.win, 's1', callId)).toEqual({
+        ok: true,
+        output: 'core output',
+      })
+      expect(ctx.state.core).toHaveLength(1)
+      expect(ctx.state.core[0]).toMatchObject({
+        name: 'ostia_agent_run',
+        input: { agent: 'claude' },
+        scope: { paneId: 'p1', windowId: '1', workspaceId: 'w1' },
+      })
+    })
+
+    it('runs one core call for each tool call', async () => {
+      const ctx = await bridge(() => 'ok')
+      await ctx.sessions.open(ctx.win, ctx.input)
+      const { callId } = await pendingCall(ctx)
+      await ctx.sessions.coreCall(ctx.win, 's1', callId)
+      expect(await ctx.sessions.coreCall(ctx.win, 's1', callId)).toEqual({
+        ok: false,
+        error: 'invalid',
+      })
+      expect(ctx.state.core).toHaveLength(1)
+    })
+
+    it('refuses a call that is unknown, from another window, or for another session', async () => {
+      const ctx = await bridge(() => 'ok')
+      await ctx.sessions.open(ctx.win, ctx.input)
+      await ctx.sessions.open(ctx.win, { ...ctx.input, sessionId: 's2' })
+      const { callId } = await pendingCall(ctx, 's1')
+      const invalid = { ok: false, error: 'invalid' }
+      expect(await ctx.sessions.coreCall(ctx.win, 's1', 't999')).toEqual(invalid)
+      expect(await ctx.sessions.coreCall(ctx.win, 's2', callId)).toEqual(invalid)
+      expect(await ctx.sessions.coreCall(renderer(2), 's1', callId)).toEqual(invalid)
+      expect(await ctx.sessions.coreCall(ctx.win, 's1', 5)).toEqual(invalid)
+      expect(ctx.state.core).toEqual([])
+    })
+
+    it('never runs a call that already settled, was aborted or lost its session', async () => {
+      const ctx = await bridge(() => 'ok')
+      await ctx.sessions.open(ctx.win, ctx.input)
+      const answered = await pendingCall(ctx)
+      ctx.sessions.answerTool(ctx.win, answered.callId, { ok: true, output: 'x' })
+      await answered.reply
+      const aborted = await pendingCall(ctx)
+      await ctx.sessions.abort(ctx.win, 's1')
+      const closed = await pendingCall(ctx)
+      await ctx.sessions.close(ctx.win, 's1')
+      for (const { callId } of [answered, aborted, closed]) {
+        expect(await ctx.sessions.coreCall(ctx.win, 's1', callId)).toEqual({
+          ok: false,
+          error: 'invalid',
+        })
+      }
+      expect(ctx.state.core).toEqual([])
+    })
+
+    it('ends the call’s connection and token when the call settles', async () => {
+      const ctx = await bridge(() => 'ok')
+      await ctx.sessions.open(ctx.win, ctx.input)
+      const { callId } = await pendingCall(ctx)
+      await ctx.sessions.coreCall(ctx.win, 's1', callId)
+      const { lifecycle } = ctx.state.core[0]
+      let closed = 0
+      lifecycle.conn.onClose(() => {
+        closed += 1
+      })
+      expect(lifecycle.token?.isCancellationRequested).toBe(false)
+      ctx.sessions.answerTool(ctx.win, callId, { ok: true, output: 'x' })
+      expect(lifecycle.token?.isCancellationRequested).toBe(true)
+      expect(closed).toBe(1)
+    })
+
+    it('fires the connection’s close when an abort cancels a running core call', async () => {
+      const ctx = await bridge(() => 'ok')
+      await ctx.sessions.open(ctx.win, ctx.input)
+      const { callId } = await pendingCall(ctx)
+      let closed = 0
+      ctx.state.coreHook = (request) => {
+        request.lifecycle.conn.onClose(() => {
+          closed += 1
+        })
+      }
+      const running = ctx.sessions.coreCall(ctx.win, 's1', callId)
+      await ctx.sessions.abort(ctx.win, 's1')
+      expect(await running).toEqual({ ok: false, error: 'Cancelled.' })
+      expect(closed).toBe(1)
+    })
+
+    it('cancels only the aborted session’s calls, not another session of the same window', async () => {
+      const ctx = await bridge(() => 'ok')
+      await ctx.sessions.open(ctx.win, ctx.input)
+      await ctx.sessions.open(ctx.win, { ...ctx.input, sessionId: 's2', paneId: 'p2' })
+      const first = await pendingCall(ctx, 's1')
+      const second = await pendingCall(ctx, 's2')
+      await ctx.sessions.abort(ctx.win, 's1')
+      expect(await first.reply).toMatchObject({ ok: false, error: 'Cancelled.' })
+      expect(await ctx.sessions.coreCall(ctx.win, 's2', second.callId)).toMatchObject({ ok: true })
+      ctx.sessions.answerTool(ctx.win, second.callId, { ok: true, output: 'x' })
+      expect(await second.reply).toEqual({ ok: true, output: 'x' })
+    })
+
+    it('cancels a session’s pending calls when it closes, before it forgets who owns it', async () => {
+      const ctx = await bridge(() => 'ok')
+      await ctx.sessions.open(ctx.win, ctx.input)
+      const { reply } = await pendingCall(ctx)
+      await ctx.sessions.close(ctx.win, 's1')
+      expect(await reply).toMatchObject({ ok: false, error: 'Cancelled.' })
+      expect(ctx.win.sent.some((s) => s.channel === 'agent:tool-cancel')).toBe(true)
+    })
+
+    it('opens only with the pane the window names', async () => {
+      const ctx = await bridge(() => 'ok')
+      const { paneId: _paneId, ...withoutPane } = ctx.input
+      expect(openInputOf('s1', withoutPane)).toBeNull()
+      expect(openInputOf('s1', { ...withoutPane, paneId: '' })).toBeNull()
+      expect(openInputOf('s1', { ...withoutPane, paneId: 'p1' })).toMatchObject({ paneId: 'p1' })
     })
   })
 })

@@ -2,7 +2,7 @@ import { type SpawnOptions, spawn } from 'node:child_process'
 import { createRequire } from 'node:module'
 import { dirname, join } from 'node:path'
 import { isAppEnvName } from '@aurigax-ai/ostia-extension-sdk/contract/appEnv'
-import { registerControlMethod } from '../control/controlServer'
+import { type ExtensionMethodContext, registerControlMethod } from '../control/controlServer'
 import { withoutGpuLaunchEnv } from '../platform/discreteGpu'
 import { inheritableFds, withoutInheritedFiles } from '../platform/inheritableFiles'
 import type { ExtensionHost } from './extensionHost'
@@ -202,6 +202,7 @@ export function registerWireRuntime(deps: {
 }): void {
   registerControlMethod('ext.wireRuntime', {
     callers: 'extensions',
-    handler: (_params, ctx) => answerWireRuntime(deps.host(), deps.runtime, ctx),
+    handler: (_params, ctx: ExtensionMethodContext) =>
+      answerWireRuntime(deps.host(), deps.runtime, ctx),
   })
 }

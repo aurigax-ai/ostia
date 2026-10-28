@@ -203,7 +203,7 @@ export function boot(wiring: Wiring): void {
   startShares({ ...wiring, server })
   startProfileSyncWiring({ ...wiring, marketplace, server })
   startChat({ ...wiring })
-  startAgent({ ...wiring })
+  startAgent({ ...wiring, registry })
   const { viewHost, ownSnippets } = registerContentIpc({ ...wiring })
   startGateway({ ...wiring, turnConfirms, startAgentForPhone, ownSnippets, server })
   registerBrowserWiring({ ...wiring })

@@ -2252,7 +2252,7 @@ describe('agent.newSession', () => {
 
     status.mockReturnValue('ready')
     await commands.execWith(ctx('s1', 'ag'), 'agent.newSession')
-    expect(start).toHaveBeenCalledWith('s1')
+    expect(start).toHaveBeenCalledWith('s1', 'ag')
 
     start.mockClear()
     status.mockReturnValue('streaming')

@@ -47,6 +47,7 @@ function wait(toolCallId: string, path: string) {
       mode: 'ask',
       grants: new Set(),
       standing: new Set(),
+      alwaysAsk: new Set(),
     }),
     new AbortController().signal,
   )

@@ -5,10 +5,14 @@ import type {
   AgentReply,
 } from '@aurigax-ai/ostia-extension-sdk/contract/agent'
 import { create } from 'zustand'
+import { agentCoreToolDefs } from '@/lib/agent/agentCoreTools'
 import { agentProblem } from '@/lib/agent/agentProblem'
 import { createAgentTransport } from '@/lib/agent/agentTransport'
+import type { ChatToolDef } from '@/lib/assist/chatToolGate'
+import { initialMode } from '@/lib/assist/chatToolPermissions'
 import { chatToolDefs, workspaceFolder } from '@/lib/assist/chatTools'
 import type { OstiaChatMessage } from '@/lib/assist/chatTransport'
+import { useChatToolsStore } from '@/stores/assist/chatToolsStore'
 
 interface AgentRules {
   on: boolean
@@ -41,6 +45,7 @@ export const useAgentStore = create<AgentStoreState>((set) => ({
 }))
 
 interface Opened {
+  paneId: string
   specsKey: string
   model: string
   rules: boolean
@@ -49,6 +54,11 @@ interface Opened {
 const chats = new Map<string, Chat<OstiaChatMessage>>()
 const opened = new Map<string, Opened>()
 const workspaceOf = new Map<string, string>()
+const paneOf = new Map<string, string>()
+
+function agentToolDefs(sessionId: string): ChatToolDef[] {
+  return [...chatToolDefs(sessionId), ...agentCoreToolDefs()]
+}
 
 export function agentAttachmentKey(workspaceId: string | null | undefined): string {
   return `agent:${workspaceId ?? ''}`
@@ -64,14 +74,16 @@ function modelKey(model: AgentModelRef | undefined): string {
 
 async function openSession(sessionId: string): Promise<AgentReply> {
   const workspaceId = workspaceOf.get(sessionId)
-  if (!workspaceId) return { ok: false, error: 'unknown-workspace' }
-  const specs = chatToolDefs(sessionId).map((def) => def.spec)
+  const paneId = paneOf.get(sessionId)
+  if (!workspaceId || !paneId) return { ok: false, error: 'unknown-workspace' }
+  const specs = agentToolDefs(sessionId).map((def) => def.spec)
   const model = useAgentStore.getState().models[sessionId]
   const rules = useAgentStore.getState().rules[sessionId]?.on ?? true
-  const next: Opened = { specsKey: JSON.stringify(specs), model: modelKey(model), rules }
+  const next: Opened = { paneId, specsKey: JSON.stringify(specs), model: modelKey(model), rules }
   const known = opened.get(sessionId)
   if (
     known &&
+    known.paneId === next.paneId &&
     known.specsKey === next.specsKey &&
     known.model === next.model &&
     known.rules === next.rules
@@ -80,6 +92,7 @@ async function openSession(sessionId: string): Promise<AgentReply> {
   }
   const reply = await window.ostia.agentSessions.open(sessionId, {
     workspaceId,
+    paneId,
     cwd: workspaceFolder(workspaceId),
     tools: specs,
     rules,
@@ -114,7 +127,7 @@ function createChat(sessionId: string, messages: OstiaChatMessage[]): Chat<Ostia
       sessionId,
       workspaceId: () => workspaceOf.get(sessionId) ?? null,
       root: () => workspaceFolder(workspaceOf.get(sessionId) ?? null),
-      tools: () => chatToolDefs(sessionId),
+      tools: () => agentToolDefs(sessionId),
       prepare: () => prepare(sessionId),
     }),
   })
@@ -131,18 +144,28 @@ export async function setAgentRules(sessionId: string, on: boolean): Promise<Age
   return openSession(sessionId)
 }
 
-export async function ensureAgentSession(workspaceId: string, preferred?: string): Promise<string> {
+export async function ensureAgentSession(
+  workspaceId: string,
+  paneId: string,
+  preferred?: string,
+): Promise<string> {
   const id = preferred ?? useAgentStore.getState().current[workspaceId] ?? newSessionId()
+  if (useChatToolsStore.getState().mode[id] === undefined) {
+    useChatToolsStore.getState().setMode(id, initialMode('agent'))
+  }
+  const moved = paneOf.has(id) && paneOf.get(id) !== paneId
   workspaceOf.set(id, workspaceId)
+  paneOf.set(id, paneId)
   if (!chats.has(id)) {
     const reply = await openSession(id)
     createChat(id, reply.ok ? historyMessages(reply.history) : [])
+  } else if (moved) {
+    await openSession(id)
   }
   useAgentStore.getState().setCurrent(workspaceId, id)
   return id
 }
 
-export function startNewAgentSession(workspaceId: string): Promise<string> {
-  const id = newSessionId()
-  return ensureAgentSession(workspaceId, id)
+export function startNewAgentSession(workspaceId: string, paneId: string): Promise<string> {
+  return ensureAgentSession(workspaceId, paneId, newSessionId())
 }

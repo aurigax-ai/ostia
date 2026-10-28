@@ -16,6 +16,7 @@ import { isRecord } from '@aurigax-ai/ostia-extension-sdk/contract/isRecord'
 export interface AgentOpenInput {
   sessionId: string
   workspaceId: string
+  paneId: string
   cwd: string
   tools: AgentToolSpec[]
   rules: boolean
@@ -60,11 +61,13 @@ export function openInputOf(sessionId: unknown, raw: unknown): AgentOpenInput | 
   const id = sessionIdOf(sessionId)
   if (!id || !isRecord(raw)) return null
   if (typeof raw.workspaceId !== 'string' || !raw.workspaceId) return null
+  if (typeof raw.paneId !== 'string' || !raw.paneId) return null
   if (typeof raw.cwd !== 'string' || !isAbsolute(raw.cwd)) return null
   const model = modelRefOf(raw.model)
   return {
     sessionId: id,
     workspaceId: raw.workspaceId,
+    paneId: raw.paneId,
     cwd: raw.cwd,
     tools: toolSpecsOf(raw.tools),
     rules: raw.rules !== false,
