@@ -10,6 +10,12 @@ export type ChatMode = (typeof CHAT_MODES)[number]
 
 export const DEFAULT_CHAT_MODE: ChatMode = 'ask'
 
+export type PaneRole = 'agent' | 'manager'
+
+export function initialMode(role: PaneRole): ChatMode {
+  return role === 'manager' ? 'write' : DEFAULT_CHAT_MODE
+}
+
 export type ApprovalKind = 'read-outside' | 'act' | 'write' | 'command' | 'mcp' | 'ostia'
 
 type ToolAccess = ChatToolAccess | 'mcp' | 'ostia'

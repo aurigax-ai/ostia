@@ -5,6 +5,7 @@ vi.mock('@/lib/assist/chatTools', () => ({
   chatToolDefs: () => [],
 }))
 
+import { modeFor, useChatToolsStore } from '@/stores/assist/chatToolsStore'
 import { ensureAgentSession, setAgentRules, useAgentStore } from './agentStore'
 
 describe('the Agent session and its rules chip', () => {
@@ -62,5 +63,13 @@ describe('the Agent session and its rules chip', () => {
     await ensureAgentSession('w1', 'p2', 'a-moved')
     expect(open).toHaveBeenCalledTimes(2)
     expect(open).toHaveBeenLastCalledWith('a-moved', expect.objectContaining({ paneId: 'p2' }))
+  })
+
+  it('starts an Agent pane session in Ask mode and keeps a mode the human chose', async () => {
+    await ensureAgentSession('w1', 'p1', 'a-mode')
+    expect(modeFor('a-mode')).toBe('ask')
+    useChatToolsStore.getState().setMode('a-mode', 'write')
+    await ensureAgentSession('w1', 'p1', 'a-mode')
+    expect(modeFor('a-mode')).toBe('write')
   })
 })

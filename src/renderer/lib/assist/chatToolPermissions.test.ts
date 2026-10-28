@@ -6,6 +6,7 @@ import {
   DEFAULT_CHAT_MODE,
   decideTool,
   grantsAfter,
+  initialMode,
   readsOutsideUnasked,
   type ToolCheck,
 } from './chatToolPermissions'
@@ -244,5 +245,12 @@ describe('decideTool for the acting ostia tools', () => {
         check({ name: 'open_url', access: 'act', mode: 'write', alwaysAsk: new Set(['open_url']) }),
       ),
     ).toEqual({ run: false, kind: 'act', grantKey: 'open_url' })
+  })
+})
+
+describe('initialMode', () => {
+  it('starts a normal Agent pane in Ask and a manager pane in Allow', () => {
+    expect(initialMode('agent')).toBe('ask')
+    expect(initialMode('manager')).toBe('write')
   })
 })

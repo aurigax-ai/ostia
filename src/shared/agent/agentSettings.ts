@@ -18,11 +18,11 @@ export interface AgentHostSettings {
 
 export const DEFAULT_AGENT_SETTINGS: AgentHostSettings = {
   providers: [],
-  alwaysAsk: [...AGENT_ACT_TOOLS],
+  alwaysAsk: [],
 }
 
 function parseAlwaysAsk(raw: unknown): AgentActTool[] {
-  if (!Array.isArray(raw)) return [...AGENT_ACT_TOOLS]
+  if (!Array.isArray(raw)) return []
   const listed = new Set(raw.filter((name): name is string => typeof name === 'string'))
   return AGENT_ACT_TOOLS.filter((name) => listed.has(name))
 }
