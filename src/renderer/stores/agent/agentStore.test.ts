@@ -17,13 +17,16 @@ describe('the Agent session and its rules chip', () => {
   })
 
   it('opens a session with the rules on and remembers how many went in', async () => {
-    await ensureAgentSession('w1', 'a-open')
-    expect(open).toHaveBeenCalledWith('a-open', expect.objectContaining({ rules: true }))
+    await ensureAgentSession('w1', 'p1', 'a-open')
+    expect(open).toHaveBeenCalledWith(
+      'a-open',
+      expect.objectContaining({ rules: true, paneId: 'p1' }),
+    )
     expect(useAgentStore.getState().rules['a-open']).toEqual({ on: true, count: 3 })
   })
 
   it('opens the session again without the rules when the human turns the chip off, and with them when back on', async () => {
-    await ensureAgentSession('w1', 'a-toggle')
+    await ensureAgentSession('w1', 'p1', 'a-toggle')
     open.mockResolvedValue({ ok: true, rules: 0 })
     await setAgentRules('a-toggle', false)
     expect(open).toHaveBeenLastCalledWith('a-toggle', expect.objectContaining({ rules: false }))
@@ -35,8 +38,29 @@ describe('the Agent session and its rules chip', () => {
   })
 
   it('does not open again when the chip is set to what it already is', async () => {
-    await ensureAgentSession('w1', 'a-same')
+    await ensureAgentSession('w1', 'p1', 'a-same')
     await setAgentRules('a-same', true)
     expect(open).toHaveBeenCalledTimes(1)
+  })
+
+  it('gives the session the tools that reach other panes, and the pane it belongs to', async () => {
+    await ensureAgentSession('w1', 'p7', 'a-tools')
+    const options = open.mock.calls[0][1]
+    expect(options.paneId).toBe('p7')
+    expect(options.tools.map((t) => t.name)).toEqual([
+      'ostia_workspaces',
+      'ostia_panes',
+      'ostia_managed',
+      'ostia_bus_inbox',
+      'ostia_agent_run',
+      'ostia_bus_send',
+    ])
+  })
+
+  it('opens the session again when the pane that holds it changes', async () => {
+    await ensureAgentSession('w1', 'p1', 'a-moved')
+    await ensureAgentSession('w1', 'p2', 'a-moved')
+    expect(open).toHaveBeenCalledTimes(2)
+    expect(open).toHaveBeenLastCalledWith('a-moved', expect.objectContaining({ paneId: 'p2' }))
   })
 })

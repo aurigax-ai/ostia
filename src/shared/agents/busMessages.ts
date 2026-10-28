@@ -17,6 +17,7 @@ export type MailPending =
   | 'rate-limited'
   | 'hibernated'
   | 'hooks-off'
+  | 'agent-pane'
   | 'no-agent'
 export type MailVia = 'prompt' | 'start' | 'read' | 'turn'
 

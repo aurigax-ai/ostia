@@ -1,4 +1,4 @@
-import { READ_OUTSIDE_GRANT } from '@shared/assist/chatTools'
+import { isStandingChatGrant, READ_OUTSIDE_GRANT } from '@shared/assist/chatTools'
 import { describe, expect, it } from 'vitest'
 import {
   alwaysGrantAfter,
@@ -13,7 +13,7 @@ import {
 const none = new Set<string>()
 
 function check(patch: Partial<ToolCheck> & Pick<ToolCheck, 'name' | 'access'>): ToolCheck {
-  return { mode: 'ask', grants: none, standing: none, ...patch }
+  return { mode: 'ask', grants: none, standing: none, alwaysAsk: none, ...patch }
 }
 
 describe('decideTool', () => {
@@ -203,5 +203,46 @@ describe('standing grants', () => {
     ]) {
       expect(alwaysGrantAfter(decision, always)).toBeNull()
     }
+  })
+})
+
+describe('decideTool for the acting ostia tools', () => {
+  const act = (patch: Partial<ToolCheck>): ToolCheck =>
+    check({ name: 'ostia_agent_run', access: 'ostia', ...patch })
+  const asks = { run: false, kind: 'ostia', grantKey: null }
+
+  it('asks on every call in Ask mode, with no chat or always grant to give', () => {
+    expect(decideTool(act({ mode: 'ask' }))).toEqual(asks)
+    expect(
+      decideTool(
+        act({
+          mode: 'ask',
+          grants: new Set(['ostia_agent_run']),
+          standing: new Set(['ostia_agent_run']),
+        }),
+      ),
+    ).toEqual(asks)
+  })
+
+  it('runs in Allow mode unless the human listed the tool as always ask', () => {
+    expect(decideTool(act({ mode: 'write' }))).toEqual({ run: true })
+    expect(decideTool(act({ mode: 'write', alwaysAsk: new Set(['ostia_agent_run']) }))).toEqual(
+      asks,
+    )
+    expect(
+      decideTool(
+        act({ name: 'ostia_bus_send', mode: 'write', alwaysAsk: new Set(['ostia_agent_run']) }),
+      ),
+    ).toEqual({ run: true })
+  })
+
+  it('never offers a standing grant for an ostia tool, and leaves open_url and open_file as they were', () => {
+    expect(isStandingChatGrant('ostia_agent_run')).toBe(false)
+    expect(isStandingChatGrant('ostia_bus_send')).toBe(false)
+    expect(
+      decideTool(
+        check({ name: 'open_url', access: 'act', mode: 'write', alwaysAsk: new Set(['open_url']) }),
+      ),
+    ).toEqual({ run: false, kind: 'act', grantKey: 'open_url' })
   })
 })

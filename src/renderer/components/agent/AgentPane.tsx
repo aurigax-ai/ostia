@@ -19,8 +19,8 @@ export function AgentPane({
   useSurfaceFocus(paneId, () => composerRef.current)
   const current = useAgentStore((s) => s.current[workspaceId])
   useEffect(() => {
-    void ensureAgentSession(workspaceId, sessionId)
-  }, [workspaceId, sessionId])
+    void ensureAgentSession(workspaceId, paneId, sessionId)
+  }, [workspaceId, paneId, sessionId])
   useEffect(() => {
     if (current) {
       useLayoutStore.getState().setAgentSession(workspaceId, paneId, current, d.agentPane.paneTitle)

@@ -4,6 +4,7 @@ import {
 } from '@aurigax-ai/ostia-extension-sdk/contract/assist'
 import type { Capability } from '@aurigax-ai/ostia-extension-sdk/contract/capabilities'
 import type { ExtensionSettingValues } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
+import type { AgentActTool } from '@shared/agent/agentCoreTools'
 import { type AgentHostSettings, DEFAULT_AGENT_SETTINGS } from '@shared/agent/agentSettings'
 import { type AgentHooks, DEFAULT_AGENT_HOOKS } from '@shared/agents/agentHooks'
 import { DEFAULT_MANAGER_SETTINGS, type ManagerSettings } from '@shared/agents/managerSettings'
@@ -398,6 +399,7 @@ export interface SettingsState extends Persisted {
   setAutoResume: (autoResume: boolean) => void
   setTrustWorkspaceFolders: (trustWorkspaceFolders: boolean) => void
   setAgentHooks: (patch: Partial<AgentHooks>) => void
+  setAgentAlwaysAsk: (tool: AgentActTool, ask: boolean) => void
   setChatHistory: (chatHistory: boolean) => void
   setChatTools: (patch: Partial<ChatToolSettings>) => Promise<void>
   setAssistModels: (patch: Partial<AssistModelSettings>) => Promise<void>

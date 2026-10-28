@@ -37,11 +37,24 @@ function openAssistantSettings(): void {
   useUIStore.getState().openSettings('assistant')
 }
 
-export function ChatModeSelect({ sessionId }: { sessionId: string }): JSX.Element {
+interface ModeText {
+  name: string
+  desc: string
+}
+
+export function ChatModeSelect({
+  sessionId,
+  write,
+}: {
+  sessionId: string
+  write?: ModeText
+}): JSX.Element {
   const d = useDict()
   const mode = useChatMode(sessionId)
   const ModeIcon = MODE_ICONS[mode]
-  const name = d.chat.modes[mode].name
+  const textOf = (value: ChatMode): ModeText =>
+    value === 'write' && write ? write : d.chat.modes[value]
+  const name = textOf(mode).name
   return (
     <DropdownMenu
       side="top"
@@ -83,9 +96,9 @@ export function ChatModeSelect({ sessionId }: { sessionId: string }): JSX.Elemen
             className="h-auto items-start py-1.5"
           >
             <span className="flex flex-col gap-0.5">
-              <span className="text-fg">{d.chat.modes[value].name}</span>
+              <span className="text-fg">{textOf(value).name}</span>
               <span className="whitespace-normal text-fg-muted text-ui-xs">
-                {d.chat.modes[value].desc}
+                {textOf(value).desc}
               </span>
             </span>
           </MenuRadioItem>

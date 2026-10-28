@@ -10,9 +10,9 @@ export type ChatMode = (typeof CHAT_MODES)[number]
 
 export const DEFAULT_CHAT_MODE: ChatMode = 'ask'
 
-export type ApprovalKind = 'read-outside' | 'act' | 'write' | 'command' | 'mcp'
+export type ApprovalKind = 'read-outside' | 'act' | 'write' | 'command' | 'mcp' | 'ostia'
 
-type ToolAccess = ChatToolAccess | 'mcp'
+type ToolAccess = ChatToolAccess | 'mcp' | 'ostia'
 
 export type WriteAskReason = 'ask-mode' | 'outside' | 'symlink' | 'repository' | 'unsaved'
 
@@ -22,6 +22,7 @@ export interface ToolCheck {
   mode: ChatMode
   grants: ReadonlySet<string>
   standing: ReadonlySet<string>
+  alwaysAsk: ReadonlySet<string>
   outside?: boolean
   symlink?: boolean
   repository?: boolean
@@ -59,6 +60,10 @@ export function decideTool(check: ToolCheck): ToolDecision {
       return granted(name) ? { run: true } : { run: false, kind: 'act', grantKey: name }
     case 'mcp':
       return granted(name) ? { run: true } : { run: false, kind: 'mcp', grantKey: name }
+    case 'ostia':
+      return check.mode === 'write' && !check.alwaysAsk.has(name)
+        ? { run: true }
+        : { run: false, kind: 'ostia', grantKey: null }
     case 'command':
       return { run: false, kind: 'command', grantKey: null }
     case 'write': {
@@ -69,8 +74,14 @@ export function decideTool(check: ToolCheck): ToolDecision {
 }
 
 export function readsOutsideUnasked(grants: Pick<ToolCheck, 'grants' | 'standing'>): boolean {
-  return decideTool({ ...grants, name: '', access: 'read', mode: DEFAULT_CHAT_MODE, outside: true })
-    .run
+  return decideTool({
+    ...grants,
+    alwaysAsk: new Set(),
+    name: '',
+    access: 'read',
+    mode: DEFAULT_CHAT_MODE,
+    outside: true,
+  }).run
 }
 
 export function alwaysGrantAfter(decision: ToolDecision, answer: ApprovalAnswer): string | null {

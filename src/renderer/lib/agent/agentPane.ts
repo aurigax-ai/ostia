@@ -15,8 +15,9 @@ export function openAgentPane(workspaceId?: string | null): string | null {
   ui.closePalette()
   ui.showWorkspaces()
   if (workspaces.activeWorkspaceId !== id) workspaces.setActive(id)
-  void ensureAgentSession(id)
-  return useLayoutStore.getState().openAgent(id, currentDict().agentPane.paneTitle)
+  const paneId = useLayoutStore.getState().openAgent(id, currentDict().agentPane.paneTitle)
+  if (paneId) void ensureAgentSession(id, paneId)
+  return paneId
 }
 
 export function addToAgentPane(item: ChatContextItem, workspaceId?: string | null): boolean {
