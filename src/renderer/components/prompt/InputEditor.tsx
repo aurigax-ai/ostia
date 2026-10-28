@@ -182,6 +182,7 @@ function useInputEditor({
     history,
     composing,
     termRef,
+    paneId,
     onSubmit,
     onHandOffRef,
     onShellKeys,
@@ -298,6 +299,7 @@ export function InputEditor(props: InputEditorProps): JSX.Element {
         />
         {ostiaPrompt && prompt.sameLine ? chipRow(true) : null}
         <InputEditorGhostMenu
+          paneId={paneId}
           ghostFeature={suggestions.ghostFeature}
           selectedText={selectedText}
           typeAtCaret={draft.typeAtCaret}
