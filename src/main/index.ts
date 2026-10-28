@@ -1,4 +1,5 @@
 import './platform/userDirsBoot'
+import './platform/compileCacheBoot'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { readEnv } from '@aurigax-ai/ostia-extension-sdk/contract/appEnv'
