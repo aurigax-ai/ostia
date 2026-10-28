@@ -13,6 +13,7 @@ import type { AgentHostSettings } from '../../shared/agent/agentSettings'
 import { type CoreCallRequest, type CoreLifecycle, coreLifecycle } from './agentCoreCall'
 import { type AgentOpenInput, completeOf, promptOf, sessionIdOf } from './agentRequests'
 import { PiStream } from './piStream'
+import { type PortalPromptResult, PortalPrompts } from './portalPrompts'
 
 export interface AgentRenderer {
   id: number
@@ -67,6 +68,15 @@ export class AgentSessions {
   private readonly pending = new Map<string, PendingTool>()
   private readonly watched = new Set<number>()
   private readonly streams = new Map<string, PiStream>()
+  private readonly waiting = new Map<string, Set<string>>()
+  private readonly waitListeners = new Map<string, Set<(waiting: boolean) => void>>()
+  private readonly portal = new PortalPrompts({
+    renderer: (sessionId) => {
+      const renderer = this.owned.get(sessionId)?.renderer
+      return renderer && !renderer.isDestroyed() ? renderer : null
+    },
+    stream: (sessionId) => this.streams.get(sessionId),
+  })
   private toolSeq = 0
 
   constructor(private readonly deps: AgentSessionsDeps) {}
@@ -150,8 +160,7 @@ export class AgentSessions {
     const id = this.ownedId(renderer, sessionId)
     if (!id) return { ok: false, error: 'invalid' }
     this.cancelTools(id)
-    this.owned.delete(id)
-    this.streams.delete(id)
+    this.forget(id)
     return this.deps.request({ op: 'close', sessionId: id })
   }
 
@@ -205,6 +214,48 @@ export class AgentSessions {
     return this.streams.get(sessionId)
   }
 
+  sessionOfPane(paneId: string): string | undefined {
+    for (const [sessionId, owner] of this.owned) if (owner.paneId === paneId) return sessionId
+    return undefined
+  }
+
+  promptFromPortal(sessionId: string, text: string): Promise<PortalPromptResult> {
+    return this.portal.prompt(sessionId, text)
+  }
+
+  noteWaiting(renderer: AgentRenderer, callId: unknown, on: unknown): void {
+    if (typeof callId !== 'string' || typeof on !== 'boolean') return
+    const pending = this.pending.get(callId)
+    if (!pending || pending.rendererId !== renderer.id) return
+    this.setWaiting(pending.sessionId, callId, on)
+  }
+
+  watchWaiting(sessionId: string, listener: (waiting: boolean) => void): () => void {
+    const listeners = this.waitListeners.get(sessionId) ?? new Set()
+    this.waitListeners.set(sessionId, listeners)
+    listeners.add(listener)
+    return () => listeners.delete(listener)
+  }
+
+  private setWaiting(sessionId: string, callId: string, on: boolean): void {
+    const calls = this.waiting.get(sessionId) ?? new Set<string>()
+    this.waiting.set(sessionId, calls)
+    const before = calls.size > 0
+    if (on) calls.add(callId)
+    else calls.delete(callId)
+    const after = calls.size > 0
+    if (before === after) return
+    for (const listener of [...(this.waitListeners.get(sessionId) ?? [])]) listener(after)
+  }
+
+  private forget(sessionId: string): void {
+    this.portal.forget(sessionId)
+    this.waiting.delete(sessionId)
+    this.waitListeners.delete(sessionId)
+    this.owned.delete(sessionId)
+    this.streams.delete(sessionId)
+  }
+
   answerTool(renderer: AgentRenderer, callId: unknown, reply: unknown): void {
     if (typeof callId !== 'string') return
     const pending = this.pending.get(callId)
@@ -250,6 +301,7 @@ export class AgentSessions {
     const pending = this.pending.get(callId)
     if (!pending) return
     this.pending.delete(callId)
+    this.setWaiting(pending.sessionId, callId, false)
     pending.core?.end()
     pending.settle(reply)
   }
@@ -284,8 +336,7 @@ export class AgentSessions {
       }
       for (const [sessionId, owner] of this.owned) {
         if (owner.renderer.id !== renderer.id) continue
-        this.owned.delete(sessionId)
-        this.streams.delete(sessionId)
+        this.forget(sessionId)
         void this.deps.request({ op: 'close', sessionId })
       }
     })

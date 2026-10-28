@@ -17,6 +17,7 @@ import { setScriptTokenCheck } from '../control/controlAuth'
 import { registerControlServer, stopControlServer } from '../control/controlServer'
 import {
   getByPaneId,
+  markManager,
   type PaneIdentity,
   registerExtension,
   registerPane,
@@ -50,6 +51,8 @@ const AGENTS: Record<string, string[]> = {
   reviewer: ['codex', '--model', 'o4'],
 }
 
+const admitted: number[] = []
+let managerRefusal: string | null = null
 const sandboxedWorkspaces = new Set<string>()
 const agentPanes = new Set<string>()
 const titles = new Map<string, string>()
@@ -65,6 +68,10 @@ let onOpen: ((paneId: string) => void) | null = null
 const { registry, startAgentForPhone } = registerProcessMethods({
   isSandboxed: (workspaceId) => sandboxedWorkspaces.has(workspaceId),
   isConfined: () => false,
+  managerAdmitSpawn: (live) => {
+    admitted.push(live)
+    return managerRefusal
+  },
   reach: ownWorkspaceReach((id) =>
     id === 'script_ostia_scoped'
       ? {
@@ -280,6 +287,26 @@ describe('the start of a run is confirmed', () => {
 })
 
 describe('agent.run', () => {
+  it('PIM-C9 asks the manager limiter only for a manager caller, with its live workers, and starts nothing when refused', async () => {
+    admitted.length = 0
+    const plain = await client(agent)
+    await plain.sendRequest('agent.run', { agent: 'claude', prompt: 'one' })
+    expect(admitted).toEqual([])
+    const manager = registerPane({ windowId: 'w1', workspaceId: 'ws1', paneId: 'pi-manager' })
+    markManager('pi-manager')
+    const conn = await client(manager)
+    await conn.sendRequest('agent.run', { agent: 'claude', prompt: 'two' })
+    await conn.sendRequest('agent.run', { agent: 'claude', prompt: 'three' })
+    expect(admitted).toEqual([0, 1])
+    managerRefusal = 'limit: 1 workers are already running'
+    const before = opened.length
+    await expect(
+      conn.sendRequest('agent.run', { agent: 'claude', prompt: 'four' }),
+    ).rejects.toThrow('limit: 1 workers')
+    expect(opened).toHaveLength(before)
+    managerRefusal = null
+  })
+
   it('puts an agent caller’s workers into one split tab named after the caller', async () => {
     agentPanes.add('agent-pane')
     titles.set('agent-pane', 'api')

@@ -9,7 +9,9 @@ import {
   StreamMessageWriter,
 } from 'vscode-jsonrpc/node'
 import type { InstallHint, MissingRequirement } from '../../shared/app/systemRequirements'
+import type { PortalPromptFailure } from '../agent/portalPrompts'
 import { ManagerError, type ManagerService, parseOpenRequest } from './manager'
+import type { SessionHandle, SessionSink } from './managerSession'
 import type { CallerVerdict } from './portalCaller'
 
 export { portalSupported } from '../../shared/agents/portal'
@@ -31,15 +33,24 @@ export interface PortalDeps {
   judge: (socket: Socket) => Promise<CallerVerdict>
   manager: ManagerService
   attachMirror: (paneId: string, sink: MirrorSink) => MirrorHandle | null
+  attachSession: (paneId: string, sink: SessionSink) => SessionHandle | null
 }
 
 interface PortalOpenResult {
   paneId: string
   agent: string
   created: boolean
+  session: boolean
 }
 
 const MAX_INPUT_CHUNK = 64 * 1024
+const MAX_PROMPT_LENGTH = 8 * 1024
+
+const PROMPT_FAILURES: Record<PortalPromptFailure, string> = {
+  'no-session': 'no-session: the manager session is not running',
+  'no-window': 'no-window: no Ostia window shows the manager session',
+  'not-accepted': 'not-accepted: the Ostia window did not take the prompt',
+}
 
 function refuse(message: string): ResponseError<void> {
   return new ResponseError(ErrorCodes.InvalidRequest, message)
@@ -118,12 +129,15 @@ export class Portal {
       new StreamMessageWriter(socket),
     )
     let mirror: MirrorHandle | null = null
+    let session: SessionHandle | null = null
     let reserved = false
     let closed = false
 
     const release = (): void => {
       mirror?.detach()
       mirror = null
+      session?.detach()
+      session = null
       if (reserved) this.mirrorOpen = false
       reserved = false
     }
@@ -151,9 +165,21 @@ export class Portal {
       try {
         const req = parseOpenRequest(params)
         const { info, created } = await this.deps.manager.open(req)
-        result = { paneId: info.paneId, agent: info.agent, created }
+        result = { paneId: info.paneId, agent: info.agent, created, session: info.session }
         if (closed) {
           release()
+          return result
+        }
+        if (info.session) {
+          session = this.deps.attachSession(info.paneId, {
+            events: (events) => void conn.sendNotification('session.events', { events }),
+            waiting: (waiting) => void conn.sendNotification('session.waiting', { waiting }),
+            ended: () => {
+              void conn.sendNotification('session.ended', {})
+              setTimeout(close, 100)
+            },
+          })
+          if (!session) throw new ManagerError('manager-ended: the manager is no longer running')
           return result
         }
         const handle = this.deps.attachMirror(info.paneId, {
@@ -172,6 +198,17 @@ export class Portal {
         throw err
       }
       return result
+    })
+
+    conn.onRequest('portal.prompt', async (params: { text?: unknown }) => {
+      const text = params?.text
+      if (typeof text !== 'string' || text.length === 0 || text.length > MAX_PROMPT_LENGTH) {
+        throw refuse('bad-request: text')
+      }
+      if (!session) throw refuse('not-attached: open the manager session first')
+      const sent = await session.prompt(text)
+      if (!sent.ok) throw refuse(PROMPT_FAILURES[sent.error])
+      return { ok: true }
     })
 
     conn.onNotification('mirror.input', (params: { data?: unknown }) => {

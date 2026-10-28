@@ -543,6 +543,8 @@ export function makeOstiaMock(overrides?: Partial<OstiaBridge>): OstiaBridge {
       close: vi.fn().mockResolvedValue({ ok: true }),
       answerTool: vi.fn(),
       coreCall: vi.fn().mockResolvedValue({ ok: true, output: '{}' }),
+      noteWaiting: vi.fn(),
+      onPrompted: vi.fn(noopUnsub),
       onEvent: vi.fn(noopUnsub),
       onToolCall: vi.fn(noopUnsub),
       onToolCancel: vi.fn(noopUnsub),

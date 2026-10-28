@@ -134,6 +134,7 @@ const reach = createReach({
 const { registry } = registerProcessMethods({
   isSandboxed: () => false,
   isConfined: () => false,
+  managerAdmitSpawn: () => null,
   reach,
   openTab: async (req) => {
     opened.push(req)

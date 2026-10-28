@@ -13,6 +13,7 @@ import type { CommandBridge } from '../control/commandBridge'
 import { getByPaneId } from '../control/idRegistry'
 import type { Telemetry } from '../diagnostics/telemetry'
 import type { ManagerService } from '../manager/manager'
+import type { ManagerLimiter } from '../manager/managerMethods'
 import type { PaneJournal } from '../panes/paneJournal'
 import { registerPaneKeepAwakeMethods } from '../panes/paneKeepAwake'
 import { registerPaneNameMethods } from '../panes/paneNameMethods'
@@ -51,6 +52,7 @@ interface AgentWiringDeps {
   workspaceWindowId: WindowSend['workspaceWindowId']
   services: {
     managerService: ManagerService | null
+    managerLimiter: ManagerLimiter | null
     processes: ProcessRegistry | null
     telemetry: Telemetry | null
   }
@@ -197,6 +199,7 @@ export function registerAgentWiring({
         : undefined
     },
     reach,
+    managerAdmitSpawn: (liveWorkers) => services.managerLimiter?.admitSpawn(liveWorkers) ?? null,
     interruptGraceMs: INTERRUPT_GRACE_MS,
   })
   services.processes = registry

@@ -42,6 +42,7 @@ import { registerViewCommands, startViews } from '@/lib/views/views'
 import { restoreSidePanels } from '@/lib/workspaces/restoreSidePanels'
 import { initWindow, startWindowSync } from '@/lib/workspaces/windowHandoff'
 import { startWorkspaceProjects } from '@/lib/workspaces/workspaceProjects'
+import { wirePortalPrompts } from '@/stores/agent/agentStore'
 import { startAgentGroupsSync } from '@/stores/agents/agentGroupsStore'
 import { startApprovals } from '@/stores/agents/approvalsStore'
 import { startMail } from '@/stores/agents/mailStore'
@@ -100,6 +101,7 @@ wireArtifacts()
 wireOpenWaits()
 wirePaneRunBridge()
 wireManagerBridge()
+wirePortalPrompts()
 wireRemoteFolders()
 if (isMac) startAppMenu()
 

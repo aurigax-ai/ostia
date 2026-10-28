@@ -267,9 +267,11 @@ describe('runPortalCommand', () => {
           panes.push(req.agent)
           return 'p'
         },
+        adopt: () => true,
         spawn: () => true,
       }),
       attachMirror: () => null,
+      attachSession: () => null,
     })
     await portal.start()
     try {

@@ -11,7 +11,7 @@ import type { PtyIo } from '../terminal/pty/ptyIo'
 import type { PtyEntry } from '../terminal/pty/ptyRegistry'
 import type { WindowSend } from '../windows/windowSend'
 import { type ManagerService, managerWindowId } from './manager'
-import { Portal, portalSupported } from './portal'
+import { Portal, type PortalDeps, portalSupported } from './portal'
 import { callerVerdict, procFs, ttysOf } from './portalCaller'
 
 interface ManagerPanesDeps {
@@ -26,6 +26,7 @@ interface ManagerPanesDeps {
   }
   ptys: Map<string, PtyEntry>
   attachMirror: PtyIo['attachMirror']
+  attachSession: PortalDeps['attachSession']
 }
 
 export type ManagerPanes = ReturnType<typeof createManagerPanes>
@@ -39,6 +40,7 @@ export function createManagerPanes({
   services,
   ptys,
   attachMirror,
+  attachSession,
 }: ManagerPanesDeps) {
   const MANAGER_READY_TIMEOUT_MS = 20_000
   const MANAGER_OPEN_TIMEOUT_MS = 5000
@@ -73,7 +75,11 @@ export function createManagerPanes({
     })
   }
 
-  async function createManagerPane(req: { agent: string; cwd: string }): Promise<string | null> {
+  async function createManagerPane(req: {
+    agent: string
+    cwd: string
+    session: boolean
+  }): Promise<string | null> {
     const win = await managerWindow()
     if (!win) return null
     const wid = String(win.webContents.id)
@@ -137,6 +143,7 @@ export function createManagerPanes({
         }),
       manager: service,
       attachMirror,
+      attachSession,
     })
     services.portal
       .start()

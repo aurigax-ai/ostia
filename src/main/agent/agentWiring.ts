@@ -7,6 +7,7 @@ import {
 } from '../control/controlServer'
 import { getByPaneId, resolveExternal } from '../control/idRegistry'
 import type { ExtensionHost } from '../extensions/extensionHost'
+import type { ManagerService } from '../manager/manager'
 import type { ProcessRegistry } from '../panes/processRegistry'
 import { readSettingsFile } from '../platform/settingsFile'
 import type { RedactText } from '../privacy/redactionTargets'
@@ -18,7 +19,11 @@ import { AgentSessions, NO_AGENT } from './agentSessions'
 const COMPLETE_EXTENSION_ID = 'skills'
 
 interface AgentStartDeps {
-  services: { extensionHost: ExtensionHost | null; agentSessions: AgentSessions | null }
+  services: {
+    extensionHost: ExtensionHost | null
+    agentSessions: AgentSessions | null
+    managerService: ManagerService | null
+  }
   redactor: { text: RedactText }
   workspaceSandboxes: Pick<WorkspaceSandboxes, 'isEnabled'>
   registry: Pick<ProcessRegistry, 'isChild'>
@@ -46,6 +51,7 @@ export function startAgent({
         const child = resolveExternal(externalPaneId)
         return child?.kind === 'pane' && registry.isChild(ownerPaneId, child.paneId)
       },
+      isManagerSession: (paneId) => services.managerService?.isManagerPane(paneId) === true,
       call: callControlMethod,
     }),
     rulesContext: (workspaceId, cwd, sessionId) =>

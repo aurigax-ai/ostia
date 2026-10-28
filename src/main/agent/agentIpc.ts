@@ -25,6 +25,9 @@ export function registerAgentIpc(sessions: () => AgentSessions | null): void {
       return sessions()?.coreCall(e.sender, sessionId, callId) ?? unavailable
     },
   )
+  ipcMain.on('agent:tool-waiting', (e: IpcMainEvent, callId: unknown, on: unknown) => {
+    sessions()?.noteWaiting(e.sender, callId, on)
+  })
   ipcMain.on('agent:tool-result', (e: IpcMainEvent, callId: unknown, reply: unknown) => {
     sessions()?.answerTool(e.sender, callId, reply)
   })

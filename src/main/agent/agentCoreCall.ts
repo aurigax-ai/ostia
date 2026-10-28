@@ -41,6 +41,7 @@ export interface AgentCoreDeps {
   identityOf: (paneId: string) => PaneIdentity | undefined
   sandboxed: (workspaceId: string) => boolean
   ownsChild: (ownerPaneId: string, externalPaneId: string) => boolean
+  isManagerSession: (paneId: string) => boolean
   call: (name: string, params: unknown, ctx: ControlMethodContext) => Promise<unknown>
 }
 
@@ -181,10 +182,14 @@ function outputOf(result: unknown): string {
   return typeof result === 'string' ? result : JSON.stringify(result ?? null)
 }
 
-function reachable(identity: PaneIdentity | undefined, scope: CoreScope): identity is PaneIdentity {
+function reachable(
+  identity: PaneIdentity | undefined,
+  scope: CoreScope,
+  isManagerSession: AgentCoreDeps['isManagerSession'],
+): identity is PaneIdentity {
   return (
     identity?.kind === 'pane' &&
-    identity.manager !== true &&
+    (identity.manager !== true || isManagerSession(identity.paneId)) &&
     identity.windowId === scope.windowId &&
     identity.workspaceId === scope.workspaceId
   )
@@ -194,7 +199,7 @@ export function createAgentCoreCall(deps: AgentCoreDeps) {
   return async ({ scope, name, input, lifecycle }: CoreCallRequest): Promise<AgentToolReply> => {
     if (!isAgentCoreTool(name)) return BAD_TOOL
     const identity = deps.identityOf(scope.paneId)
-    if (!reachable(identity, scope)) return REFUSED
+    if (!reachable(identity, scope, deps.isManagerSession)) return REFUSED
     if (deps.sandboxed(scope.workspaceId)) return SANDBOXED
     initCaps(identity.externalId)
     const ctx: ControlMethodContext = {

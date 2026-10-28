@@ -35,12 +35,24 @@ function targetPane(raw: unknown, me: PaneIdentity): PaneIdentity {
 
 export interface ManagerLimiter {
   busAllowed: () => boolean
+  admitSpawn: (liveWorkers: number) => string | null
 }
 
 export function registerManagerMethods(deps: ManagerMethodDeps): ManagerLimiter {
   const workers = new Set<string>()
   const spawns = new RateWindow(SPAWN_WINDOW_MS)
   const busSends = new RateWindow(BUS_WINDOW_MS)
+
+  const admitSpawn = (liveWorkers: number): string | null => {
+    const { limits } = deps.settings()
+    if (liveWorkers >= limits.maxWorkers) {
+      return `limit: ${limits.maxWorkers} workers are already running`
+    }
+    if (!spawns.take(limits.spawnsPer10Min, deps.now())) {
+      return `limit: at most ${limits.spawnsPer10Min} workers per 10 minutes`
+    }
+    return null
+  }
 
   const managerOnly = (method: Omit<ControlMethod, 'callers'>): ControlMethod => ({
     ...method,
@@ -82,14 +94,9 @@ export function registerManagerMethods(deps: ManagerMethodDeps): ManagerLimiter 
           throw fail('bad-request: workspaceId')
         }
         if (p.name !== undefined && typeof p.name !== 'string') throw fail('bad-request: name')
-        const { limits } = deps.settings()
         for (const id of workers) if (!deps.paneAlive(id)) workers.delete(id)
-        if (workers.size >= limits.maxWorkers) {
-          throw fail(`limit: ${limits.maxWorkers} workers are already running`)
-        }
-        if (!spawns.take(limits.spawnsPer10Min, deps.now())) {
-          throw fail(`limit: at most ${limits.spawnsPer10Min} workers per 10 minutes`)
-        }
+        const refused = admitSpawn(workers.size)
+        if (refused) throw fail(refused)
         const paneId = await deps.openWorker({
           argv: [...preset, ...(args as string[])],
           ...(p.cwd === undefined ? {} : { cwd: p.cwd as string }),
@@ -126,5 +133,6 @@ export function registerManagerMethods(deps: ManagerMethodDeps): ManagerLimiter 
 
   return {
     busAllowed: () => busSends.take(deps.settings().limits.busPerMinute, deps.now()),
+    admitSpawn,
   }
 }

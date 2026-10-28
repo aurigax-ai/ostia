@@ -147,6 +147,12 @@ export function agentChatFor(sessionId: string): Chat<OstiaChatMessage> {
   return chats.get(sessionId) ?? createChat(sessionId, [])
 }
 
+export function wirePortalPrompts(): void {
+  window.ostia.agentSessions.onPrompted(({ sessionId, text }) => {
+    void agentChatFor(sessionId).sendMessage({ text, metadata: { createdAt: Date.now() } })
+  })
+}
+
 export async function setAgentRules(sessionId: string, on: boolean): Promise<AgentReply> {
   useAgentStore.getState().setRules(sessionId, { on })
   return openSession(sessionId)

@@ -114,10 +114,14 @@ export function createAgentTransport(
                 callId: call.callId,
                 toolCallId: call.toolCallId,
                 signal: abort.signal,
-                onApproval: (approvalId) =>
-                  emit({ type: 'tool-approval-request', approvalId, toolCallId: call.toolCallId }),
-                onAnswer: (approvalId, approved) =>
-                  emit({ type: 'tool-approval-response', approvalId, approved }),
+                onApproval: (approvalId) => {
+                  api.noteWaiting(call.callId, true)
+                  emit({ type: 'tool-approval-request', approvalId, toolCallId: call.toolCallId })
+                },
+                onAnswer: (approvalId, approved) => {
+                  api.noteWaiting(call.callId, false)
+                  emit({ type: 'tool-approval-response', approvalId, approved })
+                },
               }
               try {
                 outcome = await def.run(call.input, run)

@@ -203,6 +203,21 @@ describe('manager methods', () => {
     ).rejects.toThrow('own-pane')
   })
 
+  it('PIM-C8 admitSpawn stops at the live-worker count and at the spawn rate, like manager.spawn', () => {
+    settings = {
+      ...DEFAULT_MANAGER_SETTINGS,
+      limits: { maxWorkers: 2, spawnsPer10Min: 3, busPerMinute: 60 },
+    }
+    now = 90_000_000_000
+    expect(limiter.admitSpawn(2)).toBe('limit: 2 workers are already running')
+    expect(limiter.admitSpawn(0)).toBeNull()
+    expect(limiter.admitSpawn(1)).toBeNull()
+    expect(limiter.admitSpawn(1)).toBeNull()
+    expect(limiter.admitSpawn(0)).toBe('limit: at most 3 workers per 10 minutes')
+    now += 10 * 60 * 1000
+    expect(limiter.admitSpawn(0)).toBeNull()
+  })
+
   it('MGR-C37 limits the manager bus messages per minute', () => {
     settings = {
       ...DEFAULT_MANAGER_SETTINGS,
