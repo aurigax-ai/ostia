@@ -6,20 +6,21 @@ import {
   hasPublishedSelection,
   onSelectionCleared,
   onSelectionPublished,
+  openViewerDocument,
   openViewerLink,
   publishSelection,
   requestEditSource,
   viewerDocumentUrl,
 } from './viewer'
 
-const eventSources: Array<{ listeners: Map<string, () => void> }> = []
+const eventSources: Array<{ url: string; listeners: Map<string, (event: unknown) => void> }> = []
 
 class FakeEventSource {
-  listeners = new Map<string, () => void>()
-  constructor() {
+  listeners = new Map<string, (event: unknown) => void>()
+  constructor(readonly url: string) {
     eventSources.push(this)
   }
-  addEventListener(type: string, listener: () => void): void {
+  addEventListener(type: string, listener: (event: unknown) => void): void {
     this.listeners.set(type, listener)
   }
   close(): void {}
@@ -106,7 +107,7 @@ describe('a selection the host cleared', () => {
     })
     const seen: boolean[] = []
     const stop = onSelectionPublished((published) => seen.push(published))
-    eventSources[0].listeners.get('selection-cleared')?.()
+    eventSources[0].listeners.get('selection-cleared')?.({})
     expect(hasPublishedSelection()).toBe(false)
     expect(seen).toEqual([false])
     stop()
@@ -127,11 +128,33 @@ describe('a selection the host cleared', () => {
     await clearSelection()
     expect(cleared).toBe(0)
     await publishSelection(selection)
-    eventSources[0].listeners.get('selection-cleared')?.()
+    eventSources[0].listeners.get('selection-cleared')?.({})
     expect(cleared).toBe(1)
     stop()
-    eventSources[0].listeners.get('selection-cleared')?.()
+    eventSources[0].listeners.get('selection-cleared')?.({})
     expect(cleared).toBe(1)
+  })
+})
+
+describe('a document that changes', () => {
+  it('says whether the file only grew, and asks to follow appends only when told to', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => ({ ok: true, json: async () => ({ name: 'a.csv', size: 1 }) })),
+    )
+    const doc = await openViewerDocument()
+    const seen: string[] = []
+    const stopPlain = doc.onDidChange((change) => seen.push(change))
+    const stopFollowing = doc.onDidChange((change) => seen.push(`follow:${change}`), 'appends')
+    const [plain, following] = eventSources.slice(-2)
+    expect(plain.url).toBe('/~events')
+    expect(following.url).toBe('/~events?appends=1')
+    plain.listeners.get('changed')?.({ data: 'replaced' })
+    following.listeners.get('changed')?.({ data: 'appended' })
+    following.listeners.get('changed')?.({ data: '1' })
+    expect(seen).toEqual(['replaced', 'follow:appended', 'follow:replaced'])
+    stopPlain()
+    stopFollowing()
   })
 })
 

@@ -1,4 +1,4 @@
-import { mkdirSync, writeFileSync } from 'node:fs'
+import { appendFileSync, mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { type CaptureSurface, sendToAgent } from './captureMatrix'
 import { freshDataHome, isolatedLaunch } from './dataHome'
@@ -135,6 +135,16 @@ export const csvViewerSurface: CaptureSurface = {
             { timeout: 5_000 },
           )
           .toBe(0)
+      },
+      file: {
+        append: async (rows, everyMs) => {
+          for (let row = 0; row < rows; row++) {
+            appendFileSync(join(home, 'orders.csv'), `Row${row},${row}\n`)
+            await new Promise((resolve) => setTimeout(resolve, everyMs))
+          }
+        },
+        editMiddleRow: () =>
+          writeFileSync(join(home, 'orders.csv'), CSV.replace('Tainan', 'Hualien')),
       },
       close: () => app.close(),
     }

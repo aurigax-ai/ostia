@@ -25,6 +25,7 @@ interface LaunchedSurface {
   close: () => Promise<void>
   highlight?: { selector: string; sized: boolean }
   clickGuest?: () => Promise<void>
+  file?: { append: (rows: number, everyMs: number) => Promise<void>; editMiddleRow: () => void }
 }
 
 export interface CaptureSurface {
