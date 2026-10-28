@@ -12,6 +12,7 @@ import {
   escapeShellWord,
   inputHistory,
   isCommandWord,
+  opensFileMenu,
   rankCommands,
   recentCommands,
   suggestionWord,
@@ -348,5 +349,24 @@ describe('argumentCandidates with history', () => {
     expect(await argumentCandidates('ssh src/', 8, '/w', sources)).toEqual([
       { name: 'main', dir: true },
     ])
+  })
+})
+
+describe('opensFileMenu', () => {
+  it('opens for a word with a slash, a tilde or a leading dot', () => {
+    expect(opensFileMenu('ls src/ma', 9)).toBe(true)
+    expect(opensFileMenu('cd ~', 4)).toBe(true)
+    expect(opensFileMenu('cat .env', 8)).toBe(true)
+    expect(opensFileMenu('./run', 5)).toBe(true)
+  })
+
+  it('stays closed for plain words and for a command name', () => {
+    expect(opensFileMenu('ls src', 6)).toBe(false)
+    expect(opensFileMenu('ls ', 3)).toBe(false)
+    expect(opensFileMenu('.gi', 3)).toBe(false)
+  })
+
+  it('looks only at the word before the caret', () => {
+    expect(opensFileMenu('ls src/ma', 4)).toBe(false)
   })
 })

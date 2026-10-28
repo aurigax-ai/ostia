@@ -30,6 +30,9 @@ export const terminalEn = {
   },
   inputEditor: {
     completions: 'Completions',
+    draftCleared: 'Draft cleared · Ctrl+Z to restore',
+    escAgain: 'Press Esc again to clear',
+    fileHint: 'Tab to complete · Enter runs',
     fromHistory: 'From history',
     label: 'Command input',
     noCommands: 'No matching commands',

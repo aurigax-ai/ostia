@@ -256,6 +256,12 @@ export function isCommandWord(text: string, caret: number): boolean {
   return !word.includes('/') && !word.startsWith('~') && isCommandPosition(text, start)
 }
 
+export function opensFileMenu(text: string, caret: number): boolean {
+  const { word } = completionToken(text, caret)
+  const pathLike = word.includes('/') || word.startsWith('~') || word.startsWith('.')
+  return pathLike && !isCommandWord(text, caret)
+}
+
 export function applyCompletionItem(
   text: string,
   caret: number,
