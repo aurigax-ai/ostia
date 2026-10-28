@@ -6,11 +6,11 @@ import {
   isAgentActTool,
 } from '@shared/agent/agentCoreTools'
 import {
+  type AgentToolRun,
   type ChatToolDef,
   DENIED,
   gate,
   type ToolOutcome,
-  type ToolRun,
 } from '@/lib/assist/chatToolGate'
 
 const OBJECT = 'object'
@@ -98,13 +98,12 @@ const SPECS: Record<AgentCoreToolName, Omit<ChatToolSpec, 'name'>> = {
   },
 }
 
-async function runCore(run: ToolRun): Promise<ToolOutcome> {
-  if (!run.callId) return { state: 'error', error: 'This chat cannot reach other panes.' }
+async function runCore(run: AgentToolRun): Promise<ToolOutcome> {
   const reply = await window.ostia.agentSessions.coreCall(run.sessionId, run.callId)
   return reply.ok ? { state: 'done', output: reply.output } : { state: 'error', error: reply.error }
 }
 
-function toolDef(name: AgentCoreToolName): ChatToolDef {
+function toolDef(name: AgentCoreToolName): ChatToolDef<AgentToolRun> {
   const acting = isAgentActTool(name)
   return {
     group: AGENT_CORE_GROUP,
@@ -119,6 +118,6 @@ function toolDef(name: AgentCoreToolName): ChatToolDef {
   }
 }
 
-export function agentCoreToolDefs(): ChatToolDef[] {
+export function agentCoreToolDefs(): ChatToolDef<AgentToolRun>[] {
   return [...AGENT_READ_TOOLS, ...AGENT_ACT_TOOLS].map(toolDef)
 }

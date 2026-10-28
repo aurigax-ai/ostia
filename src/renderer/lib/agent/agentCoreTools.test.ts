@@ -1,5 +1,5 @@
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
-import type { ToolRun } from '@/lib/assist/chatToolGate'
+import type { AgentToolRun } from '@/lib/assist/chatToolGate'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { answerApproval, resetChatTools, useChatToolsStore } from '@/stores/assist/chatToolsStore'
 import { agentCoreToolDefs } from './agentCoreTools'
@@ -22,7 +22,7 @@ function def(name: string) {
   return found
 }
 
-function run(overrides: Partial<ToolRun> = {}): ToolRun {
+function run(overrides: Partial<AgentToolRun> = {}): AgentToolRun {
   return {
     sessionId: 's1',
     callId: 't7',
@@ -134,12 +134,5 @@ describe('the Agent pane’s ostia tools', () => {
       state: 'error',
       error: 'needs-elevation: send-other-pane',
     })
-  })
-
-  it('does not reach the core without the pending call it belongs to', async () => {
-    expect(await def('ostia_panes').run({}, run({ callId: undefined }))).toMatchObject({
-      state: 'error',
-    })
-    expect(core()).not.toHaveBeenCalled()
   })
 })
