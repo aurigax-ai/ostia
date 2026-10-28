@@ -14,6 +14,7 @@
     "src/shared/terminal/completionSpec.ts"
   ],
   "specs": [
+    "e2e/input-completion.spec.ts",
     "e2e/input-editor.spec.ts"
   ]
 }

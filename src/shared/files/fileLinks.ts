@@ -62,8 +62,9 @@ function normalize(path: string): string {
   const parts: string[] = []
   for (const part of (home ? path.slice(1) : path).split('/')) {
     if (part === '' || part === '.') continue
-    if (part === '..') parts.pop()
-    else parts.push(part)
+    if (part !== '..') parts.push(part)
+    else if (parts.length > 0 && parts[parts.length - 1] !== '..') parts.pop()
+    else if (home) parts.push(part)
   }
   return `${home ? '~' : ''}/${parts.join('/')}`
 }

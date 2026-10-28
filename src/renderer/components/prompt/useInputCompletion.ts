@@ -15,7 +15,7 @@ import {
   commandCandidates,
   completionScope,
   completionToken,
-  escapeShellWord,
+  escapeAtCaret,
   isCommandWord,
   recentCommands,
   splitPathWord,
@@ -162,7 +162,7 @@ export function useInputCompletion({
       return
     }
     if (step.extend) {
-      const insert = escapeShellWord(step.extend)
+      const insert = escapeAtCaret(text, caret, step.extend)
       replaceText(text.slice(0, caret) + insert + text.slice(caret), caret + insert.length)
     }
     const origin = { start, scope: completionScope(word), pool }
