@@ -3,6 +3,7 @@ import { isRecord } from '@aurigax-ai/ostia-extension-sdk/contract/isRecord'
 import { CancellationTokenSource, Emitter } from 'vscode-jsonrpc/node'
 import { type AgentCoreToolName, isAgentCoreTool } from '../../shared/agent/agentCoreTools'
 import { busInboxText } from '../../shared/agents/busMessages'
+import { otherPaneText } from '../../shared/agents/paneText'
 import { initCaps } from '../approvals/capabilityStore'
 import type { ControlConn, ControlMethodContext } from '../control/controlServer'
 import type { PaneIdentity } from '../control/idRegistry'
@@ -143,6 +144,24 @@ async function managed(call: Call, facts: Facts): Promise<unknown> {
   }
 }
 
+function wrapped(paneId: unknown, text: unknown): string {
+  return otherPaneText(String(paneId ?? ''), typeof text === 'string' ? text : '')
+}
+
+function paneRead(value: unknown): unknown {
+  if (!isRecord(value)) return value
+  return { ...value, text: wrapped(value.paneId, value.text) }
+}
+
+function paneWait(value: unknown): unknown {
+  if (!isRecord(value) || typeof value.message !== 'string') return value
+  return { ...value, message: wrapped(value.paneId, value.message) }
+}
+
+function names(value: unknown): string[] {
+  return Array.isArray(value) ? value.filter((v): v is string => typeof v === 'string') : []
+}
+
 const SECOND_MS = 1000
 
 export const AGENT_CORE_TOOLS: Readonly<Record<AgentCoreToolName, CoreTool>> = {
@@ -174,6 +193,29 @@ export const AGENT_CORE_TOOLS: Readonly<Record<AgentCoreToolName, CoreTool>> = {
   ostia_bus_inbox: {
     methods: ['bus.inbox', 'bus.ack'],
     run: async (_input, call) => takeAndAck(call, await call('bus.inbox', { take: true })),
+  },
+  ostia_pane_read: {
+    methods: ['pane.read'],
+    run: async (input, call) =>
+      paneRead(
+        await call('pane.read', {
+          ...strings(input, ['pane']),
+          ...(typeof input.lines === 'number' ? { lines: input.lines } : {}),
+        }),
+      ),
+  },
+  ostia_pane_wait: {
+    methods: ['pane.wait'],
+    run: async (input, call) =>
+      paneWait(
+        await call('pane.wait', {
+          panes: names(input.panes),
+          ...(names(input.until).length > 0 ? { until: names(input.until) } : {}),
+          ...(typeof input.timeoutSeconds === 'number'
+            ? { timeoutMs: input.timeoutSeconds * SECOND_MS }
+            : {}),
+        }),
+      ),
   },
 }
 

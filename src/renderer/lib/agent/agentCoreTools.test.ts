@@ -44,12 +44,14 @@ function setAllow(alwaysAsk: ('ostia_agent_run' | 'ostia_bus_send')[]): void {
 const core = () => vi.mocked(window.ostia.agentSessions.coreCall)
 
 describe('the Agent pane’s ostia tools', () => {
-  it('offers the six tools, and only the two that act are acting tools', () => {
+  it('offers the eight tools, and only the two that act are acting tools', () => {
     expect(agentCoreToolDefs().map((d) => d.spec.name)).toEqual([
       'ostia_workspaces',
       'ostia_panes',
       'ostia_managed',
       'ostia_bus_inbox',
+      'ostia_pane_read',
+      'ostia_pane_wait',
       'ostia_agent_run',
       'ostia_bus_send',
     ])
@@ -57,10 +59,18 @@ describe('the Agent pane’s ostia tools', () => {
 
   it('runs a read tool through the core call without asking, in Ask mode too', async () => {
     core().mockResolvedValue({ ok: true, output: '[]' })
-    for (const name of ['ostia_workspaces', 'ostia_panes', 'ostia_managed', 'ostia_bus_inbox']) {
+    const reads = [
+      'ostia_workspaces',
+      'ostia_panes',
+      'ostia_managed',
+      'ostia_bus_inbox',
+      'ostia_pane_read',
+      'ostia_pane_wait',
+    ]
+    for (const name of reads) {
       expect(await def(name).run({}, run())).toEqual({ state: 'done', output: '[]' })
     }
-    expect(core()).toHaveBeenCalledTimes(4)
+    expect(core()).toHaveBeenCalledTimes(reads.length)
     expect(core()).toHaveBeenCalledWith('s1', 't7')
     expect(Object.keys(useChatToolsStore.getState().pending)).toEqual([])
   })
