@@ -55,10 +55,15 @@ export function claudeHookSettings(extensionHooks: readonly ExtensionAgentHook[]
       hookCommand('state working'),
       busHookCommand('UserPromptSubmit'),
       turnHookCommand('UserPromptSubmit'),
+      hookCommand('resume-token claude - folder'),
     ],
     PostToolUse: [turnHookCommand('PostToolUse')],
     Notification: [hookCommand('claude-hook Notification')],
-    Stop: [hookCommand('claude-hook Stop'), turnHookCommand('Stop')],
+    Stop: [
+      hookCommand('claude-hook Stop'),
+      turnHookCommand('Stop'),
+      hookCommand('resume-token claude - folder'),
+    ],
   }
   const hooks: Record<string, unknown[]> = {}
   for (const event of AGENT_HOOK_EVENTS) {

@@ -80,9 +80,9 @@ export async function runTurnHookVerb(conn: MessageConnection): Promise<void> {
 }
 
 export async function runResumeTokenVerb(conn: MessageConnection): Promise<void> {
-  const [agent, raw] = process.argv.slice(3)
-  if (!isResumableAgent(agent) || !raw) {
-    fail(`ostia resume-token: usage: resume-token <${RESUMABLE_AGENTS.join('|')}> <id|->`)
+  const [agent, raw, mode] = process.argv.slice(3)
+  if (!isResumableAgent(agent) || !raw || (mode !== undefined && mode !== 'folder')) {
+    fail(`ostia resume-token: usage: resume-token <${RESUMABLE_AGENTS.join('|')}> <id|-> [folder]`)
     return
   }
   const id = resumeFromHookPayload(raw === '-' ? await readAllStdin() : raw)
@@ -91,11 +91,10 @@ export async function runResumeTokenVerb(conn: MessageConnection): Promise<void>
     return
   }
   const args = capturedArgs(agent, process.env)
-  const res = await conn.sendRequest<{ ok: boolean; error?: string }>('pane.setResume', {
-    agent,
-    id,
-    ...(args ? { args } : {}),
-  })
+  const res = await conn.sendRequest<{ ok: boolean; error?: string }>(
+    mode === 'folder' ? 'pane.setResumeFolder' : 'pane.setResume',
+    { agent, id, ...(args && mode !== 'folder' ? { args } : {}) },
+  )
   if (res.ok) {
     console.log('ok')
   } else {

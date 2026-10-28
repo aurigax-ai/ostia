@@ -6,7 +6,9 @@ import { describe, expect, it, vi } from 'vitest'
 
 vi.mock('electron', () => ({ ipcMain: { handle: vi.fn() } }))
 
-const { readSessionInfo, TRANSCRIPT_TAIL_BYTES } = await import('./agentTranscript')
+const { codexSessionFolder, readSessionInfo, TRANSCRIPT_TAIL_BYTES } = await import(
+  './agentTranscript'
+)
 const { readRange, readTail } = await import('./transcriptFiles')
 
 function home(): string {
@@ -48,6 +50,45 @@ describe('readSessionInfo', () => {
     )
     const info = readSessionInfo({ agent: 'codex', id: '01a0f1f5' }, h)
     expect(info).toMatchObject({ branch: 'dev', cwd: '/w', model: 'gpt-5.4' })
+  })
+})
+
+describe('codexSessionFolder', () => {
+  function rollout(h: string, lines: unknown[]): void {
+    const dir = join(h, '.codex', 'sessions', '2026', '10', '28')
+    mkdirSync(dir, { recursive: true })
+    writeFileSync(
+      join(dir, 'rollout-2026-10-28T01-21-22-01a180f4.jsonl'),
+      `${lines.map((l) => JSON.stringify(l)).join('\n')}\n`,
+    )
+  }
+
+  it('names the latest folder the session recorded after a /cd, not the one it started in', () => {
+    const h = home()
+    rollout(h, [
+      { type: 'session_meta', payload: { cwd: '/w/a' } },
+      { type: 'turn_context', payload: { cwd: '/w/a' } },
+      { type: 'turn_context', payload: { cwd: '/w/b' } },
+    ])
+    expect(codexSessionFolder({ agent: 'codex', id: '01a180f4' }, h)).toBe('/w/b')
+  })
+
+  it('keeps a folder longer than a display field', () => {
+    const h = home()
+    const long = `/w/${'d'.repeat(300)}`
+    rollout(h, [{ type: 'session_meta', payload: { cwd: long } }])
+    expect(codexSessionFolder({ agent: 'codex', id: '01a180f4' }, h)).toBe(long)
+  })
+
+  it('names nothing for Claude, whose transcript follows a cd the session does not resume in, or a missing record', () => {
+    const h = home()
+    mkdirSync(join(h, '.claude', 'projects', '-w'), { recursive: true })
+    writeFileSync(
+      join(h, '.claude', 'projects', '-w', 'abc-1.jsonl'),
+      `${JSON.stringify({ type: 'user', cwd: '/w/sub' })}\n`,
+    )
+    expect(codexSessionFolder({ agent: 'claude', id: 'abc-1' }, h)).toBeNull()
+    expect(codexSessionFolder({ agent: 'codex', id: 'missing' }, h)).toBeNull()
   })
 })
 

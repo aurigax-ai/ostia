@@ -34,6 +34,7 @@ import type { KeptShellsWiring } from '../tmux/keptShellsWiring'
 import type { WindowSend } from '../windows/windowSend'
 import type { AgentResumes } from './agentResumes'
 import type { AgentRunningPanes } from './agentRunning'
+import { codexSessionFolder } from './agentTranscript'
 import { type ReportedAgentWork, registerAgentWorkMethods } from './agentWork'
 import { tellPane } from './busStore'
 
@@ -111,6 +112,7 @@ export function registerAgentWiring({
     execCommand,
     foregroundProgram,
     agentCwd,
+    sessionFolder: codexSessionFolder,
     onResume: (identity, resume) => {
       services.telemetry?.count('agents', 'resume')
       paneWaking.end(identity.paneId, 'started')

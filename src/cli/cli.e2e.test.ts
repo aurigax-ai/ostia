@@ -708,7 +708,9 @@ describe('ostia CLI end-to-end (spawns the real out/cli/index.js against a live 
   describe('resume-token and pane.setResume', () => {
     let foreground: string | null = null
     let paneCwd: string | null = null
+    let sessionFolder: string | null = null
     let stored: unknown = null
+    const resumed: string[] = []
     const fromMain: string[] = []
     beforeAll(() => {
       registerPaneResumeMethods({
@@ -719,12 +721,15 @@ describe('ostia CLI end-to-end (spawns the real out/cli/index.js against a live 
         },
         foregroundProgram: () => foreground,
         agentCwd: async () => paneCwd,
-        onResume: () => {},
+        sessionFolder: () => sessionFolder,
+        onResume: (_identity, resume) => resumed.push(resume.id),
       })
     })
     beforeEach(() => {
       foreground = null
       paneCwd = null
+      sessionFolder = null
+      resumed.length = 0
       stored = null
       fromMain.length = 0
     })
@@ -833,6 +838,76 @@ describe('ostia CLI end-to-end (spawns the real out/cli/index.js against a live 
         ok: true,
       })
       expect(execCalls.at(-1)?.args).toEqual({ agent: 'claude', id: 'e2e-tok-nocwd' })
+    })
+
+    it('stores the folder the agent’s own session record names before the process folder', async () => {
+      foreground = 'codex'
+      paneCwd = '/work/start'
+      sessionFolder = '/work/moved'
+      expect(await setResume({ agent: 'codex', id: 'e2e-tok-cd', cwd: '/work/caller' })).toEqual({
+        ok: true,
+      })
+      expect(execCalls.at(-1)?.args).toEqual({
+        agent: 'codex',
+        id: 'e2e-tok-cd',
+        cwd: '/work/moved',
+      })
+    })
+
+    it('resume-token moves the stored folder to where the session is now, without a new session', async () => {
+      foreground = 'claude'
+      stored = { agent: 'claude', id: 'e2e-tok-wt', cwd: '/work/repo', args: ['--model', 'opus'] }
+      paneCwd = '/work/repo/.claude/worktrees/wt1'
+      const res = await runOstia(
+        ['resume-token', 'claude', '-', 'folder'],
+        withEnv({ OSTIA_SOCKET: socketPath, OSTIA_TOKEN: identity.token }),
+        undefined,
+        JSON.stringify({ session_id: 'e2e-tok-wt', cwd: '/work/caller' }),
+      )
+      expect(res.stderr).toBe('')
+      expect(res.code).toBe(0)
+      expect(execCalls.at(-1)).toEqual({
+        target: { windowId: 'w1', workspaceId: 's1', paneId: 'pE2E' },
+        id: 'resume.set',
+        args: {
+          agent: 'claude',
+          id: 'e2e-tok-wt',
+          cwd: '/work/repo/.claude/worktrees/wt1',
+          args: ['--model', 'opus'],
+        },
+      })
+      expect(resumed).toEqual([])
+    })
+
+    it('resume-token follows a Codex folder change from the session record, not the process', async () => {
+      foreground = 'codex'
+      stored = { agent: 'codex', id: 'e2e-tok-slash-cd', cwd: '/work/a' }
+      paneCwd = '/work/a'
+      sessionFolder = '/work/b'
+      const res = await runOstia(
+        ['resume-token', 'codex', 'e2e-tok-slash-cd', 'folder'],
+        withEnv({ OSTIA_SOCKET: socketPath, OSTIA_TOKEN: identity.token }),
+      )
+      expect(res.stderr).toBe('')
+      expect(execCalls.at(-1)?.args).toEqual({
+        agent: 'codex',
+        id: 'e2e-tok-slash-cd',
+        cwd: '/work/b',
+      })
+    })
+
+    it('resume-token changes nothing for another session, an unchanged folder or an unknown folder', async () => {
+      stored = { agent: 'claude', id: 'e2e-tok-kept', cwd: '/work/repo' }
+      const before = execCalls.length
+      const env = withEnv({ OSTIA_SOCKET: socketPath, OSTIA_TOKEN: identity.token })
+      paneCwd = '/work/elsewhere'
+      await runOstia(['resume-token', 'claude', 'e2e-tok-other', 'folder'], env)
+      await runOstia(['resume-token', 'codex', 'e2e-tok-kept', 'folder'], env)
+      paneCwd = '/work/repo'
+      await runOstia(['resume-token', 'claude', 'e2e-tok-kept', 'folder'], env)
+      paneCwd = null
+      await runOstia(['resume-token', 'claude', 'e2e-tok-kept', 'folder'], env)
+      expect(execCalls.slice(before).filter((c) => c.id === 'resume.set')).toEqual([])
     })
 
     it('refuses an agent other than the one running in the pane', async () => {

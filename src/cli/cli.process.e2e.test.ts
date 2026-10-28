@@ -241,6 +241,7 @@ registerPaneResumeMethods({
   execCommand: async () => ({ ok: true }) as CommandResult,
   foregroundProgram: () => null,
   agentCwd: async () => null,
+  sessionFolder: () => null,
   onResume: (identity) => waking.end(identity.paneId, 'started'),
 })
 
