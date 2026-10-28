@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { PANE_TURNS_MAX, PaneTurns, registerPaneTurnMethods, TURN_OUTPUTS_MAX } from './paneTurns'
 
 const methods = vi.hoisted(
@@ -94,9 +94,14 @@ describe('PaneTurns', () => {
 })
 
 describe('pane.reportTurn', () => {
+  const boundaries: unknown[] = []
+  beforeEach(() => {
+    boundaries.length = 0
+  })
+
   it('PHT-C13 records a report only for the calling pane itself, never for another caller', async () => {
     const turns = new PaneTurns()
-    registerPaneTurnMethods(turns)
+    registerPaneTurnMethods(turns, (identity) => boundaries.push(identity))
     const method = methods.get('pane.reportTurn')
     expect(method?.cap).toBe('drive-self')
     const call = (identity: unknown, params: unknown) =>
@@ -117,5 +122,18 @@ describe('pane.reportTurn', () => {
     })
     expect(await call({ kind: 'pane', paneId: 'p1' }, { kind: 'bogus' })).toEqual({ ok: true })
     expect(turns.list('p1')).toHaveLength(1)
+  })
+
+  it('tells a prompt and a stop apart from a step, so the agent’s folder is read once per turn edge', async () => {
+    const turns = new PaneTurns()
+    registerPaneTurnMethods(turns, (identity) => boundaries.push(identity))
+    const method = methods.get('pane.reportTurn')
+    const identity = { kind: 'pane', paneId: 'p1' }
+    const call = (params: unknown) => method?.handler(params, { identity }) as Promise<unknown>
+    await call({ kind: 'prompt', text: 'hello there' })
+    await call({ kind: 'step', step: 'read', target: 'a' })
+    await call({ kind: 'stop' })
+    await call({ kind: 'bogus' })
+    expect(boundaries).toEqual([identity, identity])
   })
 })

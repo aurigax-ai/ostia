@@ -708,6 +708,7 @@ describe('ostia CLI end-to-end (spawns the real out/cli/index.js against a live 
   describe('resume-token and pane.setResume', () => {
     let foreground: string | null = null
     let paneCwd: string | null = null
+    let sessionFolder: string | null = null
     let stored: unknown = null
     const fromMain: string[] = []
     beforeAll(() => {
@@ -719,12 +720,14 @@ describe('ostia CLI end-to-end (spawns the real out/cli/index.js against a live 
         },
         foregroundProgram: () => foreground,
         agentCwd: async () => paneCwd,
+        sessionFolder: () => sessionFolder,
         onResume: () => {},
       })
     })
     beforeEach(() => {
       foreground = null
       paneCwd = null
+      sessionFolder = null
       stored = null
       fromMain.length = 0
     })
@@ -833,6 +836,20 @@ describe('ostia CLI end-to-end (spawns the real out/cli/index.js against a live 
         ok: true,
       })
       expect(execCalls.at(-1)?.args).toEqual({ agent: 'claude', id: 'e2e-tok-nocwd' })
+    })
+
+    it('stores the folder the agent’s own session record names before the process folder', async () => {
+      foreground = 'codex'
+      paneCwd = '/work/start'
+      sessionFolder = '/work/moved'
+      expect(await setResume({ agent: 'codex', id: 'e2e-tok-cd', cwd: '/work/caller' })).toEqual({
+        ok: true,
+      })
+      expect(execCalls.at(-1)?.args).toEqual({
+        agent: 'codex',
+        id: 'e2e-tok-cd',
+        cwd: '/work/moved',
+      })
     })
 
     it('refuses an agent other than the one running in the pane', async () => {

@@ -18,7 +18,16 @@ export interface PaneResumeDeps {
   ) => Promise<CommandResult>
   foregroundProgram: (paneId: string) => string | null
   agentCwd: (paneId: string) => Promise<string | null>
+  sessionFolder: (resume: AgentResume) => string | null
   onResume: (identity: PaneIdentity, resume: AgentResume) => void
+}
+
+async function storedResume(
+  deps: PaneResumeDeps,
+  identity: PaneIdentity,
+): Promise<AgentResume | null> {
+  const res = await deps.execCommand(targetOf(identity), 'pane.resumeToken', undefined, true)
+  return res.ok ? parseAgentResume((res.result as { resume?: unknown } | undefined)?.resume) : null
 }
 
 async function paneAgent(
@@ -27,9 +36,26 @@ async function paneAgent(
 ): Promise<ResumableAgent | null> {
   const program = deps.foregroundProgram(identity.paneId)
   if (isResumableAgent(program)) return program
-  const res = await deps.execCommand(targetOf(identity), 'pane.resumeToken', undefined, true)
-  if (!res.ok) return null
-  return parseAgentResume((res.result as { resume?: unknown } | undefined)?.resume)?.agent ?? null
+  return (await storedResume(deps, identity))?.agent ?? null
+}
+
+async function agentFolder(
+  deps: PaneResumeDeps,
+  identity: PaneIdentity,
+  resume: AgentResume,
+): Promise<string | null> {
+  return deps.sessionFolder(resume) ?? (await deps.agentCwd(identity.paneId))
+}
+
+export async function refreshResumeFolder(
+  deps: PaneResumeDeps,
+  identity: PaneIdentity,
+): Promise<void> {
+  const stored = await storedResume(deps, identity)
+  if (!stored) return
+  const cwd = await agentFolder(deps, identity, stored)
+  if (!cwd || cwd === stored.cwd) return
+  await deps.execCommand(targetOf(identity), 'resume.set', { ...stored, cwd }, true)
 }
 
 export function registerPaneResumeMethods(deps: PaneResumeDeps): void {
@@ -39,7 +65,10 @@ export function registerPaneResumeMethods(deps: PaneResumeDeps): void {
       const reported = parseAgentResume(params)
       if (!reported) return { ok: false, error: 'invalid-resume' }
       const { cwd: _callerCwd, ...rest } = reported
-      const resume = parseAgentResume({ ...rest, cwd: await deps.agentCwd(ctx.identity.paneId) })
+      const resume = parseAgentResume({
+        ...rest,
+        cwd: await agentFolder(deps, ctx.identity, reported),
+      })
       if (!resume) return { ok: false, error: 'invalid-resume' }
       const agent = await paneAgent(deps, ctx.identity)
       if (agent !== null && agent !== resume.agent) return { ok: false, error: 'agent-mismatch' }

@@ -303,6 +303,17 @@ describe('setPaneHibernated', () => {
     const awake = setPaneHibernated(setPaneHibernated(root, root.id, true), root.id, false)
     expect(awake).toMatchObject({ cwd: '/w', spawnDir: '/w/t' })
   })
+
+  it('wakes in the folder the session moved to after the token was refreshed', () => {
+    const root = {
+      ...createPane(),
+      cwd: '/w',
+      resume: { agent: 'claude' as const, id: 'a', cwd: '/w/t' },
+    }
+    const moved = setPaneResume(root, root.id, { agent: 'claude', id: 'a', cwd: '/w/t/wt1' })
+    const awake = setPaneHibernated(setPaneHibernated(moved, root.id, true), root.id, false)
+    expect(awake).toMatchObject({ resume: { cwd: '/w/t/wt1' }, spawnDir: '/w/t/wt1' })
+  })
 })
 
 describe('settleSpawnDir', () => {

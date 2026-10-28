@@ -24,11 +24,14 @@ const EMPTY_SESSION_INFO: AgentSessionInfo = {
 }
 
 const FIELD_MAX = 200
+const PATH_MAX = 4096
 
 type Json = Record<string, unknown>
 
 const text = (v: unknown): string | null =>
   typeof v === 'string' && v.trim() ? v.trim().slice(0, FIELD_MAX) : null
+const pathText = (v: unknown): string | null =>
+  typeof v === 'string' && v.trim() ? v.trim().slice(0, PATH_MAX) : null
 const count = (v: unknown): number | null =>
   typeof v === 'number' && Number.isFinite(v) && v >= 0 ? Math.round(v) : null
 
@@ -54,7 +57,7 @@ export function claudeSessionInfo(lines: readonly string[]): AgentSessionInfo {
     else if (type === 'permission-mode') info.mode = text(entry.permissionMode) ?? info.mode
     if (entry.isSidechain === true) continue
     if (type !== 'user' && type !== 'assistant') continue
-    info.cwd = text(entry.cwd) ?? info.cwd
+    info.cwd = pathText(entry.cwd) ?? info.cwd
     info.branch = text(entry.gitBranch) ?? info.branch
     info.version = text(entry.version) ?? info.version
     if (type !== 'assistant' || !isRecord(entry.message)) continue
@@ -81,13 +84,13 @@ export function codexSessionInfo(lines: readonly string[]): AgentSessionInfo {
     const payload = entry.payload
     if (!isRecord(payload)) continue
     if (entry.type === 'session_meta') {
-      info.cwd = text(payload.cwd) ?? info.cwd
+      info.cwd = pathText(payload.cwd) ?? info.cwd
       info.version = text(payload.cli_version) ?? info.version
       info.contextWindow = count(payload.context_window) ?? info.contextWindow
       if (isRecord(payload.git)) info.branch = text(payload.git.branch) ?? info.branch
     } else if (entry.type === 'turn_context') {
       info.model = text(payload.model) ?? info.model
-      info.cwd = text(payload.cwd) ?? info.cwd
+      info.cwd = pathText(payload.cwd) ?? info.cwd
       info.effort = text(payload.effort) ?? info.effort
       info.mode = text(payload.approval_policy) ?? info.mode
     } else if (entry.type === 'event_msg' && payload.type === 'token_count') {
