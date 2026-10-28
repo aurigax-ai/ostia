@@ -182,7 +182,7 @@ export function useInputEditorKeys({
       return
     }
     if (e.key === 'Home' || e.key === 'End' || e.key === 'Escape') setMenu(null)
-    if (normal && onNormalKey(e, { vim, vimModeRef, draft, submit, handOff, stepHistory })) return
+    if (normal && onNormalKey(e, { vim, vimModeRef, draft, submit, stepHistory })) return
     const plain = !e.ctrlKey && !e.metaKey && !e.altKey
     if (e.key === 'Enter' && plain && !e.shiftKey) {
       e.preventDefault()
@@ -196,7 +196,6 @@ export function useInputEditorKeys({
         setVimMode('normal')
         replaceText(next.text, next.caret)
       } else if (suggestion) setDismissed(text)
-      else handOff('')
       return
     }
     if (suggestion && plain && !e.shiftKey && (e.key === 'ArrowRight' || e.key === 'End')) {
