@@ -36,12 +36,15 @@ async function followed(follows: boolean, served = BEFORE) {
     csv: 'a,b\n1,2',
   })
   await postSelection(session, selected)
-  const change = async (next: Buffer): Promise<string> => {
+  const setBody = (next: Buffer) => {
     body = Buffer.from(next)
+  }
+  const change = async (next: Buffer): Promise<string> => {
+    setBody(next)
     await harness.host.changed(viewerOwner('t1'))
     return new TextDecoder().decode((await reader.read()).value)
   }
-  return { ...harness, change }
+  return { ...harness, session, change, setBody }
 }
 
 describe('a viewer file that only grows', () => {
@@ -66,6 +69,20 @@ describe('a viewer file that only grows', () => {
     )
     expect(host.selectionForSend('w1', 'p1')).toBeNull()
     expect(events.at(-1)).toMatchObject({ payload: { selection: null } })
+  })
+
+  it('forgets the selection when the file was replaced before the page fetched it again', async () => {
+    const { host, change, session, setBody } = await followed(true)
+    expect(await change(Buffer.concat([BEFORE, Buffer.from('5,6\n')]))).toBe(
+      'event: changed\ndata: appended\n\n',
+    )
+    const replaced = Buffer.from('x,y\n9,9\n8,8\n5,6\n')
+    setBody(replaced)
+    await get(session, 'ostia-viewer://t1/~document')
+    expect(await change(Buffer.concat([replaced, Buffer.from('7,7\n')]))).toBe(
+      'event: changed\ndata: replaced\n\n',
+    )
+    expect(host.selectionForSend('w1', 'p1')).toBeNull()
   })
 
   it('forgets the selection when the file got shorter', async () => {
