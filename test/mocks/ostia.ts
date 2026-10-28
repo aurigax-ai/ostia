@@ -286,7 +286,8 @@ export function makeOstiaMock(overrides?: Partial<OstiaBridge>): OstiaBridge {
       openDefault: vi.fn().mockResolvedValue({ ok: true }),
       canOpenDefault: vi.fn().mockResolvedValue(true),
       reveal: vi.fn().mockResolvedValue({ ok: true }),
-      openLink: vi.fn().mockResolvedValue(true),
+      openLink: vi.fn().mockResolvedValue({ ok: true }),
+      linkInfo: vi.fn().mockResolvedValue({ ok: true, app: 'Obsidian' }),
       project: vi.fn().mockResolvedValue(null),
     },
     park: {
@@ -542,6 +543,7 @@ export function makeOstiaMock(overrides?: Partial<OstiaBridge>): OstiaBridge {
       abort: vi.fn().mockResolvedValue({ ok: true }),
       close: vi.fn().mockResolvedValue({ ok: true }),
       answerTool: vi.fn(),
+      coreCall: vi.fn().mockResolvedValue({ ok: true, output: '{}' }),
       onEvent: vi.fn(noopUnsub),
       onToolCall: vi.fn(noopUnsub),
       onToolCancel: vi.fn(noopUnsub),

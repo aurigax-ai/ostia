@@ -111,6 +111,7 @@ export function createAgentTransport(
                 sessionId: session.sessionId,
                 workspaceId: session.workspaceId(),
                 root: session.root(),
+                callId: call.callId,
                 toolCallId: call.toolCallId,
                 signal: abort.signal,
                 onApproval: (approvalId) =>

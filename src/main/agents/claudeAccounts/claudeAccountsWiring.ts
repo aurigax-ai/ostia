@@ -188,7 +188,7 @@ export function registerClaudeAccountsWiring(deps: RegisterDeps): void {
     handler: async (_params, ctx) => {
       const dir = defaultOnly(ctx) ? '' : await claudeAccounts.startDirectory(ctx.identity.paneId)
       await deps.trustForStart(dir, ctx.identity)
-      return { dir }
+      return { dir, memoryHome: dir === '' ? '' : claudeAccounts.defaultHome() }
     },
   })
 

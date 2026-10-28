@@ -106,11 +106,17 @@ function unauthenticatedError(message: string): ResponseError<void> {
 
 type ControlCallers = 'panes' | 'extensions' | 'manager' | 'all'
 
+export type ControlConn = Pick<MessageConnection, 'onClose' | 'onDispose'>
+
 export interface ControlMethodContext {
   identity: PaneIdentity
   authed: AuthedConn
-  conn: MessageConnection
+  conn: ControlConn
   token?: CancellationToken
+}
+
+export interface ExtensionMethodContext extends ControlMethodContext {
+  conn: MessageConnection
 }
 
 export interface ControlMethod {
@@ -118,7 +124,7 @@ export interface ControlMethod {
   callers?: ControlCallers
   scripts?: boolean
   targetable?: boolean
-  handler: (params: unknown, ctx: ControlMethodContext) => unknown | Promise<unknown>
+  handler(params: unknown, ctx: ControlMethodContext): unknown | Promise<unknown>
 }
 
 const DETAIL_HIDDEN_PREFIXES = ['vault.', 'secret.']
@@ -229,6 +235,41 @@ export interface ControlServerDeps {
   usage?: Pick<ScriptTokenUsageLog, 'record' | 'connected'>
   journal?: Pick<AgentJournal, 'call'>
   version?: () => string | null
+}
+
+let callJournal: ControlServerDeps['journal']
+
+export async function callControlMethod(
+  name: string,
+  params: unknown,
+  ctx: ControlMethodContext,
+): Promise<unknown> {
+  const began = performance.now()
+  const journaled = (bytes: number, code?: string): void => {
+    callJournal?.call({
+      method: name,
+      caller: ctx.identity.kind,
+      ms: performance.now() - began,
+      bytes,
+      code,
+    })
+  }
+  try {
+    const m = methods.get(name)
+    if (!m) throw new ResponseError(ErrorCodes.MethodNotFound, `unknown-method: ${name}`)
+    if (!callerAllowed(ctx.identity, m.targetable ? 'all' : (m.callers ?? 'panes'), m.scripts)) {
+      throw new ResponseError(ErrorCodes.InvalidRequest, `not-available-to-${ctx.identity.kind}`)
+    }
+    if (m.cap) {
+      await ensureCaps(ctx.authed, ctx.identity, [m.cap], name, describeParams(name, params))
+    }
+    const result = await m.handler(params, ctx)
+    journaled(callJournal ? answerBytes(result) : 0)
+    return result
+  } catch (err) {
+    journaled(0, verbCode(err instanceof Error ? err.message : ''))
+    throw err
+  }
 }
 
 let server: Server | null = null
@@ -541,6 +582,7 @@ function serveConnection(deps: ControlServerDeps, socket: Socket): void {
 
 export function registerControlServer(deps: ControlServerDeps, socketPathOverride?: string): void {
   const path = socketPathOverride ?? controlSocketPath()
+  callJournal = deps.journal
   try {
     rmSync(path, { force: true })
   } catch {}

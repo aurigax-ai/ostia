@@ -227,7 +227,7 @@ describe('live document text', () => {
     await reader.read()
     host.setDocumentText('w1', text('# unsaved'))
     expect(new TextDecoder().decode((await reader.read()).value)).toBe(
-      'event: changed\ndata: 1\n\n',
+      'event: changed\ndata: replaced\n\n',
     )
     expect(await (await get(session, 'ostia-viewer://t1/~document')).text()).toBe('# unsaved')
     const meta = await (await get(session, 'ostia-viewer://t1/~meta')).json()

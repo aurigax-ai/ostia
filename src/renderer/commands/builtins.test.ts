@@ -564,6 +564,29 @@ describe('builtins route to store actions', () => {
     expect(useSettingsStore.getState().workspaces.globalHotkey).toBe('')
   })
 
+  it('settings.set refuses the app link question and the allowed schemes, directly or via terminal', async () => {
+    const ask = await commands.execWith(ctx(null, null), 'settings.set', {
+      key: 'terminal.askBeforeOpeningApps',
+      value: false,
+    })
+    const allowed = await commands.execWith(ctx(null, null), 'settings.set', {
+      key: 'terminal.allowedAppSchemes',
+      value: ['obsidian'],
+    })
+    const nested = await commands.execWith(ctx(null, null), 'settings.set', {
+      key: 'terminal',
+      value: {
+        ...useSettingsStore.getState().terminal,
+        allowedAppSchemes: ['obsidian'],
+      },
+    })
+    expect(ask.ok).toBe(false)
+    expect(allowed.ok).toBe(false)
+    expect(nested.ok).toBe(false)
+    expect(useSettingsStore.getState().terminal.askBeforeOpeningApps).toBe(true)
+    expect(useSettingsStore.getState().terminal.allowedAppSchemes).toEqual([])
+  })
+
   it('KSH-C2 settings.set refuses keeping shells, directly or via terminal', async () => {
     const direct = await commands.execWith(ctx(null, null), 'settings.set', {
       key: 'terminal.keepShells',
@@ -2229,7 +2252,7 @@ describe('agent.newSession', () => {
 
     status.mockReturnValue('ready')
     await commands.execWith(ctx('s1', 'ag'), 'agent.newSession')
-    expect(start).toHaveBeenCalledWith('s1')
+    expect(start).toHaveBeenCalledWith('s1', 'ag')
 
     start.mockClear()
     status.mockReturnValue('streaming')

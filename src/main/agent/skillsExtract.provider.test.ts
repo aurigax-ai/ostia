@@ -44,8 +44,10 @@ describe('Find rules against an OpenAI-compatible server, through the Agent exte
         providers: [
           { id: 'fake', name: 'Fake', baseUrl: rig.provider.url, models: ['fake-model'] },
         ],
+        alwaysAsk: [],
       }),
       sandboxed: () => false,
+      coreCall: async () => ({ ok: false, error: 'unavailable' }),
       redact: async (text) => text.replaceAll('sk-SECRET', '[redacted]'),
       rulesContext: async () => ({ text: '', count: 0 }),
     })

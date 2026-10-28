@@ -9,7 +9,7 @@ import type { AgentRunningPanes } from '../agents/agentRunning'
 import { backgroundWork, type ReportedAgentWork, readProcessTable } from '../agents/agentWork'
 import { targetOf } from '../attention/attention'
 import type { CommandBridge } from '../control/commandBridge'
-import { type ControlMethodContext, registerControlMethod } from '../control/controlServer'
+import { type ExtensionMethodContext, registerControlMethod } from '../control/controlServer'
 import { getByPaneId, panesOwnedBy, resolveExternal } from '../control/idRegistry'
 import type { ExtensionHost } from '../extensions/extensionHost'
 import type { PaneJournal } from '../panes/paneJournal'
@@ -119,7 +119,7 @@ export function registerParkWiring(deps: ParkWiringDeps): ParkedStore {
     },
   )
 
-  const fromActivity = (ctx: ControlMethodContext): boolean =>
+  const fromActivity = (ctx: ExtensionMethodContext): boolean =>
     deps.services.extensionHost?.builtinId(ctx.identity, ctx.conn) === PARKED_PANEL_EXTENSION_ID
   const idOf = (params: unknown): string | null => {
     const id = (params as { id?: unknown } | null)?.id
@@ -130,7 +130,7 @@ export function registerParkWiring(deps: ParkWiringDeps): ParkedStore {
   registerControlMethod('ext.parkedList', {
     callers: 'extensions',
     cap: 'read-board',
-    handler: (params, ctx) => {
+    handler: (params, ctx: ExtensionMethodContext) => {
       if (!fromActivity(ctx)) return NOT_ACTIVITY
       const workspaceId = (params as { workspaceId?: unknown } | null)?.workspaceId
       if (typeof workspaceId !== 'string') return { ok: false, error: 'invalid-params' }
@@ -141,7 +141,7 @@ export function registerParkWiring(deps: ParkWiringDeps): ParkedStore {
   registerControlMethod('ext.parkedResume', {
     callers: 'extensions',
     cap: 'read-board',
-    handler: async (params, ctx) => {
+    handler: async (params, ctx: ExtensionMethodContext) => {
       if (!fromActivity(ctx)) return NOT_ACTIVITY
       const id = idOf(params)
       if (!id) return { ok: false, error: 'invalid-params' }
@@ -178,7 +178,7 @@ export function registerParkWiring(deps: ParkWiringDeps): ParkedStore {
   registerControlMethod('ext.parkedForget', {
     callers: 'extensions',
     cap: 'read-board',
-    handler: (params, ctx) => {
+    handler: (params, ctx: ExtensionMethodContext) => {
       if (!fromActivity(ctx)) return NOT_ACTIVITY
       const id = idOf(params)
       return id ? forgetParked(store, id) : { ok: false, error: 'invalid-params' }

@@ -84,6 +84,7 @@ function waiting(reason?: WriteAskReason, exists = true): Promise<ApprovalAnswer
       mode,
       grants: new Set(),
       standing: new Set(),
+      alwaysAsk: new Set(),
       outside: reason === 'outside',
       symlink: reason === 'symlink',
       repository: reason === 'repository',
@@ -417,6 +418,7 @@ describe('ChatEditCard', () => {
           mode: 'ask',
           grants: new Set(),
           standing: new Set(),
+          alwaysAsk: new Set(),
         }),
         new AbortController().signal,
       )

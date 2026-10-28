@@ -3,6 +3,7 @@ import {
   type AgentProviderEntry,
 } from '@aurigax-ai/ostia-extension-sdk/contract/agent'
 import { isRecord } from '@aurigax-ai/ostia-extension-sdk/contract/isRecord'
+import { AGENT_ACT_TOOLS, type AgentActTool } from './agentCoreTools'
 
 const AGENT_PROVIDERS_MAX = 16
 const AGENT_PROVIDER_ID = /^[a-z0-9][a-z0-9-]{0,31}$/
@@ -12,9 +13,19 @@ const AGENT_URL_MAX = 2048
 
 export interface AgentHostSettings {
   providers: AgentProviderEntry[]
+  alwaysAsk: AgentActTool[]
 }
 
-export const DEFAULT_AGENT_SETTINGS: AgentHostSettings = { providers: [] }
+export const DEFAULT_AGENT_SETTINGS: AgentHostSettings = {
+  providers: [],
+  alwaysAsk: [],
+}
+
+function parseAlwaysAsk(raw: unknown): AgentActTool[] {
+  if (!Array.isArray(raw)) return []
+  const listed = new Set(raw.filter((name): name is string => typeof name === 'string'))
+  return AGENT_ACT_TOOLS.filter((name) => listed.has(name))
+}
 
 function plainHttpUrl(value: unknown): string | null {
   if (typeof value !== 'string' || value.length > AGENT_URL_MAX) return null
@@ -52,5 +63,5 @@ export function parseAgentSettings(raw: unknown): AgentHostSettings {
     const provider = parseAgentProvider(item)
     if (provider && !providers.some((p) => p.id === provider.id)) providers.push(provider)
   }
-  return { providers }
+  return { providers, alwaysAsk: parseAlwaysAsk(src.alwaysAsk) }
 }

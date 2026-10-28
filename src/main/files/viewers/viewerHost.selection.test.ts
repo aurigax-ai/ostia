@@ -306,11 +306,11 @@ describe('guest selection channel', () => {
     click()
     await postSelection(session, body)
     expect(host.selectionForSend('w1', 'p1')).not.toBeNull()
-    host.changed(viewerOwner('t1'))
+    await host.changed(viewerOwner('t1'))
     expect(host.selectionForSend('w1', 'p1')).toBeNull()
     expect(events.at(-1)).toMatchObject({ payload: { selection: null } })
     const count = events.length
-    host.changed(viewerOwner('t1'))
+    await host.changed(viewerOwner('t1'))
     expect(events).toHaveLength(count)
   })
 

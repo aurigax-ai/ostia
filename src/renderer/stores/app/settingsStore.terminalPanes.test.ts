@@ -29,6 +29,8 @@ describe('settingsStore terminal and pane settings', () => {
       minimumContrast: 1,
       clipboardKeys: 'shift',
       linkClick: 'app',
+      askBeforeOpeningApps: true,
+      allowedAppSchemes: [],
       prompt: {
         style: 'shell',
         chips: ['conda', 'virtualenv', 'node', 'cwd', 'git.branch', 'git.diff-stats'],
@@ -76,6 +78,8 @@ describe('settingsStore terminal and pane settings', () => {
       prompt: { style: 'ostia', chips: ['cwd', 'git.branch'], sameLine: false, separator: 'none' },
       clipboardKeys: 'shift',
       linkClick: 'app',
+      askBeforeOpeningApps: true,
+      allowedAppSchemes: [],
       theme: 'match',
       shell: '',
       osc52Write: true,

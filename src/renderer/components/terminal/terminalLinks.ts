@@ -3,6 +3,7 @@ import { isPaneVisible } from '@/lib/attention/workspaceActivity'
 import { openBrowserAs, openBrowserTabAs } from '@/lib/browser/browserProfile'
 import { measureCells } from '@/lib/prompt/usePromptGeometry'
 import type { OstiaTerminal, WebLinkHandler } from '@/lib/terminal/ostiaTerminal'
+import { openAppLink } from '@/lib/terminalLinks/appLinkOpen'
 import { createLinkHint } from '@/lib/terminalLinks/linkHint'
 import {
   attachLinkClaim,
@@ -108,7 +109,7 @@ export function createTerminalLinks({
     if (target === 'same-tab') openBrowserAs(workspaceIdRef.current, uri, 'human')
     else if (target === 'new-tab') openBrowserTabAs(workspaceIdRef.current, uri, 'human')
     else if (target === 'system') window.open(uri, '_blank')
-    else if (target === 'app') void window.ostia.openPath.openLink(uri)
+    else if (target === 'app') void openAppLink(paneId, uri)
   }
   const linkPane = (): LinkPane => ({
     workspaceId: workspaceIdRef.current,

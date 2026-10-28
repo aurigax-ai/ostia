@@ -34,6 +34,21 @@ describe('parseAgentSettings', () => {
   })
 
   it('answers empty settings for anything that is not an object', () => {
-    expect(parseAgentSettings(null)).toEqual({ providers: [] })
+    expect(parseAgentSettings(null)).toEqual({
+      providers: [],
+      alwaysAsk: [],
+    })
+  })
+
+  it('has an empty always-ask list until the human turns tools on', () => {
+    expect(parseAgentSettings({}).alwaysAsk).toEqual([])
+    expect(parseAgentSettings({ alwaysAsk: 'ostia_bus_send' }).alwaysAsk).toEqual([])
+  })
+
+  it('keeps only acting ostia tools in the list, and an empty list stays empty', () => {
+    expect(
+      parseAgentSettings({ alwaysAsk: ['ostia_bus_send', 'ostia_panes', 'open_url', 7] }).alwaysAsk,
+    ).toEqual(['ostia_bus_send'])
+    expect(parseAgentSettings({ alwaysAsk: [] }).alwaysAsk).toEqual([])
   })
 })

@@ -1,6 +1,7 @@
 {
   "name": "restore and user folders",
   "paths": [
+    "src/main/platform/compileCacheBoot.ts",
     "src/main/platform/oldDirsPrompt.ts",
     "src/main/platform/userDirs.",
     "src/main/platform/userDirsBoot.ts",
@@ -12,6 +13,7 @@
     "src/renderer/stores/workspaces/persistence.ts"
   ],
   "specs": [
+    "e2e/compile-cache.spec.ts",
     "e2e/session-restore.spec.ts",
     "e2e/user-dirs.spec.ts",
     "e2e/workspace-restore.spec.ts"

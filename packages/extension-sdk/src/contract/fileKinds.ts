@@ -21,6 +21,13 @@ export const VIEWER_META_PATH = '/~meta'
 export const VIEWER_EVENTS_PATH = '/~events'
 export const VIEWER_PORTABLE_PATH = '/~portable'
 export const VIEWER_CHANGED_EVENT = 'changed'
+export const VIEWER_APPENDS_QUERY = 'appends=1'
+
+export type ViewerChange = 'appended' | 'replaced'
+
+export function viewerChangeOf(data: unknown): ViewerChange {
+  return data === 'appended' ? 'appended' : 'replaced'
+}
 export const VIEWER_SELECTION_CLEARED_EVENT = 'selection-cleared'
 
 export const PORTABLE_TABLES_MAX = 256

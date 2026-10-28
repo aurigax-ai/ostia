@@ -7,6 +7,7 @@ import type {
   ChatFsResult,
 } from '@shared/assist/chatTools'
 import { resolveLinkPath } from '@shared/files/fileLinks'
+import { useSettingsStore } from '@/stores/app/settingsStore'
 import {
   type ApprovalDetail,
   grantsFor,
@@ -30,6 +31,7 @@ export interface ToolRun {
   sessionId: string
   workspaceId: string | null
   root: string
+  callId?: string
   toolCallId: string
   signal: AbortSignal
   onApproval: (approvalId: string) => void
@@ -84,7 +86,7 @@ export const DENIED: ToolOutcome = { state: 'denied' }
 
 export async function gate(
   run: ToolRun,
-  check: Omit<ToolCheck, 'mode' | 'grants' | 'standing'>,
+  check: Omit<ToolCheck, 'mode' | 'grants' | 'standing' | 'alwaysAsk'>,
   input: Record<string, unknown>,
   shown: ApprovalDetail,
 ): Promise<ApprovalAnswer | null> {
@@ -94,6 +96,7 @@ export async function gate(
     mode: modeFor(run.sessionId),
     grants: grantsFor(run.sessionId),
     standing: standingGrants(),
+    alwaysAsk: new Set(useSettingsStore.getState().agent.alwaysAsk),
   })
   if (decision.run) return null
   const detail = decision.reason ? { ...shown, reason: decision.reason } : shown

@@ -72,6 +72,21 @@ export const terminalSchema = {
         'Shift opens it in the system\'s default app. "system": in the system\'s default app, ' +
         `and adding Shift opens it in ${PRODUCT_DISPLAY_NAME}. Default: app.`,
     },
+    askBeforeOpeningApps: {
+      type: 'boolean',
+      description:
+        'Ask before a link printed in a terminal opens another app: a custom scheme such as ' +
+        'obsidian:// or vscode://, or a chrome://, edge:// or brave:// page in that browser. ' +
+        'Only you can change this, in Settings; agents cannot. Default: true.',
+    },
+    allowedAppSchemes: {
+      type: 'array',
+      items: { type: 'string' },
+      description:
+        'App link schemes that open without the question, such as "obsidian". Added by the ' +
+        'question\'s "Don\'t ask again" box and removed in Settings. Only you can change this, ' +
+        'in Settings; agents cannot. Default: none.',
+    },
     warnOnRiskyPaste: {
       type: 'boolean',
       description:

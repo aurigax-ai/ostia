@@ -1,11 +1,9 @@
 import { type Stats, statSync } from 'node:fs'
 import { stat } from 'node:fs/promises'
 import { extname } from 'node:path'
-import { type BrowserWindow, type IpcMainInvokeEvent, ipcMain, shell } from 'electron'
-import { externalHref } from '../../shared/common/externalLinks'
+import { ipcMain, shell } from 'electron'
 import type { OpenPathResult } from '../../shared/files/filesApi'
 import { readFileSlice } from '../gateway/workspaceFiles'
-import { fromAppWindow } from '../platform/appWindowSender'
 import { resolveSafe } from '../platform/pathGuard'
 
 const PROGRAM_EXTENSIONS = new Set([
@@ -148,26 +146,7 @@ function locate(raw: unknown, roots: string[]): { path: string; info: Stats } | 
   }
 }
 
-export async function openLink(
-  appWindows: () => Iterable<BrowserWindow>,
-  e: IpcMainInvokeEvent,
-  raw: unknown,
-): Promise<boolean> {
-  if (!fromAppWindow(appWindows, e) || typeof raw !== 'string') return false
-  const href = externalHref(raw, { apps: true })
-  if (!href) return false
-  try {
-    await shell.openExternal(href)
-    return true
-  } catch {
-    return false
-  }
-}
-
-export function registerOpenPathIpc(
-  roots: string[],
-  appWindows: () => Iterable<BrowserWindow>,
-): void {
+export function registerOpenPathIpc(roots: string[]): void {
   ipcMain.handle('shell:open-default', async (_e, raw: unknown): Promise<OpenPathResult> => {
     const found = locate(raw, roots)
     if (!found) return { ok: false, error: 'not-found' }
@@ -177,7 +156,6 @@ export function registerOpenPathIpc(
     const found = locate(raw, roots)
     return found !== null && canOpenDefault(found.path, found.info)
   })
-  ipcMain.handle('shell:open-link', (e, raw: unknown) => openLink(appWindows, e, raw))
   ipcMain.handle('shell:reveal', (_e, raw: unknown): OpenPathResult => {
     const found = locate(raw, roots)
     if (!found) return { ok: false, error: 'not-found' }

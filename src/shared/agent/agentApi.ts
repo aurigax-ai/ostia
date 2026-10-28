@@ -8,6 +8,7 @@ import type {
 
 interface AgentOpenOptions {
   workspaceId: string
+  paneId: string
   cwd: string
   tools: AgentToolSpec[]
   model?: AgentModelRef
@@ -28,6 +29,7 @@ export interface AgentSessionsApi {
   abort: (sessionId: string) => Promise<AgentReply>
   close: (sessionId: string) => Promise<AgentReply>
   answerTool: (callId: string, reply: AgentToolReply) => void
+  coreCall: (sessionId: string, callId: string) => Promise<AgentToolReply>
   onEvent: (cb: (notice: { sessionId: string; event: AgentEvent }) => void) => () => void
   onToolCall: (cb: (notice: AgentToolCallNotice) => void) => () => void
   onToolCancel: (cb: (notice: { callId: string }) => void) => () => void

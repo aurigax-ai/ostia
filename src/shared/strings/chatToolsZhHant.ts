@@ -140,6 +140,7 @@ export const chatToolsZhHant: typeof chatToolsEn = {
     askMcp: '要呼叫 {server} MCP 伺服器的 {tool} 嗎？',
     askOpenFile: '要在編輯器開啟 {path} 嗎？',
     askOpenUrl: '要在瀏覽器窗格開啟 {url} 嗎？',
+    askOstia: '要允許代理程式{action}嗎？',
     askReadOutside: '要讀取工作區資料夾以外的 {path} 嗎？',
     authStates: {
       expired: '登入已過期',
@@ -275,6 +276,10 @@ export const chatToolsZhHant: typeof chatToolsEn = {
     noServersDesc: '新增伺服器，讓對話有更多工具可用。',
     noSkills: '沒有技能資料夾。請到「設定 → 助理」新增。',
     noSkillsInFolder: '沒有找到技能',
+    ostiaActions: {
+      ostia_agent_run: '啟動一個代理程式',
+      ostia_bus_send: '傳訊息給另一個代理程式',
+    },
     output: '結果',
     prompted:
       '此模型沒有原生的工具呼叫，因此工具是寫在提示中告訴它的。小型模型可能會用錯工具或不呼叫工具。',

@@ -34,11 +34,12 @@ export function registerAgentCommand(): void {
     listed: () => activeAgentSession() !== null,
     run: async (args, ctx) => {
       const workspaceId = ctx.activeWorkspaceId
-      const sessionId = agentSessionOf(workspaceId, args?.paneId ?? ctx.activePaneId)
-      if (!workspaceId || !sessionId) return
+      const paneId = args?.paneId ?? ctx.activePaneId
+      const sessionId = agentSessionOf(workspaceId, paneId)
+      if (!workspaceId || !paneId || !sessionId) return
       const status = agentChatFor(sessionId).status
       if (status === 'submitted' || status === 'streaming') return
-      await startNewAgentSession(workspaceId)
+      await startNewAgentSession(workspaceId, paneId)
     },
   })
 }
