@@ -174,6 +174,13 @@ export const INPUT_MODES: readonly InputMode[] = ['terminal', 'editor']
 export const inputMode = (v: unknown): InputMode =>
   INPUT_MODES.includes(v as InputMode) ? (v as InputMode) : 'terminal'
 
+export type InputEscape = 'clear' | 'menus'
+
+export const INPUT_ESCAPES: readonly InputEscape[] = ['clear', 'menus']
+
+export const inputEscape = (v: unknown): InputEscape =>
+  INPUT_ESCAPES.includes(v as InputEscape) ? (v as InputEscape) : 'clear'
+
 export interface Behavior {
   cursorStyle: CursorStyle
   cursorBlink: boolean
@@ -184,6 +191,8 @@ export interface Behavior {
   copyOnSelect: boolean
   inputMode: InputMode
   inputEditorVim: boolean
+  inputEscape: InputEscape
+  liveFileSuggestions: boolean
   historySuggestions: boolean
   checkForUpdates: boolean
   updateChannel: UpdateChannel
@@ -297,6 +306,8 @@ export const DEFAULTS: Persisted = {
     copyOnSelect: false,
     inputMode: 'terminal',
     inputEditorVim: false,
+    inputEscape: 'clear',
+    liveFileSuggestions: true,
     historySuggestions: true,
     checkForUpdates: true,
     updateChannel: DEFAULT_UPDATE_CHANNEL,

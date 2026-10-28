@@ -28,7 +28,11 @@ for (const shell of ['/bin/zsh', '/bin/bash']) {
     const dataHome = freshDataHome()
     seedSettings(dataHome, {
       ...DOM_RENDERER_SETTINGS,
-      behavior: { ...DOM_RENDERER_SETTINGS.behavior, inputMode: 'editor' },
+      behavior: {
+        ...DOM_RENDERER_SETTINGS.behavior,
+        inputMode: 'editor',
+        liveFileSuggestions: false,
+      },
     })
     const launch = isolatedLaunch(dataHome)
     seedHome(launch.home)

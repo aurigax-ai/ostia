@@ -38,6 +38,7 @@ import {
   DEFAULTS,
   HERE,
   type HibernationSettings,
+  inputEscape,
   inputMode,
   isPlainObject,
   kindOf,
@@ -121,6 +122,7 @@ function parseBehavior(raw: unknown): Behavior {
       typeof src.externalEditor === 'string'
         ? src.externalEditor
         : DEFAULTS.behavior.externalEditor,
+    inputEscape: inputEscape(src.inputEscape),
     inputMode: inputMode(src.inputMode),
     updateChannel: parseUpdateChannel(src.updateChannel),
   }

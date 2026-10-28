@@ -32,6 +32,9 @@ export const terminalZhHant: typeof terminalEn = {
   },
   inputEditor: {
     completions: '補全選項',
+    draftCleared: '草稿已清除 · 按 Ctrl+Z 還原',
+    escAgain: '再按一次 Esc 即可清除',
+    fileHint: 'Tab 補全 · Enter 執行',
     fromHistory: '來自歷史',
     label: '指令輸入',
     noCommands: '沒有符合的指令',
