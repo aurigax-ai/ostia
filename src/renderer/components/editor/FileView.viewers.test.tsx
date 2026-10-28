@@ -15,6 +15,7 @@ import {
   surfaceHost,
 } from '@/stores/workspaces/surfaceSlotsStore'
 
+vi.mock('@/lib/monaco/monacoLoader', () => ({ loadMonaco: async () => ({}) }))
 vi.mock('./Editor', () => ({
   EditorView: ({ filePath }: { filePath?: string }) => (
     <div data-testid="editor-view">{filePath}</div>
@@ -160,13 +161,13 @@ describe('FileView', () => {
     view.unmount()
     seed([{ ...IMAGES, enabled: false }])
     show('/w/pic.png')
-    expect(screen.getByTestId('editor-view')).toHaveTextContent('/w/pic.png')
+    expect(await screen.findByTestId('editor-view')).toHaveTextContent('/w/pic.png')
   })
 
-  it('shows the source when no viewer matches or the extension is disabled', () => {
+  it('shows the source when no viewer matches or the extension is disabled', async () => {
     seed([{ ...OFFICE, enabled: false }])
     show()
-    expect(screen.getByTestId('editor-view')).toHaveTextContent('/w/report.xlsx')
+    expect(await screen.findByTestId('editor-view')).toHaveTextContent('/w/report.xlsx')
     expect(window.ostia.viewers.open).not.toHaveBeenCalled()
   })
 
@@ -180,10 +181,10 @@ describe('FileView', () => {
     )
   })
 
-  it('says when the viewer chosen for the pane is gone', () => {
+  it('says when the viewer chosen for the pane is gone', async () => {
     seed([], { ...PANE, viewType: 'office.spreadsheet' })
     show()
-    expect(screen.getByTestId('editor-view')).toBeInTheDocument()
+    expect(await screen.findByTestId('editor-view')).toBeInTheDocument()
     expect(screen.getByRole('status')).toHaveTextContent('not available')
     expect(screen.queryByRole('button', { name: 'Open With…' })).toBeNull()
     cleanup()

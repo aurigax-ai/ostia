@@ -37,10 +37,8 @@ import {
 } from '@/lib/keyboard/documentClipboard'
 import { wireGuestChords } from '@/lib/keyboard/guestChordBridge'
 import { useModifierHint } from '@/lib/keyboard/useModifierHint'
-import { startLanguageServices } from '@/lib/lsp/client'
-import { loadEditorLanguages } from '@/lib/monaco/contributedLanguages'
+import { loadEditorLanguages, loadedMonaco } from '@/lib/monaco/monacoLoader'
 import { useMonacoTheme } from '@/lib/monaco/useMonacoTheme'
-import { registerSettingsSchema } from '@/lib/settings/registerSettingsSchema'
 import { installMiddlePasteGuard } from '@/lib/terminal/middlePaste'
 import { useIconStyle } from '@/lib/theme/iconWeight'
 import { applyTheme, useEffectiveTheme } from '@/lib/theme/theme'
@@ -85,10 +83,6 @@ export function App(): JSX.Element {
     document.documentElement.lang = locale
   }, [locale])
 
-  useEffect(() => {
-    void startLanguageServices()
-  }, [])
-
   useEffect(() => syncClipboardChords(isMac), [])
   useEffect(() => wireGuestChords(isMac), [])
   useEffect(() => wireLinkTabs(), [])
@@ -102,10 +96,7 @@ export function App(): JSX.Element {
     void loadEditorLanguages()
   }, [extensionList])
 
-  useEffect(() => {
-    void registerSettingsSchema()
-    return commands.subscribe(() => void registerSettingsSchema())
-  }, [])
+  useEffect(() => commands.subscribe(() => void loadedMonaco()?.registerSettingsSchema()), [])
 
   useModifierHint(isMac)
   useWindowTitle()

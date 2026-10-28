@@ -40,7 +40,7 @@ vi.mock('./setup', () => {
   }
 })
 
-const { applyEditorLanguages, loadEditorLanguages } = await import('./contributedLanguages')
+const { applyEditorLanguages } = await import('./contributedLanguages')
 const { fileLanguage, langFor } = await import('./language')
 
 function language(id: string, extra: Partial<EditorLanguage> = {}): EditorLanguage {
@@ -109,11 +109,5 @@ describe('applyEditorLanguages', () => {
     applyEditorLanguages([language('zig')])
     expect(state.calls.map((c) => c.kind)).toEqual(['configuration', 'grammar'])
     expect(fileLanguage('/p/a.zig')).toBe('zig')
-  })
-
-  it('loads what main validated', async () => {
-    vi.mocked(window.ostia.editorLanguages.load).mockResolvedValue([language('nim')])
-    await loadEditorLanguages()
-    expect(fileLanguage('/p/a.nim')).toBe('nim')
   })
 })
