@@ -136,6 +136,20 @@ describe('UpdateCheck', () => {
     stop()
   })
 
+  it('drops a manual check result when the channel changes outside the picker', async () => {
+    answer({ status: 'available', release: RELEASE })
+    render(<UpdateCheck />)
+    const stop = startUpdateWatch()
+    await check()
+    expect(screen.getByRole('status')).toHaveTextContent('Version 1.1.0 is available')
+
+    act(() => useSettingsStore.getState().setBehavior({ updateChannel: 'beta' }))
+
+    expect(screen.getByRole('status')).toBeEmptyDOMElement()
+    expect(screen.queryByRole('button', { name: 'View release' })).toBeNull()
+    stop()
+  })
+
   it('follows releases main announces and stops when the watch ends', () => {
     let announce: (state: ReleaseState) => void = () => {}
     const unsubscribe = vi.fn()

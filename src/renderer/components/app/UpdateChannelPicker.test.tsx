@@ -4,7 +4,7 @@ import { act, cleanup, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { useSettingsStore } from '@/stores/app/settingsStore'
-import { useUpdateStore } from '@/stores/app/updateStore'
+import { startUpdateWatch, useUpdateStore } from '@/stores/app/updateStore'
 import { UpdateChannelPicker } from './UpdateChannelPicker'
 import { UpdateCheck } from './UpdateCheck'
 
@@ -35,12 +35,11 @@ describe('UpdateChannelPicker', () => {
   })
 
   it.each(['tarball', 'local'] as const)(
-    'lets the human pick Main on a %s install and forgets the last check result',
+    'lets the human pick Main on a %s install',
     async (method) => {
       const user = userEvent.setup()
       vi.mocked(window.ostia.fs.write).mockClear()
       installedWith(method)
-      useUpdateStore.setState({ releaseCheck: { status: 'latest', version: '0.5.9' } })
       render(<UpdateChannelPicker />)
 
       const picker = screen.getByRole('combobox', { name: 'Update channel' })
@@ -55,7 +54,6 @@ describe('UpdateChannelPicker', () => {
           expect.stringContaining('"updateChannel": "main"'),
         ),
       )
-      expect(useUpdateStore.getState().releaseCheck).toEqual({ status: 'idle' })
       expect(screen.getByRole('combobox', { name: 'Update channel' })).toHaveTextContent('Main')
     },
   )
@@ -123,7 +121,6 @@ describe('UpdateChannelPicker', () => {
       const user = userEvent.setup()
       vi.mocked(window.ostia.fs.write).mockClear()
       installedWith(method)
-      useUpdateStore.setState({ releaseCheck: { status: 'latest', version: '0.5.12' } })
       render(<UpdateChannelPicker />)
 
       expect(screen.queryByRole('combobox', { name: 'Update channel' })).toBeNull()
@@ -139,7 +136,6 @@ describe('UpdateChannelPicker', () => {
           expect.stringContaining('"updateChannel": "beta"'),
         ),
       )
-      expect(useUpdateStore.getState().releaseCheck).toEqual({ status: 'idle' })
       expect(screen.getByRole('switch', { name: 'Receive beta updates' })).toBeChecked()
       expect(screen.queryAllByText(/brew upgrade --cask ostia/)).toHaveLength(
         method === 'brew' ? 1 : 0,
@@ -204,7 +200,16 @@ describe('UpdateChannelPicker', () => {
 
   it('a tarball install on the Main channel is offered the newest main build, and Stable again only releases', async () => {
     const user = userEvent.setup()
-    installedWith('tarball')
+    vi.mocked(window.ostia.update.release).mockResolvedValue({
+      release: null,
+      method: 'tarball',
+      updateCommand: null,
+      replace: null,
+    })
+    let stop = (): void => {}
+    await act(async () => {
+      stop = startUpdateWatch()
+    })
     render(<UpdateCheck />)
 
     const picker = screen.getByRole('combobox', { name: 'Update channel' })
@@ -224,6 +229,7 @@ describe('UpdateChannelPicker', () => {
     answer({ status: 'available', release: release('1.1.0') })
     await user.click(screen.getByRole('button', { name: 'Check for updates' }))
     expect(await screen.findByText('Version 1.1.0 is available')).toBeInTheDocument()
+    stop()
   })
 
   it('an apt install keeps the channel picker on Stable and says why', async () => {

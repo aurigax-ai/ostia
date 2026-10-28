@@ -38,7 +38,6 @@ export function UpdateChannelPicker(): JSX.Element | null {
   }, [needsVersion])
   if (method === 'dev') return null
   const pick = (updateChannel: UpdateChannel): void => {
-    useUpdateStore.setState({ releaseCheck: { status: 'idle' } })
     setBehavior({ updateChannel })
     void saveSettingsNow()
   }

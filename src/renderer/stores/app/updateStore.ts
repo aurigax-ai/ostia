@@ -12,6 +12,7 @@ import type { ReleaseCheckResult, ReleaseInfo } from '@shared/app/releases'
 import { create } from 'zustand'
 import { currentDict, fmt } from '@/lib/app/useDict'
 import { startNewWorkspace } from '@/lib/workspaces/newWorkspace'
+import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 
 type ReleaseCheckState = { status: 'idle' } | { status: 'checking' } | ReleaseCheckResult
@@ -134,6 +135,11 @@ export function startUpdateWatch(): () => void {
     window.ostia.update.onUpdateRun(receiveUpdateRun),
     window.ostia.update.onReplace(receiveReplace),
     window.ostia.update.onProgress(receiveProgress),
+    useSettingsStore.subscribe((s, before) => {
+      if (s.behavior.updateChannel !== before.behavior.updateChannel) {
+        useUpdateStore.setState({ releaseCheck: { status: 'idle' } })
+      }
+    }),
   ]
   return () => {
     for (const stop of stops) stop()
