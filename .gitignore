@@ -17,3 +17,5 @@ CLAUDE.md
 PRODUCT.md
 .claude/
 scripts/install-skills.sh
+
+bench-results/
