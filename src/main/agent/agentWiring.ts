@@ -11,8 +11,9 @@ import type { ProcessRegistry } from '../panes/processRegistry'
 import { readSettingsFile } from '../platform/settingsFile'
 import type { RedactText } from '../privacy/redactionTargets'
 import type { WorkspaceSandboxes } from '../sandbox/workspaceSandboxes'
-import { createAgentCoreCall } from './agentCoreCall'
+import { type AgentCoreDeps, createAgentCoreCall } from './agentCoreCall'
 import { registerAgentIpc } from './agentIpc'
+import { createPromptMail } from './agentMail'
 import { AgentSessions, NO_AGENT } from './agentSessions'
 
 const COMPLETE_EXTENSION_ID = 'skills'
@@ -33,21 +34,23 @@ export function startAgent({
   const fromBuiltin = (ctx: ExtensionMethodContext, id: string): boolean =>
     services.extensionHost?.builtinId(ctx.identity, ctx.conn) === id
   const fromAgent = (ctx: ExtensionMethodContext): boolean => fromBuiltin(ctx, AGENT_EXTENSION_ID)
+  const coreDeps: AgentCoreDeps = {
+    identityOf: getByPaneId,
+    sandboxed: (workspaceId) => workspaceSandboxes.isEnabled(workspaceId),
+    ownsChild: (ownerPaneId, externalPaneId) => {
+      const child = resolveExternal(externalPaneId)
+      return child?.kind === 'pane' && registry.isChild(ownerPaneId, child.paneId)
+    },
+    call: callControlMethod,
+  }
   services.agentSessions = new AgentSessions({
     request: (request) =>
       services.extensionHost?.agentRequest(request) ?? Promise.resolve(NO_AGENT),
     settings: () => parseAgentSettings(readSettingsFile().agent),
     sandboxed: (workspaceId) => workspaceSandboxes.isEnabled(workspaceId),
     redact: (text) => redactor.text(text),
-    coreCall: createAgentCoreCall({
-      identityOf: getByPaneId,
-      sandboxed: (workspaceId) => workspaceSandboxes.isEnabled(workspaceId),
-      ownsChild: (ownerPaneId, externalPaneId) => {
-        const child = resolveExternal(externalPaneId)
-        return child?.kind === 'pane' && registry.isChild(ownerPaneId, child.paneId)
-      },
-      call: callControlMethod,
-    }),
+    coreCall: createAgentCoreCall(coreDeps),
+    promptMail: createPromptMail(coreDeps),
     rulesContext: (workspaceId, cwd, sessionId) =>
       services.extensionHost?.agentContext(workspaceId, cwd, sessionId) ??
       Promise.resolve({ text: '', count: 0 }),

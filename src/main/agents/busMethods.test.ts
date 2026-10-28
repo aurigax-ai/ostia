@@ -639,6 +639,31 @@ describe('hook context', () => {
     expect(inbox()).toEqual([])
   })
 
+  it('queues the leased messages again when the connection closes before the ack', async () => {
+    await send('keep me')
+    const closers: Closer[] = []
+    const shown = call<{ text: string | null; lease?: string }>(
+      'bus.context',
+      receiver,
+      { event: 'UserPromptSubmit' },
+      closers,
+    )
+    expect((await sent())[0]?.state).toBe('leased')
+    for (const close of closers) close()
+    expect((await sent())[0]?.state).toBe('queued')
+    expect(ack(shown.lease)).toBe(0)
+    expect(context().text).toContain('keep me')
+  })
+
+  it('keeps the messages delivered when the connection closes after the ack', async () => {
+    await send('done')
+    const closers: Closer[] = []
+    const shown = call<{ lease?: string }>('bus.context', receiver, {}, closers)
+    expect(ack(shown.lease)).toBe(1)
+    for (const close of closers) close()
+    expect((await sent())[0]?.state).toBe('delivered')
+  })
+
   it('records a session start as the way the message arrived', async () => {
     await send('welcome back')
     ack(context(receiver, 'SessionStart').lease)

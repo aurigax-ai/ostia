@@ -356,7 +356,9 @@ function registerBusInboxMethods(deps: BusDeps): void {
       const leased = leaseMail(me, event === 'SessionStart' ? 'start' : 'prompt', (mail) =>
         shown.has(mail.id),
       )
-      return leased ? { text: joined(context.text), lease: leased.lease } : { text: joined(null) }
+      if (!leased) return { text: joined(null) }
+      ctx.conn.onClose(() => releaseMail(me, leased.lease))
+      return { text: joined(context.text), lease: leased.lease }
     },
   })
 
