@@ -135,6 +135,7 @@ test(
       await selectTerminalWord(win, 'ostiacopyword')
       await win.keyboard.press(chords.copy)
       await expect.poll(() => readClipboard(app)).toBe('ostiacopyword')
+      await expect(win.getByTestId('capture-chip')).toHaveText('Copied')
 
       await writeClipboard(app, 'echo pasted_$((6*7))')
       await win.keyboard.press(chords.paste)
@@ -153,6 +154,32 @@ test(
     }
   },
 )
+
+test('copying a terminal selection with smart Ctrl+C or the context menu shows the Copied chip', async () => {
+  test.skip(isMac, 'smart clipboard keys are off on macOS')
+  const { app, win } = await launch({ clipboardKeys: 'smart' })
+  try {
+    const rows = win.locator('.xterm-rows').first()
+    await win.locator('.xterm').first().click()
+    await win.keyboard.type('echo ostiasmartword')
+    await win.keyboard.press('Enter')
+    await expect(rows.locator('> div', { hasText: /^ostiasmartword/ })).toHaveCount(1)
+    await selectTerminalWord(win, 'ostiasmartword')
+    await win.keyboard.press('Control+c')
+    await expect.poll(() => readClipboard(app)).toBe('ostiasmartword')
+    await expect(win.getByTestId('capture-chip')).toHaveText('Copied')
+    await expect(win.getByTestId('capture-chip')).toHaveCount(0, { timeout: 5_000 })
+
+    await app.evaluate(({ clipboard }) => clipboard.clear())
+    await selectTerminalWord(win, 'ostiasmartword')
+    await win.locator('.xterm').first().click({ button: 'right' })
+    await win.getByRole('menuitem', { name: 'Copy', exact: true }).click()
+    await expect.poll(() => readClipboard(app)).toBe('ostiasmartword')
+    await expect(win.getByTestId('capture-chip')).toHaveText('Copied')
+  } finally {
+    await app.close()
+  }
+})
 
 test('Cmd+V pastes a copied file as a quoted path and hands an image to the program', async () => {
   test.skip(!isMac, 'the native pasteboard types only exist on macOS')
