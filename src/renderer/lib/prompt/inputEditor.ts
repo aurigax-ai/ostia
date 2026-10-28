@@ -41,23 +41,54 @@ export function escapeShellWord(word: string): string {
   return word.replace(SHELL_SPECIAL, (c) => `\\${c}`)
 }
 
-function unescapeShellWord(word: string): string {
-  return word.replace(/\\(.)/g, '$1')
-}
+const DOUBLE_QUOTE_ESCAPES = '"\\$`'
+
+export type CompletionItem = FsEntry & { description?: string }
 
 export interface CompletionToken {
   start: number
   word: string
 }
 
-export function completionToken(text: string, caret: number): CompletionToken {
-  let start = caret
-  while (start > 0) {
-    const c = text[start - 1]
-    if (/\s/.test(c) && text[start - 2] !== '\\') break
-    start--
+function scanWord(text: string, caret: number): CompletionToken & { quote: string | null } {
+  let start = 0
+  let word = ''
+  let quote: string | null = null
+  for (let i = 0; i < caret; i++) {
+    const c = text[i]
+    if (c === '\\' && quote !== "'" && i + 1 < caret) {
+      const next = text[i + 1]
+      if (quote === null || DOUBLE_QUOTE_ESCAPES.includes(next)) {
+        word += next
+        i++
+      } else {
+        word += c
+      }
+    } else if (quote !== null) {
+      if (c === quote) quote = null
+      else word += c
+    } else if (c === '"' || c === "'") {
+      quote = c
+    } else if (/\s/.test(c)) {
+      start = i + 1
+      word = ''
+    } else {
+      word += c
+    }
   }
-  return { start, word: unescapeShellWord(text.slice(start, caret)) }
+  return { start, word, quote }
+}
+
+export function completionToken(text: string, caret: number): CompletionToken {
+  const { start, word } = scanWord(text, caret)
+  return { start, word }
+}
+
+export function escapeAtCaret(text: string, caret: number, name: string): string {
+  const { quote } = scanWord(text, caret)
+  if (quote === "'") return name.replaceAll("'", "'\\''")
+  if (quote === '"') return name.replace(/["\\$`]/g, '\\$&')
+  return escapeShellWord(name)
 }
 
 export function splitPathWord(word: string): { dir: string; base: string } {
@@ -65,11 +96,13 @@ export function splitPathWord(word: string): { dir: string; base: string } {
   return { dir: word.slice(0, cut), base: word.slice(cut) }
 }
 
-function completionDir(dir: string, cwd: string): string {
-  return dir ? resolveLinkPath(dir, cwd) : cwd
-}
+const HOME_VARIABLE = /^\$(?:HOME|\{HOME\})(?=\/)/
+const HOME_ITEM: CompletionItem = { name: '~', dir: true }
+const DOT_FOLDER: CompletionItem = { name: '..', dir: true }
 
-export type CompletionItem = FsEntry & { description?: string }
+function completionDir(dir: string, cwd: string): string {
+  return dir ? resolveLinkPath(dir.replace(HOME_VARIABLE, '~'), cwd) : cwd
+}
 
 function optionStem(base: string): string {
   return base.startsWith('--') ? '--' : base.startsWith('-') ? '-' : ''
@@ -87,7 +120,10 @@ async function pathCandidates(
   list: (path: string) => Promise<FsEntry[]>,
 ): Promise<CompletionItem[]> {
   const { word } = completionToken(text, caret)
-  return list(completionDir(splitPathWord(word).dir, cwd))
+  const { dir, base } = splitPathWord(word)
+  if (dir === '' && word.startsWith('~')) return []
+  const entries = await list(completionDir(dir, cwd))
+  return /^\.{1,2}$/.test(base) ? [DOT_FOLDER, ...entries] : entries
 }
 
 export function suggestionWord(suggestion: string): string {
@@ -210,13 +246,14 @@ export async function argumentCandidates(
   cwd: string,
   sources: ArgumentSources,
 ): Promise<CompletionItem[]> {
+  if (completionToken(text, caret).word === '~') return [HOME_ITEM]
   const answer = await specOrFolderCandidates(text, caret, cwd, sources)
   return [...answer.items, ...(await historyCandidates(text, caret, cwd, sources, answer))]
 }
 
 export function isCommandWord(text: string, caret: number): boolean {
   const { start, word } = completionToken(text, caret)
-  return !word.includes('/') && isCommandPosition(text, start)
+  return !word.includes('/') && !word.startsWith('~') && isCommandPosition(text, start)
 }
 
 export function applyCompletionItem(
@@ -227,6 +264,9 @@ export function applyCompletionItem(
   const { start } = completionToken(text, caret)
   const raw = text.slice(start, caret)
   const dir = raw.slice(0, raw.lastIndexOf('/') + 1)
-  const insert = `${dir}${escapeShellWord(item.name)}${item.dir ? '/' : ' '}`
+  const { quote } = scanWord(text, caret)
+  const opening = quote !== null && scanWord(text, start + dir.length).quote === null ? quote : ''
+  const ending = item.dir ? '/' : `${quote ?? ''} `
+  const insert = `${dir}${opening}${escapeAtCaret(text, caret, item.name)}${ending}`
   return { text: text.slice(0, start) + insert + text.slice(caret), caret: start + insert.length }
 }

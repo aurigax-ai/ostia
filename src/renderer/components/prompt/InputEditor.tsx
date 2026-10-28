@@ -239,8 +239,9 @@ export function InputEditor(props: InputEditorProps): JSX.Element {
     />
   )
 
-  const tipText =
-    tip === 'noPaths'
+  const tipText = suggestions.suggestion
+    ? null
+    : tip === 'noPaths'
       ? d.inputEditor.noCompletions
       : tip === 'noCommands'
         ? d.inputEditor.noCommands
