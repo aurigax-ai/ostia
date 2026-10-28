@@ -88,11 +88,6 @@ export function sendChordProblem(spec: ChordSpec): ChordProblem | null {
   return Object.hasOwn(PLAIN_KEY_PROBLEMS, spec.key) ? PLAIN_KEY_PROBLEMS[spec.key] : null
 }
 
-export function checkSendChord(text: string, mac: boolean): ChordProblem | null {
-  const spec = parseChord(text, mac)
-  return spec ? sendChordProblem(spec) : 'invalid'
-}
-
 export function parseTerminalKeys(raw: unknown): TerminalKeyMap {
   const out: TerminalKeyMap = Object.create(null)
   if (raw === null || typeof raw !== 'object' || Array.isArray(raw)) return out

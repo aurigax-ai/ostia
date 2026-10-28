@@ -93,12 +93,3 @@ export async function readRegularFile(path: string, maxBytes: number): Promise<P
     await handle.close()
   }
 }
-
-export async function readPreviewFile(
-  source: PreviewSource,
-  pathname: string,
-  maxBytes: number,
-): Promise<PreviewRead> {
-  const found = resolvePreviewFile(source, pathname)
-  return found.ok ? readRegularFile(found.path, maxBytes) : found
-}

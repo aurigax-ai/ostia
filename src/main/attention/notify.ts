@@ -175,17 +175,6 @@ export function postActionNotification(
   void record(deps, input)
 }
 
-export function postDesktopNotice(
-  deps: NotifyDeps,
-  input: { title: string; body?: string },
-  onClick: () => void,
-): void {
-  const n = desktopNotification(deps, input.title, input.body)
-  if (!n) return
-  n.on('click', onClick)
-  n.show()
-}
-
 export function postPanelNotification(
   deps: NotifyDeps,
   input: { title: string; body?: string; from: string; extId: string; panelPath?: string },
@@ -232,14 +221,6 @@ export function registerNotifyMethods(deps: NotifyDeps): void {
       const result = res.ok ? (res.result as { desktop?: unknown } | undefined) : undefined
       if (!res.ok || result?.desktop !== false) showDesktop(deps, title, body, paneId)
       return { ok: true }
-    },
-  })
-
-  registerControlMethod('notify.list', {
-    cap: 'notify',
-    handler: (params: unknown) => {
-      const { n } = (params ?? {}) as { n?: number }
-      return readLog().slice(-(n ?? 20))
     },
   })
 }

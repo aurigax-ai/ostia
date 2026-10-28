@@ -16,14 +16,6 @@ export function windowStart(target: number, first: number, end: number): number 
   return Math.min(latest, Math.max(first, target - PAGE_LINES))
 }
 
-export function earlierStart(from: number, first: number): number {
-  return Math.max(first, from - PAGE_LINES)
-}
-
-export function laterStart(from: number, first: number, end: number): number {
-  return Math.max(first, Math.min(from + PAGE_LINES, end - WINDOW_LINES))
-}
-
 function startsLine(rows: RowsLike, y: number): boolean {
   return y === 0 || !rows.getLine(y)?.isWrapped
 }

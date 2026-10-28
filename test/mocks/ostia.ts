@@ -59,7 +59,6 @@ export function makeOstiaMock(overrides?: Partial<OstiaBridge>): OstiaBridge {
       attach: vi.fn().mockResolvedValue({ created: true, buffer: '', cursor: 0, dropped: false }),
       detach: vi.fn(),
       hibernate: vi.fn().mockResolvedValue('hibernated'),
-      stashed: vi.fn().mockResolvedValue(null),
       historyRead: vi.fn().mockResolvedValue(null),
       historySearch: vi.fn().mockResolvedValue(null),
       historyBlock: vi.fn().mockResolvedValue(null),

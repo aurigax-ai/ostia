@@ -23,7 +23,9 @@ vi.mock('../approvals/controlElevation', () => ({ ensureCaps }))
 const { registerPaneStatusMethods, paneStateOf, staleMarks, statusOf, summarizeChanges } =
   await import('./paneStatus')
 const { PaneJournal } = await import('./paneJournal')
-const { enqueue, flushBus, resetBus, takeMail, failPaneMail } = await import('../agents/busStore')
+const { ackMail, enqueue, flushBus, leaseMail, resetBus, failPaneMail } = await import(
+  '../agents/busStore'
+)
 const { markManager, registerPane, registerScript } = await import('../control/idRegistry')
 
 const caller = registerPane({ windowId: 'w1', workspaceId: 'ws1', paneId: 'st-caller' })
@@ -249,7 +251,8 @@ describe('pane.status', () => {
     enqueue({ from: caller.externalId, to: worker.externalId, text: 'to a pane that closed' })
     enqueue({ from: worker.externalId, to: caller.externalId, text: 'from a worker, unread' })
     enqueue({ from: worker.externalId, to: caller.externalId, text: 'from a worker, read' })
-    takeMail(caller.externalId, 'read', (m) => m.text?.endsWith(', read') === true)
+    const handed = leaseMail(caller.externalId, 'read', (m) => m.text?.endsWith(', read') === true)
+    ackMail(caller.externalId, handed?.lease ?? '')
     failPaneMail(worker.externalId)
     failPaneMail(caller.externalId)
     const { panes } = await ask(caller, [worker.externalId])

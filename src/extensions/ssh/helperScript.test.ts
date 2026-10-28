@@ -19,9 +19,11 @@ import {
   toolPath,
 } from '../../../test/fixtures/ssh/remoteHost'
 import { HelperChannel, HelperFailure, runStatus } from './channel'
-import { HELPER_TOOLS, helperBundle, shippedHelper, versionToken } from './helper'
+import { HELPER_TOOLS, helperBundle, posixCksum, shippedHelper } from './helper'
 import { type ConnectPlan, planConnect, planHelper } from './plan'
 import { REMOTE_BOOTSTRAP, REMOTE_COMMAND } from './remote'
+
+const contentVersion = (data: Uint8Array): string => `${posixCksum(data)}-${data.length}`
 
 const helper = shippedHelper(helperSource())
 function planned(argv: string[]): ConnectPlan {
@@ -257,7 +259,7 @@ describe('helper protocol', () => {
       maxReply: 1_000_000,
     })
     expect(reply.payload.equals(bytes)).toBe(true)
-    expect(reply.meta).toBe(versionToken(bytes))
+    expect(reply.meta).toBe(contentVersion(bytes))
     const stat = await channel.request({
       op: 'stat',
       number: 1_000_000,
@@ -265,7 +267,7 @@ describe('helper protocol', () => {
       path: join(root, 'data.bin'),
       maxReply: 0,
     })
-    expect(stat.meta).toBe(`f:${bytes.length}:${versionToken(bytes)}`)
+    expect(stat.meta).toBe(`f:${bytes.length}:${contentVersion(bytes)}`)
     const folder = await channel.request({ op: 'stat', number: 0, root, path: root, maxReply: 0 })
     expect(folder.meta).toBe('d')
     expect(
@@ -339,7 +341,7 @@ describe('helper protocol', () => {
     const file = join(root, 'run.sh')
     writeFileSync(file, 'echo one\n')
     chmodSync(file, 0o750)
-    const before = versionToken(Buffer.from('echo one\n'))
+    const before = contentVersion(Buffer.from('echo one\n'))
     const next = Buffer.from('echo two\n\u0000ÿ binary too')
     const reply = await channel.request({
       op: 'write',
@@ -350,7 +352,7 @@ describe('helper protocol', () => {
       payload: next,
       maxReply: 0,
     })
-    expect(reply.meta).toBe(versionToken(next))
+    expect(reply.meta).toBe(contentVersion(next))
     expect(readFileSync(file).equals(next)).toBe(true)
     expect(statSync(file).mode & 0o777).toBe(0o750)
     expect(readdirSync(root)).toEqual(['run.sh'])
@@ -362,7 +364,7 @@ describe('helper protocol', () => {
       path: join(root, 'empty.txt'),
       maxReply: 0,
     })
-    expect(made.meta).toBe(versionToken(Buffer.alloc(0)))
+    expect(made.meta).toBe(contentVersion(Buffer.alloc(0)))
     expect(readFileSync(join(root, 'empty.txt'), 'utf8')).toBe('')
   })
 
@@ -370,7 +372,7 @@ describe('helper protocol', () => {
     const { channel, root } = await ready()
     const file = join(root, 'notes.txt')
     writeFileSync(file, 'theirs')
-    const stale = versionToken(Buffer.from('mine before'))
+    const stale = contentVersion(Buffer.from('mine before'))
     const write = (version: string) =>
       channel.request({
         op: 'write',
@@ -407,14 +409,14 @@ describe('helper protocol', () => {
     const reply = await channel.request({
       op: 'write',
       number: mine.length,
-      version: versionToken(Buffer.from('before')),
+      version: contentVersion(Buffer.from('before')),
       root,
       path: file,
       payload: mine,
       maxReply: 0,
     })
     expect(readFileSync(file, 'utf8')).toBe('theirs')
-    expect(reply.meta).toBe(versionToken(mine))
+    expect(reply.meta).toBe(contentVersion(mine))
   })
 
   it('answers a large write and the request after it in order', async () => {
@@ -433,7 +435,7 @@ describe('helper protocol', () => {
       }),
       channel.request({ op: 'list', number: 10, root, path: root, maxReply: LIST_MAX }),
     ])
-    expect(written.meta).toBe(versionToken(big))
+    expect(written.meta).toBe(contentVersion(big))
     expect(readFileSync(file).equals(big)).toBe(true)
     expect(listed.payload.toString('utf8')).toBe('f big.bin\n')
   })
@@ -492,7 +494,7 @@ describe('helper on a host with only the shared tools', () => {
       path: join(root, 'a.txt'),
       maxReply: 0,
     })
-    expect(stat.meta).toBe(`f:5:${versionToken(Buffer.from('hello'))}`)
+    expect(stat.meta).toBe(`f:5:${contentVersion(Buffer.from('hello'))}`)
   })
 })
 

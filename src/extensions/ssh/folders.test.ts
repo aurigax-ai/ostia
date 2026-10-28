@@ -4,9 +4,11 @@ import type { RemoteFilesRequest, RemoteFilesResult } from '@aurigax-ai/ostia-ex
 import { afterEach, describe, expect, it } from 'vitest'
 import { helperSource, type RemoteHost, remoteHost } from '../../../test/fixtures/ssh/remoteHost'
 import { HelperFolders, parseListing, Sessions } from './folders'
-import { shippedHelper, versionToken } from './helper'
+import { posixCksum, shippedHelper } from './helper'
 import { HelperHosts } from './helperHosts'
 import { type ConnectPlan, planConnect } from './plan'
+
+const contentVersion = (data: Uint8Array): string => `${posixCksum(data)}-${data.length}`
 
 const helper = shippedHelper(helperSource())
 
@@ -90,7 +92,7 @@ describe('HelperFolders', () => {
       ],
       truncated: false,
     })
-    const version = versionToken(Buffer.from('# hi\n'))
+    const version = contentVersion(Buffer.from('# hi\n'))
     expect(await r.ask({ op: 'stat', path: join(r.root, 'readme.md') })).toEqual({
       ok: true,
       kind: 'file',
@@ -113,7 +115,7 @@ describe('HelperFolders', () => {
         content: next,
         baseVersion: version,
       }),
-    ).toEqual({ ok: true, version: versionToken(Buffer.from(next)) })
+    ).toEqual({ ok: true, version: contentVersion(Buffer.from(next)) })
     expect(readFileSync(join(r.root, 'readme.md'), 'utf8')).toBe(next)
     expect(
       await r.ask({

@@ -7,7 +7,7 @@ const dataHome = mkdtempSync(join(tmpdir(), 'ostia-codexmail-'))
 process.env.XDG_DATA_HOME = dataHome
 
 const { CodexMail } = await import('./codexMail')
-const { enqueue, flushBus, getMail, resetBus, takeMail } = await import('./busStore')
+const { ackMail, enqueue, flushBus, getMail, leaseMail, resetBus } = await import('./busStore')
 const { mailers } = await import('./mailers')
 const { MAIL_TURNS_MAX, MAIL_TURNS_WINDOW_MS } = await import('../../shared/agents/mailDelivery')
 
@@ -285,6 +285,8 @@ describe('Codex mail', () => {
     expect(texts[0]).toContain('w-1 done')
     expect(texts[1]).toContain('a message')
     expect(texts[1]).not.toContain('w-2 done')
-    expect(takeMail('codex-pane', 'read', () => true).map((m) => m.text)).toEqual(['w-2 done'])
+    const handed = leaseMail('codex-pane', 'read', () => true)
+    ackMail('codex-pane', handed?.lease ?? '')
+    expect(handed?.messages.map((m) => m.text)).toEqual(['w-2 done'])
   })
 })

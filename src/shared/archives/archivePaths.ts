@@ -29,10 +29,3 @@ export function parseArchivePath(path: string): ArchivePath | null {
   if (!archive.startsWith('/')) return null
   return { archive, entry: after.replace(/^\/+/, '').replace(/\/+$/, '') }
 }
-
-export function archiveDisplayName(path: string): string | null {
-  const parsed = parseArchivePath(path)
-  if (!parsed) return null
-  const name = parsed.archive.slice(parsed.archive.lastIndexOf('/') + 1)
-  return parsed.entry ? `${name} › ${parsed.entry}` : name
-}

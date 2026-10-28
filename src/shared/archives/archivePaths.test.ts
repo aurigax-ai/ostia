@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { archiveDisplayName, archiveRoot, isArchivePath, parseArchivePath } from './archivePaths'
+import { archiveRoot, isArchivePath, parseArchivePath } from './archivePaths'
 
 describe('archivePaths', () => {
   it('round-trips an archive path, also when the real path holds ! and %', () => {
@@ -8,7 +8,6 @@ describe('archivePaths', () => {
     expect(root).toBe('archive:%2Fhome%2Fu%2Fa%21b%2520c%2Freport.zip!')
     expect(parseArchivePath(root)).toEqual({ archive: real, entry: '' })
     expect(parseArchivePath(`${root}/data/a!.csv`)).toEqual({ archive: real, entry: 'data/a!.csv' })
-    expect(archiveDisplayName(`${root}/data/a.csv`)).toBe('report.zip › data/a.csv')
   })
 
   it('refuses anything that is not an absolute archive path', () => {

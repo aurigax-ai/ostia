@@ -73,7 +73,6 @@ interface PtyApi {
   attach: (paneId: string, opts: PtySpawnOptions) => Promise<PtyAttachResult>
   detach: (paneId: string) => void
   hibernate: (paneId: string) => Promise<HibernateOutcome>
-  stashed: (paneId: string) => Promise<string | null>
   historyRead: (paneId: string, from: number, count: number) => Promise<HistoryPage | null>
   historySearch: (
     paneId: string,
