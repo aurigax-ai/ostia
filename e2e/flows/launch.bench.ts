@@ -33,12 +33,12 @@ function useRestoredPrompt(dataHome: string): void {
   writeFileSync(join(home, '.bashrc'), `PS1='\\w ${RESTORED_PROMPT} '\n`)
 }
 
-test('bench launch: empty app to window shown and first paint', async () => {
+test('bench launch: empty app on a used data folder to window shown and first paint', async () => {
   test.setTimeout(300_000)
   const samples = new Samples()
+  const dataHome = freshDataHome()
+  seedSettings(dataHome, SETTINGS)
   for (let i = 0; i < LAUNCHES + WARMUP; i++) {
-    const dataHome = freshDataHome()
-    seedSettings(dataHome, SETTINGS)
     const profile = process.env.OSTIA_FLOW_PROFILE_DIR
     const { app, win } = await launchProbed(
       dataHome,
@@ -49,6 +49,16 @@ test('bench launch: empty app to window shown and first paint', async () => {
       await expect.poll(() => firstContentfulPaint(win)).not.toBeNaN()
       if (profile) await stopProfile(app)
       const marks = await readLaunchMarks(app)
+      if (i === 0) {
+        samples.add(
+          'launch.cold-window-shown',
+          (marks.readyToShow ?? Number.NaN) - marks.processStart,
+        )
+        samples.add(
+          'launch.cold-first-paint',
+          (await firstContentfulPaint(win)) - marks.processStart,
+        )
+      }
       if (i < WARMUP) continue
       samples.add('launch.app-ready', (marks.appReady ?? Number.NaN) - marks.processStart)
       samples.add('launch.window-created', (marks.windowCreated ?? Number.NaN) - marks.processStart)
