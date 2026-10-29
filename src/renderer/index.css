@@ -4584,17 +4584,12 @@ button.prompt-chip:hover {
   color: var(--fg-muted);
 }
 
-.manager-agent {
-  --manager-line: var(--line);
-}
-
 .manager-agent-strip {
   display: grid;
   grid-template-columns: 1fr auto 1fr;
   align-items: center;
   height: 28px;
   padding: 0 12px;
-  border-bottom: 1px solid var(--manager-line);
   color: var(--fg-muted);
   font-size: var(--text-ui-sm);
   line-height: var(--text-ui-sm--line-height);
@@ -4613,17 +4608,6 @@ button.prompt-chip:hover {
 
 .manager-agent .chat-message {
   padding: 8px 16px;
-  font-family: var(--font-code);
-}
-
-.manager-agent .chat-message * {
-  font-family: var(--font-code);
-}
-
-.manager-agent .chat-message[data-role="user"] {
-  background: var(--surface-2);
-  border-top: 1px solid var(--manager-line);
-  border-bottom: 1px solid var(--manager-line);
 }
 
 .manager-agent .chat-message[data-role="user"] > div:first-child {
@@ -4634,7 +4618,7 @@ button.prompt-chip:hover {
 
 .manager-agent .chat-message[data-role="user"] p::before {
   content: "> ";
-  color: var(--brand);
+  color: var(--fg-muted);
 }
 
 .manager-agent .chat-message > div,
@@ -4644,11 +4628,10 @@ button.prompt-chip:hover {
 
 .manager-agent .chat-tool {
   width: auto;
-  margin: 6px 0;
+  margin: 0 16px;
+  border: 0;
   border-radius: 0;
-  border-left: 0;
-  border-right: 0;
-  background: var(--surface-2);
+  background: transparent;
 }
 
 .manager-agent .chat-tool-approval {
@@ -4659,7 +4642,7 @@ button.prompt-chip:hover {
 }
 
 .manager-agent .chat-view form {
-  padding: 0;
+  padding: 8px;
   border-top: 0;
 }
 
@@ -4670,17 +4653,12 @@ button.prompt-chip:hover {
   box-shadow: none;
 }
 
-.manager-agent .chat-view form textarea {
-  font-family: var(--font-code);
-  padding: 8px 16px;
-}
-
 .manager-agent-hints {
   display: flex;
   align-items: center;
   gap: 12px;
   padding: 6px 16px;
-  border-top: 1px solid var(--manager-line);
+  border-top: 1px solid var(--line);
   color: var(--fg-muted);
   font-size: var(--text-ui-xs);
 }

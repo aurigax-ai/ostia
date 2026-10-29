@@ -246,16 +246,12 @@ describe('typography guard', () => {
     )
   })
 
-  it('only the manager pane sets chat messages in the code font', () => {
-    const index = 'src/renderer/index.css'
-    const css = readFileSync(resolve(ROOT, index), 'utf8')
-    expect(declarations(index, '.manager-agent .chat-message')).toMatch(
-      /font-family: var\(--font-code\);/,
-    )
-    const rules = css.split('}').filter((rule) => /\.chat-message\b/.test(rule))
-    const offenders = rules
+  it('no chat message rule sets the code font', () => {
+    const css = readFileSync(resolve(ROOT, 'src/renderer/index.css'), 'utf8')
+    const offenders = css
+      .split('}')
+      .filter((rule) => /\.chat-message\b/.test(rule))
       .filter((rule) => /font-family:\s*var\(--font-code\)/.test(rule))
-      .filter((rule) => !/\.manager-agent\b/.test(rule.split('{')[0] ?? ''))
     expect(offenders).toEqual([])
   })
 
