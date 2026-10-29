@@ -32,7 +32,7 @@ export interface PreviewGuest {
   reload: () => void
   executeJavaScript: (code: string) => Promise<unknown>
   forcefullyCrashRenderer: () => void
-  setWindowOpenHandler: (handler: () => { action: 'deny' }) => void
+  setWindowOpenHandler: (handler: (details: { url: string }) => { action: 'deny' }) => void
   setWebRTCIPHandlingPolicy: (policy: 'disable_non_proxied_udp') => void
   setBackgroundThrottling: (allowed: boolean) => void
   debugger: {

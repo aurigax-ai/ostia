@@ -54,7 +54,7 @@ describe('previewHeaders', () => {
   it('PRT-C21 sends the portable policy with the frame’s sandbox as headers', () => {
     const headers = previewHeaders('/a/App.tsx')
     expect(headers['content-security-policy'].split(', ')[0]).toBe(PORTABLE_CSP)
-    expect(headers['content-security-policy']).toContain('sandbox allow-scripts')
+    expect(headers['content-security-policy']).toContain('sandbox allow-scripts allow-popups')
     expect(headers['content-security-policy']).not.toMatch(/unsafe-eval|allow-same-origin/)
     expect(headers).toMatchObject({
       'x-dns-prefetch-control': 'off',
@@ -65,7 +65,7 @@ describe('previewHeaders', () => {
 })
 
 describe('hardenPreviewAttach', () => {
-  it('removes every way a guest could get a preload, Node, popups or dialogs', () => {
+  it('removes every way a guest could get a preload, Node or dialogs and lets popup requests reach the deny handler', () => {
     const prefs = {
       preload: '/evil/preload.js',
       nodeIntegration: true,
@@ -99,6 +99,7 @@ describe('hardenPreviewAttach', () => {
       webSecurity: true,
       webviewTag: false,
       disableDialogs: true,
+      disablePopups: false,
       autoplayPolicy: 'user-gesture-required',
       transparent: false,
       experimentalFeatures: false,
@@ -171,7 +172,7 @@ class FakeGuest implements PreviewGuest {
   killed = 0
   reloads = 0
   answers = true
-  popups: (() => { action: 'deny' }) | null = null
+  popups: ((details: { url: string }) => { action: 'deny' }) | null = null
   webrtc: string | null = null
   throttled: boolean | null = null
   attached = false
@@ -201,7 +202,7 @@ class FakeGuest implements PreviewGuest {
   forcefullyCrashRenderer = (): void => {
     this.killed += 1
   }
-  setWindowOpenHandler = (handler: () => { action: 'deny' }): void => {
+  setWindowOpenHandler = (handler: (details: { url: string }) => { action: 'deny' }): void => {
     this.popups = handler
   }
   setWebRTCIPHandlingPolicy = (policy: string): void => {
@@ -432,7 +433,9 @@ describe('PreviewHost', () => {
   it('denies popups, stops navigation and redirects, and reports only a link the human clicked', () => {
     const opened = r.open()
     const guest = r.attach(opened)
-    expect(guest.popups?.()).toEqual({ action: 'deny' })
+    const popup = (url: string): unknown => guest.popups?.({ url })
+    expect(popup('https://example.com/by-script-popup')).toEqual({ action: 'deny' })
+    expect(r.events).toEqual([])
     expect(guest.webrtc).toBe('disable_non_proxied_udp')
     expect(guest.throttled).toBe(true)
     const unasked = { preventDefault: vi.fn() }
@@ -440,6 +443,8 @@ describe('PreviewHost', () => {
     expect(unasked.preventDefault).toHaveBeenCalledOnce()
     expect(r.events).toEqual([])
     guest.emit('input-event', {}, { type: 'mouseDown' })
+    expect(popup('https://example.com/ctrl-click')).toEqual({ action: 'deny' })
+    expect(popup(`${opened.url}other.html`)).toEqual({ action: 'deny' })
     const navigate = { preventDefault: vi.fn() }
     guest.emit('will-navigate', navigate, 'https://example.com/next')
     const local = { preventDefault: vi.fn() }
@@ -450,6 +455,7 @@ describe('PreviewHost', () => {
     expect(local.preventDefault).toHaveBeenCalledOnce()
     expect(redirect.preventDefault).toHaveBeenCalledOnce()
     expect(r.events.filter((event) => event.type !== 'activity')).toEqual([
+      { id: opened.id, type: 'link', url: 'https://example.com/ctrl-click' },
       { id: opened.id, type: 'link', url: 'https://example.com/next' },
     ])
   })

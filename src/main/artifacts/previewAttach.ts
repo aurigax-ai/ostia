@@ -1,4 +1,9 @@
-import { PORTABLE_CSP, portableSandbox, portableType } from '../../shared/artifacts/portable'
+import {
+  PORTABLE_CSP,
+  portableSandbox,
+  portableType,
+  runsScripts,
+} from '../../shared/artifacts/portable'
 import type { PreviewSession } from './previewHostTypes'
 
 const DEAD_PROXY = { proxyRules: 'http://127.0.0.1:9', proxyBypassRules: '<-loopback>' }
@@ -55,12 +60,17 @@ export function hardenPreviewAttach(
   for (const name of HOST_SET_ATTRIBUTES) {
     delete params[name]
   }
+  Object.assign(webPreferences, { disablePopups: false })
 }
+function previewSandbox(type: ReturnType<typeof portableType>): string {
+  return type && !runsScripts(type) ? portableSandbox(type) : 'allow-scripts allow-popups'
+}
+
 export function previewHeaders(file: string): Record<string, string> {
   const type = portableType(file)
   return {
     'content-type': 'text/html; charset=utf-8',
-    'content-security-policy': `${PORTABLE_CSP}, sandbox ${type ? portableSandbox(type) : 'allow-scripts'}`,
+    'content-security-policy': `${PORTABLE_CSP}, sandbox ${previewSandbox(type)}`,
     'cache-control': 'no-store',
     'x-content-type-options': 'nosniff',
     'x-dns-prefetch-control': 'off',
