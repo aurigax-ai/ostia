@@ -28,7 +28,10 @@ export class RemoteRegistry {
   private readonly workspaces: Map<string, RemoteWorkspace>
   private readonly tabs = new Map<string, RemoteTab>()
 
-  constructor(private readonly file: string | null) {
+  constructor(
+    private readonly file: string | null,
+    private readonly changed: () => void = () => {},
+  ) {
     this.workspaces = new Map(Object.entries(file ? read(file) : {}))
   }
 
@@ -47,6 +50,7 @@ export class RemoteRegistry {
   addWorkspace(workspaceId: string, workspace: RemoteWorkspace): void {
     this.workspaces.set(workspaceId, workspace)
     this.save()
+    this.changed()
   }
 
   workspace(workspaceId: string): RemoteWorkspace | undefined {
@@ -58,7 +62,10 @@ export class RemoteRegistry {
   }
 
   forgetWorkspace(workspaceId: string): void {
-    if (this.workspaces.delete(workspaceId)) this.save()
+    if (this.workspaces.delete(workspaceId)) {
+      this.save()
+      this.changed()
+    }
     for (const [paneId, tab] of this.tabs)
       if (tab.workspaceId === workspaceId) this.tabs.delete(paneId)
   }
@@ -73,6 +80,10 @@ export class RemoteRegistry {
 
   tabsOf(host: string): [string, RemoteTab][] {
     return [...this.tabs].filter(([, tab]) => tab.host === host)
+  }
+
+  hasWorkspaces(): boolean {
+    return this.workspaces.size > 0
   }
 
   hosts(): string[] {
