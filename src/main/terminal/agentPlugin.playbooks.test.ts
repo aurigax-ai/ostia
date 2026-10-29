@@ -12,6 +12,7 @@ const coordinator: PlaybookFile = {
   description: 'Plan, dispatch, review and merge.',
   skill:
     '---\nname: coordinator\ndescription: "Plan."\ndisable-model-invocation: true\n---\n\nBody.\n',
+  files: [{ path: 'steps/one.md', text: 'Step one.\n' }],
 }
 
 let root: string
@@ -33,6 +34,15 @@ describe('writeAgentPlugin with playbooks', () => {
     )
     expect(agentPluginFiles(NO_AGENT_PLUGINS, [coordinator])).toContain(
       join('claude-plugin', 'skills', 'coordinator', 'SKILL.md'),
+    )
+    expect(
+      readFileSync(join(dir, 'claude-plugin', 'skills', 'coordinator', 'steps', 'one.md'), 'utf8'),
+    ).toBe('Step one.\n')
+    expect(
+      readFileSync(join(dir, 'codex', 'playbooks', 'coordinator', 'steps', 'one.md'), 'utf8'),
+    ).toBe('Step one.\n')
+    expect(agentPluginFiles(NO_AGENT_PLUGINS, [coordinator])).toContain(
+      join('codex', 'playbooks', 'coordinator', 'steps', 'one.md'),
     )
   })
 
@@ -62,10 +72,12 @@ describe('writeAgentPlugin with playbooks', () => {
     writeFileSync(marker, 'kept as written', 'utf8')
     const edited = { ...coordinator, skill: `${coordinator.skill}More.\n` }
     const second = writeAgentPlugin(root, NO_AGENT_PLUGINS, [edited])
+    const step = { ...coordinator, files: [{ path: 'steps/one.md', text: 'Changed.\n' }] }
+    const third = writeAgentPlugin(root, NO_AGENT_PLUGINS, [step])
     const none = writeAgentPlugin(root, NO_AGENT_PLUGINS, [])
-    expect(new Set([first, second, none]).size).toBe(3)
+    expect(new Set([first, second, third, none]).size).toBe(4)
     expect(readFileSync(marker, 'utf8')).toBe('kept as written')
-    expect(readdirSync(root).filter((n) => !n.startsWith('.'))).toHaveLength(3)
+    expect(readdirSync(root).filter((n) => !n.startsWith('.'))).toHaveLength(4)
   })
 
   it('lets the Agent pane and Chat load a playbook by name', () => {

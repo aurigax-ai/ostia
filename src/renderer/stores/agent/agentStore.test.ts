@@ -61,6 +61,7 @@ describe('the Agent session and its rules chip', () => {
       'ostia_bus_inbox',
       'ostia_pane_read',
       'ostia_pane_wait',
+      'ostia_skill',
       'ostia_agent_run',
       'ostia_bus_send',
     ])

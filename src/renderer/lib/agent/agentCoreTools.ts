@@ -63,6 +63,18 @@ const SPECS: Record<AgentCoreToolName, Omit<ChatToolSpec, 'name'>> = {
       required: ['panes'],
     },
   },
+  ostia_skill: {
+    description:
+      'Read a playbook the human turned on: SKILL.md, or one of its files named in SKILL.md, for example steps/pr.md. Read only the file you need now.',
+    inputSchema: {
+      type: OBJECT,
+      properties: {
+        name: { type: 'string', description: 'Playbook name' },
+        file: { type: 'string', description: 'File named in SKILL.md; default SKILL.md' },
+      },
+      required: ['name'],
+    },
+  },
   ostia_agent_run: {
     description:
       'Start an agent, for example claude or codex, with a task in a new tab. Pass workspace (an id from ostia_workspaces) to start it elsewhere. Returns its pane id. The human decides whether it starts.',

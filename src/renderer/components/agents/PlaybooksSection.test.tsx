@@ -13,7 +13,7 @@ if (!Element.prototype.getAnimations) {
 }
 
 const playbooks = () => useSettingsStore.getState().playbooks
-const coordinator = BUILTIN_PLAYBOOKS[0]
+const onboard = BUILTIN_PLAYBOOKS[0]
 
 async function lastWritten() {
   await vi.waitFor(() => expect(window.ostia.fs.write).toHaveBeenCalled())
@@ -50,31 +50,31 @@ describe('PlaybooksSection', () => {
         'false',
       )
     }
-    const prompt = screen.getByRole('textbox', { name: '/coordinator prompt' })
-    expect(prompt).toHaveValue(coordinator.text)
+    const prompt = screen.getByRole('textbox', { name: '/onboard prompt' })
+    expect(prompt).toHaveValue(onboard.text)
   })
 
   it('saves the switch to settings at once', async () => {
     render(<PlaybooksSection />)
-    await userEvent.click(screen.getByRole('switch', { name: '/coordinator' }))
-    expect(playbooks().enabled).toEqual({ coordinator: true })
-    expect((await lastWritten()).playbooks.enabled.coordinator).toBe(true)
+    await userEvent.click(screen.getByRole('switch', { name: '/onboard' }))
+    expect(playbooks().enabled).toEqual({ onboard: true })
+    expect((await lastWritten()).playbooks.enabled.onboard).toBe(true)
   })
 
   it('shows another playbook’s prompt when its row is chosen', async () => {
     render(<PlaybooksSection />)
-    await userEvent.click(screen.getByRole('button', { name: '/worker' }))
-    expect(screen.getByRole('textbox', { name: '/worker prompt' })).toHaveValue(
+    await userEvent.click(screen.getByRole('button', { name: '/handoff' }))
+    expect(screen.getByRole('textbox', { name: '/handoff prompt' })).toHaveValue(
       BUILTIN_PLAYBOOKS[1].text,
     )
   })
 
   it('keeps an edit, marks it Edited, and resets to Ostia’s default', async () => {
     render(<PlaybooksSection />)
-    const prompt = screen.getByRole('textbox', { name: '/coordinator prompt' })
+    const prompt = screen.getByRole('textbox', { name: '/onboard prompt' })
     await typeInto(prompt, 'Be brief.')
-    expect(playbooks().edits.coordinator.text).toBe('Be brief.')
-    expect((await lastWritten()).playbooks.edits.coordinator.text).toBe('Be brief.')
+    expect(playbooks().edits.onboard.text).toBe('Be brief.')
+    expect((await lastWritten()).playbooks.edits.onboard.text).toBe('Be brief.')
     expect(screen.getByText(en.playbooks.edited)).toBeInTheDocument()
     await userEvent.click(screen.getByRole('button', { name: en.playbooks.resetDefault }))
     expect(playbooks().edits).toEqual({})
@@ -83,7 +83,7 @@ describe('PlaybooksSection', () => {
 
   it('refuses a prompt that runs a command and keeps the old text', async () => {
     render(<PlaybooksSection />)
-    await typeInto(screen.getByRole('textbox', { name: '/coordinator prompt' }), 'Run !`id` now')
+    await typeInto(screen.getByRole('textbox', { name: '/onboard prompt' }), 'Run !`id` now')
     expect(screen.getByRole('alert')).toHaveTextContent(/runs a command/)
     expect(playbooks().edits).toEqual({})
   })
@@ -92,23 +92,23 @@ describe('PlaybooksSection', () => {
     useSettingsStore.setState({
       playbooks: {
         enabled: {},
-        accepted: { coordinator: 'Mine.' },
-        edits: { coordinator: { text: 'Mine.', from: '00000000' } },
+        accepted: { onboard: 'Mine.' },
+        edits: { onboard: { text: 'Mine.', from: '00000000' } },
         own: {},
       },
     })
     render(<PlaybooksSection />)
     expect(screen.getByText(/default changed\. Your edit is kept\./)).toBeInTheDocument()
-    expect(screen.getByRole('textbox', { name: '/coordinator prompt' })).toHaveValue('Mine.')
+    expect(screen.getByRole('textbox', { name: '/onboard prompt' })).toHaveValue('Mine.')
     await userEvent.click(screen.getByRole('button', { name: en.playbooks.showDefault }))
-    expect(screen.getByText(/You plan, dispatch, review and merge/)).toBeInTheDocument()
+    expect(screen.getByText(/Read only the step file you need now/)).toBeInTheDocument()
     await userEvent.click(screen.getByRole('button', { name: en.playbooks.reset }))
     expect(playbooks().edits).toEqual({})
   })
 
   it('stays quiet when an edit still matches the current default', async () => {
     render(<PlaybooksSection />)
-    await typeInto(screen.getByRole('textbox', { name: '/coordinator prompt' }), 'Mine.')
+    await typeInto(screen.getByRole('textbox', { name: '/onboard prompt' }), 'Mine.')
     expect(screen.queryByText(/default changed/)).toBeNull()
   })
 
@@ -167,23 +167,21 @@ describe('PlaybooksSection', () => {
   it('keeps an edit that arrived from another device waiting until it is accepted here', async () => {
     useSettingsStore.setState({
       playbooks: {
-        enabled: { coordinator: true },
+        enabled: { onboard: true },
         accepted: {},
-        edits: { coordinator: { text: 'Pushed from elsewhere.', from: '00000000' } },
+        edits: { onboard: { text: 'Pushed from elsewhere.', from: '00000000' } },
         own: {},
       },
     })
     render(<PlaybooksSection />)
     expect(screen.getByText(en.playbooks.changedElsewhere)).toBeInTheDocument()
-    expect(screen.getByRole('textbox', { name: '/coordinator prompt' })).toHaveValue(
-      coordinator.text,
-    )
+    expect(screen.getByRole('textbox', { name: '/onboard prompt' })).toHaveValue(onboard.text)
     expect(screen.queryByText(en.playbooks.defaultChanged.replace('{product}', 'Ostia'))).toBeNull()
     await userEvent.click(screen.getByRole('button', { name: en.playbooks.showDefault }))
     expect(screen.getByText('Pushed from elsewhere.')).toBeInTheDocument()
     await userEvent.click(screen.getByRole('button', { name: en.playbooks.useIt }))
-    expect(playbooks().accepted.coordinator).toBe('Pushed from elsewhere.')
-    expect(screen.getByRole('textbox', { name: '/coordinator prompt' })).toHaveValue(
+    expect(playbooks().accepted.onboard).toBe('Pushed from elsewhere.')
+    expect(screen.getByRole('textbox', { name: '/onboard prompt' })).toHaveValue(
       'Pushed from elsewhere.',
     )
     expect(screen.queryByText(en.playbooks.changedElsewhere)).toBeNull()

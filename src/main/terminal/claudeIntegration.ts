@@ -1,5 +1,5 @@
 import { mkdirSync, writeFileSync } from 'node:fs'
-import { join } from 'node:path'
+import { dirname, join } from 'node:path'
 import {
   AGENT_HOOK_EVENTS,
   AGENT_SKILL_ENTRY,
@@ -105,6 +105,10 @@ export const CLAUDE_FOLD_MANIFEST = {
 export function writePlaybookFile(dir: string, playbook: PlaybookFile): void {
   mkdirSync(dir, { recursive: true })
   writeFileSync(join(dir, AGENT_SKILL_ENTRY), playbook.skill, 'utf8')
+  for (const file of playbook.files) {
+    mkdirSync(dirname(join(dir, file.path)), { recursive: true })
+    writeFileSync(join(dir, file.path), file.text, 'utf8')
+  }
 }
 
 export function writeSkillFiles(dir: string, skill: LoadedAgentSkill): void {

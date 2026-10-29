@@ -16,17 +16,17 @@ describe('startPlaybookPush', () => {
     stop = startPlaybookPush()
     useSettingsStore.setState({ locale: 'zh-Hant' })
     expect(window.ostia.settings.setPlaybooks).not.toHaveBeenCalled()
-    useSettingsStore.getState().setPlaybookEnabled('coordinator', true)
+    useSettingsStore.getState().setPlaybookEnabled('onboard', true)
     expect(window.ostia.settings.setPlaybooks).toHaveBeenCalledTimes(1)
     expect(window.ostia.settings.setPlaybooks).toHaveBeenCalledWith(
       useSettingsStore.getState().playbooks,
     )
-    expect(useSettingsStore.getState().playbooks.enabled).toEqual({ coordinator: true })
+    expect(useSettingsStore.getState().playbooks.enabled).toEqual({ onboard: true })
   })
 
   it('stops when asked', () => {
     startPlaybookPush()()
-    useSettingsStore.getState().setPlaybookEnabled('worker', true)
+    useSettingsStore.getState().setPlaybookEnabled('onboard', true)
     expect(window.ostia.settings.setPlaybooks).not.toHaveBeenCalled()
   })
 })

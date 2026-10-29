@@ -32,6 +32,7 @@ export interface AgentSessionsDeps {
   redact: (text: string) => Promise<string | null>
   coreCall: (request: CoreCallRequest) => Promise<AgentToolReply>
   promptMail: TakePromptMail
+  playbookList: () => string
   rulesContext: (
     workspaceId: string,
     cwd: string,
@@ -105,6 +106,7 @@ export class AgentSessions {
       return { ok: false, error: 'unknown-model' }
     }
     const { context, count } = await this.rulesFor(input)
+    const system = [context, this.deps.playbookList()].filter(Boolean).join(MAIL_SEPARATOR)
     const reply = await this.deps.request({
       op: 'open',
       sessionId: input.sessionId,
@@ -112,7 +114,7 @@ export class AgentSessions {
       tools: input.tools,
       providers,
       ...(input.model ? { model: input.model } : {}),
-      ...(context ? { context } : {}),
+      ...(system ? { context: system } : {}),
     })
     if (!reply.ok) return reply
     this.owned.set(input.sessionId, {

@@ -58,6 +58,7 @@ async function bridge(
     mailLifecycles: [] as CoreLifecycle[],
     failPrompt: false,
     promptMailCalls: 0,
+    playbooks: '',
   }
   const rig = await startAgentRig(answer)
   rigs.push(rig)
@@ -72,6 +73,7 @@ async function bridge(
     }),
     sandboxed: () => state.sandboxed,
     redact,
+    playbookList: () => state.playbooks,
     promptMail: async (_scope, lifecycle) => {
       state.promptMailCalls++
       state.mailLifecycles.push(lifecycle)
@@ -181,6 +183,16 @@ describe('AgentSessions', () => {
     await done
   })
 
+  it('puts the enabled playbooks in the session’s system prompt, beside the rules', async () => {
+    const { rig, sessions, win, input, state } = await bridge(() => 'ok')
+    state.playbooks = 'Playbooks the human turned on.\n- onboard: Learn the workflow.'
+    expect(await sessions.open(win, input)).toMatchObject({ ok: true })
+    const done = rig.settled()
+    await sessions.prompt(win, 's1', 'hi')
+    await done
+    expect(rig.provider.requests[0].system).toContain('- onboard: Learn the workflow.')
+  })
+
   describe('rules at session start', () => {
     const RULES = 'Rules the human approved.\n- Write no comments. [r1]'
 
@@ -285,6 +297,7 @@ describe('AgentSessions', () => {
       redact: async (t) => t,
       coreCall: async () => ({ ok: true, output: '' }),
       promptMail: async () => null,
+      playbookList: () => '',
       rulesContext: async () => ({ text: '', count: 0 }),
     })
     expect(await none.complete({ system: 's', input: 'i' })).toEqual({

@@ -10,14 +10,14 @@ describe('playbookFiles', () => {
   it('lists enabled built-ins with the human text', () => {
     const files = playbookFiles(
       {
-        enabled: { coordinator: true },
-        accepted: { coordinator: 'My coordinator.' },
-        edits: { coordinator: { text: 'My coordinator.', from: 'x' } },
+        enabled: { onboard: true },
+        accepted: { onboard: 'My onboard.' },
+        edits: { onboard: { text: 'My onboard.', from: 'x' } },
       },
       [],
     )
-    expect(files.map((f) => f.id)).toEqual(['coordinator'])
-    expect(files[0].skill).toContain('My coordinator.')
+    expect(files.map((f) => f.id)).toEqual(['onboard'])
+    expect(files[0].skill).toContain('My onboard.')
     expect(files[0].skill).toContain('disable-model-invocation: true')
     expect(files[0].description).toBe(BUILTIN_PLAYBOOKS[0].description)
   })
@@ -46,19 +46,19 @@ describe('playbookFiles', () => {
 
   it('does not write a synced edit or an own playbook nobody accepted here', () => {
     const raw = {
-      enabled: { coordinator: true, mine: true },
-      edits: { coordinator: { text: 'Pushed from elsewhere.', from: 'x' } },
+      enabled: { onboard: true, mine: true },
+      edits: { onboard: { text: 'Pushed from elsewhere.', from: 'x' } },
       own: { mine: { description: 'd', text: 'Do it' } },
     }
     const files = playbookFiles(raw, [])
-    expect(files.map((f) => f.id)).toEqual(['coordinator'])
+    expect(files.map((f) => f.id)).toEqual(['onboard'])
     expect(files[0].skill).not.toContain('Pushed from elsewhere.')
-    expect(files[0].skill).toContain('You plan, dispatch, review and merge')
+    expect(files[0].skill).toContain('Read only the step file you need now')
   })
 
   it('keeps the current settings the app pushed and lists files from them', () => {
-    setPlaybookSettings({ enabled: { review: true } })
-    expect(currentPlaybookFiles([]).map((f) => f.id)).toEqual(['review'])
+    setPlaybookSettings({ enabled: { handoff: true } })
+    expect(currentPlaybookFiles([]).map((f) => f.id)).toEqual(['handoff'])
     setPlaybookSettings(undefined)
   })
 })
