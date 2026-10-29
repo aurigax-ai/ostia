@@ -4584,19 +4584,14 @@ button.prompt-chip:hover {
   color: var(--fg-muted);
 }
 
-.manager-agent-strip {
-  display: grid;
-  grid-template-columns: 1fr auto 1fr;
+.manager-agent-title {
+  display: flex;
   align-items: center;
+  justify-content: center;
   height: 28px;
-  padding: 0 12px;
   color: var(--fg-muted);
   font-size: var(--text-ui-sm);
   line-height: var(--text-ui-sm--line-height);
-}
-
-.manager-agent-strip > span:nth-child(2) {
-  color: var(--fg);
 }
 
 .manager-agent .chat-view [role="log"] > div > div {
@@ -4642,8 +4637,13 @@ button.prompt-chip:hover {
 }
 
 .manager-agent .chat-view form {
-  padding: 8px;
+  padding: 0;
   border-top: 0;
+}
+
+.manager-agent .chat-view form [data-slot="input-group"],
+.manager-agent .chat-view form :focus-visible {
+  outline: none;
 }
 
 .manager-agent .chat-view form [data-slot="input-group"] {

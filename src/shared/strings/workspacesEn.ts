@@ -153,7 +153,6 @@ export const workspacesEn = {
     requirementsBody:
       '{packages} is needed to check that ostia <agent> comes from outside {product}. Until it is installed, every ostia <agent> is refused.',
     sessionEmpty: 'Send a prompt below to start the manager session in {folder}',
-    sessionLabel: 'Manager session',
     settingsDesc:
       'Run the ostia command in a terminal outside {product} to open the manager, a pi session that sees and drives every workspace. ostia <agent> starts one of the programs below as manager instead. Only you can change these settings.',
     settingsTitle: 'Manager',
