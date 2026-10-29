@@ -42,6 +42,17 @@
     "helperProtocol": "the host answered with something that is not the helper",
     "notASession": "this pane is not an ssh session opened with \"SSH: Connect to Host…\"; focus that terminal first",
     "noRemoteFolder": "the shell in this session has not reported a folder on the host yet; it needs bash or zsh with the shell integration on",
-    "folderDenied": "you did not open the folder"
+    "folderDenied": "you did not open the folder",
+    "remoteUsage": "the remote commands take one JSON argument with host, agent, folder and step or pane",
+    "nodeInstallTitle": "Install remote runner",
+    "nodeInstallMessage": "Install {product}’s runner on {host}?",
+    "nodeInstallNote": "It is a readable node program that keeps your agents running in tmux on this host. It runs as you, over ssh: never with sudo, and it writes nothing of its own outside ~/.ostia. Closing a tab only detaches; the agents go on running until you stop them.",
+    "nodeRefused": "you chose not to install the runner on this host",
+    "disconnected": "Disconnected from {host}, reconnecting",
+    "online": "Online",
+    "offline": "Offline · {ago}",
+    "reconnecting": "Reconnecting",
+    "never": "never",
+    "connectFailed": "Could not connect to {host}. Check ssh in a terminal, then open the tab again from the Jobs list."
   }
 }

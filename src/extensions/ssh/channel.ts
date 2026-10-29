@@ -160,7 +160,7 @@ function connectFailure(running: Running): HelperFailure {
   return new HelperFailure('connect-failed', firstLine(running.stderr()))
 }
 
-async function status(running: Running): Promise<string[]> {
+async function statusLine(running: Running, prefix: string): Promise<string> {
   let noise = 0
   for (;;) {
     const line = await running.out.line(NOISE_MAX_BYTES)
@@ -168,12 +168,14 @@ async function status(running: Running): Promise<string[]> {
       await running.exited
       throw connectFailure(running)
     }
-    if (line.startsWith(STATUS_PREFIX)) {
-      return line.slice(STATUS_PREFIX.length).trim().split(' ').filter(Boolean)
-    }
+    if (line.startsWith(prefix)) return line.slice(prefix.length).trim()
     noise += line.length + 1
     if (noise > NOISE_MAX_BYTES) throw new HelperFailure('protocol', 'no status line')
   }
+}
+
+async function status(running: Running): Promise<string[]> {
+  return (await statusLine(running, STATUS_PREFIX)).split(' ').filter(Boolean)
 }
 
 function deadline<T>(work: Promise<T>, ms: number, onTimeout: () => void): Promise<T> {
@@ -201,20 +203,31 @@ export interface ChannelOptions {
   requestTimeoutMs?: number
 }
 
+export async function runLine(
+  argv: string[],
+  input: Buffer | null,
+  prefix: string,
+  opts: ChannelOptions = {},
+): Promise<string> {
+  const running = start(argv, opts.spawn ?? spawnSsh)
+  running.child.stdin.end(input ?? undefined)
+  try {
+    return await deadline(
+      statusLine(running, prefix),
+      opts.requestTimeoutMs ?? REQUEST_TIMEOUT_MS,
+      () => running.child.kill('SIGTERM'),
+    )
+  } finally {
+    running.child.kill('SIGTERM')
+  }
+}
+
 export async function runStatus(
   argv: string[],
   input: Buffer | null,
   opts: ChannelOptions = {},
 ): Promise<string[]> {
-  const running = start(argv, opts.spawn ?? spawnSsh)
-  running.child.stdin.end(input ?? undefined)
-  try {
-    return await deadline(status(running), opts.requestTimeoutMs ?? REQUEST_TIMEOUT_MS, () =>
-      running.child.kill('SIGTERM'),
-    )
-  } finally {
-    running.child.kill('SIGTERM')
-  }
+  return (await runLine(argv, input, STATUS_PREFIX, opts)).split(' ').filter(Boolean)
 }
 
 export interface HelperReply {
