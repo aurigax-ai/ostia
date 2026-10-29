@@ -50,7 +50,7 @@ export function playwrightFilter(entries) {
 }
 
 export function announce(entries, runner) {
-  if (quarantineMode() === 'only' || entries.length === 0) return
+  if (quarantineMode() === 'only' || entries.length === 0 || process.env.VITEST_WORKER_ID) return
   const lines = entries.map(
     (entry) => `  ${entryKey(entry)} (#${entry.issue}, until ${entry.until})`,
   )

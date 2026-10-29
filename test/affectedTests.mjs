@@ -83,7 +83,7 @@ function isSource(file) {
 const GLOBAL_INPUTS = [
   /^(package\.json|pnpm-lock\.yaml|pnpm-workspace\.yaml|vitest\.config\.mts)$/,
   /^tsconfig[^/]*\.json$/,
-  /^test\/(hostEnv|privateTmp|appEnv|quarantineSetup|domEvents|setup|buildOnce|consoleGuard)\.ts$/,
+  /^test\/(hostEnv|privateTmp|appEnv|quarantineSetup|domEvents|setup|buildOnce|consoleGuard|nodeConsole)\.ts$/,
   /^test\/quarantine\.mjs$/,
   /^test\/mocks\//,
   /^scripts\/build-[^/]+\.mjs$/,

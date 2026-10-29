@@ -47,6 +47,7 @@ export default defineConfig({
             './test/runDir.ts',
             './test/appEnv.ts',
             './test/quarantineSetup.ts',
+            './test/nodeConsole.ts',
           ],
           include: [
             'src/main/**/*.test.ts',

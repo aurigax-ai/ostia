@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { join } from 'node:path'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import {
   ARTIFACT_RUNTIME,
   allowsRuntimeImport,
@@ -65,6 +65,7 @@ describe('the preview runtime', () => {
 
   it('groups a seed of several MiB with the shipped sql.js build', async () => {
     const dist = join(built, RUNTIME_MODULES, 'sql.js', 'dist')
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
     const init = createRequire(join(dist, 'x.js'))('./sql-asm-memory-growth.js') as () => Promise<{
       Database: new (
         bytes?: Uint8Array,
@@ -75,6 +76,8 @@ describe('the preview runtime', () => {
       }
     }>
     const SQL = await init()
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('the asm.js build is deprecated'))
+    warn.mockRestore()
     const source = new SQL.Database()
     source.run('create table t(k integer, v text)')
     source.run(
