@@ -399,8 +399,9 @@ export class TmuxServer {
     }
   }
 
-  private dropClient(): void {
-    this.client?.stop()
+  private dropClient(graceful = false): void {
+    if (graceful) this.client?.detach()
+    else this.client?.stop()
     this.client = null
     for (const waiter of this.waiters.splice(0)) waiter.reject(new Error('tmux control ended'))
   }
@@ -506,7 +507,7 @@ export class TmuxServer {
     if (this.closed) return
     this.closed = true
     for (const waiter of this.waiters.splice(0)) waiter.reject(new Error('tmux is gone'))
-    this.dropClient()
+    this.dropClient(true)
     for (const pane of [...this.panes.values()]) pane.lost()
     this.panes.clear()
     this.onGone()

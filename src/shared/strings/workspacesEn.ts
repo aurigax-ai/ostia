@@ -239,7 +239,7 @@ export const workspacesEn = {
     hostHint: 'This terminal runs outside the sandbox. It closes when its command ends.',
     keepAwake: 'Keep awake',
     keptAwake: 'Kept awake',
-    keptLinkFailed: 'Ostia lost its link to the kept shells. Your programs are still running.',
+    keptLinkFailed: '{product} lost its link to the kept shells. Your programs are still running.',
     keptLinkLabel: 'Kept shells link',
     keptLinkReconnecting: 'Reconnecting to the kept shells…',
     keptLinkRetry: 'Retry',

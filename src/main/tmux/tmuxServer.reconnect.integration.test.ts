@@ -191,4 +191,20 @@ describe.skipIf(skipWithoutTmux)('TmuxServer reconnect', () => {
     await vi.waitUntil(() => seen.exits.length > 0, POLL)
     expect(seen.exits).toEqual([1])
   })
+
+  it('KSH-C111 ends the control client by closing its input, never by signal, when Ostia stops', async () => {
+    const fake = join(root, `trap-tmux-${names}`)
+    const signalled = join(root, `signalled-${names}`)
+    writeFileSync(
+      fake,
+      `#!/bin/sh\ncase "$*" in *" -C "*) trap 'touch "${signalled}"' TERM; "${tmux}" "$@" <&0 & wait;; *) exec "${tmux}" "$@";; esac\n`,
+      { mode: 0o755 },
+    )
+    const { server, sock } = await connect(fake)
+    await spawnSh(server, 'sleep 30')
+    server.close()
+    await vi.waitUntil(() => controlClientPids(sock).length === 0, POLL)
+    expect(existsSync(signalled)).toBe(false)
+    execFileSync(tmux, ['-u', '-S', sock, 'kill-server'], { env })
+  })
 })
