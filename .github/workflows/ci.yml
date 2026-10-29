@@ -45,6 +45,9 @@ permissions:
 env:
   NODE_OPTIONS: --max-old-space-size=5120
   PTRACE_E2E: with Unix sockets off the shell still starts
+  GIT_CONFIG_COUNT: 1
+  GIT_CONFIG_KEY_0: init.defaultBranch
+  GIT_CONFIG_VALUE_0: main
 
 concurrency:
   group: ci-${{ github.event_name }}-${{ github.ref }}${{ github.event_name != 'push' && format('-{0}', github.event.pull_request.number || github.sha) || '' }}${{ github.event_name == 'workflow_dispatch' && format('-{0}-{1}-{2}-{3}-{4}', inputs.full, inputs.platform, inputs.specs, inputs.repeat, inputs.self_hosted) || '' }}
