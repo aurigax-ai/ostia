@@ -16,9 +16,7 @@ runs:
     - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
       with:
         node-version: 24
-    - uses: pnpm/setup@fa36a5ef7dcdefc3a7cb25655c122e00cf6e636e
-      with:
-        install: false
+    - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413
     - id: pnpm-store
       if: inputs.cache == 'true' && runner.environment == 'github-hosted'
       shell: bash
