@@ -37,7 +37,11 @@ async function main(): Promise<void> {
   const consent = new HelperConsent(dataDir ? join(dataDir, CONSENT_FILE) : null)
   const run = (args: string[]) => runTool('ssh', args, { timeoutMs: RESOLVE_TIMEOUT_MS })
   const sessions = new Sessions()
-  const registry = new RemoteRegistry(dataDir ? join(dataDir, REGISTRY_FILE) : null)
+  const registry: RemoteRegistry = new RemoteRegistry(
+    dataDir ? join(dataDir, REGISTRY_FILE) : null,
+    () => void ext.startWithWindow(registry.hasWorkspaces()),
+  )
+  void ext.startWithWindow(registry.hasWorkspaces())
   const folders = new HelperFolders(hosts)
   onShutdown(() => hosts.closeAll())
   ext.onFiles(folders.handle)
