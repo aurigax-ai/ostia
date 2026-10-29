@@ -18,14 +18,14 @@ describe('the pi manager pane', () => {
 
   it('PIM-C13 shows nothing until the manager session exists', () => {
     render(<ManagerAgentPane workspaceId="wm1" paneId="pm1" />)
-    expect(screen.getByText('Manager session')).toBeInTheDocument()
+    expect(screen.getByText('pi')).toBeInTheDocument()
     expect(screen.queryByRole('textbox')).toBeNull()
   })
 
-  it('PIM-C14 shows the strip, the folder line, the key hints and the composer', async () => {
+  it('PIM-C14 shows the title, the folder line, the key hints and the composer', async () => {
     await ensureAgentSession('wm2', 'pm2', undefined, 'manager')
-    render(<ManagerAgentPane workspaceId="wm2" paneId="pm2" />)
-    expect(screen.getByText('Manager session')).toBeInTheDocument()
+    const { container } = render(<ManagerAgentPane workspaceId="wm2" paneId="pm2" />)
+    expect(container.querySelector('.manager-agent-title')).toHaveTextContent('pi')
     expect(
       await screen.findByText('Send a prompt below to start the manager session in /home/u/proj'),
     ).toBeInTheDocument()
