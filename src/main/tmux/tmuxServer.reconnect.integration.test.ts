@@ -197,7 +197,7 @@ describe.skipIf(skipWithoutTmux)('TmuxServer reconnect', () => {
     const signalled = join(root, `signalled-${names}`)
     writeFileSync(
       fake,
-      `#!/bin/sh\ncase "$*" in *" -C "*) trap 'touch "${signalled}"' TERM; "${tmux}" "$@" <&0 & wait;; *) exec "${tmux}" "$@";; esac\n`,
+      `#!/bin/sh\ncase "$*" in *" -C "*) exec 3<&0; trap 'touch "${signalled}"' TERM; "${tmux}" "$@" <&3 3<&- & wait;; *) exec "${tmux}" "$@";; esac\n`,
       { mode: 0o755 },
     )
     const { server, sock } = await connect(fake)

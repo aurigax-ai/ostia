@@ -237,7 +237,7 @@ export const workspacesZhHant: typeof workspacesEn = {
     hostHint: '此終端機在沙箱外執行，指令結束時會關閉。',
     keepAwake: '保持清醒',
     keptAwake: '已保持清醒',
-    keptLinkFailed: '{product} 與保留的 shell 失去連線。你的程式仍在執行。',
+    keptLinkFailed: '與保留的 shell 的連線已中斷。你的程式仍在執行。',
     keptLinkLabel: '保留 shell 連線',
     keptLinkReconnecting: '正在重新連線到保留的 shell…',
     keptLinkRetry: '重試',
