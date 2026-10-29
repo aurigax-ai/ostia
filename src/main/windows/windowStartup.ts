@@ -88,8 +88,10 @@ export function startWindows({
     onList: (list) => services.appTray?.setUnread(unreadWorkspaces(list)),
   })
   services.broker.register()
+  app.once('browser-window-created', (_event, win) =>
+    win.once('ready-to-show', () => extensionHost.processes.startEager()),
+  )
   services.broker.openAll()
-  extensionHost.processes.startEager()
   extensionHost.processes.watchUserExtensions()
   viewHost.watch()
   app.on('browser-window-focus', emitFocusChanged)
