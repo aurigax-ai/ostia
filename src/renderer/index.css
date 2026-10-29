@@ -4602,7 +4602,14 @@ button.prompt-chip:hover {
 }
 
 .manager-agent .chat-message {
-  padding: 8px 16px;
+  position: relative;
+  padding: 8px 4px;
+}
+
+.manager-agent .chat-message-actions {
+  position: absolute;
+  top: 4px;
+  right: 4px;
 }
 
 .manager-agent .chat-message[data-role="user"] > div:first-child {
@@ -4623,10 +4630,14 @@ button.prompt-chip:hover {
 
 .manager-agent .chat-tool {
   width: auto;
-  margin: 0 16px;
+  margin: 0;
   border: 0;
   border-radius: 0;
   background: transparent;
+}
+
+.manager-agent .chat-tool > :first-child {
+  padding-inline: 0;
 }
 
 .manager-agent .chat-tool-approval {
@@ -4637,7 +4648,7 @@ button.prompt-chip:hover {
 }
 
 .manager-agent .chat-view form {
-  padding: 0;
+  padding: 0 6px;
   border-top: 0;
 }
 
