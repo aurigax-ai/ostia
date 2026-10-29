@@ -11,12 +11,21 @@ function Boom({ message }: { message: string }): JSX.Element {
 }
 
 let consoleError: ReturnType<typeof vi.spyOn>
+let uncaught: string[]
+
+function collectUncaught(event: ErrorEvent): void {
+  event.preventDefault()
+  uncaught.push(event.error instanceof Error ? event.error.message : event.message)
+}
 
 beforeEach(() => {
+  uncaught = []
   consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
+  window.addEventListener('error', collectUncaught)
 })
 
 afterEach(() => {
+  window.removeEventListener('error', collectUncaught)
   consoleError.mockRestore()
 })
 
@@ -33,6 +42,7 @@ describe('AppErrorBoundary', () => {
     expect(screen.getByRole('button', { name: 'Reload window' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Copy details' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Open log folder' })).toBeInTheDocument()
+    expect(uncaught).toContain('layout exploded')
   })
 
   it('reports the error to main as a render error, with the component stack', () => {
@@ -92,6 +102,7 @@ describe('AppErrorBoundary', () => {
     expect(screen.getByText('app body')).toBeInTheDocument()
     act(() => crash())
     expect(screen.getByText('Something went wrong')).toBeInTheDocument()
+    expect(uncaught).toContain('test crash requested by the E2E hook')
   })
 
   it('does not listen for the test crash when test hooks are off', async () => {
@@ -118,6 +129,7 @@ describe('SurfaceErrorBoundary', () => {
     expect(screen.getByText('healthy pane')).toBeInTheDocument()
     expect(screen.getByText('This pane hit an error')).toBeInTheDocument()
     expect(screen.getByText('viewer broke')).toBeInTheDocument()
+    expect(uncaught).toContain('viewer broke')
     expect(window.ostia.diagnostics.report).toHaveBeenCalledWith(
       expect.objectContaining({ kind: 'surface', message: 'viewer broke', source: 'pane p-2' }),
     )

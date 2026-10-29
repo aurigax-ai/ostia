@@ -12,6 +12,16 @@ describe('console guard', () => {
     expect(takeUnexpectedConsoleErrors()).toEqual(['Warning: Thing was not wrapped in act(...)'])
   })
 
+  it('records a console.warn the test did not allow', () => {
+    console.warn('Warning: deprecated %s', 'thing')
+    expect(takeUnexpectedConsoleErrors()).toEqual(['Warning: deprecated thing'])
+  })
+
+  it('records a write to stderr the test did not allow', () => {
+    process.stderr.write('fatal: something\n')
+    expect(takeUnexpectedConsoleErrors()).toEqual(['fatal: something\n'])
+  })
+
   it('lets through an error the test allowed', () => {
     allowConsoleError(/^\[settings\] save failed/)
     console.error('[settings] save failed', new Error('disk full'))
