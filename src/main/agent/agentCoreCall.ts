@@ -4,6 +4,8 @@ import { CancellationTokenSource, Emitter } from 'vscode-jsonrpc/node'
 import { type AgentCoreToolName, isAgentCoreTool } from '../../shared/agent/agentCoreTools'
 import { busInboxText } from '../../shared/agents/busMessages'
 import { otherPaneText } from '../../shared/agents/paneText'
+import { readPlaybook } from '../../shared/agents/playbookRead'
+import { parsePlaybooks } from '../../shared/agents/playbooks'
 import { initCaps } from '../approvals/capabilityStore'
 import type { ControlConn, ControlMethodContext } from '../control/controlServer'
 import type { PaneIdentity } from '../control/idRegistry'
@@ -44,6 +46,7 @@ export interface AgentCoreDeps {
   ownsChild: (ownerPaneId: string, externalPaneId: string) => boolean
   isManagerSession: (paneId: string) => boolean
   call: (name: string, params: unknown, ctx: ControlMethodContext) => Promise<unknown>
+  playbookSettings: () => unknown
 }
 
 export interface CoreCallRequest {
@@ -58,6 +61,7 @@ type Call = (method: string, params: unknown) => Promise<unknown>
 interface Facts {
   paneId: string
   ownsChild: AgentCoreDeps['ownsChild']
+  playbookSettings: AgentCoreDeps['playbookSettings']
 }
 
 interface CoreTool {
@@ -172,6 +176,15 @@ export const AGENT_CORE_TOOLS: Readonly<Record<AgentCoreToolName, CoreTool>> = {
     methods: ['process.list', 'pane.list'],
     run: (_i, call, facts) => managed(call, facts),
   },
+  ostia_skill: {
+    methods: [],
+    run: async (input, _call, facts) => {
+      const { name = '', file } = strings(input, ['name', 'file'])
+      const read = readPlaybook(parsePlaybooks(facts.playbookSettings()), name, file)
+      if (!read.ok) throw new Error(read.error)
+      return read.text
+    },
+  },
   ostia_agent_run: {
     methods: ['agent.run'],
     run: (input, call) =>
@@ -280,6 +293,7 @@ export function createAgentCoreCall(deps: AgentCoreDeps) {
       const result = await tool.run(input, call, {
         paneId: ctx.identity.paneId,
         ownsChild: deps.ownsChild,
+        playbookSettings: deps.playbookSettings,
       })
       return { ok: true, output: outputOf(result) }
     } catch (err) {

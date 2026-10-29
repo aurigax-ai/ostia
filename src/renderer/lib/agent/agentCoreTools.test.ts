@@ -44,7 +44,7 @@ function setAllow(alwaysAsk: ('ostia_agent_run' | 'ostia_bus_send')[]): void {
 const core = () => vi.mocked(window.ostia.agentSessions.coreCall)
 
 describe('the Agent pane’s ostia tools', () => {
-  it('offers the eight tools, and only the two that act are acting tools', () => {
+  it('offers the nine tools, and only the two that act are acting tools', () => {
     expect(agentCoreToolDefs().map((d) => d.spec.name)).toEqual([
       'ostia_workspaces',
       'ostia_panes',
@@ -52,6 +52,7 @@ describe('the Agent pane’s ostia tools', () => {
       'ostia_bus_inbox',
       'ostia_pane_read',
       'ostia_pane_wait',
+      'ostia_skill',
       'ostia_agent_run',
       'ostia_bus_send',
     ])
@@ -66,6 +67,7 @@ describe('the Agent pane’s ostia tools', () => {
       'ostia_bus_inbox',
       'ostia_pane_read',
       'ostia_pane_wait',
+      'ostia_skill',
     ]
     for (const name of reads) {
       expect(await def(name).run({}, run())).toEqual({ state: 'done', output: '[]' })

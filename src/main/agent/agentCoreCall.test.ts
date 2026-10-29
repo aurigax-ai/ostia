@@ -41,6 +41,7 @@ function rig(answers: Record<string, unknown> = {}, overrides: Partial<AgentCore
     ownsChild: () => false,
     isManagerSession: () => false,
     call,
+    playbookSettings: () => ({}),
     ...overrides,
   })
   const lifecycle = coreLifecycle()
@@ -339,6 +340,32 @@ describe('createAgentCoreCall', () => {
       expect(calls).toEqual([])
     },
   )
+})
+
+describe('ostia_skill', () => {
+  const on = { playbooks: { enabled: { onboard: true } } }
+  const playbooks = (settings: unknown) => ({ playbookSettings: () => settings })
+
+  it('reads SKILL.md or a listed file of an enabled playbook and calls no control method', async () => {
+    const { ask, calls } = rig({}, playbooks(on.playbooks))
+    const index = await ask('ostia_skill', { name: 'onboard' })
+    expect(index).toMatchObject({ ok: true })
+    expect(index.ok && index.output).toContain('# Onboard')
+    const step = await ask('ostia_skill', { name: 'onboard', file: 'steps/pr.md' })
+    expect(step.ok && step.output).toContain('# Pull request')
+    expect(calls).toEqual([])
+  })
+
+  it('refuses a disabled playbook, an unknown name and any file the playbook does not list', async () => {
+    const off = rig({}, playbooks({ enabled: {} }))
+    expect(await off.ask('ostia_skill', { name: 'onboard' })).toMatchObject({ ok: false })
+    const { ask } = rig({}, playbooks(on.playbooks))
+    for (const file of ['../../etc/passwd', '/etc/passwd', 'steps/../SKILL.md', 'steps/none.md']) {
+      expect(await ask('ostia_skill', { name: 'onboard', file })).toMatchObject({ ok: false })
+    }
+    expect(await ask('ostia_skill', { name: 'nope' })).toMatchObject({ ok: false })
+    expect(await ask('ostia_skill', {})).toMatchObject({ ok: false })
+  })
 })
 
 describe('ostia_pane_read and ostia_pane_wait', () => {

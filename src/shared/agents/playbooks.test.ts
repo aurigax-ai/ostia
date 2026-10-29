@@ -37,7 +37,7 @@ describe('playbook names', () => {
   })
 
   it('reserves the built-in names, the product name and Claude Code’s own commands', () => {
-    for (const id of ['coordinator', 'worker', 'review', 'handoff', 'ostia']) {
+    for (const id of ['onboard', 'handoff', 'review', 'ostia']) {
       expect(playbookNameProblem(id, [], [])).toBe('reserved')
     }
     for (const id of ['clear', 'init', 'compact', 'help', 'simplify', 'security-review']) {
@@ -118,10 +118,10 @@ describe('parsePlaybooks', () => {
 
   it('keeps well-formed data and drops the rest', () => {
     const parsed = parsePlaybooks({
-      enabled: { coordinator: true, Bad: true, worker: 'yes', 'release-check': true },
-      accepted: { coordinator: 'mine', Bad: 'x', worker: 4 },
+      enabled: { onboard: true, Bad: true, handoff: 'yes', 'release-check': true },
+      accepted: { onboard: 'mine', Bad: 'x', handoff: 4 },
       edits: {
-        coordinator: { text: 'mine', from: 'abc' },
+        onboard: { text: 'mine', from: 'abc' },
         unknown: { text: 'x', from: 'y' },
         review: { text: 4, from: 'y' },
       },
@@ -132,9 +132,12 @@ describe('parsePlaybooks', () => {
         'Bad Name': { description: 'x', text: 'x' },
       },
     })
-    expect(parsed.enabled).toEqual({ coordinator: true, 'release-check': true })
-    expect(parsed.accepted).toEqual({ coordinator: 'mine' })
-    expect(parsed.edits).toEqual({ coordinator: { text: 'mine', from: 'abc' } })
+    expect(parsed.enabled).toEqual({ onboard: true, 'release-check': true })
+    expect(parsed.accepted).toEqual({ onboard: 'mine' })
+    expect(parsed.edits).toEqual({ onboard: { text: 'mine', from: 'abc' } })
+    expect(parsePlaybooks({ edits: { coordinator: { text: 'old', from: 'abc' } } }).edits).toEqual(
+      {},
+    )
     expect(parsed.own).toEqual({ 'release-check': { description: 'Check', text: 'Do it' } })
   })
 
@@ -160,15 +163,15 @@ describe('resolvePlaybooks', () => {
   })
 
   it('applies a text the human wrote here, and notices a changed default', () => {
-    const base = builtin('coordinator')
-    const edited = withPlaybookText(DEFAULT_PLAYBOOKS, 'coordinator', `${base.text}\nExtra.`)
+    const base = builtin('onboard')
+    const edited = withPlaybookText(DEFAULT_PLAYBOOKS, 'onboard', `${base.text}\nExtra.`)
     const [first] = resolvePlaybooks(edited)
     expect(first.edited).toBe(true)
     expect(first.text).toBe(`${base.text}\nExtra.`)
     expect(first.defaultChanged).toBe(false)
     expect(first.unaccepted).toBeNull()
 
-    const stale = { ...edited, edits: { coordinator: { text: first.text, from: 'old00000' } } }
+    const stale = { ...edited, edits: { onboard: { text: first.text, from: 'old00000' } } }
     const [again] = resolvePlaybooks(stale)
     expect(again.text).toBe(first.text)
     expect(again.defaultChanged).toBe(true)
@@ -176,30 +179,30 @@ describe('resolvePlaybooks', () => {
   })
 
   it('does not use an edit that arrived from another device until it is accepted here', () => {
-    const base = builtin('coordinator')
+    const base = builtin('onboard')
     const synced = {
       ...DEFAULT_PLAYBOOKS,
-      enabled: { coordinator: true },
-      edits: { coordinator: { text: 'Pushed from elsewhere.', from: playbookHash(base.text) } },
+      enabled: { onboard: true },
+      edits: { onboard: { text: 'Pushed from elsewhere.', from: playbookHash(base.text) } },
     }
     const [waiting] = resolvePlaybooks(synced)
     expect(waiting.text).toBe(base.text)
     expect(waiting.edited).toBe(false)
     expect(waiting.unaccepted).toBe('Pushed from elsewhere.')
-    expect(activePlaybooks(synced).find((p) => p.id === 'coordinator')?.text).toBe(base.text)
+    expect(activePlaybooks(synced).find((p) => p.id === 'onboard')?.text).toBe(base.text)
 
-    const [taken] = resolvePlaybooks(withPlaybookAccepted(synced, 'coordinator'))
+    const [taken] = resolvePlaybooks(withPlaybookAccepted(synced, 'onboard'))
     expect(taken.text).toBe('Pushed from elsewhere.')
     expect(taken.edited).toBe(true)
     expect(taken.unaccepted).toBeNull()
   })
 
   it('does not use a synced edit that differs from the one accepted here', () => {
-    const accepted = withPlaybookText(DEFAULT_PLAYBOOKS, 'worker', 'Mine.')
-    const replaced = { ...accepted, edits: { worker: { text: 'Theirs.', from: 'x' } } }
-    const worker = resolvePlaybooks(replaced).find((p) => p.id === 'worker')
-    expect(worker?.text).toBe(builtin('worker').text)
-    expect(worker?.unaccepted).toBe('Theirs.')
+    const accepted = withPlaybookText(DEFAULT_PLAYBOOKS, 'handoff', 'Mine.')
+    const replaced = { ...accepted, edits: { handoff: { text: 'Theirs.', from: 'x' } } }
+    const found = resolvePlaybooks(replaced).find((p) => p.id === 'handoff')
+    expect(found?.text).toBe(builtin('handoff').text)
+    expect(found?.unaccepted).toBe('Theirs.')
   })
 
   it('leaves an own playbook that arrived from another device off until accepted', () => {
@@ -211,19 +214,19 @@ describe('resolvePlaybooks', () => {
   })
 
   it('treats an edit equal to the default as no edit', () => {
-    const base = builtin('worker')
-    const edited = withPlaybookText(DEFAULT_PLAYBOOKS, 'worker', 'x')
-    const back = withPlaybookText(edited, 'worker', base.text)
+    const base = builtin('handoff')
+    const edited = withPlaybookText(DEFAULT_PLAYBOOKS, 'handoff', 'x')
+    const back = withPlaybookText(edited, 'handoff', base.text)
     expect(back.edits).toEqual({})
     expect(back.accepted).toEqual({})
     expect(resolvePlaybooks(back)[1].edited).toBe(false)
   })
 
   it('keeps the first default hash across later edits', () => {
-    const base = builtin('review')
-    const once = withPlaybookText(DEFAULT_PLAYBOOKS, 'review', 'one')
-    const twice = withPlaybookText(once, 'review', 'two')
-    expect(twice.edits.review).toEqual({ text: 'two', from: playbookHash(base.text) })
+    const base = builtin('onboard')
+    const once = withPlaybookText(DEFAULT_PLAYBOOKS, 'onboard', 'one')
+    const twice = withPlaybookText(once, 'onboard', 'two')
+    expect(twice.edits.onboard).toEqual({ text: 'two', from: playbookHash(base.text) })
   })
 })
 
@@ -232,7 +235,7 @@ describe('playbook updates', () => {
     const own = withOwnPlaybook(DEFAULT_PLAYBOOKS, 'mine', { description: 'd', text: 't' })
     expect(own.enabled).toEqual({})
     expect(withPlaybookEnabled(own, 'mine', true).enabled).toEqual({ mine: true })
-    expect(withPlaybookEnabled(own, 'review', true).enabled).toEqual({ review: true })
+    expect(withPlaybookEnabled(own, 'onboard', true).enabled).toEqual({ onboard: true })
     expect(withPlaybookEnabled(own, 'nope', true)).toBe(own)
     expect(withPlaybookText(own, 'nope', 'x')).toBe(own)
   })
@@ -252,8 +255,8 @@ describe('playbook updates', () => {
   })
 
   it('resets an edit and forgets what was accepted', () => {
-    const edited = withPlaybookText(DEFAULT_PLAYBOOKS, 'review', 'x')
-    expect(withPlaybookReset(edited, 'review')).toEqual(DEFAULT_PLAYBOOKS)
+    const edited = withPlaybookText(DEFAULT_PLAYBOOKS, 'onboard', 'x')
+    expect(withPlaybookReset(edited, 'onboard')).toEqual(DEFAULT_PLAYBOOKS)
   })
 })
 
@@ -262,8 +265,8 @@ describe('activePlaybooks and the skill text', () => {
     let s = withOwnPlaybook(DEFAULT_PLAYBOOKS, 'good', { description: 'ok', text: 'Do it' })
     s = withOwnPlaybook(s, 'shell', { description: 'ok', text: 'run !`id`' })
     s = withOwnPlaybook(s, 'blank', { description: '', text: 'Do it' })
-    for (const id of ['good', 'shell', 'blank', 'worker']) s = withPlaybookEnabled(s, id, true)
-    expect(activePlaybooks(s).map((p) => p.id)).toEqual(['worker', 'good'])
+    for (const id of ['good', 'shell', 'blank', 'handoff']) s = withPlaybookEnabled(s, id, true)
+    expect(activePlaybooks(s).map((p) => p.id)).toEqual(['handoff', 'good'])
   })
 
   it('writes Ostia’s own frontmatter, human-invoked only, with the description quoted', () => {

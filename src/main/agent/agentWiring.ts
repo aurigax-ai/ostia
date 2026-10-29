@@ -1,5 +1,8 @@
 import { AGENT_EXTENSION_ID } from '@aurigax-ai/ostia-extension-sdk/contract/agent'
 import { parseAgentSettings } from '../../shared/agent/agentSettings'
+import { playbookListText } from '../../shared/agents/playbookRead'
+import { parsePlaybooks } from '../../shared/agents/playbooks'
+import { currentPlaybookSettings } from '../agents/playbookFiles'
 import {
   callControlMethod,
   type ExtensionMethodContext,
@@ -48,6 +51,7 @@ export function startAgent({
     },
     isManagerSession: (paneId) => services.managerService?.isManagerPane(paneId) === true,
     call: callControlMethod,
+    playbookSettings: currentPlaybookSettings,
   }
   services.agentSessions = new AgentSessions({
     request: (request) =>
@@ -56,6 +60,7 @@ export function startAgent({
     sandboxed: (workspaceId) => workspaceSandboxes.isEnabled(workspaceId),
     redact: (text) => redactor.text(text),
     coreCall: createAgentCoreCall(coreDeps),
+    playbookList: () => playbookListText(parsePlaybooks(currentPlaybookSettings())),
     promptMail: createPromptMail(coreDeps),
     rulesContext: (workspaceId, cwd, sessionId) =>
       services.extensionHost?.agentContext(workspaceId, cwd, sessionId) ??

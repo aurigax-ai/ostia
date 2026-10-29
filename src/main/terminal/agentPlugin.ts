@@ -52,6 +52,10 @@ export function agentPluginDigest(
   for (const playbook of playbooks) {
     hash.update(JSON.stringify({ playbook: playbook.id, size: playbook.skill.length }))
     hash.update(playbook.skill)
+    for (const file of playbook.files) {
+      hash.update(JSON.stringify({ path: file.path, size: file.text.length }))
+      hash.update(file.text)
+    }
   }
   return hash.digest('hex').slice(0, 32)
 }
@@ -80,10 +84,12 @@ export function agentPluginFiles(
         join('codex', 'skills', skill.id, file.name),
       ]),
     ),
-    ...playbooks.flatMap((playbook) => [
-      join('claude-plugin', 'skills', playbook.id, AGENT_SKILL_ENTRY),
-      join('codex', PLAYBOOKS_DIR, playbook.id, AGENT_SKILL_ENTRY),
-    ]),
+    ...playbooks.flatMap((playbook) =>
+      [AGENT_SKILL_ENTRY, ...playbook.files.map((file) => file.path)].flatMap((path) => [
+        join('claude-plugin', 'skills', playbook.id, path),
+        join('codex', PLAYBOOKS_DIR, playbook.id, path),
+      ]),
+    ),
   ]
 }
 

@@ -5,6 +5,7 @@ export const AGENT_READ_TOOLS = [
   'ostia_bus_inbox',
   'ostia_pane_read',
   'ostia_pane_wait',
+  'ostia_skill',
 ] as const
 
 export const AGENT_ACT_TOOLS = ['ostia_agent_run', 'ostia_bus_send'] as const
