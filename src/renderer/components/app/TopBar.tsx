@@ -24,6 +24,7 @@ import { Kbd } from '@/components/ui/kbd'
 import { useDict } from '@/lib/app/useDict'
 import { useChordLabel } from '@/lib/keyboard/chords'
 import { COMMANDS_PREFIX } from '@/lib/palette/paletteModes'
+import { useRemoteStore } from '@/lib/remote/remoteStore'
 import { startNewWorkspace, startScratchWorkspace } from '@/lib/workspaces/newWorkspace'
 import {
   listSshHosts,
@@ -162,6 +163,15 @@ function NewWorkspaceMenu(): JSX.Element {
       {ssh ? (
         <>
           <ContextMenuSeparator />
+          <MenuItem
+            icon={PlugsConnectedIcon}
+            onClick={() => {
+              showWorkspaces()
+              useRemoteStore.getState().openNew()
+            }}
+          >
+            {d.remote.menu}
+          </MenuItem>
           <ContextMenuSub>
             <MenuSubTrigger icon={PlugsConnectedIcon}>{d.scratch.ssh}</MenuSubTrigger>
             <MenuSubContent className="max-h-96 max-w-80 overflow-y-auto">

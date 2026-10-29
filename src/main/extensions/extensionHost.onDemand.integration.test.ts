@@ -117,7 +117,7 @@ describe('a built-in assist extension starts on demand', () => {
 })
 
 describe('the real built-in extensions', () => {
-  it('start no extension host with the window, so the branch, the diff stats and the Git panel run without one', async () => {
+  it('start only ssh with the window, for its remote Online or Offline row, so the branch, the diff stats and the Git panel run without a host', async () => {
     const dir = mkdtempSync(join(tmpdir(), 'ostia-ext-builtins-'))
     const host = new ExtensionHost({
       sandboxDomains: () => null,
@@ -146,7 +146,7 @@ describe('the real built-in extensions', () => {
           .list()
           .filter((e) => e.status !== 'idle')
           .map((e) => e.id),
-      ).toEqual([])
+      ).toEqual(['ssh'])
     } finally {
       host.processes.stopAll()
       rmSync(dir, { recursive: true, force: true })

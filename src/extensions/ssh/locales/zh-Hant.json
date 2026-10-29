@@ -11,7 +11,8 @@
     "commands.helper-remove.argument": "要移除輔助程式的主機，寫法與 ssh 後面的參數相同",
     "settings.remoteHelper.title": "遠端輔助程式",
     "settings.remoteHelper.description": "提供在主機的 ~/.ostia 下安裝小型輔助指令稿，讓 {product} 透過 ssh 取得該主機的檔案。每台主機只會詢問一次，並在安裝前顯示確切路徑。關閉後不再詢問，也不會連線",
-    "commands.open-folder.title": "SSH：開啟遠端資料夾"
+    "commands.open-folder.title": "SSH：開啟遠端資料夾",
+    "paneChips.remote.title": "遠端主機"
   },
   "messages": {
     "confirmTitle": "開啟 SSH 連線",
@@ -55,6 +56,17 @@
     "helperProtocol": "主機回應的內容不是輔助程式",
     "notASession": "這個窗格不是用「SSH：連線到主機…」開啟的 ssh 工作階段；請先選取那個終端機",
     "noRemoteFolder": "這個工作階段的 shell 尚未回報主機上的資料夾；需要 bash 或 zsh，並開啟 shell 整合",
-    "folderDenied": "你沒有開啟這個資料夾"
+    "folderDenied": "你沒有開啟這個資料夾",
+    "remoteUsage": "遠端指令需要一個 JSON 參數，內含 host、agent、folder 與 step 或 pane",
+    "nodeInstallTitle": "安裝遠端執行器",
+    "nodeInstallMessage": "要在 {host} 上安裝 {product} 的執行器嗎？",
+    "nodeInstallNote": "它是一個可讀的 node 程式，在這台主機上以 tmux 讓你的代理持續執行。它以你的身分透過 ssh 執行：不使用 sudo，也不會在 ~/.ostia 之外寫入自己的檔案。關閉分頁只會中斷連線；代理會繼續執行，直到你停止它們。",
+    "nodeRefused": "你選擇不在這台主機安裝執行器",
+    "disconnected": "與 {host} 的連線中斷，正在重新連線",
+    "online": "在線上",
+    "offline": "離線 · {ago}",
+    "reconnecting": "重新連線中",
+    "never": "從未",
+    "connectFailed": "無法連線到 {host}。請先在終端機檢查 ssh，再從工作清單重新開啟分頁。"
   }
 }

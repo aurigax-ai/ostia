@@ -187,6 +187,7 @@ export const commandsEn = {
       'workspace.openPad': 'Open Scratch Pad',
       'workspace.pin': 'Pin Workspace',
       'workspace.previous': 'Previous Workspace',
+      'workspace.remoteJobs': 'Remote: Jobs',
       'workspace.rename': 'Rename Workspace',
       'workspace.renameGroup': 'Rename Workspace Group',
       'workspace.resumeAgents': 'Resume Workspace Agents',

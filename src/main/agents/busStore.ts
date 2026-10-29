@@ -114,8 +114,14 @@ interface Waiter {
 
 const waiters = new Map<string, Set<Waiter>>()
 
+let pathOverride: string | undefined
+
+export function setBusPath(path: string): void {
+  pathOverride = path
+}
+
 function busPath(): string {
-  return storePath('bus', 'global')
+  return pathOverride ?? storePath('bus', 'global')
 }
 
 function store(): BusData {

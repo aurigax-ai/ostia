@@ -19,6 +19,8 @@ import { filesEn } from '../strings/filesEn'
 import { filesZhHant } from '../strings/filesZhHant'
 import { playbooksEn } from '../strings/playbooksEn'
 import { playbooksZhHant } from '../strings/playbooksZhHant'
+import { remoteEn } from '../strings/remoteEn'
+import { remoteZhHant } from '../strings/remoteZhHant'
 import { securityEn } from '../strings/securityEn'
 import { securityZhHant } from '../strings/securityZhHant'
 import { serverEn } from '../strings/serverEn'
@@ -103,6 +105,7 @@ export const en = {
   sync: appEn.sync,
   server: serverEn.server,
   shares: sharesEn.shares,
+  remote: remoteEn.remote,
   syncServer: serverEn.syncServer,
   browserSettings: settingsEn.browserSettings,
   editorSettings: settingsEn.editorSettings,
@@ -192,6 +195,7 @@ export const zhHant: Dict = {
   sync: appZhHant.sync,
   server: serverZhHant.server,
   shares: sharesZhHant.shares,
+  remote: remoteZhHant.remote,
   syncServer: serverZhHant.syncServer,
   browserSettings: settingsZhHant.browserSettings,
   editorSettings: settingsZhHant.editorSettings,
