@@ -189,6 +189,7 @@ export const commandsZhHant: typeof commandsEn = {
       'workspace.openPad': '開啟便箋',
       'workspace.pin': '釘選工作區',
       'workspace.previous': '上一個工作區',
+      'workspace.remoteJobs': '遠端：工作',
       'workspace.rename': '重新命名工作區',
       'workspace.renameGroup': '重新命名工作區群組',
       'workspace.resumeAgents': '繼續工作區的代理程式',

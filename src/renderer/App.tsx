@@ -16,6 +16,7 @@ import { CommandPalette } from '@/components/palette/CommandPalette'
 import { HistorySearch } from '@/components/palette/HistorySearch'
 import { SaveSnippetDialog } from '@/components/palette/SaveSnippetDialog'
 import { SnippetPicker } from '@/components/palette/SnippetPicker'
+import { RemoteDialogs } from '@/components/remote/RemoteDialogs'
 import { SandboxFolderDialog } from '@/components/sandbox/SandboxFolderDialog'
 import { SandboxLeftBehindNotice } from '@/components/sandbox/SandboxLeftBehindNotice'
 import { SandboxRequirementsDialog } from '@/components/sandbox/SandboxRequirementsDialog'
@@ -144,6 +145,7 @@ export function App(): JSX.Element {
           <CloseConfirmDialog />
           <MergeConfirmDialog />
           <HibernateSkippedDialog />
+          <RemoteDialogs />
           <TabSleepNoticeDialog />
           <CmuxImportDialog />
           <ActionConfirmDialog />

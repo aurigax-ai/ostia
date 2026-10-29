@@ -7,6 +7,7 @@ import { currentDict } from '@/lib/app/useDict'
 import { markWorkspaceRead } from '@/lib/attention/workspaceActivity'
 import { openArtifact, openPad } from '@/lib/files/artifacts'
 import { callerHasFocus } from '@/lib/panes/callerFocus'
+import { useRemoteStore } from '@/lib/remote/remoteStore'
 import { groupMates } from '@/lib/sidebar/groupPeers'
 import {
   closeBlockers,
@@ -79,6 +80,15 @@ function registerHibernateCommands(): void {
     local: true,
     capabilities: ['type-other-pane'],
     run: (_args, ctx) => ({ resumed: resumeWorkspaces(groupWorkspaceIds(ctx.activeWorkspaceId)) }),
+  })
+}
+
+function registerRemoteCommands(): void {
+  registerCore({
+    id: 'workspace.remoteJobs',
+    category: 'workspace',
+    local: true,
+    run: (_args, ctx) => useRemoteStore.getState().openJobs(ctx.activeWorkspaceId),
   })
 }
 
@@ -366,6 +376,7 @@ function registerSwitchAndCreateCommands(): void {
 
 export function registerWorkspaceLifecycleCommands(): void {
   registerHibernateCommands()
+  registerRemoteCommands()
   registerPinFolderAndCloseCommands()
   registerMergeAndArtifactCommands()
   registerSwitchAndCreateCommands()

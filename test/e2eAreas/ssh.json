@@ -2,18 +2,23 @@
   "name": "ssh",
   "paths": [
     "packages/extension-sdk/src/contract/remoteFolders.ts",
+    "scripts/build-node.mjs",
     "src/extensions/ssh/",
     "src/main/files/remoteFolderConfirm.ts",
     "src/main/files/remoteFolders.",
+    "src/node/",
     "src/renderer/components/editor/RemoteFileBar.tsx",
     "src/renderer/components/files/RemoteFolderDialog.",
+    "src/renderer/components/remote/",
     "src/renderer/lib/files/remoteFileSync.ts",
+    "src/renderer/lib/remote/",
     "src/renderer/lib/workspaces/sshWorkspace.ts",
     "src/renderer/stores/files/remoteFoldersStore.ts",
     "src/renderer/stores/terminal/remoteCwdStore.ts",
     "test/fixtures/ssh/"
   ],
   "specs": [
+    "e2e/remote-workspace.spec.ts",
     "e2e/ssh-remote-files.spec.ts",
     "e2e/ssh.spec.ts"
   ]

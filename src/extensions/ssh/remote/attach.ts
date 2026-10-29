@@ -20,27 +20,15 @@ export interface AttachMessages {
 }
 
 const RECONNECT_LOOP = [
-  's=1',
-  'connected=0',
-  'lost=$1',
-  'failed=$2',
-  'shift 2',
-  'while :; do',
-  '  t=$(date +%s)',
-  '  "$@"',
-  '  c=$?',
-  '  [ "$c" = 255 ] || exit "$c"',
-  '  [ $(($(date +%s) - t)) -gt 10 ] && connected=1 && s=1',
-  '  if [ "$connected" = 0 ]; then',
-  '    printf "\\r\\n%s\\r\\n" "$failed"',
-  '    exit 255',
-  '  fi',
-  '  printf "\\r\\n%s\\r\\n" "$lost"',
-  '  sleep "$s"',
-  '  s=$((s * 2))',
-  '  [ "$s" -gt 60 ] && s=60',
+  's=1; connected=0; lost=$1; failed=$2; shift 2',
+  'while :; do t=$(date +%s); "$@"; c=$?',
+  '[ "$c" = 255 ] || exit "$c"',
+  '[ $(($(date +%s) - t)) -gt 10 ] && connected=1 && s=1',
+  'if [ "$connected" = 0 ]; then printf "\\r\\n%s\\r\\n" "$failed"; exit 255; fi',
+  'printf "\\r\\n%s\\r\\n" "$lost"; sleep "$s"; s=$((s * 2))',
+  '[ "$s" -gt 60 ] && s=60',
   'done',
-].join('\n')
+].join('; ')
 
 export function attachArgv(plan: ConnectPlan, pane: string, messages: AttachMessages): string[] {
   if (!PANE_PATTERN.test(pane)) throw new Error('bad pane id')

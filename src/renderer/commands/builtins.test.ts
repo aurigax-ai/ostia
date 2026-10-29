@@ -3162,6 +3162,7 @@ describe('commands open to script tokens', () => {
     'workspace.hibernateGroupAgents',
     'workspace.resumeAgents',
     'workspace.resumeGroupAgents',
+    'workspace.remoteJobs',
   ])('%s is the human’s: local only, never a socket command', (id) => {
     expect(commands.isLocal(id)).toBe(true)
   })

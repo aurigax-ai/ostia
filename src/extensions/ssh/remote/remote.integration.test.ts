@@ -6,8 +6,14 @@ import { type IPty, spawn as spawnPty } from 'node-pty'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { FAKE_SSH_DIR, type RemoteHost, remoteHost } from '../../../../test/fixtures/ssh/remoteHost'
 import { skipWithoutTmux } from '../../../../test/tmux'
-import { nodePaths } from '../../../node/nodePaths'
-import { NODE_CLI, NODE_ENTRY } from '../../../shared/remote/remoteNode'
+import {
+  NODE_AGENTS,
+  NODE_CLI,
+  NODE_ENTRY,
+  NODE_SOCKET,
+  NODE_TMUX_SOCKET,
+  NODE_TOKENS,
+} from '../../../shared/remote/remoteNode'
 import { HelperFailure } from '../channel'
 import { planConnect } from '../plan'
 import { attachArgv } from './attach'
@@ -15,6 +21,15 @@ import { type NodeBundle, nodeBundle } from './bundle'
 import { classify, RunnerClient } from './runnerClient'
 
 const ASSETS = resolve(__dirname, '../../../../out/extensions/ssh/assets/node')
+function nodePaths(home: string) {
+  return {
+    socket: join(home, NODE_SOCKET),
+    tmuxSocket: join(home, NODE_TMUX_SOCKET),
+    tokens: join(home, NODE_TOKENS),
+    agents: join(home, NODE_AGENTS),
+  }
+}
+
 const POLL = { timeout: 10_000, interval: 50 }
 
 describe.skipIf(skipWithoutTmux)('remote runner over a fake ssh host', () => {

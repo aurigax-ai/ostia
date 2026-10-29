@@ -34,3 +34,9 @@ export interface RemoteJob {
   state: JobState
   startedAt: string
 }
+
+export interface RemoteChoice {
+  host: string
+  folder: string
+  agent: RemoteAgent
+}

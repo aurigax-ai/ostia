@@ -1,5 +1,11 @@
 import { join } from 'node:path'
-import { NODE_HOME } from '../shared/remote/remoteNode'
+import {
+  NODE_AGENTS,
+  NODE_HOME,
+  NODE_SOCKET,
+  NODE_TMUX_SOCKET,
+  NODE_TOKENS,
+} from '../shared/remote/remoteNode'
 
 export interface NodePaths {
   root: string
@@ -19,12 +25,12 @@ export function nodePaths(home: string): NodePaths {
   return {
     root,
     run,
-    socket: join(run, 'control.sock'),
-    tmuxSocket: join(run, 'tmux'),
+    socket: join(home, NODE_SOCKET),
+    tmuxSocket: join(home, NODE_TMUX_SOCKET),
     tmuxConf: join(run, 'tmux.conf'),
-    tokens: join(run, 'tokens'),
+    tokens: join(home, NODE_TOKENS),
     jobs: join(root, 'jobs.json'),
     bus: join(root, 'bus.json'),
-    agents: join(root, 'agents'),
+    agents: join(home, NODE_AGENTS),
   }
 }

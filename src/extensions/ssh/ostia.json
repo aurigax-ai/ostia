@@ -108,6 +108,13 @@
         "default": true,
         "description": "Offer to install a small helper script under ~/.ostia on a host, which gives {product} that host's files over ssh. You are asked once per host, with the exact path, before anything is installed. Turn it off to never ask and never connect"
       }
-    }
+    },
+    "sidebarItems": true,
+    "paneChips": [
+      {
+        "id": "remote",
+        "title": "Remote host"
+      }
+    ]
   }
 }

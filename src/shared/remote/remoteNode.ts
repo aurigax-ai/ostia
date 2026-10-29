@@ -4,3 +4,6 @@ export const NODE_CLI = 'ostia-cli.js'
 export const NODE_STATUS_PREFIX = 'OSTIA-NODE '
 export const NODE_TMUX_SOCKET = `${NODE_HOME}/run/tmux`
 export const NODE_MIN_MAJOR = 20
+export const NODE_SOCKET = `${NODE_HOME}/run/control.sock`
+export const NODE_TOKENS = `${NODE_HOME}/run/tokens`
+export const NODE_AGENTS = `${NODE_HOME}/agents`

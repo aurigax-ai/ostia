@@ -57,8 +57,12 @@ function isAgent(value: unknown): value is RemoteAgent {
   return value === 'claude' || value === 'codex'
 }
 
-function choiceOf(args: unknown): (Choice & { plan: ConnectPlan }) | null {
-  const { host, agent, folder } = jsonArg(args)
+function choiceOf(
+  args: unknown,
+  known: string | undefined,
+): (Choice & { plan: ConnectPlan }) | null {
+  const { agent, folder } = jsonArg(args)
+  const host = jsonArg(args).host ?? known
   if (typeof host !== 'string') return null
   const plan = planConnect([host])
   if (!plan) return null
@@ -186,7 +190,10 @@ export function remoteCommands(
       const t = deps.translate(caller.locale)
       const refused = refusal(caller, t)
       if (refused) return refused
-      const choice = choiceOf(args)
+      const choice = choiceOf(
+        args,
+        caller.workspaceId ? deps.registry.workspace(caller.workspaceId)?.host : undefined,
+      )
       if (!choice) return failure('invalid-args', t('remoteUsage'))
       try {
         return await run(choice, caller, t, jsonArg(args))
@@ -259,7 +266,7 @@ export function remoteCommands(
     'remote-jobs': guarded(async (choice) => {
       const client = deps.client(choice.plan)
       await client.ensure()
-      return ok(undefined, { jobs: await client.jobs() })
+      return ok(undefined, { host: choice.host, jobs: await client.jobs() })
     }),
 
     'remote-stop': guarded(async (choice, _caller, t, args) => {
