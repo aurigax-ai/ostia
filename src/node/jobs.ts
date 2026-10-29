@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs'
 import { writeFileAtomic } from '@aurigax-ai/ostia-extension-sdk/atomicWrite'
-import type { JobState, RemoteAgent, RemoteJob } from '../shared/remote/remoteSetup'
+import type { RemoteAgent, RemoteJob } from '../shared/remote/remoteSetup'
 
 export interface JobRecord extends RemoteJob {
   token: string
@@ -55,7 +55,7 @@ export class Jobs {
     this.save()
   }
 
-  setState(pane: string, state: JobState): void {
+  setState(pane: string, state: RemoteJob['state']): void {
     const job = this.get(pane)
     if (!job || job.state === state) return
     job.state = state

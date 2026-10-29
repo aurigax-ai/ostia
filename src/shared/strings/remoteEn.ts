@@ -42,9 +42,11 @@ export const remoteEn = {
     online: 'Online',
     retry: 'Retry',
     setUp: 'Set up',
+    checkAgain: 'Check again',
     stepDone: 'Done',
     stepRunning: 'Working',
     stepTodo: 'Waiting',
+    stepWaiting: 'Waiting for you',
     steps: {
       check: 'Check the round trip',
       connect: 'Connect',

@@ -27,7 +27,7 @@ describe.skipIf(skipWithoutTmux)('remote runner over a fake ssh host', () => {
     const stubs = mkdtempSync(join(tmpdir(), 'ostia-remote-stubs-'))
     writeFileSync(
       join(stubs, 'claude'),
-      '#!/bin/sh\necho "$@" >"$HOME/claude.args"\necho "$OSTIA_SOCKET" >"$HOME/claude.socket"\nexec sleep 300\n',
+      '#!/bin/sh\n[ "$1" = auth ] && [ -f "$HOME/signed-in" ] && exit 0\n[ "$1" = auth ] && exit 1\necho "$@" >"$HOME/claude.args"\necho "$OSTIA_SOCKET" >"$HOME/claude.socket"\nexec sleep 300\n',
       { mode: 0o700 },
     )
     host = remoteHost({ path: `${stubs}:${process.env.PATH}` })
@@ -136,6 +136,12 @@ describe.skipIf(skipWithoutTmux)('remote runner over a fake ssh host', () => {
     expect(args).toContain(paths.agents)
     expect((await client.jobs()).find((job) => job.pane === pane)?.agent).toBe('claude')
     await client.stop(pane)
+  })
+
+  it('REM-C10 reports the agent as signed in only when its own status command passes', async () => {
+    expect(await client.signedIn('claude')).toBe(false)
+    writeFileSync(join(host.home, 'signed-in'), '')
+    expect(await client.signedIn('claude')).toBe(true)
   })
 
   it('REM-C5 stops a job and removes it from the list', async () => {

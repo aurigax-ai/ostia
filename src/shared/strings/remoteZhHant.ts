@@ -43,9 +43,11 @@ export const remoteZhHant: typeof remoteEn = {
     online: '在線上',
     retry: '重試',
     setUp: '設定',
+    checkAgain: '再檢查一次',
     stepDone: '完成',
     stepRunning: '進行中',
     stepTodo: '等待中',
+    stepWaiting: '等你完成',
     steps: {
       check: '檢查來回通訊',
       connect: '連線',

@@ -82,7 +82,9 @@ function stepOf(id: SetupStepId, failed?: RemoteFailure): ExtensionResult {
         id,
         state: 'failed',
         error:
-          failed.code === 'missing' || failed.code === 'corrupt' ? 'install-failed' : failed.code,
+          failed.code === 'missing' || failed.code === 'corrupt' || failed.code === 'not-signed-in'
+            ? 'install-failed'
+            : failed.code,
         ...(failed.detail ? { detail: failed.detail } : {}),
       }
     : { id, state: 'done' }
@@ -134,12 +136,20 @@ async function login(
   if (!opened.ok) throw new RemoteFailure('network', opened.message ?? opened.error)
 }
 
+async function checkSignin(
+  choice: Choice & { plan: ConnectPlan },
+  client: RunnerClient,
+): Promise<void> {
+  if (!(await client.signedIn(choice.agent))) throw new RemoteFailure('not-signed-in')
+}
+
 async function runStep(
   step: SetupStepId,
   choice: Choice & { plan: ConnectPlan },
   caller: ExtensionCaller,
   t: Translate,
   deps: RemoteDeps,
+  args: Record<string, unknown>,
 ): Promise<void> {
   const client = deps.client(choice.plan)
   if (step === 'connect') return client.reach()
@@ -149,7 +159,8 @@ async function runStep(
     return
   }
   if (step === 'install') return install(choice.plan, t, deps)
-  if (step === 'signin') return login(choice, caller, deps)
+  if (step === 'signin')
+    return args.check === true ? checkSignin(choice, client) : login(choice, caller, deps)
   const answered = await client.selftest().catch(() => false)
   if (!answered) throw new RemoteFailure('runner-stopped')
 }
@@ -215,11 +226,16 @@ export function remoteCommands(
       const step = STEPS.find((id) => id === args.step)
       if (!step) return failure('invalid-args', t('remoteUsage'))
       try {
-        await runStep(step, choice, caller, t, deps)
+        await runStep(step, choice, caller, t, deps, args)
       } catch (err) {
-        return stepOf(step, classify(err))
+        const failed = classify(err)
+        return failed.code === 'not-signed-in'
+          ? ok(undefined, { id: step, state: 'waiting' } satisfies SetupStep)
+          : stepOf(step, failed)
       }
-      return stepOf(step)
+      return step === 'signin' && args.check !== true
+        ? ok(undefined, { id: step, state: 'waiting' } satisfies SetupStep)
+        : stepOf(step)
     }),
 
     'remote-open': guarded(async (choice, caller, t) => {

@@ -2,7 +2,7 @@ export const SETUP_STEPS = ['connect', 'tools', 'install', 'signin', 'check'] as
 
 export type SetupStepId = (typeof SETUP_STEPS)[number]
 
-type SetupStepState = 'todo' | 'running' | 'done' | 'failed'
+type SetupStepState = 'todo' | 'running' | 'waiting' | 'done' | 'failed'
 
 export type RemoteError =
   | 'network'

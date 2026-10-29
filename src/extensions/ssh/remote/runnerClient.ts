@@ -1,5 +1,5 @@
 import { NODE_STATUS_PREFIX } from '../../../shared/remote/remoteNode'
-import type { RemoteError, RemoteJob } from '../../../shared/remote/remoteSetup'
+import type { RemoteAgent, RemoteError, RemoteJob } from '../../../shared/remote/remoteSetup'
 import { type ChannelOptions, HelperFailure, runLine } from '../channel'
 import { type ConnectPlan, planRemote } from '../plan'
 import { type NodeBundle, remoteWord } from './bundle'
@@ -10,7 +10,7 @@ const INSTALL_TIMEOUT_MS = 120_000
 
 export class RemoteFailure extends Error {
   constructor(
-    readonly code: RemoteError | 'missing' | 'corrupt',
+    readonly code: RemoteError | 'missing' | 'corrupt' | 'not-signed-in',
     readonly detail?: string,
   ) {
     super(detail ? `${code}: ${detail}` : code)
@@ -85,6 +85,26 @@ export class RunnerClient {
       return parseProbe(
         await runLine(planRemote(this.plan, PROBE_COMMAND), null, NODE_STATUS_PREFIX, this.opts),
       )
+    } catch (err) {
+      throw classify(err)
+    }
+  }
+
+  async signedIn(agent: RemoteAgent): Promise<boolean> {
+    const status = agent === 'claude' ? 'claude auth status' : 'codex login status'
+    try {
+      const line = await runLine(
+        planRemote(
+          this.plan,
+          remoteWord(
+            `if ${status} >/dev/null 2>&1; then echo "${NODE_STATUS_PREFIX}yes"; else echo "${NODE_STATUS_PREFIX}no"; fi`,
+          ),
+        ),
+        null,
+        NODE_STATUS_PREFIX,
+        this.opts,
+      )
+      return line === 'yes'
     } catch (err) {
       throw classify(err)
     }
