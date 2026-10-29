@@ -184,7 +184,6 @@ export class PreviewHost {
   adopt(guest: PreviewGuest): boolean {
     const slot = [...this.slots.values()].find((s) => s.session === guest.session)
     if (!slot) return false
-    guest.setWindowOpenHandler(() => ({ action: 'deny' }))
     guest.setWebRTCIPHandlingPolicy('disable_non_proxied_udp')
     guest.setBackgroundThrottling(true)
     const live = slot.live
@@ -194,11 +193,18 @@ export class PreviewHost {
     }
     live.guest = guest
     const current = (): Live | null => (slot.live === live && live.guest === guest ? live : null)
-    guest.on('will-navigate', (event: { preventDefault: () => void }, url: string) => {
-      event.preventDefault()
+    const offerLink = (url: unknown): void => {
       if (!current() || typeof url !== 'string' || allowsPreviewRequest(url)) return
       if (this.now() - live.gestureAt > GESTURE_MS) return
       this.deps.send(live.windowId, { id: live.id, type: 'link', url: url.slice(0, MESSAGE_MAX) })
+    }
+    guest.setWindowOpenHandler(({ url }) => {
+      offerLink(url)
+      return { action: 'deny' }
+    })
+    guest.on('will-navigate', (event: { preventDefault: () => void }, url: string) => {
+      event.preventDefault()
+      offerLink(url)
     })
     guest.on('will-redirect', (event: { preventDefault: () => void }) => event.preventDefault())
     guest.on(

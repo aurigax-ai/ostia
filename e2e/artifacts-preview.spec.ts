@@ -56,6 +56,7 @@ function probePage(port: number, udpPort: number): string {
 <iframe src="http://127.0.0.1:${port}/frame"></iframe>
 <form id="form" method="post" action="http://127.0.0.1:${port}/form"><input name="a" value="1"></form>
 <a href="http://127.0.0.1:${port}/clicked" style="position:fixed;left:0;top:0;width:240px;height:40px;display:block;background:#eee">a link</a>
+<a href="http://127.0.0.1:${port}/ctrl-clicked" style="position:fixed;left:0;top:60px;width:240px;height:40px;display:block;background:#ddd">another link</a>
 <script src="http://127.0.0.1:${port}/script.js"></script>
 <script>
 const base = 'http://127.0.0.1:${port}'
@@ -214,16 +215,36 @@ function guestPixel(app: ElectronApplication, x: number, y: number): Promise<num
   )
 }
 
-async function clickInGuest(app: ElectronApplication, x: number, y: number): Promise<void> {
+async function clickInGuest(
+  app: ElectronApplication,
+  x: number,
+  y: number,
+  modifiers: Array<'control'> = [],
+): Promise<void> {
   await app.evaluate(
-    ({ webContents }, [prefix, px, py]) => {
+    ({ webContents }, [prefix, px, py, keys]) => {
       const guest = webContents.getAllWebContents().find((wc) => wc.getURL().startsWith(prefix))
       if (!guest) throw new Error('no preview guest')
-      guest.sendInputEvent({ type: 'mouseMove', x: px, y: py })
-      guest.sendInputEvent({ type: 'mouseDown', x: px, y: py, button: 'left', clickCount: 1 })
-      guest.sendInputEvent({ type: 'mouseUp', x: px, y: py, button: 'left', clickCount: 1 })
+      const modifiers = [...keys]
+      guest.sendInputEvent({ type: 'mouseMove', x: px, y: py, modifiers })
+      guest.sendInputEvent({
+        type: 'mouseDown',
+        x: px,
+        y: py,
+        button: 'left',
+        clickCount: 1,
+        modifiers,
+      })
+      guest.sendInputEvent({
+        type: 'mouseUp',
+        x: px,
+        y: py,
+        button: 'left',
+        clickCount: 1,
+        modifiers,
+      })
     },
-    [PREVIEW_URL, x, y] as const,
+    [PREVIEW_URL, x, y, modifiers] as const,
   )
 }
 
@@ -337,6 +358,10 @@ test('PRT-C30 a page in the artifact folder runs with no network, no way into Os
       timeout: 20_000,
     })
     await expect(link.getByRole('button', { name: 'Open in Browser Pane' })).toBeVisible()
+    await clickInGuest(app, 20, 80, ['control'])
+    await expect(link).toContainText(`http://127.0.0.1:${outside.port}/ctrl-clicked`, {
+      timeout: 20_000,
+    })
     const urls = await guestUrls(app)
     expect(urls).toHaveLength(1)
     expect(urls[0]).toMatch(/^ostia-preview:\/\/[0-9a-f]{24}\/$/)
