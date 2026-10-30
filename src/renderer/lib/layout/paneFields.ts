@@ -129,7 +129,10 @@ export function setPaneHibernated(
 ): LayoutNode {
   return mapPane(root, paneId, (p) => {
     if (Boolean(p.hibernated) === hibernated) return p
-    if (hibernated) return { ...p, hibernated: true }
+    if (hibernated) {
+      const { keepAwake: _kept, ...rest } = p
+      return { ...rest, hibernated: true }
+    }
     const { hibernated: _hibernated, ...awake } = p
     return awake.resume?.cwd ? { ...awake, spawnDir: awake.resume.cwd } : awake
   })
