@@ -19,7 +19,8 @@ export type MailPending =
   | 'hooks-off'
   | 'agent-pane'
   | 'no-agent'
-export type MailVia = 'prompt' | 'start' | 'read' | 'turn'
+  | 'remote-offline'
+export type MailVia = 'prompt' | 'start' | 'read' | 'turn' | 'remote'
 
 export interface MailReceipt {
   state: MailState
@@ -33,6 +34,10 @@ export function mailLabel(receipt: MailReceipt): string {
   if (receipt.state === 'failed') return receipt.reason ? `failed:${receipt.reason}` : 'failed'
   if (receipt.state === 'queued' && receipt.pending) return `queued:${receipt.pending}`
   return receipt.state
+}
+
+function senderLabel(from: string): string {
+  return from.includes(':') ? from : shortId(from)
 }
 
 export interface BusContextMessage {
@@ -71,7 +76,7 @@ function attribute(value: string): string {
 function messageBlock(message: BusContextMessage): string {
   const body = plainBlock(message.text).replace(WRAPPER_TAG, '&lt;$1$2')
   const name = message.fromName ? ` name="${attribute(message.fromName)}"` : ''
-  return `<message id="${attribute(message.id)}" from="${shortId(attribute(message.from))}"${name}>\n${body}\n</message>`
+  return `<message id="${attribute(message.id)}" from="${senderLabel(attribute(message.from))}"${name}>\n${body}\n</message>`
 }
 
 function contextHead(count: number): string {

@@ -48,7 +48,7 @@ export class HelperFailure extends Error {
 
 export type SpawnSsh = (argv: string[]) => ChildProcessWithoutNullStreams
 
-const spawnSsh: SpawnSsh = (argv) =>
+export const spawnSsh: SpawnSsh = (argv) =>
   spawn(argv[0], argv.slice(1), { stdio: ['pipe', 'pipe', 'pipe'], env: process.env })
 
 export class ByteQueue {

@@ -13,6 +13,7 @@ import type {
   OpenTerminalOptions,
 } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import { PRODUCT_DISPLAY_NAME } from '@aurigax-ai/ostia-extension-sdk/contract/productDisplay'
+import { remoteRef } from '../../../shared/remote/remoteRef'
 import type { RemoteAgent, SetupStep, SetupStepId } from '../../../shared/remote/remoteSetup'
 import type { HelperConsent } from '../consent'
 import { type ConnectPlan, hostKey, planConnect, planRemote } from '../plan'
@@ -53,6 +54,18 @@ function jsonArg(args: unknown): Record<string, unknown> {
   }
 }
 
+function jobsText(
+  jobs: readonly { ref: string; name?: string; agent: string; state: string; folder: string }[],
+): string {
+  return jobs
+    .map((job) =>
+      [job.ref, job.name ?? '-', job.agent, job.state, job.folder]
+        .map((field) => field.replace(/[\t\r\n]/g, ' '))
+        .join('\t'),
+    )
+    .join('\n')
+}
+
 function isAgent(value: unknown): value is RemoteAgent {
   return value === 'claude' || value === 'codex'
 }
@@ -62,7 +75,10 @@ function choiceOf(
   known: string | undefined,
 ): (Choice & { plan: ConnectPlan }) | null {
   const { agent, folder } = jsonArg(args)
-  const host = jsonArg(args).host ?? known
+  const positional = (cliArgs(args)?.argv ?? []).find(
+    (arg) => !arg.startsWith('-') && !arg.startsWith('{'),
+  )
+  const host = jsonArg(args).host ?? positional ?? known
   if (typeof host !== 'string') return null
   const plan = planConnect([host])
   if (!plan) return null
@@ -263,11 +279,20 @@ export function remoteCommands(
       return openTab(choice, caller, t, args.pane)
     }),
 
-    'remote-jobs': guarded(async (choice) => {
-      const client = deps.client(choice.plan)
-      await client.ensure()
-      return ok(undefined, { host: choice.host, jobs: await client.jobs() })
-    }),
+    'remote-jobs': (args, caller) => {
+      const argv = cliArgs(args)?.argv ?? []
+      const fromCli = !(argv[0] ?? '').startsWith('{')
+      return guarded(async (choice) => {
+        const client = deps.client(choice.plan)
+        await client.ensure()
+        const jobs = (await client.jobs()).map((job) => ({
+          ...job,
+          ref: remoteRef(choice.host, job.pane),
+        }))
+        if (fromCli && !argv.includes('--json')) return ok(jobsText(jobs))
+        return ok(undefined, { host: choice.host, jobs })
+      })(args, caller)
+    },
 
     'remote-stop': guarded(async (choice, _caller, t, args) => {
       if (typeof args.pane !== 'string') return failure('invalid-args', t('remoteUsage'))

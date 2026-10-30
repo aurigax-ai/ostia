@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync, statSync } from 'node:fs'
+import { mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -498,5 +498,45 @@ describe('persistence', () => {
     writeFileSync(file(), JSON.stringify({ inboxes: { b: [{ id: 'x', text: 'old' }] }, sent: [] }))
     await resetBus()
     expect(inboxOf('b')).toEqual([])
+  })
+})
+
+describe('receive', () => {
+  it('REM-S1 writes the mail to disk before answering stored, and stores nothing when the write fails', async () => {
+    const good = join(dataHome, 'receive-good.json')
+    store.setBusPath(good)
+    const blocker = join(dataHome, 'not-a-folder')
+    writeFileSync(blocker, '')
+    store.setBusPath(join(blocker, 'bus.json'))
+    const draft = {
+      id: 'h:1',
+      origin: 'remote:h',
+      from: 'remote:h:0123abcd',
+      to: 'p1',
+      text: 'once',
+    }
+    await expect(store.receive(draft)).rejects.toThrow()
+    expect(inboxOf('p1')).toHaveLength(0)
+    store.setBusPath(good)
+    await expect(store.receive(draft)).resolves.toBe('stored')
+    await expect(store.receive(draft)).resolves.toBe('stored')
+    expect(inboxOf('p1')).toHaveLength(1)
+    expect(
+      JSON.parse(readFileSync(good, 'utf8')).mail.map((mail: { id: string }) => mail.id),
+    ).toContain('h:1')
+  })
+
+  it('REM-S2 dedupes on the origin and the id, so two hosts may send the same id and neither is lost', async () => {
+    const base = { id: 'same', from: 'x', to: 'p2', text: 'a' }
+    await store.receive({ ...base, origin: 'remote:one' })
+    await store.receive({ ...base, origin: 'remote:two', text: 'b' })
+    await store.receive({ ...base, origin: 'remote:one' })
+    expect(inboxOf('p2').map((mail) => mail.text)).toEqual(['a', 'b'])
+  })
+
+  it('REM-S3 answers stored once for the same mail received twice at the same time', async () => {
+    const draft = { id: 'dup', origin: 'remote:h', from: 'x', to: 'p3', text: 'once' }
+    await Promise.all([store.receive(draft), store.receive(draft)])
+    expect(inboxOf('p3')).toHaveLength(1)
   })
 })

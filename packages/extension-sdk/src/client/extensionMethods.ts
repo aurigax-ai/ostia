@@ -14,6 +14,7 @@ import {
   type SandboxDomainsResult,
   TARGET_PANE_PARAM,
 } from '../contract/extensions'
+import type { RemoteMailResult } from '../contract/remoteMail'
 import { type BrowseProvider, declaresBrowseKind } from './browse'
 import type { HostHandlers } from './hostHandlers'
 import type { OpenFolderResult, OpenTerminalResult, OstiaExtension } from './index'
@@ -174,6 +175,7 @@ export function agentMethods(
   | 'redact'
   | 'exec'
   | 'busSend'
+  | 'remoteMail'
   | 'wakePane'
   | 'requireCallerCaps'
   | 'playbookEnabled'
@@ -218,6 +220,14 @@ export function agentMethods(
     exec: (opts, signal) =>
       withCancel(signal, (token) =>
         sentRpc(conn.sendRequest<ExecResult>('ext.exec', opts, token), 'exec-failed'),
+      ),
+    remoteMail: (request) =>
+      conn.sendRequest<RemoteMailResult>('ext.remoteMail', request).catch(
+        (err): RemoteMailResult => ({
+          ok: false,
+          error: 'remote-mail-failed',
+          message: err instanceof Error ? err.message : String(err),
+        }),
       ),
     busSend: (to, text) =>
       sentRpc(conn.sendRequest<BusSendResult>('ext.busSend', { to, text }), 'bus-send-failed'),

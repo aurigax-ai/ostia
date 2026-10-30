@@ -10,6 +10,7 @@ import {
 } from '@aurigax-ai/ostia-extension-sdk'
 import { readEnv } from '@aurigax-ai/ostia-extension-sdk/contract/appEnv'
 import { NODE_CLI, NODE_ENTRY } from '../../shared/remote/remoteNode'
+import { spawnSsh } from './channel'
 import { sshCommands } from './commands'
 import { CONSENT_FILE, HelperConsent } from './consent'
 import { HelperFolders, Sessions } from './folders'
@@ -20,6 +21,8 @@ import { discoverHosts } from './hosts'
 import { type ConnectPlan, planConnect } from './plan'
 import { nodeBundle } from './remote/bundle'
 import { remoteCommands } from './remote/commands'
+import { HostLink } from './remote/link'
+import { LinkHub } from './remote/linkHub'
 import { RemoteMonitor } from './remote/monitor'
 import { REGISTRY_FILE, RemoteRegistry } from './remote/registry'
 import { RunnerClient } from './remote/runnerClient'
@@ -39,7 +42,10 @@ async function main(): Promise<void> {
   const sessions = new Sessions()
   const registry: RemoteRegistry = new RemoteRegistry(
     dataDir ? join(dataDir, REGISTRY_FILE) : null,
-    () => void ext.startWithWindow(registry.hasWorkspaces()),
+    () => {
+      void ext.startWithWindow(registry.hasWorkspaces())
+      hub.sync()
+    },
   )
   void ext.startWithWindow(registry.hasWorkspaces())
   const folders = new HelperFolders(hosts)
@@ -75,10 +81,6 @@ async function main(): Promise<void> {
   const client = (plan: ConnectPlan) => new RunnerClient(plan, bundle)
   const monitor = new RemoteMonitor({
     registry,
-    ping: async (host) => {
-      const plan = planConnect([host])
-      if (plan) await client(plan).ping()
-    },
     translate: async () => translate(await ext.getLocale()),
     locale: () => ext.getLocale(),
     setSidebar: ({ workspaceId, text, tone }) =>
@@ -86,8 +88,25 @@ async function main(): Promise<void> {
     setChip: (paneId, text) => ext.setPaneChip({ paneId, id: 'remote', text, tone: 'warn' }),
     clearChip: (paneId) => ext.clearPaneChip(paneId, 'remote'),
   })
+  const hub: LinkHub = new LinkHub(registry, (host) => {
+    const plan = planConnect([host])
+    return plan
+      ? new HostLink({
+          host,
+          plan,
+          bundle,
+          spawn: spawnSsh,
+          remoteMail: (request) => ext.remoteMail(request),
+          onState: (online, last) => void monitor.state(host, online, last),
+        })
+      : null
+  })
   monitor.start()
-  onShutdown(() => monitor.stop())
+  hub.sync()
+  onShutdown(() => {
+    monitor.stop()
+    hub.stopAll()
+  })
   await ext.registerCommands({
     ...sshCommands({
       translate,

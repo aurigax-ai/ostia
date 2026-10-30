@@ -9,7 +9,7 @@ import type { ArtifactProducers } from '../artifacts/artifactProducers'
 import { announceBusMessage } from '../attention/busNotice'
 import type { CommandBridge } from '../control/commandBridge'
 import { registerDocsMethods } from '../control/docs'
-import { resolveExternal } from '../control/idRegistry'
+import { type PaneIdentity, resolveExternal } from '../control/idRegistry'
 import type { AgentJournal } from '../diagnostics/agentJournal'
 import type { Telemetry } from '../diagnostics/telemetry'
 import type { ExtensionHost } from '../extensions/extensionHost'
@@ -38,6 +38,7 @@ import { syncMailFlags } from './mailFlag'
 import { registerMailIpc } from './mailIpc'
 import { mailPending } from './mailPending'
 import { createMailWaker } from './mailWake'
+import { registerRemoteMail } from './remoteMail'
 
 interface ToolbeltWiringDeps {
   services: {
@@ -126,6 +127,25 @@ export function registerToolbeltWiring({
       if (noted.length > 0) artifactsChanged(workspaceId)
     },
   })
+  const pendingOf = async (pane: PaneIdentity) =>
+    mailPending(
+      (
+        await listPanes({
+          execCommand,
+          getTerminalState,
+          ptyPid,
+          windowIds,
+          waking: isWaking,
+        })
+      ).find((entry) => entry.paneId === pane.externalId),
+      (agent) =>
+        isResumableAgent(agent) && parseAgentHooks(readSettingsFile().agents?.hooks)[agent],
+      { state: mailers.state(pane.externalId), limited: mailers.limited(pane.externalId) },
+    )
+  registerRemoteMail({
+    fromSsh: (ctx) => services.extensionHost?.builtinId(ctx.identity, ctx.conn) === 'ssh',
+    pending: pendingOf,
+  })
   registerBusMethods({
     reach: paneReachDeps,
     managerSendAllowed: () => services.managerLimiter?.busAllowed() ?? true,
@@ -149,21 +169,7 @@ export function registerToolbeltWiring({
         text,
       ).catch(() => {})
     },
-    pending: async (pane) =>
-      mailPending(
-        (
-          await listPanes({
-            execCommand,
-            getTerminalState,
-            ptyPid,
-            windowIds,
-            waking: isWaking,
-          })
-        ).find((entry) => entry.paneId === pane.externalId),
-        (agent) =>
-          isResumableAgent(agent) && parseAgentHooks(readSettingsFile().agents?.hooks)[agent],
-        { state: mailers.state(pane.externalId), limited: mailers.limited(pane.externalId) },
-      ),
+    pending: pendingOf,
     hibernated: (paneId) => hibernatedPanes.has(paneId),
     agentBusy: (pane) => ['working', 'waiting'].includes(paneJournal.stateOf(pane.paneId) ?? ''),
     journal: services.agentJournal ?? undefined,

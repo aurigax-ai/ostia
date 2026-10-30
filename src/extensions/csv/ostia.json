@@ -2,7 +2,7 @@
   "id": "csv",
   "name": "CSV table",
   "version": "1.0.0",
-  "api": "7.11",
+  "api": "7.12",
   "description": "Shows .csv and .tsv files as a table that scrolls through up to 100,000 rows and 1,000 columns. Open it with the Table button in the editor or Open With. It reads only the file you opened, parses it off the screen, and sends it nowhere.",
   "category": "tools",
   "locales": ["zh-Hant"],
