@@ -73,7 +73,7 @@ const remoteStarts: RemoteStartInput[] = []
 const { registry, startAgentForPhone } = registerProcessMethods({
   isSandboxed: (workspaceId) => sandboxedWorkspaces.has(workspaceId),
   remote: {
-    isRemote: (workspaceId) => remoteWorkspaces.has(workspaceId),
+    isRemote: async (workspaceId) => remoteWorkspaces.has(workspaceId),
     start: async (input): Promise<RemoteStartAnswer> => {
       remoteStarts.push(input)
       return { ok: true, jobId: 'aaaa0001', ref: 'remote:box:aaaa0001', paneId: 'local-tab' }

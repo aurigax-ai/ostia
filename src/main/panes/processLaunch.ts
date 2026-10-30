@@ -283,7 +283,7 @@ export function createProcessLauncher(
   ): Promise<StartedRemote | RemoteRefusal | null> => {
     const remote = deps.remote
     const target = givenWorkspace ?? ctx.identity.workspaceId
-    if (!remote || !target || !remote.isRemote(target)) return null
+    if (!remote || !target || !(await remote.isRemote(target))) return null
     const { workspaceId } = await admit(ctx, givenWorkspace)
     const cwd = deps.cwdOfPane(ctx.identity.paneId)
     if (!cwd) {

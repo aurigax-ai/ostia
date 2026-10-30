@@ -1,13 +1,16 @@
-import { readFileSync } from 'node:fs'
+import { lstat } from 'node:fs/promises'
 import { join } from 'node:path'
+import { ErrorCodes, ResponseError } from 'vscode-jsonrpc/node'
 import type { RemoteStartAnswer, RemoteStartInput } from '../../shared/remote/remoteHandoff'
 import { REMOTE_REGISTRY_FILE } from '../../shared/remote/remoteNode'
+import { readRegularFile } from '../artifacts/previewFiles'
 import type { ExtensionHost } from '../extensions/extensionHost'
 
 const SSH_EXTENSION = 'ssh'
+const REGISTRY_MAX_BYTES = 1024 * 1024
 
 export interface RemoteStarter {
-  isRemote: (workspaceId: string) => boolean
+  isRemote: (workspaceId: string) => Promise<boolean>
   start: (input: RemoteStartInput) => Promise<RemoteStartAnswer>
 }
 
@@ -18,13 +21,17 @@ const UNAVAILABLE: RemoteStartAnswer = {
     'the ssh extension is not running: a remote workspace never runs locally; enable it and retry',
 }
 
-function remoteWorkspaces(file: string): Record<string, unknown> {
-  try {
-    const parsed: unknown = JSON.parse(readFileSync(file, 'utf8'))
-    return typeof parsed === 'object' && parsed !== null ? (parsed as Record<string, unknown>) : {}
-  } catch {
-    return {}
+async function remoteWorkspaces(file: string): Promise<Record<string, unknown>> {
+  if (!(await lstat(file).catch(() => null))) return {}
+  const read = await readRegularFile(file, REGISTRY_MAX_BYTES)
+  const parsed: unknown = read.ok ? JSON.parse(read.body.toString('utf8')) : null
+  if (typeof parsed !== 'object' || parsed === null) {
+    throw new ResponseError(
+      ErrorCodes.InvalidRequest,
+      'extension-unavailable: the saved list of remote workspaces cannot be read, so no workspace is run locally by guess; open the remote workspace again',
+    )
   }
+  return parsed as Record<string, unknown>
 }
 
 export function sshRemoteStarter(
@@ -33,7 +40,7 @@ export function sshRemoteStarter(
 ): RemoteStarter {
   const file = join(extensionData, SSH_EXTENSION, REMOTE_REGISTRY_FILE)
   return {
-    isRemote: (workspaceId) => Object.hasOwn(remoteWorkspaces(file), workspaceId),
+    isRemote: async (workspaceId) => Object.hasOwn(await remoteWorkspaces(file), workspaceId),
     start: async (input) => {
       const extensions = host()
       if (!extensions?.processes.isRunning(SSH_EXTENSION)) return UNAVAILABLE

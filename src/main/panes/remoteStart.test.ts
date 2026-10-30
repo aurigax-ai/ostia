@@ -1,4 +1,5 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { execFileSync } from 'node:child_process'
+import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, describe, expect, it, vi } from 'vitest'
@@ -30,11 +31,23 @@ function host(running: boolean, invoke = vi.fn()) {
 }
 
 describe('sshRemoteStarter', () => {
-  it('RMT-U2 knows a remote workspace from the saved registry, with no extension running', () => {
+  it('RMT-U2 knows a remote workspace from the saved registry, with no extension running', async () => {
     const starter = sshRemoteStarter(data, () => null)
-    expect(starter.isRemote('w1')).toBe(true)
-    expect(starter.isRemote('w2')).toBe(false)
-    expect(sshRemoteStarter(join(data, 'none'), () => null).isRemote('w1')).toBe(false)
+    expect(await starter.isRemote('w1')).toBe(true)
+    expect(await starter.isRemote('w2')).toBe(false)
+    expect(await sshRemoteStarter(join(data, 'none'), () => null).isRemote('w1')).toBe(false)
+  })
+
+  it('RMT-U6 refuses, and never blocks, when the registry path is a symlink to a fifo', async () => {
+    const other = mkdtempSync(join(tmpdir(), 'ostia-remote-link-'))
+    mkdirSync(join(other, 'ssh'))
+    const real = join(other, 'real.json')
+    execFileSync('mkfifo', [real])
+    symlinkSync(real, join(other, 'ssh', REMOTE_REGISTRY_FILE))
+    await expect(sshRemoteStarter(other, () => null).isRemote('w1')).rejects.toThrow(
+      /extension-unavailable/,
+    )
+    rmSync(other, { recursive: true, force: true })
   })
 
   it('RMT-U3 calls remote-start as the app and passes its answer or its refusal through', async () => {
