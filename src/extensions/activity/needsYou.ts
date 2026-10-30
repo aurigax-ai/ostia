@@ -37,7 +37,7 @@ export function createNeedsYou(deps: NeedsYouDeps): () => Promise<void> {
         .setSidebarItem({
           key: SIDEBAR_KEY,
           workspaceId,
-          text: count > 0 ? translate(state.locale)('sidebar.needsYou', { count }) : '',
+          text: count > 0 ? translate(state.locale)('needsYou') : '',
           badge: String(count),
           icon: 'alert',
           tone: 'warn',

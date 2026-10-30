@@ -14,7 +14,7 @@ function setup() {
   const journal = new Journal({ dir: null, now: () => NOW })
   const ext = {
     setInboxItems: vi.fn(async (_workspaceId: string, _items: unknown[]) => ({ ok: true })),
-    setSidebarItem: vi.fn(async () => ({ ok: true })),
+    setSidebarItem: vi.fn(async (_item: unknown) => ({ ok: true })),
     startWithWindow: vi.fn(async () => ({ ok: true })),
   }
   const show = createNeedsYou({
@@ -53,5 +53,14 @@ describe('needs-you items published to the inbox', () => {
     await show()
     const items = ext.setInboxItems.mock.calls[0]?.[1] ?? []
     expect(items).toHaveLength(50)
+  })
+
+  it('shows the count once, as the badge, with a plain label as the text', async () => {
+    const { journal, ext, show } = setup()
+    journal.append('w1', note('openaaaaaa', { needsYou: true }), false)
+    await show()
+    expect(ext.setSidebarItem).toHaveBeenCalledWith(
+      expect.objectContaining({ workspaceId: 'w1', text: 'needsYou', badge: '1' }),
+    )
   })
 })
