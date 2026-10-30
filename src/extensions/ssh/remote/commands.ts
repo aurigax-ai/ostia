@@ -17,11 +17,12 @@ import { remoteRef } from '../../../shared/remote/remoteRef'
 import type { RemoteAgent, SetupStep, SetupStepId } from '../../../shared/remote/remoteSetup'
 import type { HelperConsent } from '../consent'
 import { type ConnectPlan, hostKey, planConnect, planRemote } from '../plan'
-import { attachArgv } from './attach'
+import { jsonArg } from './args'
 import { type NodeBundle, remoteWord } from './bundle'
 import { probeProblem } from './probe'
 import type { RemoteRegistry } from './registry'
 import { classify, RemoteFailure, type RunnerClient } from './runnerClient'
+import { openRemoteTab } from './tab'
 
 export interface RemoteDeps {
   translate: (locale: string | undefined) => Translate
@@ -43,15 +44,6 @@ interface Choice {
 const LOGIN_COMMAND: Record<RemoteAgent, string> = {
   claude: 'exec claude',
   codex: 'exec codex login --device-auth',
-}
-
-function jsonArg(args: unknown): Record<string, unknown> {
-  try {
-    const parsed = JSON.parse(cliArgs(args)?.argv[0] ?? '')
-    return typeof parsed === 'object' && parsed !== null ? parsed : {}
-  } catch {
-    return {}
-  }
 }
 
 function jobsText(
@@ -219,30 +211,18 @@ export function remoteCommands(
       }
     }
 
-  const openTab = async (
+  const openTab = (
     choice: Choice & { plan: ConnectPlan },
     caller: ExtensionCaller,
     t: Translate,
     pane: string,
-  ): Promise<ExtensionResult> => {
-    const opened = await deps.openTerminal({
-      command: attachArgv(choice.plan, pane, {
-        disconnected: t('disconnected', { host: choice.host }),
-        failed: t('connectFailed', { host: choice.host }),
-      }),
+  ): Promise<ExtensionResult> =>
+    openRemoteTab(deps, t, {
+      plan: choice.plan,
+      host: choice.host,
+      pane,
       ...(caller.workspaceId ? { workspaceId: caller.workspaceId } : {}),
-      title: choice.host,
     })
-    if (!opened.ok) return failure('not-opened', opened.message ?? opened.error)
-    if (caller.workspaceId) {
-      deps.registry.addTab(opened.paneId, {
-        workspaceId: caller.workspaceId,
-        host: choice.host,
-        pane,
-      })
-    }
-    return ok(undefined, { paneId: opened.paneId, pane })
-  }
 
   return {
     'remote-step': guarded(async (choice, caller, t, args) => {

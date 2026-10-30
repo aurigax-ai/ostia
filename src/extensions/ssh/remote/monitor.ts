@@ -44,6 +44,10 @@ export class RemoteMonitor {
     return this.contact.get(host)?.online ?? false
   }
 
+  async seed(host: string): Promise<void> {
+    if (!this.contact.has(host)) await this.state(host, false, null)
+  }
+
   async state(host: string, online: boolean, last: number | null): Promise<void> {
     this.contact.set(host, { online, last })
     await this.show(host, online, last, (this.deps.now ?? Date.now)())

@@ -25,7 +25,7 @@ export interface SetupStep {
 
 export type RemoteAgent = 'claude' | 'codex'
 
-type JobState = 'working' | 'waiting' | 'idle' | 'exited'
+type JobState = 'starting' | 'working' | 'waiting' | 'idle' | 'exited'
 
 export interface RemoteJob {
   pane: string

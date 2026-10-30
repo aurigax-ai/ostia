@@ -40,4 +40,16 @@ describe('RemoteMonitor', () => {
     expect(calls[1]).toBe('chip p1 reconnecting:{}')
     expect(monitor.online('box')).toBe(false)
   })
+
+  it('RMT-U1 marks a new remote workspace at once, and a seed never overrides a known state', async () => {
+    const { monitor, calls } = setup()
+    await monitor.seed('box')
+    expect(calls[0]).toContain('sidebar w1 warn offline')
+    calls.length = 0
+    await monitor.state('box', true, 1_000_000)
+    calls.length = 0
+    await monitor.seed('box')
+    expect(calls).toEqual([])
+    expect(monitor.online('box')).toBe(true)
+  })
 })

@@ -31,6 +31,7 @@ export const remoteZhHant: typeof remoteEn = {
     jobStates: {
       exited: '已結束',
       idle: '閒置',
+      starting: '啟動中',
       waiting: '等你回應',
       working: '執行中',
     },

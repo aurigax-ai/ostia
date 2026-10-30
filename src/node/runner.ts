@@ -12,6 +12,7 @@ import {
 import { setBusPath } from '../main/agents/busStore'
 import { NODE_STATUS_PREFIX } from '../shared/remote/remoteNode'
 import { listenControl } from './control'
+import { JobStarter } from './jobStart'
 import { Jobs } from './jobs'
 import { RunnerLink } from './link'
 import { incompatibleLine, runLinkBridge } from './linkBridge'
@@ -68,7 +69,17 @@ async function serve(): Promise<void> {
   const tmux = new TmuxHost(paths.tmuxSocket, paths.tmuxConf)
   sweepOldVersions(jobs)
   const link = new RunnerLink(jobs, version)
-  const deps = { paths, versionDir, version, jobs, tmux, link, shutdown: () => process.exit(0) }
+  const starter = new JobStarter({ paths, versionDir, jobs, tmux })
+  const deps = {
+    paths,
+    versionDir,
+    version,
+    jobs,
+    tmux,
+    link,
+    starter,
+    shutdown: () => process.exit(0),
+  }
   await listenControl({ socket: paths.socket, version, jobs, link, admin: adminMethods(deps) })
   setInterval(() => void reap(deps), REAP_MS).unref()
 }
@@ -129,10 +140,13 @@ async function main(): Promise<void> {
       command === 'ping' ||
       command === 'jobs' ||
       command === 'stop' ||
+      command === 'start' ||
+      command === 'result' ||
       command === 'selftest'
     ) {
       result = await call(`node.${command}`, params)
     } else if (command === 'pane-new') result = await call('node.paneNew', params)
+    else if (command === 'repo-init') result = await call('node.repoInit', params)
     else result = { ok: false, error: 'unknown-command' }
   } catch (err) {
     result = { ok: false, error: err instanceof Error ? err.message : String(err) }

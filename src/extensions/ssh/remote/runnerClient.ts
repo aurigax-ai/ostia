@@ -1,3 +1,8 @@
+import {
+  type JobOutcome,
+  type RepoHandoff,
+  START_WAIT_MS,
+} from '../../../shared/remote/remoteHandoff'
 import { NODE_STATUS_PREFIX } from '../../../shared/remote/remoteNode'
 import type { RemoteAgent, RemoteError, RemoteJob } from '../../../shared/remote/remoteSetup'
 import { type ChannelOptions, HelperFailure, runLine } from '../channel'
@@ -6,6 +11,7 @@ import { type NodeBundle, remoteWord } from './bundle'
 import { PROBE_COMMAND, type Probe, parseProbe } from './probe'
 
 const INSTALL_TIMEOUT_MS = 120_000
+const START_TIMEOUT_MS = START_WAIT_MS + 30_000
 
 export class RemoteFailure extends Error {
   constructor(
@@ -32,6 +38,14 @@ interface Answer {
   running?: string
 }
 
+export interface JobResult {
+  repo: string
+  branch: string
+  base: string
+  head: string
+  dirty: boolean
+}
+
 export interface Pong {
   version: string
 }
@@ -43,14 +57,14 @@ export class RunnerClient {
     private readonly opts: ChannelOptions = {},
   ) {}
 
-  private async call<T>(command: string, params?: object, options?: string[]): Promise<T> {
+  private async call<T>(command: string, params?: object, requestTimeoutMs?: number): Promise<T> {
     let line: string
     try {
       line = await runLine(
-        planRemote(this.plan, this.bundle.run(command), options),
+        planRemote(this.plan, this.bundle.run(command)),
         params ? Buffer.from(JSON.stringify(params)) : null,
         NODE_STATUS_PREFIX,
-        this.opts,
+        requestTimeoutMs ? { ...this.opts, requestTimeoutMs } : this.opts,
       )
     } catch (err) {
       throw classify(err)
@@ -139,6 +153,24 @@ export class RunnerClient {
 
   stop(pane: string): Promise<unknown> {
     return this.call('stop', { pane })
+  }
+
+  repoInit(id: string): Promise<unknown> {
+    return this.call('repo-init', { id })
+  }
+
+  start(input: {
+    jobId: string
+    agent: RemoteAgent
+    prompt: string
+    model?: string
+    repo: RepoHandoff
+  }): Promise<JobOutcome> {
+    return this.call('start', input, START_TIMEOUT_MS)
+  }
+
+  result(pane: string): Promise<JobResult> {
+    return this.call('result', { pane })
   }
 
   async selftest(): Promise<boolean> {

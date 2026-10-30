@@ -7,3 +7,6 @@ export const NODE_MIN_MAJOR = 20
 export const NODE_SOCKET = `${NODE_HOME}/run/control.sock`
 export const NODE_TOKENS = `${NODE_HOME}/run/tokens`
 export const NODE_AGENTS = `${NODE_HOME}/agents`
+export const NODE_REPOS = `${NODE_HOME}/repos`
+export const NODE_WORK = 'ostia-work'
+export const REMOTE_REGISTRY_FILE = 'remote-workspaces.json'
