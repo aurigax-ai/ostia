@@ -50,6 +50,16 @@ describe('sshRemoteStarter', () => {
     rmSync(other, { recursive: true, force: true })
   })
 
+  it('RMT-U7 refuses with the coded error when the registry holds bad JSON', async () => {
+    const other = mkdtempSync(join(tmpdir(), 'ostia-remote-json-'))
+    mkdirSync(join(other, 'ssh'))
+    writeFileSync(join(other, 'ssh', REMOTE_REGISTRY_FILE), '{not json')
+    await expect(sshRemoteStarter(other, () => null).isRemote('w1')).rejects.toThrow(
+      /extension-unavailable/,
+    )
+    rmSync(other, { recursive: true, force: true })
+  })
+
   it('RMT-U3 calls remote-start as the app and passes its answer or its refusal through', async () => {
     const invoke = vi
       .fn()

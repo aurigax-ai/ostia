@@ -21,10 +21,18 @@ const UNAVAILABLE: RemoteStartAnswer = {
     'the ssh extension is not running: a remote workspace never runs locally; enable it and retry',
 }
 
+function parseJson(text: string): unknown {
+  try {
+    return JSON.parse(text)
+  } catch {
+    return null
+  }
+}
+
 async function remoteWorkspaces(file: string): Promise<Record<string, unknown>> {
   if (!(await lstat(file).catch(() => null))) return {}
   const read = await readRegularFile(file, REGISTRY_MAX_BYTES)
-  const parsed: unknown = read.ok ? JSON.parse(read.body.toString('utf8')) : null
+  const parsed: unknown = read.ok ? parseJson(read.body.toString('utf8')) : null
   if (typeof parsed !== 'object' || parsed === null) {
     throw new ResponseError(
       ErrorCodes.InvalidRequest,
