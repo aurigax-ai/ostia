@@ -89,7 +89,7 @@ export function registerProcessMethods(deps: ProcessDeps): {
   })
 
   const { scriptReach, find, interrupt, endShell } = createProcessControl({ ...deps, registry })
-  const { runInTab, workersTab, openAndConfirm } = createProcessLauncher({
+  const { runInTab, runRemote, workersTab, openAndConfirm } = createProcessLauncher({
     ...deps,
     registry,
     registryChanges,
@@ -159,10 +159,18 @@ export function registerProcessMethods(deps: ProcessDeps): {
         if (refused) throw new ResponseError(ErrorCodes.InvalidRequest, refused)
       }
       const cmd = commandOf(quoteArgv([...argv, ...modelFlags(argv, p.model), promptOf(p.prompt)]))
+      const title = (await tabName(p.name, ctx)) ?? agent
+      const remote = await runRemote(ctx, workspaceOf(p.workspace), {
+        agent,
+        prompt: promptOf(p.prompt),
+        ...(typeof p.model === 'string' ? { model: p.model } : {}),
+        title,
+      })
+      if (remote) return remote
       return runInTab(
         ctx,
         cmd,
-        (await tabName(p.name, ctx)) ?? agent,
+        title,
         cwdOf(p.cwd),
         workspaceOf(p.workspace),
         splitTabOf(p.tab) ??

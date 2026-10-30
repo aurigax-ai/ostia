@@ -2,12 +2,22 @@ import { readFileSync } from 'node:fs'
 import { writeFileAtomic } from '@aurigax-ai/ostia-extension-sdk/atomicWrite'
 import type { RemoteAgent, RemoteJob } from '../shared/remote/remoteSetup'
 
+const NAME_PATTERN = /^[a-z][a-z0-9-]{0,30}$/
+const HEX_RUN = /[0-9a-f]{8}/
+
 export interface JobRecord extends RemoteJob {
   token: string
   name?: string
+  repo?: string
+  started?: true
+  session?: string
 }
 
-export function publicJob({ token: _token, ...job }: JobRecord): RemoteJob & { name?: string } {
+export function publicJob({
+  token: _token,
+  started: _started,
+  ...job
+}: JobRecord): RemoteJob & { name?: string } {
   return job
 }
 
@@ -57,8 +67,19 @@ export class Jobs {
 
   setState(pane: string, state: RemoteJob['state']): void {
     const job = this.get(pane)
-    if (!job || job.state === state) return
+    if (!job) return
+    if (!job.started && state !== 'exited') job.started = true
+    if (job.state === state && job.started) return
     job.state = state
+    this.save()
+  }
+
+  markStarted(pane: string, session?: string): void {
+    const job = this.get(pane)
+    if (!job) return
+    job.started = true
+    if (session) job.session = session
+    if (job.state === 'starting') job.state = 'idle'
     this.save()
   }
 
@@ -70,4 +91,17 @@ export class Jobs {
 
 export function isAgent(value: unknown): value is RemoteAgent | 'shell' {
   return value === 'claude' || value === 'codex' || value === 'shell'
+}
+
+export function nameOf(raw: unknown, jobs: Jobs): string | undefined {
+  if (raw === undefined) return undefined
+  if (
+    typeof raw !== 'string' ||
+    !NAME_PATTERN.test(raw) ||
+    HEX_RUN.test(raw) ||
+    jobs.resolve(raw)
+  ) {
+    throw new Error('bad-name')
+  }
+  return raw
 }

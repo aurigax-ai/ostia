@@ -24,7 +24,7 @@ export interface ControlDeps {
   link: RunnerLink
 }
 
-const PANE_METHODS = ['pane.reportTurn', 'pane.reportWork', 'pane.setResume']
+const PANE_METHODS = ['pane.reportWork']
 
 function paneHandlers(jobs: Jobs, pane: JobRecord, link: RunnerLink): Record<string, Handler> {
   const noted: Record<string, Handler> = Object.fromEntries(
@@ -33,6 +33,15 @@ function paneHandlers(jobs: Jobs, pane: JobRecord, link: RunnerLink): Record<str
   return {
     ...busMethods(jobs, pane, link),
     ...noted,
+    'pane.reportTurn': () => {
+      jobs.markStarted(pane.pane)
+      return { ok: true }
+    },
+    'pane.setResume': (params) => {
+      const { id } = (params ?? {}) as { id?: unknown }
+      jobs.markStarted(pane.pane, typeof id === 'string' ? id.slice(0, 200) : undefined)
+      return { ok: true }
+    },
     'pane.setAttention': (params) => {
       const { state } = (params ?? {}) as { state?: string }
       jobs.setState(pane.pane, state === 'working' || state === 'waiting' ? state : 'idle')

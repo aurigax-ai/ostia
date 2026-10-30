@@ -21,13 +21,17 @@ import { discoverHosts } from './hosts'
 import { type ConnectPlan, planConnect } from './plan'
 import { nodeBundle } from './remote/bundle'
 import { remoteCommands } from './remote/commands'
+import { remoteFetch } from './remote/fetch'
 import { HostLink } from './remote/link'
 import { LinkHub } from './remote/linkHub'
 import { RemoteMonitor } from './remote/monitor'
 import { REGISTRY_FILE, RemoteRegistry } from './remote/registry'
 import { RunnerClient } from './remote/runnerClient'
+import { remoteStart } from './remote/start'
 
 const RESOLVE_TIMEOUT_MS = 5000
+const GIT_TIMEOUT_MS = 300_000
+const GIT_OUTPUT_MAX = 6 * 1024 * 1024
 const HELPER_SOURCE = join(__dirname, 'assets', 'helper.sh')
 const NODE_ASSETS = join(__dirname, 'assets', 'node')
 const NODE_FILES = [NODE_ENTRY, NODE_CLI]
@@ -44,6 +48,7 @@ async function main(): Promise<void> {
     dataDir ? join(dataDir, REGISTRY_FILE) : null,
     () => {
       void ext.startWithWindow(registry.hasWorkspaces())
+      for (const host of registry.hosts()) void monitor.seed(host)
       hub.sync()
     },
   )
@@ -79,6 +84,8 @@ async function main(): Promise<void> {
     NODE_FILES.map((name) => ({ name, data: readFileSync(join(NODE_ASSETS, name)) })),
   )
   const client = (plan: ConnectPlan) => new RunnerClient(plan, bundle)
+  const git = (args: string[], cwd: string) =>
+    runTool('git', args, { cwd, timeoutMs: GIT_TIMEOUT_MS, maxOutput: GIT_OUTPUT_MAX })
   const monitor = new RemoteMonitor({
     registry,
     translate: async () => translate(await ext.getLocale()),
@@ -102,6 +109,7 @@ async function main(): Promise<void> {
       : null
   })
   monitor.start()
+  for (const host of registry.hosts()) void monitor.seed(host)
   hub.sync()
   onShutdown(() => {
     monitor.stop()
@@ -121,6 +129,23 @@ async function main(): Promise<void> {
         (await helperDeps.enabled()) ? installedHelper(plan, helperDeps) : null,
     }),
     ...helperCommands(helperDeps),
+    'remote-start': remoteStart({
+      translate,
+      confirm: (req) => ext.confirm(req),
+      consent,
+      openTerminal: (opts) => ext.openTerminal(opts),
+      client,
+      registry,
+      git,
+    }),
+    'remote-fetch': remoteFetch({
+      translate,
+      confirm: (req) => ext.confirm(req),
+      consent,
+      client,
+      git,
+      openDiff: (diff) => ext.openDiff(diff),
+    }),
     ...remoteCommands({
       translate,
       confirm: (req) => ext.confirm(req),

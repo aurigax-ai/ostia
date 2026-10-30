@@ -30,6 +30,7 @@ export const remoteEn = {
     jobStates: {
       exited: 'Exited',
       idle: 'Idle',
+      starting: 'Starting',
       waiting: 'Waiting for you',
       working: 'Working',
     },

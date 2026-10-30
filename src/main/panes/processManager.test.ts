@@ -1,3 +1,5 @@
+import { execFileSync } from 'node:child_process'
+import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
 import { createConnection } from 'node:net'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -12,6 +14,7 @@ import {
 import { ownWorkspaceReach } from '../../../test/reach'
 import { ChangeSignal } from '../../shared/common/actThenConfirm'
 import type { CommandResult } from '../../shared/control/commands'
+import type { RemoteStartAnswer, RemoteStartInput } from '../../shared/remote/remoteHandoff'
 import { grant, setCaps } from '../approvals/capabilityStore'
 import { setScriptTokenCheck } from '../control/controlAuth'
 import { registerControlServer, stopControlServer } from '../control/controlServer'
@@ -64,9 +67,18 @@ const agentSessions = new Map<string, string>()
 const agentSignal = new ChangeSignal()
 const told: { to: string; text: string }[] = []
 let onOpen: ((paneId: string) => void) | null = null
+const remoteWorkspaces = new Set<string>()
+const remoteStarts: RemoteStartInput[] = []
 
 const { registry, startAgentForPhone } = registerProcessMethods({
   isSandboxed: (workspaceId) => sandboxedWorkspaces.has(workspaceId),
+  remote: {
+    isRemote: (workspaceId) => remoteWorkspaces.has(workspaceId),
+    start: async (input): Promise<RemoteStartAnswer> => {
+      remoteStarts.push(input)
+      return { ok: true, jobId: 'aaaa0001', ref: 'remote:box:aaaa0001', paneId: 'local-tab' }
+    },
+  },
   isConfined: () => false,
   managerAdmitSpawn: (live) => {
     admitted.push(live)
@@ -210,6 +222,8 @@ afterEach(() => {
   agentSessions.clear()
   told.length = 0
   onOpen = null
+  remoteWorkspaces.clear()
+  remoteStarts.length = 0
 })
 
 describe('the start of a run is confirmed', () => {
@@ -1167,5 +1181,75 @@ describe('startAgentForPhone', () => {
     const before = opened.length
     expect(await startAgentForPhone('ws1', 'codex', '--yolo now')).toBeNull()
     expect(opened).toHaveLength(before)
+  })
+})
+
+describe('agent.run in a remote workspace', () => {
+  const root = realpathSync(mkdtempSync(join(tmpdir(), 'ostia-remote-run-')))
+  const repo = join(root, 'proj')
+  const git = (...args: string[]) =>
+    execFileSync('git', ['-c', 'user.email=a@b.c', '-c', 'user.name=t', ...args], {
+      cwd: repo,
+      encoding: 'utf8',
+    }).trim()
+
+  beforeEach(() => {
+    rmSync(repo, { recursive: true, force: true })
+    mkdirSync(repo)
+    git('init', '-q', '-b', 'main')
+    writeFileSync(join(repo, 'a.txt'), 'one\n')
+    git('add', '.')
+    git('commit', '-q', '-m', 'first')
+    cwds.set('agent-pane', repo)
+    remoteWorkspaces.add('ws1')
+  })
+
+  it('RMT-C17 hands the clean repository to the remote start and opens no local tab', async () => {
+    const conn = await client(agent)
+    const res = await conn.sendRequest<Record<string, unknown>>('agent.run', {
+      agent: 'claude',
+      prompt: 'fix it',
+      model: 'opus',
+      name: 'worker',
+    })
+    expect(res).toMatchObject({
+      id: 'aaaa0001',
+      name: 'worker',
+      paneId: 'local-tab',
+      status: 'started',
+      ref: 'remote:box:aaaa0001',
+    })
+    expect(remoteStarts).toHaveLength(1)
+    expect(remoteStarts[0]).toMatchObject({
+      agent: 'claude',
+      prompt: 'fix it',
+      model: 'opus',
+      title: 'worker',
+      workspaceId: 'ws1',
+      root: repo,
+      repo: { head: git('rev-parse', 'HEAD'), name: 'proj' },
+    })
+    expect(opened).toHaveLength(0)
+  })
+
+  it('RMT-C18 refuses a dirty tree before anything is sent', async () => {
+    writeFileSync(join(repo, 'a.txt'), 'two\n')
+    const conn = await client(agent)
+    const res = await conn.sendRequest<{ ok: boolean; error: string; message: string }>(
+      'agent.run',
+      { agent: 'claude', prompt: 'fix it' },
+    )
+    expect(res).toMatchObject({ ok: false, error: 'dirty' })
+    expect(res.message).toContain('commit or stash first')
+    expect(remoteStarts).toHaveLength(0)
+    expect(opened).toHaveLength(0)
+  })
+
+  it('RMT-C19 leaves a local workspace on the local path, never asking the remote start', async () => {
+    remoteWorkspaces.clear()
+    const conn = await client(agent)
+    await conn.sendRequest('agent.run', { agent: 'claude', prompt: 'fix it' })
+    expect(remoteStarts).toHaveLength(0)
+    expect(opened).toHaveLength(1)
   })
 })

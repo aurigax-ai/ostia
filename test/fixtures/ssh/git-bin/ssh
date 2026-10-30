@@ -1,0 +1,11 @@
+#!/bin/sh
+while [ $# -gt 0 ]; do
+  case "$1" in
+    -o|-p|-J|-i|-l) shift 2 ;;
+    -*) shift ;;
+    *) break ;;
+  esac
+done
+shift
+cd "${FAKE_SSH_REMOTE_HOME:?}" || exit 255
+exec env -i HOME="$FAKE_SSH_REMOTE_HOME" PATH="$PATH" /bin/sh -c "$1"

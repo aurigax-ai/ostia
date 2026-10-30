@@ -2,9 +2,11 @@ import { join } from 'node:path'
 import {
   NODE_AGENTS,
   NODE_HOME,
+  NODE_REPOS,
   NODE_SOCKET,
   NODE_TMUX_SOCKET,
   NODE_TOKENS,
+  NODE_WORK,
 } from '../shared/remote/remoteNode'
 
 export interface NodePaths {
@@ -17,6 +19,8 @@ export interface NodePaths {
   jobs: string
   bus: string
   agents: string
+  repos: string
+  work: string
 }
 
 export function nodePaths(home: string): NodePaths {
@@ -32,5 +36,7 @@ export function nodePaths(home: string): NodePaths {
     jobs: join(root, 'jobs.json'),
     bus: join(root, 'bus.json'),
     agents: join(home, NODE_AGENTS),
+    repos: join(home, NODE_REPOS),
+    work: join(home, NODE_WORK),
   }
 }

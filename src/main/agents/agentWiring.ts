@@ -12,6 +12,7 @@ import { registerAttentionMethods, targetOf } from '../attention/attention'
 import type { CommandBridge } from '../control/commandBridge'
 import { getByPaneId } from '../control/idRegistry'
 import type { Telemetry } from '../diagnostics/telemetry'
+import type { ExtensionHost } from '../extensions/extensionHost'
 import type { ManagerService } from '../manager/manager'
 import type { ManagerLimiter } from '../manager/managerMethods'
 import type { PaneJournal } from '../panes/paneJournal'
@@ -29,6 +30,7 @@ import type { PaneWatch } from '../panes/paneWait'
 import type { PaneWaking } from '../panes/paneWaking'
 import { INTERRUPT_GRACE_MS, registerProcessMethods } from '../panes/processManager'
 import type { ProcessRegistry } from '../panes/processRegistry'
+import { sshRemoteStarter } from '../panes/remoteStart'
 import { readSettingsFile } from '../platform/settingsFile'
 import type { WorkspaceSandboxes } from '../sandbox/workspaceSandboxes'
 import type { PtyIo } from '../terminal/pty/ptyIo'
@@ -55,6 +57,7 @@ interface AgentWiringDeps {
     managerLimiter: ManagerLimiter | null
     processes: ProcessRegistry | null
     telemetry: Telemetry | null
+    extensionHost: ExtensionHost | null
   }
   paneWaking: PaneWaking
   startedAgents: Set<string>
@@ -156,6 +159,7 @@ export function registerAgentWiring({
     },
     writePane: paneIo.write,
     isSandboxed: (workspaceId) => workspaceSandboxes.isEnabled(workspaceId),
+    remote: sshRemoteStarter(() => services.extensionHost),
     endShell: (paneId) => killPty(paneId, 'process-kill'),
     hasShell: (paneId) => ptys.has(paneId),
     runInPane: (paneId, command) => {
