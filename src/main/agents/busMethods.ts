@@ -4,6 +4,7 @@ import { ErrorCodes, ResponseError } from 'vscode-jsonrpc/node'
 import { MAIL_INBOX_FULL } from '../../shared/agents/agentIssues'
 import { BUS_NAME_NOTICE, busContext, type MailPending } from '../../shared/agents/busMessages'
 import { actThenConfirm, confirmed, mismatch } from '../../shared/common/actThenConfirm'
+import { parseRemoteRef } from '../../shared/remote/remoteRef'
 import { ensureCaps } from '../approvals/controlElevation'
 import { type ControlMethodContext, registerControlMethod } from '../control/controlServer'
 import { type PaneIdentity, resolveExternal } from '../control/idRegistry'
@@ -38,6 +39,7 @@ import {
 import { mailers } from './mailers'
 import { withSenderName } from './mailSender'
 import { takeMailTurn } from './mailTurn'
+import { sendToRemote } from './remoteMail'
 
 const MAX_HANDOFFS = 500
 
@@ -193,6 +195,9 @@ function registerBusSendMethods(deps: BusDeps): void {
       }
       if (typeof text !== 'string' || !text) {
         throw new ResponseError(ErrorCodes.InvalidParams, 'bad-request: text')
+      }
+      if (typeof to === 'string' && parseRemoteRef(to)) {
+        return { ok: true, ...receiptOf(await sendToRemote(ctx, to, text)) }
       }
       const found = await receiverFor(deps, to, ctx)
       if (!('receiver' in found)) return found

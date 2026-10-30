@@ -3,9 +3,11 @@ import { mkdirSync, rmSync, statSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { isAbsolute, join } from 'node:path'
 import { writeFileAtomic } from '@aurigax-ai/ostia-extension-sdk/atomicWrite'
+import type { MessageConnection } from 'vscode-jsonrpc/node'
 import { ackMail, enqueue, leaseMail } from '../main/agents/busStore'
 import { isAgent, type Jobs, publicJob } from './jobs'
 import { launchSpec } from './launch'
+import type { RunnerLink } from './link'
 import type { NodePaths } from './nodePaths'
 import type { TmuxHost } from './tmuxHost'
 
@@ -19,6 +21,7 @@ export interface AdminDeps {
   jobs: Jobs
   tmux: TmuxHost
   shutdown: () => void
+  link: RunnerLink
 }
 
 function folderOf(raw: unknown): string {
@@ -50,7 +53,9 @@ export async function reap(deps: AdminDeps): Promise<void> {
     if (!live.has(job.pane)) deps.jobs.setState(job.pane, 'exited')
 }
 
-export function adminMethods(deps: AdminDeps): Record<string, (params: unknown) => unknown> {
+export function adminMethods(
+  deps: AdminDeps,
+): Record<string, (params: unknown, conn: MessageConnection) => unknown> {
   const { paths, jobs, tmux } = deps
   return {
     'node.ping': () => ({ version: deps.version }),
@@ -112,6 +117,11 @@ export function adminMethods(deps: AdminDeps): Record<string, (params: unknown) 
       const handed = leaseMail('selftest-b', 'read', (m) => m.id === mail.id)
       const acked = handed ? ackMail('selftest-b', handed.lease) : []
       return { ok: acked.length === 1 }
+    },
+
+    'node.link': (_params, conn) => {
+      deps.link.attach(conn)
+      return { ok: true }
     },
 
     'node.shutdown': () => {

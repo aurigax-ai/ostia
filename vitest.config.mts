@@ -53,6 +53,7 @@ export default defineConfig({
             'src/main/**/*.test.ts',
             'src/shared/**/*.test.ts',
             'src/cli/**/*.test.ts',
+            'src/node/**/*.test.ts',
             'src/extensions/**/*.test.ts',
             'packages/*/src/**/*.test.ts',
             'test/*.test.ts',

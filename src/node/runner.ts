@@ -13,6 +13,8 @@ import { setBusPath } from '../main/agents/busStore'
 import { NODE_STATUS_PREFIX } from '../shared/remote/remoteNode'
 import { listenControl } from './control'
 import { Jobs } from './jobs'
+import { RunnerLink } from './link'
+import { incompatibleLine, runLinkBridge } from './linkBridge'
 import { adminMethods, reap } from './nodeAdmin'
 import { nodePaths } from './nodePaths'
 import { TmuxHost } from './tmuxHost'
@@ -65,8 +67,9 @@ async function serve(): Promise<void> {
   const jobs = new Jobs(paths.jobs)
   const tmux = new TmuxHost(paths.tmuxSocket, paths.tmuxConf)
   sweepOldVersions(jobs)
-  const deps = { paths, versionDir, version, jobs, tmux, shutdown: () => process.exit(0) }
-  await listenControl({ socket: paths.socket, version, jobs, admin: adminMethods(deps) })
+  const link = new RunnerLink(jobs, version)
+  const deps = { paths, versionDir, version, jobs, tmux, link, shutdown: () => process.exit(0) }
+  await listenControl({ socket: paths.socket, version, jobs, link, admin: adminMethods(deps) })
   setInterval(() => void reap(deps), REAP_MS).unref()
 }
 
@@ -110,6 +113,14 @@ function stdinParams(): { replace?: boolean } | undefined {
 async function main(): Promise<void> {
   const command = process.argv[2]
   if (command === 'serve') return serve()
+  if (command === 'link') {
+    const running = await ensure(false).catch(() => null)
+    if (!running || (running as { ok?: boolean }).ok === false) {
+      process.stdout.write(incompatibleLine(version))
+      process.exit(0)
+    }
+    return runLinkBridge(paths.socket)
+  }
   const params = stdinParams()
   let result: unknown
   try {

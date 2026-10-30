@@ -10,25 +10,28 @@ import {
   StreamMessageWriter,
 } from 'vscode-jsonrpc/node'
 import type { JobRecord, Jobs } from './jobs'
+import type { RunnerLink } from './link'
 import { busMethods } from './nodeBus'
 
 type Handler = (params: unknown) => unknown
+type AdminHandler = (params: unknown, conn: MessageConnection) => unknown
 
 export interface ControlDeps {
   socket: string
   version: string
   jobs: Jobs
-  admin: Record<string, Handler>
+  admin: Record<string, AdminHandler>
+  link: RunnerLink
 }
 
 const PANE_METHODS = ['pane.reportTurn', 'pane.reportWork', 'pane.setResume']
 
-function paneHandlers(jobs: Jobs, pane: JobRecord): Record<string, Handler> {
+function paneHandlers(jobs: Jobs, pane: JobRecord, link: RunnerLink): Record<string, Handler> {
   const noted: Record<string, Handler> = Object.fromEntries(
     PANE_METHODS.map((method) => [method, () => ({ ok: true })]),
   )
   return {
-    ...busMethods(jobs, pane),
+    ...busMethods(jobs, pane, link),
     ...noted,
     'pane.setAttention': (params) => {
       const { state } = (params ?? {}) as { state?: string }
@@ -53,14 +56,14 @@ function serveConnection(socket: Socket, deps: ControlDeps): void {
     const found = typeof params?.token === 'string' ? deps.jobs.byToken(params.token) : undefined
     if (!found) throw new ResponseError(ErrorCodes.InvalidRequest, 'bad-token')
     pane = found
-    handlers = paneHandlers(deps.jobs, found)
+    handlers = paneHandlers(deps.jobs, found, deps.link)
     for (const [method, handler] of Object.entries(handlers)) register(method, handler)
     return { version: deps.version }
   })
   for (const [method, handler] of Object.entries(deps.admin)) {
     conn.onRequest(method, (params: unknown) => {
       if (pane) throw new ResponseError(ErrorCodes.InvalidRequest, 'not-allowed')
-      return handler(params)
+      return handler(params, conn)
     })
   }
   socket.on('error', () => {})

@@ -55,6 +55,7 @@ import type {
   RemoteStatResult,
   RemoteWriteResult,
 } from '../contract/remoteFolders'
+import type { RemoteMailRequest, RemoteMailResult } from '../contract/remoteMail'
 import type { BrowseProvider } from './browse'
 import { declaredApi } from './declaredApi'
 import { agentMethods, serviceMethods, windowMethods } from './extensionMethods'
@@ -330,6 +331,7 @@ export interface OstiaExtension {
   redact: (texts: string[]) => Promise<string[] | null>
   exec: (opts: ExecOptions, signal?: AbortSignal) => Promise<ExecResult>
   busSend: (to: string, text: string) => Promise<BusSendResult>
+  remoteMail: (request: RemoteMailRequest) => Promise<RemoteMailResult>
   wakePane: (paneId: string, waitMs?: number) => Promise<WakePaneResult>
   requireCallerCaps: (
     paneId: string,

@@ -11,7 +11,9 @@ import {
   sentBy,
 } from '../main/agents/busStore'
 import { busContext } from '../shared/agents/busMessages'
+import { parseDesktopRef } from '../shared/remote/remoteRef'
 import type { JobRecord, Jobs } from './jobs'
+import { type RunnerLink, sendToDesktop } from './link'
 
 const WAIT_DEFAULT_MS = 30_000
 const WAIT_MAX_MS = 590_000
@@ -52,11 +54,19 @@ function waitFor(me: string, timeoutMs: number): Promise<HandedMail | undefined>
   })
 }
 
-export function busMethods(jobs: Jobs, pane: JobRecord): Record<string, Method> {
+export function busMethods(jobs: Jobs, pane: JobRecord, link: RunnerLink): Record<string, Method> {
   const me = pane.pane
   return {
     'bus.send': (params) => {
       const { to, text } = (params ?? {}) as { to?: string; text?: string }
+      if (typeof to === 'string' && parseDesktopRef(to)) {
+        if (typeof text !== 'string' || !text) {
+          return { ok: false, error: 'bad-request', message: 'text' }
+        }
+        const sent = sendToDesktop(me, to, text)
+        link.noteSend(me, sent)
+        return { ok: true, ...receipt(getMail(sent.id) ?? sent) }
+      }
       const receiver = typeof to === 'string' ? jobs.resolve(to) : undefined
       if (!receiver)
         return {

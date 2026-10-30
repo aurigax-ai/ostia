@@ -5,7 +5,6 @@ import { type ConnectPlan, planRemote } from '../plan'
 import { type NodeBundle, remoteWord } from './bundle'
 import { PROBE_COMMAND, type Probe, parseProbe } from './probe'
 
-const PING_OPTIONS = ['-T', '-o', 'ConnectTimeout=8']
 const INSTALL_TIMEOUT_MS = 120_000
 
 export class RemoteFailure extends Error {
@@ -128,10 +127,6 @@ export class RunnerClient {
 
   ensure(replace = false): Promise<Pong> {
     return this.call('ensure', { replace })
-  }
-
-  ping(): Promise<Pong> {
-    return this.call('ping', undefined, PING_OPTIONS)
   }
 
   async jobs(): Promise<RemoteJob[]> {

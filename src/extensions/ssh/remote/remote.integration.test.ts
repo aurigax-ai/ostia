@@ -97,7 +97,6 @@ describe.skipIf(skipWithoutTmux)('remote runner over a fake ssh host', () => {
     await client.install()
     expect((await client.ensure()).version).toBe(bundle.version)
     expect(await client.selftest()).toBe(true)
-    expect((await client.ping()).version).toBe(bundle.version)
   })
 
   it('REM-C3 keeps a remote pane running after the ssh client is killed and a new tab reattaches', async () => {

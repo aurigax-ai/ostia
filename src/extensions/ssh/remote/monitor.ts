@@ -1,18 +1,17 @@
 import type { Translate } from '@aurigax-ai/ostia-extension-sdk'
 import type { RemoteRegistry } from './registry'
 
-const POLL_MS = 15_000
+const REFRESH_MS = 60_000
 
 export interface MonitorDeps {
   registry: RemoteRegistry
-  ping: (host: string) => Promise<unknown>
   translate: () => Promise<Translate>
   locale: () => Promise<string>
   setSidebar: (item: { workspaceId: string; text: string; tone: 'ok' | 'warn' }) => Promise<unknown>
   setChip: (paneId: string, text: string) => Promise<unknown>
   clearChip: (paneId: string) => Promise<unknown>
   now?: () => number
-  pollMs?: number
+  refreshMs?: number
 }
 
 interface Contact {
@@ -33,8 +32,7 @@ export class RemoteMonitor {
   constructor(private readonly deps: MonitorDeps) {}
 
   start(): void {
-    void this.poll()
-    this.timer = setInterval(() => void this.poll(), this.deps.pollMs ?? POLL_MS)
+    this.timer = setInterval(() => void this.refresh(), this.deps.refreshMs ?? REFRESH_MS)
     this.timer.unref?.()
   }
 
@@ -46,22 +44,16 @@ export class RemoteMonitor {
     return this.contact.get(host)?.online ?? false
   }
 
-  async poll(): Promise<void> {
-    await Promise.all(this.deps.registry.hosts().map((host) => this.check(host)))
+  async state(host: string, online: boolean, last: number | null): Promise<void> {
+    this.contact.set(host, { online, last })
+    await this.show(host, online, last, (this.deps.now ?? Date.now)())
   }
 
-  async check(host: string): Promise<void> {
+  private async refresh(): Promise<void> {
     const now = (this.deps.now ?? Date.now)()
-    const before = this.contact.get(host)
-    let online = true
-    try {
-      await this.deps.ping(host)
-    } catch {
-      online = false
+    for (const [host, { online, last }] of this.contact) {
+      if (!online) await this.show(host, online, last, now)
     }
-    const last = online ? now : (before?.last ?? null)
-    this.contact.set(host, { online, last })
-    await this.show(host, online, last, now)
   }
 
   private async show(
@@ -74,7 +66,6 @@ export class RemoteMonitor {
     const text = online
       ? t('online')
       : t('offline', {
-          host,
           ago: last === null ? t('never') : ago(await this.deps.locale(), now - last),
         })
     for (const workspaceId of this.deps.registry.workspacesOn(host)) {
