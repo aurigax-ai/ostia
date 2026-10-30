@@ -16,7 +16,14 @@ export class GitFailure extends Error {}
 export function transferArgs(plan: ConnectPlan): string[] {
   const route = plan.argv.slice(0, plan.argv.indexOf('--'))
   const ssh = quoteArgv([...route, '-o', 'ConnectTimeout=8'])
-  return ['-c', 'core.hooksPath=/dev/null', '-c', `core.sshCommand=${ssh}`]
+  return [
+    '-c',
+    'core.hooksPath=/dev/null',
+    '-c',
+    'push.followTags=false',
+    '-c',
+    `core.sshCommand=${ssh}`,
+  ]
 }
 
 export async function gitText(git: Git, cwd: string, args: string[]): Promise<string> {

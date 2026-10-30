@@ -21,27 +21,44 @@ export function publicJob({
   return job
 }
 
-function read(file: string): JobRecord[] {
+const STOPPED_MAX = 500
+
+interface JobsFile {
+  jobs: JobRecord[]
+  stopped: string[]
+}
+
+function read(file: string): JobsFile {
   try {
-    const parsed = JSON.parse(readFileSync(file, 'utf8')) as { jobs?: JobRecord[] }
-    return Array.isArray(parsed.jobs) ? parsed.jobs : []
+    const parsed = JSON.parse(readFileSync(file, 'utf8')) as Partial<JobsFile>
+    return {
+      jobs: Array.isArray(parsed.jobs) ? parsed.jobs : [],
+      stopped: Array.isArray(parsed.stopped) ? parsed.stopped : [],
+    }
   } catch {
-    return []
+    return { jobs: [], stopped: [] }
   }
 }
 
 export class Jobs {
   private jobs: JobRecord[]
+  private stopped: string[]
 
   constructor(private readonly file: string) {
-    this.jobs = read(file)
+    const saved = read(file)
+    this.jobs = saved.jobs
+    this.stopped = saved.stopped
   }
 
   private save(): void {
-    writeFileAtomic(this.file, `${JSON.stringify({ jobs: this.jobs }, null, 2)}\n`, {
-      mode: 0o600,
-      dirMode: 0o700,
-    })
+    writeFileAtomic(
+      this.file,
+      `${JSON.stringify({ jobs: this.jobs, stopped: this.stopped }, null, 2)}\n`,
+      {
+        mode: 0o600,
+        dirMode: 0o700,
+      },
+    )
   }
 
   list(): JobRecord[] {
@@ -80,6 +97,16 @@ export class Jobs {
     job.started = true
     if (session) job.session = session
     if (job.state === 'starting') job.state = 'idle'
+    this.save()
+  }
+
+  isStopped(jobId: string): boolean {
+    return this.stopped.includes(jobId)
+  }
+
+  markStopped(jobId: string): void {
+    if (this.isStopped(jobId)) return
+    this.stopped = [...this.stopped, jobId].slice(-STOPPED_MAX)
     this.save()
   }
 

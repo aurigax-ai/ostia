@@ -1,5 +1,5 @@
-import { basename } from 'node:path'
-import type { BrowserWindow } from 'electron'
+import { basename, join } from 'node:path'
+import { app, type BrowserWindow } from 'electron'
 import { parseAgentHooks } from '../../shared/agents/agentHooks'
 import { isResumableAgent } from '../../shared/agents/agentResume'
 import type { ManagerSettings } from '../../shared/agents/managerSettings'
@@ -159,7 +159,10 @@ export function registerAgentWiring({
     },
     writePane: paneIo.write,
     isSandboxed: (workspaceId) => workspaceSandboxes.isEnabled(workspaceId),
-    remote: sshRemoteStarter(() => services.extensionHost),
+    remote: sshRemoteStarter(
+      join(app.getPath('userData'), 'extension-data'),
+      () => services.extensionHost,
+    ),
     endShell: (paneId) => killPty(paneId, 'process-kill'),
     hasShell: (paneId) => ptys.has(paneId),
     runInPane: (paneId, command) => {

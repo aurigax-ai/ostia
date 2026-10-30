@@ -1,4 +1,8 @@
-import { describe, expect, it, vi } from 'vitest'
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import { afterAll, describe, expect, it, vi } from 'vitest'
+import { REMOTE_REGISTRY_FILE } from '../../shared/remote/remoteNode'
 import type { ExtensionHost } from '../extensions/extensionHost'
 import { sshRemoteStarter } from './remoteStart'
 
@@ -11,26 +15,26 @@ const input = {
   repo: { id: 'r-0123456789ab', name: 'r', head: 'a'.repeat(40) },
 }
 
-function host(items: object[], invoke = vi.fn()) {
+const data = mkdtempSync(join(tmpdir(), 'ostia-remote-start-'))
+mkdirSync(join(data, 'ssh'))
+writeFileSync(join(data, 'ssh', REMOTE_REGISTRY_FILE), JSON.stringify({ w1: { host: 'box' } }))
+
+afterAll(() => rmSync(data, { recursive: true, force: true }))
+
+function host(running: boolean, invoke = vi.fn()) {
   return {
-    slots: { sidebarItems: () => items },
+    processes: { isRunning: () => running },
     invoke,
     userCaller: (workspaceId: string) => ({ kind: 'user', workspaceId }),
   } as unknown as ExtensionHost
 }
 
 describe('sshRemoteStarter', () => {
-  it('RMT-U2 treats only a workspace the ssh extension marked as remote', () => {
-    const items = [
-      { extId: 'ssh', key: 'remote', workspaceId: 'w1' },
-      { extId: 'other', key: 'remote', workspaceId: 'w2' },
-      { extId: 'ssh', key: 'other', workspaceId: 'w3' },
-    ]
-    const starter = sshRemoteStarter(() => host(items))
+  it('RMT-U2 knows a remote workspace from the saved registry, with no extension running', () => {
+    const starter = sshRemoteStarter(data, () => null)
     expect(starter.isRemote('w1')).toBe(true)
     expect(starter.isRemote('w2')).toBe(false)
-    expect(starter.isRemote('w3')).toBe(false)
-    expect(sshRemoteStarter(() => null).isRemote('w1')).toBe(false)
+    expect(sshRemoteStarter(join(data, 'none'), () => null).isRemote('w1')).toBe(false)
   })
 
   it('RMT-U3 calls remote-start as the app and passes its answer or its refusal through', async () => {
@@ -38,7 +42,7 @@ describe('sshRemoteStarter', () => {
       .fn()
       .mockResolvedValueOnce({ ok: true, data: { jobId: 'aaaa0001', ref: 'r', paneId: 'p' } })
       .mockResolvedValueOnce({ ok: false, error: 'refused', message: 'no' })
-    const starter = sshRemoteStarter(() => host([], invoke))
+    const starter = sshRemoteStarter(data, () => host(true, invoke))
     expect(await starter.start(input)).toEqual({
       ok: true,
       jobId: 'aaaa0001',
@@ -54,10 +58,14 @@ describe('sshRemoteStarter', () => {
     expect(await starter.start(input)).toEqual({ ok: false, error: 'refused', message: 'no' })
   })
 
-  it('RMT-U4 answers extension-unavailable when no extension host is up', async () => {
-    expect(await sshRemoteStarter(() => null).start(input)).toMatchObject({
-      ok: false,
-      error: 'extension-unavailable',
-    })
+  it('RMT-U4 refuses with extension-unavailable when ssh is off or not running, calling nothing', async () => {
+    const invoke = vi.fn()
+    for (const extensions of [null, host(false, invoke)]) {
+      expect(await sshRemoteStarter(data, () => extensions).start(input)).toMatchObject({
+        ok: false,
+        error: 'extension-unavailable',
+      })
+    }
+    expect(invoke).not.toHaveBeenCalled()
   })
 })

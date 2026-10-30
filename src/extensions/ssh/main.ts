@@ -9,7 +9,7 @@ import {
   runTool,
 } from '@aurigax-ai/ostia-extension-sdk'
 import { readEnv } from '@aurigax-ai/ostia-extension-sdk/contract/appEnv'
-import { NODE_CLI, NODE_ENTRY } from '../../shared/remote/remoteNode'
+import { NODE_CLI, NODE_ENTRY, REMOTE_REGISTRY_FILE } from '../../shared/remote/remoteNode'
 import { spawnSsh } from './channel'
 import { sshCommands } from './commands'
 import { CONSENT_FILE, HelperConsent } from './consent'
@@ -25,7 +25,7 @@ import { remoteFetch } from './remote/fetch'
 import { HostLink } from './remote/link'
 import { LinkHub } from './remote/linkHub'
 import { RemoteMonitor } from './remote/monitor'
-import { REGISTRY_FILE, RemoteRegistry } from './remote/registry'
+import { RemoteRegistry } from './remote/registry'
 import { RunnerClient } from './remote/runnerClient'
 import { remoteStart } from './remote/start'
 
@@ -45,7 +45,7 @@ async function main(): Promise<void> {
   const run = (args: string[]) => runTool('ssh', args, { timeoutMs: RESOLVE_TIMEOUT_MS })
   const sessions = new Sessions()
   const registry: RemoteRegistry = new RemoteRegistry(
-    dataDir ? join(dataDir, REGISTRY_FILE) : null,
+    dataDir ? join(dataDir, REMOTE_REGISTRY_FILE) : null,
     () => {
       void ext.startWithWindow(registry.hasWorkspaces())
       for (const host of registry.hosts()) void monitor.seed(host)

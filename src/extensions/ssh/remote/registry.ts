@@ -14,8 +14,6 @@ export interface RemoteTab {
   pane: string
 }
 
-export const REGISTRY_FILE = 'remote-workspaces.json'
-
 function read(file: string): Record<string, RemoteWorkspace> {
   try {
     return JSON.parse(readFileSync(file, 'utf8')) as Record<string, RemoteWorkspace>

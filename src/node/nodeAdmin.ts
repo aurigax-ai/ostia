@@ -150,7 +150,11 @@ export function adminMethods(
     'node.stop': async (params) => {
       const { pane } = (params ?? {}) as { pane?: string }
       const job = typeof pane === 'string' ? jobs.resolve(pane) : undefined
-      if (!job) return { stopped: typeof pane === 'string' ? pane : '', already: true }
+      if (!job) {
+        if (typeof pane === 'string' && JOB_ID.test(pane)) jobs.markStopped(pane)
+        return { stopped: typeof pane === 'string' ? pane : '', already: true }
+      }
+      jobs.markStopped(job.pane)
       await tmux.kill(job.pane).catch(() => {})
       jobs.remove(job.pane)
       rmSync(join(paths.tokens, job.pane), { force: true })

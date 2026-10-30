@@ -69,6 +69,7 @@ async function startWithRetry(
 export function remoteStart(deps: StartDeps): CommandHandler {
   return async (args, caller): Promise<ExtensionResult> => {
     const t = deps.translate(caller.locale)
+    if (caller.sandboxed) return failure('sandboxed', t('sandboxed'))
     if (caller.kind !== 'user') return failure('human-only', t('humanOnly'))
     const input = inputOf(args)
     if (!input) return failure('invalid-args', t('remoteUsage'))
@@ -94,6 +95,7 @@ export function remoteStart(deps: StartDeps): CommandHandler {
         ...transferArgs(plan),
         'push',
         '--no-verify',
+        '--no-follow-tags',
         '--recurse-submodules=no',
         `${plan.destination}:${mirrorPath(repo.id)}`,
         `${repo.head}:${jobRef(jobId)}`,

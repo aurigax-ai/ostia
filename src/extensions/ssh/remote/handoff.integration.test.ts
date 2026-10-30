@@ -209,6 +209,8 @@ describe.skipIf(skipWithoutTmux)('work handoff over a fake ssh host', () => {
 
   it('RMT-C9 remote-start asks once, pushes the commit under refs/ostia/jobs and opens the tab after the start hook', async () => {
     confirm.mockClear()
+    git(local, 'config', 'push.followTags', 'true')
+    git(local, 'tag', '-a', 'v1', '-m', 'v1')
     const command = remoteStart(deps())
     const first = await command(remoteStartArgs(), caller)
     expect(first).toMatchObject({ ok: true, data: { paneId: 'local-pane', session: 'sess-1' } })
@@ -217,6 +219,8 @@ describe.skipIf(skipWithoutTmux)('work handoff over a fake ssh host', () => {
     expect(ref).toBe(`remote:fakehost:${jobId}`)
     const mirror = join(host.home, NODE_REPOS, `${repo.id}.git`)
     expect(git(mirror, 'rev-parse', `refs/ostia/jobs/${jobId}`)).toBe(repo.head)
+    expect(git(mirror, 'for-each-ref', 'refs/tags')).toBe('')
+    expect(git(mirror, 'for-each-ref', '--format=%(refname)')).toContain(`refs/ostia/jobs/${jobId}`)
     expect(sessions()).toContain(jobId)
     expect(openTerminal).toHaveBeenCalledWith(
       expect.objectContaining({ workspaceId: 'w1', title: 'claude' }),
@@ -257,6 +261,13 @@ describe.skipIf(skipWithoutTmux)('work handoff over a fake ssh host', () => {
     const res = await remoteStart(deps(false))(remoteStartArgs(), caller)
     expect(res).toMatchObject({ ok: false, error: 'refused' })
     expect(jobs()).toBe(before)
+  })
+
+  it('RMT-C12b remote-start refuses a sandboxed caller before asking or sending', async () => {
+    confirm.mockClear()
+    const res = await remoteStart(deps())(remoteStartArgs(), { ...caller, sandboxed: true })
+    expect(res).toMatchObject({ ok: false, error: 'sandboxed' })
+    expect(confirm).not.toHaveBeenCalled()
   })
 
   it('RMT-C12 remote-start is for the app only: a pane caller is refused', async () => {

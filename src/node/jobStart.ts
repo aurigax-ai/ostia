@@ -73,6 +73,13 @@ export class JobStarter {
     const request = parseStart(raw)
     const running = this.inflight.get(request.jobId)
     if (running) return running
+    if (this.deps.jobs.isStopped(request.jobId) && !this.deps.jobs.get(request.jobId)) {
+      return Promise.resolve({
+        status: 'failed',
+        jobId: request.jobId,
+        reason: 'the job was stopped',
+      })
+    }
     const done = this.begin(request).finally(() => this.inflight.delete(request.jobId))
     this.inflight.set(request.jobId, done)
     return done

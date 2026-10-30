@@ -92,6 +92,7 @@
         "title": "Start an agent on a remote host (JSON)",
         "usage": "remote-start <json>",
         "argument": "A JSON object",
+        "interactive": true,
         "palette": false
       },
       {
@@ -99,6 +100,7 @@
         "title": "Fetch a remote job's branch into refs/remotes/ostia and open its diff",
         "usage": "remote-fetch <remote:host:job>",
         "argument": "A remote job ref, as ostia ssh remote-jobs prints it",
+        "interactive": true,
         "palette": false
       },
       {
