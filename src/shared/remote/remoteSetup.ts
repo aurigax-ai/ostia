@@ -29,6 +29,7 @@ type JobState = 'working' | 'waiting' | 'idle' | 'exited'
 
 export interface RemoteJob {
   pane: string
+  name?: string
   agent: RemoteAgent | 'shell'
   folder: string
   state: JobState

@@ -82,8 +82,8 @@
       },
       {
         "id": "remote-jobs",
-        "title": "Jobs the runner keeps on a host (JSON)",
-        "usage": "remote-jobs <json: host>",
+        "title": "Jobs the runner keeps on a host: ref, name, agent, state, folder",
+        "usage": "remote-jobs [--json] [<host>]",
         "argument": "A JSON object",
         "palette": false
       },
