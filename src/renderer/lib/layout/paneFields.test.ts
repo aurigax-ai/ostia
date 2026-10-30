@@ -294,6 +294,14 @@ describe('setPaneHibernated', () => {
     expect(setPaneHibernated(awake, root.id, false)).toBe(awake)
   })
 
+  it('drops keep-awake when the pane hibernates', () => {
+    const root = { ...createPane(), resume: { agent: 'claude' as const, id: 'a' } }
+    const kept = setPaneKeepAwake(root, root.id, true)
+    const asleep = setPaneHibernated(kept, root.id, true)
+    expect(asleep).toMatchObject({ hibernated: true })
+    expect(asleep).not.toHaveProperty('keepAwake')
+  })
+
   it('wakes a pane whose token names a folder with the next shell starting there', () => {
     const root = {
       ...createPane(),
