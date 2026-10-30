@@ -35,6 +35,7 @@ export interface Mail {
   reason?: string
   dismissed?: true
   route?: string
+  origin?: string
 }
 
 export type HandoffState = 'submitted' | 'claimed' | 'completed' | 'failed'
@@ -80,6 +81,7 @@ export interface BusObservation {
 export interface MailDraft {
   id?: string
   route?: string
+  origin?: string
   from: string
   to: string
   text: string
@@ -261,10 +263,29 @@ function pruneHistory(now: number): boolean {
   return changed
 }
 
-export async function receive(draft: MailDraft & { id: string }): Promise<'stored' | 'full'> {
-  if (store().mail.some((mail) => mail.id === draft.id)) return 'stored'
+const receiving = new Map<string, Promise<'stored' | 'full'>>()
+
+export function receive(
+  draft: MailDraft & { id: string; origin: string },
+): Promise<'stored' | 'full'> {
+  const key = `${draft.origin}\0${draft.id}`
+  const running = receiving.get(key)
+  if (running) return running
+  const work = persistAndPlace(draft).finally(() => receiving.delete(key))
+  receiving.set(key, work)
+  return work
+}
+
+async function persistAndPlace(
+  draft: MailDraft & { id: string; origin: string },
+): Promise<'stored' | 'full'> {
+  if (store().mail.some((mail) => mail.origin === draft.origin && mail.id === draft.id)) {
+    return 'stored'
+  }
   if (inboxFull(draft.to)) return 'full'
-  enqueue({ id: draft.id, from: draft.from, to: draft.to, text: draft.text })
+  const mail = newMail({ ...draft, origin: draft.origin })
+  await saveJsonAsync(busPath(), { ...store(), mail: [...store().mail, mail] }, { secure: true })
+  place(mail)
   await flushBus()
   return 'stored'
 }
@@ -340,9 +361,8 @@ export function inboxFull(to: string): boolean {
   return store().mail.filter((mail) => mail.to === to && undelivered(mail)).length >= INBOX_MAX
 }
 
-export function enqueue(draft: MailDraft): Mail {
-  sweepBus()
-  const mail: Mail = {
+function newMail(draft: MailDraft): Mail {
+  return {
     id: draft.id ?? randomUUID(),
     kind: draft.kind ?? 'message',
     from: draft.from,
@@ -355,21 +375,31 @@ export function enqueue(draft: MailDraft): Mail {
     ...(draft.quiet ? { quiet: true as const } : {}),
     ...(draft.wakes ? { wakes: true as const } : {}),
     ...(draft.route ? { route: draft.route } : {}),
+    ...(draft.origin ? { origin: draft.origin } : {}),
   }
+}
+
+export function enqueue(draft: MailDraft): Mail {
+  sweepBus()
+  const mail = newMail(draft)
+  place(mail)
+  return mail
+}
+
+function place(mail: Mail): void {
   store().mail.push(mail)
   observe(mail, 'queued')
-  const parked = waiters.get(draft.to)
+  const parked = waiters.get(mail.to)
   const matching = parked ? [...parked].filter((waiter) => waiter.pick(mail)) : []
   const first = matching.find((waiter) => waiter.priority) ?? matching[0]
   if (parked && first) {
     parked.delete(first)
-    if (parked.size === 0) waiters.delete(draft.to)
-    const handed = leaseMail(draft.to, 'read', (item) => item.id === mail.id)
+    if (parked.size === 0) waiters.delete(mail.to)
+    const handed = leaseMail(mail.to, 'read', (item) => item.id === mail.id)
     if (handed) first.resolve(handed)
   }
   markBusDirty()
   announceQueued(mail)
-  return mail
 }
 
 export function claimWake(externalId: string, now: number, max: number, windowMs: number): boolean {

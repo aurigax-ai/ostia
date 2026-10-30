@@ -3,6 +3,7 @@ import type { MessageConnection } from 'vscode-jsonrpc/node'
 import {
   enqueue,
   failedOnRoute,
+  getMail,
   type Mail,
   onMailQueued,
   peersOfRoute,
@@ -84,6 +85,7 @@ export class RunnerLink {
       return
     }
     this.send({ t: 'hb' })
+    if (this.ready) this.flush()
   }
 
   private waiting(): number {
@@ -158,7 +160,8 @@ export class RunnerLink {
     }
     if (!this.ready) return
     if (frame.t === 'stored') {
-      if (storedOnRoute(DESKTOP_ROUTE, frame.id)) this.delivered += 1
+      const wasQueued = getMail(frame.id)?.state === 'queued'
+      if (storedOnRoute(DESKTOP_ROUTE, frame.id) && wasQueued) this.delivered += 1
       this.backIfDrained()
       return
     }
@@ -170,10 +173,12 @@ export class RunnerLink {
     }
     const stored = await receive({
       id: `desktop:${frame.id}`,
+      origin: DESKTOP_ROUTE,
       from: desktopRef(frame.from),
       to: target.pane,
       text: frame.text,
-    })
+    }).catch(() => null)
+    if (stored === null) return
     this.send(
       stored === 'stored'
         ? { t: 'stored', id: frame.id }

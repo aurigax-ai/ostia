@@ -38,7 +38,7 @@ describe('HostLink', () => {
   beforeEach(() => vi.useFakeTimers())
   afterEach(() => vi.useRealTimers())
 
-  function open() {
+  function open(withOut = false) {
     if (!plan) throw new Error('no plan')
     const fake = fakeChild()
     const calls: RemoteMailRequest[] = []
@@ -50,6 +50,15 @@ describe('HostLink', () => {
       spawn: () => fake.child as never,
       remoteMail: async (request): Promise<RemoteMailResult> => {
         calls.push(request)
+        if (request.op === 'in' && request.mail.text === 'disk full') {
+          return { ok: false, error: 'write-failed' }
+        }
+        if (request.op === 'out' && withOut) {
+          return {
+            ok: true,
+            out: [{ id: 'o1', from: 'local1', to: 'remote:box:0123abcd', text: 'out', ts: '' }],
+          }
+        }
         return request.op === 'in' && request.mail.to !== 'local1'
           ? { ok: false, error: 'unknown-pane' }
           : { ok: true, out: [] }
@@ -89,6 +98,23 @@ describe('HostLink', () => {
     await vi.advanceTimersByTimeAsync(100)
     expect(states).toEqual([true, false])
     expect(calls.filter((call) => call.op === 'link' && !call.online)).toHaveLength(1)
+    link.stop()
+  })
+
+  it('REM-N6 answers nothing when the desktop could not write the mail, and sends unanswered mail again later', async () => {
+    const { feed, written, link } = open(true)
+    feed({ t: 'hello-ok', version: bundle.version })
+    await vi.advanceTimersByTimeAsync(50)
+    feed({ t: 'mail', id: 'w', from: '0123abcd', to: 'desktop:local1', text: 'disk full' })
+    await vi.advanceTimersByTimeAsync(50)
+    expect(written.some((frame) => (frame as { id?: string }).id === 'w')).toBe(false)
+    const sends = () => written.filter((frame) => (frame as { t: string }).t === 'mail').length
+    expect(sends()).toBe(1)
+    await vi.advanceTimersByTimeAsync(2000)
+    expect(sends()).toBe(1)
+    feed({ t: 'hb' })
+    await vi.advanceTimersByTimeAsync(15_000)
+    expect(sends()).toBeGreaterThan(1)
     link.stop()
   })
 })

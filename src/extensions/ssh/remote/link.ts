@@ -137,7 +137,7 @@ export class HostLink {
     child.stdout.on('data', (chunk: Buffer) => out.push(chunk))
     child.on('close', () => out.end())
     child.on('error', () => out.end())
-    const inflight = new Set<string>()
+    const inflight = new Map<string, number>()
     let online = false
     let delivered = 0
     let lastRx = this.now()
@@ -151,8 +151,10 @@ export class HostLink {
       let sent = 0
       for (const mail of queued.ok ? (queued.out ?? []) : []) {
         const target = parseRemoteRef(mail.to)
-        if (inflight.has(mail.id) || target?.host !== this.deps.host) continue
-        inflight.add(mail.id)
+        const sentAt = inflight.get(mail.id)
+        if (target?.host !== this.deps.host) continue
+        if (sentAt !== undefined && this.now() - sentAt < this.times.heartbeatMs) continue
+        inflight.set(mail.id, this.now())
         sent += 1
         this.write(child, {
           t: 'mail',
@@ -191,8 +193,7 @@ export class HostLink {
           void settle()
         } else if (frame.t === 'incompatible') break
         else if (frame.t === 'stored') {
-          inflight.delete(frame.id)
-          delivered += 1
+          if (inflight.delete(frame.id)) delivered += 1
           await this.deps.remoteMail({ op: 'stored', host: this.deps.host, id: frame.id })
         } else if (frame.t === 'refused') {
           inflight.delete(frame.id)
@@ -230,6 +231,8 @@ export class HostLink {
       mail: { pane: frame.from, id: frame.id, to, text: frame.text },
     })
     if (result.ok) this.write(child, { t: 'stored', id: frame.id })
-    else refused(result.error)
+    else if (result.error !== 'write-failed' && result.error !== 'remote-mail-failed') {
+      refused(result.error)
+    }
   }
 }

@@ -123,10 +123,12 @@ async function receiveFromRemote(
   if (!hasMailed(target.externalId, from)) return refused('not-allowed')
   const stored = await receive({
     id: `${host}:${mail.id}`,
+    origin: remoteRoute(host),
     from,
     to: target.externalId,
     text: mail.text,
-  })
+  }).catch(() => null)
+  if (stored === null) return refused('write-failed')
   if (stored === 'full') return refused('full')
   const queued = getMail(`${host}:${mail.id}`)
   if (queued?.state === 'queued') setPending(queued.id, await pending(target))
