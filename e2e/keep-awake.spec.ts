@@ -19,7 +19,7 @@ function shownRows(win: Page): Locator {
   return win.locator('.pane-slot:not([data-hidden]) .xterm-rows').last()
 }
 
-test('the human can still hibernate and wake a tab kept awake', async () => {
+test('hibernating a tab kept awake ends keep-awake', async () => {
   const dataHome = freshDataHome()
   seedSettings(dataHome, DOM_RENDERER_SETTINGS)
   const bin = fakeAgentBin(dataHome, AGENT)
@@ -53,12 +53,12 @@ test('the human can still hibernate and wake a tab kept awake', async () => {
     await tab.click({ button: 'right' })
     await win.getByRole('menuitem', { name: 'Hibernate tab' }).click()
     await expect(tab.getByLabel('Hibernated')).toBeVisible({ timeout: 15_000 })
-    await expect(kept).toBeVisible()
+    await expect(kept).toHaveCount(0)
 
     await tab.click({ button: 'right' })
     await win.getByRole('menuitem', { name: 'Wake tab' }).click()
     await expect(tab.getByLabel('Hibernated')).toHaveCount(0)
-    await expect(kept).toBeVisible()
+    await expect(kept).toHaveCount(0)
   } finally {
     await app.close()
   }
