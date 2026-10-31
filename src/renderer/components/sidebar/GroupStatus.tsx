@@ -1,21 +1,31 @@
+import { Hint } from '@/components/common/Hint'
 import { fmt, useDict } from '@/lib/app/useDict'
-import { aggregateWorkspaceState } from '@/lib/attention/attention'
-import { useUnread } from '@/lib/workspaces/useUnread'
-import { stateLabel } from '@/lib/workspaces/workspaceState'
+import { type RowMark, stateCounts } from '@/lib/workspaces/rowSummary'
 import type { Workspace } from '@/stores/workspaces/workspaceTypes'
 
-export function GroupStatus({ members }: { members: Workspace[] }): JSX.Element | null {
+export function GroupStateChips({ members }: { members: Workspace[] }): JSX.Element | null {
   const d = useDict()
-  const state = aggregateWorkspaceState(members.map((w) => w.state))
-  if (state === 'idle') return null
+  const counts = stateCounts(members.map((w) => w.state))
+  const chips: [RowMark, string][] = [
+    ['waiting', d.rail.groupWaiting],
+    ['error', d.rail.groupError],
+    ['working', d.rail.groupWorking],
+  ]
+  const shown = chips.filter(([mark]) => counts[mark] > 0)
+  if (shown.length === 0) return null
   return (
-    <span className={`dot rail-group-dot ${state}`} role="img" aria-label={stateLabel(d, state)} />
+    <span className="rail-group-chips">
+      {shown.map(([mark, text]) => {
+        const label = fmt(text, { n: counts[mark] })
+        return (
+          <Hint key={mark} label={label}>
+            <span className="rail-group-chip" role="img" aria-label={label}>
+              <span className={`state-dot ${mark}`} aria-hidden />
+              {counts[mark]}
+            </span>
+          </Hint>
+        )
+      })}
+    </span>
   )
-}
-
-export function GroupUnreadDot({ workspaceIds }: { workspaceIds: string[] }): JSX.Element | null {
-  const d = useDict()
-  const { n } = useUnread(workspaceIds)
-  if (n === 0) return null
-  return <span className="unread-dot" role="img" aria-label={fmt(d.rail.unread, { n })} />
 }

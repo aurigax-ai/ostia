@@ -6,30 +6,13 @@ import {
 } from '@phosphor-icons/react'
 import { useEffect } from 'react'
 import { Hint } from '@/components/common/Hint'
-import { MailCount } from '@/components/common/MailCount'
 import { Badge } from '@/components/ui/badge'
 import { fmt, useDict } from '@/lib/app/useDict'
 import { hasLockedPane } from '@/lib/layout/paneFields'
-import { allPanes, paneIds } from '@/lib/layout/tree'
+import { allPanes } from '@/lib/layout/tree'
 import { useSandboxStore } from '@/stores/app/sandboxStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import type { Workspace } from '@/stores/workspaces/workspaceTypes'
-
-function ScratchBadge(): JSX.Element {
-  const d = useDict()
-  return (
-    <Hint label={d.scratch.badgeHint}>
-      <Badge variant="outline" className="scratch-badge h-4 rounded-sm px-1 text-ui-xs">
-        {d.scratch.badge}
-      </Badge>
-    </Hint>
-  )
-}
-
-function WorkspaceMail({ workspaceId }: { workspaceId: string }): JSX.Element | null {
-  const root = useLayoutStore((s) => s.byWorkspace[workspaceId]?.root)
-  return root ? <MailCount paneIds={paneIds(root)} /> : null
-}
 
 const KEPT_AWAKE_NAMED_MAX = 3
 
@@ -49,6 +32,17 @@ function WorkspaceKeptAwake({ workspaceId }: { workspaceId: string }): JSX.Eleme
   return (
     <Hint label={label}>
       <CoffeeIcon size={16} className="tab-pin" role="img" aria-label={label} />
+    </Hint>
+  )
+}
+
+function ScratchBadge(): JSX.Element {
+  const d = useDict()
+  return (
+    <Hint label={d.scratch.badgeHint}>
+      <Badge variant="outline" className="scratch-badge h-4 rounded-sm px-1 text-ui-xs">
+        {d.scratch.badge}
+      </Badge>
     </Hint>
   )
 }
@@ -76,8 +70,7 @@ export function WorkspaceBadges({
   }, [w.id, marksOnly])
   return (
     <>
-      {w.kind === 'scratch' ? <ScratchBadge /> : null}
-      {marksOnly ? null : <WorkspaceMail workspaceId={w.id} />}
+      {marksOnly && w.kind === 'scratch' ? <ScratchBadge /> : null}
       {w.pinned ? (
         <PushPinSimpleIcon size={16} className="tab-pin" aria-label={d.rail.pinned} />
       ) : null}
@@ -86,7 +79,7 @@ export function WorkspaceBadges({
         <ShieldCheckIcon size={16} className="tab-pin" role="img" aria-label={d.rail.sandboxed} />
       ) : null}
       {locked && !marksOnly ? (
-        <LockSimpleIcon size={16} className="tab-lock" role="img" aria-label={d.rail.locked} />
+        <LockSimpleIcon size={16} className="tab-pin" role="img" aria-label={d.rail.locked} />
       ) : null}
     </>
   )

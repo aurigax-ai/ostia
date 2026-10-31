@@ -49,7 +49,6 @@ test('workspace groups: a collapsed group shows a member’s failed command and 
     const { win } = second
     await expect(groupToggle(win)).toBeVisible({ timeout: 15_000 })
     await expect(groupToggle(win)).toHaveAttribute('aria-expanded', 'false')
-    await expect(groupHead(win).getByLabel('Members: 1')).toHaveText('1')
     await expect(ungroupedRows(win)).toHaveCount(1)
   } finally {
     await quitApp(second.app)

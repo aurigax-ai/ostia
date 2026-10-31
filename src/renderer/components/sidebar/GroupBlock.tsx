@@ -28,7 +28,7 @@ import {
   ContextMenuSub,
   ContextMenuTrigger,
 } from '@/components/ui/context-menu'
-import { fmt, useDict } from '@/lib/app/useDict'
+import { useDict } from '@/lib/app/useDict'
 import { useFlipped } from '@/lib/app/useFlipped'
 import { markWorkspaceRead } from '@/lib/attention/workspaceActivity'
 import type { WorkspaceGroup } from '@/lib/sidebar/workspaceGroups'
@@ -37,8 +37,9 @@ import { startNewWorkspace } from '@/lib/workspaces/newWorkspace'
 import { useUIStore } from '@/stores/app/uiStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import type { Workspace } from '@/stores/workspaces/workspaceTypes'
-import { GroupStatus, GroupUnreadDot } from './GroupStatus'
+import { GroupStateChips } from './GroupStatus'
 import { HibernateMenuItems } from './HibernateMenuItems'
+import { NarrowGroup } from './narrow/NarrowGroup'
 import { RailCollapsedContext } from './RailTab'
 import { type DragHandlers, GROUP_DND, isRailDrag, upperHalf } from './railDrag'
 
@@ -73,6 +74,29 @@ export function GroupBlock({
   }
   const revealing = useFlipped({ members: !group.collapsed }).has('members')
   const caretClass = cn('rail-group-caret', !group.collapsed && 'open')
+
+  if (collapsed) {
+    return (
+      <ContextMenu>
+        <ContextMenuTrigger
+          className="rail-group"
+          data-color={group.color}
+          data-drop={drop === 'before' || drop === 'after' ? drop : undefined}
+        >
+          <NarrowGroup group={group} members={members}>
+            {children}
+          </NarrowGroup>
+        </ContextMenuTrigger>
+        <GroupMenu
+          group={group}
+          members={members}
+          onAdd={addWorkspace}
+          onToggle={toggle}
+          onRenaming={onRenaming}
+        />
+      </ContextMenu>
+    )
+  }
 
   return (
     <div
@@ -125,16 +149,8 @@ export function GroupBlock({
             >
               <CaretRightIcon size={16} className={caretClass} aria-hidden />
               <span className="rail-group-swatch" aria-hidden />
-              <GroupUnreadDot workspaceIds={members.map((w) => w.id)} />
               <span className="rail-group-name">{group.name}</span>
-              {/* biome-ignore lint/a11y/useAriaPropsSupportedByRole: the label names the block for screen readers and tests; a role would change how it is announced */}
-              <span
-                className="rail-group-count"
-                aria-label={fmt(d.rail.groupCount, { n: members.length })}
-              >
-                {members.length}
-              </span>
-              <GroupStatus members={members} />
+              <GroupStateChips members={members} />
             </button>
           )}
           {renaming || collapsed ? null : (

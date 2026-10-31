@@ -1,3 +1,4 @@
+import { EnvelopeSimpleIcon } from '@phosphor-icons/react'
 import type { MailItem } from '@shared/agents/mailApi'
 import type { Dict } from '@shared/app/dict'
 import { ageLabel } from '@shared/panes/paneStatus'
@@ -79,12 +80,13 @@ export function MailCount({ paneIds }: { paneIds: readonly string[] }): JSX.Elem
   return (
     <Hint label={<MailList items={items} />}>
       <Badge
-        variant={failed > 0 ? 'destructive' : 'secondary'}
-        className="h-4 rounded-sm px-1 text-ui-xs"
+        variant="secondary"
+        className="h-4 gap-1 rounded-sm px-1 text-ui-xs text-warn-fg"
         role="img"
         aria-label={label}
         onClick={dismiss}
       >
+        <EnvelopeSimpleIcon size={16} aria-hidden />
         {failed > 0 ? failed : queued}
       </Badge>
     </Hint>

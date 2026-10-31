@@ -799,19 +799,6 @@
   padding: 0;
 }
 
-.tab-lead-unread {
-  color: var(--attn-fg);
-  animation: attn-blink var(--motion-pulse) var(--ease-out) 3;
-}
-
-.unread-dot {
-  width: 6px;
-  height: 6px;
-  flex: none;
-  border-radius: 999px;
-  background: var(--attn);
-}
-
 .rail-tab-main:focus-visible {
   outline-offset: -2px;
 }
@@ -854,10 +841,6 @@
   outline-color: var(--surface-2);
 }
 
-.tab-lead-wrap .workspace-dot.idle {
-  display: none;
-}
-
 .tab-body {
   display: flex;
   flex-direction: column;
@@ -871,6 +854,14 @@
   font-size: var(--text-ui-base);
   white-space: nowrap;
   text-overflow: ellipsis;
+}
+
+.tab-title.unread {
+  font-weight: var(--font-weight-semibold);
+}
+
+.tab-title-row .tab-title {
+  flex: 1;
 }
 
 .tab-title.wrap {
@@ -1098,15 +1089,21 @@
   text-overflow: ellipsis;
 }
 
-.rail-group-count {
+.rail-group-chips {
+  display: flex;
   flex-shrink: 0;
-  color: var(--fg-muted);
-  font-variant-numeric: tabular-nums;
+  align-items: center;
+  gap: 4px;
 }
 
-.rail-group-dot {
-  width: 7px;
-  height: 7px;
+.rail-group-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 4px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-3);
+  font-variant-numeric: tabular-nums;
 }
 
 .rail-group-members {
@@ -1160,52 +1157,103 @@
   flex: 1 0 24px;
 }
 
-.collapsed .rail-group-name,
-.collapsed .rail-group-count,
-.collapsed .rail-group-caret,
-.collapsed .rail-group-main .unread-dot {
-  display: none;
-}
-
-.collapsed .rail-group-head {
-  width: 32px;
-}
-
-.collapsed .rail-group-main {
-  position: relative;
-  justify-content: center;
-  min-height: 16px;
-  padding: 4px 0;
-}
-
-.collapsed .rail-group-swatch {
-  width: 12px;
-  height: 4px;
-}
-
-.collapsed .rail-group-dot {
-  position: absolute;
-  top: 2px;
-  right: 6px;
-  width: 6px;
-  height: 6px;
-}
-
-.collapsed .rail-group-members {
+.rail-card-trigger {
+  display: flex;
+  flex-direction: column;
   align-items: center;
 }
 
-.collapsed .rail-group-members .rail-tab {
-  margin-left: 0;
+.rail-group-box {
+  gap: 2px;
+  padding: 2px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
 }
 
-.collapsed .rail-group-members .rail-row[data-drop]::before,
-.collapsed .rail-group-members .rail-row[data-drop]::after {
-  left: 10px;
+.rail-stack {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  color: var(--fg-muted);
 }
 
-.collapsed .rail-group-members::before {
-  left: -4px;
+.rail-stack .state-dot {
+  position: absolute;
+  right: 4px;
+  bottom: 4px;
+  width: 7px;
+  height: 7px;
+  outline: 2px solid var(--surface-2);
+}
+
+.rail-stack-count {
+  position: absolute;
+  top: 0;
+  right: 0;
+  min-width: 14px;
+  padding: 0 3px;
+  border-radius: 999px;
+  background: var(--surface-3);
+  color: var(--fg);
+  font-size: var(--text-ui-xs);
+  line-height: var(--text-ui-xs--line-height);
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.rail-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 4px 8px;
+  color: var(--fg-muted);
+  font-size: var(--text-ui-xs);
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+}
+
+.rail-card-title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rail-card-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  width: 100%;
+  padding: 6px 8px;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--fg);
+  text-align: left;
+}
+
+.rail-card-row:hover,
+.rail-card-row:focus-visible {
+  background: var(--surface-3);
+}
+
+.rail-card-text {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.rail-card-name {
+  overflow: hidden;
+  font-size: var(--text-ui-base);
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .tab-title-row {
@@ -1218,11 +1266,6 @@
 .tab-pin {
   flex-shrink: 0;
   color: var(--fg-muted);
-}
-
-.tab-lock {
-  flex-shrink: 0;
-  color: var(--lock);
 }
 
 .tab-after {
@@ -1265,7 +1308,7 @@
   display: none;
 }
 
-.tab-subtitle {
+.tab-fact {
   display: -webkit-box;
   overflow: hidden;
   -webkit-line-clamp: 2;
@@ -1276,8 +1319,16 @@
   overflow-wrap: anywhere;
 }
 
-.tab-subtitle.unread {
+.tab-fact.plain {
   color: var(--fg);
+}
+
+.tab-fact.waiting {
+  color: var(--warn-fg);
+}
+
+.tab-fact.error {
+  color: var(--attn-fg);
 }
 
 .rail-meta {
@@ -1292,6 +1343,38 @@
   line-height: var(--text-ui-xs--line-height);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
+}
+
+.rail-chips {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  color: var(--fg-muted);
+  font-size: var(--text-ui-xs);
+  line-height: var(--text-ui-xs--line-height);
+}
+
+.rail-chips:empty {
+  display: none;
+}
+
+.rail-chips .rail-meta {
+  flex: 1;
+}
+
+.rail-tabcount {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 4px;
+  font-variant-numeric: tabular-nums;
+}
+
+.rail-chips .ext-item {
+  padding: 0 4px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-3);
 }
 
 .rail-meta-path {
@@ -1753,7 +1836,8 @@
   transition: background-color var(--motion-base) var(--ease-out);
 }
 
-.dot.working {
+.dot.working,
+.state-dot.working {
   background: var(--brand);
   animation: breathe var(--motion-breathe) var(--ease-in-out) infinite;
 }
@@ -1775,6 +1859,22 @@
 
 .dot.done {
   background: var(--ok);
+}
+
+.state-dot {
+  position: relative;
+  width: 8px;
+  height: 8px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+}
+
+.state-dot.waiting {
+  background: var(--warn-fg);
+}
+
+.state-dot.error {
+  background: var(--attn);
 }
 
 @keyframes breathe {
@@ -3982,7 +4082,10 @@ button.prompt-chip:hover {
   color: var(--ok);
 }
 
-.ext-item.tone-warn,
+.ext-item.tone-warn {
+  color: var(--warn-fg);
+}
+
 .ext-item.tone-error {
   color: var(--attn-fg);
 }
@@ -4358,7 +4461,8 @@ button.prompt-chip:hover {
     transition-duration: 0.001ms !important;
   }
 
-  :root:not([data-motion="full"]) .dot.working {
+  :root:not([data-motion="full"]) .dot.working,
+  :root:not([data-motion="full"]) .state-dot.working {
     opacity: 1;
   }
 }
@@ -4372,7 +4476,8 @@ button.prompt-chip:hover {
   transition-duration: 0.001ms !important;
 }
 
-:root[data-motion="reduced"] .dot.working {
+:root[data-motion="reduced"] .dot.working,
+:root[data-motion="reduced"] .state-dot.working {
   opacity: 1;
 }
 

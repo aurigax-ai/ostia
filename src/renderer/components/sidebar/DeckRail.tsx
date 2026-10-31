@@ -1,5 +1,5 @@
 import { GearSixIcon } from '@phosphor-icons/react'
-import { useEffect, useState } from 'react'
+import { useContext, useEffect, useState } from 'react'
 import { PanelResizer } from '@/components/common/PanelResizer'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { ViewsRail } from '@/components/views/ViewsRail'
@@ -16,6 +16,7 @@ import { useRailEditStore } from '@/stores/workspaces/railEditStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import type { Workspace } from '@/stores/workspaces/workspaceTypes'
 import { GroupBlock } from './GroupBlock'
+import { RailCard } from './narrow/RailCard'
 import { SidebarFooter } from './RailMeta'
 import { RailCollapsedContext, RailTab } from './RailTab'
 import { RemoteWorkspaces } from './RemoteWorkspaces'
@@ -107,6 +108,12 @@ function WorkspacesView(): JSX.Element {
     },
   }
   const tabTarget = paneDragging ? tabOver : null
+  const collapsed = useContext(RailCollapsedContext)
+  const single = (w: Workspace): JSX.Element => (
+    <RailCard key={w.id} members={[w]}>
+      {row(w)}
+    </RailCard>
+  )
 
   const row = (w: Workspace): JSX.Element => (
     <WorkspaceRow
@@ -176,7 +183,7 @@ function WorkspacesView(): JSX.Element {
                 {block.workspaces.map(row)}
               </GroupBlock>
             ) : (
-              block.workspaces.map(row)
+              block.workspaces.map((w) => (collapsed ? single(w) : row(w)))
             ),
           )}
 

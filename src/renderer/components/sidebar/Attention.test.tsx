@@ -92,7 +92,6 @@ describe('sidebar unread mark', () => {
     signal(a, 'one', 1)
     signal(b, 'two', 2)
     const icon = screen.getByRole('img', { name: '2 unread' })
-    expect(icon).toHaveClass('tab-lead-unread')
     expect(icon).toHaveTextContent('')
 
     act(() => useAttentionStore.getState().markAllRead())
@@ -100,34 +99,31 @@ describe('sidebar unread mark', () => {
     expect(workspaceId).toBeTruthy()
   })
 
-  it('restarts the fast blink only when the unread count grows, never on decrease', async () => {
+  it('bolds the workspace name while a tab is unread and plain again once viewed', async () => {
     const { a, b } = twoPanes()
     await renderSettled(<DeckRail />)
-    const icon = () => screen.getByRole('img', { name: /unread/ })
+    const title = () => document.querySelector('.rail-tab .tab-title') as HTMLElement
+    expect(title()).not.toHaveClass('unread')
 
     signal(a, 'one', 1)
-    const first = icon()
     signal(b, 'two', 2)
-    const second = icon()
-    expect(second).not.toBe(first)
+    expect(title()).toHaveClass('unread')
 
-    act(() => useAttentionStore.getState().dispatch(b, { type: 'view', at: 3 }))
-    expect(icon()).toBe(second)
-    expect(icon()).toHaveAccessibleName('1 unread')
+    act(() => useAttentionStore.getState().markAllRead())
+    expect(title()).not.toHaveClass('unread')
   })
 
-  it('restarts the waiting dot pulse only when a new waiting signal arrives', async () => {
-    const { workspaceId, a } = twoPanes()
+  it('draws the waiting mark amber and still, and no mark for done or idle', async () => {
+    const { workspaceId } = twoPanes()
     act(() => useWorkspacesStore.getState().setState(workspaceId, 'waiting'))
     await renderSettled(<DeckRail />)
-    signal(a, 'first', 1)
-    const first = screen.getByRole('img', { name: 'Waiting for input' })
+    expect(screen.getByRole('img', { name: 'Waiting for input' })).toHaveClass(
+      'state-dot',
+      'waiting',
+    )
 
-    act(() => useWorkspacesStore.getState().setState(workspaceId, 'waiting'))
-    expect(screen.getByRole('img', { name: 'Waiting for input' })).toBe(first)
-
-    signal(a, 'second', 2)
-    expect(screen.getByRole('img', { name: 'Waiting for input' })).not.toBe(first)
+    act(() => useWorkspacesStore.getState().setState(workspaceId, 'done'))
+    expect(screen.queryByRole('img', { name: 'Done' })).toBeNull()
   })
 
   it('labels the error state so it is not conveyed by color alone', async () => {
@@ -306,7 +302,7 @@ describe('pane tab attention mark', () => {
       expect(window.ostia.notifications.post).not.toHaveBeenCalledWith(
         expect.objectContaining({ title: 'Agent needs your input' }),
       )
-      expect(screen.getByRole('img', { name: 'Idle' })).toHaveClass('workspace-dot')
+      expect(screen.queryByRole('img', { name: 'Waiting for input' })).toBeNull()
       expect(view.container.querySelector('.pane .pane-attn-mark')).toBeNull()
     } finally {
       stopSync()

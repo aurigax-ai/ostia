@@ -114,7 +114,7 @@ describe('DeckRail', () => {
     vi.restoreAllMocks()
   })
 
-  it('marks a scratch workspace row with a Scratch badge, and no other row', async () => {
+  it('shows a scratch workspace by its flask icon, not a Scratch badge', async () => {
     seedWorkspaces()
     useWorkspacesStore.setState((st) => ({
       workspaces: [
@@ -130,8 +130,7 @@ describe('DeckRail', () => {
       ],
     }))
     await renderSettled(<DeckRail />)
-    expect(within(rowFor(/Scratch 2/)).getByText('Scratch')).toHaveClass('scratch-badge')
-    expect(within(rowFor(/beta/)).queryByText('Scratch')).toBeNull()
+    expect(within(rowFor(/Scratch 2/)).queryByText('Scratch')).toBeNull()
   })
 
   it('wraps long workspace titles only when the setting is on', async () => {
@@ -367,17 +366,14 @@ describe('DeckRail', () => {
     expect(closeWorkspace).toHaveBeenCalledWith('s2')
   })
 
-  it('drives the status dot from the workspace state (working vs idle)', async () => {
+  it('draws a status dot for working and none for idle', async () => {
     seedWorkspaces()
     await renderSettled(<DeckRail />)
 
     const workingDot = screen.getByRole('img', { name: 'Working' })
-    const idleDot = screen.getByRole('img', { name: 'Idle' })
 
     expect(workingDot).toHaveClass('workspace-dot', 'working')
-    expect(workingDot).not.toHaveClass('idle')
-    expect(idleDot).toHaveClass('workspace-dot', 'idle')
-    expect(idleDot).not.toHaveClass('working')
+    expect(within(rowFor(/beta/)).queryByRole('img', { name: 'Idle' })).toBeNull()
   })
 
   it('shows the moon only when every terminal of the workspace is hibernated', async () => {
@@ -821,11 +817,10 @@ describe('DeckRail', () => {
 
     const rowTrigger = (name: RegExp) => rowFor(name).closest('.rail-row') as HTMLElement
 
-    it('shows a header with the name and member count and indents its members', async () => {
+    it('shows a header with the name and indents its members', async () => {
       seedGroups()
       await renderSettled(<DeckRail />)
       expect(header()).toHaveAttribute('aria-expanded', 'true')
-      expect(within(header()).getByLabelText('Members: 2')).toHaveTextContent('2')
       const group = header().closest('.rail-group') as HTMLElement
       expect(group).toHaveAttribute('data-color', 'blue')
       const members = group.querySelector('.rail-group-members') as HTMLElement
@@ -867,8 +862,7 @@ describe('DeckRail', () => {
       expect(useWorkspacesStore.getState().groups[0].collapsed).toBe(true)
       expect(header()).toHaveAttribute('aria-expanded', 'false')
       expect(screen.queryByRole('button', { name: /api/ })).toBeNull()
-      expect(within(header()).getByRole('img', { name: 'Waiting for input' })).toBeInTheDocument()
-      expect(within(header()).getByRole('img', { name: '1 unread' })).toBeInTheDocument()
+      expect(within(header()).getByRole('img', { name: '1 need you' })).toHaveTextContent('1')
     })
 
     it('adds a workspace to the group from the header button', async () => {

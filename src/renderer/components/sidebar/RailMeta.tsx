@@ -80,51 +80,35 @@ function SidebarItem({
   )
 }
 
-export function LocationLine({
-  path,
-  items,
-  workspaceId,
-}: {
-  path?: string
-  items: readonly ExtensionSidebarItem[]
-  workspaceId?: string
-}): JSX.Element | null {
+export function PathLine({ path, hint = true }: { path: string; hint?: boolean }): JSX.Element {
   const line = useRef<HTMLDivElement>(null)
-  const itemsSignature = signatureOf(items)
   const [maxChars, setMaxChars] = useState(Number.POSITIVE_INFINITY)
-  const shown = path ? shortenPath(path, maxChars) : ''
+  const shown = shortenPath(path, maxChars)
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: new item text changes the room left for the path
+  // biome-ignore lint/correctness/useExhaustiveDependencies: a new path changes the text to measure
   useLayoutEffect(() => {
     const el = line.current
-    if (!el || !path) return
+    if (!el) return
     const measure = (): void => {
       const span = el.querySelector<HTMLElement>('.rail-meta-path')
       if (!span?.textContent) return
       const charWidth = span.scrollWidth / span.textContent.length
       if (!charWidth) return
-      let budget = el.clientWidth
-      const gap = columnGap(el)
-      for (const child of el.querySelectorAll<HTMLElement>('[data-meta-item]')) {
-        budget -= child.getBoundingClientRect().width + gap
-      }
-      setMaxChars(Math.max(0, Math.floor(budget / charWidth)))
+      setMaxChars(Math.max(0, Math.floor(el.clientWidth / charWidth)))
     }
     measure()
     return onResize(el, measure)
-  }, [path, itemsSignature])
+  }, [path])
 
-  if (!path && items.length === 0) return null
   return (
     <div ref={line} className="rail-meta location">
-      {path ? (
+      {hint ? (
         <Hint label={path}>
           <span className="rail-meta-path">{shown}</span>
         </Hint>
-      ) : null}
-      {items.map((item) => (
-        <SidebarItem key={itemKey(item)} item={item} workspaceId={workspaceId} />
-      ))}
+      ) : (
+        <span className="rail-meta-path">{shown}</span>
+      )}
     </div>
   )
 }

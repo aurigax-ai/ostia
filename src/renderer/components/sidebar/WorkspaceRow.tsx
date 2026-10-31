@@ -9,6 +9,7 @@ import { beginDrag, endWorkspaceDrag, isPaneDrag } from '@/lib/panes/paneDrag'
 import { type RowDropZone, rowDropZone } from '@/lib/sidebar/railDropZone'
 import { requestCloseWorkspace } from '@/lib/workspaces/closeConfirm'
 import { selectWorkspace } from '@/lib/workspaces/selectWorkspace'
+import { useUnread } from '@/lib/workspaces/useUnread'
 import { workspaceTitle } from '@/lib/workspaces/workspaceTitle'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useUIStore } from '@/stores/app/uiStore'
@@ -60,6 +61,7 @@ export function WorkspaceRow({
   }
   const title = workspaceTitle(w)
   const { sandboxed, locked } = useWorkspaceFlags(w.id)
+  const unread = useUnread([w.id]).n
   const select = (): void => selectWorkspace(w.id)
   const editor =
     editing === null ? undefined : (
@@ -127,6 +129,7 @@ export function WorkspaceRow({
           icon={<WorkspaceIcon workspace={w} />}
           title={title}
           wrapTitle={wrapTitles}
+          unread={unread > 0}
           titleAdornment={<WorkspaceBadges workspace={w} />}
           editor={editor}
           onDoubleClick={() => setEditing('name')}
