@@ -57,4 +57,15 @@ describe('GatewayPhoneWorkspace', () => {
     )
     expect(await screen.findByText('/data/ostia/remote-workspace')).toBeTruthy()
   })
+
+  it('keeps the folder path in the label column and only the buttons in the control', async () => {
+    render(<GatewayPhoneWorkspace />)
+    const path = await screen.findByText('/data/ostia/remote-workspace')
+    const row = path.closest('[data-settings-row]')
+    const text = row?.querySelector('[data-settings-row-text]')
+    const control = row?.querySelector('[data-settings-row-control]')
+    expect(text).toContainElement(path)
+    expect(control).not.toContainElement(path)
+    expect(control).toContainElement(screen.getByRole('button', { name: 'Choose…' }))
+  })
 })

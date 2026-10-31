@@ -191,8 +191,15 @@ export function SyncSection(): JSX.Element {
         </ControlRow>
       ) : null}
       {method === 'folder' ? (
-        <ControlRow label={d.sync.folder} desc={d.sync.folderDesc}>
-          <MachineValue value={dir} />
+        <ControlRow
+          label={d.sync.folder}
+          desc={d.sync.folderDesc}
+          below={
+            <div className="flex min-w-0">
+              <MachineValue value={dir} />
+            </div>
+          }
+        >
           <Button variant="outline" size="sm" onClick={() => void chooseFolder()}>
             {d.sync.change}
           </Button>
