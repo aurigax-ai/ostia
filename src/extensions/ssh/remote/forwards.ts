@@ -9,7 +9,7 @@ import {
   validLocalPort,
 } from '../../../shared/remote/remotePorts'
 import type { SpawnSsh } from '../channel'
-import { type ConnectPlan, planForward } from '../plan'
+import { type ConnectPlan, planControlForward, planForward } from '../plan'
 import type { PortMap } from './portMap'
 
 const RESTART_MS = 1000
@@ -27,6 +27,7 @@ export interface HostForwardsDeps {
 }
 
 interface Running {
+  remote: number
   local: number
   child: ChildProcessWithoutNullStreams | null
   timer?: ReturnType<typeof setTimeout>
@@ -181,13 +182,33 @@ export class HostForwards {
       if (restoring) this.errors.set(remote, 'port-taken')
       return
     }
-    const forward: Running = { local, child: null }
+    const forward: Running = { remote, local, child: null }
     this.running.set(remote, forward)
     this.deps.map.set(this.deps.host, remote, local)
     this.spawn(remote, forward)
   }
 
+  private addToMaster(remote: number, forward: Running, argv: string[]): void {
+    const child = this.deps.spawn(argv)
+    child.stdin.on('error', () => {})
+    child.stdout.on('data', () => {})
+    child.stderr.on('data', () => {})
+    const ended = (code: number | null): void => {
+      if (code === 0 || this.running.get(remote) !== forward) return
+      this.running.delete(remote)
+      this.errors.set(remote, 'forward-failed')
+      this.deps.changed()
+    }
+    child.on('close', ended)
+    child.on('error', () => ended(null))
+  }
+
   private spawn(remote: number, forward: Running): void {
+    const control = planControlForward(this.deps.plan, 'forward', remote, forward.local)
+    if (control) {
+      this.addToMaster(remote, forward, control)
+      return
+    }
     const child = this.deps.spawn(planForward(this.deps.plan, remote, forward.local))
     forward.child = child
     child.stdin.on('error', () => {})
@@ -208,6 +229,15 @@ export class HostForwards {
 
   private release(forward: Running): void {
     if (forward.timer) clearTimeout(forward.timer)
+    const cancel = planControlForward(this.deps.plan, 'cancel', forward.remote, forward.local)
+    if (cancel) {
+      const child = this.deps.spawn(cancel)
+      child.stdin.on('error', () => {})
+      child.stdout.on('data', () => {})
+      child.stderr.on('data', () => {})
+      child.on('error', () => {})
+      return
+    }
     const child = forward.child
     forward.child = null
     child?.kill('SIGTERM')

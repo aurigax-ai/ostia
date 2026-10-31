@@ -1,12 +1,12 @@
 import { execFileSync, spawnSync } from 'node:child_process'
-import { existsSync, mkdirSync, mkdtempSync, rmSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { type IPty, spawn as spawnPty } from 'node-pty'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { FAKE_SSH_DIR, type RemoteHost, remoteHost } from '../../../../test/fixtures/ssh/remoteHost'
 import { skipWithoutTmux } from '../../../../test/tmux'
 import { NODE_TMUX_SOCKET } from '../../../shared/remote/remoteNode'
-import { type ConnectPlan, planConnect, planRemote } from '../plan'
+import { type ConnectPlan, planConnect, planControlForward, planRemote } from '../plan'
 import { exitMasters, prepareControlDir, useControlDir } from '../share'
 import { attachArgv } from './attach'
 
@@ -100,6 +100,34 @@ describe.skipIf(skipWithoutTmux)('one ssh master per host over a fake ssh host',
     for (const socket of sockets()) rmSync(join(dir, socket))
     await run('true')
     expect(host.mux().filter((line) => line.includes('master:'))).toHaveLength(before + 1)
+  })
+
+  it('SHR-C8 adds and removes a forward on the live master with -O and opens no master of its own', async () => {
+    await run('true')
+    const masters = host.mux().filter((line) => line.includes('master:')).length
+    const [socket] = readdirSync(dir).filter((name) => !name.includes('.'))
+    const forwards = join(dir, `${socket}.forwards`)
+    const spawnOp = async (op: 'forward' | 'cancel') => {
+      const argv = planControlForward(plan, op, 3000, 4000)
+      if (!argv) throw new Error('sharing off')
+      const child = host.spawn(argv)
+      return new Promise<number | null>((resolve) => child.on('close', resolve))
+    }
+    expect(await spawnOp('forward')).toBe(0)
+    expect(readFileSync(forwards, 'utf8')).toContain('127.0.0.1:4000:127.0.0.1:3000')
+    expect(await spawnOp('cancel')).toBe(0)
+    expect(readFileSync(forwards, 'utf8')).not.toContain('4000')
+    expect(host.mux().filter((line) => line.includes('master:'))).toHaveLength(masters)
+  })
+
+  it('SHR-C9 an -O command with no master fails and does not create one', async () => {
+    rmSync(join(dir, readdirSync(dir).filter((name) => !name.includes('.'))[0]))
+    const argv = planControlForward(plan, 'forward', 3000, 4000)
+    if (!argv) throw new Error('sharing off')
+    const child = host.spawn(argv)
+    expect(await new Promise((resolve) => child.on('close', resolve))).toBe(255)
+    expect(readdirSync(dir).filter((name) => !name.includes('.'))).toHaveLength(0)
+    await run('true')
   })
 
   it('SHR-C4 quitting exits the masters in Ostia own folder and no other', async () => {
