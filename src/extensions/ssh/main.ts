@@ -29,6 +29,7 @@ import { RemoteRegistry } from './remote/registry'
 import { RunnerClient } from './remote/runnerClient'
 import { ShellStops } from './remote/shellStops'
 import { remoteStart } from './remote/start'
+import { controlDirFor, exitMasters, prepareControlDir, useControlDir } from './share'
 
 const RESOLVE_TIMEOUT_MS = 5000
 const GIT_TIMEOUT_MS = 300_000
@@ -39,6 +40,9 @@ const NODE_FILES = [NODE_ENTRY, NODE_CLI]
 
 async function main(): Promise<void> {
   const ext = await connect()
+  const uid = process.getuid?.()
+  useControlDir(prepareControlDir(controlDirFor(process.platform, process.env, uid), uid))
+  onShutdown(() => exitMasters())
   const helper = shippedHelper(readFileSync(HELPER_SOURCE))
   const hosts = new HelperHosts({ helper })
   const dataDir = readEnv('EXTENSION_DATA')

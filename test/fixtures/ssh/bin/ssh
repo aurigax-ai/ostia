@@ -10,6 +10,65 @@ if [ "$1" = "-G" ]; then
   echo "fake ssh: Could not resolve hostname ${last##*@}" >&2
   exit 255
 fi
+control_path=
+control_master=
+control_op=
+control_socket=
+route=
+want=
+sep=
+dest=
+for arg in "$@"; do
+  if [ -n "$sep" ] && [ -z "$dest" ]; then dest=$arg; fi
+  [ "$arg" = "--" ] && sep=1
+  if [ -n "$want" ]; then
+    case "$want" in
+      o) case "$arg" in
+           ControlPath=*) control_path=${arg#ControlPath=} ;;
+           ControlMaster=*) control_master=${arg#ControlMaster=} ;;
+         esac ;;
+      O) control_op=$arg ;;
+      S) control_socket=$arg ;;
+      L) control_forward=$arg ;;
+      route) route="$route $arg" ;;
+    esac
+    want=
+    continue
+  fi
+  case "$arg" in
+    -o) want=o ;;
+    -O) want=O ;;
+    -S) want=S ;;
+    -L) want=L ;;
+    -J|-p) route="$route $arg"; want=route ;;
+  esac
+done
+if [ -n "$control_op" ]; then
+  if [ -z "$control_socket" ] && [ -n "$control_path" ]; then
+    control_socket=$(printf '%s' "$control_path" | sed "s|%C|$(printf '%s %s' "$route" "$dest" | cksum | cut -d' ' -f1)|")
+  fi
+  if [ ! -e "$control_socket" ]; then
+    echo "Control socket connect($control_socket): No such file or directory" >&2
+    exit 255
+  fi
+  case "$control_op" in
+    forward) echo "$control_forward" >> "$control_socket.forwards" ;;
+    cancel)
+      if [ -f "$control_socket.forwards" ]; then grep -vxF "$control_forward" "$control_socket.forwards" > "$control_socket.tmp"; mv "$control_socket.tmp" "$control_socket.forwards"; fi ;;
+    check) echo "Master running (pid=1)" ;;
+    exit) rm -f "$control_socket" "$control_socket.forwards"; echo "Exit request sent." ;;
+  esac
+  exit 0
+fi
+if [ "$control_master" = auto ] && [ -n "$control_path" ]; then
+  socket=$(printf '%s' "$control_path" | sed "s|%C|$(printf '%s %s' "$route" "$dest" | cksum | cut -d' ' -f1)|")
+  if [ -e "$socket" ]; then
+    echo "fake ssh mux client: $socket" >> "${FAKE_SSH_MUX_LOG:-/dev/null}"
+  else
+    : > "$socket"
+    echo "fake ssh master: $socket" >> "${FAKE_SSH_MUX_LOG:-/dev/null}"
+  fi
+fi
 shown=
 remote=
 after_separator=

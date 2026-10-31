@@ -2,6 +2,7 @@ import { quoteArgv } from '../../shared/terminal/shellQuote'
 import type { HelperBundle } from './helper'
 import { ALIAS_PATTERN } from './hosts'
 import { REMOTE_COMMAND } from './remote'
+import { sharingOptions } from './share'
 
 const MAX_HOPS = 8
 
@@ -49,7 +50,7 @@ function sshArgv(route: Route, options: string[]): string[] {
   const ssh = ['ssh']
   if (route.jump.length > 0) ssh.push('-J', route.jump.join(','))
   if (route.port !== undefined) ssh.push('-p', String(route.port))
-  ssh.push(...options, '--', route.destination)
+  ssh.push(...sharingOptions(), ...options, '--', route.destination)
   return ssh
 }
 
