@@ -34,6 +34,13 @@ import { privateRunDir, socketPath } from '../platform/privateTmp'
 import { SANDBOXED_REFUSAL } from '../sandbox/sandboxedCaller'
 import { externalPaneMessage, internalPaneArgs, SCRIPT_COMMANDS } from './commandArgs'
 import { type AuthedConn, authenticate, connHasCap, scriptExpired } from './controlAuth'
+import {
+  escapesSandbox,
+  escapesSandboxCommand,
+  type Peer,
+  peerOf,
+  sandboxedByKernel,
+} from './foreignSandbox'
 import { type PaneIdentity, resolveExternal } from './idRegistry'
 import { capIncomingMessages } from './messageCap'
 import { calledMethod, calledTarget, errorOutcome, resultOutcome } from './scriptCallUsage'
@@ -228,6 +235,7 @@ export interface ControlServerDeps {
   listCommandsFor: (windowId: string) => CommandDescriptor[]
   getTerminalState: (paneId: string) => TerminalStateSnapshot | undefined
   isSandboxed: (workspaceId: string) => boolean
+  ptyPid?: (paneId: string) => number | undefined
   windowOfWorkspace?: (workspaceId: string) => string | undefined
   primaryWindow?: () => string | undefined
   byAgent?: <T>(run: () => Promise<T>) => Promise<T>
@@ -279,6 +287,7 @@ let handleConnection: ((socket: Socket) => void) | null = null
 
 interface ConnectionSession {
   authed: AuthedConn | null
+  peer: Promise<Peer | null>
   disconnect: (() => void) | null
 }
 
@@ -429,6 +438,13 @@ function registerCommandExec({ session, deps, onCall, requireIdentity }: Connect
       if (!script && target.workspaceId !== me.workspaceId && deps.isSandboxed(me.workspaceId)) {
         throw new ResponseError(ErrorCodes.InvalidRequest, SANDBOXED_REFUSAL)
       }
+      if (
+        me.kind === 'pane' &&
+        escapesSandboxCommand(params.id, target.paneId, me.paneId) &&
+        (await sandboxedPeer(session, deps, me))
+      ) {
+        throw new ResponseError(ErrorCodes.InvalidRequest, SANDBOXED_REFUSAL)
+      }
       const desc = deps
         .listCommandsFor(target.windowId ?? me.windowId)
         .find((d) => d.id === params.id)
@@ -533,11 +549,18 @@ function registerPaneCalls({ session, deps, onCall, requireIdentity }: Connectio
   })
 }
 
-function registerMethodCalls({ session, conn, onCall, requireIdentity }: ConnectionCalls) {
+function registerMethodCalls({ session, deps, conn, onCall, requireIdentity }: ConnectionCalls) {
   for (const [name, m] of methods) {
     onCall(name, async (params: unknown, token: CancellationToken) => {
       const caller = requireIdentity(m.targetable ? 'all' : (m.callers ?? 'panes'), m.scripts)
       if (!session.authed) throw unauthenticatedError('call hello first')
+      if (
+        caller.kind === 'pane' &&
+        escapesSandbox(name, params, caller.externalId) &&
+        (await sandboxedPeer(session, deps, caller))
+      ) {
+        throw new ResponseError(ErrorCodes.InvalidRequest, SANDBOXED_REFUSAL)
+      }
       if (m.cap) {
         await ensureCaps(session.authed, caller, [m.cap], name, describeParams(name, params))
       }
@@ -555,13 +578,22 @@ function registerMethodCalls({ session, conn, onCall, requireIdentity }: Connect
   }
 }
 
+async function sandboxedPeer(
+  session: ConnectionSession,
+  deps: ControlServerDeps,
+  me: PaneIdentity,
+): Promise<boolean> {
+  if (deps.isSandboxed(me.workspaceId)) return false
+  return sandboxedByKernel(await session.peer, deps.ptyPid?.(me.paneId))
+}
+
 function serveConnection(deps: ControlServerDeps, socket: Socket): void {
   const capped = socket.pipe(capIncomingMessages(socket))
   capped.on('error', () => {})
   const reader = new StreamMessageReader(capped)
   reader.onError(() => socket.destroy())
   const conn = createMessageConnection(reader, new StreamMessageWriter(socket))
-  const session: ConnectionSession = { authed: null, disconnect: null }
+  const session: ConnectionSession = { authed: null, peer: peerOf(socket), disconnect: null }
   const calls: ConnectionCalls = {
     conn,
     session,
