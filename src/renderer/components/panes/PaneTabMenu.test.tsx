@@ -88,6 +88,33 @@ describe('PaneTabMenu zoom', () => {
     expect(screen.queryByRole('menuitem', { name: 'Rename Split Tab…' })).toBeNull()
   })
 
+  it('offers Ungroup on a split tab face, and takes the split tab apart', async () => {
+    const other: PaneNode = { type: 'pane', id: 'other', kind: 'terminal', title: 'bash' }
+    seed(tabsOf('left', split as SplitNode, other), null)
+    const exec = vi.spyOn(commands, 'exec').mockResolvedValue({ ok: true, result: undefined })
+    openMenu()
+    await userEvent.setup().click(await screen.findByRole('menuitem', { name: 'Ungroup' }))
+    expect(exec).toHaveBeenCalledWith('pane.ungroupSplitTab', { tabId: 'sp' })
+    cleanup()
+    seed(split, null)
+    openMenu()
+    expect(await screen.findByRole('menuitem', { name: 'Lock tab' })).toBeInTheDocument()
+    expect(screen.queryByRole('menuitem', { name: 'Ungroup' })).toBeNull()
+  })
+
+  it('ungroup makes every pane of the split tab its own tab, in order', () => {
+    const other: PaneNode = { type: 'pane', id: 'other', kind: 'terminal', title: 'bash' }
+    seed(tabsOf('left', split as SplitNode, other), null)
+    useLayoutStore.getState().ungroupSplitTab('w', 'sp')
+    const root = useLayoutStore.getState().byWorkspace.w.root
+    expect(root.type === 'tabs' && root.children.map((t) => t.id)).toEqual([
+      'left',
+      'right',
+      'other',
+    ])
+    expect(root.type === 'tabs' && root.activeId).toBe('left')
+  })
+
   it('an agent closes a busy tab without a confirm, but never a tab the human locked', async () => {
     seed(split, null)
     const exec = vi.spyOn(commands, 'exec').mockResolvedValue({ ok: true, result: undefined })

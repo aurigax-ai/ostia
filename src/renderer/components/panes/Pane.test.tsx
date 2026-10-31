@@ -15,7 +15,7 @@ import { createPortal } from 'react-dom'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { registerBuiltinCommands } from '@/commands/builtins'
 import { commands } from '@/commands/registry'
-import { allPanes, tabsOf } from '@/lib/layout/tree'
+import { allPanes, splitOf, tabsOf } from '@/lib/layout/tree'
 import type { PaneNode, TabsNode } from '@/lib/layout/types'
 import { PANE_DND, startPaneDragTracking } from '@/lib/panes/paneDrag'
 import { useQuestionsStore } from '@/stores/agents/questionsStore'
@@ -479,6 +479,28 @@ describe('Pane', () => {
 
         expect(panes()).toEqual([[second.id, first.id]])
         expect(document.querySelector('.pane-drop-layer')).toBeNull()
+      } finally {
+        stop()
+      }
+    })
+
+    it('hovering the tab strip with a tab marks only the strip, also when a split tab is shown', async () => {
+      const left: PaneNode = { type: 'pane', id: 's1', kind: 'terminal', title: 'one' }
+      const right: PaneNode = { type: 'pane', id: 's2', kind: 'terminal', title: 'two' }
+      const group = splitOf('horizontal', left, right)
+      const stop = workspace(tabsOf(left.id, first, group))
+      try {
+        vi.spyOn(tabEl(group.id), 'getBoundingClientRect').mockReturnValue(
+          new DOMRect(0, 0, 200, 28),
+        )
+        const dataTransfer = transfer()
+        fireEvent.dragStart(tabEl(first.id), { dataTransfer })
+        await waitFor(() => expect(usePaneDnd.getState().sourceId).toBe(first.id))
+        const over = tabEl(group.id)
+        fireEvent(over, at(createEvent.dragOver(over, { dataTransfer }), 190, 10))
+
+        expect(tabEl(group.id)).toHaveClass('drop-after')
+        expect(document.querySelector('.pane-drop')).toBeNull()
       } finally {
         stop()
       }

@@ -312,6 +312,7 @@ export const workspacesZhHant: typeof workspacesEn = {
     splitTabStacked: '上下堆疊',
     tabs: '分頁',
     terminalTitle: '終端機',
+    ungroupSplitTab: '取消群組',
     unlock: '解除鎖定分頁',
     unsaved: '未儲存的變更',
     unzoom: '還原窗格',

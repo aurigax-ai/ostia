@@ -315,6 +315,7 @@ export const workspacesEn = {
     splitTabStacked: 'stacked',
     tabs: 'Tabs',
     terminalTitle: 'Terminal',
+    ungroupSplitTab: 'Ungroup',
     unlock: 'Unlock tab',
     unsaved: 'Unsaved changes',
     unzoom: 'Restore pane',
