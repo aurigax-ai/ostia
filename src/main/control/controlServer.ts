@@ -30,7 +30,7 @@ import { ensureCaps, needsElevation } from '../approvals/controlElevation'
 import type { Reach, ScriptReach } from '../approvals/reach'
 import type { ScriptTokenUsageLog } from '../approvals/scriptTokenUsage'
 import type { AgentJournal } from '../diagnostics/agentJournal'
-import { privateRunDir, socketPath } from '../platform/privateTmp'
+import { privateRunDir, shortSocketDir, socketPath } from '../platform/privateTmp'
 import { SANDBOXED_REFUSAL } from '../sandbox/sandboxedCaller'
 import { externalPaneMessage, internalPaneArgs, SCRIPT_COMMANDS } from './commandArgs'
 import { type AuthedConn, authenticate, connHasCap, scriptExpired } from './controlAuth'
@@ -38,7 +38,7 @@ import { type PaneIdentity, resolveExternal } from './idRegistry'
 import { capIncomingMessages } from './messageCap'
 import { calledMethod, calledTarget, errorOutcome, resultOutcome } from './scriptCallUsage'
 
-const CONTROL_SOCKET = new RegExp(`^${PRODUCT_NAME}-(\\d+)\\.sock$`)
+const CONTROL_SOCKET = new RegExp(`^(?:[0-9a-f]{16}-)?${PRODUCT_NAME}-(\\d+)\\.sock$`)
 
 function controlSocketDir(platform: NodeJS.Platform, env: NodeJS.ProcessEnv): string {
   if (platform === 'darwin') return privateRunDir('control', platform, env)
@@ -72,7 +72,12 @@ export function sweepStaleControlSockets(
   running: (pid: number) => boolean = isRunning,
 ): void {
   if (platform !== 'darwin') return
-  const dir = controlSocketDir(platform, env)
+  for (const dir of [controlSocketDir(platform, env), shortSocketDir()]) {
+    sweepDeadSockets(dir, running)
+  }
+}
+
+function sweepDeadSockets(dir: string, running: (pid: number) => boolean): void {
   let names: string[]
   try {
     names = readdirSync(dir)
