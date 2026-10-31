@@ -77,4 +77,14 @@ describe('port commands', () => {
     await commands['ports-stop']({ argv: ['3000'] }, caller)
     expect(forwards.stop).toHaveBeenCalledWith(3000)
   })
+
+  it('RPF-C18 gives an agent no command that changes the forwarding setting', async () => {
+    const { commands } = setup()
+    expect(Object.keys(commands).sort()).toEqual(['ports-forward', 'ports-list', 'ports-stop'])
+    const res = await commands['ports-forward'](
+      { argv: ['{"remote":3000,"portForwarding":"manual"}'] },
+      caller,
+    )
+    expect(res).toMatchObject({ ok: true })
+  })
 })
