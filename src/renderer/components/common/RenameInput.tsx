@@ -19,7 +19,7 @@ export function RenameInput({
   return (
     <Input
       ref={input}
-      className="tab-rename h-6 px-1.5"
+      className="tab-rename"
       aria-label={label}
       value={draft}
       onChange={(e) => setDraft(e.target.value)}
