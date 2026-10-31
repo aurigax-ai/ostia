@@ -43,6 +43,7 @@ function folder(...parts: string[]): string {
 const place = (dir: string, workDir = dir) => ({ folder: dir, workDir, home })
 
 beforeEach(() => {
+  process.env.GIT_CEILING_DIRECTORIES = realpathSync(tmpdir())
   home = realpathSync(mkdtempSync(join(tmpdir(), 'ostia-claude-trust-')))
   config = join(home, '.claude.json')
 })
@@ -76,6 +77,18 @@ describe('claudeConfigFile', () => {
 })
 
 describe('folderTrust', () => {
+  it('CFT-C64 ignores a stray .git above the test temp root', async () => {
+    const stray = join(realpathSync(tmpdir()), '.git')
+    mkdirSync(stray)
+    try {
+      write({})
+      const plain = folder('notes')
+      expect(await folderTrust(place(plain))).toEqual({ state: 'ask', folder: plain })
+    } finally {
+      rmSync(stray, { recursive: true, force: true })
+    }
+  })
+
   it('CFT-C2 reads the folder’s own entry or an ancestor’s up to the git root, as Claude does', async () => {
     const repo = folder('work', 'repo')
     mkdirSync(join(repo, '.git'))
