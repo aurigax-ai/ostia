@@ -150,9 +150,11 @@ describe('publishing from the artifact menu', () => {
     )
     expect(await screen.findByText('Published')).toBeInTheDocument()
     expect(screen.getByText(/It expires on/)).toBeInTheDocument()
+    expect(screen.queryByTestId('capture-chip')).not.toBeInTheDocument()
     await userEvent.click(screen.getByRole('button', { name: 'Copy link' }))
     expect(window.ostia.shares.copyLink).toHaveBeenCalledWith('abc')
     expect(await screen.findByRole('button', { name: 'Link copied' })).toBeInTheDocument()
+    expect(await screen.findByTestId('capture-chip')).toHaveTextContent('Published · link copied')
     expect(useSharesStore.getState().shares).toEqual([SHARE])
   })
 

@@ -31,7 +31,7 @@ function ArtifactRow({
   const unread = useArtifactsStore((s) => s.unread[entry.path] === true)
   const { Icon, color } = fileIcon({ name: entry.name, dir: false }, false)
   const portable = usePortableFile(workspaceId, entry.path)
-  const publishing = usePublishing(entry.path, portable.run, (text) => portable.say(text, 'warn'))
+  const publishing = usePublishing(entry.path, portable.run, portable.say)
   const row = (
     <button
       type="button"

@@ -99,7 +99,7 @@ describe('PortableActions', () => {
       ).toBeInTheDocument()
       view.unmount()
     }
-    const png = await renderSettled(actions('photo.png'))
+    await renderSettled(actions('photo.png'))
     expect(screen.queryByRole('group', { name: 'Portable file' })).not.toBeInTheDocument()
   })
 

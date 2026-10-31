@@ -121,7 +121,7 @@ export function PortableActions({
 }): JSX.Element | null {
   const d = useDict()
   const { shown, run, say } = usePortableFile(workspaceId, filePath, paneId)
-  const publishing = usePublishing(filePath, run, (text) => say(text, 'warn'))
+  const publishing = usePublishing(filePath, run, say)
   if (!shown) return null
   return (
     <span className="portable-actions">

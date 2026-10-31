@@ -2,6 +2,7 @@ import type { PortableAction, PortableResult } from '@shared/artifacts/portable'
 import type { PublishOptions, ShareView } from '@shared/artifacts/shares'
 import { useState } from 'react'
 import { useDict } from '@/lib/app/useDict'
+import type { CaptureChipTone } from '@/lib/capture/captureSession'
 import { useSharesStore } from '@/stores/files/sharesStore'
 import { shareFailureText } from './shareText'
 
@@ -18,12 +19,13 @@ export interface Publishing {
   publish: (options: PublishOptions) => Promise<PortableResult | null>
   share: ShareView | null
   unshare: () => Promise<void>
+  linkCopied: () => void
 }
 
 export function usePublishing(
   filePath: string,
   run: RunPortable,
-  warn: (text: string) => void,
+  say: (text: string, tone: CaptureChipTone) => void,
 ): Publishing {
   const d = useDict()
   const [open, setOpen] = useState(false)
@@ -35,10 +37,11 @@ export function usePublishing(
     hide: () => setOpen(false),
     publish: (options) => run('publish', options),
     share,
+    linkCopied: () => say(d.shares.publishedLinkCopied, 'ok'),
     unshare: async () => {
       if (!share) return
       const result = await useSharesStore.getState().remove(share.id)
-      if (!result.ok) warn(shareFailureText(d, result.error))
+      if (!result.ok) say(shareFailureText(d, result.error), 'warn')
     },
   }
 }
