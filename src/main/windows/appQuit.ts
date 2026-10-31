@@ -25,6 +25,7 @@ interface AppQuitDeps {
     appLog: AppLog | null
     broker: WindowBroker | null
     telemetry: Telemetry | null
+    refreshResume: ((paneId: string) => Promise<void>) | null
   }
   quitTrace: QuitTrace
   quit: {
@@ -42,6 +43,8 @@ interface AppQuitDeps {
   persistScrollback: ScrollbackPersistence['persistScrollback']
   scriptTokenUsage: ScriptTokenUsageLog
 }
+
+const RESUME_REFRESH_MS = 1500
 
 export type AppQuit = ReturnType<typeof registerAppQuit>
 
@@ -153,10 +156,16 @@ export function registerAppQuit({
       if (quit.savingScrollbackForQuit) return
       quit.savingScrollbackForQuit = true
       quitTrace.stage('scrollback')
-      void persistScrollback().finally(() => {
-        quit.scrollbackSavedForQuit = true
-        app.quit()
-      })
+      const refreshed = Promise.all(
+        [...ptys.keys()].map((paneId) => services.refreshResume?.(paneId).catch(() => {})),
+      )
+      const settle = new Promise<void>((resolve) => setTimeout(resolve, RESUME_REFRESH_MS))
+      void Promise.race([refreshed, settle])
+        .then(() => persistScrollback())
+        .finally(() => {
+          quit.scrollbackSavedForQuit = true
+          app.quit()
+        })
       return
     }
     if (!telemetrySentForQuit) {

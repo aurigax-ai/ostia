@@ -1,6 +1,6 @@
 import type { AppSnapshot } from '@shared/workspaces/workspaceApi'
 import { beforeEach, describe, expect, it } from 'vitest'
-import { setDefaultPaneTitle, setPaneView } from './paneFields'
+import { setDefaultPaneTitle, setPaneResume, setPaneView } from './paneFields'
 import { buildSnapshot, restoreSnapshot } from './snapshot'
 import { createPane, resetIds, setSplitTabName, splitOf, splitPane, tabIdOf, tabsOf } from './tree'
 import type { LayoutNode } from './types'
@@ -371,6 +371,28 @@ describe('agent running at save', () => {
       cwd: '/w',
       resumePending: true,
       spawnDir: '/w/tree',
+    })
+  })
+
+  it('restores a running agent’s pane in the folder its session moved to', () => {
+    const agent = {
+      ...createPane('terminal'),
+      cwd: '/w',
+      resume: { ...resume, cwd: '/w/tree' },
+    }
+    const moved = setPaneResume(agent, agent.id, { ...resume, cwd: '/w/tree/wt1' })
+    const snap = buildSnapshot({
+      workspaces: [workspace],
+      groups: [],
+      activeWorkspaceId: 'w1',
+      layouts: { w1: { root: moved, activePaneId: agent.id } },
+      savedAt: 'now',
+      liveAgentPanes: new Set([agent.id]),
+    })
+    expect(restoreSnapshot(snap).layouts.w1.root).toMatchObject({
+      resume: { cwd: '/w/tree/wt1' },
+      resumePending: true,
+      spawnDir: '/w/tree/wt1',
     })
   })
 

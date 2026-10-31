@@ -63,7 +63,8 @@ export function createPtyQueries({
   async function agentCwd(paneId: string): Promise<string | null> {
     const entry = ptys.get(paneId)
     if (!entry) return null
-    const own = entry.sandboxed || entry.kept ? null : await foregroundCwd(entry.pty.pid)
+    const shellPid = entry.kept ? await entry.kept.shellPid().catch(() => null) : entry.pty.pid
+    const own = shellPid === null ? null : await foregroundCwd(shellPid)
     return own ?? reportedCwd(entry)
   }
 

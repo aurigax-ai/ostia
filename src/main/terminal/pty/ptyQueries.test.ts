@@ -58,12 +58,26 @@ describe('agentCwd', () => {
     expect(await (await queriesWith(out, null)).queries.agentCwd('p1')).toBe('/home/u/work/tree')
   })
 
-  it('reads no process for a sandboxed or kept pane and uses the shell’s report', async () => {
-    for (const entry of [{ sandboxed: true }, { kept: {} as PtyEntry['kept'] }]) {
-      const { queries, asked } = await queriesWith(report(hostname(), '/w'), '/elsewhere', entry)
-      expect(await queries.agentCwd('p1')).toBe('/w')
-      expect(asked).toEqual([])
-    }
+  it('reads the foreground process of a sandboxed pane like any other', async () => {
+    const { queries, asked } = await queriesWith(report(hostname(), '/w'), '/w/tree', {
+      sandboxed: true,
+    })
+    expect(await queries.agentCwd('p1')).toBe('/w/tree')
+    expect(asked).toEqual([4242])
+  })
+
+  it('reads the foreground process of the tmux pane’s shell for a kept pane, not the attach client', async () => {
+    const kept = { shellPid: async () => 9001 } as unknown as PtyEntry['kept']
+    const { queries, asked } = await queriesWith(report(hostname(), '/w'), '/w/tree', { kept })
+    expect(await queries.agentCwd('p1')).toBe('/w/tree')
+    expect(asked).toEqual([9001])
+  })
+
+  it('uses the shell’s report for a kept pane whose tmux pane cannot be asked', async () => {
+    const kept = { shellPid: async () => null } as unknown as PtyEntry['kept']
+    const { queries, asked } = await queriesWith(report(hostname(), '/w'), '/elsewhere', { kept })
+    expect(await queries.agentCwd('p1')).toBe('/w')
+    expect(asked).toEqual([])
   })
 
   it('answers nothing for a remote report, no report or an unknown pane', async () => {
