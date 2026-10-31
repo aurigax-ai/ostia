@@ -11,7 +11,8 @@ const TOKENS: Readonly<Record<string, string>> = {
   '--ostia-font-mono': '--font-code',
 }
 
-export function previewTheme(root: HTMLElement = document.documentElement): PreviewTheme {
+export function previewTheme(): PreviewTheme {
+  const root = document.documentElement
   const style = getComputedStyle(root)
   const vars: Record<string, string> = {}
   for (const [name, token] of Object.entries(TOKENS)) {

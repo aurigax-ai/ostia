@@ -80,8 +80,8 @@ function errorOf(
   return { code, message: line.replace(/^screens: /, '') || `screens exited with ${exit}` }
 }
 
-export function isOnPath(name: string, path = process.env.PATH ?? ''): boolean {
-  for (const dir of path.split(delimiter)) {
+export function isOnPath(name: string): boolean {
+  for (const dir of (process.env.PATH ?? '').split(delimiter)) {
     if (!dir) continue
     const file = join(dir, name)
     try {

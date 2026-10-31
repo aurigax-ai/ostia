@@ -20,7 +20,7 @@ export interface RestorableWorkspace {
   description?: string
   pinned?: boolean
   groupId?: string
-  kind: 'agent' | 'terminal' | 'scratch'
+  kind: 'terminal' | 'scratch'
   workDir: string
   projectDir?: string
   anchored?: true

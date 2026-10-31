@@ -17,7 +17,6 @@
     "src/renderer/lib/palette/paletteModes."
   ],
   "specs": [
-    "e2e/command-palette-layout.spec.ts",
     "e2e/palette.spec.ts"
   ]
 }

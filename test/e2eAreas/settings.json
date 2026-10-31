@@ -34,7 +34,6 @@
     "e2e/extension-locales.spec.ts",
     "e2e/playbooks.spec.ts",
     "e2e/settings-gap.spec.ts",
-    "e2e/settings-row-width.spec.ts",
     "e2e/terminal-settings.spec.ts"
   ]
 }

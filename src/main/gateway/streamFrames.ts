@@ -62,14 +62,18 @@ function splitText(event: StreamEvent, field: Body, budget: number): StreamEvent
 function splitPlan(event: Extract<StreamEvent, { type: 'plan' }>, budget: number): StreamEvent[] {
   const pieces: StreamEvent[] = []
   let items: typeof event.items = []
+  const shell = bytes({ ...event, items: [], append: true })
+  let size = shell
   const flush = (): void => {
     if (items.length === 0) return
     pieces.push({ ...event, items, ...(pieces.length > 0 ? { append: true as const } : {}) })
     items = []
+    size = shell
   }
   for (const item of event.items) {
-    const probe = { ...event, items: [...items, item], append: true }
-    if (items.length > 0 && bytes(probe) > budget) flush()
+    const grown = size + bytes(item) + (items.length > 0 ? 1 : 0)
+    if (items.length > 0 && grown > budget) flush()
+    size += bytes(item) + (items.length > 0 ? 1 : 0)
     items.push(item)
   }
   flush()
