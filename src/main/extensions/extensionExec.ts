@@ -14,6 +14,7 @@ import {
 import { isRecord } from '@aurigax-ai/ostia-extension-sdk/contract/isRecord'
 import { quoteArgv } from '../../shared/terminal/shellQuote'
 import { withoutGpuLaunchEnv } from '../platform/discreteGpu'
+import { withoutInheritedFiles } from '../platform/inheritableFiles'
 import { SandboxUnavailableError } from '../sandbox/hostClient'
 
 export const EXEC_CONCURRENT_MAX = 8
@@ -239,17 +240,20 @@ export class ExtensionExec {
   ): Promise<ExecReply> {
     return new Promise((resolveReply) => {
       let child: ChildProcess
+      const { stdio, release } = withoutInheritedFiles(['ignore', 'pipe', 'pipe'])
       try {
         child = spawn(file, args, {
           cwd: workspace.workDir,
           env,
           shell: false,
           detached: true,
-          stdio: ['ignore', 'pipe', 'pipe'],
+          stdio,
         })
       } catch (err) {
         resolveReply(refuse('spawn-failed', err instanceof Error ? err.message : String(err)))
         return
+      } finally {
+        release()
       }
       const out: Buffer[] = []
       const errOut: Buffer[] = []

@@ -3,6 +3,7 @@ import { accessSync, constants } from 'node:fs'
 import { delimiter, join, posix, win32 } from 'node:path'
 import type { BrowserPage } from '../../shared/common/externalLinks'
 import { withoutGpuLaunchEnv } from '../platform/discreteGpu'
+import { withoutInheritedFiles } from '../platform/inheritableFiles'
 
 export interface BrowserLaunch {
   app: string
@@ -104,12 +105,14 @@ function launchEnv(env: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
 
 export function startBrowser(launch: BrowserLaunch, env: NodeJS.ProcessEnv): Promise<boolean> {
   return new Promise((resolve) => {
+    const { stdio, release } = withoutInheritedFiles(['ignore', 'ignore', 'ignore'])
     const child = spawn(launch.command, launch.args, {
       shell: false,
       detached: true,
-      stdio: 'ignore',
+      stdio,
       env: launchEnv(env),
     })
+    release()
     child.once('error', () => resolve(false))
     child.once('spawn', () => {
       child.unref()

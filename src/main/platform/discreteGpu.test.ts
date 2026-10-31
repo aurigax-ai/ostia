@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  defaultGpuRenderNode,
   discreteGpu,
   GPU_RESTORE_ENV,
   gpuRelaunchEnv,
@@ -9,6 +10,7 @@ import {
   renderNodeOf,
   restoreGpuLaunchEnv,
   type SwitcherooGpu,
+  severalRenderNodes,
   withoutGpuLaunchEnv,
 } from './discreteGpu'
 
@@ -138,6 +140,42 @@ describe('renderNodeOf', () => {
     expect(renderNodeOf('pci-0000_03_00_0/../../x', () => true)).toBeNull()
     expect(renderNodeOf(undefined, () => true)).toBeNull()
     expect(renderNodeOf('pci-0000_03_00_0', () => false)).toBeNull()
+  })
+})
+
+describe('the default GPU on a machine with several', () => {
+  const gpu = (name: string, isDefault: boolean, discrete: boolean, busDevice: string) => ({
+    name,
+    isDefault,
+    discrete,
+    environment: { DRI_PRIME: `pci-0000_${busDevice}_0` },
+  })
+  const gpus = [gpu('Arc', false, true, '03_00'), gpu('UHD', true, false, '00_02')]
+
+  it('GPU-U2 pins the default GPU, wherever the kernel numbered the discrete one', () => {
+    expect(defaultGpuRenderNode({}, gpus, () => true)).toBe(
+      '/dev/dri/by-path/pci-0000:00:02.0-render',
+    )
+  })
+
+  it('GPU-U3 leaves a human who set DRI_PRIME alone', () => {
+    expect(defaultGpuRenderNode({ DRI_PRIME: '1' }, gpus, () => true)).toBeNull()
+  })
+
+  it('GPU-U4 pins nothing without switcheroo, a default GPU or its node', () => {
+    expect(defaultGpuRenderNode({}, null, () => true)).toBeNull()
+    expect(defaultGpuRenderNode({}, [gpus[0] as never], () => true)).toBeNull()
+    expect(defaultGpuRenderNode({}, gpus, () => false)).toBeNull()
+  })
+
+  it('GPU-U5 asks switcheroo only when more than one render node exists', () => {
+    expect(severalRenderNodes(() => ['card0', 'renderD128'])).toBe(false)
+    expect(severalRenderNodes(() => ['card0', 'card1', 'renderD128', 'renderD129'])).toBe(true)
+    expect(
+      severalRenderNodes(() => {
+        throw new Error('no /dev/dri')
+      }),
+    ).toBe(false)
   })
 })
 

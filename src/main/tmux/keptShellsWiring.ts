@@ -6,6 +6,7 @@ import { KEEP_SHELLS_FEATURE, parseKeepShells } from '../../shared/terminal/keep
 import { keptControlSocketPath, listenKeptControlSocket } from '../control/controlServer'
 import type { AppLog } from '../diagnostics/appLog'
 import type { ProcessRegistry } from '../panes/processRegistry'
+import { withoutGpuLaunchEnv } from '../platform/discreteGpu'
 import { readSettingsFile } from '../platform/settingsFile'
 import { missingRequirements, programPath } from '../platform/systemRequirements'
 import type { WorkspaceSandboxes } from '../sandbox/workspaceSandboxes'
@@ -49,7 +50,7 @@ export function createKeptShellsWiring({
     if (missingRequirements(KEEP_SHELLS_FEATURE).length > 0) return null
     const tmux = programPath('tmux')
     if (!tmux) return null
-    return { tmux, defaultTerminal: tmuxDefaultTerminal(), env: process.env }
+    return { tmux, defaultTerminal: tmuxDefaultTerminal(), env: withoutGpuLaunchEnv(process.env) }
   }
 
   function tmuxDefaultTerminal(): string {

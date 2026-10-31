@@ -1,0 +1,25 @@
+diff --git a/src/unix/pty.cc b/src/unix/pty.cc
+index 7b4b9e1f990fbf95b51528bb56dc9717f5b87532..a5ec5ae675c16667ba9db4fa8e2a8d48be922912 100644
+--- a/src/unix/pty.cc
++++ b/src/unix/pty.cc
+@@ -29,6 +29,9 @@
+ #include <sys/types.h>
+ #include <sys/stat.h>
+ #include <sys/ioctl.h>
++#if defined(__linux__)
++#include <sys/syscall.h>
++#endif
+ #include <sys/wait.h>
+ #include <fcntl.h>
+ #include <signal.h>
+@@ -433,6 +436,10 @@ Napi::Value PtyFork(const Napi::CallbackInfo& info) {
+         }
+       }
+ 
++#if defined(__linux__) && defined(SYS_close_range)
++      syscall(SYS_close_range, 3U, ~0U, 0U);
++#endif
++
+       {
+         char **old = environ;
+         environ = env;
