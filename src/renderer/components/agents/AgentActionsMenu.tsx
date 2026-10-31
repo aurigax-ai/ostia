@@ -1,4 +1,5 @@
 import { BookmarkSimpleIcon, GitForkIcon, HandshakeIcon } from '@phosphor-icons/react'
+import { Hint } from '@/components/common/Hint'
 import { MenuItem } from '@/components/common/Menu'
 import { SplitButtonMenu } from '@/components/common/SplitButton'
 import { forkableResume, forkConversation } from '@/lib/agents/forkConversation'
@@ -23,7 +24,6 @@ export function AgentActionsMenu({
   useBlocksStore((s) => s.agentBlocks[pane.id])
   useAttentionStore((s) => s.byPane[pane.id]?.state)
   useSandboxStore((s) => s.enabled[workspaceId])
-  const refusal = parkRefusalOf(workspaceId, pane.id)
   return (
     <SplitButtonMenu label={d.pane.agentActions} size="2xs" variant="ghost">
       {forkableResume(pane) ? (
@@ -36,14 +36,28 @@ export function AgentActionsMenu({
           {d.pane.handoffAction}
         </MenuItem>
       ) : null}
-      <MenuItem
-        icon={BookmarkSimpleIcon}
-        disabled={refusal !== null}
-        hint={refusal ? d.pane.parkReasons[refusal] : null}
-        onClick={() => void requestPark(workspaceId, pane.id)}
-      >
-        {d.pane.parkTab}
-      </MenuItem>
+      <ParkItem workspaceId={workspaceId} paneId={pane.id} />
     </SplitButtonMenu>
+  )
+}
+
+function ParkItem({ workspaceId, paneId }: { workspaceId: string; paneId: string }): JSX.Element {
+  const d = useDict()
+  const refusal = parkRefusalOf(workspaceId, paneId)
+  const item = (
+    <MenuItem
+      icon={BookmarkSimpleIcon}
+      disabled={refusal !== null}
+      className="data-disabled:pointer-events-auto"
+      onClick={() => void requestPark(workspaceId, paneId)}
+    >
+      {d.pane.parkTab}
+    </MenuItem>
+  )
+  if (!refusal) return item
+  return (
+    <Hint label={d.pane.parkReasons[refusal]} side="left">
+      {item}
+    </Hint>
   )
 }

@@ -76,17 +76,16 @@ function ContextMenuLabel({
   )
 }
 
-function ContextMenuItem({
-  className,
-  inset,
-  variant = 'default',
-  ...props
-}: ContextMenuPrimitive.Item.Props & {
-  inset?: boolean
-  variant?: 'default' | 'destructive'
-}) {
+const ContextMenuItem = React.forwardRef<
+  HTMLDivElement,
+  ContextMenuPrimitive.Item.Props & {
+    inset?: boolean
+    variant?: 'default' | 'destructive'
+  }
+>(function ContextMenuItem({ className, inset, variant = 'default', ...props }, ref) {
   return (
     <ContextMenuPrimitive.Item
+      ref={ref}
       data-slot="context-menu-item"
       data-inset={inset}
       data-variant={variant}
@@ -97,7 +96,7 @@ function ContextMenuItem({
       {...props}
     />
   )
-}
+})
 
 function ContextMenuSub({ ...props }: ContextMenuPrimitive.SubmenuRoot.Props) {
   return <ContextMenuPrimitive.SubmenuRoot data-slot="context-menu-sub" {...props} />

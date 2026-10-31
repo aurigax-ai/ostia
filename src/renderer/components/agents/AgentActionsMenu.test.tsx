@@ -83,12 +83,15 @@ describe('AgentActionsMenu', () => {
   it('hides Fork when the pane has no session, and Park says why it cannot', async () => {
     const bare: PaneNode = { type: 'pane', id: 'p1', kind: 'terminal', title: 'claude' }
     seed(bare)
-    await open(bare)
+    const { user } = await open(bare)
     const items = await screen.findAllByRole('menuitem')
     expect(items).toHaveLength(1)
     expect(items[0]).toHaveAttribute('aria-disabled', 'true')
     expect(items[0]).toHaveTextContent('Park')
-    expect(items[0]).toHaveTextContent('no agent is running in it')
+    expect(items[0]).not.toHaveTextContent('no agent is running in it')
+    await user.keyboard('{ArrowDown}')
+    expect(items[0]).toHaveFocus()
+    expect(await screen.findByText('no agent is running in it')).toBeInTheDocument()
   })
 
   it.each([
@@ -105,10 +108,12 @@ describe('AgentActionsMenu', () => {
     ],
   ])('disables Park with its reason when %s', async (_n, arrange, reason) => {
     arrange()
-    await open()
+    const { user } = await open()
     const park = await screen.findByRole('menuitem', { name: /^Park/ })
     expect(park).toHaveAttribute('aria-disabled', 'true')
-    expect(park).toHaveTextContent(reason)
+    expect(park).not.toHaveTextContent(reason)
+    await user.hover(park)
+    expect(await screen.findByText(reason)).toBeInTheDocument()
     expect(park).not.toHaveTextContent(/Ctrl|⌘|⌥/)
   })
 
