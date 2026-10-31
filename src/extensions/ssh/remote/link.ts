@@ -11,10 +11,12 @@ import {
   type LinkFrame,
   parseFrame,
 } from '../../../shared/remote/linkFrames'
+import type { PortsResult } from '../../../shared/remote/remotePorts'
 import { parseDesktopRef, parseRemoteRef, remoteRef } from '../../../shared/remote/remoteRef'
 import { BUFFER_MAX_BYTES, ByteQueue, type SpawnSsh } from '../channel'
 import { type ConnectPlan, planRemote } from '../plan'
 import type { NodeBundle } from './bundle'
+import type { HostForwards } from './forwards'
 
 const BACKOFF_MIN_MS = 1000
 const BACKOFF_MAX_MS = 60_000
@@ -47,6 +49,7 @@ export interface HostLinkDeps {
   bundle: NodeBundle
   spawn: SpawnSsh
   remoteMail: (request: RemoteMailRequest) => Promise<RemoteMailResult>
+  forwards: HostForwards
   onState: (online: boolean, lastContact: number | null) => void
   times?: LinkTimes
   now?: () => number
@@ -139,6 +142,7 @@ export class HostLink {
     child.on('error', () => out.end())
     const inflight = new Map<string, number>()
     let online = false
+    let linked = false
     let delivered = 0
     let lastRx = this.now()
     const beat = setInterval(() => {
@@ -189,6 +193,8 @@ export class HostLink {
         lastRx = this.now()
         this.lastContact = lastRx
         if (frame.t === 'hello-ok') {
+          linked = true
+          await this.deps.forwards.onLink(true)
           await push()
           void settle()
         } else if (frame.t === 'incompatible') break
@@ -204,6 +210,8 @@ export class HostLink {
             reason: frame.reason,
           })
         } else if (frame.t === 'mail') await this.incoming(child, frame)
+        else if (frame.t === 'ports') void this.deps.forwards.onPorts(frame.ports)
+        else if (frame.t === 'ports-req') void this.portsRequest(child, frame)
       }
     } catch {
       child.kill('SIGTERM')
@@ -211,10 +219,24 @@ export class HostLink {
       clearInterval(beat)
       if (poller) clearInterval(poller)
       this.deps.onState(false, this.lastContact)
+      if (linked) await this.deps.forwards.onLink(false)
       if (online) {
         await this.deps.remoteMail({ op: 'link', host: this.deps.host, online: false })
       }
     }
+  }
+
+  private async portsRequest(
+    child: ChildProcessWithoutNullStreams,
+    frame: Extract<LinkFrame, { t: 'ports-req' }>,
+  ): Promise<void> {
+    const { forwards } = this.deps
+    let result: PortsResult
+    if (frame.op === 'list') result = forwards.list()
+    else if (frame.remote === undefined) result = { ok: false, error: 'bad-request' }
+    else if (frame.op === 'stop') result = await forwards.stop(frame.remote)
+    else result = await forwards.forward(frame.remote, frame.local)
+    this.write(child, { t: 'ports-res', id: frame.id, result })
   }
 
   private async incoming(
