@@ -19,7 +19,9 @@ import {
   type LinkFrame,
   parseFrame,
 } from '../shared/remote/linkFrames'
+import { type HostPort, PORTS_POLL_MS } from '../shared/remote/remotePorts'
 import { backNotice, desktopRef, offlineNotice } from '../shared/remote/remoteRef'
+import { samePorts, scanHostPorts } from './hostPorts'
 import type { Jobs } from './jobs'
 
 const DESKTOP_ROUTE = 'desktop'
@@ -29,6 +31,9 @@ interface Session {
   conn: MessageConnection
   lastRx: number
   heartbeat: ReturnType<typeof setInterval>
+  portsTimer?: ReturnType<typeof setInterval>
+  lastPorts: HostPort[] | null
+  scanning: boolean
 }
 
 export class RunnerLink {
@@ -44,6 +49,7 @@ export class RunnerLink {
     private readonly jobs: Jobs,
     private readonly version: string,
     private readonly now: () => number = Date.now,
+    private readonly scan: () => Promise<HostPort[]> = scanHostPorts,
   ) {
     onMailQueued((mail) => this.forward(mail))
   }
@@ -57,6 +63,8 @@ export class RunnerLink {
     const session: Session = {
       conn,
       lastRx: this.now(),
+      lastPorts: null,
+      scanning: false,
       heartbeat: setInterval(() => this.tick(session), LINK_HEARTBEAT_MS),
     }
     session.heartbeat.unref?.()
@@ -88,6 +96,28 @@ export class RunnerLink {
     if (this.ready) this.flush()
   }
 
+  private watchPorts(): void {
+    const session = this.session
+    if (!session || session.portsTimer) return
+    const poll = async (): Promise<void> => {
+      if (session.scanning || this.session !== session) return
+      session.scanning = true
+      try {
+        const ports = await this.scan()
+        if (this.session !== session) return
+        if (session.lastPorts && samePorts(session.lastPorts, ports)) return
+        session.lastPorts = ports
+        this.send({ t: 'ports', ports })
+      } catch {
+      } finally {
+        session.scanning = false
+      }
+    }
+    session.portsTimer = setInterval(() => void poll(), PORTS_POLL_MS)
+    session.portsTimer.unref?.()
+    void poll()
+  }
+
   private waiting(): number {
     return queuedOnRoute(DESKTOP_ROUTE).length
   }
@@ -110,6 +140,7 @@ export class RunnerLink {
     this.session = null
     if (session) {
       clearInterval(session.heartbeat)
+      if (session.portsTimer) clearInterval(session.portsTimer)
       session.conn.dispose()
     }
     if (!this.ready) return
@@ -153,6 +184,7 @@ export class RunnerLink {
       }
       this.send({ t: 'hello-ok', version: this.version })
       this.ready = true
+      this.watchPorts()
       this.resync = this.everUp
       this.everUp = true
       this.flush()

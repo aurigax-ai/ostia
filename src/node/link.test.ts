@@ -101,4 +101,24 @@ describe('RunnerLink', () => {
     await vi.advanceTimersByTimeAsync(10)
     expect(peer.sent.some((frame) => (frame as { t: string }).t === 'mail')).toBe(false)
   })
+
+  it('RPF-C5 sends a ports frame only when the listening ports change, and only while the link is up', async () => {
+    let ports = [{ port: 3000, name: 'node' }]
+    const scan = vi.fn(async () => ports)
+    const link = new RunnerLink(jobs, VERSION, Date.now, scan)
+    const peer = fakeConn()
+    link.attach(peer.conn)
+    await vi.advanceTimersByTimeAsync(5000)
+    expect(scan).not.toHaveBeenCalled()
+    peer.receive({ t: 'hello', version: VERSION })
+    await vi.advanceTimersByTimeAsync(10)
+    await vi.advanceTimersByTimeAsync(6000)
+    peer.receive({ t: 'hb' })
+    const frames = () => peer.sent.filter((f) => (f as { t: string }).t === 'ports')
+    expect(frames()).toEqual([{ t: 'ports', ports }])
+    ports = []
+    await vi.advanceTimersByTimeAsync(2100)
+    expect(frames()).toHaveLength(2)
+    expect(frames()[1]).toEqual({ t: 'ports', ports: [] })
+  })
 })

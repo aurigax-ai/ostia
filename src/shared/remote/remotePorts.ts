@@ -1,4 +1,5 @@
 export const FORWARD_MAX = 32
+export const PORTS_POLL_MS = 2000
 export const LOCAL_PORT_MIN = 1024
 export const LOCAL_PORT_MAX = 65535
 
