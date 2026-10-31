@@ -1,6 +1,7 @@
 import { skillDirective } from '@aurigax-ai/ostia-extension-sdk/contract/agentPlugins'
 import { PRODUCT_NAME } from '@aurigax-ai/ostia-extension-sdk/contract/product'
 import { ONBOARD_FILES, ONBOARD_TEXT, type PlaybookExtraFile } from './onboardPlaybook'
+import coordinatorText from './playbooks/coordinator.md?raw'
 import handoffText from './playbooks/handoff.md?raw'
 
 export interface BuiltinPlaybook {
@@ -8,6 +9,7 @@ export interface BuiltinPlaybook {
   description: string
   text: string
   files: readonly PlaybookExtraFile[]
+  agentLoadable?: boolean
 }
 
 export const BUILTIN_PLAYBOOKS: readonly BuiltinPlaybook[] = [
@@ -16,11 +18,18 @@ export const BUILTIN_PLAYBOOKS: readonly BuiltinPlaybook[] = [
     description: 'Learn the manager, worker and review workflow, one step at a time.',
     text: ONBOARD_TEXT,
     files: ONBOARD_FILES,
+    agentLoadable: true,
   },
   {
     id: 'handoff',
     description: 'Start a clean new session on one topic, beside this one.',
     text: handoffText,
+    files: [],
+  },
+  {
+    id: 'coordinator',
+    description: 'Plan, dispatch, review and merge; write no code yourself.',
+    text: coordinatorText,
     files: [],
   },
 ]
@@ -227,6 +236,7 @@ export interface ResolvedPlaybook {
   description: string
   text: string
   files: readonly PlaybookExtraFile[]
+  agentLoadable: boolean
   defaultText: string | null
   enabled: boolean
   edited: boolean
@@ -245,6 +255,7 @@ export function resolvePlaybooks(settings: PlaybooksSettings): ResolvedPlaybook[
       description: p.description,
       text: accepted ? edit.text : p.text,
       files: p.files,
+      agentLoadable: p.agentLoadable === true,
       defaultText: p.text,
       enabled: settings.enabled[p.id] ?? false,
       edited: accepted,
@@ -259,6 +270,7 @@ export function resolvePlaybooks(settings: PlaybooksSettings): ResolvedPlaybook[
       description: p.description,
       text: p.text,
       files: [],
+      agentLoadable: false,
       defaultText: null,
       enabled: settings.enabled[id] ?? false,
       edited: false,
@@ -279,6 +291,15 @@ export function activePlaybooks(settings: PlaybooksSettings): ResolvedPlaybook[]
   )
 }
 
+const REPLACED_BY_ONBOARD: readonly string[] = ['worker', 'review']
+
+export function removedPlaybookIds(settings: PlaybooksSettings): string[] {
+  const known = new Set(resolvePlaybooks(settings).map((p) => p.id))
+  return Object.entries(settings.enabled)
+    .filter(([id, on]) => on && REPLACED_BY_ONBOARD.includes(id) && !known.has(id))
+    .map(([id]) => id)
+}
+
 export function isBuiltinPlaybookOn(settings: PlaybooksSettings, id: string): boolean {
   return activePlaybooks(settings).some((p) => p.builtin && p.id === id)
 }
@@ -289,7 +310,7 @@ export function playbookSkillText(playbook: ResolvedPlaybook): string {
     `name: ${playbook.id}`,
     `description: ${JSON.stringify(playbook.description.replace(/\s+/g, ' ').trim())}`,
     'argument-hint: "[task]"',
-    'disable-model-invocation: true',
+    ...(playbook.agentLoadable ? [] : ['disable-model-invocation: true']),
     '---',
     '',
     playbook.text.trimEnd(),

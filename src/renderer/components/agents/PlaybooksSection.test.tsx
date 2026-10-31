@@ -112,6 +112,25 @@ describe('PlaybooksSection', () => {
     expect(screen.queryByText(/default changed/)).toBeNull()
   })
 
+  it('tells the human about an enabled playbook that no longer exists and enables onboard', async () => {
+    useSettingsStore.setState({
+      playbooks: { enabled: { worker: true }, accepted: {}, edits: {}, own: {} },
+    })
+    render(<PlaybooksSection />)
+    expect(screen.getByText('/worker no longer exists. /onboard replaces it.')).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: en.playbooks.enableOnboard }))
+    expect(playbooks().enabled.onboard).toBe(true)
+    expect(screen.queryByText(/no longer exists/)).toBeNull()
+  })
+
+  it('shows no notice when every enabled playbook exists', () => {
+    useSettingsStore.setState({
+      playbooks: { enabled: { coordinator: true }, accepted: {}, edits: {}, own: {} },
+    })
+    render(<PlaybooksSection />)
+    expect(screen.queryByText(/no longer exists/)).toBeNull()
+  })
+
   it('creates an own playbook in Settings and lists it as Yours, off', async () => {
     render(<PlaybooksSection />)
     await userEvent.click(screen.getByRole('button', { name: en.playbooks.newPlaybook }))
