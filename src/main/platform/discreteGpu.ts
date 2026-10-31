@@ -1,5 +1,5 @@
 import { execFile, execFileSync } from 'node:child_process'
-import { existsSync } from 'node:fs'
+import { existsSync, readdirSync } from 'node:fs'
 import { isRecord } from '@aurigax-ai/ostia-extension-sdk/contract/isRecord'
 
 const GPU_ENV_KEYS: readonly string[] = [
@@ -166,6 +166,26 @@ export function renderNodeOf(
   if (!m) return null
   const path = `/dev/dri/by-path/pci-${m[1]}:${m[2]}:${m[3]}.${m[4]}-render`
   return exists(path) ? path : null
+}
+
+export function severalRenderNodes(
+  list: (path: string) => string[] = (path) => readdirSync(path),
+): boolean {
+  try {
+    return list('/dev/dri').filter((name) => name.startsWith('renderD')).length > 1
+  } catch {
+    return false
+  }
+}
+
+export function defaultGpuRenderNode(
+  env: NodeJS.ProcessEnv,
+  gpus: SwitcherooGpu[] | null,
+  exists: (path: string) => boolean = existsSync,
+): string | null {
+  if (env.DRI_PRIME !== undefined) return null
+  const gpu = gpus?.find((candidate) => candidate.isDefault && !candidate.discrete)
+  return gpu ? renderNodeOf(gpu.environment.DRI_PRIME, exists) : null
 }
 
 export type GpuStartPlan =

@@ -36,13 +36,13 @@ export function gpuFacts(
 export function registerGpuReport(log: AppLog): void {
   const report = async (event: string): Promise<void> => {
     try {
-      const info = (await app.getGPUInfo('basic')) as GpuInfo
+      const info = (await app.getGPUInfo('complete')) as GpuInfo
       log.info(event, gpuFacts(app.getGPUFeatureStatus(), info))
     } catch (err) {
       log.warn(event, { error: err instanceof Error ? err.message : String(err) })
     }
   }
-  void app.whenReady().then(() => report('gpu-info'))
+  app.once('gpu-info-update', () => void report('gpu-info'))
   app.on('child-process-gone', (_e, details) => {
     if (details.type === 'GPU') void report('gpu-info-after-gone')
   })

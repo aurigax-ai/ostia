@@ -8,7 +8,13 @@ import { parseDiscreteGpu } from '../shared/app/discreteGpu'
 import { registerPreviewScheme } from './artifacts/previewScheme'
 import { keepTestCrashDumps } from './diagnostics/testCrashDumps'
 import { VIEWER_SCHEME_PRIVILEGES } from './files/viewers/viewerScheme'
-import { discreteGpu, gpuStartPlan, readSwitcherooGpus } from './platform/discreteGpu'
+import {
+  defaultGpuRenderNode,
+  discreteGpu,
+  gpuStartPlan,
+  readSwitcherooGpus,
+  severalRenderNodes,
+} from './platform/discreteGpu'
 import { readNoNewPrivs } from './platform/noNewPrivs'
 import { relaunchWithoutNoNewPrivs } from './platform/noNewPrivsRelaunch'
 import { offerOldDirsMove } from './platform/oldDirsPrompt'
@@ -40,8 +46,18 @@ function discreteGpuSetting(): boolean {
   }
 }
 
+function pinDefaultGpu(): void {
+  if (app.commandLine.hasSwitch('render-node-override') || !severalRenderNodes()) return
+  const renderNode = defaultGpuRenderNode(process.env, readSwitcherooGpus())
+  if (renderNode) app.commandLine.appendSwitch('render-node-override', renderNode)
+}
+
 function relaunchedOnDiscreteGpu(): boolean {
-  if (process.platform !== 'linux' || !discreteGpuSetting()) return false
+  if (process.platform !== 'linux') return false
+  if (!discreteGpuSetting()) {
+    pinDefaultGpu()
+    return false
+  }
   const gpu = discreteGpu(readSwitcherooGpus())
   if (!gpu) return false
   const plan = gpuStartPlan(process.env, gpu)
