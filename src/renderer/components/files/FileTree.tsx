@@ -5,13 +5,12 @@ import type { FsEntry } from '@shared/files/filesApi'
 import { useEffect, useRef, useState } from 'react'
 import { EmptyState } from '@/components/common/EmptyState'
 import { useDict } from '@/lib/app/useDict'
-import { themeIconSrc } from '@/lib/extensions/iconTheme'
 import { type CompactChain, childPath, compactChain } from '@/lib/files/fileTree'
 import { openFileInWorkspace } from '@/lib/files/openFile'
 import { useFileTreeStore } from '@/stores/files/fileTreeStore'
+import { FileIcon } from './FileIcon'
 import { FileMenu } from './FileMenu'
 import { NameInputRow, treeRowKey } from './FileTreeOps'
-import { fileIcon } from './fileIcon'
 import { type ListFiles, listingError, type TreeContext } from './fileTreeContext'
 import {
   expandKey,
@@ -91,9 +90,7 @@ function Listing({
         edit={edit}
         depth={depth}
         dir={edit.entry === 'folder'}
-        icon={
-          <RowIcon entry={{ name: '', dir: edit.entry === 'folder' }} open={false} tree={tree} />
-        }
+        icon={<RowIcon entry={{ name: '', dir: edit.entry === 'folder' }} open={false} />}
       />
     ) : null
   if (items.length === 0) {
@@ -123,23 +120,8 @@ function Listing({
   )
 }
 
-function RowIcon({
-  entry,
-  open,
-  tree,
-}: {
-  entry: FsEntry
-  open: boolean
-  tree: TreeContext
-}): JSX.Element {
-  const src = tree.iconTheme ? themeIconSrc(tree.iconTheme, entry, open, tree.variant) : null
-  if (src) {
-    return (
-      <img src={src} alt="" aria-hidden draggable={false} className="file-icon file-icon-theme" />
-    )
-  }
-  const { Icon, color } = fileIcon(entry, open)
-  return <Icon size={16} className="file-icon" style={{ color }} />
+function RowIcon({ entry, open }: { entry: FsEntry; open: boolean }): JSX.Element {
+  return <FileIcon name={entry.name} dir={entry.dir} open={open} />
 }
 
 function RowShell({
@@ -254,7 +236,7 @@ function DirRow({
       edit={{ kind: 'rename', path: menuPath }}
       depth={depth}
       dir
-      icon={<RowIcon entry={{ name: last, dir: true }} open={open} tree={tree} />}
+      icon={<RowIcon entry={{ name: last, dir: true }} open={open} />}
     />
   ) : (
     <button
@@ -279,7 +261,7 @@ function DirRow({
       }}
     >
       <CaretRightIcon size={16} className={`file-twisty${open ? ' open' : ''}`} />
-      <RowIcon entry={entry.archive ? entry : { name: last, dir: true }} open={open} tree={tree} />
+      <RowIcon entry={entry.archive ? entry : { name: last, dir: true }} open={open} />
       <span className="file-name">
         {names.map((name, i) => (
           <span key={names.slice(0, i + 1).join('/')}>
@@ -345,7 +327,7 @@ function FileRow({
       edit={{ kind: 'rename', path: fullPath }}
       depth={depth}
       dir={false}
-      icon={<RowIcon entry={entry} open={false} tree={tree} />}
+      icon={<RowIcon entry={entry} open={false} />}
     />
   ) : (
     <button
@@ -373,7 +355,7 @@ function FileRow({
       ) : (
         <span className="file-twisty-spacer" />
       )}
-      <RowIcon entry={entry} open={false} tree={tree} />
+      <RowIcon entry={entry} open={false} />
       <span className="file-name">
         {entry.link === undefined ? entry.name : `${entry.name} → ${entry.link}`}
       </span>

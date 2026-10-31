@@ -1,6 +1,6 @@
 import type { ChatContextItem } from '@aurigax-ai/ostia-extension-sdk/contract/assist'
 import {
-  FileIcon,
+  FileIcon as FileGlyph,
   FolderSimpleIcon,
   type Icon,
   ListChecksIcon,
@@ -10,6 +10,7 @@ import {
 } from '@phosphor-icons/react'
 import type { RefObject } from 'react'
 import { PromptInputHeader } from '@/components/ai-elements/prompt-input'
+import { FileIcon } from '@/components/files/FileIcon'
 import { Button } from '@/components/ui/button'
 import { fmt, useDict } from '@/lib/app/useDict'
 import type { AskContextKind } from '@/lib/assist/askContext'
@@ -21,7 +22,7 @@ import { focusAtEnd } from './useChatFocus'
 
 const CONTEXT_ICONS: Record<AskContextKind, Icon> = {
   cwd: FolderSimpleIcon,
-  editor: FileIcon,
+  editor: FileGlyph,
   output: TextAlignLeftIcon,
   selection: SelectionIcon,
   pane: TagIcon,
@@ -102,7 +103,11 @@ export function ChatContextChips({
                 onClick={() => toggle(kind)}
                 className="ask-chip"
               >
-                <IconFor />
+                {kind === 'editor' && editorFile ? (
+                  <FileIcon name={baseName(editorFile)} />
+                ) : (
+                  <IconFor />
+                )}
                 <span>{labels[kind]}</span>
                 {kind === 'cwd' && options.cwd ? (
                   <span className="max-w-48 truncate font-mono text-ui-xs">{options.cwd.text}</span>

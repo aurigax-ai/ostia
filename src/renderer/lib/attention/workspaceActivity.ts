@@ -1,7 +1,7 @@
 import type { AttentionState } from '@shared/attention/attention'
 import { useSyncExternalStore } from 'react'
 import { type FocusDirection, paneInDirection } from '@/lib/layout/focusDirection'
-import { adjacentTab, findPane, isPaneShown, paneIds } from '@/lib/layout/tree'
+import { adjacentTab, allPanes, findPane, isPaneShown, paneIds } from '@/lib/layout/tree'
 import { latestRemoteUnread } from '@/lib/workspaces/windowWorkspaces'
 import { useAttentionStore } from '@/stores/agents/attentionStore'
 import { useUIStore } from '@/stores/app/uiStore'
@@ -159,6 +159,15 @@ export function revealPane(paneId: string): boolean {
   return true
 }
 
+function hibernatedPaneIds(): Set<string> {
+  const ids = new Set<string>()
+  for (const layout of Object.values(useLayoutStore.getState().byWorkspace)) {
+    if (!layout) continue
+    for (const pane of allPanes(layout.root)) if (pane.hibernated) ids.add(pane.id)
+  }
+  return ids
+}
+
 function allPaneIds(): string[] {
   const ids: string[] = []
   for (const layout of Object.values(useLayoutStore.getState().byWorkspace)) {
@@ -226,8 +235,9 @@ export function startAttentionSync(): () => void {
   const offLayout = useLayoutStore.subscribe((s, prev) => {
     if (s.byWorkspace === prev.byWorkspace) return
     const live = new Set(allPaneIds())
+    const asleep = hibernatedPaneIds()
     for (const id of Object.keys(useAttentionStore.getState().byPane)) {
-      if (!live.has(id)) useAttentionStore.getState().dropPane(id)
+      if (!live.has(id) || asleep.has(id)) useAttentionStore.getState().dropPane(id)
     }
     syncAllWorkspaceStates()
     viewActivePane()

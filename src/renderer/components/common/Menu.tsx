@@ -1,6 +1,6 @@
 import { Menu as MenuPrimitive } from '@base-ui/react/menu'
 import type { Icon } from '@phosphor-icons/react'
-import type { ComponentProps, ReactElement, ReactNode } from 'react'
+import { type ComponentProps, forwardRef, type ReactElement, type ReactNode } from 'react'
 import {
   ContextMenuCheckboxItem,
   ContextMenuContent,
@@ -41,20 +41,16 @@ export function MenuSubContent({
   return <ContextMenuSubContent className={cn('min-w-48 text-ui-base', className)} {...props} />
 }
 
-export function MenuItem({
-  icon,
-  leading,
-  hint,
-  children,
-  className,
-  ...props
-}: ComponentProps<typeof ContextMenuItem> & {
-  icon?: Icon
-  leading?: ReactNode
-  hint?: ReactNode
-}): JSX.Element {
+export const MenuItem = forwardRef<
+  HTMLDivElement,
+  ComponentProps<typeof ContextMenuItem> & {
+    icon?: Icon
+    leading?: ReactNode
+    hint?: ReactNode
+  }
+>(function MenuItem({ icon, leading, hint, children, className, ...props }, ref) {
   return (
-    <ContextMenuItem className={cn(ROW, className)} {...props}>
+    <ContextMenuItem ref={ref} className={cn(ROW, className)} {...props}>
       <Leading icon={icon} leading={leading} />
       <span className="min-w-0 flex-1 truncate">{children}</span>
       {hint ? (
@@ -64,7 +60,7 @@ export function MenuItem({
       ) : null}
     </ContextMenuItem>
   )
-}
+})
 
 export function MenuSubTrigger({
   icon,

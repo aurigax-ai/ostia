@@ -11,7 +11,7 @@ import type { TabNode } from '@/lib/layout/types'
 import { cn } from '@/lib/utils'
 import { useAttentionStore } from '@/stores/agents/attentionStore'
 import { useSettingsStore } from '@/stores/app/settingsStore'
-import { usePaneDnd } from '@/stores/workspaces/paneDndStore'
+import { usePaneBodyZone, usePaneDnd } from '@/stores/workspaces/paneDndStore'
 import { FileDropCover } from './FileDropCover'
 import { FoldedSplitTab } from './FoldedSplitTab'
 import { useKeptLinkStatus } from './KeptLinkStatus'
@@ -56,6 +56,7 @@ export function Pane({
   const active = holds(shownTab, activePaneId)
   const dragging = usePaneDnd((s) => s.dragging)
   const over = usePaneDnd((s) => (s.overId === shown.id ? s.zone : null))
+  const bodyZone = usePaneBodyZone(shown.id)
   const tabDrop = usePaneDnd((s) => (s.overId === shown.id ? s.tab : null))
   const attention = useAttentionStore((s) => s.byPane[shown.id])
   const prompt = usePanePrompt(shown)
@@ -177,7 +178,7 @@ export function Pane({
           onDrop={onLayerDrop}
         />
       ) : null}
-      {over && !tabDrop ? <span className={`pane-drop pane-drop-${over}`} /> : null}
+      {bodyZone ? <span className={`pane-drop pane-drop-${bodyZone}`} /> : null}
     </div>
   )
 }

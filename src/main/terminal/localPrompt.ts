@@ -16,3 +16,7 @@ export function atLocalPrompt({ foreground, shell, sandboxed }: PromptOwner): bo
 export function busyProgram(owner: PromptOwner): string | null {
   return atLocalPrompt(owner) ? null : programName(owner.foreground)
 }
+
+export function shellIdle(owner: PromptOwner): boolean {
+  return !owner.sandboxed && owner.foreground !== '' && busyProgram(owner) === null
+}

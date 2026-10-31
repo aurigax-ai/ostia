@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { foldSplitTab, settleCollapse } from './collapse'
-import { arrangeSplitTab, joinSplitTab, separateFromSplitTab } from './tabJoin'
+import { arrangeSplitTab, joinSplitTab, separateFromSplitTab, splitTabToTabs } from './tabJoin'
 import {
   closePane,
   createPane,
@@ -119,6 +119,37 @@ describe('separateFromSplitTab', () => {
     const [a, b] = panes(2)
     const root = tabsOf(a.id, a, b)
     expect(separateFromSplitTab(root, [b.id], 3)).toBe(root)
+  })
+})
+
+describe('splitTabToTabs', () => {
+  it('turns every pane into its own tab in place and order, keeping the shown pane', () => {
+    const [a, b, c, d, e] = panes(5)
+    const joined = joinSplitTab(tabsOf(a.id, a, b, c, d, e), [b.id, c.id, d.id], 'workers', 2)
+    const root = selectTabFor(joined, c.id)
+    const next = splitTabToTabs(root, (splitTabOfPane(root, b.id) as SplitNode).id)
+    const tabs = tabsOfPane(next, a.id)
+    expect(tabs?.children.map((t) => paneIds(t))).toEqual([[a.id], [b.id], [c.id], [d.id], [e.id]])
+    expect(tabs?.children.every((t) => t.type === 'pane')).toBe(true)
+    expect(tabs?.activeId).toBe(c.id)
+    expect(tabs?.children[2]).toBe(findPane(root, c.id))
+  })
+
+  it('ungroups a folded split tab', () => {
+    const [a, b, c] = panes(3)
+    const joined = joinSplitTab(tabsOf(a.id, a, b, c), [b.id, c.id], 'workers', 3)
+    const id = (splitTabOfPane(joined, b.id) as SplitNode).id
+    const folded = foldSplitTab(joined, id)
+    const next = splitTabToTabs(folded, id)
+    expect(splitTabOfPane(next, b.id)).toBeNull()
+    expect(paneIds(next)).toEqual([a.id, b.id, c.id])
+  })
+
+  it('returns the same root for an unknown id or a pane', () => {
+    const [a, b] = panes(2)
+    const root = tabsOf(a.id, a, b)
+    expect(splitTabToTabs(root, 'nope')).toBe(root)
+    expect(splitTabToTabs(root, a.id)).toBe(root)
   })
 })
 

@@ -24,18 +24,26 @@ export function bindGestures(parts: {
   const pointOf = (event: PointerEvent): Point =>
     view.contentPoint({ x: event.clientX, y: event.clientY })
 
+  const startPan = (event: PointerEvent): void => {
+    gesture = {
+      kind: 'pan',
+      client: { x: event.clientX, y: event.clientY },
+      scroll: { x: stage.scrollLeft, y: stage.scrollTop },
+    }
+    stage.setPointerCapture(event.pointerId)
+    showPanCursor()
+    event.preventDefault()
+  }
+
   stage.addEventListener('pointerdown', (event) => {
+    if (event.button === 1) {
+      startPan(event)
+      return
+    }
     if (event.button !== 0) return
     stage.focus({ preventScroll: true })
     if (spaceHeld) {
-      gesture = {
-        kind: 'pan',
-        client: { x: event.clientX, y: event.clientY },
-        scroll: { x: stage.scrollLeft, y: stage.scrollTop },
-      }
-      stage.setPointerCapture(event.pointerId)
-      showPanCursor()
-      event.preventDefault()
+      startPan(event)
       return
     }
     selection.deselect()
@@ -63,6 +71,12 @@ export function bindGestures(parts: {
     if (dragged) selection.select(dragged)
     else selection.deselect()
   }
+  stage.addEventListener('mousedown', (event) => {
+    if (event.button === 1) event.preventDefault()
+  })
+  stage.addEventListener('auxclick', (event) => {
+    if (event.button === 1) event.preventDefault()
+  })
   stage.addEventListener('pointerup', (event) => finish(event, false))
   stage.addEventListener('pointercancel', (event) => finish(event, true))
 

@@ -174,6 +174,19 @@ describe('workspace activity + attention', () => {
     ])
   })
 
+  it('clears a done mark when its pane hibernates, so the row goes idle', () => {
+    vi.spyOn(document, 'hasFocus').mockReturnValue(false)
+    const stop = startAttentionSync()
+    const { workspaceId, panes } = setup()
+    for (const id of panes) signalPane(id, { type: 'set', state: 'done', at: 1 })
+    expect(stateOf(workspaceId)).toBe('done')
+
+    for (const id of panes) useLayoutStore.getState().setHibernated(workspaceId, id, true)
+    expect(stateOf(workspaceId)).toBe('idle')
+    expect(Object.keys(useAttentionStore.getState().byPane)).toEqual([])
+    stop()
+  })
+
   it('keeps attention sync quiet with zero workspaces, then tracks the first workspace opened', () => {
     vi.spyOn(document, 'hasFocus').mockReturnValue(true)
     const stop = startAttentionSync()
