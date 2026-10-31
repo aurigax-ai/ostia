@@ -1,5 +1,5 @@
 import { spawnSync } from 'node:child_process'
-import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import { DOM_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
 import { type ElectronApplication, _electron as electron, expect, test } from './test'
@@ -106,7 +106,11 @@ test('REM-E1 a remote workspace is set up from the menu, shows Online and lists 
     await expectJobs(1)
     await expect(jobs.getByRole('listitem')).toContainText('claude')
   } finally {
-    spawnSync('tmux', ['-S', join(remoteHome, '.ostia/node/run/tmux'), 'kill-server'])
+    const socket = join(remoteHome, '.ostia/node/run/tmux')
+    for (const entry of readdirSync(join(remoteHome, '.ostia/node'))) {
+      if (entry !== 'run') rmSync(join(remoteHome, '.ostia/node', entry), { recursive: true })
+    }
+    spawnSync('tmux', ['-S', socket, 'kill-server'])
     await app.close()
   }
 })
