@@ -61,6 +61,7 @@
     "esbuild": "catalog:",
     "koffi": "^3.3.3",
     "lru-cache": "^11.5.3",
+    "material-icon-theme": "5.40.0",
     "node-pty": "^1.1.0",
     "parse5": "^8.0.1",
     "picomatch": "^4.0.7",

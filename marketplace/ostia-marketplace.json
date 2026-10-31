@@ -11,6 +11,7 @@
     "extensions/lsp-rust-analyzer",
     "extensions/lsp-typescript",
     "extensions/lsp-yaml",
+    "extensions/material-icon-theme",
     "extensions/model-runtime"
   ],
   "unlisted": [
