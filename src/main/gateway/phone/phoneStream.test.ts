@@ -17,9 +17,16 @@ import {
 } from './phoneStream'
 
 const workspaces: WorkspaceEntry[] = [
-  { workspaceId: 'w1', name: 'One', kind: 'agent', workDir: '/work/one', state: 'idle' },
+  { workspaceId: 'w1', name: 'One', kind: 'terminal', workDir: '/work/one', state: 'idle' },
   { workspaceId: 'pad', name: 'Pad', kind: 'scratch', workDir: '/s', state: 'idle' },
-  { workspaceId: 'box', name: 'Box', kind: 'agent', workDir: '/b', state: 'idle', sandboxed: true },
+  {
+    workspaceId: 'box',
+    name: 'Box',
+    kind: 'terminal',
+    workDir: '/b',
+    state: 'idle',
+    sandboxed: true,
+  },
 ]
 const agent = registerPane({ windowId: 'win', workspaceId: 'w1', paneId: 'ps-agent' })
 const scratch = registerPane({ windowId: 'win', workspaceId: 'pad', paneId: 'ps-pad' })

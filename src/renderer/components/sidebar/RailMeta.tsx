@@ -104,8 +104,9 @@ export function LocationLine({
       const charWidth = span.scrollWidth / span.textContent.length
       if (!charWidth) return
       let budget = el.clientWidth
+      const gap = columnGap(el)
       for (const child of el.querySelectorAll<HTMLElement>('[data-meta-item]')) {
-        budget -= child.getBoundingClientRect().width + columnGap(el)
+        budget -= child.getBoundingClientRect().width + gap
       }
       setMaxChars(Math.max(0, Math.floor(budget / charWidth)))
     }
