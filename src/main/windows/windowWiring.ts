@@ -9,6 +9,7 @@ import type { ConsoleEntry } from '../browser/browseMethod'
 import type { BrowserGuests } from '../browser/browserGuests'
 import type { GuestChords } from '../browser/guestChords'
 import { forgetGuestNetwork } from '../browser/guestNetwork'
+import { announceGuestPointer } from '../browser/guestPointer'
 import type { GuestProfiles } from '../browser/guestProfiles'
 import { tabReferrerOf } from '../browser/guestTabs'
 import { followAgentByHost } from '../browser/signinUserAgent'
@@ -125,7 +126,7 @@ function webviewGate(deps: WindowWiringDeps, win: BrowserWindow) {
   }
 }
 
-function guestAdopter(deps: WindowWiringDeps) {
+function guestAdopter(deps: WindowWiringDeps, owner: Electron.WebContents) {
   const {
     services,
     previews,
@@ -140,6 +141,7 @@ function guestAdopter(deps: WindowWiringDeps) {
     errorBuffers,
   } = deps
   return (_e: Electron.Event, guest: Electron.WebContents): void => {
+    announceGuestPointer(guest, owner)
     services.clipboardEdits?.guardGuest(guest)
     services.guestChords?.guardGuest(guest)
     if (previews.adopt(guest)) return
@@ -258,7 +260,7 @@ export function createWindowWiring(deps: WindowWiringDeps) {
     attachContextMenu(win.webContents, false, contextMenuText)
 
     win.webContents.on('will-attach-webview', webviewGate(deps, win))
-    win.webContents.on('did-attach-webview', guestAdopter(deps))
+    win.webContents.on('did-attach-webview', guestAdopter(deps, win.webContents))
 
     const wid = String(win.webContents.id)
     windows.set(wid, win)

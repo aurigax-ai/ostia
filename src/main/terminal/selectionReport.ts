@@ -1,5 +1,4 @@
-import { existsSync, writeFileSync } from 'node:fs'
-import { join } from 'node:path'
+import { writeFileSync } from 'node:fs'
 import { ipcMain } from 'electron'
 import { clip } from '../../shared/browser/pick'
 import {
@@ -20,6 +19,7 @@ import type { OriginReach } from '../agents/originAgents'
 import { REPORT_DIR_NAME } from '../browser/browsePick'
 import { getByPaneId } from '../control/idRegistry'
 import type { ViewerHost } from '../files/viewers/viewerHost'
+import { claimReportStem } from '../platform/claimReportStem'
 import { privateTmpDir } from '../platform/privateTmp'
 import type { RedactText } from '../privacy/redactionTargets'
 
@@ -29,10 +29,11 @@ function asBytes(value: unknown): Uint8Array | null {
   return null
 }
 
-function freeStem(dir: string): string {
+function freeSelectionStem(names: readonly string[]): string {
   for (let n = 1; ; n++) {
-    const stem = join(dir, `selection-${n}`)
-    if (!existsSync(`${stem}.md`) && !existsSync(`${stem}.png`)) return stem
+    if (!names.includes(`selection-${n}.md`) && !names.includes(`selection-${n}.png`)) {
+      return `selection-${n}`
+    }
   }
 }
 
@@ -65,7 +66,7 @@ export async function writeSelectionReport(
   let imagePath: string | null = null
   let message: string
   try {
-    const stem = freeStem(privateTmpDir(REPORT_DIR_NAME))
+    const stem = claimReportStem(privateTmpDir(REPORT_DIR_NAME), freeSelectionStem)
     if (image) {
       imagePath = `${stem}.png`
       writeFileSync(imagePath, image, { mode: 0o600, flag: 'wx' })
@@ -75,7 +76,7 @@ export async function writeSelectionReport(
       renderSelectionReport(capture, note, imagePath, now, image ? pngSize(image) : null),
     )
     message = selectionBusMessage(capture, await redact(note), path, imagePath)
-    writeFileSync(path, report, { mode: 0o600, flag: 'wx' })
+    writeFileSync(path, report, { mode: 0o600 })
   } catch {
     return { ok: false, error: 'write-failed' }
   }

@@ -74,6 +74,10 @@ interface GuestChordsApi {
   onFire: (cb: (fire: GuestChordFire) => void) => () => void
 }
 
+interface GuestInputApi {
+  onPointerDown: (cb: (guestId: number) => void) => () => void
+}
+
 interface AppUpdateApi {
   state: () => Promise<BuildInfo | null>
   restart: () => Promise<void>
@@ -119,5 +123,6 @@ export interface AppBridge {
   update: AppUpdateApi
   clipboard: ClipboardApi
   guestChords: GuestChordsApi
+  guestInput: GuestInputApi
   externalEditor: ExternalEditorApi
 }
