@@ -174,6 +174,7 @@ export function boot(wiring: Wiring): void {
   registerPtyIpc({
     ...wiring,
     hibernateHeld: (paneId, writes) => accountMoves.holds(paneId, writes),
+    refreshResume: (paneId) => services.refreshResume?.(paneId) ?? Promise.resolve(),
   })
   registerHistoryIpc({ ...wiring })
   registerFsIpc({ ...wiring })
