@@ -1,7 +1,7 @@
 import { EventEmitter } from 'node:events'
 import { PORTABLE_TABLES_BYTES_MAX } from '@aurigax-ai/ostia-extension-sdk/contract/fileKinds'
 import { describe, expect, it, vi } from 'vitest'
-import { type ViewerGuest, viewerOwner } from './viewerHost'
+import { PORTABLE_WAIT_MS, type ViewerGuest, viewerOwner } from './viewerHost'
 import { adoptGuest, BYTES, FILE, fakeSession, get, OPEN, setup } from './viewerHostHarness'
 import { VIEWER_PAGE_CSP, WASM_VIEWER_CSP } from './viewerSessions'
 import { VIEWER_LIMITS } from './viewerWatch'
@@ -171,6 +171,28 @@ describe('ViewerHost', () => {
     }
     expect((await post(oversize)).status).toBe(413)
     expect(host.portable('w1', FILE)).toBe('too-large')
+  })
+
+  it('answers a waiter for a file only when its viewer publishes tables, or when the wait runs out', async () => {
+    vi.useFakeTimers()
+    try {
+      const { host, sessions } = setup()
+      const waiting = host.awaitPortable('w1', FILE)
+      const lost = host.awaitPortable('w1', '/home/u/other.xlsx')
+      host.open('w1', OPEN)
+      const session = sessions.get('ostia-viewer-office')
+      const tables = { tables: [{ name: 'S', columns: ['A'], rows: [['1']] }] }
+      await get(session, 'ostia-viewer://t1/~portable', {
+        method: 'POST',
+        body: JSON.stringify(tables),
+      })
+      await expect(waiting).resolves.toEqual(tables)
+      await expect(host.awaitPortable('w1', FILE)).resolves.toEqual(tables)
+      vi.advanceTimersByTime(PORTABLE_WAIT_MS)
+      await expect(lost).resolves.toBeNull()
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it('stops reading a portable body that has no length and grows past the cap', async () => {

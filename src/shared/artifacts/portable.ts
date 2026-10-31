@@ -77,6 +77,7 @@ export interface PortableRequest {
   theme: PreviewTheme
   document?: PortableDocument
   publish?: PublishOptions
+  awaitTables?: boolean
 }
 
 export type PortableResult =

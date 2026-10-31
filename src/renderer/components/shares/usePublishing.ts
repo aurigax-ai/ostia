@@ -18,29 +18,27 @@ export interface Publishing {
   publish: (options: PublishOptions) => Promise<PortableResult | null>
   share: ShareView | null
   unshare: () => Promise<void>
-  problem: string | null
 }
 
-export function usePublishing(filePath: string, run: RunPortable): Publishing {
+export function usePublishing(
+  filePath: string,
+  run: RunPortable,
+  warn: (text: string) => void,
+): Publishing {
   const d = useDict()
   const [open, setOpen] = useState(false)
-  const [problem, setProblem] = useState<string | null>(null)
   const share = useSharesStore((s) => s.shares.find((x) => x.source === filePath) ?? null)
   return {
     name: filePath.slice(filePath.lastIndexOf('/') + 1),
     open,
-    show: () => {
-      setProblem(null)
-      setOpen(true)
-    },
+    show: () => setOpen(true),
     hide: () => setOpen(false),
     publish: (options) => run('publish', options),
     share,
-    problem,
     unshare: async () => {
       if (!share) return
       const result = await useSharesStore.getState().remove(share.id)
-      setProblem(result.ok ? null : shareFailureText(d, result.error))
+      if (!result.ok) warn(shareFailureText(d, result.error))
     },
   }
 }

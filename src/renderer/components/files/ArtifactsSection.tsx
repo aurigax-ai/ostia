@@ -3,11 +3,7 @@ import type { ArtifactEntry } from '@shared/artifacts/artifacts'
 import { useEffect, useState } from 'react'
 import { IconButton } from '@/components/common/IconButton'
 import { MenuContent } from '@/components/common/Menu'
-import {
-  PortableMenuItems,
-  PortableProblem,
-  usePortableFile,
-} from '@/components/editor/PortableActions'
+import { PortableMenuItems, usePortableFile } from '@/components/editor/PortableActions'
 import { PublishDialog } from '@/components/shares/PublishDialog'
 import { usePublishing } from '@/components/shares/usePublishing'
 import { ContextMenu, ContextMenuTrigger } from '@/components/ui/context-menu'
@@ -35,7 +31,7 @@ function ArtifactRow({
   const unread = useArtifactsStore((s) => s.unread[entry.path] === true)
   const { Icon, color } = fileIcon({ name: entry.name, dir: false }, false)
   const portable = usePortableFile(workspaceId, entry.path)
-  const publishing = usePublishing(entry.path, portable.run)
+  const publishing = usePublishing(entry.path, portable.run, (text) => portable.say(text, 'warn'))
   const row = (
     <button
       type="button"
@@ -61,7 +57,6 @@ function ArtifactRow({
           <PortableMenuItems run={portable.run} publishing={publishing} />
         </MenuContent>
       </ContextMenu>
-      <PortableProblem problem={portable.problem ?? publishing.problem} />
       <PublishDialog publishing={publishing} />
     </>
   )
