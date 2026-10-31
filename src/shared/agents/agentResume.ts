@@ -2,7 +2,7 @@ import { hasControlCharacter } from '../common/hiddenText'
 import { quoteArg } from '../terminal/shellQuote'
 import { resumeFlags, type TypedLaunch, typedLaunchOf } from './agentLaunch'
 
-export type ResumableAgent = 'claude' | 'codex'
+export type ResumableAgent = 'claude' | 'codex' | 'agy'
 
 export interface AgentResume {
   agent: ResumableAgent
@@ -29,7 +29,11 @@ export function parseResumeFailure(raw: unknown): ResumeFailure | null {
     : null
 }
 
-export const RESUMABLE_AGENTS: readonly ResumableAgent[] = ['claude', 'codex']
+export const RESUMABLE_AGENTS: readonly ResumableAgent[] = ['claude', 'codex', 'agy']
+
+export function canFork(agent: ResumableAgent): boolean {
+  return agent !== 'agy'
+}
 
 const RESUME_ID = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/
 
@@ -92,14 +96,18 @@ function agentCommandLine(resume: AgentResume, words: string[]): string {
   ].join(' ')
 }
 
+const RESUME_WORDS: Record<ResumableAgent, (id: string) => string[]> = {
+  claude: (id) => ['--resume', id],
+  codex: (id) => ['resume', id],
+  agy: (id) => ['--conversation', id],
+}
+
 export function resumeCommand(resume: AgentResume): string {
-  return agentCommandLine(
-    resume,
-    resume.agent === 'claude' ? ['--resume', resume.id] : ['resume', resume.id],
-  )
+  return agentCommandLine(resume, RESUME_WORDS[resume.agent](resume.id))
 }
 
 export function forkCommand(resume: AgentResume): string {
+  if (!canFork(resume.agent)) throw new Error(`${resume.agent} cannot fork`)
   return agentCommandLine(
     resume,
     resume.agent === 'claude' ? ['--resume', resume.id, '--fork-session'] : ['fork', resume.id],
@@ -114,7 +122,10 @@ export function resumeFromHookPayload(payload: string): string | null {
   const text = payload.trim()
   if (!text.startsWith('{')) return RESUME_ID.test(text) ? text : null
   try {
-    const id = (JSON.parse(text) as Record<string, unknown>).session_id
+    const payload = JSON.parse(text) as Record<string, unknown>
+    const { invocationNum } = payload
+    if (typeof invocationNum === 'number' && invocationNum > 0) return null
+    const id = payload.session_id ?? payload.conversationId
     return typeof id === 'string' && RESUME_ID.test(id) ? id : null
   } catch {
     return null

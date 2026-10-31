@@ -93,7 +93,7 @@ function seed(maxLiveTerminals: number): void {
       autoResume: false,
       trustWorkspaceFolders: false,
       finishedHibernateMinutes: 10,
-      hooks: { claude: true, codex: true },
+      hooks: { claude: true, codex: true, agy: true },
     },
   })
   useWorkspacesStore.setState({
@@ -208,7 +208,7 @@ describe('hibernateIdleAgents', () => {
         autoResume: false,
         trustWorkspaceFolders: false,
         finishedHibernateMinutes: 10,
-        hooks: { claude: true, codex: true },
+        hooks: { claude: true, codex: true, agy: true },
       },
     })
     expect(await hibernateIdleAgents(NOW)).toEqual([])

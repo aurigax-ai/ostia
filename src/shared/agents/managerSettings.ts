@@ -12,6 +12,7 @@ const MAX_SKILL_PATH = 4096
 export const BUILTIN_MANAGER_AGENTS: Readonly<Record<string, readonly string[]>> = {
   claude: ['claude'],
   codex: ['codex'],
+  agy: ['agy', '-i'],
 }
 
 export interface ManagerLimits {

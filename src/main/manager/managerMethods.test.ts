@@ -170,7 +170,7 @@ describe('manager methods', () => {
   it('MGR-C37 refuses an unknown preset and a relative cwd without opening anything', async () => {
     const mgr = await client(managerPane.token)
     await expect(mgr.sendRequest('manager.spawn', { agent: 'nope' })).rejects.toThrow(
-      /unknown-agent: nope \(known: claude, codex\)/,
+      /unknown-agent: nope \(known: claude, codex, agy\)/,
     )
     await expect(mgr.sendRequest('manager.spawn', { agent: 'claude', cwd: 'rel' })).rejects.toThrow(
       'bad-request: cwd',

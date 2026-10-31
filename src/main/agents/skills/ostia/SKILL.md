@@ -126,8 +126,8 @@ ostia agent run codex - --name review < task.md # - reads the prompt from stdin
 ```
 
 `process run` opens a terminal tab beside the pane and runs the line in its interactive shell,
-exactly as written; the pane keeps the keyboard. `agent run` starts `claude`, `codex` or an agent
-the human configured with the prompt as one argument, and answers `unknown-agent` for any other
+exactly as written; the pane keeps the keyboard. `agent run` starts `claude`, `codex`, `agy` or a configured
+agent with the prompt as one argument, and answers `unknown-agent` for any other
 name. Both return only once the start is known. `process run` prints `{id, name, paneId, status,
 exitCode?, output?, reason?}`; `agent run` prints one line, `<name> <pane> started a turn; session <id>`
 (or `started; no turn yet` after 20 s, `started; turn unknown (hooks off)`), so no `pane read` or

@@ -18,8 +18,9 @@ export interface ParkResumeDeps {
   openTab: (workspaceId: string, record: ParkedRecord) => Promise<boolean>
 }
 
-export function parkedItemOf(record: ParkedRecord): ParkedItem {
+export function parkedItemOf(record: ParkedRecord): ParkedItem | null {
   const { id, workspaceId, resume, title, summary, parkedAt } = record
+  if (resume.agent === 'agy') return null
   return {
     id,
     workspaceId,

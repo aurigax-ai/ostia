@@ -629,7 +629,11 @@ describe('builtins route to store actions', () => {
     })
     expect(direct.ok).toBe(false)
     expect(nested.ok).toBe(false)
-    expect(useSettingsStore.getState().agents.hooks).toEqual({ claude: true, codex: true })
+    expect(useSettingsStore.getState().agents.hooks).toEqual({
+      claude: true,
+      codex: true,
+      agy: true,
+    })
   })
 
   it('settings.set refuses the shell program, directly or via terminal', async () => {

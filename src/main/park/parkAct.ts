@@ -65,7 +65,7 @@ export async function parkPane(
   const resume = token
     ? parseAgentResume({ ...token, cwd: token.cwd ?? deps.paneCwd(identity.paneId) })
     : null
-  if (!resume?.cwd) return { ok: false, reason: 'no-session' }
+  if (!resume?.cwd || resume.agent === 'agy') return { ok: false, reason: 'no-session' }
   const title = (await redacted(deps, await deps.title(identity), TITLE_MAX)) ?? resume.agent
   const result = deps.store.park({
     workspaceId,
