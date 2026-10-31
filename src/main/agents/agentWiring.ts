@@ -45,6 +45,7 @@ import type { AgentRunningPanes } from './agentRunning'
 import { codexSessionFolder } from './agentTranscript'
 import { type ReportedAgentWork, registerAgentWorkMethods } from './agentWork'
 import { tellPane } from './busStore'
+import type { ClaudeAccounts } from './claudeAccounts/claudeAccounts'
 import { createOutsideTrust } from './startTrust'
 
 interface AgentWiringDeps {
@@ -73,6 +74,7 @@ interface AgentWiringDeps {
   paneIo: PtyIo['paneIo']
   workspaceSandboxes: WorkspaceSandboxes
   scratchFolders: Pick<ScratchFolders, 'isScratch' | 'dirOf'>
+  claudeAccounts: Pick<ClaudeAccounts, 'currentDirectory'>
   killPty: (paneId: string, reason: ReapReason) => void
   windows: Map<string, BrowserWindow>
   terminalState: Map<string, TerminalStateSnapshot>
@@ -105,6 +107,7 @@ export function registerAgentWiring({
   paneIo,
   workspaceSandboxes,
   scratchFolders,
+  claudeAccounts,
   killPty,
   windows,
   terminalState,
@@ -168,7 +171,12 @@ export function registerAgentWiring({
     },
     writePane: paneIo.write,
     isSandboxed: (workspaceId) => workspaceSandboxes.isEnabled(workspaceId),
-    outsideTrust: createOutsideTrust({ scratchFolders, workspaceSandboxes, readSettingsFile }),
+    outsideTrust: createOutsideTrust({
+      scratchFolders,
+      workspaceSandboxes,
+      readSettingsFile,
+      claudeAccounts,
+    }),
     remote,
     endShell: (paneId) => killPty(paneId, 'process-kill'),
     hasShell: (paneId) => ptys.has(paneId),

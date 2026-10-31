@@ -32,6 +32,7 @@ export interface OutsideTrustDeps {
   scratchFolders: Pick<ScratchFolders, 'isScratch' | 'dirOf'>
   workspaceSandboxes: { isEnabled: (workspaceId: string) => boolean }
   readSettingsFile: () => SettingsFile
+  claudeAccounts: { currentDirectory: () => string }
 }
 
 export function createOutsideTrust(
@@ -41,15 +42,17 @@ export function createOutsideTrust(
     if (deps.readSettingsFile().agents?.trustWorkspaceFolders !== true) return null
     if (deps.workspaceSandboxes.isEnabled(workspaceId)) return null
     const home = homedir()
-    const workDir = deps.scratchFolders.isScratch(workspaceId)
+    const scratch = deps.scratchFolders.isScratch(workspaceId)
+    const workDir = scratch
       ? deps.scratchFolders.dirOf(workspaceId)
       : workspaceFolder(workDirForWorkspace(workspaceId), home)
     if (!workDir) return null
+    const profileDir = scratch ? '' : deps.claudeAccounts.currentDirectory()
     return outsideTrust({
       folder,
       workDir,
       home,
-      configDir: process.env.CLAUDE_CONFIG_DIR || undefined,
+      configDir: profileDir || process.env.CLAUDE_CONFIG_DIR || undefined,
       customOAuth: Boolean(process.env.CLAUDE_CODE_CUSTOM_OAUTH_URL),
     })
   }
