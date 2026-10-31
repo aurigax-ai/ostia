@@ -104,6 +104,10 @@ export const agentsSchema = {
           type: 'boolean',
           description: `Run interactive codex sessions with ${PRODUCT_DISPLAY_NAME}’s hooks (resume token, attention state, CLI context). Default: true.`,
         },
+        agy: {
+          type: 'boolean',
+          description: `Install ${PRODUCT_DISPLAY_NAME}’s agy plugin (start signal, resume token, attention state). The plugin does nothing outside an ${PRODUCT_DISPLAY_NAME} pane. Default: true.`,
+        },
       },
     },
     hibernation: {

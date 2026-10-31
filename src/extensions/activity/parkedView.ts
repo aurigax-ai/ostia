@@ -2,7 +2,7 @@ import type { ParkedItem } from '@aurigax-ai/ostia-extension-sdk'
 
 export interface ParkedView {
   id: string
-  agent: 'claude' | 'codex'
+  agent: 'claude' | 'codex' | 'agy'
   title: string
   summary?: string
   folder?: string

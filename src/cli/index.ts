@@ -22,6 +22,7 @@ import { buildVersionAt } from './common/version'
 import { skewMarkFile, versionSkewWarning } from './common/versionSkew'
 import { runAgentHook } from './hooks/agentHook'
 import {
+  runAgyHookVerb,
   runClaudeHookVerb,
   runCodexHookVerb,
   runResumeTokenVerb,
@@ -81,6 +82,7 @@ const RUNNERS: Readonly<Record<string, Runner>> = {
   'claude-account': runClaudeAccountVerb,
   account: runAccountVerb,
   'codex-hook': runCodexHookVerb,
+  'agy-hook': runAgyHookVerb,
   'turn-hook': runTurnHookVerb,
   'codex-server': runCodexServerVerb,
   'permission-hook': async (conn) => {

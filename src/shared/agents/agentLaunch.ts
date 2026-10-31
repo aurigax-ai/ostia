@@ -8,6 +8,7 @@ type Arity = 'none' | 'one' | 'optional' | 'many'
 export const AGENT_ARGS_ENV: Record<ResumableAgent, string> = {
   claude: 'CLAUDE_ARGS',
   codex: 'CODEX_ARGS',
+  agy: 'AGY_ARGS',
 }
 
 export const AGENT_ARGS_SEPARATOR = '\u001f'
@@ -100,6 +101,11 @@ const TYPED_CODEX_FLAGS: Record<string, Arity> = {
   '--yolo': 'none',
 }
 
+const AGY_FLAGS: Record<string, Arity> = {
+  '--effort': 'one',
+  '--model': 'one',
+}
+
 const CLAUDE_PERMISSION_MODES = new Set(['dontAsk', 'manual', 'plan'])
 const CODEX_SANDBOXES = new Set(['read-only', 'workspace-write'])
 const CODEX_APPROVALS = new Set(['untrusted', 'on-failure', 'on-request'])
@@ -118,6 +124,7 @@ function isModelConfig(value: string): boolean {
 
 const ALLOWED_VALUES: Record<ResumableAgent, Record<string, (value: string) => boolean>> = {
   claude: { '--permission-mode': (value) => CLAUDE_PERMISSION_MODES.has(value) },
+  agy: {},
   codex: {
     '-a': (value) => CODEX_APPROVALS.has(value),
     '--ask-for-approval': (value) => CODEX_APPROVALS.has(value),
@@ -131,16 +138,19 @@ const ALLOWED_VALUES: Record<ResumableAgent, Record<string, (value: string) => b
 const ALIASES: Record<ResumableAgent, Record<string, string>> = {
   claude: { '-d': '--debug', '-n': '--name' },
   codex: {},
+  agy: {},
 }
 
 const AGENT_FLAGS: Record<ResumableAgent, Record<string, Arity>> = {
   claude: CLAUDE_FLAGS,
   codex: CODEX_FLAGS,
+  agy: AGY_FLAGS,
 }
 
 const TYPED_FLAGS: Record<ResumableAgent, Record<string, Arity>> = {
   claude: TYPED_CLAUDE_FLAGS,
   codex: TYPED_CODEX_FLAGS,
+  agy: AGY_FLAGS,
 }
 
 const SECRET_NAME =
@@ -154,6 +164,7 @@ const CODE_LOADING_ENV =
 const CONFIG_FLAGS: Record<ResumableAgent, ReadonlySet<string>> = {
   claude: new Set(['--settings', '--agents', '--mcp-config']),
   codex: new Set(['-c', '--config']),
+  agy: new Set(),
 }
 
 const ENV_NAME = /^[A-Za-z_][A-Za-z0-9_]{0,63}$/

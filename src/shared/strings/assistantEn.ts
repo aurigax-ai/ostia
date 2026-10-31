@@ -9,6 +9,7 @@ export const assistantEn = {
     branch: 'Branch',
     claude: 'Claude Code',
     codex: 'Codex',
+    agy: 'Antigravity',
     command: 'Command',
     context: 'Context',
     copyId: 'Copy session id',

@@ -1,6 +1,8 @@
+import { homedir } from 'node:os'
 import { join } from 'node:path'
 import { PRODUCT_DISPLAY_NAME } from '@aurigax-ai/ostia-extension-sdk/contract/productDisplay'
 import { app, BrowserWindow, ipcMain, shell } from 'electron'
+import { parseAgentHooks } from '../../shared/agents/agentHooks'
 import { parseScrollbackHistory } from '../../shared/terminal/scrollbackHistory'
 import { startAgent } from '../agent/agentWiring'
 import { registerAgentTranscriptIpc } from '../agents/agentTranscript'
@@ -49,6 +51,7 @@ import { registerPrivacyIpc } from '../privacy/privacyIpc'
 import { startProfileSyncWiring } from '../profileSync/profileSyncWiring'
 import { registerSandboxIpcWiring, registerSandboxWiring } from '../sandbox/sandboxWiring'
 import { startServer } from '../server/serverWiring'
+import { installAgyPlugin } from '../terminal/agyIntegration'
 import { registerHistoryIpc } from '../terminal/history/historyIpc'
 import { appSpillWorker, HISTORY_DIR, PaneHistories } from '../terminal/history/paneHistories'
 import { registerPtyIpc } from '../terminal/pty/ptyIpc'
@@ -66,6 +69,15 @@ import { loadRestoredScrollback, pendingRestoredScrollback } from '../workspaces
 import type { QuitContext } from './quitServices'
 
 export type Wiring = QuitContext
+
+function installAgyPluginOnBoot(): void {
+  if (!parseAgentHooks(readSettingsFile().agents?.hooks).agy) return
+  try {
+    installAgyPlugin(join(homedir(), '.gemini', 'config'))
+  } catch (err) {
+    console.error(`agy plugin: ${(err as Error).message}`)
+  }
+}
 
 export function boot(wiring: Wiring): void {
   const {
@@ -133,6 +145,7 @@ export function boot(wiring: Wiring): void {
   registerGpuReport(services.appLog)
   setPlaybookSettings(readSettingsFile().playbooks)
   setPlaybookSource(currentPlaybookFiles)
+  installAgyPluginOnBoot()
   ipcMain.on('settings:playbooks', (_e, playbooks: unknown) => {
     setPlaybookSettings(playbooks)
     refreshAgentPlugin()

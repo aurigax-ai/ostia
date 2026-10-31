@@ -73,7 +73,7 @@ export type AgentCompleteResult =
 export interface ParkedItem {
   id: string
   workspaceId: string
-  agent: 'claude' | 'codex'
+  agent: 'claude' | 'codex' | 'agy'
   sessionId: string
   title: string
   summary?: string

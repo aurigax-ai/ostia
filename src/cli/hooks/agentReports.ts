@@ -10,6 +10,7 @@ import {
   claudeWorkReport,
   isClaudeWorkEvent,
 } from '../../shared/agents/agentWork'
+import { AGY_HOOK_EVENTS, agyTurnStart, isAgyHookEvent } from '../../shared/agents/agyHook'
 import {
   CLAUDE_ATTENTION_EVENTS,
   claudeAttention,
@@ -63,6 +64,20 @@ export async function runCodexHookVerb(conn: MessageConnection): Promise<void> {
   if (!res.ok) {
     fail(`ostia codex-hook: ${res.error ?? 'failed'}`)
   }
+}
+
+export async function runAgyHookVerb(conn: MessageConnection): Promise<void> {
+  const event = process.argv[3]
+  if (!isAgyHookEvent(event)) {
+    fail(`ostia agy-hook: usage: agy-hook <${AGY_HOOK_EVENTS.join('|')}>`)
+    return
+  }
+  const id = agyTurnStart(await readAllStdin())
+  if (id) await conn.sendRequest('pane.setResume', { agent: 'agy', id })
+  const res = await conn.sendRequest<{ ok: boolean; error?: string }>('pane.setAttention', {
+    state: 'working',
+  })
+  if (!res.ok) fail(`ostia agy-hook: ${res.error ?? 'failed'}`)
 }
 
 const TURN_HOOK_INPUT_MAX = 4 * 1024 * 1024
