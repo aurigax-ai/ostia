@@ -20,4 +20,12 @@ describe('portItems', () => {
       { text: ':5173', port: { remote: 5173, error: 'port-taken' } },
     ])
   })
+
+  it('RPF-C10 keeps forwarded ports in the menu when more than 20 ports listen', () => {
+    const rows = Array.from({ length: 40 }, (_, i) => ({ remote: 1000 + i }))
+    rows[35] = { remote: 1035, local: 1035 } as never
+    const items = portItems(rows)
+    expect(items).toHaveLength(20)
+    expect(items[0].text).toBe(':1035 → localhost:1035')
+  })
 })

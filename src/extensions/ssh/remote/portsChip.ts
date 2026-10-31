@@ -5,7 +5,10 @@ import {
 import type { ForwardRow } from '../../../shared/remote/remotePorts'
 
 export function portItems(rows: readonly ForwardRow[]): PaneChipItem[] {
-  return rows.slice(0, PANE_CHIP_ITEMS_MAX).map((row) => {
+  const forwardedFirst = [...rows].sort(
+    (a, b) => Number(b.local !== undefined) - Number(a.local !== undefined),
+  )
+  return forwardedFirst.slice(0, PANE_CHIP_ITEMS_MAX).map((row) => {
     const port = {
       remote: row.remote,
       ...(row.local === undefined ? {} : { local: row.local }),
