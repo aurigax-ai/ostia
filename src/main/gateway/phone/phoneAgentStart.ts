@@ -5,7 +5,7 @@ import type { GatewayControlDeps, RpcOutcome } from '../controlDispatch'
 const AGENT_START_PROMPT_MAX = 4000
 const AGENT_STARTS_PER_MINUTE = 3
 const MINUTE_MS = 60_000
-const PHONE_WORKSPACE_KINDS: ReadonlySet<string> = new Set(['agent', 'terminal'])
+const PHONE_WORKSPACE_KINDS: ReadonlySet<string> = new Set(['terminal'])
 const agentStarts = new Map<string, number[]>()
 
 function startAllowed(deviceId: string): boolean {

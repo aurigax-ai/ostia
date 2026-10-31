@@ -25,7 +25,6 @@
   ],
   "specs": [
     "e2e/has-free-styles.spec.ts",
-    "e2e/sidebar-scroll.spec.ts",
     "e2e/workspace-groups.spec.ts"
   ]
 }

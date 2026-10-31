@@ -60,12 +60,12 @@ export interface AccentTokens {
 const INK_DARK = '#0b0d10'
 const INK_LIGHT = '#ffffff'
 
-export function readableOn(fill: string, preferred: readonly string[], minimum = 4.5): string {
+export function readableOn(fill: string, preferred: readonly string[]): string {
   const base = normalizeHex(fill)
   if (!base) return INK_DARK
   for (const candidate of preferred) {
     const hex = normalizeHex(candidate)
-    if (hex && wcagContrast(hex, base) >= minimum) return hex
+    if (hex && wcagContrast(hex, base) >= 4.5) return hex
   }
   return wcagContrast(base, INK_DARK) >= wcagContrast(base, INK_LIGHT) ? INK_DARK : INK_LIGHT
 }

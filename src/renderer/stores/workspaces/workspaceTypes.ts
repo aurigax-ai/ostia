@@ -12,7 +12,7 @@ import type { NewWorkspacePlacement } from '@/stores/app/settingsModel'
 
 export type WorkspaceState = WorkspaceLiveState
 
-export type WorkspaceKind = 'agent' | 'terminal' | 'scratch' | 'manager'
+export type WorkspaceKind = 'terminal' | 'scratch' | 'manager'
 
 export interface Workspace {
   id: string

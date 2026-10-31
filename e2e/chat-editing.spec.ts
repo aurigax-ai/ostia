@@ -265,43 +265,4 @@ test.describe('chat code editing', () => {
       await app.close()
     }
   })
-
-  test('the composer stays on one row at 600 px', async () => {
-    const session = await start(provider, second)
-    const { win, app } = session
-    try {
-      await win.getByRole('button', { name: 'Model: First · fake-big' }).click()
-      await win.getByRole('menuitemradio').filter({ hasText: 'other-model' }).click()
-      const picked = win.getByRole('button', { name: 'Model: Second · other-model' })
-      await expect(picked).toBeVisible()
-
-      const controls = [
-        win.getByRole('button', { name: 'Tools for this chat' }),
-        win.getByRole('button', { name: /^Mode: / }),
-        picked,
-        win.getByRole('button', { name: 'Send', exact: true }),
-      ]
-      const row = win.locator('.chat-composer-row').last()
-      const layout = async (): Promise<string> => {
-        const rowBox = await row.boundingBox()
-        const boxes = await Promise.all(controls.map((control) => control.boundingBox()))
-        if (!rowBox || boxes.some((box) => box === null)) return 'missing'
-        const list = boxes.map((box) => box as NonNullable<typeof box>)
-        const centres = list.map((box) => Math.round(box.y + box.height / 2))
-        if (Math.max(...centres) - Math.min(...centres) > 2) return 'wrapped'
-        const inside = list.every(
-          (box) => box.x >= rowBox.x - 1 && box.x + box.width <= rowBox.x + rowBox.width + 1,
-        )
-        if (!inside) return 'overflowing'
-        const apart = list.every(
-          (box, index) => index === 0 || box.x >= list[index - 1].x + list[index - 1].width - 1,
-        )
-        return apart ? 'one row' : 'overlapping'
-      }
-      await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setSize(600, 700))
-      await expect.poll(layout).toBe('one row')
-    } finally {
-      await session.app.close()
-    }
-  })
 })

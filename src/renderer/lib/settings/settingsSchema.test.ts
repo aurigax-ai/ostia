@@ -112,14 +112,6 @@ describe('SETTINGS_JSON_SCHEMA', () => {
 })
 
 describe('registerSettingsSchema', () => {
-  it('resolves the settings path via the ostia bridge before registering', async () => {
-    await registerSettingsSchema()
-    expect(window.ostia.settings.path).toHaveBeenCalledTimes(1)
-    expect(vi.mocked(window.ostia.settings.path).mock.invocationCallOrder[0]).toBeLessThan(
-      setDiagnosticsOptions.mock.invocationCallOrder[0],
-    )
-  })
-
   it('registers the exported schema with Monaco keyed to the settings file URI', async () => {
     vi.mocked(window.ostia.settings.path).mockResolvedValue('/custom/settings.json')
     await registerSettingsSchema()

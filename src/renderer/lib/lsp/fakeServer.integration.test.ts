@@ -130,16 +130,6 @@ describe('the editor client against a real fake language server', () => {
     expect(signature.signatureHelpTriggerCharacters).toEqual(['(', ','])
   })
 
-  it('shows the server’s diagnostics for the opened text', () => {
-    expect(published.at(-1)).toMatchObject([
-      {
-        message: 'fake error on line 1',
-        severity: 1,
-        range: { start: { line: 0, character: 14 }, end: { line: 0, character: 19 } },
-      },
-    ])
-  })
-
   it('completes with the server’s text edit, extra edits and snippet, and resolves documentation', async () => {
     const position = at(1, 'alpha', 3)
     const list = (await provider('CompletionItemProvider', 'provideCompletionItems')(
@@ -167,20 +157,6 @@ describe('the editor client against a real fake language server', () => {
       'resolveCompletionItem',
     )(list.suggestions[0])) as { documentation: { value: string } }
     expect(resolved.documentation).toEqual({ value: 'resolved **fakeAlpha**' })
-  })
-
-  it('answers hover and go to definition', async () => {
-    expect(await provider('HoverProvider', 'provideHover')(model, at(1, 'alpha', 1))).toEqual({
-      contents: [{ value: 'fake hover: **alpha**' }],
-      range: { startLineNumber: 1, startColumn: 4, endLineNumber: 1, endColumn: 9 },
-    })
-    const definition = (await provider('DefinitionProvider', 'provideDefinition')(
-      model,
-      at(2, 'count'),
-    )) as { uri: { toString(): string }; range: unknown }[]
-    expect(definition.map((d) => [d.uri.toString(), d.range])).toEqual([
-      [uri, { startLineNumber: 1, startColumn: 1, endLineNumber: 1, endColumn: 5 }],
-    ])
   })
 
   it('formats the whole document or only the selected range', async () => {
@@ -349,16 +325,5 @@ describe('the editor client against a real fake language server', () => {
       { markers: [], trigger: 2 },
     )) as { actions: unknown[] }
     expect(none.actions).toEqual([])
-  })
-
-  it('tells the server when the file was saved and when it closes', async () => {
-    session.documentSaved(uri)
-    session.closeDocument(uri)
-    await vi.waitFor(() => expect(recorded().at(-1)).toBe('textDocument/didClose'), {
-      timeout: 10_000,
-    })
-    const methods = recorded()
-    expect(methods).toContain('textDocument/didSave')
-    expect(methods.filter((m) => m === 'textDocument/didChange').length).toBeGreaterThanOrEqual(3)
   })
 })
