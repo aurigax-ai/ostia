@@ -115,9 +115,12 @@ describe('the agy hooks', () => {
     ])
   })
 
-  it('PreInvocation reports working through agy-hook', () => {
-    expect(fire('PreInvocation', session, inPane)).toBe('{}\n')
-    expect(calls()[0].args).toEqual(['agy-hook', 'PreInvocation'])
+  it('PreInvocation stores the token and reports working', () => {
+    expect(fire('PreInvocation', session, inPane)).toBe('{}\n{}\n')
+    expect(calls().map((call) => call.args)).toEqual([
+      ['resume-token', 'agy', '-'],
+      ['state', 'working'],
+    ])
   })
 
   it('Stop reports done and closes the turn', () => {
@@ -127,14 +130,16 @@ describe('the agy hooks', () => {
 
   it('does nothing outside an Ostia pane but still answers agy with an empty object', () => {
     for (const event of ['SessionStart', 'PreInvocation', 'Stop']) {
-      expect(fire(event, session, {})).toBe('{}\n')
+      expect(fire(event, session, {}).split('\n').filter(Boolean)).toSatisfy((lines: string[]) =>
+        lines.every((line) => line === '{}'),
+      )
     }
     expect(calls()).toEqual([])
   })
 
   it('does nothing when agents.hooks.agy is off', () => {
     for (const event of ['SessionStart', 'PreInvocation', 'Stop']) {
-      expect(fire(event, session, { ...inPane, OSTIA_NO_AGY_HOOKS: '1' })).toBe('{}\n')
+      fire(event, session, { ...inPane, OSTIA_NO_AGY_HOOKS: '1' })
     }
     expect(calls()).toEqual([])
   })

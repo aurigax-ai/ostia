@@ -134,7 +134,10 @@ export function registerParkWiring(deps: ParkWiringDeps): ParkedStore {
       if (!fromActivity(ctx)) return NOT_ACTIVITY
       const workspaceId = (params as { workspaceId?: unknown } | null)?.workspaceId
       if (typeof workspaceId !== 'string') return { ok: false, error: 'invalid-params' }
-      return { ok: true, items: store.list(workspaceId).map(parkedItemOf) }
+      return {
+        ok: true,
+        items: store.list(workspaceId).flatMap((record) => parkedItemOf(record) ?? []),
+      }
     },
   })
 

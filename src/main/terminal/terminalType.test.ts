@@ -45,6 +45,7 @@ describe('paneShellEnv', () => {
       OSTIA_TOKEN: 't',
       OSTIA_NO_CLAUDE_HOOKS: '1',
       OSTIA_NO_CODEX_HOOKS: '',
+      OSTIA_NO_AGY_HOOKS: '',
       LANG: 'en_US.UTF-8',
       FORCE_HYPERLINK: '1',
       COLORTERM: 'truecolor',

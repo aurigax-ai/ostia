@@ -210,6 +210,15 @@ describe('agy', () => {
 
   it('reads the conversation id of an agy hook payload', () => {
     expect(resumeFromHookPayload(JSON.stringify({ conversationId: 'c-1' }))).toBe('c-1')
+    expect(resumeFromHookPayload(JSON.stringify({ conversationId: 'c-1', invocationNum: 0 }))).toBe(
+      'c-1',
+    )
+  })
+
+  it('stores no token on a later model call of the same turn', () => {
+    expect(
+      resumeFromHookPayload(JSON.stringify({ conversationId: 'c-1', invocationNum: 2 })),
+    ).toBeNull()
   })
 })
 

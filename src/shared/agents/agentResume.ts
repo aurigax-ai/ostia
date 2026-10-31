@@ -123,6 +123,8 @@ export function resumeFromHookPayload(payload: string): string | null {
   if (!text.startsWith('{')) return RESUME_ID.test(text) ? text : null
   try {
     const payload = JSON.parse(text) as Record<string, unknown>
+    const { invocationNum } = payload
+    if (typeof invocationNum === 'number' && invocationNum > 0) return null
     const id = payload.session_id ?? payload.conversationId
     return typeof id === 'string' && RESUME_ID.test(id) ? id : null
   } catch {

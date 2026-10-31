@@ -4,7 +4,12 @@ import {
   AGENT_OFFER_TEXT_MAX,
   AGENT_PROMPT_MAX,
 } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
-import { type AgentResume, canFork, forkCommand, resumeCommand } from '../../shared/agents/agentResume'
+import {
+  type AgentResume,
+  canFork,
+  forkCommand,
+  resumeCommand,
+} from '../../shared/agents/agentResume'
 import { MANAGER_AGENT_NAME } from '../../shared/agents/managerSettings'
 import { quoteArg } from '../../shared/terminal/shellQuote'
 import { ReportLimiter } from '../diagnostics/rendererReports'
@@ -67,6 +72,9 @@ export interface HeldResume {
 }
 
 export function continueCommand(found: HeldResume, prompt: string): string {
-  const base = found.held && canFork(found.resume.agent) ? forkCommand(found.resume) : resumeCommand(found.resume)
+  const base =
+    found.held && canFork(found.resume.agent)
+      ? forkCommand(found.resume)
+      : resumeCommand(found.resume)
   return `${base} ${quoteArg(prompt)}`
 }

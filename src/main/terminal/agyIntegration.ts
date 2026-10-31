@@ -7,8 +7,8 @@ import { AGENT_HOOKS_OFF_ENV } from '../../shared/agents/agentHooks'
 import { CLI_RUN, IN_PANE } from './agentHookCommands'
 import { installGenerated, removeUntouchedGenerations } from './generatedFolder'
 
-export const AGY_PLUGIN_PREFIX = 'ostia-'
-export const AGY_PLUGIN_FILES = ['plugin.json', 'hooks.json']
+const AGY_PLUGIN_PREFIX = 'ostia-'
+const AGY_PLUGIN_FILES = ['plugin.json', 'hooks.json']
 
 const HOOKS_ON = `[ -z "${shellEnv(AGENT_HOOKS_OFF_ENV.agy)}" ]`
 
@@ -22,7 +22,10 @@ export function agyHooksJson(): string {
   const hooks = {
     [PRODUCT_NAME]: {
       SessionStart: [commandHook(agyHookCommand('resume-token agy -'))],
-      PreInvocation: [commandHook(agyHookCommand('agy-hook PreInvocation'))],
+      PreInvocation: [
+        commandHook(agyHookCommand('resume-token agy -')),
+        commandHook(agyHookCommand('state working')),
+      ],
       Stop: [commandHook(agyHookCommand('state done --stop'))],
     },
   }

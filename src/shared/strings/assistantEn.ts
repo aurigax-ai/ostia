@@ -6,10 +6,10 @@ export const assistantEn = {
     title: 'Send to agent: {label}',
   },
   agentSession: {
+    agy: 'Antigravity',
     branch: 'Branch',
     claude: 'Claude Code',
     codex: 'Codex',
-    agy: 'Antigravity',
     command: 'Command',
     context: 'Context',
     copyId: 'Copy session id',
