@@ -31,3 +31,11 @@ export function validLocalPort(value: unknown): value is number {
 export function validRemotePort(value: unknown): value is number {
   return typeof value === 'number' && Number.isInteger(value) && value >= 1 && value <= 65535
 }
+
+export function parseLocalPort(text: string): number | null | 'bad' {
+  const trimmed = text.trim()
+  if (trimmed === '') return null
+  if (!/^\d{1,5}$/.test(trimmed)) return 'bad'
+  const port = Number(trimmed)
+  return validLocalPort(port) ? port : 'bad'
+}
