@@ -80,6 +80,7 @@ export function claudeHookSettings(extensionHooks: readonly ExtensionAgentHook[]
     },
     ...(hooks.PostToolUse ?? []),
   ]
+  hooks.PermissionDenied = [{ hooks: [commandHook(hookCommand('claude-hook PermissionDenied'))] }]
   hooks.StopFailure = [{ hooks: [commandHook(hookCommand('claude-hook StopFailure'))] }]
   for (const event of CLAUDE_SUBAGENT_EVENTS) {
     hooks[event] = [{ hooks: [commandHook(hookCommand(`claude-hook ${event}`))] }]

@@ -608,6 +608,26 @@ describe('ostia CLI end-to-end (spawns the real out/cli/index.js against a live 
       ])
     })
 
+    it('turns a Claude action refused by auto mode into waiting with the tool and reason', async () => {
+      const child = spawn(process.execPath, [cliPath, 'claude-hook', 'PermissionDenied'], {
+        env: env(),
+      })
+      child.stdin.on('error', () => {})
+      child.stdin.end(
+        JSON.stringify({
+          hook_event_name: 'PermissionDenied',
+          tool_name: 'Bash',
+          tool_input: { command: 'git push --force origin main' },
+          reason: 'Force-push to a protected branch',
+        }),
+      )
+      const code = await new Promise<number | null>((resolve) => child.on('close', resolve))
+      expect(code).toBe(0)
+      expect(execCalls.map((c) => c.args)).toEqual([
+        { state: 'waiting', message: 'Refused Bash: Force-push to a protected branch' },
+      ])
+    })
+
     it('holds the pane busy from a Claude subagent start until a Stop hook lists nothing in flight', async () => {
       const hook = async (event: string, payload: object): Promise<number | null> => {
         const child = spawn(process.execPath, [cliPath, 'claude-hook', event], { env: env() })
