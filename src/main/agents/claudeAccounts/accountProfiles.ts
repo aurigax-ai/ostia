@@ -100,14 +100,32 @@ export async function acceptedProfileFolders(root: string): Promise<string[]> {
   return accepted
 }
 
-export async function accountEmail(configDir?: string): Promise<string | null> {
+export interface AccountLogin {
+  uuid: string | null
+  email: string
+}
+
+export function sameLogin(a: AccountLogin | null, b: AccountLogin | null): boolean {
+  if (!a || !b) return false
+  if (a.uuid && b.uuid) return a.uuid === b.uuid
+  return a.email.toLowerCase() === b.email.toLowerCase()
+}
+
+export async function accountLogin(configDir?: string): Promise<AccountLogin | null> {
   const file = await realpath(await claudeConfigFile(homedir(), configDir)).catch(() => null)
   const read = file ? await readRegularFile(file, CONFIG_READ_MAX) : null
   if (!read?.ok) return null
   try {
     const { oauthAccount } = JSON.parse(read.body.toString('utf8')) as { oauthAccount?: unknown }
-    const address = (oauthAccount as { emailAddress?: unknown } | undefined)?.emailAddress
-    return typeof address === 'string' && address !== '' ? address : null
+    const { emailAddress, accountUuid } = (oauthAccount ?? {}) as {
+      emailAddress?: unknown
+      accountUuid?: unknown
+    }
+    if (typeof emailAddress !== 'string' || emailAddress === '') return null
+    return {
+      uuid: typeof accountUuid === 'string' && accountUuid !== '' ? accountUuid : null,
+      email: emailAddress,
+    }
   } catch {
     return null
   }
