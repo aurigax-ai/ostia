@@ -1,9 +1,10 @@
-import { readdirSync, writeFileSync } from 'node:fs'
+import { writeFileSync } from 'node:fs'
 import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { PRODUCT_NAME } from '@aurigax-ai/ostia-extension-sdk/contract/product'
 import { ClipboardItem, clipboard, ipcMain } from 'electron'
 import {
+  captureStem,
   clip,
   nextPickReportNumber,
   normalizeCapture,
@@ -16,7 +17,6 @@ import {
   type PickState,
   type PickTheme,
   pickBusMessage,
-  pickReportName,
   type RawPick,
   renderPickReport,
   screenshotRect,
@@ -30,6 +30,7 @@ import type { OriginReach } from '../agents/originAgents'
 import type { Reach } from '../approvals/reach'
 import { registerControlMethod } from '../control/controlServer'
 import { getByPaneId } from '../control/idRegistry'
+import { claimReportStem } from '../platform/claimReportStem'
 import { privateTmpDir } from '../platform/privateTmp'
 import type { RedactText } from '../privacy/redactionTargets'
 import { clipboardItemData } from '../windows/clipboardEdits'
@@ -205,18 +206,6 @@ export function cancelPick(paneId: string): boolean {
   return true
 }
 
-function claimReportPath(dir: string, url: string, report: string): string {
-  for (;;) {
-    const path = join(dir, pickReportName(nextPickReportNumber(readdirSync(dir)), url))
-    try {
-      writeFileSync(path, report, { mode: 0o600, flag: 'wx' })
-      return path
-    } catch (error) {
-      if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error
-    }
-  }
-}
-
 const asWritten: RedactText = async (text) => text
 
 export async function writePickReport(
@@ -240,7 +229,11 @@ export async function writePickReport(
   let message: string
   try {
     const report = await redact(renderPickReport(stored.capture, note))
-    path = claimReportPath(privateTmpDir(REPORT_DIR_NAME), stored.capture.url, report)
+    const stem = claimReportStem(privateTmpDir(REPORT_DIR_NAME), (names) =>
+      captureStem(nextPickReportNumber(names), stored.capture.url),
+    )
+    path = `${stem}.md`
+    writeFileSync(path, report, { mode: 0o600 })
     message = pickBusMessage(
       { ...stored.capture, url: await redact(stored.capture.url) },
       await redact(note),

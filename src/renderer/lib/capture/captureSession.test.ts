@@ -19,7 +19,7 @@ const REASONS: CloseReason[] = [
   'outside',
   'scroll',
   'key',
-  'guest-focus',
+  'guest-click',
   'copied',
   'sent',
   'cancel',

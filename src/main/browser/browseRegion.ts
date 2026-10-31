@@ -1,5 +1,4 @@
-import { readdirSync, writeFileSync } from 'node:fs'
-import { join } from 'node:path'
+import { writeFileSync } from 'node:fs'
 import { ClipboardItem, clipboard, ipcMain } from 'electron'
 import {
   captureStem,
@@ -24,6 +23,7 @@ import {
 import { postBusMessage } from '../agents/busStore'
 import type { OriginReach } from '../agents/originAgents'
 import { getByPaneId } from '../control/idRegistry'
+import { claimReportStem } from '../platform/claimReportStem'
 import { privateTmpDir } from '../platform/privateTmp'
 import type { RedactText } from '../privacy/redactionTargets'
 import type { CaptureGuestOf } from './browseGuests'
@@ -109,8 +109,9 @@ export async function writeRegionReport(
   let imagePath: string
   let message: string
   try {
-    const dir = privateTmpDir(REPORT_DIR_NAME)
-    const stem = join(dir, captureStem(nextPickReportNumber(readdirSync(dir)), stored.capture.url))
+    const stem = claimReportStem(privateTmpDir(REPORT_DIR_NAME), (names) =>
+      captureStem(nextPickReportNumber(names), stored.capture.url),
+    )
     imagePath = `${stem}.png`
     writeFileSync(imagePath, stored.png, { mode: 0o600, flag: 'wx' })
     path = `${stem}.md`
@@ -122,7 +123,6 @@ export async function writeRegionReport(
     )
     writeFileSync(path, await redact(renderRegionReport(stored.capture, note, imagePath)), {
       mode: 0o600,
-      flag: 'wx',
     })
   } catch {
     return { ok: false, error: 'write-failed' }

@@ -61,6 +61,7 @@ const PUSHED = [
   'git:changed',
   'git:items',
   'guest-chords:fire',
+  'guest-input:pointer-down',
   'lsp:servers-changed',
   'manager:open',
   'notifications:activate',
