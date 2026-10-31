@@ -8,6 +8,7 @@ import { isProfileId } from '../../../shared/claudeAccounts/claudeAccounts'
 import { readRegularFile } from '../../artifacts/previewFiles'
 import { appDataDir } from '../../platform/userDirs'
 import { claudeConfigFile, editClaudeConfig } from '../claudeFolderTrust'
+import { forgetKeychain, readKeychain, writeKeychain } from './keychain'
 import type { OAuthProfile, OAuthTokens } from './signIn/anthropicOAuth'
 
 const CONFIG_READ_MAX = 32 * 1024 * 1024
@@ -65,6 +66,7 @@ export function createProfile(root: string, id: string, defaultHome: string): st
 }
 
 export async function removeProfile(root: string, id: string): Promise<void> {
+  if (process.platform === 'darwin') await forgetKeychain(join(root, id))
   await rm(join(root, id), { recursive: true, force: true })
 }
 
@@ -195,7 +197,6 @@ export async function writeLogin(
   profile: OAuthProfile,
   retries: LockOptions['retries'] = CREDENTIAL_LOCK_OPTIONS.retries,
 ): Promise<boolean> {
-  if (process.platform === 'darwin') return false
   const config = await claudeConfigFile(homedir(), dir)
   await writeFile(config, '{}\n', { flag: 'wx', mode: 0o600 }).catch(() => undefined)
   const recorded = await editClaudeConfig(config, (current) => ({
@@ -217,27 +218,22 @@ export async function writeLogin(
   if (!release) return false
   try {
     const file = join(dir, CREDENTIAL_FILE)
-    const existing = await readCredentials(file)
+    const keychain = process.platform === 'darwin'
+    const existing = keychain ? await readKeychain(dir) : await readCredentials(file)
     if (!existing) return false
-    await writeFileAtomicAsync(
-      file,
-      `${JSON.stringify(
-        {
-          ...existing,
-          claudeAiOauth: {
-            accessToken: tokens.accessToken,
-            refreshToken: tokens.refreshToken,
-            expiresAt: tokens.expiresAt,
-            scopes: tokens.scopes,
-            subscriptionType: profile.subscriptionType,
-            rateLimitTier: profile.rateLimitTier,
-          },
-        },
-        null,
-        2,
-      )}\n`,
-      { mode: 0o600 },
-    )
+    const credentials = {
+      ...existing,
+      claudeAiOauth: {
+        accessToken: tokens.accessToken,
+        refreshToken: tokens.refreshToken,
+        expiresAt: tokens.expiresAt,
+        scopes: tokens.scopes,
+        subscriptionType: profile.subscriptionType,
+        rateLimitTier: profile.rateLimitTier,
+      },
+    }
+    if (keychain) return await writeKeychain(dir, credentials)
+    await writeFileAtomicAsync(file, `${JSON.stringify(credentials, null, 2)}\n`, { mode: 0o600 })
     return true
   } catch {
     return false
