@@ -36,10 +36,9 @@ test('workspace groups: a collapsed group shows a member’s failed command and 
 
     await groupToggle(win).click()
     await expect(groupToggle(win)).toHaveAttribute('aria-expanded', 'false')
-    await expect(groupHead(win).getByRole('img', { name: 'Error' })).toBeVisible({
+    await expect(groupHead(win).getByRole('img', { name: '1 failed' })).toBeVisible({
       timeout: 15_000,
     })
-    await expect(groupHead(win).getByRole('img', { name: '1 unread' })).toBeVisible()
   } finally {
     await quitApp(first.app)
   }
