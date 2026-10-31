@@ -79,8 +79,14 @@ describe('foreign sandbox signals', () => {
   })
 
   describe('escaping verbs', () => {
-    it('always refuses process and agent starts', () => {
-      for (const method of ['process.run', 'process.kill', 'process.restart', 'agent.run']) {
+    it('always refuses process and agent starts and resume records', () => {
+      for (const method of [
+        'process.run',
+        'process.kill',
+        'process.restart',
+        'agent.run',
+        'pane.setResume',
+      ]) {
         expect(escapesSandbox(method, {}, 'pOwn')).toBe(true)
       }
     })

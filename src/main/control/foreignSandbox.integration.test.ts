@@ -29,7 +29,11 @@ conn.listen()
 const call = (m, p) => conn.sendRequest(m, p).then((r) => ({ ok: true, r }), (e) => ({ ok: false, e: e.message }))
 ;(async () => {
   await conn.sendRequest('hello', { token })
-  const out = { run: await call('process.run', { cmd: 'true' }), bus: await call('bus.send', {}) }
+  const out = {
+    run: await call('process.run', { cmd: 'true' }),
+    resume: await call('pane.setResume', { agent: 'codex', id: 'abc' }),
+    bus: await call('bus.send', {}),
+  }
   process.stdout.write(JSON.stringify(out))
   socket.destroy()
 })()
@@ -39,7 +43,10 @@ let socketPath = ''
 
 type Outcome = { ok: boolean; e?: string }
 
-function client(token: string, filtered: boolean): Promise<{ run: Outcome; bus: Outcome }> {
+function client(
+  token: string,
+  filtered: boolean,
+): Promise<{ run: Outcome; resume: Outcome; bus: Outcome }> {
   return new Promise((resolve, reject) => {
     execFile(
       process.execPath,
@@ -56,6 +63,7 @@ describe.skipIf(process.platform !== 'linux')(
   () => {
     beforeAll(() => {
       registerControlMethod('process.run', { handler: async () => ({ started: true }) })
+      registerControlMethod('pane.setResume', { handler: async () => ({ ok: true }) })
       registerControlMethod('bus.send', { handler: async () => ({ sent: true }) })
     })
 
@@ -79,12 +87,14 @@ describe.skipIf(process.platform !== 'linux')(
       return registerPane({ windowId: 'w1', workspaceId: 's1', paneId: `pPeer${Date.now()}` })
     }
 
-    it('refuses process.run and allows bus.send under a seccomp filter', async () => {
+    it('refuses process.run and pane.setResume and allows bus.send under a seccomp filter', async () => {
       const id = serve(process.pid)
       await new Promise((resolve) => setTimeout(resolve, 100))
       const out = await client(id.token, true)
       expect(out.run.ok).toBe(false)
       expect(out.run.e).toContain(SANDBOXED_REFUSAL_TEXT)
+      expect(out.resume.ok).toBe(false)
+      expect(out.resume.e).toContain(SANDBOXED_REFUSAL_TEXT)
       expect(out.bus.ok).toBe(true)
     })
 
@@ -93,6 +103,7 @@ describe.skipIf(process.platform !== 'linux')(
       await new Promise((resolve) => setTimeout(resolve, 100))
       const out = await client(id.token, false)
       expect(out.run.ok).toBe(true)
+      expect(out.resume.ok).toBe(true)
       expect(out.bus.ok).toBe(true)
     })
   },
