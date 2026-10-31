@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest'
 import { sourceFiles } from '../../../../test/sourceFiles'
 
 const rendererDir = resolve(__dirname, '../..')
+const setupSource = readFileSync(resolve(__dirname, 'setup.ts'), 'utf8')
 const monacoRoot = resolve(__dirname, '../../../../node_modules/monaco-editor')
 const definitionsDir = join(monacoRoot, 'esm/vs/languages/definitions')
 
@@ -15,6 +16,10 @@ describe('monaco setup imports', () => {
       ),
     )
     expect(offenders).toEqual([])
+  })
+
+  it('registers the language definitions from the package entry', () => {
+    expect(setupSource).toContain("import 'monaco-editor/languages/definitions/register.all.js'")
   })
 
   it('the package entry registers every bundled language definition', () => {

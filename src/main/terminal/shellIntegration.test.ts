@@ -53,6 +53,7 @@ function listFiles(dir: string, prefix = ''): string[] {
 
 const INTEGRATION_DIR = shellIntegrationDir()
 const ZSH_INIT = join(INTEGRATION_DIR, 'init.zsh')
+const ZSH_ENV = join(INTEGRATION_DIR, '.zshenv')
 const ZSH_RC = join(INTEGRATION_DIR, '.zshrc')
 const BASH_INIT = join(INTEGRATION_DIR, 'init.bash')
 const BASH_RC = join(INTEGRATION_DIR, 'bashrc')
@@ -649,6 +650,15 @@ describe('shellIntegrationSpawnOptions', () => {
       expect(init).toContain('add-zsh-hook chpwd')
     })
 
+    it('reclaims ZDOTDIR after sourcing the real .zshenv in the generated .zshenv', () => {
+      shellIntegrationSpawnOptions('zsh', { HOME: '/home/u' })
+      const zshenv = readFileSync(ZSH_ENV, 'utf8')
+      expect(zshenv).toContain('source "$OSTIA_ZDOTDIR_ORIG/.zshenv"')
+      expect(zshenv).toContain(`if [ "$ZDOTDIR" != "${INTEGRATION_DIR}"`)
+      expect(zshenv).toContain('OSTIA_ZDOTDIR_ORIG="$ZDOTDIR"')
+      expect(zshenv).toContain(`ZDOTDIR="${INTEGRATION_DIR}"`)
+    })
+
     it('orders the generated .zshrc: source real rc, source init, restore then unset ZDOTDIR', () => {
       shellIntegrationSpawnOptions('zsh', { HOME: '/home/u' })
       const zshrc = readFileSync(ZSH_RC, 'utf8')
@@ -682,6 +692,13 @@ describe('shellIntegrationSpawnOptions', () => {
       expect(init).toContain('133;C')
       expect(init).toContain('133;D')
       expect(init).toContain('7;file://')
+    })
+
+    it('wires the bash prompt hooks via PROMPT_COMMAND and a DEBUG trap', () => {
+      shellIntegrationSpawnOptions('/bin/bash', {})
+      const init = readFileSync(BASH_INIT, 'utf8')
+      expect(init).toContain('PROMPT_COMMAND=')
+      expect(init).toMatch(/trap .*DEBUG/)
     })
 
     it('marks only real commands when the user’s PROMPT_COMMAND is an array', () => {

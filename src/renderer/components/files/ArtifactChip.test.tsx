@@ -146,6 +146,8 @@ describe('ArtifactChip', () => {
       .filter((file) => /\bArtifactChip\b/.test(readFileSync(join(root, file), 'utf8')))
       .filter((file) => !file.endsWith('ArtifactChip.tsx'))
     expect(users).toEqual([join('components', 'panes', 'Pane.tsx')])
+    const pane = readFileSync(join(root, 'components', 'panes', 'Pane.tsx'), 'utf8')
+    expect(pane).toMatch(/<ArtifactChip workspaceId=\{workspaceId\} paneId=\{shown\.id\} \/>/)
   })
 
   it('PRT-C64 shares its unread mark with the Files panel row', async () => {
@@ -173,6 +175,11 @@ describe('ArtifactChip', () => {
     expect(screen.getByTestId('artifact-chip-dot')).toBeInTheDocument()
     expect(dispatch).not.toHaveBeenCalled()
     expect(useAttentionStore.getState().byPane).toEqual({})
+    const source = readFileSync(
+      join(process.cwd(), 'src', 'renderer', 'components', 'files', 'ArtifactChip.tsx'),
+      'utf8',
+    )
+    expect(source).not.toMatch(/attention/i)
   })
 
   it('PRT-C65 builds the new artifact views only from the project’s shadcn components', () => {
