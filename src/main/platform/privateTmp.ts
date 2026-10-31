@@ -47,6 +47,11 @@ export function privateRunDir(
   return privateTmpDir(`${PRODUCT_NAME}-${name}`)
 }
 
+export function shortSocketDir(): string {
+  const uid = process.getuid?.() ?? 0
+  return ownedPrivateDir(join(SHORT_SOCKET_BASE, `${PRODUCT_NAME}-${uid}`), uid)
+}
+
 export function socketPath(
   dir: string,
   name: string,
@@ -56,8 +61,6 @@ export function socketPath(
   if (platform === 'win32' || Buffer.byteLength(preferred) <= socketPathLimit(platform)) {
     return preferred
   }
-  const uid = process.getuid?.() ?? 0
-  const short = ownedPrivateDir(join(SHORT_SOCKET_BASE, `${PRODUCT_NAME}-${uid}`), uid)
   const digest = hash('sha256', preferred).slice(0, 16)
-  return join(short, `${digest}.sock`)
+  return join(shortSocketDir(), `${digest}-${name}`)
 }
