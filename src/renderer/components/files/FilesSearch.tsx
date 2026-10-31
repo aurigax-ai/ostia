@@ -18,7 +18,7 @@ import { textMatcher } from '@/lib/files/textMatch'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useUIStore } from '@/stores/app/uiStore'
 import { useViewerHintStore } from '@/stores/files/viewerHintStore'
-import { fileIcon } from './fileIcon'
+import { fileIcon } from './fileIconFor'
 
 export const SEARCH_DELAY_MS = 200
 

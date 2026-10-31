@@ -34,7 +34,7 @@
     "bump": "bash -c 'case \"$*\" in patch|minor|major) exec pnpm version --no-git-tag-version --no-git-checks \"$1\" ;; *) echo \"usage: pnpm bump <patch|minor|major>\" >&2; exit 1 ;; esac' bump",
     "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.e2e.json && tsc --noEmit -p packages/extension-sdk",
     "rebuild": "electron-rebuild -f -w node-pty",
-    "lint": "biome check src packages && node scripts/comments.mjs --check",
+    "lint": "biome check src packages && node scripts/comments.mjs --check && node scripts/casePaths.mjs",
     "quality": "knip && depcruise src e2e test scripts packages marketplace --config .dependency-cruiser.json --ignore-known && depcruise src/renderer --config .dependency-cruiser-launch.json && jscpd && node scripts/i18n.mjs check",
     "i18n:coverage": "node scripts/i18n.mjs coverage",
     "format": "biome format --write src packages",

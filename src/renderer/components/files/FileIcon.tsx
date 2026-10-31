@@ -2,7 +2,7 @@ import { themeIconSrc } from '@/lib/extensions/iconTheme'
 import { useEffectiveTheme } from '@/lib/theme/theme'
 import { cn } from '@/lib/utils'
 import { useActiveIconTheme } from '@/stores/extensions/iconThemeStore'
-import { fileIcon } from './fileIcon'
+import { fileIcon } from './fileIconFor'
 
 export function FileIcon({
   name,
