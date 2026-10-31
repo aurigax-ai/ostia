@@ -18,6 +18,26 @@ import { usePluginsStore } from '@/stores/extensions/pluginsStore'
 import { ChordRecorder } from './ChordRecorder'
 import { KeyboardSection } from './KeyboardSection'
 
+const LISTED_COMMANDS = new Set([
+  'palette.toggle',
+  'palette.searchEverywhere',
+  'view.toggleRail',
+  'pane.zoom',
+  'pane.splitRight',
+  'tab.new',
+  'tab.newBrowser',
+  'terminal.clear',
+  'terminal.scrollToTop',
+  'workspace.goto',
+  'assist.compose',
+])
+
+const registerListedCommands = (): void => {
+  if (commands.has('palette.toggle')) return
+  registerBuiltinCommands()
+  for (const { id } of commands.list()) if (!LISTED_COMMANDS.has(id)) commands.unregister(id)
+}
+
 const initialSettings = useSettingsStore.getState()
 const initialPlugins = usePluginsStore.getState()
 const initialExtensions = useExtensionsStore.getState()
@@ -228,7 +248,7 @@ describe('ChordRecorder and Shift twice', () => {
 
 describe('KeyboardSection', () => {
   beforeAll(() => {
-    if (!commands.has('palette.toggle')) registerBuiltinCommands()
+    registerListedCommands()
   })
 
   afterEach(() => {
@@ -1087,7 +1107,7 @@ const toggleFor = (command: string): HTMLElement =>
 
 describe('KeyboardSection layered view', () => {
   beforeAll(() => {
-    if (!commands.has('palette.toggle')) registerBuiltinCommands()
+    registerListedCommands()
   })
 
   afterEach(() => {

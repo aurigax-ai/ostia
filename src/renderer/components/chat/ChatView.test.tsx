@@ -25,6 +25,13 @@ import { REDACTION_PREVIEW_MS } from './useChatAsk'
 
 vi.mock('@/lib/theme/colorize', () => ({ colorizeCode: async () => null }))
 
+const pasteInto = async (field: HTMLElement, text: string): Promise<void> => {
+  await userEvent.click(field)
+  await userEvent.paste(text)
+}
+
+const LISTED_COMMANDS = new Set(['palette.toggle', 'palette.searchEverywhere', 'assist.compose'])
+
 const PANE = 'p-chat-term'
 const CHAT = {
   extId: 'assistant',
@@ -139,7 +146,12 @@ describe('chat', () => {
   let blocksInit: ReturnType<typeof useBlocksStore.getState>
 
   beforeAll(() => {
-    if (!commands.has('palette.toggle')) registerBuiltinCommands()
+    if (!commands.has('palette.toggle')) {
+      registerBuiltinCommands()
+      for (const { id } of commands.list()) {
+        if (!LISTED_COMMANDS.has(id)) commands.unregister(id)
+      }
+    }
     uiInit = useUIStore.getState()
     blocksInit = useBlocksStore.getState()
   })
@@ -203,7 +215,7 @@ describe('chat', () => {
     act(() => useUIStore.getState().togglePalette())
     const input = await screen.findByRole('combobox')
     expect(input).toHaveValue('>')
-    await userEvent.type(input, 'find big files')
+    await pasteInto(input, 'find big files')
     await userEvent.keyboard('{Tab}')
 
     expect(await screen.findByRole('combobox', { name: 'Your question' })).toHaveValue(
@@ -214,7 +226,7 @@ describe('chat', () => {
   it('switches the palette to Ask on Tab, carrying the typed text and naming the model', async () => {
     useUIStore.setState({ paletteOpen: true })
     render(<CommandPalette />)
-    await userEvent.type(await screen.findByRole('combobox'), 'find big files')
+    await pasteInto(await screen.findByRole('combobox'), 'find big files')
     await userEvent.keyboard('{Tab}')
 
     expect(await screen.findByRole('combobox', { name: 'Your question' })).toHaveValue(
@@ -247,7 +259,7 @@ describe('chat', () => {
     async (mode) => {
       render(<CommandPalette />)
       act(() => useUIStore.getState().openPalette(mode))
-      await userEvent.type(await screen.findByRole('combobox'), 'how do I list files')
+      await pasteInto(await screen.findByRole('combobox'), 'how do I list files')
       await userEvent.keyboard('{Tab}')
       const question = await screen.findByRole('combobox', { name: 'Your question' })
       await waitFor(() => expect(question).toHaveFocus())
