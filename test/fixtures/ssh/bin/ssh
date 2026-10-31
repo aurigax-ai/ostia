@@ -10,6 +10,13 @@ if [ "$1" = "-G" ]; then
   echo "fake ssh: Could not resolve hostname ${last##*@}" >&2
   exit 255
 fi
+previous=
+for arg in "$@"; do
+  if [ "$previous" = "-L" ]; then
+    exec node "$(dirname "$0")/forward.js" "$arg"
+  fi
+  previous=$arg
+done
 shown=
 remote=
 after_separator=
