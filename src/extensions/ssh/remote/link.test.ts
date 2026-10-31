@@ -38,6 +38,17 @@ describe('HostLink', () => {
   beforeEach(() => vi.useFakeTimers())
   afterEach(() => vi.useRealTimers())
 
+  const forwards = {
+    onLink: vi.fn(async () => {}),
+    onPorts: vi.fn(async () => {}),
+    list: vi.fn(() => ({ ok: true, forwards: [] })),
+    forward: vi.fn(async (remote: number, local?: number) => ({
+      ok: true,
+      forwards: [{ remote, local: local ?? remote }],
+    })),
+    stop: vi.fn(async () => ({ ok: true, forwards: [] })),
+  }
+
   function open(withOut = false) {
     if (!plan) throw new Error('no plan')
     const fake = fakeChild()
@@ -63,6 +74,7 @@ describe('HostLink', () => {
           ? { ok: false, error: 'unknown-pane' }
           : { ok: true, out: [] }
       },
+      forwards: forwards as never,
       onState: (online) => states.push(online),
     })
     link.start()
@@ -84,6 +96,39 @@ describe('HostLink', () => {
     expect(written).toContainEqual({ t: 'stored', id: 'd' })
     expect(calls.filter((call) => call.op === 'in')).toHaveLength(2)
     link.stop()
+  })
+
+  it('RPF-C20 hands a port frame and a host agent request to the forwards and answers on the link', async () => {
+    const { feed, written, link } = open()
+    feed({ t: 'hello-ok', version: bundle.version })
+    await vi.advanceTimersByTimeAsync(50)
+    expect(forwards.onLink).toHaveBeenCalledWith(true)
+    feed({ t: 'ports', ports: [{ port: 3000, name: 'node' }] })
+    feed({ t: 'ports-req', id: 'q1', op: 'forward', remote: 3000, local: 3100 })
+    feed({ t: 'ports-req', id: 'q2', op: 'list' })
+    await vi.advanceTimersByTimeAsync(50)
+    expect(forwards.onPorts).toHaveBeenCalledWith([{ port: 3000, name: 'node' }])
+    expect(forwards.forward).toHaveBeenCalledWith(3000, 3100)
+    expect(written).toContainEqual({
+      t: 'ports-res',
+      id: 'q1',
+      result: { ok: true, forwards: [{ remote: 3000, local: 3100 }] },
+    })
+    expect(written).toContainEqual({
+      t: 'ports-res',
+      id: 'q2',
+      result: { ok: true, forwards: [] },
+    })
+    link.stop()
+  })
+
+  it('RPF-C7 tells the forwards when the link goes down', async () => {
+    const { feed, link } = open()
+    feed({ t: 'hello-ok', version: bundle.version })
+    await vi.advanceTimersByTimeAsync(50)
+    link.stop()
+    await vi.advanceTimersByTimeAsync(50)
+    expect(forwards.onLink).toHaveBeenCalledWith(false)
   })
 
   it('REM-N5 treats a silent link as dead after 45 s and reports the host offline once', async () => {

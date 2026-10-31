@@ -1,8 +1,12 @@
 import type { PaneChipItem } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
-import { CopyIcon } from '@phosphor-icons/react'
+import { CopyIcon, PencilSimpleIcon } from '@phosphor-icons/react'
+import { parseLocalPort } from '@shared/remote/remotePorts'
+import { useState } from 'react'
 import { Hint } from '@/components/common/Hint'
 import { IconButton } from '@/components/common/IconButton'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { fmt, useDict } from '@/lib/app/useDict'
 import {
@@ -12,6 +16,7 @@ import {
   usePaneChips,
   useWorkspaceChips,
 } from '@/lib/extensions/extensionChips'
+import { forwardPort, stopPort } from '@/lib/remote/remoteApi'
 import { extensionIcon } from './extensionIcons'
 
 export function PaneChips({ paneId }: { paneId: string }): JSX.Element | null {
@@ -117,17 +122,37 @@ function ChipItemText({ item }: { item: PaneChipItem }): JSX.Element {
     <>
       {item.text}
       {item.detail && <span className="pane-chip-item-detail">{item.detail}</span>}
+      {item.port?.error && (
+        <span className="pane-chip-item-detail text-destructive">{item.port.error}</span>
+      )}
     </>
   )
 }
 
-function ChipItem({ chip, item }: { chip: ShownChip; item: PaneChipItem }): JSX.Element {
+export function ChipItem({ chip, item }: { chip: ShownChip; item: PaneChipItem }): JSX.Element {
   const d = useDict()
+  const [editing, setEditing] = useState(false)
   const url = item.url
+  const port = item.port
+  if (port && editing && chip.workspaceId) {
+    return (
+      <PortEditor workspaceId={chip.workspaceId} port={port} onDone={() => setEditing(false)} />
+    )
+  }
+  const pencil = port ? (
+    <IconButton
+      icon={PencilSimpleIcon}
+      label={fmt(d.extensions.chipEditPort, { port: String(port.remote) })}
+      onClick={() => setEditing(true)}
+    />
+  ) : null
   if (!url) {
     return (
-      <span className="pane-chip-item font-mono text-ui-sm">
-        <ChipItemText item={item} />
+      <span className="pane-chip-item">
+        <span className="pane-chip-item-open font-mono text-ui-sm">
+          <ChipItemText item={item} />
+        </span>
+        {pencil}
       </span>
     )
   }
@@ -146,6 +171,64 @@ function ChipItem({ chip, item }: { chip: ShownChip; item: PaneChipItem }): JSX.
         label={fmt(d.extensions.chipCopyUrl, { url })}
         onClick={() => void navigator.clipboard.writeText(url)}
       />
+      {pencil}
+    </span>
+  )
+}
+
+function PortEditor({
+  workspaceId,
+  port,
+  onDone,
+}: {
+  workspaceId: string
+  port: NonNullable<PaneChipItem['port']>
+  onDone: () => void
+}): JSX.Element {
+  const d = useDict()
+  const [text, setText] = useState(port.local === undefined ? '' : String(port.local))
+  const [failure, setFailure] = useState<string | null>(null)
+  const parsed = parseLocalPort(text)
+  const bad = parsed === 'bad'
+  const save = async (): Promise<void> => {
+    if (parsed === 'bad') return
+    const res = await forwardPort(workspaceId, port.remote, parsed)
+    if (res.ok) onDone()
+    else setFailure(res.message ?? res.error)
+  }
+  const stop = async (): Promise<void> => {
+    const res = await stopPort(workspaceId, port.remote)
+    if (res.ok) onDone()
+    else setFailure(res.message ?? res.error)
+  }
+  return (
+    <span className="pane-chip-item">
+      <Input
+        value={text}
+        inputMode="numeric"
+        className="h-7 w-24 font-mono text-ui-sm"
+        aria-label={d.extensions.chipLocalPort}
+        aria-invalid={bad || failure !== null}
+        title={bad ? d.extensions.chipLocalPortInvalid : (failure ?? undefined)}
+        onChange={(e) => {
+          setText(e.target.value)
+          setFailure(null)
+        }}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') void save()
+          if (e.key === 'Escape') onDone()
+        }}
+      />
+      <span className="flex items-center gap-1">
+        <Button size="sm" disabled={bad} onClick={() => void save()}>
+          {d.extensions.chipSavePort}
+        </Button>
+        {port.local !== undefined && (
+          <Button size="sm" variant="outline" onClick={() => void stop()}>
+            {d.extensions.chipStopPort}
+          </Button>
+        )}
+      </span>
     </span>
   )
 }

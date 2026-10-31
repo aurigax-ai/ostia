@@ -63,3 +63,15 @@ export async function attachJob(workspaceId: string, pane: string): Promise<Exte
 export async function stopJob(workspaceId: string, pane: string): Promise<ExtensionResult> {
   return call('remote-stop', workspaceId, { pane })
 }
+
+export function forwardPort(
+  workspaceId: string,
+  remote: number,
+  local: number | null,
+): Promise<ExtensionResult> {
+  return call('ports-forward', workspaceId, { remote, ...(local === null ? {} : { local }) })
+}
+
+export function stopPort(workspaceId: string, remote: number): Promise<ExtensionResult> {
+  return call('ports-stop', workspaceId, { remote })
+}

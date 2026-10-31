@@ -112,6 +112,21 @@ export function planRemote(
   return [...sshArgv(plan, options), command]
 }
 
+export function planForward(plan: ConnectPlan, remote: number, local: number): string[] {
+  return sshArgv(plan, [
+    '-N',
+    '-T',
+    '-o',
+    'ExitOnForwardFailure=yes',
+    '-o',
+    'ConnectTimeout=8',
+    '-o',
+    'ServerAliveInterval=15',
+    '-L',
+    `127.0.0.1:${local}:127.0.0.1:${remote}`,
+  ])
+}
+
 export function hostKey(plan: ConnectPlan): string {
   return plan.port === undefined ? plan.destination : `${plan.destination}:${plan.port}`
 }

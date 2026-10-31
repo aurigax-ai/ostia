@@ -12,7 +12,12 @@
     "settings.remoteHelper.title": "遠端輔助程式",
     "settings.remoteHelper.description": "提供在主機的 ~/.ostia 下安裝小型輔助指令稿，讓 {product} 透過 ssh 取得該主機的檔案。每台主機只會詢問一次，並在安裝前顯示確切路徑。關閉後不再詢問，也不會連線",
     "commands.open-folder.title": "SSH：開啟遠端資料夾",
-    "paneChips.remote.title": "遠端主機"
+    "paneChips.remote.title": "遠端主機",
+    "settings.portForwarding.title": "連接埠轉發",
+    "settings.portForwarding.description": "在 ssh 遠端工作區中，自動模式會把主機上新開啟的連接埠轉發到這台電腦；手動模式只列出連接埠，直到你轉發其中之一。轉發只綁定這台電腦的 127.0.0.1",
+    "settings.portForwarding.valueTitles.auto": "自動",
+    "settings.portForwarding.valueTitles.manual": "手動",
+    "workspaceChips.ports.title": "遠端連接埠"
   },
   "messages": {
     "confirmTitle": "開啟 SSH 連線",

@@ -2,7 +2,7 @@
   "id": "skills",
   "name": "Skill Workshop",
   "version": "1.0.0",
-  "api": "7.13",
+  "api": "7.14",
   "description": "Rules you write for your agents, kept on this computer and given to Claude Code and Codex at the start of a session. A rule is one preference sentence scoped to everywhere, a stack or a project; it grants nothing. Only you add, change or retire a rule, here. The prompts you type to Claude Code and Codex are also kept here for 30 days, with secrets removed, as the evidence for rules; nothing an agent or Ostia sends is kept.",
   "category": "tools",
   "capabilities": ["agent-plugin", "agent-complete", "read-board"],
