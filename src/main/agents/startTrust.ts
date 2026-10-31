@@ -1,7 +1,10 @@
+import { homedir } from 'node:os'
 import type { PaneIdentity } from '../control/idRegistry'
 import type { SettingsFile } from '../platform/settingsFile'
 import type { ScratchFolders } from '../workspaces/scratchFolders'
-import { carryTrust, trustFolder } from './claudeFolderTrust'
+import { workDirForWorkspace } from '../workspaces/workspaceRegistry'
+import { carryTrust, outsideTrust, trustFolder } from './claudeFolderTrust'
+import { workspaceFolder } from './extensionAgents'
 import { type TrustPlaceDeps, trustPlaceOf } from './trustPlace'
 
 export interface StartTrustDeps extends TrustPlaceDeps {
@@ -22,5 +25,32 @@ export function createStartTrust(
     return profileDir
       ? carryTrust({ ...place, configDir: profileDir, customOAuth }, defaultConfigDir)
       : false
+  }
+}
+
+export interface OutsideTrustDeps {
+  scratchFolders: Pick<ScratchFolders, 'isScratch' | 'dirOf'>
+  workspaceSandboxes: { isEnabled: (workspaceId: string) => boolean }
+  readSettingsFile: () => SettingsFile
+}
+
+export function createOutsideTrust(
+  deps: OutsideTrustDeps,
+): (workspaceId: string, folder: string) => Promise<string | null> {
+  return async (workspaceId, folder) => {
+    if (deps.readSettingsFile().agents?.trustWorkspaceFolders !== true) return null
+    if (deps.workspaceSandboxes.isEnabled(workspaceId)) return null
+    const home = homedir()
+    const workDir = deps.scratchFolders.isScratch(workspaceId)
+      ? deps.scratchFolders.dirOf(workspaceId)
+      : workspaceFolder(workDirForWorkspace(workspaceId), home)
+    if (!workDir) return null
+    return outsideTrust({
+      folder,
+      workDir,
+      home,
+      configDir: process.env.CLAUDE_CONFIG_DIR || undefined,
+      customOAuth: Boolean(process.env.CLAUDE_CODE_CUSTOM_OAUTH_URL),
+    })
   }
 }
