@@ -13,7 +13,7 @@ vi.mock('../terminal/shellIntegration', async (importOriginal) => ({
 
 function setup(
   agentDir?: string | null,
-  kept_: { saved?: SavedAttention | null; agentRunning?: boolean } = {},
+  kept_: { saved?: SavedAttention | null; foreground?: string } = {},
 ) {
   const writeToken = vi.fn()
   const restoreKeptAttention = vi.fn()
@@ -39,7 +39,7 @@ function setup(
     } as never,
     keptPlumbing: { ensure: vi.fn() } as never,
     keptAttention: { reattached: vi.fn() } as never,
-    agentRunning: { has: () => kept_.agentRunning ?? false, stillRunning: () => false } as never,
+    agentRunning: { has: () => false, stillRunning: () => false } as never,
     hibernatedPanes: new Set(),
     portRequests: {} as never,
     trackPty: (() => entry) as never,
@@ -60,7 +60,7 @@ function setup(
       onData: vi.fn(),
       onExit: vi.fn(),
       snapshot: async () => 'kept screen',
-      currentCommand: async () => '',
+      currentCommand: async () => kept_.foreground ?? '',
       live: vi.fn(),
     },
     meta: {
@@ -132,14 +132,14 @@ describe('reattaching a kept shell', () => {
     expect(pendingRestoredScrollback()).toEqual({ other: 'untouched' })
   })
 
-  it('restores a saved working or waiting state only while its agent still runs', async () => {
-    const gone = setup(undefined, { saved: { state: 'working' }, agentRunning: false })
+  it('restores a saved working or waiting state only while a program still runs in the shell', async () => {
+    const gone = setup(undefined, { saved: { state: 'working' }, foreground: 'bash' })
     await gone.run()
     expect(gone.restoreKeptAttention).not.toHaveBeenCalled()
-    const alive = setup(undefined, { saved: { state: 'working' }, agentRunning: true })
+    const alive = setup(undefined, { saved: { state: 'waiting' }, foreground: 'claude' })
     await alive.run()
     expect(alive.restoreKeptAttention).toHaveBeenCalledTimes(1)
-    const finished = setup(undefined, { saved: { state: 'done' }, agentRunning: false })
+    const finished = setup(undefined, { saved: { state: 'done' }, foreground: 'bash' })
     await finished.run()
     expect(finished.restoreKeptAttention).toHaveBeenCalledTimes(1)
   })
