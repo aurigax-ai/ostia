@@ -81,7 +81,6 @@ async function main(): Promise<void> {
           key: 'runs',
           workspaceId,
           text: count > 0 ? translate(locale)('sidebar.active', { count }) : '',
-          badge: String(count),
           icon: 'graph',
           tone: 'brand',
         })

@@ -57,6 +57,13 @@ describe('fitCount', () => {
     expect(fitCount({ widths: [200], available: 100, gap: 8, moreWidth: 20 })).toBe(1)
   })
 
+  it('lets the first item shrink to its minimum before hiding any item', () => {
+    const input = { widths: [200, 40], available: 120, gap: 8, moreWidth: 20 }
+    expect(fitCount(input)).toBe(1)
+    expect(fitCount({ ...input, firstMin: 64 })).toBe(2)
+    expect(fitCount({ ...input, firstMin: 80 })).toBe(1)
+  })
+
   it('shows nothing for no items', () => {
     expect(fitCount({ widths: [], available: 100, gap: 8, moreWidth: 20 })).toBe(0)
   })

@@ -301,7 +301,6 @@ describe('script tokens on command.exec', () => {
     descriptor('tab.new', []),
     descriptor('workspace.group', ['drive-self']),
     descriptor('workspace.ungroup', ['drive-self']),
-    descriptor('workspace.describe', ['drive-self']),
     descriptor('workspace.groupColor', ['drive-self'], 'none'),
     descriptor('workspace.groupRename', ['drive-self'], 'none'),
     descriptor('workspace.groupDelete', ['drive-self'], 'none'),
@@ -429,7 +428,6 @@ describe('script tokens on command.exec', () => {
   it.each([
     ['workspace.group', { name: 'AurigaX' }],
     ['workspace.ungroup', undefined],
-    ['workspace.describe', { text: 'tracker#24' }],
     ['workspace.pin', undefined],
     ['workspace.unpin', undefined],
   ])('runs %s on the workspace it names, with all-workspaces', async (id, args) => {
@@ -472,7 +470,7 @@ describe('script tokens on command.exec', () => {
     expect(executed).toEqual([])
   })
 
-  it.each(['workspace.group', 'workspace.ungroup', 'workspace.describe'])(
+  it.each(['workspace.group', 'workspace.ungroup', 'workspace.pin'])(
     'refuses %s without a workspace instead of picking one',
     async (id) => {
       const conn = await client(
@@ -658,7 +656,6 @@ describe('scoped script tokens', () => {
   })
   const COMMANDS = [
     descriptor('workspace.new', DEFAULT_CAPABILITIES, 'none'),
-    descriptor('workspace.describe', ['drive-self']),
     descriptor('workspace.group', ['drive-self']),
     descriptor('workspace.groupColor', ['drive-self'], 'none'),
     descriptor('workspace.groupRename', ['drive-self'], 'none'),
@@ -718,7 +715,7 @@ describe('scoped script tokens', () => {
     })
     const conn = await client(token)
     for (const ws of ['wsA', 'wsB', 'wsD']) {
-      await conn.sendRequest('command.exec', { id: 'workspace.describe', target: on(ws) })
+      await conn.sendRequest('command.exec', { id: 'workspace.pin', target: on(ws) })
       await conn.sendRequest('test.ensureReach', { workspaceId: ws })
     }
     expect(executed.map((e) => (e.target as { workspaceId: string }).workspaceId)).toEqual([
@@ -735,7 +732,7 @@ describe('scoped script tokens', () => {
     })
     const conn = await client(token)
     await expect(
-      conn.sendRequest('command.exec', { id: 'workspace.describe', target: on(ws) }),
+      conn.sendRequest('command.exec', { id: 'workspace.pin', target: on(ws) }),
     ).rejects.toThrow('needs-elevation: all-workspaces')
     await expect(
       conn.sendRequest('command.exec', { id: 'workspace.close', target: on(ws) }),
@@ -801,7 +798,7 @@ describe('scoped script tokens', () => {
     await conn.sendRequest('command.exec', { id: 'workspace.new', args: { group: 'Work' } })
     expect(scriptTokenScope(storeFile, id)?.created).toEqual([`ws-new-${made}`])
     const createdId = `ws-new-${made}`
-    await conn.sendRequest('command.exec', { id: 'workspace.describe', target: on(createdId) })
+    await conn.sendRequest('command.exec', { id: 'workspace.pin', target: on(createdId) })
     await expect(
       conn.sendRequest('command.exec', { id: 'workspace.new', args: { group: 'Other' } }),
     ).rejects.toThrow('needs-elevation: all-workspaces')
@@ -933,7 +930,7 @@ describe('scoped script tokens', () => {
       target: on(createdId),
     })
     await expect(
-      conn.sendRequest('command.exec', { id: 'workspace.describe', target: on(createdId) }),
+      conn.sendRequest('command.exec', { id: 'workspace.pin', target: on(createdId) }),
     ).rejects.toThrow('needs-elevation: all-workspaces')
   })
 
@@ -1419,7 +1416,7 @@ describe('without a user presence check', () => {
 
 describe('script token usage on the control socket', () => {
   const describeCommand = {
-    id: 'workspace.describe',
+    id: 'workspace.pin',
     title: 'Describe',
     category: null,
     hidden: false,
@@ -1454,7 +1451,7 @@ describe('script token usage on the control socket', () => {
     await conn.sendRequest('test.scriptsOpen')
     await expect(
       conn.sendRequest('command.exec', {
-        id: 'workspace.describe',
+        id: 'workspace.pin',
         target: { workspaceId: 'wsC', paneId: null },
       }),
     ).rejects.toThrow('needs-elevation: all-workspaces')
@@ -1470,7 +1467,7 @@ describe('script token usage on the control socket', () => {
         code: 'needs-elevation: type-other-pane',
       },
       {
-        method: 'workspace.describe',
+        method: 'workspace.pin',
         outcome: 'out-of-scope',
         code: 'needs-elevation: all-workspaces',
       },

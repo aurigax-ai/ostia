@@ -9,7 +9,6 @@ import { parseArgs } from '../common/args'
 import { fail, failUsage, failVerb } from '../common/failure'
 import { tsvLine } from '../common/lineField'
 import { confirmWorkspace } from '../common/readBack'
-import { readAllStdin } from '../common/stdinText'
 import type { Opened } from './open'
 
 export function parseWorkspaceRenameArgs(argv: string[]): { workspace?: string; name: string } {
@@ -279,26 +278,8 @@ export async function runWorkspaceVerb(conn: MessageConnection): Promise<void> {
     return
   }
   if (sub !== 'describe') return failUsage('workspace')
-  const { positional, booleans, values } = parseArgs(rest, {
-    values: { workspace: '--workspace' },
-    booleans: { clear: '--clear' },
-    unknown: 'keep',
-  })
-  const { clear } = booleans
-  const raw = positional.join(' ')
-  const text = clear ? '' : raw === '-' ? await readAllStdin() : raw
-  if (!clear && !text.trim()) {
-    failVerb('missing arguments')
-    return
-  }
-  const res = await conn.sendRequest<CommandResult>('command.exec', {
-    id: 'workspace.describe',
-    args: { text },
-    ...(values.workspace ? { target: { workspaceId: values.workspace, paneId: null } } : {}),
-  })
-  if (res.ok) {
-    console.log('ok')
-  } else {
-    fail(`ostia workspace describe: ${res.error?.message ?? 'failed'}`)
-  }
+  const { positional } = parseArgs(rest, { unknown: 'keep' })
+  fail(
+    `ostia workspace describe: human-only: only the human sets a workspace description\nnext: ostia activity add "${positional.join(' ') || '<text>'}"`,
+  )
 }

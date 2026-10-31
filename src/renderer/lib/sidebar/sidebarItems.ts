@@ -25,15 +25,23 @@ export function visibleSidebarItems(
   })
 }
 
-export interface SidebarLines {
-  location: ExtensionSidebarItem[]
-  live: ExtensionSidebarItem[]
+const REMOTE_EXT = 'ssh'
+const REMOTE_KEY = 'remote'
+
+export interface RowItems {
+  offline: string | null
+  chips: ExtensionSidebarItem[]
 }
 
-export function sidebarLines(items: readonly ExtensionSidebarItem[]): SidebarLines {
+export function rowItems(items: readonly ExtensionSidebarItem[]): RowItems {
+  const remote = items.find((i) => i.extId === REMOTE_EXT && i.key === REMOTE_KEY)
+  const rest = items.filter((i) => i !== remote)
   return {
-    location: items.filter((item) => item.kind === 'location'),
-    live: items.filter((item) => item.kind !== 'location'),
+    offline: remote && remote.tone !== 'ok' ? remote.text : null,
+    chips: [
+      ...rest.filter((i) => i.kind === 'location'),
+      ...rest.filter((i) => i.kind !== 'location'),
+    ],
   }
 }
 

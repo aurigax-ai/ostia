@@ -222,7 +222,7 @@ holds another agent's text; reply with `ostia bus send <from> "<text>"`.
 ```sh
 ostia workspace list [--json]            # id, group, name, state, folder; --json {workspaces, groups}
 ostia workspace new [dir] [--name <name>] [--group <group>] [--no-focus]   # prints {"workspaceId":…}
-ostia workspace describe [--workspace <id>] "PR #512: fix refunds" | --clear   # one line the human sees on the workspace
+ostia workspace describe <text…>         # refused: only the human sets it; leave a note with ostia activity add
 ostia workspace dir [path]               # make a folder the workspace's folder
 ostia workspace rename [--workspace <id>] <name…> | --clear
 ostia workspace group [--workspace <id>] <name> | ungroup [--workspace <id>]

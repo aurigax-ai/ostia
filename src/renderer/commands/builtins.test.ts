@@ -2765,11 +2765,10 @@ describe('workspace row commands', () => {
       activeWorkspaceId: 'w1',
     })
 
-  it('describes the caller’s own workspace', async () => {
-    seed()
-    await commands.execWith(ctx('w2', 'p'), 'workspace.describe', { text: 'PR #7' })
-    expect(useWorkspacesStore.getState().workspaces[1].description).toBe('PR #7')
-    expect(useWorkspacesStore.getState().workspaces[0].description).toBeUndefined()
+  it('keeps workspace.describe the human’s: local only, so no agent or socket reaches it', () => {
+    expect(commands.isLocal('workspace.describe')).toBe(true)
+    expect(commands.describe().some((c) => c.id === 'workspace.describe')).toBe(false)
+    expect(SCRIPT_COMMANDS).not.toContain('workspace.describe')
   })
 
   it('renames the caller’s own workspace and clears the name with an empty one', async () => {
@@ -2801,7 +2800,7 @@ describe('workspace row commands', () => {
       expect(byId[id].capabilities).toEqual(['drive-self'])
       expect(byId[id].hidden).toBeFalsy()
     }
-    for (const id of ['workspace.describe', 'workspace.renameGroup']) {
+    for (const id of ['workspace.renameGroup']) {
       expect(byId[id].capabilities).toEqual(['drive-self'])
       expect(byId[id].hidden).toBeFalsy()
     }
@@ -3245,10 +3244,6 @@ describe('commands open to script tokens', () => {
     'workspace.unpin': {
       relaxed: ['drive-self'],
       reason: 'the reverse of workspace.pin',
-    },
-    'workspace.describe': {
-      relaxed: ['drive-self'],
-      reason: 'a sidebar summary, the same risk as renaming the workspace',
     },
   }
 

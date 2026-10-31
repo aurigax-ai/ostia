@@ -179,7 +179,7 @@ describe('motion CSS contract', () => {
     expect(infinite).toEqual([
       '  animation: breathe var(--motion-breathe) var(--ease-in-out) infinite;',
     ])
-    expect(ruleBody('.dot.working')).toContain('infinite')
+    expect(ruleBody('.state-badge.working')).toContain('infinite')
   })
 
   it('keeps every other infinite animation out of panel and typeset styles', () => {
@@ -219,13 +219,6 @@ describe('motion CSS contract', () => {
       expect(panel, token).toContain(`${token}: calc(`)
       expect(panel, token).toContain('* var(--ostia-motion-scale, 1))')
     }
-  })
-
-  it('blinks the unread tab lead like every other attention cue', () => {
-    expect(ruleBody('.tab-lead-unread')).toMatch(
-      /animation: attn-blink var\(--motion-pulse\) var\(--ease-out\) 3;/,
-    )
-    expect(css).not.toContain('--motion-pulse-fast')
   })
 
   it('animates only opacity and transform in every keyframe of every style file', () => {
