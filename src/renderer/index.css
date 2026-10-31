@@ -1060,6 +1060,18 @@
   outline-offset: -2px;
 }
 
+.tab-rename {
+  height: auto;
+  padding: 2px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  font: inherit;
+  letter-spacing: inherit;
+  line-height: inherit;
+  outline-offset: 0;
+}
+
 .pane-tab .tab-rename,
 .split-tab-segment .tab-rename {
   min-width: 6rem;
