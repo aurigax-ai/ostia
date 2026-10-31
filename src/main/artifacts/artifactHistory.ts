@@ -320,6 +320,7 @@ export class ArtifactHistory {
   merge(source: string, target: string, renames: readonly [string, string][]): void {
     const from = this.dirOf(source)
     if (!existsSync(from)) return
+    let moved = true
     for (const [before, after] of renames) {
       const old = join(from, encodeURIComponent(before))
       if (!existsSync(old)) continue
@@ -328,10 +329,12 @@ export class ArtifactHistory {
       for (const file of readdirSync(old)) {
         try {
           renameSync(join(old, file), join(next, file))
-        } catch {}
+        } catch {
+          moved = false
+        }
       }
     }
-    rmSync(from, { recursive: true, force: true })
+    if (moved) rmSync(from, { recursive: true, force: true })
   }
 
   quit(): void {

@@ -244,11 +244,15 @@ export class ClaudeAccounts {
     return true
   }
 
-  async startDirectory(paneId: string): Promise<string> {
+  currentDirectory(): string {
     const account = this.deps.store.current()
-    this.deps.store.rememberPane(paneId, account)
-    if (account === DEFAULT_ACCOUNT) return ''
-    const dir = join(this.deps.root, account)
+    return account === DEFAULT_ACCOUNT ? '' : join(this.deps.root, account)
+  }
+
+  async startDirectory(paneId: string): Promise<string> {
+    this.deps.store.rememberPane(paneId, this.deps.store.current())
+    const dir = this.currentDirectory()
+    if (dir === '') return ''
     await this.deps.syncProfile(dir)
     return dir
   }

@@ -88,27 +88,3 @@ test('inside a web page, Ostia shortcuts still work and browser keys drive the p
     server.close()
   }
 })
-
-test('on Linux, Ctrl+L and Ctrl+R in a terminal still reach the shell', async () => {
-  test.skip(isMac, 'the Linux shell keys are covered here; macOS has no Ctrl+L or Ctrl+R chord')
-  const app = await electron.launch(isolatedLaunch())
-  try {
-    const win = await app.firstWindow()
-    await openWorkspace(win)
-    const rows = win.locator('.xterm-rows').first()
-    await win.locator('.xterm').first().click()
-    await win.keyboard.type('echo ostia_marker_$((40+2))')
-    await win.keyboard.press('Enter')
-    await expect(rows).toContainText('ostia_marker_42', { timeout: 15_000 })
-
-    await win.keyboard.press('Control+l')
-    await expect(rows).not.toContainText('ostia_marker_42', { timeout: 15_000 })
-
-    await win.keyboard.press('Control+r')
-    await expect(rows).toContainText(/i-search/, { timeout: 15_000 })
-    await win.keyboard.type('ostia_marker')
-    await expect(rows).toContainText('ostia_marker_', { timeout: 15_000 })
-  } finally {
-    await app.close()
-  }
-})

@@ -47,11 +47,13 @@ export async function saveRedacted(
 ): Promise<ChatSaveResult> {
   const session = normalizeChatSession(raw)
   if (!session) return store.save(raw)
+  let redacted: Awaited<ReturnType<typeof redactChatSession>>
   try {
-    return store.save(await redactChatSession(session, redact))
+    redacted = await redactChatSession(session, redact)
   } catch {
     return { ok: false, error: 'redaction-failed' }
   }
+  return store.save(redacted)
 }
 
 export function registerChatSessionIpc(store: ChatSessionStore, redact: RedactText): void {

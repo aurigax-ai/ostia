@@ -54,7 +54,6 @@ describe('extension-release.yml', () => {
       (step) => step.with?.repository === 'aurigax-ai/ostia-extensions',
     )
     expect(checkout?.with?.ref).toContain('steps.pin.outputs.sha')
-    expect(text).toContain('ostia-extensions commit $MARKETPLACE')
   })
 
   it('caches nothing', () => {

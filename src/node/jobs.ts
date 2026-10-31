@@ -35,8 +35,10 @@ function read(file: string): JobsFile {
       jobs: Array.isArray(parsed.jobs) ? parsed.jobs : [],
       stopped: Array.isArray(parsed.stopped) ? parsed.stopped : [],
     }
-  } catch {
-    return { jobs: [], stopped: [] }
+  } catch (err) {
+    if (err instanceof SyntaxError || (err as NodeJS.ErrnoException).code === 'ENOENT')
+      return { jobs: [], stopped: [] }
+    throw err
   }
 }
 

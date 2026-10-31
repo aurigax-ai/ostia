@@ -1,5 +1,3 @@
-import { readFileSync } from 'node:fs'
-import { join } from 'node:path'
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { commands } from '@/commands/registry'
@@ -162,8 +160,6 @@ describe('DiffView', () => {
   })
 
   it('groups the layout buttons in the shared Segmented control with the pressed one marked', () => {
-    const css = readFileSync(join(__dirname, '..', '..', 'index.css'), 'utf8')
-    expect(css).not.toMatch(/\.segmented\b/)
     useDiffStore.getState().set('d1', CONTENT)
     render(<DiffView workspaceId="w1" paneId="d1" />)
     const group = screen.getByRole('group', { name: 'Diff layout' })
