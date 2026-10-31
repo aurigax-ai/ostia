@@ -325,7 +325,7 @@ export const SIDEBAR_URL_MAX = 2048
 
 export const PANE_CHIP_TEXT_MAX = 40
 export const PANE_CHIP_TOOLTIP_MAX = 200
-export const PANE_CHIP_ITEMS_MAX = 20
+export const PANE_CHIP_ITEMS_MAX = 64
 export const PANE_CHIP_ITEM_TEXT_MAX = 80
 
 export interface PaneChipItemPort {

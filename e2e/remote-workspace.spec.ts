@@ -113,9 +113,9 @@ test('REM-E1 a remote workspace is set up from the menu, shows Online and lists 
     const hostPort = (server.address() as { port: number }).port
     try {
       await win.getByRole('button', { name: /Remote ports/ }).click({ timeout: 30_000 })
-      const row = win.getByText(new RegExp(`^:${hostPort} → localhost:\\d+$`))
+      const row = win.getByText(new RegExp(`^:${hostPort} → localhost:\\d+`))
       await expect(row).toBeVisible({ timeout: 30_000 })
-      const local = Number((await row.innerText()).split(':').pop())
+      const local = Number(/localhost:(\d+)/.exec(await row.innerText())?.[1])
       const answer = await new Promise<string>((done, fail) => {
         const socket = connect(local, '127.0.0.1')
         let body = ''

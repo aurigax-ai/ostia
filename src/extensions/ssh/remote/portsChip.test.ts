@@ -21,11 +21,11 @@ describe('portItems', () => {
     ])
   })
 
-  it('RPF-C10 keeps forwarded ports in the menu when more than 20 ports listen', () => {
-    const rows = Array.from({ length: 40 }, (_, i) => ({ remote: 1000 + i }))
-    rows[35] = { remote: 1035, local: 1035 } as never
+  it('RPF-C10 keeps forwarded ports in the menu when more than 64 ports listen', () => {
+    const rows = Array.from({ length: 80 }, (_, i) => ({ remote: 1000 + i }))
+    rows[70] = { remote: 1070, local: 1070 } as never
     const items = portItems(rows)
-    expect(items).toHaveLength(20)
-    expect(items[0].text).toBe(':1035 → localhost:1035')
+    expect(items).toHaveLength(64)
+    expect(items[0].text).toBe(':1070 → localhost:1070')
   })
 })
