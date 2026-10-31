@@ -17,7 +17,7 @@ import { useNow } from '@/lib/app/useNow'
 import { openArtifact, openPad, opensInOstia } from '@/lib/files/artifacts'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useArtifactsStore } from '@/stores/files/artifactsStore'
-import { fileIcon } from './fileIcon'
+import { fileIcon } from './fileIconFor'
 
 const AGE_TICK_MS = 30_000
 
