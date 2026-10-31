@@ -198,6 +198,26 @@ describe('TabRow', () => {
     expect(tablist().scrollLeft).toBe(6 * TAB_W + TAB_W - ROW_W)
   })
 
+  it('leaves the strip where the human scrolled it when a tab is added', () => {
+    layOut()
+    const { panes, root } = stackOf(8, 6)
+    const view = (stack: TabsNode) => (
+      <TooltipProvider delay={0}>
+        <Pane
+          tabs={stack.children}
+          shownId={stack.activeId}
+          activePaneId={stack.activeId}
+          workspaceId="w"
+        />
+      </TooltipProvider>
+    )
+    const { rerender } = render(view(root))
+    tablist().scrollLeft = 0
+    const added = createPane('terminal', 'worker', '/work/worker')
+    rerender(view(tabsOf(panes[6].id, ...panes, added)))
+    expect(tablist().scrollLeft).toBe(0)
+  })
+
   it('marks the edge that hides a tab needing the human and scrolls to it', () => {
     layOut()
     const { panes, root } = stackOf(8)

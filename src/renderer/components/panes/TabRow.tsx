@@ -80,6 +80,7 @@ export function TabRow({
 }): JSX.Element {
   const d = useDict()
   const rowRef = useRef<HTMLDivElement>(null)
+  const revealed = useRef<string | null>(null)
   const [hidden, setHidden] = useState<HiddenTabs>(NOTHING_HIDDEN)
   const [fade, setFade] = useState({ start: false, end: false })
   const tabKey = tabs.map((t) => t.id).join(' ')
@@ -109,7 +110,10 @@ export function TabRow({
   useLayoutEffect(() => {
     const row = rowRef.current
     if (!row || !tabKey) return
-    reveal(row, shownTabId)
+    if (revealed.current !== shownTabId) {
+      revealed.current = shownTabId
+      reveal(row, shownTabId)
+    }
     measure()
   }, [shownTabId, tabKey, measure])
 
