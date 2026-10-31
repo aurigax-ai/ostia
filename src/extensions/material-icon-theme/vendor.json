@@ -1,0 +1,7 @@
+{
+  "files": {
+    "material-icon-theme/dist/material-icons.json": "dist/material-icons.json",
+    "material-icon-theme/icons": "icons",
+    "material-icon-theme/LICENSE": "LICENSE"
+  }
+}
