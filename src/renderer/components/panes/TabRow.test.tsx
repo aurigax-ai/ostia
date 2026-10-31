@@ -103,6 +103,27 @@ describe('tab row helpers', () => {
     expect(hiddenTabs(view, tabs)).toEqual({ start: ['a'], end: ['d'] })
   })
 
+  it('keeps the tab strip from scrolling vertically', () => {
+    const css = readFileSync(join(__dirname, '..', '..', 'index.css'), 'utf8')
+    const rule = (selector: string) => css.slice(css.indexOf(`\n${selector} {`)).split('}')[0]
+    expect(rule('.pane-tabs')).toMatch(/overflow-x: auto;/)
+    expect(rule('.pane-tabs')).toMatch(/overflow-y: hidden;/)
+  })
+
+  it('moves the tab strip sideways on a vertical wheel only when it overflows', () => {
+    const { root } = stackOf(2)
+    renderStack(root)
+    const row = screen.getAllByRole('tablist')[0] as HTMLElement
+    Object.defineProperty(row, 'clientWidth', { configurable: true, value: 100 })
+    Object.defineProperty(row, 'scrollWidth', { configurable: true, value: 100 })
+    fireEvent.wheel(row, { deltaY: 40 })
+    expect(row.scrollLeft).toBe(0)
+    Object.defineProperty(row, 'scrollWidth', { configurable: true, value: 500 })
+    fireEvent.wheel(row, { deltaY: 40 })
+    expect(row.scrollLeft).toBe(40)
+    expect(row.scrollTop).toBe(0)
+  })
+
   it('scrolls just far enough to show a tab', () => {
     expect(revealScroll(0, 300, 100, 100)).toBe(0)
     expect(revealScroll(0, 300, 500, 100)).toBe(300)
