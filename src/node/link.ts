@@ -19,13 +19,19 @@ import {
   type LinkFrame,
   parseFrame,
 } from '../shared/remote/linkFrames'
-import { type HostPort, PORTS_POLL_MS } from '../shared/remote/remotePorts'
+import {
+  type HostPort,
+  PORTS_POLL_MS,
+  type PortOp,
+  type PortsResult,
+} from '../shared/remote/remotePorts'
 import { backNotice, desktopRef, offlineNotice } from '../shared/remote/remoteRef'
 import { samePorts, scanHostPorts } from './hostPorts'
 import type { Jobs } from './jobs'
 
 const DESKTOP_ROUTE = 'desktop'
 const SYSTEM_SENDER = 'ostia'
+const PORTS_REQUEST_MS = 15_000
 
 interface Session {
   conn: MessageConnection
@@ -43,7 +49,9 @@ export class RunnerLink {
   private everUp = false
   private delivered = 0
   private resync = false
+  private portRequests = 0
   private readonly noticed = new Set<string>()
+  private readonly portWaiters = new Map<string, (result: PortsResult) => void>()
 
   constructor(
     private readonly jobs: Jobs,
@@ -76,6 +84,30 @@ export class RunnerLink {
     })
     conn.onClose(() => {
       if (this.session === session) this.drop()
+    })
+  }
+
+  request(op: PortOp, remote?: number, local?: number): Promise<PortsResult> {
+    if (!this.ready) return Promise.resolve({ ok: false, error: 'link-down' })
+    this.portRequests += 1
+    const id = `p${this.portRequests}`
+    return new Promise((resolve) => {
+      const timer = setTimeout(() => {
+        this.portWaiters.delete(id)
+        resolve({ ok: false, error: 'timeout' })
+      }, PORTS_REQUEST_MS)
+      this.portWaiters.set(id, (result) => {
+        clearTimeout(timer)
+        this.portWaiters.delete(id)
+        resolve(result)
+      })
+      this.send({
+        t: 'ports-req',
+        id,
+        op,
+        ...(remote === undefined ? {} : { remote }),
+        ...(local === undefined ? {} : { local }),
+      })
     })
   }
 
@@ -145,6 +177,9 @@ export class RunnerLink {
     }
     if (!this.ready) return
     this.ready = false
+    for (const waiter of [...this.portWaiters.values()]) {
+      waiter({ ok: false, error: 'link-down' })
+    }
     this.downSince = new Date(this.now()).toISOString()
     this.noticed.clear()
     this.notify(
@@ -195,6 +230,10 @@ export class RunnerLink {
       const wasQueued = getMail(frame.id)?.state === 'queued'
       if (storedOnRoute(DESKTOP_ROUTE, frame.id) && wasQueued) this.delivered += 1
       this.backIfDrained()
+      return
+    }
+    if (frame.t === 'ports-res') {
+      this.portWaiters.get(frame.id)?.(frame.result)
       return
     }
     if (frame.t !== 'mail') return

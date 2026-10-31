@@ -64,16 +64,12 @@ describe('gitRequest', () => {
 describe('portsRequest forward and stop', () => {
   it('RPF-C19 sends forward and stop to the ssh extension with the asked ports', () => {
     expect(portsRequest(['forward', '3000', '--local', '3100'])).toEqual({
-      method: 'ext.invoke',
-      params: {
-        extId: 'ssh',
-        command: 'ports-forward',
-        args: { argv: ['3000', '--local', '3100'] },
-      },
+      method: 'ports.forward',
+      params: { remote: 3000, local: 3100 },
     })
     expect(portsRequest(['stop', '3000'])).toEqual({
-      method: 'ext.invoke',
-      params: { extId: 'ssh', command: 'ports-stop', args: { argv: ['3000'] } },
+      method: 'ports.stop',
+      params: { remote: 3000 },
     })
   })
 

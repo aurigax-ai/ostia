@@ -57,16 +57,11 @@ export function gitRequest(argv: readonly string[]): BoardRequest | null {
   }
 }
 
-const SSH_EXTENSION = 'ssh'
 const NOT_REMOTE_REPLIES: ReadonlySet<string> = new Set([
   'not-remote',
   'unknown-extension',
   'extension-disabled',
 ])
-
-function sshPorts(command: string, argv: string[]): BoardRequest {
-  return { method: 'ext.invoke', params: { extId: SSH_EXTENSION, command, args: { argv } } }
-}
 
 export function portsRequest(argv: readonly string[]): BoardRequest | null {
   const [sub, ...rest] = argv
@@ -75,14 +70,16 @@ export function portsRequest(argv: readonly string[]): BoardRequest | null {
     return positional.length === 0 ? { method: 'ports.ls', params: { all: booleans.all } } : null
   }
   if (sub === 'forward' || sub === 'stop') {
-    const { positional, values } = parseArgs(rest, {
-      values: sub === 'forward' ? { local: '--local' } : {},
-    })
+    const { positional, values } = parseArgs(rest, { values: { local: '--local' } })
     const remote = positional[0]
     if (positional.length !== 1 || !/^\d{1,5}$/.test(remote)) return null
-    const local = (values as { local?: string }).local
+    const { local } = values
+    if (sub === 'stop' && local !== undefined) return null
     if (local !== undefined && !/^\d{1,6}$/.test(local)) return null
-    return sshPorts(`ports-${sub}`, local === undefined ? [remote] : [remote, '--local', local])
+    return {
+      method: `ports.${sub}`,
+      params: { remote: Number(remote), ...(local === undefined ? {} : { local: Number(local) }) },
+    }
   }
   return null
 }
@@ -129,10 +126,7 @@ export async function runPortsVerb(
   argv: readonly string[],
 ): Promise<void> {
   if (argv.length === 1 && argv[0] === 'list') {
-    const remote = await conn.sendRequest<BoardReply>(
-      'ext.invoke',
-      sshPorts('ports-list', []).params,
-    )
+    const remote = await conn.sendRequest<BoardReply>('ports.forwards', {})
     if (remote.ok || !NOT_REMOTE_REPLIES.has(remote.error ?? ''))
       return report('ports', argv, remote)
   }

@@ -5,7 +5,7 @@ import {
   failure,
   ok,
 } from '@aurigax-ai/ostia-extension-sdk'
-import type { ForwardRow, PortsResult } from '../../../shared/remote/remotePorts'
+import { type PortsResult, portsTable } from '../../../shared/remote/remotePorts'
 import { jsonArg } from './args'
 import type { HostForwards } from './forwards'
 import type { RemoteRegistry } from './registry'
@@ -50,15 +50,9 @@ function portArgs(args: unknown): PortArgs | null {
   return out
 }
 
-function table(rows: readonly ForwardRow[]): string {
-  return rows
-    .map((row) => [row.remote, row.local ?? '-', row.name ?? '-', row.error ?? '-'].join('\t'))
-    .join('\n')
-}
-
 function answer(result: PortsResult): ExtensionResult {
   if (!result.ok) return failure(result.error, result.error)
-  return ok(table(result.forwards), { forwards: result.forwards })
+  return ok(portsTable(result.forwards), { forwards: result.forwards })
 }
 
 export function portCommands(

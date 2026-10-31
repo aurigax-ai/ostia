@@ -78,9 +78,36 @@ export function extensionCommandRunner(
   }
 }
 
+const SSH_PORT_COMMANDS: Record<string, string> = {
+  'ports.forwards': 'ports-list',
+  'ports.forward': 'ports-forward',
+  'ports.stop': 'ports-stop',
+}
+
+function portArgv(params: unknown): string[] {
+  const { remote, local } = (params ?? {}) as { remote?: unknown; local?: unknown }
+  return [
+    ...(typeof remote === 'number' ? [String(remote)] : []),
+    ...(typeof local === 'number' ? ['--local', String(local)] : []),
+  ]
+}
+
+function registerPortMethods(host: () => ExtensionHost | null): void {
+  for (const [method, command] of Object.entries(SSH_PORT_COMMANDS)) {
+    registerControlMethod(method, {
+      handler: (params, ctx) => {
+        const h = host()
+        if (!h) return fail('not-remote', 'the ssh extension is not running')
+        return invokeAsPane(h, ctx.identity, 'ssh', command, { argv: portArgv(params) })
+      },
+    })
+  }
+}
+
 export function registerExtensionMethods(host: () => ExtensionHost | null): void {
   const forExtension = extensionHandler(host)
   registerHostMethods(host, forExtension)
+  registerPortMethods(host)
   registerWindowMethods(forExtension)
   registerRunMethods(host, forExtension)
   registerAssistMethods(forExtension)

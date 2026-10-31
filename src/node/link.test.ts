@@ -121,4 +121,36 @@ describe('RunnerLink', () => {
     expect(frames()).toHaveLength(2)
     expect(frames()[1]).toEqual({ t: 'ports', ports: [] })
   })
+
+  it('RPF-C22 answers link-down and sends nothing when the link is not up', async () => {
+    const link = new RunnerLink(jobs, VERSION, Date.now, async () => [])
+    const peer = fakeConn()
+    link.attach(peer.conn)
+    expect(await link.request('forward', 3000, 3100)).toEqual({ ok: false, error: 'link-down' })
+    expect(peer.sent.some((f) => (f as { t: string }).t === 'ports-req')).toBe(false)
+  })
+
+  it('RPF-C20 sends a host agent request over the link and returns the desktop answer', async () => {
+    const link = new RunnerLink(jobs, VERSION, Date.now, async () => [])
+    const peer = fakeConn()
+    link.attach(peer.conn)
+    peer.receive({ t: 'hello', version: VERSION })
+    const pending = link.request('forward', 3000, 3100)
+    await vi.advanceTimersByTimeAsync(10)
+    const sent = peer.sent.find((f) => (f as { t: string }).t === 'ports-req') as { id: string }
+    expect(sent).toMatchObject({ op: 'forward', remote: 3000, local: 3100 })
+    const result = { ok: true, forwards: [{ remote: 3000, local: 3100 }] }
+    peer.receive({ t: 'ports-res', id: sent.id, result })
+    expect(await pending).toEqual(result)
+  })
+
+  it('RPF-C22 answers link-down to a request in flight when the link drops', async () => {
+    const link = new RunnerLink(jobs, VERSION, Date.now, async () => [])
+    const peer = fakeConn()
+    link.attach(peer.conn)
+    peer.receive({ t: 'hello', version: VERSION })
+    const pending = link.request('list')
+    link.attach(fakeConn().conn)
+    expect(await pending).toEqual({ ok: false, error: 'link-down' })
+  })
 })

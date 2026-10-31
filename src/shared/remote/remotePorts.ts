@@ -39,3 +39,9 @@ export function parseLocalPort(text: string): number | null | 'bad' {
   const port = Number(trimmed)
   return validLocalPort(port) ? port : 'bad'
 }
+
+export function portsTable(rows: readonly ForwardRow[]): string {
+  return rows
+    .map((row) => [row.remote, row.local ?? '-', row.name ?? '-', row.error ?? '-'].join('\t'))
+    .join('\n')
+}
