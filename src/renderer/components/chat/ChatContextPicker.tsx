@@ -2,7 +2,7 @@ import type { ChatContextItem } from '@aurigax-ai/ostia-extension-sdk/contract/a
 import {
   AtIcon,
   BrowserIcon,
-  FileIcon,
+  FileIcon as FileGlyph,
   FolderSimpleIcon,
   SelectionIcon,
   TagIcon,
@@ -12,6 +12,7 @@ import {
 } from '@phosphor-icons/react'
 import { useEffect, useMemo, useState } from 'react'
 import { IconButton } from '@/components/common/IconButton'
+import { FileIcon } from '@/components/files/FileIcon'
 import {
   Command,
   CommandEmpty,
@@ -30,7 +31,7 @@ import {
   terminalSelectionContext,
 } from '@/lib/assist/askContext'
 import { byteSize, workspaceTerminals } from '@/lib/assist/chatActions'
-import { relativeToRoot } from '@/lib/files/fileTree'
+import { baseName, relativeToRoot } from '@/lib/files/fileTree'
 import { allPanes } from '@/lib/layout/tree'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useBlocksStore } from '@/stores/terminal/blocksStore'
@@ -204,7 +205,7 @@ export function ChatContextPicker({
                     value={`file ${e.name}`}
                     onSelect={() => pickFile(e.name, e.dir)}
                   >
-                    {e.dir ? <FolderSimpleIcon /> : <FileIcon />}
+                    <FileIcon name={e.name} dir={e.dir} />
                     <span className="truncate font-mono text-ui-sm">
                       {e.dir ? `${e.name}/` : e.name}
                     </span>
@@ -225,8 +226,8 @@ export function ChatContextPicker({
 }
 
 const KIND_ICONS = {
-  file: FileIcon,
-  editor: FileIcon,
+  file: FileGlyph,
+  editor: FileGlyph,
   browser: BrowserIcon,
   output: TextAlignLeftIcon,
   selection: SelectionIcon,
@@ -265,7 +266,11 @@ export function AttachmentChips({
                     className="flex min-w-0 items-center gap-1 rounded-sm"
                     aria-label={fmt(d.chatActions.preview, { label: item.label, size })}
                   >
-                    <IconFor aria-hidden className="size-4 shrink-0 text-fg-muted" />
+                    {item.kind === 'file' ? (
+                      <FileIcon name={baseName(item.label)} />
+                    ) : (
+                      <IconFor aria-hidden className="size-4 shrink-0 text-fg-muted" />
+                    )}
                     <span className="max-w-48 truncate">{item.label}</span>
                     <span className="shrink-0 text-fg-muted tabular-nums">{size}</span>
                   </button>

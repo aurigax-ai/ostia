@@ -1,9 +1,7 @@
-import type { LoadedIconTheme } from '@aurigax-ai/ostia-extension-sdk/contract/iconTheme'
 import type { RemoteFileError } from '@aurigax-ai/ostia-extension-sdk/contract/remoteFolders'
 import type { FsEntry } from '@shared/files/filesApi'
 import { useMemo } from 'react'
 import { useDict } from '@/lib/app/useDict'
-import type { IconVariant } from '@/lib/extensions/iconTheme'
 import {
   childPath,
   type ExcludeMatcher,
@@ -15,9 +13,7 @@ import {
 } from '@/lib/files/fileTree'
 import { followedFolder, treeRoot } from '@/lib/files/revealFolder'
 import type { FileTreeSettings } from '@/lib/settings/fileTreeSettings'
-import { useEffectiveTheme } from '@/lib/theme/theme'
 import { useSettingsStore } from '@/stores/app/settingsStore'
-import { useActiveIconTheme } from '@/stores/extensions/iconThemeStore'
 import { useFileTreeStore } from '@/stores/files/fileTreeStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
@@ -41,8 +37,6 @@ export interface TreeContext {
   isExcluded: ExcludeMatcher
   nest: (entries: FsEntry[]) => NestedEntry[]
   visible: (entries: FsEntry[], path: string) => FsEntry[]
-  iconTheme: LoadedIconTheme | null
-  variant: IconVariant
   setExcluded: (path: string, hidden: boolean) => void
 }
 
@@ -84,8 +78,6 @@ export function listingError(err: unknown): RemoteFileError {
 export function useTreeContext(focus: TreeFocus, remoteRoot?: string): TreeContext {
   const d = useDict()
   const settings = useSettingsStore((s) => s.files)
-  const iconTheme = useActiveIconTheme()
-  const appearance = useEffectiveTheme()?.appearance
   const root = remoteRoot ?? focus.cwd
   const remote = remoteRoot !== undefined
   const emptyText = remote ? d.remoteFolders.empty : d.rail.noFolder
@@ -110,9 +102,7 @@ export function useTreeContext(focus: TreeFocus, remoteRoot?: string): TreeConte
       isExcluded,
       nest: (entries) => nestEntries(entries, rules),
       visible,
-      iconTheme,
-      variant: appearance === 'light' ? 'light' : 'dark',
       setExcluded,
     }
-  }, [focus, root, remote, emptyText, settings, iconTheme, appearance])
+  }, [focus, root, remote, emptyText, settings])
 }
