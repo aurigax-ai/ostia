@@ -205,8 +205,16 @@ export function cancelPick(paneId: string): boolean {
   return true
 }
 
-function nextReportPath(dir: string, url: string): string {
-  return join(dir, pickReportName(nextPickReportNumber(readdirSync(dir)), url))
+function claimReportPath(dir: string, url: string, report: string): string {
+  for (;;) {
+    const path = join(dir, pickReportName(nextPickReportNumber(readdirSync(dir)), url))
+    try {
+      writeFileSync(path, report, { mode: 0o600, flag: 'wx' })
+      return path
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error
+    }
+  }
 }
 
 const asWritten: RedactText = async (text) => text
@@ -232,13 +240,12 @@ export async function writePickReport(
   let message: string
   try {
     const report = await redact(renderPickReport(stored.capture, note))
-    path = nextReportPath(privateTmpDir(REPORT_DIR_NAME), stored.capture.url)
+    path = claimReportPath(privateTmpDir(REPORT_DIR_NAME), stored.capture.url, report)
     message = pickBusMessage(
       { ...stored.capture, url: await redact(stored.capture.url) },
       await redact(note),
       path,
     )
-    writeFileSync(path, report, { mode: 0o600, flag: 'wx' })
   } catch {
     return { ok: false, error: 'write-failed' }
   }
