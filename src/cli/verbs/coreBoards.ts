@@ -57,11 +57,34 @@ export function gitRequest(argv: readonly string[]): BoardRequest | null {
   }
 }
 
+const SSH_EXTENSION = 'ssh'
+const NOT_REMOTE_REPLIES: ReadonlySet<string> = new Set([
+  'not-remote',
+  'unknown-extension',
+  'extension-disabled',
+])
+
+function sshPorts(command: string, argv: string[]): BoardRequest {
+  return { method: 'ext.invoke', params: { extId: SSH_EXTENSION, command, args: { argv } } }
+}
+
 export function portsRequest(argv: readonly string[]): BoardRequest | null {
   const [sub, ...rest] = argv
-  if (sub !== 'list') return null
-  const { positional, booleans } = parseArgs(rest, { booleans: { all: '--all' } })
-  return positional.length === 0 ? { method: 'ports.ls', params: { all: booleans.all } } : null
+  if (sub === 'list') {
+    const { positional, booleans } = parseArgs(rest, { booleans: { all: '--all' } })
+    return positional.length === 0 ? { method: 'ports.ls', params: { all: booleans.all } } : null
+  }
+  if (sub === 'forward' || sub === 'stop') {
+    const { positional, values } = parseArgs(rest, {
+      values: sub === 'forward' ? { local: '--local' } : {},
+    })
+    const remote = positional[0]
+    if (positional.length !== 1 || !/^\d{1,5}$/.test(remote)) return null
+    const local = (values as { local?: string }).local
+    if (local !== undefined && !/^\d{1,6}$/.test(local)) return null
+    return sshPorts(`ports-${sub}`, local === undefined ? [remote] : [remote, '--local', local])
+  }
+  return null
 }
 
 async function runBoardVerb(
@@ -83,6 +106,10 @@ async function runBoardVerb(
     return
   }
   const res = await conn.sendRequest<BoardReply>(request.method, request.params)
+  report(verb, argv, res)
+}
+
+function report(verb: string, argv: readonly string[], res: BoardReply): void {
   if (!res.ok) {
     const detail = res.message ? `${res.error}: ${res.message}` : res.error
     fail(`ostia ${verb} ${argv[0]}: ${detail}`)
@@ -97,6 +124,17 @@ export function runGitVerb(conn: MessageConnection, argv: readonly string[]): Pr
   return runBoardVerb(conn, 'git', argv, gitRequest)
 }
 
-export function runPortsVerb(conn: MessageConnection, argv: readonly string[]): Promise<void> {
+export async function runPortsVerb(
+  conn: MessageConnection,
+  argv: readonly string[],
+): Promise<void> {
+  if (argv.length === 1 && argv[0] === 'list') {
+    const remote = await conn.sendRequest<BoardReply>(
+      'ext.invoke',
+      sshPorts('ports-list', []).params,
+    )
+    if (remote.ok || !NOT_REMOTE_REPLIES.has(remote.error ?? ''))
+      return report('ports', argv, remote)
+  }
   return runBoardVerb(conn, 'ports', argv, portsRequest)
 }
