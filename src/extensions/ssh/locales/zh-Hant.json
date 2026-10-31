@@ -16,7 +16,8 @@
     "settings.portForwarding.title": "連接埠轉發",
     "settings.portForwarding.description": "在 ssh 遠端工作區中，自動模式會把主機上新開啟的連接埠轉發到這台電腦；手動模式只列出連接埠，直到你轉發其中之一。轉發只綁定這台電腦的 127.0.0.1",
     "settings.portForwarding.valueTitles.auto": "自動",
-    "settings.portForwarding.valueTitles.manual": "手動"
+    "settings.portForwarding.valueTitles.manual": "手動",
+    "workspaceChips.ports.title": "遠端連接埠"
   },
   "messages": {
     "confirmTitle": "開啟 SSH 連線",
