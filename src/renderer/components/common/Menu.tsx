@@ -13,7 +13,7 @@ import {
 } from '@/components/ui/context-menu'
 import { cn } from '@/lib/utils'
 
-const ROW = 'h-7 gap-2 rounded-sm px-2 text-ui-base'
+const ROW = 'h-6 gap-2 rounded-sm px-2 text-ui-sm'
 
 function Leading({ icon: IconComponent, leading }: { icon?: Icon; leading?: ReactNode }) {
   if (leading) {
@@ -31,14 +31,14 @@ export function MenuContent({
   className,
   ...props
 }: ComponentProps<typeof ContextMenuContent>): JSX.Element {
-  return <ContextMenuContent className={cn('min-w-56 text-ui-base', className)} {...props} />
+  return <ContextMenuContent className={cn('min-w-56 text-ui-sm', className)} {...props} />
 }
 
 export function MenuSubContent({
   className,
   ...props
 }: ComponentProps<typeof ContextMenuSubContent>): JSX.Element {
-  return <ContextMenuSubContent className={cn('min-w-48 text-ui-base', className)} {...props} />
+  return <ContextMenuSubContent className={cn('min-w-48 text-ui-sm', className)} {...props} />
 }
 
 export const MenuItem = forwardRef<
