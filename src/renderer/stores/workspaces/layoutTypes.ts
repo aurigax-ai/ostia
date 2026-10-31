@@ -37,6 +37,7 @@ export interface LayoutState {
   renameSplitTab: (workspaceId: string, tabId: string, name: string) => void
   changeCollapse: (workspaceId: string, paneId: string, change: CollapseChange) => void
   foldSplitTab: (workspaceId: string, tabId: string) => void
+  ungroupSplitTab: (workspaceId: string, tabId: string) => void
   setCwd: (workspaceId: string, paneId: string, cwd: string) => void
   setUrl: (workspaceId: string, paneId: string, url: string) => void
   setBrowserDevice: (workspaceId: string, paneId: string, device: BrowserDevice | null) => void

@@ -125,6 +125,7 @@ export const commandsEn = {
       'pane.splitTabOf': 'Split Tab of Pane',
       'pane.tabPlan': 'Plan Split Tab Move',
       'pane.toggleLock': 'Lock or Unlock Pane',
+      'pane.ungroupSplitTab': 'Ungroup Split Tab',
       'pane.wake': 'Wake Tab',
       'pane.zoom': 'Zoom Pane',
       'resume.set': 'Set Agent Resume Token',

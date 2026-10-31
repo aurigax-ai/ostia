@@ -127,6 +127,7 @@ export const commandsZhHant: typeof commandsEn = {
       'pane.splitTabOf': '窗格所在的分割分頁',
       'pane.tabPlan': '規劃分割分頁移動',
       'pane.toggleLock': '鎖定或解除鎖定窗格',
+      'pane.ungroupSplitTab': '取消分割分頁群組',
       'pane.wake': '喚醒分頁',
       'pane.zoom': '放大窗格',
       'resume.set': '設定代理程式的恢復權杖',

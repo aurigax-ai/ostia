@@ -17,6 +17,7 @@ import {
   MoonIcon,
   NotePencilIcon,
   PencilSimpleIcon,
+  SquaresFourIcon,
   SunIcon,
   XSquareIcon,
 } from '@phosphor-icons/react'
@@ -138,6 +139,14 @@ function PaneTabMenuItems({
           onClick={() => void commands.exec('pane.foldSplitTab', { tabId: splitTabId })}
         >
           {d.pane.foldSplitTab}
+        </MenuItem>
+      ) : null}
+      {splitTabId ? (
+        <MenuItem
+          icon={SquaresFourIcon}
+          onClick={() => void commands.exec('pane.ungroupSplitTab', { tabId: splitTabId })}
+        >
+          {d.pane.ungroupSplitTab}
         </MenuItem>
       ) : null}
       {viewable ? (
