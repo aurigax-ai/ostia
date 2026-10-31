@@ -7,6 +7,7 @@ import type { ExtensionSettingValues } from '@aurigax-ai/ostia-extension-sdk/con
 import type { AgentActTool } from '@shared/agent/agentCoreTools'
 import { type AgentHostSettings, DEFAULT_AGENT_SETTINGS } from '@shared/agent/agentSettings'
 import { type AgentHooks, DEFAULT_AGENT_HOOKS } from '@shared/agents/agentHooks'
+import { DEFAULT_FINISHED_HIBERNATE_MINUTES } from '@shared/agents/finishedHibernate'
 import { DEFAULT_MANAGER_SETTINGS, type ManagerSettings } from '@shared/agents/managerSettings'
 import {
   DEFAULT_PLAYBOOKS,
@@ -107,6 +108,7 @@ interface AgentSettings {
   hibernation: HibernationSettings
   autoResume: boolean
   trustWorkspaceFolders: boolean
+  finishedHibernateMinutes: number
   hooks: AgentHooks
 }
 
@@ -339,6 +341,7 @@ export const DEFAULTS: Persisted = {
     hibernation: DEFAULT_HIBERNATION,
     autoResume: false,
     trustWorkspaceFolders: false,
+    finishedHibernateMinutes: DEFAULT_FINISHED_HIBERNATE_MINUTES,
     hooks: DEFAULT_AGENT_HOOKS,
   },
   agent: DEFAULT_AGENT_SETTINGS,

@@ -1,4 +1,5 @@
 import type { Capability } from '@aurigax-ai/ostia-extension-sdk/contract/capabilities'
+import { isRecord } from '@aurigax-ai/ostia-extension-sdk/contract/isRecord'
 import { isResumableAgent } from '../../shared/agents/agentResume'
 import type { CommandResult, CommandTarget } from '../../shared/control/commands'
 import type { TerminalStateSnapshot } from '../../shared/terminal/ptyApi'
@@ -69,6 +70,9 @@ export interface PaneEntry extends PaneAgentFields {
   process?: PaneProcessStatus
   name?: string
   description?: string
+  owner?: string
+  finished?: boolean
+  finishedSince?: number
 }
 
 interface PaneProcessStatus {
@@ -87,6 +91,9 @@ export interface PaneListDeps {
   processOf?: (paneId: string) => PaneProcessStatus | undefined
   reach?: Pick<Reach, 'scriptReach'>
   isSandboxed?: (workspaceId: string) => boolean
+  lifecycle?: {
+    annotate: (panes: PaneEntry[], ownedBy?: string) => Promise<PaneEntry[]>
+  }
 }
 
 async function listFromEveryWindow<T>(
@@ -211,8 +218,12 @@ export function registerPaneListMethods(deps: PaneListDeps): void {
     cap: READ_BOARD,
     callers: 'all',
     scripts: true,
-    handler: async (_params, ctx) => {
-      const [scope, listed] = await Promise.all([scoped(ctx), listPanes(deps)])
+    handler: async (params, ctx) => {
+      const ownedBy = isRecord(params) && params.mine === true ? ctx.identity.paneId : undefined
+      const [scope, listed] = await Promise.all([
+        scoped(ctx),
+        listPanes(deps).then((panes) => deps.lifecycle?.annotate(panes, ownedBy) ?? panes),
+      ])
       const panes = ctx.identity.kind === 'extension' ? listed : listed.map(withBusName)
       return scope ? panes.filter((p) => scope.covers(p.workspaceId)) : panes
     },
