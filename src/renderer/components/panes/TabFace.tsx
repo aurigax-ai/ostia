@@ -13,9 +13,11 @@ import {
 } from '@phosphor-icons/react'
 import { Hint } from '@/components/common/Hint'
 import { MailCount } from '@/components/common/MailCount'
+import { FileIcon } from '@/components/files/FileIcon'
 import { viewIcon } from '@/components/views/viewIcons'
 import { useDict } from '@/lib/app/useDict'
 import { needsYou, tabMark } from '@/lib/attention/attention'
+import { baseName } from '@/lib/files/fileTree'
 import type { PaneNode, SurfaceKind } from '@/lib/layout/types'
 import { cn } from '@/lib/utils'
 import { useAttentionStore } from '@/stores/agents/attentionStore'
@@ -55,6 +57,8 @@ export function TabFace({
     : pane.kind === 'view'
       ? viewIcon(viewIconName)
       : SURFACE_ICON[pane.kind]
+  const fileName =
+    pane.kind === 'editor' && pane.filePath && !pane.hibernated ? baseName(pane.filePath) : null
   const dirty = useEditorStatus((s) =>
     pane.kind === 'editor' && pane.filePath ? (s.dirty[pane.filePath] ?? false) : false,
   )
@@ -80,7 +84,13 @@ export function TabFace({
           }
         />
       ) : null}
-      {segment && pane.kind === 'terminal' && !pane.hibernated ? null : (
+      {segment && pane.kind === 'terminal' && !pane.hibernated ? null : fileName ? (
+        <FileIcon
+          key={loud ? attention?.at : undefined}
+          name={fileName}
+          className={cn('pane-kind', loud && 'pane-kind-blink')}
+        />
+      ) : (
         <Icon
           key={loud ? attention?.at : undefined}
           size={16}
