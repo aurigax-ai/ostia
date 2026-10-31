@@ -34,7 +34,7 @@ export const agentEn = {
     damagedFresh: 'Start fresh',
     defaultAccount: 'Default account',
     defaultLabel: 'Default',
-    duplicate: '{email} is already added.',
+    duplicate: 'Already added as {account}.',
     enabledCurrent:
       'New sessions use this account, so it stays on. Switch to another account first.',
     enabledDefault: 'The Default account is always on.',
@@ -57,6 +57,7 @@ export const agentEn = {
     removeRunning:
       'A Claude session is still running on this account. Close it, then remove the account.',
     removeTitle: 'Remove {account}?',
+    sameLogin: 'Same login as {account}. Remove one.',
     sharedDesc:
       'Settings, MCP servers, keybindings, CLAUDE.md, skills, commands, agents, history and sessions come from the Default account; settings and MCP servers are copied each time a session starts, so changes made under another account are replaced by the Default ones at its next start. Plugins and the sign-in belong to each account.',
     sharedTitle: 'What accounts share',

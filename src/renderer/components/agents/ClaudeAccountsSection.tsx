@@ -42,6 +42,11 @@ interface SigningIn {
 const accountName = (account: ClaudeAccountView, fallback: string): string =>
   account.email ?? fallback
 
+const nameOfId = (accounts: readonly ClaudeAccountView[], id: string, fallback: string): string => {
+  const account = accounts.find((entry) => entry.id === id)
+  return account ? accountName(account, fallback) : fallback
+}
+
 export function ClaudeAccountsSection(): JSX.Element {
   const d = useDict().claudeAccounts
   const {
@@ -118,13 +123,18 @@ export function ClaudeAccountsSection(): JSX.Element {
         </Notice>
       ) : null}
       {adding ? <Notice tone="info">{d.adding}</Notice> : null}
-      {duplicate ? <Notice tone="info">{fmt(d.duplicate, { email: duplicate })}</Notice> : null}
+      {duplicate ? (
+        <Notice tone="info">
+          {fmt(d.duplicate, { account: nameOfId(accounts, duplicate, d.defaultAccount) })}
+        </Notice>
+      ) : null}
       {problem ? <Notice>{problemText[problem]}</Notice> : null}
       <SettingsList label={d.listLabel} empty={d.noAccounts}>
         {accounts.map((account) => (
           <AccountRow
             key={account.id}
             account={account}
+            sameAs={account.sameAs ? nameOfId(accounts, account.sameAs, d.defaultAccount) : null}
             active={account.id === current}
             onRemove={() => setRemoving(account)}
             onSignIn={() => void signIn(account)}
@@ -177,11 +187,13 @@ function EmptySlot(): JSX.Element {
 
 function AccountRow({
   account,
+  sameAs,
   active,
   onRemove,
   onSignIn,
 }: {
   account: ClaudeAccountView
+  sameAs: string | null
   active: boolean
   onRemove: () => void
   onSignIn: () => void
@@ -245,7 +257,9 @@ function AccountRow({
             </TextLink>
           </>
         ) : (
-          usage.line(account.usage)
+          [sameAs ? fmt(d.sameLogin, { account: sameAs }) : null, usage.line(account.usage)]
+            .filter(Boolean)
+            .join(' · ') || undefined
         )
       }
       actions={actions}

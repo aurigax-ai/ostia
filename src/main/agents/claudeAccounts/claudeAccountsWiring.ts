@@ -20,7 +20,7 @@ import type { ScratchFolders } from '../../workspaces/scratchFolders'
 import type { AgentRunningPanes } from '../agentRunning'
 import type { AccountMoves } from './accountMoves'
 import {
-  accountEmail,
+  accountLogin,
   accountsRoot,
   credentialsStamp,
   defaultConfigHome,
@@ -58,8 +58,8 @@ export function createClaudeAccounts(deps: CreateDeps): ClaudeAccounts {
     store: new ClaudeAccountsStore(storePath(ACCOUNTS_DIR, 'global')),
     root: accountsRoot(),
     defaultHome: () => defaultConfigHome(),
-    defaultEmail: () => accountEmail(process.env.CLAUDE_CONFIG_DIR || undefined),
-    profileEmail: (dir) => accountEmail(dir),
+    defaultLogin: () => accountLogin(process.env.CLAUDE_CONFIG_DIR || undefined),
+    profileLogin: (dir) => accountLogin(dir),
     syncProfile: (dir) => syncProfileFromDefault(dir, defaultConfigHome()),
     loginState: (dir) => loginState(dir, Date.now()),
     writeLogin,
