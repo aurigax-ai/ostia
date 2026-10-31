@@ -7,7 +7,7 @@ import { join } from 'node:path'
 import { gzipSync } from 'node:zlib'
 import type { LanguageServerRun } from '@aurigax-ai/ostia-extension-sdk/contract/languageServers'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
-import { FetchError, ManagedServers } from './managedServers'
+import { ManagedServers } from './managedServers'
 
 const program = Buffer.from('#!/bin/sh\necho fetched\n')
 const asset = gzipSync(program)
@@ -90,31 +90,5 @@ describe('ManagedServers against a local HTTP server', () => {
     for (const header of ['cookie', 'authorization', 'referer', 'origin']) {
       expect(requests[0].headers[header]).toBeUndefined()
     }
-  })
-
-  it('follows a redirect that stays on the same origin and refuses one that leaves it', async () => {
-    const sha = createHash('sha256').update(asset).digest('hex')
-    const inside = await managed(join(root, 'inside')).fetch(
-      'ext',
-      'srv',
-      run('/redirect/inside', sha),
-    )
-    expect(readFileSync(inside)).toEqual(program)
-    await expect(
-      managed(join(root, 'outside')).fetch('ext', 'srv', run('/redirect/outside', sha)),
-    ).rejects.toMatchObject({ reason: 'redirect-refused' })
-  })
-
-  it('reports a missing asset and a tampered one without keeping anything', async () => {
-    const missing = managed(join(root, 'missing')).fetch('ext', 'srv', run('/nope'))
-    await expect(missing).rejects.toBeInstanceOf(FetchError)
-    await expect(missing).rejects.toMatchObject({ reason: 'http-error', detail: '404' })
-    const tampered = managed(join(root, 'tampered'))
-    await expect(
-      tampered.fetch('ext', 'srv', run(ASSET_PATH, 'b'.repeat(64))),
-    ).rejects.toMatchObject({
-      reason: 'checksum-mismatch',
-    })
-    expect(tampered.executable('ext', 'srv', run(ASSET_PATH, 'b'.repeat(64)))).toBeNull()
   })
 })

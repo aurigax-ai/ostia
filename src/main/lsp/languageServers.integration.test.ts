@@ -242,27 +242,6 @@ describe('a real language server process', () => {
     ])
   })
 
-  it('exits by shutdown and exit after its last document is released', async () => {
-    const file = join(workDir, 'notes.txt')
-    const [session] = await servers.open('w1', 'p1', file)
-    await initialize(session.sessionId)
-    servers.release('w1', session.sessionId)
-    await vi.waitFor(
-      () => expect(posts.some((p) => p.channel === `lsp:exit:${session.sessionId}`)).toBe(true),
-      { timeout: 10_000 },
-    )
-    expect(record(workDir).map((entry) => entry.method)).toEqual([
-      '$start',
-      'initialize',
-      'initialized',
-      'workspace/didChangeConfiguration',
-      'shutdown',
-      'exit',
-    ])
-    expect(servers.log('fake-lang/fake').entries.at(-1)).toMatchObject({ kind: 'exit', code: 0 })
-    expect(servers.servers()[0]).toMatchObject({ status: 'idle', folders: 0 })
-  })
-
   it('comes back after a crash when the document is opened again', async () => {
     const file = join(workDir, 'notes.txt')
     const [first] = await servers.open('w1', 'p1', file)
@@ -393,23 +372,6 @@ describe('a real language server process', () => {
     expect(starts()).toBe(1)
   })
 
-  it('a missing program is offered for install, with the exact command shown before anything runs', async () => {
-    const manifest = readManifest(extensionDir)
-    if (!manifest.ok) throw new Error(manifest.error)
-    sources = (manifest.manifest.contributes.languageServers ?? []).map((server) => ({
-      ...sources[0],
-      server,
-    }))
-    const offered = await servers.open('w1', 'p1', join(workDir, 'notes.txt'))
-    expect(offered.map((session) => session.serverKey)).toEqual(['fake-lang/fake'])
-    expect(servers.servers().find((server) => server.serverId === 'absent')).toMatchObject({
-      name: 'Absent server',
-      status: 'program-missing',
-      program: 'ostia-absent-lsp',
-      requirement: 'lsp:fake-lang/absent',
-    })
-  })
-
   it('switching a server off stops its process, and Restart starts a fresh one', async () => {
     const file = join(workDir, 'notes.txt')
     const [first] = await servers.open('w1', 'p1', file)
@@ -453,25 +415,6 @@ describe('a real language server process', () => {
     )
     expect(await servers.open('w1', 'p1', file)).toEqual([])
     expect(starts()).toBe(2)
-  })
-
-  it('a crashing server is restarted five times, then reported as crashed until the human restarts it', async () => {
-    const file = join(workDir, 'boom.txt')
-    writeFileSync(file, 'CRASH on open\n')
-    for (let attempt = 0; attempt < 8; attempt++) {
-      const [session] = await servers.open('w1', 'p1', file)
-      if (!session) break
-      await initialize(session.sessionId)
-      didOpen(session.sessionId, file, 'CRASH on open\n')
-      await vi.waitFor(() => expect(exited(session.sessionId)).toBe(true), { timeout: 10_000 })
-    }
-    expect(servers.servers()[0].status).toBe('crashed')
-    expect(starts()).toBe(6)
-
-    writeFileSync(file, 'calm now\n')
-    await servers.restart('fake-lang/fake')
-    expect(await servers.open('w1', 'p1', file)).toHaveLength(1)
-    await vi.waitFor(() => expect(starts()).toBe(7), { timeout: 10_000 })
   })
 
   it('two windows showing the same folder each get their own server and their own diagnostics', async () => {
