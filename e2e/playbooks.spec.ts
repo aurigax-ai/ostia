@@ -73,7 +73,7 @@ test('a playbook turned on and edited in Settings reaches the next terminal’s 
     const fresh = win.locator('.pane-slot:not([data-hidden]) .xterm-rows').last()
     await expect(fresh).toContainText('playbooks:onboard,', { timeout: 30_000 })
     await expect(fresh).toContainText('edited:1')
-    await expect(fresh).toContainText('human-only:1')
+    await expect(fresh).toContainText('human-only:0')
     await expect(fresh).toContainText('steps:1')
   } finally {
     await quitApp(app)

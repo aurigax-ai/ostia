@@ -18,8 +18,15 @@ describe('playbookFiles', () => {
     )
     expect(files.map((f) => f.id)).toEqual(['onboard'])
     expect(files[0].skill).toContain('My onboard.')
-    expect(files[0].skill).toContain('disable-model-invocation: true')
+    expect(files[0].skill).not.toContain('disable-model-invocation')
     expect(files[0].description).toBe(BUILTIN_PLAYBOOKS[0].description)
+  })
+
+  it('writes the coordinator playbook into a new pane, human-invoked', () => {
+    const files = playbookFiles({ enabled: { coordinator: true } }, [])
+    expect(files.map((f) => f.id)).toEqual(['coordinator'])
+    expect(files[0].skill).toContain('name: coordinator')
+    expect(files[0].skill).toContain('disable-model-invocation: true')
   })
 
   it('leaves out an own playbook that clashes with an extension skill id', () => {
