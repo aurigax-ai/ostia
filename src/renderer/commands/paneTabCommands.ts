@@ -122,6 +122,19 @@ export function registerPaneTabCommands(): void {
     },
   })
 
+  registerCore<{ tabId?: string } | undefined>({
+    id: 'pane.ungroupSplitTab',
+    category: 'pane',
+    local: true,
+    listed: () => shownSplitTabId() !== null,
+    run: (args, ctx) => {
+      const tabId = args?.tabId ?? activeSplitTabId(ctx.activeWorkspaceId, ctx.activePaneId)
+      if (ctx.activeWorkspaceId && tabId) {
+        useLayoutStore.getState().ungroupSplitTab(ctx.activeWorkspaceId, tabId)
+      }
+    },
+  })
+
   registerCore({
     id: 'pane.renameSplitTab',
     category: 'pane',

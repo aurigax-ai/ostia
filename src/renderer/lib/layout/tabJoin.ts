@@ -7,6 +7,7 @@ import {
   insertTab,
   isPaneShown,
   paneIds,
+  replaceSlot,
   replaceTab,
   selectTab,
   splitOf,
@@ -151,4 +152,19 @@ export function separateFromSplitTab(
     next = insertTab(arranged, stay, pane, true)
   }
   return next
+}
+
+function expandedPane(pane: PaneNode): PaneNode {
+  if (!pane.collapsed) return pane
+  const { collapsed: _collapsed, ...rest } = pane
+  return rest
+}
+
+export function splitTabToTabs(root: LayoutNode, splitTabId: string): LayoutNode {
+  const tab = findSplitTab(root, splitTabId)
+  const tabs = tab ? tabsOfPane(root, firstPaneId(tab)) : null
+  if (!tab || !tabs) return root
+  const members = allPanes(tab).map(expandedPane)
+  const children = tabs.children.flatMap((c) => (c === tab ? members : [c]))
+  return replaceSlot(root, tabs.id, () => ({ ...tabs, children }))
 }
