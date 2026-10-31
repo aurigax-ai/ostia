@@ -139,16 +139,17 @@ export class FileWatches {
     const safe = this.deps.confine(path)
     const previous = safe === null ? undefined : this.lastSeen.get(safe)
     if (safe === null || previous === undefined) return save()
+    const hash = digest(data)
     const saving = previous.then(save)
     this.lastSeen.set(
       safe,
       saving.then(
-        (stamp) => ({ ...stamp, hash: digest(data) }),
+        (stamp) => ({ ...stamp, hash }),
         () => previous,
       ),
     )
     const stamp = await saving
-    const written: Fingerprint = { ...stamp, hash: digest(data) }
+    const written: Fingerprint = { ...stamp, hash }
     if (sameContent(await previous, written)) return stamp
     const others = [...this.ownersOf(safe)].filter((owner) => owner !== writer)
     if (others.length > 0) this.deps.onChange({ path: safe, exists: true, owners: others })
@@ -286,11 +287,11 @@ interface TreeWatch {
   reconciler: ReturnType<typeof setInterval> | null
 }
 
-function entriesOf(dir: string): Dirent[] {
+function entriesOf(dir: string): Dirent[] | null {
   try {
     return readdirSync(dir, { withFileTypes: true })
   } catch {
-    return []
+    return null
   }
 }
 
@@ -365,7 +366,7 @@ export class TreeWatches {
       watcher.on('error', () => this.dropDir(tree, watched))
       const files = new Set<string>()
       tree.dirs.set(watched, { watcher, files })
-      for (const entry of entriesOf(watched)) {
+      for (const entry of entriesOf(watched) ?? []) {
         if (entry.isDirectory()) {
           if (!TREE_WATCH_SKIPPED_DIRS.includes(entry.name)) queue.push(join(watched, entry.name))
           continue
@@ -398,8 +399,10 @@ export class TreeWatches {
         changes.push(...this.dropDir(tree, dir))
         continue
       }
+      const entries = entriesOf(dir)
+      if (!entries) continue
       const names = new Set<string>()
-      for (const entry of entriesOf(dir)) {
+      for (const entry of entries) {
         const path = join(dir, entry.name)
         if (entry.isDirectory()) {
           if (!TREE_WATCH_SKIPPED_DIRS.includes(entry.name)) this.scan(tree, path, changes)

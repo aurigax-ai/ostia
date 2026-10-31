@@ -210,7 +210,7 @@ export interface DoubleShiftDetector {
   reset: () => void
 }
 
-export function doubleShiftDetector(windowMs = DOUBLE_SHIFT_MS): DoubleShiftDetector {
+export function doubleShiftDetector(): DoubleShiftDetector {
   let downAt: number | null = null
   let tappedAt: number | null = null
   let armed = false
@@ -226,13 +226,13 @@ export function doubleShiftDetector(windowMs = DOUBLE_SHIFT_MS): DoubleShiftDete
         reset()
         return
       }
-      armed = tappedAt !== null && now - tappedAt <= windowMs
+      armed = tappedAt !== null && now - tappedAt <= DOUBLE_SHIFT_MS
       tappedAt = null
       downAt = now
     },
     up: (e, now) => {
       if (e.key !== 'Shift') return false
-      const tap = downAt !== null && now - downAt <= windowMs
+      const tap = downAt !== null && now - downAt <= DOUBLE_SHIFT_MS
       const second = armed
       reset()
       if (!tap) return false

@@ -46,7 +46,7 @@ function params(over: Record<string, unknown> = {}): Record<string, unknown> {
 function newLinks() {
   return new ScreenLinks({
     listWorkspaces: async () => [
-      { workspaceId: 's1', name: 'One', kind: 'agent', workDir: '/w', state: 'idle' },
+      { workspaceId: 's1', name: 'One', kind: 'terminal', workDir: '/w', state: 'idle' },
     ],
     askPhones: vi.fn(),
     notifiedDevices: () => [],
