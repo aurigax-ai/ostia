@@ -165,6 +165,17 @@ describe('reduceAttention', () => {
     ).toMatchObject({ state: 'done', unread: true })
   })
 
+  it('ends working when the command that reported it exits quietly, and keeps done', () => {
+    const working = pane({ state: 'working' })
+    expect(reduceAttention(working, { type: 'commandEnd', exitCode: 0, long: false, at })).toEqual({
+      state: 'none',
+      unread: false,
+      at,
+    })
+    const done = pane({ state: 'done', unread: true })
+    expect(reduceAttention(done, { type: 'commandEnd', exitCode: 0, long: false, at })).toBe(done)
+  })
+
   it('waitEnded clears only waiting', () => {
     const ended = { type: 'waitEnded', at } as const
     expect(reduceAttention(pane({ state: 'waiting', unread: true }), ended)).toEqual({
@@ -245,10 +256,11 @@ describe('paneLiveState and aggregateWorkspaceState', () => {
     expect(paneLiveState(pane({ state: 'none' }), true)).toBe('working')
   })
 
-  it('ranks waiting > error > done > working > idle', () => {
+  it('ranks waiting > error > working > done > idle', () => {
     expect(aggregateWorkspaceState([])).toBe('idle')
     expect(aggregateWorkspaceState(['idle', 'working'])).toBe('working')
-    expect(aggregateWorkspaceState(['working', 'done'])).toBe('done')
+    expect(aggregateWorkspaceState(['working', 'done'])).toBe('working')
+    expect(aggregateWorkspaceState(['idle', 'done'])).toBe('done')
     expect(aggregateWorkspaceState(['done', 'error', 'working'])).toBe('error')
     expect(aggregateWorkspaceState(['error', 'waiting', 'done'])).toBe('waiting')
   })
