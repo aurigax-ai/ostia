@@ -1029,6 +1029,7 @@ describe('shellIntegrationSpawnOptions', () => {
       expect(command('Notification')).toContain('"${OSTIA_CLI}" claude-hook Notification')
       expect(command('Stop')).toContain('"${OSTIA_CLI}" claude-hook Stop')
       expect(command('StopFailure')).toContain('"${OSTIA_CLI}" claude-hook StopFailure')
+      expect(command('PermissionDenied')).toContain('"${OSTIA_CLI}" claude-hook PermissionDenied')
       expect(command('SubagentStart')).toContain('"${OSTIA_CLI}" claude-hook SubagentStart')
       expect(command('SubagentStop')).toContain('"${OSTIA_CLI}" claude-hook SubagentStop')
       expect(settings.hooks.PreToolUse[0].matcher).toBe('AskUserQuestion|ExitPlanMode')
