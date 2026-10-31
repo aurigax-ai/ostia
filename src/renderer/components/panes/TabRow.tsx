@@ -168,8 +168,10 @@ export function TabRow({
           data-fade-end={fade.end ? '' : undefined}
           onScroll={measure}
           onWheel={(e) => {
+            const row = e.currentTarget
             if (Math.abs(e.deltaY) <= Math.abs(e.deltaX)) return
-            e.currentTarget.scrollLeft += e.deltaY
+            if (row.scrollWidth <= row.clientWidth) return
+            row.scrollLeft += e.deltaY
           }}
           onDoubleClick={(e) => {
             if (e.target === e.currentTarget) onNewTab()
