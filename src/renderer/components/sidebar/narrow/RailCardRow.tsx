@@ -6,6 +6,7 @@ import type { Workspace } from '@/stores/workspaces/workspaceTypes'
 import { PathLine } from '../RailMeta'
 import { RowFact } from '../row/RowFact'
 import { useWorkspaceFlags } from '../WorkspaceBadges'
+import { WorkspaceDescription } from '../WorkspaceDetails'
 import { WorkspaceIcon } from '../WorkspaceIcon'
 import { WorkspaceMenu } from '../WorkspaceMenu'
 
@@ -34,6 +35,7 @@ export function RailCardRow({
           <WorkspaceIcon workspace={w} />
           <span className="rail-card-text">
             <span className="rail-card-name">{workspaceTitle(w)}</span>
+            {w.description ? <WorkspaceDescription text={w.description} /> : null}
             {path ? <PathLine path={path} hint={false} /> : null}
             <RowFact workspace={w} offline={null} showLive />
           </span>

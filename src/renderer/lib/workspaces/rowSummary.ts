@@ -1,7 +1,7 @@
 import type { WorkspaceLiveState } from '@shared/attention/attention'
 import type { PaneNode } from '@/lib/layout/types'
 
-export type RowMark = 'working' | 'waiting' | 'error'
+export type RowMark = 'working' | 'waiting' | 'error' | 'done'
 
 type FactTone = 'waiting' | 'error' | 'plain' | 'muted'
 
@@ -11,7 +11,7 @@ export interface RowFact {
 }
 
 export function rowMark(state: WorkspaceLiveState): RowMark | null {
-  return state === 'working' || state === 'waiting' || state === 'error' ? state : null
+  return state === 'idle' ? null : state
 }
 
 export function liveTerminalCount(panes: readonly PaneNode[]): number {
@@ -43,8 +43,7 @@ export interface StateCounts {
 export function stateCounts(states: readonly WorkspaceLiveState[]): StateCounts {
   const counts: StateCounts = { waiting: 0, error: 0, working: 0 }
   for (const s of states) {
-    const mark = rowMark(s)
-    if (mark) counts[mark] += 1
+    if (s === 'working' || s === 'waiting' || s === 'error') counts[s] += 1
   }
   return counts
 }

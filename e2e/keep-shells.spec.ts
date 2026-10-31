@@ -251,7 +251,7 @@ test('KSH-C87 the state an agent last reported is shown again after a restart', 
   await openWorkspace(first.win)
   await runInTerminal(first.win, 'claude')
   await expect(screen(first.win)).toContainText('fake-agent-ready', { timeout: 15_000 })
-  await expect(first.win.locator('.workspace-dot').first()).toHaveAttribute(
+  await expect(first.win.locator('.workspace-badge').first()).toHaveAttribute(
     'aria-label',
     'Waiting for input',
     { timeout: 15_000 },
@@ -262,7 +262,7 @@ test('KSH-C87 the state an agent last reported is shown again after a restart', 
   const second = await launch(dataHome, pathWith(bin))
   try {
     await expect(screen(second.win)).toContainText('fake-agent-ready', { timeout: 15_000 })
-    await expect(second.win.locator('.workspace-dot').first()).toHaveAttribute(
+    await expect(second.win.locator('.workspace-badge').first()).toHaveAttribute(
       'aria-label',
       'Waiting for input',
       { timeout: 15_000 },
@@ -312,7 +312,7 @@ test('KSH-C86 what an agent hook reports while Ostia is closed is shown once Ost
   const second = await launch(dataHome, pathWith(bin))
   try {
     await expect(screen(second.win)).toContainText('hook-rc=0', { timeout: 15_000 })
-    await expect(second.win.locator('.workspace-dot').first()).toHaveAttribute(
+    await expect(second.win.locator('.workspace-badge').first()).toHaveAttribute(
       'aria-label',
       'Waiting for input',
       { timeout: 15_000 },

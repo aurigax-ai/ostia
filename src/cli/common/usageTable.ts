@@ -187,8 +187,8 @@ export const USAGE_TABLE: readonly NounUsage[] = [
       },
       {
         verb: 'describe',
-        args: '[--workspace <id>] <text|-> | --clear',
-        about: 'the one-line summary under a workspace in the sidebar',
+        args: '<text…>',
+        about: 'refused: only the human sets a description; leave a note with ostia activity add',
       },
       { verb: 'dir', args: '[path]', about: "make a folder the workspace's folder" },
       {

@@ -6,10 +6,10 @@ import { liveTerminalCount, rowFact, rowMark, stateCounts } from './rowSummary'
 const pane = (over: Partial<PaneNode>): PaneNode => ({ ...createTerminalPane('t', '/x'), ...over })
 
 describe('rowMark', () => {
-  it('marks only working, waiting and error', () => {
+  it('marks every state but idle', () => {
     expect(
       (['idle', 'done', 'working', 'waiting', 'error'] as const).map((s) => rowMark(s)),
-    ).toEqual([null, null, 'working', 'waiting', 'error'])
+    ).toEqual([null, 'done', 'working', 'waiting', 'error'])
   })
 })
 

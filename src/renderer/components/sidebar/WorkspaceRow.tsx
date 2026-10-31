@@ -133,7 +133,15 @@ export function WorkspaceRow({
           titleAdornment={<WorkspaceBadges workspace={w} />}
           editor={editor}
           onDoubleClick={() => setEditing('name')}
-          after={editing === null ? <WorkspaceDetails workspace={w} onSelect={select} /> : null}
+          after={
+            editing === null ? (
+              <WorkspaceDetails
+                workspace={w}
+                onSelect={select}
+                onEditDescription={() => setEditing('description')}
+              />
+            ) : null
+          }
           badge={digitHints && index < 9 ? <Kbd className="tab-digit">{index + 1}</Kbd> : null}
         />
         {drop === 'merge' || drop === 'tab' ? (

@@ -113,16 +113,19 @@ describe('sidebar unread mark', () => {
     expect(title()).not.toHaveClass('unread')
   })
 
-  it('draws the waiting mark amber and still, and no mark for done or idle', async () => {
+  it('draws the waiting badge amber, a check for done and nothing for idle', async () => {
     const { workspaceId } = twoPanes()
     act(() => useWorkspacesStore.getState().setState(workspaceId, 'waiting'))
     await renderSettled(<DeckRail />)
     expect(screen.getByRole('img', { name: 'Waiting for input' })).toHaveClass(
-      'state-dot',
+      'state-badge',
       'waiting',
     )
 
     act(() => useWorkspacesStore.getState().setState(workspaceId, 'done'))
+    expect(screen.getByRole('img', { name: 'Done' })).toHaveClass('state-badge', 'done')
+
+    act(() => useWorkspacesStore.getState().setState(workspaceId, 'idle'))
     expect(screen.queryByRole('img', { name: 'Done' })).toBeNull()
   })
 

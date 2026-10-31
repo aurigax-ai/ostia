@@ -1,9 +1,8 @@
 import { StackIcon } from '@phosphor-icons/react'
 import { aggregateWorkspaceState } from '@/lib/attention/attention'
 import type { WorkspaceGroup } from '@/lib/sidebar/workspaceGroups'
-import { rowMark } from '@/lib/workspaces/rowSummary'
 import type { Workspace } from '@/stores/workspaces/workspaceTypes'
-import { StateDot } from '../WorkspaceIcon'
+import { StateBadge } from '../WorkspaceIcon'
 import { RailCard } from './RailCard'
 
 export function NarrowGroup({
@@ -30,7 +29,7 @@ export function NarrowGroup({
         <span className="rail-stack-count" aria-hidden>
           {members.length}
         </span>
-        {rowMark(urgent) ? <StateDot state={urgent} /> : null}
+        <StateBadge state={urgent} />
       </button>
     </RailCard>
   )

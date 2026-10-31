@@ -1,15 +1,20 @@
 import {
+  BellRingingIcon,
   BroadcastIcon,
+  CheckCircleIcon,
+  CircleNotchIcon,
   FlaskIcon,
   type Icon as IconComponent,
   MoonIcon,
   TerminalWindowIcon,
+  WarningCircleIcon,
 } from '@phosphor-icons/react'
 import { Hint } from '@/components/common/Hint'
 import { fmt, useDict } from '@/lib/app/useDict'
 import { allPanes } from '@/lib/layout/tree'
 import type { LayoutNode } from '@/lib/layout/types'
-import { rowMark } from '@/lib/workspaces/rowSummary'
+import { cn } from '@/lib/utils'
+import { type RowMark, rowMark } from '@/lib/workspaces/rowSummary'
 import { useUnread } from '@/lib/workspaces/useUnread'
 import { stateLabel } from '@/lib/workspaces/workspaceState'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
@@ -26,16 +31,40 @@ function isAsleep(root: LayoutNode): boolean {
   return terminals.length > 0 && terminals.every((p) => p.hibernated)
 }
 
-export function StateDot({ state }: { state: Workspace['state'] }): JSX.Element | null {
+const BADGE_SIZE = 12
+
+const MARK_ICON: Record<RowMark, IconComponent> = {
+  working: CircleNotchIcon,
+  waiting: BellRingingIcon,
+  error: WarningCircleIcon,
+  done: CheckCircleIcon,
+}
+
+export function StateBadge({
+  state,
+  className,
+  decorative = false,
+}: {
+  state: Workspace['state']
+  className?: string
+  decorative?: boolean
+}): JSX.Element | null {
   const d = useDict()
   const mark = rowMark(state)
   if (!mark) return null
+  const MarkIcon = MARK_ICON[mark]
+  const cls = cn('state-badge', mark, className)
+  if (decorative) {
+    return (
+      <span className={cls} aria-hidden>
+        <MarkIcon size={BADGE_SIZE} aria-hidden />
+      </span>
+    )
+  }
   return (
-    <span
-      className={`state-dot workspace-dot ${mark}`}
-      role="img"
-      aria-label={stateLabel(d, mark)}
-    />
+    <span className={cls} role="img" aria-label={stateLabel(d, mark)}>
+      <MarkIcon size={BADGE_SIZE} aria-hidden />
+    </span>
   )
 }
 
@@ -59,7 +88,7 @@ export function WorkspaceIcon({ workspace }: { workspace: Workspace }): JSX.Elem
   )
   return (
     <span className="tab-lead-wrap">
-      <StateDot state={workspace.state} />
+      <StateBadge state={workspace.state} className="workspace-badge" />
       {scratch && !hibernated ? <Hint label={d.scratch.badgeHint}>{icon}</Hint> : icon}
     </span>
   )

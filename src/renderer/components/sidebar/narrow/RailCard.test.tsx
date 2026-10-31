@@ -15,7 +15,11 @@ const ws = (id: string, name: string, state: Workspace['state'] = 'idle'): Works
   state,
 })
 
-const members = [ws('a', 'alpha', 'waiting'), ws('b', 'beta', 'working'), ws('c', 'gamma')]
+const members = [
+  { ...ws('a', 'alpha', 'waiting'), description: 'freeze Friday' },
+  ws('b', 'beta', 'working'),
+  ws('c', 'gamma'),
+]
 
 function show() {
   useWorkspacesStore.setState({ workspaces: members, activeWorkspaceId: 'c' })
@@ -73,6 +77,13 @@ describe('RailCard', () => {
     await user.click(await screen.findByRole('button', { name: /alpha/ }))
     expect(useWorkspacesStore.getState().activeWorkspaceId).toBe('a')
     await waitFor(() => expect(screen.queryByText('Finops')).toBeNull())
+  })
+
+  it('shows a workspace’s description under its name, and none for the rest', async () => {
+    show()
+    await userEvent.setup().click(screen.getByRole('button', { name: 'open' }))
+    await screen.findByText('Finops')
+    expect(screen.getAllByText('freeze Friday')).toHaveLength(1)
   })
 
   it('closes on Escape', async () => {

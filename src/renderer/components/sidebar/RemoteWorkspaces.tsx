@@ -8,7 +8,7 @@ import { useUIStore } from '@/stores/app/uiStore'
 import { useWindowsStore } from '@/stores/workspaces/windowsStore'
 import { PathLine } from './RailMeta'
 import { RailTab } from './RailTab'
-import { StateDot } from './WorkspaceIcon'
+import { StateBadge } from './WorkspaceIcon'
 
 export function RemoteWorkspaces({ offset }: { offset: number }): JSX.Element | null {
   const windowId = useWindowsStore((s) => s.windowId)
@@ -43,7 +43,7 @@ function RemoteWorkspaceRow({
           closeLabel={d.rail.close}
           icon={
             <span className="tab-lead-wrap">
-              <StateDot state={w.state} />
+              <StateBadge state={w.state} className="workspace-badge" />
               <AppWindowIcon size={16} className="tab-lead" aria-label={d.window.inOtherWindow} />
             </span>
           }

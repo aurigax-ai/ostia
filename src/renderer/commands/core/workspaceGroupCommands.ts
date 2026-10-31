@@ -28,18 +28,14 @@ function editInRail(edit: RailEdit): void {
 }
 
 function registerRenameCommands(): void {
-  registerCore<{ text?: string } | undefined>({
+  registerCore({
     id: 'workspace.describe',
     category: 'workspace',
     listed: railShown,
-    capabilities: ['drive-self'],
-    run: (args, ctx) => {
+    local: true,
+    run: (_args, ctx) => {
       if (!ctx.activeWorkspaceId) throw new Error('no target workspace')
-      if (typeof args?.text !== 'string' && ctx.origin !== 'remote') {
-        editInRail({ kind: 'workspace', id: ctx.activeWorkspaceId, field: 'description' })
-        return
-      }
-      useWorkspacesStore.getState().describe(ctx.activeWorkspaceId, args?.text ?? '')
+      editInRail({ kind: 'workspace', id: ctx.activeWorkspaceId, field: 'description' })
     },
   })
 

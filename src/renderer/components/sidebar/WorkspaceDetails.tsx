@@ -7,16 +7,22 @@ import { PathLine, useSidebarItems } from './RailMeta'
 import { RowChips } from './row/RowChips'
 import { RowFact } from './row/RowFact'
 
-const DESCRIPTION_ELEMENTS = ['p', 'a', 'strong', 'em', 'code', 'del']
+const DESCRIPTION_ELEMENTS = ['p', 'a', 'code']
 
 const DESCRIPTION_COMPONENTS: Components = {
   p: ({ node: _node, ...props }) => <span {...props} />,
   a: ({ node: _node, ...props }) => <a {...props} target="_blank" rel="noreferrer" />,
 }
 
-function WorkspaceDescription({ text }: { text: string }): JSX.Element {
+export function WorkspaceDescription({
+  text,
+  onEdit,
+}: {
+  text: string
+  onEdit?: () => void
+}): JSX.Element {
   return (
-    <div className="tab-description">
+    <div className="tab-description" onDoubleClick={onEdit}>
       <Markdown
         allowedElements={DESCRIPTION_ELEMENTS}
         unwrapDisallowed
@@ -31,9 +37,11 @@ function WorkspaceDescription({ text }: { text: string }): JSX.Element {
 export function WorkspaceDetails({
   workspace: w,
   onSelect,
+  onEditDescription,
 }: {
   workspace: Workspace
   onSelect: () => void
+  onEditDescription: () => void
 }): JSX.Element {
   const sidebar = useSettingsStore((s) => s.sidebar)
   const items = useSidebarItems(w.id)
@@ -44,10 +52,10 @@ export function WorkspaceDetails({
   return (
     // biome-ignore lint/a11y/useKeyWithClickEvents: the row button above is the keyboard target; this only widens the click area
     <div className="tab-after" onClick={onSelect}>
-      {sidebar.showPath && path ? <PathLine path={path} /> : null}
       {sidebar.showDescription && w.description ? (
-        <WorkspaceDescription text={w.description} />
+        <WorkspaceDescription text={w.description} onEdit={onEditDescription} />
       ) : null}
+      {sidebar.showPath && path ? <PathLine path={path} /> : null}
       <RowFact workspace={w} offline={row.offline} showLive={sidebar.showMessage} />
       <RowChips workspaceId={w.id} chips={row.chips} />
     </div>

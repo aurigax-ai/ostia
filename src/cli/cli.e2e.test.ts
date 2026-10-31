@@ -939,31 +939,14 @@ describe('ostia CLI end-to-end (spawns the real out/cli/index.js against a live 
   describe('ostia workspace describe', () => {
     const env = () => withEnv({ OSTIA_SOCKET: socketPath, OSTIA_TOKEN: identity.token })
 
-    it('sends the text to the caller’s workspace', async () => {
-      const res = await runOstia(['workspace', 'describe', 'PR', '#7:', 'fix', 'refunds'], env())
-      expect(res.stderr).toBe('')
-      expect(res.code).toBe(0)
-      expect(execCalls.at(-1)).toMatchObject({
-        target: { workspaceId: 's1', paneId: 'pE2E' },
-        id: 'workspace.describe',
-        args: { text: 'PR #7: fix refunds' },
-      })
-    })
-
-    it('takes everything after -- as the text, flags included', async () => {
-      const res = await runOstia(['workspace', 'describe', '--', '--clear', 'the', 'cache'], env())
-      expect(res.code).toBe(0)
-      expect(execCalls.at(-1)?.args).toEqual({ text: '--clear the cache' })
-    })
-
-    it('clears with --clear and refuses an empty description', async () => {
-      expect((await runOstia(['workspace', 'describe', '--clear'], env())).code).toBe(0)
-      expect(execCalls.at(-1)?.args).toEqual({ text: '' })
-      const empty = await runOstia(['workspace', 'describe'], env())
-      expect(empty.code).toBe(1)
-      expect(empty.stderr).toContain(
-        'ostia workspace describe: missing arguments\nusage: ostia workspace describe [--workspace <id>] <text|-> | --clear',
+    it('refuses without calling the app and points to ostia activity add', async () => {
+      const before = execCalls.length
+      const res = await runOstia(['workspace', 'describe', 'PR', '#7:', 'fix'], env())
+      expect(res.code).toBe(1)
+      expect(res.stderr).toContain(
+        'ostia workspace describe: human-only: only the human sets a workspace description\nnext: ostia activity add "PR #7: fix"',
       )
+      expect(execCalls).toHaveLength(before)
     })
   })
 

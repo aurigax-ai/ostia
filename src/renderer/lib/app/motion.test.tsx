@@ -179,7 +179,7 @@ describe('motion CSS contract', () => {
     expect(infinite).toEqual([
       '  animation: breathe var(--motion-breathe) var(--ease-in-out) infinite;',
     ])
-    expect(ruleBody('.state-dot.working')).toContain('infinite')
+    expect(ruleBody('.state-badge.working')).toContain('infinite')
   })
 
   it('keeps every other infinite animation out of panel and typeset styles', () => {

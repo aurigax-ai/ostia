@@ -205,7 +205,7 @@ describe('DeckRail', () => {
     expect(screen.queryByText('/home/alpha')).toBeNull()
     const row = rowFor(/alpha/)
     expect(row.querySelector('.tab-after')).toBeNull()
-    expect(row.querySelector('.tab-lead-wrap .workspace-dot')).toHaveClass('working')
+    expect(row.querySelector('.tab-lead-wrap .workspace-badge')).toHaveClass('working')
     expect(screen.getByRole('button', { name: 'beta' })).toBeInTheDocument()
   })
 
@@ -372,7 +372,7 @@ describe('DeckRail', () => {
 
     const workingDot = screen.getByRole('img', { name: 'Working' })
 
-    expect(workingDot).toHaveClass('workspace-dot', 'working')
+    expect(workingDot).toHaveClass('workspace-badge', 'working')
     expect(within(rowFor(/beta/)).queryByRole('img', { name: 'Idle' })).toBeNull()
   })
 
@@ -731,6 +731,20 @@ describe('DeckRail', () => {
       expect(link).toHaveAttribute('target', '_blank')
       expect(link.closest('button')).toBeNull()
       expect(screen.getByText(/fix refunds/)).toBeInTheDocument()
+    })
+
+    it('puts the description on one line above the path, with no tooltip, and edits it on double-click', async () => {
+      seedRows()
+      await renderSettled(<DeckRail />)
+      const line = document.querySelector('.tab-description') as HTMLElement
+      const path = line.parentElement?.querySelector('.rail-meta.location') as HTMLElement
+      expect(line.compareDocumentPosition(path) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+      expect(line.closest('[data-slot="tooltip-trigger"]')).toBeNull()
+      expect(line).not.toHaveAttribute('title')
+      expect(document.querySelectorAll('.tab-description')).toHaveLength(1)
+
+      await userEvent.setup().dblClick(line)
+      expect(screen.getByRole('textbox', { name: 'Workspace description' })).toBeInTheDocument()
     })
 
     it('pins a workspace to the top from its menu', async () => {
@@ -1101,18 +1115,17 @@ describe('DeckRail', () => {
         expect(useWorkspacesStore.getState().workspaces[1].customName).toBe('cli')
       })
 
-      it('a remote caller without an argument clears, as before, and opens no editor', async () => {
+      it('a remote caller without an argument clears the name, and opens no editor', async () => {
         seedGroups()
         useWorkspacesStore.getState().rename('s1', 'named')
         useWorkspacesStore.getState().describe('s1', 'notes')
         await renderSettled(<DeckRail />)
         const remote = { activeWorkspaceId: 's1', activePaneId: null, origin: 'remote' as const }
         await act(() => commands.execWith(remote, 'workspace.rename', undefined))
-        await act(() => commands.execWith(remote, 'workspace.describe', {}))
         const res = await act(() => commands.execWith(remote, 'workspace.renameGroup', undefined))
         expect(res).toMatchObject({ ok: false })
         expect(useWorkspacesStore.getState().workspaces[0].customName).toBeUndefined()
-        expect(useWorkspacesStore.getState().workspaces[0].description).toBeFalsy()
+        expect(useWorkspacesStore.getState().workspaces[0].description).toBe('notes')
         expect(screen.queryByRole('textbox')).toBeNull()
       })
 

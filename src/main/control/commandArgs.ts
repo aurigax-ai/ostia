@@ -12,7 +12,6 @@ export const SCRIPT_COMMANDS: ReadonlySet<string> = new Set([
   'workspace.pin',
   'workspace.unpin',
   'workspace.ungroup',
-  'workspace.describe',
   'workspace.newScratch',
 ])
 

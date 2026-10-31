@@ -1,12 +1,13 @@
 import { Hint } from '@/components/common/Hint'
 import { fmt, useDict } from '@/lib/app/useDict'
-import { type RowMark, stateCounts } from '@/lib/workspaces/rowSummary'
+import { type StateCounts, stateCounts } from '@/lib/workspaces/rowSummary'
 import type { Workspace } from '@/stores/workspaces/workspaceTypes'
+import { StateBadge } from './WorkspaceIcon'
 
 export function GroupStateChips({ members }: { members: Workspace[] }): JSX.Element | null {
   const d = useDict()
   const counts = stateCounts(members.map((w) => w.state))
-  const chips: [RowMark, string][] = [
+  const chips: [keyof StateCounts, string][] = [
     ['waiting', d.rail.groupWaiting],
     ['error', d.rail.groupError],
     ['working', d.rail.groupWorking],
@@ -20,7 +21,7 @@ export function GroupStateChips({ members }: { members: Workspace[] }): JSX.Elem
         return (
           <Hint key={mark} label={label}>
             <span className="rail-group-chip" role="img" aria-label={label}>
-              <span className={`state-dot ${mark}`} aria-hidden />
+              <StateBadge state={mark} decorative />
               {counts[mark]}
             </span>
           </Hint>
