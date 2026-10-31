@@ -8,6 +8,7 @@ const server = {
   batch: async () => [],
   forget: () => {},
   killWindow: async () => {},
+  retry: () => {},
 }
 
 function pane(): { pane: TmuxPane; seen: string[] } {

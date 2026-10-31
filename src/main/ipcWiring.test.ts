@@ -101,7 +101,7 @@ const PUSHED = [
 
 const TS_SOURCES = '**/!(*.d).ts'
 
-const PUSHED_DYNAMIC = ['lsp:exit:', 'lsp:msg:', 'pty:data:', 'pty:exit:', 'pty:size:']
+const PUSHED_DYNAMIC = ['lsp:exit:', 'lsp:msg:', 'pty:data:', 'pty:exit:', 'pty:link:', 'pty:size:']
 
 function mainSources(): string[] {
   return sourceFiles(MAIN_DIR, TS_SOURCES).map((file) => readFileSync(file, 'utf8'))

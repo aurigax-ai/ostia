@@ -15,6 +15,7 @@ import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { usePaneDnd } from '@/stores/workspaces/paneDndStore'
 import { FileDropCover } from './FileDropCover'
+import { useKeptLinkStatus } from './KeptLinkStatus'
 import { PaneTabMenu } from './PaneTabMenu'
 import { usePhoneSizeStatus } from './PhoneSizeStatus'
 import { focusPane } from './SplitTab'
@@ -72,6 +73,7 @@ function SplitCell({
   const over = usePaneDnd((s) => (s.overId === pane.id ? s.zone : null))
   const prompt = usePanePrompt(pane)
   const phoneStatus = usePhoneSizeStatus(pane.id)
+  const keptLinkStatus = useKeptLinkStatus(pane.id)
   const staysStatus = useSessionStaysStatus(pane.id)
   const dimInactive = useSettingsStore((s) => s.panes.dimInactive)
   const mark = usePaneMark(pane)
@@ -131,7 +133,9 @@ function SplitCell({
         <StripFace pane={pane} workspaceId={ctx.workspaceId} entering={folding} />
       ) : null}
       <TabBody pane={pane} shown={!collapsed} />
-      <NoticeSlot>{collapsed || !ctx.shown ? null : (staysStatus ?? phoneStatus)}</NoticeSlot>
+      <NoticeSlot>
+        {collapsed || !ctx.shown ? null : (keptLinkStatus ?? staysStatus ?? phoneStatus)}
+      </NoticeSlot>
       <NoticeSlot>{collapsed || !ctx.shown ? null : prompt}</NoticeSlot>
       {collapsed ? null : <FileDropCover kind={pane.kind} workspaceId={ctx.workspaceId} />}
       {dragging && !collapsed ? (

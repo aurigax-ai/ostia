@@ -1,9 +1,11 @@
-import { type ChildProcessWithoutNullStreams, type StdioOptions, spawn } from 'node:child_process'
-import { closeSync, lstatSync, mkdirSync, openSync, readdirSync, writeFileSync } from 'node:fs'
+import { spawn } from 'node:child_process'
+import { closeSync, lstatSync, mkdirSync, openSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { setTimeout as sleep } from 'node:timers/promises'
+import type { KeptLink } from '../../shared/terminal/ptyApi'
 import { processAlive } from '../platform/processAlive'
-import { type ControlEvent, ControlModeParser } from './controlMode'
+import { ControlClient, type ControlEnd, withoutInheritedFds } from './controlClient'
+import type { ControlEvent } from './controlMode'
 import {
   decodeMeta,
   encodeMeta,
@@ -25,6 +27,8 @@ const COMMAND_SUBSCRIPTION = 'ostia-cmd'
 const SERVER_ENV_KEYS = ['PATH', 'HOME', 'USER', 'LOGNAME', 'LANG', 'LC_ALL', 'LC_CTYPE', 'TMPDIR']
 const FIELD_SEPARATOR = '\t'
 const PENDING_OUTPUT_CAP = 256
+const RECONNECT_MS = 10_000
+const RECONNECT_PAUSE_MS = 250
 
 export class TmuxSocketDirError extends Error {}
 
@@ -49,7 +53,10 @@ export interface TmuxServerOptions {
   name: string
   defaultTerminal: string
   env: NodeJS.ProcessEnv
+  log?: TmuxLog
 }
+
+export type TmuxLog = (event: string, fields: Record<string, string>) => void
 
 export interface KeptWindow {
   windowId: string
@@ -80,21 +87,6 @@ async function processGone(pid: number, ms: number): Promise<void> {
 }
 const RUN_DRAIN_MS = 200
 const RUN_STDERR_CAP = 2000
-
-function inheritedFds(): number[] {
-  try {
-    return readdirSync(process.platform === 'linux' ? '/proc/self/fd' : '/dev/fd')
-      .map(Number)
-      .filter((fd) => Number.isInteger(fd) && fd > 2)
-  } catch {
-    return []
-  }
-}
-
-function withoutInheritedFds(first: ('pipe' | 'ignore')[], devNull: number): StdioOptions {
-  const highest = Math.max(2, ...inheritedFds())
-  return [...first, ...Array.from({ length: highest - 2 }, () => devNull)]
-}
 
 interface RunResult {
   ok: boolean
@@ -133,6 +125,14 @@ function run(tmux: string, args: string[], env: NodeJS.ProcessEnv): Promise<RunR
   }).finally(() => closeSync(devNull))
 }
 
+function within<T>(ms: number, work: Promise<T>): Promise<T> {
+  let timer: NodeJS.Timeout | undefined
+  const timeout = new Promise<never>((_resolve, reject) => {
+    timer = setTimeout(() => reject(new Error('tmux did not answer')), ms)
+  })
+  return Promise.race([work, timeout]).finally(() => clearTimeout(timer))
+}
+
 export function parseExit(value: string): number | null {
   const [dead, status, signal] = value.split(':')
   if (dead !== '1') return null
@@ -144,22 +144,22 @@ export class TmuxServer {
   private readonly waiters: Waiter[] = []
   private readonly panes = new Map<string, TmuxPane>()
   private readonly pendingOutput = new Map<string, string[]>()
-  private readonly parser: ControlModeParser
+  private client: ControlClient | null = null
   private closed = false
+  private suspended = false
+  private leaving = false
+  private reconnecting = false
+  private attached = false
+  private link: KeptLink = 'up'
   private serverPid = 0
   started = false
 
   private constructor(
     private readonly socket: string,
-    private readonly client: ChildProcessWithoutNullStreams,
+    private readonly launch: { tmux: string; args: string[]; env: NodeJS.ProcessEnv },
     private readonly onGone: () => void,
-  ) {
-    this.parser = new ControlModeParser((event) => this.handle(event))
-    client.stdout.on('data', (chunk: Buffer) => this.parser.push(chunk))
-    client.stderr.resume()
-    client.on('exit', () => this.gone())
-    client.stdin.on('error', () => this.gone())
-  }
+    private readonly log: TmuxLog,
+  ) {}
 
   static async connect(options: TmuxServerOptions, onGone: () => void): Promise<TmuxServer> {
     const uid = process.getuid?.() ?? 0
@@ -194,22 +194,15 @@ export class TmuxServer {
       }
       fresh = true
     }
-    const devNull = openSync('/dev/null', 'r+')
-    const client = spawn(options.tmux, [...base, '-C', 'attach-session', '-t', TMUX_SESSION], {
+    const launch = {
+      tmux: options.tmux,
+      args: [...base, '-C', 'attach-session', '-t', TMUX_SESSION],
       env,
-      stdio: withoutInheritedFds(['pipe', 'pipe', 'pipe'], devNull),
-    }) as ChildProcessWithoutNullStreams
-    closeSync(devNull)
-    const server = new TmuxServer(socket, client, onGone)
+    }
+    const server = new TmuxServer(socket, launch, onGone, options.log ?? (() => undefined))
     server.started = fresh
-    await server.command(
-      `refresh-client -B ${tmuxQuote(`${DEAD_SUBSCRIPTION}:%*:#{pane_dead}:#{pane_dead_status}:#{pane_dead_signal}`)}`,
-    )
-    await server.command(
-      `refresh-client -B ${tmuxQuote(`${COMMAND_SUBSCRIPTION}:%*:#{pane_current_command}`)}`,
-    )
-    const [pid] = await server.command(`display-message -p ${tmuxQuote('#{pid}')}`)
-    server.serverPid = Number(pid) || 0
+    await server.attach()
+    server.attached = true
     return server
   }
 
@@ -226,7 +219,9 @@ export class TmuxServer {
   }
 
   batch(lines: string[], onLastReply?: () => void): Promise<string[][]> {
+    const client = this.client
     if (this.closed) return Promise.reject(new Error('tmux is gone'))
+    if (!client) return Promise.reject(new Error('tmux is reconnecting'))
     const replies = lines.map(
       (_line, i) =>
         new Promise<string[]>((resolve, reject) => {
@@ -238,7 +233,7 @@ export class TmuxServer {
           })
         }),
     )
-    this.client.stdin.write(`${lines.join(' ; ')}\n`)
+    client.write(lines.join(' ; '))
     return Promise.all(replies)
   }
 
@@ -303,6 +298,7 @@ export class TmuxServer {
   }
 
   async killServer(): Promise<void> {
+    this.leaving = true
     await this.command('kill-server').catch(() => undefined)
     this.close()
     await processGone(this.serverPid, SERVER_EXIT_WAIT_MS)
@@ -310,13 +306,30 @@ export class TmuxServer {
 
   close(): void {
     if (this.closed) return
-    this.client.stdin.end()
+    this.leaving = true
+    this.client?.detach()
     this.gone()
+  }
+
+  suspend(): void {
+    if (this.closed || this.suspended) return
+    this.suspended = true
+    this.client?.detach()
+  }
+
+  resume(): void {
+    if (this.closed || !this.suspended) return
+    this.suspended = false
+    void this.reconnect()
+  }
+
+  retry(): void {
+    if (this.link === 'failed') void this.reconnect()
   }
 
   forget(pane: TmuxPane): void {
     this.panes.delete(pane.paneId)
-    this.parser.forgetPane(pane.paneId)
+    this.client?.forgetPane(pane.paneId)
   }
 
   private track(
@@ -329,6 +342,7 @@ export class TmuxServer {
   ): TmuxPane {
     const pane = new TmuxPane(this, windowId, paneId, pid, cols, rows)
     this.panes.set(paneId, pane)
+    if (this.link !== 'up') pane.linked(this.link)
     const held = this.pendingOutput.get(paneId)
     this.pendingOutput.delete(paneId)
     if (held) {
@@ -358,9 +372,103 @@ export class TmuxServer {
         if (code !== null) pane.died(code)
         else if (event.value.startsWith('1:')) void this.reapedExit(pane)
       }
-    } else if (event.type === 'exit') {
-      this.gone()
     }
+  }
+
+  private async attach(): Promise<void> {
+    const { tmux, args, env } = this.launch
+    const client: ControlClient = new ControlClient(tmux, args, env, {
+      onEvent: (event) => {
+        if (this.client === client) this.handle(event)
+      },
+      onEnd: (end) => this.clientEnded(client, end),
+    })
+    this.client = client
+    try {
+      await this.command(
+        `refresh-client -B ${tmuxQuote(`${DEAD_SUBSCRIPTION}:%*:#{pane_dead}:#{pane_dead_status}:#{pane_dead_signal}`)}`,
+      )
+      await this.command(
+        `refresh-client -B ${tmuxQuote(`${COMMAND_SUBSCRIPTION}:%*:#{pane_current_command}`)}`,
+      )
+      const [pid] = await this.command(`display-message -p ${tmuxQuote('#{pid}')}`)
+      this.serverPid = Number(pid) || this.serverPid
+    } catch (err) {
+      if (this.client === client) this.dropClient()
+      throw err
+    }
+  }
+
+  private dropClient(graceful = false): void {
+    if (graceful) this.client?.detach()
+    else this.client?.stop()
+    this.client = null
+    for (const waiter of this.waiters.splice(0)) waiter.reject(new Error('tmux control ended'))
+  }
+
+  private clientEnded(client: ControlClient, end: ControlEnd): void {
+    if (this.client !== client) return
+    this.dropClient()
+    this.log('tmux-control-ended', {
+      reason: end.reason,
+      code: String(end.code),
+      signal: String(end.signal),
+      stderr: end.stderr,
+      cause: this.suspended ? 'suspend' : this.leaving ? 'leaving' : 'lost',
+    })
+    if (this.closed) return
+    if (this.leaving) this.gone()
+    else if (!this.suspended && this.attached) void this.reconnect()
+  }
+
+  private async reconnect(): Promise<void> {
+    if (this.closed || this.reconnecting) return
+    this.reconnecting = true
+    this.setLink('reconnecting')
+    const began = Date.now()
+    try {
+      while (!this.closed && !this.suspended) {
+        if (this.serverPid > 0 && !processAlive(this.serverPid)) {
+          this.log('tmux-server-gone', {})
+          this.gone()
+          return
+        }
+        try {
+          await within(RECONNECT_MS, this.attach())
+          await this.resync()
+          this.log('tmux-control-reconnected', { ms: String(Date.now() - began) })
+          this.setLink('up')
+          return
+        } catch (err) {
+          this.dropClient()
+          if (Date.now() - began >= RECONNECT_MS) {
+            this.log('tmux-reconnect-failed', {
+              error: err instanceof Error ? err.message : String(err),
+            })
+            this.setLink('failed')
+            return
+          }
+          await sleep(RECONNECT_PAUSE_MS)
+        }
+      }
+    } finally {
+      this.reconnecting = false
+    }
+  }
+
+  private async resync(): Promise<void> {
+    const windows = new Map((await this.windows()).map((w) => [w.paneId, w]))
+    for (const pane of [...this.panes.values()]) {
+      const window = windows.get(pane.paneId)
+      if (!window) pane.died(LOST_EXIT_CODE)
+      else if (window.dead) void this.reapedExit(pane)
+      else void pane.redraw().catch(() => undefined)
+    }
+  }
+
+  private setLink(state: KeptLink): void {
+    this.link = state
+    for (const pane of this.panes.values()) pane.linked(state)
   }
 
   private async reapedExit(pane: TmuxPane): Promise<void> {
@@ -399,6 +507,7 @@ export class TmuxServer {
     if (this.closed) return
     this.closed = true
     for (const waiter of this.waiters.splice(0)) waiter.reject(new Error('tmux is gone'))
+    this.dropClient(true)
     for (const pane of [...this.panes.values()]) pane.lost()
     this.panes.clear()
     this.onGone()

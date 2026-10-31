@@ -73,6 +73,9 @@ export function createLiveAttach({ windows, movingPanes, recoveryHeld }: LiveAtt
       sandboxed: existing.sandboxed,
       ...(existing.sandboxStamp ? { sandboxStamp: existing.sandboxStamp } : {}),
       ...(existing.kept ? { kept: true } : {}),
+      ...(existing.kept && existing.kept.linkState !== 'up'
+        ? { link: existing.kept.linkState }
+        : {}),
       cols: existing.pty.cols,
       rows: existing.pty.rows,
       ...(existing.hold ? { held: true as const } : {}),

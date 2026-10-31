@@ -31,7 +31,13 @@ describe('ControlModeParser', () => {
     expect(events).toEqual([
       { type: 'reply', ok: true, lines: ['@1 %1 4242'] },
       { type: 'reply', ok: false, lines: ['no such window: @9'] },
-      { type: 'exit' },
+      { type: 'exit', reason: '' },
+    ])
+  })
+
+  it('carries the reason tmux gives with %exit', () => {
+    expect(parse(Buffer.from('%exit too far behind\n'))).toEqual([
+      { type: 'exit', reason: 'too far behind' },
     ])
   })
 

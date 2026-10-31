@@ -238,6 +238,12 @@ export function createPtyRegistry({
       keptMeta: opts.keptMeta ?? null,
     }
     ptys.set(paneId, entry)
+    const link = entry.kept?.onLink((state) => {
+      for (const wc of entry.subs.values()) {
+        if (!wc.isDestroyed()) wc.send(`pty:link:${paneId}`, state)
+      }
+    })
+    if (link) entry.exitListeners.add(() => link.dispose())
     return entry
   }
 

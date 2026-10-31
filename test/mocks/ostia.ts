@@ -80,6 +80,8 @@ export function makeOstiaMock(overrides?: Partial<OstiaBridge>): OstiaBridge {
       onData: vi.fn(noopUnsub),
       onExit: vi.fn(noopUnsub),
       onSize: vi.fn(noopUnsub),
+      onLink: vi.fn(noopUnsub),
+      retryLink: vi.fn(),
       releaseHold: vi.fn(),
       onRun: vi.fn(noopUnsub),
     },
