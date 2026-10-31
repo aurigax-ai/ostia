@@ -15,7 +15,13 @@ import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { lock } from 'proper-lockfile'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { carryTrust, claudeConfigFile, folderTrust, trustFolder } from './claudeFolderTrust'
+import {
+  carryTrust,
+  claudeConfigFile,
+  folderTrust,
+  outsideTrust,
+  trustFolder,
+} from './claudeFolderTrust'
 
 let home: string
 let config: string
@@ -371,5 +377,26 @@ describe('carryTrust', () => {
     write({ projects: {} })
     expect(await carryTrust({ ...place(dir), configDir: profile }, elsewhere)).toBe(true)
     expect(readProfile().projects[dir]).toEqual({ hasTrustDialogAccepted: true })
+  })
+})
+
+describe('outsideTrust', () => {
+  it('CFT-C62 names a folder outside the workspace folder that Claude has not accepted', async () => {
+    write({ projects: {} })
+    const work = folder('work')
+    const other = folder('other')
+    expect(await outsideTrust({ folder: other, workDir: work, home })).toBe(other)
+  })
+
+  it('CFT-C63 answers nothing when the folder or a parent is accepted, is inside the workspace, or the config is unreadable', async () => {
+    const work = folder('work')
+    const other = folder('other')
+    const child = folder('other', 'child')
+    expect(await outsideTrust({ folder: other, workDir: work, home })).toBeNull()
+    write({ projects: { [other]: { hasTrustDialogAccepted: true } } })
+    expect(await outsideTrust({ folder: child, workDir: work, home })).toBeNull()
+    write({ projects: {} })
+    expect(await outsideTrust({ folder: work, workDir: work, home })).toBeNull()
+    expect(await outsideTrust({ folder: join(home, 'missing'), workDir: work, home })).toBeNull()
   })
 })

@@ -141,6 +141,15 @@ export async function folderTrust(place: TrustPlace): Promise<FolderTrust> {
   return resolved.key ? { state: 'ask', folder: resolved.key } : { state: 'unknown' }
 }
 
+export async function outsideTrust(place: TrustPlace): Promise<string | null> {
+  const resolved = await resolve(place)
+  if (!resolved || resolved.key) return null
+  const read = await readConfig(
+    await claudeConfigFile(place.home, place.configDir, place.customOAuth),
+  )
+  return read && !acceptedIn(read.config, resolved) ? resolved.folder : null
+}
+
 export async function editClaudeConfig(
   path: string,
   edit: (config: ClaudeConfig) => ClaudeConfig | null,
