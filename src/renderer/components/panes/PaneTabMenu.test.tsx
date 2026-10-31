@@ -98,7 +98,7 @@ describe('PaneTabMenu zoom', () => {
     cleanup()
     seed(split, null)
     openMenu()
-    expect(await screen.findByRole('menuitem', { name: 'Lock tab' })).toBeInTheDocument()
+    expect(await screen.findByRole('menuitem', { name: 'Lock' })).toBeInTheDocument()
     expect(screen.queryByRole('menuitem', { name: 'Ungroup' })).toBeNull()
   })
 
