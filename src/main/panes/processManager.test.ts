@@ -73,6 +73,7 @@ const untrustedFolders = new Set<string>()
 const trustAsked: { workspaceId: string; folder: string }[] = []
 
 const { registry, startAgentForPhone } = registerProcessMethods({
+  isScratch: () => false,
   isSandboxed: (workspaceId) => sandboxedWorkspaces.has(workspaceId),
   outsideTrust: async (workspaceId, folder) => {
     trustAsked.push({ workspaceId, folder })

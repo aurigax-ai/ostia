@@ -186,7 +186,10 @@ export function boot(wiring: Wiring): void {
   startFolderAccessWatch({ ...wiring, notifyDeps })
   const { registry, startAgentForPhone } = registerAgentWiring({ ...wiring })
   registerParkWiring({ ...wiring })
-  const { paneReachDeps, turnConfirms } = registerPaneMethodsWiring({ ...wiring, registry })
+  const { paneReachDeps, lifecycle, turnConfirms } = registerPaneMethodsWiring({
+    ...wiring,
+    registry,
+  })
   registerToolbeltWiring({ ...wiring, paneReachDeps })
   const { extensionRemoteFolders, extensionExec, resumeOfPane } = extensionHostParts({ ...wiring })
   const screenLinks = createScreenLinks({ ...wiring })
@@ -205,7 +208,7 @@ export function boot(wiring: Wiring): void {
   startChat({ ...wiring })
   startAgent({ ...wiring, registry })
   const { viewHost, ownSnippets } = registerContentIpc({ ...wiring })
-  startGateway({ ...wiring, turnConfirms, startAgentForPhone, ownSnippets, server })
+  startGateway({ ...wiring, lifecycle, turnConfirms, startAgentForPhone, ownSnippets, server })
   registerBrowserWiring({ ...wiring })
   startControlServer({ ...wiring })
   startManager({ ...wiring })

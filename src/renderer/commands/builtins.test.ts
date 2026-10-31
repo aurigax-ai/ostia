@@ -382,6 +382,22 @@ describe('builtins route to store actions', () => {
     expect(useSettingsStore.getState().agents.trustWorkspaceFolders).toBe(false)
   })
 
+  it('WLC-C13 settings.set refuses agents.finishedHibernateMinutes, directly or via agents', async () => {
+    const direct = await commands.execWith(ctx(null, null), 'settings.set', {
+      key: 'agents.finishedHibernateMinutes',
+      value: 1,
+    })
+    const nested = await commands.execWith(ctx(null, null), 'settings.set', {
+      key: 'agents',
+      value: { ...useSettingsStore.getState().agents, finishedHibernateMinutes: 1 },
+    })
+    for (const res of [direct, nested]) {
+      expect(res.ok).toBe(false)
+      if (!res.ok) expect(res.error.message).toMatch(/agents.finishedHibernateMinutes/)
+    }
+    expect(useSettingsStore.getState().agents.finishedHibernateMinutes).toBe(10)
+  })
+
   it('settings.set and settings.unset refuse secret redaction, whole or by key', async () => {
     const off = await commands.execWith(ctx(null, null), 'settings.set', {
       key: 'privacy.redaction.enabled',

@@ -62,13 +62,13 @@ Reports the human sends (picked elements, selections, captures): see
 ## Show things to the human
 
 ```sh
-ostia open src/app.ts:42:5 notes.md      # a tab per file; file:line[:col] jumps there
-ostia open .                             # a folder, in the Files panel (under the home folder only)
-ostia open https://localhost:3000        # a URL, in a browser pane
-ostia open -b report.md                  # -b|--background: never takes the keyboard
+ostia open src/app.ts:42:5 notes.md # a tab per file; file:line[:col] jumps there
+ostia open . # a folder, in the Files panel (under the home folder only)
+ostia open https://localhost:3000 # a URL, in a browser pane
+ostia open -b report.md # -b|--background: never takes the keyboard
 GIT_EDITOR="ostia open --wait" git commit  # -w|--wait returns when the tab closes: exit 0, else 1
 git diff | ostia open - --name change.diff  # stdin saved into $OSTIA_ARTIFACTS, then opened
-ostia diff old.json new.json             # read-only comparison; -b and -w too
+ostia diff old.json new.json # read-only comparison; -b and -w too
 ```
 
 A tab opened from a pane takes the keyboard only when that pane has it; otherwise it opens
@@ -90,12 +90,12 @@ resolve.
 ## Attention and questions
 
 ```sh
-ostia state waiting "Approve the migration?"  # rings the pane: badge, bell, banner
-ostia state done "Refactor finished"           # a finished mark until the human looks
+ostia state waiting "Approve the migration?" # rings the pane: badge, bell, banner
+ostia state done "Refactor finished" # a finished mark until the human looks
 ostia state working | error "Tests failed" | clear
 echo '{"message":"…"}' | ostia state waiting -  # message from stdin (JSON "message" or text)
-ostia state done --pane <paneId>               # another pane: needs all-workspaces
-ostia notify "Build green" "All 412 tests pass"  # a notification; also works from a script token
+ostia state done --pane <paneId> # another pane: needs all-workspaces
+ostia notify "Build green" "All 412 tests pass" # a notification; also works from a script token
 ```
 
 Typing into a waiting pane clears `waiting`, and so does the command that set it exiting.
@@ -117,12 +117,12 @@ the question. The answer arrives only as the command's output.
 
 ```sh
 ostia process run "npm run dev" --name web [--cwd DIR] [--workspace <id|name>] [--tab <name>]
-ostia process list [--json]              # id, name, status, paneId, command; a hint on stderr (`hint` in --json) when macOS may have ended it
-ostia process logs web [--since N]       # that command's output only; (cursor=N) on stderr
-ostia process kill web                   # Ctrl+C, then ends the shell if it keeps running
-ostia process restart web                # Ctrl+C, then the same line in the same tab
+ostia process list [--json] # id, name, status, paneId, command; a hint on stderr (`hint` in --json) when macOS may have ended it
+ostia process logs web [--since N] # that command's output only; (cursor=N) on stderr
+ostia process kill web # Ctrl+C, then ends the shell if it keeps running
+ostia process restart web # Ctrl+C, then the same line in the same tab
 ostia agent run claude "fix the login bug" --name fixer [--model M] [--cwd DIR] [--workspace <id|name>] [--tab <name>] [--json]
-ostia agent run codex - --name review < task.md   # - reads the prompt from stdin
+ostia agent run codex - --name review < task.md # - reads the prompt from stdin
 ```
 
 `process run` opens a terminal tab beside the pane and runs the line in its interactive shell,
@@ -150,25 +150,25 @@ plain tab when the human took that tab over. `ostia pane list --json` reports `s
 ## Panes
 
 ```sh
-ostia pane list [--here | --workspace <id|name>] [--state <state>]… [--kind <kind>] [--json]   # a line per pane: id, workspace, kind, state, title
-ostia pane send <pane> "text" [--enter]  # types text; no Enter unless --enter
-ostia pane send <pane> --enter -- "-y"   # text starting with - goes after --
-ostia pane send <pane> --paste "text"    # --paste: as one bracketed paste; --raw: the bytes as typed
-ostia pane send <pane> "answer" --enter --force  # --force types into an agent waiting for the human
-ostia pane key <pane> enter              # keys: enter tab shift-tab escape backspace delete space
+ostia pane list [--here | --mine | --workspace <id|name>] [--state <state>]… [--kind <kind>] [--json] # a line per pane: id, workspace, kind, state, title, owner, finished
+ostia pane send <pane> "text" [--enter] # types text; no Enter unless --enter
+ostia pane send <pane> --enter -- "-y" # text starting with - goes after --
+ostia pane send <pane> --paste "text" # --paste: as one bracketed paste; --raw: the bytes as typed
+ostia pane send <pane> "answer" --enter --force # --force types into an agent waiting for the human
+ostia pane key <pane> enter # keys: enter tab shift-tab escape backspace delete space
                                          # up down left right home end pageup pagedown ctrl-a…ctrl-z
-ostia pane read <pane> [--lines N] [--json]   # its screen as text; --json adds cwd, running, lastExitCode
-ostia pane status [<pane>…] [--json]    # a line per pane: id, state, closing line, exit, git, mail, changes; none: the terminals you may read here
-ostia pane transcript <pane> [--turns N | --full] [--json]   # the agent's own transcript, as written
+ostia pane read <pane> [--lines N] [--json] # its screen as text; --json adds cwd, running, lastExitCode
+ostia pane status [<pane>…] [--json] # a line per pane: id, state, closing line, exit, git, mail, changes; none: the terminals you may read here
+ostia pane transcript <pane> [--turns N | --full] [--json] # the agent's own transcript, as written
 ostia pane wait <pane>… [--until done|waiting|error|idle|exited|command]… [--timeout <s>] [--json]
-ostia pane watch <pane>… [--until done|waiting|error|command|exited]… | --off   # state changes arrive as mail, no blocking
-ostia pane wake <pane>… [--timeout <s>] [--json]   # resume a hibernated agent
-ostia pane hibernate <pane>… [--json]   # free an idle agent's terminal; wake resumes it
-ostia pane move <pane>… --tab <name>|new [--workspace <id|name>] [--json]   # group running panes into one split tab
+ostia pane watch <pane>… [--until done|waiting|error|command|exited]… | --off # state changes arrive as mail, no blocking
+ostia pane wake <pane>… [--timeout <s>] [--json] # resume a hibernated agent
+ostia pane hibernate <pane>… [--json] # free an idle agent's terminal; wake resumes it
+ostia pane move <pane>… --tab <name>|new [--workspace <id|name>] [--json] # group running panes into one split tab
 ostia pane rename <pane> <title…> | --clear
-ostia pane name <name> [--desc <text>] [--json] | --clear   # your pane's bus name
-ostia pane keep-awake [--off]            # stay live for your workers' reports: automatic hibernation skips you
-ostia pane close [<pane>…] [--json]      # no pane: your own
+ostia pane name <name> [--desc <text>] [--json] | --clear # your pane's bus name
+ostia pane keep-awake [--off] # stay live for your workers' reports: automatic hibernation skips you
+ostia pane close [<pane>… | --finished] [--json] # no pane: your own; --finished: your finished worker panes only
 ```
 
 `<pane>` is a `paneId`, a bus name (`pane name`), the `--name` of a `process run`/`agent run` tab,
@@ -192,13 +192,13 @@ reach); from a sandboxed workspace only sandboxed terminals of the same workspac
 ## Bus
 
 ```sh
-ostia bus send [--wait <s>] <pane> "message"  # {"ok":true,"id":…,"state":"queued"|"leased"|"delivered","pending":…}; --wait: its reply
-ostia bus send <pane> -- --help          # after --, even --help is the message
-ostia bus sent [--json]                  # what you sent and where each message stands
-ostia bus inbox [--take] [--json]        # messages waiting for you; --take delivers them
-ostia bus wait [--timeout <s>] [--json]  # blocks until a message arrives (1–590 s, default 30)
-ostia bus handoff <pane> --task "…" --summary "…"   # give a task and its context to another agent
-ostia bus claim <id> | bus done <id> | bus handoffs [--all]   # handoffs to you: take one, finish it, list them
+ostia bus send [--wait <s>] <pane> "message" # {"ok":true,"id":…,"state":"queued"|"leased"|"delivered","pending":…}; --wait: its reply
+ostia bus send <pane> -- --help # after --, even --help is the message
+ostia bus sent [--json] # what you sent and where each message stands
+ostia bus inbox [--take] [--json] # messages waiting for you; --take delivers them
+ostia bus wait [--timeout <s>] [--json] # blocks until a message arrives (1–590 s, default 30)
+ostia bus handoff <pane> --task "…" --summary "…" # give a task and its context to another agent
+ostia bus claim <id> | bus done <id> | bus handoffs [--all] # handoffs to you: take one, finish it, list them
 ```
 
 Nothing is typed into the receiver. A message is `queued` until the receiver's agent takes it,
@@ -239,10 +239,10 @@ A new workspace has no tab until a command opens one (`process run --workspace <
 ## Extensions and raw commands
 
 ```sh
-ostia ext list                           # enabled extensions and their commands
-ostia <extId> <command> [args]           # run one, for example: ostia system info
-ostia commands                           # every app command id with argsSchema and capabilities (JSON)
-ostia <command.id> [json-args] [--workspace <id|name>]   # run an app command by id
+ostia ext list # enabled extensions and their commands
+ostia <extId> <command> [args] # run one, for example: ostia system info
+ostia commands # every app command id with argsSchema and capabilities (JSON)
+ostia <command.id> [json-args] [--workspace <id|name>] # run an app command by id
 ```
 
 `extension-disabled` means the human turned it off in Settings; `extension-unavailable` means

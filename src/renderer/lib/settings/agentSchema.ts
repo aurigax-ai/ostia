@@ -91,6 +91,12 @@ export const agentsSchema = {
       type: 'boolean',
       description: `When ${PRODUCT_DISPLAY_NAME} resumes or starts Claude in a workspace folder, mark that folder trusted in Claude's own config (~/.claude.json) so Claude does not ask. This trusts the folder for Claude outside ${PRODUCT_DISPLAY_NAME} too. Never your home folder, scratch or sandboxed workspaces. Turning it off does not remove trust already given. Only you can change this; ostia settings set refuses it. Default: false.`,
     },
+    finishedHibernateMinutes: {
+      type: 'number',
+      minimum: 0,
+      maximum: 1440,
+      description: `Minutes a worker agent that another agent started with ostia agent run may stay finished before ${PRODUCT_DISPLAY_NAME} hibernates its terminal. 0 turns it off. A kept-awake pane is never hibernated. Only you can change this; ostia settings set refuses it. Default: 10.`,
+    },
     hooks: {
       type: 'object',
       additionalProperties: false,

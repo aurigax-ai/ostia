@@ -37,7 +37,7 @@ export type PaneCall =
     }
   | { method: 'pane.wake'; params: PaneWakeParams; json: boolean }
   | { method: 'pane.hibernate'; params: { panes: string[] }; json: boolean }
-  | { method: 'pane.close'; params: { panes?: string[] }; json: boolean }
+  | { method: 'pane.close'; params: { panes?: string[]; finished?: true }; json: boolean }
   | PaneListCall
   | { method: 'pane.moveTo'; params: PaneMoveParams; json: boolean }
 
@@ -180,10 +180,17 @@ function parseWatch(argv: string[]): PaneCall {
 }
 
 function parseClose(argv: string[]): PaneCall {
-  const { positional, booleans } = parseArgs(argv, { booleans: { json: '--json' } })
+  const { positional, booleans } = parseArgs(argv, {
+    booleans: { json: '--json', finished: '--finished' },
+  })
+  if (booleans.finished && positional.length > 0) throw new Error(USAGE)
   return {
     method: 'pane.close',
-    params: positional.length > 0 ? { panes: positional } : {},
+    params: booleans.finished
+      ? { finished: true as const }
+      : positional.length > 0
+        ? { panes: positional }
+        : {},
     json: booleans.json,
   }
 }
@@ -267,11 +274,15 @@ export function wakeOutcome(result: PaneWakeResult, json: boolean): { line: stri
 interface PaneCloseResult {
   closed: string[]
   already: { paneId: string; closedAt: number; name?: string }[]
+  skipped?: { paneId: string; reason: string }[]
+  reason?: string
 }
 
 export function closeLines(result: PaneCloseResult, now: number): string[] {
   return [
     ...result.closed.map(shortId),
+    ...(result.skipped ?? []).map(({ paneId, reason }) => `${shortId(paneId)} skipped: ${reason}`),
+    ...(result.reason ? [result.reason] : []),
     ...result.already.map(({ paneId, closedAt, name }) => {
       const as = name ? ` (${name})` : ''
       return `${shortId(paneId)} already closed ${ageLabel(now - closedAt)} ago${as}`

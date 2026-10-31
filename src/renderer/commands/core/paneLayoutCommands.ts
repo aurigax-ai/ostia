@@ -10,6 +10,7 @@ import { focusActivePaneWhenReady } from '@/lib/panes/paneFocus'
 import { opensRemoteTerminal } from '@/lib/remote/remoteTerminal'
 import {
   closePaneForAgent,
+  paneCloseBlock,
   requestClosePane,
   requestCloseWorkspace,
 } from '@/lib/workspaces/closeConfirm'
@@ -165,6 +166,18 @@ function registerOpenAndCloseCommands(): void {
       }
       if (layout.isLocked(ctx.activeWorkspaceId, target)) throw new Error(PANE_LOCKED)
       await closePaneForAgent(ctx.activeWorkspaceId, target)
+    },
+  })
+
+  registerCore<{ paneId?: string } | undefined, { block: 'locked' | 'unsaved' | null }>({
+    id: 'pane.closeBlock',
+    category: 'pane',
+    hidden: true,
+    capabilities: ['read-board'],
+    run: (args, ctx) => {
+      const target = args?.paneId ?? ctx.activePaneId
+      if (!ctx.activeWorkspaceId || !target) throw new Error('no target pane')
+      return { block: paneCloseBlock(ctx.activeWorkspaceId, target) }
     },
   })
 

@@ -10,6 +10,7 @@ const USAGE = usageOf('pane')
 
 interface PaneListFilter {
   here?: true
+  mine?: true
   workspace?: string
   states?: string[]
   kind?: string
@@ -32,9 +33,13 @@ export function parseList(argv: string[]): PaneListCall {
   const { positional, values, lists, booleans } = parseArgs(argv, {
     values: { workspace: '--workspace', kind: '--kind' },
     lists: { state: '--state' },
-    booleans: { here: '--here', json: '--json' },
+    booleans: { here: '--here', mine: '--mine', json: '--json' },
   })
-  if (positional.length > 0 || (booleans.here && values.workspace !== undefined)) {
+  if (
+    positional.length > 0 ||
+    (booleans.here && values.workspace !== undefined) ||
+    (booleans.mine && (booleans.here || values.workspace !== undefined))
+  ) {
     throw new Error(USAGE)
   }
   const unknown = lists.state.find((state) => !(LIST_STATES as readonly string[]).includes(state))
@@ -43,6 +48,7 @@ export function parseList(argv: string[]): PaneListCall {
     method: 'pane.list',
     params: {
       ...(booleans.here ? { here: true as const } : {}),
+      ...(booleans.mine ? { mine: true as const } : {}),
       ...(values.workspace === undefined ? {} : { workspace: values.workspace }),
       ...(lists.state.length > 0 ? { states: lists.state } : {}),
       ...(values.kind === undefined ? {} : { kind: values.kind }),
@@ -63,6 +69,9 @@ export interface ListedPane {
   hibernated?: true
   keepAwake?: true
   waking?: true
+  owner?: string
+  finished?: boolean
+  finishedSince?: number
 }
 
 function listedState(pane: ListedPane): string {
@@ -80,6 +89,8 @@ export function paneLine(pane: ListedPane): string {
     pane.kind,
     listedState(pane),
     pane.title,
+    pane.owner ?? '-',
+    pane.finished ? 'yes' : 'no',
     ...(pane.name ? [pane.name, ...(pane.description ? [pane.description] : [])] : []),
     ...(pane.keepAwake ? ['keep-awake'] : []),
   ])
@@ -98,7 +109,7 @@ export function filterPanes(
 }
 
 export async function runPaneList(conn: MessageConnection, call: PaneListCall): Promise<number> {
-  const { here, workspace, states, kind } = call.params
+  const { here, mine, workspace, states, kind } = call.params
   const home = here
     ? (await conn.sendRequest<{ workspaceId?: string }>('whoami')).workspaceId
     : undefined
@@ -107,11 +118,14 @@ export async function runPaneList(conn: MessageConnection, call: PaneListCall): 
     return 1
   }
   const workspaceId = workspace ? await resolveWorkspaceRef(conn, workspace) : home
-  const panes = filterPanes(await conn.sendRequest<ListedPane[]>('pane.list'), {
-    workspaceId,
-    states,
-    kind,
-  })
+  const panes = filterPanes(
+    await conn.sendRequest<ListedPane[]>('pane.list', mine ? { mine: true } : undefined),
+    {
+      workspaceId,
+      states,
+      kind,
+    },
+  )
   if (call.json) console.log(JSON.stringify(panes))
   else if (panes.length === 0) console.error('(no panes match)')
   else console.log(panes.map(paneLine).join('\n'))

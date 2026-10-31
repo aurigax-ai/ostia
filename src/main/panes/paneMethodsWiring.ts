@@ -1,11 +1,14 @@
 import { setTimeout as sleep } from 'node:timers/promises'
 import { parseAgentHooks } from '../../shared/agents/agentHooks'
 import { isResumableAgent } from '../../shared/agents/agentResume'
+import { finishedHibernateMinutes } from '../../shared/agents/finishedHibernate'
 import type { ManagerSettings } from '../../shared/agents/managerSettings'
 import type { CommandTarget } from '../../shared/control/commands'
 import { statusLine } from '../../shared/panes/paneStatus'
 import type { TerminalStateSnapshot } from '../../shared/terminal/ptyApi'
 import type { AgentWiring } from '../agents/agentWiring'
+import { type ReportedAgentWork, readProcessTable } from '../agents/agentWork'
+import { postEvent } from '../agents/busStore'
 import { readTail, transcriptPath } from '../agents/transcriptFiles'
 import type { Reach } from '../approvals/reach'
 import { targetOf } from '../attention/attention'
@@ -28,8 +31,10 @@ import { PaneEvents } from './paneEvents'
 import { paneGit } from './paneGit'
 import { type PaneAttentionPeek, registerPaneIoMethods } from './paneIo'
 import type { PaneJournal } from './paneJournal'
+import { PaneLifecycle } from './paneLifecycle'
 import { listPanes } from './paneList'
 import { registerPaneMoveToMethods } from './paneMoveTo'
+import { nameOf } from './paneNames'
 import type { PaneReachDeps } from './paneReach'
 import { collectStatus, type PaneStatusDeps, registerPaneStatusMethods } from './paneStatus'
 import { registerPaneTranscriptMethods } from './paneTranscript'
@@ -38,6 +43,8 @@ import { wakeHibernatedPane } from './paneWake'
 import type { PaneWaking } from './paneWaking'
 import { registerPaneWatchMethods } from './paneWatchMethods'
 import { WorktreeShare } from './worktreeShare'
+
+const FINISHED_CHECK_MS = 5000
 
 interface PaneMethodsWiringDeps {
   keptAttention: KeptAttention
@@ -63,6 +70,7 @@ interface PaneMethodsWiringDeps {
   paneJournal: PaneJournal
   remoteCwdOfPane: (paneId: string) => unknown
   terminalState: Map<string, TerminalStateSnapshot>
+  agentWork: ReportedAgentWork
 }
 
 export type PaneMethodsWiring = ReturnType<typeof registerPaneMethodsWiring>
@@ -88,6 +96,7 @@ export function registerPaneMethodsWiring({
   paneJournal,
   remoteCwdOfPane,
   terminalState,
+  agentWork,
 }: PaneMethodsWiringDeps) {
   const peekAttention = async (to: PaneIdentity): Promise<PaneAttentionPeek> => {
     const unreported = keptAttention.peek(to.paneId)
@@ -127,8 +136,41 @@ export function registerPaneMethodsWiring({
     hooksOn: (agent: string) =>
       isResumableAgent(agent) && parseAgentHooks(readSettingsFile().agents?.hooks)[agent],
   }
+  const lifecycle = new PaneLifecycle({
+    rows: readProcessTable,
+    reported: (paneId) => agentWork.reason(paneId),
+    drafting: (paneId) => ptys.get(paneId)?.input.drafting() ?? false,
+    ownerOf: (paneId) => registry.ownerOf(paneId),
+    nameOf: (paneId) => nameOf(paneId)?.name,
+    closing: (paneId) => paneJournal.closing(paneId),
+    post: postEvent,
+    hibernate: (to) => execCommand(targetOf(to), 'pane.hibernate', undefined, true),
+    hibernateMinutes: () =>
+      finishedHibernateMinutes(readSettingsFile().agents?.finishedHibernateMinutes),
+    now: Date.now,
+  })
+  let hibernating = false
+  setInterval(() => {
+    if (hibernating) return
+    hibernating = true
+    void confirmDeps
+      .panes()
+      .then((panes) => lifecycle.hibernateDue(panes))
+      .catch(() => undefined)
+      .finally(() => {
+        hibernating = false
+      })
+  }, FINISHED_CHECK_MS).unref()
   registerPaneIoMethods({
     ...paneReachDeps,
+    lifecycle,
+    childrenOf: (ownerPaneId) => registry.childrenOf(ownerPaneId),
+    closeBlock: async (to) => {
+      const res = await execCommand(targetOf(to), 'pane.closeBlock')
+      if (!res.ok) return null
+      const block = (res.result as { block?: unknown } | undefined)?.block
+      return block === 'locked' || block === 'unsaved' ? block : null
+    },
     ...confirmDeps,
     state: getTerminalState,
     managerAllowsInput: () => managerSettings().allowInput,
@@ -233,5 +275,5 @@ export function registerPaneMethodsWiring({
     },
   })
 
-  return { paneReachDeps, turnConfirms: createPaneConfirms(confirmDeps) }
+  return { paneReachDeps, lifecycle, turnConfirms: createPaneConfirms(confirmDeps) }
 }

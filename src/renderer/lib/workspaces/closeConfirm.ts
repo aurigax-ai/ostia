@@ -358,6 +358,16 @@ export function requestClosePane(workspaceId: string, paneId: string): Promise<v
   return askClosePane(workspaceId, paneId)
 }
 
+export function paneCloseBlock(workspaceId: string, paneId: string): 'locked' | 'unsaved' | null {
+  const layout = useLayoutStore.getState()
+  if (layout.isLocked(workspaceId, paneId)) return 'locked'
+  const tree = layout.byWorkspace[workspaceId]
+  const pane = tree ? findPane(tree.root, paneId) : null
+  if (!pane) return null
+  const { dirty, disk } = useEditorStatus.getState()
+  return unsavedFilesOf([pane], dirty, disk).length > 0 ? 'unsaved' : null
+}
+
 export async function closePaneForAgent(workspaceId: string, paneId: string): Promise<void> {
   const layout = useLayoutStore.getState().byWorkspace[workspaceId]
   const pane = layout ? findPane(layout.root, paneId) : null

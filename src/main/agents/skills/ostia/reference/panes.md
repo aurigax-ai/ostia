@@ -18,6 +18,8 @@
 | `keepAwake?` | the pane's agent ran `pane keep-awake` (text shows `keep-awake` as the last field) |
 | `splitTabId?`, `splitTabName?` | the split tab holding it |
 | `process?` | `{id, status, start}` of the command `process run` or `agent run` started there |
+| `owner?` | the bus name or pane id of the pane that started this one with `agent run` |
+| `finished`, `finishedSince?` | the agent's last turn ended, nothing runs and it does not wait for the human; computed on every read |
 | `name?`, `description?` | the bus name and one-line description its agent registered with `pane name` |
 
 ## Verbs
@@ -26,6 +28,15 @@
   <id|name>` another, `--state` (repeat it: `idle`, `running`, `working`, `waiting`, `done`, `error`,
   `hibernated`, `waking`) and `--kind` narrow it further. Text shows the first 8 characters of each
   id; `--json` keeps the full ids.
+- **list --mine** keeps only the panes you started with `agent run`. Text adds `owner` (`-` when none)
+  and `finished` (`yes`/`no`) after the title. A pane started by a manager, a sandboxed or a scratch
+  caller has no owner. The owner is kept in memory only: it ends when either pane closes and does not
+  survive an Ostia restart.
+- **close --finished** closes only your own finished worker panes. It skips a locked pane (`locked`),
+  one with unsaved files (`unsaved`) and one that is working again (`not-finished`), lists each skip
+  and exits 0; with no worker it prints `no-children`. You get one bus event from a worker when it
+  becomes finished. Ostia hibernates a finished worker after `agents.finishedHibernateMinutes`
+  (default 10, only the human changes it); it never closes one without this command.
 - **name** `<name>` registers the bus name of your own pane, never another's, and only while a
   claude or codex agent runs there (`not-an-agent`). A name is 1 to 40 lowercase letters, digits,
   `-` and `.` (upper case is refused), not 8 or more hex digits (those read as a pane id), plus

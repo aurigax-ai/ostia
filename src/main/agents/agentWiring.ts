@@ -191,6 +191,7 @@ export function registerAgentWiring({
     agentArgv: (name) => managerAgents(managerSettings())[name] ?? null,
     isAgent: (paneId) => agentRunning.has(paneId),
     isConfined: (paneId) => ptys.get(paneId)?.sandboxed === true,
+    isScratch: (workspaceId) => scratchFolders.isScratch(workspaceId),
     agentStarted: (paneId) => startedAgents.has(paneId),
     startsWithHook: (argv) => {
       const program = basename(argv[0] ?? '')

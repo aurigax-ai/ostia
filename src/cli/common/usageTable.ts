@@ -79,8 +79,9 @@ export const USAGE_TABLE: readonly NounUsage[] = [
     verbs: [
       {
         verb: 'list',
-        args: '[--here | --workspace <id|name>] [--state <state>]… [--kind <kind>] [--json]',
-        about: 'the panes you can see: id, workspace, kind, state, title, bus name and description',
+        args: '[--here | --mine | --workspace <id|name>] [--state <state>]… [--kind <kind>] [--json]',
+        about:
+          'the panes you can see: id, workspace, kind, state, title, owner, finished, bus name and description',
       },
       {
         verb: 'send',
@@ -120,7 +121,11 @@ export const USAGE_TABLE: readonly NounUsage[] = [
         args: `${PANE}… [--json]`,
         about: 'stop idle agent panes to save memory',
       },
-      { verb: 'close', args: `[${PANE}…] [--json]`, about: 'close those panes, or your own' },
+      {
+        verb: 'close',
+        args: `[${PANE}… | --finished] [--json]`,
+        about: 'close those panes, or your own; --finished closes only your finished worker panes',
+      },
       {
         verb: 'move',
         args: `${PANE}… [--tab <name>|new] ${WORKSPACE_FLAG} [--json]`,
