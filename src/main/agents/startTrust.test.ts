@@ -4,7 +4,7 @@ import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { registerPane, removePane } from '../control/idRegistry'
 import { removeWorkspace, setWorkspaceWorkDir } from '../workspaces/workspaceRegistry'
-import { createStartTrust } from './startTrust'
+import { createOutsideTrust, createStartTrust } from './startTrust'
 
 let home: string
 let project: string
@@ -194,4 +194,30 @@ describe('with agents.trustWorkspaceFolders off', () => {
       expect(readFileSync(profileConfig, 'utf8')).toBe(EMPTY)
     },
   )
+})
+
+describe('createOutsideTrust with an extra account current', () => {
+  let current = ''
+  const outside = createOutsideTrust({
+    scratchFolders: { isScratch: () => false, dirOf: () => null },
+    workspaceSandboxes: { isEnabled: () => false },
+    readSettingsFile: () => ({ agents: { trustWorkspaceFolders: true } }),
+    claudeAccounts: { currentDirectory: () => current },
+  })
+  const accepted = (other: string) =>
+    `${JSON.stringify({ projects: { [other]: { hasTrustDialogAccepted: true } } })}\n`
+
+  it('CFT-C65 reads the current account’s config, not the Default one', async () => {
+    const other = join(home, 'other')
+    mkdirSync(other)
+    current = profile
+    writeFileSync(defaultConfig, accepted(other))
+    expect(await outside('ws', other)).toBe(other)
+    writeFileSync(profileConfig, accepted(other))
+    expect(await outside('ws', other)).toBeNull()
+    current = ''
+    expect(await outside('ws', other)).toBeNull()
+    writeFileSync(defaultConfig, EMPTY)
+    expect(await outside('ws', other)).toBe(other)
+  })
 })

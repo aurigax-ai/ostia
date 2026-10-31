@@ -48,7 +48,6 @@
   ],
   "specs": [
     "e2e/agent-lag.spec.ts",
-    "e2e/local-prompt.spec.ts",
     "e2e/neighbour-output.spec.ts",
     "e2e/new-terminal-focus.spec.ts",
     "e2e/pty-flow.spec.ts",
@@ -60,13 +59,11 @@
     "e2e/terminal-ghostty-gpu.spec.ts",
     "e2e/terminal-ghostty-parity.spec.ts",
     "e2e/terminal-overflow.spec.ts",
-    "e2e/terminal-padding.spec.ts",
     "e2e/terminal-path-link-actions.spec.ts",
     "e2e/terminal-scrollbar.spec.ts",
     "e2e/terminal-selection.spec.ts",
     "e2e/terminal-tab-title.spec.ts",
     "e2e/terminal-web-links.spec.ts",
-    "e2e/terminal-webgl.spec.ts",
-    "e2e/terminal-wheel.spec.ts"
+    "e2e/terminal-webgl.spec.ts"
   ]
 }

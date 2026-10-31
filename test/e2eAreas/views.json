@@ -18,7 +18,5 @@
     "src/renderer/stores/extensions/viewsStore.ts",
     "src/shared/view"
   ],
-  "specs": [
-    "e2e/views.spec.ts"
-  ]
+  "specs": []
 }

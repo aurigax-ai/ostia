@@ -216,9 +216,12 @@ export function ServerItem({
   }, [state, auth])
   const runTest = async (): Promise<void> => {
     setTest({ phase: 'running' })
-    const result = await window.ostia.chatTools
-      .mcpTest(server.name)
-      .catch((): McpTestResult => ({ ok: false, error: '' }))
+    const result = await window.ostia.chatTools.mcpTest(server.name).catch(
+      (err: unknown): McpTestResult => ({
+        ok: false,
+        error: err instanceof Error ? err.message : '',
+      }),
+    )
     setTest({ phase: 'done', result })
   }
   const search = useSearchGroup([server.name])

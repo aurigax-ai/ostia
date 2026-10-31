@@ -123,7 +123,7 @@ describe('the Phone workspace', () => {
     expect(open).toHaveBeenCalledWith(paths.defaultFolder)
     expect(statSync(paths.defaultFolder).mode & 0o777).toBe(0o700)
     workspaces.mockResolvedValueOnce([
-      { workspaceId: 'existing', kind: 'agent', workDir: paths.defaultFolder },
+      { workspaceId: 'existing', kind: 'terminal', workDir: paths.defaultFolder },
     ])
     open.mockClear()
     expect(await phoneWorkspaceId(deps)).toBe('existing')
@@ -186,7 +186,7 @@ describe('the Phone workspace', () => {
       paths: () => paths,
       workspaces: vi.fn(async () => [
         { workspaceId: 'scratchy', kind: 'scratch', workDir: jobs },
-        { workspaceId: 'other', kind: 'agent', workDir: join(root, 'home', 'notes') },
+        { workspaceId: 'other', kind: 'terminal', workDir: join(root, 'home', 'notes') },
       ]),
       open,
     }
@@ -194,7 +194,7 @@ describe('the Phone workspace', () => {
     expect(await phoneWorkspaceId(deps)).toBe('opened')
     expect(open).toHaveBeenCalledWith(jobs)
     deps.workspaces.mockResolvedValueOnce([
-      { workspaceId: 'jobs-ws', kind: 'agent', workDir: jobs },
+      { workspaceId: 'jobs-ws', kind: 'terminal', workDir: jobs },
     ])
     expect(await phoneWorkspaceId(deps)).toBe('jobs-ws')
     rmSync(jobs, { recursive: true })

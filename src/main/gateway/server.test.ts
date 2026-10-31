@@ -62,10 +62,10 @@ let seq = 0
 const linkLog: Array<[string, Record<string, string>]> = []
 const links = new ScreenLinks({
   listWorkspaces: async () => [
-    { workspaceId: 's1', name: 'One', kind: 'agent', workDir: '/w', state: 'idle' },
+    { workspaceId: 's1', name: 'One', kind: 'terminal', workDir: '/w', state: 'idle' },
     { workspaceId: 'pad', name: 'Scratch', kind: 'scratch', workDir: '/s', state: 'idle' },
     { workspaceId: 'mgr', name: 'Manager', kind: 'manager', workDir: '/m', state: 'idle' },
-    { workspaceId: 's2', name: 'Two', kind: 'agent', workDir: '/w2', state: 'idle' },
+    { workspaceId: 's2', name: 'Two', kind: 'terminal', workDir: '/w2', state: 'idle' },
   ],
   askPhones: (request, deviceIds) => askPhonesForScreen(request, deviceIds),
   log: (event, fields) => linkLog.push([event, fields]),
@@ -434,7 +434,9 @@ describe('gateway server over a real WebSocket', () => {
   })
 
   describe('agent stream', () => {
-    const owned = [{ workspaceId: 's1', name: 'One', kind: 'agent', workDir: '/w', state: 'idle' }]
+    const owned = [
+      { workspaceId: 's1', name: 'One', kind: 'terminal', workDir: '/w', state: 'idle' },
+    ]
 
     function stream() {
       let send: (events: unknown[], backfill: boolean) => void = () => undefined
@@ -597,7 +599,7 @@ describe('gateway server over a real WebSocket', () => {
     it('gives the size back and stops the stream the moment the device is revoked, not when the socket finishes closing', async () => {
       const { c, deviceId } = await holder()
       deps.listWorkspaces.mockResolvedValueOnce([
-        { workspaceId: 's1', name: 'One', kind: 'agent', workDir: '/w', state: 'idle' },
+        { workspaceId: 's1', name: 'One', kind: 'terminal', workDir: '/w', state: 'idle' },
       ])
       const streamClose = vi.fn()
       deps.agentStreams.open.mockResolvedValueOnce({

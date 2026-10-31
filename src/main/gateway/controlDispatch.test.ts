@@ -1288,7 +1288,7 @@ describe('dispatchGatewayMethod — asks and agent replies', () => {
         Buffer.alloc(16),
       ])
       const image = { mime: 'image/png', data: png.toString('base64') }
-      const workspace = { workspaceId: 'ws-img', kind: 'agent', workDir: '/w', sandboxed: false }
+      const workspace = { workspaceId: 'ws-img', kind: 'terminal', workDir: '/w', sandboxed: false }
 
       function imageDeps(overrides: Partial<GatewayControlDeps> = {}) {
         let screen = 'prompt'
@@ -1755,7 +1755,7 @@ describe('dispatchGatewayMethod — pane.list waitingSince', () => {
 
 describe('dispatchGatewayMethod — agent.start', () => {
   const workspaces = [
-    { workspaceId: 's1', name: 'One', kind: 'agent', workDir: '/w', state: 'idle' },
+    { workspaceId: 's1', name: 'One', kind: 'terminal', workDir: '/w', state: 'idle' },
     { workspaceId: 't1', name: 'Shell', kind: 'terminal', workDir: '/t', state: 'idle' },
     { workspaceId: 'pad', name: 'Scratch', kind: 'scratch', workDir: '/s', state: 'idle' },
     { workspaceId: 'mgr', name: 'Manager', kind: 'manager', workDir: '/m', state: 'idle' },
@@ -1876,8 +1876,8 @@ describe('dispatchGatewayMethod — agent.start', () => {
 
 describe('dispatchGatewayMethod — the Phone workspace', () => {
   const workspaces = [
-    { workspaceId: 's1', name: 'One', kind: 'agent', workDir: '/w', state: 'idle' },
-    { workspaceId: 'ph', name: 'Phone', kind: 'agent', workDir: '/jobs', state: 'idle' },
+    { workspaceId: 's1', name: 'One', kind: 'terminal', workDir: '/w', state: 'idle' },
+    { workspaceId: 'ph', name: 'Phone', kind: 'terminal', workDir: '/jobs', state: 'idle' },
   ]
   const begun = { paneId: 'pane-ext', started: true, confirmed: true }
 

@@ -201,9 +201,9 @@ export function stripPaths(text: string): string {
     .replace(PATH_PATTERN, '<path>')
 }
 
-function clipMessage(text: string, max: number = TELEMETRY_MESSAGE_MAX): string {
+function clipMessage(text: string): string {
   const clean = Array.from(text).filter(isKeptChar).join('')
-  return clean.length > max ? clean.slice(0, max) : clean
+  return clean.length > TELEMETRY_MESSAGE_MAX ? clean.slice(0, TELEMETRY_MESSAGE_MAX) : clean
 }
 
 const FRAME_PATTERN = /^\s*at\s+(?:(.+?)\s+\()?(.+?)(?::(\d+))?(?::(\d+))?\)?$/
@@ -215,10 +215,7 @@ function baseName(location: string): string {
   return last.replace(/\?.*$/, '')
 }
 
-export function reduceStack(
-  stack: string | undefined,
-  max: number = TELEMETRY_FRAMES_MAX,
-): StackFrame[] {
+export function reduceStack(stack: string | undefined): StackFrame[] {
   if (!stack) return []
   const frames: StackFrame[] = []
   for (const line of stack.split('\n')) {
@@ -233,7 +230,7 @@ export function reduceStack(
     if (colno) frame.colno = Number(colno)
     if (Object.keys(frame).length > 2) frames.push(frame)
   }
-  return frames.slice(0, max).reverse()
+  return frames.slice(0, TELEMETRY_FRAMES_MAX).reverse()
 }
 
 function sanitizeText(text: string, redact: (text: string) => string): string {
