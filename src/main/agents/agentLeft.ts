@@ -1,5 +1,5 @@
 import { dropName } from '../panes/paneNames'
-import { busyProgram, type PromptOwner } from '../terminal/localPrompt'
+import { type PromptOwner, shellIdle } from '../terminal/localPrompt'
 
 export interface AgentLeftDeps {
   running: (paneId: string) => boolean
@@ -10,7 +10,7 @@ export interface AgentLeftDeps {
 
 function atPrompt(owner: PromptOwner): boolean {
   try {
-    return !owner.sandboxed && owner.foreground !== '' && busyProgram(owner) === null
+    return shellIdle(owner)
   } catch {
     return false
   }

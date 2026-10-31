@@ -3,6 +3,7 @@ import { en } from '../../shared/app/dict'
 import { ScreenMirror } from '../terminal/screenMirror'
 import { retainAgentDir } from '../terminal/shellIntegration'
 import { pendingRestoredScrollback, stashScrollback } from '../workspaces/savedScrollback'
+import type { SavedAttention } from './attentionFile'
 import { createKeptReattach } from './keptReattach'
 
 vi.mock('../terminal/shellIntegration', async (importOriginal) => ({
@@ -10,8 +11,12 @@ vi.mock('../terminal/shellIntegration', async (importOriginal) => ({
   retainAgentDir: vi.fn(),
 }))
 
-function setup(agentDir?: string | null) {
+function setup(
+  agentDir?: string | null,
+  kept_: { saved?: SavedAttention | null; foreground?: string } = {},
+) {
   const writeToken = vi.fn()
+  const restoreKeptAttention = vi.fn()
   const shown: string[] = []
   const mirror = new ScreenMirror(80, 24)
   const entry = {
@@ -28,7 +33,7 @@ function setup(agentDir?: string | null) {
   const { reattachKept } = createKeptReattach({
     workspaceSandboxes: {} as never,
     keptShells: {
-      savedAttention: () => null,
+      savedAttention: () => kept_.saved ?? null,
       writeToken,
       keptHost: () => undefined,
     } as never,
@@ -43,7 +48,7 @@ function setup(agentDir?: string | null) {
       e.mirror.write(data)
     }) as never,
     releaseMergedSandbox: vi.fn(),
-    restoreKeptAttention: vi.fn(),
+    restoreKeptAttention,
     processes: () => null,
     appLog: () => null,
     bannerText: () => en.native.paneBanner,
@@ -55,7 +60,7 @@ function setup(agentDir?: string | null) {
       onData: vi.fn(),
       onExit: vi.fn(),
       snapshot: async () => 'kept screen',
-      currentCommand: async () => '',
+      currentCommand: async () => kept_.foreground ?? '',
       live: vi.fn(),
     },
     meta: {
@@ -69,6 +74,7 @@ function setup(agentDir?: string | null) {
   }
   return {
     writeToken,
+    restoreKeptAttention,
     shown,
     mirror,
     run: () =>
@@ -124,5 +130,17 @@ describe('reattaching a kept shell', () => {
     stashScrollback('other', 'untouched')
     await run()
     expect(pendingRestoredScrollback()).toEqual({ other: 'untouched' })
+  })
+
+  it('restores a saved working or waiting state only while a program still runs in the shell', async () => {
+    const gone = setup(undefined, { saved: { state: 'working' }, foreground: 'bash' })
+    await gone.run()
+    expect(gone.restoreKeptAttention).not.toHaveBeenCalled()
+    const alive = setup(undefined, { saved: { state: 'waiting' }, foreground: 'claude' })
+    await alive.run()
+    expect(alive.restoreKeptAttention).toHaveBeenCalledTimes(1)
+    const finished = setup(undefined, { saved: { state: 'done' }, foreground: 'bash' })
+    await finished.run()
+    expect(finished.restoreKeptAttention).toHaveBeenCalledTimes(1)
   })
 })
