@@ -20,6 +20,7 @@ Pick an extension and press Install. Ostia asks you to approve it before it runs
 | `lsp-lua` | Lua in the editor | `lua-language-server` on `PATH`, or Ostia downloads the pinned release |
 | `lsp-marksman` | Markdown in the editor | `marksman` on `PATH`, or Ostia downloads the pinned release |
 | `lsp-gopls` | Go in the editor | Go, to install the pinned `gopls` when none is on `PATH` |
+| `material-icon-theme` | Material Icon Theme as a file icon theme for the Files tree, unchanged from the upstream release | nothing |
 | `model-runtime` | A local model-runtime as one more provider for Ostia's assistant, with model load and unload | a model-runtime listening on `$XDG_RUNTIME_DIR/model-runtime.sock` |
 
 ## Layout
