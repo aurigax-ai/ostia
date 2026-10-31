@@ -1,0 +1,7 @@
+{
+  "manifest": {
+    "name": "Material Icon Theme",
+    "description": "Philipp Kief 的 Material Icon Theme（MIT）作為檔案樹的檔案圖示主題：資料夾、檔案類型與淺色版本，原樣複製自上游 5.40.0 版。於設定 → 檔案 → 檔案圖示主題中選取。"
+  },
+  "messages": {}
+}

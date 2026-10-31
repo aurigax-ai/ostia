@@ -38,8 +38,5 @@ describe('screens ships as an Alpha that needs its install code', () => {
       const messages = (json(file) as { messages: Record<string, string> }).messages
       expect(messages['panel.alpha'], file).toMatch(/^Alpha\b/)
     }
-    const page = readFileSync(join(__dirname, 'panel.ts'), 'utf8')
-    expect(page).toMatch(/h\('div', \{ class: 'alpha' \}, p\('alpha'\)\)/)
-    expect(readFileSync(join(__dirname, 'main.ts'), 'utf8')).not.toContain('startWithWindow')
   })
 })

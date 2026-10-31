@@ -1824,7 +1824,9 @@ describe('pane.list / workspace.list', () => {
     const fresh = createPane('agent', 'Agent')
     const shell = createPane('terminal', 'zsh', '/work/api')
     useWorkspacesStore.setState({
-      workspaces: [{ id: 's1', name: 'api', kind: 'agent', workDir: '/work/api', state: 'idle' }],
+      workspaces: [
+        { id: 's1', name: 'api', kind: 'terminal', workDir: '/work/api', state: 'idle' },
+      ],
     })
     useLayoutStore.setState({
       byWorkspace: {
@@ -1973,7 +1975,7 @@ describe('pane.list / workspace.list', () => {
     useWorkspacesStore.setState({
       workspaces: [
         { id: 's1', name: 'api', kind: 'terminal', workDir: '/work/api', state: 'idle' },
-        { id: 's2', name: 'web', kind: 'agent', workDir: '/work/web', state: 'working' },
+        { id: 's2', name: 'web', kind: 'terminal', workDir: '/work/web', state: 'working' },
       ],
     })
 
@@ -1983,7 +1985,13 @@ describe('pane.list / workspace.list', () => {
       ok: true,
       result: [
         { workspaceId: 's1', name: 'api', kind: 'terminal', workDir: '/work/api', state: 'idle' },
-        { workspaceId: 's2', name: 'web', kind: 'agent', workDir: '/work/web', state: 'working' },
+        {
+          workspaceId: 's2',
+          name: 'web',
+          kind: 'terminal',
+          workDir: '/work/web',
+          state: 'working',
+        },
       ],
     })
   })

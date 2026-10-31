@@ -3,7 +3,6 @@ import {
   FlaskIcon,
   type Icon as IconComponent,
   MoonIcon,
-  RobotIcon,
   TerminalWindowIcon,
 } from '@phosphor-icons/react'
 import { fmt, useDict } from '@/lib/app/useDict'
@@ -18,7 +17,6 @@ import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import type { Workspace, WorkspaceKind } from '@/stores/workspaces/workspaceTypes'
 
 const KIND_ICON: Record<WorkspaceKind, IconComponent> = {
-  agent: RobotIcon,
   terminal: TerminalWindowIcon,
   scratch: FlaskIcon,
   manager: BroadcastIcon,

@@ -93,7 +93,10 @@ export function cachedLookups(): PackageLookups {
       const key = packageVersionKey(pkg)
       const hit = published.get(key)
       if (hit) return hit
-      const next = registryPublishedAt(pkg)
+      const next = registryPublishedAt(pkg).then((at) => {
+        if (at === null) published.delete(key)
+        return at
+      })
       published.set(key, next)
       return next
     },

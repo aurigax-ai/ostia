@@ -8,6 +8,7 @@ import type { ProcessRegistry } from '../panes/processRegistry'
 import { PortBridge } from '../sandbox/ports/portBridge'
 import type { PortRequests } from '../sandbox/ports/portRequests'
 import type { WorkspaceSandboxes } from '../sandbox/workspaceSandboxes'
+import { shellIdle } from '../terminal/localPrompt'
 import type { PaneBannerText } from '../terminal/paneBanner'
 import { feedDisplay, type PtyEntry, type PtyRegistry } from '../terminal/pty/ptyRegistry'
 import type { Subscriber } from '../terminal/ptySession'
@@ -121,11 +122,12 @@ export function createKeptReattach({
     } catch {}
     feedDisplay(entry, restoreSeam(bannerText()))
     feedPty(entry, screen)
-    const keptAgent = agentRunning.stillRunning(paneId, {
+    const owner = {
       foreground: await pane.currentCommand().catch(() => ''),
       shell: meta.shell,
       sandboxed: sandbox !== undefined,
-    })
+    }
+    const keptAgent = agentRunning.stillRunning(paneId, owner)
     if (meta.process) {
       processes()?.adopt(
         {
@@ -141,7 +143,10 @@ export function createKeptReattach({
     pane.live()
     const { data, cursor, dropped, startsBefore } = entry.session.since(0)
     entry.session.addLiveSubscriber(mkSub(entry))
-    if (savedAttention) restoreKeptAttention(identity, savedAttention)
+    const finished = savedAttention?.state === 'done' || savedAttention?.state === 'error'
+    if (savedAttention && (finished || !shellIdle(owner))) {
+      restoreKeptAttention(identity, savedAttention)
+    }
     return {
       created: false,
       buffer: data,

@@ -70,34 +70,3 @@ export async function redRowGaps(png: Buffer, page: Page): Promise<number> {
     return gaps
   }, png.toString('base64'))
 }
-
-export type PixelRegion = { x0: number; y0: number; x1: number; y1: number }
-
-export async function regionColors(
-  png: Buffer,
-  page: Page,
-  regions: PixelRegion[],
-): Promise<string[][]> {
-  return page.evaluate(
-    async ({ b64, regions }) => {
-      const img = new Image()
-      img.src = `data:image/png;base64,${b64}`
-      await img.decode()
-      const canvas = document.createElement('canvas')
-      canvas.width = img.width
-      canvas.height = img.height
-      const ctx = canvas.getContext('2d')
-      if (!ctx) return []
-      ctx.drawImage(img, 0, 0)
-      return regions.map(({ x0, y0, x1, y1 }) => {
-        const { data } = ctx.getImageData(x0, y0, x1 - x0, y1 - y0)
-        const colors = new Set<string>()
-        for (let i = 0; i < data.length; i += 4) {
-          colors.add(`${data[i]},${data[i + 1]},${data[i + 2]}`)
-        }
-        return [...colors].sort()
-      })
-    },
-    { b64: png.toString('base64'), regions },
-  )
-}

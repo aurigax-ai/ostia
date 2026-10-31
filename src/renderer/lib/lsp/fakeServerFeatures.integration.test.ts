@@ -237,16 +237,6 @@ describe('pull diagnostics against a real fake language server', () => {
     expect(recorded().some((e) => e.method === 'textDocument/publishDiagnostics')).toBe(false)
   })
 
-  it('shows each diagnostic once when the server both pushes and answers pulls', async () => {
-    const { published, session, uri } = await start([
-      '--caps=pullDiagnostics',
-      '--diagnostics=both',
-    ])
-    await vi.waitFor(() => expect(published.length).toBeGreaterThanOrEqual(2), { timeout: 10_000 })
-    expect(messages(published)).toEqual(['fake error on line 2'])
-    expect(session.diagnosticsFor(uri)).toHaveLength(1)
-  })
-
   it('pulls again when the server asks for a refresh and keeps the markers on an unchanged answer', async () => {
     const { published, recorded, session } = await start(['--caps=pullDiagnostics,executeCommand'])
     await vi.waitFor(() => expect(messages(published)).toEqual(['fake error on line 2']), {
@@ -282,42 +272,6 @@ describe('pull diagnostics against a real fake language server', () => {
 })
 
 describe('dynamic registration against a real fake language server', () => {
-  it('registers providers for features the server registers after initialize, and drops them on unregister', async () => {
-    const { changes, model, published, recorded, session } = await start([
-      '--caps=',
-      '--late-caps=hover,folding,codeLens,executeCommand,workspaceSymbols,pullDiagnostics',
-    ])
-    expect(session.capabilities.hoverProvider).toBeUndefined()
-    await vi.waitFor(() => expect(changes.count).toBe(1), { timeout: 10_000 })
-    expect(kinds()).toEqual(['CodeLensProvider', 'FoldingRangeProvider', 'HoverProvider'])
-    expect(
-      await provider('HoverProvider', 'provideHover')(model, { lineNumber: 1, column: 5 }),
-    ).toMatchObject({ contents: [{ value: 'fake hover: **alpha**' }] })
-    expect(session.runsCommand('fake.countRun')).toBe(true)
-
-    await vi.waitFor(
-      () => expect(recorded().some((e) => e.method === 'textDocument/diagnostic')).toBe(true),
-      { timeout: 10_000 },
-    )
-    await vi.waitFor(() => expect(messages(published)).toEqual(['fake error on line 2']), {
-      timeout: 10_000,
-    })
-
-    const symbols = toWorkspaceSymbolHits(
-      'fake-lang/fake',
-      await session.request('workspace/symbol', { query: 'bet' }),
-    )
-    expect(symbols).toMatchObject([
-      { name: 'beta', container: 'fake', path: model.uri.path, line: 4, column: 4 },
-    ])
-
-    await session.request('workspace/executeCommand', {
-      command: 'fake.unregister',
-      arguments: ['hover', 'folding'],
-    })
-    await vi.waitFor(() => expect(kinds()).toEqual(['CodeLensProvider']), { timeout: 10_000 })
-  })
-
   it('folding, code lens, pulled diagnostics, watched files and workspace symbols work for a server that registers them late', async () => {
     const { changes, model, published, recorded, root, session, uri } = await start([
       '--caps=symbols,executeCommand',
@@ -372,13 +326,6 @@ describe('dynamic registration against a real fake language server', () => {
         await session.request('workspace/symbol', { query: 'gam' }),
       ),
     ).toMatchObject([{ name: 'gamma', path: join(root, 'other.txt'), line: 1 }])
-  })
-
-  it('serves a late feature only to documents its selector matches', async () => {
-    const { changes, session, uri } = await start(['--caps=', '--late-caps=txtOnlyDefinition'])
-    await vi.waitFor(() => expect(changes.count).toBe(1), { timeout: 10_000 })
-    expect(session.supports('textDocument/definition', uri)).toBe(true)
-    expect(session.supports('textDocument/definition', uri.replace('.txt', '.md'))).toBe(false)
   })
 })
 

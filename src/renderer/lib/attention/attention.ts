@@ -25,6 +25,12 @@ function endWait(prev: PaneAttention, at: number): PaneAttention {
   return prev.state === 'waiting' ? { state: 'none', unread: false, at } : prev
 }
 
+function endCommand(prev: PaneAttention, at: number): PaneAttention {
+  return prev.state === 'waiting' || prev.state === 'working'
+    ? { state: 'none', unread: false, at }
+    : prev
+}
+
 export function reduceAttention(prev: PaneAttention, event: AttentionEvent): PaneAttention {
   switch (event.type) {
     case 'set':
@@ -53,7 +59,7 @@ export function reduceAttention(prev: PaneAttention, event: AttentionEvent): Pan
         return { state: 'error', unread: true, message: event.message, at: event.at }
       }
       if (event.long) return { state: 'done', unread: true, message: event.message, at: event.at }
-      return endWait(prev, event.at)
+      return endCommand(prev, event.at)
     case 'input':
       return prev.state === 'waiting' ? { ...prev, state: 'none' } : prev
     case 'waitEnded':
@@ -84,8 +90,8 @@ export function paneLiveState(a: PaneAttention | undefined, running: boolean): W
 
 const RANK: Record<WorkspaceLiveState, number> = {
   idle: 0,
-  working: 1,
-  done: 2,
+  done: 1,
+  working: 2,
   error: 3,
   waiting: 4,
 }

@@ -42,6 +42,7 @@
         "d3",
         "events",
         "lucide-react",
+        "material-icon-theme",
         "pyright",
         "recharts",
         "sql.js",

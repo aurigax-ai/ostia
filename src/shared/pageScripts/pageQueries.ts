@@ -142,9 +142,17 @@ export function createFinders({ topDoc, resolve, frameDoc, ref, isVisible }: Fin
         )
       }
       case 'text': {
-        const found = candidates(doc).filter((el) => matches(textOf(el), query.value, exact))
-        found.sort((a, b) => a.querySelectorAll('*').length - b.querySelectorAll('*').length)
-        return found[0] ?? null
+        let best: Element | null = null
+        let bestSize = Infinity
+        for (const el of candidates(doc)) {
+          if (!matches(textOf(el), query.value, exact)) continue
+          const size = el.querySelectorAll('*').length
+          if (size < bestSize) {
+            best = el
+            bestSize = size
+          }
+        }
+        return best
       }
       case 'label': {
         for (const label of Array.from(doc.querySelectorAll('label'))) {

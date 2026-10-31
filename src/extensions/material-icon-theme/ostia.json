@@ -1,0 +1,17 @@
+{
+  "id": "material-icon-theme",
+  "name": "Material Icon Theme",
+  "version": "5.40.0",
+  "api": "7.13",
+  "description": "Material Icon Theme by Philipp Kief (MIT) as the file icon theme of the Files tree: folders, file types and a light variant, copied unchanged from the upstream release 5.40.0. Pick it in Settings → Files → File icon theme.",
+  "locales": ["zh-Hant"],
+  "contributes": {
+    "iconThemes": [
+      {
+        "id": "material-icon-theme",
+        "label": "Material Icon Theme",
+        "path": "dist/material-icons.json"
+      }
+    ]
+  }
+}

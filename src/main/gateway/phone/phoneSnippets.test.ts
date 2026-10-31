@@ -28,9 +28,16 @@ describe('snippet.list', () => {
     )
     writeFileSync(join(workspaceDir, 'test.yaml'), 'name: Test\ncommand: pnpm test\n')
     workspaces = [
-      { workspaceId: 'w1', name: 'One', kind: 'agent', workDir, state: 'idle' },
+      { workspaceId: 'w1', name: 'One', kind: 'terminal', workDir, state: 'idle' },
       { workspaceId: 'pad', name: 'Pad', kind: 'scratch', workDir: root, state: 'idle' },
-      { workspaceId: 'box', name: 'Box', kind: 'agent', workDir, state: 'idle', sandboxed: true },
+      {
+        workspaceId: 'box',
+        name: 'Box',
+        kind: 'terminal',
+        workDir,
+        state: 'idle',
+        sandboxed: true,
+      },
       { workspaceId: 'mgr', name: 'Manager', kind: 'manager', workDir, state: 'idle' },
     ]
     const snippetDeps = {

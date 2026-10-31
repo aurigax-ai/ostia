@@ -1,11 +1,13 @@
-import { resolvePlaybooks } from '@shared/agents/playbooks'
+import { removedPlaybookIds, resolvePlaybooks } from '@shared/agents/playbooks'
 import { useMemo, useState } from 'react'
+import { Notice } from '@/components/common/Notice'
+import { TextLink } from '@/components/common/TextLink'
 import { SettingsList } from '@/components/settingsKit/SettingsList'
 import { SettingsListRow } from '@/components/settingsKit/SettingsListRow'
 import { SettingsPage } from '@/components/settingsKit/SettingsPage'
 import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
-import { useDict } from '@/lib/app/useDict'
+import { fmt, useDict } from '@/lib/app/useDict'
 import { cn } from '@/lib/utils'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
@@ -24,6 +26,10 @@ export function PlaybooksSection(): JSX.Element {
   const playbooks = useSettingsStore((s) => s.playbooks)
   const setEnabled = useSettingsStore((s) => s.setPlaybookEnabled)
   const list = useMemo(() => resolvePlaybooks(playbooks), [playbooks])
+  const removed = useMemo(
+    () => (playbooks.enabled.onboard ? [] : removedPlaybookIds(playbooks)),
+    [playbooks],
+  )
   const ownNames = useMemo(() => Object.keys(playbooks.own), [playbooks.own])
   const extensions = useExtensionsStore((x) => x.list)
   const extensionIds = useMemo(() => extensions.flatMap((e) => e.agentSkills), [extensions])
@@ -50,6 +56,18 @@ export function PlaybooksSection(): JSX.Element {
     )
   return (
     <SettingsPage title={d.playbooks.title} desc={d.playbooks.desc}>
+      {removed.map((id) => (
+        <Notice
+          key={id}
+          actions={
+            <TextLink size="xs" onClick={() => setEnabled('onboard', true)}>
+              {d.playbooks.enableOnboard}
+            </TextLink>
+          }
+        >
+          {fmt(d.playbooks.removed, { name: id })}
+        </Notice>
+      ))}
       <SettingsList
         label={d.playbooks.listLabel}
         empty={d.playbooks.noPlaybooks}

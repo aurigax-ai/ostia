@@ -1,11 +1,12 @@
 import { normalizeSplitTabName, SPLIT_TAB_NAME_MAX } from '@shared/workspaces/splitTabs'
 import { changeCollapse, foldSplitTab, isTucked } from '@/lib/layout/collapse'
-import { joinSplitTab, separateFromSplitTab } from '@/lib/layout/tabJoin'
+import { joinSplitTab, separateFromSplitTab, splitTabToTabs } from '@/lib/layout/tabJoin'
 import { movePane, moveTab } from '@/lib/layout/tabMoves'
 import {
   findSplitTab,
   findSplitTabByName,
   focusIdOf,
+  paneIds,
   setSplitTabName,
   tabsOfPane,
 } from '@/lib/layout/tree'
@@ -26,7 +27,13 @@ import { surfaceHoldsKeyboard } from './surfaceSlotsStore'
 
 type LayoutTabActions = Pick<
   LayoutState,
-  'movePane' | 'moveTab' | 'renameSplitTab' | 'joinTab' | 'changeCollapse' | 'foldSplitTab'
+  | 'movePane'
+  | 'moveTab'
+  | 'renameSplitTab'
+  | 'joinTab'
+  | 'changeCollapse'
+  | 'foldSplitTab'
+  | 'ungroupSplitTab'
 >
 
 function tuckedAway(layout: WorkspaceLayout, root: LayoutNode): WorkspaceLayout {
@@ -91,6 +98,25 @@ export function createLayoutTabActions(set: LayoutSet, get: LayoutGet): LayoutTa
 
     foldSplitTab: (workspaceId, tabId) =>
       set((s) => patch(s, workspaceId, (l) => tuckedAway(l, foldSplitTab(l.root, tabId))) ?? s),
+
+    ungroupSplitTab: (workspaceId, tabId) => {
+      const layout = get().byWorkspace[workspaceId]
+      const tab = layout ? findSplitTab(layout.root, tabId) : null
+      if (!layout || !tab) return
+      const active = layout.activePaneId
+      const heldKeyboard = active !== null && surfaceHoldsKeyboard(active)
+      forgetSplitTabSeeds(paneIds(tab))
+      forgetAgentSplitTab(tabId)
+      set(
+        (s) =>
+          patch(s, workspaceId, (l) => ({
+            ...l,
+            root: splitTabToTabs(l.root, tabId),
+            zoomedPaneId: null,
+          })) ?? s,
+      )
+      if (heldKeyboard) keepKeyboard(get, workspaceId)
+    },
 
     joinTab: (workspaceId, ids, tab) => {
       const layout = get().byWorkspace[workspaceId]

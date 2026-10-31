@@ -15,11 +15,11 @@ export const playbooksEn = {
   descriptions: {
     coordinator: 'Plan, dispatch, review and merge; write no code yourself.',
     handoff: 'Start a clean new session on one topic, beside this one.',
-    review: 'One focused review of a PR against its issue.',
-    worker: 'Scout, build, test and open a PR; report to the coordinator.',
+    onboard: 'Learn the manager, worker and review workflow, one step at a time.',
   },
   discardDraft: 'Discard',
   edited: 'Edited',
+  enableOnboard: 'Enable /onboard',
   extensionClash:
     '/{name} is also a skill of an installed extension, so it is not in use. Rename it.',
   hideDefault: 'Hide',
@@ -34,6 +34,7 @@ export const playbooksEn = {
   noPlaybooks: 'No playbooks.',
   promptLabel: '{command} prompt',
   promptPlaceholder: 'What the agent should do when you type the command',
+  removed: '/{name} no longer exists. /onboard replaces it.',
   reset: 'Reset',
   resetDefault: 'Reset to default',
   showDefault: 'Show',

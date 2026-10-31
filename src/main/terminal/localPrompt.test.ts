@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { shellArgv } from '../../shared/terminal/terminalShell'
-import { atLocalPrompt, busyProgram } from './localPrompt'
+import { atLocalPrompt, busyProgram, shellIdle } from './localPrompt'
 
 describe('atLocalPrompt', () => {
   it('is true while the pane’s own shell holds the terminal', () => {
@@ -40,5 +40,14 @@ describe('busyProgram', () => {
   it('quitting with an idle shell without blocks shows no dialog', () => {
     const [shell] = shellArgv('/bin/sh -i', '/bin/zsh')
     expect(busyProgram({ foreground: 'sh', shell, sandboxed: false })).toBeNull()
+  })
+})
+
+describe('shellIdle', () => {
+  it('is true only when the shell itself is in the foreground and the owner is known', () => {
+    expect(shellIdle({ foreground: 'bash', shell: '/bin/bash', sandboxed: false })).toBe(true)
+    expect(shellIdle({ foreground: 'claude', shell: '/bin/bash', sandboxed: false })).toBe(false)
+    expect(shellIdle({ foreground: '', shell: '/bin/bash', sandboxed: false })).toBe(false)
+    expect(shellIdle({ foreground: 'bash', shell: '/bin/bash', sandboxed: true })).toBe(false)
   })
 })

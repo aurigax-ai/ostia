@@ -46,7 +46,7 @@ const SURFACE_KINDS: ReadonlySet<string> = new Set<SnapshotSurfaceKind>([
   'git',
   'view',
 ])
-const WORKSPACE_KINDS: ReadonlySet<string> = new Set(['agent', 'terminal', 'scratch'])
+const WORKSPACE_KINDS: ReadonlySet<string> = new Set(['terminal', 'scratch'])
 const PLACEMENT_ZONES: ReadonlySet<string> = new Set<PanePlacementZone>([
   'left',
   'right',

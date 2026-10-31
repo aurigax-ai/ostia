@@ -37,7 +37,7 @@ import { HibernateSkippedDialog } from './HibernateSkippedDialog'
 
 function seedWorkspaces(): void {
   const workspaces: Workspace[] = [
-    { id: 's1', name: 'alpha', kind: 'agent', workDir: '/home/alpha', state: 'working' },
+    { id: 's1', name: 'alpha', kind: 'terminal', workDir: '/home/alpha', state: 'working' },
     { id: 's2', name: 'beta', kind: 'terminal', workDir: '/home/beta', state: 'idle' },
   ]
   useWorkspacesStore.setState({ workspaces, activeWorkspaceId: 's1' })
