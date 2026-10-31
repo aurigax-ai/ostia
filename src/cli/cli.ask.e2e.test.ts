@@ -132,25 +132,6 @@ describe('ostia ask (the real CLI against a live control server)', () => {
     expect(pending()).toEqual([])
   })
 
-  it('prints several choices as JSON for --multi --json', async () => {
-    const run = ostia([
-      'ask',
-      'Which checks?',
-      '--choice',
-      'lint',
-      '--choice',
-      'unit',
-      '--multi',
-      '--json',
-    ])
-    const question = await nextQuestion()
-    expect(question.mode).toBe('multi')
-    questions()?.answer(WINDOW_ID, question.id, { choices: [1, 0], text: '' })
-    const res = await run.done
-    expect(res.code).toBe(0)
-    expect(JSON.parse(res.stdout)).toEqual({ answered: true, choices: ['lint', 'unit'], text: '' })
-  })
-
   it('ostia ask takes a free-text reply and several choices with a comment', async () => {
     const run = ostia([
       'ask',

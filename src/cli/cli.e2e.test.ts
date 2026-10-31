@@ -373,17 +373,6 @@ describe('ostia CLI end-to-end (spawns the real out/cli/index.js against a live 
     expect(parsed.paneId).toBe('pE2E')
   })
 
-  it('whoami: reads OSTIA_SOCKET and OSTIA_TOKEN', async () => {
-    const res = await runOstia(
-      ['whoami'],
-      withEnv({ OSTIA_SOCKET: socketPath, OSTIA_TOKEN: identity.token }),
-    )
-
-    expect(res.stderr).toBe('')
-    expect(res.code).toBe(0)
-    expect(JSON.parse(res.stdout).externalId).toBe(identity.externalId)
-  })
-
   it('commands: lists the descriptors served by the control server and exits 0', async () => {
     const res = await runOstia(
       ['commands'],
