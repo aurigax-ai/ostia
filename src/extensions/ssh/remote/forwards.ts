@@ -21,7 +21,7 @@ export interface HostForwardsDeps {
   plan: ConnectPlan
   spawn: SpawnSsh
   map: PortMap
-  mode: () => ForwardMode
+  mode: () => Promise<ForwardMode>
   isFree: (port: number) => Promise<boolean>
   changed: () => void
 }
@@ -95,7 +95,7 @@ export class HostForwards {
         if (this.running.has(port) || this.stopped.has(port) || this.errors.has(port)) continue
         const chosen = saved.get(port)
         if (chosen !== undefined) await this.start(port, chosen, true)
-        else if (this.deps.mode() === 'auto' && !this.baseline.has(port)) {
+        else if ((await this.deps.mode()) === 'auto' && !this.baseline.has(port)) {
           if (this.running.size >= FORWARD_MAX) continue
           const local = await this.pickLocal(port)
           if (local !== null) await this.start(port, local, false)

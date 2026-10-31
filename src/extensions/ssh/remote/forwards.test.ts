@@ -7,8 +7,9 @@ import { planConnect } from '../plan'
 import { type ForwardMode, HostForwards } from './forwards'
 import { PortMap } from './portMap'
 
-const plan = planConnect(['dev@box'])
-if (!plan) throw new Error('plan')
+const planned = planConnect(['dev@box'])
+if (!planned) throw new Error('plan')
+const plan = planned
 
 interface FakeChild extends EventEmitter {
   argv: string[]
@@ -29,7 +30,7 @@ function make(file = 'map.json') {
     host: 'dev@box',
     plan,
     map,
-    mode: () => mode,
+    mode: async () => mode,
     isFree: async (port) => !taken.has(port),
     changed: () => {},
     spawn: (argv) => {
