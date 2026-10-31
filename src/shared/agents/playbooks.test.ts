@@ -11,6 +11,7 @@ import {
   playbookNameProblem,
   playbookSkillText,
   playbookTextProblem,
+  removedPlaybookIds,
   resolvePlaybooks,
   withOwnPlaybook,
   withoutOwnPlaybook,
@@ -37,7 +38,7 @@ describe('playbook names', () => {
   })
 
   it('reserves the built-in names, the product name and Claude Code’s own commands', () => {
-    for (const id of ['onboard', 'handoff', 'review', 'ostia']) {
+    for (const id of ['onboard', 'handoff', 'coordinator', 'review', 'ostia']) {
       expect(playbookNameProblem(id, [], [])).toBe('reserved')
     }
     for (const id of ['clear', 'init', 'compact', 'help', 'simplify', 'security-review']) {
@@ -135,9 +136,7 @@ describe('parsePlaybooks', () => {
     expect(parsed.enabled).toEqual({ onboard: true, 'release-check': true })
     expect(parsed.accepted).toEqual({ onboard: 'mine' })
     expect(parsed.edits).toEqual({ onboard: { text: 'mine', from: 'abc' } })
-    expect(parsePlaybooks({ edits: { coordinator: { text: 'old', from: 'abc' } } }).edits).toEqual(
-      {},
-    )
+    expect(parsePlaybooks({ edits: { worker: { text: 'old', from: 'abc' } } }).edits).toEqual({})
     expect(parsed.own).toEqual({ 'release-check': { description: 'Check', text: 'Do it' } })
   })
 
@@ -292,5 +291,41 @@ describe('activePlaybooks and the skill text', () => {
         '',
       ].join('\n'),
     )
+  })
+
+  it('writes the coordinator playbook, human-invoked, when it is enabled', () => {
+    const s = withPlaybookEnabled(DEFAULT_PLAYBOOKS, 'coordinator', true)
+    const [playbook] = activePlaybooks(s)
+    expect(playbook.id).toBe('coordinator')
+    expect(playbookSkillText(playbook)).toContain('disable-model-invocation: true')
+    expect(playbook.text).toContain('/onboard worker:')
+    expect(playbook.text).not.toMatch(/\/(worker|review)\b(?!er)/)
+  })
+
+  it('leaves disable-model-invocation off onboard alone and keeps it on every other playbook', () => {
+    const s = ['onboard', 'handoff', 'coordinator'].reduce(
+      (acc, id) => withPlaybookEnabled(acc, id, true),
+      withPlaybookEnabled(
+        withOwnPlaybook(DEFAULT_PLAYBOOKS, 'mine', { description: 'd', text: 'Body.' }),
+        'mine',
+        true,
+      ),
+    )
+    const human = (id: string): boolean =>
+      playbookSkillText(activePlaybooks(s).find((p) => p.id === id) as never).includes(
+        'disable-model-invocation: true',
+      )
+    expect(human('onboard')).toBe(false)
+    for (const id of ['handoff', 'coordinator', 'mine']) expect(human(id)).toBe(true)
+  })
+})
+
+describe('removedPlaybookIds', () => {
+  it('names each enabled id that is no longer a playbook', () => {
+    const s = parsePlaybooks({
+      enabled: { coordinator: true, worker: true, review: true, gone: false },
+    })
+    expect(removedPlaybookIds(s)).toEqual(['worker', 'review'])
+    expect(removedPlaybookIds(DEFAULT_PLAYBOOKS)).toEqual([])
   })
 })
