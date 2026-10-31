@@ -415,7 +415,7 @@ export const appEn = {
     inOtherWindow: 'In another window',
     maximize: 'Maximize',
     minimize: 'Minimize',
-    movePaneToNewWindow: 'Move pane to new window',
+    movePaneToNewWindow: 'Move to new window',
     moveToMain: 'Move back to main window',
     moveToNewWindow: 'Move to new window',
     restore: 'Restore',

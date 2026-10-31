@@ -399,7 +399,7 @@ export const appZhHant: typeof appEn = {
     inOtherWindow: '位於其他視窗',
     maximize: '最大化',
     minimize: '最小化',
-    movePaneToNewWindow: '將窗格移到新視窗',
+    movePaneToNewWindow: '移到新視窗',
     moveToMain: '移回主視窗',
     moveToNewWindow: '移到新視窗',
     restore: '還原',

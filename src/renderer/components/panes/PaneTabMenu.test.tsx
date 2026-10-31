@@ -68,7 +68,7 @@ describe('PaneTabMenu zoom', () => {
   it('leaves zoom out when the pane is alone in its workspace', async () => {
     seed(left, null)
     openMenu()
-    expect(await screen.findByRole('menuitem', { name: 'Lock tab' })).toBeInTheDocument()
+    expect(await screen.findByRole('menuitem', { name: 'Lock' })).toBeInTheDocument()
     expect(screen.queryByRole('menuitem', { name: /Zoom pane/ })).toBeNull()
   })
 
@@ -84,7 +84,7 @@ describe('PaneTabMenu zoom', () => {
     cleanup()
     seed(split, null)
     openMenu()
-    expect(await screen.findByRole('menuitem', { name: 'Lock tab' })).toBeInTheDocument()
+    expect(await screen.findByRole('menuitem', { name: 'Lock' })).toBeInTheDocument()
     expect(screen.queryByRole('menuitem', { name: 'Rename Split Tab…' })).toBeNull()
   })
 
@@ -119,7 +119,7 @@ describe('PaneTabMenu zoom', () => {
     seed(split, null)
     const exec = vi.spyOn(commands, 'exec').mockResolvedValue({ ok: true, result: undefined })
     openMenu()
-    await userEvent.setup().click(await screen.findByRole('menuitem', { name: 'Lock tab' }))
+    await userEvent.setup().click(await screen.findByRole('menuitem', { name: 'Lock' }))
     expect(exec).toHaveBeenCalledWith('pane.toggleLock', { paneId: 'left' })
   })
 })
@@ -180,7 +180,7 @@ describe('PaneTabMenu close others and hibernation', () => {
 
   it('leaves Close other tabs out when the tab is alone', async () => {
     openMenu(shell, [shell])
-    expect(await screen.findByRole('menuitem', { name: 'Lock tab' })).toBeInTheDocument()
+    expect(await screen.findByRole('menuitem', { name: 'Lock' })).toBeInTheDocument()
     expect(screen.queryByRole('menuitem', { name: 'Close other tabs' })).toBeNull()
   })
 
@@ -190,12 +190,12 @@ describe('PaneTabMenu close others and hibernation', () => {
     useBlocksStore.getState().commandStart('b', { line: 1 }, 'claude')
     useBlocksStore.getState().markAgent('b', 'claude')
     openMenu(agentTab, [shell, agentTab])
-    await userEvent.setup().click(await screen.findByRole('menuitem', { name: 'Hibernate tab' }))
+    await userEvent.setup().click(await screen.findByRole('menuitem', { name: 'Hibernate' }))
     expect(exec).toHaveBeenCalledWith('pane.hibernate', { paneId: 'b' })
     cleanup()
     openMenu(shell, [shell, agentTab])
-    expect(await screen.findByRole('menuitem', { name: 'Lock tab' })).toBeInTheDocument()
-    expect(screen.queryByRole('menuitem', { name: /Hibernate tab|Wake tab/ })).toBeNull()
+    expect(await screen.findByRole('menuitem', { name: 'Lock' })).toBeInTheDocument()
+    expect(screen.queryByRole('menuitem', { name: /Hibernate|Wake tab/ })).toBeNull()
   })
 
   it('parks an idle running agent at once from the tab menu, and shows the reason when it cannot', async () => {
@@ -223,7 +223,7 @@ describe('PaneTabMenu close others and hibernation', () => {
     expect(busy).toHaveTextContent('the agent is working')
     cleanup()
     openMenu(shell, [shell, agentTab])
-    expect(await screen.findByRole('menuitem', { name: 'Lock tab' })).toBeInTheDocument()
+    expect(await screen.findByRole('menuitem', { name: 'Lock' })).toBeInTheDocument()
     expect(screen.queryByRole('menuitem', { name: /^Park/ })).toBeNull()
     useAttentionStore.setState({ byPane: {} })
     useWorkspacesStore.setState({ workspaces: [] })
@@ -233,7 +233,7 @@ describe('PaneTabMenu close others and hibernation', () => {
     const exec = vi.spyOn(commands, 'exec').mockResolvedValue({ ok: true, result: undefined })
     const asleep: PaneNode = { ...agentTab, hibernated: true }
     openMenu(asleep, [shell, asleep])
-    expect(screen.queryByRole('menuitem', { name: 'Hibernate tab' })).toBeNull()
+    expect(screen.queryByRole('menuitem', { name: 'Hibernate' })).toBeNull()
     await userEvent.setup().click(await screen.findByRole('menuitem', { name: 'Wake tab' }))
     expect(exec).toHaveBeenCalledWith('pane.wake', { paneId: 'b' })
   })
@@ -250,7 +250,7 @@ describe('PaneTabMenu close others and hibernation', () => {
     expect(await screen.findByRole('menuitemcheckbox', { name: 'Keep awake' })).toBeChecked()
     cleanup()
     openMenu(shell, [shell, agentTab])
-    expect(await screen.findByRole('menuitem', { name: 'Lock tab' })).toBeInTheDocument()
+    expect(await screen.findByRole('menuitem', { name: 'Lock' })).toBeInTheDocument()
     expect(screen.queryByRole('menuitemcheckbox', { name: 'Keep awake' })).toBeNull()
   })
 
@@ -258,16 +258,14 @@ describe('PaneTabMenu close others and hibernation', () => {
     const run = vi.spyOn(blockActions, 'runWhenIdle').mockReturnValue(() => {})
     const asleep: PaneNode = { ...agentTab, hibernated: true }
     openMenu(asleep, [shell, asleep])
-    await userEvent
-      .setup()
-      .click(await screen.findByRole('menuitem', { name: 'Fork conversation into a new tab' }))
+    await userEvent.setup().click(await screen.findByRole('menuitem', { name: 'Fork to new tab' }))
     expect(run).toHaveBeenCalledTimes(1)
     expect(run.mock.calls[0][0]).not.toBe('b')
     expect(run.mock.calls[0][1]).toContain('--fork-session')
     cleanup()
     openMenu(shell, [shell, asleep])
-    expect(await screen.findByRole('menuitem', { name: 'Lock tab' })).toBeInTheDocument()
-    expect(screen.queryByRole('menuitem', { name: 'Fork conversation into a new tab' })).toBeNull()
+    expect(await screen.findByRole('menuitem', { name: 'Lock' })).toBeInTheDocument()
+    expect(screen.queryByRole('menuitem', { name: 'Fork to new tab' })).toBeNull()
   })
 })
 

@@ -309,7 +309,7 @@ describe('Pane', () => {
 
       expect(locked).toHaveClass('locked')
       expect(within(locked).queryByRole('button', { name: 'Close tab' })).toBeNull()
-      await userEvent.setup().click(within(locked).getByRole('button', { name: 'Unlock tab' }))
+      await userEvent.setup().click(within(locked).getByRole('button', { name: 'Unlock' }))
       expect(exec).toHaveBeenCalledWith('pane.toggleLock', { paneId: 'pa' })
     })
 
@@ -574,7 +574,7 @@ describe('Pane tab rename', () => {
     const user = userEvent.setup()
     await user.dblClick(screen.getByRole('tab', { name: /zsh/ }))
     await nextFrame()
-    expect(screen.getByRole('textbox', { name: 'Rename Tab…' })).toHaveFocus()
+    expect(screen.getByRole('textbox', { name: 'Rename…' })).toHaveFocus()
     expect(titleOf('r1')?.titlePinned).toBeUndefined()
   })
 
@@ -618,7 +618,7 @@ describe('Pane tab rename', () => {
     setup()
     const user = userEvent.setup()
     await user.dblClick(screen.getByRole('tab', { name: /zsh/ }))
-    const input = screen.getByRole('textbox', { name: 'Rename Tab…' })
+    const input = screen.getByRole('textbox', { name: 'Rename…' })
     await user.clear(input)
     await user.type(input, 'build{Enter}')
     expect(screen.queryByRole('textbox')).toBeNull()
@@ -645,12 +645,12 @@ describe('Pane tab rename', () => {
     expect(titleOf('r1')?.titlePinned).toBeUndefined()
   })
 
-  it('the Rename Tab item in the tab menu starts the inline edit', async () => {
+  it('the Rename item in the tab menu starts the inline edit', async () => {
     setup()
     const user = userEvent.setup()
     fireEvent.contextMenu(screen.getByRole('tab', { name: /claude/ }))
-    await user.click(await screen.findByRole('menuitem', { name: /Rename Tab/ }))
-    expect(await screen.findByRole('textbox', { name: 'Rename Tab…' })).toHaveValue('claude')
+    await user.click(await screen.findByRole('menuitem', { name: /Rename/ }))
+    expect(await screen.findByRole('textbox', { name: 'Rename…' })).toHaveValue('claude')
   })
 
   it('Escape in the menu rename keeps a pinned name', async () => {
@@ -658,12 +658,12 @@ describe('Pane tab rename', () => {
     act(() => useLayoutStore.getState().rename('w', 'r2', 'builder'))
     const user = userEvent.setup()
     fireEvent.contextMenu(screen.getByRole('tab', { name: /builder/ }))
-    await user.click(await screen.findByRole('menuitem', { name: /Rename Tab/ }))
-    const input = await screen.findByRole('textbox', { name: 'Rename Tab…' })
+    await user.click(await screen.findByRole('menuitem', { name: /Rename/ }))
+    const input = await screen.findByRole('textbox', { name: 'Rename…' })
     await user.clear(input)
     await user.type(input, 'discarded{Escape}')
 
-    expect(screen.queryByRole('textbox', { name: 'Rename Tab…' })).toBeNull()
+    expect(screen.queryByRole('textbox', { name: 'Rename…' })).toBeNull()
     expect(titleOf('r2')).toMatchObject({ title: 'builder', titlePinned: true })
     expect(screen.getByRole('tab', { name: /builder/ })).toBeInTheDocument()
   })
@@ -673,7 +673,7 @@ describe('Pane tab rename', () => {
     await act(async () => {
       await commands.exec('pane.rename')
     })
-    expect(screen.getByRole('textbox', { name: 'Rename Tab…' })).toHaveValue('zsh')
+    expect(screen.getByRole('textbox', { name: 'Rename…' })).toHaveValue('zsh')
   })
 
   it('pane.rename with a title still renames directly, as the CLI does', async () => {
