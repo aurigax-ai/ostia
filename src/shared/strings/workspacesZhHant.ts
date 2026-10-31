@@ -123,7 +123,7 @@ export const workspacesZhHant: typeof workspacesEn = {
     addPreset: '新增預設',
     addSkill: '新增',
     agentsDesc:
-      'ostia <名稱> 與管理員的工作者可以啟動的程式。claude 與 codex 為內建；同名的預設會取代它們。',
+      'ostia <名稱> 與管理員的工作者可以啟動的程式。claude、codex 與 agy 為內建；同名的預設會取代它們。',
     allowInput: '允許在其他窗格中輸入',
     allowInputDesc:
       '管理員可以在任何其他窗格中輸入，例如回覆工作者的權限提示。它會依據畫面上讀到的內容做決定，因此窗格中的文字可能影響它。',

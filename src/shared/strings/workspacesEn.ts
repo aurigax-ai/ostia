@@ -124,7 +124,7 @@ export const workspacesEn = {
     addPreset: 'Add preset',
     addSkill: 'Add',
     agentsDesc:
-      'Programs that ostia <name> and the manager’s workers can start. claude and codex are built in; a preset with the same name replaces them.',
+      'Programs that ostia <name> and the manager’s workers can start. claude, codex and agy are built in; a preset with the same name replaces them.',
     allowInput: 'Allow typing into other panes',
     allowInputDesc:
       'The manager can type into any other pane, for example to answer a worker’s permission prompt. It decides from what it reads on screen, so text in a pane can steer it.',
