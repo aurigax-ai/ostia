@@ -322,12 +322,12 @@ describe('split tab segment rename', () => {
     expect(pill).toHaveAttribute('draggable', 'true')
     const segment = container.querySelector(`[data-segment-id="${c.id}"]`) as HTMLElement
     fireEvent.doubleClick(segment.querySelector('.split-tab-segment-main') as HTMLElement)
-    const input = screen.getByRole('textbox', { name: 'Rename Tab…' })
+    const input = screen.getByRole('textbox', { name: 'Rename…' })
     expect(input).toHaveFocus()
     expect(pill).toHaveAttribute('draggable', 'false')
     fireEvent.keyDown(input, { key: 'ArrowLeft' })
     fireEvent.keyDown(input, { key: 'ArrowRight' })
-    expect(screen.getByRole('textbox', { name: 'Rename Tab…' })).toHaveFocus()
+    expect(screen.getByRole('textbox', { name: 'Rename…' })).toHaveFocus()
   })
 
   it('arrow keys inside a split segment rename move the caret and keep the edit open', async () => {
@@ -339,14 +339,14 @@ describe('split tab segment rename', () => {
     const user = userEvent.setup()
     const segment = container.querySelector(`[data-segment-id="${c.id}"]`) as HTMLElement
     await user.dblClick(segment.querySelector('.split-tab-segment-main') as HTMLElement)
-    const input = screen.getByRole('textbox', { name: 'Rename Tab…' })
+    const input = screen.getByRole('textbox', { name: 'Rename…' })
     expect(input).toHaveFocus()
 
     await user.keyboard('abc{ArrowLeft}{ArrowLeft}')
     expect(input).toHaveFocus()
     await user.keyboard('X{Enter}')
 
-    expect(screen.queryByRole('textbox', { name: 'Rename Tab…' })).toBeNull()
+    expect(screen.queryByRole('textbox', { name: 'Rename…' })).toBeNull()
     expect(allPanes(useLayoutStore.getState().byWorkspace.w.root)).toContainEqual(
       expect.objectContaining({ id: c.id, title: 'aXbc', titlePinned: true }),
     )

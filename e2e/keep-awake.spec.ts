@@ -51,7 +51,7 @@ test('hibernating a tab kept awake ends keep-awake', async () => {
     await expect(kept).toBeVisible()
 
     await tab.click({ button: 'right' })
-    await win.getByRole('menuitem', { name: 'Hibernate tab' }).click()
+    await win.getByRole('menuitem', { name: 'Hibernate' }).click()
     await expect(tab.getByLabel('Hibernated')).toBeVisible({ timeout: 15_000 })
     await expect(kept).toHaveCount(0)
 
