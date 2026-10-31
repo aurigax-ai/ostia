@@ -7,7 +7,7 @@ import { SettingsListRow } from '@/components/settingsKit/SettingsListRow'
 import { SettingsPage } from '@/components/settingsKit/SettingsPage'
 import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
-import { useDict } from '@/lib/app/useDict'
+import { fmt, useDict } from '@/lib/app/useDict'
 import { cn } from '@/lib/utils'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
@@ -65,7 +65,7 @@ export function PlaybooksSection(): JSX.Element {
             </TextLink>
           }
         >
-          {d.playbooks.removed.replace('{name}', id)}
+          {fmt(d.playbooks.removed, { name: id })}
         </Notice>
       ))}
       <SettingsList

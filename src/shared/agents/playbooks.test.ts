@@ -321,9 +321,9 @@ describe('activePlaybooks and the skill text', () => {
 })
 
 describe('removedPlaybookIds', () => {
-  it('names each enabled id that is no longer a playbook', () => {
+  it('names only the enabled ids that onboard replaced', () => {
     const s = parsePlaybooks({
-      enabled: { coordinator: true, worker: true, review: true, gone: false },
+      enabled: { coordinator: true, worker: true, review: true, remember: true, gone: true },
     })
     expect(removedPlaybookIds(s)).toEqual(['worker', 'review'])
     expect(removedPlaybookIds(DEFAULT_PLAYBOOKS)).toEqual([])

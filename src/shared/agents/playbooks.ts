@@ -291,10 +291,12 @@ export function activePlaybooks(settings: PlaybooksSettings): ResolvedPlaybook[]
   )
 }
 
+const REPLACED_BY_ONBOARD: readonly string[] = ['worker', 'review']
+
 export function removedPlaybookIds(settings: PlaybooksSettings): string[] {
   const known = new Set(resolvePlaybooks(settings).map((p) => p.id))
   return Object.entries(settings.enabled)
-    .filter(([id, on]) => on && !known.has(id))
+    .filter(([id, on]) => on && REPLACED_BY_ONBOARD.includes(id) && !known.has(id))
     .map(([id]) => id)
 }
 
