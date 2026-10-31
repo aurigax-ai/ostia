@@ -141,7 +141,10 @@ export function createKeptReattach({
     pane.live()
     const { data, cursor, dropped, startsBefore } = entry.session.since(0)
     entry.session.addLiveSubscriber(mkSub(entry))
-    if (savedAttention) restoreKeptAttention(identity, savedAttention)
+    const finished = savedAttention?.state === 'done' || savedAttention?.state === 'error'
+    if (savedAttention && (finished || agentRunning.has(paneId))) {
+      restoreKeptAttention(identity, savedAttention)
+    }
     return {
       created: false,
       buffer: data,
