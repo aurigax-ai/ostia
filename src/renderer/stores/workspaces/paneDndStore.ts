@@ -50,3 +50,7 @@ export const usePaneDnd = create<PaneDndState>((set, get) => ({
   },
   reset: () => set(IDLE),
 }))
+
+export function usePaneBodyZone(paneId: string): DropZone | null {
+  return usePaneDnd((s) => (s.overId === paneId && !s.tab ? s.zone : null))
+}

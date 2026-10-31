@@ -13,7 +13,7 @@ import { stateLabel } from '@/lib/workspaces/workspaceState'
 import { useAttentionStore } from '@/stores/agents/attentionStore'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
-import { usePaneDnd } from '@/stores/workspaces/paneDndStore'
+import { usePaneBodyZone, usePaneDnd } from '@/stores/workspaces/paneDndStore'
 import { FileDropCover } from './FileDropCover'
 import { useKeptLinkStatus } from './KeptLinkStatus'
 import { PaneTabMenu } from './PaneTabMenu'
@@ -70,7 +70,7 @@ function SplitCell({
 }): JSX.Element {
   const cellRef = useRef<HTMLDivElement>(null)
   const dragging = usePaneDnd((s) => s.dragging)
-  const over = usePaneDnd((s) => (s.overId === pane.id ? s.zone : null))
+  const over = usePaneBodyZone(pane.id)
   const prompt = usePanePrompt(pane)
   const phoneStatus = usePhoneSizeStatus(pane.id)
   const keptLinkStatus = useKeptLinkStatus(pane.id)
