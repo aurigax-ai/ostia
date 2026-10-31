@@ -91,6 +91,7 @@ export function startControlServer({
     listCommandsFor,
     getTerminalState,
     isSandboxed: (workspaceId) => workspaceSandboxes.isEnabled(workspaceId),
+    ptyPid,
     windowOfWorkspace: workspaceWindowId,
     primaryWindow: primaryWindowId,
     byAgent: reach.byAgent,
