@@ -86,28 +86,42 @@ describe('AppTray', () => {
     tray.hide(win)
     expect(events).toEqual(['hide', 'hide'])
     expect(trays.length).toBe(before + 1)
-    expect(tray.visible).toBe(true)
+    expect(tray.created).toBe(true)
   })
 
-  it('MGR-C3 Show brings the window back and removes the tray icon', () => {
+  it('MGR-C3 Show brings the window back and keeps the tray icon', () => {
     const events: string[] = []
     const win = fakeWindow(events)
     const tray = makeTray(events, win)
     tray.hide(win)
     menuItem('Show')()
     expect(events).toEqual(['hide', 'show', 'focus'])
-    expect(trays.at(-1)?.destroyed).toBe(true)
-    expect(tray.visible).toBe(false)
+    expect(trays.at(-1)?.destroyed).toBe(false)
+    expect(tray.created).toBe(true)
   })
 
-  it('removes the tray icon when the hidden window is shown some other way', () => {
+  it('creates one tray for the app life across repeated hide and show cycles', () => {
+    const events: string[] = []
+    const win = fakeWindow(events)
+    const tray = makeTray(events, win)
+    const before = trays.length
+    for (let i = 0; i < 3; i++) {
+      tray.hide(win)
+      tray.showWindows()
+    }
+    tray.hide(win)
+    expect(trays.length).toBe(before + 1)
+    expect(trays.at(-1)?.destroyed).toBe(false)
+  })
+
+  it('remove destroys the tray and a later hide creates a new one', () => {
     const events: string[] = []
     const win = fakeWindow(events)
     const tray = makeTray(events, win)
     tray.hide(win)
-    win.show()
-    expect(tray.visible).toBe(false)
+    tray.remove()
     expect(trays.at(-1)?.destroyed).toBe(true)
+    expect(tray.created).toBe(false)
   })
 
   it('MGR-C4 Quit shows the window before quitting so the close guard can ask', () => {
