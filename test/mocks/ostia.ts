@@ -167,6 +167,7 @@ export function makeOstiaMock(overrides?: Partial<OstiaBridge>): OstiaBridge {
       merge: vi.fn().mockResolvedValue({ ok: true }),
       movePanes: vi.fn().mockResolvedValue({ ok: true }),
       readCmux: vi.fn().mockResolvedValue({ ok: false, error: 'not-found' }),
+      isRemote: vi.fn().mockResolvedValue(false),
     },
     scratch: {
       create: vi.fn().mockResolvedValue('/tmp/ostia-scratch-1000/1-aaaaaaaaaaaa'),

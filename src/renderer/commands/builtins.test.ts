@@ -2,6 +2,7 @@ import {
   type Capability,
   DEFAULT_CAPABILITIES,
 } from '@aurigax-ai/ostia-extension-sdk/contract/capabilities'
+import type { ExtensionResult } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import type { AgentResume } from '@shared/agents/agentResume'
 import { SCRIPT_CAPABILITIES } from '@shared/permissions/scriptTokens'
 import { Terminal } from '@xterm/xterm'
@@ -1308,6 +1309,92 @@ describe('builtins route to store actions', () => {
       await commands.exec('tab.new', { paneId: 'gone' })
 
       expect(useLayoutStore.getState().byWorkspace.s1).toBeUndefined()
+    })
+
+    describe('in a remote workspace', () => {
+      const asRemote = (answer: { ok: boolean; error?: string; message?: string }) => {
+        vi.mocked(window.ostia.workspace.isRemote).mockResolvedValue(true)
+        vi.mocked(window.ostia.extensions.invoke).mockResolvedValue(answer as ExtensionResult)
+      }
+
+      afterEach(() => {
+        vi.mocked(window.ostia.workspace.isRemote).mockResolvedValue(false)
+      })
+
+      it('REM-U34 asks the ssh extension for a tab and opens no local pane', async () => {
+        seed(true)
+        asRemote({ ok: true })
+        const before = useLayoutStore.getState().byWorkspace.s1
+        await commands.exec('tab.new')
+
+        expect(window.ostia.extensions.invoke).toHaveBeenCalledWith(
+          'ssh',
+          'remote-terminal',
+          { workspaceId: 's1', paneId: before.activePaneId },
+          JSON.stringify({ place: 'tab' }),
+        )
+        expect(useLayoutStore.getState().byWorkspace.s1).toBe(before)
+      })
+
+      it('REM-U35 opens a first remote terminal in an empty remote workspace', async () => {
+        seed(false)
+        asRemote({ ok: true })
+
+        await commands.exec('tab.new')
+
+        expect(window.ostia.extensions.invoke).toHaveBeenCalledWith(
+          'ssh',
+          'remote-terminal',
+          { workspaceId: 's1', paneId: null },
+          JSON.stringify({ place: 'tab' }),
+        )
+        expect(useLayoutStore.getState().byWorkspace.s1).toBeUndefined()
+      })
+
+      it.each([
+        ['pane.splitRight', 'horizontal'],
+        ['pane.splitDown', 'vertical'],
+      ])('REM-U36 sends %s to the host as a %s split', async (id, place) => {
+        seed(true)
+        asRemote({ ok: true })
+        const before = useLayoutStore.getState().byWorkspace.s1
+
+        await commands.exec(id)
+
+        expect(window.ostia.extensions.invoke).toHaveBeenCalledWith(
+          'ssh',
+          'remote-terminal',
+          { workspaceId: 's1', paneId: before.activePaneId },
+          JSON.stringify({ place }),
+        )
+        expect(useLayoutStore.getState().byWorkspace.s1).toBe(before)
+      })
+
+      it('REM-U37 reports a failed open and never falls back to a local pane', async () => {
+        seed(true)
+        asRemote({ ok: false, error: 'network', message: 'host is down' })
+        const before = useLayoutStore.getState().byWorkspace.s1
+
+        await commands.exec('tab.new')
+
+        expect(useLayoutStore.getState().byWorkspace.s1).toBe(before)
+        expect(window.ostia.notifications.post).toHaveBeenCalledWith(
+          expect.objectContaining({ kind: 'error', body: 'host is down' }),
+        )
+      })
+
+      it('REM-U38 opens nothing local when the remote list cannot be read', async () => {
+        seed(true)
+        vi.mocked(window.ostia.workspace.isRemote).mockRejectedValue(new Error('unreadable'))
+        const before = useLayoutStore.getState().byWorkspace.s1
+
+        await commands.exec('pane.splitRight')
+
+        expect(useLayoutStore.getState().byWorkspace.s1).toBe(before)
+        expect(window.ostia.notifications.post).toHaveBeenCalledWith(
+          expect.objectContaining({ kind: 'error', body: 'unreadable' }),
+        )
+      })
     })
   })
 

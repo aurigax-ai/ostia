@@ -24,7 +24,7 @@ const RECONNECT_LOOP = [
   'while :; do t=$(date +%s); "$@"; c=$?',
   '[ "$c" = 255 ] || exit "$c"',
   '[ $(($(date +%s) - t)) -gt 10 ] && connected=1 && s=1',
-  'if [ "$connected" = 0 ]; then printf "\\r\\n%s\\r\\n" "$failed"; exit 255; fi',
+  'if [ "$connected" = 0 ]; then printf "\\r\\n%s\\r\\n" "$failed"; read -r _; exit 255; fi',
   'printf "\\r\\n%s\\r\\n" "$lost"; sleep "$s"; s=$((s * 2))',
   '[ "$s" -gt 60 ] && s=60',
   'done',
@@ -32,7 +32,9 @@ const RECONNECT_LOOP = [
 
 export function attachArgv(plan: ConnectPlan, pane: string, messages: AttachMessages): string[] {
   if (!PANE_PATTERN.test(pane)) throw new Error('bad pane id')
-  const attach = remoteWord(`exec tmux -S "$HOME/${NODE_TMUX_SOCKET}" attach -t "=${pane}"`)
+  const attach = remoteWord(
+    `exec tmux -S "$HOME/${NODE_TMUX_SOCKET}" set-option -t "=${pane}:" detach-on-destroy on \\; attach -t "=${pane}"`,
+  )
   return [
     'sh',
     '-c',

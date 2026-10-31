@@ -6,6 +6,7 @@ import { runningAgent, runningAgentOf } from '@/lib/agents/paneAgent'
 import { settleSaves } from '@/lib/files/pendingSaves'
 import { allPanes, findPane, findSplitTab, tabIdOf, tabsOfPane } from '@/lib/layout/tree'
 import type { PaneNode } from '@/lib/layout/types'
+import { hasReplacedShell } from '@/lib/terminal/replacedShells'
 import { workspaceTitle } from '@/lib/workspaces/workspaceTitle'
 import { useApprovalsStore } from '@/stores/agents/approvalsStore'
 import { useAttentionStore } from '@/stores/agents/attentionStore'
@@ -104,7 +105,8 @@ function runningIn(
   const commands: string[] = []
   const agents: string[] = []
   for (const pane of panes) {
-    if (pane.hibernated || (context.quitting && resumesAfterQuit(workspace, pane))) continue
+    if (pane.hibernated || hasReplacedShell(pane.id)) continue
+    if (context.quitting && resumesAfterQuit(workspace, pane)) continue
     const blockId = running[pane.id]
     const activity = context.activity[pane.id]
     if (blockId !== undefined) {

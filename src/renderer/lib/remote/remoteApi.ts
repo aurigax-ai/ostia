@@ -1,4 +1,7 @@
-import type { ExtensionResult } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
+import type {
+  ExtensionResult,
+  TerminalPlace,
+} from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import type { RemoteChoice, RemoteJob, SetupStep, SetupStepId } from '@shared/remote/remoteSetup'
 
 const SSH_EXTENSION = 'ssh'
@@ -7,11 +10,12 @@ function call(
   command: string,
   workspaceId: string | null,
   payload: object,
+  paneId: string | null = null,
 ): Promise<ExtensionResult> {
   return window.ostia.extensions.invoke(
     SSH_EXTENSION,
     command,
-    { workspaceId, paneId: null },
+    { workspaceId, paneId },
     JSON.stringify(payload),
   )
 }
@@ -32,6 +36,14 @@ export async function openRemoteTab(
   choice: RemoteChoice,
 ): Promise<ExtensionResult> {
   return call('remote-open', workspaceId, choice)
+}
+
+export function openRemoteTerminal(
+  workspaceId: string,
+  paneId: string | null,
+  place: TerminalPlace,
+): Promise<ExtensionResult> {
+  return call('remote-terminal', workspaceId, { place }, paneId)
 }
 
 export interface HostJobs {

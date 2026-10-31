@@ -16,6 +16,18 @@ describe('attachArgv', () => {
     }
   })
 
+  it('REM-U44 holds the first-connect failure on screen until Enter, because the pane closes after it', () => {
+    const loop = attachArgv(plan, '0123abcd', messages)[2]
+    const failed = loop.slice(loop.indexOf('"$connected" = 0'))
+    expect(failed.indexOf('read -r _')).toBeGreaterThan(failed.indexOf('"$failed"'))
+    expect(failed.indexOf('exit 255')).toBeGreaterThan(failed.indexOf('read -r _'))
+  })
+
+  it('REM-U47 ends the tab with its session, so it never moves to another job on the host', () => {
+    const remote = attachArgv(plan, '0123abcd', messages).at(-1)
+    expect(remote).toContain('set-option -t "=0123abcd:" detach-on-destroy on \\; attach')
+  })
+
   it('REM-U8 refuses a pane id that is not eight hex digits', () => {
     expect(() => attachArgv(plan, '$(touch x)', messages)).toThrow('bad pane id')
   })

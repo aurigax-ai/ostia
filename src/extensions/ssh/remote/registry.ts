@@ -12,6 +12,7 @@ export interface RemoteTab {
   workspaceId: string
   host: string
   pane: string
+  shell?: true
 }
 
 function read(file: string): Record<string, RemoteWorkspace> {
@@ -70,6 +71,10 @@ export class RemoteRegistry {
 
   addTab(paneId: string, tab: RemoteTab): void {
     this.tabs.set(paneId, tab)
+  }
+
+  tab(paneId: string): RemoteTab | undefined {
+    return this.tabs.get(paneId)
   }
 
   forgetTab(paneId: string): void {

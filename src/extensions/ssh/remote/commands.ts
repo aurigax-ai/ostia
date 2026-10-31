@@ -11,6 +11,7 @@ import {
 import type {
   ExtensionCaller,
   OpenTerminalOptions,
+  TerminalPlace,
 } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import { PRODUCT_DISPLAY_NAME } from '@aurigax-ai/ostia-extension-sdk/contract/productDisplay'
 import { remoteRef } from '../../../shared/remote/remoteRef'
@@ -56,6 +57,10 @@ function jobsText(
         .join('\t'),
     )
     .join('\n')
+}
+
+function isPlace(value: unknown): value is TerminalPlace {
+  return value === 'tab' || value === 'horizontal' || value === 'vertical'
 }
 
 function isAgent(value: unknown): value is RemoteAgent {
@@ -182,7 +187,12 @@ const STEPS: readonly SetupStepId[] = ['connect', 'tools', 'install', 'signin', 
 export function remoteCommands(
   deps: RemoteDeps,
 ): Record<
-  'remote-step' | 'remote-open' | 'remote-attach' | 'remote-jobs' | 'remote-stop',
+  | 'remote-step'
+  | 'remote-open'
+  | 'remote-terminal'
+  | 'remote-attach'
+  | 'remote-jobs'
+  | 'remote-stop',
   CommandHandler
 > {
   const guarded =
@@ -252,6 +262,25 @@ export function remoteCommands(
       })
       const pane = await client.paneNew({ agent: choice.agent, folder: choice.folder })
       return openTab(choice, caller, t, pane)
+    }),
+
+    'remote-terminal': guarded(async (choice, caller, t, args) => {
+      const saved = caller.workspaceId ? deps.registry.workspace(caller.workspaceId) : undefined
+      if (!saved || !isPlace(args.place)) return failure('invalid-args', t('remoteUsage'))
+      const client = deps.client(choice.plan)
+      await client.ensure()
+      const pane = await client.paneNew({ agent: 'shell', folder: saved.folder })
+      const opened = await openRemoteTab(deps, t, {
+        plan: choice.plan,
+        host: choice.host,
+        pane,
+        workspaceId: caller.workspaceId,
+        ...(caller.paneId ? { afterPaneId: caller.paneId } : {}),
+        place: args.place,
+        shell: true,
+      })
+      if (!opened.ok) await client.stop(pane).catch(() => {})
+      return opened
     }),
 
     'remote-attach': guarded(async (choice, caller, t, args) => {

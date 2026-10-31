@@ -7,6 +7,7 @@ import type { FocusDirection } from '@/lib/layout/focusDirection'
 import { type DropZone, findPane, tabIdOf, tabNeighbor } from '@/lib/layout/tree'
 import type { Direction } from '@/lib/layout/types'
 import { focusActivePaneWhenReady } from '@/lib/panes/paneFocus'
+import { opensRemoteTerminal } from '@/lib/remote/remoteTerminal'
 import {
   closePaneForAgent,
   requestClosePane,
@@ -49,13 +50,14 @@ function registerOpenAndCloseCommands(): void {
     id: 'pane.split',
     category: 'pane',
     hidden: true,
-    run: ({ paneId, direction }, ctx) => {
+    run: async ({ paneId, direction }, ctx) => {
+      const target = paneId ?? ctx.activePaneId
+      if (await opensRemoteTerminal(ctx, target, direction)) return
       const empty = workspaceWithoutPanes(ctx, paneId)
       if (empty) {
         openFirstTerminal(ctx, empty)
         return
       }
-      const target = paneId ?? ctx.activePaneId
       if (ctx.activeWorkspaceId && target) {
         useLayoutStore.getState().split(ctx.activeWorkspaceId, target, direction)
         if (ctx.origin !== 'remote') focusActivePaneWhenReady(ctx.activeWorkspaceId)
@@ -66,15 +68,10 @@ function registerOpenAndCloseCommands(): void {
   registerCore<{ paneId?: string } | undefined>({
     id: 'tab.new',
     category: 'pane',
-    run: (args, ctx) => {
+    run: async (args, ctx) => {
       if (!ctx.activeWorkspaceId && !args?.paneId) {
         const created = startNewWorkspace()
         if (created) openFirstTerminal(ctx, created)
-        return
-      }
-      const empty = workspaceWithoutPanes(ctx, args?.paneId)
-      if (empty) {
-        openFirstTerminal(ctx, empty)
         return
       }
       const target =
@@ -83,6 +80,12 @@ function registerOpenAndCloseCommands(): void {
         (ctx.activeWorkspaceId
           ? useLayoutStore.getState().byWorkspace[ctx.activeWorkspaceId]?.activePaneId
           : null)
+      if (await opensRemoteTerminal(ctx, target ?? null, 'tab')) return
+      const empty = workspaceWithoutPanes(ctx, args?.paneId)
+      if (empty) {
+        openFirstTerminal(ctx, empty)
+        return
+      }
       if (ctx.activeWorkspaceId && target) {
         useLayoutStore.getState().newTab(ctx.activeWorkspaceId, target, 'terminal')
         if (ctx.origin !== 'remote') focusActivePaneWhenReady(ctx.activeWorkspaceId)

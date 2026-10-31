@@ -384,6 +384,7 @@ export const workspacesEn = {
     newMenu: 'More ways to start a workspace',
     newSandboxedScratch: 'New sandboxed scratch workspace',
     newScratch: 'New scratch workspace',
+    remoteTerminalFailed: 'Could not open a terminal on the remote host',
     ssh: 'Connect to SSH host',
     sshEmpty: 'No hosts in ~/.ssh/config',
     sshFailed: 'Could not connect to {host}',

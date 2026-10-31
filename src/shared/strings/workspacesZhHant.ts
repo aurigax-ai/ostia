@@ -381,6 +381,7 @@ export const workspacesZhHant: typeof workspacesEn = {
     newMenu: '更多新增工作區的方式',
     newSandboxedScratch: '新增沙箱暫存工作區',
     newScratch: '新增暫存工作區',
+    remoteTerminalFailed: '無法在遠端主機開啟終端機',
     ssh: '連線到 SSH 主機',
     sshEmpty: '~/.ssh/config 裡沒有主機',
     sshFailed: '無法連線到 {host}',

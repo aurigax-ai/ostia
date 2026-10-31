@@ -55,6 +55,11 @@ export interface ProcessDeps extends ProcessLaunchDeps, ProcessControlDeps {
 }
 
 const NOT_FOUND = { ok: false as const, error: 'not-found' as const }
+const REMOTE_WORKSPACE = {
+  ok: false as const,
+  error: 'remote-workspace' as const,
+  message: 'a remote workspace never runs a command locally; use agent run or open a tab in it',
+}
 const UNKNOWN_AGENT = {
   ok: false as const,
   error: 'unknown-agent' as const,
@@ -133,6 +138,8 @@ export function registerProcessMethods(deps: ProcessDeps): {
     handler: async (raw, ctx) => {
       const p = record(raw)
       const cmd = commandOf(p.cmd)
+      const target = workspaceOf(p.workspace) ?? ctx.identity.workspaceId
+      if (target && (await deps.remote?.isRemote(target))) return REMOTE_WORKSPACE
       return runInTab(
         ctx,
         cmd,
