@@ -297,8 +297,15 @@ function TelemetryGroup(): JSX.Element {
           onChange={(on) => void setTelemetry({ [category]: on })}
         />
       ))}
-      <ControlRow label={d.privacy.installId} desc={d.privacy.installIdDesc}>
-        <MachineValue value={installId} label={d.privacy.installId} />
+      <ControlRow
+        label={d.privacy.installId}
+        desc={d.privacy.installIdDesc}
+        below={
+          <div className="flex min-w-0">
+            <MachineValue value={installId} label={d.privacy.installId} />
+          </div>
+        }
+      >
         <Button variant="outline" size="sm" onClick={() => void reset()}>
           {d.privacy.resetInstallId}
         </Button>
